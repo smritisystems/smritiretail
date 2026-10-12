@@ -16,31 +16,21 @@
  *
  * * Websites: aitdl.com | erpnbook.com | smritibooks.com
  *
- * * Version    : 4.2.0
+ * * Version    : 4.3.0
  * * Created    : 2026-09-12
- * * Modified   : 2026-09-28
+ * * Modified   : 2026-10-13
  * * Copyright  : © AITDL.com and SMRITIBooks.com. All Rights Reserved.
  * * License    : Proprietary Commercial Software
  *
- * Change Log (v4.2.0 — 2026-09-28):
- *   - Extended GOVERNED_LOOKUP_TYPES to include all live master_types from DB:
- *     gst_rate, department, product_type, gender, uom, payment_mode,
- *     collection_type, heel_type, upper_material, outsole_material,
- *     item_attribute.
- *   - Added OPTIONAL_LOOKUP_TYPES: types validated only when the field is
- *     present in the row (avoids false positives for partial item master forms).
- *   - Added vendorCode-scoped lookup: style_article and color resolve against
- *     the active vendor's scope when a vendor_code field is present in the row.
- *   - Added validateItemMasterExists(): checks that a given item_code / barcode
- *     exists in the live item master via /master/item endpoint.
- *   - Added validateHsnCode(): validates HSN code via /masters/lookup/hsn-codes.
- *   - validateItemMasterLookupOptions() now accepts an optional ValidationMode:
- *     "strict" (fail any missing value) or "warn" (accumulate warnings only).
- *   - TTL cache (5 min) and in-flight deduplication introduced in v4.1.0 kept.
- *   - invalidateGovernedLookupCache() exported for post-write invalidation.
+ * Change Log (v4.3.0 — 2026-10-13):
+ *   - Extended GOVERNED_LOOKUP_TYPES to include size_group and tax_category.
+ *   - Removed department from OPTIONAL_LOOKUP_TYPES (mandatory by default).
+ *   - Added isFieldMandatoryBySystemParam() helper backed by smritiSystemParameterService.
+ *   - Extended aliases for brand, subcategory, department, size_group, tax_category.
  */
 
 import { apiFetchV1 } from "../lib/apiFetchV1.ts";
+import { smritiSystemParameterService } from "./smritiSystemParameterService.ts";
 
 // ---------------------------------------------------------------------------
 // Lookup type registry — sourced from live master_types table
@@ -64,10 +54,12 @@ const GOVERNED_LOOKUP_TYPES = [
   // Variant axes
   "style_article",
   "size",
+  "size_group",
   "color",
 
   // Tax & compliance
   "gst_rate",
+  "tax_category",
 
   // Procurement
   "vendor_code",
@@ -93,10 +85,10 @@ const CACHE_TTL_MS = 5 * 60 * 1000;
 // ---------------------------------------------------------------------------
 
 const FIELD_LOOKUP_MAP: Record<LookupType, string[]> = {
-  brand:             ["brand"],
+  brand:             ["brand", "brand_name", "brandName"],
   category:          ["category"],
-  subcategory:       ["subCategory", "subcategory", "sub_category", "subcat"],
-  department:        ["department", "dept"],
+  subcategory:       ["subCategory", "subcategory", "sub_category", "subcat", "segment"],
+  department:        ["department", "dept", "division"],
   product_type:      ["productType", "product_type", "type"],
   collection_type:   ["collectionType", "collection_type", "collection"],
   gender:            ["gender"],
@@ -113,9 +105,11 @@ const FIELD_LOOKUP_MAP: Record<LookupType, string[]> = {
     "articleNo",
   ],
   size:              ["size"],
+  size_group:        ["sizeGroup", "size_group", "sizegroup", "sizeGroupId", "size_group_id"],
   color:             ["shade", "color", "colour"],
 
   gst_rate:          ["gstRate", "gst_rate", "gst", "taxRate", "tax_rate"],
+  tax_category:      ["taxCategory", "tax_category", "tax_cat", "tax_category_code"],
 
   vendor_code:       ["vendorCode", "vendor_code", "vendor"],
 
@@ -129,9 +123,10 @@ const FIELD_LOOKUP_MAP: Record<LookupType, string[]> = {
 
 // ---------------------------------------------------------------------------
 // Types that are OPTIONAL — skipped if all mapped fields are blank/absent
+// Note: department, brand, subcategory, size_group, tax_category are NOT optional
+// by default (they are governed via System Parameters, defaulting to true).
 // ---------------------------------------------------------------------------
 const OPTIONAL_LOOKUP_TYPES = new Set<LookupType>([
-  "department",
   "product_type",
   "collection_type",
   "gender",
@@ -141,6 +136,61 @@ const OPTIONAL_LOOKUP_TYPES = new Set<LookupType>([
   "upper_material",
   "outsole_material",
 ]);
+
+/**
+ * Checks whether an Item Master field is mandatory based on System Parameters.
+ * Canonical dual-key resolution with default fallback to true (Mandatory by default).
+ */
+export function isFieldMandatoryBySystemParam(
+  field: "brand" | "subcategory" | "department" | "size_group" | "hsn_code" | "tax_category"
+): boolean {
+  switch (field) {
+    case "brand":
+      return smritiSystemParameterService.getBoolean(
+        "SMRITI.CATALOG.ITEM.MANDATORY_BRAND",
+        smritiSystemParameterService.getBoolean("ItemBrandMandatory", true)
+      );
+    case "subcategory":
+      return smritiSystemParameterService.getBoolean(
+        "SMRITI.CATALOG.ITEM.MANDATORY_SUBCATEGORY",
+        smritiSystemParameterService.getBoolean(
+          "ItemSubCategoryMandatory",
+          smritiSystemParameterService.getBoolean("ItemDesignAttrMandatory", true)
+        )
+      );
+    case "department":
+      return smritiSystemParameterService.getBoolean(
+        "SMRITI.CATALOG.ITEM.MANDATORY_DEPARTMENT",
+        smritiSystemParameterService.getBoolean(
+          "ItemDepartmentMandatory",
+          smritiSystemParameterService.getBoolean("SuperClass1Present", true)
+        )
+      );
+    case "size_group":
+      return smritiSystemParameterService.getBoolean(
+        "SMRITI.CATALOG.ITEM.MANDATORY_SIZE_GROUP",
+        smritiSystemParameterService.getBoolean(
+          "ItemSizeGroupMandatory",
+          smritiSystemParameterService.getBoolean("SizeGroupsPresent", true)
+        )
+      );
+    case "hsn_code":
+      return smritiSystemParameterService.getBoolean(
+        "SMRITI.CATALOG.ITEM.MANDATORY_HSN_CODE",
+        smritiSystemParameterService.getBoolean("ItemHsnCodeMandatory", true)
+      );
+    case "tax_category":
+      return smritiSystemParameterService.getBoolean(
+        "SMRITI.CATALOG.ITEM.MANDATORY_TAX_CATEGORY",
+        smritiSystemParameterService.getBoolean(
+          "ItemTaxCategoryMandatory",
+          smritiSystemParameterService.getBoolean("ProdTaxTypePresent", true)
+        )
+      );
+    default:
+      return true;
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Helpers

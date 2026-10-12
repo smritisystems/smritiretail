@@ -232,6 +232,8 @@ class ItemCatalogService:
                 "design_attribute": getattr(req, "design_attribute", None),
                 "outsole_material": getattr(req, "outsole_material", None),
                 "collection_type": getattr(req, "collection_type", None),
+                "size_group": getattr(req, "size_group", None) or (req.attributes_json.get("size_group") if req.attributes_json else None),
+                "tax_category": getattr(req, "tax_category", None) or (req.attributes_json.get("tax_category") if req.attributes_json else None),
             }
             await IM001ControlledFieldValidator.validate_dict(
                 payload=governed_payload,

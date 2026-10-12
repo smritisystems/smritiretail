@@ -546,16 +546,18 @@ class IM001ControlledFieldValidator:
         "BRAND_NAME": True,
         "COLOR": True,
         "SIZE": True,
+        "SIZE_GROUP": True,
         "GENDER": True,
         "MERCHANDISE_DEPARTMENT": True,
         "MERCHANDISE_CATEGORY": True,
         "PRODUCT_TYPE": True,
-        "DESIGN_ATTRIBUTE": False,
+        "DESIGN_ATTRIBUTE": True,
         "HEEL_TYPE": True,
         "UPPER_MATERIAL": True,
         "OUTSOLE_MATERIAL": False,
         "UOM": True,
         "HSN_CODE": True,
+        "TAX_CATEGORY": True,
         "GST_RATE_PERCENT": True,
         "COLLECTION_TYPE": False,
     }
@@ -567,11 +569,12 @@ class IM001ControlledFieldValidator:
             "Article No", "ARTICLE_NO", "article_no", "product_style_code", "product_style",
             "PRODUCT STYLE CODE", "PRODUCT_STYLE_CODE"
         ),
-        "BRAND_NAME": ("brand", "Brand", "BRAND_NAME", "brand_name"),
+        "BRAND_NAME": ("brand", "Brand", "BRAND_NAME", "brand_name", "brandName"),
         "COLOR": ("color", "colour", "Color", "Colour", "COLOR", "shade"),
         "SIZE": ("size", "Size", "SIZE"),
+        "SIZE_GROUP": ("size_group", "sizeGroup", "size_group_id", "sizeGroupId", "SIZE_GROUP", "sizegroup"),
         "GENDER": ("gender", "Gender", "GENDER", "Gndr"),
-        "MERCHANDISE_DEPARTMENT": ("department", "Department", "MERCHANDISE_DEPARTMENT", "dept"),
+        "MERCHANDISE_DEPARTMENT": ("department", "Department", "MERCHANDISE_DEPARTMENT", "dept", "division"),
         "MERCHANDISE_CATEGORY": ("category", "Category", "MERCHANDISE_CATEGORY", "merchandiseCategory", "product_category"),
         "PRODUCT_TYPE": (
             "product_type", "productType", "PRODUCT_TYPE", "Product_Type", "Product Type",
@@ -586,13 +589,20 @@ class IM001ControlledFieldValidator:
         "UOM": ("uom", "UOM", "unit_of_measure"),
         "DESIGN_ATTRIBUTE": (
             "design_attribute", "designAttribute", "DESIGN_ATTRIBUTE", "Design_Attribute",
-            "subCategory", "sub_category", "Sub category", "Sub Category", "subcategory", "SUB CATEGORY"
+            "subCategory", "sub_category", "Sub category", "Sub Category", "subcategory", "SUB CATEGORY",
+            "subcat", "segment"
         ),
         "OUTSOLE_MATERIAL": (
             "outsole", "outsole_material", "outsoleMaterial", "OUTSOLE_MATERIAL", "OUTSOLE", "sole"
         ),
         "COLLECTION_TYPE": (
             "collection_type", "collectionType", "COLLECTION_TYPE", "Collection_Type"
+        ),
+        "HSN_CODE": (
+            "hsn_code", "hsnCode", "hsn", "hsn_sac_code", "HSN_CODE", "HSN", "hsn sac"
+        ),
+        "TAX_CATEGORY": (
+            "tax_category", "taxCategory", "tax_cat", "TAX_CATEGORY", "tax_category_code"
         ),
         "GST_RATE_PERCENT": (
             "GST_RATE_PERCENT", "gst_rate_percent", "tax_rate", "gst", "GST", "TAX_RATE", "tax",
@@ -604,6 +614,7 @@ class IM001ControlledFieldValidator:
         "BRAND_NAME": "brand",
         "COLOR": "color",
         "SIZE": "size",
+        "SIZE_GROUP": "size_group",
         "GENDER": "gender",
         "MERCHANDISE_DEPARTMENT": "department",
         "MERCHANDISE_CATEGORY": "product_type",
@@ -614,6 +625,7 @@ class IM001ControlledFieldValidator:
         "DESIGN_ATTRIBUTE": "subcategory",
         "OUTSOLE_MATERIAL": "outsole_material",
         "COLLECTION_TYPE": "collection_type",
+        "TAX_CATEGORY": "tax_category",
         "GST_RATE_PERCENT": "gst_rate",
     }
 
@@ -650,8 +662,13 @@ class IM001ControlledFieldValidator:
     FIELD_TO_SYSPARAM_MAP: Dict[str, str] = {
         "ARTICLE_STYLE_CODE": "ItemSubClass1HasCat",
         "COLOR": "ItemSubClass2HasCat",
-        "MERCHANDISE_DEPARTMENT": "SuperClass1Present",
         "SIZE": "ItemSizePresent",
+        "BRAND_NAME": "ItemBrandMandatory",
+        "DESIGN_ATTRIBUTE": "ItemSubCategoryMandatory",
+        "MERCHANDISE_DEPARTMENT": "ItemDepartmentMandatory",
+        "SIZE_GROUP": "ItemSizeGroupMandatory",
+        "HSN_CODE": "ItemHsnCodeMandatory",
+        "TAX_CATEGORY": "ItemTaxCategoryMandatory",
     }
 
     @classmethod
@@ -702,8 +719,11 @@ class IM001ControlledFieldValidator:
                 except Exception:
                     pass
 
-        # Guarantee strict BLOCK on mandatory dimensions per Directive
-        for mandatory_key in ("GENDER", "MERCHANDISE_CATEGORY", "PRODUCT_TYPE", "HEEL_TYPE", "UPPER_MATERIAL"):
+        # Guarantee strict BLOCK on mandatory dimensions per Directive and user governance
+        for mandatory_key in (
+            "GENDER", "MERCHANDISE_CATEGORY", "PRODUCT_TYPE", "HEEL_TYPE", "UPPER_MATERIAL",
+            "BRAND_NAME", "DESIGN_ATTRIBUTE", "MERCHANDISE_DEPARTMENT", "SIZE_GROUP", "HSN_CODE", "TAX_CATEGORY"
+        ):
             registry[mandatory_key] = True
 
         cls._REGISTRY_CACHE = registry
@@ -739,17 +759,46 @@ class IM001ControlledFieldValidator:
         cls,
         company_id: Optional[str],
     ) -> Dict[str, Any]:
-        param_codes = [
-            "ValidateDataDuringPMImport",
-            "ItemSubClass1HasCat",
-            "ItemSubClass2HasCat",
-            "SuperClass1Present",
-            "ItemSizePresent",
-        ]
+        field_to_param_keys: Dict[str, List[str]] = {
+            "ARTICLE_STYLE_CODE": ["ItemSubClass1HasCat"],
+            "COLOR": ["ItemSubClass2HasCat"],
+            "SIZE": ["ItemSizePresent"],
+            "BRAND_NAME": ["SMRITI.CATALOG.ITEM.MANDATORY_BRAND", "ItemBrandMandatory"],
+            "DESIGN_ATTRIBUTE": [
+                "SMRITI.CATALOG.ITEM.MANDATORY_SUBCATEGORY",
+                "ItemSubCategoryMandatory",
+                "ItemDesignAttrMandatory"
+            ],
+            "MERCHANDISE_DEPARTMENT": [
+                "SMRITI.CATALOG.ITEM.MANDATORY_DEPARTMENT",
+                "ItemDepartmentMandatory",
+                "SuperClass1Present"
+            ],
+            "SIZE_GROUP": [
+                "SMRITI.CATALOG.ITEM.MANDATORY_SIZE_GROUP",
+                "ItemSizeGroupMandatory",
+                "SizeGroupsPresent"
+            ],
+            "HSN_CODE": [
+                "SMRITI.CATALOG.ITEM.MANDATORY_HSN_CODE",
+                "ItemHsnCodeMandatory"
+            ],
+            "TAX_CATEGORY": [
+                "SMRITI.CATALOG.ITEM.MANDATORY_TAX_CATEGORY",
+                "ItemTaxCategoryMandatory",
+                "ProdTaxTypePresent"
+            ],
+        }
+
+        all_param_codes = ["ValidateDataDuringPMImport"]
+        for keys in field_to_param_keys.values():
+            all_param_codes.extend(keys)
+        all_param_codes = list(dict.fromkeys(all_param_codes))
+
         result: Dict[str, Any] = {}
         try:
             async with async_session() as ctrl_db:
-                for code in param_codes:
+                for code in all_param_codes:
                     param = await SystemParameterService.resolve_parameter(
                         db=ctrl_db,
                         param_code=code,
@@ -769,8 +818,12 @@ class IM001ControlledFieldValidator:
             validate_during_import = str(raw_validate).strip() not in ("0", "false", "False", "")
 
         field_enforcement: Dict[str, bool] = {}
-        for std_field, sp_code in cls.FIELD_TO_SYSPARAM_MAP.items():
-            sp_val = result.get(sp_code, None)
+        for std_field, keys in field_to_param_keys.items():
+            sp_val = None
+            for k in keys:
+                if k in result and result[k] is not None:
+                    sp_val = result[k]
+                    break
             if sp_val is None:
                 field_enforcement[std_field] = True
             elif isinstance(sp_val, bool):
@@ -850,9 +903,40 @@ class IM001ControlledFieldValidator:
             warnings: List[str] = []
             field_failures: List[Dict[str, Any]] = []
 
-            for std_field in cls.FIELD_TO_DIMENSION_MAP.keys():
+            governed_fields = list(dict.fromkeys(list(cls.FIELD_TO_DIMENSION_MAP.keys()) + ["HSN_CODE"]))
+            for std_field in governed_fields:
                 clean_val = cls.extract_field_value(row, std_field)
+                base_mandatory = mandatory_map.get(std_field, False)
+                sysparam_enforced = field_enforcement.get(std_field, True)
+                is_mandatory = base_mandatory and sysparam_enforced and validate_enabled
+
                 if not clean_val:
+                    if is_mandatory:
+                        field_label = std_field.replace("_", " ").title()
+                        if std_field == "BRAND_NAME":
+                            field_label = "Brand"
+                        elif std_field == "DESIGN_ATTRIBUTE":
+                            field_label = "Sub-Category"
+                        elif std_field == "MERCHANDISE_DEPARTMENT":
+                            field_label = "Department"
+                        elif std_field == "SIZE_GROUP":
+                            field_label = "Size Group"
+                        elif std_field == "HSN_CODE":
+                            field_label = "HSN Code"
+                        elif std_field == "TAX_CATEGORY":
+                            field_label = "Tax Category"
+                        errors.append(f"{field_label} is required and cannot be blank.")
+                        field_failures.append({
+                            "field": std_field,
+                            "value": None,
+                            "is_mandatory": True,
+                            "error": "REQUIRED_FIELD_BLANK",
+                            "source": "System Master Lookup (DB)",
+                        })
+                    continue
+
+                if std_field not in cls.FIELD_TO_DIMENSION_MAP:
+                    # Non-empty scalar passed (e.g. HSN_CODE)
                     continue
 
                 dim_code = cls.FIELD_TO_DIMENSION_MAP.get(std_field, "?")

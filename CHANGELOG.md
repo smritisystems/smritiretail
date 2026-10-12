@@ -1,3 +1,32 @@
+## [6.72.6] — 2026-10-13
+
+### Catalog & Item Master — Mandatory Lookups & System Parameter Dual-Key Governance v6.72.6
+
+Enforced 6 critical Item Master dimensions (`brand`, `subcategory`, `department`, `size_group`, `hsn_code`, `tax_category`) as **Mandatory by default** across Item Details Grid, Add Product Drawer (Simple and Hybrid/Advanced modes), and backend catalog validation (`catalog_validation.py` & `item_catalog_svc.py`), while implementing dynamic runtime configurability via ADR-042 dual-key System Parameters.
+
+**Key Capabilities:**
+- **Universal Mandatory-by-Default Enforcement:** All 6 dimensions (`brand`, `subcategory`, `department`, `size_group`, `hsn_code`, `tax_category`) strictly default to mandatory (`true`) when system parameters are absent, uninitialized, or empty.
+- **Dynamic System Parameter Dual-Key Architecture (ADR-042):** Implemented dual-key parameter resolution in `itemMasterLookupGate.ts` and `catalog_validation.py` supporting modern hierarchical namespace keys alongside legacy compatibility keys:
+  - `brand`: `SMRITI.CATALOG.ITEM.MANDATORY_BRAND` / `ItemBrandMandatory` (default: `true`)
+  - `subcategory`: `SMRITI.CATALOG.ITEM.MANDATORY_SUBCATEGORY` / `ItemSubCategoryMandatory` (fallback: `ItemDesignAttrMandatory`) (default: `true`)
+  - `department`: `SMRITI.CATALOG.ITEM.MANDATORY_DEPARTMENT` / `ItemDepartmentMandatory` (fallback: `SuperClass1Present`) (default: `true`)
+  - `size_group`: `SMRITI.CATALOG.ITEM.MANDATORY_SIZE_GROUP` / `ItemSizeGroupMandatory` (fallback: `SizeGroupsPresent`) (default: `true`)
+  - `hsn_code`: `SMRITI.CATALOG.ITEM.MANDATORY_HSN_CODE` / `ItemHsnCodeMandatory` (default: `true`)
+  - `tax_category`: `SMRITI.CATALOG.ITEM.MANDATORY_TAX_CATEGORY` / `ItemTaxCategoryMandatory` (fallback: `ProdTaxTypePresent`) (default: `true`)
+  When explicitly configured to `false`, `"false"`, or `"0"`, the field gracefully relaxes to optional without requiring code redeployment.
+- **Unified Field Catalog & Item Details Grid Alignment:** Promoted `department`, `sizeGroup`, and `taxCategory` to required in `CORE_STANDARD_ITEM_FIELDS` (`unifiedFieldCatalog.ts`). Bound `isItemFieldRequired(key)` in `ItemDetailsGrid.tsx` to dynamic parameter evaluation (`isFieldMandatoryBySystemParam(key)`).
+- **Add Product Drawer Full-Spectrum Integration:** Wired input controls, dynamic red asterisks (`*`), master datalists (`subCategoryOptions`, `departmentOptions`, `sizeGroupOptions`, `taxCategoryOptions`), prefill logic, reset states, and validation gates in `AddProductDrawer.tsx` across both Simple and Hybrid/Advanced modes.
+- **Authoritative Error Focus Navigation:** Extended `FIELD_TO_ELEMENT_ID` in `itemMasterValidationMapper.ts` with comprehensive alias mappings for `subcategory`, `department`, `size_group`, `hsn_code`, and `tax_category`, ensuring HTTP 422 validation errors smoothly auto-focus directly to their respective UI input elements.
+- **Backend Catalog Validation Hardening:** Updated `_CANONICAL_FALLBACK_REGISTRY`, `FIELD_TO_DIMENSION_MAP`, `FIELD_EXTRACTION_MAP`, and `_load_sysparam_enforcement_flags` in `backend/app/services/catalog_validation.py`. Flagged empty values for mandatory fields with clear human-readable validation errors in `validate_batch_controlled_fields`. Added `size_group` and `tax_category` to `governed_payload` in `item_catalog_svc.py`.
+- **Live Master Lookup Seeding & Verification:** Verified active master lookup values on live production (`https://tattlythreads.smritisys.com/`): seeded brand `Tattly Threads` (id: `5e85002c-b63f-4f24-ab42-1878ce0c0326`) and system lookup type `tax_category` (id: `40b2ed5d-7209-463b-96e6-16757c70bea3`) with active values `GOODS` and `SERVICES`. Confirmed active options across all 6 dimensions.
+
+**Verification:**
+- Vitest: 30/30 unit tests green in `src/tests/itemMasterMandatoryLookupsSysparam.test.ts`.
+- Vitest: 58/58 tests green in `src/tests/itemMaster422Validation.test.ts`.
+- Python Backend: 5/5 assertion groups green in `scratch/test_backend_catalog_validation.py`.
+- TypeScript: `npx tsc --noEmit` exited 0 with 0 errors across workspace.
+- Verification status: `Done`.
+
 ## [6.72.5] — 2026-10-13
 
 ### Catalog & Compliance — Live Footwear Catalog GST Rate Harmonization to Statutory 5% v6.72.5

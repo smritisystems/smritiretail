@@ -36,10 +36,12 @@ import {
 } from "lucide-react";
 import { Product, AttributeDefinition } from "../../types.ts";
 import { apiFetchV1 } from "../../lib/apiFetchV1.ts";
+import { smritiSystemParameterService } from "../../services/smritiSystemParameterService.ts";
 import {
   fetchGovernedLookupOptions,
   validateHsnCode,
   LookupOption,
+  isFieldMandatoryBySystemParam,
 } from "../../services/itemMasterLookupGate.ts";
 import { getUnifiedItemMasterFields, getGlobalFieldVisibility } from "../../services/unifiedFieldCatalog.ts";
 import { getCustomFieldLabels } from "../../lib/headerMapping/HeaderAliasRegistry.ts";
@@ -83,6 +85,14 @@ export const REQUIRED_ITEM_KEYS = new Set([
   "barcode",
   "name",
   "product",
+  "brand",
+  "subcategory",
+  "subCategory",
+  "sub_category",
+  "department",
+  "dept",
+  "size_group",
+  "sizeGroup",
   "buying_price",
   "buyingPrice",
   "cost_price",
@@ -93,10 +103,30 @@ export const REQUIRED_ITEM_KEYS = new Set([
   "gst_percentage",
   "productTax",
   "hsn_code",
-  "hsnCode"
+  "hsnCode",
+  "tax_category",
+  "taxCategory",
 ]);
 
 export function isItemFieldRequired(key: string): boolean {
+  if (key === "brand") {
+    return isFieldMandatoryBySystemParam("brand");
+  }
+  if (key === "subcategory" || key === "subCategory" || key === "sub_category" || key === "subcat") {
+    return isFieldMandatoryBySystemParam("subcategory");
+  }
+  if (key === "department" || key === "dept" || key === "division") {
+    return isFieldMandatoryBySystemParam("department");
+  }
+  if (key === "size_group" || key === "sizeGroup" || key === "sizegroup" || key === "size_group_id" || key === "sizeGroupId") {
+    return isFieldMandatoryBySystemParam("size_group");
+  }
+  if (key === "hsn_code" || key === "hsnCode" || key === "hsn") {
+    return isFieldMandatoryBySystemParam("hsn_code");
+  }
+  if (key === "tax_category" || key === "taxCategory" || key === "tax_cat") {
+    return isFieldMandatoryBySystemParam("tax_category");
+  }
   return REQUIRED_ITEM_KEYS.has(key);
 }
 
@@ -139,7 +169,60 @@ export function validateRowRequiredFields(row: any): { isValid: boolean; missing
     missingFields.push("Product Name / Title");
   }
 
-  // 4. GST Tax Rate
+  // 4. Brand
+  if (isItemFieldRequired("brand")) {
+    const brandVal = typeof row.brand === "string" ? row.brand.trim() : String(row.brand ?? "").trim();
+    if (!brandVal) {
+      errors.brand = "Brand is required and cannot be blank.";
+      missingFields.push("Brand");
+    }
+  }
+
+  // 5. Sub-Category
+  if (isItemFieldRequired("subcategory")) {
+    const subCatVal = typeof (row.subcategory || row.subCategory || row.sub_category) === "string"
+      ? String(row.subcategory || row.subCategory || row.sub_category).trim()
+      : String(row.subcategory ?? row.subCategory ?? row.sub_category ?? "").trim();
+    if (!subCatVal) {
+      errors.subcategory = "Sub-Category is required and cannot be blank.";
+      missingFields.push("Sub-Category");
+    }
+  }
+
+  // 6. Department
+  if (isItemFieldRequired("department")) {
+    const deptVal = typeof (row.department || row.dept) === "string"
+      ? String(row.department || row.dept).trim()
+      : String(row.department ?? row.dept ?? "").trim();
+    if (!deptVal) {
+      errors.department = "Department is required and cannot be blank.";
+      missingFields.push("Department");
+    }
+  }
+
+  // 7. Size Group
+  if (isItemFieldRequired("size_group")) {
+    const sgVal = typeof (row.size_group || row.sizeGroup || row.size_group_id || row.sizeGroupId) === "string"
+      ? String(row.size_group || row.sizeGroup || row.size_group_id || row.sizeGroupId).trim()
+      : String(row.size_group ?? row.sizeGroup ?? row.size_group_id ?? row.sizeGroupId ?? "").trim();
+    if (!sgVal) {
+      errors.size_group = "Size Group is required and cannot be blank.";
+      missingFields.push("Size Group");
+    }
+  }
+
+  // 8. Tax Category
+  if (isItemFieldRequired("tax_category")) {
+    const tcVal = typeof (row.tax_category || row.taxCategory) === "string"
+      ? String(row.tax_category || row.taxCategory).trim()
+      : String(row.tax_category ?? row.taxCategory ?? "").trim();
+    if (!tcVal) {
+      errors.tax_category = "Tax Category is required and cannot be blank.";
+      missingFields.push("Tax Category");
+    }
+  }
+
+  // 9. GST Tax Rate
   const gstRaw = row.gst_percentage;
   const gstNum = typeof gstRaw === "number" ? gstRaw : parseFloat(String(gstRaw ?? "").replace(/[^0-9.]/g, "").trim());
   if (gstRaw === null || gstRaw === undefined || String(gstRaw).trim() === "" || isNaN(gstNum) || gstNum < 0) {
@@ -147,11 +230,15 @@ export function validateRowRequiredFields(row: any): { isValid: boolean; missing
     missingFields.push("GST Tax Rate");
   }
 
-  // 5. HSN Code
-  const hsnVal = typeof row.hsn_code === "string" ? row.hsn_code.trim() : String(row.hsn_code ?? "").trim();
-  if (!hsnVal) {
-    errors.hsn_code = "HSN Code is required and cannot be blank.";
-    missingFields.push("HSN Code");
+  // 10. HSN Code
+  if (isItemFieldRequired("hsn_code")) {
+    const hsnVal = typeof (row.hsn_code || row.hsnCode) === "string"
+      ? String(row.hsn_code || row.hsnCode).trim()
+      : String(row.hsn_code ?? row.hsnCode ?? "").trim();
+    if (!hsnVal) {
+      errors.hsn_code = "HSN Code is required and cannot be blank.";
+      missingFields.push("HSN Code");
+    }
   }
 
   const isNonStock = isExemptNonStockItem(row);

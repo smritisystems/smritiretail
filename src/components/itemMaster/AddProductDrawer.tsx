@@ -4,9 +4,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.70.0
+ * Version      : 6.71.0
  * Created      : 2026-09-28
- * Modified     : 2026-10-05
+ * Modified     : 2026-10-13
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
@@ -37,7 +37,12 @@ import {
   Settings,
 } from "lucide-react";
 import { apiFetchV1 } from "../../lib/apiFetchV1.ts";
-import { fetchGovernedLookupOptions, LookupOption } from "../../services/itemMasterLookupGate.ts";
+import {
+  fetchGovernedLookupOptions,
+  LookupOption,
+  isFieldMandatoryBySystemParam,
+} from "../../services/itemMasterLookupGate.ts";
+import { smritiSystemParameterService } from "../../services/smritiSystemParameterService.ts";
 import {
   ItemMasterValidationError,
   focusFirstError,
@@ -137,6 +142,9 @@ export const AddProductDrawer: React.FC<AddProductDrawerProps> = ({
   const [name, setName] = useState("");
   const [brand, setBrand] = useState("");
   const [category, setCategory] = useState("");
+  const [subCategory, setSubCategory] = useState("");
+  const [department, setDepartment] = useState("");
+  const [sizeGroup, setSizeGroup] = useState("");
   const [gender, setGender] = useState("");
   const [productTypeItem, setProductTypeItem] = useState("");
   const [heelType, setHeelType] = useState("");
@@ -221,11 +229,23 @@ export const AddProductDrawer: React.FC<AddProductDrawerProps> = ({
   // Governed lookups state
   const [brandOptions, setBrandOptions] = useState<LookupOption[]>([]);
   const [categoryOptions, setCategoryOptions] = useState<LookupOption[]>([]);
+  const [subCategoryOptions, setSubCategoryOptions] = useState<LookupOption[]>([]);
+  const [departmentOptions, setDepartmentOptions] = useState<LookupOption[]>([]);
+  const [sizeGroupOptions, setSizeGroupOptions] = useState<LookupOption[]>([]);
+  const [taxCategoryOptions, setTaxCategoryOptions] = useState<LookupOption[]>([]);
   const [genderOptions, setGenderOptions] = useState<LookupOption[]>([]);
   const [productTypeOptions, setProductTypeOptions] = useState<LookupOption[]>([]);
   const [heelTypeOptions, setHeelTypeOptions] = useState<LookupOption[]>([]);
   const [upperMaterialOptions, setUpperMaterialOptions] = useState<LookupOption[]>([]);
   const [vendorOptions, setVendorOptions] = useState<VendorOption[]>([]);
+
+  // Mandatory flags governed by System Parameters (default: true)
+  const isBrandMandatory = isFieldMandatoryBySystemParam("brand");
+  const isSubCategoryMandatory = isFieldMandatoryBySystemParam("subcategory");
+  const isDepartmentMandatory = isFieldMandatoryBySystemParam("department");
+  const isSizeGroupMandatory = isFieldMandatoryBySystemParam("size_group");
+  const isHsnCodeMandatory = isFieldMandatoryBySystemParam("hsn_code");
+  const isTaxCategoryMandatory = isFieldMandatoryBySystemParam("tax_category");
 
   // ── Unified Prefill for Add / Edit / Duplicate ───────────────────────────────
   useEffect(() => {
@@ -236,6 +256,9 @@ export const AddProductDrawer: React.FC<AddProductDrawerProps> = ({
       setName(initialProduct.name || initialProduct.item_name || "");
       setBrand(initialProduct.brand || "");
       setCategory(initialProduct.category || "");
+      setSubCategory(initialProduct.subcategory || initialProduct.subCategory || initialProduct.sub_category || "");
+      setDepartment(initialProduct.department || initialProduct.dept || initialProduct.division || "");
+      setSizeGroup(initialProduct.size_group || initialProduct.sizeGroup || initialProduct.size_group_id || "");
       setGender(initialProduct.gender || "");
       setProductTypeItem(initialProduct.product_type || "");
       setArticleCode(initialProduct.style_code || initialProduct.article_code || initialProduct.code || "");
@@ -253,6 +276,7 @@ export const AddProductDrawer: React.FC<AddProductDrawerProps> = ({
       setMinimumSellingPrice(initialProduct.minimum_selling_price != null ? String(initialProduct.minimum_selling_price) : "");
       setMaximumDiscountPercent(initialProduct.maximum_discount_percent != null ? String(initialProduct.maximum_discount_percent) : "0");
       setHsnCode(initialProduct.hsn_code || "");
+      setTaxCategory(initialProduct.tax_category || initialProduct.taxCategory || "GOODS");
       setGstRate(initialProduct.gst_percentage != null ? String(initialProduct.gst_percentage) : (initialProduct.tax_rate != null ? String(initialProduct.tax_rate) : "18"));
       setStockUom(initialProduct.primary_uom || "PRS");
       setSalesUom(initialProduct.sales_uom || "");
@@ -289,6 +313,9 @@ export const AddProductDrawer: React.FC<AddProductDrawerProps> = ({
       setName("");
       setBrand("");
       setCategory("");
+      setSubCategory("");
+      setDepartment("");
+      setSizeGroup("");
       setGender("");
       setProductTypeItem("");
       setSimpleColor("");
@@ -305,6 +332,7 @@ export const AddProductDrawer: React.FC<AddProductDrawerProps> = ({
       setMinimumSellingPrice("");
       setMaximumDiscountPercent("0");
       setHsnCode("");
+      setTaxCategory("GOODS");
       setGstRate("18");
       setStockUom("PRS");
       setSalesUom("");
@@ -459,10 +487,15 @@ export const AddProductDrawer: React.FC<AddProductDrawerProps> = ({
         fetchGovernedLookupOptions(),
         apiFetchV1<any>("/universal/parties/vendors?limit=100").catch(() => []),
         apiFetchV1<any>("/numbering/series").catch(() => []),
+        smritiSystemParameterService.load().catch(() => {}),
       ]);
 
       setBrandOptions(lookups.brand || []);
       setCategoryOptions(lookups.category || []);
+      setSubCategoryOptions(lookups.subcategory || []);
+      setDepartmentOptions(lookups.department || []);
+      setSizeGroupOptions(lookups.size_group || []);
+      setTaxCategoryOptions(lookups.tax_category || []);
       setGenderOptions(lookups.gender || []);
       setProductTypeOptions(lookups.product_type || []);
       setHeelTypeOptions(lookups.heel_type || []);
@@ -637,12 +670,32 @@ export const AddProductDrawer: React.FC<AddProductDrawerProps> = ({
       setFormError("SKU / Article Number is required when manual entry is selected.");
       return;
     }
-    if (!brand.trim()) {
+    if (isBrandMandatory && !brand.trim()) {
       setFormError("Brand is required.");
       return;
     }
     if (!category.trim()) {
       setFormError("Category is required.");
+      return;
+    }
+    if (isSubCategoryMandatory && !subCategory.trim()) {
+      setFormError("Sub-Category is required.");
+      return;
+    }
+    if (isDepartmentMandatory && !department.trim()) {
+      setFormError("Department is required.");
+      return;
+    }
+    if (isSizeGroupMandatory && !sizeGroup.trim()) {
+      setFormError("Size Group is required.");
+      return;
+    }
+    if (isHsnCodeMandatory && !hsnCode.trim()) {
+      setFormError("HSN Code is required.");
+      return;
+    }
+    if (isTaxCategoryMandatory && !taxCategory.trim()) {
+      setFormError("Tax Category is required.");
       return;
     }
     if (baseSellingPrice && baseMrp && parseFloat(baseSellingPrice) > parseFloat(baseMrp)) {
@@ -666,6 +719,47 @@ export const AddProductDrawer: React.FC<AddProductDrawerProps> = ({
     clearValidationState();
 
     try {
+      if (!name.trim()) {
+        setFormError("Product Name is required.");
+        setIsSaving(false);
+        return;
+      }
+      if (isBrandMandatory && !brand.trim()) {
+        setFormError("Brand is required.");
+        setIsSaving(false);
+        return;
+      }
+      if (!category.trim()) {
+        setFormError("Category is required.");
+        setIsSaving(false);
+        return;
+      }
+      if (isSubCategoryMandatory && !subCategory.trim()) {
+        setFormError("Sub-Category is required.");
+        setIsSaving(false);
+        return;
+      }
+      if (isDepartmentMandatory && !department.trim()) {
+        setFormError("Department is required.");
+        setIsSaving(false);
+        return;
+      }
+      if (isSizeGroupMandatory && !sizeGroup.trim()) {
+        setFormError("Size Group is required.");
+        setIsSaving(false);
+        return;
+      }
+      if (isHsnCodeMandatory && !hsnCode.trim()) {
+        setFormError("HSN Code is required.");
+        setIsSaving(false);
+        return;
+      }
+      if (isTaxCategoryMandatory && !taxCategory.trim()) {
+        setFormError("Tax Category is required.");
+        setIsSaving(false);
+        return;
+      }
+
       const parsedMrp = baseMrp ? parseFloat(baseMrp) : 0.0;
       const parsedSelling = baseSellingPrice ? parseFloat(baseSellingPrice) : parsedMrp;
       const parsedCost = baseCostPrice ? parseFloat(baseCostPrice) : 0.0;
@@ -681,6 +775,12 @@ export const AddProductDrawer: React.FC<AddProductDrawerProps> = ({
           name: name.trim(),
           brand: brand.trim() || null,
           category: category.trim() || null,
+          subcategory: subCategory.trim() || null,
+          sub_category: subCategory.trim() || null,
+          department: department.trim() || null,
+          dept: department.trim() || null,
+          size_group: sizeGroup.trim() || null,
+          tax_category: taxCategory.trim() || null,
           gender: gender || null,
           product_type: productTypeItem || null,
           style_code: articleCode.trim() || null,
@@ -728,6 +828,13 @@ export const AddProductDrawer: React.FC<AddProductDrawerProps> = ({
         barcode: primaryBarcode,
         brand: brand.trim() || null,
         category: category.trim() || null,
+        subcategory: subCategory.trim() || null,
+        sub_category: subCategory.trim() || null,
+        department: department.trim() || null,
+        dept: department.trim() || null,
+        size_group: sizeGroup.trim() || null,
+        size_group_id: sizeGroup.trim() || null,
+        tax_category: taxCategory.trim() || null,
         gender: gender || null,
         product_type: productTypeItem || null,
         heel_type: heelType || null,
@@ -888,6 +995,10 @@ export const AddProductDrawer: React.FC<AddProductDrawerProps> = ({
     setSku("");
     setBrand("");
     setCategory("");
+    setSubCategory("");
+    setDepartment("");
+    setSizeGroup("");
+    setTaxCategory("GOODS");
     setBaseMrp("");
     setBaseSellingPrice("");
     setBaseCostPrice("");
@@ -1186,7 +1297,7 @@ export const AddProductDrawer: React.FC<AddProductDrawerProps> = ({
                 {/* Brand */}
                 <div>
                   <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 block mb-1">
-                    Brand <span className="text-red-500">*</span>
+                    Brand {isBrandMandatory && <span className="text-red-500">*</span>}
                   </label>
                   <input
                     id="im-field-brand"
@@ -1225,6 +1336,58 @@ export const AddProductDrawer: React.FC<AddProductDrawerProps> = ({
                     {renderedCategoryOptions.map((c) => <option key={c} value={c} />)}
                   </datalist>
                   {fieldErrors["category"] && <p className="text-[10px] text-red-500 mt-1">{fieldErrors["category"]}</p>}
+                </div>
+
+                {/* Sub-Category */}
+                <div>
+                  <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 block mb-1">
+                    Sub-Category {isSubCategoryMandatory && <span className="text-red-500">*</span>}
+                  </label>
+                  <input
+                    id="im-field-subcategory"
+                    type="text"
+                    value={subCategory}
+                    onChange={(e) => setSubCategory(e.target.value)}
+                    placeholder="Sub-Category"
+                    list="subcategory-options-list"
+                    className={`w-full text-xs px-3 py-2 rounded-lg border bg-white dark:bg-[#1a2234] text-slate-900 dark:text-white outline-hidden focus:ring-2 focus:ring-blue-500 ${
+                      fieldErrors["subcategory"] || fieldErrors["subCategory"] || fieldErrors["sub_category"]
+                        ? "border-red-500 ring-1 ring-red-500"
+                        : "border-slate-300 dark:border-slate-700"
+                    }`}
+                  />
+                  <datalist id="subcategory-options-list">
+                    {subCategoryOptions.map((s) => <option key={s.code} value={s.name} />)}
+                  </datalist>
+                  {(fieldErrors["subcategory"] || fieldErrors["subCategory"] || fieldErrors["sub_category"]) && (
+                    <p className="text-[10px] text-red-500 mt-1">{fieldErrors["subcategory"] || fieldErrors["subCategory"] || fieldErrors["sub_category"]}</p>
+                  )}
+                </div>
+
+                {/* Department */}
+                <div>
+                  <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 block mb-1">
+                    Department {isDepartmentMandatory && <span className="text-red-500">*</span>}
+                  </label>
+                  <input
+                    id="im-field-department"
+                    type="text"
+                    value={department}
+                    onChange={(e) => setDepartment(e.target.value)}
+                    placeholder="Department"
+                    list="department-options-list"
+                    className={`w-full text-xs px-3 py-2 rounded-lg border bg-white dark:bg-[#1a2234] text-slate-900 dark:text-white outline-hidden focus:ring-2 focus:ring-blue-500 ${
+                      fieldErrors["department"] || fieldErrors["dept"]
+                        ? "border-red-500 ring-1 ring-red-500"
+                        : "border-slate-300 dark:border-slate-700"
+                    }`}
+                  />
+                  <datalist id="department-options-list">
+                    {departmentOptions.map((d) => <option key={d.code} value={d.name} />)}
+                  </datalist>
+                  {(fieldErrors["department"] || fieldErrors["dept"]) && (
+                    <p className="text-[10px] text-red-500 mt-1">{fieldErrors["department"] || fieldErrors["dept"]}</p>
+                  )}
                 </div>
 
                 {/* Gender */}
@@ -1285,6 +1448,32 @@ export const AddProductDrawer: React.FC<AddProductDrawerProps> = ({
                     placeholder="e.g. ART-501"
                     className="w-full text-xs font-mono px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-[#1a2234] text-slate-900 dark:text-white outline-hidden focus:ring-2 focus:ring-blue-500 uppercase"
                   />
+                </div>
+
+                {/* Size Group */}
+                <div>
+                  <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 block mb-1">
+                    Size Group {isSizeGroupMandatory && <span className="text-red-500">*</span>}
+                  </label>
+                  <input
+                    id="im-field-size_group"
+                    type="text"
+                    value={sizeGroup}
+                    onChange={(e) => setSizeGroup(e.target.value)}
+                    placeholder="e.g. ADULT_UK, KIDS"
+                    list="sizegroup-options-list"
+                    className={`w-full text-xs px-3 py-2 rounded-lg border bg-white dark:bg-[#1a2234] text-slate-900 dark:text-white outline-hidden focus:ring-2 focus:ring-blue-500 ${
+                      fieldErrors["size_group"] || fieldErrors["sizeGroup"] || fieldErrors["size_group_id"]
+                        ? "border-red-500 ring-1 ring-red-500"
+                        : "border-slate-300 dark:border-slate-700"
+                    }`}
+                  />
+                  <datalist id="sizegroup-options-list">
+                    {sizeGroupOptions.map((sg) => <option key={sg.code} value={sg.name} />)}
+                  </datalist>
+                  {(fieldErrors["size_group"] || fieldErrors["sizeGroup"] || fieldErrors["size_group_id"]) && (
+                    <p className="text-[10px] text-red-500 mt-1">{fieldErrors["size_group"] || fieldErrors["sizeGroup"] || fieldErrors["size_group_id"]}</p>
+                  )}
                 </div>
 
                 {/* Colour / Shade */}
@@ -1381,7 +1570,7 @@ export const AddProductDrawer: React.FC<AddProductDrawerProps> = ({
                 {/* HSN Code (Zero hardcoded defaults) */}
                 <div>
                   <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 block mb-1">
-                    HSN Code
+                    HSN Code {isHsnCodeMandatory && <span className="text-red-500">*</span>}
                   </label>
                   <input
                     id="im-field-hsn_code"
@@ -1389,8 +1578,13 @@ export const AddProductDrawer: React.FC<AddProductDrawerProps> = ({
                     value={hsnCode}
                     onChange={(e) => setHsnCode(e.target.value)}
                     placeholder="Official HSN (e.g. 6403)"
-                    className="w-full text-xs font-mono px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-[#1a2234] text-slate-900 dark:text-white outline-hidden focus:ring-2 focus:ring-blue-500"
+                    className={`w-full text-xs font-mono px-3 py-2 rounded-lg border bg-white dark:bg-[#1a2234] text-slate-900 dark:text-white outline-hidden focus:ring-2 focus:ring-blue-500 ${
+                      fieldErrors["hsn_code"] || fieldErrors["hsn"] ? "border-red-500 ring-1 ring-red-500" : "border-slate-300 dark:border-slate-700"
+                    }`}
                   />
+                  {(fieldErrors["hsn_code"] || fieldErrors["hsn"]) && (
+                    <p className="text-[10px] text-red-500 mt-1">{fieldErrors["hsn_code"] || fieldErrors["hsn"]}</p>
+                  )}
                 </div>
 
                 {/* Season */}
@@ -1572,16 +1766,32 @@ export const AddProductDrawer: React.FC<AddProductDrawerProps> = ({
 
                 <div>
                   <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 block mb-1">
-                    Tax Category
+                    Tax Category {isTaxCategoryMandatory && <span className="text-red-500">*</span>}
                   </label>
                   <select
+                    id="im-field-tax_category"
                     value={taxCategory}
                     onChange={(e) => setTaxCategory(e.target.value)}
-                    className="w-full text-xs px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-[#1a2234] text-slate-900 dark:text-white outline-hidden focus:ring-2 focus:ring-blue-500"
+                    className={`w-full text-xs px-3 py-2 rounded-lg border bg-white dark:bg-[#1a2234] text-slate-900 dark:text-white outline-hidden focus:ring-2 focus:ring-blue-500 ${
+                      fieldErrors["tax_category"] || fieldErrors["taxCategory"]
+                        ? "border-red-500 ring-1 ring-red-500"
+                        : "border-slate-300 dark:border-slate-700"
+                    }`}
                   >
-                    <option value="GOODS">GOODS (Standard Retail)</option>
-                    <option value="SERVICES">SERVICES</option>
+                    {taxCategoryOptions.length > 0 ? (
+                      taxCategoryOptions.map((tc) => (
+                        <option key={tc.code} value={tc.code}>{tc.name || tc.code}</option>
+                      ))
+                    ) : (
+                      <>
+                        <option value="GOODS">GOODS (Standard Retail)</option>
+                        <option value="SERVICES">SERVICES</option>
+                      </>
+                    )}
                   </select>
+                  {(fieldErrors["tax_category"] || fieldErrors["taxCategory"]) && (
+                    <p className="text-[10px] text-red-500 mt-1">{fieldErrors["tax_category"] || fieldErrors["taxCategory"]}</p>
+                  )}
                 </div>
 
                 <div className="pt-5 flex items-center gap-2">
@@ -2089,7 +2299,7 @@ export const AddProductDrawer: React.FC<AddProductDrawerProps> = ({
 
                 <div>
                   <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 block mb-1">
-                    Brand <span className="text-red-500">*</span>
+                    Brand {isBrandMandatory && <span className="text-red-500">*</span>}
                   </label>
                   <input
                     id="im-field-brand"
@@ -2098,11 +2308,14 @@ export const AddProductDrawer: React.FC<AddProductDrawerProps> = ({
                     onChange={(e) => setBrand(e.target.value)}
                     placeholder="Brand name"
                     list="hybrid-brand-list"
-                    className="w-full text-xs px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-[#1a2234] text-slate-900 dark:text-white outline-hidden focus:ring-2 focus:ring-blue-500"
+                    className={`w-full text-xs px-3 py-2 rounded-lg border bg-white dark:bg-[#1a2234] text-slate-900 dark:text-white outline-hidden focus:ring-2 focus:ring-blue-500 ${
+                      fieldErrors["brand"] ? "border-red-500 ring-1 ring-red-500" : "border-slate-300 dark:border-slate-700"
+                    }`}
                   />
                   <datalist id="hybrid-brand-list">
                     {brandOptions.map((b) => <option key={b.code} value={b.name} />)}
                   </datalist>
+                  {fieldErrors["brand"] && <p className="text-[10px] text-red-500 mt-1">{fieldErrors["brand"]}</p>}
                 </div>
 
                 <div>
@@ -2116,11 +2329,89 @@ export const AddProductDrawer: React.FC<AddProductDrawerProps> = ({
                     onChange={(e) => setCategory(e.target.value)}
                     placeholder="Category"
                     list="hybrid-category-list"
-                    className="w-full text-xs px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-[#1a2234] text-slate-900 dark:text-white outline-hidden focus:ring-2 focus:ring-blue-500"
+                    className={`w-full text-xs px-3 py-2 rounded-lg border bg-white dark:bg-[#1a2234] text-slate-900 dark:text-white outline-hidden focus:ring-2 focus:ring-blue-500 ${
+                      fieldErrors["category"] ? "border-red-500 ring-1 ring-red-500" : "border-slate-300 dark:border-slate-700"
+                    }`}
                   />
                   <datalist id="hybrid-category-list">
                     {renderedCategoryOptions.map((c) => <option key={c} value={c} />)}
                   </datalist>
+                  {fieldErrors["category"] && <p className="text-[10px] text-red-500 mt-1">{fieldErrors["category"]}</p>}
+                </div>
+
+                <div>
+                  <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 block mb-1">
+                    Sub-Category {isSubCategoryMandatory && <span className="text-red-500">*</span>}
+                  </label>
+                  <input
+                    id="im-field-subcategory"
+                    type="text"
+                    value={subCategory}
+                    onChange={(e) => setSubCategory(e.target.value)}
+                    placeholder="Sub-Category"
+                    list="hybrid-subcategory-list"
+                    className={`w-full text-xs px-3 py-2 rounded-lg border bg-white dark:bg-[#1a2234] text-slate-900 dark:text-white outline-hidden focus:ring-2 focus:ring-blue-500 ${
+                      fieldErrors["subcategory"] || fieldErrors["subCategory"] || fieldErrors["sub_category"]
+                        ? "border-red-500 ring-1 ring-red-500"
+                        : "border-slate-300 dark:border-slate-700"
+                    }`}
+                  />
+                  <datalist id="hybrid-subcategory-list">
+                    {subCategoryOptions.map((s) => <option key={s.code} value={s.name} />)}
+                  </datalist>
+                  {(fieldErrors["subcategory"] || fieldErrors["subCategory"] || fieldErrors["sub_category"]) && (
+                    <p className="text-[10px] text-red-500 mt-1">{fieldErrors["subcategory"] || fieldErrors["subCategory"] || fieldErrors["sub_category"]}</p>
+                  )}
+                </div>
+
+                <div>
+                  <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 block mb-1">
+                    Department {isDepartmentMandatory && <span className="text-red-500">*</span>}
+                  </label>
+                  <input
+                    id="im-field-department"
+                    type="text"
+                    value={department}
+                    onChange={(e) => setDepartment(e.target.value)}
+                    placeholder="Department"
+                    list="hybrid-department-list"
+                    className={`w-full text-xs px-3 py-2 rounded-lg border bg-white dark:bg-[#1a2234] text-slate-900 dark:text-white outline-hidden focus:ring-2 focus:ring-blue-500 ${
+                      fieldErrors["department"] || fieldErrors["dept"]
+                        ? "border-red-500 ring-1 ring-red-500"
+                        : "border-slate-300 dark:border-slate-700"
+                    }`}
+                  />
+                  <datalist id="hybrid-department-list">
+                    {departmentOptions.map((d) => <option key={d.code} value={d.name} />)}
+                  </datalist>
+                  {(fieldErrors["department"] || fieldErrors["dept"]) && (
+                    <p className="text-[10px] text-red-500 mt-1">{fieldErrors["department"] || fieldErrors["dept"]}</p>
+                  )}
+                </div>
+
+                <div>
+                  <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 block mb-1">
+                    Size Group {isSizeGroupMandatory && <span className="text-red-500">*</span>}
+                  </label>
+                  <input
+                    id="im-field-size_group"
+                    type="text"
+                    value={sizeGroup}
+                    onChange={(e) => setSizeGroup(e.target.value)}
+                    placeholder="e.g. ADULT_UK, KIDS"
+                    list="hybrid-sizegroup-list"
+                    className={`w-full text-xs px-3 py-2 rounded-lg border bg-white dark:bg-[#1a2234] text-slate-900 dark:text-white outline-hidden focus:ring-2 focus:ring-blue-500 ${
+                      fieldErrors["size_group"] || fieldErrors["sizeGroup"] || fieldErrors["size_group_id"]
+                        ? "border-red-500 ring-1 ring-red-500"
+                        : "border-slate-300 dark:border-slate-700"
+                    }`}
+                  />
+                  <datalist id="hybrid-sizegroup-list">
+                    {sizeGroupOptions.map((sg) => <option key={sg.code} value={sg.name} />)}
+                  </datalist>
+                  {(fieldErrors["size_group"] || fieldErrors["sizeGroup"] || fieldErrors["size_group_id"]) && (
+                    <p className="text-[10px] text-red-500 mt-1">{fieldErrors["size_group"] || fieldErrors["sizeGroup"] || fieldErrors["size_group_id"]}</p>
+                  )}
                 </div>
 
                 <div>
@@ -2370,7 +2661,7 @@ export const AddProductDrawer: React.FC<AddProductDrawerProps> = ({
               <div className="grid grid-cols-4 gap-4 items-center">
                 <div>
                   <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 block mb-1">
-                    HSN/SAC Code
+                    HSN/SAC Code {isHsnCodeMandatory && <span className="text-red-500">*</span>}
                   </label>
                   <input
                     id="im-field-hsn_code"
@@ -2378,8 +2669,13 @@ export const AddProductDrawer: React.FC<AddProductDrawerProps> = ({
                     value={hsnCode}
                     onChange={(e) => setHsnCode(e.target.value)}
                     placeholder="Enter official HSN"
-                    className="w-full text-xs font-mono px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-[#1a2234] text-slate-900 dark:text-white"
+                    className={`w-full text-xs font-mono px-3 py-2 rounded-lg border bg-white dark:bg-[#1a2234] text-slate-900 dark:text-white ${
+                      fieldErrors["hsn_code"] || fieldErrors["hsn"] ? "border-red-500 ring-1 ring-red-500" : "border-slate-300 dark:border-slate-700"
+                    }`}
                   />
+                  {(fieldErrors["hsn_code"] || fieldErrors["hsn"]) && (
+                    <p className="text-[10px] text-red-500 mt-1">{fieldErrors["hsn_code"] || fieldErrors["hsn"]}</p>
+                  )}
                 </div>
 
                 <div>
@@ -2394,6 +2690,34 @@ export const AddProductDrawer: React.FC<AddProductDrawerProps> = ({
                   >
                     {GST_RATES.map((g) => <option key={g.rate} value={g.rate}>{g.label}</option>)}
                   </select>
+                </div>
+
+                <div>
+                  <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 block mb-1">
+                    Tax Category {isTaxCategoryMandatory && <span className="text-red-500">*</span>}
+                  </label>
+                  <select
+                    id="im-field-tax_category"
+                    value={taxCategory}
+                    onChange={(e) => setTaxCategory(e.target.value)}
+                    className={`w-full text-xs px-3 py-2 rounded-lg border bg-white dark:bg-[#1a2234] text-slate-900 dark:text-white ${
+                      fieldErrors["tax_category"] || fieldErrors["taxCategory"] ? "border-red-500 ring-1 ring-red-500" : "border-slate-300 dark:border-slate-700"
+                    }`}
+                  >
+                    {taxCategoryOptions.length > 0 ? (
+                      taxCategoryOptions.map((tc) => (
+                        <option key={tc.code} value={tc.code}>{tc.name || tc.code}</option>
+                      ))
+                    ) : (
+                      <>
+                        <option value="GOODS">GOODS (Standard Retail)</option>
+                        <option value="SERVICES">SERVICES</option>
+                      </>
+                    )}
+                  </select>
+                  {(fieldErrors["tax_category"] || fieldErrors["taxCategory"]) && (
+                    <p className="text-[10px] text-red-500 mt-1">{fieldErrors["tax_category"] || fieldErrors["taxCategory"]}</p>
+                  )}
                 </div>
 
                 <div className="pt-5 flex items-center gap-2">
