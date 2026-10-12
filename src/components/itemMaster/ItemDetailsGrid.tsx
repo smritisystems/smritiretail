@@ -48,6 +48,11 @@ import { ItemShortcuts } from "./ItemShortcuts.tsx";
 import { ItemViewConfigState } from "./ItemViewConfig.tsx";
 import { ExportButton } from "../export/ExportButton.tsx";
 import { ExportColumnDefinition } from "../export/types.ts";
+import {
+  ITEM_MASTER_EXPORT_PRESETS,
+  ITEM_MASTER_AUDIT_COLUMNS,
+  enrichItemRowsWithAuditMetadata,
+} from "./itemMasterExportPresets.ts";
 
 export type MasterEntryMode = "add" | "edit" | "delete" | "audit";
 export type SortDirection = "asc" | "desc";
@@ -461,7 +466,7 @@ export const ItemDetailsGrid: React.FC<SmritiItemDetailsGridProps> = ({
   }, [viewConfig, catalogFields, visibilityVersion]);
 
   const itemMasterExportColumns = useMemo<ExportColumnDefinition[]>(() => {
-    return catalogFields.map(f => {
+    const baseCols: ExportColumnDefinition[] = catalogFields.map(f => {
       let dt: any = "text";
       if (
         f.key === "mrp" ||
@@ -487,6 +492,10 @@ export const ItemDetailsGrid: React.FC<SmritiItemDetailsGridProps> = ({
         isVisible: true
       };
     });
+
+    const existingKeys = new Set(baseCols.map(c => c.key));
+    const extraAuditCols = ITEM_MASTER_AUDIT_COLUMNS.filter(ac => !existingKeys.has(ac.key));
+    return [...baseCols, ...extraAuditCols];
   }, [catalogFields]);
 
   const frozenCount = viewConfig?.frozenColumns ?? 2;
@@ -1530,6 +1539,14 @@ export const ItemDetailsGrid: React.FC<SmritiItemDetailsGridProps> = ({
             apiEndpoint="/products"
             searchTerm={searchFilter}
             companyName="SMRITI Retail"
+            presets={ITEM_MASTER_EXPORT_PRESETS}
+            defaultPresetId="all"
+            onEnrichData={(rows, preset) => {
+              if (preset?.isAudit || preset?.id === "forensic_audit" || preset?.id === "all") {
+                return enrichItemRowsWithAuditMetadata(rows);
+              }
+              return rows;
+            }}
             onNotification={onNotification}
           />
 
