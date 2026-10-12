@@ -1,3 +1,21 @@
+## [6.72.3] — 2026-10-12
+
+### Item Master & Catalog — Live Tattly Threads Item Master Seeding & Multy Exclusion v6.72.3
+
+Ingested and persisted 602 validated footwear items across 52 distinct styles from client master dataset `OLD TO NEW (1).xlsx` into live production (`https://tattlythreads.smritisys.com/`), strictly filtering out all items with color designation `MULTY` / `MULTI` (168 items from Sheet2) per user directive.
+
+**Key Capabilities:**
+- **Strict Color Exclusion:** Filtered out 168 rows from Sheet2 carrying `MULTY` / `MULTI` color, ensuring only discrete, solid-color footwear variants ready for barcode labeling and floor activation were ingested.
+- **Control Plane Master Lookup Alignment:** Pre-registered missing master lookup values (`OTHERS`, `HALF SHOE`, `MULE`, `L-GREEN`, `L-BLUE`, `OFF WHITE`) in `master_values` via `POST /api/v1/masters/lookup/{type}/values` and in-house supplier `TT` (`Tattly Threads In-House`) under company `COMP-001` via `POST /api/v1/suppliers/`.
+- **Pre-Commit Validation Preview:** Executed `/api/v1/universal-import/preview` dry-run achieving 602/602 valid rows, 0 blocking errors, and `READY_FOR_IMPORT` certification.
+- **Chunked Sequential Batch Commit:** Executed chunked commit across 5 batches of 150 items via `/api/v1/universal-import/commit` without timeouts, database collisions, or errors.
+- **Authoritative Parity Verification:** Queried `/api/v1/universal/items` on the live server, confirming exact mathematical expansion from 38 styles / 534 barcodes to 90 styles (+52) and 1,136 barcodes (+602 new barcodes) with 0 `MULTY` variants in the new batch.
+
+**Verification:**
+- Live API: 602/602 items committed cleanly across 5 batches.
+- Live API: 90 distinct styles, 1,136 distinct barcodes verified on `https://tattlythreads.smritisys.com/`.
+- Verification status: `Done`.
+
 ## [6.72.2] — 2026-10-12
 
 ### HR & Workforce — Staff Directory Profile Robustness & Multi-Tenant Resilience v6.72.2
