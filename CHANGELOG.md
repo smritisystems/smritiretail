@@ -1,3 +1,23 @@
+## [6.72.0] — 2026-10-12
+
+### HR & Security — User & Staff Creation Hardening, Tenant Resolution & Error Visibility v6.72.0
+
+Resolved critical failure modes preventing operators and administrators from creating new user or staff accounts, eliminated silent validation rejections, wired missing UI modals, and enforced the SMRITI Human-Readable Error Policy (HREP) across control plane and store tenant workspaces.
+
+**Key Capabilities:**
+- **Two-Tier Error Alerting:** Added in-modal error alert banners with `AlertCircle` / `AlertTriangle` iconography in `StaffMasterWs.tsx` and `UsersView.tsx`. When validation rules fail or API requests reject, clear human-readable guidance is immediately presented inside the active dialog rather than failing silently.
+- **Notification Callback Propagation:** Fixed prop disconnect in `TabRenderer.tsx` by passing `onNotification={addNotification}` to `StaffManagementTab.tsx`, ensuring global toast alerts fire reliably on all user actions.
+- **Security Users View Interactive Provisioning:** Built `CreateUserModal` in `UsersView.tsx` and wired the `+ New User` button to open an accessible dialog supporting role assignment, input trimming, and password policy validation.
+- **Dual Branch Key Resolution (ADR-HR-002):** Hardened `UserService.create_staff_user` and `UserService.create_user` to resolve candidate branches by both `Branch.id` and `Branch.code` with canonical alias mapping (`normalize_branch_value`) and company default branch fallback, preventing `HTTPException 400: Branch with ID 'MAIN' does not exist.`
+- **Pydantic Schema Normalization:** Expanded `StaffUserCreate.normalize_role` to parse case-insensitive role inputs and shorthand aliases (`admin`, `cashier`, `store`, `purchase`, `sales`, `account`, `hr`) into canonical `UserRole` enums.
+- **Database Integrity Guarding:** Wrapped database transaction commits in `IntegrityError` handlers to return actionable business conflict messages on duplicate usernames, emails, or employee codes.
+
+**Verification:**
+- Vitest: 17/17 passed in `src/tests/userStaffCreation.test.ts`.
+- Vitest: 69/69 passed in `src/tests/staffShift.integration.test.ts` and `src/tests/staffAttendance.integration.test.ts`.
+- Python Backend: Real PostgreSQL session verified role normalization, branch resolution (`'MAIN'` -> `'BR-MAIN-001'`), and duplicate username rejection.
+- TypeScript: `npx tsc --noEmit` exited with 0 errors across 3,594 modules.
+
 ## [6.71.0] — 2026-10-12
 
 ### Inventory & Item Master — Tri-Modal Export Engine (All Fields, Selected Presets & Forensic Audit) v6.71.0

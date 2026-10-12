@@ -284,8 +284,18 @@ class StaffUserCreate(BaseModel):
             return v
         if isinstance(v, str):
             cleaned = v.strip().upper().replace(" ", "_").replace("-", "_")
-            if cleaned in ("SYS_ADMIN", "SYSTEM_ADMIN", "SUPERADMIN", "SUPER_ADMIN"):
+            if cleaned in ("ADMIN", "SYS_ADMIN", "SYSTEM_ADMIN", "SUPERADMIN", "SUPER_ADMIN"):
                 return UserRole.SYSADMIN
+            if cleaned in ("STORE", "STORE_MGR"):
+                return UserRole.STORE_MANAGER
+            if cleaned in ("PURCHASE", "PURCHASE_EXEC"):
+                return UserRole.PURCHASE_EXECUTIVE
+            if cleaned in ("SALES", "SALES_EXEC"):
+                return UserRole.SALES_EXECUTIVE
+            if cleaned in ("ACCOUNT", "ACCOUNTS"):
+                return UserRole.ACCOUNTANT
+            if cleaned in ("HR", "HR_EXEC"):
+                return UserRole.HR_EXECUTIVE
             if cleaned in UserRole.__members__:
                 return UserRole[cleaned]
         return v

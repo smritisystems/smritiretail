@@ -21,6 +21,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   Activity,
+  AlertCircle,
   BadgeCheck,
   Building2,
   CalendarDays,
@@ -213,6 +214,7 @@ const StaffMasterWsBase: React.FC<StaffMasterWsProps> = ({ currentUser, onNotifi
   });
   const [showNew, setShowNew] = useState(false);
   const [creatingStaff, setCreatingStaff] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
   const [newStaff, setNewStaff] = useState({ fullName: "", username: "", email: "", password: "", role: "CASHIER" });
   const [attendance, setAttendance] = useState<Array<{ id: string; attendance_date: string; status: string; check_in_at?: string; check_out_at?: string; register_source?: string; device_source?: string; correction_status?: string }>>([]);
   const [attendanceFrom, setAttendanceFrom] = useState("");
@@ -401,29 +403,42 @@ const StaffMasterWsBase: React.FC<StaffMasterWsProps> = ({ currentUser, onNotifi
   const photoUrl = selected.photo || "";
 
   const handleCreate = async () => {
+    setCreateError(null);
     if (!newStaff.fullName?.trim() || !newStaff.username?.trim() || !newStaff.password) {
-      onNotification?.("Required Fields", "Name, username, and an explicit temporary password are required.", "error");
+      const msg = "Full name, username, and temporary password are required.";
+      setCreateError(msg);
+      onNotification?.("Required Fields", msg, "error");
       return;
     }
     const pwd = newStaff.password;
     if (pwd.length < 8) {
-      onNotification?.("Password Policy", "Password must be at least 8 characters long.", "error");
+      const msg = "Password must be at least 8 characters long.";
+      setCreateError(msg);
+      onNotification?.("Password Policy", msg, "error");
       return;
     }
     if (!/[A-Z]/.test(pwd)) {
-      onNotification?.("Password Policy", "Password must contain at least one uppercase letter (A-Z).", "error");
+      const msg = "Password must contain at least one uppercase letter (A-Z).";
+      setCreateError(msg);
+      onNotification?.("Password Policy", msg, "error");
       return;
     }
     if (!/[a-z]/.test(pwd)) {
-      onNotification?.("Password Policy", "Password must contain at least one lowercase letter (a-z).", "error");
+      const msg = "Password must contain at least one lowercase letter (a-z).";
+      setCreateError(msg);
+      onNotification?.("Password Policy", msg, "error");
       return;
     }
     if (!/[0-9]/.test(pwd)) {
-      onNotification?.("Password Policy", "Password must contain at least one number (0-9).", "error");
+      const msg = "Password must contain at least one number (0-9).";
+      setCreateError(msg);
+      onNotification?.("Password Policy", msg, "error");
       return;
     }
     if (!/[!@#$%^&*()_\-+=\[\]{}|;:'",.<>/?`~]/.test(pwd)) {
-      onNotification?.("Password Policy", "Password must contain at least one special character (!@#$%^&*...).", "error");
+      const msg = "Password must contain at least one special character (!@#$%^&*...).";
+      setCreateError(msg);
+      onNotification?.("Password Policy", msg, "error");
       return;
     }
     if (creatingStaff) return;
@@ -441,11 +456,14 @@ const StaffMasterWsBase: React.FC<StaffMasterWsProps> = ({ currentUser, onNotifi
       });
       onNotification?.("Staff Created", `${newStaff.fullName} was added to Staff 360.`, "success");
       setNewStaff({ fullName: "", username: "", email: "", password: "", role: "CASHIER" });
+      setCreateError(null);
       setShowNew(false);
       setSelectedId(created.id);
       await loadStaff();
     } catch (error: any) {
-      onNotification?.("Staff Creation Failed", error?.message || "Unable to create staff account.", "error");
+      const errorMsg = error?.message || "Unable to create staff account. Please verify input details.";
+      setCreateError(errorMsg);
+      onNotification?.("Staff Creation Failed", errorMsg, "error");
     } finally {
       setCreatingStaff(false);
     }
@@ -1201,7 +1219,7 @@ const StaffMasterWsBase: React.FC<StaffMasterWsProps> = ({ currentUser, onNotifi
   return <div className="relative flex h-full min-h-0 overflow-hidden bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100"><button title={showDirectory ? "Hide Staff Directory" : "Show Staff Directory"} aria-label={showDirectory ? "Hide Staff Directory" : "Show Staff Directory"} onClick={() => setShowDirectory((visible) => !visible)} className="absolute bottom-5 left-5 z-40 rounded-lg border border-slate-300 bg-white p-2 shadow-lg dark:border-slate-700 dark:bg-slate-900">{showDirectory ? <PanelLeftClose size={16} /> : <PanelLeftOpen size={16} />}</button><button title="Print staff form or physical ID" aria-label="Print staff form or physical ID" onClick={() => setShowPrint(true)} className="absolute bottom-5 left-16 z-40 rounded-lg border border-slate-300 bg-white p-2 shadow-lg dark:border-slate-700 dark:bg-slate-900"><Printer size={16} /></button>
     {showDirectory && <aside className="flex w-80 shrink-0 flex-col border-r border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900/70">
       <div className="space-y-3 border-b border-slate-200 p-4 dark:border-slate-800">
-        <div className="flex items-center justify-between"><div className="flex items-center gap-2"><Users size={18} className="text-indigo-600" /><span className="text-sm font-black">Staff Directory</span></div><div className="flex gap-1"><button title="Refresh staff" onClick={loadStaff} className="rounded-lg border border-slate-200 p-1.5 dark:border-slate-700"><RefreshCw size={14} /></button><button title="Create staff" onClick={() => setShowNew(true)} className="rounded-lg bg-indigo-600 p-1.5 text-white"><Plus size={14} /></button></div></div>
+        <div className="flex items-center justify-between"><div className="flex items-center gap-2"><Users size={18} className="text-indigo-600" /><span className="text-sm font-black">Staff Directory</span></div><div className="flex gap-1"><button title="Refresh staff" onClick={loadStaff} className="rounded-lg border border-slate-200 p-1.5 dark:border-slate-700"><RefreshCw size={14} /></button><button title="Create staff" onClick={() => { setShowNew(true); setCreateError(null); }} className="rounded-lg bg-indigo-600 p-1.5 text-white"><Plus size={14} /></button></div></div>
         <div className="relative"><Search size={14} className="absolute left-3 top-2.5 text-slate-400" /><input aria-label="Search staff" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search staff, role, branch..." className="w-full rounded-lg border border-slate-200 bg-slate-50 py-2 pl-8 pr-3 text-xs outline-none dark:border-slate-700 dark:bg-slate-800" /></div>
       </div>
       <div className="grid grid-cols-3 gap-2 border-b border-slate-200 p-3 text-center dark:border-slate-800"><div><div className="text-lg font-black">{staff.length}</div><div className="text-[10px] text-slate-500">Staff</div></div><div><div className="text-lg font-black text-emerald-600">{activeCount}</div><div className="text-[10px] text-slate-500">Active</div></div><div><div className="text-lg font-black text-indigo-600">{adminCount}</div><div className="text-[10px] text-slate-500">Admin</div></div></div>
@@ -1596,7 +1614,7 @@ const StaffMasterWsBase: React.FC<StaffMasterWsProps> = ({ currentUser, onNotifi
             )}
           </div>
         )}<div className="mt-5 flex gap-1 overflow-x-auto">{STAFF_TABS.map((tab) => <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold ${activeTab === tab.id ? "bg-indigo-600 text-white" : "text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800"}`}>{tab.icon}{tab.label}</button>)}</div></div><div className="p-5">{renderTab()}</div></section>
-    {showNew && <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4"><div className="w-full max-w-lg rounded-xl bg-white p-5 shadow-2xl dark:bg-slate-900"><div className="flex items-center justify-between"><h2 className="text-base font-black">Create Staff Account</h2><button title="Close" onClick={() => setShowNew(false)}>×</button></div><p className="mt-1 text-xs text-slate-500">An explicit temporary password is required. No default credentials are generated.</p><div className="mt-5 grid gap-3 sm:grid-cols-2"><input aria-label="Full name" placeholder="Full name" value={newStaff.fullName} onChange={(e) => setNewStaff({ ...newStaff, fullName: e.target.value })} className="rounded-lg border p-2 text-sm dark:border-slate-700 dark:bg-slate-800" /><input aria-label="Username" placeholder="Username" value={newStaff.username} onChange={(e) => setNewStaff({ ...newStaff, username: e.target.value })} className="rounded-lg border p-2 text-sm dark:border-slate-700 dark:bg-slate-800" /><input aria-label="Email" placeholder="Email address (optional)" value={newStaff.email} onChange={(e) => setNewStaff({ ...newStaff, email: e.target.value })} className="rounded-lg border p-2 text-sm dark:border-slate-700 dark:bg-slate-800" /><input aria-label="Temporary password" type="password" placeholder="Temporary password" value={newStaff.password} onChange={(e) => setNewStaff({ ...newStaff, password: e.target.value })} className="rounded-lg border p-2 text-sm dark:border-slate-700 dark:bg-slate-800" /><select aria-label="Role" value={newStaff.role} onChange={(e) => setNewStaff({ ...newStaff, role: e.target.value })} className="rounded-lg border p-2 text-sm dark:border-slate-700 dark:bg-slate-800">{SYSTEM_CORE_ROLES.map((r) => (<option key={r.value} value={r.value}>{r.label}</option>))}</select><p className="text-[11px] text-slate-500 sm:col-span-2">Password must be at least 8 characters with 1 uppercase, 1 lowercase, 1 number, and 1 special symbol (e.g. Staff@2026).</p></div><div className="mt-5 flex justify-end gap-2"><button onClick={() => setShowNew(false)} className="rounded-lg border px-3 py-2 text-xs">Cancel</button><button disabled={creatingStaff} onClick={handleCreate} className="rounded-lg bg-indigo-600 px-3 py-2 text-xs font-bold text-white disabled:opacity-50">{creatingStaff ? "Creating..." : "Create Staff"}</button></div></div></div>}
+    {showNew && <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4"><div className="w-full max-w-lg rounded-xl bg-white p-5 shadow-2xl dark:bg-slate-900"><div className="flex items-center justify-between"><h2 className="text-base font-black">Create Staff Account</h2><button title="Close" onClick={() => { setShowNew(false); setCreateError(null); }}>×</button></div><p className="mt-1 text-xs text-slate-500">An explicit temporary password is required. No default credentials are generated.</p>{createError && (<div className="mt-3 flex items-start gap-2.5 rounded-lg border border-rose-200 bg-rose-50 p-3 text-xs text-rose-800 dark:border-rose-900/50 dark:bg-rose-950/40 dark:text-rose-300"><AlertCircle size={15} className="shrink-0 mt-0.5 text-rose-600 dark:text-rose-400" /><div className="flex-1 font-medium leading-relaxed">{createError}</div></div>)}<div className="mt-5 grid gap-3 sm:grid-cols-2"><input aria-label="Full name" placeholder="Full name" value={newStaff.fullName} onChange={(e) => { setNewStaff({ ...newStaff, fullName: e.target.value }); setCreateError(null); }} className="rounded-lg border p-2 text-sm dark:border-slate-700 dark:bg-slate-800" /><input aria-label="Username" placeholder="Username" value={newStaff.username} onChange={(e) => { setNewStaff({ ...newStaff, username: e.target.value }); setCreateError(null); }} className="rounded-lg border p-2 text-sm dark:border-slate-700 dark:bg-slate-800" /><input aria-label="Email" placeholder="Email address (optional)" value={newStaff.email} onChange={(e) => { setNewStaff({ ...newStaff, email: e.target.value }); setCreateError(null); }} className="rounded-lg border p-2 text-sm dark:border-slate-700 dark:bg-slate-800" /><input aria-label="Temporary password" type="password" placeholder="Temporary password" value={newStaff.password} onChange={(e) => { setNewStaff({ ...newStaff, password: e.target.value }); setCreateError(null); }} className="rounded-lg border p-2 text-sm dark:border-slate-700 dark:bg-slate-800" /><select aria-label="Role" value={newStaff.role} onChange={(e) => setNewStaff({ ...newStaff, role: e.target.value })} className="rounded-lg border p-2 text-sm dark:border-slate-700 dark:bg-slate-800">{SYSTEM_CORE_ROLES.map((r) => (<option key={r.value} value={r.value}>{r.label}</option>))}</select><p className="text-[11px] text-slate-500 sm:col-span-2">Password must be at least 8 characters with 1 uppercase, 1 lowercase, 1 number, and 1 special symbol (e.g. Staff@2026).</p></div><div className="mt-5 flex justify-end gap-2"><button onClick={() => { setShowNew(false); setCreateError(null); }} className="rounded-lg border px-3 py-2 text-xs">Cancel</button><button disabled={creatingStaff} onClick={handleCreate} className="rounded-lg bg-indigo-600 px-3 py-2 text-xs font-bold text-white disabled:opacity-50">{creatingStaff ? "Creating..." : "Create Staff"}</button></div></div></div>}
     {showPrint && <StaffPrintModal isOpen={showPrint} onClose={() => setShowPrint(false)} staff={selected} />}
     {showCommissionModal && (
       <CommissionStudioModal

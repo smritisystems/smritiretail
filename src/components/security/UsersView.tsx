@@ -88,6 +88,16 @@ export const UsersView: React.FC<UsersViewProps> = ({ onNotification }) => {
   const [filterOpen, setFilterOpen] = useState(false);
   const [filterRole, setFilterRole] = useState("All");
   const [filterStatus, setFilterStatus] = useState("All");
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [createUserLoading, setCreateUserLoading] = useState(false);
+  const [createUserError, setCreateUserError] = useState<string | null>(null);
+  const [newUserForm, setNewUserForm] = useState({
+    fullName: "",
+    username: "",
+    email: "",
+    password: "",
+    role: "CASHIER",
+  });
 
   const notify = useCallback((type: Notification["type"], message: string) => {
     if (onNotification) onNotification({ type, message });
@@ -124,6 +134,73 @@ export const UsersView: React.FC<UsersViewProps> = ({ onNotification }) => {
   }, [page, pageSize, search, filterRole, filterStatus, notify]);
 
   useEffect(() => { void loadUsers(); }, [loadUsers]);
+
+  const handleCreateUser = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setCreateUserError(null);
+    if (!newUserForm.fullName.trim() || !newUserForm.username.trim() || !newUserForm.password) {
+      const msg = "Full name, username, and temporary password are required.";
+      setCreateUserError(msg);
+      notify("error", msg);
+      return;
+    }
+    const pwd = newUserForm.password;
+    if (pwd.length < 8) {
+      const msg = "Password must be at least 8 characters long.";
+      setCreateUserError(msg);
+      notify("error", msg);
+      return;
+    }
+    if (!/[A-Z]/.test(pwd)) {
+      const msg = "Password must contain at least one uppercase letter (A-Z).";
+      setCreateUserError(msg);
+      notify("error", msg);
+      return;
+    }
+    if (!/[a-z]/.test(pwd)) {
+      const msg = "Password must contain at least one lowercase letter (a-z).";
+      setCreateUserError(msg);
+      notify("error", msg);
+      return;
+    }
+    if (!/[0-9]/.test(pwd)) {
+      const msg = "Password must contain at least one number (0-9).";
+      setCreateUserError(msg);
+      notify("error", msg);
+      return;
+    }
+    if (!/[!@#$%^&*()_\-+=\[\]{}|;:'",.<>/?`~]/.test(pwd)) {
+      const msg = "Password must contain at least one special character (!@#$%^&*...).";
+      setCreateUserError(msg);
+      notify("error", msg);
+      return;
+    }
+
+    setCreateUserLoading(true);
+    try {
+      await apiFetchV1("/users/", {
+        method: "POST",
+        body: {
+          fullName: newUserForm.fullName.trim(),
+          username: newUserForm.username.trim(),
+          email: newUserForm.email.trim() || undefined,
+          passwordHash: newUserForm.password,
+          role: newUserForm.role,
+        },
+      });
+      notify("success", `User account for ${newUserForm.fullName} created successfully.`);
+      setShowCreateModal(false);
+      setNewUserForm({ fullName: "", username: "", email: "", password: "", role: "CASHIER" });
+      setCreateUserError(null);
+      void loadUsers();
+    } catch (err: any) {
+      const msg = err?.message || "Failed to create user account. Please verify input details.";
+      setCreateUserError(msg);
+      notify("error", msg);
+    } finally {
+      setCreateUserLoading(false);
+    }
+  };
 
   const handleDelete = async (userId: string) => {
     try {
@@ -241,7 +318,11 @@ export const UsersView: React.FC<UsersViewProps> = ({ onNotification }) => {
 
       {/* Action Toolbar */}
       <div className="bg-white border-b border-[#e2e8f0] px-6 py-3 flex items-center gap-2 shrink-0 flex-wrap">
-        <button type="button" className="flex items-center gap-1.5 px-3 py-2 text-xs font-bold bg-[#1e40af] hover:bg-[#1d4ed8] text-white rounded-xl transition min-h-[36px] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1e40af]">
+        <button
+          type="button"
+          onClick={() => { setShowCreateModal(true); setCreateUserError(null); }}
+          className="flex items-center gap-1.5 px-3 py-2 text-xs font-bold bg-[#1e40af] hover:bg-[#1d4ed8] text-white rounded-xl transition min-h-[36px] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1e40af]"
+        >
           <Plus size={14} /> New User
         </button>
         <button type="button" disabled={selected.size !== 1}
@@ -429,6 +510,134 @@ export const UsersView: React.FC<UsersViewProps> = ({ onNotification }) => {
                 {confirmDialog.type === "delete" ? "Deactivate" : "Unlock"}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Create New User Modal */}
+      {showCreateModal && (
+        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4" role="dialog" aria-modal="true">
+          <div className="bg-white rounded-2xl shadow-2xl border border-[#e2e8f0] p-6 max-w-lg w-full">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-blue-50 text-[#1e40af] flex items-center justify-center">
+                  <User size={16} />
+                </div>
+                <h3 className="font-bold text-base text-[#0f172a]">Create System User</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => { setShowCreateModal(false); setCreateUserError(null); }}
+                className="text-[#94a3b8] hover:text-[#0f172a] p-1 rounded-lg transition"
+              >
+                <X size={16} />
+              </button>
+            </div>
+            <p className="text-xs text-[#64748b] mb-4">
+              Provision a new user account with role-based access and tenant authorization.
+            </p>
+
+            {createUserError && (
+              <div className="mb-4 flex items-start gap-2.5 rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs text-rose-800">
+                <AlertTriangle size={15} className="shrink-0 mt-0.5 text-rose-600" />
+                <div className="flex-1 font-medium leading-relaxed">{createUserError}</div>
+              </div>
+            )}
+
+            <form onSubmit={handleCreateUser} className="space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-[11px] font-bold text-[#475569] block mb-1">Full Name *</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Ramesh Kumar"
+                    value={newUserForm.fullName}
+                    onChange={e => { setNewUserForm(f => ({ ...f, fullName: e.target.value })); setCreateUserError(null); }}
+                    className="w-full text-xs border border-[#cbd5e1] rounded-xl px-3 py-2 bg-white focus:outline-none focus:border-[#1e40af] focus:ring-2 focus:ring-[#1e40af]/20"
+                  />
+                </div>
+                <div>
+                  <label className="text-[11px] font-bold text-[#475569] block mb-1">Username *</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. ramesh.pos"
+                    value={newUserForm.username}
+                    onChange={e => { setNewUserForm(f => ({ ...f, username: e.target.value })); setCreateUserError(null); }}
+                    className="w-full text-xs border border-[#cbd5e1] rounded-xl px-3 py-2 bg-white focus:outline-none focus:border-[#1e40af] focus:ring-2 focus:ring-[#1e40af]/20"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-[11px] font-bold text-[#475569] block mb-1">Email (Optional)</label>
+                  <input
+                    type="email"
+                    placeholder="e.g. ramesh@store.com"
+                    value={newUserForm.email}
+                    onChange={e => { setNewUserForm(f => ({ ...f, email: e.target.value })); setCreateUserError(null); }}
+                    className="w-full text-xs border border-[#cbd5e1] rounded-xl px-3 py-2 bg-white focus:outline-none focus:border-[#1e40af] focus:ring-2 focus:ring-[#1e40af]/20"
+                  />
+                </div>
+                <div>
+                  <label className="text-[11px] font-bold text-[#475569] block mb-1">Security Role *</label>
+                  <select
+                    value={newUserForm.role}
+                    onChange={e => { setNewUserForm(f => ({ ...f, role: e.target.value })); setCreateUserError(null); }}
+                    className="w-full text-xs border border-[#cbd5e1] rounded-xl px-3 py-2 bg-white focus:outline-none focus:border-[#1e40af] focus:ring-2 focus:ring-[#1e40af]/20"
+                  >
+                    <option value="CASHIER">Cashier (POS Checkout)</option>
+                    <option value="STORE_MANAGER">Store Manager</option>
+                    <option value="MANAGER">General Manager</option>
+                    <option value="SALES_EXECUTIVE">Sales Executive</option>
+                    <option value="PURCHASE_EXECUTIVE">Purchase Executive</option>
+                    <option value="INVENTORY_MANAGER">Inventory Manager</option>
+                    <option value="ACCOUNTANT">Accountant</option>
+                    <option value="AUDITOR">Auditor</option>
+                    <option value="HR_EXECUTIVE">HR Executive</option>
+                    <option value="REPORT_USER">Report User</option>
+                    <option value="VIEWER">Viewer</option>
+                    <option value="ADMIN">Company Admin</option>
+                    <option value="SYSADMIN">System Administrator</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="text-[11px] font-bold text-[#475569] block mb-1">Temporary Password *</label>
+                <input
+                  type="password"
+                  required
+                  placeholder="Temporary password"
+                  value={newUserForm.password}
+                  onChange={e => { setNewUserForm(f => ({ ...f, password: e.target.value })); setCreateUserError(null); }}
+                  className="w-full text-xs border border-[#cbd5e1] rounded-xl px-3 py-2 bg-white focus:outline-none focus:border-[#1e40af] focus:ring-2 focus:ring-[#1e40af]/20"
+                />
+                <p className="text-[10px] text-[#64748b] mt-1">
+                  Policy: Minimum 8 characters with 1 uppercase (A-Z), 1 lowercase (a-z), 1 number (0-9), and 1 symbol (!@#$%^&*).
+                </p>
+              </div>
+
+              <div className="flex gap-2 justify-end pt-3 border-t border-[#e2e8f0]">
+                <button
+                  type="button"
+                  onClick={() => { setShowCreateModal(false); setCreateUserError(null); }}
+                  className="px-4 py-2 text-xs font-semibold border border-[#cbd5e1] rounded-xl text-[#475569] hover:bg-[#f8fafc] transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={createUserLoading}
+                  className="px-4 py-2 text-xs font-bold rounded-xl text-white bg-[#1e40af] hover:bg-[#1d4ed8] transition disabled:opacity-50 flex items-center gap-1.5"
+                >
+                  {createUserLoading && <RefreshCw size={12} className="animate-spin" />}
+                  {createUserLoading ? "Creating..." : "Create Account"}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
