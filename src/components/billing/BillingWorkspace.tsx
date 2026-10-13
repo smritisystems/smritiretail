@@ -4,9 +4,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.68.0
+ * Version      : 6.72.8
  * Created      : 2026-09-08
- * Modified     : 2026-10-03
+ * Modified     : 2026-10-13
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Single Consolidated Billing Workspace Component (Phase 2C Step 13)
@@ -45,6 +45,7 @@ import {
   ShoppingBag,
   MoreHorizontal,
 } from "lucide-react";
+import { APP_VERSION } from "../../config/version.ts";
 
 export type BillingWorkspaceMode = "RETAIL_POS";
 export type BillingAuxiliaryView = "WORKSPACE" | "EOD_Z_REPORT" | "SHIFT_REPORTS" | "CREDIT_BILLING";
@@ -161,7 +162,7 @@ export const BillingWorkspace: React.FC<BillingWorkspaceProps> = ({
             <h1 className="text-sm font-bold text-[#00288e] dark:text-[#a8b8ff] tracking-tight flex items-center gap-1.5">
               <span>Billing Workspace</span>
               <span className="text-[10px] px-1.5 py-0.5 bg-[#dde1ff] dark:bg-[#1e40af] text-[#00288e] dark:text-white rounded font-mono">
-                {import.meta.env.VITE_APP_VERSION || "v6.70"}
+                v{APP_VERSION}
               </span>
             </h1>
           </div>
