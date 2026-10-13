@@ -26,6 +26,7 @@ import {
   X,
   Hash,
   Replace,
+  TrendingUp,
 } from "lucide-react";
 import { Product } from "../../types.ts";
 import { ItemCatalogGrid, resolveProductArticle } from "./ItemCatalogGrid.tsx";
@@ -240,6 +241,22 @@ export const ItemMasterWs: React.FC<SmritiItemMasterWorkspaceProps> = ({
               Tools &amp; Catalogs
             </span>
           </div>
+
+          <button
+            type="button"
+            onClick={() => {
+              window.dispatchEvent(
+                new CustomEvent("smriti_navigate_module", {
+                  detail: { moduleId: "price-revision" },
+                })
+              );
+            }}
+            className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-semibold text-[#535f73] dark:text-[#bec6e0] hover:bg-[#e1e8ff] dark:hover:bg-[#1d3054] transition"
+            title="Open Price Revision Studio"
+          >
+            <TrendingUp size={15} className="text-blue-600 dark:text-blue-400" />
+            <span>Price Revision Studio</span>
+          </button>
 
           <button
             type="button"

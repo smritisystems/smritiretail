@@ -40,6 +40,13 @@ class CanonicalPostingContext(BaseModel):
         description="DEPRECATED / NON-AUTHORITATIVE: Ignored for authorization. Negative stock permission is governed authoritatively by server-side SystemParameterService (SMRITI.STOCK.ALLOW_NEGATIVE_STOCK)."
     )
     supervisor_override_code: Optional[str] = Field(None, description="Supervisor authorization code for price/credit override")
+    price_book_code: Optional[str] = Field(None, description="Optional Price Book code applied to transaction")
+    customer_tier_code: Optional[str] = Field(None, description="Optional Customer tier code applied to transaction")
+    posting_date: Optional[datetime] = Field(
+        None,
+        description="Authoritative transaction timestamp for temporal pricing, price book validity, and offline/backdated billing. Defaults to server UTC now if omitted."
+    )
+
 
 
 class CanonicalPostingLineItem(BaseModel):

@@ -47,6 +47,7 @@ const PARENT_OVERRIDES: Record<string, string> = {
   // Inventory sub-modules
   "stock-ledger": "inventory",
   "item-master": "inventory",
+  "price-revision": "inventory",
   "barcode": "inventory",
   "terms-engine": "inventory",
 

@@ -40,7 +40,7 @@ const mapModuleToContext = (moduleId: string): BusinessContext => {
   if (['purchase', 'grn', 'supplier-mgmt', 'vendor-360', 'vendor-master', 'vendors', 'approval-matrix'].includes(moduleId)) {
     return 'purchase';
   }
-  if (['stock-ledger', 'barcode', 'inventory', 'terms-engine'].includes(moduleId)) {
+  if (['stock-ledger', 'barcode', 'inventory', 'terms-engine', 'price-revision'].includes(moduleId)) {
     return 'inventory';
   }
   if (['item-master', 'item-create-grid', 'customer-master', 'masters', 'document-series', 'databridge', 'data-bridge'].includes(moduleId)) {

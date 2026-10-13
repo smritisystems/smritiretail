@@ -32,6 +32,7 @@ describe("SMRITI — Menu Registry & Routing Parity Tests", () => {
     "menu-profiles",
     "menu-inventory",
     "menu-item-master",
+    "menu-price-revision",
     "menu-barcode",
     "menu-stock-ledger",
     "menu-purchase",
@@ -79,6 +80,8 @@ describe("SMRITI — Menu Registry & Routing Parity Tests", () => {
     expect(mapModuleId("menu-profiles")).toBe("profiles");
     expect(mapModuleId("menu-security")).toBe("security-management");
     expect(mapModuleId("menu-grn")).toBe("grn-studio");
+    expect(mapModuleId("menu-price-revision")).toBe("price-revision");
+    expect(mapModuleId("price-revision")).toBe("price-revision");
   });
 
   it("should map modern warehouse and operational modules", () => {

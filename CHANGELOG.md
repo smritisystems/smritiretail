@@ -1,3 +1,147 @@
+## [6.73.4] — 2026-10-13
+
+### Pricing & UX — Price Revision Menu Registry & Connected UX Architecture v6.73.4
+
+End-to-end integration of the SMRITI Price Revision Module across navigation registries and delivery of the live, data-connected Price Revision Studio Workspace:
+
+**Key Changes & Architectural Enforcement:**
+- **Control-Plane Menu Registry Insertion (`smritisys.smriti_menus`):**
+  - Registered `menu-price-revision` under parent `menu-inventory` at sequence `135` with route `'/price-revision'`, module `'Inventory & Purchase'`, and permission `'ITEM.WORKSPACE.ACCESS'`.
+  - Exactly 7 child menus under `menu-inventory` preserved in deterministic sequence (`menu-item-master` at 130, `menu-price-revision` at 135, `menu-barcode` at 140, etc.).
+- **Backend Security Matrix & Fixture Synchronization (`backend/app/core/security_matrix.py`, `backend/tests/conftest.py`):**
+  - Registered `"menu-price-revision"` with resource `"price_revision_studio"` in `CANONICAL_36_MENU_MATRIX`, `CANONICAL_40_MENU_MATRIX`, and `CASHIER_DEFAULT_VIEW_ALLOWLIST`.
+  - Added test seed menu fixture entry in `backend/tests/conftest.py`.
+- **Frontend Navigation & Shell Wiring:**
+  - `src/services/securityStore.ts`: Mapped `"menu-price-revision": "price_revision_studio"`.
+  - `src/layout_engine/layout_store.tsx`: Added `price-revision` under category `'Inventory & Sourcing'`.
+  - `src/components/shell/AppShell.tsx`: Context routing mapped to `'inventory'`.
+  - `src/components/shell/navigationResolver.ts`: Navigation entry added under `'inventory'` and `'masters'`.
+  - `src/navigation/breadcrumb/BreadcrumbRegistry.ts`: Registered `"price-revision": "inventory"` parent override.
+  - `src/components/launchpad/launchpadCatalog.ts`: Added Fiori Launchpad tile with shortcut `F7`.
+  - `src/components/itemMaster/ItemMasterWs.tsx`: Added direct studio launcher in Item Master sidebar under Tools & Catalogs.
+  - `src/components/shell/TabRenderer.tsx`: Wired lazy import, module ID mapping (`menu-price-revision`, `price-revision`, `price_revision`, `price-revisions`, `pricing-revisions`), and tab render case.
+- **Data-Connected Price Revision Studio Workspace (`PriceRevisionStudioWorkspace.tsx`):**
+  - Live KPI counters (Total Revisions, Active, Scheduled, Pending Approval).
+  - Multi-field search, status filters, reason filters, and configurable pagination (15, 25, 50, 100 rows).
+  - High-velocity product resolution via `/api/v1/products/resolve` (exact Barcode/SKU) and `/api/v1/products` (fuzzy).
+  - Real-time margin differential preview and statutory ceiling pre-validation (`Selling Price <= MRP`).
+  - Dual-track activation: Immediate vs. Scheduled with datetime picker.
+  - Approval queue workflow supporting role verification, supervisor PIN prompts, and rejection justification.
+  - One-click trigger for scheduled batch activation (`POST /pricing/revisions/activate-scheduled`).
+  - Bulk CSV/TSV intake parser with client-side syntax pre-validation and row error diagnostics.
+  - Immutable audit trail drawer displaying complete system metadata, approver ID, timestamp, and batch tracking.
+- **Automated Verification & Zero-Defect Standards:**
+  - `npx tsc --noEmit --skipLibCheck`: 0 errors.
+  - `npx vitest run`: 9/9 tests passed (`priceRevisionStudio.test.ts`, `menuRegistryRouting.test.ts`).
+  - `node scripts/validate-launchpad-registry.mjs`: 52/52 tiles valid, 122 render cases verified.
+  - `pytest backend/tests/test_price_revisions.py`: 37/37 tests passed.
+  - Live API verified on port 1981: 190 revisions loaded, 403 on tenant header mismatch, 400 on statutory ceiling violation.
+
+## [6.73.3] — 2026-10-13
+
+### Pricing — Price Revision Production Release Readiness Audit & Deployment Gate v6.73.3
+
+Comprehensive multi-tenant release readiness audit, cluster backup verification, forensic investigation of historical price-book deletions, and deployment safety gating:
+
+**Key Findings & Governance Actions:**
+- **Deployment Topology & Multi-Tenant Registry Mapping:**
+  - Audited running services (`smriti-web:8101`, `smriti-api:1981`, `smriti-db:2781`, `smriti-mssql:1433`).
+  - Identified control-plane database (`smritisys`) and 4 physical tenant databases (`smriti001`, `smriti002`, `smriti003`, `smriti004`) in PostgreSQL cluster.
+- **Timestamped Disaster Recovery Backups (`F:\SMRITRretailNX\backups\pre_release_20261013_205137\`):**
+  - Generated and validated custom-format dumps for all 5 databases: `smritisys` (6.18 MB, 2659 TOC entries), `smriti001` (14.25 MB, 2563 entries), `smriti002` (1.22 MB, 2592 entries), `smriti003` (1.28 MB, 2684 entries), `smriti004` (1.29 MB, 2684 entries). All readable via `pg_restore -l`.
+- **Forensic Investigation of Price-Book Incident:**
+  - Identified ad-hoc execution of `scratch/cleanup.py` at `2026-10-13 13:38:19 UTC` (`DELETE FROM price_books WHERE id LIKE 'pb_%'`), which wiped all 212 canonical price books in tenant `smriti001`.
+  - Discovered that `smriti001` currently holds only 12 synthetic test price books, missing its canonical default price book `pb_cd3f422761ef` (`DEFAULT-COMP-001`).
+- **Baseline Data & Historical Ledger Integrity:**
+  - Verified 2,536 sales invoices, 16,724 sales invoice line items, and 9,265 stock movements in `smriti001` remain 100% intact with zero historical mutations.
+- **Multi-Tenant Migration Status:**
+  - `smritisys` and `smriti001` are at Alembic revision `v1531`. Tenants `smriti002`–`smriti004` remain at `v1529`. Foreign-key dependencies validated across all schemas.
+- **Phase 4 Deployment Gate Decision:**
+  - **BLOCKED / ON HOLD:** Production release and live mutations halted. Canonical price books in `smriti001` must be restored from `smriti001_dr_backup.dump` upon explicit user authorization.
+
+## [6.73.2] — 2026-10-13
+
+### Pricing & Security — Price Revision Tenant Trust-Boundary Audit & Remediation v6.73.2
+
+Independent security audit and targeted remediation of Price Revision tenant trust boundaries and test isolation:
+
+**Key Changes & Architectural Enforcement:**
+- **Authoritative Server-Side Tenant Boundary (`backend/app/api/v1/pricing.py`):**
+  - Removed client-supplied `req.company_id` fallbacks (`effective_cid = company_id or req.company_id`).
+  - Hardened `_extract_user_info` and `_extract_user_and_role` to fail closed: raises HTTP 403 `SMRITI-PRICE-TENANT-REQUIRED` if token lacks trusted company context.
+  - Implemented `_validate_tenant_scope`: validates that if `req.company_id` is supplied, it strictly matches `auth_company_id`; otherwise rejects immediately with HTTP 403 `SMRITI-PRICE-TENANT-MISMATCH`.
+  - Added `except HTTPException: raise` to all endpoint handlers preventing FastAPI 403 responses from being caught as generic 500 errors.
+  - Scoped `list_price_books` and `list_customer_tiers` to `company_id == auth_company_id` and `is_deleted == False`.
+- **Pricing Engine Strict Boundary Enforcement (`backend/app/services/pricing_engine.py`):**
+  - In `calculate_bulk_pricing`, removed fallback to `req.company_id`. Enforced that client-supplied `req.company_id` must match server-side `resolved_cid`, raising `SMRITI-PRICE-TENANT-MISMATCH` if mismatched, and `SMRITI-PRICE-TENANT-REQUIRED` if tenant context is missing.
+- **Unconditional Test Database Isolation Guard (`backend/app/db/session.py`):**
+  - Updated `get_company_async_engine` during `_is_testing()` to unconditionally require databases matching `^smriti_test_[a-z0-9_]+$`.
+  - Removed `ALLOW_SHARED_TEST_DB` override flag. Blocked all non-isolated and shared databases (`smriti001`, `smritisys`, etc.).
+  - Added post-creation engine URL database verification on `company_eng.url.database`.
+- **Automated Verification & Regression Suite (`backend/tests/test_price_revisions.py`):**
+  - Added Section 30 with 4 end-to-end API regression tests via HTTPX `AsyncClient`:
+    1. Missing authenticated company with client-supplied company ID -> HTTP 403 `SMRITI-PRICE-TENANT-REQUIRED`.
+    2. Authenticated Company A attempting Company B in payload across `/resolve`, `/resolve/bulk`, `/snapshot` -> HTTP 403 `SMRITI-PRICE-TENANT-MISMATCH`.
+    3. Valid Company A pricing via API -> HTTP 200 OK.
+    4. Price Book, Customer Tier, and variant-level pricing resolved through REST API endpoints -> HTTP 200 OK with correct volume breaks and tier discounts.
+  - Full suite: 37/37 Pytest tests green (100% pass against `smriti_test_price_revisions`).
+  - Frontend: 73/73 Vitest pricing tests green, 0 `tsc --noEmit` errors.
+  - Shared DB Zero-Mutation Verification: 0 modifications to `smriti001` and `smritisys`.
+  - Production status: **HOLD** pending independent review.
+
+## [6.73.1] — 2026-10-13
+
+### Pricing & Billing — Price Revision Architecture Corrective Hardening & P0 Security Resolution v6.73.1
+
+Executed comprehensive corrective architecture hardening and P0 security remediations for MRP, Selling Price, and Cost Price revisions to resolve all audit findings and institute strict multi-tenant architectural safeguards:
+
+**Key Changes & Architectural Safeguards:**
+- **Phase 7A — Schema Hardening (`backend/alembic/versions/v1531_harden_item_price_revisions_fk.py`):**
+  - Hardened foreign key constraints `fk_ipr_item` and `fk_ipr_variant` in `item_price_revisions` from `ON DELETE CASCADE` to `ON DELETE RESTRICT`.
+  - Updated ORM model `ItemPriceRevision` in `backend/app/models/pricing.py` with `ondelete="RESTRICT"`.
+  - Verified across PostgreSQL `smriti001` (tenant) and `smritisys` (control plane). Catalog item deletions can never silently purge historical price revisions.
+- **Phase 7B — Unified Fail-Closed Billing Resolution (`backend/app/services/headless_billing.py`):**
+  - Standardized `HeadlessBillingCore` to route transaction line rates strictly through `PricingEngine.calculate_effective_price` as the single authoritative resolver.
+  - Fail-closed checkout: blocks checkout with `SMRITI-PRICE-RESOLVE-FAILED` if authoritative pricing resolution fails or returns missing price/MRP.
+  - Enforced statutory ceiling (`rate <= auth_mrp`), rate deviation check against authoritative effective rate, and mandatory supervisor PIN override (`SMRITI-PRICE-OVERRIDE-REQ`) for cashier price alterations while preserving approved fee and free lines.
+- **Phase 7C — Parameter-Driven Approval Policies & Segregation of Duties (`backend/app/services/price_revision_service.py`):**
+  - Integrated ADR-042 dual-key `SystemParameterService` in `get_approval_policy()` to resolve dynamic price change thresholds (`SMRITI.PRICE.APPROVAL.THRESHOLD_INCREASE_PCT`, `SMRITI.PRICE.APPROVAL.THRESHOLD_DECREASE_PCT`) and authorized roles (`SMRITI.PRICE.APPROVAL.ROLES`) with safe fallback to class defaults.
+  - Enforced segregation of duties in `approve_revision`: non-administrative creators (e.g. store managers) cannot self-approve their own revisions (`SMRITI-PERM-002`).
+- **Phase 7D — Concurrency-Safe Scheduled Activation (`backend/app/services/outbox_worker.py` & `price_revision_service.py`):**
+  - Added row-level pessimistic locking via `with_for_update(skip_locked=True)` in `activate_scheduled_revisions` to eliminate worker race conditions and duplicate executions.
+  - Integrated automated periodic activation into `OutboxQueueWorker.run_worker_cycle` across all active tenant schemas with zero manual API call dependency.
+- **Phase 7E — Offline POS Temporal Interval Resolution (`src/sync/ProPosMasterCatalogCache.ts`):**
+  - Extended offline catalog cache with temporal revisions array (`CachedPriceRevision[]`) and interval evaluation (`effective_from <= txTime < effective_to`).
+  - Added statutory ceiling clamping (`price <= mrp`), cache staleness detection (> 24 hours), and offline fallback policy.
+- **P0 Pricing Security & Database Governance Blockers Resolved:**
+  - **Blocker 1 — Fail-Closed Tenant Isolation (`backend/app/services/pricing_engine.py`):** Authoritative server-side `company_id` resolution. Fails closed with structured `SMRITI-PRICE-TENANT-REQUIRED` if company identity is required but unavailable. Enforced strict company consistency across items, variants, and tenants (`SMRITI-PRICE-TENANT-MISMATCH`, `SMRITI-PRICE-VARIANT-MISMATCH`). Guaranteed Price Books, Customer Tiers, and volume breaks are strictly scoped to `resolved_company_id`. Added 5 regression tests for all missing company and cross-company attack vectors.
+  - **Blocker 2 — Isolated Dedicated Test Database (`backend/tests/test_price_revisions.py` & `backend/app/db/session.py`):** Eliminated all hardcoded `get_company_sessionmaker("smriti001")` dependencies. Configured dedicated test database `smriti_test_price_revisions` (PostgreSQL port 2781, 253 tables). Added runtime safety abort guard in `session.py` preventing automated tests from targeting shared/live databases (`smriti001`, `smritisys`). Measured 0 mutations against `smriti001` before and after test execution.
+- **Automated Verification:**
+  - `backend/tests/test_price_revisions.py`: 33/33 passed (100% green against dedicated test database `smriti_test_price_revisions`).
+  - `src/tests/proposCatalogCache.test.ts`: 5/5 Vitest passed (100% green).
+  - `npx tsc --noEmit --skipLibCheck`: 0 compilation errors.
+  - Python py_compile: 0 syntax errors across all touched files.
+
+## [6.73.0] — 2026-10-13
+
+### Pricing & Catalog — MRP & Selling Price Revision Architecture v6.73.0
+
+Delivered an immutable, auditable, temporal price revision architecture that tracks MRP, Selling Price, and Cost Price revisions across catalog, billing, and API surfaces with exact timezone-aware effective timestamps.
+
+**Key Changes & Architectural Enforcement:**
+- **Immutable Temporal Schema (`backend/app/models/pricing.py`):** Added `ItemPriceRevision` ORM entity with foreign keys, composite indices (`ix_item_price_rev_temporal`, `ix_item_price_rev_status`), and database-level check constraints enforcing statutory ceiling `revised_selling_price <= revised_mrp`, non-negative prices, and status transitions.
+- **Alembic Migration (`backend/alembic/versions/v1530_item_price_revisions.py`):** Created and verified migration across both tenant database `smriti001` and control plane `smritisys` on PostgreSQL port 2781.
+- **Centralized Revision Domain Service (`backend/app/services/price_revision_service.py`):** Single authoritative revision pipeline orchestrating manual edits, supervisor approvals, bulk CSV intake, and state transitions (`DRAFT`, `PENDING_APPROVAL`, `APPROVED`, `REJECTED`, `SCHEDULED`, `ACTIVE`, `SUPERSEDED`, `EXPIRED`). Implemented auto-approval for changes under 10% delta or sysadmins, supervisor PIN override support, and duplicate timestamp conflict prevention (`SMRITI-PRICE-007`).
+- **Temporal Pricing Engine Integration (`backend/app/services/pricing_engine.py`):** Upgraded `PricingEngine.calculate_effective_price` with temporal query resolution, ensuring future revisions remain scheduled and past dates can be accurately reconstructed.
+- **POS & Billing Protection (`backend/app/services/headless_billing.py`):** Upgraded `HeadlessBillingCore` to query authoritative backend rates and block unauthorized cashier price tampering without supervisor PIN override (`SMRITI-PRICE-008`).
+- **Offline Client Synchronization (`src/sync/ProPosMasterCatalogCache.ts`):** Added `resolveEffectiveProductPrice` to ProPos offline cache to resolve temporal prices accurately by transaction timestamp.
+- **Price Revision Studio UI (`src/components/pricing/PriceRevisionStudioModal.tsx`):** Engineered comprehensive visual studio modal featuring single item revisions, old vs new margin comparisons, effective date/time scheduling, reason tracking, approval queue review, revision audit timeline, and bulk CSV ingestion preview. Wired launch trigger in `PricingStudioModal.tsx`.
+- **Submitted Invoice Immutability:** Enforced and verified that historical sales invoice snapshots remain 100% immutable upon item price updates.
+- **Automated Test Certification:**
+  - `backend/tests/test_price_revisions.py`: 10/10 tests passed (100% green).
+  - `npx tsc --noEmit --skipLibCheck`: 0 compilation errors.
+  - Python py_compile: 0 syntax errors.
+
 ## [6.72.9] — 2026-10-13
 
 ### Inventory & WMS — Warehouse Location Management Standardization & Non-Technical Usability Transformation v6.72.9

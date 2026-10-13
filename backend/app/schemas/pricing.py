@@ -136,6 +136,7 @@ class PricingResolutionRequest(BaseModel):
     customer_tier_code: Optional[str] = None
     channel: Optional[str] = None
     as_of_date: Optional[datetime] = None
+    company_id: Optional[str] = None
 
 
 class PricingResolutionResponse(BaseModel):
@@ -149,7 +150,7 @@ class PricingResolutionResponse(BaseModel):
     applied_price_book: Optional[str] = None
     applied_tier: Optional[str] = None
     discount_percentage: float
-    pricing_source: str = Field(..., description="PRICE_BOOK_VOLUME, CUSTOMER_TIER, VARIANT_MASTER, ITEM_MASTER, PRODUCT_MASTER")
+    pricing_source: str = Field(..., description="PRICE_BOOK_VOLUME, CUSTOMER_TIER, VARIANT_MASTER, ITEM_MASTER, PRODUCT_MASTER, PRICE_REVISION_HISTORY")
     rule_version: int = 1
 
 
@@ -166,6 +167,7 @@ class BulkPricingRequest(BaseModel):
     customer_tier_code: Optional[str] = None
     channel: Optional[str] = None
     as_of_date: Optional[datetime] = None
+    company_id: Optional[str] = None
 
 
 class BulkPricingResponse(BaseModel):
@@ -186,3 +188,91 @@ class PricingSnapshot(BaseModel):
     lines: List[PricingResolutionResponse]
     total_subtotal: float
     total_savings: float
+
+
+# ============================================================================
+# TEMPORAL PRICE REVISION SCHEMAS
+# ============================================================================
+
+class PriceRevisionCreateRequest(BaseModel):
+    item_id: Optional[str] = None
+    variant_id: str = Field(..., description="Target ItemVariant ID")
+    price_book_id: Optional[str] = Field(None, description="Target PriceBook ID (or default if null)")
+    revised_mrp: float = Field(..., ge=0.0, description="New Maximum Retail Price ceiling")
+    revised_selling_price: float = Field(..., ge=0.0, description="New Commercial Selling Price")
+    revised_cost_price: Optional[float] = Field(None, ge=0.0, description="New Inward Cost Price")
+    effective_from: Optional[datetime] = Field(None, description="Timestamp when revision activates (UTC)")
+    effective_to: Optional[datetime] = Field(None, description="Timestamp when revision expires (optional)")
+    reason_code: str = Field("MANUAL_REVISION", description="Reason classification code")
+    justification: Optional[str] = Field(None, description="Business justification notes")
+    auto_approve_if_eligible: bool = Field(True, description="Attempt auto-approval if within policy thresholds")
+
+
+class PriceRevisionResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    company_id: str
+    branch_id: Optional[str] = None
+    item_id: str
+    variant_id: str
+    item_code: Optional[str] = None
+    variant_sku: Optional[str] = None
+    item_name: Optional[str] = None
+    price_book_id: Optional[str] = None
+    price_book_code: Optional[str] = None
+    currency: str = "INR"
+    previous_mrp: float
+    revised_mrp: float
+    previous_selling_price: float
+    revised_selling_price: float
+    previous_cost_price: Optional[float] = None
+    revised_cost_price: Optional[float] = None
+    margin_pct: Optional[float] = None
+    effective_from: datetime
+    effective_to: Optional[datetime] = None
+    status: str
+    reason_code: str
+    justification: Optional[str] = None
+    approval_required: bool = False
+    approval_request_id: Optional[str] = None
+    approved_by: Optional[str] = None
+    approved_at: Optional[datetime] = None
+    rejection_reason: Optional[str] = None
+    source: str = "MANUAL"
+    batch_id: Optional[str] = None
+    created_by: Optional[str] = None
+    created_at: Optional[datetime] = None
+
+
+class PriceRevisionApprovalDecision(BaseModel):
+    action: str = Field(..., description="APPROVE or REJECT")
+    rejection_reason: Optional[str] = Field(None, description="Mandatory when action is REJECT")
+    supervisor_pin: Optional[str] = Field(None, description="Supervisor auth credential / PIN")
+
+
+class PriceRevisionBulkItem(BaseModel):
+    sku_or_barcode: str
+    revised_mrp: float = Field(..., ge=0.0)
+    revised_selling_price: float = Field(..., ge=0.0)
+    revised_cost_price: Optional[float] = Field(None, ge=0.0)
+    effective_from: Optional[datetime] = None
+    effective_to: Optional[datetime] = None
+    reason_code: Optional[str] = "BULK_IMPORT"
+    justification: Optional[str] = None
+
+
+class PriceRevisionBulkRequest(BaseModel):
+    price_book_id: Optional[str] = None
+    batch_id: Optional[str] = None
+    items: List[PriceRevisionBulkItem]
+
+
+class PriceRevisionBulkResponse(BaseModel):
+    batch_id: str
+    total_rows: int
+    approved_count: int
+    pending_count: int
+    error_count: int
+    errors: List[Dict[str, Any]]
+    revisions: List[PriceRevisionResponse]

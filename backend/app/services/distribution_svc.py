@@ -278,7 +278,8 @@ class DistributionService:
                 item_id=item_id,
                 variant_id=variant_id,
                 quantity=qty,
-                price_book_code=price_book_code
+                price_book_code=price_book_code,
+                company_id=company_id,
             )
 
             unit_price = Decimal(str(pricing_res["effective_unit_price"]))

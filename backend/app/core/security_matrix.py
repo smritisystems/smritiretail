@@ -46,6 +46,7 @@ CANONICAL_36_MENU_MATRIX: Dict[str, Dict[str, Any]] = {
     # 4. Inventory & Purchase (Parent: menu-inventory)
     "menu-inventory": {"resource": "inventory_workspace", "view_perm": "INVENTORY.WORKSPACE.ACCESS", "parent_id": None},
     "menu-item-master": {"resource": "item_master", "view_perm": "ITEM.WORKSPACE.ACCESS", "parent_id": "menu-inventory"},
+    "menu-price-revision": {"resource": "price_revision_studio", "view_perm": "ITEM.WORKSPACE.ACCESS", "parent_id": "menu-inventory"},
     "menu-barcode": {"resource": "barcode_studio", "view_perm": "BARCODE.WORKSPACE.ACCESS", "parent_id": "menu-inventory"},
     "menu-stock-ledger": {"resource": "stock_ledger", "view_perm": "STOCK.WORKSPACE.ACCESS", "parent_id": "menu-inventory"},
     "menu-purchase": {"resource": "purchase_studio", "view_perm": "PURCHASE.WORKSPACE.ACCESS", "parent_id": "menu-inventory"},
@@ -83,11 +84,12 @@ CANONICAL_36_MENU_MATRIX: Dict[str, Dict[str, Any]] = {
 # Backward-compatible import names for callers referencing earlier contract sizes.
 CANONICAL_34_MENU_MATRIX = CANONICAL_36_MENU_MATRIX
 CANONICAL_39_MENU_MATRIX = CANONICAL_36_MENU_MATRIX
+CANONICAL_40_MENU_MATRIX = CANONICAL_36_MENU_MATRIX
 
 # Standard operational modules allowed by default for Cashier / Store User
 CASHIER_DEFAULT_VIEW_ALLOWLIST: Set[str] = {
     "dashboard", "pos_workspace", "sales_billing", "customer_master", "item_master",
-    "user_profile", "wiki_docs", "about_smriti", "promotions_studio"
+    "user_profile", "wiki_docs", "about_smriti", "promotions_studio", "price_revision_studio"
 }
 
 

@@ -177,6 +177,7 @@ export function resolveNavigation(query: NavigationQuery): ResolvedNavigation {
           LAUNCHPAD_ITEM,
           { id: 'stock-ledger', title: 'Stock Ledger', icon: 'warehouse', isNextBestAction: true },
           { id: 'item-master', title: 'Item Master Catalog', icon: 'inventory_2' },
+          { id: 'price-revision', title: 'Price Revision Studio', icon: 'trending_up' },
           { id: 'barcode', title: 'PRN Label Designer', icon: 'barcode_reader' },
           { id: 'terms-engine', title: 'Stock Policy Engine', icon: 'gavel' },
           { id: 'reports', title: 'Valuation & Aging', icon: 'analytics' },
@@ -197,6 +198,7 @@ export function resolveNavigation(query: NavigationQuery): ResolvedNavigation {
         items: [
           LAUNCHPAD_ITEM,
           { id: 'item-master', title: 'Item Master (Browse)', icon: 'inventory_2' },
+          { id: 'price-revision', title: 'Price Revision Studio', icon: 'trending_up' },
           { id: 'item-create-grid', title: 'Create Items (Excel Grid)', icon: 'grid_on' },
           { id: 'databridge', title: 'SMRITI DataBridge', icon: 'dataset', isNextBestAction: true },
           { id: 'sales-promotions', title: 'Promotions Studio', icon: 'percent' },

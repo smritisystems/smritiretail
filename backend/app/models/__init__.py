@@ -128,6 +128,7 @@ from .pricing import (
     CustomerPriceTier,
     CustomerPriceAssignment,
     SalesFactor,
+    ItemPriceRevision,
 )
 from .payment_ledger import (
     PaymentTransaction,

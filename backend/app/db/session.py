@@ -147,7 +147,10 @@ def validate_company_database_name(database_name: str) -> bool:
     clean_name = str(database_name).strip().lower()
     if clean_name == "smritisys":
         return False
-    return bool(re.fullmatch(r"smriti(?!000$|sys$)[a-z0-9]{3,12}", clean_name))
+    return bool(
+        re.fullmatch(r"smriti(?!000$|sys$)[a-z0-9]{3,12}", clean_name)
+        or (_is_testing() and re.fullmatch(r"smriti_test_[a-z0-9_]+", clean_name))
+    )
 
 
 def get_company_async_engine(database_name: str, host: str = "localhost", port: int = 5432) -> AsyncEngine:
@@ -160,15 +163,28 @@ def get_company_async_engine(database_name: str, host: str = "localhost", port: 
     if not db_clean:
         raise ValueError("Database name is required.")
 
+    # Safety guard: prevent automated test execution against shared/live databases.
+    # Unconditional test isolation: automated tests cannot target shared company databases or smritisys.
+    # No override flags are permitted.
+    if _is_testing():
+        if not re.match(r"^smriti_test_[a-z0-9_]+$", db_clean):
+            raise RuntimeError(
+                f"TEST SAFETY VIOLATION: Execution blocked. Automated tests cannot target non-isolated or shared database '{db_clean}'. Test databases must strictly match pattern 'smriti_test_*'."
+            )
+
     if db_clean in _company_engines:
         return _company_engines[db_clean]
 
     if db_clean != "smritisys":
-        pattern = r"^smriti(?!000)(?!sys)[a-z0-9]{3}$"
-        if not re.match(pattern, db_clean):
-            raise ValueError(f"Invalid or unauthorized company database name: '{database_name}'")
-        if not _verify_database_is_registered(db_clean):
-            raise ValueError(f"Database '{database_name}' is not registered or not in READY status in Control Plane.")
+        if _is_testing() and re.match(r"^smriti_test_[a-z0-9_]+$", db_clean):
+            # Dedicated isolated test database path during testing
+            _verified_company_databases.add(db_clean)
+        else:
+            pattern = r"^smriti(?!000)(?!sys)[a-z0-9]{3}$"
+            if not re.match(pattern, db_clean):
+                raise ValueError(f"Invalid or unauthorized company database name: '{database_name}'")
+            if not _verify_database_is_registered(db_clean):
+                raise ValueError(f"Database '{database_name}' is not registered or not in READY status in Control Plane.")
 
     parsed_url = urlparse(settings.DATABASE_URL)
     user = parsed_url.username
@@ -194,6 +210,13 @@ def get_company_async_engine(database_name: str, host: str = "localhost", port: 
         company_db_url,
         **_comp_engine_kwargs
     )
+
+    if _is_testing():
+        actual_target_db = str(company_eng.url.database or "").lower()
+        if not re.match(r"^smriti_test_[a-z0-9_]+$", actual_target_db):
+            raise RuntimeError(
+                f"TEST SAFETY VIOLATION: Effective connection target '{actual_target_db}' does not match isolated test database pattern 'smriti_test_*'."
+            )
 
     _company_engines[db_clean] = company_eng
     _company_sessionmakers[db_clean] = async_sessionmaker(
