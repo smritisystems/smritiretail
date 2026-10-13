@@ -42,6 +42,7 @@ import {
   Package,
 } from "lucide-react";
 import { apiFetchV1 } from "../../lib/apiFetchV1";
+import { BulkPriceRevisionWorkflow } from "./BulkPriceRevisionWorkflow";
 
 export interface PriceRevisionRecord {
   id: string;
@@ -104,7 +105,7 @@ export const PriceRevisionStudioWorkspace: React.FC<PriceRevisionStudioWorkspace
   onNotification,
   onNavigateTab,
 }) => {
-  const [activeTab, setActiveTab] = useState<"TIMELINE" | "NEW" | "APPROVALS" | "BULK">("TIMELINE");
+  const [activeTab, setActiveTab] = useState<"TIMELINE" | "NEW" | "APPROVALS" | "BULK">("BULK");
   const [loading, setLoading] = useState<boolean>(false);
   const [revisions, setRevisions] = useState<PriceRevisionRecord[]>([]);
 
@@ -1288,111 +1289,18 @@ export const PriceRevisionStudioWorkspace: React.FC<PriceRevisionStudioWorkspace
         )}
 
         {/* ═══════════════════════════════════════════════════════════════════════
-            TAB 4: BULK CSV/TSV IMPORT & PRE-VALIDATION
+            TAB 4: BULK PRICE REVISION STUDIO (4-STEP WORKFLOW)
            ═══════════════════════════════════════════════════════════════════════ */}
         {activeTab === "BULK" && (
-          <div className="space-y-4 max-w-4xl mx-auto">
-            <div className="p-5 bg-white dark:bg-[#0f172a] rounded-2xl border border-slate-200 dark:border-slate-800 space-y-3 shadow-xs">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h4 className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                    <Upload className="w-4 h-4 text-blue-500" />
-                    Paste CSV or TSV Data for Bulk Price Revisions
-                  </h4>
-                  <p className="text-[11px] text-slate-500">
-                    Header: <code className="text-blue-600 font-mono">sku_or_barcode, revised_mrp, revised_selling_price, revised_cost_price, effective_from, reason_code</code>
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={handleParseBulkCsv}
-                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-xl shadow-xs"
-                >
-                  Validate &amp; Preview
-                </button>
-              </div>
-
-              <textarea
-                value={bulkCsvText}
-                onChange={(e) => setBulkCsvText(e.target.value)}
-                placeholder={`SKU-1001, 500.00, 450.00, 300.00, 2026-11-01T00:00:00Z, SEASONAL_DISCOUNT\nSKU-1002, 1200.00, 999.00, 750.00, , MANUAL_REVISION`}
-                rows={6}
-                className="w-full p-3 font-mono text-xs bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-
-            {/* Validation Errors */}
-            {bulkErrors.length > 0 && (
-              <div className="p-4 bg-rose-50 dark:bg-rose-950/40 border border-rose-300 dark:border-rose-800 rounded-xl text-rose-700 dark:text-rose-300 text-xs space-y-1">
-                <div className="font-bold flex items-center gap-1.5">
-                  <AlertTriangle className="w-4 h-4 text-rose-600" />
-                  Statutory Pre-Validation Errors ({bulkErrors.length})
-                </div>
-                <ul className="list-disc pl-5 space-y-0.5 text-[11px]">
-                  {bulkErrors.map((err, i) => (
-                    <li key={i}>{err}</li>
-                  ))}
-                </ul>
-              </div>
-            )}
-
-            {/* Parsed Preview Table */}
-            {bulkParsedRows.length > 0 && (
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="text-xs font-bold text-slate-900 dark:text-white">
-                    Parsed Rows Preview ({bulkParsedRows.length} items ready)
-                  </div>
-                  <button
-                    type="button"
-                    onClick={handleExecuteBulk}
-                    disabled={isProcessingBulk || bulkErrors.length > 0}
-                    className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-bold text-xs rounded-xl shadow-lg transition-all"
-                  >
-                    {isProcessingBulk ? "Processing..." : "Execute Bulk Revision"}
-                  </button>
-                </div>
-
-                <div className="bg-white dark:bg-[#0f172a] border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden max-h-72 overflow-y-auto">
-                  <table className="w-full text-left text-xs">
-                    <thead className="bg-slate-50 dark:bg-slate-900 text-slate-600 dark:text-slate-400 font-semibold border-b border-slate-200 dark:border-slate-800">
-                      <tr>
-                        <th className="p-2.5">Identifier</th>
-                        <th className="p-2.5">Revised MRP</th>
-                        <th className="p-2.5">Revised SP</th>
-                        <th className="p-2.5">Revised CP</th>
-                        <th className="p-2.5">Effective Date</th>
-                        <th className="p-2.5">Reason</th>
-                        <th className="p-2.5">Status</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-200 dark:divide-slate-800 font-mono text-[11px]">
-                      {bulkParsedRows.map((row, idx) => (
-                        <tr key={idx}>
-                          <td className="p-2.5 font-bold text-slate-900 dark:text-white">{row.sku_or_barcode}</td>
-                          <td className="p-2.5 text-slate-600 dark:text-slate-400">{fmt(row.revised_mrp)}</td>
-                          <td className="p-2.5 font-semibold text-blue-600 dark:text-blue-400">{fmt(row.revised_selling_price)}</td>
-                          <td className="p-2.5 text-slate-500">{fmt(row.revised_cost_price)}</td>
-                          <td className="p-2.5 text-slate-500">{row.effective_from || "Immediate (Now)"}</td>
-                          <td className="p-2.5 font-sans text-slate-600 dark:text-slate-400">{row.reason_code}</td>
-                          <td className="p-2.5 font-sans">
-                            {row.is_valid ? (
-                              <span className="text-emerald-600 font-bold flex items-center gap-1">
-                                <Check className="w-3.5 h-3.5" /> Valid
-                              </span>
-                            ) : (
-                              <span className="text-rose-600 font-bold flex items-center gap-1">
-                                <X className="w-3.5 h-3.5" /> Invalid
-                              </span>
-                            )}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
+          <div className="-m-6 h-[calc(100vh-180px)] min-h-[700px]">
+            <BulkPriceRevisionWorkflow
+              currentUser={currentUser}
+              onNotification={onNotification}
+              onSuccessSubmit={() => {
+                fetchRevisions();
+                setActiveTab("TIMELINE");
+              }}
+            />
           </div>
         )}
 

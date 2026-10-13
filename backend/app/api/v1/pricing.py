@@ -4,9 +4,9 @@ Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
-Version      : 6.16.0
+Version      : 6.16.3
 Created      : 2026-08-25
-Modified     : 2026-08-25
+Modified     : 2026-10-13
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 Classification: Internal
@@ -46,6 +46,8 @@ from ...schemas.pricing import (
     PriceRevisionApprovalDecision,
     PriceRevisionBulkRequest,
     PriceRevisionBulkResponse,
+    BulkItemFilterRequest,
+    BulkItemFilterResponse,
 )
 from ...schemas.sales_factor import (
     SalesFactorDTO,
@@ -634,6 +636,10 @@ def _to_revision_response(rev: ItemPriceRevision) -> PriceRevisionResponse:
     if loaded_price_book:
         price_book_code = getattr(loaded_price_book, "code", None)
 
+    meta = rev.__dict__.get("metadata_json") or getattr(rev, "metadata_json", {}) or {}
+    prev_dp = float(meta["previous_distributor_price"]) if "previous_distributor_price" in meta and meta["previous_distributor_price"] is not None else None
+    rev_dp = float(meta["revised_distributor_price"]) if "revised_distributor_price" in meta and meta["revised_distributor_price"] is not None else None
+
     return PriceRevisionResponse(
         id=rev.id,
         company_id=rev.company_id,
@@ -650,6 +656,8 @@ def _to_revision_response(rev: ItemPriceRevision) -> PriceRevisionResponse:
         revised_mrp=float(rev.revised_mrp),
         previous_selling_price=float(rev.previous_selling_price),
         revised_selling_price=float(rev.revised_selling_price),
+        previous_distributor_price=prev_dp,
+        revised_distributor_price=rev_dp,
         previous_cost_price=float(rev.previous_cost_price) if rev.previous_cost_price is not None else None,
         revised_cost_price=float(rev.revised_cost_price) if rev.revised_cost_price is not None else None,
         margin_pct=margin_pct,
@@ -738,6 +746,70 @@ async def list_price_revisions(
     stmt = stmt.order_by(ItemPriceRevision.created_at.desc()).limit(limit).offset(offset)
     revisions = (await db.execute(stmt)).scalars().all()
     return [_to_revision_response(r) for r in revisions]
+
+
+@router.post("/revisions/filter-items", response_model=BulkItemFilterResponse, summary="Filter Catalog Items for Bulk Price Revision")
+async def filter_bulk_items_endpoint(
+    req: BulkItemFilterRequest,
+    db: AsyncSession = Depends(get_company_db),
+    current_user: Any = Depends(get_current_user),
+):
+    """
+    Tenant-scoped query for candidate items and variants in Bulk Price Revision Studio.
+    Supports filtering by Style Code, Article No, Brand, Category, Supplier, Color, Size, Status.
+    """
+    try:
+        company_id, _, _ = _extract_user_and_role(current_user)
+        return await PriceRevisionService.filter_bulk_items(session=db, company_id=company_id, req=req)
+    except HTTPException:
+        raise
+    except Exception as e:
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/revisions/filter-items", response_model=BulkItemFilterResponse, summary="Filter Catalog Items for Bulk Price Revision (Query)")
+async def filter_bulk_items_get_endpoint(
+    style_code: Optional[str] = Query(None),
+    article_no: Optional[str] = Query(None),
+    brand: Optional[str] = Query(None),
+    category: Optional[str] = Query(None),
+    color: Optional[str] = Query(None),
+    size: Optional[str] = Query(None),
+    supplier_code: Optional[str] = Query(None),
+    status: Optional[str] = Query("ACTIVE"),
+    query: Optional[str] = Query(None),
+    search: Optional[str] = Query(None),
+    limit: int = Query(50, ge=1, le=500),
+    offset: int = Query(0, ge=0),
+    db: AsyncSession = Depends(get_company_db),
+    current_user: Any = Depends(get_current_user),
+):
+    """
+    GET endpoint for candidate items and variants filtering in Bulk Price Revision Studio.
+    """
+    try:
+        company_id, _, _ = _extract_user_and_role(current_user)
+        resolved_q = query or search
+        req = BulkItemFilterRequest(
+            style_code=style_code,
+            article_no=article_no,
+            brand=brand,
+            category=category,
+            color=color,
+            size=size,
+            supplier_code=supplier_code,
+            status=status,
+            query=resolved_q,
+            limit=limit,
+            offset=offset,
+        )
+        return await PriceRevisionService.filter_bulk_items(session=db, company_id=company_id, req=req)
+    except HTTPException:
+        raise
+    except Exception as e:
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.get("/revisions/{revision_id}", response_model=PriceRevisionResponse, summary="Get Price Revision Detail")
@@ -870,5 +942,6 @@ async def activate_scheduled_price_revisions(
     except Exception as e:
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
+
 
 
