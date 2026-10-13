@@ -13,6 +13,7 @@ Classification: Internal
 """
 
 import uuid
+from datetime import datetime, timezone
 from typing import List, Optional, Any
 from decimal import Decimal
 from fastapi import APIRouter, Depends, HTTPException, Query, Header
@@ -29,6 +30,7 @@ from ...models.inventory import Warehouse, WarehouseLocation, ProductBatchStock,
 from ...schemas.wms import (
     WarehouseCreate, WarehouseUpdate, WarehouseResponse,
     WarehouseLocationCreate, WarehouseLocationResponse,
+    WarehouseLocationUpdate, WarehouseLocationMatrixGenerateRequest, WarehouseLocationMatrixGenerateResponse,
     ProductBatchStockResponse, BatchAllocationRequest, BatchAllocationItem,
     StockTransferCreate, StockTransferResponse, StockTransferReceiptRequest,
     StockAuditCreate, StockAuditResponse, StockAuditItemResponse,
@@ -45,15 +47,25 @@ router = APIRouter()
 
 @router.get("/locations", response_model=List[WarehouseLocationResponse])
 async def list_all_warehouse_locations(
+    warehouse_id: Optional[str] = Query(None),
+    zone: Optional[str] = Query(None),
+    include_inactive: bool = Query(False),
     db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
 ):
-    """List active locations across the active company for governed selectors."""
+    """List locations across the active company with optional warehouse and zone filtering."""
     q = select(WarehouseLocation).where(
         WarehouseLocation.company_id == tenant_ctx.company_id,
         WarehouseLocation.is_deleted == False,
-        WarehouseLocation.is_active == True,
-    ).order_by(WarehouseLocation.warehouse_id.asc(), WarehouseLocation.code.asc())
+    )
+    if not include_inactive:
+        q = q.where(WarehouseLocation.is_active == True)
+    if warehouse_id:
+        q = q.where(WarehouseLocation.warehouse_id == warehouse_id)
+    if zone:
+        q = q.where(WarehouseLocation.zone == zone.upper())
+
+    q = q.order_by(WarehouseLocation.warehouse_id.asc(), WarehouseLocation.code.asc())
     result = await db.execute(q)
     return [WarehouseLocationResponse.model_validate(location) for location in result.scalars().all()]
 
@@ -97,18 +109,206 @@ async def create_warehouse_location(
     ))
     if duplicate:
         raise HTTPException(status_code=400, detail=f"Location code '{req.code}' already exists in this warehouse.")
+    
+    # Auto-generate barcode if not provided
+    barcode = req.barcode or f"LOC-{warehouse.code}-{req.code}"
+    
     location = WarehouseLocation(
         id=f"loc-{uuid.uuid4().hex[:12]}",
         uuid=str(uuid.uuid4()),
         company_id=tenant_ctx.company_id,
         branch_id=tenant_ctx.branch_id,
         warehouse_id=warehouse_id,
-        **req.model_dump(exclude={"warehouse_id"}),
+        barcode=barcode,
+        **req.model_dump(exclude={"warehouse_id", "barcode"}),
     )
     db.add(location)
     await db.commit()
     await db.refresh(location)
     return WarehouseLocationResponse.model_validate(location)
+
+
+@router.put("/locations/{location_id}", response_model=WarehouseLocationResponse)
+async def update_warehouse_location(
+    location_id: str,
+    req: WarehouseLocationUpdate,
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+    guard: Any = Depends(require_permission("inventory_workspace", "EDIT")),
+):
+    """Update an existing warehouse location."""
+    loc = await db.scalar(select(WarehouseLocation).where(
+        WarehouseLocation.id == location_id,
+        WarehouseLocation.company_id == tenant_ctx.company_id,
+        WarehouseLocation.is_deleted == False,
+    ))
+    if not loc:
+        raise HTTPException(status_code=404, detail="Location not found.")
+
+    update_data = req.model_dump(exclude_unset=True)
+    for k, v in update_data.items():
+        setattr(loc, k, v)
+
+    await db.commit()
+    await db.refresh(loc)
+    return WarehouseLocationResponse.model_validate(loc)
+
+
+@router.delete("/locations/{location_id}")
+async def delete_warehouse_location(
+    location_id: str,
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+    guard: Any = Depends(require_permission("inventory_workspace", "DELETE")),
+):
+    """Soft-delete an existing warehouse location."""
+    loc = await db.scalar(select(WarehouseLocation).where(
+        WarehouseLocation.id == location_id,
+        WarehouseLocation.company_id == tenant_ctx.company_id,
+        WarehouseLocation.is_deleted == False,
+    ))
+    if not loc:
+        raise HTTPException(status_code=404, detail="Location not found.")
+
+    loc.is_deleted = True
+    loc.is_active = False
+    loc.deleted_at = datetime.now(timezone.utc)
+    await db.commit()
+    return {"success": True, "message": f"Location '{loc.code}' deleted successfully."}
+
+
+@router.post("/warehouses/{warehouse_id}/locations/generate", response_model=WarehouseLocationMatrixGenerateResponse, status_code=201)
+async def generate_warehouse_locations_matrix(
+    warehouse_id: str,
+    req: WarehouseLocationMatrixGenerateRequest,
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+    guard: Any = Depends(require_permission("inventory_workspace", "ADD")),
+):
+    """Generate a batch of locations for a warehouse based on an Aisle-Rack-Shelf matrix."""
+    warehouse = await db.scalar(select(Warehouse).where(
+        Warehouse.id == warehouse_id,
+        Warehouse.company_id == tenant_ctx.company_id,
+        Warehouse.is_deleted == False,
+    ))
+    if not warehouse:
+        raise HTTPException(status_code=404, detail="Warehouse not found.")
+
+    existing_q = select(WarehouseLocation.code).where(
+        WarehouseLocation.warehouse_id == warehouse_id,
+        WarehouseLocation.company_id == tenant_ctx.company_id,
+        WarehouseLocation.is_deleted == False,
+    )
+    existing_res = await db.execute(existing_q)
+    existing_codes = set(existing_res.scalars().all())
+
+    new_locations: List[WarehouseLocation] = []
+    skipped_count = 0
+
+    zone_prefixes = {
+        "STORAGE": "ST",
+        "PICKING": "PK",
+        "BULK": "BK",
+        "QUARANTINE": "QN",
+        "RECEIVING": "RC",
+    }
+    z_prefix = zone_prefixes.get(req.zone.upper(), req.zone[:2].upper())
+
+    for a_idx in range(req.aisle_from, req.aisle_to + 1):
+        a_str = f"{req.aisle_prefix}{a_idx:02d}"
+        for r_idx in range(req.rack_from, req.rack_to + 1):
+            r_str = f"{req.rack_prefix}{r_idx:02d}"
+            for s_idx in range(req.shelf_from, req.shelf_to + 1):
+                s_str = f"{req.shelf_prefix}{s_idx:02d}"
+                for b_idx in range(req.bin_from, req.bin_to + 1):
+                    b_str = f"{req.bin_prefix}{b_idx:02d}"
+
+                    code = f"{z_prefix}-{a_str}-{r_str}-{s_str}-{b_str}"
+                    if code in existing_codes:
+                        skipped_count += 1
+                        continue
+
+                    name = f"Aisle {a_idx}, Rack {r_idx}, Shelf {s_idx}, Bin {b_idx}"
+                    barcode = f"LOC-{warehouse.code}-{code}"
+
+                    loc = WarehouseLocation(
+                        id=f"loc-{uuid.uuid4().hex[:12]}",
+                        uuid=str(uuid.uuid4()),
+                        company_id=tenant_ctx.company_id,
+                        branch_id=tenant_ctx.branch_id,
+                        warehouse_id=warehouse_id,
+                        code=code,
+                        name=name,
+                        zone=req.zone.upper(),
+                        aisle=a_str,
+                        rack=r_str,
+                        shelf=s_str,
+                        bin_code=b_str,
+                        barcode=barcode,
+                        max_capacity_units=req.max_capacity_units,
+                        is_locked=False,
+                        is_active=True,
+                        is_deleted=False,
+                    )
+                    new_locations.append(loc)
+                    existing_codes.add(code)
+
+    if new_locations:
+        db.add_all(new_locations)
+        await db.commit()
+        for loc in new_locations:
+            await db.refresh(loc)
+
+    return WarehouseLocationMatrixGenerateResponse(
+        created_count=len(new_locations),
+        skipped_count=skipped_count,
+        locations=[WarehouseLocationResponse.model_validate(l) for l in new_locations]
+    )
+
+
+@router.get("/locations/{location_id}/stock")
+async def get_location_stock(
+    location_id: str,
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+):
+    """Retrieve items and stock assigned to this warehouse location."""
+    loc = await db.scalar(select(WarehouseLocation).where(
+        WarehouseLocation.id == location_id,
+        WarehouseLocation.company_id == tenant_ctx.company_id,
+        WarehouseLocation.is_deleted == False,
+    ))
+    if not loc:
+        raise HTTPException(status_code=404, detail="Location not found.")
+
+    from ...models.item_master import ItemWarehouseLocation, Item
+    stmt = select(ItemWarehouseLocation, Item).join(
+        Item, ItemWarehouseLocation.item_id == Item.id, isouter=True
+    ).where(
+        ItemWarehouseLocation.warehouse_id == loc.warehouse_id,
+        ItemWarehouseLocation.location_bin == loc.code,
+        ItemWarehouseLocation.company_id == tenant_ctx.company_id,
+        ItemWarehouseLocation.is_deleted == False,
+    )
+    res = await db.execute(stmt)
+    rows = res.all()
+
+    items = []
+    for iwl, item in rows:
+        items.append({
+            "item_id": iwl.item_id,
+            "item_code": item.code if item else "",
+            "item_name": item.name if item else "",
+            "min_reorder_level": float(iwl.min_reorder_level or 0),
+            "max_capacity": float(iwl.max_capacity or 0),
+            "reorder_quantity": float(iwl.reorder_quantity or 0),
+        })
+
+    return {
+        "location": WarehouseLocationResponse.model_validate(loc),
+        "assigned_items_count": len(items),
+        "items": items,
+    }
 
 @router.get("/warehouses", response_model=List[WarehouseResponse])
 async def list_warehouses(

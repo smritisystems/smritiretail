@@ -182,10 +182,14 @@ class WarehouseLocation(BaseEntity):
     warehouse_id = Column(String(50), ForeignKey("warehouses.id", ondelete="CASCADE"), nullable=False, index=True)
     code = Column(String(50), nullable=False)
     name = Column(String(100), nullable=False)
+    zone = Column(String(50), nullable=True, default="STORAGE")
     aisle = Column(String(50), nullable=True)
     rack = Column(String(50), nullable=True)
     shelf = Column(String(50), nullable=True)
     bin_code = Column(String(50), nullable=True)
+    barcode = Column(String(100), nullable=True, index=True)
+    max_capacity_units = Column(Integer, nullable=True, default=100)
+    is_locked = Column(Boolean, nullable=False, default=False)
 
     __table_args__ = (
         UniqueConstraint("warehouse_id", "code", name="uq_warehouse_location_code"),

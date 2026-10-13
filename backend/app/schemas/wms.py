@@ -73,10 +73,44 @@ class WarehouseLocationCreate(BaseModel):
     warehouse_id: str
     code: str
     name: str
+    zone: Optional[str] = "STORAGE"
     aisle: Optional[str] = None
     rack: Optional[str] = None
     shelf: Optional[str] = None
     bin_code: Optional[str] = None
+    barcode: Optional[str] = None
+    max_capacity_units: Optional[int] = 100
+    is_locked: Optional[bool] = False
+
+
+class WarehouseLocationUpdate(BaseModel):
+    name: Optional[str] = None
+    zone: Optional[str] = None
+    aisle: Optional[str] = None
+    rack: Optional[str] = None
+    shelf: Optional[str] = None
+    bin_code: Optional[str] = None
+    barcode: Optional[str] = None
+    max_capacity_units: Optional[int] = None
+    is_locked: Optional[bool] = None
+    is_active: Optional[bool] = None
+
+
+class WarehouseLocationMatrixGenerateRequest(BaseModel):
+    zone: str = "STORAGE"
+    aisle_prefix: str = "A"
+    aisle_from: int = 1
+    aisle_to: int = 2
+    rack_prefix: str = "R"
+    rack_from: int = 1
+    rack_to: int = 3
+    shelf_prefix: str = "S"
+    shelf_from: int = 1
+    shelf_to: int = 3
+    bin_prefix: str = "B"
+    bin_from: int = 1
+    bin_to: int = 2
+    max_capacity_units: int = 100
 
 
 class WarehouseLocationResponse(WarehouseLocationCreate):
@@ -85,6 +119,12 @@ class WarehouseLocationResponse(WarehouseLocationCreate):
     branch_id: Optional[str] = None
     is_active: bool = True
     model_config = ConfigDict(from_attributes=True)
+
+
+class WarehouseLocationMatrixGenerateResponse(BaseModel):
+    created_count: int
+    skipped_count: int
+    locations: List[WarehouseLocationResponse]
 
 class WarehouseCreate(WarehouseBase):
     pass
