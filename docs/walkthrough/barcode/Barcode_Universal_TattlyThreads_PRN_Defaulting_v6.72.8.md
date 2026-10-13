@@ -42,6 +42,10 @@ This document provides complete architectural, implementation, and verification 
 - `src/tests/prnInterpolation.test.ts`: Added tests asserting aliases, fallback, and canonical filename generation.
 - `backend/app/services/barcode_engine/compiler.py`: Defaulted compiler fallback to Tattly Threads footwear.
 - `backend/app/api/v1/barcode.py`: Defaulted print endpoint to footwear layout when layout_id is omitted.
+- `package.json`: Synchronized application version to `6.72.8`.
+- `src/config/version.ts`: Synchronized `APP_VERSION` and `ENTERPRISE_BILLING_SUITE_VERSION` to `6.72.8`.
+- `backend/app/core/config.py`: Synchronized `Settings.VERSION` to `6.72.8`.
+- `src/components/billing/BillingWorkspace.tsx`: Bound header version badge to `APP_VERSION`.
 - `CHANGELOG.md`: Appended release notes for v6.72.8.
 - `docs/implementation/README.md`: Appended entry to implementation index.
 - `docs/walkthrough/README.md`: Appended entry to walkthrough index.
@@ -50,6 +54,7 @@ This document provides complete architectural, implementation, and verification 
 1. **Master PRN File Immutability:** `assets/BarcodePRN/TattlyThreads.prn` and `assets/BarcodePRN/RawPRNScript.prn` remain byte-for-byte untouched, preserving SHA-256 integrity governance.
 2. **Deterministic Dual Stub Structure:** Preserved the 3-part layout: Upper Counter Stub (Y: 0..25.3mm), Lower Audit Stub (Y: 25.3..50.7mm), and Main Shoe Box Label (X: 31.2..100mm).
 3. **Graceful Fallback:** While Tattly Threads PRN is the universal default, specialized alternatives (Retail 50×25mm, ModernLabelDesign TE244, Honeywell IH-2 DPL, A4 24-up) remain accessible across all UI controls.
+4. **4-Point Version SSOT Governance:** Application version remains strictly synchronized across `package.json`, `src/config/version.ts`, `backend/app/core/config.py`, and `CHANGELOG.md` via `scripts/validate_version_ssot.py`.
 
 ## 6. Design Rationale
 Footwear retail operations rely on dual tear-off counter/audit stubs for inventory and cashier verification. In the past, opening certain modal windows or omitting template IDs in automated print calls could fall back to generic 50×25mm single stickers. Standardizing Tattly Threads PRN as the default across all touchpoints provides consistent operator behavior across the system.
@@ -79,13 +84,15 @@ Footwear retail operations rely on dual tear-off counter/audit stubs for invento
 ```
 
 ## 8. Tests Executed
-1. `npx vitest run src/tests/prnInterpolation.test.ts src/tests/tagPrinting.test.ts src/tests/printLabelsStudio.test.ts src/tests/barcodeLayoutRegistry.test.ts`
+1. `py -3.13 scripts/validate_version_ssot.py`
+   - Output: `[PASS] Version SSOT consistent across all boundaries: 6.72.8`.
+2. `npx vitest run src/tests/prnInterpolation.test.ts src/tests/tagPrinting.test.ts src/tests/printLabelsStudio.test.ts src/tests/barcodeLayoutRegistry.test.ts`
    - Output: 70 passed across 4 test suites.
-2. `pytest backend/tests/test_zpl_footwear_label.py`
+3. `pytest backend/tests/test_zpl_footwear_label.py`
    - Output: 13 passed in 18.24s.
-3. `pytest backend/tests/test_dpl_footwear_label.py`
+4. `pytest backend/tests/test_dpl_footwear_label.py`
    - Output: 8 passed in 5.08s.
-4. `npx tsc --noEmit`
+5. `npx tsc --noEmit`
    - Output: 0 compiler errors.
 
 ## 9. Verification Results
