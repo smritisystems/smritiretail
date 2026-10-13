@@ -1196,6 +1196,24 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
     return activePrintItems.reduce((sum, r) => sum + r.labelCount, 0);
   }, [activePrintItems]);
 
+  const isFootwearLayout = useMemo(() => {
+    const scriptLower = (settings.scriptFileName || "").toLowerCase();
+    const firstItem = activePrintItems[0];
+    const productLower = (firstItem?.product || "").toLowerCase();
+    const styleLower = (firstItem?.style || "").toLowerCase();
+    return (
+      scriptLower.includes("footwear") ||
+      scriptLower.includes("100x50") ||
+      scriptLower.includes("tattly") ||
+      !scriptLower ||
+      productLower.includes("footwear") ||
+      productLower.includes("shoe") ||
+      productLower.includes("sandal") ||
+      styleLower.startsWith("ch-") ||
+      styleLower.startsWith("snd-")
+    );
+  }, [settings.scriptFileName, activePrintItems]);
+
   // Real Dispatch Router for Barcode Label Printing (QZ Tray / PRN File / Windows Dialog)
   const handleExecutePrintDispatch = async () => {
     setShowDispatchModal(false);
@@ -1203,7 +1221,7 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
 
     const scriptLower = (settings.scriptFileName || "").toLowerCase();
     const printerLower = (settings.targetPrinterName || "").toLowerCase();
-    const isFootwear = scriptLower.includes("footwear") || scriptLower.includes("100x50") || scriptLower.includes("tattly") || !scriptLower;
+    const isFootwear = isFootwearLayout;
     const templateId = isFootwear ? "tattly-threads-footwear-100x50.7" : "retail-50x25";
 
     // 1. Resolve Active Template Script (User-uploaded script takes priority, then built-in scripts)
@@ -3470,46 +3488,186 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
                 </div>
               </div>
 
-              {/* Live Thermal Sticker Preview */}
+              {/* Live Thermal Sticker / Footwear Tag Preview */}
               <div className="space-y-1.5">
                 <div className="flex justify-between items-center">
-                  <span className="font-label-caps text-[10px] text-primary">
-                    Live Sticker Preview (50mm x 25mm Roll)
+                  <span className="font-label-caps text-[10px] text-primary flex items-center gap-1.5 font-bold">
+                    {isFootwearLayout ? (
+                      <>
+                        <span className="px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-950/50 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-800 text-[9px] uppercase tracking-wider font-mono">
+                          3-Stub Footwear Tag
+                        </span>
+                        <span>Live Footwear Box Tag Preview (100mm × 50.7mm Roll)</span>
+                      </>
+                    ) : (
+                      <span>Live Sticker Preview (50mm x 25mm Roll)</span>
+                    )}
                   </span>
-                  <span className="text-[10px] font-code-md text-on-surface-variant">300 DPI Rendering</span>
+                  <span className="text-[10px] font-code-md text-on-surface-variant">
+                    {settings.resolutionDpi || (settings.targetPrinterName?.toLowerCase().includes("dpl") ? 300 : 203)} DPI Rendering
+                  </span>
                 </div>
                 
                 {activePrintItems.length > 0 && (
-                  <div className="flex items-center justify-center p-3 bg-surface-container-low border border-outline-variant rounded-lg">
-                    <div className="w-[50mm] h-[25mm] bg-white text-black p-1.5 rounded shadow-md border border-gray-300 flex flex-col justify-between select-none">
-                      <div className="flex justify-between items-center border-b border-black/30 pb-0.5 leading-none">
-                        <span className="font-extrabold text-[8.5px] uppercase tracking-wide truncate max-w-[28mm]">
-                          {activePrintItems[0].brand || "SMRITI RETAIL"}
-                        </span>
-                        <span className="font-mono font-bold text-[9.5px]">
-                          ₹{activePrintItems[0].sellingPrice || activePrintItems[0].mrp}
-                        </span>
-                      </div>
+                  <div className="flex items-center justify-center p-3 bg-surface-container-low border border-outline-variant rounded-lg overflow-x-auto">
+                    {isFootwearLayout ? (
+                      /* ── 100mm x 50.7mm 3-Part Footwear Box Tag with Dual Tear-Off Stubs ── */
+                      <div className="w-[100mm] min-w-[560px] h-[50.7mm] min-h-[190px] bg-white text-black p-2 rounded shadow-md border border-gray-300 grid grid-cols-12 gap-1.5 select-none font-sans text-left">
+                        
+                        {/* 1. Main Box Front Tag (~58% / col-span-7) */}
+                        <div className="col-span-7 pr-2 border-r-2 border-dashed border-gray-400 flex flex-col justify-between">
+                          <div>
+                            <div className="flex justify-between items-start leading-tight mb-0.5">
+                              <div>
+                                <div className="font-extrabold text-[12px] uppercase tracking-wide text-black leading-none">
+                                  {activePrintItems[0].brand || "TATTLY THREADS"}
+                                </div>
+                                <div className="text-[9px] font-bold text-gray-800 mt-0.5">
+                                  Art: {formatStyleForBarcodeLabel(activePrintItems[0].style, activePrintItems[0].vendorCode)}
+                                  <span className="ml-1.5 text-gray-600 font-semibold">• {activePrintItems[0].colour || "BLACK"}</span>
+                                </div>
+                              </div>
+                              {/* Inverted Black Size Badge matching physical tag */}
+                              <div className="bg-black text-white px-2 py-0.5 rounded font-black text-[13px] leading-tight text-center min-w-[28px]">
+                                <div className="text-[6.5px] font-semibold text-gray-300 uppercase leading-none">Size</div>
+                                <div>{activePrintItems[0].size || "37"}</div>
+                              </div>
+                            </div>
+                          </div>
 
-                      <div className="text-[7.5px] font-semibold truncate leading-tight my-0.5">
-                        <span>{activePrintItems[0].product}</span>
-                        <span className="text-[7px] text-gray-700 ml-1">({formatStyleForBarcodeLabel(activePrintItems[0].style, activePrintItems[0].vendorCode)})</span>
-                      </div>
+                          {/* Center Barcode */}
+                          <div className="w-full flex flex-col items-center justify-center my-0.5">
+                            <ThermalBarcodeSvg
+                              value={activePrintItems[0].barcode || activePrintItems[0].stockNo}
+                              widthMm={50}
+                              heightMm={11}
+                              showText={true}
+                            />
+                          </div>
 
-                      <div className="w-full flex justify-center py-0.5">
-                        <ThermalBarcodeSvg
-                          value={activePrintItems[0].barcode || activePrintItems[0].stockNo}
-                          widthMm={44}
-                          heightMm={9}
-                          showText={true}
-                        />
-                      </div>
+                          {/* Bottom: Pricing & Metrology Compliance */}
+                          <div className="border-t border-gray-300 pt-0.5 text-[7px] leading-tight text-gray-700">
+                            <div className="flex justify-between items-center font-bold text-black text-[8.5px]">
+                              <span>MRP: ₹{activePrintItems[0].sellingPrice || activePrintItems[0].mrp}.00</span>
+                              <span className="text-[6.5px] font-normal text-gray-600">(Incl. of all taxes)</span>
+                            </div>
+                            <div className="flex justify-between text-[6.5px] text-gray-500 mt-0.5">
+                              <span>Net Qty: 1 Pair • Pkd: 10/26</span>
+                              <span className="truncate max-w-[130px]">care@tattlythreads.com</span>
+                            </div>
+                            <div className="text-[6px] text-gray-400 truncate">
+                              Mfd by: Tattly Threads, 81, Umerkhadi, Mumbai, 400003
+                            </div>
+                          </div>
+                        </div>
 
-                      <div className="flex justify-between items-center text-[7px] font-mono leading-none border-t border-black/30 pt-0.5">
-                        <span>{activePrintItems[0].colour} / S:{activePrintItems[0].size}</span>
-                        <span className="font-semibold text-[6.5px] text-gray-600">MRP: ₹{activePrintItems[0].mrp}</span>
+                        {/* 2. Tear-Off Stub #1 (Counter Return / col-span-3) */}
+                        <div className="col-span-3 px-1 border-r-2 border-dashed border-gray-400 flex flex-col justify-between text-[7px]">
+                          <div>
+                            <div className="font-bold text-[8px] truncate uppercase leading-none text-black">
+                              {activePrintItems[0].brand || "TATTLY"}
+                            </div>
+                            <div className="text-[7px] font-semibold text-gray-800 truncate mt-0.5">
+                              {activePrintItems[0].style || "CH-30-K"}
+                            </div>
+                            <div className="text-[6.5px] text-gray-600">
+                              {activePrintItems[0].colour} • S:{activePrintItems[0].size}
+                            </div>
+                          </div>
+
+                          <div className="w-full flex justify-center py-0.5">
+                            <ThermalBarcodeSvg
+                              value={activePrintItems[0].barcode || activePrintItems[0].stockNo}
+                              widthMm={22}
+                              heightMm={7.5}
+                              showText={false}
+                            />
+                          </div>
+
+                          <div className="text-center font-mono font-bold text-[6px] text-gray-600 -mt-0.5">
+                            {activePrintItems[0].barcode || activePrintItems[0].stockNo}
+                          </div>
+
+                          <div className="border-t border-gray-200 pt-0.5 text-center">
+                            <div className="font-extrabold text-[8px] text-black">
+                              ₹{activePrintItems[0].sellingPrice || activePrintItems[0].mrp}
+                            </div>
+                            <div className="text-[5.5px] text-amber-700 font-bold uppercase tracking-wider">
+                              [Counter Stub]
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* 3. Tear-Off Stub #2 (Cashier Audit / col-span-2) */}
+                        <div className="col-span-2 pl-0.5 flex flex-col justify-between text-[7px]">
+                          <div>
+                            <div className="font-bold text-[8px] truncate uppercase leading-none text-black">
+                              {activePrintItems[0].brand || "TATTLY"}
+                            </div>
+                            <div className="text-[7px] font-semibold text-gray-800 truncate mt-0.5">
+                              {activePrintItems[0].style || "CH-30-K"}
+                            </div>
+                            <div className="text-[6.5px] text-gray-600">
+                              {activePrintItems[0].colour} • S:{activePrintItems[0].size}
+                            </div>
+                          </div>
+
+                          <div className="w-full flex justify-center py-0.5">
+                            <ThermalBarcodeSvg
+                              value={activePrintItems[0].barcode || activePrintItems[0].stockNo}
+                              widthMm={20}
+                              heightMm={7.5}
+                              showText={false}
+                            />
+                          </div>
+
+                          <div className="text-center font-mono font-bold text-[6px] text-gray-600 -mt-0.5">
+                            {activePrintItems[0].barcode || activePrintItems[0].stockNo}
+                          </div>
+
+                          <div className="border-t border-gray-200 pt-0.5 text-center">
+                            <div className="font-extrabold text-[8px] text-black">
+                              ₹{activePrintItems[0].sellingPrice || activePrintItems[0].mrp}
+                            </div>
+                            <div className="text-[5.5px] text-blue-700 font-bold uppercase tracking-wider">
+                              [Audit Stub]
+                            </div>
+                          </div>
+                        </div>
+
                       </div>
-                    </div>
+                    ) : (
+                      /* Standard 50mm x 25mm Single Retail Sticker */
+                      <div className="w-[50mm] h-[25mm] bg-white text-black p-1.5 rounded shadow-md border border-gray-300 flex flex-col justify-between select-none">
+                        <div className="flex justify-between items-center border-b border-black/30 pb-0.5 leading-none">
+                          <span className="font-extrabold text-[8.5px] uppercase tracking-wide truncate max-w-[28mm]">
+                            {activePrintItems[0].brand || "SMRITI RETAIL"}
+                          </span>
+                          <span className="font-mono font-bold text-[9.5px]">
+                            ₹{activePrintItems[0].sellingPrice || activePrintItems[0].mrp}
+                          </span>
+                        </div>
+
+                        <div className="text-[7.5px] font-semibold truncate leading-tight my-0.5">
+                          <span>{activePrintItems[0].product}</span>
+                          <span className="text-[7px] text-gray-700 ml-1">({formatStyleForBarcodeLabel(activePrintItems[0].style, activePrintItems[0].vendorCode)})</span>
+                        </div>
+
+                        <div className="w-full flex justify-center py-0.5">
+                          <ThermalBarcodeSvg
+                            value={activePrintItems[0].barcode || activePrintItems[0].stockNo}
+                            widthMm={44}
+                            heightMm={9}
+                            showText={true}
+                          />
+                        </div>
+
+                        <div className="flex justify-between items-center text-[7px] font-mono leading-none border-t border-black/30 pt-0.5">
+                          <span>{activePrintItems[0].colour} / S:{activePrintItems[0].size}</span>
+                          <span className="font-semibold text-[6.5px] text-gray-600">MRP: ₹{activePrintItems[0].mrp}</span>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -3575,14 +3733,35 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
                   type="button"
                   onClick={() => {
                     const content = generateRawDplScript();
-                    const blob = new Blob([content], { type: "text/plain" });
+                    const ext = (settings.targetPrinterName?.toLowerCase().includes("dpl") ? "dpl" : "prn") as "prn" | "dpl";
+                    const filename = generatePrnDownloadFilename(
+                      activePrintItems.map(item => ({
+                        stockNo: item.stockNo,
+                        barcode: item.barcode,
+                        product: item.product,
+                        brand: item.brand,
+                        style: item.style,
+                        colour: item.colour,
+                        size: item.size,
+                        mrp: item.mrp,
+                        sellingPrice: item.sellingPrice,
+                        vendorCode: (item as any).vendorCode || item.brand,
+                      })),
+                      ext,
+                      {
+                        prefix: "SMRITI",
+                        fallbackStyle: isFootwearLayout ? "CH-30-K" : "RETAIL",
+                        fallbackVendor: isFootwearLayout ? "TATTLY" : "GEN",
+                      }
+                    );
+                    const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
                     const url = URL.createObjectURL(blob);
                     const a = document.createElement("a");
                     a.href = url;
-                    a.download = `Honeywell_IH2_Labels_${Date.now()}.prn`;
+                    a.download = filename;
                     a.click();
                     URL.revokeObjectURL(url);
-                    onNotification?.("File Downloaded", "Downloaded raw PRN script for Honeywell IH-2.", "success");
+                    onNotification?.("File Downloaded", `Downloaded ${ext.toUpperCase()} script "${filename}".`, "success");
                   }}
                   className="px-3 py-1.5 bg-surface border border-outline-variant hover:bg-surface-variant rounded text-xs font-semibold flex items-center gap-1.5 text-on-surface"
                 >
