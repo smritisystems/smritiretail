@@ -14,6 +14,26 @@
 
 import { apiFetchV1 } from "../lib/apiFetchV1";
 
+export interface CachedPriceRevision {
+  revision_id: string;
+  price: number;
+  mrp: number;
+  cost_price?: number;
+  effective_from: string; // ISO 8601 UTC
+  effective_to?: string | null; // ISO 8601 UTC
+  reason_code?: string;
+}
+
+export interface ResolvedOfflinePrice {
+  price: number;
+  mrp: number;
+  source: "REVISION_HISTORY" | "ACTIVE_BASELINE" | "STALE_FALLBACK";
+  revision_id?: string;
+  is_stale_warning: boolean;
+  warning_detail?: string;
+  isScheduled?: boolean;
+}
+
 export interface CachedProduct {
   id: string;
   code: string;
@@ -30,6 +50,11 @@ export interface CachedProduct {
   stock?: number;
   uom?: string;
   is_active: boolean;
+  effective_from?: string;
+  effective_to?: string;
+  revision_id?: string;
+  revisions?: CachedPriceRevision[];
+  last_synced_at?: string;
 }
 
 export interface CachedCustomer {
@@ -128,6 +153,105 @@ export class ProPosMasterCatalogCache {
   }
 
   /**
+   * Resolves authoritative offline price for a cached product against transaction timestamp.
+   *
+   * Fallback & Integrity Policy (Safeguard C):
+   * 1. Temporal Revisions Array:
+   *    Evaluates revisions where effective_from <= txTime < (effective_to or infinity).
+   *    Selects the latest effective_from revision matching the interval.
+   * 2. Active Baseline Fallback:
+   *    If no temporal revision covers txTime, falls back to product.price & product.mrp.
+   * 3. Statutory Ceiling Safeguard:
+   *    Guarantees price <= mrp. Clamps price to mrp if invariant violated.
+   * 4. Cache Freshness & Clock Drift Policy:
+   *    If cache has not synced in > maxCacheAgeDays, flags warning for cashier review.
+   */
+  public static resolveEffectiveProductPrice(
+    product: CachedProduct,
+    asOfDate: Date = new Date(),
+    maxCacheAgeDays: number = 7
+  ): ResolvedOfflinePrice {
+    const txTime = asOfDate.getTime();
+    let selectedRevision: CachedPriceRevision | null = null;
+    let isScheduled = false;
+
+    // 1. Evaluate temporal revisions array if present
+    if (product.revisions && product.revisions.length > 0) {
+      // Sort revisions by effective_from descending
+      const sorted = [...product.revisions].sort(
+        (a, b) => new Date(b.effective_from).getTime() - new Date(a.effective_from).getTime()
+      );
+
+      for (const rev of sorted) {
+        const effFrom = new Date(rev.effective_from).getTime();
+        const effTo = rev.effective_to ? new Date(rev.effective_to).getTime() : Infinity;
+
+        if (txTime < effFrom) {
+          isScheduled = true;
+        } else if (effFrom <= txTime && txTime < effTo) {
+          selectedRevision = rev;
+          break;
+        }
+      }
+    } else if (product.effective_from) {
+      // Legacy single revision fallback
+      const effFrom = new Date(product.effective_from).getTime();
+      const effTo = product.effective_to ? new Date(product.effective_to).getTime() : Infinity;
+      if (txTime < effFrom) {
+        isScheduled = true;
+      } else if (effFrom <= txTime && txTime < effTo) {
+        selectedRevision = {
+          revision_id: product.revision_id || "rev-single",
+          price: product.price,
+          mrp: product.mrp,
+          effective_from: product.effective_from,
+          effective_to: product.effective_to,
+        };
+      }
+    }
+
+    let finalPrice = product.price;
+    let finalMrp = product.mrp;
+    let source: "REVISION_HISTORY" | "ACTIVE_BASELINE" | "STALE_FALLBACK" = "ACTIVE_BASELINE";
+    let revisionId: string | undefined = undefined;
+
+    if (selectedRevision) {
+      finalPrice = selectedRevision.price;
+      finalMrp = selectedRevision.mrp;
+      source = "REVISION_HISTORY";
+      revisionId = selectedRevision.revision_id;
+    }
+
+    // Statutory ceiling invariant safeguard: selling price <= mrp
+    if (finalPrice > finalMrp) {
+      finalPrice = finalMrp;
+    }
+
+    // Cache Staleness & Clock Drift Check
+    let isStale = false;
+    let warningDetail: string | undefined = undefined;
+    if (product.last_synced_at) {
+      const syncAgeMs = Date.now() - new Date(product.last_synced_at).getTime();
+      const maxAgeMs = maxCacheAgeDays * 24 * 60 * 60 * 1000;
+      if (syncAgeMs > maxAgeMs) {
+        isStale = true;
+        warningDetail = `Offline catalog cache is older than ${maxCacheAgeDays} days. Please synchronize with server.`;
+        source = "STALE_FALLBACK";
+      }
+    }
+
+    return {
+      price: finalPrice,
+      mrp: finalMrp,
+      source,
+      revision_id: revisionId,
+      is_stale_warning: isStale,
+      warning_detail: warningDetail,
+      isScheduled,
+    };
+  }
+
+  /**
    * Performs high-speed fuzzy search across product code, name, category, or SKU.
    */
   public static searchProducts(query: string, limit: number = 20): CachedProduct[] {
@@ -213,6 +337,18 @@ export class ProPosMasterCatalogCache {
         stock: Number(p.stock || p.current_stock || 0),
         uom: p.uom || "PCS",
         is_active: p.is_active !== false,
+        revisions: Array.isArray(p.revisions)
+          ? p.revisions.map((r: any) => ({
+              revision_id: r.id || r.revision_id,
+              price: Number(r.revised_selling_price || r.price || 0),
+              mrp: Number(r.revised_mrp || r.mrp || 0),
+              cost_price: r.revised_cost_price != null ? Number(r.revised_cost_price) : undefined,
+              effective_from: r.effective_from,
+              effective_to: r.effective_to,
+              reason_code: r.reason_code,
+            }))
+          : [],
+        last_synced_at: new Date().toISOString(),
       }));
 
       // 2. Fetch Customers

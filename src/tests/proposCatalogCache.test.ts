@@ -155,4 +155,110 @@ describe("ProPOS Edge Master Catalog Cache & Sub-Millisecond Scanner Lookup", ()
     const lookupCust = ProPosMasterCatalogCache.lookupCustomer("9123456789");
     expect(lookupCust?.name).toBe("Ananya Sharma");
   });
+
+  it("STEP 5: should resolve temporal offline price across scheduled intervals with fallback safeguards", () => {
+    const baseDate = new Date("2026-10-15T12:00:00Z");
+    const product = {
+      id: "prod-temp-01",
+      code: "SKU-TEMP-01",
+      name: "Scheduled Price Footwear",
+      price: 1200.0, // baseline
+      mrp: 1500.0,
+      tax_rate: 5.0,
+      is_active: true,
+      revisions: [
+        {
+          revision_id: "rev-past",
+          price: 1000.0,
+          mrp: 1400.0,
+          effective_from: "2026-10-10T00:00:00Z",
+          effective_to: "2026-10-15T00:00:00Z",
+        },
+        {
+          revision_id: "rev-current",
+          price: 1300.0,
+          mrp: 1600.0,
+          effective_from: "2026-10-15T00:00:00Z",
+          effective_to: "2026-10-20T00:00:00Z",
+        },
+        {
+          revision_id: "rev-future",
+          price: 1450.0,
+          mrp: 1700.0,
+          effective_from: "2026-10-20T00:00:00Z",
+          effective_to: null,
+        },
+      ],
+      last_synced_at: "2026-10-15T08:00:00Z",
+    };
+
+    // 1. Transaction in the past interval: should resolve rev-past
+    const pastRes = ProPosMasterCatalogCache.resolveEffectiveProductPrice(
+      product,
+      new Date("2026-10-12T10:00:00Z")
+    );
+    expect(pastRes.price).toBe(1000.0);
+    expect(pastRes.mrp).toBe(1400.0);
+    expect(pastRes.source).toBe("REVISION_HISTORY");
+    expect(pastRes.revision_id).toBe("rev-past");
+
+    // 2. Transaction in current active interval: should resolve rev-current
+    const currentRes = ProPosMasterCatalogCache.resolveEffectiveProductPrice(
+      product,
+      new Date("2026-10-15T14:30:00Z")
+    );
+    expect(currentRes.price).toBe(1300.0);
+    expect(currentRes.mrp).toBe(1600.0);
+    expect(currentRes.source).toBe("REVISION_HISTORY");
+    expect(currentRes.revision_id).toBe("rev-current");
+
+    // 3. Before future revision activates: future price must NOT leak prematurely
+    expect(currentRes.price).not.toBe(1450.0);
+
+    // 4. At future revision timestamp: should resolve rev-future
+    const futureRes = ProPosMasterCatalogCache.resolveEffectiveProductPrice(
+      product,
+      new Date("2026-10-20T00:00:01Z")
+    );
+    expect(futureRes.price).toBe(1450.0);
+    expect(futureRes.mrp).toBe(1700.0);
+    expect(futureRes.revision_id).toBe("rev-future");
+
+    // 5. Fallback without revisions: uses baseline price
+    const plainProduct = {
+      id: "prod-plain-01",
+      code: "SKU-PLAIN",
+      name: "Plain Product",
+      price: 500.0,
+      mrp: 600.0,
+      tax_rate: 5.0,
+      is_active: true,
+    };
+    const plainRes = ProPosMasterCatalogCache.resolveEffectiveProductPrice(plainProduct, baseDate);
+    expect(plainRes.price).toBe(500.0);
+    expect(plainRes.mrp).toBe(600.0);
+    expect(plainRes.source).toBe("ACTIVE_BASELINE");
+
+    // 6. Statutory ceiling clamping guard: price cannot exceed mrp
+    const corruptedProduct = {
+      id: "prod-corrupt-01",
+      code: "SKU-CORRUPT",
+      name: "Corrupt Rates",
+      price: 900.0, // illegal: > mrp
+      mrp: 800.0,
+      tax_rate: 5.0,
+      is_active: true,
+    };
+    const clampedRes = ProPosMasterCatalogCache.resolveEffectiveProductPrice(corruptedProduct, baseDate);
+    expect(clampedRes.price).toBe(800.0); // clamped to mrp
+
+    // 7. Stale cache detection (> 7 days)
+    const staleProduct = {
+      ...plainProduct,
+      last_synced_at: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString(), // 10 days ago
+    };
+    const staleRes = ProPosMasterCatalogCache.resolveEffectiveProductPrice(staleProduct, new Date());
+    expect(staleRes.is_stale_warning).toBe(true);
+    expect(staleRes.source).toBe("STALE_FALLBACK");
+  });
 });

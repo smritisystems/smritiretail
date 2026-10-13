@@ -207,6 +207,12 @@ export const LayoutEngineProvider: React.FC<ProviderProps> = ({
       category: "Inventory & Sourcing",
     },
     {
+      id: "price-revision",
+      label: "Price Revision Studio",
+      icon: "trending_up",
+      category: "Inventory & Sourcing",
+    },
+    {
       id: "barcode",
       label: "Barcode Studio",
       icon: "qr_code_scanner",

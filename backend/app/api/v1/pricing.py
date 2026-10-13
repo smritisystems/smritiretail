@@ -20,11 +20,13 @@ from typing import Dict, Any, List, Optional, Tuple
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from sqlalchemy.orm import selectinload
 
 from ...api.deps import get_company_db, get_current_user
-from ...models.pricing import PriceBook, CustomerPriceTier, PriceBookEntry, CustomerPriceAssignment, SalesFactor
+from ...models.pricing import PriceBook, CustomerPriceTier, PriceBookEntry, CustomerPriceAssignment, SalesFactor, ItemPriceRevision
 from ...models.crm import Customer
 from ...services.pricing_engine import PricingEngine
+from ...services.price_revision_service import PriceRevisionService
 from ...schemas.pricing import (
     PriceBookCreateRequest,
     PriceBookResponse,
@@ -39,6 +41,11 @@ from ...schemas.pricing import (
     BulkPricingRequest,
     BulkPricingResponse,
     PricingSnapshot,
+    PriceRevisionCreateRequest,
+    PriceRevisionResponse,
+    PriceRevisionApprovalDecision,
+    PriceRevisionBulkRequest,
+    PriceRevisionBulkResponse,
 )
 from ...schemas.sales_factor import (
     SalesFactorDTO,
@@ -53,12 +60,60 @@ router = APIRouter()
 
 def _extract_user_info(current_user: Any) -> Tuple[str, str]:
     if isinstance(current_user, dict):
-        comp_id = current_user.get("company_id", "COMP-001")
+        comp_id = current_user.get("company_id")
         user_id = current_user.get("sub", "usr-system")
     else:
-        comp_id = getattr(current_user, "company_id", "COMP-001") or "COMP-001"
+        comp_id = getattr(current_user, "company_id", None)
         user_id = getattr(current_user, "id", None) or getattr(current_user, "username", "usr-system")
-    return comp_id, user_id
+
+    if not comp_id or not str(comp_id).strip():
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="SMRITI-PRICE-TENANT-REQUIRED: Authenticated tenant context is required.",
+        )
+    return str(comp_id).strip(), user_id
+
+
+def _extract_user_and_role(current_user: Any) -> Tuple[str, str, str]:
+    if isinstance(current_user, dict):
+        comp_id = current_user.get("company_id")
+        user_id = current_user.get("sub", "usr-system")
+        role = current_user.get("role", "SYSADMIN")
+    else:
+        comp_id = getattr(current_user, "company_id", None)
+        user_id = getattr(current_user, "id", None) or getattr(current_user, "username", "usr-system")
+        role = getattr(current_user, "role", "SYSADMIN")
+        if hasattr(role, "value"):
+            role = role.value
+
+    if not comp_id or not str(comp_id).strip():
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="SMRITI-PRICE-TENANT-REQUIRED: Authenticated tenant context is required.",
+        )
+    return str(comp_id).strip(), user_id, str(role).upper()
+
+
+def _validate_tenant_scope(auth_company_id: str, req_company_id: Optional[str]) -> str:
+    """
+    Enforces authoritative tenant trust boundary.
+    The server-side authenticated company_id is authoritative.
+    If req_company_id is provided and does not match auth_company_id, rejects immediately.
+    """
+    if not auth_company_id or not str(auth_company_id).strip():
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="SMRITI-PRICE-TENANT-REQUIRED: Authenticated tenant context is required.",
+        )
+    auth_cid = str(auth_company_id).strip()
+    if req_company_id:
+        req_cid = str(req_company_id).strip()
+        if req_cid and req_cid != auth_cid:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"SMRITI-PRICE-TENANT-MISMATCH: Requested company '{req_cid}' does not match authenticated tenant '{auth_cid}'.",
+            )
+    return auth_cid
 
 
 # ============================================================================
@@ -92,6 +147,8 @@ async def create_price_book(
             description=pb.description,
             entries_count=0,
         )
+    except HTTPException:
+        raise
     except ValueError as ve:
         raise HTTPException(status_code=400, detail=str(ve))
     except Exception as e:
@@ -106,7 +163,11 @@ async def list_price_books(
     current_user: Any = Depends(get_current_user),
 ):
     """Lists Price Books for the tenant."""
-    stmt = select(PriceBook)
+    company_id, _ = _extract_user_info(current_user)
+    stmt = select(PriceBook).where(
+        PriceBook.company_id == company_id,
+        PriceBook.is_deleted == False,
+    )
     if status_filter:
         stmt = stmt.where(PriceBook.status == status_filter.upper())
     books = (await db.execute(stmt)).scalars().all()
@@ -156,6 +217,8 @@ async def add_price_book_entry(
             mrp=float(entry.mrp),
             cost_price=float(entry.cost_price) if entry.cost_price is not None else None,
         )
+    except HTTPException:
+        raise
     except ValueError as ve:
         raise HTTPException(status_code=400, detail=str(ve))
     except Exception as e:
@@ -190,6 +253,8 @@ async def create_customer_tier(
             discount_percentage=float(tier.discount_percentage),
             description=tier.description,
         )
+    except HTTPException:
+        raise
     except ValueError as ve:
         raise HTTPException(status_code=400, detail=str(ve))
     except Exception as e:
@@ -203,7 +268,11 @@ async def list_customer_tiers(
     current_user: Any = Depends(get_current_user),
 ):
     """Lists all customer price tiers."""
-    stmt = select(CustomerPriceTier)
+    company_id, _ = _extract_user_info(current_user)
+    stmt = select(CustomerPriceTier).where(
+        CustomerPriceTier.company_id == company_id,
+        CustomerPriceTier.is_deleted == False,
+    )
     tiers = (await db.execute(stmt)).scalars().all()
     return [
         CustomerPriceTierResponse(
@@ -280,6 +349,8 @@ async def resolve_pricing(
 ):
     """Calculates hierarchical price resolution for a single item."""
     try:
+        company_id, user_id = _extract_user_info(current_user)
+        effective_cid = _validate_tenant_scope(company_id, req.company_id)
         res = await PricingEngine.calculate_effective_price(
             session=db,
             item_id=req.item_id,
@@ -288,10 +359,16 @@ async def resolve_pricing(
             price_book_code=req.price_book_code,
             customer_tier_code=req.customer_tier_code,
             as_of_date=req.as_of_date,
+            company_id=effective_cid,
         )
         return PricingResolutionResponse(**res)
+    except HTTPException:
+        raise
     except ValueError as ve:
-        raise HTTPException(status_code=400, detail=str(ve))
+        err_msg = str(ve)
+        if "SMRITI-PRICE-TENANT-REQUIRED" in err_msg or "SMRITI-PRICE-TENANT-MISMATCH" in err_msg:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=err_msg)
+        raise HTTPException(status_code=400, detail=err_msg)
     except Exception as e:
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
@@ -305,9 +382,16 @@ async def resolve_bulk_pricing(
 ):
     """Calculates multi-line item prices and order subtotals."""
     try:
-        return await PricingEngine.calculate_bulk_pricing(session=db, req=req)
+        company_id, user_id = _extract_user_info(current_user)
+        effective_cid = _validate_tenant_scope(company_id, req.company_id)
+        return await PricingEngine.calculate_bulk_pricing(session=db, req=req, company_id=effective_cid)
+    except HTTPException:
+        raise
     except ValueError as ve:
-        raise HTTPException(status_code=400, detail=str(ve))
+        err_msg = str(ve)
+        if "SMRITI-PRICE-TENANT-REQUIRED" in err_msg or "SMRITI-PRICE-TENANT-MISMATCH" in err_msg:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=err_msg)
+        raise HTTPException(status_code=400, detail=err_msg)
     except Exception as e:
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
@@ -321,7 +405,16 @@ async def generate_pricing_snapshot(
 ):
     """Generates an immutable pricing snapshot for storing in sales orders/invoices."""
     try:
-        return await PricingEngine.generate_pricing_snapshot(session=db, req=req)
+        company_id, user_id = _extract_user_info(current_user)
+        effective_cid = _validate_tenant_scope(company_id, req.company_id)
+        return await PricingEngine.generate_pricing_snapshot(session=db, req=req, company_id=effective_cid)
+    except HTTPException:
+        raise
+    except ValueError as ve:
+        err_msg = str(ve)
+        if "SMRITI-PRICE-TENANT-REQUIRED" in err_msg or "SMRITI-PRICE-TENANT-MISMATCH" in err_msg:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=err_msg)
+        raise HTTPException(status_code=400, detail=err_msg)
     except Exception as e:
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
@@ -475,6 +568,8 @@ async def upsert_sales_factor(
             created_at=factor.created_at.isoformat() if hasattr(factor, "created_at") and factor.created_at else None,
             updated_at=factor.updated_at.isoformat() if hasattr(factor, "updated_at") and factor.updated_at else None,
         )
+    except HTTPException:
+        raise
     except ValueError as ve:
         raise HTTPException(status_code=400, detail=str(ve))
     except Exception as e:
@@ -506,4 +601,274 @@ async def delete_sales_factor(
     except Exception as e:
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# ============================================================================
+# TEMPORAL PRICE REVISION ENDPOINTS (MRP, SELLING PRICE & COST PRICE)
+# ============================================================================
+
+def _to_revision_response(rev: ItemPriceRevision) -> PriceRevisionResponse:
+    margin_pct = None
+    if rev.revised_cost_price and rev.revised_selling_price > Decimal("0.00"):
+        margin_pct = float(
+            ((rev.revised_selling_price - rev.revised_cost_price) / rev.revised_selling_price)
+            * Decimal("100.00")
+        )
+
+    # Safely extract preloaded relationships without triggering async lazy-loading
+    loaded_item = rev.__dict__.get("item")
+    loaded_variant = rev.__dict__.get("variant")
+    loaded_price_book = rev.__dict__.get("price_book")
+
+    item_code = None
+    item_name = None
+    if loaded_item:
+        item_code = getattr(loaded_item, "item_code", getattr(loaded_item, "code", None))
+        item_name = getattr(loaded_item, "item_name", getattr(loaded_item, "name", None))
+
+    variant_sku = None
+    if loaded_variant:
+        variant_sku = getattr(loaded_variant, "variant_sku", getattr(loaded_variant, "sku", None))
+
+    price_book_code = None
+    if loaded_price_book:
+        price_book_code = getattr(loaded_price_book, "code", None)
+
+    return PriceRevisionResponse(
+        id=rev.id,
+        company_id=rev.company_id,
+        branch_id=rev.branch_id,
+        item_id=rev.item_id,
+        variant_id=rev.variant_id,
+        item_code=item_code,
+        variant_sku=variant_sku,
+        item_name=item_name,
+        price_book_id=rev.price_book_id,
+        price_book_code=price_book_code,
+        currency=rev.currency,
+        previous_mrp=float(rev.previous_mrp),
+        revised_mrp=float(rev.revised_mrp),
+        previous_selling_price=float(rev.previous_selling_price),
+        revised_selling_price=float(rev.revised_selling_price),
+        previous_cost_price=float(rev.previous_cost_price) if rev.previous_cost_price is not None else None,
+        revised_cost_price=float(rev.revised_cost_price) if rev.revised_cost_price is not None else None,
+        margin_pct=margin_pct,
+        effective_from=rev.effective_from,
+        effective_to=rev.effective_to,
+        status=rev.status,
+        reason_code=rev.reason_code,
+        justification=rev.justification,
+        approval_required=rev.approval_required,
+        approval_request_id=rev.approval_request_id,
+        approved_by=rev.approved_by,
+        approved_at=rev.approved_at,
+        rejection_reason=rev.rejection_reason,
+        source=rev.source,
+        batch_id=rev.batch_id,
+        created_by=rev.created_by,
+        created_at=rev.created_at,
+    )
+
+
+@router.post("/revisions", response_model=PriceRevisionResponse, status_code=status.HTTP_201_CREATED, summary="Create Price Revision")
+async def create_price_revision(
+    req: PriceRevisionCreateRequest,
+    db: AsyncSession = Depends(get_company_db),
+    current_user: Any = Depends(get_current_user),
+):
+    """
+    Creates a temporal price revision (MRP, Selling Price, Cost Price).
+    Validates business constraints (Selling Price <= MRP), evaluates approval policy,
+    and atomically activates immediately or schedules for future activation.
+    """
+    try:
+        company_id, user_id, user_role = _extract_user_and_role(current_user)
+        rev = await PriceRevisionService.create_revision(
+            session=db,
+            company_id=company_id,
+            user_id=user_id,
+            user_role=user_role,
+            req=req,
+            commit=True,
+        )
+        return _to_revision_response(rev)
+    except HTTPException:
+        raise
+    except ValueError as ve:
+        raise HTTPException(status_code=400, detail=str(ve))
+    except Exception as e:
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/revisions", response_model=List[PriceRevisionResponse], summary="List Price Revisions")
+async def list_price_revisions(
+    variant_id: Optional[str] = Query(None),
+    item_id: Optional[str] = Query(None),
+    status_filter: Optional[str] = Query(None, alias="status"),
+    price_book_id: Optional[str] = Query(None),
+    limit: int = Query(50, ge=1, le=500),
+    offset: int = Query(0, ge=0),
+    db: AsyncSession = Depends(get_company_db),
+    current_user: Any = Depends(get_current_user),
+):
+    """Lists temporal price revisions with optional variant, item, and status filters."""
+    company_id, _, _ = _extract_user_and_role(current_user)
+    stmt = (
+        select(ItemPriceRevision)
+        .where(
+            ItemPriceRevision.company_id == company_id,
+            ItemPriceRevision.is_deleted == False,
+        )
+        .options(
+            selectinload(ItemPriceRevision.item),
+            selectinload(ItemPriceRevision.variant),
+            selectinload(ItemPriceRevision.price_book),
+        )
+    )
+    if variant_id:
+        stmt = stmt.where(ItemPriceRevision.variant_id == variant_id)
+    if item_id:
+        stmt = stmt.where(ItemPriceRevision.item_id == item_id)
+    if status_filter:
+        stmt = stmt.where(ItemPriceRevision.status == status_filter.upper())
+    if price_book_id:
+        stmt = stmt.where(ItemPriceRevision.price_book_id == price_book_id)
+
+    stmt = stmt.order_by(ItemPriceRevision.created_at.desc()).limit(limit).offset(offset)
+    revisions = (await db.execute(stmt)).scalars().all()
+    return [_to_revision_response(r) for r in revisions]
+
+
+@router.get("/revisions/{revision_id}", response_model=PriceRevisionResponse, summary="Get Price Revision Detail")
+async def get_price_revision_detail(
+    revision_id: str,
+    db: AsyncSession = Depends(get_company_db),
+    current_user: Any = Depends(get_current_user),
+):
+    """Retrieves full audit metadata for a specific price revision."""
+    company_id, _, _ = _extract_user_and_role(current_user)
+    stmt = (
+        select(ItemPriceRevision)
+        .where(
+            ItemPriceRevision.id == revision_id,
+            ItemPriceRevision.company_id == company_id,
+            ItemPriceRevision.is_deleted == False,
+        )
+        .options(
+            selectinload(ItemPriceRevision.item),
+            selectinload(ItemPriceRevision.variant),
+            selectinload(ItemPriceRevision.price_book),
+        )
+    )
+    rev = (await db.execute(stmt)).scalars().first()
+    if not rev:
+        raise HTTPException(status_code=404, detail="Price revision not found.")
+    return _to_revision_response(rev)
+
+
+@router.post("/revisions/{revision_id}/approve", response_model=PriceRevisionResponse, summary="Approve Price Revision")
+async def approve_price_revision(
+    revision_id: str,
+    decision: Optional[PriceRevisionApprovalDecision] = None,
+    db: AsyncSession = Depends(get_company_db),
+    current_user: Any = Depends(get_current_user),
+):
+    """
+    Approves a pending price revision. Checks role authorization or supervisor PIN.
+    Activates revision if effective date has arrived; otherwise schedules it.
+    """
+    try:
+        company_id, user_id, user_role = _extract_user_and_role(current_user)
+        supervisor_pin = decision.supervisor_pin if decision else None
+        rev = await PriceRevisionService.approve_revision(
+            session=db,
+            company_id=company_id,
+            revision_id=revision_id,
+            approver_id=user_id,
+            approver_role=user_role,
+            supervisor_pin=supervisor_pin,
+            commit=True,
+        )
+        return _to_revision_response(rev)
+    except HTTPException:
+        raise
+    except ValueError as ve:
+        raise HTTPException(status_code=400, detail=str(ve))
+    except Exception as e:
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/revisions/{revision_id}/reject", response_model=PriceRevisionResponse, summary="Reject Price Revision")
+async def reject_price_revision(
+    revision_id: str,
+    decision: PriceRevisionApprovalDecision,
+    db: AsyncSession = Depends(get_company_db),
+    current_user: Any = Depends(get_current_user),
+):
+    """Rejects a pending price revision with required business explanation."""
+    try:
+        company_id, user_id, user_role = _extract_user_and_role(current_user)
+        if not decision.rejection_reason:
+            raise HTTPException(status_code=400, detail="Rejection reason is required.")
+        rev = await PriceRevisionService.reject_revision(
+            session=db,
+            company_id=company_id,
+            revision_id=revision_id,
+            rejecter_id=user_id,
+            rejecter_role=user_role,
+            rejection_reason=decision.rejection_reason,
+            commit=True,
+        )
+        return _to_revision_response(rev)
+    except HTTPException:
+        raise
+    except ValueError as ve:
+        raise HTTPException(status_code=400, detail=str(ve))
+    except Exception as e:
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/revisions/bulk", response_model=PriceRevisionBulkResponse, summary="Bulk Create Price Revisions")
+async def bulk_create_price_revisions(
+    req: PriceRevisionBulkRequest,
+    db: AsyncSession = Depends(get_company_db),
+    current_user: Any = Depends(get_current_user),
+):
+    """Performs atomic bulk price revisions with row-level error reporting and batch tracking."""
+    try:
+        company_id, user_id, user_role = _extract_user_and_role(current_user)
+        res = await PriceRevisionService.bulk_create_revisions(
+            session=db,
+            company_id=company_id,
+            user_id=user_id,
+            user_role=user_role,
+            req=req,
+        )
+        return res
+    except HTTPException:
+        raise
+    except Exception as e:
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/revisions/activate-scheduled", summary="Activate Scheduled Price Revisions")
+async def activate_scheduled_price_revisions(
+    db: AsyncSession = Depends(get_company_db),
+    current_user: Any = Depends(get_current_user),
+):
+    """Triggers activation of scheduled revisions whose effective date/time has been reached."""
+    try:
+        company_id, _, _ = _extract_user_and_role(current_user)
+        count = await PriceRevisionService.activate_scheduled_revisions(session=db, company_id=company_id)
+        return {"status": "SUCCESS", "activated_count": count}
+    except HTTPException:
+        raise
+    except Exception as e:
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
 

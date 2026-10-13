@@ -83,6 +83,7 @@ const LegacyDeprecationTelemetryTab = lazy(() => import("../governance/LegacyDep
 const AttendanceWorkspaceTab = lazy(() => import("../hr/AttendanceWorkspaceTab.tsx").then(m => ({ default: m.AttendanceWorkspaceTab })));
 const LeaveManagementTab = lazy(() => import("../hr/LeaveManagementTab.tsx").then(m => ({ default: m.LeaveManagementTab })));
 const CommissionWorkspaceTab = lazy(() => import("../hr/CommissionWorkspaceTab.tsx").then(m => ({ default: m.CommissionWorkspaceTab })));
+const PriceRevisionStudioWorkspace = lazy(() => import("../pricing/PriceRevisionStudioWorkspace.tsx").then(m => ({ default: m.PriceRevisionStudioWorkspace })));
 
 export const TabLoadingFallback: React.FC = () => (
   <div className="w-full h-full flex flex-col items-center justify-center bg-theme-base text-theme-primary">
@@ -166,6 +167,11 @@ export const mapModuleId = (id: string): string => {
     "menu-loyalty": "loyalty",
     "menu-inventory": "inventory",
     "menu-item-master": "item-master",
+    "menu-price-revision": "price-revision",
+    "price-revision": "price-revision",
+    price_revision: "price-revision",
+    "price-revisions": "price-revision",
+    "pricing-revisions": "price-revision",
     "menu-barcode": "barcode",
     "menu-barcode-management": "barcode-management",
     "barcode-management": "barcode-management",
@@ -442,6 +448,17 @@ export const renderTabNode = (tabId: string, ctx: TabRendererContextProps): Reac
           onNotification={addNotification}
           currentUser={currentUser}
           initialSubTab="excel-grid"
+        />
+      );
+    case "price-revision":
+    case "price_revision":
+    case "price-revisions":
+    case "pricing-revisions":
+      return (
+        <PriceRevisionStudioWorkspace
+          currentUser={currentUser}
+          onNotification={addNotification}
+          onNavigateTab={(tab) => setActiveTab(tab)}
         />
       );
     case "profiles":

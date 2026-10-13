@@ -251,6 +251,7 @@ def seed_control_plane_test_assignments():
             ("menu-profiles", "POS Terminal Profiles", "/profiles", "Sales & POS", "menu-pos", 110, "TERMINALS.MANAGE"),
             ("menu-inventory", "Inventory Workspace", "/inventory", "Inventory & Purchase", None, 120, "INVENTORY.WORKSPACE.ACCESS"),
             ("menu-item-master", "Item Master Catalog", "/item-master", "Inventory & Purchase", "menu-inventory", 130, "ITEM.WORKSPACE.ACCESS"),
+            ("menu-price-revision", "Price Revision Studio", "/price-revision", "Inventory & Purchase", "menu-inventory", 135, "ITEM.WORKSPACE.ACCESS"),
             ("menu-barcode", "Barcode Studio & Generator", "/barcode", "Inventory & Purchase", "menu-inventory", 140, "BARCODE.WORKSPACE.ACCESS"),
             ("menu-stock-ledger", "Stock Movements & Ledger", "/stock-ledger", "Inventory & Purchase", "menu-inventory", 150, "STOCK.WORKSPACE.ACCESS"),
             ("menu-purchase", "Purchase Studio & Orders", "/purchase", "Inventory & Purchase", "menu-inventory", 160, "PURCHASE.WORKSPACE.ACCESS"),

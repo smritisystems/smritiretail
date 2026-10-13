@@ -195,6 +195,15 @@ class OutboxQueueWorker:
             except Exception as exc:
                 logger.error(f"Failed to process outbox for tenant database '{db}': {exc}")
                 results[db] = {"error": str(exc), "dispatched_count": 0, "failed_count": 0}
+
+            # Periodic scheduled price revision activation for this tenant
+            try:
+                from .price_revision_service import PriceRevisionService
+                sm = get_company_sessionmaker(db)
+                async with sm() as db_session:
+                    await PriceRevisionService.activate_scheduled_revisions(session=db_session)
+            except Exception as pr_exc:
+                logger.debug(f"Price revision background activation cycle for '{db}': {pr_exc}")
         return results
 
     @classmethod

@@ -13,7 +13,7 @@ Classification: Internal
 """
 
 from datetime import datetime, timezone
-from sqlalchemy import Column, String, Numeric, Boolean, Integer, ForeignKey, DateTime, Text, text, UniqueConstraint
+from sqlalchemy import Column, String, Numeric, Boolean, Integer, ForeignKey, DateTime, Text, text, UniqueConstraint, CheckConstraint, Index
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import JSONB
 from ..db.base import BaseEntity
@@ -127,4 +127,65 @@ class SalesFactor(BaseEntity):
     valid_to = Column(String(20), nullable=True)     # SCHEMA-DRIFT-002: should be DateTime(timezone=True)
     applicable_days = Column(JSONB, server_default=text("'[]'"), default=list)
     is_active = Column(Boolean, nullable=False, default=True)
+
+
+class ItemPriceRevision(BaseEntity):
+    """
+    Authoritative Temporal Price Revision Master (MRP, Selling Price, and Cost Price).
+    Preserves immutable price history, supports future-scheduled effective periods,
+    and enforces configurable approval policies and statutory ceiling constraints.
+    """
+    __tablename__ = "item_price_revisions"
+    __table_args__ = (
+        CheckConstraint("revised_selling_price >= 0", name="chk_ipr_revised_sp_non_neg"),
+        CheckConstraint("revised_mrp >= 0", name="chk_ipr_revised_mrp_non_neg"),
+        CheckConstraint("revised_selling_price <= revised_mrp", name="chk_ipr_sp_le_mrp"),
+        CheckConstraint("effective_to IS NULL OR effective_to > effective_from", name="chk_ipr_valid_date_range"),
+        Index("ix_ipr_variant_effective", "variant_id", "status", "effective_from", "effective_to"),
+        Index("ix_ipr_company_status", "company_id", "status"),
+        Index("ix_ipr_item_effective", "item_id", "status", "effective_from"),
+    )
+
+    company_id = Column(String(50), ForeignKey("companies.id", ondelete="RESTRICT"), nullable=False, index=True)
+    branch_id = Column(String(50), ForeignKey("branches.id", ondelete="SET NULL"), nullable=True, index=True)
+    item_id = Column(String(50), ForeignKey("items.id", ondelete="RESTRICT"), nullable=False, index=True)
+    variant_id = Column(String(50), ForeignKey("item_variants.id", ondelete="RESTRICT"), nullable=False, index=True)
+    price_book_id = Column(String(50), ForeignKey("price_books.id", ondelete="SET NULL"), nullable=True, index=True)
+    currency = Column(String(10), nullable=False, default="INR")
+
+    # Commercial & Statutory Price Fields
+    previous_mrp = Column(Numeric(15, 2), nullable=False, default=0.00)
+    revised_mrp = Column(Numeric(15, 2), nullable=False)
+    previous_selling_price = Column(Numeric(15, 2), nullable=False, default=0.00)
+    revised_selling_price = Column(Numeric(15, 2), nullable=False)
+    previous_cost_price = Column(Numeric(15, 2), nullable=True)
+    revised_cost_price = Column(Numeric(15, 2), nullable=True)
+
+    # Temporal Bounds
+    effective_from = Column(DateTime(timezone=True), nullable=False, index=True)
+    effective_to = Column(DateTime(timezone=True), nullable=True, index=True)
+
+    # Lifecycle State Machine
+    # DRAFT | PENDING_APPROVAL | APPROVED | REJECTED | SCHEDULED | ACTIVE | SUPERSEDED | EXPIRED
+    status = Column(String(30), nullable=False, default="PENDING_APPROVAL", index=True)
+    reason_code = Column(String(50), nullable=False, default="MANUAL_REVISION")
+    justification = Column(Text, nullable=True)
+
+    # Approval Metadata
+    approval_required = Column(Boolean, nullable=False, default=False)
+    approval_request_id = Column(String(50), nullable=True, index=True)
+    approved_by = Column(String(100), nullable=True)
+    approved_at = Column(DateTime(timezone=True), nullable=True)
+    rejection_reason = Column(Text, nullable=True)
+
+    # Ingress & Audit
+    source = Column(String(30), nullable=False, default="MANUAL")
+    batch_id = Column(String(50), nullable=True, index=True)
+    audit_ref = Column(String(100), nullable=True)
+    metadata_json = Column(JSONB, server_default=text("'{}'"), default=dict)
+
+    # Relationships
+    item = relationship("Item", foreign_keys=[item_id])
+    variant = relationship("ItemVariant", foreign_keys=[variant_id])
+    price_book = relationship("PriceBook", foreign_keys=[price_book_id])
 

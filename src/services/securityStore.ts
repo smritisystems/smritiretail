@@ -39,6 +39,7 @@ const MENU_PERMISSION_RESOURCES: Record<string, string> = {
   "menu-sales-promotions": "promotions_studio",
   "menu-inventory": "inventory_workspace",
   "menu-item-master": "item_master",
+  "menu-price-revision": "price_revision_studio",
   "menu-barcode": "barcode_studio",
   "menu-stock-ledger": "stock_ledger",
   "menu-purchase": "purchase_studio",

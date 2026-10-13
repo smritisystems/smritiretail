@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Project      : SMRITI Retail OS
  * Author       : Jawahar Ramkripal Mallah
  * Designation  : Chief Systems Architect & Creator
@@ -18,6 +18,7 @@
 
 import React, { useState, useEffect, useCallback } from "react";
 import { apiFetchV1 } from "../../lib/apiFetchV1";
+import { PriceRevisionStudioModal } from "./PriceRevisionStudioModal";
 
 interface PriceBook {
   book_id: string;
@@ -62,6 +63,7 @@ export const PricingStudioModal: React.FC<PricingStudioModalProps> = ({ isOpen, 
   const [resolveQty, setResolveQty]     = useState("1");
   const [resolution, setResolution]     = useState<PricingResolution | null>(null);
   const [resolving, setResolving]       = useState(false);
+  const [showRevisionStudio, setShowRevisionStudio] = useState(false);
 
   const load = useCallback(async () => {
     if (!isOpen) return;
@@ -114,6 +116,13 @@ export const PricingStudioModal: React.FC<PricingStudioModalProps> = ({ isOpen, 
                 {tab === "BOOKS" ? "Price Books" : tab === "TIERS" ? "Customer Tiers" : "Resolve Price"}
               </button>
             ))}
+            <button
+              onClick={() => setShowRevisionStudio(true)}
+              className="px-3 py-1.5 text-xs font-semibold rounded-lg transition-all bg-blue-600/20 text-blue-300 border border-blue-500/30 hover:bg-blue-600/30 flex items-center gap-1.5"
+            >
+              <span className="material-symbols-outlined text-sm">trending_up</span>
+              Price Revisions
+            </button>
             <button onClick={onClose} className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 ml-2">
               <span className="material-symbols-outlined text-lg">close</span>
             </button>
@@ -207,6 +216,16 @@ export const PricingStudioModal: React.FC<PricingStudioModalProps> = ({ isOpen, 
           <button onClick={onClose} className="px-4 py-2 rounded-xl text-xs font-bold text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-colors">Close</button>
         </div>
       </div>
+
+      {showRevisionStudio && (
+        <PriceRevisionStudioModal
+          isOpen={showRevisionStudio}
+          onClose={() => setShowRevisionStudio(false)}
+          onNotification={(title, msg, type) =>
+            onNotification?.(title, msg, type === "warning" ? "info" : (type || "info"))
+          }
+        />
+      )}
     </div>
   );
 };

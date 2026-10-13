@@ -13,6 +13,7 @@ Classification: Headless Billing Core & Universal Statutory Engine (Phase 2)
 """
 
 import logging
+from datetime import datetime, date, timezone
 from decimal import Decimal
 from typing import Optional, Dict, Any, List
 from fastapi import HTTPException
@@ -31,8 +32,8 @@ from ..core.gst_engine import (
     GST_STATE_CODES,
 )
 from ..models.crm import Customer, CustomerGroup
-from ..models.pricing import CustomerPriceTier
-from ..models.item_master import ItemBarcode
+from ..models.pricing import CustomerPriceTier, CustomerPriceAssignment, PriceBook
+from ..models.item_master import ItemBarcode, ItemVariant, Item
 from ..models.inventory import Product
 from ..models.tenant import Company, Branch
 from .canonical_transaction_writer import CanonicalTransactionWriter, DualKeyWriteIdentity
@@ -73,6 +74,18 @@ class HeadlessBillingCore:
         company_id = req.context.company_id
         branch_id = req.context.branch_id
 
+        # 0. Resolve Authoritative Transaction Timestamp
+        # Explicit contract: Naive client timestamps are canonically treated as UTC
+        raw_posting_dt = getattr(req.context, "posting_date", None) or getattr(req, "posting_date", None)
+        if isinstance(raw_posting_dt, date) and not isinstance(raw_posting_dt, datetime):
+            posting_dt = datetime.combine(raw_posting_dt, datetime.min.time(), tzinfo=timezone.utc)
+        elif raw_posting_dt is None:
+            posting_dt = datetime.now(timezone.utc)
+        elif raw_posting_dt.tzinfo is None:
+            posting_dt = raw_posting_dt.replace(tzinfo=timezone.utc)
+        else:
+            posting_dt = raw_posting_dt.astimezone(timezone.utc)
+
         # 1. Resolve Customer if not pre-resolved
         if db_customer is None and req.customer_id and req.customer_id != "CUST-WALKIN":
             q_cust = select(Customer).where(
@@ -86,6 +99,118 @@ class HeadlessBillingCore:
                     status_code=403,
                     detail=f"SMRITI-CUST-002: Cross-tenant customer access forbidden. Customer '{req.customer_id}' does not belong to company '{company_id}'.",
                 )
+
+        # 1b. Resolve Applicable Price Book and Customer Tier from Server-Side Trusted Models
+        applicable_price_book_code = getattr(req.context, "price_book_code", None)
+        raw_context_tier = getattr(req.context, "customer_tier_code", None)
+        applicable_customer_tier_code = None
+
+        if req.customer_id and req.customer_id != "CUST-WALKIN":
+            stmt_assign = (
+                select(CustomerPriceAssignment, CustomerPriceTier)
+                .join(CustomerPriceTier, CustomerPriceAssignment.price_tier_id == CustomerPriceTier.id)
+                .where(
+                    CustomerPriceAssignment.customer_id == req.customer_id,
+                    CustomerPriceAssignment.status == "ACTIVE",
+                    CustomerPriceAssignment.is_deleted == False,
+                    CustomerPriceTier.is_active == True,
+                    CustomerPriceTier.is_deleted == False,
+                )
+            )
+            if company_id:
+                stmt_assign = stmt_assign.where(
+                    CustomerPriceAssignment.company_id == company_id,
+                    CustomerPriceTier.company_id == company_id,
+                )
+            assign_row = (await session.execute(stmt_assign)).first()
+            if assign_row:
+                cust_assign, authoritative_tier = assign_row
+                # Check assignment temporal validity against posting_dt
+                is_assign_valid = True
+                if cust_assign.valid_from and posting_dt < cust_assign.valid_from:
+                    is_assign_valid = False
+                if cust_assign.valid_to and posting_dt > cust_assign.valid_to:
+                    is_assign_valid = False
+
+                if is_assign_valid:
+                    if raw_context_tier:
+                        if raw_context_tier == authoritative_tier.code:
+                            applicable_customer_tier_code = authoritative_tier.code
+                        else:
+                            logger.warning(
+                                f"Customer '{req.customer_id}' supplied tier '{raw_context_tier}' does not match authoritative assignment '{authoritative_tier.code}'. Overriding with authoritative tier."
+                            )
+                            applicable_customer_tier_code = authoritative_tier.code
+                    else:
+                        applicable_customer_tier_code = authoritative_tier.code
+
+                    # Inherit tier price book if unassigned
+                    if not applicable_price_book_code and authoritative_tier.price_book_id:
+                        stmt_pb = select(PriceBook).where(
+                            PriceBook.id == authoritative_tier.price_book_id,
+                            PriceBook.status == "ACTIVE",
+                            PriceBook.is_deleted == False,
+                        )
+                        if company_id:
+                            stmt_pb = stmt_pb.where(PriceBook.company_id == company_id)
+                        pb_match = (await session.execute(stmt_pb)).scalars().first()
+                        if pb_match:
+                            applicable_price_book_code = pb_match.code
+                elif raw_context_tier:
+                    logger.warning(
+                        f"Customer '{req.customer_id}' assignment to '{authoritative_tier.code}' is not valid as of '{posting_dt}'. Discarding tier."
+                    )
+            elif raw_context_tier:
+                logger.warning(
+                    f"Customer '{req.customer_id}' has no active tier assignment for company '{company_id}'. Discarding unauthorized context tier '{raw_context_tier}'."
+                )
+        elif raw_context_tier:
+            # Walk-in customers cannot claim customer tiers
+            logger.warning(
+                f"Walk-in customer '{req.customer_id}' cannot claim customer price tier '{raw_context_tier}'. Discarding tier."
+            )
+
+        # Validate context price book if passed explicitly
+        if applicable_price_book_code:
+            stmt_check_pb = select(PriceBook).where(
+                PriceBook.code == applicable_price_book_code,
+                PriceBook.status == "ACTIVE",
+                PriceBook.is_deleted == False,
+            )
+            if company_id:
+                stmt_check_pb = stmt_check_pb.where(PriceBook.company_id == company_id)
+            valid_pb = (await session.execute(stmt_check_pb)).scalars().first()
+            if not valid_pb:
+                logger.warning(f"Price Book '{applicable_price_book_code}' not active for company '{company_id}'. Ignoring context override.")
+                applicable_price_book_code = None
+            else:
+                # Check date validity of price book against posting_dt
+                if valid_pb.valid_from and posting_dt < valid_pb.valid_from:
+                    logger.warning(f"Price Book '{applicable_price_book_code}' not yet valid as of '{posting_dt}'. Ignoring context override.")
+                    applicable_price_book_code = None
+                elif valid_pb.valid_to and posting_dt > valid_pb.valid_to:
+                    logger.warning(f"Price Book '{applicable_price_book_code}' expired as of '{posting_dt}'. Ignoring context override.")
+                    applicable_price_book_code = None
+
+        # Fallback to default company price book if unassigned
+        if not applicable_price_book_code:
+            stmt_def_pb = select(PriceBook).where(
+                PriceBook.is_default == True,
+                PriceBook.status == "ACTIVE",
+                PriceBook.is_deleted == False,
+            )
+            if company_id:
+                stmt_def_pb = stmt_def_pb.where(PriceBook.company_id == company_id)
+            def_pb_match = (await session.execute(stmt_def_pb)).scalars().first()
+            if def_pb_match:
+                # Check default price book date validity
+                is_def_valid = True
+                if def_pb_match.valid_from and posting_dt < def_pb_match.valid_from:
+                    is_def_valid = False
+                if def_pb_match.valid_to and posting_dt > def_pb_match.valid_to:
+                    is_def_valid = False
+                if is_def_valid:
+                    applicable_price_book_code = def_pb_match.code
 
         # 2. Resolve Customer Discount Policy if not pre-resolved
         if customer_discount_policy is None:
@@ -260,6 +385,90 @@ class HeadlessBillingCore:
                         "identifier": item.code or item.product_id,
                     },
                 )
+
+            # Authoritative Backend Price Resolution & Statutory Verification
+            # Route strictly through PricingEngine.calculate_effective_price (Single Authoritative Resolver)
+            from .pricing_engine import PricingEngine
+            resolved_price_info = None
+            if not item.is_fee_line and not is_free:
+                target_item_id = identity.canonical_item_id or identity.legacy_product_id or item.item_id or item.product_id
+                target_variant_id = identity.canonical_variant_id or item.variant_id
+                if target_variant_id and not target_item_id:
+                    stmt_v = select(ItemVariant.item_id).where(ItemVariant.id == target_variant_id)
+                    target_item_id = (await session.execute(stmt_v)).scalar_one_or_none()
+                elif target_item_id and not target_variant_id:
+                    stmt_first_v = select(ItemVariant.id).where(ItemVariant.item_id == target_item_id)
+                    target_variant_id = (await session.execute(stmt_first_v)).scalars().first()
+
+                # Authoritative posting_dt was normalized at function start
+                try:
+                    resolved_price_info = await PricingEngine.calculate_effective_price(
+                        session=session,
+                        item_id=target_item_id or target_variant_id,
+                        variant_id=target_variant_id,
+                        quantity=qty,
+                        price_book_code=applicable_price_book_code,
+                        customer_tier_code=applicable_customer_tier_code,
+                        as_of_date=posting_dt,
+                        company_id=company_id,
+                    )
+                except Exception as pe_err:
+                    logger.error(f"PricingEngine resolution failed for line {line_no} ({item.code}): {pe_err}")
+                    raise HTTPException(
+                        status_code=400,
+                        detail={
+                            "code": "SMRITI-PRICE-RESOLVE-FAILED",
+                            "title": "Authoritative Price Resolution Failed",
+                            "explanation": f"Line {line_no} ({item.name or item.code}): Unable to resolve authoritative catalog price or statutory MRP ({str(pe_err)}).",
+                            "suggested_action": "Verify catalog price setup for this item or consult store manager.",
+                            "line_no": line_no,
+                            "identifier": item.code or item.product_id or target_item_id,
+                        },
+                    )
+
+                if (
+                    not resolved_price_info
+                    or resolved_price_info.get("effective_unit_price") is None
+                    or resolved_price_info.get("base_mrp") is None
+                ):
+                    raise HTTPException(
+                        status_code=400,
+                        detail={
+                            "code": "SMRITI-PRICE-RESOLVE-FAILED",
+                            "title": "Authoritative Price Missing",
+                            "explanation": f"Line {line_no} ({item.name or item.code}): Authoritative catalog price or statutory MRP is missing in system of record.",
+                            "suggested_action": "Please configure a valid selling price and MRP in item master before billing.",
+                            "line_no": line_no,
+                            "identifier": item.code or item.product_id or target_item_id,
+                        },
+                    )
+
+                auth_mrp = Decimal(str(resolved_price_info["base_mrp"]))
+                auth_sp = Decimal(str(resolved_price_info["effective_unit_price"]))
+
+                # 1. Statutory MRP ceiling check: Rate cannot exceed authoritative MRP
+                if rate > auth_mrp:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"SMRITI-PRICE-001: Selling price (₹{rate:,.2f}) cannot exceed statutory MRP (₹{auth_mrp:,.2f}) for item '{item.name or item.code}'.",
+                    )
+
+                # 2. Rate Deviation Check: requires supervisor override if different from authoritative rate
+                if rate != auth_sp:
+                    has_supervisor_override = bool(getattr(req.context, "supervisor_override_code", None))
+                    if not has_supervisor_override:
+                        raise HTTPException(
+                            status_code=400,
+                            detail={
+                                "code": "SMRITI-PRICE-OVERRIDE-REQ",
+                                "title": "Supervisor Price Override Required",
+                                "explanation": f"Line {line_no} ({item.name or item.code}): Unit price ₹{rate:,.2f} deviates from authoritative rate ₹{auth_sp:,.2f}.",
+                                "suggested_action": "Enter supervisor authorization code to apply custom rate, or use standard catalog price.",
+                                "line_no": line_no,
+                                "authoritative_price": float(auth_sp),
+                                "submitted_price": float(rate),
+                            },
+                        )
 
             # Determine Tax Inclusivity via 5-tier statutory hierarchy:
             # 1. Line Item Override
