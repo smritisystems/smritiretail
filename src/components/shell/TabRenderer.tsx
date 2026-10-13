@@ -84,6 +84,7 @@ const AttendanceWorkspaceTab = lazy(() => import("../hr/AttendanceWorkspaceTab.t
 const LeaveManagementTab = lazy(() => import("../hr/LeaveManagementTab.tsx").then(m => ({ default: m.LeaveManagementTab })));
 const CommissionWorkspaceTab = lazy(() => import("../hr/CommissionWorkspaceTab.tsx").then(m => ({ default: m.CommissionWorkspaceTab })));
 const PriceRevisionStudioWorkspace = lazy(() => import("../pricing/PriceRevisionStudioWorkspace.tsx").then(m => ({ default: m.PriceRevisionStudioWorkspace })));
+const CostTruthDashboardTab = lazy(() => import("../finance/CostTruthDashboardTab.tsx").then(m => ({ default: m.CostTruthDashboardTab })));
 
 export const TabLoadingFallback: React.FC = () => (
   <div className="w-full h-full flex flex-col items-center justify-center bg-theme-base text-theme-primary">
@@ -172,6 +173,11 @@ export const mapModuleId = (id: string): string => {
     price_revision: "price-revision",
     "price-revisions": "price-revision",
     "pricing-revisions": "price-revision",
+    "cost-truth": "cost-truth",
+    cost_truth: "cost-truth",
+    "cost-management": "cost-truth",
+    cost_management: "cost-truth",
+    "menu-cost-truth": "cost-truth",
     "menu-barcode": "barcode",
     "menu-barcode-management": "barcode-management",
     "barcode-management": "barcode-management",
@@ -504,6 +510,10 @@ export const renderTabNode = (tabId: string, ctx: TabRendererContextProps): Reac
       return <AccountingSyncTab />;
     case "business-ledger":
       return <BusinessLedgerTab currentUser={currentUser} />;
+    case "cost-truth":
+    case "cost-management":
+    case "cost-truth-dashboard":
+      return <CostTruthDashboardTab currentUser={currentUser} onNotification={addNotification} />;
     case "inventory":
     case "stock-ledger":
       return <StockLedgerTab currentUser={currentUser} />;

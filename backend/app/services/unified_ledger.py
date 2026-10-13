@@ -46,7 +46,11 @@ from ..models.purchase import (
 from ..models.tenant import Company
 from ..models.payment_ledger import PaymentTransaction, PaymentAllocation
 from ..models.inventory import Product, StockAudit
-from ..models.profitability import ProductCostValuation, TransactionCostSnapshot
+from ..models.profitability import (
+    ProductCostValuation,
+    TransactionCostSnapshot,
+    InvoiceProfitabilityLedger,
+)
 from ..models.pos import Shift
 from .outbox_service import OutboxService
 
@@ -65,11 +69,13 @@ DEFAULT_CHART_OF_ACCOUNTS = [
 
     # 2000 - Liabilities
     {"code": "2000", "name": "Liabilities", "type": "LIABILITY", "root": "LIABILITY", "is_group": True, "parent": None},
+    {"code": "1045", "name": "Unbilled GRN / Goods Received Not Invoiced (GR/IR Clearing)", "type": "LIABILITY", "root": "LIABILITY", "is_group": False, "parent": "2000"},
     {"code": "2010", "name": "Accounts Payable (Creditors)", "type": "LIABILITY", "root": "LIABILITY", "is_group": False, "parent": "2000", "party_type": "SUPPLIER"},
     {"code": "2021", "name": "Output CGST", "type": "LIABILITY", "root": "LIABILITY", "is_group": False, "parent": "2000"},
     {"code": "2022", "name": "Output SGST", "type": "LIABILITY", "root": "LIABILITY", "is_group": False, "parent": "2000"},
     {"code": "2023", "name": "Output IGST", "type": "LIABILITY", "root": "LIABILITY", "is_group": False, "parent": "2000"},
     {"code": "2030", "name": "TDS / Withholding Tax Payable", "type": "LIABILITY", "root": "LIABILITY", "is_group": False, "parent": "2000"},
+    {"code": "2040", "name": "Freight & Landed Cost Payable (Transporter Clearing)", "type": "LIABILITY", "root": "LIABILITY", "is_group": False, "parent": "2000"},
     {"code": "2050", "name": "Customer Advance Liability", "type": "LIABILITY", "root": "LIABILITY", "is_group": False, "parent": "2000", "party_type": "CUSTOMER"},
     {"code": "2060", "name": "Customer Credit Note & Wallet Liability", "type": "LIABILITY", "root": "LIABILITY", "is_group": False, "parent": "2000", "party_type": "CUSTOMER"},
     {"code": "2070", "name": "Customer Loyalty Points Liability", "type": "LIABILITY", "root": "LIABILITY", "is_group": False, "parent": "2000", "party_type": "CUSTOMER"},
@@ -91,9 +97,11 @@ DEFAULT_CHART_OF_ACCOUNTS = [
     # 5000 - Expenses
     {"code": "5000", "name": "Expenses", "type": "EXPENSE", "root": "EXPENSE", "is_group": True, "parent": None},
     {"code": "5010", "name": "Cost of Goods Sold (COGS)", "type": "EXPENSE", "root": "EXPENSE", "is_group": False, "parent": "5000"},
+    {"code": "5012", "name": "Purchase Price Variance (PPV)", "type": "EXPENSE", "root": "EXPENSE", "is_group": False, "parent": "5000"},
     {"code": "5020", "name": "Discounts Allowed", "type": "EXPENSE", "root": "EXPENSE", "is_group": False, "parent": "5000"},
     {"code": "5030", "name": "Roundoff Account", "type": "EXPENSE", "root": "EXPENSE", "is_group": False, "parent": "5000"},
     {"code": "5040", "name": "Inventory Loss & Shrinkage", "type": "EXPENSE", "root": "EXPENSE", "is_group": False, "parent": "5000"},
+    {"code": "5045", "name": "Ineligible / Blocked ITC Expense (Section 17(5)(h))", "type": "EXPENSE", "root": "EXPENSE", "is_group": False, "parent": "5000"},
     {"code": "5050", "name": "Foreign Exchange Loss (Realized)", "type": "EXPENSE", "root": "EXPENSE", "is_group": False, "parent": "5000"},
     {"code": "5060", "name": "Foreign Exchange Loss (Unrealized)", "type": "EXPENSE", "root": "EXPENSE", "is_group": False, "parent": "5000"},
     {"code": "5070", "name": "Cash Register Shortage (Deficit)", "type": "EXPENSE", "root": "EXPENSE", "is_group": False, "parent": "5000"},
@@ -606,6 +614,9 @@ class UnifiedAccountingLedgerService:
                     if pcv.weighted_average_cost and Decimal(str(pcv.weighted_average_cost)) > Decimal("0.00"):
                         unit_cost = Decimal(str(pcv.weighted_average_cost)).quantize(Decimal("0.01"))
                         valuation_method = "WEIGHTED_AVERAGE"
+                    elif pcv.landed_cost and Decimal(str(pcv.landed_cost)) > Decimal("0.00"):
+                        unit_cost = Decimal(str(pcv.landed_cost)).quantize(Decimal("0.01"))
+                        valuation_method = "LANDED_COST"
                     elif pcv.purchase_cost and Decimal(str(pcv.purchase_cost)) > Decimal("0.00"):
                         unit_cost = Decimal(str(pcv.purchase_cost)).quantize(Decimal("0.01"))
                         valuation_method = "PURCHASE_COST"
@@ -682,6 +693,36 @@ class UnifiedAccountingLedgerService:
 
         for snap in snapshots_to_add:
             session.add(snap)
+
+        # Record InvoiceProfitabilityLedger for waterfall gross/net profit tracking
+        inv_gross_sales = Decimal(str(getattr(inv, "grand_total", None) or getattr(inv, "taxable_value", None) or getattr(inv, "total_amount", 0.00))).quantize(Decimal("0.01"))
+        inv_gross_profit = (inv_gross_sales - total_cogs).quantize(Decimal("0.01"))
+        inv_margin_pct = (
+            ((inv_gross_profit / inv_gross_sales) * 100).quantize(Decimal("0.01"))
+            if inv_gross_sales > Decimal("0.00")
+            else Decimal("0.00")
+        )
+
+        ipl_stmt = select(InvoiceProfitabilityLedger).where(
+            InvoiceProfitabilityLedger.sales_invoice_id == inv.id,
+            InvoiceProfitabilityLedger.company_id == company_id,
+        )
+        existing_ipl = (await session.execute(ipl_stmt)).scalar_one_or_none()
+        if not existing_ipl:
+            ipl = InvoiceProfitabilityLedger(
+                id=f"ipl_{uuid.uuid4().hex[:12]}",
+                uuid=str(uuid.uuid4()),
+                company_id=company_id,
+                branch_id=branch_id or inv.branch_id,
+                sales_invoice_id=inv.id,
+                gross_sales_amount=inv_gross_sales,
+                total_cogs=total_cogs,
+                gross_profit=inv_gross_profit,
+                net_contribution=inv_gross_profit,
+                net_margin_percent=inv_margin_pct,
+                timestamp=datetime.now(timezone.utc).replace(tzinfo=None),
+            )
+            session.add(ipl)
 
         return await cls.post_journal_voucher(
             session=session,
@@ -1175,7 +1216,7 @@ class UnifiedAccountingLedgerService:
         await cls.seed_default_chart_of_accounts(session, company_id, branch_id)
 
         acc_inventory = await cls.get_account_by_code(session, company_id, "1040")
-        acc_creditors = await cls.get_account_by_code(session, company_id, "2010")
+        acc_unbilled_grn = await cls.get_account_by_code(session, company_id, "1045")
         acc_cgst = await cls.get_account_by_code(session, company_id, "1051")
         acc_sgst = await cls.get_account_by_code(session, company_id, "1052")
         acc_igst = await cls.get_account_by_code(session, company_id, "1053")
@@ -1207,11 +1248,11 @@ class UnifiedAccountingLedgerService:
                 "remarks": f"Input SGST on GRN {receipt.receipt_no}"
             },
             {
-                "account_id": acc_creditors.id,
+                "account_id": acc_unbilled_grn.id,
                 "party_id": receipt.supplier_id,
                 "debit_amount": Decimal("0.00"),
                 "credit_amount": grand_total,
-                "remarks": f"Payable to Supplier for GRN {receipt.receipt_no}"
+                "remarks": f"Unbilled GRN Liability for {receipt.receipt_no}"
             }
         ]
 
@@ -1337,6 +1378,7 @@ class UnifiedAccountingLedgerService:
         await cls.seed_default_chart_of_accounts(session, company_id, branch_id)
 
         acc_inventory = await cls.get_account_by_code(session, company_id, "1040")
+        acc_unbilled_grn = await cls.get_account_by_code(session, company_id, "1045")
         acc_creditors = await cls.get_account_by_code(session, company_id, "2010")
         acc_cgst = await cls.get_account_by_code(session, company_id, "1051")
         acc_sgst = await cls.get_account_by_code(session, company_id, "1052")
@@ -1367,17 +1409,27 @@ class UnifiedAccountingLedgerService:
             igst_sum = tax_total
             cgst_sum = Decimal("0.00")
             sgst_sum = Decimal("0.00")
+            igst_sum = Decimal("0.00")
         else:
             cgst_sum = (tax_total / 2).quantize(Decimal("0.01"))
             sgst_sum = tax_total - cgst_sum
             igst_sum = Decimal("0.00")
 
+        # Double-booking guard: If bill is matched against a GRN, debit Unbilled GRN (1045)
+        # to clear the accrued receipt liability. If standalone bill without GRN, debit Inventory (1040).
+        if bill.receipt_id:
+            debit_acc = acc_unbilled_grn
+            debit_rem = f"Clear Unbilled GRN for Receipt {bill.receipt_id} on Bill {bill.bill_no}"
+        else:
+            debit_acc = acc_inventory
+            debit_rem = f"Inward Inventory / Direct Expense for Bill {bill.bill_no}"
+
         lines = [
             {
-                "account_id": acc_inventory.id,
+                "account_id": debit_acc.id,
                 "debit_amount": subtotal,
                 "credit_amount": Decimal("0.00"),
-                "remarks": f"Inward Inventory / Direct Expense for Bill {bill.bill_no}",
+                "remarks": debit_rem,
             }
         ]
 

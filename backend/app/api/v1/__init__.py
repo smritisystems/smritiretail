@@ -25,6 +25,7 @@ from . import (
     billing_csv,
     barcode_registry,
     changelog,
+    cost,
     crm,
     crm_reports,
     dev_tracker,

@@ -56,6 +56,7 @@ from .api.v1 import (
     changelog,
     communicator,
     company_center,
+    cost,
     crm,
     crm_cge,
     crm_reports,
@@ -381,6 +382,7 @@ _ROUTER_REGISTRY = [
 
     # --- Finance & Accounting ---
     (accounting,            "/accounting",           ["Authoritative Accounting"]),
+    (cost,                  "/cost",                 ["Cost Management & Cost Truth Engine"]),
     (finance,               "/finance",              ["Finance & Cash Reports"]),
     (payments,              "/payments",             ["Payments Engine"]),
 
