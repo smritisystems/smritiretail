@@ -587,6 +587,13 @@ def apply_tenant_schema_extensions(database_name: str) -> None:
                         ALTER TABLE item_warehouse_locations ADD COLUMN IF NOT EXISTS version INTEGER DEFAULT 1;
                     END IF;
 
+                    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'warehouse_locations') THEN
+                        ALTER TABLE warehouse_locations ADD COLUMN IF NOT EXISTS zone VARCHAR(50) DEFAULT 'STORAGE';
+                        ALTER TABLE warehouse_locations ADD COLUMN IF NOT EXISTS barcode VARCHAR(100);
+                        ALTER TABLE warehouse_locations ADD COLUMN IF NOT EXISTS max_capacity_units INTEGER DEFAULT 100;
+                        ALTER TABLE warehouse_locations ADD COLUMN IF NOT EXISTS is_locked BOOLEAN DEFAULT FALSE;
+                    END IF;
+
                     IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'sales_order_items') THEN
                         ALTER TABLE sales_order_items ADD COLUMN IF NOT EXISTS article_no VARCHAR(50);
                         ALTER TABLE sales_order_items ADD COLUMN IF NOT EXISTS vendor_style VARCHAR(100);

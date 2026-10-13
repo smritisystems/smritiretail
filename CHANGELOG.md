@@ -1,3 +1,26 @@
+## [6.72.9] — 2026-10-13
+
+### Inventory & WMS — Warehouse Location Management Standardization & Non-Technical Usability Transformation v6.72.9
+
+Comprehensive architectural audit, data model standardization, and human-centric UI overhaul of warehouse location, zone, and bin management in SMRITI Retail OS, conforming to modern GS1 and WMS spatial addressing standards (`[ZONE]-[AISLE]-[RACK]-[SHELF]-[BIN]`).
+
+**Key Changes & Architectural Enforcement:**
+- **Database Model & Schema Extension (`backend/app/models/inventory.py`):** Extended `WarehouseLocation` with `zone` (VARCHAR 50, indexed), `barcode` (VARCHAR 100, unique, indexed), `max_capacity_units` (INTEGER, default 100), and `is_locked` (BOOLEAN, default False). Backed by Alembic migration `v1529_warehouse_location_zone_and_matrix_enhancements.py` and `bootstrap_engine.py` idempotent DDL backfill.
+- **WMS REST API Endpoints (`backend/app/api/v1/wms.py`):**
+  - Upgraded `GET /api/v1/wms/locations` to support `zone` and `is_active` filtering.
+  - Added `PUT /api/v1/wms/locations/{id}` for updating location names, zones, capacities, lock states, and active status.
+  - Added `DELETE /api/v1/wms/locations/{id}` supporting soft-deletion with stock verification safeguards.
+  - Implemented `POST /api/v1/wms/warehouses/{id}/locations/generate` for 1-click batch multi-zone Cartesian product generation (`Aisles × Racks × Shelves × Bins`) with automatic spatial naming and collision-resistant barcode synthesis (`LOC-{warehouse_code}-{code}`).
+  - Implemented `GET /api/v1/wms/locations/{id}/stock` providing real-time stock balance breakdowns and item counts per location.
+- **Non-Technical Visual Studio (`WarehouseLocationManager.tsx`):**
+  - Created a dual-view interface with visual location cards and a dense tabular view.
+  - Integrated color-coded zone tagging (`RECEIVING`, `STORAGE`, `PICKING`, `PACKING`, `DISPATCH`, `RETURNS`, `QUARANTINE`, `BULK`).
+  - Implemented live visual capacity progress bars and utilization percentage badges.
+  - Built an intuitive 1-Click Multi-Zone Matrix Generator Wizard allowing non-technical warehouse managers to provision full warehouse layouts in seconds without writing code or entering manual coordinates.
+  - Added one-click Lock/Unlock security toggle and direct barcode search filtering.
+- **WMS Studio Tab Integration (`WmsStudioTab.tsx`):** Mounted `WarehouseLocationManager` under a dedicated `📍 Locations & Bins` sub-tab alongside stock levels, stock movement, goods receipt, and stock audit.
+- **Barcode Printing Accessor Parity (`LabelPrintModal.tsx`):** Aligned warehouse location barcode printing to handle both camelCase and snake_case fields (`code`, `bin_code`, `zone`, `name`) with zero undefined runtime exceptions.
+
 ## [6.72.8] — 2026-10-13
 
 ### Barcode & Hardware — Universal Tattly Threads Footwear PRN Defaulting v6.72.8

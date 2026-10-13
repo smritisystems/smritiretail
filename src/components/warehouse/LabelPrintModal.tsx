@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Project      : SMRITI Retail OS
  * Author       : Jawahar Ramkripal Mallah
  * Designation  : Chief Systems Architect & Creator
@@ -19,10 +19,16 @@ import React, { useState, useEffect, useCallback } from "react";
 import { apiFetchV1 } from "../../lib/apiFetchV1";
 
 interface WarehouseLocation {
-  location_id: string;
-  location_code: string;
+  id?: string;
+  location_id?: string;
+  code?: string;
+  location_code?: string;
+  name?: string;
   aisle?: string;
+  rack?: string;
+  shelf?: string;
   bin?: string;
+  bin_code?: string;
   zone?: string;
   warehouse_id?: string;
 }
@@ -45,6 +51,10 @@ export const LabelPrintModal: React.FC<LabelPrintModalProps> = ({ isOpen, onClos
   const [printing, setPrinting]       = useState(false);
   const [search, setSearch]           = useState("");
 
+  const getLocId = (l: WarehouseLocation): string => l.id || l.location_id || "";
+  const getLocCode = (l: WarehouseLocation): string => l.code || l.location_code || "";
+  const getLocBin = (l: WarehouseLocation): string => l.bin_code || l.bin || "";
+
   const load = useCallback(async () => {
     if (!isOpen) return;
     setLoading(true); setError(null);
@@ -57,10 +67,13 @@ export const LabelPrintModal: React.FC<LabelPrintModalProps> = ({ isOpen, onClos
 
   useEffect(() => { load(); }, [load]);
 
-  const filtered = locations.filter((l) =>
-    !search || l.location_code.toLowerCase().includes(search.toLowerCase()) ||
-    (l.zone ?? "").toLowerCase().includes(search.toLowerCase())
-  );
+  const filtered = locations.filter((l) => {
+    const code = getLocCode(l);
+    const zone = l.zone || "";
+    const name = l.name || "";
+    const q = search.toLowerCase();
+    return !search || code.toLowerCase().includes(q) || zone.toLowerCase().includes(q) || name.toLowerCase().includes(q);
+  });
 
   const toggle = (id: string) => setSelected((prev) =>
     prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
@@ -122,15 +135,21 @@ export const LabelPrintModal: React.FC<LabelPrintModalProps> = ({ isOpen, onClos
               <span className="material-symbols-outlined text-4xl">location_off</span>
               <p className="text-sm">No locations found.</p>
             </div>
-          ) : filtered.map((loc) => (
-            <div key={loc.location_id} onClick={() => toggle(loc.location_id)}
-              className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all text-xs ${selected.includes(loc.location_id) ? "border-indigo-500/40 bg-indigo-950/10" : "border-slate-700/40 bg-slate-800/20 hover:border-slate-600"}`}>
-              <input type="checkbox" checked={selected.includes(loc.location_id)} readOnly className="accent-indigo-500" />
-              <span className="font-mono font-bold text-slate-200">{loc.location_code}</span>
-              <span className="text-slate-500">{loc.zone ?? "—"}</span>
-              <span className="text-slate-600">Aisle: {loc.aisle ?? "—"} · Bin: {loc.bin ?? "—"}</span>
-            </div>
-          ))}
+          ) : filtered.map((loc) => {
+            const locId = getLocId(loc);
+            const locCode = getLocCode(loc);
+            const locBin = getLocBin(loc);
+            return (
+              <div key={locId} onClick={() => toggle(locId)}
+                className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all text-xs ${selected.includes(locId) ? "border-indigo-500/40 bg-indigo-950/10" : "border-slate-700/40 bg-slate-800/20 hover:border-slate-600"}`}>
+                <input type="checkbox" checked={selected.includes(locId)} readOnly className="accent-indigo-500" />
+                <span className="font-mono font-bold text-slate-200">{locCode}</span>
+                {loc.name && <span className="text-slate-400 font-medium">({loc.name})</span>}
+                <span className="text-indigo-400 bg-indigo-500/10 px-2 py-0.5 rounded text-[11px] font-semibold">{loc.zone ?? "STORAGE"}</span>
+                <span className="text-slate-500 ml-auto">Aisle: {loc.aisle ?? "—"} · Rack: {loc.rack ?? "—"} · Shelf: {loc.shelf ?? "—"} · Bin: {locBin || "—"}</span>
+              </div>
+            );
+          })}
         </div>
 
         <div className="flex items-center justify-between px-6 py-3 border-t border-slate-800 bg-slate-950/80">
