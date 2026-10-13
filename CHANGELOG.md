@@ -21,6 +21,19 @@ Comprehensive architectural audit, data model standardization, and human-centric
 - **WMS Studio Tab Integration (`WmsStudioTab.tsx`):** Mounted `WarehouseLocationManager` under a dedicated `📍 Locations & Bins` sub-tab alongside stock levels, stock movement, goods receipt, and stock audit.
 - **Barcode Printing Accessor Parity (`LabelPrintModal.tsx`):** Aligned warehouse location barcode printing to handle both camelCase and snake_case fields (`code`, `bin_code`, `zone`, `name`) with zero undefined runtime exceptions.
 
+### Security & Governance — Menu Registry, UX, UI, and Route Harmonization v3.17.3
+
+Forensic audit, verification, and end-to-end routing harmonization across the PostgreSQL Control Plane Menu Registry (`smritisys.smriti_menus`), dynamic menu resolver (`/api/v1/menus/resolved`), shell navigation router (`TabRenderer.tsx`), and the Menu Manager Studio (`MenuManagerStudioTab.tsx`).
+
+**Key Remediation Actions:**
+- **TabRenderer Canonical Routing Parity (`TabRenderer.tsx`):** Remediated 5 disconnected canonical routes (`menu-wiki` -> `wiki`, `menu-about-smriti` -> `about-smriti`, `menu-dev-tracker` -> `dev-tracker`, `menu-profiles` -> `profiles`, `menu-security` -> `security-management`). Added modern module route aliases (`menu-wms`, `menu-attendance`, `menu-attendance-workspace`).
+- **Interactive Menu Studio Test Launch (`MenuManagerStudioTab.tsx`):** Added 1-click `[Test Launch]` button in the node configurator header card next to `[Save Changes]`, allowing administrators to immediately test-launch the workspace being edited.
+- **Automated Routing Parity Unit Test Suite (`src/tests/menuRegistryRouting.test.ts`):** Authored dedicated Vitest test suite certifying that 100% of the 39 canonical menu IDs resolve cleanly to their respective workspace components without unhandled router fallthrough.
+- **Test Certification:**
+  - `npx vitest run src/tests/menuRegistryRouting.test.ts`: 3/3 passed (100% green).
+  - `pytest backend/tests/t_menu_registry.py -v`: 6/6 passed (100% green).
+  - `npx tsc --noEmit`: 0 compiler errors.
+
 ## [6.72.8] — 2026-10-13
 
 ### Barcode & Hardware — Universal Tattly Threads Footwear PRN Defaulting v6.72.8
