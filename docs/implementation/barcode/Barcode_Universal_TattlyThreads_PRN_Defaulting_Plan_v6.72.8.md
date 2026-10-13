@@ -73,6 +73,10 @@ Universal alignment required registering aliases, ensuring fallback chains resol
 - `src/tests/prnInterpolation.test.ts`
 - `backend/app/services/barcode_engine/compiler.py`
 - `backend/app/api/v1/barcode.py`
+- `package.json`
+- `src/config/version.ts`
+- `backend/app/core/config.py`
+- `src/components/billing/BillingWorkspace.tsx`
 - `CHANGELOG.md`
 - `docs/implementation/README.md`
 - `docs/walkthrough/README.md`
@@ -88,9 +92,10 @@ Mitigation: 50×25mm retail sticker option remains 1-click selectable across all
 Git revert commits on modified files restores previous fallback behavior.
 
 ## 13. Verification Plan
-1. Vitest: Run 4 test files (`prnInterpolation.test.ts`, `tagPrinting.test.ts`, `printLabelsStudio.test.ts`, `barcodeLayoutRegistry.test.ts`).
-2. Pytest: Run `test_zpl_footwear_label.py` and `test_dpl_footwear_label.py`.
-3. TypeScript: Run `npx tsc --noEmit`.
+1. Version SSOT: Run `py -3.13 scripts/validate_version_ssot.py`.
+2. Vitest: Run 4 test files (`prnInterpolation.test.ts`, `tagPrinting.test.ts`, `printLabelsStudio.test.ts`, `barcodeLayoutRegistry.test.ts`).
+3. Pytest: Run `test_zpl_footwear_label.py` and `test_dpl_footwear_label.py`.
+4. TypeScript: Run `npx tsc --noEmit`.
 
 ## 14. Test Plan
 - Unit tests asserting default template resolution.
