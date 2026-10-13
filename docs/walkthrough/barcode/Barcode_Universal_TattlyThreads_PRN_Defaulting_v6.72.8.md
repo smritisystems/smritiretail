@@ -32,7 +32,7 @@ This document provides complete architectural, implementation, and verification 
 
 ## 4. Files Modified
 - `src/components/barcode/prnInterpolation.ts`: Added template aliases, universal fallback, and canonical PRN download filename generator `generatePrnDownloadFilename` (`SMRITI-[Style]-[VendorCode]-[TimeStamp].prn`).
-- `src/components/barcode/TagLabelPrintingTa.tsx`: Ensured Tattly Threads Footwear PRN fallback and adopted `generatePrnDownloadFilename`.
+- `src/components/barcode/TagLabelPrintingTa.tsx`: Ensured Tattly Threads Footwear PRN fallback, adopted `generatePrnDownloadFilename`, and upgraded confirmation modal preview to dynamic 100×50.7mm 3-stub layout.
 - `src/components/barcode/VisualLabelDesign.tsx`: Positioned 100×50.7mm footwear as preset 0.
 - `src/components/barcode/PrintLabelsStudio.tsx`: Adopted canonical `generatePrnDownloadFilename` for raw PRN export.
 - `src/components/barcode/BarcodeScriptGenVi.tsx`: Adopted canonical `generatePrnDownloadFilename` for script download.
