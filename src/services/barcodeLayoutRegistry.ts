@@ -253,9 +253,9 @@ export const BUILTIN_LABEL_TEMPLATES: UnifiedLabelTemplate[] = [
   },
 ];
 
-export function getLabelTemplate(id: string): UnifiedLabelTemplate | undefined {
-  if (id === "lay-footwear-100x50-3stub" || id === "tattly-footwear-100x50.7") {
+export function getLabelTemplate(id?: string): UnifiedLabelTemplate | undefined {
+  if (!id || id === "default" || id === "lay-footwear-100x50-3stub" || id === "tattly-footwear-100x50.7") {
     id = "tattly-threads-footwear-100x50.7";
   }
-  return BUILTIN_LABEL_TEMPLATES.find((t) => t.id === id);
+  return BUILTIN_LABEL_TEMPLATES.find((t) => t.id === id) || BUILTIN_LABEL_TEMPLATES[0];
 }

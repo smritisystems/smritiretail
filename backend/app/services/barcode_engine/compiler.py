@@ -52,8 +52,10 @@ class BarcodeCompiler:
     ) -> CompilationResult:
         template = custom_template or template_registry.get(template_id)
         if not template:
-            # Fallback to default retail 50x25
-            template = template_registry.get("retail-50x25")
+            # Fallback to default Tattly Threads footwear 100x50.7
+            template = template_registry.get("tattly-threads-footwear-100x50.7")
+            if not template:
+                template = template_registry.get("retail-50x25")
             if not template:
                 raise ValueError(f"Template '{template_id}' not found in registry.")
 

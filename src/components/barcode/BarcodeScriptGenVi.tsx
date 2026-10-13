@@ -59,6 +59,7 @@ import {
   testQzConnection,
   dispatchToQzTray,
 } from "../../utils/qzTrayClient.ts";
+import { generatePrnDownloadFilename } from "./prnInterpolation.ts";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -423,7 +424,17 @@ export const BarcodeScriptGenerationView: React.FC<BarcodeScriptGenerationViewPr
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;
-        a.download = `smriti_script_${Date.now()}.${ext}`;
+        const cleanLoadedName = (loadedFileName || "").replace(/\.[^/.]+$/, "");
+        const filename = generatePrnDownloadFilename(
+          [],
+          ext as any,
+          {
+            prefix: "SMRITI",
+            fallbackStyle: cleanLoadedName.toLowerCase().includes("tattly") || cleanLoadedName.toLowerCase().includes("ch-30-k") ? "CH-30-K" : cleanLoadedName || "SCRIPT",
+            fallbackVendor: cleanLoadedName.toLowerCase().includes("tattly") ? "TATTLY" : "GEN",
+          }
+        );
+        a.download = filename;
         a.click();
         URL.revokeObjectURL(url);
         setPrintDispatch({

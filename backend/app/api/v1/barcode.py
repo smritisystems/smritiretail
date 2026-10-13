@@ -442,13 +442,14 @@ async def print_labels(
                     elements = data
             except Exception:
                 pass
-    elif layout_id_requested in ("lay-footwear-100x50-3stub", "lay-premium-zpl"):
+    elif not layout_id_requested or layout_id_requested in ("default", "lay-footwear-100x50-3stub", "lay-premium-zpl", "tattly-threads-footwear-100x50.7"):
         layout_width = 100.0
         layout_height = 50.7
 
     is_footwear_layout = (
-        layout_id_requested in ("lay-footwear-100x50-3stub", "lay-premium-zpl") or
-        (layout and layout.id in ("lay-footwear-100x50-3stub", "lay-premium-zpl")) or
+        not layout_id_requested or
+        layout_id_requested in ("default", "lay-footwear-100x50-3stub", "lay-premium-zpl", "tattly-threads-footwear-100x50.7") or
+        (layout and layout.id in ("lay-footwear-100x50-3stub", "lay-premium-zpl", "tattly-threads-footwear-100x50.7")) or
         (layout and abs(layout_width - 100.0) < 2.0 and abs(layout_height - 50.7) < 2.0 and not prn_template)
     )
 

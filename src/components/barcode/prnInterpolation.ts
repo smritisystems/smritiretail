@@ -6,9 +6,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.50.0
+ * Version      : 6.72.8
  * Created      : 2026-10-10
- * Modified     : 2026-10-10
+ * Modified     : 2026-10-13
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
@@ -239,6 +239,11 @@ D11
 E`
 };
 
+// Aliases ensuring Tattly Threads Footwear PRN is universal default
+BUILTIN_PRN_TEMPLATES["TattlyThreads.prn"] = BUILTIN_PRN_TEMPLATES["Tattly Threads Footwear — 100x50.7mm"];
+BUILTIN_PRN_TEMPLATES["lay-footwear-100x50-3stub"] = BUILTIN_PRN_TEMPLATES["Tattly Threads Footwear — 100x50.7mm"];
+BUILTIN_PRN_TEMPLATES["default"] = BUILTIN_PRN_TEMPLATES["Tattly Threads Footwear — 100x50.7mm"];
+
 /**
  * Detects protocol of a given raw script text
  */
@@ -295,7 +300,8 @@ export function formatStyleForBarcodeLabel(rawStyle?: string, vendorCode?: strin
  * Interpolates a single label's item data into a template PRN/ZPL/DPL script
  */
 export function interpolatePrnScript(templateText: string, item: PrnItemData): string {
-  if (!templateText) return "";
+  const activeTemplate = templateText || BUILTIN_PRN_TEMPLATES["Tattly Threads Footwear — 100x50.7mm"];
+  if (!activeTemplate) return "";
 
   const barcode = item.barcode || item.stockNo || "890100000000";
   const rawStyle = item.style && item.style !== "-" ? item.style : (item.stockNo || "CH-30-K");
@@ -309,7 +315,7 @@ export function interpolatePrnScript(templateText: string, item: PrnItemData): s
   const sp = String(item.sellingPrice ?? item.mrp ?? 1199);
   const pkd = "10/26";
 
-  let out = templateText;
+  let out = activeTemplate;
 
   // 1. Bracket style tokens: {barcode}, {style_code}, {style}, {colour}, {color}, {size}, {mrp}, etc.
   out = out
@@ -359,7 +365,7 @@ export function interpolatePrnScript(templateText: string, item: PrnItemData): s
     .replace(/#MFG_DATE#/gi, pkd);
 
   // 3. Fallback for static sample templates (e.g. ModernLabelDesign_TE244.blf with hardcoded samples)
-  const hadTokens = /\{[a-z_]+\}|#[a-z_]+#/i.test(templateText);
+  const hadTokens = /\{[a-z_]+\}|#[a-z_]+#/i.test(activeTemplate);
   if (!hadTokens) {
     out = out
       .replace(/890100000006/g, barcode)
@@ -374,12 +380,115 @@ export function interpolatePrnScript(templateText: string, item: PrnItemData): s
  * Compiles a batch of items repeating each for item.labelCount
  */
 export function compilePrnBatch(templateText: string, items: PrnItemData[]): string {
+  const activeTemplate = templateText || BUILTIN_PRN_TEMPLATES["Tattly Threads Footwear — 100x50.7mm"];
   let stream = "";
   items.forEach(item => {
     const count = Math.max(1, item.labelCount ?? 1);
     for (let i = 0; i < count; i++) {
-      stream += interpolatePrnScript(templateText, item) + "\n";
+      stream += interpolatePrnScript(activeTemplate, item) + "\n";
     }
   });
   return stream;
 }
+
+/**
+ * Formats a Date object into human-readable, chronologically sortable timestamp:
+ * YYYYMMDD-HHmmss (e.g. "20261013-120530")
+ */
+export function formatPrnTimestamp(d: Date = new Date()): string {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const yyyy = d.getFullYear();
+  const mm = pad(d.getMonth() + 1);
+  const dd = pad(d.getDate());
+  const hh = pad(d.getHours());
+  const min = pad(d.getMinutes());
+  const ss = pad(d.getSeconds());
+  return `${yyyy}${mm}${dd}-${hh}${min}${ss}`;
+}
+
+/**
+ * Sanitizes a string token for safe file names across Windows, POSIX, and FAT32/USB filesystems.
+ */
+export function sanitizeFilenameToken(token?: string, fallback: string = ""): string {
+  if (!token) return fallback;
+  const clean = token
+    .trim()
+    .replace(/[\\/:*?"<>|]+/g, "-")
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "");
+  return clean || fallback;
+}
+
+/**
+ * Generates canonical SMRITI PRN download filename:
+ * SMRITI-[Style]-[VendorCode]-[Timestamp].[ext]
+ *
+ * Pattern:
+ *   SMRITI-{Style}-{VendorCode}-{YYYYMMDD-HHmmss}.{ext}
+ *
+ * Behavior:
+ *   - Single product or uniform batch: "SMRITI-CH-30-K-TATTLY-20261013-120530.prn"
+ *   - Multi-style batch: "SMRITI-CH-30-K+2MORE-TATTLY-20261013-120530.prn"
+ *   - Empty/fallback: "SMRITI-CH-30-K-TATTLY-20261013-120530.prn"
+ */
+export function generatePrnDownloadFilename(
+  items?: PrnItemData[] | PrnItemData,
+  extension: "prn" | "zpl" | "dpl" | "txt" = "prn",
+  options?: {
+    prefix?: string;
+    fallbackStyle?: string;
+    fallbackVendor?: string;
+    date?: Date;
+  }
+): string {
+  const prefix = sanitizeFilenameToken(options?.prefix, "SMRITI");
+  const timeStamp = formatPrnTimestamp(options?.date || new Date());
+  const ext = extension.toLowerCase().replace(/^\./, "");
+
+  const itemList: PrnItemData[] = Array.isArray(items) ? items : items ? [items] : [];
+
+  if (itemList.length === 0) {
+    const style = sanitizeFilenameToken(options?.fallbackStyle, "CH-30-K");
+    const vendor = sanitizeFilenameToken(options?.fallbackVendor, "TATTLY");
+    return `${prefix}-${style}-${vendor}-${timeStamp}.${ext}`;
+  }
+
+  // Extract unique styles and vendor codes
+  const styles = Array.from(
+    new Set(
+      itemList
+        .map(i => sanitizeFilenameToken(i.style || i.stockNo))
+        .filter(Boolean)
+    )
+  );
+
+  const vendors = Array.from(
+    new Set(
+      itemList
+        .map(i => sanitizeFilenameToken(i.vendorCode || i.brand))
+        .filter(Boolean)
+    )
+  );
+
+  let stylePart = "ITEM";
+  if (styles.length === 1) {
+    stylePart = styles[0];
+  } else if (styles.length > 1) {
+    stylePart = `${styles[0]}+${styles.length - 1}MORE`;
+  } else {
+    stylePart = sanitizeFilenameToken(options?.fallbackStyle, "CH-30-K");
+  }
+
+  let vendorPart = "TATTLY";
+  if (vendors.length === 1) {
+    vendorPart = vendors[0];
+  } else if (vendors.length > 1) {
+    vendorPart = `${vendors[0]}+${vendors.length - 1}VND`;
+  } else {
+    vendorPart = sanitizeFilenameToken(options?.fallbackVendor, "TATTLY");
+  }
+
+  return `${prefix}-${stylePart}-${vendorPart}-${timeStamp}.${ext}`;
+}
+

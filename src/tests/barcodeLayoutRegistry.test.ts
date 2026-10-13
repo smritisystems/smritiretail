@@ -91,4 +91,15 @@ describe("Unified Barcode Layout Registry & Client Renderer", () => {
     expect(svg).toContain('height="25mm"');
     expect(svg).toContain("890123456789");
   });
+
+  it("5. should default to Tattly Threads Footwear 100x50.7mm template when id is undefined or 'default'", () => {
+    const defaultTmpl = getLabelTemplate();
+    expect(defaultTmpl).toBeDefined();
+    expect(defaultTmpl?.id).toBe("tattly-threads-footwear-100x50.7");
+    expect(defaultTmpl?.widthMm).toBe(100.0);
+    expect(defaultTmpl?.heightMm).toBe(50.7);
+
+    const explicitDefaultTmpl = getLabelTemplate("default");
+    expect(explicitDefaultTmpl?.id).toBe("tattly-threads-footwear-100x50.7");
+  });
 });

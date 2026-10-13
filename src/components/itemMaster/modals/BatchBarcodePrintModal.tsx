@@ -13,8 +13,9 @@
  */
 
 import React, { useState } from "react";
-import { X, Printer, Download, Copy, Check, Tag, Eye } from "lucide-react";
+import { X, Printer, Download, Copy, Check, Tag, Eye, FileCode } from "lucide-react";
 import { Product } from "../../../types.ts";
+import { compilePrnBatch, BUILTIN_PRN_TEMPLATES, generatePrnDownloadFilename } from "../../barcode/prnInterpolation.ts";
 
 interface BatchBarcodePrintModalProps {
   isOpen: boolean;
@@ -32,12 +33,45 @@ export const BatchBarcodePrintModal: React.FC<BatchBarcodePrintModalProps> = ({
   onNotification,
 }) => {
   const [copied, setCopied] = useState(false);
-  const [printLayout, setPrintLayout] = useState<"thermal" | "sheet">("thermal");
+  const [printLayout, setPrintLayout] = useState<"tattly-prn" | "thermal" | "sheet">("tattly-prn");
   const [copiesPerItem, setCopiesPerItem] = useState(1);
 
   if (!isOpen) return null;
 
   const validProducts = products.filter(p => p.barcode && p.barcode.trim() !== "");
+
+  const handleDownloadPRN = () => {
+    const template = BUILTIN_PRN_TEMPLATES["Tattly Threads Footwear — 100x50.7mm"];
+    const prnItems = validProducts.map(p => ({
+      stockNo: p.code,
+      barcode: p.barcode,
+      product: p.name,
+      brand: p.brand || "TATTLY THREADS",
+      style: p.styleCode || p.style_code || p.style || p.article || p.article_no || p.code || "CH-30-K",
+      colour: p.color || "BLACK",
+      size: p.size || "37",
+      mrp: Number(p.mrp ?? p.price ?? 0),
+      sellingPrice: Number(p.price ?? p.mrp ?? 0),
+      labelCount: copiesPerItem,
+      vendorCode: p.vendor_code || (p.brand ? p.brand.replace(/\s+Threads/i, "").toUpperCase() : "TATTLY"),
+    }));
+    const prnContent = compilePrnBatch(template, prnItems);
+    const filename = generatePrnDownloadFilename(prnItems, "prn", {
+      prefix: "SMRITI",
+      fallbackStyle: "CH-30-K",
+      fallbackVendor: "TATTLY",
+    });
+    const blob = new Blob([prnContent], { type: "text/plain;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.setAttribute("download", filename);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    onNotification?.("PRN Exported", `Downloaded PRN script "${filename}" for ${validProducts.length * copiesPerItem} label(s).`, "success");
+  };
 
   const handleCopyAllBarcodes = () => {
     const list = validProducts.map(p => p.barcode).join("\n");
@@ -116,6 +150,18 @@ export const BatchBarcodePrintModal: React.FC<BatchBarcodePrintModalProps> = ({
               <div className="inline-flex rounded-lg border border-slate-300 dark:border-slate-700 p-0.5 bg-white dark:bg-slate-800">
                 <button
                   type="button"
+                  onClick={() => setPrintLayout("tattly-prn")}
+                  className={`px-2.5 py-1 rounded-md font-semibold transition ${
+                    printLayout === "tattly-prn"
+                      ? "bg-blue-600 text-white shadow-xs"
+                      : "text-slate-600 dark:text-slate-300 hover:text-slate-900"
+                  }`}
+                  title="Tattly Threads Footwear 100x50.7mm 3-Stub Master PRN Layout"
+                >
+                  Tattly Threads (100×50.7mm PRN)
+                </button>
+                <button
+                  type="button"
                   onClick={() => setPrintLayout("thermal")}
                   className={`px-2.5 py-1 rounded-md font-semibold transition ${
                     printLayout === "thermal"
@@ -155,6 +201,15 @@ export const BatchBarcodePrintModal: React.FC<BatchBarcodePrintModalProps> = ({
           <div className="flex items-center gap-2">
             <button
               type="button"
+              onClick={handleDownloadPRN}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-blue-300 dark:border-blue-700 bg-blue-50 dark:bg-blue-900/30 hover:bg-blue-100 dark:hover:bg-blue-900/50 font-semibold text-blue-700 dark:text-blue-200 transition"
+              title="Download compiled .PRN thermal script for Tattly Threads 100x50.7mm"
+            >
+              <FileCode size={14} />
+              <span>Download .PRN</span>
+            </button>
+            <button
+              type="button"
               onClick={handleCopyAllBarcodes}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 font-semibold text-slate-700 dark:text-slate-200 transition"
             >
@@ -187,19 +242,25 @@ export const BatchBarcodePrintModal: React.FC<BatchBarcodePrintModalProps> = ({
                   className="p-3 rounded-xl border border-slate-200 dark:border-slate-700/80 bg-slate-50/50 dark:bg-slate-800/40 flex flex-col justify-between relative hover:border-blue-300 dark:hover:border-blue-600 transition"
                 >
                   <div>
+                    {printLayout === "tattly-prn" && (
+                      <div className="mb-1.5 flex items-center justify-between text-[9px] font-mono font-bold text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 px-1.5 py-0.5 rounded border border-amber-200 dark:border-amber-800/50">
+                        <span>Tattly Threads 3-Stub (100×50.7mm)</span>
+                        <span>Dual Tear-Off</span>
+                      </div>
+                    )}
                     <div className="flex items-center justify-between gap-1 mb-1">
                       <span className="text-[10px] font-bold text-blue-600 dark:text-blue-400 truncate max-w-[120px]">
-                        {p.brand || "SMRITI"}
+                        {p.brand || "TATTLY THREADS"}
                       </span>
-                      <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300">
-                        {p.size ? `Size: ${p.size}` : ""} {p.color ? `• ${p.color}` : ""}
+                      <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold">
+                        {p.size ? `Size: ${p.size}` : "Size: 37"} {p.color ? `• ${p.color}` : "• BLACK"}
                       </span>
                     </div>
                     <div className="text-xs font-semibold text-slate-900 dark:text-white truncate mb-1" title={p.name}>
                       {p.name}
                     </div>
                     <div className="text-[11px] font-mono text-slate-500 dark:text-slate-400 truncate">
-                      SKU: {p.code}
+                      Art: {p.styleCode || p.code || "CH-30-K"}
                     </div>
                   </div>
 
@@ -237,6 +298,14 @@ export const BatchBarcodePrintModal: React.FC<BatchBarcodePrintModalProps> = ({
               className="px-4 py-2 rounded-xl border border-slate-300 dark:border-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
             >
               Close
+            </button>
+            <button
+              type="button"
+              onClick={handleDownloadPRN}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl border border-blue-300 dark:border-blue-700 bg-blue-50 dark:bg-blue-900/30 hover:bg-blue-100 dark:hover:bg-blue-900/50 text-blue-700 dark:text-blue-200 text-xs font-bold transition cursor-pointer"
+            >
+              <FileCode size={15} />
+              <span>Download .PRN File</span>
             </button>
             <button
               type="button"
