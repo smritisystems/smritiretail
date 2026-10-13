@@ -586,6 +586,17 @@ export const MenuManagerStudioTab: React.FC<MenuManagerStudioTabProps> = ({
             </div>
 
             <div className="flex items-center gap-2">
+              {onNavigateTab && (
+                <button
+                  type="button"
+                  onClick={() => onNavigateTab(formState.route ? formState.route.replace(/^\//, "") : formState.id)}
+                  title="Test launch this module workspace in a new tab"
+                  className="px-3 py-2 bg-white hover:bg-[#f1f5f9] text-[#1e40af] border border-[#bfdbfe] font-bold rounded-lg text-xs flex items-center gap-1.5 transition-all shadow-xs cursor-pointer"
+                >
+                  <ExternalLink className="w-4 h-4" />
+                  Test Launch
+                </button>
+              )}
               <button
                 type="button"
                 onClick={handleSaveNode}
