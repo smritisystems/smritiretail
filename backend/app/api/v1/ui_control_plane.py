@@ -73,10 +73,11 @@ async def get_my_workspace_profile(
         "STORE_MANAGER": "PROF_STORE_MANAGER",
         "MANAGER": "PROF_STORE_MANAGER",
         "ACCOUNTANT": "PROF_ACCOUNTANT",
-        "SYSADMIN": "PROF_SYSADMIN"
+        "SYSADMIN": "PROF_SYSADMIN",
+        "ADMIN": "PROF_SYSADMIN",
     }
 
-    target_code = role_to_code.get(role_str, "PROF_SYSADMIN")
+    target_code = role_to_code.get(role_str, "PROF_DEFAULT")
 
     stmt = select(SmritiWorkspaceProfile).where(
         SmritiWorkspaceProfile.code == target_code,

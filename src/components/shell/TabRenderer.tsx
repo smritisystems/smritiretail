@@ -165,6 +165,7 @@ export const mapModuleId = (id: string): string => {
     "barcode-management": "barcode-management",
     "menu-stock-ledger": "stock-ledger",
     "menu-purchase": "purchase",
+    "menu-grn": "grn-studio",
     "menu-supplier-mgmt": "vendor-360",
     "menu-vendor-360": "vendor-360",
     "menu-business-ledger": "business-ledger",
