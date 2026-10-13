@@ -4,9 +4,9 @@ Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
-Version      : 3.17.0
+Version      : 3.17.1
 Created      : 2026-07-11
-Modified     : 2026-10-11
+Modified     : 2026-10-13
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 """
@@ -31,6 +31,27 @@ from ..schemas.user import (
 )
 from ..core.security import hash_password, verify_password, validate_password_strength
 from ..api.deps import TenantContext, normalize_branch_value
+
+
+# Canonical mapping of UserRole enum values to their predefined system role IDs.
+# This lookup is used during both create and update to auto-assign role_id when
+# the caller does not supply one explicitly.
+ROLE_ENUM_TO_ID: dict = {
+    UserRole.SYSADMIN: "role-sysadmin",
+    UserRole.ADMIN: "role-admin",
+    UserRole.MANAGER: "role-manager",
+    UserRole.STORE_MANAGER: "role-store-manager",
+    UserRole.BRANCH_ADMIN: "role-branch-admin",
+    UserRole.INVENTORY_MANAGER: "role-inventory-manager",
+    UserRole.PURCHASE_EXECUTIVE: "role-purchase-executive",
+    UserRole.SALES_EXECUTIVE: "role-sales-executive",
+    UserRole.CASHIER: "role-cashier",
+    UserRole.ACCOUNTANT: "role-accountant",
+    UserRole.AUDITOR: "role-auditor",
+    UserRole.HR_EXECUTIVE: "role-hr-executive",
+    UserRole.REPORT_USER: "role-report-user",
+    UserRole.VIEWER: "role-viewer",
+}
 
 
 def to_staff_response(user: User) -> StaffUserResponse:
@@ -629,23 +650,7 @@ class UserService:
 
         allowed_br = json.dumps(req.allowedBranches) if req.allowedBranches else json.dumps([req.branch or "Andheri West, Mumbai"])
 
-        role_to_id = {
-            UserRole.SYSADMIN: "role-sysadmin",
-            UserRole.ADMIN: "role-admin",
-            UserRole.MANAGER: "role-manager",
-            UserRole.STORE_MANAGER: "role-store-manager",
-            UserRole.BRANCH_ADMIN: "role-branch-admin",
-            UserRole.INVENTORY_MANAGER: "role-inventory-manager",
-            UserRole.PURCHASE_EXECUTIVE: "role-purchase-executive",
-            UserRole.SALES_EXECUTIVE: "role-sales-executive",
-            UserRole.CASHIER: "role-cashier",
-            UserRole.ACCOUNTANT: "role-accountant",
-            UserRole.AUDITOR: "role-auditor",
-            UserRole.HR_EXECUTIVE: "role-hr-executive",
-            UserRole.REPORT_USER: "role-report-user",
-            UserRole.VIEWER: "role-viewer",
-        }
-        assigned_role_id = req.role_id or req.roleId or role_to_id.get(req.role)
+        assigned_role_id = req.role_id or req.roleId or ROLE_ENUM_TO_ID.get(req.role)
 
         user = User(
             id=f"usr-{uuid.uuid4().hex[:8]}",
@@ -748,7 +753,7 @@ class UserService:
             if req.fullName is not None: user.full_name = req.fullName
             if req.role is not None:
                 user.role = req.role
-                user.role_id = req.role_id or req.roleId or role_to_id.get(req.role, user.role_id)
+                user.role_id = req.role_id or req.roleId or ROLE_ENUM_TO_ID.get(req.role, user.role_id)
             elif req.role_id or req.roleId:
                 user.role_id = req.role_id or req.roleId
             if req.status is not None:

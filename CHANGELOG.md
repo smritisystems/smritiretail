@@ -1,3 +1,22 @@
+## [3.17.1] — 2026-10-13
+
+### Security & Governance — Role Template Mapping & Staff Creation Deep Audit & Remediation v3.17.1
+
+Forensic audit and architectural remediation of system user and staff creation across SMRITI Retail OS. Identified and fixed root causes behind failure of non-Cashier role assignments and profile update crashes.
+
+**Root Cause & Architecture Findings:**
+- **Legacy Dot-Notation RBAC Mismatch (DEFECT-001):** System roles in the PostgreSQL `roles` table (`role-store-manager`, `role-branch-admin`, `role-hr-executive`, etc.) were seeded with legacy dot-notation permissions (e.g. `staff.manage`, `pos.sell`) instead of the canonical `resource.ACTION` notation (`staff_mgmt.CREATE`, `staff_mgmt.VIEW`) required by `security_matrix.evaluate_action_permission`. Consequently, while SYSADMIN and MANAGER callers could create any staff member via implicit role bypasses, non-MANAGER administrative callers (Store Manager, Branch Admin, HR Executive) received HTTP 403 Forbidden on `POST /api/v1/users/`.
+- **Runtime Scope Crash on Role Update (DEFECT-002):** In `backend/app/services/user.py`, `update_staff_user` referenced `role_to_id.get(req.role, user.role_id)`. However, `role_to_id` was locally scoped to `create_staff_user`, triggering a runtime `NameError: name 'role_to_id' is not defined` whenever a staff member's role was updated.
+- **Phase 1E RBAC Invariant Preservation:** Confirmed that both `role-sales-executive` (scoped operational role) and `role-sales_executive` (legacy wildcard baseline) must remain present and active per Phase 1E R-3 Option B and `backend/tests/t_rbac_roles.py` Scenario M.
+
+**Key Remediation Actions:**
+- **Centralized Role Enum Mapping:** Promoted `ROLE_ENUM_TO_ID` to module level in `backend/app/services/user.py`, providing a single canonical source of truth mapping all 14 `UserRole` enums to their respective system role IDs. Wired into both `create_staff_user` and `update_staff_user`.
+- **Alembic Migration v1528 (`v1528_canonical_role_permissions_remediation.py`):** Created and applied migration to control database `smritisys` upgrading permissions in `roles.permissions_json` to canonical `resource.ACTION` notation, restoring `staff_mgmt.CREATE` to Store Manager, Branch Admin, and HR Executive.
+- **Test Certification:**
+  - `pytest backend/tests/t_rbac_roles.py`: 20/20 passed (100% green).
+  - `npx vitest run src/tests/userStaffCreation.test.ts`: 17/17 passed (100% green).
+  - Multi-role verification script: 14/14 `UserRole` enums created and verified, plus role update verified.
+
 ## [6.72.6] — 2026-10-13
 
 ### Catalog & Item Master — Mandatory Lookups & System Parameter Dual-Key Governance v6.72.6
