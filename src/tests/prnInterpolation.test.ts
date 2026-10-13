@@ -19,7 +19,10 @@ import {
   compilePrnBatch,
   detectPrnProtocol,
   formatStyleForBarcodeLabel,
-  BUILTIN_PRN_TEMPLATES
+  BUILTIN_PRN_TEMPLATES,
+  formatPrnTimestamp,
+  sanitizeFilenameToken,
+  generatePrnDownloadFilename
 } from "../components/barcode/prnInterpolation.ts";
 
 describe("PRN Template Interpolation Engine Suite", () => {
@@ -138,6 +141,81 @@ describe("PRN Template Interpolation Engine Suite", () => {
     };
     const result = interpolatePrnScript(template, itemWithVendor);
     expect(result).toContain("^FDCH-01-A-^FS");
+  });
+
+  it("ensures Tattly Threads Footwear PRN is registered as default and serves as universal fallback", () => {
+    const masterTmpl = BUILTIN_PRN_TEMPLATES["Tattly Threads Footwear — 100x50.7mm"];
+    expect(BUILTIN_PRN_TEMPLATES["TattlyThreads.prn"]).toBe(masterTmpl);
+    expect(BUILTIN_PRN_TEMPLATES["lay-footwear-100x50-3stub"]).toBe(masterTmpl);
+    expect(BUILTIN_PRN_TEMPLATES["default"]).toBe(masterTmpl);
+
+    // Empty template in interpolatePrnScript defaults to Tattly Threads PRN
+    const defaultInterpolated = interpolatePrnScript("", sampleItem);
+    expect(defaultInterpolated).toContain("^FDCH-30-K");
+    expect(defaultInterpolated).toContain("Tattly Threads");
+    expect(defaultInterpolated).toContain("81,Umerkhadi,Mumbai,400003");
+
+    // Empty template in compilePrnBatch defaults to Tattly Threads PRN
+    const defaultBatch = compilePrnBatch("", [sampleItem]);
+    expect(defaultBatch).toContain("^FDCH-30-K");
+    expect(defaultBatch).toContain("care@tattlythreads.com");
+  });
+
+  it("formats PRN timestamps as YYYYMMDD-HHmmss", () => {
+    const fixedDate = new Date(2026, 9, 13, 12, 5, 30); // 2026-10-13 12:05:30
+    const ts = formatPrnTimestamp(fixedDate);
+    expect(ts).toBe("20261013-120530");
+
+    const currentTs = formatPrnTimestamp();
+    expect(currentTs).toMatch(/^\d{8}-\d{6}$/);
+  });
+
+  it("sanitizes filename tokens removing illegal filesystem characters", () => {
+    expect(sanitizeFilenameToken("CH/30/K")).toBe("CH-30-K");
+    expect(sanitizeFilenameToken("Tattly: Threads & Co")).toBe("Tattly-Threads-&-Co");
+    expect(sanitizeFilenameToken("   STYLE--01  ")).toBe("STYLE-01");
+    expect(sanitizeFilenameToken("", "FALLBACK")).toBe("FALLBACK");
+    expect(sanitizeFilenameToken(undefined, "DEFAULT")).toBe("DEFAULT");
+  });
+
+  it("generates canonical SMRITI-Style-Vendorcode-TimeStamp download filenames", () => {
+    const fixedDate = new Date(2026, 9, 13, 12, 5, 30);
+
+    // 1. Single item with style and vendorCode
+    const singleItem = {
+      style: "CH-30-K",
+      vendorCode: "TATTLY",
+    };
+    const fn1 = generatePrnDownloadFilename(singleItem, "prn", { date: fixedDate });
+    expect(fn1).toBe("SMRITI-CH-30-K-TATTLY-20261013-120530.prn");
+
+    // 2. Uniform batch (multiple sizes of the same style and vendor)
+    const uniformBatch = [
+      { style: "CH-30-K", vendorCode: "TATTLY", size: "37" },
+      { style: "CH-30-K", vendorCode: "TATTLY", size: "38" },
+      { style: "CH-30-K", vendorCode: "TATTLY", size: "39" },
+    ];
+    const fn2 = generatePrnDownloadFilename(uniformBatch, "prn", { date: fixedDate });
+    expect(fn2).toBe("SMRITI-CH-30-K-TATTLY-20261013-120530.prn");
+
+    // 3. Multi-style batch
+    const multiStyleBatch = [
+      { style: "CH-30-K", vendorCode: "TATTLY" },
+      { style: "SND-18-V", vendorCode: "TATTLY" },
+    ];
+    const fn3 = generatePrnDownloadFilename(multiStyleBatch, "prn", { date: fixedDate });
+    expect(fn3).toBe("SMRITI-CH-30-K+1MORE-TATTLY-20261013-120530.prn");
+
+    // 4. Empty items fallback
+    const fnEmpty = generatePrnDownloadFilename([], "prn", { date: fixedDate });
+    expect(fnEmpty).toBe("SMRITI-CH-30-K-TATTLY-20261013-120530.prn");
+
+    // 5. Alternative protocols (zpl, dpl)
+    const fnZpl = generatePrnDownloadFilename(singleItem, "zpl", { date: fixedDate });
+    expect(fnZpl).toBe("SMRITI-CH-30-K-TATTLY-20261013-120530.zpl");
+
+    const fnDpl = generatePrnDownloadFilename(singleItem, "dpl", { date: fixedDate });
+    expect(fnDpl).toBe("SMRITI-CH-30-K-TATTLY-20261013-120530.dpl");
   });
 });
 

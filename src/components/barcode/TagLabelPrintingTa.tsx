@@ -38,7 +38,8 @@ import {
   compilePrnBatch,
   detectPrnProtocol,
   formatStyleForBarcodeLabel,
-  BUILTIN_PRN_TEMPLATES
+  BUILTIN_PRN_TEMPLATES,
+  generatePrnDownloadFilename
 } from "./prnInterpolation.ts";
 import { EditQuantityDetailsModal } from "./EditQuantityDetDlg.tsx";
 import { BarcodeScriptGenerationView } from "./BarcodeScriptGenVi.tsx";
@@ -1202,7 +1203,7 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
 
     const scriptLower = (settings.scriptFileName || "").toLowerCase();
     const printerLower = (settings.targetPrinterName || "").toLowerCase();
-    const isFootwear = scriptLower.includes("footwear") || scriptLower.includes("100x50") || scriptLower.includes("tattly");
+    const isFootwear = scriptLower.includes("footwear") || scriptLower.includes("100x50") || scriptLower.includes("tattly") || !scriptLower;
     const templateId = isFootwear ? "tattly-threads-footwear-100x50.7" : "retail-50x25";
 
     // 1. Resolve Active Template Script (User-uploaded script takes priority, then built-in scripts)
@@ -1211,7 +1212,7 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
       (isFootwear ? BUILTIN_PRN_TEMPLATES["Tattly Threads Footwear — 100x50.7mm"]
       : (scriptLower.includes("dpl") || scriptLower.includes("honeywell") || scriptLower.includes("ih-2")) ? BUILTIN_PRN_TEMPLATES["Honeywell_IH2_DualStub.prn"]
       : (scriptLower.includes("te244") || scriptLower.includes("modern")) ? BUILTIN_PRN_TEMPLATES["ModernLabelDesign_TE244.blf"]
-      : BUILTIN_PRN_TEMPLATES["Retail 50x25mm Standard"])
+      : BUILTIN_PRN_TEMPLATES["Tattly Threads Footwear — 100x50.7mm"])
     );
 
     const protocol = detectPrnProtocol(activeTemplateScript) || ((printerLower.includes("dpl") || printerLower.includes("honeywell") || printerLower.includes("ih-2") || scriptLower.includes("dpl")) ? "DPL" : "ZPL");
@@ -1315,9 +1316,27 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
         onNotification?.("Compiling File", `Generating ${protocol} label script for ${activePrintTotalLabels} label(s) from "${settings.scriptFileName}"...`, "info");
         
         const content = compiledScriptStream;
-        const ext = protocol.toLowerCase() === "zpl" ? "zpl" : "prn";
-        const cleanBaseName = (settings.scriptFileName || "Labels").replace(/\.[^/.]+$/, "").replace(/\s+/g, "_");
-        const filename = `${cleanBaseName}_${Date.now()}.${ext}`;
+        const ext = (protocol.toLowerCase() === "zpl" ? "zpl" : protocol.toLowerCase() === "dpl" ? "dpl" : "prn") as "prn" | "zpl" | "dpl";
+        const filename = generatePrnDownloadFilename(
+          activePrintItems.map(item => ({
+            stockNo: item.stockNo,
+            barcode: item.barcode,
+            product: item.product,
+            brand: item.brand,
+            style: item.style,
+            colour: item.colour,
+            size: item.size,
+            mrp: item.mrp,
+            sellingPrice: item.sellingPrice,
+            vendorCode: (item as any).vendorCode || item.brand,
+          })),
+          ext,
+          {
+            prefix: "SMRITI",
+            fallbackStyle: isFootwear ? "CH-30-K" : "RETAIL",
+            fallbackVendor: isFootwear ? "TATTLY" : "GEN",
+          }
+        );
 
         const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
         const url = URL.createObjectURL(blob);

@@ -1,3 +1,23 @@
+## [6.72.8] — 2026-10-13
+
+### Barcode & Hardware — Universal Tattly Threads Footwear PRN Defaulting v6.72.8
+
+Established Tattly Threads Footwear 100×50.7mm 3-Stub Master PRN (`TattlyThreads.prn`) as the authoritative system-wide default across all barcode label printing engines, dialogs, batch queues, visual designers, and backend compilers.
+
+**Key Changes & Architectural Enforcement:**
+- **Universal Template Aliases & Fallback Engine (`prnInterpolation.ts`):** Registered `"TattlyThreads.prn"`, `"lay-footwear-100x50-3stub"`, and `"default"` aliases in `BUILTIN_PRN_TEMPLATES`. Configured `interpolatePrnScript` and `compilePrnBatch` to automatically default empty or omitted templates to the Tattly Threads Footwear 100×50.7mm master script.
+- **Canonical PRN Download Filename Engine (`prnInterpolation.ts`):** Implemented `formatPrnTimestamp`, `sanitizeFilenameToken`, and `generatePrnDownloadFilename` generating unified `SMRITI-[Style]-[VendorCode]-[TimeStamp].prn` filenames across all 4 printing studios (`BatchBarcodePrintModal`, `TagLabelPrintingTa`, `PrintLabelsStudio`, `BarcodeScriptGenVi`). Uniformly sanitizes filesystem tokens and formats chronological ISO timestamps (`YYYYMMDD-HHmmss`).
+- **Batch Barcode Queue Enhancement (`BatchBarcodePrintModal.tsx`):** Configured modal format default to `Tattly Threads (100×50.7mm PRN)` with direct `.prn` compilation download (`[Download .PRN File]`) using canonical `SMRITI-Style-Vendorcode-TimeStamp.prn` naming and 3-stub dual tear-off card preview.
+- **Tag Label Printing Tab (`TagLabelPrintingTa.tsx`):** Updated `activeTemplateScript` fallback chain to universally resolve `Tattly Threads Footwear — 100x50.7mm` when custom or unspecified templates are supplied, and unified PRN file download naming to `generatePrnDownloadFilename`.
+- **Visual Label Designer (`VisualLabelDesign.tsx`):** Elevated Tattly Threads Footwear 3-Stub (100mm × 50.7mm) to preset position 0 (`STANDARD_PRESETS[0]`), initializing designer dimensions to 100×50.7mm.
+- **Unified Layout Registry (`barcodeLayoutRegistry.ts`):** Made `getLabelTemplate()` without parameters or with `"default"` resolve directly to `tattly-threads-footwear-100x50.7`.
+- **Backend API & Compiler Fallback (`compiler.py`, `barcode.py`):** Configured `BarcodeCompiler.compile()` and `/api/v1/barcode/print` to default unspecified or default layout IDs to `tattly-threads-footwear-100x50.7` ZPL/DPL stream generation.
+- **Test Certification:**
+  - `npx vitest run src/tests/prnInterpolation.test.ts src/tests/tagPrinting.test.ts src/tests/printLabelsStudio.test.ts src/tests/barcodeLayoutRegistry.test.ts`: 70/70 passed (100% green).
+  - `pytest backend/tests/test_zpl_footwear_label.py`: 13/13 passed (100% green).
+  - `pytest backend/tests/test_dpl_footwear_label.py`: 8/8 passed (100% green).
+  - `npx tsc --noEmit`: 0 compiler errors.
+
 ## [6.72.7] — 2026-10-13
 
 ### Catalog & Item Master — Governed Lookup Combobox & Dropdown UX Transformation v6.72.7

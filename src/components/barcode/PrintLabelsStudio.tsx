@@ -29,7 +29,7 @@ import { apiFetchV1 } from '../../lib/apiFetchV1.js';
 import { ThermalBarcodeSvg } from './ThermalBarcodeSvg.tsx';
 import { barcodeTransactionStore } from './barcodeTransactionS.ts';
 import { compareNatural, isWithinRange } from './rangeFilter.ts';
-import { formatStyleForBarcodeLabel } from './prnInterpolation.ts';
+import { formatStyleForBarcodeLabel, generatePrnDownloadFilename } from './prnInterpolation.ts';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -1721,7 +1721,27 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({
                   printerName.toLowerCase().includes('ih-2') ||
                   selectedPresetId === 'preset-honeywell-ih2-footwear';
     const prn = compilePrnString(itemsToExport, selectedTemplate, isDpl);
-    const filename = `smriti_labels_${selectedTemplate.id}_${Date.now()}.${isDpl ? 'dpl' : 'prn'}`;
+    const ext = isDpl ? 'dpl' : 'prn';
+    const isFootwear = selectedTemplate.id.includes('footwear') || selectedPresetId.includes('footwear');
+    const filename = generatePrnDownloadFilename(
+      itemsToExport.map(r => ({
+        stockNo: r.itemCode,
+        barcode: r.barcode,
+        product: r.product,
+        brand: r.brand,
+        style: r.style,
+        colour: r.shade,
+        size: r.size,
+        mrp: r.mrp,
+        vendorCode: r.vendorCode || r.brand,
+      })),
+      ext,
+      {
+        prefix: 'SMRITI',
+        fallbackStyle: isFootwear ? 'CH-30-K' : 'RETAIL',
+        fallbackVendor: isFootwear ? 'TATTLY' : 'GEN',
+      }
+    );
     downloadPrnFile(prn, filename);
     addSessionLog(`PRN DOWNLOADED LOCAL (${itemsToExport.length} items, ${prn.split(/\r?\n/).length} lines)`, 'success');
     onNotification?.('PRN Downloaded', `Generated and downloaded PRN file for ${itemsToExport.length} item(s).`, 'success');
