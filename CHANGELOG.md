@@ -1,3 +1,26 @@
+## [3.17.2] — 2026-10-13
+
+### Security & Governance — Menu Registry & UX Control Plane Harmonization v3.17.2
+
+Forensic audit and architectural harmonization of the SMRITI Retail OS Menu Registry, dynamic resolution engine, and User Experience (UX) navigation layer across all 14 system roles and 5 workspace persona profiles.
+
+**Root Cause & Architectural Discoveries:**
+- **39-Menu Single Source of Truth Parity:** PostgreSQL control plane table `smriti_menus` contained 39 active modules. However, `CANONICAL_36_MENU_MATRIX` in `backend/app/core/security_matrix.py` contained 38 items, omitting Goods Receipt (`menu-grn`), while `t_menu_registry.py` asserted a legacy size of 37 menus.
+- **Fiori Launchpad Control Plane Hydration Unboxing:** In `src/components/launchpad/FioriLaunchpad.tsx`, the mount hook inspected `if (res.ok)` on the output of `apiFetchV1`. Because `apiFetchV1` returns the parsed JSON array directly rather than a `Response` object, `res.ok` evaluated to `undefined`, silently preventing PostgreSQL control plane menus from hydrating on client launchpads.
+- **TabRenderer Route Missing for GRN:** `TabRenderer.tsx`'s `mapModuleId` contained routes for `grn-studio`, `grn`, and `goods-receipt`, but lacked `menu-grn`, preventing remote database menu click-through.
+- **Unmapped Persona Fallback Security:** `ui_control_plane.py`'s `role_to_code` defaulted unmapped non-admin roles to `PROF_SYSADMIN`. Corrected to safely default to `PROF_DEFAULT` (`USER` persona).
+
+**Key Remediation Actions:**
+- **Security Matrix Extension:** Added `menu-grn` (`{"resource": "purchase_studio", "view_perm": "GRN.WORKSPACE.ACCESS", "parent_id": "menu-inventory"}`) to `CANONICAL_36_MENU_MATRIX` and established the `CANONICAL_39_MENU_MATRIX` alias.
+- **Client Hydration Normalization:** Fixed `FioriLaunchpad.tsx` to inspect `Array.isArray(res)` directly, activating dynamic database menu synchronization.
+- **Route & Store Parity:** Added `menu-grn` to `TabRenderer.tsx` and registered all 5 missing modules (`menu-desktop-billing`, `menu-sales-promotions`, `menu-grn`, `menu-manager`, `menu-security`) into `MENU_PERMISSION_RESOURCES` in `securityStore.ts`.
+- **Persona Profile Hardening:** Updated `ui_control_plane.py` to route `ADMIN` to `PROF_SYSADMIN` and unmapped roles to `PROF_DEFAULT`.
+- **Test Certification:**
+  - `pytest backend/tests/t_menu_registry.py`: 6/6 passed (100% green).
+  - `pytest backend/tests/t_rbac_roles.py`: 20/20 passed (100% green).
+  - `npx vitest run src/tests/fioriLaunchpad.test.ts src/tests/menuAccess.test.ts src/tests/userStaffCreation.test.ts`: 34/34 passed (100% green).
+  - `npx tsc --noEmit`: 0 compiler errors.
+
 ## [3.17.1] — 2026-10-13
 
 ### Security & Governance — Role Template Mapping & Staff Creation Deep Audit & Remediation v3.17.1

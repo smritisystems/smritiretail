@@ -48,14 +48,12 @@ export const FioriLaunchpad: React.FC<FioriLaunchpadProps> = ({ currentUser, onS
     let isMounted = true;
     async function loadControlPlaneMenus() {
       try {
-        const res = await apiFetchV1("/api/v1/menus/resolved");
+        const res = await apiFetchV1<any[]>("/menus/resolved");
         if (!isMounted) return;
-        if (res.ok) {
-          const data = await res.json();
-          if (Array.isArray(data) && data.length > 0) {
-            setRemoteMenus(data);
-            setIsControlPlaneSynced(true);
-          }
+        const data = Array.isArray(res) ? res : (res as any)?.data || (res as any)?.items || [];
+        if (Array.isArray(data) && data.length > 0) {
+          setRemoteMenus(data);
+          setIsControlPlaneSynced(true);
         }
       } catch {
         // Resilient offline fallback: retain static LAUNCHPAD_CATALOG without disruption

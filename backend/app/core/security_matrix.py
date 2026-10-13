@@ -49,6 +49,7 @@ CANONICAL_36_MENU_MATRIX: Dict[str, Dict[str, Any]] = {
     "menu-barcode": {"resource": "barcode_studio", "view_perm": "BARCODE.WORKSPACE.ACCESS", "parent_id": "menu-inventory"},
     "menu-stock-ledger": {"resource": "stock_ledger", "view_perm": "STOCK.WORKSPACE.ACCESS", "parent_id": "menu-inventory"},
     "menu-purchase": {"resource": "purchase_studio", "view_perm": "PURCHASE.WORKSPACE.ACCESS", "parent_id": "menu-inventory"},
+    "menu-grn": {"resource": "purchase_studio", "view_perm": "GRN.WORKSPACE.ACCESS", "parent_id": "menu-inventory"},
     "menu-supplier-mgmt": {"resource": "supplier_mgmt", "view_perm": "SUPPLIER.WORKSPACE.ACCESS", "parent_id": "menu-inventory"},
 
     # 5. Accounts
@@ -79,8 +80,9 @@ CANONICAL_36_MENU_MATRIX: Dict[str, Dict[str, Any]] = {
     "menu-security": {"resource": "security_management", "view_perm": "SECURITY.MENU.ACCESS", "parent_id": None},
 }
 
-# Backward-compatible import name for callers that still reference the old contract label.
+# Backward-compatible import names for callers referencing earlier contract sizes.
 CANONICAL_34_MENU_MATRIX = CANONICAL_36_MENU_MATRIX
+CANONICAL_39_MENU_MATRIX = CANONICAL_36_MENU_MATRIX
 
 # Standard operational modules allowed by default for Cashier / Store User
 CASHIER_DEFAULT_VIEW_ALLOWLIST: Set[str] = {
