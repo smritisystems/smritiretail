@@ -14,6 +14,33 @@
 
 # SMRITI Retail OS — Release Notes
 
+## Release v6.74.0 (2026-10-14)
+
+### Foundation & Finance — Cost Management & Cost Truth Engine Architecture
+
+#### Overview
+SMRITI Retail OS v6.74.0 delivers the production-grade **Cost Management Engine & Cost Truth Reporting Architecture**, providing business owners and financial controllers with an authoritative, explainable view of procurement costs, landed cost allocations, Indian GST and Section 17(5)(h) Input Tax Credit (ITC) treatments, perpetual inventory stock valuation under Ind AS 2 / AS 2 (Rolling Weighted Average Cost), historical Sales COGS snapshot immutability, gross margin waterfalls, and real-time Inventory-to-General-Ledger reconciliation.
+
+#### Key Highlights
+- **Authoritative Cost Hierarchy**:
+  - Implemented rolling Weighted Average Cost (WAC) formula in `CostManagementEngine` respecting Ind AS 2 / AS 2.
+  - Landed unit cost apportionment factoring freight, handling, customs, and insurance into inventory valuation.
+  - Replacement cost tracking and permanent historical Sales COGS snapshots (`TransactionCostSnapshot`).
+  - Zero retrospective mutation of posted invoices, stock movements, or accounting vouchers.
+- **Double-Entry GR/IR Clearing Account (1045)**:
+  - Eliminated duplicate inventory debits by routing Goods Receipt Note (GRN) accrued liabilities to Account `1045 (Unbilled GRN / GR-IR Clearing)`.
+  - Matched Purchase Bills debit Account `1045` and credit Account `2010 (Accounts Payable)`.
+  - Added statutory GST Section 17(5)(h) blocked/reversed ITC accounting to Account `5045`.
+- **Cost Truth Reporting & REST API Endpoints (`/api/v1/cost/*`)**:
+  - Live Inventory-to-GL reconciliation comparing physical stock valuation against General Ledger Account `1040 (Inventory Asset)`.
+  - High-level KPI dashboard delivery (Inventory Value, COGS, Gross Profit, Unallocated Landed Cost, Pending ITC, Material Cost Variances).
+  - 6 dedicated reporting engines for Purchase Variance, Landed Cost Breakdown, ITC Reconciliation, Stock Valuation, COGS Profitability, and Cost Exceptions.
+- **Interactive UI (`CostTruthDashboardTab.tsx`)**:
+  - Integrated rich dashboard into UI shell (`TabRenderer.tsx`), complete with live reconciliation meters, interactive report tabs, search, and CSV export.
+- **Automated Verification**:
+  - 6/6 Pytest integration tests green in `test_cost_management_engine.py` (23.15s) against isolated test database `smriti_test_cost_engine`.
+  - 0 TypeScript compiler errors (`tsc --noEmit`).
+
 ## Release v6.73.5 (2026-10-13)
 
 ### Pricing & Merchandising — Bulk Price Revision Studio 4-Step Architecture

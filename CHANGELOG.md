@@ -1,3 +1,29 @@
+## [6.74.0] — 2026-10-14
+
+### Foundation & Finance — Cost Management & Cost Truth Engine Architecture v6.74.0
+
+Delivery of the enterprise Cost Management Engine & Cost Truth reporting architecture across FastAPI, PostgreSQL, and React/TypeScript:
+
+**Key Changes & Architectural Enforcement:**
+- **Authoritative Cost Hierarchy & Ind AS 2 Rolling WAC (`backend/app/services/cost_engine.py`):**
+  - Pure decimal implementation of `calculate_rolling_wac` handling zero initial stock, weighted average pooling, and negative oversold replenishment.
+  - Landed unit cost apportionment incorporating inward freight, handling, and eligible landing charges.
+  - Automatic updating of `ProductCostValuation` on GRN receipt (`backend/app/services/purchase.py`).
+  - Replacement cost tracking and permanent historical Sales COGS snapshotting (`TransactionCostSnapshot`).
+- **Double-Entry General Ledger Parity & GR/IR Clearing (`backend/app/services/unified_ledger.py`):**
+  - Seeded Account `1045 (Unbilled GRN / GR-IR Clearing)`, Account `2040 (Freight Clearing)`, Account `5012 (Purchase Price Variance)`, and Account `5045 (Blocked/Reversed ITC - Section 17(5)(h))` in default Chart of Accounts.
+  - Eliminated duplicate inventory debits by crediting Account `1045` on Goods Receipt Note (GRN) posting, and debiting Account `1045` on Purchase Bill posting.
+  - Integrated waterfall profitability tracking into `InvoiceProfitabilityLedger`.
+- **Cost Truth REST API & Reporting Endpoints (`backend/app/api/v1/cost.py`):**
+  - Endpoints: `GET /api/v1/cost/dashboard`, `GET /api/v1/cost/reconciliation`, `GET /api/v1/cost/reports/*`, `POST /api/v1/cost/recalculate-wac-backfill`.
+  - Live Inventory-to-GL reconciliation comparing physical stock valuation against Account `1040 (Inventory Asset)`.
+- **Interactive UI Dashboard (`src/components/finance/CostTruthDashboardTab.tsx`):**
+  - Integrated into UI shell router (`src/components/shell/TabRenderer.tsx`).
+  - Real-time GL reconciliation gauge, KPI stat cards, interactive report tabs, and CSV export.
+- **Automated Verification:**
+  - 6/6 Pytest tests green in `test_cost_management_engine.py` against isolated test database `smriti_test_cost_engine` on port 2781.
+  - 0 TypeScript errors (`tsc --noEmit`).
+
 ## [6.73.5] — 2026-10-13
 
 ### Pricing & Merchandising — Bulk Price Revision Studio 4-Step Architecture v6.73.5

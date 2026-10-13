@@ -1115,15 +1115,36 @@ class PurchaseService:
                 variant_id=item_row.variant_id,
             )
 
-            # Atomically update / upsert ProductCostValuation for retail multi-valuation COGS
+            # Atomically update / upsert ProductCostValuation for retail multi-valuation COGS & rolling WAC
+            from .cost_engine import CostManagementEngine
             val_res = await self.db.execute(
                 select(ProductCostValuation).where(ProductCostValuation.product_id == item_row.product_id)
             )
             valuation = val_res.scalars().first()
+            p_stock = Decimal(str(item_row.quantity_received or 0.00))
+
+            # Query product stock for rolling WAC prior stock baseline
+            cur_stock_res = await self.db.execute(
+                select(Product.stock).where(Product.id == item_row.product_id)
+            )
+            cur_prod_stock = Decimal(str(cur_stock_res.scalar() or 0.00))
+            prior_stock = max(Decimal("0.00"), cur_prod_stock - p_stock)
+
             if valuation:
+                old_wac = Decimal(str(valuation.weighted_average_cost or 0.00))
+                new_wac = CostManagementEngine.calculate_rolling_wac(
+                    current_qty=prior_stock,
+                    current_wac=old_wac,
+                    inward_qty=p_stock,
+                    inward_unit_cost=effective_unit_cost,
+                )
                 valuation.purchase_cost = item_row.cost_price
                 valuation.last_purchase_cost = item_row.cost_price
                 valuation.landed_cost = effective_unit_cost
+                valuation.replacement_cost = effective_unit_cost
+                valuation.weighted_average_cost = new_wac
+                if not valuation.fifo_cost or Decimal(str(valuation.fifo_cost)) <= Decimal("0.00"):
+                    valuation.fifo_cost = effective_unit_cost
                 if item_row.mrp and item_row.mrp > Decimal("0.00"):
                     valuation.mrp = item_row.mrp
                 valuation.updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
@@ -1136,6 +1157,10 @@ class PurchaseService:
                     purchase_cost=item_row.cost_price,
                     last_purchase_cost=item_row.cost_price,
                     landed_cost=effective_unit_cost,
+                    replacement_cost=effective_unit_cost,
+                    weighted_average_cost=effective_unit_cost,
+                    fifo_cost=effective_unit_cost,
+                    standard_cost=item_row.cost_price,
                     mrp=item_row.mrp or Decimal("0.00"),
                     company_id=self.tenant.company_id,
                     branch_id=self.tenant.branch_id,
