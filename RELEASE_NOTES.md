@@ -14,6 +14,33 @@
 
 # SMRITI Retail OS — Release Notes
 
+## Release v6.73.5 (2026-10-13)
+
+### Pricing & Merchandising — Bulk Price Revision Studio 4-Step Architecture
+
+#### Overview
+SMRITI Retail OS v6.73.5 delivers the comprehensive **Bulk Price Revision Studio** workflow (`BulkPriceRevisionWorkflow.tsx`), providing enterprise merchandising and pricing operations teams with a high-velocity 4-step wizard to execute mass price adjustments across large item catalogs with strict statutory compliance, distributor pricing rules, permanent Cost Price read-only protection, and zero database mutations during preview.
+
+#### Key Highlights
+- **4-Step Merchandising Wizard (`BulkPriceRevisionWorkflow.tsx`)**:
+  - **Step 1 (Select Items):** Multi-facet filtering across Style Code, Article No, Brand, Category, Color, Size, Supplier, and Status, plus instant toggle to CSV/TSV clipboard import with header alias normalization and UTF-8 BOM stripping.
+  - **Step 2 (Configure Revision):** Revision target selection (Selling Price, MRP, Distributor Price editable; Cost Price permanently locked with advisory tooltip), adjustment method (Percentage 5% default increase, Amount, Fixed Price), effective date, and reason code.
+  - **Step 3 (Preview & Validate):** Live comparison table detailing current vs. proposed prices, percentage/absolute deltas, status badges (`VALID`, `WARNING`, `ERROR`), search filter, rejected row export (`[Export Rejected Rows]`), and 50-row pagination. Strictly zero database mutations occur in preview.
+  - **Step 4 (Confirm & Submit):** Batch KPI summary review with dual-action submission (`[Save as Draft]`, `[Submit for Approval]`).
+- **Statutory & Business Invariant Enforcement**:
+  - Enforced statutory ceiling: Selling Price $\le$ MRP (`SMRITI-PRICE-001`, `chk_ipr_sp_le_mrp`).
+  - Enforced distributor pricing rule: Distributor Price $\le$ Selling Price (`SMRITI-PRICE-002`).
+  - Commercial below-cost warning: Flags revisions where Selling Price falls below inward Cost Price.
+  - Cost Price permanently read-only and stripped from all revision payloads.
+- **Backend API & Service Enhancements**:
+  - Catalog filtering endpoints: `POST /api/v1/pricing/revisions/filter-items` and `GET /api/v1/pricing/revisions/filter-items` with search alias mapping.
+  - Resolved route shadowing by declaring static filter routes before parameterized `{revision_id}` routes.
+  - Batch creation enhancements in `PriceRevisionService` supporting `revised_distributor_price` and recording distributor price history in `metadata_json`.
+- **Zero-Defect Verification**:
+  - 16/16 Vitest tests green (`src/tests/priceRevisionStudio.test.ts`).
+  - 40/40 Pytest tests green (`backend/tests/test_price_revisions.py`).
+  - `npx tsc --noEmit --skipLibCheck` exited 0.
+
 ## Release v6.73.4 (2026-10-13)
 
 ### Pricing & UX — Price Revision Menu Registry & Connected UX Architecture

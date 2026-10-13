@@ -17,12 +17,12 @@ import logging
 from datetime import datetime, timezone
 from decimal import Decimal, ROUND_HALF_UP
 from typing import Dict, Any, List, Optional, Tuple
-from sqlalchemy import select, and_, or_, func, update
+from sqlalchemy import select, and_, or_, func, update, distinct
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from ..models.pricing import ItemPriceRevision, PriceBook, PriceBookEntry
-from ..models.item_master import Item, ItemVariant, ItemBarcode
+from ..models.item_master import Item, ItemVariant, ItemBarcode, ItemPrice
 from ..models.inventory import Product
 from ..services.approval_engine import ApprovalEngine
 from ..schemas.pricing import (
@@ -31,6 +31,9 @@ from ..schemas.pricing import (
     PriceRevisionApprovalDecision,
     PriceRevisionBulkRequest,
     PriceRevisionBulkResponse,
+    BulkItemFilterRequest,
+    BulkItemCandidate,
+    BulkItemFilterResponse,
 )
 
 logger = logging.getLogger("smriti.price_revision")
@@ -157,6 +160,11 @@ class PriceRevisionService:
         # 2. Statutory and commercial price validations
         rev_mrp = Decimal(str(req.revised_mrp)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
         rev_sp = Decimal(str(req.revised_selling_price)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        rev_dp = (
+            Decimal(str(req.revised_distributor_price)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+            if req.revised_distributor_price is not None
+            else None
+        )
         rev_cp = (
             Decimal(str(req.revised_cost_price)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
             if req.revised_cost_price is not None
@@ -167,6 +175,13 @@ class PriceRevisionService:
             raise ValueError("SMRITI-PRICE-003: Revised MRP cannot be negative.")
         if rev_sp < Decimal("0.00"):
             raise ValueError("SMRITI-PRICE-004: Revised Selling Price cannot be negative.")
+        if rev_dp is not None:
+            if rev_dp < Decimal("0.00"):
+                raise ValueError("SMRITI-PRICE-010: Revised Distributor Price cannot be negative.")
+            if rev_dp > rev_sp:
+                raise ValueError(
+                    f"SMRITI-PRICE-002: Distributor price (₹{rev_dp:,.2f}) cannot exceed retail selling price (₹{rev_sp:,.2f})."
+                )
         if rev_cp is not None and rev_cp < Decimal("0.00"):
             raise ValueError("SMRITI-PRICE-005: Revised Cost Price cannot be negative.")
         if rev_sp > rev_mrp:
@@ -194,6 +209,17 @@ class PriceRevisionService:
         prev_cp = (
             Decimal(str(variant.cost_price or item.cost_price)).quantize(Decimal("0.01"))
             if (variant.cost_price or item.cost_price) is not None
+            else None
+        )
+
+        stmt_ip_cur = select(ItemPrice).where(
+            ItemPrice.company_id == company_id,
+            ItemPrice.item_variant_id == variant.id,
+        )
+        ip_cur = (await session.execute(stmt_ip_cur)).scalars().first()
+        prev_dp = (
+            Decimal(str(ip_cur.wholesale_price)).quantize(Decimal("0.01"))
+            if ip_cur and ip_cur.wholesale_price is not None
             else None
         )
 
@@ -262,6 +288,11 @@ class PriceRevisionService:
                 status = "SCHEDULED"
 
         # 7. Create ItemPriceRevision entity
+        meta_dict = {}
+        if rev_dp is not None or prev_dp is not None:
+            meta_dict["previous_distributor_price"] = float(prev_dp) if prev_dp is not None else None
+            meta_dict["revised_distributor_price"] = float(rev_dp) if rev_dp is not None else None
+
         revision = ItemPriceRevision(
             id=revision_id,
             company_id=company_id,
@@ -287,6 +318,7 @@ class PriceRevisionService:
             source=source,
             batch_id=batch_id,
             audit_ref=audit_ref,
+            metadata_json=meta_dict,
             created_by=user_id,
             is_active=True,
             is_deleted=False,
@@ -386,6 +418,38 @@ class PriceRevisionService:
                 if revision.revised_cost_price is not None:
                     pbe.cost_price = revision.revised_cost_price
                 pbe.updated_by = acting_user
+
+        # D. Synchronize authoritative ItemPrice record (mrp, selling_price, wholesale_price, cost_price)
+        rev_dp_meta = (revision.metadata_json or {}).get("revised_distributor_price")
+        stmt_ip = select(ItemPrice).where(
+            ItemPrice.company_id == company_id,
+            ItemPrice.item_variant_id == revision.variant_id,
+        )
+        ip_obj = (await session.execute(stmt_ip)).scalars().first()
+        if ip_obj:
+            ip_obj.selling_price = revision.revised_selling_price
+            ip_obj.mrp = revision.revised_mrp
+            if revision.revised_cost_price is not None:
+                ip_obj.cost_price = revision.revised_cost_price
+            if rev_dp_meta is not None:
+                ip_obj.wholesale_price = Decimal(str(rev_dp_meta)).quantize(Decimal("0.01"))
+            ip_obj.modified_at = datetime.now(timezone.utc)
+        else:
+            cp_val = revision.revised_cost_price
+            if cp_val is None and var_obj and var_obj.cost_price is not None:
+                cp_val = Decimal(str(var_obj.cost_price))
+            ip_obj = ItemPrice(
+                item_variant_id=revision.variant_id,
+                company_id=company_id,
+                branch_id=revision.branch_id,
+                cost_price=cp_val or Decimal("0.00"),
+                selling_price=revision.revised_selling_price,
+                mrp=revision.revised_mrp,
+                wholesale_price=Decimal(str(rev_dp_meta)).quantize(Decimal("0.01")) if rev_dp_meta is not None else None,
+                currency=revision.currency or "INR",
+                is_active=True,
+            )
+            session.add(ip_obj)
 
     @classmethod
     async def approve_revision(
@@ -657,13 +721,16 @@ class PriceRevisionService:
                 continue
 
             try:
+                eff_mrp = item_input.revised_mrp if item_input.revised_mrp is not None else float(variant.mrp or 0.0)
+                eff_sp = item_input.revised_selling_price if item_input.revised_selling_price is not None else float(variant.selling_price or 0.0)
                 single_req = PriceRevisionCreateRequest(
                     variant_id=variant.id,
                     item_id=variant.item_id,
                     price_book_id=req.price_book_id,
-                    revised_mrp=item_input.revised_mrp,
-                    revised_selling_price=item_input.revised_selling_price,
-                    revised_cost_price=item_input.revised_cost_price,
+                    revised_mrp=eff_mrp,
+                    revised_selling_price=eff_sp,
+                    revised_distributor_price=item_input.revised_distributor_price,
+                    revised_cost_price=None,  # Permanently read-only in bulk revision workflow
                     effective_from=item_input.effective_from,
                     effective_to=item_input.effective_to,
                     reason_code=item_input.reason_code or "BULK_IMPORT",
@@ -694,6 +761,10 @@ class PriceRevisionService:
                         * Decimal("100.00")
                     )
 
+                meta_res = rev.metadata_json or {}
+                prev_dp_res = float(meta_res["previous_distributor_price"]) if "previous_distributor_price" in meta_res and meta_res["previous_distributor_price"] is not None else None
+                rev_dp_res = float(meta_res["revised_distributor_price"]) if "revised_distributor_price" in meta_res and meta_res["revised_distributor_price"] is not None else None
+
                 revisions.append(
                     PriceRevisionResponse(
                         id=rev.id,
@@ -707,6 +778,8 @@ class PriceRevisionService:
                         revised_mrp=float(rev.revised_mrp),
                         previous_selling_price=float(rev.previous_selling_price),
                         revised_selling_price=float(rev.revised_selling_price),
+                        previous_distributor_price=prev_dp_res,
+                        revised_distributor_price=rev_dp_res,
                         previous_cost_price=float(rev.previous_cost_price) if rev.previous_cost_price else None,
                         revised_cost_price=float(rev.revised_cost_price) if rev.revised_cost_price else None,
                         margin_pct=margin_pct,
@@ -743,4 +816,223 @@ class PriceRevisionService:
             error_count=len(errors),
             errors=errors,
             revisions=revisions,
+        )
+
+    @classmethod
+    async def filter_bulk_items(
+        cls,
+        session: AsyncSession,
+        company_id: str,
+        req: BulkItemFilterRequest,
+    ) -> BulkItemFilterResponse:
+        """
+        Tenant-scoped live item and variant search for Bulk Price Revision Studio.
+        Supports multi-facet filtering (Style, Article, Brand, Category, Supplier, Color, Size, Status),
+        aggregates candidate counts and returns available catalog facets for filter dropdowns.
+        """
+        base_conditions = [
+            Item.company_id == company_id,
+            ItemVariant.company_id == company_id,
+            Item.is_deleted == False,
+            ItemVariant.is_deleted == False,
+        ]
+
+        if req.status and req.status.upper() != "ALL":
+            base_conditions.append(Item.status == req.status.upper())
+            base_conditions.append(ItemVariant.is_active == True)
+
+        if req.style_code and req.style_code.strip():
+            sc = f"%{req.style_code.strip()}%"
+            base_conditions.append(Item.style_code.ilike(sc))
+
+        if req.article_no and req.article_no.strip():
+            art = f"%{req.article_no.strip()}%"
+            base_conditions.append(
+                or_(
+                    Item.style_code.ilike(art),
+                    Item.item_code.ilike(art),
+                    Item.attributes_json["article_no"].astext.ilike(art),
+                )
+            )
+
+        if req.brand and req.brand.strip() and req.brand.upper() != "ALL":
+            base_conditions.append(Item.brand.ilike(f"%{req.brand.strip()}%"))
+
+        if req.category and req.category.strip() and req.category.upper() != "ALL":
+            base_conditions.append(
+                or_(
+                    Item.category.ilike(f"%{req.category.strip()}%"),
+                    Item.category_code.ilike(f"%{req.category.strip()}%"),
+                )
+            )
+
+        if req.supplier_code and req.supplier_code.strip() and req.supplier_code.upper() != "ALL":
+            base_conditions.append(Item.vendor_code.ilike(f"%{req.supplier_code.strip()}%"))
+
+        if req.colors:
+            valid_colors = [c.strip() for c in req.colors if c and c.strip()]
+            if valid_colors:
+                base_conditions.append(ItemVariant.color.in_(valid_colors))
+        elif req.color and req.color.strip() and req.color.upper() != "ALL":
+            base_conditions.append(ItemVariant.color.ilike(req.color.strip()))
+
+        if req.sizes:
+            valid_sizes = [s.strip() for s in req.sizes if s and s.strip()]
+            if valid_sizes:
+                base_conditions.append(ItemVariant.size.in_(valid_sizes))
+        elif req.size and req.size.strip() and req.size.upper() != "ALL":
+            base_conditions.append(ItemVariant.size.ilike(req.size.strip()))
+
+        if req.query and req.query.strip():
+            q = f"%{req.query.strip()}%"
+            base_conditions.append(
+                or_(
+                    Item.item_code.ilike(q),
+                    Item.item_name.ilike(q),
+                    Item.style_code.ilike(q),
+                    ItemVariant.variant_sku.ilike(q),
+                    ItemVariant.variant_name.ilike(q),
+                )
+            )
+
+        # 1. Total matching variants count
+        count_stmt = (
+            select(func.count(ItemVariant.id))
+            .select_from(ItemVariant)
+            .join(Item, ItemVariant.item_id == Item.id)
+            .where(*base_conditions)
+        )
+        total_count = await session.scalar(count_stmt) or 0
+
+        # 2. Distinct style count
+        style_count_stmt = (
+            select(func.count(distinct(Item.id)))
+            .select_from(ItemVariant)
+            .join(Item, ItemVariant.item_id == Item.id)
+            .where(*base_conditions)
+        )
+        total_styles = await session.scalar(style_count_stmt) or 0
+
+        # 3. Primary/first Barcode subquery
+        subq_barcode = (
+            select(ItemBarcode.variant_id, func.min(ItemBarcode.barcode).label("barcode"))
+            .where(ItemBarcode.company_id == company_id, ItemBarcode.is_deleted == False)
+            .group_by(ItemBarcode.variant_id)
+            .subquery()
+        )
+
+        # 4. Fetch candidates page
+        candidate_stmt = (
+            select(
+                Item.id.label("item_id"),
+                ItemVariant.id.label("variant_id"),
+                Item.style_code,
+                Item.item_code,
+                Item.item_name,
+                Item.attributes_json,
+                ItemVariant.variant_sku,
+                ItemVariant.color,
+                ItemVariant.size,
+                Item.brand,
+                Item.category,
+                Item.vendor_code,
+                Item.status.label("item_status"),
+                ItemVariant.is_active.label("variant_is_active"),
+                ItemVariant.mrp.label("variant_mrp"),
+                ItemVariant.selling_price.label("variant_sp"),
+                ItemVariant.cost_price.label("variant_cp"),
+                ItemPrice.wholesale_price,
+                ItemPrice.mrp.label("price_mrp"),
+                ItemPrice.selling_price.label("price_sp"),
+                ItemPrice.cost_price.label("price_cp"),
+                subq_barcode.c.barcode,
+            )
+            .select_from(ItemVariant)
+            .join(Item, ItemVariant.item_id == Item.id)
+            .outerjoin(ItemPrice, ItemPrice.item_variant_id == ItemVariant.id)
+            .outerjoin(subq_barcode, subq_barcode.c.variant_id == ItemVariant.id)
+            .where(*base_conditions)
+            .order_by(Item.style_code.asc().nulls_last(), Item.item_code.asc(), ItemVariant.variant_sku.asc())
+            .limit(req.limit)
+            .offset(req.offset)
+        )
+        rows = (await session.execute(candidate_stmt)).all()
+
+        candidates: List[BulkItemCandidate] = []
+        for r in rows:
+            cur_mrp = float(r.price_mrp or r.variant_mrp or 0.0)
+            cur_sp = float(r.price_sp or r.variant_sp or 0.0)
+            cur_cp = float(r.price_cp or r.variant_cp or 0.0)
+            cur_dp = float(r.wholesale_price) if r.wholesale_price is not None else None
+
+            # Article number fallback
+            art_no = None
+            if r.attributes_json and isinstance(r.attributes_json, dict):
+                art_no = r.attributes_json.get("article_no")
+            if not art_no:
+                art_no = r.style_code or r.item_code
+
+            candidates.append(
+                BulkItemCandidate(
+                    item_id=r.item_id,
+                    variant_id=r.variant_id,
+                    style_code=r.style_code or r.item_code,
+                    article_no=art_no,
+                    item_code=r.item_code,
+                    item_name=r.item_name,
+                    variant_sku=r.variant_sku,
+                    barcode=r.barcode,
+                    brand=r.brand,
+                    category=r.category,
+                    color=r.color,
+                    size=r.size,
+                    vendor_code=r.vendor_code,
+                    current_mrp=cur_mrp,
+                    current_selling_price=cur_sp,
+                    current_distributor_price=cur_dp,
+                    current_cost_price=cur_cp,
+                    status="ACTIVE" if r.variant_is_active else "INACTIVE",
+                )
+            )
+
+        # 5. Distinct facets for UI dropdowns
+        brands_res = (await session.execute(
+            select(distinct(Item.brand))
+            .where(Item.company_id == company_id, Item.brand.isnot(None), Item.is_deleted == False)
+            .order_by(Item.brand)
+        )).scalars().all()
+
+        cats_res = (await session.execute(
+            select(distinct(Item.category))
+            .where(Item.company_id == company_id, Item.category.isnot(None), Item.is_deleted == False)
+            .order_by(Item.category)
+        )).scalars().all()
+
+        colors_res = (await session.execute(
+            select(distinct(ItemVariant.color))
+            .where(ItemVariant.company_id == company_id, ItemVariant.color.isnot(None), ItemVariant.is_deleted == False)
+            .order_by(ItemVariant.color)
+        )).scalars().all()
+
+        sizes_res = (await session.execute(
+            select(distinct(ItemVariant.size))
+            .where(ItemVariant.company_id == company_id, ItemVariant.size.isnot(None), ItemVariant.is_deleted == False)
+            .order_by(ItemVariant.size)
+        )).scalars().all()
+
+        suppliers_res = (await session.execute(
+            select(distinct(Item.vendor_code))
+            .where(Item.company_id == company_id, Item.vendor_code.isnot(None), Item.is_deleted == False)
+            .order_by(Item.vendor_code)
+        )).scalars().all()
+
+        return BulkItemFilterResponse(
+            total_count=total_count,
+            total_styles=total_styles,
+            items=candidates,
+            available_brands=[str(b) for b in brands_res if b],
+            available_categories=[str(c) for c in cats_res if c],
+            available_colors=[str(c) for c in colors_res if c],
+            available_sizes=[str(s) for s in sizes_res if s],
+            available_suppliers=[str(v) for v in suppliers_res if v],
         )

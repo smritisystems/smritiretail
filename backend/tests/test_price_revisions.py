@@ -42,6 +42,8 @@ from app.schemas.pricing import (
     PriceRevisionApprovalDecision,
     PriceRevisionBulkRequest,
     PriceRevisionBulkItem,
+    BulkItemFilterRequest,
+    BulkItemFilterResponse,
 )
 
 # Dedicated isolated test database name from environment configuration
@@ -508,6 +510,138 @@ async def test_bulk_create_revisions_processing(sample_item_and_variant):
         assert res.approved_count == 1
         assert res.error_count == 1
         assert "NON_EXISTENT_SKU_9999" in res.errors[0]["sku_or_barcode"]
+
+
+@pytest.mark.asyncio
+async def test_bulk_create_revisions_distributor_price_and_cost_price_protection(sample_item_and_variant):
+    """Bulk revisions accept distributor price, enforce DP <= SP, and permanently ignore/exclude cost price."""
+    sessionmaker = get_company_sessionmaker(TEST_DB_NAME)
+    sku = sample_item_and_variant["sku"]
+    var_id = sample_item_and_variant["variant_id"]
+
+    async with sessionmaker() as session:
+        # Create bulk item payload using aliases: 'revised_sp', 'dp', and an unauthorized 'revised_cost_price'
+        raw_dict = {
+            "sku_or_barcode": sku,
+            "revised_mrp": 1600.00,
+            "revised_sp": 1400.00,
+            "dp": 1250.00,
+            "revised_cost_price": 500.00,  # Must be ignored / stripped
+            "reason_code": "BULK_DP_TEST",
+        }
+        item_model = PriceRevisionBulkItem.model_validate(raw_dict)
+        assert item_model.revised_selling_price == 1400.00
+        assert item_model.revised_distributor_price == 1250.00
+        assert item_model.revised_cost_price is None
+
+        req = PriceRevisionBulkRequest(items=[item_model])
+        res = await PriceRevisionService.bulk_create_revisions(
+            session=session,
+            company_id="COMP-001",
+            user_id="usr-mgr",
+            user_role="MANAGER",
+            req=req,
+        )
+        assert res.total_rows == 1
+        assert res.approved_count == 1
+        assert res.error_count == 0
+        assert len(res.revisions) == 1
+        rev_dto = res.revisions[0]
+        assert rev_dto.revised_distributor_price == 1250.00
+
+        # Verify underlying revision captures revised_distributor_price and previous_distributor_price
+        rev_id = rev_dto.id
+        rev_record = await session.get(ItemPriceRevision, rev_id)
+        assert rev_record is not None
+        assert rev_record.metadata_json is not None
+        assert rev_record.metadata_json.get("revised_distributor_price") == 1250.00
+        assert "previous_distributor_price" in rev_record.metadata_json
+
+        # Verify item variant cost_price was NOT mutated (remains 600.00 from baseline fixture)
+        v = await session.get(ItemVariant, var_id)
+        assert float(v.cost_price) == 600.00
+
+
+@pytest.mark.asyncio
+async def test_bulk_create_revisions_distributor_price_invariant_violation(sample_item_and_variant):
+    """Bulk revisions reject row where distributor price exceeds selling price (SMRITI-PRICE-002)."""
+    from pydantic import ValidationError
+
+    sku = sample_item_and_variant["sku"]
+    var_id = sample_item_and_variant["variant_id"]
+    sessionmaker = get_company_sessionmaker(TEST_DB_NAME)
+
+    # 1. Schema-level invariant enforcement
+    with pytest.raises(ValidationError) as excinfo:
+        PriceRevisionBulkItem(
+            sku_or_barcode=sku,
+            revised_mrp=1500.00,
+            revised_selling_price=1200.00,
+            revised_distributor_price=1300.00,  # VIOLATION: DP 1300 > SP 1200
+            reason_code="INVALID_DP",
+        )
+    assert "SMRITI-PRICE-002" in str(excinfo.value)
+    assert "cannot exceed retail selling price" in str(excinfo.value)
+
+    # 2. Service-level invariant enforcement
+    async with sessionmaker() as session:
+        with pytest.raises(ValueError) as excinfo_svc:
+            await PriceRevisionService.create_revision(
+                session=session,
+                company_id="COMP-001",
+                user_id="usr-mgr",
+                user_role="MANAGER",
+                req=PriceRevisionCreateRequest(
+                    variant_id=var_id,
+                    revised_mrp=1500.00,
+                    revised_selling_price=1200.00,
+                    revised_distributor_price=1300.00,
+                    reason_code="INVALID_DP",
+                ),
+            )
+        assert "SMRITI-PRICE-002" in str(excinfo_svc.value)
+
+
+@pytest.mark.asyncio
+async def test_bulk_filter_items_api_endpoint(sample_item_and_variant):
+    """Test POST and GET /api/v1/pricing/revisions/filter-items endpoints."""
+    sku = sample_item_and_variant["sku"]
+    headers = _get_auth_headers("MANAGER")
+    transport = ASGITransport(app=app)
+
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        # POST /api/v1/pricing/revisions/filter-items
+        filter_payload = {
+            "search_text": sku,
+            "status": "ACTIVE",
+            "limit": 50,
+            "offset": 0,
+        }
+        res_post = await client.post(
+            "/api/v1/pricing/revisions/filter-items",
+            json=filter_payload,
+            headers=headers,
+        )
+        assert res_post.status_code == 200
+        data_post = res_post.json()
+        assert "total_count" in data_post
+        assert "items" in data_post
+        assert "available_brands" in data_post
+        assert "available_categories" in data_post
+        assert data_post["total_count"] >= 1
+        found_item = any(it["variant_sku"] == sku for it in data_post["items"])
+        assert found_item is True
+
+        # GET /api/v1/pricing/revisions/filter-items
+        res_get = await client.get(
+            f"/api/v1/pricing/revisions/filter-items?search={sku}&limit=10",
+            headers=headers,
+        )
+        assert res_get.status_code == 200
+        data_get = res_get.json()
+        assert data_get["total_count"] >= 1
+        assert any(it["variant_sku"] == sku for it in data_get["items"])
+
 
 
 # ============================================================================
