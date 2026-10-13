@@ -1,3 +1,18 @@
+## [6.72.7] — 2026-10-13
+
+### Catalog & Item Master — Governed Lookup Combobox & Dropdown UX Transformation v6.72.7
+
+Transformed Master Lookup governed fields (`brand`, `category`, `subcategory`, `department`, `size_group`) from unindicated HTML5 `<input type="text" list="...">` datalists into interactive, high-velocity `GovernedLookupCombobox` components across Add Product Drawer Simple and Hybrid/Advanced modes.
+
+**Key Remediation Actions:**
+- **Searchable Combobox Component (`GovernedLookupCombobox.tsx`):** Engineered hybrid typeahead and dropdown combobox providing instant keyboard search, visible `<ChevronDown />` interactive toggle menu, clear button (`<X />`), active selection checkmarks (`<Check />`), keyboard navigation (ArrowDown, ArrowUp, Enter, Escape), and outside-click dismissal.
+- **Contractual DOM ID Parity:** Preserved exact canonical DOM element IDs (`FIELD_TO_ELEMENT_ID`) across all combobox inputs (`im-field-brand`, `im-field-category`, `im-field-subcategory`, `im-field-department`, `im-field-size_group`) ensuring 100% interoperability with `itemMasterValidationMapper.ts` and automated validation error focus (`focusFirstError()`).
+- **Form Modernization:** Replaced flat text inputs with the searchable combobox in both Simple Mode and Hybrid/Advanced Mode (Step 1) in `AddProductDrawer.tsx`.
+- **Test Certification:**
+  - `npx vitest run src/tests/governedLookupCombobox.test.ts`: 6/6 passed (100% green).
+  - `npx vitest run src/tests/itemMasterMandatoryLookupsSysparam.test.ts`: 30/30 passed (100% green).
+  - `npx tsc --noEmit`: 0 compiler errors.
+
 ## [3.17.2] — 2026-10-13
 
 ### Security & Governance — Menu Registry & UX Control Plane Harmonization v3.17.2

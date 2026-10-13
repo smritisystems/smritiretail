@@ -48,6 +48,7 @@ import {
   focusFirstError,
   FIELD_TO_ELEMENT_ID,
 } from "../../services/itemMasterValidationMapper.ts";
+import { GovernedLookupCombobox } from "./GovernedLookupCombobox.tsx";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -1299,20 +1300,14 @@ export const AddProductDrawer: React.FC<AddProductDrawerProps> = ({
                   <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 block mb-1">
                     Brand {isBrandMandatory && <span className="text-red-500">*</span>}
                   </label>
-                  <input
+                  <GovernedLookupCombobox
                     id="im-field-brand"
-                    type="text"
                     value={brand}
-                    onChange={(e) => setBrand(e.target.value)}
+                    onChange={(val) => setBrand(val)}
+                    options={brandOptions}
                     placeholder="Brand name"
-                    list="brand-options-list"
-                    className={`w-full text-xs px-3 py-2 rounded-lg border bg-white dark:bg-[#1a2234] text-slate-900 dark:text-white outline-hidden focus:ring-2 focus:ring-blue-500 ${
-                      fieldErrors["brand"] ? "border-red-500 ring-1 ring-red-500" : "border-slate-300 dark:border-slate-700"
-                    }`}
+                    hasError={Boolean(fieldErrors["brand"])}
                   />
-                  <datalist id="brand-options-list">
-                    {brandOptions.map((b) => <option key={b.code} value={b.name} />)}
-                  </datalist>
                   {fieldErrors["brand"] && <p className="text-[10px] text-red-500 mt-1">{fieldErrors["brand"]}</p>}
                 </div>
 
@@ -1321,20 +1316,14 @@ export const AddProductDrawer: React.FC<AddProductDrawerProps> = ({
                   <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 block mb-1">
                     Category <span className="text-red-500">*</span>
                   </label>
-                  <input
+                  <GovernedLookupCombobox
                     id="im-field-category"
-                    type="text"
                     value={category}
-                    onChange={(e) => setCategory(e.target.value)}
+                    onChange={(val) => setCategory(val)}
+                    options={renderedCategoryOptions}
                     placeholder="Category"
-                    list="category-options-list"
-                    className={`w-full text-xs px-3 py-2 rounded-lg border bg-white dark:bg-[#1a2234] text-slate-900 dark:text-white outline-hidden focus:ring-2 focus:ring-blue-500 ${
-                      fieldErrors["category"] ? "border-red-500 ring-1 ring-red-500" : "border-slate-300 dark:border-slate-700"
-                    }`}
+                    hasError={Boolean(fieldErrors["category"])}
                   />
-                  <datalist id="category-options-list">
-                    {renderedCategoryOptions.map((c) => <option key={c} value={c} />)}
-                  </datalist>
                   {fieldErrors["category"] && <p className="text-[10px] text-red-500 mt-1">{fieldErrors["category"]}</p>}
                 </div>
 
@@ -1343,22 +1332,14 @@ export const AddProductDrawer: React.FC<AddProductDrawerProps> = ({
                   <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 block mb-1">
                     Sub-Category {isSubCategoryMandatory && <span className="text-red-500">*</span>}
                   </label>
-                  <input
+                  <GovernedLookupCombobox
                     id="im-field-subcategory"
-                    type="text"
                     value={subCategory}
-                    onChange={(e) => setSubCategory(e.target.value)}
+                    onChange={(val) => setSubCategory(val)}
+                    options={subCategoryOptions}
                     placeholder="Sub-Category"
-                    list="subcategory-options-list"
-                    className={`w-full text-xs px-3 py-2 rounded-lg border bg-white dark:bg-[#1a2234] text-slate-900 dark:text-white outline-hidden focus:ring-2 focus:ring-blue-500 ${
-                      fieldErrors["subcategory"] || fieldErrors["subCategory"] || fieldErrors["sub_category"]
-                        ? "border-red-500 ring-1 ring-red-500"
-                        : "border-slate-300 dark:border-slate-700"
-                    }`}
+                    hasError={Boolean(fieldErrors["subcategory"] || fieldErrors["subCategory"] || fieldErrors["sub_category"])}
                   />
-                  <datalist id="subcategory-options-list">
-                    {subCategoryOptions.map((s) => <option key={s.code} value={s.name} />)}
-                  </datalist>
                   {(fieldErrors["subcategory"] || fieldErrors["subCategory"] || fieldErrors["sub_category"]) && (
                     <p className="text-[10px] text-red-500 mt-1">{fieldErrors["subcategory"] || fieldErrors["subCategory"] || fieldErrors["sub_category"]}</p>
                   )}
@@ -1369,22 +1350,14 @@ export const AddProductDrawer: React.FC<AddProductDrawerProps> = ({
                   <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 block mb-1">
                     Department {isDepartmentMandatory && <span className="text-red-500">*</span>}
                   </label>
-                  <input
+                  <GovernedLookupCombobox
                     id="im-field-department"
-                    type="text"
                     value={department}
-                    onChange={(e) => setDepartment(e.target.value)}
+                    onChange={(val) => setDepartment(val)}
+                    options={departmentOptions}
                     placeholder="Department"
-                    list="department-options-list"
-                    className={`w-full text-xs px-3 py-2 rounded-lg border bg-white dark:bg-[#1a2234] text-slate-900 dark:text-white outline-hidden focus:ring-2 focus:ring-blue-500 ${
-                      fieldErrors["department"] || fieldErrors["dept"]
-                        ? "border-red-500 ring-1 ring-red-500"
-                        : "border-slate-300 dark:border-slate-700"
-                    }`}
+                    hasError={Boolean(fieldErrors["department"] || fieldErrors["dept"])}
                   />
-                  <datalist id="department-options-list">
-                    {departmentOptions.map((d) => <option key={d.code} value={d.name} />)}
-                  </datalist>
                   {(fieldErrors["department"] || fieldErrors["dept"]) && (
                     <p className="text-[10px] text-red-500 mt-1">{fieldErrors["department"] || fieldErrors["dept"]}</p>
                   )}
@@ -1455,22 +1428,14 @@ export const AddProductDrawer: React.FC<AddProductDrawerProps> = ({
                   <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 block mb-1">
                     Size Group {isSizeGroupMandatory && <span className="text-red-500">*</span>}
                   </label>
-                  <input
+                  <GovernedLookupCombobox
                     id="im-field-size_group"
-                    type="text"
                     value={sizeGroup}
-                    onChange={(e) => setSizeGroup(e.target.value)}
+                    onChange={(val) => setSizeGroup(val)}
+                    options={sizeGroupOptions}
                     placeholder="e.g. ADULT_UK, KIDS"
-                    list="sizegroup-options-list"
-                    className={`w-full text-xs px-3 py-2 rounded-lg border bg-white dark:bg-[#1a2234] text-slate-900 dark:text-white outline-hidden focus:ring-2 focus:ring-blue-500 ${
-                      fieldErrors["size_group"] || fieldErrors["sizeGroup"] || fieldErrors["size_group_id"]
-                        ? "border-red-500 ring-1 ring-red-500"
-                        : "border-slate-300 dark:border-slate-700"
-                    }`}
+                    hasError={Boolean(fieldErrors["size_group"] || fieldErrors["sizeGroup"] || fieldErrors["size_group_id"])}
                   />
-                  <datalist id="sizegroup-options-list">
-                    {sizeGroupOptions.map((sg) => <option key={sg.code} value={sg.name} />)}
-                  </datalist>
                   {(fieldErrors["size_group"] || fieldErrors["sizeGroup"] || fieldErrors["size_group_id"]) && (
                     <p className="text-[10px] text-red-500 mt-1">{fieldErrors["size_group"] || fieldErrors["sizeGroup"] || fieldErrors["size_group_id"]}</p>
                   )}
@@ -2301,20 +2266,14 @@ export const AddProductDrawer: React.FC<AddProductDrawerProps> = ({
                   <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 block mb-1">
                     Brand {isBrandMandatory && <span className="text-red-500">*</span>}
                   </label>
-                  <input
+                  <GovernedLookupCombobox
                     id="im-field-brand"
-                    type="text"
                     value={brand}
-                    onChange={(e) => setBrand(e.target.value)}
+                    onChange={(val) => setBrand(val)}
+                    options={brandOptions}
                     placeholder="Brand name"
-                    list="hybrid-brand-list"
-                    className={`w-full text-xs px-3 py-2 rounded-lg border bg-white dark:bg-[#1a2234] text-slate-900 dark:text-white outline-hidden focus:ring-2 focus:ring-blue-500 ${
-                      fieldErrors["brand"] ? "border-red-500 ring-1 ring-red-500" : "border-slate-300 dark:border-slate-700"
-                    }`}
+                    hasError={Boolean(fieldErrors["brand"])}
                   />
-                  <datalist id="hybrid-brand-list">
-                    {brandOptions.map((b) => <option key={b.code} value={b.name} />)}
-                  </datalist>
                   {fieldErrors["brand"] && <p className="text-[10px] text-red-500 mt-1">{fieldErrors["brand"]}</p>}
                 </div>
 
@@ -2322,20 +2281,14 @@ export const AddProductDrawer: React.FC<AddProductDrawerProps> = ({
                   <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 block mb-1">
                     Category <span className="text-red-500">*</span>
                   </label>
-                  <input
+                  <GovernedLookupCombobox
                     id="im-field-category"
-                    type="text"
                     value={category}
-                    onChange={(e) => setCategory(e.target.value)}
+                    onChange={(val) => setCategory(val)}
+                    options={renderedCategoryOptions}
                     placeholder="Category"
-                    list="hybrid-category-list"
-                    className={`w-full text-xs px-3 py-2 rounded-lg border bg-white dark:bg-[#1a2234] text-slate-900 dark:text-white outline-hidden focus:ring-2 focus:ring-blue-500 ${
-                      fieldErrors["category"] ? "border-red-500 ring-1 ring-red-500" : "border-slate-300 dark:border-slate-700"
-                    }`}
+                    hasError={Boolean(fieldErrors["category"])}
                   />
-                  <datalist id="hybrid-category-list">
-                    {renderedCategoryOptions.map((c) => <option key={c} value={c} />)}
-                  </datalist>
                   {fieldErrors["category"] && <p className="text-[10px] text-red-500 mt-1">{fieldErrors["category"]}</p>}
                 </div>
 
@@ -2343,22 +2296,14 @@ export const AddProductDrawer: React.FC<AddProductDrawerProps> = ({
                   <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 block mb-1">
                     Sub-Category {isSubCategoryMandatory && <span className="text-red-500">*</span>}
                   </label>
-                  <input
+                  <GovernedLookupCombobox
                     id="im-field-subcategory"
-                    type="text"
                     value={subCategory}
-                    onChange={(e) => setSubCategory(e.target.value)}
+                    onChange={(val) => setSubCategory(val)}
+                    options={subCategoryOptions}
                     placeholder="Sub-Category"
-                    list="hybrid-subcategory-list"
-                    className={`w-full text-xs px-3 py-2 rounded-lg border bg-white dark:bg-[#1a2234] text-slate-900 dark:text-white outline-hidden focus:ring-2 focus:ring-blue-500 ${
-                      fieldErrors["subcategory"] || fieldErrors["subCategory"] || fieldErrors["sub_category"]
-                        ? "border-red-500 ring-1 ring-red-500"
-                        : "border-slate-300 dark:border-slate-700"
-                    }`}
+                    hasError={Boolean(fieldErrors["subcategory"] || fieldErrors["subCategory"] || fieldErrors["sub_category"])}
                   />
-                  <datalist id="hybrid-subcategory-list">
-                    {subCategoryOptions.map((s) => <option key={s.code} value={s.name} />)}
-                  </datalist>
                   {(fieldErrors["subcategory"] || fieldErrors["subCategory"] || fieldErrors["sub_category"]) && (
                     <p className="text-[10px] text-red-500 mt-1">{fieldErrors["subcategory"] || fieldErrors["subCategory"] || fieldErrors["sub_category"]}</p>
                   )}
@@ -2368,22 +2313,14 @@ export const AddProductDrawer: React.FC<AddProductDrawerProps> = ({
                   <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 block mb-1">
                     Department {isDepartmentMandatory && <span className="text-red-500">*</span>}
                   </label>
-                  <input
+                  <GovernedLookupCombobox
                     id="im-field-department"
-                    type="text"
                     value={department}
-                    onChange={(e) => setDepartment(e.target.value)}
+                    onChange={(val) => setDepartment(val)}
+                    options={departmentOptions}
                     placeholder="Department"
-                    list="hybrid-department-list"
-                    className={`w-full text-xs px-3 py-2 rounded-lg border bg-white dark:bg-[#1a2234] text-slate-900 dark:text-white outline-hidden focus:ring-2 focus:ring-blue-500 ${
-                      fieldErrors["department"] || fieldErrors["dept"]
-                        ? "border-red-500 ring-1 ring-red-500"
-                        : "border-slate-300 dark:border-slate-700"
-                    }`}
+                    hasError={Boolean(fieldErrors["department"] || fieldErrors["dept"])}
                   />
-                  <datalist id="hybrid-department-list">
-                    {departmentOptions.map((d) => <option key={d.code} value={d.name} />)}
-                  </datalist>
                   {(fieldErrors["department"] || fieldErrors["dept"]) && (
                     <p className="text-[10px] text-red-500 mt-1">{fieldErrors["department"] || fieldErrors["dept"]}</p>
                   )}
@@ -2393,22 +2330,14 @@ export const AddProductDrawer: React.FC<AddProductDrawerProps> = ({
                   <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 block mb-1">
                     Size Group {isSizeGroupMandatory && <span className="text-red-500">*</span>}
                   </label>
-                  <input
+                  <GovernedLookupCombobox
                     id="im-field-size_group"
-                    type="text"
                     value={sizeGroup}
-                    onChange={(e) => setSizeGroup(e.target.value)}
+                    onChange={(val) => setSizeGroup(val)}
+                    options={sizeGroupOptions}
                     placeholder="e.g. ADULT_UK, KIDS"
-                    list="hybrid-sizegroup-list"
-                    className={`w-full text-xs px-3 py-2 rounded-lg border bg-white dark:bg-[#1a2234] text-slate-900 dark:text-white outline-hidden focus:ring-2 focus:ring-blue-500 ${
-                      fieldErrors["size_group"] || fieldErrors["sizeGroup"] || fieldErrors["size_group_id"]
-                        ? "border-red-500 ring-1 ring-red-500"
-                        : "border-slate-300 dark:border-slate-700"
-                    }`}
+                    hasError={Boolean(fieldErrors["size_group"] || fieldErrors["sizeGroup"] || fieldErrors["size_group_id"])}
                   />
-                  <datalist id="hybrid-sizegroup-list">
-                    {sizeGroupOptions.map((sg) => <option key={sg.code} value={sg.name} />)}
-                  </datalist>
                   {(fieldErrors["size_group"] || fieldErrors["sizeGroup"] || fieldErrors["size_group_id"]) && (
                     <p className="text-[10px] text-red-500 mt-1">{fieldErrors["size_group"] || fieldErrors["sizeGroup"] || fieldErrors["size_group_id"]}</p>
                   )}
