@@ -12,7 +12,9 @@ Established Tattly Threads Footwear 100×50.7mm 3-Stub Master PRN (`TattlyThread
 - **Visual Label Designer (`VisualLabelDesign.tsx`):** Elevated Tattly Threads Footwear 3-Stub (100mm × 50.7mm) to preset position 0 (`STANDARD_PRESETS[0]`), initializing designer dimensions to 100×50.7mm.
 - **Unified Layout Registry (`barcodeLayoutRegistry.ts`):** Made `getLabelTemplate()` without parameters or with `"default"` resolve directly to `tattly-threads-footwear-100x50.7`.
 - **Backend API & Compiler Fallback (`compiler.py`, `barcode.py`):** Configured `BarcodeCompiler.compile()` and `/api/v1/barcode/print` to default unspecified or default layout IDs to `tattly-threads-footwear-100x50.7` ZPL/DPL stream generation.
+- **4-Point Version SSOT Synchronization (`validate_version_ssot.py`):** Synchronized product version to `6.72.8` across all four canonical Single Source of Truth anchors (`package.json`, `src/config/version.ts`, `backend/app/core/config.py`, `CHANGELOG.md`), updated `BillingWorkspace.tsx` to bind directly to `APP_VERSION`, and certified 0 drift.
 - **Test Certification:**
+  - `py -3.13 scripts/validate_version_ssot.py`: PASSED (4-point consistency at `6.72.8`).
   - `npx vitest run src/tests/prnInterpolation.test.ts src/tests/tagPrinting.test.ts src/tests/printLabelsStudio.test.ts src/tests/barcodeLayoutRegistry.test.ts`: 70/70 passed (100% green).
   - `pytest backend/tests/test_zpl_footwear_label.py`: 13/13 passed (100% green).
   - `pytest backend/tests/test_dpl_footwear_label.py`: 8/8 passed (100% green).
