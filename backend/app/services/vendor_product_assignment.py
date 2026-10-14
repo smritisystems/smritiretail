@@ -118,15 +118,58 @@ class VendorProductAssignmentService:
             mig2 = (await self.db.execute(mig_stmt2)).scalars().first()
             if mig2:
                 return mig2.party_id
-            # Supplier exists but has no migration record
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail=(
-                    f"Vendor '{vendor_id}' was found in the legacy supplier register but has not "
-                    "been migrated to the Vendor 360 canonical master. "
-                    "Please complete the vendor migration before creating assignments."
+            # Auto-converge unmigrated legacy supplier into Vendor 360 Party Master
+            p_check_stmt = select(Party).where(
+                or_(
+                    Party.party_code == (sup.code or sup.id),
+                    (Party.gstin == sup.gst_number) if sup.gst_number else False,
                 ),
+                Party.is_deleted == False,
             )
+            existing_p = (await self.db.execute(p_check_stmt)).scalars().first()
+            if existing_p:
+                target_party_id = existing_p.id
+            else:
+                cid = sup.company_id or self._company_id
+                bid = sup.branch_id or self._branch_id
+                new_party = Party(
+                    id=f"pty_{uuid.uuid4().hex[:12]}",
+                    company_id=cid,
+                    branch_id=bid,
+                    party_code=sup.code or f"VND-{sup.id[-8:].upper()}",
+                    legal_name=sup.name,
+                    gstin=sup.gst_number,
+                    email=sup.email,
+                    mobile=sup.mobile,
+                    address_line1=sup.address,
+                    city=sup.city,
+                    state=sup.state,
+                    pincode=sup.pincode,
+                    status="ACTIVE",
+                )
+                self.db.add(new_party)
+                await self.db.flush()
+                target_party_id = new_party.id
+
+            mig_audit = VendorIdentityMigration(
+                id=f"vim_{uuid.uuid4().hex[:12]}",
+                company_id=sup.company_id or self._company_id,
+                branch_id=sup.branch_id or self._branch_id,
+                legacy_supplier_id=sup.id,
+                party_id=target_party_id,
+                migration_status="COMPLETED",
+                migration_reason="AUTO_ON_DEMAND_CONVERGENCE",
+                migrated_at=datetime.now(timezone.utc),
+                migrated_by=getattr(self.tenant, "user_id", "SYSTEM"),
+                details_json={
+                    "legacy_supplier_id": sup.id,
+                    "supplier_code": sup.code,
+                    "supplier_name": sup.name,
+                },
+            )
+            self.db.add(mig_audit)
+            await self.db.flush()
+            return target_party_id
 
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

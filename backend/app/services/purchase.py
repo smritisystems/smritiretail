@@ -326,6 +326,7 @@ class PurchaseService:
             line_input = TransactionLineItemInput(
                 line_no=line_no,
                 product_id=clean_prod_id or None,
+                variant_id=getattr(item, "variant_id", None) or None,
                 code=clean_item_code or None,
                 sku=clean_item_code or None,
                 barcode=clean_item_code if (clean_item_code and clean_item_code.isdigit()) else None,
@@ -407,7 +408,11 @@ class PurchaseService:
             tax_total += tax_amt
 
             # Resolve variant_id with strict ambiguity guard (ADR-001 / R-01)
-            po_variant_id = getattr(item, "variant_id", None)
+            po_variant_id = (
+                getattr(item, "variant_id", None)
+                or getattr(product, "item_variant_id", None)
+                or res.variant_id
+            )
             canonical_item_id = getattr(product, "item_id", None) or res.item_id
             if not po_variant_id and canonical_item_id:
                 var_q = select(ItemVariant).where(
@@ -417,7 +422,16 @@ class PurchaseService:
                     ItemVariant.is_deleted == False,
                 )
                 active_vars = (await self.db.execute(var_q)).scalars().all()
-                if len(active_vars) == 1:
+                matched_var = next(
+                    (v for v in active_vars if v.variant_sku and (
+                        v.variant_sku == clean_item_code
+                        or (product and v.variant_sku == product.code)
+                    )),
+                    None,
+                )
+                if matched_var:
+                    po_variant_id = matched_var.id
+                elif len(active_vars) == 1:
                     po_variant_id = active_vars[0].id
                 elif len(active_vars) > 1:
                     raise HTTPException(
@@ -434,8 +448,6 @@ class PurchaseService:
                             "available_variants": [{"id": v.id, "sku": v.variant_sku} for v in active_vars],
                         },
                     )
-            elif not po_variant_id:
-                po_variant_id = res.variant_id or getattr(product, "item_variant_id", None)
 
             item_rows.append(PurchaseOrderItem(
                 id=IdentityEngine.generate_technical_id(),
@@ -810,6 +822,9 @@ class PurchaseService:
                     canonical_item_id = canonical_item_id or resolved_canon.item_id
                     grn_variant_id = grn_variant_id or resolved_canon.variant_id
 
+            if not grn_variant_id:
+                grn_variant_id = getattr(product, "item_variant_id", None)
+
             if not grn_variant_id and canonical_item_id:
                 var_q = select(ItemVariant).where(
                     ItemVariant.item_id == canonical_item_id,
@@ -818,7 +833,16 @@ class PurchaseService:
                     ItemVariant.is_deleted == False,
                 )
                 active_vars = (await self.db.execute(var_q)).scalars().all()
-                if len(active_vars) == 1:
+                matched_var = next(
+                    (v for v in active_vars if v.variant_sku and (
+                        (product and v.variant_sku == product.code)
+                        or (product and getattr(product, "barcode", None) and v.variant_sku == product.barcode)
+                    )),
+                    None,
+                )
+                if matched_var:
+                    grn_variant_id = matched_var.id
+                elif len(active_vars) == 1:
                     grn_variant_id = active_vars[0].id
                 elif len(active_vars) > 1:
                     raise HTTPException(
@@ -835,8 +859,6 @@ class PurchaseService:
                             "available_variants": [{"id": v.id, "sku": v.variant_sku} for v in active_vars],
                         },
                     )
-            elif not grn_variant_id:
-                grn_variant_id = getattr(product, "item_variant_id", None)
 
             # Strict Phase 2 Gate: NO STOCK WITHOUT CANONICAL IDENTITY
             if not canonical_item_id or not grn_variant_id:

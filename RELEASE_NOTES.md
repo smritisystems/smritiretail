@@ -4,7 +4,7 @@
   Designation  : Chief Systems Architect & Creator
   Email        : support@smritibooks.com
   Websites     : smritibooks.com | erpnbook.com | aitdl.com
-  Version      : 6.75.0
+  Version      : 6.75.1
   Created      : 2026-10-13
   Modified     : 2026-10-14
   Copyright    : © SMRITIBooks.com. All Rights Reserved.
@@ -13,6 +13,30 @@
 -->
 
 # SMRITI Retail OS — Release Notes
+
+## Release v6.75.1 (2026-10-14)
+
+### Procurement & Item Master — Purchase Variant Disambiguation & Legacy Vendor On-Demand Auto-Bridge
+
+#### Overview
+SMRITI Retail OS v6.75.1 remediates two critical runtime defects blocking Purchase Studio PO workflows and catalog evaluation: (1) HTTP 422 Unprocessable Entity during batch catalog evaluation (`POST /api/v1/purchase/evaluate-products`) in `PurchBrowseDlg` caused by legacy suppliers not yet pre-provisioned in Vendor 360, and (2) HTTP 400 Bad Request (`AMBIGUOUS_ITEM_VARIANT`) on `POST /api/v1/purchase/orders/` when ordering specific variant SKUs (e.g. `CH-533-CREAM-36`).
+
+#### Key Highlights
+- **Legacy Vendor On-Demand Auto-Convergence**:
+  - Remediated HTTP 422 Unprocessable Entity in `VendorProductAssignmentService.resolve_vendor_party_id` by auto-converging legacy suppliers on-demand into canonical `Party` records (`pty_...`).
+  - Stamped idempotent `VendorIdentityMigration` records with `migration_status="COMPLETED"` and `migration_reason="AUTO_ON_DEMAND_CONVERGENCE"`, guaranteeing forward auditability and zero workflow interruption.
+- **Purchase Order Variant Disambiguation**:
+  - Resolved `po_variant_id` from item line inputs, catalog `item_variant_id`, and `ProductRegistry` variant references prior to evaluating multi-variant generic style ambiguity in `PurchaseService.create_purchase_order`.
+  - Added SKU equality matching against active variants before triggering the ambiguity guard, preventing false-positive blocks when a specific variant SKU is specified.
+  - Preserved ADR-001 fail-fast ambiguity safety when a generic style code with multiple variants is submitted without specific variant identity.
+  - Mirrored hardened variant pre-resolution and SKU matching logic to Goods Receipt Notes (`create_goods_receipt`).
+  - Passed `variant_id` to `TransactionLineItemInput` in `create_purchase_order`.
+- **Frontend Payload Hardening**:
+  - Ensured `variant_id` and `item_id` are explicitly populated in PO line item payloads across standard item view, size-matrix unpivoted views, and sizewise tabs in `PoGenerateTab.tsx` and `PoSizewiseTab.tsx`.
+- **Automated Verification**:
+  - Certified with 3/3 tests passing in `backend/tests/test_purchase_variant_and_vendor_autobridge.py` (legacy vendor auto-bridge, specific variant SKU order, and generic style fail-fast ambiguity guard).
+  - 53/53 tests passing in `backend/tests/test_po_vendor_product_control.py`.
+  - 0 TypeScript compilation errors (`tsc --noEmit`).
 
 ## Release v6.75.0 (2026-10-14)
 

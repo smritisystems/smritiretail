@@ -1862,6 +1862,9 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
           .filter(Boolean)
           .join(" | "),
         items: activeLines.map(l => ({
+          product_id: l.originalProduct?.id || undefined,
+          variant_id: (l.originalProduct as any)?.item_variant_id || (l.originalProduct as any)?.variant_id || undefined,
+          item_id: (l.originalProduct as any)?.item_id || undefined,
           code: l.itemCode,
           name: l.product,
           product_ref: l.itemCode,

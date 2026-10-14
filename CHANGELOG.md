@@ -1,3 +1,28 @@
+## [6.75.1] — 2026-10-14
+
+### Procurement & Item Master — Purchase Variant Disambiguation & Legacy Vendor On-Demand Auto-Bridge v6.75.1
+
+Remediated dual runtime defects blocking Purchase Studio PO workflows and catalog evaluation:
+
+**Key Changes & Architectural Enforcement:**
+- **Legacy Vendor On-Demand Auto-Convergence (`backend/app/services/vendor_product_assignment.py`):**
+  - Remediated HTTP 422 Unprocessable Entity during batch catalog evaluation (`POST /api/v1/purchase/evaluate-products`) in `PurchBrowseDlg` when encountering legacy suppliers not yet pre-provisioned in Vendor 360.
+  - Implemented safe, on-demand auto-convergence into canonical `Party` (`pty_...`) records using the supplier's name and GSTIN/details, with idempotent `VendorIdentityMigration` record creation (`migration_status="COMPLETED"`, `migration_reason="AUTO_ON_DEMAND_CONVERGENCE"`).
+  - Preserved backward compatibility and migration audit lineage without interrupting purchase workflows.
+- **Purchase Order Variant Disambiguation (`backend/app/services/purchase.py`):**
+  - Remediated HTTP 400 Bad Request (`AMBIGUOUS_ITEM_VARIANT`) on `POST /api/v1/purchase/orders/` when ordering specific variant SKUs (e.g. `CH-533-CREAM-36`).
+  - Pre-resolved `po_variant_id` from item line references, catalog `item_variant_id`, and `ProductRegistry` variant references prior to evaluating multi-variant generic style ambiguity.
+  - Added SKU equality matching against active variants before triggering the ambiguity guard, preventing false-positive blocks when a specific variant SKU is specified.
+  - Preserved ADR-001 fail-fast ambiguity safety when a generic style code with multiple variants is submitted without specific variant identity.
+  - Mirrored hardened variant pre-resolution and SKU matching logic to Goods Receipt Notes (`create_goods_receipt`).
+  - Passed `variant_id` to `TransactionLineItemInput` in `create_purchase_order`.
+- **Frontend Payload Hardening (`src/components/purchase/PoGenerateTab.tsx`, `src/components/purchase/PoSizewiseTab.tsx`):**
+  - Ensured `variant_id` and `item_id` are explicitly populated in PO line item payloads across standard item view, size-matrix unpivoted views, and sizewise tabs.
+- **Automated Verification:**
+  - Certified with 3/3 tests passing in `backend/tests/test_purchase_variant_and_vendor_autobridge.py` (legacy vendor auto-bridge, specific variant SKU order, and generic style fail-fast ambiguity guard).
+  - 53/53 tests passing in `backend/tests/test_po_vendor_product_control.py`.
+  - 0 TypeScript compilation errors (`tsc --noEmit`).
+
 ## [6.75.0] — 2026-10-14
 
 ### Inventory & Finance — Cost Integrity, Landed Cost Vouchers & Historical Return Lineage v6.75.0
