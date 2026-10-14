@@ -1,3 +1,35 @@
+## [6.75.0] — 2026-10-14
+
+### Inventory & Finance — Cost Integrity, Landed Cost Vouchers & Historical Return Lineage v6.75.0
+
+Consolidated, certified, and remediated Batch 2.4 costing and return lineage architecture across FastAPI, PostgreSQL, and SQLAlchemy:
+
+**Key Changes & Architectural Enforcement:**
+- **Exact-Line Sales Return Lineage & Ambiguity Defense (`backend/app/services/sales.py`, `backend/app/schemas/sales.py`, `backend/app/models/sales.py`):**
+  - Persisted `sales_invoice_item_id` foreign key column on `sales_return_items` with B-tree index.
+  - Implemented exact-line validation ensuring `sales_invoice_item_id` matches the original invoice and product SKU.
+  - Rejected cross-product line mismatches with HTTP 422.
+  - Implemented anti-arbitrage ambiguity defense: rejects returns with HTTP 422 when a SKU appears on multiple invoice lines with different commercial terms (prices, tax rates, or historical costs) and `sales_invoice_item_id` is omitted.
+  - Enforced cumulative return quantity limits per invoice line and across all invoice lines for that product.
+- **Ind AS 2 Rolling WAC & FIFO Fallback Logging (`backend/app/services/cost_engine.py`, `backend/app/services/purchase.py`):**
+  - Integrated perpetual rolling WAC recalculation upon GRN receipt.
+  - Landed cost components apportioned directly to inward receipt valuation and persisted in `ProductCostValuation`.
+  - Added explicit warning log when inventory costing falls back to FIFO queue.
+  - Eliminated selling price fallbacks in `backend/app/services/sales_stock_authority.py`.
+- **Provisional Cost Quarantine (`backend/app/services/cost_engine.py`):**
+  - Quarantined provisional transactions and returns (`is_provisional=True`) from finalized gross profit and contribution margin metrics until authoritative reconciliation.
+- **Balanced & Idempotent Landed Cost Adjustment Vouchers (`backend/app/services/unified_ledger.py`, `backend/app/services/tally_service.py`):**
+  - Implemented `post_landed_cost_adjustment_voucher` enforcing strict mathematical equality ($\sum \text{Debits} == \sum \text{Credits}$) with `ValueError` on imbalance.
+  - Integrated duplicate-posting idempotency check returning existing vouchers without duplicate ledger entries.
+  - Preserved dock-stage unbilled GRN clearing entry (Account `1045`).
+  - Added `TallyService = TallyPrimeService` module alias.
+- **Safe Schema & Migration Convergence (`backend/alembic/versions/v1532_cost_management_engine_foundations.py`, `backend/alembic/env.py`):**
+  - Registered all cost management models in `env.py` target metadata.
+  - Migration `v1532` converges safely across pre-existing and fresh schemas via catalog checks.
+  - Downgrade prevents catastrophic data loss by aborting rollback if tables contain records.
+- **Automated Verification:**
+  - 34/34 Pytest tests passing green across `test_migration_v1532_lifecycle.py`, `test_cost_valuation_batch2.py`, and `test_cost_accounting_batch1.py`.
+
 ## [6.74.0] — 2026-10-14
 
 ### Foundation & Finance — Cost Management & Cost Truth Engine Architecture v6.74.0
