@@ -204,6 +204,14 @@ export const mapModuleId = (id: string): string => {
     "menu-attendance-workspace": "attendance-workspace",
     "attendance-register": "attendance-workspace",
     "hr-attendance": "attendance-workspace",
+    "menu-muster-roll": "muster-roll",
+    "muster-roll": "muster-roll",
+    "muster": "muster-roll",
+    "hr-muster-roll": "muster-roll",
+    "menu-wages": "wages",
+    "wages": "wages",
+    "payroll": "wages",
+    "wage-reconciliation": "wages",
     "menu-approval-matrix": "approval-matrix",
     "menu-company-setup": "company-setup",
     "menu-audit-logs": "audit-logs",
@@ -327,11 +335,25 @@ export const renderTabNode = (tabId: string, ctx: TabRendererContextProps): Reac
     case "loyalty":
       return <LoyaltyStudioTab currentUser={currentUser} />;
     case "staff-management":
-      return <StaffManagementTab currentUser={currentUser} onNotification={addNotification} />;
+      return (
+        <StaffManagementTab
+          currentUser={currentUser}
+          onNotification={addNotification}
+          onNavigate={(modId) => setActiveTab(mapModuleId(modId))}
+        />
+      );
     case "attendance-workspace":
     case "attendance-register":
     case "hr-attendance":
-      return <AttendanceWorkspaceTab currentUser={currentUser} onNotification={addNotification} />;
+      return <AttendanceWorkspaceTab currentUser={currentUser} onNotification={addNotification} initialSection="register" />;
+    case "muster-roll":
+    case "muster":
+    case "hr-muster-roll":
+      return <AttendanceWorkspaceTab currentUser={currentUser} onNotification={addNotification} initialSection="muster_roll" />;
+    case "wages":
+    case "payroll":
+    case "wage-reconciliation":
+      return <AttendanceWorkspaceTab currentUser={currentUser} onNotification={addNotification} initialSection="wages" />;
     case "leave-management":
     case "staff-leave":
     case "hr-leave":

@@ -419,6 +419,17 @@ export const LAUNCHPAD_CATALOG: TileData[] = [
     roles: ["MANAGER", "SYSADMIN"],
   },
   {
+    id: "muster-roll",
+    title: "Muster Roll & Workforce Wages",
+    subtitle: "Statutory Form II monthly attendance matrix, casual daily wages & monthly payroll reconciliation",
+    icon: "view_timeline",
+    tag: "Muster Roll",
+    badgeType: "primary",
+    group: "System & Operations",
+    roles: ["MANAGER", "SYSADMIN"],
+    accentColor: "indigo",
+  },
+  {
     id: "user-profile",
     title: "My Profile Dashboard",
     subtitle: "User preferences, security settings, password updates & active session details",

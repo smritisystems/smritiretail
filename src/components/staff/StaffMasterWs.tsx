@@ -4,14 +4,17 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.70.53
+ * Version      : 6.70.55
  * Created      : 2026-09-11
- * Modified     : 2026-10-12
+ * Modified     : 2026-10-15
  * Copyright    : © SMRITIBooks.com. All Rights Reserved>
  * License      : Proprietary Commercial Software
  * Classification: Internal
  * Source Module: Staff 360 Workspace & HR User Governance
  *
+ * Changelog v6.70.55 (2026-10-15):
+ *   - Added onNavigate callback support to route to Muster Roll & Wages workspace.
+ *   - Added direct quick links in Staff 360 header toolbar and Attendance tab.
  * Changelog v6.70.54 (2026-10-12):
  *   - Sanitized payment and KYC payload with null fallbacks to prevent backend validation failure.
  *   - Added in-form user-facing editError alert banner for clear human-readable error reporting.
@@ -64,6 +67,7 @@ import { dateAfter, validateReassignment } from "./staffPlacementHelpers.ts";
 export interface StaffMasterWsProps {
   currentUser?: { role: string; name: string } | null;
   onNotification?: (title: string, message: string, type: "success" | "error" | "info" | "warning") => void;
+  onNavigate?: (moduleId: string) => void;
 }
 
 type StaffTab = "overview" | "identity" | "employment" | "bank" | "attendance" | "leave" | "access" | "assignments" | "compensation" | "sessions" | "activity" | "lifecycle";
@@ -167,7 +171,7 @@ const maskAadhaarNumber = (val?: string | null) => {
   return `•••• •••• ${clean.slice(-4)}`;
 };
 
-const StaffMasterWsBase: React.FC<StaffMasterWsProps> = ({ currentUser, onNotification }) => {
+const StaffMasterWsBase: React.FC<StaffMasterWsProps> = ({ currentUser, onNotification, onNavigate }) => {
   const [staff, setStaff] = useState<User[]>([]);
   const [selectedId, setSelectedId] = useState<string>("");
   const [selected, setSelected] = useState<User>(emptyStaff);
@@ -941,6 +945,16 @@ const StaffMasterWsBase: React.FC<StaffMasterWsProps> = ({ currentUser, onNotifi
                     >
                       Studio Modal
                     </button>
+                    <button
+                      id="staff-tab-muster-roll-btn"
+                      type="button"
+                      onClick={() => onNavigate?.("muster-roll")}
+                      className="flex items-center gap-1 rounded-lg border border-indigo-200 bg-indigo-50 px-2.5 py-1.5 text-xs font-semibold text-indigo-700 hover:bg-indigo-100 dark:border-indigo-800 dark:bg-indigo-950/40 dark:text-indigo-300 dark:hover:bg-indigo-900/60"
+                      title="Open Form II Muster Roll & Monthly Wage Reconciliation"
+                    >
+                      <CalendarDays size={12} className="text-indigo-600 dark:text-indigo-400" />
+                      Muster Roll
+                    </button>
                   </div>
                 </div>
               );
@@ -1235,7 +1249,7 @@ const StaffMasterWsBase: React.FC<StaffMasterWsProps> = ({ currentUser, onNotifi
       <div className="grid grid-cols-3 gap-2 border-b border-slate-200 p-3 text-center dark:border-slate-800"><div><div className="text-lg font-black">{staff.length}</div><div className="text-[10px] text-slate-500">Staff</div></div><div><div className="text-lg font-black text-emerald-600">{activeCount}</div><div className="text-[10px] text-slate-500">Active</div></div><div><div className="text-lg font-black text-indigo-600">{adminCount}</div><div className="text-[10px] text-slate-500">Admin</div></div></div>
       <div className="min-h-0 flex-1 overflow-y-auto">{loading ? <div className="p-6 text-xs text-slate-500">Loading staff directory...</div> : filteredStaff.map((person) => <button key={person.id} onClick={() => { setSelectedId(person.id); setActiveTab("overview"); }} className={`w-full border-b border-slate-100 p-3 text-left dark:border-slate-800 ${person.id === selectedId ? "border-l-4 border-l-indigo-600 bg-indigo-50 dark:bg-indigo-950/30" : "hover:bg-slate-50 dark:hover:bg-slate-800/50"}`}><div className="flex items-center justify-between"><span className="truncate text-xs font-bold">{displayValue(person.fullName, person.username)}</span><span className="text-[9px] font-mono text-indigo-600">{person.role}</span></div><div className="mt-1 flex justify-between text-[10px] text-slate-500"><span>{displayValue(person.designation, "Operator")}</span><span>{displayValue(person.branch, "No branch")}</span></div></button>)}</div>
     </aside>}
-    <section className="min-w-0 flex-1 overflow-y-auto"><div className="border-b border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900/70"><div className="flex flex-wrap items-start justify-between gap-4"><div><div className="flex items-center gap-2 text-xs uppercase tracking-widest text-indigo-600"><ShieldCheck size={14} />Staff 360</div><h1 className="mt-1 text-xl font-black">{displayValue(selected.fullName, "Staff & User Access Management")}</h1><p className="mt-1 text-xs text-slate-500">Identity, employment, access scope, sensitive data, sessions, audit, and lifecycle governance.</p></div><div className="flex items-center gap-2"><button id="staff-commissions-btn" type="button" onClick={() => setShowCommissionModal(true)} className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:hover:bg-slate-700" title="Commission Payouts & Performance Leaderboard"><WalletCards size={14} className="text-indigo-600" />Commissions</button><button id="staff-attendance-modal-btn" type="button" onClick={() => setShowAttendanceModal(true)} className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:hover:bg-slate-700" title="Attendance Ledger & Clock Times"><CalendarDays size={14} className="text-indigo-600" />Attendance Studio</button><div className="flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-xs dark:border-slate-700"><CheckCircle2 size={14} className="text-emerald-500" />{currentUser?.role || "Authorized operator"}</div>{selectedId && !isEditing && <button onClick={() => { setIsEditing(true); setEditError(null); }} className="rounded-lg bg-indigo-600 px-3 py-2 text-xs font-bold text-white">Edit Staff</button>}{isEditing && <><button onClick={() => { setIsEditing(false); setEditError(null); }} className="rounded-lg border px-3 py-2 text-xs">Cancel</button><button disabled={saving} onClick={handleSave} className="rounded-lg bg-emerald-600 px-3 py-2 text-xs font-bold text-white">{saving ? "Saving..." : "Save Changes"}</button></>}</div></div>{isEditing && (
+    <section className="min-w-0 flex-1 overflow-y-auto"><div className="border-b border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900/70"><div className="flex flex-wrap items-start justify-between gap-4"><div><div className="flex items-center gap-2 text-xs uppercase tracking-widest text-indigo-600"><ShieldCheck size={14} />Staff 360</div><h1 className="mt-1 text-xl font-black">{displayValue(selected.fullName, "Staff & User Access Management")}</h1><p className="mt-1 text-xs text-slate-500">Identity, employment, access scope, sensitive data, sessions, audit, and lifecycle governance.</p></div><div className="flex items-center gap-2"><button id="staff-commissions-btn" type="button" onClick={() => setShowCommissionModal(true)} className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:hover:bg-slate-700" title="Commission Payouts & Performance Leaderboard"><WalletCards size={14} className="text-indigo-600" />Commissions</button><button id="staff-attendance-modal-btn" type="button" onClick={() => setShowAttendanceModal(true)} className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:hover:bg-slate-700" title="Attendance Ledger & Clock Times"><CalendarDays size={14} className="text-indigo-600" />Attendance Studio</button><button id="staff-muster-roll-btn" type="button" onClick={() => onNavigate?.("muster-roll")} className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:hover:bg-slate-700" title="Form II Muster Roll & Monthly Wage Reconciliation"><CalendarDays size={14} className="text-indigo-600" />Muster Roll & Wages</button><div className="flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-xs dark:border-slate-700"><CheckCircle2 size={14} className="text-emerald-500" />{currentUser?.role || "Authorized operator"}</div>{selectedId && !isEditing && <button onClick={() => { setIsEditing(true); setEditError(null); }} className="rounded-lg bg-indigo-600 px-3 py-2 text-xs font-bold text-white">Edit Staff</button>}{isEditing && <><button onClick={() => { setIsEditing(false); setEditError(null); }} className="rounded-lg border px-3 py-2 text-xs">Cancel</button><button disabled={saving} onClick={handleSave} className="rounded-lg bg-emerald-600 px-3 py-2 text-xs font-bold text-white">{saving ? "Saving..." : "Save Changes"}</button></>}</div></div>{isEditing && (
           <div className="mt-4 rounded-xl border border-indigo-200 bg-indigo-50/50 p-4 dark:border-indigo-900 dark:bg-indigo-950/20">
             {editError && (
               <div className="mb-3 flex items-start justify-between gap-3 rounded-lg border border-rose-200 bg-rose-50 p-3 text-xs text-rose-800 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-200">

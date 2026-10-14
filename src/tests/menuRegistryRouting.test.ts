@@ -4,8 +4,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.72.9
+ * Version      : 6.72.10
  * Created      : 2026-10-13
+ * Modified     : 2026-10-15
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
@@ -92,5 +93,16 @@ describe("SMRITI — Menu Registry & Routing Parity Tests", () => {
     expect(mapModuleId("menu-communicator")).toBe("communicator");
     expect(mapModuleId("menu-propos")).toBe("propos-workspace");
     expect(mapModuleId("menu-doc-studio")).toBe("document-studio");
+  });
+
+  it("should map Muster Roll and Wages aliases directly to canonical workspace tabs", () => {
+    expect(mapModuleId("menu-muster-roll")).toBe("muster-roll");
+    expect(mapModuleId("muster-roll")).toBe("muster-roll");
+    expect(mapModuleId("muster")).toBe("muster-roll");
+    expect(mapModuleId("hr-muster-roll")).toBe("muster-roll");
+    expect(mapModuleId("menu-wages")).toBe("wages");
+    expect(mapModuleId("wages")).toBe("wages");
+    expect(mapModuleId("payroll")).toBe("wages");
+    expect(mapModuleId("wage-reconciliation")).toBe("wages");
   });
 });
