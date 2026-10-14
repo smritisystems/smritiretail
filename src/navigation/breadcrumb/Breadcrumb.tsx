@@ -4,9 +4,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 1.0.0
+ * Version      : 1.0.1
  * Created      : 2026-09-18
- * Modified     : 2026-09-18
+ * Modified     : 2026-10-14
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  *
@@ -59,14 +59,13 @@ export const Breadcrumb: React.FC<BreadcrumbProps> = ({
   const ctx = useOptionalBreadcrumb();
   const trail = trailProp ?? ctx?.trail;
 
-  if (!trail || trail.nodes.length === 0) return null;
-
   // Mobile trail (last N nodes)
-  // eslint-disable-next-line react-hooks/rules-of-hooks
   const mobileTrail = useMemo(
-    () => getMobileTrail(trail, mobileVisibleCount),
+    () => (trail ? getMobileTrail(trail, mobileVisibleCount) : { nodes: [] }),
     [trail, mobileVisibleCount],
   );
+
+  if (!trail || trail.nodes.length === 0) return null;
 
   const ariaLabel = getBreadcrumbAriaLabel(trail);
 

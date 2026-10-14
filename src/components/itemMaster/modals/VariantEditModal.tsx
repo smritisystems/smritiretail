@@ -4,15 +4,15 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.47.2
+ * Version      : 6.47.3
  * Created      : 2026-09-29
- * Modified     : 2026-09-29
+ * Modified     : 2026-10-14
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal Modal
  */
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { X, Lock, Plus, Tag } from "lucide-react";
 import { Product } from "../../../types.ts";
 import { apiFetchV1 } from "../../../lib/apiFetchV1.ts";
@@ -32,22 +32,33 @@ export const VariantEditModal: React.FC<VariantEditModalProps> = ({
   onUpdated,
   onNotification,
 }) => {
-  if (!isOpen || !product) return null;
-
-  const [mrp, setMrp] = useState<string>(String(product.mrp ?? "0"));
-  const [sellingPrice, setSellingPrice] = useState<string>(String(product.price ?? "0"));
-  const [costPrice, setCostPrice] = useState<string>(String((product as any).cost_price ?? product.costPrice ?? "0"));
+  const [mrp, setMrp] = useState<string>(String(product?.mrp ?? "0"));
+  const [sellingPrice, setSellingPrice] = useState<string>(String(product?.price ?? "0"));
+  const [costPrice, setCostPrice] = useState<string>(String((product as any)?.cost_price ?? product?.costPrice ?? "0"));
   
   // Secondary barcodes
-  const initialSecondary = Array.isArray((product as any).secondary_barcodes)
-    ? (product as any).secondary_barcodes
+  const initialSecondary = Array.isArray((product as any)?.secondary_barcodes)
+    ? (product as any)?.secondary_barcodes
     : [];
   const [secondaryBarcodes, setSecondaryBarcodes] = useState<string[]>(initialSecondary);
   const [newBarcode, setNewBarcode] = useState<string>("");
   const [isAddingBarcode, setIsAddingBarcode] = useState<boolean>(false);
   const [isSaving, setIsSaving] = useState<boolean>(false);
 
+  useEffect(() => {
+    if (product) {
+      setMrp(String(product.mrp ?? "0"));
+      setSellingPrice(String(product.price ?? "0"));
+      setCostPrice(String((product as any)?.cost_price ?? product?.costPrice ?? "0"));
+      setSecondaryBarcodes(Array.isArray((product as any)?.secondary_barcodes) ? (product as any)?.secondary_barcodes : []);
+      setNewBarcode("");
+      setIsAddingBarcode(false);
+      setIsSaving(false);
+    }
+  }, [product]);
+
   const handleAddBarcode = () => {
+    if (!product) return;
     const trimmed = newBarcode.trim().toUpperCase();
     if (!trimmed) return;
     if (trimmed === (product.barcode || "").toUpperCase() || secondaryBarcodes.includes(trimmed)) {
@@ -64,6 +75,7 @@ export const VariantEditModal: React.FC<VariantEditModalProps> = ({
   };
 
   const handleSave = async () => {
+    if (!product) return;
     setIsSaving(true);
     try {
       // Put update with mutable fields only (immutable SKU, Barcode, Size, Color excluded to protect canonical identity)
@@ -86,6 +98,8 @@ export const VariantEditModal: React.FC<VariantEditModalProps> = ({
       setIsSaving(false);
     }
   };
+
+  if (!isOpen || !product) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 select-none">
