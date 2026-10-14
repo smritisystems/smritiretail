@@ -75,10 +75,12 @@ class VendorService:
         sp = party.supplier_profile
         gstin = party.gstin
         pan = party.pan
+        meta_comm = ((party.metadata_json or {}).get("commercial_terms", {})) if party else {}
+        pt_days = getattr(sp, "payment_terms_days", 30) if sp else 30
 
         commercial = VendorCommercialProfileDTO(
             supplier_type=getattr(sp, "supplier_type", "DISTRIBUTOR") if sp else "DISTRIBUTOR",
-            payment_terms_days=getattr(sp, "payment_terms_days", 30) if sp else 30,
+            payment_terms_days=pt_days,
             msme_registration_no=getattr(sp, "msme_registration_no", None) if sp else None,
             msme_category=getattr(sp, "msme_category", "NOT_APPLICABLE") if sp else "NOT_APPLICABLE",
             commercial_classification=getattr(sp, "commercial_classification", "APPROVED") if sp else "APPROVED",
@@ -86,6 +88,12 @@ class VendorService:
             tds_rate=float(getattr(sp, "tds_rate", 0.10) or 0.10) if sp else 0.10,
             tax_treatment=getattr(sp, "tax_treatment", "REGISTERED_REGULAR") if sp else "REGISTERED_REGULAR",
             outstanding_liability=float(getattr(sp, "outstanding_liability", 0.0) or 0.0) if sp else 0.0,
+            payment_terms=meta_comm.get("payment_terms") or (f"{pt_days} Days" if pt_days else "30 Days"),
+            freight_terms=meta_comm.get("freight_terms") or "Paid by Supplier",
+            currency=meta_comm.get("currency") or "INR - Indian Rupee",
+            buyer=meta_comm.get("buyer"),
+            department=meta_comm.get("department"),
+            special_instructions=meta_comm.get("special_instructions"),
         )
 
         v_flags = (getattr(sp, "verification_flags", {}) if sp else {}) or {
@@ -333,6 +341,18 @@ class VendorService:
         company_id = getattr(self.tenant, "company_id", None)
         branch_id = getattr(self.tenant, "branch_id", None)
 
+        comm = req.commercial
+        comm_terms = {}
+        if comm:
+            comm_terms = {
+                "payment_terms": getattr(comm, "payment_terms", None) or f"{comm.payment_terms_days} Days",
+                "freight_terms": getattr(comm, "freight_terms", "Paid by Supplier"),
+                "currency": getattr(comm, "currency", "INR - Indian Rupee"),
+                "buyer": getattr(comm, "buyer", None),
+                "department": getattr(comm, "department", None),
+                "special_instructions": getattr(comm, "special_instructions", None),
+            }
+
         party = Party(
             id=party_id,
             company_id=company_id,
@@ -354,7 +374,7 @@ class VendorService:
             country="India",
             status=req.status or "ACTIVE",
             tags=req.tags,
-            metadata_json={},
+            metadata_json={"commercial_terms": comm_terms} if comm_terms else {},
         )
         self.db.add(party)
         await self.db.flush()
@@ -561,26 +581,47 @@ class VendorService:
 
         # Update SupplierProfile
         sp = party.supplier_profile
-        if req.commercial and sp:
+        if req.commercial:
             c = req.commercial
-            if c.supplier_type is not None:
-                sp.supplier_type = c.supplier_type
-            if c.payment_terms_days is not None:
-                sp.payment_terms_days = c.payment_terms_days
-            if c.msme_registration_no is not None:
-                sp.msme_registration_no = c.msme_registration_no
-            if c.msme_category is not None:
-                sp.msme_category = c.msme_category
-            if c.commercial_classification is not None:
-                sp.commercial_classification = c.commercial_classification
-            if c.tds_section is not None:
-                sp.tds_section = c.tds_section
-            if c.tds_rate is not None:
-                sp.tds_rate = Decimal(str(c.tds_rate))
-            if c.tax_treatment is not None:
-                sp.tax_treatment = c.tax_treatment
-            if c.outstanding_liability is not None:
-                sp.outstanding_liability = Decimal(str(c.outstanding_liability))
+            if sp:
+                if c.supplier_type is not None:
+                    sp.supplier_type = c.supplier_type
+                if c.payment_terms_days is not None:
+                    sp.payment_terms_days = c.payment_terms_days
+                if c.msme_registration_no is not None:
+                    sp.msme_registration_no = c.msme_registration_no
+                if c.msme_category is not None:
+                    sp.msme_category = c.msme_category
+                if c.commercial_classification is not None:
+                    sp.commercial_classification = c.commercial_classification
+                if c.tds_section is not None:
+                    sp.tds_section = c.tds_section
+                if c.tds_rate is not None:
+                    sp.tds_rate = Decimal(str(c.tds_rate))
+                if c.tax_treatment is not None:
+                    sp.tax_treatment = c.tax_treatment
+                if c.outstanding_liability is not None:
+                    sp.outstanding_liability = Decimal(str(c.outstanding_liability))
+
+            # Store commercial terms into party.metadata_json
+            meta_json = dict(party.metadata_json or {})
+            comm_terms = dict(meta_json.get("commercial_terms", {}))
+            if getattr(c, "payment_terms", None) is not None:
+                comm_terms["payment_terms"] = c.payment_terms
+            elif c.payment_terms_days is not None:
+                comm_terms["payment_terms"] = f"{c.payment_terms_days} Days"
+            if getattr(c, "freight_terms", None) is not None:
+                comm_terms["freight_terms"] = c.freight_terms
+            if getattr(c, "currency", None) is not None:
+                comm_terms["currency"] = c.currency
+            if getattr(c, "buyer", None) is not None:
+                comm_terms["buyer"] = c.buyer
+            if getattr(c, "department", None) is not None:
+                comm_terms["department"] = c.department
+            if getattr(c, "special_instructions", None) is not None:
+                comm_terms["special_instructions"] = c.special_instructions
+            meta_json["commercial_terms"] = comm_terms
+            party.metadata_json = meta_json
 
         company_id = getattr(self.tenant, "company_id", None)
         branch_id = getattr(self.tenant, "branch_id", None)

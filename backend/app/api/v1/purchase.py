@@ -221,6 +221,20 @@ async def get_purchase_order_contract(
     return order
 
 
+@router.put("/orders/{order_id}", response_model=PurchaseOrderResponse, summary="Update Purchase Order (Draft)",
+            dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN, UserRole.PURCHASE_EXECUTIVE))])
+@router.put("/orders/{order_id}/", response_model=PurchaseOrderResponse, include_in_schema=False,
+            dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN, UserRole.PURCHASE_EXECUTIVE))])
+async def update_purchase_order_contract(
+    order_id: str,
+    order_in: PurchaseOrderCreate,
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+):
+    """Update a purchase order in DRAFT status — canonical contract URL."""
+    return await PurchaseService(db, tenant_ctx).update_purchase_order(order_id, order_in)
+
+
 @router.post("/orders/{order_id}/cancel", response_model=dict, status_code=200,
              summary="Cancel Purchase Order (Contract URL)",
              dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN, UserRole.PURCHASE_EXECUTIVE))])

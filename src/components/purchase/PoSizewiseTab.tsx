@@ -54,6 +54,17 @@ import type {
 import { GlobalGridImportModal } from "../gridInput/GlobalGridImportModal.tsx";
 import { GRID_PROFILES } from "../../services/gridInput/gridProfiles.ts";
 import type { ParsedGridRow, GridImportMode } from "../../services/gridInput/types.ts";
+import { SupplierSelect } from "../common/SupplierSelect.tsx";
+import { CommercialDeliveryDrawer, CommercialDeliveryData } from "./CommercialDeliveryDrawer.tsx";
+import {
+  buildArticleCatalogIndex,
+  getAvailableArticles,
+  getAvailableColorsForArticle,
+  getAvailableSizesForArticleAndColor,
+  getArticleSummaryFromIndex,
+  resolveVariantFromIndex,
+  resolveByBarcodeOrSkuFromIndex,
+} from "./articleFiltering.ts";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Constants
@@ -96,7 +107,7 @@ const LEAD_TIME_OPTIONS = [3, 7, 10, 15, 30];
 // Types
 // ─────────────────────────────────────────────────────────────────────────────
 
-interface SizewisePOHeader {
+export interface SizewisePOHeader {
   documentType: string;
   prefix: string;
   orderNumber: string;
@@ -194,6 +205,9 @@ export const SHADE_COLOR_MAP: Record<string, string> = {
   blue: "#2563eb",
   olive: "#3f6212",
   green: "#15803d",
+  "l-green": "#86efac",
+  "l-blue": "#93c5fd",
+  cream: "#fef3c7",
   cherry: "#881337",
   burgundy: "#701a75",
   maroon: "#831843",
@@ -213,6 +227,7 @@ export const SHADE_COLOR_MAP: Record<string, string> = {
 };
 
 export const COLOR_SWATCHES = [
+  { name: "Cream", hex: "#fef3c7" },
   { name: "Tan", hex: "#78350f" },
   { name: "Brown", hex: "#451a03" },
   { name: "Black", hex: "#1c1917" },
@@ -222,6 +237,92 @@ export const COLOR_SWATCHES = [
   { name: "Cherry", hex: "#881337" },
   { name: "White", hex: "#f1f5f9" },
 ];
+
+export const COMMON_RETAIL_COLORS = [
+  "BLACK",
+  "CREAM",
+  "WHITE",
+  "BROWN",
+  "TAN",
+  "BEIGE",
+  "NAVY",
+  "BLUE",
+  "RED",
+  "MAROON",
+  "GREEN",
+  "OLIVE",
+  "L-GREEN",
+  "L-BLUE",
+  "GREY",
+  "GRAY",
+  "YELLOW",
+  "ORANGE",
+  "PINK",
+  "PURPLE",
+  "GOLD",
+  "SILVER",
+  "CAMEL",
+  "KHAKI",
+  "CHARCOAL",
+  "MULTI",
+];
+
+export function extractArticleAndColor(
+  code: string = "",
+  name: string = "",
+  explicitStyle?: string,
+  explicitColor?: string
+): { article: string; color: string } {
+  let article = (explicitStyle || "").trim();
+  let color = (explicitColor || "").trim();
+
+  if (article && color) {
+    return { article, color };
+  }
+
+  const cleanCode = code.trim();
+  if (cleanCode) {
+    const upperCode = cleanCode.toUpperCase();
+    for (const c of COMMON_RETAIL_COLORS) {
+      const escapedC = c.replace("-", "\\-");
+      const regex = new RegExp(`^(.*?)-(${escapedC})(?:-([A-Za-z0-9]+))?$`, "i");
+      const match = upperCode.match(regex);
+      if (match) {
+        if (!article) article = match[1];
+        if (!color) color = match[2];
+        return { article, color };
+      }
+    }
+
+    const parts = cleanCode.split("-");
+    if (parts.length >= 3) {
+      const last = parts[parts.length - 1];
+      const secondLast = parts[parts.length - 2];
+      if (/^(\d{1,3}|[X|S|M|L]+)$/i.test(last)) {
+        if (!color) color = secondLast;
+        if (!article) article = parts.slice(0, parts.length - 2).join("-");
+        return { article, color };
+      }
+    }
+  }
+
+  if (!color && name) {
+    const upperName = name.toUpperCase();
+    for (const c of COMMON_RETAIL_COLORS) {
+      if (upperName.includes(c)) {
+        color = c;
+        break;
+      }
+    }
+  }
+
+  if (!article) {
+    const strippedCode = cleanCode.replace(/-([A-Za-z0-9]+)$/, "");
+    article = strippedCode || cleanCode || (name ? name.split(",")[0].trim() : "Article");
+  }
+
+  return { article, color: color || "Standard" };
+}
 
 export function getShadeHex(shade?: string): string {
   if (!shade) return "#94a3b8";
@@ -469,6 +570,35 @@ export function recommendSizeAssortment(
   return result;
 }
 
+/**
+ * getSimplifiedRatioString — Computes a human-readable retail ratio curve string (e.g. "2 : 2 : 3 : 4 : 5 : 4 : 3 : 2 : 2")
+ * from discrete per-size quantity totals.
+ */
+export function getSimplifiedRatioString(sizes: string[], perSizeTotals: Record<string, number>): string {
+  const safeSizes = Array.isArray(sizes) ? sizes : [];
+  if (safeSizes.length === 0) return "—";
+  const qtys = safeSizes.map(sz => perSizeTotals[sz] || 0);
+  const total = qtys.reduce((a, b) => a + b, 0);
+  if (total === 0) return "—";
+
+  const gcd = (a: number, b: number): number => (b === 0 ? a : gcd(b, a % b));
+  const nonZeros = qtys.filter(q => q > 0);
+  if (nonZeros.length === 0) return "—";
+
+  const overallGcd = nonZeros.reduce((acc, val) => gcd(acc, val), nonZeros[0]);
+  if (overallGcd > 1) {
+    return qtys.map(q => Math.round(q / overallGcd)).join(" : ");
+  }
+
+  const minPos = Math.min(...nonZeros);
+  if (minPos > 1 && total > 24) {
+    const approx = qtys.map(q => q === 0 ? 0 : Math.max(1, Math.round(q / minPos)));
+    return approx.join(" : ");
+  }
+
+  return qtys.join(" : ");
+}
+
 export interface SizewiseSummaryTotals {
   perSizeTotals: Record<string, number>;
   grandTotalQty: number;
@@ -696,7 +826,7 @@ export function mergeSizewisePOLines(
 // Component Props
 // ─────────────────────────────────────────────────────────────────────────────
 
-interface PoSizewiseTabProps {
+export interface PoSizewiseTabProps {
   products?: Product[];
   currentUser?: { role: string; name: string } | null;
   onNotification?: (
@@ -708,6 +838,13 @@ interface PoSizewiseTabProps {
   onNavigateTab?: (tab: string) => void;
   /** Optional: list of size column labels (default: S, M, L, XL, XXL) */
   sizes?: string[];
+  orderToEdit?: string | null;
+  onClearOrderToEdit?: () => void;
+  initialLines?: SizewisePOLine[];
+  initialHeader?: SizewisePOHeader;
+  onLinesChange?: (lines: SizewisePOLine[]) => void;
+  onHeaderChange?: (header: SizewisePOHeader) => void;
+  onSizesChange?: (sizes: string[]) => void;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -721,6 +858,13 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
   onClose,
   onNavigateTab,
   sizes: propSizes,
+  orderToEdit,
+  onClearOrderToEdit,
+  initialLines,
+  initialHeader,
+  onLinesChange,
+  onHeaderChange,
+  onSizesChange,
 }) => {
   const today = new Date().toISOString().split("T")[0];
   const defaultDelivery = addDaysToDate(today, 7);
@@ -735,19 +879,31 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
         return "FOOTWEAR_UK";
       }
     }
+    if (initialLines && initialLines.length > 0) {
+      const allKeys = initialLines.flatMap(l => Object.keys(l.sizeQuantities || {}));
+      if (allKeys.some(s => ["36", "37", "38", "39", "40", "41", "42", "43", "44"].includes(s))) {
+        return "FOOTWEAR_EU";
+      }
+      if (allKeys.some(s => ["6", "7", "8", "9", "10", "11"].includes(s))) {
+        return "FOOTWEAR_UK";
+      }
+    }
     return "APPAREL_ALPHA";
   };
 
   const [selectedScaleKey, setSelectedScaleKey] = useState<string>(detectInitialScale);
-  const [sizes, setSizes] = useState<string[]>(() =>
-    propSizes && propSizes.length > 0
-      ? propSizes
-      : SIZE_SCALE_PRESETS[detectInitialScale()]?.sizes || DEFAULT_SIZEWISE_SIZES
-  );
+  const [sizes, setSizes] = useState<string[]>(() => {
+    if (propSizes && propSizes.length > 0) return propSizes;
+    const detected = detectInitialScale();
+    return SIZE_SCALE_PRESETS[detected]?.sizes || DEFAULT_SIZEWISE_SIZES;
+  });
 
   // ── State ───────────────────────────────────────────────────────────────
   const [activeTab, setActiveTab] = useState<"items" | "visual" | "delivery" | "other">("items");
+  // Grid Display Mode: Article & Color (Default / Recommended for fashion/footwear) vs Code & Desc
+  const [gridDisplayMode, setGridDisplayMode] = useState<"article_color" | "item_code_desc">("article_color");
   const [products, setProducts] = useState<Product[]>(initialProducts);
+  const articleCatalogIndex = useMemo(() => buildArticleCatalogIndex(products), [products]);
   const [suppliersList, setSuppliersList] = useState<
     { id: string; name: string; code?: string; gstin?: string; city?: string; state?: string }[]
   >([]);
@@ -760,36 +916,80 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
   const [duplicateOrderNo, setDuplicateOrderNo] = useState<string | null>(null);
   const [suggestedOrderNo, setSuggestedOrderNo] = useState<string | null>(null);
 
+  // ── Recall & Edit Mode State ─────────────────────────────────────────────
+  const [editingOrderId, setEditingOrderId] = useState<string | null>(null);
+  const [editingOrderNo, setEditingOrderNo] = useState<string | null>(null);
+  const [editingStatus, setEditingStatus] = useState<string | null>(null);
+  const [showRecallModal, setShowRecallModal] = useState<boolean>(false);
+  const [recallSearchQuery, setRecallSearchQuery] = useState<string>("");
+  const [recentOrders, setRecentOrders] = useState<any[]>([]);
+  const [recentOrdersLoading, setRecentOrdersLoading] = useState<boolean>(false);
+  const [showCommercialDrawer, setShowCommercialDrawer] = useState<boolean>(false);
+  const [supplierCommercialDefaults, setSupplierCommercialDefaults] = useState<Partial<CommercialDeliveryData> | undefined>(undefined);
+
   const toolbarSearchRef = useRef<HTMLInputElement>(null);
   const excelInputRef = useRef<HTMLInputElement>(null);
 
-  const [header, setHeader] = useState<SizewisePOHeader>({
-    documentType: "Purchase Order",
-    prefix: "PO",
-    orderNumber: "001",
-    orderDate: today,
-    supplierId: "",
-    supplierName: "",
-    deliveryDate: defaultDelivery,
-    leadTimeDays: 7,
-    deliveryLocation: "Main Store (MAIN)",
-    commonTaxPercent: 18,
-    freightAmount: 0,
-    otherCharges: 0,
-    paymentTerms: "30 Days",
-    freightCharges: "Paid by Supplier",
-    currency: "INR - Indian Rupee",
-    buyer: currentUser?.name ? `${currentUser.name} (${currentUser.role || "MANAGER"})` : "manager (MANAGER)",
-    department: "General Purchase",
-    supplierReference: "",
-    specialInstructions: "",
-    remarks: "",
-    internalNotes: "",
-    priceList: "Default Purchase Price",
+  const [header, setHeader] = useState<SizewisePOHeader>(() => {
+    const base: SizewisePOHeader = {
+      documentType: "Purchase Order",
+      prefix: "PO",
+      orderNumber: "001",
+      orderDate: today,
+      supplierId: "",
+      supplierName: "",
+      deliveryDate: defaultDelivery,
+      leadTimeDays: 7,
+      deliveryLocation: "Main Store (MAIN)",
+      commonTaxPercent: 18,
+      freightAmount: 0,
+      otherCharges: 0,
+      paymentTerms: "30 Days",
+      freightCharges: "Paid by Supplier",
+      currency: "INR - Indian Rupee",
+      buyer: currentUser?.name ? `${currentUser.name} (${currentUser.role || "MANAGER"})` : "manager (MANAGER)",
+      department: "General Purchase",
+      supplierReference: "",
+      specialInstructions: "",
+      remarks: "",
+      internalNotes: "",
+      priceList: "Default Purchase Price",
+    };
+    return initialHeader ? { ...base, ...initialHeader } : base;
   });
 
-  // Phase 1: start with an empty grid — the empty state UI guides the user
-  const [lines, setLines] = useState<SizewisePOLine[]>([]);
+  // Phase 1: start with initialLines if provided, or an empty grid
+  const [lines, setLines] = useState<SizewisePOLine[]>(() => {
+    return initialLines && initialLines.length > 0 ? initialLines : [];
+  });
+
+  // Sync state back to parent
+  const onLinesChangeRef = useRef(onLinesChange);
+  useEffect(() => {
+    onLinesChangeRef.current = onLinesChange;
+  }, [onLinesChange]);
+
+  useEffect(() => {
+    onLinesChangeRef.current?.(lines);
+  }, [lines]);
+
+  const onHeaderChangeRef = useRef(onHeaderChange);
+  useEffect(() => {
+    onHeaderChangeRef.current = onHeaderChange;
+  }, [onHeaderChange]);
+
+  useEffect(() => {
+    onHeaderChangeRef.current?.(header);
+  }, [header]);
+
+  const onSizesChangeRef = useRef(onSizesChange);
+  useEffect(() => {
+    onSizesChangeRef.current = onSizesChange;
+  }, [onSizesChange]);
+
+  useEffect(() => {
+    onSizesChangeRef.current?.(sizes);
+  }, [sizes]);
 
   // ── Phase 2 States: Print Preview, More Actions Popover, Governed Modal ──
   const [showPrintPreview, setShowPrintPreview] = useState(false);
@@ -914,16 +1114,35 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
             gstin: s.gstin || s.tax_id || "",
             city: s.city || "",
             state: s.state || "",
+            payment_terms: s.payment_terms || (s.payment_terms_days ? `${s.payment_terms_days} Days` : "30 Days"),
+            payment_terms_days: s.payment_terms_days ?? 30,
+            freight_terms: s.freight_terms || "Paid by Supplier",
+            currency: s.currency || "INR - Indian Rupee",
+            buyer: s.buyer || undefined,
+            department: s.department || undefined,
+            special_instructions: s.special_instructions || "",
+            commercial_terms: s.commercial_terms || undefined,
           }))
         : [
-            { id: "SUP-548042", name: "Apex Fabrics Ltd", code: "SUP-548042", gstin: "27AAAAC0553K1Z8", city: "Mumbai", state: "Maharashtra" },
-            { id: "SUP-102941", name: "Campus Activewear Ltd", code: "SUP-102941", gstin: "07AAACC2914E1Z1", city: "Delhi", state: "Delhi" },
-            { id: "SUP-309481", name: "Nagreeka Foils Ltd", code: "SUP-309481", gstin: "19AABCB1234P1Z5", city: "Kolkata", state: "West Bengal" },
+            { id: "SUP-548042", name: "Apex Fabrics Ltd", code: "SUP-548042", gstin: "27AAAAC0553K1Z8", city: "Mumbai", state: "Maharashtra", payment_terms: "30 Days", freight_terms: "Paid by Supplier", currency: "INR - Indian Rupee" },
+            { id: "SUP-102941", name: "Campus Activewear Ltd", code: "SUP-102941", gstin: "07AAACC2914E1Z1", city: "Delhi", state: "Delhi", payment_terms: "15 Days", freight_terms: "To Pay", currency: "INR - Indian Rupee" },
+            { id: "SUP-309481", name: "Nagreeka Foils Ltd", code: "SUP-309481", gstin: "19AABCB1234P1Z5", city: "Kolkata", state: "West Bengal", payment_terms: "45 Days", freight_terms: "Paid by Supplier", currency: "INR - Indian Rupee" },
           ];
       setSuppliersList(suppliers);
 
       if (!header.supplierId && suppliers.length > 0) {
-        setHeader(h => ({ ...h, supplierId: suppliers[0].id, supplierName: suppliers[0].name }));
+        const firstSup = suppliers[0];
+        setHeader(h => ({
+          ...h,
+          supplierId: firstSup.id,
+          supplierName: firstSup.name,
+          paymentTerms: firstSup.payment_terms || h.paymentTerms,
+          freightCharges: firstSup.freight_terms || h.freightCharges,
+          currency: firstSup.currency || h.currency,
+          buyer: firstSup.buyer || h.buyer,
+          department: firstSup.department || h.department,
+          specialInstructions: firstSup.special_instructions || h.specialInstructions,
+        }));
       }
 
       // Fetch next PO number
@@ -946,6 +1165,238 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
 
   useEffect(() => { loadData(); }, []);
 
+  // ── Recall & Load PO for Editing in Sizewise Mode ───────────────────────
+  const fetchRecentOrders = useCallback(async () => {
+    try {
+      setRecentOrdersLoading(true);
+      const res = await apiFetchV1("/purchase/orders/?page=1&page_size=8&sort=created_at&order=desc");
+      const list = Array.isArray(res) ? res : res?.items || [];
+      setRecentOrders(list);
+    } catch {
+      setRecentOrders([]);
+    } finally {
+      setRecentOrdersLoading(false);
+    }
+  }, []);
+
+  const loadPOForEditing = useCallback(
+    async (orderIdentifier: string) => {
+      if (!orderIdentifier || !orderIdentifier.trim()) return;
+      try {
+        setSaving(true);
+        const cleanId = orderIdentifier.trim();
+        const fullPo = await apiFetchV1(`/purchase/orders/${cleanId}`);
+        if (!fullPo || (!fullPo.id && !fullPo.order_no)) {
+          onNotification?.("PO Not Found", `Could not find purchase order '${cleanId}'.`, "error");
+          return;
+        }
+
+        setEditingOrderId(fullPo.id || null);
+        const rawNo = fullPo.order_no || cleanId;
+        setEditingOrderNo(rawNo);
+        setEditingStatus((fullPo.status || "DRAFT").toUpperCase());
+
+        // Parse prefix and number
+        const lastDash = rawNo.lastIndexOf("-");
+        if (lastDash > 0) {
+          setHeader(h => ({
+            ...h,
+            prefix: rawNo.substring(0, lastDash),
+            orderNumber: rawNo.substring(lastDash + 1),
+            orderDate: fullPo.order_date || h.orderDate,
+            deliveryDate: fullPo.delivery_date || h.deliveryDate,
+          }));
+        } else {
+          setHeader(h => ({
+            ...h,
+            orderNumber: rawNo,
+            orderDate: fullPo.order_date || h.orderDate,
+            deliveryDate: fullPo.delivery_date || h.deliveryDate,
+          }));
+        }
+
+        // Restore frozen Commercial Terms snapshot from saved PO
+        const commSnap = fullPo.commercial_terms || fullPo.rule_snapshots?.commercial_terms;
+        let restoredPayment = commSnap?.payment_terms;
+        let restoredFreight = commSnap?.freight_terms;
+        let restoredCurrency = commSnap?.currency;
+        let restoredBuyer = commSnap?.buyer;
+        let restoredDepartment = commSnap?.department;
+        let restoredInstructions = commSnap?.special_instructions;
+        let restoredRef = commSnap?.supplier_reference;
+
+        // Fallback: parse from notes string if legacy PO without structured snapshot
+        if (!commSnap && fullPo.notes) {
+          const parts = String(fullPo.notes).split("|");
+          for (const part of parts) {
+            const idx = part.indexOf(":");
+            if (idx > -1) {
+              const k = part.substring(0, idx).trim().toLowerCase();
+              const v = part.substring(idx + 1).trim();
+              if (k.includes("payment")) restoredPayment = v;
+              else if (k.includes("freight")) restoredFreight = v;
+              else if (k.includes("currency")) restoredCurrency = v;
+              else if (k.includes("buyer")) restoredBuyer = v;
+              else if (k.includes("dept") || k.includes("department")) restoredDepartment = v;
+              else if (k.includes("instruction")) restoredInstructions = v;
+              else if (k.includes("ref")) restoredRef = v;
+            }
+          }
+        }
+
+        // Supplier match (restoring frozen commercial terms snapshot)
+        if (fullPo.supplier_id || fullPo.supplier) {
+          const found = suppliersList.find(
+            s => s.id === fullPo.supplier_id || s.name === fullPo.supplier_name || s.name === fullPo.supplier
+          );
+          if (found) {
+            setHeader(h => ({
+              ...h,
+              supplierId: found.id,
+              supplierName: found.name,
+              paymentTerms: restoredPayment ?? h.paymentTerms,
+              freightCharges: restoredFreight ?? h.freightCharges,
+              currency: restoredCurrency ?? h.currency,
+              buyer: restoredBuyer ?? h.buyer,
+              department: restoredDepartment ?? h.department,
+              specialInstructions: restoredInstructions ?? h.specialInstructions,
+              supplierReference: restoredRef ?? h.supplierReference,
+            }));
+          } else if (fullPo.supplier_id) {
+            setHeader(h => ({
+              ...h,
+              supplierId: fullPo.supplier_id,
+              supplierName: fullPo.supplier_name || "Supplier",
+              paymentTerms: restoredPayment ?? h.paymentTerms,
+              freightCharges: restoredFreight ?? h.freightCharges,
+              currency: restoredCurrency ?? h.currency,
+              buyer: restoredBuyer ?? h.buyer,
+              department: restoredDepartment ?? h.department,
+              specialInstructions: restoredInstructions ?? h.specialInstructions,
+              supplierReference: restoredRef ?? h.supplierReference,
+            }));
+          }
+        } else if (restoredPayment || restoredFreight || restoredCurrency || restoredBuyer || restoredDepartment || restoredInstructions || restoredRef) {
+          setHeader(h => ({
+            ...h,
+            paymentTerms: restoredPayment ?? h.paymentTerms,
+            freightCharges: restoredFreight ?? h.freightCharges,
+            currency: restoredCurrency ?? h.currency,
+            buyer: restoredBuyer ?? h.buyer,
+            department: restoredDepartment ?? h.department,
+            specialInstructions: restoredInstructions ?? h.specialInstructions,
+            supplierReference: restoredRef ?? h.supplierReference,
+          }));
+        }
+
+        // Parse items and detect scale
+        const poItems = fullPo.items || [];
+        let detectedScale = selectedScaleKey;
+        const hasEuSizes = poItems.some((it: any) => {
+          const code = it.code || it.item_code || "";
+          return /-(3[6-9]|4[0-5])$/.test(code) || (it.size_quantities && Object.keys(it.size_quantities).some(k => ["36","37","38","39","40","41","42","43","44"].includes(k)));
+        });
+        if (hasEuSizes) {
+          detectedScale = "FOOTWEAR_EU";
+          setSelectedScaleKey("FOOTWEAR_EU");
+          setSizes(SIZE_SCALE_PRESETS["FOOTWEAR_EU"].sizes);
+        }
+
+        const activeSizes = SIZE_SCALE_PRESETS[detectedScale]?.sizes || sizes;
+
+        const newLines: SizewisePOLine[] = poItems.map((item: any, idx: number) => {
+          const sizeQtys: Record<string, number> = {};
+          activeSizes.forEach(sz => {
+            sizeQtys[sz] = item.sizeQuantities?.[sz] || item.size_quantities?.[sz] || 0;
+          });
+          let totalQty = activeSizes.reduce((sum, sz) => sum + (sizeQtys[sz] || 0), 0);
+          const itemQty = Number(item.quantity || item.qty || 0);
+          if (totalQty === 0 && itemQty > 0) {
+            const codeStr = item.code || item.item_code || "";
+            const szMatch = codeStr.match(/-([A-Za-z0-9]+)$/);
+            const matchedSz = szMatch ? szMatch[1].toUpperCase() : null;
+            if (matchedSz && activeSizes.includes(matchedSz)) {
+              sizeQtys[matchedSz] = itemQty;
+              totalQty = itemQty;
+            } else {
+              const midSz = activeSizes[Math.floor(activeSizes.length / 2)] || activeSizes[0];
+              sizeQtys[midSz] = itemQty;
+              totalQty = itemQty;
+            }
+          }
+          const rate = parseFloat(item.rate || item.cost_price || item.unit_price || 0);
+          const rawCode = item.code || item.item_code || item.itemCode || item.sku || `ITEM-${idx + 1}`;
+          const rawName = item.name || item.product_name || item.product || item.item_name || "Purchased Product";
+          const extracted = extractArticleAndColor(
+            rawCode,
+            rawName,
+            item.style || item.style_code,
+            item.shade || item.color
+          );
+          return {
+            id: `sw-line-${idx + 1}`,
+            sNo: idx + 1,
+            itemCode: rawCode,
+            articleNo: extracted.article || rawCode,
+            barcode: item.barcode || "",
+            product: rawName,
+            brand: item.brand || "",
+            style: extracted.article || item.style || "",
+            shade: extracted.color || item.shade || "",
+            unit: item.unit || item.uom || "Pair",
+            sizeQuantities: sizeQtys,
+            totalQty,
+            rate,
+            stockOnHand: Number(item.stock || item.stockOnHand || 0),
+            taxPercent: Number(item.gst_rate || item.tax_percent || item.taxPercent || header.commonTaxPercent),
+            netValue: totalQty * rate,
+            deliveryDate: item.delivery_date || header.deliveryDate,
+          };
+        });
+
+        if (newLines.length > 0) {
+          setLines(newLines);
+        }
+        setShowRecallModal(false);
+        onNotification?.(
+          "PO Loaded",
+          `Loaded Purchase Order ${fullPo.order_no} (${fullPo.status || "DRAFT"}) into Sizewise Matrix.`,
+          "success"
+        );
+      } catch (err: any) {
+        onNotification?.("Load Failed", `Could not recall PO: ${err.message || "Unknown error"}`, "error");
+      } finally {
+        setSaving(false);
+      }
+    },
+    [selectedScaleKey, sizes, suppliersList, header.commonTaxPercent, header.deliveryDate, onNotification]
+  );
+
+  useEffect(() => {
+    if (orderToEdit) {
+      loadPOForEditing(orderToEdit);
+    }
+  }, [orderToEdit, loadPOForEditing]);
+
+  const handleNewPO = useCallback(async () => {
+    setEditingOrderId(null);
+    setEditingOrderNo(null);
+    setEditingStatus(null);
+    onClearOrderToEdit?.();
+    setLines([buildBlankLine(0, sizes, header.deliveryDate, header.commonTaxPercent)]);
+    try {
+      const nextRes: any = await apiFetchV1(
+        `/purchase/orders/next-number?prefix=${encodeURIComponent(header.prefix || "PO")}`
+      );
+      if (nextRes?.next_number) {
+        setHeader(h => ({ ...h, orderNumber: String(nextRes.next_number) }));
+      }
+    } catch {
+      // non-fatal
+    }
+    onNotification?.("New PO", "Workspace cleared. Ready for new purchase order.", "info");
+  }, [header.deliveryDate, header.commonTaxPercent, header.prefix, sizes, onClearOrderToEdit, onNotification]);
+
   const selectedSupplier = useMemo(
     () => suppliersList.find(s => s.id === header.supplierId) || null,
     [suppliersList, header.supplierId]
@@ -966,6 +1417,49 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
     },
     [sizes]
   );
+
+  const handleArticleChange = useCallback((idx: number, val: string) => {
+    const art = val.trim();
+    const summary = getArticleSummaryFromIndex(articleCatalogIndex, art);
+    if (summary) {
+      const availableColors = getAvailableColorsForArticle(articleCatalogIndex, summary.article);
+      const currColor = (lines[idx]?.shade || "").toUpperCase();
+      const keepColor = availableColors.map(c => c.toUpperCase()).includes(currColor);
+      const newShade = keepColor ? currColor : (availableColors.length === 1 ? availableColors[0] : "");
+
+      updateLine(idx, {
+        articleNo: summary.article,
+        style: summary.article,
+        itemCode: lines[idx]?.itemCode || summary.article,
+        brand: summary.brand || lines[idx]?.brand,
+        product: summary.name || lines[idx]?.product,
+        rate: summary.costPrice || lines[idx]?.rate,
+        taxPercent: summary.gstPercentage !== undefined ? summary.gstPercentage : lines[idx]?.taxPercent,
+        imageUrl: summary.imageUrl || lines[idx]?.imageUrl,
+        shade: newShade,
+      });
+    } else {
+      updateLine(idx, {
+        articleNo: val,
+        style: val,
+        itemCode: lines[idx]?.itemCode || val,
+      });
+    }
+  }, [articleCatalogIndex, lines, updateLine]);
+
+  const handleColorChange = useCallback((idx: number, val: string) => {
+    const shadeVal = val.toUpperCase();
+    const art = lines[idx]?.articleNo || lines[idx]?.style;
+    const variant = art ? resolveVariantFromIndex(articleCatalogIndex, art, shadeVal, "") : undefined;
+    updateLine(idx, {
+      shade: shadeVal,
+      ...(variant ? {
+        rate: variant.costPrice || lines[idx]?.rate,
+        taxPercent: variant.gstPercentage !== undefined ? variant.gstPercentage : lines[idx]?.taxPercent,
+        imageUrl: variant.imageUrl || lines[idx]?.imageUrl,
+      } : {}),
+    });
+  }, [articleCatalogIndex, lines, updateLine]);
 
   const updateSizeQty = useCallback(
     (lineIdx: number, sz: string, qty: number) => {
@@ -1040,7 +1534,13 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
       }
 
       const itemCode = product.code || product.id;
-      const articleNo = (product as any).articleNo || (product as any).article_no || (product as any).article || itemCode;
+      const extracted = extractArticleAndColor(
+        itemCode,
+        product.name,
+        product.styleCode || (product as any).style,
+        product.color || (product as any).shade
+      );
+      const articleNo = (product as any).articleNo || (product as any).article_no || extracted.article || itemCode;
       const imageUrl = (product as any).primaryImageUrl || (product as any).imageUrl || articleImageMap[articleNo] || articleImageMap[itemCode] || "";
 
       setLines(prev =>
@@ -1054,8 +1554,8 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
                   barcode: product.barcode || "",
                   product: product.name,
                   brand: product.brand || "",
-                  style: product.styleCode || "",
-                  shade: product.color || "",
+                  style: product.styleCode || extracted.article || "",
+                  shade: product.color || extracted.color || "",
                   unit,
                   rate,
                   taxPercent,
@@ -1406,7 +1906,8 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
   const handleBarcodeSearch = (query: string) => {
     if (!query.trim()) return;
     const q = query.trim().toLowerCase();
-    const found = products.find(
+    const resolvedVariant = resolveByBarcodeOrSkuFromIndex(articleCatalogIndex, query.trim());
+    const found = resolvedVariant?.originalProduct || products.find(
       p =>
         (p.barcode && p.barcode.toLowerCase() === q) ||
         (p.code && p.code.toLowerCase() === q) ||
@@ -1615,15 +2116,24 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
           totalQty = itemQty;
         }
         const rate = parseFloat(item.rate || item.unit_price || item.price || 0);
+        const rawCode = item.item_code || item.itemCode || item.sku || `ITEM-${idx + 1}`;
+        const rawName = item.product_name || item.product || item.item_name || "Purchased Product";
+        const extracted = extractArticleAndColor(
+          rawCode,
+          rawName,
+          item.style || item.style_code,
+          item.shade || item.color
+        );
         return {
           id: `sw-line-${idx + 1}`,
           sNo: idx + 1,
-          itemCode: item.item_code || item.itemCode || item.sku || `ITEM-${idx + 1}`,
+          itemCode: rawCode,
+          articleNo: extracted.article || rawCode,
           barcode: item.barcode || "",
-          product: item.product_name || item.product || item.item_name || "Purchased Product",
+          product: rawName,
           brand: item.brand || "",
-          style: item.style || item.style_code || "",
-          shade: item.shade || item.color || "",
+          style: extracted.article || item.style || "",
+          shade: extracted.color || item.shade || "",
           unit: item.unit || item.uom || "Pair",
           sizeQuantities: sizeQtys,
           totalQty,
@@ -1833,64 +2343,127 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
 
   // ── Save PO ───────────────────────────────────────────────────────────
   const handleSavePO = async (mode: "draft" | "confirm") => {
-    const activeLines = lines.filter(l => l.itemCode && l.totalQty > 0);
+    const activeLines = lines.filter(l => (l.itemCode || l.articleNo || l.style) && l.totalQty > 0);
     if (!header.supplierId) {
       onNotification?.("Supplier Required", "Please select a supplier.", "error");
       return;
     }
     if (activeLines.length === 0) {
-      onNotification?.("No Items", "Add at least one line item with size quantities.", "error");
+      onNotification?.("No Items", "Add at least one line item with valid article/code and size quantities.", "error");
       return;
     }
+
+    // Comprehensive validations
+    for (const l of activeLines) {
+      const art = (l.articleNo || l.style || "").trim();
+      const code = (l.itemCode || "").trim();
+      if (!art && !code) {
+        onNotification?.("Validation Error", `Row #${l.sNo}: Article / Item Code is required.`, "error");
+        return;
+      }
+      if (l.totalQty <= 0) {
+        onNotification?.("Validation Error", `Row #${l.sNo}: Order quantity must be greater than zero.`, "error");
+        return;
+      }
+      if (l.rate < 0) {
+        onNotification?.("Validation Error", `Row #${l.sNo}: Unit rate cannot be negative.`, "error");
+        return;
+      }
+      if (l.taxPercent < 0 || l.taxPercent > 28) {
+        onNotification?.("Validation Error", `Row #${l.sNo}: Tax % must be between 0% and 28%.`, "error");
+        return;
+      }
+    }
+
     setSaving(true);
     try {
       const orderNo = `${header.prefix.trim()}-${header.orderNumber.trim()}`;
+      const commercialTerms = {
+        payment_terms: header.paymentTerms,
+        freight_terms: header.freightCharges,
+        currency: header.currency,
+        buyer: header.buyer,
+        department: header.department,
+        special_instructions: header.specialInstructions,
+        supplier_reference: header.supplierReference,
+      };
       const payload = {
         order_no: orderNo,
         order_date: header.orderDate,
         supplier_id: header.supplierId,
         delivery_date: header.deliveryDate,
         status: mode === "confirm" ? "confirmed" : "draft",
+        commercial_terms: commercialTerms,
+        rule_snapshots: {
+          commercial_terms: commercialTerms,
+        },
         notes: [
           header.specialInstructions && `Instructions: ${header.specialInstructions}`,
           header.paymentTerms && `Payment: ${header.paymentTerms}`,
           header.freightCharges && `Freight: ${header.freightCharges}`,
+          header.currency && `Currency: ${header.currency}`,
+          header.buyer && `Buyer: ${header.buyer}`,
+          header.department && `Department: ${header.department}`,
           header.supplierReference && `Ref: ${header.supplierReference}`,
           header.remarks && `Remarks: ${header.remarks}`,
           header.internalNotes && `Internal: ${header.internalNotes}`,
         ]
           .filter(Boolean)
           .join(" | "),
-        items: activeLines.map(l => ({
-          product_id: l.originalProduct?.id || undefined,
-          variant_id: (l.originalProduct as any)?.item_variant_id || (l.originalProduct as any)?.variant_id || undefined,
-          item_id: (l.originalProduct as any)?.item_id || undefined,
-          code: l.itemCode,
-          name: l.product,
-          product_ref: l.itemCode,
-          product_name: l.product,
-          quantity: l.totalQty,
-          cost_price: l.rate,
-          rate: l.rate,
-          gst_rate: l.taxPercent,
-          tax_percent: l.taxPercent,
-          total_value: l.netValue,
-          size_quantities: l.sizeQuantities,
-          delivery_date: l.deliveryDate,
-          unit: l.unit,
-        })),
+        items: activeLines.map(l => {
+          const art = (l.articleNo || l.style || "").trim();
+          const col = (l.shade || "").trim();
+          const effectiveCode = (l.itemCode || "").trim() || (col ? `${art}-${col}` : art);
+          const effectiveName = (l.product || "").trim() || (col ? `${art} ${col}` : art);
+          return {
+            product_id: l.originalProduct?.id || undefined,
+            variant_id: (l.originalProduct as any)?.item_variant_id || (l.originalProduct as any)?.variant_id || undefined,
+            item_id: (l.originalProduct as any)?.item_id || undefined,
+            code: effectiveCode,
+            name: effectiveName,
+            product_ref: effectiveCode,
+            product_name: effectiveName,
+            quantity: l.totalQty,
+            cost_price: l.rate,
+            rate: l.rate,
+            gst_rate: l.taxPercent,
+            tax_percent: l.taxPercent,
+            total_value: l.netValue,
+            size_quantities: l.sizeQuantities,
+            delivery_date: l.deliveryDate,
+            unit: l.unit,
+          };
+        }),
       };
 
-      const res = await apiFetchV1("/purchase/orders/", {
-        method: "POST",
-        body: JSON.stringify(payload),
-      });
+      let res: any;
+      if (editingOrderId) {
+        res = await apiFetchV1(`/purchase/orders/${editingOrderId}`, {
+          method: "PUT",
+          body: JSON.stringify(payload),
+        });
+        if (mode === "confirm") {
+          try {
+            await apiFetchV1(`/purchase/orders/${editingOrderId}/confirm`, {
+              method: "POST",
+              body: JSON.stringify({ notes: "Confirmed from Sizewise Matrix Studio" }),
+            });
+          } catch {
+            // Confirmation error caught in catch block
+          }
+        }
+      } else {
+        res = await apiFetchV1("/purchase/orders/", {
+          method: "POST",
+          body: JSON.stringify(payload),
+        });
+      }
 
       if (res?.id || res?.order_no) {
         setSavedOrderNo(res.order_no || orderNo);
         onNotification?.(
-          mode === "confirm" ? "PO Confirmed" : "Draft Saved",
-          `Purchase Order ${res.order_no || orderNo} ${mode === "confirm" ? "confirmed" : "saved as draft"} successfully.`,
+          mode === "confirm" ? "PO Confirmed" : (editingOrderId ? "Draft Updated" : "Draft Saved"),
+          `Purchase Order ${res.order_no || orderNo} ${mode === "confirm" ? "confirmed" : (editingOrderId ? "updated" : "saved as draft")} successfully.`,
           "success"
         );
       }
@@ -1923,6 +2496,10 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
         e.preventDefault();
         handleSavePO("draft");
       }
+      if (e.altKey && (e.key === "c" || e.key === "C")) {
+        e.preventDefault();
+        setShowCommercialDrawer(prev => !prev);
+      }
       if (e.key === "F4") {
         e.preventDefault();
         updateLine(activeRowIndex, {
@@ -1947,6 +2524,32 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
 
       {/* ── 1. PO Header Bar ──────────────────────────────────────────────── */}
       <header className="bg-white border-b border-slate-200 px-5 py-3 shrink-0">
+        {/* Edit Mode Notification Banner */}
+        {editingOrderNo && (
+          <div className="mb-2.5 bg-indigo-50 border border-indigo-200 rounded-lg px-3.5 py-1.5 flex items-center justify-between text-xs text-indigo-900 shadow-xs">
+            <div className="flex items-center gap-2">
+              <span className="material-symbols-outlined text-indigo-600 text-base">edit_note</span>
+              <span>Editing Purchase Order:</span>
+              <strong className="font-mono bg-indigo-100 text-indigo-900 px-2 py-0.5 rounded font-bold">{editingOrderNo}</strong>
+              <span className="text-slate-400">· Status:</span>
+              <span className="font-bold text-[11px] text-slate-700">{editingStatus || "DRAFT"}</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setEditingOrderId(null);
+                setEditingOrderNo(null);
+                setEditingStatus(null);
+                onClearOrderToEdit?.();
+                onNotification?.("Exited Edit Mode", "Switched back to new PO workspace.", "info");
+              }}
+              className="text-xs text-indigo-700 hover:text-indigo-900 font-medium underline flex items-center gap-1 cursor-pointer"
+            >
+              <span className="material-symbols-outlined text-[13px]">close</span> Exit Edit Mode (New PO)
+            </button>
+          </div>
+        )}
+
         {/* Title row */}
         <div className="flex items-center justify-between mb-2.5">
           <div className="flex items-center gap-3">
@@ -1963,10 +2566,21 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
                 </p>
               </div>
             </div>
-            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-              Draft
-            </span>
+            {editingStatus ? (
+              <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                editingStatus === "CONFIRMED"
+                  ? "text-emerald-700 bg-emerald-50 border border-emerald-200"
+                  : "text-amber-700 bg-amber-50 border border-amber-200"
+              }`}>
+                <span className={`w-1.5 h-1.5 rounded-full ${editingStatus === "CONFIRMED" ? "bg-emerald-500" : "bg-amber-500"}`} />
+                {editingStatus}
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                Draft
+              </span>
+            )}
             <span className="inline-flex items-center gap-1 text-[10px] font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded-full">
               <span className="material-symbols-outlined text-[12px]">straighten</span>
               Sizewise
@@ -1974,10 +2588,20 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
           </div>
           {/* Phase 1: header quick actions — Save removed (footer is single save path) */}
           <div className="flex items-center gap-2">
-            <button type="button" className="flex items-center gap-1.5 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 font-bold px-3 py-1.5 rounded-lg transition text-xs shadow-2xs">
+            <button
+              type="button"
+              id="sw-new-po-btn"
+              onClick={handleNewPO}
+              className="flex items-center gap-1.5 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 font-bold px-3 py-1.5 rounded-lg transition text-xs shadow-2xs cursor-pointer"
+            >
               <span className="material-symbols-outlined text-[16px] text-blue-500">add</span> New
             </button>
-            <button type="button" className="flex items-center gap-1.5 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 font-bold px-3 py-1.5 rounded-lg transition text-xs shadow-2xs">
+            <button
+              type="button"
+              id="sw-open-po-btn"
+              onClick={() => { setShowRecallModal(true); fetchRecentOrders(); }}
+              className="flex items-center gap-1.5 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 font-bold px-3 py-1.5 rounded-lg transition text-xs shadow-2xs cursor-pointer"
+            >
               <span className="material-symbols-outlined text-[16px] text-slate-500">folder_open</span> Open
             </button>
             <button type="button" onClick={() => setShowPrintPreview(true)} className="flex items-center gap-1.5 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 font-bold px-3 py-1.5 rounded-lg transition text-xs shadow-2xs">
@@ -2007,6 +2631,7 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
           <div>
             <label className="block text-[10px] text-slate-400 font-medium mb-0.5">PO Number</label>
             <div
+              id="sw-po-order-number-badge"
               title="Document number is assigned automatically. Contact your administrator to change the series."
               className="inline-flex items-center gap-1.5 h-7 px-3 bg-slate-50 border border-slate-200 rounded-lg font-mono font-bold text-xs text-slate-700 select-all cursor-default"
             >
@@ -2031,27 +2656,41 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
               className="border border-slate-300 rounded-lg px-2 h-7 bg-white font-mono outline-none focus:border-indigo-500 text-xs"
             />
           </div>
-          {/* Supplier */}
-          <div className="flex-1 min-w-[220px]">
+          {/* Supplier — Proportionate max-w-md (448px) on desktop per Decision D */}
+          <div className="flex-1 min-w-[240px] max-w-md">
             <label className="block text-[10px] text-slate-400 font-medium mb-0.5">
-              Supplier <span className="text-rose-500">*</span>
+              Supplier / Vendor <span className="text-rose-500">*</span>
             </label>
-            <div className="relative">
-              <select
-                value={header.supplierId}
-                disabled={suppliersLoading}
-                onChange={e => {
-                  const sel = suppliersList.find(s => s.id === e.target.value);
-                  setHeader(h => ({ ...h, supplierId: e.target.value, supplierName: sel?.name || "" }));
-                }}
-                className="w-full border border-slate-300 rounded-lg pl-2.5 pr-7 h-7 bg-white outline-none focus:border-indigo-500 font-medium text-xs appearance-none"
-              >
-                {suppliersList.map(s => (
-                  <option key={s.id} value={s.id}>{s.name}</option>
-                ))}
-              </select>
-              <span className="material-symbols-outlined absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 text-[15px] pointer-events-none">search</span>
-            </div>
+            <SupplierSelect
+              id="sw-supplier-select"
+              suppliers={suppliersList}
+              value={header.supplierId}
+              disabled={suppliersLoading}
+              compact={true}
+              placeholder={suppliersLoading ? "Loading suppliers..." : "Select or search vendor..."}
+              onChange={(supplierId, sel) => {
+                const defaults: Partial<CommercialDeliveryData> = {
+                  paymentTerms: sel?.payment_terms || (sel?.payment_terms_days ? `${sel.payment_terms_days} Days` : undefined),
+                  freightCharges: sel?.freight_terms,
+                  currency: sel?.currency,
+                  buyer: sel?.buyer,
+                  department: sel?.department,
+                  specialInstructions: sel?.special_instructions !== undefined ? sel.special_instructions : undefined,
+                };
+                setSupplierCommercialDefaults(defaults);
+                setHeader(h => ({
+                  ...h,
+                  supplierId,
+                  supplierName: sel?.name || sel?.company_name || "",
+                  paymentTerms: defaults.paymentTerms || h.paymentTerms,
+                  freightCharges: defaults.freightCharges || h.freightCharges,
+                  currency: defaults.currency || h.currency,
+                  buyer: defaults.buyer || h.buyer,
+                  department: defaults.department || h.department,
+                  specialInstructions: defaults.specialInstructions !== undefined ? defaults.specialInstructions : h.specialInstructions,
+                }));
+              }}
+            />
           </div>
           {/* Delivery Date */}
           <div>
@@ -2084,6 +2723,21 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
               </datalist>
               <span className="text-slate-500 font-medium">Days</span>
             </div>
+          </div>
+          {/* Commercial Terms & Delivery Details Drawer Trigger (Decision B) */}
+          <div>
+            <label className="block text-[10px] text-slate-400 font-medium mb-0.5">Commercial</label>
+            <button
+              type="button"
+              id="sw-open-commercial-drawer-btn"
+              onClick={() => setShowCommercialDrawer(prev => !prev)}
+              className="flex items-center gap-1.5 h-7 px-3 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-700 font-bold rounded-lg transition text-xs shadow-2xs cursor-pointer"
+              title="Open Commercial & Delivery terms drawer (Alt+C)"
+            >
+              <span className="material-symbols-outlined text-[15px] text-indigo-600">receipt_long</span>
+              <span>Terms & Delivery</span>
+              <kbd className="text-[9px] font-mono px-1 py-0.2 bg-indigo-200/60 text-indigo-800 rounded font-bold">Alt+C</kbd>
+            </button>
           </div>
         </div>
 
@@ -2214,7 +2868,90 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
               Delete Row
             </button>
 
+            {/* 6b. Recommend Ratio Assortment */}
+            <div className="relative">
+              <button
+                type="button"
+                id="sw-toolbar-recommend-btn"
+                disabled={lines.length === 0}
+                onClick={() => setBatchRecommendOpen(!batchRecommendOpen)}
+                className="flex items-center gap-1.5 bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-900 font-bold px-3 py-1.5 rounded-lg text-xs transition shadow-2xs disabled:opacity-40"
+                title="Recommend Size Assortment Curves"
+              >
+                <span className="material-symbols-outlined text-[16px] text-amber-600">auto_fix_high</span>
+                Recommend Ratio
+                <span className="material-symbols-outlined text-[14px]">expand_more</span>
+              </button>
+
+              {batchRecommendOpen && (
+                <div className="absolute left-0 top-full mt-1.5 w-56 bg-white border border-slate-200 rounded-xl shadow-xl py-1.5 z-40 text-xs animate-in fade-in zoom-in-95 duration-100">
+                  <div className="px-3 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                    Select Curve Distribution
+                  </div>
+                  <button
+                    type="button"
+                    id="sw-recommend-curve-bell-btn"
+                    onClick={() => handleApplyBatchRecommendation("bell")}
+                    className="w-full text-left px-3 py-2 text-slate-700 hover:bg-indigo-50 hover:text-indigo-700 flex items-center gap-2 font-medium transition cursor-pointer"
+                  >
+                    <span>🔔 Bell Curve (Standard Retail)</span>
+                  </button>
+                  <button
+                    type="button"
+                    id="sw-recommend-curve-core-btn"
+                    onClick={() => handleApplyBatchRecommendation("core")}
+                    className="w-full text-left px-3 py-2 text-slate-700 hover:bg-indigo-50 hover:text-indigo-700 flex items-center gap-2 font-medium transition cursor-pointer"
+                  >
+                    <span>🎯 Core Sizes (Mid-heavy)</span>
+                  </button>
+                  <button
+                    type="button"
+                    id="sw-recommend-curve-uniform-btn"
+                    onClick={() => handleApplyBatchRecommendation("uniform")}
+                    className="w-full text-left px-3 py-2 text-slate-700 hover:bg-indigo-50 hover:text-indigo-700 flex items-center gap-2 font-medium transition cursor-pointer"
+                  >
+                    <span>⚖️ Uniform (Equal per size)</span>
+                  </button>
+                </div>
+              )}
+            </div>
+
             <div className="flex-1" />
+
+            {/* View Mode Toggle: Article & Color vs Code & Desc */}
+            <div className="flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200">
+              <button
+                type="button"
+                id="sw-grid-mode-article-color-btn"
+                onClick={() => setGridDisplayMode("article_color")}
+                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-bold transition cursor-pointer ${
+                  gridDisplayMode === "article_color"
+                    ? "bg-white text-indigo-700 shadow-2xs border border-indigo-100"
+                    : "text-slate-600 hover:text-slate-900"
+                }`}
+                title="Fashion & Footwear Mode: Show Article/Style and Color/Shade alongside Sizes"
+              >
+                <span className="material-symbols-outlined text-[14px]">palette</span>
+                <span>Article &amp; Color</span>
+                <span className="text-[9px] bg-indigo-50 text-indigo-700 px-1 py-0.2 rounded font-extrabold uppercase tracking-wide">
+                  Recommended
+                </span>
+              </button>
+              <button
+                type="button"
+                id="sw-grid-mode-code-desc-btn"
+                onClick={() => setGridDisplayMode("item_code_desc")}
+                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-bold transition cursor-pointer ${
+                  gridDisplayMode === "item_code_desc"
+                    ? "bg-white text-indigo-700 shadow-2xs border border-indigo-100"
+                    : "text-slate-600 hover:text-slate-900"
+                }`}
+                title="Standard SKU Mode: Show Item Code and Product Description"
+              >
+                <span className="material-symbols-outlined text-[14px]">qr_code_2</span>
+                <span>Code &amp; Desc</span>
+              </button>
+            </div>
 
             {/* 7. More Actions Popover (Overflow Menu) */}
             <div className="relative" ref={moreMenuRef}>
@@ -2339,12 +3076,26 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
               <thead className="sticky top-0 z-10 bg-slate-100 text-slate-600 uppercase text-[10px] font-bold tracking-wider border-b border-slate-300">
                 <tr>
                   <th className="p-2 w-8 text-center border-r border-slate-200 bg-slate-200">#</th>
-                  <th className="p-2 min-w-[100px] border-r border-slate-200">Item Code</th>
-                  {/* Product Description merges Brand/Style/Shade sub-row */}
-                  <th className="p-2 min-w-[180px] border-r border-slate-200">
-                    Product Description
-                    <div className="text-[9px] text-slate-400 font-normal normal-case tracking-normal mt-0.5">Brand / Style / Shade</div>
-                  </th>
+                  {gridDisplayMode === "article_color" ? (
+                    <>
+                      <th className="p-2 min-w-[120px] border-r border-slate-200">
+                        Article / Style
+                        <div className="text-[9px] text-slate-400 font-normal normal-case tracking-normal mt-0.5">Style / Model / SKU</div>
+                      </th>
+                      <th className="p-2 min-w-[150px] border-r border-slate-200">
+                        Color / Shade
+                        <div className="text-[9px] text-slate-400 font-normal normal-case tracking-normal mt-0.5">Colorway / Finish / UOM</div>
+                      </th>
+                    </>
+                  ) : (
+                    <>
+                      <th className="p-2 min-w-[100px] border-r border-slate-200">Item Code</th>
+                      <th className="p-2 min-w-[180px] border-r border-slate-200">
+                        Product Description
+                        <div className="text-[9px] text-slate-400 font-normal normal-case tracking-normal mt-0.5">Brand / Style / Shade</div>
+                      </th>
+                    </>
+                  )}
                   {/* Size columns group header */}
                   <th
                     colSpan={sizes.length + 1}
@@ -2357,7 +3108,7 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
                   <th className="p-2 min-w-[55px] text-right border-r border-slate-200">Tax %</th>
                   <th className="p-2 min-w-[90px] text-right border-r border-slate-200 bg-slate-50 font-bold text-slate-800">Net Value (₹)</th>
                   <th className="p-2 min-w-[110px] text-center border-r border-slate-200">Delivery Date</th>
-                  <th className="p-2 min-w-[80px] text-center">Action</th>
+                  <th className="p-2 min-w-[95px] text-center">Action</th>
                 </tr>
                 {/* Size sub-headers */}
                 <tr className="bg-indigo-50 border-b border-slate-200">
@@ -2386,7 +3137,7 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
 
               <tbody className="divide-y divide-slate-100">
                 {lines.map((line, idx) => {
-                  const hasItem = !!line.itemCode;
+                  const hasItem = !!(line.itemCode || line.articleNo || line.style);
                   const isActive = idx === activeRowIndex;
                   return (
                     <tr
@@ -2405,83 +3156,178 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
                         {line.sNo}
                       </td>
 
-                      {/* Item Code & Photo Thumbnail */}
-                      <td className="p-1 border-r border-slate-100">
-                        <div className="flex items-center gap-1.5">
-                          <button
-                            type="button"
-                            title={line.imageUrl ? "Click to change/preview image" : "Attach image to article"}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              openImageModal(idx);
-                            }}
-                            className="w-7 h-7 rounded border border-slate-200 bg-slate-50 hover:border-indigo-500 flex items-center justify-center shrink-0 overflow-hidden group/thumb transition shadow-2xs"
-                          >
-                            {line.imageUrl ? (
-                              <img src={line.imageUrl} alt={line.itemCode} className="w-full h-full object-cover" />
-                            ) : (
-                              <span className="material-symbols-outlined text-[15px] text-slate-400 group-hover/thumb:text-indigo-600">
-                                add_photo_alternate
-                              </span>
-                            )}
-                          </button>
-                          <input
-                            type="text"
-                            id={`sw-itemcode-${idx}`}
-                            value={line.itemCode}
-                            placeholder="F2 / Scan"
-                            onFocus={() => setActiveRowIndex(idx)}
-                            onChange={e => updateLine(idx, { itemCode: e.target.value })}
-                            className="w-full bg-transparent border border-transparent hover:border-slate-300 focus:border-indigo-500 focus:bg-white rounded px-1.5 h-7 font-mono font-bold text-xs outline-none"
-                          />
-                        </div>
-                      </td>
+                      {gridDisplayMode === "article_color" ? (
+                        <>
+                          {/* Col 2: Article / Style */}
+                          <td className="p-1 border-r border-slate-100">
+                            <div className="flex items-center gap-1.5">
+                              <button
+                                type="button"
+                                title={line.imageUrl ? "Click to change/preview image" : "Attach image to article"}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  openImageModal(idx);
+                                }}
+                                className="w-7 h-7 rounded border border-slate-200 bg-slate-50 hover:border-indigo-500 flex items-center justify-center shrink-0 overflow-hidden group/thumb transition shadow-2xs cursor-pointer"
+                              >
+                                {line.imageUrl ? (
+                                  <img src={line.imageUrl} alt={line.articleNo || line.itemCode} className="w-full h-full object-cover" />
+                                ) : (
+                                  <span className="material-symbols-outlined text-[15px] text-slate-400 group-hover/thumb:text-indigo-600">
+                                    add_photo_alternate
+                                  </span>
+                                )}
+                              </button>
+                              <div className="flex-1 min-w-0">
+                                <input
+                                  type="text"
+                                  id={`sw-article-${idx}`}
+                                  list="sw-articles-datalist"
+                                  value={line.articleNo || line.style || line.itemCode}
+                                  placeholder="Article (e.g. SH-03)"
+                                  onFocus={() => setActiveRowIndex(idx)}
+                                  onChange={e => handleArticleChange(idx, e.target.value)}
+                                  className="w-full bg-transparent border border-transparent hover:border-slate-300 focus:border-indigo-500 focus:bg-white rounded px-1.5 h-6 font-mono font-bold text-xs outline-none"
+                                />
+                                <div className="px-1 text-[9px] text-slate-400 font-mono truncate">
+                                  {line.itemCode && line.itemCode !== (line.articleNo || line.style)
+                                    ? line.itemCode
+                                    : (line.brand ? `${line.brand}` : "Article / SKU")}
+                                </div>
+                              </div>
+                            </div>
+                          </td>
 
-                      {/* Product Description */}
-                      <td className="p-1 border-r border-slate-100">
-                        <input
-                          type="text"
-                          value={line.product}
-                          placeholder="Product name"
-                          onFocus={() => setActiveRowIndex(idx)}
-                          onChange={e => updateLine(idx, { product: e.target.value })}
-                          className="w-full bg-transparent border border-transparent hover:border-slate-300 focus:border-indigo-500 focus:bg-white rounded px-2 h-6 font-medium text-xs outline-none"
-                        />
-                        <div className="px-2 text-[10px] text-slate-400 leading-tight truncate flex items-center justify-between">
-                          <span className="truncate flex items-center gap-1.5">
-                            {line.shade && (
-                              <span className="inline-flex items-center gap-1 font-bold text-slate-700 bg-amber-50 border border-amber-200 px-1 py-0.2 rounded text-[9px]">
-                                <span className="w-1.5 h-1.5 rounded-full inline-block" style={{ backgroundColor: getShadeHex(line.shade) }} />
-                                {line.shade}
+                          {/* Col 3: Color / Shade */}
+                          <td className="p-1 border-r border-slate-100">
+                            <div className="flex items-center gap-1.5 px-1">
+                              <span
+                                className="w-3.5 h-3.5 rounded-full border border-slate-300 shrink-0 shadow-2xs"
+                                style={{ backgroundColor: getShadeHex(line.shade) }}
+                                title={line.shade ? `Color: ${line.shade}` : "Select color"}
+                              />
+                              <input
+                                type="text"
+                                id={`sw-shade-${idx}`}
+                                list={`sw-colors-list-${idx}`}
+                                value={line.shade || ""}
+                                placeholder="Color (e.g. CREAM)"
+                                onFocus={() => setActiveRowIndex(idx)}
+                                onChange={e => handleColorChange(idx, e.target.value)}
+                                className="w-full bg-transparent border border-transparent hover:border-slate-300 focus:border-indigo-500 focus:bg-white rounded px-1.5 h-6 font-semibold text-xs outline-none uppercase"
+                              />
+                              <datalist id={`sw-colors-list-${idx}`}>
+                                {getAvailableColorsForArticle(articleCatalogIndex, line.articleNo || line.style).map(col => (
+                                  <option key={col} value={col} />
+                                ))}
+                              </datalist>
+                              {line.unit && (
+                                <span className="font-mono text-indigo-700 font-bold uppercase text-[9px] bg-indigo-50 border border-indigo-100 px-1 py-0.5 rounded shrink-0">
+                                  {line.unit}
+                                </span>
+                              )}
+                            </div>
+                            <div className="px-2 text-[10px] text-slate-400 leading-tight truncate">
+                              {line.product || `${line.articleNo || line.style || "Item"} - ${line.shade || "Standard"}`}
+                            </div>
+                          </td>
+                        </>
+                      ) : (
+                        <>
+                          {/* Col 2: Item Code */}
+                          <td className="p-1 border-r border-slate-100">
+                            <div className="flex items-center gap-1.5">
+                              <button
+                                type="button"
+                                title={line.imageUrl ? "Click to change/preview image" : "Attach image to article"}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  openImageModal(idx);
+                                }}
+                                className="w-7 h-7 rounded border border-slate-200 bg-slate-50 hover:border-indigo-500 flex items-center justify-center shrink-0 overflow-hidden group/thumb transition shadow-2xs cursor-pointer"
+                              >
+                                {line.imageUrl ? (
+                                  <img src={line.imageUrl} alt={line.itemCode} className="w-full h-full object-cover" />
+                                ) : (
+                                  <span className="material-symbols-outlined text-[15px] text-slate-400 group-hover/thumb:text-indigo-600">
+                                    add_photo_alternate
+                                  </span>
+                                )}
+                              </button>
+                              <input
+                                type="text"
+                                id={`sw-itemcode-${idx}`}
+                                list="sw-articles-datalist"
+                                value={line.itemCode}
+                                placeholder="F2 / Scan"
+                                onFocus={() => setActiveRowIndex(idx)}
+                                onChange={e => handleArticleChange(idx, e.target.value)}
+                                className="w-full bg-transparent border border-transparent hover:border-slate-300 focus:border-indigo-500 focus:bg-white rounded px-1.5 h-7 font-mono font-bold text-xs outline-none"
+                              />
+                            </div>
+                          </td>
+
+                          {/* Col 3: Product Description */}
+                          <td className="p-1 border-r border-slate-100">
+                            <input
+                              type="text"
+                              value={line.product}
+                              placeholder="Product name"
+                              onFocus={() => setActiveRowIndex(idx)}
+                              onChange={e => updateLine(idx, { product: e.target.value })}
+                              className="w-full bg-transparent border border-transparent hover:border-slate-300 focus:border-indigo-500 focus:bg-white rounded px-2 h-6 font-medium text-xs outline-none"
+                            />
+                            <div className="px-2 text-[10px] text-slate-400 leading-tight truncate flex items-center justify-between">
+                              <span className="truncate flex items-center gap-1.5">
+                                {line.shade && (
+                                  <span className="inline-flex items-center gap-1 font-bold text-slate-700 bg-amber-50 border border-amber-200 px-1 py-0.2 rounded text-[9px]">
+                                    <span className="w-1.5 h-1.5 rounded-full inline-block" style={{ backgroundColor: getShadeHex(line.shade) }} />
+                                    {line.shade}
+                                  </span>
+                                )}
+                                {[line.brand, line.style].filter(Boolean).join(" / ") || (!line.shade && <span className="italic">Brand / Style</span>)}
                               </span>
-                            )}
-                            {[line.brand, line.style].filter(Boolean).join(" / ") || (!line.shade && <span className="italic">Brand / Style</span>)}
-                          </span>
-                          {line.unit && (
-                            <span className="font-mono text-indigo-700 font-bold uppercase text-[9px] bg-indigo-50 border border-indigo-100 px-1.5 py-0.5 rounded ml-1 shrink-0">
-                              {line.unit}
-                            </span>
-                          )}
-                        </div>
-                      </td>
+                              {line.unit && (
+                                <span className="font-mono text-indigo-700 font-bold uppercase text-[9px] bg-indigo-50 border border-indigo-100 px-1.5 py-0.5 rounded ml-1 shrink-0">
+                                  {line.unit}
+                                </span>
+                              )}
+                            </div>
+                          </td>
+                        </>
+                      )}
 
                       {/* Size qty cells */}
-                      {sizes.map(sz => (
-                        <td key={sz} className="p-0 border-r border-slate-100 text-center w-14">
-                          <input
-                            type="number"
-                            min="0"
-                            id={`sw-qty-${idx}-${sz}`}
-                            value={line.sizeQuantities[sz] || ""}
-                            placeholder="–"
-                            onFocus={() => setActiveRowIndex(idx)}
-                            onChange={e => updateSizeQty(idx, sz, parseInt(e.target.value, 10) || 0)}
-                            className={`w-full bg-transparent border-none text-center h-8 font-mono font-bold text-xs outline-none focus:bg-indigo-50 ${
-                              (line.sizeQuantities[sz] || 0) > 0 ? "text-indigo-700" : "text-slate-300"
-                            }`}
-                          />
-                        </td>
-                      ))}
+                      {sizes.map(sz => {
+                        const art = line.articleNo || line.style;
+                        const availableSizes = art && line.shade
+                          ? getAvailableSizesForArticleAndColor(articleCatalogIndex, art, line.shade)
+                          : [];
+                        const isSizeAvailable = !art || !line.shade || availableSizes.length === 0 || availableSizes.includes(sz);
+
+                        return (
+                          <td key={sz} className="p-0 border-r border-slate-100 text-center w-14">
+                            <input
+                              type="number"
+                              min="0"
+                              id={`sw-qty-${idx}-${sz}`}
+                              value={line.sizeQuantities[sz] || ""}
+                              placeholder={isSizeAvailable ? "–" : "✕"}
+                              disabled={!isSizeAvailable}
+                              title={!isSizeAvailable ? `Size ${sz} not available for ${art} in ${line.shade}` : undefined}
+                              onFocus={() => setActiveRowIndex(idx)}
+                              onChange={e => updateSizeQty(idx, sz, parseInt(e.target.value, 10) || 0)}
+                              className={`w-full border-none text-center h-8 font-mono font-bold text-xs outline-none ${
+                                !isSizeAvailable
+                                  ? "bg-slate-100/70 text-slate-300 cursor-not-allowed select-none"
+                                  : (line.sizeQuantities[sz] || 0) > 0
+                                  ? "bg-transparent text-indigo-700 focus:bg-indigo-50"
+                                  : "bg-transparent text-slate-300 focus:bg-indigo-50"
+                              }`}
+                            />
+                          </td>
+                        );
+                      })}
 
                       {/* Total Qty */}
                       <td className="p-2 text-center font-mono font-extrabold text-indigo-600 bg-indigo-50/60 border-r border-slate-100 text-sm">
@@ -2492,6 +3338,7 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
                       <td className="p-1 border-r border-slate-100 text-right">
                         <input
                           type="number"
+                          id={`sw-rate-${idx}`}
                           min="0"
                           value={line.rate || ""}
                           placeholder="0.00"
@@ -2542,9 +3389,22 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
                           <div className="flex items-center justify-center gap-1">
                             <button
                               type="button"
+                              id={`sw-row-recommend-${idx}`}
+                              title="Apply Recommended Size Ratio (Bell Curve) to this row"
+                              onClick={e => {
+                                e.stopPropagation();
+                                handleApplyRecommendationToRow(idx, "bell");
+                              }}
+                              className="flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] font-bold border border-amber-300 text-amber-700 bg-amber-50/50 hover:bg-amber-100 rounded-lg transition cursor-pointer"
+                            >
+                              <span className="material-symbols-outlined text-[12px] text-amber-600">auto_fix_high</span>
+                              Ratio
+                            </button>
+                            <button
+                              type="button"
                               title="Change item"
                               onClick={e => { e.stopPropagation(); setActiveRowIndex(idx); setShowBrowseModal(true); }}
-                              className="flex items-center gap-0.5 px-2 py-0.5 text-[10px] font-bold border border-indigo-300 text-indigo-600 hover:bg-indigo-50 rounded-lg transition"
+                              className="flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] font-bold border border-indigo-300 text-indigo-600 hover:bg-indigo-50 rounded-lg transition cursor-pointer"
                             >
                               <span className="material-symbols-outlined text-[13px]">visibility</span>
                               View
@@ -2553,7 +3413,7 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
                               type="button"
                               title="Delete row"
                               onClick={e => { e.stopPropagation(); requestDeleteRow(idx); }}
-                              className="p-1 text-slate-400 hover:text-rose-600 rounded transition"
+                              className="p-1 text-slate-400 hover:text-rose-600 rounded transition cursor-pointer"
                             >
                               <span className="material-symbols-outlined text-[16px]">delete</span>
                             </button>
@@ -2639,16 +3499,75 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
                       </td>
                     </tr>
                     <tr className="border-t border-slate-100">
-                      <td className="py-1.5 text-slate-500 font-medium">% of Total</td>
-                      {sizes.map(sz => (
-                        <td key={sz} className="py-1.5 text-center font-mono text-slate-600 text-[11px]">
-                          {sizePercents[sz]}
-                        </td>
-                      ))}
-                      <td className="py-1.5 text-center font-mono font-bold text-slate-700">100%</td>
+                      <td className="py-1.5 text-slate-500 font-medium align-top">% of Total</td>
+                      {sizes.map(sz => {
+                        const pctNum = parseFloat(sizePercents[sz]) || 0;
+                        return (
+                          <td key={sz} className="py-1.5 text-center font-mono text-slate-600 text-[11px] align-top">
+                            <div>{sizePercents[sz]}</div>
+                            <div className="w-full bg-slate-100 rounded-full h-1.5 mt-1 overflow-hidden" title={`${sz}: ${sizePercents[sz]}`}>
+                              <div
+                                className="bg-indigo-500 h-full rounded-full transition-all duration-300"
+                                style={{ width: `${Math.min(100, pctNum)}%` }}
+                              />
+                            </div>
+                          </td>
+                        );
+                      })}
+                      <td className="py-1.5 text-center font-mono font-bold text-slate-700 align-top">
+                        <div>100%</div>
+                        <div className="w-full bg-slate-100 rounded-full h-1.5 mt-1 overflow-hidden">
+                          <div className="bg-slate-400 h-full rounded-full w-full" />
+                        </div>
+                      </td>
                     </tr>
                   </tbody>
                 </table>
+
+                {/* Visual Ratio Presets & Assortment Curves */}
+                <div className="mt-3 pt-2.5 border-t border-slate-100">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider flex items-center gap-1">
+                      <span className="material-symbols-outlined text-[13px] text-indigo-500">tune</span>
+                      Assortment Ratio Presets
+                    </span>
+                    <span className="font-mono text-[10px] text-indigo-700 font-bold bg-indigo-50 border border-indigo-100 px-1.5 py-0.5 rounded">
+                      Live Ratio: {grandTotalQty > 0 ? getSimplifiedRatioString(sizes, perSizeTotals) : "—"}
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <button
+                      type="button"
+                      id="sw-footer-ratio-bell-btn"
+                      onClick={() => handleApplyBatchRecommendation("bell")}
+                      className="px-2 py-1 bg-slate-50 hover:bg-indigo-50 text-slate-700 hover:text-indigo-700 border border-slate-200 hover:border-indigo-200 rounded-md text-[10px] font-semibold transition flex items-center gap-1 cursor-pointer"
+                      title="Apply Gaussian Bell curve (peaking in central core sizes) to all active lines"
+                    >
+                      <span className="w-1.5 h-1.5 rounded-full bg-indigo-500"></span>
+                      <span>Bell Curve (Standard)</span>
+                    </button>
+                    <button
+                      type="button"
+                      id="sw-footer-ratio-core-btn"
+                      onClick={() => handleApplyBatchRecommendation("core")}
+                      className="px-2 py-1 bg-slate-50 hover:bg-indigo-50 text-slate-700 hover:text-indigo-700 border border-slate-200 hover:border-indigo-200 rounded-md text-[10px] font-semibold transition flex items-center gap-1 cursor-pointer"
+                      title="Apply Core Sizes curve (heavier emphasis on 40-60% size range) to all active lines"
+                    >
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                      <span>Core Sizes Focus</span>
+                    </button>
+                    <button
+                      type="button"
+                      id="sw-footer-ratio-uniform-btn"
+                      onClick={() => handleApplyBatchRecommendation("uniform")}
+                      className="px-2 py-1 bg-slate-50 hover:bg-indigo-50 text-slate-700 hover:text-indigo-700 border border-slate-200 hover:border-indigo-200 rounded-md text-[10px] font-semibold transition flex items-center gap-1 cursor-pointer"
+                      title="Apply Uniform Flat curve (equal distribution across all sizes) to all active lines"
+                    >
+                      <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+                      <span>Even Run (Flat)</span>
+                    </button>
+                  </div>
+                </div>
               </div>
 
               {/* Panel 2: Item Summary */}
@@ -3437,6 +4356,7 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
               <div>
                 <label className="block font-medium text-slate-500 mb-1">Payment Terms</label>
                 <select
+                  id="sw-payment-terms-select"
                   value={header.paymentTerms}
                   onChange={e => setHeader(h => ({ ...h, paymentTerms: e.target.value }))}
                   className="w-full border border-slate-300 rounded-lg px-3 h-8 bg-white font-medium outline-none focus:border-indigo-500"
@@ -3452,6 +4372,7 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
               <div>
                 <label className="block font-medium text-slate-500 mb-1">Freight Terms</label>
                 <input
+                  id="sw-freight-terms-input"
                   type="text"
                   value={header.freightCharges}
                   onChange={e => setHeader(h => ({ ...h, freightCharges: e.target.value }))}
@@ -3461,6 +4382,7 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
               <div>
                 <label className="block font-medium text-slate-500 mb-1">Currency</label>
                 <select
+                  id="sw-currency-select"
                   value={header.currency}
                   onChange={e => setHeader(h => ({ ...h, currency: e.target.value }))}
                   className="w-full border border-slate-300 rounded-lg px-3 h-8 bg-white font-medium outline-none focus:border-indigo-500"
@@ -3473,6 +4395,7 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
               <div>
                 <label className="block font-medium text-slate-500 mb-1">Supplier Reference</label>
                 <input
+                  id="sw-supplier-ref-input"
                   type="text"
                   value={header.supplierReference}
                   onChange={e => setHeader(h => ({ ...h, supplierReference: e.target.value }))}
@@ -3483,6 +4406,7 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
               <div>
                 <label className="block font-medium text-slate-500 mb-1">Buyer</label>
                 <input
+                  id="sw-buyer-input"
                   type="text"
                   value={header.buyer}
                   onChange={e => setHeader(h => ({ ...h, buyer: e.target.value }))}
@@ -3492,6 +4416,7 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
               <div>
                 <label className="block font-medium text-slate-500 mb-1">Department</label>
                 <input
+                  id="sw-department-input"
                   type="text"
                   value={header.department}
                   onChange={e => setHeader(h => ({ ...h, department: e.target.value }))}
@@ -3502,6 +4427,7 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
             <div>
               <label className="block font-medium text-slate-500 mb-1">Special Instructions</label>
               <textarea
+                id="sw-special-instructions-input"
                 rows={3}
                 value={header.specialInstructions}
                 onChange={e => setHeader(h => ({ ...h, specialInstructions: e.target.value }))}
@@ -3576,7 +4502,12 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
                 </button>
               ))}
             </div>
-            <button type="button" onClick={() => setSavedOrderNo(null)} className="text-xs text-slate-400 hover:text-slate-600 underline self-center">
+            <button
+              type="button"
+              id="sw-post-save-dismiss-btn"
+              onClick={() => setSavedOrderNo(null)}
+              className="text-xs text-slate-400 hover:text-slate-600 underline self-center cursor-pointer"
+            >
               Dismiss
             </button>
           </div>
@@ -3603,20 +4534,22 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
         <div className="flex items-center gap-3">
           <button
             type="button"
+            id="sw-save-draft-btn"
             disabled={saving}
             onClick={() => handleSavePO("draft")}
-            className="bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 rounded-lg px-4 py-1.5 font-bold transition shadow-2xs disabled:opacity-50"
+            className="bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 rounded-lg px-4 py-1.5 font-bold transition shadow-2xs disabled:opacity-50 cursor-pointer"
           >
-            {saving ? "Saving…" : "Save Draft"}
+            {saving ? "Saving…" : (editingOrderId ? "Update Draft" : "Save Draft")}
           </button>
           <button
             type="button"
+            id="sw-save-confirm-btn"
             disabled={saving}
             onClick={() => handleSavePO("confirm")}
-            className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg px-5 py-1.5 font-bold transition shadow-xs disabled:opacity-50 flex items-center gap-1.5"
+            className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg px-5 py-1.5 font-bold transition shadow-xs disabled:opacity-50 flex items-center gap-1.5 cursor-pointer"
           >
             <span className="material-symbols-outlined text-[16px]">check_circle</span>
-            Save &amp; Confirm
+            {editingOrderId ? "Update & Confirm" : "Save & Confirm"}
           </button>
         </div>
       </footer>
@@ -4193,6 +5126,179 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
         initialRawText={initialImportText}
         existingRowCount={lines.filter((l) => l.itemCode).length}
         onCommit={handleGlobalGridImportCommit}
+      />
+
+      {/* ── Recall PO Modal ──────────────────────────────────────────────── */}
+      {showRecallModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
+          <div className="bg-white rounded-xl shadow-2xl border border-slate-200 w-full max-w-lg overflow-hidden animate-fade-in flex flex-col max-h-[85vh]">
+            <div className="bg-slate-900 text-white px-5 py-3.5 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="material-symbols-outlined text-indigo-400 text-lg">history_edu</span>
+                <h3 className="font-bold text-sm">Recall Purchase Order for Editing</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowRecallModal(false)}
+                className="text-slate-400 hover:text-white transition"
+              >
+                <span className="material-symbols-outlined text-lg">close</span>
+              </button>
+            </div>
+
+            <div className="p-5 overflow-y-auto space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  Enter PO Number or Identity Code
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    id="sw-recall-order-input"
+                    value={recallSearchQuery}
+                    onChange={e => setRecallSearchQuery(e.target.value)}
+                    onKeyDown={e => {
+                      if (e.key === "Enter" && recallSearchQuery.trim()) {
+                        loadPOForEditing(recallSearchQuery.trim());
+                      }
+                    }}
+                    placeholder="e.g. PO-2026-0001 or PO-001"
+                    className="flex-1 border border-slate-300 rounded-lg px-3 py-1.5 text-xs font-mono focus:border-indigo-500 outline-none"
+                    autoFocus
+                  />
+                  <button
+                    type="button"
+                    id="sw-recall-submit-btn"
+                    disabled={!recallSearchQuery.trim() || saving}
+                    onClick={() => loadPOForEditing(recallSearchQuery.trim())}
+                    className="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-lg transition disabled:opacity-50 cursor-pointer"
+                  >
+                    Recall
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                    Recent Purchase Orders
+                  </span>
+                  <button
+                    type="button"
+                    onClick={fetchRecentOrders}
+                    className="text-[11px] text-indigo-600 hover:underline flex items-center gap-1 cursor-pointer"
+                  >
+                    <span className="material-symbols-outlined text-[13px]">refresh</span> Refresh
+                  </button>
+                </div>
+
+                {recentOrdersLoading ? (
+                  <div className="p-4 text-center text-xs text-slate-400">Loading recent orders…</div>
+                ) : recentOrders.length === 0 ? (
+                  <div className="p-4 text-center text-xs text-slate-400 bg-slate-50 rounded-lg border border-slate-200">
+                    No recent purchase orders found.
+                  </div>
+                ) : (
+                  <div className="divide-y divide-slate-100 border border-slate-200 rounded-lg max-h-56 overflow-y-auto">
+                    {recentOrders.map((ord: any) => (
+                      <div
+                        key={ord.id || ord.order_no}
+                        onClick={() => loadPOForEditing(ord.order_no || ord.id)}
+                        className="px-3.5 py-2 hover:bg-indigo-50/60 cursor-pointer transition flex items-center justify-between group"
+                      >
+                        <div>
+                          <div className="font-mono font-bold text-xs text-indigo-600 group-hover:text-indigo-800">
+                            {ord.order_no}
+                          </div>
+                          <div className="text-[11px] text-slate-500 truncate max-w-[200px]">
+                            {ord.supplier_name || ord.supplier_id || "Supplier"}
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full ${
+                            (ord.status || "").toUpperCase() === "CONFIRMED"
+                              ? "bg-emerald-100 text-emerald-800"
+                              : "bg-amber-100 text-amber-800"
+                          }`}>
+                            {ord.status || "DRAFT"}
+                          </span>
+                          <div className="text-[10px] text-slate-400 mt-0.5 font-mono">
+                            ₹{Number(ord.total_amount || ord.grand_total || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="bg-slate-50 border-t border-slate-200 px-5 py-3 flex justify-between items-center text-xs text-slate-500">
+              <span>Recalling a PO populates its items and size quantities into the matrix.</span>
+              <button
+                type="button"
+                onClick={() => setShowRecallModal(false)}
+                className="px-3 py-1 bg-white border border-slate-300 hover:bg-slate-100 text-slate-700 font-bold rounded-lg transition cursor-pointer"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Common Colors Datalist for Fast Autocomplete ──────────────────── */}
+      <datalist id="sw-common-colors-list">
+        {COMMON_RETAIL_COLORS.map(col => (
+          <option key={col} value={col} />
+        ))}
+      </datalist>
+
+      {/* ── Indexed Articles Datalist for Fast Autocomplete ────────────────── */}
+      <datalist id="sw-articles-datalist">
+        {articleCatalogIndex.articles.map(art => (
+          <option key={art} value={art} />
+        ))}
+      </datalist>
+
+      {/* ── Commercial & Delivery Slide-Over Drawer (Decision B) ─────────── */}
+      <CommercialDeliveryDrawer
+        isOpen={showCommercialDrawer}
+        onClose={() => setShowCommercialDrawer(false)}
+        data={{
+          paymentTerms: header.paymentTerms,
+          freightCharges: header.freightCharges,
+          freightAmount: header.freightAmount,
+          currency: header.currency,
+          buyer: header.buyer,
+          department: header.department,
+          specialInstructions: header.specialInstructions,
+          supplierReference: header.supplierReference,
+          deliveryDate: header.deliveryDate,
+          deliveryLocation: header.deliveryLocation,
+          leadTimeDays: header.leadTimeDays,
+          otherCharges: header.otherCharges,
+          remarks: header.remarks,
+          internalNotes: header.internalNotes,
+          priceList: header.priceList,
+        }}
+        onChange={(updated) => setHeader(h => ({ ...h, ...updated }))}
+        supplierName={header.supplierName}
+        supplierCode={suppliersList.find(s => s.id === header.supplierId)?.code}
+        supplierCommercialDefaults={supplierCommercialDefaults}
+        onResetToDefaults={() => {
+          if (supplierCommercialDefaults) {
+            setHeader(h => ({
+              ...h,
+              paymentTerms: supplierCommercialDefaults.paymentTerms || h.paymentTerms,
+              freightCharges: supplierCommercialDefaults.freightCharges || h.freightCharges,
+              currency: supplierCommercialDefaults.currency || h.currency,
+              buyer: supplierCommercialDefaults.buyer || h.buyer,
+              department: supplierCommercialDefaults.department || h.department,
+              specialInstructions: supplierCommercialDefaults.specialInstructions !== undefined ? supplierCommercialDefaults.specialInstructions : h.specialInstructions,
+            }));
+          }
+        }}
       />
     </div>
   );

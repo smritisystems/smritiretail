@@ -45,12 +45,13 @@ from ..models.purchase import (
     PurchaseReorderConfig, PurchaseJurisdictionConfig,
     PurchaseBill, PurchaseBillItem,
 )
+from ..models.party import Party, SupplierProfile
 from ..models.inventory import Product, StockMovement
 from ..models.item_master import ItemVariant
 from ..models.workflow import WorkflowEvent
 from ..api.deps import TenantContext
 from ..schemas.purchase import (
-    SupplierCreate, SupplierUpdate,
+    SupplierCreate, SupplierUpdate, SupplierResponse,
     PurchaseOrderCreate, PurchaseOrderAmendRequest,
     PurchaseReceiptCreate,
     DebitNoteCreate, PurchaseBillCreate,
@@ -256,7 +257,7 @@ class PurchaseService:
         await self.db.refresh(supplier)
         return supplier
 
-    async def list_suppliers(self) -> list[Supplier]:
+    async def list_suppliers(self) -> list[SupplierResponse]:
         stmt = select(Supplier).where(
             Supplier.company_id == self.tenant.company_id,
             Supplier.is_deleted == False,
@@ -264,10 +265,156 @@ class PurchaseService:
         if self.tenant.branch_id:
             stmt = stmt.where(self._branch_filter(Supplier.branch_id))
         res = await self.db.execute(stmt)
-        return res.scalars().all()
+        suppliers = res.scalars().all()
+        if not suppliers:
+            return []
 
-    async def get_supplier(self, supplier_id: str) -> Supplier:
-        return await self._get_supplier(supplier_id)
+        # Batch load matching parties and supplier_profiles for commercial terms mapping
+        sup_codes = [s.code for s in suppliers if s.code]
+        sup_ids = [s.id for s in suppliers if s.id]
+        sup_idents = [s.identity_code for s in suppliers if s.identity_code]
+
+        pty_conds = []
+        if sup_codes:
+            pty_conds.append(Party.party_code.in_(sup_codes))
+        if sup_ids:
+            pty_conds.append(Party.id.in_(sup_ids))
+        if sup_idents:
+            pty_conds.append(Party.identity_code.in_(sup_idents))
+
+        party_map: Dict[str, Party] = {}
+        if pty_conds:
+            pty_stmt = (
+                select(Party)
+                .options(selectinload(Party.supplier_profile))
+                .where(
+                    Party.company_id == self.tenant.company_id,
+                    Party.is_deleted == False,
+                    or_(*pty_conds),
+                )
+            )
+            pty_res = await self.db.execute(pty_stmt)
+            for p in pty_res.scalars().all():
+                if p.party_code:
+                    party_map[p.party_code] = p
+                if p.id:
+                    party_map[p.id] = p
+                if p.identity_code:
+                    party_map[p.identity_code] = p
+
+        enriched_list: list[SupplierResponse] = []
+        for s in suppliers:
+            matched_p = party_map.get(s.code) or party_map.get(s.id) or (party_map.get(s.identity_code) if s.identity_code else None)
+            sp = getattr(matched_p, "supplier_profile", None) if matched_p else None
+            meta_comm = ((getattr(matched_p, "metadata_json", None) or {}).get("commercial_terms", {})) if matched_p else {}
+
+            pt_days = getattr(sp, "payment_terms_days", 30) if sp else 30
+            payment_terms = meta_comm.get("payment_terms") or (f"{pt_days} Days" if pt_days else "30 Days")
+            freight_terms = meta_comm.get("freight_terms") or "Paid by Supplier"
+            currency = meta_comm.get("currency") or "INR - Indian Rupee"
+            buyer = meta_comm.get("buyer") or None
+            department = meta_comm.get("department") or None
+            special_instructions = meta_comm.get("special_instructions") or None
+
+            comm_dict = {
+                "payment_terms_days": pt_days,
+                "payment_terms": payment_terms,
+                "freight_terms": freight_terms,
+                "currency": currency,
+                "buyer": buyer,
+                "department": department,
+                "special_instructions": special_instructions,
+            }
+
+            resp = SupplierResponse(
+                id=s.id,
+                identity_code=s.identity_code,
+                name=s.name,
+                code=s.code,
+                gst_number=s.gst_number,
+                mobile=s.mobile,
+                email=s.email,
+                address=s.address,
+                city=s.city,
+                state=s.state,
+                pincode=s.pincode,
+                outstanding=s.outstanding,
+                company_id=s.company_id,
+                branch_id=s.branch_id,
+                payment_terms_days=pt_days,
+                payment_terms=payment_terms,
+                freight_terms=freight_terms,
+                currency=currency,
+                buyer=buyer,
+                department=department,
+                special_instructions=special_instructions,
+                commercial_terms=comm_dict,
+            )
+            enriched_list.append(resp)
+        return enriched_list
+
+    async def get_supplier(self, supplier_id: str) -> SupplierResponse:
+        s = await self._get_supplier(supplier_id)
+        pty_stmt = (
+            select(Party)
+            .options(selectinload(Party.supplier_profile))
+            .where(
+                Party.company_id == self.tenant.company_id,
+                Party.is_deleted == False,
+                or_(
+                    Party.party_code == s.code,
+                    Party.id == s.id,
+                    Party.identity_code == s.identity_code if s.identity_code else False,
+                ),
+            )
+        )
+        pty_res = await self.db.execute(pty_stmt)
+        matched_p = pty_res.scalars().first()
+        sp = getattr(matched_p, "supplier_profile", None) if matched_p else None
+        meta_comm = ((getattr(matched_p, "metadata_json", None) or {}).get("commercial_terms", {})) if matched_p else {}
+
+        pt_days = getattr(sp, "payment_terms_days", 30) if sp else 30
+        payment_terms = meta_comm.get("payment_terms") or (f"{pt_days} Days" if pt_days else "30 Days")
+        freight_terms = meta_comm.get("freight_terms") or "Paid by Supplier"
+        currency = meta_comm.get("currency") or "INR - Indian Rupee"
+        buyer = meta_comm.get("buyer") or None
+        department = meta_comm.get("department") or None
+        special_instructions = meta_comm.get("special_instructions") or None
+
+        comm_dict = {
+            "payment_terms_days": pt_days,
+            "payment_terms": payment_terms,
+            "freight_terms": freight_terms,
+            "currency": currency,
+            "buyer": buyer,
+            "department": department,
+            "special_instructions": special_instructions,
+        }
+
+        return SupplierResponse(
+            id=s.id,
+            identity_code=s.identity_code,
+            name=s.name,
+            code=s.code,
+            gst_number=s.gst_number,
+            mobile=s.mobile,
+            email=s.email,
+            address=s.address,
+            city=s.city,
+            state=s.state,
+            pincode=s.pincode,
+            outstanding=s.outstanding,
+            company_id=s.company_id,
+            branch_id=s.branch_id,
+            payment_terms_days=pt_days,
+            payment_terms=payment_terms,
+            freight_terms=freight_terms,
+            currency=currency,
+            buyer=buyer,
+            department=department,
+            special_instructions=special_instructions,
+            commercial_terms=comm_dict,
+        )
 
     # ──────────────────────────────────────────────────────────────
     # Purchase Order
@@ -323,13 +470,14 @@ class PurchaseService:
             clean_item_code = (item.code or "").strip()
             clean_prod_id = (item.product_id or "").strip()
 
+            clean_barcode = (getattr(item, "barcode", None) or "").strip()
             line_input = TransactionLineItemInput(
                 line_no=line_no,
                 product_id=clean_prod_id or None,
                 variant_id=getattr(item, "variant_id", None) or None,
                 code=clean_item_code or None,
                 sku=clean_item_code or None,
-                barcode=clean_item_code if (clean_item_code and clean_item_code.isdigit()) else None,
+                barcode=clean_barcode or (clean_item_code if (clean_item_code and clean_item_code.isdigit()) else None),
                 quantity=item.quantity,
             )
             res = await ProductResolutionService.validate_line(
@@ -478,6 +626,10 @@ class PurchaseService:
         # DRAFT is the safe default for all create operations.
         po_status = raw_status if raw_status == "DRAFT" else "DRAFT"
 
+        rule_snaps = dict(getattr(req, "rule_snapshots", {}) or {})
+        if getattr(req, "commercial_terms", None):
+            rule_snaps["commercial_terms"] = req.commercial_terms
+
         order = PurchaseOrder(
             id=po_id,
             identity_code=identity_code,
@@ -485,6 +637,7 @@ class PurchaseService:
             supplier_id=supplier.id,
             status=po_status,
             notes=req.notes,
+            rule_snapshots=rule_snaps,
             subtotal=subtotal.quantize(Decimal("0.01")),
             tax_total=tax_total.quantize(Decimal("0.01")),
             grand_total=(subtotal + tax_total).quantize(Decimal("0.01")),
@@ -2079,6 +2232,203 @@ class PurchaseService:
             "confirmed_by": confirmed_by,
             "message": f"Purchase order '{order.order_no}' has been confirmed.",
         }
+
+    async def update_purchase_order(self, order_id: str, req: PurchaseOrderCreate) -> PurchaseOrder:
+        """
+        Update an existing purchase order in DRAFT status.
+        Allows updating supplier, delivery_date/notes, and line items.
+        """
+        order, existing_items = await self.get_purchase_order(order_id)
+        if (order.status or "").upper() not in ("DRAFT", "SUBMITTED"):
+            raise HTTPException(
+                status_code=400,
+                detail=f"Only Draft purchase orders can be edited directly. Current status is '{order.status}'. For Confirmed orders, use the Amendment workflow.",
+            )
+
+        if req.supplier_id and req.supplier_id != order.supplier_id:
+            await self._get_supplier(req.supplier_id)
+            order.supplier_id = req.supplier_id
+
+        if req.notes is not None:
+            order.notes = req.notes
+
+        if getattr(req, "commercial_terms", None) or getattr(req, "rule_snapshots", None):
+            snaps = dict(order.rule_snapshots or {})
+            if getattr(req, "rule_snapshots", None):
+                snaps.update(req.rule_snapshots)
+            if getattr(req, "commercial_terms", None):
+                snaps["commercial_terms"] = req.commercial_terms
+            order.rule_snapshots = snaps
+
+        item_rows: list[PurchaseOrderItem] = []
+        if req.items:
+            # Clear existing items via cascade delete-orphan
+            order.items.clear()
+            await self.db.flush()
+
+            subtotal = Decimal("0.00")
+            tax_total = Decimal("0.00")
+            eff_branch_id = self.tenant.branch_id or "BR-001"
+
+            from .product_resolution_service import ProductResolutionService
+            from ..schemas.product_resolution import TransactionLineItemInput
+
+            for idx, item in enumerate(req.items):
+                line_no = idx + 1
+                clean_item_code = (item.code or "").strip()
+                clean_prod_id = (item.product_id or "").strip()
+
+                clean_barcode = (getattr(item, "barcode", None) or "").strip()
+                line_input = TransactionLineItemInput(
+                    line_no=line_no,
+                    product_id=clean_prod_id or None,
+                    variant_id=getattr(item, "variant_id", None) or None,
+                    code=clean_item_code or None,
+                    sku=clean_item_code or None,
+                    barcode=clean_barcode or (clean_item_code if (clean_item_code and clean_item_code.isdigit()) else None),
+                    quantity=item.quantity,
+                )
+                res = await ProductResolutionService.validate_line(
+                    session=self.db,
+                    company_id=self.tenant.company_id,
+                    line=line_input,
+                    allow_inactive=False,
+                )
+                if not res.success:
+                    err = res.error_detail
+                    status_code = 404 if res.code == "PRODUCT_NOT_FOUND" else 400
+                    ident_val = clean_item_code or clean_prod_id
+                    raise HTTPException(
+                        status_code=status_code,
+                        detail={
+                            "code": res.code or "PRODUCT_NOT_FOUND",
+                            "title": err.title if err else "Product Not Found",
+                            "explanation": err.explanation if err else f"Product '{ident_val}' was not found in Product List.",
+                            "suggested_action": err.suggested_action if err else "Please add the product to Product List before continuing.",
+                            "identifier": ident_val,
+                            "line_no": line_no,
+                        },
+                    )
+
+                product = await self.db.get(Product, res.product_id) if res.product_id else None
+                if not product:
+                    p_stmt = select(Product).where(
+                        (Product.id == res.product_id) | (Product.code == res.sku) | (Product.item_id == res.item_id),
+                        Product.is_deleted == False,
+                    )
+                    if self.tenant.company_id:
+                        p_stmt = p_stmt.where((Product.company_id == self.tenant.company_id) | (Product.company_id.is_(None)))
+                    product = (await self.db.execute(p_stmt)).scalars().first()
+
+                if not product and res.item_id:
+                    bc_val = (res.barcode or "").strip() or (res.sku or "").strip() or clean_item_code or f"PROD-{uuid.uuid4().hex[:8]}"
+                    var_suffix = f"_{res.variant_id[-8:]}" if res.variant_id else f"_{uuid.uuid4().hex[:6]}"
+                    product = Product(
+                        id=f"prd_{res.item_id[:20]}{var_suffix}",
+                        item_id=res.item_id,
+                        item_variant_id=res.variant_id,
+                        code=res.sku or clean_item_code or f"SKU{var_suffix}",
+                        name=res.name or item.name or clean_item_code or "Product",
+                        category=res.category or "GENERAL",
+                        barcode=bc_val,
+                        hsn_code=res.hsn_code or "6109",
+                        company_id=self.tenant.company_id,
+                        branch_id=eff_branch_id,
+                        price=res.selling_price,
+                        cost_price=Decimal(str(item.cost_price or 0.00)),
+                        stock=0,
+                        reserved_stock=Decimal("0.0000"),
+                    )
+                    self.db.add(product)
+                    await self.db.flush()
+
+                if not product:
+                    ident_val = clean_item_code or clean_prod_id
+                    raise HTTPException(
+                        status_code=404,
+                        detail={
+                            "code": "PRODUCT_NOT_FOUND",
+                            "title": "Product Not Found",
+                            "explanation": f"Product '{ident_val}' was not found in Product List.",
+                            "suggested_action": "Please add the product to Product List before continuing.",
+                            "identifier": ident_val,
+                            "line_no": line_no,
+                        },
+                    )
+
+                tax_amt = (item.cost_price * item.quantity * item.gst_rate / 100).quantize(Decimal("0.01"))
+                line_tot = (item.cost_price * item.quantity + tax_amt).quantize(Decimal("0.01"))
+                subtotal += item.cost_price * item.quantity
+                tax_total += tax_amt
+
+                po_variant_id = (
+                    getattr(item, "variant_id", None)
+                    or getattr(product, "item_variant_id", None)
+                    or res.variant_id
+                )
+                canonical_item_id = getattr(product, "item_id", None) or res.item_id
+                if not po_variant_id and canonical_item_id:
+                    var_q = select(ItemVariant).where(
+                        ItemVariant.item_id == canonical_item_id,
+                        ItemVariant.company_id == self.tenant.company_id,
+                        ItemVariant.is_active == True,
+                        ItemVariant.is_deleted == False,
+                    )
+                    active_vars = (await self.db.execute(var_q)).scalars().all()
+                    matched_var = next(
+                        (v for v in active_vars if v.variant_sku and (
+                            v.variant_sku == clean_item_code
+                            or (product and v.variant_sku == product.code)
+                        )),
+                        None,
+                    )
+                    if matched_var:
+                        po_variant_id = matched_var.id
+                    elif len(active_vars) == 1:
+                        po_variant_id = active_vars[0].id
+                    elif len(active_vars) > 1:
+                        raise HTTPException(
+                            status_code=400,
+                            detail={
+                                "code": "AMBIGUOUS_ITEM_VARIANT",
+                                "title": "Ambiguous Item Variant",
+                                "explanation": f"Item '{product.code or clean_item_code}' has {len(active_vars)} active variants.",
+                                "suggested_action": "Select the specific variant (Size/Color) to include in this purchase order.",
+                                "line_no": line_no,
+                                "available_variants": [{"id": v.id, "sku": v.variant_sku} for v in active_vars],
+                            },
+                        )
+
+                poi = PurchaseOrderItem(
+                    id=IdentityEngine.generate_technical_id(),
+                    uuid=IdentityEngine.generate_technical_id(),
+                    order_id=order.id,
+                    product_id=product.id,
+                    item_id=getattr(product, "item_id", None),
+                    variant_id=po_variant_id,
+                    code=product.code or item.code,
+                    name=product.name or item.name,
+                    quantity=item.quantity,
+                    cost_price=item.cost_price,
+                    gst_rate=item.gst_rate,
+                    tax_amount=tax_amt,
+                    line_total=line_tot,
+                    company_id=self.tenant.company_id,
+                    branch_id=eff_branch_id,
+                )
+                order.items.append(poi)
+                item_rows.append(poi)
+
+            order.subtotal = subtotal
+            order.tax_total = tax_total
+            order.grand_total = subtotal + tax_total
+
+        order.modified_at = datetime.now(timezone.utc)
+        self.db.add(order)
+        await self.db.commit()
+        await self.db.refresh(order)
+        order.items = item_rows if req.items else existing_items
+        return order
 
     # ─────────────────────────── Phase 4B: Reports ──────────────────────────────
 

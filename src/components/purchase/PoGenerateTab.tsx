@@ -42,17 +42,32 @@ import { POProductStatusBadge } from "./POProductStatusBadge.tsx";
 import type { POProductDecision } from "./POProductStatusBadge.tsx";
 import { POPrintPreviewModal } from "./POPrintPreviewModal.tsx";
 import { SupplierScorecardModal } from "./SupplierScorecardModal.tsx";
+import { SupplierSelect, SupplierOption } from "../common/SupplierSelect.tsx";
+import { CommercialDeliveryDrawer, CommercialDeliveryData } from "./CommercialDeliveryDrawer.tsx";
 import {
   normalizePurchaseStatus,
   buildPurchaseOrderDetailUrl,
 } from "./poLifecycle.ts";
+import {
+  buildArticleCatalogIndex,
+  getAvailableArticles,
+  getAvailableColorsForArticle,
+  getAvailableSizesForArticleAndColor,
+  getArticleSummaryFromIndex,
+  resolveVariantFromIndex,
+  resolveByBarcodeOrSkuFromIndex,
+} from "./articleFiltering.ts";
 
-interface PurchaseOrderGenerationTabProps {
+export interface PurchaseOrderGenerationTabProps {
   products?: Product[];
   currentUser?: { role: string; name: string } | null;
   onNotification?: (title: string, message: string, type?: "success" | "error" | "info" | "warning") => void;
   onClose?: () => void;
   onNavigateTab?: (tab: string) => void;
+  initialLineItems?: PurchaseOrderLineItem[];
+  initialHeader?: PurchaseOrderHeader;
+  onLineItemsChange?: (items: PurchaseOrderLineItem[]) => void;
+  onHeaderChange?: (header: PurchaseOrderHeader) => void;
 }
 
 const DEFAULT_SIZES = ["36", "37", "38", "39", "40", "41", "42", "43", "44"];
@@ -266,24 +281,30 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
   onNotification,
   onClose,
   onNavigateTab,
+  initialLineItems,
+  initialHeader,
+  onLineItemsChange,
+  onHeaderChange,
 }) => {
   const [products, setProducts] = useState<Product[]>(initialProducts);
-  const [suppliersList, setSuppliersList] = useState<{ id: string; name: string; code?: string; gstin?: string; city?: string; state?: string; phone?: string }[]>([]);
+  const articleCatalogIndex = useMemo(() => buildArticleCatalogIndex(products), [products]);
+  const [suppliersList, setSuppliersList] = useState<SupplierOption[]>([]);
   const [suppliersLoading, setSuppliersLoading] = useState(true);
   const [suppliersError, setSuppliersError] = useState<string | null>(null);
   const [supplierSearch, setSupplierSearch] = useState("");
   const [isScorecardOpen, setIsScorecardOpen] = useState(false);
 
-  // Top Tabs: "general" | "items" | "other" | "attachments" | "history"
-  const [activeTab, setActiveTab] = useState<"general" | "items" | "other" | "attachments" | "history">("general");
+  // Top Tabs: "general" | "items" | "other" | "attachments" | "history" — Default to "items" per Decision A
+  const [activeTab, setActiveTab] = useState<"general" | "items" | "other" | "attachments" | "history">("items");
   // Grid View Mode: "standard" | "compact" | "detailed" | "size_pivot"
-  const [itemView, setItemView] = useState<"standard" | "compact" | "detailed" | "size_pivot">("standard");
+  const [itemView, setItemView] = useState<"standard" | "compact" | "detailed" | "size_pivot">("compact");
 
   const [showF2Hint, setShowF2Hint] = useState(true);
   const [showBrowseModal, setShowBrowseModal] = useState(false);
   const [activeRowIndex, setActiveRowIndex] = useState<number>(0);
   const [saving, setSaving] = useState(false);
   const [toolbarSearch, setToolbarSearch] = useState("");
+  const [copiedBarcodeIdx, setCopiedBarcodeIdx] = useState<number | null>(null);
 
   // 409 duplicate-number recovery banner
   const [duplicateOrderNo, setDuplicateOrderNo] = useState<string | null>(null);
@@ -308,6 +329,8 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
   const [showValidationSummary, setShowValidationSummary] = useState(false);
   const [submitValidating, setSubmitValidating] = useState(false);
   const [submitValidationResult, setSubmitValidationResult] = useState<POSubmitValidationResult | null>(null);
+  const [showCommercialDrawer, setShowCommercialDrawer] = useState<boolean>(false);
+  const [supplierCommercialDefaults, setSupplierCommercialDefaults] = useState<Partial<CommercialDeliveryData> | undefined>(undefined);
   const [showExplainModal, setShowExplainModal] = useState(false);
   const [explainDecision, setExplainDecision] = useState<POProductDecision | null>(null);
   const [explainProductName, setExplainProductName] = useState("");
@@ -324,35 +347,74 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
   const toolbarSearchInputRef = useRef<HTMLInputElement>(null);
 
   // Document & Supplier Header State
-  const [header, setHeader] = useState<PurchaseOrderHeader>({
-    documentType: "Purchase Order",
-    prefix: "PO",
-    orderNumber: "PO013",
-    orderDate: new Date().toISOString().split("T")[0],
-    supplierId: "",
-    supplierName: "",
-    billTo: "",
-    deliveryDate: new Date(Date.now() + 7 * 86400000).toISOString().split("T")[0],
-    leadTimeDays: 7,
-    deliveryLocation: "Main Store (MAIN)",
-    commonTaxPercent: 5,
-    pictureUrl: "",
-    paymentTerms: "30 Days",
-    freightCharges: "Paid by Supplier",
-    specialInstructions: "",
-    supplierReference: "",
-    currency: "INR - Indian Rupee",
-    buyer: currentUser?.name ? `${currentUser.name} (${currentUser.role || "MANAGER"})` : "manager (MANAGER)",
-    department: "General Purchase",
-    priceIncludesTax: false,
-    freightAmount: 0,
-    otherCharges: 0,
-    policyName: "General Retail",
-    vendorStatus: "Active"
+  const [header, setHeader] = useState<PurchaseOrderHeader>(() => {
+    const todayStr = new Date().toISOString().split("T")[0];
+    const defaultDelivery = new Date(Date.now() + 7 * 86400000).toISOString().split("T")[0];
+    const base: PurchaseOrderHeader = {
+      documentType: "Purchase Order",
+      prefix: "PO",
+      orderNumber: "PO013",
+      orderDate: todayStr,
+      supplierId: "",
+      supplierName: "",
+      billTo: "",
+      deliveryDate: defaultDelivery,
+      leadTimeDays: 7,
+      deliveryLocation: "Main Store (MAIN)",
+      commonTaxPercent: 5,
+      pictureUrl: "",
+      paymentTerms: "30 Days",
+      freightCharges: "Paid by Supplier",
+      specialInstructions: "",
+      supplierReference: "",
+      currency: "INR - Indian Rupee",
+      buyer: currentUser?.name ? `${currentUser.name} (${currentUser.role || "MANAGER"})` : "manager (MANAGER)",
+      department: "General Purchase",
+      priceIncludesTax: false,
+      freightAmount: 0,
+      otherCharges: 0,
+      policyName: "General Retail",
+      vendorStatus: "Active"
+    };
+    return initialHeader ? { ...base, ...initialHeader } : base;
   });
 
-  // Standard Line Items (Default 15 rows with clean layout)
+  // Standard Line Items (Default 15 rows with clean layout, or populated from initialLineItems)
   const [lineItems, setLineItems] = useState<PurchaseOrderLineItem[]>(() => {
+    if (initialLineItems && initialLineItems.length > 0) {
+      const activeCount = initialLineItems.length;
+      const padding = activeCount < 15
+        ? Array.from({ length: 15 - activeCount }, (_, idx) => ({
+            id: `line-${activeCount + idx + 1}`,
+            sNo: activeCount + idx + 1,
+            stockNo: "",
+            barcode: "",
+            product: "",
+            brand: "",
+            style: "",
+            shade: "",
+            size: "",
+            fibre: "",
+            colourBase: "",
+            styling: "",
+            mrp: 0,
+            rate: 0,
+            orderQty: 0,
+            freeQty: 0,
+            unit: "Pair",
+            discountPercent: 0,
+            discountAmount: 0,
+            value: 0,
+            stockOnHand: 0,
+            taxPercent: 5,
+            taxAmount: 0,
+            addOnPercent: 0,
+            addOnAmount: 0,
+            totalValue: 0
+          }))
+        : [];
+      return [...initialLineItems, ...padding];
+    }
     return Array.from({ length: 15 }, (_, idx) => ({
       id: `line-${idx + 1}`,
       sNo: idx + 1,
@@ -382,6 +444,28 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
       totalValue: 0
     }));
   });
+
+  // Sync state back to parent
+  const onLineItemsChangeRef = useRef(onLineItemsChange);
+  useEffect(() => {
+    onLineItemsChangeRef.current = onLineItemsChange;
+  }, [onLineItemsChange]);
+
+  useEffect(() => {
+    if (onLineItemsChangeRef.current) {
+      const activeLines = lineItems.filter(l => Boolean(l.stockNo?.trim()) || Boolean(l.barcode?.trim()) || l.orderQty > 0);
+      onLineItemsChangeRef.current(activeLines);
+    }
+  }, [lineItems]);
+
+  const onHeaderChangeRef = useRef(onHeaderChange);
+  useEffect(() => {
+    onHeaderChangeRef.current = onHeaderChange;
+  }, [onHeaderChange]);
+
+  useEffect(() => {
+    onHeaderChangeRef.current?.(header);
+  }, [header]);
 
   // Size Pivot Rows
   const [sizePivotRows, setSizePivotRows] = useState<PurchaseOrderSizePivotRow[]>(() =>
@@ -431,6 +515,47 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
     try {
       const order = await apiFetchV1(buildPurchaseOrderDetailUrl(cleaned));
       setOpenedOrder(order);
+      // Restore commercial terms from frozen snapshot or notes
+      const commSnap = order.commercial_terms || order.rule_snapshots?.commercial_terms;
+      let restoredPayment = commSnap?.payment_terms;
+      let restoredFreight = commSnap?.freight_terms;
+      let restoredCurrency = commSnap?.currency;
+      let restoredBuyer = commSnap?.buyer;
+      let restoredDepartment = commSnap?.department;
+      let restoredInstructions = commSnap?.special_instructions;
+      let restoredRef = commSnap?.supplier_reference;
+
+      if (!commSnap && order.notes) {
+        const parts = String(order.notes).split("|");
+        for (const part of parts) {
+          const idx = part.indexOf(":");
+          if (idx > -1) {
+            const k = part.substring(0, idx).trim().toLowerCase();
+            const v = part.substring(idx + 1).trim();
+            if (k.includes("payment")) restoredPayment = v;
+            else if (k.includes("freight")) restoredFreight = v;
+            else if (k.includes("currency")) restoredCurrency = v;
+            else if (k.includes("buyer")) restoredBuyer = v;
+            else if (k.includes("dept") || k.includes("department")) restoredDepartment = v;
+            else if (k.includes("instruction")) restoredInstructions = v;
+            else if (k.includes("ref")) restoredRef = v;
+          }
+        }
+      }
+
+      setHeader(h => ({
+        ...h,
+        supplierId: order.supplier_id || h.supplierId,
+        supplierName: order.supplier_name || order.supplier || h.supplierName,
+        paymentTerms: restoredPayment ?? h.paymentTerms,
+        freightCharges: restoredFreight ?? h.freightCharges,
+        currency: restoredCurrency ?? h.currency,
+        buyer: restoredBuyer ?? h.buyer,
+        department: restoredDepartment ?? h.department,
+        specialInstructions: restoredInstructions ?? h.specialInstructions,
+        supplierReference: restoredRef ?? h.supplierReference,
+      }));
+
       setActiveTab("history");
       if (onNotification) onNotification("PO Opened", `Loaded ${order.order_no || cleaned}.`, "success");
     } catch (err) {
@@ -477,7 +602,15 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
           gstin: s.gstin || s.tax_id || "27AAAAC0553K1Z8",
           city: s.city || "Mumbai",
           state: s.state || "Maharashtra",
-          phone: s.phone || s.contact_number || "+91 22 1234 5678"
+          phone: s.phone || s.contact_number || "+91 22 1234 5678",
+          payment_terms: s.payment_terms || (s.payment_terms_days ? `${s.payment_terms_days} Days` : "30 Days"),
+          payment_terms_days: s.payment_terms_days ?? 30,
+          freight_terms: s.freight_terms || "Paid by Supplier",
+          currency: s.currency || "INR - Indian Rupee",
+          buyer: s.buyer || undefined,
+          department: s.department || undefined,
+          special_instructions: s.special_instructions || "",
+          commercial_terms: s.commercial_terms || undefined,
         }));
         setSuppliersList(suppliers);
         setHeader(current => {
@@ -486,14 +619,20 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
             ...current,
             supplierId: selected.id,
             supplierName: selected.name,
+            paymentTerms: current.paymentTerms || selected.payment_terms || "30 Days",
+            freightCharges: current.freightCharges || selected.freight_terms || "Paid by Supplier",
+            currency: current.currency || selected.currency || "INR - Indian Rupee",
+            buyer: selected.buyer || current.buyer,
+            department: selected.department || current.department,
+            specialInstructions: selected.special_instructions !== undefined ? selected.special_instructions : current.specialInstructions,
           };
         });
       } else {
         // Fallback demo suppliers if db is fresh
         const fallbackSuppliers = [
-          { id: "SUP-548042", name: "Apex Fabrics Ltd", code: "SUP-548042", gstin: "27AAAAC0553K1Z8", city: "Mumbai", state: "Maharashtra", phone: "+91 22 1234 5678" },
-          { id: "SUP-102941", name: "Campus Activewear Ltd", code: "SUP-102941", gstin: "07AAACC2914E1Z1", city: "Delhi", state: "Delhi", phone: "+91 11 9876 5432" },
-          { id: "SUP-309481", name: "Bata Footwear India Ltd", code: "SUP-309481", gstin: "19AABCB1234P1Z5", city: "Kolkata", state: "West Bengal", phone: "+91 33 4455 6677" },
+          { id: "SUP-548042", name: "Apex Fabrics Ltd", code: "SUP-548042", gstin: "27AAAAC0553K1Z8", city: "Mumbai", state: "Maharashtra", phone: "+91 22 1234 5678", payment_terms: "30 Days", freight_terms: "Paid by Supplier", currency: "INR - Indian Rupee" },
+          { id: "SUP-102941", name: "Campus Activewear Ltd", code: "SUP-102941", gstin: "07AAACC2914E1Z1", city: "Delhi", state: "Delhi", phone: "+91 11 9876 5432", payment_terms: "15 Days", freight_terms: "To Pay", currency: "INR - Indian Rupee" },
+          { id: "SUP-309481", name: "Bata Footwear India Ltd", code: "SUP-309481", gstin: "19AABCB1234P1Z5", city: "Kolkata", state: "West Bengal", phone: "+91 33 4455 6677", payment_terms: "45 Days", freight_terms: "Paid by Supplier", currency: "INR - Indian Rupee" },
         ];
         setSuppliersList(fallbackSuppliers);
         setHeader(current => ({
@@ -551,6 +690,200 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
       };
       return copy;
     });
+  };
+
+  // ── Article-Based Dynamic Auto-Filtering Handlers ────────────────────────
+  const handleStockNoOrArticleChange = (idx: number, val: string) => {
+    const trimmed = val.trim();
+    if (!trimmed) {
+      updateLineItem(idx, { stockNo: "", style: "", barcode: "" });
+      return;
+    }
+
+    // 1. Check if barcode or SKU exact match
+    const variant = resolveByBarcodeOrSkuFromIndex(articleCatalogIndex, trimmed);
+    if (variant) {
+      updateLineItem(idx, {
+        barcode: variant.barcode,
+        stockNo: variant.code,
+        product: variant.name,
+        brand: variant.brand || lineItems[idx]?.brand || "",
+        style: variant.article,
+        shade: variant.color,
+        size: variant.size,
+        mrp: variant.mrp,
+        rate: variant.costPrice,
+        taxPercent: variant.gstPercentage !== undefined ? variant.gstPercentage : (lineItems[idx]?.taxPercent ?? 5),
+        unit: variant.unit || lineItems[idx]?.unit || "Pair",
+        originalProduct: variant.originalProduct,
+      });
+      return;
+    }
+
+    // 2. Check if Article/Style match
+    const summary = getArticleSummaryFromIndex(articleCatalogIndex, trimmed);
+    if (summary) {
+      const availableColors = getAvailableColorsForArticle(articleCatalogIndex, summary.article);
+      const currColor = (lineItems[idx]?.shade || "").toUpperCase();
+      const keepColor = availableColors.map(c => c.toUpperCase()).includes(currColor);
+      const newShade = keepColor ? currColor : (availableColors.length === 1 ? availableColors[0] : "");
+
+      const availableSizes = newShade
+        ? getAvailableSizesForArticleAndColor(articleCatalogIndex, summary.article, newShade)
+        : [];
+      const currSize = (lineItems[idx]?.size || "").toUpperCase();
+      const keepSize = availableSizes.map(s => s.toUpperCase()).includes(currSize);
+      const newSize = keepSize ? currSize : (availableSizes.length === 1 ? availableSizes[0] : "");
+
+      const matchedVariant = (newShade && newSize)
+        ? resolveVariantFromIndex(articleCatalogIndex, summary.article, newShade, newSize)
+        : undefined;
+
+      updateLineItem(idx, {
+        stockNo: trimmed,
+        style: summary.article,
+        brand: summary.brand || lineItems[idx]?.brand || "",
+        product: summary.name || lineItems[idx]?.product || "",
+        rate: matchedVariant?.costPrice || summary.costPrice || lineItems[idx]?.rate || 0,
+        mrp: matchedVariant?.mrp || summary.mrp || lineItems[idx]?.mrp || 0,
+        taxPercent: matchedVariant?.gstPercentage !== undefined
+          ? matchedVariant.gstPercentage
+          : (summary.gstPercentage !== undefined ? summary.gstPercentage : (lineItems[idx]?.taxPercent ?? 5)),
+        unit: matchedVariant?.unit || summary.unit || lineItems[idx]?.unit || "Pair",
+        shade: newShade,
+        size: newSize,
+        barcode: matchedVariant?.barcode || (newShade && newSize ? "" : lineItems[idx]?.barcode || ""),
+        originalProduct: matchedVariant?.originalProduct || lineItems[idx]?.originalProduct,
+      });
+      return;
+    }
+
+    // 3. Fallback free-text update
+    updateLineItem(idx, { stockNo: val, style: val });
+  };
+
+  const handleStyleChange = (idx: number, val: string) => {
+    const trimmed = val.trim();
+    if (!trimmed) {
+      updateLineItem(idx, { style: "" });
+      return;
+    }
+
+    const summary = getArticleSummaryFromIndex(articleCatalogIndex, trimmed);
+    if (summary) {
+      const availableColors = getAvailableColorsForArticle(articleCatalogIndex, summary.article);
+      const currColor = (lineItems[idx]?.shade || "").toUpperCase();
+      const keepColor = availableColors.map(c => c.toUpperCase()).includes(currColor);
+      const newShade = keepColor ? currColor : (availableColors.length === 1 ? availableColors[0] : "");
+
+      const availableSizes = newShade
+        ? getAvailableSizesForArticleAndColor(articleCatalogIndex, summary.article, newShade)
+        : [];
+      const currSize = (lineItems[idx]?.size || "").toUpperCase();
+      const keepSize = availableSizes.map(s => s.toUpperCase()).includes(currSize);
+      const newSize = keepSize ? currSize : (availableSizes.length === 1 ? availableSizes[0] : "");
+
+      const matchedVariant = (newShade && newSize)
+        ? resolveVariantFromIndex(articleCatalogIndex, summary.article, newShade, newSize)
+        : undefined;
+
+      updateLineItem(idx, {
+        style: summary.article,
+        stockNo: lineItems[idx]?.stockNo || summary.article,
+        brand: summary.brand || lineItems[idx]?.brand || "",
+        product: summary.name || lineItems[idx]?.product || "",
+        rate: matchedVariant?.costPrice || summary.costPrice || lineItems[idx]?.rate || 0,
+        mrp: matchedVariant?.mrp || summary.mrp || lineItems[idx]?.mrp || 0,
+        taxPercent: matchedVariant?.gstPercentage !== undefined
+          ? matchedVariant.gstPercentage
+          : (summary.gstPercentage !== undefined ? summary.gstPercentage : (lineItems[idx]?.taxPercent ?? 5)),
+        unit: matchedVariant?.unit || summary.unit || lineItems[idx]?.unit || "Pair",
+        shade: newShade,
+        size: newSize,
+        barcode: matchedVariant?.barcode || (newShade && newSize ? "" : lineItems[idx]?.barcode || ""),
+        originalProduct: matchedVariant?.originalProduct || lineItems[idx]?.originalProduct,
+      });
+      return;
+    }
+
+    updateLineItem(idx, { style: val });
+  };
+
+  const handleColorChange = (idx: number, val: string) => {
+    const colorVal = val.trim().toUpperCase();
+    const art = lineItems[idx]?.style || lineItems[idx]?.stockNo || "";
+    const availableSizes = art && colorVal
+      ? getAvailableSizesForArticleAndColor(articleCatalogIndex, art, colorVal)
+      : [];
+    const currSize = (lineItems[idx]?.size || "").toUpperCase();
+    const keepSize = availableSizes.map(s => s.toUpperCase()).includes(currSize);
+    const newSize = keepSize ? currSize : (availableSizes.length === 1 ? availableSizes[0] : "");
+
+    const matchedVariant = (art && colorVal && newSize)
+      ? resolveVariantFromIndex(articleCatalogIndex, art, colorVal, newSize)
+      : undefined;
+
+    updateLineItem(idx, {
+      shade: colorVal,
+      size: newSize,
+      ...(matchedVariant ? {
+        barcode: matchedVariant.barcode,
+        stockNo: matchedVariant.code || lineItems[idx]?.stockNo,
+        rate: matchedVariant.costPrice || lineItems[idx]?.rate,
+        mrp: matchedVariant.mrp || lineItems[idx]?.mrp,
+        taxPercent: matchedVariant.gstPercentage !== undefined ? matchedVariant.gstPercentage : lineItems[idx]?.taxPercent,
+        unit: matchedVariant.unit || lineItems[idx]?.unit,
+        originalProduct: matchedVariant.originalProduct,
+      } : {
+        barcode: newSize ? lineItems[idx]?.barcode : "",
+      }),
+    });
+  };
+
+  const handleSizeChange = (idx: number, val: string) => {
+    const sizeVal = val.trim().toUpperCase();
+    const art = lineItems[idx]?.style || lineItems[idx]?.stockNo || "";
+    const color = lineItems[idx]?.shade || "";
+
+    const matchedVariant = (art && color && sizeVal)
+      ? resolveVariantFromIndex(articleCatalogIndex, art, color, sizeVal)
+      : undefined;
+
+    updateLineItem(idx, {
+      size: sizeVal,
+      ...(matchedVariant ? {
+        barcode: matchedVariant.barcode,
+        stockNo: matchedVariant.code || lineItems[idx]?.stockNo,
+        rate: matchedVariant.costPrice || lineItems[idx]?.rate,
+        mrp: matchedVariant.mrp || lineItems[idx]?.mrp,
+        taxPercent: matchedVariant.gstPercentage !== undefined ? matchedVariant.gstPercentage : lineItems[idx]?.taxPercent,
+        unit: matchedVariant.unit || lineItems[idx]?.unit,
+        originalProduct: matchedVariant.originalProduct,
+      } : {}),
+    });
+  };
+
+  const handleBarcodeChange = (idx: number, val: string) => {
+    const trimmed = val.trim();
+    const variant = resolveByBarcodeOrSkuFromIndex(articleCatalogIndex, trimmed);
+    if (variant) {
+      updateLineItem(idx, {
+        barcode: variant.barcode,
+        stockNo: variant.code,
+        product: variant.name,
+        brand: variant.brand || lineItems[idx]?.brand || "",
+        style: variant.article,
+        shade: variant.color,
+        size: variant.size,
+        mrp: variant.mrp,
+        rate: variant.costPrice,
+        taxPercent: variant.gstPercentage !== undefined ? variant.gstPercentage : (lineItems[idx]?.taxPercent ?? 5),
+        unit: variant.unit || lineItems[idx]?.unit || "Pair",
+        originalProduct: variant.originalProduct,
+      });
+    } else {
+      updateLineItem(idx, { barcode: val });
+    }
   };
 
   // Size Pivot row calculation
@@ -1006,6 +1339,11 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
         handleSubmitGate();
         return;
       }
+      if (e.altKey && (e.key === "c" || e.key === "C")) {
+        e.preventDefault();
+        setShowCommercialDrawer(prev => !prev);
+        return;
+      }
       if (e.key === "F9") {
         e.preventDefault();
         setShowPrintPreview(true);
@@ -1118,10 +1456,33 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
   };
 
   // Vendor change guard
-  const handleVendorChangeRequest = (newId: string, newName: string) => {
+  const handleVendorChangeRequest = (newId: string, newName: string, sel?: SupplierOption) => {
+    const matchedSupplier = sel || suppliersList.find(s => s.id === newId);
+    const defaults: Partial<CommercialDeliveryData> = {
+      paymentTerms: matchedSupplier?.payment_terms || (matchedSupplier?.payment_terms_days ? `${matchedSupplier.payment_terms_days} Days` : undefined),
+      freightCharges: matchedSupplier?.freight_terms,
+      currency: matchedSupplier?.currency,
+      buyer: matchedSupplier?.buyer,
+      department: matchedSupplier?.department,
+      specialInstructions: matchedSupplier?.special_instructions !== undefined ? matchedSupplier.special_instructions : undefined,
+    };
+    setSupplierCommercialDefaults(defaults);
+    const applyCommercialTerms = (prevHeader: PurchaseOrderHeader, s?: SupplierOption) => {
+      if (!s) return prevHeader;
+      return {
+        ...prevHeader,
+        paymentTerms: s.payment_terms || (s.payment_terms_days ? `${s.payment_terms_days} Days` : prevHeader.paymentTerms),
+        freightCharges: s.freight_terms || prevHeader.freightCharges,
+        currency: s.currency || prevHeader.currency,
+        buyer: s.buyer || prevHeader.buyer,
+        department: s.department || prevHeader.department,
+        specialInstructions: s.special_instructions !== undefined ? s.special_instructions : prevHeader.specialInstructions,
+      };
+    };
+
     const hasLines = lineItems.some(l => l.stockNo?.trim());
     if (!hasLines) {
-      setHeader(h => ({ ...h, supplierId: newId, supplierName: newName }));
+      setHeader(h => applyCommercialTerms({ ...h, supplierId: newId, supplierName: newName }, matchedSupplier));
       setLineDecisions({});
       setPOWorkflowState("VENDOR_SELECTED");
       return;
@@ -1133,7 +1494,18 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
   const handleVendorChangeConfirmed = (result: POVendorChangeResult) => {
     setShowVendorChangeDialog(false);
     if (!pendingNewVendor) return;
-    setHeader(h => ({ ...h, supplierId: pendingNewVendor.id, supplierName: pendingNewVendor.name }));
+    const sel = suppliersList.find(s => s.id === pendingNewVendor.id);
+    setHeader(h => ({
+      ...h,
+      supplierId: pendingNewVendor.id,
+      supplierName: pendingNewVendor.name,
+      paymentTerms: sel?.payment_terms || (sel?.payment_terms_days ? `${sel.payment_terms_days} Days` : h.paymentTerms),
+      freightCharges: sel?.freight_terms || h.freightCharges,
+      currency: sel?.currency || h.currency,
+      buyer: sel?.buyer || h.buyer,
+      department: sel?.department || h.department,
+      specialInstructions: sel?.special_instructions !== undefined ? sel.special_instructions : h.specialInstructions,
+    }));
     const newDecisions: Record<string, POLineDecisionState> = {};
     result.decisions.forEach(d => {
       const line = lineItems[d.line_index];
@@ -1185,7 +1557,20 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
       if (header.specialInstructions) notesArr.push(`Instructions: ${header.specialInstructions}`);
       if (header.paymentTerms) notesArr.push(`Payment: ${header.paymentTerms}`);
       if (header.freightCharges) notesArr.push(`Freight: ${header.freightCharges}`);
+      if (header.currency) notesArr.push(`Currency: ${header.currency}`);
+      if (header.buyer) notesArr.push(`Buyer: ${header.buyer}`);
+      if (header.department) notesArr.push(`Department: ${header.department}`);
       if (header.supplierReference) notesArr.push(`Ref: ${header.supplierReference}`);
+
+      const commercialTerms = {
+        payment_terms: header.paymentTerms,
+        freight_terms: header.freightCharges,
+        currency: header.currency,
+        buyer: header.buyer,
+        department: header.department,
+        special_instructions: header.specialInstructions,
+        supplier_reference: header.supplierReference,
+      };
 
       const payload = {
         order_no: orderNo,
@@ -1193,17 +1578,22 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
         supplier_id: header.supplierId,
         supplier_name: header.supplierName,
         delivery_date: header.deliveryDate || new Date(Date.now() + header.leadTimeDays * 86400000).toISOString().split("T")[0],
+        commercial_terms: commercialTerms,
+        rule_snapshots: {
+          commercial_terms: commercialTerms,
+        },
         notes: notesArr.length > 0 ? notesArr.join(" | ") : undefined,
         total_amount: totals.totalValue,
         status: "Draft",
         created_by: currentUser?.name || undefined,
         items: itemView !== "size_pivot"
-          ? lineItems.filter(l => l.stockNo && l.orderQty > 0).map(l => ({
-              product_id: l.originalProduct?.id || l.stockNo,
+          ? lineItems.filter(l => (Boolean(l.stockNo?.trim()) || Boolean(l.barcode?.trim())) && l.orderQty > 0).map(l => ({
+              product_id: l.originalProduct?.id || l.stockNo || l.barcode,
               variant_id: (l.originalProduct as any)?.item_variant_id || (l.originalProduct as any)?.variant_id || undefined,
               item_id: (l.originalProduct as any)?.item_id || undefined,
-              code: l.stockNo,
-              name: l.product || l.stockNo,
+              barcode: l.barcode || undefined,
+              code: l.stockNo || l.barcode,
+              name: l.product || l.stockNo || l.barcode,
               quantity: l.orderQty,
               cost_price: l.rate,
               gst_rate: l.taxPercent || 5.0
@@ -1318,6 +1708,18 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
           <div className="flex items-center gap-2">
             <button
               type="button"
+              id="pogen-header-commercial-drawer-btn"
+              onClick={() => setShowCommercialDrawer(prev => !prev)}
+              className="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 font-bold px-3 py-1.5 rounded-lg text-xs transition-colors shadow-2xs flex items-center gap-1.5 cursor-pointer"
+              title="Open Commercial & Delivery terms drawer (Alt+C)"
+            >
+              <span className="material-symbols-outlined text-[16px] text-indigo-600">receipt_long</span>
+              <span>Commercial Terms</span>
+              <kbd className="text-[9px] font-mono px-1 py-0.2 bg-indigo-200/60 text-indigo-800 rounded font-bold">Alt+C</kbd>
+            </button>
+
+            <button
+              type="button"
               onClick={handleSavePO}
               disabled={saving}
               className="bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 font-semibold px-3 py-1.5 rounded-lg text-xs transition-colors shadow-2xs flex items-center gap-1.5 disabled:opacity-50"
@@ -1421,6 +1823,8 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
             <button
               key={tab.id}
               type="button"
+              id={`pogen-tab-${tab.id}`}
+              data-testid={`pogen-tab-${tab.id}`}
               onClick={() => setActiveTab(tab.id as any)}
               className={`pb-1 font-semibold transition-all relative ${
                 activeTab === tab.id
@@ -1437,8 +1841,57 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
         </nav>
       </header>
 
-      {/* ── 2. General Section: 4 Compact Information Cards ──────────────── */}
-      {(activeTab === "general" || activeTab === "items") && (
+      {/* ── 2A. Items Tab: 1-Line Sticky Document Overview Strip ──────────────── */}
+      {activeTab === "items" && (
+        <header aria-label="Document Overview" className="px-6 pt-3 pb-1 shrink-0">
+          <div className="bg-slate-900 text-white px-4 py-2 rounded-xl flex flex-wrap items-center justify-between gap-3 text-xs shadow-md">
+            <div className="flex items-center gap-2.5 flex-wrap">
+              <span className="px-2 py-0.5 rounded bg-blue-600 text-white font-mono font-bold text-[10px] uppercase tracking-wider">
+                {header.documentType}
+              </span>
+              <span className="font-mono font-bold text-blue-300 text-xs">
+                {header.prefix}-{header.orderNumber}
+              </span>
+              <span className="text-slate-600">•</span>
+              <span className="font-semibold text-slate-100 flex items-center gap-1.5">
+                <span>{selectedSupplier?.name || header.supplierName || "No Supplier"}</span>
+                {selectedSupplier?.code && (
+                  <span className="font-mono text-[10px] font-bold px-1.5 py-0.2 rounded bg-slate-800 text-amber-300 border border-slate-700">
+                    {selectedSupplier.code}
+                  </span>
+                )}
+              </span>
+              <span className="text-slate-600">•</span>
+              <span className="text-slate-400 text-[11px]">Date: <strong className="text-white">{header.orderDate}</strong></span>
+              <span className="text-slate-600">•</span>
+              <span className="text-slate-400 text-[11px]">Del: <strong className="text-white">{header.deliveryDate}</strong></span>
+            </div>
+            <div className="flex items-center gap-3">
+              <div className="bg-slate-800/90 px-3 py-1 rounded-lg border border-slate-700 font-mono text-[11px] flex items-center gap-2">
+                <span className="text-slate-400">Items: <strong className="text-white">{totals.totalItems || 0}</strong></span>
+                <span className="text-slate-600">|</span>
+                <span className="text-slate-400">Qty: <strong className="text-amber-300">{totals.totalQty || 0}</strong></span>
+                <span className="text-slate-600">|</span>
+                <span className="text-slate-400">Net: <strong className="text-emerald-400">₹{(totals.netOrderValue || totals.totalValue || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong></span>
+              </div>
+              <button
+                type="button"
+                id="pogen-open-commercial-drawer-btn"
+                onClick={() => setShowCommercialDrawer(prev => !prev)}
+                className="flex items-center gap-1.5 px-3 py-1 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-semibold shadow-xs cursor-pointer transition"
+                title="Open Commercial & Delivery terms drawer (Alt+C)"
+              >
+                <span className="material-symbols-outlined text-[14px]">receipt_long</span>
+                <span>Terms & Delivery</span>
+                <kbd className="text-[9px] font-mono px-1 py-0.2 bg-indigo-800/80 text-indigo-100 rounded font-bold">Alt+C</kbd>
+              </button>
+            </div>
+          </div>
+        </header>
+      )}
+
+      {/* ── 2B. General Section: 4 Compact Information Cards ──────────────── */}
+      {activeTab === "general" && (
         <section className="px-6 pt-4 pb-2 shrink-0">
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3.5 text-xs">
             {/* Card 1: Document Information */}
@@ -1540,24 +1993,19 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
                 {/* Searchable Supplier */}
                 <div>
                   <label className="block font-medium text-slate-500 mb-0.5 text-[11px]">
-                    Supplier <span className="text-rose-500">*</span>
+                    Supplier / Vendor <span className="text-rose-500">*</span>
                   </label>
-                  <select
+                  <SupplierSelect
+                    id="pogen-supplier-select"
+                    suppliers={suppliersList}
                     value={header.supplierId}
                     disabled={suppliersLoading}
-                    onChange={(e) => {
-                      const s = suppliersList.find(x => x.id === e.target.value);
-                      handleVendorChangeRequest(e.target.value, s?.name ?? header.supplierName);
+                    compact={true}
+                    placeholder={suppliersLoading ? "Loading suppliers..." : "Select or search vendor..."}
+                    onChange={(supplierId, sel) => {
+                      handleVendorChangeRequest(supplierId, sel?.name ?? sel?.company_name ?? header.supplierName, sel);
                     }}
-                    className="w-full border border-slate-300 rounded-lg px-2 h-7 bg-white font-semibold outline-none focus:border-blue-600 text-xs"
-                  >
-                    {suppliersLoading && <option value="">Loading suppliers...</option>}
-                    {suppliersList.map(s => (
-                      <option key={s.id} value={s.id}>
-                        {s.name} ({s.code || s.id})
-                      </option>
-                    ))}
-                  </select>
+                  />
                 </div>
 
                 {/* Selected Supplier Details Pill */}
@@ -1645,6 +2093,7 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
                 <div>
                   <label className="block font-medium text-slate-500 mb-0.5 text-[11px]">Supplier Reference</label>
                   <input
+                    id="std-terms-ref-supplier-ref-input"
                     type="text"
                     placeholder="Supplier PO / Quotation No."
                     value={header.supplierReference || ""}
@@ -1656,6 +2105,7 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
                   <div>
                     <label className="block font-medium text-slate-500 mb-0.5 text-[11px]">Payment Terms</label>
                     <select
+                      id="std-terms-ref-payment-terms-select"
                       value={header.paymentTerms}
                       onChange={(e) => setHeader({ ...header, paymentTerms: e.target.value })}
                       className="w-full border border-slate-300 rounded-lg px-2 h-7 bg-white font-medium outline-none focus:border-blue-600 text-xs"
@@ -1671,6 +2121,7 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
                   <div>
                     <label className="block font-medium text-slate-500 mb-0.5 text-[11px]">Currency</label>
                     <select
+                      id="std-terms-ref-currency-select"
                       value={header.currency || "INR - Indian Rupee"}
                       onChange={(e) => setHeader({ ...header, currency: e.target.value })}
                       className="w-full border border-slate-300 rounded-lg px-2 h-7 bg-white font-medium outline-none focus:border-blue-600 text-xs"
@@ -1685,6 +2136,7 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
                   <div>
                     <label className="block font-medium text-slate-500 mb-0.5 text-[11px]">{PURCHASER_FIELD_LABEL}</label>
                     <input
+                      id="std-terms-ref-buyer-input"
                       type="text"
                       value={header.buyer || "manager"}
                       onChange={(e) => setHeader({ ...header, buyer: e.target.value })}
@@ -1694,6 +2146,7 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
                   <div>
                     <label className="block font-medium text-slate-500 mb-0.5 text-[11px]">Project / Dept</label>
                     <input
+                      id="std-terms-ref-department-input"
                       type="text"
                       value={header.department || "General Purchase"}
                       onChange={(e) => setHeader({ ...header, department: e.target.value })}
@@ -1778,6 +2231,7 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
               <div>
                 <label className="block font-medium text-slate-600 mb-1">Payment Terms</label>
                 <input
+                  id="std-other-payment-terms-input"
                   type="text"
                   value={header.paymentTerms}
                   onChange={(e) => setHeader({ ...header, paymentTerms: e.target.value })}
@@ -1787,6 +2241,7 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
               <div>
                 <label className="block font-medium text-slate-600 mb-1">Freight Charges Terms</label>
                 <input
+                  id="std-other-freight-terms-input"
                   type="text"
                   value={header.freightCharges}
                   onChange={(e) => setHeader({ ...header, freightCharges: e.target.value })}
@@ -1798,6 +2253,7 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
           <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs">
             <h3 className="font-bold text-slate-800 text-sm mb-3">Special Instructions &amp; Notes</h3>
             <textarea
+              id="std-other-special-instructions-input"
               rows={4}
               value={header.specialInstructions}
               onChange={(e) => setHeader({ ...header, specialInstructions: e.target.value })}
@@ -1971,11 +2427,124 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
       {(activeTab === "general" || activeTab === "items") && (
         <main className="px-6 pt-2 pb-1 flex-1 flex flex-col min-h-0">
           <div className="bg-white border border-slate-200 rounded-xl shadow-2xs overflow-hidden flex flex-col flex-1">
+            {/* ── ITEM TOOLBAR (TOP CONTROL SURFACE) ── */}
+            <div className="bg-slate-50 px-4 py-2 border-b border-slate-200 flex flex-col md:flex-row items-center justify-between gap-3 shrink-0 text-xs">
+              {/* Left: Box Icon, Search/Scan input, and Primary Action Buttons */}
+              <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
+                <div className="flex items-center gap-2">
+                  <div className="w-7 h-7 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center">
+                    <span className="material-symbols-outlined text-[18px]">inventory_2</span>
+                  </div>
+                  <div>
+                    <span className="font-bold text-slate-800">Items</span>
+                    <span className="hidden sm:inline text-[11px] text-slate-500 ml-2">
+                      Scan barcode, search or press F2 to browse products.
+                    </span>
+                  </div>
+                </div>
+
+                {/* Barcode / Search Input */}
+                <div className="relative flex items-center min-w-[280px]">
+                  <span className="material-symbols-outlined absolute left-2.5 text-slate-400 text-[16px]">search</span>
+                  <input
+                    ref={toolbarSearchInputRef}
+                    type="text"
+                    placeholder="Scan barcode or search item (Press F2)"
+                    value={toolbarSearch}
+                    onChange={(e) => setToolbarSearch(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        handleBarcodeOrSearchSubmit(toolbarSearch);
+                      }
+                    }}
+                    className="w-full pl-8 pr-8 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-medium outline-none focus:border-blue-600 shadow-2xs"
+                  />
+                  {toolbarSearch && (
+                    <button
+                      type="button"
+                      onClick={() => setToolbarSearch("")}
+                      className="absolute right-2 text-slate-400 hover:text-slate-600"
+                    >
+                      &times;
+                    </button>
+                  )}
+                </div>
+
+                {/* + Add Item */}
+                <button
+                  type="button"
+                  onClick={handleAddNewBlankRow}
+                  className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-3 py-1.5 rounded-lg text-xs transition-colors shadow-xs flex items-center gap-1"
+                >
+                  <span className="material-symbols-outlined text-[16px]">add</span>
+                  <span>Add Item</span>
+                </button>
+
+                {/* Browse Items (F2) */}
+                <button
+                  type="button"
+                  onClick={() => setShowBrowseModal(true)}
+                  className="bg-white hover:bg-slate-100 border border-slate-300 text-slate-700 font-bold px-3 py-1.5 rounded-lg text-xs transition-colors shadow-2xs flex items-center gap-1.5"
+                >
+                  <span className="material-symbols-outlined text-[16px] text-blue-600">manage_search</span>
+                  <span>Browse Items (F2)</span>
+                </button>
+
+                {/* Fast Import (CSV / TSV / Excel / Clipboard) */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setInitialImportText(undefined);
+                    setIsGlobalImportOpen(true);
+                  }}
+                  className="bg-white hover:bg-slate-100 border border-slate-300 text-slate-700 font-bold px-3 py-1.5 rounded-lg text-xs transition-colors shadow-2xs flex items-center gap-1.5"
+                  title="Import from Excel, CSV, TSV or paste spreadsheet data"
+                >
+                  <span className="material-symbols-outlined text-[16px] text-emerald-600">table_view</span>
+                  <span>Fast Import</span>
+                </button>
+                <input
+                  ref={excelImportInputRef}
+                  type="file"
+                  accept=".csv, .xlsx, .xls, .tsv, .txt"
+                  onChange={handleExcelImport}
+                  className="hidden"
+                />
+
+                {/* More [...] dropdown */}
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setShowMoreMenu(m => !m)}
+                    className="bg-white hover:bg-slate-100 border border-slate-300 text-slate-700 font-bold px-2 py-1.5 rounded-lg text-xs transition shadow-2xs"
+                  >
+                    <span className="material-symbols-outlined text-[16px]">more_horiz</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Right: Item View Mode Selector */}
+              <div className="flex items-center gap-2">
+                <span className="text-slate-500 font-medium text-[11px]">Item View:</span>
+                <select
+                  value={itemView}
+                  onChange={(e) => setItemView(e.target.value as any)}
+                  className="bg-white border border-slate-300 rounded-lg px-2.5 py-1 text-xs font-bold text-slate-700 outline-none focus:border-blue-600 shadow-2xs cursor-pointer"
+                >
+                  <option value="compact">Compact</option>
+                  <option value="standard">Standard</option>
+                  <option value="detailed">Detailed</option>
+                  <option value="size_pivot">Size Pivot Matrix</option>
+                </select>
+              </div>
+            </div>
+
             {/* Scrollable Table Container */}
             <div
               onPaste={handleTableContainerPaste}
               tabIndex={0}
-              className="overflow-x-auto custom-scrollbar flex-1 max-h-[420px] relative focus:outline-none"
+              className="overflow-x-auto custom-scrollbar flex-1 min-h-[440px] max-h-[calc(100vh-250px)] relative focus:outline-none"
               title="Click here and press Ctrl+V to paste table rows from Excel/Sheets"
             >
               {/* Floating F2 Hint */}
@@ -1992,14 +2561,241 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
                 </div>
               )}
 
-              {/* Standard Retail Item Grid */}
-              {itemView !== "size_pivot" ? (
+              {/* View Mode Switching: Compact vs Standard vs Size Pivot Matrix */}
+              {itemView === "compact" ? (
+                <table className="w-full text-left border-collapse text-xs min-w-[1080px]">
+                  <thead className="sticky top-0 z-10 bg-slate-50 text-slate-600 uppercase text-[10px] font-bold tracking-wider border-b border-slate-200">
+                    <tr>
+                      <th className="p-2 px-2.5 w-48 min-w-[180px] border-r border-slate-200 bg-slate-100 font-bold text-slate-700">Barcode</th>
+                      <th className="p-2 w-8 text-center border-r border-slate-200">#</th>
+                      <th className="p-2 px-2.5 w-28 min-w-[100px] border-r border-slate-200">Item Code</th>
+                      <th className="p-2 px-3 min-w-[160px] flex-1 border-r border-slate-200">Product Name</th>
+                      <th className="p-2 px-2.5 w-24 min-w-[80px] border-r border-slate-200">Color</th>
+                      <th className="p-2 px-2 w-14 min-w-[50px] text-center border-r border-slate-200">Size</th>
+                      <th className="p-2 px-2.5 w-24 min-w-[85px] text-right border-r border-slate-200 bg-blue-50/50 font-bold text-blue-900">
+                        MRP (₹)
+                      </th>
+                      <th className="p-2 px-2 w-16 min-w-[65px] text-right border-r border-slate-200 font-bold text-blue-600">Qty</th>
+                      <th className="p-2 px-2.5 w-24 min-w-[85px] text-right border-r border-slate-200 font-bold">Rate (₹)</th>
+                      <th className="p-2 px-2 w-14 min-w-[55px] text-right border-r border-slate-200">Tax (%)</th>
+                      <th className="p-2 px-3 w-28 min-w-[100px] text-right border-r border-slate-200 bg-slate-100 font-bold text-slate-800">
+                        Amount (₹)
+                      </th>
+                      <th className="p-2 w-14 text-center">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 font-sans">
+                    {lineItems.map((item, idx) => {
+                      const isSelected = idx === activeRowIndex;
+                      const hasItem = !!item.stockNo;
+                      return (
+                        <tr
+                          key={item.id ? `${item.id}-${idx}` : `pogen-row-c-${idx}`}
+                          onClick={() => {
+                            setActiveRowIndex(idx);
+                            setShowF2Hint(false);
+                          }}
+                          className={`transition-colors ${
+                            isSelected
+                              ? "bg-blue-50/60"
+                              : hasItem
+                              ? "hover:bg-slate-50"
+                              : "hover:bg-slate-50/60 opacity-80 hover:opacity-100"
+                          }`}
+                        >
+                          {/* 1. Barcode (Column 1 per Decision C) */}
+                          <td className="p-1 border-r border-slate-100 bg-slate-50/30">
+                            <div className="flex items-center gap-1 px-1 group">
+                              <span className="material-symbols-outlined text-[14px] text-slate-400 shrink-0">barcode_scanner</span>
+                              <input
+                                type="text"
+                                id={`pogen-gen-barcode-${idx + 1}`}
+                                value={item.barcode || ""}
+                                placeholder="Scan / Barcode"
+                                title={item.barcode || "Barcode"}
+                                onFocus={() => setActiveRowIndex(idx)}
+                                onChange={(e) => handleBarcodeChange(idx, e.target.value)}
+                                className="w-full bg-transparent border-none p-0 h-6 font-mono font-semibold text-slate-800 text-xs outline-none"
+                              />
+                              {item.barcode && (
+                                <button
+                                  type="button"
+                                  title={`Copy barcode ${item.barcode}`}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    if (item.barcode) navigator.clipboard.writeText(item.barcode);
+                                    setCopiedBarcodeIdx(idx);
+                                    setTimeout(() => setCopiedBarcodeIdx(null), 1500);
+                                  }}
+                                  className="opacity-0 group-hover:opacity-100 p-0.5 text-slate-400 hover:text-blue-600 rounded transition shrink-0"
+                                >
+                                  <span className="material-symbols-outlined text-[14px]">
+                                    {copiedBarcodeIdx === idx ? "check" : "content_copy"}
+                                  </span>
+                                </button>
+                              )}
+                            </div>
+                          </td>
+
+                          {/* 2. SNo (Column 2) */}
+                          <td className="p-2 text-center text-slate-400 font-mono font-medium border-r border-slate-100 bg-slate-50/50">
+                            {item.sNo}
+                          </td>
+
+                          {/* 3. Item Code / Article */}
+                          <td className="p-1 border-r border-slate-100">
+                            <input
+                              type="text"
+                              id={`pogen-gen-stockno-${idx + 1}`}
+                              list="pogen-articles-datalist"
+                              value={item.stockNo}
+                              placeholder="F2 to browse / Article"
+                              onFocus={() => { setActiveRowIndex(idx); setShowF2Hint(false); }}
+                              onChange={(e) => handleStockNoOrArticleChange(idx, e.target.value)}
+                              className="w-full bg-transparent border border-transparent hover:border-slate-300 focus:border-blue-600 focus:bg-white rounded px-2 h-7 font-mono font-bold text-xs outline-none"
+                            />
+                          </td>
+
+                          {/* 4. Product Name */}
+                          <td className="p-1 border-r border-slate-100">
+                            <input
+                              type="text"
+                              value={item.product}
+                              placeholder="Product description"
+                              onFocus={() => setActiveRowIndex(idx)}
+                              onChange={(e) => updateLineItem(idx, { product: e.target.value })}
+                              className="w-full bg-transparent border border-transparent hover:border-slate-300 focus:border-blue-600 focus:bg-white rounded px-2 h-7 font-medium text-xs outline-none"
+                            />
+                          </td>
+
+                          {/* 5. Color */}
+                          <td className="p-1 border-r border-slate-100">
+                            <input
+                              type="text"
+                              id={`pogen-gen-color-${idx + 1}`}
+                              list={`pogen-colors-list-${idx + 1}`}
+                              value={item.shade}
+                              placeholder="Color"
+                              onFocus={() => setActiveRowIndex(idx)}
+                              onChange={(e) => handleColorChange(idx, e.target.value)}
+                              className="w-full bg-transparent border-none px-2 h-6 text-xs outline-none text-slate-600 uppercase"
+                            />
+                            <datalist id={`pogen-colors-list-${idx + 1}`}>
+                              {getAvailableColorsForArticle(articleCatalogIndex, item.style || item.stockNo).map(c => (
+                                <option key={c} value={c} />
+                              ))}
+                            </datalist>
+                          </td>
+
+                          {/* 6. Size */}
+                          <td className="p-1 border-r border-slate-100 text-center">
+                            <input
+                              type="text"
+                              id={`pogen-gen-size-${idx + 1}`}
+                              list={`pogen-sizes-list-${idx + 1}`}
+                              value={item.size}
+                              placeholder="Size"
+                              onFocus={() => setActiveRowIndex(idx)}
+                              onChange={(e) => handleSizeChange(idx, e.target.value)}
+                              className="w-full bg-slate-50 border border-slate-200 rounded text-center h-6 font-bold text-xs outline-none text-slate-800 uppercase"
+                            />
+                            <datalist id={`pogen-sizes-list-${idx + 1}`}>
+                              {getAvailableSizesForArticleAndColor(articleCatalogIndex, item.style || item.stockNo, item.shade).map(sz => (
+                                <option key={sz} value={sz} />
+                              ))}
+                            </datalist>
+                          </td>
+
+                          {/* 7. MRP (₹) */}
+                          <td className="p-1 border-r border-slate-100 bg-blue-50/20 text-right">
+                            <input
+                              type="number"
+                              min="0"
+                              value={item.mrp || ""}
+                              placeholder="0.00"
+                              onFocus={() => setActiveRowIndex(idx)}
+                              onChange={(e) => updateLineItem(idx, { mrp: parseFloat(e.target.value) || 0 })}
+                              className="w-full bg-transparent border border-transparent hover:border-slate-300 focus:border-blue-600 focus:bg-white rounded px-2 h-7 font-mono font-bold text-xs text-right outline-none text-blue-900"
+                            />
+                          </td>
+
+                          {/* 8. Qty */}
+                          <td className="p-1 border-r border-slate-100 text-right">
+                            <input
+                              type="number"
+                              id={`po-qty-input-${idx}`}
+                              min="0"
+                              value={item.orderQty || ""}
+                              placeholder="0"
+                              onFocus={() => setActiveRowIndex(idx)}
+                              onChange={(e) => updateLineItem(idx, { orderQty: parseInt(e.target.value, 10) || 0 })}
+                              className="w-full bg-transparent border border-transparent hover:border-slate-300 focus:border-blue-600 focus:bg-white rounded px-2 h-7 font-mono font-bold text-xs text-right outline-none text-blue-600"
+                            />
+                          </td>
+
+                          {/* 9. Rate (₹) */}
+                          <td className="p-1 border-r border-slate-100 text-right">
+                            <input
+                              type="number"
+                              min="0"
+                              value={item.rate || ""}
+                              placeholder="0.00"
+                              onFocus={() => setActiveRowIndex(idx)}
+                              onChange={(e) => updateLineItem(idx, { rate: parseFloat(e.target.value) || 0 })}
+                              className="w-full bg-transparent border border-transparent hover:border-slate-300 focus:border-blue-600 focus:bg-white rounded px-2 h-7 font-mono font-bold text-xs text-right outline-none text-slate-800"
+                            />
+                          </td>
+
+                          {/* 10. Tax (%) */}
+                          <td className="p-1 border-r border-slate-100 text-right">
+                            <input
+                              type="number"
+                              min="0"
+                              value={item.taxPercent ?? 5}
+                              onFocus={() => setActiveRowIndex(idx)}
+                              onChange={(e) => updateLineItem(idx, { taxPercent: parseFloat(e.target.value) || 0 })}
+                              className="w-full bg-transparent border-none text-right px-2 h-6 font-mono text-xs outline-none text-slate-600"
+                            />
+                          </td>
+
+                          {/* 11. Amount (₹) */}
+                          <td className="p-2 px-3 border-r border-slate-100 text-right font-mono font-bold text-slate-800 bg-slate-50/50">
+                            ₹{item.totalValue ? item.totalValue.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "0.00"}
+                          </td>
+
+                          {/* 12. Actions */}
+                          <td className="p-1.5 text-center">
+                            <div className="flex items-center justify-center gap-1">
+                              <button
+                                type="button"
+                                title="Browse/Edit (F2)"
+                                onClick={() => { setActiveRowIndex(idx); setShowBrowseModal(true); }}
+                                className="p-1 text-slate-400 hover:text-blue-600 rounded transition"
+                              >
+                                <span className="material-symbols-outlined text-[16px]">edit</span>
+                              </button>
+                              <button
+                                type="button"
+                                title="Delete row"
+                                onClick={() => handleDeleteRow(idx)}
+                                className="p-1 text-slate-400 hover:text-rose-600 rounded transition"
+                              >
+                                <span className="material-symbols-outlined text-[16px]">delete</span>
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              ) : itemView !== "size_pivot" ? (
                 <table className="w-full text-left border-collapse text-xs min-w-[1450px]">
                   <thead className="sticky top-0 z-10 bg-slate-50 text-slate-600 uppercase text-[10px] font-bold tracking-wider border-b border-slate-200">
                     <tr>
-                      <th className="p-2 w-10 text-center border-r border-slate-200 bg-slate-100">#</th>
+                      <th className="p-2 px-2.5 w-48 min-w-[180px] border-r border-slate-200 bg-slate-100 font-bold text-slate-700">Barcode</th>
+                      <th className="p-2 w-10 text-center border-r border-slate-200">#</th>
                       <th className="p-2 px-2.5 min-w-[110px] border-r border-slate-200">Item Code</th>
-                      <th className="p-2 px-2.5 min-w-[120px] border-r border-slate-200">Barcode</th>
                       <th className="p-2 px-3 min-w-[180px] border-r border-slate-200">Product Name</th>
                       <th className="p-2 px-2.5 min-w-[90px] border-r border-slate-200">Brand</th>
                       <th className="p-2 px-2.5 min-w-[80px] border-r border-slate-200">Style</th>
@@ -2026,7 +2822,7 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
                       const hasItem = !!item.stockNo;
                       return (
                         <tr
-                          key={item.id}
+                          key={item.id ? `${item.id}-${idx}` : `pogen-row-d-${idx}`}
                           onClick={() => {
                             setActiveRowIndex(idx);
                             setShowF2Hint(false);
@@ -2039,37 +2835,57 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
                               : "hover:bg-slate-50/60 opacity-80 hover:opacity-100"
                           }`}
                         >
-                          {/* 1. SNo */}
+                          {/* 1. Barcode (Column 1 per Decision C) */}
+                          <td className="p-1 border-r border-slate-100 min-w-[180px] bg-slate-50/30">
+                            <div className="flex items-center gap-1 px-1 group">
+                              <span className="material-symbols-outlined text-[15px] text-slate-400 shrink-0">barcode_scanner</span>
+                              <input
+                                type="text"
+                                id={`pogen-gen-barcode-${idx + 1}`}
+                                value={item.barcode || ""}
+                                placeholder="Scan / Barcode"
+                                title={item.barcode || "Barcode"}
+                                onFocus={() => setActiveRowIndex(idx)}
+                                onChange={(e) => handleBarcodeChange(idx, e.target.value)}
+                                className="w-full bg-transparent border-none p-0 h-6 font-mono font-semibold text-slate-800 text-xs outline-none"
+                              />
+                              {item.barcode && (
+                                <button
+                                  type="button"
+                                  title={`Copy barcode ${item.barcode}`}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    if (item.barcode) navigator.clipboard.writeText(item.barcode);
+                                    setCopiedBarcodeIdx(idx);
+                                    setTimeout(() => setCopiedBarcodeIdx(null), 1500);
+                                  }}
+                                  className="opacity-0 group-hover:opacity-100 p-0.5 text-slate-400 hover:text-blue-600 rounded transition shrink-0"
+                                >
+                                  <span className="material-symbols-outlined text-[14px]">
+                                    {copiedBarcodeIdx === idx ? "check" : "content_copy"}
+                                  </span>
+                                </button>
+                              )}
+                            </div>
+                          </td>
+
+                          {/* 2. SNo (Column 2) */}
                           <td className="p-2 text-center text-slate-400 font-mono font-medium border-r border-slate-100 bg-slate-50/50">
                             {item.sNo}
                           </td>
 
-                          {/* 2. Item Code */}
+                          {/* 3. Item Code / Article (Column 3) */}
                           <td className="p-1 border-r border-slate-100">
                             <input
                               type="text"
                               id={`pogen-gen-stockno-${idx + 1}`}
+                              list="pogen-articles-datalist"
                               value={item.stockNo}
-                              placeholder="F2 to browse"
+                              placeholder="F2 to browse / Article"
                               onFocus={() => { setActiveRowIndex(idx); setShowF2Hint(false); }}
-                              onChange={(e) => updateLineItem(idx, { stockNo: e.target.value })}
+                              onChange={(e) => handleStockNoOrArticleChange(idx, e.target.value)}
                               className="w-full bg-transparent border border-transparent hover:border-slate-300 focus:border-blue-600 focus:bg-white rounded px-2 h-7 font-mono font-bold text-xs outline-none"
                             />
-                          </td>
-
-                          {/* 3. Barcode */}
-                          <td className="p-1 border-r border-slate-100">
-                            <div className="flex items-center gap-1 px-1">
-                              <span className="material-symbols-outlined text-[15px] text-slate-400">barcode_scanner</span>
-                              <input
-                                type="text"
-                                value={item.barcode || ""}
-                                placeholder="Barcode"
-                                onFocus={() => setActiveRowIndex(idx)}
-                                onChange={(e) => updateLineItem(idx, { barcode: e.target.value })}
-                                className="w-full bg-transparent border-none p-0 h-6 font-mono text-xs outline-none"
-                              />
-                            </div>
                           </td>
 
                           {/* 4. Product Name */}
@@ -2099,10 +2915,13 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
                           <td className="p-1 border-r border-slate-100">
                             <input
                               type="text"
+                              id={`pogen-gen-style-${idx + 1}`}
+                              list="pogen-articles-datalist"
                               value={item.style}
+                              placeholder="Article / Style"
                               onFocus={() => setActiveRowIndex(idx)}
-                              onChange={(e) => updateLineItem(idx, { style: e.target.value })}
-                              className="w-full bg-transparent border-none px-2 h-6 text-xs outline-none text-slate-600"
+                              onChange={(e) => handleStyleChange(idx, e.target.value)}
+                              className="w-full bg-transparent border-none px-2 h-6 text-xs outline-none text-slate-600 font-bold"
                             />
                           </td>
 
@@ -2110,22 +2929,38 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
                           <td className="p-1 border-r border-slate-100">
                             <input
                               type="text"
+                              id={`pogen-gen-color-${idx + 1}`}
+                              list={`pogen-colors-list-${idx + 1}`}
                               value={item.shade}
+                              placeholder="Color"
                               onFocus={() => setActiveRowIndex(idx)}
-                              onChange={(e) => updateLineItem(idx, { shade: e.target.value })}
-                              className="w-full bg-transparent border-none px-2 h-6 text-xs outline-none text-slate-600"
+                              onChange={(e) => handleColorChange(idx, e.target.value)}
+                              className="w-full bg-transparent border-none px-2 h-6 text-xs outline-none text-slate-600 uppercase"
                             />
+                            <datalist id={`pogen-colors-list-${idx + 1}`}>
+                              {getAvailableColorsForArticle(articleCatalogIndex, item.style || item.stockNo).map(c => (
+                                <option key={c} value={c} />
+                              ))}
+                            </datalist>
                           </td>
 
                           {/* 8. Size */}
                           <td className="p-1 border-r border-slate-100 text-center">
                             <input
                               type="text"
+                              id={`pogen-gen-size-${idx + 1}`}
+                              list={`pogen-sizes-list-${idx + 1}`}
                               value={item.size}
+                              placeholder="Size"
                               onFocus={() => setActiveRowIndex(idx)}
-                              onChange={(e) => updateLineItem(idx, { size: e.target.value })}
-                              className="w-full bg-transparent border-none text-center h-6 font-semibold text-xs outline-none text-slate-700"
+                              onChange={(e) => handleSizeChange(idx, e.target.value)}
+                              className="w-full bg-transparent border-none text-center h-6 font-semibold text-xs outline-none text-slate-700 uppercase"
                             />
+                            <datalist id={`pogen-sizes-list-${idx + 1}`}>
+                              {getAvailableSizesForArticleAndColor(articleCatalogIndex, item.style || item.stockNo, item.shade).map(sz => (
+                                <option key={sz} value={sz} />
+                              ))}
+                            </datalist>
                           </td>
 
                           {/* 9. MRP (₹) - PROMINENT RETAIL FIELD */}
@@ -2360,125 +3195,12 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
                 </table>
               )}
             </div>
-
-            {/* ── 4. ITEM TOOLBAR (MANDATORY: PLACED IMMEDIATELY BELOW ITEM GRID) ── */}
-            <div className="bg-slate-50 px-4 py-2.5 border-t border-slate-200 flex flex-col md:flex-row items-center justify-between gap-3 shrink-0 text-xs">
-              {/* Left: Box Icon, Search/Scan input, and Primary Action Buttons */}
-              <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
-                <div className="flex items-center gap-2">
-                  <div className="w-7 h-7 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center">
-                    <span className="material-symbols-outlined text-[18px]">inventory_2</span>
-                  </div>
-                  <div>
-                    <span className="font-bold text-slate-800">Items</span>
-                    <span className="hidden sm:inline text-[11px] text-slate-500 ml-2">
-                      Scan barcode, search or press F2 to browse products.
-                    </span>
-                  </div>
-                </div>
-
-                {/* Barcode / Search Input */}
-                <div className="relative flex items-center min-w-[280px]">
-                  <span className="material-symbols-outlined absolute left-2.5 text-slate-400 text-[16px]">search</span>
-                  <input
-                    ref={toolbarSearchInputRef}
-                    type="text"
-                    placeholder="Scan barcode or search item (Press F2)"
-                    value={toolbarSearch}
-                    onChange={(e) => setToolbarSearch(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        e.preventDefault();
-                        handleBarcodeOrSearchSubmit(toolbarSearch);
-                      }
-                    }}
-                    className="w-full pl-8 pr-8 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-medium outline-none focus:border-blue-600 shadow-2xs"
-                  />
-                  {toolbarSearch && (
-                    <button
-                      type="button"
-                      onClick={() => setToolbarSearch("")}
-                      className="absolute right-2 text-slate-400 hover:text-slate-600"
-                    >
-                      &times;
-                    </button>
-                  )}
-                </div>
-
-                {/* + Add Item */}
-                <button
-                  type="button"
-                  onClick={handleAddNewBlankRow}
-                  className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-3 py-1.5 rounded-lg text-xs transition-colors shadow-xs flex items-center gap-1"
-                >
-                  <span className="material-symbols-outlined text-[16px]">add</span>
-                  <span>Add Item</span>
-                </button>
-
-                {/* Browse Items (F2) */}
-                <button
-                  type="button"
-                  onClick={() => setShowBrowseModal(true)}
-                  className="bg-white hover:bg-slate-100 border border-slate-300 text-slate-700 font-bold px-3 py-1.5 rounded-lg text-xs transition-colors shadow-2xs flex items-center gap-1.5"
-                >
-                  <span className="material-symbols-outlined text-[16px] text-blue-600">manage_search</span>
-                  <span>Browse Items (F2)</span>
-                </button>
-
-                {/* Fast Import (CSV / TSV / Excel / Clipboard) */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setInitialImportText(undefined);
-                    setIsGlobalImportOpen(true);
-                  }}
-                  className="bg-white hover:bg-slate-100 border border-slate-300 text-slate-700 font-bold px-3 py-1.5 rounded-lg text-xs transition-colors shadow-2xs flex items-center gap-1.5"
-                  title="Import from Excel, CSV, TSV or paste spreadsheet data"
-                >
-                  <span className="material-symbols-outlined text-[16px] text-emerald-600">table_view</span>
-                  <span>Fast Import</span>
-                </button>
-                <input
-                  ref={excelImportInputRef}
-                  type="file"
-                  accept=".csv, .xlsx, .xls, .tsv, .txt"
-                  onChange={handleExcelImport}
-                  className="hidden"
-                />
-
-                {/* More [...] dropdown */}
-                <div className="relative">
-                  <button
-                    type="button"
-                    onClick={() => setShowMoreMenu(m => !m)}
-                    className="bg-white hover:bg-slate-100 border border-slate-300 text-slate-700 font-bold px-2 py-1.5 rounded-lg text-xs transition shadow-2xs"
-                  >
-                    <span className="material-symbols-outlined text-[16px]">more_horiz</span>
-                  </button>
-                </div>
-              </div>
-
-              {/* Right: Item View Mode Selector */}
-              <div className="flex items-center gap-2">
-                <span className="text-slate-500 font-medium text-[11px]">Item View:</span>
-                <select
-                  value={itemView}
-                  onChange={(e) => setItemView(e.target.value as any)}
-                  className="bg-white border border-slate-300 rounded-lg px-2.5 py-1 text-xs font-bold text-slate-700 outline-none focus:border-blue-600 shadow-2xs cursor-pointer"
-                >
-                  <option value="standard">Standard</option>
-                  <option value="compact">Compact</option>
-                  <option value="detailed">Detailed</option>
-                  <option value="size_pivot">Size Pivot Matrix</option>
-                </select>
-              </div>
-            </div>
           </div>
         </main>
       )}
 
       {/* ── 5. Bottom Section: Notes + Summary + Order Amount Summary ──────── */}
-      {(activeTab === "general" || activeTab === "items") && (
+      {activeTab === "general" ? (
         <section className="px-6 py-3 shrink-0">
           <div className="grid grid-cols-1 md:grid-cols-12 gap-3.5 text-xs">
             {/* Left Card: Notes (~30%) */}
@@ -2606,7 +3328,53 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
             </div>
           </div>
         </section>
-      )}
+      ) : activeTab === "items" ? (
+        <section className="px-6 py-2 shrink-0 bg-white border-t border-slate-200">
+          <div className="flex flex-wrap items-center justify-between gap-3 text-xs">
+            <div className="flex items-center gap-4 flex-wrap">
+              <div className="flex items-center gap-1.5">
+                <span className="text-slate-500 font-medium">Items:</span>
+                <span className="font-mono font-bold text-slate-800">{totals.totalItems || 0}</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="text-slate-500 font-medium">Total Qty:</span>
+                <span className="font-mono font-bold text-blue-600">{totals.totalQty || 0}</span>
+              </div>
+              {(totals.freeQty ?? 0) > 0 && (
+                <div className="flex items-center gap-1.5">
+                  <span className="text-slate-500 font-medium">Free:</span>
+                  <span className="font-mono font-bold text-emerald-600">{totals.freeQty}</span>
+                </div>
+              )}
+              <div className="flex items-center gap-1.5">
+                <span className="text-slate-500 font-medium">Gross:</span>
+                <span className="font-mono text-slate-700">₹{(totals.grossValue || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="text-slate-500 font-medium">GST:</span>
+                <span className="font-mono text-slate-700">₹{((totals.cgst || 0) + (totals.sgst || 0) + (totals.igst || 0)).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2 bg-blue-50 px-3 py-1 rounded-lg border border-blue-200">
+                <span className="text-xs font-bold text-blue-900 uppercase tracking-wider">Net Order Value:</span>
+                <span className="font-mono font-extrabold text-blue-700 text-sm">
+                  ₹{(totals.netOrderValue || totals.totalValue || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setActiveTab("general")}
+                className="text-blue-600 hover:text-blue-800 font-medium text-xs flex items-center gap-1 underline underline-offset-2"
+              >
+                <span className="material-symbols-outlined text-[14px]">tune</span>
+                <span>Edit Freight & Taxes</span>
+              </button>
+            </div>
+          </div>
+        </section>
+      ) : null}
 
       {/* 409 Duplicate Order Recovery Banner */}
       {duplicateOrderNo && (
@@ -2854,6 +3622,50 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
         existingRowCount={lineItems.filter((l) => Boolean(l.stockNo?.trim()) || l.orderQty > 0).length}
         initialRawText={initialImportText}
         onCommit={handleGlobalGridImportCommit}
+      />
+
+      {/* ── Indexed Articles Datalist for Fast Autocomplete ────────────────── */}
+      <datalist id="pogen-articles-datalist">
+        {articleCatalogIndex.articles.map(art => (
+          <option key={art} value={art} />
+        ))}
+      </datalist>
+
+      {/* ── Commercial & Delivery Slide-Over Drawer (Decision B) ─────────── */}
+      <CommercialDeliveryDrawer
+        isOpen={showCommercialDrawer}
+        onClose={() => setShowCommercialDrawer(false)}
+        data={{
+          paymentTerms: header.paymentTerms || "30 Days",
+          freightCharges: header.freightCharges || "Paid by Supplier",
+          freightAmount: header.freightAmount ?? 0,
+          currency: header.currency || "INR",
+          buyer: header.buyer || "",
+          department: header.department || "Footwear",
+          specialInstructions: header.specialInstructions || "",
+          supplierReference: header.supplierReference || "",
+          deliveryDate: header.deliveryDate || "",
+          deliveryLocation: header.deliveryLocation || "Main Store (MAIN)",
+          leadTimeDays: header.leadTimeDays || 7,
+          otherCharges: header.otherCharges ?? 0,
+        }}
+        onChange={(updated) => setHeader(h => ({ ...h, ...updated }))}
+        supplierName={selectedSupplier?.name || header.supplierName}
+        supplierCode={selectedSupplier?.code || suppliersList.find(s => s.id === header.supplierId)?.code}
+        supplierCommercialDefaults={supplierCommercialDefaults}
+        onResetToDefaults={() => {
+          if (supplierCommercialDefaults) {
+            setHeader(h => ({
+              ...h,
+              paymentTerms: supplierCommercialDefaults.paymentTerms || h.paymentTerms,
+              freightCharges: supplierCommercialDefaults.freightCharges || h.freightCharges,
+              currency: supplierCommercialDefaults.currency || h.currency,
+              buyer: supplierCommercialDefaults.buyer || h.buyer,
+              department: supplierCommercialDefaults.department || h.department,
+              specialInstructions: supplierCommercialDefaults.specialInstructions !== undefined ? supplierCommercialDefaults.specialInstructions : h.specialInstructions,
+            }));
+          }
+        }}
       />
     </div>
   );

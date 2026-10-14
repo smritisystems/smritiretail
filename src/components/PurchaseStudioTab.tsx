@@ -21,12 +21,28 @@
 
 import React, { useState } from "react";
 import { PoGenerateTab } from "./purchase/PoGenerateTab.tsx";
-import { PoSizewiseTab } from "./purchase/PoSizewiseTab.tsx";
+import {
+  PoSizewiseTab,
+  SizewisePOLine,
+  SizewisePOHeader,
+  SIZE_SCALE_PRESETS,
+} from "./purchase/PoSizewiseTab.tsx";
 import { POWorkspaceTab } from "./purchase/POWorkspaceTab.tsx";
 import { AutoPOModal } from "./procurement/AutoPOModal.tsx";
 import { ConsignmentStudioModal } from "./procurement/ConsignmentStudioModal.tsx";
 import { SupplierPaymentModal } from "./procurement/SupplierPaymentModal.tsx";
 import { Product } from "../types.ts";
+import {
+  convertSizewiseToStandardLines,
+  convertStandardToSizewiseLines,
+  syncSizewiseHeaderToStandard,
+  syncStandardHeaderToSizewise,
+  detectSizesFromLines,
+} from "./purchase/poModeConversion.ts";
+import type {
+  PurchaseOrderHeader,
+  PurchaseOrderLineItem,
+} from "./purchase/types.ts";
 
 type TopLevelView = "generate" | "workspace";
 
@@ -67,7 +83,60 @@ export const PurchaseStudioTab: React.FC<PurchaseStudioTabProps> = ({
     return "sizewise";
   });
 
+  // ── Order to Edit in Sizewise mode ──────────────────────────────────────
+  const [orderToEdit, setOrderToEdit] = useState<string | null>(null);
+
+  // ── Unified Document State (Single Source of Truth across Sizewise & Standard) ──
+  const [sharedSizewiseLines, setSharedSizewiseLines] = useState<SizewisePOLine[]>([]);
+  const [sharedStandardLines, setSharedStandardLines] = useState<PurchaseOrderLineItem[]>([]);
+  const [sharedSizewiseHeader, setSharedSizewiseHeader] = useState<SizewisePOHeader | undefined>(undefined);
+  const [sharedStandardHeader, setSharedStandardHeader] = useState<PurchaseOrderHeader | undefined>(undefined);
+  const [sharedSizes, setSharedSizes] = useState<string[]>(() => SIZE_SCALE_PRESETS.FOOTWEAR_EU.sizes);
+
   const handleModeChange = (mode: "standard" | "sizewise") => {
+    if (mode === "standard" && poMode === "sizewise") {
+      // Convert Sizewise -> Standard barcode-wise lines
+      const activeSw = sharedSizewiseLines.filter((l) => l.totalQty > 0 || l.itemCode || l.articleNo);
+      if (activeSw.length > 0) {
+        const converted = convertSizewiseToStandardLines(
+          activeSw,
+          products,
+          sharedSizewiseHeader?.commonTaxPercent ?? 5
+        );
+        if (converted.length > 0) {
+          setSharedStandardLines(converted);
+        }
+      }
+      const newStdHeader = syncSizewiseHeaderToStandard(
+        sharedSizewiseHeader || {},
+        sharedStandardHeader
+      );
+      setSharedStandardHeader(newStdHeader);
+    } else if (mode === "sizewise" && poMode === "standard") {
+      // Convert Standard barcode-wise lines -> Sizewise horizontal matrix
+      const activeStd = sharedStandardLines.filter(
+        (l) => l.orderQty > 0 || Boolean(l.stockNo?.trim()) || Boolean(l.barcode?.trim())
+      );
+      if (activeStd.length > 0) {
+        const detectedSizes = detectSizesFromLines(activeStd, sharedSizes);
+        setSharedSizes(detectedSizes);
+        const converted = convertStandardToSizewiseLines(
+          activeStd,
+          detectedSizes,
+          sharedStandardHeader?.deliveryDate,
+          sharedStandardHeader?.commonTaxPercent ?? 5
+        );
+        if (converted.length > 0) {
+          setSharedSizewiseLines(converted);
+        }
+      }
+      const newSwHeader = syncStandardHeaderToSizewise(
+        sharedStandardHeader || {},
+        sharedSizewiseHeader
+      );
+      setSharedSizewiseHeader(newSwHeader);
+    }
+
     setPoMode(mode);
     try {
       localStorage.setItem("smriti_po_ux_mode", mode);
@@ -77,15 +146,10 @@ export const PurchaseStudioTab: React.FC<PurchaseStudioTabProps> = ({
   };
 
   // ── Open a PO in generation view (called from Workspace) ─────────────────
-  const handleOpenPOFromWorkspace = (_orderNo: string) => {
-    // Switch to generate view — the PO can be loaded by copy/browse
-    // Full deep-link to edit a specific PO is Phase C scope.
+  const handleOpenPOFromWorkspace = (orderNo: string) => {
     setTopView("generate");
-    onNotification?.(
-      "Open PO",
-      `To edit PO ${_orderNo}, use the search/browse in the generation panel.`,
-      "info"
-    );
+    setPoMode("sizewise");
+    setOrderToEdit(orderNo);
   };
 
   return (
@@ -137,6 +201,7 @@ export const PurchaseStudioTab: React.FC<PurchaseStudioTabProps> = ({
               <div className="inline-flex rounded-md shadow-xs bg-slate-800 p-0.5 border border-slate-700">
                 <button
                   type="button"
+                  id="po-mode-sizewise-btn"
                   onClick={() => handleModeChange("sizewise")}
                   className={`px-3 py-1 rounded text-xs font-medium transition flex items-center gap-1.5 ${
                     poMode === "sizewise"
@@ -149,6 +214,7 @@ export const PurchaseStudioTab: React.FC<PurchaseStudioTabProps> = ({
                 </button>
                 <button
                   type="button"
+                  id="po-mode-standard-btn"
                   onClick={() => handleModeChange("standard")}
                   className={`px-3 py-1 rounded text-xs font-medium transition flex items-center gap-1.5 ${
                     poMode === "standard"
@@ -231,6 +297,14 @@ export const PurchaseStudioTab: React.FC<PurchaseStudioTabProps> = ({
             onNotification={onNotification}
             onClose={onClose}
             onNavigateTab={onNavigateTab}
+            sizes={sharedSizes}
+            onSizesChange={setSharedSizes}
+            orderToEdit={orderToEdit}
+            onClearOrderToEdit={() => setOrderToEdit(null)}
+            initialLines={sharedSizewiseLines}
+            initialHeader={sharedSizewiseHeader}
+            onLinesChange={setSharedSizewiseLines}
+            onHeaderChange={setSharedSizewiseHeader}
           />
         )}
 
@@ -242,6 +316,10 @@ export const PurchaseStudioTab: React.FC<PurchaseStudioTabProps> = ({
             onNotification={onNotification}
             onClose={onClose}
             onNavigateTab={onNavigateTab}
+            initialLineItems={sharedStandardLines}
+            initialHeader={sharedStandardHeader}
+            onLineItemsChange={setSharedStandardLines}
+            onHeaderChange={setSharedStandardHeader}
           />
         )}
       </div>
