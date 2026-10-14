@@ -98,6 +98,18 @@ from app.models.identity_registry import (
     SmritiIdentityRegistry, SmritiNumberingRegistry,
     SmritiIdentityAlias, SmritiIdentityAllocationLog,
 )
+# v1532: Cost Management & Profitability Engine Models
+from app.models.profitability import (
+    ProductCostValuation,
+    TransactionCostSnapshot,
+    InvoiceProfitabilityLedger,
+)
+from app.models.inward_cost import (
+    InwardCostComponentType,
+    InwardCostComponent,
+    InwardCostAllocation,
+    InwardCostAdjustment,
+)
 config = context.config
 
 if config.config_file_name is not None:

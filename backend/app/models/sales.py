@@ -425,6 +425,7 @@ class SalesReturnItem(Base):
     created_by = Column(String(100), nullable=True)
     updated_by = Column(String(100), nullable=True)
     return_id    = Column(String(50), ForeignKey("sales_returns.id", ondelete="CASCADE"), nullable=False, index=True)
+    sales_invoice_item_id = Column(Integer, ForeignKey("sales_invoice_items.id", ondelete="SET NULL"), nullable=True, index=True)
     product_id   = Column(String(50), ForeignKey("products.id", ondelete="RESTRICT"))
     item_id      = Column(String(50), ForeignKey("items.id", ondelete="SET NULL"), nullable=True, index=True)
     variant_id   = Column(String(50), nullable=True, index=True)

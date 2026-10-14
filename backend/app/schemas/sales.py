@@ -12,7 +12,7 @@ License      : Proprietary Commercial Software
 Classification: Internal
 """
 
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Union
 from datetime import datetime, date as datetime_date
 from decimal import Decimal
 from pydantic import BaseModel, ConfigDict, Field, AliasChoices, field_validator
@@ -387,6 +387,7 @@ class SalesOrderResponse(SalesOrderBase):
 class SalesReturnItemBase(BaseModel):
     product_id: str = Field(..., max_length=50)
     item_id: Optional[str] = Field(None, max_length=50, validation_alias=AliasChoices("item_id", "itemId"))
+    sales_invoice_item_id: Optional[Union[int, str]] = Field(None, validation_alias=AliasChoices("sales_invoice_item_id", "salesInvoiceItemId", "invoice_item_id", "invoiceItemId"))
     code: str = Field(..., max_length=50)
     name: str = Field(..., max_length=255)
     quantity: Decimal = Decimal("1.0000")
