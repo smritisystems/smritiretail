@@ -4,12 +4,22 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 1.3.0
+ * Version      : 1.4.0
  * Created      : 2026-10-11
- * Modified     : 2026-10-14
+ * Modified     : 2026-10-15
  * Copyright    : (c) SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
+ *
+ * Changelog v1.4.0 (2026-10-15):
+ *   - Phase 2 Bulk Manual Attendance Entry Workspace:
+ *     - Multi-step bulk attendance marking (Configure -> Preview -> Results Breakdown).
+ *     - 7 canonical domain statuses: PRESENT, ABSENT, HALF_DAY, LEAVE, WEEKLY_OFF, HOLIDAY, LATE.
+ *     - Quick actions: Mark All Present, Mark Selected Present, Mark Selected Absent, Reset.
+ *     - Name, code, and department search and authorized branch scoping.
+ *     - Mandatory reasons for ABSENT and LEAVE statuses.
+ *     - Pre-confirmation status breakdown and post-submission Created/Skipped/Error reporting.
+ *     - Extended manager authorizations to HR_EXECUTIVE.
  *
  * Changelog v1.3.0 (2026-10-14):
  *   - Added Form II Statutory Muster Roll 1..31 horizontal matrix with CSV export and print.
@@ -26,6 +36,7 @@ import {
   ChevronLeft, ChevronRight, Clock, Loader2, Pencil, RefreshCw,
   Search, Shield, UserCheck, UserMinus, Users, XCircle,
   Download, FileSpreadsheet, Lock, Printer, DollarSign, Calculator,
+  Filter, Check, AlertTriangle, ArrowRight, ArrowLeft, CheckCheck,
 } from "lucide-react";
 import { apiFetchV1 } from "../../lib/apiFetchV1.ts";
 
@@ -45,7 +56,27 @@ interface AttendanceRecord {
   username?: string;
   full_name?: string;
 }
-interface PersonnelProfile { id: string; username: string; fullName: string; }
+
+export type BulkAttendanceStatus = "PRESENT" | "ABSENT" | "HALF_DAY" | "LEAVE" | "WEEKLY_OFF" | "HOLIDAY" | "LATE";
+
+export interface BulkSubmitResult {
+  success: boolean;
+  created: number;
+  skipped: number;
+  errors: number;
+  created_records?: any[];
+  skipped_records?: { user_id: string; attendance_date: string; reason: string }[];
+  error_records?: { user_id: string; attendance_date: string; error: string }[];
+}
+
+interface PersonnelProfile {
+  id: string;
+  username: string;
+  fullName: string;
+  employeeCode?: string;
+  department?: string;
+  branchId?: string;
+}
 interface BranchOption { id: string; name: string; code: string; }
 
 const STATUS_COLORS: Record<string, string> = {
@@ -114,11 +145,20 @@ export const AttendanceWorkspaceTab: React.FC<AttendanceWorkspaceTabProps> = ({
   const [punchUserId, setPunchUserId] = useState("");
   const [punchType, setPunchType]   = useState<"AUTO" | "IN" | "OUT">("AUTO");
   const [punching, setPunching]     = useState(false);
+  // Enhanced Bulk Attendance State (Phase 2)
   const [showBulkModal, setShowBulkModal] = useState(false);
+  const [bulkStep, setBulkStep]     = useState<"configure" | "preview" | "results">("configure");
   const [bulkDate, setBulkDate]     = useState(todayISO());
-  const [bulkStatus, setBulkStatus] = useState<"HOLIDAY" | "ABSENT">("HOLIDAY");
+  const [bulkBranch, setBulkBranch] = useState("");
+  const [bulkSearch, setBulkSearch] = useState("");
+  const [bulkDeptFilter, setBulkDeptFilter] = useState("");
   const [bulkSelected, setBulkSelected] = useState<string[]>([]);
+  const [bulkStatuses, setBulkStatuses] = useState<Record<string, BulkAttendanceStatus>>({});
+  const [bulkReasons, setBulkReasons] = useState<Record<string, string>>({});
   const [bulkSubmitting, setBulkSubmitting] = useState(false);
+  const [bulkResult, setBulkResult] = useState<BulkSubmitResult | null>(null);
+  const [bulkValidationMsg, setBulkValidationMsg] = useState<string | null>(null);
+
   const [section, setSection]       = useState<"register" | "muster_roll" | "wages" | "corrections" | "summary">(initialSection);
   const [corrections, setCorrections] = useState<AttendanceRecord[]>([]);
 
@@ -164,6 +204,9 @@ export const AttendanceWorkspaceTab: React.FC<AttendanceWorkspaceTabProps> = ({
             id: uid,
             username: (p as any).username || (p as any).code || uid,
             fullName: (p as any).fullName || (p as any).full_name || (p as any).person_name || "Staff Member",
+            employeeCode: (p as any).employee_code || (p as any).employeeCode || (p as any).code || "",
+            department: (p as any).department || (p as any).department_name || (p as any).role || "Operations",
+            branchId: (p as any).branch_id || (p as any).branchId || "",
           });
         }
       }
@@ -177,6 +220,9 @@ export const AttendanceWorkspaceTab: React.FC<AttendanceWorkspaceTabProps> = ({
             id: uid,
             username: d.username || d.employeeCode || uid,
             fullName: d.fullName || d.full_name || d.name || "Staff Member",
+            employeeCode: d.employee_code || d.employeeCode || d.code || "",
+            department: d.department || d.department_name || d.role || "Operations",
+            branchId: d.branch_id || d.branchId || "",
           });
         }
       }
@@ -221,18 +267,137 @@ export const AttendanceWorkspaceTab: React.FC<AttendanceWorkspaceTabProps> = ({
     finally { setPunching(false); }
   };
 
-  const handleBulkMark = async () => {
-    if (!bulkSelected.length) { notify("Bulk Mark", "Select at least one staff member.", "warning"); return; }
+  const bulkDepartments = useMemo(() => {
+    const s = new Set<string>();
+    personnel.forEach(p => { if (p.department) s.add(p.department); });
+    return Array.from(s).sort();
+  }, [personnel]);
+
+  const filteredBulkPersonnel = useMemo(() => {
+    return personnel.filter(p => {
+      if (bulkBranch && p.branchId && p.branchId !== bulkBranch) return false;
+      if (bulkDeptFilter && p.department !== bulkDeptFilter) return false;
+      if (bulkSearch) {
+        const q = bulkSearch.toLowerCase();
+        const mName = (p.fullName || "").toLowerCase().includes(q);
+        const mCode = (p.employeeCode || "").toLowerCase().includes(q);
+        const mUser = (p.username || "").toLowerCase().includes(q);
+        const mDept = (p.department || "").toLowerCase().includes(q);
+        if (!mName && !mCode && !mUser && !mDept) return false;
+      }
+      return true;
+    });
+  }, [personnel, bulkBranch, bulkDeptFilter, bulkSearch]);
+
+  const bulkStatusCounts = useMemo(() => {
+    const counts: Record<BulkAttendanceStatus, number> = {
+      PRESENT: 0, ABSENT: 0, HALF_DAY: 0, LEAVE: 0, WEEKLY_OFF: 0, HOLIDAY: 0, LATE: 0,
+    };
+    bulkSelected.forEach(id => {
+      const st = bulkStatuses[id] || "PRESENT";
+      counts[st] = (counts[st] || 0) + 1;
+    });
+    return counts;
+  }, [bulkSelected, bulkStatuses]);
+
+  const handleMarkAllPresent = () => {
+    const nextStatuses = { ...bulkStatuses };
+    const allIds = filteredBulkPersonnel.map(p => p.id);
+    allIds.forEach(id => { nextStatuses[id] = "PRESENT"; });
+    setBulkStatuses(nextStatuses);
+    setBulkSelected(allIds);
+    setBulkValidationMsg(null);
+  };
+
+  const handleMarkSelectedPresent = () => {
+    if (!bulkSelected.length) return;
+    const nextStatuses = { ...bulkStatuses };
+    bulkSelected.forEach(id => { nextStatuses[id] = "PRESENT"; });
+    setBulkStatuses(nextStatuses);
+    setBulkValidationMsg(null);
+  };
+
+  const handleMarkSelectedAbsent = () => {
+    if (!bulkSelected.length) return;
+    const nextStatuses = { ...bulkStatuses };
+    const nextReasons = { ...bulkReasons };
+    bulkSelected.forEach(id => {
+      nextStatuses[id] = "ABSENT";
+      if (!nextReasons[id]) nextReasons[id] = "Operator recorded absence";
+    });
+    setBulkStatuses(nextStatuses);
+    setBulkReasons(nextReasons);
+    setBulkValidationMsg(null);
+  };
+
+  const handleResetBulk = () => {
+    setBulkSelected([]);
+    setBulkStatuses({});
+    setBulkReasons({});
+    setBulkValidationMsg(null);
+  };
+
+  const handleProceedToPreview = () => {
+    if (!bulkSelected.length) {
+      setBulkValidationMsg("Please select at least one staff member.");
+      return;
+    }
+    const missingReason = bulkSelected.find(id => {
+      const st = bulkStatuses[id] || "PRESENT";
+      return (st === "ABSENT" || st === "LEAVE") && !(bulkReasons[id] || "").trim();
+    });
+    if (missingReason) {
+      const p = personnel.find(x => x.id === missingReason);
+      setBulkValidationMsg(`Reason is required for ${p?.fullName || "selected employee"} with status ${bulkStatuses[missingReason] || "ABSENT"}.`);
+      return;
+    }
+    setBulkValidationMsg(null);
+    setBulkStep("preview");
+  };
+
+  const handleConfirmBulkSubmit = async () => {
     setBulkSubmitting(true);
+    setBulkValidationMsg(null);
     try {
-      const payload = bulkSelected.map(uid => ({ user_id: uid, attendance_date: bulkDate, status: bulkStatus, register_source: "MANAGER_BULK" }));
-      const res = await apiFetchV1<{ success: boolean; created: number; skipped: number; errors: number }>(
-        "/staff/attendance/bulk", { method: "POST", body: JSON.stringify(payload) }
+      const payload = bulkSelected.map(uid => ({
+        user_id: uid,
+        attendance_date: bulkDate,
+        status: bulkStatuses[uid] || "PRESENT",
+        register_source: "MANAGER_BULK",
+        correction_reason: (bulkReasons[uid] || "").trim() || (bulkStatuses[uid] === "ABSENT" || bulkStatuses[uid] === "LEAVE" ? "Manager manual entry" : undefined),
+        branch_source_id: bulkBranch || undefined,
+      }));
+
+      const res = await apiFetchV1<BulkSubmitResult>(
+        "/staff/attendance/bulk",
+        { method: "POST", body: JSON.stringify(payload) }
       );
-      notify("Bulk Mark Complete", `Created: ${res?.created ?? 0} | Skipped: ${res?.skipped ?? 0} | Errors: ${res?.errors ?? 0}`, res?.errors ? "warning" : "success");
-      setShowBulkModal(false); setBulkSelected([]); loadAttendance();
-    } catch (e: any) { notify("Bulk Mark Failed", e?.message || "Could not complete bulk marking.", "error"); }
-    finally { setBulkSubmitting(false); }
+
+      setBulkResult(res);
+      setBulkStep("results");
+      notify(
+        "Bulk Attendance Recorded",
+        `Created: ${res?.created ?? 0} | Skipped: ${res?.skipped ?? 0} | Errors: ${res?.errors ?? 0}`,
+        res?.errors ? "warning" : "success"
+      );
+      loadAttendance();
+      if (section === "muster_roll") loadMusterRoll();
+    } catch (e: any) {
+      setBulkValidationMsg(e?.message || "Failed to submit bulk attendance.");
+      notify("Bulk Submission Error", e?.message || "Could not complete bulk attendance.", "error");
+    } finally {
+      setBulkSubmitting(false);
+    }
+  };
+
+  const handleCloseBulkModal = () => {
+    setShowBulkModal(false);
+    setBulkStep("configure");
+    setBulkSelected([]);
+    setBulkStatuses({});
+    setBulkReasons({});
+    setBulkResult(null);
+    setBulkValidationMsg(null);
   };
 
   const handleCorrectionDecision = async (id: string, decision: "APPROVED" | "REJECTED") => {
@@ -345,7 +510,7 @@ export const AttendanceWorkspaceTab: React.FC<AttendanceWorkspaceTabProps> = ({
     total:   records.length,
   }), [records]);
 
-  const isManager = ["SYSADMIN", "ADMIN", "MANAGER", "STORE_MANAGER", "BRANCH_ADMIN"].includes((currentUser?.role || "").toUpperCase());
+  const isManager = ["SYSADMIN", "ADMIN", "MANAGER", "STORE_MANAGER", "BRANCH_ADMIN", "HR_EXECUTIVE"].includes((currentUser?.role || "").toUpperCase());
 
   return (
     <div className="flex h-full flex-col bg-slate-50 dark:bg-slate-900">
@@ -942,55 +1107,485 @@ export const AttendanceWorkspaceTab: React.FC<AttendanceWorkspaceTabProps> = ({
         </div>
       )}
 
-      {/* Bulk Modal */}
+      {/* Enhanced Bulk Attendance Workspace Modal (Phase 2) */}
       {showBulkModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-          <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl dark:bg-slate-900">
-            <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-base font-black text-slate-800 dark:text-white">Bulk Attendance Mark</h2>
-              <button id="att-bulk-close" onClick={() => setShowBulkModal(false)} className="text-slate-400 hover:text-slate-600">
-                <XCircle size={20} />
-              </button>
-            </div>
-            <div className="mb-4 grid grid-cols-2 gap-3">
-              <div>
-                <label className="mb-1 block text-xs font-semibold text-slate-600">Date</label>
-                <input id="att-bulk-date" type="date" value={bulkDate} onChange={e => setBulkDate(e.target.value)}
-                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-indigo-400" />
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
+          <div className="flex h-[90vh] w-full max-w-5xl flex-col rounded-2xl bg-white shadow-2xl dark:bg-slate-900 border border-slate-200 dark:border-slate-800 overflow-hidden">
+            {/* Modal Header */}
+            <div className="flex shrink-0 items-center justify-between border-b border-slate-200 bg-slate-50/80 px-6 py-4 dark:border-slate-800 dark:bg-slate-950">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-100 text-indigo-700 dark:bg-indigo-950/70 dark:text-indigo-400">
+                  <Users size={20} />
+                </div>
+                <div>
+                  <h2 className="text-base font-black text-slate-900 dark:text-white flex items-center gap-2">
+                    Bulk Attendance Entry Workspace
+                    <span className="rounded-full bg-indigo-100 px-2.5 py-0.5 text-[10px] font-bold text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300">
+                      Phase 2
+                    </span>
+                  </h2>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    Canonical status governance &middot; Biometric preservation &middot; Payroll lock protection
+                  </p>
+                </div>
               </div>
-              <div>
-                <label className="mb-1 block text-xs font-semibold text-slate-600">Mark As</label>
-                <select id="att-bulk-status" value={bulkStatus} onChange={e => setBulkStatus(e.target.value as "HOLIDAY" | "ABSENT")}
-                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-indigo-400">
-                  <option value="HOLIDAY">Holiday</option>
-                  <option value="ABSENT">Absent</option>
-                </select>
+
+              {/* Stepper Indicator */}
+              <div className="flex items-center gap-1 text-xs font-bold">
+                <span className={`rounded-lg px-2.5 py-1 ${bulkStep === "configure" ? "bg-indigo-600 text-white" : "bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300"}`}>
+                  1. Configure
+                </span>
+                <ChevronRight size={14} className="text-slate-400" />
+                <span className={`rounded-lg px-2.5 py-1 ${bulkStep === "preview" ? "bg-indigo-600 text-white" : "bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300"}`}>
+                  2. Preview
+                </span>
+                <ChevronRight size={14} className="text-slate-400" />
+                <span className={`rounded-lg px-2.5 py-1 ${bulkStep === "results" ? "bg-indigo-600 text-white" : "bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300"}`}>
+                  3. Results
+                </span>
+                <button
+                  id="att-bulk-close"
+                  onClick={handleCloseBulkModal}
+                  className="ml-3 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                >
+                  <XCircle size={22} />
+                </button>
               </div>
             </div>
-            <label className="mb-1 block text-xs font-semibold text-slate-600">Select Staff ({bulkSelected.length} selected)</label>
-            <div className="mb-4 max-h-48 overflow-y-auto rounded-lg border border-slate-200 bg-slate-50">
-              <div className="sticky top-0 flex items-center gap-2 border-b border-slate-200 bg-slate-50 px-3 py-2">
-                <button className="text-xs font-semibold text-indigo-600 hover:underline" onClick={() => setBulkSelected(personnel.map(p => p.id))}>Select All</button>
-                <span className="text-slate-300">|</span>
-                <button className="text-xs font-semibold text-slate-500 hover:underline" onClick={() => setBulkSelected([])}>Clear</button>
+
+            {/* Step 1: Configure & Select */}
+            {bulkStep === "configure" && (
+              <div className="flex flex-1 flex-col overflow-hidden">
+                {/* Filter and Scope Bar */}
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-3 border-b border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+                  <div>
+                    <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-300">
+                      Attendance Date <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      id="att-bulk-date"
+                      type="date"
+                      value={bulkDate}
+                      onChange={e => setBulkDate(e.target.value)}
+                      className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-bold outline-none focus:border-indigo-500 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-300">
+                      Authorized Branch
+                    </label>
+                    <select
+                      id="att-bulk-branch-select"
+                      value={bulkBranch}
+                      onChange={e => setBulkBranch(e.target.value)}
+                      className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-semibold outline-none focus:border-indigo-500 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                    >
+                      <option value="">All Authorized Branches</option>
+                      {branches.map(b => (
+                        <option key={b.id} value={b.id}>{b.name} ({b.code})</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-300">
+                      Search Employee
+                    </label>
+                    <div className="relative">
+                      <Search size={13} className="absolute left-2.5 top-2 text-slate-400" />
+                      <input
+                        id="att-bulk-search"
+                        type="text"
+                        placeholder="Search name, code, dept..."
+                        value={bulkSearch}
+                        onChange={e => setBulkSearch(e.target.value)}
+                        className="w-full rounded-lg border border-slate-200 bg-slate-50 pl-8 pr-3 py-1.5 text-xs outline-none focus:border-indigo-500 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-300">
+                      Department Filter
+                    </label>
+                    <select
+                      id="att-bulk-dept-filter"
+                      value={bulkDeptFilter}
+                      onChange={e => setBulkDeptFilter(e.target.value)}
+                      className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-semibold outline-none focus:border-indigo-500 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                    >
+                      <option value="">All Departments</option>
+                      {bulkDepartments.map(d => (
+                        <option key={d} value={d}>{d}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                {/* Quick Actions Bar */}
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 bg-slate-50 px-4 py-2.5 dark:border-slate-800 dark:bg-slate-950">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold text-slate-700 dark:text-slate-300">Quick Actions:</span>
+                    <button
+                      id="att-bulk-mark-all-present"
+                      onClick={handleMarkAllPresent}
+                      className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-2.5 py-1 text-xs font-bold text-white hover:bg-emerald-700"
+                    >
+                      <CheckCircle2 size={12} /> Mark All Present
+                    </button>
+                    <button
+                      id="att-bulk-mark-sel-present"
+                      onClick={handleMarkSelectedPresent}
+                      disabled={!bulkSelected.length}
+                      className="inline-flex items-center gap-1 rounded-lg border border-emerald-300 bg-emerald-50 px-2.5 py-1 text-xs font-bold text-emerald-700 hover:bg-emerald-100 disabled:opacity-40 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300"
+                    >
+                      Mark Selected Present
+                    </button>
+                    <button
+                      id="att-bulk-mark-sel-absent"
+                      onClick={handleMarkSelectedAbsent}
+                      disabled={!bulkSelected.length}
+                      className="inline-flex items-center gap-1 rounded-lg border border-red-300 bg-red-50 px-2.5 py-1 text-xs font-bold text-red-700 hover:bg-red-100 disabled:opacity-40 dark:border-red-800 dark:bg-red-950/40 dark:text-red-300"
+                    >
+                      <UserMinus size={12} /> Mark Selected Absent
+                    </button>
+                    <button
+                      id="att-bulk-reset"
+                      onClick={handleResetBulk}
+                      className="rounded-lg border border-slate-300 bg-white px-2.5 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"
+                    >
+                      Reset
+                    </button>
+                  </div>
+                  <div className="text-xs font-bold text-indigo-700 dark:text-indigo-400">
+                    {bulkSelected.length} of {filteredBulkPersonnel.length} staff selected
+                  </div>
+                </div>
+
+                {/* Interactive Staff Table */}
+                <div className="flex-1 overflow-auto p-4">
+                  <table className="w-full text-left text-xs">
+                    <thead>
+                      <tr className="sticky top-0 z-10 border-b border-slate-200 bg-slate-100 text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300">
+                        <th className="w-10 px-3 py-2 text-center">
+                          <input
+                            type="checkbox"
+                            checked={filteredBulkPersonnel.length > 0 && bulkSelected.length === filteredBulkPersonnel.length}
+                            onChange={e => {
+                              if (e.target.checked) {
+                                setBulkSelected(filteredBulkPersonnel.map(p => p.id));
+                              } else {
+                                setBulkSelected([]);
+                              }
+                            }}
+                            className="accent-indigo-600 rounded"
+                          />
+                        </th>
+                        <th className="min-w-[160px] px-3 py-2 font-bold">Staff Member</th>
+                        <th className="min-w-[120px] px-2 py-2 font-semibold">Department & Branch</th>
+                        <th className="min-w-[280px] px-2 py-2 font-semibold">Attendance Status</th>
+                        <th className="min-w-[180px] px-2 py-2 font-semibold">Remarks / Reason</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                      {filteredBulkPersonnel.length === 0 ? (
+                        <tr>
+                          <td colSpan={5} className="py-12 text-center text-slate-400">
+                            No employees found matching the selected filters.
+                          </td>
+                        </tr>
+                      ) : (
+                        filteredBulkPersonnel.map(p => {
+                          const isSelected = bulkSelected.includes(p.id);
+                          const currentStatus = bulkStatuses[p.id] || "PRESENT";
+                          const needsReason = currentStatus === "ABSENT" || currentStatus === "LEAVE";
+
+                          return (
+                            <tr
+                              key={p.id}
+                              className={`transition-colors ${isSelected ? "bg-indigo-50/40 dark:bg-indigo-950/20" : "hover:bg-slate-50 dark:hover:bg-slate-900/50"}`}
+                            >
+                              <td className="px-3 py-2.5 text-center">
+                                <input
+                                  type="checkbox"
+                                  checked={isSelected}
+                                  onChange={e => {
+                                    if (e.target.checked) {
+                                      setBulkSelected(prev => [...prev, p.id]);
+                                    } else {
+                                      setBulkSelected(prev => prev.filter(id => id !== p.id));
+                                    }
+                                  }}
+                                  className="accent-indigo-600 rounded"
+                                />
+                              </td>
+                              <td className="px-3 py-2.5">
+                                <div className="font-bold text-slate-800 dark:text-white">{p.fullName}</div>
+                                <div className="font-mono text-[10px] text-slate-400">
+                                  {p.employeeCode ? `${p.employeeCode} &middot; ` : ""}{p.username}
+                                </div>
+                              </td>
+                              <td className="px-2 py-2.5 text-[11px] text-slate-500 dark:text-slate-400">
+                                <span className="inline-block rounded bg-slate-100 px-1.5 py-0.5 font-semibold text-slate-700 dark:bg-slate-800 dark:text-slate-300">
+                                  {p.department || "General"}
+                                </span>
+                              </td>
+                              <td className="px-2 py-2.5">
+                                <div className="flex flex-wrap gap-1">
+                                  {(["PRESENT", "ABSENT", "HALF_DAY", "LEAVE", "WEEKLY_OFF", "HOLIDAY", "LATE"] as BulkAttendanceStatus[]).map(st => {
+                                    const active = currentStatus === st;
+                                    return (
+                                      <button
+                                        key={st}
+                                        type="button"
+                                        onClick={() => {
+                                          setBulkStatuses(prev => ({ ...prev, [p.id]: st }));
+                                          if (!isSelected) {
+                                            setBulkSelected(prev => [...prev, p.id]);
+                                          }
+                                        }}
+                                        className={`rounded-full px-2 py-0.5 text-[10px] font-bold transition-all ${
+                                          active
+                                            ? `${STATUS_COLORS[st]} ring-1 ring-inset ring-current`
+                                            : "bg-slate-100 text-slate-500 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-400"
+                                        }`}
+                                      >
+                                        {STATUS_LABELS[st] || st}
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              </td>
+                              <td className="px-2 py-2.5">
+                                <input
+                                  id={`att-bulk-reason-${p.id}`}
+                                  type="text"
+                                  placeholder={needsReason ? "Required reason..." : "Optional remark..."}
+                                  value={bulkReasons[p.id] || ""}
+                                  onChange={e => setBulkReasons(prev => ({ ...prev, [p.id]: e.target.value }))}
+                                  className={`w-full rounded-md border px-2 py-1 text-xs outline-none ${
+                                    needsReason && !(bulkReasons[p.id] || "").trim()
+                                      ? "border-amber-400 bg-amber-50/50 dark:bg-amber-950/20"
+                                      : "border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-800"
+                                  }`}
+                                />
+                              </td>
+                            </tr>
+                          );
+                        })
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Validation and Error Message */}
+                {bulkValidationMsg && (
+                  <div className="flex items-center gap-2 border-t border-amber-200 bg-amber-50 px-6 py-2.5 text-xs font-semibold text-amber-800 dark:border-amber-900/50 dark:bg-amber-950/50 dark:text-amber-200">
+                    <AlertTriangle size={14} className="shrink-0" />
+                    <span>{bulkValidationMsg}</span>
+                  </div>
+                )}
+
+                {/* Footer Actions */}
+                <div className="flex shrink-0 items-center justify-between border-t border-slate-200 bg-slate-50 px-6 py-3 dark:border-slate-800 dark:bg-slate-950">
+                  <button
+                    id="att-bulk-cancel"
+                    onClick={handleCloseBulkModal}
+                    className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    id="att-bulk-preview-btn"
+                    disabled={!bulkSelected.length}
+                    onClick={handleProceedToPreview}
+                    className="inline-flex items-center gap-1.5 rounded-xl bg-indigo-600 px-5 py-2 text-xs font-bold text-white hover:bg-indigo-700 disabled:opacity-40"
+                  >
+                    Review & Preview ({bulkSelected.length}) <ArrowRight size={14} />
+                  </button>
+                </div>
               </div>
-              {personnel.map(p => (
-                <label key={p.id} className="flex cursor-pointer items-center gap-2 px-3 py-2 hover:bg-slate-100">
-                  <input type="checkbox" checked={bulkSelected.includes(p.id)} className="accent-indigo-600"
-                    onChange={e => e.target.checked ? setBulkSelected(prev => [...prev, p.id]) : setBulkSelected(prev => prev.filter(id => id !== p.id))} />
-                  <span className="text-xs text-slate-700">{p.fullName || p.username}</span>
-                </label>
-              ))}
-            </div>
-            <div className="flex gap-3">
-              <button id="att-bulk-cancel" onClick={() => setShowBulkModal(false)}
-                className="flex-1 rounded-xl border border-slate-200 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50">Cancel</button>
-              <button id="att-bulk-submit" disabled={bulkSubmitting || !bulkSelected.length} onClick={handleBulkMark}
-                className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-indigo-600 py-2.5 text-sm font-bold text-white hover:bg-indigo-700 disabled:opacity-50">
-                {bulkSubmitting ? <Loader2 size={14} className="animate-spin" /> : <Users size={14} />}
-                {bulkSubmitting ? "Marking..." : `Mark ${bulkSelected.length} Staff`}
-              </button>
-            </div>
+            )}
+
+            {/* Step 2: Preview & Validation */}
+            {bulkStep === "preview" && (
+              <div className="flex flex-1 flex-col overflow-hidden p-6">
+                <div className="mb-4 rounded-xl border border-indigo-100 bg-indigo-50/60 p-4 dark:border-indigo-900/40 dark:bg-indigo-950/30">
+                  <div className="flex flex-wrap items-center justify-between gap-4">
+                    <div>
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-600">Target Attendance Scope</span>
+                      <div className="mt-0.5 text-sm font-black text-slate-900 dark:text-white">
+                        Date: {fmtDate(bulkDate)} &middot; Branch: {branches.find(b => b.id === bulkBranch)?.name || "All Authorized Branches"}
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-600">Total Entries</span>
+                      <div className="text-xl font-black text-indigo-700 dark:text-indigo-300">{bulkSelected.length} Staff</div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Status Breakdown Grid */}
+                <div className="mb-4 grid grid-cols-2 md:grid-cols-7 gap-2">
+                  {(["PRESENT", "ABSENT", "HALF_DAY", "LEAVE", "WEEKLY_OFF", "HOLIDAY", "LATE"] as BulkAttendanceStatus[]).map(st => (
+                    <div key={st} className={`rounded-xl border p-2.5 text-center ${STATUS_COLORS[st]}`}>
+                      <div className="text-[10px] font-bold uppercase">{STATUS_LABELS[st]}</div>
+                      <div className="text-lg font-black">{bulkStatusCounts[st]}</div>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="mb-2 text-xs font-bold text-slate-700 dark:text-slate-300">
+                  Pre-Submission Verification List ({bulkSelected.length} records):
+                </div>
+
+                {/* Selected Staff Review List */}
+                <div className="flex-1 overflow-auto rounded-xl border border-slate-200 dark:border-slate-800">
+                  <table className="w-full text-left text-xs">
+                    <thead>
+                      <tr className="sticky top-0 border-b border-slate-200 bg-slate-100 text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300">
+                        <th className="px-3 py-2 font-bold">Staff Member</th>
+                        <th className="px-3 py-2 font-bold">Assigned Status</th>
+                        <th className="px-3 py-2 font-bold">Reason / Remark</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                      {bulkSelected.map(uid => {
+                        const p = personnel.find(x => x.id === uid);
+                        const st = bulkStatuses[uid] || "PRESENT";
+                        const rsn = bulkReasons[uid] || "--";
+                        return (
+                          <tr key={uid} className="hover:bg-slate-50 dark:hover:bg-slate-900/40">
+                            <td className="px-3 py-2">
+                              <span className="font-bold text-slate-800 dark:text-white">{p?.fullName || uid}</span>
+                              <span className="ml-2 font-mono text-[10px] text-slate-400">{p?.employeeCode || p?.username}</span>
+                            </td>
+                            <td className="px-3 py-2">
+                              <span className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-bold ${STATUS_COLORS[st]}`}>
+                                {STATUS_LABELS[st]}
+                              </span>
+                            </td>
+                            <td className="px-3 py-2 text-slate-600 dark:text-slate-300 font-mono text-[11px]">
+                              {rsn}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Validation and Error Message */}
+                {bulkValidationMsg && (
+                  <div className="mt-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 p-2 text-xs font-semibold text-red-700">
+                    <AlertCircle size={14} /> {bulkValidationMsg}
+                  </div>
+                )}
+
+                {/* Footer Actions */}
+                <div className="mt-4 flex shrink-0 items-center justify-between border-t border-slate-100 pt-3 dark:border-slate-800">
+                  <button
+                    id="att-bulk-back-btn"
+                    onClick={() => setBulkStep("configure")}
+                    className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"
+                  >
+                    <ArrowLeft size={14} /> Back to Selection
+                  </button>
+                  <button
+                    id="att-bulk-confirm-btn"
+                    disabled={bulkSubmitting}
+                    onClick={handleConfirmBulkSubmit}
+                    className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-6 py-2 text-xs font-bold text-white hover:bg-indigo-700 disabled:opacity-50"
+                  >
+                    {bulkSubmitting ? <Loader2 size={14} className="animate-spin" /> : <CheckCheck size={14} />}
+                    {bulkSubmitting ? "Committing Transaction..." : `Confirm & Record Attendance (${bulkSelected.length})`}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Step 3: Results Summary */}
+            {bulkStep === "results" && (
+              <div className="flex flex-1 flex-col overflow-hidden p-6">
+                <div className="mb-4 text-center">
+                  <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-600 dark:bg-emerald-950/60 dark:text-emerald-400">
+                    <CheckCircle2 size={28} />
+                  </div>
+                  <h3 className="text-lg font-black text-slate-900 dark:text-white">Batch Attendance Completed</h3>
+                  <p className="text-xs text-slate-500">
+                    Database transaction committed & immutable compliance audit trail logged.
+                  </p>
+                </div>
+
+                {/* 3 Metric Summary Cards */}
+                <div className="mb-4 grid grid-cols-3 gap-4">
+                  <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-center dark:border-emerald-900 dark:bg-emerald-950/30">
+                    <div className="text-xs font-bold text-emerald-700 uppercase">Created Records</div>
+                    <div className="text-2xl font-black text-emerald-800 dark:text-emerald-300">{bulkResult?.created ?? 0}</div>
+                  </div>
+                  <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-center dark:border-amber-900 dark:bg-amber-950/30">
+                    <div className="text-xs font-bold text-amber-700 uppercase">Skipped / Preserved</div>
+                    <div className="text-2xl font-black text-amber-800 dark:text-amber-300">{bulkResult?.skipped ?? 0}</div>
+                    <div className="text-[10px] text-amber-600">Biometric punch or payroll locked</div>
+                  </div>
+                  <div className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-center dark:border-rose-900 dark:bg-rose-950/30">
+                    <div className="text-xs font-bold text-rose-700 uppercase">Errors</div>
+                    <div className="text-2xl font-black text-rose-800 dark:text-rose-300">{bulkResult?.errors ?? 0}</div>
+                    <div className="text-[10px] text-rose-600">Branch or tenant mismatch</div>
+                  </div>
+                </div>
+
+                {/* Skipped and Error breakdowns */}
+                <div className="flex-1 space-y-3 overflow-auto">
+                  {bulkResult?.skipped_records && bulkResult.skipped_records.length > 0 && (
+                    <div className="rounded-xl border border-amber-200 bg-amber-50/50 p-3 text-xs dark:border-amber-900/50 dark:bg-amber-950/20">
+                      <div className="font-bold text-amber-800 dark:text-amber-300 mb-1 flex items-center gap-1.5">
+                        <Shield size={13} /> Preserved / Skipped Records ({bulkResult.skipped_records.length}):
+                      </div>
+                      <div className="space-y-1">
+                        {bulkResult.skipped_records.map((s, idx) => {
+                          const p = personnel.find(x => x.id === s.user_id);
+                          return (
+                            <div key={idx} className="flex justify-between font-mono text-[11px] text-amber-900 dark:text-amber-200">
+                              <span>{p?.fullName || s.user_id} ({s.attendance_date}):</span>
+                              <span>{s.reason}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {bulkResult?.error_records && bulkResult.error_records.length > 0 && (
+                    <div className="rounded-xl border border-rose-200 bg-rose-50/50 p-3 text-xs dark:border-rose-900/50 dark:bg-rose-950/20">
+                      <div className="font-bold text-rose-800 dark:text-rose-300 mb-1 flex items-center gap-1.5">
+                        <AlertCircle size={13} /> Rejected / Error Records ({bulkResult.error_records.length}):
+                      </div>
+                      <div className="space-y-1">
+                        {bulkResult.error_records.map((e, idx) => {
+                          const p = personnel.find(x => x.id === e.user_id);
+                          return (
+                            <div key={idx} className="flex justify-between font-mono text-[11px] text-rose-900 dark:text-rose-200">
+                              <span>{p?.fullName || e.user_id} ({e.attendance_date}):</span>
+                              <span>{e.error}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Footer Action */}
+                <div className="mt-4 flex shrink-0 justify-end border-t border-slate-100 pt-3 dark:border-slate-800">
+                  <button
+                    id="att-bulk-done-btn"
+                    onClick={handleCloseBulkModal}
+                    className="inline-flex items-center gap-1.5 rounded-xl bg-indigo-600 px-6 py-2.5 text-xs font-bold text-white hover:bg-indigo-700"
+                  >
+                    Done & Return to Register
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}

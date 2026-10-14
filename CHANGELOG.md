@@ -1,3 +1,20 @@
+## [6.80.0] — 2026-10-15
+
+### HR & Workforce — Bulk Attendance Phase 2: Authorization, Finalized Payroll Locks & Guided Multi-Step Workspace v1.4.0
+
+Delivered Phase 2 of Bulk Manual Attendance Entry, establishing an operator-friendly, multi-step bulk marking workspace with server-side tenant isolation, branch authorization, biometric punch preservation, and finalized payroll locks:
+
+**Key Capabilities & Architectural Enforcement:**
+- **Server-Side Tenant & Branch Scoping:** Enforced explicit role permissions for `SYSADMIN`, `ADMIN`, `MANAGER`, `STORE_MANAGER`, `BRANCH_ADMIN`, and `HR_EXECUTIVE`. Strict rejection of unauthorized roles (`CASHIER`, `VIEWER`, ordinary employees) with HTTP 403 Forbidden. Enforced company isolation and branch authorization server-side for each staff member in a batch.
+- **Finalized Payroll Lock Protection:** Querying `wage_statements` prevents modification of attendance records for periods where payroll is finalized (`status == 'FINALIZED'`), adding locked records to `skipped_records` with audit reasons.
+- **Biometric & Clock-In Preservation:** Preserves existing biometric hardware punches (`device_source='BIOMETRIC'` or `check_in_at`/`check_out_at` timestamps) from being overwritten during manager bulk operations.
+- **Immutable Compliance Audit Logging:** Integrated with `ComplianceAuditService.record_audit_event`, writing actor, timestamp, tenant, branch, item counts, and SHA-256 payload hash into `compliance_immutable_audit_logs`.
+- **Guided 3-Step Frontend Workspace (`AttendanceWorkspaceTab.tsx`):**
+  - **Step 1 (Configure & Select):** Date and branch filters, multi-field search (name, code, department), department filter dropdown, quick actions (`Mark All Present`, `Mark Selected Present`, `Mark Selected Absent`, `Reset`), per-employee interactive status pills across 7 canonical statuses (`PRESENT`, `ABSENT`, `HALF_DAY`, `LEAVE`, `WEEKLY_OFF`, `HOLIDAY`, `LATE`), and mandatory reason input for `ABSENT` and `LEAVE`.
+  - **Step 2 (Preview Breakdown):** Real-time status distribution metric cards, scope banner, and pre-submission confirmation table.
+  - **Step 3 (Results Summary):** Created, Skipped, and Error summary cards with itemized breakdowns and skip explanations.
+- **Automated Verification:** Certified with 7/7 backend Pytest tests green in `test_bulk_attendance_security.py`, 40/40 frontend Vitest tests green in `staffAttendance.integration.test.ts`, 0 `tsc --noEmit` errors, and 0 critical UX field governance violations.
+
 ## [6.79.0] — 2026-10-15
 
 ### HR & Workforce — Statutory Form II Muster Roll, Casual Worker Daily Wages & Navigation Remediation v3.17.0

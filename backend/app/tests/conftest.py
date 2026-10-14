@@ -317,6 +317,15 @@ def session_template_database():
                 "ALTER TABLE IF EXISTS purchase_bills ADD COLUMN IF NOT EXISTS created_by VARCHAR(100);",
                 "ALTER TABLE IF EXISTS purchase_bills ADD COLUMN IF NOT EXISTS updated_by VARCHAR(100);",
                 "ALTER TABLE IF EXISTS purchase_bills ADD COLUMN IF NOT EXISTS deleted_by VARCHAR(100);",
+                "ALTER TYPE userrole ADD VALUE IF NOT EXISTS 'ADMIN';",
+                "ALTER TYPE userrole ADD VALUE IF NOT EXISTS 'STORE_MANAGER';",
+                "ALTER TYPE userrole ADD VALUE IF NOT EXISTS 'BRANCH_ADMIN';",
+                "ALTER TYPE userrole ADD VALUE IF NOT EXISTS 'INVENTORY_MANAGER';",
+                "ALTER TYPE userrole ADD VALUE IF NOT EXISTS 'PURCHASE_EXECUTIVE';",
+                "ALTER TYPE userrole ADD VALUE IF NOT EXISTS 'SALES_EXECUTIVE';",
+                "ALTER TYPE userrole ADD VALUE IF NOT EXISTS 'ACCOUNTANT';",
+                "ALTER TYPE userrole ADD VALUE IF NOT EXISTS 'AUDITOR';",
+                "ALTER TYPE userrole ADD VALUE IF NOT EXISTS 'HR_EXECUTIVE';",
             ]
             for stmt in statements:
                 try:
