@@ -4,9 +4,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.2.0
+ * Version      : 6.2.1
  * Created      : 2026-08-21
- * Modified     : 2026-08-21
+ * Modified     : 2026-10-14
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
@@ -33,8 +33,6 @@ export const EditQuantityDetailsModal: React.FC<EditQuantityDetailsModalProps> =
 }) => {
   const [localRows, setLocalRows] = useState<LabelPrintRow[]>(() => [...initialRows]);
   const [searchQuery, setSearchQuery] = useState<string>("");
-
-  if (!isOpen) return null;
 
   const filteredRows = useMemo(() => {
     if (!searchQuery.trim()) return localRows;
@@ -74,6 +72,8 @@ export const EditQuantityDetailsModal: React.FC<EditQuantityDetailsModalProps> =
     onSave(localRows);
     onClose();
   };
+
+  if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 select-none animate-in fade-in duration-150">

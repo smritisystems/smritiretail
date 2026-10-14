@@ -4,9 +4,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.55.0
+ * Version      : 6.55.1
  * Created      : 2026-10-03
- * Modified     : 2026-10-03
+ * Modified     : 2026-10-14
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: SMRITI Global Grid Input & Import Standard
@@ -157,8 +157,6 @@ export const GlobalGridImportModal: React.FC<GlobalGridImportModalProps> = ({
       }
     }
   }, [isOpen, profile, initialRawText]);
-
-  if (!isOpen) return null;
 
   // Build grid rows and trigger batch product resolution
   const executeBuildAndResolve = async (
@@ -342,6 +340,8 @@ export const GlobalGridImportModal: React.FC<GlobalGridImportModalProps> = ({
     onCommit(rowsToCommit, importMode);
     onClose();
   };
+
+  if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">

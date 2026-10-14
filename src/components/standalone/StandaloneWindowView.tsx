@@ -4,9 +4,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.63.0
+ * Version      : 6.63.1
  * Created      : 2026-09-16
- * Modified     : 2026-10-03
+ * Modified     : 2026-10-14
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  */
@@ -620,6 +620,23 @@ export const StandaloneWindowView: React.FC<StandaloneWindowViewProps> = ({
     window.location.href = window.location.origin;
   };
 
+  const isStandaloneFullscreen = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("fullscreen") === "1";
+
+  useEffect(() => {
+    if (!isStandaloneFullscreen) return;
+    const request = () => {
+      try {
+        if (!document.fullscreenElement) {
+          document.documentElement.requestFullscreen?.().catch(() => {});
+        }
+      } catch {
+        // Ignore if fullscreen request is blocked.
+      }
+    };
+    const timer = window.setTimeout(request, 200);
+    return () => window.clearTimeout(timer);
+  }, [isStandaloneFullscreen]);
+
   if (standaloneSalesOrder) {
     const leftNav = [
       { icon: ReceiptText, label: "Orders", routeId: "sales", active: true },
@@ -1204,22 +1221,6 @@ export const StandaloneWindowView: React.FC<StandaloneWindowViewProps> = ({
   const tabMeta = registeredWorkspaces.find((w) => w.id === standaloneTab);
   const title = tabMeta ? tabMeta.label : standaloneTab;
   const icon = tabMeta ? tabMeta.icon : "description";
-  const isStandaloneFullscreen = new URLSearchParams(window.location.search).get("fullscreen") === "1";
-
-  useEffect(() => {
-    if (!isStandaloneFullscreen) return;
-    const request = () => {
-      try {
-        if (!document.fullscreenElement) {
-          document.documentElement.requestFullscreen?.().catch(() => {});
-        }
-      } catch {
-        // Ignore if fullscreen request is blocked.
-      }
-    };
-    const timer = window.setTimeout(request, 200);
-    return () => window.clearTimeout(timer);
-  }, [isStandaloneFullscreen]);
 
   return (
     <div className="fixed inset-0 z-[10000] flex flex-col overflow-hidden bg-theme-base text-theme-body font-sans select-none">

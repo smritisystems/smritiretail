@@ -4,9 +4,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.63.0
+ * Version      : 6.63.1
  * Created      : 2026-07-10
- * Modified     : 2026-10-03
+ * Modified     : 2026-10-14
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  */
@@ -614,22 +614,6 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
     }
   }, [selectedCustomer]);
 
-  if (!hasTenantContext) {
-    return (
-      <div className="p-8">
-        <div className="rounded-3xl border border-rose-500/20 bg-rose-950/10 p-8 shadow-sm">
-          <div className="mb-4 text-2xl font-semibold text-rose-200">Sales Studio requires tenant assignment</div>
-          <p className="mb-3 text-sm text-rose-300 leading-relaxed">
-            Your current operator account is not assigned to a company and branch. Sales Studio is a tenant-scoped business module and requires a tenant-scoped user to access sales invoices, orders, quotations, returns and customer-ledger data.
-          </p>
-          <p className="text-sm text-rose-300 leading-relaxed">
-            Please ask a SYSADMIN to assign your account to a company and branch, or log in with a tenant-scoped sales operator account.
-          </p>
-        </div>
-      </div>
-    );
-  }
-
   // ACAS Global Event Listeners
   useEffect(() => {
     const handlePrintInvoice = (e: any) => {
@@ -1122,6 +1106,22 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
       type: "date-range"
     }
   ];
+
+  if (!hasTenantContext) {
+    return (
+      <div className="p-8">
+        <div className="rounded-3xl border border-rose-500/20 bg-rose-950/10 p-8 shadow-sm">
+          <div className="mb-4 text-2xl font-semibold text-rose-200">Sales Studio requires tenant assignment</div>
+          <p className="mb-3 text-sm text-rose-300 leading-relaxed">
+            Your current operator account is not assigned to a company and branch. Sales Studio is a tenant-scoped business module and requires a tenant-scoped user to access sales invoices, orders, quotations, returns and customer-ledger data.
+          </p>
+          <p className="text-sm text-rose-300 leading-relaxed">
+            Please ask a SYSADMIN to assign your account to a company and branch, or log in with a tenant-scoped sales operator account.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col h-full bg-theme-surface-1 text-theme-primary font-sans">
