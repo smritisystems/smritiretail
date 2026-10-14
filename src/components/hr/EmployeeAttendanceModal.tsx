@@ -4,12 +4,15 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.70.53
+ * Version      : 6.70.54
  * Created      : 2026-08-28
- * Modified     : 2026-10-12
+ * Modified     : 2026-10-14
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
+ *
+ * Changelog v6.70.54 (2026-10-14):
+ *   - Fixed incentive unwrapping bug where raw lines envelope was discarded, restoring Payout tab.
  *
  * Changelog v6.70.53 (2026-10-12):
  *   - Added initialUserId prop support with dynamic staff selection synchronization.
@@ -301,7 +304,7 @@ export const EmployeeAttendanceModal: React.FC<EmployeeAttendanceModalProps> = (
         ? inc
         : (inc as any)?.lines || (inc as any)?.incentives || [];
 
-      let incentiveRecords: IncentiveRecord[] = Array.isArray(inc) ? inc : [];
+      let incentiveRecords: IncentiveRecord[] = rawInc;
 
       setPersonnel(staffList);
       setAttendance(normalizedAtt);

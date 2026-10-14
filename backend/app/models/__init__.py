@@ -6,7 +6,7 @@ Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
 Version      : 3.22.0
 Created      : 2026-07-11
-Modified     : 2026-09-23
+Modified     : 2026-10-14
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 """
@@ -44,7 +44,7 @@ from .workflow import WorkflowEvent
 from .supplier_payment import SupplierPayment
 from .report_schedule import ReportSchedule, ReportDispatchLog
 from .role import Role
-from .hr import AttendanceRecord, LeaveBalance, LeaveRequest
+from .hr import AttendanceRecord, LeaveBalance, LeaveRequest, WageStatement
 from .staff_profile import StaffProfile
 from .size_groups import SizeGroup, SizeGroupValue
 from .staff_profile_history import StaffProfileHistory

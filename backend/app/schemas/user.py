@@ -6,7 +6,7 @@ Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
 Version      : 3.17.0
 Created      : 2026-07-11
-Modified     : 2026-10-12
+Modified     : 2026-10-14
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 """
@@ -36,6 +36,9 @@ class OtherAllowancesStructure(BaseModel):
 
 class SalaryStructure(BaseModel):
     fixedMonthly: float = 25000.0
+    wageType: str = "MONTHLY"  # "MONTHLY" or "DAILY"
+    dailyRate: float = 0.0
+    overtimeRatePerHour: float = 0.0
     commission: CommissionStructure = Field(default_factory=CommissionStructure)
     travelAllowance: TravelAllowanceStructure = Field(default_factory=TravelAllowanceStructure)
     otherAllowances: OtherAllowancesStructure = Field(default_factory=OtherAllowancesStructure)
@@ -49,6 +52,33 @@ class SalaryStructure(BaseModel):
             return float(v)
         except (ValueError, TypeError):
             return 25000.0
+
+    @field_validator("dailyRate", mode="before")
+    @classmethod
+    def sanitize_daily_rate(cls, v):
+        if v is None or v == "":
+            return 0.0
+        try:
+            return float(v)
+        except (ValueError, TypeError):
+            return 0.0
+
+    @field_validator("overtimeRatePerHour", mode="before")
+    @classmethod
+    def sanitize_overtime_rate(cls, v):
+        if v is None or v == "":
+            return 0.0
+        try:
+            return float(v)
+        except (ValueError, TypeError):
+            return 0.0
+
+    @field_validator("wageType", mode="before")
+    @classmethod
+    def sanitize_wage_type(cls, v):
+        if not v or str(v).strip().upper() not in ("MONTHLY", "DAILY"):
+            return "MONTHLY"
+        return str(v).strip().upper()
 
 
 class PaymentDetails(BaseModel):

@@ -9,9 +9,9 @@ Founders
 * Jawahar Ramkripal Mallah   -- Founder, CEO & Chief Software Architect
 * Websites: aitdl.com | erpnbook.com | smritibooks.com
 
-* Version    : 6.70.43
+* Version    : 6.70.54
 * Created    : 2026-08-24
-* Modified   : 2026-10-12
+* Modified   : 2026-10-14
 * Copyright  : (c) AITDL.com and SMRITIBooks.com. All Rights Reserved.
 * License    : Proprietary Commercial Software
 
@@ -40,7 +40,7 @@ from ...api.deps import get_db, get_company_db, get_tenant_context, get_current_
 from ...db.session import async_session
 from ...models.commission import CommissionParticipant, CommissionProgram, CommissionRule, CommissionLedger
 from ...models.auth import User, UserRole
-from ...models.hr import AttendanceRecord, LeaveBalance, LeaveRequest
+from ...models.hr import AttendanceRecord, LeaveBalance, LeaveRequest, WageStatement
 from ...models.crm import CustomerDeliveryLocation
 from ...models.tenant import Branch, Company
 from ...models.staff_placement import StaffPlacementAssignment
@@ -50,12 +50,24 @@ from ...schemas.user import StaffUserUpdate
 from ...services.user import UserService, to_staff_response
 from ...services.spif import SpifService
 from ...services.system_parameter import SystemParameterService
+from ...services.wage_calculation_service import WageCalculationService
 
 router = APIRouter(prefix="/staff")
 
 # ---------------------------------------------------------------------------
 # Pydantic schemas
 # ---------------------------------------------------------------------------
+
+class WageCalculationRequest(BaseModel):
+    period: str  # YYYY-MM
+    user_id: Optional[str] = None
+
+
+class WageFinalizeRequest(BaseModel):
+    period: str  # YYYY-MM
+    user_id: str
+    notes: Optional[str] = None
+
 
 class StaffPhotoPayload(BaseModel):
     photo_data: str
@@ -1502,6 +1514,7 @@ async def get_attendance_summary(
     absent_days = 0
     leave_days = 0
     holiday_days = 0
+    weekly_off_days = 0
     total_hours_worked = 0.0
 
     for r in records:
@@ -1519,6 +1532,8 @@ async def get_attendance_summary(
             leave_days += 1
         elif st == "HOLIDAY":
             holiday_days += 1
+        elif st == "WEEKLY_OFF":
+            weekly_off_days += 1
 
         if r.check_in_at and r.check_out_at:
             delta = (r.check_out_at - r.check_in_at).total_seconds() / 3600.0
@@ -1541,8 +1556,162 @@ async def get_attendance_summary(
         "absent_days": absent_days,
         "leave_days": leave_days,
         "holiday_days": holiday_days,
+        "weekly_off_days": weekly_off_days,
         "total_hours_worked": round(total_hours_worked, 2),
         "avg_daily_hours": avg_daily_hours,
+    }
+
+
+@router.get("/attendance/muster-roll")
+async def get_muster_roll(
+    period: str = Query(..., description="Month in YYYY-MM format"),
+    branch_id: Optional[str] = Query(default=None),
+    tenant: TenantContext = Depends(get_tenant_context),
+    db: AsyncSession = Depends(get_company_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Form II Statutory Muster Roll Matrix.
+    Aggregates active staff x 1..31 days into matrix structure with daily statuses,
+    check-in/check-out timestamps, overtime, and totals.
+    """
+    return await WageCalculationService.get_muster_roll_matrix(
+        db=db,
+        company_id=tenant.company_id,
+        period=period,
+        branch_id=branch_id,
+    )
+
+
+@router.get("/attendance/muster-roll/export-csv")
+async def export_muster_roll_csv(
+    period: str = Query(..., description="Month in YYYY-MM format"),
+    branch_id: Optional[str] = Query(default=None),
+    tenant: TenantContext = Depends(get_tenant_context),
+    db: AsyncSession = Depends(get_company_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Statutory Form II Muster Roll CSV Export.
+    Generates standard formatted muster roll compatible with Excel and Labour Compliance inspection.
+    """
+    matrix = await WageCalculationService.get_muster_roll_matrix(
+        db=db,
+        company_id=tenant.company_id,
+        period=period,
+        branch_id=branch_id,
+    )
+    days_in_month = matrix.get("days_in_month", 31)
+    rows = matrix.get("rows", [])
+
+    import csv
+    import io
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+
+    # Form II Statutory Header
+    writer.writerow(["FORM II - MUSTER ROLL (Rule 27(1))"])
+    writer.writerow([f"Company ID: {tenant.company_id}", f"Period: {period}"])
+    writer.writerow([])
+
+    # Table Header
+    day_headers = [str(d) for d in range(1, days_in_month + 1)]
+    header = ["Emp Code", "Name", "Department", "Designation"] + day_headers + [
+        "Present", "Half Day", "Absent", "Leave", "Weekly Off", "Holiday", "Worked Hrs", "OT Hrs", "Payable Days"
+    ]
+    writer.writerow(header)
+
+    for r in rows:
+        summ = r.get("summary", {})
+        days = r.get("days", {})
+        day_cells = [days.get(str(d), {}).get("code", "-") for d in range(1, days_in_month + 1)]
+        row_data = [
+            r.get("employee_code", ""),
+            r.get("full_name", ""),
+            r.get("department", ""),
+            r.get("designation", ""),
+        ] + day_cells + [
+            summ.get("present_days", 0),
+            summ.get("half_days", 0),
+            summ.get("absent_days", 0),
+            summ.get("paid_leave_days", 0),
+            summ.get("weekly_off_days", 0),
+            summ.get("holiday_days", 0),
+            summ.get("total_worked_hours", 0),
+            summ.get("total_overtime_hours", 0),
+            summ.get("effective_payable_days", 0),
+        ]
+        writer.writerow(row_data)
+
+    csv_content = output.getvalue()
+    return Response(
+        content=csv_content,
+        media_type="text/csv",
+        headers={"Content-Disposition": f"attachment; filename=Muster_Roll_{period}.csv"},
+    )
+
+
+@router.post("/wages/calculate")
+async def calculate_wages(
+    payload: WageCalculationRequest,
+    tenant: TenantContext = Depends(get_tenant_context),
+    db: AsyncSession = Depends(get_company_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Calculates period wages (daily wages or monthly salary with LOP deduction,
+    overtime, commissions, and allowances) for all staff or specified employee.
+    """
+    if current_user.role not in (UserRole.SYSADMIN, UserRole.MANAGER):
+        if payload.user_id != current_user.id:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied.")
+
+    wages = await WageCalculationService.calculate_period_wages(
+        db=db,
+        company_id=tenant.company_id,
+        period=payload.period,
+        user_id=payload.user_id,
+    )
+    return {
+        "success": True,
+        "period": payload.period,
+        "company_id": tenant.company_id,
+        "total_statements": len(wages),
+        "wages": wages,
+    }
+
+
+@router.post("/wages/finalize")
+async def finalize_wage(
+    payload: WageFinalizeRequest,
+    tenant: TenantContext = Depends(get_tenant_context),
+    db: AsyncSession = Depends(get_company_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Freezes and finalizes monthly payroll statement in wage_statements ledger.
+    Once finalized, past attendance edits cannot alter wage numbers.
+    """
+    if current_user.role not in (UserRole.SYSADMIN, UserRole.MANAGER):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only managers or sysadmins may finalize wages.")
+
+    statement = await WageCalculationService.finalize_wage_statement(
+        db=db,
+        company_id=tenant.company_id,
+        period=payload.period,
+        user_id=payload.user_id,
+        finalized_by=current_user.id,
+        notes=payload.notes,
+    )
+    return {
+        "success": True,
+        "message": "Wage statement finalized successfully.",
+        "statement_id": statement.id,
+        "user_id": statement.user_id,
+        "period": statement.period,
+        "net_wages": float(statement.net_wages),
+        "status": statement.status,
     }
 
 
@@ -1559,7 +1728,7 @@ async def create_attendance(
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Employees may only record attendance for themselves.")
     target_user = await _tenant_user(db, payload.user_id, tenant, control_db=control_db)
     resolved_user_id = target_user.id
-    allowed_statuses = {"PRESENT", "ABSENT", "LATE", "HALF_DAY", "LEAVE", "HOLIDAY"}
+    allowed_statuses = {"PRESENT", "ABSENT", "LATE", "HALF_DAY", "LEAVE", "HOLIDAY", "WEEKLY_OFF"}
     if payload.status not in allowed_statuses:
         raise HTTPException(status_code=422, detail=f"Unsupported attendance status: {payload.status}")
     user_ids = list({payload.user_id, resolved_user_id})
@@ -1614,7 +1783,7 @@ async def bulk_create_attendance(
     if len(payload) > 500:
         raise HTTPException(status_code=422, detail="Maximum 500 records per bulk request.")
 
-    allowed_statuses = {"PRESENT", "ABSENT", "LATE", "HALF_DAY", "LEAVE", "HOLIDAY"}
+    allowed_statuses = {"PRESENT", "ABSENT", "LATE", "HALF_DAY", "LEAVE", "HOLIDAY", "WEEKLY_OFF"}
     created, skipped, errors = [], [], []
 
     for item in payload:

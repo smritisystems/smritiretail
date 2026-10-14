@@ -1,16 +1,16 @@
-"""
-Project      : SMRITI Retail OS
-Author       : Jawahar Ramkripal Mallah
-Designation  : Chief Systems Architect & Creator
-Email        : support@smritibooks.com
-Websites     : smritibooks.com | erpnbook.com | aitdl.com
-Version      : 1.0.0
-Created      : 2026-09-23
-Modified     : 2026-09-23
-Copyright    : © SMRITIBooks.com. All Rights Reserved.
-License      : Proprietary Commercial Software
-Classification: Internal — Architecture Contract
+#  Project      : SMRITI Retail OS
+#  Author       : Jawahar Ramkripal Mallah
+#  Designation  : Chief Systems Architect & Creator
+#  Email        : support@smritibooks.com
+#  Websites     : smritibooks.com | erpnbook.com | aitdl.com
+#  Version      : 1.0.0
+#  Created      : 2026-09-23
+#  Modified     : 2026-10-14
+#  Copyright    : © SMRITIBooks.com. All Rights Reserved.
+#  License      : Proprietary Commercial Software
+#  Classification: Internal — Architecture Contract
 
+"""
 SMRITI Canonical Table Ownership Registry (TDB-v2.0)
 ═════════════════════════════════════════════════════
 This is the Single Source of Truth for every database table's ownership.
@@ -370,6 +370,7 @@ TABLE_OWNERSHIP: Dict[str, TableOwner] = {
     "training_sessions":                     TableOwner.TENANT,
     "training_progress":                     TableOwner.TENANT,
     "training_certificates":                 TableOwner.TENANT,
+    "wage_statements":                       TableOwner.TENANT,
 
     # Promotions & Dynamic Pricing
     "promotions":                            TableOwner.TENANT,
