@@ -4,9 +4,9 @@ Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
-Version      : 6.47.4
+Version      : 6.75.0
 Created      : 2026-10-01
-Modified     : 2026-10-01
+Modified     : 2026-10-14
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 Classification: Authoritative Sales Stock Movement & Ledger Engine (Phase S2)
@@ -167,6 +167,30 @@ class SalesStockAuthority:
 
             # 4. Create Authoritative StockMovement
             src_module = "Distribution" if "DISTRIBUTION" in ref_type_upper else "Sales"
+            # 4. Resolve Authoritative COGS Unit Cost via CostManagementEngine
+            resolved_cost = Decimal("0.00")
+            val_source = "UNRESOLVED_ZERO_COST"
+            if line.get("unit_cost") is not None and Decimal(str(line.get("unit_cost"))) > Decimal("0.00"):
+                resolved_cost = Decimal(str(line.get("unit_cost"))).quantize(Decimal("0.01"))
+                val_source = "EXPLICIT_LINE_UNIT_COST"
+            else:
+                from .cost_engine import CostManagementEngine
+                resolved_cost, val_source = await CostManagementEngine.resolve_cogs_unit_cost(
+                    session=session,
+                    company_id=tenant_ctx.company_id,
+                    product_id=product.id,
+                )
+
+            # Never fallback to selling price (product.price)
+            if resolved_cost <= Decimal("0.00"):
+                logger.warning(
+                    "[SMRITI-COST-001] Missing or zero cost for product %s (%s) on %s %s. Stock movement recorded at 0.00 with UNRESOLVED_ZERO_COST flag.",
+                    product.id,
+                    product.name,
+                    reference_doc_type,
+                    invoice_no,
+                )
+
             movement_id = f"sm_out_{uuid.uuid4().hex[:12]}"
             mov = StockMovement(
                 id=movement_id,
@@ -184,8 +208,8 @@ class SalesStockAuthority:
                 reference_doc_id=invoice_id,
                 warehouse_id=warehouse_id,
                 batch=batch_no,
-                unit_cost=line.get("unit_cost") or product.cost_price or product.price or Decimal("0.00"),
-                remarks=f"Authoritative stock deduction for {reference_doc_type} {invoice_no}",
+                unit_cost=resolved_cost,
+                remarks=f"Authoritative stock deduction for {reference_doc_type} {invoice_no} [Valuation: {val_source}]",
                 source_module=src_module,
                 user=user,
             )
@@ -275,16 +299,43 @@ class SalesStockAuthority:
                 unit_cost = Decimal(str(line.get("unit_cost"))).quantize(Decimal("0.01"))
                 val_method = "PROVIDED_UNIT_COST"
             elif original_invoice_id:
-                snap_stmt = select(TransactionCostSnapshot).where(
-                    TransactionCostSnapshot.sales_invoice_id == original_invoice_id,
-                    TransactionCostSnapshot.product_id == product.id,
-                    TransactionCostSnapshot.company_id == tenant_ctx.company_id,
-                    TransactionCostSnapshot.is_deleted == False
-                ).order_by(TransactionCostSnapshot.created_at.desc())
-                snap = (await session.execute(snap_stmt)).scalars().first()
+                inv_item_id = line.get("sales_invoice_item_id")
+                snap = None
+                if inv_item_id:
+                    snap_stmt = select(TransactionCostSnapshot).where(
+                        TransactionCostSnapshot.sales_invoice_id == original_invoice_id,
+                        TransactionCostSnapshot.sales_invoice_item_id == str(inv_item_id),
+                        TransactionCostSnapshot.company_id == tenant_ctx.company_id,
+                        TransactionCostSnapshot.is_deleted == False
+                    )
+                    snap = (await session.execute(snap_stmt)).scalars().first()
+
                 if snap and snap.cost_per_unit is not None and Decimal(str(snap.cost_per_unit)) > Decimal("0.00"):
                     unit_cost = Decimal(str(snap.cost_per_unit)).quantize(Decimal("0.01"))
-                    val_method = f"HISTORICAL_SNAPSHOT ({snap.valuation_method_used or 'SNAPSHOT'})"
+                    val_method = f"HISTORICAL_SNAPSHOT ({snap.valuation_method_used or 'EXACT_LINE'})"
+                else:
+                    # Exact line not provided or not matched; check if there is an unambiguous snapshot
+                    snaps_stmt = select(TransactionCostSnapshot).where(
+                        TransactionCostSnapshot.sales_invoice_id == original_invoice_id,
+                        TransactionCostSnapshot.product_id == product.id,
+                        TransactionCostSnapshot.company_id == tenant_ctx.company_id,
+                        TransactionCostSnapshot.is_deleted == False
+                    )
+                    snaps = (await session.execute(snaps_stmt)).scalars().all()
+                    if len(snaps) == 1 and snaps[0].cost_per_unit is not None and Decimal(str(snaps[0].cost_per_unit)) > Decimal("0.00"):
+                        unit_cost = Decimal(str(snaps[0].cost_per_unit)).quantize(Decimal("0.01"))
+                        val_method = f"HISTORICAL_SNAPSHOT ({snaps[0].valuation_method_used or 'SINGLE_LINE'})"
+                    elif len(snaps) > 1 and len({Decimal(str(s.cost_per_unit)) for s in snaps if s.cost_per_unit}) == 1:
+                        unit_cost = Decimal(str(snaps[0].cost_per_unit)).quantize(Decimal("0.01"))
+                        val_method = f"HISTORICAL_SNAPSHOT ({snaps[0].valuation_method_used or 'UNIFORM_COST_LINES'})"
+                    elif len(snaps) > 1:
+                        # Multi-line invoice with distinct costs and no exact line link:
+                        # NEVER silently pick an arbitrary latest snapshot; explicitly flag fallback as provisional.
+                        logger.warning(
+                            "[SMRITI-COST-002] Multi-line return for product %s on invoice %s missing exact line item linkage. Fallback marked as PROVISIONAL_AMBIGUOUS_LINE_FALLBACK.",
+                            product.id,
+                            original_invoice_id,
+                        )
 
             if unit_cost <= Decimal("0.00"):
                 pcv_stmt = select(ProductCostValuation).where(
@@ -294,26 +345,40 @@ class SalesStockAuthority:
                 )
                 pcv = (await session.execute(pcv_stmt)).scalars().first()
                 if pcv:
+                    raw_method = "UNKNOWN"
                     if pcv.weighted_average_cost and Decimal(str(pcv.weighted_average_cost)) > Decimal("0.00"):
                         unit_cost = Decimal(str(pcv.weighted_average_cost)).quantize(Decimal("0.01"))
-                        val_method = "WEIGHTED_AVERAGE"
+                        raw_method = "WEIGHTED_AVERAGE"
                     elif pcv.purchase_cost and Decimal(str(pcv.purchase_cost)) > Decimal("0.00"):
                         unit_cost = Decimal(str(pcv.purchase_cost)).quantize(Decimal("0.01"))
-                        val_method = "PURCHASE_COST"
+                        raw_method = "PURCHASE_COST"
                     elif pcv.last_purchase_cost and Decimal(str(pcv.last_purchase_cost)) > Decimal("0.00"):
                         unit_cost = Decimal(str(pcv.last_purchase_cost)).quantize(Decimal("0.01"))
-                        val_method = "LAST_PURCHASE"
+                        raw_method = "LAST_PURCHASE"
                     elif pcv.standard_cost and Decimal(str(pcv.standard_cost)) > Decimal("0.00"):
                         unit_cost = Decimal(str(pcv.standard_cost)).quantize(Decimal("0.01"))
-                        val_method = "STANDARD_COST"
+                        raw_method = "STANDARD_COST"
+
+                    if unit_cost > Decimal("0.00"):
+                        if not original_invoice_id:
+                            val_method = f"UNLINKED_RETURN_POLICY ({raw_method})"
+                        else:
+                            val_method = f"PROVISIONAL_AMBIGUOUS_LINE_FALLBACK ({raw_method})"
 
             if unit_cost <= Decimal("0.00") and product.cost_price and Decimal(str(product.cost_price)) > Decimal("0.00"):
                 unit_cost = Decimal(str(product.cost_price)).quantize(Decimal("0.01"))
-                val_method = "COST_PRICE_FALLBACK"
+                if original_invoice_id:
+                    val_method = "PROVISIONAL_AMBIGUOUS_LINE_FALLBACK (CATALOG_COST)"
+                else:
+                    val_method = "PROVISIONAL_CATALOG_COST"
 
-            if unit_cost <= Decimal("0.00") and product.price and Decimal(str(product.price)) > Decimal("0.00"):
-                unit_cost = Decimal(str(product.price)).quantize(Decimal("0.01"))
-                val_method = "PRICE_FALLBACK"
+            # Never fallback to selling price (product.price)
+            if unit_cost <= Decimal("0.00"):
+                logger.warning(
+                    "[SMRITI-COST-001] Missing or zero cost for return inward product %s on return %s. Valuation recorded as 0.00 with ZERO_COST_UNVALUED.",
+                    product.id,
+                    return_no,
+                )
 
             # 5. Create Authoritative StockMovement
             movement_id = f"sm_ret_{uuid.uuid4().hex[:12]}"

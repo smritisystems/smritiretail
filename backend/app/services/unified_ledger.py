@@ -4,9 +4,9 @@ Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
-Version      : 6.16.0
+Version      : 6.75.0
 Created      : 2026-08-23
-Modified     : 2026-09-09
+Modified     : 2026-10-14
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 Classification: Internal
@@ -1073,13 +1073,26 @@ class UnifiedAccountingLedgerService:
 
             # Tier 1: Historical TransactionCostSnapshot from original invoice
             if ret.original_invoice_id:
-                snap_stmt = select(TransactionCostSnapshot).where(
-                    TransactionCostSnapshot.sales_invoice_id == ret.original_invoice_id,
-                    TransactionCostSnapshot.product_id == item.product_id,
-                    TransactionCostSnapshot.company_id == company_id,
-                    TransactionCostSnapshot.is_deleted == False
-                ).order_by(TransactionCostSnapshot.created_at.desc())
-                snap = (await session.execute(snap_stmt)).scalars().first()
+                inv_item_id = getattr(item, "sales_invoice_item_id", None)
+                snap = None
+                if inv_item_id:
+                    snap_stmt = select(TransactionCostSnapshot).where(
+                        TransactionCostSnapshot.sales_invoice_id == ret.original_invoice_id,
+                        TransactionCostSnapshot.sales_invoice_item_id == str(inv_item_id),
+                        TransactionCostSnapshot.company_id == company_id,
+                        TransactionCostSnapshot.is_deleted == False
+                    )
+                    snap = (await session.execute(snap_stmt)).scalars().first()
+
+                if not snap:
+                    snap_stmt = select(TransactionCostSnapshot).where(
+                        TransactionCostSnapshot.sales_invoice_id == ret.original_invoice_id,
+                        TransactionCostSnapshot.product_id == item.product_id,
+                        TransactionCostSnapshot.company_id == company_id,
+                        TransactionCostSnapshot.is_deleted == False
+                    ).order_by(TransactionCostSnapshot.created_at.desc())
+                    snap = (await session.execute(snap_stmt)).scalars().first()
+
                 if snap and snap.cost_per_unit is not None and Decimal(str(snap.cost_per_unit)) > Decimal("0.00"):
                     unit_cost = Decimal(str(snap.cost_per_unit)).quantize(Decimal("0.01"))
                     val_method = f"HISTORICAL_SNAPSHOT ({snap.valuation_method_used or 'SNAPSHOT'})"
@@ -1093,18 +1106,26 @@ class UnifiedAccountingLedgerService:
                 )
                 pcv = (await session.execute(pcv_stmt)).scalars().first()
                 if pcv:
+                    raw_m = "UNKNOWN"
                     if pcv.weighted_average_cost and Decimal(str(pcv.weighted_average_cost)) > Decimal("0.00"):
                         unit_cost = Decimal(str(pcv.weighted_average_cost)).quantize(Decimal("0.01"))
-                        val_method = "WEIGHTED_AVERAGE"
+                        raw_m = "WEIGHTED_AVERAGE"
                     elif pcv.purchase_cost and Decimal(str(pcv.purchase_cost)) > Decimal("0.00"):
                         unit_cost = Decimal(str(pcv.purchase_cost)).quantize(Decimal("0.01"))
-                        val_method = "PURCHASE_COST"
+                        raw_m = "PURCHASE_COST"
                     elif pcv.last_purchase_cost and Decimal(str(pcv.last_purchase_cost)) > Decimal("0.00"):
                         unit_cost = Decimal(str(pcv.last_purchase_cost)).quantize(Decimal("0.01"))
-                        val_method = "LAST_PURCHASE"
+                        raw_m = "LAST_PURCHASE"
                     elif pcv.standard_cost and Decimal(str(pcv.standard_cost)) > Decimal("0.00"):
                         unit_cost = Decimal(str(pcv.standard_cost)).quantize(Decimal("0.01"))
-                        val_method = "STANDARD_COST"
+                        raw_m = "STANDARD_COST"
+
+                    if unit_cost > Decimal("0.00"):
+                        val_method = (
+                            f"UNLINKED_RETURN_POLICY ({raw_m})"
+                            if not ret.original_invoice_id
+                            else f"PROVISIONAL_FALLBACK ({raw_m})"
+                        )
 
             # Tier 3: Product.cost_price fallback
             if unit_cost <= Decimal("0.00"):
@@ -1217,17 +1238,16 @@ class UnifiedAccountingLedgerService:
 
         acc_inventory = await cls.get_account_by_code(session, company_id, "1040")
         acc_unbilled_grn = await cls.get_account_by_code(session, company_id, "1045")
-        acc_cgst = await cls.get_account_by_code(session, company_id, "1051")
-        acc_sgst = await cls.get_account_by_code(session, company_id, "1052")
-        acc_igst = await cls.get_account_by_code(session, company_id, "1053")
 
         grand_total = Decimal(str(receipt.grand_total or getattr(receipt, 'total_amount', 0.00) or 0.00)).quantize(Decimal("0.01"))
         tax_total = Decimal(str(receipt.tax_total or getattr(receipt, 'total_tax', 0.00) or 0.00)).quantize(Decimal("0.01"))
         subtotal = Decimal(str(receipt.subtotal or (grand_total - tax_total))).quantize(Decimal("0.01"))
 
-        cgst_sum = (tax_total / 2).quantize(Decimal("0.01"))
-        sgst_sum = tax_total - cgst_sum
-
+        # Pure Stock Valuation Receipt (GRN Dock Stage):
+        # Debits Inventory Asset (1040) for net goods value.
+        # Credits GR/IR Clearing Account (1045) for net goods value.
+        # Input Tax Credit (1051/1052/1053) is NOT recognized at dock stage;
+        # ITC is authoritatively recognized upon receipt and posting of the Purchase Bill (Tax Invoice).
         lines = [
             {
                 "account_id": acc_inventory.id,
@@ -1236,23 +1256,11 @@ class UnifiedAccountingLedgerService:
                 "remarks": f"Inward Inventory for GRN {receipt.receipt_no}"
             },
             {
-                "account_id": acc_cgst.id,
-                "debit_amount": cgst_sum,
-                "credit_amount": Decimal("0.00"),
-                "remarks": f"Input CGST on GRN {receipt.receipt_no}"
-            },
-            {
-                "account_id": acc_sgst.id,
-                "debit_amount": sgst_sum,
-                "credit_amount": Decimal("0.00"),
-                "remarks": f"Input SGST on GRN {receipt.receipt_no}"
-            },
-            {
                 "account_id": acc_unbilled_grn.id,
                 "party_id": receipt.supplier_id,
                 "debit_amount": Decimal("0.00"),
-                "credit_amount": grand_total,
-                "remarks": f"Unbilled GRN Liability for {receipt.receipt_no}"
+                "credit_amount": subtotal,
+                "remarks": f"Unbilled GRN Clearing Liability for {receipt.receipt_no}"
             }
         ]
 
@@ -1270,6 +1278,103 @@ class UnifiedAccountingLedgerService:
             reference_doc_id=receipt.id,
             reference_doc_no=receipt.receipt_no,
             narration=f"Automated GL posting for GRN {receipt.receipt_no}"
+        )
+
+    @classmethod
+    async def post_landed_cost_adjustment_voucher(
+        cls,
+        session: AsyncSession,
+        company_id: str,
+        branch_id: Optional[str],
+        adjustment_no: str,
+        receipt_no: str,
+        supplier_id: Optional[str],
+        capitalized_amount: Decimal,
+        expensed_amount: Decimal,
+        total_amount: Decimal,
+        user: str = "system",
+    ) -> JournalVoucher:
+        """
+        Posts standard double-entry commercial Journal Voucher for late-arriving landed cost adjustment.
+        Debits Inventory Asset (1040) for capitalized portion (on-hand stock).
+        Debits Cost of Goods Sold / Landed Cost Variance (5010) for expensed portion (already-sold stock).
+        Credits Creditors (2010) / Freight Inwards (5030) for total freight liability.
+        Enforces strict double-entry balance: total_debit == total_credit == total_amount.
+        Voucher is immediately exportable to TallyPrime via TallyIntegrationService.
+        """
+        # 1. Enforce strict mathematical debit/credit equality
+        calc_total = (Decimal(str(capitalized_amount)) + Decimal(str(expensed_amount))).quantize(Decimal("0.01"))
+        quantized_total = Decimal(str(total_amount)).quantize(Decimal("0.01"))
+        if calc_total != quantized_total:
+            raise HTTPException(
+                status_code=400,
+                detail=f"SMRITI-GL-400: Landed cost adjustment out of balance. Capitalized ({capitalized_amount}) + Expensed ({expensed_amount}) != Total ({total_amount}).",
+            )
+        if quantized_total <= Decimal("0.00"):
+            raise HTTPException(
+                status_code=400,
+                detail="SMRITI-GL-400: Landed cost adjustment total_amount must be positive.",
+            )
+
+        # 2. Idempotent duplicate-posting protection: Return existing voucher if already recorded
+        existing_stmt = select(JournalVoucher).where(
+            JournalVoucher.company_id == company_id,
+            JournalVoucher.reference_doc_type == "INWARD_COST_ADJUSTMENT",
+            JournalVoucher.reference_doc_no == adjustment_no,
+            JournalVoucher.is_deleted == False,
+        )
+        existing_jv = (await session.execute(existing_stmt)).scalars().first()
+        if existing_jv:
+            logger.info(
+                "UnifiedAccountingLedgerService: Landed cost adjustment voucher already exists for %s (JV: %s). Returning existing voucher.",
+                adjustment_no,
+                existing_jv.voucher_no,
+            )
+            return existing_jv
+
+        await cls.seed_default_chart_of_accounts(session, company_id, branch_id)
+
+        acc_inventory = await cls.get_account_by_code(session, company_id, "1040")
+        acc_cogs = await cls.get_account_by_code(session, company_id, "5010")
+        acc_creditors = await cls.get_account_by_code(session, company_id, "2010")
+        acc_freight = await cls.get_account_by_code(session, company_id, "5030")
+
+        lines = []
+        if capitalized_amount > Decimal("0.00"):
+            lines.append({
+                "account_id": acc_inventory.id,
+                "debit_amount": capitalized_amount,
+                "credit_amount": Decimal("0.00"),
+                "remarks": f"Landed Cost Capitalized to Inventory for {adjustment_no} ({receipt_no})"
+            })
+        if expensed_amount > Decimal("0.00"):
+            lines.append({
+                "account_id": acc_cogs.id,
+                "debit_amount": expensed_amount,
+                "credit_amount": Decimal("0.00"),
+                "remarks": f"Landed Cost Expensed to COGS for {adjustment_no} ({receipt_no})"
+            })
+
+        liability_acc = acc_creditors if supplier_id else acc_freight
+        lines.append({
+            "account_id": liability_acc.id,
+            "party_id": supplier_id,
+            "debit_amount": Decimal("0.00"),
+            "credit_amount": total_amount,
+            "remarks": f"Freight / Landed Cost Liability for {adjustment_no} ({receipt_no})"
+        })
+
+        return await cls.post_journal_voucher(
+            session=session,
+            company_id=company_id,
+            branch_id=branch_id,
+            voucher_type="JOURNAL",
+            voucher_date=date.today(),
+            lines=lines,
+            reference_doc_type="INWARD_COST_ADJUSTMENT",
+            reference_doc_no=adjustment_no,
+            narration=f"Landed Cost Adjustment {adjustment_no} for GRN {receipt_no} [Capitalized: {capitalized_amount}, Expensed: {expensed_amount}]",
+            created_by=user,
         )
 
     @classmethod
@@ -1409,7 +1514,6 @@ class UnifiedAccountingLedgerService:
             igst_sum = tax_total
             cgst_sum = Decimal("0.00")
             sgst_sum = Decimal("0.00")
-            igst_sum = Decimal("0.00")
         else:
             cgst_sum = (tax_total / 2).quantize(Decimal("0.01"))
             sgst_sum = tax_total - cgst_sum
@@ -1595,6 +1699,7 @@ class UnifiedAccountingLedgerService:
         await cls.seed_default_chart_of_accounts(session, company_id, branch_id)
 
         acc_inventory = await cls.get_account_by_code(session, company_id, "1040")
+        acc_unbilled_grn = await cls.get_account_by_code(session, company_id, "1045")
         acc_creditors = await cls.get_account_by_code(session, company_id, "2010")
         acc_cgst = await cls.get_account_by_code(session, company_id, "1051")
         acc_sgst = await cls.get_account_by_code(session, company_id, "1052")
@@ -1677,12 +1782,19 @@ class UnifiedAccountingLedgerService:
                 "credit_amount": Decimal("0.00"),
                 "remarks": f"Reversal of TDS Withheld on Cancelled Bill {bill.bill_no}",
             })
+        acc_target = acc_unbilled_grn if bill.receipt_id else acc_inventory
+        target_rem = (
+            f"Reversal of Unbilled GRN Clearance for Cancelled Bill {bill.bill_no}"
+            if bill.receipt_id
+            else f"Reversal of Inward Inventory for Cancelled Bill {bill.bill_no}"
+        )
         lines.append({
-            # 2. Credit Inventory Asset (reversing original inventory debit)
-            "account_id": acc_inventory.id,
+            # 2. Credit GR/IR Clearing (if matched to GRN) or Inventory Asset (if direct bill)
+            "account_id": acc_target.id,
+            "party_id": bill.supplier_id if bill.receipt_id else None,
             "debit_amount": Decimal("0.00"),
             "credit_amount": subtotal,
-            "remarks": f"Reversal of Inward Inventory for Cancelled Bill {bill.bill_no}",
+            "remarks": target_rem,
         })
 
         # 3. Credit Input Tax Ledgers (reversing original tax debits)

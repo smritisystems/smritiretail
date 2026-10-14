@@ -16,9 +16,9 @@ Founders
 
 * Websites: aitdl.com | erpnbook.com | smritibooks.com
 
-* Version    : 3.35.0
+* Version    : 3.75.0
 * Created    : 2026-07-11
-* Modified   : 2026-10-01
+* Modified   : 2026-10-14
 * Copyright  : © AITDL.com and SMRITIBooks.com. All Rights Reserved.
 * License    : Proprietary Commercial Software
 Classification: Internal
@@ -1115,58 +1115,16 @@ class PurchaseService:
                 variant_id=item_row.variant_id,
             )
 
-            # Atomically update / upsert ProductCostValuation for retail multi-valuation COGS & rolling WAC
-            from .cost_engine import CostManagementEngine
-            val_res = await self.db.execute(
-                select(ProductCostValuation).where(ProductCostValuation.product_id == item_row.product_id)
-            )
-            valuation = val_res.scalars().first()
-            p_stock = Decimal(str(item_row.quantity_received or 0.00))
+        # Flush receipt and items so CostManagementEngine can authoritatively calculate multi-valuation and rolling WAC
+        await self.db.flush()
 
-            # Query product stock for rolling WAC prior stock baseline
-            cur_stock_res = await self.db.execute(
-                select(Product.stock).where(Product.id == item_row.product_id)
-            )
-            cur_prod_stock = Decimal(str(cur_stock_res.scalar() or 0.00))
-            prior_stock = max(Decimal("0.00"), cur_prod_stock - p_stock)
-
-            if valuation:
-                old_wac = Decimal(str(valuation.weighted_average_cost or 0.00))
-                new_wac = CostManagementEngine.calculate_rolling_wac(
-                    current_qty=prior_stock,
-                    current_wac=old_wac,
-                    inward_qty=p_stock,
-                    inward_unit_cost=effective_unit_cost,
-                )
-                valuation.purchase_cost = item_row.cost_price
-                valuation.last_purchase_cost = item_row.cost_price
-                valuation.landed_cost = effective_unit_cost
-                valuation.replacement_cost = effective_unit_cost
-                valuation.weighted_average_cost = new_wac
-                if not valuation.fifo_cost or Decimal(str(valuation.fifo_cost)) <= Decimal("0.00"):
-                    valuation.fifo_cost = effective_unit_cost
-                if item_row.mrp and item_row.mrp > Decimal("0.00"):
-                    valuation.mrp = item_row.mrp
-                valuation.updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
-            else:
-                val_tech_id = IdentityEngine.generate_technical_id()
-                new_val = ProductCostValuation(
-                    id=val_tech_id,
-                    uuid=val_tech_id,
-                    product_id=item_row.product_id,
-                    purchase_cost=item_row.cost_price,
-                    last_purchase_cost=item_row.cost_price,
-                    landed_cost=effective_unit_cost,
-                    replacement_cost=effective_unit_cost,
-                    weighted_average_cost=effective_unit_cost,
-                    fifo_cost=effective_unit_cost,
-                    standard_cost=item_row.cost_price,
-                    mrp=item_row.mrp or Decimal("0.00"),
-                    company_id=self.tenant.company_id,
-                    branch_id=self.tenant.branch_id,
-                    updated_at=datetime.now(timezone.utc).replace(tzinfo=None),
-                )
-                self.db.add(new_val)
+        from .cost_engine import CostManagementEngine
+        await CostManagementEngine.process_inward_valuation(
+            session=self.db,
+            company_id=self.tenant.company_id,
+            receipt_id=receipt_id,
+            branch_id=self.tenant.branch_id,
+        )
 
 
         supplier = await self._get_supplier(req.supplier_id)
