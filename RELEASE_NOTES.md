@@ -4,15 +4,47 @@
   Designation  : Chief Systems Architect & Creator
   Email        : support@smritibooks.com
   Websites     : smritibooks.com | erpnbook.com | aitdl.com
-  Version      : 6.73.0
+  Version      : 6.75.0
   Created      : 2026-10-13
-  Modified     : 2026-10-13
+  Modified     : 2026-10-14
   Copyright    : © SMRITIBooks.com. All Rights Reserved.
   License      : Proprietary Commercial Software
   Classification: Internal
 -->
 
 # SMRITI Retail OS — Release Notes
+
+## Release v6.75.0 (2026-10-14)
+
+### Inventory & Finance — Cost Integrity, Landed Cost Vouchers & Historical Return Lineage
+
+#### Overview
+SMRITI Retail OS v6.75.0 delivers the completed Batch 2.4 costing and return lineage architecture, providing enterprise data integrity across inventory valuation, receipt allocation, and sales-return tracking without introducing secondary accounting subsystems. This release eliminates commercial ambiguity in sales returns, guarantees mathematical balance and idempotency in landed cost vouchers, logs explicit FIFO fallback events, and ensures non-destructive schema convergence across diverse tenant environments.
+
+#### Key Highlights
+- **Exact-Line Sales Return Lineage & Commercial Defense**:
+  - Persisted `sales_invoice_item_id` foreign key on `SalesReturnItem` model, backed by an indexed column and schema alias normalization (`invoice_item_id`, `original_invoice_item_id`).
+  - Added strict line validation in `sales.py`: cross-product line mismatches are rejected with HTTP 422.
+  - Implemented anti-arbitrage ambiguity defense: returns with omitted line references are rejected with HTTP 422 whenever the SKU appears on multiple original invoice lines with differing commercial terms (prices, tax rates, or historical costs).
+  - Enforced cumulative return quantity limits per invoice line and across all invoice lines for that product.
+- **Ind AS 2 Rolling WAC & Inward Valuation**:
+  - Goods Receipt Notes (GRN) automatically update perpetual rolling WAC via `CostManagementEngine.process_inward_valuation`.
+  - Landed cost components (freight, handling, customs, insurance) are apportioned directly into inward line item valuation and persisted in `ProductCostValuation`.
+  - Added explicit warning log when inventory costing falls back to FIFO queue.
+  - Purged selling price fallbacks in `sales_stock_authority.py`.
+- **Provisional Cost Quarantine**:
+  - Invoices and returns with provisional or estimated costs (`is_provisional=True`) are quarantined from finalized gross profit and contribution KPI calculations until authoritative reconciliation.
+- **Balanced & Idempotent Landed Cost Adjustment Vouchers**:
+  - Implemented `post_landed_cost_adjustment_voucher` in `unified_ledger.py` with strict debit/credit equality check ($\sum \text{Debits} == \sum \text{Credits}$), rejecting unbalanced vouchers.
+  - Added duplicate-posting protection: subsequent calls with the same reference return the existing voucher without mutating balances.
+  - Preserved dock-stage unbilled GRN clearing entry (Account 1045).
+  - Added `TallyService = TallyPrimeService` compatibility alias in `tally_service.py`.
+- **Safe Schema & Migration Convergence**:
+  - Registered all cost management models in `alembic/env.py` target metadata.
+  - Authored migration `v1532_cost_management_engine_foundations.py` with PostgreSQL catalog checks to safely converge on existing or fresh schemas.
+  - Downgrade prevents catastrophic data loss by aborting rollback on non-empty tables.
+- **Automated Verification**:
+  - 34/34 tests green (100% pass rate) across `test_migration_v1532_lifecycle.py`, `test_cost_valuation_batch2.py`, and `test_cost_accounting_batch1.py`.
 
 ## Release v6.74.0 (2026-10-14)
 
