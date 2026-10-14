@@ -247,6 +247,7 @@ export function resolveNavigation(query: NavigationQuery): ResolvedNavigation {
           { id: 'database-manager', title: 'Database Manager (DB Studio)', icon: 'storage' },
           { id: 'masters', title: 'System Master Registry', icon: 'tune' },
           { id: 'staff-management', title: 'Staff & Role Governance', icon: 'group' },
+          { id: 'muster-roll', title: 'Muster Roll & Wages', icon: 'view_timeline' },
           { id: 'dev-tracker', title: 'Dev Intelligence Center', icon: 'bug_report' },
           { id: 'wiki', title: 'System Documentation Wiki', icon: 'import_contacts' },
           { id: 'about-smriti', title: 'About SMRITI OS', icon: 'info' },

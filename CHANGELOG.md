@@ -1,17 +1,18 @@
-## [6.79.0] — 2026-10-14
+## [6.79.0] — 2026-10-15
 
-### HR & Workforce — Statutory Form II Muster Roll, Casual Worker Daily Wages & Monthly Payroll Reconciliation v3.17.0
+### HR & Workforce — Statutory Form II Muster Roll, Casual Worker Daily Wages & Navigation Remediation v3.17.0
 
-Delivered comprehensive Indian Statutory Form II Muster Roll reporting, casual worker daily-wage computation, and monthly salaried worker payroll reconciliation with Loss of Pay (LOP) adjustments:
+Delivered comprehensive Indian Statutory Form II Muster Roll reporting, casual worker daily-wage computation, monthly salaried worker payroll reconciliation with Loss of Pay (LOP) adjustments, and dedicated first-class navigation routing:
 
 **Key Capabilities & Architectural Enforcement:**
 - **Casual Worker Daily-Wage Engine:** Built calculation algorithm for daily-wage workers: `payable = (present_days * daily_rate) + (half_days * daily_rate * 0.5) + (overtime_hours * overtime_rate) + allowances - deductions + incentives`.
 - **Monthly Salaried Payroll Reconciliation with Loss of Pay (LOP):** Implemented statutory pro-rata formula: `lop_deduction = (monthly_salary / calendar_days_in_period) * lop_days`, automatically computing unpaid absence deductions.
 - **Form II Statutory Muster Roll Matrix:** Engineered 1..31 day horizontal matrix view with status badges (`P`, `L`, `HD`, `A`, `LV`, `WO`, `H`, `-`), summary counts, and standard Form II CSV export endpoint (`GET /api/v1/staff/attendance/muster-roll/export-csv`).
 - **Wage Finalization & Freezing:** Implemented immutable `wage_statements` table via Alembic migration `v1533` to lock payroll numbers and prevent retroactive modification.
-- **P0 Incentive Bug Resolution:** Fixed `EmployeeAttendanceModal.tsx` line 304 unwrapping `{ report_id, lines }` payload envelope, restoring commission/incentive payout visibility.
-- **Unified Attendance Workspace Tabs:** Added interactive `Muster Roll (Form II)` and `Payroll & Wages` tabs with inline calculations, CSV export, and print preview.
-- **Automated Verification:** Certified with 7/7 Pytest tests green in `test_muster_roll_and_wage_engine.py`, 2/2 in `t_staff_punch_verify.py`, 40/40 Vitest tests green in `staffAttendance.integration.test.ts`, 0 `tsc --noEmit` errors, and 0 critical UX field violations.
+- **Dedicated Role-Controlled Workspace & Navigation Routing:** Registered first-class Launchpad tile (`muster-roll`) under "System & Operations" restricted to `MANAGER` and `SYSADMIN` roles. Added canonical routing aliases in `TabRenderer.tsx` (`muster-roll`, `menu-muster-roll`, `wages`, `payroll`) supporting direct entry via `initialSection="muster_roll"` and `initialSection="wages"`. Registered breadcrumb override mapping `muster-roll` to `staff-management`.
+- **Staff 360 Quick-Action Links:** Added quick-launch button in Staff 360 top header toolbar (`#staff-muster-roll-btn`) and Attendance tab (`#staff-tab-muster-roll-btn`).
+- **Sticky Column Freezing:** Sticky employee name/code columns and header rows for seamless horizontal navigation across 31 days.
+- **Automated Verification:** Certified with 7/7 Pytest tests green in `test_muster_roll_and_wage_engine.py`, 40/40 Vitest tests green in `staffAttendance.integration.test.ts`, 4/4 menu routing tests in `menuRegistryRouting.test.ts`, 53/53 Launchpad registry check passed, 0 `tsc --noEmit` errors, and 0 critical UX field violations.
 
 ## [6.78.0] — 2026-10-14
 

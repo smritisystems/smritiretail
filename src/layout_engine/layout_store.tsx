@@ -285,6 +285,12 @@ export const LayoutEngineProvider: React.FC<ProviderProps> = ({
       category: "Operations",
     },
     {
+      id: "muster-roll",
+      label: "Muster Roll & Wages",
+      icon: "view_timeline",
+      category: "Operations",
+    },
+    {
       id: "leave-management",
       label: "Leave Management",
       icon: "beach_access",

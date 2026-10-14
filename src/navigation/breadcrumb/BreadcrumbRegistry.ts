@@ -62,6 +62,9 @@ const PARENT_OVERRIDES: Record<string, string> = {
   // System sub-modules
   "database-manager": "system",
   "staff-management": "system",
+  "muster-roll": "staff-management",
+  "attendance-workspace": "staff-management",
+  "wages": "staff-management",
   "dev-tracker": "system",
   "about-smriti": "system",
   "wiki": "system",

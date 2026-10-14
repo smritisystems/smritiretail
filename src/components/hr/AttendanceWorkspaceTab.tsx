@@ -92,9 +92,14 @@ function fmtDate(iso: string): string {
 export interface AttendanceWorkspaceTabProps {
   currentUser?: { role: string; name: string; id?: string } | null;
   onNotification?: (title: string, message: string, type: "success" | "error" | "info" | "warning") => void;
+  initialSection?: "register" | "muster_roll" | "wages" | "corrections" | "summary";
 }
 
-export const AttendanceWorkspaceTab: React.FC<AttendanceWorkspaceTabProps> = ({ currentUser, onNotification }) => {
+export const AttendanceWorkspaceTab: React.FC<AttendanceWorkspaceTabProps> = ({
+  currentUser,
+  onNotification,
+  initialSection = "register",
+}) => {
   const [records, setRecords]       = useState<AttendanceRecord[]>([]);
   const [personnel, setPersonnel]   = useState<PersonnelProfile[]>([]);
   const [branches, setBranches]     = useState<BranchOption[]>([]);
@@ -114,8 +119,14 @@ export const AttendanceWorkspaceTab: React.FC<AttendanceWorkspaceTabProps> = ({ 
   const [bulkStatus, setBulkStatus] = useState<"HOLIDAY" | "ABSENT">("HOLIDAY");
   const [bulkSelected, setBulkSelected] = useState<string[]>([]);
   const [bulkSubmitting, setBulkSubmitting] = useState(false);
-  const [section, setSection]       = useState<"register" | "muster_roll" | "wages" | "corrections" | "summary">("register");
+  const [section, setSection]       = useState<"register" | "muster_roll" | "wages" | "corrections" | "summary">(initialSection);
   const [corrections, setCorrections] = useState<AttendanceRecord[]>([]);
+
+  useEffect(() => {
+    if (initialSection) {
+      setSection(initialSection);
+    }
+  }, [initialSection]);
   // R-12: correction request modal
   const [correctionTarget, setCorrectionTarget] = useState<AttendanceRecord | null>(null);
   const [correctionReason, setCorrectionReason] = useState("");
@@ -640,8 +651,8 @@ export const AttendanceWorkspaceTab: React.FC<AttendanceWorkspaceTabProps> = ({ 
                 <div className="flex-1 overflow-auto rounded-lg border border-slate-200 dark:border-slate-800">
                   <table className="w-full border-collapse text-center text-xs">
                     <thead>
-                      <tr className="border-b border-slate-200 bg-slate-100 text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300">
-                        <th className="sticky left-0 z-20 min-w-[140px] border-r border-slate-200 bg-slate-100 px-3 py-2 text-left font-bold dark:border-slate-800 dark:bg-slate-900">Employee</th>
+                      <tr className="sticky top-0 z-20 border-b border-slate-200 bg-slate-100 text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300">
+                        <th className="sticky left-0 top-0 z-30 min-w-[150px] border-r border-slate-200 bg-slate-100 px-3 py-2 text-left font-bold shadow-xs dark:border-slate-800 dark:bg-slate-900">Employee</th>
                         <th className="min-w-[80px] border-r border-slate-200 px-2 py-2 text-left font-semibold dark:border-slate-800">Dept</th>
                         {Array.from({ length: musterData?.days_in_month || 31 }, (_, i) => i + 1).map(d => (
                           <th key={d} className="min-w-[28px] border-r border-slate-200 px-1 py-1 font-bold dark:border-slate-800">{d}</th>
@@ -663,8 +674,8 @@ export const AttendanceWorkspaceTab: React.FC<AttendanceWorkspaceTabProps> = ({ 
                           const s = row.summary || {};
                           return (
                             <tr key={row.user_id} className="hover:bg-slate-50 dark:hover:bg-slate-900/50">
-                              <td className="sticky left-0 z-10 border-r border-slate-200 bg-white px-3 py-2 text-left shadow-sm dark:border-slate-800 dark:bg-slate-950">
-                                <div className="font-bold text-slate-800 dark:text-white">{row.full_name}</div>
+                              <td className="sticky left-0 z-10 min-w-[150px] border-r border-slate-200 bg-white px-3 py-2 text-left shadow-xs dark:border-slate-800 dark:bg-slate-950">
+                                <div className="font-bold text-slate-800 dark:text-white truncate max-w-[140px]">{row.full_name}</div>
                                 <div className="font-mono text-[10px] text-slate-400">{row.employee_code}</div>
                               </td>
                               <td className="border-r border-slate-200 px-2 py-2 text-left text-[11px] text-slate-500 truncate max-w-[80px] dark:border-slate-800">
@@ -743,8 +754,8 @@ export const AttendanceWorkspaceTab: React.FC<AttendanceWorkspaceTabProps> = ({ 
                 <div className="flex-1 overflow-auto rounded-lg border border-slate-200 dark:border-slate-800">
                   <table className="w-full text-left text-xs">
                     <thead>
-                      <tr className="border-b border-slate-200 bg-slate-100 text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300">
-                        <th className="px-3 py-2.5 font-bold">Employee</th>
+                      <tr className="sticky top-0 z-20 border-b border-slate-200 bg-slate-100 text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300">
+                        <th className="sticky left-0 top-0 z-30 min-w-[150px] border-r border-slate-200 bg-slate-100 px-3 py-2.5 font-bold shadow-xs dark:border-slate-800 dark:bg-slate-900">Employee</th>
                         <th className="px-2 py-2.5 font-semibold">Type</th>
                         <th className="px-2 py-2.5 font-semibold text-right">Base Rate</th>
                         <th className="px-2 py-2.5 font-semibold text-center">Working / Present</th>
@@ -763,8 +774,8 @@ export const AttendanceWorkspaceTab: React.FC<AttendanceWorkspaceTabProps> = ({ 
                       ) : (
                         wagesList.map((w: any) => (
                           <tr key={w.user_id} className="hover:bg-slate-50 dark:hover:bg-slate-900/50">
-                            <td className="px-3 py-2.5">
-                              <div className="font-bold text-slate-800 dark:text-white">{w.employee_name}</div>
+                            <td className="sticky left-0 z-10 min-w-[150px] border-r border-slate-200 bg-white px-3 py-2.5 shadow-xs dark:border-slate-800 dark:bg-slate-950">
+                              <div className="font-bold text-slate-800 dark:text-white truncate max-w-[140px]">{w.employee_name}</div>
                               <div className="font-mono text-[10px] text-slate-400">{w.employee_code} &middot; {w.designation}</div>
                             </td>
                             <td className="px-2 py-2.5">
