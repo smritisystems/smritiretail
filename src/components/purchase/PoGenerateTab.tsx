@@ -1200,6 +1200,8 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
         items: itemView !== "size_pivot"
           ? lineItems.filter(l => l.stockNo && l.orderQty > 0).map(l => ({
               product_id: l.originalProduct?.id || l.stockNo,
+              variant_id: (l.originalProduct as any)?.item_variant_id || (l.originalProduct as any)?.variant_id || undefined,
+              item_id: (l.originalProduct as any)?.item_id || undefined,
               code: l.stockNo,
               name: l.product || l.stockNo,
               quantity: l.orderQty,
@@ -1208,6 +1210,8 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
             }))
           : sizePivotRows.filter(r => r.articleNo && r.totalQty > 0).map(r => ({
               product_id: r.originalProduct?.id || r.articleNo,
+              variant_id: (r.originalProduct as any)?.item_variant_id || (r.originalProduct as any)?.variant_id || undefined,
+              item_id: (r.originalProduct as any)?.item_id || undefined,
               code: r.articleNo,
               name: r.product || r.articleNo,
               quantity: r.totalQty,
