@@ -1,3 +1,18 @@
+## [6.79.0] — 2026-10-14
+
+### HR & Workforce — Statutory Form II Muster Roll, Casual Worker Daily Wages & Monthly Payroll Reconciliation v3.17.0
+
+Delivered comprehensive Indian Statutory Form II Muster Roll reporting, casual worker daily-wage computation, and monthly salaried worker payroll reconciliation with Loss of Pay (LOP) adjustments:
+
+**Key Capabilities & Architectural Enforcement:**
+- **Casual Worker Daily-Wage Engine:** Built calculation algorithm for daily-wage workers: `payable = (present_days * daily_rate) + (half_days * daily_rate * 0.5) + (overtime_hours * overtime_rate) + allowances - deductions + incentives`.
+- **Monthly Salaried Payroll Reconciliation with Loss of Pay (LOP):** Implemented statutory pro-rata formula: `lop_deduction = (monthly_salary / calendar_days_in_period) * lop_days`, automatically computing unpaid absence deductions.
+- **Form II Statutory Muster Roll Matrix:** Engineered 1..31 day horizontal matrix view with status badges (`P`, `L`, `HD`, `A`, `LV`, `WO`, `H`, `-`), summary counts, and standard Form II CSV export endpoint (`GET /api/v1/staff/attendance/muster-roll/export-csv`).
+- **Wage Finalization & Freezing:** Implemented immutable `wage_statements` table via Alembic migration `v1533` to lock payroll numbers and prevent retroactive modification.
+- **P0 Incentive Bug Resolution:** Fixed `EmployeeAttendanceModal.tsx` line 304 unwrapping `{ report_id, lines }` payload envelope, restoring commission/incentive payout visibility.
+- **Unified Attendance Workspace Tabs:** Added interactive `Muster Roll (Form II)` and `Payroll & Wages` tabs with inline calculations, CSV export, and print preview.
+- **Automated Verification:** Certified with 7/7 Pytest tests green in `test_muster_roll_and_wage_engine.py`, 2/2 in `t_staff_punch_verify.py`, 40/40 Vitest tests green in `staffAttendance.integration.test.ts`, 0 `tsc --noEmit` errors, and 0 critical UX field violations.
+
 ## [6.78.0] — 2026-10-14
 
 ### Procurement & Purchase Order UX — Modernization Phase 1: Unified Workspace, Commercial Drawer & Barcode Priority v6.78.0
