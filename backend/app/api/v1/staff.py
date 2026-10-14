@@ -262,6 +262,22 @@ def _require_manager(current_user: User) -> None:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Manager approval is required for this HR action.")
 
 
+def _require_bulk_attendance_permission(current_user: User) -> None:
+    allowed_roles = (
+        UserRole.SYSADMIN,
+        UserRole.ADMIN,
+        UserRole.MANAGER,
+        UserRole.STORE_MANAGER,
+        UserRole.BRANCH_ADMIN,
+        UserRole.HR_EXECUTIVE,
+    )
+    if current_user.role not in allowed_roles:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Manager or HR authorization is required for bulk attendance actions.",
+        )
+
+
 async def _resolve_company_local_user(control_user: User, db: AsyncSession, tenant: TenantContext) -> User:
     """Reconcile a control-plane staff identity into the company database."""
     local_user = (await db.execute(select(User).where(
@@ -1771,12 +1787,11 @@ async def bulk_create_attendance(
 ):
     """
     R-10: Bulk Attendance Mark Endpoint.
-    Allows managers to mark attendance for multiple staff in one request
-    (e.g. HOLIDAY or ABSENT for an entire branch roster).
-    Idempotent per (user_id, attendance_date) — skips duplicates rather than raising 409.
-    Only SYSADMIN or MANAGER may call this endpoint.
+    Allows authorized managers/HR to mark attendance for multiple staff in one request.
+    Idempotent per (user_id, attendance_date) — skips duplicates and preserves biometric records.
+    Role permissions: SYSADMIN, ADMIN, MANAGER, STORE_MANAGER, BRANCH_ADMIN, HR_EXECUTIVE.
     """
-    _require_manager(current_user)
+    _require_bulk_attendance_permission(current_user)
 
     if not payload:
         raise HTTPException(status_code=422, detail="At least one attendance record is required.")
@@ -1785,6 +1800,22 @@ async def bulk_create_attendance(
 
     allowed_statuses = {"PRESENT", "ABSENT", "LATE", "HALF_DAY", "LEAVE", "HOLIDAY", "WEEKLY_OFF"}
     created, skipped, errors = [], [], []
+
+    # Finalized payroll protection: identify affected periods and locked wage statements
+    periods = {item.attendance_date.strftime("%Y-%m") for item in payload}
+    finalized_wages = (await db.execute(
+        select(WageStatement.user_id, WageStatement.period).where(
+            WageStatement.company_id == tenant.company_id,
+            WageStatement.period.in_(list(periods)),
+            WageStatement.status == "FINALIZED",
+            WageStatement.is_deleted == False,
+        )
+    )).all()
+    finalized_set = {(row.user_id, row.period) for row in finalized_wages}
+
+    # Authoritative branch scoping for branch managers
+    is_global_operator = current_user.role in (UserRole.SYSADMIN, UserRole.ADMIN, UserRole.HR_EXECUTIVE)
+    operator_branch = current_user.branch_id or tenant.branch_id
 
     for item in payload:
         if item.status not in allowed_statuses:
@@ -1797,15 +1828,38 @@ async def bulk_create_attendance(
 
         try:
             target_user = await _tenant_user(db, item.user_id, tenant, control_db=control_db)
+            if target_user.company_id and target_user.company_id != tenant.company_id:
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Staff member not found in this company.")
             resolved_uid = target_user.id
         except HTTPException:
             errors.append({
                 "user_id": item.user_id,
                 "attendance_date": str(item.attendance_date),
-                "error": "Staff member not found in this branch.",
+                "error": "Staff member not found in this company.",
             })
             continue
 
+        # Strict branch isolation for non-global operators
+        target_branch = target_user.branch_id or tenant.branch_id
+        if not is_global_operator and operator_branch and target_branch and operator_branch != target_branch:
+            errors.append({
+                "user_id": item.user_id,
+                "attendance_date": str(item.attendance_date),
+                "error": f"Staff member belongs to branch '{target_branch}', not authorized for your branch '{operator_branch}'.",
+            })
+            continue
+
+        # Check finalized payroll lock
+        item_period = item.attendance_date.strftime("%Y-%m")
+        if (resolved_uid, item_period) in finalized_set or (item.user_id, item_period) in finalized_set:
+            skipped.append({
+                "user_id": item.user_id,
+                "attendance_date": str(item.attendance_date),
+                "reason": f"Payroll for period {item_period} is finalized. Attendance is locked.",
+            })
+            continue
+
+        # Check duplicate and preserve biometric / clock-in records
         user_ids = list({item.user_id, resolved_uid})
         existing = (await db.execute(select(AttendanceRecord).where(
             AttendanceRecord.company_id == tenant.company_id,
@@ -1815,32 +1869,92 @@ async def bulk_create_attendance(
         ))).scalar_one_or_none()
 
         if existing:
-            skipped.append({
-                "user_id": item.user_id,
-                "attendance_date": str(item.attendance_date),
-                "reason": "Attendance already exists for this date.",
-            })
+            if existing.check_in_at is not None or existing.check_out_at is not None or (existing.device_source and "BIOMETRIC" in existing.device_source.upper()):
+                skipped.append({
+                    "user_id": item.user_id,
+                    "attendance_date": str(item.attendance_date),
+                    "reason": "Existing biometric/punch record preserved.",
+                })
+            else:
+                skipped.append({
+                    "user_id": item.user_id,
+                    "attendance_date": str(item.attendance_date),
+                    "reason": f"Attendance already recorded as {existing.status}.",
+                })
             continue
+
+        # Authoritative branch assignment (never trust client branch claim)
+        effective_branch = target_branch if not is_global_operator else (item.branch_source_id or target_branch or tenant.branch_id)
+        reason_val = (item.correction_reason or "").strip() or None
+        if item.status in ("ABSENT", "LEAVE") and not reason_val:
+            reason_val = "Manager bulk manual marking"
 
         record = AttendanceRecord(
             company_id=tenant.company_id,
-            branch_id=tenant.branch_id,
+            branch_id=effective_branch,
             created_by=current_user.id,
             user_id=resolved_uid,
             attendance_date=item.attendance_date,
             status=item.status,
             check_in_at=item.check_in_at,
             check_out_at=item.check_out_at,
-            branch_source_id=item.branch_source_id or tenant.branch_id,
+            branch_source_id=effective_branch,
             register_source=item.register_source or "MANAGER_BULK",
-            device_source=item.device_source,
-            correction_status="PENDING" if item.correction_reason else "NONE",
-            correction_reason=item.correction_reason,
+            device_source=item.device_source or "WEB_PORTAL",
+            correction_status="PENDING" if reason_val and item.status in ("ABSENT", "LEAVE") else "NONE",
+            correction_reason=reason_val,
         )
         db.add(record)
-        created.append({"user_id": resolved_uid, "attendance_date": str(item.attendance_date), "status": item.status})
+        created.append({
+            "id": record.id,
+            "user_id": resolved_uid,
+            "attendance_date": str(item.attendance_date),
+            "status": item.status,
+        })
 
-    await db.commit()
+    try:
+        await db.commit()
+    except Exception as e:
+        await db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Database transaction failure during bulk attendance: {str(e)}",
+        )
+
+    # Compliance Immutable Audit Log Integration
+    if created:
+        batch_id = f"batch-att-{uuid.uuid4().hex[:10]}"
+        try:
+            from ...services.compliance_audit import ComplianceAuditService
+            status_counts = {}
+            for c in created:
+                status_counts[c["status"]] = status_counts.get(c["status"], 0) + 1
+            summary_str = ", ".join(f"{k}: {v}" for k, v in status_counts.items())
+
+            await ComplianceAuditService.record_audit_event(
+                session=db,
+                company_id=tenant.company_id,
+                event_type="BULK_ATTENDANCE_RECORDED",
+                entity_name="attendance_records",
+                entity_id=batch_id,
+                action_summary=f"Bulk attendance recorded for {len(created)} staff by {current_user.username} ({current_user.role}): {summary_str}",
+                actor_user_id=current_user.id,
+                actor_role=current_user.role,
+                branch_id=tenant.branch_id,
+                before_state=None,
+                after_state={
+                    "batch_id": batch_id,
+                    "created_count": len(created),
+                    "skipped_count": len(skipped),
+                    "error_count": len(errors),
+                    "created": created,
+                    "skipped": skipped,
+                    "errors": errors,
+                },
+            )
+            await db.commit()
+        except Exception as audit_err:
+            logger.warning(f"Could not record compliance audit event: {audit_err}")
 
     return {
         "success": True,
@@ -1850,6 +1964,7 @@ async def bulk_create_attendance(
         "created_records": created,
         "skipped_records": skipped,
         "error_records": errors,
+        "records": created,
     }
 
 
