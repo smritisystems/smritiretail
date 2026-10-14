@@ -99,6 +99,12 @@ export interface VendorCommercialProfile {
   tdsRate: number;
   taxTreatment: string;
   outstandingLiability: number;
+  paymentTerms?: string;
+  freightTerms?: string;
+  currency?: string;
+  buyer?: string;
+  department?: string;
+  specialInstructions?: string;
 }
 
 export interface VendorComplianceProfile {

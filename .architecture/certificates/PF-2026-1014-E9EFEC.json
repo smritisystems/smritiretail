@@ -1,0 +1,15 @@
+{
+  "certificate_id": "PF-2026-1014-E9EFEC",
+  "entity": "supplier",
+  "capability": "supplier.select",
+  "asset_type": "component",
+  "proposed_name": "SupplierSelect.tsx",
+  "target_file_path": "src/components/common/SupplierSelect.tsx",
+  "decision": "CREATE_APPROVED",
+  "canonical_owner": "SupplierSelect.tsx",
+  "content_hash": "06c16d02f132f480ca7ef3ea848448e962d7a6111688c35db3038e0ea3295898",
+  "git_commit": "92a82fb0e1af87feeb329530cde191d3e3d7c1aa",
+  "issued_at": "2026-10-14T15:44:03.962426+00:00",
+  "expires_at": "2026-10-21T15:44:03.962426+00:00",
+  "status": "ISSUED"
+}

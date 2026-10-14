@@ -11,7 +11,7 @@
  */
 
 import React from "react";
-import { Package, Tag, Layers, Barcode, DollarSign, Image } from "lucide-react";
+import { Package, Tag, Layers, Barcode, DollarSign, Image, Copy } from "lucide-react";
 import { MasterConfig } from "../master/types.ts";
 import { Product } from "../../../types.ts";
 
@@ -96,7 +96,7 @@ export const itemMasterConfig: MasterConfig<Product> = {
       key: "name",
       fieldId: "product.name",
       label: "Product / SKU Details",
-      width: "240px",
+      width: "220px",
       sortable: true,
       render: (val, item) => {
         const hsn = (item as any).hsnCode || (item as any).hsn_code;
@@ -109,14 +109,42 @@ export const itemMasterConfig: MasterConfig<Product> = {
                 <Package size={14} />
               )}
             </div>
-            <div>
-              <div className="font-bold text-theme-primary">{val || "Unnamed Item"}</div>
-              <div className="text-[10px] text-theme-muted font-mono flex items-center space-x-1">
-                <span>{item.code || item.sku || "NO-SKU"}</span>
-                {item.barcode && <span>• {item.barcode}</span>}
+            <div className="min-w-0">
+              <div className="font-bold text-theme-primary truncate">{val || "Unnamed Item"}</div>
+              <div className="text-[10px] text-theme-muted font-mono flex items-center space-x-1 truncate">
+                <span className="font-semibold text-blue-400">{item.code || item.sku || "NO-SKU"}</span>
                 {hsn && <span className="text-emerald-400 font-semibold">• HSN: {hsn}</span>}
               </div>
             </div>
+          </div>
+        );
+      }
+    },
+    {
+      key: "barcode",
+      fieldId: "product.barcode",
+      label: "Barcode",
+      width: "175px",
+      sortable: true,
+      render: (val, item) => {
+        const bc = val || item.barcode;
+        if (!bc) return <span className="text-theme-muted font-mono text-[11px]">—</span>;
+        return (
+          <div className="flex items-center space-x-1.5 group/bc" title={`Barcode: ${bc}`}>
+            <span className="font-mono text-[11px] font-semibold px-2 py-0.5 rounded bg-theme-surface-2 border border-theme-divider text-theme-primary tracking-wider truncate max-w-[140px]">
+              {bc}
+            </span>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                if (navigator?.clipboard) navigator.clipboard.writeText(bc);
+              }}
+              className="opacity-0 group-hover/bc:opacity-100 transition p-1 hover:bg-theme-surface-3 rounded text-theme-muted hover:text-blue-500 cursor-pointer"
+              title={`Copy Barcode: ${bc}`}
+            >
+              <Copy size={13} />
+            </button>
           </div>
         );
       }

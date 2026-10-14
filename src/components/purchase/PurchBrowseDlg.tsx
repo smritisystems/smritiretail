@@ -304,7 +304,7 @@ export const PurchBrowseDlg: React.FC<PurchaseProductBrowseModalProps> = ({
 
                   return (
                     <tr
-                      key={p.id || idx}
+                      key={p.id ? `${p.id}-${idx}` : `purch-prod-${idx}`}
                       onClick={() => handleProductClick(p)}
                       onMouseEnter={() => setSelectedIndex(idx)}
                       className={`transition-colors

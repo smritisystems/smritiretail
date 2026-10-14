@@ -1,3 +1,37 @@
+## [6.78.0] — 2026-10-14
+
+### Procurement & Purchase Order UX — Modernization Phase 1: Unified Workspace, Commercial Drawer & Barcode Priority v6.78.0
+
+Delivered Phase 1 of the Purchase Order UX Modernization under approved Option B (Compact Header + Primary Item Grid + Expandable Commercial Details), establishing a high-velocity, unified purchase order workspace across both Sizewise Matrix Mode (`PoSizewiseTab.tsx`) and Standard Barcode Mode (`PoGenerateTab.tsx`):
+
+**Key Capabilities & Architectural Enforcement:**
+- **Unified Workspace Without Mandatory Tabs (Decision A):** Eliminated mandatory 3-tab navigation, rendering the primary Item Grid immediately upon load while preserving seamless switching between horizontal Sizewise Matrix and discrete Standard Barcode views.
+- **Commercial & Delivery Slide-Over Drawer (Decision B):** Engineered accessible, responsive 440px slide-over drawer (`src/components/purchase/CommercialDeliveryDrawer.tsx`) supporting payment terms, freight terms, currency, buyer, department, delivery locations, lead time, and special instructions. Preserves full form state across open/close cycles, supports keyboard Escape dismissal, distinguishes Supplier Master defaults from PO-level overrides, and features 1-click reset to defaults.
+- **Standard Mode Barcode Priority (Decision C):** Repositioned Barcode as Column 1 across both compact and detailed Standard item tables, providing direct hardware barcode scanner alignment and warehouse receiving parity.
+- **Supplier Selector Sizing Invariant (Decision D):** Constrained `SupplierSelect.tsx` container to `max-w-md` (448px) on desktop, eliminating 1,125px fluid stretch defects across 1280px, 1440px, and 1920px viewports.
+- **Proportionate, Premium UI (Decision E):** Implemented content-driven sizing ("Use the space an element needs, not all the space available"), compact 64px header, integrated commercial terms indicator buttons, and a clean sticky footer with Net Order Value summary.
+- **Keyboard Ergonomics (Alt+C Shortcut):** Integrated `Alt+C` global keyboard event listener and visual badge indicators across both Sizewise Matrix and Standard Barcode modes for 1-keystroke Commercial Drawer toggling.
+- **Visual Ratio Presets & Distribution Indicators:** Added dynamic visual micro-bars under each size column in Panel 1 (Size-wise Summary), live ratio string reduction (`getSimplifiedRatioString()`, e.g. `2 : 2 : 3 : 4 : 5 : 4 : 3 : 2 : 2`), and clickable assortment preset chips (`Bell Curve`, `Core Sizes Focus`, `Even Run`) allowing instant one-click curve distribution across all active lines.
+- **Transactional & Database Safety:** 100% preservation of downstream Goods Receipt Notes, supplier bills, commercial snapshot freezing in `rule_snapshots["commercial_terms"]`, and zero database schema migrations or production data mutations.
+- **Automated Verification:** Certified with 30/30 Vitest tests green (`poModernizationPhase1.test.ts`, `poModeConversion.test.ts`, `articleFiltering.test.ts`), 0 `tsc --noEmit` errors, clean production bundle (`npm run build`, exit 0), and headless Playwright DOM measurements across 1280px, 1440px, and 1920px viewports.
+
+## [6.77.0] — 2026-10-14
+
+### Procurement & Item Grid — Article-Based Dynamic Auto-Filtering Engine v6.77.0
+
+Engineered high-velocity article-based auto-filtering across Purchase Order item grids (Sizewise Matrix Mode in `PoSizewiseTab.tsx` and Standard Mode in `PoGenerateTab.tsx`):
+
+**Key Capabilities & Architectural Enforcement:**
+- **Article Catalog Multi-Index Cache (`src/components/purchase/articleFiltering.ts`):** Pre-indexes active tenant `Product[]` into normalized lookup tables (`articleMap`, `barcodeMap`, `skuMap`) enabling O(1) multi-dimensional search and retrieval.
+- **Dynamic Cascade Filtering:**
+  - Selecting an Article/Style auto-populates Brand, Product Description, Tax %, and default Rate/MRP, and dynamically restricts the Color dropdown strictly to colors available for that article.
+  - Selecting a Color dynamically restricts the Size dropdown strictly to sizes available for that specific (Article + Color).
+  - In Sizewise Mode, size columns not present for that (Article + Color) are dynamically locked (`disabled={!isSizeAvailable}`), styled with muted backgrounds, and marked with `✕` placeholders.
+  - Selecting a Size automatically resolves the exact variant Barcode, SKU, and variant-specific pricing.
+- **Reverse Barcode & SKU Resolution:** Scanning or typing a Barcode or SKU instantly resolves and auto-populates Article, Color, Size, MRP, and Rates across both forward and reverse operational workflows.
+- **Clean UI & Data Integrity:** Implemented via native HTML5 `<datalist>` elements bound to standard input controls, avoiding UI bloat or popup interference during fast tabular keyboard entry. Operates strictly against existing Item Master records with zero duplicate data creation.
+- **Automated Verification:** Certified with 8/8 Vitest tests green (`articleFiltering.test.ts`), 8/8 checks green in headless Playwright automated test suite (`verify_article_based_filtering_headless.py`), 0 browser popups, 0 `tsc --noEmit` errors, and clean production build (`npm run build`, exit 0).
+
 ## [6.75.1] — 2026-10-14
 
 ### Procurement & Item Master — Purchase Variant Disambiguation & Legacy Vendor On-Demand Auto-Bridge v6.75.1

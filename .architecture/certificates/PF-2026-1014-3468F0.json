@@ -1,0 +1,15 @@
+{
+  "certificate_id": "PF-2026-1014-3468F0",
+  "entity": "purchase",
+  "capability": "purchase.article_filtering",
+  "asset_type": "service",
+  "proposed_name": "articleFiltering.ts",
+  "target_file_path": "src/components/purchase/articleFiltering.ts",
+  "decision": "CREATE_APPROVED",
+  "canonical_owner": "articleFiltering.ts",
+  "content_hash": "3168883ed8a23955980d6df08f5077d2ebc2ba4c1f6200fc9452083324eac371",
+  "git_commit": "92a82fb0e1af87feeb329530cde191d3e3d7c1aa",
+  "issued_at": "2026-10-14T15:44:04.150154+00:00",
+  "expires_at": "2026-10-21T15:44:04.150154+00:00",
+  "status": "ISSUED"
+}

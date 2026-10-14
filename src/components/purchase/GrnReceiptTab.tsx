@@ -83,11 +83,9 @@ import {
   getNextWorkflowStep,
   getPreviousWorkflowStep,
 } from "./grnWorkflow.ts";
-import {
-  ConfirmGrnPostModal,
-  type GrnPostConfirmationDetails,
-} from "./ConfirmGrnPostModal.tsx";
+import { ConfirmGrnPostModal, type GrnPostConfirmationDetails } from "./ConfirmGrnPostModal.tsx";
 import { GrnDesktopTerminal } from "./GrnDesktopTerminal.tsx";
+import { SupplierSelect } from "../common/SupplierSelect.tsx";
 import {
   filterEligibleOrders,
   calculatePoPendingInward,
@@ -3465,21 +3463,16 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
               </div>
               <div>
                 <label className="block text-slate-500 font-medium mb-1">
-                  Supplier <span className="text-rose-500">*</span>
+                  Supplier / Vendor <span className="text-rose-500">*</span>
                 </label>
-                <select
+                <SupplierSelect
+                  id="header-supplier-select"
+                  suppliers={suppliersList}
                   value={supplierId}
-                  onChange={(e) => handleSupplierChange(e.target.value)}
-                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-2.5 py-1.5 text-slate-800 dark:text-slate-200 outline-none font-medium"
-                  data-testid="header-supplier-select"
-                >
-                  <option value="">-- Select Supplier --</option>
-                  {suppliersList.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.name || s.company_name || s.id}
-                    </option>
-                  ))}
-                </select>
+                  placeholder="-- Select or Search Supplier / Vendor Code --"
+                  onChange={(sid) => handleSupplierChange(sid)}
+                  compact={true}
+                />
               </div>
               <div className="md:col-span-2">
                 <div className="flex items-center justify-between mb-1">

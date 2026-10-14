@@ -354,8 +354,11 @@ export async function apiFetchV1<T = any>(endpoint: string, options: ApiRequestO
     // ── Fallback: plain Error for all other non-ok responses ──────────────────
     if (errorBody) {
       const b = errorBody as Record<string, unknown>;
+      const detailObj = typeof b.detail === "object" && b.detail !== null ? (b.detail as Record<string, unknown>) : null;
       errorDetail =
-        (b.detail as string | undefined) ||
+        (detailObj
+          ? ((detailObj.explanation as string) || (detailObj.message as string) || (detailObj.title as string) || JSON.stringify(detailObj))
+          : (b.detail as string | undefined)) ||
         ((b.error as Record<string, unknown> | undefined)?.explanation as string | undefined) ||
         (b.message as string | undefined) ||
         JSON.stringify(errorBody);

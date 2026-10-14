@@ -137,6 +137,78 @@ const VendorCommercialTabBase: React.FC<VendorCommercialTabProps> = ({ vendor, o
           </div>
         </div>
       </div>
+
+      {/* Default Purchase Order Commercial Terms */}
+      <div className="p-5 rounded-xl bg-white dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 shadow-xs space-y-4">
+        <div className="flex items-center space-x-2 text-sm font-bold text-slate-900 dark:text-white border-b border-slate-100 dark:border-slate-800 pb-3">
+          <CreditCard size={16} className="text-blue-600 dark:text-blue-400" />
+          <span>Default Purchase Order Commercial Terms</span>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-400 mb-1">Default Freight Terms</label>
+            <input
+              type="text"
+              value={comm?.freightTerms ?? "Paid by Supplier"}
+              disabled={!isEditing}
+              onChange={(e) => onChangeCommercial("freightTerms", e.target.value)}
+              placeholder="e.g. Paid by Supplier, To Pay"
+              className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500 focus:bg-white dark:focus:bg-slate-800 disabled:opacity-60"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-400 mb-1">Default Currency</label>
+            <select
+              value={comm?.currency ?? "INR - Indian Rupee"}
+              disabled={!isEditing}
+              onChange={(e) => onChangeCommercial("currency", e.target.value)}
+              className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500 focus:bg-white dark:focus:bg-slate-800 disabled:opacity-60"
+            >
+              <option value="INR - Indian Rupee">INR - Indian Rupee</option>
+              <option value="USD - US Dollar">USD - US Dollar</option>
+              <option value="EUR - Euro">EUR - Euro</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-400 mb-1">Default Buyer</label>
+            <input
+              type="text"
+              value={comm?.buyer ?? ""}
+              disabled={!isEditing}
+              onChange={(e) => onChangeCommercial("buyer", e.target.value)}
+              placeholder="e.g. admin (SYSADMIN)"
+              className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500 focus:bg-white dark:focus:bg-slate-800 disabled:opacity-60"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-400 mb-1">Default Department</label>
+            <input
+              type="text"
+              value={comm?.department ?? ""}
+              disabled={!isEditing}
+              onChange={(e) => onChangeCommercial("department", e.target.value)}
+              placeholder="e.g. General Purchase"
+              className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500 focus:bg-white dark:focus:bg-slate-800 disabled:opacity-60"
+            />
+          </div>
+
+          <div className="md:col-span-2">
+            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-400 mb-1">Special Instructions</label>
+            <textarea
+              rows={2}
+              value={comm?.specialInstructions ?? ""}
+              disabled={!isEditing}
+              onChange={(e) => onChangeCommercial("specialInstructions", e.target.value)}
+              placeholder="Add standard special instructions for this supplier..."
+              className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500 focus:bg-white dark:focus:bg-slate-800 disabled:opacity-60 resize-none"
+            />
+          </div>
+        </div>
+      </div>
     </div>
   );
 };

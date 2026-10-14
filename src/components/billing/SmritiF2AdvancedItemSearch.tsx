@@ -57,7 +57,8 @@ import {
   Image as ImageIcon,
   AlertCircle,
   Eye,
-  Check
+  Check,
+  Copy
 } from "lucide-react";
 import { Product } from "../../types.ts";
 import { apiFetchV1 } from "../../lib/apiFetch.ts";
@@ -783,7 +784,7 @@ export const SmritiF2AdvancedItemSearch: React.FC<SmritiF2AdvancedItemSearchProp
                   <tr>
                     <th className="p-2 w-10 text-center">#</th>
                     <th className="p-2 w-32 font-mono">Stock No</th>
-                    <th className="p-2 w-32 font-mono">Barcode</th>
+                    <th className="p-2 w-40 font-mono">Barcode</th>
                     <th className="p-2">Item Description</th>
                     <th className="p-2 w-24">Brand</th>
                     <th className="p-2 w-24">Style</th>
@@ -815,12 +816,29 @@ export const SmritiF2AdvancedItemSearch: React.FC<SmritiF2AdvancedItemSearchProp
                           {(currentPage - 1) * pageSize + idx + 1}
                         </td>
                         <td className="p-2 font-bold truncate">{item.code}</td>
-                        <td className="p-2 text-slate-500 dark:text-slate-400 font-mono text-[11px] truncate">
-                          {isSelected ? (
-                            <span className="text-white">{item.barcode}</span>
-                          ) : (
-                            item.barcode
-                          )}
+                        <td className="p-2 font-mono text-[11px]">
+                          <div className="flex items-center gap-1 group/bc" title={`Barcode: ${item.barcode || "None"}`}>
+                            <span className={`px-1.5 py-0.5 rounded text-[11px] font-semibold tracking-wider ${
+                              isSelected
+                                ? "text-white bg-white/20"
+                                : "text-slate-800 dark:text-slate-200 bg-slate-100 dark:bg-slate-800"
+                            }`}>
+                              {item.barcode || "—"}
+                            </span>
+                            {item.barcode && (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  if (navigator?.clipboard) navigator.clipboard.writeText(item.barcode);
+                                }}
+                                className="opacity-0 group-hover/bc:opacity-100 transition p-0.5 text-slate-400 hover:text-blue-400 rounded cursor-pointer"
+                                title="Copy Barcode"
+                              >
+                                <Copy size={11} />
+                              </button>
+                            )}
+                          </div>
                         </td>
                         <td className="p-2 font-sans font-medium truncate max-w-xs" title={item.name}>
                           {item.name}

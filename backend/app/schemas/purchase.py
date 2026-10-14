@@ -61,6 +61,14 @@ class SupplierResponse(BaseModel):
     outstanding:   Decimal
     company_id:    Optional[str] = None
     branch_id:     Optional[str] = None
+    payment_terms_days: Optional[int] = 30
+    payment_terms:      Optional[str] = "30 Days"
+    freight_terms:      Optional[str] = "Paid by Supplier"
+    currency:           Optional[str] = "INR - Indian Rupee"
+    buyer:              Optional[str] = None
+    department:         Optional[str] = None
+    special_instructions: Optional[str] = None
+    commercial_terms:   Optional[Dict[str, Any]] = None
 
     model_config = {"from_attributes": True}
 
@@ -83,6 +91,7 @@ class PurchaseOrderItemCreate(BaseModel):
     product_id: Optional[str] = None
     item_id:    Optional[str] = None
     variant_id: Optional[str] = None
+    barcode:    Optional[str] = None
     code:       Optional[str] = None
     name:       Optional[str] = None
     quantity:   Decimal
@@ -93,14 +102,18 @@ class PurchaseOrderItemCreate(BaseModel):
     @classmethod
     def normalize_line_item(cls, data: any) -> any:
         if isinstance(data, dict):
+            if not data.get("barcode") and data.get("bar_code"):
+                data["barcode"] = str(data["bar_code"])
             if not data.get("code") and data.get("item_code"):
                 data["code"] = str(data["item_code"])
+            elif not data.get("code") and data.get("barcode"):
+                data["code"] = str(data["barcode"])
             if not data.get("product_id"):
-                data["product_id"] = data.get("code") or data.get("item_code") or "PROD-GENERIC"
+                data["product_id"] = data.get("code") or data.get("barcode") or data.get("item_code") or "PROD-GENERIC"
             if not data.get("name") and data.get("item_name"):
                 data["name"] = str(data["item_name"])
             elif not data.get("name"):
-                data["name"] = data.get("code") or "Item"
+                data["name"] = data.get("code") or data.get("barcode") or "Item"
             if data.get("cost_price") is None and data.get("rate") is not None:
                 data["cost_price"] = data["rate"]
             elif data.get("cost_price") is None:
@@ -135,6 +148,8 @@ class PurchaseOrderCreate(BaseModel):
     # CONFIRMED is only set server-side via the confirm endpoint.
     status:      Optional[str] = Field(default="DRAFT", description="Requested status: DRAFT (default). CONFIRMED requires the /confirm endpoint.")
     items:       Optional[List[PurchaseOrderItemCreate]] = None
+    commercial_terms: Optional[Dict[str, Any]] = None
+    rule_snapshots:   Optional[Dict[str, Any]] = None
 
     @model_validator(mode="before")
     @classmethod
@@ -209,6 +224,38 @@ class PurchaseOrderResponse(BaseModel):
     amended_by:          Optional[str] = None
     amended_at:          Optional[datetime] = None
     amend_revision:      int = 0
+    rule_snapshots:      Optional[Dict[str, Any]] = None
+    commercial_terms:    Optional[Dict[str, Any]] = None
+
+    @model_validator(mode="after")
+    def populate_commercial_terms(self) -> "PurchaseOrderResponse":
+        if not self.commercial_terms and self.rule_snapshots and isinstance(self.rule_snapshots, dict):
+            if "commercial_terms" in self.rule_snapshots:
+                self.commercial_terms = self.rule_snapshots.get("commercial_terms")
+        if not self.commercial_terms and self.notes:
+            parsed = {}
+            for part in self.notes.split("|"):
+                if ":" in part:
+                    k, v = part.split(":", 1)
+                    k_str = k.strip().lower()
+                    v_str = v.strip()
+                    if "payment" in k_str:
+                        parsed["payment_terms"] = v_str
+                    elif "freight" in k_str:
+                        parsed["freight_terms"] = v_str
+                    elif "ref" in k_str:
+                        parsed["supplier_reference"] = v_str
+                    elif "instruction" in k_str:
+                        parsed["special_instructions"] = v_str
+                    elif "currency" in k_str:
+                        parsed["currency"] = v_str
+                    elif "buyer" in k_str:
+                        parsed["buyer"] = v_str
+                    elif "dept" in k_str or "department" in k_str:
+                        parsed["department"] = v_str
+            if parsed:
+                self.commercial_terms = parsed
+        return self
 
     model_config = {"from_attributes": True}
 
