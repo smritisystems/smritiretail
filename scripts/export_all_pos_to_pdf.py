@@ -110,7 +110,7 @@ def build_po_html(po_data: dict) -> str:
           {qty_cells}
           <td style="padding:4px 6px; text-align:center; font-weight:800; color:#0f172a; background:#f0f7ff; border-right:1px solid #cbd5e1; font-size:10.5px;">{row["total_qty"]}</td>
           <td style="padding:4px 6px; text-align:right; font-family:monospace; font-weight:600; color:#1e293b; border-right:1px solid #cbd5e1; font-size:10px; white-space:nowrap;">{format_curr(row["rate"])}</td>
-          <td style="padding:4px 4px; text-align:center; font-family:monospace; color:#475569; border-right:1px solid #cbd5e1; font-size:10px;">18%</td>
+          <td style="padding:4px 4px; text-align:center; font-family:monospace; color:#475569; border-right:1px solid #cbd5e1; font-size:10px;">5%</td>
           <td style="padding:4px 6px; text-align:right; font-family:monospace; font-weight:600; color:#1e293b; border-right:1px solid #cbd5e1; font-size:10px; white-space:nowrap;">{format_curr(row["tax"])}</td>
           <td style="padding:4px 6px; text-align:right; font-family:monospace; font-weight:700; color:#0f172a; font-size:10.5px; white-space:nowrap;">{format_curr(row["amount"])}</td>
         </tr>
@@ -184,10 +184,24 @@ def build_po_html(po_data: dict) -> str:
     line-height: 1.35;
   }}
   .a4-container {{
+    position: relative;
     width: 100%;
     max-width: 210mm;
     margin: 0 auto;
     padding: 6px 10px;
+    background: #ffffff;
+  }}
+  .watermark-logo {{
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 75%;
+    max-width: 75%;
+    opacity: 0.12;
+    z-index: 0;
+    pointer-events: none;
+    user-select: none;
   }}
   .page-break-avoid {{
     break-inside: avoid !important;
@@ -197,6 +211,8 @@ def build_po_html(po_data: dict) -> str:
 </head>
 <body>
 <div class="a4-container">
+  {f'<img class="watermark-logo" src="{TATTLY_LOGO_URI}" alt="" />' if TATTLY_LOGO_URI else ''}
+  <div style="position: relative; z-index: 1;">
 
   <!-- 1. HEADER & COMPANY INFORMATION -->
   <header style="display:flex; justify-content:space-between; align-items:flex-start; padding-bottom:5px; margin-bottom:5px; border-bottom:1px solid #cbd5e1;">
@@ -298,8 +314,8 @@ def build_po_html(po_data: dict) -> str:
             <th rowspan="2" style="padding:4px 6px; border-right:1px solid #cbd5e1; text-align:right; width:64px; white-space:nowrap;">
               RATE (₹)
             </th>
-            <th rowspan="2" style="padding:4px 4px; border-right:1px solid #cbd5e1; text-align:center; width:40px; white-space:nowrap;">
-              TAX %
+            <th rowspan="2" style="padding:4px 4px; border-right:1px solid #cbd5e1; text-align:center; width:44px; white-space:nowrap;">
+              TAX (5%)
             </th>
             <th rowspan="2" style="padding:4px 6px; border-right:1px solid #cbd5e1; text-align:right; width:68px; white-space:nowrap;">
               TAX (₹)
@@ -368,7 +384,7 @@ def build_po_html(po_data: dict) -> str:
         <tr>
           <td style="color:#64748b; width:110px; padding:1.5px 0;">Payment Terms</td>
           <td style="width:10px; text-align:center;">:</td>
-          <td><strong style="color:#0f172a;">30 Days</strong></td>
+          <td><strong style="color:#0f172a;">120 Days</strong></td>
         </tr>
         <tr>
           <td style="color:#64748b; padding:1.5px 0;">Freight Terms</td>
@@ -381,14 +397,14 @@ def build_po_html(po_data: dict) -> str:
           <td><strong style="color:#0f172a;">INR - Indian Rupee (₹)</strong></td>
         </tr>
         <tr>
-          <td style="color:#64748b; padding:1.5px 0;">Delivery Terms</td>
+          <td style="color:#64748b; padding:1.5px 0;">Vendor Bill Ref</td>
           <td style="text-align:center;">:</td>
-          <td><strong style="color:#0f172a;">Direct Central Store Delivery</strong></td>
+          <td><strong style="color:#0f172a; font-family:monospace;">{po_data.get("bill_ref", "—")}</strong> ({po_data.get("bill_date_str", "—")})</td>
         </tr>
         <tr>
-          <td style="color:#64748b; padding:1.5px 0;">Vendor Bill Ref.</td>
+          <td style="color:#64748b; padding:1.5px 0;">Procurement Lead</td>
           <td style="text-align:center;">:</td>
-          <td><strong style="color:#0f172a; font-family:monospace;">{po_data.get("bill_ref", "—")}</strong></td>
+          <td><strong style="color:#1e3a8a;">{po_data.get("lead_days", 35)} Days (Prior to Bill)</strong></td>
         </tr>
       </table>
     </div>
@@ -413,7 +429,7 @@ def build_po_html(po_data: dict) -> str:
             <td style="text-align:right; font-family:monospace; font-weight:700; color:#0f172a;">₹ {format_curr(po_data["subtotal"])}</td>
           </tr>
           <tr>
-            <td style="color:#64748b; padding:1.5px 0;">GST (18%) Statutory Tax</td>
+            <td style="color:#64748b; padding:1.5px 0;">GST (5%) Statutory Tax</td>
             <td style="text-align:right; font-family:monospace; font-weight:700; color:#0f172a;">₹ {format_curr(po_data["tax_total"])}</td>
           </tr>
         </table>
@@ -461,6 +477,7 @@ def build_po_html(po_data: dict) -> str:
     <div>Page 1 of 1</div>
   </footer>
 
+  </div>
 </div>
 </body>
 </html>"""
@@ -492,9 +509,11 @@ async def export_all_pos():
         # 2. Query All Purchase Orders
         po_query = text("""
             SELECT po.id, po.order_no, po.created_at, po.subtotal, po.tax_total, po.grand_total, po.status, po.notes,
-                   s.name as supplier_name, s.code as supplier_code, s.mobile as supplier_contact, s.address as supplier_address, s.gst_number as supplier_gstin
+                   s.name as supplier_name, s.code as supplier_code, s.mobile as supplier_contact, s.address as supplier_address, s.gst_number as supplier_gstin,
+                   pb.bill_no, pb.bill_date
             FROM purchase_orders po
             JOIN suppliers s ON po.supplier_id = s.id
+            LEFT JOIN purchase_bills pb ON pb.order_id = po.id
             WHERE po.company_id = :cid
             ORDER BY s.code, po.order_no
         """)
@@ -535,8 +554,10 @@ async def export_all_pos():
         sup_contact = po[10]
         sup_addr = po[11]
         sup_gst = po[12]
-
-        bill_ref = order_no.split("-")[-1] if "-" in order_no else ""
+        bill_no = po[13] or (order_no.split("-")[-1] if "-" in order_no else "")
+        bill_date = po[14]
+        bill_date_str = bill_date.strftime("%d-%b-%Y") if bill_date else "—"
+        lead_days = (bill_date - po[2].date()).days if (bill_date and po[2]) else 35
 
         # Aggregate lines into Sizewise Matrix rows
         matrix_rows = defaultdict(lambda: {
@@ -603,7 +624,9 @@ async def export_all_pos():
             "supplier_address": sup_addr,
             "supplier_gstin": sup_gst,
             "status": status,
-            "bill_ref": bill_ref,
+            "bill_ref": bill_no,
+            "bill_date_str": bill_date_str,
+            "lead_days": lead_days,
             "subtotal": subtotal,
             "tax_total": tax_total,
             "grand_total": grand_total,
