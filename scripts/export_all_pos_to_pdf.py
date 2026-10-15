@@ -100,7 +100,7 @@ def build_po_html(po_data: dict) -> str:
     # Table rows
     table_rows_html = ""
     for idx, row in enumerate(po_data["sizewise_rows"], start=1):
-        bg = "#ffffff" if idx % 2 == 1 else "#f8fafc"
+        bg = "transparent" if idx % 2 == 1 else "rgba(248, 250, 252, 0.45)"
         qty_cells = "".join(f'<td style="padding:4px 2px; text-align:center; font-weight:600; color:#1e293b; border-right:1px solid #cbd5e1; font-size:10px;">{row["quantities"].get(sz, "—")}</td>' for sz in size_cols)
         table_rows_html += f"""
         <tr style="background:{bg}; border-bottom:1px solid #e2e8f0;">
@@ -108,7 +108,7 @@ def build_po_html(po_data: dict) -> str:
           <td style="padding:4px 6px; font-weight:700; font-family:monospace; color:#0f172a; border-right:1px solid #cbd5e1; font-size:10.5px; white-space:nowrap;">{row["article"]}</td>
           <td style="padding:4px 6px; color:#1e293b; font-weight:600; border-right:1px solid #cbd5e1; font-size:10px;">{row["color"]}</td>
           {qty_cells}
-          <td style="padding:4px 6px; text-align:center; font-weight:800; color:#0f172a; background:#f0f7ff; border-right:1px solid #cbd5e1; font-size:10.5px;">{row["total_qty"]}</td>
+          <td style="padding:4px 6px; text-align:center; font-weight:800; color:#0f172a; background:rgba(240, 247, 255, 0.45); border-right:1px solid #cbd5e1; font-size:10.5px;">{row["total_qty"]}</td>
           <td style="padding:4px 6px; text-align:right; font-family:monospace; font-weight:600; color:#1e293b; border-right:1px solid #cbd5e1; font-size:10px; white-space:nowrap;">{format_curr(row["rate"])}</td>
           <td style="padding:4px 4px; text-align:center; font-family:monospace; color:#475569; border-right:1px solid #cbd5e1; font-size:10px;">5%</td>
           <td style="padding:4px 6px; text-align:right; font-family:monospace; font-weight:600; color:#1e293b; border-right:1px solid #cbd5e1; font-size:10px; white-space:nowrap;">{format_curr(row["tax"])}</td>
@@ -123,7 +123,7 @@ def build_po_html(po_data: dict) -> str:
     ref_cards_html = ""
     for r in po_data["sizewise_rows"]:
         ref_cards_html += f"""
-        <div style="border:1px solid #cbd5e1; border-radius:6px; padding:6px 8px; background:#ffffff; box-shadow:0 1px 2px rgba(0,0,0,0.03); display:flex; flex-direction:column; justify-content:space-between;">
+        <div style="border:1px solid #cbd5e1; border-radius:6px; padding:6px 8px; background:rgba(255, 255, 255, 0.70); box-shadow:0 1px 2px rgba(0,0,0,0.03); display:flex; flex-direction:column; justify-content:space-between;">
           <div style="font-size:12px; font-weight:800; color:#0f172a; margin-bottom:4px; letter-spacing:0.02em;">{r["article"]} - {r["color"]}</div>
           <div style="display:grid; grid-template-columns:120px 1fr; gap:8px; align-items:center;">
             <div style="font-size:9.5px; line-height:1.4; color:#475569;">
@@ -132,18 +132,13 @@ def build_po_html(po_data: dict) -> str:
               <div><span style="color:#64748b;">Upper:</span> <strong style="color:#0f172a;">{r.get("upper", "Synthetic / Leatherette")}</strong></div>
               <div><span style="color:#64748b;">Outsole:</span> <strong style="color:#0f172a;">{r.get("outsole", "TPR / Rubber Sole")}</strong></div>
             </div>
-            <div style="position:relative; width:100%; height:62px; aspect-ratio:1.618/1; border-radius:5px; border:1px solid #e2e8f0; background:linear-gradient(135deg, #f8fafc 0%, #f1f5f9 60%, #eff6ff 100%); display:flex; align-items:center; justify-content:center; overflow:hidden;">
+            <div style="position:relative; width:100%; height:62px; aspect-ratio:1.618/1; border-radius:5px; border:1px solid #e2e8f0; background:rgba(241, 245, 249, 0.40); display:flex; align-items:center; justify-content:center; overflow:hidden;">
               <svg style="position:absolute; inset:0; width:100%; height:100%; opacity:0.1; pointer-events:none;" viewBox="0 0 162 100" preserveAspectRatio="none">
                 <rect x="0" y="0" width="162" height="100" fill="none" stroke="#1e3a8a" stroke-width="1"/>
                 <line x1="100" y1="0" x2="100" y2="100" stroke="#1e3a8a" stroke-width="1" stroke-dasharray="3 2"/>
                 <line x1="100" y1="62" x2="162" y2="62" stroke="#1e3a8a" stroke-width="1" stroke-dasharray="3 2"/>
                 <path d="M 100 100 A 100 100 0 0 1 0 0 A 62 62 0 0 1 100 62 A 38 38 0 0 1 138 100" fill="none" stroke="#1e3a8a" stroke-width="0.8"/>
               </svg>
-              <div style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; overflow:hidden; pointer-events:none;">
-                <span style="color:#1e3a8a; opacity:0.18; font-weight:900; text-transform:uppercase; font-size:9.5px; white-space:nowrap; transform:rotate(-12deg); letter-spacing:0.2em;">
-                  TATTLY THREADS
-                </span>
-              </div>
               <div style="position:relative; z-index:10; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center;">
                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="1.5" style="opacity:0.8;">
                   <path d="M2 18h20c-.5-3-2-6-5-7l-5-2-4 1-4 3c-1 1-1.5 3-2 5z"/>
@@ -187,6 +182,7 @@ def build_po_html(po_data: dict) -> str:
     position: relative;
     width: 100%;
     max-width: 210mm;
+    min-height: 280mm;
     margin: 0 auto;
     padding: 6px 10px;
     background: #ffffff;
@@ -196,12 +192,13 @@ def build_po_html(po_data: dict) -> str:
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
-    width: 75%;
-    max-width: 75%;
-    opacity: 0.12;
-    z-index: 0;
+    width: 76%;
+    max-width: 76%;
+    opacity: 0.13;
+    z-index: 50;
     pointer-events: none;
     user-select: none;
+    mix-blend-mode: multiply;
   }}
   .page-break-avoid {{
     break-inside: avoid !important;
@@ -269,7 +266,7 @@ def build_po_html(po_data: dict) -> str:
   </header>
 
   <!-- 2. SUPPLIER INFORMATION PANEL -->
-  <section style="background:#eff6ff; border:1px solid #bfdbfe; border-radius:6px; padding:6px 10px; margin-bottom:8px; font-size:10px; line-height:1.4;">
+  <section style="background:rgba(239, 246, 255, 0.65); border:1px solid #bfdbfe; border-radius:6px; padding:6px 10px; margin-bottom:8px; font-size:10px; line-height:1.4;">
     <div style="display:flex; justify-content:space-between; align-items:center;">
       <div>
         <div style="font-size:9px; font-weight:800; color:#2563eb; text-transform:uppercase; letter-spacing:0.06em;">SUPPLIER DETAILS</div>
@@ -301,14 +298,14 @@ def build_po_html(po_data: dict) -> str:
     <div style="border:1px solid #cbd5e1; border-radius:6px; overflow:hidden;">
       <table style="width:100%; border-collapse:collapse; font-size:10px;">
         <thead>
-          <tr style="background:#f8fafc; color:#334155; font-weight:800; border-bottom:1px solid #cbd5e1;">
+          <tr style="background:rgba(248, 250, 252, 0.70); color:#334155; font-weight:800; border-bottom:1px solid #cbd5e1;">
             <th rowspan="2" style="padding:4px; border-right:1px solid #cbd5e1; text-align:center; width:22px;">#</th>
             <th rowspan="2" style="padding:4px 6px; border-right:1px solid #cbd5e1; text-align:left; width:88px;">ARTICLE NO.</th>
             <th rowspan="2" style="padding:4px 6px; border-right:1px solid #cbd5e1; text-align:left; width:72px;">COLOR</th>
-            <th colspan="7" style="padding:3px; border-right:1px solid #cbd5e1; text-align:center; background:#f0f7ff; color:#1e3a8a; font-weight:900; text-transform:uppercase;">
+            <th colspan="7" style="padding:3px; border-right:1px solid #cbd5e1; text-align:center; background:rgba(240, 247, 255, 0.70); color:#1e3a8a; font-weight:900; text-transform:uppercase;">
               SIZE (EU)
             </th>
-            <th rowspan="2" style="padding:4px 6px; border-right:1px solid #cbd5e1; text-align:center; background:#f0f7ff; color:#1e3a8a; font-weight:900; width:52px;">
+            <th rowspan="2" style="padding:4px 6px; border-right:1px solid #cbd5e1; text-align:center; background:rgba(240, 247, 255, 0.70); color:#1e3a8a; font-weight:900; width:52px;">
               TOTAL QTY
             </th>
             <th rowspan="2" style="padding:4px 6px; border-right:1px solid #cbd5e1; text-align:right; width:64px; white-space:nowrap;">
@@ -324,7 +321,7 @@ def build_po_html(po_data: dict) -> str:
               AMOUNT (₹)
             </th>
           </tr>
-          <tr style="background:#f0f7ff; border-bottom:1px solid #cbd5e1;">
+          <tr style="background:rgba(240, 247, 255, 0.70); border-bottom:1px solid #cbd5e1;">
             <th style="padding:2px; border-right:1px solid #cbd5e1; text-align:center; font-weight:800; color:#2563eb; width:26px;">36</th>
             <th style="padding:2px; border-right:1px solid #cbd5e1; text-align:center; font-weight:800; color:#2563eb; width:26px;">37</th>
             <th style="padding:2px; border-right:1px solid #cbd5e1; text-align:center; font-weight:800; color:#2563eb; width:26px;">38</th>
@@ -338,12 +335,12 @@ def build_po_html(po_data: dict) -> str:
           {table_rows_html}
         </tbody>
         <tfoot>
-          <tr style="background:#f8fafc; font-weight:900; border-top:2px solid #cbd5e1;">
+          <tr style="background:rgba(248, 250, 252, 0.70); font-weight:900; border-top:2px solid #cbd5e1;">
             <td colspan="3" style="padding:4px 6px; text-align:right; text-transform:uppercase; letter-spacing:0.04em; color:#1e3a8a; border-right:1px solid #cbd5e1; font-size:10px;">
               TOTAL
             </td>
             {footer_qty_cells}
-            <td style="padding:4px 6px; text-align:center; font-weight:900; color:#0f172a; background:#e0f2fe; border-right:1px solid #cbd5e1; font-size:11px;">
+            <td style="padding:4px 6px; text-align:center; font-weight:900; color:#0f172a; background:rgba(224, 242, 254, 0.65); border-right:1px solid #cbd5e1; font-size:11px;">
               {po_data["total_qty"]}
             </td>
             <td style="padding:4px 6px; text-align:center; color:#94a3b8; border-right:1px solid #cbd5e1;">—</td>
@@ -376,7 +373,7 @@ def build_po_html(po_data: dict) -> str:
   <!-- 5. COMMERCIAL TERMS & ORDER SUMMARY (SIDE-BY-SIDE) -->
   <section class="page-break-avoid" style="display:grid; grid-template-columns:repeat(2, 1fr); gap:8px; margin-bottom:8px;">
     <!-- Left Card: Commercial Terms -->
-    <div style="background:#eff6ff; border:1px solid #bfdbfe; border-radius:6px; padding:6px 10px; font-size:10px;">
+    <div style="background:rgba(239, 246, 255, 0.65); border:1px solid #bfdbfe; border-radius:6px; padding:6px 10px; font-size:10px;">
       <div style="font-weight:900; font-size:11px; color:#1e3a8a; text-transform:uppercase; margin-bottom:4px; padding-bottom:2px; border-bottom:1px solid #bfdbfe;">
         COMMERCIAL TERMS
       </div>
@@ -410,7 +407,7 @@ def build_po_html(po_data: dict) -> str:
     </div>
 
     <!-- Right Card: Order Summary -->
-    <div style="background:#eff6ff; border:1px solid #bfdbfe; border-radius:6px; padding:6px 10px; font-size:10px; display:flex; flex-direction:column; justify-content:space-between;">
+    <div style="background:rgba(239, 246, 255, 0.65); border:1px solid #bfdbfe; border-radius:6px; padding:6px 10px; font-size:10px; display:flex; flex-direction:column; justify-content:space-between;">
       <div>
         <div style="font-weight:900; font-size:11px; color:#1e3a8a; text-transform:uppercase; margin-bottom:4px; padding-bottom:2px; border-bottom:1px solid #bfdbfe;">
           ORDER SUMMARY
@@ -443,7 +440,7 @@ def build_po_html(po_data: dict) -> str:
 
   <!-- 6. AMOUNT IN WORDS & REMARKS -->
   <section class="page-break-avoid" style="margin-bottom:8px; font-size:10px;">
-    <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:5px; padding:4px 8px; margin-bottom:4px;">
+    <div style="background:rgba(248, 250, 252, 0.70); border:1px solid #e2e8f0; border-radius:5px; padding:4px 8px; margin-bottom:4px;">
       <span style="color:#64748b; font-weight:700;">Amount in Words:</span>
       <strong style="color:#0f172a; margin-left:4px;">{words_amt}</strong>
     </div>
