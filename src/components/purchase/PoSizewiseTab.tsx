@@ -4,9 +4,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 1.0.0
+ * Version      : 6.82.0
  * Created      : 2026-09-25
- * Modified     : 2026-09-30
+ * Modified     : 2026-10-15
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
@@ -2196,7 +2196,7 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
   }), [header, selectedSupplier]);
 
   const printLineItems: PurchaseOrderLineItem[] = useMemo(() => {
-    return lines.filter(l => Boolean(l.itemCode && l.totalQty > 0)).flatMap((l, idx) => {
+    return lines.filter(l => Boolean((l.itemCode || l.articleNo) && l.totalQty > 0)).flatMap((l, idx) => {
       const activeSizes = Object.entries(l.sizeQuantities).filter(([_, qty]) => qty > 0);
       if (activeSizes.length === 0) {
         return [{
@@ -2226,6 +2226,12 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
           addOnAmount: 0,
           totalValue: l.netValue + ((l.totalQty * l.rate * l.taxPercent) / 100),
           deliveryDate: l.deliveryDate,
+          originalProduct: l.originalProduct,
+          imageUrl: l.imageUrl || resolveLineImage(l, articleImageMap),
+          photoUrl: l.imageUrl || resolveLineImage(l, articleImageMap),
+          heelType: (l as any).heelType || (l as any).heel_type || l.originalProduct?.attributes?.heel_type || (l.originalProduct as any)?.heel_type,
+          upperMaterial: (l as any).upperMaterial || (l as any).upper_material || l.originalProduct?.attributes?.upper_material || (l.originalProduct as any)?.upper_material,
+          outsoleMaterial: (l as any).outsoleMaterial || (l as any).outsole_material || l.originalProduct?.attributes?.outsole_material || (l.originalProduct as any)?.outsole_material,
         }];
       }
       return activeSizes.map(([sz, qty]) => ({
@@ -2255,12 +2261,18 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
         addOnAmount: 0,
         totalValue: qty * l.rate * (1 + l.taxPercent / 100),
         deliveryDate: l.deliveryDate,
+        originalProduct: l.originalProduct,
+        imageUrl: l.imageUrl || resolveLineImage(l, articleImageMap),
+        photoUrl: l.imageUrl || resolveLineImage(l, articleImageMap),
+        heelType: (l as any).heelType || (l as any).heel_type || l.originalProduct?.attributes?.heel_type || (l.originalProduct as any)?.heel_type,
+        upperMaterial: (l as any).upperMaterial || (l as any).upper_material || l.originalProduct?.attributes?.upper_material || (l.originalProduct as any)?.upper_material,
+        outsoleMaterial: (l as any).outsoleMaterial || (l as any).outsole_material || l.originalProduct?.attributes?.outsole_material || (l.originalProduct as any)?.outsole_material,
       }));
     });
-  }, [lines]);
+  }, [lines, articleImageMap]);
 
   const printSizePivotRows: PurchaseOrderSizePivotRow[] = useMemo(() => {
-    return lines.filter(l => Boolean(l.itemCode && l.totalQty > 0)).map(l => ({
+    return lines.filter(l => Boolean((l.itemCode || l.articleNo) && l.totalQty > 0)).map(l => ({
       id: l.id,
       sNo: l.sNo,
       articleNo: l.articleNo || l.itemCode,
@@ -2273,8 +2285,13 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
       gstPercent: l.taxPercent,
       rate: l.rate,
       totalValue: l.netValue,
+      taxAmount: (l.totalQty * l.rate * l.taxPercent) / 100,
       imageUrl: l.imageUrl || resolveLineImage(l, articleImageMap),
       photoUrl: l.imageUrl || resolveLineImage(l, articleImageMap),
+      originalProduct: l.originalProduct,
+      heelType: (l as any).heelType || (l as any).heel_type || l.originalProduct?.attributes?.heel_type || (l.originalProduct as any)?.heel_type,
+      upperMaterial: (l as any).upperMaterial || (l as any).upper_material || l.originalProduct?.attributes?.upper_material || (l.originalProduct as any)?.upper_material,
+      outsoleMaterial: (l as any).outsoleMaterial || (l as any).outsole_material || l.originalProduct?.attributes?.outsole_material || (l.originalProduct as any)?.outsole_material,
     }));
   }, [lines, articleImageMap]);
 
@@ -2604,7 +2621,7 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
             >
               <span className="material-symbols-outlined text-[16px] text-slate-500">folder_open</span> Open
             </button>
-            <button type="button" onClick={() => setShowPrintPreview(true)} className="flex items-center gap-1.5 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 font-bold px-3 py-1.5 rounded-lg transition text-xs shadow-2xs">
+            <button type="button" id="sw-print-po-btn" onClick={() => setShowPrintPreview(true)} className="flex items-center gap-1.5 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 font-bold px-3 py-1.5 rounded-lg transition text-xs shadow-2xs cursor-pointer">
               <span className="material-symbols-outlined text-[16px] text-slate-500">print</span> Print
             </button>
             <button type="button" className="bg-white hover:bg-slate-50 border border-slate-300 text-slate-600 px-2 py-1.5 rounded-lg transition text-xs shadow-2xs">
