@@ -55,7 +55,9 @@ The purpose of this implementation is to ingest authentic client supplier purcha
    - Production-grade ETL pipeline with dry-run safety, catalog resolution, barcode synchronization for `SND-05-G`, topological foreign key flushes, and atomic transaction commit.
 2. `scripts/verify_purchase_ingestion.py`:
    - Post-ingestion audit engine reporting quantitative status across suppliers, POs, GRNs, bills, stock movements, SKU stock counts, and warehouse distribution.
-3. `docs/walkthrough/procurement/Procurement_Vendor_Purchase_Initial_Stock_GRN_Ingestion_v1.0.0.md`:
+3. `scripts/export_all_pos_to_pdf.py`:
+   - High-performance batch PDF export engine generating statutory A4 Footwear Purchase Orders using Playwright Chromium with 100% 1-page A4 geometry verified by PyMuPDF (`fitz`).
+4. `docs/walkthrough/procurement/Procurement_Vendor_Purchase_Initial_Stock_GRN_Ingestion_v1.0.0.md`:
    - This governance walkthrough document.
 
 ---
@@ -124,6 +126,12 @@ The purpose of this implementation is to ingest authentic client supplier purcha
    .venv\Scripts\python.exe scripts/verify_purchase_ingestion.py
    ```
    *Result:* Exit 0. Full reconciliation of all 8 verification dimensions.
+
+4. **Batch Statutory Purchase Order PDF Export Suite:**
+   ```powershell
+   .venv\Scripts\python.exe scripts/export_all_pos_to_pdf.py
+   ```
+   *Result:* Exit 0. 28/28 statutory A4 Footwear Purchase Order PDFs generated and verified with 100% 1-page geometry.
 
 ---
 
