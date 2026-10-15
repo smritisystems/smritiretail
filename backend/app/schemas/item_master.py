@@ -4,9 +4,9 @@ Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
-Version      : 6.17.0
+Version      : 6.82.0
 Created      : 2026-08-25
-Modified     : 2026-09-28
+Modified     : 2026-10-15
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 Classification: Internal
@@ -516,6 +516,9 @@ class ItemVariantResponse(BaseModel):
     size: Optional[str] = None
     hsn_code: Optional[str] = None
     tax_rate: Optional[float] = None
+    mrp: Optional[float] = None
+    selling_price: Optional[float] = None
+    cost_price: Optional[float] = None
     is_active: bool = True
     attributes_json: Dict[str, Any] = Field(default_factory=dict)
     barcodes: List[ItemBarcodeItem] = Field(default_factory=list)
@@ -527,6 +530,41 @@ class ItemVariantResponse(BaseModel):
     sales: Optional[ItemSalesSettingSchema] = None
     inventory_policy: Optional[ItemInventoryPolicySchema] = None
     readiness: Optional[ItemReadinessResponse] = None
+
+
+class ItemVariantUpdateRequest(BaseModel):
+    color: Optional[str] = None
+    size: Optional[str] = None
+    variant_sku: Optional[str] = None
+    variant_name: Optional[str] = None
+    hsn_code: Optional[str] = None
+    tax_rate: Optional[float] = None
+    mrp: Optional[float] = None
+    selling_price: Optional[float] = None
+    cost_price: Optional[float] = None
+    primary_barcode: Optional[str] = None
+    secondary_barcodes: Optional[List[str]] = None
+    is_active: Optional[bool] = None
+    attributes_json: Optional[Dict[str, Any]] = None
+
+
+class ItemVariantDeletionStatusResponse(BaseModel):
+    variant_id: str
+    variant_sku: str
+    is_active: bool
+    can_hard_delete: bool
+    transaction_count: int
+    blocking_reasons: List[str] = Field(default_factory=list)
+    recommendation: str
+
+
+class ItemVariantHardDeleteResponse(BaseModel):
+    success: bool
+    variant_id: str
+    released_sku: str
+    released_barcodes: List[str] = Field(default_factory=list)
+    parent_style_deleted: bool = False
+    message: str
 
 
 class ItemBarcodeCreateRequest(BaseModel):
