@@ -16,9 +16,9 @@
  *
  * * Websites: aitdl.com | erpnbook.com | smritibooks.com
  *
- * * Version    : 2.1.2
+ * * Version    : 6.82.0
  * * Created    : 2026-07-10
- * * Modified   : 2026-07-11
+ * * Modified   : 2026-10-15
  * * Copyright  : © AITDL.com and SMRITIBooks.com. All Rights Reserved.
  * * License    : Proprietary Commercial Software
  */
@@ -31,6 +31,7 @@ import { ThermalReceipt80mm } from "./templates/ThermalReceipt80mm.tsx";
 import { BarcodeLabel } from "./templates/BarcodeLabel.tsx";
 import { FootwearPurchaseOrderA4 } from "./templates/FootwearPurchaseOrderA4.tsx";
 import { SizePivotMatrixA4 } from "./templates/SizePivotMatrixA4.tsx";
+import { PurchaseOrderPrintA4 } from "./templates/PurchaseOrderPrintA4.tsx";
 
 export type PrintFormat = "A4" | "Thermal80mm" | "Label";
 
@@ -122,6 +123,12 @@ export const PrintProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       name: "Product Barcode Label (50x25mm)",
       format: "Label",
       component: BarcodeLabel
+    },
+    {
+      id: "purchase-order-print-a4",
+      name: "SMRITI Purchase Order Standard & Sizewise (Approved A4) [Default]",
+      format: "A4",
+      component: PurchaseOrderPrintA4 as any
     },
     {
       id: "footwear-po-a4",

@@ -4,9 +4,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.44.0
+ * Version      : 6.82.0
  * Created      : 2026-08-21
- * Modified     : 2026-09-30
+ * Modified     : 2026-10-15
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
@@ -127,6 +127,11 @@ export interface PurchaseOrderLineItem {
   addOnAmount: number;
   totalValue: number; // value + taxAmount + addOnAmount
   originalProduct?: Product;
+  imageUrl?: string;
+  photoUrl?: string;
+  heelType?: string;
+  upperMaterial?: string;
+  outsoleMaterial?: string;
   // ── Vendor policy decision fields (frontend-only — not sent to backend PO payload) ──
   vendorDecision?: POProductDecision;     // backend decision at time of add
   isReadOnly?: boolean;                    // READ_ONLY action: qty + rate disabled
@@ -151,12 +156,16 @@ export interface PurchaseOrderSizePivotRow {
   gstPercent: number; // GST % per line item
   rate: number;
   totalValue: number; // totalQty * rate
+  taxAmount?: number;
   originalProduct?: Product;
   // Vendor policy decision fields (frontend-only)
   vendorDecision?: POProductDecision;
   isReadOnly?: boolean;
   imageUrl?: string;
   photoUrl?: string;
+  heelType?: string;
+  upperMaterial?: string;
+  outsoleMaterial?: string;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

@@ -405,6 +405,13 @@
 }
 
 @media print {
+  html, body {
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+    overflow-x: visible !important;
+    overflow-y: visible !important;
+  }
   body * {
     visibility: hidden;
   }
@@ -412,7 +419,7 @@
     visibility: visible;
   }
   .print-only-container {
-    position: absolute;
+    position: relative;
     left: 0;
     top: 0;
     width: 100%;
