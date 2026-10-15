@@ -1,3 +1,34 @@
+## [6.82.0] — 2026-10-15
+
+### Inventory & Item Master — Untransacted Variant & SKU Guarded Hard Delete, Edit & Deactivation Engine v1.0.0
+
+Delivered comprehensive Edit, Deactivate, and Guarded Permanent Delete capabilities in SMRITI Retail OS Item Master, allowing operators to correct incorrectly entered items and variants or physically delete 100% un-transacted records while protecting historical records:
+
+**Key Capabilities & Architectural Enforcement:**
+- **Un-transacted Identity Modification:** Allows authorized users to update physical variant dimensions (SKU, primary barcode, secondary barcodes, color, size) via `PUT /api/v1/item-variants/{variant_id}` when zero downstream transactions exist across operational and financial ledgers.
+- **Transacted Identity Locking (HTTP 409):** Automatically inspects 11 operational tables (`sales_invoice_items`, `sales_order_items`, `sales_return_items`, `purchase_receipt_items`, `purchase_order_items`, `purchase_bill_items`, `stock_movements`, `stock_transfer_items`, `stock_audit_items`, physical stock balance, active batches/serials). When any transaction exists, identity fields are locked returning `HTTP 409 Conflict` (`SMRITI-IDENTITY-TRANSACTED`), while commercial fields (MRP, selling price, cost price, secondary barcodes, active status) remain editable.
+- **Guarded Permanent Hard Delete (Physical Database Removal):** Enables physical deletion (`DELETE /api/v1/item-variants/{variant_id}/hard-delete`) for un-transacted variants. Permanently purges variant, attached barcodes, price revisions, domain settings, and legacy product entries, releasing unique SKU and barcode assets back to the tenant namespace for immediate reuse without database collision.
+- **Parent Article/Style Preservation:** Intelligently preserves the parent Article/Style (`items` table) if sibling variants remain under that style.
+- **SHA-256 Immutable WORM Audit Trail:** Emits an unalterable audit record in `ComplianceImmutableAuditLog` recording before-state JSON, SHA-256 payload hash, actor username and role, and `worm_locked = True`.
+- **Strict Master Lookup Dimension Governance:** Color and Size dimension inputs in Item Master Edit are strictly governed by the authoritative Master Lookup registry (`master_values`). Unregistered words are blocked in the UI with inline warnings and disabled Save button (`GovernedLookupCombobox`), and strictly rejected on the backend by `CatalogDimensionValidator` with `HTTP 422 Unprocessable Entity` (`SMRITI-VAL-002`), ensuring no arbitrary or unapproved words can ever be assigned to catalog items.
+- **Visual Evidence & Headless UI Automation:** Captured 3 high-resolution visual evidence screenshots directly from the live frontend UI in `docs/walkthrough/inventory/evidence/` documenting un-transacted variant editing with governed lookups, guarded hard delete confirmation dialog, and transacted variant locked state.
+- **Automated Verification:** Certified with 5/5 backend Pytest tests green in `test_item_variant_hard_delete.py`, 0 `tsc --noEmit` errors, and clean production Vite build (`npm run build`, exit 0).
+
+## [6.81.0] — 2026-10-15
+
+### Procurement & PO Print — Statutory Purchase Order Print Format Visual Design Lock & Tax Breakdown v1.0.0
+
+Delivered the authoritative statutory Purchase Order print format for SMRITI Retail OS aligning 100% of visual typography, layout hierarchy, footwear product photography, and statutory tax calculations with the approved visual reference (`image(8).png`):
+
+**Key Capabilities & Architectural Enforcement:**
+- **Visual Design Lock with `image(8).png`:** Implemented pure reactive layout in `PurchaseOrderPrintA4.tsx` registered in `print_store.tsx` and mounted as default statutory preview in `POPrintPreviewModal.tsx`.
+- **Statutory TAX % & Calculated Line TAX Value:** Integrated explicit `TAX %` (e.g. `18%`) and `TAX (₹)` (e.g. `₹ 11,404.80`) columns directly before `AMOUNT (₹)` across both Sizewise Matrix (EU sizes 36–44) and Standard Barcode-wise views.
+- **Order Summary Tax Rate Label:** Enhanced Order Summary financial card to display `GST (18%) (₹): 31,545.00` alongside Subtotal and Grand Total, reconciling line-item taxes with zero rounding discrepancy.
+- **Golden Ratio (1.618 : 1) Watermark Fallback:** Engineered `GoldenRatioImagePlaceholder` automatically mounted when footwear product images are missing or pending upload. Displays aspect ratio `1.618 : 1`, geometric Fibonacci spiral/grid lines, a -12° rotated semi-transparent watermark of the Company Name (`SMRITI Retail Private Limited`), and article identifier.
+- **Footwear Catalog Reference (2 Cards Per Row):** Decoupled visual catalog preview below item details table into a strict 2-column grid (`grid-cols-2`) displaying Article No., Color, Heels, Upper Material, Outsole, and large image/placeholder.
+- **Print Media Isolation:** Configured `.print-only-container` on sheet wrapper connecting with `index.css` `@media print` rules, guaranteeing perfect paper rendering and PDF export with zero screen control leakage.
+- **Automated Verification:** Certified with 10/10 automated assertions green in headless Playwright verification suite (`verify_po_print_format_visual_headless.py`), 0 `tsc --noEmit` errors, complete visual evidence capture in `docs/walkthrough/purchase/evidence/`, and statutory A4 PDF export (113.8 KB).
+
 ## [6.80.0] — 2026-10-15
 
 ### HR & Workforce — Bulk Attendance Phase 2: Authorization, Finalized Payroll Locks & Guided Multi-Step Workspace v1.4.0

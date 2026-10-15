@@ -4,9 +4,9 @@ Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
-Version      : 6.70.0
+Version      : 6.82.0
 Created      : 2026-09-28
-Modified     : 2026-10-05
+Modified     : 2026-10-15
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 Classification: Domain API Gateway
@@ -16,7 +16,8 @@ from typing import Dict, Any, List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ...api.deps import get_company_db, get_db, get_current_user
+from ...api.deps import get_company_db, get_db, get_current_user, require_role
+from ...models.auth import UserRole
 from ...services.item_domain_svc import ItemDomainService, BusinessLogicError
 from ...schemas.item_master import (
     ItemStyleCreateRequest,
@@ -24,6 +25,9 @@ from ...schemas.item_master import (
     ItemStyleResponse,
     ItemVariantCreateRequest,
     ItemVariantResponse,
+    ItemVariantUpdateRequest,
+    ItemVariantDeletionStatusResponse,
+    ItemVariantHardDeleteResponse,
     ItemBarcodeCreateRequest,
     ItemBarcodeResponse,
     ItemLookupsResponse,
@@ -272,6 +276,150 @@ async def update_item_variant_settings(
         )
         return ItemVariantResponse(**ItemDomainService._serialize_variant_response(updated))
     except BusinessLogicError as ble:
+        raise HTTPException(status_code=400, detail=ble.message)
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+
+@router.get(
+    "/item-variants/{variant_id}/deletion-status",
+    response_model=ItemVariantDeletionStatusResponse,
+    summary="Check Variant Hard-Deletion Eligibility & Transaction Dependencies",
+)
+async def check_item_variant_deletion_status(
+    variant_id: str,
+    db: AsyncSession = Depends(get_company_db),
+    current_user: dict = Depends(get_current_user),
+):
+    """
+    Evaluates whether an ItemVariant can safely be permanently hard-deleted.
+    Checks across all 11 transactional tables (Sales, Purchase, Inventory, Stock Movements).
+    Returns can_hard_delete: bool, transaction_count: int, and itemized blocking_reasons.
+    """
+    company_id = getattr(current_user, "company_id", "COMP-001")
+    try:
+        status_data = await ItemDomainService.check_variant_deletion_status(
+            session=db,
+            variant_id_or_sku=variant_id,
+            company_id=company_id,
+        )
+        return ItemVariantDeletionStatusResponse(**status_data)
+    except BusinessLogicError as ble:
+        raise HTTPException(status_code=404, detail=ble.message)
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+
+@router.delete(
+    "/item-variants/{variant_id}/hard-delete",
+    response_model=ItemVariantHardDeleteResponse,
+    summary="Permanently Hard Delete an Un-transacted Item Variant",
+    dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))],
+)
+async def hard_delete_item_variant(
+    variant_id: str,
+    delete_parent_if_empty: bool = Query(True, description="Whether to also purge parent ItemStyle if no variants remain"),
+    db: AsyncSession = Depends(get_company_db),
+    current_user: dict = Depends(get_current_user),
+):
+    """
+    Guarded permanent physical deletion of an un-transacted ItemVariant.
+    Purges variant, barcodes, price revisions, settings, and legacy product entry.
+    Frees unique SKU and Barcode strings for reuse.
+    Emits an immutable WORM audit log in ComplianceImmutableAuditLog.
+    Returns HTTP 409 Conflict if ANY transaction exists.
+    Restricted to Manager and SysAdmin roles.
+    """
+    company_id = getattr(current_user, "company_id", "COMP-001")
+    user_id = getattr(current_user, "id", "SYSTEM")
+    try:
+        res = await ItemDomainService.hard_delete_variant(
+            session=db,
+            variant_id_or_sku=variant_id,
+            company_id=company_id,
+            current_user=current_user,
+        )
+        return ItemVariantHardDeleteResponse(**res)
+    except BusinessLogicError as ble:
+        if ble.code in ("SMRITI-CANNOT-DELETE-TRANSACTED", "SMRITI-VARIANT-TRANSACTED"):
+            raise HTTPException(status_code=409, detail=ble.message)
+        if ble.code in ("SMRITI-VARIANT-NOT-FOUND", "SMRITI-DATA-004"):
+            raise HTTPException(status_code=404, detail=ble.message)
+        raise HTTPException(status_code=400, detail=ble.message)
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+
+@router.put(
+    "/item-variants/{variant_id}",
+    response_model=ItemVariantResponse,
+    summary="Update Item Variant (Identity Correction or Commercial Fields)",
+)
+async def update_item_variant(
+    variant_id: str,
+    req: ItemVariantUpdateRequest,
+    db: AsyncSession = Depends(get_company_db),
+    current_user: dict = Depends(get_current_user),
+):
+    """
+    Updates an ItemVariant.
+    If un-transacted: allows correcting Color, Size, SKU, and Barcode (with collision checks).
+    If transacted: locks identity fields; allows updating commercial prices, tax, and active status.
+    """
+    company_id = getattr(current_user, "company_id", "COMP-001")
+    try:
+        updated = await ItemDomainService.update_variant(
+            session=db,
+            variant_id_or_sku=variant_id,
+            req=req,
+            company_id=company_id,
+            current_user=current_user,
+        )
+        return ItemVariantResponse(**ItemDomainService._serialize_variant_response(updated))
+    except HTTPException:
+        raise
+    except BusinessLogicError as ble:
+        if ble.code == "SMRITI-IDENTITY-TRANSACTED":
+            raise HTTPException(status_code=409, detail=ble.message)
+        if ble.code in ("SMRITI-SKU-COLLISION", "SMRITI-BARCODE-COLLISION"):
+            raise HTTPException(status_code=409, detail=ble.message)
+        if ble.code in ("SMRITI-VARIANT-NOT-FOUND", "SMRITI-DATA-004"):
+            raise HTTPException(status_code=404, detail=ble.message)
+        raise HTTPException(status_code=400, detail=ble.message)
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+
+@router.patch(
+    "/item-variants/{variant_id}/status",
+    response_model=ItemVariantResponse,
+    summary="Toggle Variant Active Status (Deactivate / Activate)",
+)
+async def toggle_item_variant_status(
+    variant_id: str,
+    is_active: bool = Query(..., description="Target active status (true to activate, false to deactivate)"),
+    db: AsyncSession = Depends(get_company_db),
+    current_user: dict = Depends(get_current_user),
+):
+    """
+    Activates or deactivates an ItemVariant.
+    Deactivated variants are barred from new POS billing and procurement.
+    All historical data is preserved.
+    """
+    company_id = getattr(current_user, "company_id", "COMP-001")
+    try:
+        req = ItemVariantUpdateRequest(is_active=is_active)
+        updated = await ItemDomainService.update_variant(
+            session=db,
+            variant_id_or_sku=variant_id,
+            req=req,
+            company_id=company_id,
+            current_user=current_user,
+        )
+        return ItemVariantResponse(**ItemDomainService._serialize_variant_response(updated))
+    except BusinessLogicError as ble:
+        if ble.code in ("SMRITI-VARIANT-NOT-FOUND", "SMRITI-DATA-004"):
+            raise HTTPException(status_code=404, detail=ble.message)
         raise HTTPException(status_code=400, detail=ble.message)
     except Exception as exc:
         raise HTTPException(status_code=400, detail=str(exc))

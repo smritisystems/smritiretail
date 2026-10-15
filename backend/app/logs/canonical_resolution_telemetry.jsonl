@@ -5835,3 +5835,5 @@
 {"timestamp": 1791991669.6844265, "company_id": "COMP-001", "query_value": "CH-08-J", "identifier_type": "PRODUCT_ID", "status": "PRODUCT_NOT_FOUND", "matched_by": null, "latency_ms": 704.0211069979705, "resolved_product_id": null}
 {"timestamp": 1791991669.7171028, "company_id": "COMP-001", "query_value": "CH-08-J", "identifier_type": "SKU", "status": "PRODUCT_QUARANTINED", "matched_by": null, "latency_ms": 28.17315400170628, "resolved_product_id": null}
 {"timestamp": 1791991973.1548138, "company_id": "COMP-001", "query_value": "CH-08-J", "identifier_type": "AUTO", "status": "PRODUCT_QUARANTINED", "matched_by": null, "latency_ms": 867.1839689923218, "resolved_product_id": null}
+{"timestamp": 1792044104.9752226, "company_id": "COMP-001", "query_value": "CH-12-C", "identifier_type": "PRODUCT_ID", "status": "PRODUCT_NOT_FOUND", "matched_by": null, "latency_ms": 1188.0995859999075, "resolved_product_id": null}
+{"timestamp": 1792044105.0467956, "company_id": "COMP-001", "query_value": "CH-12-C", "identifier_type": "SKU", "status": "PRODUCT_QUARANTINED", "matched_by": null, "latency_ms": 32.76308799991057, "resolved_product_id": null}

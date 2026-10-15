@@ -4,9 +4,9 @@ Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
-Version      : 6.70.49
+Version      : 6.82.0
 Created      : 2026-09-13
-Modified     : 2026-10-09
+Modified     : 2026-10-15
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 Classification: Internal
@@ -253,7 +253,8 @@ class CatalogDimensionValidator:
             try:
                 return await cls._validate_dimension_impl(control_db, dimension_field, value, strict)
             except HTTPException:
-                raise
+                # If not found in control_db, fall back to authoritative control plane (smritisys)
+                pass
             except Exception:
                 # If control_db is bound to a tenant DB where master_types doesn't exist, safely fallback
                 pass
