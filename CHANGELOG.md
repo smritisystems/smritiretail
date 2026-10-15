@@ -1,3 +1,20 @@
+## [6.83.0] — 2026-10-15
+
+### Procurement & Inventory — Vendor Purchase Workbook Ingestion, Purchase Orders & Goods Received Notes (GRN) Initial Stocking v1.0.0
+
+Executed complete, verified ingestion of client supplier purchase workbook (`F:\Smriti-Clients Data\15-10-2026\ALL VENDOR PURCHASE FOR SOFTWARE.xlsx`) into SMRITI Retail OS for tenant `COMP-001` (`My Retail Store`), branch `BR-MAIN-001` (`Main Branch`), and warehouse `WH-MAIN-001` (`Main Store Central Godown`):
+
+**Key Capabilities & Architectural Enforcement:**
+- **Supplier Directory Synchronization:** Audited, verified, and synchronized 9 Footwear Vendors with authoritative commercial trading identities and contact persons: `ALIYA FOOTWEAR` (Amir), `LAJOS FOOTWEAR` (Abdul Rab), `AK FOOTWEAR` (Akram), `CRYSTAL SHOES` (Asif), `SA FOOTWEAR` (Shafi), `MK FOOTWEAR` (Mohid), `AS FOOTWEAR` (Yakin), `LUCKY FOOTWEAR` (Jaffer), and `SB FOOTWEAR` (Sharafat).
+- **Barcode & Variant Alignment:** Replaced temporary placeholder barcodes (`NA029`–`NA035`) and removed duplicate dummy records (`NA029D`–`NA035D`) for `SND-05-G` `R-GOLD` sizes 36–42 with official GS1 EAN-13 barcodes (`8904551001894` through `8904551001955`), matching physical retail labels with 100% fidelity.
+- **28 Statutory Purchase Orders:** Constructed 28 formal Purchase Orders with exact commercial prices, 18% statutory GST calculation, subtotal ₹9,417,360.00, and grand total ₹11,112,484.80.
+- **28 Goods Received Notes (GRN):** Executed 28 physical receipts into warehouse `WH-MAIN-001` with status `COMPLETED`.
+- **28 Commercial Purchase Bills:** Posted 28 commercial vendor bills linked directly to GRNs and POs with status `POSTED` for 3-way variance matching.
+- **407 Inward Stock Movements:** Generated 407 positive inward `StockMovement` entries (`movement_type="INWARD_GRN"`) into PostgreSQL stocking 23,064 pairs across 400 active SKUs, with an aggregate purchase cost valuation of ₹9,417,360.00 and retail MRP valuation of ₹47,550,836.00.
+- **Check Constraint Governance:** Filtered out 36 zero-quantity size-curve rows from line items to strictly satisfy the PostgreSQL check constraint `chk_poi_quantity_positive` (`quantity > 0`).
+- **Topological Transaction Flushes:** Resolved foreign key dependencies across `PurchaseOrder`, `PurchaseReceipt`, and `PurchaseBill` by implementing ordered 4-stage flushes within a single ACID transaction.
+- **Automated Verification:** Certified with dedicated audit engine (`scripts/verify_purchase_ingestion.py`) validating 100% mathematical and relational parity across all 8 dimensions with 0 errors.
+
 ## [6.82.0] — 2026-10-15
 
 ### Inventory & Item Master — Untransacted Variant & SKU Guarded Hard Delete, Edit & Deactivation Engine v1.0.0
