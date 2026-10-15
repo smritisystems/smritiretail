@@ -15,6 +15,7 @@ Classification: Batch Purchase Order PDF Export Engine
 
 import os
 import sys
+import base64
 import asyncio
 import datetime
 from decimal import Decimal
@@ -33,6 +34,14 @@ OUTPUT_DIR_CLIENT = r"F:\Smriti-Clients Data\15-10-2026\PURCHASE_ORDERS_PDF"
 
 os.makedirs(OUTPUT_DIR_INTERNAL, exist_ok=True)
 os.makedirs(OUTPUT_DIR_CLIENT, exist_ok=True)
+
+# Tattly Threads Authorized Logo (Data URI)
+LOGO_PATH = r"F:\SMRITRretailNX\TT\logo\tattly_logo_black.png"
+if os.path.exists(LOGO_PATH):
+    with open(LOGO_PATH, "rb") as lf:
+        TATTLY_LOGO_URI = f"data:image/png;base64,{base64.b64encode(lf.read()).decode('ascii')}"
+else:
+    TATTLY_LOGO_URI = ""
 
 def number_to_indian_words(num: float) -> str:
     val = int(round(num))
@@ -132,7 +141,7 @@ def build_po_html(po_data: dict) -> str:
               </svg>
               <div style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; overflow:hidden; pointer-events:none;">
                 <span style="color:#1e3a8a; opacity:0.18; font-weight:900; text-transform:uppercase; font-size:9.5px; white-space:nowrap; transform:rotate(-12deg); letter-spacing:0.2em;">
-                  SMRITI Retail Private Limited
+                  TATTLY THREADS
                 </span>
               </div>
               <div style="position:relative; z-index:10; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center;">
@@ -190,25 +199,29 @@ def build_po_html(po_data: dict) -> str:
 <div class="a4-container">
 
   <!-- 1. HEADER & COMPANY INFORMATION -->
-  <header style="display:flex; justify-content:space-between; align-items:flex-start; padding-bottom:6px; margin-bottom:6px; border-bottom:1px solid #cbd5e1;">
-    <div style="display:flex; align-items:center;">
-      <div style="padding-right:12px; margin-right:12px; border-right:1px solid #cbd5e1; display:flex; flex-direction:column; justify-content:center;">
-        <div style="font-size:24px; font-weight:900; tracking-tight; color:#0f172a; line-height:1; letter-spacing:-0.03em;">SMRITI</div>
-        <div style="font-size:9px; font-weight:800; letter-spacing:0.3em; color:#334155; text-transform:uppercase; margin-top:3px; line-height:1;">RETAIL OS</div>
+  <header style="display:flex; justify-content:space-between; align-items:flex-start; padding-bottom:5px; margin-bottom:5px; border-bottom:1px solid #cbd5e1;">
+    <div style="display:flex; align-items:flex-start; gap:10px;">
+      {f'''
+      <div style="border-right:1px solid #cbd5e1; padding-right:10px; display:flex; align-items:center;">
+        <img src="{TATTLY_LOGO_URI}" style="height:38px; width:auto; object-fit:contain; display:block;" alt="Tattly Threads Logo"/>
       </div>
-      <div style="font-size:10px; color:#475569; line-height:1.35;">
-        <h1 style="font-size:13px; font-weight:800; color:#0f172a; margin:0 0 2px 0;">{po_data.get("company_name", "My Retail Store")}</h1>
-        <div>{po_data.get("company_address", "123 Retail Park, MG Road, Bengaluru - 560001")}</div>
-        <div style="font-weight:600; color:#334155; margin-top:2px;">
-          GSTIN: <span style="font-family:monospace;">{po_data.get("company_gstin", "29AABCS1234F1Z5")}</span> | Branch: <strong>{po_data.get("branch_name", "Main Branch")}</strong>
+      ''' if TATTLY_LOGO_URI else ''}
+      <div style="font-size:9.5px; color:#475569; line-height:1.32;">
+        <div style="font-size:14px; font-weight:900; color:#0f172a; letter-spacing:0.03em; margin-bottom:1px;">{po_data.get("company_name", "TATTLY THREADS").upper()}</div>
+        <div style="color:#334155;">{po_data.get("company_address")}</div>
+        <div style="font-family:monospace; font-size:9px; color:#475569; margin-top:2px;">
+          Web: <strong>{po_data.get("company_web", "www.tattlythreads.com")}</strong> | Accounts: <strong>{po_data.get("company_email", "accounts@tattlythreads.com")}</strong> | Phone: <strong>{po_data.get("company_phone", "+91 9324117007")}</strong>
+        </div>
+        <div style="font-weight:800; color:#0f172a; margin-top:2px;">
+          GSTIN: <span style="font-family:monospace; color:#1e3a8a; font-weight:900;">{po_data.get("company_gstin", "27AAXFT2508H1ZR")}</span> | Central Inward Depot: <strong style="color:#334155;">Nagpur Hub (WH-MAIN-001)</strong>
         </div>
       </div>
     </div>
 
     <!-- Metadata Box -->
     <div style="text-align:right; display:flex; flex-direction:column; align-items:flex-end;">
-      <h2 style="font-size:17px; font-weight:900; color:#1e3a8a; text-transform:uppercase; margin:0 0 4px 0; letter-spacing:0.04em;">PURCHASE ORDER</h2>
-      <div style="border:1px solid #cbd5e1; border-radius:6px; background:#ffffff; padding:4px 8px; min-width:215px; font-size:10px; text-align:left; box-shadow:0 1px 2px rgba(0,0,0,0.03);">
+      <h2 style="font-size:16px; font-weight:900; color:#1e3a8a; text-transform:uppercase; margin:0 0 3px 0; letter-spacing:0.04em;">PURCHASE ORDER</h2>
+      <div style="border:1px solid #cbd5e1; border-radius:5px; background:#ffffff; padding:4px 8px; min-width:215px; font-size:9.5px; text-align:left; box-shadow:0 1px 2px rgba(0,0,0,0.03);">
         <table style="width:100%; border-collapse:collapse;">
           <tr>
             <td style="color:#64748b; padding:1px 0;">PO Number</td>
@@ -223,7 +236,7 @@ def build_po_html(po_data: dict) -> str:
           <tr>
             <td style="color:#64748b; padding:1px 0;">Warehouse</td>
             <td style="color:#94a3b8; text-align:center;">:</td>
-            <td style="font-weight:700; color:#1e293b;">{po_data.get("warehouse", "Main Store Central Godown")}</td>
+            <td style="font-weight:700; color:#1e293b;">{po_data.get("warehouse", "Tattly Threads Nagpur Depot (WH-MAIN-001)")}</td>
           </tr>
           <tr>
             <td style="color:#64748b; padding:1px 0;">Status</td>
@@ -438,13 +451,13 @@ def build_po_html(po_data: dict) -> str:
     <div style="border-top:1px solid #cbd5e1; padding-top:4px;">
       <div style="font-weight:800; color:#1e3a8a; text-transform:uppercase; font-size:9.5px; margin-bottom:12px;">Authorized Signatory</div>
       <div style="color:#475569;">Commercial Director</div>
-      <div style="color:#64748b; font-size:8.5px;">FOR SMRITI RETAIL</div>
+      <div style="color:#64748b; font-size:8.5px;">FOR TATTLY THREADS</div>
     </div>
   </section>
 
   <!-- 8. SYSTEM FOOTER -->
   <footer style="border-top:1px solid #e2e8f0; padding-top:4px; display:flex; justify-content:space-between; align-items:center; font-size:8.5px; color:#94a3b8;">
-    <div>Computer-generated Statutory Purchase Order | SMRITI Retail OS | www.smritibooks.com</div>
+    <div>Computer-generated Statutory Purchase Order | TATTLY THREADS | SMRITI Retail OS | www.tattlythreads.com</div>
     <div>Page 1 of 1</div>
   </footer>
 
@@ -465,12 +478,16 @@ async def export_all_pos():
     # 1. Fetch Company Info
     async with async_session() as s:
         comp_row = (await s.execute(text("SELECT name, gst_number FROM companies WHERE id = :cid"), {"cid": COMPANY_ID})).fetchone()
-        company_name = comp_row[0] if comp_row and comp_row[0] else "My Retail Store"
-        company_gstin = comp_row[1] if comp_row and comp_row[1] else "29AABCS1234F1Z5"
-        company_addr = "Industrial Footwear Cluster, Commercial Wholesale Market, India"
+        company_name = comp_row[0] if comp_row and comp_row[0] else "Tattly Threads"
+        company_gstin = comp_row[1] if comp_row and comp_row[1] else "27AAXFT2508H1ZR"
+        company_addr = "Office No. 81, Ibrahim Rehmatullah Road, Beside Jio Gallery, near HP Petrol Pump, Mumbai, Maharashtra - 400003"
+        company_web = "www.tattlythreads.com"
+        company_email = "accounts@tattlythreads.com"
+        company_phone = "+91 9324117007"
+        warehouse_name = "Tattly Threads Nagpur Depot (WH-MAIN-001)"
 
         branch_row = (await s.execute(text("SELECT name, code FROM branches WHERE company_id = :cid ORDER BY created_at LIMIT 1"), {"cid": COMPANY_ID})).fetchone()
-        branch_name = branch_row[0] if branch_row and branch_row[0] else "Main Branch"
+        branch_name = branch_row[0] if branch_row and branch_row[0] else "Tattly Threads Head Office & Central Godown"
 
         # 2. Query All Purchase Orders
         po_query = text("""
@@ -575,6 +592,10 @@ async def export_all_pos():
             "company_name": company_name,
             "company_gstin": company_gstin,
             "company_address": company_addr,
+            "company_web": company_web,
+            "company_email": company_email,
+            "company_phone": company_phone,
+            "warehouse": warehouse_name,
             "branch_name": branch_name,
             "supplier_name": sup_name,
             "supplier_code": sup_code,
