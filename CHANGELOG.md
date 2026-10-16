@@ -1,3 +1,17 @@
+## [6.86.0] — 2026-10-16
+
+### Procurement & PO Print — Tattly Threads Logo Watermark & SMRITI Branded Image Placeholder Integration v1.0.0
+
+Resolved missing watermark and image placeholder rendering across Purchase Order print preview and physical prints (`PurchaseOrderPrintA4.tsx`, `FootwearPurchaseOrderA4.tsx`, `SizePivotMatrixA4.tsx`, and `POPrintPreviewModal.tsx`):
+
+**Key Capabilities & Architectural Enforcement:**
+- **Static Public Asset Parity:** Copied `smriti-image-placeholder.png`, `image_not_available_placeholder.png`, and `tattly_logo_black.png` to `public/` and `public/assets/branding/`, enabling unconditional root path resolution across dev, production builds (`https://tattlythreads.smritisys.com/`), and browser popup/iframe print windows.
+- **Tattly Threads Logo Watermark:** Injected the authentic Tattly Threads corporate logo graphic (`tattlyLogoBlack` / `/tattly_logo_black.png`), company name, and document status stamp into the diagonal watermark across `PurchaseOrderPrintA4.tsx`, `FootwearPurchaseOrderA4.tsx`, and `SizePivotMatrixA4.tsx`.
+- **Watermark Layering via `mix-blend-multiply`:** Repositioned the watermark to `z-20` with `pointer-events-none` and `mix-blend-multiply`, and calibrated opacity to 0.07 (0.08 in print) to prevent it from being hidden behind solid white table and card backgrounds while maintaining crisp text legibility.
+- **Fail-Safe Placeholder Fallbacks:** Implemented robust multi-tier image fallback chaining (`smritiImagePlaceholder || "/smriti-image-placeholder.png"` -> `"/assets/branding/smriti-image-placeholder.png"`) with loop-free termination (`onError` handler).
+- **Auto-Derivation of Item References:** Automatically derives item reference lookbook cards from active line items (`sizewiseItems` or `standardItems`) when `itemReferences` is empty, ensuring image cards with placeholders are never dropped.
+- **Automated Verification:** Certified with 8/8 automated Vitest assertions green in `src/tests/poPrintBrandingAndTerms.test.tsx`, `tsc --noEmit` exit code 0, `npm run lint` exit code 0, and 0 compiler errors.
+
 ## [6.84.1] — 2026-10-16
 
 ### Procurement & PO Print — Tattly Threads Branding, 120-Day Terms, Official Image Placeholder & Sizewise Matrix Grouping v1.0.0

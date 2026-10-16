@@ -6,9 +6,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.68.0
+ * Version      : 6.69.0
  * Created      : 2026-07-10
- * Modified     : 2026-10-03
+ * Modified     : 2026-10-16
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Target UI    : Purchase Studio — Generation + Workspace (Phase B)
@@ -156,23 +156,23 @@ export const PurchaseStudioTab: React.FC<PurchaseStudioTabProps> = ({
     <div className="flex flex-col h-full w-full">
 
       {/* ── Studio Header / Top Nav ──────────────────────────────────────── */}
-      <div className="bg-slate-900 text-white px-4 py-1.5 flex items-center justify-between text-xs border-b border-slate-800 shrink-0">
+      <div className="bg-white dark:bg-slate-900 text-slate-800 dark:text-white px-4 py-1.5 flex items-center justify-between text-xs border-b border-slate-200 dark:border-slate-800 shrink-0 shadow-2xs">
 
         {/* Left: Top-level view switcher */}
         <div className="flex items-center gap-2.5">
-          <span className="material-symbols-outlined text-indigo-400 text-base">shopping_bag</span>
-          <span className="font-semibold text-slate-300 mr-1">Purchase Studio</span>
+          <span className="material-symbols-outlined text-indigo-600 dark:text-indigo-400 text-base">shopping_bag</span>
+          <span className="font-semibold text-slate-800 dark:text-slate-300 mr-1">Purchase Studio</span>
 
           {/* View pill switcher */}
-          <div className="inline-flex rounded-md shadow-xs bg-slate-800 p-0.5 border border-slate-700">
+          <div className="inline-flex rounded-md shadow-2xs bg-slate-100 dark:bg-slate-800 p-0.5 border border-slate-200 dark:border-slate-700">
             <button
               type="button"
               id="purchase-studio-generate-tab"
               onClick={() => setTopView("generate")}
               className={`px-3 py-1 rounded text-xs font-medium transition flex items-center gap-1.5 ${
                 topView === "generate"
-                  ? "bg-indigo-600 text-white shadow-xs"
-                  : "text-slate-400 hover:text-white"
+                  ? "bg-indigo-600 text-white shadow-2xs"
+                  : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
               }`}
             >
               <span className="material-symbols-outlined text-[14px]">add_box</span>
@@ -184,8 +184,8 @@ export const PurchaseStudioTab: React.FC<PurchaseStudioTabProps> = ({
               onClick={() => setTopView("workspace")}
               className={`px-3 py-1 rounded text-xs font-medium transition flex items-center gap-1.5 ${
                 topView === "workspace"
-                  ? "bg-indigo-600 text-white shadow-xs"
-                  : "text-slate-400 hover:text-white"
+                  ? "bg-indigo-600 text-white shadow-2xs"
+                  : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
               }`}
             >
               <span className="material-symbols-outlined text-[14px]">receipt_long</span>
@@ -196,17 +196,17 @@ export const PurchaseStudioTab: React.FC<PurchaseStudioTabProps> = ({
           {/* Sub-mode switcher (only when in Generate view) */}
           {topView === "generate" && (
             <>
-              <span className="text-slate-700 mx-1 select-none">|</span>
+              <span className="text-slate-300 dark:text-slate-700 mx-1 select-none">|</span>
               <span className="text-slate-500 mr-1 hidden sm:inline">Mode:</span>
-              <div className="inline-flex rounded-md shadow-xs bg-slate-800 p-0.5 border border-slate-700">
+              <div className="inline-flex rounded-md shadow-2xs bg-slate-100 dark:bg-slate-800 p-0.5 border border-slate-200 dark:border-slate-700">
                 <button
                   type="button"
                   id="po-mode-sizewise-btn"
                   onClick={() => handleModeChange("sizewise")}
                   className={`px-3 py-1 rounded text-xs font-medium transition flex items-center gap-1.5 ${
                     poMode === "sizewise"
-                      ? "bg-slate-600 text-white shadow-xs"
-                      : "text-slate-400 hover:text-white"
+                      ? "bg-white dark:bg-slate-600 text-slate-900 dark:text-white shadow-2xs border border-slate-200/60 dark:border-transparent"
+                      : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
                   }`}
                 >
                   <span className="material-symbols-outlined text-[14px]">view_column</span>
@@ -218,8 +218,8 @@ export const PurchaseStudioTab: React.FC<PurchaseStudioTabProps> = ({
                   onClick={() => handleModeChange("standard")}
                   className={`px-3 py-1 rounded text-xs font-medium transition flex items-center gap-1.5 ${
                     poMode === "standard"
-                      ? "bg-slate-600 text-white shadow-xs"
-                      : "text-slate-400 hover:text-white"
+                      ? "bg-white dark:bg-slate-600 text-slate-900 dark:text-white shadow-2xs border border-slate-200/60 dark:border-transparent"
+                      : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
                   }`}
                 >
                   <span className="material-symbols-outlined text-[14px]">table_rows</span>
@@ -231,12 +231,12 @@ export const PurchaseStudioTab: React.FC<PurchaseStudioTabProps> = ({
         </div>
 
         {/* Right: Keyboard hints & Tools */}
-        <div className="flex items-center gap-3 text-slate-400 text-[11px]">
+        <div className="flex items-center gap-3 text-slate-600 dark:text-slate-400 text-[11px]">
           <button
             type="button"
             id="purchase-studio-autopo-btn"
             onClick={() => setShowAutoPOModal(true)}
-            className="px-2.5 py-1 rounded text-xs font-medium bg-amber-500/15 text-amber-300 border border-amber-500/30 hover:bg-amber-500/25 transition flex items-center gap-1.5"
+            className="px-2.5 py-1 rounded text-xs font-medium bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30 hover:bg-amber-500/25 transition flex items-center gap-1.5"
             title="Open Automated Reorder & Stock Deficit Purchase Order Generator"
           >
             <span className="material-symbols-outlined text-[14px]">auto_mode</span>
@@ -246,7 +246,7 @@ export const PurchaseStudioTab: React.FC<PurchaseStudioTabProps> = ({
             type="button"
             id="purchase-studio-consignment-btn"
             onClick={() => setShowConsignmentModal(true)}
-            className="px-2.5 py-1 rounded text-xs font-medium bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/25 transition flex items-center gap-1.5 cursor-pointer"
+            className="px-2.5 py-1 rounded text-xs font-medium bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/25 transition flex items-center gap-1.5 cursor-pointer"
             title="Open Vendor Consignment Aging & Settlements Studio"
           >
             <span className="material-symbols-outlined text-[14px]">inventory_2</span>
@@ -256,7 +256,7 @@ export const PurchaseStudioTab: React.FC<PurchaseStudioTabProps> = ({
             type="button"
             id="purchase-studio-supplier-pay-btn"
             onClick={() => setShowSupplierPaymentModal(true)}
-            className="px-2.5 py-1 rounded text-xs font-medium bg-sky-500/15 text-sky-300 border border-sky-500/30 hover:bg-sky-500/25 transition flex items-center gap-1.5 cursor-pointer"
+            className="px-2.5 py-1 rounded text-xs font-medium bg-sky-500/15 text-sky-700 dark:text-sky-300 border border-sky-500/30 hover:bg-sky-500/25 transition flex items-center gap-1.5 cursor-pointer"
             title="Open Supplier Invoices Aging & Payment Scheduling"
           >
             <span className="material-symbols-outlined text-[14px]">payments</span>
@@ -266,11 +266,11 @@ export const PurchaseStudioTab: React.FC<PurchaseStudioTabProps> = ({
             <>
               <span className="hidden sm:inline">·</span>
               <span className="hidden sm:inline">
-                Press <kbd className="px-1.5 py-0.5 bg-slate-800 border border-slate-700 rounded text-slate-300 font-mono">F2</kbd> items
+                Press <kbd className="px-1.5 py-0.5 bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded text-slate-700 dark:text-slate-300 font-mono">F2</kbd> items
               </span>
               <span className="hidden sm:inline">·</span>
               <span className="hidden sm:inline">
-                <kbd className="px-1.5 py-0.5 bg-slate-800 border border-slate-700 rounded text-slate-300 font-mono">Ctrl+S</kbd> save
+                <kbd className="px-1.5 py-0.5 bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded text-slate-700 dark:text-slate-300 font-mono">Ctrl+S</kbd> save
               </span>
             </>
           )}

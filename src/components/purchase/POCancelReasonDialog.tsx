@@ -5,9 +5,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 1.0.0
+ * Version      : 1.1.0
  * Created      : 2026-10-01
- * Modified     : 2026-10-01
+ * Modified     : 2026-10-16
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
@@ -165,19 +165,19 @@ export const POCancelReasonDialog: React.FC<POCancelReasonDialogProps> = ({
       aria-label={`Cancel purchase order ${orderNo}`}
       onKeyDown={(e) => { if (e.key === "Escape") onCancel(); }}
     >
-      <div className="bg-slate-900 border border-slate-700 rounded-xl shadow-2xl w-[500px] max-w-[96vw] flex flex-col overflow-hidden">
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl shadow-2xl w-[500px] max-w-[96vw] flex flex-col overflow-hidden">
 
         {/* ── Header ─────────────────────────────────────────────────────── */}
-        <div className="bg-red-950/40 border-b border-red-900/40 px-5 py-4 flex items-start gap-3">
-          <div className="mt-0.5 w-9 h-9 rounded-full bg-red-900/60 border border-red-700/50 flex items-center justify-center shrink-0">
-            <span className="material-symbols-outlined text-red-400 text-lg">cancel</span>
+        <div className="bg-red-50 dark:bg-red-950/40 border-b border-red-200 dark:border-red-900/40 px-5 py-4 flex items-start gap-3">
+          <div className="mt-0.5 w-9 h-9 rounded-full bg-red-100 dark:bg-red-900/60 border border-red-200 dark:border-red-700/50 flex items-center justify-center shrink-0">
+            <span className="material-symbols-outlined text-red-600 dark:text-red-400 text-lg">cancel</span>
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-white font-semibold text-sm leading-tight">Cancel Purchase Order</p>
+            <p className="text-slate-900 dark:text-white font-semibold text-sm leading-tight">Cancel Purchase Order</p>
             <div className="flex flex-wrap items-center gap-2 mt-1">
-              <span className="font-mono text-red-300 text-xs">{orderNo}</span>
+              <span className="font-mono text-red-700 dark:text-red-300 text-xs font-semibold">{orderNo}</span>
               {supplierName && (
-                <span className="text-slate-400 text-xs truncate max-w-[220px]" title={supplierName}>
+                <span className="text-slate-600 dark:text-slate-400 text-xs truncate max-w-[220px]" title={supplierName}>
                   · {supplierName}
                 </span>
               )}
@@ -187,7 +187,7 @@ export const POCancelReasonDialog: React.FC<POCancelReasonDialogProps> = ({
                 </span>
               )}
             </div>
-            <p className="text-slate-400 text-xs mt-1.5">
+            <p className="text-slate-600 dark:text-slate-400 text-xs mt-1.5">
               This action is permanent. Select a reason and confirm to proceed.
             </p>
           </div>
@@ -195,7 +195,7 @@ export const POCancelReasonDialog: React.FC<POCancelReasonDialogProps> = ({
 
         {/* ── Reason Picker ───────────────────────────────────────────────── */}
         <div className="px-5 py-4 flex-1 overflow-y-auto max-h-[55vh]">
-          <p className="text-xs font-medium text-slate-400 mb-2.5">
+          <p className="text-xs font-semibold text-slate-700 dark:text-slate-300 mb-2.5">
             Reason for cancellation
             <span className="text-red-500 ml-0.5">*</span>
           </p>
@@ -203,7 +203,7 @@ export const POCancelReasonDialog: React.FC<POCancelReasonDialogProps> = ({
           {loadingReasons ? (
             <div className="space-y-2 animate-pulse">
               {[...Array(5)].map((_, i) => (
-                <div key={i} className="h-10 rounded-lg bg-slate-800/60" />
+                <div key={i} className="h-10 rounded-lg bg-slate-100 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-800" />
               ))}
             </div>
           ) : (
@@ -225,15 +225,15 @@ export const POCancelReasonDialog: React.FC<POCancelReasonDialogProps> = ({
                     className={`
                       w-full flex items-center gap-3 px-3.5 py-2.5 rounded-lg border text-left transition-all
                       ${isSelected
-                        ? "bg-red-900/30 border-red-700/60 text-white"
-                        : "bg-slate-800/40 border-slate-700/50 text-slate-300 hover:bg-slate-800 hover:border-slate-600"
+                        ? "bg-red-50 dark:bg-red-900/30 border-red-300 dark:border-red-700/60 text-red-950 dark:text-white font-medium"
+                        : "bg-slate-50 dark:bg-slate-800/40 border-slate-200 dark:border-slate-700/50 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 hover:border-slate-300 dark:hover:border-slate-600"
                       }
                     `}
                   >
                     {/* Radio indicator */}
                     <div className={`
                       shrink-0 w-4 h-4 rounded-full border-2 flex items-center justify-center transition-all
-                      ${isSelected ? "border-red-500 bg-red-500" : "border-slate-600 bg-transparent"}
+                      ${isSelected ? "border-red-500 bg-red-500" : "border-slate-400 dark:border-slate-600 bg-transparent"}
                     `}>
                       {isSelected && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
                     </div>
@@ -241,7 +241,7 @@ export const POCancelReasonDialog: React.FC<POCancelReasonDialogProps> = ({
                     <div className="flex-1 min-w-0">
                       <span className="text-xs font-medium leading-tight">{reason.label}</span>
                       {reason.requires_note && (
-                        <span className="ml-2 inline-flex items-center text-[10px] text-amber-400 font-medium">
+                        <span className="ml-2 inline-flex items-center text-[10px] text-amber-600 dark:text-amber-400 font-medium">
                           <span className="material-symbols-outlined text-[11px] mr-0.5">edit</span>
                           note required
                         </span>
@@ -254,7 +254,7 @@ export const POCancelReasonDialog: React.FC<POCancelReasonDialogProps> = ({
           )}
 
           {errors.reason && (
-            <p className="mt-2 text-xs text-red-400 flex items-center gap-1">
+            <p className="mt-2 text-xs text-red-600 dark:text-red-400 flex items-center gap-1">
               <span className="material-symbols-outlined text-[13px]">error</span>
               {errors.reason}
             </p>
@@ -266,7 +266,7 @@ export const POCancelReasonDialog: React.FC<POCancelReasonDialogProps> = ({
               <label
                 htmlFor="cancel-reason-note"
                 className={`block text-xs font-medium mb-1.5 ${
-                  selectedReason.requires_note ? "text-amber-400" : "text-slate-400"
+                  selectedReason.requires_note ? "text-amber-700 dark:text-amber-400 font-semibold" : "text-slate-700 dark:text-slate-400"
                 }`}
               >
                 {selectedReason.requires_note
@@ -288,9 +288,9 @@ export const POCancelReasonDialog: React.FC<POCancelReasonDialogProps> = ({
                     : "Add any additional context (optional)..."
                 }
                 className={`
-                  w-full bg-slate-800 border rounded-lg px-3 py-2 text-xs text-white
-                  placeholder-slate-500 focus:outline-none resize-none transition
-                  ${errors.note ? "border-red-600 focus:border-red-500" : "border-slate-700 focus:border-blue-500"}
+                  w-full bg-slate-50 dark:bg-slate-800 border rounded-lg px-3 py-2 text-xs text-slate-900 dark:text-white
+                  placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none resize-none transition
+                  ${errors.note ? "border-red-500 focus:border-red-500" : "border-slate-300 dark:border-slate-700 focus:border-indigo-500"}
                 `}
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && !e.shiftKey && selectedReason.requires_note) {
@@ -300,7 +300,7 @@ export const POCancelReasonDialog: React.FC<POCancelReasonDialogProps> = ({
                 }}
               />
               {errors.note && (
-                <p className="mt-1 text-xs text-red-400 flex items-center gap-1">
+                <p className="mt-1 text-xs text-red-600 dark:text-red-400 flex items-center gap-1">
                   <span className="material-symbols-outlined text-[13px]">error</span>
                   {errors.note}
                 </p>
@@ -310,8 +310,8 @@ export const POCancelReasonDialog: React.FC<POCancelReasonDialogProps> = ({
         </div>
 
         {/* ── Footer ─────────────────────────────────────────────────────── */}
-        <div className="border-t border-slate-800 px-5 py-3.5 flex items-center justify-between gap-3 shrink-0 bg-slate-900/80">
-          <p className="text-[11px] text-slate-500">
+        <div className="border-t border-slate-200 dark:border-slate-800 px-5 py-3.5 flex items-center justify-between gap-3 shrink-0 bg-slate-50 dark:bg-slate-900/80">
+          <p className="text-[11px] text-slate-500 dark:text-slate-400">
             <span className="material-symbols-outlined text-[12px] align-text-bottom mr-0.5">info</span>
             This action cannot be undone.
           </p>
@@ -321,7 +321,7 @@ export const POCancelReasonDialog: React.FC<POCancelReasonDialogProps> = ({
               id="po-cancel-dialog-keep-btn"
               onClick={onCancel}
               disabled={loading}
-              className="px-4 py-2 text-xs rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition font-medium disabled:opacity-50"
+              className="px-4 py-2 text-xs rounded-lg bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 transition font-medium disabled:opacity-50 shadow-2xs"
             >
               Keep PO
             </button>
@@ -330,7 +330,7 @@ export const POCancelReasonDialog: React.FC<POCancelReasonDialogProps> = ({
               id="po-cancel-dialog-confirm-btn"
               onClick={handleConfirm}
               disabled={loading}
-              className="inline-flex items-center gap-1.5 px-5 py-2 text-xs rounded-lg bg-red-700 hover:bg-red-600 text-white font-semibold transition disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 px-5 py-2 text-xs rounded-lg bg-red-600 hover:bg-red-500 dark:bg-red-700 dark:hover:bg-red-600 text-white font-semibold transition disabled:opacity-50 shadow-2xs"
             >
               {loading ? (
                 <>

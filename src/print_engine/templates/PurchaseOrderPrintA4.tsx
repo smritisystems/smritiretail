@@ -16,7 +16,7 @@
  *
  * * Websites: aitdl.com | erpnbook.com | smritibooks.com
  *
- * * Version    : 6.85.0
+ * * Version    : 6.86.0
  * * Created    : 2026-10-15
  * * Modified   : 2026-10-16
  * * Copyright  : © SMRITIBooks.com. All Rights Reserved.
@@ -153,9 +153,17 @@ export const GoldenRatioImagePlaceholder: React.FC<{
       title={`Image placeholder for ${articleNo || "article"}`}
     >
       <img
-        src={smritiImagePlaceholder}
+        src={smritiImagePlaceholder || "/smriti-image-placeholder.png"}
         alt="Image Not Available"
         className="max-h-full max-w-full object-contain"
+        onError={(e) => {
+          const img = e.currentTarget;
+          if (img.src !== window.location.origin + "/smriti-image-placeholder.png") {
+            img.src = "/smriti-image-placeholder.png";
+          } else if (img.src !== window.location.origin + "/assets/branding/smriti-image-placeholder.png") {
+            img.src = "/assets/branding/smriti-image-placeholder.png";
+          }
+        }}
       />
     </div>
   );
@@ -288,8 +296,37 @@ export const PurchaseOrderPrintA4: React.FC<{ data: PurchaseOrderPrintData }> = 
   const displayGst = data.gstAmount !== undefined ? data.gstAmount : calculatedTotalTaxAmount;
   const displayGrandTotal = data.grandTotal ?? (displaySubtotal + displayGst);
 
-  // Item References deduplication / formatting
-  const references = data.itemReferences || [];
+  // Item References deduplication / formatting with automatic line items fallback
+  const references = React.useMemo(() => {
+    if (data.itemReferences && data.itemReferences.length > 0) {
+      return data.itemReferences;
+    }
+    // Fallback: derive unique item references from sizewiseItems or standardItems
+    const derivedMap = new Map<string, FootwearArticleReference>();
+    if (data.sizewiseItems && data.sizewiseItems.length > 0) {
+      data.sizewiseItems.forEach((it) => {
+        const art = (it.articleNo || "").trim();
+        if (art && !derivedMap.has(art)) {
+          derivedMap.set(art, {
+            articleNo: art,
+            color: it.color || "—",
+          });
+        }
+      });
+    }
+    if (derivedMap.size === 0 && data.standardItems && data.standardItems.length > 0) {
+      data.standardItems.forEach((it) => {
+        const art = (it.articleNo || it.productName || "").trim();
+        if (art && !derivedMap.has(art)) {
+          derivedMap.set(art, {
+            articleNo: art,
+            color: it.color || "—",
+          });
+        }
+      });
+    }
+    return Array.from(derivedMap.values());
+  }, [data.itemReferences, data.sizewiseItems, data.standardItems]);
 
   return (
     <div
@@ -298,11 +335,24 @@ export const PurchaseOrderPrintA4: React.FC<{ data: PurchaseOrderPrintData }> = 
       }`}
       style={{ fontFamily: "'Inter', system-ui, -apple-system, sans-serif" }}
     >
-      {/* ── Document Background Watermark ─────────────────────────────── */}
-      <div className="absolute inset-0 pointer-events-none flex items-center justify-center opacity-[0.035] z-0 overflow-hidden select-none print:opacity-[0.035]">
-        <div className="text-center font-black tracking-widest text-[#1e3a8a] rotate-[-28deg] text-[60px] border-4 border-dashed border-[#1e3a8a] px-10 py-6 rounded-3xl uppercase">
-          {data.companyName || "TATTLY THREADS"}
-          <div className="text-xl font-bold tracking-[0.22em] mt-1 text-slate-800">
+      {/* ── Document Background Watermark (TATTLY THREADS Logo + Stamp) ── */}
+      <div className="absolute inset-0 pointer-events-none flex items-center justify-center opacity-[0.07] z-20 overflow-hidden select-none print:opacity-[0.08] mix-blend-multiply">
+        <div className="text-center font-black tracking-widest text-[#1e3a8a] rotate-[-28deg] border-4 border-dashed border-[#1e3a8a] px-10 py-6 rounded-3xl uppercase flex flex-col items-center justify-center shadow-xs">
+          <img
+            src={tattlyLogoBlack}
+            alt="TATTLY THREADS"
+            className="w-36 h-auto max-h-20 object-contain mb-2 print:max-h-20"
+            onError={(e) => {
+              const img = e.currentTarget;
+              if (img.src !== window.location.origin + "/tattly_logo_black.png") {
+                img.src = "/tattly_logo_black.png";
+              }
+            }}
+          />
+          <div className="text-[52px] leading-tight font-black tracking-wider text-[#1e3a8a]">
+            {data.companyName || "TATTLY THREADS"}
+          </div>
+          <div className="text-xl font-bold tracking-[0.22em] mt-1 text-slate-800 border-t-2 border-dashed border-[#1e3a8a]/40 pt-1 w-full">
             {data.status === "DRAFT" ? "PURCHASE ORDER — DRAFT" : "PURCHASE ORDER"}
           </div>
         </div>
@@ -361,6 +411,12 @@ export const PurchaseOrderPrintA4: React.FC<{ data: PurchaseOrderPrintData }> = 
               src={data.logoUrl || tattlyLogoBlack}
               alt={data.companyName || "TATTLY THREADS"}
               className="h-10 w-auto object-contain max-w-[135px]"
+              onError={(e) => {
+                const img = e.currentTarget;
+                if (img.src !== window.location.origin + "/tattly_logo_black.png") {
+                  img.src = "/tattly_logo_black.png";
+                }
+              }}
             />
           </div>
           <div className="text-[10px] text-slate-600 leading-snug">
@@ -731,9 +787,12 @@ export const PurchaseOrderPrintA4: React.FC<{ data: PurchaseOrderPrintData }> = 
                         className="max-h-full max-w-full object-contain"
                         onError={(e) => {
                           const imgElem = e.currentTarget;
-                          imgElem.src = smritiImagePlaceholder;
+                          imgElem.src = smritiImagePlaceholder || "/smriti-image-placeholder.png";
                           imgElem.alt = "Image Not Available";
-                          imgElem.onerror = null;
+                          imgElem.onerror = () => {
+                            imgElem.src = "/assets/branding/smriti-image-placeholder.png";
+                            imgElem.onerror = null;
+                          };
                         }}
                       />
                     ) : (
