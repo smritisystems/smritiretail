@@ -181,7 +181,7 @@ EXEMPT_DTO_FIELDS: Set[str] = {
     "documentType", "companyCode", "currentNumber", "financialYear",
     "isCommonAcrossTerminals", "isVoidUnified", "mode", "module",
     "numberFormat", "resetRule", "runningLength", "startNumber", "suffix",
-    "terminalId", "transactionGroup", "lastResetKey",
+    "terminalId", "transactionGroup", "lastResetKey", "category", "endNumber",
     # Terms schema camelCase legacy
     "isActive", "lastUpdated", "updatedBy",
     # Master lookup camelCase legacy
@@ -190,7 +190,12 @@ EXEMPT_DTO_FIELDS: Set[str] = {
     "priority", "required_role",
     # Item extended attributes (composite entity, not flat canonical)
     "color", "size", "style_code", "is_batch_tracked", "is_serial_tracked",
-    "vendor_code",
+    "vendor_code", "gender", "least_saleable_qty", "validation_message", "validation_status",
+    "collection_type", "design_attribute", "heel_type", "is_billable_yn", "is_inventory_yn", "is_service_yn",
+    "outsole_material", "product_type", "purchase_class", "upper_material",
+    # Purchase Order and Supplier commercial terms, audit revisions, and projection responses
+    "business_terms", "buyer", "commercial_terms", "currency", "freight_terms", "payment_terms", "special_instructions",
+    "rule_snapshots", "amend_revision", "cancellation_reason", "delivery_date", "order_date", "supplier_name", "total_amount",
     # CustomerProfileData sub-schema fields (nested profile, maps to customer_profile table)
     # These are captured in CustomerProfileData which nests inside PartyCreateRequest
     "credit_limit", "credit_days", "customer_category", "is_credit_hold",
