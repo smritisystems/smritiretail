@@ -757,8 +757,15 @@ describe("P0 Billing Remediation & Modern UX Test Suite", () => {
 
     // Simulate cashier scanning unknown barcode
     const scannedBarcode = "890UNKNOWN999";
-    const resp = await apiFetchModule.apiFetchV1<any>(`/products/search?q=${encodeURIComponent(scannedBarcode)}&limit=1`);
-    const items = resp?.items || [];
+    let items: any[] = [];
+    try {
+      const resolved = await apiFetchModule.apiFetchV1<any>(`/universal/items/resolve?query=${encodeURIComponent(scannedBarcode)}`);
+      if (resolved && (resolved.item_id || resolved.variant_id)) {
+        items = [resolved];
+      }
+    } catch {
+      items = [];
+    }
 
     if (items.length === 0) {
       itemLookupError = `Item Not Found: Barcode/SKU '${scannedBarcode}' is not registered in the item master catalog.`;
@@ -817,7 +824,7 @@ describe("P0 Billing Remediation & Modern UX Test Suite", () => {
     vi.spyOn(apiFetchModule, "apiFetchV1").mockRejectedValue(new Error("Lookup service unavailable"));
 
     try {
-      await apiFetchModule.apiFetchV1("/products/search?q=CORRUPT-CODE");
+      await apiFetchModule.apiFetchV1("/universal/items/resolve?query=CORRUPT-CODE");
       cart.push({ id: "item-3", sku: "CORRUPT-CODE", name: "Should Not Add", qty: 1, rate: 0 });
     } catch {
       // Lookup failed - cart remains untouched

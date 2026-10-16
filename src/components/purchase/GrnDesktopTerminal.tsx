@@ -581,16 +581,51 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
       // Fallback to high-speed catalog check
     }
 
-    // 3. Fallback: query catalog products search endpoint
+    // 3. Fallback: query canonical universal items resolver and catalog endpoint
     try {
-      const res = await apiFetchV1(`/products/search?q=${encodeURIComponent(code)}&limit=5`);
-      const items = Array.isArray(res) ? res : res?.items || [];
-      const match = items.find((p: any) =>
-        (p.code && p.code.toLowerCase() === cleanCode) ||
-        (p.sku && p.sku.toLowerCase() === cleanCode) ||
-        (p.barcode && p.barcode.toLowerCase() === cleanCode) ||
-        (p.id && p.id.toLowerCase() === cleanCode)
-      ) || (items.length === 1 ? items[0] : null);
+      let match: any = null;
+      try {
+        const resolved = await apiFetchV1<any>(`/universal/items/resolve?query=${encodeURIComponent(code)}`);
+        if (resolved && (resolved.item_id || resolved.variant_id)) {
+          match = {
+            id: resolved.item_id || resolved.variant_id,
+            item_id: resolved.item_id,
+            item_variant_id: resolved.variant_id,
+            name: resolved.item_name,
+            code: resolved.item_code,
+            sku: resolved.variant_sku || resolved.item_code,
+            cost_price: resolved.cost_price,
+            mrp: resolved.mrp,
+            gst_percentage: resolved.tax_rate,
+            current_stock: resolved.physical_on_hand || 0,
+            available_stock: resolved.available_to_promise || 0,
+          };
+        }
+      } catch {
+        const res = await apiFetchV1(`/universal/items?query=${encodeURIComponent(code)}&limit=5`);
+        const items = Array.isArray(res) ? res : res?.items || [];
+        const rawMatch = items.find((p: any) =>
+          (p.item_code && p.item_code.toLowerCase() === cleanCode) ||
+          (p.code && p.code.toLowerCase() === cleanCode) ||
+          (p.id && p.id.toLowerCase() === cleanCode)
+        ) || (items.length === 1 ? items[0] : null);
+
+        if (rawMatch) {
+          match = {
+            id: rawMatch.id,
+            item_id: rawMatch.id,
+            item_variant_id: rawMatch.variants?.[0]?.id || null,
+            name: rawMatch.item_name || rawMatch.name,
+            code: rawMatch.item_code || rawMatch.code,
+            sku: rawMatch.variants?.[0]?.sku || rawMatch.item_code,
+            cost_price: rawMatch.cost_price,
+            mrp: rawMatch.mrp,
+            gst_percentage: rawMatch.tax_rate,
+            current_stock: 0,
+            available_stock: 0,
+          };
+        }
+      }
 
       if (match && match.id) {
         if (!match.item_id) {
