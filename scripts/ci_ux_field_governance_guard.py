@@ -361,9 +361,9 @@ class UXFieldGovernanceGuard:
                 print(f"  [WARNING] Could not parse baseline file: {ex}")
 
         input_regex = re.compile(r'<(?:input|Input)\b([^>]*?)(?:/>|>)', re.DOTALL)
-        name_attr_regex = re.compile(r'\b(?:name|field|key|fieldKey)\s*=\s*["\']([^"\']+)["\']')
+        name_attr_regex = re.compile(r'(?<![-\w])(?:name|field|key|fieldKey)\s*=\s*["\']([^"\']+)["\']')
         type_attr_regex = re.compile(r'\btype\s*=\s*["\']([^"\']+)["\']')
-        field_id_attr_regex = re.compile(r'\bfieldId\s*=\s*["\']([^"\']+)["\']')
+        field_id_attr_regex = re.compile(r'(?:\bfieldId|data-field-key)\s*=\s*["\']([^"\']+)["\']')
 
         ALLOWED_UI_NAMES = {
             "checkbox", "radio", "search", "query", "file", "button", "text", "filter",
