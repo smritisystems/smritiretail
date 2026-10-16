@@ -56,7 +56,7 @@ import { GRID_PROFILES } from "../../services/gridInput/gridProfiles.ts";
 import type { ParsedGridRow, GridImportMode } from "../../services/gridInput/types.ts";
 import { SupplierSelect } from "../common/SupplierSelect.tsx";
 import imageNotAvailablePlaceholder from "../../../myImages/image_not_available_placeholder.png";
-import { CommercialDeliveryDrawer, CommercialDeliveryData } from "./CommercialDeliveryDrawer.tsx";
+import { CommercialDeliveryDrawer, CommercialDeliveryData, DEFAULT_BUSINESS_TERMS } from "./CommercialDeliveryDrawer.tsx";
 import {
   buildArticleCatalogIndex,
   getAvailableArticles,
@@ -133,6 +133,7 @@ export interface SizewisePOHeader {
   remarks: string;
   internalNotes: string;
   priceList: string;
+  businessTerms?: string;
 }
 
 export interface SizewisePOLine {
@@ -155,6 +156,127 @@ export interface SizewisePOLine {
   deliveryDate: string;
   originalProduct?: Product;
   imageUrl?: string;
+}
+
+/**
+ * Grouped presentation model representing a single aggregated row per unique
+ * Article No. + Color/Shade combination for live Purchase Studio grids.
+ */
+export interface GroupedSizewiseDisplayRow {
+  id?: string;
+  groupKey: string;
+  sNo: number;
+  articleNo: string;
+  style: string;
+  shade: string;
+  itemCode: string;
+  barcode?: string;
+  product: string;
+  brand: string;
+  unit: string;
+  rate: number;
+  taxPercent: number;
+  deliveryDate: string;
+  stockOnHand: number;
+  imageUrl?: string;
+  originalProduct?: Product;
+  sizeQuantities: Record<string, number>;
+  totalQty: number;
+  netValue: number;
+  sizeToLineIndex: Record<string, number>;
+  memberLineIndices: number[];
+  primaryLineIndex: number;
+}
+
+/**
+ * Pure function: Groups canonical SizewisePOLine items by Article + Color
+ * while strictly preserving underlying variant records and mapping size cells
+ * back to their origin lines.
+ */
+export function buildGroupedSizewiseLines(
+  lines: SizewisePOLine[] = [],
+  sizes: string[] = [],
+  defaultTaxPercent: number = 18
+): GroupedSizewiseDisplayRow[] {
+  if (!Array.isArray(lines) || lines.length === 0) return [];
+
+  const groupMap = new Map<string, GroupedSizewiseDisplayRow>();
+
+  lines.forEach((line, idx) => {
+    const art = (line.articleNo || line.style || "").trim() || (line.itemCode || "").trim();
+    const col = (line.shade || "").trim();
+
+    // Blank or unconfigured rows keep their individual identity so they remain individually editable
+    const isBlank = !art && !col && !line.itemCode?.trim() && (!line.totalQty || line.totalQty === 0);
+    const groupKey = isBlank ? `__blank_${line.id || idx}` : `${art.toUpperCase()}:::${col.toUpperCase()}`;
+
+    if (!groupMap.has(groupKey)) {
+      const initialSizeQtys: Record<string, number> = {};
+      const sizeToLineIndex: Record<string, number> = {};
+      sizes.forEach(sz => {
+        const q = Number(line.sizeQuantities?.[sz]) || 0;
+        initialSizeQtys[sz] = q;
+        sizeToLineIndex[sz] = idx;
+      });
+
+      groupMap.set(groupKey, {
+        id: line.id || groupKey,
+        groupKey,
+        sNo: groupMap.size + 1,
+        articleNo: art || line.articleNo || line.itemCode || "",
+        style: art || line.style || line.articleNo || line.itemCode || "",
+        shade: col || line.shade || "",
+        itemCode: line.itemCode || "",
+        barcode: line.barcode || "",
+        product: line.product || "",
+        brand: line.brand || "",
+        unit: line.unit || "Pair",
+        rate: line.rate || 0,
+        taxPercent: line.taxPercent !== undefined ? line.taxPercent : defaultTaxPercent,
+        deliveryDate: line.deliveryDate || "",
+        stockOnHand: Number(line.stockOnHand || 0),
+        imageUrl: line.imageUrl || "",
+        originalProduct: line.originalProduct,
+        sizeQuantities: initialSizeQtys,
+        totalQty: 0,
+        netValue: 0,
+        sizeToLineIndex,
+        memberLineIndices: [idx],
+        primaryLineIndex: idx,
+      });
+    } else {
+      const existing = groupMap.get(groupKey)!;
+      existing.memberLineIndices.push(idx);
+
+      sizes.forEach(sz => {
+        const q = Number(line.sizeQuantities?.[sz]) || 0;
+        if (q > 0) {
+          existing.sizeQuantities[sz] = (existing.sizeQuantities[sz] || 0) + q;
+          existing.sizeToLineIndex[sz] = idx;
+        } else if (existing.sizeToLineIndex[sz] === undefined) {
+          existing.sizeToLineIndex[sz] = idx;
+        }
+      });
+
+      existing.stockOnHand = Math.max(existing.stockOnHand, Number(line.stockOnHand || 0));
+      if (!existing.imageUrl && line.imageUrl) existing.imageUrl = line.imageUrl;
+      if (!existing.brand && line.brand) existing.brand = line.brand;
+      if (!existing.unit && line.unit) existing.unit = line.unit;
+      if ((!existing.rate || existing.rate === 0) && line.rate) existing.rate = line.rate;
+      if (!existing.barcode && line.barcode) existing.barcode = line.barcode;
+      if (!existing.product && line.product) existing.product = line.product;
+    }
+  });
+
+  const result = Array.from(groupMap.values());
+  result.forEach((group, idx) => {
+    group.sNo = idx + 1;
+    const tQty = sizes.reduce((sum, sz) => sum + (group.sizeQuantities[sz] || 0), 0);
+    group.totalQty = tQty;
+    group.netValue = tQty * (group.rate || 0);
+  });
+
+  return result;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -342,7 +464,13 @@ export function getShadeHex(shade?: string): string {
  * 4. ItemCode-level fallback (`itemCode`)
  */
 export function resolveLineImage(
-  line: SizewisePOLine,
+  line: {
+    imageUrl?: string;
+    articleNo?: string;
+    shade?: string;
+    itemCode?: string;
+    [key: string]: any;
+  },
   articleImageMap: Record<string, string>
 ): string {
   if (line.imageUrl) return line.imageUrl;
@@ -945,7 +1073,8 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
       commonTaxPercent: 18,
       freightAmount: 0,
       otherCharges: 0,
-      paymentTerms: "30 Days",
+      paymentTerms: "120 Days",
+      businessTerms: DEFAULT_BUSINESS_TERMS,
       freightCharges: "Paid by Supplier",
       currency: "INR - Indian Rupee",
       buyer: currentUser?.name ? `${currentUser.name} (${currentUser.role || "MANAGER"})` : "manager (MANAGER)",
@@ -963,6 +1092,12 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
   const [lines, setLines] = useState<SizewisePOLine[]>(() => {
     return initialLines && initialLines.length > 0 ? initialLines : [];
   });
+
+  // Derived presentation model: Groups canonical lines by Article + Color for live display
+  const groupedDisplayLines = useMemo(
+    () => buildGroupedSizewiseLines(lines, sizes, header.commonTaxPercent),
+    [lines, sizes, header.commonTaxPercent]
+  );
 
   // Sync state back to parent
   const onLinesChangeRef = useRef(onLinesChange);
@@ -1229,6 +1364,7 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
         let restoredDepartment = commSnap?.department;
         let restoredInstructions = commSnap?.special_instructions;
         let restoredRef = commSnap?.supplier_reference;
+        let restoredBusinessTerms = commSnap?.business_terms;
 
         // Fallback: parse from notes string if legacy PO without structured snapshot
         if (!commSnap && fullPo.notes) {
@@ -1245,6 +1381,7 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
               else if (k.includes("dept") || k.includes("department")) restoredDepartment = v;
               else if (k.includes("instruction")) restoredInstructions = v;
               else if (k.includes("ref")) restoredRef = v;
+              else if (k.includes("business") || k.includes("terms")) restoredBusinessTerms = v;
             }
           }
         }
@@ -1259,38 +1396,41 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
               ...h,
               supplierId: found.id,
               supplierName: found.name,
-              paymentTerms: restoredPayment ?? h.paymentTerms,
+              paymentTerms: restoredPayment ?? h.paymentTerms ?? "120 Days",
               freightCharges: restoredFreight ?? h.freightCharges,
               currency: restoredCurrency ?? h.currency,
               buyer: restoredBuyer ?? h.buyer,
               department: restoredDepartment ?? h.department,
               specialInstructions: restoredInstructions ?? h.specialInstructions,
               supplierReference: restoredRef ?? h.supplierReference,
+              businessTerms: restoredBusinessTerms ?? h.businessTerms ?? DEFAULT_BUSINESS_TERMS,
             }));
           } else if (fullPo.supplier_id) {
             setHeader(h => ({
               ...h,
               supplierId: fullPo.supplier_id,
               supplierName: fullPo.supplier_name || "Supplier",
-              paymentTerms: restoredPayment ?? h.paymentTerms,
+              paymentTerms: restoredPayment ?? h.paymentTerms ?? "120 Days",
               freightCharges: restoredFreight ?? h.freightCharges,
               currency: restoredCurrency ?? h.currency,
               buyer: restoredBuyer ?? h.buyer,
               department: restoredDepartment ?? h.department,
               specialInstructions: restoredInstructions ?? h.specialInstructions,
               supplierReference: restoredRef ?? h.supplierReference,
+              businessTerms: restoredBusinessTerms ?? h.businessTerms ?? DEFAULT_BUSINESS_TERMS,
             }));
           }
-        } else if (restoredPayment || restoredFreight || restoredCurrency || restoredBuyer || restoredDepartment || restoredInstructions || restoredRef) {
+        } else if (restoredPayment || restoredFreight || restoredCurrency || restoredBuyer || restoredDepartment || restoredInstructions || restoredRef || restoredBusinessTerms) {
           setHeader(h => ({
             ...h,
-            paymentTerms: restoredPayment ?? h.paymentTerms,
+            paymentTerms: restoredPayment ?? h.paymentTerms ?? "120 Days",
             freightCharges: restoredFreight ?? h.freightCharges,
             currency: restoredCurrency ?? h.currency,
             buyer: restoredBuyer ?? h.buyer,
             department: restoredDepartment ?? h.department,
             specialInstructions: restoredInstructions ?? h.specialInstructions,
             supplierReference: restoredRef ?? h.supplierReference,
+            businessTerms: restoredBusinessTerms ?? h.businessTerms ?? DEFAULT_BUSINESS_TERMS,
           }));
         }
 
@@ -1309,7 +1449,20 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
 
         const activeSizes = SIZE_SCALE_PRESETS[detectedScale]?.sizes || sizes;
 
-        const newLines: SizewisePOLine[] = poItems.map((item: any, idx: number) => {
+        const groupedPoMap = new Map<string, SizewisePOLine>();
+        poItems.forEach((item: any, idx: number) => {
+          const rawCode = item.code || item.item_code || item.itemCode || item.sku || `ITEM-${idx + 1}`;
+          const rawName = item.name || item.product_name || item.product || item.item_name || "Purchased Product";
+          const extracted = extractArticleAndColor(
+            rawCode,
+            rawName,
+            item.style || item.style_code,
+            item.shade || item.color
+          );
+          const art = extracted.article || rawCode;
+          const col = extracted.color || item.shade || "";
+          const groupKey = `${art.toUpperCase()}:::${col.toUpperCase()}`;
+
           const sizeQtys: Record<string, number> = {};
           activeSizes.forEach(sz => {
             sizeQtys[sz] = item.sizeQuantities?.[sz] || item.size_quantities?.[sz] || 0;
@@ -1330,34 +1483,45 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
             }
           }
           const rate = parseFloat(item.rate || item.cost_price || item.unit_price || 0);
-          const rawCode = item.code || item.item_code || item.itemCode || item.sku || `ITEM-${idx + 1}`;
-          const rawName = item.name || item.product_name || item.product || item.item_name || "Purchased Product";
-          const extracted = extractArticleAndColor(
-            rawCode,
-            rawName,
-            item.style || item.style_code,
-            item.shade || item.color
-          );
-          return {
-            id: `sw-line-${idx + 1}`,
-            sNo: idx + 1,
-            itemCode: rawCode,
-            articleNo: extracted.article || rawCode,
-            barcode: item.barcode || "",
-            product: rawName,
-            brand: item.brand || "",
-            style: extracted.article || item.style || "",
-            shade: extracted.color || item.shade || "",
-            unit: item.unit || item.uom || "Pair",
-            sizeQuantities: sizeQtys,
-            totalQty,
-            rate,
-            stockOnHand: Number(item.stock || item.stockOnHand || 0),
-            taxPercent: Number(item.gst_rate || item.tax_percent || item.taxPercent || header.commonTaxPercent),
-            netValue: totalQty * rate,
-            deliveryDate: item.delivery_date || header.deliveryDate,
-          };
+
+          if (!groupedPoMap.has(groupKey)) {
+            groupedPoMap.set(groupKey, {
+              id: `sw-line-${groupedPoMap.size + 1}`,
+              sNo: groupedPoMap.size + 1,
+              itemCode: rawCode,
+              articleNo: art,
+              barcode: item.barcode || "",
+              product: rawName,
+              brand: item.brand || "",
+              style: art,
+              shade: col,
+              unit: item.unit || item.uom || "Pair",
+              sizeQuantities: sizeQtys,
+              totalQty,
+              rate,
+              stockOnHand: Number(item.stock || item.stockOnHand || 0),
+              taxPercent: Number(item.gst_rate || item.tax_percent || item.taxPercent || header.commonTaxPercent),
+              netValue: totalQty * rate,
+              deliveryDate: item.delivery_date || header.deliveryDate,
+            });
+          } else {
+            const existing = groupedPoMap.get(groupKey)!;
+            activeSizes.forEach(sz => {
+              if (sizeQtys[sz]) {
+                existing.sizeQuantities[sz] = (existing.sizeQuantities[sz] || 0) + sizeQtys[sz];
+              }
+            });
+            existing.totalQty = activeSizes.reduce((sum, sz) => sum + (existing.sizeQuantities[sz] || 0), 0);
+            existing.netValue = existing.totalQty * existing.rate;
+            if (!existing.barcode && item.barcode) existing.barcode = item.barcode;
+          }
         });
+
+        const newLines: SizewisePOLine[] = Array.from(groupedPoMap.values()).map((l, i) => ({
+          ...l,
+          sNo: i + 1,
+          id: `sw-line-${i + 1}`,
+        }));
 
         if (newLines.length > 0) {
           setLines(newLines);
@@ -1465,6 +1629,170 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
       } : {}),
     });
   }, [articleCatalogIndex, lines, updateLine]);
+
+  // ── Grouped Grid Cell Modification Handlers (Non-destructive to variant identities) ──
+  const handleGroupSizeQtyChange = useCallback(
+    (group: GroupedSizewiseDisplayRow, sz: string, qty: number) => {
+      const targetIdx = group.sizeToLineIndex[sz] !== undefined ? group.sizeToLineIndex[sz] : group.primaryLineIndex;
+      setLines(prev =>
+        prev.map((line, i) => {
+          if (i === targetIdx) {
+            const sizeQuantities = { ...line.sizeQuantities, [sz]: qty };
+            const totalQty = sizes.reduce((s, s2) => s + (sizeQuantities[s2] || 0), 0);
+            const netValue = totalQty * (line.rate || 0);
+            return { ...line, sizeQuantities, totalQty, netValue };
+          }
+          // Zero out from other members of the same group to maintain single source of truth for that size
+          if (group.memberLineIndices.includes(i) && line.sizeQuantities?.[sz]) {
+            const sizeQuantities = { ...line.sizeQuantities, [sz]: 0 };
+            const totalQty = sizes.reduce((s, s2) => s + (sizeQuantities[s2] || 0), 0);
+            const netValue = totalQty * (line.rate || 0);
+            return { ...line, sizeQuantities, totalQty, netValue };
+          }
+          return line;
+        })
+      );
+    },
+    [sizes]
+  );
+
+  const handleGroupRateChange = useCallback(
+    (group: GroupedSizewiseDisplayRow, newRate: number) => {
+      setLines(prev =>
+        prev.map((line, i) => {
+          if (group.memberLineIndices.includes(i)) {
+            const netValue = line.totalQty * newRate;
+            return { ...line, rate: newRate, netValue };
+          }
+          return line;
+        })
+      );
+    },
+    []
+  );
+
+  const handleGroupTaxChange = useCallback(
+    (group: GroupedSizewiseDisplayRow, newTax: number) => {
+      setLines(prev =>
+        prev.map((line, i) => {
+          if (group.memberLineIndices.includes(i)) {
+            return { ...line, taxPercent: newTax };
+          }
+          return line;
+        })
+      );
+    },
+    []
+  );
+
+  const handleGroupDeliveryDateChange = useCallback(
+    (group: GroupedSizewiseDisplayRow, newDate: string) => {
+      setLines(prev =>
+        prev.map((line, i) => {
+          if (group.memberLineIndices.includes(i)) {
+            return { ...line, deliveryDate: newDate };
+          }
+          return line;
+        })
+      );
+    },
+    []
+  );
+
+  const handleGroupArticleChange = useCallback(
+    (group: GroupedSizewiseDisplayRow, newArticle: string) => {
+      handleArticleChange(group.primaryLineIndex, newArticle);
+      if (group.memberLineIndices.length > 1) {
+        setLines(prev =>
+          prev.map((line, i) => {
+            if (group.memberLineIndices.includes(i) && i !== group.primaryLineIndex) {
+              return { ...line, articleNo: newArticle, style: newArticle };
+            }
+            return line;
+          })
+        );
+      }
+    },
+    [handleArticleChange]
+  );
+
+  const handleGroupColorChange = useCallback(
+    (group: GroupedSizewiseDisplayRow, newColor: string) => {
+      handleColorChange(group.primaryLineIndex, newColor);
+      if (group.memberLineIndices.length > 1) {
+        setLines(prev =>
+          prev.map((line, i) => {
+            if (group.memberLineIndices.includes(i) && i !== group.primaryLineIndex) {
+              return { ...line, shade: newColor.toUpperCase() };
+            }
+            return line;
+          })
+        );
+      }
+    },
+    [handleColorChange]
+  );
+
+  const handleGroupDelete = useCallback(
+    (group: GroupedSizewiseDisplayRow) => {
+      setLines(prev =>
+        prev
+          .filter((_, i) => !group.memberLineIndices.includes(i))
+          .map((l, i) => ({ ...l, sNo: i + 1, id: `sw-line-${i + 1}` }))
+      );
+    },
+    []
+  );
+
+  const handleApplyRecommendationToGroup = useCallback(
+    (group: GroupedSizewiseDisplayRow, curve: "bell" | "core" | "uniform") => {
+      const targetQty = group.totalQty > 0 ? group.totalQty : 12;
+      const newQtys = recommendSizeAssortment(sizes, targetQty, curve);
+      setLines(prev => {
+        const next = [...prev];
+        sizes.forEach(sz => {
+          const targetIdx = group.sizeToLineIndex[sz] !== undefined ? group.sizeToLineIndex[sz] : group.primaryLineIndex;
+          if (next[targetIdx]) {
+            next[targetIdx] = {
+              ...next[targetIdx],
+              sizeQuantities: {
+                ...next[targetIdx].sizeQuantities,
+                [sz]: newQtys[sz] || 0,
+              },
+            };
+          }
+          group.memberLineIndices.forEach(idx => {
+            if (idx !== targetIdx && next[idx]?.sizeQuantities?.[sz]) {
+              next[idx] = {
+                ...next[idx],
+                sizeQuantities: {
+                  ...next[idx].sizeQuantities,
+                  [sz]: 0,
+                },
+              };
+            }
+          });
+        });
+        group.memberLineIndices.forEach(idx => {
+          if (next[idx]) {
+            const tQty = sizes.reduce((s, sz) => s + (next[idx].sizeQuantities[sz] || 0), 0);
+            next[idx] = {
+              ...next[idx],
+              totalQty: tQty,
+              netValue: tQty * (next[idx].rate || 0),
+            };
+          }
+        });
+        return next;
+      });
+      onNotification?.(
+        "Assortment Applied",
+        `Applied ${curve.toUpperCase()} curve to ${group.articleNo || group.style || "article"} (${group.shade || "Standard"}).`,
+        "info"
+      );
+    },
+    [sizes, onNotification]
+  );
 
   const updateSizeQty = useCallback(
     (lineIdx: number, sz: string, qty: number) => {
@@ -1886,26 +2214,55 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
   }, [lines, sizes, onNotification]);
 
   const handleApplyBatchRecommendation = useCallback((curve: "bell" | "core" | "uniform") => {
-    setLines(prev => prev.map(line => {
-      if (!line.itemCode) return line;
-      const targetQty = line.totalQty > 0 ? line.totalQty : 12;
-      const newQtys = recommendSizeAssortment(sizes, targetQty, curve);
-      const totalQty = sizes.reduce((s, sz) => s + (newQtys[sz] || 0), 0);
-      const netValue = totalQty * (line.rate || 0);
-      return {
-        ...line,
-        sizeQuantities: newQtys,
-        totalQty,
-        netValue,
-      };
-    }));
+    setLines(prev => {
+      const next = [...prev];
+      groupedDisplayLines.forEach(group => {
+        if (!group.itemCode) return;
+        const targetQty = group.totalQty > 0 ? group.totalQty : 12;
+        const newQtys = recommendSizeAssortment(sizes, targetQty, curve);
+        sizes.forEach(sz => {
+          const targetIdx = group.sizeToLineIndex[sz] !== undefined ? group.sizeToLineIndex[sz] : group.primaryLineIndex;
+          if (next[targetIdx]) {
+            next[targetIdx] = {
+              ...next[targetIdx],
+              sizeQuantities: {
+                ...next[targetIdx].sizeQuantities,
+                [sz]: newQtys[sz] || 0,
+              },
+            };
+          }
+          group.memberLineIndices.forEach(idx => {
+            if (idx !== targetIdx && next[idx]?.sizeQuantities?.[sz]) {
+              next[idx] = {
+                ...next[idx],
+                sizeQuantities: {
+                  ...next[idx].sizeQuantities,
+                  [sz]: 0,
+                },
+              };
+            }
+          });
+        });
+        group.memberLineIndices.forEach(idx => {
+          if (next[idx]) {
+            const tQty = sizes.reduce((s, sz) => s + (next[idx].sizeQuantities[sz] || 0), 0);
+            next[idx] = {
+              ...next[idx],
+              totalQty: tQty,
+              netValue: tQty * (next[idx].rate || 0),
+            };
+          }
+        });
+      });
+      return next;
+    });
     setBatchRecommendOpen(false);
     onNotification?.(
       "Batch Assortment Applied",
       `Applied ${curve.toUpperCase()} curve across all line items.`,
       "success"
     );
-  }, [sizes, onNotification]);
+  }, [groupedDisplayLines, sizes, onNotification]);
 
   // Barcode/search lookup
   const handleBarcodeSearch = (query: string) => {
@@ -2108,7 +2465,20 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
         }
       }
 
-      const newLines: SizewisePOLine[] = poItems.map((item: any, idx: number) => {
+      const groupedPoMap = new Map<string, SizewisePOLine>();
+      poItems.forEach((item: any, idx: number) => {
+        const rawCode = item.code || item.item_code || item.itemCode || item.sku || `ITEM-${idx + 1}`;
+        const rawName = item.name || item.product_name || item.product || item.item_name || "Purchased Product";
+        const extracted = extractArticleAndColor(
+          rawCode,
+          rawName,
+          item.style || item.style_code,
+          item.shade || item.color
+        );
+        const art = extracted.article || rawCode;
+        const col = extracted.color || item.shade || "";
+        const groupKey = `${art.toUpperCase()}:::${col.toUpperCase()}`;
+
         const sizeQtys: Record<string, number> = {};
         sizes.forEach(sz => {
           sizeQtys[sz] = item.sizeQuantities?.[sz] || item.size_quantities?.[sz] || 0;
@@ -2116,39 +2486,58 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
         let totalQty = sizes.reduce((sum, sz) => sum + (sizeQtys[sz] || 0), 0);
         const itemQty = Number(item.quantity || item.qty || 0);
         if (totalQty === 0 && itemQty > 0) {
-          const midSz = sizes[Math.floor(sizes.length / 2)] || sizes[0];
-          sizeQtys[midSz] = itemQty;
-          totalQty = itemQty;
+          const codeStr = item.code || item.item_code || "";
+          const szMatch = codeStr.match(/-([A-Za-z0-9]+)$/);
+          const matchedSz = szMatch ? szMatch[1].toUpperCase() : null;
+          if (matchedSz && sizes.includes(matchedSz)) {
+            sizeQtys[matchedSz] = itemQty;
+            totalQty = itemQty;
+          } else {
+            const midSz = sizes[Math.floor(sizes.length / 2)] || sizes[0];
+            sizeQtys[midSz] = itemQty;
+            totalQty = itemQty;
+          }
         }
         const rate = parseFloat(item.rate || item.unit_price || item.price || 0);
-        const rawCode = item.item_code || item.itemCode || item.sku || `ITEM-${idx + 1}`;
-        const rawName = item.product_name || item.product || item.item_name || "Purchased Product";
-        const extracted = extractArticleAndColor(
-          rawCode,
-          rawName,
-          item.style || item.style_code,
-          item.shade || item.color
-        );
-        return {
-          id: `sw-line-${idx + 1}`,
-          sNo: idx + 1,
-          itemCode: rawCode,
-          articleNo: extracted.article || rawCode,
-          barcode: item.barcode || "",
-          product: rawName,
-          brand: item.brand || "",
-          style: extracted.article || item.style || "",
-          shade: extracted.color || item.shade || "",
-          unit: item.unit || item.uom || "Pair",
-          sizeQuantities: sizeQtys,
-          totalQty,
-          rate,
-          stockOnHand: Number(item.stock || item.stockOnHand || 0),
-          taxPercent: Number(item.tax_percent || item.taxPercent || header.commonTaxPercent),
-          netValue: totalQty * rate,
-          deliveryDate: item.delivery_date || header.deliveryDate,
-        };
+
+        if (!groupedPoMap.has(groupKey)) {
+          groupedPoMap.set(groupKey, {
+            id: `sw-line-${groupedPoMap.size + 1}`,
+            sNo: groupedPoMap.size + 1,
+            itemCode: rawCode,
+            articleNo: art,
+            barcode: item.barcode || "",
+            product: rawName,
+            brand: item.brand || "",
+            style: art,
+            shade: col,
+            unit: item.unit || item.uom || "Pair",
+            sizeQuantities: sizeQtys,
+            totalQty,
+            rate,
+            stockOnHand: Number(item.stock || item.stockOnHand || 0),
+            taxPercent: Number(item.tax_percent || item.taxPercent || header.commonTaxPercent),
+            netValue: totalQty * rate,
+            deliveryDate: item.delivery_date || header.deliveryDate,
+          });
+        } else {
+          const existing = groupedPoMap.get(groupKey)!;
+          sizes.forEach(sz => {
+            if (sizeQtys[sz]) {
+              existing.sizeQuantities[sz] = (existing.sizeQuantities[sz] || 0) + sizeQtys[sz];
+            }
+          });
+          existing.totalQty = sizes.reduce((sum, sz) => sum + (existing.sizeQuantities[sz] || 0), 0);
+          existing.netValue = existing.totalQty * existing.rate;
+          if (!existing.barcode && item.barcode) existing.barcode = item.barcode;
+        }
       });
+
+      const newLines: SizewisePOLine[] = Array.from(groupedPoMap.values()).map((l, i) => ({
+        ...l,
+        sNo: i + 1,
+        id: `sw-line-${i + 1}`,
+      }));
 
       setLines(newLines);
       onNotification?.("PO Copied", `Successfully loaded ${newLines.length} item(s) from PO ${prevOrderSummary.order_no || fullPo.order_no}.`, "success");
@@ -2198,6 +2587,7 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
     department: header.department,
     freightAmount: header.freightAmount,
     otherCharges: header.otherCharges,
+    businessTerms: header.businessTerms ?? DEFAULT_BUSINESS_TERMS,
   }), [header, selectedSupplier]);
 
   const printLineItems: PurchaseOrderLineItem[] = useMemo(() => {
@@ -2277,28 +2667,28 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
   }, [lines, articleImageMap]);
 
   const printSizePivotRows: PurchaseOrderSizePivotRow[] = useMemo(() => {
-    return lines.filter(l => Boolean((l.itemCode || l.articleNo) && l.totalQty > 0)).map(l => ({
-      id: l.id,
-      sNo: l.sNo,
-      articleNo: l.articleNo || l.itemCode,
-      product: l.product,
-      brand: l.brand,
-      style: l.style,
-      color: l.shade,
-      sizeQuantities: l.sizeQuantities,
-      totalQty: l.totalQty,
-      gstPercent: l.taxPercent,
-      rate: l.rate,
-      totalValue: l.netValue,
-      taxAmount: (l.totalQty * l.rate * l.taxPercent) / 100,
-      imageUrl: l.imageUrl || resolveLineImage(l, articleImageMap),
-      photoUrl: l.imageUrl || resolveLineImage(l, articleImageMap),
-      originalProduct: l.originalProduct,
-      heelType: (l as any).heelType || (l as any).heel_type || l.originalProduct?.attributes?.heel_type || (l.originalProduct as any)?.heel_type,
-      upperMaterial: (l as any).upperMaterial || (l as any).upper_material || l.originalProduct?.attributes?.upper_material || (l.originalProduct as any)?.upper_material,
-      outsoleMaterial: (l as any).outsoleMaterial || (l as any).outsole_material || l.originalProduct?.attributes?.outsole_material || (l.originalProduct as any)?.outsole_material,
+    return groupedDisplayLines.filter(g => Boolean((g.itemCode || g.articleNo) && g.totalQty > 0)).map(g => ({
+      id: g.groupKey,
+      sNo: g.sNo,
+      articleNo: g.articleNo || g.itemCode,
+      product: g.product,
+      brand: g.brand,
+      style: g.style,
+      color: g.shade,
+      sizeQuantities: g.sizeQuantities,
+      totalQty: g.totalQty,
+      gstPercent: g.taxPercent,
+      rate: g.rate,
+      totalValue: g.netValue,
+      taxAmount: (g.totalQty * g.rate * g.taxPercent) / 100,
+      imageUrl: g.imageUrl || resolveLineImage({ articleNo: g.articleNo, itemCode: g.itemCode, shade: g.shade }, articleImageMap),
+      photoUrl: g.imageUrl || resolveLineImage({ articleNo: g.articleNo, itemCode: g.itemCode, shade: g.shade }, articleImageMap),
+      originalProduct: g.originalProduct,
+      heelType: (g as any).heelType || (g as any).heel_type || g.originalProduct?.attributes?.heel_type || (g.originalProduct as any)?.heel_type,
+      upperMaterial: (g as any).upperMaterial || (g as any).upper_material || g.originalProduct?.attributes?.upper_material || (g.originalProduct as any)?.upper_material,
+      outsoleMaterial: (g as any).outsoleMaterial || (g as any).outsole_material || g.originalProduct?.attributes?.outsole_material || (g.originalProduct as any)?.outsole_material,
     }));
-  }, [lines, articleImageMap]);
+  }, [groupedDisplayLines, articleImageMap]);
 
   // ── Import via Global Grid Input & Resolution Standard ──────────────────
   const handleGlobalGridImportCommit = (
@@ -2505,11 +2895,11 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
   // ── Computed totals ───────────────────────────────────────────────────
   const { perSizeTotals, grandTotalQty, grossValue, totalTax, netOrderValue, totalItems, sizePercents } =
     useMemo(
-      () => calculateSizewiseSummaryTotals(lines, sizes, header.freightAmount, header.otherCharges),
-      [lines, sizes, header.freightAmount, header.otherCharges]
+      () => calculateSizewiseSummaryTotals(groupedDisplayLines as any, sizes, header.freightAmount, header.otherCharges),
+      [groupedDisplayLines, sizes, header.freightAmount, header.otherCharges]
     );
 
-  const activeLineCount = useMemo(() => lines.filter(l => l.itemCode && l.totalQty > 0).length, [lines]);
+  const activeLineCount = useMemo(() => groupedDisplayLines.filter(g => (g.itemCode || g.articleNo) && g.totalQty > 0).length, [groupedDisplayLines]);
 
   // ── Keyboard shortcuts ────────────────────────────────────────────────
   useEffect(() => {
@@ -3158,13 +3548,13 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
               </thead>
 
               <tbody className="divide-y divide-slate-100">
-                {lines.map((line, idx) => {
-                  const hasItem = !!(line.itemCode || line.articleNo || line.style);
-                  const isActive = idx === activeRowIndex;
+                {groupedDisplayLines.map((group, idx) => {
+                  const hasItem = !!(group.itemCode || group.articleNo || group.style);
+                  const isActive = group.memberLineIndices.includes(activeRowIndex);
                   return (
                     <tr
-                      key={line.id}
-                      onClick={() => setActiveRowIndex(idx)}
+                      key={group.groupKey}
+                      onClick={() => setActiveRowIndex(group.primaryLineIndex)}
                       className={`transition-colors cursor-pointer ${
                         isActive
                           ? "bg-indigo-50/70"
@@ -3175,7 +3565,7 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
                     >
                       {/* # */}
                       <td className="p-2 text-center text-slate-400 font-mono font-medium border-r border-slate-100 bg-slate-50/50 text-[11px]">
-                        {line.sNo}
+                        {group.sNo}
                       </td>
 
                       {gridDisplayMode === "article_color" ? (
@@ -3185,17 +3575,17 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
                             <div className="flex items-center gap-1.5">
                               <button
                                 type="button"
-                                title={line.imageUrl ? "Click to change/preview image" : "Attach image to article"}
+                                title={group.imageUrl ? "Click to change/preview image" : "Attach image to article"}
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  openImageModal(idx);
+                                  openImageModal(group.primaryLineIndex);
                                 }}
                                 className="w-7 h-7 rounded border border-slate-200 bg-slate-50 hover:border-indigo-500 flex items-center justify-center shrink-0 overflow-hidden group/thumb transition shadow-2xs cursor-pointer"
                               >
-                                {line.imageUrl ? (
+                                {group.imageUrl ? (
                                   <img
-                                    src={line.imageUrl}
-                                    alt={line.articleNo || line.itemCode}
+                                    src={group.imageUrl}
+                                    alt={group.articleNo || group.itemCode}
                                     className="w-full h-full object-cover"
                                     onError={(e) => {
                                       e.currentTarget.src = imageNotAvailablePlaceholder;
@@ -3213,16 +3603,16 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
                                   type="text"
                                   id={`sw-article-${idx}`}
                                   list="sw-articles-datalist"
-                                  value={line.articleNo || line.style || line.itemCode}
+                                  value={group.articleNo || group.style || group.itemCode}
                                   placeholder="Article (e.g. SH-03)"
-                                  onFocus={() => setActiveRowIndex(idx)}
-                                  onChange={e => handleArticleChange(idx, e.target.value)}
+                                  onFocus={() => setActiveRowIndex(group.primaryLineIndex)}
+                                  onChange={e => handleGroupArticleChange(group, e.target.value)}
                                   className="w-full bg-transparent border border-transparent hover:border-slate-300 focus:border-indigo-500 focus:bg-white rounded px-1.5 h-6 font-mono font-bold text-xs outline-none"
                                 />
                                 <div className="px-1 text-[9px] text-slate-400 font-mono truncate">
-                                  {line.itemCode && line.itemCode !== (line.articleNo || line.style)
-                                    ? line.itemCode
-                                    : (line.brand ? `${line.brand}` : "Article / SKU")}
+                                  {group.itemCode && group.itemCode !== (group.articleNo || group.style)
+                                    ? group.itemCode
+                                    : (group.brand ? `${group.brand}` : "Article / SKU")}
                                 </div>
                               </div>
                             </div>
@@ -3233,32 +3623,32 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
                             <div className="flex items-center gap-1.5 px-1">
                               <span
                                 className="w-3.5 h-3.5 rounded-full border border-slate-300 shrink-0 shadow-2xs"
-                                style={{ backgroundColor: getShadeHex(line.shade) }}
-                                title={line.shade ? `Color: ${line.shade}` : "Select color"}
+                                style={{ backgroundColor: getShadeHex(group.shade) }}
+                                title={group.shade ? `Color: ${group.shade}` : "Select color"}
                               />
                               <input
                                 type="text"
                                 id={`sw-shade-${idx}`}
                                 list={`sw-colors-list-${idx}`}
-                                value={line.shade || ""}
+                                value={group.shade || ""}
                                 placeholder="Color (e.g. CREAM)"
-                                onFocus={() => setActiveRowIndex(idx)}
-                                onChange={e => handleColorChange(idx, e.target.value)}
+                                onFocus={() => setActiveRowIndex(group.primaryLineIndex)}
+                                onChange={e => handleGroupColorChange(group, e.target.value)}
                                 className="w-full bg-transparent border border-transparent hover:border-slate-300 focus:border-indigo-500 focus:bg-white rounded px-1.5 h-6 font-semibold text-xs outline-none uppercase"
                               />
                               <datalist id={`sw-colors-list-${idx}`}>
-                                {getAvailableColorsForArticle(articleCatalogIndex, line.articleNo || line.style).map(col => (
+                                {getAvailableColorsForArticle(articleCatalogIndex, group.articleNo || group.style).map(col => (
                                   <option key={col} value={col} />
                                 ))}
                               </datalist>
-                              {line.unit && (
+                              {group.unit && (
                                 <span className="font-mono text-indigo-700 font-bold uppercase text-[9px] bg-indigo-50 border border-indigo-100 px-1 py-0.5 rounded shrink-0">
-                                  {line.unit}
+                                  {group.unit}
                                 </span>
                               )}
                             </div>
                             <div className="px-2 text-[10px] text-slate-400 leading-tight truncate">
-                              {line.product || `${line.articleNo || line.style || "Item"} - ${line.shade || "Standard"}`}
+                              {group.product || `${group.articleNo || group.style || "Item"} - ${group.shade || "Standard"}`}
                             </div>
                           </td>
                         </>
@@ -3269,17 +3659,17 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
                             <div className="flex items-center gap-1.5">
                               <button
                                 type="button"
-                                title={line.imageUrl ? "Click to change/preview image" : "Attach image to article"}
+                                title={group.imageUrl ? "Click to change/preview image" : "Attach image to article"}
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  openImageModal(idx);
+                                  openImageModal(group.primaryLineIndex);
                                 }}
                                 className="w-7 h-7 rounded border border-slate-200 bg-slate-50 hover:border-indigo-500 flex items-center justify-center shrink-0 overflow-hidden group/thumb transition shadow-2xs cursor-pointer"
                               >
-                                {line.imageUrl ? (
+                                {group.imageUrl ? (
                                   <img
-                                    src={line.imageUrl}
-                                    alt={line.itemCode}
+                                    src={group.imageUrl}
+                                    alt={group.itemCode}
                                     className="w-full h-full object-cover"
                                     onError={(e) => {
                                       e.currentTarget.src = imageNotAvailablePlaceholder;
@@ -3296,10 +3686,10 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
                                 type="text"
                                 id={`sw-itemcode-${idx}`}
                                 list="sw-articles-datalist"
-                                value={line.itemCode}
+                                value={group.itemCode}
                                 placeholder="F2 / Scan"
-                                onFocus={() => setActiveRowIndex(idx)}
-                                onChange={e => handleArticleChange(idx, e.target.value)}
+                                onFocus={() => setActiveRowIndex(group.primaryLineIndex)}
+                                onChange={e => handleGroupArticleChange(group, e.target.value)}
                                 className="w-full bg-transparent border border-transparent hover:border-slate-300 focus:border-indigo-500 focus:bg-white rounded px-1.5 h-7 font-mono font-bold text-xs outline-none"
                               />
                             </div>
@@ -3309,25 +3699,30 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
                           <td className="p-1 border-r border-slate-100">
                             <input
                               type="text"
-                              value={line.product}
+                              value={group.product}
                               placeholder="Product name"
-                              onFocus={() => setActiveRowIndex(idx)}
-                              onChange={e => updateLine(idx, { product: e.target.value })}
+                              onFocus={() => setActiveRowIndex(group.primaryLineIndex)}
+                              onChange={e => {
+                                const newProd = e.target.value;
+                                setLines(prev =>
+                                  prev.map((l, i) => group.memberLineIndices.includes(i) ? { ...l, product: newProd } : l)
+                                );
+                              }}
                               className="w-full bg-transparent border border-transparent hover:border-slate-300 focus:border-indigo-500 focus:bg-white rounded px-2 h-6 font-medium text-xs outline-none"
                             />
                             <div className="px-2 text-[10px] text-slate-400 leading-tight truncate flex items-center justify-between">
                               <span className="truncate flex items-center gap-1.5">
-                                {line.shade && (
+                                {group.shade && (
                                   <span className="inline-flex items-center gap-1 font-bold text-slate-700 bg-amber-50 border border-amber-200 px-1 py-0.2 rounded text-[9px]">
-                                    <span className="w-1.5 h-1.5 rounded-full inline-block" style={{ backgroundColor: getShadeHex(line.shade) }} />
-                                    {line.shade}
+                                    <span className="w-1.5 h-1.5 rounded-full inline-block" style={{ backgroundColor: getShadeHex(group.shade) }} />
+                                    {group.shade}
                                   </span>
                                 )}
-                                {[line.brand, line.style].filter(Boolean).join(" / ") || (!line.shade && <span className="italic">Brand / Style</span>)}
+                                {[group.brand, group.style].filter(Boolean).join(" / ") || (!group.shade && <span className="italic">Brand / Style</span>)}
                               </span>
-                              {line.unit && (
+                              {group.unit && (
                                 <span className="font-mono text-indigo-700 font-bold uppercase text-[9px] bg-indigo-50 border border-indigo-100 px-1.5 py-0.5 rounded ml-1 shrink-0">
-                                  {line.unit}
+                                  {group.unit}
                                 </span>
                               )}
                             </div>
@@ -3337,11 +3732,11 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
 
                       {/* Size qty cells */}
                       {sizes.map(sz => {
-                        const art = line.articleNo || line.style;
-                        const availableSizes = art && line.shade
-                          ? getAvailableSizesForArticleAndColor(articleCatalogIndex, art, line.shade)
+                        const art = group.articleNo || group.style;
+                        const availableSizes = art && group.shade
+                          ? getAvailableSizesForArticleAndColor(articleCatalogIndex, art, group.shade)
                           : [];
-                        const isSizeAvailable = !art || !line.shade || availableSizes.length === 0 || availableSizes.includes(sz);
+                        const isSizeAvailable = !art || !group.shade || availableSizes.length === 0 || availableSizes.includes(sz);
 
                         return (
                           <td key={sz} className="p-0 border-r border-slate-100 text-center w-14">
@@ -3349,16 +3744,16 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
                               type="number"
                               min="0"
                               id={`sw-qty-${idx}-${sz}`}
-                              value={line.sizeQuantities[sz] || ""}
+                              value={group.sizeQuantities[sz] || ""}
                               placeholder={isSizeAvailable ? "–" : "✕"}
                               disabled={!isSizeAvailable}
-                              title={!isSizeAvailable ? `Size ${sz} not available for ${art} in ${line.shade}` : undefined}
-                              onFocus={() => setActiveRowIndex(idx)}
-                              onChange={e => updateSizeQty(idx, sz, parseInt(e.target.value, 10) || 0)}
+                              title={!isSizeAvailable ? `Size ${sz} not available for ${art} in ${group.shade}` : undefined}
+                              onFocus={() => setActiveRowIndex(group.primaryLineIndex)}
+                              onChange={e => handleGroupSizeQtyChange(group, sz, parseInt(e.target.value, 10) || 0)}
                               className={`w-full border-none text-center h-8 font-mono font-bold text-xs outline-none ${
                                 !isSizeAvailable
                                   ? "bg-slate-100/70 text-slate-300 cursor-not-allowed select-none"
-                                  : (line.sizeQuantities[sz] || 0) > 0
+                                  : (group.sizeQuantities[sz] || 0) > 0
                                   ? "bg-transparent text-indigo-700 focus:bg-indigo-50"
                                   : "bg-transparent text-slate-300 focus:bg-indigo-50"
                               }`}
@@ -3369,7 +3764,7 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
 
                       {/* Total Qty */}
                       <td className="p-2 text-center font-mono font-extrabold text-indigo-600 bg-indigo-50/60 border-r border-slate-100 text-sm">
-                        {line.totalQty || "–"}
+                        {group.totalQty || "–"}
                       </td>
 
                       {/* Rate */}
@@ -3378,17 +3773,17 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
                           type="number"
                           id={`sw-rate-${idx}`}
                           min="0"
-                          value={line.rate || ""}
+                          value={group.rate || ""}
                           placeholder="0.00"
-                          onFocus={() => setActiveRowIndex(idx)}
-                          onChange={e => updateLine(idx, { rate: parseFloat(e.target.value) || 0 })}
+                          onFocus={() => setActiveRowIndex(group.primaryLineIndex)}
+                          onChange={e => handleGroupRateChange(group, parseFloat(e.target.value) || 0)}
                           className="w-full bg-transparent border border-transparent hover:border-slate-300 focus:border-indigo-500 focus:bg-white rounded px-2 h-7 font-mono font-bold text-xs text-right outline-none"
                         />
                       </td>
 
                       {/* Stock On Hand */}
                       <td className="p-2 text-right font-mono text-slate-500 border-r border-slate-100 text-[11px]">
-                        {line.stockOnHand > 0 ? line.stockOnHand.toLocaleString("en-IN") : "–"}
+                        {group.stockOnHand > 0 ? group.stockOnHand.toLocaleString("en-IN") : "–"}
                       </td>
 
                       {/* Tax % */}
@@ -3396,17 +3791,17 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
                         <input
                           type="number"
                           min="0"
-                          value={line.taxPercent ?? 18}
-                          onFocus={() => setActiveRowIndex(idx)}
-                          onChange={e => updateLine(idx, { taxPercent: parseFloat(e.target.value) || 0 })}
+                          value={group.taxPercent ?? 18}
+                          onFocus={() => setActiveRowIndex(group.primaryLineIndex)}
+                          onChange={e => handleGroupTaxChange(group, parseFloat(e.target.value) || 0)}
                           className="w-full bg-transparent border-none text-right px-1 h-6 font-mono text-xs outline-none"
                         />
                       </td>
 
                       {/* Net Value */}
                       <td className="p-2 px-3 text-right font-mono font-bold text-slate-800 bg-slate-50/50 border-r border-slate-100">
-                        {line.netValue > 0
-                          ? line.netValue.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                        {group.netValue > 0
+                          ? group.netValue.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
                           : "–"}
                       </td>
 
@@ -3414,9 +3809,9 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
                       <td className="p-1 border-r border-slate-100 text-center">
                         <input
                           type="date"
-                          value={line.deliveryDate}
-                          onFocus={() => setActiveRowIndex(idx)}
-                          onChange={e => updateLine(idx, { deliveryDate: e.target.value })}
+                          value={group.deliveryDate}
+                          onFocus={() => setActiveRowIndex(group.primaryLineIndex)}
+                          onChange={e => handleGroupDeliveryDateChange(group, e.target.value)}
                           className="w-full bg-transparent border-none text-center h-6 font-mono text-[10px] outline-none focus:bg-indigo-50 rounded"
                         />
                       </td>
@@ -3431,7 +3826,7 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
                               title="Apply Recommended Size Ratio (Bell Curve) to this row"
                               onClick={e => {
                                 e.stopPropagation();
-                                handleApplyRecommendationToRow(idx, "bell");
+                                handleApplyRecommendationToGroup(group, "bell");
                               }}
                               className="flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] font-bold border border-amber-300 text-amber-700 bg-amber-50/50 hover:bg-amber-100 rounded-lg transition cursor-pointer"
                             >
@@ -3441,7 +3836,7 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
                             <button
                               type="button"
                               title="Change item"
-                              onClick={e => { e.stopPropagation(); setActiveRowIndex(idx); setShowBrowseModal(true); }}
+                              onClick={e => { e.stopPropagation(); setActiveRowIndex(group.primaryLineIndex); setShowBrowseModal(true); }}
                               className="flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] font-bold border border-indigo-300 text-indigo-600 hover:bg-indigo-50 rounded-lg transition cursor-pointer"
                             >
                               <span className="material-symbols-outlined text-[13px]">visibility</span>
@@ -3450,7 +3845,7 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
                             <button
                               type="button"
                               title="Delete row"
-                              onClick={e => { e.stopPropagation(); requestDeleteRow(idx); }}
+                              onClick={e => { e.stopPropagation(); handleGroupDelete(group); }}
                               className="p-1 text-slate-400 hover:text-rose-600 rounded transition cursor-pointer"
                             >
                               <span className="material-symbols-outlined text-[16px]">delete</span>
@@ -3926,24 +4321,24 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
             ) : visualViewMode === "card" ? (
               /* ── Card View ── */
               <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-                {lines.map((line, idx) => {
-                  if (!line.itemCode) return null;
+                {groupedDisplayLines.map((group, groupIdx) => {
+                  if (!group.itemCode) return null;
                   if (
                     visualSearch &&
-                    !line.product.toLowerCase().includes(visualSearch.toLowerCase()) &&
-                    !line.itemCode.toLowerCase().includes(visualSearch.toLowerCase()) &&
-                    !(line.articleNo && line.articleNo.toLowerCase().includes(visualSearch.toLowerCase())) &&
-                    !(line.shade && line.shade.toLowerCase().includes(visualSearch.toLowerCase())) &&
-                    !(line.barcode && line.barcode.toLowerCase().includes(visualSearch.toLowerCase()))
+                    !group.product.toLowerCase().includes(visualSearch.toLowerCase()) &&
+                    !group.itemCode.toLowerCase().includes(visualSearch.toLowerCase()) &&
+                    !(group.articleNo && group.articleNo.toLowerCase().includes(visualSearch.toLowerCase())) &&
+                    !(group.shade && group.shade.toLowerCase().includes(visualSearch.toLowerCase())) &&
+                    !(group.barcode && group.barcode.toLowerCase().includes(visualSearch.toLowerCase()))
                   ) {
                     return null;
                   }
 
-                  const imgUrl = resolveLineImage(line, articleImageMap);
+                  const imgUrl = resolveLineImage(group, articleImageMap);
 
                   return (
                     <div
-                      key={line.id || idx}
+                      key={group.groupKey || group.id || groupIdx}
                       className="bg-white rounded-xl border border-slate-200 shadow-2xs hover:shadow-md transition overflow-hidden flex flex-col justify-between"
                     >
                       {/* Card Content Top */}
@@ -3952,38 +4347,38 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
                         <div className="flex items-start justify-between gap-2 mb-3">
                           <div>
                             <div className="text-[10px] text-slate-400 font-mono">Item Code</div>
-                            <div className="font-mono font-black text-indigo-900 text-sm">{line.itemCode}</div>
-                            <h4 className="font-bold text-slate-800 text-sm mt-0.5 leading-tight">{line.product}</h4>
+                            <div className="font-mono font-black text-indigo-900 text-sm">{group.itemCode}</div>
+                            <h4 className="font-bold text-slate-800 text-sm mt-0.5 leading-tight">{group.product}</h4>
                             
                             {/* Color & Specification Pills */}
                             <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
                               <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[11px] font-bold bg-amber-50 text-amber-900 border border-amber-200">
                                 <span
                                   className="w-2.5 h-2.5 rounded-full inline-block border border-amber-400 shadow-2xs shrink-0"
-                                  style={{ backgroundColor: getShadeHex(line.shade) }}
+                                  style={{ backgroundColor: getShadeHex(group.shade) }}
                                 />
                                 <span>Color:</span>
-                                <span className="font-extrabold uppercase">{line.shade || "Standard"}</span>
+                                <span className="font-extrabold uppercase">{group.shade || "Standard"}</span>
                               </span>
-                              {line.brand && (
+                              {group.brand && (
                                 <span className="text-[10px] text-slate-600 bg-slate-100 px-2 py-0.5 rounded border border-slate-200 font-medium">
-                                  Brand: {line.brand}
+                                  Brand: {group.brand}
                                 </span>
                               )}
-                              {line.style && (
+                              {group.style && (
                                 <span className="text-[10px] text-slate-600 bg-slate-100 px-2 py-0.5 rounded border border-slate-200 font-medium">
-                                  Style: {line.style}
+                                  Style: {group.style}
                                 </span>
                               )}
                             </div>
                           </div>
                           <div className="flex flex-col items-end gap-1">
                             <span className="font-mono text-indigo-700 font-bold uppercase text-[9px] bg-indigo-50 border border-indigo-100 px-2 py-0.5 rounded">
-                              {line.unit || "PAIR"}
+                              {group.unit || "PAIR"}
                             </span>
                             <button
                               type="button"
-                              onClick={() => requestDeleteRow(idx)}
+                              onClick={() => handleGroupDelete(group)}
                               title="Delete Item"
                               className="text-slate-400 hover:text-rose-600 transition p-1"
                             >
@@ -3997,13 +4392,13 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
                           {/* Left Column: Image & Article Badge & Color Swatches */}
                           <div className="w-full md:w-44 shrink-0 flex flex-col items-center">
                             <div
-                              onClick={() => imgUrl ? setZoomLightboxUrl(imgUrl) : openImageModal(idx)}
+                              onClick={() => imgUrl ? setZoomLightboxUrl(imgUrl) : openImageModal(group.primaryLineIndex)}
                               className="w-full h-36 rounded-xl border border-slate-200 bg-slate-50 relative group cursor-pointer overflow-hidden flex items-center justify-center shadow-inner"
                             >
                               {imgUrl ? (
                                 <img
                                   src={imgUrl}
-                                  alt={line.product}
+                                  alt={group.product}
                                   className="w-full h-full object-cover group-hover:scale-105 transition duration-200"
                                 />
                               ) : (
@@ -4019,7 +4414,7 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
                                   type="button"
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    openImageModal(idx);
+                                    openImageModal(group.primaryLineIndex);
                                   }}
                                   className="bg-white/90 hover:bg-white text-slate-900 rounded-lg p-1.5 shadow-sm text-[11px] font-bold flex items-center gap-1"
                                 >
@@ -4044,12 +4439,12 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
                             {/* Article & Color Badges */}
                             <div className="mt-2 w-full flex flex-col gap-1.5 text-center">
                               <div className="flex items-center justify-center gap-1">
-                                <span className="py-0.5 px-1.5 bg-slate-100 border border-slate-200 rounded text-[10px] font-mono font-bold text-slate-700 truncate max-w-[90px]" title={line.articleNo || line.itemCode}>
-                                  Art: {line.articleNo || line.itemCode}
+                                <span className="py-0.5 px-1.5 bg-slate-100 border border-slate-200 rounded text-[10px] font-mono font-bold text-slate-700 truncate max-w-[90px]" title={group.articleNo || group.itemCode}>
+                                  Art: {group.articleNo || group.itemCode}
                                 </span>
-                                <span className="py-0.5 px-1.5 bg-amber-50 border border-amber-200 rounded text-[10px] font-bold text-amber-900 truncate flex items-center gap-1 max-w-[90px]" title={line.shade || "Standard"}>
-                                  <span className="w-2 h-2 rounded-full inline-block shrink-0" style={{ backgroundColor: getShadeHex(line.shade) }} />
-                                  {line.shade || "Std"}
+                                <span className="py-0.5 px-1.5 bg-amber-50 border border-amber-200 rounded text-[10px] font-bold text-amber-900 truncate flex items-center gap-1 max-w-[90px]" title={group.shade || "Standard"}>
+                                  <span className="w-2 h-2 rounded-full inline-block shrink-0" style={{ backgroundColor: getShadeHex(group.shade) }} />
+                                  {group.shade || "Std"}
                                 </span>
                               </div>
 
@@ -4058,9 +4453,9 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
                                 <span className="text-[9px] text-slate-400 font-bold uppercase shrink-0">Color:</span>
                                 <input
                                   type="text"
-                                  value={line.shade || ""}
+                                  value={group.shade || ""}
                                   placeholder="e.g. Tan, Black"
-                                  onChange={e => updateLine(idx, { shade: e.target.value })}
+                                  onChange={e => handleGroupColorChange(group, e.target.value)}
                                   className="w-full py-0.5 px-1.5 text-[10px] font-bold border border-slate-200 rounded bg-white text-slate-800 outline-none focus:border-indigo-500 text-center"
                                   title="Directly edit Color / Shade"
                                 />
@@ -4073,9 +4468,9 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
                                     key={swIdx}
                                     type="button"
                                     title={`Set Color to ${sw.name}`}
-                                    onClick={() => updateLine(idx, { shade: sw.name })}
+                                    onClick={() => handleGroupColorChange(group, sw.name)}
                                     className={`w-3.5 h-3.5 rounded-full border border-slate-300 shadow-2xs hover:scale-125 transition ${
-                                      (line.shade || "").toLowerCase() === sw.name.toLowerCase() ? "ring-2 ring-indigo-600 ring-offset-1 scale-110" : ""
+                                      (group.shade || "").toLowerCase() === sw.name.toLowerCase() ? "ring-2 ring-indigo-600 ring-offset-1 scale-110" : ""
                                     }`}
                                     style={{ backgroundColor: sw.hex }}
                                   />
@@ -4110,17 +4505,17 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
                                         <input
                                           type="number"
                                           min="0"
-                                          value={line.sizeQuantities[sz] ?? 0}
+                                          value={group.sizeQuantities[sz] ?? 0}
                                           onChange={e => {
                                             const v = Math.max(0, parseInt(e.target.value) || 0);
-                                            updateSizeQty(idx, sz, v);
+                                            handleGroupSizeQtyChange(group, sz, v);
                                           }}
                                           className="w-9 h-6 text-center font-mono font-bold bg-white border border-slate-200 rounded text-xs outline-none focus:border-indigo-500 focus:bg-indigo-50/20"
                                         />
                                       </td>
                                     ))}
                                     <td className="py-1 px-1.5 font-mono font-black text-indigo-700 bg-indigo-50/50">
-                                      {line.totalQty}
+                                      {group.totalQty}
                                     </td>
                                   </tr>
                                 </tbody>
@@ -4132,7 +4527,7 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
                               <div className="relative">
                                 <button
                                   type="button"
-                                  onClick={() => setCardAssortmentOpen(cardAssortmentOpen === idx ? null : idx)}
+                                  onClick={() => setCardAssortmentOpen(cardAssortmentOpen === groupIdx ? null : groupIdx)}
                                   className="flex items-center gap-1 bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-900 px-2.5 py-1 rounded-lg text-[11px] font-bold transition shadow-2xs"
                                 >
                                   <span className="material-symbols-outlined text-[14px] text-amber-600">auto_fix_high</span>
@@ -4140,25 +4535,25 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
                                   <span className="material-symbols-outlined text-[13px]">expand_more</span>
                                 </button>
 
-                                {cardAssortmentOpen === idx && (
+                                {cardAssortmentOpen === groupIdx && (
                                   <div className="absolute left-0 bottom-full mb-1 w-48 bg-white border border-slate-200 rounded-xl shadow-xl py-1 z-30 text-xs animate-in fade-in zoom-in-95 duration-100">
                                     <button
                                       type="button"
-                                      onClick={() => handleApplyRecommendationToRow(idx, "bell")}
+                                      onClick={() => handleApplyRecommendationToGroup(group, "bell")}
                                       className="w-full text-left px-3 py-1.5 hover:bg-indigo-50 hover:text-indigo-700 flex items-center gap-2 font-medium"
                                     >
                                       <span>🔔 Bell Curve (Gaussian)</span>
                                     </button>
                                     <button
                                       type="button"
-                                      onClick={() => handleApplyRecommendationToRow(idx, "core")}
+                                      onClick={() => handleApplyRecommendationToGroup(group, "core")}
                                       className="w-full text-left px-3 py-1.5 hover:bg-indigo-50 hover:text-indigo-700 flex items-center gap-2 font-medium"
                                     >
                                       <span>🎯 Core Sizes (Mid-heavy)</span>
                                     </button>
                                     <button
                                       type="button"
-                                      onClick={() => handleApplyRecommendationToRow(idx, "uniform")}
+                                      onClick={() => handleApplyRecommendationToGroup(group, "uniform")}
                                       className="w-full text-left px-3 py-1.5 hover:bg-indigo-50 hover:text-indigo-700 flex items-center gap-2 font-medium"
                                     >
                                       <span>⚖️ Uniform (Equal per size)</span>
@@ -4169,10 +4564,10 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
 
                               <div className="text-right">
                                 <div className="text-[10px] text-slate-400">
-                                  Rate: <span className="font-mono text-slate-700 font-bold">₹{line.rate.toFixed(2)}</span>
+                                  Rate: <span className="font-mono text-slate-700 font-bold">₹{group.rate.toFixed(2)}</span>
                                 </div>
                                 <div className="text-xs font-mono font-black text-indigo-950">
-                                  Net Value: ₹{line.netValue.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                  Net Value: ₹{group.netValue.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                 </div>
                               </div>
                             </div>
@@ -4207,22 +4602,22 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {lines.map((line, idx) => {
-                      if (!line.itemCode) return null;
-                      const imgUrl = resolveLineImage(line, articleImageMap);
+                    {groupedDisplayLines.map((group, idx) => {
+                      if (!group.itemCode) return null;
+                      const imgUrl = resolveLineImage(group, articleImageMap);
                       return (
-                        <tr key={line.id || idx} className="hover:bg-slate-50/70 transition">
+                        <tr key={group.groupKey || group.id || idx} className="hover:bg-slate-50/70 transition">
                           <td className="p-2 text-center text-slate-400 font-mono">{idx + 1}</td>
                           <td className="p-1 text-center">
                             <button
                               type="button"
-                              onClick={() => openImageModal(idx)}
+                              onClick={() => openImageModal(group.primaryLineIndex)}
                               className="w-9 h-9 rounded-lg border border-slate-200 bg-slate-50 flex items-center justify-center mx-auto overflow-hidden hover:border-indigo-500 shadow-2xs"
                             >
                               {imgUrl ? (
                                 <img
                                   src={imgUrl}
-                                  alt={line.itemCode}
+                                  alt={group.itemCode}
                                   className="w-full h-full object-cover"
                                   onError={(e) => {
                                     e.currentTarget.src = imageNotAvailablePlaceholder;
@@ -4234,55 +4629,55 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
                               )}
                             </button>
                           </td>
-                          <td className="p-2 font-mono font-bold text-indigo-900">{line.itemCode}</td>
-                          <td className="p-2 font-mono font-semibold text-slate-700">{line.articleNo || line.itemCode}</td>
+                          <td className="p-2 font-mono font-bold text-indigo-900">{group.itemCode}</td>
+                          <td className="p-2 font-mono font-semibold text-slate-700">{group.articleNo || group.itemCode}</td>
                           <td className="p-2 whitespace-nowrap">
                             <div className="flex items-center gap-1.5">
                               <span
                                 className="w-3 h-3 rounded-full inline-block border border-slate-300 shadow-2xs shrink-0"
-                                style={{ backgroundColor: getShadeHex(line.shade) }}
+                                style={{ backgroundColor: getShadeHex(group.shade) }}
                               />
                               <input
                                 type="text"
-                                value={line.shade || ""}
+                                value={group.shade || ""}
                                 placeholder="Color"
-                                onChange={e => updateLine(idx, { shade: e.target.value })}
+                                onChange={e => handleGroupColorChange(group, e.target.value)}
                                 className="w-20 px-1.5 py-0.5 border border-slate-200 rounded text-xs font-bold text-slate-800 outline-none focus:border-indigo-500 bg-white"
                                 title="Edit Color"
                               />
                             </div>
                           </td>
                           <td className="p-2">
-                            <div className="font-bold text-slate-800">{line.product}</div>
-                            <div className="text-[10px] text-slate-400">{[line.brand, line.style, line.shade].filter(Boolean).join(" / ")}</div>
+                            <div className="font-bold text-slate-800">{group.product}</div>
+                            <div className="text-[10px] text-slate-400">{[group.brand, group.style, group.shade].filter(Boolean).join(" / ")}</div>
                           </td>
                           {sizes.map(sz => (
                             <td key={sz} className="p-1 text-center">
                               <input
                                 type="number"
                                 min="0"
-                                value={line.sizeQuantities[sz] ?? 0}
+                                value={group.sizeQuantities[sz] ?? 0}
                                 onChange={e => {
                                   const v = Math.max(0, parseInt(e.target.value) || 0);
-                                  updateSizeQty(idx, sz, v);
+                                  handleGroupSizeQtyChange(group, sz, v);
                                 }}
                                 className="w-10 h-6 text-center font-mono font-bold bg-white border border-slate-200 rounded text-xs outline-none focus:border-indigo-500"
                               />
                             </td>
                           ))}
                           <td className="p-2 text-center font-mono font-black text-indigo-700 bg-indigo-50/50">
-                            {line.totalQty}
+                            {group.totalQty}
                           </td>
                           <td className="p-2 text-right font-mono font-bold text-slate-700">
-                            {line.rate.toFixed(2)}
+                            {group.rate.toFixed(2)}
                           </td>
                           <td className="p-2 text-right font-mono font-black text-indigo-950">
-                            ₹{line.netValue.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            ₹{group.netValue.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                           </td>
                           <td className="p-2 text-center">
                             <button
                               type="button"
-                              onClick={() => requestDeleteRow(idx)}
+                              onClick={() => handleGroupDelete(group)}
                               className="text-slate-400 hover:text-rose-600 p-1 transition"
                             >
                               <span className="material-symbols-outlined text-[16px]">delete</span>
@@ -5060,13 +5455,13 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
                           onChange={e => handleUpdateBatchItemLine(item.id, Number(e.target.value))}
                           className="w-full text-xs font-semibold px-2 py-1.5 bg-slate-50 border border-slate-300 rounded-lg outline-none focus:border-indigo-500 disabled:opacity-50"
                         >
-                          {lines.map((l, lIdx) => {
-                            const desc = l.product || l.style || `Item ${lIdx + 1}`;
-                            const art = l.articleNo || l.itemCode || "No Article";
-                            const col = l.shade ? ` (${l.shade})` : "";
+                          {groupedDisplayLines.map((g, gIdx) => {
+                            const desc = g.product || g.style || `Item ${gIdx + 1}`;
+                            const art = g.articleNo || g.itemCode || "No Article";
+                            const col = g.shade ? ` (${g.shade})` : "";
                             return (
-                              <option key={l.id || lIdx} value={lIdx}>
-                                #{lIdx + 1}: {art}{col} — {desc.slice(0, 20)}
+                              <option key={g.groupKey || g.id || gIdx} value={g.primaryLineIndex}>
+                                #{gIdx + 1}: {art}{col} — {desc.slice(0, 20)}
                               </option>
                             );
                           })}
@@ -5317,7 +5712,7 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
         isOpen={showCommercialDrawer}
         onClose={() => setShowCommercialDrawer(false)}
         data={{
-          paymentTerms: header.paymentTerms,
+          paymentTerms: header.paymentTerms || "120 Days",
           freightCharges: header.freightCharges,
           freightAmount: header.freightAmount,
           currency: header.currency,
@@ -5332,6 +5727,7 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
           remarks: header.remarks,
           internalNotes: header.internalNotes,
           priceList: header.priceList,
+          businessTerms: header.businessTerms ?? DEFAULT_BUSINESS_TERMS,
         }}
         onChange={(updated) => setHeader(h => ({ ...h, ...updated }))}
         supplierName={header.supplierName}

@@ -33,6 +33,7 @@ import {
   PurchaseOrderPrintData,
   FootwearArticleReference,
 } from "../../print_engine/templates/PurchaseOrderPrintA4";
+import { DEFAULT_BUSINESS_TERMS } from "./CommercialDeliveryDrawer";
 import type { PurchaseOrderHeader, PurchaseOrderLineItem, PurchaseOrderSizePivotRow } from "./types.ts";
 
 export interface POPrintPreviewModalProps {
@@ -265,6 +266,14 @@ export const POPrintPreviewModal: React.FC<POPrintPreviewModalProps> = ({
   const mappedTotalPairs = mappedFootwearItems.reduce((sum, item) => sum + item.pairs, 0);
   const mappedTotalCartons = mappedFootwearItems.reduce((sum, item) => sum + item.cartons, 0);
 
+  // Resolve Business Terms
+  const resolvedBusinessTerms =
+    (header as any)?.businessTerms ||
+    (header as any)?.business_terms ||
+    (header as any)?.commercial_terms?.business_terms ||
+    (vendor as any)?.commercial?.business_terms ||
+    DEFAULT_BUSINESS_TERMS;
+
   // Construct Footwear PO Data payload
   const footwearData: FootwearPurchaseOrderData = {
     poNumber: `${header.prefix || "PO"}-${header.orderNumber || "1"}`,
@@ -303,10 +312,11 @@ export const POPrintPreviewModal: React.FC<POPrintPreviewModalProps> = ({
     totalPairs: mappedTotalPairs,
     netOrderValue: mappedNetTotal,
     netOrderValueInWords: `${currencySymbol} ${mappedNetTotal.toFixed(2)} (calculated from live PO lines)`,
-    paymentTerms: header.paymentTerms || "30 Days",
+    paymentTerms: header.paymentTerms || "120 Days",
     purchaser: header.buyer || "—",
     supplierReference: header.supplierReference || "—",
     documentStatus: "DRAFT",
+    businessTerms: resolvedBusinessTerms,
     secondaryCurrencyTotal:
       currency === "EUR" ? "Domestic Valuation (@ ₹ 88.20 / EUR)" : undefined,
   };
@@ -320,7 +330,7 @@ export const POPrintPreviewModal: React.FC<POPrintPreviewModalProps> = ({
     supplierPhone: vendor?.mobile || vendor?.phone || "",
     deliveryLocation: header.deliveryLocation || "Main Store (MAIN)",
     deliveryDate: header.deliveryDate || "",
-    paymentTerms: header.paymentTerms || "30 Days",
+    paymentTerms: header.paymentTerms || "120 Days",
     supplierReference: header.supplierReference || "",
     purchaser: header.buyer || "",
     department: header.department || "General Purchase",
@@ -757,6 +767,7 @@ export const POPrintPreviewModal: React.FC<POPrintPreviewModalProps> = ({
     specialInstructions:
       header.specialInstructions ||
       "Please ensure all items are packed with size stickers and barcode labels.",
+    businessTerms: resolvedBusinessTerms,
 
     totalItems: totalItemsCount,
     totalQuantity: totalUnitsCount,
@@ -1048,7 +1059,11 @@ export const POPrintPreviewModal: React.FC<POPrintPreviewModalProps> = ({
             <FootwearPurchaseOrderA4 data={footwearData} />
           ) : template === "pivot" ? (
             <SizePivotMatrixA4
-              header={header}
+              header={{
+                ...header,
+                paymentTerms: header.paymentTerms || "120 Days",
+                businessTerms: resolvedBusinessTerms,
+              }}
               rows={sizePivotRows}
               currencySymbol={currencySymbol}
               vendorName={vendor?.name}

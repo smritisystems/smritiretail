@@ -33,7 +33,14 @@ export interface CommercialDeliveryData {
   remarks?: string;
   internalNotes?: string;
   priceList?: string;
+  businessTerms?: string;
 }
+
+export const DEFAULT_BUSINESS_TERMS =
+  "1. Payment Terms: Strictly 120 Days credit settlement from date of physical GRN inwarding and barcode acceptance.\n" +
+  "2. Quality & Inspection: Goods are subject to warehouse QC inspection. Any manufacturing defect, shade mismatch, or size deviation must be replaced or credited within 15 days of intimation.\n" +
+  "3. Packaging & Labeling: All footwear articles must arrive packed in individual master boxes carrying GS1/EAN-13 barcodes, size labels, and manufacturer MRP stickers.\n" +
+  "4. Statutory & Legal Jurisdiction: All commercial disputes arising out of this statutory purchase order are subject to the exclusive jurisdiction of courts in Mumbai, Maharashtra.";
 
 export interface CommercialDeliveryDrawerProps {
   isOpen: boolean;
@@ -234,7 +241,7 @@ export const CommercialDeliveryDrawer: React.FC<CommercialDeliveryDrawerProps> =
                 <select
                   ref={firstInputRef}
                   disabled={readOnly}
-                  value={data.paymentTerms || "30 Days"}
+                  value={data.paymentTerms || "120 Days"}
                   onChange={(e) => onChange({ paymentTerms: e.target.value })}
                   className="w-full text-xs font-medium px-2.5 h-8 bg-white border border-slate-300 rounded-lg outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 disabled:opacity-50"
                 >
@@ -417,6 +424,39 @@ export const CommercialDeliveryDrawer: React.FC<CommercialDeliveryDrawerProps> =
                   placeholder="Carton packing specifications, delivery window, gate entry rules..."
                   onChange={(e) => onChange({ specialInstructions: e.target.value })}
                   className="w-full text-xs p-2.5 bg-white border border-slate-300 rounded-lg outline-none focus:border-indigo-500 resize-none disabled:opacity-50"
+                />
+              </div>
+            </div>
+
+            {/* Section 4: Business Terms & Statutory Conditions */}
+            <div className="space-y-3 bg-slate-50/70 p-3.5 rounded-xl border border-slate-200/80">
+              <div className="flex items-center justify-between">
+                <h3 className="font-bold text-slate-800 uppercase text-[10px] tracking-wider flex items-center gap-1.5">
+                  <span className="material-symbols-outlined text-indigo-600 text-[14px]">gavel</span>
+                  Business Terms & Statutory Conditions
+                </h3>
+                <button
+                  type="button"
+                  disabled={readOnly}
+                  onClick={() => onChange({ businessTerms: DEFAULT_BUSINESS_TERMS })}
+                  className="text-[10px] text-indigo-600 hover:text-indigo-800 font-bold underline cursor-pointer disabled:opacity-50"
+                  title="Load standard wholesale 120-day commercial terms"
+                >
+                  Load Standard Terms
+                </button>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                  Contract Terms & Purchase Clauses (Prints on PO PDF)
+                </label>
+                <textarea
+                  rows={5}
+                  disabled={readOnly}
+                  value={data.businessTerms ?? DEFAULT_BUSINESS_TERMS}
+                  placeholder="Enter custom business terms, warranty clauses, delivery conditions, penalty clauses, and statutory jurisdiction..."
+                  onChange={(e) => onChange({ businessTerms: e.target.value })}
+                  className="w-full text-xs p-2.5 bg-white border border-slate-300 rounded-lg outline-none focus:border-indigo-500 resize-none disabled:opacity-50 font-sans leading-relaxed text-slate-700"
                 />
               </div>
             </div>

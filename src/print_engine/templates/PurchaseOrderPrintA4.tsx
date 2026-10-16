@@ -106,6 +106,7 @@ export interface PurchaseOrderPrintData {
   deliveryTerms?: string;
   supplierReference?: string;
   specialInstructions?: string;
+  businessTerms?: string;
 
   // Order Financial Summary
   totalItems?: number;
@@ -833,6 +834,19 @@ export const PurchaseOrderPrintA4: React.FC<{ data: PurchaseOrderPrintData }> = 
           </div>
         </div>
       </section>
+
+      {/* ── 5.1 BUSINESS TERMS & STATUTORY CONDITIONS ─────────────────────── */}
+      {Boolean(data.businessTerms && data.businessTerms.trim()) && (
+        <section className="bg-slate-50 border border-slate-200/90 rounded-lg p-2 mb-1.5 text-[8.5px] page-break-avoid">
+          <div className="font-extrabold text-[9px] text-[#1e3a8a] uppercase mb-1 flex items-center justify-between border-b border-slate-200 pb-0.5">
+            <span>BUSINESS TERMS & STATUTORY CONDITIONS</span>
+            <span className="text-[7.5px] text-slate-400 font-mono font-normal">SMRITI STATUTORY COMMERCIAL CONTRACT</span>
+          </div>
+          <div className="whitespace-pre-line text-slate-600 font-sans leading-relaxed">
+            {data.businessTerms}
+          </div>
+        </section>
+      )}
 
       {/* ── 6. REMARKS LINE ─────────────────────────────────────────────── */}
       <section className="mb-1.5 text-[9.5px] page-break-avoid">

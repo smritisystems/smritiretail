@@ -43,7 +43,7 @@ import type { POProductDecision } from "./POProductStatusBadge.tsx";
 import { POPrintPreviewModal } from "./POPrintPreviewModal.tsx";
 import { SupplierScorecardModal } from "./SupplierScorecardModal.tsx";
 import { SupplierSelect, SupplierOption } from "../common/SupplierSelect.tsx";
-import { CommercialDeliveryDrawer, CommercialDeliveryData } from "./CommercialDeliveryDrawer.tsx";
+import { CommercialDeliveryDrawer, CommercialDeliveryData, DEFAULT_BUSINESS_TERMS } from "./CommercialDeliveryDrawer.tsx";
 import {
   normalizePurchaseStatus,
   buildPurchaseOrderDetailUrl,
@@ -363,7 +363,8 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
       deliveryLocation: "Main Store (MAIN)",
       commonTaxPercent: 5,
       pictureUrl: "",
-      paymentTerms: "30 Days",
+      paymentTerms: "120 Days",
+      businessTerms: DEFAULT_BUSINESS_TERMS,
       freightCharges: "Paid by Supplier",
       specialInstructions: "",
       supplierReference: "",
@@ -3640,7 +3641,7 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
         isOpen={showCommercialDrawer}
         onClose={() => setShowCommercialDrawer(false)}
         data={{
-          paymentTerms: header.paymentTerms || "30 Days",
+          paymentTerms: header.paymentTerms || "120 Days",
           freightCharges: header.freightCharges || "Paid by Supplier",
           freightAmount: header.freightAmount ?? 0,
           currency: header.currency || "INR",
@@ -3652,6 +3653,7 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
           deliveryLocation: header.deliveryLocation || "Main Store (MAIN)",
           leadTimeDays: header.leadTimeDays || 7,
           otherCharges: header.otherCharges ?? 0,
+          businessTerms: header.businessTerms ?? DEFAULT_BUSINESS_TERMS,
         }}
         onChange={(updated) => setHeader(h => ({ ...h, ...updated }))}
         supplierName={selectedSupplier?.name || header.supplierName}

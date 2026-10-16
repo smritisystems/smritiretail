@@ -91,6 +91,7 @@ export interface PurchaseOrderHeader {
   priceIncludesTax?: boolean;
   freightAmount?: number;
   otherCharges?: number;
+  businessTerms?: string;
   // Vendor policy context (loaded after vendor select — display-only)
   policyName?: string;
   vendorStatus?: string;

@@ -91,6 +91,7 @@ export interface FootwearPurchaseOrderData {
   supplierReference?: string;
   documentStatus?: string;
   qualityStandards?: string[];
+  businessTerms?: string;
   authorizedSignatoryBuyer?: string;
   authorizedSignatoryVendor?: string;
   orientation?: "portrait" | "landscape";
@@ -431,6 +432,19 @@ export const FootwearPurchaseOrderA4: React.FC<{ data?: FootwearPurchaseOrderDat
           </div>
         </div>
       </div>
+
+      {/* 4.1 BUSINESS TERMS & STATUTORY CONDITIONS */}
+      {Boolean(data.businessTerms && data.businessTerms.trim()) && (
+        <div className="border border-slate-300 rounded p-2 mb-3 bg-slate-50 text-[8.5px]">
+          <div className="font-bold text-slate-800 uppercase mb-1 flex items-center justify-between border-b border-slate-200 pb-0.5">
+            <span>BUSINESS TERMS & STATUTORY CONDITIONS</span>
+            <span className="text-[7.5px] text-slate-400 font-mono">120 DAYS STATUTORY COMMERCIAL CONTRACT</span>
+          </div>
+          <div className="whitespace-pre-line text-slate-600 font-sans leading-relaxed">
+            {data.businessTerms}
+          </div>
+        </div>
+      )}
 
       {/* 5. PO AUTHORIZATION & SUPPLIER ACKNOWLEDGEMENT */}
       <div className="grid grid-cols-4 gap-2 pt-3 border-t border-slate-300 text-[8.5px]">
