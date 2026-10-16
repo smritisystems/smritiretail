@@ -109,9 +109,11 @@ describe("Purchase Order Print Branding, Watermark & Payment Terms Verification"
 
     // GoldenRatioImagePlaceholder official graphic
     const placeholderHtml = renderToStaticMarkup(<GoldenRatioImagePlaceholder articleNo="CH-25-G" />);
-    expect(placeholderHtml).toContain("image_not_available_placeholder.png");
+    expect(placeholderHtml).toMatch(/smriti-image-placeholder\.png|image_not_available_placeholder\.png/);
     expect(placeholderHtml).toContain("Image Not Available");
-    expect(placeholderHtml).toContain("CH-25-G");
+    // Verifies no border or badge decorations around placeholder
+    expect(placeholderHtml).not.toContain("border");
+    expect(placeholderHtml).not.toContain("absolute bottom-1");
     expect(placeholderHtml).not.toContain("SMRITI Retail Private Limited");
   });
 
@@ -153,5 +155,55 @@ describe("Purchase Order Print Branding, Watermark & Payment Terms Verification"
     expect(html).not.toContain("27AAECA1234F1Z5");
     expect(html).not.toContain("sales@abcfootwear.in");
     expect(html).not.toContain("ABC/PO/2026/451");
+  });
+
+  it("6. verifies product image handling: original image when URL exists, branded placeholder when missing or invalid", () => {
+    const poWithMixedImages: PurchaseOrderPrintData = {
+      ...sampleFootwearPOData,
+      itemReferences: [
+        {
+          articleNo: "ART-REAL-01",
+          color: "BLACK",
+          imageUrl: "https://example.com/products/art-real-01.jpg",
+        },
+        {
+          articleNo: "ART-MISSING-02",
+          color: "TAN",
+          imageUrl: "", // empty
+        },
+        {
+          articleNo: "ART-NULL-03",
+          color: "BROWN",
+          imageUrl: undefined, // undefined
+        },
+      ],
+    };
+
+    const html = renderToStaticMarkup(<PurchaseOrderPrintA4 data={poWithMixedImages} />);
+
+    // Real image URL is rendered directly
+    expect(html).toContain("https://example.com/products/art-real-01.jpg");
+    expect(html).toContain("alt=\"ART-REAL-01\"");
+
+    // Missing images render the official SMRITI placeholder graphic
+    expect(html).toContain("alt=\"Image Not Available\"");
+    expect(html).toMatch(/smriti-image-placeholder\.png/);
+  });
+
+  it("7. verifies 5:3 container layout, 2 images per row in Item Reference section, without border or decoration around placeholder", () => {
+    const html = renderToStaticMarkup(<PurchaseOrderPrintA4 data={sampleFootwearPOData} />);
+
+    // Item Reference section header
+    expect(html).toContain("ITEM REFERENCE (IMAGES)");
+    expect(html).toContain("2 images per row");
+
+    // 5:3 aspect ratio container
+    expect(html).toContain("5 / 3");
+    expect(html).toContain("object-contain");
+
+    // Both missing item references render the placeholder
+    const matches = html.match(/alt="Image Not Available"/g);
+    expect(matches).not.toBeNull();
+    expect(matches?.length).toBe(2);
   });
 });

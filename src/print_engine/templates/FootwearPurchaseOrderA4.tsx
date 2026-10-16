@@ -24,6 +24,7 @@
  */
 
 import React from "react";
+import smritiImagePlaceholder from "../../../myImages/smriti-image-placeholder.png";
 import imageNotAvailablePlaceholder from "../../../myImages/image_not_available_placeholder.png";
 
 export interface FootwearPurchaseOrderItem {
@@ -289,22 +290,23 @@ export const FootwearPurchaseOrderA4: React.FC<{ data?: FootwearPurchaseOrderDat
                 <td className="p-1.5 text-center text-slate-500 border-r border-slate-300">{idx + 1}</td>
                 {showPhotos && (
                   <td className="p-1 text-center border-r border-slate-300">
-                    <div className="w-10 h-10 rounded border border-slate-200 bg-white flex items-center justify-center mx-auto overflow-hidden">
+                    <div className="w-10 h-10 flex items-center justify-center mx-auto overflow-hidden">
                       {item.photoUrl ? (
                         <img
                           src={item.photoUrl}
                           alt={item.articleCode}
-                          className="w-full h-full object-cover"
+                          className="w-full h-full object-cover rounded border border-slate-200"
                           onError={(e) => {
-                            e.currentTarget.src = imageNotAvailablePlaceholder;
+                            e.currentTarget.src = smritiImagePlaceholder;
+                            e.currentTarget.className = "w-full h-full object-contain";
                             e.currentTarget.onerror = null;
                           }}
                         />
                       ) : (
                         <img
-                          src={imageNotAvailablePlaceholder}
+                          src={smritiImagePlaceholder}
                           alt="Image Not Available"
-                          className="w-full h-full object-contain p-0.5"
+                          className="w-full h-full object-contain"
                         />
                       )}
                     </div>

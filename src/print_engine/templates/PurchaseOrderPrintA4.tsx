@@ -16,9 +16,9 @@
  *
  * * Websites: aitdl.com | erpnbook.com | smritibooks.com
  *
- * * Version    : 6.82.0
+ * * Version    : 6.85.0
  * * Created    : 2026-10-15
- * * Modified   : 2026-10-15
+ * * Modified   : 2026-10-16
  * * Copyright  : © SMRITIBooks.com. All Rights Reserved.
  * * License    : Proprietary Commercial Software
  * * Classification: Internal
@@ -26,6 +26,7 @@
 
 import React from "react";
 import tattlyLogoBlack from "../../../myImages/tattly_logo_black.png";
+import smritiImagePlaceholder from "../../../myImages/smriti-image-placeholder.png";
 import imageNotAvailablePlaceholder from "../../../myImages/image_not_available_placeholder.png";
 
 export interface FootwearArticleReference {
@@ -132,8 +133,8 @@ export interface PurchaseOrderPrintData {
 }
 
 /**
- * GoldenRatioImagePlaceholder — Renders an image container formatted to the Golden Ratio (1.618 : 1)
- * with a high-fidelity watermark of the Company Name and subtle geometric Golden Spiral / grid lines.
+ * GoldenRatioImagePlaceholder — Renders the SMRITI branded "Image Not Available" placeholder
+ * with rectangular 5:3 proportions, centered, with no border or decorations around the artwork.
  * Mandated for missing or unavailable footwear product imagery in SMRITI purchase order print formats.
  */
 export const GoldenRatioImagePlaceholder: React.FC<{
@@ -143,23 +144,18 @@ export const GoldenRatioImagePlaceholder: React.FC<{
 }> = ({ articleNo, className = "" }) => {
   return (
     <div
-      className={`relative w-full h-[72px] rounded-md border border-slate-200/90 bg-white flex items-center justify-center overflow-hidden select-none ${className}`}
+      className={`relative w-full flex items-center justify-center overflow-hidden select-none ${className}`}
       style={{
-        aspectRatio: "1.618 / 1",
-        maxHeight: "74px",
+        aspectRatio: "5 / 3",
+        maxHeight: "92px",
       }}
       title={`Image placeholder for ${articleNo || "article"}`}
     >
       <img
-        src={imageNotAvailablePlaceholder}
+        src={smritiImagePlaceholder}
         alt="Image Not Available"
-        className="w-full h-full object-contain p-0.5"
+        className="max-h-full max-w-full object-contain"
       />
-      {articleNo && (
-        <span className="absolute bottom-1 right-1.5 bg-slate-900/80 text-white text-[7.5px] font-mono font-bold px-1 py-0.2 rounded shadow-xs">
-          {articleNo}
-        </span>
-      )}
     </div>
   );
 };
@@ -719,22 +715,23 @@ export const PurchaseOrderPrintA4: React.FC<{ data: PurchaseOrderPrintData }> = 
                     </div>
                   </div>
 
-                  {/* Right Column: Large Preview Image with Golden Ratio (1.618 : 1) */}
+                  {/* Right Column: Rectangular 5:3 Preview Image (No border/decorations around placeholder) */}
                   <div
-                    className="w-full rounded-md border border-slate-200 bg-slate-50/50 flex items-center justify-center overflow-hidden relative"
+                    className="w-full flex items-center justify-center overflow-hidden relative"
                     style={{
-                      aspectRatio: "1.618 / 1",
+                      aspectRatio: "5 / 3",
                       maxHeight: "92px",
                     }}
                   >
-                    {ref.imageUrl ? (
+                    {Boolean(ref.imageUrl && ref.imageUrl.trim() && ref.imageUrl.trim().toLowerCase() !== "null" && ref.imageUrl.trim().toLowerCase() !== "undefined") ? (
                       <img
                         src={ref.imageUrl}
                         alt={ref.articleNo}
                         className="max-h-full max-w-full object-contain"
                         onError={(e) => {
                           const imgElem = e.currentTarget;
-                          imgElem.src = imageNotAvailablePlaceholder;
+                          imgElem.src = smritiImagePlaceholder;
+                          imgElem.alt = "Image Not Available";
                           imgElem.onerror = null;
                         }}
                       />
