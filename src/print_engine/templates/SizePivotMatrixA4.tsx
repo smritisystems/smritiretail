@@ -19,6 +19,7 @@ import React from "react";
 import smritiImagePlaceholder from "../../../myImages/smriti-image-placeholder.png";
 import imageNotAvailablePlaceholder from "../../../myImages/image_not_available_placeholder.png";
 import type { PurchaseOrderHeader, PurchaseOrderSizePivotRow } from "../../components/purchase/types.ts";
+import { SafeRichTermsRenderer } from "../../components/common/SafeRichTermsRenderer";
 
 export interface SizePivotMatrixA4Props {
   header?: PurchaseOrderHeader;
@@ -206,9 +207,10 @@ export const SizePivotMatrixA4: React.FC<SizePivotMatrixA4Props> = (props) => {
             <span>BUSINESS TERMS & STATUTORY CONDITIONS</span>
             <span className="text-[7.5px] text-slate-400 font-mono">120 DAYS STATUTORY COMMERCIAL CONTRACT</span>
           </div>
-          <div className="whitespace-pre-line text-slate-600 font-sans leading-relaxed">
-            {header.businessTerms}
-          </div>
+          <SafeRichTermsRenderer
+            content={header.businessTerms}
+            className="text-[8px] text-slate-700"
+          />
         </div>
       )}
 

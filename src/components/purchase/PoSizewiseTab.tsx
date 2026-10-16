@@ -1034,7 +1034,7 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
   const [products, setProducts] = useState<Product[]>(initialProducts);
   const articleCatalogIndex = useMemo(() => buildArticleCatalogIndex(products), [products]);
   const [suppliersList, setSuppliersList] = useState<
-    { id: string; name: string; code?: string; gstin?: string; gst_number?: string; address?: string; mobile?: string; phone?: string; email?: string; city?: string; state?: string; pincode?: string; payment_terms?: string; payment_terms_days?: number; freight_terms?: string; currency?: string; buyer?: string; department?: string; special_instructions?: string; commercial_terms?: any }[]
+    { id: string; name: string; code?: string; gstin?: string; gst_number?: string; address?: string; mobile?: string; phone?: string; email?: string; city?: string; state?: string; pincode?: string; payment_terms?: string; payment_terms_days?: number; freight_terms?: string; currency?: string; buyer?: string; department?: string; special_instructions?: string; business_terms?: string; commercial_terms?: any }[]
   >([]);
   const [suppliersLoading, setSuppliersLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -1263,6 +1263,7 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
             buyer: s.buyer || undefined,
             department: s.department || undefined,
             special_instructions: s.special_instructions || "",
+            business_terms: s.business_terms || s.special_instructions || "",
             commercial_terms: s.commercial_terms || undefined,
           }))
         : [
@@ -1282,6 +1283,7 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
           buyer: firstSup.buyer || h.buyer,
           department: firstSup.department || h.department,
           specialInstructions: firstSup.special_instructions || h.specialInstructions,
+          businessTerms: firstSup.business_terms || firstSup.special_instructions || h.businessTerms || DEFAULT_BUSINESS_TERMS,
         }));
       }
 
@@ -2798,6 +2800,7 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
         department: header.department,
         special_instructions: header.specialInstructions,
         supplier_reference: header.supplierReference,
+        business_terms: header.businessTerms,
       };
       const payload = {
         order_no: orderNo,
@@ -3088,6 +3091,7 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
                   buyer: sel?.buyer,
                   department: sel?.department,
                   specialInstructions: sel?.special_instructions !== undefined ? sel.special_instructions : undefined,
+                  businessTerms: (sel as any)?.business_terms || sel?.special_instructions || undefined,
                 };
                 setSupplierCommercialDefaults(defaults);
                 setHeader(h => ({
@@ -3100,6 +3104,7 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
                   buyer: defaults.buyer || h.buyer,
                   department: defaults.department || h.department,
                   specialInstructions: defaults.specialInstructions !== undefined ? defaults.specialInstructions : h.specialInstructions,
+                  businessTerms: defaults.businessTerms !== undefined ? defaults.businessTerms : h.businessTerms,
                 }));
               }}
             />

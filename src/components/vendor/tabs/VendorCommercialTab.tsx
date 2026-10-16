@@ -4,9 +4,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.16.0
+ * Version      : 6.85.0
  * Created      : 2026-09-11
- * Modified     : 2026-09-11
+ * Modified     : 2026-10-16
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
@@ -16,6 +16,7 @@ import React from "react";
 import { CreditCard, DollarSign, Award, Clock, AlertTriangle, ShieldCheck } from "lucide-react";
 import { VendorDetail } from "../../../types/vendor";
 import { withCapability } from "../../../types/architecture";
+import { RichTextTermsEditor } from "../../common/RichTextTermsEditor";
 
 interface VendorCommercialTabProps {
   vendor: VendorDetail;
@@ -196,15 +197,21 @@ const VendorCommercialTabBase: React.FC<VendorCommercialTabProps> = ({ vendor, o
             />
           </div>
 
-          <div className="md:col-span-2">
-            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-400 mb-1">Special Instructions</label>
-            <textarea
-              rows={2}
+          <div className="col-span-full">
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                Special Instructions &amp; Commercial Terms (Prints on Purchase Orders)
+              </label>
+              <span className="text-[10.5px] text-slate-400">
+                Supplier-specific statutory terms, warranty clauses, inspection mandates, and QC conditions
+              </span>
+            </div>
+            <RichTextTermsEditor
               value={comm?.specialInstructions ?? ""}
               disabled={!isEditing}
-              onChange={(e) => onChangeCommercial("specialInstructions", e.target.value)}
-              placeholder="Add standard special instructions for this supplier..."
-              className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500 focus:bg-white dark:focus:bg-slate-800 disabled:opacity-60 resize-none"
+              onChange={(newHtml) => onChangeCommercial("specialInstructions", newHtml)}
+              placeholder="Enter supplier-specific commercial terms, credit agreements, inspection clauses, and statutory conditions..."
+              minHeight="190px"
             />
           </div>
         </div>

@@ -26,6 +26,7 @@
 import React from "react";
 import smritiImagePlaceholder from "../../../myImages/smriti-image-placeholder.png";
 import imageNotAvailablePlaceholder from "../../../myImages/image_not_available_placeholder.png";
+import { SafeRichTermsRenderer } from "../../components/common/SafeRichTermsRenderer";
 
 export interface FootwearPurchaseOrderItem {
   articleCode: string;
@@ -442,9 +443,10 @@ export const FootwearPurchaseOrderA4: React.FC<{ data?: FootwearPurchaseOrderDat
             <span>BUSINESS TERMS & STATUTORY CONDITIONS</span>
             <span className="text-[7.5px] text-slate-400 font-mono">120 DAYS STATUTORY COMMERCIAL CONTRACT</span>
           </div>
-          <div className="whitespace-pre-line text-slate-600 font-sans leading-relaxed">
-            {data.businessTerms}
-          </div>
+          <SafeRichTermsRenderer
+            content={data.businessTerms}
+            className="text-[8px] text-slate-700"
+          />
         </div>
       )}
 

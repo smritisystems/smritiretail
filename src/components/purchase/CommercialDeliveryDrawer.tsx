@@ -14,7 +14,8 @@
  * Capability    : @SmritiCapability("PURCHASE", "COMMERCIAL_DELIVERY_DRAWER")
  */
 
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
+import { SafeRichTermsRenderer } from "../common/SafeRichTermsRenderer";
 
 export interface CommercialDeliveryData {
   paymentTerms: string;
@@ -113,6 +114,7 @@ export const CommercialDeliveryDrawer: React.FC<CommercialDeliveryDrawerProps> =
 }) => {
   const drawerRef = useRef<HTMLDivElement>(null);
   const firstInputRef = useRef<HTMLSelectElement>(null);
+  const [previewTerms, setPreviewTerms] = useState(false);
 
   // Close on Escape key
   useEffect(() => {
@@ -435,29 +437,44 @@ export const CommercialDeliveryDrawer: React.FC<CommercialDeliveryDrawerProps> =
                   <span className="material-symbols-outlined text-indigo-600 text-[14px]">gavel</span>
                   Business Terms & Statutory Conditions
                 </h3>
-                <button
-                  type="button"
-                  disabled={readOnly}
-                  onClick={() => onChange({ businessTerms: DEFAULT_BUSINESS_TERMS })}
-                  className="text-[10px] text-indigo-600 hover:text-indigo-800 font-bold underline cursor-pointer disabled:opacity-50"
-                  title="Load standard wholesale 120-day commercial terms"
-                >
-                  Load Standard Terms
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setPreviewTerms(!previewTerms)}
+                    className="text-[10px] text-slate-600 hover:text-slate-900 font-semibold px-2 py-0.5 rounded bg-slate-200/70 hover:bg-slate-300 transition-colors"
+                  >
+                    {previewTerms ? "Edit Terms" : "Preview Terms"}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={readOnly}
+                    onClick={() => onChange({ businessTerms: DEFAULT_BUSINESS_TERMS })}
+                    className="text-[10px] text-indigo-600 hover:text-indigo-800 font-bold underline cursor-pointer disabled:opacity-50"
+                    title="Load standard wholesale 120-day commercial terms"
+                  >
+                    Load Standard Terms
+                  </button>
+                </div>
               </div>
 
               <div>
                 <label className="block text-[11px] font-semibold text-slate-600 mb-1">
                   Contract Terms & Purchase Clauses (Prints on PO PDF)
                 </label>
-                <textarea
-                  rows={5}
-                  disabled={readOnly}
-                  value={data.businessTerms ?? DEFAULT_BUSINESS_TERMS}
-                  placeholder="Enter custom business terms, warranty clauses, delivery conditions, penalty clauses, and statutory jurisdiction..."
-                  onChange={(e) => onChange({ businessTerms: e.target.value })}
-                  className="w-full text-xs p-2.5 bg-white border border-slate-300 rounded-lg outline-none focus:border-indigo-500 resize-none disabled:opacity-50 font-sans leading-relaxed text-slate-700"
-                />
+                {previewTerms ? (
+                  <div className="w-full min-h-[100px] p-2.5 bg-white border border-slate-300 rounded-lg text-xs overflow-y-auto max-h-[160px]">
+                    <SafeRichTermsRenderer content={data.businessTerms ?? DEFAULT_BUSINESS_TERMS} />
+                  </div>
+                ) : (
+                  <textarea
+                    rows={5}
+                    disabled={readOnly}
+                    value={data.businessTerms ?? DEFAULT_BUSINESS_TERMS}
+                    placeholder="Enter custom business terms, warranty clauses, delivery conditions, penalty clauses, and statutory jurisdiction..."
+                    onChange={(e) => onChange({ businessTerms: e.target.value })}
+                    className="w-full text-xs p-2.5 bg-white border border-slate-300 rounded-lg outline-none focus:border-indigo-500 resize-none disabled:opacity-50 font-sans leading-relaxed text-slate-700"
+                  />
+                )}
               </div>
             </div>
 

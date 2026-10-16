@@ -93,7 +93,7 @@ class VendorService:
             currency=meta_comm.get("currency") or "INR - Indian Rupee",
             buyer=meta_comm.get("buyer"),
             department=meta_comm.get("department"),
-            special_instructions=meta_comm.get("special_instructions"),
+            special_instructions=meta_comm.get("special_instructions") or meta_comm.get("business_terms"),
         )
 
         v_flags = (getattr(sp, "verification_flags", {}) if sp else {}) or {
@@ -351,6 +351,7 @@ class VendorService:
                 "buyer": getattr(comm, "buyer", None),
                 "department": getattr(comm, "department", None),
                 "special_instructions": getattr(comm, "special_instructions", None),
+                "business_terms": getattr(comm, "special_instructions", None),
             }
 
         party = Party(
@@ -620,6 +621,7 @@ class VendorService:
                 comm_terms["department"] = c.department
             if getattr(c, "special_instructions", None) is not None:
                 comm_terms["special_instructions"] = c.special_instructions
+                comm_terms["business_terms"] = c.special_instructions
             meta_json["commercial_terms"] = comm_terms
             party.metadata_json = meta_json
 

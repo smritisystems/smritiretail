@@ -153,6 +153,12 @@ function normalizeVendorDetail(v: any): VendorDetail {
       tdsRate: comm.tdsRate ?? comm.tds_rate ?? 0.1,
       taxTreatment: comm.taxTreatment || comm.tax_treatment || "REGISTERED_REGULAR",
       outstandingLiability: comm.outstandingLiability ?? comm.outstanding_liability ?? v.outstanding ?? 0,
+      paymentTerms: comm.paymentTerms || comm.payment_terms || "120 Days",
+      freightTerms: comm.freightTerms || comm.freight_terms || "Paid by Supplier",
+      currency: comm.currency || "INR - Indian Rupee",
+      buyer: comm.buyer || "",
+      department: comm.department || "",
+      specialInstructions: comm.specialInstructions || comm.special_instructions || "",
     },
     compliance: {
       gstin: comp.gstin || v.gstin || "",

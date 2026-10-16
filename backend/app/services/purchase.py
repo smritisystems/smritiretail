@@ -314,7 +314,8 @@ class PurchaseService:
             currency = meta_comm.get("currency") or "INR - Indian Rupee"
             buyer = meta_comm.get("buyer") or None
             department = meta_comm.get("department") or None
-            special_instructions = meta_comm.get("special_instructions") or None
+            special_instructions = meta_comm.get("special_instructions") or meta_comm.get("business_terms") or None
+            business_terms = meta_comm.get("business_terms") or meta_comm.get("special_instructions") or None
 
             comm_dict = {
                 "payment_terms_days": pt_days,
@@ -324,6 +325,7 @@ class PurchaseService:
                 "buyer": buyer,
                 "department": department,
                 "special_instructions": special_instructions,
+                "business_terms": business_terms,
             }
 
             resp = SupplierResponse(
@@ -348,6 +350,7 @@ class PurchaseService:
                 buyer=buyer,
                 department=department,
                 special_instructions=special_instructions,
+                business_terms=business_terms,
                 commercial_terms=comm_dict,
             )
             enriched_list.append(resp)
@@ -379,7 +382,8 @@ class PurchaseService:
         currency = meta_comm.get("currency") or "INR - Indian Rupee"
         buyer = meta_comm.get("buyer") or None
         department = meta_comm.get("department") or None
-        special_instructions = meta_comm.get("special_instructions") or None
+        special_instructions = meta_comm.get("special_instructions") or meta_comm.get("business_terms") or None
+        business_terms = meta_comm.get("business_terms") or meta_comm.get("special_instructions") or None
 
         comm_dict = {
             "payment_terms_days": pt_days,
@@ -389,6 +393,7 @@ class PurchaseService:
             "buyer": buyer,
             "department": department,
             "special_instructions": special_instructions,
+            "business_terms": business_terms,
         }
 
         return SupplierResponse(
@@ -413,6 +418,7 @@ class PurchaseService:
             buyer=buyer,
             department=department,
             special_instructions=special_instructions,
+            business_terms=business_terms,
             commercial_terms=comm_dict,
         )
 

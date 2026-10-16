@@ -28,6 +28,7 @@ import React from "react";
 import tattlyLogoBlack from "../../../myImages/tattly_logo_black.png";
 import smritiImagePlaceholder from "../../../myImages/smriti-image-placeholder.png";
 import imageNotAvailablePlaceholder from "../../../myImages/image_not_available_placeholder.png";
+import { SafeRichTermsRenderer } from "../../components/common/SafeRichTermsRenderer";
 
 export interface FootwearArticleReference {
   articleNo: string;
@@ -785,9 +786,13 @@ export const PurchaseOrderPrintA4: React.FC<{ data: PurchaseOrderPrintData }> = 
             <div className="flex items-start">
               <span className="text-slate-500 w-28 shrink-0">Special Instructions</span>
               <span className="text-slate-400 mr-1.5">:</span>
-              <span className="font-medium text-slate-800 leading-tight">
-                {data.specialInstructions || "Please ensure all items are packed with size stickers and barcode labels."}
-              </span>
+              <div className="font-medium text-slate-800 leading-tight">
+                {data.specialInstructions ? (
+                  <SafeRichTermsRenderer content={data.specialInstructions} className="text-[9px]" />
+                ) : (
+                  "Please ensure all items are packed with size stickers and barcode labels."
+                )}
+              </div>
             </div>
           </div>
         </div>
@@ -839,9 +844,10 @@ export const PurchaseOrderPrintA4: React.FC<{ data: PurchaseOrderPrintData }> = 
             <span>BUSINESS TERMS & STATUTORY CONDITIONS</span>
             <span className="text-[7.5px] text-slate-400 font-mono font-normal">SMRITI STATUTORY COMMERCIAL CONTRACT</span>
           </div>
-          <div className="whitespace-pre-line text-slate-600 font-sans leading-relaxed">
-            {data.businessTerms}
-          </div>
+          <SafeRichTermsRenderer
+            content={data.businessTerms}
+            className="text-[8px] text-slate-700"
+          />
         </section>
       )}
 
