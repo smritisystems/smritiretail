@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Project      : SMRITI Retail OS
  * Author       : Jawahar Ramkripal Mallah
  * Designation  : Chief Systems Architect & Creator
@@ -124,7 +124,7 @@ export const OmniOrderStudioModal: React.FC<OmniOrderStudioModalProps> = ({ isOp
             <div className="grid grid-cols-3 gap-3 text-xs">
               <div>
                 <label className="text-[10px] text-slate-500 uppercase tracking-wide block mb-1">Customer Name *</label>
-                <input value={form.customer_name} onChange={(e) => setForm((f) => ({ ...f, customer_name: e.target.value }))} placeholder="Customer name"
+                <input data-field-key="customer_name" value={form.customer_name} onChange={(e) => setForm((f) => ({ ...f, customer_name: e.target.value }))} placeholder="Customer name"
                   className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-slate-200 focus:outline-none focus:border-violet-500/60" />
               </div>
               <div>
@@ -136,7 +136,7 @@ export const OmniOrderStudioModal: React.FC<OmniOrderStudioModalProps> = ({ isOp
               </div>
               <div>
                 <label className="text-[10px] text-slate-500 uppercase tracking-wide block mb-1">Notes</label>
-                <input value={form.notes} onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))} placeholder="Order notes"
+                <input data-field-key="notes" value={form.notes} onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))} placeholder="Order notes"
                   className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-slate-200 focus:outline-none focus:border-violet-500/60" />
               </div>
             </div>

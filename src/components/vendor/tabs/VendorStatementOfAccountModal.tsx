@@ -413,6 +413,7 @@ export const VendorStatementOfAccountModal: React.FC<VendorStatementOfAccountMod
               <span className="text-slate-500">From:</span>
               <input
                 type="date"
+                data-field-key="from_date"
                 value={fromDate}
                 onChange={(e) => {
                   setFromDate(e.target.value);
@@ -425,6 +426,7 @@ export const VendorStatementOfAccountModal: React.FC<VendorStatementOfAccountMod
               <span className="text-slate-500">To:</span>
               <input
                 type="date"
+                data-field-key="to_date"
                 value={toDate}
                 onChange={(e) => {
                   setToDate(e.target.value);

@@ -112,11 +112,11 @@ export const VendorReturnModal: React.FC<VendorReturnModalProps> = ({ isOpen, on
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="text-[10px] text-slate-500 uppercase tracking-wide block mb-1">Supplier ID *</label>
-              <input value={supplierId} onChange={(e) => setSupplierId(e.target.value)} placeholder="SUP-001" className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-rose-500/60" />
+              <input data-field-key="supplier_id" value={supplierId} onChange={(e) => setSupplierId(e.target.value)} placeholder="SUP-001" className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-rose-500/60" />
             </div>
             <div>
               <label className="text-[10px] text-slate-500 uppercase tracking-wide block mb-1">GRN Number</label>
-              <input value={grn} onChange={(e) => setGrn(e.target.value)} placeholder="GRN-2026-001" className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-rose-500/60" />
+              <input data-field-key="grn_no" value={grn} onChange={(e) => setGrn(e.target.value)} placeholder="GRN-2026-001" className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-rose-500/60" />
             </div>
           </div>
 
@@ -130,17 +130,17 @@ export const VendorReturnModal: React.FC<VendorReturnModalProps> = ({ isOpen, on
                 <div key={i} className="grid grid-cols-5 gap-2 p-3 bg-slate-800/30 border border-slate-700/50 rounded-xl text-xs">
                   <div>
                     <label className="text-[9px] text-slate-600 block mb-1">SKU</label>
-                    <input value={item.sku} onChange={(e) => updateItem(i, "sku", e.target.value)}
+                    <input data-field-key="sku" value={item.sku} onChange={(e) => updateItem(i, "sku", e.target.value)}
                       placeholder="SKU-001" className="w-full bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-slate-200 focus:outline-none focus:border-rose-500/60" />
                   </div>
                   <div>
                     <label className="text-[9px] text-slate-600 block mb-1">Qty</label>
-                    <input type="number" min={1} value={item.return_qty} onChange={(e) => updateItem(i, "return_qty", parseInt(e.target.value) || 1)}
+                    <input type="number" data-field-key="return_qty" min={1} value={item.return_qty} onChange={(e) => updateItem(i, "return_qty", parseInt(e.target.value) || 1)}
                       className="w-full bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-slate-200 focus:outline-none focus:border-rose-500/60" />
                   </div>
                   <div>
                     <label className="text-[9px] text-slate-600 block mb-1">Unit Price</label>
-                    <input type="number" min={0} value={item.unit_price} onChange={(e) => updateItem(i, "unit_price", parseFloat(e.target.value) || 0)}
+                    <input type="number" data-field-key="unit_price" min={0} value={item.unit_price} onChange={(e) => updateItem(i, "unit_price", parseFloat(e.target.value) || 0)}
                       className="w-full bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-slate-200 focus:outline-none focus:border-rose-500/60" />
                   </div>
                   <div>

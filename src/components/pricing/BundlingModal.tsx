@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Project      : SMRITI Retail OS
  * Author       : Jawahar Ramkripal Mallah
  * Designation  : Chief Systems Architect & Creator
@@ -129,7 +129,7 @@ export const BundlingModal: React.FC<BundlingModalProps> = ({ isOpen, onClose, o
             <div className="grid grid-cols-3 gap-3">
               <div className="col-span-2">
                 <label className="text-[10px] text-slate-500 uppercase tracking-wide block mb-1">Campaign Name *</label>
-                <input value={form.campaign_name} onChange={(e) => setForm((f) => ({ ...f, campaign_name: e.target.value }))}
+                <input data-field-key="campaign_name" value={form.campaign_name} onChange={(e) => setForm((f) => ({ ...f, campaign_name: e.target.value }))}
                   placeholder="Summer Combo Offer 2026" className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-purple-500/60" />
               </div>
               <div>
@@ -141,17 +141,17 @@ export const BundlingModal: React.FC<BundlingModalProps> = ({ isOpen, onClose, o
               </div>
               <div>
                 <label className="text-[10px] text-slate-500 uppercase tracking-wide block mb-1">Discount Value</label>
-                <input type="number" value={form.discount_value} onChange={(e) => setForm((f) => ({ ...f, discount_value: e.target.value }))}
+                <input type="number" data-field-key="discount_value" value={form.discount_value} onChange={(e) => setForm((f) => ({ ...f, discount_value: e.target.value }))}
                   placeholder="10 (% or flat)" className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-purple-500/60" />
               </div>
               <div>
                 <label className="text-[10px] text-slate-500 uppercase tracking-wide block mb-1">Min Qty</label>
-                <input type="number" value={form.min_qty} onChange={(e) => setForm((f) => ({ ...f, min_qty: e.target.value }))}
+                <input type="number" data-field-key="min_qty" value={form.min_qty} onChange={(e) => setForm((f) => ({ ...f, min_qty: e.target.value }))}
                   placeholder="2" className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-purple-500/60" />
               </div>
               <div>
                 <label className="text-[10px] text-slate-500 uppercase tracking-wide block mb-1">Valid From</label>
-                <input type="date" value={form.valid_from} onChange={(e) => setForm((f) => ({ ...f, valid_from: e.target.value }))}
+                <input type="date" data-field-key="valid_from" value={form.valid_from} onChange={(e) => setForm((f) => ({ ...f, valid_from: e.target.value }))}
                   className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-purple-500/60" />
               </div>
             </div>

@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Project      : SMRITI Retail OS
  * Author       : Jawahar Ramkripal Mallah
  * Designation  : Chief Systems Architect & Creator
@@ -135,12 +135,12 @@ export const IPOStudioModal: React.FC<IPOStudioModalProps> = ({ isOpen, onClose,
             <div className="grid grid-cols-2 gap-3 text-xs">
               <div>
                 <label className="text-[10px] text-slate-500 uppercase tracking-wide block mb-1">Warehouse ID *</label>
-                <input value={form.warehouse_id} onChange={(e) => setForm((f) => ({ ...f, warehouse_id: e.target.value }))}
+                <input data-field-key="warehouse_id" value={form.warehouse_id} onChange={(e) => setForm((f) => ({ ...f, warehouse_id: e.target.value }))}
                   placeholder="WH-MUM-01" className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-slate-200 focus:outline-none focus:border-orange-500/60" />
               </div>
               <div>
                 <label className="text-[10px] text-slate-500 uppercase tracking-wide block mb-1">Notes</label>
-                <input value={form.notes} onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
+                <input data-field-key="notes" value={form.notes} onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
                   placeholder="Q3 2026 cycle count..." className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-slate-200 focus:outline-none focus:border-orange-500/60" />
               </div>
             </div>

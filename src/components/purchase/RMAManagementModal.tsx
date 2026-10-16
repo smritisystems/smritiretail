@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Project      : SMRITI Retail OS
  * Author       : Jawahar Ramkripal Mallah
  * Designation  : Chief Systems Architect & Creator
@@ -118,12 +118,12 @@ export const RMAManagementModal: React.FC<RMAManagementModalProps> = ({ isOpen, 
             <div className="grid grid-cols-2 gap-3 text-xs">
               <div>
                 <label className="text-[10px] text-slate-500 uppercase tracking-wide block mb-1">Customer Name *</label>
-                <input value={form.customer_name} onChange={(e) => setForm((f) => ({ ...f, customer_name: e.target.value }))} placeholder="Customer name"
+                <input data-field-key="customer_name" value={form.customer_name} onChange={(e) => setForm((f) => ({ ...f, customer_name: e.target.value }))} placeholder="Customer name"
                   className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-slate-200 focus:outline-none focus:border-emerald-500/60" />
               </div>
               <div>
                 <label className="text-[10px] text-slate-500 uppercase tracking-wide block mb-1">Invoice No *</label>
-                <input value={form.invoice_no} onChange={(e) => setForm((f) => ({ ...f, invoice_no: e.target.value }))} placeholder="INV-2026-001"
+                <input data-field-key="invoice_no" value={form.invoice_no} onChange={(e) => setForm((f) => ({ ...f, invoice_no: e.target.value }))} placeholder="INV-2026-001"
                   className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-slate-200 focus:outline-none focus:border-emerald-500/60" />
               </div>
               <div>
@@ -135,7 +135,7 @@ export const RMAManagementModal: React.FC<RMAManagementModalProps> = ({ isOpen, 
               </div>
               <div>
                 <label className="text-[10px] text-slate-500 uppercase tracking-wide block mb-1">Notes</label>
-                <input value={form.notes} onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))} placeholder="Additional details"
+                <input data-field-key="notes" value={form.notes} onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))} placeholder="Additional details"
                   className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-slate-200 focus:outline-none focus:border-emerald-500/60" />
               </div>
             </div>

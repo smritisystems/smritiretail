@@ -123,7 +123,7 @@ export const LabelPrintModal: React.FC<LabelPrintModalProps> = ({ isOpen, onClos
           </div>
           <div className="flex items-center gap-2">
             <span className="text-slate-500">Copies:</span>
-            <input type="number" min={1} max={100} value={qty} onChange={(e) => setQty(parseInt(e.target.value) || 1)}
+            <input type="number" min={1} max={100} data-field-key="quantity" value={qty} onChange={(e) => setQty(parseInt(e.target.value) || 1)}
               className="w-16 bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-slate-200 focus:outline-none focus:border-indigo-500/60" />
           </div>
           {loading && <span className="text-slate-500 animate-pulse ml-auto">Loading...</span>}

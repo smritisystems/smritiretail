@@ -622,6 +622,7 @@ export const VendorAdvanceKnockoffModal: React.FC<VendorAdvanceKnockoffModalProp
                               <td className="py-2 px-3 text-right">
                                 <input
                                   type="number"
+                                  data-field-key="knockoff_amount"
                                   step="0.01"
                                   min="0"
                                   max={b.unpaid_amount}
@@ -770,6 +771,7 @@ export const VendorAdvanceKnockoffModal: React.FC<VendorAdvanceKnockoffModalProp
                     <span className="absolute left-3 top-2.5 text-xs text-slate-400 font-mono">₹</span>
                     <input
                       type="number"
+                      data-field-key="knockoff_amount"
                       step="0.01"
                       min="0.01"
                       max={maxAllowedKnockoff}

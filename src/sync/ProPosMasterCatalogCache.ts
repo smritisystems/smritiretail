@@ -322,9 +322,17 @@ export class ProPosMasterCatalogCache {
       try {
         productsRes = await apiFetchV1(`/universal/items?limit=5000`);
       } catch {
-        productsRes = await apiFetchV1(`/products?limit=5000&company_id=${companyId}`);
+        productsRes = null;
       }
-      const rawProducts = Array.isArray(productsRes) ? productsRes : (productsRes?.items || productsRes?.data || []);
+      let rawProducts = Array.isArray(productsRes) ? productsRes : (productsRes?.items || productsRes?.data || []);
+      if (rawProducts.length === 0) {
+        try {
+          productsRes = await apiFetchV1(`/products?limit=5000&company_id=${companyId}`);
+          rawProducts = Array.isArray(productsRes) ? productsRes : (productsRes?.items || productsRes?.data || []);
+        } catch {
+          // preserve rawProducts
+        }
+      }
 
       const formattedProducts: CachedProduct[] = rawProducts.map((p: any) => ({
         id: p.id || p._id,

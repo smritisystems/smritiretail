@@ -200,24 +200,8 @@ export function mapProductToExportRow(p: Product) {
   };
 }
 
-export const CATALOG_EXPORT_COLUMNS = [
-  { key: "code", label: "SKU", datatype: "text" },
-  { key: "barcode", label: "Barcode", datatype: "text" },
-  { key: "name", label: "Name", datatype: "text" },
-  { key: "brand", label: "Brand", datatype: "text" },
-  { key: "category", label: "Category", datatype: "text" },
-  { key: "gender", label: "Gender", datatype: "text" },
-  { key: "product_type", label: "Product Type", datatype: "text" },
-  { key: "article", label: "Article", datatype: "text" },
-  { key: "color", label: "Color", datatype: "text" },
-  { key: "size", label: "Size", datatype: "text" },
-  { key: "hsn_code", label: "HSN", datatype: "text" },
-  { key: "mrp", label: "Retail Price", datatype: "currency" },
-  { key: "buying_price", label: "Dealer Price", datatype: "currency" },
-  { key: "cost_price", label: "Cost Price", datatype: "currency" },
-  { key: "gst_percentage", label: "GST%", datatype: "percentage" },
-  { key: "status", label: "Status", datatype: "text" },
-];
+import { CATALOG_EXPORT_COLUMNS } from "./itemMasterExportPresets.ts";
+export { CATALOG_EXPORT_COLUMNS };
 
 function formatINR(val: number | undefined | null): string {
   if (val === null || val === undefined || isNaN(Number(val))) return "—";
@@ -971,6 +955,7 @@ export const ItemCatalogGrid: React.FC<SmritiItemCatalogGridProps> = ({
             <div className="flex items-center gap-1.5 bg-white dark:bg-[#2d3133] border border-blue-400 dark:border-blue-600 rounded-lg px-2 py-1 text-xs">
               <input
                 type="date"
+                data-field-key="custom_start_date"
                 value={customStartDate}
                 onChange={(e) => setCustomStartDate(e.target.value)}
                 className="bg-transparent outline-none text-xs font-mono text-slate-700 dark:text-slate-200"
@@ -979,6 +964,7 @@ export const ItemCatalogGrid: React.FC<SmritiItemCatalogGridProps> = ({
               <span className="text-slate-400 text-xs">to</span>
               <input
                 type="date"
+                data-field-key="custom_end_date"
                 value={customEndDate}
                 onChange={(e) => setCustomEndDate(e.target.value)}
                 className="bg-transparent outline-none text-xs font-mono text-slate-700 dark:text-slate-200"

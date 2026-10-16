@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Project      : SMRITI Retail OS
  * Author       : Jawahar Ramkripal Mallah
  * Designation  : Chief Systems Architect & Creator
@@ -136,12 +136,12 @@ export const SupplierPaymentModal: React.FC<SupplierPaymentModalProps> = ({ isOp
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="text-[10px] text-slate-500 uppercase tracking-wide block mb-1">Supplier ID</label>
-                <input value={form.supplier_id} onChange={(e) => setForm((f) => ({ ...f, supplier_id: e.target.value }))}
+                <input data-field-key="supplier_id" value={form.supplier_id} onChange={(e) => setForm((f) => ({ ...f, supplier_id: e.target.value }))}
                   placeholder="SUP-001" className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-teal-500/60" />
               </div>
               <div>
                 <label className="text-[10px] text-slate-500 uppercase tracking-wide block mb-1">Amount</label>
-                <input type="number" value={form.amount} onChange={(e) => setForm((f) => ({ ...f, amount: e.target.value }))}
+                <input type="number" data-field-key="amount" value={form.amount} onChange={(e) => setForm((f) => ({ ...f, amount: e.target.value }))}
                   placeholder="0.00" className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-teal-500/60" />
               </div>
               <div>
@@ -153,7 +153,7 @@ export const SupplierPaymentModal: React.FC<SupplierPaymentModalProps> = ({ isOp
               </div>
               <div>
                 <label className="text-[10px] text-slate-500 uppercase tracking-wide block mb-1">Reference</label>
-                <input value={form.reference} onChange={(e) => setForm((f) => ({ ...f, reference: e.target.value }))}
+                <input data-field-key="reference" value={form.reference} onChange={(e) => setForm((f) => ({ ...f, reference: e.target.value }))}
                   placeholder="UTR / Cheque No." className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-teal-500/60" />
               </div>
             </div>

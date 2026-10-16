@@ -178,12 +178,12 @@ export const PricingStudioModal: React.FC<PricingStudioModalProps> = ({ isOpen, 
               <div className="grid grid-cols-3 gap-3 text-xs">
                 <div className="col-span-2">
                   <label className="text-[10px] text-slate-500 uppercase tracking-wide block mb-1">SKU *</label>
-                  <input value={resolveSku} onChange={(e) => setResolveSku(e.target.value)} placeholder="SKU-001"
+                  <input data-field-key="sku" value={resolveSku} onChange={(e) => setResolveSku(e.target.value)} placeholder="SKU-001"
                     className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-slate-200 focus:outline-none focus:border-cyan-500/60" />
                 </div>
                 <div>
                   <label className="text-[10px] text-slate-500 uppercase tracking-wide block mb-1">Quantity</label>
-                  <input type="number" min={1} value={resolveQty} onChange={(e) => setResolveQty(e.target.value)}
+                  <input type="number" data-field-key="quantity" min={1} value={resolveQty} onChange={(e) => setResolveQty(e.target.value)}
                     className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-slate-200 focus:outline-none focus:border-cyan-500/60" />
                 </div>
               </div>

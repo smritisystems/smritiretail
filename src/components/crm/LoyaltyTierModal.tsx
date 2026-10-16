@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Project      : SMRITI Retail OS
  * Author       : Jawahar Ramkripal Mallah
  * Designation  : Chief Systems Architect & Creator
@@ -119,7 +119,7 @@ export const LoyaltyTierModal: React.FC<LoyaltyTierModalProps> = ({ isOpen, onCl
               ].map((f) => (
                 <div key={f.key}>
                   <label className="text-[10px] text-slate-500 uppercase tracking-wide block mb-1">{f.label}</label>
-                  <input value={(enrollForm as any)[f.key]} onChange={(e) => setEnrollForm((p) => ({ ...p, [f.key]: e.target.value }))}
+                  <input data-field-key={f.key} value={(enrollForm as any)[f.key]} onChange={(e) => setEnrollForm((p) => ({ ...p, [f.key]: e.target.value }))}
                     placeholder={f.placeholder}
                     className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-slate-200 focus:outline-none focus:border-yellow-500/60" />
                 </div>
@@ -158,7 +158,7 @@ export const LoyaltyTierModal: React.FC<LoyaltyTierModalProps> = ({ isOpen, onCl
               ].map((f) => (
                 <div key={f.key}>
                   <label className="text-[10px] text-slate-500 uppercase tracking-wide block mb-1">{f.label}</label>
-                  <input type={f.type ?? "text"} value={(adjustForm as any)[f.key]}
+                  <input type={f.type ?? "text"} data-field-key={f.key} value={(adjustForm as any)[f.key]}
                     onChange={(e) => setAdjustForm((p) => ({ ...p, [f.key]: e.target.value }))}
                     placeholder={f.placeholder}
                     className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-slate-200 focus:outline-none focus:border-yellow-500/60" />

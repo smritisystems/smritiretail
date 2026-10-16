@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Project      : SMRITI Retail OS
  * Author       : Jawahar Ramkripal Mallah
  * Designation  : Chief Systems Architect & Creator
@@ -217,7 +217,7 @@ export const EInvoiceStudioModal: React.FC<EInvoiceStudioModalProps> = ({ isOpen
               ].map((f) => (
                 <div key={f.key}>
                   <label className="text-[10px] text-slate-500 uppercase tracking-wide block mb-1">{f.label}</label>
-                  <input type={f.type ?? "text"} value={(genForm as any)[f.key]}
+                  <input type={f.type ?? "text"} data-field-key={f.key} value={(genForm as any)[f.key]}
                     onChange={(e) => setGenForm((p) => ({ ...p, [f.key]: e.target.value }))}
                     placeholder={f.placeholder}
                     className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-slate-200 focus:outline-none focus:border-blue-500/60" />
@@ -235,7 +235,7 @@ export const EInvoiceStudioModal: React.FC<EInvoiceStudioModalProps> = ({ isOpen
               <p className="text-xs font-bold text-slate-300 uppercase tracking-wide">Cancel IRN</p>
               <div>
                 <label className="text-[10px] text-slate-500 uppercase tracking-wide block mb-1">IRN *</label>
-                <input value={cancelIrn} onChange={(e) => setCancelIrn(e.target.value)} placeholder="64-character IRN hash"
+                <input data-field-key="irn" value={cancelIrn} onChange={(e) => setCancelIrn(e.target.value)} placeholder="64-character IRN hash"
                   className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-slate-200 font-mono text-[11px] focus:outline-none focus:border-rose-500/60" />
               </div>
               <div>
@@ -250,7 +250,7 @@ export const EInvoiceStudioModal: React.FC<EInvoiceStudioModalProps> = ({ isOpen
               </div>
               <div>
                 <label className="text-[10px] text-slate-500 uppercase tracking-wide block mb-1">Remark</label>
-                <input value={cancelRemark} onChange={(e) => setCancelRemark(e.target.value)} placeholder="Optional remark..."
+                <input data-field-key="cancel_remark" value={cancelRemark} onChange={(e) => setCancelRemark(e.target.value)} placeholder="Optional remark..."
                   className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-slate-200 focus:outline-none focus:border-rose-500/60" />
               </div>
               <button onClick={handleCancel} disabled={submitting}
