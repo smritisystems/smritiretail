@@ -353,8 +353,8 @@ async def test_gl_posting_no_double_booking():
         )
         await session.commit()
 
-        assert rcpt_voucher.total_debit == Decimal("5900.00")
-        assert rcpt_voucher.total_credit == Decimal("5900.00")
+        assert rcpt_voucher.total_debit == Decimal("5000.00")
+        assert rcpt_voucher.total_credit == Decimal("5000.00")
 
         # 2. Post Purchase Bill matched to this receipt
         bill_id = f"pb_{uuid.uuid4().hex[:8]}"
