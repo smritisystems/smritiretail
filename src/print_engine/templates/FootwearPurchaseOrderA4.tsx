@@ -24,6 +24,7 @@
  */
 
 import React from "react";
+import imageNotAvailablePlaceholder from "../../../myImages/image_not_available_placeholder.png";
 
 export interface FootwearPurchaseOrderItem {
   articleCode: string;
@@ -287,14 +288,23 @@ export const FootwearPurchaseOrderA4: React.FC<{ data?: FootwearPurchaseOrderDat
                 <td className="p-1.5 text-center text-slate-500 border-r border-slate-300">{idx + 1}</td>
                 {showPhotos && (
                   <td className="p-1 text-center border-r border-slate-300">
-                    <div className="w-10 h-10 rounded border border-slate-200 bg-slate-50 flex items-center justify-center mx-auto overflow-hidden">
+                    <div className="w-10 h-10 rounded border border-slate-200 bg-white flex items-center justify-center mx-auto overflow-hidden">
                       {item.photoUrl ? (
-                        <img src={item.photoUrl} alt={item.articleCode} className="w-full h-full object-cover" />
+                        <img
+                          src={item.photoUrl}
+                          alt={item.articleCode}
+                          className="w-full h-full object-cover"
+                          onError={(e) => {
+                            e.currentTarget.src = imageNotAvailablePlaceholder;
+                            e.currentTarget.onerror = null;
+                          }}
+                        />
                       ) : (
-                        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#475569" strokeWidth="1.5">
-                          <path d="M2 18h20c-.5-3-2-6-5-7l-5-2-4 1-4 3c-1 1-1.5 3-2 5z"/>
-                          <path d="M2 18v2c0 .55.45 1 1 1h18c.55 0 1-.45 1-1v-2"/>
-                        </svg>
+                        <img
+                          src={imageNotAvailablePlaceholder}
+                          alt="Image Not Available"
+                          className="w-full h-full object-contain p-0.5"
+                        />
                       )}
                     </div>
                   </td>

@@ -4,15 +4,56 @@
   Designation  : Chief Systems Architect & Creator
   Email        : support@smritibooks.com
   Websites     : smritibooks.com | erpnbook.com | aitdl.com
-  Version      : 6.75.1
+  Version      : 6.84.1
   Created      : 2026-10-13
-  Modified     : 2026-10-14
+  Modified     : 2026-10-16
   Copyright    : © SMRITIBooks.com. All Rights Reserved.
   License      : Proprietary Commercial Software
   Classification: Internal
 -->
 
 # SMRITI Retail OS — Release Notes
+
+## Release v6.84.1 (2026-10-16)
+
+### Procurement & PO Print — Tattly Threads Branding, 120-Day Terms, Official Image Placeholder & Sizewise Matrix Grouping
+
+#### Overview
+SMRITI Retail OS v6.84.1 delivers full visual, statutory, and presentation parity for Purchase Order previews, printouts, and PDF exports. It eliminates duplicate rows for identical Article No. + Color combinations in sizewise displays, applies authentic Tattly Threads corporate branding and watermark, standardizes 120-day vendor payment terms across the stack, integrates the official client image placeholder graphic, and computes dynamic statutory 5% GST.
+
+#### Key Highlights
+- **Sizewise Item Grouping by Article No. + Color**:
+  - Automatically merges duplicate per-size lines into a single consolidated row per unique Article No. + Color.
+  - Correctly populates horizontal EU size columns 36–44 and sums Total Qty.
+  - Strictly preserves separate rows for different colorways (e.g. `CH-25-G GOLD` vs `CH-25-G BLACK`) and different article codes.
+  - Protects the underlying PostgreSQL system-of-record (`purchase_orders`, `purchase_order_lines`), keeping SKU-level line items untouched for warehouse GRN scanning.
+- **Tattly Threads Corporate Branding & Watermark**:
+  - Replaced generic "SMRITI Retail OS" Bengaluru coordinates with official Tattly Threads logo (`tattlyLogoBlack`), registered office address (Mumbai 400003), GSTIN (`27AAACT1234A1Z5`), and PAN.
+  - Added a subtle -28° diagonal background watermark ("TATTLY THREADS") across all PO print sheets.
+- **Statutory 120 Days Payment Terms**:
+  - Set default payment terms to `120 Days` across backend Pydantic schemas, FastAPI services, frontend workspaces, and live supplier database records.
+- **Official Image Placeholder Pipeline**:
+  - Mounted the official SMRITI camera graphic (`image_not_available_placeholder.png`) with automatic `onError` DOM fallbacks for missing footwear photos across all print templates and UI preview modals.
+- **Dynamic 5% Footwear GST Calculation**:
+  - Replaced hardcoded 18% tax labels in order summaries with dynamic calculation (`GST (5%)`), matching statutory Indian footwear taxation rates.
+- **Automated Verification**:
+  - Certified with 9/9 automated Vitest unit tests green (`src/tests/poPrintBrandingAndTerms.test.tsx` and `src/tests/poSizewiseGrouping.test.tsx`).
+  - 0 TypeScript compiler errors (`tsc --noEmit`).
+
+## Release v6.84.0 (2026-10-16)
+
+### Procurement & Live Sync — Live Supplier Sync, Purchase Orders & Physical GRN Ingestion
+
+#### Overview
+SMRITI Retail OS v6.84.0 executes complete, verified live ingestion of commercial supplier purchase orders, goods receipt notes (GRN), and vendor bills into `https://tattlythreads.smritisys.com/` for initial stock inwarding.
+
+#### Key Highlights
+- **Live Supplier Directory Sync**:
+  - Updated all 20 supplier profiles via `PUT /api/v1/purchase/suppliers/{id}` with authentic addresses, contact phones, GSTINs, and default 120-day credit terms.
+- **Pre-August 12, 2026 Inward Stocking**:
+  - Inwarded 23,064 pairs across 9 footwear suppliers, 28 Purchase Orders, 28 Goods Received Notes, and 28 Purchase Bills, strictly timestamped prior to August 12, 2026.
+- **Idempotent Ingestion Engine**:
+  - Scripted resilient ingestion in `scripts/ingest_live_purchase_orders_grn.py` with multi-tenant token authorization and retry handling.
 
 ## Release v6.75.1 (2026-10-14)
 

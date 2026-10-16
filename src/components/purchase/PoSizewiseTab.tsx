@@ -55,6 +55,7 @@ import { GlobalGridImportModal } from "../gridInput/GlobalGridImportModal.tsx";
 import { GRID_PROFILES } from "../../services/gridInput/gridProfiles.ts";
 import type { ParsedGridRow, GridImportMode } from "../../services/gridInput/types.ts";
 import { SupplierSelect } from "../common/SupplierSelect.tsx";
+import imageNotAvailablePlaceholder from "../../../myImages/image_not_available_placeholder.png";
 import { CommercialDeliveryDrawer, CommercialDeliveryData } from "./CommercialDeliveryDrawer.tsx";
 import {
   buildArticleCatalogIndex,
@@ -905,7 +906,7 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
   const [products, setProducts] = useState<Product[]>(initialProducts);
   const articleCatalogIndex = useMemo(() => buildArticleCatalogIndex(products), [products]);
   const [suppliersList, setSuppliersList] = useState<
-    { id: string; name: string; code?: string; gstin?: string; city?: string; state?: string }[]
+    { id: string; name: string; code?: string; gstin?: string; gst_number?: string; address?: string; mobile?: string; phone?: string; email?: string; city?: string; state?: string; pincode?: string; payment_terms?: string; payment_terms_days?: number; freight_terms?: string; currency?: string; buyer?: string; department?: string; special_instructions?: string; commercial_terms?: any }[]
   >([]);
   const [suppliersLoading, setSuppliersLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -1111,11 +1112,17 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
             id: s.id,
             name: s.name,
             code: s.vendor_code || s.code,
-            gstin: s.gstin || s.tax_id || "",
+            gstin: s.gstin || s.gst_number || s.tax_id || "",
+            gst_number: s.gst_number || s.gstin || "",
+            address: s.address || "",
+            mobile: s.mobile || s.phone || "",
+            phone: s.mobile || s.phone || "",
+            email: s.email || "",
             city: s.city || "",
             state: s.state || "",
-            payment_terms: s.payment_terms || (s.payment_terms_days ? `${s.payment_terms_days} Days` : "30 Days"),
-            payment_terms_days: s.payment_terms_days ?? 30,
+            pincode: s.pincode || "",
+            payment_terms: s.payment_terms || (s.payment_terms_days ? `${s.payment_terms_days} Days` : "120 Days"),
+            payment_terms_days: s.payment_terms_days ?? 120,
             freight_terms: s.freight_terms || "Paid by Supplier",
             currency: s.currency || "INR - Indian Rupee",
             buyer: s.buyer || undefined,
@@ -1124,9 +1131,7 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
             commercial_terms: s.commercial_terms || undefined,
           }))
         : [
-            { id: "SUP-548042", name: "Apex Fabrics Ltd", code: "SUP-548042", gstin: "27AAAAC0553K1Z8", city: "Mumbai", state: "Maharashtra", payment_terms: "30 Days", freight_terms: "Paid by Supplier", currency: "INR - Indian Rupee" },
-            { id: "SUP-102941", name: "Campus Activewear Ltd", code: "SUP-102941", gstin: "07AAACC2914E1Z1", city: "Delhi", state: "Delhi", payment_terms: "15 Days", freight_terms: "To Pay", currency: "INR - Indian Rupee" },
-            { id: "SUP-309481", name: "Nagreeka Foils Ltd", code: "SUP-309481", gstin: "19AABCB1234P1Z5", city: "Kolkata", state: "West Bengal", payment_terms: "45 Days", freight_terms: "Paid by Supplier", currency: "INR - Indian Rupee" },
+            { id: "SUP-548042", name: "A. S. Shoes", code: "G", gstin: "27ABEPA1910C1ZK", city: "Mumbai", state: "Maharashtra", payment_terms: "120 Days", payment_terms_days: 120, freight_terms: "Paid by Supplier", currency: "INR - Indian Rupee" },
           ];
       setSuppliersList(suppliers);
 
@@ -1136,7 +1141,7 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
           ...h,
           supplierId: firstSup.id,
           supplierName: firstSup.name,
-          paymentTerms: firstSup.payment_terms || h.paymentTerms,
+          paymentTerms: firstSup.payment_terms || "120 Days",
           freightCharges: firstSup.freight_terms || h.freightCharges,
           currency: firstSup.currency || h.currency,
           buyer: firstSup.buyer || h.buyer,
@@ -2178,13 +2183,13 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
     orderNumber: header.orderNumber,
     orderDate: header.orderDate,
     supplierId: header.supplierId,
-    supplierName: header.supplierName || selectedSupplier?.name || "Apex Fabrics Ltd",
+    supplierName: header.supplierName || selectedSupplier?.name || "Selected Supplier",
     billTo: "Main Store",
     deliveryDate: header.deliveryDate,
     leadTimeDays: header.leadTimeDays,
     deliveryLocation: header.deliveryLocation,
-    commonTaxPercent: header.commonTaxPercent,
-    paymentTerms: header.paymentTerms,
+    commonTaxPercent: header.commonTaxPercent || 5,
+    paymentTerms: header.paymentTerms || selectedSupplier?.payment_terms || "120 Days",
     freightCharges: header.freightCharges,
     specialInstructions: header.specialInstructions,
     supplierReference: header.supplierReference,
@@ -3188,7 +3193,15 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
                                 className="w-7 h-7 rounded border border-slate-200 bg-slate-50 hover:border-indigo-500 flex items-center justify-center shrink-0 overflow-hidden group/thumb transition shadow-2xs cursor-pointer"
                               >
                                 {line.imageUrl ? (
-                                  <img src={line.imageUrl} alt={line.articleNo || line.itemCode} className="w-full h-full object-cover" />
+                                  <img
+                                    src={line.imageUrl}
+                                    alt={line.articleNo || line.itemCode}
+                                    className="w-full h-full object-cover"
+                                    onError={(e) => {
+                                      e.currentTarget.src = imageNotAvailablePlaceholder;
+                                      e.currentTarget.onerror = null;
+                                    }}
+                                  />
                                 ) : (
                                   <span className="material-symbols-outlined text-[15px] text-slate-400 group-hover/thumb:text-indigo-600">
                                     add_photo_alternate
@@ -3264,7 +3277,15 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
                                 className="w-7 h-7 rounded border border-slate-200 bg-slate-50 hover:border-indigo-500 flex items-center justify-center shrink-0 overflow-hidden group/thumb transition shadow-2xs cursor-pointer"
                               >
                                 {line.imageUrl ? (
-                                  <img src={line.imageUrl} alt={line.itemCode} className="w-full h-full object-cover" />
+                                  <img
+                                    src={line.imageUrl}
+                                    alt={line.itemCode}
+                                    className="w-full h-full object-cover"
+                                    onError={(e) => {
+                                      e.currentTarget.src = imageNotAvailablePlaceholder;
+                                      e.currentTarget.onerror = null;
+                                    }}
+                                  />
                                 ) : (
                                   <span className="material-symbols-outlined text-[15px] text-slate-400 group-hover/thumb:text-indigo-600">
                                     add_photo_alternate
@@ -4199,7 +4220,15 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
                               className="w-9 h-9 rounded-lg border border-slate-200 bg-slate-50 flex items-center justify-center mx-auto overflow-hidden hover:border-indigo-500 shadow-2xs"
                             >
                               {imgUrl ? (
-                                <img src={imgUrl} alt={line.itemCode} className="w-full h-full object-cover" />
+                                <img
+                                  src={imgUrl}
+                                  alt={line.itemCode}
+                                  className="w-full h-full object-cover"
+                                  onError={(e) => {
+                                    e.currentTarget.src = imageNotAvailablePlaceholder;
+                                    e.currentTarget.onerror = null;
+                                  }}
+                                />
                               ) : (
                                 <span className="material-symbols-outlined text-slate-400 text-[18px]">add_photo_alternate</span>
                               )}
@@ -4713,12 +4742,17 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
                       src={imageModalState.currentImage}
                       alt="Preview"
                       className="w-full h-full object-cover"
+                      onError={(e) => {
+                        e.currentTarget.src = imageNotAvailablePlaceholder;
+                        e.currentTarget.onerror = null;
+                      }}
                     />
                   ) : (
-                    <div className="text-center p-3 text-slate-400">
-                      <span className="material-symbols-outlined text-[32px] text-slate-300">image</span>
-                      <p className="text-[10px] mt-1">No image attached</p>
-                    </div>
+                    <img
+                      src={imageNotAvailablePlaceholder}
+                      alt="No Image Available"
+                      className="w-full h-full object-contain p-2"
+                    />
                   )}
                   {imageModalState.isUploading && (
                     <div className="absolute inset-0 bg-slate-900/60 flex flex-col items-center justify-center text-white backdrop-blur-[1px]">

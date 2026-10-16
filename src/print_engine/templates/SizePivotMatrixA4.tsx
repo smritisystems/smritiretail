@@ -16,6 +16,7 @@
  */
 
 import React from "react";
+import imageNotAvailablePlaceholder from "../../../myImages/image_not_available_placeholder.png";
 import type { PurchaseOrderHeader, PurchaseOrderSizePivotRow } from "../../components/purchase/types.ts";
 
 export interface SizePivotMatrixA4Props {
@@ -42,7 +43,56 @@ export const SizePivotMatrixA4: React.FC<SizePivotMatrixA4Props> = (props) => {
   const vendorName = props.vendorName || props.data?.vendorName || header.supplierName || "Selected Supplier";
   const isLandscape = (props.orientation ?? props.data?.orientation) === "landscape";
 
-  const validRows = (rows || []).filter((row) => (row.articleNo || "").trim() || (row.product || "").trim());
+  // Group validRows by unique Article No. + Color combination
+  const validRows = React.useMemo(() => {
+    const rawValid = (rows || []).filter((row) => (row.articleNo || "").trim() || (row.product || "").trim());
+    if (rawValid.length === 0) return [];
+
+    const groupedMap = new Map<string, PurchaseOrderSizePivotRow>();
+
+    rawValid.forEach((row) => {
+      const art = (row.articleNo || row.product || "").trim();
+      const col = (row.color || "").trim();
+      const key = `${art.toUpperCase()}:::${col.toUpperCase()}`;
+      const qty = Number(row.totalQty) || 0;
+      const rate = Number(row.rate) || 0;
+      const value = row.totalValue !== undefined ? Number(row.totalValue) : (qty * rate);
+      const rowSizeQtys = row.sizeQuantities || {};
+
+      if (!groupedMap.has(key)) {
+        groupedMap.set(key, {
+          ...row,
+          articleNo: art || row.articleNo,
+          color: col || row.color,
+          sizeQuantities: { ...rowSizeQtys },
+          totalQty: qty,
+          rate: rate,
+          totalValue: value,
+        });
+      } else {
+        const existing = groupedMap.get(key)!;
+        for (const [sz, sqty] of Object.entries(rowSizeQtys)) {
+          const num = Number(sqty) || 0;
+          if (num > 0) {
+            existing.sizeQuantities = existing.sizeQuantities || {};
+            existing.sizeQuantities[sz] = (existing.sizeQuantities[sz] || 0) + num;
+          }
+        }
+        existing.totalQty = (existing.totalQty || 0) + qty;
+        existing.totalValue = (existing.totalValue || 0) + value;
+        if ((!existing.photoUrl && !existing.imageUrl) && (row.photoUrl || row.imageUrl)) {
+          existing.photoUrl = row.photoUrl || row.imageUrl;
+          existing.imageUrl = row.imageUrl || row.photoUrl;
+        }
+      }
+    });
+
+    return Array.from(groupedMap.values()).map((row, idx) => ({
+      ...row,
+      sNo: idx + 1,
+    }));
+  }, [rows]);
+
   const hasAnyPhotos = validRows.some((row) => Boolean(row.photoUrl || row.imageUrl));
   const totalQty = validRows.reduce((sum, row) => sum + (row.totalQty || 0), 0);
   const totalValue = validRows.reduce((sum, row) => sum + (row.totalValue || (row.totalQty || 0) * (row.rate || 0)), 0);
@@ -107,11 +157,21 @@ export const SizePivotMatrixA4: React.FC<SizePivotMatrixA4Props> = (props) => {
                 {hasAnyPhotos && (
                   <td className="p-1 border border-slate-300 text-center">
                     {photo ? (
-                      <img src={photo} alt={row.articleNo || ""} className="w-8 h-8 object-cover rounded mx-auto border border-slate-200" />
+                      <img
+                        src={photo}
+                        alt={row.articleNo || ""}
+                        className="w-8 h-8 object-cover rounded mx-auto border border-slate-200"
+                        onError={(e) => {
+                          e.currentTarget.src = imageNotAvailablePlaceholder;
+                          e.currentTarget.onerror = null;
+                        }}
+                      />
                     ) : (
-                      <div className="w-8 h-8 rounded bg-slate-100 flex items-center justify-center mx-auto text-slate-400 text-[8px]">
-                        No Pic
-                      </div>
+                      <img
+                        src={imageNotAvailablePlaceholder}
+                        alt="Image Not Available"
+                        className="w-8 h-8 object-contain rounded mx-auto border border-slate-200 bg-white p-0.5"
+                      />
                     )}
                   </td>
                 )}
