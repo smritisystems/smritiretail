@@ -197,6 +197,19 @@ export const SizePivotMatrixA4: React.FC<SizePivotMatrixA4Props> = (props) => {
         </tfoot>
       </table>
 
+      {/* Business Terms & Statutory Conditions */}
+      {Boolean(header.businessTerms && header.businessTerms.trim()) && (
+        <div className="border border-slate-300 rounded p-2 mt-4 bg-slate-50 text-[8.5px]">
+          <div className="font-bold text-slate-800 uppercase mb-1 flex items-center justify-between border-b border-slate-200 pb-0.5">
+            <span>BUSINESS TERMS & STATUTORY CONDITIONS</span>
+            <span className="text-[7.5px] text-slate-400 font-mono">120 DAYS STATUTORY COMMERCIAL CONTRACT</span>
+          </div>
+          <div className="whitespace-pre-line text-slate-600 font-sans leading-relaxed">
+            {header.businessTerms}
+          </div>
+        </div>
+      )}
+
       <div className="grid grid-cols-4 gap-2 mt-5 text-[8.5px]">
         {[
           ["Prepared By", header.buyer || "Procurement User"],
@@ -217,7 +230,7 @@ export const SizePivotMatrixA4: React.FC<SizePivotMatrixA4Props> = (props) => {
           <span>PO: {poNumberDisplay} | Status: DRAFT</span>
         </div>
         <div className="flex justify-between gap-4">
-          <span>Payment: {header.paymentTerms || "30 Days"} | Purchaser: {header.buyer || "-"}</span>
+          <span>Payment: {header.paymentTerms || "120 Days"} | Purchaser: {header.buyer || "-"}</span>
           <span>Supplier Ref: {header.supplierReference || "-"} | Due: {header.deliveryDate || "-"}</span>
         </div>
         <div className="flex justify-between gap-4 text-slate-500">

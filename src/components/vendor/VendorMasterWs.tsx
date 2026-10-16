@@ -145,7 +145,7 @@ function normalizeVendorDetail(v: any): VendorDetail {
     legacySupplierId: v.legacySupplierId || v.legacy_supplier_id || null,
     commercial: {
       supplierType: comm.supplierType || comm.supplier_type || v.supplierType || v.supplier_type || "DISTRIBUTOR",
-      paymentTermsDays: comm.paymentTermsDays ?? comm.payment_terms_days ?? 30,
+      paymentTermsDays: comm.paymentTermsDays ?? comm.payment_terms_days ?? 120,
       msmeRegistrationNo: comm.msmeRegistrationNo || comm.msme_registration_no || "",
       msmeCategory: comm.msmeCategory || comm.msme_category || "NOT_APPLICABLE",
       commercialClassification: comm.commercialClassification || comm.commercial_classification || v.commercialClassification || v.commercial_classification || "APPROVED",
@@ -424,7 +424,7 @@ const VendorMasterWsBase: React.FC<VendorMasterWsProps> = ({ currentUser, onNoti
     state: "",
     pincode: "",
     supplierType: "DISTRIBUTOR",
-    paymentTermsDays: 30,
+    paymentTermsDays: 120,
   });
 
   const [resolvingNewVendorPin, setResolvingNewVendorPin] = useState(false);
@@ -666,7 +666,7 @@ const VendorMasterWsBase: React.FC<VendorMasterWsProps> = ({ currentUser, onNoti
           pincode: newForm.pincode || null,
           commercial: {
             supplier_type: newForm.supplierType,
-            payment_terms_days: Number(newForm.paymentTermsDays) || 30,
+            payment_terms_days: Number(newForm.paymentTermsDays) || 120,
           },
         }),
       });
@@ -687,7 +687,7 @@ const VendorMasterWsBase: React.FC<VendorMasterWsProps> = ({ currentUser, onNoti
         state: "",
         pincode: "",
         supplierType: "DISTRIBUTOR",
-        paymentTermsDays: 30,
+        paymentTermsDays: 120,
       });
       failedVendorIdsRef.current.delete(normCreated.id);
       await loadVendors();
@@ -1360,7 +1360,7 @@ const VendorMasterWsBase: React.FC<VendorMasterWsProps> = ({ currentUser, onNoti
                 <input
                   type="number"
                   value={newForm.paymentTermsDays}
-                  onChange={(e) => setNewForm({ ...newForm, paymentTermsDays: parseInt(e.target.value) || 30 })}
+                  onChange={(e) => setNewForm({ ...newForm, paymentTermsDays: parseInt(e.target.value) || 120 })}
                   className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-slate-900 dark:text-white font-mono focus:outline-none focus:border-indigo-500 focus:bg-white dark:focus:bg-slate-800"
                 />
               </div>

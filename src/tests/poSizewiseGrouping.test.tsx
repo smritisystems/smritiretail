@@ -20,7 +20,10 @@ import {
   PurchaseOrderPrintData,
 } from "../print_engine/templates/PurchaseOrderPrintA4";
 import { SizePivotMatrixA4 } from "../print_engine/templates/SizePivotMatrixA4";
-import type { PurchaseOrderSizePivotRow } from "../components/purchase/types";
+import { FootwearPurchaseOrderA4 } from "../print_engine/templates/FootwearPurchaseOrderA4";
+import type { PurchaseOrderSizePivotRow, SizewisePOLine } from "../components/purchase/types";
+import { buildGroupedSizewiseLines } from "../components/purchase/PoSizewiseTab";
+import { DEFAULT_BUSINESS_TERMS } from "../components/purchase/CommercialDeliveryDrawer";
 
 describe("Purchase Order Sizewise Grouping (Article No. + Color) Verification", () => {
   const basePOData: PurchaseOrderPrintData = {
@@ -144,4 +147,194 @@ describe("Purchase Order Sizewise Grouping (Article No. + Color) Verification", 
     expect(html).toContain("15000.00"); // GOLD value: 6000 + 9000
     expect(html).toContain("5000.00");  // BLACK value: 5000
   });
+
+  it("5. buildGroupedSizewiseLines groups live Purchase Studio variants into single Article + Color row", () => {
+    const sizes = ["36", "37", "38", "39", "40", "41", "42", "43", "44"];
+    // Simulate user screenshot: CH-08-J in CREAM having separate variant rows for each size
+    const rawLines: SizewisePOLine[] = [
+      {
+        id: "line-1",
+        itemCode: "CH-08-J-CREAM-36",
+        articleNo: "CH-08-J",
+        shade: "CREAM",
+        product: "Comfort Heel",
+        sizeQuantities: { "36": 12 },
+        rate: 550,
+        totalQty: 12,
+        netValue: 6600,
+      },
+      {
+        id: "line-2",
+        itemCode: "CH-08-J-CREAM-37",
+        articleNo: "CH-08-J",
+        shade: "CREAM",
+        product: "Comfort Heel",
+        sizeQuantities: { "37": 24 },
+        rate: 550,
+        totalQty: 24,
+        netValue: 13200,
+      },
+      {
+        id: "line-3",
+        itemCode: "CH-08-J-CREAM-38",
+        articleNo: "CH-08-J",
+        shade: "CREAM",
+        product: "Comfort Heel",
+        sizeQuantities: { "38": 36 },
+        rate: 550,
+        totalQty: 36,
+        netValue: 19800,
+      },
+      {
+        id: "line-4",
+        itemCode: "CH-08-J-CREAM-39",
+        articleNo: "CH-08-J",
+        shade: "CREAM",
+        product: "Comfort Heel",
+        sizeQuantities: { "39": 48 },
+        rate: 550,
+        totalQty: 48,
+        netValue: 26400,
+      },
+      {
+        id: "line-5",
+        itemCode: "CH-08-J-CREAM-40",
+        articleNo: "CH-08-J",
+        shade: "CREAM",
+        product: "Comfort Heel",
+        sizeQuantities: { "40": 24 },
+        rate: 550,
+        totalQty: 24,
+        netValue: 13200,
+      },
+      // Second color of same article: BLACK
+      {
+        id: "line-6",
+        itemCode: "CH-08-J-BLACK-36",
+        articleNo: "CH-08-J",
+        shade: "BLACK",
+        product: "Comfort Heel",
+        sizeQuantities: { "36": 10 },
+        rate: 550,
+        totalQty: 10,
+        netValue: 5500,
+      },
+      // Third distinct article: CH-09-K in TAN
+      {
+        id: "line-7",
+        itemCode: "CH-09-K-TAN-38",
+        articleNo: "CH-09-K",
+        shade: "TAN",
+        product: "Wedge Sandal",
+        sizeQuantities: { "38": 15 },
+        rate: 600,
+        totalQty: 15,
+        netValue: 9000,
+      },
+      // Blank unpopulated row
+      {
+        id: "line-8",
+        itemCode: "",
+        articleNo: "",
+        shade: "",
+        product: "",
+        sizeQuantities: {},
+        rate: 0,
+        totalQty: 0,
+        netValue: 0,
+      },
+    ];
+
+    const grouped = buildGroupedSizewiseLines(rawLines, sizes, 5);
+
+    // Exactly 4 grouped rows:
+    // 1. CH-08-J CREAM
+    // 2. CH-08-J BLACK
+    // 3. CH-09-K TAN
+    // 4. Blank row
+    expect(grouped.length).toBe(4);
+
+    const creamGroup = grouped.find(g => g.articleNo === "CH-08-J" && g.shade === "CREAM");
+    expect(creamGroup).toBeDefined();
+    expect(creamGroup?.sizeQuantities["36"]).toBe(12);
+    expect(creamGroup?.sizeQuantities["37"]).toBe(24);
+    expect(creamGroup?.sizeQuantities["38"]).toBe(36);
+    expect(creamGroup?.sizeQuantities["39"]).toBe(48);
+    expect(creamGroup?.sizeQuantities["40"]).toBe(24);
+    expect(creamGroup?.sizeQuantities["41"]).toBe(0);
+    expect(creamGroup?.totalQty).toBe(144); // 12 + 24 + 36 + 48 + 24
+    expect(creamGroup?.netValue).toBe(144 * 550); // 79,200
+
+    // Check sizeToLineIndex maps back accurately to original line indices
+    expect(creamGroup?.sizeToLineIndex["36"]).toBe(0);
+    expect(creamGroup?.sizeToLineIndex["37"]).toBe(1);
+    expect(creamGroup?.sizeToLineIndex["38"]).toBe(2);
+    expect(creamGroup?.sizeToLineIndex["39"]).toBe(3);
+    expect(creamGroup?.sizeToLineIndex["40"]).toBe(4);
+
+    // Check BLACK group is separate
+    const blackGroup = grouped.find(g => g.articleNo === "CH-08-J" && g.shade === "BLACK");
+    expect(blackGroup).toBeDefined();
+    expect(blackGroup?.totalQty).toBe(10);
+
+    // Check CH-09-K group is separate
+    const tanGroup = grouped.find(g => g.articleNo === "CH-09-K" && g.shade === "TAN");
+    expect(tanGroup).toBeDefined();
+    expect(tanGroup?.totalQty).toBe(15);
+
+    // Check blank row preserved individually
+    const blankGroup = grouped.find(g => g.groupKey.startsWith("__blank_"));
+    expect(blankGroup).toBeDefined();
+    expect(blankGroup?.totalQty).toBe(0);
+  });
+
+  it("6. prints Business Terms & Statutory Conditions on all 3 PO print templates", () => {
+    // 6.1 PurchaseOrderPrintA4
+    const htmlA4 = renderToStaticMarkup(
+      <PurchaseOrderPrintA4
+        data={{
+          ...basePOData,
+          businessTerms: DEFAULT_BUSINESS_TERMS,
+        }}
+      />
+    );
+    expect(htmlA4).toContain("BUSINESS TERMS &amp; STATUTORY CONDITIONS");
+    expect(htmlA4).toContain("Strictly 120 Days credit settlement");
+    expect(htmlA4).toContain("Mumbai, Maharashtra");
+
+    // 6.2 FootwearPurchaseOrderA4
+    const htmlFootwear = renderToStaticMarkup(
+      <FootwearPurchaseOrderA4
+        data={{
+          poNumber: "FWPO-2026-084",
+          businessTerms: DEFAULT_BUSINESS_TERMS,
+          paymentTerms: "120 Days",
+        }}
+      />
+    );
+    expect(htmlFootwear).toContain("BUSINESS TERMS &amp; STATUTORY CONDITIONS");
+    expect(htmlFootwear).toContain("Strictly 120 Days credit settlement");
+    expect(htmlFootwear).toContain("Mumbai, Maharashtra");
+    expect(htmlFootwear).toContain("120 DAYS STATUTORY COMMERCIAL CONTRACT");
+
+    // 6.3 SizePivotMatrixA4
+    const htmlPivot = renderToStaticMarkup(
+      <SizePivotMatrixA4
+        data={{
+          header: {
+            orderNumber: "PO-2026-00451",
+            prefix: "PO",
+            businessTerms: DEFAULT_BUSINESS_TERMS,
+            paymentTerms: "120 Days",
+          },
+          rows: [],
+        }}
+      />
+    );
+    expect(htmlPivot).toContain("BUSINESS TERMS &amp; STATUTORY CONDITIONS");
+    expect(htmlPivot).toContain("Strictly 120 Days credit settlement");
+    expect(htmlPivot).toContain("Mumbai, Maharashtra");
+    expect(htmlPivot).toContain("120 Days");
+  });
 });
+
