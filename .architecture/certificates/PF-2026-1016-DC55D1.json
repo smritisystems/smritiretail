@@ -1,0 +1,15 @@
+{
+  "certificate_id": "PF-2026-1016-DC55D1",
+  "entity": "reports",
+  "capability": "reports.report_builder",
+  "asset_type": "component",
+  "proposed_name": "src/components/reports/ReportBuilder.tsx",
+  "target_file_path": "src/components/reports/ReportBuilder.tsx",
+  "decision": "CREATE_APPROVED",
+  "canonical_owner": "src/components/reports/ReportBuilder.tsx",
+  "content_hash": "b0148926f749b2d06e7fe33028150a3bd89cd4b673a6057a7358d41460d46489",
+  "git_commit": "d31f67424fa8d2d51e3dfa79fff72d71e08210e1",
+  "issued_at": "2026-10-16T09:03:20.662235+00:00",
+  "expires_at": "2026-10-23T09:03:20.662235+00:00",
+  "status": "ISSUED"
+}

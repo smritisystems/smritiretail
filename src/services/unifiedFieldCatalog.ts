@@ -310,8 +310,8 @@ export const CORE_STANDARD_ITEM_FIELDS: UnifiedItemField[] = [
     width: "120px"
   },
   {
-    id: "department",
-    key: "department",
+    id: "merchandiseDepartment",
+    key: "MERCHANDISE_DEPARTMENT",
     label: "Merchandise Department",
     datatype: "text",
     required: true,

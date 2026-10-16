@@ -28,6 +28,8 @@ import {
   SIZE_SCALE_PRESETS,
 } from "./purchase/PoSizewiseTab.tsx";
 import { POWorkspaceTab } from "./purchase/POWorkspaceTab.tsx";
+import { PurchaseRequisitionWorkspace } from "./purchase/PurchaseRequisitionWorkspace.tsx";
+import { SupplierRfqWorkspace } from "./purchase/SupplierRfqWorkspace.tsx";
 import { AutoPOModal } from "./procurement/AutoPOModal.tsx";
 import { ConsignmentStudioModal } from "./procurement/ConsignmentStudioModal.tsx";
 import { SupplierPaymentModal } from "./procurement/SupplierPaymentModal.tsx";
@@ -44,7 +46,7 @@ import type {
   PurchaseOrderLineItem,
 } from "./purchase/types.ts";
 
-type TopLevelView = "generate" | "workspace";
+type TopLevelView = "generate" | "workspace" | "requisitions" | "rfqs";
 
 interface PurchaseStudioTabProps {
   products?: Product[];
@@ -191,6 +193,32 @@ export const PurchaseStudioTab: React.FC<PurchaseStudioTabProps> = ({
               <span className="material-symbols-outlined text-[14px]">receipt_long</span>
               Workspace
             </button>
+            <button
+              type="button"
+              id="purchase-studio-requisitions-tab"
+              onClick={() => setTopView("requisitions")}
+              className={`px-3 py-1 rounded text-xs font-medium transition flex items-center gap-1.5 ${
+                topView === "requisitions"
+                  ? "bg-indigo-600 text-white shadow-2xs"
+                  : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+              }`}
+            >
+              <span className="material-symbols-outlined text-[14px]">description</span>
+              Indents (PR)
+            </button>
+            <button
+              type="button"
+              id="purchase-studio-rfqs-tab"
+              onClick={() => setTopView("rfqs")}
+              className={`px-3 py-1 rounded text-xs font-medium transition flex items-center gap-1.5 ${
+                topView === "rfqs"
+                  ? "bg-indigo-600 text-white shadow-2xs"
+                  : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+              }`}
+            >
+              <span className="material-symbols-outlined text-[14px]">compare_arrows</span>
+              RFQ & Quotes
+            </button>
           </div>
 
           {/* Sub-mode switcher (only when in Generate view) */}
@@ -322,6 +350,12 @@ export const PurchaseStudioTab: React.FC<PurchaseStudioTabProps> = ({
             onHeaderChange={setSharedStandardHeader}
           />
         )}
+
+        {/* Indents / Purchase Requisitions Workspace */}
+        {topView === "requisitions" && <PurchaseRequisitionWorkspace />}
+
+        {/* Supplier RFQs & Quotations Workspace */}
+        {topView === "rfqs" && <SupplierRfqWorkspace />}
       </div>
 
       {/* Auto-PO Reorder Modal */}

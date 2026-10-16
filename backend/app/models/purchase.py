@@ -249,3 +249,174 @@ class PurchaseBillItem(BaseEntity):
     taxable_amount  = Column(Numeric(15, 2), nullable=False, default=0.00)
     tax_amount      = Column(Numeric(15, 2), nullable=False, default=0.00)
     total_amount    = Column(Numeric(15, 2), nullable=False, default=0.00)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Procurement Phase 2 — Purchase Requisition (PR), RFQ & Quotation Comparison
+# ─────────────────────────────────────────────────────────────────────────────
+
+class PurchaseRequisition(BaseEntity):
+    """
+    Purchase Requisition (Store / Department Indent).
+    Status lifecycle: DRAFT → SUBMITTED → APPROVED | REJECTED | CANCELLED → CONVERTED_TO_PO
+    """
+    __tablename__ = "purchase_requisitions"
+
+    requisition_no    = Column(String(100), nullable=False, index=True)
+    requisition_date  = Column(Date, nullable=False)
+    required_by_date  = Column(Date, nullable=False)
+    department        = Column(String(100), nullable=True)
+    priority          = Column(String(20), nullable=False, default="NORMAL", server_default="NORMAL")
+    status            = Column(String(30), nullable=False, default="DRAFT", server_default="DRAFT", index=True)
+    justification     = Column(Text, nullable=False)
+    notes             = Column(Text, nullable=True)
+    estimated_total   = Column(Numeric(15, 2), nullable=False, default=0.00, server_default="0.00")
+    approved_total    = Column(Numeric(15, 2), nullable=False, default=0.00, server_default="0.00")
+
+    submitted_by        = Column(String(100), nullable=True)
+    submitted_at        = Column(DateTime(timezone=True), nullable=True)
+    approved_by         = Column(String(100), nullable=True)
+    approved_at         = Column(DateTime(timezone=True), nullable=True)
+    rejected_by         = Column(String(100), nullable=True)
+    rejected_at         = Column(DateTime(timezone=True), nullable=True)
+    rejection_reason    = Column(Text, nullable=True)
+    cancelled_by        = Column(String(100), nullable=True)
+    cancelled_at        = Column(DateTime(timezone=True), nullable=True)
+    cancellation_reason = Column(Text, nullable=True)
+
+    po_id             = Column(String(50), ForeignKey("purchase_orders.id", ondelete="SET NULL"), nullable=True, index=True)
+    po_no             = Column(String(100), nullable=True)
+
+    items = relationship("PurchaseRequisitionItem", backref="requisition", cascade="all, delete-orphan", lazy="selectin")
+
+    __table_args__ = (
+        UniqueConstraint("requisition_no", "company_id", name="uq_purchase_requisitions_no_company"),
+    )
+
+
+class PurchaseRequisitionItem(BaseEntity):
+    """
+    Line item within a purchase requisition.
+    """
+    __tablename__ = "purchase_requisition_items"
+
+    requisition_id     = Column(String(50), ForeignKey("purchase_requisitions.id", ondelete="CASCADE"), nullable=False, index=True)
+    product_id         = Column(String(50), ForeignKey("products.id", ondelete="RESTRICT"), nullable=False, index=True)
+    item_id            = Column(String(50), ForeignKey("items.id", ondelete="SET NULL"), nullable=True, index=True)
+    variant_id         = Column(String(50), nullable=True, index=True)
+    code               = Column(String(50), nullable=False)
+    name               = Column(String(255), nullable=False)
+    quantity_requested = Column(Numeric(12, 4), nullable=False)
+    quantity_approved  = Column(Numeric(12, 4), nullable=False, default=0.0000, server_default="0.0000")
+    quantity_ordered   = Column(Numeric(12, 4), nullable=False, default=0.0000, server_default="0.0000")
+    estimated_cost     = Column(Numeric(15, 2), nullable=False, default=0.00, server_default="0.00")
+    line_total         = Column(Numeric(15, 2), nullable=False, default=0.00, server_default="0.00")
+    notes              = Column(Text, nullable=True)
+
+
+class SupplierRfq(BaseEntity):
+    """
+    Supplier Request for Quotation (RFQ).
+    Status lifecycle: DRAFT → ISSUED → EVALUATED → AWARDED | CLOSED | CANCELLED
+    """
+    __tablename__ = "supplier_rfqs"
+
+    rfq_no               = Column(String(100), nullable=False, index=True)
+    rfq_date             = Column(Date, nullable=False)
+    due_date             = Column(Date, nullable=False)
+    requisition_id       = Column(String(50), ForeignKey("purchase_requisitions.id", ondelete="SET NULL"), nullable=True, index=True)
+    title                = Column(String(255), nullable=False)
+    status               = Column(String(30), nullable=False, default="DRAFT", server_default="DRAFT", index=True)
+    notes                = Column(Text, nullable=True)
+    terms_conditions     = Column(Text, nullable=True)
+    awarded_quotation_id = Column(String(50), nullable=True)
+    awarded_supplier_id  = Column(String(50), ForeignKey("suppliers.id", ondelete="SET NULL"), nullable=True, index=True)
+    awarded_notes        = Column(Text, nullable=True)
+    awarded_at           = Column(DateTime(timezone=True), nullable=True)
+    awarded_by           = Column(String(100), nullable=True)
+
+    items = relationship("SupplierRfqItem", backref="rfq", cascade="all, delete-orphan", lazy="selectin")
+    quotations = relationship("SupplierQuotation", backref="rfq", cascade="all, delete-orphan", lazy="selectin")
+
+    __table_args__ = (
+        UniqueConstraint("rfq_no", "company_id", name="uq_supplier_rfqs_no_company"),
+    )
+
+
+class SupplierRfqItem(BaseEntity):
+    """
+    Line item target within an RFQ.
+    """
+    __tablename__ = "supplier_rfq_items"
+
+    rfq_id          = Column(String(50), ForeignKey("supplier_rfqs.id", ondelete="CASCADE"), nullable=False, index=True)
+    product_id      = Column(String(50), ForeignKey("products.id", ondelete="RESTRICT"), nullable=False, index=True)
+    item_id         = Column(String(50), ForeignKey("items.id", ondelete="SET NULL"), nullable=True, index=True)
+    variant_id      = Column(String(50), nullable=True, index=True)
+    code            = Column(String(50), nullable=False)
+    name            = Column(String(255), nullable=False)
+    target_quantity = Column(Numeric(12, 4), nullable=False)
+    target_cost     = Column(Numeric(15, 2), nullable=True)
+    specifications  = Column(Text, nullable=True)
+
+
+class SupplierQuotation(BaseEntity):
+    """
+    Quotation submitted by a supplier against an RFQ or standalone.
+    Status lifecycle: RECEIVED → SHORTLISTED → SELECTED | REJECTED
+    """
+    __tablename__ = "supplier_quotations"
+
+    quotation_no             = Column(String(100), nullable=False, index=True)
+    rfq_id                   = Column(String(50), ForeignKey("supplier_rfqs.id", ondelete="SET NULL"), nullable=True, index=True)
+    supplier_id              = Column(String(50), ForeignKey("suppliers.id", ondelete="RESTRICT"), nullable=False, index=True)
+    quotation_date           = Column(Date, nullable=False)
+    valid_until              = Column(Date, nullable=False)
+    status                   = Column(String(30), nullable=False, default="RECEIVED", server_default="RECEIVED", index=True)
+    payment_terms            = Column(String(255), nullable=True)
+    delivery_timeline        = Column(String(255), nullable=True)
+    subtotal                 = Column(Numeric(15, 2), nullable=False, default=0.00, server_default="0.00")
+    tax_total                = Column(Numeric(15, 2), nullable=False, default=0.00, server_default="0.00")
+    freight_charges          = Column(Numeric(15, 2), nullable=False, default=0.00, server_default="0.00")
+    other_charges            = Column(Numeric(15, 2), nullable=False, default=0.00, server_default="0.00")
+    total_landed_cost        = Column(Numeric(15, 2), nullable=False, default=0.00, server_default="0.00")
+    rank                     = Column(Integer, nullable=True)
+    evaluation_score         = Column(Numeric(5, 2), nullable=True)
+    evaluation_notes         = Column(Text, nullable=True)
+    selection_justification  = Column(Text, nullable=True)
+    selected_by              = Column(String(100), nullable=True)
+    selected_at              = Column(DateTime(timezone=True), nullable=True)
+    po_id                    = Column(String(50), ForeignKey("purchase_orders.id", ondelete="SET NULL"), nullable=True, index=True)
+    po_no                    = Column(String(100), nullable=True)
+
+    items = relationship("SupplierQuotationItem", backref="quotation", cascade="all, delete-orphan", lazy="selectin")
+    supplier = relationship("Supplier", foreign_keys=[supplier_id], lazy="selectin")
+
+    __table_args__ = (
+        UniqueConstraint("quotation_no", "supplier_id", "company_id", name="uq_supplier_quotations_no_supplier_company"),
+    )
+
+
+class SupplierQuotationItem(BaseEntity):
+    """
+    Line item within a supplier quotation.
+    """
+    __tablename__ = "supplier_quotation_items"
+
+    quotation_id              = Column(String(50), ForeignKey("supplier_quotations.id", ondelete="CASCADE"), nullable=False, index=True)
+    rfq_item_id               = Column(String(50), ForeignKey("supplier_rfq_items.id", ondelete="SET NULL"), nullable=True, index=True)
+    product_id                = Column(String(50), ForeignKey("products.id", ondelete="RESTRICT"), nullable=False, index=True)
+    item_id                   = Column(String(50), ForeignKey("items.id", ondelete="SET NULL"), nullable=True, index=True)
+    variant_id                = Column(String(50), nullable=True, index=True)
+    code                      = Column(String(50), nullable=False)
+    name                      = Column(String(255), nullable=False)
+    quoted_quantity           = Column(Numeric(12, 4), nullable=False)
+    unit_price                = Column(Numeric(15, 2), nullable=False)
+    discount_percent          = Column(Numeric(5, 2), nullable=False, default=0.00, server_default="0.00")
+    discount_amount           = Column(Numeric(15, 2), nullable=False, default=0.00, server_default="0.00")
+    tax_rate                  = Column(Numeric(5, 2), nullable=False, default=18.00, server_default="18.00")
+    tax_amount                = Column(Numeric(15, 2), nullable=False, default=0.00, server_default="0.00")
+    freight_allocation        = Column(Numeric(15, 2), nullable=False, default=0.00, server_default="0.00")
+    net_landed_cost_per_unit  = Column(Numeric(15, 2), nullable=False, default=0.00, server_default="0.00")
+    line_total                = Column(Numeric(15, 2), nullable=False)
+
