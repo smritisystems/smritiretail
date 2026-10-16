@@ -28,6 +28,9 @@ EXCLUDED_EXACT_PREFIXES = (
     "/api/v1/product-identity",
     "/api/v1/product-resolution",
     "/api/v1/products/resolve",
+    "/api/v1/products/batch-resolve",
+    "/api/v1/products/validate-lines",
+    "/api/v1/products/images",
 )
 
 

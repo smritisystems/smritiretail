@@ -317,9 +317,14 @@ export class ProPosMasterCatalogCache {
     branchId: string = "BR-MAIN-001"
   ): Promise<CatalogCacheStats> {
     try {
-      // 1. Fetch Products
-      const productsRes = await apiFetchV1(`/products?limit=5000&company_id=${companyId}`);
-      const rawProducts = Array.isArray(productsRes) ? productsRes : productsRes?.items || [];
+      // 1. Fetch Products via canonical /universal/items with fallback to /products
+      let productsRes: any = null;
+      try {
+        productsRes = await apiFetchV1(`/universal/items?limit=5000`);
+      } catch {
+        productsRes = await apiFetchV1(`/products?limit=5000&company_id=${companyId}`);
+      }
+      const rawProducts = Array.isArray(productsRes) ? productsRes : (productsRes?.items || productsRes?.data || []);
 
       const formattedProducts: CachedProduct[] = rawProducts.map((p: any) => ({
         id: p.id || p._id,
