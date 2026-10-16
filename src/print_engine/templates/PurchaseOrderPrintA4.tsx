@@ -25,6 +25,8 @@
  */
 
 import React from "react";
+import tattlyLogoBlack from "../../../myImages/tattly_logo_black.png";
+import imageNotAvailablePlaceholder from "../../../myImages/image_not_available_placeholder.png";
 
 export interface FootwearArticleReference {
   articleNo: string;
@@ -46,6 +48,7 @@ export interface PurchaseOrderPrintData {
   companyPan?: string;
   companyPhone?: string;
   companyEmail?: string;
+  companyWebsite?: string;
   logoUrl?: string;
 
   // Purchase Order Metadata
@@ -136,67 +139,26 @@ export const GoldenRatioImagePlaceholder: React.FC<{
   companyName?: string;
   articleNo?: string;
   className?: string;
-}> = ({ companyName, articleNo, className = "" }) => {
-  const displayCompany = companyName || "SMRITI Retail Private Limited";
-
+}> = ({ articleNo, className = "" }) => {
   return (
     <div
-      className={`relative w-full h-[68px] rounded-md border border-slate-200/90 bg-gradient-to-br from-slate-50 via-slate-100/60 to-blue-50/30 flex items-center justify-center overflow-hidden select-none ${className}`}
+      className={`relative w-full h-[72px] rounded-md border border-slate-200/90 bg-white flex items-center justify-center overflow-hidden select-none ${className}`}
       style={{
         aspectRatio: "1.618 / 1",
-        maxHeight: "70px",
+        maxHeight: "74px",
       }}
-      title={`Image placeholder for ${articleNo || "article"} with ${displayCompany} watermark`}
+      title={`Image placeholder for ${articleNo || "article"}`}
     >
-      {/* 1. Subtle Golden Ratio Geometry / Fibonacci Grid Overlay */}
-      <svg
-        className="absolute inset-0 w-full h-full opacity-[0.09] pointer-events-none"
-        viewBox="0 0 162 100"
-        preserveAspectRatio="none"
-      >
-        <rect x="0" y="0" width="162" height="100" fill="none" stroke="#1e3a8a" strokeWidth="1" />
-        <line x1="100" y1="0" x2="100" y2="100" stroke="#1e3a8a" strokeWidth="1" strokeDasharray="3 2" />
-        <line x1="100" y1="62" x2="162" y2="62" stroke="#1e3a8a" strokeWidth="1" strokeDasharray="3 2" />
-        <line x1="138" y1="62" x2="138" y2="100" stroke="#1e3a8a" strokeWidth="1" strokeDasharray="3 2" />
-        <path
-          d="M 100 100 A 100 100 0 0 1 0 0 A 62 62 0 0 1 100 62 A 38 38 0 0 1 138 100"
-          fill="none"
-          stroke="#1e3a8a"
-          strokeWidth="0.8"
-        />
-      </svg>
-
-      {/* 2. Prominent Diagonal Watermark of Company Name */}
-      <div className="absolute inset-0 flex items-center justify-center pointer-events-none overflow-hidden p-1">
-        <span
-          className="text-[#1e3a8a] opacity-[0.16] font-black uppercase text-[10px] whitespace-nowrap transform -rotate-12 select-none tracking-[0.22em] text-center"
-          style={{ letterSpacing: "0.22em" }}
-        >
-          {displayCompany}
+      <img
+        src={imageNotAvailablePlaceholder}
+        alt="Image Not Available"
+        className="w-full h-full object-contain p-0.5"
+      />
+      {articleNo && (
+        <span className="absolute bottom-1 right-1.5 bg-slate-900/80 text-white text-[7.5px] font-mono font-bold px-1 py-0.2 rounded shadow-xs">
+          {articleNo}
         </span>
-      </div>
-
-      {/* 3. Center Content: Footwear Silhouette Icon + Article Label + Golden Ratio Badge */}
-      <div className="relative z-10 flex flex-col items-center justify-center text-slate-400 p-1.5 text-center">
-        <svg
-          width="26"
-          height="26"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="#64748b"
-          strokeWidth="1.4"
-          className="opacity-70 drop-shadow-2xs"
-        >
-          <path d="M2 18h20c-.5-3-2-6-5-7l-5-2-4 1-4 3c-1 1-1.5 3-2 5z" />
-          <path d="M2 18v2c0 .55.45 1 1 1h18c.55 0 1-.45 1-1v-2" />
-        </svg>
-        <span className="text-[7.5px] font-bold text-slate-500 uppercase tracking-wider mt-0.5">
-          {articleNo ? `${articleNo}` : "Pending Image"}
-        </span>
-        <span className="text-[6.5px] font-mono text-slate-400 tracking-tight">
-          Golden Ratio (1.618 : 1)
-        </span>
-      </div>
+      )}
     </div>
   );
 };
@@ -230,8 +192,68 @@ export const PurchaseOrderPrintA4: React.FC<{ data: PurchaseOrderPrintData }> = 
     return val.trim();
   };
 
-  // Sizewise calculations
-  const sizewiseRows = data.sizewiseItems || [];
+  // Sizewise calculations — Group by unique Article No. + Color combination
+  const sizewiseRows = React.useMemo(() => {
+    const rawRows = data.sizewiseItems || [];
+    if (rawRows.length === 0) return [];
+
+    const groupedMap = new Map<string, {
+      sNo: number;
+      articleNo: string;
+      color: string;
+      sizeQuantities: Record<string, number>;
+      totalQty: number;
+      rate: number;
+      taxPercent?: number;
+      taxAmount?: number;
+      amount: number;
+    }>();
+
+    rawRows.forEach((item) => {
+      const art = (item.articleNo || "").trim();
+      const col = (item.color || "").trim();
+      const key = `${art.toUpperCase()}:::${col.toUpperCase()}`;
+      const qty = Number(item.totalQty) || 0;
+      const rate = Number(item.rate) || 0;
+      const amount = Number(item.amount) || 0;
+      const taxRate = item.taxPercent !== undefined ? Number(item.taxPercent) : (data.commonTaxPercent ?? 5);
+      const taxAmt = item.taxAmount !== undefined ? Number(item.taxAmount) : (amount * taxRate) / 100;
+      const rowSizeQtys = item.sizeQuantities || {};
+
+      if (!groupedMap.has(key)) {
+        groupedMap.set(key, {
+          sNo: item.sNo || 0,
+          articleNo: art || item.articleNo,
+          color: col || item.color,
+          sizeQuantities: { ...rowSizeQtys },
+          totalQty: qty,
+          rate: rate,
+          taxPercent: taxRate,
+          taxAmount: taxAmt,
+          amount: amount,
+        });
+      } else {
+        const existing = groupedMap.get(key)!;
+        for (const [sz, sqty] of Object.entries(rowSizeQtys)) {
+          const num = Number(sqty) || 0;
+          if (num > 0) {
+            existing.sizeQuantities[sz] = (existing.sizeQuantities[sz] || 0) + num;
+          }
+        }
+        existing.totalQty += qty;
+        existing.amount += amount;
+        existing.taxAmount = (existing.taxAmount || 0) + taxAmt;
+        if (existing.rate === 0 && rate > 0) {
+          existing.rate = rate;
+        }
+      }
+    });
+
+    return Array.from(groupedMap.values()).map((row, idx) => ({
+      ...row,
+      sNo: idx + 1,
+    }));
+  }, [data.sizewiseItems, data.commonTaxPercent]);
   const perSizeTotals = sizeColumns.map((sz) => {
     return sizewiseRows.reduce((sum, item) => sum + (Number(item.sizeQuantities?.[sz]) || 0), 0);
   });
@@ -250,7 +272,7 @@ export const PurchaseOrderPrintA4: React.FC<{ data: PurchaseOrderPrintData }> = 
           sum +
           (item.taxAmount !== undefined
             ? Number(item.taxAmount)
-            : (Number(item.amount) * (Number(item.taxPercent) || data.commonTaxPercent || 18)) / 100),
+            : (Number(item.amount) * (Number(item.taxPercent) || data.commonTaxPercent || 5)) / 100),
         0
       )
     : sizewiseRows.reduce(
@@ -258,7 +280,7 @@ export const PurchaseOrderPrintA4: React.FC<{ data: PurchaseOrderPrintData }> = 
           sum +
           (item.taxAmount !== undefined
             ? Number(item.taxAmount)
-            : (Number(item.amount) * (Number(item.taxPercent) || data.commonTaxPercent || 18)) / 100),
+            : (Number(item.amount) * (Number(item.taxPercent) || data.commonTaxPercent || 5)) / 100),
         0
       );
 
@@ -273,11 +295,21 @@ export const PurchaseOrderPrintA4: React.FC<{ data: PurchaseOrderPrintData }> = 
 
   return (
     <div
-      className={`bg-white text-slate-900 mx-auto box-border font-sans antialiased shadow-sm print:shadow-none print:m-0 print:p-0 print:w-full print:max-w-none print:min-h-0 print:h-auto ${
+      className={`relative bg-white text-slate-900 mx-auto box-border font-sans antialiased shadow-sm print:shadow-none print:m-0 print:p-0 print:w-full print:max-w-none print:min-h-0 print:h-auto ${
         isLandscape ? "w-[297mm] min-h-[210mm] p-6" : "w-[210mm] min-h-[297mm] p-6 sm:p-7"
       }`}
       style={{ fontFamily: "'Inter', system-ui, -apple-system, sans-serif" }}
     >
+      {/* ── Document Background Watermark ─────────────────────────────── */}
+      <div className="absolute inset-0 pointer-events-none flex items-center justify-center opacity-[0.035] z-0 overflow-hidden select-none print:opacity-[0.035]">
+        <div className="text-center font-black tracking-widest text-[#1e3a8a] rotate-[-28deg] text-[60px] border-4 border-dashed border-[#1e3a8a] px-10 py-6 rounded-3xl uppercase">
+          {data.companyName || "TATTLY THREADS"}
+          <div className="text-xl font-bold tracking-[0.22em] mt-1 text-slate-800">
+            {data.status === "DRAFT" ? "PURCHASE ORDER — DRAFT" : "PURCHASE ORDER"}
+          </div>
+        </div>
+      </div>
+
       {/* ── CSS Page Setup for Perfect A4 Printing ────────────────────── */}
       <style>{`
         @media print {
@@ -323,32 +355,34 @@ export const PurchaseOrderPrintA4: React.FC<{ data: PurchaseOrderPrintData }> = 
       `}</style>
 
       {/* ── 1. HEADER & COMPANY INFORMATION ─────────────────────────────── */}
-      <header className="flex justify-between items-start pb-2 mb-2 border-b border-slate-200">
-        {/* Left: SMRITI Retail OS Brand Logo + Company Details */}
+      <header className="relative z-10 flex justify-between items-start pb-2 mb-2 border-b border-slate-200">
+        {/* Left: Tattly Threads Brand Logo + Company Details */}
         <div className="flex items-start">
-          <div className="pr-4 mr-4 border-r border-slate-200 flex flex-col justify-center">
-            <div className="text-2xl font-black tracking-tight text-[#0f172a] leading-none flex items-center">
-              <span>SMRITI</span>
-            </div>
-            <div className="text-[9px] font-bold tracking-[0.32em] text-[#334155] uppercase mt-1 leading-none">
-              RETAIL OS
-            </div>
+          <div className="pr-3.5 mr-3.5 border-r border-slate-200 flex flex-col justify-center">
+            <img
+              src={data.logoUrl || tattlyLogoBlack}
+              alt={data.companyName || "TATTLY THREADS"}
+              className="h-10 w-auto object-contain max-w-[135px]"
+            />
           </div>
           <div className="text-[10px] text-slate-600 leading-snug">
             <h1 className="text-xs font-bold text-[#0f172a] leading-tight">
-              {data.companyName || "SMRITI Retail Private Limited"}
+              {data.companyName || "TATTLY THREADS"}
             </h1>
             <p className="whitespace-pre-line text-slate-600 mt-0.5">
-              {data.companyAddress || "123 Retail Park, MG Road, Bengaluru - 560001\nKarnataka, India"}
+              {data.companyAddress || "Office Number 81, Ibrahim Rehmatulla Road, Beside Jio Gallery, Near HP Petrol Pump\nMumbai, Maharashtra - 400003"}
             </p>
             <p className="text-slate-700 font-medium mt-0.5">
-              GSTIN: <span className="font-mono">{data.companyGstin || "29AABCS1234F1Z5"}</span>
-              {data.companyPan && (
+              GSTIN: <span className="font-mono">{data.companyGstin || "27AAXFT2508H1ZR"}</span>
+              {(data.companyPan || "AAXFT2508H") && (
                 <>
                   <span className="mx-1 text-slate-300">|</span>
-                  PAN: <span className="font-mono">{data.companyPan}</span>
+                  PAN: <span className="font-mono">{data.companyPan || "AAXFT2508H"}</span>
                 </>
               )}
+            </p>
+            <p className="text-slate-500 text-[9px] mt-0.5 font-mono">
+              Web: {data.companyWebsite || "www.tattlythreads.com"} | Email: {data.companyEmail || "accounts@tattlythreads.com"}
             </p>
           </div>
         </div>
@@ -374,7 +408,7 @@ export const PurchaseOrderPrintA4: React.FC<{ data: PurchaseOrderPrintData }> = 
 
               <span className="text-slate-600">Warehouse</span>
               <span className="text-slate-400">:</span>
-              <span className="font-semibold text-slate-800">{data.warehouse || "Main Warehouse"}</span>
+              <span className="font-semibold text-slate-800">{data.warehouse || "Main Store (MAIN)"}</span>
 
               <span className="text-slate-600">Status</span>
               <span className="text-slate-400">:</span>
@@ -389,21 +423,23 @@ export const PurchaseOrderPrintA4: React.FC<{ data: PurchaseOrderPrintData }> = 
       </header>
 
       {/* ── 2. SUPPLIER INFORMATION PANEL ──────────────────────────────── */}
-      <section className="bg-[#eff6ff] border border-[#dbeafe] rounded-lg p-1.5 mb-1.5 text-[9.5px] text-slate-700 leading-snug">
+      <section className="relative z-10 bg-[#eff6ff] border border-[#dbeafe] rounded-lg p-1.5 mb-1.5 text-[9.5px] text-slate-700 leading-snug">
         <div className="text-[9.5px] font-extrabold text-[#2563eb] uppercase tracking-wider mb-1">
           SUPPLIER
         </div>
         <div className="font-bold text-[11.5px] text-slate-900 flex items-center gap-1.5">
-          <span>{data.supplierName || "ABC Footwear Pvt Ltd"}</span>
+          <span>{data.supplierName || "Selected Supplier"}</span>
           {data.supplierCode && (
             <span className="text-slate-500 font-mono text-[10px] font-semibold">
               ({data.supplierCode})
             </span>
           )}
         </div>
-        <div className="whitespace-pre-line text-slate-600 mt-0.5">
-          {data.supplierAddress || "A-12, Industrial Area, Andheri (East)\nMumbai - 400093, Maharashtra, India"}
-        </div>
+        {data.supplierAddress && data.supplierAddress.trim() ? (
+          <div className="whitespace-pre-line text-slate-600 mt-0.5">
+            {data.supplierAddress}
+          </div>
+        ) : null}
         <div className="flex flex-wrap items-center gap-x-3 text-slate-800 font-medium mt-1">
           {data.supplierGstin && (
             <div>
@@ -481,7 +517,7 @@ export const PurchaseOrderPrintA4: React.FC<{ data: PurchaseOrderPrintData }> = 
                   </tr>
                 ) : (
                   sizewiseRows.map((item, idx) => {
-                    const rowTaxPct = item.taxPercent ?? data.commonTaxPercent ?? 18;
+                    const rowTaxPct = item.taxPercent ?? data.commonTaxPercent ?? 5;
                     const rowTaxVal = item.taxAmount !== undefined
                       ? item.taxAmount
                       : (item.amount * rowTaxPct) / 100;
@@ -580,7 +616,7 @@ export const PurchaseOrderPrintA4: React.FC<{ data: PurchaseOrderPrintData }> = 
                   </tr>
                 ) : (
                   (data.standardItems || []).map((line, idx) => {
-                    const rowTaxPct = line.taxPercent ?? data.commonTaxPercent ?? 18;
+                    const rowTaxPct = line.taxPercent ?? data.commonTaxPercent ?? 5;
                     const rowTaxVal = line.taxAmount !== undefined
                       ? line.taxAmount
                       : (line.amount * rowTaxPct) / 100;
@@ -696,33 +732,9 @@ export const PurchaseOrderPrintA4: React.FC<{ data: PurchaseOrderPrintData }> = 
                         alt={ref.articleNo}
                         className="max-h-full max-w-full object-contain"
                         onError={(e) => {
-                          // Replace failed image with Golden Ratio watermark placeholder
-                          const imgElem = e.target as HTMLElement;
-                          imgElem.style.display = "none";
-                          const parent = imgElem.parentElement;
-                          if (parent) {
-                            parent.innerHTML = `
-                              <div style="position:relative; width:100%; height:100%; display:flex; align-items:center; justify-content:center; overflow:hidden; background:linear-gradient(135deg, #f8fafc 0%, #f1f5f9 60%, #eff6ff 100%);">
-                                <div style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; overflow:hidden; pointer-events:none;">
-                                  <span style="color:#1e3a8a; opacity:0.16; font-weight:900; text-transform:uppercase; font-size:10px; white-space:nowrap; transform:rotate(-12deg); letter-spacing:0.22em;">
-                                    ${(data.companyName || "SMRITI Retail Private Limited").replace(/</g, "&lt;")}
-                                  </span>
-                                </div>
-                                <div style="position:relative; z-index:10; display:flex; flex-direction:column; align-items:center; justify-content:center; color:#64748b; padding:4px; text-align:center;">
-                                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="1.4" style="opacity:0.75;">
-                                    <path d="M2 18h20c-.5-3-2-6-5-7l-5-2-4 1-4 3c-1 1-1.5 3-2 5z"/>
-                                    <path d="M2 18v2c0 .55.45 1 1 1h18c.55 0 1-.45 1-1v-2"/>
-                                  </svg>
-                                  <span style="font-size:7.5px; font-weight:bold; color:#64748b; margin-top:2px; text-transform:uppercase; letter-spacing:0.05em;">
-                                    ${(ref.articleNo || "").replace(/</g, "&lt;")}
-                                  </span>
-                                  <span style="font-size:6.5px; font-family:monospace; color:#94a3b8;">
-                                    Golden Ratio (1.618 : 1)
-                                  </span>
-                                </div>
-                              </div>
-                            `;
-                          }
+                          const imgElem = e.currentTarget;
+                          imgElem.src = imageNotAvailablePlaceholder;
+                          imgElem.onerror = null;
                         }}
                       />
                     ) : (
@@ -750,12 +762,12 @@ export const PurchaseOrderPrintA4: React.FC<{ data: PurchaseOrderPrintData }> = 
             <div className="flex items-start">
               <span className="text-slate-500 w-28 shrink-0">Payment Terms</span>
               <span className="text-slate-400 mr-1.5">:</span>
-              <span className="font-semibold text-slate-900">{data.paymentTerms || "30 Days"}</span>
+              <span className="font-semibold text-slate-900">{data.paymentTerms || "120 Days"}</span>
             </div>
             <div className="flex items-start">
               <span className="text-slate-500 w-28 shrink-0">Freight Terms</span>
               <span className="text-slate-400 mr-1.5">:</span>
-              <span className="font-semibold text-slate-900">{data.freightTerms || "As agreed"}</span>
+              <span className="font-semibold text-slate-900">{data.freightTerms || "Paid by Supplier"}</span>
             </div>
             <div className="flex items-start">
               <span className="text-slate-500 w-28 shrink-0">Currency</span>
@@ -770,7 +782,7 @@ export const PurchaseOrderPrintA4: React.FC<{ data: PurchaseOrderPrintData }> = 
             <div className="flex items-start">
               <span className="text-slate-500 w-28 shrink-0">Supplier Reference</span>
               <span className="text-slate-400 mr-1.5">:</span>
-              <span className="font-semibold text-slate-900 font-mono">{data.supplierReference || "—"}</span>
+              <span className="font-semibold text-slate-900 font-mono">{displayAttr(data.supplierReference)}</span>
             </div>
             <div className="flex items-start">
               <span className="text-slate-500 w-28 shrink-0">Special Instructions</span>
@@ -803,7 +815,7 @@ export const PurchaseOrderPrintA4: React.FC<{ data: PurchaseOrderPrintData }> = 
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-slate-500">
-                  GST {data.commonTaxPercent ? `(${data.commonTaxPercent}%)` : ""} ({currencySymbol})
+                  GST ({(data.commonTaxPercent !== undefined ? data.commonTaxPercent : ((displaySubtotal > 0 && displayGst > 0) ? Math.round((displayGst / displaySubtotal) * 100) : 5))}%) ({currencySymbol})
                 </span>
                 <span className="font-mono font-semibold text-slate-900">{formatCurrency(displayGst)}</span>
               </div>

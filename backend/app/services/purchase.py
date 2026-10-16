@@ -308,8 +308,8 @@ class PurchaseService:
             sp = getattr(matched_p, "supplier_profile", None) if matched_p else None
             meta_comm = ((getattr(matched_p, "metadata_json", None) or {}).get("commercial_terms", {})) if matched_p else {}
 
-            pt_days = getattr(sp, "payment_terms_days", 30) if sp else 30
-            payment_terms = meta_comm.get("payment_terms") or (f"{pt_days} Days" if pt_days else "30 Days")
+            pt_days = getattr(sp, "payment_terms_days", 120) if sp else 120
+            payment_terms = meta_comm.get("payment_terms") or (f"{pt_days} Days" if pt_days else "120 Days")
             freight_terms = meta_comm.get("freight_terms") or "Paid by Supplier"
             currency = meta_comm.get("currency") or "INR - Indian Rupee"
             buyer = meta_comm.get("buyer") or None
@@ -373,8 +373,8 @@ class PurchaseService:
         sp = getattr(matched_p, "supplier_profile", None) if matched_p else None
         meta_comm = ((getattr(matched_p, "metadata_json", None) or {}).get("commercial_terms", {})) if matched_p else {}
 
-        pt_days = getattr(sp, "payment_terms_days", 30) if sp else 30
-        payment_terms = meta_comm.get("payment_terms") or (f"{pt_days} Days" if pt_days else "30 Days")
+        pt_days = getattr(sp, "payment_terms_days", 120) if sp else 120
+        payment_terms = meta_comm.get("payment_terms") or (f"{pt_days} Days" if pt_days else "120 Days")
         freight_terms = meta_comm.get("freight_terms") or "Paid by Supplier"
         currency = meta_comm.get("currency") or "INR - Indian Rupee"
         buyer = meta_comm.get("buyer") or None

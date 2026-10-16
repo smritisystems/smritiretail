@@ -60,7 +60,7 @@ class CustomerProfileData(BaseModel):
 
 class SupplierProfileData(BaseModel):
     supplier_type: str = "DISTRIBUTOR"
-    payment_terms_days: int = 30
+    payment_terms_days: int = 120
     msme_registration_no: Optional[str] = None
     tax_treatment: str = "REGISTERED_REGULAR"
     outstanding_liability: float = 0.0

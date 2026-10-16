@@ -123,7 +123,7 @@ class VendorAddressDTO(SMRITICamelModel):
 
 class VendorCommercialProfileDTO(SMRITICamelModel):
     supplier_type: str = "DISTRIBUTOR"
-    payment_terms_days: int = 30
+    payment_terms_days: int = 120
     msme_registration_no: Optional[str] = None
     msme_category: str = "NOT_APPLICABLE"
     commercial_classification: str = "APPROVED"
@@ -131,7 +131,7 @@ class VendorCommercialProfileDTO(SMRITICamelModel):
     tds_rate: float = 0.10
     tax_treatment: str = "REGISTERED_REGULAR"
     outstanding_liability: float = 0.0
-    payment_terms: Optional[str] = None
+    payment_terms: Optional[str] = "120 Days"
     freight_terms: Optional[str] = "Paid by Supplier"
     currency: Optional[str] = "INR - Indian Rupee"
     buyer: Optional[str] = None

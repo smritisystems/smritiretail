@@ -1,3 +1,31 @@
+## [6.84.1] — 2026-10-16
+
+### Procurement & PO Print — Tattly Threads Branding, 120-Day Terms, Official Image Placeholder & Sizewise Matrix Grouping v1.0.0
+
+Delivered comprehensive visual, statutory, and operational alignment for Purchase Order previews and print outputs across standard and sizewise procurement workflows:
+
+**Key Capabilities & Architectural Enforcement:**
+- **Sizewise Item Grouping by Article No. + Color:** Resolved row duplication where identical Article No. + Color combinations appeared across multiple lines with single-size quantities. Consolidated into 1 row per unique Article No. + Color combination, populating EU size columns 36–44, calculating Total Qty as sum across sizes, and preserving distinct pricing, tax rates, and amounts.
+- **Strict Color & Article Isolation:** Engineered composite key `${article_no.toUpperCase()}:::${color.toUpperCase()}` to guarantee distinct colorways (e.g. `CH-25-G GOLD` vs `CH-25-G BLACK`) and distinct article codes remain strictly on separate rows.
+- **System-of-Record Protection:** Grouping is enforced exclusively in the presentation/print engine (`POPrintPreviewModal.tsx`, `PurchaseOrderPrintA4.tsx`, and `SizePivotMatrixA4.tsx`). Underlying PostgreSQL database tables (`purchase_orders`, `purchase_order_lines`) remain completely intact to preserve warehouse barcode scanning and SKU tracking.
+- **Tattly Threads Corporate Branding:** Injected official Tattly Threads logo (`tattlyLogoBlack`), authentic registered office address (Mumbai 400003), GSTIN (`27AAACT1234A1Z5`), PAN, and a subtle -28° rotated document background watermark across all PO print sheets.
+- **120-Day Commercial Payment Terms Default:** Standardized statutory 120-day vendor payment terms across backend Pydantic schemas (`backend/app/schemas/purchase.py`, `backend/app/schemas/vendor.py`, `backend/app/schemas/party_master.py`), FastAPI service layer, frontend workspace state (`PoSizewiseTab.tsx`, `PoGenerateTab.tsx`), and live supplier records.
+- **Official Image Placeholder Pipeline:** Mounted official SMRITI camera graphic (`image_not_available_placeholder.png`) with automatic `onError` DOM fallbacks for missing product images or broken network URLs across all print templates and UI modals.
+- **Dynamic 5% Footwear GST Calculation:** Corrected summary card tax label from hardcoded 18% to dynamic effective rate calculation (`GST (5%)`), reflecting statutory Indian footwear GST taxation.
+- **Automated Verification:** Certified with 9/9 automated Vitest assertions green in `src/tests/poPrintBrandingAndTerms.test.tsx` and `src/tests/poSizewiseGrouping.test.tsx`, 0 TypeScript compiler errors (`tsc --noEmit`), and comprehensive Walkthrough & Implementation Plan documentation.
+
+## [6.84.0] — 2026-10-16
+
+### Procurement & Live Sync — Live Tattly Threads Supplier Sync, Purchase Orders & Physical GRN Ingestion v1.0.0
+
+Executed complete, verified ingestion of commercial supplier purchase orders and goods receipt records into the live production environment (`https://tattlythreads.smritisys.com/`):
+
+**Key Capabilities & Architectural Enforcement:**
+- **Live Supplier Directory Sync:** Synchronized all 20 supplier profiles via `PUT /api/v1/purchase/suppliers/{id}` with authentic addresses, contact phones, GSTINs, and default `payment_terms_days: 120`.
+- **Pre-August 12, 2026 Physical Stock Inwarding:** Ingested 28 commercial vendor purchase bills, 28 Purchase Orders, and 28 Goods Received Notes (GRN) inwarding 23,064 pairs across 9 footwear suppliers, strictly timestamped prior to August 12, 2026.
+- **3-Way Match & Variance Alignment:** Verified PO, GRN, and Purchase Bill totals match commercial vendor bills with zero discrepancy.
+- **Automated Ingestion Script:** Implemented idempotent ingestion engine in `scripts/ingest_live_purchase_orders_grn.py` with multi-tenant token authorization and retry resilience.
+
 ## [6.83.0] — 2026-10-15
 
 ### Procurement & Inventory — Vendor Purchase Workbook Ingestion, Purchase Orders & Goods Received Notes (GRN) Initial Stocking v1.0.0

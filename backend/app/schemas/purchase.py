@@ -61,8 +61,8 @@ class SupplierResponse(BaseModel):
     outstanding:   Decimal
     company_id:    Optional[str] = None
     branch_id:     Optional[str] = None
-    payment_terms_days: Optional[int] = 30
-    payment_terms:      Optional[str] = "30 Days"
+    payment_terms_days: Optional[int] = 120
+    payment_terms:      Optional[str] = "120 Days"
     freight_terms:      Optional[str] = "Paid by Supplier"
     currency:           Optional[str] = "INR - Indian Rupee"
     buyer:              Optional[str] = None

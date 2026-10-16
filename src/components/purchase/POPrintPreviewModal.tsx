@@ -42,7 +42,25 @@ export interface POPrintPreviewModalProps {
   lineItems: PurchaseOrderLineItem[];
   sizePivotRows: PurchaseOrderSizePivotRow[];
   activeTab: string;
-  vendor?: { id: string; name: string; code?: string; address?: string; gstin?: string; gst_number?: string; mobile?: string; phone?: string; state?: string } | null;
+  vendor?: {
+    id: string;
+    name: string;
+    code?: string;
+    address?: string;
+    city?: string;
+    state?: string;
+    pincode?: string;
+    gstin?: string;
+    gst_number?: string;
+    mobile?: string;
+    phone?: string;
+    email?: string;
+    payment_terms?: string;
+    payment_terms_days?: number;
+    freight_terms?: string;
+    commercial_terms?: any;
+    commercial?: any;
+  } | null;
   reprintMode?: boolean;
   initialTemplateId?: string;
 }
@@ -133,47 +151,71 @@ export const POPrintPreviewModal: React.FC<POPrintPreviewModalProps> = ({
     );
 
     if (validPivotRows.length > 0) {
-      mappedFootwearItems = validPivotRows.map((r, idx) => {
-        const q40 = Number(r.sizeQuantities["40"] || r.sizeQuantities["EU 40"] || r.sizeQuantities["S"] || 0);
-        const q41 = Number(r.sizeQuantities["41"] || r.sizeQuantities["EU 41"] || r.sizeQuantities["M"] || 0);
-        const q42 = Number(r.sizeQuantities["42"] || r.sizeQuantities["EU 42"] || r.sizeQuantities["L"] || 0);
-        const q43 = Number(r.sizeQuantities["43"] || r.sizeQuantities["EU 43"] || r.sizeQuantities["XL"] || 0);
-        const q44 = Number(r.sizeQuantities["44"] || r.sizeQuantities["EU 44"] || r.sizeQuantities["XXL"] || 0);
-        const q45 = Number(r.sizeQuantities["45"] || r.sizeQuantities["EU 45"] || 0);
-        const totalPairs = r.totalQty || (q40 + q41 + q42 + q43 + q44 + q45) || 12;
-        const cartons = Math.max(1, Math.round(totalPairs / 12));
-        const rate = currency === "EUR" ? (r.rate ? r.rate / fxEurToInr : 22.50) : r.rate || 1999;
-        const lineTotal = +(rate * totalPairs).toFixed(2);
+      const groupedFwMap = new Map<string, FootwearPurchaseOrderItem>();
 
-        return {
-          articleCode: r.articleNo || `FW-ART-${100 + idx}`,
-          photoUrl: r.photoUrl || r.imageUrl || r.originalProduct?.primaryImageUrl,
-          modelName: r.product || "Footwear Style Line",
-          category: r.brand || "Footwear Collection",
-          taricCode: "64035910",
-          hsnCode: "6403",
-          color: r.color || "Standard Noir / Tan",
-          size: "EU 40-45",
-          colorHex: "#334155",
-          finish: "Polished Finish",
-          upperMaterial: "Genuine Calf Leather / Microfiber",
-          soleMaterial: "Anti-Skid TPR / Goodyear Welt",
-          liningMaterial: "Breathable Sweat-Absorption Mesh",
-          insoleMaterial: "High-Density Memory Cushion",
-          ratioString: "1 : 2 : 3 : 3 : 2 : 1 = 12 Prs/Ctn",
-          eu40: q40 || cartons * 1,
-          eu41: q41 || cartons * 2,
-          eu42: q42 || cartons * 3,
-          eu43: q43 || cartons * 3,
-          eu44: q44 || cartons * 2,
-          eu45: q45 || cartons * 1,
-          cartons: cartons,
-          pairs: totalPairs,
-          ratePerPair: +rate.toFixed(2),
-          taxRatePercent: Number(r.gstPercent ?? header.commonTaxPercent ?? 5),
-          lineTotal: lineTotal,
-        };
+      validPivotRows.forEach((r, idx) => {
+        const art = (r.articleNo || `FW-ART-${100 + idx}`).trim();
+        const col = (r.color || "Standard Noir / Tan").trim();
+        const key = `${art.toUpperCase()}:::${col.toUpperCase()}`;
+
+        const q40 = Number(r.sizeQuantities?.["40"] || r.sizeQuantities?.["EU 40"] || r.sizeQuantities?.["S"] || 0);
+        const q41 = Number(r.sizeQuantities?.["41"] || r.sizeQuantities?.["EU 41"] || r.sizeQuantities?.["M"] || 0);
+        const q42 = Number(r.sizeQuantities?.["42"] || r.sizeQuantities?.["EU 42"] || r.sizeQuantities?.["L"] || 0);
+        const q43 = Number(r.sizeQuantities?.["43"] || r.sizeQuantities?.["EU 43"] || r.sizeQuantities?.["XL"] || 0);
+        const q44 = Number(r.sizeQuantities?.["44"] || r.sizeQuantities?.["EU 44"] || r.sizeQuantities?.["XXL"] || 0);
+        const q45 = Number(r.sizeQuantities?.["45"] || r.sizeQuantities?.["EU 45"] || 0);
+        const rowPairs = r.totalQty || (q40 + q41 + q42 + q43 + q44 + q45) || 12;
+        const rate = currency === "EUR" ? (r.rate ? r.rate / fxEurToInr : 22.50) : r.rate || 1999;
+        const lineTotal = +(rate * rowPairs).toFixed(2);
+
+        if (!groupedFwMap.has(key)) {
+          const cartons = Math.max(1, Math.round(rowPairs / 12));
+          groupedFwMap.set(key, {
+            articleCode: art,
+            photoUrl: r.photoUrl || r.imageUrl || r.originalProduct?.primaryImageUrl,
+            modelName: r.product || "Footwear Style Line",
+            category: r.brand || "Footwear Collection",
+            taricCode: "64035910",
+            hsnCode: "6403",
+            color: col,
+            size: "EU 40-45",
+            colorHex: "#334155",
+            finish: "Polished Finish",
+            upperMaterial: "Genuine Calf Leather / Microfiber",
+            soleMaterial: "Anti-Skid TPR / Goodyear Welt",
+            liningMaterial: "Breathable Sweat-Absorption Mesh",
+            insoleMaterial: "High-Density Memory Cushion",
+            ratioString: "1 : 2 : 3 : 3 : 2 : 1 = 12 Prs/Ctn",
+            eu40: q40 || cartons * 1,
+            eu41: q41 || cartons * 2,
+            eu42: q42 || cartons * 3,
+            eu43: q43 || cartons * 3,
+            eu44: q44 || cartons * 2,
+            eu45: q45 || cartons * 1,
+            cartons: cartons,
+            pairs: rowPairs,
+            ratePerPair: +rate.toFixed(2),
+            taxRatePercent: Number(r.gstPercent ?? header.commonTaxPercent ?? 5),
+            lineTotal: lineTotal,
+          });
+        } else {
+          const existing = groupedFwMap.get(key)!;
+          existing.eu40 = (existing.eu40 || 0) + q40;
+          existing.eu41 = (existing.eu41 || 0) + q41;
+          existing.eu42 = (existing.eu42 || 0) + q42;
+          existing.eu43 = (existing.eu43 || 0) + q43;
+          existing.eu44 = (existing.eu44 || 0) + q44;
+          existing.eu45 = (existing.eu45 || 0) + q45;
+          existing.pairs += rowPairs;
+          existing.cartons = Math.max(1, Math.round(existing.pairs / 12));
+          existing.lineTotal += lineTotal;
+          if (!existing.photoUrl && (r.photoUrl || r.imageUrl)) {
+            existing.photoUrl = r.photoUrl || r.imageUrl;
+          }
+        }
       });
+
+      mappedFootwearItems = Array.from(groupedFwMap.values());
     }
   } else {
     // Generation tab - Standard rows
@@ -228,21 +270,29 @@ export const POPrintPreviewModal: React.FC<POPrintPreviewModalProps> = ({
     poNumber: `${header.prefix || "PO"}-${header.orderNumber || "1"}`,
     poDate: header.orderDate || new Date().toISOString().split("T")[0],
     deliveryDate: header.deliveryDate || new Date(Date.now() + 10 * 86400000).toISOString().split("T")[0],
-    companyName: "SMRITI RETAIL OS",
-    companySubtitle: "Enterprise Sourcing & Procurement Division",
-    companyAddress: "Central Logistics Hub, SMRITI Retail OS",
-    companyGstin: "27AABCT9981K1Z2",
-    companyContact: "sourcing@smritibooks.com",
+    companyName:
+      (typeof localStorage !== "undefined" && localStorage.getItem("smriti_company_name")) ||
+      "TATTLY THREADS",
+    companySubtitle: "Footwear Sourcing & Procurement Division",
+    companyAddress:
+      (typeof localStorage !== "undefined" && localStorage.getItem("smriti_company_address")) ||
+      "Office Number 81, Ibrahim Rehmatulla Road, Beside Jio Gallery, Near HP Petrol Pump, Mumbai - 400003",
+    companyGstin:
+      (typeof localStorage !== "undefined" && localStorage.getItem("smriti_company_gstin")) ||
+      "27AAXFT2508H1ZR",
+    companyContact:
+      (typeof localStorage !== "undefined" && localStorage.getItem("smriti_company_email")) ||
+      "accounts@tattlythreads.com | +91 9867230839",
     vendorName: header.supplierName || vendor?.name || "Selected Supplier",
     vendorCode: header.supplierId || vendor?.code || "—",
     vendorAddress: vendor?.address || "Registered Supplier Premises",
     vendorGstin: vendor?.gstin || vendor?.gst_number || "—",
     vendorContact: vendor?.mobile || vendor?.phone || "—",
     dcCode: "DC-MAIN-01",
-    dcName: "Central Distribution Depot",
-    dcAddress: "Central Commercial Freight Bay",
-    dcGstin: "27AABCT9981K1Z2",
-    dcReceivingGate: "Gate 1 - Commercial Freight Bay",
+    dcName: "Main Store Distribution Depot",
+    dcAddress: "Office Number 81, Ibrahim Rehmatulla Road, Mumbai - 400003",
+    dcGstin: "27AAXFT2508H1ZR",
+    dcReceivingGate: "Gate 1 - Central Footwear Bay",
     currency: currency,
     currencySymbol: currencySymbol,
     sizingScale: sizingScale,
@@ -381,22 +431,60 @@ export const POPrintPreviewModal: React.FC<POPrintPreviewModalProps> = ({
         (r.product && r.product.trim().length > 0)
     );
     if (validRows.length > 0) {
-      return validRows.map((r, idx) => {
-        const taxable = r.totalValue || r.totalQty * r.rate;
-        const taxRate = r.gstPercent !== undefined ? r.gstPercent : (header.commonTaxPercent ?? 18);
-        const taxVal = r.taxAmount !== undefined ? r.taxAmount : (taxable * taxRate) / 100;
-        return {
-          sNo: r.sNo || idx + 1,
-          articleNo: r.articleNo || `SH-${String(idx + 1).padStart(2, "0")}-I`,
-          color: r.color || (r.originalProduct?.color) || "—",
-          sizeQuantities: r.sizeQuantities || {},
-          totalQty: r.totalQty,
-          rate: r.rate,
-          taxPercent: taxRate,
-          taxAmount: taxVal,
-          amount: taxable,
-        };
+      const groupedPivotMap = new Map<string, {
+        articleNo: string;
+        color: string;
+        sizeQuantities: Record<string, number>;
+        totalQty: number;
+        rate: number;
+        taxPercent: number;
+        amount: number;
+        taxAmount: number;
+      }>();
+
+      validRows.forEach((r) => {
+        const art = (r.articleNo || r.product || "Footwear Article").trim();
+        const col = (r.color || (r.originalProduct?.color) || "Standard").trim();
+        const key = `${art.toUpperCase()}:::${col.toUpperCase()}`;
+        const qty = Number(r.totalQty) || 0;
+        const rate = Number(r.rate) || 0;
+        const taxable = r.totalValue !== undefined ? Number(r.totalValue) : (qty * rate);
+        const taxRate = r.gstPercent !== undefined ? Number(r.gstPercent) : (header.commonTaxPercent ?? 5);
+        const taxVal = r.taxAmount !== undefined ? Number(r.taxAmount) : (taxable * taxRate) / 100;
+        const rowSizeQtys = r.sizeQuantities || {};
+
+        if (!groupedPivotMap.has(key)) {
+          groupedPivotMap.set(key, {
+            articleNo: art,
+            color: col,
+            sizeQuantities: { ...rowSizeQtys },
+            totalQty: qty,
+            rate: rate,
+            taxPercent: taxRate,
+            amount: taxable,
+            taxAmount: taxVal,
+          });
+        } else {
+          const existing = groupedPivotMap.get(key)!;
+          for (const [sz, sqty] of Object.entries(rowSizeQtys)) {
+            const numQty = Number(sqty) || 0;
+            if (numQty > 0) {
+              existing.sizeQuantities[sz] = (existing.sizeQuantities[sz] || 0) + numQty;
+            }
+          }
+          existing.totalQty += qty;
+          existing.amount += taxable;
+          existing.taxAmount += taxVal;
+          if (existing.rate === 0 && rate > 0) {
+            existing.rate = rate;
+          }
+        }
       });
+
+      return Array.from(groupedPivotMap.values()).map((g, idx) => ({
+        sNo: idx + 1,
+        ...g,
+      }));
     }
 
     // Auto-group lineItems into Sizewise Matrix rows when pivot rows are not pre-populated
@@ -414,12 +502,12 @@ export const POPrintPreviewModal: React.FC<POPrintPreviewModalProps> = ({
     lineItems.forEach((l) => {
       const art = (l.style || l.stockNo || l.product || "Footwear Article").trim();
       const col = (l.shade || l.colourBase || l.originalProduct?.color || "Standard").trim();
-      const key = `${art}___${col}`;
-      const qty = l.orderQty || 1;
-      const rate = l.rate || 0;
-      const taxRate = l.taxPercent !== undefined ? l.taxPercent : (header.commonTaxPercent ?? 18);
-      const lineTaxable = l.value || (qty * rate);
-      const lineTax = l.taxAmount !== undefined ? l.taxAmount : (lineTaxable * taxRate) / 100;
+      const key = `${art.toUpperCase()}:::${col.toUpperCase()}`;
+      const qty = Number(l.orderQty) || 0;
+      const rate = Number(l.rate) || 0;
+      const taxRate = l.taxPercent !== undefined ? Number(l.taxPercent) : (header.commonTaxPercent ?? 5);
+      const lineTaxable = l.value !== undefined ? Number(l.value) : (qty * rate);
+      const lineTax = l.taxAmount !== undefined ? Number(l.taxAmount) : (lineTaxable * taxRate) / 100;
       const szKey = l.size ? l.size.trim() : "Standard";
 
       if (!groupedMap.has(key)) {
@@ -439,6 +527,9 @@ export const POPrintPreviewModal: React.FC<POPrintPreviewModalProps> = ({
         existing.totalQty += qty;
         existing.amount += lineTaxable;
         existing.taxAmount += lineTax;
+        if (existing.rate === 0 && rate > 0) {
+          existing.rate = rate;
+        }
       }
     });
 
@@ -583,31 +674,72 @@ export const POPrintPreviewModal: React.FC<POPrintPreviewModalProps> = ({
     (header.freightAmount || 0) +
     (header.otherCharges || 0);
 
+  // Resolve Vendor Profile Details with Real Fallbacks
+  const vendorPaymentTerms =
+    header.paymentTerms ||
+    vendor?.payment_terms ||
+    (vendor?.payment_terms_days ? `${vendor.payment_terms_days} Days` : null) ||
+    vendor?.commercial?.paymentTerms ||
+    vendor?.commercial_terms?.payment_terms ||
+    "120 Days";
+
+  const vendorAddress =
+    vendor?.address && vendor.address.trim()
+      ? vendor.address.trim()
+      : (vendor?.city || vendor?.state)
+      ? `${vendor.city || "Mumbai"}, ${vendor.state || "Maharashtra"}${vendor.pincode ? ` - ${vendor.pincode}` : ""}`
+      : "";
+
+  const vendorGstin = vendor?.gstin || vendor?.gst_number || "";
+  const vendorContact = vendor?.mobile || vendor?.phone || "";
+  const vendorEmail = (vendor as any)?.email || (vendor as any)?.contacts?.[0]?.email || "";
+
+  // Dynamic Effective GST rate calculation (footwear defaults to statutory 5%)
+  const effectiveGstPct = header.commonTaxPercent !== undefined
+    ? header.commonTaxPercent
+    : (subtotalVal > 0 && gstVal > 0)
+    ? Math.round((gstVal / subtotalVal) * 100)
+    : (mappedSizewiseRows.length > 0 && mappedSizewiseRows[0].taxPercent !== undefined)
+    ? mappedSizewiseRows[0].taxPercent
+    : 5;
+
+  // Extract real bill number from notes if not set in supplierReference
+  const extractedBillNo =
+    header.supplierReference ||
+    (header as any)?.notes?.match(/Vendor Bill ([^ |]+)/)?.[1] ||
+    "";
+
   // Payload for approved A4 template
   const approvedPrintData: PurchaseOrderPrintData = {
     mode: template === "smriti-standard" ? "standard" : "sizewise",
     companyName:
       (typeof localStorage !== "undefined" &&
         localStorage.getItem("smriti_company_name")) ||
-      "SMRITI Retail Private Limited",
+      "TATTLY THREADS",
     companyAddress:
-      "123 Retail Park, MG Road, Bengaluru - 560001\nKarnataka, India",
-    companyGstin: "29AABCS1234F1Z5",
-    companyPan: "AABCS1234F",
+      (typeof localStorage !== "undefined" &&
+        localStorage.getItem("smriti_company_address")) ||
+      "Office Number 81, Ibrahim Rehmatulla Road, Beside Jio Gallery, Near HP Petrol Pump\nMumbai, Maharashtra - 400003",
+    companyGstin:
+      (typeof localStorage !== "undefined" &&
+        localStorage.getItem("smriti_company_gstin")) ||
+      "27AAXFT2508H1ZR",
+    companyPan:
+      (typeof localStorage !== "undefined" &&
+        localStorage.getItem("smriti_company_pan")) ||
+      "AAXFT2508H",
     poNumber: `${header.prefix || "PO"}-${header.orderNumber || "1"}`,
-    orderDate: formatDisplayDate(header.orderDate) || "14 Oct 2026",
-    expectedDelivery: formatDisplayDate(header.deliveryDate) || "25 Oct 2026",
-    warehouse: header.deliveryLocation || "Main Warehouse",
-    status: "DRAFT",
+    orderDate: formatDisplayDate((header as any)?.orderDate || (header as any)?.notes?.match(/dated ([0-9-]+)/)?.[1]) || formatDisplayDate(new Date().toISOString()),
+    expectedDelivery: formatDisplayDate(header.deliveryDate) || "",
+    warehouse: header.deliveryLocation || "Main Store (MAIN)",
+    status: (header as any)?.status || (header as any)?.documentStatus || "DRAFT",
 
-    supplierName: header.supplierName || vendor?.name || "ABC Footwear Pvt Ltd",
-    supplierCode: header.supplierId || vendor?.code || "SUP-00045",
-    supplierAddress:
-      vendor?.address ||
-      "A-12, Industrial Area, Andheri (East)\nMumbai - 400093, Maharashtra, India",
-    supplierGstin: vendor?.gstin || vendor?.gst_number || "27AAECA1234F1Z5",
-    supplierContact: vendor?.mobile || vendor?.phone || "+91 98765 43210",
-    supplierEmail: (vendor as any)?.email || "sales@abcfootwear.in",
+    supplierName: header.supplierName || vendor?.name || "Selected Supplier",
+    supplierCode: header.supplierId || vendor?.code || "—",
+    supplierAddress: vendorAddress,
+    supplierGstin: vendorGstin,
+    supplierContact: vendorContact,
+    supplierEmail: vendorEmail,
 
     sizeChartName: `Size Chart: EU (${dynamicSizeColumns[0]} - ${
       dynamicSizeColumns[dynamicSizeColumns.length - 1]
@@ -617,11 +749,11 @@ export const POPrintPreviewModal: React.FC<POPrintPreviewModalProps> = ({
     standardItems: mappedStandardLines,
     itemReferences: mappedItemReferences,
 
-    paymentTerms: header.paymentTerms || "30 Days",
-    freightTerms: header.freightCharges || "As agreed",
+    paymentTerms: vendorPaymentTerms,
+    freightTerms: header.freightCharges || vendor?.freight_terms || "Paid by Supplier",
     currency: currency === "INR" ? `INR (${currencySymbol})` : currency,
     deliveryTerms: "Ex-Factory",
-    supplierReference: header.supplierReference || "ABC/PO/2026/451",
+    supplierReference: extractedBillNo || "—",
     specialInstructions:
       header.specialInstructions ||
       "Please ensure all items are packed with size stickers and barcode labels.",
@@ -631,7 +763,7 @@ export const POPrintPreviewModal: React.FC<POPrintPreviewModalProps> = ({
     subtotal: subtotalVal,
     gstAmount: gstVal,
     grandTotal: grandTotalVal,
-    commonTaxPercent: header.commonTaxPercent || 18,
+    commonTaxPercent: effectiveGstPct,
 
     remarks: (header as any).remarks || "",
     preparedByName: header.buyer || "",
