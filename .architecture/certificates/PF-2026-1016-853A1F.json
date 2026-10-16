@@ -1,0 +1,15 @@
+{
+  "certificate_id": "PF-2026-1016-853A1F",
+  "entity": "purchase",
+  "capability": "purchase.rfq_workspace",
+  "asset_type": "component",
+  "proposed_name": "src/components/purchase/SupplierRfqWorkspace.tsx",
+  "target_file_path": "src/components/purchase/SupplierRfqWorkspace.tsx",
+  "decision": "CREATE_APPROVED",
+  "canonical_owner": "src/components/purchase/SupplierRfqWorkspace.tsx",
+  "content_hash": "253dee71ddcfc3110f49491d173d4d7a6b98d6c0356a38c2560ad440f460cea4",
+  "git_commit": "d31f67424fa8d2d51e3dfa79fff72d71e08210e1",
+  "issued_at": "2026-10-16T08:45:31.977628+00:00",
+  "expires_at": "2026-10-23T08:45:31.977628+00:00",
+  "status": "ISSUED"
+}

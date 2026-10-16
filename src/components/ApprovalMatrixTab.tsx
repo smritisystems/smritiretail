@@ -84,13 +84,29 @@ export const ApprovalMatrixTab: React.FC = () => {
   const handleApproveReject = async (doc: any, action: "approve" | "reject") => {
     setActionStatus(`${action === "approve" ? "Approving" : "Rejecting"} ${doc.docNo}...`);
     try {
+      if (doc.docType === 'Purchase Order') {
+        if (action === "approve") {
+          await apiFetchV1(`/purchase/orders/${doc.id}/confirm`, {
+            method: 'POST',
+            body: JSON.stringify({ notes: "Approved via Approval Matrix Studio" }),
+          });
+        } else {
+          await apiFetchV1(`/purchase/orders/${doc.id}/cancel`, {
+            method: 'POST',
+            body: JSON.stringify({
+              reason: "Rejected via Approval Matrix Studio",
+              reason_code: "CANCEL_APPROVAL_REJECTED",
+            }),
+          });
+        }
+      }
       // Optimistic removal from queue
       setPendingDocs((prev) => prev.filter((d) => d.id !== doc.id));
       setActionStatus(`Document ${doc.docNo} ${action}d successfully.`);
       setTimeout(() => setActionStatus(null), 3000);
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
-      setActionStatus(`Failed to ${action} document.`);
+      setActionStatus(`Failed to ${action} document: ${e?.message || 'Server error'}`);
     }
   };
 

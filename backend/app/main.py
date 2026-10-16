@@ -94,6 +94,7 @@ from .api.v1 import (
     pricing,
     product_identity,
     product_resolution,
+    procurement_phase2,
     promotions,
     psv,
     purchase,
@@ -341,6 +342,7 @@ _ROUTER_REGISTRY = [
     # --- Purchase & Vendors ---
     (purchase,              "",                      ["Purchase-Legacy"]),        # LEGACY alias — deprecate at v3.20
     (purchase,              "/purchase",             ["Purchase"]),
+    (procurement_phase2,    "",                      ["Procurement Phase 2 — PR & RFQ"]),
     (grn,                   "",                      ["Goods Receipt Note"]),
     (vendor,                "/purchase",             ["Vendors"]),
     (vendor,                "",                      ["Vendors"]),

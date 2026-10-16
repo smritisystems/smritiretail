@@ -110,6 +110,11 @@ SMRITI_STUDIOS = {
         "reports": [
             {"id": "RPT-PUR-001", "code": "RPT-PUR-001", "title": "Purchase Summary Register",         "description": "Per-supplier breakdown of PO count, GRN count, ordered and received amounts.",             "category": "Purchase Summary","format": "Grid",   "owner": "System", "drillDownEnabled": True},
             {"id": "RPT-PUR-002", "code": "RPT-PUR-002", "title": "Supplier Ledger",                  "description": "Chronological debit/credit ledger for a supplier with running balance.",                    "category": "Supplier",        "format": "Grid",   "owner": "System", "drillDownEnabled": True},
+            {"id": "RPT-PUR-003", "code": "RPT-PUR-003", "title": "Pending Delivery (Open PO) Register", "description": "Confirmed purchase orders awaiting inward receiving (GRN) with order dates and supplier details.", "category": "Procurement Tracking", "format": "Grid", "owner": "System", "drillDownEnabled": True},
+            {"id": "RPT-PUR-004", "code": "RPT-PUR-004", "title": "Supplier Outstanding & Exposure Report", "description": "Supplier-wise pending commitments, booked liabilities, and open order exposure.", "category": "Supplier Exposure", "format": "Grid", "owner": "System", "drillDownEnabled": True},
+            {"id": "RPT-PUR-005", "code": "RPT-PUR-005", "title": "Pending Purchase Requisitions Register", "description": "Store and department purchase indents pending review and management approval.", "category": "Requisition", "format": "Grid", "owner": "System", "drillDownEnabled": True},
+            {"id": "RPT-PUR-006", "code": "RPT-PUR-006", "title": "Requisition-to-PO Conversion & Tracking", "description": "Audit traceability of approved requisitions through to purchase order creation and fulfillment.", "category": "Requisition Tracking", "format": "Grid", "owner": "System", "drillDownEnabled": True},
+            {"id": "RPT-PUR-007", "code": "RPT-PUR-007", "title": "Supplier RFQ & Quotation Comparison Register", "description": "Comparative analysis of multi-supplier quotations, landed costs, and awarded bids.", "category": "Quotation Comparison", "format": "Grid", "owner": "System", "drillDownEnabled": True},
         ],
     },
     "inventory_studio": {
@@ -255,6 +260,105 @@ async def purchase_summary(
     db: AsyncSession = Depends(get_company_db),
 ):
     return await ReportsService(db, tenant).purchase_summary(from_date, to_date)
+
+@router.get("/pending-delivery")
+async def pending_delivery_report(
+    tenant: TenantContext = Depends(get_tenant_context),
+    db: AsyncSession = Depends(get_company_db),
+):
+    """Confirmed purchase orders awaiting inward receiving (GRN)."""
+    from ...services.purchase import PurchaseService
+    return await PurchaseService(db, tenant).get_pending_delivery_pos()
+
+@router.get("/supplier-outstanding")
+async def supplier_outstanding_report(
+    tenant: TenantContext = Depends(get_tenant_context),
+    db: AsyncSession = Depends(get_company_db),
+):
+    """Supplier-wise pending commitments, booked liabilities, and open order exposure."""
+    from ...services.purchase import PurchaseService
+    return await PurchaseService(db, tenant).get_outstanding_suppliers()
+
+@router.get("/pending-requisitions")
+async def pending_requisitions_report(
+    tenant: TenantContext = Depends(get_tenant_context),
+    db: AsyncSession = Depends(get_company_db),
+):
+    """Store and department purchase indents pending review and management approval."""
+    from ...services.procurement_phase2 import ProcurementPhase2Service
+    reqs = await ProcurementPhase2Service(db, tenant).list_requisitions()
+    return [
+        {
+            "id": r.id,
+            "requisition_no": r.requisition_no,
+            "requisition_date": str(r.requisition_date),
+            "required_by_date": str(r.required_by_date),
+            "department": r.department or "General",
+            "priority": r.priority,
+            "status": r.status,
+            "estimated_total": float(r.estimated_total),
+            "approved_total": float(r.approved_total),
+            "items_count": len(r.items),
+            "justification": r.justification,
+        }
+        for r in reqs
+        if r.status in ("DRAFT", "SUBMITTED", "APPROVED")
+    ]
+
+@router.get("/requisition-conversion-tracking")
+async def requisition_conversion_tracking_report(
+    tenant: TenantContext = Depends(get_tenant_context),
+    db: AsyncSession = Depends(get_company_db),
+):
+    """Audit traceability of approved requisitions through to purchase order creation."""
+    from ...services.procurement_phase2 import ProcurementPhase2Service
+    reqs = await ProcurementPhase2Service(db, tenant).list_requisitions()
+    rows = []
+    for r in reqs:
+        for it in r.items:
+            rows.append({
+                "requisition_no": r.requisition_no,
+                "department": r.department or "General",
+                "status": r.status,
+                "po_no": r.po_no or "—",
+                "item_code": it.code,
+                "item_name": it.name,
+                "quantity_requested": float(it.quantity_requested),
+                "quantity_approved": float(it.quantity_approved),
+                "quantity_ordered": float(it.quantity_ordered),
+                "fulfillment_percent": round((float(it.quantity_ordered) / float(it.quantity_approved) * 100), 1) if it.quantity_approved > 0 else 0.0,
+            })
+    return rows
+
+@router.get("/rfq-quotation-register")
+async def rfq_quotation_register_report(
+    tenant: TenantContext = Depends(get_tenant_context),
+    db: AsyncSession = Depends(get_company_db),
+):
+    """Comparative analysis of multi-supplier quotations and awarded bids."""
+    from ...services.procurement_phase2 import ProcurementPhase2Service
+    service = ProcurementPhase2Service(db, tenant)
+    quotes = await service.list_quotations()
+    return [
+        {
+            "quotation_no": q.quotation_no,
+            "rfq_id": q.rfq_id or "Direct",
+            "supplier_name": q.supplier.name if q.supplier else q.supplier_id,
+            "quotation_date": str(q.quotation_date),
+            "valid_until": str(q.valid_until),
+            "status": q.status,
+            "payment_terms": q.payment_terms or "Standard",
+            "delivery_timeline": q.delivery_timeline or "Standard",
+            "subtotal": float(q.subtotal),
+            "tax_total": float(q.tax_total),
+            "freight_charges": float(q.freight_charges),
+            "total_landed_cost": float(q.total_landed_cost),
+            "po_no": q.po_no or "—",
+            "selection_justification": q.selection_justification or "—",
+        }
+        for q in quotes
+    ]
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Sprint 8a P1 Endpoints — Tax & Compliance (Shoper9 parity: SR202300/202400/202200/210200/202000)

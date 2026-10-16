@@ -31,11 +31,13 @@ import {
   ChevronRight, ChevronDown, CheckSquare, Eye, Share2, Edit3, Trash2,
   Maximize2, TableProperties, BarChart3, PieChart as PieIcon, LineChart as LineIcon,
   Hash, Calendar, RefreshCw, Check, ArrowLeft, ShieldAlert, X, AlertTriangle, Play, Square,
-  Code, Terminal, FileSpreadsheet, ExternalLink, Sparkles, ShoppingBag, ArrowRight, TrendingUp
+  Code, Terminal, FileSpreadsheet, ExternalLink, Sparkles, ShoppingBag, ArrowRight, TrendingUp,
+  FileText, SlidersHorizontal
 } from "lucide-react";
 import { SalesOrderA4 } from "./templates/SalesOrderA4";
 import { SalesOrderMatrixEntry } from "./sales/SalesOrderMatrixEntry";
 import { SmritiReportEngine } from "./reports/SmritiReportEngine";
+import { ReportBuilder } from "./reports/ReportBuilder.tsx";
 import { ConsolidatedBalanceSheetModal } from "./reports/ConsolidatedBalanceSheetModal.tsx";
 import { ScheduleReportModal } from "./reports/ScheduleReportModal.tsx";
 import { PLDashboardModal } from "./finance/PLDashboardModal.tsx";
@@ -156,6 +158,21 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
             const ledger = await apiFetchV1(`/reports/supplier-ledger/${drillFilter}`);
             setSelectedSupplierLedger(ledger);
           }
+        } else if (selectedReport.id === "RPT-PUR-003") {
+          const data = await apiFetchV1("/reports/pending-delivery");
+          setGenericReportData(Array.isArray(data) ? data : []);
+        } else if (selectedReport.id === "RPT-PUR-004") {
+          const data = await apiFetchV1("/reports/supplier-outstanding");
+          setGenericReportData(Array.isArray(data) ? data : []);
+        } else if (selectedReport.id === "RPT-PUR-005") {
+          const data = await apiFetchV1("/reports/pending-requisitions");
+          setGenericReportData(Array.isArray(data) ? data : []);
+        } else if (selectedReport.id === "RPT-PUR-006") {
+          const data = await apiFetchV1("/reports/requisition-conversion-tracking");
+          setGenericReportData(Array.isArray(data) ? data : []);
+        } else if (selectedReport.id === "RPT-PUR-007") {
+          const data = await apiFetchV1("/reports/rfq-quotation-register");
+          setGenericReportData(Array.isArray(data) ? data : []);
         } else if (selectedReport.id === "RPT-TAX-001") {
           const data = await apiFetchV1(`/reports/tax-register${params}`);
           setGenericReportData(data);
@@ -813,10 +830,44 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
           </p>
         </div>
 
-          <div className="flex items-center gap-2 self-stretch md:self-auto">
+          <div className="flex items-center gap-2 self-stretch md:self-auto flex-wrap">
+            {/* View Mode Segmented Switcher */}
+            <div className="inline-flex rounded-lg border border-theme-border bg-theme-surface-2 p-0.5 text-xs font-semibold">
+              <button
+                type="button"
+                id="report-tab-bi-catalog-btn"
+                onClick={() => setActiveView("bi_center")}
+                className={`px-3 py-1.5 rounded-md flex items-center gap-1.5 transition-colors cursor-pointer ${
+                  activeView === "bi_center"
+                    ? "bg-theme-surface-1 text-theme-primary shadow-xs font-bold"
+                    : "text-theme-muted hover:text-theme-body"
+                }`}
+              >
+                <LayoutGrid size={13} />
+                <span>BI Catalog</span>
+              </button>
+              <button
+                type="button"
+                id="report-tab-report-builder-btn"
+                onClick={() => setActiveView("designer")}
+                className={`px-3 py-1.5 rounded-md flex items-center gap-1.5 transition-colors cursor-pointer ${
+                  activeView === "designer"
+                    ? "bg-theme-surface-1 text-theme-primary shadow-xs font-bold"
+                    : "text-theme-muted hover:text-theme-body"
+                }`}
+              >
+                <FileText size={13} />
+                <span>Report Builder</span>
+              </button>
+            </div>
+
             <button
               type="button"
-              onClick={() => showNotification("success", "New report workspace ready for configuration.")}
+              id="reports-new-report-btn"
+              onClick={() => {
+                setActiveView("designer");
+                showNotification("success", "SMRITI Report Builder opened for custom report design.");
+              }}
               className="px-3 py-2 bg-theme-primary hover:bg-theme-primary-hover text-white rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
             >
               <Plus size={13} /> New Report
@@ -1227,6 +1278,17 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
           </div>
       )}
 
+      {/* SMRITI INTERACTIVE REPORT BUILDER (Collapsible Panels, Auto-Adaptive Layout & Focus Mode) */}
+      {activeView === "designer" && (
+        <div className="space-y-4">
+          <ReportBuilder
+            initialTitle="Report Builder"
+            onReturnToCatalog={() => setActiveView("bi_center")}
+            onNotification={(type, msg) => showNotification(type, msg)}
+          />
+        </div>
+      )}
+
       {/* SMRITI ACTIVE REPORT VIEWER (Genuinely interactive tables with mock drill-down state) */}
       {activeView === "viewer" && selectedReport && (
         <div className="space-y-6">
@@ -1263,6 +1325,21 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
               >
                 <RefreshCw size={13} className={loadingReports ? "animate-spin" : ""} />
                 Refresh Data
+              </button>
+
+              {/* Customize in Report Builder Button */}
+              <button
+                type="button"
+                id="report-viewer-customize-builder-btn"
+                onClick={() => {
+                  setActiveView("designer");
+                  showNotification("info", `Opened ${selectedReport.title} in SMRITI Report Builder.`);
+                }}
+                className="px-3 py-2 bg-theme-surface-2 border border-theme-divider hover:border-blue-500/30 text-theme-body rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+                title="Customize columns, layout, and filters in Report Builder"
+              >
+                <SlidersHorizontal size={13} className="text-blue-500" />
+                Customize in Builder
               </button>
 
               {/* Export Dropdown menu */}
