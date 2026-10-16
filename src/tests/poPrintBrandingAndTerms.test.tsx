@@ -5,7 +5,7 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.84.0
+ * Version      : 6.86.0
  * Created      : 2026-10-16
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
@@ -102,10 +102,11 @@ describe("Purchase Order Print Branding, Watermark & Payment Terms Verification"
   it("2. renders background document watermark and official Image Not Available placeholder graphic", () => {
     const html = renderToStaticMarkup(<PurchaseOrderPrintA4 data={sampleFootwearPOData} />);
 
-    // Background document watermark
+    // Background document watermark with Tattly Threads logo
     expect(html).toContain("rotate-[-28deg]");
     expect(html).toContain("PURCHASE ORDER");
     expect(html).toContain("TATTLY THREADS");
+    expect(html).toContain("tattly_logo_black.png");
 
     // GoldenRatioImagePlaceholder official graphic
     const placeholderHtml = renderToStaticMarkup(<GoldenRatioImagePlaceholder articleNo="CH-25-G" />);
@@ -206,4 +207,21 @@ describe("Purchase Order Print Branding, Watermark & Payment Terms Verification"
     expect(matches).not.toBeNull();
     expect(matches?.length).toBe(2);
   });
+
+  it("8. auto-derives item references from sizewise or standard items when itemReferences is empty so placeholders are never missing", () => {
+    const poWithoutExplicitReferences: PurchaseOrderPrintData = {
+      ...sampleFootwearPOData,
+      itemReferences: [], // empty array
+    };
+
+    const html = renderToStaticMarkup(<PurchaseOrderPrintA4 data={poWithoutExplicitReferences} />);
+
+    // Item Reference section header still renders
+    expect(html).toContain("ITEM REFERENCE (IMAGES)");
+    // Auto-derived card for CH-25-G renders with official Image Not Available placeholder
+    expect(html).toContain("CH-25-G");
+    expect(html).toContain("alt=\"Image Not Available\"");
+    expect(html).toMatch(/smriti-image-placeholder\.png/);
+  });
 });
+

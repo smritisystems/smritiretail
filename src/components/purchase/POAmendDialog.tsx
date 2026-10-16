@@ -5,9 +5,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 1.0.0
+ * Version      : 1.1.0
  * Created      : 2026-10-01
- * Modified     : 2026-10-01
+ * Modified     : 2026-10-16
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
@@ -82,17 +82,17 @@ interface POAmendDialogProps {
 // ─── Status badge colours (reused pattern) ───────────────────────────────────
 
 const STATUS_BADGE: Record<string, string> = {
-  CONFIRMED: "bg-emerald-900/60 text-emerald-300",
-  CANCELLED: "bg-red-900/60 text-red-400",
-  DRAFT:     "bg-amber-900/60 text-amber-300",
-  SUBMITTED: "bg-blue-900/60 text-blue-300",
+  CONFIRMED: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-300",
+  CANCELLED: "bg-red-100 text-red-800 dark:bg-red-900/60 dark:text-red-400",
+  DRAFT:     "bg-amber-100 text-amber-800 dark:bg-amber-900/60 dark:text-amber-300",
+  SUBMITTED: "bg-blue-100 text-blue-800 dark:bg-blue-900/60 dark:text-blue-300",
 };
 
 function RevisionBadge({ rev }: { rev: number }) {
   return rev === 0 ? (
-    <span className="text-[10px] bg-slate-700 text-slate-400 px-2 py-0.5 rounded-full font-medium">Original</span>
+    <span className="text-[10px] bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-400 px-2 py-0.5 rounded-full font-medium">Original</span>
   ) : (
-    <span className="text-[10px] bg-violet-900/60 text-violet-300 px-2 py-0.5 rounded-full font-medium">Rev {rev}</span>
+    <span className="text-[10px] bg-violet-100 dark:bg-violet-900/60 text-violet-800 dark:text-violet-300 px-2 py-0.5 rounded-full font-medium">Rev {rev}</span>
   );
 }
 
@@ -205,30 +205,30 @@ export const POAmendDialog: React.FC<POAmendDialogProps> = ({
       aria-label={`Amend purchase order ${po.order_no}`}
       onKeyDown={(e) => { if (e.key === "Escape") onCancel(); }}
     >
-      <div className="bg-slate-900 border border-slate-700 rounded-xl shadow-2xl w-[700px] max-w-[96vw] flex flex-col max-h-[92vh] overflow-hidden">
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl shadow-2xl w-[700px] max-w-[96vw] flex flex-col max-h-[92vh] overflow-hidden">
 
         {/* ── Header ─────────────────────────────────────────────────────── */}
-        <div className="bg-violet-950/40 border-b border-violet-900/40 px-5 py-4 flex items-start gap-3 shrink-0">
-          <div className="mt-0.5 w-9 h-9 rounded-full bg-violet-900/60 border border-violet-700/50 flex items-center justify-center shrink-0">
-            <span className="material-symbols-outlined text-violet-400 text-lg">edit_document</span>
+        <div className="bg-violet-50 dark:bg-violet-950/40 border-b border-violet-100 dark:border-violet-900/40 px-5 py-4 flex items-start gap-3 shrink-0">
+          <div className="mt-0.5 w-9 h-9 rounded-full bg-violet-100 dark:bg-violet-900/60 border border-violet-200 dark:border-violet-700/50 flex items-center justify-center shrink-0">
+            <span className="material-symbols-outlined text-violet-600 dark:text-violet-400 text-lg">edit_document</span>
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-white font-semibold text-sm leading-tight">Amend Purchase Order</p>
+            <p className="text-slate-900 dark:text-white font-semibold text-sm leading-tight">Amend Purchase Order</p>
             <div className="flex flex-wrap items-center gap-2 mt-1">
-              <span className="font-mono text-violet-300 text-xs">{po.order_no}</span>
+              <span className="font-mono text-violet-700 dark:text-violet-300 text-xs font-semibold">{po.order_no}</span>
               {po.supplier_name && (
-                <span className="text-slate-400 text-xs">· {po.supplier_name}</span>
+                <span className="text-slate-500 dark:text-slate-400 text-xs">· {po.supplier_name}</span>
               )}
               <RevisionBadge rev={po.amend_revision ?? 0} />
             </div>
-            <p className="text-slate-400 text-xs mt-1.5">
+            <p className="text-slate-500 dark:text-slate-400 text-xs mt-1.5">
               A new Confirmed revision will be created. The original PO will be marked Superseded.
             </p>
           </div>
         </div>
 
         {/* ── Tabs ────────────────────────────────────────────────────────── */}
-        <div className="flex border-b border-slate-800 shrink-0 bg-slate-900/80">
+        <div className="flex border-b border-slate-200 dark:border-slate-800 shrink-0 bg-slate-50 dark:bg-slate-900/80">
           {(["edit", "history"] as const).map((tab) => (
             <button
               key={tab}
@@ -236,8 +236,8 @@ export const POAmendDialog: React.FC<POAmendDialogProps> = ({
               onClick={() => setActiveTab(tab)}
               className={`px-5 py-2.5 text-xs font-medium transition border-b-2 -mb-px ${
                 activeTab === tab
-                  ? "border-violet-500 text-violet-300"
-                  : "border-transparent text-slate-400 hover:text-slate-300"
+                  ? "border-violet-600 dark:border-violet-500 text-violet-700 dark:text-violet-300 font-semibold"
+                  : "border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300"
               }`}
             >
               {tab === "edit" ? (
@@ -258,7 +258,7 @@ export const POAmendDialog: React.FC<POAmendDialogProps> = ({
               {/* New order number + reason */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-medium text-slate-400 mb-1">
+                  <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
                     New Order No.<span className="text-red-500 ml-0.5">*</span>
                   </label>
                   <input
@@ -270,14 +270,14 @@ export const POAmendDialog: React.FC<POAmendDialogProps> = ({
                       setNewOrderNo(e.target.value);
                       if (errors.order_no) setErrors((p) => ({ ...p, order_no: "" }));
                     }}
-                    className={`w-full bg-slate-800 border rounded-lg px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none transition
-                      ${errors.order_no ? "border-red-600 focus:border-red-500" : "border-slate-700 focus:border-violet-500"}`}
+                    className={`w-full bg-white dark:bg-slate-800 border rounded-lg px-3 py-2 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none transition
+                      ${errors.order_no ? "border-red-600 focus:border-red-500" : "border-slate-300 dark:border-slate-700 focus:border-violet-500"}`}
                     placeholder="e.g. PO-001-R1"
                   />
-                  {errors.order_no && <p className="mt-1 text-[11px] text-red-400">{errors.order_no}</p>}
+                  {errors.order_no && <p className="mt-1 text-[11px] text-red-500 dark:text-red-400">{errors.order_no}</p>}
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-slate-400 mb-1">
+                  <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
                     Amendment Reason<span className="text-red-500 ml-0.5">*</span>
                   </label>
                   <input
@@ -288,40 +288,40 @@ export const POAmendDialog: React.FC<POAmendDialogProps> = ({
                       setReason(e.target.value);
                       if (errors.reason) setErrors((p) => ({ ...p, reason: "" }));
                     }}
-                    className={`w-full bg-slate-800 border rounded-lg px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none transition
-                      ${errors.reason ? "border-red-600 focus:border-red-500" : "border-slate-700 focus:border-violet-500"}`}
+                    className={`w-full bg-white dark:bg-slate-800 border rounded-lg px-3 py-2 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none transition
+                      ${errors.reason ? "border-red-600 focus:border-red-500" : "border-slate-300 dark:border-slate-700 focus:border-violet-500"}`}
                     placeholder="e.g. Price revision from supplier"
                   />
-                  {errors.reason && <p className="mt-1 text-[11px] text-red-400">{errors.reason}</p>}
+                  {errors.reason && <p className="mt-1 text-[11px] text-red-500 dark:text-red-400">{errors.reason}</p>}
                 </div>
               </div>
 
               {/* Items table */}
               <div>
-                <p className="text-xs font-medium text-slate-400 mb-2">
+                <p className="text-xs font-medium text-slate-700 dark:text-slate-300 mb-2">
                   Items
-                  <span className="text-slate-600 ml-2 font-normal">(edit quantity / price as needed)</span>
+                  <span className="text-slate-500 dark:text-slate-400 ml-2 font-normal">(edit quantity / price as needed)</span>
                 </p>
-                {errors.items && <p className="mb-2 text-[11px] text-red-400">{errors.items}</p>}
+                {errors.items && <p className="mb-2 text-[11px] text-red-500 dark:text-red-400">{errors.items}</p>}
 
-                <div className="rounded-lg border border-slate-800 overflow-hidden">
+                <div className="rounded-lg border border-slate-200 dark:border-slate-800 overflow-hidden">
                   <table className="w-full text-xs">
-                    <thead className="bg-slate-800/80">
+                    <thead className="bg-slate-100 dark:bg-slate-800/80">
                       <tr>
-                        <th className="text-left px-3 py-2 text-slate-400 font-medium">Product</th>
-                        <th className="text-right px-3 py-2 text-slate-400 font-medium w-20">Qty</th>
-                        <th className="text-right px-3 py-2 text-slate-400 font-medium w-24">Cost ₹</th>
-                        <th className="text-right px-3 py-2 text-slate-400 font-medium w-16">GST%</th>
-                        <th className="text-right px-3 py-2 text-slate-400 font-medium w-24">Line Total</th>
+                        <th className="text-left px-3 py-2 text-slate-600 dark:text-slate-400 font-medium">Product</th>
+                        <th className="text-right px-3 py-2 text-slate-600 dark:text-slate-400 font-medium w-20">Qty</th>
+                        <th className="text-right px-3 py-2 text-slate-600 dark:text-slate-400 font-medium w-24">Cost ₹</th>
+                        <th className="text-right px-3 py-2 text-slate-600 dark:text-slate-400 font-medium w-16">GST%</th>
+                        <th className="text-right px-3 py-2 text-slate-600 dark:text-slate-400 font-medium w-24">Line Total</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-800">
+                    <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
                       {items.map((it, i) => {
                         const lineTotal = it.quantity * it.cost_price * (1 + it.gst_rate / 100);
                         return (
-                          <tr key={i} className="hover:bg-slate-800/30 transition">
+                          <tr key={i} className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition">
                             <td className="px-3 py-2">
-                              <p className="text-white font-medium">{it.name}</p>
+                              <p className="text-slate-900 dark:text-white font-medium">{it.name}</p>
                               <p className="text-slate-500 font-mono text-[10px]">{it.code}</p>
                             </td>
                             <td className="px-2 py-1.5">
@@ -332,8 +332,8 @@ export const POAmendDialog: React.FC<POAmendDialogProps> = ({
                                 step="0.01"
                                 value={it.quantity}
                                 onChange={(e) => updateItem(i, "quantity", e.target.value)}
-                                className={`w-full bg-slate-800 border rounded px-2 py-1 text-right text-white focus:outline-none focus:border-violet-500 transition
-                                  ${errors[`qty_${i}`] ? "border-red-600" : "border-slate-700"}`}
+                                className={`w-full bg-white dark:bg-slate-800 border rounded px-2 py-1 text-right text-slate-900 dark:text-white focus:outline-none focus:border-violet-500 transition
+                                  ${errors[`qty_${i}`] ? "border-red-600" : "border-slate-300 dark:border-slate-700"}`}
                               />
                             </td>
                             <td className="px-2 py-1.5">
@@ -344,24 +344,24 @@ export const POAmendDialog: React.FC<POAmendDialogProps> = ({
                                 step="0.01"
                                 value={it.cost_price}
                                 onChange={(e) => updateItem(i, "cost_price", e.target.value)}
-                                className={`w-full bg-slate-800 border rounded px-2 py-1 text-right text-white focus:outline-none focus:border-violet-500 transition
-                                  ${errors[`price_${i}`] ? "border-red-600" : "border-slate-700"}`}
+                                className={`w-full bg-white dark:bg-slate-800 border rounded px-2 py-1 text-right text-slate-900 dark:text-white focus:outline-none focus:border-violet-500 transition
+                                  ${errors[`price_${i}`] ? "border-red-600" : "border-slate-300 dark:border-slate-700"}`}
                               />
                             </td>
-                            <td className="px-3 py-2 text-right text-slate-400">{it.gst_rate}%</td>
-                            <td className="px-3 py-2 text-right text-slate-200 font-mono">
+                            <td className="px-3 py-2 text-right text-slate-600 dark:text-slate-400">{it.gst_rate}%</td>
+                            <td className="px-3 py-2 text-right text-slate-800 dark:text-slate-200 font-mono">
                               {fmt(lineTotal)}
                             </td>
                           </tr>
                         );
                       })}
                     </tbody>
-                    <tfoot className="bg-slate-800/60 border-t border-slate-700">
+                    <tfoot className="bg-slate-50 dark:bg-slate-800/60 border-t border-slate-200 dark:border-slate-700">
                       <tr>
-                        <td colSpan={4} className="px-3 py-2 text-right text-slate-400 text-xs font-medium">
+                        <td colSpan={4} className="px-3 py-2 text-right text-slate-600 dark:text-slate-400 text-xs font-medium">
                           Grand Total
                         </td>
-                        <td className="px-3 py-2 text-right text-white font-semibold font-mono">{fmt(grand)}</td>
+                        <td className="px-3 py-2 text-right text-slate-900 dark:text-white font-semibold font-mono">{fmt(grand)}</td>
                       </tr>
                     </tfoot>
                   </table>
@@ -373,45 +373,45 @@ export const POAmendDialog: React.FC<POAmendDialogProps> = ({
           {/* ── History Tab ─────────────────────────────────────────────── */}
           {activeTab === "history" && (
             <div className="p-5">
-              <p className="text-xs font-medium text-slate-400 mb-3">Amendment chain for this PO</p>
+              <p className="text-xs font-medium text-slate-700 dark:text-slate-300 mb-3">Amendment chain for this PO</p>
               {historyLoading ? (
                 <div className="space-y-2 animate-pulse">
-                  {[...Array(3)].map((_, i) => <div key={i} className="h-14 rounded-lg bg-slate-800/60" />)}
+                  {[...Array(3)].map((_, i) => <div key={i} className="h-14 rounded-lg bg-slate-100 dark:bg-slate-800/60" />)}
                 </div>
               ) : history.length === 0 ? (
                 <div className="text-center py-8 text-slate-500 text-xs">
-                  <span className="material-symbols-outlined block text-2xl mb-2 text-slate-700">history</span>
+                  <span className="material-symbols-outlined block text-2xl mb-2 text-slate-400 dark:text-slate-600">history</span>
                   No amendment history found.
                 </div>
               ) : (
                 <div className="space-y-2">
                   {history.map((h, idx) => {
                     const isLast = idx === history.length - 1;
-                    const badgeCls = STATUS_BADGE[h.status] ?? "bg-slate-700 text-slate-400";
+                    const badgeCls = STATUS_BADGE[h.status] ?? "bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-400";
                     return (
                       <div
                         key={h.id}
                         className={`rounded-lg border p-3 flex items-center gap-3 ${
-                          isLast ? "border-violet-700/50 bg-violet-900/10" : "border-slate-800 bg-slate-800/30"
+                          isLast ? "border-violet-300 dark:border-violet-700/50 bg-violet-50/50 dark:bg-violet-900/10" : "border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30"
                         }`}
                       >
                         {/* Timeline dot */}
                         <div className="flex flex-col items-center shrink-0">
-                          <div className={`w-3 h-3 rounded-full border-2 ${isLast ? "border-violet-500 bg-violet-500" : "border-slate-600 bg-slate-700"}`} />
-                          {idx < history.length - 1 && <div className="w-px h-4 bg-slate-700 mt-1" />}
+                          <div className={`w-3 h-3 rounded-full border-2 ${isLast ? "border-violet-500 bg-violet-500" : "border-slate-400 dark:border-slate-600 bg-slate-300 dark:bg-slate-700"}`} />
+                          {idx < history.length - 1 && <div className="w-px h-4 bg-slate-300 dark:bg-slate-700 mt-1" />}
                         </div>
 
                         <div className="flex-1 min-w-0">
                           <div className="flex flex-wrap items-center gap-2">
-                            <span className="font-mono text-white text-xs font-medium">{h.order_no}</span>
+                            <span className="font-mono text-slate-900 dark:text-white text-xs font-medium">{h.order_no}</span>
                             <RevisionBadge rev={h.amend_revision} />
                             <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase ${badgeCls}`}>
                               {h.status}
                             </span>
-                            {isLast && <span className="text-[10px] text-violet-400 font-medium">Current</span>}
+                            {isLast && <span className="text-[10px] text-violet-600 dark:text-violet-400 font-medium">Current</span>}
                           </div>
                           <div className="flex gap-4 mt-1 text-[11px] text-slate-500">
-                            <span>Grand Total: <span className="text-slate-300 font-mono">₹{Number(h.grand_total).toLocaleString("en-IN")}</span></span>
+                            <span>Grand Total: <span className="text-slate-800 dark:text-slate-300 font-mono">₹{Number(h.grand_total).toLocaleString("en-IN")}</span></span>
                             {h.amended_at && <span>Amended: {fmtDate(h.amended_at)}</span>}
                             {h.amended_by && <span>By: {h.amended_by}</span>}
                           </div>
@@ -426,7 +426,7 @@ export const POAmendDialog: React.FC<POAmendDialogProps> = ({
         </div>
 
         {/* ── Footer ─────────────────────────────────────────────────────── */}
-        <div className="border-t border-slate-800 px-5 py-3.5 flex items-center justify-between gap-3 shrink-0 bg-slate-900/80">
+        <div className="border-t border-slate-200 dark:border-slate-800 px-5 py-3.5 flex items-center justify-between gap-3 shrink-0 bg-slate-50 dark:bg-slate-900/80">
           <p className="text-[11px] text-slate-500">
             <span className="material-symbols-outlined text-[12px] align-text-bottom mr-0.5">info</span>
             Original PO will be marked Superseded.
@@ -437,7 +437,7 @@ export const POAmendDialog: React.FC<POAmendDialogProps> = ({
               id="po-amend-dialog-cancel-btn"
               onClick={onCancel}
               disabled={loading}
-              className="px-4 py-2 text-xs rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition font-medium disabled:opacity-50"
+              className="px-4 py-2 text-xs rounded-lg bg-slate-200 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 transition font-medium disabled:opacity-50"
             >
               Cancel
             </button>

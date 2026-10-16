@@ -16,9 +16,9 @@
  *
  * * Websites: aitdl.com | erpnbook.com | smritibooks.com
  *
- * * Version    : 6.82.0
+ * * Version    : 6.86.0
  * * Created    : 2026-09-19
- * * Modified   : 2026-10-15
+ * * Modified   : 2026-10-16
  * * Copyright  : © AITDL.com and SMRITIBooks.com. All Rights Reserved.
  * * License    : Proprietary Commercial Software
  */
@@ -583,7 +583,7 @@ export const POPrintPreviewModal: React.FC<POPrintPreviewModalProps> = ({
     const refMap = new Map<string, FootwearArticleReference>();
 
     sizePivotRows.forEach((r) => {
-      const art = (r.articleNo || r.product || "").trim();
+      const art = (r.articleNo || (r as any).itemCode || (r as any).style || r.product || "").trim();
       if (art && !refMap.has(art)) {
         refMap.set(art, {
           articleNo: art,
@@ -614,7 +614,7 @@ export const POPrintPreviewModal: React.FC<POPrintPreviewModalProps> = ({
     });
 
     lineItems.forEach((l) => {
-      const art = (l.style || l.stockNo || l.product || "").trim();
+      const art = (l.style || l.stockNo || l.barcode || l.product || "").trim();
       if (art && !refMap.has(art)) {
         refMap.set(art, {
           articleNo: art,

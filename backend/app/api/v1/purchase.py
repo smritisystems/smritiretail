@@ -16,9 +16,9 @@ Founders
 
 * Websites: aitdl.com | erpnbook.com | smritibooks.com
 
-* Version    : 3.34.0
+* Version    : 3.35.0
 * Created    : 2026-07-11
-* Modified   : 2026-09-21
+* Modified   : 2026-10-16
 * Copyright  : © AITDL.com and SMRITIBooks.com. All Rights Reserved.
 * License    : Proprietary Commercial Software
 Classification: Internal
@@ -35,7 +35,7 @@ from sqlalchemy import select
 
 from ...api.deps import get_company_db, get_tenant_context, require_role, TenantContext, get_current_user
 from ...models.auth import User, UserRole
-from ...models.purchase import PurchaseOrderItem
+from ...models.purchase import PurchaseOrderItem, Supplier
 from ...models.inward_cost import InwardCostComponentType, InwardCostComponent
 from ...schemas.purchase import (
     SupplierCreate, SupplierUpdate, SupplierResponse,
@@ -154,10 +154,21 @@ async def list_purchase_orders_contract(
     for it in all_items:
         items_by_order[it.order_id].append(PurchaseOrderItemResponse.model_validate(it))
 
+    supplier_ids = list({o.supplier_id for o in orders if o.supplier_id})
+    supplier_map: Dict[str, str] = {}
+    if supplier_ids:
+        sup_stmt = select(Supplier.id, Supplier.name).where(
+            Supplier.id.in_(supplier_ids),
+            Supplier.company_id == tenant_ctx.company_id,
+        )
+        sup_res = await db.execute(sup_stmt)
+        supplier_map = {row[0]: row[1] for row in sup_res.fetchall()}
+
     result = []
     for o in orders:
         resp = PurchaseOrderResponse.model_validate(o)
         resp.items = items_by_order.get(o.id, [])
+        resp.supplier_name = supplier_map.get(o.supplier_id)
         result.append(resp)
 
     # Optional sorting
@@ -218,7 +229,15 @@ async def get_purchase_order_contract(
     """Get a purchase order by ID — canonical contract URL."""
     order, items = await PurchaseService(db, tenant_ctx).get_purchase_order(order_id)
     order.items = items
-    return order
+    resp = PurchaseOrderResponse.model_validate(order)
+    if order.supplier_id:
+        sup_stmt = select(Supplier.name).where(
+            Supplier.id == order.supplier_id,
+            Supplier.company_id == tenant_ctx.company_id,
+        )
+        sup_res = await db.execute(sup_stmt)
+        resp.supplier_name = sup_res.scalar_one_or_none()
+    return resp
 
 
 @router.put("/orders/{order_id}", response_model=PurchaseOrderResponse, summary="Update Purchase Order (Draft)",

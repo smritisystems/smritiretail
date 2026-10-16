@@ -16,9 +16,9 @@
  *
  * * Websites: aitdl.com | erpnbook.com | smritibooks.com
  *
- * * Version    : 3.30.0
+ * * Version    : 6.86.0
  * * Created    : 2026-09-19
- * * Modified   : 2026-09-19
+ * * Modified   : 2026-10-16
  * * Copyright  : © AITDL.com and SMRITIBooks.com. All Rights Reserved.
  * * License    : Proprietary Commercial Software
  */
@@ -26,6 +26,7 @@
 import React from "react";
 import smritiImagePlaceholder from "../../../myImages/smriti-image-placeholder.png";
 import imageNotAvailablePlaceholder from "../../../myImages/image_not_available_placeholder.png";
+import tattlyLogoBlack from "../../../myImages/tattly_logo_black.png";
 import { SafeRichTermsRenderer } from "../../components/common/SafeRichTermsRenderer";
 
 export interface FootwearPurchaseOrderItem {
@@ -185,8 +186,31 @@ export const FootwearPurchaseOrderA4: React.FC<{ data?: FootwearPurchaseOrderDat
     <div
       className={`${
         isLandscape ? "w-[297mm] min-h-[210mm] p-6" : "w-[210mm] min-h-[297mm] p-8"
-      } bg-white text-slate-900 mx-auto box-border text-[11px] font-sans print-only-container shadow-sm leading-normal`}
+      } relative bg-white text-slate-900 mx-auto box-border text-[11px] font-sans print-only-container shadow-sm leading-normal overflow-hidden`}
     >
+      {/* ── Document Watermark (Diagonal TATTLY THREADS Logo + Stamp) ── */}
+      <div className="absolute inset-0 pointer-events-none flex items-center justify-center opacity-[0.07] z-20 overflow-hidden select-none print:opacity-[0.08] mix-blend-multiply">
+        <div className="text-center font-black tracking-widest text-[#1e3a8a] rotate-[-28deg] border-4 border-dashed border-[#1e3a8a] px-10 py-6 rounded-3xl uppercase flex flex-col items-center justify-center shadow-xs">
+          <img
+            src={tattlyLogoBlack}
+            alt="TATTLY THREADS"
+            className="w-36 h-auto max-h-20 object-contain mb-2 print:max-h-20"
+            onError={(e) => {
+              const img = e.currentTarget;
+              if (img.src !== window.location.origin + "/tattly_logo_black.png") {
+                img.src = "/tattly_logo_black.png";
+              }
+            }}
+          />
+          <div className="text-[52px] leading-tight font-black tracking-wider text-[#1e3a8a]">
+            {data.companyName || "TATTLY THREADS"}
+          </div>
+          <div className="text-xl font-bold tracking-[0.22em] mt-1 text-slate-800 border-t-2 border-dashed border-[#1e3a8a]/40 pt-1 w-full">
+            {data.documentStatus === "DRAFT" ? "PURCHASE ORDER — DRAFT" : "PURCHASE ORDER"}
+          </div>
+        </div>
+      </div>
+
       <style>{`
         @media print {
           @page {
@@ -298,16 +322,26 @@ export const FootwearPurchaseOrderA4: React.FC<{ data?: FootwearPurchaseOrderDat
                           alt={item.articleCode}
                           className="w-full h-full object-cover rounded border border-slate-200"
                           onError={(e) => {
-                            e.currentTarget.src = smritiImagePlaceholder;
-                            e.currentTarget.className = "w-full h-full object-contain";
-                            e.currentTarget.onerror = null;
+                            const imgElem = e.currentTarget;
+                            imgElem.src = smritiImagePlaceholder || "/smriti-image-placeholder.png";
+                            imgElem.className = "w-full h-full object-contain";
+                            imgElem.onerror = () => {
+                              imgElem.src = "/assets/branding/smriti-image-placeholder.png";
+                              imgElem.onerror = null;
+                            };
                           }}
                         />
                       ) : (
                         <img
-                          src={smritiImagePlaceholder}
+                          src={smritiImagePlaceholder || "/smriti-image-placeholder.png"}
                           alt="Image Not Available"
                           className="w-full h-full object-contain"
+                          onError={(e) => {
+                            const imgElem = e.currentTarget;
+                            if (imgElem.src !== window.location.origin + "/assets/branding/smriti-image-placeholder.png") {
+                              imgElem.src = "/assets/branding/smriti-image-placeholder.png";
+                            }
+                          }}
                         />
                       )}
                     </div>

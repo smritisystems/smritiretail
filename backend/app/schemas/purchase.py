@@ -16,16 +16,16 @@ Founders
 
 * Websites: aitdl.com | erpnbook.com | smritibooks.com
 
-* Version    : 3.18.0
+* Version    : 3.19.0
 * Created    : 2026-07-11
-* Modified   : 2026-09-18
+* Modified   : 2026-10-16
 * Copyright  : © AITDL.com and SMRITIBooks.com. All Rights Reserved.
 * License    : Proprietary Commercial Software
 Classification: Internal
 """
 
 from decimal import Decimal
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Union
 from datetime import datetime, date
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from .inward_cost import InwardCostComponentCreate, InwardCostComponentResponse
@@ -204,6 +204,11 @@ class PurchaseOrderResponse(BaseModel):
     identity_code: Optional[str] = None
     order_no:      str
     supplier_id:   str
+    supplier_name: Optional[str] = None
+    created_at:    Optional[datetime] = None
+    order_date:    Optional[Union[date, datetime, str]] = None
+    delivery_date: Optional[Union[date, datetime, str]] = None
+    total_amount:  Optional[Decimal] = None
     status:        str
     notes:         Optional[str] = None
     subtotal:      Decimal
@@ -230,6 +235,13 @@ class PurchaseOrderResponse(BaseModel):
 
     @model_validator(mode="after")
     def populate_commercial_terms(self) -> "PurchaseOrderResponse":
+        if self.total_amount is None:
+            self.total_amount = self.grand_total
+        if self.order_date is None and self.created_at:
+            self.order_date = self.created_at
+        if not self.delivery_date and self.rule_snapshots and isinstance(self.rule_snapshots, dict):
+            if "delivery_date" in self.rule_snapshots:
+                self.delivery_date = self.rule_snapshots.get("delivery_date")
         if not self.commercial_terms and self.rule_snapshots and isinstance(self.rule_snapshots, dict):
             if "commercial_terms" in self.rule_snapshots:
                 self.commercial_terms = self.rule_snapshots.get("commercial_terms")
