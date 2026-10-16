@@ -415,6 +415,7 @@ export const VariantEditModal: React.FC<VariantEditModalProps> = ({
                 <div className="relative">
                   <input
                     type="text"
+                    data-field-key="sku"
                     disabled={isTransacted}
                     value={sku}
                     onChange={(e) => setSku(e.target.value)}
@@ -435,6 +436,7 @@ export const VariantEditModal: React.FC<VariantEditModalProps> = ({
                 <div className="relative">
                   <input
                     type="text"
+                    data-field-key="barcode"
                     disabled={isTransacted}
                     value={primaryBarcode}
                     onChange={(e) => setPrimaryBarcode(e.target.value.toUpperCase())}
@@ -545,6 +547,7 @@ export const VariantEditModal: React.FC<VariantEditModalProps> = ({
                 <div className="inline-flex items-center gap-1">
                   <input
                     type="text"
+                    data-field-key="additional_barcode"
                     autoFocus
                     placeholder="Scan or enter barcode"
                     value={newBarcode}
@@ -595,6 +598,7 @@ export const VariantEditModal: React.FC<VariantEditModalProps> = ({
               </label>
               <input
                 type="number"
+                data-field-key="mrp"
                 step="0.01"
                 value={mrp}
                 onChange={(e) => setMrp(e.target.value)}
@@ -608,6 +612,7 @@ export const VariantEditModal: React.FC<VariantEditModalProps> = ({
               </label>
               <input
                 type="number"
+                data-field-key="selling_price"
                 step="0.01"
                 value={sellingPrice}
                 onChange={(e) => setSellingPrice(e.target.value)}
@@ -621,6 +626,7 @@ export const VariantEditModal: React.FC<VariantEditModalProps> = ({
               </label>
               <input
                 type="number"
+                data-field-key="cost_price"
                 step="0.01"
                 value={costPrice}
                 onChange={(e) => setCostPrice(e.target.value)}

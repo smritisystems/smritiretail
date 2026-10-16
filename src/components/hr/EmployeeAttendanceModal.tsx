@@ -785,6 +785,7 @@ export const EmployeeAttendanceModal: React.FC<EmployeeAttendanceModalProps> = (
                               <input
                                 type="number"
                                 step="0.01"
+                                data-field-key="settle_amount"
                                 value={settleAmount}
                                 onChange={(e) => setSettleAmount(e.target.value)}
                                 className="w-full mt-1 px-3 py-1.5 bg-slate-950 border border-slate-700 rounded-lg text-emerald-400 font-mono font-bold text-xs"
@@ -807,6 +808,7 @@ export const EmployeeAttendanceModal: React.FC<EmployeeAttendanceModalProps> = (
                               <label className="text-[10px] text-slate-400 uppercase font-semibold">Payment Notes / Ref</label>
                               <input
                                 type="text"
+                                data-field-key="settle_notes"
                                 placeholder="e.g. UTR / Cash voucher #"
                                 value={settleNotes}
                                 onChange={(e) => setSettleNotes(e.target.value)}
@@ -972,6 +974,7 @@ export const EmployeeAttendanceModal: React.FC<EmployeeAttendanceModalProps> = (
                             <label className="text-[10px] text-slate-500 uppercase font-semibold">Start Date</label>
                             <input
                               type="date"
+                              data-field-key="leave_start_date"
                               value={leaveStartDate}
                               onChange={(e) => setLeaveStartDate(e.target.value)}
                               className="w-full mt-1 px-3 py-1.5 bg-slate-900 border border-slate-700 rounded-lg text-slate-200 text-xs font-mono"
@@ -981,6 +984,7 @@ export const EmployeeAttendanceModal: React.FC<EmployeeAttendanceModalProps> = (
                             <label className="text-[10px] text-slate-500 uppercase font-semibold">End Date</label>
                             <input
                               type="date"
+                              data-field-key="leave_end_date"
                               value={leaveEndDate}
                               onChange={(e) => setLeaveEndDate(e.target.value)}
                               className="w-full mt-1 px-3 py-1.5 bg-slate-900 border border-slate-700 rounded-lg text-slate-200 text-xs font-mono"
@@ -991,6 +995,7 @@ export const EmployeeAttendanceModal: React.FC<EmployeeAttendanceModalProps> = (
                           <label className="text-[10px] text-slate-500 uppercase font-semibold">Reason for Absence</label>
                           <input
                             type="text"
+                            data-field-key="leave_reason"
                             placeholder="e.g. Family medical commitment, emergency"
                             value={leaveReason}
                             onChange={(e) => setLeaveReason(e.target.value)}

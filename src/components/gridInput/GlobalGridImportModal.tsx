@@ -644,6 +644,7 @@ export const GlobalGridImportModal: React.FC<GlobalGridImportModalProps> = ({
                     <div className="relative flex-1">
                       <input
                         ref={scannerInputRef}
+                        data-field-key="barcode"
                         type="text"
                         value={scannerInputVal}
                         onChange={(e) => setScannerInputVal(e.target.value)}

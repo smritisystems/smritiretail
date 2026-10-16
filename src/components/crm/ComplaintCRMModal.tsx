@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Project      : SMRITI Retail OS
  * Author       : Jawahar Ramkripal Mallah
  * Designation  : Chief Systems Architect & Creator
@@ -116,7 +116,7 @@ export const ComplaintCRMModal: React.FC<ComplaintCRMModalProps> = ({ isOpen, on
             ].map((f) => (
               <div key={f.key} className={f.key === "invoice_no" ? "col-span-2" : ""}>
                 <label className="text-[10px] text-slate-500 uppercase tracking-wide block mb-1">{f.label}</label>
-                <input value={(form as any)[f.key]} onChange={(e) => setF(f.key, e.target.value)} placeholder={f.placeholder}
+                <input data-field-key={f.key} value={(form as any)[f.key]} onChange={(e) => setF(f.key, e.target.value)} placeholder={f.placeholder}
                   className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-slate-200 focus:outline-none focus:border-red-500/60" />
               </div>
             ))}

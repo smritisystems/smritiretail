@@ -593,6 +593,7 @@ export const VendorChallan281Modal: React.FC<VendorChallan281ModalProps> = ({
                     </label>
                     <input
                       type="text"
+                      data-field-key="challan_no"
                       placeholder="e.g. 00142"
                       value={challanNo}
                       onChange={(e) => setChallanNo(e.target.value)}
@@ -608,6 +609,7 @@ export const VendorChallan281Modal: React.FC<VendorChallan281ModalProps> = ({
                     </label>
                     <input
                       type="text"
+                      data-field-key="bsr_code"
                       maxLength={7}
                       placeholder="e.g. 0002134"
                       value={bsrCode}
@@ -624,6 +626,7 @@ export const VendorChallan281Modal: React.FC<VendorChallan281ModalProps> = ({
                     </label>
                     <input
                       type="date"
+                      data-field-key="challan_date"
                       value={challanDate}
                       onChange={(e) => setChallanDate(e.target.value)}
                       required
@@ -656,6 +659,7 @@ export const VendorChallan281Modal: React.FC<VendorChallan281ModalProps> = ({
                     </label>
                     <input
                       type="number"
+                      data-field-key="tax_amount"
                       step="0.01"
                       min="0"
                       value={taxAmount}
@@ -672,6 +676,7 @@ export const VendorChallan281Modal: React.FC<VendorChallan281ModalProps> = ({
                     </label>
                     <input
                       type="number"
+                      data-field-key="surcharge"
                       step="0.01"
                       min="0"
                       value={surcharge}
@@ -687,6 +692,7 @@ export const VendorChallan281Modal: React.FC<VendorChallan281ModalProps> = ({
                     </label>
                     <input
                       type="number"
+                      data-field-key="cess"
                       step="0.01"
                       min="0"
                       value={cess}
@@ -702,6 +708,7 @@ export const VendorChallan281Modal: React.FC<VendorChallan281ModalProps> = ({
                     </label>
                     <input
                       type="text"
+                      data-field-key="bank_name"
                       value={bankName}
                       onChange={(e) => setBankName(e.target.value)}
                       placeholder="e.g. HDFC Bank"
@@ -716,6 +723,7 @@ export const VendorChallan281Modal: React.FC<VendorChallan281ModalProps> = ({
                     </label>
                     <input
                       type="number"
+                      data-field-key="interest"
                       step="0.01"
                       min="0"
                       value={interest}
@@ -731,6 +739,7 @@ export const VendorChallan281Modal: React.FC<VendorChallan281ModalProps> = ({
                     </label>
                     <input
                       type="number"
+                      data-field-key="fee"
                       step="0.01"
                       min="0"
                       value={fee}
@@ -761,6 +770,7 @@ export const VendorChallan281Modal: React.FC<VendorChallan281ModalProps> = ({
                     </label>
                     <input
                       type="text"
+                      data-field-key="deposit_narration"
                       placeholder="e.g. Q2 Remittance HDFC Netbanking"
                       value={depositNarration}
                       onChange={(e) => setDepositNarration(e.target.value)}

@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Project      : SMRITI Retail OS
  * Author       : Jawahar Ramkripal Mallah
  * Designation  : Chief Systems Architect & Creator
@@ -87,10 +87,10 @@ export const PLDashboardModal: React.FC<PLDashboardModalProps> = ({ isOpen, onCl
 
         <div className="flex items-center gap-3 px-6 py-3 border-b border-slate-800 bg-slate-950/30 text-xs">
           <span className="text-slate-500">Date Range:</span>
-          <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)}
+          <input type="date" data-field-key="date_from" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)}
             className="bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-slate-200 focus:outline-none focus:border-green-500/60" />
           <span className="text-slate-600">to</span>
-          <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)}
+          <input type="date" data-field-key="date_to" value={dateTo} onChange={(e) => setDateTo(e.target.value)}
             className="bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-slate-200 focus:outline-none focus:border-green-500/60" />
           <button onClick={load} disabled={loading}
             className="px-3 py-1.5 rounded-lg text-xs font-bold text-white bg-green-600 hover:bg-green-500 disabled:opacity-40 transition-all">

@@ -14,6 +14,25 @@
 
 import { ExportColumnDefinition, ExportPreset } from "../export/types.ts";
 
+export const CATALOG_EXPORT_COLUMNS = [
+  { key: "code", label: "SKU", datatype: "text" },
+  { key: "barcode", label: "Barcode", datatype: "text" },
+  { key: "name", label: "Name", datatype: "text" },
+  { key: "brand", label: "Brand", datatype: "text" },
+  { key: "category", label: "Category", datatype: "text" },
+  { key: "gender", label: "Gender", datatype: "text" },
+  { key: "product_type", label: "Product Type", datatype: "text" },
+  { key: "article", label: "Article", datatype: "text" },
+  { key: "color", label: "Color", datatype: "text" },
+  { key: "size", label: "Size", datatype: "text" },
+  { key: "hsn_code", label: "HSN", datatype: "text" },
+  { key: "mrp", label: "Retail Price", datatype: "currency" },
+  { key: "buying_price", label: "Dealer Price", datatype: "currency" },
+  { key: "cost_price", label: "Cost Price", datatype: "currency" },
+  { key: "gst_percentage", label: "GST%", datatype: "percentage" },
+  { key: "status", label: "Status", datatype: "text" },
+];
+
 /**
  * Standard audit and compliance column definitions for forensic reporting.
  */

@@ -189,6 +189,7 @@ export const BatchBarcodePrintModal: React.FC<BatchBarcodePrintModalProps> = ({
               <span className="font-semibold text-slate-600 dark:text-slate-300">Copies:</span>
               <input
                 type="number"
+                data-field-key="copies_per_item"
                 min={1}
                 max={50}
                 value={copiesPerItem}

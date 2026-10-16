@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Project      : SMRITI Retail OS
  * Author       : Jawahar Ramkripal Mallah
  * Designation  : Chief Systems Architect & Creator
@@ -159,11 +159,11 @@ export const GiftVoucherModal: React.FC<GiftVoucherModalProps> = ({ isOpen, onCl
               </div>
               <div className="p-4 space-y-3">
                 <div className="flex gap-3 p-3 bg-slate-800/30 border border-slate-700/50 rounded-xl text-xs">
-                  <input value={redeemVoucherId} onChange={(e) => setRedeemVoucherId(e.target.value)} placeholder="Voucher ID to redeem"
+                  <input data-field-key="voucher_id" value={redeemVoucherId} onChange={(e) => setRedeemVoucherId(e.target.value)} placeholder="Voucher ID to redeem"
                     className="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-slate-200 focus:outline-none focus:border-orange-500/60" />
-                  <input value={redeemInvoiceNo} onChange={(e) => setRedeemInvoiceNo(e.target.value)} placeholder="Invoice No"
+                  <input data-field-key="invoice_no" value={redeemInvoiceNo} onChange={(e) => setRedeemInvoiceNo(e.target.value)} placeholder="Invoice No"
                     className="w-32 bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-slate-200 focus:outline-none focus:border-orange-500/60" />
-                  <input type="number" value={redeemOrderValue} onChange={(e) => setRedeemOrderValue(e.target.value)} placeholder="Order Value"
+                  <input data-field-key="order_value" type="number" value={redeemOrderValue} onChange={(e) => setRedeemOrderValue(e.target.value)} placeholder="Order Value"
                     className="w-28 bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-slate-200 focus:outline-none focus:border-orange-500/60" />
                   <button onClick={handleRedeem} disabled={submitting}
                     className="px-3 py-2 rounded-lg text-xs font-bold text-white bg-orange-600 hover:bg-orange-500 disabled:opacity-40 transition-all">
@@ -214,7 +214,7 @@ export const GiftVoucherModal: React.FC<GiftVoucherModalProps> = ({ isOpen, onCl
               ].map((f) => (
                 <div key={f.key}>
                   <label className="text-[10px] text-slate-500 uppercase tracking-wide block mb-1">{f.label}</label>
-                  <input type={f.type ?? "text"} value={(issueForm as any)[f.key]}
+                  <input type={f.type ?? "text"} data-field-key={f.key} value={(issueForm as any)[f.key]}
                     onChange={(e) => setIssueForm((p) => ({ ...p, [f.key]: e.target.value }))}
                     placeholder={f.placeholder}
                     className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-slate-200 focus:outline-none focus:border-orange-500/60" />
