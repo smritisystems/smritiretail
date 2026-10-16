@@ -545,4 +545,68 @@
 .gap-unit { gap: 4px; }
 .max-w-container-max-width { max-width: 1280px; }
 
+/* ── SMRITI Commercial Terms Rich Content & Print Typography ─────────────── */
+.rich-terms-rendered h1, .rich-terms-rendered h2, .rich-terms-rendered h3,
+.rich-terms-editor h1, .rich-terms-editor h2, .rich-terms-editor h3 {
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.025em;
+  margin-top: 0.25rem;
+  margin-bottom: 0.25rem;
+  color: #1e3a8a;
+}
+.rich-terms-rendered h4, .rich-terms-rendered h5, .rich-terms-rendered h6,
+.rich-terms-editor h4, .rich-terms-editor h5, .rich-terms-editor h6 {
+  font-weight: 600;
+  margin-top: 0.2rem;
+  margin-bottom: 0.2rem;
+}
+.rich-terms-rendered p, .rich-terms-editor p {
+  margin-bottom: 0.25rem;
+  line-height: 1.4;
+}
+.rich-terms-rendered ol, .rich-terms-editor ol {
+  list-style-type: decimal;
+  padding-left: 1.25rem;
+  margin-top: 0.25rem;
+  margin-bottom: 0.25rem;
+}
+.rich-terms-rendered ul, .rich-terms-editor ul {
+  list-style-type: disc;
+  padding-left: 1.25rem;
+  margin-top: 0.25rem;
+  margin-bottom: 0.25rem;
+}
+.rich-terms-rendered li, .rich-terms-editor li {
+  margin-bottom: 0.15rem;
+  line-height: 1.35;
+}
+.rich-terms-rendered strong, .rich-terms-rendered b,
+.rich-terms-editor strong, .rich-terms-editor b {
+  font-weight: 700;
+}
+
+@media print {
+  .rich-terms-rendered {
+    break-inside: auto;
+    page-break-inside: auto;
+  }
+  .rich-terms-rendered ol,
+  .rich-terms-rendered ul {
+    break-inside: auto;
+    page-break-inside: auto;
+  }
+  .rich-terms-rendered li {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+  .rich-terms-rendered h1,
+  .rich-terms-rendered h2,
+  .rich-terms-rendered h3,
+  .rich-terms-rendered h4 {
+    break-after: avoid;
+    page-break-after: avoid;
+  }
+}
+
 

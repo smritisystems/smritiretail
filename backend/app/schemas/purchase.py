@@ -68,6 +68,7 @@ class SupplierResponse(BaseModel):
     buyer:              Optional[str] = None
     department:         Optional[str] = None
     special_instructions: Optional[str] = None
+    business_terms:     Optional[str] = None
     commercial_terms:   Optional[Dict[str, Any]] = None
 
     model_config = {"from_attributes": True}

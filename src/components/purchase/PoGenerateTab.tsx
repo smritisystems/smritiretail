@@ -615,6 +615,7 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
           buyer: s.buyer || undefined,
           department: s.department || undefined,
           special_instructions: s.special_instructions || "",
+          business_terms: s.business_terms || s.special_instructions || "",
           commercial_terms: s.commercial_terms || undefined,
         }));
         setSuppliersList(suppliers);
@@ -630,6 +631,7 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
             buyer: selected.buyer || current.buyer,
             department: selected.department || current.department,
             specialInstructions: selected.special_instructions !== undefined ? selected.special_instructions : current.specialInstructions,
+            businessTerms: selected.business_terms || selected.special_instructions || current.businessTerms || DEFAULT_BUSINESS_TERMS,
           };
         });
       } else {
@@ -1470,6 +1472,7 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
       buyer: matchedSupplier?.buyer,
       department: matchedSupplier?.department,
       specialInstructions: matchedSupplier?.special_instructions !== undefined ? matchedSupplier.special_instructions : undefined,
+      businessTerms: (matchedSupplier as any)?.business_terms || matchedSupplier?.special_instructions || undefined,
     };
     setSupplierCommercialDefaults(defaults);
     const applyCommercialTerms = (prevHeader: PurchaseOrderHeader, s?: SupplierOption) => {
@@ -1482,6 +1485,7 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
         buyer: s.buyer || prevHeader.buyer,
         department: s.department || prevHeader.department,
         specialInstructions: s.special_instructions !== undefined ? s.special_instructions : prevHeader.specialInstructions,
+        businessTerms: (s as any)?.business_terms || s?.special_instructions || prevHeader.businessTerms,
       };
     };
 
@@ -1510,6 +1514,7 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
       buyer: sel?.buyer || h.buyer,
       department: sel?.department || h.department,
       specialInstructions: sel?.special_instructions !== undefined ? sel.special_instructions : h.specialInstructions,
+      businessTerms: (sel as any)?.business_terms || sel?.special_instructions || h.businessTerms,
     }));
     const newDecisions: Record<string, POLineDecisionState> = {};
     result.decisions.forEach(d => {
@@ -1575,6 +1580,7 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
         department: header.department,
         special_instructions: header.specialInstructions,
         supplier_reference: header.supplierReference,
+        business_terms: header.businessTerms,
       };
 
       const payload = {
