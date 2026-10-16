@@ -212,15 +212,43 @@ export const StandaloneWindowView: React.FC<StandaloneWindowViewProps> = ({
     try {
       let product = resolvedProduct;
       if (!product) {
-        const data = await apiFetchV1("/products/search", {
-          params: { q: barcode, limit: 10 },
-        });
-        const productList = Array.isArray(data) ? data : data?.data || [];
-        product = productList.find((item: any) =>
-          String(item.barcode || "").toLowerCase() === String(barcode).toLowerCase() ||
-          String(item.code || "").toLowerCase() === String(barcode).toLowerCase() ||
-          String(item.sku || "").toLowerCase() === String(barcode).toLowerCase()
-        ) || productList[0];
+        try {
+          const resolved = await apiFetchV1<any>(`/universal/items/resolve?query=${encodeURIComponent(barcode)}`);
+          if (resolved && (resolved.item_id || resolved.variant_id)) {
+            product = {
+              barcode: resolved.barcode || barcode,
+              code: resolved.item_code,
+              sku: resolved.variant_sku || resolved.item_code,
+              name: resolved.item_name,
+              item_name: resolved.item_name,
+              price: resolved.selling_price,
+              selling_price: resolved.selling_price,
+              mrp: resolved.mrp,
+            };
+          }
+        } catch {
+          const data = await apiFetchV1("/universal/items", {
+            params: { query: barcode, limit: 10 },
+          });
+          const productList = Array.isArray(data) ? data : data?.data || data?.items || [];
+          const found = productList.find((item: any) =>
+            String(item.barcode || "").toLowerCase() === String(barcode).toLowerCase() ||
+            String(item.item_code || item.code || "").toLowerCase() === String(barcode).toLowerCase() ||
+            String(item.sku || "").toLowerCase() === String(barcode).toLowerCase()
+          ) || productList[0];
+          if (found) {
+            product = {
+              barcode: found.barcodes?.[0]?.barcode || barcode,
+              code: found.item_code || found.code,
+              sku: found.variants?.[0]?.sku || found.item_code,
+              name: found.item_name || found.name,
+              item_name: found.item_name || found.name,
+              price: found.selling_price,
+              selling_price: found.selling_price,
+              mrp: found.mrp,
+            };
+          }
+        }
       }
 
       if (!product) {
@@ -298,10 +326,10 @@ export const StandaloneWindowView: React.FC<StandaloneWindowViewProps> = ({
   useEffect(() => {
     const loadStandaloneCatalog = async () => {
       try {
-        const data = await apiFetchV1("/products/search", {
-          params: { q: "", limit: 5 },
+        const data = await apiFetchV1("/universal/items", {
+          params: { limit: 5 },
         });
-        const productList = Array.isArray(data) ? data : data?.data || [];
+        const productList = Array.isArray(data) ? data : data?.data || data?.items || [];
         if (!productList.length) {
           setStandaloneScannerStatus("No live inventory loaded");
           return;
@@ -311,8 +339,8 @@ export const StandaloneWindowView: React.FC<StandaloneWindowViewProps> = ({
           const rate = Number(product.price ?? product.selling_price ?? product.rate ?? 0);
           return {
             no: index + 1,
-            stockNo: String(product.code || product.sku || product.barcode || `SKU-${index + 1}`),
-            description: String(product.name || product.description || "Product"),
+            stockNo: String(product.item_code || product.code || product.sku || product.barcode || `SKU-${index + 1}`),
+            description: String(product.item_name || product.name || product.description || "Product"),
             rate: rate.toFixed(2),
             qty: "1.00",
             value: rate.toFixed(2),
@@ -347,15 +375,32 @@ export const StandaloneWindowView: React.FC<StandaloneWindowViewProps> = ({
     }
 
     try {
-      const data = await apiFetchV1("/products/search", {
-        params: { q: clean, limit: 10 },
-      });
-      const productList = Array.isArray(data) ? data : data?.data || [];
-      const product = productList.find((item: any) =>
-        String(item.barcode || "").toLowerCase() === clean.toLowerCase() ||
-        String(item.code || "").toLowerCase() === clean.toLowerCase() ||
-        String(item.sku || "").toLowerCase() === clean.toLowerCase()
-      ) || productList[0];
+      let product: any = null;
+      try {
+        const resolved = await apiFetchV1<any>(`/universal/items/resolve?query=${encodeURIComponent(clean)}`);
+        if (resolved && (resolved.item_id || resolved.variant_id)) {
+          product = {
+            barcode: resolved.barcode || clean,
+            code: resolved.item_code,
+            sku: resolved.variant_sku || resolved.item_code,
+            name: resolved.item_name,
+            item_name: resolved.item_name,
+            price: resolved.selling_price,
+            selling_price: resolved.selling_price,
+            mrp: resolved.mrp,
+          };
+        }
+      } catch {
+        const data = await apiFetchV1("/universal/items", {
+          params: { query: clean, limit: 10 },
+        });
+        const productList = Array.isArray(data) ? data : data?.data || data?.items || [];
+        product = productList.find((item: any) =>
+          String(item.barcode || "").toLowerCase() === clean.toLowerCase() ||
+          String(item.item_code || item.code || "").toLowerCase() === clean.toLowerCase() ||
+          String(item.sku || "").toLowerCase() === clean.toLowerCase()
+        ) || productList[0];
+      }
 
       if (!product) {
         setStandaloneScannerStatus(`No product for ${clean}`);

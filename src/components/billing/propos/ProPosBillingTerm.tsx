@@ -1176,10 +1176,66 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
     setItemLookupError(null);
 
     try {
-      const resp = await apiFetchV1<any>(`/products/search?q=${encodeURIComponent(term)}&limit=1`);
-      const items = Array.isArray(resp) ? resp : (resp?.items || []);
-      if (items.length > 0) {
-        const p = items[0];
+      // 1. Primary: Authoritative canonical item resolution via /universal/items/resolve
+      let p: any = null;
+      try {
+        const resolved = await apiFetchV1<any>(`/universal/items/resolve?query=${encodeURIComponent(term)}`);
+        if (resolved && (resolved.item_id || resolved.variant_id || resolved.barcode || resolved.item_code)) {
+          p = {
+            id: resolved.item_id || resolved.variant_id || term,
+            product_name: resolved.item_name,
+            name: resolved.item_name,
+            style_code: resolved.item_code,
+            stock_no: resolved.item_code,
+            code: resolved.item_code,
+            sku: resolved.variant_sku || resolved.item_code,
+            barcode: resolved.barcode || term,
+            description: resolved.item_name,
+            selling_price: resolved.selling_price,
+            mrp: resolved.mrp,
+            cost_price: resolved.cost_price,
+            stock_quantity: resolved.physical_on_hand ?? 1,
+            category: resolved.category,
+            brand: resolved.brand,
+            gst_percentage: resolved.tax_rate,
+            hsn_code: resolved.hsn_code,
+            uom: resolved.primary_uom || "PCS",
+          };
+        }
+      } catch {
+        // Fallback: Query canonical universal items catalog
+        try {
+          const resp = await apiFetchV1<any>(`/universal/items?query=${encodeURIComponent(term)}&limit=1`);
+          const items = Array.isArray(resp) ? resp : (resp?.items || []);
+          if (items.length > 0) {
+            const item = items[0];
+            p = {
+              id: item.id || term,
+              product_name: item.item_name || item.name,
+              name: item.item_name || item.name,
+              style_code: item.item_code || item.code,
+              stock_no: item.item_code || item.code,
+              code: item.item_code || item.code,
+              sku: item.variants?.[0]?.sku || item.item_code,
+              barcode: item.barcodes?.[0]?.barcode || item.item_code,
+              description: item.item_name || item.name,
+              selling_price: item.selling_price,
+              mrp: item.mrp,
+              cost_price: item.cost_price,
+              stock_quantity: item.stock_quantity ?? 1,
+              category: item.category,
+              brand: item.brand,
+              gst_percentage: item.tax_rate,
+              hsn_code: item.hsn_code,
+              uom: item.primary_uom || "PCS",
+            };
+          }
+        } catch {
+          // No match from either endpoint
+        }
+      }
+
+      if (p) {
         const isRate = customer.pricingBasis === "RATE";
         const catMrp = parseFloat(p.mrp || p.price || 0) || 0.00;
         const catSelling = parseFloat(p.selling_price || p.price || catMrp) || 0.00;
