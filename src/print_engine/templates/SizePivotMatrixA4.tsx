@@ -16,6 +16,7 @@
  */
 
 import React from "react";
+import smritiImagePlaceholder from "../../../myImages/smriti-image-placeholder.png";
 import imageNotAvailablePlaceholder from "../../../myImages/image_not_available_placeholder.png";
 import type { PurchaseOrderHeader, PurchaseOrderSizePivotRow } from "../../components/purchase/types.ts";
 
@@ -162,15 +163,16 @@ export const SizePivotMatrixA4: React.FC<SizePivotMatrixA4Props> = (props) => {
                         alt={row.articleNo || ""}
                         className="w-8 h-8 object-cover rounded mx-auto border border-slate-200"
                         onError={(e) => {
-                          e.currentTarget.src = imageNotAvailablePlaceholder;
+                          e.currentTarget.src = smritiImagePlaceholder;
+                          e.currentTarget.className = "w-8 h-8 object-contain mx-auto";
                           e.currentTarget.onerror = null;
                         }}
                       />
                     ) : (
                       <img
-                        src={imageNotAvailablePlaceholder}
+                        src={smritiImagePlaceholder}
                         alt="Image Not Available"
-                        className="w-8 h-8 object-contain rounded mx-auto border border-slate-200 bg-white p-0.5"
+                        className="w-8 h-8 object-contain mx-auto"
                       />
                     )}
                   </td>
