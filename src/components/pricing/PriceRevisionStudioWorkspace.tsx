@@ -175,16 +175,16 @@ export const PriceRevisionStudioWorkspace: React.FC<PriceRevisionStudioWorkspace
     if (!q) return;
     setIsSearchingProduct(true);
     try {
-      // Step 1: Attempt instantaneous product resolution via /products/resolve
+      // Step 1: Attempt instantaneous product resolution via canonical /universal/items/resolve or /products/resolve
       try {
-        const resolveRes = await apiFetchV1<any>(`/products/resolve?identifier=${encodeURIComponent(q)}`);
-        if (resolveRes && resolveRes.success && (resolveRes.product_id || resolveRes.variant_id)) {
+        const resolveRes = await apiFetchV1<any>(`/universal/items/resolve?query=${encodeURIComponent(q)}`);
+        if (resolveRes && (resolveRes.item_id || resolveRes.variant_id)) {
           selectProduct({
-            id: resolveRes.variant_id || resolveRes.product_id,
-            item_id: resolveRes.item_id || resolveRes.product_id,
-            name: resolveRes.name,
-            code: resolveRes.sku || resolveRes.product_id,
-            sku: resolveRes.sku,
+            id: resolveRes.variant_id || resolveRes.item_id,
+            item_id: resolveRes.item_id,
+            name: resolveRes.item_name,
+            code: resolveRes.item_code || resolveRes.variant_sku,
+            sku: resolveRes.variant_sku || resolveRes.item_code,
             barcode: resolveRes.barcode,
             price: Number(resolveRes.selling_price || 0),
             mrp: Number(resolveRes.mrp || 0),
@@ -194,15 +194,59 @@ export const PriceRevisionStudioWorkspace: React.FC<PriceRevisionStudioWorkspace
           return;
         }
       } catch {
-        // Fall back to fuzzy catalogue search if exact resolve yields not found
+        // Fall back to /products/resolve if universal resolve unavailable
+        try {
+          const resolveRes = await apiFetchV1<any>(`/products/resolve?identifier=${encodeURIComponent(q)}`);
+          if (resolveRes && resolveRes.success && (resolveRes.product_id || resolveRes.variant_id)) {
+            selectProduct({
+              id: resolveRes.variant_id || resolveRes.product_id,
+              item_id: resolveRes.item_id || resolveRes.product_id,
+              name: resolveRes.name,
+              code: resolveRes.sku || resolveRes.product_id,
+              sku: resolveRes.sku,
+              barcode: resolveRes.barcode,
+              price: Number(resolveRes.selling_price || 0),
+              mrp: Number(resolveRes.mrp || 0),
+              cost_price: Number(resolveRes.cost_price || 0),
+            });
+            setIsSearchingProduct(false);
+            return;
+          }
+        } catch {
+          // Fall back to catalogue search
+        }
       }
 
-      // Step 2: Fall back to catalogue search
-      const res = await apiFetchV1<any>(`/products?q=${encodeURIComponent(q)}&page=1&page_size=8`);
-      const items = Array.isArray(res) ? res : res?.items || [];
-      setSearchResults(items);
-      if (items.length === 1) {
-        selectProduct(items[0]);
+      // Step 2: Fall back to catalogue search via /universal/items with fallback to /products
+      try {
+        const res = await apiFetchV1<any>(`/universal/items?query=${encodeURIComponent(q)}&limit=8`);
+        const items = Array.isArray(res) ? res : res?.items || res?.data || [];
+        if (items.length > 0) {
+          const mapped = items.map((item: any) => ({
+            id: item.id || item.item_code,
+            item_id: item.id,
+            name: item.item_name || item.name,
+            code: item.item_code || item.code,
+            sku: item.variants?.[0]?.sku || item.item_code,
+            barcode: item.barcodes?.[0]?.barcode || item.barcode,
+            price: Number(item.selling_price || item.price || 0),
+            mrp: Number(item.mrp || 0),
+            cost_price: Number(item.cost_price || 0),
+          }));
+          setSearchResults(mapped);
+          if (mapped.length === 1) {
+            selectProduct(mapped[0]);
+          }
+          return;
+        }
+      } catch {
+        // Fall back to legacy /products
+        const res = await apiFetchV1<any>(`/products?q=${encodeURIComponent(q)}&page=1&page_size=8`);
+        const items = Array.isArray(res) ? res : res?.items || [];
+        setSearchResults(items);
+        if (items.length === 1) {
+          selectProduct(items[0]);
+        }
       }
     } catch (err: any) {
       onNotification?.("Search Error", err?.message || "Failed to search product.", "error");

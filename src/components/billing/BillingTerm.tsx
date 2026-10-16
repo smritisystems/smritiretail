@@ -926,8 +926,25 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
 
   const fetchProducts = async () => {
     try {
-      const res = await apiFetchV1("/products?page_size=100");
-      const list = Array.isArray(res) ? res : (res?.items || []);
+      let list: any[] = [];
+      try {
+        const res = await apiFetchV1("/universal/items?limit=100");
+        const raw = Array.isArray(res) ? res : (res?.items || res?.data || []);
+        if (raw.length > 0) {
+          list = raw.map((p: any) => ({
+            ...p,
+            id: p.id || p.item_code,
+            name: p.item_name || p.name,
+            code: p.item_code || p.code,
+            price: Number(p.selling_price || p.price || 0),
+            mrp: Number(p.mrp || 0),
+            cost_price: Number(p.cost_price || 0),
+          }));
+        }
+      } catch {
+        const res = await apiFetchV1("/products?page_size=100");
+        list = Array.isArray(res) ? res : (res?.items || []);
+      }
       if (list.length > 0) {
         setLiveProducts(list);
       }
@@ -1565,33 +1582,59 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
     setIsResolvingProduct(true);
     let resolvedItem: any = null;
     try {
-      const resolveRes = await apiFetchV1<any>("/products/resolve", {
-        method: "POST",
-        body: JSON.stringify({
-          identifier: rawCode,
-          company_id: currentUser?.companyId || undefined,
-        })
-      });
+      // 1. Primary: Authoritative canonical item resolution via /universal/items/resolve
+      try {
+        const uniRes = await apiFetchV1<any>(`/universal/items/resolve?query=${encodeURIComponent(rawCode)}`);
+        if (uniRes && (uniRes.item_id || uniRes.variant_id)) {
+          resolvedItem = {
+            success: true,
+            product_id: uniRes.item_id,
+            variant_id: uniRes.variant_id,
+            product_name: uniRes.item_name,
+            sku: uniRes.variant_sku || uniRes.item_code,
+            barcode: uniRes.barcode || rawCode,
+            selling_price: uniRes.selling_price,
+            mrp: uniRes.mrp,
+            cost_price: uniRes.cost_price,
+            tax_rate: uniRes.tax_rate,
+            hsn_code: uniRes.hsn_code,
+            uom: uniRes.primary_uom || "PCS",
+            current_stock: uniRes.physical_on_hand ?? 1,
+            available_stock: uniRes.available_to_promise ?? 1,
+          };
+        }
+      } catch {
+        // Fall back to /products/resolve
+      }
 
-      if (resolveRes && resolveRes.success) {
-        resolvedItem = resolveRes;
-      } else {
-        const errCode = resolveRes?.error_code;
-        if (errCode === "PRODUCT_INACTIVE" || resolveRes?.status === "INACTIVE" || resolveRes?.disposition === "REQUIRES_REVIEW") {
-          setProductInactiveState({
+      if (!resolvedItem) {
+        const resolveRes = await apiFetchV1<any>("/products/resolve", {
+          method: "POST",
+          body: JSON.stringify({
+            identifier: rawCode,
+            company_id: currentUser?.companyId || undefined,
+          })
+        });
+
+        if (resolveRes && resolveRes.success) {
+          resolvedItem = resolveRes;
+          const errCode = resolveRes?.error_code;
+          if (errCode === "PRODUCT_INACTIVE" || resolveRes?.status === "INACTIVE" || resolveRes?.disposition === "REQUIRES_REVIEW") {
+            setProductInactiveState({
+              isOpen: true,
+              barcode: rawCode,
+              name: resolveRes?.product_name || rawCode,
+              reason: resolveRes?.message || "This product is marked as inactive or under quarantine review and cannot be added to transactions."
+            });
+            return;
+          }
+          setProductNotFoundState({
             isOpen: true,
             barcode: rawCode,
-            name: resolveRes?.product_name || rawCode,
-            reason: resolveRes?.message || "This product is marked as inactive or under quarantine review and cannot be added to transactions."
+            message: resolveRes?.message || "This product is not registered in Product List. Please add the product to Product List before continuing."
           });
           return;
         }
-        setProductNotFoundState({
-          isOpen: true,
-          barcode: rawCode,
-          message: resolveRes?.message || "This product is not registered in Product List. Please add the product to Product List before continuing."
-        });
-        return;
       }
     } catch (err: any) {
       const errDetail = err?.data || err?.detail || {};

@@ -1438,15 +1438,62 @@ export const SalesOrderFormPremium: React.FC<SalesOrderFormProps> = ({
     }
 
     try {
-      const data = await apiFetchV1(`/products?search=${encodeURIComponent(cleanTerm)}`);
-      const productList = Array.isArray(data) ? data : data?.data || [];
-      const product = productList.find(
-        (p: any) =>
-          String(p.code || "").toLowerCase() === cleanTerm.toLowerCase() ||
-          String(p.barcode || "").toLowerCase() === cleanTerm.toLowerCase() ||
-          String(p.stock_no || "").toLowerCase() === cleanTerm.toLowerCase() ||
-          String(p.name || "").toLowerCase().includes(cleanTerm.toLowerCase())
-      ) || productList[0];
+      let product: any = null;
+      try {
+        const resolved = await apiFetchV1<any>(`/universal/items/resolve?query=${encodeURIComponent(cleanTerm)}`);
+        if (resolved && (resolved.item_id || resolved.variant_id)) {
+          product = {
+            code: resolved.item_code,
+            barcode: resolved.barcode,
+            stock_no: resolved.item_code,
+            name: resolved.item_name,
+            description: resolved.item_name,
+            rate: resolved.selling_price,
+            selling_price: resolved.selling_price,
+            price: resolved.selling_price,
+            gst_percentage: resolved.tax_rate,
+            gst_rate: resolved.tax_rate,
+          };
+        }
+      } catch {
+        // Fall back to /universal/items or legacy /products
+      }
+
+      if (!product) {
+        try {
+          const data = await apiFetchV1(`/universal/items?query=${encodeURIComponent(cleanTerm)}&limit=5`);
+          const productList = Array.isArray(data) ? data : data?.data || data?.items || [];
+          const found = productList.find(
+            (p: any) =>
+              String(p.item_code || p.code || "").toLowerCase() === cleanTerm.toLowerCase() ||
+              String(p.barcode || "").toLowerCase() === cleanTerm.toLowerCase() ||
+              String(p.item_name || p.name || "").toLowerCase().includes(cleanTerm.toLowerCase())
+          ) || productList[0];
+          if (found) {
+            product = {
+              code: found.item_code || found.code,
+              barcode: found.barcodes?.[0]?.barcode || found.barcode,
+              name: found.item_name || found.name,
+              description: found.item_name || found.name,
+              rate: found.selling_price,
+              selling_price: found.selling_price,
+              price: found.selling_price,
+              gst_percentage: found.tax_rate,
+              gst_rate: found.tax_rate,
+            };
+          }
+        } catch {
+          const data = await apiFetchV1(`/products?search=${encodeURIComponent(cleanTerm)}`);
+          const productList = Array.isArray(data) ? data : data?.data || [];
+          product = productList.find(
+            (p: any) =>
+              String(p.code || "").toLowerCase() === cleanTerm.toLowerCase() ||
+              String(p.barcode || "").toLowerCase() === cleanTerm.toLowerCase() ||
+              String(p.stock_no || "").toLowerCase() === cleanTerm.toLowerCase() ||
+              String(p.name || "").toLowerCase().includes(cleanTerm.toLowerCase())
+          ) || productList[0];
+        }
+      }
 
       if (product) {
         setQuickEntry((prev) => ({

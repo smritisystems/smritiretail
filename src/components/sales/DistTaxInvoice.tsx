@@ -338,10 +338,46 @@ export const DistTaxInvoice: React.FC<SmritiDistributorTaxInvoiceWorkspaceProps>
         };
       }
 
-      const res = await apiFetchV1(`/products?search=${encodeURIComponent(term)}`);
-      const items = Array.isArray(res) ? res : res?.items || res?.products || [];
-      if (items.length > 0) {
-        return items[0];
+      try {
+        const resolved = await apiFetchV1<any>(`/universal/items/resolve?query=${encodeURIComponent(term)}`);
+        if (resolved && (resolved.item_id || resolved.variant_id)) {
+          return {
+            id: resolved.item_id || resolved.variant_id,
+            code: resolved.item_code || resolved.variant_sku || term,
+            name: resolved.item_name,
+            price: Number(resolved.selling_price || resolved.mrp || 0),
+            mrp: Number(resolved.mrp || resolved.selling_price || 0),
+            gst_percentage: Number(resolved.tax_rate || 18),
+            hsn_code: resolved.hsn_code,
+            stock: resolved.physical_on_hand || 0,
+          };
+        }
+      } catch {
+        // Fall back to /universal/items or legacy /products
+      }
+
+      try {
+        const res = await apiFetchV1<any>(`/universal/items?query=${encodeURIComponent(term)}&limit=5`);
+        const items = Array.isArray(res) ? res : res?.items || res?.data || [];
+        if (items.length > 0) {
+          const item = items[0];
+          return {
+            id: item.id || term,
+            code: item.item_code || item.code || term,
+            name: item.item_name || item.name,
+            price: Number(item.selling_price || item.mrp || 0),
+            mrp: Number(item.mrp || item.selling_price || 0),
+            gst_percentage: Number(item.tax_rate || 18),
+            hsn_code: item.hsn_code,
+            stock: item.stock_quantity || 0,
+          };
+        }
+      } catch {
+        const res = await apiFetchV1(`/products?search=${encodeURIComponent(term)}`);
+        const items = Array.isArray(res) ? res : res?.items || res?.products || [];
+        if (items.length > 0) {
+          return items[0];
+        }
       }
     } catch {
       // Ignore network errors in lookup
