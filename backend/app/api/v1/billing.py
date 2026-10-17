@@ -59,6 +59,12 @@ class BillingConfigurationUpdateRequest(BaseModel):
     post_scan_focus: Optional[str] = Field(None, description="scan_field, qty, rate, discount, salesperson")
     scan_beep: Optional[str] = Field(None, description="ENABLED or DISABLED")
     salesperson_attribution: Optional[str] = Field(None, description="ENABLED, DISABLED, or OPTIONAL")
+    b2b_packing_first_workflow: Optional[str] = Field(None, description="ENABLED or DISABLED")
+    packing_slip_qty_default: Optional[str] = Field(None, description="ORDERED_QTY, REMAINING_UNPACKED_QTY, or MANUAL_ZERO")
+    invoice_qty_default: Optional[str] = Field(None, description="PACKED_UNBILLED_QTY, ORDERED_QTY_IF_ELIGIBLE, or MANUAL_ZERO")
+    allow_partial_packing: Optional[str] = Field(None, description="ENABLED or DISABLED")
+    allow_partial_invoicing: Optional[str] = Field(None, description="ENABLED or DISABLED")
+    allow_editing_prefilled_qty: Optional[str] = Field(None, description="AUTHORIZED_ONLY, ENABLED, or DISABLED")
 
 
 @router.get(

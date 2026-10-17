@@ -14,6 +14,39 @@
 
 # SMRITI Retail OS — Release Notes
 
+## Release v6.93.0 (2026-10-17)
+
+### Sales & Billing — B2B Packing-First Consolidated Billing & Approved UX Integration
+
+#### Overview
+SMRITI Retail OS v6.93.0 integrates a configurable B2B Packing-First → Consolidated Billing workflow into the canonical **SMRITI Billing Studio** (`SmritiBillingStudio.tsx`) and unified master workspace (`BillingWorkspace.tsx`). The integration delivers an end-to-end B2B packing and multi-slip consolidated invoicing solution while strictly preserving the approved visual specification (2-column upper layout, compact customer card, 13-column read-only cart grid, right-side Bill Summary & Payment panels, single-line bottom scanner bar) and ensuring zero regression to the B2C Counter POS workflow.
+
+#### Key Highlights
+- **Subheader B2B Action Access**:
+  - Direct access to `Packing Slips` and `Consolidated Billing` management dialogs directly from the subheader navigation bar.
+- **B2B Packing Slip Management Dialog (`PackingSlipManagementModal.tsx`)**:
+  - Lists historical and active packing slips with real-time status badges (`PACKED`, `BILLED`).
+  - Create Packing Slips from sales orders with configurable quantity prefill (`ORDERED_QTY`, `REMAINING_UNPACKED_QTY`, `MANUAL_ZERO`).
+  - Enforces `allow_partial_packing` company policies and permission-controlled quantity overrides (`canEditQty`).
+  - Integrated thermal/A4 Packing Slip receipt printing.
+- **Consolidated Billing Reconciliation Dialog (`ConsolidatedBillingModal.tsx`)**:
+  - Multi-slip picker with dedicated barcode scanner input (`PS-...`).
+  - Validates customer account compatibility, tenant isolation, and billing status.
+  - Multi-slip reconciliation table reconciling 6 quantities (`Ordered Qty`, `Packed Qty`, `Previously Invoiced Qty`, `Remaining Eligible Qty`, `Current Invoice Qty`, `Dispatched Qty`).
+  - Prevents overbilling and duplicate invoicing across multiple slips.
+  - One-click transfer into Billing Studio cart for preview, GST computation, and posting.
+- **Direct Packing Slip Barcode Scanning in Billing Studio**:
+  - Scans starting with `PS-` in B2B mode automatically resolve packing slips, check customer compatibility, reject duplicates, and append items without auto-posting or auto-charging.
+  - B2C mode safely rejects packing slip scans with clear guidance to switch to B2B mode (`Alt+3`).
+- **Configuration Engine Integration**:
+  - `BillingProfileConfigModal.tsx` provides full admin configuration for all 6 B2B packing and invoice policies.
+- **Automated Verification**:
+  - 16/16 Vitest tests green in `src/tests/b2bPackingConsolidatedBilling.test.ts`.
+  - 26/26 Vitest tests green in `src/tests/smritiBillingStudio.test.ts`.
+  - 98/98 form components passed in `npm run validate-registry`.
+  - 0 errors in `tsc --noEmit`.
+  - Clean production Vite build (`npm run build`).
+
 ## Release v6.92.0 (2026-10-17)
 
 ### Sales & Billing — SMRITI Billing Studio Approved UX Freeze & Exact Integration
