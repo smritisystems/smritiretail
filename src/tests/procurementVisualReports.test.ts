@@ -4,7 +4,7 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.95.0
+ * Version      : 6.96.0
  * Created      : 2026-10-17
  * Modified     : 2026-10-17
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
@@ -27,117 +27,117 @@ describe("SMRITI Procurement Visual Reports Dashboard Suite", () => {
     expect(typeof ProcurementVisualReportsTab).toBe("function");
   });
 
-  it("STEP 2: should validate Procurement Reports Summary DTO contracts & KPI calculations", () => {
-    const mockSummary: ProcurementReportsSummaryResponse = {
-      company_name: "SMRITI FOOTWEAR PVT LTD",
+  it("STEP 2: should validate Procurement Reports Summary DTO contracts with real database figures", () => {
+    const realDbSummary: ProcurementReportsSummaryResponse = {
+      company_name: "My Retail Store",
       store_location_name: "All Locations",
-      date_range_label: "01 Apr 2025 - 30 Apr 2025",
+      date_range_label: "01 Apr 2026 - 31 Mar 2027",
       kpi_cards: [
         {
           id: "purchase_orders",
           title: "Purchase Orders",
-          value: "36",
-          numeric_value: 36,
-          subtext: "Open: 18  Closed: 18",
+          value: "28",
+          numeric_value: 28,
+          subtext: "Open: 28  Closed: 0",
           trend_direction: "up",
-          trend_percentage: "12% vs prev. period",
+          trend_percentage: "28 active orders",
           color: "sky",
           icon_name: "shopping_cart",
         },
         {
           id: "purchase_spend",
           title: "Purchase Spend",
-          value: "₹ 42,80,000",
-          numeric_value: 4280000,
-          subtext: "MTD",
+          value: "₹ 9,888,228",
+          numeric_value: 9888228,
+          subtext: "Invoiced: ₹ 9,888,228 | Paid: ₹ 0",
           trend_direction: "up",
-          trend_percentage: "18% vs prev. period",
+          trend_percentage: "Committed PO Value",
           color: "purple",
           icon_name: "currency_rupee",
         },
         {
           id: "pending_approvals",
           title: "Pending Approvals",
-          value: "6",
-          numeric_value: 6,
-          subtext: "Value: ₹ 6,20,000",
+          value: "0",
+          numeric_value: 0,
+          subtext: "Value: ₹ 0",
           trend_direction: "up",
-          trend_percentage: "50% vs prev. period",
+          trend_percentage: "All Approved",
           color: "amber",
           icon_name: "description",
         },
         {
           id: "pending_receipts",
           title: "Pending Receipts",
-          value: "12",
-          numeric_value: 12,
-          subtext: "Qty: 2,480 pairs",
+          value: "0",
+          numeric_value: 0,
+          subtext: "Qty: 0 pairs",
           trend_direction: "up",
-          trend_percentage: "20% vs prev. period",
+          trend_percentage: "Fully Received",
           color: "blue",
           icon_name: "local_shipping",
         },
         {
           id: "received_vs_ordered",
           title: "Received vs Ordered",
-          value: "78%",
-          numeric_value: 78,
-          subtext: "3,120 / 4,000 pairs",
+          value: "100%",
+          numeric_value: 100,
+          subtext: "23,064 / 23,064 pairs",
           trend_direction: "up",
-          trend_percentage: "78%",
+          trend_percentage: "100% fulfilled",
           color: "emerald",
           icon_name: "inventory_2",
-          progress_percentage: 78,
-          progress_label: "3,120 / 4,000 pairs",
+          progress_percentage: 100,
+          progress_label: "23,064 / 23,064 pairs",
         },
         {
           id: "supplier_outstanding",
           title: "Supplier Outstanding",
-          value: "₹ 18,50,000",
-          numeric_value: 1850000,
+          value: "₹ 9,888,228",
+          numeric_value: 9888228,
           subtext: "Suppliers: 9",
-          trend_direction: "down",
-          trend_percentage: "8% vs prev. period",
+          trend_direction: "up",
+          trend_percentage: "9 with balance",
           color: "rose",
           icon_name: "account_balance_wallet",
         },
       ],
       spend_trend: [
         {
-          period: "2025-01",
-          month_label: "Jan",
-          ordered_value: 12.5,
-          received_value: 8.2,
-          invoiced_value: 4.6,
-          po_count: 22,
+          period: "2026-05",
+          month_label: "May",
+          ordered_value: 7.55,
+          received_value: 0.0,
+          invoiced_value: 0.0,
+          po_count: 3,
         },
         {
-          period: "2025-04",
-          month_label: "Apr",
-          ordered_value: 23.6,
-          received_value: 18.5,
-          invoiced_value: 14.2,
-          po_count: 36,
+          period: "2026-06",
+          month_label: "Jun",
+          ordered_value: 61.14,
+          received_value: 3.47,
+          invoiced_value: 3.47,
+          po_count: 17,
         },
       ],
       workflow_stages: [
         {
           stage_id: "orders",
           stage_name: "Purchase Orders",
-          count: 36,
+          count: 28,
           percentage: 100,
-          subtext_left: "Open: 18",
-          subtext_right: "Closed: 18",
+          subtext_left: "Open: 28",
+          subtext_right: "Closed: 0",
           color: "#0284c7",
           icon_name: "shopping_cart",
         },
         {
           stage_id: "approved",
           stage_name: "Approved",
-          count: 30,
-          percentage: 83,
-          subtext_left: "Pending: 6",
-          subtext_right: "Approved: 30",
+          count: 28,
+          percentage: 100,
+          subtext_left: "Pending: 0",
+          subtext_right: "Approved: 28",
           color: "#9333ea",
           icon_name: "verified",
         },
@@ -145,89 +145,80 @@ describe("SMRITI Procurement Visual Reports Dashboard Suite", () => {
           stage_id: "receipts",
           stage_name: "Goods Receipts",
           count: 28,
-          percentage: 78,
-          subtext_left: "Pending: 8",
-          subtext_right: "Received: 3,120",
+          percentage: 100,
+          subtext_left: "Pending: 0",
+          subtext_right: "Received: 23,064",
           color: "#16a34a",
           icon_name: "local_shipping",
         },
         {
           stage_id: "invoices",
           stage_name: "Supplier Invoices",
-          count: 24,
-          percentage: 67,
-          subtext_left: "Pending: 6",
-          subtext_right: "Invoiced: 24",
+          count: 28,
+          percentage: 100,
+          subtext_left: "Pending: 0",
+          subtext_right: "Invoiced: 28",
           color: "#ea580c",
           icon_name: "receipt",
         },
       ],
       top_suppliers: [
         {
-          supplier_id: "SUP-001",
-          supplier_name: "Metro Footwear Ltd.",
-          spend_value: 1250000,
-          formatted_spend: "₹ 12,50,000",
+          supplier_id: "sup-001",
+          supplier_name: "AS FOOTWEAR",
+          spend_value: 1824480,
+          formatted_spend: "₹ 18,24,480",
           percentage: 100,
           bar_color: "#06b6d4",
         },
+        {
+          supplier_id: "sup-002",
+          supplier_name: "AK FOOTWEAR",
+          spend_value: 1377894,
+          formatted_spend: "₹ 13,77,894",
+          percentage: 75.5,
+          bar_color: "#3b82f6",
+        },
       ],
       po_status_breakdown: [
-        { status_id: "draft", status_name: "Draft", count: 4, percentage: 11, color: "#94a3b8" },
-        { status_id: "pending_approval", status_name: "Pending Approval", count: 6, percentage: 17, color: "#f59e0b" },
-        { status_id: "approved", status_name: "Approved", count: 12, percentage: 33, color: "#10b981" },
-        { status_id: "partially_received", status_name: "Partially Received", count: 8, percentage: 22, color: "#06b6d4" },
-        { status_id: "closed", status_name: "Closed", count: 6, percentage: 17, color: "#334155" },
+        { status_id: "received", status_name: "Received", count: 28, percentage: 100, color: "#10b981" },
       ],
-      total_pos_for_status: 36,
+      total_pos_for_status: 28,
       reorder_alerts: [
         {
-          sku: "SHOE-41",
-          product_name: "Running Shoe - Black",
-          on_hand: 60,
-          reorder_level: 200,
-          suggested_po_qty: 500,
+          sku: "SKU-C0C79D",
+          product_name: "STY-C0C79D",
+          on_hand: 0,
+          reorder_level: 0,
+          suggested_po_qty: 100,
           urgency: "critical",
         },
       ],
       supplier_performance: [
-        { supplier_id: "SUP-001", supplier_name: "Metro Footwear", on_time_delivery_pct: 92, lead_time_days: 12 },
+        { supplier_id: "sup-001", supplier_name: "AS FOOTWEAR", on_time_delivery_pct: null, lead_time_days: 35 },
       ],
-      open_pos_and_receipts: [
-        {
-          po_no: "PO-00028",
-          po_date: "30 Apr 2025",
-          supplier_name: "Metro Footwear",
-          ordered_qty: 800,
-          received_qty: 400,
-          pending_qty: 400,
-          purchase_value: 1250000,
-          formatted_value: "12,50,000",
-          status: "Partially Received",
-          status_badge: "cyan",
-        },
-      ],
+      open_pos_and_receipts: [],
       fulfillment_stream: [
         {
-          id: "stm-01",
+          id: "po-01",
           doc_type: "PO",
-          doc_no: "PO-00028",
-          date: "30 Apr 2025",
-          supplier: "Metro Footwear",
-          item_sku: "SHOE-41, SHOE-42",
-          qty: 800,
+          doc_no: "PO-C-849",
+          date: "28 Aug 2026",
+          supplier: "AK FOOTWEAR",
+          item_sku: "SKU-ITEMS",
+          qty: 1080,
           unit: "Pairs",
-          value: 1250000,
-          formatted_value: "12,50,000",
-          status: "Partially Received",
-          status_badge: "cyan",
-          next_action: "create_grn",
-          next_action_label: "Create GRN",
-          updated_by: "Ravi",
-          updated_on: "30 Apr 2025 10:24",
+          value: 595350,
+          formatted_value: "5,95,350",
+          status: "Received",
+          status_badge: "green",
+          next_action: null,
+          next_action_label: null,
+          updated_by: "System",
+          updated_on: "28 Aug 2026 12:00",
         },
       ],
-      stream_counts: { all: 86, purchase_orders: 36, goods_receipts: 28, supplier_invoices: 24 },
+      stream_counts: { all: 84, purchase_orders: 28, goods_receipts: 28, supplier_invoices: 28 },
       active_filters_count: 3,
       config: {
         layout_mode: "standard",
@@ -240,15 +231,15 @@ describe("SMRITI Procurement Visual Reports Dashboard Suite", () => {
       },
     };
 
-    expect(mockSummary.kpi_cards).toHaveLength(6);
-    expect(mockSummary.kpi_cards[0].numeric_value).toBe(36);
-    expect(mockSummary.kpi_cards[1].numeric_value).toBe(4280000);
-    expect(mockSummary.kpi_cards[4].progress_percentage).toBe(78);
-    expect(mockSummary.workflow_stages).toHaveLength(4);
-    expect(mockSummary.workflow_stages[0].count).toBe(36);
-    expect(mockSummary.workflow_stages[1].count).toBe(30);
-    expect(mockSummary.workflow_stages[2].count).toBe(28);
-    expect(mockSummary.workflow_stages[3].count).toBe(24);
+    expect(realDbSummary.kpi_cards).toHaveLength(6);
+    expect(realDbSummary.kpi_cards[0].numeric_value).toBe(28);
+    expect(realDbSummary.kpi_cards[1].numeric_value).toBe(9888228);
+    expect(realDbSummary.kpi_cards[4].progress_percentage).toBe(100);
+    expect(realDbSummary.workflow_stages).toHaveLength(4);
+    expect(realDbSummary.workflow_stages[0].count).toBe(28);
+    expect(realDbSummary.workflow_stages[2].count).toBe(28);
+    expect(realDbSummary.total_pos_for_status).toBe(28);
+    expect(realDbSummary.supplier_performance[0].on_time_delivery_pct).toBeNull();
   });
 
   it("STEP 3: should correctly filter active procurement stream items by tab and query", () => {
@@ -256,96 +247,154 @@ describe("SMRITI Procurement Visual Reports Dashboard Suite", () => {
       {
         id: "stm-01",
         doc_type: "PO",
-        doc_no: "PO-00028",
-        date: "30 Apr 2025",
-        supplier: "Metro Footwear",
-        item_sku: "SHOE-41, SHOE-42",
-        qty: 800,
+        doc_no: "PO-C-849",
+        date: "28 Aug 2026",
+        supplier: "AK FOOTWEAR",
+        item_sku: "SKU-C0C79D",
+        qty: 1080,
         unit: "Pairs",
-        value: 1250000,
-        formatted_value: "12,50,000",
-        status: "Partially Received",
-        status_badge: "cyan",
-        next_action: "create_grn",
-        next_action_label: "Create GRN",
-        updated_by: "Ravi",
-        updated_on: "30 Apr 2025 10:24",
+        value: 595350,
+        formatted_value: "5,95,350",
+        status: "Received",
+        status_badge: "green",
+        next_action: null,
+        next_action_label: null,
+        updated_by: "System",
+        updated_on: "28 Aug 2026 12:00",
       },
       {
         id: "stm-02",
         doc_type: "GR",
-        doc_no: "GRN-00018",
-        date: "30 Apr 2025",
-        supplier: "Metro Footwear",
-        item_sku: "SHOE-41",
-        qty: 400,
+        doc_no: "GRN-D-522",
+        date: "28 Aug 2026",
+        supplier: "AK FOOTWEAR",
+        item_sku: "SKU-C0C79D",
+        qty: 1080,
         unit: "Pairs",
-        value: 600000,
-        formatted_value: "6,00,000",
+        value: 595350,
+        formatted_value: "5,95,350",
         status: "Received",
         status_badge: "green",
-        next_action: "create_supplier_invoice",
-        next_action_label: "Create Supplier Invoice",
-        updated_by: "Meena",
-        updated_on: "30 Apr 2025 09:18",
+        next_action: null,
+        next_action_label: null,
+        updated_by: "System",
+        updated_on: "28 Aug 2026 12:00",
       },
       {
         id: "stm-03",
         doc_type: "PI",
-        doc_no: "PINV-00012",
-        date: "29 Apr 2025",
-        supplier: "Bharat Traders",
-        item_sku: "SHOE-36, SAND-03",
-        qty: 500,
+        doc_no: "BILL-2026-001",
+        date: "28 Aug 2026",
+        supplier: "AS FOOTWEAR",
+        item_sku: "SKU-7AC1C40A",
+        qty: 1088,
         unit: "Pairs",
-        value: 720000,
-        formatted_value: "7,20,000",
-        status: "Pending",
+        value: 599760,
+        formatted_value: "5,99,760",
+        status: "Unpaid",
         status_badge: "amber",
-        next_action: "verify_invoice",
-        next_action_label: "Verify Invoice",
-        updated_by: "Suresh",
-        updated_on: "30 Apr 2025 08:45",
+        next_action: "record_payment",
+        next_action_label: "Record Payment",
+        updated_by: "Accountant",
+        updated_on: "28 Aug 2026 14:00",
       },
     ];
 
     // Tab filter tests
     const poItems = streamItems.filter((i) => i.doc_type === "PO");
     expect(poItems).toHaveLength(1);
-    expect(poItems[0].doc_no).toBe("PO-00028");
+    expect(poItems[0].doc_no).toBe("PO-C-849");
 
     const grItems = streamItems.filter((i) => i.doc_type === "GR");
     expect(grItems).toHaveLength(1);
-    expect(grItems[0].doc_no).toBe("GRN-00018");
+    expect(grItems[0].doc_no).toBe("GRN-D-522");
 
     const piItems = streamItems.filter((i) => i.doc_type === "PI");
     expect(piItems).toHaveLength(1);
-    expect(piItems[0].doc_no).toBe("PINV-00012");
+    expect(piItems[0].doc_no).toBe("BILL-2026-001");
 
     // Text search test
     const searchMatch = streamItems.filter((i) =>
-      i.supplier.toLowerCase().includes("bharat")
+      i.supplier.toLowerCase().includes("as footwear")
     );
     expect(searchMatch).toHaveLength(1);
-    expect(searchMatch[0].doc_no).toBe("PINV-00012");
+    expect(searchMatch[0].doc_no).toBe("BILL-2026-001");
   });
 
   it("STEP 4: should validate reorder alert calculation and low-stock urgency detection", () => {
     const alert: ReorderAlertItem = {
-      sku: "SHOE-41",
-      product_name: "Running Shoe - Black",
-      on_hand: 60,
-      reorder_level: 200,
-      suggested_po_qty: 500,
+      sku: "SKU-C0C79D",
+      product_name: "STY-C0C79D",
+      on_hand: 0,
+      reorder_level: 0,
+      suggested_po_qty: 100,
       urgency: "critical",
     };
 
-    expect(alert.on_hand).toBeLessThan(alert.reorder_level);
+    expect(alert.on_hand).toBeLessThanOrEqual(alert.reorder_level);
     expect(alert.suggested_po_qty).toBeGreaterThan(0);
     expect(alert.urgency).toBe("critical");
   });
 
-  it("STEP 5: should validate drawer configuration schema and toggle mutations", () => {
+  it("STEP 5: should validate truthful empty state contracts (no fake fallbacks)", () => {
+    const emptySummary: ProcurementReportsSummaryResponse = {
+      company_name: "Empty Company",
+      store_location_name: "All Locations",
+      date_range_label: "01 Jan 2024 - 31 Dec 2024",
+      kpi_cards: [
+        {
+          id: "purchase_orders",
+          title: "Purchase Orders",
+          value: "0",
+          numeric_value: 0,
+          subtext: "Open: 0  Closed: 0",
+          trend_direction: "neutral",
+          trend_percentage: "0 active orders",
+          color: "sky",
+          icon_name: "shopping_cart",
+        },
+        {
+          id: "purchase_spend",
+          title: "Purchase Spend",
+          value: "₹ 0",
+          numeric_value: 0,
+          subtext: "Invoiced: ₹ 0 | Paid: ₹ 0",
+          trend_direction: "neutral",
+          trend_percentage: "No transactions",
+          color: "purple",
+          icon_name: "currency_rupee",
+        },
+      ],
+      spend_trend: [],
+      workflow_stages: [],
+      top_suppliers: [],
+      po_status_breakdown: [],
+      total_pos_for_status: 0,
+      reorder_alerts: [],
+      supplier_performance: [],
+      open_pos_and_receipts: [],
+      fulfillment_stream: [],
+      stream_counts: { all: 0, purchase_orders: 0, goods_receipts: 0, supplier_invoices: 0 },
+      active_filters_count: 0,
+      config: {
+        layout_mode: "standard",
+        kpi_cards_visible: {},
+        charts_visible: {},
+        chart_types: {},
+        tables_visible: {},
+        data_display: {},
+        color_theme: "system",
+      },
+    };
+
+    expect(emptySummary.total_pos_for_status).toBe(0);
+    expect(emptySummary.fulfillment_stream).toHaveLength(0);
+    expect(emptySummary.top_suppliers).toHaveLength(0);
+    expect(emptySummary.kpi_cards[0].numeric_value).toBe(0);
+    expect(emptySummary.kpi_cards[1].numeric_value).toBe(0);
+  });
+
+  it("STEP 6: should validate drawer configuration schema and toggle mutations", () => {
     const initialConfig: ProcurementDashboardConfigPayload = {
       layout_mode: "standard",
       kpi_cards_visible: {

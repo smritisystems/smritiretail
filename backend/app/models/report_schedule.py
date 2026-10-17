@@ -17,7 +17,7 @@ from datetime import datetime, timezone
 from sqlalchemy import Column, String, Boolean, Integer, ForeignKey, DateTime, Text, text
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import JSONB
-from app.db.base import BaseEntity
+from ..db.base import BaseEntity
 
 
 class ReportSchedule(BaseEntity):

@@ -1057,6 +1057,7 @@ async def save_visual_dashboard_config(
 
 @router.get("/procurement-dashboard/summary", response_model=ProcurementReportsSummaryResponse, summary="Get Procurement Visual Dashboard Data")
 async def get_procurement_dashboard_summary(
+    company_id: Optional[str] = Query(None, description="Company ID override"),
     start_date: Optional[date] = Query(None, description="Start date (YYYY-MM-DD)"),
     end_date: Optional[date] = Query(None, description="End date (YYYY-MM-DD)"),
     store_location_id: Optional[str] = Query(None, description="Store or Location ID"),
@@ -1070,9 +1071,10 @@ async def get_procurement_dashboard_summary(
     Purchase Order Status donut, Low Stock Reorder Alerts, Supplier Performance,
     Open POs & Pending Receipts, and Active Procurement Stream.
     """
+    target_company_id = company_id or tenant_ctx.company_id
     return await ProcurementVisualReportsService.get_dashboard_summary(
         session=db,
-        company_id=tenant_ctx.company_id,
+        company_id=target_company_id,
         start_date=start_date,
         end_date=end_date,
         store_location_id=store_location_id,

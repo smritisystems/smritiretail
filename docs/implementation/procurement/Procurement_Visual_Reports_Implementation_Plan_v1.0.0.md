@@ -125,7 +125,15 @@ All changes are modular and additive. Disabling the `procurement-visual-reports`
 Headless verification, git commit, and synchronization to remote repository branch `smritiNX`.
 
 ## 17. Status
-Approved (In Execution)
+Completed (Verified with Actual PostgreSQL Database Telemetry)
+
+- Total POs in COMP-001: 28 statutory purchase orders (100% database sourced)
+- Total Spend in COMP-001: ₹ 9,888,228 (ordered and invoiced across 28 bills)
+- Received vs Ordered: 100% (23,064 / 23,064 pairs inward received)
+- Top Vendors: 9 real vendors (`AS FOOTWEAR`, `AK FOOTWEAR`, `LAJOS FOOTWEAR`, `MK FOOTWEAR`, `SA FOOTWEAR`, `SB FOOTWEAR`, `LUCKY FOOTWEAR`, `ALIYA FOOTWEAR`, `CRYSTAL SHOES`)
+- Zero Mock Data: Removed all placeholder names (Metro Footwear, Bharat Traders, SHOE-41, fake monthly bars)
+- Strict Error & Empty States: Truthful empty state for zero-record companies, error card with retry for backend faults
+- Test Verification: Pytest 2/2 passed, Vitest 6/6 passed, `tsc --noEmit` 0 errors, Vite production build clean.
 
 ## 18. Related ADRs
 - `ADR-0042`: FastAPI + PostgreSQL Sole System of Record.

@@ -84,7 +84,7 @@ class ReorderAlertItem(BaseModel):
 class SupplierPerformanceItem(BaseModel):
     supplier_id: str
     supplier_name: str
-    on_time_delivery_pct: int
+    on_time_delivery_pct: Optional[int] = None
     lead_time_days: int
 
 
