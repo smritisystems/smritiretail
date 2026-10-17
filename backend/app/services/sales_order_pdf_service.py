@@ -53,6 +53,7 @@ class SalesOrderPdfService:
         company_name: str = "TATTLY THREADS",
         company_gstin: str = "27AAXFT2508H1ZR",
         extra_meta: Optional[Dict[str, Any]] = None,
+        seller_ctx: Optional[Any] = None,
     ) -> str:
         """
         Renders pixel-faithful Sales Order Confirmation HTML directly from an authoritative model.
@@ -93,15 +94,15 @@ class SalesOrderPdfService:
         place_of_supply_display = format_place_of_supply(pos_state_name, is_interstate, customer_gstin, supplier_gstin=company_gstin)
 
         # Dynamic Bank Details
-        bank_name = os.getenv("DEFAULT_BANK_NAME", "STATE BANK OF INDIA")
-        account_holder_name = "TATTLY THREADS"
-        account_no = os.getenv("DEFAULT_BANK_ACCOUNT_NO", "43976711765")
-        ifsc_code = os.getenv("DEFAULT_BANK_IFSC", "SBIN0030425")
-        bank_branch = os.getenv("DEFAULT_BANK_BRANCH", "WARDHMAN NAGAR NAGPUR")
+        bank_name = (getattr(seller_ctx, "bank_name", None) if seller_ctx else None) or meta.get("bank_name") or os.getenv("DEFAULT_BANK_NAME", "STATE BANK OF INDIA")
+        account_holder_name = (getattr(seller_ctx, "company_name", None) if seller_ctx else None) or company_name
+        account_no = (getattr(seller_ctx, "account_no", None) if seller_ctx else None) or meta.get("account_no") or os.getenv("DEFAULT_BANK_ACCOUNT_NO", "43976711765")
+        ifsc_code = (getattr(seller_ctx, "ifsc_code", None) if seller_ctx else None) or meta.get("ifsc_code") or os.getenv("DEFAULT_BANK_IFSC", "SBIN0030425")
+        bank_branch = (getattr(seller_ctx, "bank_branch", None) if seller_ctx else None) or meta.get("bank_branch") or os.getenv("DEFAULT_BANK_BRANCH", "WARDHMAN NAGAR NAGPUR")
 
-        company_web = meta.get("company_website", "www.tattlythreads.com")
-        dispatch_email = meta.get("dispatch_email", "dispatch@tattlythreads.com")
-        accounts_email = meta.get("accounts_email", "accounts@tattlythreads.com")
+        company_web = (getattr(seller_ctx, "website", None) if seller_ctx else None) or meta.get("company_website", "www.tattlythreads.com")
+        dispatch_email = (getattr(seller_ctx, "dispatch_email", None) if seller_ctx else None) or meta.get("dispatch_email", "dispatch@tattlythreads.com")
+        accounts_email = (getattr(seller_ctx, "accounts_email", None) if seller_ctx else None) or meta.get("accounts_email", "accounts@tattlythreads.com")
 
         # Barcode & Verification QR
         barcode_uri = generate_barcode_base64(order_no)
@@ -601,12 +602,28 @@ class SalesOrderPdfService:
         if not order:
             raise ValueError(f"Sales Order '{order_id}' not found")
 
+        seller_ctx = None
+        try:
+            from .seller_resolver import resolve_seller_context_async
+            target_cid = company_id or getattr(order, "company_id", "COMP-001")
+            seller_ctx = await resolve_seller_context_async(
+                db=session,
+                company_id=target_cid,
+                invoice=order,
+            )
+        except Exception:
+            seller_ctx = None
+
+        company_name = getattr(seller_ctx, "company_name", "TATTLY THREADS")
+        company_gstin = getattr(seller_ctx, "company_gstin", "27AAXFT2508H1ZR")
+
         html = cls.generate_order_html_from_model(
             order=order,
             items=list(order.items or []),
             allocations=list(order.allocations or []),
-            company_name="TATTLY THREADS",
-            company_gstin="27AAXFT2508H1ZR"
+            company_name=company_name,
+            company_gstin=company_gstin,
+            seller_ctx=seller_ctx,
         )
         pdf_bytes = await cls.render_pdf(html)
         meta = {

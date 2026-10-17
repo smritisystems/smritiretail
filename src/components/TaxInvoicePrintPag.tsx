@@ -16,7 +16,7 @@
 
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { TaxInvoiceA4 } from "./templates/TaxInvoiceA4";
-import { apiFetchV1, isLocalMockToken } from "../lib/apiFetchV1";
+import { apiFetchV1, isLocalMockToken, getTenantCompanyContext } from "../lib/apiFetchV1";
 import { SPK } from "../kernel/SPK";
 import {
   Printer,
@@ -306,14 +306,14 @@ export const TaxInvoicePrintPage: React.FC = () => {
         taxTotal: Number(data.taxTotal ?? data.tax_total ?? 0),
         taxableValue: Number(data.taxableValue ?? data.taxable_value ?? 0),
         customerName: data.customerName || data.customer_name || "Reliance Retail Limited",
-        companyName: headerConfig.companyDisplayName || data.companyName || data.seller_name || "Tattly Threads",
-        companyAddress: headerConfig.companyAddressDisplay || data.companyAddress || data.seller_address,
-        companyGst: data.companyGst || data.seller_gstin || "27AAXFT2508H1ZR",
-        companyPhone: headerConfig.companyPhone || data.companyPhone || "9604990390",
-        companyEmail: headerConfig.companyEmail || data.companyEmail || "tattlythreads@gmail.com",
-        companyWebsite: headerConfig.companyWebsite || "www.tattlythreads.com",
-        dispatchEmail: headerConfig.dispatchEmail || data.dispatchEmail || data.dispatch_email || "dispatch@tattlythreads.com",
-        accountsEmail: headerConfig.accountsEmail || data.accountsEmail || data.accounts_email || "accounts@tattlythreads.com",
+        companyName: headerConfig.companyDisplayName || data.companyName || data.seller_name || (typeof window !== "undefined" ? getTenantCompanyContext()?.companyName : null) || "Tattly Threads",
+        companyAddress: headerConfig.companyAddressDisplay || data.companyAddress || data.seller_address || (typeof window !== "undefined" ? getTenantCompanyContext()?.companyAddress : undefined),
+        companyGst: data.companyGst || data.seller_gstin || (typeof window !== "undefined" ? getTenantCompanyContext()?.companyGstin : null) || "27AAXFT2508H1ZR",
+        companyPhone: headerConfig.companyPhone || data.companyPhone || (typeof window !== "undefined" ? getTenantCompanyContext()?.companyPhone : null) || "9604990390",
+        companyEmail: headerConfig.companyEmail || data.companyEmail || (typeof window !== "undefined" ? getTenantCompanyContext()?.companyEmail : null) || "tattlythreads@gmail.com",
+        companyWebsite: headerConfig.companyWebsite || (typeof window !== "undefined" ? getTenantCompanyContext()?.companyEmail : null) || "www.tattlythreads.com",
+        dispatchEmail: headerConfig.dispatchEmail || data.dispatchEmail || data.dispatch_email || (typeof window !== "undefined" ? getTenantCompanyContext()?.companyEmail : null) || "dispatch@tattlythreads.com",
+        accountsEmail: headerConfig.accountsEmail || data.accountsEmail || data.accounts_email || (typeof window !== "undefined" ? getTenantCompanyContext()?.companyEmail : null) || "accounts@tattlythreads.com",
         bankName: data.bankName || data.bank_name || headerConfig.bankName || DEFAULT_HEADER_CONFIG.bankName,
         bankAccountNo: data.bankAccountNo || data.bank_account_no || headerConfig.bankAccountNo || DEFAULT_HEADER_CONFIG.bankAccountNo,
         bankIfsc: data.bankIfsc || data.bank_ifsc || headerConfig.bankIfsc || DEFAULT_HEADER_CONFIG.bankIfsc,

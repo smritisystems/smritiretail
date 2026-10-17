@@ -66,6 +66,7 @@ const LegacyMigDashTab = lazy(() => import("../LegacyMigDashTab.tsx").then(m => 
 const PhysicalStockTab = lazy(() => import("../PhysicalStockTab.tsx").then(m => ({ default: m.PhysicalStockTab })));
 const StorePolicyStudio = lazy(() => import("../StorePolicyStudio.tsx").then(m => ({ default: m.StorePolicyStudio })));
 const SmritiSystemParametersStudio = lazy(() => import("../setup/SmritiSystemParametersStudio.tsx").then(m => ({ default: m.SmritiSystemParametersStudio })));
+const CompanyProfileStudio = lazy(() => import("../setup/CompanyProfileStudio.tsx").then(m => ({ default: m.CompanyProfileStudio })));
 const SmritiSalesPromotionsStudio = lazy(() => import("../promotions/SmritiSalesPromotionsStudio.tsx").then(m => ({ default: m.SmritiSalesPromotionsStudio })));
 const WmsStudioTab = lazy(() => import("../wms/WmsStudioTab.tsx").then(m => ({ default: m.WmsStudioTab })));
 const SetupWizardTab = lazy(() => import("../SetupWizard/SetupWizardTab.tsx").then(m => ({ default: m.SetupWizardTab })));
@@ -225,6 +226,12 @@ export const mapModuleId = (id: string): string => {
     "payroll": "wages",
     "wage-reconciliation": "wages",
     "menu-approval-matrix": "approval-matrix",
+    "company-profile": "company-profile",
+    "company_profile": "company-profile",
+    "company-settings": "company-profile",
+    "company_settings": "company-profile",
+    "menu-company-profile": "company-profile",
+    "menu-company-settings": "company-profile",
     "menu-company-setup": "company-setup",
     "menu-audit-logs": "audit-logs",
     "b2b-dispatch-studio": "dispatch-studio",
@@ -574,6 +581,9 @@ export const renderTabNode = (tabId: string, ctx: TabRendererContextProps): Reac
     case "parameters-studio":
     case "sys-params":
       return <SmritiSystemParametersStudio onClose={() => setActiveTab("dashboard")} />;
+    case "company-profile":
+    case "company-settings":
+      return <CompanyProfileStudio onClose={() => setActiveTab("dashboard")} onNotification={addNotification} />;
     case "sales-promotions":
     case "promotions-studio":
     case "promotions":

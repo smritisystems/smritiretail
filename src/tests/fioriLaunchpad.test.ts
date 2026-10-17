@@ -58,6 +58,7 @@ const REGISTERED_APP_TABS = [
   "terms-engine",
   "data-exchange",
   "database-manager",
+  "company-profile",
   "company-setup",
   "about-smriti",
   "dev-tracker",

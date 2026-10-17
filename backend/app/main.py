@@ -23,11 +23,10 @@ Copyright    : © AITDL.com and SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 """
 
-import sys
-import os
 import datetime
+import os
+import sys
 import time
-
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
@@ -42,20 +41,22 @@ from .api.v1 import (
     analytics,
     approval,
     approval_matrix,
+    assignments,
     attributes,
     auth,
-    assignments,
     barcode,
     barcode_registry,
+    barcodes,
     billing,
     billing_csv,
-    barcodes,
     boundaries,
     capability_registry,
     cge,
+    cge_unified,
     changelog,
     communicator,
     company_center,
+    company_profile,
     cost,
     crm,
     crm_cge,
@@ -63,14 +64,16 @@ from .api.v1 import (
     database_manager,
     databridge,
     dev_tracker,
-    distribution,
     dispatch_invoicing,
+    distribution,
     docs,
     documents,
     ecom,
+    einvoice,
     exchange,
     finance,
     fulfillment,
+    gift_cards,
     governance,
     governed_logic,
     grn,
@@ -79,22 +82,25 @@ from .api.v1 import (
     integration,
     inventory,
     inventory_reports,
+    item_domain,
+    kpi_registry,
     legacy_menu_map,
     lifecycle,
     localization,
+    loyalty,
     master_lookup,
     masters,
     menus,
     metadata,
     numbering,
-    pos,
-    physical_stock,
     payments,
     pdt,
+    physical_stock,
+    pos,
     pricing,
+    procurement_phase2,
     product_identity,
     product_resolution,
-    procurement_phase2,
     promotions,
     psv,
     purchase,
@@ -111,34 +117,28 @@ from .api.v1 import (
     supplier_payment,
     sync,
     system,
+    system_parameters,
+    tds_compliance,
     terms,
     training,
     ui_control_plane,
-    universal_master,
     universal_import,
-    item_domain,
+    universal_master,
     users,
     vendor,
     wms,
     workflow,
     workspace_ui,
-    cge_unified,
-    system_parameters,
-    kpi_registry,
-    loyalty,
-    tds_compliance,
-    gift_cards,
-    einvoice,
 )
-
 from .core.config import settings
 from .core.constants import SMRITI_BANNER
 from .core.error_handlers import register_error_handlers
 from .core.logging import logger
 from .db.session import verify_db_connectivity, verify_tenant_connectivity
-from .middleware.request_logger import RequestLoggerMiddleware
 from .middleware.legacy_deprecation_middleware import LegacyDeprecationMiddleware
-from .middleware.rate_limiter import limiter, SLOWAPI_AVAILABLE
+from .middleware.rate_limiter import SLOWAPI_AVAILABLE, limiter
+from .middleware.request_logger import RequestLoggerMiddleware
+
 if SLOWAPI_AVAILABLE:
     from slowapi import _rate_limit_exceeded_handler
     from slowapi.errors import RateLimitExceeded
@@ -182,8 +182,9 @@ async def lifespan(_app: FastAPI):
         # BEFORE the server starts accepting requests. Prevents silent 500 errors
         # caused by missing Alembic migrations on fresh installations.
         try:
-            from .db.session import async_session
             from sqlalchemy import text as _sql_text
+
+            from .db.session import async_session
 
             _CRITICAL_TABLES = [
                 # Loyalty Studio — created by v1486 (was missing before)
@@ -428,6 +429,7 @@ _ROUTER_REGISTRY = [
     (ai,                    "/ai",                   ["AI Assistant"]),
     (docs,                  "/docs",                 ["Documentation"]),
     (company_center,        "",                      ["Company Control Center"]),
+    (company_profile,       "/company",              ["Company Profile & Settings"]),
     (database_manager,      "/database-manager",     ["Database Manager"]),
     (training,              "",                      ["Training Academy"]),
     (staff,                 "",                      ["Staff Management"]),
@@ -559,9 +561,8 @@ async def root_landing_page(request: Request):
 
 
 # Production static-file serving & SPA fallback mount
-import os
-from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 
 _workspace_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 _dist_dir = os.path.join(_workspace_root, "dist")

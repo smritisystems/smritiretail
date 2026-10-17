@@ -29,6 +29,7 @@ import tattlyLogoBlack from "../../../myImages/tattly_logo_black.png";
 import smritiImagePlaceholder from "../../../myImages/smriti-image-placeholder.png";
 import imageNotAvailablePlaceholder from "../../../myImages/image_not_available_placeholder.png";
 import { SafeRichTermsRenderer } from "../../components/common/SafeRichTermsRenderer";
+import { getTenantCompanyContext } from "../../lib/apiFetchV1";
 
 export interface FootwearArticleReference {
   articleNo: string;
@@ -328,6 +329,15 @@ export const PurchaseOrderPrintA4: React.FC<{ data: PurchaseOrderPrintData }> = 
     return Array.from(derivedMap.values());
   }, [data.itemReferences, data.sizewiseItems, data.standardItems]);
 
+  const tenantCtx = typeof window !== "undefined" ? getTenantCompanyContext() : null;
+  const companyName = data.companyName || tenantCtx?.companyName || "TATTLY THREADS";
+  const companyAddress = data.companyAddress || tenantCtx?.companyAddress || "Office Number 81, Ibrahim Rehmatulla Road, Beside Jio Gallery, Near HP Petrol Pump\nMumbai, Maharashtra - 400003";
+  const companyGstin = data.companyGstin || tenantCtx?.companyGstin || "27AAXFT2508H1ZR";
+  const companyPan = data.companyPan || (tenantCtx?.companyGstin ? tenantCtx.companyGstin.slice(2, 12) : "AAXFT2508H");
+  const companyWebsite = data.companyWebsite || "www.tattlythreads.com";
+  const companyEmail = data.companyEmail || tenantCtx?.companyEmail || "accounts@tattlythreads.com";
+  const logoUrl = data.logoUrl || tenantCtx?.companyLogoUrl || tattlyLogoBlack;
+
   return (
     <div
       className={`relative bg-white text-slate-900 mx-auto box-border font-sans antialiased shadow-sm print:shadow-none print:m-0 print:p-0 print:w-full print:max-w-none print:min-h-0 print:h-auto ${
@@ -350,7 +360,7 @@ export const PurchaseOrderPrintA4: React.FC<{ data: PurchaseOrderPrintData }> = 
             }}
           />
           <div className="text-[52px] leading-tight font-black tracking-wider text-[#1e3a8a]">
-            {data.companyName || "TATTLY THREADS"}
+            {companyName}
           </div>
           <div className="text-xl font-bold tracking-[0.22em] mt-1 text-slate-800 border-t-2 border-dashed border-[#1e3a8a]/40 pt-1 w-full">
             {data.status === "DRAFT" ? "PURCHASE ORDER — DRAFT" : "PURCHASE ORDER"}
@@ -404,12 +414,12 @@ export const PurchaseOrderPrintA4: React.FC<{ data: PurchaseOrderPrintData }> = 
 
       {/* ── 1. HEADER & COMPANY INFORMATION ─────────────────────────────── */}
       <header className="relative z-10 flex justify-between items-start pb-2 mb-2 border-b border-slate-200">
-        {/* Left: Tattly Threads Brand Logo + Company Details */}
+        {/* Left: Dynamic Brand Logo + Company Details */}
         <div className="flex items-start">
           <div className="pr-3.5 mr-3.5 border-r border-slate-200 flex flex-col justify-center">
             <img
-              src={data.logoUrl || tattlyLogoBlack}
-              alt={data.companyName || "TATTLY THREADS"}
+              src={logoUrl}
+              alt={companyName}
               className="h-10 w-auto object-contain max-w-[135px]"
               onError={(e) => {
                 const img = e.currentTarget;
@@ -421,22 +431,22 @@ export const PurchaseOrderPrintA4: React.FC<{ data: PurchaseOrderPrintData }> = 
           </div>
           <div className="text-[10px] text-slate-600 leading-snug">
             <h1 className="text-xs font-bold text-[#0f172a] leading-tight">
-              {data.companyName || "TATTLY THREADS"}
+              {companyName}
             </h1>
             <p className="whitespace-pre-line text-slate-600 mt-0.5">
-              {data.companyAddress || "Office Number 81, Ibrahim Rehmatulla Road, Beside Jio Gallery, Near HP Petrol Pump\nMumbai, Maharashtra - 400003"}
+              {companyAddress}
             </p>
             <p className="text-slate-700 font-medium mt-0.5">
-              GSTIN: <span className="font-mono">{data.companyGstin || "27AAXFT2508H1ZR"}</span>
-              {(data.companyPan || "AAXFT2508H") && (
+              GSTIN: <span className="font-mono">{companyGstin}</span>
+              {companyPan && (
                 <>
                   <span className="mx-1 text-slate-300">|</span>
-                  PAN: <span className="font-mono">{data.companyPan || "AAXFT2508H"}</span>
+                  PAN: <span className="font-mono">{companyPan}</span>
                 </>
               )}
             </p>
             <p className="text-slate-500 text-[9px] mt-0.5 font-mono">
-              Web: {data.companyWebsite || "www.tattlythreads.com"} | Email: {data.companyEmail || "accounts@tattlythreads.com"}
+              Web: {companyWebsite} | Email: {companyEmail}
             </p>
           </div>
         </div>

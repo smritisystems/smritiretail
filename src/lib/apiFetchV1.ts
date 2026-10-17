@@ -59,6 +59,11 @@ export function persistTenantContext(params: {
   branchCode?: string | null;
   companyName?: string | null;
   branchName?: string | null;
+  companyAddress?: string | null;
+  companyGstin?: string | null;
+  companyPhone?: string | null;
+  companyEmail?: string | null;
+  companyLogoUrl?: string | null;
 }): void {
   if (typeof window === "undefined") return;
 
@@ -74,6 +79,56 @@ export function persistTenantContext(params: {
 
   if (params.companyName) localStorage.setItem("smriti_company_name", params.companyName);
   if (params.branchName) localStorage.setItem("smriti_branch_name", params.branchName);
+  if (params.companyAddress) localStorage.setItem("smriti_company_address", params.companyAddress);
+  if (params.companyGstin) localStorage.setItem("smriti_company_gstin", params.companyGstin);
+  if (params.companyPhone) localStorage.setItem("smriti_company_phone", params.companyPhone);
+  if (params.companyEmail) localStorage.setItem("smriti_company_email", params.companyEmail);
+  if (params.companyLogoUrl) localStorage.setItem("smriti_company_logo_url", params.companyLogoUrl);
+
+  window.dispatchEvent(new CustomEvent("smriti_tenant_context_updated", { detail: params }));
+}
+
+export function getTenantCompanyContext(): {
+  companyId: string;
+  companyCode: string;
+  companyName: string;
+  branchId: string;
+  branchCode: string;
+  branchName: string;
+  companyAddress: string;
+  companyGstin: string;
+  companyPhone: string;
+  companyEmail: string;
+  companyLogoUrl: string;
+} {
+  if (typeof window === "undefined") {
+    return {
+      companyId: "COMP-001",
+      companyCode: "001",
+      companyName: "Tattly Threads",
+      branchId: "MAIN",
+      branchCode: "MAIN",
+      branchName: "Main Branch",
+      companyAddress: "",
+      companyGstin: "",
+      companyPhone: "",
+      companyEmail: "",
+      companyLogoUrl: "",
+    };
+  }
+  return {
+    companyId: localStorage.getItem("smriti_company_id") || "COMP-001",
+    companyCode: localStorage.getItem("smriti_company_code") || "001",
+    companyName: localStorage.getItem("smriti_company_name") || "Tattly Threads",
+    branchId: localStorage.getItem("smriti_branch_id") || "MAIN",
+    branchCode: localStorage.getItem("smriti_branch_code") || "MAIN",
+    branchName: localStorage.getItem("smriti_branch_name") || "Main Branch",
+    companyAddress: localStorage.getItem("smriti_company_address") || "",
+    companyGstin: localStorage.getItem("smriti_company_gstin") || "",
+    companyPhone: localStorage.getItem("smriti_company_phone") || "",
+    companyEmail: localStorage.getItem("smriti_company_email") || "",
+    companyLogoUrl: localStorage.getItem("smriti_company_logo_url") || "",
+  };
 }
 
 export function syncAuthCookies(token?: string | null): void {
