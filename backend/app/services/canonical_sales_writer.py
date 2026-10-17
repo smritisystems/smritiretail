@@ -152,6 +152,34 @@ class CanonicalSalesPostingWriter:
                     detail="SMRITI-TAX-269ST: Cash receipt of ₹2,00,000 or more in a single transaction is prohibited under Section 269ST of the Income Tax Act.",
                 )
 
+        # 0B. Authoritative Company Billing Profile Policy Verification
+        from .billing_profile_service import BillingProfileService
+        prof_res = await BillingProfileService.get_effective_profile(session, company_id)
+        if prof_res.get("configured"):
+            eff_prof = prof_res.get("effective_configuration") or {}
+            # B2B Registered Customer Selection Check
+            if eff_prof.get("customer_selection_required"):
+                cust_id = (req.customer_id or "").strip().upper()
+                if not cust_id or cust_id in ("CUST-WALKIN", "WALKIN"):
+                    raise HTTPException(
+                        status_code=400,
+                        detail="SMRITI-VAL-CUST-001: Registered business customer selection is required under company B2B billing policy.",
+                    )
+            # B2B Mandatory Customer PO Check
+            if eff_prof.get("customer_po_reference") == "REQUIRED":
+                if not (req.po_reference_no or req.customer_po_id):
+                    raise HTTPException(
+                        status_code=400,
+                        detail="SMRITI-VAL-PO-001: Customer PO Reference is mandatory under current company B2B billing policy.",
+                    )
+            # Shift Enforcement Check for POS Retail Transactions
+            if eff_prof.get("shift_management") == "ENABLED":
+                if req.context.source_channel in ("POS_RETAIL", "RETAIL", "POS") and not shift_id:
+                    raise HTTPException(
+                        status_code=400,
+                        detail="SMRITI-POS-003: An open cashier shift is required to process POS retail transactions under current company policy.",
+                    )
+
         # 1. POS Shift row lock & validation (if shift_id provided)
         shift_obj: Optional[Shift] = None
         if shift_id:

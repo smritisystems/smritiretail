@@ -25,6 +25,9 @@ import { ProPosOfflineSyncEngine } from "../../sync/ProPosOfflineSyncEngine.ts";
 import { apiFetchV1 } from "../../lib/apiFetchV1.ts";
 import { recordAuditAction } from "../../lib/apiFetch";
 import { SmritiF2AdvancedItemSearch, SmritiF2SelectedItem } from "./SmritiF2AdvancedItemSearch.tsx";
+import { BulkAddItemsModal } from "./modals/BulkAddItemsModal.tsx";
+import { BillingProfileSetupModal } from "./modals/BillingProfileSetupModal.tsx";
+import { BillingProfileConfigModal } from "./modals/BillingProfileConfigModal.tsx";
 import {
   Barcode,
   Search,
@@ -56,6 +59,7 @@ import {
   Volume2,
   VolumeX,
   AlertTriangle,
+  FileSpreadsheet,
 } from "lucide-react";
 
 export type BillingStudioMode = "RETAIL_POS" | "CREDIT_BILLING" | "B2B_DISTRIBUTOR";
@@ -405,6 +409,18 @@ export const SmritiBillingStudio: React.FC<SmritiBillingStudioProps> = ({
   const [parkedBills, setParkedBills] = useState<ParkedCartRecord[]>([]);
   const [receiptPrintView, setReceiptPrintView] = useState<"THERMAL_80MM" | "A4_INVOICE">("THERMAL_80MM");
 
+  // Company Billing Profile Engine State
+  const [billingProfile, setBillingProfile] = useState<"B2C_ONLY" | "B2B_ONLY" | null>(null);
+  const [isProfileConfigured, setIsProfileConfigured] = useState<boolean>(true);
+  const [effectiveProfileConfig, setEffectiveProfileConfig] = useState<any>(null);
+  const [customProfileOverrides, setCustomProfileOverrides] = useState<any>({});
+  const [profileHistory, setProfileHistory] = useState<any[]>([]);
+  const [showProfileSetupModal, setShowProfileSetupModal] = useState<boolean>(false);
+  const [showProfileConfigModal, setShowProfileConfigModal] = useState<boolean>(false);
+  const [showBulkAddModal, setShowBulkAddModal] = useState<boolean>(false);
+  const [showAskUserRepeatModal, setShowAskUserRepeatModal] = useState<boolean>(false);
+  const [pendingRepeatItem, setPendingRepeatItem] = useState<{ product: any; qty: number } | null>(null);
+
   // DOM Refs
   const barcodeInputRef = useRef<HTMLInputElement>(null);
   const stagedQtyInputRef = useRef<HTMLInputElement>(null);
@@ -457,6 +473,49 @@ export const SmritiBillingStudio: React.FC<SmritiBillingStudioProps> = ({
     refreshParkedCarts();
   }, [refreshParkedCarts]);
 
+  // ── Company Billing Profile Engine Fetch & Configuration Sync ──────────────
+  const fetchBillingProfile = useCallback(async () => {
+    try {
+      const res = await apiFetchV1<any>("/billing/profile");
+      if (res && res.success && res.data) {
+        const { profile, is_configured, effective_config, overrides, history } = res.data;
+        setBillingProfile(profile || null);
+        setIsProfileConfigured(Boolean(is_configured));
+        setEffectiveProfileConfig(effective_config || {});
+        setCustomProfileOverrides(overrides || {});
+        setProfileHistory(history || []);
+
+        if (!is_configured) {
+          setShowProfileSetupModal(true);
+        } else if (effective_config) {
+          if (effective_config.default_scan_mode) {
+            setScanMode(effective_config.default_scan_mode);
+          }
+          if (effective_config.repeat_barcode_policy) {
+            const pol = effective_config.repeat_barcode_policy;
+            if (pol === "INCREASE_QUANTITY") setDuplicateBarcodeAction("increment_qty");
+            else if (pol === "NEW_LINE") setDuplicateBarcodeAction("add_new_row");
+            else if (pol === "ASK_USER") setDuplicateBarcodeAction("prompt");
+          }
+          if (effective_config.default_invoice_format) {
+            setReceiptPrintView(effective_config.default_invoice_format === "A4_INVOICE" ? "A4_INVOICE" : "THERMAL_80MM");
+          }
+          if (profile === "B2C_ONLY") {
+            setCustomer(WALK_IN_CUSTOMER);
+          } else if (profile === "B2B_ONLY") {
+            setCustomer(DEMO_RELIANCE_CUSTOMER);
+          }
+        }
+      }
+    } catch (err) {
+      console.warn("Unable to fetch billing profile:", err);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchBillingProfile();
+  }, [fetchBillingProfile]);
+
   // ── Live Calculation Engine ──────────────────────────────────────────────
   const calculations = useMemo(() => {
     return computeBillingTotals(
@@ -479,18 +538,13 @@ export const SmritiBillingStudio: React.FC<SmritiBillingStudioProps> = ({
   const receivedNum = Number(receivedAmount) || 0;
   const changeDue = Math.max(0, receivedNum - calculations.netPayable);
 
-  // ── Add Item to Cart ──────────────────────────────────────────────────────
-  const addItemToCart = useCallback((product: Product | any, overrideQty: number = 1) => {
+  // ── Add Item to Cart Execution Helpers ─────────────────────────────────────
+  const executeIncreaseQuantity = useCallback((product: any, overrideQty: number = 1) => {
     setCartItems((prevItems) => {
       const existingIndex = prevItems.findIndex(
         (i) => i.productId === product.id || (product.sku && i.sku === product.sku) || (product.barcode && i.barcode === product.barcode)
       );
-
-      const price = Number(product.price ?? product.mrp ?? product.rate ?? 750);
-      const mrp = Number(product.mrp ?? product.price ?? product.rate ?? 750);
-      const gstRate = Number(product.gst_rate ?? product.gstPercentage ?? product.taxRate ?? 5);
-
-      if (existingIndex >= 0 && duplicateBarcodeAction === "increment_qty") {
+      if (existingIndex >= 0) {
         const updated = [...prevItems];
         const existing = updated[existingIndex];
         const newQty = existing.qty + overrideQty;
@@ -503,7 +557,18 @@ export const SmritiBillingStudio: React.FC<SmritiBillingStudioProps> = ({
         };
         return updated;
       }
+      return prevItems;
+    });
+    playBeep(true);
+    onNotification?.("Quantity Increased", `Updated quantity for ${product.name || "Item"}.`, "info");
+    setTimeout(() => barcodeInputRef.current?.focus(), 50);
+  }, [playBeep, onNotification]);
 
+  const executeAddNewRow = useCallback((product: any, overrideQty: number = 1) => {
+    setCartItems((prevItems) => {
+      const price = Number(product.price ?? product.mrp ?? product.rate ?? 750);
+      const mrp = Number(product.mrp ?? product.price ?? product.rate ?? 750);
+      const gstRate = Number(product.gst_rate ?? product.gstPercentage ?? product.taxRate ?? 5);
       const assignedStaff = scanPrefAutoSalesperson
         ? (prevItems[prevItems.length - 1]?.salesStaff || globalSalesperson)
         : globalSalesperson;
@@ -530,16 +595,49 @@ export const SmritiBillingStudio: React.FC<SmritiBillingStudioProps> = ({
         hsnCode: product.hsn_code || product.hsn || "6403",
         lineTotal: price * overrideQty,
       };
-
       return [...prevItems, newItem];
     });
-
     playBeep(true);
     onNotification?.("Item Added", `${product.name || "Item"} added to cart.`, "success");
     setBarcodeInput("");
     setProductSearchQuery("");
     setShowProductDropdown(false);
-  }, [globalSalesperson, scanPrefAutoSalesperson, duplicateBarcodeAction, playBeep, onNotification]);
+    setTimeout(() => barcodeInputRef.current?.focus(), 50);
+  }, [globalSalesperson, scanPrefAutoSalesperson, playBeep, onNotification]);
+
+  // ── Add Item to Cart with Repeat Barcode Policy ────────────────────────────
+  const addItemToCart = useCallback((product: Product | any, overrideQty: number = 1) => {
+    const existingIndex = cartItems.findIndex(
+      (i) => i.productId === product.id || (product.sku && i.sku === product.sku) || (product.barcode && i.barcode === product.barcode)
+    );
+
+    const repeatPolicy = effectiveProfileConfig?.repeat_barcode_policy;
+    const isAskUser = duplicateBarcodeAction === "prompt" || repeatPolicy === "ASK_USER";
+    const isNewLine = duplicateBarcodeAction === "add_new_row" || repeatPolicy === "NEW_LINE";
+
+    if (existingIndex >= 0) {
+      if (isAskUser) {
+        setPendingRepeatItem({ product, qty: overrideQty });
+        setShowAskUserRepeatModal(true);
+        return;
+      }
+      if (!isNewLine) {
+        executeIncreaseQuantity(product, overrideQty);
+        return;
+      }
+    }
+
+    executeAddNewRow(product, overrideQty);
+  }, [cartItems, duplicateBarcodeAction, effectiveProfileConfig, executeIncreaseQuantity, executeAddNewRow]);
+
+  // ── Bulk Add Commitment Handler ───────────────────────────────────────────
+  const handleCommitBulkItems = useCallback((itemsToAdd: { product: any; qty: number }[]) => {
+    itemsToAdd.forEach(({ product, qty }) => {
+      addItemToCart(product, qty);
+    });
+    setShowBulkAddModal(false);
+    onNotification?.("Bulk Items Added", `Successfully added ${itemsToAdd.length} items to cart.`, "success");
+  }, [addItemToCart, onNotification]);
 
   // ── Add Staged Item to Cart ───────────────────────────────────────────────
   const addStagedItemToCart = () => {
@@ -590,8 +688,8 @@ export const SmritiBillingStudio: React.FC<SmritiBillingStudioProps> = ({
     }
   };
 
-  // ── Barcode Scanner Handler with Debounce & Multiplier Support ─────────────
-  const handleBarcodeSubmit = (e: React.FormEvent) => {
+  // ── Barcode Scanner Handler with Backend Lookup (Zero Synthetic Products) ─
+  const handleBarcodeSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const rawQuery = barcodeInput.trim();
     if (!rawQuery) return;
@@ -615,7 +713,7 @@ export const SmritiBillingStudio: React.FC<SmritiBillingStudioProps> = ({
       }
     }
 
-    // 3. Match against products catalog
+    // 3. Match against products catalog prop
     const matched = products.find(
       (p) =>
         p.barcode?.toLowerCase() === targetBarcode.toLowerCase() ||
@@ -626,44 +724,49 @@ export const SmritiBillingStudio: React.FC<SmritiBillingStudioProps> = ({
 
     if (matched) {
       processMatchedProduct(matched, multiplierQty);
-    } else {
-      // 4. Demo fallback matching
-      const demoMatch = INITIAL_DEMO_CART_ITEMS.find(
-        (it) => it.barcode?.toLowerCase() === targetBarcode.toLowerCase() || it.sku?.toLowerCase() === targetBarcode.toLowerCase()
-      );
-      if (demoMatch) {
-        processMatchedProduct({
-          id: demoMatch.productId,
-          name: demoMatch.name,
-          sku: demoMatch.sku,
-          barcode: demoMatch.barcode,
-          price: demoMatch.unitPrice,
-          mrp: demoMatch.mrp,
-          brand: demoMatch.brand,
-          color: demoMatch.color,
-          size: demoMatch.size,
-          gst_rate: demoMatch.taxPct,
-        }, multiplierQty);
-      } else {
-        // Create synthetic item for demo speed if in demo mode, else notify
-        const fallbackProd: Product = {
-          id: `PROD-${targetBarcode}`,
-          code: `SKU-${targetBarcode.slice(-4)}`,
-          name: targetBarcode.startsWith("890123") ? "Regular Sandal" : "Sport Shoe",
-          barcode: targetBarcode,
-          sku: `SKU-${targetBarcode.slice(-4)}`,
-          price: 750,
-          mrp: 750,
-          stock: 50,
-          category: "Footwear",
-          gstPercentage: 5,
-          brand: "SMRITI Footwear",
-          color: "BEIGE",
-          size: "38",
-        };
-        processMatchedProduct(fallbackProd, multiplierQty);
-      }
+      return;
     }
+
+    // 4. Try backend scan API endpoint
+    try {
+      const scanRes = await apiFetchV1<any>(`/billing/scan/${encodeURIComponent(targetBarcode)}`);
+      if (scanRes && scanRes.product) {
+        processMatchedProduct(scanRes.product, multiplierQty);
+        return;
+      }
+    } catch {
+      // Backend lookup returned 404 or failed
+    }
+
+    // 5. Initial cart demo fallback matching if items are in catalog
+    const demoMatch = INITIAL_DEMO_CART_ITEMS.find(
+      (it) => it.barcode?.toLowerCase() === targetBarcode.toLowerCase() || it.sku?.toLowerCase() === targetBarcode.toLowerCase()
+    );
+    if (demoMatch) {
+      processMatchedProduct({
+        id: demoMatch.productId,
+        name: demoMatch.name,
+        sku: demoMatch.sku,
+        barcode: demoMatch.barcode,
+        price: demoMatch.unitPrice,
+        mrp: demoMatch.mrp,
+        brand: demoMatch.brand,
+        color: demoMatch.color,
+        size: demoMatch.size,
+        gst_rate: demoMatch.taxPct,
+      }, multiplierQty);
+      return;
+    }
+
+    // 6. Unknown barcode: Never invent or silently add products! Actionable HREP message
+    playBeep(false);
+    onNotification?.(
+      "Barcode Not Found",
+      `Barcode "${targetBarcode}" was not found in catalog. Please check barcode or register product in Master Data.`,
+      "error"
+    );
+    setBarcodeInput("");
+    setTimeout(() => barcodeInputRef.current?.focus(), 50);
   };
 
   // ── Cart Manipulations ───────────────────────────────────────────────────
@@ -723,6 +826,45 @@ export const SmritiBillingStudio: React.FC<SmritiBillingStudioProps> = ({
         "error"
       );
       return;
+    }
+
+    // ── Billing Profile Enforcements ─────────────────────────────────────────
+    // 1. Customer Selection Requirement for B2B Profile
+    if (billingProfile === "B2B_ONLY" || effectiveProfileConfig?.customer_selection_required) {
+      if (customer.id === WALK_IN_CUSTOMER.id) {
+        onNotification?.(
+          "Customer Selection Required",
+          "B2B Invoicing requires selecting a registered business customer with tax identification.",
+          "error"
+        );
+        return;
+      }
+    }
+
+    // 2. Customer Purchase Order (PO) Reference Requirement
+    const poPolicy = effectiveProfileConfig?.customer_po_reference;
+    if (poPolicy === "REQUIRED") {
+      if (!poReference || !poReference.trim() || poReference === "PO / Order Ref") {
+        onNotification?.(
+          "PO Reference Required",
+          "Customer Purchase Order (PO) reference is mandatory under company policy.",
+          "error"
+        );
+        return;
+      }
+    }
+
+    // 3. Shift Management Policy Check
+    const shiftPolicy = effectiveProfileConfig?.shift_management || (billingProfile === "B2C_ONLY" ? "ENABLED" : "DISABLED");
+    if (shiftPolicy === "ENABLED") {
+      if (!activeShift || activeShift.status?.toUpperCase() !== "OPEN") {
+        onNotification?.(
+          "Open Shift Required",
+          "POS Retail billing requires an active open cashier shift. Please open a shift before checkout.",
+          "error"
+        );
+        return;
+      }
     }
 
     // Credit billing validations
@@ -933,13 +1075,35 @@ export const SmritiBillingStudio: React.FC<SmritiBillingStudioProps> = ({
             </div>
           </div>
 
-          <div className="flex flex-col">
-            <span className="text-xs font-bold text-white tracking-tight">
-              Billing Studio
-            </span>
-            <div className="text-[11px] text-blue-200 flex items-center gap-1 font-medium">
-              <span>Main Branch (MAIN)</span>
+          <div className="flex items-center gap-2.5">
+            <div className="flex flex-col">
+              <span className="text-xs font-bold text-white tracking-tight">
+                Billing Studio
+              </span>
+              <div className="text-[11px] text-blue-200 flex items-center gap-1 font-medium">
+                <span>Main Branch (MAIN)</span>
+              </div>
             </div>
+
+            {/* Profile Engine Indicator & Configuration Modal Trigger */}
+            <button
+              type="button"
+              onClick={() => {
+                if (isProfileConfigured) setShowProfileConfigModal(true);
+                else setShowProfileSetupModal(true);
+              }}
+              title="Click to view or customize Company Billing Profile"
+              className={`px-2 py-0.5 rounded text-[10px] font-bold tracking-wide uppercase border flex items-center gap-1 transition cursor-pointer shadow-xs ${
+                billingProfile === "B2C_ONLY"
+                  ? "bg-emerald-500/20 text-emerald-300 border-emerald-400/40 hover:bg-emerald-500/30"
+                  : billingProfile === "B2B_ONLY"
+                  ? "bg-purple-500/20 text-purple-300 border-purple-400/40 hover:bg-purple-500/30"
+                  : "bg-amber-500/20 text-amber-300 border-amber-400/40 hover:bg-amber-500/30"
+              }`}
+            >
+              <Building2 size={10} />
+              <span>{billingProfile || "SETUP REQUIRED"}</span>
+            </button>
           </div>
         </div>
 
@@ -1183,6 +1347,28 @@ export const SmritiBillingStudio: React.FC<SmritiBillingStudioProps> = ({
                 </button>
               </div>
             </div>
+
+            {/* Mandatory Customer PO Reference Banner for B2B Wholesale */}
+            {effectiveProfileConfig?.customer_po_reference === "REQUIRED" && (
+              <div className="mt-2.5 pt-2 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between gap-3 bg-amber-50/50 dark:bg-amber-950/20 p-2 rounded-lg border border-amber-200/80 dark:border-amber-900/40">
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <span className="text-xs font-bold text-amber-800 dark:text-amber-300">
+                    Customer PO Reference <span className="text-red-500">*</span>:
+                  </span>
+                </div>
+                <input
+                  type="text"
+                  value={poReference === "PO / Order Ref" ? "" : poReference}
+                  onChange={(e) => setPoReference(e.target.value)}
+                  placeholder="Enter mandatory Customer PO / Order Ref..."
+                  className={`flex-1 px-3 py-1 bg-white dark:bg-slate-900 border rounded-lg text-xs font-mono font-bold ${
+                    !poReference || poReference === "PO / Order Ref"
+                      ? "border-amber-400 ring-1 ring-amber-300"
+                      : "border-emerald-500 ring-1 ring-emerald-300"
+                  }`}
+                />
+              </div>
+            )}
           </div>
 
           {/* ── CARD 2: ITEMS IN CART ── */}
@@ -1513,6 +1699,18 @@ export const SmritiBillingStudio: React.FC<SmritiBillingStudioProps> = ({
                 <Layers size={13} />
                 <span>Select Product (F2)</span>
               </button>
+
+              {effectiveProfileConfig?.bulk_add_enabled !== false && (
+                <button
+                  type="button"
+                  id="bulk-add-items-btn"
+                  onClick={() => setShowBulkAddModal(true)}
+                  className="flex items-center gap-1.5 px-3.5 py-2 border border-indigo-300 dark:border-indigo-700 bg-indigo-50/80 dark:bg-indigo-950/40 hover:bg-indigo-100 text-indigo-700 dark:text-indigo-300 rounded-xl text-xs font-bold transition cursor-pointer shadow-2xs shrink-0"
+                >
+                  <FileSpreadsheet size={13} />
+                  <span>Bulk Add</span>
+                </button>
+              )}
             </form>
 
             {/* Staged Product Row with Direct "Add to Cart" Button */}
@@ -2585,6 +2783,132 @@ export const SmritiBillingStudio: React.FC<SmritiBillingStudioProps> = ({
             setShowF2Modal(false);
           }}
         />
+      )}
+
+      {/* ── BULK ADD ITEMS MODAL (Paste Barcodes, Barcode+Qty, CSV Import) ── */}
+      {showBulkAddModal && (
+        <BulkAddItemsModal
+          isOpen={showBulkAddModal}
+          onClose={() => setShowBulkAddModal(false)}
+          products={products}
+          onCommitItems={handleCommitBulkItems}
+          salesperson={globalSalesperson}
+        />
+      )}
+
+      {/* ── INITIAL COMPANY BILLING PROFILE SETUP MODAL ── */}
+      {showProfileSetupModal && (
+        <BillingProfileSetupModal
+          isOpen={showProfileSetupModal}
+          canConfigure={isManagerOrAdmin}
+          onProfileActivated={(newProfile, effectiveConfig) => {
+            setBillingProfile(newProfile);
+            setIsProfileConfigured(true);
+            setEffectiveProfileConfig(effectiveConfig);
+            setShowProfileSetupModal(false);
+            if (newProfile === "B2C_ONLY") {
+              setCustomer(WALK_IN_CUSTOMER);
+              setReceiptPrintView("THERMAL_80MM");
+            } else {
+              setCustomer(DEMO_RELIANCE_CUSTOMER);
+              setReceiptPrintView("A4_INVOICE");
+            }
+          }}
+          onNotification={onNotification}
+        />
+      )}
+
+      {/* ── BILLING PROFILE & CONFIGURATION MODAL ── */}
+      {showProfileConfigModal && (
+        <BillingProfileConfigModal
+          isOpen={showProfileConfigModal}
+          onClose={() => setShowProfileConfigModal(false)}
+          activeProfile={billingProfile || "B2C_ONLY"}
+          effectiveConfig={effectiveProfileConfig}
+          customOverrides={customProfileOverrides}
+          history={profileHistory}
+          canManage={isManagerOrAdmin}
+          onConfigSaved={(data) => {
+            if (data.billing_profile) {
+              setBillingProfile(data.billing_profile);
+              if (data.billing_profile === "B2C_ONLY") {
+                setCustomer(WALK_IN_CUSTOMER);
+                setReceiptPrintView("THERMAL_80MM");
+              } else {
+                setCustomer(DEMO_RELIANCE_CUSTOMER);
+                setReceiptPrintView("A4_INVOICE");
+              }
+            }
+            if (data.effective_configuration) {
+              setEffectiveProfileConfig(data.effective_configuration);
+              if (data.effective_configuration.default_scan_mode) {
+                setScanMode(data.effective_configuration.default_scan_mode);
+              }
+              if (data.effective_configuration.repeat_barcode_policy) {
+                const pol = data.effective_configuration.repeat_barcode_policy;
+                if (pol === "INCREASE_QUANTITY") setDuplicateBarcodeAction("increment_qty");
+                else if (pol === "NEW_LINE") setDuplicateBarcodeAction("add_new_row");
+                else if (pol === "ASK_USER") setDuplicateBarcodeAction("prompt");
+              }
+            }
+            fetchBillingProfile();
+          }}
+          onNotification={onNotification}
+        />
+      )}
+
+      {/* ── REPEAT BARCODE ACTION PROMPT MODAL (ASK_USER) ── */}
+      {showAskUserRepeatModal && pendingRepeatItem && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-xl shadow-xl border border-slate-200 dark:border-slate-800 max-w-sm w-full p-5 space-y-4">
+            <div className="flex items-center gap-2 text-amber-600">
+              <AlertTriangle size={18} />
+              <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">
+                Item Already in Cart
+              </h3>
+            </div>
+            <p className="text-xs text-slate-600 dark:text-slate-300">
+              <strong>{pendingRepeatItem.product.name}</strong> ({pendingRepeatItem.product.barcode || pendingRepeatItem.product.sku}) is already in the cart.
+              How would you like to handle this duplicate scan?
+            </p>
+            <div className="flex flex-col gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  executeIncreaseQuantity(pendingRepeatItem.product, pendingRepeatItem.qty);
+                  setShowAskUserRepeatModal(false);
+                  setPendingRepeatItem(null);
+                }}
+                className="w-full py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer"
+              >
+                <Plus size={13} />
+                <span>Increase Quantity (+{pendingRepeatItem.qty})</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  executeAddNewRow(pendingRepeatItem.product, pendingRepeatItem.qty);
+                  setShowAskUserRepeatModal(false);
+                  setPendingRepeatItem(null);
+                }}
+                className="w-full py-2 border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 rounded-lg text-xs font-bold transition cursor-pointer"
+              >
+                Add as New Row
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowAskUserRepeatModal(false);
+                  setPendingRepeatItem(null);
+                  setTimeout(() => barcodeInputRef.current?.focus(), 50);
+                }}
+                className="w-full py-1.5 text-slate-500 hover:text-slate-700 text-xs text-center cursor-pointer"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

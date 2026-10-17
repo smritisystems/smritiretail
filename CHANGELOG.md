@@ -1,3 +1,20 @@
+## [6.91.0] — 2026-10-17
+
+### Sales & Billing — SMRITI Billing Studio Final Master Implementation v1.0.0
+
+Finalized the canonical **SMRITI Billing Studio** (`SmritiBillingStudio.tsx`) as a single, profile-driven, production-ready billing engine supporting exactly two company profiles: `B2C_ONLY` (Retail POS) and `B2B_ONLY` (Business Wholesale Invoicing):
+
+**Key Capabilities & Architectural Enforcement:**
+- **Profile-Driven Architecture:** Dynamically adapts checkout workflow, fields, validations, and defaults based on the company's active billing profile (`B2C_ONLY` vs `B2B_ONLY`). Combined or hybrid profiles are strictly disallowed to maintain transactional and accounting clarity.
+- **4-Tier Configuration Precedence:** Resolves effective settings hierarchically: Company Policy Overrides > Profile Defaults > Store Configuration > Permitted Cashier Preferences.
+- **Authorized Profile Setup & Switch:** Implemented initial setup dialog (`BillingProfileSetupModal.tsx`) for unconfigured companies and an authorized profile migration workflow (`BillingProfileConfigModal.tsx`) with mandatory business justification reason and immutable audit history.
+- **Shift Management Profile Defaults:** Shift Management is enabled by default for `B2C_ONLY` (POS retail requires an open cashier shift) and disabled by default for `B2B_ONLY` (wholesale users are not blocked from invoicing). Administrators may override shift policy as needed.
+- **Bulk Add Items (3 Modes + Footwear Paste):** Built `BulkAddItemsModal.tsx` supporting Paste Barcodes, Excel tab-separated / CSV Paste Barcode+Qty, 4-column Footwear/Apparel paste (`Article`, `Color`, `Size`, `Qty`), and CSV file uploads with live pre-commit validation table and row-level actionable error reporting.
+- **Repeat Barcode Policies:** Configurable policies for repeated barcode scans: `INCREASE_QUANTITY` (increments line qty), `NEW_LINE` (adds separate line item), and `ASK_USER` (prompts cashier with clear decision dialog).
+- **Zero Synthetic Products Anti-Pattern:** Completely removed fallback synthetic product generation. Unknown barcodes are rejected with actionable Human-Readable Error Policy (HREP) messages, preserving inventory ledger integrity.
+- **Backend Sales Posting Enforcements:** Added authoritative verification in `canonical_sales_writer.py` during sales checkout, enforcing business customer registration, mandatory Customer PO reference, and open shift requirements.
+- **Automated Verification:** 26/26 tests green in `src/tests/smritiBillingStudio.test.ts`, 77/77 billing regression tests passed, 1/1 Pytest suite green against PostgreSQL, 0 `tsc --noEmit` errors, and zero database schema migrations.
+
 ## [6.89.1] — 2026-10-17
 
 ### Sales & Billing — SMRITI Billing Studio UX Simplification & Ergonomic Workflow Hardening v1.0.0
