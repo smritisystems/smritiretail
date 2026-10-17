@@ -14,6 +14,22 @@
 
 # SMRITI Retail OS — Release Notes
 
+## Release v6.96.0 (2026-10-17)
+
+### Sales & Billing — SMRITI Billing Studio Preloaded SKU Root-Cause Fix & Fresh Session Governance
+
+#### Overview
+SMRITI Retail OS v6.96.0 permanently resolves the critical UX issue where opening Billing Studio in Counter POS (`RETAIL_POS`) loaded six pre-populated demo SKUs without cashier scan or selection. The release enforces fresh session governance: Counter POS always starts with an empty cart (`[]`), zero totals, Walk-in customer default, and immediate autofocus on the barcode scanner input. The update introduces a clean, informative empty-cart view equipped with keyboard shortcuts and an explicit `Load Sample Items` button for demonstration or layout testing on demand, eliminating silent auto-loading. In addition, workflow transitions across Counter POS, Credit Billing, and B2B Distributor modes are isolated with distinct React component keys, preventing cross-mode state leakage while preserving legitimate F12 draft parking/resumption and B2B packing slip consolidation workflows.
+
+#### Key Highlights
+- **Permanent Root-Cause Fix**: Removed hardcoded `INITIAL_DEMO_CART_ITEMS` from `useState` initialization in `SmritiBillingStudio.tsx`. Fresh billing sessions begin with `cartItems = []`.
+- **Zero Totals Guarantee**: Added early-return logic in `computeBillingTotals` ensuring all 10 summary attributes equal 0 when the cart is empty, avoiding phantom discounts.
+- **Immediate Barcode Scanner Autofocus**: Cashiers can scan immediately on page mount without having to click or tab into the input.
+- **Informative Empty-Cart UI with Explicit Demo Loading**: Clean empty state table view displaying quick action shortcut buttons (`F1`, `F2`) and an explicit `Load Sample Items` button.
+- **Multi-Mode Workflow Isolation**: Conditionally rendered modes in `BillingWorkspace.tsx` use explicit React keys, preventing state bleeding across retail and wholesale billing modes.
+- **Preserved Legitimate Workflows**: F12 Park & Recall cart persistence, draft restoration, Sales Order / Packing Slip processing, GST tax calculations, and payment settlements remain 100% operational.
+- **Verification**: 34/34 tests green in `src/tests/smritiBillingStudio.test.ts`, 16/16 tests green in `b2bPackingConsolidatedBilling.test.ts`, 11/11 architecture checks passed, and clean production build.
+
 ## Release v6.95.0 (2026-10-17)
 
 ### Procurement & Visual Analytics — SMRITI Retail OS Procurement Visual Reports Implementation

@@ -62,6 +62,7 @@ import {
   FileSpreadsheet,
   ExternalLink,
   FileText,
+  Clock,
 } from "lucide-react";
 
 export type BillingStudioMode = "RETAIL_POS" | "CREDIT_BILLING" | "B2B_DISTRIBUTOR";
@@ -292,6 +293,26 @@ export function computeBillingTotals(
     customerStateCode.trim() !== storeStateCode
   );
 
+  if (items.length === 0) {
+    return {
+      recomputedItems: [],
+      grossTotal: 0,
+      subtotal: 0,
+      totalItemDiscounts: 0,
+      billDiscount: 0,
+      totalTaxable: 0,
+      totalTax: 0,
+      totalCgst: 0,
+      totalSgst: 0,
+      totalIgst: 0,
+      roundOff: 0,
+      netPayable: 0,
+      totalQty: 0,
+      itemCount: 0,
+      isInterstate,
+    };
+  }
+
   const recomputedItems = items.map((item) => {
     const itemGross = item.basePrice ? item.qty * item.basePrice : item.qty * item.unitPrice;
     const itemDisc = item.discountAmt !== undefined ? item.discountAmt : (item.discountPct ? (itemGross * item.discountPct) / 100 : 0);
@@ -428,10 +449,16 @@ export const SmritiBillingStudio: React.FC<SmritiBillingStudioProps> = ({
     }
   }, [consolidatedBatch]);
 
-  // Customer State (Initialized with Reliance Retail Demo customer for full visual parity)
-  const [customer, setCustomer] = useState<ProPosCustomer>(DEMO_RELIANCE_CUSTOMER);
-  const [selectedOutlet, setSelectedOutlet] = useState<string>("Reliance - Andheri (AND)");
-  const [customerSearchQuery, setCustomerSearchQuery] = useState<string>("9876543210");
+  // Customer State (B2B Distributor initializes with Reliance Retail, Counter POS / B2C starts with Walk-in Customer)
+  const [customer, setCustomer] = useState<ProPosCustomer>(
+    mode === "B2B_DISTRIBUTOR" ? DEMO_RELIANCE_CUSTOMER : WALK_IN_CUSTOMER
+  );
+  const [selectedOutlet, setSelectedOutlet] = useState<string>(
+    mode === "B2B_DISTRIBUTOR" ? "Reliance - Andheri (AND)" : ""
+  );
+  const [customerSearchQuery, setCustomerSearchQuery] = useState<string>(
+    mode === "B2B_DISTRIBUTOR" ? "9876543210" : ""
+  );
   const [showCustomerDropdown, setShowCustomerDropdown] = useState<boolean>(false);
   const [showNewCustomerModal, setShowNewCustomerModal] = useState<boolean>(false);
   const [newCustName, setNewCustName] = useState<string>("");
@@ -439,10 +466,14 @@ export const SmritiBillingStudio: React.FC<SmritiBillingStudioProps> = ({
   const [newCustGstin, setNewCustGstin] = useState<string>("");
   const [newCustStateCode, setNewCustStateCode] = useState<string>("27");
 
-  // Cart & Line Items
-  const [cartItems, setCartItems] = useState<ProPosCartItem[]>(INITIAL_DEMO_CART_ITEMS);
+  // Session & Draft Identifier Tracking
+  const [sessionId] = useState<string>(() => `sess_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`);
+  const [activeDraftId, setActiveDraftId] = useState<string | null>(null);
+
+  // Cart & Line Items: New session starts with an EMPTY cart!
+  const [cartItems, setCartItems] = useState<ProPosCartItem[]>([]);
   const [selectedCartItemId, setSelectedCartItemId] = useState<string | null>(null);
-  const [billLevelDiscount, setBillLevelDiscount] = useState<number>(50);
+  const [billLevelDiscount, setBillLevelDiscount] = useState<number>(0);
   const [billDiscountType, setBillDiscountType] = useState<"FLAT" | "PERCENT">("FLAT");
   const [showDiscountModal, setShowDiscountModal] = useState<boolean>(false);
 
@@ -482,7 +513,7 @@ export const SmritiBillingStudio: React.FC<SmritiBillingStudioProps> = ({
 
   // Payment Settlement State
   const [paymentMode, setPaymentMode] = useState<"CASH" | "UPI" | "CARD" | "CREDIT">("CASH");
-  const [receivedAmount, setReceivedAmount] = useState<string>("16286.13");
+  const [receivedAmount, setReceivedAmount] = useState<string>("0.00");
   const [upiRefNumber, setUpiRefNumber] = useState<string>("");
   const [cardAuthCode, setCardAuthCode] = useState<string>("");
 
@@ -493,7 +524,15 @@ export const SmritiBillingStudio: React.FC<SmritiBillingStudioProps> = ({
   const [billingStore, setBillingStore] = useState<string>("Reliance - Andheri (AND)");
   const [deliveryStore, setDeliveryStore] = useState<string>("Same as Billing Store");
   const [posState, setPosState] = useState<string>("Maharashtra");
-  const [poReference, setPoReference] = useState<string>("PO / Order Ref");
+  const [poReference, setPoReference] = useState<string>("");
+
+  // Autofocus scanner input on initial mount for instant scanning readiness
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      barcodeInputRef.current?.focus();
+    }, 80);
+    return () => clearTimeout(timer);
+  }, []);
 
   // Settings Dialog (Modal encapsulation replaces permanently visible card)
   const [showSettingsModal, setShowSettingsModal] = useState<boolean>(false);
@@ -652,8 +691,8 @@ export const SmritiBillingStudio: React.FC<SmritiBillingStudioProps> = ({
 
   // Sync received amount to net payable when net payable changes if cash tender
   useEffect(() => {
-    if (paymentMode === "CASH" && calculations.netPayable > 0) {
-      setReceivedAmount(calculations.netPayable.toFixed(2));
+    if (paymentMode === "CASH") {
+      setReceivedAmount(calculations.netPayable > 0 ? calculations.netPayable.toFixed(2) : "0.00");
     }
   }, [calculations.netPayable, paymentMode]);
 
@@ -1054,8 +1093,60 @@ export const SmritiBillingStudio: React.FC<SmritiBillingStudioProps> = ({
     if (cartItems.length === 0) return;
     setCartItems([]);
     setBillLevelDiscount(0);
+    setActiveDraftId(null);
+    setSelectedCartItemId(null);
     onNotification?.("Cart Cleared", "All items cleared from cart.", "info");
+    setTimeout(() => barcodeInputRef.current?.focus(), 50);
   };
+
+  // Explicit user choice: Load sample demo products only when deliberately requested
+  const handleLoadSampleDemoItems = useCallback(() => {
+    setCartItems(INITIAL_DEMO_CART_ITEMS);
+    setBillLevelDiscount(50);
+    setBillDiscountType("FLAT");
+    if (currentMode === "B2B_DISTRIBUTOR") {
+      setCustomer(DEMO_RELIANCE_CUSTOMER);
+      setSelectedOutlet("Reliance - Andheri (AND)");
+      setCustomerSearchQuery("9876543210");
+    }
+    onNotification?.(
+      "Sample Items Loaded",
+      "Loaded 6 sample footwear products into the cart for visual demonstration.",
+      "info"
+    );
+    setTimeout(() => barcodeInputRef.current?.focus(), 50);
+  }, [currentMode, onNotification]);
+
+  // F12 / Action: Park Current Cart as Hold Slip
+  const handleParkCurrentCart = useCallback(async () => {
+    if (cartItems.length === 0) {
+      onNotification?.("Cannot Park", "Cart is empty. Add items before parking.", "warning");
+      return;
+    }
+    try {
+      const parked = await SmritiPosParkedCartService.parkCart({
+        sessionId: sessionId || effectiveShiftId || "SESS-LIVE-01",
+        customer,
+        salesStaff: globalSalesperson,
+        items: cartItems,
+        totalAmount: calculations.netPayable,
+        expirationHours: 4,
+      });
+      setCartItems([]);
+      setBillLevelDiscount(0);
+      setActiveDraftId(null);
+      refreshParkedCarts();
+      playBeep(true);
+      onNotification?.(
+        "Cart Parked [F12]",
+        `Cart saved as Hold Slip #${parked.holdSlipNumber}. Cart is now clear for next customer.`,
+        "info"
+      );
+      setTimeout(() => barcodeInputRef.current?.focus(), 50);
+    } catch (err: any) {
+      onNotification?.("Park Failed", `Could not park cart: ${err.message}`, "error");
+    }
+  }, [cartItems, customer, globalSalesperson, calculations.netPayable, sessionId, effectiveShiftId, refreshParkedCarts, playBeep, onNotification]);
 
   // ── Customer Search Filter ────────────────────────────────────────────────
   const filteredCustomers = useMemo(() => {
@@ -1231,6 +1322,15 @@ export const SmritiBillingStudio: React.FC<SmritiBillingStudioProps> = ({
       playBeep(true);
       onNotification?.("Invoice Saved", `Invoice #${recorded.billNo} committed successfully.`, "success");
       recordAuditAction("POS_SETTLEMENT", "sales_invoices", recorded.billNo, `Settled ${recorded.billNo} via ${paymentMode}`);
+      setCartItems([]);
+      setBillLevelDiscount(0);
+      setActiveDraftId(null);
+      setSelectedCartItemId(null);
+      if (currentMode === "RETAIL_POS") {
+        setCustomer(WALK_IN_CUSTOMER);
+        setCustomerSearchQuery("");
+      }
+      setTimeout(() => barcodeInputRef.current?.focus(), 100);
       if (activeConsolidatedSlips.length > 0) {
         try {
           await apiFetchV1("/fulfillment/consolidated-finalize", {
@@ -1269,6 +1369,15 @@ export const SmritiBillingStudio: React.FC<SmritiBillingStudioProps> = ({
         };
         setLastBillRecord(offlineRecord);
         if (shouldPrint) setShowReceiptModal(true);
+        setCartItems([]);
+        setBillLevelDiscount(0);
+        setActiveDraftId(null);
+        setSelectedCartItemId(null);
+        if (currentMode === "RETAIL_POS") {
+          setCustomer(WALK_IN_CUSTOMER);
+          setCustomerSearchQuery("");
+        }
+        setTimeout(() => barcodeInputRef.current?.focus(), 100);
         if (activeConsolidatedSlips.length > 0) {
           setActiveConsolidatedSlips([]);
           onClearConsolidatedBatch?.();
@@ -1314,10 +1423,21 @@ export const SmritiBillingStudio: React.FC<SmritiBillingStudioProps> = ({
         }
         return;
       }
+      if (e.key === "F12") {
+        e.preventDefault();
+        if (cartItems.length > 0) {
+          handleParkCurrentCart();
+        } else if (parkedBills.length > 0) {
+          setShowParkedBillsModal(true);
+        } else {
+          onNotification?.("Parked Bills", "No active parked bills found for this register.", "info");
+        }
+        return;
+      }
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [cartItems, isSubmitting, handlePostTransaction]);
+  }, [cartItems, isSubmitting, handlePostTransaction, parkedBills, handleParkCurrentCart, onNotification]);
 
   // ── Inline SVG Footwear Icons ─────────────────────────────────────────────
   // ── Inline SVG Footwear & Apparel Icons matching Frozen Specification ────
@@ -1699,10 +1819,26 @@ export const SmritiBillingStudio: React.FC<SmritiBillingStudioProps> = ({
             {/* ── ITEMS IN CART GRID CARD (READ-ONLY) ── */}
             <div className="flex-1 bg-white dark:bg-[#1a233a] rounded-xl border border-slate-200/90 dark:border-slate-800 shadow-2xs p-3.5 flex flex-col min-h-0 overflow-hidden">
               <div className="flex items-center justify-between pb-2 mb-2 border-b border-slate-100 dark:border-slate-800 shrink-0">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   <h2 className="text-xs font-bold text-slate-800 dark:text-slate-100">
                     Items in Cart ({cartItems.length})
                   </h2>
+                  {activeDraftId && (
+                    <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-amber-100 text-amber-800 dark:bg-amber-900/60 dark:text-amber-300 border border-amber-300 font-mono flex items-center gap-1">
+                      <span>DRAFT #{activeDraftId}</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          clearCart();
+                          onNotification?.("Session Cleared", "Started fresh session.", "info");
+                        }}
+                        className="hover:text-red-600 font-bold ml-1 cursor-pointer"
+                        title="Dismiss resumed draft and start fresh"
+                      >
+                        ×
+                      </button>
+                    </span>
+                  )}
                   {activeConsolidatedSlips.length > 0 && (
                     <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-blue-100 text-blue-800 dark:bg-blue-900/60 dark:text-blue-300 border border-blue-300 font-mono">
                       CONSOLIDATED: {activeConsolidatedSlips.length} SLIPS ({activeConsolidatedSlips.map((s: any) => s.packingSlipNumber).join(", ")})
@@ -1710,6 +1846,39 @@ export const SmritiBillingStudio: React.FC<SmritiBillingStudioProps> = ({
                   )}
                 </div>
                 <div className="flex items-center gap-2 text-xs">
+                  {cartItems.length > 0 && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={handleParkCurrentCart}
+                        className="flex items-center gap-1 px-2.5 py-1 border border-amber-300 bg-amber-50/70 hover:bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800 rounded-lg text-xs font-semibold transition cursor-pointer shadow-2xs"
+                        title="Park Cart / Hold Slip (F12)"
+                      >
+                        <Clock size={12} />
+                        <span>Park (F12)</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={clearCart}
+                        className="flex items-center gap-1 px-2 py-1 border border-red-200 bg-red-50/50 hover:bg-red-100 text-red-700 dark:bg-red-950/30 dark:text-red-400 dark:border-red-900/50 rounded-lg text-xs font-semibold transition cursor-pointer shadow-2xs"
+                        title="Clear all items from cart"
+                      >
+                        <Trash2 size={12} />
+                        <span>Clear</span>
+                      </button>
+                    </>
+                  )}
+                  {parkedBills.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setShowParkedBillsModal(true)}
+                      className="flex items-center gap-1 px-2.5 py-1 border border-amber-400 bg-amber-500 text-white hover:bg-amber-600 rounded-lg text-xs font-bold transition cursor-pointer shadow-2xs"
+                      title="View & Resume Saved Drafts / Parked Carts"
+                    >
+                      <Clock size={12} />
+                      <span>Drafts ({parkedBills.length})</span>
+                    </button>
+                  )}
                   {effectiveProfileConfig?.bulk_add_enabled !== false && (
                     <button
                       type="button"
@@ -1753,7 +1922,48 @@ export const SmritiBillingStudio: React.FC<SmritiBillingStudioProps> = ({
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 dark:divide-slate-800/80 text-xs">
-                    {cartItems.map((item, index) => {
+                    {cartItems.length === 0 ? (
+                      <tr>
+                        <td colSpan={13} className="py-14 text-center">
+                          <div className="flex flex-col items-center justify-center gap-2.5 text-slate-400 dark:text-slate-500">
+                            <div className="w-12 h-12 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400">
+                              <ShoppingCart size={24} className="stroke-1.5" />
+                            </div>
+                            <div className="text-center">
+                              <p className="text-xs font-bold text-slate-700 dark:text-slate-300">Cart is empty</p>
+                              <p className="text-[11px] text-slate-400 max-w-sm mt-0.5">
+                                Scan a barcode (F1), use Advanced Item Search (F2), or Bulk Add to begin this billing session.
+                              </p>
+                            </div>
+                            <div className="flex items-center gap-2 mt-2">
+                              <button
+                                type="button"
+                                onClick={() => barcodeInputRef.current?.focus()}
+                                className="px-3 py-1 bg-blue-50 dark:bg-blue-950/50 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 rounded-lg text-xs font-semibold hover:bg-blue-100 transition cursor-pointer"
+                              >
+                                Start Scanning (F1)
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setShowF2Modal(true)}
+                                className="px-3 py-1 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-300 dark:border-slate-700 rounded-lg text-xs font-semibold hover:bg-slate-50 transition cursor-pointer"
+                              >
+                                Search Items (F2)
+                              </button>
+                              <button
+                                type="button"
+                                onClick={handleLoadSampleDemoItems}
+                                className="px-3 py-1 bg-slate-50 dark:bg-slate-800/60 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 border border-dashed border-slate-300 dark:border-slate-700 rounded-lg text-xs font-medium transition cursor-pointer"
+                                title="Explicitly load the 6 approved sample items for testing or demonstration"
+                              >
+                                Load Sample Items
+                              </button>
+                            </div>
+                          </div>
+                        </td>
+                      </tr>
+                    ) : (
+                      cartItems.map((item, index) => {
                       const rate = item.basePrice || item.unitPrice;
                       const discAmt =
                         item.discountAmt !== undefined
@@ -1831,7 +2041,7 @@ export const SmritiBillingStudio: React.FC<SmritiBillingStudioProps> = ({
                           </td>
                         </tr>
                       );
-                    })}
+                    }))}
                   </tbody>
                 </table>
               </div>
@@ -2996,6 +3206,98 @@ export const SmritiBillingStudio: React.FC<SmritiBillingStudioProps> = ({
                 className="w-full py-1.5 text-slate-500 hover:text-slate-700 text-xs text-center cursor-pointer"
               >
                 Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* ── PARKED BILLS / RESUME DRAFT MODAL (F12) ── */}
+      {showParkedBillsModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-xl shadow-xl border border-slate-200 dark:border-slate-800 max-w-lg w-full p-5 space-y-4">
+            <div className="flex justify-between items-center pb-2 border-b border-slate-100 dark:border-slate-800">
+              <div className="flex items-center gap-2">
+                <Clock size={16} className="text-amber-600" />
+                <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">
+                  Parked Bills &amp; Saved Drafts
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowParkedBillsModal(false)}
+                className="text-slate-400 hover:text-slate-600 cursor-pointer"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            {parkedBills.length === 0 ? (
+              <p className="text-xs text-slate-500 py-6 text-center">
+                No active parked drafts found for this shift.
+              </p>
+            ) : (
+              <div className="space-y-2 max-h-72 overflow-y-auto">
+                {parkedBills.map((record) => (
+                  <div
+                    key={record.holdSlipNumber}
+                    className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-lg border border-slate-200 dark:border-slate-700 flex items-center justify-between gap-3 text-xs"
+                  >
+                    <div>
+                      <div className="font-bold text-slate-800 dark:text-slate-200 font-mono">
+                        #{record.holdSlipNumber}
+                      </div>
+                      <div className="text-[11px] text-slate-500">
+                        Customer: {record.customer?.name || "Walk-in"} • Items: {record.items.length}
+                      </div>
+                      <div className="text-[10px] text-slate-400">
+                        Parked at: {new Date(record.parkedAt).toLocaleTimeString()}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono font-bold text-slate-900 dark:text-slate-100">
+                        ₹ {Number(record.totalAmount || 0).toFixed(2)}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          try {
+                            const recalled = await SmritiPosParkedCartService.recallCart(record.holdSlipNumber, globalSalesperson);
+                            if (!recalled) {
+                              onNotification?.("Recall Failed", "Hold slip not found or expired", "error");
+                              return;
+                            }
+                            setCartItems(recalled.items);
+                            if (recalled.customer) setCustomer(recalled.customer);
+                            setActiveDraftId(recalled.holdSlipNumber);
+                            refreshParkedCarts();
+                            setShowParkedBillsModal(false);
+                            onNotification?.(
+                              "Draft Restored",
+                              `Resumed Hold Slip #${recalled.holdSlipNumber} with ${recalled.items.length} items.`,
+                              "success"
+                            );
+                            setTimeout(() => barcodeInputRef.current?.focus(), 50);
+                          } catch (err: any) {
+                            onNotification?.("Recall Failed", err.message || "Failed to recall draft", "error");
+                          }
+                        }}
+                        className="px-2.5 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded font-bold text-xs cursor-pointer shadow-2xs"
+                      >
+                        Resume Draft
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className="flex justify-end pt-2 border-t border-slate-100 dark:border-slate-800">
+              <button
+                type="button"
+                onClick={() => setShowParkedBillsModal(false)}
+                className="px-4 py-1.5 border border-slate-300 dark:border-slate-700 rounded-lg text-xs font-semibold cursor-pointer"
+              >
+                Close
               </button>
             </div>
           </div>

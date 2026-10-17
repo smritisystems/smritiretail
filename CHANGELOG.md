@@ -1,3 +1,19 @@
+## [6.96.0] — 2026-10-17
+
+### Sales & Billing — SMRITI Billing Studio Preloaded SKU Root-Cause Fix & Fresh Session Governance v1.0.0
+
+Investigated and permanently eliminated the root cause of six preloaded products silently appearing in the Counter POS cart upon opening Billing Studio without cashier scan or selection:
+
+**Key Capabilities & Architectural Enforcements:**
+- **Root-Cause Resolution:** Removed hardcoded `INITIAL_DEMO_CART_ITEMS` default state from `useState<ProPosCartItem[]>(INITIAL_DEMO_CART_ITEMS)` in `SmritiBillingStudio.tsx`. Fresh Counter POS (`RETAIL_POS`) billing sessions now strictly initialize with an empty cart array `[]`.
+- **Zero-Totals Fast-Path:** Added short-circuit branch in `computeBillingTotals` when `items.length === 0` that returns mathematically exact zero values across all 10 summary attributes (`itemCount: 0`, `totalQty: 0`, `grossSubtotal: 0`, `totalDiscount: 0`, `billDiscount: 0`, `taxableValue: 0`, `cgst: 0`, `sgst: 0`, `igst: 0`, `grandTotal: 0`), preventing phantom discounts or taxes when no products are present.
+- **Mode-Aware Customer & Financial Defaults:** Initialized `customer` to `WALK_IN_CUSTOMER` in Counter POS and Credit Billing modes while preserving registered demo customer (`DEMO_RELIANCE_CUSTOMER`) for B2B Wholesale mode. Initialized `billLevelDiscount` to `0` and `receivedAmount` to `"0.00"`.
+- **Scanner Autofocus on Mount:** Added `useEffect` mounting hook that focuses `barcodeInputRef`, ensuring the terminal is immediately armed and ready for the cashier's first hardware scanner trigger or manual barcode entry.
+- **Informative Empty-Cart View:** Replaced empty/blank cart table space with a clean, branded empty-state view featuring quick action shortcut buttons (`Start Scanning (F1)`, `Search Items (F2)`) and an explicit `Load Sample Items` button, allowing users to deliberately populate sample products for demonstration or visual layout testing without silent auto-population.
+- **Workflow Isolation Across Modes:** Bound distinct React keys (`counter-pos-studio`, `credit-billing-studio`, `b2b-distributor-studio`) in `BillingWorkspace.tsx`, enforcing clean lifecycle isolation and completely preventing cross-mode state leakage when switching between Counter POS, Credit Billing, and B2B Wholesale.
+- **Preserved Legitimate Workflows:** Preserved explicit F12 Park & Recall draft persistence and restoration, Sales Order / Packing Slip conversions (`PS-` barcode scanning and modal transfer), customer searches, GST computations, and payment settlement.
+- **Comprehensive Verification:** Added 8 automated test scenarios (Tests 27–34) in `src/tests/smritiBillingStudio.test.ts`. All 34/34 tests passing green.
+
 ## [6.95.0] — 2026-10-17
 
 ### Procurement & Visual Analytics — SMRITI Retail OS Procurement Visual Reports Implementation v1.0.0
