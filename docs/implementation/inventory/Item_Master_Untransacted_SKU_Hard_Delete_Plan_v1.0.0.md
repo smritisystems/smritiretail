@@ -20,7 +20,7 @@
 **Database System of Record:** PostgreSQL 15.18 (`smriti001`)  
 **Backend Framework:** FastAPI Core  
 **Frontend Client:** React 18 + Vite  
-**Lifecycle Status:** Approved (In Progress)  
+**Lifecycle Status:** Completed  
 
 ---
 
@@ -143,7 +143,7 @@ In day-to-day retail operations, operators frequently make typographical or conf
 - Zero database migration needed (tables and cascade definitions exist).
 
 ## 17. Status
-Approved (In Progress)
+Completed
 
 ## 18. Related ADRs
 - `ADR-001`: Physical SKU Column Naming & Contract
