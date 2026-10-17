@@ -995,6 +995,14 @@ class SalesService:
             item.pending_quantity = max(Decimal("0.0000"), Decimal(str(item.quantity or 0)) - item.billed_quantity)
             item.line_status = "BILLED" if item.pending_quantity <= 0 else "PARTIALLY_BILLED"
 
+        from .seller_resolver import resolve_seller_context_async
+        seller_ctx = await resolve_seller_context_async(
+            db=self.db,
+            company_id=self.tenant_ctx.company_id if self.tenant_ctx else "COMP-001",
+            invoice=so,
+            doc_type="TAX_INVOICE",
+        )
+
         db_inv = SalesInvoice(
             id=invoice_id,
             invoice_no=invoice_no,
@@ -1011,16 +1019,19 @@ class SalesService:
             tax_total=total_tax,
             grand_total=total_grand,
             is_interstate=is_interstate,
-            bank_name="STATE BANK OF INDIA",
-            account_no="43976711765",
-            ifsc_code="SBIN0030425",
+            bank_name=seller_ctx.bank_name,
+            account_no=seller_ctx.account_no,
+            ifsc_code=seller_ctx.ifsc_code,
             status="Draft",
             items=inv_items,
             company_id=self.tenant_ctx.company_id if self.tenant_ctx else None,
             branch_id=self.tenant_ctx.branch_id if self.tenant_ctx else None,
             rule_snapshots={
-                "bank_branch": "WARDHMAN NAGAR NAGPUR",
-                "account_holder_name": "TATTLY THREADS",
+                "seller_name": seller_ctx.company_name,
+                "seller_gstin": seller_ctx.company_gstin,
+                "seller_address": seller_ctx.company_address,
+                "bank_branch": seller_ctx.bank_branch,
+                "account_holder_name": seller_ctx.company_name,
                 "source_order_id": so.id,
                 "source_order_no": so.order_no,
             }

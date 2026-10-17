@@ -19,6 +19,7 @@ import base64
 import hashlib
 import json
 import uuid
+import urllib.parse
 from datetime import datetime, timezone
 from decimal import Decimal
 from pathlib import Path
@@ -258,7 +259,7 @@ GST_STATE_MAP: Dict[str, str] = {
 }
 
 
-def format_place_of_supply(raw_state: str, is_interstate: bool, customer_gstin: str = "", supplier_gstin: str = "27AAXFT2508H1ZR") -> str:
+def format_place_of_supply(raw_state: str, is_interstate: bool, customer_gstin: str = "", supplier_gstin: Optional[str] = None) -> str:
     """
     Dynamically formats Place of Supply strictly per SMRITI Governance:
       {STATE NAME} ({STATE CODE}) — {SUPPLY TYPE}
@@ -269,6 +270,7 @@ def format_place_of_supply(raw_state: str, is_interstate: bool, customer_gstin: 
     """
     code = None
     name = None
+
     
     # 1. Prefer extraction from customer GSTIN (first 2 digits)
     if customer_gstin and len(customer_gstin) >= 2 and customer_gstin[:2].isdigit() and customer_gstin[:2] in GST_STATE_MAP:
@@ -420,14 +422,51 @@ class InvoicePdfService:
     def generate_invoice_html_from_model(
         cls,
         invoice: Any,
-        company_name: str = "TATTLY THREADS",
-        company_gstin: str = "27AAXFT2508H1ZR",
+        company_name: Optional[str] = None,
+        company_gstin: Optional[str] = None,
         extra_meta: Optional[Dict[str, Any]] = None,
         seller_ctx: Optional[Any] = None,
     ) -> str:
         """
         Renders pixel-faithful GST Tax Invoice HTML directly from an authoritative model or object.
+        Enforces fail-closed corporate identity: blocks rendering if company legal name, GSTIN,
+        address, or statutory banking coordinates are unconfigured.
         """
+        meta = extra_meta or {}
+
+        # Resolve authoritative corporate legal identity
+        company_name = (
+            company_name
+            or getattr(seller_ctx, "company_name", None)
+            or getattr(invoice, "seller_name", None)
+            or meta.get("company_name")
+            or meta.get("seller_name")
+        )
+        if not company_name:
+            from .seller_resolver import missing
+            raise missing("MISSING_COMPANY", "company legal name")
+
+        company_gstin = (
+            company_gstin
+            or getattr(seller_ctx, "company_gstin", None)
+            or getattr(invoice, "seller_gstin", None)
+            or meta.get("company_gstin")
+            or meta.get("seller_gstin")
+        )
+        if not company_gstin:
+            from .seller_resolver import missing
+            raise missing("MISSING_SELLER_GSTIN", "seller GSTIN")
+
+        company_address = (
+            getattr(seller_ctx, "company_address", None)
+            or getattr(invoice, "seller_address", None)
+            or meta.get("company_address")
+            or meta.get("seller_address")
+        )
+        if not company_address:
+            from .seller_resolver import missing
+            raise missing("MISSING_COMPANY", "seller address")
+
         is_interstate = getattr(invoice, "is_interstate", True)
         if is_interstate is None:
             is_interstate = True
@@ -435,7 +474,6 @@ class InvoicePdfService:
         status_str = getattr(invoice, "status", "Draft") or "Draft"
         is_cancelled = str(status_str).upper() == "CANCELLED"
 
-        meta = extra_meta or {}
         invoice_no = getattr(invoice, "invoice_no", None) or f"INV-{getattr(invoice, 'id', '001')}"
         
         date_obj = invoice.date
@@ -470,44 +508,45 @@ class InvoicePdfService:
                         pos_code = c
                         break
         if not pos_code:
-            pos_code = "27"
+            pos_code = supplier_state_code
             
         is_interstate = (pos_code != supplier_state_code)
         place_of_supply_display = format_place_of_supply(pos_state, is_interstate, customer_gstin, supplier_gstin=company_gstin)
 
         is_rcm = bool(getattr(invoice, "reverse_charge", False) or getattr(invoice, "is_reverse_charge", False) or meta.get("reverse_charge", False) or meta.get("is_reverse_charge", False))
         reverse_charge_display = "Yes" if is_rcm else "No"
-        # Dynamic Bank Details: Prefer seller_ctx -> model fields -> meta overrides -> environment variables -> fallback
+
+        # Dynamic Bank Details: Prefer seller_ctx -> model fields -> meta overrides
         bank_name = (
             (getattr(seller_ctx, "bank_name", None) if seller_ctx else None)
             or getattr(invoice, "bank_name", None)
             or meta.get("bank_name")
-            or os.getenv("DEFAULT_BANK_NAME", "STATE BANK OF INDIA")
         )
         account_no = (
             (getattr(seller_ctx, "account_no", None) if seller_ctx else None)
             or getattr(invoice, "account_no", None)
             or meta.get("bank_account_no")
             or meta.get("account_no")
-            or os.getenv("DEFAULT_BANK_ACCOUNT_NO", "43976711765")
         )
         ifsc_code = (
             (getattr(seller_ctx, "ifsc_code", None) if seller_ctx else None)
             or getattr(invoice, "ifsc_code", None)
             or meta.get("bank_ifsc")
             or meta.get("ifsc_code")
-            or os.getenv("DEFAULT_BANK_IFSC", "SBIN0030425")
         )
         bank_branch = (
             (getattr(seller_ctx, "bank_branch", None) if seller_ctx else None)
             or getattr(invoice, "bank_branch", None)
             or meta.get("bank_branch")
-            or os.getenv("DEFAULT_BANK_BRANCH", "WARDHMAN NAGAR NAGPUR")
         )
 
-        company_web = (getattr(seller_ctx, "website", None) if seller_ctx else None) or meta.get("company_website", "www.tattlythreads.com")
-        dispatch_email = (getattr(seller_ctx, "dispatch_email", None) if seller_ctx else None) or meta.get("dispatch_email", "dispatch@tattlythreads.com")
-        accounts_email = (getattr(seller_ctx, "accounts_email", None) if seller_ctx else None) or meta.get("accounts_email", "accounts@tattlythreads.com")
+        if not (bank_name and account_no and ifsc_code and bank_branch):
+            from .seller_resolver import missing
+            raise missing("MISSING_BANK_DETAILS", "bank name, account number, IFSC, and branch")
+
+        company_web = (getattr(seller_ctx, "website", None) if seller_ctx else None) or meta.get("company_website", "")
+        dispatch_email = (getattr(seller_ctx, "dispatch_email", None) if seller_ctx else None) or meta.get("dispatch_email", "")
+        accounts_email = (getattr(seller_ctx, "accounts_email", None) if seller_ctx else None) or meta.get("accounts_email", "")
 
         # Resolve Dispatch From Snapshot (Statutory Physical Origin)
         dispatch_from = getattr(invoice, "dispatch_from_snapshot", None) or meta.get("dispatch_from_snapshot") or {}
@@ -554,15 +593,39 @@ class InvoicePdfService:
             qr_data_str = f"DOC:TAX_INVOICE|INV:{invoice_no}|DATE:{date_str}|GSTIN:{company_gstin}|VAL:{float(grand_total):.2f}|POS:{pos_code}"
 
         qr_uri = generate_qr_base64(qr_data_str)
-        logo_uri = get_tattly_logo_base64()
-        logo_rotated_uri = get_tattly_logo_rotated_anticlockwise_base64()
-        signature_uri = get_krutika_signature_base64()
+
+        # Dynamic Logo & Signature
+        custom_logo = getattr(seller_ctx, "logo_uri", None) or meta.get("logo_uri")
+        if custom_logo:
+            logo_uri = custom_logo
+            logo_rotated_uri = custom_logo
+        elif "TATTLY" in (company_name or "").upper():
+            logo_uri = get_tattly_logo_base64()
+            logo_rotated_uri = get_tattly_logo_rotated_anticlockwise_base64()
+        else:
+            logo_uri = ""
+            logo_rotated_uri = ""
+
+        signature_uri = getattr(seller_ctx, "signature_uri", None) or meta.get("signature_uri")
+        if not signature_uri and "TATTLY" in (company_name or "").upper():
+            signature_uri = get_krutika_signature_base64()
+        else:
+            signature_uri = signature_uri or ""
+
         upi_badge_uri = get_upi_badge_base64()
 
         # Dynamic Payment UPI QR Payload
-        upi_id = meta.get("upi_id", "tattlythreads@sbi")
-        upi_payload = f"upi://pay?pa={upi_id}&pn=TATTLY%20THREADS&am={float(grand_total):.2f}&tn={invoice_no}&mam=0.01"
-        upi_qr_uri = generate_qr_base64(upi_payload)
+        upi_id = (
+            (getattr(seller_ctx, "upi_id", None) if seller_ctx else None)
+            or meta.get("upi_id")
+            or ""
+        )
+        if upi_id:
+            safe_company = urllib.parse.quote(company_name or "")
+            upi_payload = f"upi://pay?pa={upi_id}&pn={safe_company}&am={float(grand_total):.2f}&tn={invoice_no}&mam=0.01"
+            upi_qr_uri = generate_qr_base64(upi_payload)
+        else:
+            upi_qr_uri = ""
 
         # Resolve Dynamic Branding & Element Sizing Controls (Option 3 Recommended Defaults)
         user_branding = meta.get("branding") or meta.get("layout_config") or {}
@@ -899,12 +962,12 @@ class InvoicePdfService:
                         <div>
                           <div class="company-name">{company_name}</div>
                           <div class="company-details">
-                            Office No. 81, Ibrahim Rehmatullah Road, Beside Jio Gallery,<br/>near HP Petrol Pump, Mumbai, Maharashtra - 400003
+                            {company_address.replace(chr(10), "<br/>")}
                           </div>
                           <div class="company-details" style="font-family: monospace; margin-top: 2px; line-height: 1.35;">
-                            <div>Web: {company_web}</div>
-                            <div>Dispatch: {dispatch_email}</div>
-                            <div>Accounts: {accounts_email}</div>
+                            {f'<div>Web: {company_web}</div>' if company_web else ''}
+                            {f'<div>Dispatch: {dispatch_email}</div>' if dispatch_email else ''}
+                            {f'<div>Accounts: {accounts_email}</div>' if accounts_email else ''}
                           </div>
                           <div class="company-gstin">
                             GSTIN: <span class="gstin-val">{company_gstin}</span>
@@ -1231,16 +1294,18 @@ class InvoicePdfService:
     def generate_invoice_html_sync(
         cls,
         invoice: Any,
-        company_name: str = "TATTLY THREADS",
-        company_gstin: str = "27AAXFT2508H1ZR",
-        extra_meta: Optional[Dict[str, Any]] = None
+        company_name: Optional[str] = None,
+        company_gstin: Optional[str] = None,
+        extra_meta: Optional[Dict[str, Any]] = None,
+        seller_ctx: Optional[Any] = None,
     ) -> str:
         """Synchronous wrapper for generating invoice HTML from model object."""
         return cls.generate_invoice_html_from_model(
             invoice=invoice,
             company_name=company_name,
             company_gstin=company_gstin,
-            extra_meta=extra_meta
+            extra_meta=extra_meta,
+            seller_ctx=seller_ctx,
         )
 
     @classmethod
@@ -1250,21 +1315,25 @@ class InvoicePdfService:
         invoice_id: Optional[str] = None,
         company_id: Optional[str] = None,
         branch_id: Optional[str] = None,
-        company_name: str = "TATTLY THREADS",
-        company_gstin: str = "27AAXFT2508H1ZR",
+        company_name: Optional[str] = None,
+        company_gstin: Optional[str] = None,
         extra_meta: Optional[Dict[str, Any]] = None,
-        invoice: Optional[Any] = None
+        invoice: Optional[Any] = None,
+        seller_ctx: Optional[Any] = None,
     ) -> str:
         """
         Retrieves authoritative invoice record from database under tenant isolation context
         (or directly processes an invoice model object) and renders pixel-faithful GST Tax Invoice HTML.
+        Enforces fail-closed resolution: failure to resolve company identity or bank coordinates
+        raises an actionable InvoiceRenderError instead of falling back to default corporate details.
         """
         if invoice is not None:
             return cls.generate_invoice_html_from_model(
                 invoice=invoice,
                 company_name=company_name,
                 company_gstin=company_gstin,
-                extra_meta=extra_meta
+                extra_meta=extra_meta,
+                seller_ctx=seller_ctx,
             )
 
         if session is not None and (not hasattr(session, "execute") or hasattr(session, "invoice_no")):
@@ -1273,7 +1342,8 @@ class InvoicePdfService:
                 invoice=invoice_obj,
                 company_name=company_name,
                 company_gstin=company_gstin,
-                extra_meta=extra_meta
+                extra_meta=extra_meta,
+                seller_ctx=seller_ctx,
             )
 
         stmt = (
@@ -1301,8 +1371,7 @@ class InvoicePdfService:
         verify_smrititaxinvoice_integrity()
 
         # Dynamic Seller Resolution from canonical database
-        seller_ctx = None
-        try:
+        if seller_ctx is None:
             from .seller_resolver import resolve_seller_context_async
             target_cid = company_id or getattr(invoice_rec, "company_id", "COMP-001")
             seller_ctx = await resolve_seller_context_async(
@@ -1310,12 +1379,11 @@ class InvoicePdfService:
                 company_id=target_cid,
                 invoice=invoice_rec,
                 extra_meta=extra_meta,
+                doc_type="TAX_INVOICE",
             )
-            if seller_ctx:
-                company_name = seller_ctx.company_name
-                company_gstin = seller_ctx.company_gstin
-        except Exception:
-            seller_ctx = None
+        if seller_ctx:
+            company_name = company_name or seller_ctx.company_name
+            company_gstin = company_gstin or seller_ctx.company_gstin
 
         return cls.generate_invoice_html_from_model(
             invoice=invoice_rec,
@@ -1333,9 +1401,10 @@ class InvoicePdfService:
         output_pdf_path: str,
         company_id: Optional[str] = None,
         branch_id: Optional[str] = None,
-        company_name: str = "TATTLY THREADS",
-        company_gstin: str = "27AAXFT2508H1ZR",
-        extra_meta: Optional[Dict[str, Any]] = None
+        company_name: Optional[str] = None,
+        company_gstin: Optional[str] = None,
+        extra_meta: Optional[Dict[str, Any]] = None,
+        seller_ctx: Optional[Any] = None,
     ) -> str:
         """
         Renders an authoritative Tax Invoice record to a PDF file using Playwright.
@@ -1350,7 +1419,8 @@ class InvoicePdfService:
             branch_id=branch_id,
             company_name=company_name,
             company_gstin=company_gstin,
-            extra_meta=extra_meta
+            extra_meta=extra_meta,
+            seller_ctx=seller_ctx,
         )
 
         os.makedirs(os.path.dirname(os.path.abspath(output_pdf_path)), exist_ok=True)
@@ -1391,9 +1461,10 @@ class InvoicePdfService:
         invoice_id: str,
         company_id: Optional[str] = None,
         branch_id: Optional[str] = None,
-        company_name: str = "TATTLY THREADS",
-        company_gstin: str = "27AAXFT2508H1ZR",
-        extra_meta: Optional[Dict[str, Any]] = None
+        company_name: Optional[str] = None,
+        company_gstin: Optional[str] = None,
+        extra_meta: Optional[Dict[str, Any]] = None,
+        seller_ctx: Optional[Any] = None,
     ) -> bytes:
         """
         Renders an authoritative Tax Invoice record to in-memory PDF bytes using Playwright.
@@ -1409,7 +1480,8 @@ class InvoicePdfService:
             branch_id=branch_id,
             company_name=company_name,
             company_gstin=company_gstin,
-            extra_meta=extra_meta
+            extra_meta=extra_meta,
+            seller_ctx=seller_ctx,
         )
 
         async with async_playwright() as p:
@@ -1460,7 +1532,7 @@ class InvoicePdfService:
             }
         return {
             "template_code": template_code,
-            "template_name": "TATTLY THREADS Tax Invoice",
+            "template_name": "Standard Tax Invoice",
             "status": "FROZEN",
             "version": "V1",
             "layout": cls.CONFIG

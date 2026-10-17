@@ -310,7 +310,7 @@ class EWayBillService:
         dst_wh = dst_res.scalar_one_or_none()
 
         company = await self._get_company()
-        company_gstin = (getattr(company, 'gst_number', None) or getattr(company, 'gstin', None) or "27AAXFT2508H1ZR") if company else "27AAXFT2508H1ZR"
+        company_gstin = (getattr(company, 'gst_number', None) or getattr(company, 'gstin', None) or "") if company else ""
 
         if is_strict:
             is_valid_gst, gst_err = self._validate_gstin(company_gstin, "Company GSTIN")

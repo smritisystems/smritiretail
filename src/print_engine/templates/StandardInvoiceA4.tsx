@@ -15,8 +15,6 @@
  */
 
 import React from "react";
-import { DEFAULT_SBI_BANK_ACCOUNT } from "../../services/bankStore.ts";
-import tattlyLogoBlack from "../../../myImages/tattly_logo_black.png";
 import { getTenantCompanyContext } from "../../lib/apiFetchV1";
 
 export interface InvoiceItem {
@@ -292,20 +290,24 @@ export const StandardInvoiceA4: React.FC<{ data?: InvoiceData }> = ({ data = {} 
   
   // Dynamic Corporate Identity & Company Info (from data or active tenant profile)
   const tenantCtx = typeof window !== "undefined" ? getTenantCompanyContext() : null;
-  const companyName = data.companyName || tenantCtx?.companyName || "TATTLY THREADS";
-  const companyAddress = data.companyAddress || tenantCtx?.companyAddress || "Office Number 81, Ibrahim Rehmatulla Road, Beside Jio Gallery, Near HP Petrol Pump, Mumbai, Maharashtra 400003";
-  const companyGst = data.companyGst || tenantCtx?.companyGstin || "27AAXFT2508H1ZR";
-  const dispatchEmail = data.dispatchEmail || tenantCtx?.companyEmail || "dispatch@tattlythreads.com";
-  const accountsEmail = data.accountsEmail || tenantCtx?.companyEmail || "accounts@tattlythreads.com";
-  const website = data.website || "www.tattlythreads.com";
-  const logoUrl = data.logoUrl || tenantCtx?.companyLogoUrl || tattlyLogoBlack;
+  const companyName = data.companyName || tenantCtx?.companyName || "";
+  const companyAddress = data.companyAddress || tenantCtx?.companyAddress || "";
+  const companyGst = data.companyGst || tenantCtx?.companyGstin || "";
+  const dispatchEmail = data.dispatchEmail || tenantCtx?.companyEmail || "";
+  const accountsEmail = data.accountsEmail || tenantCtx?.companyEmail || "";
+  const website = data.website || "";
+  const logoUrl = data.logoUrl || tenantCtx?.companyLogoUrl || null;
 
-  // Bank Details extraction
+  // Bank Details extraction (Strictly dynamic from document payload, no production SBI defaults)
   const bankInfo: BankAccountDetails | null = typeof data.bankDetails === "object" && data.bankDetails !== null
     ? data.bankDetails
     : typeof data.bankDetails === "string" && data.bankDetails.trim()
     ? { bankName: data.bankDetails }
-    : DEFAULT_SBI_BANK_ACCOUNT;
+    : null;
+
+  // Identity Validation
+  const requiresGstin = !isPurchaseOrder && !isJobWorkOrder;
+  const isIdentityMissing = !companyName || (requiresGstin && !companyGst);
 
   // Invoice Number
   const invoiceNo = data.invoiceNo || data.invoice_no || "TT2026-2027/18";
@@ -426,6 +428,13 @@ export const StandardInvoiceA4: React.FC<{ data?: InvoiceData }> = ({ data = {} 
             style={{ pageBreakAfter: pageNum < totalPages ? "always" : "auto", breakAfter: pageNum < totalPages ? "page" : "auto" }}
           >
             <div>
+              {/* CORPORATE IDENTITY NOT CONFIGURED BANNER */}
+              {isIdentityMissing && (
+                <div className="bg-red-50 border-2 border-red-600 text-red-800 p-2.5 mb-3 rounded font-bold text-center uppercase tracking-wider text-xs">
+                  CORPORATE IDENTITY NOT CONFIGURED — PRINTING BLOCKED
+                </div>
+              )}
+
               {/* TOP HEADER SECTION */}
               <div>
                 {/* 1. BRAND & HEADER */}
@@ -433,9 +442,9 @@ export const StandardInvoiceA4: React.FC<{ data?: InvoiceData }> = ({ data = {} 
                   <div className="flex justify-between items-start border-b-2 border-slate-900 pb-2 mb-3">
                     <div>
                       <div className="flex items-center gap-2.5 mb-1">
-                        <img src={logoUrl} alt={companyName} className="h-9 w-auto object-contain" />
+                        {logoUrl && <img src={logoUrl} alt={companyName || "Logo"} className="h-9 w-auto object-contain" />}
                         <h1 className="text-xl font-extrabold tracking-tight text-slate-950 uppercase m-0 leading-tight">
-                          {companyName}
+                          {companyName || "COMPANY NAME NOT SET"}
                         </h1>
                       </div>
                       <p className="text-[10.5px] text-slate-600 mt-0.5 m-0 whitespace-pre-line">
@@ -480,8 +489,8 @@ export const StandardInvoiceA4: React.FC<{ data?: InvoiceData }> = ({ data = {} 
                 ) : (
                   <div className="flex justify-between items-center border-b-2 border-slate-900 pb-2 mb-3">
                     <div className="flex items-center gap-2">
-                      <img src={logoUrl} alt={companyName} className="h-5 w-auto object-contain" />
-                      <span className="font-extrabold text-xs text-slate-900 uppercase tracking-tight">{companyName} — {isJobWorkOrder ? "JOB WORK ORDER" : isPurchaseOrder ? "PURCHASE ORDER" : "TAX INVOICE"}</span>
+                      {logoUrl && <img src={logoUrl} alt={companyName || "Logo"} className="h-5 w-auto object-contain" />}
+                      <span className="font-extrabold text-xs text-slate-900 uppercase tracking-tight">{companyName || "COMPANY NAME NOT SET"} — {isJobWorkOrder ? "JOB WORK ORDER" : isPurchaseOrder ? "PURCHASE ORDER" : "TAX INVOICE"}</span>
                     </div>
                     <span className="text-[11px] font-bold font-mono text-slate-700">{isJobWorkOrder ? "Job Work No" : isPurchaseOrder ? "PO No" : "Invoice No"}: {invoiceNo}</span>
                   </div>
@@ -732,13 +741,19 @@ export const StandardInvoiceA4: React.FC<{ data?: InvoiceData }> = ({ data = {} 
                       <p className="font-bold text-slate-900 uppercase text-[8.5px] border-b border-slate-200 pb-0.5 mb-1 tracking-wider">
                         Bank Details (Payment Info)
                       </p>
-                      <p className="m-0 text-slate-700 leading-snug font-medium text-[8.5px]">
-                        <span className="font-semibold">Bank:</span> {bankInfo?.bankName || ""}<br />
-                        <span className="font-semibold">A/C Name:</span> {bankInfo?.accountName || ""}<br />
-                        <span className="font-semibold">A/C No:</span> <span className="font-mono font-bold">{bankInfo?.accountNo || bankInfo?.accountNumber || ""}</span><br />
-                        <span className="font-semibold">IFSC:</span> <span className="font-mono font-bold">{bankInfo?.ifsc || bankInfo?.ifscCode || ""}</span><br />
-                        <span className="font-semibold">Branch:</span> {bankInfo?.branch || bankInfo?.branchName || ""}
-                      </p>
+                      {bankInfo ? (
+                        <p className="m-0 text-slate-700 leading-snug font-medium text-[8.5px]">
+                          <span className="font-semibold">Bank:</span> {bankInfo.bankName || ""}<br />
+                          <span className="font-semibold">A/C Name:</span> {bankInfo.accountName || ""}<br />
+                          <span className="font-semibold">A/C No:</span> <span className="font-mono font-bold">{bankInfo.accountNo || bankInfo.accountNumber || ""}</span><br />
+                          <span className="font-semibold">IFSC:</span> <span className="font-mono font-bold">{bankInfo.ifsc || bankInfo.ifscCode || ""}</span><br />
+                          <span className="font-semibold">Branch:</span> {bankInfo.branch || bankInfo.branchName || ""}
+                        </p>
+                      ) : (
+                        <p className="m-0 text-amber-700 italic text-[8.5px]">
+                          Bank details not configured
+                        </p>
+                      )}
                     </div>
 
                     <div className="bg-slate-50 border border-slate-200 p-2 rounded">

@@ -43,6 +43,14 @@ describe("Purchase Order Print Branding, Watermark & Payment Terms Verification"
     deliveryTerms: "Ex-Factory",
     specialInstructions: "Please ensure all items are packed with size stickers and barcode labels.",
 
+    companyName: "TATTLY THREADS",
+    companyAddress: "Office Number 81, Ibrahim Rehmatulla Road, Near HP Petrol Pump, Beside Jio Store, Mumbai, Maharashtra 400003",
+    companyGstin: "27AAXFT2508H1ZR",
+    companyPan: "AAXFT2508H",
+    companyWebsite: "www.tattlythreads.com",
+    companyEmail: "accounts@tattlythreads.com",
+    logoUrl: "/tattly_logo_black.png",
+
     totalItems: 24,
     totalQuantity: 1088,
     subtotal: 571200,
@@ -222,6 +230,19 @@ describe("Purchase Order Print Branding, Watermark & Payment Terms Verification"
     expect(html).toContain("CH-25-G");
     expect(html).toContain("alt=\"Image Not Available\"");
     expect(html).toMatch(/smriti-image-placeholder\.png/);
+  });
+
+  it("9. renders CORPORATE IDENTITY NOT CONFIGURED banner and omits watermark when companyName is missing", () => {
+    const unconfiguredPOData: PurchaseOrderPrintData = {
+      ...sampleFootwearPOData,
+      companyName: undefined,
+      companyAddress: undefined,
+      companyGstin: undefined,
+      logoUrl: undefined,
+    };
+    const html = renderToStaticMarkup(<PurchaseOrderPrintA4 data={unconfiguredPOData} />);
+    expect(html).toContain("CORPORATE IDENTITY NOT CONFIGURED — PRINTING BLOCKED");
+    expect(html).not.toContain("rotate-[-28deg]");
   });
 });
 

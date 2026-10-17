@@ -18,9 +18,9 @@
 import React from "react";
 import smritiImagePlaceholder from "../../../myImages/smriti-image-placeholder.png";
 import imageNotAvailablePlaceholder from "../../../myImages/image_not_available_placeholder.png";
-import tattlyLogoBlack from "../../../myImages/tattly_logo_black.png";
 import type { PurchaseOrderHeader, PurchaseOrderSizePivotRow } from "../../components/purchase/types.ts";
 import { SafeRichTermsRenderer } from "../../components/common/SafeRichTermsRenderer";
+import { getTenantCompanyContext } from "../../lib/apiFetchV1";
 
 export interface SizePivotMatrixA4Props {
   header?: PurchaseOrderHeader;
@@ -102,34 +102,52 @@ export const SizePivotMatrixA4: React.FC<SizePivotMatrixA4Props> = (props) => {
 
   const poNumberDisplay = `${header.prefix || "PO"}-${header.orderNumber || "1"}`;
 
+  const tenantCtx = typeof window !== "undefined" ? getTenantCompanyContext() : null;
+  const companyName = header.billTo || header.buyer || tenantCtx?.companyName || "";
+  const logoUrl = tenantCtx?.companyLogoUrl || null;
+  const isIdentityMissing = !companyName;
+
   return (
     <div
       className={`${
         isLandscape ? "w-[297mm] min-h-[210mm] p-6" : "w-[210mm] min-h-[297mm] p-8"
       } relative bg-white text-slate-900 mx-auto box-border text-[11px] font-sans print-only-container shadow-sm overflow-hidden`}
     >
-      {/* ── Document Watermark (Diagonal TATTLY THREADS Logo + Stamp) ── */}
-      <div className="absolute inset-0 pointer-events-none flex items-center justify-center opacity-[0.07] z-20 overflow-hidden select-none print:opacity-[0.08] mix-blend-multiply">
-        <div className="text-center font-black tracking-widest text-[#1e3a8a] rotate-[-28deg] border-4 border-dashed border-[#1e3a8a] px-10 py-6 rounded-3xl uppercase flex flex-col items-center justify-center shadow-xs">
-          <img
-            src={tattlyLogoBlack}
-            alt="TATTLY THREADS"
-            className="w-36 h-auto max-h-20 object-contain mb-2 print:max-h-20"
-            onError={(e) => {
-              const img = e.currentTarget;
-              if (img.src !== window.location.origin + "/tattly_logo_black.png") {
-                img.src = "/tattly_logo_black.png";
-              }
-            }}
-          />
-          <div className="text-[52px] leading-tight font-black tracking-wider text-[#1e3a8a]">
-            TATTLY THREADS
-          </div>
-          <div className="text-xl font-bold tracking-[0.22em] mt-1 text-slate-800 border-t-2 border-dashed border-[#1e3a8a]/40 pt-1 w-full">
-            PURCHASE ORDER
+      {/* ── Document Watermark (Diagonal Buyer Logo + Stamp) ── */}
+      {companyName && (
+        <div className="absolute inset-0 pointer-events-none flex items-center justify-center opacity-[0.07] z-20 overflow-hidden select-none print:opacity-[0.08] mix-blend-multiply">
+          <div className="text-center font-black tracking-widest text-[#1e3a8a] rotate-[-28deg] border-4 border-dashed border-[#1e3a8a] px-10 py-6 rounded-3xl uppercase flex flex-col items-center justify-center shadow-xs">
+            {logoUrl && (
+              <img
+                src={logoUrl}
+                alt={companyName}
+                className="w-36 h-auto max-h-20 object-contain mb-2 print:max-h-20"
+              />
+            )}
+            <div className="text-[52px] leading-tight font-black tracking-wider text-[#1e3a8a]">
+              {companyName}
+            </div>
+            <div className="text-xl font-bold tracking-[0.22em] mt-1 text-slate-800 border-t-2 border-dashed border-[#1e3a8a]/40 pt-1 w-full">
+              PURCHASE ORDER
+            </div>
           </div>
         </div>
-      </div>
+      )}
+
+      {/* ── FAIL-CLOSED CORPORATE IDENTITY BANNER ── */}
+      {isIdentityMissing && (
+        <div className="mb-4 p-4 rounded-xl border border-rose-500/50 bg-rose-950/40 text-rose-200 flex items-start gap-3 no-print">
+          <span className="material-symbols-outlined text-rose-400 text-2xl">warning</span>
+          <div>
+            <p className="font-bold text-sm tracking-wide text-rose-300 uppercase">
+              CORPORATE IDENTITY NOT CONFIGURED — PRINTING BLOCKED
+            </p>
+            <p className="text-xs text-rose-300/80 mt-1">
+              Purchase order printing requires configured Buyer legal entity details. Please configure your Company Profile before issuing or printing orders.
+            </p>
+          </div>
+        </div>
+      )}
 
       <style>{`
         @media print {
@@ -141,7 +159,7 @@ export const SizePivotMatrixA4: React.FC<SizePivotMatrixA4Props> = (props) => {
       `}</style>
       <header className="border-b-2 border-slate-900 pb-3 mb-4 flex justify-between">
         <div>
-          <div className="text-xl font-black text-slate-950">SMRITI RETAIL OS</div>
+          <div className="text-xl font-black text-slate-950">{companyName || "SMRITI RETAIL OS"}</div>
           <div className="text-xs text-slate-600">Size Pivot Matrix Procurement</div>
           <div className="text-[10px] mt-2">Supplier: <strong>{vendorName}</strong></div>
           <div className="text-[10px]">Delivery: {header.deliveryLocation || "Main Store (MAIN)"}</div>

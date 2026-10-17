@@ -334,9 +334,9 @@ class TaxInvoiceMasterRegisterLine(BaseModel):
     status:             str
     document_type:      str = "TAX INVOICE"
     sis_code:           Optional[str] = None
-    supplier_name:      str = "Tattly Threads"
-    supplier_gstin:     str = "27AAXFT2508H1ZR"
-    supplier_state:     str = "Maharashtra (27)"
+    supplier_name:      Optional[str] = None
+    supplier_gstin:     Optional[str] = None
+    supplier_state:     Optional[str] = None
     customer_name:      Optional[str] = None
     customer_gstin:     Optional[str] = None
     place_of_supply:    str

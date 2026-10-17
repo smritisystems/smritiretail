@@ -72,16 +72,16 @@ export interface HeaderCustomizationConfig {
 }
 
 const DEFAULT_HEADER_CONFIG: HeaderCustomizationConfig = {
-  companyDisplayName: "Tattly Threads",
-  companyAddressDisplay: "Office No. 81, Ibrahim Rehmatullah Road, Beside Jio Gallery, near HP Petrol Pump, Mumbai, Maharashtra - 400003",
+  companyDisplayName: "",
+  companyAddressDisplay: "",
   companyPhone: "",
   companyEmail: "",
-  companyWebsite: "www.tattlythreads.com",
-  dispatchEmail: "dispatch@tattlythreads.com",
-  accountsEmail: "accounts@tattlythreads.com",
+  companyWebsite: "",
+  dispatchEmail: "",
+  accountsEmail: "",
   logoUrl: "",
   headerText: "TAX INVOICE",
-  footerText: "Goods once sold will not be taken back without prior written approval. All disputes subject to Nagpur Jurisdiction.",
+  footerText: "Goods once sold will not be taken back without prior written approval.",
   headerAlignment: "left",
   showLogo: true,
   bankName: "",
@@ -90,7 +90,7 @@ const DEFAULT_HEADER_CONFIG: HeaderCustomizationConfig = {
   bankBranch: "",
 };
 
-const STORAGE_KEY = "smriti_print_header_config_tattly_threads";
+const STORAGE_KEY = "smriti_print_header_config";
 
 export const TaxInvoicePrintPage: React.FC = () => {
   const [invoice, setInvoice] = useState<any>(null);
@@ -305,15 +305,15 @@ export const TaxInvoicePrintPage: React.FC = () => {
         grandTotal: Number(data.grandTotal ?? data.grand_total ?? data.total_amount ?? 0),
         taxTotal: Number(data.taxTotal ?? data.tax_total ?? 0),
         taxableValue: Number(data.taxableValue ?? data.taxable_value ?? 0),
-        customerName: data.customerName || data.customer_name || "Reliance Retail Limited",
-        companyName: headerConfig.companyDisplayName || data.companyName || data.seller_name || (typeof window !== "undefined" ? getTenantCompanyContext()?.companyName : null) || "Tattly Threads",
+        customerName: data.customerName || data.customer_name || "",
+        companyName: headerConfig.companyDisplayName || data.companyName || data.seller_name || (typeof window !== "undefined" ? getTenantCompanyContext()?.companyName : null) || "",
         companyAddress: headerConfig.companyAddressDisplay || data.companyAddress || data.seller_address || (typeof window !== "undefined" ? getTenantCompanyContext()?.companyAddress : undefined),
-        companyGst: data.companyGst || data.seller_gstin || (typeof window !== "undefined" ? getTenantCompanyContext()?.companyGstin : null) || "27AAXFT2508H1ZR",
-        companyPhone: headerConfig.companyPhone || data.companyPhone || (typeof window !== "undefined" ? getTenantCompanyContext()?.companyPhone : null) || "9604990390",
-        companyEmail: headerConfig.companyEmail || data.companyEmail || (typeof window !== "undefined" ? getTenantCompanyContext()?.companyEmail : null) || "tattlythreads@gmail.com",
-        companyWebsite: headerConfig.companyWebsite || (typeof window !== "undefined" ? getTenantCompanyContext()?.companyEmail : null) || "www.tattlythreads.com",
-        dispatchEmail: headerConfig.dispatchEmail || data.dispatchEmail || data.dispatch_email || (typeof window !== "undefined" ? getTenantCompanyContext()?.companyEmail : null) || "dispatch@tattlythreads.com",
-        accountsEmail: headerConfig.accountsEmail || data.accountsEmail || data.accounts_email || (typeof window !== "undefined" ? getTenantCompanyContext()?.companyEmail : null) || "accounts@tattlythreads.com",
+        companyGst: data.companyGst || data.seller_gstin || (typeof window !== "undefined" ? getTenantCompanyContext()?.companyGstin : null) || "",
+        companyPhone: headerConfig.companyPhone || data.companyPhone || (typeof window !== "undefined" ? getTenantCompanyContext()?.companyPhone : null) || "",
+        companyEmail: headerConfig.companyEmail || data.companyEmail || (typeof window !== "undefined" ? getTenantCompanyContext()?.companyEmail : null) || "",
+        companyWebsite: headerConfig.companyWebsite || (typeof window !== "undefined" ? getTenantCompanyContext()?.companyEmail : null) || "",
+        dispatchEmail: headerConfig.dispatchEmail || data.dispatchEmail || data.dispatch_email || (typeof window !== "undefined" ? getTenantCompanyContext()?.companyEmail : null) || "",
+        accountsEmail: headerConfig.accountsEmail || data.accountsEmail || data.accounts_email || (typeof window !== "undefined" ? getTenantCompanyContext()?.companyEmail : null) || "",
         bankName: data.bankName || data.bank_name || headerConfig.bankName || DEFAULT_HEADER_CONFIG.bankName,
         bankAccountNo: data.bankAccountNo || data.bank_account_no || headerConfig.bankAccountNo || DEFAULT_HEADER_CONFIG.bankAccountNo,
         bankIfsc: data.bankIfsc || data.bank_ifsc || headerConfig.bankIfsc || DEFAULT_HEADER_CONFIG.bankIfsc,
@@ -412,7 +412,13 @@ export const TaxInvoicePrintPage: React.FC = () => {
     }
   };
 
+  const isIdentityMissing = !invoice?.companyName || !invoice?.companyGst;
+
   const handlePrint = () => {
+    if (isIdentityMissing) {
+      setError("CORPORATE IDENTITY NOT CONFIGURED: Seller legal name and GSTIN are required before printing.");
+      return;
+    }
     if (activeInvoiceId) {
       void openAuthenticatedDocument(`/sales/invoices/${encodeURIComponent(activeInvoiceId)}/print`, true);
     } else {
@@ -421,6 +427,10 @@ export const TaxInvoicePrintPage: React.FC = () => {
   };
 
   const handleExportPDF = () => {
+    if (isIdentityMissing) {
+      setError("CORPORATE IDENTITY NOT CONFIGURED: Seller legal name and GSTIN are required before downloading.");
+      return;
+    }
     if (activeInvoiceId) {
       void openAuthenticatedDocument(`/sales/invoices/${encodeURIComponent(activeInvoiceId)}/download`);
     } else {
@@ -976,6 +986,20 @@ export const TaxInvoicePrintPage: React.FC = () => {
 
       {/* ── MAIN A4 PRINT PREVIEW AREA ── */}
       <div className="max-w-4xl mx-auto print:max-w-none print:shadow-none print:m-0 print:p-0 print:w-full">
+        {/* Fail-closed corporate identity check */}
+        {(!invoice?.companyName || !invoice?.companyGst) && (
+          <div className="mb-4 p-4 rounded-xl border border-rose-500/50 bg-rose-950/40 text-rose-200 flex items-start gap-3 no-print">
+            <span className="material-symbols-outlined text-rose-400 text-2xl">warning</span>
+            <div>
+              <p className="font-bold text-sm tracking-wide text-rose-300 uppercase">
+                CORPORATE IDENTITY NOT CONFIGURED — PRINTING BLOCKED
+              </p>
+              <p className="text-xs text-rose-300/80 mt-1">
+                Tax invoice printing requires seller legal name and statutory GSTIN. Please configure your Company Profile before generating or printing documents.
+              </p>
+            </div>
+          </div>
+        )}
         <div className="bg-white shadow-2xl rounded-sm print:shadow-none print:rounded-none print:overflow-visible">
           {invoiceDataWithHeaderConfig && (
             <TaxInvoiceA4

@@ -71,34 +71,48 @@ def resolve_seller_context(
     invoice: Any = None,
     extra_meta: dict | None = None,
     company: Any = None,
+    doc_type: str = "TAX_INVOICE",
 ) -> SellerContext:
     """
     Resolve dynamic SellerContext from authoritative Company model, invoice snapshot, or metadata.
-    Enforces fail-closed validation: blocks document issuance if corporate legal name,
-    GSTIN, address, or banking coordinates are missing.
+    Enforces document-specific fail-closed validation:
+    - TAX_INVOICE: blocks issuance if corporate legal name, GSTIN, address, or banking coordinates are missing.
+    - SALES_ORDER / QUOTATION / POS_RECEIPT: requires company identity & address, banking coordinates optional.
+    - PURCHASE_ORDER: validates Buyer (Tenant) corporate identity.
+    - Historical Immutability: Prioritizes historical snapshot attributes from the invoice/meta over mutable live records.
     """
     meta = extra_meta or {}
+    normalized_doc_type = (doc_type or "TAX_INVOICE").upper()
 
+    rule_snaps = getattr(invoice, "rule_snapshots", None) if isinstance(getattr(invoice, "rule_snapshots", None), dict) else {}
+
+    # Precedence: 1. Snapshot on extra_meta/invoice/rule_snapshots -> 2. Live Company entity
     # Extract company name
     company_name = _text(
-        meta.get("company_name"),
         meta.get("seller_name"),
+        getattr(invoice, "seller_name", None),
+        rule_snaps.get("seller_name"),
+        meta.get("company_name"),
         getattr(company, "legal_name", None),
         getattr(company, "name", None),
-        getattr(invoice, "seller_name", None),
     )
     if not company_name:
-        raise missing("MISSING_COMPANY", "company name")
+        raise missing("MISSING_COMPANY", "company legal name")
 
     # Extract company GSTIN
     company_gstin = _text(
-        meta.get("company_gstin"),
         meta.get("seller_gstin"),
-        getattr(company, "gst_number", None),
         getattr(invoice, "seller_gstin", None),
+        rule_snaps.get("seller_gstin"),
+        meta.get("company_gstin"),
+        getattr(company, "gst_number", None),
+        getattr(company, "gstin", None),
     )
-    if not company_gstin:
+    requires_gstin = normalized_doc_type in ("TAX_INVOICE", "INVOICE", "DELIVERY_CHALLAN")
+    if requires_gstin and not company_gstin:
         raise missing("MISSING_SELLER_GSTIN", "seller GSTIN")
+    if not company_gstin:
+        company_gstin = ""
 
     # Extract and construct company address
     constructed_address = None
@@ -120,60 +134,62 @@ def resolve_seller_context(
             constructed_address = ", ".join(non_empty_parts)
 
     company_address = _text(
-        meta.get("company_address"),
         meta.get("seller_address"),
+        getattr(invoice, "seller_address", None),
+        rule_snaps.get("seller_address"),
+        meta.get("company_address"),
         constructed_address,
         getattr(company, "address", None),
-        getattr(invoice, "seller_address", None),
     )
     if not company_address:
-        raise missing("MISSING_COMPANY", "seller address")
+        party_label = "buyer address" if normalized_doc_type == "PURCHASE_ORDER" else "seller address"
+        raise missing("MISSING_COMPANY", party_label)
 
-    # Resolve default bank coordinates
-    resolved_bank_name = None
-    resolved_account_no = None
-    resolved_ifsc_code = None
-    resolved_bank_branch = None
+    # Resolve default bank coordinates (Historical snapshot on invoice row prioritized over live CompanyBankAccounts)
+    resolved_bank_name = getattr(invoice, "bank_name", None)
+    resolved_account_no = getattr(invoice, "account_no", None)
+    resolved_ifsc_code = getattr(invoice, "ifsc_code", None)
+    resolved_bank_branch = getattr(invoice, "bank_branch", None) or rule_snaps.get("bank_branch")
 
-    # 1. From company.bank_accounts relationship
-    company_banks = getattr(company, "bank_accounts", None)
-    if company_banks and isinstance(company_banks, list | tuple) and len(company_banks) > 0:
-        default_acc = next((b for b in company_banks if getattr(b, "is_default", False)), company_banks[0])
-        resolved_bank_name = getattr(default_acc, "bank_name", None)
-        resolved_account_no = getattr(default_acc, "account_no", None)
-        resolved_ifsc_code = getattr(default_acc, "ifsc", None)
-        resolved_bank_branch = getattr(default_acc, "branch", None)
+    if not (resolved_bank_name and resolved_account_no and resolved_ifsc_code):
+        company_banks = getattr(company, "bank_accounts", None)
+        if company_banks and isinstance(company_banks, list | tuple) and len(company_banks) > 0:
+            default_acc = next((b for b in company_banks if getattr(b, "is_default", False)), company_banks[0])
+            resolved_bank_name = resolved_bank_name or getattr(default_acc, "bank_name", None)
+            resolved_account_no = resolved_account_no or getattr(default_acc, "account_no", None)
+            resolved_ifsc_code = resolved_ifsc_code or getattr(default_acc, "ifsc", None)
+            resolved_bank_branch = resolved_bank_branch or getattr(default_acc, "branch", None)
 
     bank_name = _text(
         meta.get("bank_name"),
         resolved_bank_name,
         getattr(company, "bank_name", None),
-        getattr(invoice, "bank_name", None),
-    )
+    ) or ""
     account_no = _text(
         meta.get("account_no"),
         meta.get("bank_account_no"),
         resolved_account_no,
         getattr(company, "account_no", None),
-        getattr(invoice, "account_no", None),
-    )
+    ) or ""
     ifsc_code = _text(
         meta.get("ifsc_code"),
         meta.get("bank_ifsc"),
         resolved_ifsc_code,
         getattr(company, "ifsc_code", None),
         getattr(company, "ifsc", None),
-        getattr(invoice, "ifsc_code", None),
-    )
+    ) or ""
     bank_branch = _text(
         meta.get("bank_branch"),
         resolved_bank_branch,
         getattr(company, "bank_branch", None),
         getattr(company, "branch", None),
-        getattr(invoice, "bank_branch", None),
-    )
-    if not bank_name or not account_no or not ifsc_code or not bank_branch:
-        raise missing("MISSING_BANK_DETAILS", "bank name, account number, IFSC, and branch")
+    ) or ""
+
+    # Document-specific banking enforcement: only TAX_INVOICE mandates seller bank coordinates
+    requires_bank = normalized_doc_type in ("TAX_INVOICE", "INVOICE")
+    if requires_bank:
+        if not bank_name or not account_no or not ifsc_code or not bank_branch:
+            raise missing("MISSING_BANK_DETAILS", "bank name, account number, IFSC, and branch")
 
     logo_uri = _text(
         meta.get("logo_uri"),
@@ -240,6 +256,7 @@ async def resolve_seller_context_async(
     company_id: str = "COMP-001",
     invoice: Any = None,
     extra_meta: dict | None = None,
+    doc_type: str = "TAX_INVOICE",
 ) -> SellerContext:
     """
     Fetch authoritative Company entity and associated default bank account from database,
@@ -260,4 +277,6 @@ async def resolve_seller_context_async(
         invoice=invoice,
         extra_meta=extra_meta,
         company=comp,
+        doc_type=doc_type,
     )
+
