@@ -219,6 +219,22 @@ export const PurchaseStudioTab: React.FC<PurchaseStudioTabProps> = ({
               <span className="material-symbols-outlined text-[14px]">compare_arrows</span>
               RFQ & Quotes
             </button>
+            <button
+              type="button"
+              id="purchase-studio-visual-reports-tab"
+              onClick={() => {
+                if (onNavigateTab) {
+                  onNavigateTab("procurement-visual-reports");
+                } else {
+                  window.dispatchEvent(new CustomEvent("navigate-tab", { detail: { tab: "procurement-visual-reports" } }));
+                }
+              }}
+              className="px-3 py-1 rounded text-xs font-semibold text-blue-600 hover:text-blue-700 hover:bg-blue-50/50 transition flex items-center gap-1.5 cursor-pointer"
+              title="Procurement Visual Reports Dashboard"
+            >
+              <span className="material-symbols-outlined text-[14px] text-blue-600">analytics</span>
+              Visual Reports
+            </button>
           </div>
 
           {/* Sub-mode switcher (only when in Generate view) */}

@@ -37,7 +37,7 @@ const mapModuleToContext = (moduleId: string): BusinessContext => {
   if (['sales', 'crm', 'tax-invoice-print', 'ewaybill-management'].includes(moduleId)) {
     return 'sales';
   }
-  if (['purchase', 'grn', 'supplier-mgmt', 'vendor-360', 'vendor-master', 'vendors', 'approval-matrix'].includes(moduleId)) {
+  if (['purchase', 'grn', 'supplier-mgmt', 'vendor-360', 'vendor-master', 'vendors', 'approval-matrix', 'procurement-visual-reports', 'procurement-reports', 'purchase-visual-reports'].includes(moduleId)) {
     return 'purchase';
   }
   if (['stock-ledger', 'barcode', 'inventory', 'terms-engine', 'price-revision'].includes(moduleId)) {

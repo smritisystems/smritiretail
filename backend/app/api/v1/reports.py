@@ -55,9 +55,14 @@ from ...schemas.reports import (
 )
 from ...schemas.report_schedule import ReportScheduleCreate, ReportScheduleResponse
 from ...schemas.visual_reports import VisualReportsSummaryResponse, DashboardConfigPayload
+from ...schemas.procurement_visual_reports import (
+    ProcurementReportsSummaryResponse,
+    ProcurementDashboardConfigPayload,
+)
 from ...services.reports import ReportsService
 from ...services.prepared_report_service import PreparedReportService
 from ...services.visual_reports_service import VisualReportsService
+from ...services.procurement_visual_reports_service import ProcurementVisualReportsService
 from ...models.reporting import ReportDefinition, ReportSavedView, Dashboard, DashboardWidget, PreparedReport
 
 router = APIRouter(prefix="/reports")
@@ -1039,6 +1044,61 @@ async def save_visual_dashboard_config(
     """Persists visual dashboard view configuration preferences."""
     user_id = getattr(current_user, "id", None) or (current_user.get("sub") if isinstance(current_user, dict) else "usr-system")
     return await VisualReportsService.save_config(
+        session=db,
+        company_id=tenant_ctx.company_id,
+        user_id=user_id,
+        config=payload,
+    )
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Procurement Visual Reports Dashboard Endpoints
+# ─────────────────────────────────────────────────────────────────────────────
+
+@router.get("/procurement-dashboard/summary", response_model=ProcurementReportsSummaryResponse, summary="Get Procurement Visual Dashboard Data")
+async def get_procurement_dashboard_summary(
+    start_date: Optional[date] = Query(None, description="Start date (YYYY-MM-DD)"),
+    end_date: Optional[date] = Query(None, description="End date (YYYY-MM-DD)"),
+    store_location_id: Optional[str] = Query(None, description="Store or Location ID"),
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+    current_user=Depends(get_current_user),
+):
+    """
+    Returns consolidated visual procurement reporting metrics including 6 KPI cards,
+    Purchase Spend Trend, Purchase-to-Receipt Progress, Top Suppliers by Spend,
+    Purchase Order Status donut, Low Stock Reorder Alerts, Supplier Performance,
+    Open POs & Pending Receipts, and Active Procurement Stream.
+    """
+    return await ProcurementVisualReportsService.get_dashboard_summary(
+        session=db,
+        company_id=tenant_ctx.company_id,
+        start_date=start_date,
+        end_date=end_date,
+        store_location_id=store_location_id,
+    )
+
+
+@router.get("/procurement-dashboard/config", response_model=ProcurementDashboardConfigPayload, summary="Get Procurement Dashboard Configuration")
+async def get_procurement_dashboard_config(
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+    current_user=Depends(get_current_user),
+):
+    """Returns saved procurement dashboard view configuration preferences."""
+    return await ProcurementVisualReportsService.get_saved_config(session=db, company_id=tenant_ctx.company_id)
+
+
+@router.post("/procurement-dashboard/config", response_model=ProcurementDashboardConfigPayload, summary="Save Procurement Dashboard Configuration")
+async def save_procurement_dashboard_config(
+    payload: ProcurementDashboardConfigPayload,
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+    current_user=Depends(get_current_user),
+):
+    """Persists procurement dashboard view configuration preferences."""
+    user_id = getattr(current_user, "id", None) or (current_user.get("sub") if isinstance(current_user, dict) else "usr-system")
+    return await ProcurementVisualReportsService.save_config(
         session=db,
         company_id=tenant_ctx.company_id,
         user_id=user_id,

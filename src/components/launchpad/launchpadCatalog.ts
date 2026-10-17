@@ -74,6 +74,18 @@ export const LAUNCHPAD_CATALOG: TileData[] = [
     roles: ["MANAGER", "SYSADMIN"],
   },
   {
+    id: "procurement-visual-reports",
+    title: "Procurement Visual Reports",
+    subtitle: "Real-time visual reports for Purchase Orders, Spend, Approvals, Receipts, Suppliers & Fulfillment stream",
+    icon: "analytics",
+    tag: "Procurement",
+    badgeType: "success",
+    group: "Retail Operations",
+    roles: ["MANAGER", "SYSADMIN"],
+    isQuickAction: true,
+    accentColor: "blue",
+  },
+  {
     id: "grn-studio",
     title: "Goods Receipt (GRN) Terminal",
     subtitle: "Inward material verification, direct entry dock, received vs damaged inspection & landed cost entry",
