@@ -26,7 +26,7 @@ class VisualKpiCard(BaseModel):
     unit: Optional[str] = None
     subtext: Optional[str] = None
     trend_direction: str = "up"  # "up" or "down"
-    trend_percentage: str
+    trend_percentage: Optional[str] = None
     color: str  # blue, amber, green, purple, orange
 
 

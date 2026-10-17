@@ -118,11 +118,20 @@ export const VisualReportsDashboardTab: React.FC<VisualReportsDashboardTabProps>
   onNavigateTab,
 }) => {
   // ── Global Filter States ──────────────────────────────────────────────────
-  const [selectedCompany, setSelectedCompany] = useState<string>("SMRITI FOOTWEAR PVT LTD");
+  // ── Global Filter States ──────────────────────────────────────────────────
+  const [selectedCompany, setSelectedCompany] = useState<string>(() => {
+    try {
+      return localStorage.getItem("smriti_company_name") || "My Retail Store";
+    } catch {
+      return "My Retail Store";
+    }
+  });
+  const [selectedCompanyId, setSelectedCompanyId] = useState<string>("COMP-001");
   const [selectedLocation, setSelectedLocation] = useState<string>("All Locations");
   const [dateRangePreset, setDateRangePreset] = useState<"Today" | "Last 7 Days" | "MTD" | "Custom">("MTD");
-  const [dateRangeLabel, setDateRangeLabel] = useState<string>("01 Apr 2025 - 30 Apr 2025");
+  const [dateRangeLabel, setDateRangeLabel] = useState<string>("Month to Date");
   const [globalSearch, setGlobalSearch] = useState<string>("");
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   // ── Dashboard Configuration Panel States ──────────────────────────────────
   const [isConfigDrawerOpen, setIsConfigDrawerOpen] = useState<boolean>(true);
@@ -160,22 +169,49 @@ export const VisualReportsDashboardTab: React.FC<VisualReportsDashboardTabProps>
   // Fetch data from backend
   useEffect(() => {
     loadDashboardData();
-  }, [selectedCompany, selectedLocation, dateRangePreset]);
+  }, [selectedCompanyId, selectedLocation, dateRangePreset]);
 
   const loadDashboardData = async () => {
     setIsLoading(true);
+    setLoadError(null);
     try {
-      const res = await apiFetchV1<VisualReportsSummaryResponse>("/reports/visual-dashboard/summary");
+      const params = new URLSearchParams();
+      if (selectedCompanyId && selectedCompanyId !== "all") {
+        params.append("company_id", selectedCompanyId);
+      }
+      if (dateRangePreset === "Today") {
+        const today = new Date().toISOString().split("T")[0];
+        params.append("start_date", today);
+        params.append("end_date", today);
+      } else if (dateRangePreset === "Last 7 Days") {
+        const end = new Date();
+        const start = new Date();
+        start.setDate(end.getDate() - 7);
+        params.append("start_date", start.toISOString().split("T")[0]);
+        params.append("end_date", end.toISOString().split("T")[0]);
+      } else if (dateRangePreset === "MTD") {
+        const now = new Date();
+        const start = new Date(now.getFullYear(), now.getMonth(), 1);
+        params.append("start_date", start.toISOString().split("T")[0]);
+        params.append("end_date", now.toISOString().split("T")[0]);
+      }
+      const qs = params.toString();
+      const endpoint = `/reports/visual-dashboard/summary${qs ? `?${qs}` : ""}`;
+      const res = await apiFetchV1<VisualReportsSummaryResponse>(endpoint);
       if (res) {
         setDashboardData(res);
+        if (res.company_name) {
+          setSelectedCompany(res.company_name);
+        }
         if (res.config && !hasAppliedSavedConfig) {
           setConfig(res.config);
           setDraftConfig(res.config);
           setHasAppliedSavedConfig(true);
         }
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error("Failed to load visual dashboard data:", err);
+      setLoadError(err?.message || "Failed to load visual dashboard data from authoritative database.");
     } finally {
       setIsLoading(false);
     }
@@ -207,9 +243,9 @@ export const VisualReportsDashboardTab: React.FC<VisualReportsDashboardTabProps>
 
   const handleQuickDateSelect = (preset: "Today" | "Last 7 Days" | "MTD" | "Custom") => {
     setDateRangePreset(preset);
-    if (preset === "Today") setDateRangeLabel("30 Apr 2025");
-    else if (preset === "Last 7 Days") setDateRangeLabel("24 Apr 2025 - 30 Apr 2025");
-    else if (preset === "MTD") setDateRangeLabel("01 Apr 2025 - 30 Apr 2025");
+    if (preset === "Today") setDateRangeLabel("Today");
+    else if (preset === "Last 7 Days") setDateRangeLabel("Last 7 Days");
+    else if (preset === "MTD") setDateRangeLabel("Month to Date");
     else setDateRangeLabel("Custom Date Range");
   };
 
@@ -238,6 +274,17 @@ export const VisualReportsDashboardTab: React.FC<VisualReportsDashboardTabProps>
     });
   }, [dashboardData, streamTab, streamSearch]);
 
+  const streamCounts = useMemo(() => {
+    const items = dashboardData?.fulfillment_stream || [];
+    return {
+      all: items.length,
+      so: items.filter((i) => i.doc_type === "SO").length,
+      ps: items.filter((i) => i.doc_type === "PS").length,
+      ds: items.filter((i) => i.doc_type === "DS").length,
+      inv: items.filter((i) => i.doc_type === "INV").length,
+    };
+  }, [dashboardData?.fulfillment_stream]);
+
   const kpis = dashboardData?.kpis || [];
   const stockFlow = dashboardData?.stock_flow_timeline || [];
   const workflowStages = dashboardData?.workflow_stages || [];
@@ -245,6 +292,10 @@ export const VisualReportsDashboardTab: React.FC<VisualReportsDashboardTabProps>
   const topSkus = dashboardData?.top_reserved_skus || [];
   const packingDonut = dashboardData?.packing_slip_donut || [];
   const dispatchInvoiceSummary = dashboardData?.dispatch_invoice_summary || [];
+
+  const totalPackingSlips = useMemo(() => {
+    return packingDonut.reduce((acc, curr) => acc + (curr.count || 0), 0);
+  }, [packingDonut]);
 
   return (
     <div className="flex flex-col min-h-screen bg-[#f1f5f9] text-slate-800 font-sans antialiased select-none">
@@ -349,14 +400,18 @@ export const VisualReportsDashboardTab: React.FC<VisualReportsDashboardTabProps>
               <div className="flex items-center gap-2">
                 <span className="text-slate-500 font-medium">Company</span>
                 <select
-                  value={selectedCompany}
-                  onChange={(e) => setSelectedCompany(e.target.value)}
+                  value={selectedCompanyId}
+                  onChange={(e) => {
+                    const newId = e.target.value;
+                    setSelectedCompanyId(newId);
+                    const opt = e.target.selectedOptions[0]?.text || newId;
+                    setSelectedCompany(opt);
+                  }}
                   className="px-2.5 py-1.5 border border-slate-300 rounded-lg bg-slate-50 font-bold text-slate-800 outline-none focus:border-blue-500"
                   data-field-key="dash-company-select"
                 >
-                  <option value="SMRITI FOOTWEAR PVT LTD">SMRITI FOOTWEAR PVT LTD</option>
-                  <option value="RELIANCE RETAIL LTD">RELIANCE RETAIL LTD</option>
-                  <option value="TATTLY THREADS PVT LTD">TATTLY THREADS PVT LTD</option>
+                  <option value="COMP-001">{selectedCompany} (COMP-001)</option>
+                  <option value="all">All Registered Companies</option>
                 </select>
               </div>
 
@@ -432,6 +487,29 @@ export const VisualReportsDashboardTab: React.FC<VisualReportsDashboardTabProps>
               </button>
             </div>
           </div>
+
+          {/* Connection Error Banner */}
+          {loadError && (
+            <div className="bg-rose-50 border border-rose-200 rounded-xl p-4 flex items-center justify-between text-rose-800">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-full bg-rose-100 flex items-center justify-center text-rose-600 font-bold shrink-0">
+                  !
+                </div>
+                <div>
+                  <div className="font-bold text-xs">Authoritative Data Connection Notice</div>
+                  <div className="text-[11px] text-rose-600">{loadError}</div>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={loadDashboardData}
+                className="px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-xs font-bold transition shadow-xs flex items-center gap-1.5 shrink-0"
+              >
+                <RotateCcw size={12} />
+                <span>Retry Connection</span>
+              </button>
+            </div>
+          )}
 
           {/* ───────────────────────────────────────────────────────────────── */}
           {/* C. KPI Cards Row (6 Horizontal Cards)                             */}
@@ -688,22 +766,30 @@ export const VisualReportsDashboardTab: React.FC<VisualReportsDashboardTabProps>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {categoryPositions.map((row) => (
-                      <tr key={row.category} className="hover:bg-slate-50">
-                        <td className="py-1.5 font-medium text-slate-800">{row.category}</td>
-                        <td className="py-1.5 text-right font-mono">{row.on_hand.toLocaleString()}</td>
-                        <td className="py-1.5 text-right font-mono text-amber-600">{row.reserved.toLocaleString()}</td>
-                        <td className="py-1.5 text-right font-mono text-emerald-600">{row.available.toLocaleString()}</td>
-                        <td className="py-1.5 text-right font-mono font-bold text-slate-700">
-                          <div className="flex items-center justify-end gap-1.5">
-                            <div className="w-10 bg-slate-100 h-1 rounded-full overflow-hidden">
-                              <div className="bg-blue-600 h-full" style={{ width: `${row.reserved_pct}%` }}></div>
-                            </div>
-                            <span>{row.reserved_pct.toFixed(1)}%</span>
-                          </div>
+                    {categoryPositions.length === 0 ? (
+                      <tr>
+                        <td colSpan={5} className="py-4 text-center text-slate-400 font-medium">
+                          No category stock records found for this period.
                         </td>
                       </tr>
-                    ))}
+                    ) : (
+                      categoryPositions.map((row) => (
+                        <tr key={row.category} className="hover:bg-slate-50">
+                          <td className="py-1.5 font-medium text-slate-800">{row.category}</td>
+                          <td className="py-1.5 text-right font-mono">{row.on_hand.toLocaleString()}</td>
+                          <td className="py-1.5 text-right font-mono text-amber-600">{row.reserved.toLocaleString()}</td>
+                          <td className="py-1.5 text-right font-mono text-emerald-600">{row.available.toLocaleString()}</td>
+                          <td className="py-1.5 text-right font-mono font-bold text-slate-700">
+                            <div className="flex items-center justify-end gap-1.5">
+                              <div className="w-10 bg-slate-100 h-1 rounded-full overflow-hidden">
+                                <div className="bg-blue-600 h-full" style={{ width: `${row.reserved_pct}%` }}></div>
+                              </div>
+                              <span>{row.reserved_pct.toFixed(1)}%</span>
+                            </div>
+                          </td>
+                        </tr>
+                      ))
+                    )}
                   </tbody>
                 </table>
               </div>
@@ -731,23 +817,31 @@ export const VisualReportsDashboardTab: React.FC<VisualReportsDashboardTabProps>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
-                      {topSkus.map((sku) => (
-                        <tr key={sku.sku} className="hover:bg-slate-50">
-                          <td className="py-1 text-slate-400 font-mono">{sku.rank}</td>
-                          <td className="py-1 font-mono font-bold text-blue-700">{sku.sku}</td>
-                          <td className="py-1 text-slate-800 truncate max-w-[110px]">{sku.product_name}</td>
-                          <td className="py-1 text-right font-mono">{sku.on_hand}</td>
-                          <td className="py-1 text-right font-mono font-bold text-amber-600">{sku.reserved}</td>
-                          <td className="py-1 text-right font-mono">
-                            <div className="flex items-center justify-end gap-1.5">
-                              <div className="w-8 bg-slate-100 h-1 rounded-full overflow-hidden">
-                                <div className="bg-orange-500 h-full" style={{ width: `${sku.reserved_pct}%` }}></div>
-                              </div>
-                              <span className="font-bold">{sku.reserved_pct.toFixed(0)}%</span>
-                            </div>
+                      {topSkus.length === 0 ? (
+                        <tr>
+                          <td colSpan={6} className="py-4 text-center text-slate-400 font-medium">
+                            No reserved SKUs found for this period.
                           </td>
                         </tr>
-                      ))}
+                      ) : (
+                        topSkus.map((sku) => (
+                          <tr key={sku.sku} className="hover:bg-slate-50">
+                            <td className="py-1 text-slate-400 font-mono">{sku.rank}</td>
+                            <td className="py-1 font-mono font-bold text-blue-700">{sku.sku}</td>
+                            <td className="py-1 text-slate-800 truncate max-w-[110px]">{sku.product_name}</td>
+                            <td className="py-1 text-right font-mono">{sku.on_hand}</td>
+                            <td className="py-1 text-right font-mono font-bold text-amber-600">{sku.reserved}</td>
+                            <td className="py-1 text-right font-mono">
+                              <div className="flex items-center justify-end gap-1.5">
+                                <div className="w-8 bg-slate-100 h-1 rounded-full overflow-hidden">
+                                  <div className="bg-orange-500 h-full" style={{ width: `${sku.reserved_pct}%` }}></div>
+                                </div>
+                                <span className="font-bold">{sku.reserved_pct.toFixed(0)}%</span>
+                              </div>
+                            </td>
+                          </tr>
+                        ))
+                      )}
                     </tbody>
                   </table>
                 </div>
@@ -787,7 +881,7 @@ export const VisualReportsDashboardTab: React.FC<VisualReportsDashboardTabProps>
                       </PieChart>
                     </ResponsiveContainer>
                     <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                      <span className="text-xl font-extrabold text-slate-900 font-mono leading-none">62</span>
+                      <span className="text-xl font-extrabold text-slate-900 font-mono leading-none">{totalPackingSlips}</span>
                       <span className="text-[9px] font-medium text-slate-400 mt-0.5">Packing Slips</span>
                     </div>
                   </div>
@@ -864,7 +958,7 @@ export const VisualReportsDashboardTab: React.FC<VisualReportsDashboardTabProps>
                       streamTab === "all" ? "bg-blue-600 text-white shadow-xs" : "text-slate-600 hover:text-slate-900"
                     }`}
                   >
-                    All (162)
+                    All ({streamCounts.all})
                   </button>
                   <button
                     type="button"
@@ -873,7 +967,7 @@ export const VisualReportsDashboardTab: React.FC<VisualReportsDashboardTabProps>
                       streamTab === "so" ? "bg-blue-600 text-white shadow-xs" : "text-slate-600 hover:text-slate-900"
                     }`}
                   >
-                    Sales Orders (48)
+                    Sales Orders ({streamCounts.so})
                   </button>
                   <button
                     type="button"
@@ -882,7 +976,7 @@ export const VisualReportsDashboardTab: React.FC<VisualReportsDashboardTabProps>
                       streamTab === "ps" ? "bg-blue-600 text-white shadow-xs" : "text-slate-600 hover:text-slate-900"
                     }`}
                   >
-                    Packing (62)
+                    Packing ({streamCounts.ps})
                   </button>
                   <button
                     type="button"
@@ -891,7 +985,7 @@ export const VisualReportsDashboardTab: React.FC<VisualReportsDashboardTabProps>
                       streamTab === "ds" ? "bg-blue-600 text-white shadow-xs" : "text-slate-600 hover:text-slate-900"
                     }`}
                   >
-                    Dispatched (28)
+                    Dispatched ({streamCounts.ds})
                   </button>
                   <button
                     type="button"
@@ -900,7 +994,7 @@ export const VisualReportsDashboardTab: React.FC<VisualReportsDashboardTabProps>
                       streamTab === "inv" ? "bg-blue-600 text-white shadow-xs" : "text-slate-600 hover:text-slate-900"
                     }`}
                   >
-                    Invoices (24)
+                    Invoices ({streamCounts.inv})
                   </button>
                 </div>
               </div>
@@ -963,79 +1057,91 @@ export const VisualReportsDashboardTab: React.FC<VisualReportsDashboardTabProps>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-150">
-                  {filteredStreamItems.map((item) => {
-                    let typeBadge = "bg-blue-100 text-blue-800 border-blue-200";
-                    if (item.doc_type === "PS") typeBadge = "bg-sky-100 text-sky-800 border-sky-200";
-                    if (item.doc_type === "DS") typeBadge = "bg-orange-100 text-orange-800 border-orange-200";
-                    if (item.doc_type === "INV") typeBadge = "bg-emerald-100 text-emerald-800 border-emerald-200";
+                  {filteredStreamItems.length === 0 ? (
+                    <tr>
+                      <td colSpan={12} className="py-8 text-center text-slate-500 font-medium">
+                        <div className="flex flex-col items-center justify-center gap-1.5">
+                          <Boxes size={26} className="text-slate-400 stroke-1" />
+                          <span className="font-semibold text-slate-700">No active fulfillment stream documents found for this filter.</span>
+                          <span className="text-[11px] text-slate-400">All transactional documents are queried directly from PostgreSQL.</span>
+                        </div>
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredStreamItems.map((item) => {
+                      let typeBadge = "bg-blue-100 text-blue-800 border-blue-200";
+                      if (item.doc_type === "PS") typeBadge = "bg-sky-100 text-sky-800 border-sky-200";
+                      if (item.doc_type === "DS") typeBadge = "bg-orange-100 text-orange-800 border-orange-200";
+                      if (item.doc_type === "INV") typeBadge = "bg-emerald-100 text-emerald-800 border-emerald-200";
 
-                    return (
-                      <tr key={item.id} className="hover:bg-slate-50/80 transition">
-                        <td className="py-2.5 px-3">
-                          <span className={`px-2 py-0.5 rounded-md text-[10px] font-extrabold border ${typeBadge}`}>
-                            {item.doc_type}
-                          </span>
-                        </td>
-                        <td className="py-2.5 px-3">
-                          <button
-                            type="button"
-                            onClick={() => setSelectedDocPreview(item)}
-                            className="font-mono font-bold text-blue-600 hover:underline hover:text-blue-800 text-left"
-                          >
-                            {item.doc_number}
-                          </button>
-                        </td>
-                        <td className="py-2.5 px-3 font-mono text-[11px] text-slate-600">{item.doc_date}</td>
-                        <td className="py-2.5 px-3 font-semibold text-slate-800">{item.customer_name}</td>
-                        <td className="py-2.5 px-3 font-mono text-slate-600">{item.item_summary}</td>
-                        <td className="py-2.5 px-3 text-right font-mono font-bold text-slate-900">{item.quantity}</td>
-                        <td className="py-2.5 px-3 text-right font-mono font-bold text-emerald-700">{item.formatted_value}</td>
-                        <td className="py-2.5 px-3">
-                          <span
-                            className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                              item.status === "Open" || item.status === "Invoiced"
-                                ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                                : item.status === "Pending"
-                                ? "bg-amber-50 text-amber-700 border border-amber-200"
-                                : item.status === "Ready to Dispatch"
-                                ? "bg-orange-50 text-orange-700 border border-orange-200"
-                                : item.status === "Partially Packed"
-                                ? "bg-sky-50 text-sky-700 border border-sky-200"
-                                : "bg-purple-50 text-purple-700 border border-purple-200"
-                            }`}
-                          >
-                            <span className="w-1.5 h-1.5 rounded-full bg-current"></span>
-                            <span>{item.status}</span>
-                          </span>
-                        </td>
-                        <td className="py-2.5 px-3">
-                          <button
-                            type="button"
-                            onClick={() => onNotification?.("Action Triggered", `Executed "${item.next_action}" for ${item.doc_number}`, "info")}
-                            className="flex items-center gap-1 px-2.5 py-1 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 rounded-lg text-[11px] font-bold transition shadow-2xs"
-                          >
-                            {item.next_action_icon === "box" && <Package size={12} className="text-blue-600" />}
-                            {item.next_action_icon === "check" && <Check size={12} className="text-emerald-600" />}
-                            {item.next_action_icon === "receipt" && <Receipt size={12} className="text-purple-600" />}
-                            {item.next_action_icon === "share" && <Share2 size={12} className="text-blue-600" />}
-                            {item.next_action_icon === "arrow-right" && <ArrowRight size={12} className="text-sky-600" />}
-                            {item.next_action_icon === "truck" && <Truck size={12} className="text-orange-600" />}
-                            <span>{item.next_action}</span>
-                          </button>
-                        </td>
-                        <td className="py-2.5 px-3 text-slate-600">{item.updated_by}</td>
-                        <td className="py-2.5 px-3 font-mono text-[11px] text-slate-500">{item.updated_on}</td>
-                        <td className="py-2.5 px-3 text-center">
-                          <button
-                            type="button"
-                            className="p-1 rounded-md text-slate-400 hover:text-slate-600 hover:bg-slate-100"
-                          >
-                            <MoreHorizontal size={14} />
-                          </button>
-                        </td>
-                      </tr>
-                    );
-                  })}
+                      return (
+                        <tr key={item.id} className="hover:bg-slate-50/80 transition">
+                          <td className="py-2.5 px-3">
+                            <span className={`px-2 py-0.5 rounded-md text-[10px] font-extrabold border ${typeBadge}`}>
+                              {item.doc_type}
+                            </span>
+                          </td>
+                          <td className="py-2.5 px-3">
+                            <button
+                              type="button"
+                              onClick={() => setSelectedDocPreview(item)}
+                              className="font-mono font-bold text-blue-600 hover:underline hover:text-blue-800 text-left"
+                            >
+                              {item.doc_number}
+                            </button>
+                          </td>
+                          <td className="py-2.5 px-3 font-mono text-[11px] text-slate-600">{item.doc_date}</td>
+                          <td className="py-2.5 px-3 font-semibold text-slate-800">{item.customer_name}</td>
+                          <td className="py-2.5 px-3 font-mono text-slate-600">{item.item_summary}</td>
+                          <td className="py-2.5 px-3 text-right font-mono font-bold text-slate-900">{item.quantity}</td>
+                          <td className="py-2.5 px-3 text-right font-mono font-bold text-emerald-700">{item.formatted_value}</td>
+                          <td className="py-2.5 px-3">
+                            <span
+                              className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                                item.status === "Open" || item.status === "Invoiced"
+                                  ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                                  : item.status === "Pending"
+                                  ? "bg-amber-50 text-amber-700 border border-amber-200"
+                                  : item.status === "Ready to Dispatch"
+                                  ? "bg-orange-50 text-orange-700 border border-orange-200"
+                                  : item.status === "Partially Packed"
+                                  ? "bg-sky-50 text-sky-700 border border-sky-200"
+                                  : "bg-purple-50 text-purple-700 border border-purple-200"
+                              }`}
+                            >
+                              <span className="w-1.5 h-1.5 rounded-full bg-current"></span>
+                              <span>{item.status}</span>
+                            </span>
+                          </td>
+                          <td className="py-2.5 px-3">
+                            <button
+                              type="button"
+                              onClick={() => onNotification?.("Action Triggered", `Executed "${item.next_action}" for ${item.doc_number}`, "info")}
+                              className="flex items-center gap-1 px-2.5 py-1 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 rounded-lg text-[11px] font-bold transition shadow-2xs"
+                            >
+                              {item.next_action_icon === "box" && <Package size={12} className="text-blue-600" />}
+                              {item.next_action_icon === "check" && <Check size={12} className="text-emerald-600" />}
+                              {item.next_action_icon === "receipt" && <Receipt size={12} className="text-purple-600" />}
+                              {item.next_action_icon === "share" && <Share2 size={12} className="text-blue-600" />}
+                              {item.next_action_icon === "arrow-right" && <ArrowRight size={12} className="text-sky-600" />}
+                              {item.next_action_icon === "truck" && <Truck size={12} className="text-orange-600" />}
+                              <span>{item.next_action}</span>
+                            </button>
+                          </td>
+                          <td className="py-2.5 px-3 text-slate-600">{item.updated_by}</td>
+                          <td className="py-2.5 px-3 font-mono text-[11px] text-slate-500">{item.updated_on}</td>
+                          <td className="py-2.5 px-3 text-center">
+                            <button
+                              type="button"
+                              className="p-1 rounded-md text-slate-400 hover:text-slate-600 hover:bg-slate-100"
+                            >
+                              <MoreHorizontal size={14} />
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
                 </tbody>
               </table>
             </div>

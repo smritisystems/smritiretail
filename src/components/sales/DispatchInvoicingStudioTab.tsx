@@ -6,7 +6,7 @@
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
  * Version      : 6.67.0
  * Created      : 2026-09-18
- * Modified     : 2026-10-03
+ * Modified     : 2026-10-17
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: B2B Dispatch & Tax Invoicing Studio Tab
@@ -154,27 +154,6 @@ const DispatchInvoicingStudioTabBase: React.FC<DispatchInvoicingStudioTabProps> 
   const [showComplianceModal, setShowComplianceModal] = useState<boolean>(false);
   const [activeComplianceInvoice, setActiveComplianceInvoice] = useState<InvoiceComplianceData | null>(null);
 
-  const sampleComplianceInvoice: InvoiceComplianceData = {
-    invoice_id: "INV-DISP-SAMPLE-01",
-    doc_no: "TT/26-27/0001",
-    doc_type: "INV",
-    doc_date: invoiceDate,
-    supplier_gstin: "27AABCT1234F1Z5",
-    buyer_gstin: "24AAACR1234F1Z8",
-    buyer_legal_name: customerName || "Reliance Retail Ltd - Central Hub",
-    buyer_pos: "24",
-    from_pincode: "440029",
-    to_pincode: "380001",
-    distance_km: 740,
-    vehicle_no: "MH12AB9999",
-    transporter_id: "TRANS-BLUEDART-01",
-    total_taxable_value: 125000,
-    total_cgst_value: 0,
-    total_sgst_value: 0,
-    total_igst_value: 6250,
-    total_invoice_value: 131250,
-    financial_year: "2026-27",
-  };
 
   // File Drop & Select Handlers
   const handleDragOver = (e: React.DragEvent) => {
@@ -363,8 +342,37 @@ const DispatchInvoicingStudioTabBase: React.FC<DispatchInvoicingStudioTabProps> 
             type="button"
             id="dispatch-compliance-btn"
             onClick={() => {
-              setActiveComplianceInvoice(sampleComplianceInvoice);
-              setShowComplianceModal(true);
+              if (batchResult?.generated_invoices && batchResult.generated_invoices.length > 0) {
+                const firstInv = batchResult.generated_invoices[0];
+                setActiveComplianceInvoice({
+                  invoice_id: firstInv.invoice_id,
+                  doc_no: firstInv.invoice_no,
+                  doc_type: "INV",
+                  doc_date: invoiceDate,
+                  supplier_gstin: "27AABCT1234F1Z5",
+                  buyer_gstin: "24AAACR1234F1Z8",
+                  buyer_legal_name: firstInv.site_name || firstInv.store_code,
+                  buyer_pos: "24",
+                  from_pincode: "440029",
+                  to_pincode: "380001",
+                  distance_km: 740,
+                  total_taxable_value: Math.round(firstInv.grand_total / 1.05),
+                  total_cgst_value: 0,
+                  total_sgst_value: 0,
+                  total_igst_value: firstInv.grand_total - Math.round(firstInv.grand_total / 1.05),
+                  total_invoice_value: firstInv.grand_total,
+                  financial_year: "2026-27",
+                });
+                setShowComplianceModal(true);
+              } else {
+                if (onNotification) {
+                  onNotification(
+                    "No Invoice Generated",
+                    "Please execute Pre-Flight Audit and generate dispatch invoices before viewing statutory compliance.",
+                    "warning"
+                  );
+                }
+              }
             }}
             className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-lg transition-colors cursor-pointer"
             title="Inspect NIC E-Way Bill & E-Invoice IRN / QR Code Compliance"
@@ -867,11 +875,11 @@ const DispatchInvoicingStudioTabBase: React.FC<DispatchInvoicingStudioTabProps> 
       )}
 
       {/* Statutory Compliance Dispatch Modal (E-Invoice & E-Way Bill) */}
-      {showComplianceModal && (
+      {showComplianceModal && activeComplianceInvoice && (
         <ComplianceDispatchModal
           isOpen={showComplianceModal}
           onClose={() => setShowComplianceModal(false)}
-          invoice={activeComplianceInvoice || sampleComplianceInvoice}
+          invoice={activeComplianceInvoice}
           onNotification={(title, msg, type) => {
             if (onNotification) onNotification(title, msg, type);
           }}

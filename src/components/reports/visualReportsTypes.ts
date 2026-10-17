@@ -21,7 +21,7 @@ export interface VisualKpiCard {
   unit?: string | null;
   subtext?: string | null;
   trend_direction: "up" | "down";
-  trend_percentage: string;
+  trend_percentage?: string | null;
   color: string;
 }
 

@@ -1,3 +1,26 @@
+## [6.98.0] — 2026-10-17
+
+### Foundation & Governance — Global Actual-Data Enforcement Across SMRITI Retail OS v1.0.0
+
+Enforced mandatory actual persisted business data from authoritative PostgreSQL ledgers across all production screens, eliminating all silent mock-data fallbacks, synthetic variants, and manufactured gateway credentials:
+
+**Key Capabilities & Architectural Enforcements:**
+- **Zero Mock Data Policy**: Permanently eradicated client-side mock fallbacks across 6 core operational modules (Sales & Compliance, Pricing, Billing & POS, Reports & Analytics, Inventory/WMS, Procurement).
+- **Statutory Gateway Integrity (`ComplianceDispatchModal.tsx`)**: Removed synthetic IRN, Ack No, Signed QR payloads, and E-Way Bill numbers from `catch` blocks. All failures from the NIC / GSTN gateway now transparently propagate authentic error details and actionable guidance.
+- **Dispatch Invoicing Truthfulness (`DispatchInvoicingStudioTab.tsx`)**: Removed hardcoded `sampleComplianceInvoice` ("TT/26-27/0001", Reliance Retail Ltd). Checks real batch invoice generation and renders clear warnings when no records exist.
+- **Bulk Price Revision (`BulkPriceRevisionWorkflow.tsx`)**: Removed `generateMockSandals()` (124 synthetic variants) and mock fallback searches. Empty search results display truthful zero-record states.
+- **POS Reconciliation & Loyalty (`ProPosLoyaltyLooku.tsx`, `ProPosReconciliationDlg.tsx`)**: Eliminated static `MOCK_LOYALTY_CUSTOMERS` and wired live `GET /crm/customers/search?q=...`. Removed `posq_mock_01/02` catch-block items and implemented network retry cards.
+- **Counter POS Barcode Lookup (`SmritiBillingStudio.tsx`)**: Removed fallback that silently matched and injected `INITIAL_DEMO_CART_ITEMS` into the cart when an unknown barcode was scanned. Scanned barcodes strictly match database products or report "Barcode Not Found".
+- **Visual Reports Live PostgreSQL Derivation (`visual_reports_service.py`, `VisualReportsDashboardTab.tsx`)**:
+  - Replaced hardcoded baselines (`base_on_hand = 12580...`) and static April 2025 timeline with live asynchronous SQLAlchemy aggregations.
+  - Verified `COMP-001` live database metrics: 23,064 on-hand stock pairs, 0 reserved pairs, 23,064 available stock pairs, 0 open sales orders, 0 packing slips, 0 dispatches, 0 invoices.
+  - Dynamically bound Company Name (`"My Retail Store"`) and Category Stock Positions (Footwear: 23,064 pairs, Apparel: 0).
+  - Dynamic company selector, live date presets, dynamic stream counts, error banner with retry trigger, and truthful empty states for 0-record tables.
+- **Smart Replenishment & Vendor Scorecard (`SmartReplenishmentModal.tsx`, `SupplierScorecardModal.tsx`)**:
+  - Replaced static `SAMPLE_INVENTORY` demo array with live `/inventory` fetching and dynamic replenishment trigger evaluation.
+  - Eliminated auto-fallback to demo suppliers when database has 0 records; displays truthful empty state with explicit opt-in for benchmark simulation.
+- **Automated Verification**: Vitest 69/69 tests green, Pytest 2/2 tests green, `tsc --noEmit` clean (0 errors), `npm run validate-registry` clean (98/98 components), 55 launchpad tiles verified, 11/11 architecture checks passed, and clean production Vite build.
+
 ## [6.97.0] — 2026-10-17
 
 ### Procurement & Visual Analytics — Procurement Visual Reports Actual Database Derivation & Zero Mock Data Policy v1.1.0

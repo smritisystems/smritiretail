@@ -1,25 +1,24 @@
-﻿/**
+/**
  * Project      : SMRITI Retail OS
  * Author       : Jawahar Ramkripal Mallah
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 3.92.1
+ * Version      : 3.93.0
  * Created      : 2026-08-28
- * Modified     : 2026-10-11
- * Copyright    : (c) SMRITIBooks.com. All Rights Reserved.
+ * Modified     : 2026-10-17
+ * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
  *
- * Changelog v3.92.1 (2026-10-11) R-27:
- *   - Inlined replenishmentEngine types and computation logic.
- *     Pure arithmetic (safety-stock trigger, FEFO scan, PO raise) moved
- *     directly into this file. No external engine dependency.
- *   - Removed erroneous @deprecated comment: component IS mounted in
- *     WmsStudioTab.tsx (showReplenishModal guard).
+ * Changelog v3.93.0 (2026-10-17):
+ *   - Replaced static SAMPLE_INVENTORY demo array with live backend /inventory
+ *     data fetching via apiFetchV1.
+ *   - Added dynamic stock scanning, loading indicator, and honest empty states.
  */
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
+import { apiFetchV1 } from "../../lib/apiFetchV1.ts";
 
 // â”€â”€â”€ Inlined from replenishmentEngine (R-27) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 type ReorderStatus = "PENDING" | "APPROVED" | "PO_RAISED" | "CANCELLED";
@@ -145,15 +144,6 @@ const TRIGGER_STYLES: Record<ReplenishmentTrigger, { badge: string; label: strin
   MANUAL_OVERRIDE:     { badge: "bg-slate-500/20 text-slate-300 border-slate-500/30", label: "Manual Override" },
 };
 
-const SAMPLE_INVENTORY: InventoryItem[] = [
-  { sku: "APP-POLO-NAVY-M",   productName: "Polo Shirt Navy M",          category: "Apparel",     branchCode: "BR-MUM-01", currentStock: 12,  minStockLevel: 20, maxStockLevel: 200, reorderPoint: 40, safetyStock: 15, avgDailySales: 5,  leadTimeDays: 7,  unitCost: 600,  preferredSupplierId: "SUP-001" },
-  { sku: "DNM-SLIM-BLK-32",   productName: "Slim Fit Denim Black 32",    category: "Denim",       branchCode: "BR-MUM-01", currentStock: 8,   minStockLevel: 15, maxStockLevel: 150, reorderPoint: 30, safetyStock: 10, avgDailySales: 3,  leadTimeDays: 10, unitCost: 950,  preferredSupplierId: "SUP-002" },
-  { sku: "FTW-SNEAKER-WHT-8", productName: "Sneakers White Size 8",      category: "Footwear",    branchCode: "BR-MUM-01", currentStock: 35,  minStockLevel: 10, maxStockLevel: 80,  reorderPoint: 20, safetyStock: 5,  avgDailySales: 2,  leadTimeDays: 14, unitCost: 1400, preferredSupplierId: "SUP-003" },
-  { sku: "FRM-SHIRT-BLU-M",   productName: "Formal Shirt Blue M",        category: "Formals",     branchCode: "BR-MUM-01", currentStock: 22,  minStockLevel: 25, maxStockLevel: 180, reorderPoint: 50, safetyStock: 20, avgDailySales: 4,  leadTimeDays: 5,  unitCost: 750,  preferredSupplierId: "SUP-001" },
-  { sku: "ACC-BELT-BRN-34",   productName: "Leather Belt Brown 34",       category: "Accessories", branchCode: "BR-MUM-01", currentStock: 60,  minStockLevel: 10, maxStockLevel: 100, reorderPoint: 20, safetyStock: 8,  avgDailySales: 1,  leadTimeDays: 7,  unitCost: 450 },
-  { sku: "APP-KURTA-WHT-L",   productName: "Cotton Kurta White L",        category: "Apparel",     branchCode: "BR-MUM-01", currentStock: 5,   minStockLevel: 20, maxStockLevel: 120, reorderPoint: 30, safetyStock: 10, avgDailySales: 4,  leadTimeDays: 6,  unitCost: 800,  preferredSupplierId: "SUP-001" },
-];
-
 const STATUS_COLORS = {
   PENDING:   "text-blue-300 bg-blue-500/20 border-blue-500/30",
   APPROVED:  "text-emerald-300 bg-emerald-500/20 border-emerald-500/30",
@@ -162,13 +152,51 @@ const STATUS_COLORS = {
 };
 
 export const SmartReplenishmentModal: React.FC<SmartReplenishmentModalProps> = ({ isOpen, onClose, onNotification }) => {
-  const [asOf] = useState(new Date(2026, 7, 28));
-  const [suggestions, setSuggestions] = useState<ReplenishmentSuggestion[]>(() =>
-    scanInventory(SAMPLE_INVENTORY, new Date(2026, 7, 28)).suggestions
-  );
+  const [asOf] = useState(() => new Date());
+  const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
+  const [suggestions, setSuggestions] = useState<ReplenishmentSuggestion[]>([]);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [fetchError, setFetchError] = useState<string | null>(null);
   const [filter, setFilter] = useState<ReplenishmentTrigger | "ALL">("ALL");
 
-  const report = useMemo(() => scanInventory(SAMPLE_INVENTORY, asOf), [asOf]);
+  useEffect(() => {
+    if (!isOpen) return;
+    setIsLoading(true);
+    setFetchError(null);
+    apiFetchV1<any>("/inventory?page_size=100")
+      .then((res) => {
+        const items = res?.items || [];
+        const mapped: InventoryItem[] = items.map((p: any) => ({
+          sku: p.sku || p.barcode || p.id,
+          productName: p.name || p.title || "Catalog Product",
+          category: p.category || "General",
+          branchCode: "MAIN-01",
+          currentStock: Number(p.stock_quantity ?? p.current_stock ?? p.quantity ?? 0),
+          minStockLevel: Number(p.min_stock_level ?? 10),
+          maxStockLevel: Number(p.max_stock_level ?? 100),
+          reorderPoint: Number(p.reorder_point ?? 20),
+          safetyStock: Number(p.safety_stock ?? 5),
+          avgDailySales: Number(p.avg_daily_sales ?? 2),
+          leadTimeDays: Number(p.lead_time_days ?? 7),
+          unitCost: Number(p.cost_price ?? p.purchase_rate ?? 500),
+          preferredSupplierId: p.supplier_id,
+        }));
+        setInventoryItems(mapped);
+        const rep = scanInventory(mapped, new Date());
+        setSuggestions(rep.suggestions);
+      })
+      .catch((err: any) => {
+        console.error("Failed to load authoritative inventory:", err);
+        setFetchError(err?.message || "Failed to load inventory from database.");
+        setInventoryItems([]);
+        setSuggestions([]);
+      })
+      .finally(() => {
+        setIsLoading(false);
+      });
+  }, [isOpen]);
+
+  const report = useMemo(() => scanInventory(inventoryItems, asOf), [inventoryItems, asOf]);
 
   const displayed = filter === "ALL" ? suggestions : suggestions.filter((s) => s.trigger === filter);
 
@@ -238,8 +266,22 @@ export const SmartReplenishmentModal: React.FC<SmartReplenishmentModalProps> = (
 
         {/* Suggestion Cards */}
         <div className="flex-1 overflow-y-auto p-5 space-y-3">
-          {displayed.length === 0 ? (
-            <div className="text-center py-10 text-slate-500 text-sm">No replenishment suggestions for this filter.</div>
+          {isLoading ? (
+            <div className="text-center py-12 text-slate-400 text-sm animate-pulse">
+              Connecting to authoritative inventory ledger and evaluating stock levels...
+            </div>
+          ) : fetchError ? (
+            <div className="text-center py-12 text-rose-400 text-sm">
+              <div className="font-bold text-rose-300">Inventory Sync Notice</div>
+              <div className="text-xs mt-1 text-rose-400">{fetchError}</div>
+            </div>
+          ) : displayed.length === 0 ? (
+            <div className="text-center py-12 text-slate-400 text-sm">
+              <div className="font-bold text-slate-200">No Replenishment Alerts Required</div>
+              <div className="text-xs text-slate-400 mt-1">
+                All catalog products currently maintain stock levels above safety stock and reorder thresholds.
+              </div>
+            </div>
           ) : (
             displayed.map((sugg) => {
               const ts = TRIGGER_STYLES[sugg.trigger];

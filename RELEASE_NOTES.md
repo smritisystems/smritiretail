@@ -14,6 +14,23 @@
 
 # SMRITI Retail OS — Release Notes
 
+## Release v6.98.0 (2026-10-17)
+
+### Foundation & Governance — Global Actual-Data Enforcement Across SMRITI Retail OS
+
+#### Overview
+SMRITI Retail OS v6.98.0 enforces the global mandate that every production screen, KPI, chart, report, table, dropdown, dashboard, search result, document preview, and operational workflow strictly use actual persisted business data from the authoritative PostgreSQL database or an explicitly identified authoritative service. All mock-data fallbacks, synthetic variant generators, fake gateway credentials in catch blocks, and hardcoded baseline numbers have been permanently eliminated from production code paths. The update introduces a standardized triple-state UI architecture (Loading skeleton/spinner, Error state with retry trigger, and Truthful empty state with domain guidance) across all affected modules, guaranteeing accounting integrity and transparent statutory compliance.
+
+#### Key Highlights
+- **100% Authoritative Database Telemetry**: Connected Visual Reports Dashboard KPIs, Category Stock Positions, and stream tables directly to live PostgreSQL tables (`stock_movements`, `sales_order_reservations`, `sales_orders`, `companies`).
+- **Elimination of Fake Gateway Credentials**: In `ComplianceDispatchModal.tsx`, fake IRN, Ack No, Signed QR payload, and E-Way Bill numbers in catch blocks were completely removed, replacing them with truthful error toasts propagating the real NIC portal failure reason.
+- **Dispatch Invoicing Truthfulness**: Completely removed `sampleComplianceInvoice` ("TT/26-27/0001") from `DispatchInvoicingStudioTab.tsx`. Toolbar actions inspect actual batch generation results and display an actionable warning when no dispatch invoices exist.
+- **Bulk Price Revision Hardening**: Deleted `generateMockSandals()` (124 synthetic variants) and mock fallback searches in `BulkPriceRevisionWorkflow.tsx`. Searches query live catalog items or display clean, honest empty states.
+- **POS Loyalty & Reconciliation Truthfulness**: Eliminated `MOCK_LOYALTY_CUSTOMERS` in `ProPosLoyaltyLooku.tsx`, connecting directly to `/crm/customers/search`. Removed `posq_mock_01/02` from `ProPosReconciliationDlg.tsx`, adding an explicit network error card with retry trigger.
+- **POS Barcode Integrity**: Scanned barcodes in `SmritiBillingStudio.tsx` strictly match database products or report "Barcode Not Found", eliminating silent demo-cart matching.
+- **Smart Replenishment & Vendor Scorecard**: Wired live `/inventory` stock threshold evaluation in `SmartReplenishmentModal.tsx` and eliminated automatic fallback to demo suppliers in `SupplierScorecardModal.tsx`.
+- **Automated Verification**: Certified with 69/69 Vitest tests green, 2/2 Pytest tests green, 0 `tsc --noEmit` errors, 98/98 form components verified (`validate-registry`), 55 launchpad tiles verified, 11/11 architecture checks passed, and clean production Vite build.
+
 ## Release v6.97.0 (2026-10-17)
 
 ### Procurement & Visual Analytics — Procurement Visual Reports Actual Database Derivation & Zero Mock Data Policy

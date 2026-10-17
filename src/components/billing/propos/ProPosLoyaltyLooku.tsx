@@ -6,15 +6,16 @@
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
  * Version      : 6.0.0
  * Created      : 2026-08-21
- * Modified     : 2026-08-21
+ * Modified     : 2026-10-17
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
  */
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { ProPosCustomer } from "./types.ts";
-import { X, Search, Award, Star, CheckCircle, Info } from "lucide-react";
+import { X, Search, Award, Star, CheckCircle, Info, Loader2 } from "lucide-react";
+import { apiFetchV1 } from "../../../lib/apiFetchV1";
 
 interface SmritiLoyaltyLookupDlgpModalProps {
   currentCustomer?: ProPosCustomer;
@@ -23,53 +24,19 @@ interface SmritiLoyaltyLookupDlgpModalProps {
   onClose: () => void;
 }
 
-const MOCK_LOYALTY_CUSTOMERS: ProPosCustomer[] = [
-  {
-    id: "cust-1",
-    code: "CUST-1001",
-    name: "Farida Jameel",
-    phone: "9876543210",
-    email: "farida@example.com",
-    loyaltyTier: "Platinum",
-    loyaltyPoints: 4500,
-    creditLimit: 50000,
-    currentBalance: 12400
-  },
-  {
-    id: "cust-2",
-    code: "CUST-1002",
-    name: "Rajesh Sharma",
-    phone: "9811223344",
-    email: "rajesh.sharma@example.com",
-    loyaltyTier: "Gold",
-    loyaltyPoints: 2100,
-    creditLimit: 25000,
-    currentBalance: 0
-  },
-  {
-    id: "cust-3",
-    code: "CUST-1003",
-    name: "Ananya Roy",
-    phone: "9900112233",
-    email: "ananya.roy@example.com",
-    loyaltyTier: "Silver",
-    loyaltyPoints: 850,
-    creditLimit: 10000,
-    currentBalance: 3200
-  }
-];
-
 export const SmritiLoyaltyLookupDlgpModal: React.FC<SmritiLoyaltyLookupDlgpModalProps> = ({
   currentCustomer,
   onApplyLoyaltyPoints,
   onSelectCustomer,
-  onClose
+  onClose,
 }) => {
   const [searchQuery, setSearchQuery] = useState<string>("");
-  const [selectedCust, setSelectedCust] = useState<ProPosCustomer>(() => {
-    return currentCustomer || MOCK_LOYALTY_CUSTOMERS[0];
+  const [customers, setCustomers] = useState<ProPosCustomer[]>([]);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [selectedCust, setSelectedCust] = useState<ProPosCustomer | null>(() => {
+    return currentCustomer || null;
   });
-  const [pointsToRedeem, setPointsToRedeem] = useState<number>(500);
+  const [pointsToRedeem, setPointsToRedeem] = useState<number>(0);
 
   const POINT_CONVERSION_RATE = 0.5; // 1 point = ₹0.50
 
@@ -80,14 +47,50 @@ export const SmritiLoyaltyLookupDlgpModal: React.FC<SmritiLoyaltyLookupDlgpModal
   const maxPointsAvailable = selectedCust?.loyaltyPoints || 0;
   const remainingPoints = Math.max(0, maxPointsAvailable - pointsToRedeem);
 
-  const filteredCustomers = useMemo(() => {
-    if (!searchQuery.trim()) return MOCK_LOYALTY_CUSTOMERS;
-    const q = searchQuery.toLowerCase();
-    return MOCK_LOYALTY_CUSTOMERS.filter(c =>
-      c.name.toLowerCase().includes(q) ||
-      c.code.toLowerCase().includes(q) ||
-      (c.phone && c.phone.includes(q))
-    );
+  // Live query to CRM customer repository
+  useEffect(() => {
+    let isCancelled = false;
+    const fetchCustomers = async () => {
+      setIsLoading(true);
+      try {
+        const query = searchQuery.trim();
+        const url = query
+          ? `/crm/customers/search?q=${encodeURIComponent(query)}`
+          : `/crm/customers?limit=20`;
+        const res = await apiFetchV1<any[]>(url);
+        if (!isCancelled && Array.isArray(res)) {
+          const mapped: ProPosCustomer[] = res.map((c: any) => ({
+            id: c.id,
+            code: c.identity_code || c.customer_code || c.code || `CUST-${c.id.slice(0, 6)}`,
+            name: c.name || `${c.first_name || ""} ${c.last_name || ""}`.trim() || "Registered Customer",
+            phone: c.mobile_no || c.phone || "",
+            email: c.email || "",
+            loyaltyTier: c.loyalty_tier || c.loyaltyTier || "Standard",
+            loyaltyPoints: Number(c.loyalty_points_balance || c.loyaltyPointsBalance || 0),
+            creditLimit: Number(c.credit_limit || 0),
+            currentBalance: Number(c.credit_used || 0),
+          }));
+          setCustomers(mapped);
+          if (!selectedCust && mapped.length > 0) {
+            setSelectedCust(mapped[0]);
+          }
+        }
+      } catch (err) {
+        if (!isCancelled) {
+          console.warn("[ProPosLoyalty] Customer search error:", err);
+          setCustomers([]);
+        }
+      } finally {
+        if (!isCancelled) {
+          setIsLoading(false);
+        }
+      }
+    };
+
+    fetchCustomers();
+    return () => {
+      isCancelled = true;
+    };
   }, [searchQuery]);
 
   const handleMaxPoints = () => {
@@ -146,32 +149,45 @@ export const SmritiLoyaltyLookupDlgpModal: React.FC<SmritiLoyaltyLookupDlgpModal
             </div>
           </div>
 
-          {/* Matching Customers dropdown/list if searching */}
-          {searchQuery.trim() && (
-            <div className="border border-[#c4c5d5] dark:border-[#444653] rounded-xl max-h-32 overflow-y-auto divide-y divide-[#eceef0] dark:divide-[#2d3133]">
-              {filteredCustomers.map(c => (
+          {/* Matching Customers dropdown/list */}
+          {isLoading ? (
+            <div className="p-3 text-center text-xs text-slate-500 flex items-center justify-center gap-2">
+              <Loader2 size={14} className="animate-spin text-blue-600" />
+              <span>Searching customer repository...</span>
+            </div>
+          ) : searchQuery.trim() && customers.length === 0 ? (
+            <div className="p-3 text-center text-xs text-slate-400 bg-slate-50 dark:bg-slate-900/40 rounded-xl border border-slate-200 dark:border-slate-800">
+              No registered customers found matching "{searchQuery}".
+            </div>
+          ) : customers.length > 0 ? (
+            <div className="border border-[#c4c5d5] dark:border-[#444653] rounded-xl max-h-36 overflow-y-auto divide-y divide-[#eceef0] dark:divide-[#2d3133]">
+              {customers.map(c => (
                 <div
                   key={c.id}
                   onClick={() => {
                     setSelectedCust(c);
-                    setSearchQuery("");
+                    setPointsToRedeem(0);
                   }}
-                  className="p-2.5 hover:bg-[#f3f4f5] dark:hover:bg-[#2d3133] cursor-pointer text-xs flex justify-between items-center"
+                  className={`p-2.5 cursor-pointer text-xs flex justify-between items-center transition-colors ${
+                    selectedCust?.id === c.id
+                      ? "bg-blue-50 dark:bg-blue-950/40 border-l-4 border-blue-600"
+                      : "hover:bg-[#f3f4f5] dark:hover:bg-[#2d3133]"
+                  }`}
                 >
                   <div>
                     <span className="font-bold">{c.name}</span>
-                    <span className="text-[#565e74] ml-2 font-mono text-[11px]">{c.phone}</span>
+                    <span className="text-[#565e74] ml-2 font-mono text-[11px]">{c.phone || c.code}</span>
                   </div>
                   <span className="px-2 py-0.5 bg-[#dde1ff] text-[#00288e] rounded text-[10px] font-bold">
-                    {c.loyaltyPoints} pts
+                    {c.loyaltyPoints?.toLocaleString() || 0} pts
                   </span>
                 </div>
               ))}
             </div>
-          )}
+          ) : null}
 
           {/* Active Customer Profile Card */}
-          {selectedCust && (
+          {selectedCust ? (
             <div className="bg-[#f8f9fa] dark:bg-[#131b2e] border border-[#c4c5d5] dark:border-[#444653] rounded-xl p-4 flex flex-col gap-3">
               <div className="flex items-start justify-between">
                 <div className="flex items-center gap-3">
@@ -182,8 +198,10 @@ export const SmritiLoyaltyLookupDlgpModal: React.FC<SmritiLoyaltyLookupDlgpModal
                     <h3 className="text-sm font-bold text-[#191c1d] dark:text-white">{selectedCust.name}</h3>
                     <div className="flex items-center gap-1.5 mt-0.5">
                       <Star size={13} className="text-[#d97706] fill-amber-500" />
-                      <span className="text-xs font-bold text-[#d97706]">{selectedCust.loyaltyTier || "Silver Member"}</span>
-                      <span className="text-xs text-[#565e74] dark:text-[#bec6e0] ml-1">({selectedCust.phone})</span>
+                      <span className="text-xs font-bold text-[#d97706]">{selectedCust.loyaltyTier || "Standard Member"}</span>
+                      {selectedCust.phone && (
+                        <span className="text-xs text-[#565e74] dark:text-[#bec6e0] ml-1">({selectedCust.phone})</span>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -193,13 +211,17 @@ export const SmritiLoyaltyLookupDlgpModal: React.FC<SmritiLoyaltyLookupDlgpModal
                     Available Rewards
                   </span>
                   <div className="text-xl font-bold font-mono text-[#00288e] dark:text-[#a8b8ff]">
-                    {selectedCust.loyaltyPoints?.toLocaleString()} pts
+                    {(selectedCust.loyaltyPoints || 0).toLocaleString()} pts
                   </div>
                   <div className="text-xs font-mono text-[#0c9488] font-semibold">
                     Worth ₹{((selectedCust.loyaltyPoints || 0) * POINT_CONVERSION_RATE).toFixed(2)}
                   </div>
                 </div>
               </div>
+            </div>
+          ) : (
+            <div className="p-6 text-center text-xs text-slate-400 bg-slate-50 dark:bg-slate-900/30 rounded-xl border border-dashed border-slate-300 dark:border-slate-700">
+              Please search or select a shopper from the customer master to redeem loyalty points.
             </div>
           )}
 
@@ -258,7 +280,7 @@ export const SmritiLoyaltyLookupDlgpModal: React.FC<SmritiLoyaltyLookupDlgpModal
           </button>
           <button
             type="button"
-            disabled={pointsToRedeem <= 0}
+            disabled={!selectedCust || pointsToRedeem <= 0}
             onClick={handleApply}
             className="px-6 py-2 bg-[#00288e] text-white rounded-xl text-xs font-bold hover:bg-[#1e40af] transition flex items-center gap-1.5 shadow-sm disabled:opacity-40"
           >
