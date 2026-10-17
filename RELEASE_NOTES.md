@@ -16,6 +16,18 @@
 
 ## Release v6.99.0 (2026-10-17)
 
+### Foundation & Architecture — Unified SMRITI CLI Engine Architecture
+
+#### Overview
+SMRITI Retail OS v6.99.0 introduces the canonical Unified SMRITI CLI Engine (`smriti` / `npm run smriti`), consolidating multi-tenant fleet migrations, control plane database isolation guards, health availability diagnostics, version SSOT validations, CI governance checks, and workforce attendance automation into an auditable, cross-platform command-line dispatcher.
+
+#### Key Highlights
+- **Consolidated Entrypoint**: Subcommands `version`, `health`, `fleet`, `db`, `governance`, and `attendance` provide a single, ergonomic surface for system administrators and DevOps engineers.
+- **Cross-Platform Execution**: Built in pure Python with automatic `sys.path` bootstrapping, guaranteeing identical behavior across Windows, macOS, Linux, and containerized Docker environments.
+- **Interactive Safety Guard**: Prevents accidental mutations via `confirm_action()` interactive confirmation prompts. Automatically aborts with exit code 1 in headless/non-interactive environments unless `--yes` is supplied.
+- **Structured JSON Integration**: Every subcommand supports `--json` for machine consumption by automated deployment pipelines and operational dashboards.
+- **Fully Verified**: 16/16 unit and integration tests passing in `backend/tests/test_smriti_cli.py`.
+
 ### Security & Governance — Tenant Data Boundary (TDB-v2.0) Guard Remediation
 
 #### Overview
