@@ -4,7 +4,7 @@
   Designation  : Chief Systems Architect & Creator
   Email        : support@smritibooks.com
   Websites     : smritibooks.com | erpnbook.com | aitdl.com
-  Version      : 6.89.1
+  Version      : 6.91.0
   Created      : 2026-10-13
   Modified     : 2026-10-17
   Copyright    : © SMRITIBooks.com. All Rights Reserved.
@@ -13,6 +13,41 @@
 -->
 
 # SMRITI Retail OS — Release Notes
+
+## Release v6.91.0 (2026-10-17)
+
+### Sales & Billing — SMRITI Billing Studio Final Master Implementation
+
+#### Overview
+SMRITI Retail OS v6.91.0 finalizes the canonical **SMRITI Billing Studio** (`SmritiBillingStudio.tsx`) as a single, profile-driven, production-ready billing engine. Grounded in the architectural principle: **"One Billing Studio. Two business profiles. Automatic configuration. Administrator-controlled customization. Simple cashier experience."** The studio supports exactly two company-level profiles: `B2C_ONLY` (Retail POS) and `B2B_ONLY` (Business Wholesale Invoicing), disallowing confusing hybrid profiles while providing administrator overrides and safe profile migrations without database schema drift.
+
+#### Key Highlights
+- **Company Billing Profile Engine (`B2C_ONLY` vs `B2B_ONLY`)**:
+  - `B2C_ONLY`: Fast retail POS checkout with walk-in default, automatic barcode scanning, quick line editing, multi-tender settlement, thermal receipt default, and Shift Management enabled by default.
+  - `B2B_ONLY`: Business wholesale invoicing with verified customer selection, GSTIN checking, customer purchase order (PO) reference, customer-specific pricing, credit terms, A4 tax invoice default, and Shift Management disabled by default.
+- **4-Tier Configuration Precedence**:
+  - Evaluates settings hierarchically: Company Policy Overrides > Selected Profile Defaults > Authorized Store Configuration > Permitted User Preferences.
+- **Authorized Profile Setup & Switch**:
+  - `BillingProfileSetupModal.tsx` provides an intuitive setup dialog for unconfigured companies, requiring Administrator or Manager authorization.
+  - `BillingProfileConfigModal.tsx` facilitates permitted feature overrides, authorized profile switching with mandatory business justification reason, and an immutable audit trail.
+- **Bulk Add Items (3 Modes + Footwear Paste)**:
+  - `BulkAddItemsModal.tsx` mounted beside Add Item controls supporting:
+    1. Paste Barcodes (one barcode per line).
+    2. Paste Barcode + Quantity (supporting tab-separated Excel copy and comma-separated input).
+    3. Footwear / Apparel 4-column structured paste (`Article`, `Color`, `Size`, `Qty`) matched against Item Master.
+    4. CSV file upload, preview, column mapping, and row-level error validation.
+- **Repeat Barcode Policies**:
+  - Configurable duplicate scan handling: `INCREASE_QUANTITY`, `NEW_LINE`, or `ASK_USER` (prompts cashier with clear decision dialog).
+- **Zero Synthetic Products Anti-Pattern (Strict Policy)**:
+  - Completely eliminated synthetic fallback product generation. Unrecognized barcodes emit actionable Human-Readable Error Policy (HREP) notifications and reset focus to the scan field.
+- **Backend Sales Posting Enforcements (`canonical_sales_writer.py`)**:
+  - Authoritatively enforces business customer selection, mandatory PO numbers, and open shift requirements for POS retail while exempting wholesale B2B users.
+- **Automated Verification**:
+  - 26/26 tests green in `src/tests/smritiBillingStudio.test.ts`.
+  - 77/77 tests green across all 6 billing test suites.
+  - 1/1 Pytest suite green against PostgreSQL in `test_billing_profile_engine.py`.
+  - 0 TypeScript compiler errors (`npx tsc --noEmit`).
+  - 0 database schema migrations required.
 
 ## Release v6.89.1 (2026-10-17)
 

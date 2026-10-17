@@ -17,8 +17,11 @@ from typing import Optional, List
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ...api.deps import get_company_db, get_tenant_context, get_current_user, TenantContext
-from ...models.auth import User
+from pydantic import BaseModel, Field
+from typing import Dict, Any
+
+from ...api.deps import get_company_db, get_tenant_context, get_current_user, require_role, TenantContext
+from ...models.auth import User, UserRole
 from ...schemas.canonical_posting import (
     CanonicalPostingRequest,
     CanonicalPostingResult,
@@ -33,8 +36,29 @@ from ...schemas.billing_catalog import (
 from ...services.canonical_sales_writer import CanonicalSalesPostingWriter
 from ...services.headless_billing import HeadlessBillingCore
 from ...services.billing_catalog_service import BillingCatalogService
+from ...services.billing_profile_service import BillingProfileService
 
 router = APIRouter()
+
+
+class BillingProfileSetupRequest(BaseModel):
+    profile: str = Field(..., description="B2C_ONLY or B2B_ONLY")
+
+
+class BillingProfileSwitchRequest(BaseModel):
+    profile: str = Field(..., description="B2C_ONLY or B2B_ONLY")
+    reason: str = Field(..., description="Business justification for changing billing profile")
+
+
+class BillingConfigurationUpdateRequest(BaseModel):
+    shift_management: Optional[str] = Field(None, description="ENABLED or DISABLED")
+    customer_po_reference: Optional[str] = Field(None, description="HIDDEN, OPTIONAL, or REQUIRED")
+    bulk_add_enabled: Optional[str] = Field(None, description="ENABLED or DISABLED")
+    default_scan_mode: Optional[str] = Field(None, description="AUTO_ADD, EDIT_THEN_ADD, or CONFIRM_PRODUCT")
+    repeat_barcode_policy: Optional[str] = Field(None, description="INCREASE_QUANTITY, NEW_LINE, or ASK_USER")
+    post_scan_focus: Optional[str] = Field(None, description="scan_field, qty, rate, discount, salesperson")
+    scan_beep: Optional[str] = Field(None, description="ENABLED or DISABLED")
+    salesperson_attribution: Optional[str] = Field(None, description="ENABLED, DISABLED, or OPTIONAL")
 
 
 @router.get(
@@ -284,4 +308,104 @@ async def reconcile_billing_transaction(
             "Transaction previously failed. Safe to review and retry with a new or clean key."
         ),
     }
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Canonical Company Billing Profile & Configuration Engine
+# ─────────────────────────────────────────────────────────────────────────────
+
+@router.get(
+    "/profile",
+    status_code=status.HTTP_200_OK,
+    summary="Get Company Billing Profile & Effective Configuration",
+    description="Returns the company's active billing profile (B2C_ONLY or B2B_ONLY), effective configuration resolved using 4-tier precedence, custom overrides, and migration audit history.",
+    tags=["Unified Billing Engine"],
+)
+async def get_billing_profile(
+    db: AsyncSession = Depends(get_company_db),
+    tenant: TenantContext = Depends(get_tenant_context),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    GET /api/v1/billing/profile
+    """
+    return await BillingProfileService.get_effective_profile(
+        session=db,
+        company_id=tenant.company_id,
+    )
+
+
+@router.post(
+    "/profile/setup",
+    status_code=status.HTTP_201_CREATED,
+    summary="Initial Company Billing Profile Activation",
+    description="Authorized administrator selects the company-level profile (B2C_ONLY or B2B_ONLY). Blocks duplicate activation.",
+    tags=["Unified Billing Engine"],
+)
+async def setup_billing_profile(
+    req: BillingProfileSetupRequest,
+    db: AsyncSession = Depends(get_company_db),
+    tenant: TenantContext = Depends(get_tenant_context),
+    current_user: User = Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN)),
+):
+    """
+    POST /api/v1/billing/profile/setup
+    """
+    return await BillingProfileService.setup_initial_profile(
+        session=db,
+        company_id=tenant.company_id,
+        profile=req.profile,
+        updated_by=current_user.username or current_user.email or current_user.id,
+    )
+
+
+@router.put(
+    "/profile/switch",
+    status_code=status.HTTP_200_OK,
+    summary="Authorized Company Billing Profile Migration",
+    description="Switches profile between B2C_ONLY and B2B_ONLY. Requires audit reason. Preserves all historical invoices, payments, stock movements, and shifts.",
+    tags=["Unified Billing Engine"],
+)
+async def switch_billing_profile(
+    req: BillingProfileSwitchRequest,
+    db: AsyncSession = Depends(get_company_db),
+    tenant: TenantContext = Depends(get_tenant_context),
+    current_user: User = Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN)),
+):
+    """
+    PUT /api/v1/billing/profile/switch
+    """
+    return await BillingProfileService.switch_profile(
+        session=db,
+        company_id=tenant.company_id,
+        new_profile=req.profile,
+        reason=req.reason,
+        updated_by=current_user.username or current_user.email or current_user.id,
+    )
+
+
+@router.put(
+    "/configuration",
+    status_code=status.HTTP_200_OK,
+    summary="Update Billing Studio Feature Configuration",
+    description="Allows authorized administrators to customize permitted features without code changes.",
+    tags=["Unified Billing Engine"],
+)
+async def update_billing_configuration(
+    req: BillingConfigurationUpdateRequest,
+    db: AsyncSession = Depends(get_company_db),
+    tenant: TenantContext = Depends(get_tenant_context),
+    current_user: User = Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN)),
+):
+    """
+    PUT /api/v1/billing/configuration
+    """
+    overrides = {k: v for k, v in req.model_dump().items() if v is not None}
+    return await BillingProfileService.update_configuration_overrides(
+        session=db,
+        company_id=tenant.company_id,
+        overrides=overrides,
+        updated_by=current_user.username or current_user.email or current_user.id,
+    )
+
 

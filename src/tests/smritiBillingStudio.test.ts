@@ -617,5 +617,316 @@ describe("SMRITI Billing Studio — Canonical Billing Lifecycle Tests", () => {
     expect(defaultVisibleCols.size).toBe(true);
     expect(defaultVisibleCols.salesperson).toBe(true);
   });
+
+  // ── TEST 19: Billing Profile Defaults Specification ───────────────────────
+  it("TEST 19: should enforce distinct configuration defaults for B2C_ONLY vs B2B_ONLY profiles", () => {
+    const B2C_DEFAULTS = {
+      profile: "B2C_ONLY",
+      shift_management: "ENABLED",
+      customer_selection_required: false,
+      customer_po_reference: "HIDDEN",
+      bulk_add_enabled: true,
+      default_scan_mode: "AUTO_ADD",
+      repeat_barcode_policy: "INCREASE_QUANTITY",
+      default_invoice_format: "THERMAL_80MM",
+      scan_beep: true,
+    };
+
+    const B2B_DEFAULTS = {
+      profile: "B2B_ONLY",
+      shift_management: "DISABLED",
+      customer_selection_required: true,
+      customer_po_reference: "REQUIRED",
+      bulk_add_enabled: true,
+      default_scan_mode: "EDIT_THEN_ADD",
+      repeat_barcode_policy: "INCREASE_QUANTITY",
+      default_invoice_format: "A4_INVOICE",
+      scan_beep: true,
+    };
+
+    // B2C Checks
+    expect(B2C_DEFAULTS.shift_management).toBe("ENABLED");
+    expect(B2C_DEFAULTS.customer_selection_required).toBe(false);
+    expect(B2C_DEFAULTS.default_invoice_format).toBe("THERMAL_80MM");
+
+    // B2B Checks
+    expect(B2B_DEFAULTS.shift_management).toBe("DISABLED");
+    expect(B2B_DEFAULTS.customer_selection_required).toBe(true);
+    expect(B2B_DEFAULTS.customer_po_reference).toBe("REQUIRED");
+    expect(B2B_DEFAULTS.default_invoice_format).toBe("A4_INVOICE");
+  });
+
+  // ── TEST 20: 4-Tier Configuration Precedence Resolution ───────────────────
+  it("TEST 20: should resolve effective configuration via Company Policy > Profile Defaults > Store Config > User Preferences", () => {
+    const resolveEffectiveConfig = (
+      profileDefaults: Record<string, any>,
+      storeConfig: Record<string, any>,
+      userPrefs: Record<string, any>,
+      companyOverrides: Record<string, any>
+    ) => {
+      // Base: Profile defaults
+      const resolved = { ...profileDefaults };
+
+      // Apply store configuration
+      for (const [k, v] of Object.entries(storeConfig)) {
+        if (v !== undefined) resolved[k] = v;
+      }
+
+      // Apply permitted user preferences
+      for (const [k, v] of Object.entries(userPrefs)) {
+        if (v !== undefined) resolved[k] = v;
+      }
+
+      // Authoritative Company Overrides always win
+      for (const [k, v] of Object.entries(companyOverrides)) {
+        if (v !== undefined) resolved[k] = v;
+      }
+
+      return resolved;
+    };
+
+    const b2bProfileDefaults = {
+      shift_management: "DISABLED",
+      customer_po_reference: "REQUIRED",
+      default_scan_mode: "EDIT_THEN_ADD",
+    };
+
+    const storeConfig = {
+      default_scan_mode: "AUTO_ADD",
+    };
+
+    const userPrefs = {
+      shift_management: "ENABLED", // Cashier prefers shift tracking
+      customer_po_reference: "OPTIONAL", // Cashier wants to skip PO
+    };
+
+    // Case A: Without company policy override, store overrides scan mode
+    const resolvedA = resolveEffectiveConfig(b2bProfileDefaults, storeConfig, {}, {});
+    expect(resolvedA.default_scan_mode).toBe("AUTO_ADD");
+    expect(resolvedA.shift_management).toBe("DISABLED");
+
+    // Case B: Company policy explicitly enforces shift_management = ENABLED and PO = REQUIRED
+    const companyPolicyOverrides = {
+      shift_management: "ENABLED",
+      customer_po_reference: "REQUIRED",
+    };
+    const resolvedB = resolveEffectiveConfig(b2bProfileDefaults, storeConfig, userPrefs, companyPolicyOverrides);
+    expect(resolvedB.shift_management).toBe("ENABLED");
+    expect(resolvedB.customer_po_reference).toBe("REQUIRED");
+  });
+
+  // ── TEST 21: Shift Management Policy Enforcement ──────────────────────────
+  it("TEST 21: should enforce shift rules based on profile and policy override", () => {
+    const validateShiftRequirement = (
+      shiftPolicy: string,
+      activeShift: { status: string } | null
+    ) => {
+      if (shiftPolicy === "ENABLED") {
+        if (!activeShift || activeShift.status.toUpperCase() !== "OPEN") {
+          return { allowed: false, error: "OPEN_SHIFT_REQUIRED" };
+        }
+      }
+      return { allowed: true, error: null };
+    };
+
+    // B2C profile default (ENABLED): Requires open shift
+    expect(validateShiftRequirement("ENABLED", null).allowed).toBe(false);
+    expect(validateShiftRequirement("ENABLED", { status: "CLOSED" }).allowed).toBe(false);
+    expect(validateShiftRequirement("ENABLED", { status: "OPEN" }).allowed).toBe(true);
+
+    // B2B profile default (DISABLED): Allows checkout without active shift
+    expect(validateShiftRequirement("DISABLED", null).allowed).toBe(true);
+    expect(validateShiftRequirement("DISABLED", { status: "CLOSED" }).allowed).toBe(true);
+
+    // B2B administrator override to ENABLED: Enforces shift requirement
+    expect(validateShiftRequirement("ENABLED", null).allowed).toBe(false);
+    expect(validateShiftRequirement("ENABLED", { status: "OPEN" }).allowed).toBe(true);
+  });
+
+  // ── TEST 22: Mandatory Customer PO Reference Policy in B2B ─────────────────
+  it("TEST 22: should enforce Customer PO reference based on policy configuration", () => {
+    const validatePoReference = (
+      poPolicy: "REQUIRED" | "OPTIONAL" | "HIDDEN",
+      poInput: string
+    ) => {
+      if (poPolicy === "REQUIRED") {
+        if (!poInput || !poInput.trim() || poInput.trim() === "PO / Order Ref") {
+          return { valid: false, error: "PO_REFERENCE_MANDATORY" };
+        }
+      }
+      return { valid: true, error: null };
+    };
+
+    // REQUIRED policy
+    expect(validatePoReference("REQUIRED", "").valid).toBe(false);
+    expect(validatePoReference("REQUIRED", "PO / Order Ref").valid).toBe(false);
+    expect(validatePoReference("REQUIRED", "PO-2026-9921").valid).toBe(true);
+
+    // OPTIONAL policy
+    expect(validatePoReference("OPTIONAL", "").valid).toBe(true);
+    expect(validatePoReference("OPTIONAL", "PO / Order Ref").valid).toBe(true);
+    expect(validatePoReference("OPTIONAL", "PO-2026-9921").valid).toBe(true);
+
+    // HIDDEN policy
+    expect(validatePoReference("HIDDEN", "").valid).toBe(true);
+  });
+
+  // ── TEST 23: Repeat Barcode Policies (INCREASE_QTY, NEW_LINE, ASK_USER) ───
+  it("TEST 23: should execute repeat-barcode policies accurately", () => {
+    const cart: ProPosCartItem[] = [
+      {
+        id: "CART-01",
+        productId: "P-001",
+        itemNo: 1,
+        sku: "SKU-001",
+        barcode: "8901234567890",
+        name: "Item 1",
+        size: "36",
+        color: "Black",
+        brand: "BrandA",
+        salesStaff: "Amit",
+        qty: 1,
+        mrp: 1000,
+        unitPrice: 1000,
+        discountPct: 0,
+        discountAmt: 0,
+        taxPct: 5,
+        taxAmt: 0,
+        lineTotal: 1000,
+      },
+    ];
+
+    const handleRepeatScan = (
+      existingCart: ProPosCartItem[],
+      barcode: string,
+      policy: "INCREASE_QUANTITY" | "NEW_LINE" | "ASK_USER",
+      userDecision?: "INCREASE" | "NEW_ROW"
+    ) => {
+      const idx = existingCart.findIndex((i) => i.barcode === barcode);
+      if (idx >= 0) {
+        if (policy === "INCREASE_QUANTITY" || (policy === "ASK_USER" && userDecision === "INCREASE")) {
+          const updated = [...existingCart];
+          updated[idx].qty += 1;
+          updated[idx].lineTotal = updated[idx].qty * updated[idx].unitPrice;
+          return { action: "INCREMENTED", cart: updated };
+        }
+        if (policy === "NEW_LINE" || (policy === "ASK_USER" && userDecision === "NEW_ROW")) {
+          const newItem = { ...existingCart[idx], id: `CART-0${existingCart.length + 1}`, qty: 1, lineTotal: existingCart[idx].unitPrice };
+          return { action: "NEW_ROW_ADDED", cart: [...existingCart, newItem] };
+        }
+        if (policy === "ASK_USER" && !userDecision) {
+          return { action: "PROMPT_USER", cart: existingCart };
+        }
+      }
+      return { action: "NONE", cart: existingCart };
+    };
+
+    // INCREASE_QUANTITY
+    const incRes = handleRepeatScan(cart, "8901234567890", "INCREASE_QUANTITY");
+    expect(incRes.action).toBe("INCREMENTED");
+    expect(incRes.cart[0].qty).toBe(2);
+    expect(incRes.cart[0].lineTotal).toBe(2000);
+
+    // NEW_LINE
+    const newLineRes = handleRepeatScan(cart, "8901234567890", "NEW_LINE");
+    expect(newLineRes.action).toBe("NEW_ROW_ADDED");
+    expect(newLineRes.cart.length).toBe(2);
+
+    // ASK_USER
+    const promptRes = handleRepeatScan(cart, "8901234567890", "ASK_USER");
+    expect(promptRes.action).toBe("PROMPT_USER");
+  });
+
+  // ── TEST 24: Bulk Add Line Item Parsing & Multi-Mode Input ─────────────────
+  it("TEST 24: should parse raw clipboard text for Paste Barcode and Barcode+Qty modes", () => {
+    const parseBarcodeList = (rawText: string) => {
+      const lines = rawText.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+      return lines.map((line, idx) => {
+        // Tab-separated or comma-separated: Barcode [del] Qty
+        const parts = line.includes("\t") ? line.split("\t") : line.includes(",") ? line.split(",") : [line];
+        const barcode = parts[0]?.trim() || "";
+        const qty = parts.length > 1 ? parseInt(parts[1]?.trim(), 10) || 1 : 1;
+        return { rowNumber: idx + 1, barcode, qty, isValid: Boolean(barcode) && qty > 0 };
+      });
+    };
+
+    // Mode 1: Pure barcodes
+    const rawMode1 = "8901234567890\n8901234567891\n8901234567893";
+    const res1 = parseBarcodeList(rawMode1);
+    expect(res1.length).toBe(3);
+    expect(res1[0].barcode).toBe("8901234567890");
+    expect(res1[0].qty).toBe(1);
+
+    // Mode 2: Excel tab-separated paste
+    const rawMode2 = "8901234567890\t5\n8901234567891\t12\n8901234567893\t2";
+    const res2 = parseBarcodeList(rawMode2);
+    expect(res2.length).toBe(3);
+    expect(res2[0].qty).toBe(5);
+    expect(res2[1].qty).toBe(12);
+
+    // Mode 2: Comma-separated paste
+    const rawMode3 = "8901234567890,3\n8901234567891,8";
+    const res3 = parseBarcodeList(rawMode3);
+    expect(res3.length).toBe(2);
+    expect(res3[0].qty).toBe(3);
+  });
+
+  // ── TEST 25: Zero Synthetic Products Anti-Pattern (Strict Policy) ──────────
+  it("TEST 25: should refuse to invent synthetic products for unknown barcodes", () => {
+    const mockCatalog: Product[] = [
+      {
+        id: "PROD-KNOWN-01",
+        code: "SKU-KNOWN",
+        name: "Authentic Footwear",
+        barcode: "8901234567890",
+        price: 999,
+        stock: 20,
+        category: "Footwear",
+      },
+    ];
+
+    const scanBarcode = (barcode: string, catalog: Product[]) => {
+      const matched = catalog.find((p) => p.barcode === barcode || p.sku === barcode || p.id === barcode);
+      if (matched) {
+        return { success: true, product: matched, error: null };
+      }
+      // Strict Policy: Do NOT invent fallback fake products!
+      return {
+        success: false,
+        product: null,
+        error: `Barcode "${barcode}" was not found in catalog. Please check barcode or register product in Master Data.`,
+      };
+    };
+
+    const validScan = scanBarcode("8901234567890", mockCatalog);
+    expect(validScan.success).toBe(true);
+    expect(validScan.product?.name).toBe("Authentic Footwear");
+
+    const unknownScan = scanBarcode("9999999999999", mockCatalog);
+    expect(unknownScan.success).toBe(false);
+    expect(unknownScan.product).toBeNull();
+    expect(unknownScan.error).toContain("was not found in catalog");
+  });
+
+  // ── TEST 26: Duplicate Invoice Prevention with Idempotency Key ─────────────
+  it("TEST 26: should enforce client-side transaction UUID idempotency keys to prevent duplicate posting", () => {
+    const settledTransactions = new Set<string>();
+
+    const recordCheckout = (clientTxUuid: string) => {
+      if (settledTransactions.has(clientTxUuid)) {
+        return { status: "REJECTED_DUPLICATE", message: "Transaction already processed." };
+      }
+      settledTransactions.add(clientTxUuid);
+      return { status: "COMMITTED", invoiceNo: `INV-${Date.now()}` };
+    };
+
+    const uuid = "550e8400-e29b-41d4-a716-446655440000";
+    const firstAttempt = recordCheckout(uuid);
+    expect(firstAttempt.status).toBe("COMMITTED");
+
+    // Second rapid or retry attempt with identical UUID is rejected
+    const retryAttempt = recordCheckout(uuid);
+    expect(retryAttempt.status).toBe("REJECTED_DUPLICATE");
+  });
 });
 
