@@ -145,11 +145,11 @@ validate_ssot   Probe Engine     (Advisory Lock)  Topology    (Boundary/DTO)
 - Phase 3: Automated testing and documentation.
 
 ## 17. Status
-Approved for Planning (Implementation on Hold pending Tenant Boundary Remediation).
+Completed
 
 ## 18. Related ADRs
 - `ADR-0042`: Positive Table Ownership Registry (TDB-v2.0)
 - `ADR-0051`: Unified Operational Command Architecture & Tooling Consolidation
 
 ## 19. Related Walkthroughs
-- To be created: `docs/walkthrough/foundation/Unified_SMRITI_CLI_Engine_Architecture_v1.0.0.md`
+- [`docs/walkthrough/foundation/Unified_SMRITI_CLI_Engine_Architecture_v1.0.0.md`](file:///f:/SMRITRretailNX/docs/walkthrough/foundation/Unified_SMRITI_CLI_Engine_Architecture_v1.0.0.md)

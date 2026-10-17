@@ -1,5 +1,21 @@
 ## [6.99.0] — 2026-10-17
 
+### Foundation & Architecture — Unified SMRITI CLI Engine Architecture v1.0.0
+
+Designed, implemented, and verified the Unified SMRITI CLI Engine (`smriti` / `python -m backend.app.cli` / `npm run smriti`), consolidating operational administrative tools, multi-tenant fleet migrations, control plane isolation guards, service health diagnostics, version SSOT validations, CI governance checks, and workforce attendance automation into an auditable, cross-platform CLI dispatcher:
+- **Canonical Execution Dispatcher (`backend/app/cli/`)**: Created `argparse` hierarchy with root `--version`, `--help`, and subcommands:
+  - `version`: Inspects and verifies the 4-point Single Source of Truth (`package.json`, `config.py`, `version.ts`, `CHANGELOG.md`) version lock.
+  - `health`: Executes cross-platform socket (PostgreSQL) and HTTP (FastAPI, React) health availability probes with latency measurements.
+  - `fleet`: Wraps `FleetMigrator` engine with PostgreSQL session advisory locking, `--dry-run` inspection, and company/database targeting.
+  - `db`: Subcommands for `guard` (wrapping `cp_guard.py` for TDB-v2.0 positive table ownership verification) and `stats` (table counts and row volume estimates).
+  - `governance`: Subcommands for `boundary` (tenant isolation guard), `fields` (UX field governance guard), and `check` (aggregated CI verification).
+  - `attendance`: Workforce attendance punch recording and active staff directory lookups.
+- **Cross-Platform Parity**: Completely eliminates platform-specific discrepancies between Windows PowerShell (`.ps1`) and Linux shell scripts (`.sh`).
+- **Interactive Safety Guard (`confirm_action`)**: Prompts user confirmation `[y/N]` before any live mutation. Automatically aborts with exit code 1 in non-interactive CI environments without explicit `--yes`.
+- **Machine-Readable Structured Output**: Full `--json` flag support across all subcommands emitting valid JSON envelopes to stdout and logging to stderr.
+- **NPM Package Script Registration**: Added `"smriti": "python -m backend.app.cli"` into `package.json`.
+- **Automated Verification**: 16/16 tests green in `backend/tests/test_smriti_cli.py`.
+
 ### Security & Governance — Tenant Data Boundary (TDB-v2.0) Guard Remediation v1.0.0
 
 Remediated all 22 tenant data boundary violations detected by `scripts/ci_tenant_boundary_guard.py` and `backend/app/db/cp_guard.py`, enforcing positive table ownership declarations and physical control plane isolation:

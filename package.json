@@ -1,6 +1,6 @@
 {
   "name": "smriti-retail-os",
-  "version": "6.82.0",
+  "version": "6.99.0",
   "description": "Enterprise Retail Experience & Intelligence Layer",
   "type": "module",
   "scripts": {
@@ -17,7 +17,8 @@
     "governance:fields": "python scripts/ci_ux_field_governance_guard.py",
     "start:fastapi": "python -m uvicorn backend.app.main:app --port 8000 --reload",
     "governance:dto": "python scripts/ci_api_dto_reconciliation.py",
-    "governance:all": "python scripts/ci_ux_field_governance_guard.py && python scripts/ci_api_dto_reconciliation.py"
+    "governance:all": "python scripts/ci_ux_field_governance_guard.py && python scripts/ci_api_dto_reconciliation.py",
+    "smriti": "python -m backend.app.cli"
   },
   "dependencies": {
     "@google/genai": "2.10.0",
