@@ -8,6 +8,16 @@ Diagnosed and permanently resolved HTTP 500 (`Internal Server Error`) on `GET /a
 - **Primary Key Safety**: Explicitly generated unique primary key (`id=f"dsh_{uuid.uuid4().hex[:12]}"`) on newly created `Dashboard` entities during preference persistence in `save_config`.
 - **Automated Verification**: Created comprehensive test suite `backend/app/tests/test_visual_reports_dashboard.py` (2/2 tests green); verified 5/5 tests green in `test_item_variant_hard_delete.py` (7/7 combined suite green); passed all 11 architecture duplication checks and tenant boundary guards with 0 violations.
 
+### Item Master & Inventory — Untransacted SKU & Barcode Guarded Hard Delete Engine v1.0.0
+
+Implemented and certified the guarded permanent physical hard delete, identity modification, and 1-click lifecycle deactivation engine for Item Master items, variants, and barcodes:
+- **11-Ledger Zero-Transaction Verification (`item_domain_svc.py`)**: Cross-checks 11 financial, procurement, inventory, and tracking ledgers (`SalesInvoiceItem`, `SalesOrderItem`, `SalesReturnItem`, `PurchaseReceiptItem`, `PurchaseOrderItem`, `PurchaseBillItem`, `StockMovement`, `StockTransferItem`, `StockAuditItem`, `Product.stock`, `ItemBatch`, `ItemSerial`) to ensure hard deletion is restricted strictly to 100% un-transacted mistakes.
+- **Physical SKU & Barcode Recycling**: Purges un-transacted records and cascades through barcodes, price book entries, and child item settings, releasing unique SKU and optical barcode strings for clean reuse without collisions.
+- **Transacted Identity Protection**: Transacted variants strictly lock identity dimensions (`variant_sku`, `primary_barcode`, `color`, `size`) with `HTTP 409 Conflict` (`SMRITI-IDENTITY-TRANSACTED`), while preserving commercial price and status update pathways.
+- **Tamper-Evident WORM Audit Trail**: Emits an immutable pre-deletion audit snapshot to `ComplianceImmutableAuditLog` with `event_type="ITEM_VARIANT_HARD_DELETED"`, actor identity, and SHA-256 payload hash prior to physical deletion.
+- **Item Master UI Modernization (`VariantEditModal.tsx`)**: Integrates dynamic pre-flight deletion status queries, visual lock indicators with tooltips, deactivation toggle, and confirmation modals displaying itemized blocking reasons.
+- **Automated Verification**: Certified with 5/5 green tests in `backend/app/tests/test_item_variant_hard_delete.py`, 0 architecture duplication violations, and 0 tenant boundary violations.
+
 ### Foundation & Architecture — Unified SMRITI CLI Engine Architecture v1.0.0
 
 Designed, implemented, and verified the Unified SMRITI CLI Engine (`smriti` / `python -m backend.app.cli` / `npm run smriti`), consolidating operational administrative tools, multi-tenant fleet migrations, control plane isolation guards, service health diagnostics, version SSOT validations, CI governance checks, and workforce attendance automation into an auditable, cross-platform CLI dispatcher:

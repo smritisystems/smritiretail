@@ -27,6 +27,18 @@ Resolves an HTTP 500 (`Internal Server Error`) defect encountered on `GET /api/v
 - **Configuration Persistence Guarantee**: Explicitly sets primary key `id` on newly persisted `Dashboard` records in PostgreSQL.
 - **Comprehensive Test Coverage**: Tested and certified across `test_visual_reports_dashboard.py` (2/2 green) and `test_item_variant_hard_delete.py` (5/5 green).
 
+### Item Master & Inventory — Untransacted SKU & Barcode Guarded Hard Delete Engine
+
+#### Overview
+SMRITI Retail OS v6.99.0 introduces a secure, audit-compliant Guarded Hard Delete mechanism for Item Master items, variants, and barcodes that have never been transacted across any financial, inventory, sales, or procurement ledger. Operators can safely purge typographical intake mistakes, releasing unique SKU and barcode assets for reuse, while transacted variants remain strictly locked and protected against historical ledger distortion.
+
+#### Key Highlights
+- **11-Ledger Pre-flight Analysis**: Automatically scans 11 operational tables before any deletion. Rejects transacted records with `HTTP 409 Conflict` and detailed blocking counts.
+- **SKU & Barcode Release**: Physically deletes un-transacted variants, clearing database unique constraints (`uq_variants_company_sku`, `uq_barcodes_company_barcode`) and enabling immediate asset reuse.
+- **WORM Audit Logging**: Persists pre-deletion snapshots to `ComplianceImmutableAuditLog` with SHA-256 integrity hashes prior to physical purge.
+- **Intuitive UI Controls**: Updates `VariantEditModal.tsx` with dynamic pre-flight checks, locked field badges, 1-click status toggling, and multi-step deletion confirmation modals.
+- **100% Test Certified**: Verified across 5 end-to-end integration tests in `test_item_variant_hard_delete.py`.
+
 ### Foundation & Architecture — Unified SMRITI CLI Engine Architecture
 
 #### Overview
