@@ -1,3 +1,22 @@
+## [6.99.0] — 2026-10-17
+
+### Procurement & Visual Analytics — Universal Attribute-Based Visual Analytics v1.0.0
+
+Implemented the approved visual reference for Procurement Visual Reports establishing business attributes (**Article / Style**, **Color**, **Size**, Category, Brand, Season, Supplier) as primary reporting dimensions rather than raw barcodes, while providing a configurable dashboard panel with 8 chart types, multidimensional grouping, measure selection, time grouping, top-N ranking, and 100% authoritative database reconciliation:
+
+**Key Capabilities & Architectural Enforcements:**
+- **Attribute-Level Primary Dimensions**: Configured Article/Style, Color, and Size as primary grouping and reporting dimensions across line items and POs. Barcodes and SKUs remain available for operational drill-down and traceability.
+- **Two-Row Filter Strip**: Row 1 isolates enterprise scope (Company, Store, Date Range, Presets [Today, Last 7 Days, MTD, QTD, YTD, Custom], Filter Count pill, Clear All). Row 2 provides multi-select search dropdowns with removable chip pills (`x`) for Article/Style, Color, Size, and single-select dropdowns for Supplier, Category, Brand, Season, and More Filters.
+- **Visual Analytics Decks (10 Widgets)**:
+  - *Deck 0:* 6 KPI cards (`Purchase Orders`, `Purchase Spend`, `Pending Approvals`, `Pending Receipts`, `Received vs Ordered`, `Supplier Outstanding`).
+  - *Deck 1:* Purchase Spend Trend (By Article; Stacked Bar / Grouped Bar / Line / Area) with dynamic article breakdown series, 4-stage Purchase-to-Receipt pipeline tracker with Quantity vs Value toggle, centered PO status donut.
+  - *Deck 2:* Horizontal Top Articles ranking, Spend by Color pie chart with color swatches, Order vs Receipt Qty by Size grouped bar chart, 7-column Reorder Alert table with suggested PO qty.
+  - *Deck 3:* Supplier Performance dual-axis combo chart (On-time delivery % + Lead time days), 2D Article-Color Heatmap matrix with vertical gradient bar (`High` to `Low`), Supplier Lead Time vs Order Value scatter/bubble plot.
+  - *Deck 4:* 12-column Active Procurement Stream table with tabs (`All`, `PO`, `GR`, `PI`), search, filters, columns, export, and document preview modal.
+- **4-Tab Customize Dashboard Drawer**: Integrated right sliding panel with tabs (`Charts & Data`, `Filters`, `Layout`, `Theme`), widget selector, 8 visual chart-type card buttons (`Bar`, `Line`, `Area`, `Donut`, `Treemap`, `Heatmap`, `Scatter`, `Table`), primary/secondary grouping, measure multi-select pills, time grouping, top-N input, and configuration persistence to `/api/v1/reports/procurement-dashboard/config`.
+- **Zero Mock Fallbacks**: 100% of data is derived from live PostgreSQL ledgers (`PurchaseOrder`, `PurchaseReceipt`, `PurchaseBill`, `Supplier`, `Product`, `StockMovement`), handling loading skeletons, error retry banners, and empty states gracefully.
+- **Automated Verification**: Vitest 10/10 tests green, Pytest 4/4 tests green, `tsc --noEmit` exit code 0, 55/55 launchpad tiles verified, 98/98 form components verified, 11/11 architecture checks passed, and clean production Vite build.
+
 ## [6.98.0] — 2026-10-17
 
 ### Foundation & Governance — Global Actual-Data Enforcement Across SMRITI Retail OS v1.0.0

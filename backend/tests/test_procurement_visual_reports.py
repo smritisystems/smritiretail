@@ -105,3 +105,73 @@ async def test_procurement_dashboard_summary_empty_company():
         assert kpis["pending_receipts"].numeric_value == 0
         assert kpis["received_vs_ordered"].numeric_value == 0
         assert kpis["supplier_outstanding"].numeric_value == 0
+
+
+@pytest.mark.asyncio
+async def test_procurement_dashboard_summary_attribute_filters():
+    """Verify attribute filtering (articles, colors, sizes) and dynamic filter options."""
+    async with async_session() as db:
+        res = await ProcurementVisualReportsService.get_dashboard_summary(
+            db,
+            company_id="COMP-001",
+            articles=["SH-02-I", "CH-13-C"],
+            colors=["BLACK", "BROWN"],
+            sizes=["40", "41"],
+            top_n=5,
+        )
+
+        # Filter options must contain live product master attributes
+        assert res.filter_options is not None
+        assert len(res.filter_options.articles) > 0
+        assert len(res.filter_options.colors) > 0
+        assert len(res.filter_options.sizes) > 0
+
+        # Top articles returned must match requested top_n limit
+        assert res.top_articles is not None
+        assert len(res.top_articles) <= 5
+
+        # Colors breakdown
+        assert res.spend_by_color is not None
+        for clr in res.spend_by_color:
+            assert clr.percentage >= 0
+            assert clr.spend_value >= 0
+
+        # Sizes breakdown
+        assert res.order_vs_receipt_by_size is not None
+        for sz in res.order_vs_receipt_by_size:
+            assert sz.ordered_qty >= 0
+            assert sz.received_qty >= 0
+
+        # Reorder alerts detailed with article/color/size
+        assert res.reorder_alerts_detailed is not None
+        for alert in res.reorder_alerts_detailed:
+            assert alert.article != ""
+            assert alert.suggested_po_qty >= 0
+
+
+@pytest.mark.asyncio
+async def test_procurement_dashboard_heatmap_and_scatter():
+    """Verify 2D Article-Color Heatmap matrix and Supplier Lead Time vs Order Value scatter plot."""
+    async with async_session() as db:
+        res = await ProcurementVisualReportsService.get_dashboard_summary(
+            db,
+            company_id="COMP-001",
+            top_n=10,
+        )
+
+        # Heatmap matrix
+        assert res.article_color_heatmap is not None
+        assert len(res.article_color_heatmap.articles) > 0
+        assert len(res.article_color_heatmap.colors) > 0
+        assert len(res.article_color_heatmap.cells) > 0
+        assert res.article_color_heatmap.max_qty >= 0
+
+        # Scatter plot points
+        assert res.supplier_lead_time_vs_value is not None
+        assert len(res.supplier_lead_time_vs_value) > 0
+        for pt in res.supplier_lead_time_vs_value:
+            assert pt.supplier_name != ""
+            assert pt.avg_lead_time_days >= 0
+            assert pt.order_value_lakh >= 0
+            assert pt.bubble_color.startswith("#")
+

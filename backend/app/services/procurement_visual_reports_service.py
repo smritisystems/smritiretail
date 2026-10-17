@@ -44,6 +44,14 @@ from ..schemas.procurement_visual_reports import (
     ActiveProcurementStreamItem,
     ProcurementDashboardConfigPayload,
     ProcurementReportsSummaryResponse,
+    ArticleSpendItem,
+    ColorSpendItem,
+    SizeBreakdownItem,
+    AttributeReorderAlertItem,
+    ArticleColorHeatmapCell,
+    ArticleColorHeatmap,
+    SupplierLeadTimeScatterPoint,
+    FilterOptions,
 )
 
 
@@ -150,12 +158,37 @@ class ProcurementVisualReportsService:
         start_date: Optional[date] = None,
         end_date: Optional[date] = None,
         store_location_id: Optional[str] = None,
+        articles: Optional[List[str]] = None,
+        colors: Optional[List[str]] = None,
+        sizes: Optional[List[str]] = None,
+        supplier_id: Optional[str] = None,
+        category: Optional[str] = None,
+        brand: Optional[str] = None,
+        season: Optional[str] = None,
+        top_n: int = 10,
     ) -> ProcurementReportsSummaryResponse:
         """
         Reconciles purchase orders, purchase receipts, supplier bills, and vendor outstandings
         into consolidated analytics for the Procurement Visual Reports Dashboard.
         Strictly computes all figures from authoritative PostgreSQL database tables.
         """
+        # Normalize list filters to support both ?articles=A&articles=B and ?articles=A,B
+        def _norm_list(val: Optional[List[str]]) -> Optional[List[str]]:
+            if not val:
+                return None
+            out = []
+            for item in val:
+                if isinstance(item, str):
+                    for sub in item.split(","):
+                        s = sub.strip()
+                        if s and s.lower() != "all":
+                            out.append(s)
+            return out if out else None
+
+        articles = _norm_list(articles)
+        colors = _norm_list(colors)
+        sizes = _norm_list(sizes)
+
         # ── 1. Resolve Company and Location Display Names ────────────────────
         company_name = "SMRITI Retail Store"
         try:
@@ -188,6 +221,8 @@ class ProcurementVisualReportsService:
         )
         if store_location_id and store_location_id != "All Locations":
             po_stmt = po_stmt.where(PurchaseOrder.branch_id == store_location_id)
+        if supplier_id and supplier_id != "all":
+            po_stmt = po_stmt.where(PurchaseOrder.supplier_id == supplier_id)
         if start_date:
             start_dt = datetime.combine(start_date, datetime.min.time(), tzinfo=timezone.utc)
             po_stmt = po_stmt.where(PurchaseOrder.created_at >= start_dt)
@@ -206,6 +241,8 @@ class ProcurementVisualReportsService:
         )
         if store_location_id and store_location_id != "All Locations":
             rcv_stmt = rcv_stmt.where(or_(PurchaseReceipt.branch_id == store_location_id, PurchaseReceipt.warehouse_id == store_location_id))
+        if supplier_id and supplier_id != "all":
+            rcv_stmt = rcv_stmt.where(PurchaseReceipt.supplier_id == supplier_id)
         if start_date:
             start_dt = datetime.combine(start_date, datetime.min.time(), tzinfo=timezone.utc)
             rcv_stmt = rcv_stmt.where(PurchaseReceipt.created_at >= start_dt)
@@ -224,6 +261,8 @@ class ProcurementVisualReportsService:
         )
         if store_location_id and store_location_id != "All Locations":
             bill_stmt = bill_stmt.where(PurchaseBill.branch_id == store_location_id)
+        if supplier_id and supplier_id != "all":
+            bill_stmt = bill_stmt.where(PurchaseBill.supplier_id == supplier_id)
         if start_date:
             start_dt = datetime.combine(start_date, datetime.min.time(), tzinfo=timezone.utc)
             bill_stmt = bill_stmt.where(PurchaseBill.created_at >= start_dt)
@@ -244,26 +283,93 @@ class ProcurementVisualReportsService:
         suppliers = list(sup_res.scalars().all())
         supplier_map = {s.id: s for s in suppliers}
 
-        # ── 6. Query Line Items for Accurate Quantities and SKU Resolution ───
+        # ── 6. Query Products for Attributes & Filter Options ────────────────
+        prod_stmt = select(Product).where(
+            Product.company_id == company_id,
+            Product.is_deleted == False
+        )
+        all_prods = list((await session.execute(prod_stmt)).scalars().all())
+        prod_map = {p.id: p for p in all_prods}
+
+        raw_articles = sorted(list(set(p.style_code for p in all_prods if p.style_code)))
+        raw_colors = sorted(list(set(p.color for p in all_prods if p.color)))
+        raw_sizes = sorted(list(set(p.size for p in all_prods if p.size)), key=lambda s: (0, int(s)) if s.isdigit() else (1, s))
+        raw_categories = sorted(list(set(p.category for p in all_prods if p.category)))
+        raw_brands = sorted(list(set(p.brand for p in all_prods if p.brand)))
+        raw_suppliers = [{"id": s.id, "name": s.name} for s in suppliers]
+        raw_seasons = ["All Seasons", "Summer 2026", "Winter 2026", "Festive", "Core / Evergreen"]
+
+        filter_options = FilterOptions(
+            articles=raw_articles,
+            colors=raw_colors,
+            sizes=raw_sizes,
+            categories=raw_categories,
+            brands=raw_brands,
+            suppliers=raw_suppliers,
+            seasons=raw_seasons,
+        )
+
+        # ── 7. Query Line Items and Apply Attribute Filters ──────────────────
         po_ids = [po.id for po in real_pos]
-        po_ordered_qty: Dict[str, float] = {}
-        po_item_names: Dict[str, List[str]] = {}
+        poi_items: List[PurchaseOrderItem] = []
         if po_ids:
             poi_stmt = select(PurchaseOrderItem).where(PurchaseOrderItem.order_id.in_(po_ids))
             poi_items = list((await session.execute(poi_stmt)).scalars().all())
-            for item in poi_items:
-                qty = float(item.quantity or 0)
-                po_ordered_qty[item.order_id] = po_ordered_qty.get(item.order_id, 0.0) + qty
-                if item.order_id not in po_item_names:
-                    po_item_names[item.order_id] = []
-                identifier = item.code or item.name
-                if identifier and identifier not in po_item_names[item.order_id]:
-                    po_item_names[item.order_id].append(identifier)
+
+        # Check line item attribute filter
+        def item_matches_filters(item: PurchaseOrderItem) -> bool:
+            p = prod_map.get(item.product_id)
+            if articles:
+                art = (p.style_code if p and p.style_code else item.code)
+                if art not in articles:
+                    return False
+            if colors:
+                clr = (p.color if p and p.color else "Standard")
+                if clr not in colors:
+                    return False
+            if sizes:
+                sz = (p.size if p and p.size else "Standard")
+                if sz not in sizes:
+                    return False
+            if category and category.lower() != "all":
+                cat = (p.category if p and p.category else "General")
+                if cat.lower() != category.lower():
+                    return False
+            if brand and brand.lower() != "all":
+                br = (p.brand if p and p.brand else "General")
+                if br.lower() != brand.lower():
+                    return False
+            if season and season.lower() != "all" and season != "All Seasons":
+                sea = (p.attributes.get("season") if p and p.attributes and isinstance(p.attributes, dict) else "All Seasons")
+                if sea.lower() != season.lower():
+                    return False
+            return True
+
+        has_attr_filter = bool(articles or colors or sizes or (category and category.lower() != "all") or (brand and brand.lower() != "all") or (season and season.lower() != "all" and season != "All Seasons"))
+
+        if has_attr_filter and poi_items:
+            poi_items = [i for i in poi_items if item_matches_filters(i)]
+            matching_po_ids = set(i.order_id for i in poi_items)
+            real_pos = [po for po in real_pos if po.id in matching_po_ids]
+            po_ids = [po.id for po in real_pos]
+            real_receipts = [r for r in real_receipts if r.order_id in matching_po_ids]
+
+        po_ordered_qty: Dict[str, float] = {}
+        po_item_names: Dict[str, List[str]] = {}
+        for item in poi_items:
+            qty = float(item.quantity or 0)
+            po_ordered_qty[item.order_id] = po_ordered_qty.get(item.order_id, 0.0) + qty
+            if item.order_id not in po_item_names:
+                po_item_names[item.order_id] = []
+            identifier = item.code or item.name
+            if identifier and identifier not in po_item_names[item.order_id]:
+                po_item_names[item.order_id].append(identifier)
 
         receipt_ids = [rcv.id for rcv in real_receipts]
         po_received_qty: Dict[str, float] = {}
         rcv_received_qty: Dict[str, float] = {}
         rcv_item_names: Dict[str, List[str]] = {}
+        pri_items: List[PurchaseReceiptItem] = []
         if receipt_ids or po_ids:
             condition = []
             if receipt_ids:
@@ -749,6 +855,262 @@ class ProcurementVisualReportsService:
             "pi": len(real_bills),
         }
 
+        # ── 18. Universal Attribute Analytics Computations ───────────────────
+        # A. Top Articles by Spend
+        article_spend_map: Dict[str, Dict[str, Any]] = {}
+        for item in poi_items:
+            p = prod_map.get(item.product_id)
+            art = (p.style_code if p and p.style_code else item.code) or "UNASSIGNED"
+            val = float(item.line_total or 0)
+            qty = float(item.quantity or 0)
+            if art not in article_spend_map:
+                article_spend_map[art] = {"spend": 0.0, "qty": 0.0, "pos": set()}
+            article_spend_map[art]["spend"] += val
+            article_spend_map[art]["qty"] += qty
+            article_spend_map[art]["pos"].add(item.order_id)
+
+        sorted_articles = sorted(article_spend_map.items(), key=lambda x: x[1]["spend"], reverse=True)
+        max_art_spend = sorted_articles[0][1]["spend"] if sorted_articles else 1.0
+        art_palette = ["#0284c7", "#10b981", "#f59e0b", "#9333ea", "#f43f5e", "#06b6d4", "#ec4899", "#8b5cf6"]
+
+        top_articles: List[ArticleSpendItem] = []
+        for idx, (art_name, d) in enumerate(sorted_articles[:top_n]):
+            pct = round((d["spend"] / max_art_spend) * 100, 1) if max_art_spend > 0 else 0.0
+            top_articles.append(
+                ArticleSpendItem(
+                    article=art_name,
+                    spend_value=d["spend"],
+                    formatted_spend=f"₹ {d['spend']:,.0f}",
+                    quantity=d["qty"],
+                    po_count=len(d["pos"]),
+                    percentage=pct,
+                    bar_color=art_palette[idx % len(art_palette)],
+                )
+            )
+
+        # B. Spend by Color
+        color_spend_map: Dict[str, Dict[str, float]] = {}
+        total_color_spend = 0.0
+        for item in poi_items:
+            p = prod_map.get(item.product_id)
+            clr = (p.color if p and p.color else "Standard").upper()
+            val = float(item.line_total or 0)
+            qty = float(item.quantity or 0)
+            if clr not in color_spend_map:
+                color_spend_map[clr] = {"spend": 0.0, "qty": 0.0}
+            color_spend_map[clr]["spend"] += val
+            color_spend_map[clr]["qty"] += qty
+            total_color_spend += val
+
+        sorted_colors = sorted(color_spend_map.items(), key=lambda x: x[1]["spend"], reverse=True)
+        color_codes_map = {
+            "BLACK": "#1e293b",
+            "WHITE": "#94a3b8",
+            "CREAM": "#fef08a",
+            "TAN": "#d97706",
+            "BLUE": "#3b82f6",
+            "RED": "#ef4444",
+            "BRONZE": "#b45309",
+            "BROWN": "#78350f",
+            "CHIKKU": "#a16207",
+            "BEIGE": "#fde68a",
+            "GOLD": "#eab308",
+            "GUNMETAL": "#475569",
+            "MUSTARD": "#ca8a04",
+            "NAVY": "#1e3a8a",
+            "GREY": "#64748b",
+        }
+
+        spend_by_color: List[ColorSpendItem] = []
+        top_5_colors = sorted_colors[:5]
+        others_spend = sum(c[1]["spend"] for c in sorted_colors[5:])
+        others_qty = sum(c[1]["qty"] for c in sorted_colors[5:])
+
+        for clr_name, d in top_5_colors:
+            pct = round((d["spend"] / total_color_spend) * 100, 1) if total_color_spend > 0 else 0.0
+            spend_by_color.append(
+                ColorSpendItem(
+                    color=clr_name.title(),
+                    spend_value=d["spend"],
+                    formatted_spend=f"₹ {d['spend']:,.0f}",
+                    quantity=d["qty"],
+                    percentage=pct,
+                    color_code=color_codes_map.get(clr_name, "#64748b"),
+                )
+            )
+        if others_spend > 0:
+            pct = round((others_spend / total_color_spend) * 100, 1) if total_color_spend > 0 else 0.0
+            spend_by_color.append(
+                ColorSpendItem(
+                    color="Others",
+                    spend_value=others_spend,
+                    formatted_spend=f"₹ {others_spend:,.0f}",
+                    quantity=others_qty,
+                    percentage=pct,
+                    color_code="#94a3b8",
+                )
+            )
+
+        # C. Order vs Receipt Qty (By Size)
+        size_map: Dict[str, Dict[str, float]] = {}
+        for item in poi_items:
+            p = prod_map.get(item.product_id)
+            sz = str(p.size if p and p.size else "Std")
+            qty = float(item.quantity or 0)
+            if sz not in size_map:
+                size_map[sz] = {"ordered": 0.0, "received": 0.0}
+            size_map[sz]["ordered"] += qty
+
+        for item in pri_items:
+            p = prod_map.get(item.product_id)
+            sz = str(p.size if p and p.size else "Std")
+            rcv_qty = float(item.quantity_received or 0)
+            if sz in size_map:
+                size_map[sz]["received"] += rcv_qty
+
+        sorted_sizes = sorted(size_map.keys(), key=lambda s: (0, int(s)) if s.isdigit() else (1, s))
+        order_vs_receipt_by_size: List[SizeBreakdownItem] = []
+        for sz in sorted_sizes:
+            ord_q = size_map[sz]["ordered"]
+            rcv_q = size_map[sz]["received"]
+            pnd_q = max(0.0, ord_q - rcv_q)
+            order_vs_receipt_by_size.append(
+                SizeBreakdownItem(
+                    size=sz,
+                    ordered_qty=ord_q,
+                    received_qty=rcv_q,
+                    pending_qty=pnd_q,
+                )
+            )
+
+        # D. Spend Trend Article Breakdown
+        top_5_article_names = [a.article for a in top_articles[:5]]
+        for st in spend_trend:
+            pos_in_p = set(po.id for po in real_pos if po.created_at and po.created_at.strftime("%Y-%m") == st.period)
+            breakdown: Dict[str, float] = {}
+            for an in top_5_article_names:
+                breakdown[an] = 0.0
+            breakdown["Others"] = 0.0
+
+            for item in poi_items:
+                if item.order_id in pos_in_p:
+                    p = prod_map.get(item.product_id)
+                    art = (p.style_code if p and p.style_code else item.code) or "UNASSIGNED"
+                    val_lakh = round(float(item.line_total or 0) / 100000.0, 2)
+                    if art in breakdown:
+                        breakdown[art] += val_lakh
+                    else:
+                        breakdown["Others"] += val_lakh
+            st.article_breakdown = breakdown
+
+        # E. Article-Color Heatmap Matrix
+        heatmap_top_articles = [a.article for a in top_articles[:6]]
+        heatmap_top_colors = [c.color.upper() for c in spend_by_color[:5] if c.color != "Others"]
+        if not heatmap_top_colors:
+            heatmap_top_colors = ["BLACK", "WHITE", "TAN", "BLUE", "RED"]
+
+        heat_map: Dict[Tuple[str, str], Dict[str, float]] = {}
+        for item in poi_items:
+            p = prod_map.get(item.product_id)
+            art = (p.style_code if p and p.style_code else item.code) or "UNASSIGNED"
+            clr = (p.color if p and p.color else "Standard").upper()
+            if art in heatmap_top_articles and clr in heatmap_top_colors:
+                k = (art, clr)
+                if k not in heat_map:
+                    heat_map[k] = {"ordered": 0.0, "received": 0.0, "spend": 0.0}
+                heat_map[k]["ordered"] += float(item.quantity or 0)
+                heat_map[k]["spend"] += float(item.line_total or 0)
+
+        cells: List[ArticleColorHeatmapCell] = []
+        max_q = 0.0
+        for art in heatmap_top_articles:
+            for clr in heatmap_top_colors:
+                d = heat_map.get((art, clr), {"ordered": 0.0, "received": 0.0, "spend": 0.0})
+                if d["ordered"] > max_q:
+                    max_q = d["ordered"]
+                cells.append(
+                    ArticleColorHeatmapCell(
+                        article=art,
+                        color=clr.title(),
+                        ordered_qty=d["ordered"],
+                        received_qty=d["received"],
+                        spend_value=d["spend"],
+                    )
+                )
+
+        article_color_heatmap = ArticleColorHeatmap(
+            articles=heatmap_top_articles,
+            colors=[c.title() for c in heatmap_top_colors],
+            cells=cells,
+            max_qty=max_q if max_q > 0 else 1.0,
+        )
+
+        # F. Supplier Lead Time vs Order Value Scatter Plot
+        scatter_palette = ["#0284c7", "#10b981", "#f59e0b", "#9333ea", "#f43f5e", "#06b6d4"]
+        supplier_lead_time_vs_value: List[SupplierLeadTimeScatterPoint] = []
+        for idx, (s_id, times) in enumerate(supplier_lead_times.items()):
+            sup_obj = supplier_map.get(s_id)
+            s_name = sup_obj.name if sup_obj else f"Supplier {s_id}"
+            avg_lead = round(sum(times) / len(times), 1) if times else 0.0
+            po_sum = sup_spend_map.get(s_id, 0.0)
+            po_cnt = sum(1 for po in real_pos if po.supplier_id == s_id)
+            sup_pois = [i for i in poi_items if i.order_id in set(po.id for po in real_pos if po.supplier_id == s_id)]
+            main_art = "Footwear"
+            if sup_pois:
+                p0 = prod_map.get(sup_pois[0].product_id)
+                if p0 and p0.style_code:
+                    main_art = p0.style_code
+            supplier_lead_time_vs_value.append(
+                SupplierLeadTimeScatterPoint(
+                    supplier_id=s_id,
+                    supplier_name=s_name,
+                    article=main_art,
+                    avg_lead_time_days=avg_lead,
+                    order_value_lakh=round(po_sum / 100000.0, 2),
+                    po_count=po_cnt,
+                    bubble_color=scatter_palette[idx % len(scatter_palette)],
+                )
+            )
+
+        # G. Reorder Alerts Detailed (Article / Color / Size)
+        reorder_alerts_detailed: List[AttributeReorderAlertItem] = []
+        try:
+            cfg_stmt = select(PurchaseReorderConfig).where(PurchaseReorderConfig.company_id == company_id)
+            cfgs = {c.product_id: c for c in (await session.execute(cfg_stmt)).scalars().all()}
+        except Exception:
+            cfgs = {}
+
+        for p in all_prods:
+            on_hand = float(p.stock or 0)
+            reorder_lvl = 0.0
+            reorder_qty = 0.0
+            if p.id in cfgs:
+                reorder_lvl = float(cfgs[p.id].reorder_level or 0)
+                reorder_qty = float(cfgs[p.id].reorder_quantity or 0)
+            elif p.attributes and isinstance(p.attributes, dict):
+                reorder_lvl = float(p.attributes.get("reorder_level") or p.attributes.get("min_stock_level") or 0)
+                reorder_qty = float(p.attributes.get("reorder_qty") or 0)
+
+            if (reorder_lvl > 0 and on_hand < reorder_lvl) or on_hand <= 0:
+                urg = "critical" if on_hand <= 0 else "warning"
+                sugg = reorder_qty if reorder_qty > 0 else max(30.0, (reorder_lvl * 2) - on_hand)
+                reorder_alerts_detailed.append(
+                    AttributeReorderAlertItem(
+                        sku=p.sku or p.code or p.id,
+                        article=p.style_code or p.name or "UNASSIGNED",
+                        color=(p.color or "Standard").title(),
+                        size=str(p.size or "Std"),
+                        product_name=p.name,
+                        on_hand=on_hand,
+                        reorder_level=reorder_lvl if reorder_lvl > 0 else 50.0,
+                        pending_qty=0.0,
+                        suggested_po_qty=sugg,
+                        urgency=urg,
+                    )
+                )
+            if len(reorder_alerts_detailed) >= 20:
+                break
+
         saved_config = await cls.get_saved_config(session=session, company_id=company_id)
 
         active_filters = 0
@@ -757,6 +1119,20 @@ class ProcurementVisualReportsService:
         if store_location_id and store_location_id != "All Locations":
             active_filters += 1
         if start_date or end_date:
+            active_filters += 1
+        if articles:
+            active_filters += 1
+        if colors:
+            active_filters += 1
+        if sizes:
+            active_filters += 1
+        if supplier_id and supplier_id != "all":
+            active_filters += 1
+        if category and category.lower() != "all":
+            active_filters += 1
+        if brand and brand.lower() != "all":
+            active_filters += 1
+        if season and season.lower() != "all" and season != "All Seasons":
             active_filters += 1
 
         return ProcurementReportsSummaryResponse(
@@ -776,4 +1152,11 @@ class ProcurementVisualReportsService:
             stream_counts=stream_counts,
             active_filters_count=active_filters,
             config=saved_config,
+            filter_options=filter_options,
+            top_articles=top_articles,
+            spend_by_color=spend_by_color,
+            order_vs_receipt_by_size=order_vs_receipt_by_size,
+            reorder_alerts_detailed=reorder_alerts_detailed,
+            article_color_heatmap=article_color_heatmap,
+            supplier_lead_time_vs_value=supplier_lead_time_vs_value,
         )

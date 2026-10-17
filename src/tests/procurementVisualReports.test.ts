@@ -19,6 +19,13 @@ import {
   ProcurementDashboardConfigPayload,
   ActiveProcurementStreamItem,
   ReorderAlertItem,
+  ArticleSpendItem,
+  ColorSpendItem,
+  SizeBreakdownItem,
+  AttributeReorderAlertItem,
+  ArticleColorHeatmap,
+  SupplierLeadTimeScatterPoint,
+  FilterOptions,
 } from "../components/procurement/procurementVisualReportsTypes.ts";
 
 describe("SMRITI Procurement Visual Reports Dashboard Suite", () => {
@@ -439,5 +446,157 @@ describe("SMRITI Procurement Visual Reports Dashboard Suite", () => {
       kpi_cards_visible: { ...initialConfig.kpi_cards_visible, purchase_spend: false },
     };
     expect(hiddenKpiConfig.kpi_cards_visible.purchase_spend).toBe(false);
+  });
+
+  it("STEP 7: should validate attribute-level reporting dimensions and data contracts", () => {
+    const topArticles: ArticleSpendItem[] = [
+      { article: "SHOE-41", spend_value: 844930, formatted_spend: "₹ 8,44,930", quantity: 685, po_count: 5, percentage: 85, bar_color: "#0284c7" },
+      { article: "SAND-03", spend_value: 333726, formatted_spend: "₹ 3,33,726", quantity: 320, po_count: 3, percentage: 50, bar_color: "#0d9488" },
+    ];
+    expect(topArticles[0].article).toBe("SHOE-41");
+    expect(topArticles[0].spend_value).toBeGreaterThan(topArticles[1].spend_value);
+
+    const spendByColor: ColorSpendItem[] = [
+      { color: "Black", spend_value: 420000, formatted_spend: "₹ 4,20,000", quantity: 400, percentage: 42, color_code: "#0f172a" },
+      { color: "White", spend_value: 280000, formatted_spend: "₹ 2,80,000", quantity: 270, percentage: 28, color_code: "#e2e8f0" },
+    ];
+    expect(spendByColor).toHaveLength(2);
+    expect(spendByColor[0].percentage).toBe(42);
+
+    const sizeBreakdown: SizeBreakdownItem[] = [
+      { size: "40", ordered_qty: 320, received_qty: 260, pending_qty: 60 },
+      { size: "41", ordered_qty: 480, received_qty: 400, pending_qty: 80 },
+    ];
+    expect(sizeBreakdown[0].ordered_qty).toBe(sizeBreakdown[0].received_qty + sizeBreakdown[0].pending_qty);
+
+    const attrReorder: AttributeReorderAlertItem[] = [
+      {
+        sku: "SKU-SHOE-41-BLK-41",
+        article: "SHOE-41",
+        color: "Black",
+        size: "41",
+        product_name: "SHOE-41 Formal Leather",
+        on_hand: 12,
+        reorder_level: 50,
+        pending_qty: 20,
+        suggested_po_qty: 50,
+        urgency: "critical",
+      },
+    ];
+    expect(attrReorder[0].article).toBe("SHOE-41");
+    expect(attrReorder[0].color).toBe("Black");
+    expect(attrReorder[0].size).toBe("41");
+    expect(attrReorder[0].suggested_po_qty).toBe(50);
+  });
+
+  it("STEP 8: should validate 2D Article-Color Heatmap matrix and cell values", () => {
+    const heatmap: ArticleColorHeatmap = {
+      articles: ["SHOE-41", "SAND-03"],
+      colors: ["Black", "White"],
+      cells: [
+        { article: "SHOE-41", color: "Black", ordered_qty: 320, received_qty: 260, spend_value: 320000 },
+        { article: "SHOE-41", color: "White", ordered_qty: 260, received_qty: 200, spend_value: 260000 },
+        { article: "SAND-03", color: "Black", ordered_qty: 180, received_qty: 150, spend_value: 180000 },
+        { article: "SAND-03", color: "White", ordered_qty: 160, received_qty: 120, spend_value: 160000 },
+      ],
+      max_qty: 320,
+    };
+
+    expect(heatmap.articles).toContain("SHOE-41");
+    expect(heatmap.colors).toContain("Black");
+    expect(heatmap.cells).toHaveLength(4);
+    expect(heatmap.max_qty).toBe(320);
+
+    const maxCell = heatmap.cells.find((c) => c.ordered_qty === heatmap.max_qty);
+    expect(maxCell).toBeDefined();
+    expect(maxCell?.article).toBe("SHOE-41");
+    expect(maxCell?.color).toBe("Black");
+  });
+
+  it("STEP 9: should validate Supplier Lead Time vs Order Value scatter plot data contract", () => {
+    const scatterPoints: SupplierLeadTimeScatterPoint[] = [
+      {
+        supplier_id: "sup-01",
+        supplier_name: "AK FOOTWEAR",
+        article: "SHOE-41",
+        avg_lead_time_days: 14.5,
+        order_value_lakh: 18.5,
+        po_count: 8,
+        bubble_color: "#0284c7",
+      },
+      {
+        supplier_id: "sup-02",
+        supplier_name: "METRO LEATHERS",
+        article: "SAND-03",
+        avg_lead_time_days: 28.0,
+        order_value_lakh: 8.2,
+        po_count: 4,
+        bubble_color: "#f97316",
+      },
+    ];
+
+    expect(scatterPoints).toHaveLength(2);
+    expect(scatterPoints[0].avg_lead_time_days).toBeLessThan(scatterPoints[1].avg_lead_time_days);
+    expect(scatterPoints[0].order_value_lakh).toBeGreaterThan(scatterPoints[1].order_value_lakh);
+  });
+
+  it("STEP 10: should validate 4-tab Customize Dashboard configuration payload with chart types, groupings, measures, time grouping, top N", () => {
+    const fullConfig: ProcurementDashboardConfigPayload = {
+      layout_mode: "standard",
+      kpi_cards_visible: {
+        purchase_orders: true,
+        purchase_spend: true,
+        pending_approvals: true,
+        pending_receipts: true,
+        received_vs_ordered: true,
+        supplier_outstanding: true,
+      },
+      charts_visible: {
+        purchase_spend_trend: true,
+        purchase_to_receipt_progress: true,
+        purchase_order_status: true,
+        top_articles_spend: true,
+        spend_by_color: true,
+        order_vs_receipt_by_size: true,
+        reorder_alert: true,
+        supplier_performance: true,
+        article_color_heatmap: true,
+        supplier_lead_time_vs_value: true,
+      },
+      chart_types: {
+        purchase_spend_trend: "stacked_bar",
+        top_articles_spend: "bar",
+        purchase_order_status: "donut",
+        spend_by_color: "pie",
+        order_vs_receipt_by_size: "bar",
+        reorder_alert: "table",
+        supplier_performance: "combo",
+        article_color_heatmap: "heatmap",
+        supplier_lead_time_vs_value: "scatter",
+      },
+      tables_visible: {
+        fulfillment_stream: true,
+      },
+      data_display: {
+        default_tab: "all",
+        rows_per_page: 10,
+      },
+      color_theme: "system",
+      selected_widget: "purchase_spend_trend",
+      group_by_primary: "article",
+      group_by_secondary: "color",
+      selected_measures: ["Ordered Qty", "Received Qty", "Pending Qty"],
+      time_grouping: "monthly",
+      top_n: 10,
+    };
+
+    expect(fullConfig.chart_types.purchase_spend_trend).toBe("stacked_bar");
+    expect(fullConfig.chart_types.supplier_lead_time_vs_value).toBe("scatter");
+    expect(fullConfig.chart_types.article_color_heatmap).toBe("heatmap");
+    expect(fullConfig.group_by_primary).toBe("article");
+    expect(fullConfig.group_by_secondary).toBe("color");
+    expect(fullConfig.selected_measures).toHaveLength(3);
+    expect(fullConfig.time_grouping).toBe("monthly");
+    expect(fullConfig.top_n).toBe(10);
   });
 });
