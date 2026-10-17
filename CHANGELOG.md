@@ -1,3 +1,26 @@
+## [6.93.0] — 2026-10-17
+
+### Sales & Billing — B2B Packing-First Consolidated Billing & Approved UX Integration v1.0.0
+
+Integrated a configurable B2B Packing-First → Consolidated Billing workflow into the canonical **SMRITI Billing Studio** (`SmritiBillingStudio.tsx`) and unified workspace (`BillingWorkspace.tsx`) while strictly preserving the approved frozen UX visual specification:
+
+**Key Capabilities & Architectural Enforcements:**
+- **Approved UX Layout Preservation:** The cashier interface maintains the exact 2-column upper layout, compact customer card, 13-column read-only cart grid, right-side Bill Summary & Payment panels, and bottom single-line scanner bar.
+- **Workflow Separation (B2C vs B2B):**
+  - **B2C Counter POS (`RETAIL_POS`):** 100% direct counter checkout preserved; product scanning, cash/card/UPI settlement, and receipt generation remain untouched. Packing slip scans are rejected with clear user guidance.
+  - **B2B / Tax Invoicing (`B2B_DISTRIBUTOR`):** Allows multiple packing slips to be prepared before invoice generation, selected manually or scanned, prefilled, reconciled, and consolidated into a single tax invoice.
+- **Configurable Company-Level B2B Policies:**
+  - `packing_slip_qty_default`: `ORDERED_QTY`, `REMAINING_UNPACKED_QTY` (default), or `MANUAL_ZERO`.
+  - `invoice_qty_default`: `PACKED_UNBILLED_QTY` (default), `ORDERED_QTY_IF_ELIGIBLE`, or `MANUAL_ZERO`.
+  - `allow_partial_packing`: `ENABLED` (default) or `DISABLED`.
+  - `allow_partial_invoicing`: `ENABLED` (default) or `DISABLED`.
+  - `allow_editing_prefilled_qty`: `ENABLED`, `DISABLED`, or `AUTHORIZED_ONLY` (default).
+  - `b2b_packing_first_workflow`: `ENABLED` for B2B wholesale, `DISABLED` for B2C retail.
+- **Explicit Packing Slip Barcode Scanning:** Reused existing bottom scanner bar. Explicit `PS-` prefix identifies packing slips; unknown product barcodes are never guessed as packing slips. Scanning validates customer compatibility, tenant isolation, and billing eligibility, rejecting duplicates without auto-posting invoices or initiating payment.
+- **Quantity & Ledger Integrity:** Enforced 6-tier quantity tracking (`Ordered Qty`, `Packed Qty`, `Previously Invoiced Qty`, `Remaining Eligible Qty`, `Current Invoice Qty`, `Dispatched Qty`), preventing overbilling, double billing, or duplicate inventory deductions.
+- **Zero Schema Migrations:** Reused existing `PackingSlip` (`sales_invoice_id = "UNBILLED"`) and `SalesInvoice` models in PostgreSQL without requiring alembic schema alterations.
+- **Automated Verification:** 16/16 Vitest tests green in `src/tests/b2bPackingConsolidatedBilling.test.ts`, 26/26 tests green in `src/tests/smritiBillingStudio.test.ts`, 98/98 form components passed in `npm run validate-registry`, 0 errors in `tsc --noEmit`, and clean production Vite build (`npm run build`).
+
 ## [6.92.0] — 2026-10-17
 
 ### Sales & Billing — SMRITI Billing Studio Approved UX Freeze & Exact Integration v1.0.0

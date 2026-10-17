@@ -23,6 +23,8 @@ import { ProPosReconciliationDlg } from "./propos/ProPosReconciliationDlg.tsx";
 import { ProPosSupervisorAuthModal } from "./propos/ProPosSupervisorAuthModal.tsx";
 import { DynamicPricingStudioModal } from "./propos/DynamicPricingStudioModal.tsx";
 import { OmniOrderStudioModal } from "../pos/OmniOrderStudioModal.tsx";
+import { PackingSlipManagementModal, PackingSlipRecord } from "./modals/PackingSlipManagementModal.tsx";
+import { ConsolidatedBillingModal } from "./modals/ConsolidatedBillingModal.tsx";
 import {
   Receipt,
   FileSpreadsheet,
@@ -110,6 +112,42 @@ export const BillingWorkspace: React.FC<BillingWorkspaceProps> = ({
   const [showSupervisorPinModal, setShowSupervisorPinModal] = useState<boolean>(false);
   const [showDynamicPricingModal, setShowDynamicPricingModal] = useState<boolean>(false);
   const [showOmniOrderModal, setShowOmniOrderModal] = useState<boolean>(false);
+  const [showPackingSlipModal, setShowPackingSlipModal] = useState<boolean>(false);
+  const [showConsolidatedModal, setShowConsolidatedModal] = useState<boolean>(false);
+  const [workspacePackingSlips, setWorkspacePackingSlips] = useState<PackingSlipRecord[]>([
+    {
+      id: "ps_demo_001",
+      packingSlipNumber: "PS-20261017-001",
+      salesInvoiceId: "UNBILLED",
+      orderId: "SO-2026-8801",
+      customerId: "cust-ril-01",
+      customerName: "Reliance Retail Ltd (B2B)",
+      status: "PACKED",
+      totalPackages: 2,
+      weightKg: 4.5,
+      createdAt: "2026-10-17 10:15:00",
+      items: [
+        { id: "psi_1", productId: "p-chap-01", sku: "FL-CHP-01", name: "Premium Leather Chappal", quantity: 10, batchNumber: "B26-01" },
+        { id: "psi_2", productId: "p-snk-01", sku: "FL-SNK-01", name: "Urban Street Sneaker", quantity: 8, batchNumber: "B26-02" },
+      ],
+    },
+    {
+      id: "ps_demo_002",
+      packingSlipNumber: "PS-20261017-002",
+      salesInvoiceId: "UNBILLED",
+      orderId: "SO-2026-8802",
+      customerId: "cust-ril-01",
+      customerName: "Reliance Retail Ltd (B2B)",
+      status: "PACKED",
+      totalPackages: 1,
+      weightKg: 2.8,
+      createdAt: "2026-10-17 11:30:00",
+      items: [
+        { id: "psi_3", productId: "p-run-01", sku: "FL-RUN-01", name: "Sprint Pro Running Shoe", quantity: 12, batchNumber: "B26-03" },
+      ],
+    },
+  ]);
+  const [consolidatedBatch, setConsolidatedBatch] = useState<any | null>(null);
   // REC-07: Secondary toolbar overflow menu
   const [showOverflowMenu, setShowOverflowMenu] = useState<boolean>(false);
 
@@ -238,8 +276,9 @@ export const BillingWorkspace: React.FC<BillingWorkspaceProps> = ({
 
           <button
             type="button"
-            onClick={() => showToast("Packing Slips", "Opening Packing Slips studio...", "info")}
+            onClick={() => setShowPackingSlipModal(true)}
             className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 rounded-lg text-xs font-bold transition cursor-pointer shadow-2xs"
+            data-field-key="nav-packing-slips-btn"
           >
             <Package size={14} />
             <span>Packing Slips</span>
@@ -247,8 +286,9 @@ export const BillingWorkspace: React.FC<BillingWorkspaceProps> = ({
 
           <button
             type="button"
-            onClick={() => showToast("Consolidated Billing", "Opening Consolidated Billing view...", "info")}
+            onClick={() => setShowConsolidatedModal(true)}
             className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 rounded-lg text-xs font-bold transition cursor-pointer shadow-2xs"
+            data-field-key="nav-consolidated-billing-btn"
           >
             <FileText size={14} />
             <span>Consolidated Billing</span>
@@ -435,6 +475,10 @@ export const BillingWorkspace: React.FC<BillingWorkspaceProps> = ({
             shifts={shifts}
             currentUser={currentUser}
             mode="B2B_DISTRIBUTOR"
+            consolidatedBatch={consolidatedBatch}
+            onClearConsolidatedBatch={() => setConsolidatedBatch(null)}
+            packingSlips={workspacePackingSlips}
+            onSavePackingSlips={(slips) => setWorkspacePackingSlips(slips)}
             onModeChange={(m) => {
               if (m === "RETAIL_POS") setAuxView("WORKSPACE");
               else if (m === "CREDIT_BILLING") setAuxView("CREDIT_BILLING");
@@ -614,6 +658,61 @@ export const BillingWorkspace: React.FC<BillingWorkspaceProps> = ({
         <OmniOrderStudioModal
           isOpen={showOmniOrderModal}
           onClose={() => setShowOmniOrderModal(false)}
+          onNotification={(title, msg, type) => showToast(title, msg, type)}
+        />
+      )}
+
+      {/* B2B Packing Slips Studio Modal */}
+      {showPackingSlipModal && (
+        <PackingSlipManagementModal
+          isOpen={showPackingSlipModal}
+          onClose={() => setShowPackingSlipModal(false)}
+          customers={customers}
+          products={products}
+          currentUser={currentUser}
+          onSelectSlipForBilling={(slip) => {
+            setConsolidatedBatch({
+              selectedSlips: [slip],
+              items: slip.items.map((it) => ({
+                productId: it.productId,
+                sku: it.sku,
+                name: it.name,
+                unitPrice: 1499.0,
+                mrp: 1999.0,
+                taxPct: 5.0,
+                orderedQty: it.quantity,
+                packedQty: it.quantity,
+                previouslyInvoicedQty: 0,
+                remainingEligibleQty: it.quantity,
+                invoiceQty: it.quantity,
+                allocations: [{ packingSlipId: slip.id, packingSlipNumber: slip.packingSlipNumber, quantity: it.quantity }],
+              })),
+              customer: customers.find((c) => c.id === slip.customerId) || null,
+            });
+            setAuxView("B2B_DISTRIBUTOR");
+            showToast("Packing Slip Loaded", `Packing Slip #${slip.packingSlipNumber} loaded into Billing Studio.`, "success");
+          }}
+          onNotification={(title, msg, type) => showToast(title, msg, type)}
+        />
+      )}
+
+      {/* B2B Consolidated Billing Modal */}
+      {showConsolidatedModal && (
+        <ConsolidatedBillingModal
+          isOpen={showConsolidatedModal}
+          onClose={() => setShowConsolidatedModal(false)}
+          availableSlips={workspacePackingSlips}
+          customers={customers}
+          currentUser={currentUser}
+          onApplyConsolidatedItems={(params) => {
+            setConsolidatedBatch(params);
+            setAuxView("B2B_DISTRIBUTOR");
+            showToast(
+              "Consolidated Invoicing",
+              `Loaded ${params.items.length} lines from ${params.selectedSlips.length} slips into Billing Studio.`,
+              "success"
+            );
+          }}
           onNotification={(title, msg, type) => showToast(title, msg, type)}
         />
       )}

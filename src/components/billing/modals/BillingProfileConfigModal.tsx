@@ -77,6 +77,26 @@ export const BillingProfileConfigModal: React.FC<BillingProfileConfigModalProps>
     effectiveConfig?.scan_beep || "ENABLED"
   );
 
+  // B2B Packing-First & Consolidated Invoicing Policies
+  const [b2bPackingFirstWorkflow, setB2bPackingFirstWorkflow] = useState<string>(
+    effectiveConfig?.b2b_packing_first_workflow || (activeProfile === "B2B_ONLY" ? "ENABLED" : "DISABLED")
+  );
+  const [packingSlipQtyDefault, setPackingSlipQtyDefault] = useState<string>(
+    effectiveConfig?.packing_slip_qty_default || (activeProfile === "B2B_ONLY" ? "REMAINING_UNPACKED_QTY" : "MANUAL_ZERO")
+  );
+  const [invoiceQtyDefault, setInvoiceQtyDefault] = useState<string>(
+    effectiveConfig?.invoice_qty_default || (activeProfile === "B2B_ONLY" ? "PACKED_UNBILLED_QTY" : "MANUAL_ZERO")
+  );
+  const [allowPartialPacking, setAllowPartialPacking] = useState<string>(
+    effectiveConfig?.allow_partial_packing || "ENABLED"
+  );
+  const [allowPartialInvoicing, setAllowPartialInvoicing] = useState<string>(
+    effectiveConfig?.allow_partial_invoicing || "ENABLED"
+  );
+  const [allowEditingPrefilledQty, setAllowEditingPrefilledQty] = useState<string>(
+    effectiveConfig?.allow_editing_prefilled_qty || "AUTHORIZED_ONLY"
+  );
+
   // Profile Migration Form State
   const targetNewProfile: "B2C_ONLY" | "B2B_ONLY" = activeProfile === "B2C_ONLY" ? "B2B_ONLY" : "B2C_ONLY";
   const [migrationReason, setMigrationReason] = useState<string>("");
@@ -95,6 +115,12 @@ export const BillingProfileConfigModal: React.FC<BillingProfileConfigModalProps>
         default_scan_mode: defaultScanMode,
         post_scan_focus: postScanFocus,
         scan_beep: scanBeep,
+        b2b_packing_first_workflow: b2bPackingFirstWorkflow,
+        packing_slip_qty_default: packingSlipQtyDefault,
+        invoice_qty_default: invoiceQtyDefault,
+        allow_partial_packing: allowPartialPacking,
+        allow_partial_invoicing: allowPartialInvoicing,
+        allow_editing_prefilled_qty: allowEditingPrefilledQty,
       };
       const res = await apiFetchV1("/billing/configuration", {
         method: "PUT",
@@ -347,6 +373,139 @@ export const BillingProfileConfigModal: React.FC<BillingProfileConfigModalProps>
                   <option value="ENABLED">ENABLED</option>
                   <option value="DISABLED">DISABLED</option>
                 </select>
+              </div>
+
+              {/* B2B Packing-First & Consolidated Billing Controls */}
+              <div className="mt-4 pt-3 border-t border-slate-200 dark:border-slate-800 space-y-3">
+                <div className="flex items-center gap-2">
+                  <Building2 size={15} className="text-blue-600 dark:text-blue-400" />
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
+                    B2B Packing-First &amp; Consolidated Billing Policies
+                  </h3>
+                </div>
+
+                {/* 7. B2B Packing-First Workflow */}
+                <div className="flex items-center justify-between p-3 border border-slate-200 dark:border-slate-800 rounded-xl">
+                  <div>
+                    <h4 className="text-xs font-bold text-slate-900 dark:text-white">B2B Packing-First Workflow</h4>
+                    <p className="text-[11px] text-slate-500">
+                      Enable packing slip generation prior to consolidated tax invoicing.
+                    </p>
+                  </div>
+                  <select
+                    id="config-b2b-workflow-select"
+                    value={b2bPackingFirstWorkflow}
+                    onChange={(e) => setB2bPackingFirstWorkflow(e.target.value)}
+                    disabled={!canManage}
+                    className="px-3 py-1.5 border border-slate-300 dark:border-slate-700 rounded-lg text-xs font-bold bg-white dark:bg-[#131b2e] outline-none"
+                  >
+                    <option value="ENABLED">ENABLED</option>
+                    <option value="DISABLED">DISABLED</option>
+                  </select>
+                </div>
+
+                {/* 8. Packing Slip Quantity Default */}
+                <div className="flex items-center justify-between p-3 border border-slate-200 dark:border-slate-800 rounded-xl">
+                  <div>
+                    <h4 className="text-xs font-bold text-slate-900 dark:text-white">Packing Slip Qty Default</h4>
+                    <p className="text-[11px] text-slate-500">
+                      Initial prefill policy when generating a pick &amp; pack slip.
+                    </p>
+                  </div>
+                  <select
+                    id="config-ps-qty-default-select"
+                    value={packingSlipQtyDefault}
+                    onChange={(e) => setPackingSlipQtyDefault(e.target.value)}
+                    disabled={!canManage}
+                    className="px-3 py-1.5 border border-slate-300 dark:border-slate-700 rounded-lg text-xs font-bold bg-white dark:bg-[#131b2e] outline-none"
+                  >
+                    <option value="REMAINING_UNPACKED_QTY">REMAINING_UNPACKED_QTY (Recommended)</option>
+                    <option value="ORDERED_QTY">ORDERED_QTY</option>
+                    <option value="MANUAL_ZERO">MANUAL_ZERO</option>
+                  </select>
+                </div>
+
+                {/* 9. Invoice Quantity Default */}
+                <div className="flex items-center justify-between p-3 border border-slate-200 dark:border-slate-800 rounded-xl">
+                  <div>
+                    <h4 className="text-xs font-bold text-slate-900 dark:text-white">Invoice Qty Default</h4>
+                    <p className="text-[11px] text-slate-500">
+                      Initial prefill policy when consolidating packing slips into invoice.
+                    </p>
+                  </div>
+                  <select
+                    id="config-inv-qty-default-select"
+                    value={invoiceQtyDefault}
+                    onChange={(e) => setInvoiceQtyDefault(e.target.value)}
+                    disabled={!canManage}
+                    className="px-3 py-1.5 border border-slate-300 dark:border-slate-700 rounded-lg text-xs font-bold bg-white dark:bg-[#131b2e] outline-none"
+                  >
+                    <option value="PACKED_UNBILLED_QTY">PACKED_UNBILLED_QTY (Recommended)</option>
+                    <option value="ORDERED_QTY_IF_ELIGIBLE">ORDERED_QTY_IF_ELIGIBLE</option>
+                    <option value="MANUAL_ZERO">MANUAL_ZERO</option>
+                  </select>
+                </div>
+
+                {/* 10. Partial Packing Policy */}
+                <div className="flex items-center justify-between p-3 border border-slate-200 dark:border-slate-800 rounded-xl">
+                  <div>
+                    <h4 className="text-xs font-bold text-slate-900 dark:text-white">Partial Packing Policy</h4>
+                    <p className="text-[11px] text-slate-500">
+                      Permits packing partial quantities across multiple slips.
+                    </p>
+                  </div>
+                  <select
+                    id="config-partial-packing-select"
+                    value={allowPartialPacking}
+                    onChange={(e) => setAllowPartialPacking(e.target.value)}
+                    disabled={!canManage}
+                    className="px-3 py-1.5 border border-slate-300 dark:border-slate-700 rounded-lg text-xs font-bold bg-white dark:bg-[#131b2e] outline-none"
+                  >
+                    <option value="ENABLED">ENABLED</option>
+                    <option value="DISABLED">DISABLED</option>
+                  </select>
+                </div>
+
+                {/* 11. Partial Invoicing Policy */}
+                <div className="flex items-center justify-between p-3 border border-slate-200 dark:border-slate-800 rounded-xl">
+                  <div>
+                    <h4 className="text-xs font-bold text-slate-900 dark:text-white">Partial Invoicing Policy</h4>
+                    <p className="text-[11px] text-slate-500">
+                      Permits billing a portion of packed quantities on separate invoices.
+                    </p>
+                  </div>
+                  <select
+                    id="config-partial-invoicing-select"
+                    value={allowPartialInvoicing}
+                    onChange={(e) => setAllowPartialInvoicing(e.target.value)}
+                    disabled={!canManage}
+                    className="px-3 py-1.5 border border-slate-300 dark:border-slate-700 rounded-lg text-xs font-bold bg-white dark:bg-[#131b2e] outline-none"
+                  >
+                    <option value="ENABLED">ENABLED</option>
+                    <option value="DISABLED">DISABLED</option>
+                  </select>
+                </div>
+
+                {/* 12. Quantity Editing Permission */}
+                <div className="flex items-center justify-between p-3 border border-slate-200 dark:border-slate-800 rounded-xl">
+                  <div>
+                    <h4 className="text-xs font-bold text-slate-900 dark:text-white">Prefill Quantity Editing</h4>
+                    <p className="text-[11px] text-slate-500">
+                      Who can manually modify prefilled packing and invoicing quantities.
+                    </p>
+                  </div>
+                  <select
+                    id="config-edit-qty-permission-select"
+                    value={allowEditingPrefilledQty}
+                    onChange={(e) => setAllowEditingPrefilledQty(e.target.value)}
+                    disabled={!canManage}
+                    className="px-3 py-1.5 border border-slate-300 dark:border-slate-700 rounded-lg text-xs font-bold bg-white dark:bg-[#131b2e] outline-none"
+                  >
+                    <option value="AUTHORIZED_ONLY">AUTHORIZED_ONLY (Managers/Admins)</option>
+                    <option value="ENABLED">ENABLED (All Operators)</option>
+                    <option value="DISABLED">DISABLED (Strict Lock)</option>
+                  </select>
+                </div>
               </div>
             </div>
           )}

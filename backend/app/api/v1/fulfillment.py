@@ -22,6 +22,10 @@ from ...services.fulfillment_engine import FulfillmentEngine
 from ...schemas.fulfillment import (
     PackingSlipCreateRequest,
     PackingSlipResponse,
+    ConsolidatedPreviewRequest,
+    ConsolidatedPreviewResponse,
+    ConsolidatedFinalizeRequest,
+    ConsolidatedFinalizeResponse,
     DispatchCreateRequest,
     DispatchResponse,
     DeliveryStatusUpdateRequest,
@@ -45,8 +49,31 @@ def _extract_user_info(current_user: Any, tenant_ctx: TenantContext) -> Tuple[st
 
 
 # ============================================================================
-# PACKING SLIP ENDPOINTS
+# PACKING SLIP & CONSOLIDATED BILLING ENDPOINTS
 # ============================================================================
+
+@router.get("/pack", response_model=List[PackingSlipResponse], summary="List Packing Slips")
+@router.get("/packing-slips", response_model=List[PackingSlipResponse], summary="List Packing Slips (Canonical)")
+async def list_packing_slips(
+    status: Optional[str] = Query(None, description="Status filter: PACKED, BILLED, CANCELLED, ALL"),
+    search: Optional[str] = Query(None, description="Search by number or invoice/order reference"),
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
+    db: AsyncSession = Depends(get_company_db),
+    current_user: Any = Depends(get_current_user),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+):
+    """Lists packing slips for company tenant."""
+    company_id, _ = _extract_user_info(current_user, tenant_ctx)
+    return await FulfillmentEngine.list_packing_slips(
+        session=db,
+        company_id=company_id,
+        status=status,
+        search=search,
+        limit=limit,
+        offset=offset,
+    )
+
 
 @router.post("/pack", response_model=PackingSlipResponse, status_code=status.HTTP_201_CREATED, summary="Create Order Pick & Pack Slip")
 async def create_packing_slip(
@@ -72,6 +99,7 @@ async def create_packing_slip(
 
 
 @router.get("/pack/{packing_slip_id}", response_model=PackingSlipResponse, summary="Get Packing Slip Details")
+@router.get("/packing-slips/{packing_slip_id}", response_model=PackingSlipResponse, summary="Get Packing Slip Details (Canonical)")
 async def get_packing_slip(
     packing_slip_id: str,
     db: AsyncSession = Depends(get_company_db),
@@ -84,6 +112,55 @@ async def get_packing_slip(
     if not ps:
         raise HTTPException(status_code=404, detail="Packing slip not found")
     return ps
+
+
+@router.post("/consolidated-preview", response_model=ConsolidatedPreviewResponse, summary="Preview B2B Consolidated Invoicing")
+async def preview_consolidated_billing(
+    req: ConsolidatedPreviewRequest,
+    db: AsyncSession = Depends(get_company_db),
+    current_user: Any = Depends(get_current_user),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+):
+    """
+    Validates multiple packing slips for B2B consolidated invoicing.
+    Enforces customer compatibility, single-tenant context, and 6-quantity integrity.
+    """
+    try:
+        company_id, _ = _extract_user_info(current_user, tenant_ctx)
+        return await FulfillmentEngine.preview_consolidated_billing(
+            session=db,
+            company_id=company_id,
+            packing_slip_ids=req.packing_slip_ids,
+        )
+    except ValueError as ve:
+        raise HTTPException(status_code=400, detail=str(ve))
+    except Exception as e:
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/consolidated-finalize", response_model=ConsolidatedFinalizeResponse, summary="Finalize B2B Consolidated Billing")
+async def finalize_consolidated_billing(
+    req: ConsolidatedFinalizeRequest,
+    db: AsyncSession = Depends(get_company_db),
+    current_user: Any = Depends(get_current_user),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+):
+    """
+    Marks source packing slips as BILLED and records the posted invoice reference.
+    """
+    try:
+        company_id, _ = _extract_user_info(current_user, tenant_ctx)
+        return await FulfillmentEngine.finalize_consolidated_billing(
+            session=db,
+            company_id=company_id,
+            req=req,
+        )
+    except ValueError as ve:
+        raise HTTPException(status_code=400, detail=str(ve))
+    except Exception as e:
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 # ============================================================================

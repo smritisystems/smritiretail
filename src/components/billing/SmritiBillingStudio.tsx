@@ -82,6 +82,10 @@ export interface SmritiBillingStudioProps {
   onRefreshData?: () => void;
   shiftId?: string;
   isStandaloneTab?: boolean;
+  consolidatedBatch?: { selectedSlips: any[]; items: any[]; customer: any } | null;
+  onClearConsolidatedBatch?: () => void;
+  packingSlips?: any[];
+  onSavePackingSlips?: (slips: any[]) => void;
 }
 
 export const WALK_IN_CUSTOMER: ProPosCustomer = {
@@ -366,14 +370,63 @@ export const SmritiBillingStudio: React.FC<SmritiBillingStudioProps> = ({
   onRefreshData,
   shiftId,
   isStandaloneTab = false,
+  consolidatedBatch = null,
+  onClearConsolidatedBatch,
+  packingSlips = [],
+  onSavePackingSlips,
 }) => {
   // ── State Management ────────────────────────────────────────────────────────
   const [activeStep, setActiveStep] = useState<BillingStep>("SCAN");
   const [currentMode, setCurrentMode] = useState<BillingStudioMode>(mode);
+  const [activeConsolidatedSlips, setActiveConsolidatedSlips] = useState<any[]>([]);
 
   useEffect(() => {
     setCurrentMode(mode);
   }, [mode]);
+
+  // Load consolidated batch into Billing Studio cart when provided
+  useEffect(() => {
+    if (consolidatedBatch && consolidatedBatch.items.length > 0) {
+      setActiveConsolidatedSlips(consolidatedBatch.selectedSlips);
+      if (consolidatedBatch.customer) {
+        setCustomer({
+          id: consolidatedBatch.customer.id || "CUST-B2B",
+          code: consolidatedBatch.customer.code || consolidatedBatch.customer.id || "CUST-B2B",
+          name: consolidatedBatch.customer.name || "B2B Customer",
+          phone: consolidatedBatch.customer.phone || "9999999999",
+          gstin: consolidatedBatch.customer.gstin,
+          registrationType: consolidatedBatch.customer.gstin ? "REGISTERED" : "UNREGISTERED",
+          stateCode: consolidatedBatch.customer.stateCode || "27",
+          stateName: consolidatedBatch.customer.stateName || "Maharashtra",
+        });
+      }
+      const mappedCartItems: ProPosCartItem[] = consolidatedBatch.items.map((it: any, idx: number) => ({
+        id: `consol_${Date.now()}_${idx}`,
+        itemNo: idx + 1,
+        productId: it.productId,
+        name: it.name,
+        sku: it.sku,
+        barcode: it.barcode || `890100${idx + 10}`,
+        brand: it.brand || it.style || "STANDARD",
+        style: it.style || "STANDARD",
+        color: it.color || "DEFAULT",
+        size: it.size || "M",
+        qty: it.invoiceQty,
+        unitPrice: it.unitPrice || 1499.0,
+        basePrice: it.unitPrice || 1499.0,
+        mrp: it.mrp || it.unitPrice || 1999.0,
+        taxPct: it.taxPct || 5.0,
+        taxAmt: 0,
+        hsnCode: it.hsnCode || "6404",
+        discountPct: 0,
+        discountAmt: 0,
+        lineTotal: (it.unitPrice || 1499.0) * it.invoiceQty,
+        isTaxInclusive: false,
+        salesStaff: globalSalesperson,
+      }));
+      setCartItems(mappedCartItems);
+    }
+  }, [consolidatedBatch]);
 
   // Customer State (Initialized with Reliance Retail Demo customer for full visual parity)
   const [customer, setCustomer] = useState<ProPosCustomer>(DEMO_RELIANCE_CUSTOMER);
@@ -783,6 +836,142 @@ export const SmritiBillingStudio: React.FC<SmritiBillingStudioProps> = ({
       }
     }
 
+    // 2.5. Check if explicit Packing Slip format (PS-... or ps_...)
+    const isSlipFormat = targetBarcode.toUpperCase().startsWith("PS-") || targetBarcode.toLowerCase().startsWith("ps_");
+    if (isSlipFormat) {
+      if (currentMode !== "B2B_DISTRIBUTOR") {
+        playBeep(false);
+        onNotification?.(
+          "B2B Workflow Required",
+          `Packing Slip "${targetBarcode}" cannot be processed in B2C Counter POS. Please switch to B2B / Tax Invoice mode (Alt+3).`,
+          "info"
+        );
+        setBarcodeInput("");
+        setTimeout(() => barcodeInputRef.current?.focus(), 50);
+        return;
+      }
+
+      // Resolve packing slip from prop list or construct/lookup
+      const slipMatch = (packingSlips || []).find(
+        (s: any) =>
+          s.packingSlipNumber?.toLowerCase() === targetBarcode.toLowerCase() ||
+          s.id?.toLowerCase() === targetBarcode.toLowerCase()
+      );
+
+      const resolvedSlip = slipMatch || {
+        id: `ps_scanned_${Date.now()}`,
+        packingSlipNumber: targetBarcode.toUpperCase(),
+        salesInvoiceId: "UNBILLED",
+        customerId: customer.id !== WALK_IN_CUSTOMER.id ? customer.id : "cust-ril-01",
+        customerName: customer.name !== WALK_IN_CUSTOMER.name ? customer.name : "Reliance Retail Ltd (B2B)",
+        status: "PACKED",
+        totalPackages: 1,
+        weightKg: 2.0,
+        items: [
+          {
+            id: `psi_${Date.now()}_1`,
+            productId: products[0]?.id || "p-chap-01",
+            sku: products[0]?.sku || "FL-CHP-01",
+            name: products[0]?.name || "Premium Leather Chappal",
+            quantity: 10,
+          },
+        ],
+      };
+
+      if (resolvedSlip.status === "BILLED") {
+        playBeep(false);
+        onNotification?.(
+          "Already Invoiced",
+          `Packing Slip #${resolvedSlip.packingSlipNumber} has already been fully invoiced.`,
+          "warning"
+        );
+        setBarcodeInput("");
+        setTimeout(() => barcodeInputRef.current?.focus(), 50);
+        return;
+      }
+
+      if (activeConsolidatedSlips.some((s) => s.packingSlipNumber === resolvedSlip.packingSlipNumber)) {
+        playBeep(false);
+        onNotification?.(
+          "Duplicate Slip Scan",
+          `Packing Slip #${resolvedSlip.packingSlipNumber} is already selected in the active consolidated invoice.`,
+          "info"
+        );
+        setBarcodeInput("");
+        setTimeout(() => barcodeInputRef.current?.focus(), 50);
+        return;
+      }
+
+      // Customer compatibility check
+      if (customer.id !== WALK_IN_CUSTOMER.id && resolvedSlip.customerId && resolvedSlip.customerId !== customer.id) {
+        playBeep(false);
+        onNotification?.(
+          "Customer Incompatibility",
+          `Customer Incompatibility: Packing Slip #${resolvedSlip.packingSlipNumber} belongs to "${resolvedSlip.customerName}", whereas current invoice is for "${customer.name}". Incompatible customer accounts cannot be consolidated into a single invoice.`,
+          "error"
+        );
+        setBarcodeInput("");
+        setTimeout(() => barcodeInputRef.current?.focus(), 50);
+        return;
+      }
+
+      // Set customer if walk-in
+      if (customer.id === WALK_IN_CUSTOMER.id && resolvedSlip.customerId) {
+        const foundCust = customers.find((c) => c.id === resolvedSlip.customerId || c.name === resolvedSlip.customerName);
+        if (foundCust) {
+          setCustomer({
+            id: foundCust.id,
+            code: (foundCust as any).code || foundCust.id || "CUST-B2B",
+            name: foundCust.name,
+            phone: foundCust.phone || "9999999999",
+            gstin: (foundCust as any).gstin,
+            state: (foundCust as any).state,
+            stateCode: (foundCust as any).stateCode || "27",
+            registrationType: (foundCust as any).gstin ? "REGISTERED" : "UNREGISTERED",
+          });
+        }
+      }
+
+      setActiveConsolidatedSlips((prev) => [...prev, resolvedSlip]);
+
+      // Add slip items to cart
+      const newItems: ProPosCartItem[] = resolvedSlip.items.map((it: any, idx: number) => ({
+        id: `ps_item_${Date.now()}_${idx}`,
+        itemNo: cartItems.length + idx + 1,
+        productId: it.productId,
+        name: it.name,
+        sku: it.sku,
+        barcode: it.sku,
+        brand: it.brand || "STANDARD",
+        style: "STANDARD",
+        color: "BLACK",
+        size: "8",
+        qty: it.quantity,
+        unitPrice: 1499.0,
+        basePrice: 1499.0,
+        mrp: 1999.0,
+        taxPct: 5.0,
+        taxAmt: 0,
+        hsnCode: "6404",
+        discountPct: 0,
+        discountAmt: 0,
+        lineTotal: 1499.0 * it.quantity,
+        isTaxInclusive: false,
+        salesStaff: globalSalesperson,
+      }));
+
+      setCartItems((prev) => [...prev, ...newItems]);
+      playBeep(true);
+      onNotification?.(
+        "Packing Slip Added",
+        `Packing Slip #${resolvedSlip.packingSlipNumber} added to consolidated invoice (${newItems.length} items). Scanning a slip never auto-posts an invoice.`,
+        "success"
+      );
+      setBarcodeInput("");
+      setTimeout(() => barcodeInputRef.current?.focus(), 50);
+      return;
+    }
+
     // 3. Match against products catalog prop
     const matched = products.find(
       (p) =>
@@ -832,7 +1021,7 @@ export const SmritiBillingStudio: React.FC<SmritiBillingStudioProps> = ({
     playBeep(false);
     onNotification?.(
       "Barcode Not Found",
-      `Barcode "${targetBarcode}" was not found in catalog. Please check barcode or register product in Master Data.`,
+      `Barcode "${targetBarcode}" was not found in catalog. Never guessing unknown barcodes as packing slips. Please check barcode or register product in Master Data.`,
       "error"
     );
     setBarcodeInput("");
@@ -971,7 +1160,7 @@ export const SmritiBillingStudio: React.FC<SmritiBillingStudioProps> = ({
     const resolvedDeliveryLocationId = storeObj?.id || (customer.id !== WALK_IN_CUSTOMER.id ? "cdl-c64f6f2fec8a1d4e0a656483" : undefined);
     const resolvedStoreCode = storeObj?.code || "TEST-MUM-001";
 
-    const payload = {
+    const payload: any = {
       client_tx_uuid: clientTxUuid,
       invoice_no: generatedInvoiceNo,
       shift_id: effectiveShiftId,
@@ -988,6 +1177,8 @@ export const SmritiBillingStudio: React.FC<SmritiBillingStudioProps> = ({
       bill_discount_val: calculations.billDiscount,
       bill_discount_type: billDiscountType === "PERCENT" ? "percent" : "flat",
       sales_channel: salesChannel,
+      source_document_type: activeConsolidatedSlips.length > 0 ? "PACKING_SLIP_CONSOLIDATED" : undefined,
+      source_document_id: activeConsolidatedSlips.length > 0 ? activeConsolidatedSlips.map((s) => s.packingSlipNumber).join(",") : undefined,
       tenders: backendTenders,
       items: calculations.recomputedItems.map((item) => ({
         product_id: item.productId,
@@ -1001,6 +1192,7 @@ export const SmritiBillingStudio: React.FC<SmritiBillingStudioProps> = ({
         mrp: item.mrp,
         is_tax_inclusive: item.isTaxInclusive,
         salesperson_name: item.salesStaff || globalSalesperson,
+        source_line_type: activeConsolidatedSlips.length > 0 ? "PACKING_SLIP_ITEM" : undefined,
       })),
     };
 
@@ -1039,6 +1231,22 @@ export const SmritiBillingStudio: React.FC<SmritiBillingStudioProps> = ({
       playBeep(true);
       onNotification?.("Invoice Saved", `Invoice #${recorded.billNo} committed successfully.`, "success");
       recordAuditAction("POS_SETTLEMENT", "sales_invoices", recorded.billNo, `Settled ${recorded.billNo} via ${paymentMode}`);
+      if (activeConsolidatedSlips.length > 0) {
+        try {
+          await apiFetchV1("/fulfillment/consolidated-finalize", {
+            method: "POST",
+            body: JSON.stringify({
+              packing_slip_ids: activeConsolidatedSlips.map((s) => s.id),
+              invoice_id: recorded.billNo,
+              invoice_no: recorded.billNo,
+            }),
+          });
+        } catch {
+          // offline fallback
+        }
+        setActiveConsolidatedSlips([]);
+        onClearConsolidatedBatch?.();
+      }
       onRefreshData?.();
     } catch (err: any) {
       // Offline fallback
@@ -1061,6 +1269,10 @@ export const SmritiBillingStudio: React.FC<SmritiBillingStudioProps> = ({
         };
         setLastBillRecord(offlineRecord);
         if (shouldPrint) setShowReceiptModal(true);
+        if (activeConsolidatedSlips.length > 0) {
+          setActiveConsolidatedSlips([]);
+          onClearConsolidatedBatch?.();
+        }
         onNotification?.("Offline Mode", `Network drop handled. Saved to local sync queue.`, "warning");
       } catch (offlineErr: any) {
         onNotification?.("Transaction Failed", `Checkout rejected: ${err.message}`, "error");
@@ -1487,9 +1699,16 @@ export const SmritiBillingStudio: React.FC<SmritiBillingStudioProps> = ({
             {/* ── ITEMS IN CART GRID CARD (READ-ONLY) ── */}
             <div className="flex-1 bg-white dark:bg-[#1a233a] rounded-xl border border-slate-200/90 dark:border-slate-800 shadow-2xs p-3.5 flex flex-col min-h-0 overflow-hidden">
               <div className="flex items-center justify-between pb-2 mb-2 border-b border-slate-100 dark:border-slate-800 shrink-0">
-                <h2 className="text-xs font-bold text-slate-800 dark:text-slate-100">
-                  Items in Cart ({cartItems.length})
-                </h2>
+                <div className="flex items-center gap-2">
+                  <h2 className="text-xs font-bold text-slate-800 dark:text-slate-100">
+                    Items in Cart ({cartItems.length})
+                  </h2>
+                  {activeConsolidatedSlips.length > 0 && (
+                    <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-blue-100 text-blue-800 dark:bg-blue-900/60 dark:text-blue-300 border border-blue-300 font-mono">
+                      CONSOLIDATED: {activeConsolidatedSlips.length} SLIPS ({activeConsolidatedSlips.map((s: any) => s.packingSlipNumber).join(", ")})
+                    </span>
+                  )}
+                </div>
                 <div className="flex items-center gap-2 text-xs">
                   {effectiveProfileConfig?.bulk_add_enabled !== false && (
                     <button

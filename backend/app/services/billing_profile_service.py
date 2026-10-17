@@ -40,6 +40,12 @@ B2C_DEFAULTS: Dict[str, Any] = {
     "scan_beep": "ENABLED",
     "default_invoice_format": "RETAIL_RECEIPT",
     "salesperson_attribution": "ENABLED",
+    "b2b_packing_first_workflow": "DISABLED",
+    "packing_slip_qty_default": "MANUAL_ZERO",
+    "invoice_qty_default": "MANUAL_ZERO",
+    "allow_partial_packing": "DISABLED",
+    "allow_partial_invoicing": "DISABLED",
+    "allow_editing_prefilled_qty": "DISABLED",
 }
 
 B2B_DEFAULTS: Dict[str, Any] = {
@@ -57,6 +63,12 @@ B2B_DEFAULTS: Dict[str, Any] = {
     "scan_beep": "ENABLED",
     "default_invoice_format": "B2B_TAX_INVOICE",
     "salesperson_attribution": "OPTIONAL",
+    "b2b_packing_first_workflow": "ENABLED",
+    "packing_slip_qty_default": "REMAINING_UNPACKED_QTY",
+    "invoice_qty_default": "PACKED_UNBILLED_QTY",
+    "allow_partial_packing": "ENABLED",
+    "allow_partial_invoicing": "ENABLED",
+    "allow_editing_prefilled_qty": "AUTHORIZED_ONLY",
 }
 
 
@@ -302,6 +314,12 @@ class BillingProfileService:
             "repeat_barcode_policy": {"INCREASE_QUANTITY", "NEW_LINE", "ASK_USER"},
             "scan_beep": {"ENABLED", "DISABLED"},
             "salesperson_attribution": {"ENABLED", "DISABLED", "OPTIONAL"},
+            "b2b_packing_first_workflow": {"ENABLED", "DISABLED"},
+            "packing_slip_qty_default": {"ORDERED_QTY", "REMAINING_UNPACKED_QTY", "MANUAL_ZERO"},
+            "invoice_qty_default": {"PACKED_UNBILLED_QTY", "ORDERED_QTY_IF_ELIGIBLE", "MANUAL_ZERO"},
+            "allow_partial_packing": {"ENABLED", "DISABLED"},
+            "allow_partial_invoicing": {"ENABLED", "DISABLED"},
+            "allow_editing_prefilled_qty": {"AUTHORIZED_ONLY", "ENABLED", "DISABLED"},
         }
 
         cleaned_overrides: Dict[str, Any] = {}

@@ -132,6 +132,8 @@ class CanonicalPostingRequest(BaseModel):
     promotion_coupon_id: Optional[str] = Field(None, description="Server-evaluated promotion coupon ID")
     document_type: Optional[str] = Field(None, description="TAX_INVOICE, RETAIL_RECEIPT, or BILL_OF_SUPPLY")
     sales_channel: Optional[str] = Field(None, description="Operational sales channel: MODERN_TRADE, GENERAL_TRADE, B2B_WHOLESALE, POS_RETAIL, ECOMMERCE")
+    source_document_type: Optional[str] = Field(None, description="Source document type (e.g. PACKING_SLIP_CONSOLIDATED, CUSTOMER_PO, SALES_ORDER)")
+    source_document_id: Optional[str] = Field(None, description="Source document identifier or comma-separated packing slip numbers")
 
 
 class CanonicalPostingLineResult(BaseModel):
