@@ -125,7 +125,7 @@ All changes are modular, component-based, and config-governed. Reverting to the 
 - Headless automated testing in CI/CD pipeline.
 
 ## 17. Status
-Approved for Implementation.
+Completed.
 
 ## 18. Related ADRs
 - `ADR-0089: Canonical Billing Profile & Configuration Architecture`
