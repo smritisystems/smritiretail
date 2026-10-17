@@ -66,9 +66,10 @@ interface ReportSchedule {
 
 interface ReportDesignerTabProps {
   currentUser?: { role: string; name: string } | null;
+  onNavigateTab?: (tab: string) => void;
 }
 
-export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUser }) => {
+export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUser, onNavigateTab }) => {
   // Navigation states
   const [activeView, setActiveView] = useState<"bi_center" | "designer" | "viewer">("bi_center");
   const [activeStudio, setActiveStudio] = useState<string>("sales_studio");
@@ -858,6 +859,22 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
               >
                 <FileText size={13} />
                 <span>Report Builder</span>
+              </button>
+              <button
+                type="button"
+                id="report-tab-visual-reports-btn"
+                onClick={() => {
+                  if (onNavigateTab) {
+                    onNavigateTab("visual-reports");
+                  } else {
+                    window.dispatchEvent(new CustomEvent("navigate-tab", { detail: { tab: "visual-reports" } }));
+                  }
+                }}
+                className="px-3 py-1.5 rounded-md flex items-center gap-1.5 text-blue-600 hover:text-blue-700 hover:bg-blue-50/50 font-bold transition-colors cursor-pointer"
+                title="Switch to Visual Reports Dashboard (Orders, Packing & Stock Flow)"
+              >
+                <BarChart3 size={13} className="text-blue-600" />
+                <span>Visual Reports</span>
               </button>
             </div>
 

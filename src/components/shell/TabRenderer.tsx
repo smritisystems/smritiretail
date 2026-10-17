@@ -85,6 +85,7 @@ const LeaveManagementTab = lazy(() => import("../hr/LeaveManagementTab.tsx").the
 const CommissionWorkspaceTab = lazy(() => import("../hr/CommissionWorkspaceTab.tsx").then(m => ({ default: m.CommissionWorkspaceTab })));
 const PriceRevisionStudioWorkspace = lazy(() => import("../pricing/PriceRevisionStudioWorkspace.tsx").then(m => ({ default: m.PriceRevisionStudioWorkspace })));
 const CostTruthDashboardTab = lazy(() => import("../finance/CostTruthDashboardTab.tsx").then(m => ({ default: m.CostTruthDashboardTab })));
+const VisualReportsDashboardTab = lazy(() => import("../reports/VisualReportsDashboardTab.tsx").then(m => ({ default: m.VisualReportsDashboardTab })));
 
 export const TabLoadingFallback: React.FC = () => (
   <div className="w-full h-full flex flex-col items-center justify-center bg-theme-base text-theme-primary">
@@ -190,6 +191,11 @@ export const mapModuleId = (id: string): string => {
     "menu-accounting-sync": "accounting-sync",
     "menu-reports": "report-designer",
     "menu-report-designer": "report-designer",
+    "visual-reports": "visual-reports",
+    "visual_reports": "visual-reports",
+    "menu-visual-reports": "visual-reports",
+    "visual-dashboard": "visual-reports",
+    "visual-reports-dashboard": "visual-reports",
     "menu-masters": "masters",
     "menu-ufe": "ufe",
     "menu-formulas": "formulas",
@@ -458,7 +464,7 @@ export const renderTabNode = (tabId: string, ctx: TabRendererContextProps): Reac
       return <VendorMasterWs currentUser={currentUser} onNotification={addNotification} />;
     case "reports":
     case "report-designer":
-      return <ReportDesignerTab currentUser={currentUser} />;
+      return <ReportDesignerTab currentUser={currentUser} onNavigateTab={setActiveTab} />;
     case "item-master":
       return (
         <ItemMasterWs
@@ -673,6 +679,16 @@ export const renderTabNode = (tabId: string, ctx: TabRendererContextProps): Reac
     case "deprecation-telemetry":
     case "legacy-deprecation-telemetry":
       return <LegacyDeprecationTelemetryTab onNotification={addNotification} />;
+    case "visual-reports":
+    case "visual-dashboard":
+    case "visual-reports-dashboard":
+      return (
+        <VisualReportsDashboardTab
+          currentUser={currentUser}
+          onNotification={addNotification}
+          onNavigateTab={setActiveTab}
+        />
+      );
     default:
       return <div className="p-4 text-theme-muted font-mono text-xs">Tab {tabId} not found.</div>;
   }

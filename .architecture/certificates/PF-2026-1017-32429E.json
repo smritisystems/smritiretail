@@ -1,0 +1,15 @@
+{
+  "certificate_id": "PF-2026-1017-32429E",
+  "entity": "reports",
+  "capability": "reports.visual_reports_types",
+  "asset_type": "component",
+  "proposed_name": "visualReportsTypes.ts",
+  "target_file_path": "src/components/reports/visualReportsTypes.ts",
+  "decision": "CREATE_APPROVED",
+  "canonical_owner": "src/components/reports/visualReportsTypes.ts",
+  "content_hash": "d3e358d6ae9ddd8723d69eeb142a1e7eddc6ec32ef25f67738dcd2d097e1009a",
+  "git_commit": "a963ab51d620438e4aea59887cd01a97095a611a",
+  "issued_at": "2026-10-17T09:34:24.183617+00:00",
+  "expires_at": "2026-10-24T09:34:24.183617+00:00",
+  "status": "ISSUED"
+}

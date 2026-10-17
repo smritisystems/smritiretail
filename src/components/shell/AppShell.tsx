@@ -46,7 +46,7 @@ const mapModuleToContext = (moduleId: string): BusinessContext => {
   if (['item-master', 'item-create-grid', 'customer-master', 'masters', 'document-series', 'databridge', 'data-bridge'].includes(moduleId)) {
     return 'masters';
   }
-  if (['report-designer', 'business-ledger', 'audit-logs', 'accounting-sync', 'data-exchange'].includes(moduleId)) {
+  if (['report-designer', 'visual-reports', 'visual-dashboard', 'business-ledger', 'audit-logs', 'accounting-sync', 'data-exchange'].includes(moduleId)) {
     return 'reports';
   }
   if (['staff-management', 'dev-tracker', 'wiki', 'about-smriti', 'legacy-migration', 'system-parameters', 'parameters-studio', 'sys-params', 'database-manager'].includes(moduleId)) {
