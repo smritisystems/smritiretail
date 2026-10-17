@@ -528,6 +528,7 @@ export const BulkAddItemsModal: React.FC<BulkAddItemsModalProps> = ({
                             {isEditing ? (
                               <input
                                 type="text"
+                                data-field-key="barcode"
                                 value={editBarcode}
                                 onChange={(e) => setEditBarcode(e.target.value)}
                                 className="px-2 py-0.5 border border-blue-400 rounded text-xs font-mono w-28 bg-white dark:bg-slate-900"
@@ -562,6 +563,7 @@ export const BulkAddItemsModal: React.FC<BulkAddItemsModalProps> = ({
                             {isEditing ? (
                               <input
                                 type="number"
+                                data-field-key="qty"
                                 min={1}
                                 max={99999}
                                 value={editQty}

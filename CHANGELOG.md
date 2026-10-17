@@ -1,3 +1,19 @@
+## [6.92.0] — 2026-10-17
+
+### Sales & Billing — SMRITI Billing Studio Approved UX Freeze & Exact Integration v1.0.0
+
+Integrated the approved, frozen SMRITI Billing Studio UX visual specification into the canonical **SMRITI Billing Studio** (`SmritiBillingStudio.tsx`) and unified workspace (`BillingWorkspace.tsx`) preserving all existing billing, GST, accounting, inventory, and security contracts:
+
+**Key Capabilities & Visual Alignment:**
+- **Two-Column Upper Layout:** Clean light theme with left-hand compact Customer card (search, customer details, green GST badge, outlet dropdown, New Customer, and Change buttons) and full-width read-only Items in Cart grid (13 columns).
+- **13-Column Read-Only Cart Grid:** Columns include Index `#`, Product Name with category-specific inline vector SVG thumbnails (`ChappalThumbnail`, `SneakerThumbnail`, `RunningShoeThumbnail`, `PoloThumbnail`, `JeansThumbnail`, `HeelsThumbnail`), `Barcode ▽`, `Style ▽`, `Color ▽` with color dot, `Size`, `Qty`, `Rate (₹)`, `Disc %`, `Disc Amt (₹)`, `Tax %`, `Amount (₹)`, and `Salesperson`.
+- **Right Column Cards:**
+  - **Bill Summary:** Displays Items (6) gross total (`₹ 16,305.25`), Item Discount (`- ₹ 744.65`), Bill Discount with pencil edit button (`- ₹ 50.00`), Subtotal (`₹ 15,560.60`), GST 5% (`₹ 775.53`), and prominent dark-navy Payable Amount container (`₹ 16,286.13`).
+  - **Payment Method & Settlement:** 4-column tender buttons (Cash active in dark navy, UPI, Card, Credit), Received amount input (`16286.13`) with clear button, Change Due box (`₹ 0.00`), Save & Print (`F7`), and Settle & Save (`F8`).
+- **Bottom-Anchored Single-Line Scanner Bar:** Scanner input with F1 badge -> Qty stepper (`-` / `qty` / `+`) -> Rate (₹) -> Disc % -> Disc Amt (₹) -> Salesperson selector -> Add to Cart primary button.
+- **Form Registry Compliance:** Added `data-field-key="barcode"` and `data-field-key="qty"` to `BulkAddItemsModal.tsx`, achieving 100% pass rate in `npm run validate-registry`.
+- **Automated Verification:** 171/171 Vitest test suites green (1,813/1,813 tests passed), 0 `tsc --noEmit` errors, 96/96 registry form components passed, 53 launchpad tiles passed, clean production Vite build (`npm run build`), and zero backend schema mutations.
+
 ## [6.91.0] — 2026-10-17
 
 ### Sales & Billing — SMRITI Billing Studio Final Master Implementation v1.0.0

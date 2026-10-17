@@ -6,7 +6,7 @@
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
  * Version      : 6.70.1
  * Created      : 2026-08-21
- * Modified     : 2026-10-05
+ * Modified     : 2026-10-17
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
@@ -26,6 +26,7 @@ export interface ProPosCartItem {
   qty: number;
   mrp: number;
   unitPrice: number;
+  basePrice?: number;
   discCode?: string;
   discQty?: number;
   discountPct: number;
