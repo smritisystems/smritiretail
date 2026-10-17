@@ -4,9 +4,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.69.0
+ * Version      : 6.98.0
  * Created      : 2026-08-19
- * Modified     : 2026-09-20
+ * Modified     : 2026-10-17
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  */
@@ -29,12 +29,14 @@ const REGISTERED_APP_TABS = [
   "profiles",
   "sales-promotions",
   "purchase",
+  "procurement-visual-reports",
   "grn-studio",
   "supplier-mgmt",
   "vendor-360",
   "business-ledger",
   "accounting-sync",
   "report-designer",
+  "visual-reports",
   "item-master",
   "item-create-grid",
   "barcode",

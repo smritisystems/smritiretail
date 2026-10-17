@@ -4,9 +4,9 @@ Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
-Version      : 3.35.0
+Version      : 6.98.0
 Created      : 2026-08-28
-Modified     : 2026-08-28
+Modified     : 2026-10-17
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 Classification: Internal
@@ -53,14 +53,14 @@ def override_auth():
 
 @pytest.mark.asyncio
 async def test_get_reporting_catalog():
-    """Verify GET /api/v1/reporting/catalog returns all 22 canonical reports."""
+    """Verify GET /api/v1/reporting/catalog returns all 23 canonical reports."""
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
         res = await ac.get("/api/v1/reporting/catalog")
         assert res.status_code == 200
         data = res.json()
-        assert data["total_reports"] == 22
+        assert data["total_reports"] == 23
         assert len(data["studios"]) == 5
-        assert len(data["reports"]) == 22
+        assert len(data["reports"]) == 23
 
 
 @pytest.mark.asyncio
