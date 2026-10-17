@@ -1,3 +1,15 @@
+#  Project      : SMRITI Retail OS
+#  Author       : Jawahar Ramkripal Mallah
+#  Designation  : Chief Systems Architect & Creator
+#  Email        : support@smritibooks.com
+#  Websites     : smritibooks.com | erpnbook.com | aitdl.com
+#  Version      : 6.99.0
+#  Created      : 2026-10-13
+#  Modified     : 2026-10-17
+#  Copyright    : © SMRITIBooks.com. All Rights Reserved.
+#  License      : Proprietary Commercial Software
+#  Classification: Tenant Data Boundary Governance — UOM Seeding Script
+
 import psycopg2
 import uuid
 import json
@@ -9,7 +21,7 @@ UOM_VALUES = [
     ("PCS", "Pcs"),
 ]
 
-for dbname in ["smritisys", "smriti001", "smriti002", "smriti003"]:
+for dbname in ["smriti001", "smriti002", "smriti003"]:
     conn = psycopg2.connect(f"postgresql://postgres:postgres@localhost:2781/{dbname}")
     conn.autocommit = True
     cur = conn.cursor()

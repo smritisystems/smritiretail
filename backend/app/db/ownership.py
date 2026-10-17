@@ -3,9 +3,9 @@
 #  Designation  : Chief Systems Architect & Creator
 #  Email        : support@smritibooks.com
 #  Websites     : smritibooks.com | erpnbook.com | aitdl.com
-#  Version      : 1.0.0
+#  Version      : 6.99.0
 #  Created      : 2026-09-23
-#  Modified     : 2026-10-14
+#  Modified     : 2026-10-17
 #  Copyright    : © SMRITIBooks.com. All Rights Reserved.
 #  License      : Proprietary Commercial Software
 #  Classification: Internal — Architecture Contract
@@ -170,6 +170,9 @@ TABLE_OWNERSHIP: Dict[str, TableOwner] = {
     "referral_programs":                     TableOwner.TENANT,
     "referral_relationships":                TableOwner.TENANT,
     "referral_rewards":                      TableOwner.TENANT,
+    "gift_cards":                            TableOwner.TENANT,
+    "gift_card_transactions":                TableOwner.TENANT,
+    "gift_vouchers":                         TableOwner.TENANT,
 
     # Sales & Billing
     "sales_invoices":                        TableOwner.TENANT,
@@ -215,6 +218,7 @@ TABLE_OWNERSHIP: Dict[str, TableOwner] = {
     "item_sales_settings":                   TableOwner.TENANT,
     "item_inventory_policies":               TableOwner.TENANT,
     "item_price_lists":                      TableOwner.TENANT,
+    "item_price_revisions":                  TableOwner.TENANT,
     "item_batches":                          TableOwner.TENANT,
     "item_serials":                          TableOwner.TENANT,
     "item_warehouse_locations":              TableOwner.TENANT,
@@ -248,6 +252,8 @@ TABLE_OWNERSHIP: Dict[str, TableOwner] = {
     "packing_slip_items":                    TableOwner.TENANT,
     "dispatches":                            TableOwner.TENANT,
     "dispatch_items":                        TableOwner.TENANT,
+    "dispatch_batches":                      TableOwner.TENANT,
+    "dispatch_batch_invoices":               TableOwner.TENANT,
     "loading_sheets":                        TableOwner.TENANT,
     "loading_sheet_items":                   TableOwner.TENANT,
     "reverse_logistics_returns":             TableOwner.TENANT,
@@ -274,6 +280,16 @@ TABLE_OWNERSHIP: Dict[str, TableOwner] = {
     "purchase_order_items":                  TableOwner.TENANT,
     "purchase_receipts":                     TableOwner.TENANT,
     "purchase_receipt_items":                TableOwner.TENANT,
+    "goods_receipt_notes":                   TableOwner.TENANT,
+    "goods_receipt_lines":                   TableOwner.TENANT,
+    "purchase_bills":                        TableOwner.TENANT,
+    "purchase_bill_items":                   TableOwner.TENANT,
+    "purchase_requisitions":                 TableOwner.TENANT,
+    "purchase_requisition_items":            TableOwner.TENANT,
+    "supplier_rfqs":                         TableOwner.TENANT,
+    "supplier_rfq_items":                    TableOwner.TENANT,
+    "supplier_quotations":                   TableOwner.TENANT,
+    "supplier_quotation_items":              TableOwner.TENANT,
     "purchase_reorder_configs":              TableOwner.TENANT,
     "purchase_jurisdiction_configs":         TableOwner.TENANT,
     "suppliers":                             TableOwner.TENANT,
@@ -306,6 +322,8 @@ TABLE_OWNERSHIP: Dict[str, TableOwner] = {
     "compliance_outboxes":                   TableOwner.TENANT,
     "eway_bills":                            TableOwner.TENANT,
     "einvoice_records":                      TableOwner.TENANT,
+    "e_invoices":                            TableOwner.TENANT,
+    "e_invoice_batches":                     TableOwner.TENANT,
     "gstin_registrations":                   TableOwner.TENANT,
     "compliance_audit_logs":                 TableOwner.TENANT,
     "compliance_immutable_audit_logs":       TableOwner.TENANT,
@@ -330,6 +348,7 @@ TABLE_OWNERSHIP: Dict[str, TableOwner] = {
     # Barcode & Label Printing
     "barcode_layouts":                       TableOwner.TENANT,
     "barcode_providers":                     TableOwner.TENANT,
+    "barcode_print_jobs":                    TableOwner.TENANT,
     "barcode_registry_audit":                TableOwner.TENANT,
     "identity_rules":                        TableOwner.TENANT,
     "print_histories":                       TableOwner.TENANT,
@@ -419,6 +438,7 @@ TABLE_OWNERSHIP: Dict[str, TableOwner] = {
     "sync_queue":                            TableOwner.TENANT,
     "integration_outbox_events":             TableOwner.TENANT,
     "audit_logs":                            TableOwner.TENANT,
+    "transaction_idempotency_records":       TableOwner.TENANT,
 
     # Reports & Analytics
     "report_definitions":                    TableOwner.TENANT,
@@ -473,8 +493,7 @@ TABLE_OWNERSHIP: Dict[str, TableOwner] = {
     # NOT operational data — read-only template in smritisys.
     # ================================================================
 
-    # (Currently empty — accounts moved to TENANT based on audit evidence.
-    #  Chart of Accounts contamination in smritisys is disposition-pending.)
+    "kpi_definitions":                       TableOwner.PLATFORM_TEMPLATE,
 }
 
 

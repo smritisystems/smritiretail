@@ -16,6 +16,16 @@
 
 ## Release v6.99.0 (2026-10-17)
 
+### Security & Governance — Tenant Data Boundary (TDB-v2.0) Guard Remediation
+
+#### Overview
+SMRITI Retail OS v6.99.0 remediates all 22 tenant data boundary violations flagged by static CI guards and the control plane database auditor. UOM master value seeding in `scripts/seed_uom.py` is now strictly restricted to tenant databases (`smriti001`, `smriti002`, `smriti003`), preventing data leakage into the `smritisys` control plane. In addition, 21 untracked ORM model tables across loyalty, pricing, dispatch, goods receipts, purchase bills, requisitions, RFQs, vendor quotations, compliance e-invoices, barcode printing, and idempotency tracking are registered with positive ownership in `TABLE_OWNERSHIP` (`backend/app/db/ownership.py`).
+
+#### Key Highlights
+- **100% CI Guard Pass**: `scripts/ci_tenant_boundary_guard.py` passes all 10 checks with 0 violations.
+- **Physical CP Isolation**: Control plane database `smritisys` is safeguarded from tenant seeding loops and foreign entity bindings.
+- **Positive Table Registry**: Canonical `TABLE_OWNERSHIP` maps 20 tenant-operational tables and 1 platform template table (`kpi_definitions`).
+
 ### Procurement & Visual Analytics — Universal Attribute-Based Visual Analytics
 
 #### Overview
