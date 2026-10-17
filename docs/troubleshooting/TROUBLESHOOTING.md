@@ -18,7 +18,7 @@
 
   * Version    : 2.1.2
   * Created    : 2026-07-11
-  * Modified   : 2026-07-11
+  * Modified   : 2026-10-16
   * Copyright  : © AITDL.com and SMRITIBooks.com. All Rights Reserved.
   * License    : Proprietary Commercial Software
 -->
@@ -46,3 +46,12 @@ This document details common operational issues and resolutions.
 - **Symptom:** Total debits in General Ledger do not balance with sales invoice.
 - **Cause:** Incomplete split payment breakdown payload.
 - **Resolution:** Check `/api/pos/checkout` request logs. The payment mode must be set to `"Split"` with a valid `breakup` mapping.
+
+## 4. Mandatory Delivery Location Validation on Modern Trade
+- **Symptom:** Cashier clicks Complete Settlement or F12 and receives an alert: *"Delivery Location / Store Code is mandatory for Modern Trade sales channel. Please select a valid store."* (or API returns 422 `SMRITI-VAL-004`).
+- **Cause:** The sales channel is set to `MODERN_TRADE`, but no delivery location is selected in the corporate B2B bar.
+- **Resolution:**
+  1. In the Billing Terminal Header (Row 3), click the **Delivery Location** dropdown.
+  2. Select the customer's registered store delivery location for this shipment.
+  3. If billing standard counter retail or wholesale without store tracking, change the **Sales Channel** dropdown in Row 1 to `General Trade` or `B2B Wholesale`.
+

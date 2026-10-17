@@ -18,7 +18,7 @@
 
   * Version    : 2.1.2
   * Created    : 2026-07-11
-  * Modified   : 2026-07-11
+  * Modified   : 2026-10-16
   * Copyright  : © AITDL.com and SMRITIBooks.com. All Rights Reserved.
   * License    : Proprietary Commercial Software
 -->
@@ -70,3 +70,24 @@ Cashiers can run desk operations using keyboard shortcuts without touch or mouse
 ## CRM & Customer Outstanding Ledger
 - Active Customer outstanding balances are dynamically updated upon sales checkouts.
 - Outstanding credit limits and terms are configured at the Customer Group level (e.g. Retail, Wholesale, Franchises).
+
+---
+
+## Modern Trade Sales Channel & Store Location Billing
+
+### 1. Operational Sales Channel Selection
+When drafting a sales invoice in the Billing Terminal, select the operative **Sales Channel** from the top header:
+- **Modern Trade (MT)**: For large format retail chains (e.g. Reliance Retail, Trent, Shoppers Stop, DMart).
+- **General Trade (GT)**: For standard retail/distributor stores.
+- **B2B Wholesale**: For bulk merchant billing.
+- **POS Retail**: For standard store-counter retail billing.
+- **E-Commerce**: For online orders.
+
+When selecting a customer classified as Modern Trade, the system automatically defaults the sales channel to `Modern Trade`.
+
+### 2. Conditional Store Code & Delivery Location Requirement
+- **Mandatory Store Selection**: When `Modern Trade` is selected, the **Delivery Location** and **Store Code** fields appear dynamically in the corporate billing bar with red mandatory indicators (`*`).
+- **Billing Guard**: Settlement is blocked with an alert if Modern Trade is active but no Delivery Location is selected.
+- **Non-Modern Trade Channels**: When non-Modern Trade channels are active (e.g. General Trade), the store location fields are hidden to simplify counter billing. Previously chosen locations are safely preserved in the background and will restore if Modern Trade is re-selected.
+- **Automatic Account Mapping**: Selecting a store location automatically links or creates the corresponding Party Stock Visibility (PSV) tracking account in the background without requiring manual data entry.
+

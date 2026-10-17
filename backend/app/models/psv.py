@@ -6,7 +6,7 @@ Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
 Version      : 6.17.0
 Created      : 2026-07-16
-Modified     : 2026-09-25
+Modified     : 2026-10-16
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 Classification: Internal
@@ -24,6 +24,7 @@ from sqlalchemy import (
     String,
     Text,
     UniqueConstraint,
+    text,
 )
 from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.orm import relationship
@@ -33,6 +34,20 @@ from ..db.base import Base, BaseEntity
 
 class PSVParty(Base):
     __tablename__ = "psv_parties"
+    __table_args__ = (
+        Index(
+            "uq_psv_parties_company_deliv_loc",
+            "company_id", "delivery_location_id",
+            unique=True,
+            postgresql_where=text("delivery_location_id IS NOT NULL"),
+        ),
+        Index(
+            "uq_psv_parties_company_cust_store",
+            "company_id", "host_customer_id", "store_code",
+            unique=True,
+            postgresql_where=text("host_customer_id IS NOT NULL AND store_code IS NOT NULL"),
+        ),
+    )
 
     id = Column(String(50), primary_key=True)
     company_id = Column(String(50), ForeignKey("companies.id", ondelete="RESTRICT"), nullable=True, index=True)

@@ -4,9 +4,9 @@ Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
-Version      : 6.70.34
+Version      : 6.70.35
 Created      : 2026-09-08
-Modified     : 2026-10-08
+Modified     : 2026-10-17
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 Classification: Canonical Sales Posting Writer & Universal Financial Engine (Phase 2C Step 2)
@@ -814,13 +814,29 @@ class CanonicalSalesPostingWriter:
             status="Submitted",
             po_reference=req.po_reference_no,
             customer_po_id=req.customer_po_id,
-            source_document_type="CUSTOMER_PO" if req.customer_po_id else req.context.source_channel,
+            sales_channel=(
+                getattr(req, "sales_channel", None)
+                or getattr(req.context, "sales_channel", None)
+                or (req.context.source_channel if req.context.source_channel in ["MODERN_TRADE", "GENERAL_TRADE", "B2B_WHOLESALE", "POS_RETAIL", "ECOMMERCE"] else None)
+                or "B2B_WHOLESALE"
+            ),
+            source_document_type=(
+                "CUSTOMER_PO" if req.customer_po_id
+                else ("SALES_ORDER" if req.so_reference_no
+                else (req.context.source_channel if req.context.source_channel in ["DIRECT", "CUSTOMER_PO", "SALES_ORDER"] else "DIRECT"))
+            ),
             source_document_id=req.customer_po_id or req.so_reference_no,
             rule_snapshots={
                 "document_type": ("TAX_INVOICE" if seller_gstin else "RETAIL_RECEIPT"),
                 "idempotency_key": idempotency_key,
                 "request_hash": req_hash,
                 "source_channel": req.context.source_channel,
+                "sales_channel": (
+                    getattr(req, "sales_channel", None)
+                    or getattr(req.context, "sales_channel", None)
+                    or (req.context.source_channel if req.context.source_channel in ["MODERN_TRADE", "GENERAL_TRADE", "B2B_WHOLESALE", "POS_RETAIL", "ECOMMERCE"] else None)
+                    or "B2B_WHOLESALE"
+                ),
                 "supervisor_override": req.context.supervisor_override_code,
                 "calculated_at": datetime.now(timezone.utc).isoformat(),
                 "promotion_evaluation": promotion_result.model_dump(mode="json") if promotion_result else None,

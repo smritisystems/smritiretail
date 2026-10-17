@@ -4,9 +4,9 @@ Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
-Version      : 6.69.0
+Version      : 6.70.0
 Created      : 2026-09-08
-Modified     : 2026-10-03
+Modified     : 2026-10-17
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 Classification: Canonical Sales Posting Contract Schema (Phase 2C Step 1)
@@ -35,6 +35,7 @@ class CanonicalPostingContext(BaseModel):
     idempotency_key: Optional[str] = Field(None, min_length=1, max_length=128, description="Mandatory idempotency key for transactions; optional for previews")
     client_invoice_no: Optional[str] = Field(None, description="Offline or client-generated invoice number")
     source_channel: str = Field("POS_RETAIL", description="POS_RETAIL, B2B_WHOLESALE, CUSTOMER_PO, SALES_ORDER, ECOMMERCE")
+    sales_channel: Optional[str] = Field("B2B_WHOLESALE", description="Operational sales channel: MODERN_TRADE, GENERAL_TRADE, B2B_WHOLESALE, POS_RETAIL, ECOMMERCE")
     allow_negative_stock: bool = Field(
         False,
         description="DEPRECATED / NON-AUTHORITATIVE: Ignored for authorization. Negative stock permission is governed authoritatively by server-side SystemParameterService (SMRITI.STOCK.ALLOW_NEGATIVE_STOCK)."
@@ -130,6 +131,7 @@ class CanonicalPostingRequest(BaseModel):
     promotion_coupon_code: Optional[str] = Field(None, description="Server-evaluated promotion coupon")
     promotion_coupon_id: Optional[str] = Field(None, description="Server-evaluated promotion coupon ID")
     document_type: Optional[str] = Field(None, description="TAX_INVOICE, RETAIL_RECEIPT, or BILL_OF_SUPPLY")
+    sales_channel: Optional[str] = Field(None, description="Operational sales channel: MODERN_TRADE, GENERAL_TRADE, B2B_WHOLESALE, POS_RETAIL, ECOMMERCE")
 
 
 class CanonicalPostingLineResult(BaseModel):

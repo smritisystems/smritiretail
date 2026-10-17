@@ -6,7 +6,7 @@ Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
 Version      : 6.16.0
 Created      : 2026-08-25
-Modified     : 2026-08-25
+Modified     : 2026-10-16
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 Classification: Internal
@@ -118,3 +118,22 @@ class PSVScopedVisibilityResponse(BaseModel):
     total_projected_units: Decimal = Decimal("0.0000")
     total_skus_tracked: int = 0
     non_authoritative_warning: str = "PSV is a non-authoritative projected visibility ledger and does not represent physical audit truth."
+
+
+class PSVStoreResolutionReq(BaseModel):
+    delivery_location_id: str = Field(..., max_length=50, description="Canonical Customer Delivery Location ID")
+    customer_id: Optional[str] = Field(None, max_length=50, description="Optional host customer ID for cross-validation")
+
+
+class PSVStoreResolutionResp(BaseModel):
+    psv_party_id: str
+    store_code: str
+    delivery_location_id: str
+    host_customer_id: str
+    company_id: str
+    name: str
+    location: str
+    stock_model: str = "OUTRIGHT_SALE"
+    is_newly_created: bool
+    status: str = "Healthy"
+

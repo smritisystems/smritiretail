@@ -4,9 +4,9 @@ Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
-Version      : 6.16.0
+Version      : 6.16.1
 Created      : 2026-08-25
-Modified     : 2026-08-25
+Modified     : 2026-10-17
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 Classification: Internal
@@ -18,7 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from sqlalchemy.orm import selectinload
 
-from app.api.deps import get_company_db, get_current_user
+from app.api.deps import get_company_db, get_current_user, get_tenant_context, TenantContext
 from app.models.auth import User
 from app.models.psv import (
     PSVParty, PSVPartySkuTracking, PSVStockEvent, PSVStockBalance
@@ -31,6 +31,8 @@ from app.schemas.psv import (
     PSVScopedVisibilityResponse,
     PSVPartyResponse,
     PSVSkuTrackingResponse,
+    PSVStoreResolutionReq,
+    PSVStoreResolutionResp,
 )
 
 router = APIRouter(prefix="/psv", tags=["Projected Stock Visibility (PSV)"])
@@ -240,3 +242,26 @@ async def approve_psv_event(
     if result.get("status") == "ALREADY_APPROVED":
         raise HTTPException(status_code=409, detail=f"PSV event '{event_id}' is already approved.")
     return result
+
+
+@router.post("/resolve-store-party", response_model=PSVStoreResolutionResp)
+async def resolve_store_party(
+    req: PSVStoreResolutionReq,
+    session: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+    current_user: User = Depends(get_current_user),
+) -> PSVStoreResolutionResp:
+    """
+    Resolves or provisions a Party Stock Visibility (PSV) account from a validated
+    customer delivery location / store code idempotently.
+    Enforces customer ownership, company boundary, active location status,
+    header-tampering protection, and database-level uniqueness. Zero stock movements are created.
+    """
+    res = await PSVProjectionService.resolve_or_create_store_psv_party(
+        session=session,
+        company_id=tenant_ctx.company_id,
+        delivery_location_id=req.delivery_location_id,
+        customer_id=req.customer_id,
+    )
+    return PSVStoreResolutionResp(**res)
+
