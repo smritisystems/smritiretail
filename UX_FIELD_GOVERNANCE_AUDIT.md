@@ -26,7 +26,7 @@ All business fields in SMRITI are declared authoritatively in `backend/app/gover
 | **CFOC Registry Version** | 3.46.0 | v3.45.0 | PASS |
 | **Deterministic Fingerprint** | `2ac971144155d554...` | SHA-256 stable across runs | PASS |
 | **Physical DB Tables** | 616 tables | 295 tables across `smriti001` & `smritisys` | PASS |
-| **Physical DB Columns** | 13077 columns | Live information_schema catalog | PASS |
+| **Physical DB Columns** | 13078 columns | Live information_schema catalog | PASS |
 | **Canonical Field Definitions** | 147 fields | Declared in `CANONICAL_FIELDS` SSOT | PASS |
 | **UX Field References (Configured)** | 91 references | Master Form Fields & Grid Columns | PASS |
 | **Master Screen Mappings** | 9 screens | Master Configs in `src/components/global/` | PASS |
@@ -50,7 +50,7 @@ All business fields in SMRITI are declared authoritatively in `backend/app/gover
 | **Technical & Foreign Key Columns** | 67 | Foreign keys (`*_id`), technical tokens, passwords, nonces |
 | **Framework & Internal Columns** | 42 | `identity_code`, `*_json`, `metadata`, `attributes`, `extra_data`, media attachments |
 | **Migration & Support Columns** | 45 | Legacy Shoper 9 migration columns and flat file import buffers |
-| **Unregistered Business Columns** | 156 | Unmapped business columns on governed tables |
+| **Unregistered Business Columns** | 157 | Unmapped business columns on governed tables |
 
 ---
 

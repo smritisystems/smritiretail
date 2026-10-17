@@ -6,7 +6,7 @@
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
  * Version      : 6.7.0
  * Created      : 2026-08-21
- * Modified     : 2026-08-22
+ * Modified     : 2026-10-16
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
@@ -209,12 +209,43 @@ export interface BillingHeaderState {
   billingSource?: "DIRECT" | "CUSTOMER_PO" | "SALES_ORDER" | "DELIVERY";
   customerPoId?: string | null;
 
+  // Phase 2 Sales Channel & PSV Mapping
+  salesChannel?: string;
+  psvPartyId?: string | null;
+
   // Phase 2F Billing Location & Address Snapshots
   billingLocationId?: string | null;
   billingStoreCode?: string | null;
   billingAddress?: string | null;
   shippingAddress?: string | null;
 }
+
+export const SALES_CHANNELS = [
+  { value: "MODERN_TRADE", label: "Modern Trade (LFR / SIS)", requiresStoreLocation: true },
+  { value: "GENERAL_TRADE", label: "General Trade", requiresStoreLocation: false },
+  { value: "B2B_WHOLESALE", label: "B2B Wholesale", requiresStoreLocation: false },
+  { value: "POS_RETAIL", label: "POS Retail", requiresStoreLocation: false },
+  { value: "ECOMMERCE", label: "E-Commerce", requiresStoreLocation: false },
+] as const;
+
+export type SalesChannelType = typeof SALES_CHANNELS[number]["value"];
+
+/**
+ * Evaluates whether the effective sales channel requires store-level delivery location tracking.
+ * Respects optional SMRITI System Parameter governance overrides.
+ */
+export function channelRequiresStoreLocation(
+  channel: string | null | undefined,
+  systemParamOverride?: boolean | null
+): boolean {
+  if (systemParamOverride !== undefined && systemParamOverride !== null) {
+    return systemParamOverride;
+  }
+  const clean = String(channel || "B2B_WHOLESALE").trim().toUpperCase();
+  const match = SALES_CHANNELS.find(sc => sc.value === clean);
+  return match ? match.requiresStoreLocation : false;
+}
+
 
 export interface TransporterRow {
   sNo: number;

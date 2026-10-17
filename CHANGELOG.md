@@ -1,3 +1,18 @@
+## [6.87.0] — 2026-10-16
+
+### Sales & Inventory Projection — Conditional Store Code Visibility & Automatic Idempotent PSV Account Mapping (Phase 2) v1.0.0
+
+Implemented dynamic sales channel-driven store location visibility and idempotent automatic Party Stock Visibility (PSV) account resolution/creation for Modern Trade in SMRITI Retail OS:
+
+**Key Capabilities & Architectural Enforcement:**
+- **Authoritative Sales Channel Layer:** Distinguished operational sales channels (`MODERN_TRADE`, `GENERAL_TRADE`, `B2B_WHOLESALE`, `POS_RETAIL`, `ECOMMERCE`) from order ingress (`billingSource` like `DIRECT`, `CUSTOMER_PO`). Exposed `GET /api/v1/sales/channel-capabilities` with tenant override support via SMRITI System Parameters.
+- **Conditional Store Code Visibility:** Rendered Delivery Location and Store Code dynamically in the Billing Terminal Header (Row 3) with mandatory indicators (`*`) exclusively when the active sales channel requires store tracking (`MODERN_TRADE`). Concealed fields for other channels without mutating or deleting historical state.
+- **Pre-Save Settlement Guards:** Enforced validation blocking settlement in `BillingTerm.tsx` and invoice creation in `backend/app/services/sales.py` (HTTP 422 `SMRITI-VAL-004`) when a store-requiring channel lacks a delivery location.
+- **Automatic Idempotent PSV Account Resolution:** Engineered `PSVProjectionService.resolve_or_create_store_psv_party` and mounted `POST /api/v1/psv/resolve-store-party`, validating tenant isolation, customer ownership, and active location status.
+- **Race Condition & Database Uniqueness:** Authored and applied Alembic migration `v1535_psv_parties_store_uniqueness.py` adding PostgreSQL partial unique indexes on `psv_parties (company_id, delivery_location_id)` and `psv_parties (company_id, host_customer_id, store_code)`, backed by SQLAlchemy savepoints (`session.begin_nested()`) catching `IntegrityError`. Applied migration `v1536_sales_invoice_sales_channel.py` persisting `sales_channel` column and index on `sales_invoices`.
+- **Zero Stock Movement Invariant:** Enforced that resolving or creating a PSV party produces 0 physical stock ledger mutations in `stock_movements`.
+- **Automated Verification:** Certified with 15/15 Pytest assertions green in `backend/app/tests/test_psv_store_mapping.py`, 6/6 Vitest assertions green in `src/tests/conditionalStoreCodePsv.test.ts`, and 0 TypeScript errors (`tsc --noEmit`).
+
 ## [6.86.0] — 2026-10-16
 
 ### Procurement & PO Print — Tattly Threads Logo Watermark & SMRITI Branded Image Placeholder Integration v1.0.0

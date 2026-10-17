@@ -4,9 +4,9 @@ Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
-Version      : 3.18.0
+Version      : 3.25.0
 Created      : 2026-07-11
-Modified     : 2026-08-18
+Modified     : 2026-10-17
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 Classification: Internal
@@ -62,6 +62,8 @@ class SalesInvoice(BaseEntity):
     source_document_type     = Column(String(30), nullable=True, default="DIRECT")
     source_document_id       = Column(String(50), nullable=True)
     source_document_line_id  = Column(String(50), nullable=True)
+    # Phase 2: Operational Sales Channel (MODERN_TRADE, GENERAL_TRADE, B2B_WHOLESALE, POS_RETAIL, ECOMMERCE)
+    sales_channel            = Column(String(50), nullable=False, server_default=text("'B2B_WHOLESALE'"), default="B2B_WHOLESALE", index=True)
     customer_name           = Column(String(255))
     customer_gstin          = Column(String(50))
     billing_address         = Column(Text)

@@ -6,7 +6,7 @@ Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
 Version      : 6.70.34
 Created      : 2026-07-11
-Modified     : 2026-10-14
+Modified     : 2026-10-16
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 Classification: Internal
@@ -143,10 +143,18 @@ class SalesService:
             counter_id=getattr(invoice_in, "counter_id", None),
             idempotency_key=effective_idemp_key,
             client_invoice_no=client_inv_no,
-            source_channel=getattr(invoice_in, "source_document_type", None) or ("CUSTOMER_PO" if getattr(invoice_in, "customer_po_id", None) else "B2B_WHOLESALE"),
+            source_channel=getattr(invoice_in, "sales_channel", None) or getattr(invoice_in, "source_document_type", None) or ("CUSTOMER_PO" if getattr(invoice_in, "customer_po_id", None) else "B2B_WHOLESALE"),
             allow_negative_stock=False,
             supervisor_override_code=getattr(invoice_in, "supervisor_override_code", None),
         )
+
+        from ..core.sales_channels import channel_requires_store_location
+        if channel_requires_store_location(ctx.source_channel):
+            if not getattr(invoice_in, "delivery_location_id", None) or not getattr(invoice_in, "delivery_store_code", None):
+                raise HTTPException(
+                    status_code=400,
+                    detail="SMRITI-VAL-004: Delivery Location / Store Code is mandatory when billing under Modern Trade or store-tracked sales channel. Please select a valid store location.",
+                )
 
         canonical_items = []
         for it in invoice_in.items:

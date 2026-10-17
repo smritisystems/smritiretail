@@ -6,7 +6,7 @@ Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
 Version      : 3.19.0
 Created      : 2026-07-11
-Modified     : 2026-09-04
+Modified     : 2026-10-16
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 Classification: Internal
@@ -117,6 +117,7 @@ class SalesInvoiceBase(BaseModel):
     source_document_type:     Optional[str] = Field("DIRECT", max_length=30, validation_alias=AliasChoices("source_document_type", "sourceDocumentType"))
     source_document_id:       Optional[str] = Field(None, max_length=50, validation_alias=AliasChoices("source_document_id", "sourceDocumentId"))
     source_document_line_id:  Optional[str] = Field(None, max_length=50, validation_alias=AliasChoices("source_document_line_id", "sourceDocumentLineId"))
+    sales_channel:            Optional[str] = Field("B2B_WHOLESALE", max_length=50, validation_alias=AliasChoices("sales_channel", "salesChannel", "source_channel", "sourceChannel"))
     psv_party_id:             Optional[str]  = Field(None, max_length=50,  validation_alias=AliasChoices("psv_party_id", "psvPartyId"))
     psv_store_id:             Optional[str]  = Field(None, max_length=50,  validation_alias=AliasChoices("psv_store_id", "psvStoreId"))
     # Statutory GST Physical Origin / Dispatch From

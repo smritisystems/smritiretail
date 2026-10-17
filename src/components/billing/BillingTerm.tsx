@@ -6,7 +6,7 @@
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
  * Version      : 6.28.0
  * Created      : 2026-08-21
- * Modified     : 2026-09-16
+ * Modified     : 2026-10-16
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
@@ -41,7 +41,9 @@ import {
   CustomerGSTRegistrationDTO,
   CustomerDeliveryLocationDTO,
   CustomerBillingLocationDTO,
-  toCanonicalPaymentMode
+  toCanonicalPaymentMode,
+  SALES_CHANNELS,
+  channelRequiresStoreLocation
 } from "./types.ts";
 import { SmritiF2AdvancedItemSearch, SmritiF2SelectedItem } from "./SmritiF2AdvancedItemSearch.tsx";
 import {
@@ -143,8 +145,17 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
     placeOfSupplyCode: null,
     poReference: "",
     billingSource: "DIRECT",
-    customerPoId: null
+    customerPoId: null,
+    salesChannel: "B2B_WHOLESALE",
+    psvPartyId: null
   });
+
+  const isStoreLocationRequired = useMemo(() => {
+    const channelKey = (headerState.salesChannel || "B2B_WHOLESALE").toUpperCase();
+    const sysParamKey = `SMRITI.SALES.CHANNEL.${channelKey}.REQUIRES_STORE_LOCATION`;
+    const sysParamVal = smritiSystemParameterService.getValue<boolean | null>(sysParamKey, null);
+    return channelRequiresStoreLocation(headerState.salesChannel, sysParamVal);
+  }, [headerState.salesChannel]);
 
   const loadCustomerPOs = async (customerId: string) => {
     if (!customerId || customerId === "CUST-WALKIN") {
@@ -309,6 +320,26 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
         deliveryLocationSnapshot: delSnapshot,
         shippingAddress: defaultDelLoc ? [defaultDelLoc.address_line1, defaultDelLoc.city, defaultDelLoc.state_name].filter(Boolean).join(", ") : null,
       }));
+
+      // Auto-resolve PSV party for default delivery location if present
+      if (defaultDelLoc?.id) {
+        void apiFetchV1<any>("/psv/resolve-store-party", {
+          method: "POST",
+          body: JSON.stringify({
+            delivery_location_id: defaultDelLoc.id,
+            customer_id: customerId,
+          }),
+        }).then(res => {
+          if (res?.psv_party_id) {
+            setHeaderState(prev => ({
+              ...prev,
+              psvPartyId: res.psv_party_id,
+            }));
+          }
+        }).catch(err => {
+          console.warn("[BillingTerm] Automatic PSV account resolution notice:", err);
+        });
+      }
     } catch {
       // Offline fallback
     } finally {
@@ -347,6 +378,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
           deliveryStoreCode: null,
           deliveryGstin: null,
           deliveryLocationSnapshot: null,
+          psvPartyId: null,
           placeOfSupplyCode: billedReg?.state_code || null
         };
       });
@@ -378,6 +410,24 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
       deliveryLocationSnapshot: snapshot,
       placeOfSupplyCode: loc.state_code
     }));
+
+    // Auto-resolve PSV party for chosen delivery location
+    void apiFetchV1<any>("/psv/resolve-store-party", {
+      method: "POST",
+      body: JSON.stringify({
+        delivery_location_id: loc.id,
+        customer_id: headerState.customer?.id,
+      }),
+    }).then(res => {
+      if (res?.psv_party_id) {
+        setHeaderState(prev => ({
+          ...prev,
+          psvPartyId: res.psv_party_id,
+        }));
+      }
+    }).catch(err => {
+      console.warn("[BillingTerm] Automatic PSV account resolution notice:", err);
+    });
   };
 
   const handleBillingLocationChange = (locId: string) => {
@@ -727,7 +777,9 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
       deliveryLocationSnapshot: null,
       placeOfSupplyCode: null,
       poReference: "",
-      customerPoId: null
+      customerPoId: null,
+      salesChannel: "B2B_WHOLESALE",
+      psvPartyId: null
     }));
     setSelectedCustomerPO(null);
     setCustomerGstRegistrations([]);
@@ -837,15 +889,18 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
           outstanding: Number(result.record?.outstanding_balance ?? result.record?.outstanding ?? 0),
           createdDate: (result.record?.created_at as string) || new Date().toISOString().split("T")[0],
         };
+        const custType = String(result.record?.customer_type || result.record?.customerType || "").toUpperCase();
         setHeaderState(prev => ({
           ...prev,
           customer: custObj,
+          salesChannel: custType === "MODERN_TRADE" ? "MODERN_TRADE" : prev.salesChannel,
           billedPartyGstinId: null,
           billedGstin: null,
           deliveryLocationId: null,
           deliveryStoreCode: null,
           deliveryGstin: null,
           deliveryLocationSnapshot: null,
+          psvPartyId: null,
           placeOfSupplyCode: null,
           poReference: ""
         }));
@@ -1123,15 +1178,18 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
   }, [items, headerState, lastCompletedInvoice, activeItemSearchField, hasGstProfile, selectedRowIndex, editingLineId]);
 
   const handleSelectCustomer = (c: Customer | null) => {
+    const custType = String((c as any)?.customer_type || (c as any)?.customerType || "").toUpperCase();
     setHeaderState(prev => ({
       ...prev,
       customer: c,
+      salesChannel: custType === "MODERN_TRADE" ? "MODERN_TRADE" : prev.salesChannel,
       billedPartyGstinId: null,
       billedGstin: null,
       deliveryLocationId: null,
       deliveryStoreCode: null,
       deliveryGstin: null,
       deliveryLocationSnapshot: null,
+      psvPartyId: null,
       placeOfSupplyCode: null,
       poReference: "",
       customerPoId: null
@@ -1162,9 +1220,11 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
       createdDate: (r as any).createdDate || (r as any).created_at || new Date().toISOString().split("T")[0]
     };
 
+    const custType = String((r as any)?.customer_type || (r as any)?.customerType || "").toUpperCase();
     setHeaderState(prev => ({
       ...prev,
       customer: custObj,
+      salesChannel: custType === "MODERN_TRADE" ? "MODERN_TRADE" : prev.salesChannel,
       transaction: (r as any).allowCreditInvoice !== false ? prev.transaction : "Cash",
       billedPartyGstinId: null,
       billedGstin: null,
@@ -1172,6 +1232,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
       deliveryStoreCode: null,
       deliveryGstin: null,
       deliveryLocationSnapshot: null,
+      psvPartyId: null,
       placeOfSupplyCode: null,
       poReference: ""
     }));
@@ -1930,6 +1991,8 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
       delivery_location_snapshot: headerState.deliveryLocationSnapshot || null,
       place_of_supply_code: headerState.placeOfSupplyCode || null,
       po_reference: headerState.poReference || null,
+      sales_channel: headerState.salesChannel || "B2B_WHOLESALE",
+      psv_party_id: headerState.psvPartyId || null,
       status: "Suspended",
       payment_mode: "CREDIT",
       items: items.map((it, idx) => ({
@@ -2150,6 +2213,15 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
       return;
     }
 
+    if (isStoreLocationRequired && (!headerState.deliveryLocationId || !headerState.deliveryStoreCode)) {
+      onNotification?.(
+        "Store Location Required",
+        "Delivery Location / Store Code is mandatory for Modern Trade sales channel. Please select a valid store location before completing the invoice.",
+        "error"
+      );
+      return;
+    }
+
     // Format invoice number from resolved prefix and sequence; omit if empty so backend allocates sequence atomically
     const invNo = (headerState.docPrefix && headerState.docNo)
       ? `${headerState.docPrefix}${headerState.docNo}`
@@ -2175,6 +2247,8 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
       customer_po_id: headerState.customerPoId || null,
       source_document_type: headerState.billingSource || "DIRECT",
       source_document_id: headerState.customerPoId || null,
+      sales_channel: headerState.salesChannel || "B2B_WHOLESALE",
+      psv_party_id: headerState.psvPartyId || null,
       status: "Completed",
       payment_mode: isCreditTx ? "CREDIT" : toCanonicalPaymentMode(payments[0]?.mode),
       paid_amount: isCreditTx ? 0 : totalTendered,
@@ -2676,6 +2750,22 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
                 <option value="DELIVERY" disabled>Delivery (Not configured)</option>
               </select>
             </div>
+
+            {/* Operational Sales Channel */}
+            <div className="flex flex-col gap-unit w-48">
+              <label className="font-label-caps text-label-caps text-on-surface-variant font-bold">Sales Channel</label>
+              <select
+                aria-label="Sales Channel"
+                data-testid="sales-channel-select"
+                value={headerState.salesChannel || "B2B_WHOLESALE"}
+                onChange={e => setHeaderState(prev => ({ ...prev, salesChannel: e.target.value }))}
+                className="border-outline-variant text-body-md focus:border-secondary focus:ring-secondary rounded h-9 bg-surface-container-lowest px-2.5 font-medium border"
+              >
+                {SALES_CHANNELS.map(ch => (
+                  <option key={ch.value} value={ch.value}>{ch.label}</option>
+                ))}
+              </select>
+            </div>
             <div className="flex flex-col gap-unit w-48">
               <label className="font-label-caps text-label-caps text-on-surface-variant font-bold">Bill Type</label>
               <select
@@ -2973,52 +3063,60 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
                 )}
               </div>
 
-              {/* Delivery Location / Store */}
-              <div className="flex flex-col gap-unit flex-1 min-w-[280px]">
-                <div className="flex items-center justify-between">
-                  <label className="font-label-caps text-label-caps text-on-surface-variant font-bold flex items-center gap-1.5">
-                    <span>Delivery Location / Store</span>
-                    {customerDeliveryLocations.length > 0 && (
-                      <span className="text-[10px] text-blue-600 dark:text-blue-400 font-semibold bg-blue-50 dark:bg-blue-950/60 px-1.5 py-0.5 rounded">
-                        {customerDeliveryLocations.length} Stores
-                      </span>
-                    )}
-                  </label>
-                </div>
-                {customerDeliveryLocations.length > 1 ? (
-                  <select
-                    aria-label="Delivery Location"
-                    data-testid="delivery-location-select"
-                    value={headerState.deliveryLocationId || ""}
-                    onChange={e => handleDeliveryLocationChange(e.target.value)}
-                    className="border-outline-variant text-body-md focus:border-secondary focus:ring-secondary rounded h-9 border bg-surface-container-lowest px-2.5 font-medium"
-                  >
-                    <option value="">-- Select Delivery Location / Store --</option>
-                    {customerDeliveryLocations.map(loc => (
-                      <option key={loc.id} value={loc.id}>
-                        [{loc.store_code}] {loc.location_name} — {loc.city}, {loc.state_name} ({loc.delivery_gstin || "No GSTIN"})
-                      </option>
-                    ))}
-                  </select>
-                ) : (
-                  <div className="h-9 px-2.5 flex items-center border border-outline-variant rounded bg-surface-container-low text-body-md font-medium">
-                    {customerDeliveryLocations.length === 1
-                      ? `${customerDeliveryLocations[0].location_name} — ${customerDeliveryLocations[0].city}, ${customerDeliveryLocations[0].state_name}`
-                      : "No registered delivery location"}
+              {/* Delivery Location / Store (Conditional on Sales Channel requirement) */}
+              {isStoreLocationRequired && (
+                <div data-testid="delivery-location-container" className="flex flex-col gap-unit flex-1 min-w-[280px]">
+                  <div className="flex items-center justify-between">
+                    <label className="font-label-caps text-label-caps text-on-surface-variant font-bold flex items-center gap-1.5">
+                      <span>Delivery Location / Store</span>
+                      <span className="text-error font-bold" title="Store Location is mandatory for this channel">*</span>
+                      {customerDeliveryLocations.length > 0 && (
+                        <span className="text-[10px] text-blue-600 dark:text-blue-400 font-semibold bg-blue-50 dark:bg-blue-950/60 px-1.5 py-0.5 rounded">
+                          {customerDeliveryLocations.length} Stores
+                        </span>
+                      )}
+                    </label>
                   </div>
-                )}
-              </div>
-
-              {/* Store Code Badge */}
-              <div className="flex flex-col gap-unit w-28">
-                <label className="font-label-caps text-label-caps text-on-surface-variant font-bold">Store Code</label>
-                <div 
-                  data-testid="delivery-store-code-display"
-                  className="h-9 px-2.5 flex items-center bg-surface-container-low border border-outline-variant rounded text-body-md font-mono font-bold text-primary"
-                >
-                  {headerState.deliveryStoreCode || "—"}
+                  {customerDeliveryLocations.length > 1 ? (
+                    <select
+                      aria-label="Delivery Location"
+                      data-testid="delivery-location-select"
+                      value={headerState.deliveryLocationId || ""}
+                      onChange={e => handleDeliveryLocationChange(e.target.value)}
+                      className="border-outline-variant text-body-md focus:border-secondary focus:ring-secondary rounded h-9 border bg-surface-container-lowest px-2.5 font-medium"
+                    >
+                      <option value="">-- Select Delivery Location / Store --</option>
+                      {customerDeliveryLocations.map(loc => (
+                        <option key={loc.id} value={loc.id}>
+                          [{loc.store_code}] {loc.location_name} — {loc.city}, {loc.state_name} ({loc.delivery_gstin || "No GSTIN"})
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <div className="h-9 px-2.5 flex items-center border border-outline-variant rounded bg-surface-container-low text-body-md font-medium">
+                      {customerDeliveryLocations.length === 1
+                        ? `${customerDeliveryLocations[0].location_name} — ${customerDeliveryLocations[0].city}, ${customerDeliveryLocations[0].state_name}`
+                        : "No registered delivery location"}
+                    </div>
+                  )}
                 </div>
-              </div>
+              )}
+
+              {/* Store Code Badge (Conditional on Sales Channel requirement) */}
+              {isStoreLocationRequired && (
+                <div data-testid="delivery-store-code-container" className="flex flex-col gap-unit w-28">
+                  <label className="font-label-caps text-label-caps text-on-surface-variant font-bold flex items-center gap-1">
+                    <span>Store Code</span>
+                    <span className="text-error font-bold" title="Mandatory for this channel">*</span>
+                  </label>
+                  <div 
+                    data-testid="delivery-store-code-display"
+                    className="h-9 px-2.5 flex items-center bg-surface-container-low border border-outline-variant rounded text-body-md font-mono font-bold text-primary"
+                  >
+                    {headerState.deliveryStoreCode || "—"}
+                  </div>
+                </div>
+              )}
 
               {/* Place of Supply (POS) */}
               <div className="flex flex-col gap-unit w-24">

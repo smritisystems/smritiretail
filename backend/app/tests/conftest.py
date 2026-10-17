@@ -6,7 +6,7 @@ Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
 Version      : 3.21.0
 Created      : 2026-07-11
-Modified     : 2026-08-17
+Modified     : 2026-10-16
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 """
@@ -326,6 +326,7 @@ def session_template_database():
                 "ALTER TYPE userrole ADD VALUE IF NOT EXISTS 'ACCOUNTANT';",
                 "ALTER TYPE userrole ADD VALUE IF NOT EXISTS 'AUDITOR';",
                 "ALTER TYPE userrole ADD VALUE IF NOT EXISTS 'HR_EXECUTIVE';",
+                "ALTER TABLE IF EXISTS sales_invoices ADD COLUMN IF NOT EXISTS sales_channel VARCHAR(50) DEFAULT 'B2B_WHOLESALE';",
             ]
             for stmt in statements:
                 try:

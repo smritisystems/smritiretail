@@ -6,7 +6,7 @@ Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
 Version      : 3.25.0
 Created      : 2026-07-11
-Modified     : 2026-08-20
+Modified     : 2026-10-16
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 Classification: Internal
@@ -1063,5 +1063,17 @@ async def list_eway_bills(
     )
     rows = res.scalars().all()
     return [EWayBillResponse.model_validate(r) for r in rows]
+
+
+@router.get("/channel-capabilities", summary="Get Sales Channel Capabilities")
+@router.get("/channel-capabilities/", summary="Get Sales Channel Capabilities")
+async def get_sales_channel_capabilities() -> List[dict]:
+    """
+    Returns canonical sales channels and their operational capabilities,
+    such as whether store-level tracking (requires_store_location) is enforced.
+    """
+    from ...core.sales_channels import DEFAULT_CHANNEL_CAPABILITIES, ALL_SALES_CHANNELS
+    return [DEFAULT_CHANNEL_CAPABILITIES[ch] for ch in ALL_SALES_CHANNELS]
+
 
 

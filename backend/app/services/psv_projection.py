@@ -6,7 +6,7 @@ Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
 Version      : 6.16.0
 Created      : 2026-08-14
-Modified     : 2026-08-25
+Modified     : 2026-10-16
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 Classification: Internal
@@ -16,7 +16,9 @@ import uuid
 from decimal import Decimal
 from datetime import datetime, timezone
 from typing import Dict, Any, Optional, List
-from sqlalchemy import select, or_, func
+from fastapi import HTTPException
+from sqlalchemy import select, or_, func, and_
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 from ..models.psv import (
@@ -48,6 +50,159 @@ class PSVProjectionService:
     """
 
     @classmethod
+    async def resolve_or_create_store_psv_party(
+        cls,
+        session: AsyncSession,
+        company_id: str,
+        delivery_location_id: str,
+        customer_id: Optional[str] = None,
+        branch_id: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """
+        Idempotently resolve or create a PSV account from a validated delivery_location_id.
+        Guarantees:
+        1. Validates canonical store (must exist, belong to company_id, status == 'ACTIVE', not deleted).
+        2. Validates customer ownership (if customer_id provided, must match location.customer_id).
+        3. Looks up existing PSVParty by (company_id, delivery_location_id).
+        4. If not found, looks up by (company_id, host_customer_id, store_code).
+           If found by (company_id, host_customer_id, store_code), links delivery_location_id.
+        5. If still not found, creates a new PSVParty.
+        6. Race-condition protection: handles concurrent attempts gracefully without duplicate records.
+        7. BOUNDARY: Absolutely zero stock ledger entries are created.
+        """
+        if not delivery_location_id:
+            raise HTTPException(status_code=400, detail="SMRITI-VAL-001: delivery_location_id is required.")
+
+        location = (await session.execute(
+            select(CustomerDeliveryLocation).where(
+                CustomerDeliveryLocation.id == delivery_location_id
+            )
+        )).scalar_one_or_none()
+
+        if not location:
+            raise HTTPException(status_code=404, detail="SMRITI-VAL-404: Delivery location not found or has been removed.")
+
+        if location.company_id and location.company_id != company_id:
+            raise HTTPException(status_code=403, detail="SMRITI-PERM-001: Access denied for delivery location across company tenant boundary.")
+
+        if location.is_deleted or (location.status and location.status.upper() != "ACTIVE"):
+            raise HTTPException(status_code=400, detail="SMRITI-VAL-002: Selected delivery location / store is currently inactive or deleted.")
+
+        if customer_id and location.customer_id != customer_id:
+            raise HTTPException(status_code=400, detail="SMRITI-PERM-003: Delivery location does not belong to the selected customer.")
+
+        # 1. Direct match on (company_id, delivery_location_id)
+        party = (await session.execute(
+            select(PSVParty).where(
+                PSVParty.company_id == company_id,
+                PSVParty.delivery_location_id == location.id,
+            )
+        )).scalar_one_or_none()
+
+        if party:
+            return {
+                "psv_party_id": party.id,
+                "store_code": party.store_code or location.store_code,
+                "delivery_location_id": location.id,
+                "host_customer_id": party.host_customer_id or location.customer_id,
+                "company_id": company_id,
+                "name": party.name,
+                "location": party.location,
+                "stock_model": party.stock_model,
+                "is_newly_created": False,
+                "status": party.status,
+            }
+
+        # 2. Check match on (company_id, host_customer_id, store_code)
+        party = (await session.execute(
+            select(PSVParty).where(
+                PSVParty.company_id == company_id,
+                PSVParty.host_customer_id == location.customer_id,
+                PSVParty.store_code == location.store_code,
+            )
+        )).scalar_one_or_none()
+
+        if party:
+            # Link missing delivery_location_id if unlinked
+            if not party.delivery_location_id:
+                party.delivery_location_id = location.id
+            if not party.store_name_snapshot:
+                party.store_name_snapshot = location.location_name
+            await session.flush()
+            return {
+                "psv_party_id": party.id,
+                "store_code": party.store_code,
+                "delivery_location_id": location.id,
+                "host_customer_id": party.host_customer_id,
+                "company_id": company_id,
+                "name": party.name,
+                "location": party.location,
+                "stock_model": party.stock_model,
+                "is_newly_created": False,
+                "status": party.status,
+            }
+
+        # 3. Create missing account with race-condition protection
+        customer = (await session.execute(
+            select(Customer).where(Customer.id == location.customer_id)
+        )).scalar_one_or_none()
+
+        party_name = customer.name if customer else location.location_name
+        loc_desc = f"{location.location_name} — {location.city or ''}, {location.state or ''}".strip(" —,")
+        if not loc_desc:
+            loc_desc = location.location_name
+
+        is_newly_created = False
+        new_party_id = f"psv-{company_id}-{location.id}"[:50]
+
+        try:
+            async with session.begin_nested():
+                party = PSVParty(
+                    id=new_party_id,
+                    company_id=company_id,
+                    branch_id=branch_id,
+                    host_customer_id=location.customer_id,
+                    delivery_location_id=location.id,
+                    store_code=location.store_code,
+                    store_name_snapshot=location.location_name,
+                    stock_model="OUTRIGHT_SALE",
+                    name=party_name,
+                    location=loc_desc,
+                    status="Healthy",
+                )
+                session.add(party)
+                await session.flush()
+                is_newly_created = True
+        except IntegrityError:
+            # Another concurrent transaction inserted the party concurrently; query it cleanly
+            party = (await session.execute(
+                select(PSVParty).where(
+                    PSVParty.company_id == company_id,
+                    or_(
+                        PSVParty.delivery_location_id == location.id,
+                        and_(
+                            PSVParty.host_customer_id == location.customer_id,
+                            PSVParty.store_code == location.store_code,
+                        )
+                    )
+                )
+            )).scalar_one()
+            is_newly_created = False
+
+        return {
+            "psv_party_id": party.id,
+            "store_code": party.store_code or location.store_code,
+            "delivery_location_id": location.id,
+            "host_customer_id": party.host_customer_id or location.customer_id,
+            "company_id": company_id,
+            "name": party.name,
+            "location": party.location,
+            "stock_model": party.stock_model,
+            "is_newly_created": is_newly_created,
+            "status": party.status,
+        }
+
+    @classmethod
     async def project_posted_invoice(
         cls,
         session: AsyncSession,
@@ -69,36 +224,23 @@ class PSVProjectionService:
         if not invoice or not invoice.delivery_location_id or not invoice.delivery_store_code:
             return {"status": "SKIPPED_NO_PARTNER_LOCATION", "invoice_id": invoice_id, "projected": 0}
 
-        location = (await session.execute(select(CustomerDeliveryLocation).where(
-            CustomerDeliveryLocation.id == invoice.delivery_location_id,
-            CustomerDeliveryLocation.company_id == company_id,
-            CustomerDeliveryLocation.status == "ACTIVE",
-            CustomerDeliveryLocation.is_deleted == False,
-        ))).scalar_one_or_none()
-        if not location:
+        try:
+            resolved_party = await cls.resolve_or_create_store_psv_party(
+                session=session,
+                company_id=company_id,
+                delivery_location_id=invoice.delivery_location_id,
+                customer_id=invoice.customer_id,
+                branch_id=branch_id,
+            )
+            party = (await session.execute(
+                select(PSVParty).where(PSVParty.id == resolved_party["psv_party_id"])
+            )).scalar_one()
+        except HTTPException:
             return {"status": "SKIPPED_UNKNOWN_PARTNER_LOCATION", "invoice_id": invoice_id, "projected": 0}
 
-        party = (await session.execute(select(PSVParty).where(
-            PSVParty.company_id == company_id,
-            PSVParty.delivery_location_id == location.id,
+        location = (await session.execute(select(CustomerDeliveryLocation).where(
+            CustomerDeliveryLocation.id == invoice.delivery_location_id,
         ))).scalar_one_or_none()
-        if not party:
-            customer = (await session.execute(select(Customer).where(Customer.id == location.customer_id))).scalar_one_or_none()
-            party = PSVParty(
-                id=f"psv-{company_id}-{location.id}"[:50],
-                company_id=company_id,
-                branch_id=branch_id,
-                host_customer_id=location.customer_id,
-                delivery_location_id=location.id,
-                store_code=location.store_code,
-                store_name_snapshot=location.location_name,
-                stock_model="OUTRIGHT_SALE",
-                name=customer.name if customer else location.location_name,
-                location=location.location_name,
-                status="Healthy",
-            )
-            session.add(party)
-            await session.flush()
 
         projected = 0
         for line in invoice.items:
