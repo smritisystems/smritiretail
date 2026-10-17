@@ -1,5 +1,14 @@
 ## [6.99.0] — 2026-10-17
 
+### Security & Governance — Tenant Data Boundary (TDB-v2.0) Guard Remediation v1.0.0
+
+Remediated all 22 tenant data boundary violations detected by `scripts/ci_tenant_boundary_guard.py` and `backend/app/db/cp_guard.py`, enforcing positive table ownership declarations and physical control plane isolation:
+- **Tenant Seeding Loop Remediation (`scripts/seed_uom.py`)**: Removed `smritisys` from target database iteration, restricting UOM master seeding exclusively to tenant company databases (`smriti001`, `smriti002`, `smriti003`). Added UADHP standard file header.
+- **Canonical Table Ownership Registration (`backend/app/db/ownership.py`)**: Classified and registered 21 untracked ORM model tables:
+  - 20 Operational tables declared as `TableOwner.TENANT`: `gift_cards`, `gift_card_transactions`, `gift_vouchers`, `item_price_revisions`, `dispatch_batches`, `dispatch_batch_invoices`, `goods_receipt_notes`, `goods_receipt_lines`, `purchase_bills`, `purchase_bill_items`, `purchase_requisitions`, `purchase_requisition_items`, `supplier_rfqs`, `supplier_rfq_items`, `supplier_quotations`, `supplier_quotation_items`, `e_invoices`, `e_invoice_batches`, `barcode_print_jobs`, `transaction_idempotency_records`.
+  - 1 Platform template table declared as `TableOwner.PLATFORM_TEMPLATE`: `kpi_definitions`.
+- **Verification**: Certified with 10/10 checks green in `scripts/ci_tenant_boundary_guard.py`, 0 undeclared tables in `backend/app/db/cp_guard.py`, 0 critical/error violations in `scripts/ci_ux_field_governance_guard.py`, and 11/11 architecture CI gate checks passed.
+
 ### Procurement & Visual Analytics — Universal Attribute-Based Visual Analytics v1.0.0
 
 Implemented the approved visual reference for Procurement Visual Reports establishing business attributes (**Article / Style**, **Color**, **Size**, Category, Brand, Season, Supplier) as primary reporting dimensions rather than raw barcodes, while providing a configurable dashboard panel with 8 chart types, multidimensional grouping, measure selection, time grouping, top-N ranking, and 100% authoritative database reconciliation:

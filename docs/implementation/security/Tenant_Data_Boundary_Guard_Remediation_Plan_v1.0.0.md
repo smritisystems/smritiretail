@@ -114,12 +114,12 @@ Git revert of changes to `backend/app/db/ownership.py` and `scripts/seed_uom.py`
 Apply changes to development environment, verify AST guard, and sync via Git push.
 
 ## 17. Status
-Approved for Planning (Awaiting Execution Approval).
+Completed.
 
 ## 18. Related ADRs
 - `ADR-0042`: Positive Table Ownership Registry (TDB-v2.0)
 - `ADR-0048`: Elimination of Cross-Database Foreign Keys & Separation of Concerns
 
 ## 19. Related Walkthroughs
+- `docs/walkthrough/security/Tenant_Data_Boundary_Guard_Remediation_v1.0.0.md`
 - `docs/walkthrough/foundation/Sprint39_Universal_Search_Engine_Completion_v1.0.0.md`
-- To be created: `docs/walkthrough/security/Tenant_Data_Boundary_Guard_Remediation_v1.0.0.md`
