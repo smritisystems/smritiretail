@@ -144,6 +144,7 @@ class SalesService:
             idempotency_key=effective_idemp_key,
             client_invoice_no=client_inv_no,
             source_channel=getattr(invoice_in, "sales_channel", None) or getattr(invoice_in, "source_document_type", None) or ("CUSTOMER_PO" if getattr(invoice_in, "customer_po_id", None) else "B2B_WHOLESALE"),
+            sales_channel=getattr(invoice_in, "sales_channel", None) or "B2B_WHOLESALE",
             allow_negative_stock=False,
             supervisor_override_code=getattr(invoice_in, "supervisor_override_code", None),
         )

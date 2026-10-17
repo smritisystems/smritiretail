@@ -263,5 +263,6 @@ async def resolve_store_party(
         delivery_location_id=req.delivery_location_id,
         customer_id=req.customer_id,
     )
+    await session.commit()
     return PSVStoreResolutionResp(**res)
 

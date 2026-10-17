@@ -296,6 +296,7 @@ class CanonicalSalesPostingWriter:
             return cls._build_replayed_result(existing_inv)
 
         # 3. Customer & Credit Validation
+        branch_candidates = {branch_id, "MAIN", "BR-MAIN-001", "BR-001"} if branch_id in ("MAIN", "BR-MAIN-001", "BR-001") else {branch_id}
         db_customer: Optional[Customer] = None
         credit_tender_amount = Decimal("0.00")
         for t in req.tenders:
@@ -310,7 +311,7 @@ class CanonicalSalesPostingWriter:
             q_cust = select(Customer).where(
                 Customer.id == req.customer_id,
                 Customer.company_id == company_id,
-                (Customer.branch_id == branch_id) | Customer.branch_id.is_(None),
+                (Customer.branch_id.in_(branch_candidates)) | Customer.branch_id.is_(None),
                 Customer.is_deleted == False,
             ).with_for_update()
             res_cust = await session.execute(q_cust)
@@ -418,7 +419,7 @@ class CanonicalSalesPostingWriter:
                     status_code=403,
                     detail="Cross-company billing location access is prohibited."
                 )
-            if billing_loc_record.branch_id and billing_loc_record.branch_id != (branch_id or "MAIN"):
+            if billing_loc_record.branch_id and billing_loc_record.branch_id not in branch_candidates:
                 raise HTTPException(status_code=403, detail="Cross-branch billing location access is prohibited.")
             if billing_loc_record.customer_id != resolved_customer_id:
                 raise HTTPException(
@@ -453,7 +454,7 @@ class CanonicalSalesPostingWriter:
                     status_code=403,
                     detail="Cross-company GST registration access is prohibited."
                 )
-            if billed_reg_record.branch_id and billed_reg_record.branch_id != (branch_id or "MAIN"):
+            if billed_reg_record.branch_id and billed_reg_record.branch_id not in branch_candidates:
                 raise HTTPException(status_code=403, detail="Cross-branch GST registration access is prohibited.")
             if billed_reg_record.customer_id != resolved_customer_id:
                 raise HTTPException(
@@ -488,7 +489,7 @@ class CanonicalSalesPostingWriter:
                     status_code=403,
                     detail="Cross-company delivery location access is prohibited."
                 )
-            if delivery_loc_record.branch_id and delivery_loc_record.branch_id != (branch_id or "MAIN"):
+            if delivery_loc_record.branch_id and delivery_loc_record.branch_id not in branch_candidates:
                 raise HTTPException(status_code=403, detail="Cross-branch delivery location access is prohibited.")
             if delivery_loc_record.customer_id != resolved_customer_id:
                 raise HTTPException(
@@ -513,7 +514,7 @@ class CanonicalSalesPostingWriter:
                             status_code=403,
                             detail="Delivery location linked GST registration belongs to a different company."
                         )
-                    if linked_reg.branch_id and linked_reg.branch_id != (branch_id or "MAIN"):
+                    if linked_reg.branch_id and linked_reg.branch_id not in branch_candidates:
                         raise HTTPException(status_code=403, detail="Delivery location linked GST registration belongs to a different branch.")
                     if linked_reg.customer_id != resolved_customer_id:
                         raise HTTPException(

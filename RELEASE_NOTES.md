@@ -4,15 +4,51 @@
   Designation  : Chief Systems Architect & Creator
   Email        : support@smritibooks.com
   Websites     : smritibooks.com | erpnbook.com | aitdl.com
-  Version      : 6.84.1
+  Version      : 6.89.1
   Created      : 2026-10-13
-  Modified     : 2026-10-16
+  Modified     : 2026-10-17
   Copyright    : © SMRITIBooks.com. All Rights Reserved.
   License      : Proprietary Commercial Software
   Classification: Internal
 -->
 
 # SMRITI Retail OS — Release Notes
+
+## Release v6.89.1 (2026-10-17)
+
+### Sales & Billing — SMRITI Billing Studio UX Simplification & Ergonomic Workflow Hardening
+
+#### Overview
+SMRITI Retail OS v6.89.1 delivers a streamlined, simplified cashier-facing interface for the canonical **SMRITI Billing Studio** (`SmritiBillingStudio.tsx`). It reduces operational clutter at the checkout counter, provides maximum horizontal grid area by collapsing secondary inspection panels by default, encapsulates scanner configurations into a dedicated modal dialog, hardens barcode scanning against double-scans, prevents unauthorized cashier price overrides, cleans up redundant cart columns, and enforces pure mathematical integrity without hardcoded calculation offsets.
+
+#### Key Highlights
+- **100% Viewport Cashier Counter (Collapsible More Details)**:
+  - Collapsed the secondary right-hand "More Details" panel by default (`showMoreDetails = false`), providing full viewport width for high-speed scanning and line-item review.
+  - Eliminated duplicate entry points (such as the redundant `More Details >` button in the cart table footer).
+- **Encapsulated Scan & Add Settings Modal**:
+  - Replaced the permanently visible red-bordered settings panel with a dedicated "Billing & Scan Preferences" modal dialog triggered via the top header action bar.
+- **Enhanced Barcode Scanning & Hardware Bounce Debounce**:
+  - Tri-modal scan operational modes (`AUTO_ADD`, `EDIT_THEN_ADD`, `CONFIRM_PRODUCT`).
+  - Implemented 350ms hardware barcode scanner bounce debounce (`lastScanRef.current`), eliminating duplicate entries from laser trigger bounces.
+  - Supported multiplier prefix syntax (`3*BARCODE` or `5XBARCODE`) for rapid multi-unit entry.
+  - Automatically resets cursor focus to the barcode scanner field (`F1`) following each item addition.
+- **Cashier Rate Lock Protection**:
+  - Enforced `canOverridePrice` permission check. Cashiers without rate override privileges have unit rates rendered read-only with a lock icon.
+- **Cleaned Default Cart Columns**:
+  - Default grid shows `#`, thumbnail, Product Name, Barcode (configurable visibility), Style, Color, Size, Qty, Rate, Discount, Amount, and Salesperson.
+  - Redundant SKU and Variant columns are omitted by default while preserving custom column visibility presets.
+- **Mandatory Corporate Outlet Selection**:
+  - Distinguishes company/branch, customer outlet, billing store, and shipping store.
+  - Enforces mandatory store/outlet selection (`*`) for multi-outlet corporate accounts.
+- **Mathematical Calculation Integrity**:
+  - Pure `computeBillingTotals` calculation engine supporting tax-inclusive and tax-exclusive items with exact penny rounding, eliminating legacy arbitrary offsets.
+- **Automated Verification**:
+  - 18/18 Vitest assertions passed in `src/tests/smritiBillingStudio.test.ts`.
+  - 69/69 billing regression tests passed across 6 test suites.
+  - 0 TypeScript compiler errors (`tsc --noEmit`).
+  - Production build verified (`npm run build`).
+  - Form registry (93 components) and field governance (0 errors) validated.
+  - 10/10 checks green in headless Playwright E2E verification with PostgreSQL transaction settlement.
 
 ## Release v6.84.1 (2026-10-16)
 

@@ -71,7 +71,10 @@ class InventoryWarehouseResolver:
                 Warehouse.company_id == company_id,
                 Warehouse.is_deleted == False,
                 Warehouse.is_active == True,
-            ).order_by(Warehouse.created_at.asc())
+            ).order_by(
+                (Warehouse.pincode.is_not(None) & (Warehouse.pincode != "")).desc(),
+                Warehouse.created_at.asc(),
+            )
             res = await self.db.execute(stmt)
             wh = res.scalars().first()
             if wh:
@@ -82,7 +85,10 @@ class InventoryWarehouseResolver:
                 Warehouse.company_id == company_id,
                 Warehouse.is_deleted == False,
                 Warehouse.is_active == True,
-            ).order_by(Warehouse.created_at.asc())
+            ).order_by(
+                (Warehouse.pincode.is_not(None) & (Warehouse.pincode != "")).desc(),
+                Warehouse.created_at.asc(),
+            )
             res = await self.db.execute(stmt)
             wh = res.scalars().first()
             if wh:
@@ -94,7 +100,10 @@ class InventoryWarehouseResolver:
                 Warehouse.company_id == company_id,
                 Warehouse.is_deleted == False,
                 Warehouse.is_active == True,
-            ).order_by(Warehouse.created_at.asc())
+            ).order_by(
+                (Warehouse.pincode.is_not(None) & (Warehouse.pincode != "")).desc(),
+                Warehouse.created_at.asc(),
+            )
             res = await self.db.execute(stmt)
             wh = res.scalars().first()
             if wh:

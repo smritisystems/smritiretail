@@ -6,7 +6,7 @@
   Websites     : smritibooks.com | erpnbook.com | aitdl.com
   Version      : 6.69.0
   Created      : 2026-07-11
-  Modified     : 2026-10-16
+  Modified     : 2026-10-17
   Copyright    : © SMRITIBooks.com. All Rights Reserved.
   License      : Proprietary Commercial Software
   Classification: Internal
@@ -16,6 +16,9 @@
 
 This directory contains formal, version-controlled implementation plans for SMRITI Retail OS modules and core system enhancements.
 
+| 2026-10-17 | v1.0.0 | **[Sales & Billing: SMRITI Billing Studio UX Simplification & Workflow Streamlining Plan](./billing/Billing_Studio_UX_Simplification_Plan_v1.0.md)** | `src/components/billing/SmritiBillingStudio.tsx`, `src/tests/smritiBillingStudio.test.ts`, `scripts/verify_canonical_billing_studio_headless.py` | Completed | [Walkthrough](../walkthrough/billing/Billing_Studio_UX_Simplification_v1.0.md) |
+| 2026-10-17 | v1.0.0 | **[Sales & Billing: SMRITI Complete Billing UX Replacement (Canonical Billing Studio) Plan](./billing/Canonical_Billing_Studio_Replacement_Plan_v1.0.md)** | `src/components/billing/SmritiBillingStudio.tsx`, `src/components/billing/BillingWorkspace.tsx`, `src/components/shell/TabRenderer.tsx`, `src/tests/smritiBillingStudio.test.ts` | Approved (In Execution) | [Walkthrough](../walkthrough/billing/Canonical_Billing_Studio_Replacement_v1.0.md) |
+| 2026-10-17 | v1.0.0 | **[Sales & POS: Canonical Billing Workspace Consolidation Plan](./billing/Canonical_Billing_Consolidation_Plan_v1.0.md)** | `src/components/billing/BillingWorkspace.tsx`, `src/components/shell/TabRenderer.tsx`, `src/tests/billingWorkspaceConvergence.test.ts` | Completed | [Walkthrough](../walkthrough/billing/Canonical_Billing_Consolidation_v1.0.md) |
 | 2026-10-16 | v1.0.0 | **[Foundation: Registry Usage Audit & Form Modal Data-Field-Key Remediation Plan](./foundation/Foundation_Registry_Usage_Audit_And_Modal_Remediation_Plan_v1.0.0.md)** | `src/components/**/*.tsx`, `scripts/validate-registry-usage.mjs` | Completed | [Walkthrough](../walkthrough/foundation/Foundation_Registry_Usage_Audit_And_Modal_Remediation_v1.0.0.md) |
 | 2026-10-16 | v1.0.0 | **[SMRITI Report Builder: Collapsible Panels, Auto-Adaptive Layout & Focus Mode Plan](./reports/Report_Builder_Collapsible_Panels_And_Focus_Mode_Plan_v1.0.0.md)** | `src/components/reports/ReportBuilder.tsx`, `src/components/ReportDesignerTab.tsx`, `src/tests/reportBuilder.test.ts` | Completed | [Walkthrough](../walkthrough/reports/Report_Builder_Collapsible_Panels_And_Focus_Mode_v1.0.0.md) |
 | 2026-10-16 | v1.0.0 | **[Procurement Phase 2: Purchase Requisition (PR), Supplier RFQ & Quotation Comparison Plan](./procurement/Procurement_Phase2_Requisition_And_Quotation_Plan_v1.0.0.md)** | `backend/alembic/versions/v1534_procurement_pr_rfq_quotations.py`, `backend/app/models/purchase.py`, `backend/app/services/procurement_phase2.py`, `backend/app/api/v1/procurement_phase2.py`, `src/components/purchase/PurchaseRequisitionWorkspace.tsx`, `src/components/purchase/SupplierRfqWorkspace.tsx` | Completed | [Walkthrough](../walkthrough/procurement/Procurement_Phase2_Requisition_And_Quotation_v1.0.0.md) |

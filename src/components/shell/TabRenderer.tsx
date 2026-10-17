@@ -399,7 +399,7 @@ export const renderTabNode = (tabId: string, ctx: TabRendererContextProps): Reac
           currentUser={currentUser}
           onRefreshData={fetchSystemState}
           onNotification={addNotification}
-          initialMode="RETAIL_POS"
+          initialMode="CREDIT_BILLING"
           initialView="CREDIT_BILLING"
         />
       );
@@ -414,7 +414,8 @@ export const renderTabNode = (tabId: string, ctx: TabRendererContextProps): Reac
           currentUser={currentUser}
           onRefreshData={fetchSystemState}
           onNotification={addNotification}
-          initialMode="RETAIL_POS"
+          initialMode="B2B_DISTRIBUTOR"
+          initialView="B2B_DISTRIBUTOR"
         />
       );
     case "sales":
@@ -625,12 +626,15 @@ export const renderTabNode = (tabId: string, ctx: TabRendererContextProps): Reac
     case "propos-ws":
     case "enterprise-billing-suite":
       return (
-        <ProPosWs
+        <BillingWorkspace
           products={products}
           profiles={profiles}
           shifts={shifts}
+          currentUser={currentUser}
           onRefreshData={fetchSystemState}
           onNotification={addNotification}
+          initialMode="RETAIL_POS"
+          initialView="WORKSPACE"
         />
       );
     case "document-studio":

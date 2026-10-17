@@ -4,20 +4,19 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.72.8
+ * Version      : 6.87.0
  * Created      : 2026-09-08
- * Modified     : 2026-10-13
+ * Modified     : 2026-10-17
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
- * Classification: Single Consolidated Billing Workspace Component (Phase 2C Step 13)
+ * Classification: Single Consolidated Billing Workspace Component (Phase 1 Canonical Consolidation)
  */
 
 import React, { useState, useEffect, useCallback } from "react";
 import { Product, POSProfile, Shift, Customer } from "../../types.ts";
-import { SmritiProPosBillingTerminal } from "./propos/ProPosBillingTerm.tsx";
 import { SmritiProPosEodReport } from "./propos/ProPosEodReportVie.tsx";
 import { SmritiDailyReportsDashboard } from "./propos/ProPosDailyReports.tsx";
-import { SmritiCreditBillingTerminal } from "./SmritiCreditBillingTerminal.tsx";
+import { SmritiBillingStudio } from "./SmritiBillingStudio.tsx";
 import { GiftCardLifecycleModal } from "../pos/GiftCardLifecycleModal.tsx";
 import { GiftVoucherModal } from "../pos/GiftVoucherModal.tsx";
 import { ProPosReconciliationDlg } from "./propos/ProPosReconciliationDlg.tsx";
@@ -44,11 +43,13 @@ import {
   Zap,
   ShoppingBag,
   MoreHorizontal,
+  Building2,
+  FileText,
 } from "lucide-react";
 import { APP_VERSION } from "../../config/version.ts";
 
-export type BillingWorkspaceMode = "RETAIL_POS";
-export type BillingAuxiliaryView = "WORKSPACE" | "EOD_Z_REPORT" | "SHIFT_REPORTS" | "CREDIT_BILLING";
+export type BillingWorkspaceMode = "RETAIL_POS" | "CREDIT_BILLING" | "B2B_DISTRIBUTOR";
+export type BillingAuxiliaryView = "WORKSPACE" | "EOD_Z_REPORT" | "SHIFT_REPORTS" | "CREDIT_BILLING" | "B2B_DISTRIBUTOR";
 
 export interface BillingWorkspaceProps {
   products?: Product[];
@@ -71,17 +72,30 @@ export const BillingWorkspace: React.FC<BillingWorkspaceProps> = ({
   currentUser,
   onRefreshData,
   onNotification,
+  initialMode = "RETAIL_POS",
   initialView = "WORKSPACE",
+  isStandaloneTab = false,
 }) => {
-  const [auxView, setAuxView] = useState<BillingAuxiliaryView>(initialView);
+  const [auxView, setAuxView] = useState<BillingAuxiliaryView>(() => {
+    if (initialView && initialView !== "WORKSPACE") return initialView;
+    if (initialMode === "B2B_DISTRIBUTOR") return "B2B_DISTRIBUTOR";
+    if (initialMode === "CREDIT_BILLING") return "CREDIT_BILLING";
+    return "WORKSPACE";
+  });
   const [showHotkeysModal, setShowHotkeysModal] = useState<boolean>(false);
   const [currentTime, setCurrentTime] = useState<string>(() => new Date().toLocaleTimeString());
 
   useEffect(() => {
-    if (initialView) {
+    if (initialView && initialView !== "WORKSPACE") {
       setAuxView(initialView);
+    } else if (initialMode === "B2B_DISTRIBUTOR") {
+      setAuxView("B2B_DISTRIBUTOR");
+    } else if (initialMode === "CREDIT_BILLING") {
+      setAuxView("CREDIT_BILLING");
+    } else if (initialView === "WORKSPACE" || initialMode === "RETAIL_POS") {
+      setAuxView("WORKSPACE");
     }
-  }, [initialView]);
+  }, [initialView, initialMode]);
   // Active shift determination
   const activeShift = shifts.find((s) => s.status?.toUpperCase() === "OPEN") || shifts[0] || null;
   const registerLabel = activeShift?.profileId || "REG-01";
@@ -131,6 +145,22 @@ export const BillingWorkspace: React.FC<BillingWorkspaceProps> = ({
         return;
       }
 
+      // Alt+2: Credit Billing workspace
+      if (e.altKey && e.key === "2") {
+        e.preventDefault();
+        setAuxView("CREDIT_BILLING");
+        showToast("Mode Switched", "Credit Billing Mode Active (Alt+2)", "info");
+        return;
+      }
+
+      // Alt+3: B2B Distributor Tax Invoicing
+      if (e.altKey && e.key === "3") {
+        e.preventDefault();
+        setAuxView("B2B_DISTRIBUTOR");
+        showToast("Mode Switched", "B2B Distributor Invoicing Active (Alt+3)", "info");
+        return;
+      }
+
       // Esc: Dismiss hotkey modal
       if (e.key === "Escape" && showHotkeysModal) {
         e.preventDefault();
@@ -147,17 +177,21 @@ export const BillingWorkspace: React.FC<BillingWorkspaceProps> = ({
     <div className={`h-full flex flex-col overflow-hidden font-sans transition-colors duration-300 ${
       auxView === "CREDIT_BILLING"
         ? "bg-[#1a0f2e] dark:bg-[#0f0920] text-[#e8d5ff]"
+        : auxView === "B2B_DISTRIBUTOR"
+        ? "bg-[#f8fafc] dark:bg-[#0f172a] text-[#0f172a] dark:text-[#f1f5f9]"
         : "bg-[#f8f9fa] dark:bg-[#191c1e] text-[#191c1e] dark:text-[#eff1f3]"
     }`}>
       {/* ── Top Unified Billing Navigation Header ── */}
       <header className={`border-b flex flex-wrap justify-between items-center px-4 h-13 shrink-0 z-20 shadow-2xs gap-2 transition-colors duration-300 ${
         auxView === "CREDIT_BILLING"
           ? "bg-[#2d1057] dark:bg-[#1e0a3c] border-[#6d28d9]/40"
+          : auxView === "B2B_DISTRIBUTOR"
+          ? "bg-white dark:bg-[#1e293b] border-slate-300 dark:border-slate-700"
           : "bg-white dark:bg-[#131b2e] border-[#c4c5d5] dark:border-[#444653]"
       }`}>
-        {/* Brand & Mode Switcher */}
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2 pr-2 border-r border-[#c4c5d5] dark:border-[#444653]">
+        {/* Brand & Tri-Modal Segmented Switcher */}
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 pr-3 border-r border-[#c4c5d5] dark:border-[#444653]">
             <span className="w-2.5 h-2.5 rounded-full bg-[#16a34a] animate-pulse" />
             <h1 className="text-sm font-bold text-[#00288e] dark:text-[#a8b8ff] tracking-tight flex items-center gap-1.5">
               <span>Billing Workspace</span>
@@ -167,22 +201,54 @@ export const BillingWorkspace: React.FC<BillingWorkspaceProps> = ({
             </h1>
           </div>
 
-          {auxView === "CREDIT_BILLING" ? (
-            <div className="flex items-center gap-2 bg-[#7c3aed] text-white px-3 py-1.5 rounded-lg text-xs font-bold shadow-xs">
-              <CreditCard size={14} />
-              <span>Credit Billing</span>
-            </div>
-          ) : (
-            <div className="flex items-center gap-2 bg-[#041632] text-white px-3 py-1.5 rounded-lg text-xs font-bold">
-              <Receipt size={14} />
+          {/* Tri-Modal Operational Segmented Switcher */}
+          <div className="flex items-center p-0.5 bg-[#e2e8f0]/60 dark:bg-black/40 rounded-xl border border-[#cbd5e1] dark:border-[#334155]">
+            <button
+              type="button"
+              onClick={() => setAuxView("WORKSPACE")}
+              className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                auxView === "WORKSPACE"
+                  ? "bg-[#041632] text-white shadow-xs"
+                  : "text-[#475569] dark:text-[#94a3b8] hover:text-[#0f172a] dark:hover:text-white hover:bg-white/40 dark:hover:bg-white/5"
+              }`}
+            >
+              <Receipt size={13} />
               <span>Counter POS</span>
-              <kbd className="text-[9px] px-1 py-0.2 bg-white/15 text-current rounded font-mono">Alt+1</kbd>
-            </div>
-          )}
+              <kbd className="text-[9px] px-1 py-0.2 bg-white/15 rounded font-mono opacity-80">Alt+1</kbd>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setAuxView("CREDIT_BILLING")}
+              className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                auxView === "CREDIT_BILLING"
+                  ? "bg-[#7c3aed] text-white shadow-xs"
+                  : "text-[#475569] dark:text-[#94a3b8] hover:text-[#0f172a] dark:hover:text-white hover:bg-white/40 dark:hover:bg-white/5"
+              }`}
+            >
+              <CreditCard size={13} />
+              <span>Credit</span>
+              <kbd className="text-[9px] px-1 py-0.2 bg-white/15 rounded font-mono opacity-80">Alt+2</kbd>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setAuxView("B2B_DISTRIBUTOR")}
+              className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                auxView === "B2B_DISTRIBUTOR"
+                  ? "bg-[#2563eb] text-white shadow-xs"
+                  : "text-[#475569] dark:text-[#94a3b8] hover:text-[#0f172a] dark:hover:text-white hover:bg-white/40 dark:hover:bg-white/5"
+              }`}
+            >
+              <Building2 size={13} />
+              <span>B2B / Tax Invoice</span>
+              <kbd className="text-[9px] px-1 py-0.2 bg-white/15 rounded font-mono opacity-80">Alt+3</kbd>
+            </button>
+          </div>
         </div>
 
         {/* Auxiliary Views & Operational Status HUD */}
-        <div className="flex items-center gap-2 sm:gap-4 text-xs font-semibold text-[#565e74] dark:text-[#bec6e0]">
+        <div className="flex items-center gap-2 sm:gap-3 text-xs font-semibold text-[#565e74] dark:text-[#bec6e0]">
           {/* Day End Z-Report Toggle */}
           <button
             type="button"
@@ -353,6 +419,24 @@ export const BillingWorkspace: React.FC<BillingWorkspaceProps> = ({
         </div>
       )}
 
+      {/* B2B Distributor mode contextual alert banner */}
+      {auxView === "B2B_DISTRIBUTOR" && (
+        <div className="flex items-center gap-3 px-5 py-2.5 bg-blue-950/70 border-b border-blue-500/30 text-blue-200 text-[11px] font-semibold shrink-0">
+          <Building2 size={13} className="text-blue-400 shrink-0" />
+          <span>
+            <span className="font-bold text-blue-300">B2B Distributor & Tax Invoicing Active</span>
+            {" — "}Customer PO linking, Modern Trade store code tracking, and PSV account projection enabled.
+          </span>
+          <button
+            type="button"
+            onClick={() => setAuxView("WORKSPACE")}
+            className="ml-auto text-[10px] font-bold text-blue-300 hover:text-white border border-blue-500/40 hover:border-blue-400 px-2 py-0.5 rounded transition-colors"
+          >
+            Back to POS
+          </button>
+        </div>
+      )}
+
       {/* ── Main Workspace Body ── */}
       <div className="flex-1 overflow-hidden relative">
         {auxView === "EOD_Z_REPORT" ? (
@@ -366,13 +450,56 @@ export const BillingWorkspace: React.FC<BillingWorkspaceProps> = ({
         ) : auxView === "SHIFT_REPORTS" ? (
           <SmritiDailyReportsDashboard />
         ) : auxView === "CREDIT_BILLING" ? (
-          <SmritiCreditBillingTerminal
+          <SmritiBillingStudio
+            products={products}
+            customers={customers}
+            profiles={profiles}
+            shifts={shifts}
             currentUser={currentUser}
+            mode="CREDIT_BILLING"
+            onModeChange={(m) => {
+              if (m === "RETAIL_POS") setAuxView("WORKSPACE");
+              else if (m === "B2B_DISTRIBUTOR") setAuxView("B2B_DISTRIBUTOR");
+            }}
+            onRefreshData={onRefreshData}
             onNotification={showToast}
-            onBack={() => setAuxView("WORKSPACE")}
+            isStandaloneTab={isStandaloneTab}
+            shiftId={activeShift?.id}
+          />
+        ) : auxView === "B2B_DISTRIBUTOR" ? (
+          <SmritiBillingStudio
+            products={products}
+            customers={customers}
+            profiles={profiles}
+            shifts={shifts}
+            currentUser={currentUser}
+            mode="B2B_DISTRIBUTOR"
+            onModeChange={(m) => {
+              if (m === "RETAIL_POS") setAuxView("WORKSPACE");
+              else if (m === "CREDIT_BILLING") setAuxView("CREDIT_BILLING");
+            }}
+            onRefreshData={onRefreshData}
+            onNotification={showToast}
+            isStandaloneTab={isStandaloneTab}
+            shiftId={activeShift?.id}
           />
         ) : (
-          <SmritiProPosBillingTerminal onNotification={showToast} shiftId={activeShift?.id} />
+          <SmritiBillingStudio
+            products={products}
+            customers={customers}
+            profiles={profiles}
+            shifts={shifts}
+            currentUser={currentUser}
+            mode="RETAIL_POS"
+            onModeChange={(m) => {
+              if (m === "CREDIT_BILLING") setAuxView("CREDIT_BILLING");
+              else if (m === "B2B_DISTRIBUTOR") setAuxView("B2B_DISTRIBUTOR");
+            }}
+            onRefreshData={onRefreshData}
+            onNotification={showToast}
+            isStandaloneTab={isStandaloneTab}
+            shiftId={activeShift?.id}
+          />
         )}
       </div>
 
