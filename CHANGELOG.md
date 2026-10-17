@@ -1,5 +1,13 @@
 ## [6.99.0] — 2026-10-17
 
+### Reports & Visual Analytics — Visual Reports Dashboard Aggregation & Schema Alignment Fix v1.0.0
+
+Diagnosed and permanently resolved HTTP 500 (`Internal Server Error`) on `GET /api/v1/reports/visual-dashboard/summary`:
+- **SQLAlchemy 2.0 Cast Invariants**: Replaced invalid SQLAlchemy type generator `func.cast(StockMovement.created_at, func.Date)` with canonical `cast(StockMovement.created_at, Date)` from `sqlalchemy import cast, Date`.
+- **Canonical Model Parity**: Aligned document sales total computation from non-existent `SalesInvoice.total_amount` to canonical `SalesInvoice.grand_total`.
+- **Primary Key Safety**: Explicitly generated unique primary key (`id=f"dsh_{uuid.uuid4().hex[:12]}"`) on newly created `Dashboard` entities during preference persistence in `save_config`.
+- **Automated Verification**: Created comprehensive test suite `backend/app/tests/test_visual_reports_dashboard.py` (2/2 tests green); verified 5/5 tests green in `test_item_variant_hard_delete.py` (7/7 combined suite green); passed all 11 architecture duplication checks and tenant boundary guards with 0 violations.
+
 ### Foundation & Architecture — Unified SMRITI CLI Engine Architecture v1.0.0
 
 Designed, implemented, and verified the Unified SMRITI CLI Engine (`smriti` / `python -m backend.app.cli` / `npm run smriti`), consolidating operational administrative tools, multi-tenant fleet migrations, control plane isolation guards, service health diagnostics, version SSOT validations, CI governance checks, and workforce attendance automation into an auditable, cross-platform CLI dispatcher:
