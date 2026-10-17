@@ -86,6 +86,7 @@ const CommissionWorkspaceTab = lazy(() => import("../hr/CommissionWorkspaceTab.t
 const PriceRevisionStudioWorkspace = lazy(() => import("../pricing/PriceRevisionStudioWorkspace.tsx").then(m => ({ default: m.PriceRevisionStudioWorkspace })));
 const CostTruthDashboardTab = lazy(() => import("../finance/CostTruthDashboardTab.tsx").then(m => ({ default: m.CostTruthDashboardTab })));
 const VisualReportsDashboardTab = lazy(() => import("../reports/VisualReportsDashboardTab.tsx").then(m => ({ default: m.VisualReportsDashboardTab })));
+const ProcurementVisualReportsTab = lazy(() => import("../procurement/ProcurementVisualReportsTab.tsx").then(m => ({ default: m.ProcurementVisualReportsTab })));
 
 export const TabLoadingFallback: React.FC = () => (
   <div className="w-full h-full flex flex-col items-center justify-center bg-theme-base text-theme-primary">
@@ -196,6 +197,11 @@ export const mapModuleId = (id: string): string => {
     "menu-visual-reports": "visual-reports",
     "visual-dashboard": "visual-reports",
     "visual-reports-dashboard": "visual-reports",
+    "procurement-visual-reports": "procurement-visual-reports",
+    "procurement_visual_reports": "procurement-visual-reports",
+    "procurement-reports": "procurement-visual-reports",
+    "purchase-visual-reports": "procurement-visual-reports",
+    "menu-procurement-visual-reports": "procurement-visual-reports",
     "menu-masters": "masters",
     "menu-ufe": "ufe",
     "menu-formulas": "formulas",
@@ -684,6 +690,16 @@ export const renderTabNode = (tabId: string, ctx: TabRendererContextProps): Reac
     case "visual-reports-dashboard":
       return (
         <VisualReportsDashboardTab
+          currentUser={currentUser}
+          onNotification={addNotification}
+          onNavigateTab={setActiveTab}
+        />
+      );
+    case "procurement-visual-reports":
+    case "procurement-reports":
+    case "purchase-visual-reports":
+      return (
+        <ProcurementVisualReportsTab
           currentUser={currentUser}
           onNotification={addNotification}
           onNavigateTab={setActiveTab}

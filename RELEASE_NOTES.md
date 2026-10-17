@@ -14,6 +14,53 @@
 
 # SMRITI Retail OS — Release Notes
 
+## Release v6.95.0 (2026-10-17)
+
+### Procurement & Visual Analytics — SMRITI Retail OS Procurement Visual Reports Implementation
+
+#### Overview
+SMRITI Retail OS v6.95.0 delivers the approved, pixel-perfect Procurement Visual Reports Dashboard for comprehensive visual telemetry over retail procurement operations, purchase spend velocity, multi-stage approval and receipt pipelines, supplier performance, low-stock reorder thresholds, and active fulfillment streams. The dashboard features 6 horizontal KPI cards, multi-series spend trend charts (Line, Area, Bar) with dual value/quantity metrics, a 4-stage purchase-to-receipt progress pipeline, top supplier rankings, a purchase order status donut chart, a low-stock reorder alert table, a supplier performance combo chart (on-time delivery vs lead time), open POs tracking, and a 12-column Active Procurement Stream table with category tabs and document preview modals. It includes an interactive sliding Dashboard Configuration drawer with domain scope switching and dual-tier persistence (local caching + PostgreSQL synchronization).
+
+#### Key Highlights
+- **Exact Visual Reference Parity**:
+  - Dark-navy header (`#0d1e3a`) with breadcrumbs (`Procurement > Visual Reports`), global search bar with keyboard shortcut `/` badge, notification counter (5), help circle, user profile badge (`JR`, Jawahar / Company Admin), and drawer toggle.
+  - Global filter strip with Company, Store/Location, Date range, and quick preset pills (`Today`, `Last 7 Days`, `MTD`, `Custom`).
+- **Horizontal KPI Cards**:
+  - Purchase Orders (36, Open: 18 | Closed: 18, ▲ 12%).
+  - Purchase Spend (₹ 42,80,000, MTD, ▲ 18%).
+  - Pending Approvals (6, Value: ₹ 6,20,000, ▲ 50%).
+  - Pending Receipts (12, Qty: 2,480 pairs, ▲ 20%).
+  - Received vs Ordered (78%, Progress bar: 3,120 / 4,000 pairs).
+  - Supplier Outstanding (₹ 18,50,000, Suppliers: 9, ▼ 8%).
+- **Primary Analytics Row**:
+  - Purchase Spend Trend Recharts multi-series chart with Value vs Quantity view toggle, Monthly/Weekly/Daily period selector, and Line/Area/Bar chart type selection. Multi-axis layout: ₹ Lakh on left (0-50) and PO Count bars on right (22, 28, 26, 36, 32, 30).
+  - Purchase-to-Receipt Progress 4-stage workflow pipeline (`Purchase Orders 36 (100%)` → `Approved 30 (83%)` → `Goods Receipts 28 (78%)` → `Supplier Invoices 24 (67%)`) with circular icons, percentage ratios, progress bars, and detail link.
+- **Secondary Analytics Rows**:
+  - Top Suppliers by Spend (MTD) with colored horizontal progress bars and formatted INR values.
+  - Purchase Order Status donut chart with centered total count (`36 / Purchase Orders`) and color-coded status legend.
+  - Reorder Alert (Low Stock) 5-column table with SKU, Product Name, On-Hand, Reorder Level, and Suggested PO Qty.
+  - Supplier Performance (Last 6 Months) dual-axis combo chart with On-Time Delivery % bars and Lead Time (Days) line.
+  - Open POs & Pending Receipts 8-column table with status pills.
+- **Active Procurement Stream**:
+  - Wide 12-column transaction stream with 4 category tabs (`All (86)`, `Purchase Orders (36)`, `Goods Receipts (28)`, `Supplier Invoices (24)`), instant search debounce, and interactive document detail modal.
+- **Sliding Dashboard Configuration Drawer**:
+  - Domain scope switcher: `Inventory`, `Procurement`, `Fulfillment`, `Billing`.
+  - Individual widget visibility checkboxes with Select All support.
+  - Chart type selectors for each chart widget.
+  - Layout Mode switch: `Standard (3 Deck)` vs `Compact (2 Deck)`.
+  - Data display defaults, default tab, and rows per page settings.
+  - Color Theme selector: `Use System Theme` vs `Custom` palette dots.
+  - Action buttons: `Reset to Default` and `Apply`.
+- **Dual-Tier Configuration Persistence**:
+  - Immediate `localStorage` cache for instantaneous paint and server-side transactional synchronization via PostgreSQL `Dashboard` entity.
+- **Automated Verification**:
+  - 5/5 Vitest tests green in `src/tests/procurementVisualReports.test.ts`.
+  - 0 errors in `tsc --noEmit`.
+  - 98/98 form components verified in `npm run validate-registry`.
+  - 55/55 launchpad tiles verified in `npm run validate-launchpad`.
+  - 11/11 architecture duplication checks passed in `npm run architecture:check`.
+  - Clean production Vite build (`npm run build`).
+
 ## Release v6.94.0 (2026-10-17)
 
 ### Reports & Visual Analytics — SMRITI Retail OS Visual Reports Dashboard Implementation

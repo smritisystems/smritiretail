@@ -1,0 +1,15 @@
+{
+  "certificate_id": "PF-2026-1017-2B7255",
+  "entity": "purchase_order",
+  "capability": "purchase_order.visual_reports_service",
+  "asset_type": "service",
+  "proposed_name": "procurement_visual_reports_service.py",
+  "target_file_path": "backend/app/services/procurement_visual_reports_service.py",
+  "decision": "CREATE_APPROVED",
+  "canonical_owner": "backend/app/services/procurement_visual_reports_service.py",
+  "content_hash": "a6d0803c352b1ed2b5f2fe50f0d677d1f8f4ce17a162240d161154add1f55cd9",
+  "git_commit": "49079072e1c43bcb8d572ac36f34349b8d8ec634",
+  "issued_at": "2026-10-17T10:16:58.119686+00:00",
+  "expires_at": "2026-10-24T10:16:58.119686+00:00",
+  "status": "ISSUED"
+}
