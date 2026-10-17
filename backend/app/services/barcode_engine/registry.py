@@ -77,7 +77,7 @@ def build_footwear_100x50_7_template() -> LabelTemplate:
 
     return LabelTemplate(
         id="tattly-threads-footwear-100x50.7",
-        name="Tattly Threads Footwear — 100x50.7mm",
+        name="Footwear Box Label — 100x50.7mm",
         width_mm=100.0,
         height_mm=50.7,
         default_dpi=203,

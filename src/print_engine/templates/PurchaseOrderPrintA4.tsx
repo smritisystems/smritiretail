@@ -339,6 +339,29 @@ export const PurchaseOrderPrintA4: React.FC<{ data: PurchaseOrderPrintData }> = 
 
   const isIdentityMissing = !companyName;
 
+  if (isIdentityMissing) {
+    return (
+      <div 
+        data-testid="print-blocked-container"
+        className="w-[210mm] min-h-[148mm] bg-white text-slate-900 p-8 mx-auto box-border font-sans border-2 border-red-500 rounded-lg flex flex-col items-center justify-center text-center shadow-lg my-6 print:border-red-600 print:shadow-none"
+      >
+        <div className="w-16 h-16 bg-red-100 text-red-600 rounded-full flex items-center justify-center mb-4 text-3xl font-black">
+          ✕
+        </div>
+        <h2 className="text-xl font-black text-red-700 uppercase tracking-wider mb-2">
+          CORPORATE IDENTITY NOT CONFIGURED — PRINTING BLOCKED
+        </h2>
+        <p className="text-sm text-slate-700 max-w-md mb-4 leading-relaxed">
+          Purchase order printing is prohibited without authoritative buyer corporate identity. 
+          Company name must be configured in Company Profile or provided in document payload.
+        </p>
+        <div className="inline-block px-4 py-2 bg-red-50 border border-red-200 text-red-800 rounded font-mono text-xs font-bold uppercase tracking-wider">
+          Fail-Closed Statutory Protection Active
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div
       className={`relative bg-white text-slate-900 mx-auto box-border font-sans antialiased shadow-sm print:shadow-none print:m-0 print:p-0 print:w-full print:max-w-none print:min-h-0 print:h-auto ${
@@ -410,13 +433,6 @@ export const PurchaseOrderPrintA4: React.FC<{ data: PurchaseOrderPrintData }> = 
           }
         }
       `}</style>
-
-      {/* CORPORATE IDENTITY NOT CONFIGURED BANNER */}
-      {isIdentityMissing && (
-        <div className="relative z-30 bg-red-50 border-2 border-red-600 text-red-800 p-2.5 mb-3 rounded font-bold text-center uppercase tracking-wider text-xs">
-          CORPORATE IDENTITY NOT CONFIGURED — PRINTING BLOCKED
-        </div>
-      )}
 
       {/* ── 1. HEADER & COMPANY INFORMATION ─────────────────────────────── */}
       <header className="relative z-10 flex justify-between items-start pb-2 mb-2 border-b border-slate-200">

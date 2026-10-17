@@ -374,3 +374,78 @@ def test_08_sales_order_conversion_seals_immutable_snapshot():
     assert invoice.rule_snapshots["seller_gstin"] == "27AAACA5555A1Z5"
     assert invoice.rule_snapshots["bank_branch"] == "DHARAMPETH"
     assert invoice.rule_snapshots["source_order_no"] == "SO/26-27/001"
+
+
+def test_09_invoice_render_error_handler_hrep_contract():
+    """Test 9: InvoiceRenderError is translated into HTTP 422 JSON matching SMRITI HREP contract."""
+    from fastapi import FastAPI
+    from app.core.error_handlers import register_error_handlers
+    from fastapi.testclient import TestClient
+    
+    test_app = FastAPI()
+    register_error_handlers(test_app)
+    
+    @test_app.get("/test-render-fail")
+    def fail_endpoint():
+        from app.services.invoice_errors import missing
+        raise missing("MISSING_COMPANY", "company legal name")
+        
+    client = TestClient(test_app, raise_server_exceptions=False)
+    resp = client.get("/test-render-fail")
+    assert resp.status_code == 422
+    data = resp.json()
+    assert data["success"] is False
+    assert "error" in data
+    assert data["error"]["code"] == "MISSING_COMPANY"
+    assert "company legal name" in data["error"]["explanation"]
+    assert "company" in data["error"]["suggested_action"].lower()
+
+
+@pytest.mark.asyncio
+async def test_10_endpoint_fail_closed_direct_invocation():
+    """Test 10: Direct backend print, download, reprint, and pdf endpoints fail closed on missing identity."""
+    from app.main import app
+    from httpx import AsyncClient, ASGITransport
+    
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        for endpoint in [
+            "/api/v1/sales/invoices/NON_EXISTENT_INV/print",
+            "/api/v1/sales/invoices/NON_EXISTENT_INV/download",
+            "/api/v1/sales/invoices/NON_EXISTENT_INV/reprint",
+            "/api/v1/sales/invoices/NON_EXISTENT_INV/pdf"
+        ]:
+            resp = await client.get(endpoint)
+            # Must fail closed: cannot return 200 with fallback invoice
+            assert resp.status_code in (401, 404, 422)
+            assert resp.status_code != 200
+
+
+def test_11_purchase_order_buyer_vs_supplier_separation():
+    """Test 11: Purchase orders separate Buyer (Tenant) vs Supplier (Vendor) identity without demanding supplier bank details."""
+    buyer_tenant = SimpleNamespace(
+        legal_name="National Retail Enterprises Ltd",
+        name="National Retail",
+        gst_number="27NATIO9999N1Z1",
+        address_line1="Express Logistics Center, Vashi",
+        city="Navi Mumbai",
+        state="Maharashtra",
+        pincode="400703",
+        bank_accounts=[],  # Buyer bank details are not required on PO
+    )
+    supplier_vendor = SimpleNamespace(
+        name="Apex Shoes Manufacturing Co",
+        gstin="27APEXS8888S1Z8",
+        address="MIDC Industrial Area, Amravati",
+    )
+    
+    # Buyer identity resolves without error even with 0 bank accounts
+    buyer_ctx = resolve_seller_context(company=buyer_tenant, doc_type="PURCHASE_ORDER")
+    assert buyer_ctx.company_name == "National Retail Enterprises Ltd"
+    assert buyer_ctx.company_gstin == "27NATIO9999N1Z1"
+    assert buyer_ctx.bank_name == ""
+    assert buyer_ctx.account_no == ""
+    
+    # Confirm supplier data is distinct and does not contaminate buyer fields
+    assert buyer_ctx.company_name != supplier_vendor.name
+    assert buyer_ctx.company_gstin != supplier_vendor.gstin
+

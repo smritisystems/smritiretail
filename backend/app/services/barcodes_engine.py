@@ -232,7 +232,7 @@ PRINT 1
                     style=getattr(req, "style", None) or req.item_code,
                     mrp=req.mrp,
                     pkd_date=getattr(req, "pkd_date", None),
-                    brand=req.brand or "TATTLY THREADS"
+                    brand=req.brand or ""
                 )
             else:
                 compiled = PrinterService.generate_dpl_label(

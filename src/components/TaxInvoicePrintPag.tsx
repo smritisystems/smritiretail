@@ -412,7 +412,7 @@ export const TaxInvoicePrintPage: React.FC = () => {
     }
   };
 
-  const isIdentityMissing = !invoice?.companyName || !invoice?.companyGst;
+  const isIdentityMissing = (!invoice?.companyName && !invoice?.companyDisplayName) || !invoice?.companyGst;
 
   const handlePrint = () => {
     if (isIdentityMissing) {
@@ -439,6 +439,10 @@ export const TaxInvoicePrintPage: React.FC = () => {
   };
 
   const handleReprint = () => {
+    if (isIdentityMissing) {
+      setError("CORPORATE IDENTITY NOT CONFIGURED: Seller legal name and GSTIN are required before reprinting.");
+      return;
+    }
     if (activeInvoiceId) {
       void openAuthenticatedDocument(`/sales/invoices/${encodeURIComponent(activeInvoiceId)}/reprint`);
     }
@@ -446,7 +450,10 @@ export const TaxInvoicePrintPage: React.FC = () => {
 
   // SGIP Statutory Compliance Gateway Handlers
   const handleGenerateEInvoice = async () => {
-    if (!invoice) return;
+    if (!invoice || isIdentityMissing) {
+      setEinvoiceState(prev => ({ ...prev, error: "E-Invoice generation blocked: Authoritative seller legal name and statutory GSTIN are required." }));
+      return;
+    }
     setEinvoiceState(prev => ({ ...prev, loading: true, error: undefined }));
     try {
       const items = (invoice.items || []).map((itm: any, idx: number) => ({
@@ -470,9 +477,9 @@ export const TaxInvoicePrintPage: React.FC = () => {
         invoice_id: invoice.id || activeInvoiceId,
         invoice_no: invoice.invoiceNo || "INV/2026/001",
         invoice_date: invoice.date ? invoice.date.split("T")[0] : "28/08/2026",
-        supplier_gstin: invoice.companyGst || "27AAXFT2508H1ZR",
-        supplier_legal_name: headerConfig.companyDisplayName || "Tattly Threads",
-        supplier_address: headerConfig.companyAddressDisplay || "Mumbai",
+        supplier_gstin: invoice.companyGst || "",
+        supplier_legal_name: headerConfig.companyDisplayName || invoice.companyName || "",
+        supplier_address: headerConfig.companyAddressDisplay || invoice.companyAddress || "",
         supplier_pincode: "400003",
         supplier_state_code: "27",
         buyer_gstin: invoice.customerGst || "URP",
@@ -601,14 +608,17 @@ export const TaxInvoicePrintPage: React.FC = () => {
   };
 
   const handleGenerateEWayBill = async () => {
-    if (!invoice) return;
+    if (!invoice || isIdentityMissing) {
+      setEwaybillState(prev => ({ ...prev, error: "E-Way Bill generation blocked: Authoritative seller statutory GSTIN is required." }));
+      return;
+    }
     setEwaybillState(prev => ({ ...prev, loading: true, error: undefined }));
     try {
       const reqPayload = {
         invoice_id: invoice.id || activeInvoiceId,
         doc_no: invoice.invoiceNo || "INV/2026/001",
         doc_type: "INV",
-        from_gstin: invoice.companyGst || "27AAXFT2508H1ZR",
+        from_gstin: invoice.companyGst || "",
         to_gstin: invoice.customerGst || "27BBBCU9603R1ZM",
         from_pincode: "400003",
         to_pincode: "400001",
@@ -679,7 +689,7 @@ export const TaxInvoicePrintPage: React.FC = () => {
     return (
       <div className="min-h-screen bg-slate-900 text-white flex flex-col items-center justify-center font-sans p-6">
         <div className="w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-4" />
-        <p className="text-sm font-mono tracking-wider text-slate-400">LOADING TATTLY THREADS TAX INVOICE...</p>
+        <p className="text-sm font-mono tracking-wider text-slate-400">LOADING TAX INVOICE...</p>
       </div>
     );
   }
@@ -839,8 +849,13 @@ export const TaxInvoicePrintPage: React.FC = () => {
 
             <button
               onClick={handlePrint}
-              className="flex items-center gap-1.5 px-3.5 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-semibold shadow-md shadow-blue-600/30 transition"
-              title="Print Tax Invoice (A4 Format)"
+              disabled={isIdentityMissing}
+              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold shadow-md transition ${
+                isIdentityMissing 
+                  ? "bg-slate-700 text-slate-400 cursor-not-allowed opacity-60" 
+                  : "bg-blue-600 hover:bg-blue-500 text-white shadow-blue-600/30"
+              }`}
+              title={isIdentityMissing ? "Printing blocked: Authoritative corporate identity required" : "Print Tax Invoice (A4 Format)"}
             >
               <Printer size={14} />
               <span>Print</span>
@@ -848,8 +863,13 @@ export const TaxInvoicePrintPage: React.FC = () => {
 
             <button
               onClick={handleExportPDF}
-              className="flex items-center gap-1.5 px-3.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-white rounded-lg text-xs font-semibold shadow-md border border-slate-700 transition"
-              title="Export / Download PDF"
+              disabled={isIdentityMissing}
+              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold shadow-md border transition ${
+                isIdentityMissing 
+                  ? "bg-slate-800 text-slate-500 border-slate-700 cursor-not-allowed opacity-60" 
+                  : "bg-slate-800 hover:bg-slate-700 text-white border-slate-700"
+              }`}
+              title={isIdentityMissing ? "Export blocked: Authoritative corporate identity required" : "Export / Download PDF"}
             >
               <Download size={14} />
               <span>Export PDF</span>
@@ -857,8 +877,13 @@ export const TaxInvoicePrintPage: React.FC = () => {
 
             <button
               onClick={handleReprint}
-              className="flex items-center gap-1.5 px-3.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-amber-300 rounded-lg text-xs font-semibold border border-amber-500/40 shadow-md transition"
-              title="Reprint Immutable Historical Document Artifact"
+              disabled={isIdentityMissing}
+              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold border shadow-md transition ${
+                isIdentityMissing 
+                  ? "bg-slate-800 text-slate-500 border-slate-700 cursor-not-allowed opacity-60" 
+                  : "bg-slate-800 hover:bg-slate-700 text-amber-300 border-amber-500/40"
+              }`}
+              title={isIdentityMissing ? "Reprint blocked: Authoritative corporate identity required" : "Reprint Immutable Historical Document Artifact"}
             >
               <FileCheck size={14} />
               <span>Reprint</span>
@@ -986,28 +1011,35 @@ export const TaxInvoicePrintPage: React.FC = () => {
 
       {/* ── MAIN A4 PRINT PREVIEW AREA ── */}
       <div className="max-w-4xl mx-auto print:max-w-none print:shadow-none print:m-0 print:p-0 print:w-full">
-        {/* Fail-closed corporate identity check */}
-        {(!invoice?.companyName || !invoice?.companyGst) && (
-          <div className="mb-4 p-4 rounded-xl border border-rose-500/50 bg-rose-950/40 text-rose-200 flex items-start gap-3 no-print">
-            <span className="material-symbols-outlined text-rose-400 text-2xl">warning</span>
-            <div>
-              <p className="font-bold text-sm tracking-wide text-rose-300 uppercase">
-                CORPORATE IDENTITY NOT CONFIGURED — PRINTING BLOCKED
-              </p>
-              <p className="text-xs text-rose-300/80 mt-1">
-                Tax invoice printing requires seller legal name and statutory GSTIN. Please configure your Company Profile before generating or printing documents.
-              </p>
+        {isIdentityMissing ? (
+          <div 
+            data-testid="print-blocked-container"
+            className="w-[210mm] min-h-[148mm] bg-white text-slate-900 p-8 mx-auto box-border font-sans border-2 border-red-500 rounded-lg flex flex-col items-center justify-center text-center shadow-lg my-6 print:border-red-600 print:shadow-none"
+          >
+            <div className="w-16 h-16 bg-red-100 text-red-600 rounded-full flex items-center justify-center mb-4 text-3xl font-black">
+              ✕
+            </div>
+            <h2 className="text-xl font-black text-red-700 uppercase tracking-wider mb-2">
+              CORPORATE IDENTITY NOT CONFIGURED — PRINTING BLOCKED
+            </h2>
+            <p className="text-sm text-slate-700 max-w-md mb-4 leading-relaxed">
+              Tax invoice preview and printing are prohibited without authoritative corporate identity. 
+              Seller legal name and statutory GSTIN must be configured in Company Profile or provided in document payload.
+            </p>
+            <div className="inline-block px-4 py-2 bg-red-50 border border-red-200 text-red-800 rounded font-mono text-xs font-bold uppercase tracking-wider">
+              Fail-Closed Statutory Protection Active
             </div>
           </div>
+        ) : (
+          <div className="bg-white shadow-2xl rounded-sm print:shadow-none print:rounded-none print:overflow-visible">
+            {invoiceDataWithHeaderConfig && (
+              <TaxInvoiceA4
+                data={invoiceDataWithHeaderConfig}
+                onEWayBillNoChange={(val) => updateHeaderConfig({ eWayBillNo: val })}
+              />
+            )}
+          </div>
         )}
-        <div className="bg-white shadow-2xl rounded-sm print:shadow-none print:rounded-none print:overflow-visible">
-          {invoiceDataWithHeaderConfig && (
-            <TaxInvoiceA4
-              data={invoiceDataWithHeaderConfig}
-              onEWayBillNoChange={(val) => updateHeaderConfig({ eWayBillNo: val })}
-            />
-          )}
-        </div>
       </div>
 
       {/* ── HEADER CUSTOMIZATION DRAWER / PANEL (Presentation Only) ── */}
@@ -1050,7 +1082,7 @@ export const TaxInvoicePrintPage: React.FC = () => {
                   type="text"
                   value={headerConfig.companyDisplayName}
                   onChange={(e) => updateHeaderConfig({ companyDisplayName: e.target.value })}
-                  placeholder="e.g. Tattly Threads"
+                  placeholder="e.g. Authoritative Company Legal Name"
                   className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white font-medium focus:outline-none focus:border-indigo-500"
                 />
               </div>
