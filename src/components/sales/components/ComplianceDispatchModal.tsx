@@ -6,7 +6,7 @@
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
  * Version      : 3.78.0
  * Created      : 2026-08-28
- * Modified     : 2026-08-28
+ * Modified     : 2026-10-17
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
@@ -180,18 +180,20 @@ export const ComplianceDispatchModal: React.FC<ComplianceDispatchModalProps> = (
           `IRN generated successfully for ${invoice.doc_no}.`,
           "success"
         );
+      } else {
+        const errorMsg = res?.message || res?.detail || "NIC Portal rejected E-Invoice request.";
+        onNotification?.(
+          "E-Invoice Generation Failed",
+          errorMsg,
+          "error"
+        );
       }
     } catch (err: any) {
-      // Mock optimistic fallback for demo / test resilience
-      const mockIrn = "7f8b9c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b";
-      const mockAck = "112610998877665";
-      setIrn(mockIrn);
-      setAckNo(mockAck);
-      setSignedQr("SMRITI_SIGNED_QR_MOCK_PAYLOAD_v1.03");
+      const errorMsg = err?.message || "E-Invoice Generation failed. Please verify statutory credentials and network.";
       onNotification?.(
-        "E-Invoice Generated",
-        `IRN generated successfully for ${invoice.doc_no}.`,
-        "success"
+        "E-Invoice Generation Failed",
+        errorMsg,
+        "error"
       );
     } finally {
       setLoadingEinv(false);
@@ -233,16 +235,20 @@ export const ComplianceDispatchModal: React.FC<ComplianceDispatchModalProps> = (
           `E-Way Bill #${res.eway_bill_no} generated successfully.`,
           "success"
         );
+      } else {
+        const errorMsg = res?.message || res?.detail || "NIC Portal rejected E-Way Bill request.";
+        onNotification?.(
+          "E-Way Bill Generation Failed",
+          errorMsg,
+          "error"
+        );
       }
     } catch (err: any) {
-      const mockEwb = "271098877665";
-      const mockValid = new Date(Date.now() + 86400000 * 2).toISOString();
-      setEwayBillNo(mockEwb);
-      setEwayValidUntil(mockValid);
+      const errorMsg = err?.message || "E-Way Bill generation failed. Please verify vehicle and distance details.";
       onNotification?.(
-        "E-Way Bill Generated",
-        `E-Way Bill #${mockEwb} generated successfully.`,
-        "success"
+        "E-Way Bill Generation Failed",
+        errorMsg,
+        "error"
       );
     } finally {
       setLoadingEwb(false);
@@ -265,10 +271,7 @@ export const ComplianceDispatchModal: React.FC<ComplianceDispatchModalProps> = (
       setSignedQr(undefined);
       onNotification?.("E-Invoice Cancelled", "IRN cancelled with GSTN portal.", "success");
     } catch (err: any) {
-      setIrn(undefined);
-      setAckNo(undefined);
-      setSignedQr(undefined);
-      onNotification?.("E-Invoice Cancelled", "IRN cancelled with GSTN portal.", "success");
+      onNotification?.("E-Invoice Cancellation Failed", err?.message || "Failed to cancel IRN on GSTN portal.", "error");
     }
   };
 
@@ -287,9 +290,7 @@ export const ComplianceDispatchModal: React.FC<ComplianceDispatchModalProps> = (
       setEwayValidUntil(undefined);
       onNotification?.("E-Way Bill Cancelled", "E-Way Bill cancelled on NIC portal.", "success");
     } catch (err: any) {
-      setEwayBillNo(undefined);
-      setEwayValidUntil(undefined);
-      onNotification?.("E-Way Bill Cancelled", "E-Way Bill cancelled on NIC portal.", "success");
+      onNotification?.("E-Way Bill Cancellation Failed", err?.message || "Failed to cancel E-Way Bill on NIC portal.", "error");
     }
   };
 

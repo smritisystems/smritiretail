@@ -17,11 +17,11 @@ from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 from typing import Dict, Any, List, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, and_, or_, desc
+from sqlalchemy import select, func, and_, or_, desc, text
 
 from ..models.fulfillment import PackingSlip, Dispatch
 from ..models.inventory import Product, StockMovement
-from ..models.sales import SalesInvoice, SalesOrderReservation
+from ..models.sales import SalesInvoice, SalesOrder, SalesOrderReservation
 from ..models.reporting import Dashboard
 from ..schemas.visual_reports import (
     VisualKpiCard,
@@ -79,12 +79,39 @@ class VisualReportsService:
         store_location_id: Optional[str] = None,
     ) -> VisualReportsSummaryResponse:
         today = datetime.now(timezone.utc).date()
-        s_date = start_date or date(2025, 4, 1)
-        e_date = end_date or date(2025, 4, 30)
+        e_date = end_date or today
+        s_date = start_date or (e_date - timedelta(days=29))
 
-        # 1. Query real live counts from PostgreSQL
-        stmt_products = select(func.count(Product.id)).where(Product.company_id == company_id)
-        prod_count = (await session.execute(stmt_products)).scalar() or 0
+        # 1. Authoritative Company Name from database
+        comp_name_res = (await session.execute(text("SELECT name FROM companies WHERE id = :cid"), {"cid": company_id})).scalar()
+        company_name = comp_name_res or company_id
+        location_name = store_location_id if store_location_id and store_location_id != "All Locations" else "All Locations"
+        date_range_label = f"{s_date.strftime('%d %b %Y')} - {e_date.strftime('%d %b %Y')}"
+
+        # 2. On-Hand Stock from StockMovement Ledger
+        stmt_on_hand = (
+            select(func.coalesce(func.sum(StockMovement.quantity), 0))
+            .where(StockMovement.company_id == company_id)
+        )
+        if store_location_id and store_location_id != "All Locations":
+            stmt_on_hand = stmt_on_hand.where(
+                or_(StockMovement.warehouse_id == store_location_id, StockMovement.location_id == store_location_id)
+            )
+        total_on_hand = float((await session.execute(stmt_on_hand)).scalar() or 0)
+
+        # 3. Reserved Stock from SalesOrderReservation Ledger
+        stmt_reserved = (
+            select(func.coalesce(func.sum(SalesOrderReservation.reserved_quantity - SalesOrderReservation.released_quantity - SalesOrderReservation.consumed_quantity), 0))
+            .where(SalesOrderReservation.company_id == company_id, SalesOrderReservation.status == "ACTIVE")
+        )
+        total_reserved = float((await session.execute(stmt_reserved)).scalar() or 0)
+
+        # 4. Available Stock
+        total_available = max(0.0, total_on_hand - total_reserved)
+
+        # 5. Live Document Counts
+        stmt_so = select(func.count(SalesOrder.id)).where(SalesOrder.company_id == company_id)
+        so_count = (await session.execute(stmt_so)).scalar() or 0
 
         stmt_slips = select(func.count(PackingSlip.id)).where(PackingSlip.company_id == company_id)
         ps_count = (await session.execute(stmt_slips)).scalar() or 0
@@ -95,331 +122,283 @@ class VisualReportsService:
         stmt_invoices = select(func.count(SalesInvoice.id)).where(SalesInvoice.company_id == company_id)
         inv_count = (await session.execute(stmt_invoices)).scalar() or 0
 
-        # Build baseline KPI numbers matching the visual reference with real baseline reconciliation
-        base_on_hand = 12580 if prod_count < 100 else 12580 + (prod_count * 2)
-        base_reserved = 3240
-        base_available = base_on_hand - base_reserved
-        base_so = 48
-        base_ps = 62 if ps_count == 0 else ps_count + 60
-        base_ds = 28 if ds_count == 0 else ds_count + 25
-        base_inv = 24 if inv_count == 0 else inv_count + 20
-
         kpis = [
             VisualKpiCard(
                 id="on_hand",
                 title="On-Hand Stock",
-                value=f"{base_on_hand:,}",
-                numeric_value=float(base_on_hand),
+                value=f"{int(total_on_hand):,}",
+                numeric_value=total_on_hand,
                 unit="pairs",
                 subtext=None,
                 trend_direction="up",
-                trend_percentage="2.3% vs prev. period",
+                trend_percentage=None,
                 color="blue",
             ),
             VisualKpiCard(
                 id="reserved",
                 title="Reserved Stock",
-                value=f"{base_reserved:,}",
-                numeric_value=float(base_reserved),
+                value=f"{int(total_reserved):,}",
+                numeric_value=total_reserved,
                 unit="pairs",
                 subtext=None,
-                trend_direction="down",
-                trend_percentage="8.1% vs prev. period",
+                trend_direction="up",
+                trend_percentage=None,
                 color="amber",
             ),
             VisualKpiCard(
                 id="available",
                 title="Available Stock",
-                value=f"{base_available:,}",
-                numeric_value=float(base_available),
+                value=f"{int(total_available):,}",
+                numeric_value=total_available,
                 unit="pairs",
                 subtext=None,
                 trend_direction="up",
-                trend_percentage="1.5% vs prev. period",
+                trend_percentage=None,
                 color="green",
             ),
             VisualKpiCard(
                 id="sales_orders",
                 title="Sales Orders",
-                value=str(base_so),
-                numeric_value=float(base_so),
+                value=str(so_count),
+                numeric_value=float(so_count),
                 unit=None,
-                subtext="Open: 26  Closed: 4",
+                subtext=f"Total: {so_count} recorded",
                 trend_direction="up",
-                trend_percentage="12% vs prev. period",
+                trend_percentage=None,
                 color="purple",
             ),
             VisualKpiCard(
                 id="packing_slips",
                 title="Packing Slips",
-                value=str(base_ps),
-                numeric_value=float(base_ps),
+                value=str(ps_count),
+                numeric_value=float(ps_count),
                 unit=None,
-                subtext="Pending: 18  Packed: 32",
+                subtext=f"Total: {ps_count} recorded",
                 trend_direction="up",
-                trend_percentage="7% vs prev. period",
+                trend_percentage=None,
                 color="cyan",
             ),
             VisualKpiCard(
                 id="dispatches",
                 title="Dispatches",
-                value=str(base_ds),
-                numeric_value=float(base_ds),
+                value=str(ds_count),
+                numeric_value=float(ds_count),
                 unit=None,
-                subtext="Today: 6  This Week: 18",
+                subtext=f"Total: {ds_count} recorded",
                 trend_direction="up",
-                trend_percentage="5% vs prev. period",
+                trend_percentage=None,
                 color="orange",
             ),
         ]
 
-        # 2. Stock Flow (Last 14 Days)
-        dates = [
-            ("2025-04-16", "16 Apr", 6800, 2200, 4600, 1100, 600),
-            ("2025-04-17", "17 Apr", 6900, 2300, 4600, 1200, 700),
-            ("2025-04-18", "18 Apr", 7100, 2500, 4600, 1300, 800),
-            ("2025-04-19", "19 Apr", 7400, 2800, 4800, 1400, 900),
-            ("2025-04-20", "20 Apr", 7800, 3100, 5200, 1600, 1000),
-            ("2025-04-21", "21 Apr", 8200, 3400, 5500, 1800, 1100),
-            ("2025-04-22", "22 Apr", 8100, 3300, 5400, 1750, 1050),
-            ("2025-04-23", "23 Apr", 8500, 3600, 5700, 2000, 1200),
-            ("2025-04-24", "24 Apr", 8900, 3800, 5900, 2100, 1250),
-            ("2025-04-25", "25 Apr", 8800, 3700, 5800, 2050, 1200),
-            ("2025-04-26", "26 Apr", 9100, 4100, 6100, 2400, 1400),
-            ("2025-04-27", "27 Apr", 9000, 4000, 6000, 2300, 1350),
-            ("2025-04-28", "28 Apr", 9400, 4300, 6300, 2600, 1500),
-            ("2025-04-29", "29 Apr", 9800, 4600, 6500, 2800, 1650),
-            ("2025-04-30", "30 Apr", 10100, 4900, 6800, 3100, 1750),
-        ]
-        stock_flow = [
-            StockFlowDataPoint(
-                date=d[0],
-                day_label=d[1],
-                on_hand=d[2],
-                reserved=d[3],
-                available=d[4],
-                dispatched=d[5],
-                invoiced=d[6],
+        # 6. Stock Flow Timeline (Grouped by Date in Requested Date Window)
+        start_dt = datetime.combine(s_date, datetime.min.time(), tzinfo=timezone.utc)
+        end_dt = datetime.combine(e_date, datetime.max.time(), tzinfo=timezone.utc)
+        stmt_flow = (
+            select(
+                func.cast(StockMovement.created_at, func.Date).label("m_date"),
+                func.coalesce(func.sum(StockMovement.quantity), 0).label("qty"),
             )
-            for d in dates
+            .where(
+                StockMovement.company_id == company_id,
+                StockMovement.created_at >= start_dt,
+                StockMovement.created_at <= end_dt,
+            )
+            .group_by(func.cast(StockMovement.created_at, func.Date))
+            .order_by("m_date")
+        )
+        flow_rows = (await session.execute(stmt_flow)).all()
+        stock_flow: List[StockFlowDataPoint] = [
+            StockFlowDataPoint(
+                date=str(r[0]),
+                day_label=r[0].strftime("%d %b") if hasattr(r[0], "strftime") else str(r[0]),
+                on_hand=int(r[1]),
+                reserved=0,
+                available=int(r[1]),
+                dispatched=0,
+                invoiced=0,
+            )
+            for r in flow_rows
         ]
 
-        # 3. Order to Invoice Progress
+        # 7. Workflow Stage Progress
+        so_pct = 100 if so_count > 0 else 0
+        ps_pct = round((ps_count / so_count) * 100) if so_count > 0 else 0
+        ds_pct = round((ds_count / so_count) * 100) if so_count > 0 else 0
+        inv_pct = round((inv_count / so_count) * 100) if so_count > 0 else 0
         workflow_stages = [
             WorkflowStageProgress(
                 id="stage_so",
                 title="Sales Orders",
                 icon="document",
-                count=48,
-                percentage=100,
+                count=so_count,
+                percentage=so_pct,
                 color="purple",
-                subtext="Open: 26  Closed: 4",
-                progress_bar_percentage=100,
+                subtext=f"Total: {so_count} recorded",
+                progress_bar_percentage=min(so_pct, 100),
             ),
             WorkflowStageProgress(
                 id="stage_ps",
                 title="Packing Slips",
                 icon="box",
-                count=62,
-                percentage=129,
+                count=ps_count,
+                percentage=ps_pct,
                 color="blue",
-                subtext="Pending: 18  Packed: 32",
-                progress_bar_percentage=85,
+                subtext=f"Total: {ps_count} recorded",
+                progress_bar_percentage=min(ps_pct, 100),
             ),
             WorkflowStageProgress(
                 id="stage_ds",
                 title="Dispatched",
                 icon="truck",
-                count=28,
-                percentage=58,
+                count=ds_count,
+                percentage=ds_pct,
                 color="orange",
-                subtext="Today: 6  This Week: 18",
-                progress_bar_percentage=58,
+                subtext=f"Total: {ds_count} recorded",
+                progress_bar_percentage=min(ds_pct, 100),
             ),
             WorkflowStageProgress(
                 id="stage_inv",
                 title="Invoices",
                 icon="receipt",
-                count=24,
-                percentage=50,
+                count=inv_count,
+                percentage=inv_pct,
                 color="green",
-                subtext="Today: 5  This Week: 18",
-                progress_bar_percentage=50,
+                subtext=f"Total: {inv_count} recorded",
+                progress_bar_percentage=min(inv_pct, 100),
             ),
         ]
 
-        # 4. Stock Position by Category
+        # 8. Category Stock Position from Product and StockMovement
+        stmt_cat = (
+            select(
+                Product.category,
+                func.coalesce(func.sum(StockMovement.quantity), 0).label("cat_on_hand"),
+            )
+            .outerjoin(
+                StockMovement,
+                and_(StockMovement.product_id == Product.id, StockMovement.company_id == company_id),
+            )
+            .where(Product.company_id == company_id)
+            .group_by(Product.category)
+            .order_by(func.coalesce(func.sum(StockMovement.quantity), 0).desc())
+        )
+        cat_rows = (await session.execute(stmt_cat)).all()
         category_positions = [
-            CategoryStockPosition(category="Sports Shoes", on_hand=4200, reserved=1080, available=3120, reserved_pct=25.7),
-            CategoryStockPosition(category="Casual Shoes", on_hand=3650, reserved=920, available=2730, reserved_pct=25.2),
-            CategoryStockPosition(category="Formal Shoes", on_hand=2980, reserved=640, available=2340, reserved_pct=21.5),
-            CategoryStockPosition(category="Sandals", on_hand=2150, reserved=480, available=1670, reserved_pct=22.3),
-            CategoryStockPosition(category="Kids Footwear", on_hand=1620, reserved=120, available=1500, reserved_pct=7.4),
-            CategoryStockPosition(category="Accessories", on_hand=1400, reserved=0, available=1400, reserved_pct=0.0),
+            CategoryStockPosition(
+                category=r[0] or "Uncategorized",
+                on_hand=int(r[1]),
+                reserved=0,
+                available=int(r[1]),
+                reserved_pct=0.0,
+            )
+            for r in cat_rows
+            if r[0] is not None
         ]
 
-        # 5. Top 10 SKUs by Reserved Quantity
+        # 9. Top Reserved SKUs
+        stmt_top_res = (
+            select(
+                Product.sku,
+                Product.name,
+                func.coalesce(func.sum(StockMovement.quantity), 0).label("on_hand"),
+                func.coalesce(func.sum(SalesOrderReservation.reserved_quantity), 0).label("reserved"),
+            )
+            .join(SalesOrderReservation, SalesOrderReservation.product_id == Product.id)
+            .outerjoin(StockMovement, and_(StockMovement.product_id == Product.id, StockMovement.company_id == company_id))
+            .where(SalesOrderReservation.company_id == company_id, SalesOrderReservation.status == "ACTIVE")
+            .group_by(Product.sku, Product.name)
+            .order_by(func.coalesce(func.sum(SalesOrderReservation.reserved_quantity), 0).desc())
+            .limit(10)
+        )
+        top_res_rows = (await session.execute(stmt_top_res)).all()
         top_skus = [
-            TopReservedSku(rank=1, sku="SHOE-41", product_name="Running Shoe - Black", on_hand=500, reserved=200, reserved_pct=40.0),
-            TopReservedSku(rank=2, sku="SHOE-35", product_name="Casual Shoe - White", on_hand=420, reserved=180, reserved_pct=43.0),
-            TopReservedSku(rank=3, sku="FORM-42", product_name="Formal Shoe - Brown", on_hand=360, reserved=160, reserved_pct=44.0),
-            TopReservedSku(rank=4, sku="SAND-08", product_name="Sandal - Tan", on_hand=300, reserved=140, reserved_pct=47.0),
-            TopReservedSku(rank=5, sku="KIDS-32", product_name="Kids Shoe - Blue", on_hand=280, reserved=120, reserved_pct=43.0),
-            TopReservedSku(rank=6, sku="SHOE-43", product_name="Running Shoe - Grey", on_hand=260, reserved=100, reserved_pct=39.0),
-            TopReservedSku(rank=7, sku="FORM-40", product_name="Formal Shoe - Black", on_hand=240, reserved=100, reserved_pct=42.0),
-            TopReservedSku(rank=8, sku="SAND-07", product_name="Sandal - Black", on_hand=220, reserved=80, reserved_pct=36.0),
-            TopReservedSku(rank=9, sku="KIDS-30", product_name="Kids Shoe - Red", on_hand=200, reserved=80, reserved_pct=40.0),
-            TopReservedSku(rank=10, sku="SHOE-42", product_name="Casual Shoe - Navy", on_hand=200, reserved=80, reserved_pct=40.0),
+            TopReservedSku(
+                rank=i + 1,
+                sku=r[0] or f"SKU-{i+1}",
+                product_name=r[1] or "Product",
+                on_hand=int(r[2]),
+                reserved=int(r[3]),
+                reserved_pct=round((float(r[3]) / max(float(r[2]), 1.0)) * 100, 1),
+            )
+            for i, r in enumerate(top_res_rows)
         ]
 
-        # 6. Packing Slip Status Donut
+        # 10. Packing Slip Donut Slices
+        stmt_donut = (
+            select(PackingSlip.status, func.count(PackingSlip.id))
+            .where(PackingSlip.company_id == company_id)
+            .group_by(PackingSlip.status)
+        )
+        donut_rows = (await session.execute(stmt_donut)).all()
+        total_ps = sum(r[1] for r in donut_rows)
+        color_map = {
+            "PENDING": "#06b6d4",
+            "PACKED": "#2563eb",
+            "READY_TO_DISPATCH": "#f59e0b",
+            "DISPATCHED": "#10b981",
+        }
         packing_slip_donut = [
-            PackingSlipStatusSlice(status="Pending", count=18, percentage=29.0, color="#06b6d4"),
-            PackingSlipStatusSlice(status="Packed", count=32, percentage=52.0, color="#2563eb"),
-            PackingSlipStatusSlice(status="Ready to Dispatch", count=8, percentage=13.0, color="#f59e0b"),
-            PackingSlipStatusSlice(status="Dispatched", count=4, percentage=6.0, color="#10b981"),
+            PackingSlipStatusSlice(
+                status=r[0] or "Unknown",
+                count=r[1],
+                percentage=round((r[1] / max(total_ps, 1)) * 100, 1),
+                color=color_map.get(str(r[0]).upper(), "#2563eb"),
+            )
+            for r in donut_rows
         ]
 
-        # 7. Dispatch & Invoice Summary
+        # 11. Dispatch & Invoice Summary
+        stmt_ds_all = select(func.count(Dispatch.id)).where(Dispatch.company_id == company_id)
+        ds_all = (await session.execute(stmt_ds_all)).scalar() or 0
+
+        stmt_inv_all = (
+            select(
+                func.count(SalesInvoice.id),
+                func.coalesce(func.sum(SalesInvoice.total_amount), 0),
+            )
+            .where(SalesInvoice.company_id == company_id)
+        )
+        inv_row = (await session.execute(stmt_inv_all)).one()
+        inv_total_count = inv_row[0] or 0
+        inv_total_val = float(inv_row[1] or 0)
+
         dispatch_invoice_summary = [
             DispatchInvoiceSummaryRow(
                 document_type="Dispatches",
-                today=6,
-                this_week=18,
-                this_month=28,
-                value_inr=1150000.0,
-                formatted_value="11,50,000",
+                today=0,
+                this_week=0,
+                this_month=ds_all,
+                value_inr=0.0,
+                formatted_value="0.00",
             ),
             DispatchInvoiceSummaryRow(
                 document_type="B2B Invoices",
-                today=5,
-                this_week=16,
-                this_month=24,
-                value_inr=1025000.0,
-                formatted_value="10,25,000",
+                today=0,
+                this_week=0,
+                this_month=inv_total_count,
+                value_inr=inv_total_val,
+                formatted_value=f"{inv_total_val:,.2f}",
             ),
         ]
 
-        # 8. Active Fulfillment Stream
-        fulfillment_stream = [
-            FulfillmentStreamItem(
-                id="stream_1",
-                doc_type="SO",
-                doc_number="SO-00128",
-                doc_date="30 Apr 2025",
-                customer_name="Alpha Traders",
-                item_summary="SHOE-41, FORM-42",
-                quantity=320,
-                value_inr=125000.0,
-                formatted_value="1,25,000",
-                status="Open",
-                status_color="emerald",
-                next_action="Create Packing Slip",
-                next_action_icon="box",
-                updated_by="Ravi",
-                updated_on="30 Apr 2025 10:24",
-            ),
-            FulfillmentStreamItem(
-                id="stream_2",
-                doc_type="PS",
-                doc_number="PS-00216",
-                doc_date="30 Apr 2025",
-                customer_name="Bharat Retail",
-                item_summary="SHOE-36, SAND-03",
-                quantity=240,
-                value_inr=92000.0,
-                formatted_value="92,000",
-                status="Pending",
-                status_color="amber",
-                next_action="Complete Packing",
-                next_action_icon="check",
-                updated_by="Meena",
-                updated_on="30 Apr 2025 09:18",
-            ),
-            FulfillmentStreamItem(
-                id="stream_3",
-                doc_type="DS",
-                doc_number="DS-00028",
-                doc_date="30 Apr 2025",
-                customer_name="City Mart",
-                item_summary="SHOE-41, KIDS-32",
-                quantity=200,
-                value_inr=80000.0,
-                formatted_value="80,000",
-                status="Ready to Dispatch",
-                status_color="orange",
-                next_action="Create Invoice",
-                next_action_icon="receipt",
-                updated_by="Suresh",
-                updated_on="30 Apr 2025 08:45",
-            ),
-            FulfillmentStreamItem(
-                id="stream_4",
-                doc_type="INV",
-                doc_number="INV-00024",
-                doc_date="30 Apr 2025",
-                customer_name="Alpha Traders",
-                item_summary="SHOE-41, KIDS-32",
-                quantity=200,
-                value_inr=80000.0,
-                formatted_value="80,000",
-                status="Invoiced",
-                status_color="emerald",
-                next_action="Print / Share",
-                next_action_icon="share",
-                updated_by="Ravi",
-                updated_on="30 Apr 2025 11:10",
-            ),
-            FulfillmentStreamItem(
-                id="stream_5",
-                doc_type="SO",
-                doc_number="SO-00127",
-                doc_date="29 Apr 2025",
-                customer_name="City Mart",
-                item_summary="SAND-03, FORM-40",
-                quantity=180,
-                value_inr=68000.0,
-                formatted_value="68,000",
-                status="Partially Packed",
-                status_color="blue",
-                next_action="Continue Packing",
-                next_action_icon="arrow-right",
-                updated_by="Meena",
-                updated_on="29 Apr 2025 17:12",
-            ),
-            FulfillmentStreamItem(
-                id="stream_6",
-                doc_type="PS",
-                doc_number="PS-00215",
-                doc_date="29 Apr 2025",
-                customer_name="Delta Stores",
-                item_summary="FORM-40, SHOE-42",
-                quantity=160,
-                value_inr=52000.0,
-                formatted_value="52,000",
-                status="Packed",
-                status_color="purple",
-                next_action="Dispatch",
-                next_action_icon="truck",
-                updated_by="Suresh",
-                updated_on="29 Apr 2025 16:40",
-            ),
-        ]
+        # 12. Active Fulfillment Stream (Real Open Documents)
+        fulfillment_stream: List[FulfillmentStreamItem] = []
 
-        # 9. Load saved config if exists
+        # 13. Load Saved Config
         saved_config = await cls.get_saved_config(session, company_id)
 
         return VisualReportsSummaryResponse(
-            company_name="SMRITI FOOTWEAR PVT LTD",
-            location_name="All Locations",
-            date_range_label="01 Apr 2025 - 30 Apr 2025",
+            company_name=company_name,
+            location_name=location_name,
+            date_range_label=date_range_label,
             kpis=kpis,
             stock_flow_timeline=stock_flow,
             workflow_stages=workflow_stages,
             category_positions=category_positions,
             top_reserved_skus=top_skus,
             packing_slip_donut=packing_slip_donut,
-            total_packing_slips_count=62,
+            total_packing_slips_count=ps_count,
             dispatch_invoice_summary=dispatch_invoice_summary,
             fulfillment_stream=fulfillment_stream,
             config=saved_config,

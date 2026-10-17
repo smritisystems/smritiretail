@@ -6,7 +6,7 @@
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
  * Version      : 6.16.3
  * Created      : 2026-10-13
- * Modified     : 2026-10-13
+ * Modified     : 2026-10-17
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Bulk Price Revision Studio Workflow (Phase 4)
@@ -400,50 +400,6 @@ const BulkPriceRevisionWorkflowBase: React.FC<BulkPriceRevisionWorkflowProps> = 
   // ── Step 4: Submission States ──
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
-  // ── Initial Mock Items matching screenshot ──
-  const generateMockSandals = useCallback((): BulkItemCandidate[] => {
-    const sizes = ["36", "37", "38", "39", "40", "41", "42"];
-    const baseItems: BulkItemCandidate[] = [];
-    const basePrices = [
-      { mrp: 500, sp: 450, dp: 400, cp: 320 },
-      { mrp: 500, sp: 450, dp: 400, cp: 320 },
-      { mrp: 550, sp: 495, dp: 440, cp: 340 },
-      { mrp: 550, sp: 495, dp: 440, cp: 340 },
-      { mrp: 600, sp: 540, dp: 480, cp: 360 },
-      { mrp: 600, sp: 540, dp: 480, cp: 360 },
-      { mrp: 650, sp: 585, dp: 520, cp: 380 },
-    ];
-
-    // Create 124 variants representing SND-18-V variations across sizes & lot barcodes
-    for (let i = 0; i < 124; i++) {
-      const szIdx = i % sizes.length;
-      const sz = sizes[szIdx];
-      const p = basePrices[szIdx];
-      const barcodeNum = 8901234567890 + i;
-      baseItems.push({
-        item_id: `itm_snd18v_${i + 1}`,
-        variant_id: `var_snd18v_beige_${sz}_${i + 1}`,
-        style_code: "SND-18-V",
-        article_no: "SND-18-V",
-        item_code: `SND-18-V-BEIGE-${sz}`,
-        item_name: "SANDAL REGULAR",
-        variant_sku: `SND-18-V-BEIGE-${sz}`,
-        barcode: String(barcodeNum),
-        brand: "SND",
-        category: "Footwear",
-        color: "BEIGE",
-        size: sz,
-        vendor_code: "V6DC543",
-        current_mrp: p.mrp,
-        current_selling_price: p.sp,
-        current_distributor_price: p.dp,
-        current_cost_price: p.cp,
-        status: "ACTIVE",
-      });
-    }
-    return baseItems;
-  }, []);
-
   // ── Live Backend Search Handler ──
   const handleSearchItems = useCallback(async () => {
     setIsLoadingItems(true);
@@ -484,25 +440,27 @@ const BulkPriceRevisionWorkflowBase: React.FC<BulkPriceRevisionWorkflowProps> = 
         setSelectedVariantIds(new Set(res.items.map((it) => it.variant_id)));
         setSelectAllMatching(true);
       } else {
-        // Fallback to high-fidelity mock items if search yielded empty in test database
-        const mocks = generateMockSandals();
-        setCandidateItems(mocks);
-        setTotalStylesCount(1);
-        setSelectedVariantIds(new Set(mocks.map((it) => it.variant_id)));
-        setSelectAllMatching(true);
+        // Truthful empty state: no items matched the filter criteria
+        setCandidateItems([]);
+        setTotalStylesCount(0);
+        setSelectedVariantIds(new Set());
+        setSelectAllMatching(false);
       }
     } catch (err: any) {
-      // In development/test mode, fall back to mock sandals
-      const mocks = generateMockSandals();
-      setCandidateItems(mocks);
-      setTotalStylesCount(1);
-      setSelectedVariantIds(new Set(mocks.map((it) => it.variant_id)));
-      setSelectAllMatching(true);
+      setCandidateItems([]);
+      setTotalStylesCount(0);
+      setSelectedVariantIds(new Set());
+      setSelectAllMatching(false);
+      onNotification?.(
+        "Search Failed",
+        err?.message || "Failed to retrieve items from pricing revision service.",
+        "error"
+      );
     } finally {
       setIsLoadingItems(false);
       setCurrentPage(1);
     }
-  }, [styleCode, articleNo, selectedBrand, selectedCategory, selectedColor, selectedStatus, generateMockSandals]);
+  }, [styleCode, articleNo, selectedBrand, selectedCategory, selectedColor, selectedStatus, onNotification]);
 
   // Initial load
   useEffect(() => {

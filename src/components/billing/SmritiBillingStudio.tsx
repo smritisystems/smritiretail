@@ -1036,27 +1036,7 @@ export const SmritiBillingStudio: React.FC<SmritiBillingStudioProps> = ({
       // Backend lookup returned 404 or failed
     }
 
-    // 5. Initial cart demo fallback matching if items are in catalog
-    const demoMatch = INITIAL_DEMO_CART_ITEMS.find(
-      (it) => it.barcode?.toLowerCase() === targetBarcode.toLowerCase() || it.sku?.toLowerCase() === targetBarcode.toLowerCase()
-    );
-    if (demoMatch) {
-      processMatchedProduct({
-        id: demoMatch.productId,
-        name: demoMatch.name,
-        sku: demoMatch.sku,
-        barcode: demoMatch.barcode,
-        price: demoMatch.unitPrice,
-        mrp: demoMatch.mrp,
-        brand: demoMatch.brand,
-        color: demoMatch.color,
-        size: demoMatch.size,
-        gst_rate: demoMatch.taxPct,
-      }, multiplierQty);
-      return;
-    }
-
-    // 6. Unknown barcode: Never invent or silently add products! Actionable HREP message
+    // 5. Unknown barcode: Never invent or silently add products! Actionable HREP message
     playBeep(false);
     onNotification?.(
       "Barcode Not Found",

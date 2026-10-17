@@ -6,9 +6,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 3.33.2
+ * Version      : 3.34.0
  * Created      : 2026-08-28
- * Modified     : 2026-09-20
+ * Modified     : 2026-10-17
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
@@ -261,15 +261,13 @@ export const SupplierScorecardModal: React.FC<SupplierScorecardModalProps> = ({
         } else {
           setSelectedId(profiles[0].supplierId);
         }
-        setDataMode("live");
       } else {
-        // Fallback to demo mode if no suppliers in DB
-        setDataMode("demo");
-        setSelectedId("SUP-001");
+        setSelectedId("");
       }
+      setDataMode("live");
     } catch {
-      setDataMode("demo");
-      setSelectedId("SUP-001");
+      setDataMode("live");
+      setSelectedId("");
     } finally {
       setLoading(false);
     }
@@ -282,12 +280,12 @@ export const SupplierScorecardModal: React.FC<SupplierScorecardModalProps> = ({
   }, [isOpen, loadData]);
 
   const activeProfiles = useMemo(() => {
-    return dataMode === "live" && dbSuppliers.length > 0 ? dbSuppliers : SAMPLE_DEMO_PROFILES;
+    return dataMode === "live" ? dbSuppliers : SAMPLE_DEMO_PROFILES;
   }, [dataMode, dbSuppliers]);
 
   const activeOrders = useMemo(() => {
-    return dataMode === "live" && dbSuppliers.length > 0 ? dbOrders : makeSampleDemoOrders();
-  }, [dataMode, dbSuppliers, dbOrders]);
+    return dataMode === "live" ? dbOrders : makeSampleDemoOrders();
+  }, [dataMode, dbOrders]);
 
   const report = useMemo(() => {
     return generateScorecardReport(activeProfiles, activeOrders);
