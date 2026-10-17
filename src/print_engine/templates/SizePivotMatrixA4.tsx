@@ -107,6 +107,29 @@ export const SizePivotMatrixA4: React.FC<SizePivotMatrixA4Props> = (props) => {
   const logoUrl = tenantCtx?.companyLogoUrl || null;
   const isIdentityMissing = !companyName;
 
+  if (isIdentityMissing) {
+    return (
+      <div 
+        data-testid="print-blocked-container"
+        className="w-[210mm] min-h-[148mm] bg-white text-slate-900 p-8 mx-auto box-border font-sans border-2 border-red-500 rounded-lg flex flex-col items-center justify-center text-center shadow-lg my-6 print:border-red-600 print:shadow-none"
+      >
+        <div className="w-16 h-16 bg-red-100 text-red-600 rounded-full flex items-center justify-center mb-4 text-3xl font-black">
+          ✕
+        </div>
+        <h2 className="text-xl font-black text-red-700 uppercase tracking-wider mb-2">
+          CORPORATE IDENTITY NOT CONFIGURED — PRINTING BLOCKED
+        </h2>
+        <p className="text-sm text-slate-700 max-w-md mb-4 leading-relaxed">
+          Size pivot purchase order printing is prohibited without authoritative buyer corporate identity. 
+          Company name must be configured in Company Profile or provided in document payload.
+        </p>
+        <div className="inline-block px-4 py-2 bg-red-50 border border-red-200 text-red-800 rounded font-mono text-xs font-bold uppercase tracking-wider">
+          Fail-Closed Statutory Protection Active
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div
       className={`${
@@ -130,21 +153,6 @@ export const SizePivotMatrixA4: React.FC<SizePivotMatrixA4Props> = (props) => {
             <div className="text-xl font-bold tracking-[0.22em] mt-1 text-slate-800 border-t-2 border-dashed border-[#1e3a8a]/40 pt-1 w-full">
               PURCHASE ORDER
             </div>
-          </div>
-        </div>
-      )}
-
-      {/* ── FAIL-CLOSED CORPORATE IDENTITY BANNER ── */}
-      {isIdentityMissing && (
-        <div className="mb-4 p-4 rounded-xl border border-rose-500/50 bg-rose-950/40 text-rose-200 flex items-start gap-3 no-print">
-          <span className="material-symbols-outlined text-rose-400 text-2xl">warning</span>
-          <div>
-            <p className="font-bold text-sm tracking-wide text-rose-300 uppercase">
-              CORPORATE IDENTITY NOT CONFIGURED — PRINTING BLOCKED
-            </p>
-            <p className="text-xs text-rose-300/80 mt-1">
-              Purchase order printing requires configured Buyer legal entity details. Please configure your Company Profile before issuing or printing orders.
-            </p>
           </div>
         </div>
       )}

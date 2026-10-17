@@ -53,7 +53,7 @@ class _MockInvoiceItem:
 
 
 class _MockInvoice:
-    def __init__(self, id, invoice_no, date_val, sis_code, pos_state, po_reference, eway_bill_no, customer_name, customer_gstin, site_name, billing_address, shipping_address, taxable_value, tax_total, grand_total, is_interstate, items, dispatch_from_snapshot=None):
+    def __init__(self, id, invoice_no, date_val, sis_code, pos_state, po_reference, eway_bill_no, customer_name, customer_gstin, site_name, billing_address, shipping_address, taxable_value, tax_total, grand_total, is_interstate, items, dispatch_from_snapshot=None, bank_name=None, account_no=None, ifsc_code=None, bank_branch=None):
         self.id = id
         self.invoice_no = invoice_no
         self.date = date_val
@@ -70,10 +70,10 @@ class _MockInvoice:
         self.tax_total = tax_total
         self.grand_total = grand_total
         self.is_interstate = is_interstate
-        self.bank_name = "STATE BANK OF INDIA"
-        self.account_no = "43976711765"
-        self.ifsc_code = "SBIN0030425"
-        self.bank_branch = "SME BRANCH, NAGPUR"
+        self.bank_name = bank_name
+        self.account_no = account_no
+        self.ifsc_code = ifsc_code
+        self.bank_branch = bank_branch
         self.items = items
         self.dispatch_from_snapshot = dispatch_from_snapshot
         self.status = "COMPLETED"
@@ -158,20 +158,24 @@ class DispatchArtifactPipeline:
                         grand_total=Decimal(str(rec["grand_total"])),
                         is_interstate=rec["is_interstate"],
                         items=inv_items_mock,
-                        dispatch_from_snapshot=DISPATCH_FROM_SNAPSHOT
+                        dispatch_from_snapshot=rec.get("dispatch_from_snapshot") or DISPATCH_FROM_SNAPSHOT,
+                        bank_name=rec.get("bank_name"),
+                        account_no=rec.get("account_no"),
+                        ifsc_code=rec.get("ifsc_code"),
+                        bank_branch=rec.get("bank_branch"),
                     )
 
                     html_content = InvoicePdfService.generate_invoice_html_from_model(
                         invoice=inv_mock,
-                        company_name="TATTLY THREADS",
-                        company_gstin="27AAXFT2508H1ZR",
+                        company_name=rec.get("company_name", ""),
+                        company_gstin=rec.get("company_gstin", ""),
                         extra_meta={
-                            "company_website": "www.tattlythreads.com",
-                            "dispatch_email": "dispatch@tattlythreads.com",
-                            "accounts_email": "accounts@tattlythreads.com",
+                            "company_website": rec.get("company_website", ""),
+                            "dispatch_email": rec.get("dispatch_email", ""),
+                            "accounts_email": rec.get("accounts_email", ""),
                             "delivery_site_code": rec["store_code"],
                             "po_date": rec["po_date"],
-                            "dispatch_from_snapshot": DISPATCH_FROM_SNAPSHOT
+                            "dispatch_from_snapshot": rec.get("dispatch_from_snapshot") or DISPATCH_FROM_SNAPSHOT
                         }
                     )
 
@@ -203,21 +207,24 @@ class DispatchArtifactPipeline:
 
         for rec in invoice_records:
             clean_no = rec["invoice_no"].replace("/", "_")
+            from_gstin = rec.get("company_gstin") or rec.get("supplier_gstin") or ""
+            from_trd_name = rec.get("company_name") or rec.get("supplier_name") or ""
+            from_state_code = int(from_gstin[:2]) if len(from_gstin) >= 2 and from_gstin[:2].isdigit() else 27
             bill = {
-                "userGstin": "27AAXFT2508H1ZR",
+                "userGstin": from_gstin,
                 "supplyType": "O",
                 "subSupplyType": 1,
                 "docType": "INV",
                 "docNo": rec["invoice_no"],
                 "docDate": rec["date_obj"].strftime("%d/%m/%Y"),
                 "transType": 4 if rec["is_interstate"] else 1,
-                "fromGstin": "27AAXFT2508H1ZR",
-                "fromTrdName": "TATTLY THREADS",
-                "fromStateCode": 27,
-                "fromAddr1": "Om Sai Nagar, Kalamana",
-                "fromAddr2": "Tattly Threads Nagpur Depot",
-                "fromPlace": "Nagpur",
-                "fromPincode": 440029,
+                "fromGstin": from_gstin,
+                "fromTrdName": from_trd_name,
+                "fromStateCode": from_state_code,
+                "fromAddr1": rec.get("dispatch_address", "Central Logistics Depot"),
+                "fromAddr2": "",
+                "fromPlace": rec.get("dispatch_city", "Nagpur"),
+                "fromPincode": rec.get("dispatch_pincode", 440029),
                 "toGstin": rec["customer_gstin"],
                 "toTrdName": rec["customer_name"].upper(),
                 "toAddr1": rec["shipping_address"][:60],
@@ -296,7 +303,7 @@ class DispatchArtifactPipeline:
                 rec["store_code"],
                 rec["original_site_name"],
                 rec["po_number"],
-                "Tattly Threads Nagpur Depot (440029)",
+                "Central Logistics Depot (440029)",
                 rec["pos_state"],
                 "",
                 rec["pairs"],
@@ -435,7 +442,7 @@ class DispatchArtifactPipeline:
                 c_m = ws.cell(r, col_m, inv_str)
                 c_n = ws.cell(r, col_n, inv_dt)
                 c_o = ws.cell(r, col_o, po_num)
-                c_p = ws.cell(r, col_p, "Tattly Threads Nagpur Depot")
+                c_p = ws.cell(r, col_p, "Central Logistics Depot")
 
                 c_m.fill = green_fill
                 c_n.fill = green_fill

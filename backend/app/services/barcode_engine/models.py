@@ -81,7 +81,7 @@ class PrintItemPayload(BaseModel):
     category: Optional[str] = "General"
     mfg_date: Optional[str] = "10/26"
     net_contents: Optional[str] = "NET CONTENTS:1 Pair Footwear"
-    company_name: Optional[str] = "Tattly Threads"
-    company_address: Optional[str] = "81,Umerkhadi,Mumbai,400003"
-    company_email: Optional[str] = "care@tattlythreads.com"
+    company_name: Optional[str] = None
+    company_address: Optional[str] = None
+    company_email: Optional[str] = None
     attributes: Dict[str, Any] = Field(default_factory=dict)

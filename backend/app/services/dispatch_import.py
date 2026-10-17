@@ -586,7 +586,7 @@ class TattlyDispatchImportService:
         """
         comp_stmt = select(Company).where(Company.company_code == "tattly_threads")
         seller = (await db_session.execute(comp_stmt)).scalar_one_or_none()
-        seller_state_code = "27"
+        seller_state_code = seller.gst_number[:2] if seller and seller.gst_number else "27"
 
         seq_info = await TattlyDispatchImportService.get_next_invoice_number(db_session, financial_year)
         invoice_no = seq_info["next_invoice_number"]
@@ -661,7 +661,7 @@ class TattlyDispatchImportService:
 
         parsed_date = datetime.datetime.strptime(invoice_date, "%Y-%m-%d")
 
-        notes_str = f"Tattly Threads Tax Invoice | SIS Code: {target_sis}"
+        notes_str = f"Tax Invoice | SIS Code: {target_sis}"
         if resolved_po:
             notes_str += f" | PO / Order Reference No.: {resolved_po}"
 
@@ -758,8 +758,8 @@ class TattlyDispatchImportService:
             "invoice_sequence": sequence_num,
             "financial_year": financial_year,
             "invoice_date": invoice_date,
-            "seller_name": "Tattly Threads",
-            "seller_gstin": "27AAXFT2508H1ZR",
+            "seller_name": (seller.legal_name or seller.name) if seller else "",
+            "seller_gstin": seller.gst_number if seller else "",
             "customer_name": customer.name,
             "customer_pan": "AABCR1718E",
             "sis_code": target_sis,

@@ -36,13 +36,28 @@ export const ThermalReceipt80mm: React.FC<{ data?: any }> = ({ data = {} }) => {
 
   const isIdentityMissing = !storeName;
 
+  if (isIdentityMissing) {
+    return (
+      <div 
+        data-testid="print-blocked-container"
+        className="w-[80mm] bg-white text-black font-mono text-xs mx-auto p-[4mm] border-2 border-red-600 text-center"
+      >
+        <div className="text-xl font-bold mb-2">✕</div>
+        <div className="font-bold uppercase tracking-wider text-[11px] mb-2 text-red-700">
+          STORE IDENTITY NOT CONFIGURED
+        </div>
+        <p className="text-[10px] leading-tight text-slate-700 mb-2">
+          Receipt printing is prohibited without configured store name.
+        </p>
+        <div className="text-[9px] uppercase font-bold border border-black p-1">
+          PRINTING BLOCKED
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="w-[80mm] bg-white text-black font-mono text-xs mx-auto p-[4mm]">
-      {isIdentityMissing && (
-        <div className="border-2 border-black p-2 mb-3 text-center font-bold uppercase tracking-wider text-[10px]">
-          CORPORATE IDENTITY NOT CONFIGURED
-        </div>
-      )}
 
       <div className="text-center mb-4 border-b border-dashed border-black pb-4">
         {storeName && <h1 className="text-lg font-bold uppercase">{storeName}</h1>}

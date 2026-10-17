@@ -26,6 +26,8 @@ from app.models.sales import SalesInvoice, SalesInvoiceItem
 from app.models.distribution import EWayBill
 from app.models.crm import Customer, CustomerDeliveryLocation
 from app.models.dispatch_batch import DispatchBatch
+from app.models.tenant import Company
+from app.models.company_policy import CompanyBankAccount
 from app.services.identity.engine import IdentityEngine
 from app.services.invoice_pdf_service import number_to_indian_words
 from app.services.dispatch_matrix_parser import DispatchMatrixParser, DispatchMatrixParseError
@@ -43,10 +45,10 @@ from app.schemas.dispatch_invoicing import (
 # Canonical Depot Dispatch Location Snapshot (Nagpur Depot)
 DISPATCH_FROM_SNAPSHOT = {
     "code": "WH-NGP",
-    "name": "Tattly Threads (Nagpur Depot)",
-    "location_name": "Tattly Threads Nagpur Depot",
+    "name": "Central Logistics Depot",
+    "location_name": "Central Logistics Depot",
     "location_id": "wh-ngp-001",
-    "gstin": "27AAXFT2508H1ZR",
+    "gstin": "",
     "phone": "9324117007",
     "state": "Maharashtra",
     "state_code": "27",
@@ -606,6 +608,26 @@ class DispatchInvoicingEngine:
 
         inv_date_obj = date.fromisoformat(req.invoice_date)
 
+        # Resolve authoritative company bank details if available
+        comp_bank_res = await db.execute(
+            select(CompanyBankAccount).where(
+                CompanyBankAccount.company_id == (resolved_company_id or company_id)
+            ).order_by(CompanyBankAccount.is_default.desc()).limit(1)
+        )
+        comp_bank = comp_bank_res.scalar_one_or_none()
+        resolved_bank_name = comp_bank.bank_name if comp_bank else None
+        resolved_account_no = comp_bank.account_no if comp_bank else None
+        resolved_ifsc_code = comp_bank.ifsc if comp_bank else None
+
+        # Resolve authoritative company details
+        comp_res = await db.execute(
+            select(Company).where(Company.id == (resolved_company_id or company_id)).limit(1)
+        )
+        comp_obj = comp_res.scalar_one_or_none()
+        resolved_comp_name = (comp_obj.legal_name or comp_obj.name) if comp_obj else ""
+        resolved_comp_gstin = comp_obj.gst_number if comp_obj else ""
+        resolved_state_code = int(resolved_comp_gstin[:2]) if len(resolved_comp_gstin) >= 2 and resolved_comp_gstin[:2].isdigit() else 27
+
         for idx, (store_code, lines) in enumerate(store_groups.items()):
             current_seq = starting_seq + idx
             inv_no = f"{prefix}{current_seq}"
@@ -737,9 +759,9 @@ class DispatchInvoicingEngine:
                 grand_total=grand_total,
                 rounding_amount=round_adj,
                 amount_in_words=words,
-                bank_name="STATE BANK OF INDIA",
-                account_no="43976711765",
-                ifsc_code="SBIN0030425",
+                bank_name=resolved_bank_name,
+                account_no=resolved_account_no,
+                ifsc_code=resolved_ifsc_code,
                 status="COMPLETED",
                 created_at=datetime.now(timezone.utc),
                 created_by=operator,
@@ -801,7 +823,7 @@ class DispatchInvoicingEngine:
 
             nic_payload_snap = {
                 "version": "1.0.1118",
-                "userGstin": "27AAXFT2508H1ZR",
+                "userGstin": resolved_comp_gstin,
                 "supplyType": "O",
                 "subSupplyType": 1,
                 "subSupplyDesc": "Supply",
@@ -809,11 +831,11 @@ class DispatchInvoicingEngine:
                 "docNo": inv_no,
                 "docDate": inv_date_obj.strftime("%d/%m/%Y"),
                 "transType": 4 if is_interstate else 1,
-                "fromGstin": "27AAXFT2508H1ZR",
-                "fromTrdName": "TATTLY THREADS",
-                "fromStateCode": 27,
+                "fromGstin": resolved_comp_gstin,
+                "fromTrdName": resolved_comp_name,
+                "fromStateCode": resolved_state_code,
                 "fromAddr1": "Om Sai Nagar, Kalamana",
-                "fromAddr2": "Tattly Threads Nagpur Depot",
+                "fromAddr2": "Central Logistics Depot",
                 "fromPlace": "Nagpur",
                 "fromPincode": 440029,
                 "toGstin": store_profile["gstin"],
@@ -847,9 +869,9 @@ class DispatchInvoicingEngine:
                 supply_type="O",
                 sub_supply_type=1,
                 sub_supply_desc="Supply",
-                gstin_from="27AAXFT2508H1ZR",
-                trade_name_from="TATTLY THREADS",
-                state_code_from=27,
+                gstin_from=resolved_comp_gstin,
+                trade_name_from=resolved_comp_name,
+                state_code_from=resolved_state_code,
                 gstin_to=store_profile["gstin"],
                 trade_name_to=req.customer_name,
                 state_code_to=pos_state_code,

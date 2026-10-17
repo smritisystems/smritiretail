@@ -35,6 +35,7 @@ import {
 } from "../../print_engine/templates/PurchaseOrderPrintA4";
 import { DEFAULT_BUSINESS_TERMS } from "./CommercialDeliveryDrawer";
 import type { PurchaseOrderHeader, PurchaseOrderLineItem, PurchaseOrderSizePivotRow } from "./types.ts";
+import { getTenantCompanyContext } from "../../lib/apiFetchV1";
 
 export interface POPrintPreviewModalProps {
   isOpen: boolean;
@@ -274,24 +275,24 @@ export const POPrintPreviewModal: React.FC<POPrintPreviewModalProps> = ({
     (vendor as any)?.commercial?.business_terms ||
     DEFAULT_BUSINESS_TERMS;
 
+  const tenantCtx = getTenantCompanyContext();
+  const tenantCompanyName = tenantCtx.companyName || (typeof localStorage !== "undefined" ? localStorage.getItem("smriti_company_name") || "" : "");
+  const tenantCompanyAddress = tenantCtx.companyAddress || (typeof localStorage !== "undefined" ? localStorage.getItem("smriti_company_address") || "" : "");
+  const tenantCompanyGstin = tenantCtx.companyGstin || (typeof localStorage !== "undefined" ? localStorage.getItem("smriti_company_gstin") || "" : "");
+  const tenantCompanyEmail = tenantCtx.companyEmail || (typeof localStorage !== "undefined" ? localStorage.getItem("smriti_company_email") || "" : "");
+  const tenantCompanyPhone = tenantCtx.companyPhone || (typeof localStorage !== "undefined" ? localStorage.getItem("smriti_company_phone") || "" : "");
+  const tenantCompanyPan = tenantCompanyGstin && tenantCompanyGstin.length >= 12 ? tenantCompanyGstin.slice(2, 12) : "";
+
   // Construct Footwear PO Data payload
   const footwearData: FootwearPurchaseOrderData = {
     poNumber: `${header.prefix || "PO"}-${header.orderNumber || "1"}`,
     poDate: header.orderDate || new Date().toISOString().split("T")[0],
     deliveryDate: header.deliveryDate || new Date(Date.now() + 10 * 86400000).toISOString().split("T")[0],
-    companyName:
-      (typeof localStorage !== "undefined" && localStorage.getItem("smriti_company_name")) ||
-      "TATTLY THREADS",
+    companyName: tenantCompanyName,
     companySubtitle: "Footwear Sourcing & Procurement Division",
-    companyAddress:
-      (typeof localStorage !== "undefined" && localStorage.getItem("smriti_company_address")) ||
-      "Office Number 81, Ibrahim Rehmatulla Road, Beside Jio Gallery, Near HP Petrol Pump, Mumbai - 400003",
-    companyGstin:
-      (typeof localStorage !== "undefined" && localStorage.getItem("smriti_company_gstin")) ||
-      "27AAXFT2508H1ZR",
-    companyContact:
-      (typeof localStorage !== "undefined" && localStorage.getItem("smriti_company_email")) ||
-      "accounts@tattlythreads.com | +91 9867230839",
+    companyAddress: tenantCompanyAddress,
+    companyGstin: tenantCompanyGstin,
+    companyContact: [tenantCompanyEmail, tenantCompanyPhone].filter(Boolean).join(" | "),
     vendorName: header.supplierName || vendor?.name || "Selected Supplier",
     vendorCode: header.supplierId || vendor?.code || "—",
     vendorAddress: vendor?.address || "Registered Supplier Premises",
@@ -299,8 +300,8 @@ export const POPrintPreviewModal: React.FC<POPrintPreviewModalProps> = ({
     vendorContact: vendor?.mobile || vendor?.phone || "—",
     dcCode: "DC-MAIN-01",
     dcName: "Main Store Distribution Depot",
-    dcAddress: "Office Number 81, Ibrahim Rehmatulla Road, Mumbai - 400003",
-    dcGstin: "27AAXFT2508H1ZR",
+    dcAddress: tenantCompanyAddress,
+    dcGstin: tenantCompanyGstin,
     dcReceivingGate: "Gate 1 - Central Footwear Bay",
     currency: currency,
     currencySymbol: currencySymbol,
@@ -722,22 +723,10 @@ export const POPrintPreviewModal: React.FC<POPrintPreviewModalProps> = ({
   // Payload for approved A4 template
   const approvedPrintData: PurchaseOrderPrintData = {
     mode: template === "smriti-standard" ? "standard" : "sizewise",
-    companyName:
-      (typeof localStorage !== "undefined" &&
-        localStorage.getItem("smriti_company_name")) ||
-      "TATTLY THREADS",
-    companyAddress:
-      (typeof localStorage !== "undefined" &&
-        localStorage.getItem("smriti_company_address")) ||
-      "Office Number 81, Ibrahim Rehmatulla Road, Beside Jio Gallery, Near HP Petrol Pump\nMumbai, Maharashtra - 400003",
-    companyGstin:
-      (typeof localStorage !== "undefined" &&
-        localStorage.getItem("smriti_company_gstin")) ||
-      "27AAXFT2508H1ZR",
-    companyPan:
-      (typeof localStorage !== "undefined" &&
-        localStorage.getItem("smriti_company_pan")) ||
-      "AAXFT2508H",
+    companyName: tenantCompanyName,
+    companyAddress: tenantCompanyAddress,
+    companyGstin: tenantCompanyGstin,
+    companyPan: tenantCompanyPan,
     poNumber: `${header.prefix || "PO"}-${header.orderNumber || "1"}`,
     orderDate: formatDisplayDate((header as any)?.orderDate || (header as any)?.notes?.match(/dated ([0-9-]+)/)?.[1]) || formatDisplayDate(new Date().toISOString()),
     expectedDelivery: formatDisplayDate(header.deliveryDate) || "",

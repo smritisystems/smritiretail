@@ -147,9 +147,9 @@ class PrinterService:
         style: str,
         mrp: Any,
         pkd_date: Optional[str] = None,
-        brand: str = "TATTLY THREADS",
-        company_address: str = "81,Umerkhadi,Mumbai,400003",
-        company_email: str = "care@tattlythreads.com",
+        brand: str = "",
+        company_address: str = "",
+        company_email: str = "",
     ) -> str:
         """
         Generates native 300 DPI DPL command stream for 100mm x 50.7mm 3-part footwear box label
@@ -211,12 +211,12 @@ class PrinterService:
             "191100003150420NET CONTENTS: 1 Pair Footwear",
             f"191100003950420{company_address}",
             f"191100004200420{company_email}",
-            "191100004500420MKTD.By: Tattly Threads",
-            "492200003570772TATTLY THREADS",
+            f"191100004500420MKTD.By: {brand}",
+            f"492200003570772{brand}",
             f"1e4209804500510{barcode_str}",
             f"191100005600575{barcode_str}",
             # Stub 1 Elements:
-            "491100001460017TATTLY THREADS",
+            f"491100001460017{brand}",
             f"191100000400055{style_str}",
             f"191100000750170{color_str}",
             f"192200001350075{size_str}",
@@ -225,7 +225,7 @@ class PrinterService:
             f"1e4204501650050{barcode_str}",
             f"191100002250090{barcode_str}",
             # Stub 2 Elements:
-            "491100003720016TATTLY THREADS",
+            f"491100003720016{brand}",
             f"191100003650049{style_str}",
             f"191100004000170{color_str}",
             f"192200004600075{size_str}",

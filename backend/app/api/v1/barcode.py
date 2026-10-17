@@ -74,9 +74,9 @@ def serialize_layout(l: BarcodeLayout) -> BarcodeLayoutResponse:
 
 def generate_footwear_3stub_zpl(
     item: Dict[str, Any],
-    company_name: str = "Tattly Threads",
-    company_address: str = "81,Umerkhadi,Mumbai,400003",
-    company_email: str = "care@tattlythreads.com",
+    company_name: str = "",
+    company_address: str = "",
+    company_email: str = "",
     default_mfg_date: Optional[str] = None,
 ) -> str:
     """
@@ -122,7 +122,7 @@ def generate_footwear_3stub_zpl(
         mrp_str = str(mrp_val)
 
     # Brand
-    brand_val = str(item.get("brand") or attrs.get("brand") or "TATTLY THREADS").strip().upper()
+    brand_val = str(item.get("brand") or attrs.get("brand") or company_name or "").strip().upper()
 
     # Mfg Date
     mfg_date = item.get("mfg_date") or default_mfg_date or datetime.now(timezone.utc).strftime("%m/%y")
@@ -247,7 +247,7 @@ async def list_layouts(
     if "lay-footwear-100x50-3stub" not in existing_ids:
         layout_responses.insert(0, BarcodeLayoutResponse(
             id="lay-footwear-100x50-3stub",
-            name="Tattly Threads Footwear — 100x50.7mm",
+            name="Footwear Box Label — 100x50.7mm",
             widthMm=100.0,
             heightMm=50.7,
             columns=1,
@@ -478,12 +478,12 @@ async def print_labels(
             from ...models.tenant import Company
             comp_row = (await db.execute(select(Company).where(Company.id == tenant_ctx.company_id))).scalars().first()
             if comp_row:
-                company_trade_name = comp_row.name or "Tattly Threads"
+                company_trade_name = comp_row.name or ""
             else:
-                company_trade_name = "Tattly Threads"
+                company_trade_name = ""
 
-        company_address = cfg_map.get("legal_metrology_address") or cfg_map.get("business_address") or "81,Umerkhadi,Mumbai,400003"
-        company_email = cfg_map.get("legal_metrology_email") or cfg_map.get("customer_care_email") or "care@tattlythreads.com"
+        company_address = cfg_map.get("legal_metrology_address") or cfg_map.get("business_address") or ""
+        company_email = cfg_map.get("legal_metrology_email") or cfg_map.get("customer_care_email") or ""
 
     # Determine dispatch mode: request override > company SystemConfig > default server_tcp
     if getattr(req, "saveAsPrn", False):
@@ -549,16 +549,16 @@ async def print_labels(
                     style=prod_style,
                     mrp=prod_mrp,
                     pkd_date=item.get("pkd_date") or item.get("mfg_date"),
-                    brand=company_trade_name or item.get("brand") or "TATTLY THREADS",
-                    company_address=company_address or "81,Umerkhadi,Mumbai,400003",
-                    company_email=company_email or "care@tattlythreads.com",
+                    brand=company_trade_name or item.get("brand") or "",
+                    company_address=company_address or "",
+                    company_email=company_email or "",
                 )
             else:
                 raw_stream = generate_footwear_3stub_zpl(
                     item=item,
-                    company_name=company_trade_name or "Tattly Threads",
-                    company_address=company_address or "81,Umerkhadi,Mumbai,400003",
-                    company_email=company_email or "care@tattlythreads.com",
+                    company_name=company_trade_name or "",
+                    company_address=company_address or "",
+                    company_email=company_email or "",
                 )
         elif prn_template:
             mfg_date = datetime.now(KOLKATA_TZ).strftime("%m/%y")
@@ -590,9 +590,9 @@ async def print_labels(
             raw_stream = raw_stream.replace("{colour}", prod_color)
             raw_stream = raw_stream.replace("{barcode}", prod_barcode)
             raw_stream = raw_stream.replace("{size}", prod_size)
-            raw_stream = raw_stream.replace("{company_name}", company_trade_name or "Tattly Threads")
-            raw_stream = raw_stream.replace("{address}", company_address or "81,Umerkhadi,Mumbai,400003")
-            raw_stream = raw_stream.replace("{email}", company_email or "care@tattlythreads.com")
+            raw_stream = raw_stream.replace("{company_name}", company_trade_name or "")
+            raw_stream = raw_stream.replace("{address}", company_address or "")
+            raw_stream = raw_stream.replace("{email}", company_email or "")
             raw_stream = raw_stream.replace("{net_contents}", str(item.get("net_contents") or "NET CONTENTS:1 Pair Footwear"))
 
             # 2. Iterate and replace any top-level key present in the request item dict
