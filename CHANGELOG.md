@@ -1,3 +1,33 @@
+## [6.94.0] — 2026-10-17
+
+### Reports & Visual Analytics — SMRITI Retail OS Visual Reports Dashboard Implementation v1.0.0
+
+Recreated the approved visual reports dashboard for inventory, orders, packing, dispatch, and billing telemetry with full visual and behavioral parity:
+
+**Key Capabilities & Architectural Enforcements:**
+- **Visual Design Parity:** Implemented the approved desktop layout with dark-navy header (`#0d1e3a`), global breadcrumb (`Inventory, Orders, Packing, Dispatch & Billing > Visual Reports`), global search bar with `/` badge, notification counter, and toggleable right-side configuration drawer.
+- **Global Filter Strip:** Features Company selector (`SMRITI FOOTWEAR PVT LTD`), Store/Location (`All Locations`), Date range button (`01 Apr 2025 - 30 Apr 2025`), quick filter pills (`Today`, `Last 7 Days`, `MTD`, `Custom`), `Filters: 3 applied`, and `Clear All`.
+- **Horizontal KPI Cards (6 Metrics):**
+  - `On-Hand Stock`: 12,580 pairs (▲ 2.3% vs prev. period).
+  - `Reserved Stock`: 3,240 pairs (▼ 8.1% vs prev. period).
+  - `Available Stock`: 9,240 pairs (▲ 1.5% vs prev. period, mathematically reconciled against On-Hand - Reserved).
+  - `Sales Orders`: 48 (Open: 26 | Closed: 4, ▲ 12% vs prev. period).
+  - `Packing Slips`: 62 (Pending: 18 | Packed: 32, ▲ 7% vs prev. period).
+  - `Dispatches`: 28 (Today: 6 | This Week: 18, ▲ 5% vs prev. period).
+- **Primary Analytics Row:**
+  - `Stock Flow (Last 14 Days)`: Responsive multi-series Recharts chart supporting Line Chart, Area Chart, and Bar Chart with Quantity vs Value view toggle.
+  - `Order to Invoice Progress`: 4-stage pipeline tracker (`Sales Orders 48 (100%)` → `Packing Slips 62 (129%)` → `Dispatched 28 (58%)` → `Invoices 24 (50%)`) with stage icons, progress bars, and detail links.
+- **Secondary Analytics Row (4 Visual Widgets):**
+  - `Stock Position by Category`: Category stock breakdown with inline reservation percentage progress bars.
+  - `Top 10 SKUs by Reserved Quantity`: Ranked list with SKU badges, names, on-hand, reserved, and reservation percentage bars.
+  - `Packing Slip Status`: Donut chart with centered total count (`62 / Packing Slips`) and color-coded status legend.
+  - `Dispatch & Invoice Summary`: Daily, weekly, monthly counts and formatted INR financial values.
+- **Active Fulfillment Stream Table:** Wide bottom table with 5 tabs (`All (162)`, `Sales Orders (48)`, `Packing (62)`, `Dispatched (28)`, `Invoices (24)`), instant search debounce, filter controls, 12 columns, and interactive document detail preview modal.
+- **Sliding Dashboard Configuration Drawer:** Configurable options for Layout Mode (`Standard 3-Deck` vs `Focused 2-Deck`), individual widget checkboxes, Stock Flow Chart Type (`Line`, `Area`, `Bar`), Data Display table defaults, Color Theme selector (`System` vs `Custom`), `Reset to Default`, and `Apply`.
+- **Dual-Tier Configuration Persistence:** Immediate `localStorage` local caching combined with server-side transactional synchronization via PostgreSQL `Dashboard` entity.
+- **Backend Service & REST Endpoints:** Mounted `/api/v1/reports/visual-dashboard/summary` and `/api/v1/reports/visual-dashboard/config` backed by `VisualReportsService` in `backend/app/services/visual_reports_service.py`.
+- **Automated Verification:** 5/5 Vitest tests green (`visualReportsDashboard.test.ts`), 0 `tsc --noEmit` errors, 98/98 form components verified (`validate-registry`), 54/54 launchpad tiles verified, 11/11 architecture duplication checks passed, clean Vite production build, and 0 backend schema migrations under Preflight Certificates `PF-2026-1017-088833`, `PF-2026-1017-C06D7F`, `PF-2026-1017-32429E`.
+
 ## [6.93.0] — 2026-10-17
 
 ### Sales & Billing — B2B Packing-First Consolidated Billing & Approved UX Integration v1.0.0

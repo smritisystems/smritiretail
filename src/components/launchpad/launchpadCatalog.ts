@@ -268,6 +268,18 @@ export const LAUNCHPAD_CATALOG: TileData[] = [
     group: "Finance & Ledgers",
     roles: ["MANAGER", "SYSADMIN"],
   },
+  {
+    id: "visual-reports",
+    title: "Visual Reports (Orders, Packing & Stock Flow)",
+    subtitle: "Real-time visual reports for order-to-invoice progress, packing status, SKU reservations & fulfillment stream",
+    icon: "analytics",
+    tag: "Visual Reports",
+    badgeType: "success",
+    group: "Finance & Ledgers",
+    roles: ["MANAGER", "SYSADMIN", "CASHIER"],
+    isQuickAction: true,
+    accentColor: "blue",
+  },
 
   // 4. Documents & Print
   {

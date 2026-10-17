@@ -14,6 +14,51 @@
 
 # SMRITI Retail OS — Release Notes
 
+## Release v6.94.0 (2026-10-17)
+
+### Reports & Visual Analytics — SMRITI Retail OS Visual Reports Dashboard Implementation
+
+#### Overview
+SMRITI Retail OS v6.94.0 delivers the approved, pixel-perfect Visual Reports Dashboard for comprehensive visual telemetry over retail inventory, sales order intake, packing slip fulfillment, dispatch pipelines, and billing conversion. The dashboard incorporates 6 horizontal KPI cards, multi-type stock flow timeline charts (Line, Area, Bar), a 4-stage order-to-invoice progress tracker, category reservation progress matrices, top reserved SKU rankings, packing status donut charts, dispatch/invoice summary metrics, and a 12-column Active Fulfillment Stream table with live search and document previews. It includes an interactive sliding Dashboard Configuration drawer with full local and server-side PostgreSQL persistence.
+
+#### Key Highlights
+- **Exact Visual Reference Parity**:
+  - Dark-navy header (`#0d1e3a`) with breadcrumb (`Inventory, Orders, Packing, Dispatch & Billing > Visual Reports`), global search bar with keyboard `/` shortcut badge, notification counter, and drawer toggle.
+  - Global filter strip with Company, Store/Location, Date range, and quick preset pills (`Today`, `Last 7 Days`, `MTD`, `Custom`).
+- **Horizontal KPI Cards**:
+  - On-Hand Stock (12,580 pairs, ▲ 2.3%).
+  - Reserved Stock (3,240 pairs, ▼ 8.1%).
+  - Available Stock (9,240 pairs, ▲ 1.5%, mathematically reconciled).
+  - Sales Orders (48, Open: 26 | Closed: 4, ▲ 12%).
+  - Packing Slips (62, Pending: 18 | Packed: 32, ▲ 7%).
+  - Dispatches (28, Today: 6 | This Week: 18, ▲ 5%).
+- **Primary Analytics Row**:
+  - Stock Flow (Last 14 Days) Recharts multi-series chart with Quantity vs Value view toggle and Line/Area/Bar chart type selection.
+  - Order to Invoice Progress 4-stage workflow pipeline (`Sales Orders` → `Packing Slips` → `Dispatched` → `Invoices`) with individual stage counts, percentage ratios, and progress bars.
+- **Secondary Analytics Row**:
+  - Stock Position by Category with visual reservation % bars.
+  - Top 10 SKUs by Reserved Quantity with ranking badges and reservation bars.
+  - Packing Slip Status donut chart with centered total count (`62 / Packing Slips`) and color-coded status breakdown.
+  - Dispatch & Invoice Summary table with daily, weekly, monthly counts and formatted INR financial valuation.
+- **Active Fulfillment Stream**:
+  - Wide 12-column transaction stream with 5 category tabs (`All (162)`, `Sales Orders (48)`, `Packing (62)`, `Dispatched (28)`, `Invoices (24)`), instant search debounce, and interactive document detail modal.
+- **Sliding Dashboard Configuration Drawer**:
+  - Layout mode selection: `Standard (3 Deck)` vs `Focused (2 Deck)`.
+  - Individual widget visibility checkboxes for all charts and tables.
+  - Stock flow chart type selector (`Line Chart`, `Area Chart`, `Bar Chart`).
+  - Table defaults, default tab, and rows per page settings.
+  - Color Theme selector: `Use System Theme` vs `Custom` palette dots.
+  - Action buttons: `Reset to Default` and `Apply`.
+- **Dual-Tier Configuration Persistence**:
+  - Immediate `localStorage` cache for instantaneous paint and server-side transactional synchronization via PostgreSQL `Dashboard` entity.
+- **Automated Verification**:
+  - 5/5 Vitest tests green in `src/tests/visualReportsDashboard.test.ts`.
+  - 0 errors in `tsc --noEmit`.
+  - 98/98 form components verified in `npm run validate-registry`.
+  - 54/54 launchpad tiles verified in `npm run validate-launchpad`.
+  - 11/11 architecture duplication checks passed in `npm run architecture:check`.
+  - Clean production Vite build (`npm run build`).
+
 ## Release v6.93.0 (2026-10-17)
 
 ### Sales & Billing — B2B Packing-First Consolidated Billing & Approved UX Integration

@@ -54,8 +54,10 @@ from ...schemas.reports import (
     PreparedReportStatusResponse,
 )
 from ...schemas.report_schedule import ReportScheduleCreate, ReportScheduleResponse
+from ...schemas.visual_reports import VisualReportsSummaryResponse, DashboardConfigPayload
 from ...services.reports import ReportsService
 from ...services.prepared_report_service import PreparedReportService
+from ...services.visual_reports_service import VisualReportsService
 from ...models.reporting import ReportDefinition, ReportSavedView, Dashboard, DashboardWidget, PreparedReport
 
 router = APIRouter(prefix="/reports")
@@ -987,4 +989,60 @@ async def download_prepared_report(
         raise HTTPException(status_code=400, detail=str(ve))
     except FileNotFoundError as fe:
         raise HTTPException(status_code=404, detail=str(fe))
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Visual Reports Dashboard Endpoints
+# ─────────────────────────────────────────────────────────────────────────────
+
+@router.get("/visual-dashboard/summary", response_model=VisualReportsSummaryResponse, summary="Get Visual Reports Dashboard Data")
+async def get_visual_dashboard_summary(
+    start_date: Optional[date] = Query(None, description="Start date (YYYY-MM-DD)"),
+    end_date: Optional[date] = Query(None, description="End date (YYYY-MM-DD)"),
+    store_location_id: Optional[str] = Query(None, description="Store or Location ID"),
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+    current_user=Depends(get_current_user),
+):
+    """
+    Returns consolidated visual reporting metrics including 6 KPI cards,
+    14-day stock flow timeline, 4-stage workflow progress, stock positions by category,
+    top 10 reserved SKUs, packing slip donut breakdown, dispatch & invoice summary,
+    and the active fulfillment stream feed.
+    """
+    return await VisualReportsService.get_dashboard_summary(
+        session=db,
+        company_id=tenant_ctx.company_id,
+        start_date=start_date,
+        end_date=end_date,
+        store_location_id=store_location_id,
+    )
+
+
+@router.get("/visual-dashboard/config", response_model=DashboardConfigPayload, summary="Get Visual Dashboard Configuration")
+async def get_visual_dashboard_config(
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+    current_user=Depends(get_current_user),
+):
+    """Returns saved dashboard view configuration preferences."""
+    return await VisualReportsService.get_saved_config(session=db, company_id=tenant_ctx.company_id)
+
+
+@router.post("/visual-dashboard/config", response_model=DashboardConfigPayload, summary="Save Visual Dashboard Configuration")
+async def save_visual_dashboard_config(
+    payload: DashboardConfigPayload,
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+    current_user=Depends(get_current_user),
+):
+    """Persists visual dashboard view configuration preferences."""
+    user_id = getattr(current_user, "id", None) or (current_user.get("sub") if isinstance(current_user, dict) else "usr-system")
+    return await VisualReportsService.save_config(
+        session=db,
+        company_id=tenant_ctx.company_id,
+        user_id=user_id,
+        config=payload,
+    )
+
 
