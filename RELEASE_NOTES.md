@@ -16,6 +16,17 @@
 
 ## Release v6.99.0 (2026-10-17)
 
+### Reports & Visual Analytics — Visual Reports Dashboard Aggregation & Schema Alignment Fix
+
+#### Overview
+Resolves an HTTP 500 (`Internal Server Error`) defect encountered on `GET /api/v1/reports/visual-dashboard/summary`. Corrects SQLAlchemy 2.0 type generation in date-grouped aggregations, aligns the document invoice computation with canonical column `SalesInvoice.grand_total`, and ensures deterministic primary key assignment for persistent dashboard preferences.
+
+#### Key Highlights
+- **Date Cast Compilation Safety**: Converted `func.cast(StockMovement.created_at, func.Date)` to `cast(StockMovement.created_at, Date)`, fixing `_static_cache_key` attribute resolution errors in query compilation.
+- **Model Attribute Alignment**: Replaced non-existent `SalesInvoice.total_amount` reference with `SalesInvoice.grand_total` in summary calculation.
+- **Configuration Persistence Guarantee**: Explicitly sets primary key `id` on newly persisted `Dashboard` records in PostgreSQL.
+- **Comprehensive Test Coverage**: Tested and certified across `test_visual_reports_dashboard.py` (2/2 green) and `test_item_variant_hard_delete.py` (5/5 green).
+
 ### Foundation & Architecture — Unified SMRITI CLI Engine Architecture
 
 #### Overview

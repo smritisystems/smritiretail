@@ -13,11 +13,12 @@ Classification: Canonical Visual Reports Dashboard Service
 Capability    : @SmritiCapability("REPORTS", "VISUAL_REPORTS_SERVICE")
 """
 
+import uuid
 from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 from typing import Dict, Any, List, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, and_, or_, desc, text
+from sqlalchemy import select, func, and_, or_, desc, text, cast, Date
 
 from ..models.fulfillment import PackingSlip, Dispatch
 from ..models.inventory import Product, StockMovement
@@ -194,9 +195,10 @@ class VisualReportsService:
         # 6. Stock Flow Timeline (Grouped by Date in Requested Date Window)
         start_dt = datetime.combine(s_date, datetime.min.time(), tzinfo=timezone.utc)
         end_dt = datetime.combine(e_date, datetime.max.time(), tzinfo=timezone.utc)
+        date_col = cast(StockMovement.created_at, Date)
         stmt_flow = (
             select(
-                func.cast(StockMovement.created_at, func.Date).label("m_date"),
+                date_col.label("m_date"),
                 func.coalesce(func.sum(StockMovement.quantity), 0).label("qty"),
             )
             .where(
@@ -204,8 +206,8 @@ class VisualReportsService:
                 StockMovement.created_at >= start_dt,
                 StockMovement.created_at <= end_dt,
             )
-            .group_by(func.cast(StockMovement.created_at, func.Date))
-            .order_by("m_date")
+            .group_by(date_col)
+            .order_by(date_col)
         )
         flow_rows = (await session.execute(stmt_flow)).all()
         stock_flow: List[StockFlowDataPoint] = [
@@ -355,7 +357,7 @@ class VisualReportsService:
         stmt_inv_all = (
             select(
                 func.count(SalesInvoice.id),
-                func.coalesce(func.sum(SalesInvoice.total_amount), 0),
+                func.coalesce(func.sum(SalesInvoice.grand_total), 0),
             )
             .where(SalesInvoice.company_id == company_id)
         )
@@ -431,6 +433,7 @@ class VisualReportsService:
         dash = (await session.execute(stmt)).scalars().first()
         if not dash:
             dash = Dashboard(
+                id=f"dsh_{uuid.uuid4().hex[:12]}",
                 code=code,
                 name="Visual Reports Dashboard",
                 category="Operations",
