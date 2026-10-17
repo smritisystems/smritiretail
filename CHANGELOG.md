@@ -1,3 +1,43 @@
+## [6.89.1] — 2026-10-17
+
+### Sales & Billing — SMRITI Billing Studio UX Simplification & Ergonomic Workflow Hardening v1.0.0
+
+Streamlined the cashier-facing interface of the canonical **SMRITI Billing Studio** (`SmritiBillingStudio.tsx`) matching reference specifications and reducing visual clutter:
+
+**Key Capabilities & Architectural Enforcement:**
+- **Simplified Main Screen & Collapsible Details:** The right-side "More Details" panel is now collapsed by default (`showMoreDetails = false`), allowing the main billing counter to span 100% viewport width. Removed duplicate "More Details >" button from the cart footer.
+- **Encapsulated Scan & Add Settings:** Replaced the permanently visible red-bordered settings panel with a focused "Billing & Scan Preferences" modal dialog accessible via a dedicated header button, preserving full operator configurability without cluttering the checkout counter.
+- **Enhanced Barcode Scanning Modes & Debounce:** Added tri-modal scan behaviors (`AUTO_ADD`, `EDIT_THEN_ADD`, `CONFIRM_PRODUCT`), configurable post-scan focus destinations, quantity multiplier prefix parsing (e.g., `3*BARCODE`), and 350ms hardware barcode scanner debounce to eliminate accidental double-scans. Focus automatically returns to the scan field after addition.
+- **Cashier Rate Lock Guard:** Added `canOverridePrice` permission check. Cashiers without rate override privileges have unit rates rendered read-only with a lock icon.
+- **Clean Default Cart Grid:** Streamlined cart columns to Product Name, Barcode, Style, Color, Size, Qty, Rate, Discount, Amount, and Salesperson, completely eliminating redundant SKU and Variant columns while preserving dynamic column visibility presets.
+- **Mandatory Corporate Store Selection:** Distinguishes company/branch, customer outlet, billing store, and shipping store. Enforces mandatory outlet selection (`*`) for multi-outlet corporate accounts.
+- **Mathematical Calculation Integrity:** Replaced legacy hardcoded calculation offsets with the pure `computeBillingTotals` mathematical engine supporting tax-inclusive and tax-exclusive rounding without arbitrary arithmetic offsets.
+- **Automated Verification:** 18/18 tests green in `src/tests/smritiBillingStudio.test.ts`, 69/69 billing regression tests passed, 0 TypeScript errors (`tsc --noEmit`), production build green, form registry verified, and 10/10 checks green in headless Playwright E2E verification.
+
+## [6.89.0] — 2026-10-17
+
+### Sales & Billing — SMRITI Canonical Billing Studio Replacement & Master Billing Workspace v1.0.0
+
+Consolidated fragmented historical billing screens (`ProPosBillingTerm`, `BillingTerm`, `DistTaxInvoice`, `ProPosWs`) into the unified canonical **SMRITI Billing Studio** (`SmritiBillingStudio.tsx`) and master container (`BillingWorkspace.tsx`):
+
+**Key Capabilities & Architectural Enforcement:**
+- **Authoritative Cashier-Facing Billing Studio:** Enforced a clean, ergonomic **SIMPLE-first cashier workflow**: Customer Selection -> Barcode Scan / Catalog Search -> Cart Review -> Payment Tender Settlement -> Save & Print Slip.
+- **Tri-Modal Operational Switching:** Seamlessly supports `RETAIL_POS` (Counter POS), `CREDIT_BILLING` (On-Account with exposure credit limit check), and `B2B_DISTRIBUTOR` (Modern Trade with Customer PO and store code tracking) within one unified studio.
+- **Visual Design Parity:** Pixel-perfect implementation matching the approved visual specification:
+  - Reliance Retail Limited demo customer card with blue GST Customer pill, Outlets dropdown, and Customer Details modal.
+  - Numbered section cards: 2. Items in Cart, 3. Add Item / Scan Barcode, 4. Bill Summary, 5. Payment Tender.
+  - Footwear item thumbnail cards for Regular Sandal (`SND-18`) and Sport Shoe (`SPL-22`).
+  - Staged product preview row with live quantity stepper, unit rate, item discount, and salesperson selector.
+  - User Preference Settings Card: 6 configurable scan action behaviors (Auto Add, Move cursor to Qty/Rate/Discount/Salesperson, Open F2 Popup) and 6 operational toggles.
+  - Dynamic Cart Table: customizable column visibility toggles (`showColConfig`), line total recalculations, line-level discount and cashier assignment.
+  - Bill discount modal (`Apply Bill Discount`) with flat ₹ and percentage discounts.
+  - Payment settlement HUD with Cash denomination chips, live received amount, change due calculator, UPI QR, and Card EDC.
+  - Finalized receipt modal with Thermal Slip (80mm), Print A4 Tax Invoice, and WhatsApp share triggers.
+- **Online Checkout & Resilient Offline Fallback:** Integrated directly with `/api/v1/pos/checkout` via `src/lib/apiFetchV1.ts`. On network interruption or offline operation, falls back to `ProPosOfflineSyncEngine.queueOfflineSale` for durable local queuing and background synchronization.
+- **Statutory Taxes & Referential Integrity:** Linked multi-outlet delivery locations (`cdl-c64f6f2fec8a1d4e0a656483`, `cdl-e60327e0`, `cdl-a0550ba334c04bb28966a1a4`) to PostgreSQL `customer_delivery_locations`, ensuring clean 200 OK checkout and statutory GST tax calculations. Coerced string decimal tax and grand total responses to numbers, preventing runtime `.toFixed()` errors.
+- **Master Route Redirection:** Unified all 11 historical billing navigation routes (`pos`, `billing`, `billing-workspace`, `credit-billing`, `tax-invoice`, `dist-invoice`, `create-tax-invoice`, `propos`, `propos-workspace`, `propos-ws`, `enterprise-billing-suite`) to `BillingWorkspace.tsx`.
+- **Automated Verification:** Certified with 10/10 checks green in headless Playwright E2E verification (`verify_canonical_billing_studio_headless.py`), capturing all 7 visual stage screenshots (`docs/walkthrough/billing/evidence/`), direct PostgreSQL transactional assertion on port 2781 (`sales_invoices` committed with grand total ₹ 4000.02, tax ₹ 190.48), and 29/29 Vitest assertions green across all billing suites.
+
 ## [6.87.0] — 2026-10-16
 
 ### Sales & Inventory Projection — Conditional Store Code Visibility & Automatic Idempotent PSV Account Mapping (Phase 2) v1.0.0

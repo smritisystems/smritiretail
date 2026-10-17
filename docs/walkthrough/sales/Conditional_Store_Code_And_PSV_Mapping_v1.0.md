@@ -127,11 +127,94 @@ The purpose of this implementation is to provide seamless, error-free store-leve
 
 ---
 
-## 9. Verification Results
-- All unit, integration, and UI tests pass with zero errors.
-- Schema verification confirms live presence of both partial unique indexes on PostgreSQL.
-- Zero stock movements are recorded in `stock_movements` during PSV party creation.
-- TypeScript compiler reports zero errors across the entire codebase.
+## 9. Verification Results & Visual Evidence
+
+### 9.1 Automated Headless Full-Cycle Playwright Execution
+A complete, unattended headless browser full-cycle verification script (`scripts/verify_conditional_store_code_psv_headless.py`) executed all 10 operational and transactional verification steps against Vite (port 3000), FastAPI Docker (port 1981), and PostgreSQL 15 (port 2781):
+
+```text
+==========================================================================================
+SMRITI RETAIL OS — HEADLESS PLAYWRIGHT FULL-CYCLE VERIFICATION
+Phase 2: Conditional Store Code Visibility & Automatic PSV Projection Mapping
+==========================================================================================
+Frontend URL : http://localhost:3000
+Backend API  : http://127.0.0.1:1981
+PostgreSQL   : postgresql://postgres:postgres@localhost:2781/smriti001
+Output Dir   : F:\SMRITRretailNX\docs\walkthrough\sales\evidence
+Artifact Dir : C:\Users\netma\.gemini\antigravity-ide\brain\d3046702-19a3-432b-a17e-17337a4ec8a8\screenshots_sales_channel_psv
+------------------------------------------------------------------------------------------
+[AUTH OK] Admin token [REDACTED_EXAMPLE_TOKEN] (redacted documentation example)
+
+[STEP 1] Pre-seeding authenticated local storage on domain...
+[STEP 2] Navigating to Billing Terminal (?tab=propos)...
+
+[STEP 3] Verifying initial B2B Wholesale state...
+  Sales Channel current value: 'B2B_WHOLESALE'
+  ✓ Delivery Location and Store Code containers are hidden for B2B_WHOLESALE.
+  -> Synced to Artifacts: 01_initial_b2b_wholesale.png
+
+[STEP 4] Selecting General Trade channel...
+  ✓ Delivery Location and Store Code containers remain hidden for GENERAL_TRADE.
+  -> Synced to Artifacts: 02_general_trade_hidden.png
+
+[STEP 5] Selecting Modern Trade channel & Customer Reliance Retail...
+  ✓ Delivery Location and Store Code containers are now VISIBLE for MODERN_TRADE.
+  -> Synced to Artifacts: 03_modern_trade_mandatory_store.png
+
+[STEP 6] Adding line item to cart (SKU-CPO1-31e3cb)...
+  ✓ Item successfully committed to cart table (Widget A).
+
+[STEP 7] Negative Test: Attempting settlement with store code unselected...
+  ✓ Toast caught: 'Store Location Required'
+  -> Synced to Artifacts: 04_settlement_blocked_missing_store.png
+  ✓ Settlement blocked with mandatory store location requirement.
+
+[STEP 8] Selecting Store Location 'cdl-c64f6f2fec8a1d4e0a656483' (S4NN/8319)...
+  Store Code Display value: 'S4NN/8319'
+  ✓ Store code badge updated to S4NN/8319.
+  -> Synced to Artifacts: 05_store_selected_psv_resolved.png
+  -> Synced to Artifacts: 06_item_added_to_cart.png
+
+[STEP 9] Opening Settlement modal and committing invoice...
+  ✓ Toast caught: 'Settlement Complete'
+  -> Synced to Artifacts: 07_invoice_settlement_success.png
+  ✓ Invoice settlement committed successfully.
+
+[STEP 10] Direct PostgreSQL Transactional Verification on port 2781...
+Latest Invoice Record in PostgreSQL:
+  Invoice No           : INV/CR/0001
+  Sales Channel        : MODERN_TRADE
+  Delivery Location ID : cdl-c64f6f2fec8a1d4e0a656483
+  Delivery Store Code  : S4NN/8319
+  Grand Total (₹)      : 56.24
+  Customer Name        : Reliance Retail Limited
+
+Linked PSV Party in PostgreSQL:
+  Party ID             : psv-COMP-001-cdl-c64f6f2fec8a1d4e0a656483
+  Company ID           : COMP-001
+  Host Customer ID     : cust-rrl-192b561d
+  Delivery Location ID : cdl-c64f6f2fec8a1d4e0a656483
+  Store Code           : S4NN/8319
+  Party Name           : Reliance Retail Limited
+  Stock Model          : OUTRIGHT_SALE
+  Status               : Healthy
+
+==========================================================================================
+ALL 10 VERIFICATION STEPS PASSED WITH 100% SUCCESS — EVIDENCE GENERATED!
+==========================================================================================
+```
+
+### 9.2 Generated Verification Screenshot Artifacts
+
+| Step | Evidence File | Description |
+|---|---|---|
+| Step 3 | [01_initial_b2b_wholesale.png](evidence/01_initial_b2b_wholesale.png) | Billing Terminal with default channel `B2B_WHOLESALE`; Store Code and Delivery Location containers hidden. |
+| Step 4 | [02_general_trade_hidden.png](evidence/02_general_trade_hidden.png) | Channel changed to `GENERAL_TRADE`; store code containers verified as hidden. |
+| Step 5 | [03_modern_trade_mandatory_store.png](evidence/03_modern_trade_mandatory_store.png) | Channel switched to `MODERN_TRADE` with Reliance Retail (`RRL-001`); store code containers dynamically displayed with red required asterisks. |
+| Step 7 | [04_settlement_blocked_missing_store.png](evidence/04_settlement_blocked_missing_store.png) | Negative test: Settlement blocked with toast banner *"Store Location Required"* when store selection is omitted. |
+| Step 8 | [05_store_selected_psv_resolved.png](evidence/05_store_selected_psv_resolved.png) | Store location `cdl-c64f6f2fec8a1d4e0a656483` selected; store code badge `S4NN/8319` and PSV account automatically resolved. |
+| Step 8 | [06_item_added_to_cart.png](evidence/06_item_added_to_cart.png) | Cart populated with line item (Widget A) ready for settlement. |
+| Step 9 | [07_invoice_settlement_success.png](evidence/07_invoice_settlement_success.png) | Invoice committed and saved; *"Settlement Complete"* confirmation. |
 
 ---
 

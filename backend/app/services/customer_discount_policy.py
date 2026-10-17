@@ -46,10 +46,11 @@ async def resolve_customer_discount_policy(
     if not customer_id or clean_cid in (WALK_IN_CUSTOMER_ID.upper(), walkin_code.upper()):
         return CustomerDiscountPolicy(None, None, Decimal("0.00"), False)
 
+    branch_candidates = {branch_id, "MAIN", "BR-MAIN-001", "BR-001"} if branch_id in ("MAIN", "BR-MAIN-001", "BR-001") else {branch_id}
     stmt = select(Customer).where(
         Customer.id == customer_id,
         Customer.company_id == company_id,
-        (Customer.branch_id == branch_id) | Customer.branch_id.is_(None),
+        (Customer.branch_id.in_(branch_candidates)) | Customer.branch_id.is_(None),
         Customer.is_deleted == False,
     )
     customer = (await session.execute(stmt)).scalars().first()

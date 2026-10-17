@@ -7,7 +7,7 @@
     "version": "3.46.0",
     "fingerprint": "2ac971144155d554098f21fdd4dda339fa4d72655dbcba53e37a11e3856f0436",
     "total_db_tables": 616,
-    "total_db_columns": 13078,
+    "total_db_columns": 13080,
     "total_canonical_fields": 147,
     "total_ux_field_references": 91,
     "total_screen_mappings": 9,
@@ -46,321 +46,6 @@
     {
       "category": "UNREGISTERED_BUSINESS_DB_COLUMN",
       "severity": "WARNING",
-      "message": "Physical column 'sales_invoice_lines.tax_amount' represents business data but is not registered in CANONICAL_FIELDS.",
-      "details": {
-        "table": "sales_invoice_lines",
-        "column": "tax_amount"
-      }
-    },
-    {
-      "category": "UNREGISTERED_BUSINESS_DB_COLUMN",
-      "severity": "WARNING",
-      "message": "Physical column 'sales_invoice_lines.size_label' represents business data but is not registered in CANONICAL_FIELDS.",
-      "details": {
-        "table": "sales_invoice_lines",
-        "column": "size_label"
-      }
-    },
-    {
-      "category": "UNREGISTERED_BUSINESS_DB_COLUMN",
-      "severity": "WARNING",
-      "message": "Physical column 'sales_invoice_lines.taxable_value' represents business data but is not registered in CANONICAL_FIELDS.",
-      "details": {
-        "table": "sales_invoice_lines",
-        "column": "taxable_value"
-      }
-    },
-    {
-      "category": "UNREGISTERED_BUSINESS_DB_COLUMN",
-      "severity": "WARNING",
-      "message": "Physical column 'sales_invoice_lines.mrp' represents business data but is not registered in CANONICAL_FIELDS.",
-      "details": {
-        "table": "sales_invoice_lines",
-        "column": "mrp"
-      }
-    },
-    {
-      "category": "UNREGISTERED_BUSINESS_DB_COLUMN",
-      "severity": "WARNING",
-      "message": "Physical column 'sales_invoice_lines.tax_rate' represents business data but is not registered in CANONICAL_FIELDS.",
-      "details": {
-        "table": "sales_invoice_lines",
-        "column": "tax_rate"
-      }
-    },
-    {
-      "category": "UNREGISTERED_BUSINESS_DB_COLUMN",
-      "severity": "WARNING",
-      "message": "Physical column 'sales_invoice_lines.discount_pct' represents business data but is not registered in CANONICAL_FIELDS.",
-      "details": {
-        "table": "sales_invoice_lines",
-        "column": "discount_pct"
-      }
-    },
-    {
-      "category": "UNREGISTERED_BUSINESS_DB_COLUMN",
-      "severity": "WARNING",
-      "message": "Physical column 'sales_invoice_lines.discount_amount' represents business data but is not registered in CANONICAL_FIELDS.",
-      "details": {
-        "table": "sales_invoice_lines",
-        "column": "discount_amount"
-      }
-    },
-    {
-      "category": "UNREGISTERED_BUSINESS_DB_COLUMN",
-      "severity": "WARNING",
-      "message": "Physical column 'sales_invoice_lines.net_amount' represents business data but is not registered in CANONICAL_FIELDS.",
-      "details": {
-        "table": "sales_invoice_lines",
-        "column": "net_amount"
-      }
-    },
-    {
-      "category": "UNREGISTERED_BUSINESS_DB_COLUMN",
-      "severity": "WARNING",
-      "message": "Physical column 'sales_invoice_lines.sku' represents business data but is not registered in CANONICAL_FIELDS.",
-      "details": {
-        "table": "sales_invoice_lines",
-        "column": "sku"
-      }
-    },
-    {
-      "category": "UNREGISTERED_BUSINESS_DB_COLUMN",
-      "severity": "WARNING",
-      "message": "Physical column 'sales_invoice_lines.hsn_code' represents business data but is not registered in CANONICAL_FIELDS.",
-      "details": {
-        "table": "sales_invoice_lines",
-        "column": "hsn_code"
-      }
-    },
-    {
-      "category": "UNREGISTERED_BUSINESS_DB_COLUMN",
-      "severity": "WARNING",
-      "message": "Physical column 'sales_invoice_lines.line_no' represents business data but is not registered in CANONICAL_FIELDS.",
-      "details": {
-        "table": "sales_invoice_lines",
-        "column": "line_no"
-      }
-    },
-    {
-      "category": "UNREGISTERED_BUSINESS_DB_COLUMN",
-      "severity": "WARNING",
-      "message": "Physical column 'sales_invoice_lines.batch_no' represents business data but is not registered in CANONICAL_FIELDS.",
-      "details": {
-        "table": "sales_invoice_lines",
-        "column": "batch_no"
-      }
-    },
-    {
-      "category": "UNREGISTERED_BUSINESS_DB_COLUMN",
-      "severity": "WARNING",
-      "message": "Physical column 'sales_invoice_lines.unit_price' represents business data but is not registered in CANONICAL_FIELDS.",
-      "details": {
-        "table": "sales_invoice_lines",
-        "column": "unit_price"
-      }
-    },
-    {
-      "category": "UNREGISTERED_BUSINESS_DB_COLUMN",
-      "severity": "WARNING",
-      "message": "Physical column 'sales_invoice_lines.is_active' represents business data but is not registered in CANONICAL_FIELDS.",
-      "details": {
-        "table": "sales_invoice_lines",
-        "column": "is_active"
-      }
-    },
-    {
-      "category": "UNREGISTERED_BUSINESS_DB_COLUMN",
-      "severity": "WARNING",
-      "message": "Physical column 'sales_invoice_lines.product_name' represents business data but is not registered in CANONICAL_FIELDS.",
-      "details": {
-        "table": "sales_invoice_lines",
-        "column": "product_name"
-      }
-    },
-    {
-      "category": "UNREGISTERED_BUSINESS_DB_COLUMN",
-      "severity": "WARNING",
-      "message": "Physical column 'sales_invoice_lines.barcode' represents business data but is not registered in CANONICAL_FIELDS.",
-      "details": {
-        "table": "sales_invoice_lines",
-        "column": "barcode"
-      }
-    },
-    {
-      "category": "UNREGISTERED_BUSINESS_DB_COLUMN",
-      "severity": "WARNING",
-      "message": "Physical column 'items.validation_message' represents business data but is not registered in CANONICAL_FIELDS.",
-      "details": {
-        "table": "items",
-        "column": "validation_message"
-      }
-    },
-    {
-      "category": "UNREGISTERED_BUSINESS_DB_COLUMN",
-      "severity": "WARNING",
-      "message": "Physical column 'items.is_serial_tracked' represents business data but is not registered in CANONICAL_FIELDS.",
-      "details": {
-        "table": "items",
-        "column": "is_serial_tracked"
-      }
-    },
-    {
-      "category": "UNREGISTERED_BUSINESS_DB_COLUMN",
-      "severity": "WARNING",
-      "message": "Physical column 'items.validation_status' represents business data but is not registered in CANONICAL_FIELDS.",
-      "details": {
-        "table": "items",
-        "column": "validation_status"
-      }
-    },
-    {
-      "category": "UNREGISTERED_BUSINESS_DB_COLUMN",
-      "severity": "WARNING",
-      "message": "Physical column 'items.is_favorite' represents business data but is not registered in CANONICAL_FIELDS.",
-      "details": {
-        "table": "items",
-        "column": "is_favorite"
-      }
-    },
-    {
-      "category": "UNREGISTERED_BUSINESS_DB_COLUMN",
-      "severity": "WARNING",
-      "message": "Physical column 'items.gender' represents business data but is not registered in CANONICAL_FIELDS.",
-      "details": {
-        "table": "items",
-        "column": "gender"
-      }
-    },
-    {
-      "category": "UNREGISTERED_BUSINESS_DB_COLUMN",
-      "severity": "WARNING",
-      "message": "Physical column 'items.is_batch_tracked' represents business data but is not registered in CANONICAL_FIELDS.",
-      "details": {
-        "table": "items",
-        "column": "is_batch_tracked"
-      }
-    },
-    {
-      "category": "UNREGISTERED_BUSINESS_DB_COLUMN",
-      "severity": "WARNING",
-      "message": "Physical column 'purchase_orders.amend_revision' represents business data but is not registered in CANONICAL_FIELDS.",
-      "details": {
-        "table": "purchase_orders",
-        "column": "amend_revision"
-      }
-    },
-    {
-      "category": "UNREGISTERED_BUSINESS_DB_COLUMN",
-      "severity": "WARNING",
-      "message": "Physical column 'purchase_orders.confirmed_at' represents business data but is not registered in CANONICAL_FIELDS.",
-      "details": {
-        "table": "purchase_orders",
-        "column": "confirmed_at"
-      }
-    },
-    {
-      "category": "UNREGISTERED_BUSINESS_DB_COLUMN",
-      "severity": "WARNING",
-      "message": "Physical column 'purchase_orders.submitted_at' represents business data but is not registered in CANONICAL_FIELDS.",
-      "details": {
-        "table": "purchase_orders",
-        "column": "submitted_at"
-      }
-    },
-    {
-      "category": "UNREGISTERED_BUSINESS_DB_COLUMN",
-      "severity": "WARNING",
-      "message": "Physical column 'purchase_orders.cancellation_reason' represents business data but is not registered in CANONICAL_FIELDS.",
-      "details": {
-        "table": "purchase_orders",
-        "column": "cancellation_reason"
-      }
-    },
-    {
-      "category": "UNREGISTERED_BUSINESS_DB_COLUMN",
-      "severity": "WARNING",
-      "message": "Physical column 'purchase_orders.cancelled_at' represents business data but is not registered in CANONICAL_FIELDS.",
-      "details": {
-        "table": "purchase_orders",
-        "column": "cancelled_at"
-      }
-    },
-    {
-      "category": "UNREGISTERED_BUSINESS_DB_COLUMN",
-      "severity": "WARNING",
-      "message": "Physical column 'purchase_orders.cancelled_by' represents business data but is not registered in CANONICAL_FIELDS.",
-      "details": {
-        "table": "purchase_orders",
-        "column": "cancelled_by"
-      }
-    },
-    {
-      "category": "UNREGISTERED_BUSINESS_DB_COLUMN",
-      "severity": "WARNING",
-      "message": "Physical column 'purchase_orders.amended_by' represents business data but is not registered in CANONICAL_FIELDS.",
-      "details": {
-        "table": "purchase_orders",
-        "column": "amended_by"
-      }
-    },
-    {
-      "category": "UNREGISTERED_BUSINESS_DB_COLUMN",
-      "severity": "WARNING",
-      "message": "Physical column 'purchase_orders.is_active' represents business data but is not registered in CANONICAL_FIELDS.",
-      "details": {
-        "table": "purchase_orders",
-        "column": "is_active"
-      }
-    },
-    {
-      "category": "UNREGISTERED_BUSINESS_DB_COLUMN",
-      "severity": "WARNING",
-      "message": "Physical column 'purchase_orders.amended_at' represents business data but is not registered in CANONICAL_FIELDS.",
-      "details": {
-        "table": "purchase_orders",
-        "column": "amended_at"
-      }
-    },
-    {
-      "category": "UNREGISTERED_BUSINESS_DB_COLUMN",
-      "severity": "WARNING",
-      "message": "Physical column 'purchase_orders.submitted_by' represents business data but is not registered in CANONICAL_FIELDS.",
-      "details": {
-        "table": "purchase_orders",
-        "column": "submitted_by"
-      }
-    },
-    {
-      "category": "UNREGISTERED_BUSINESS_DB_COLUMN",
-      "severity": "WARNING",
-      "message": "Physical column 'purchase_orders.confirmed_by' represents business data but is not registered in CANONICAL_FIELDS.",
-      "details": {
-        "table": "purchase_orders",
-        "column": "confirmed_by"
-      }
-    },
-    {
-      "category": "UNREGISTERED_BUSINESS_DB_COLUMN",
-      "severity": "WARNING",
-      "message": "Physical column 'approval_policies.priority' represents business data but is not registered in CANONICAL_FIELDS.",
-      "details": {
-        "table": "approval_policies",
-        "column": "priority"
-      }
-    },
-    {
-      "category": "UNREGISTERED_BUSINESS_DB_COLUMN",
-      "severity": "WARNING",
-      "message": "Physical column 'approval_policies.required_role' represents business data but is not registered in CANONICAL_FIELDS.",
-      "details": {
-        "table": "approval_policies",
-        "column": "required_role"
-      }
-    },
-    {
-      "category": "UNREGISTERED_BUSINESS_DB_COLUMN",
-      "severity": "WARNING",
       "message": "Physical column 'terms_clauses.approved_at' represents business data but is not registered in CANONICAL_FIELDS.",
       "details": {
         "table": "terms_clauses",
@@ -379,199 +64,343 @@
     {
       "category": "UNREGISTERED_BUSINESS_DB_COLUMN",
       "severity": "WARNING",
-      "message": "Physical column 'sales_orders.total_qty' represents business data but is not registered in CANONICAL_FIELDS.",
+      "message": "Physical column 'customer_groups.can_view_margin' represents business data but is not registered in CANONICAL_FIELDS.",
       "details": {
-        "table": "sales_orders",
-        "column": "total_qty"
+        "table": "customer_groups",
+        "column": "can_view_margin"
       }
     },
     {
       "category": "UNREGISTERED_BUSINESS_DB_COLUMN",
       "severity": "WARNING",
-      "message": "Physical column 'sales_orders.delivery_date' represents business data but is not registered in CANONICAL_FIELDS.",
+      "message": "Physical column 'customer_groups.preferred_payment_method' represents business data but is not registered in CANONICAL_FIELDS.",
       "details": {
-        "table": "sales_orders",
-        "column": "delivery_date"
+        "table": "customer_groups",
+        "column": "preferred_payment_method"
       }
     },
     {
       "category": "UNREGISTERED_BUSINESS_DB_COLUMN",
       "severity": "WARNING",
-      "message": "Physical column 'sales_orders.pending_value' represents business data but is not registered in CANONICAL_FIELDS.",
+      "message": "Physical column 'customer_groups.allow_negative_stock_sales' represents business data but is not registered in CANONICAL_FIELDS.",
       "details": {
-        "table": "sales_orders",
-        "column": "pending_value"
+        "table": "customer_groups",
+        "column": "allow_negative_stock_sales"
       }
     },
     {
       "category": "UNREGISTERED_BUSINESS_DB_COLUMN",
       "severity": "WARNING",
-      "message": "Physical column 'sales_orders.pending_qty' represents business data but is not registered in CANONICAL_FIELDS.",
+      "message": "Physical column 'customer_groups.can_purchase_on_credit' represents business data but is not registered in CANONICAL_FIELDS.",
       "details": {
-        "table": "sales_orders",
-        "column": "pending_qty"
+        "table": "customer_groups",
+        "column": "can_purchase_on_credit"
       }
     },
     {
       "category": "UNREGISTERED_BUSINESS_DB_COLUMN",
       "severity": "WARNING",
-      "message": "Physical column 'sales_orders.customer_name' represents business data but is not registered in CANONICAL_FIELDS.",
+      "message": "Physical column 'customer_groups.grace_days' represents business data but is not registered in CANONICAL_FIELDS.",
       "details": {
-        "table": "sales_orders",
-        "column": "customer_name"
+        "table": "customer_groups",
+        "column": "grace_days"
       }
     },
     {
       "category": "UNREGISTERED_BUSINESS_DB_COLUMN",
       "severity": "WARNING",
-      "message": "Physical column 'sales_orders.po_number' represents business data but is not registered in CANONICAL_FIELDS.",
+      "message": "Physical column 'customer_groups.can_view_price' represents business data but is not registered in CANONICAL_FIELDS.",
       "details": {
-        "table": "sales_orders",
-        "column": "po_number"
+        "table": "customer_groups",
+        "column": "can_view_price"
       }
     },
     {
       "category": "UNREGISTERED_BUSINESS_DB_COLUMN",
       "severity": "WARNING",
-      "message": "Physical column 'sales_orders.delivery_address' represents business data but is not registered in CANONICAL_FIELDS.",
+      "message": "Physical column 'customer_groups.min_margin_percent' represents business data but is not registered in CANONICAL_FIELDS.",
       "details": {
-        "table": "sales_orders",
-        "column": "delivery_address"
+        "table": "customer_groups",
+        "column": "min_margin_percent"
       }
     },
     {
       "category": "UNREGISTERED_BUSINESS_DB_COLUMN",
       "severity": "WARNING",
-      "message": "Physical column 'sales_orders.is_interstate' represents business data but is not registered in CANONICAL_FIELDS.",
+      "message": "Physical column 'customer_groups.can_receive_discount' represents business data but is not registered in CANONICAL_FIELDS.",
       "details": {
-        "table": "sales_orders",
-        "column": "is_interstate"
+        "table": "customer_groups",
+        "column": "can_receive_discount"
       }
     },
     {
       "category": "UNREGISTERED_BUSINESS_DB_COLUMN",
       "severity": "WARNING",
-      "message": "Physical column 'sales_orders.po_date' represents business data but is not registered in CANONICAL_FIELDS.",
+      "message": "Physical column 'customer_groups.auto_block_sales' represents business data but is not registered in CANONICAL_FIELDS.",
       "details": {
-        "table": "sales_orders",
-        "column": "po_date"
+        "table": "customer_groups",
+        "column": "auto_block_sales"
       }
     },
     {
       "category": "UNREGISTERED_BUSINESS_DB_COLUMN",
       "severity": "WARNING",
-      "message": "Physical column 'sales_orders.site_code' represents business data but is not registered in CANONICAL_FIELDS.",
+      "message": "Physical column 'customer_groups.unlimited_credit' represents business data but is not registered in CANONICAL_FIELDS.",
       "details": {
-        "table": "sales_orders",
-        "column": "site_code"
+        "table": "customer_groups",
+        "column": "unlimited_credit"
       }
     },
     {
       "category": "UNREGISTERED_BUSINESS_DB_COLUMN",
       "severity": "WARNING",
-      "message": "Physical column 'sales_orders.billed_qty' represents business data but is not registered in CANONICAL_FIELDS.",
+      "message": "Physical column 'customer_groups.allowed_payment_methods' represents business data but is not registered in CANONICAL_FIELDS.",
       "details": {
-        "table": "sales_orders",
-        "column": "billed_qty"
+        "table": "customer_groups",
+        "column": "allowed_payment_methods"
       }
     },
     {
       "category": "UNREGISTERED_BUSINESS_DB_COLUMN",
       "severity": "WARNING",
-      "message": "Physical column 'sales_orders.customer_gstin' represents business data but is not registered in CANONICAL_FIELDS.",
+      "message": "Physical column 'customer_groups.invoice_language' represents business data but is not registered in CANONICAL_FIELDS.",
       "details": {
-        "table": "sales_orders",
-        "column": "customer_gstin"
+        "table": "customer_groups",
+        "column": "invoice_language"
       }
     },
     {
       "category": "UNREGISTERED_BUSINESS_DB_COLUMN",
       "severity": "WARNING",
-      "message": "Physical column 'sales_orders.date' represents business data but is not registered in CANONICAL_FIELDS.",
+      "message": "Physical column 'customer_groups.require_po_number' represents business data but is not registered in CANONICAL_FIELDS.",
       "details": {
-        "table": "sales_orders",
-        "column": "date"
+        "table": "customer_groups",
+        "column": "require_po_number"
       }
     },
     {
       "category": "UNREGISTERED_BUSINESS_DB_COLUMN",
       "severity": "WARNING",
-      "message": "Physical column 'sales_orders.billed_value' represents business data but is not registered in CANONICAL_FIELDS.",
+      "message": "Physical column 'customer_groups.credit_hold' represents business data but is not registered in CANONICAL_FIELDS.",
       "details": {
-        "table": "sales_orders",
-        "column": "billed_value"
+        "table": "customer_groups",
+        "column": "credit_hold"
       }
     },
     {
       "category": "UNREGISTERED_BUSINESS_DB_COLUMN",
       "severity": "WARNING",
-      "message": "Physical column 'sales_orders.is_active' represents business data but is not registered in CANONICAL_FIELDS.",
+      "message": "Physical column 'customer_groups.allow_override' represents business data but is not registered in CANONICAL_FIELDS.",
       "details": {
-        "table": "sales_orders",
-        "column": "is_active"
+        "table": "customer_groups",
+        "column": "allow_override"
       }
     },
     {
       "category": "UNREGISTERED_BUSINESS_DB_COLUMN",
       "severity": "WARNING",
-      "message": "Physical column 'sales_orders.site_name' represents business data but is not registered in CANONICAL_FIELDS.",
+      "message": "Physical column 'customer_groups.is_tax_inclusive' represents business data but is not registered in CANONICAL_FIELDS.",
       "details": {
-        "table": "sales_orders",
-        "column": "site_name"
+        "table": "customer_groups",
+        "column": "is_tax_inclusive"
       }
     },
     {
       "category": "UNREGISTERED_BUSINESS_DB_COLUMN",
       "severity": "WARNING",
-      "message": "Physical column 'sales_orders.po_metadata' represents business data but is not registered in CANONICAL_FIELDS.",
+      "message": "Physical column 'customer_groups.warning_threshold_percent' represents business data but is not registered in CANONICAL_FIELDS.",
       "details": {
-        "table": "sales_orders",
-        "column": "po_metadata"
+        "table": "customer_groups",
+        "column": "warning_threshold_percent"
       }
     },
     {
       "category": "UNREGISTERED_BUSINESS_DB_COLUMN",
       "severity": "WARNING",
-      "message": "Physical column 'sales_orders.fulfillment_status' represents business data but is not registered in CANONICAL_FIELDS.",
+      "message": "Physical column 'customer_groups.tax_inclusive' represents business data but is not registered in CANONICAL_FIELDS.",
       "details": {
-        "table": "sales_orders",
-        "column": "fulfillment_status"
+        "table": "customer_groups",
+        "column": "tax_inclusive"
       }
     },
     {
       "category": "UNREGISTERED_BUSINESS_DB_COLUMN",
       "severity": "WARNING",
-      "message": "Physical column 'customers.is_pre_sale_form_applicable' represents business data but is not registered in CANONICAL_FIELDS.",
+      "message": "Physical column 'customer_groups.allow_back_orders' represents business data but is not registered in CANONICAL_FIELDS.",
       "details": {
-        "table": "customers",
-        "column": "is_pre_sale_form_applicable"
+        "table": "customer_groups",
+        "column": "allow_back_orders"
       }
     },
     {
       "category": "UNREGISTERED_BUSINESS_DB_COLUMN",
       "severity": "WARNING",
-      "message": "Physical column 'customers.is_post_sale_form_applicable' represents business data but is not registered in CANONICAL_FIELDS.",
+      "message": "Physical column 'customer_groups.rounding_rule' represents business data but is not registered in CANONICAL_FIELDS.",
       "details": {
-        "table": "customers",
-        "column": "is_post_sale_form_applicable"
+        "table": "customer_groups",
+        "column": "rounding_rule"
       }
     },
     {
       "category": "UNREGISTERED_BUSINESS_DB_COLUMN",
       "severity": "WARNING",
-      "message": "Physical column 'customers.is_dependant' represents business data but is not registered in CANONICAL_FIELDS.",
+      "message": "Physical column 'users.pin_code' represents business data but is not registered in CANONICAL_FIELDS.",
       "details": {
-        "table": "customers",
-        "column": "is_dependant"
+        "table": "users",
+        "column": "pin_code"
       }
     },
     {
       "category": "UNREGISTERED_BUSINESS_DB_COLUMN",
       "severity": "WARNING",
-      "message": "Physical column 'customers.is_married' represents business data but is not registered in CANONICAL_FIELDS.",
+      "message": "Physical column 'users.employment_type' represents business data but is not registered in CANONICAL_FIELDS.",
       "details": {
-        "table": "customers",
-        "column": "is_married"
+        "table": "users",
+        "column": "employment_type"
+      }
+    },
+    {
+      "category": "UNREGISTERED_BUSINESS_DB_COLUMN",
+      "severity": "WARNING",
+      "message": "Physical column 'users.country' represents business data but is not registered in CANONICAL_FIELDS.",
+      "details": {
+        "table": "users",
+        "column": "country"
+      }
+    },
+    {
+      "category": "UNREGISTERED_BUSINESS_DB_COLUMN",
+      "severity": "WARNING",
+      "message": "Physical column 'users.allowed_branches' represents business data but is not registered in CANONICAL_FIELDS.",
+      "details": {
+        "table": "users",
+        "column": "allowed_branches"
+      }
+    },
+    {
+      "category": "UNREGISTERED_BUSINESS_DB_COLUMN",
+      "severity": "WARNING",
+      "message": "Physical column 'users.gender' represents business data but is not registered in CANONICAL_FIELDS.",
+      "details": {
+        "table": "users",
+        "column": "gender"
+      }
+    },
+    {
+      "category": "UNREGISTERED_BUSINESS_DB_COLUMN",
+      "severity": "WARNING",
+      "message": "Physical column 'users.address' represents business data but is not registered in CANONICAL_FIELDS.",
+      "details": {
+        "table": "users",
+        "column": "address"
+      }
+    },
+    {
+      "category": "UNREGISTERED_BUSINESS_DB_COLUMN",
+      "severity": "WARNING",
+      "message": "Physical column 'users.display_name' represents business data but is not registered in CANONICAL_FIELDS.",
+      "details": {
+        "table": "users",
+        "column": "display_name"
+      }
+    },
+    {
+      "category": "UNREGISTERED_BUSINESS_DB_COLUMN",
+      "severity": "WARNING",
+      "message": "Physical column 'users.city' represents business data but is not registered in CANONICAL_FIELDS.",
+      "details": {
+        "table": "users",
+        "column": "city"
+      }
+    },
+    {
+      "category": "UNREGISTERED_BUSINESS_DB_COLUMN",
+      "severity": "WARNING",
+      "message": "Physical column 'users.status' represents business data but is not registered in CANONICAL_FIELDS.",
+      "details": {
+        "table": "users",
+        "column": "status"
+      }
+    },
+    {
+      "category": "UNREGISTERED_BUSINESS_DB_COLUMN",
+      "severity": "WARNING",
+      "message": "Physical column 'users.date_of_joining' represents business data but is not registered in CANONICAL_FIELDS.",
+      "details": {
+        "table": "users",
+        "column": "date_of_joining"
+      }
+    },
+    {
+      "category": "UNREGISTERED_BUSINESS_DB_COLUMN",
+      "severity": "WARNING",
+      "message": "Physical column 'users.emergency_contact' represents business data but is not registered in CANONICAL_FIELDS.",
+      "details": {
+        "table": "users",
+        "column": "emergency_contact"
+      }
+    },
+    {
+      "category": "UNREGISTERED_BUSINESS_DB_COLUMN",
+      "severity": "WARNING",
+      "message": "Physical column 'users.photo' represents business data but is not registered in CANONICAL_FIELDS.",
+      "details": {
+        "table": "users",
+        "column": "photo"
+      }
+    },
+    {
+      "category": "UNREGISTERED_BUSINESS_DB_COLUMN",
+      "severity": "WARNING",
+      "message": "Physical column 'users.state' represents business data but is not registered in CANONICAL_FIELDS.",
+      "details": {
+        "table": "users",
+        "column": "state"
+      }
+    },
+    {
+      "category": "UNREGISTERED_BUSINESS_DB_COLUMN",
+      "severity": "WARNING",
+      "message": "Physical column 'users.reporting_manager' represents business data but is not registered in CANONICAL_FIELDS.",
+      "details": {
+        "table": "users",
+        "column": "reporting_manager"
+      }
+    },
+    {
+      "category": "UNREGISTERED_BUSINESS_DB_COLUMN",
+      "severity": "WARNING",
+      "message": "Physical column 'users.employee_code' represents business data but is not registered in CANONICAL_FIELDS.",
+      "details": {
+        "table": "users",
+        "column": "employee_code"
+      }
+    },
+    {
+      "category": "UNREGISTERED_BUSINESS_DB_COLUMN",
+      "severity": "WARNING",
+      "message": "Physical column 'users.date_of_birth' represents business data but is not registered in CANONICAL_FIELDS.",
+      "details": {
+        "table": "users",
+        "column": "date_of_birth"
+      }
+    },
+    {
+      "category": "UNREGISTERED_BUSINESS_DB_COLUMN",
+      "severity": "WARNING",
+      "message": "Physical column 'users.alternate_mobile' represents business data but is not registered in CANONICAL_FIELDS.",
+      "details": {
+        "table": "users",
+        "column": "alternate_mobile"
+      }
+    },
+    {
+      "category": "UNREGISTERED_BUSINESS_DB_COLUMN",
+      "severity": "WARNING",
+      "message": "Physical column 'products.is_favorite' represents business data but is not registered in CANONICAL_FIELDS.",
+      "details": {
+        "table": "products",
+        "column": "is_favorite"
       }
     },
     {
@@ -1009,343 +838,217 @@
     {
       "category": "UNREGISTERED_BUSINESS_DB_COLUMN",
       "severity": "WARNING",
-      "message": "Physical column 'users.pin_code' represents business data but is not registered in CANONICAL_FIELDS.",
+      "message": "Physical column 'sales_orders.total_qty' represents business data but is not registered in CANONICAL_FIELDS.",
       "details": {
-        "table": "users",
-        "column": "pin_code"
+        "table": "sales_orders",
+        "column": "total_qty"
       }
     },
     {
       "category": "UNREGISTERED_BUSINESS_DB_COLUMN",
       "severity": "WARNING",
-      "message": "Physical column 'users.employment_type' represents business data but is not registered in CANONICAL_FIELDS.",
+      "message": "Physical column 'sales_orders.delivery_date' represents business data but is not registered in CANONICAL_FIELDS.",
       "details": {
-        "table": "users",
-        "column": "employment_type"
+        "table": "sales_orders",
+        "column": "delivery_date"
       }
     },
     {
       "category": "UNREGISTERED_BUSINESS_DB_COLUMN",
       "severity": "WARNING",
-      "message": "Physical column 'users.country' represents business data but is not registered in CANONICAL_FIELDS.",
+      "message": "Physical column 'sales_orders.pending_value' represents business data but is not registered in CANONICAL_FIELDS.",
       "details": {
-        "table": "users",
-        "column": "country"
+        "table": "sales_orders",
+        "column": "pending_value"
       }
     },
     {
       "category": "UNREGISTERED_BUSINESS_DB_COLUMN",
       "severity": "WARNING",
-      "message": "Physical column 'users.allowed_branches' represents business data but is not registered in CANONICAL_FIELDS.",
+      "message": "Physical column 'sales_orders.pending_qty' represents business data but is not registered in CANONICAL_FIELDS.",
       "details": {
-        "table": "users",
-        "column": "allowed_branches"
+        "table": "sales_orders",
+        "column": "pending_qty"
       }
     },
     {
       "category": "UNREGISTERED_BUSINESS_DB_COLUMN",
       "severity": "WARNING",
-      "message": "Physical column 'users.gender' represents business data but is not registered in CANONICAL_FIELDS.",
+      "message": "Physical column 'sales_orders.customer_name' represents business data but is not registered in CANONICAL_FIELDS.",
       "details": {
-        "table": "users",
-        "column": "gender"
+        "table": "sales_orders",
+        "column": "customer_name"
       }
     },
     {
       "category": "UNREGISTERED_BUSINESS_DB_COLUMN",
       "severity": "WARNING",
-      "message": "Physical column 'users.address' represents business data but is not registered in CANONICAL_FIELDS.",
+      "message": "Physical column 'sales_orders.po_number' represents business data but is not registered in CANONICAL_FIELDS.",
       "details": {
-        "table": "users",
-        "column": "address"
+        "table": "sales_orders",
+        "column": "po_number"
       }
     },
     {
       "category": "UNREGISTERED_BUSINESS_DB_COLUMN",
       "severity": "WARNING",
-      "message": "Physical column 'users.display_name' represents business data but is not registered in CANONICAL_FIELDS.",
+      "message": "Physical column 'sales_orders.delivery_address' represents business data but is not registered in CANONICAL_FIELDS.",
       "details": {
-        "table": "users",
-        "column": "display_name"
+        "table": "sales_orders",
+        "column": "delivery_address"
       }
     },
     {
       "category": "UNREGISTERED_BUSINESS_DB_COLUMN",
       "severity": "WARNING",
-      "message": "Physical column 'users.city' represents business data but is not registered in CANONICAL_FIELDS.",
+      "message": "Physical column 'sales_orders.is_interstate' represents business data but is not registered in CANONICAL_FIELDS.",
       "details": {
-        "table": "users",
-        "column": "city"
+        "table": "sales_orders",
+        "column": "is_interstate"
       }
     },
     {
       "category": "UNREGISTERED_BUSINESS_DB_COLUMN",
       "severity": "WARNING",
-      "message": "Physical column 'users.status' represents business data but is not registered in CANONICAL_FIELDS.",
+      "message": "Physical column 'sales_orders.po_date' represents business data but is not registered in CANONICAL_FIELDS.",
       "details": {
-        "table": "users",
-        "column": "status"
+        "table": "sales_orders",
+        "column": "po_date"
       }
     },
     {
       "category": "UNREGISTERED_BUSINESS_DB_COLUMN",
       "severity": "WARNING",
-      "message": "Physical column 'users.date_of_joining' represents business data but is not registered in CANONICAL_FIELDS.",
+      "message": "Physical column 'sales_orders.site_code' represents business data but is not registered in CANONICAL_FIELDS.",
       "details": {
-        "table": "users",
-        "column": "date_of_joining"
+        "table": "sales_orders",
+        "column": "site_code"
       }
     },
     {
       "category": "UNREGISTERED_BUSINESS_DB_COLUMN",
       "severity": "WARNING",
-      "message": "Physical column 'users.emergency_contact' represents business data but is not registered in CANONICAL_FIELDS.",
+      "message": "Physical column 'sales_orders.billed_qty' represents business data but is not registered in CANONICAL_FIELDS.",
       "details": {
-        "table": "users",
-        "column": "emergency_contact"
+        "table": "sales_orders",
+        "column": "billed_qty"
       }
     },
     {
       "category": "UNREGISTERED_BUSINESS_DB_COLUMN",
       "severity": "WARNING",
-      "message": "Physical column 'users.photo' represents business data but is not registered in CANONICAL_FIELDS.",
+      "message": "Physical column 'sales_orders.customer_gstin' represents business data but is not registered in CANONICAL_FIELDS.",
       "details": {
-        "table": "users",
-        "column": "photo"
+        "table": "sales_orders",
+        "column": "customer_gstin"
       }
     },
     {
       "category": "UNREGISTERED_BUSINESS_DB_COLUMN",
       "severity": "WARNING",
-      "message": "Physical column 'users.state' represents business data but is not registered in CANONICAL_FIELDS.",
+      "message": "Physical column 'sales_orders.date' represents business data but is not registered in CANONICAL_FIELDS.",
       "details": {
-        "table": "users",
-        "column": "state"
+        "table": "sales_orders",
+        "column": "date"
       }
     },
     {
       "category": "UNREGISTERED_BUSINESS_DB_COLUMN",
       "severity": "WARNING",
-      "message": "Physical column 'users.reporting_manager' represents business data but is not registered in CANONICAL_FIELDS.",
+      "message": "Physical column 'sales_orders.billed_value' represents business data but is not registered in CANONICAL_FIELDS.",
       "details": {
-        "table": "users",
-        "column": "reporting_manager"
+        "table": "sales_orders",
+        "column": "billed_value"
       }
     },
     {
       "category": "UNREGISTERED_BUSINESS_DB_COLUMN",
       "severity": "WARNING",
-      "message": "Physical column 'users.employee_code' represents business data but is not registered in CANONICAL_FIELDS.",
+      "message": "Physical column 'sales_orders.is_active' represents business data but is not registered in CANONICAL_FIELDS.",
       "details": {
-        "table": "users",
-        "column": "employee_code"
+        "table": "sales_orders",
+        "column": "is_active"
       }
     },
     {
       "category": "UNREGISTERED_BUSINESS_DB_COLUMN",
       "severity": "WARNING",
-      "message": "Physical column 'users.date_of_birth' represents business data but is not registered in CANONICAL_FIELDS.",
+      "message": "Physical column 'sales_orders.site_name' represents business data but is not registered in CANONICAL_FIELDS.",
       "details": {
-        "table": "users",
-        "column": "date_of_birth"
+        "table": "sales_orders",
+        "column": "site_name"
       }
     },
     {
       "category": "UNREGISTERED_BUSINESS_DB_COLUMN",
       "severity": "WARNING",
-      "message": "Physical column 'users.alternate_mobile' represents business data but is not registered in CANONICAL_FIELDS.",
+      "message": "Physical column 'sales_orders.po_metadata' represents business data but is not registered in CANONICAL_FIELDS.",
       "details": {
-        "table": "users",
-        "column": "alternate_mobile"
+        "table": "sales_orders",
+        "column": "po_metadata"
       }
     },
     {
       "category": "UNREGISTERED_BUSINESS_DB_COLUMN",
       "severity": "WARNING",
-      "message": "Physical column 'customer_groups.can_view_margin' represents business data but is not registered in CANONICAL_FIELDS.",
+      "message": "Physical column 'sales_orders.fulfillment_status' represents business data but is not registered in CANONICAL_FIELDS.",
       "details": {
-        "table": "customer_groups",
-        "column": "can_view_margin"
+        "table": "sales_orders",
+        "column": "fulfillment_status"
       }
     },
     {
       "category": "UNREGISTERED_BUSINESS_DB_COLUMN",
       "severity": "WARNING",
-      "message": "Physical column 'customer_groups.preferred_payment_method' represents business data but is not registered in CANONICAL_FIELDS.",
+      "message": "Physical column 'customers.is_pre_sale_form_applicable' represents business data but is not registered in CANONICAL_FIELDS.",
       "details": {
-        "table": "customer_groups",
-        "column": "preferred_payment_method"
+        "table": "customers",
+        "column": "is_pre_sale_form_applicable"
       }
     },
     {
       "category": "UNREGISTERED_BUSINESS_DB_COLUMN",
       "severity": "WARNING",
-      "message": "Physical column 'customer_groups.allow_negative_stock_sales' represents business data but is not registered in CANONICAL_FIELDS.",
+      "message": "Physical column 'customers.is_post_sale_form_applicable' represents business data but is not registered in CANONICAL_FIELDS.",
       "details": {
-        "table": "customer_groups",
-        "column": "allow_negative_stock_sales"
+        "table": "customers",
+        "column": "is_post_sale_form_applicable"
       }
     },
     {
       "category": "UNREGISTERED_BUSINESS_DB_COLUMN",
       "severity": "WARNING",
-      "message": "Physical column 'customer_groups.can_purchase_on_credit' represents business data but is not registered in CANONICAL_FIELDS.",
+      "message": "Physical column 'customers.is_dependant' represents business data but is not registered in CANONICAL_FIELDS.",
       "details": {
-        "table": "customer_groups",
-        "column": "can_purchase_on_credit"
+        "table": "customers",
+        "column": "is_dependant"
       }
     },
     {
       "category": "UNREGISTERED_BUSINESS_DB_COLUMN",
       "severity": "WARNING",
-      "message": "Physical column 'customer_groups.grace_days' represents business data but is not registered in CANONICAL_FIELDS.",
+      "message": "Physical column 'customers.is_married' represents business data but is not registered in CANONICAL_FIELDS.",
       "details": {
-        "table": "customer_groups",
-        "column": "grace_days"
+        "table": "customers",
+        "column": "is_married"
       }
     },
     {
       "category": "UNREGISTERED_BUSINESS_DB_COLUMN",
       "severity": "WARNING",
-      "message": "Physical column 'customer_groups.can_view_price' represents business data but is not registered in CANONICAL_FIELDS.",
+      "message": "Physical column 'approval_policies.priority' represents business data but is not registered in CANONICAL_FIELDS.",
       "details": {
-        "table": "customer_groups",
-        "column": "can_view_price"
+        "table": "approval_policies",
+        "column": "priority"
       }
     },
     {
       "category": "UNREGISTERED_BUSINESS_DB_COLUMN",
       "severity": "WARNING",
-      "message": "Physical column 'customer_groups.min_margin_percent' represents business data but is not registered in CANONICAL_FIELDS.",
+      "message": "Physical column 'approval_policies.required_role' represents business data but is not registered in CANONICAL_FIELDS.",
       "details": {
-        "table": "customer_groups",
-        "column": "min_margin_percent"
-      }
-    },
-    {
-      "category": "UNREGISTERED_BUSINESS_DB_COLUMN",
-      "severity": "WARNING",
-      "message": "Physical column 'customer_groups.can_receive_discount' represents business data but is not registered in CANONICAL_FIELDS.",
-      "details": {
-        "table": "customer_groups",
-        "column": "can_receive_discount"
-      }
-    },
-    {
-      "category": "UNREGISTERED_BUSINESS_DB_COLUMN",
-      "severity": "WARNING",
-      "message": "Physical column 'customer_groups.auto_block_sales' represents business data but is not registered in CANONICAL_FIELDS.",
-      "details": {
-        "table": "customer_groups",
-        "column": "auto_block_sales"
-      }
-    },
-    {
-      "category": "UNREGISTERED_BUSINESS_DB_COLUMN",
-      "severity": "WARNING",
-      "message": "Physical column 'customer_groups.unlimited_credit' represents business data but is not registered in CANONICAL_FIELDS.",
-      "details": {
-        "table": "customer_groups",
-        "column": "unlimited_credit"
-      }
-    },
-    {
-      "category": "UNREGISTERED_BUSINESS_DB_COLUMN",
-      "severity": "WARNING",
-      "message": "Physical column 'customer_groups.allowed_payment_methods' represents business data but is not registered in CANONICAL_FIELDS.",
-      "details": {
-        "table": "customer_groups",
-        "column": "allowed_payment_methods"
-      }
-    },
-    {
-      "category": "UNREGISTERED_BUSINESS_DB_COLUMN",
-      "severity": "WARNING",
-      "message": "Physical column 'customer_groups.invoice_language' represents business data but is not registered in CANONICAL_FIELDS.",
-      "details": {
-        "table": "customer_groups",
-        "column": "invoice_language"
-      }
-    },
-    {
-      "category": "UNREGISTERED_BUSINESS_DB_COLUMN",
-      "severity": "WARNING",
-      "message": "Physical column 'customer_groups.require_po_number' represents business data but is not registered in CANONICAL_FIELDS.",
-      "details": {
-        "table": "customer_groups",
-        "column": "require_po_number"
-      }
-    },
-    {
-      "category": "UNREGISTERED_BUSINESS_DB_COLUMN",
-      "severity": "WARNING",
-      "message": "Physical column 'customer_groups.credit_hold' represents business data but is not registered in CANONICAL_FIELDS.",
-      "details": {
-        "table": "customer_groups",
-        "column": "credit_hold"
-      }
-    },
-    {
-      "category": "UNREGISTERED_BUSINESS_DB_COLUMN",
-      "severity": "WARNING",
-      "message": "Physical column 'customer_groups.allow_override' represents business data but is not registered in CANONICAL_FIELDS.",
-      "details": {
-        "table": "customer_groups",
-        "column": "allow_override"
-      }
-    },
-    {
-      "category": "UNREGISTERED_BUSINESS_DB_COLUMN",
-      "severity": "WARNING",
-      "message": "Physical column 'customer_groups.is_tax_inclusive' represents business data but is not registered in CANONICAL_FIELDS.",
-      "details": {
-        "table": "customer_groups",
-        "column": "is_tax_inclusive"
-      }
-    },
-    {
-      "category": "UNREGISTERED_BUSINESS_DB_COLUMN",
-      "severity": "WARNING",
-      "message": "Physical column 'customer_groups.warning_threshold_percent' represents business data but is not registered in CANONICAL_FIELDS.",
-      "details": {
-        "table": "customer_groups",
-        "column": "warning_threshold_percent"
-      }
-    },
-    {
-      "category": "UNREGISTERED_BUSINESS_DB_COLUMN",
-      "severity": "WARNING",
-      "message": "Physical column 'customer_groups.tax_inclusive' represents business data but is not registered in CANONICAL_FIELDS.",
-      "details": {
-        "table": "customer_groups",
-        "column": "tax_inclusive"
-      }
-    },
-    {
-      "category": "UNREGISTERED_BUSINESS_DB_COLUMN",
-      "severity": "WARNING",
-      "message": "Physical column 'customer_groups.allow_back_orders' represents business data but is not registered in CANONICAL_FIELDS.",
-      "details": {
-        "table": "customer_groups",
-        "column": "allow_back_orders"
-      }
-    },
-    {
-      "category": "UNREGISTERED_BUSINESS_DB_COLUMN",
-      "severity": "WARNING",
-      "message": "Physical column 'customer_groups.rounding_rule' represents business data but is not registered in CANONICAL_FIELDS.",
-      "details": {
-        "table": "customer_groups",
-        "column": "rounding_rule"
-      }
-    },
-    {
-      "category": "UNREGISTERED_BUSINESS_DB_COLUMN",
-      "severity": "WARNING",
-      "message": "Physical column 'products.is_favorite' represents business data but is not registered in CANONICAL_FIELDS.",
-      "details": {
-        "table": "products",
-        "column": "is_favorite"
+        "table": "approval_policies",
+        "column": "required_role"
       }
     },
     {
@@ -1454,6 +1157,303 @@
       "details": {
         "table": "document_series",
         "column": "suffix"
+      }
+    },
+    {
+      "category": "UNREGISTERED_BUSINESS_DB_COLUMN",
+      "severity": "WARNING",
+      "message": "Physical column 'sales_invoice_lines.tax_amount' represents business data but is not registered in CANONICAL_FIELDS.",
+      "details": {
+        "table": "sales_invoice_lines",
+        "column": "tax_amount"
+      }
+    },
+    {
+      "category": "UNREGISTERED_BUSINESS_DB_COLUMN",
+      "severity": "WARNING",
+      "message": "Physical column 'sales_invoice_lines.size_label' represents business data but is not registered in CANONICAL_FIELDS.",
+      "details": {
+        "table": "sales_invoice_lines",
+        "column": "size_label"
+      }
+    },
+    {
+      "category": "UNREGISTERED_BUSINESS_DB_COLUMN",
+      "severity": "WARNING",
+      "message": "Physical column 'sales_invoice_lines.taxable_value' represents business data but is not registered in CANONICAL_FIELDS.",
+      "details": {
+        "table": "sales_invoice_lines",
+        "column": "taxable_value"
+      }
+    },
+    {
+      "category": "UNREGISTERED_BUSINESS_DB_COLUMN",
+      "severity": "WARNING",
+      "message": "Physical column 'sales_invoice_lines.mrp' represents business data but is not registered in CANONICAL_FIELDS.",
+      "details": {
+        "table": "sales_invoice_lines",
+        "column": "mrp"
+      }
+    },
+    {
+      "category": "UNREGISTERED_BUSINESS_DB_COLUMN",
+      "severity": "WARNING",
+      "message": "Physical column 'sales_invoice_lines.tax_rate' represents business data but is not registered in CANONICAL_FIELDS.",
+      "details": {
+        "table": "sales_invoice_lines",
+        "column": "tax_rate"
+      }
+    },
+    {
+      "category": "UNREGISTERED_BUSINESS_DB_COLUMN",
+      "severity": "WARNING",
+      "message": "Physical column 'sales_invoice_lines.discount_pct' represents business data but is not registered in CANONICAL_FIELDS.",
+      "details": {
+        "table": "sales_invoice_lines",
+        "column": "discount_pct"
+      }
+    },
+    {
+      "category": "UNREGISTERED_BUSINESS_DB_COLUMN",
+      "severity": "WARNING",
+      "message": "Physical column 'sales_invoice_lines.discount_amount' represents business data but is not registered in CANONICAL_FIELDS.",
+      "details": {
+        "table": "sales_invoice_lines",
+        "column": "discount_amount"
+      }
+    },
+    {
+      "category": "UNREGISTERED_BUSINESS_DB_COLUMN",
+      "severity": "WARNING",
+      "message": "Physical column 'sales_invoice_lines.net_amount' represents business data but is not registered in CANONICAL_FIELDS.",
+      "details": {
+        "table": "sales_invoice_lines",
+        "column": "net_amount"
+      }
+    },
+    {
+      "category": "UNREGISTERED_BUSINESS_DB_COLUMN",
+      "severity": "WARNING",
+      "message": "Physical column 'sales_invoice_lines.sku' represents business data but is not registered in CANONICAL_FIELDS.",
+      "details": {
+        "table": "sales_invoice_lines",
+        "column": "sku"
+      }
+    },
+    {
+      "category": "UNREGISTERED_BUSINESS_DB_COLUMN",
+      "severity": "WARNING",
+      "message": "Physical column 'sales_invoice_lines.hsn_code' represents business data but is not registered in CANONICAL_FIELDS.",
+      "details": {
+        "table": "sales_invoice_lines",
+        "column": "hsn_code"
+      }
+    },
+    {
+      "category": "UNREGISTERED_BUSINESS_DB_COLUMN",
+      "severity": "WARNING",
+      "message": "Physical column 'sales_invoice_lines.line_no' represents business data but is not registered in CANONICAL_FIELDS.",
+      "details": {
+        "table": "sales_invoice_lines",
+        "column": "line_no"
+      }
+    },
+    {
+      "category": "UNREGISTERED_BUSINESS_DB_COLUMN",
+      "severity": "WARNING",
+      "message": "Physical column 'sales_invoice_lines.batch_no' represents business data but is not registered in CANONICAL_FIELDS.",
+      "details": {
+        "table": "sales_invoice_lines",
+        "column": "batch_no"
+      }
+    },
+    {
+      "category": "UNREGISTERED_BUSINESS_DB_COLUMN",
+      "severity": "WARNING",
+      "message": "Physical column 'sales_invoice_lines.unit_price' represents business data but is not registered in CANONICAL_FIELDS.",
+      "details": {
+        "table": "sales_invoice_lines",
+        "column": "unit_price"
+      }
+    },
+    {
+      "category": "UNREGISTERED_BUSINESS_DB_COLUMN",
+      "severity": "WARNING",
+      "message": "Physical column 'sales_invoice_lines.is_active' represents business data but is not registered in CANONICAL_FIELDS.",
+      "details": {
+        "table": "sales_invoice_lines",
+        "column": "is_active"
+      }
+    },
+    {
+      "category": "UNREGISTERED_BUSINESS_DB_COLUMN",
+      "severity": "WARNING",
+      "message": "Physical column 'sales_invoice_lines.product_name' represents business data but is not registered in CANONICAL_FIELDS.",
+      "details": {
+        "table": "sales_invoice_lines",
+        "column": "product_name"
+      }
+    },
+    {
+      "category": "UNREGISTERED_BUSINESS_DB_COLUMN",
+      "severity": "WARNING",
+      "message": "Physical column 'sales_invoice_lines.barcode' represents business data but is not registered in CANONICAL_FIELDS.",
+      "details": {
+        "table": "sales_invoice_lines",
+        "column": "barcode"
+      }
+    },
+    {
+      "category": "UNREGISTERED_BUSINESS_DB_COLUMN",
+      "severity": "WARNING",
+      "message": "Physical column 'purchase_orders.amend_revision' represents business data but is not registered in CANONICAL_FIELDS.",
+      "details": {
+        "table": "purchase_orders",
+        "column": "amend_revision"
+      }
+    },
+    {
+      "category": "UNREGISTERED_BUSINESS_DB_COLUMN",
+      "severity": "WARNING",
+      "message": "Physical column 'purchase_orders.confirmed_at' represents business data but is not registered in CANONICAL_FIELDS.",
+      "details": {
+        "table": "purchase_orders",
+        "column": "confirmed_at"
+      }
+    },
+    {
+      "category": "UNREGISTERED_BUSINESS_DB_COLUMN",
+      "severity": "WARNING",
+      "message": "Physical column 'purchase_orders.submitted_at' represents business data but is not registered in CANONICAL_FIELDS.",
+      "details": {
+        "table": "purchase_orders",
+        "column": "submitted_at"
+      }
+    },
+    {
+      "category": "UNREGISTERED_BUSINESS_DB_COLUMN",
+      "severity": "WARNING",
+      "message": "Physical column 'purchase_orders.cancellation_reason' represents business data but is not registered in CANONICAL_FIELDS.",
+      "details": {
+        "table": "purchase_orders",
+        "column": "cancellation_reason"
+      }
+    },
+    {
+      "category": "UNREGISTERED_BUSINESS_DB_COLUMN",
+      "severity": "WARNING",
+      "message": "Physical column 'purchase_orders.cancelled_at' represents business data but is not registered in CANONICAL_FIELDS.",
+      "details": {
+        "table": "purchase_orders",
+        "column": "cancelled_at"
+      }
+    },
+    {
+      "category": "UNREGISTERED_BUSINESS_DB_COLUMN",
+      "severity": "WARNING",
+      "message": "Physical column 'purchase_orders.cancelled_by' represents business data but is not registered in CANONICAL_FIELDS.",
+      "details": {
+        "table": "purchase_orders",
+        "column": "cancelled_by"
+      }
+    },
+    {
+      "category": "UNREGISTERED_BUSINESS_DB_COLUMN",
+      "severity": "WARNING",
+      "message": "Physical column 'purchase_orders.amended_by' represents business data but is not registered in CANONICAL_FIELDS.",
+      "details": {
+        "table": "purchase_orders",
+        "column": "amended_by"
+      }
+    },
+    {
+      "category": "UNREGISTERED_BUSINESS_DB_COLUMN",
+      "severity": "WARNING",
+      "message": "Physical column 'purchase_orders.is_active' represents business data but is not registered in CANONICAL_FIELDS.",
+      "details": {
+        "table": "purchase_orders",
+        "column": "is_active"
+      }
+    },
+    {
+      "category": "UNREGISTERED_BUSINESS_DB_COLUMN",
+      "severity": "WARNING",
+      "message": "Physical column 'purchase_orders.amended_at' represents business data but is not registered in CANONICAL_FIELDS.",
+      "details": {
+        "table": "purchase_orders",
+        "column": "amended_at"
+      }
+    },
+    {
+      "category": "UNREGISTERED_BUSINESS_DB_COLUMN",
+      "severity": "WARNING",
+      "message": "Physical column 'purchase_orders.submitted_by' represents business data but is not registered in CANONICAL_FIELDS.",
+      "details": {
+        "table": "purchase_orders",
+        "column": "submitted_by"
+      }
+    },
+    {
+      "category": "UNREGISTERED_BUSINESS_DB_COLUMN",
+      "severity": "WARNING",
+      "message": "Physical column 'purchase_orders.confirmed_by' represents business data but is not registered in CANONICAL_FIELDS.",
+      "details": {
+        "table": "purchase_orders",
+        "column": "confirmed_by"
+      }
+    },
+    {
+      "category": "UNREGISTERED_BUSINESS_DB_COLUMN",
+      "severity": "WARNING",
+      "message": "Physical column 'items.validation_message' represents business data but is not registered in CANONICAL_FIELDS.",
+      "details": {
+        "table": "items",
+        "column": "validation_message"
+      }
+    },
+    {
+      "category": "UNREGISTERED_BUSINESS_DB_COLUMN",
+      "severity": "WARNING",
+      "message": "Physical column 'items.is_serial_tracked' represents business data but is not registered in CANONICAL_FIELDS.",
+      "details": {
+        "table": "items",
+        "column": "is_serial_tracked"
+      }
+    },
+    {
+      "category": "UNREGISTERED_BUSINESS_DB_COLUMN",
+      "severity": "WARNING",
+      "message": "Physical column 'items.validation_status' represents business data but is not registered in CANONICAL_FIELDS.",
+      "details": {
+        "table": "items",
+        "column": "validation_status"
+      }
+    },
+    {
+      "category": "UNREGISTERED_BUSINESS_DB_COLUMN",
+      "severity": "WARNING",
+      "message": "Physical column 'items.is_favorite' represents business data but is not registered in CANONICAL_FIELDS.",
+      "details": {
+        "table": "items",
+        "column": "is_favorite"
+      }
+    },
+    {
+      "category": "UNREGISTERED_BUSINESS_DB_COLUMN",
+      "severity": "WARNING",
+      "message": "Physical column 'items.gender' represents business data but is not registered in CANONICAL_FIELDS.",
+      "details": {
+        "table": "items",
+        "column": "gender"
+      }
+    },
+    {
+      "category": "UNREGISTERED_BUSINESS_DB_COLUMN",
+      "severity": "WARNING",
+      "message": "Physical column 'items.is_batch_tracked' represents business data but is not registered in CANONICAL_FIELDS.",
+      "details": {
+        "table": "items",
+        "column": "is_batch_tracked"
       }
     }
   ]
