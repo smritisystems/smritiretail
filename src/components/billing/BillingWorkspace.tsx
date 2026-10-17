@@ -452,6 +452,7 @@ export const BillingWorkspace: React.FC<BillingWorkspaceProps> = ({
           <SmritiDailyReportsDashboard />
         ) : auxView === "CREDIT_BILLING" ? (
           <SmritiBillingStudio
+            key="credit-billing-studio"
             products={products}
             customers={customers}
             profiles={profiles}
@@ -469,6 +470,7 @@ export const BillingWorkspace: React.FC<BillingWorkspaceProps> = ({
           />
         ) : auxView === "B2B_DISTRIBUTOR" ? (
           <SmritiBillingStudio
+            key="b2b-distributor-studio"
             products={products}
             customers={customers}
             profiles={profiles}
@@ -490,6 +492,7 @@ export const BillingWorkspace: React.FC<BillingWorkspaceProps> = ({
           />
         ) : (
           <SmritiBillingStudio
+            key="counter-pos-studio"
             products={products}
             customers={customers}
             profiles={profiles}

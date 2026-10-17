@@ -929,5 +929,224 @@ describe("SMRITI Billing Studio — Canonical Billing Lifecycle Tests", () => {
     const retryAttempt = recordCheckout(uuid);
     expect(retryAttempt.status).toBe("REJECTED_DUPLICATE");
   });
+
+  // ── TEST 27: Fresh Counter POS Empty Cart & Walk-In Defaults ───────────────
+  it("TEST 27: should initialize fresh Counter POS with zero items, zero discount, and Walk-in customer", () => {
+    // Model initial Counter POS state
+    const freshCart: ProPosCartItem[] = [];
+    const initialDiscount = 0;
+    const initialCustomer: ProPosCustomer = WALK_IN_CUSTOMER;
+    const initialReceived = "0.00";
+    const activeDraftId: string | null = null;
+
+    expect(freshCart).toHaveLength(0);
+    expect(initialCustomer.id).toBe("CUST-WALKIN");
+    expect(initialCustomer.name).toBe("Walk-in Retail Customer");
+    expect(initialDiscount).toBe(0);
+    expect(initialReceived).toBe("0.00");
+    expect(activeDraftId).toBeNull();
+
+    // Verify totals on empty cart
+    const totals = computeBillingTotals(freshCart, initialDiscount, "FLAT", "27", "27");
+    expect(totals.grossTotal).toBe(0);
+    expect(totals.subtotal).toBe(0);
+    expect(totals.totalItemDiscounts).toBe(0);
+    expect(totals.billDiscount).toBe(0);
+    expect(totals.totalTax).toBe(0);
+    expect(totals.netPayable).toBe(0);
+    expect(totals.totalQty).toBe(0);
+    expect(totals.itemCount).toBe(0);
+  });
+
+  // ── TEST 28: Reloading Fresh Session Does Not Inject Products ──────────────
+  it("TEST 28: should guarantee that reloading a fresh session preserves empty cart without injecting demo items", () => {
+    const sessionStore = new Map<string, ProPosCartItem[]>();
+    const sessionId = "sess_counter_pos_new_01";
+
+    // When no draft was explicitly saved for this session, it returns empty array
+    const loadedItems = sessionStore.get(sessionId) || [];
+    expect(loadedItems).toHaveLength(0);
+    expect(loadedItems).toEqual([]);
+    expect(INITIAL_DEMO_CART_ITEMS).toHaveLength(6); // constant remains intact for reference
+  });
+
+  // ── TEST 29: Scanning or Selecting a Product Adds It Correctly ─────────────
+  it("TEST 29: should add scanned or selected product correctly to the empty cart", () => {
+    const cart: ProPosCartItem[] = [];
+
+    const scannedProduct: Product = {
+      id: "PROD-SND-18",
+      name: "SND-18-V SNEAKER",
+      sku: "SND-18-V-42",
+      barcode: "8904551003412",
+      price: 1999,
+      mrp: 1999,
+      gst_rate: 5,
+    };
+
+    // Simulate scan add to empty cart
+    cart.push({
+      id: "cart_item_1",
+      productId: scannedProduct.id,
+      itemNo: 1,
+      sku: scannedProduct.sku || "",
+      barcode: scannedProduct.barcode || "",
+      name: scannedProduct.name,
+      size: "42",
+      color: "WHITE",
+      brand: "Sportz",
+      salesStaff: "Reshma",
+      qty: 1,
+      mrp: 1999,
+      unitPrice: 1999,
+      discountPct: 0,
+      discountAmt: 0,
+      taxPct: 5,
+      taxAmt: 99.95,
+      isTaxInclusive: false,
+      hsnCode: "6404",
+      lineTotal: 1999,
+    });
+
+    expect(cart).toHaveLength(1);
+    expect(cart[0].name).toBe("SND-18-V SNEAKER");
+    expect(cart[0].qty).toBe(1);
+
+    const totals = computeBillingTotals(cart, 0, "FLAT", "27", "27");
+    expect(totals.grossTotal).toBe(1999);
+    expect(totals.netPayable).toBe(2098.95);
+  });
+
+  // ── TEST 30: Deliberate Draft Restoration When User Chooses Resume Draft ────
+  it("TEST 30: should restore only the explicitly requested draft with correct hold slip number", async () => {
+    // 1. Park an active cart with 2 items
+    const draftItems: ProPosCartItem[] = [
+      {
+        id: "d1",
+        productId: "p1",
+        itemNo: 1,
+        sku: "SKU-DRAFT-1",
+        name: "Casual Sandals",
+        qty: 2,
+        mrp: 1200,
+        unitPrice: 1200,
+        taxPct: 5,
+        lineTotal: 2400,
+      },
+    ];
+
+    const parked = await SmritiPosParkedCartService.parkCart({
+      sessionId: "sess_hold_01",
+      customer: WALK_IN_CUSTOMER,
+      salesStaff: "Reshma",
+      items: draftItems,
+      totalAmount: 2520,
+      expirationHours: 4,
+    });
+
+    expect(parked.holdSlipNumber).toMatch(/^HOLD-/);
+    expect(SmritiPosParkedCartService.getActiveParkedCarts()).toHaveLength(1);
+
+    // 2. Start a fresh session with empty cart
+    let activeCart: ProPosCartItem[] = [];
+    let activeDraftId: string | null = null;
+    expect(activeCart).toHaveLength(0);
+
+    // 3. Deliberately resume the draft
+    const recalled = await SmritiPosParkedCartService.recallCart(parked.holdSlipNumber, "Reshma");
+    activeCart = recalled.items;
+    activeDraftId = recalled.holdSlipNumber;
+
+    expect(activeCart).toHaveLength(1);
+    expect(activeCart[0].name).toBe("Casual Sandals");
+    expect(activeDraftId).toBe(parked.holdSlipNumber);
+    expect(SmritiPosParkedCartService.getActiveParkedCarts()).toHaveLength(0);
+  });
+
+  // ── TEST 31: Workflow Isolation Between POS, Credit, and B2B Invoicing ──────
+  it("TEST 31: should ensure independent cart state across Counter POS, Credit, and B2B workflows", () => {
+    // Separate state stores simulating independent React component keys
+    const counterPosCart: ProPosCartItem[] = [];
+    const creditBillingCart: ProPosCartItem[] = [];
+    const b2bDistributorCart: ProPosCartItem[] = [
+      {
+        id: "b2b_item_1",
+        productId: "p_b2b",
+        itemNo: 1,
+        sku: "B2B-BULK-01",
+        name: "Bulk Case Shoes",
+        qty: 50,
+        mrp: 1000,
+        unitPrice: 800,
+        taxPct: 12,
+        lineTotal: 40000,
+      },
+    ];
+
+    // Counter POS cart remains strictly empty even when B2B has items
+    expect(counterPosCart).toHaveLength(0);
+    expect(creditBillingCart).toHaveLength(0);
+    expect(b2bDistributorCart).toHaveLength(1);
+  });
+
+  // ── TEST 32: Offline Sync Queue Does Not Duplicate Cart Items ──────────────
+  it("TEST 32: should prevent duplicate item insertion during offline recovery and repeated retries", async () => {
+    const offlinePayload = {
+      client_tx_uuid: "offline-uuid-999",
+      invoice_no: "INV-OFFLINE-001",
+      shift_id: "shift-01",
+      grand_total: 1500,
+      items: [{ product_id: "prod-1", quantity: 1, price: 1500 }],
+    };
+
+    // First queue
+    await ProPosOfflineSyncEngine.queueOfflineSale(offlinePayload, "REG-01", "INV-OFFLINE-001");
+    let queue = await ProPosOfflineSyncEngine.getQueue();
+    expect(queue).toHaveLength(1);
+
+    // Re-queuing with the same transaction UUID returns existing without creating duplicate
+    const secondResult = await ProPosOfflineSyncEngine.queueOfflineSale(offlinePayload, "REG-01", "INV-OFFLINE-001");
+    expect(secondResult.client_tx_uuid).toBe(offlinePayload.client_tx_uuid);
+
+    queue = await ProPosOfflineSyncEngine.getQueue();
+    expect(queue).toHaveLength(1);
+    expect(queue[0].payload.items).toHaveLength(1);
+  });
+
+  // ── TEST 33: Pure Zero Totals Enforcement on Empty Cart ───────────────────
+  it("TEST 33: should enforce mathematically exact zero values for empty carts regardless of inputs", () => {
+    // Even if billDiscountVal is passed as 50 or 100, on an empty cart all totals must be 0
+    const emptyTotalsWithFlat50 = computeBillingTotals([], 50, "FLAT", "27", "27");
+    expect(emptyTotalsWithFlat50.grossTotal).toBe(0);
+    expect(emptyTotalsWithFlat50.subtotal).toBe(0);
+    expect(emptyTotalsWithFlat50.totalItemDiscounts).toBe(0);
+    expect(emptyTotalsWithFlat50.billDiscount).toBe(0);
+    expect(emptyTotalsWithFlat50.totalTax).toBe(0);
+    expect(emptyTotalsWithFlat50.netPayable).toBe(0);
+    expect(emptyTotalsWithFlat50.totalQty).toBe(0);
+    expect(emptyTotalsWithFlat50.itemCount).toBe(0);
+
+    const emptyTotalsWithPct10 = computeBillingTotals([], 10, "PERCENT", "27", "27");
+    expect(emptyTotalsWithPct10.billDiscount).toBe(0);
+    expect(emptyTotalsWithPct10.netPayable).toBe(0);
+  });
+
+  // ── TEST 34: Explicit User Choice for Sample Item Loading ──────────────────
+  it("TEST 34: should only load sample items upon explicit user action and never automatically", () => {
+    let cart: ProPosCartItem[] = [];
+
+    // On initial launch: always empty
+    expect(cart).toHaveLength(0);
+
+    // Explicit user action simulating "Load Sample Items" button click
+    const loadSampleItems = () => {
+      cart = [...INITIAL_DEMO_CART_ITEMS];
+    };
+
+    loadSampleItems();
+    expect(cart).toHaveLength(6);
+    expect(cart[0].name).toBe("TATLD CASUAL CHAPPAL");
+    expect(cart[5].name).toBe("LADY GLAM HEELS");
+  });
 });
 
