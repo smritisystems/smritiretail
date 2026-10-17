@@ -4,7 +4,7 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.95.0
+ * Version      : 6.96.0
  * Created      : 2026-10-17
  * Modified     : 2026-10-17
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
@@ -140,6 +140,7 @@ export const ProcurementVisualReportsTab: React.FC<ProcurementVisualReportsTabPr
 }) => {
   // ── States ─────────────────────────────────────────────────────────────
   const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<ProcurementReportsSummaryResponse | null>(null);
   const [config, setConfig] = useState<ProcurementDashboardConfigPayload>(() => {
     try {
@@ -152,10 +153,11 @@ export const ProcurementVisualReportsTab: React.FC<ProcurementVisualReportsTabPr
   const [drawerConfig, setDrawerConfig] = useState<ProcurementDashboardConfigPayload>(config);
 
   // Filters
-  const [selectedCompany, setSelectedCompany] = useState<string>("SMRITI FOOTWEAR PVT LTD");
+  const [selectedCompanyId, setSelectedCompanyId] = useState<string>("COMP-001");
+  const [selectedCompany, setSelectedCompany] = useState<string>("My Retail Store");
   const [selectedLocation, setSelectedLocation] = useState<string>("All Locations");
-  const [selectedPreset, setSelectedPreset] = useState<"Today" | "Last 7 Days" | "MTD" | "Custom">("MTD");
-  const [dateRangeStr, setDateRangeStr] = useState<string>("01 Apr 2025 - 30 Apr 2025");
+  const [selectedPreset, setSelectedPreset] = useState<"FY 2026-27" | "Today" | "Last 7 Days" | "MTD" | "All Dates">("FY 2026-27");
+  const [dateRangeStr, setDateRangeStr] = useState<string>("01 Apr 2026 - 31 Mar 2027");
   const [activeFiltersCount, setActiveFiltersCount] = useState<number>(3);
 
   // Spend Trend View Mode
@@ -173,19 +175,55 @@ export const ProcurementVisualReportsTab: React.FC<ProcurementVisualReportsTabPr
   // ── Fetch Initial Data ─────────────────────────────────────────────────
   const fetchDashboardData = async () => {
     setLoading(true);
+    setError(null);
     try {
-      const res = await apiFetchV1("/reports/procurement-dashboard/summary");
+      const params = new URLSearchParams();
+      if (selectedCompanyId && selectedCompanyId !== "all") {
+        params.append("company_id", selectedCompanyId);
+      }
+      if (selectedLocation && selectedLocation !== "All Locations") {
+        params.append("store_location_id", selectedLocation);
+      }
+      if (selectedPreset === "FY 2026-27") {
+        params.append("start_date", "2026-04-01");
+        params.append("end_date", "2027-03-31");
+      } else if (selectedPreset === "Today") {
+        const today = new Date().toISOString().split("T")[0];
+        params.append("start_date", today);
+        params.append("end_date", today);
+      } else if (selectedPreset === "Last 7 Days") {
+        const end = new Date();
+        const start = new Date();
+        start.setDate(end.getDate() - 7);
+        params.append("start_date", start.toISOString().split("T")[0]);
+        params.append("end_date", end.toISOString().split("T")[0]);
+      } else if (selectedPreset === "MTD") {
+        const now = new Date();
+        const start = new Date(now.getFullYear(), now.getMonth(), 1);
+        params.append("start_date", start.toISOString().split("T")[0]);
+        params.append("end_date", now.toISOString().split("T")[0]);
+      }
+
+      const queryString = params.toString();
+      const endpoint = `/reports/procurement-dashboard/summary${queryString ? `?${queryString}` : ""}`;
+      const res = await apiFetchV1(endpoint);
       if (res && res.kpi_cards) {
         setData(res);
+        if (res.company_name) {
+          setSelectedCompany(res.company_name);
+        }
         if (res.config) {
-          // Merge with local config if exists
           const merged = { ...DEFAULT_CONFIG, ...res.config };
           setConfig(merged);
           setDrawerConfig(merged);
         }
+      } else {
+        throw new Error("Unable to parse procurement visual reports data structure from backend.");
       }
-    } catch (err) {
-      console.warn("Procurement visual dashboard fetch fallback:", err);
+    } catch (err: any) {
+      console.error("Procurement visual dashboard fetch error:", err);
+      setError(err?.message || "Failed to load procurement visual reports from authoritative database.");
+      setData(null);
     } finally {
       setLoading(false);
     }
@@ -193,7 +231,7 @@ export const ProcurementVisualReportsTab: React.FC<ProcurementVisualReportsTabPr
 
   useEffect(() => {
     fetchDashboardData();
-  }, [selectedCompany, selectedLocation, selectedPreset]);
+  }, [selectedCompanyId, selectedLocation, selectedPreset]);
 
   // Sync drawer config when drawer opens
   useEffect(() => {
@@ -400,19 +438,34 @@ export const ProcurementVisualReportsTab: React.FC<ProcurementVisualReportsTabPr
           {/* Company Selector */}
           <div className="flex items-center gap-1.5 text-xs text-slate-600">
             <span className="font-semibold text-slate-500">Company</span>
-            <div className="flex items-center gap-1.5 font-bold text-slate-800 bg-slate-50 border border-slate-200 px-2.5 py-1.5 rounded cursor-pointer hover:bg-slate-100 transition-colors">
-              <span>{selectedCompany}</span>
-              <ChevronDown size={13} className="text-slate-400" />
-            </div>
+            <select
+              value={selectedCompanyId}
+              onChange={(e) => {
+                const newId = e.target.value;
+                setSelectedCompanyId(newId);
+                const opt = e.target.selectedOptions[0]?.text || newId;
+                setSelectedCompany(opt);
+              }}
+              className="font-bold text-slate-800 bg-slate-50 border border-slate-200 px-2.5 py-1.5 rounded cursor-pointer hover:bg-slate-100 transition-colors focus:outline-none focus:ring-1 focus:ring-blue-400 text-xs"
+            >
+              <option value="COMP-001">My Retail Store (COMP-001)</option>
+              <option value="comp-default">SMRITI Control Plane</option>
+              <option value="all">All Companies</option>
+            </select>
           </div>
 
           {/* Store / Location Selector */}
           <div className="flex items-center gap-1.5 text-xs text-slate-600">
             <span className="font-semibold text-slate-500">Store / Location</span>
-            <div className="flex items-center gap-1.5 font-bold text-slate-800 bg-slate-50 border border-slate-200 px-2.5 py-1.5 rounded cursor-pointer hover:bg-slate-100 transition-colors">
-              <span>{selectedLocation}</span>
-              <ChevronDown size={13} className="text-slate-400" />
-            </div>
+            <select
+              value={selectedLocation}
+              onChange={(e) => setSelectedLocation(e.target.value)}
+              className="font-bold text-slate-800 bg-slate-50 border border-slate-200 px-2.5 py-1.5 rounded cursor-pointer hover:bg-slate-100 transition-colors focus:outline-none focus:ring-1 focus:ring-blue-400 text-xs"
+            >
+              <option value="All Locations">All Locations</option>
+              <option value="Main Store">Main Store</option>
+              <option value="Central Warehouse">Central Warehouse</option>
+            </select>
           </div>
 
           {/* Date Range Selector */}
@@ -421,17 +474,23 @@ export const ProcurementVisualReportsTab: React.FC<ProcurementVisualReportsTabPr
             <div className="flex items-center gap-1.5 font-bold text-slate-800 bg-slate-50 border border-slate-200 px-2.5 py-1.5 rounded cursor-pointer hover:bg-slate-100 transition-colors">
               <Calendar size={13} className="text-slate-500" />
               <span>{dateRangeStr}</span>
-              <ChevronDown size={13} className="text-slate-400" />
             </div>
           </div>
 
           {/* Preset Pills */}
           <div className="flex items-center bg-slate-100 p-0.5 rounded-md border border-slate-200/80 text-xs">
-            {(["Today", "Last 7 Days", "MTD", "Custom"] as const).map((preset) => (
+            {(["FY 2026-27", "Today", "Last 7 Days", "MTD", "All Dates"] as const).map((preset) => (
               <button
                 key={preset}
                 type="button"
-                onClick={() => setSelectedPreset(preset)}
+                onClick={() => {
+                  setSelectedPreset(preset);
+                  if (preset === "FY 2026-27") setDateRangeStr("01 Apr 2026 - 31 Mar 2027");
+                  else if (preset === "Today") setDateRangeStr("Today");
+                  else if (preset === "Last 7 Days") setDateRangeStr("Last 7 Days");
+                  else if (preset === "MTD") setDateRangeStr("Month to Date");
+                  else setDateRangeStr("All Recorded Dates");
+                }}
                 className={`px-3 py-1 font-semibold rounded transition-colors ${
                   selectedPreset === preset
                     ? "bg-blue-600 text-white shadow-xs"
@@ -447,15 +506,20 @@ export const ProcurementVisualReportsTab: React.FC<ProcurementVisualReportsTabPr
           <div className="flex items-center gap-1.5 text-xs font-semibold text-blue-700 bg-blue-50 border border-blue-200 px-2 py-1 rounded">
             <Filter size={12} className="text-blue-600" />
             <span>Filters: {activeFiltersCount} applied</span>
-            <ChevronDown size={12} className="text-blue-500" />
           </div>
 
           <button
             type="button"
-            onClick={() => setActiveFiltersCount(0)}
+            onClick={() => {
+              setSelectedPreset("FY 2026-27");
+              setDateRangeStr("01 Apr 2026 - 31 Mar 2027");
+              setSelectedCompanyId("COMP-001");
+              setSelectedCompany("My Retail Store");
+              setSelectedLocation("All Locations");
+            }}
             className="text-xs font-semibold text-slate-500 hover:text-slate-800 transition-colors cursor-pointer"
           >
-            Clear All
+            Reset Filters
           </button>
         </div>
 
@@ -475,7 +539,89 @@ export const ProcurementVisualReportsTab: React.FC<ProcurementVisualReportsTabPr
 
       {/* ── Main Dashboard Body ─────────────────────────────────────────── */}
       <main className="flex-1 px-5 pt-4 space-y-4 max-w-[1780px] mx-auto w-full">
-        {/* ── A. 6 Horizontal KPI Cards ─────────────────────────────────── */}
+        {/* Loading Skeleton State */}
+        {loading && !data && (
+          <div className="space-y-4 animate-pulse">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3.5">
+              {[...Array(6)].map((_, i) => (
+                <div key={i} className="bg-white rounded-lg border border-slate-200 p-4 h-28 flex flex-col justify-between">
+                  <div className="h-3 w-20 bg-slate-200 rounded" />
+                  <div className="h-6 w-28 bg-slate-200 rounded" />
+                  <div className="h-2 w-full bg-slate-100 rounded" />
+                </div>
+              ))}
+            </div>
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-3.5">
+              <div className="lg:col-span-7 bg-white rounded-lg border border-slate-200 p-4 h-72">
+                <div className="h-4 w-40 bg-slate-200 rounded mb-4" />
+                <div className="h-56 bg-slate-100 rounded" />
+              </div>
+              <div className="lg:col-span-5 bg-white rounded-lg border border-slate-200 p-4 h-72">
+                <div className="h-4 w-48 bg-slate-200 rounded mb-4" />
+                <div className="h-56 bg-slate-100 rounded" />
+              </div>
+            </div>
+            <div className="bg-white rounded-lg border border-slate-200 p-4 h-64">
+              <div className="h-4 w-48 bg-slate-200 rounded mb-4" />
+              <div className="space-y-2">
+                {[...Array(5)].map((_, i) => (
+                  <div key={i} className="h-8 bg-slate-100 rounded" />
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* API / Service Error State with Explicit Retry */}
+        {error && !loading && (
+          <div className="bg-rose-50 border border-rose-200 rounded-lg p-8 my-8 text-center max-w-xl mx-auto shadow-xs">
+            <div className="w-12 h-12 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center mx-auto mb-3">
+              <AlertTriangle size={24} />
+            </div>
+            <h3 className="text-base font-bold text-rose-900">Procurement Visual Reports Unavailable</h3>
+            <p className="text-xs text-rose-700 mt-2 mb-5 leading-relaxed">{error}</p>
+            <div className="flex items-center justify-center gap-3">
+              <button
+                type="button"
+                onClick={fetchDashboardData}
+                className="inline-flex items-center gap-1.5 px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded shadow-xs cursor-pointer transition-colors"
+              >
+                <RotateCcw size={14} />
+                <span>Retry Database Connection</span>
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Truthful Empty State (Zero Records Found in Database) */}
+        {!loading && !error && data && (data.total_pos_for_status === 0 && data.fulfillment_stream.length === 0) && (
+          <div className="bg-white border border-slate-200 rounded-lg p-10 my-8 text-center max-w-lg mx-auto shadow-xs">
+            <div className="w-14 h-14 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center mx-auto mb-3">
+              <Package size={28} />
+            </div>
+            <h3 className="text-base font-bold text-slate-800">No Procurement Records Found</h3>
+            <p className="text-xs text-slate-500 mt-2 mb-5 leading-relaxed">
+              No purchase orders, inward goods receipts, or supplier bills match company &quot;{selectedCompany}&quot; for the active period ({dateRangeStr}).
+            </p>
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedCompanyId("COMP-001");
+                setSelectedCompany("My Retail Store");
+                setSelectedPreset("FY 2026-27");
+                setDateRangeStr("01 Apr 2026 - 31 Mar 2027");
+              }}
+              className="inline-flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded shadow-xs cursor-pointer transition-colors"
+            >
+              <span>Load My Retail Store (FY 2026-27)</span>
+            </button>
+          </div>
+        )}
+
+        {/* Full Active Dashboard: Rendered Only From Authoritative Records */}
+        {!loading && !error && data && (data.total_pos_for_status > 0 || data.fulfillment_stream.length > 0) && (
+          <>
+            {/* ── A. 6 Horizontal KPI Cards ─────────────────────────────────── */}
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3.5">
           {data?.kpi_cards.map((card) => {
             const isVisible = config.kpi_cards_visible[card.id] !== false;
@@ -581,9 +727,9 @@ export const ProcurementVisualReportsTab: React.FC<ProcurementVisualReportsTabPr
                       fontSize={11}
                       tickLine={false}
                       unit=" Lakh"
-                      domain={[0, 50]}
+                      domain={[0, "auto"]}
                     />
-                    <YAxis yAxisId="right" orientation="right" hide domain={[0, 45]} />
+                    <YAxis yAxisId="right" orientation="right" hide domain={[0, "auto"]} />
                     <Tooltip
                       contentStyle={{ backgroundColor: "#0f172a", borderRadius: "6px", border: "none", color: "#fff", fontSize: "12px" }}
                       formatter={(val: any, name: any) => [
@@ -783,7 +929,7 @@ export const ProcurementVisualReportsTab: React.FC<ProcurementVisualReportsTabPr
                   {/* Center Label */}
                   <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
                     <span className="text-xl font-extrabold text-slate-900 leading-none">
-                      {data?.total_pos_for_status || 36}
+                      {data?.total_pos_for_status ?? 0}
                     </span>
                     <span className="text-[10px] text-slate-500 font-medium leading-none mt-1">
                       Purchase Orders
@@ -894,11 +1040,17 @@ export const ProcurementVisualReportsTab: React.FC<ProcurementVisualReportsTabPr
                       stroke="#f97316"
                       fontSize={10}
                       tickLine={false}
-                      domain={[0, 30]}
+                      domain={[0, "auto"]}
                       unit="d"
                     />
                     <Tooltip
                       contentStyle={{ backgroundColor: "#0f172a", borderRadius: "6px", border: "none", color: "#fff", fontSize: "11px" }}
+                      formatter={(val: any, name: any) => {
+                        if (name === "On-Time Delivery %") {
+                          return [val === null || val === undefined ? "N/A (Untracked)" : `${val}%`, name];
+                        }
+                        return [`${val} days`, name];
+                      }}
                     />
                     <Legend
                       verticalAlign="top"
@@ -924,6 +1076,9 @@ export const ProcurementVisualReportsTab: React.FC<ProcurementVisualReportsTabPr
                     />
                   </ComposedChart>
                 </ResponsiveContainer>
+              </div>
+              <div className="text-[10px] text-slate-400 mt-1 italic">
+                Note: On-Time Delivery % is displayed as N/A where historical PO promised delivery dates were not recorded.
               </div>
             </div>
           )}
@@ -1005,7 +1160,7 @@ export const ProcurementVisualReportsTab: React.FC<ProcurementVisualReportsTabPr
                       : "bg-slate-100 text-slate-600 hover:bg-slate-200"
                   }`}
                 >
-                  All ({data?.stream_counts.all || 86})
+                  All ({data?.stream_counts.all ?? 0})
                 </button>
                 <button
                   type="button"
@@ -1016,7 +1171,7 @@ export const ProcurementVisualReportsTab: React.FC<ProcurementVisualReportsTabPr
                       : "bg-slate-100 text-slate-600 hover:bg-slate-200"
                   }`}
                 >
-                  Purchase Orders ({data?.stream_counts.purchase_orders || 36})
+                  Purchase Orders ({data?.stream_counts.purchase_orders ?? 0})
                 </button>
                 <button
                   type="button"
@@ -1027,7 +1182,7 @@ export const ProcurementVisualReportsTab: React.FC<ProcurementVisualReportsTabPr
                       : "bg-slate-100 text-slate-600 hover:bg-slate-200"
                   }`}
                 >
-                  Goods Receipts ({data?.stream_counts.goods_receipts || 28})
+                  Goods Receipts ({data?.stream_counts.goods_receipts ?? 0})
                 </button>
                 <button
                   type="button"
@@ -1038,7 +1193,7 @@ export const ProcurementVisualReportsTab: React.FC<ProcurementVisualReportsTabPr
                       : "bg-slate-100 text-slate-600 hover:bg-slate-200"
                   }`}
                 >
-                  Supplier Invoices ({data?.stream_counts.supplier_invoices || 24})
+                  Supplier Invoices ({data?.stream_counts.supplier_invoices ?? 0})
                 </button>
               </div>
             </div>
@@ -1146,6 +1301,8 @@ export const ProcurementVisualReportsTab: React.FC<ProcurementVisualReportsTabPr
             </table>
           </div>
         </div>
+          </>
+        )}
       </main>
 
       {/* ── F. Right-Side Dashboard Configuration Drawer ────────────────── */}

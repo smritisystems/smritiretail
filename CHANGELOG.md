@@ -1,3 +1,26 @@
+## [6.97.0] — 2026-10-17
+
+### Procurement & Visual Analytics — Procurement Visual Reports Actual Database Derivation & Zero Mock Data Policy v1.1.0
+
+Permanently removed all dummy, placeholder, mock, and hardcoded values from Procurement Visual Reports and derived every dashboard metric directly from PostgreSQL database tables:
+
+**Key Capabilities & Architectural Enforcements:**
+- **Authoritative Database Source**: Derived 100% of telemetry from real PostgreSQL records across `PurchaseOrder`, `PurchaseReceipt`, `PurchaseBill`, `Supplier`, `Product`, and `StockMovement`.
+- **Verified COMP-001 Reconciliation**:
+  - Purchase Orders: 28 statutory purchase orders totaling ₹ 9,888,228.00 and 23,064 pairs.
+  - Inward Receipts: 28 Goods Receipt Notes (`GRN-D-522`, etc.) totaling 23,064 received pairs (100% fulfillment ratio).
+  - Commercial Bills & Outstandings: 28 commercial purchase bills totaling ₹ 9,888,228.00 unpaid supplier liability.
+  - Top Footwear Suppliers: 9 real vendors (`AS FOOTWEAR`, `AK FOOTWEAR`, `LAJOS FOOTWEAR`, `MK FOOTWEAR`, `SA FOOTWEAR`, `SB FOOTWEAR`, `LUCKY FOOTWEAR`, `ALIYA FOOTWEAR`, `CRYSTAL SHOES`).
+  - Active Procurement Stream: 84 real persisted documents (28 POs, 28 GRNs, 28 Bills).
+- **Zero Mock / Placeholder Policy**: Eliminated all fabricated names (`Metro Footwear`, `Bharat Traders`), placeholder SKUs (`SHOE-41`), hardcoded counts (`36 POs`, `86 stream items`, `42.8 Lakh spend`), and fake monthly bars.
+- **Transparent Untracked Metrics**: Supplier On-Time Delivery is transparently reported as `N/A (Untracked)` where historical PO scheduled delivery dates were not recorded, completely preventing manufactured scores. Average lead times are calculated from actual order-to-receipt timestamps.
+- **Strict UI States**:
+  - **Loading Skeleton**: Animated pulse cards and chart frames during asynchronous database queries.
+  - **Error Card with Retry**: Explicit warning banner with error details and "Retry Database Connection" action when services or database connections fail.
+  - **Truthful Empty State**: Displays truthful "No Procurement Records Found" when filtered companies or dates contain 0 records, without silently substituting mock data.
+- **Preserved Dashboard Configuration**: Preserved right-side drawer for widget visibility toggles, chart type selections (line/area/bar), layout density modes, and theme selections with PostgreSQL and `localStorage` synchronization.
+- **Automated Verification**: Pytest 2/2 tests green, Vitest 6/6 tests green, `tsc --noEmit` clean (0 errors), and Vite production build clean.
+
 ## [6.96.0] — 2026-10-17
 
 ### Sales & Billing — SMRITI Billing Studio Preloaded SKU Root-Cause Fix & Fresh Session Governance v1.0.0

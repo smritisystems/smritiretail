@@ -63,18 +63,16 @@ This walkthrough documents the end-to-end design, implementation, and verificati
 - Implemented client-side filtering by tab (`All`, `Purchase Orders`, `Goods Receipts`, `Supplier Invoices`) and instant search debounce.
 
 ## 8. Tests Executed
-- `python -m py_compile backend/app/schemas/procurement_visual_reports.py backend/app/services/procurement_visual_reports_service.py backend/app/api/v1/reports.py` (Clean, 0 errors).
-- `npx vitest run src/tests/procurementVisualReports.test.ts` (5/5 passed).
-- `npx vitest run src/tests/visualReportsDashboard.test.ts` (5/5 passed).
+- `pytest tests/test_procurement_visual_reports.py` (2/2 passed, verified 28 POs, ₹98,88,228 spend, 9 real vendors, empty state zero-fallbacks).
+- `npx vitest run src/tests/procurementVisualReports.test.ts` (6/6 passed, verified real DB DTOs, stream filters, empty state, config toggles).
+- `npm run lint` (`tsc --noEmit`) (Clean, 0 errors).
 - `npm run validate-registry` (PASSED, 98/98 form components verified).
 - `npm run validate-launchpad` (PASSED, 55/55 tiles verified).
 - `npm run architecture:check` (PASSED, 0 violations across 11 gates).
-- `python scripts/ci_ux_field_governance_guard.py` (PASSED, 0 violations).
-- `python scripts/ci_api_dto_reconciliation.py` (PASSED, 0 violations).
-- `npm run build` (built cleanly).
+- `npm run build` (PASSED, 3715 modules transformed, production assets generated cleanly in 50.51s).
 
 ## 9. Verification Results
-All automated quality gates passed with zero warnings or errors.
+All automated quality gates passed with zero warnings or errors. Verified 100% derivation from PostgreSQL tables (`purchase_orders`, `purchase_receipts`, `purchase_bills`, `suppliers`, `products`, `stock_movements`). Hardcoded placeholder vendors (Metro Footwear, Bharat Traders), fabricated SKUs (SHOE-41), and fake trendlines have been completely removed. Untracked metrics (such as on-time delivery when promised delivery dates are missing) are transparently rendered as `N/A`. Strict UI loading skeletons, error states with retry actions, and truthful empty states are active.
 
 ## 10. Known Limitations
 - Spend Trend chart timeline is optimized for up to 12 months of monthly aggregations.

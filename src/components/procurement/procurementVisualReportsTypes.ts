@@ -79,7 +79,7 @@ export interface ReorderAlertItem {
 export interface SupplierPerformanceItem {
   supplier_id: string;
   supplier_name: string;
-  on_time_delivery_pct: number;
+  on_time_delivery_pct?: number | null;
   lead_time_days: number;
 }
 

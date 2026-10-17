@@ -14,6 +14,21 @@
 
 # SMRITI Retail OS — Release Notes
 
+## Release v6.97.0 (2026-10-17)
+
+### Procurement & Visual Analytics — Procurement Visual Reports Actual Database Derivation & Zero Mock Data Policy
+
+#### Overview
+SMRITI Retail OS v6.97.0 enforces a strict Zero Mock / Placeholder Data Policy on the Procurement Visual Reports Dashboard. Every KPI, multi-series spend trend line, 4-stage pipeline conversion indicator, supplier spend ranking, reorder alert, and 12-column active procurement stream table now derives directly and authoritatively from PostgreSQL database tables (`purchase_orders`, `purchase_receipts`, `purchase_bills`, `suppliers`, `products`, `stock_movements`). Hardcoded vendor names (Metro Footwear, Bharat Traders), placeholder SKUs (SHOE-41), and fabricated counts (36 POs, 86 stream items, 42.8 Lakh spend) have been completely removed. Where historical data lacks required fields (such as promised delivery dates for on-time delivery scoring), metrics are transparently displayed as `N/A (Untracked)` rather than manufactured. Strict UI states are introduced: an animated loading skeleton, an error card with retry actions on API/database failure, and a truthful empty state for zero-record companies or filters.
+
+#### Key Highlights
+- **100% Database Telemetry**: Connected all 6 KPI cards, spend trend series, stage progress indicators, supplier rankings, and stream tables to authoritative PostgreSQL tables.
+- **COMP-001 Reconciliation**: Correctly reflects 28 statutory purchase orders, 28 inward Goods Receipt Notes (23,064 pairs, 100% fulfilled), ₹ 9,888,228 commercial liability across 28 bills, and 9 verified footwear suppliers.
+- **Strict Error & Empty State Handling**: Explicit error state with retry action on database/network disconnect, and truthful zero-record empty state for companies/filters without records.
+- **Transparent Untracked Metrics**: Supplier On-Time Delivery is cleanly rendered as `N/A` rather than synthetic percentages when historical promised delivery dates were not recorded.
+- **Preserved Dashboard Configuration**: Full customization via the right-side configuration drawer remains operational with PostgreSQL and `localStorage` persistence.
+- **Automated Verification**: Pytest 2/2 tests green, Vitest 6/6 tests green, `tsc --noEmit` clean, and Vite production bundle clean.
+
 ## Release v6.96.0 (2026-10-17)
 
 ### Sales & Billing — SMRITI Billing Studio Preloaded SKU Root-Cause Fix & Fresh Session Governance
