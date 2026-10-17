@@ -4,14 +4,18 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 3.21.1
+ * Version      : 6.70.42
  * Created      : 2026-07-09
- * Modified     : 2026-07-16
+ * Modified     : 2026-10-09
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  */
 /**
- * Cutover feature flags for routing traffic between Express and FastAPI backends.
+ * @deprecated [DEPRECATED / RETIRED / FROZEN - ADR-045 / FND-034]
+ * Express has been completely decommissioned from SMRITI Retail OS.
+ * All application modules communicate solely with FastAPI + Postgres via src/lib/apiFetchV1.ts.
+ * Forensic Audit Verification (FND-034) confirmed zero active runtime consumers depend on these flags.
+ * These flags are retained as an immutable frozen tombstone strictly for backward compatibility.
  */
 export const FLAGS = {
   // ── Additional modules (Express unmounted v3.20.0, FastAPI only) ──────────

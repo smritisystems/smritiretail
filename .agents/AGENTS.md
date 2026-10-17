@@ -4,9 +4,9 @@
   Designation  : Chief Systems Architect & Creator
   Email        : support@smritibooks.com
   Websites     : smritibooks.com | erpnbook.com | aitdl.com
-  Version      : 3.16.0
+  Version      : 3.17.0
   Created      : 2026-07-06
-  Modified     : 2026-07-12
+  Modified     : 2026-10-11
   Copyright    : © SMRITIBooks.com. All Rights Reserved.
   License      : Proprietary Commercial Software
   Classification: Internal
@@ -1026,4 +1026,29 @@ Any modification attempting to alter `backend/app/services/tax_invoice_spec.py` 
 
 ---
 
-*DAGPMP Rule 16 | UADHP-v1.0 | STIF-IMMUTABLE-v1.0 | Effective 2026-08-17 | Jawahar Ramkripal Mallah | support@smritibooks.com*
+# SMRITI AI Iconography & Third-Party Branding Governance Policy
+
+**Policy ID:** SAIB-NO-GEMINI-v1.0  
+**Status:** MANDATORY — PERMANENT — FROZEN (Effective 2026-10-11)
+
+## 1. Absolute Prohibition of Google Gemini Icons & Branding
+No coding assistant agent, developer, or automated pipeline may introduce, display, render, or embed Google Gemini AI icons, logos, badges, sparkle emblems, avatar placeholders, or third-party AI branding anywhere in SMRITI Retail OS.
+- **Prohibited:** Google Gemini star/sparkle branding icons, Google "aida-public" CDN URLs, `lh3.googleusercontent.com` URLs, and any external CDN image links.
+- **Prohibited:** Introducing Google Gemini visual marks as representations of AI or assistant capabilities in the UI.
+
+## 2. Prohibition on Recommending Gemini Icons & Assets
+Coding assistants and agents MUST NEVER recommend, suggest, propose, or generate designs featuring Google Gemini icons, logos, or brand marks.
+- When an AI, intelligence, assistant, or automated action icon is required in the UI:
+  - Exclusively use SMRITI Retail OS native branding (e.g. SMRITI Saathi assets under `public/assets/SmritiSathi/`).
+  - Or use standard, neutral, theme-aware UI icons (e.g. `Bot`, standard Lucide icons styled with SMRITI design tokens).
+  - Never label, recommend, or present generic sparkle/star icons as "Gemini" icons.
+
+## 3. Self-Contained Local Asset Rule
+All icons, avatars, and visual assets MUST be self-contained:
+- Inline SVG or local SVG/PNG files in `/public/assets/` or `/src/assets/`.
+- No external CDN image dependencies for core UI elements, avatar chips, or system status indicators.
+
+---
+
+*DAGPMP Rule 16 | UADHP-v1.0 | STIF-IMMUTABLE-v1.0 | SAIB-NO-GEMINI-v1.0 | Effective 2026-10-11 | Jawahar Ramkripal Mallah | support@smritibooks.com*
+

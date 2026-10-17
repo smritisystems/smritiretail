@@ -51,13 +51,10 @@ import {
   CheckCircle2,
   Database
 } from "lucide-react";
-import { INDIAN_STATES } from "../../constants/indianStates";
+import { fetchCanonicalIndianStates, IndianState } from "../../constants/indianStates";
 import { isValidGSTIN, isValidPIN } from "../../utils/validators";
 
-const INDIAN_STATES_MAP: Record<string, string> = {};
-INDIAN_STATES.forEach(s => {
-  INDIAN_STATES_MAP[s.code] = s.name;
-});;
+
 
 interface StoreConfig {
   id: string;
@@ -135,6 +132,29 @@ export const SetupWizardTab: React.FC<SetupWizardProps> = ({ onComplete }) => {
   const [newStoreLandmark, setNewStoreLandmark] = useState("");
   const [newStoreState, setNewStoreState] = useState("");
 
+  const [availableStates, setAvailableStates] = useState<IndianState[]>([]);
+  const [statesMap, setStatesMap] = useState<Record<string, string>>({});
+  const [statesError, setStatesError] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetchCanonicalIndianStates()
+      .then((states) => {
+        if (states && states.length > 0) {
+          setAvailableStates(states);
+          const map: Record<string, string> = {};
+          states.forEach((s) => {
+            map[s.code] = s.name;
+          });
+          setStatesMap(map);
+        }
+      })
+      .catch((err) => {
+        setStatesError(err.message || "Failed to load canonical reference states from states_ref");
+      });
+  }, []);
+
+
+
   // Step 4: Operations & Modules
   const [modules, setModules] = useState<Record<string, boolean>>({
     pos: true,
@@ -197,11 +217,11 @@ export const SetupWizardTab: React.FC<SetupWizardProps> = ({ onComplete }) => {
     const cleanedGst = gstin.trim().toUpperCase();
     if (cleanedGst.length >= 2) {
       const stateCode = cleanedGst.slice(0, 2);
-      if (INDIAN_STATES_MAP[stateCode]) {
-        setDetectedState(INDIAN_STATES_MAP[stateCode]);
+      if (statesMap[stateCode]) {
+        setDetectedState(statesMap[stateCode]);
         // Update first store state if not manually touched
         setStores(prev => 
-          prev.map((s, idx) => idx === 0 ? { ...s, state: INDIAN_STATES_MAP[stateCode] } : s)
+          prev.map((s, idx) => idx === 0 ? { ...s, state: statesMap[stateCode] } : s)
         );
       } else {
         setDetectedState("Unknown/Invalid State Code");
@@ -215,7 +235,7 @@ export const SetupWizardTab: React.FC<SetupWizardProps> = ({ onComplete }) => {
       const extractedPan = cleanedGst.slice(2, 12);
       setPan(extractedPan);
     }
-  }, [gstin]);
+  }, [gstin, statesMap]);
 
   // Helper to suggest Store Codes
   const suggestStoreCode = (name: string): string => {
@@ -783,7 +803,7 @@ export const SetupWizardTab: React.FC<SetupWizardProps> = ({ onComplete }) => {
                         className="bg-theme-surface-2 border border-theme-divider rounded-lg px-2.5 py-1.5 text-xs text-theme-body outline-none"
                       >
                         <option value="">Select State</option>
-                        {INDIAN_STATES.map(s => (
+                        {availableStates.map(s => (
                           <option key={s.code} value={s.name}>{s.name}</option>
                         ))}
                       </select>

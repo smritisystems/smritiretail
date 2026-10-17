@@ -1,0 +1,15 @@
+{
+  "certificate_id": "PF-2026-0918-A519FB",
+  "entity": "SALES",
+  "capability": "B2B_DISPATCH_INVOICING_STUDIO",
+  "asset_type": "SERVICE",
+  "proposed_name": "dispatch_invoicing_engine.py",
+  "target_file_path": "backend/app/services/dispatch_invoicing_engine.py",
+  "decision": "APPROVED",
+  "canonical_owner": "backend/app/services/dispatch_invoicing_engine.py",
+  "content_hash": "6dd3ddd5b3877433affd649657845022b4bc5731e73b8cec183b43e3e8ce04d6",
+  "git_commit": "b247be0c03f3b1420c9bfa533db6a572345ea17a",
+  "issued_at": "2026-09-18T14:42:59.335798+00:00",
+  "expires_at": "2027-09-18T14:42:59.335798+00:00",
+  "status": "ISSUED"
+}

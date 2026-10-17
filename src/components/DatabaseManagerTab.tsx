@@ -358,7 +358,7 @@ export const DatabaseManagerTab: React.FC<DatabaseManagerTabProps> = ({ onNotifi
               </span>
             </div>
             <p className="text-xs text-theme-muted">
-              Multi-tenant PostgreSQL schema browser, live table inspector & query runner
+              Multi-tenant database schema browser, live table inspector & query runner
             </p>
           </div>
         </div>
@@ -643,7 +643,7 @@ export const DatabaseManagerTab: React.FC<DatabaseManagerTabProps> = ({ onNotifi
               <div className="flex-1 border border-theme-divider rounded-2xl overflow-auto bg-theme-surface-2 custom-scrollbar">
                 {loadingData ? (
                   <div className="p-8 text-center text-xs text-theme-muted font-mono animate-pulse">
-                    Fetching records from PostgreSQL...
+                    Fetching records from database...
                   </div>
                 ) : !tableData || tableData.rows.length === 0 ? (
                   <div className="p-8 text-center text-xs text-theme-muted font-mono">

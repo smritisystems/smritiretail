@@ -31,6 +31,7 @@ export const staffMasterConfig: MasterConfig<User> = {
     return {
       username: formData.username,
       fullName: formData.fullName || formData.username,
+      email: formData.email?.trim() || (formData.username?.includes("@") ? formData.username.trim() : undefined),
       role: formData.role,
       status: formData.status || "Active",
       designation: formData.designation || undefined,
@@ -44,6 +45,7 @@ export const staffMasterConfig: MasterConfig<User> = {
   columns: [
     {
       key: "fullName",
+      fieldId: "user.full_name",
       label: "Staff Name",
       width: "220px",
       sortable: true,
@@ -61,6 +63,7 @@ export const staffMasterConfig: MasterConfig<User> = {
     },
     {
       key: "role",
+      fieldId: "user.role",
       label: "System Role",
       width: "150px",
       sortable: true,
@@ -83,6 +86,7 @@ export const staffMasterConfig: MasterConfig<User> = {
     },
     {
       key: "designation",
+      fieldId: "user.designation",
       label: "Designation / Dept",
       width: "180px",
       render: (val, item) => (
@@ -99,6 +103,7 @@ export const staffMasterConfig: MasterConfig<User> = {
     },
     {
       key: "branch",
+      fieldId: "user.branch",
       label: "Assigned Branch",
       width: "180px",
       render: (val) => (
@@ -110,6 +115,7 @@ export const staffMasterConfig: MasterConfig<User> = {
     },
     {
       key: "status",
+      fieldId: "user.is_active",
       label: "Account Status",
       width: "110px",
       renderStatus: true
@@ -119,6 +125,7 @@ export const staffMasterConfig: MasterConfig<User> = {
   fields: [
     {
       name: "fullName",
+      fieldId: "user.full_name",
       label: "Full Name",
       type: "text",
       required: true,
@@ -127,10 +134,19 @@ export const staffMasterConfig: MasterConfig<User> = {
     },
     {
       name: "username",
+      fieldId: "user.username",
       label: "Username",
       type: "text",
       required: true,
       placeholder: "Unique login username",
+      colSpan: 1
+    },
+    {
+      name: "email",
+      fieldId: "user.email",
+      label: "Email Address",
+      type: "text",
+      placeholder: "e.g. staff@company.com",
       colSpan: 1
     },
     {
@@ -142,6 +158,7 @@ export const staffMasterConfig: MasterConfig<User> = {
     },
     {
       name: "role",
+      fieldId: "user.role",
       label: "Role",
       type: "select",
       required: true,
@@ -149,14 +166,24 @@ export const staffMasterConfig: MasterConfig<User> = {
         { label: "SYSADMIN", value: "SYSADMIN" },
         { label: "ADMIN", value: "ADMIN" },
         { label: "MANAGER", value: "MANAGER" },
+        { label: "STORE MANAGER", value: "STORE_MANAGER" },
+        { label: "BRANCH ADMIN", value: "BRANCH_ADMIN" },
+        { label: "INVENTORY MANAGER", value: "INVENTORY_MANAGER" },
+        { label: "PURCHASE EXECUTIVE", value: "PURCHASE_EXECUTIVE" },
+        { label: "SALES EXECUTIVE", value: "SALES_EXECUTIVE" },
         { label: "CASHIER", value: "CASHIER" },
-        { label: "SALES_EXECUTIVE", value: "SALES_EXECUTIVE" }
+        { label: "ACCOUNTANT", value: "ACCOUNTANT" },
+        { label: "AUDITOR", value: "AUDITOR" },
+        { label: "HR EXECUTIVE", value: "HR_EXECUTIVE" },
+        { label: "REPORT USER", value: "REPORT_USER" },
+        { label: "VIEWER", value: "VIEWER" }
       ],
       defaultValue: "CASHIER",
       colSpan: 1
     },
     {
       name: "designation",
+      fieldId: "user.designation",
       label: "Designation",
       type: "text",
       placeholder: "e.g. Senior Floor Manager",
@@ -164,6 +191,7 @@ export const staffMasterConfig: MasterConfig<User> = {
     },
     {
       name: "department",
+      fieldId: "user.department",
       label: "Department",
       type: "text",
       placeholder: "e.g. Retail Sales",
@@ -171,6 +199,7 @@ export const staffMasterConfig: MasterConfig<User> = {
     },
     {
       name: "status",
+      fieldId: "user.is_active",
       label: "Account Status",
       type: "select",
       options: [
@@ -200,8 +229,17 @@ export const staffMasterConfig: MasterConfig<User> = {
         { label: "SYSADMIN", value: "SYSADMIN" },
         { label: "ADMIN", value: "ADMIN" },
         { label: "MANAGER", value: "MANAGER" },
+        { label: "STORE MANAGER", value: "STORE_MANAGER" },
+        { label: "BRANCH ADMIN", value: "BRANCH_ADMIN" },
+        { label: "INVENTORY MANAGER", value: "INVENTORY_MANAGER" },
+        { label: "PURCHASE EXECUTIVE", value: "PURCHASE_EXECUTIVE" },
+        { label: "SALES EXECUTIVE", value: "SALES_EXECUTIVE" },
         { label: "CASHIER", value: "CASHIER" },
-        { label: "SALES_EXECUTIVE", value: "SALES_EXECUTIVE" }
+        { label: "ACCOUNTANT", value: "ACCOUNTANT" },
+        { label: "AUDITOR", value: "AUDITOR" },
+        { label: "HR EXECUTIVE", value: "HR_EXECUTIVE" },
+        { label: "REPORT USER", value: "REPORT_USER" },
+        { label: "VIEWER", value: "VIEWER" }
       ]
     },
     {

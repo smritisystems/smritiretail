@@ -1,0 +1,15 @@
+{
+  "certificate_id": "PF-2026-1007-AB5306",
+  "entity": "databridge",
+  "capability": "databridge.scheduler_engine",
+  "asset_type": "SOURCE_CODE",
+  "proposed_name": "scheduler_engine.py",
+  "target_file_path": "backend/app/services/databridge/scheduler_engine.py",
+  "decision": "CANONICAL",
+  "canonical_owner": "backend/app/services/databridge/scheduler_engine.py",
+  "content_hash": "ae7b88b6383590c8d1bbe3eedbbaa49b18d2c31b01ee3bf162824863f63f820a",
+  "git_commit": "32119847fbdfe7d0360d615d29b2d8851d525799",
+  "issued_at": "2026-10-07T09:39:05.302154+00:00",
+  "expires_at": "2026-10-14T09:39:05.302154+00:00",
+  "status": "ISSUED"
+}

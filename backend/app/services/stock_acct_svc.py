@@ -20,7 +20,7 @@ from sqlalchemy import select, func, or_, and_, text
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from ..models.inventory import StockMovement, Product, Warehouse
+from ..models.inventory import StockMovement, Product, Warehouse, ProductBatchStock
 from ..models.accounting import Account, JournalVoucher, GeneralLedgerEntry
 from ..schemas.stock_acct import (
     StockMovementRecordRequest,
@@ -34,8 +34,7 @@ from ..schemas.stock_acct import (
     FinancialReconciliationReport,
 )
 
-INFLOW_MOVEMENT_TYPES = {"IN", "INWARD_GRN", "ADJUSTMENT_IN", "TRANSFER_IN", "RETURN_INWARD"}
-OUTFLOW_MOVEMENT_TYPES = {"OUT", "OUTWARD_SALE", "ADJUSTMENT_OUT", "TRANSFER_OUT", "RETURN_OUTWARD"}
+from .stock_synchronizer import INFLOW_MOVEMENT_TYPES, OUTFLOW_MOVEMENT_TYPES
 
 
 class StockAccountingBoundaryService:
@@ -52,6 +51,7 @@ class StockAccountingBoundaryService:
         company_id: str,
         req: StockMovementRecordRequest,
         user_id: Optional[str] = None,
+        commit: bool = True,
     ) -> StockMovement:
         """
         Atomically records an authoritative immutable stock movement and updates materialized on-hand stock.
@@ -82,11 +82,36 @@ class StockAccountingBoundaryService:
             if wh_match:
                 wh_id = wh_match
 
-        # Create immutable movement record
+        # Resolve Canonical Identity (Phase 2 Dual-Key Gate)
+        canonical_item_id = product.item_id
+        canonical_variant_id = product.item_variant_id
+
+        if not (canonical_item_id and canonical_variant_id):
+            from .product_resolution_service import ProductResolutionService
+            res = await ProductResolutionService.resolve_by_product_id(
+                session=session,
+                company_id=company_id,
+                product_id=product.id,
+            )
+            if res.success and res.item_id and res.variant_id:
+                canonical_item_id = res.item_id
+                canonical_variant_id = res.variant_id
+
+        req_item_id = getattr(req, "item_id", None)
+        req_variant_id = getattr(req, "variant_id", None)
+
+        if req_item_id and canonical_item_id and req_item_id != canonical_item_id:
+            raise ValueError(f"Provided item_id '{req_item_id}' does not match canonical item '{canonical_item_id}'.")
+        if req_variant_id and canonical_variant_id and req_variant_id != canonical_variant_id:
+            raise ValueError(f"Provided variant_id '{req_variant_id}' does not match canonical variant '{canonical_variant_id}'.")
+
+        # Create immutable movement record with dual-key canonical identity
         movement = StockMovement(
             id=f"sm_{uuid.uuid4().hex[:12]}",
             company_id=company_id,
             product_id=product.id,
+            item_id=canonical_item_id,
+            variant_id=canonical_variant_id,
             product_name=product.name,
             sku=product.sku or "SKU-UNKNOWN",
             quantity=Decimal(str(req.quantity)),
@@ -105,12 +130,15 @@ class StockAccountingBoundaryService:
         )
         session.add(movement)
 
-        # Update materialized product stock
-        delta = int(req.quantity) if m_type in INFLOW_MOVEMENT_TYPES else -int(req.quantity)
-        current_stock = int(product.stock or 0)
-        product.stock = current_stock + delta
+        # Update materialized product stock via canonical StockSynchronizer
+        await session.flush()
+        from .stock_synchronizer import StockSynchronizer
+        await StockSynchronizer.sync_product_stock_cache(session, product.id, company_id)
 
-        await session.commit()
+        if commit:
+            await session.commit()
+        else:
+            await session.flush()
         return movement
 
     @classmethod
@@ -124,8 +152,12 @@ class StockAccountingBoundaryService:
         Calculates authoritative on-hand stock for every product by summing all immutable stock_movements.
         Compares computed balances against materialized product.stock to detect and optionally rectify drift.
         """
-        # Fetch all products
-        stmt_p = select(Product)
+        # Fetch products scoped by company_id
+        from .stock_synchronizer import StockSynchronizer
+        stmt_p = select(Product).where(
+            Product.company_id == company_id,
+            Product.is_deleted.is_(False),
+        )
         products = (await session.execute(stmt_p)).scalars().all()
 
         drift_items = []
@@ -133,17 +165,41 @@ class StockAccountingBoundaryService:
         drift_count = 0
 
         for p in products:
-            # Sum movements
-            stmt_m = select(StockMovement).where(StockMovement.product_id == p.id)
-            movements = (await session.execute(stmt_m)).scalars().all()
+            # Check if product is batch-tracked or has batch stock entries
+            batch_count_stmt = select(func.count(ProductBatchStock.id)).where(
+                ProductBatchStock.company_id == company_id,
+                ProductBatchStock.product_id == p.id,
+                ProductBatchStock.is_deleted.is_(False),
+            )
+            has_batches = ((await session.execute(batch_count_stmt)).scalar() or 0) > 0
 
-            computed_qty = Decimal("0.00")
-            for m in movements:
-                m_type = m.movement_type.upper()
-                if m_type in INFLOW_MOVEMENT_TYPES:
-                    computed_qty += Decimal(str(m.quantity))
-                elif m_type in OUTFLOW_MOVEMENT_TYPES:
-                    computed_qty -= Decimal(str(m.quantity))
+            if has_batches or (p.tracking_mode or "").lower() == "batch":
+                sum_stmt = select(
+                    func.coalesce(
+                        func.sum(ProductBatchStock.quantity - ProductBatchStock.damaged_quantity),
+                        0,
+                    )
+                ).where(
+                    ProductBatchStock.company_id == company_id,
+                    ProductBatchStock.product_id == p.id,
+                    ProductBatchStock.is_deleted.is_(False),
+                )
+                computed_qty = Decimal(str((await session.execute(sum_stmt)).scalar() or 0))
+            else:
+                stmt_m = select(StockMovement).where(
+                    StockMovement.company_id == company_id,
+                    StockMovement.product_id == p.id,
+                    StockMovement.is_deleted.is_(False),
+                )
+                movements = (await session.execute(stmt_m)).scalars().all()
+                computed_qty = Decimal("0.00")
+                for m in movements:
+                    m_type = (m.movement_type or "").upper()
+                    raw_qty = Decimal(str(abs(m.quantity or 0)))
+                    if m_type in INFLOW_MOVEMENT_TYPES:
+                        computed_qty += raw_qty
+                    elif m_type in OUTFLOW_MOVEMENT_TYPES:
+                        computed_qty -= raw_qty
 
             materialized_qty = Decimal(str(p.stock or 0))
             drift = materialized_qty - computed_qty
@@ -153,7 +209,7 @@ class StockAccountingBoundaryService:
                 drift_count += 1
                 status = "OVERSTATED" if drift > 0 else "UNDERSTATED"
                 if fix_drift:
-                    p.stock = int(computed_qty)
+                    await StockSynchronizer.sync_product_stock_cache(session, p.id, company_id)
             else:
                 clean_count += 1
                 status = "BALANCED"
@@ -161,7 +217,7 @@ class StockAccountingBoundaryService:
             drift_items.append(
                 StockDriftItem(
                     product_id=p.id,
-                    sku=p.sku or "UNKNOWN",
+                    sku=p.sku or p.code or "UNKNOWN",
                     product_name=p.name,
                     materialized_on_hand=float(materialized_qty),
                     computed_from_movements=float(computed_qty),
@@ -240,6 +296,8 @@ class StockAccountingBoundaryService:
             # Resolve or create Account
             stmt_acc = select(Account).where(
                 Account.account_code == line.account_code,
+                Account.company_id == company_id,
+                Account.is_deleted == False
             )
             account = (await session.execute(stmt_acc)).scalars().first()
             if not account:
@@ -280,7 +338,7 @@ class StockAccountingBoundaryService:
             )
             session.add(gl_entry)
 
-        await session.commit()
+        await session.flush()
         return JournalVoucherResponse(
             voucher_id=voucher.id,
             voucher_no=voucher.voucher_no,

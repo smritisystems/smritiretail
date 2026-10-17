@@ -18,11 +18,35 @@ import hashlib
 from datetime import datetime, timezone, date
 from decimal import Decimal
 from typing import Dict, Any, List, Optional
-from sqlalchemy import select, and_, or_, func
+from sqlalchemy import select, and_, or_, func, case
 from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
+from fastapi import HTTPException
 
 from ..models.numbering import DocumentSeries, NumberingAuditLog
+
+
+class RangeExhaustedError(HTTPException):
+    """
+    Statutory & Governance Error: Raised when a document numbering series reaches its end_number ceiling.
+    Strictly prevents number spillover or silent category overflow.
+    """
+    def __init__(
+        self,
+        series_name: str,
+        category: Optional[str],
+        start_number: int,
+        end_number: int,
+        next_number: int,
+    ):
+        cat_suffix = f" for category '{category}'" if category else ""
+        detail = (
+            f"Article numbering range exhausted{cat_suffix}. "
+            f"Configured range: {start_number}-{end_number}. "
+            f"Next number: {next_number}. "
+            f"Please configure a new Article numbering series."
+        )
+        super().__init__(status_code=409, detail=detail)
 from ..models.tax_inv_template import TaxInvoiceTemplate, TaxInvoiceTemplateVersion, InvoiceDocumentArtifact
 from ..schemas.documents import (
     DocumentSeriesCreateRequest,
@@ -78,6 +102,7 @@ class DocumentsEngine:
 
         series = DocumentSeries(
             id=f"ser_{uuid.uuid4().hex[:12]}",
+            uuid=str(uuid.uuid4()),
             company_id=company_id,
             name=req.name,
             document_type=req.document_type.upper(),
@@ -87,6 +112,9 @@ class DocumentsEngine:
             running_length=req.running_length,
             reset_rule=req.reset_rule,
             current_number=0,
+            start_number=getattr(req, "start_number", 1) or 1,
+            end_number=getattr(req, "end_number", None),
+            category=req.category.strip().upper() if getattr(req, "category", None) else None,
             financial_year=req.financial_year or "2026-2027",
             company_code=req.company_code or "COMP-001",
             mode=req.mode,
@@ -109,22 +137,108 @@ class DocumentsEngine:
         financial_year: Optional[str] = None,
         company_code: Optional[str] = None,
         created_by: Optional[str] = None,
+        category: Optional[str] = None,
     ) -> SequenceAllocateResponse:
-        """Allocate a document number without committing the caller transaction."""
+        """
+        Allocate next sequential document number using row-level locking (with_for_update)
+        without committing the caller's transaction. Supports category-aware series resolution,
+        start_number compliance, and strict range ceiling enforcement with zero spillover.
+        """
         doc_type = document_type.upper()
-        filters = [
+        normalized_category = category.strip().upper() if category and str(category).strip() else None
+
+        base_filters = [
             DocumentSeries.company_id == company_id,
             DocumentSeries.document_type == doc_type,
             DocumentSeries.is_deleted == False,
+            DocumentSeries.is_active == True,
         ]
-        if branch_id is not None:
-            filters.append(DocumentSeries.branch_id == branch_id)
 
-        series = (await session.execute(
-            select(DocumentSeries).where(*filters).with_for_update()
-        )).scalars().first()
+        series = None
 
+        # 1. When category is supplied: FIRST search for document_type = doc_type and category = normalized_category
+        if normalized_category:
+            cat_filters = list(base_filters)
+            cat_filters.append(func.upper(DocumentSeries.category) == normalized_category)
+            if branch_id is not None:
+                cat_filters.append(
+                    or_(
+                        DocumentSeries.branch_id == branch_id,
+                        DocumentSeries.branch_id.is_(None),
+                    )
+                )
+
+            cat_stmt = (
+                select(DocumentSeries)
+                .where(*cat_filters)
+                .order_by(
+                    case((DocumentSeries.branch_id == branch_id, 0), else_=1) if branch_id else DocumentSeries.id,
+                    DocumentSeries.created_at.asc(),
+                    DocumentSeries.id.asc(),
+                )
+                .with_for_update()
+            )
+            cat_candidates = (await session.execute(cat_stmt)).scalars().all()
+            if cat_candidates:
+                top_branch = cat_candidates[0].branch_id
+                same_scope = [s for s in cat_candidates if s.branch_id == top_branch]
+                if len(same_scope) > 1:
+                    raise HTTPException(
+                        status_code=409,
+                        detail=(
+                            f"Ambiguous document series configuration: Multiple active series found for "
+                            f"document type '{doc_type}' and category '{normalized_category}'. "
+                            f"Please maintain exactly one active series per category scope."
+                        )
+                    )
+                series = cat_candidates[0]
+
+        # 2. Fallback: if no category-specific series exists, allow fallback to category IS NULL
         if not series:
+            fallback_filters = list(base_filters)
+            fallback_filters.append(DocumentSeries.category.is_(None))
+            if branch_id is not None:
+                fallback_filters.append(
+                    or_(
+                        DocumentSeries.branch_id == branch_id,
+                        DocumentSeries.branch_id.is_(None),
+                    )
+                )
+
+            fallback_stmt = (
+                select(DocumentSeries)
+                .where(*fallback_filters)
+                .order_by(
+                    case((DocumentSeries.branch_id == branch_id, 0), else_=1) if branch_id else DocumentSeries.id,
+                    DocumentSeries.created_at.asc(),
+                    DocumentSeries.id.asc(),
+                )
+                .with_for_update()
+            )
+            fallback_candidates = (await session.execute(fallback_stmt)).scalars().all()
+            if fallback_candidates:
+                top_branch = fallback_candidates[0].branch_id
+                same_scope_fallback = [s for s in fallback_candidates if s.branch_id == top_branch]
+                if len(same_scope_fallback) > 1:
+                    raise HTTPException(
+                        status_code=409,
+                        detail=(
+                            f"Ambiguous document series configuration: Multiple active fallback (category IS NULL) "
+                            f"series found for document type '{doc_type}'. "
+                            f"Please maintain exactly one active fallback series."
+                        )
+                    )
+                series = fallback_candidates[0]
+
+        # 3. Dynamic Provisioning or Fail
+        if not series:
+            if doc_type == "ARTICLE":
+                cat_desc = f"category '{normalized_category}'" if normalized_category else "default scope"
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Article numbering series is not configured for {cat_desc} and no active fallback series exists."
+                )
+
             prefixes = {
                 "SALES_INVOICE": "INV-",
                 "POS_BILL": "POS-",
@@ -135,18 +249,28 @@ class DocumentsEngine:
                 "DEBIT_NOTE": "DN-",
                 "PAYMENT_RECEIPT": "RCP-",
             }
+            def_prefix = prefixes.get(doc_type, f"{doc_type[:3]}-")
+            running_len = 4
+            if doc_type == "SALES_INVOICE" and str(company_id).upper() in ("COMP-001", "SMRITI001", "001"):
+                fy_str = financial_year or "2026-2027"
+                def_prefix = f"TT{fy_str}/"
+                running_len = 1
             series = DocumentSeries(
                 id=f"ser_{uuid.uuid4().hex[:12]}",
+                uuid=str(uuid.uuid4()),
                 company_id=company_id,
                 branch_id=branch_id,
                 name=f"Default {doc_type} Series",
                 document_type=doc_type,
                 module="CORE",
-                prefix=prefixes.get(doc_type, f"{doc_type[:3]}-"),
+                prefix=def_prefix,
                 suffix="",
-                running_length=4,
+                running_length=running_len,
                 reset_rule="Financial Year",
                 current_number=0,
+                start_number=1,
+                end_number=None,
+                category=normalized_category,
                 financial_year=financial_year or "2026-2027",
                 company_code=company_code or company_id,
                 mode="Auto",
@@ -157,22 +281,64 @@ class DocumentsEngine:
             session.add(series)
             await session.flush()
 
-        old_num = series.current_number or 0
-        new_num = old_num + 1
+        # Reconcile invoice numbering if SALES_INVOICE
+        if doc_type == "SALES_INVOICE":
+            from ..models.sales import SalesInvoice
+
+            invoice_filters = [
+                SalesInvoice.company_id == company_id,
+                SalesInvoice.is_deleted == False,
+            ]
+            existing_numbers = (await session.execute(
+                select(SalesInvoice.invoice_no).where(*invoice_filters)
+            )).scalars().all()
+            series_prefix = series.prefix or ""
+            highest_existing = 0
+            for existing_no in existing_numbers:
+                if not existing_no or not str(existing_no).startswith(series_prefix):
+                    continue
+                numeric_suffix = str(existing_no)[len(series_prefix):].lstrip("-/")
+                if numeric_suffix.isdigit():
+                    highest_existing = max(highest_existing, int(numeric_suffix))
+            if highest_existing > (series.current_number or 0):
+                series.current_number = highest_existing
+
+        # 4. Start Number must be honoured
+        start_num = series.start_number or 1
+        old_num = series.current_number
+
+        if old_num is None or old_num < start_num - 1:
+            new_num = start_num
+        else:
+            new_num = old_num + 1
+
+        # 5. Range Enforcement (Strict No-Spillover)
+        if series.end_number is not None and new_num > series.end_number:
+            cat_label = series.category or normalized_category
+            raise RangeExhaustedError(
+                series_name=series.name,
+                category=cat_label,
+                start_number=start_num,
+                end_number=series.end_number,
+                next_number=new_num,
+            )
+
         series.current_number = new_num
         padded_seq = str(new_num).zfill(series.running_length or 4)
         doc_no = f"{series.prefix or ''}{padded_seq}{series.suffix or ''}"
+
         session.add(NumberingAuditLog(
             id=f"nal_{uuid.uuid4().hex[:12]}",
+            uuid=str(uuid.uuid4()),
             company_id=company_id,
             branch_id=branch_id,
             series_id=series.id,
             series_name=series.name,
             action="ALLOCATE",
             document_no=doc_no,
-            old_value=str(old_num),
+            old_value=str(old_num if old_num is not None else 0),
             new_value=str(new_num),
-            details=f"Allocated sequential number {new_num} for document type {doc_type}",
+            details=f"Allocated sequential number {new_num} for document type {doc_type}" + (f" and category {normalized_category}" if normalized_category else ""),
             operator=created_by or "system",
             is_active=True,
             is_deleted=False,
@@ -195,90 +361,143 @@ class DocumentsEngine:
     ) -> SequenceAllocateResponse:
         """
         Allocates next sequential document number using row-level locking (with_for_update)
-        guaranteeing strict gapless continuity and statutory compliance.
+        guaranteeing strict gapless continuity, category range enforcement, and statutory compliance.
         """
-        doc_type = req.document_type.upper()
-
-        stmt = (
-            select(DocumentSeries)
-            .where(
-                DocumentSeries.company_id == company_id,
-                DocumentSeries.document_type == doc_type,
-                DocumentSeries.is_deleted == False
-            )
-            .with_for_update()
-        )
-        series = (await session.execute(stmt)).scalars().first()
-
-        # If no series configured for this document type, dynamically provision default
-        if not series:
-            default_prefixes = {
-                "SALES_INVOICE": "INV-",
-                "POS_BILL": "POS-",
-                "GOODS_RECEIPT_NOTE": "GRN-",
-                "DELIVERY_CHALLAN": "DC-",
-                "PURCHASE_ORDER": "PO-",
-                "CREDIT_NOTE": "CN-",
-                "DEBIT_NOTE": "DN-",
-                "PAYMENT_RECEIPT": "RCP-",
-            }
-            pfx = default_prefixes.get(doc_type, f"{doc_type[:3]}-")
-            series = DocumentSeries(
-                id=f"ser_{uuid.uuid4().hex[:12]}",
-                company_id=company_id,
-                name=f"Default {doc_type} Series",
-                document_type=doc_type,
-                module="CORE",
-                prefix=pfx,
-                suffix="",
-                running_length=4,
-                reset_rule="Financial Year",
-                current_number=0,
-                financial_year=req.financial_year or "2026-2027",
-                company_code=req.company_code or "COMP-001",
-                mode="Auto",
-                created_by=created_by,
-                is_active=True,
-                is_deleted=False,
-            )
-            session.add(series)
-            await session.flush()
-
-        # Atomically increment current_number
-        old_num = series.current_number or 0
-        new_num = old_num + 1
-        series.current_number = new_num
-
-        # Format number with prefix, padding, and suffix
-        padded_seq = str(new_num).zfill(series.running_length or 4)
-        doc_no = f"{series.prefix or ''}{padded_seq}{series.suffix or ''}"
-
-        now = datetime.now(timezone.utc)
-        # Log to audit ledger
-        audit_log = NumberingAuditLog(
-            id=f"nal_{uuid.uuid4().hex[:12]}",
+        resp = await cls.allocate_next_number_in_transaction(
+            session=session,
             company_id=company_id,
-            series_id=series.id,
-            series_name=series.name,
-            action="ALLOCATE",
-            document_no=doc_no,
-            old_value=str(old_num),
-            new_value=str(new_num),
-            details=f"Allocated sequential number {new_num} for document type {doc_type}",
-            operator=created_by or "system",
-            is_active=True,
-            is_deleted=False,
+            document_type=req.document_type,
+            branch_id=getattr(req, "branch_id", None),
+            financial_year=getattr(req, "financial_year", None),
+            company_code=getattr(req, "company_code", None),
+            created_by=created_by,
+            category=getattr(req, "category", None),
         )
-        session.add(audit_log)
         await session.commit()
+        return resp
 
-        return SequenceAllocateResponse(
-            series_id=series.id,
-            document_type=doc_type,
-            allocated_number=new_num,
-            document_no=doc_no,
-            allocated_at=now,
-        )
+    @classmethod
+    async def preview_next_number(
+        cls,
+        session: AsyncSession,
+        company_id: str,
+        document_type: str,
+        category: Optional[str] = None,
+        branch_id: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """
+        Authoritative read-only preview of next sequential document number.
+        Zero database mutations, zero counter consumption, zero row locks.
+        Follows exact series resolution hierarchy:
+        1. Exact category match
+        2. Fallback to category IS NULL
+        """
+        doc_type = document_type.upper()
+        normalized_category = category.strip().upper() if category and str(category).strip() else None
+
+        base_filters = [
+            DocumentSeries.company_id == company_id,
+            DocumentSeries.document_type == doc_type,
+            DocumentSeries.is_deleted == False,
+            DocumentSeries.is_active == True,
+        ]
+
+        series = None
+
+        # 1. Exact category match first
+        if normalized_category:
+            cat_filters = list(base_filters)
+            cat_filters.append(func.upper(DocumentSeries.category) == normalized_category)
+            if branch_id is not None:
+                cat_filters.append(or_(DocumentSeries.branch_id == branch_id, DocumentSeries.branch_id.is_(None)))
+            stmt = select(DocumentSeries).where(*cat_filters).order_by(DocumentSeries.created_at.asc(), DocumentSeries.id.asc())
+            candidates = (await session.execute(stmt)).scalars().all()
+            if candidates:
+                series = candidates[0]
+
+        # 2. Fallback to category IS NULL
+        if not series:
+            fallback_filters = list(base_filters)
+            fallback_filters.append(DocumentSeries.category.is_(None))
+            if branch_id is not None:
+                fallback_filters.append(or_(DocumentSeries.branch_id == branch_id, DocumentSeries.branch_id.is_(None)))
+            stmt = select(DocumentSeries).where(*fallback_filters).order_by(DocumentSeries.created_at.asc(), DocumentSeries.id.asc())
+            candidates = (await session.execute(stmt)).scalars().all()
+            if candidates:
+                series = candidates[0]
+
+        if not series:
+            cat_desc = f"category '{normalized_category}'" if normalized_category else "default scope"
+            return {
+                "success": False,
+                "is_configured": False,
+                "isConfigured": False,
+                "series_id": None,
+                "seriesId": None,
+                "series_name": None,
+                "seriesName": None,
+                "document_no": None,
+                "documentNo": None,
+                "formattedPreview": None,
+                "message": f"Article numbering series is not configured for {cat_desc} and no active fallback series exists.",
+            }
+
+        start_num = series.start_number or 1
+        old_num = series.current_number
+
+        if old_num is None or old_num < start_num - 1:
+            new_num = start_num
+        else:
+            new_num = old_num + 1
+
+        is_exhausted = bool(series.end_number is not None and new_num > series.end_number)
+
+        padded = str(new_num).zfill(series.running_length)
+        prefix = series.prefix or ""
+        suffix = series.suffix or ""
+        num_format = getattr(series, "number_format", None) or "PREFIX_NUM_SUFFIX"
+
+        if is_exhausted:
+            formatted = f"EXHAUSTED (Range {start_num}-{series.end_number})"
+        elif num_format == "PREFIX_NUM_SUFFIX":
+            formatted = f"{prefix}{padded}{suffix}"
+        elif num_format == "PREFIX_YEAR_SEP_NUM":
+            raw_fy = series.financial_year or "26-27"
+            fy = f"{raw_fy[2:4]}-{raw_fy[7:9]}" if "-" in raw_fy and len(raw_fy) == 9 else raw_fy
+            formatted = f"{prefix}{fy}/{padded}"
+        elif num_format == "PREFIX_SEP_NUM":
+            formatted = f"{prefix}/{padded}"
+        elif num_format == "NUM_ONLY":
+            formatted = f"{padded}"
+        else:
+            formatted = f"{prefix}{padded}{suffix}"
+
+        return {
+            "success": True,
+            "is_configured": True,
+            "isConfigured": True,
+            "series_id": series.id,
+            "seriesId": series.id,
+            "series_name": series.name,
+            "seriesName": series.name,
+            "category": series.category,
+            "prefix": prefix,
+            "suffix": suffix,
+            "next_number": new_num,
+            "nextNumber": new_num,
+            "document_no": formatted,
+            "documentNo": formatted,
+            "formattedPreview": formatted,
+            "running_length": series.running_length,
+            "runningLength": series.running_length,
+            "start_number": start_num,
+            "startNumber": start_num,
+            "end_number": series.end_number,
+            "endNumber": series.end_number,
+            "is_exhausted": is_exhausted,
+            "isExhausted": is_exhausted,
+            "message": None,
+        }
 
     @classmethod
     async def create_template(
@@ -303,6 +522,7 @@ class DocumentsEngine:
         now_date = req.effective_from or date.today()
         template = TaxInvoiceTemplate(
             id=f"tpl_{uuid.uuid4().hex[:12]}",
+            uuid=str(uuid.uuid4()),
             company_id=company_id,
             template_code=req.template_code,
             template_name=req.template_name,
@@ -322,6 +542,7 @@ class DocumentsEngine:
         # Initial frozen version
         tpl_ver = TaxInvoiceTemplateVersion(
             id=f"tpv_{uuid.uuid4().hex[:12]}",
+            uuid=str(uuid.uuid4()),
             company_id=company_id,
             template_id=template.id,
             version="V1",
@@ -403,6 +624,7 @@ class DocumentsEngine:
         if not inv:
             inv = SalesInvoice(
                 id=req.document_id,
+                uuid=str(uuid.uuid4()),
                 company_id=company_id,
                 invoice_no=req.document_no,
                 date=now.date(),
@@ -418,6 +640,7 @@ class DocumentsEngine:
 
         artifact = InvoiceDocumentArtifact(
             id=artifact_id,
+            uuid=str(uuid.uuid4()),
             company_id=company_id,
             invoice_id=req.document_id,
             invoice_no=req.document_no,

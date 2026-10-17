@@ -1,0 +1,100 @@
+# Project      : SMRITI Retail OS
+# Author       : Jawahar Ramkripal Mallah
+# Email        : support@smritibooks.com
+# Websites     : smritibooks.com | erpnbook.com | aitdl.com
+# Version      : 3.16.0
+# Created      : 2026-09-23
+# Modified     : 2026-09-23
+# Copyright    : © SMRITIBooks.com. All Rights Reserved.
+# License      : Proprietary Commercial Software
+# Classification: Internal
+
+services:
+  smriti-dev-db:
+    image: postgres:15-alpine
+    container_name: smriti-dev-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: "${POSTGRES_DEV_USER:-postgres}"
+      POSTGRES_PASSWORD: "${POSTGRES_DEV_PASSWORD:-postgres}"
+      POSTGRES_DB: "${POSTGRES_DEV_DB:-smritisys_dev}"
+    ports:
+      - "${POSTGRES_DEV_PORT:-2782}:5432"
+    volumes:
+      - smriti_dev_db_volume:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d smritisys_dev || pg_isready -U postgres || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - smriti-dev-net
+
+  smriti-dev-api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: smriti-dev-api
+    restart: unless-stopped
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+    ports:
+      - "${BACKEND_API_DEV_PORT:-1982}:8000"
+    environment:
+      DATABASE_URL: "postgresql://${POSTGRES_DEV_USER:-postgres}:${POSTGRES_DEV_PASSWORD:-postgres}@smriti-dev-db:5432/${POSTGRES_DEV_DB:-smritisys_dev}"
+      GEMINI_API_KEY: "${GEMINI_API_KEY}"
+      JWT_SECRET_KEY: "${JWT_SECRET_KEY:-dev-secret-key-smriti-retail-os-testing-only-1981}"
+      INTERNAL_SERVICE_KEY: "${INTERNAL_SERVICE_KEY:-dev-internal-service-key-testing-only-1981}"
+      SGIP_VAULT_MASTER_KEY: "${SGIP_VAULT_MASTER_KEY:-dev-vault-master-key-testing-only-1981}"
+      SDIC_REPOSITORY_ROOT: "/workspace"
+      ENVIRONMENT: "development"
+      FASTAPI_DEBUG: "true"
+      SKIP_MIGRATIONS: "true"
+    volumes:
+      - ./backend/app:/app/app
+      - ./backend/tools:/app/tools
+      - ./backend/alembic:/app/alembic
+      - ./:/workspace
+      - ./CHANGELOG.md:/app/CHANGELOG.md
+    depends_on:
+      smriti-dev-db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/live')\" || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - smriti-dev-net
+
+  smriti-dev-web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: smriti-dev-web
+    restart: unless-stopped
+    ports:
+      - "${PORT_DEV:-8102}:3000"
+    environment:
+      NODE_ENV: "production"
+      PORT: 3000
+      BACKEND_API_URL: "http://smriti-dev-api:8000"
+    depends_on:
+      smriti-dev-api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:3000/ || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    networks:
+      - smriti-dev-net
+
+volumes:
+  smriti_dev_db_volume:
+    name: smriti_dev_db_volume
+
+networks:
+  smriti-dev-net:
+    name: smriti-dev-net

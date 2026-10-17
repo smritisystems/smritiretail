@@ -1,0 +1,15 @@
+{
+  "certificate_id": "PF-2026-1006-7C04B1",
+  "entity": "databridge",
+  "capability": "databridge.workspace_ux",
+  "asset_type": "SOURCE_CODE",
+  "proposed_name": "databridgeService.ts",
+  "target_file_path": "src/components/databridge/databridgeService.ts",
+  "decision": "CANONICAL",
+  "canonical_owner": "src/components/databridge/databridgeService.ts",
+  "content_hash": "3e487a8a791fc573c9d0280316eae0d1c4df12bb3df5d3f31fdcb2a355a41f2c",
+  "git_commit": "06410b21c84839ae929288109902a75ecdecfcc5",
+  "issued_at": "2026-10-06T16:48:50.310369+00:00",
+  "expires_at": "2026-10-13T16:48:50.310369+00:00",
+  "status": "ISSUED"
+}

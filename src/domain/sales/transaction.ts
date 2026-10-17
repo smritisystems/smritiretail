@@ -11,6 +11,7 @@ export interface SalesLineItem {
   value: number;
   discPercent?: number;
   discAmt?: number;
+  discCode?: string;
   taxPercent?: number;
   taxAmount?: number;
   total: number;

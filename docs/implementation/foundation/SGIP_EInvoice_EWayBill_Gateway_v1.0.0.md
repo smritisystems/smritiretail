@@ -100,11 +100,12 @@ Automate statutory compliance for enterprise retail and B2B wholesale distributi
 - Mount in FastAPI `/api/v1/compliance/` router and deploy via Docker container.
 
 ## 17. Status
-Approved
+Completed
 
 ## 18. Related ADRs
 - ADR-001: FastAPI + PostgreSQL Sole Backend Architecture
 - ADR-005: Compliance Gateway & Vault Architecture
 
 ## 19. Related Walkthroughs
-- `docs/walkthrough/foundation/SGIP_EInvoice_EWayBill_Gateway_v1.0.0.md` (to be generated).
+- [`docs/walkthrough/foundation/SGIP_EInvoice_EWayBill_Gateway_v1.0.0.md`](../walkthrough/foundation/SGIP_EInvoice_EWayBill_Gateway_v1.0.0.md)
+

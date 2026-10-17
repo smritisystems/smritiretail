@@ -1,0 +1,15 @@
+{
+  "certificate_id": "PF-2026-0911-2E397B",
+  "entity": "vendor",
+  "capability": "vendor.workspace",
+  "asset_type": "component",
+  "proposed_name": "VendorMasterWs.tsx",
+  "target_file_path": "F:/SMRITRretailNX/src/components/vendor/VendorMasterWs.tsx",
+  "decision": "CREATE_APPROVED",
+  "canonical_owner": "VendorMasterWs.tsx",
+  "content_hash": "1476b9859738dc7dce1863180891ec3f85bc2505c673772dae4f794ff8a4c3ee",
+  "git_commit": "e268339f87f2598c5eacc934d2182aa81f5347bc",
+  "issued_at": "2026-09-11T05:21:58.601584+00:00",
+  "expires_at": "2026-09-18T05:21:58.601584+00:00",
+  "status": "ISSUED"
+}

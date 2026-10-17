@@ -3,9 +3,9 @@
  * Author       : Jawahar Ramkripal Mallah
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 3.17.0
+ * Version      : 6.42.4
  * Created      : 2026-08-16
- * Modified     : 2026-08-16
+ * Modified     : 2026-09-20
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  */
@@ -14,6 +14,7 @@ import React, { useState } from 'react';
 import { useActiveField } from '../../context/ActiveFieldContext.tsx';
 import { useDrillDown } from '../drilldown/drilldown_store.tsx';
 import { CompanySelector } from '../layout/CompanySelector.tsx';
+import { Breadcrumb } from '../../navigation/breadcrumb/index.ts';
 
 interface GlobalHeaderProps {
   activeModuleTitle: string;
@@ -128,10 +129,8 @@ export const GlobalHeader: React.FC<GlobalHeaderProps> = ({
         </div>
 
         {/* Context & Breadcrumb Display */}
-        <div className="hidden md:flex items-center text-xs text-indigo-200 gap-1.5 ml-2 font-medium">
-          <span className="text-indigo-300">{storeName}</span>
-          <span>/</span>
-          <span className="text-white font-semibold">{activeModuleTitle}</span>
+        <div className="hidden md:flex items-center ml-2">
+          <Breadcrumb onNavigate={onSelectModule} />
         </div>
       </div>
 
@@ -292,6 +291,16 @@ export const GlobalHeader: React.FC<GlobalHeaderProps> = ({
                   className="w-full px-4 py-2 text-left text-xs text-[#0b1c30] hover:bg-[#eff4ff] flex items-center gap-2 cursor-pointer transition-colors"
                 >
                   <span className="material-symbols-outlined text-[18px] text-[#3d425f]">settings</span> System Settings
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (onSelectModule) onSelectModule('system-parameters');
+                    setIsUserMenuOpen(false);
+                  }}
+                  className="w-full px-4 py-2 text-left text-xs text-[#0b1c30] hover:bg-[#eff4ff] flex items-center gap-2 cursor-pointer transition-colors"
+                >
+                  <span className="material-symbols-outlined text-[18px] text-[#3f51b5]">tune</span> System Parameters Studio
                 </button>
                 <button
                   type="button"

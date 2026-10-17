@@ -134,11 +134,15 @@ class PromotionEvaluationRequest(BaseModel):
     campaign_ids: Optional[List[str]] = None
     campaign_code: Optional[str] = None
     coupon_code: Optional[str] = None
+    coupon_id: Optional[str] = None
     customer_id: Optional[str] = None
+    customer_group_id: Optional[str] = None
     customer_tier: Optional[str] = None
     store_id: Optional[str] = None
+    branch_id: Optional[str] = None
     channel: str = Field("POS", description="POS, ECOMMERCE, MOBILE_APP, B2B")
     as_of_date: Optional[datetime] = None
+    reference_invoice_id: Optional[str] = None
 
 
 class AppliedPromotionDetail(BaseModel):
@@ -170,6 +174,13 @@ class PromotionRedemptionRequest(BaseModel):
     reference_invoice_id: str
     discount_applied: float = Field(..., ge=0.0)
     conflict_resolution_strategy: str = "BEST_BENEFIT"
+    items: Optional[List[PromotionCartItem]] = None
+    customer_group_id: Optional[str] = None
+    customer_tier: Optional[str] = None
+    store_id: Optional[str] = None
+    branch_id: Optional[str] = None
+    channel: str = "POS"
+    as_of_date: Optional[datetime] = None
 
 
 class PromotionRedemptionResponse(BaseModel):
@@ -183,3 +194,61 @@ class PromotionRedemptionResponse(BaseModel):
     discount_applied: float
     conflict_resolution_strategy: str
     status: str = "RECORDED"
+
+
+# ============================================================================
+# SMRITI SCHEME SYNC SCHEMAS (Define Sales Promotions & F6)
+# ============================================================================
+
+class PromotionSchemeDTO(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    code: str
+    name: str
+    description: Optional[str] = ""
+    level: str = Field("ITEM_LEVEL", description="ITEM_LEVEL or BILL_LEVEL")
+    category: str = Field("ITEM_DISCOUNT_PERCENT", description="Retail promotion category")
+    priority: int = Field(1, ge=1)
+    discount_value: float = Field(0.0, ge=0.0)
+    min_bill_value: Optional[float] = None
+    min_qty: Optional[int] = None
+    buy_qty: Optional[int] = None
+    free_qty: Optional[int] = None
+    max_discount: Optional[float] = None
+    applicable_categories: List[str] = Field(default_factory=list)
+    applicable_brands: List[str] = Field(default_factory=list)
+    applicable_customer_groups: List[str] = Field(default_factory=lambda: ["ALL"])
+    valid_from: str
+    valid_to: str
+    is_happy_hours: bool = False
+    happy_hours_start: Optional[str] = None
+    happy_hours_end: Optional[str] = None
+    is_active: bool = True
+    created_at: Optional[str] = None
+    updated_at: Optional[str] = None
+
+
+class PromotionSchemeUpsertRequest(BaseModel):
+    id: Optional[str] = None
+    code: str = Field(..., max_length=50)
+    name: str = Field(..., max_length=100)
+    description: Optional[str] = ""
+    level: str = Field("ITEM_LEVEL", description="ITEM_LEVEL or BILL_LEVEL")
+    category: str = Field("ITEM_DISCOUNT_PERCENT")
+    priority: int = Field(1, ge=1)
+    discount_value: float = Field(0.0, ge=0.0)
+    min_bill_value: Optional[float] = None
+    min_qty: Optional[int] = None
+    buy_qty: Optional[int] = None
+    free_qty: Optional[int] = None
+    max_discount: Optional[float] = None
+    applicable_categories: List[str] = Field(default_factory=list)
+    applicable_brands: List[str] = Field(default_factory=list)
+    applicable_customer_groups: List[str] = Field(default_factory=lambda: ["ALL"])
+    valid_from: str
+    valid_to: str
+    is_happy_hours: bool = False
+    happy_hours_start: Optional[str] = None
+    happy_hours_end: Optional[str] = None
+    is_active: bool = True

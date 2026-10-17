@@ -13,7 +13,7 @@ Classification: Internal
 """
 
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 
 from sqlalchemy import ARRAY, CHAR, TIMESTAMP, Boolean, Column, ForeignKey, Integer, String
 from sqlalchemy.dialects.postgresql import JSONB, UUID
@@ -35,7 +35,7 @@ class MasterType(Base):
     version = Column(Integer, default=1, nullable=False)
     evidence_level = Column(CHAR(1), default='D', nullable=False)
     created_by = Column(String(100), nullable=True)
-    created_at = Column(TIMESTAMP(timezone=True), default=datetime.utcnow, nullable=False)
+    created_at = Column(TIMESTAMP(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
 
 
 class MasterValue(Base):
@@ -43,13 +43,17 @@ class MasterValue(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     master_type_id = Column(UUID(as_uuid=True), ForeignKey("master_types.id"), nullable=False)
+    company_id = Column(String(50), nullable=True, index=True)
+    branch_id = Column(String(50), nullable=True, index=True)
     code = Column(String(50), nullable=False)
     name = Column(String(255), nullable=False)
+    # Single-owner assignment for vendor-owned registry values such as style_article.
+    vendor_code = Column(String(100), nullable=True, index=True)
     parent_value_id = Column(UUID(as_uuid=True), ForeignKey("master_values.id"), nullable=True)
     data = Column(JSONB, default=dict, nullable=False)
     active = Column(Boolean, default=True, nullable=False)
     sort_order = Column(Integer, default=0, nullable=True)
-    updated_at = Column(TIMESTAMP(timezone=True), default=datetime.utcnow, nullable=False)
+    updated_at = Column(TIMESTAMP(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
 
     # Soft delete columns (added via migration)
     is_deleted = Column(Boolean, default=False, nullable=True)

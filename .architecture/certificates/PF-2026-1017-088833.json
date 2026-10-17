@@ -1,0 +1,15 @@
+{
+  "certificate_id": "PF-2026-1017-088833",
+  "entity": "reports",
+  "capability": "reports.visual_reports_service",
+  "asset_type": "service",
+  "proposed_name": "visual_reports_service.py",
+  "target_file_path": "backend/app/services/visual_reports_service.py",
+  "decision": "CREATE_APPROVED",
+  "canonical_owner": "backend/app/services/visual_reports_service.py",
+  "content_hash": "47ea803a7b9cece5ace4d68848df70571b4943f3250a0f472657dce66d727dcb",
+  "git_commit": "a963ab51d620438e4aea59887cd01a97095a611a",
+  "issued_at": "2026-10-17T09:34:24.014729+00:00",
+  "expires_at": "2026-10-24T09:34:24.014729+00:00",
+  "status": "ISSUED"
+}

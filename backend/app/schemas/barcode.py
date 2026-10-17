@@ -57,6 +57,7 @@ class BarcodeLayoutResponse(BaseModel):
 
 class PrintRequest(BaseModel):
     layoutId: Optional[str] = Field("default", alias="layoutId")
+    layout_id: Optional[str] = Field(None, alias="layout_id")
     items: List[Dict[str, Any]]
     saveAsPrn: Optional[bool] = Field(False, alias="saveAsPrn")
     dispatch_mode: Optional[str] = Field(None, alias="dispatch_mode")

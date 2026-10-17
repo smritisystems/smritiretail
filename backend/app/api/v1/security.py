@@ -287,3 +287,48 @@ async def update_security_configuration(
     await db.commit()
 
     return req
+
+
+@router.get("/audit-log")
+async def get_security_audit_log(
+    limit: int = Query(100, ge=1, le=500),
+    offset: int = Query(0, ge=0),
+    db: AsyncSession = Depends(get_db),
+    tenant: TenantContext = Depends(get_tenant_context),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Query system security and configuration audit trail logs from smriti_audit_log.
+    Returns structured audit entries for AuditLogView.tsx.
+    """
+    q = select(SmritiAuditLog).order_by(SmritiAuditLog.changed_at.desc()).limit(limit).offset(offset)
+    if tenant and tenant.company_id and tenant.company_id != "All":
+        q = q.where(
+            (SmritiAuditLog.tenant_id == tenant.company_id) | (SmritiAuditLog.tenant_id.is_(None))
+        )
+
+    res = await db.execute(q)
+    rows = res.scalars().all()
+
+    entries = [
+        {
+            "id": r.id,
+            "changedTable": r.changed_table,
+            "changedRecordId": r.changed_record_id,
+            "fieldName": r.field_name,
+            "changeType": r.change_type,
+            "changeReason": r.change_reason,
+            "changeSource": r.change_source,
+            "changedBy": r.changed_by,
+            "changedByName": r.changed_by_name or r.changed_by,
+            "changedAt": r.changed_at.isoformat() if r.changed_at else None,
+        }
+        for r in rows
+    ]
+
+    return {
+        "entries": entries,
+        "total": len(entries),
+        "limit": limit,
+        "offset": offset,
+    }

@@ -22,6 +22,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..models.analytics import AnalyticsDailySalesFact
 from ..models.sales import SalesInvoice, SalesInvoiceItem
 from ..models.inventory import Product, StockMovement
+from ..models.item_master import Item, ItemVariant
 from ..models.payment_ledger import PaymentTransaction
 
 
@@ -33,7 +34,7 @@ class AnalyticalIntelligenceService:
     """
     SMRITI Downstream Analytical Intelligence & Aggregation Engine (Section 11).
     Computes materialized daily sales facts, profit margins, and trend rollups
-    without mutating or locking operational transactional tables.
+    using Canonical Item/Variant authority with legacy fallback.
     """
 
     @classmethod
@@ -99,11 +100,18 @@ class AnalyticalIntelligenceService:
         if cash_rev == 0 and digital_rev == 0 and credit_rev == 0 and total_rev > 0:
             cash_rev = total_rev
 
-        # 3. Estimated Cost of Goods Sold (COGS) & Gross Margin
+        # 3. Estimated Cost of Goods Sold (COGS) & Gross Margin (Canonical Variant First)
         cogs_stmt = select(
-            func.coalesce(func.sum(SalesInvoiceItem.quantity * func.coalesce(Product.cost_price, 0.0)), 0.0)
+            func.coalesce(
+                func.sum(
+                    SalesInvoiceItem.quantity * func.coalesce(ItemVariant.cost_price, Product.cost_price, 0.0)
+                ),
+                0.0
+            )
         ).select_from(SalesInvoiceItem).join(
             SalesInvoice, SalesInvoiceItem.invoice_id == SalesInvoice.id
+        ).outerjoin(
+            ItemVariant, SalesInvoiceItem.variant_id == ItemVariant.id
         ).outerjoin(
             Product, SalesInvoiceItem.product_id == Product.id
         ).where(
@@ -215,23 +223,35 @@ class AnalyticalIntelligenceService:
         company_id: str,
         lookback_days: int = 30
     ) -> List[Dict[str, Any]]:
-        """Rolls up category sales revenue, estimated costs, and gross profit margins."""
+        """Rolls up category sales revenue, estimated costs, and gross profit margins using Canonical Items first."""
         cutoff_date = datetime.now(timezone.utc) - timedelta(days=lookback_days)
 
+        category_expr = func.coalesce(Item.category, Product.category, "GENERAL")
+        cogs_expr = func.coalesce(
+            func.sum(
+                SalesInvoiceItem.quantity * func.coalesce(ItemVariant.cost_price, Product.cost_price, 0.0)
+            ),
+            0.0
+        )
+
         stmt = select(
-            Product.category.label("category"),
+            category_expr.label("category"),
             func.coalesce(func.sum(SalesInvoiceItem.quantity), 0.0).label("units_sold"),
             func.coalesce(func.sum(SalesInvoiceItem.total_amount), 0.0).label("taxable_sales"),
-            func.coalesce(func.sum(SalesInvoiceItem.quantity * func.coalesce(Product.cost_price, 0.0)), 0.0).label("total_cogs")
+            cogs_expr.label("total_cogs")
         ).select_from(SalesInvoiceItem).join(
             SalesInvoice, SalesInvoiceItem.invoice_id == SalesInvoice.id
+        ).outerjoin(
+            ItemVariant, SalesInvoiceItem.variant_id == ItemVariant.id
+        ).outerjoin(
+            Item, ItemVariant.item_id == Item.id
         ).outerjoin(
             Product, SalesInvoiceItem.product_id == Product.id
         ).where(
             SalesInvoice.company_id == company_id,
             SalesInvoice.created_at >= cutoff_date,
             SalesInvoice.is_deleted == False
-        ).group_by(Product.category)
+        ).group_by(category_expr)
 
         rows = (await session.execute(stmt)).all()
         results = []

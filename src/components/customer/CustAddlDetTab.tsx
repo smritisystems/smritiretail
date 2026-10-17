@@ -202,7 +202,7 @@ export const SmritiCustomerAdditionalDetailsTab: React.FC<SmritiCustomerAddition
             <Percent size={15} /> Price &amp; Tax Factors
           </h3>
 
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             <div>
               <label className="text-[#515f74] dark:text-[#bec6e0] font-bold text-[10px] uppercase block mb-1">
                 Retail Factor
@@ -242,6 +242,24 @@ export const SmritiCustomerAdditionalDetailsTab: React.FC<SmritiCustomerAddition
                 <option value="318#STAPLES">318#STAPLES</option>
                 <option value="000#EXEMPTED">000#EXEMPTED</option>
                 <option value="999#SEZ_ZERO_RATED">999#SEZ_ZERO_RATED</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="text-[#515f74] dark:text-[#bec6e0] font-bold text-[10px] uppercase block mb-1">
+                Bill On Price
+              </label>
+              <select
+                value={customer.pricingBasis || customer.pricing_basis || "MRP"}
+                onChange={e => {
+                  const val = e.target.value as "MRP" | "RATE";
+                  onChange("pricingBasis", val);
+                  onChange("pricing_basis", val);
+                }}
+                className="w-full p-2 bg-white dark:bg-[#191c1e] border border-[#00355f] dark:border-[#8ebdf9] rounded-lg text-xs font-bold text-[#00355f] dark:text-[#8ebdf9]"
+              >
+                <option value="MRP">MRP (Retail)</option>
+                <option value="RATE">RATE (Wholesale)</option>
               </select>
             </div>
           </div>

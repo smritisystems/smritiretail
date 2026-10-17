@@ -40,7 +40,12 @@ from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, Asyn
 
 # Architecture Rule: Sales invoices are operational data -> Company DB (smriti001).
 # The test session MUST target smriti001, not smritisys (Control Plane).
-COMPANY_001_ASYNC_URL = "postgresql+asyncpg://postgres:postgres@localhost:5432/smriti001"
+import os
+from urllib.parse import urlparse
+from app.core.config import settings
+_PG_PORT = urlparse(str(settings.DATABASE_URL)).port or int(os.getenv("POSTGRES_PORT", 5432))
+
+COMPANY_001_ASYNC_URL = f"postgresql+asyncpg://postgres:postgres@localhost:{_PG_PORT}/smriti001"
 test_engine = create_async_engine(COMPANY_001_ASYNC_URL, poolclass=NullPool)
 test_sessionmaker = async_sessionmaker(bind=test_engine, class_=AsyncSession, expire_on_commit=False)
 

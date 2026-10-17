@@ -1,0 +1,771 @@
+<!doctype HTML public "-//W3C//DTD HTML 4.0 Frameset//EN">
+
+<html>
+
+<head>
+<title>Release_Notes_1.7</title>
+<meta http-equiv="content-type" content="text/html; charset=windows-1252">
+<meta name="generator" content="RoboHelp by eHelp Corporation www.ehelp.com">
+<link rel="StyleSheet" href="../Shoper.css"><style title="hcp" type="text/css">
+<!--
+span.hcp1 { font-weight:bold; }
+h3.hcp2 { margin-left:64px; }
+-->
+</style>
+</head>
+<body>
+<h1>New Features in Shoper 9 POS Series A Release 1.7</h1>
+
+<p class=Body-Text>New Features:</p>
+
+<ul>
+	
+	<li class=kadov-p-Cbullet><p class=bullet><a href="#NF_AlertManagement">Alert 
+ Management</a></p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet><a href="#NF_Reports">Reports</a></p></li>
+</ul>
+
+<p class=Body-Text
+	style="text-align: justify;">Enhancements:</p>
+
+<ul>
+	
+	<li class=kadov-p-Cbullet><p class=bullet><a href="#ENH_Installation">Installation</a></p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet><a href="#ENH_Billing">Billing</a></p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet><a href="#ENH_SalesPromotion">Sales 
+ Promotion</a></p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet><a href="#ENH_Slips">Slips</a></p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet><a href="#ENH_PurchaseOrder">Purchase 
+ Order</a></p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet><a href="#ENH_PurchaseReturn">Purchase 
+ Return</a></p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet><a href="#ENH_BillPrinting">Bill 
+ Printing</a></p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet><a href="#ENH_TallyPrinting">Tally 
+ Printing</a></p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet><a href="#ENH_PrintEngine">Print 
+ Engine</a></p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet><a href="#ENH_Barcode">Barcode</a></p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet><a href="#ENH_Back-endDataImport">Back-end 
+ Data Import</a></p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet><a href="#ENH_ExtensionsFramework">Extensions 
+ Framework</a></p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet><a href="#ENH_SecurityManagement">Security 
+ Management</a></p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet><a href="#ENH_Reports">Reports</a></p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet><a href="#ISR_DCPrinting">Help</a></p></li>
+</ul>
+
+<p class=Body-Text
+	style="text-align: justify;">Issues Resolved:</p>
+
+<ul>
+	
+	<li class=kadov-p-Cbullet><p class=bullet><a href="#ISR_Installation">Installation</a></p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet><a href="#ISR_LicenseManagement">License 
+ Management</a></p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet><a href="#ISR_Billing">Billing</a></p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet><a href="#ISR_BillPrefix">Bill 
+ Prefix</a></p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet><a href="#ISR_CashReceipts">Cash 
+ Receipts</a></p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet><a href="#ISR_DispatchAdviceSlip">Dispatch 
+ Advice Slip</a></p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet><a href="#ISR_PurchaseOrder">Purchase 
+ Order</a></p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet><a href="#ISR_ItemMasters">Item 
+ Masters</a></p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet><a href="#ENH_GoodsInwards">Goods 
+ Inwards</a></p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet><a href="#ISR_GoodsOutwards">Goods 
+ Outwards</a></p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet><a href="#ISR_PTFile">PT 
+ File</a></p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet><a href="#ISR_PhysicalStockManagement">Physical 
+ Stock Management</a></p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet><a href="#ISR_ShoperOpening">Shoper 
+ Opening</a></p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet><a href="#ISR_Synchronisation">Synchronisation</a></p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet><a href="#ISR_TallyInterface">Tally 
+ Interface</a></p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet><a href="#ISR_TallyPrinting">Tally 
+ Printing</a></p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet><a href="#ISR_Reports">Reports</a></p></li>
+</ul>
+
+<h2>New Features</h2>
+
+<h3><a name=NF_AlertManagement>Alert Management</a></h3>
+
+<ul>
+	
+	<li class=kadov-P-Cbullet><p class=bullet>Shoper 9 is enhanced to send 
+ alert based on specified events to selected users.</p></li>
+	
+	<li class=kadov-P-Cbullet><p class=bullet>You can configure alerts 
+ for the following events of Shoper 9: Importing New Price revisions, Importing 
+ New Sales Promotions and Price revision.</p></li>
+	
+	<li class=kadov-P-Cbullet><p class=bullet>When that particular event 
+ occurs, an alert is send to the specified users by e-mail, HTTP, balloon 
+ tip and message box as per configuration.</p></li>
+</ul>
+
+<p class=Note><span class="hcp1">Note:</span> HTTP can be 
+ configured for third party SMS service.</p>
+
+<h3><a name=NF_Reports>Reports</a></h3>
+
+<h3 class="hcp2">Void Transaction Report</h3>
+
+<ul>
+	
+	<li class=kadov-P-Cbullet><p class=bullet>A new report, <span class="hcp1">Void 
+ Transaction</span> report is added under Stock reports.</p></li>
+</ul>
+
+<p class=bullet
+	style="margin-left: 64px;">This report provides details about the edited 
+ / deleted inward and outward transactions.</p>
+
+<h3 class="hcp2">Till Activity Report</h3>
+
+<ul>
+	
+	<li class=kadov-P-Cbullet><p class=bullet>The Till Activity report 
+ is enhanced to display the details of counter activities.</p></li>
+</ul>
+
+<h2>Enhancements</h2>
+
+<h3><a name=ENH_Installation>Installation</a></h3>
+
+<ul>
+	
+	<li class=kadov-P-Cbullet><p class=bullet>The facility to install Shoper 
+ 9 using windows authentication mode is provided. </p></li>
+</ul>
+
+<p class=Note><span class="hcp1">Note:</span> Ensure that 
+ the windows user has sufficient permissions.</p>
+
+<h3><a name=ENH_Billing>Billing</a></h3>
+
+<ul>
+	
+	<li class=kadov-P-Cbullet><p class=bullet>Billing is enhanced to prefill 
+ <span class="hcp1">Current Balance Quantity</span> in the 
+ <span class="hcp1">Quantity</span> field instead of the 
+ LSQ, if <span class="hcp1">Apply Current Balance Quantity 
+ instead of LSQ</span> is selected in system parameter.</p></li>
+</ul>
+
+<ul style="list-style: disc;"
+	type=disc>
+	
+	<li class=kadov-P-Cbullet><p class=bullet>The facility to reserve stock 
+ for all <span class="hcp1">Expected Transactions</span> 
+ based on system parameter settings.</p></li>
+</ul>
+
+<h3><a name=ENH_SalesPromotion>Sales Promotion</a></h3>
+
+<ul>
+	
+	<li class=kadov-P-Cbullet><p class=bullet>Sales promotions are enhanced 
+ to allow a combination of items as free items, sell item combinations 
+ at fixed value, give free items based on bill value, give free items for 
+ a specified value, etc.</p></li>
+	
+	<li class=kadov-P-Cbullet><p class=bullet>Now you will be able to define 
+ promotions such as:</p></li>
+	
+	<ul>
+		
+		<li class=kadov-P-Cbullet><p class=bullet>Buy a Trouser worth Rs.2,000/- 
+ and a Shirt worth Rs.1,000/-, get a Tie and Belt free.</p></li>
+	</ul>
+	
+	<ul>
+		
+		<li class=kadov-P-Cbullet><p class=bullet>Buy a Trouser and Shirt 
+ at Rs.2,000/-.</p></li>
+	</ul>
+	
+	<ul>
+		
+		<li class=kadov-P-Cbullet><p class=bullet>When total bill value 
+ exceeds Rs.10,000/- get a Wallet free.</p></li>
+	</ul>
+	
+	<ul>
+		
+		<li class=kadov-P-Cbullet><p class=bullet>When total bill Value 
+ exceeds Rs.10,000/- get items worth Rs.2,000/- free.</p></li>
+	</ul>
+</ul>
+
+<h3><a name=ENH_Slips>Slips</a></h3>
+
+<ul>
+	
+	<li class=kadov-P-Cbullet><p class=bullet><span class="hcp1">Tolerance 
+ Factor</span> for accepting negative quantity is provided in Slips.</p></li>
+</ul>
+
+<h3><a name=ENH_PurchaseOrder>Purchase Order</a></h3>
+
+<ul>
+	
+	<li class=kadov-P-Cbullet><p class=bullet>Purchase Order is enhanced 
+ to round off the Net Value.</p></li>
+</ul>
+
+<h3><a name=ENH_PurchaseReturn>Purchase Return</a></h3>
+
+<ul>
+	
+	<li class=kadov-P-Cbullet><p class=bullet>Purchase Return is enhanced 
+ to have a single purchase return transaction, for return of items against 
+ one or more purchase documents.</p></li>
+</ul>
+
+<h3><a name=ENH_BillPrinting>Bill Printing</a></h3>
+
+<p class=Body-Text>Bill Printing</p>
+
+<ul>
+	
+	<li class=kadov-P-Cbullet><p class=bullet>Bill Printing is enhanced 
+ to print multiple copies of the bills as <span class="hcp1">Original</span> 
+ (First print), <span class="hcp1">Duplicate</span> (second 
+ copy), <span class="hcp1">Triplicate</span> (Third copy), 
+ <span class="hcp1">Quadruplicate</span> (Fourth copy) and 
+ all other copies after the forth copy as <span class="hcp1">Extra</span> 
+ <span class="hcp1">Copy</span>.</p></li>
+	
+	<li class=kadov-P-Cbullet><p class=bullet>New DC printing format is 
+ introduced which will allow the user to choose the item classification.</p></li>
+	
+	<li class=kadov-P-Cbullet><p class=bullet>The facility to print remarks 
+ is provided in DC printing.</p></li>
+	
+	<li class=kadov-P-Cbullet><p class=bullet>While printing <span class="hcp1">Advance 
+ Receipt</span> in <span class="hcp1">Sales</span> <span class="hcp1">Order</span>, the Sales Order details was getting 
+ printed in one page and the Advance Receipt details on the next page.</p></li>
+</ul>
+
+<p class=bullet
+	style="margin-left: 64px;">This has been enhanced and now it can be 
+ printed on the same page based on system parameter.</p>
+
+<h3><a name=ENH_TallyPrinting>Tally Printing</a></h3>
+
+<ul>
+	
+	<li class=kadov-P-Cbullet><p class=bullet>A new A4 size bill printing 
+ format is introduced with option to print logo.</p></li>
+</ul>
+
+<h3><a name=ENH_PrintEngine>Print Engine</a></h3>
+
+<p class=Body-Text>Excise Invoice and Barcode printing can be configured 
+ in print engine configuration window.</p>
+
+<h3><a name=ENH_Barcode>Barcode</a></h3>
+
+<ul>
+	
+	<li class=kadov-P-Cbullet><p class=bullet>The Barcode Label design 
+ and printing is enhanced with the following additions.</p></li>
+	
+	<ul>
+		
+		<li class=kadov-P-Cbullet><p class=bullet>Number of barcode labels 
+ can be printed based on current balance quantity</p></li>
+	</ul>
+	
+	<ul>
+		
+		<li class=kadov-P-Cbullet><p class=bullet>Print barcode labels 
+ using <span class="hcp1">USB printers</span></p></li>
+	</ul>
+	
+	<ul>
+		
+		<li class=kadov-P-Cbullet><p class=bullet>Option to print <span class="hcp1">Cost Price</span> in encrypted format. The 
+ encryption logic is based on system parameter</p></li>
+	</ul>
+	
+	<ul>
+		
+		<li class=kadov-P-Cbullet><p class=bullet><span class="hcp1">System 
+ Date</span> in barcode label</p></li>
+	</ul>
+	
+	<ul>
+		
+		<li class=kadov-P-Cbullet><p class=bullet>Load data for barcode 
+ label printing from <span class="hcp1">PDT files</span></p></li>
+	</ul>
+</ul>
+
+<h3><a name=ENH_Back-endDataImport>Back-end Data Import</a></h3>
+
+<ul>
+	
+	<li class=kadov-P-Cbullet><p class=bullet>Facility to configure and 
+ import data from flat files to selected tables. All the features available 
+ in Shoper 9 HO are provided in Shoper 9 POS.</p></li>
+</ul>
+
+<h3><a name=ENH_ExtensionsFramework>Extensions Framework</a></h3>
+
+<ul>
+	
+	<li class=kadov-P-Cbullet><p class=bullet>Extensions Framework is enhanced</p></li>
+	
+	<ul>
+		
+		<li class=kadov-P-Cbullet><p class=bullet>To populate values to 
+ standard fields in billing for payment modes from customised extensions.</p></li>
+	</ul>
+	
+	<ul>
+		
+		<li class=kadov-P-Cbullet><p class=bullet>To populate values to 
+ standard fields of <span class="hcp1">Cash Receipts</span> 
+ and <span class="hcp1">Cash Payouts</span> from customised 
+ extensions. This extension can be called based on reason code.</p></li>
+	</ul>
+</ul>
+
+<h3><a name=ENH_SecurityManagement>Security Management</a></h3>
+
+<ul>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>An option to retrieve the 
+ login password is provided in Shoper 9 login screen. On selecting <span class="hcp1">Forgot Password</span> in Shoper9 login screen, 
+ the password is sent to the registered mobile number / e-mail ID based 
+ on alert configuration.</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>An option to view the activities 
+ performed by the users is provided in <span class="hcp1">Activity 
+ Log Report</span> under Security Management. </p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>The facility to capture mobile 
+ number and e-mail ID of the user is provided in <span class="hcp1">My 
+ Profile</span> and new <span class="hcp1">User Creation</span> 
+ windows.</p></li>
+</ul>
+
+<h3><a name=ENH_Reports>Reports</a></h3>
+
+<h3 class="hcp2">Top Selling Items Report</h3>
+
+<ul>
+	
+	<li class=kadov-P-Cbullet><p class=bullet>The <span class="hcp1">Top 
+ Selling Items</span> report was showing only item code. Now it has been 
+ enhanced to view item code and item description in grid format</p></li>
+</ul>
+
+<h3 class="hcp2">Attribute Size wise Stock Report</h3>
+
+<ul>
+	
+	<li class=kadov-P-Cbullet><p class=bullet><span class="hcp1">Attribute 
+ Size wise Stock</span> report is now getting displayed based on sizes 
+ in ascending order.</p></li>
+	
+	<li class=kadov-P-Cbullet><p class=bullet><span class="hcp1">Select 
+ All</span> option is provided to select and <span class="hcp1">Code</span> 
+ and <span class="hcp1">Description</span> category.</p></li>
+</ul>
+
+<h3><a name=ISR_DCPrinting>Help</a></h3>
+
+<ul>
+	
+	<li class=kadov-P-Cbullet><p class=bullet>Context sensitive Help is 
+ provided for few functions such as Security Management.</p></li>
+</ul>
+
+<p class=bullet
+	style="margin-left: 64px;">Press <span class="hcp1">F1</span> 
+ from the application window and the corresponding help file is displayed.</p>
+
+<h2>Issues Resolved</h2>
+
+<h3><a name=ISR_Installation>Installation</a></h3>
+
+<ul>
+	
+	<li class=kadov-P-Cbullet><p class=bullet><span class="hcp1">Full 
+ Client</span> installation was taking more time when compared to <span class="hcp1">Server</span> installation.</p></li>
+</ul>
+
+<p class=bullet
+	style="margin-left: 64px;">This issue has been resolved.</p>
+
+<h3><a name=ISR_LicenseManagement>License Management</a></h3>
+
+<ul>
+	
+	<li class=kadov-P-Cbullet><p class=bullet>Copyright violation error 
+ for Shoper 9 License was happening during <span class="hcp1">Full 
+ Client</span> installation.</p></li>
+</ul>
+
+<p class=bullet
+	style="margin-left: 64px;">This issue has been resolved.</p>
+
+<h3><a name=ISR_Billing>Billing</a></h3>
+
+<ul>
+	
+	<li class=kadov-P-Cbullet><p class=bullet>In sales return with reference, 
+ discounts were not getting applied when item details are modified. </p></li>
+</ul>
+
+<p class=bullet
+	style="margin-left: 64px;">This issue has been resolved.</p>
+
+<h3><a name=ISR_BillPrefix>Bill Prefix</a></h3>
+
+<ul>
+	
+	<li class=kadov-P-Cbullet><p class=bullet>If prefixes were defined 
+ in first column of<span class="hcp1"> Bill Prefix</span>, 
+ then while opening new slips, the prefix was getting displayed as 10 and 
+ the bill number as -999.</p></li>
+</ul>
+
+<p class=bullet
+	style="margin-left: 64px;">This issue has been resolved.</p>
+
+<h3><a name=ISR_CashReceipts>Cash Receipts</a></h3>
+
+<ul>
+	
+	<li class=kadov-P-Cbullet><p class=bullet>In <span class="hcp1">Cash 
+ Receipts</span>, if the mode of payment was changed from <span class="hcp1">Cash</span> 
+ to <span class="hcp1">Credit Card</span>, then the entered 
+ amount was becoming zero and getting saved as zero.</p></li>
+</ul>
+
+<p class=bullet
+	style="margin-left: 64px;">This issue has been resolved.</p>
+
+<h3><a name=ISR_DispatchAdviceSlip>Dispatch Advice Slip</a></h3>
+
+<ul>
+	
+	<li class=kadov-P-Cbullet><p class=bullet>In <span class="hcp1">PO</span>/ 
+ <span class="hcp1">Indent</span> conversion to <span class="hcp1">Sales 
+ Order</span>/ <span class="hcp1">Dispatch Advice</span>, 
+ the correct document number was not getting displayed.</p></li>
+</ul>
+
+<p class=bullet
+	style="margin-left: 64px;"><span style="margin-left: 80px;">This issue 
+ has been resolved.</span></p>
+
+<h3><a name=ISR_PurchaseOrder>Purchase Order</a></h3>
+
+<ul>
+	
+	<li class=kadov-P-Cbullet><p class=bullet>When items are scanned to 
+ generate <span class="hcp1">Purchase Order</span> and if 
+ the image was not found then it was resulting in Run Time Error. </p></li>
+</ul>
+
+<p class=bullet
+	style="margin-left: 64px;">This issue has been resolved.</p>
+
+<h3><a name=ISR_ItemMasters>Item Masters</a></h3>
+
+<ul>
+	
+	<li class=kadov-P-Cbullet><p class=bullet>Item masters records copied 
+ from Excel were not getting saved when order of the analysis code columns 
+ is changed.</p></li>
+</ul>
+
+<p class=bullet
+	style="margin-left: 64px;">This issue has been resolved.</p>
+
+<ul>
+	
+	<li class=kadov-P-Cbullet><p class=bullet>In Item master import, proper 
+ message was not displayed when error occurred due to wrong SQL collation. 
+ </p></li>
+</ul>
+
+<p class=bullet
+	style="margin-left: 64px;">This issue has been resolved and appropriate 
+ message is provided.</p>
+
+<h3 class=Body-Text><a name=ENH_GoodsInwards>Goods Inwards</a></h3>
+
+<ul>
+	
+	<li class=kadov-P-Cbullet><p class=bullet>The printing of old <span class="hcp1">Inward</span> transaction was not happening 
+ after the <span class="hcp1">Year End</span> process.</p></li>
+</ul>
+
+<p class=bullet
+	style="margin-left: 64px;">This issue has been resolved</p>
+
+<h3><a name=ISR_GoodsOutwards>Goods Outwards</a></h3>
+
+<ul>
+	
+	<li class=kadov-P-Cbullet><p class=bullet>In Goods Outward transaction, 
+ when Party ID was selected the Party Name was not getting displayed.</p></li>
+</ul>
+
+<p class=bullet
+	style="margin-left: 64px;">This issue has been resolved.</p>
+
+<ul>
+	
+	<li class=kadov-P-Cbullet><p class=bullet>If physical stock take was 
+ in progress and items included in physical stock take were used for Goods 
+ Outwards, then incorrect message was getting displayed.</p></li>
+</ul>
+
+<p class=bullet
+	style="margin-left: 64px;">This issue has been resolved and appropriate 
+ message is displayed.</p>
+
+<h3><a name=ISR_PTFile>PT File</a></h3>
+
+<ul>
+	
+	<li class=kadov-P-Cbullet><p class=bullet>During PT file creation the 
+ Tax inclusive/ exclusive option was not functioning.</p></li>
+</ul>
+
+<p class=bullet
+	style="margin-left: 64px;">This issue has been resolved.</p>
+
+<ul>
+	
+	<li class=kadov-P-Cbullet><p class=bullet>The PT File Information detail 
+ report was clubbing the stock quantity of all duplicate bill prefix and 
+ bill numbers.</p></li>
+</ul>
+
+<p class=bullet
+	style="margin-left: 64px;">This issue has been resolved.</p>
+
+<h3><a name=ISR_PhysicalStockManagement>Physical Stock Management</a></h3>
+
+<ul>
+	
+	<li class=kadov-P-Cbullet><p class=bullet>During physical stock take, 
+ if the same stock number was scanned on different batches then the Progress 
+ Summary report was displaying double the quantity.</p></li>
+</ul>
+
+<p class=bullet
+	style="margin-left: 64px;">This issue has been resolved.</p>
+
+<ul>
+	
+	<li class=kadov-P-Cbullet><p class=bullet>In <span class="hcp1">Physical 
+ Stock Taking</span>, the prefill option was displaying the Stock number 
+ multiple times when the primary attribute was the same.</p></li>
+</ul>
+
+<p class=bullet
+	style="margin-left: 64px;">This issue has been resolved.</p>
+
+<h3><a name=ISR_ShoperOpening>Shoper Opening</a></h3>
+
+<ul>
+	
+	<li class=kadov-P-Cbullet><p class=bullet>In some of the Shoper 9 locations, 
+ Shoper 9 was not opening when restrictions was applied for parent menu.</p></li>
+</ul>
+
+<p class=bullet
+	style="margin-left: 64px;">This issue has been resolved.</p>
+
+<h3><a name=ISR_Synchronisation>Synchronisation</a></h3>
+
+<ul>
+	
+	<li class=kadov-P-Cbullet><p class=bullet>While configuring synchronisation 
+ communication details, if the mode selected was <span class="hcp1">Onlin</span>e 
+ and the <span class="hcp1">Server Name</span> was entered 
+ as <span class="hcp1">htp</span> instead of http, then Run 
+ Time Error was getting displayed.</p></li>
+</ul>
+
+<p class=bullet
+	style="margin-left: 64px;">This issue has been resolved.</p>
+
+<h3><a name=ISR_TallyInterface>Tally Interface</a></h3>
+
+<ul>
+	
+	<li class=kadov-P-Cbullet><p class=bullet>When data is posted from 
+ Shoper 9 Distributor to Tally.ERP 9, the <span class="hcp1">Name 
+ of the dealer</span> and the <span class="hcp1">Amount</span> 
+ was not appearing in <span class="hcp1">VAT Annexure</span> 
+ (<span class="hcp1">Form VAT – 8A</span>) of Rajasthan.</p></li>
+</ul>
+
+<p class=bullet
+	style="margin-left: 64px;">This issue has been resolved.</p>
+
+<ul>
+	
+	<li class=kadov-P-Cbullet><p class=bullet>During posting, even when 
+ there was a difference in sales transaction, cumulative posting was getting 
+ completed successfully.</p></li>
+</ul>
+
+<p class=bullet
+	style="margin-left: 64px;">This issue has been resolved by displaying 
+ appropriate message. </p>
+
+<ul>
+	
+	<li class=kadov-P-Cbullet><p class=bullet>When there was an error in 
+ a transaction, the Tally posting was failing and even error free transactions 
+ could not be posted.</p></li>
+</ul>
+
+<p class=bullet
+	style="margin-left: 64px;">This issue has been resolved. Now appropriate 
+ message is displayed when there is an error in the transaction. You can 
+ post the transaction which contains the error as optional vouchers in 
+ Tally. </p>
+
+<ul>
+	
+	<li class=kadov-P-Cbullet><p class=bullet>While posting to Tally, <span class="hcp1">Cost Category</span> was not getting posted.</p></li>
+</ul>
+
+<p class=bullet
+	style="margin-left: 64px;">This issue has been resolved.</p>
+
+<ul>
+	
+	<li class=kadov-P-Cbullet><p class=bullet><span class="hcp1">Multicurrency 
+ Vouchers</span> where not getting posted to Tally when <span class="hcp1">Cost 
+ Centre</span> was used in Tally.</p></li>
+</ul>
+
+<p class=bullet
+	style="margin-left: 64px;">This issue has been resolved.</p>
+
+<h3><a name=ISR_TallyPrinting>Bill Printing</a></h3>
+
+<ul>
+	
+	<li class=kadov-P-Cbullet><p class=bullet>In customer catalogue, if<span class="hcp1"> ampersand</span> (<span class="hcp1">&amp;</span>) 
+ was present in <span class="hcp1">Customer Name</span> or 
+ <span class="hcp1">Customer ID</span> then <span class="hcp1">Underscore</span> 
+ (<span class="hcp1">_</span>) was getting printed.</p></li>
+</ul>
+
+<p class=bullet
+	style="margin-left: 64px;">This issue has been resolved.</p>
+
+<ul>
+	
+	<li class=kadov-P-Cbullet><p class=bullet>When the <span class="hcp1">Expected 
+ Transaction</span> printing type is set to print engine (50) and the system 
+ parameter <span class="hcp1">DC print in graphic printer</span> 
+ is enabled then the DC printing was not happening.</p></li>
+</ul>
+
+<p class=bullet
+	style="margin-left: 64px;">This issue has been resolved.</p>
+
+<h3><a name=ISR_Reports>Reports</a></h3>
+
+<h3 class="hcp2">Goods Register Reports</h3>
+
+<ul>
+	
+	<li class=kadov-P-Cbullet><p class=bullet><span class="hcp1">Void 
+ Outward</span> transaction was not getting displayed in <span class="hcp1">Goods 
+ Register</span> reports.</p></li>
+</ul>
+
+<p class=bullet
+	style="margin-left: 64px;">This issue has been resolved.</p>
+
+<h3 class="hcp2">Inward Discrepancy Report</h3>
+
+<ul>
+	
+	<li class=kadov-P-Cbullet><p class=bullet>The Inward Discrepancy report 
+ was clubbing the inward quantity, if duplicate prefix and document number 
+ was present for different financial years.</p></li>
+</ul>
+
+<p class=bullet
+	style="margin-left: 64px;">This issue has been resolved. Now it displays 
+ based on the inward date.</p>
+
+<ul>
+	
+	<li class=kadov-P-Cbullet><p class=bullet>After DC Import and if the 
+ PO prefix was blank, the Inward Discrepancy report was clubbing the quantity.</p></li>
+</ul>
+
+<p class=bullet
+	style="margin-left: 64px;">This issue has been resolved</p>
+
+<ul>
+	
+	<li class=kadov-P-Cbullet><p class=bullet>During Inward transaction 
+ if the actual quantity of specific line item was zero, then that particular 
+ line item was not getting displayed in Inward Discrepancy.</p></li>
+</ul>
+
+<p class=bullet
+	style="margin-left: 64px;">This issue has been resolved.</p>
+
+<p class=bullet
+	style="margin-left: 64px;">&nbsp;</p>
+
+</body>
+</html>

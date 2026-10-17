@@ -1,0 +1,150 @@
+{
+  "metadata": {
+    "project": "SMRITI Retail OS",
+    "task": "P0.3 Headless Billing Cycle Verification and Missing Item Master Coverage",
+    "version": "6.70.50",
+    "timestamp": "2026-10-11T12:20:00+05:30",
+    "environment": "DEV (F:\\SMRITRretailNX) - PostgreSQL Isolated Ephemeral DBs (NullPool)",
+    "live_database_isolation": "ACTIVE \u2014 Zero transactions written to live database"
+  },
+  "summary": {
+    "total_test_count": 70,
+    "passed": 70,
+    "failed": 0,
+    "status": "PASS"
+  },
+  "test_suites": [
+    {
+      "suite": "backend/app/tests/test_p03_missing_items_and_integrity.py",
+      "purpose": "Priority 2 & 3: Missing/Unknown Master Records, Idempotency, Reconciliation & Statutory Identity Integrity",
+      "count": 15,
+      "passed": 15,
+      "failed": 0,
+      "tests": [
+        {
+          "name": "test_p03_unknown_barcode_rejected_with_zero_mutations",
+          "status": "PASSED",
+          "outcome": "HTTP 400 SMRITI-VAL-BAR-NOTFOUND / PRODUCT_NOT_FOUND, 0 invoice/stock/ledger mutations"
+        },
+        {
+          "name": "test_p03_unknown_sku_rejected_with_zero_mutations",
+          "status": "PASSED",
+          "outcome": "HTTP 400 PRODUCT_NOT_FOUND, 0 mutations"
+        },
+        {
+          "name": "test_p03_missing_price_rejected_with_zero_mutations",
+          "status": "PASSED",
+          "outcome": "HTTP 400 SMRITI-PRICE-002 (unit_price <= 0 rejected), 0 mutations"
+        },
+        {
+          "name": "test_p03_selling_price_exceeds_mrp_rejected",
+          "status": "PASSED",
+          "outcome": "HTTP 400 SMRITI-PRICE-001 (statutory MRP ceiling enforced), 0 mutations"
+        },
+        {
+          "name": "test_p03_missing_tax_classification_rejected",
+          "status": "PASSED",
+          "outcome": "HTTP 400 SMRITI-TAX-001 (unclassified GST rejected), 0 mutations"
+        },
+        {
+          "name": "test_p03_negative_tax_rate_rejected",
+          "status": "PASSED",
+          "outcome": "HTTP 400 SMRITI-TAX-004 (negative tax rejected), 0 mutations"
+        },
+        {
+          "name": "test_p03_inactive_item_rejected",
+          "status": "PASSED",
+          "outcome": "HTTP 400 PRODUCT_INACTIVE (is_active=False rejected), 0 mutations"
+        },
+        {
+          "name": "test_p03_cross_company_item_rejected",
+          "status": "PASSED",
+          "outcome": "HTTP 400 PRODUCT_NOT_FOUND (cross-tenant item isolation), 0 mutations"
+        },
+        {
+          "name": "test_p03_batch_atomicity_rejects_all_when_one_item_invalid",
+          "status": "PASSED",
+          "outcome": "Multi-line batch completely aborted on 1 invalid item, 0 mutations"
+        },
+        {
+          "name": "test_p03_repeated_checkout_idempotency_replay",
+          "status": "PASSED",
+          "outcome": "Duplicate idempotency_key returns cached invoice, mutations strictly <= 1"
+        },
+        {
+          "name": "test_p03_idempotency_fingerprint_mismatch_rejected",
+          "status": "PASSED",
+          "outcome": "HTTP 409 SMRITI-IDEMP-001 (payload mutation with reused key rejected)"
+        },
+        {
+          "name": "test_p03_reconciliation_absent_record_returns_not_found",
+          "status": "PASSED",
+          "outcome": "Status NOT_FOUND, is_committed=False, key retained for safe retry, in-flight disclaimer confirmed"
+        },
+        {
+          "name": "test_p03_missing_company_identity_blocks_checkout",
+          "status": "PASSED",
+          "outcome": "HTTP 400 SMRITI-TENANT-002 (missing/inactive company blocks checkout)"
+        },
+        {
+          "name": "test_p03_missing_seller_gstin_blocks_checkout",
+          "status": "PASSED",
+          "outcome": "HTTP 400 SMRITI-TAX-002 (missing seller GSTIN blocks tax invoice)"
+        },
+        {
+          "name": "test_p03_invalid_seller_gstin_blocks_checkout",
+          "status": "PASSED",
+          "outcome": "HTTP 400 SMRITI-TAX-003 (malformed seller GSTIN blocks tax invoice)"
+        }
+      ]
+    },
+    {
+      "suite": "backend/app/tests/test_billing.py",
+      "purpose": "Priority 1 & 4: Statutory GST Inclusive/Exclusive, Split Payments, Rounding & GSTIN Validation",
+      "count": 10,
+      "passed": 10,
+      "failed": 0
+    },
+    {
+      "suite": "backend/app/tests/test_phase2_headless_billing.py",
+      "purpose": "Priority 1 & 4: Headless Statutory Billing Engine Scenarios A through T",
+      "count": 18,
+      "passed": 18,
+      "failed": 0
+    },
+    {
+      "suite": "src/tests/p0BillingRemediationAndUx.test.ts",
+      "purpose": "Priority 2, 3, 4: Frontend POS Terminal, Settlement Modal, UPI Manual Attestation & Cart Preservation",
+      "count": 27,
+      "passed": 27,
+      "failed": 0
+    }
+  ],
+  "evidence_artifacts": [
+    {
+      "file": "artifacts/headless-billing/rendered_react_ui_item_not_found.png",
+      "classification": "RENDERED_REACT_UI",
+      "description": "Actual rendered React UI showing direct stock entry with unknown item rejected by authoritative catalog, high-contrast banner, and active cart items preserved untouched."
+    },
+    {
+      "file": "artifacts/headless-billing/rendered_react_ui_upi_manual_attestation.png",
+      "classification": "RENDERED_REACT_UI",
+      "description": "Actual rendered React UI for ProPosSettlementDl showing tender settlement, UPI mode, cashier manual soundbox attestation checkbox, [MANUAL_ATTESTED] tag, and non-automated disclaimer."
+    },
+    {
+      "file": "artifacts/headless-billing/rendered_react_ui_tax_invoice_receipt.png",
+      "classification": "RENDERED_REACT_UI",
+      "description": "Actual rendered React Tax Invoice receipt showing company identity, seller GSTIN, statutory HSN line item, CGST/SGST tax split, and computer-generated statutory declaration."
+    },
+    {
+      "file": "artifacts/headless-billing/synthetic_headless_billing_cycle_trace.png",
+      "classification": "SYNTHETIC_FLOW_TRACE",
+      "description": "Synthetic architectural data flow trace illustrating client ingress, master resolution gate, headless GST engine, settlement attestation, canonical sales writer atomic boundary, and idempotency gateway."
+    },
+    {
+      "file": "artifacts/headless-billing/synthetic_headless_billing_cycle_trace.svg",
+      "classification": "SYNTHETIC_FLOW_TRACE",
+      "description": "Vector source of the synthetic architectural data flow trace."
+    }
+  ]
+}

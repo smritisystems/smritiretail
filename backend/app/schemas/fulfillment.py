@@ -30,7 +30,9 @@ class PackingSlipItemCreate(BaseModel):
 
 
 class PackingSlipCreateRequest(BaseModel):
-    sales_invoice_id: str
+    sales_invoice_id: str = Field("UNBILLED", description="Sales Invoice ID or UNBILLED for packing-first workflow")
+    order_id: Optional[str] = Field(None, description="Sales Order ID if packed against order")
+    customer_id: Optional[str] = Field(None, description="Customer ID")
     packed_by_user_id: Optional[str] = None
     total_packages: int = Field(1, ge=1)
     weight_kg: Decimal = Field(Decimal("0.500"), ge=0)
@@ -53,12 +55,69 @@ class PackingSlipResponse(BaseModel):
     id: str
     packing_slip_number: str
     sales_invoice_id: str
+    order_id: Optional[str] = None
+    customer_id: Optional[str] = None
     packed_by_user_id: Optional[str] = None
     status: str
     total_packages: int
     weight_kg: Decimal
     items: List[PackingSlipItemResponse] = Field(default_factory=list)
     created_at: datetime
+
+
+class ConsolidatedPreviewRequest(BaseModel):
+    packing_slip_ids: List[str] = Field(..., min_length=1, description="List of Packing Slip IDs or Numbers to consolidate")
+
+
+class ConsolidatedLineAllocation(BaseModel):
+    packing_slip_id: str
+    packing_slip_number: str
+    item_id: str
+    packed_qty: Decimal
+    billed_qty: Decimal
+    eligible_qty: Decimal
+    allocated_invoice_qty: Decimal
+
+
+class ConsolidatedLineItemPreview(BaseModel):
+    product_id: str
+    sku: str
+    name: str
+    ordered_qty: Decimal = Decimal("0.00")
+    packed_qty: Decimal = Decimal("0.00")
+    previously_invoiced_qty: Decimal = Decimal("0.00")
+    remaining_eligible_qty: Decimal = Decimal("0.00")
+    invoice_qty: Decimal = Decimal("0.00")
+    unit_price: Decimal = Decimal("0.00")
+    mrp: Optional[Decimal] = None
+    gst_rate: Decimal = Decimal("5.00")
+    hsn_code: Optional[str] = None
+    color: Optional[str] = None
+    size: Optional[str] = None
+    brand: Optional[str] = None
+    allocations: List[ConsolidatedLineAllocation] = Field(default_factory=list)
+
+
+class ConsolidatedPreviewResponse(BaseModel):
+    customer_id: Optional[str] = None
+    customer_name: Optional[str] = None
+    customer_gstin: Optional[str] = None
+    packing_slips: List[PackingSlipResponse] = Field(default_factory=list)
+    items: List[ConsolidatedLineItemPreview] = Field(default_factory=list)
+    total_packed_units: Decimal = Decimal("0.00")
+    total_invoiced_units: Decimal = Decimal("0.00")
+
+
+class ConsolidatedFinalizeRequest(BaseModel):
+    packing_slip_ids: List[str] = Field(..., min_length=1)
+    invoice_id: str
+    invoice_no: str
+
+
+class ConsolidatedFinalizeResponse(BaseModel):
+    success: bool
+    invoice_no: str
+    billed_packing_slips: List[str]
 
 
 # ============================================================================

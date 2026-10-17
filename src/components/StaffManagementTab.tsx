@@ -6,30 +6,23 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 4.0.0
+ * Version      : 4.0.1
  * Created      : 2026-07-10
- * Modified     : 2026-08-19
+ * Modified     : 2026-10-15
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
- * Target UI    : Staff Management & User Access (Global Master Screen Refactor)
+ * Target UI    : Staff 360 Workspace (Identity, Access, Scope & Lifecycle)
  */
 
 import React from "react";
-import { MasterListScreen } from "./global/master/MasterListScreen.tsx";
-import { staffMasterConfig } from "./global/configs/staffMaster.config.tsx";
-import { User } from "../types.ts";
+import StaffMasterWs from "./staff/StaffMasterWs.tsx";
 
 export interface StaffManagementTabProps {
   currentUser?: { role: string; name: string } | null;
   onNotification?: (title: string, message: string, type: "success" | "error" | "info" | "warning") => void;
+  onNavigate?: (moduleId: string) => void;
 }
 
-export const StaffManagementTab: React.FC<StaffManagementTabProps> = ({ currentUser, onNotification }) => {
-  return (
-    <MasterListScreen<User>
-      config={staffMasterConfig}
-      currentUser={currentUser}
-      onNotification={onNotification}
-    />
-  );
+export const StaffManagementTab: React.FC<StaffManagementTabProps> = ({ currentUser, onNotification, onNavigate }) => {
+  return <StaffMasterWs currentUser={currentUser} onNotification={onNotification} onNavigate={onNavigate} />;
 };

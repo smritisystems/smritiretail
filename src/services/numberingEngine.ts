@@ -53,6 +53,10 @@ export interface DocumentSeries {
   enforceChronologicalDate?: boolean;
   companyCode?: string;
   description?: string;
+  startNumber?: number;
+  endNumber?: number;
+  category?: string;
+  numberFormat?: string;
 }
 
 export interface NumberingAuditLog {

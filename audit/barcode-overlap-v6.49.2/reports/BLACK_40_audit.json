@@ -1,0 +1,83 @@
+{
+  "variant": "BLACK_40",
+  "barcode": "8904551005366",
+  "master_zpl_command": "^FO346,305 ^BY2^BCN,66,N,N ... ^FT390,385 ^AAN,27,15",
+  "runtime_zpl_command": "^FO346,305 ^BY2^BCN,66,N,N ... ^FT390,399 ^AAN,27,15",
+  "master_collision": {
+    "severity": "P0",
+    "classification": "TRUE CONTENT COLLISION",
+    "element_1": "Main Barcode Bars (^FO346,305 ^BY2^BCN,66,N,N)",
+    "element_2": "Main Barcode Human-Readable Text (^FT390,385 ^AAN,27,15)",
+    "bars_box": [
+      346,
+      305,
+      570,
+      371
+    ],
+    "text_box": [
+      390,
+      358,
+      535,
+      385
+    ],
+    "intersection_box": [
+      390,
+      358,
+      535,
+      371
+    ],
+    "vertical_overlap_dots": 13,
+    "root_cause": "A",
+    "root_cause_description": "Collision exists in master rendering itself. Command ^FT390,385 places Font A (height 27) with baseline at Y=385, extending upward to Y=358, intersecting barcode bars ending at Y=371."
+  },
+  "runtime_status": {
+    "severity": "SAFE",
+    "classification": "CLEAN VERTICAL SEPARATION",
+    "bars_box": [
+      346,
+      305,
+      570,
+      371
+    ],
+    "text_box": [
+      390,
+      372,
+      535,
+      399
+    ],
+    "separation_gap_dots": 7,
+    "gap_black_pixels": 0,
+    "bottom_margin_dots": 6,
+    "collision_resolved": true
+  },
+  "fonts": {
+    "stub_1": {
+      "command": "^A0N,25,34",
+      "family": "Font 0 (Scalable)",
+      "height": 25,
+      "width": 34,
+      "overlap": false
+    },
+    "stub_2": {
+      "command": "^A0N,25,34",
+      "family": "Font 0 (Scalable)",
+      "height": 25,
+      "width": 34,
+      "overlap": false
+    },
+    "main_master": {
+      "command": "^AAN,27,15",
+      "family": "Font A (Matrix)",
+      "height": 27,
+      "width": 15,
+      "overlap": true
+    },
+    "main_runtime": {
+      "command": "^AAN,27,15",
+      "family": "Font A (Matrix)",
+      "height": 27,
+      "width": 15,
+      "overlap": false
+    }
+  }
+}

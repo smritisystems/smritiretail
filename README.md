@@ -16,9 +16,9 @@
 
   * Websites: aitdl.com | erpnbook.com | smritibooks.com
 
-  * Version    : 3.16.0
+  * Version    : 3.30.0
   * Created    : 2026-07-10
-  * Modified   : 2026-08-19
+  * Modified   : 2026-09-09
   * Copyright  : © AITDL.com and SMRITIBooks.com. All Rights Reserved.
   * License    : Proprietary Commercial Software
 -->
@@ -74,7 +74,48 @@ The frozen blueprint is tracked separately from implementation progress. See [SM
 
 ---
 
-## 3. Development & Execution
+## 3. Quick Start — One-Command Installation
+
+Install and start the complete SMRITI Retail OS stack with a single command. The installer automatically detects your operating system, verifies prerequisites, sets up environment configurations, pulls/builds Docker containers, executes database migrations, verifies service health, and launches your browser.
+
+### Windows 10 / 11
+```powershell
+git clone -b smritiNX https://github.com/smritisystems/smritiretail.git
+cd smritiretail
+powershell -ExecutionPolicy Bypass -File .\install.ps1
+```
+*Alternatively, simply double-click `install.bat`.*
+
+### Linux & macOS
+```bash
+git clone -b smritiNX https://github.com/smritisystems/smritiretail.git
+cd smritiretail
+bash ./install.sh
+```
+
+### Installation Modes
+```text
+[1] Production   : Stable customer runtime (Web: 8101, API: 1981, PostgreSQL: 2781)
+[2] Development  : Hot reload runtime      (Web: 8102, API: 1982, PostgreSQL: 2782)
+[3] Custom       : Interactive custom port & service configuration
+```
+
+### Authoritative Port Standards
+| Service | Production Host Port | Development Host Port | Internal Container Port | Endpoint |
+|---|---|---|---|---|
+| **Web Frontend** | `8101` | `8102` | `3000` | `http://localhost:8101` |
+| **FastAPI Backend** | `1981` | `1982` | `8000` | `http://localhost:1981` (`/docs`) |
+| **PostgreSQL DB** | `2781` | `2782` | `5432` | `localhost:2781` |
+
+### Utility & Management Scripts
+- **Service Health Audit**: `.\scripts\health.ps1` (or `./scripts/health.sh`)
+- **Live Logs**: `.\scripts\logs.ps1` (or `./scripts/logs.sh`)
+- **Non-Destructive Update**: `.\scripts\update.ps1` (or `./scripts/update.sh`)
+- **Non-Destructive Repair**: `.\scripts\repair.ps1` (or `./scripts/repair.sh`)
+
+---
+
+## 4. Manual Development & Execution
 
 ### Install Backend Dependencies:
 ```bash

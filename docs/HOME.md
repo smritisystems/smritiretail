@@ -18,7 +18,7 @@
 
   * Version    : 3.6.0
   * Created    : 2026-07-11
-  * Modified   : 2026-07-11
+  * Modified   : 2026-10-16
   * Copyright  : © AITDL.com and SMRITIBooks.com. All Rights Reserved.
   * License    : Proprietary Commercial Software
 -->
@@ -48,6 +48,7 @@ Welcome to the **SMRITI Retail OS** integrated knowledge base. This wiki is auto
 
 | Date | Version | Area | What Changed |
 | :--- | :--- | :--- | :--- |
+| 2026-10-16 | v1.0.0 | Sales & Inventory Projection | Implemented conditional Store Code visibility and automatic idempotent PSV account resolution/creation for Modern Trade |
 | 2026-07-11 | v3.6.0 | Foundation | Initialized SMRITI FastAPI Core Python backend under a top-level folder with SQLAlchemy 2.0, Alembic, versioned APIs, and pytest suites |
 | 2026-07-11 | v3.5.0 | Foundation | Added automated SMRITI Development Intelligence Center (SDIC) with DHI scoring, dynamic Recharts trendlines, and 15 auto-generated reports |
 | 2026-07-11 | v3.4.0 | Foundation | Added comprehensive About SMRITI Retail OS module with 20 sections, search engine, diagnostics, and print styling |

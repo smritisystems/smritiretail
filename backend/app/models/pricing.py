@@ -13,7 +13,7 @@ Classification: Internal
 """
 
 from datetime import datetime, timezone
-from sqlalchemy import Column, String, Numeric, Boolean, Integer, ForeignKey, DateTime, Text, text, UniqueConstraint
+from sqlalchemy import Column, String, Numeric, Boolean, Integer, ForeignKey, DateTime, Text, text, UniqueConstraint, CheckConstraint, Index
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import JSONB
 from ..db.base import BaseEntity
@@ -70,4 +70,122 @@ class CustomerPriceTier(BaseEntity):
     code = Column(String(50), nullable=False, unique=True, index=True)
     price_book_id = Column(String(50), ForeignKey("price_books.id", ondelete="SET NULL"), nullable=True)
     discount_percentage = Column(Numeric(5, 2), nullable=False, default=0.00)
+    is_tax_inclusive = Column(Boolean, nullable=True, default=None)
     description = Column(Text, nullable=True)
+
+
+class CustomerPriceAssignment(BaseEntity):
+    """Authoritative customer-to-price-tier assignment."""
+    __tablename__ = "customer_price_assignments"
+    __table_args__ = (
+        UniqueConstraint("customer_id", name="uq_customer_price_assignment_customer"),
+    )
+
+    customer_id = Column(String(50), ForeignKey("customers.id", ondelete="CASCADE"), nullable=False, index=True)
+    price_tier_id = Column(String(50), ForeignKey("customer_price_tiers.id", ondelete="RESTRICT"), nullable=False, index=True)
+    valid_from = Column(DateTime(timezone=True), nullable=True)
+    valid_to = Column(DateTime(timezone=True), nullable=True)
+    status = Column(String(30), nullable=False, default="ACTIVE")
+    notes = Column(Text, nullable=True)
+
+
+class SalesFactor(BaseEntity):
+    """
+    Authoritative Sales Factor Master governing Add-ons, Deductions,
+    Retail Price Factors, and Bill Round-Off rules.
+    Enforces statutory Above vs Below Sales Tax timing (CGST Section 15).
+    """
+    __tablename__ = "sales_factors"
+
+    code = Column(String(50), nullable=False, index=True)
+    description = Column(String(200), nullable=False)
+    factor_type = Column(String(30), nullable=False, default="ADD_ON")  # RETAIL_PRICE_FACTOR, PRICE_ROUND_OFF, ADD_ON, DEDUCTION, BILL_ROUND_OFF
+    factor_category = Column(String(30), nullable=False, default="ALL_CUSTOMERS")  # CUSTOMER_SPECIFIC, PRICE_GROUP_SPECIFIC, ALL_CUSTOMERS
+    
+    # Target Scope
+    # Group A candidate: customer_id has 0 rows total (2026-09-29 audit).
+    # No write path found in services/**. FK deliberately omitted until data exists.
+    customer_id = Column(String(50), nullable=True, index=True)
+    price_group_code = Column(String(50), nullable=True, index=True)
+    applicable_categories = Column(JSONB, server_default=text("'[]'"), default=list)
+    applicable_brands = Column(JSONB, server_default=text("'[]'"), default=list)
+    
+    # Computation Mechanics
+    computation_timing = Column(String(20), nullable=False, default="ABOVE_TAX")  # ABOVE_TAX (Consider for Tax), BELOW_TAX (Ignore for Tax)
+    computed_on = Column(String(30), nullable=False, default="DISCOUNTED_VALUE")  # SALE_VALUE_BEFORE_DISCOUNT, DISCOUNTED_VALUE, VALUE_INCLUSIVE_OF_TAX
+    rate_or_amount = Column(String(10), nullable=False, default="RATE")  # RATE (%), AMOUNT (₹)
+    value = Column(Numeric(12, 4), nullable=False, default=0.0000)
+    is_variable = Column(Boolean, nullable=False, default=False)  # Cashier override allowed
+    
+    # Thresholds & Validity
+    min_bill_value = Column(Numeric(15, 2), nullable=True)
+    max_bill_value = Column(Numeric(15, 2), nullable=True)
+    # TYPE-DRIFT FIX v1498 (2026-09-29): was String(20) — corrected to DateTime.
+    # DB column is varchar; a DDL migration is needed to change DB type.
+    # Filed as SCHEMA-DRIFT-002: sales_factors.valid_from/valid_to varchar→timestamptz.
+    valid_from = Column(String(20), nullable=True)   # SCHEMA-DRIFT-002: should be DateTime(timezone=True)
+    valid_to = Column(String(20), nullable=True)     # SCHEMA-DRIFT-002: should be DateTime(timezone=True)
+    applicable_days = Column(JSONB, server_default=text("'[]'"), default=list)
+    is_active = Column(Boolean, nullable=False, default=True)
+
+
+class ItemPriceRevision(BaseEntity):
+    """
+    Authoritative Temporal Price Revision Master (MRP, Selling Price, and Cost Price).
+    Preserves immutable price history, supports future-scheduled effective periods,
+    and enforces configurable approval policies and statutory ceiling constraints.
+    """
+    __tablename__ = "item_price_revisions"
+    __table_args__ = (
+        CheckConstraint("revised_selling_price >= 0", name="chk_ipr_revised_sp_non_neg"),
+        CheckConstraint("revised_mrp >= 0", name="chk_ipr_revised_mrp_non_neg"),
+        CheckConstraint("revised_selling_price <= revised_mrp", name="chk_ipr_sp_le_mrp"),
+        CheckConstraint("effective_to IS NULL OR effective_to > effective_from", name="chk_ipr_valid_date_range"),
+        Index("ix_ipr_variant_effective", "variant_id", "status", "effective_from", "effective_to"),
+        Index("ix_ipr_company_status", "company_id", "status"),
+        Index("ix_ipr_item_effective", "item_id", "status", "effective_from"),
+    )
+
+    company_id = Column(String(50), ForeignKey("companies.id", ondelete="RESTRICT"), nullable=False, index=True)
+    branch_id = Column(String(50), ForeignKey("branches.id", ondelete="SET NULL"), nullable=True, index=True)
+    item_id = Column(String(50), ForeignKey("items.id", ondelete="RESTRICT"), nullable=False, index=True)
+    variant_id = Column(String(50), ForeignKey("item_variants.id", ondelete="RESTRICT"), nullable=False, index=True)
+    price_book_id = Column(String(50), ForeignKey("price_books.id", ondelete="SET NULL"), nullable=True, index=True)
+    currency = Column(String(10), nullable=False, default="INR")
+
+    # Commercial & Statutory Price Fields
+    previous_mrp = Column(Numeric(15, 2), nullable=False, default=0.00)
+    revised_mrp = Column(Numeric(15, 2), nullable=False)
+    previous_selling_price = Column(Numeric(15, 2), nullable=False, default=0.00)
+    revised_selling_price = Column(Numeric(15, 2), nullable=False)
+    previous_cost_price = Column(Numeric(15, 2), nullable=True)
+    revised_cost_price = Column(Numeric(15, 2), nullable=True)
+
+    # Temporal Bounds
+    effective_from = Column(DateTime(timezone=True), nullable=False, index=True)
+    effective_to = Column(DateTime(timezone=True), nullable=True, index=True)
+
+    # Lifecycle State Machine
+    # DRAFT | PENDING_APPROVAL | APPROVED | REJECTED | SCHEDULED | ACTIVE | SUPERSEDED | EXPIRED
+    status = Column(String(30), nullable=False, default="PENDING_APPROVAL", index=True)
+    reason_code = Column(String(50), nullable=False, default="MANUAL_REVISION")
+    justification = Column(Text, nullable=True)
+
+    # Approval Metadata
+    approval_required = Column(Boolean, nullable=False, default=False)
+    approval_request_id = Column(String(50), nullable=True, index=True)
+    approved_by = Column(String(100), nullable=True)
+    approved_at = Column(DateTime(timezone=True), nullable=True)
+    rejection_reason = Column(Text, nullable=True)
+
+    # Ingress & Audit
+    source = Column(String(30), nullable=False, default="MANUAL")
+    batch_id = Column(String(50), nullable=True, index=True)
+    audit_ref = Column(String(100), nullable=True)
+    metadata_json = Column(JSONB, server_default=text("'{}'"), default=dict)
+
+    # Relationships
+    item = relationship("Item", foreign_keys=[item_id])
+    variant = relationship("ItemVariant", foreign_keys=[variant_id])
+    price_book = relationship("PriceBook", foreign_keys=[price_book_id])
+

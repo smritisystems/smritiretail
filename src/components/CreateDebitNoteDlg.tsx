@@ -5,13 +5,13 @@
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
  * Version      : 3.16.0
  * Created      : 2026-08-15
- * Modified     : 2026-08-19
+ * Modified     : 2026-09-19
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, FileText, Save, AlertTriangle } from 'lucide-react';
 import { apiFetchV1 } from '../lib/apiFetchV1';
 import { TransactionAttachmentPanel } from './common/TransactionAttachmentPanel';
@@ -20,23 +20,44 @@ import type { TransactionAttachment } from '../domain/attachment';
 interface CreateDebitNoteModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onDebitNoteCreated: () => void;
+  onDebitNoteCreated?: () => void;
+  onSuccess?: () => void;
   suppliers: any[];
+  defaultSupplierId?: string;
+  defaultReceiptNo?: string;
+  defaultClaimAmount?: number;
+  defaultReason?: string;
 }
 
 export const CreateDebitNoteModal: React.FC<CreateDebitNoteModalProps> = ({
   isOpen,
   onClose,
   onDebitNoteCreated,
+  onSuccess,
   suppliers,
+  defaultSupplierId,
+  defaultReceiptNo,
+  defaultClaimAmount,
+  defaultReason,
 }) => {
-  const [supplierId, setSupplierId] = useState('');
-  const [receiptNo, setReceiptNo] = useState('');
-  const [claimAmount, setClaimAmount] = useState('200.00');
-  const [reason, setReason] = useState('Shortage in GRN Delivery');
+  const [supplierId, setSupplierId] = useState(defaultSupplierId || '');
+  const [receiptNo, setReceiptNo] = useState(defaultReceiptNo || '');
+  const [claimAmount, setClaimAmount] = useState(
+    defaultClaimAmount !== undefined ? defaultClaimAmount.toString() : '200.00'
+  );
+  const [reason, setReason] = useState(defaultReason || 'Shortage in GRN Delivery');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showAttachmentPanel, setShowAttachmentPanel] = useState(false);
+
+  useEffect(() => {
+    if (isOpen) {
+      if (defaultSupplierId) setSupplierId(defaultSupplierId);
+      if (defaultReceiptNo) setReceiptNo(defaultReceiptNo);
+      if (defaultClaimAmount !== undefined) setClaimAmount(defaultClaimAmount.toString());
+      if (defaultReason) setReason(defaultReason);
+    }
+  }, [isOpen, defaultSupplierId, defaultReceiptNo, defaultClaimAmount, defaultReason]);
 
   if (!isOpen) return null;
 
@@ -77,11 +98,13 @@ export const CreateDebitNoteModal: React.FC<CreateDebitNoteModalProps> = ({
         method: 'POST',
         body: JSON.stringify(payload),
       });
-      onDebitNoteCreated();
+      if (onDebitNoteCreated) onDebitNoteCreated();
+      if (onSuccess) onSuccess();
       onClose();
     } catch (err: any) {
       // Fallback: If endpoint is mock/simulated in UI, close modal and trigger callback
-      onDebitNoteCreated();
+      if (onDebitNoteCreated) onDebitNoteCreated();
+      if (onSuccess) onSuccess();
       onClose();
     } finally {
       setLoading(false);

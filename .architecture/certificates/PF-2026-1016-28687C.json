@@ -1,0 +1,15 @@
+{
+  "certificate_id": "PF-2026-1016-28687C",
+  "entity": "purchase",
+  "capability": "purchase.requisition_workspace",
+  "asset_type": "component",
+  "proposed_name": "src/components/purchase/PurchaseRequisitionWorkspace.tsx",
+  "target_file_path": "src/components/purchase/PurchaseRequisitionWorkspace.tsx",
+  "decision": "CREATE_APPROVED",
+  "canonical_owner": "src/components/purchase/PurchaseRequisitionWorkspace.tsx",
+  "content_hash": "4e74bc57741630d67c80890ee5dd43ff5ca134ad74caa34f04eaf75094cba27b",
+  "git_commit": "d31f67424fa8d2d51e3dfa79fff72d71e08210e1",
+  "issued_at": "2026-10-16T08:45:31.900652+00:00",
+  "expires_at": "2026-10-23T08:45:31.900652+00:00",
+  "status": "ISSUED"
+}

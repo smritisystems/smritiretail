@@ -4,24 +4,23 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.16.0
+ * Version      : 6.69.0
  * Created      : 2026-08-21
- * Modified     : 2026-08-23
+ * Modified     : 2026-10-03
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
  */
 
 import React, { useState } from "react";
-import { SmritiProPosBillinginal } from "./ProPosBillingTerm.tsx";
-import { SmritiProPosEodReportw } from "./ProPosEodReportVie.tsx";
-import { SmritiDailyReportsDashDashboard } from "./ProPosDailyReports.tsx";
-import { SmritiPromotionEngineine } from "./ProPosPromotionEng.tsx";
-import { SmritiCommissionBuildilder } from "./ProPosCommissionBu.tsx";
+import { ENTERPRISE_BILLING_SUITE_VERSION_LABEL } from "../../../config/version.ts";
+import { SmritiProPosEodReport } from "./ProPosEodReportVie.tsx";
+import { SmritiDailyReportsDashboard } from "./ProPosDailyReports.tsx";
+import { SmritiPromotionEngine } from "./ProPosPromotionEng.tsx";
+import { SmritiCommissionBuilder } from "./ProPosCommissionBu.tsx";
 import { BillingTerm } from "../BillingTerm.tsx";
 import { Product, POSProfile, Shift } from "../../../types.ts";
 import { 
-  ShoppingCart, 
   Receipt,
   BarChart3, 
   Sparkles, 
@@ -45,6 +44,10 @@ interface SmritiProPosWorkspaceProps {
   initialTab?: ProPosActiveTab;
 }
 
+/**
+ * @deprecated Superseded by `src/components/billing/BillingWorkspace.tsx` which provides the canonical
+ * unified POS terminal, holding carts, multi-pay, split-tender, and offline queue architecture.
+ */
 export const ProPosWs: React.FC<SmritiProPosWorkspaceProps> = ({
   products = [],
   profiles = [],
@@ -65,6 +68,12 @@ export const ProPosWs: React.FC<SmritiProPosWorkspaceProps> = ({
   return (
     <div className="h-full flex flex-col bg-[#f8f9fa] dark:bg-[#191c1e] text-[#191c1e] dark:text-[#eff1f3] overflow-hidden font-sans">
       
+      {/* Deprecation notice banner */}
+      <div className="bg-amber-500/10 border-b border-amber-500/20 px-6 py-2 flex items-center justify-between text-xs text-amber-700 dark:text-amber-300">
+        <span>⚠️ <strong>Notice:</strong> ProPosWs is superseded by the canonical <strong>Enterprise Billing Workspace</strong> (<code>BillingWorkspace.tsx</code>).</span>
+        <span className="font-mono text-[10px] text-amber-600 dark:text-amber-400 uppercase px-2 py-0.5 rounded bg-amber-500/20 border border-amber-500/30 font-bold">SUPERSEDED</span>
+      </div>
+
       {/* Primary ProPOS Workspace Top App Header */}
       <header className="bg-white dark:bg-[#131b2e] border-b border-[#c4c5d5] dark:border-[#444653] flex justify-between items-center px-6 h-12 shrink-0 z-20 shadow-2xs">
         
@@ -74,35 +83,22 @@ export const ProPosWs: React.FC<SmritiProPosWorkspaceProps> = ({
             <span className="w-2.5 h-2.5 rounded-full bg-[#16a34a] animate-pulse"></span>
             <h1 className="text-sm font-bold text-[#00288e] dark:text-[#a8b8ff] tracking-tight flex items-center gap-1.5">
               <span>Enterprise Billing Suite</span>
-              <span className="text-[10px] px-1.5 py-0.5 bg-[#dde1ff] dark:bg-[#1e40af] text-[#00288e] dark:text-white rounded font-mono">v6.16</span>
+              <span className="text-[10px] px-1.5 py-0.5 bg-[#dde1ff] dark:bg-[#1e40af] text-[#00288e] dark:text-white rounded font-mono">{ENTERPRISE_BILLING_SUITE_VERSION_LABEL}</span>
             </h1>
           </div>
 
           <nav className="flex items-center gap-1">
             <button
               type="button"
-              onClick={() => setActiveTab("INVOICING")}
+              onClick={() => setActiveTab("BILLING")}
               className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${
-                activeTab === "INVOICING"
+                activeTab === "BILLING"
                   ? "bg-[#041632] text-white shadow-xs"
                   : "text-[#565e74] dark:text-[#bec6e0] hover:bg-[#f3f4f5] dark:hover:bg-[#2d3133]"
               }`}
             >
               <Receipt size={14} />
-              <span>Distributor Invoicing</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setActiveTab("BILLING")}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${
-                activeTab === "BILLING"
-                  ? "bg-[#00288e] text-white shadow-xs"
-                  : "text-[#565e74] dark:text-[#bec6e0] hover:bg-[#f3f4f5] dark:hover:bg-[#2d3133]"
-              }`}
-            >
-              <ShoppingCart size={14} />
-              <span>Speed POS Terminal</span>
+              <span>Billing Workspace</span>
             </button>
 
             <button
@@ -175,18 +171,15 @@ export const ProPosWs: React.FC<SmritiProPosWorkspaceProps> = ({
 
       {/* Main Workspace Active View */}
       <div className="flex-1 overflow-hidden relative">
-        {activeTab === "INVOICING" && (
+        {(activeTab === "INVOICING" || activeTab === "BILLING") && (
           <BillingTerm
             products={products}
             onNotification={showToast}
             onRefreshData={onRefreshData}
           />
         )}
-        {activeTab === "BILLING" && (
-          <SmritiProPosBillinginal onNotification={showToast} />
-        )}
         {activeTab === "EOD_Z_REPORT" && (
-          <SmritiProPosEodReportw
+          <SmritiProPosEodReport
             onCommitCloseout={(eod) => {
               showToast("Register Closed", `Z-Report committed for shift ${eod.shiftId}`, "success");
             }}
@@ -194,13 +187,13 @@ export const ProPosWs: React.FC<SmritiProPosWorkspaceProps> = ({
           />
         )}
         {activeTab === "DAILY_REPORTS" && (
-          <SmritiDailyReportsDashDashboard />
+          <SmritiDailyReportsDashboard />
         )}
         {activeTab === "PROMOTIONS" && (
-          <SmritiPromotionEngineine />
+          <SmritiPromotionEngine />
         )}
         {activeTab === "COMMISSIONS" && (
-          <SmritiCommissionBuildilder />
+          <SmritiCommissionBuilder />
         )}
       </div>
 

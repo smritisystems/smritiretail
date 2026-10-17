@@ -30,16 +30,20 @@ const MENU_PERMISSION_RESOURCES: Record<string, string> = {
   "menu-about-smriti": "about_smriti",
   "menu-dev-tracker": "dev_tracker",
   "menu-pos": "pos_workspace",
+  "menu-desktop-billing": "pos_terminal",
   "menu-sales": "sales_billing",
   "menu-customer-master": "customer_master",
   "menu-crm": "crm_studio",
   "menu-loyalty": "loyalty_rewards",
   "menu-profiles": "terminal_profiles",
+  "menu-sales-promotions": "promotions_studio",
   "menu-inventory": "inventory_workspace",
   "menu-item-master": "item_master",
+  "menu-price-revision": "price_revision_studio",
   "menu-barcode": "barcode_studio",
   "menu-stock-ledger": "stock_ledger",
   "menu-purchase": "purchase_studio",
+  "menu-grn": "purchase_studio",
   "menu-supplier-mgmt": "supplier_mgmt",
   "menu-business-ledger": "business_ledger",
   "menu-accounting-sync": "accounting_sync",
@@ -58,6 +62,8 @@ const MENU_PERMISSION_RESOURCES: Record<string, string> = {
   "menu-approval-matrix": "approval_matrix",
   "menu-company-setup": "company_setup",
   "menu-audit-logs": "audit_logs",
+  "menu-manager": "menu_manager",
+  "menu-security": "security_management",
 };
 
 const permissionResourceForMenu = (menuId: string) =>
@@ -325,7 +331,7 @@ export const getCanonicalMenuTree = (): MenuItemPermission[] => [
     children: [
       { menuId: "hk_backup", menuName: "Database Backup", isAccessible: true },
       { menuId: "hk_restore", menuName: "Database Restore", isAccessible: false },
-      { menuId: "hk_reindex", menuName: "Re-index PostgreSQL Sequences", isAccessible: true },
+      { menuId: "hk_reindex", menuName: "Re-index Database Sequences", isAccessible: true },
       { menuId: "hk_purge_logs", menuName: "Purge Temporary Audit Files", isAccessible: true },
     ],
   },

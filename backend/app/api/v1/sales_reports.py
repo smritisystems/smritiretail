@@ -26,6 +26,7 @@ from sqlalchemy import func, distinct, desc
 from ...api.deps import get_company_db, get_tenant_context, get_current_user, TenantContext
 from ...models.sales import SalesInvoice, SalesInvoiceItem, SalesReturn, SalesReturnItem
 from ...models.inventory import Product
+from ...models.item_master import ItemVariant, Item
 
 router = APIRouter(prefix="/sales-reports")
 
@@ -93,11 +94,13 @@ async def top_selling_items(
     Items ranked by total quantity sold within the period from SalesInvoiceItem.
     """
     try:
+        sku_col = func.coalesce(ItemVariant.variant_sku, Product.sku, SalesInvoiceItem.code)
+        pid_col = func.coalesce(SalesInvoiceItem.variant_id, SalesInvoiceItem.product_id, SalesInvoiceItem.code)
         stmt = (
             select(
-                SalesInvoiceItem.code,
+                pid_col.label("pid"),
                 SalesInvoiceItem.name,
-                Product.sku,
+                sku_col.label("sku"),
                 func.sum(SalesInvoiceItem.quantity).label("total_qty"),
                 func.sum(SalesInvoiceItem.total_amount).label("gross_value"),
                 func.sum(
@@ -105,9 +108,12 @@ async def top_selling_items(
                 ).label("total_discount"),
                 func.count(distinct(SalesInvoice.id)).label("invoice_count"),
                 SalesInvoiceItem.product_id,
+                SalesInvoiceItem.item_id,
+                SalesInvoiceItem.variant_id,
             )
             .join(SalesInvoice, SalesInvoiceItem.invoice_id == SalesInvoice.id)
             .outerjoin(Product, SalesInvoiceItem.product_id == Product.id)
+            .outerjoin(ItemVariant, SalesInvoiceItem.variant_id == ItemVariant.id)
             .where(
                 SalesInvoice.is_deleted == False,
                 SalesInvoice.status.notin_(["CANCELLED", "DRAFT"])
@@ -116,7 +122,7 @@ async def top_selling_items(
         stmt = _t(stmt, SalesInvoice, tenant)
         stmt = _d(stmt, SalesInvoice, from_date, to_date)
         stmt = (
-            stmt.group_by(SalesInvoiceItem.code, SalesInvoiceItem.name, Product.sku, SalesInvoiceItem.product_id)
+            stmt.group_by(pid_col, SalesInvoiceItem.name, sku_col, SalesInvoiceItem.product_id, SalesInvoiceItem.item_id, SalesInvoiceItem.variant_id)
             .order_by(desc("total_qty"))
             .limit(top_n)
         )
@@ -125,13 +131,15 @@ async def top_selling_items(
         lines = [
             {
                 "rank":           i + 1,
-                "product_id":     r[7] or r[0],
+                "product_id":     r[0] or r[7],
                 "product_name":   r[1] or "",
-                "sku":            r[2] or r[0] or "",
+                "sku":            r[2] or "",
                 "total_qty":      float(r[3] or 0),
                 "gross_value":    float(r[4] or 0),
                 "total_discount": max(0.0, float(r[5] or 0)),
                 "invoice_count":  int(r[6] or 0),
+                "item_id":        r[8],
+                "variant_id":     r[9],
             }
             for i, r in enumerate(rows)
         ]
@@ -612,13 +620,15 @@ async def size_wise_sales(
     Aggregates sales_invoice_items by product + size + color.
     """
     try:
-        size_col = func.coalesce(Product.size, "Standard")
-        color_col = func.coalesce(Product.color, "N/A")
+        size_col = func.coalesce(ItemVariant.size, Product.size, "Standard")
+        color_col = func.coalesce(ItemVariant.color, Product.color, "N/A")
+        sku_col = func.coalesce(ItemVariant.variant_sku, Product.sku, SalesInvoiceItem.code)
+        pid_col = func.coalesce(SalesInvoiceItem.variant_id, SalesInvoiceItem.product_id, SalesInvoiceItem.code)
         stmt = (
             select(
-                SalesInvoiceItem.product_id,
+                pid_col.label("product_id"),
                 SalesInvoiceItem.name.label("product_name"),
-                Product.sku,
+                sku_col.label("sku"),
                 size_col.label("size_label"),
                 color_col.label("color"),
                 func.sum(SalesInvoiceItem.quantity).label("total_qty"),
@@ -628,9 +638,12 @@ async def size_wise_sales(
                 ).label("total_discount"),
                 func.sum(SalesInvoiceItem.tax_amount).label("total_tax"),
                 func.count(distinct(SalesInvoice.id)).label("invoice_count"),
+                SalesInvoiceItem.item_id,
+                SalesInvoiceItem.variant_id,
             )
             .join(SalesInvoice, SalesInvoiceItem.invoice_id == SalesInvoice.id)
             .outerjoin(Product, SalesInvoiceItem.product_id == Product.id)
+            .outerjoin(ItemVariant, SalesInvoiceItem.variant_id == ItemVariant.id)
             .where(
                 SalesInvoice.is_deleted == False,
                 SalesInvoice.status.notin_(["CANCELLED", "DRAFT"])
@@ -640,13 +653,21 @@ async def size_wise_sales(
         stmt = _d(stmt, SalesInvoice, from_date, to_date)
         if product_id:
             stmt = stmt.where(
-                (SalesInvoiceItem.product_id == product_id) | (SalesInvoiceItem.code == product_id)
+                (SalesInvoiceItem.product_id == product_id) |
+                (SalesInvoiceItem.variant_id == product_id) |
+                (SalesInvoiceItem.item_id == product_id) |
+                (SalesInvoiceItem.code == product_id)
             )
         if size_label:
-            stmt = stmt.where(Product.size.ilike(f"%{size_label}%"))
+            stmt = stmt.where(
+                or_(
+                    Product.size.ilike(f"%{size_label}%"),
+                    ItemVariant.size.ilike(f"%{size_label}%"),
+                )
+            )
 
         stmt = (
-            stmt.group_by(SalesInvoiceItem.product_id, SalesInvoiceItem.name, Product.sku, size_col, color_col)
+            stmt.group_by(pid_col, SalesInvoiceItem.name, sku_col, size_col, color_col, SalesInvoiceItem.item_id, SalesInvoiceItem.variant_id)
             .order_by(desc("total_qty"))
             .limit(500)
         )
@@ -664,6 +685,8 @@ async def size_wise_sales(
                 "total_discount": max(0.0, float(r[7] or 0)),
                 "total_tax":      float(r[8] or 0),
                 "invoice_count":  int(r[9] or 0),
+                "item_id":        r[10],
+                "variant_id":     r[11],
             }
             for r in rows
         ]

@@ -25,7 +25,9 @@ export interface LedgerColumn<T> {
 export interface LedgerFilterOption {
   key: string;
   label: string;
-  options: { label: string; value: string }[];
+  /** "select" (default) | "date" | "text" */
+  type?: "select" | "date" | "text";
+  options?: { label: string; value: string }[];
   defaultValue?: string;
 }
 

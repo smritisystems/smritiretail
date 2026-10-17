@@ -1,0 +1,15 @@
+{
+  "certificate_id": "PF-2026-1017-30628F",
+  "entity": "purchase_order",
+  "capability": "purchase_order.procurement_visual_reports_types",
+  "asset_type": "types",
+  "proposed_name": "procurementVisualReportsTypes.ts",
+  "target_file_path": "src/components/procurement/procurementVisualReportsTypes.ts",
+  "decision": "CREATE_APPROVED",
+  "canonical_owner": "src/components/procurement/procurementVisualReportsTypes.ts",
+  "content_hash": "3604f661c50614d1f9f312d4986414950d964626280aa405376535b2ea755c30",
+  "git_commit": "49079072e1c43bcb8d572ac36f34349b8d8ec634",
+  "issued_at": "2026-10-17T10:16:58.311407+00:00",
+  "expires_at": "2026-10-24T10:16:58.311407+00:00",
+  "status": "ISSUED"
+}

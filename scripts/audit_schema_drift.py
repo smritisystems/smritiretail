@@ -1,20 +1,25 @@
 """
- * Project      : SMRITI Retail OS
- * Author       : Jawahar Ramkripal Mallah
- * Email        : support@smritibooks.com
- * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 3.25.0
- * Created      : 2026-08-15
- * Modified     : 2026-08-15
- * Copyright    : © SMRITIBooks.com. All Rights Reserved.
- * License      : Proprietary Commercial Software
- * Classification: Internal
+Project      : SMRITI Retail OS
+Author       : Jawahar Ramkripal Mallah
+Designation  : Chief Systems Architect & Creator
+Email        : support@smritibooks.com
+Websites     : smritibooks.com | erpnbook.com | aitdl.com
+Version      : 6.69.0
+Created      : 2026-08-15
+Modified     : 2026-10-03
+Copyright    : © SMRITIBooks.com. All Rights Reserved.
+License      : Proprietary Commercial Software
+Classification: Internal
 """
 
 import sys, os
+from urllib.parse import urlparse
 import psycopg2
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "backend")))
+
+from app.core.config import settings
+_PG_PORT = urlparse(str(settings.DATABASE_URL)).port or int(os.getenv("POSTGRES_PORT", 2781))
 
 from app.db.base import Base
 
@@ -38,7 +43,7 @@ def run_readonly_schema_drift_audit(target_dbs=None):
 
     for db_name in target_dbs:
         print(f"\n--- AUDITING DATABASE: {db_name} ---")
-        db_url = f"postgresql://postgres:postgres@localhost:5432/{db_name}"
+        db_url = f"postgresql://postgres:postgres@localhost:{_PG_PORT}/{db_name}"
         try:
             conn = psycopg2.connect(db_url)
         except Exception as e:
