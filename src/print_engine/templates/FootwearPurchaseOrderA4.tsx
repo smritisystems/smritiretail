@@ -28,6 +28,7 @@ import smritiImagePlaceholder from "../../../myImages/smriti-image-placeholder.p
 import imageNotAvailablePlaceholder from "../../../myImages/image_not_available_placeholder.png";
 import tattlyLogoBlack from "../../../myImages/tattly_logo_black.png";
 import { SafeRichTermsRenderer } from "../../components/common/SafeRichTermsRenderer";
+import { getTenantCompanyContext } from "../../lib/apiFetchV1";
 
 export interface FootwearPurchaseOrderItem {
   articleCode: string;
@@ -181,6 +182,12 @@ export const FootwearPurchaseOrderA4: React.FC<{ data?: FootwearPurchaseOrderDat
   const sumEu43 = items.reduce((a, b) => a + (b.eu43 || 0), 0);
   const sumEu44 = items.reduce((a, b) => a + (b.eu44 || 0), 0);
   const sumEu45 = items.reduce((a, b) => a + (b.eu45 || 0), 0);
+  const tenantCtx = typeof window !== "undefined" ? getTenantCompanyContext() : null;
+  const companyName = data.companyName || tenantCtx?.companyName || "TATTLY FOOTWEAR & LEATHER APPAREL PVT LTD";
+  const companyAddress = data.companyAddress || tenantCtx?.companyAddress || "Plot 88, Sector 59, IMT Manesar, Gurugram, Haryana - 122051";
+  const companyGstin = data.companyGstin || tenantCtx?.companyGstin || "06AAACT2934K1Z2";
+  const companyContact = data.companyContact || tenantCtx?.companyEmail || "footwear.procurement@tattlythreads.com | +91 124 4987 880";
+  const dcName = data.dcName || `${companyName} Logistics Hub`;
 
   return (
     <div
@@ -203,7 +210,7 @@ export const FootwearPurchaseOrderA4: React.FC<{ data?: FootwearPurchaseOrderDat
             }}
           />
           <div className="text-[52px] leading-tight font-black tracking-wider text-[#1e3a8a]">
-            {data.companyName || "TATTLY THREADS"}
+            {companyName}
           </div>
           <div className="text-xl font-bold tracking-[0.22em] mt-1 text-slate-800 border-t-2 border-dashed border-[#1e3a8a]/40 pt-1 w-full">
             {data.documentStatus === "DRAFT" ? "PURCHASE ORDER — DRAFT" : "PURCHASE ORDER"}
@@ -228,7 +235,7 @@ export const FootwearPurchaseOrderA4: React.FC<{ data?: FootwearPurchaseOrderDat
             </div>
             <div>
               <h1 className="text-xl font-black text-indigo-950 leading-none">
-                {data.companyName || "TATTLY FOOTWEAR & LEATHER APPAREL PVT LTD"}
+                {companyName}
               </h1>
               <p className="text-[10px] text-slate-500 mt-1">
                 {data.companySubtitle || "Footwear Manufacturing, Brand Licensing & International Distribution"}
@@ -236,9 +243,9 @@ export const FootwearPurchaseOrderA4: React.FC<{ data?: FootwearPurchaseOrderDat
             </div>
           </div>
           <div className="text-[10px] text-slate-600 mt-2 space-y-0.5">
-            <p><strong>Central Godown & Office:</strong> {data.companyAddress || "Plot 88, Sector 59, IMT Manesar, Gurugram, Haryana - 122051"}</p>
-            <p><strong>GSTIN / VAT:</strong> {data.companyGstin || "06AAACT2934K1Z2"} | <strong>Country:</strong> India / EU Export Desk</p>
-            <p><strong>Footwear Procurement:</strong> {data.companyContact || "footwear.procurement@tattlythreads.com | +91 124 4987 880"}</p>
+            <p><strong>Central Godown & Office:</strong> {companyAddress}</p>
+            <p><strong>GSTIN / VAT:</strong> {companyGstin} | <strong>Country:</strong> India / EU Export Desk</p>
+            <p><strong>Footwear Procurement:</strong> {companyContact}</p>
           </div>
         </div>
 
@@ -273,7 +280,7 @@ export const FootwearPurchaseOrderA4: React.FC<{ data?: FootwearPurchaseOrderDat
             <span>RECEIVING GODOWN / CENTRAL DC</span>
             <span className="font-mono text-slate-500">{data.dcCode || "DC CODE: DC-MANESAR"}</span>
           </div>
-          <div className="font-bold text-xs text-slate-900">{data.dcName || "Tattly Central Footwear Logistics Hub"}</div>
+          <div className="font-bold text-xs text-slate-900">{dcName}</div>
           <div className="text-slate-600 mt-0.5">{data.dcAddress || "Shed 4, IndoSpace Logistics Park, IMT Manesar, Gurugram, Haryana - 122051"}</div>
           <div className="text-slate-600 mt-0.5"><strong>GSTIN:</strong> {data.dcGstin || "06AAACT2934K1Z2"}</div>
           <div className="text-slate-600 mt-0.5">{data.dcReceivingGate || "Receiving Gate: Bay 2 Footwear Inward (08:00 to 17:00 Hrs)"}</div>

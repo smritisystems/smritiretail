@@ -380,6 +380,17 @@ export const LAUNCHPAD_CATALOG: TileData[] = [
     roles: ["MANAGER", "SYSADMIN"],
   },
   {
+    id: "company-profile",
+    title: "Company Profile & Settings",
+    subtitle: "Enterprise corporate identity, multi-branch, banking & statutory branding studio",
+    icon: "apartment",
+    tag: "Profile / Core",
+    badgeType: "primary",
+    group: "Data & Config",
+    roles: ["MANAGER", "SYSADMIN"],
+    accentColor: "blue",
+  },
+  {
     id: "company-setup",
     title: "Company Setup Wizard",
     subtitle: "Interactive onboarding wizard for organization, branches & initial masters",

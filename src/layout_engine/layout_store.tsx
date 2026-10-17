@@ -333,6 +333,12 @@ export const LayoutEngineProvider: React.FC<ProviderProps> = ({
       category: "Data & Config",
     },
     {
+      id: "company-profile",
+      label: "Company Profile & Settings",
+      icon: "apartment",
+      category: "Data & Config",
+    },
+    {
       id: "company-setup",
       label: "Company Setup Wizard",
       icon: "magic_button",

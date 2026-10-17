@@ -1,4 +1,14 @@
-## [6.99.0] — 2026-10-17
+## [6.99.0] — 2026-10-18
+
+### Foundation & Setup — SMRITI Company Profile & Corporate Settings Subsystem v1.0.0
+
+Designed, implemented, and verified the enterprise **SMRITI Company Profile & Corporate Settings Subsystem**, establishing an authoritative, database-backed Single System-of-Record for corporate identity, multi-branch network operations, statutory GST tax compliance, banking coordinates, and document branding:
+- **Alembic Migration (`v1537_company_profile_foundation.py`)**: Added 24 corporate attributes, 8 branch attributes, and foreign-key bank relationships across `smritisys` and `smriti001`.
+- **Backend Service & REST Router (`company_profile.py`, `company_profile_service.py`)**: Implemented CRUD with SHA-256 hash-chaining into `compliance_immutable_audit_logs`, `SYSADMIN`/`MANAGER` RBAC, and SMRITI HREP error envelopes.
+- **Dynamic Document Identity Resolver (`seller_resolver.py`)**: Enforced fail-closed validation blocking invoice issuance if corporate legal name, GSTIN, address, or banking coordinates are missing, with structured address construction and default bank selection.
+- **Print & PDF Pipeline Synchronization**: Dynamic seller context wired into `StandardInvoiceA4.tsx`, `PurchaseOrderPrintA4.tsx`, `FootwearPurchaseOrderA4.tsx`, `ThermalReceipt80mm.tsx`, `TaxInvoicePrintPag.tsx`, `invoice_pdf_service.py`, and `sales_order_pdf_service.py`, strictly preserving immutable historical invoice snapshots.
+- **Enterprise 7-Tab Studio GUI (`CompanyProfileStudio.tsx`)**: Built rich-aesthetic studio with Corporate Identity, Address & Branches, Tax & Statutory, Banking Coordinates, Branding & Documents, Regional & Localization, and Change History tabs, registered in `TabRenderer.tsx`, `layout_store.tsx`, and `launchpadCatalog.ts`.
+- **Automated Verification**: 10/10 Pytest tests green (`test_company_profile_api.py`, `test_seller_resolver.py`), 34/34 Vitest tests green (`companyProfileStudio.test.tsx`, `fioriLaunchpad.test.ts`, `poPrintBrandingAndTerms.test.tsx`, `distTaxInvoiceStitchFlow.test.ts`), and 0 `tsc --noEmit` errors.
 
 ### Reports & Visual Analytics — Visual Reports Dashboard Aggregation & Schema Alignment Fix v1.0.0
 

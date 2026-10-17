@@ -17,6 +17,7 @@
 import React from "react";
 import { DEFAULT_SBI_BANK_ACCOUNT } from "../../services/bankStore.ts";
 import tattlyLogoBlack from "../../../myImages/tattly_logo_black.png";
+import { getTenantCompanyContext } from "../../lib/apiFetchV1";
 
 export interface InvoiceItem {
   code?: string;
@@ -81,6 +82,7 @@ export interface InvoiceData {
   dispatchEmail?: string;
   accountsEmail?: string;
   website?: string;
+  logoUrl?: string;
   bankDetails?: BankAccountDetails | string;
   invoiceNo?: string;
   invoice_no?: string;
@@ -288,13 +290,15 @@ export const StandardInvoiceA4: React.FC<{ data?: InvoiceData }> = ({ data = {} 
   const isJobWorkOrder = data.documentType === "job-work-order";
   const currencySymbol = data.currencySymbol || "₹";
   
-  // Tattly Threads Approved Branding & Company Info (supports custom company override)
-  const companyName = data.companyName || "TATTLY THREADS";
-  const companyAddress = data.companyAddress || "Office Number 81, Ibrahim Rehmatulla Road, Beside Jio Gallery, Near HP Petrol Pump, Mumbai, Maharashtra 400003";
-  const companyGst = data.companyGst || "27AAXFT2508H1ZR";
-  const dispatchEmail = data.dispatchEmail || "dispatch@tattlythreads.com";
-  const accountsEmail = data.accountsEmail || "accounts@tattlythreads.com";
+  // Dynamic Corporate Identity & Company Info (from data or active tenant profile)
+  const tenantCtx = typeof window !== "undefined" ? getTenantCompanyContext() : null;
+  const companyName = data.companyName || tenantCtx?.companyName || "TATTLY THREADS";
+  const companyAddress = data.companyAddress || tenantCtx?.companyAddress || "Office Number 81, Ibrahim Rehmatulla Road, Beside Jio Gallery, Near HP Petrol Pump, Mumbai, Maharashtra 400003";
+  const companyGst = data.companyGst || tenantCtx?.companyGstin || "27AAXFT2508H1ZR";
+  const dispatchEmail = data.dispatchEmail || tenantCtx?.companyEmail || "dispatch@tattlythreads.com";
+  const accountsEmail = data.accountsEmail || tenantCtx?.companyEmail || "accounts@tattlythreads.com";
   const website = data.website || "www.tattlythreads.com";
+  const logoUrl = data.logoUrl || tenantCtx?.companyLogoUrl || tattlyLogoBlack;
 
   // Bank Details extraction
   const bankInfo: BankAccountDetails | null = typeof data.bankDetails === "object" && data.bankDetails !== null
@@ -429,14 +433,13 @@ export const StandardInvoiceA4: React.FC<{ data?: InvoiceData }> = ({ data = {} 
                   <div className="flex justify-between items-start border-b-2 border-slate-900 pb-2 mb-3">
                     <div>
                       <div className="flex items-center gap-2.5 mb-1">
-                        <img src={tattlyLogoBlack} alt="TATTLY THREADS" className="h-9 w-auto object-contain" />
+                        <img src={logoUrl} alt={companyName} className="h-9 w-auto object-contain" />
                         <h1 className="text-xl font-extrabold tracking-tight text-slate-950 uppercase m-0 leading-tight">
                           {companyName}
                         </h1>
                       </div>
-                      <p className="text-[10.5px] text-slate-600 mt-0.5 m-0">
-                        Office No. 81, Ibrahim Rehmatullah Road, Beside Jio Gallery, near HP Petrol Pump,<br />
-                        Mumbai, Maharashtra - 400003
+                      <p className="text-[10.5px] text-slate-600 mt-0.5 m-0 whitespace-pre-line">
+                        {companyAddress}
                       </p>
                       <div className="text-[10.5px] text-slate-600 mt-0.5 font-mono leading-tight">
                         <div>Web: {website}</div>
@@ -477,7 +480,7 @@ export const StandardInvoiceA4: React.FC<{ data?: InvoiceData }> = ({ data = {} 
                 ) : (
                   <div className="flex justify-between items-center border-b-2 border-slate-900 pb-2 mb-3">
                     <div className="flex items-center gap-2">
-                      <img src={tattlyLogoBlack} alt="TATTLY THREADS" className="h-5 w-auto object-contain" />
+                      <img src={logoUrl} alt={companyName} className="h-5 w-auto object-contain" />
                       <span className="font-extrabold text-xs text-slate-900 uppercase tracking-tight">{companyName} — {isJobWorkOrder ? "JOB WORK ORDER" : isPurchaseOrder ? "PURCHASE ORDER" : "TAX INVOICE"}</span>
                     </div>
                     <span className="text-[11px] font-bold font-mono text-slate-700">{isJobWorkOrder ? "Job Work No" : isPurchaseOrder ? "PO No" : "Invoice No"}: {invoiceNo}</span>
@@ -761,7 +764,7 @@ export const StandardInvoiceA4: React.FC<{ data?: InvoiceData }> = ({ data = {} 
                         Authorised Signatory
                       </p>
                       <div className="text-right pt-2">
-                        <p className="font-bold text-slate-950 text-[9.5px] m-0">For TATTLY THREADS</p>
+                        <p className="font-bold text-slate-950 text-[9.5px] m-0">For {companyName}</p>
                         <div className="h-4"></div>
                         <p className="text-[8.5px] text-slate-500 font-medium m-0 border-t border-slate-400 pt-0.5 inline-block">Authorised Signatory</p>
                       </div>

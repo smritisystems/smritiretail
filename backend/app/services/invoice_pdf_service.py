@@ -422,7 +422,8 @@ class InvoicePdfService:
         invoice: Any,
         company_name: str = "TATTLY THREADS",
         company_gstin: str = "27AAXFT2508H1ZR",
-        extra_meta: Optional[Dict[str, Any]] = None
+        extra_meta: Optional[Dict[str, Any]] = None,
+        seller_ctx: Optional[Any] = None,
     ) -> str:
         """
         Renders pixel-faithful GST Tax Invoice HTML directly from an authoritative model or object.
@@ -476,33 +477,37 @@ class InvoicePdfService:
 
         is_rcm = bool(getattr(invoice, "reverse_charge", False) or getattr(invoice, "is_reverse_charge", False) or meta.get("reverse_charge", False) or meta.get("is_reverse_charge", False))
         reverse_charge_display = "Yes" if is_rcm else "No"
-        # Dynamic Bank Details: Prefer model fields -> meta overrides -> environment variables -> fallback
+        # Dynamic Bank Details: Prefer seller_ctx -> model fields -> meta overrides -> environment variables -> fallback
         bank_name = (
-            getattr(invoice, "bank_name", None)
+            (getattr(seller_ctx, "bank_name", None) if seller_ctx else None)
+            or getattr(invoice, "bank_name", None)
             or meta.get("bank_name")
             or os.getenv("DEFAULT_BANK_NAME", "STATE BANK OF INDIA")
         )
         account_no = (
-            getattr(invoice, "account_no", None)
+            (getattr(seller_ctx, "account_no", None) if seller_ctx else None)
+            or getattr(invoice, "account_no", None)
             or meta.get("bank_account_no")
             or meta.get("account_no")
             or os.getenv("DEFAULT_BANK_ACCOUNT_NO", "43976711765")
         )
         ifsc_code = (
-            getattr(invoice, "ifsc_code", None)
+            (getattr(seller_ctx, "ifsc_code", None) if seller_ctx else None)
+            or getattr(invoice, "ifsc_code", None)
             or meta.get("bank_ifsc")
             or meta.get("ifsc_code")
             or os.getenv("DEFAULT_BANK_IFSC", "SBIN0030425")
         )
         bank_branch = (
-            getattr(invoice, "bank_branch", None)
+            (getattr(seller_ctx, "bank_branch", None) if seller_ctx else None)
+            or getattr(invoice, "bank_branch", None)
             or meta.get("bank_branch")
             or os.getenv("DEFAULT_BANK_BRANCH", "WARDHMAN NAGAR NAGPUR")
         )
 
-        company_web = meta.get("company_website", "www.tattlythreads.com")
-        dispatch_email = meta.get("dispatch_email", "dispatch@tattlythreads.com")
-        accounts_email = meta.get("accounts_email", "accounts@tattlythreads.com")
+        company_web = (getattr(seller_ctx, "website", None) if seller_ctx else None) or meta.get("company_website", "www.tattlythreads.com")
+        dispatch_email = (getattr(seller_ctx, "dispatch_email", None) if seller_ctx else None) or meta.get("dispatch_email", "dispatch@tattlythreads.com")
+        accounts_email = (getattr(seller_ctx, "accounts_email", None) if seller_ctx else None) or meta.get("accounts_email", "accounts@tattlythreads.com")
 
         # Resolve Dispatch From Snapshot (Statutory Physical Origin)
         dispatch_from = getattr(invoice, "dispatch_from_snapshot", None) or meta.get("dispatch_from_snapshot") or {}
@@ -1295,11 +1300,29 @@ class InvoicePdfService:
         # Verify layout integrity before rendering
         verify_smrititaxinvoice_integrity()
 
+        # Dynamic Seller Resolution from canonical database
+        seller_ctx = None
+        try:
+            from .seller_resolver import resolve_seller_context_async
+            target_cid = company_id or getattr(invoice_rec, "company_id", "COMP-001")
+            seller_ctx = await resolve_seller_context_async(
+                db=session,
+                company_id=target_cid,
+                invoice=invoice_rec,
+                extra_meta=extra_meta,
+            )
+            if seller_ctx:
+                company_name = seller_ctx.company_name
+                company_gstin = seller_ctx.company_gstin
+        except Exception:
+            seller_ctx = None
+
         return cls.generate_invoice_html_from_model(
             invoice=invoice_rec,
             company_name=company_name,
             company_gstin=company_gstin,
-            extra_meta=extra_meta
+            extra_meta=extra_meta,
+            seller_ctx=seller_ctx,
         )
 
     @classmethod
