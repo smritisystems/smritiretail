@@ -45,6 +45,9 @@ import {
   MoreHorizontal,
   Building2,
   FileText,
+  Package,
+  Settings,
+  ChevronDown,
 } from "lucide-react";
 import { APP_VERSION } from "../../config/version.ts";
 
@@ -182,221 +185,179 @@ export const BillingWorkspace: React.FC<BillingWorkspaceProps> = ({
         : "bg-[#f8f9fa] dark:bg-[#191c1e] text-[#191c1e] dark:text-[#eff1f3]"
     }`}>
       {/* ── Top Unified Billing Navigation Header ── */}
-      <header className={`border-b flex flex-wrap justify-between items-center px-4 h-13 shrink-0 z-20 shadow-2xs gap-2 transition-colors duration-300 ${
+      <header className={`border-b flex flex-wrap justify-between items-center px-4 py-2 shrink-0 z-20 shadow-2xs gap-2 transition-colors duration-300 ${
         auxView === "CREDIT_BILLING"
           ? "bg-[#2d1057] dark:bg-[#1e0a3c] border-[#6d28d9]/40"
           : auxView === "B2B_DISTRIBUTOR"
           ? "bg-white dark:bg-[#1e293b] border-slate-300 dark:border-slate-700"
-          : "bg-white dark:bg-[#131b2e] border-[#c4c5d5] dark:border-[#444653]"
+          : "bg-white dark:bg-[#131b2e] border-slate-200 dark:border-slate-800"
       }`}>
-        {/* Brand & Tri-Modal Segmented Switcher */}
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 pr-3 border-r border-[#c4c5d5] dark:border-[#444653]">
-            <span className="w-2.5 h-2.5 rounded-full bg-[#16a34a] animate-pulse" />
-            <h1 className="text-sm font-bold text-[#00288e] dark:text-[#a8b8ff] tracking-tight flex items-center gap-1.5">
-              <span>Billing Workspace</span>
-              <span className="text-[10px] px-1.5 py-0.5 bg-[#dde1ff] dark:bg-[#1e40af] text-[#00288e] dark:text-white rounded font-mono">
-                v{APP_VERSION}
-              </span>
-            </h1>
-          </div>
-
-          {/* Tri-Modal Operational Segmented Switcher */}
-          <div className="flex items-center p-0.5 bg-[#e2e8f0]/60 dark:bg-black/40 rounded-xl border border-[#cbd5e1] dark:border-[#334155]">
-            <button
-              type="button"
-              onClick={() => setAuxView("WORKSPACE")}
-              className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                auxView === "WORKSPACE"
-                  ? "bg-[#041632] text-white shadow-xs"
-                  : "text-[#475569] dark:text-[#94a3b8] hover:text-[#0f172a] dark:hover:text-white hover:bg-white/40 dark:hover:bg-white/5"
-              }`}
-            >
-              <Receipt size={13} />
-              <span>Counter POS</span>
-              <kbd className="text-[9px] px-1 py-0.2 bg-white/15 rounded font-mono opacity-80">Alt+1</kbd>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setAuxView("CREDIT_BILLING")}
-              className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                auxView === "CREDIT_BILLING"
-                  ? "bg-[#7c3aed] text-white shadow-xs"
-                  : "text-[#475569] dark:text-[#94a3b8] hover:text-[#0f172a] dark:hover:text-white hover:bg-white/40 dark:hover:bg-white/5"
-              }`}
-            >
-              <CreditCard size={13} />
-              <span>Credit</span>
-              <kbd className="text-[9px] px-1 py-0.2 bg-white/15 rounded font-mono opacity-80">Alt+2</kbd>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setAuxView("B2B_DISTRIBUTOR")}
-              className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                auxView === "B2B_DISTRIBUTOR"
-                  ? "bg-[#2563eb] text-white shadow-xs"
-                  : "text-[#475569] dark:text-[#94a3b8] hover:text-[#0f172a] dark:hover:text-white hover:bg-white/40 dark:hover:bg-white/5"
-              }`}
-            >
-              <Building2 size={13} />
-              <span>B2B / Tax Invoice</span>
-              <kbd className="text-[9px] px-1 py-0.2 bg-white/15 rounded font-mono opacity-80">Alt+3</kbd>
-            </button>
-          </div>
-        </div>
-
-        {/* Auxiliary Views & Operational Status HUD */}
-        <div className="flex items-center gap-2 sm:gap-3 text-xs font-semibold text-[#565e74] dark:text-[#bec6e0]">
-          {/* Day End Z-Report Toggle */}
+        {/* Left Action Buttons: Counter POS, Credit, B2B/Tax Invoice, Packing Slips, Consolidated Billing */}
+        <div className="flex items-center gap-2 flex-wrap">
           <button
             type="button"
-            onClick={() => setAuxView(auxView === "EOD_Z_REPORT" ? "WORKSPACE" : "EOD_Z_REPORT")}
-            title="EOD Z-Report & Cash Settlement (F8)"
-            className={`px-2.5 py-1.5 rounded-lg transition flex items-center gap-1.5 border text-xs font-semibold ${
-              auxView === "EOD_Z_REPORT"
-                ? "bg-[#b45309] text-white border-[#b45309] shadow-xs"
-                : "border-[#c4c5d5] dark:border-[#444653] hover:bg-[#f3f4f5] dark:hover:bg-[#2d3133]"
+            onClick={() => setAuxView("WORKSPACE")}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+              auxView === "WORKSPACE"
+                ? "bg-[#041632] text-white shadow-xs"
+                : "bg-white border border-slate-300 text-slate-700 hover:bg-slate-50"
             }`}
           >
-            <FileSpreadsheet size={13} />
-            <span className="hidden sm:inline">EOD Z-Report</span>
-            <kbd className="text-[9px] opacity-75 font-mono">F8</kbd>
+            <Receipt size={14} />
+            <span>Counter POS</span>
+            <kbd className="text-[9px] px-1 py-0.2 bg-white/20 rounded font-mono opacity-90">Alt+1</kbd>
           </button>
 
-          {/* Shift Reports Toggle */}
+          <button
+            type="button"
+            onClick={() => setAuxView("CREDIT_BILLING")}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+              auxView === "CREDIT_BILLING"
+                ? "bg-[#7c3aed] text-white shadow-xs"
+                : "bg-white border border-slate-300 text-slate-700 hover:bg-slate-50"
+            }`}
+          >
+            <CreditCard size={14} />
+            <span>Credit</span>
+            <kbd className="text-[9px] px-1 py-0.2 bg-slate-100 text-slate-600 rounded font-mono">Alt+2</kbd>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setAuxView("B2B_DISTRIBUTOR")}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+              auxView === "B2B_DISTRIBUTOR"
+                ? "bg-[#2563eb] text-white shadow-xs"
+                : "bg-white border border-slate-300 text-slate-700 hover:bg-slate-50"
+            }`}
+          >
+            <Building2 size={14} />
+            <span>B2B / Tax Invoice</span>
+            <kbd className="text-[9px] px-1 py-0.2 bg-slate-100 text-slate-600 rounded font-mono">Alt+3</kbd>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => showToast("Packing Slips", "Opening Packing Slips studio...", "info")}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 rounded-lg text-xs font-bold transition cursor-pointer shadow-2xs"
+          >
+            <Package size={14} />
+            <span>Packing Slips</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => showToast("Consolidated Billing", "Opening Consolidated Billing view...", "info")}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 rounded-lg text-xs font-bold transition cursor-pointer shadow-2xs"
+          >
+            <FileText size={14} />
+            <span>Consolidated Billing</span>
+          </button>
+        </div>
+
+        {/* Right Tools: Reports, More, Shift HUD, Clock, Settings */}
+        <div className="flex items-center gap-2.5 text-xs font-semibold text-slate-600">
+          {/* Reports Toggle */}
           <button
             type="button"
             onClick={() => setAuxView(auxView === "SHIFT_REPORTS" ? "WORKSPACE" : "SHIFT_REPORTS")}
-            title="Shift Activity Summary"
-            className={`px-2.5 py-1.5 rounded-lg transition flex items-center gap-1.5 border text-xs font-semibold ${
-              auxView === "SHIFT_REPORTS"
-                ? "bg-[#00288e] text-white border-[#00288e] shadow-xs"
-                : "border-[#c4c5d5] dark:border-[#444653] hover:bg-[#f3f4f5] dark:hover:bg-[#2d3133]"
-            }`}
+            className="px-2.5 py-1.5 bg-white border border-slate-300 hover:bg-slate-50 rounded-lg transition flex items-center gap-1.5 text-xs font-semibold text-slate-700 cursor-pointer shadow-2xs"
           >
-            <BarChart3 size={13} />
-            <span className="hidden sm:inline">Reports</span>
+            <BarChart3 size={14} />
+            <span>Reports</span>
           </button>
 
-          {/* Credit Billing Toggle */}
-          <button
-            type="button"
-            onClick={() => setAuxView(auxView === "CREDIT_BILLING" ? "WORKSPACE" : "CREDIT_BILLING")}
-            title="Credit Billing Terminal"
-            className={`px-2.5 py-1.5 rounded-lg transition flex items-center gap-1.5 border text-xs font-semibold ${
-              auxView === "CREDIT_BILLING"
-                ? "bg-[#7c3aed] text-white border-[#7c3aed] shadow-xs"
-                : "border-[#c4c5d5] dark:border-[#444653] hover:bg-[#f3f4f5] dark:hover:bg-[#2d3133]"
-            }`}
-          >
-            <CreditCard size={13} />
-            <span className="hidden sm:inline">Credit Billing</span>
-          </button>
-
-          {/* REC-07: Secondary actions collapsed into overflow popover */}
+          {/* More Dropdown */}
           <div className="relative">
             <button
               type="button"
-              onClick={() => setShowOverflowMenu(v => !v)}
-              title="More billing tools"
-              className={`px-2.5 py-1.5 rounded-lg transition flex items-center gap-1.5 border text-xs font-semibold ${
-                showOverflowMenu
-                  ? "bg-theme-surface-3 border-indigo-500/50 text-theme-primary"
-                  : "border-[#c4c5d5] dark:border-[#444653] hover:bg-[#f3f4f5] dark:hover:bg-[#2d3133]"
-              }`}
+              onClick={() => setShowOverflowMenu((v) => !v)}
+              className="px-2.5 py-1.5 bg-white border border-slate-300 hover:bg-slate-50 rounded-lg transition flex items-center gap-1 text-xs font-semibold text-slate-700 cursor-pointer shadow-2xs"
             >
               <MoreHorizontal size={14} />
-              <span className="hidden sm:inline">More</span>
+              <span>More</span>
+              <ChevronDown size={12} />
             </button>
 
             {showOverflowMenu && (
               <>
-                {/* Backdrop to close on outside click */}
                 <div
                   className="fixed inset-0 z-30"
                   onClick={() => setShowOverflowMenu(false)}
                 />
-                <div className="absolute right-0 top-full mt-1.5 z-40 bg-white dark:bg-[#1e2228] border border-[#c4c5d5] dark:border-[#444653] rounded-xl shadow-2xl p-1.5 min-w-[200px] flex flex-col gap-0.5">
-                  {/* Gift Cards */}
+                <div className="absolute right-0 top-full mt-1.5 z-40 bg-white border border-slate-200 rounded-xl shadow-xl p-1.5 min-w-[200px] flex flex-col gap-0.5">
                   <button
                     type="button"
-                    id="pos-gift-cards-btn"
                     onClick={() => { setShowGiftCardModal(true); setShowOverflowMenu(false); }}
-                    className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-semibold text-amber-600 dark:text-amber-400 hover:bg-[#f3f4f5] dark:hover:bg-[#2d3133] transition text-left w-full cursor-pointer"
+                    className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold text-amber-700 hover:bg-slate-50 text-left w-full cursor-pointer"
                   >
-                    <Gift size={13} />
-                    Gift Cards
+                    <Gift size={13} /> Gift Cards
                   </button>
-                  {/* Gift Vouchers */}
                   <button
                     type="button"
-                    id="pos-gift-vouchers-btn"
                     onClick={() => { setShowGiftVoucherModal(true); setShowOverflowMenu(false); }}
-                    className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-semibold text-teal-600 dark:text-teal-400 hover:bg-[#f3f4f5] dark:hover:bg-[#2d3133] transition text-left w-full cursor-pointer"
+                    className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold text-teal-700 hover:bg-slate-50 text-left w-full cursor-pointer"
                   >
-                    <Ticket size={13} />
-                    Gift Vouchers
+                    <Ticket size={13} /> Gift Vouchers
                   </button>
-                  <div className="h-px bg-[#c4c5d5] dark:bg-[#444653] my-0.5" />
-                  {/* Sync & Recon */}
                   <button
                     type="button"
-                    id="pos-recon-btn"
                     onClick={() => { setShowReconModal(true); setShowOverflowMenu(false); }}
-                    className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-semibold text-blue-600 dark:text-blue-400 hover:bg-[#f3f4f5] dark:hover:bg-[#2d3133] transition text-left w-full cursor-pointer"
+                    className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold text-blue-700 hover:bg-slate-50 text-left w-full cursor-pointer"
                   >
-                    <RotateCcw size={13} />
-                    Sync &amp; Recon
+                    <RotateCcw size={13} /> Sync &amp; Recon
                   </button>
-                  {/* Dynamic Pricing */}
                   <button
                     type="button"
-                    id="pos-dynamic-pricing-btn"
                     onClick={() => { setShowDynamicPricingModal(true); setShowOverflowMenu(false); }}
-                    className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:bg-[#f3f4f5] dark:hover:bg-[#2d3133] transition text-left w-full cursor-pointer"
+                    className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold text-indigo-700 hover:bg-slate-50 text-left w-full cursor-pointer"
                   >
-                    <Zap size={13} />
-                    Dynamic Pricing
+                    <Zap size={13} /> Dynamic Pricing
                   </button>
-                  {/* Omni Orders */}
                   <button
                     type="button"
-                    id="pos-omni-order-btn"
                     onClick={() => { setShowOmniOrderModal(true); setShowOverflowMenu(false); }}
-                    className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-semibold text-emerald-600 dark:text-emerald-400 hover:bg-[#f3f4f5] dark:hover:bg-[#2d3133] transition text-left w-full cursor-pointer"
+                    className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold text-emerald-700 hover:bg-slate-50 text-left w-full cursor-pointer"
                   >
-                    <ShoppingBag size={13} />
-                    Omni Orders
+                    <ShoppingBag size={13} /> Omni Orders
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setAuxView(auxView === "EOD_Z_REPORT" ? "WORKSPACE" : "EOD_Z_REPORT"); setShowOverflowMenu(false); }}
+                    className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold text-amber-800 hover:bg-slate-50 text-left w-full cursor-pointer"
+                  >
+                    <FileSpreadsheet size={13} /> EOD Z-Report (F8)
                   </button>
                 </div>
               </>
             )}
           </div>
 
-          {/* Shift HUD Badge — always visible (REC-24: shown in all modes) */}
-          <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border ${auxView === "CREDIT_BILLING" ? "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300 border-purple-400/30" : "bg-[#dcfce7] text-[#166534] dark:bg-[#14532d]/40 dark:text-[#86efac] border-[#16a34a]/30"}`}>
-            <ShieldCheck size={13} />
-            <span className="font-mono">{registerLabel}</span>
-            <span className="opacity-60">•</span>
-            <span>{auxView === "CREDIT_BILLING" ? "Credit Mode" : shiftStatus}</span>
+          {/* Shift HUD Badge — green outline pill */}
+          <div className="flex items-center gap-1.5 px-3 py-1 rounded-full border border-emerald-400/50 bg-emerald-50 text-emerald-800 font-medium">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+            <span className="font-mono font-bold text-xs">{registerLabel}</span>
+            <span className="opacity-60">·</span>
+            <span className="text-xs">{shiftStatus}</span>
           </div>
 
-          {/* Real-time Clock */}
-          <div className="hidden md:flex items-center gap-1 bg-[#f3f4f5] dark:bg-[#191c1e] px-2.5 py-1 rounded-lg border border-[#c4c5d5] dark:border-[#444653] font-mono text-[11px]">
-            <Clock size={11} className="text-[#00288e] dark:text-[#a8b8ff]" />
-            <span>{currentTime}</span>
+          {/* Real-time Clock (2 lines) */}
+          <div className="flex items-center gap-1.5 bg-white border border-slate-300 px-2.5 py-0.5 rounded-lg text-slate-800 font-mono text-left">
+            <Clock size={13} className="text-slate-500 shrink-0" />
+            <div className="flex flex-col leading-tight">
+              <span className="text-xs font-bold">{currentTime}</span>
+              <span className="text-[9px] text-slate-500">17 Oct 2026</span>
+            </div>
           </div>
 
-          {/* Hotkeys Cheatsheet Trigger */}
+          {/* Settings Trigger */}
           <button
             type="button"
             onClick={() => setShowHotkeysModal(true)}
-            title="Billing Keyboard Shortcuts Guide"
-            className="p-1.5 rounded-lg border border-[#c4c5d5] dark:border-[#444653] hover:bg-[#f3f4f5] dark:hover:bg-[#2d3133] transition text-[#565e74] dark:text-[#bec6e0]"
+            title="Billing Settings &amp; Shortcuts"
+            className="p-1.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-600 cursor-pointer shadow-2xs"
           >
-            <HelpCircle size={15} />
+            <Settings size={15} />
           </button>
         </div>
       </header>

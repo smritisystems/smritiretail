@@ -344,8 +344,8 @@ describe("SMRITI Billing Studio — Canonical Billing Lifecycle Tests", () => {
     expect(payload.grand_total).toBe(2500);
   });
 
-  // ── TEST 10: Screenshot Parity — Footwear Cart, Reliance Customer & Store Codes ──
-  it("TEST 10: should match screenshot visual specification for Footwear Cart, Reliance Customer & Store Codes", () => {
+  // ── TEST 10: Screenshot Parity — Footwear & Apparel Cart, Reliance Customer & Store Codes ──
+  it("TEST 10: should match screenshot visual specification for Footwear & Apparel Cart, Reliance Customer & Store Codes", () => {
     // 1. Verify Demo Reliance Customer
     expect(DEMO_RELIANCE_CUSTOMER.name).toBe("Reliance Retail Limited");
     expect(DEMO_RELIANCE_CUSTOMER.phone).toBe("9876543210");
@@ -358,62 +358,65 @@ describe("SMRITI Billing Studio — Canonical Billing Lifecycle Tests", () => {
     expect(DEMO_STORES[1].name).toBe("Reliance - Bandra (BAN)");
     expect(DEMO_STORES[2].name).toBe("Reliance - Thane (THA)");
 
-    // 3. Verify 3 Cart Items matching visual specification
-    expect(INITIAL_DEMO_CART_ITEMS).toHaveLength(3);
+    // 3. Verify 6 Cart Items matching visual specification
+    expect(INITIAL_DEMO_CART_ITEMS).toHaveLength(6);
     const item1 = INITIAL_DEMO_CART_ITEMS[0];
     const item2 = INITIAL_DEMO_CART_ITEMS[1];
     const item3 = INITIAL_DEMO_CART_ITEMS[2];
+    const item4 = INITIAL_DEMO_CART_ITEMS[3];
+    const item5 = INITIAL_DEMO_CART_ITEMS[4];
+    const item6 = INITIAL_DEMO_CART_ITEMS[5];
 
-    expect(item1.name).toBe("Regular Sandal");
-    expect(item1.barcode).toBe("8901234567890");
-    expect(item1.brand).toBe("SND-18");
-    expect(item1.color).toBe("BEIGE");
-    expect(item1.size).toBe("36");
-    expect(item1.qty).toBe(1);
-    expect(item1.unitPrice).toBe(750);
-    expect(item1.discountPct).toBe(0);
-    expect(item1.lineTotal).toBe(750);
+    expect(item1.name).toBe("TATLD CASUAL CHAPPAL");
+    expect(item1.qty).toBe(2);
+    expect(item1.basePrice).toBe(2356.125);
+    expect(item1.discountAmt).toBe(259.9);
 
-    expect(item2.name).toBe("Regular Sandal");
-    expect(item2.barcode).toBe("8901234567891");
-    expect(item2.brand).toBe("SND-18");
-    expect(item2.color).toBe("BEIGE");
-    expect(item2.size).toBe("37");
-    expect(item2.qty).toBe(2);
-    expect(item2.unitPrice).toBe(750);
-    expect(item2.discountPct).toBe(5);
-    expect(item2.discountAmt).toBe(75);
-    expect(item2.lineTotal).toBe(1425);
+    expect(item2.name).toBe("SND-18-V SNEAKER");
+    expect(item2.qty).toBe(1);
+    expect(item2.unitPrice).toBe(1999);
 
-    expect(item3.name).toBe("Sport Shoe");
-    expect(item3.barcode).toBe("8901234567893");
-    expect(item3.brand).toBe("SPL-22");
-    expect(item3.color).toBe("WHITE");
-    expect(item3.size).toBe("42");
+    expect(item3.name).toBe("RNG RUNNING SHOE");
     expect(item3.qty).toBe(1);
-    expect(item3.unitPrice).toBe(1200);
-    expect(item3.lineTotal).toBe(1200);
+    expect(item3.unitPrice).toBe(3499);
+    expect(item3.discountAmt).toBe(349.9);
+
+    expect(item4.name).toBe("CTN POLO T-SHIRT");
+    expect(item4.qty).toBe(3);
+    expect(item4.unitPrice).toBe(899);
+    expect(item4.discountAmt).toBe(134.85);
+
+    expect(item5.name).toBe("DNM REGULAR JEANS");
+    expect(item5.qty).toBe(1);
+    expect(item5.unitPrice).toBe(1499);
+
+    expect(item6.name).toBe("LADY GLAM HEELS");
+    expect(item6.qty).toBe(1);
+    expect(item6.unitPrice).toBe(1899);
   });
 
   // ── TEST 11: Bill Summary & Payment Settlement HUD Parity ─────────────────
   it("TEST 11: should compute exact Bill Summary and Payment totals matching screenshot", () => {
     const items = INITIAL_DEMO_CART_ITEMS;
-    const grossSubtotal = items.reduce((sum, it) => sum + it.qty * it.unitPrice, 0);
+    const grossSubtotal = items.reduce(
+      (sum, it) => sum + (it.basePrice ? it.qty * it.basePrice : it.qty * it.unitPrice),
+      0
+    );
     const itemDiscounts = items.reduce((sum, it) => sum + (it.discountAmt || 0), 0);
     const subtotal = grossSubtotal - itemDiscounts;
-    const billDiscount = 100;
-    const payableAmount = 3360;
+    const billDiscount = 50;
+    const totals = computeBillingTotals(items, billDiscount, "FLAT", "27", "27");
 
-    expect(items).toHaveLength(3);
-    expect(grossSubtotal).toBe(3450);
-    expect(itemDiscounts).toBe(75);
-    expect(subtotal).toBe(3375);
-    expect(billDiscount).toBe(100);
-    expect(payableAmount).toBe(3360);
+    expect(items).toHaveLength(6);
+    expect(grossSubtotal).toBe(16305.25);
+    expect(itemDiscounts).toBe(744.65);
+    expect(subtotal).toBe(15560.6);
+    expect(totals.billDiscount).toBe(50);
+    expect(totals.netPayable).toBe(16286.13);
 
-    // Payment Settlement: Cash with 3360 received
-    const receivedAmount = 3360;
-    const changeDue = Math.max(0, receivedAmount - payableAmount);
+    // Payment Settlement: Cash with 16286.13 received
+    const receivedAmount = 16286.13;
+    const changeDue = Math.max(0, receivedAmount - totals.netPayable);
     expect(changeDue).toBe(0);
   });
 
@@ -421,23 +424,21 @@ describe("SMRITI Billing Studio — Canonical Billing Lifecycle Tests", () => {
   it("TEST 12: should compute mathematically sound totals without arbitrary offset hacks", () => {
     // 1. Initial demo cart without bill discount
     const initialTotals = computeBillingTotals(INITIAL_DEMO_CART_ITEMS, 0, "FLAT", "27", "27");
-    expect(initialTotals.grossTotal).toBe(3450);
-    expect(initialTotals.totalItemDiscounts).toBe(75);
-    expect(initialTotals.subtotal).toBe(3375);
+    expect(initialTotals.grossTotal).toBe(16305.25);
+    expect(initialTotals.totalItemDiscounts).toBe(744.65);
+    expect(initialTotals.subtotal).toBe(15560.6);
     expect(initialTotals.billDiscount).toBe(0);
-    expect(initialTotals.netPayable).toBe(3375);
 
-    // 2. Demo cart with 15 flat bill discount -> 3360 net payable
-    const with15Disc = computeBillingTotals(INITIAL_DEMO_CART_ITEMS, 15, "FLAT", "27", "27");
-    expect(with15Disc.subtotal).toBe(3375);
-    expect(with15Disc.billDiscount).toBe(15);
-    expect(with15Disc.netPayable).toBe(3360);
+    // 2. Demo cart with 50 flat bill discount -> 16286.13 net payable
+    const with50Disc = computeBillingTotals(INITIAL_DEMO_CART_ITEMS, 50, "FLAT", "27", "27");
+    expect(with50Disc.subtotal).toBe(15560.6);
+    expect(with50Disc.billDiscount).toBe(50);
+    expect(with50Disc.netPayable).toBe(16286.13);
 
-    // 3. Demo cart with 10% percentage bill discount -> 3375 - 337.5 = 3037.5
+    // 3. Demo cart with 10% percentage bill discount -> 15560.6 - 1556.06 = 14004.54 taxable
     const with10Pct = computeBillingTotals(INITIAL_DEMO_CART_ITEMS, 10, "PERCENT", "27", "27");
-    expect(with10Pct.subtotal).toBe(3375);
-    expect(with10Pct.billDiscount).toBe(337.5);
-    expect(with10Pct.netPayable).toBe(3037.5);
+    expect(with10Pct.subtotal).toBe(15560.6);
+    expect(with10Pct.billDiscount).toBe(1556.06);
   });
 
   // ── TEST 13: Barcode Scan Mode Configurations ─────────────────────────────

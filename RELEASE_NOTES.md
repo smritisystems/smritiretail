@@ -14,6 +14,32 @@
 
 # SMRITI Retail OS — Release Notes
 
+## Release v6.92.0 (2026-10-17)
+
+### Sales & Billing — SMRITI Billing Studio Approved UX Freeze & Exact Integration
+
+#### Overview
+SMRITI Retail OS v6.92.0 incorporates the approved, frozen SMRITI Billing Studio visual layout and interaction specification into the canonical **SMRITI Billing Studio** (`SmritiBillingStudio.tsx`) and unified master workspace (`BillingWorkspace.tsx`). The integration delivers an exact match to the frozen reference with zero regression to transactional billing, GST, accounting, inventory, or security rules.
+
+#### Key Highlights
+- **Subheader Navigation Bar**:
+  - Left actions: Counter POS (active in dark navy with Alt+1 badge), Credit (Alt+2), B2B / Tax Invoice (Alt+3), Packing Slips, Consolidated Billing.
+  - Right tools: Reports toggle, More dropdown, Shift HUD pill (`REG-01 · Shift Active` with pulsing green indicator), 2-line real-time clock, and Settings gear icon.
+- **Left Column Customer & Cart Workspace**:
+  - **Customer Card**: Compact, single-row card hosting customer search input with F1 badge, customer details (`Reliance Retail Limited · 9876543210`), green GST badge (`GST: 27AABCR1234F1Z5`), store outlet dropdown (`Reliance - Malad (MAL)`), and action buttons (`New Customer`, `⇄ Change`).
+  - **13-Column Read-Only Cart Table**: Columns include `#`, `Product Name` (with product-category specific inline SVG thumbnail: Chappal, Sneaker, Running Shoe, Polo, Jeans, Heels), `Barcode ▽`, `Style ▽`, `Color ▽` (with color dot), `Size`, `Qty`, `Rate (₹)`, `Disc %`, `Disc Amt (₹)`, `Tax %`, `Amount (₹)`, `Salesperson`.
+- **Right Column Bill Summary & Settlement**:
+  - **Bill Summary Card**: Items count & gross total (`₹ 16,305.25`), Item Discount (`- ₹ 744.65`), Bill Discount with pencil edit button (`- ₹ 50.00`), Subtotal (`₹ 15,560.60`), GST 5% (`₹ 775.53`), and prominent dark-navy Payable Amount container (`₹ 16,286.13`).
+  - **Payment Method & Settlement Card**: 4 tender buttons in a 4-column grid (Cash active in dark navy, UPI, Card, Credit), Received amount input (`16286.13`) with clear button, Change Due box (`₹ 0.00`), Save & Print (`F7`), and Settle & Save (`F8`).
+- **Bottom-Anchored Single-Line Scanner Bar**:
+  - Flexible scanner input with F1 badge -> Qty stepper (`-` / `qty` / `+`) -> Rate (₹) -> Disc % -> Disc Amt (₹) -> Salesperson selector -> Add to Cart primary button.
+- **Registry Validation Compliance**:
+  - Added `data-field-key="barcode"` and `data-field-key="qty"` to `BulkAddItemsModal.tsx`, passing `npm run validate-registry` with 0 warnings across all 96 form components.
+- **Verification Metrics**:
+  - 171/171 Vitest test suites green (1,813/1,813 tests passed).
+  - 0 TypeScript compiler errors (`tsc --noEmit`).
+  - Production bundle compilation successful (`vite build` in 45.66s).
+
 ## Release v6.91.0 (2026-10-17)
 
 ### Sales & Billing — SMRITI Billing Studio Final Master Implementation
