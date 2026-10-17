@@ -29,18 +29,26 @@ import { getTenantCompanyContext } from "../../lib/apiFetchV1";
 export const ThermalReceipt80mm: React.FC<{ data?: any }> = ({ data = {} }) => {
   const fmt = (v: any) => (typeof v === "number" ? v.toFixed(2) : Number(v || 0).toFixed(2));
   const tenantCtx = typeof window !== "undefined" ? getTenantCompanyContext() : null;
-  const storeName = data.storeName || tenantCtx?.companyName || "SMRITI RETAIL";
-  const storeAddress = data.storeAddress || tenantCtx?.companyAddress || "Main Street, City";
-  const gstin = data.gstin || tenantCtx?.companyGstin || "29XXXXX0000X1Z5";
-  const phone = data.phone || tenantCtx?.companyPhone || "1800-000-0000";
+  const storeName = data.storeName || tenantCtx?.companyName || "";
+  const storeAddress = data.storeAddress || tenantCtx?.companyAddress || "";
+  const gstin = data.gstin || tenantCtx?.companyGstin || "";
+  const phone = data.phone || tenantCtx?.companyPhone || "";
+
+  const isIdentityMissing = !storeName;
 
   return (
     <div className="w-[80mm] bg-white text-black font-mono text-xs mx-auto p-[4mm]">
+      {isIdentityMissing && (
+        <div className="border-2 border-black p-2 mb-3 text-center font-bold uppercase tracking-wider text-[10px]">
+          CORPORATE IDENTITY NOT CONFIGURED
+        </div>
+      )}
+
       <div className="text-center mb-4 border-b border-dashed border-black pb-4">
-        <h1 className="text-lg font-bold uppercase">{storeName}</h1>
-        <p>{storeAddress}</p>
-        <p>GSTIN: {gstin}</p>
-        <p>Tel: {phone}</p>
+        {storeName && <h1 className="text-lg font-bold uppercase">{storeName}</h1>}
+        {storeAddress && <p>{storeAddress}</p>}
+        {gstin && <p>GSTIN: {gstin}</p>}
+        {phone && <p>Tel: {phone}</p>}
       </div>
 
       <div className="mb-4">

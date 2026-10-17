@@ -26,7 +26,6 @@
 import React from "react";
 import smritiImagePlaceholder from "../../../myImages/smriti-image-placeholder.png";
 import imageNotAvailablePlaceholder from "../../../myImages/image_not_available_placeholder.png";
-import tattlyLogoBlack from "../../../myImages/tattly_logo_black.png";
 import { SafeRichTermsRenderer } from "../../components/common/SafeRichTermsRenderer";
 import { getTenantCompanyContext } from "../../lib/apiFetchV1";
 
@@ -183,11 +182,14 @@ export const FootwearPurchaseOrderA4: React.FC<{ data?: FootwearPurchaseOrderDat
   const sumEu44 = items.reduce((a, b) => a + (b.eu44 || 0), 0);
   const sumEu45 = items.reduce((a, b) => a + (b.eu45 || 0), 0);
   const tenantCtx = typeof window !== "undefined" ? getTenantCompanyContext() : null;
-  const companyName = data.companyName || tenantCtx?.companyName || "TATTLY FOOTWEAR & LEATHER APPAREL PVT LTD";
-  const companyAddress = data.companyAddress || tenantCtx?.companyAddress || "Plot 88, Sector 59, IMT Manesar, Gurugram, Haryana - 122051";
-  const companyGstin = data.companyGstin || tenantCtx?.companyGstin || "06AAACT2934K1Z2";
-  const companyContact = data.companyContact || tenantCtx?.companyEmail || "footwear.procurement@tattlythreads.com | +91 124 4987 880";
-  const dcName = data.dcName || `${companyName} Logistics Hub`;
+  const companyName = data.companyName || tenantCtx?.companyName || "";
+  const companyAddress = data.companyAddress || tenantCtx?.companyAddress || "";
+  const companyGstin = data.companyGstin || tenantCtx?.companyGstin || "";
+  const companyContact = data.companyContact || tenantCtx?.companyEmail || "";
+  const dcName = data.dcName || (companyName ? `${companyName} Logistics Hub` : "Logistics Hub");
+
+  const isIdentityMissing = !companyName;
+  const initials = companyName ? companyName.split(" ").map((w: string) => w[0]).filter(Boolean).slice(0, 2).join("").toUpperCase() : "PO";
 
   return (
     <div
@@ -195,28 +197,19 @@ export const FootwearPurchaseOrderA4: React.FC<{ data?: FootwearPurchaseOrderDat
         isLandscape ? "w-[297mm] min-h-[210mm] p-6" : "w-[210mm] min-h-[297mm] p-8"
       } relative bg-white text-slate-900 mx-auto box-border text-[11px] font-sans print-only-container shadow-sm leading-normal overflow-hidden`}
     >
-      {/* ── Document Watermark (Diagonal TATTLY THREADS Logo + Stamp) ── */}
-      <div className="absolute inset-0 pointer-events-none flex items-center justify-center opacity-[0.07] z-20 overflow-hidden select-none print:opacity-[0.08] mix-blend-multiply">
-        <div className="text-center font-black tracking-widest text-[#1e3a8a] rotate-[-28deg] border-4 border-dashed border-[#1e3a8a] px-10 py-6 rounded-3xl uppercase flex flex-col items-center justify-center shadow-xs">
-          <img
-            src={tattlyLogoBlack}
-            alt="TATTLY THREADS"
-            className="w-36 h-auto max-h-20 object-contain mb-2 print:max-h-20"
-            onError={(e) => {
-              const img = e.currentTarget;
-              if (img.src !== window.location.origin + "/tattly_logo_black.png") {
-                img.src = "/tattly_logo_black.png";
-              }
-            }}
-          />
-          <div className="text-[52px] leading-tight font-black tracking-wider text-[#1e3a8a]">
-            {companyName}
-          </div>
-          <div className="text-xl font-bold tracking-[0.22em] mt-1 text-slate-800 border-t-2 border-dashed border-[#1e3a8a]/40 pt-1 w-full">
-            {data.documentStatus === "DRAFT" ? "PURCHASE ORDER — DRAFT" : "PURCHASE ORDER"}
+      {/* ── Document Watermark ── */}
+      {companyName && (
+        <div className="absolute inset-0 pointer-events-none flex items-center justify-center opacity-[0.07] z-20 overflow-hidden select-none print:opacity-[0.08] mix-blend-multiply">
+          <div className="text-center font-black tracking-widest text-[#1e3a8a] rotate-[-28deg] border-4 border-dashed border-[#1e3a8a] px-10 py-6 rounded-3xl uppercase flex flex-col items-center justify-center shadow-xs">
+            <div className="text-[52px] leading-tight font-black tracking-wider text-[#1e3a8a]">
+              {companyName}
+            </div>
+            <div className="text-xl font-bold tracking-[0.22em] mt-1 text-slate-800 border-t-2 border-dashed border-[#1e3a8a]/40 pt-1 w-full">
+              {data.documentStatus === "DRAFT" ? "PURCHASE ORDER — DRAFT" : "PURCHASE ORDER"}
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       <style>{`
         @media print {
@@ -226,26 +219,35 @@ export const FootwearPurchaseOrderA4: React.FC<{ data?: FootwearPurchaseOrderDat
           }
         }
       `}</style>
+      {/* CORPORATE IDENTITY NOT CONFIGURED BANNER */}
+      {isIdentityMissing && (
+        <div className="relative z-30 bg-red-50 border-2 border-red-600 text-red-800 p-2.5 mb-3 rounded font-bold text-center uppercase tracking-wider text-xs">
+          CORPORATE IDENTITY NOT CONFIGURED — PRINTING BLOCKED
+        </div>
+      )}
+
       {/* 1. CORPORATE HEADER */}
       <div className="flex justify-between border-b-2 border-indigo-950 pb-3 mb-3">
         <div>
           <div className="flex items-center gap-3">
             <div className="bg-indigo-950 text-white w-10 h-10 rounded flex items-center justify-center font-black text-lg tracking-wider">
-              TF
+              {initials}
             </div>
             <div>
               <h1 className="text-xl font-black text-indigo-950 leading-none">
-                {companyName}
+                {companyName || "COMPANY NAME NOT SET"}
               </h1>
-              <p className="text-[10px] text-slate-500 mt-1">
-                {data.companySubtitle || "Footwear Manufacturing, Brand Licensing & International Distribution"}
-              </p>
+              {data.companySubtitle && (
+                <p className="text-[10px] text-slate-500 mt-1">
+                  {data.companySubtitle}
+                </p>
+              )}
             </div>
           </div>
           <div className="text-[10px] text-slate-600 mt-2 space-y-0.5">
             <p><strong>Central Godown & Office:</strong> {companyAddress}</p>
-            <p><strong>GSTIN / VAT:</strong> {companyGstin} | <strong>Country:</strong> India / EU Export Desk</p>
-            <p><strong>Footwear Procurement:</strong> {companyContact}</p>
+            <p><strong>GSTIN / VAT:</strong> {companyGstin || "—"}</p>
+            {companyContact && <p><strong>Contact / Procurement:</strong> {companyContact}</p>}
           </div>
         </div>
 

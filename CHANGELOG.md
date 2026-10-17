@@ -1,6 +1,14 @@
 ## [6.99.0] — 2026-10-18
 
-### Foundation & Setup — SMRITI Company Profile & Corporate Settings Subsystem v1.0.0
+### Print & Compliance — Company Identity Printing Safety Remediation v6.92.0
+
+Remediated the Document & Printing Safety gate across all PDF engines, API route handlers, and frontend print templates:
+- **Eradication of Hardcoded Identity Fallbacks**: Completely eliminated static production fallbacks ("Tattly Threads", GSTIN "27AAXFT2508H1ZR", hardcoded SBI bank accounts, emails, websites, and logos) from `invoice_pdf_service.py`, `sales_order_pdf_service.py`, `StandardInvoiceA4.tsx`, `PurchaseOrderPrintA4.tsx`, `FootwearPurchaseOrderA4.tsx`, `ThermalReceipt80mm.tsx`, `SizePivotMatrixA4.tsx`, and `TaxInvoicePrintPag.tsx`.
+- **Fail-Closed Printing Safety Banners**: Implemented prominent `CORPORATE IDENTITY NOT CONFIGURED — PRINTING BLOCKED` warning banners and HTTP 422 `InvoiceRenderError` barriers preventing document issuance or printing when required statutory legal entity attributes are missing.
+- **Document-Specific Identity Enforcement**: Configured statutory banking coordinates as mandatory exclusively for `TAX_INVOICE`. Non-tax documents (`SALES_ORDER`, `QUOTATION`, `POS_RECEIPT`) and `PURCHASE_ORDER` (which evaluates Buyer profile) validate identity without requiring bank details.
+- **Historical Snapshot Precedence & Immutability**: Inverted seller resolver precedence to prioritize historical invoice row snapshot columns and `rule_snapshots` over live mutable `Company` records, guaranteeing historical reprint immutability.
+- **Sales Order Conversion Sealing**: Sealed seller snapshot fields (`seller_name`, `seller_gstin`, `seller_address`, `bank_branch`, `bank_name`, `account_no`, `ifsc_code`) into dedicated columns and `rule_snapshots` at conversion time.
+- **Automated Verification**: Certified with 14/14 Pytest tests green (`test_seller_resolver.py` and `test_printing_safety.py`), 9/9 Vitest tests green (`poPrintBrandingAndTerms.test.tsx`), 11/11 architecture CI gate checks passed, 10/10 tenant boundary checks passed, and 0 `tsc --noEmit` errors.
 
 Designed, implemented, and verified the enterprise **SMRITI Company Profile & Corporate Settings Subsystem**, establishing an authoritative, database-backed Single System-of-Record for corporate identity, multi-branch network operations, statutory GST tax compliance, banking coordinates, and document branding:
 - **Alembic Migration (`v1537_company_profile_foundation.py`)**: Added 24 corporate attributes, 8 branch attributes, and foreign-key bank relationships across `smritisys` and `smriti001`.

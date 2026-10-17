@@ -25,7 +25,6 @@
  */
 
 import React from "react";
-import tattlyLogoBlack from "../../../myImages/tattly_logo_black.png";
 import smritiImagePlaceholder from "../../../myImages/smriti-image-placeholder.png";
 import imageNotAvailablePlaceholder from "../../../myImages/image_not_available_placeholder.png";
 import { SafeRichTermsRenderer } from "../../components/common/SafeRichTermsRenderer";
@@ -330,13 +329,15 @@ export const PurchaseOrderPrintA4: React.FC<{ data: PurchaseOrderPrintData }> = 
   }, [data.itemReferences, data.sizewiseItems, data.standardItems]);
 
   const tenantCtx = typeof window !== "undefined" ? getTenantCompanyContext() : null;
-  const companyName = data.companyName || tenantCtx?.companyName || "TATTLY THREADS";
-  const companyAddress = data.companyAddress || tenantCtx?.companyAddress || "Office Number 81, Ibrahim Rehmatulla Road, Beside Jio Gallery, Near HP Petrol Pump\nMumbai, Maharashtra - 400003";
-  const companyGstin = data.companyGstin || tenantCtx?.companyGstin || "27AAXFT2508H1ZR";
-  const companyPan = data.companyPan || (tenantCtx?.companyGstin ? tenantCtx.companyGstin.slice(2, 12) : "AAXFT2508H");
-  const companyWebsite = data.companyWebsite || "www.tattlythreads.com";
-  const companyEmail = data.companyEmail || tenantCtx?.companyEmail || "accounts@tattlythreads.com";
-  const logoUrl = data.logoUrl || tenantCtx?.companyLogoUrl || tattlyLogoBlack;
+  const companyName = data.companyName || tenantCtx?.companyName || "";
+  const companyAddress = data.companyAddress || tenantCtx?.companyAddress || "";
+  const companyGstin = data.companyGstin || tenantCtx?.companyGstin || "";
+  const companyPan = data.companyPan || (companyGstin && companyGstin.length >= 12 ? companyGstin.slice(2, 12) : "");
+  const companyWebsite = data.companyWebsite || "";
+  const companyEmail = data.companyEmail || tenantCtx?.companyEmail || "";
+  const logoUrl = data.logoUrl || tenantCtx?.companyLogoUrl || null;
+
+  const isIdentityMissing = !companyName;
 
   return (
     <div
@@ -345,28 +346,26 @@ export const PurchaseOrderPrintA4: React.FC<{ data: PurchaseOrderPrintData }> = 
       }`}
       style={{ fontFamily: "'Inter', system-ui, -apple-system, sans-serif" }}
     >
-      {/* ── Document Background Watermark (TATTLY THREADS Logo + Stamp) ── */}
-      <div className="absolute inset-0 pointer-events-none flex items-center justify-center opacity-[0.07] z-20 overflow-hidden select-none print:opacity-[0.08] mix-blend-multiply">
-        <div className="text-center font-black tracking-widest text-[#1e3a8a] rotate-[-28deg] border-4 border-dashed border-[#1e3a8a] px-10 py-6 rounded-3xl uppercase flex flex-col items-center justify-center shadow-xs">
-          <img
-            src={tattlyLogoBlack}
-            alt="TATTLY THREADS"
-            className="w-36 h-auto max-h-20 object-contain mb-2 print:max-h-20"
-            onError={(e) => {
-              const img = e.currentTarget;
-              if (img.src !== window.location.origin + "/tattly_logo_black.png") {
-                img.src = "/tattly_logo_black.png";
-              }
-            }}
-          />
-          <div className="text-[52px] leading-tight font-black tracking-wider text-[#1e3a8a]">
-            {companyName}
-          </div>
-          <div className="text-xl font-bold tracking-[0.22em] mt-1 text-slate-800 border-t-2 border-dashed border-[#1e3a8a]/40 pt-1 w-full">
-            {data.status === "DRAFT" ? "PURCHASE ORDER — DRAFT" : "PURCHASE ORDER"}
+      {/* ── Document Background Watermark ── */}
+      {companyName && (
+        <div className="absolute inset-0 pointer-events-none flex items-center justify-center opacity-[0.07] z-20 overflow-hidden select-none print:opacity-[0.08] mix-blend-multiply">
+          <div className="text-center font-black tracking-widest text-[#1e3a8a] rotate-[-28deg] border-4 border-dashed border-[#1e3a8a] px-10 py-6 rounded-3xl uppercase flex flex-col items-center justify-center shadow-xs">
+            {logoUrl && (
+              <img
+                src={logoUrl}
+                alt={companyName}
+                className="w-36 h-auto max-h-20 object-contain mb-2 print:max-h-20"
+              />
+            )}
+            <div className="text-[52px] leading-tight font-black tracking-wider text-[#1e3a8a]">
+              {companyName}
+            </div>
+            <div className="text-xl font-bold tracking-[0.22em] mt-1 text-slate-800 border-t-2 border-dashed border-[#1e3a8a]/40 pt-1 w-full">
+              {data.status === "DRAFT" ? "PURCHASE ORDER — DRAFT" : "PURCHASE ORDER"}
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* ── CSS Page Setup for Perfect A4 Printing ────────────────────── */}
       <style>{`
@@ -412,26 +411,29 @@ export const PurchaseOrderPrintA4: React.FC<{ data: PurchaseOrderPrintData }> = 
         }
       `}</style>
 
+      {/* CORPORATE IDENTITY NOT CONFIGURED BANNER */}
+      {isIdentityMissing && (
+        <div className="relative z-30 bg-red-50 border-2 border-red-600 text-red-800 p-2.5 mb-3 rounded font-bold text-center uppercase tracking-wider text-xs">
+          CORPORATE IDENTITY NOT CONFIGURED — PRINTING BLOCKED
+        </div>
+      )}
+
       {/* ── 1. HEADER & COMPANY INFORMATION ─────────────────────────────── */}
       <header className="relative z-10 flex justify-between items-start pb-2 mb-2 border-b border-slate-200">
         {/* Left: Dynamic Brand Logo + Company Details */}
         <div className="flex items-start">
-          <div className="pr-3.5 mr-3.5 border-r border-slate-200 flex flex-col justify-center">
-            <img
-              src={logoUrl}
-              alt={companyName}
-              className="h-10 w-auto object-contain max-w-[135px]"
-              onError={(e) => {
-                const img = e.currentTarget;
-                if (img.src !== window.location.origin + "/tattly_logo_black.png") {
-                  img.src = "/tattly_logo_black.png";
-                }
-              }}
-            />
-          </div>
+          {logoUrl && (
+            <div className="pr-3.5 mr-3.5 border-r border-slate-200 flex flex-col justify-center">
+              <img
+                src={logoUrl}
+                alt={companyName || "Logo"}
+                className="h-10 w-auto object-contain max-w-[135px]"
+              />
+            </div>
+          )}
           <div className="text-[10px] text-slate-600 leading-snug">
             <h1 className="text-xs font-bold text-[#0f172a] leading-tight">
-              {companyName}
+              {companyName || "COMPANY NAME NOT SET"}
             </h1>
             <p className="whitespace-pre-line text-slate-600 mt-0.5">
               {companyAddress}

@@ -636,13 +636,21 @@ async def get_sales_order_preview_html(
     """Get standalone HTML representation for print preview."""
     service = SalesService(db, tenant_ctx)
     order, items, allocations = await service.get_sales_order(order_id)
+    from ...services.seller_resolver import resolve_seller_context_async
     from ...services.sales_order_pdf_service import SalesOrderPdfService
+    seller_ctx = await resolve_seller_context_async(
+        db=db,
+        company_id=tenant_ctx.company_id,
+        invoice=order,
+        doc_type="SALES_ORDER",
+    )
     html = SalesOrderPdfService.generate_order_html_from_model(
         order=order,
         items=items,
         allocations=allocations,
-        company_name="TATTLY THREADS",
-        company_gstin="27AAXFT2508H1ZR"
+        company_name=seller_ctx.company_name,
+        company_gstin=seller_ctx.company_gstin,
+        seller_ctx=seller_ctx,
     )
     return Response(content=html, media_type="text/html")
 

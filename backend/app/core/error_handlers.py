@@ -186,9 +186,36 @@ async def generic_exception_handler(request: Request, exc: Exception):
     return dispatch_response(request, exc, 500, res)
 
 
+async def invoice_render_error_handler(request: Request, exc: Exception):
+    from app.services.invoice_errors import InvoiceRenderError
+    if isinstance(exc, InvoiceRenderError):
+        return JSONResponse(
+            status_code=422,
+            content={
+                "success": False,
+                "error": {
+                    "code": exc.code,
+                    "title": exc.title,
+                    "explanation": exc.explanation,
+                    "suggested_action": exc.suggested_action,
+                },
+                "detail": {
+                    "code": exc.code,
+                    "title": exc.title,
+                    "explanation": exc.explanation,
+                    "suggested_action": exc.suggested_action,
+                }
+            },
+        )
+    return await generic_exception_handler(request, exc)
+
+
 def register_error_handlers(app: FastAPI):
     """Registers standard SMRITI HREP error handlers on the FastAPI application."""
+    from app.services.invoice_errors import InvoiceRenderError
+    app.add_exception_handler(InvoiceRenderError, invoice_render_error_handler)
     app.add_exception_handler(RequestValidationError, validation_exception_handler)
     app.add_exception_handler(StarletteHTTPException, http_exception_handler)
     app.add_exception_handler(SQLAlchemyError, db_exception_handler)
     app.add_exception_handler(Exception, generic_exception_handler)
+

@@ -2576,8 +2576,21 @@ class ReportsService:
         # ─────────────────────────────────────────────────────────────────
         ws1 = wb.create_sheet(title="Executive Summary")
         ws1.views.sheetView[0].showGridLines = True
-        ws1.cell(row=1, column=1, value="SMRITI RETAIL OS — SALES ORDERS EXECUTIVE SUMMARY").font = f_title
-        ws1.cell(row=2, column=1, value=f"Generated: {datetime.now().strftime('%d-%m-%Y %H:%M')} | Supplier: TATTLY THREADS (27AAXFT2508H1ZR)").font = Font(size=9, italic=True, color="64748B")
+        sup_label = ""
+        try:
+            from .seller_resolver import resolve_seller_context_async
+            seller_ctx = await resolve_seller_context_async(
+                db=self.db,
+                company_id=getattr(self.tenant_context, "company_id", "COMP-001"),
+                doc_type="SALES_ORDER",
+            )
+            if seller_ctx and seller_ctx.company_name:
+                sup_label = f" | Supplier: {seller_ctx.company_name}"
+                if seller_ctx.company_gstin:
+                    sup_label += f" ({seller_ctx.company_gstin})"
+        except Exception:
+            sup_label = ""
+        ws1.cell(row=2, column=1, value=f"Generated: {datetime.now().strftime('%d-%m-%Y %H:%M')}{sup_label}").font = Font(size=9, italic=True, color="64748B")
 
         kpis = [
             ("Total Sales Orders", f"{detail_rep.total_orders} Orders"),
