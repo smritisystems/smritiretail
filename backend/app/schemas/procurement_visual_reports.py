@@ -42,6 +42,7 @@ class PurchaseSpendTrendPoint(BaseModel):
     po_count: int
     ordered_qty: Optional[float] = 0.0
     received_qty: Optional[float] = 0.0
+    article_breakdown: Dict[str, float] = Field(default_factory=dict)
 
 
 class PurchaseToReceiptStage(BaseModel):
@@ -79,6 +80,80 @@ class ReorderAlertItem(BaseModel):
     reorder_level: float
     suggested_po_qty: float
     urgency: str = "normal"  # "critical" | "warning" | "normal"
+
+
+class ArticleSpendItem(BaseModel):
+    article: str
+    spend_value: float
+    formatted_spend: str
+    quantity: float
+    po_count: int
+    percentage: float
+    bar_color: str
+
+
+class ColorSpendItem(BaseModel):
+    color: str
+    spend_value: float
+    formatted_spend: str
+    quantity: float
+    percentage: float
+    color_code: str
+
+
+class SizeBreakdownItem(BaseModel):
+    size: str
+    ordered_qty: float
+    received_qty: float
+    pending_qty: float
+
+
+class AttributeReorderAlertItem(BaseModel):
+    sku: str
+    article: str
+    color: str
+    size: str
+    product_name: str
+    on_hand: float
+    reorder_level: float
+    pending_qty: float
+    suggested_po_qty: float
+    urgency: str = "normal"
+
+
+class ArticleColorHeatmapCell(BaseModel):
+    article: str
+    color: str
+    ordered_qty: float
+    received_qty: float
+    spend_value: float
+
+
+class ArticleColorHeatmap(BaseModel):
+    articles: List[str] = Field(default_factory=list)
+    colors: List[str] = Field(default_factory=list)
+    cells: List[ArticleColorHeatmapCell] = Field(default_factory=list)
+    max_qty: float = 0.0
+
+
+class SupplierLeadTimeScatterPoint(BaseModel):
+    supplier_id: str
+    supplier_name: str
+    article: str
+    avg_lead_time_days: float
+    order_value_lakh: float
+    po_count: int
+    bubble_color: str
+
+
+class FilterOptions(BaseModel):
+    articles: List[str] = Field(default_factory=list)
+    colors: List[str] = Field(default_factory=list)
+    sizes: List[str] = Field(default_factory=list)
+    categories: List[str] = Field(default_factory=list)
+    brands: List[str] = Field(default_factory=list)
+    suppliers: List[Dict[str, str]] = Field(default_factory=list)
+    seasons: List[str] = Field(default_factory=list)
 
 
 class SupplierPerformanceItem(BaseModel):
@@ -129,6 +204,13 @@ class ProcurementDashboardConfigPayload(BaseModel):
     data_display: Dict[str, Any] = Field(default_factory=dict)
     color_theme: str = "system"  # "system" | "custom"
     custom_palette_color: Optional[str] = "#0284c7"
+    selected_widget: Optional[str] = "purchase_spend_trend"
+    group_by_primary: Optional[str] = "article"
+    group_by_secondary: Optional[str] = "color"
+    selected_measures: List[str] = Field(default_factory=lambda: ["ordered_qty", "received_qty", "pending_qty"])
+    time_grouping: Optional[str] = "monthly"
+    top_n: Optional[int] = 10
+    attribute_filters: Dict[str, Any] = Field(default_factory=dict)
 
 
 class ProcurementReportsSummaryResponse(BaseModel):
@@ -148,3 +230,11 @@ class ProcurementReportsSummaryResponse(BaseModel):
     stream_counts: Dict[str, int]
     active_filters_count: int
     config: ProcurementDashboardConfigPayload
+    filter_options: FilterOptions = Field(default_factory=FilterOptions)
+    top_articles: List[ArticleSpendItem] = Field(default_factory=list)
+    spend_by_color: List[ColorSpendItem] = Field(default_factory=list)
+    order_vs_receipt_by_size: List[SizeBreakdownItem] = Field(default_factory=list)
+    reorder_alerts_detailed: List[AttributeReorderAlertItem] = Field(default_factory=list)
+    article_color_heatmap: Optional[ArticleColorHeatmap] = None
+    supplier_lead_time_vs_value: List[SupplierLeadTimeScatterPoint] = Field(default_factory=list)
+

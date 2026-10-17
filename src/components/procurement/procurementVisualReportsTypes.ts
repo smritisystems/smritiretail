@@ -37,6 +37,7 @@ export interface PurchaseSpendTrendPoint {
   po_count: number;
   ordered_qty?: number;
   received_qty?: number;
+  article_breakdown?: Record<string, number>;
 }
 
 export interface PurchaseToReceiptStage {
@@ -74,6 +75,80 @@ export interface ReorderAlertItem {
   reorder_level: number;
   suggested_po_qty: number;
   urgency: "critical" | "warning" | "normal";
+}
+
+export interface ArticleSpendItem {
+  article: string;
+  spend_value: number;
+  formatted_spend: string;
+  quantity: number;
+  po_count: number;
+  percentage: number;
+  bar_color: string;
+}
+
+export interface ColorSpendItem {
+  color: string;
+  spend_value: number;
+  formatted_spend: string;
+  quantity: number;
+  percentage: number;
+  color_code: string;
+}
+
+export interface SizeBreakdownItem {
+  size: string;
+  ordered_qty: number;
+  received_qty: number;
+  pending_qty: number;
+}
+
+export interface AttributeReorderAlertItem {
+  sku: string;
+  article: string;
+  color: string;
+  size: string;
+  product_name: string;
+  on_hand: number;
+  reorder_level: number;
+  pending_qty: number;
+  suggested_po_qty: number;
+  urgency: "critical" | "warning" | "normal";
+}
+
+export interface ArticleColorHeatmapCell {
+  article: string;
+  color: string;
+  ordered_qty: number;
+  received_qty: number;
+  spend_value: number;
+}
+
+export interface ArticleColorHeatmap {
+  articles: string[];
+  colors: string[];
+  cells: ArticleColorHeatmapCell[];
+  max_qty: number;
+}
+
+export interface SupplierLeadTimeScatterPoint {
+  supplier_id: string;
+  supplier_name: string;
+  article: string;
+  avg_lead_time_days: number;
+  order_value_lakh: number;
+  po_count: number;
+  bubble_color: string;
+}
+
+export interface FilterOptions {
+  articles: string[];
+  colors: string[];
+  sizes: string[];
+  categories: string[];
+  brands: string[];
+  suppliers: Array<{ id: string; name: string }>;
+  seasons: string[];
 }
 
 export interface SupplierPerformanceItem {
@@ -124,6 +199,13 @@ export interface ProcurementDashboardConfigPayload {
   data_display: Record<string, any>;
   color_theme: "system" | "custom";
   custom_palette_color?: string | null;
+  selected_widget?: string;
+  group_by_primary?: string;
+  group_by_secondary?: string;
+  selected_measures?: string[];
+  time_grouping?: "daily" | "weekly" | "monthly" | "quarterly";
+  top_n?: number;
+  attribute_filters?: Record<string, any>;
 }
 
 export interface ProcurementReportsSummaryResponse {
@@ -143,4 +225,11 @@ export interface ProcurementReportsSummaryResponse {
   stream_counts: Record<string, number>;
   active_filters_count: number;
   config: ProcurementDashboardConfigPayload;
+  filter_options?: FilterOptions;
+  top_articles?: ArticleSpendItem[];
+  spend_by_color?: ColorSpendItem[];
+  order_vs_receipt_by_size?: SizeBreakdownItem[];
+  reorder_alerts_detailed?: AttributeReorderAlertItem[];
+  article_color_heatmap?: ArticleColorHeatmap | null;
+  supplier_lead_time_vs_value?: SupplierLeadTimeScatterPoint[];
 }

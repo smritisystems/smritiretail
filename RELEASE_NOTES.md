@@ -14,6 +14,26 @@
 
 # SMRITI Retail OS — Release Notes
 
+## Release v6.99.0 (2026-10-17)
+
+### Procurement & Visual Analytics — Universal Attribute-Based Visual Analytics
+
+#### Overview
+SMRITI Retail OS v6.99.0 implements the approved visual analytics reference for Procurement Visual Reports, elevating merchandising business attributes (**Article / Style**, **Color**, **Size**, Category, Brand, Season, Supplier) to primary grouping and reporting dimensions across all purchase orders, inward goods receipts, and commercial supplier bills. The update delivers 10 visual analytics widgets across 4 functional decks, a 2-row multi-select filter strip with removable chip pills, and a 4-tab Customize Dashboard panel supporting 8 distinct chart types (`Bar`, `Line`, `Area`, `Donut`, `Treemap`, `Heatmap`, `Scatter`, `Table`), primary/secondary grouping, measure selection, time grouping, top-N limit, and persistent configuration. All figures derive 100% from authoritative PostgreSQL ledgers with zero mock fallbacks.
+
+#### Key Highlights
+- **Attribute-Level Primary Reporting**: Replaced SKU-centric reporting with native Article/Style, Color, and Size aggregations, reserving SKU/barcode strictly for operational drill-down.
+- **Two-Row Responsive Filter Strip**: Features enterprise controls (Company, Store, Date range, Presets, Clear All) on Row 1, and merchandising attribute multi-select search dropdowns with removable chip pills (`x`) on Row 2.
+- **10 Core Visual Widgets**:
+  - *Deck 0:* 6 KPI cards with trend indicators and progress bars (`Purchase Orders`, `Purchase Spend`, `Pending Approvals`, `Pending Receipts`, `Received vs Ordered`, `Supplier Outstanding`).
+  - *Deck 1:* Purchase Spend Trend (By Article; Stacked Bar / Grouped Bar / Line / Area), Purchase-to-Receipt 4-stage pipeline tracker with Quantity vs Value switch, and Purchase Order Status donut with centered total.
+  - *Deck 2:* Horizontal Top Articles ranking, Spend by Color pie chart with color swatches, Order vs Receipt Qty by Size grouped bar chart, and 7-column Reorder Alert table.
+  - *Deck 3:* Supplier Performance dual-axis combo chart (On-time delivery % + Lead time days), 2D Article-Color Heatmap matrix with vertical gradient bar (`High` to `Low`), and Supplier Lead Time vs Order Value scatter/bubble plot.
+  - *Deck 4:* 12-column Active Procurement Stream table with tabs (`All`, `PO`, `GR`, `PI`), search, filters, columns, export, and document preview modal.
+- **4-Tab Customize Dashboard Panel**: Right-side drawer providing tabs (`Charts & Data`, `Filters`, `Layout`, `Theme`), widget selector, 8 visual chart-type card buttons, primary/secondary grouping, measure multi-select pills, time grouping, top-N limit, and persistent backend storage.
+- **Zero Mock Fallbacks**: Loading skeletons, error retry banners, and graceful empty states ensure accounting transparency and statutory auditability.
+- **Verified Metrics**: Vitest 10/10 tests green, Pytest 4/4 tests green, `tsc --noEmit` clean, 55/55 launchpad tiles, 98/98 form components, 11/11 architecture checks, and clean Vite production build.
+
 ## Release v6.98.0 (2026-10-17)
 
 ### Foundation & Governance — Global Actual-Data Enforcement Across SMRITI Retail OS

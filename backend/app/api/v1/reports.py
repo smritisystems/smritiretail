@@ -1061,14 +1061,23 @@ async def get_procurement_dashboard_summary(
     start_date: Optional[date] = Query(None, description="Start date (YYYY-MM-DD)"),
     end_date: Optional[date] = Query(None, description="End date (YYYY-MM-DD)"),
     store_location_id: Optional[str] = Query(None, description="Store or Location ID"),
+    articles: Optional[List[str]] = Query(None, description="Filter by Article / Style"),
+    colors: Optional[List[str]] = Query(None, description="Filter by Color"),
+    sizes: Optional[List[str]] = Query(None, description="Filter by Size"),
+    supplier_id: Optional[str] = Query(None, description="Filter by Supplier ID"),
+    category: Optional[str] = Query(None, description="Filter by Category"),
+    brand: Optional[str] = Query(None, description="Filter by Brand"),
+    season: Optional[str] = Query(None, description="Filter by Season"),
+    top_n: Optional[int] = Query(10, description="Top N limit for ranking"),
     db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
     current_user=Depends(get_current_user),
 ):
     """
     Returns consolidated visual procurement reporting metrics including 6 KPI cards,
-    Purchase Spend Trend, Purchase-to-Receipt Progress, Top Suppliers by Spend,
-    Purchase Order Status donut, Low Stock Reorder Alerts, Supplier Performance,
+    Purchase Spend Trend by Article, Purchase-to-Receipt Progress, Top Suppliers by Spend,
+    Purchase Order Status donut, Low Stock Reorder Alerts by Article/Color/Size, Supplier Performance,
+    Spend by Color, Order vs Receipt by Size, Article-Color Heatmap, Lead Time vs Value Scatter,
     Open POs & Pending Receipts, and Active Procurement Stream.
     """
     target_company_id = company_id or tenant_ctx.company_id
@@ -1078,6 +1087,14 @@ async def get_procurement_dashboard_summary(
         start_date=start_date,
         end_date=end_date,
         store_location_id=store_location_id,
+        articles=articles,
+        colors=colors,
+        sizes=sizes,
+        supplier_id=supplier_id,
+        category=category,
+        brand=brand,
+        season=season,
+        top_n=top_n or 10,
     )
 
 
