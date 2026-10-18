@@ -783,7 +783,7 @@ export const StandardInvoiceA4: React.FC<{ data?: InvoiceData }> = ({ data = {} 
                           <>
                             {data.specialInstructions || "Goods to be delivered against this purchase order and accepted subject to inspection."}<br />
                             Department: {data.department || "General Purchase"}<br />
-                            Payment Terms: {data.paymentTerms || "30 Days"}
+                            Payment Terms: {data.paymentTerms && data.paymentTerms !== "30 Days" ? data.paymentTerms : "120 Days"}
                           </>
                         ) : (
                           <>1. Goods once sold will not be taken back without prior written approval.<br />

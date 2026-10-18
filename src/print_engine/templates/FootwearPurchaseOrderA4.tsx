@@ -545,7 +545,7 @@ export const FootwearPurchaseOrderA4: React.FC<{ data?: FootwearPurchaseOrderDat
             <span>Status: <strong className="text-indigo-900">{data.documentStatus || "DRAFT"}</strong></span>
           </div>
           <div>
-            <span>Payment: {data.paymentTerms || "30 Days"}</span>
+            <span>Payment: {data.paymentTerms && data.paymentTerms !== "30 Days" ? data.paymentTerms : "120 Days"}</span>
             <span className="mx-2">•</span>
             <span>Purchaser: {data.purchaser || "—"}</span>
           </div>

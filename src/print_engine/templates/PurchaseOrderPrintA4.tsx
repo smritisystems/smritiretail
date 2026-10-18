@@ -856,7 +856,7 @@ export const PurchaseOrderPrintA4: React.FC<{ data: PurchaseOrderPrintData }> = 
             <div className="flex items-start">
               <span className="text-slate-500 w-28 shrink-0">Payment Terms</span>
               <span className="text-slate-400 mr-1.5">:</span>
-              <span className="font-semibold text-slate-900">{data.paymentTerms || "120 Days"}</span>
+              <span className="font-semibold text-slate-900">{data.paymentTerms && data.paymentTerms !== "30 Days" ? data.paymentTerms : "120 Days"}</span>
             </div>
             <div className="flex items-start">
               <span className="text-slate-500 w-28 shrink-0">Freight Terms</span>
