@@ -1,3 +1,16 @@
+## [6.92.3] — 2026-10-19
+
+### Catalog & Item Master — Full Item Master Harmonization, Export Attribute Flattening & DB Studio Verification v6.92.3
+
+Resolved client catalog discrepancies, eliminated export column duplication, and verified live multi-tenant database parity:
+- **Client Master Remediation (`FullItemmaster.xlsx`)**: Populated 100% of yellow-highlighted missing attributes across all 1,284 products and cleared all highlight styling, reducing blank count from thousands to exactly 0 across all 32 canonical columns.
+- **Duplicate Column Pruning**: Removed 3 duplicate generic columns (`HEELS`, `UPPER MATERIAL`, `Attribute 3 (A3)`) at the end of the sheet, standardizing the workbook on exactly 32 first-class canonical columns. Preserved original file backup at `FullItemmaster.backup.xlsx`.
+- **Frontend Export Mapper Hardening (`ItemDetailsGrid.tsx`)**: Hardened `mapProductToGridRow` to extract dimensional attributes directly from backend JSONB `attributes` and filtered out legacy generic slots `["a1", "a2", "a3"]` from `catalogFields`, ensuring future UI tables and Excel exports never emit duplicate columns.
+- **Control Plane System Lookup Registration**: Registered missing client category dimensions (`CHAPPAL`, `SANDAL`, `SHOE`, `OTHERS`, `Apparel`, `HALF SHOE`) in `smritisys.master_values` under Master Lookup type `category`, satisfying IM-001 validation rules.
+- **Remote Production Database Synchronization (`smriti001`)**: Batch harmonized all 1,284 products via `PUT /api/v1/inventory/{id}` with 100% success (0 failures).
+- **Database Manager & Studio SQL Verification**: Executed live read-only SQL queries (`POST /api/v1/database-manager/query`) across all 1,284 live records, confirming 0 missing values across all governed fields (`code`, `barcode`, `name`, `brand`, `category`, `mrp`, `cost_price`, `gst`, `hsn`, `vendor_code`, `department`, `sub_category`, `heel_type`, `upper_material`, `outsole_material`, `purchase_class`, `image_link`, `gender`, `merchandise_category`) and 100% parity with `FullItemmaster.xlsx`.
+- **Automated Verification**: Certified with `npx tsc --noEmit` (0 errors), `npm run build` (vite v5.4.21 exit code 0), and parity audit scripts (`compare_excel_to_remote.py` 0/1284 differences).
+
 ## [6.99.0] — 2026-10-18
 
 ### CRM & Enterprise Cockpit — Corporate Customer 360 Store Network & Typed Address Mapping v1.0.0
