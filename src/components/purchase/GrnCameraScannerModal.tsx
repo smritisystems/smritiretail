@@ -340,7 +340,7 @@ export const GrnCameraScannerModal: React.FC<GrnCameraScannerModalProps> = ({
         </div>
 
         {/* Recent Scans Strip */}
-        <div className="p-3.5 bg-slate-850 border-t border-slate-800 text-xs">
+        <div className="p-3.5 bg-slate-800 border-t border-slate-800 text-xs">
           <div className="flex items-center justify-between text-[11px] text-slate-400 font-semibold mb-2">
             <span className="flex items-center gap-1">
               <Scan className="w-3.5 h-3.5 text-indigo-400" />

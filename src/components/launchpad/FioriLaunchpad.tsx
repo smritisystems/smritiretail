@@ -213,7 +213,7 @@ export const FioriLaunchpad: React.FC<FioriLaunchpadProps> = ({ currentUser, onS
   };
 
   return (
-    <div className="flex-1 bg-[#f5f6f8] overflow-y-auto p-4 md:p-6 space-y-6 select-none custom-scrollbar font-sans antialiased text-[#1e293b]">
+    <div className="flex-1 bg-[#f5f6f8] dark:bg-slate-950 overflow-y-auto p-4 md:p-6 space-y-6 select-none custom-scrollbar font-sans antialiased text-[#1e293b] dark:text-slate-100">
       
       {/* 1. Hero Operational Banner */}
       <div className="relative overflow-hidden bg-gradient-to-r from-[#041632] via-[#0b254a] to-[#1b3a6b] text-white p-6 md:p-7 rounded-2xl shadow-md border border-[#3e5f90]/30 flex flex-col lg:flex-row lg:items-center justify-between gap-5">
@@ -322,13 +322,13 @@ export const FioriLaunchpad: React.FC<FioriLaunchpadProps> = ({ currentUser, onS
 
       {/* 2. Primary Quick Actions Row (Mobile / Touch Bar with Hotkey Badges) */}
       {!searchTerm && quickActions.length > 0 && (
-        <div className="bg-white border border-[#e2e8f0] rounded-2xl p-4 shadow-xs space-y-3">
+        <div className="bg-white dark:bg-slate-900 border border-[#e2e8f0] dark:border-slate-800 rounded-2xl p-4 shadow-xs space-y-3">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 text-xs font-bold font-mono uppercase tracking-wider text-[#041632]">
+            <div className="flex items-center gap-2 text-xs font-bold font-mono uppercase tracking-wider text-[#041632] dark:text-white">
               <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
               <span>Primary Quick Actions (1-Tap &amp; Keyboard Shortcuts)</span>
             </div>
-            <span className="text-[10px] text-[#64748b] font-mono">Instant F-Key Routing</span>
+            <span className="text-[10px] text-[#64748b] dark:text-slate-400 font-mono">Instant F-Key Routing</span>
           </div>
 
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
@@ -339,11 +339,11 @@ export const FioriLaunchpad: React.FC<FioriLaunchpadProps> = ({ currentUser, onS
                   key={`qa-${qa.id}`}
                   type="button"
                   onClick={() => onSelectModule(qa.id)}
-                  className={`relative p-3.5 bg-[#f8fafc] ${style.bg} border border-[#e2e8f0] rounded-xl flex flex-col items-center justify-center text-center gap-2 transition-all duration-200 group cursor-pointer shadow-xs hover:-translate-y-1 hover:shadow-md`}
+                  className={`relative p-3.5 bg-[#f8fafc] dark:bg-slate-800/80 ${style.bg} border border-[#e2e8f0] dark:border-slate-700/80 rounded-xl flex flex-col items-center justify-center text-center gap-2 transition-all duration-200 group cursor-pointer shadow-xs hover:-translate-y-1 hover:shadow-md`}
                 >
                   {/* Hotkey Tag Badge */}
                   {qa.shortcut && (
-                    <span className="absolute top-2 right-2 font-mono text-[9px] font-extrabold px-1.5 py-0.5 rounded shadow-2xs border border-black/10 bg-white/90 text-[#041632] group-hover:bg-white/20 group-hover:text-white group-hover:border-white/30 transition-colors">
+                    <span className="absolute top-2 right-2 font-mono text-[9px] font-extrabold px-1.5 py-0.5 rounded shadow-2xs border border-black/10 bg-white/90 dark:bg-slate-900/90 text-[#041632] dark:text-white group-hover:bg-white/20 group-hover:text-white group-hover:border-white/30 transition-colors">
                       {qa.shortcut}
                     </span>
                   )}
@@ -352,7 +352,7 @@ export const FioriLaunchpad: React.FC<FioriLaunchpadProps> = ({ currentUser, onS
                     <span className="material-symbols-outlined text-[24px]">{qa.icon}</span>
                   </div>
 
-                  <span className="text-xs font-bold font-display line-clamp-1 text-[#041632] group-hover:text-white transition-colors">
+                  <span className="text-xs font-bold font-display line-clamp-1 text-[#041632] dark:text-slate-100 group-hover:text-white transition-colors">
                     {qa.title}
                   </span>
 
@@ -368,16 +368,16 @@ export const FioriLaunchpad: React.FC<FioriLaunchpadProps> = ({ currentUser, onS
 
       {/* 3. Grouped Workspace Cards */}
       {groups.length === 0 ? (
-        <div className="bg-white border border-[#e2e8f0] rounded-2xl p-12 text-center space-y-3">
-          <div className="w-12 h-12 rounded-full bg-slate-100 text-slate-400 mx-auto flex items-center justify-center">
+        <div className="bg-white dark:bg-slate-900 border border-[#e2e8f0] dark:border-slate-800 rounded-2xl p-12 text-center space-y-3">
+          <div className="w-12 h-12 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-400 mx-auto flex items-center justify-center">
             <Search size={24} />
           </div>
-          <h3 className="font-bold text-sm text-[#041632]">No workspaces match "{searchTerm}"</h3>
-          <p className="text-xs text-[#64748b]">Try searching for different keywords like POS, Barcode, Ledger, or Tax.</p>
+          <h3 className="font-bold text-sm text-[#041632] dark:text-white">No workspaces match "{searchTerm}"</h3>
+          <p className="text-xs text-[#64748b] dark:text-slate-400">Try searching for different keywords like POS, Barcode, Ledger, or Tax.</p>
           <button
             type="button"
             onClick={() => setSearchTerm("")}
-            className="px-4 py-1.5 bg-[#041632] text-white rounded-lg text-xs font-bold hover:bg-[#1b2b48] transition"
+            className="px-4 py-1.5 bg-[#041632] dark:bg-blue-600 text-white rounded-lg text-xs font-bold hover:bg-[#1b2b48] dark:hover:bg-blue-700 transition"
           >
             Clear Search Filter
           </button>
@@ -390,12 +390,12 @@ export const FioriLaunchpad: React.FC<FioriLaunchpadProps> = ({ currentUser, onS
           return (
             <section key={groupName} className="space-y-3">
               {/* Category Section Header */}
-              <div className="flex items-center justify-between border-b border-[#e2e8f0] pb-2">
-                <h2 className="text-xs font-extrabold text-[#041632] uppercase tracking-wider flex items-center gap-2 font-mono">
+              <div className="flex items-center justify-between border-b border-[#e2e8f0] dark:border-slate-800 pb-2">
+                <h2 className="text-xs font-extrabold text-[#041632] dark:text-white uppercase tracking-wider flex items-center gap-2 font-mono">
                   <span className={`w-2.5 h-2.5 rounded-full ${accent.dot}`} />
                   <span>{groupName}</span>
                 </h2>
-                <span className="text-[11px] text-[#64748b] font-mono bg-white border border-[#e2e8f0] px-2 py-0.5 rounded-full font-semibold shadow-2xs">
+                <span className="text-[11px] text-[#64748b] dark:text-slate-400 font-mono bg-white dark:bg-slate-900 border border-[#e2e8f0] dark:border-slate-800 px-2 py-0.5 rounded-full font-semibold shadow-2xs">
                   {tiles.length} {tiles.length === 1 ? "Workspace" : "Workspaces"}
                 </span>
               </div>
@@ -407,7 +407,7 @@ export const FioriLaunchpad: React.FC<FioriLaunchpadProps> = ({ currentUser, onS
                     key={tile.id}
                     type="button"
                     onClick={() => onSelectModule(tile.id)}
-                    className={`group bg-white hover:bg-[#f8fafc] border border-[#e2e8f0] ${accent.border} ${accent.hoverBorder} rounded-xl p-4 text-left transition-all duration-200 hover:shadow-md hover:-translate-y-1 flex flex-col justify-between cursor-pointer relative overflow-hidden`}
+                    className={`group bg-white dark:bg-slate-900 hover:bg-[#f8fafc] dark:hover:bg-slate-800 border border-[#e2e8f0] dark:border-slate-800 ${accent.border} ${accent.hoverBorder} rounded-xl p-4 text-left transition-all duration-200 hover:shadow-md hover:-translate-y-1 flex flex-col justify-between cursor-pointer relative overflow-hidden`}
                   >
                     <div>
                       {/* Top Row: Icon, Tag Badge & Pop-out */}
@@ -424,7 +424,7 @@ export const FioriLaunchpad: React.FC<FioriLaunchpadProps> = ({ currentUser, onS
                               popOutExternalWindow(tile.id, tile.title, tile.icon);
                             }}
                             title={`Pop out ${tile.title} into external window`}
-                            className="p-1 rounded-md text-[#94a3b8] hover:text-[#041632] hover:bg-slate-100 transition-colors cursor-pointer"
+                            className="p-1 rounded-md text-[#94a3b8] hover:text-[#041632] dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
                           >
                             <ExternalLink size={13} />
                           </span>
@@ -438,16 +438,16 @@ export const FioriLaunchpad: React.FC<FioriLaunchpadProps> = ({ currentUser, onS
                       </div>
 
                       {/* Title & Description */}
-                      <h3 className="font-bold text-sm text-[#041632] group-hover:text-[#3e5f90] transition-colors mt-1 font-display">
+                      <h3 className="font-bold text-sm text-[#041632] dark:text-white group-hover:text-[#3e5f90] dark:group-hover:text-indigo-400 transition-colors mt-1 font-display">
                         {tile.title}
                       </h3>
-                      <p className="text-xs text-[#64748b] mt-1 leading-snug line-clamp-2">
+                      <p className="text-xs text-[#64748b] dark:text-slate-400 mt-1 leading-snug line-clamp-2">
                         {tile.subtitle}
                       </p>
                     </div>
 
                     {/* Card Footer Action Indicator */}
-                    <div className={`mt-3.5 pt-2 border-t border-[#f1f5f9] flex items-center justify-between text-[11px] ${accent.arrow} font-semibold font-mono`}>
+                    <div className={`mt-3.5 pt-2 border-t border-[#f1f5f9] dark:border-slate-800/80 flex items-center justify-between text-[11px] ${accent.arrow} font-semibold font-mono`}>
                       <span>Open Workspace</span>
                       <span className="material-symbols-outlined text-[15px] group-hover:translate-x-1 transition-transform">
                         arrow_forward

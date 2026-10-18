@@ -71,21 +71,21 @@ export const NavRail: React.FC<NavRailProps> = ({
 
   return (
     <aside
-      className={`bg-[#f8f9ff] border-r border-[#c5c5d4] flex flex-col justify-between transition-all duration-200 z-20 h-[calc(100vh-52px)] select-none shrink-0 ${
+      className={`bg-[#f8f9ff] dark:bg-slate-900 border-r border-[#c5c5d4] dark:border-slate-800 flex flex-col justify-between transition-all duration-200 z-20 h-[calc(100vh-52px)] select-none shrink-0 ${
         isExpanded ? 'w-56' : 'w-14'
       }`}
     >
       {/* Context Badge Header */}
-      <div className="p-2.5 border-b border-[#c5c5d4] bg-white flex items-center gap-2">
+      <div className="p-2.5 border-b border-[#c5c5d4] dark:border-slate-800 bg-white dark:bg-slate-900 flex items-center gap-2">
         <div className="w-7 h-7 rounded-lg bg-[#3f51b5] text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-xs">
           <span className="material-symbols-outlined text-[18px]">{navData.contextIcon}</span>
         </div>
         {isExpanded && (
           <div className="truncate min-w-0">
-            <span className="text-[10px] font-bold tracking-wider text-[#757684] uppercase block leading-tight">
+            <span className="text-[10px] font-bold tracking-wider text-[#757684] dark:text-slate-400 uppercase block leading-tight">
               Active Context
             </span>
-            <span className="text-xs font-bold text-[#24389c] truncate block leading-tight">
+            <span className="text-xs font-bold text-[#24389c] dark:text-indigo-400 truncate block leading-tight">
               {navData.contextLabel}
             </span>
           </div>
@@ -117,23 +117,23 @@ export const NavRail: React.FC<NavRailProps> = ({
                 }
                 className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-xs transition-all relative ${
                   isDisabled
-                    ? 'opacity-40 bg-gray-100 text-gray-500 cursor-not-allowed border border-dashed border-gray-300'
+                    ? 'opacity-40 bg-gray-100 dark:bg-slate-800 text-gray-500 dark:text-slate-500 cursor-not-allowed border border-dashed border-gray-300 dark:border-slate-700'
                     : isActive
                     ? 'bg-[#3f51b5] text-white font-semibold shadow-xs'
                     : item.isNextBestAction
-                    ? 'bg-[#abf4ac]/30 text-[#286b33] font-semibold border border-[#286b33]/20 hover:bg-[#abf4ac]/50'
-                    : 'text-[#0b1c30] hover:bg-[#e5eeff] hover:text-[#24389c]'
+                    ? 'bg-[#abf4ac]/30 text-[#286b33] dark:text-emerald-400 font-semibold border border-[#286b33]/20 dark:border-emerald-500/20 hover:bg-[#abf4ac]/50'
+                    : 'text-[#0b1c30] dark:text-slate-200 hover:bg-[#e5eeff] dark:hover:bg-slate-800 hover:text-[#24389c] dark:hover:text-indigo-400'
                 } ${!isExpanded ? 'justify-center px-0' : ''}`}
               >
                 <span
                   className={`material-symbols-outlined text-[18px] shrink-0 ${
                     isDisabled
-                      ? 'text-gray-400'
+                      ? 'text-gray-400 dark:text-slate-500'
                       : isActive
                       ? 'text-white'
                       : item.isNextBestAction
-                      ? 'text-[#286b33]'
-                      : 'text-[#3d425f]'
+                      ? 'text-[#286b33] dark:text-emerald-400'
+                      : 'text-[#3d425f] dark:text-slate-400'
                   }`}
                 >
                   {item.icon}
@@ -157,8 +157,8 @@ export const NavRail: React.FC<NavRailProps> = ({
               </button>
 
                 {item.id === 'report-designer' && isActive && isExpanded && isReportsExpanded && (
-                  <div className="ml-8 mt-1 mb-2 pl-3 border-l border-[#c5c5d4] space-y-0.5">
-                    <div className="px-2 py-1 text-[9px] font-bold uppercase tracking-wider text-[#757684]">
+                  <div className="ml-8 mt-1 mb-2 pl-3 border-l border-[#c5c5d4] dark:border-slate-700 space-y-0.5">
+                    <div className="px-2 py-1 text-[9px] font-bold uppercase tracking-wider text-[#757684] dark:text-slate-400">
                       Report Studios
                     </div>
                     {reportStudios.map((studio) => (
@@ -169,7 +169,7 @@ export const NavRail: React.FC<NavRailProps> = ({
                           window.dispatchEvent(new CustomEvent('smriti_report_studio_select', { detail: { studioId: studio.id } }));
                           onSelectModule('report-designer');
                         }}
-                        className="w-full text-left px-2 py-1.5 rounded-md text-[11px] text-[#3d425f] hover:bg-[#e5eeff] hover:text-[#24389c] transition-colors"
+                        className="w-full text-left px-2 py-1.5 rounded-md text-[11px] text-[#3d425f] dark:text-slate-300 hover:bg-[#e5eeff] dark:hover:bg-slate-800 hover:text-[#24389c] dark:hover:text-indigo-400 transition-colors"
                       >
                         {studio.label}
                       </button>

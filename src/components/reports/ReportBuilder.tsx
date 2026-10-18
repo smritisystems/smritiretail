@@ -647,7 +647,7 @@ const ReportBuilderBase: React.FC<ReportBuilderProps> = ({
       {/* ───────────────────────────────────────────────────────────────────── */}
       {/* 1. TOP HEADER & PRIMARY ACTION TOOLBAR (Max 7 Primary Actions)         */}
       {/* ───────────────────────────────────────────────────────────────────── */}
-      <div className="bg-white dark:bg-slate-850 border-b border-slate-200 dark:border-slate-700 px-4 py-3 flex flex-wrap items-center justify-between gap-3 shrink-0">
+      <div className="bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 px-4 py-3 flex flex-wrap items-center justify-between gap-3 shrink-0">
         <div className="flex items-center gap-2.5">
           {/* Reopen Sidebar Icon Button (Shown when sidebar is hidden per Rule 1) */}
           {sidebarState === "hidden" && !isFocusMode && (
@@ -785,7 +785,7 @@ const ReportBuilderBase: React.FC<ReportBuilderProps> = ({
             </button>
 
             {showLayoutMenu && (
-              <div className="absolute right-0 top-full mt-1.5 w-64 bg-white dark:bg-slate-850 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl py-2 z-30 text-xs">
+              <div className="absolute right-0 top-full mt-1.5 w-64 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl py-2 z-30 text-xs">
                 {/* Presets Header */}
                 <div className="px-3.5 py-1 text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
                   Layout Presets
@@ -1045,7 +1045,7 @@ const ReportBuilderBase: React.FC<ReportBuilderProps> = ({
 
         {/* ── LEFT PANEL: AVAILABLE FIELDS SIDEBAR (Rule 1) ─────────────────── */}
         {sidebarState === "expanded" && (
-          <aside className="w-64 border-r border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-850 flex flex-col shrink-0 relative transition-all duration-200 select-none">
+          <aside className="w-64 border-r border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 flex flex-col shrink-0 relative transition-all duration-200 select-none">
             {/* Search Input Box */}
             <div className="p-3 border-b border-slate-200 dark:border-slate-700">
               <div className="relative">
@@ -1149,7 +1149,7 @@ const ReportBuilderBase: React.FC<ReportBuilderProps> = ({
               type="button"
               id="report-builder-collapse-sidebar-circle-btn"
               onClick={() => updateSidebarState("hidden")}
-              className="absolute -right-3 top-20 w-6 h-6 rounded-full bg-white dark:bg-slate-850 border border-slate-300 dark:border-slate-600 shadow-md flex items-center justify-center text-slate-500 hover:text-slate-800 dark:hover:text-white cursor-pointer z-10"
+              className="absolute -right-3 top-20 w-6 h-6 rounded-full bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 shadow-md flex items-center justify-center text-slate-500 hover:text-slate-800 dark:hover:text-white cursor-pointer z-10"
               title="Collapse sidebar"
               aria-label="Collapse sidebar"
             >
@@ -1160,7 +1160,7 @@ const ReportBuilderBase: React.FC<ReportBuilderProps> = ({
 
         {/* ── COMPACT ICON RAIL SIDEBAR (Collapsed mode per Rule 1) ─────────── */}
         {sidebarState === "collapsed" && (
-          <aside className="w-12 border-r border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-850 flex flex-col items-center py-3 shrink-0 select-none gap-3">
+          <aside className="w-12 border-r border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 flex flex-col items-center py-3 shrink-0 select-none gap-3">
             <button
               type="button"
               onClick={() => updateSidebarState("expanded")}
@@ -1194,7 +1194,7 @@ const ReportBuilderBase: React.FC<ReportBuilderProps> = ({
 
           {/* ── TOP FIELD TOOLBAR (Rule 2 - Mockup 1 & 2) ───────────────────── */}
           {toolbarVisible ? (
-            <div className="bg-white dark:bg-slate-850 border-b border-slate-200 dark:border-slate-700 px-4 py-2 flex items-center justify-between gap-3 shrink-0 overflow-x-auto">
+            <div className="bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 px-4 py-2 flex items-center justify-between gap-3 shrink-0 overflow-x-auto">
               <div className="flex items-center gap-1.5 flex-wrap flex-1 min-w-0">
                 {activeColumns.map((col, idx) => (
                   <div
@@ -1256,7 +1256,7 @@ const ReportBuilderBase: React.FC<ReportBuilderProps> = ({
             </div>
           ) : (
             /* Reopen Top Field Toolbar Control (Rule 2 - Mockup 3) */
-            <div className="bg-white dark:bg-slate-850 border-b border-slate-200 dark:border-slate-700 px-4 py-1.5 flex items-center justify-between text-xs shrink-0">
+            <div className="bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 px-4 py-1.5 flex items-center justify-between text-xs shrink-0">
               <span className="text-[11px] text-slate-400 font-mono">
                 {activeColumns.length} columns active in grid
               </span>
@@ -1278,7 +1278,7 @@ const ReportBuilderBase: React.FC<ReportBuilderProps> = ({
 
           {/* ── FILTERS PANEL (Rule 3 - Mockup 1, 2, 4) ────────────────────── */}
           {filtersState === "expanded" && (
-            <div className="bg-white dark:bg-slate-850 border-b border-slate-200 dark:border-slate-700 px-4 py-2.5 flex flex-wrap items-center justify-between gap-3 text-xs shrink-0">
+            <div className="bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 px-4 py-2.5 flex flex-wrap items-center justify-between gap-3 text-xs shrink-0">
               <div className="flex flex-wrap items-center gap-3">
                 {/* Date range filter */}
                 <div className="flex items-center gap-1.5 text-slate-600 dark:text-slate-300 font-medium">
@@ -1368,7 +1368,7 @@ const ReportBuilderBase: React.FC<ReportBuilderProps> = ({
 
           {filtersState === "compact" && (
             /* Compact Filter Summary Bar (Rule 3) */
-            <div className="bg-white dark:bg-slate-850 border-b border-slate-200 dark:border-slate-700 px-4 py-1.5 flex items-center justify-between text-xs text-slate-500 shrink-0">
+            <div className="bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 px-4 py-1.5 flex items-center justify-between text-xs text-slate-500 shrink-0">
               <div className="flex items-center gap-2">
                 <span className="inline-flex items-center gap-1 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded text-[11px] font-mono">
                   <Filter size={10} className="text-blue-500" />
@@ -1391,7 +1391,7 @@ const ReportBuilderBase: React.FC<ReportBuilderProps> = ({
           )}
 
           {/* ── REPORT GRID (Rule 5 - Always Primary Workspace) ─────────────── */}
-          <div className="flex-1 overflow-auto bg-white dark:bg-slate-850 flex flex-col justify-between">
+          <div className="flex-1 overflow-auto bg-white dark:bg-slate-800 flex flex-col justify-between">
             <div className="overflow-x-auto w-full">
               <table className="w-full text-left text-xs border-collapse">
                 <thead>
@@ -1501,7 +1501,7 @@ const ReportBuilderBase: React.FC<ReportBuilderProps> = ({
             </div>
 
             {/* Pagination Controls Footer Bar (Matching Mockup 1 & 2) */}
-            <div className="border-t border-slate-200 dark:border-slate-700 px-4 py-2.5 flex items-center justify-between text-xs text-slate-500 bg-white dark:bg-slate-850 shrink-0">
+            <div className="border-t border-slate-200 dark:border-slate-700 px-4 py-2.5 flex items-center justify-between text-xs text-slate-500 bg-white dark:bg-slate-800 shrink-0">
               <span className="font-mono">
                 1 - {displayRows.length} of {displayRows.length} rows
               </span>
@@ -1548,7 +1548,7 @@ const ReportBuilderBase: React.FC<ReportBuilderProps> = ({
       {/* ───────────────────────────────────────────────────────────────────── */}
       {showAdvancedConfig && (
         <div className="fixed inset-0 z-50 overflow-hidden bg-slate-900/40 backdrop-blur-2xs flex justify-end">
-          <div className="w-84 max-w-full bg-white dark:bg-slate-850 border-l border-slate-200 dark:border-slate-700 shadow-2xl flex flex-col justify-between p-5 text-xs">
+          <div className="w-84 max-w-full bg-white dark:bg-slate-800 border-l border-slate-200 dark:border-slate-700 shadow-2xl flex flex-col justify-between p-5 text-xs">
             <div className="space-y-5">
               <div className="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-slate-700">
                 <div className="flex items-center gap-2">

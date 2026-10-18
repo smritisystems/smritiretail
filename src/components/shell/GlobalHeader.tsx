@@ -15,6 +15,7 @@ import { useActiveField } from '../../context/ActiveFieldContext.tsx';
 import { useDrillDown } from '../drilldown/drilldown_store.tsx';
 import { CompanySelector } from '../layout/CompanySelector.tsx';
 import { Breadcrumb } from '../../navigation/breadcrumb/index.ts';
+import { useTheme } from '../../contexts/ThemeContext.tsx';
 
 interface GlobalHeaderProps {
   activeModuleTitle: string;
@@ -51,6 +52,7 @@ export const GlobalHeader: React.FC<GlobalHeaderProps> = ({
 }) => {
   const { category: activeCategory, fieldLabel } = useActiveField();
   const { setSearchOpen } = useDrillDown();
+  const { theme, toggleTheme, activePreset, setPreset, presets } = useTheme();
   const [searchQuery, setSearchQuery] = useState('');
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
@@ -161,6 +163,21 @@ export const GlobalHeader: React.FC<GlobalHeaderProps> = ({
       <div className="flex items-center gap-1.5">
         <CompanySelector />
 
+        {/* Global Theme Quick Toggle */}
+        <button
+          type="button"
+          onClick={toggleTheme}
+          title={`Active Preset: ${activePreset.label} (${theme.toUpperCase()}). Click to switch light/dark mode.`}
+          className="p-1.5 hover:bg-[#3f51b5] rounded-md transition-colors text-indigo-100 hover:text-white flex items-center gap-1.5 text-xs cursor-pointer"
+        >
+          <span className="material-symbols-outlined text-[18px]">
+            {theme === 'dark' ? 'dark_mode' : 'light_mode'}
+          </span>
+          <span className="hidden xl:inline text-[11px] font-mono">
+            {activePreset.label}
+          </span>
+        </button>
+
         {/* Focus Mode Toggle */}
         <button
           type="button"
@@ -199,29 +216,29 @@ export const GlobalHeader: React.FC<GlobalHeaderProps> = ({
 
           {/* Notifications Dropdown */}
           {isNotificationsOpen && (
-            <div className="absolute right-0 mt-2 w-80 bg-white text-[#0b1c30] rounded-xl shadow-xl border border-[#c5c5d4] py-2 z-50 overflow-hidden">
-              <div className="px-4 py-2 border-b border-[#c5c5d4] flex items-center justify-between bg-[#f8f9ff]">
-                <span className="font-semibold text-xs text-[#24389c]">System Notifications</span>
+            <div className="absolute right-0 mt-2 w-80 bg-white dark:bg-slate-900 text-[#0b1c30] dark:text-slate-100 rounded-xl shadow-xl border border-[#c5c5d4] dark:border-slate-700 py-2 z-50 overflow-hidden">
+              <div className="px-4 py-2 border-b border-[#c5c5d4] dark:border-slate-700 flex items-center justify-between bg-[#f8f9ff] dark:bg-slate-800">
+                <span className="font-semibold text-xs text-[#24389c] dark:text-indigo-400">System Notifications</span>
                 <span className="text-[10px] bg-[#3f51b5] text-white px-2 py-0.5 rounded-full font-bold">
                   {unreadNotifications} New
                 </span>
               </div>
               <div className="max-h-64 overflow-y-auto">
                 {notifications.map((n) => (
-                  <div key={n.id} className="px-4 py-2.5 hover:bg-[#eff4ff] border-b border-[#c5c5d4]/40 transition-colors">
-                    <div className="flex items-center justify-between text-xs font-semibold text-[#0b1c30]">
+                  <div key={n.id} className="px-4 py-2.5 hover:bg-[#eff4ff] dark:hover:bg-slate-800 border-b border-[#c5c5d4]/40 dark:border-slate-800 transition-colors">
+                    <div className="flex items-center justify-between text-xs font-semibold text-[#0b1c30] dark:text-slate-200">
                       <span>{n.title}</span>
-                      <span className="text-[10px] font-normal text-[#757684]">{n.time}</span>
+                      <span className="text-[10px] font-normal text-[#757684] dark:text-slate-400">{n.time}</span>
                     </div>
-                    <p className="text-[11px] text-[#454652] mt-0.5 leading-snug">{n.desc}</p>
+                    <p className="text-[11px] text-[#454652] dark:text-slate-400 mt-0.5 leading-snug">{n.desc}</p>
                   </div>
                 ))}
               </div>
-              <div className="px-4 py-1.5 bg-[#f8f9ff] text-center border-t border-[#c5c5d4]">
+              <div className="px-4 py-1.5 bg-[#f8f9ff] dark:bg-slate-800 text-center border-t border-[#c5c5d4] dark:border-slate-700">
                 <button
                   type="button"
                   onClick={() => setIsNotificationsOpen(false)}
-                  className="text-xs font-medium text-[#24389c] hover:underline"
+                  className="text-xs font-medium text-[#24389c] dark:text-indigo-400 hover:underline"
                 >
                   Mark all as read
                 </button>
@@ -252,12 +269,43 @@ export const GlobalHeader: React.FC<GlobalHeaderProps> = ({
 
           {/* User Menu Dropdown */}
           {isUserMenuOpen && (
-            <div className="absolute right-0 mt-2 w-64 bg-white text-[#0b1c30] rounded-xl shadow-xl border border-[#c5c5d4] py-2 z-50 overflow-hidden">
-              <div className="px-4 py-3 bg-[#f8f9ff] border-b border-[#c5c5d4]">
-                <div className="font-semibold text-sm text-[#24389c]">{userName}</div>
-                <div className="text-xs text-[#454652]">{userRole}</div>
-                <div className="mt-2 inline-flex items-center gap-1 text-[10px] font-semibold bg-[#286b33]/10 text-[#286b33] px-2 py-0.5 rounded-md border border-[#286b33]/20">
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#286b33]" /> Active Shift #412
+            <div className="absolute right-0 mt-2 w-72 bg-white dark:bg-slate-900 text-[#0b1c30] dark:text-slate-100 rounded-xl shadow-xl border border-[#c5c5d4] dark:border-slate-700 py-2 z-50 overflow-hidden">
+              <div className="px-4 py-3 bg-[#f8f9ff] dark:bg-slate-800 border-b border-[#c5c5d4] dark:border-slate-700">
+                <div className="font-semibold text-sm text-[#24389c] dark:text-indigo-400">{userName}</div>
+                <div className="text-xs text-[#454652] dark:text-slate-400">{userRole}</div>
+                <div className="mt-2 inline-flex items-center gap-1 text-[10px] font-semibold bg-[#286b33]/10 text-[#286b33] dark:bg-emerald-500/10 dark:text-emerald-400 px-2 py-0.5 rounded-md border border-[#286b33]/20 dark:border-emerald-500/20">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#286b33] dark:bg-emerald-400" /> Active Shift #412
+                </div>
+              </div>
+
+              {/* Theme & Visual Presets Picker */}
+              <div className="px-3 py-2 bg-[#f8f9ff]/50 dark:bg-slate-800/40 border-b border-[#c5c5d4]/50 dark:border-slate-800">
+                <div className="text-[10px] font-mono uppercase tracking-wider text-[#757684] dark:text-slate-400 font-bold mb-1.5 flex items-center justify-between">
+                  <span>Theme Preset</span>
+                  <span className="font-semibold text-[9px] uppercase px-1.5 py-0.2 rounded bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">{activePreset.mode}</span>
+                </div>
+                <div className="space-y-0.5">
+                  {presets.map((p) => {
+                    const isAct = p.id === activePreset.id;
+                    return (
+                      <button
+                        key={p.id}
+                        type="button"
+                        onClick={() => setPreset(p.id)}
+                        className={`w-full text-left px-2 py-1 rounded-md text-[11px] flex items-center justify-between transition-colors cursor-pointer ${
+                          isAct
+                            ? 'bg-[#3f51b5] text-white font-semibold shadow-2xs'
+                            : 'text-[#0b1c30] dark:text-slate-200 hover:bg-[#eff4ff] dark:hover:bg-slate-700/60'
+                        }`}
+                      >
+                        <div className="flex items-center gap-1.5">
+                          <span className="w-2.5 h-2.5 rounded-full border border-white/20 shrink-0" style={{ background: p.swatchAccent }} />
+                          <span className="truncate">{p.label}</span>
+                        </div>
+                        {isAct && <span className="material-symbols-outlined text-[14px]">check</span>}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
@@ -268,9 +316,9 @@ export const GlobalHeader: React.FC<GlobalHeaderProps> = ({
                     if (onSelectModule) onSelectModule('user-profile');
                     setIsUserMenuOpen(false);
                   }}
-                  className="w-full px-4 py-2 text-left text-xs text-[#0b1c30] hover:bg-[#eff4ff] flex items-center gap-2 cursor-pointer transition-colors"
+                  className="w-full px-4 py-2 text-left text-xs text-[#0b1c30] dark:text-slate-200 hover:bg-[#eff4ff] dark:hover:bg-slate-800 flex items-center gap-2 cursor-pointer transition-colors"
                 >
-                  <span className="material-symbols-outlined text-[18px] text-[#3d425f]">account_circle</span> My Profile Dashboard
+                  <span className="material-symbols-outlined text-[18px] text-[#3d425f] dark:text-slate-400">account_circle</span> My Profile Dashboard
                 </button>
                 <button
                   type="button"
@@ -278,9 +326,9 @@ export const GlobalHeader: React.FC<GlobalHeaderProps> = ({
                     if (onSelectModule) onSelectModule('menu-manager');
                     setIsUserMenuOpen(false);
                   }}
-                  className="w-full px-4 py-2 text-left text-xs text-[#0b1c30] hover:bg-[#eff4ff] flex items-center gap-2 cursor-pointer transition-colors"
+                  className="w-full px-4 py-2 text-left text-xs text-[#0b1c30] dark:text-slate-200 hover:bg-[#eff4ff] dark:hover:bg-slate-800 flex items-center gap-2 cursor-pointer transition-colors"
                 >
-                  <span className="material-symbols-outlined text-[18px] text-[#1e40af]">compass_calibration</span> Menu Navigation Studio
+                  <span className="material-symbols-outlined text-[18px] text-[#1e40af] dark:text-indigo-400">compass_calibration</span> Menu Navigation Studio
                 </button>
                 <button
                   type="button"
@@ -288,9 +336,9 @@ export const GlobalHeader: React.FC<GlobalHeaderProps> = ({
                     if (onSelectModule) onSelectModule('profiles');
                     setIsUserMenuOpen(false);
                   }}
-                  className="w-full px-4 py-2 text-left text-xs text-[#0b1c30] hover:bg-[#eff4ff] flex items-center gap-2 cursor-pointer transition-colors"
+                  className="w-full px-4 py-2 text-left text-xs text-[#0b1c30] dark:text-slate-200 hover:bg-[#eff4ff] dark:hover:bg-slate-800 flex items-center gap-2 cursor-pointer transition-colors"
                 >
-                  <span className="material-symbols-outlined text-[18px] text-[#3d425f]">settings</span> System Settings
+                  <span className="material-symbols-outlined text-[18px] text-[#3d425f] dark:text-slate-400">settings</span> System Settings
                 </button>
                 <button
                   type="button"
@@ -298,9 +346,9 @@ export const GlobalHeader: React.FC<GlobalHeaderProps> = ({
                     if (onSelectModule) onSelectModule('system-parameters');
                     setIsUserMenuOpen(false);
                   }}
-                  className="w-full px-4 py-2 text-left text-xs text-[#0b1c30] hover:bg-[#eff4ff] flex items-center gap-2 cursor-pointer transition-colors"
+                  className="w-full px-4 py-2 text-left text-xs text-[#0b1c30] dark:text-slate-200 hover:bg-[#eff4ff] dark:hover:bg-slate-800 flex items-center gap-2 cursor-pointer transition-colors"
                 >
-                  <span className="material-symbols-outlined text-[18px] text-[#3f51b5]">tune</span> System Parameters Studio
+                  <span className="material-symbols-outlined text-[18px] text-[#3f51b5] dark:text-indigo-400">tune</span> System Parameters Studio
                 </button>
                 <button
                   type="button"
@@ -308,22 +356,22 @@ export const GlobalHeader: React.FC<GlobalHeaderProps> = ({
                     if (onSelectModule) onSelectModule('about-smriti');
                     setIsUserMenuOpen(false);
                   }}
-                  className="w-full px-4 py-2 text-left text-xs text-[#0b1c30] hover:bg-[#eff4ff] flex items-center gap-2 cursor-pointer transition-colors"
+                  className="w-full px-4 py-2 text-left text-xs text-[#0b1c30] dark:text-slate-200 hover:bg-[#eff4ff] dark:hover:bg-slate-800 flex items-center gap-2 cursor-pointer transition-colors"
                 >
-                  <span className="material-symbols-outlined text-[18px] text-[#3d425f]">info</span> About SMRITI OS
+                  <span className="material-symbols-outlined text-[18px] text-[#3d425f] dark:text-slate-400">info</span> About SMRITI OS
                 </button>
 
                 {onLogout && (
-                  <div className="pt-1 mt-1 border-t border-[#c5c5d4]/50">
+                  <div className="pt-1 mt-1 border-t border-[#c5c5d4]/50 dark:border-slate-800">
                     <button
                       type="button"
                       onClick={() => {
                         setIsUserMenuOpen(false);
                         onLogout();
                       }}
-                      className="w-full px-4 py-2 text-left text-xs font-semibold text-[#ba1a1a] hover:bg-[#ffdad6]/40 flex items-center gap-2 cursor-pointer transition-colors"
+                      className="w-full px-4 py-2 text-left text-xs font-semibold text-[#ba1a1a] dark:text-rose-400 hover:bg-[#ffdad6]/40 dark:hover:bg-rose-950/40 flex items-center gap-2 cursor-pointer transition-colors"
                     >
-                      <span className="material-symbols-outlined text-[18px] text-[#ba1a1a]">logout</span> Log Out Session
+                      <span className="material-symbols-outlined text-[18px] text-[#ba1a1a] dark:text-rose-400">logout</span> Log Out Session
                     </button>
                   </div>
                 )}

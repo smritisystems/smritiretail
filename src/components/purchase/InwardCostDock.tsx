@@ -117,7 +117,7 @@ export const InwardCostDock: React.FC<InwardCostDockProps> = ({
       {isOpen && (
         <div className="p-5 border-t border-indigo-100 dark:border-indigo-900/50 space-y-5 text-xs">
           {/* Top Row: Transport Logistics Metadata */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-3 bg-white/70 dark:bg-slate-850/70 p-3.5 rounded-xl border border-slate-200/80 dark:border-slate-800">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-3 bg-white/70 dark:bg-slate-800/70 p-3.5 rounded-xl border border-slate-200/80 dark:border-slate-800">
             <div>
               <label className="block text-slate-600 dark:text-slate-400 font-medium mb-1">
                 Transporter / Logistics
@@ -271,7 +271,7 @@ export const InwardCostDock: React.FC<InwardCostDockProps> = ({
                 </table>
               </div>
             ) : (
-              <div className="py-6 px-4 border border-dashed border-slate-300 dark:border-slate-800 rounded-xl text-center bg-slate-50/50 dark:bg-slate-850/40">
+              <div className="py-6 px-4 border border-dashed border-slate-300 dark:border-slate-800 rounded-xl text-center bg-slate-50/50 dark:bg-slate-800/40">
                 <Truck className="w-8 h-8 text-slate-400 mx-auto mb-1.5 opacity-60" />
                 <p className="font-semibold text-slate-700 dark:text-slate-300">
                   No Additional Costs Added

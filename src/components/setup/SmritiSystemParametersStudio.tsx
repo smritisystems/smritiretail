@@ -193,17 +193,17 @@ export const SmritiSystemParametersStudio: React.FC<Props> = ({ isOpen = true, o
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-hidden animate-fadeIn">
-      <div className="flex flex-col w-full max-w-7xl h-[92vh] bg-slate-900 border border-slate-700/80 rounded-2xl shadow-2xl overflow-hidden text-slate-100">
+      <div className="flex flex-col w-full max-w-7xl h-[92vh] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700/80 rounded-2xl shadow-2xl overflow-hidden text-slate-900 dark:text-slate-100">
         
         {/* Top Header */}
-        <header className="flex items-center justify-between px-6 py-4 border-b border-slate-800 bg-slate-950/70">
+        <header className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-slate-800 bg-slate-50/90 dark:bg-slate-950/70">
           <div className="flex items-center gap-3">
             <div className="p-2.5 bg-indigo-600/20 border border-indigo-500/30 rounded-xl text-indigo-400">
               <Sliders className="w-6 h-6" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h2 className="text-lg font-bold text-slate-100 tracking-wide">
+                <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100 tracking-wide">
                   System Parameters Studio
                 </h2>
                 <span className="px-2.5 py-0.5 text-xs font-semibold rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
@@ -213,7 +213,7 @@ export const SmritiSystemParametersStudio: React.FC<Props> = ({ isOpen = true, o
                   5-Tier Governed
                 </span>
               </div>
-              <p className="text-xs text-slate-400">
+              <p className="text-xs text-slate-500 dark:text-slate-400">
                 Configure 828 architectural system switches, profile variances, and hardware terminal overrides
               </p>
             </div>
@@ -221,11 +221,11 @@ export const SmritiSystemParametersStudio: React.FC<Props> = ({ isOpen = true, o
 
           <div className="flex items-center gap-3">
             {/* Seed Profile Buttons */}
-            <div className="flex items-center gap-1.5 bg-slate-800/80 p-1 rounded-xl border border-slate-700/50">
+            <div className="flex items-center gap-1.5 bg-slate-100 dark:bg-slate-800/80 p-1 rounded-xl border border-slate-200 dark:border-slate-700/50">
               <button
                 onClick={() => handleSeed("RETAIL")}
                 disabled={seeding}
-                className="px-3 py-1.5 text-xs font-medium rounded-lg bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 border border-blue-500/30 transition-all flex items-center gap-1.5"
+                className="px-3 py-1.5 text-xs font-medium rounded-lg bg-blue-600/20 hover:bg-blue-600/30 text-blue-500 dark:text-blue-300 border border-blue-500/30 transition-all flex items-center gap-1.5"
                 title="Seed Tally Shoper 9 POS Retail Defaults"
               >
                 <Store className="w-3.5 h-3.5" />
@@ -234,7 +234,7 @@ export const SmritiSystemParametersStudio: React.FC<Props> = ({ isOpen = true, o
               <button
                 onClick={() => handleSeed("DISTRIBUTOR")}
                 disabled={seeding}
-                className="px-3 py-1.5 text-xs font-medium rounded-lg bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 border border-purple-500/30 transition-all flex items-center gap-1.5"
+                className="px-3 py-1.5 text-xs font-medium rounded-lg bg-purple-600/20 hover:bg-purple-600/30 text-purple-500 dark:text-purple-300 border border-purple-500/30 transition-all flex items-center gap-1.5"
                 title="Seed Tally Shoper 9 Distributor Defaults"
               >
                 <Layers className="w-3.5 h-3.5" />
@@ -257,7 +257,7 @@ export const SmritiSystemParametersStudio: React.FC<Props> = ({ isOpen = true, o
             {onClose && (
               <button
                 onClick={onClose}
-                className="p-2 text-slate-400 hover:text-slate-100 hover:bg-slate-800 rounded-xl transition-all"
+                className="p-2 text-slate-400 hover:text-slate-700 dark:hover:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-all"
               >
                 ✕
               </button>
@@ -266,27 +266,27 @@ export const SmritiSystemParametersStudio: React.FC<Props> = ({ isOpen = true, o
         </header>
 
         {/* Action Toolbar */}
-        <div className="flex flex-wrap items-center justify-between gap-4 px-6 py-3 border-b border-slate-800 bg-slate-900/50">
+        <div className="flex flex-wrap items-center justify-between gap-4 px-6 py-3 border-b border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-900/50">
           <div className="flex items-center gap-3 flex-1 max-w-lg">
             <div className="relative w-full">
-              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500" />
               <input
                 type="text"
                 placeholder="Search across all 828 parameters by code or description..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-9 pr-4 py-1.5 text-xs bg-slate-950 border border-slate-700 rounded-xl text-slate-100 placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition-all"
+                className="w-full pl-9 pr-4 py-1.5 text-xs bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition-all shadow-sm"
               />
             </div>
           </div>
 
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-2">
-              <span className="text-xs text-slate-400">Mutability:</span>
+              <span className="text-xs text-slate-500 dark:text-slate-400">Mutability:</span>
               <select
                 value={mutabilityFilter}
                 onChange={(e) => setMutabilityFilter(e.target.value)}
-                className="px-2.5 py-1.5 text-xs bg-slate-950 border border-slate-700 rounded-xl text-slate-200 focus:outline-none focus:border-indigo-500"
+                className="px-2.5 py-1.5 text-xs bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl text-slate-800 dark:text-slate-200 focus:outline-none focus:border-indigo-500 shadow-sm"
               >
                 <option value="ALL">All Mutabilities</option>
                 <option value="Variable">Variable (Editable)</option>
@@ -298,11 +298,11 @@ export const SmritiSystemParametersStudio: React.FC<Props> = ({ isOpen = true, o
             </div>
 
             <div className="flex items-center gap-2">
-              <span className="text-xs text-slate-400">Profile:</span>
+              <span className="text-xs text-slate-500 dark:text-slate-400">Profile:</span>
               <select
                 value={profileFilter}
                 onChange={(e) => setProfileFilter(e.target.value)}
-                className="px-2.5 py-1.5 text-xs bg-slate-950 border border-slate-700 rounded-xl text-slate-200 focus:outline-none focus:border-indigo-500"
+                className="px-2.5 py-1.5 text-xs bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl text-slate-800 dark:text-slate-200 focus:outline-none focus:border-indigo-500 shadow-sm"
               >
                 <option value="ALL">All Profiles</option>
                 <option value="RETAIL">Retail Only</option>
@@ -314,7 +314,7 @@ export const SmritiSystemParametersStudio: React.FC<Props> = ({ isOpen = true, o
             <button
               onClick={fetchParameters}
               disabled={loading}
-              className="p-1.5 text-slate-400 hover:text-slate-100 hover:bg-slate-800 rounded-xl transition-all"
+              className="p-1.5 text-slate-400 hover:text-slate-700 dark:hover:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-all"
               title="Refresh Parameters"
             >
               <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
@@ -353,8 +353,8 @@ export const SmritiSystemParametersStudio: React.FC<Props> = ({ isOpen = true, o
           
           {/* Left Category Sidebar */}
           {!searchQuery.trim() && (
-            <aside className="w-72 border-r border-slate-800 bg-slate-950/50 flex flex-col overflow-y-auto">
-              <div className="px-4 py-3 border-b border-slate-800/80 text-xs font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-2">
+            <aside className="w-72 border-r border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-950/50 flex flex-col overflow-y-auto">
+              <div className="px-4 py-3 border-b border-slate-200 dark:border-slate-800/80 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider flex items-center gap-2">
                 <FolderTree className="w-3.5 h-3.5 text-indigo-400" />
                 Parameter Categories ({categories.length})
               </div>
@@ -368,13 +368,13 @@ export const SmritiSystemParametersStudio: React.FC<Props> = ({ isOpen = true, o
                       className={`w-full text-left px-3 py-2 rounded-xl text-xs flex items-center justify-between transition-all ${
                         isSelected
                           ? "bg-indigo-600 text-white font-medium shadow-md shadow-indigo-900/40"
-                          : "text-slate-300 hover:bg-slate-800/60 hover:text-slate-100"
+                          : "text-slate-700 dark:text-slate-300 hover:bg-slate-200/60 dark:hover:bg-slate-800/60 hover:text-slate-900 dark:hover:text-slate-100"
                       }`}
                     >
                       <span className="truncate mr-2">{cat.code}</span>
                       <span
                         className={`px-2 py-0.5 rounded-full text-[10px] font-mono ${
-                          isSelected ? "bg-white/20 text-white" : "bg-slate-800 text-slate-400"
+                          isSelected ? "bg-white/20 text-white" : "bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400"
                         }`}
                       >
                         {cat.count}
@@ -387,7 +387,7 @@ export const SmritiSystemParametersStudio: React.FC<Props> = ({ isOpen = true, o
           )}
 
           {/* Right Parameters List */}
-          <main className="flex-1 overflow-y-auto p-6 bg-slate-900/30">
+          <main className="flex-1 overflow-y-auto p-6 bg-slate-50/40 dark:bg-slate-900/30">
             {loading ? (
               <div className="flex flex-col items-center justify-center h-64 text-slate-400">
                 <RefreshCw className="w-8 h-8 animate-spin mb-3 text-indigo-400" />
@@ -403,12 +403,12 @@ export const SmritiSystemParametersStudio: React.FC<Props> = ({ isOpen = true, o
               </div>
             ) : (
               <div className="space-y-3">
-                <div className="flex items-center justify-between pb-2 border-b border-slate-800">
-                  <span className="text-xs font-semibold text-slate-400">
+                <div className="flex items-center justify-between pb-2 border-b border-slate-200 dark:border-slate-800">
+                  <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
                     Showing {filteredParameters.length} parameters
                     {searchQuery.trim() ? ` matching "${searchQuery}"` : ` in ${selectedCategory}`}
                   </span>
-                  <div className="flex items-center gap-4 text-xs text-slate-500">
+                  <div className="flex items-center gap-4 text-xs text-slate-400 dark:text-slate-500">
                     <span className="flex items-center gap-1.5">
                       <span className="w-2 h-2 rounded-full bg-emerald-500"></span> Variable (Editable)
                     </span>
@@ -419,7 +419,7 @@ export const SmritiSystemParametersStudio: React.FC<Props> = ({ isOpen = true, o
                       <span className="w-2 h-2 rounded-full bg-amber-500"></span> One Time
                     </span>
                     <span className="flex items-center gap-1.5">
-                      <span className="w-2 h-2 rounded-full bg-slate-600"></span> Fixed (Locked)
+                      <span className="w-2 h-2 rounded-full bg-slate-400 dark:bg-slate-600"></span> Fixed (Locked)
                     </span>
                   </div>
                 </div>
@@ -436,14 +436,14 @@ export const SmritiSystemParametersStudio: React.FC<Props> = ({ isOpen = true, o
                         className={`p-4 rounded-xl border transition-all ${
                           isDirty
                             ? "bg-indigo-950/30 border-indigo-500/50 shadow-md shadow-indigo-900/20"
-                            : "bg-slate-950/60 border-slate-800/80 hover:border-slate-700"
+                            : "bg-white dark:bg-slate-950/60 border-slate-200 dark:border-slate-800/80 hover:border-slate-300 dark:hover:border-slate-700 shadow-sm"
                         }`}
                       >
                         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                           {/* Parameter Meta */}
                           <div className="flex-1">
                             <div className="flex items-center gap-2.5 flex-wrap">
-                              <span className="font-mono text-sm font-bold text-slate-100 tracking-tight">
+                              <span className="font-mono text-sm font-bold text-slate-900 dark:text-slate-100 tracking-tight">
                                 {param.param_code}
                               </span>
 
@@ -451,14 +451,14 @@ export const SmritiSystemParametersStudio: React.FC<Props> = ({ isOpen = true, o
                               <span
                                 className={`px-2 py-0.5 text-[11px] font-medium rounded-full border ${
                                   param.mutability === "Fixed"
-                                    ? "bg-slate-800 text-slate-300 border-slate-700"
+                                    ? "bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700"
                                     : param.mutability === "Installation"
-                                    ? "bg-purple-900/30 text-purple-300 border-purple-700/50"
+                                    ? "bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-700/50"
                                     : param.mutability === "One Time"
-                                    ? "bg-amber-900/30 text-amber-300 border-amber-700/50"
+                                    ? "bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-700/50"
                                     : param.mutability === "Hidden"
-                                    ? "bg-slate-900 text-slate-400 border-slate-800"
-                                    : "bg-emerald-900/30 text-emerald-300 border-emerald-700/50"
+                                    ? "bg-slate-100 dark:bg-slate-900 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-800"
+                                    : "bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-700/50"
                                 }`}
                               >
                                 {param.mutability}
@@ -469,8 +469,8 @@ export const SmritiSystemParametersStudio: React.FC<Props> = ({ isOpen = true, o
                                 <span
                                   className={`px-2 py-0.5 text-[11px] font-medium rounded-full border ${
                                     param.profile_type === "RETAIL"
-                                      ? "bg-blue-900/30 text-blue-300 border-blue-700/50"
-                                      : "bg-purple-900/30 text-purple-300 border-purple-700/50"
+                                      ? "bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-700/50"
+                                      : "bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-700/50"
                                   }`}
                                 >
                                   {param.profile_type}
@@ -478,19 +478,19 @@ export const SmritiSystemParametersStudio: React.FC<Props> = ({ isOpen = true, o
                               )}
 
                               {/* Data Type */}
-                              <span className="px-1.5 py-0.5 text-[10px] font-mono text-slate-400 bg-slate-900 rounded">
+                              <span className="px-1.5 py-0.5 text-[10px] font-mono text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-900 rounded">
                                 {param.data_type}
                               </span>
 
                               {/* Locked Indicator */}
                               {isLocked && (
-                                <span className="flex items-center gap-1 text-[11px] text-amber-400/80">
+                                <span className="flex items-center gap-1 text-[11px] text-amber-500 dark:text-amber-400/80">
                                   <Lock className="w-3 h-3" /> Locked
                                 </span>
                               )}
                             </div>
 
-                            <p className="text-xs text-slate-400 mt-1">
+                            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
                               {param.description || "System Parameter"}
                             </p>
                           </div>
@@ -504,7 +504,7 @@ export const SmritiSystemParametersStudio: React.FC<Props> = ({ isOpen = true, o
                                 onClick={() => handleValueChange(param.param_code, !currentValue)}
                                 className={`relative inline-flex h-6 w-12 items-center rounded-full transition-colors ${
                                   isLocked ? "opacity-50 cursor-not-allowed" : "cursor-pointer"
-                                } ${currentValue ? "bg-indigo-600" : "bg-slate-800"}`}
+                                } ${currentValue ? "bg-indigo-600" : "bg-slate-300 dark:bg-slate-800"}`}
                               >
                                 <span
                                   className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
@@ -520,10 +520,10 @@ export const SmritiSystemParametersStudio: React.FC<Props> = ({ isOpen = true, o
                                 onChange={(e) =>
                                   handleValueChange(param.param_code, parseInt(e.target.value) || 0)
                                 }
-                                className={`w-36 px-3 py-1.5 text-xs bg-slate-900 border rounded-xl font-mono text-slate-100 ${
+                                className={`w-36 px-3 py-1.5 text-xs bg-white dark:bg-slate-900 border rounded-xl font-mono text-slate-900 dark:text-slate-100 shadow-sm ${
                                   isLocked
-                                    ? "opacity-50 cursor-not-allowed border-slate-800"
-                                    : "border-slate-700 focus:border-indigo-500"
+                                    ? "opacity-50 cursor-not-allowed border-slate-200 dark:border-slate-800"
+                                    : "border-slate-300 dark:border-slate-700 focus:border-indigo-500"
                                 }`}
                               />
                             ) : param.data_type === "Decimal" ? (
@@ -535,10 +535,10 @@ export const SmritiSystemParametersStudio: React.FC<Props> = ({ isOpen = true, o
                                 onChange={(e) =>
                                   handleValueChange(param.param_code, parseFloat(e.target.value) || 0.0)
                                 }
-                                className={`w-36 px-3 py-1.5 text-xs bg-slate-900 border rounded-xl font-mono text-slate-100 ${
+                                className={`w-36 px-3 py-1.5 text-xs bg-white dark:bg-slate-900 border rounded-xl font-mono text-slate-900 dark:text-slate-100 shadow-sm ${
                                   isLocked
-                                    ? "opacity-50 cursor-not-allowed border-slate-800"
-                                    : "border-slate-700 focus:border-indigo-500"
+                                    ? "opacity-50 cursor-not-allowed border-slate-200 dark:border-slate-800"
+                                    : "border-slate-300 dark:border-slate-700 focus:border-indigo-500"
                                 }`}
                               />
                             ) : param.data_type === "Date" ? (
@@ -549,10 +549,10 @@ export const SmritiSystemParametersStudio: React.FC<Props> = ({ isOpen = true, o
                                 onChange={(e) =>
                                   handleValueChange(param.param_code, e.target.value)
                                 }
-                                className={`w-40 px-3 py-1.5 text-xs bg-slate-900 border rounded-xl font-mono text-slate-100 ${
+                                className={`w-40 px-3 py-1.5 text-xs bg-white dark:bg-slate-900 border rounded-xl font-mono text-slate-900 dark:text-slate-100 shadow-sm ${
                                   isLocked
-                                    ? "opacity-50 cursor-not-allowed border-slate-800"
-                                    : "border-slate-700 focus:border-indigo-500"
+                                    ? "opacity-50 cursor-not-allowed border-slate-200 dark:border-slate-800"
+                                    : "border-slate-300 dark:border-slate-700 focus:border-indigo-500"
                                 }`}
                               />
                             ) : (
@@ -563,10 +563,10 @@ export const SmritiSystemParametersStudio: React.FC<Props> = ({ isOpen = true, o
                                 onChange={(e) =>
                                   handleValueChange(param.param_code, e.target.value)
                                 }
-                                className={`w-64 px-3 py-1.5 text-xs bg-slate-900 border rounded-xl font-mono text-slate-100 ${
+                                className={`w-64 px-3 py-1.5 text-xs bg-white dark:bg-slate-900 border rounded-xl font-mono text-slate-900 dark:text-slate-100 shadow-sm ${
                                   isLocked
-                                    ? "opacity-50 cursor-not-allowed border-slate-800"
-                                    : "border-slate-700 focus:border-indigo-500"
+                                    ? "opacity-50 cursor-not-allowed border-slate-200 dark:border-slate-800"
+                                    : "border-slate-300 dark:border-slate-700 focus:border-indigo-500"
                                 }`}
                               />
                             )}
@@ -586,24 +586,24 @@ export const SmritiSystemParametersStudio: React.FC<Props> = ({ isOpen = true, o
         </div>
 
         {/* Footer */}
-        <footer className="flex items-center justify-between px-6 py-3 border-t border-slate-800 bg-slate-950/70 text-xs text-slate-400">
+        <footer className="flex items-center justify-between px-6 py-3 border-t border-slate-200 dark:border-slate-800 bg-slate-50/90 dark:bg-slate-950/70 text-xs text-slate-500 dark:text-slate-400">
           <div className="flex items-center gap-4">
-            <span>Total Loaded: <strong className="text-slate-200">{parameters.length}</strong> parameters</span>
-            <span>Pending Modifications: <strong className="text-indigo-300">{Object.keys(dirtyValues).length}</strong></span>
+            <span>Total Loaded: <strong className="text-slate-800 dark:text-slate-200">{parameters.length}</strong> parameters</span>
+            <span>Pending Modifications: <strong className="text-indigo-600 dark:text-indigo-300">{Object.keys(dirtyValues).length}</strong></span>
           </div>
 
           <div className="flex items-center gap-3">
             {Object.keys(dirtyValues).length > 0 && (
               <button
                 onClick={() => setDirtyValues({})}
-                className="px-3 py-1.5 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-all"
+                className="px-3 py-1.5 rounded-lg text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-800 transition-all"
               >
                 Discard Pending
               </button>
             )}
             <button
               onClick={onClose}
-              className="px-4 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 transition-all font-medium"
+              className="px-4 py-1.5 rounded-xl bg-slate-200 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition-all font-medium"
             >
               Close
             </button>

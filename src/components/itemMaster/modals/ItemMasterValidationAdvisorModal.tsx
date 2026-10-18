@@ -349,7 +349,7 @@ export const ItemMasterValidationAdvisorModal: React.FC<ItemMasterValidationAdvi
         </div>
 
         {/* Non-Technical Step-by-Step Flow Guide */}
-        <div className="bg-slate-100 dark:bg-slate-850 border-b border-slate-200 dark:border-slate-800 px-6 py-2.5 flex items-center justify-between text-[11px] text-slate-600 dark:text-slate-300 shrink-0">
+        <div className="bg-slate-100 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-800 px-6 py-2.5 flex items-center justify-between text-[11px] text-slate-600 dark:text-slate-300 shrink-0">
           <div className="flex items-center gap-1.5 font-semibold">
             <span className="w-5 h-5 rounded-full bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 flex items-center justify-center font-bold text-[10px]">1</span>
             <span>Paste / Add Items</span>

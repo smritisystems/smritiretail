@@ -319,7 +319,7 @@ export const GrnCsvImportModal: React.FC<GrnCsvImportModalProps> = ({
                 ? "border-indigo-500 bg-indigo-50/50 dark:bg-indigo-950/30"
                 : fileName
                 ? "border-emerald-400 bg-emerald-50/20 dark:bg-emerald-950/10"
-                : "border-slate-300 dark:border-slate-700 hover:border-indigo-400 dark:hover:border-indigo-500 bg-slate-50/50 dark:bg-slate-850/50"
+                : "border-slate-300 dark:border-slate-700 hover:border-indigo-400 dark:hover:border-indigo-500 bg-slate-50/50 dark:bg-slate-800/50"
             }`}
           >
             <input
@@ -456,7 +456,7 @@ export const GrnCsvImportModal: React.FC<GrnCsvImportModalProps> = ({
                       {parsedRows.map((row, idx) => (
                         <tr
                           key={idx}
-                          className={`hover:bg-slate-50 dark:hover:bg-slate-850/50 transition ${
+                          className={`hover:bg-slate-50 dark:hover:bg-slate-800/50 transition ${
                             row.status === "WARNING"
                               ? "bg-amber-50/20 dark:bg-amber-950/10"
                               : row.status === "UNRECOGNIZED"
@@ -519,7 +519,7 @@ export const GrnCsvImportModal: React.FC<GrnCsvImportModalProps> = ({
         </div>
 
         {/* Modal Footer */}
-        <div className="px-6 py-4 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-850 flex items-center justify-between">
+        <div className="px-6 py-4 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 flex items-center justify-between">
           <div className="text-xs text-slate-500">
             {parsedRows.length > 0 && (
               <span>
