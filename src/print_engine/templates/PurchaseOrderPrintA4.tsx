@@ -494,7 +494,7 @@ export const PurchaseOrderPrintA4: React.FC<{ data: PurchaseOrderPrintData }> = 
 
               <span className="text-slate-600">Expected Delivery</span>
               <span className="text-slate-400">:</span>
-              <span className="font-semibold text-slate-800">{data.expectedDelivery || "25 Oct 2026"}</span>
+              <span className="font-semibold text-slate-800">{data.expectedDelivery || "—"}</span>
 
               <span className="text-slate-600">Warehouse</span>
               <span className="text-slate-400">:</span>

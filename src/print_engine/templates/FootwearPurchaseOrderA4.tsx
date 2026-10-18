@@ -272,9 +272,9 @@ export const FootwearPurchaseOrderA4: React.FC<{ data?: FootwearPurchaseOrderDat
           <div className="inline-block bg-indigo-100 text-indigo-900 px-3 py-1 font-black text-xs rounded mb-1.5 uppercase tracking-wide">
             FOOTWEAR PURCHASE ORDER
           </div>
-          <div className="text-sm font-mono font-black text-indigo-950">PO #: {data.poNumber || "FWPO-2026-084"}</div>
-          <div className="text-[11px] text-slate-600 mt-0.5">PO Date: {data.poDate || "19-Sep-2026"}</div>
-          <div className="text-[11px] text-rose-600 font-bold mt-0.5">Delivery Due: {data.deliveryDate || "05-Oct-2026"}</div>
+          <div className="text-sm font-mono font-black text-indigo-950">PO #: {data.poNumber || "—"}</div>
+          <div className="text-[11px] text-slate-600 mt-0.5">PO Date: {data.poDate || "—"}</div>
+          <div className="text-[11px] text-rose-600 font-bold mt-0.5">Delivery Due: {data.deliveryDate || "—"}</div>
           <div className="text-[10px] text-slate-500 font-mono mt-0.5">
             Scale: {sizingScale === "EURO" ? "Euro Scale (EU 40–45) [Default]" : sizingScale}
           </div>

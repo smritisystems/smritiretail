@@ -24,6 +24,7 @@ Founders
 Classification: Internal
 """
 
+import re
 from decimal import Decimal
 from typing import Optional, List, Dict, Any, Union
 from datetime import datetime, date
@@ -216,6 +217,9 @@ class PurchaseOrderResponse(BaseModel):
     created_at:    Optional[datetime] = None
     order_date:    Optional[Union[date, datetime, str]] = None
     delivery_date: Optional[Union[date, datetime, str]] = None
+    received_date: Optional[Union[date, datetime, str]] = None
+    vendor_bill_date: Optional[Union[date, datetime, str]] = None
+    vendor_bill_no: Optional[str] = None
     total_amount:  Optional[Decimal] = None
     status:        str
     notes:         Optional[str] = None
@@ -250,6 +254,29 @@ class PurchaseOrderResponse(BaseModel):
         if not self.delivery_date and self.rule_snapshots and isinstance(self.rule_snapshots, dict):
             if "delivery_date" in self.rule_snapshots:
                 self.delivery_date = self.rule_snapshots.get("delivery_date")
+            elif "received_date" in self.rule_snapshots:
+                self.delivery_date = self.rule_snapshots.get("received_date")
+            elif "vendor_bill_date" in self.rule_snapshots:
+                self.delivery_date = self.rule_snapshots.get("vendor_bill_date")
+
+        # Auto-extract Vendor Bill receiving date and bill number from notes or rule snapshots
+        if self.notes:
+            bill_date_match = re.search(r"dated\s+([0-9]{4}-[0-9]{2}-[0-9]{2})", self.notes)
+            if bill_date_match:
+                extracted_date = bill_date_match.group(1)
+                if not self.delivery_date:
+                    self.delivery_date = extracted_date
+                if not self.received_date:
+                    self.received_date = extracted_date
+                if not self.vendor_bill_date:
+                    self.vendor_bill_date = extracted_date
+
+            bill_no_match = re.search(r"Vendor Bill\s+([^ |]+)", self.notes)
+            if bill_no_match and not self.vendor_bill_no:
+                self.vendor_bill_no = bill_no_match.group(1)
+
+        if not self.received_date and self.delivery_date:
+            self.received_date = self.delivery_date
         if not self.commercial_terms and self.rule_snapshots and isinstance(self.rule_snapshots, dict):
             if "commercial_terms" in self.rule_snapshots:
                 self.commercial_terms = self.rule_snapshots.get("commercial_terms")

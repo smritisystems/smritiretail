@@ -62,6 +62,9 @@ interface PORow {
   supplier_name?: string;
   order_date?: string;
   delivery_date?: string;
+  received_date?: string;
+  vendor_bill_date?: string;
+  vendor_bill_no?: string;
   total_amount?: number;
   items?: Array<{
     id: string;
@@ -510,7 +513,7 @@ export const POWorkspaceTab: React.FC<POWorkspaceTabProps> = ({
                   <th className="py-2.5 pr-3">Status</th>
                   <th className="py-2.5 pr-3">Supplier</th>
                   <th className="py-2.5 pr-3 w-[95px]">PO Date</th>
-                  <th className="py-2.5 pr-3 w-[95px]">Delivery</th>
+                  <th className="py-2.5 pr-3 w-[105px]">Receiving Date</th>
                   <th className="py-2.5 pr-3 text-right w-[120px]">Amount</th>
                   <th className="py-2.5 pr-3 w-[60px] text-center">Lines</th>
                   <th className="py-2.5 pr-3 font-medium w-[200px] text-right">Actions</th>
@@ -555,9 +558,9 @@ export const POWorkspaceTab: React.FC<POWorkspaceTabProps> = ({
                         {fmtDate(po.order_date || po.created_at)}
                       </td>
 
-                      {/* Delivery Date (Remains blank/dash when none specified) */}
-                      <td className="py-2.5 pr-3 text-slate-600 dark:text-slate-400 whitespace-nowrap">
-                        {fmtDate(po.delivery_date)}
+                      {/* Receiving Date (Resolved from Vendor Bill / Delivery) */}
+                      <td className="py-2.5 pr-3 text-slate-600 dark:text-slate-400 whitespace-nowrap font-medium text-slate-700 dark:text-slate-300">
+                        {fmtDate(po.delivery_date || po.received_date || po.vendor_bill_date)}
                       </td>
 
                       {/* Amount (Authoritative grand total) */}
