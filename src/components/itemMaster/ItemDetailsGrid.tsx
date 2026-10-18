@@ -432,45 +432,98 @@ export const ItemDetailsGrid: React.FC<SmritiItemDetailsGridProps> = ({
     return () => { isMounted = false; };
   }, []);
 
-  const mapProductToGridRow = (p: any, idx: number) => ({
-    _id: p.id || `row-${idx}`,
-    code: p.code || "",
-    name: p.name || "",
-    imageName: p.image_name || p.imageName || p.image || "",
-    brand: p.brand || commonFields?.brand || "",
-    styleCode: p.style_code || p.styleCode || p.article || "",
-    style_code: p.style_code || p.styleCode || p.article || "",
-    article: p.article || p.style_code || p.styleCode || "",
-    colour: p.colour || p.color || "",
-    color: p.color || p.colour || "",
-    size: p.size || "",
-    category: p.category || commonFields?.category || "Footwear",
-    subCategory: p.sub_category || commonFields?.subCategory || "",
-    mrp: p.mrp || p.price || 0,
-    price: p.price || 0,
-    buyingPrice: p.buyingPrice ?? p.buying_price ?? 0,
-    buying_price: p.buying_price ?? p.buyingPrice ?? 0,
-    costPrice: p.costPrice ?? p.cost_price ?? 0,
-    cost_price: p.cost_price ?? p.costPrice ?? 0,
-    gst_percentage: p.gst_percentage || p.gstPercentage || commonFields?.gstPercentage || 18,
-    hsn_code: p.hsn_code || p.hsnCode || commonFields?.hsnCode || "",
-    barcode: p.barcode || "",
-    uom: p.uom || commonFields?.uom || "Pair",
-    gender: p.gender || p.attributes?.gender || p.attributes?.Gender || p.attributes?.a4 || commonFields?.department || "",
-    product_type: p.product_type || p.productType || p.attributes?.product_type || p.category || "",
-    a1: p.attributes?.a1 || p.attributes?.heels || "",
-    a2: p.attributes?.a2 || p.attributes?.upperMaterial || "",
-    a3: p.attributes?.a3 || p.attributes?.outsole || "",
-    a4: p.attributes?.a4 || p.attributes?.gender || commonFields?.department || "",
-    a5: p.attributes?.a5 || commonFields?.vendorCode || "",
-    a6: p.attributes?.a6 || commonFields?.purchaseClass || "",
-    a7: p.attributes?.a7 || "",
-    a8: p.attributes?.a8 || "",
-    a9: p.attributes?.a9 || "",
-    warehouseId: p.attributes?.warehouse_id || "",
-    binLocation: p.attributes?.location_id || "",
-    hasTransactions: p.has_transactions || Boolean(p.id && idx % 3 === 0)
-  });
+  const toNum = (v: any, def = 0): number => {
+    if (v === null || v === undefined) return def;
+    const n = Number(String(v).replace(/,/g, "").trim());
+    return isNaN(n) ? def : n;
+  };
+
+  const mapProductToGridRow = (p: any, idx: number) => {
+    const attrs = p.attributes || {};
+    const style = p.style_code || p.styleCode || p.article || "";
+    const name = p.name || "";
+    const category = p.category || commonFields?.category || "Footwear";
+    const subCat = attrs.sub_category || p.sub_category || commonFields?.subCategory || "SLIP ON";
+    const dept = attrs.department || p.department || commonFields?.department || "LADIES FTW";
+    const heel = attrs.heel_type || attrs.heels || p.heel_type || "FLAT";
+    const upper = attrs.upper_material || p.upper_material || "SYNTHETIC";
+    const sole = attrs.outsole_material || attrs.outsole || p.outsole_material || "TPR";
+    const vc = p.vendor_code || attrs.vendor_code || commonFields?.vendorCode || "";
+    const purchaseClass = attrs.purchase_class || commonFields?.purchaseClass || "SIS";
+    const imgLink = attrs.image_link || attrs.imageName || p.image_name || p.imageName || p.image || style;
+
+    return {
+      _id: p.id || `row-${idx}`,
+      code: p.code || "",
+      name: name,
+      imageName: imgLink,
+      image_name: imgLink,
+      brand: p.brand || commonFields?.brand || "Tattly Threads",
+      styleCode: style,
+      style_code: style,
+      article: style,
+      colour: p.colour || p.color || "",
+      color: p.color || p.colour || "",
+      size: p.size || "",
+      category: category,
+      subCategory: subCat,
+      sub_category: subCat,
+      department: dept,
+      merchandise_department: dept,
+      MERCHANDISE_DEPARTMENT: dept,
+      merchandise_category: attrs.merchandise_category || category,
+      merchandiseCategory: attrs.merchandise_category || category,
+      mrp: toNum(p.mrp || p.price, 0),
+      price: toNum(p.price || p.mrp, 0),
+      sellingPrice: toNum(p.price || p.mrp, 0),
+      buyingPrice: toNum(p.buyingPrice ?? p.buying_price, 0),
+      buying_price: toNum(p.buying_price ?? p.buyingPrice, 0),
+      costPrice: toNum(p.costPrice ?? p.cost_price, 0),
+      cost_price: toNum(p.cost_price ?? p.costPrice, 0),
+      gst_percentage: toNum(p.gst_percentage || p.gstPercentage || commonFields?.gstPercentage, 5.0),
+      hsn_code: p.hsn_code || p.hsnCode || commonFields?.hsnCode || "64041990",
+      barcode: p.barcode || "",
+      uom: p.uom || commonFields?.uom || "Pair",
+      gender: attrs.gender || p.gender || "LADIES",
+      product_type: p.product_type || p.productType || category,
+      heel_type: heel,
+      heelType: heel,
+      heels: heel,
+      HEELS: heel,
+      upper_material: upper,
+      upperMaterial: upper,
+      UPPER_MATERIAL: upper,
+      outsole_material: sole,
+      outsoleMaterial: sole,
+      outsole: sole,
+      design_attribute: attrs.design_attribute || subCat,
+      designAttribute: attrs.design_attribute || subCat,
+      collection_type: attrs.collection_type || "BASIC",
+      collectionType: attrs.collection_type || "BASIC",
+      purchase_class: purchaseClass,
+      purchaseClass: purchaseClass,
+      vendor_code: vc,
+      vendorCode: vc,
+      itemDescription: p.description || name,
+      description: p.description || name,
+      size_group: attrs.size_group || "FOOTWEAR_EU",
+      sizeGroup: attrs.size_group || "FOOTWEAR_EU",
+      tax_category: attrs.tax_category || "GOODS",
+      taxCategory: attrs.tax_category || "GOODS",
+      a1: attrs.a1 || heel,
+      a2: attrs.a2 || upper,
+      a3: attrs.a3 || sole,
+      a4: attrs.a4 || attrs.gender || dept,
+      a5: attrs.a5 || vc,
+      a6: attrs.a6 || purchaseClass,
+      a7: attrs.a7 || "",
+      a8: attrs.a8 || "",
+      a9: attrs.a9 || "",
+      warehouseId: attrs.warehouse_id || "",
+      binLocation: attrs.location_id || "",
+      hasTransactions: p.has_transactions || Boolean(p.id && idx % 3 === 0)
+    };
+  };
 
   // Initialize rows from products
   useEffect(() => {
@@ -530,13 +583,15 @@ export const ItemDetailsGrid: React.FC<SmritiItemDetailsGridProps> = ({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [onNotification]);
 
-  // Unified available fields
+  // Unified available fields (filtering out legacy generic slots a1, a2, a3 to prevent duplicate columns)
   const catalogFields = useMemo(() => {
     const customLabels = getCustomFieldLabels();
-    return getUnifiedItemMasterFields(dynamicDefinitions).map(f => ({
-      key: f.key,
-      label: customLabels[f.key] || f.label
-    }));
+    return getUnifiedItemMasterFields(dynamicDefinitions)
+      .filter(f => !["a1", "a2", "a3"].includes(f.key))
+      .map(f => ({
+        key: f.key,
+        label: customLabels[f.key] || f.label
+      }));
   }, [dynamicDefinitions]);
 
   // Active columns to show based on global visibility & viewConfig
