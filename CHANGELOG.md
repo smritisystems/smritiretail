@@ -1,5 +1,18 @@
 ## [6.99.0] — 2026-10-18
 
+### CRM & Enterprise Cockpit — Corporate Customer 360 Store Network & Typed Address Mapping v1.0.0
+
+Designed, implemented, hardened, and verified the enterprise **Corporate Customer 360 Dashboard, Multi-Store Network, and Typed Multi-Address Mapping Subsystem** within SMRITI Retail OS:
+- **1-to-Many Store Code Mapping**: Enabled corporate legal accounts to aggregate hundreds of distributed physical retail locations (`CustomerDeliveryLocation`) with individual address cards, store types, city/state attributes, and Party Stock Visibility (PSV).
+- **Multi-Tier Concurrency & Mutual Exclusion**: Built a multi-tier concurrency protection pipeline guaranteeing one store code belongs to at most one customer tenant-wide at any time:
+  - In-process `_store_code_mutexes` registry (`asyncio.Lock`) serializing claim attempts within individual worker processes.
+  - PostgreSQL transaction-level advisory locks (`SELECT pg_advisory_xact_lock(hashtext(:k))`) across database connections, eliminating race conditions on previously unassigned store codes where no database row exists to lock.
+  - Row-level pessimistic locking (`with_for_update=True`) across existing delivery locations and address arrays during updates and deactivations.
+- **Typed Multi-Address Management**: Supported multiple addresses (`Delivery`, `Billing`, `Warehouse`, `Registered`, `Shipping`, `Other`) per Store Code with single active primary enforcement per address type, versioned within `CustomerDeliveryLocation.metadata_json` with zero database migrations.
+- **Truthful PSV Valuation & Stock Status**: Eradicated synthetic/mock PSV formula; missing or unconfigured hardware/telemetry feeds are strictly flagged as `psv_status="Not Reporting"`, `psv_value_display="— (Awaiting Sync)"`, and increment `not_reporting_stores` counter, preventing misleading zero-stock assumptions.
+- **Searchable Master Lookup Modal**: Built `StoreCodeLookupModal.tsx` showing tenant-wide store codes with claimed codes visible but disabled, providing clear ownership context and tooltips.
+- **Automated Verification**: Certified with 16/16 backend tests green in `backend/app/tests/test_corporate_customer_360.py` (including concurrency, advisory locks, soft-deactivation history, tenant isolation, and address update conflict tests), 11/11 frontend Vitest tests green in `src/tests/corporateCustomer360.test.tsx`, 11/11 launchpad tests green, 0 `tsc --noEmit` errors, and 0 `git diff --check` errors.
+
 ### Print & Compliance — Company Identity Printing Safety Remediation v6.92.0
 
 Remediated the Document & Printing Safety gate across all PDF engines, barcode services, dispatch pipelines, API route handlers, and frontend print templates:

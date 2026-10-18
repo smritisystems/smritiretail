@@ -134,6 +134,12 @@ export const LayoutEngineProvider: React.FC<ProviderProps> = ({
       category: "Sales & POS",
     },
     {
+      id: "customer-profile",
+      label: "Customer Profile",
+      icon: "account_circle",
+      category: "Sales & POS",
+    },
+    {
       id: "crm",
       label: "CRM Studio",
       icon: "groups",
@@ -276,6 +282,12 @@ export const LayoutEngineProvider: React.FC<ProviderProps> = ({
       id: "staff-management",
       label: "Staff Management",
       icon: "badge",
+      category: "Operations",
+    },
+    {
+      id: "store-directory",
+      label: "Store & Branch Directory",
+      icon: "storefront",
       category: "Operations",
     },
     {

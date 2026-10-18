@@ -53,6 +53,9 @@ const PARENT_OVERRIDES: Record<string, string> = {
 
   // CRM
   "customer-master": "crm",
+  "corporate-customer-360": "customer-master",
+  "customer-profile": "customer-master",
+  "customer-360": "customer-master",
 
   // Masters sub-modules
   "item-create-grid": "masters",
@@ -62,6 +65,7 @@ const PARENT_OVERRIDES: Record<string, string> = {
   // System sub-modules
   "database-manager": "system",
   "staff-management": "system",
+  "store-directory": "staff-management",
   "muster-roll": "staff-management",
   "attendance-workspace": "staff-management",
   "wages": "staff-management",

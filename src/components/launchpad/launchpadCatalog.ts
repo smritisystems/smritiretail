@@ -121,6 +121,17 @@ export const LAUNCHPAD_CATALOG: TileData[] = [
     shortcut: "F8",
     accentColor: "amber",
   },
+  {
+    id: "store-directory",
+    title: "Store & Branch Directory",
+    subtitle: "Internal branches, partner stores, staff assignments, store managers & primary reps",
+    icon: "storefront",
+    tag: "Stores",
+    badgeType: "primary",
+    group: "Retail Operations",
+    roles: ["MANAGER", "SYSADMIN"],
+    accentColor: "indigo",
+  },
 
   // 2. Master Data & Stock
   {

@@ -429,6 +429,10 @@ class CustomerIdentityService:
     ) -> CustomerDuplicateCheckResponse:
         """
         Evaluate CustomerDeliveryLocation against store code duplicate rules.
+        Enforces:
+        1. Same customer cannot have duplicate active store code.
+        2. Strict Exclusive Mapping: One Store Code -> only one customer profile at a time across the tenant.
+        3. Possible duplicate address warning if same address exists under another store code for this customer.
         """
         clean_code = store_code.strip().upper()
 
@@ -441,12 +445,58 @@ class CustomerIdentityService:
         )
         if exclude_loc_id:
             stmt_code = stmt_code.filter(CustomerDeliveryLocation.id != exclude_loc_id)
+        if self.tenant_ctx.company_id:
+            stmt_code = stmt_code.filter(
+                (CustomerDeliveryLocation.company_id == self.tenant_ctx.company_id)
+                | (CustomerDeliveryLocation.company_id.is_(None))
+            )
         res_code = await self.db.execute(stmt_code)
         if res_code.scalars().first():
             return CustomerDuplicateCheckResponse(
                 decision=DuplicateDecision.HARD_DUPLICATE,
                 matched_identity=MatchedIdentityType.STORE_CODE,
                 reason=f"Store code '{clean_code}' is already an active delivery location for this customer.",
+                allow_override=False,
+            )
+
+        # Check 1b: Exclusive Mapping across Tenant — One Store Code -> only one customer at a time
+        stmt_cross = (
+            select(CustomerDeliveryLocation, Customer)
+            .join(Customer, CustomerDeliveryLocation.customer_id == Customer.id)
+            .filter(
+                CustomerDeliveryLocation.customer_id != customer_id,
+                CustomerDeliveryLocation.store_code == clean_code,
+                CustomerDeliveryLocation.status == "ACTIVE",
+                CustomerDeliveryLocation.is_deleted == False,
+            )
+        )
+        if exclude_loc_id:
+            stmt_cross = stmt_cross.filter(CustomerDeliveryLocation.id != exclude_loc_id)
+        if self.tenant_ctx.company_id:
+            stmt_cross = stmt_cross.filter(
+                (CustomerDeliveryLocation.company_id == self.tenant_ctx.company_id)
+                | (CustomerDeliveryLocation.company_id.is_(None))
+            )
+        res_cross = await self.db.execute(stmt_cross)
+        cross_row = res_cross.first()
+        if cross_row:
+            other_loc, other_cust = cross_row
+            cust_name = getattr(other_cust, "name", "another customer")
+            cust_code = getattr(other_cust, "code", "")
+            code_desc = f" ({cust_code})" if cust_code else ""
+            return CustomerDuplicateCheckResponse(
+                decision=DuplicateDecision.HARD_DUPLICATE,
+                matched_identity=MatchedIdentityType.STORE_CODE,
+                existing_customer=ExistingCustomerSummary(
+                    id=other_cust.id,
+                    code=other_cust.code,
+                    name=other_cust.name,
+                    mobile=other_cust.mobile,
+                    email=other_cust.email,
+                    gst_number=other_cust.gst_number,
+                    status=other_cust.status,
+                ),
+                reason=f"Store code '{clean_code}' is already assigned to customer '{cust_name}'{code_desc}. A Store Code can only belong to one customer profile at a time.",
                 allow_override=False,
             )
 
@@ -461,6 +511,11 @@ class CustomerIdentityService:
             )
             if exclude_loc_id:
                 stmt_addr = stmt_addr.filter(CustomerDeliveryLocation.id != exclude_loc_id)
+            if self.tenant_ctx.company_id:
+                stmt_addr = stmt_addr.filter(
+                    (CustomerDeliveryLocation.company_id == self.tenant_ctx.company_id)
+                    | (CustomerDeliveryLocation.company_id.is_(None))
+                )
             res_addr = await self.db.execute(stmt_addr)
             existing_loc = res_addr.scalars().first()
             if existing_loc:

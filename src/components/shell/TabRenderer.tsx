@@ -88,6 +88,8 @@ const PriceRevisionStudioWorkspace = lazy(() => import("../pricing/PriceRevision
 const CostTruthDashboardTab = lazy(() => import("../finance/CostTruthDashboardTab.tsx").then(m => ({ default: m.CostTruthDashboardTab })));
 const VisualReportsDashboardTab = lazy(() => import("../reports/VisualReportsDashboardTab.tsx").then(m => ({ default: m.VisualReportsDashboardTab })));
 const ProcurementVisualReportsTab = lazy(() => import("../procurement/ProcurementVisualReportsTab.tsx").then(m => ({ default: m.ProcurementVisualReportsTab })));
+const StoreDirectoryWs = lazy(() => import("../store/StoreDirectoryWs.tsx").then(m => ({ default: m.StoreDirectoryWs })));
+const CorporateCustomer360 = lazy(() => import("../customer/corporate360/CorporateCustomer360.tsx").then(m => ({ default: m.CorporateCustomer360 })));
 
 export const TabLoadingFallback: React.FC = () => (
   <div className="w-full h-full flex flex-col items-center justify-center bg-theme-base text-theme-primary">
@@ -272,6 +274,16 @@ export const mapModuleId = (id: string): string => {
     "deprecation-telemetry": "legacy-telemetry",
     "legacy-deprecation-telemetry": "legacy-telemetry",
     "menu-legacy-telemetry": "legacy-telemetry",
+    "store-directory": "store-directory",
+    "store_directory": "store-directory",
+    stores: "store-directory",
+    "menu-store-directory": "store-directory",
+    "corporate-customer-360": "corporate-customer-360",
+    "customer-360": "corporate-customer-360",
+    "corporate-360": "corporate-customer-360",
+    "customer-profile": "corporate-customer-360",
+    "menu-customer-360": "corporate-customer-360",
+    "menu-customer-profile": "corporate-customer-360",
   };
   return map[id] || id;
 };
@@ -713,6 +725,22 @@ export const renderTabNode = (tabId: string, ctx: TabRendererContextProps): Reac
           currentUser={currentUser}
           onNotification={addNotification}
           onNavigateTab={setActiveTab}
+        />
+      );
+    case "store-directory":
+    case "store_directory":
+    case "stores":
+      return <StoreDirectoryWs />;
+    case "corporate-customer-360":
+    case "customer-360":
+    case "corporate-360":
+    case "customer-profile":
+      return (
+        <CorporateCustomer360
+          currentUser={currentUser}
+          onNotification={addNotification}
+          onNavigateTab={setActiveTab}
+          onBack={() => setActiveTab("customer-master")}
         />
       );
     default:
