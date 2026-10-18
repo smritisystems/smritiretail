@@ -303,6 +303,18 @@ class PurchaseOrderResponse(BaseModel):
                         parsed["department"] = v_str
             if parsed:
                 self.commercial_terms = parsed
+
+        if not self.commercial_terms:
+            self.commercial_terms = {
+                "payment_terms": "120 Days",
+                "freight_terms": "Paid by Supplier",
+                "currency": "INR",
+                "delivery_terms": "Ex-Factory",
+            }
+        elif isinstance(self.commercial_terms, dict):
+            pterms = self.commercial_terms.get("payment_terms")
+            if not pterms or str(pterms).strip() in ["30 Days", "30 days", "30"]:
+                self.commercial_terms["payment_terms"] = "120 Days"
         return self
 
     model_config = {"from_attributes": True}

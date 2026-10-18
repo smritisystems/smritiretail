@@ -646,7 +646,7 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
       } else {
         // Fallback demo suppliers if db is fresh
         const fallbackSuppliers = [
-          { id: "SUP-548042", name: "Apex Fabrics Ltd", code: "SUP-548042", gstin: "27AAAAC0553K1Z8", city: "Mumbai", state: "Maharashtra", phone: "+91 22 1234 5678", payment_terms: "30 Days", freight_terms: "Paid by Supplier", currency: "INR - Indian Rupee" },
+          { id: "SUP-548042", name: "Apex Fabrics Ltd", code: "SUP-548042", gstin: "27AAAAC0553K1Z8", city: "Mumbai", state: "Maharashtra", phone: "+91 22 1234 5678", payment_terms: "120 Days", freight_terms: "Paid by Supplier", currency: "INR - Indian Rupee" },
           { id: "SUP-102941", name: "Campus Activewear Ltd", code: "SUP-102941", gstin: "07AAACC2914E1Z1", city: "Delhi", state: "Delhi", phone: "+91 11 9876 5432", payment_terms: "15 Days", freight_terms: "To Pay", currency: "INR - Indian Rupee" },
           { id: "SUP-309481", name: "Bata Footwear India Ltd", code: "SUP-309481", gstin: "19AABCB1234P1Z5", city: "Kolkata", state: "West Bengal", phone: "+91 33 4455 6677", payment_terms: "45 Days", freight_terms: "Paid by Supplier", currency: "INR - Indian Rupee" },
         ];
@@ -2135,6 +2135,8 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
                       <option value="30 Days">30 Days</option>
                       <option value="45 Days">45 Days</option>
                       <option value="60 Days">60 Days</option>
+                      <option value="90 Days">90 Days</option>
+                      <option value="120 Days">120 Days</option>
                       <option value="Cash on Delivery">Cash on Delivery</option>
                     </select>
                   </div>

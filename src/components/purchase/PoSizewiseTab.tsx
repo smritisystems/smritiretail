@@ -4894,6 +4894,8 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
                   <option>30 Days</option>
                   <option>45 Days</option>
                   <option>60 Days</option>
+                  <option>90 Days</option>
+                  <option>120 Days</option>
                   <option>Cash on Delivery</option>
                 </select>
               </div>

@@ -36,6 +36,7 @@ import {
 import { DEFAULT_BUSINESS_TERMS } from "./CommercialDeliveryDrawer";
 import type { PurchaseOrderHeader, PurchaseOrderLineItem, PurchaseOrderSizePivotRow } from "./types.ts";
 import { getTenantCompanyContext } from "../../lib/apiFetchV1";
+import { lookupFootwearStyleMetadata } from "../../lib/footwearStyleCatalog";
 
 export interface POPrintPreviewModalProps {
   isOpen: boolean;
@@ -124,7 +125,7 @@ export function resolveFootwearAttributes(item: any): {
     return undefined;
   };
 
-  const heels =
+  let heels =
     findVal([
       "heelType",
       "heel_type",
@@ -136,7 +137,7 @@ export function resolveFootwearAttributes(item: any): {
       "Heel",
     ]) || "—";
 
-  const upperMaterial =
+  let upperMaterial =
     findVal([
       "upperMaterial",
       "upper_material",
@@ -148,7 +149,7 @@ export function resolveFootwearAttributes(item: any): {
       "Upper",
     ]) || "—";
 
-  const outsole =
+  let outsole =
     findVal([
       "outsoleMaterial",
       "outsole_material",
@@ -160,6 +161,33 @@ export function resolveFootwearAttributes(item: any): {
       "Sole",
       "sole_material",
     ]) || "—";
+
+  // Catalog fallback lookup if any attribute is missing / blank
+  if (heels === "—" || upperMaterial === "—" || outsole === "—") {
+    const candidateKeys = [
+      item.barcode,
+      item.stockNo,
+      item.articleNo,
+      item.articleCode,
+      item.style,
+      item.code,
+      item.itemCode,
+      item.product,
+      item.originalProduct?.code,
+      item.originalProduct?.barcode,
+      item.originalProduct?.style_code,
+    ].filter(Boolean);
+
+    for (const key of candidateKeys) {
+      const meta = lookupFootwearStyleMetadata(key);
+      if (meta) {
+        if (heels === "—" && meta.heelType) heels = meta.heelType;
+        if (upperMaterial === "—" && meta.upperMaterial) upperMaterial = meta.upperMaterial;
+        if (outsole === "—" && meta.outsole) outsole = meta.outsole;
+        if (heels !== "—" && upperMaterial !== "—" && outsole !== "—") break;
+      }
+    }
+  }
 
   return { heels, upperMaterial, outsole };
 }
@@ -410,7 +438,7 @@ export const POPrintPreviewModal: React.FC<POPrintPreviewModalProps> = ({
     totalPairs: mappedTotalPairs,
     netOrderValue: mappedNetTotal,
     netOrderValueInWords: `${currencySymbol} ${mappedNetTotal.toFixed(2)} (calculated from live PO lines)`,
-    paymentTerms: header.paymentTerms || "120 Days",
+    paymentTerms: header.paymentTerms && header.paymentTerms !== "30 Days" ? header.paymentTerms : "120 Days",
     purchaser: header.buyer || "—",
     supplierReference: header.supplierReference || "—",
     documentStatus: "DRAFT",
@@ -428,7 +456,7 @@ export const POPrintPreviewModal: React.FC<POPrintPreviewModalProps> = ({
     supplierPhone: vendor?.mobile || vendor?.phone || "",
     deliveryLocation: header.deliveryLocation || "Main Store (MAIN)",
     deliveryDate: header.deliveryDate || "",
-    paymentTerms: header.paymentTerms || "120 Days",
+    paymentTerms: header.paymentTerms && header.paymentTerms !== "30 Days" ? header.paymentTerms : "120 Days",
     supplierReference: header.supplierReference || "",
     purchaser: header.buyer || "",
     department: header.department || "General Purchase",
@@ -478,7 +506,7 @@ export const POPrintPreviewModal: React.FC<POPrintPreviewModalProps> = ({
     taxTotal: mappedFootwearItems.reduce((sum, item) => sum + item.lineTotal * (item.taxRatePercent / 100), 0),
     total: mappedFootwearItems.reduce((sum, item) => sum + item.lineTotal * (1 + item.taxRatePercent / 100), 0),
     amountInWords: "",
-    terms: "1. Goods delivered per SATRA norms.\n2. Payment terms 30 days net from GRN date.",
+    terms: "1. Goods delivered per SATRA norms.\n2. Payment terms 120 days net from GRN date.",
   };
 
   // Date formatting helper for retail purchase orders
@@ -758,14 +786,15 @@ export const POPrintPreviewModal: React.FC<POPrintPreviewModalProps> = ({
     (header.freightAmount || 0) +
     (header.otherCharges || 0);
 
-  // Resolve Vendor Profile Details with Real Fallbacks
-  const vendorPaymentTerms =
-    header.paymentTerms ||
-    vendor?.payment_terms ||
-    (vendor?.payment_terms_days ? `${vendor.payment_terms_days} Days` : null) ||
-    vendor?.commercial?.paymentTerms ||
-    vendor?.commercial_terms?.payment_terms ||
-    "120 Days";
+  // Resolve Vendor Profile Details with Real Fallbacks (Strict 120 Days Footwear Default)
+  const rawTerms =
+    (header.paymentTerms && header.paymentTerms !== "30 Days" ? header.paymentTerms : null) ||
+    (vendor?.payment_terms && vendor?.payment_terms !== "30 Days" ? vendor?.payment_terms : null) ||
+    (vendor?.payment_terms_days && vendor.payment_terms_days !== 30 ? `${vendor.payment_terms_days} Days` : null) ||
+    (vendor?.commercial?.paymentTerms && vendor?.commercial?.paymentTerms !== "30 Days" ? vendor?.commercial?.paymentTerms : null) ||
+    (vendor?.commercial_terms?.payment_terms && vendor?.commercial_terms?.payment_terms !== "30 Days" ? vendor?.commercial_terms?.payment_terms : null);
+
+  const vendorPaymentTerms = rawTerms || "120 Days";
 
   const vendorAddress =
     vendor?.address && vendor.address.trim()
