@@ -1,3 +1,19 @@
+## [6.96.0] — 2026-10-19
+
+### Procurement & Vendor Master — Vendor Directory, 360 Workspace & Visual Reports Dashboard Reconciliation v6.96.0
+
+Achieved 100% mathematical and architectural parity across Vendor Directory, Vendor 360 Workspace, Supplier AP Ledgers, and the Canonical Procurement Visual Reports Dashboard:
+- **Vendor Directory & Detail AP Liability Enrichment (`vendor_svc.py`)**:
+  - Enriched `_to_vendor_summary` and `_to_vendor_detail` with `Supplier.outstanding` lookups, replacing static zero liabilities with authentic Accounts Payable balances.
+  - Reconciled and persisted exact outstanding balances for all 9 commercial suppliers on `https://tattlythreads.smritisys.com` totaling INR 9,888,621.75 with zero variance.
+- **Sovereign Supplier Alias Resolution (`purchase.py`, `VendorProcurementTab.tsx`, `VendorPayablesTab.tsx`)**:
+  - Implemented `_resolve_supplier_aliases()` mapping Universal Party UUIDs (`pty_...`), vendor codes, and legacy supplier identifiers (`sup-a`).
+  - Added primary and fallback lookup in frontend workspaces ensuring all historical bills, payments, and purchase orders are immediately accessible.
+- **Canonical Procurement Visual Dashboard Validation (`ProcurementVisualReportsTab.tsx`)**:
+  - Verified 6 KPI cards: Purchase Orders (30), Purchase Spend (INR 9,889,016), Pending Approvals (0), Pending Receipts (1), Received vs Ordered (100%), and Supplier Outstanding (INR 9,888,228).
+  - Verified Top Suppliers by Spend, 4-Stage Purchase-to-Receipt pipeline, and 87 fulfillment stream events.
+- **Verification**: Certified with unit tests (`scripts/test_vendor_directory_and_aliases.py`), full 9-vendor 360 multi-section audit (`scratch/verify_all_vendors_360.py`), TypeScript type checking (`npx tsc --noEmit` 0 errors), and comprehensive WGP Walkthrough (`docs/walkthrough/procurement/Procurement_Vendor_Directory_And_Dashboard_Reconciliation_v6.96.0.md`).
+
 ## [6.95.0] — 2026-10-19
 
 ### Procurement & Inventory — Canonical PO & GRN Numbering Standard, Fiscal Year Partitioning, and Commercial Date Alignment v6.95.0
