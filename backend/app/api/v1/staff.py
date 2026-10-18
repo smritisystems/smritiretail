@@ -41,7 +41,8 @@ from ...db.session import async_session
 from ...models.commission import CommissionParticipant, CommissionProgram, CommissionRule, CommissionLedger
 from ...models.auth import User, UserRole
 from ...models.hr import AttendanceRecord, LeaveBalance, LeaveRequest, WageStatement
-from ...models.crm import CustomerDeliveryLocation
+from ...models.crm import CustomerDeliveryLocation, Customer
+from ...models.psv import PSVParty
 from ...models.tenant import Branch, Company
 from ...models.staff_placement import StaffPlacementAssignment
 from ...models.staff_profile import StaffProfile
@@ -2724,14 +2725,47 @@ async def create_staff_placement(
         if not location:
             raise HTTPException(status_code=404, detail="Active partner store code was not found for this customer.")
 
-    existing_active = (await db.execute(select(StaffPlacementAssignment).where(
+    # Location target filter
+    loc_filter = (
+        StaffPlacementAssignment.internal_branch_id == payload.internal_branch_id
+        if payload.placement_type == "INTERNAL_BRANCH"
+        else StaffPlacementAssignment.host_delivery_location_id == payload.host_delivery_location_id
+    )
+
+    # 1. Enforce that staff member is not actively placed at this exact store location twice
+    existing_at_store = (await db.execute(select(StaffPlacementAssignment).where(
         StaffPlacementAssignment.company_id == tenant.company_id,
         StaffPlacementAssignment.staff_user_id == placement_user_id,
+        loc_filter,
         StaffPlacementAssignment.status.in_(("PENDING", "ACTIVE")),
         StaffPlacementAssignment.is_deleted == False,
     ))).scalar_one_or_none()
-    if existing_active:
-        raise HTTPException(status_code=409, detail="This staff member already has a pending or active placement.")
+    if existing_at_store:
+        raise HTTPException(status_code=409, detail="This staff member already has a pending or active placement at this store location.")
+
+    # 2. Enforce at most ONE active Store Manager per store location
+    if payload.role_at_location == "STORE_MANAGER":
+        existing_mgr = (await db.execute(select(StaffPlacementAssignment).where(
+            StaffPlacementAssignment.company_id == tenant.company_id,
+            loc_filter,
+            StaffPlacementAssignment.role_at_location == "STORE_MANAGER",
+            StaffPlacementAssignment.status == "ACTIVE",
+            StaffPlacementAssignment.is_deleted == False,
+        ))).scalar_one_or_none()
+        if existing_mgr:
+            raise HTTPException(status_code=409, detail="This store already has an active Store Manager. Reassign or close the existing manager first.")
+
+    # 3. Enforce at most ONE active Primary Representative per partner store
+    if payload.role_at_location == "PRIMARY_REPRESENTATIVE":
+        existing_primary_rep = (await db.execute(select(StaffPlacementAssignment).where(
+            StaffPlacementAssignment.company_id == tenant.company_id,
+            loc_filter,
+            StaffPlacementAssignment.role_at_location == "PRIMARY_REPRESENTATIVE",
+            StaffPlacementAssignment.status == "ACTIVE",
+            StaffPlacementAssignment.is_deleted == False,
+        ))).scalar_one_or_none()
+        if existing_primary_rep:
+            raise HTTPException(status_code=409, detail="This partner store already has an active Primary Representative.")
 
     row = StaffPlacementAssignment(
         company_id=tenant.company_id,
@@ -2882,3 +2916,504 @@ async def reassign_staff_placement(
     await db.commit()
     await db.refresh(new_row)
     return {"previous": _placement_payload(old), "replacement": _placement_payload(new_row)}
+
+
+# ---------------------------------------------------------------------------
+# Store Directory & Responsibility Visibility Endpoints
+# ---------------------------------------------------------------------------
+
+@router.get("/stores/directory")
+async def list_store_directory(
+    search: Optional[str] = Query(default=None),
+    store_type: Optional[str] = Query(default="ALL"),  # ALL | INTERNAL_BRANCH | CUSTOMER_STORE
+    status: Optional[str] = Query(default="ALL"),      # ALL | ACTIVE | INACTIVE
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=50, ge=1, le=500),
+    tenant: TenantContext = Depends(get_tenant_context),
+    control_db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Unified Store Directory resolving internal company branches and customer retail stores.
+    Displays Store Code, Store Name, Location, Status, Store Manager, Primary Rep,
+    assigned staff count, and verified live physical attendance count.
+    """
+    today = date.today()
+
+    # 1. Gather active placements for tenant
+    placement_stmt = select(StaffPlacementAssignment).where(
+        StaffPlacementAssignment.company_id == tenant.company_id,
+        StaffPlacementAssignment.status == "ACTIVE",
+        StaffPlacementAssignment.is_deleted == False,
+        StaffPlacementAssignment.effective_from <= today,
+        (StaffPlacementAssignment.effective_to.is_(None) | (StaffPlacementAssignment.effective_to >= today)),
+    )
+    active_placements = (await db.execute(placement_stmt)).scalars().all()
+
+    # Resolve staff user details
+    user_ids = {p.staff_user_id for p in active_placements if p.staff_user_id}
+    users = (await control_db.execute(select(User).where(User.id.in_(user_ids)))).scalars().all() if user_ids else []
+    user_map = {u.id: u for u in users}
+
+    # Resolve today's verified physical attendance
+    att_stmt = select(AttendanceRecord).where(
+        AttendanceRecord.company_id == tenant.company_id,
+        AttendanceRecord.attendance_date == today,
+        AttendanceRecord.status == "PRESENT",
+        AttendanceRecord.check_out_at.is_(None),
+        AttendanceRecord.is_deleted == False,
+    )
+    today_attendance = (await db.execute(att_stmt)).scalars().all()
+    present_user_ids = {a.user_id for a in today_attendance if a.user_id}
+
+    # Resolve active PSV party delivery locations
+    psv_locs = (await db.execute(select(PSVParty.delivery_location_id).where(
+        PSVParty.company_id == tenant.company_id,
+        PSVParty.delivery_location_id.is_not(None),
+    ))).scalars().all()
+    psv_loc_set = set(psv_locs)
+
+    # Index placements by branch_id and delivery_location_id
+    placements_by_branch: dict[str, list[StaffPlacementAssignment]] = {}
+    placements_by_location: dict[str, list[StaffPlacementAssignment]] = {}
+
+    for p in active_placements:
+        if p.internal_branch_id:
+            placements_by_branch.setdefault(p.internal_branch_id, []).append(p)
+        if p.host_delivery_location_id:
+            placements_by_location.setdefault(p.host_delivery_location_id, []).append(p)
+
+    def extract_role_user(placement_list: list[StaffPlacementAssignment], target_role: str):
+        for pl in placement_list:
+            if pl.role_at_location == target_role:
+                usr = user_map.get(pl.staff_user_id)
+                name_val = getattr(usr, "full_name", None) or getattr(usr, "display_name", None) or getattr(usr, "username", None) or (pl.staff_user_id or "Unknown")
+                phone_val = getattr(usr, "mobile", "") or getattr(usr, "phone", "") or ""
+                return {
+                    "id": pl.staff_user_id,
+                    "name": name_val,
+                    "username": getattr(usr, "username", "") if usr else "",
+                    "phone": phone_val,
+                    "effective_from": pl.effective_from.isoformat() if pl.effective_from else "",
+                }
+        return None
+
+    store_items = []
+
+    # 2. Process Internal Branches
+    if store_type in ("ALL", "INTERNAL_BRANCH"):
+        b_stmt = select(Branch).where(
+            Branch.company_id == tenant.company_id,
+            Branch.is_deleted == False,
+        )
+        if status == "ACTIVE":
+            b_stmt = b_stmt.where(Branch.is_active == True)
+        elif status == "INACTIVE":
+            b_stmt = b_stmt.where(Branch.is_active == False)
+        branches = (await db.execute(b_stmt)).scalars().all()
+
+        for b in branches:
+            b_placements = placements_by_branch.get(b.id, [])
+            b_user_ids = {p.staff_user_id for p in b_placements}
+            present_cnt = len(b_user_ids & present_user_ids)
+            mgr = extract_role_user(b_placements, "STORE_MANAGER")
+            primary_rep = extract_role_user(b_placements, "PRIMARY_REPRESENTATIVE") or extract_role_user(b_placements, "SALES_REPRESENTATIVE")
+
+            store_items.append({
+                "id": f"INTERNAL_BRANCH:{b.id}",
+                "canonical_id": b.id,
+                "store_code": b.code,
+                "store_name": b.name,
+                "store_type": "INTERNAL_BRANCH",
+                "host_id": tenant.company_id,
+                "host_name": "Company Owned Store",
+                "internal_branch_id": b.id,
+                "delivery_location_id": None,
+                "address": b.address or "",
+                "city": b.city or "",
+                "state": b.state or "",
+                "pincode": b.pincode or "",
+                "gstin": b.gstin or "",
+                "phone": b.phone or "",
+                "email": b.email or "",
+                "status": "ACTIVE" if b.is_active else "INACTIVE",
+                "store_manager": mgr,
+                "primary_representative": primary_rep,
+                "assigned_staff_count": len(b_user_ids),
+                "verified_present_today_count": present_cnt,
+                "psv_active": False,
+            })
+
+    # 3. Process Customer Partner Retail Stores
+    if store_type in ("ALL", "CUSTOMER_STORE"):
+        cdl_stmt = select(CustomerDeliveryLocation, Customer).join(
+            Customer, CustomerDeliveryLocation.customer_id == Customer.id
+        ).where(
+            CustomerDeliveryLocation.company_id == tenant.company_id,
+            CustomerDeliveryLocation.is_deleted == False,
+        )
+        if status == "ACTIVE":
+            cdl_stmt = cdl_stmt.where(CustomerDeliveryLocation.status == "ACTIVE")
+        elif status == "INACTIVE":
+            cdl_stmt = cdl_stmt.where(CustomerDeliveryLocation.status == "INACTIVE")
+        cdl_rows = (await db.execute(cdl_stmt)).all()
+
+        for cdl, cust in cdl_rows:
+            cdl_placements = placements_by_location.get(cdl.id, [])
+            cdl_user_ids = {p.staff_user_id for p in cdl_placements}
+            present_cnt = len(cdl_user_ids & present_user_ids)
+            mgr = extract_role_user(cdl_placements, "STORE_MANAGER")
+            primary_rep = extract_role_user(cdl_placements, "PRIMARY_REPRESENTATIVE") or extract_role_user(cdl_placements, "SALES_REPRESENTATIVE")
+
+            store_items.append({
+                "id": f"CUSTOMER_STORE:{cdl.id}",
+                "canonical_id": cdl.id,
+                "store_code": cdl.store_code,
+                "store_name": cdl.location_name,
+                "store_type": "CUSTOMER_STORE",
+                "host_id": cust.id,
+                "host_name": cust.name,
+                "internal_branch_id": None,
+                "delivery_location_id": cdl.id,
+                "address": f"{cdl.address_line1 or ''} {cdl.address_line2 or ''}".strip(),
+                "city": cdl.city or "",
+                "state": cdl.state or "",
+                "pincode": cdl.pincode or "",
+                "gstin": cdl.gstin or "",
+                "phone": cdl.phone or "",
+                "email": cdl.email or "",
+                "status": cdl.status,
+                "store_manager": mgr,
+                "primary_representative": primary_rep,
+                "assigned_staff_count": len(cdl_user_ids),
+                "verified_present_today_count": present_cnt,
+                "psv_active": cdl.id in psv_loc_set,
+            })
+
+    # Search filter
+    if search:
+        q = search.lower().strip()
+        store_items = [
+            s for s in store_items
+            if q in s["store_code"].lower()
+            or q in s["store_name"].lower()
+            or q in s["host_name"].lower()
+            or q in s["city"].lower()
+            or q in s["state"].lower()
+            or (s["store_manager"] and q in s["store_manager"]["name"].lower())
+            or (s["primary_representative"] and q in s["primary_representative"]["name"].lower())
+        ]
+
+    # Summary metrics
+    total_stores = len(store_items)
+    total_internal = sum(1 for s in store_items if s["store_type"] == "INTERNAL_BRANCH")
+    total_partner = sum(1 for s in store_items if s["store_type"] == "CUSTOMER_STORE")
+    total_staff = sum(s["assigned_staff_count"] for s in store_items)
+    total_present = sum(s["verified_present_today_count"] for s in store_items)
+    stores_with_manager = sum(1 for s in store_items if s["store_manager"] is not None)
+
+    # Sort and paginate
+    store_items.sort(key=lambda x: (x["store_type"], x["store_code"]))
+    start_idx = (page - 1) * page_size
+    paged_items = store_items[start_idx : start_idx + page_size]
+
+    return {
+        "items": paged_items,
+        "total": total_stores,
+        "page": page,
+        "page_size": page_size,
+        "summary": {
+            "total_stores": total_stores,
+            "total_internal_branches": total_internal,
+            "total_partner_stores": total_partner,
+            "stores_with_manager": stores_with_manager,
+            "total_assigned_staff": total_staff,
+            "total_verified_present_today": total_present,
+        },
+    }
+
+
+@router.get("/stores/{store_code}/details")
+async def get_store_details(
+    store_code: str,
+    tenant: TenantContext = Depends(get_tenant_context),
+    control_db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Retrieve full store details by Store Code or composite ID (internal branch or customer store)."""
+    today = date.today()
+
+    branch = None
+    cdl_row = None
+
+    if store_code.startswith("INTERNAL_BRANCH:"):
+        target_bid = store_code.split(":", 1)[1]
+        branch = (await db.execute(select(Branch).where(
+            Branch.id == target_bid,
+            Branch.company_id == tenant.company_id,
+            Branch.is_deleted == False,
+        ))).scalar_one_or_none()
+    elif store_code.startswith("CUSTOMER_STORE:"):
+        target_cid = store_code.split(":", 1)[1]
+        cdl_row = (await db.execute(
+            select(CustomerDeliveryLocation, Customer)
+            .join(Customer, CustomerDeliveryLocation.customer_id == Customer.id)
+            .where(
+                CustomerDeliveryLocation.id == target_cid,
+                CustomerDeliveryLocation.company_id == tenant.company_id,
+                CustomerDeliveryLocation.is_deleted == False,
+            )
+        )).first()
+    else:
+        # Try Branch first by code
+        branch = (await db.execute(select(Branch).where(
+            Branch.code == store_code,
+            Branch.company_id == tenant.company_id,
+            Branch.is_deleted == False,
+        ))).scalar_one_or_none()
+
+        if not branch:
+            cdl_row = (await db.execute(
+                select(CustomerDeliveryLocation, Customer)
+                .join(Customer, CustomerDeliveryLocation.customer_id == Customer.id)
+                .where(
+                    CustomerDeliveryLocation.store_code == store_code,
+                    CustomerDeliveryLocation.company_id == tenant.company_id,
+                    CustomerDeliveryLocation.is_deleted == False,
+                )
+            )).first()
+
+    if branch:
+        store_type = "INTERNAL_BRANCH"
+        store_id = branch.id
+        store_code_val = branch.code
+        store_name = branch.name
+        host_id = tenant.company_id
+        host_name = "Company Owned Branch"
+        address = branch.address or ""
+        city = branch.city or ""
+        state = branch.state or ""
+        pincode = branch.pincode or ""
+        gstin = branch.gstin or ""
+        phone = branch.phone or ""
+        email = branch.email or ""
+        status_val = "ACTIVE" if branch.is_active else "INACTIVE"
+        psv_active = False
+        loc_filter = (StaffPlacementAssignment.internal_branch_id == branch.id)
+    elif cdl_row:
+        cdl, cust = cdl_row
+        store_type = "CUSTOMER_STORE"
+        store_id = cdl.id
+        store_code_val = cdl.store_code
+        store_name = cdl.location_name
+        host_id = cust.id
+        host_name = cust.name
+        address = f"{cdl.address_line1 or ''} {cdl.address_line2 or ''}".strip()
+        city = cdl.city or ""
+        state = cdl.state or ""
+        pincode = cdl.pincode or ""
+        gstin = cdl.gstin or ""
+        phone = cdl.phone or ""
+        email = cdl.email or ""
+        status_val = cdl.status
+        loc_filter = (StaffPlacementAssignment.host_delivery_location_id == cdl.id)
+
+        psv = (await db.execute(select(PSVParty).where(
+            PSVParty.delivery_location_id == cdl.id,
+            PSVParty.company_id == tenant.company_id,
+        ))).scalar_one_or_none()
+        psv_active = psv is not None
+    else:
+        raise HTTPException(status_code=404, detail=f"Store Code '{store_code}' not found in active company.")
+
+    # Get active placements
+    placements = (await db.execute(select(StaffPlacementAssignment).where(
+        StaffPlacementAssignment.company_id == tenant.company_id,
+        loc_filter,
+        StaffPlacementAssignment.status == "ACTIVE",
+        StaffPlacementAssignment.is_deleted == False,
+        StaffPlacementAssignment.effective_from <= today,
+        (StaffPlacementAssignment.effective_to.is_(None) | (StaffPlacementAssignment.effective_to >= today)),
+    ))).scalars().all()
+
+    user_ids = [p.staff_user_id for p in placements]
+    users = (await control_db.execute(select(User).where(User.id.in_(user_ids)))).scalars().all() if user_ids else []
+    user_map = {u.id: u for u in users}
+
+    att_records = (await db.execute(select(AttendanceRecord).where(
+        AttendanceRecord.company_id == tenant.company_id,
+        AttendanceRecord.user_id.in_(user_ids),
+        AttendanceRecord.attendance_date == today,
+        AttendanceRecord.status == "PRESENT",
+        AttendanceRecord.check_out_at.is_(None),
+        AttendanceRecord.is_deleted == False,
+    ))).scalars().all() if user_ids else []
+    att_map = {a.user_id: a for a in att_records}
+
+    roster = []
+    store_manager = None
+    primary_rep = None
+
+    for p in placements:
+        u = user_map.get(p.staff_user_id)
+        att = att_map.get(p.staff_user_id)
+        name_val = getattr(u, "full_name", None) or getattr(u, "display_name", None) or getattr(u, "username", None) or (p.staff_user_id or "Unknown")
+        phone_val = getattr(u, "mobile", "") or getattr(u, "phone", "") or ""
+        entry = {
+            "placement_id": p.id,
+            "staff_user_id": p.staff_user_id,
+            "name": name_val,
+            "username": getattr(u, "username", "") if u else "",
+            "phone": phone_val,
+            "role_at_location": p.role_at_location or "Staff",
+            "stock_model": p.stock_model,
+            "effective_from": p.effective_from.isoformat() if p.effective_from else "",
+            "effective_to": p.effective_to.isoformat() if p.effective_to else None,
+            "verified_attendance": {
+                "is_present": att is not None,
+                "check_in_at": att.check_in_at.isoformat() if att and att.check_in_at else None,
+                "status": att.status if att else "NOT_LOGGED",
+            },
+        }
+        roster.append(entry)
+        if p.role_at_location == "STORE_MANAGER" and not store_manager:
+            store_manager = entry
+        elif p.role_at_location == "PRIMARY_REPRESENTATIVE" and not primary_rep:
+            primary_rep = entry
+
+    return {
+        "id": f"{store_type}:{store_id}",
+        "canonical_id": store_id,
+        "store_code": store_code_val,
+        "store_name": store_name,
+        "store_type": store_type,
+        "host_id": host_id,
+        "host_name": host_name,
+        "address": address,
+        "city": city,
+        "state": state,
+        "pincode": pincode,
+        "gstin": gstin,
+        "phone": phone,
+        "email": email,
+        "status": status_val,
+        "psv_active": psv_active,
+        "store_manager": store_manager,
+        "primary_representative": primary_rep,
+        "assigned_staff_count": len(roster),
+        "verified_present_today_count": sum(1 for r in roster if r["verified_attendance"]["is_present"]),
+        "active_roster": roster,
+    }
+
+
+@router.get("/stores/{store_code}/roster")
+async def get_store_roster(
+    store_code: str,
+    tenant: TenantContext = Depends(get_tenant_context),
+    control_db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Retrieve current staff roster and verified today's attendance for a store."""
+    details = await get_store_details(store_code, tenant, control_db, db, current_user)
+    return {"store_code": store_code, "store_name": details["store_name"], "roster": details["active_roster"]}
+
+
+@router.get("/stores/{store_code}/history")
+async def get_store_placement_history(
+    store_code: str,
+    tenant: TenantContext = Depends(get_tenant_context),
+    control_db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Retrieve historical staff placement timeline for a store code."""
+    # Find matching branch or delivery location
+    branch = (await db.execute(select(Branch).where(
+        Branch.code == store_code,
+        Branch.company_id == tenant.company_id,
+        Branch.is_deleted == False,
+    ))).scalar_one_or_none()
+
+    if branch:
+        loc_filter = (StaffPlacementAssignment.internal_branch_id == branch.id)
+    else:
+        cdl = (await db.execute(select(CustomerDeliveryLocation).where(
+            CustomerDeliveryLocation.store_code == store_code,
+            CustomerDeliveryLocation.company_id == tenant.company_id,
+            CustomerDeliveryLocation.is_deleted == False,
+        ))).scalar_one_or_none()
+        if not cdl:
+            raise HTTPException(status_code=404, detail=f"Store Code '{store_code}' not found.")
+        loc_filter = (StaffPlacementAssignment.host_delivery_location_id == cdl.id)
+
+    rows = (await db.execute(select(StaffPlacementAssignment).where(
+        StaffPlacementAssignment.company_id == tenant.company_id,
+        loc_filter,
+        StaffPlacementAssignment.is_deleted == False,
+    ).order_by(StaffPlacementAssignment.effective_from.desc()))).scalars().all()
+
+    user_ids = {r.staff_user_id for r in rows if r.staff_user_id}
+    users = (await control_db.execute(select(User).where(User.id.in_(user_ids)))).scalars().all() if user_ids else []
+    user_map = {u.id: u for u in users}
+
+    history = []
+    for r in rows:
+        u = user_map.get(r.staff_user_id)
+        history.append({
+            "id": r.id,
+            "staff_user_id": r.staff_user_id,
+            "staff_name": u.name if u else r.staff_user_id,
+            "role_at_location": r.role_at_location,
+            "stock_model": r.stock_model,
+            "effective_from": r.effective_from.isoformat() if r.effective_from else "",
+            "effective_to": r.effective_to.isoformat() if r.effective_to else None,
+            "status": r.status,
+            "approval_reason": r.approval_reason,
+            "approved_at": r.approved_at.isoformat() if r.approved_at else None,
+            "created_at": r.created_at.isoformat() if r.created_at else None,
+        })
+    return {"store_code": store_code, "history": history, "total": len(history)}
+
+
+@router.get("/stores/{store_code}/customers")
+async def get_store_serviced_customers(
+    store_code: str,
+    tenant: TenantContext = Depends(get_tenant_context),
+    db: AsyncSession = Depends(get_company_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Retrieve customers serviced by or mapped to a given Store Code."""
+    # Find customers that have this store code as a delivery location
+    cdls = (await db.execute(select(CustomerDeliveryLocation).where(
+        CustomerDeliveryLocation.store_code == store_code,
+        CustomerDeliveryLocation.company_id == tenant.company_id,
+        CustomerDeliveryLocation.is_deleted == False,
+    ))).scalars().all()
+
+    customer_ids = {c.customer_id for c in cdls}
+    if customer_ids:
+        customers = (await db.execute(select(Customer).where(
+            Customer.id.in_(customer_ids),
+            Customer.company_id == tenant.company_id,
+            Customer.is_deleted == False,
+        ))).scalars().all()
+    else:
+        customers = []
+
+    result = [
+        {
+            "id": c.id,
+            "code": c.code,
+            "name": c.name,
+            "phone": c.phone,
+            "email": c.email,
+            "status": c.status,
+            "credit_limit": float(c.credit_limit or 0),
+            "outstanding": float(c.outstanding or 0),
+        }
+        for c in customers
+    ]
+    return {"store_code": store_code, "customers": result, "total": len(result)}
