@@ -586,7 +586,16 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
             color: p.color,
             size: p.size,
             stock: Number(p.stock || 0),
-            category: p.category
+            category: p.category,
+            attributes: p.attributes || p.attributes_json || {},
+            primaryImageUrl: p.primary_image_url || p.primaryImageUrl || p.image_url,
+            galleryImages: p.gallery_images || p.galleryImages,
+            heel_type: p.heel_type || p.heelType,
+            upper_material: p.upper_material || p.upperMaterial,
+            outsole_material: p.outsole_material || p.outsoleMaterial,
+            department: p.department,
+            article: p.article || p.article_no,
+            article_no: p.article_no || p.article,
           })));
         }
       } catch (err) {

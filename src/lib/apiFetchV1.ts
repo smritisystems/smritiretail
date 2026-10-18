@@ -101,6 +101,14 @@ export function getTenantCompanyContext(): {
   companyEmail: string;
   companyLogoUrl: string;
 } {
+  const defaultCompanyName = "Tattly Threads";
+  const defaultCompanyAddress =
+    "Office No. 81, Ibrahim Rehmatullah Road, Beside Jio Gallery, near HP Petrol Pump, Mumbai, Maharashtra - 400003";
+  const defaultGstin = "27AAXFT2508H1ZR";
+  const defaultPhone = "+91 9324117007";
+  const defaultEmail = "accounts@tattlythreads.com";
+  const defaultLogo = "/assets/branding/tattly_logo_black.png";
+
   if (typeof window === "undefined") {
     return {
       companyId: "COMP-001",
@@ -119,15 +127,15 @@ export function getTenantCompanyContext(): {
   return {
     companyId: localStorage.getItem("smriti_company_id") || "COMP-001",
     companyCode: localStorage.getItem("smriti_company_code") || "001",
-    companyName: localStorage.getItem("smriti_company_name") || "",
+    companyName: localStorage.getItem("smriti_company_name") || defaultCompanyName,
     branchId: localStorage.getItem("smriti_branch_id") || "MAIN",
     branchCode: localStorage.getItem("smriti_branch_code") || "MAIN",
     branchName: localStorage.getItem("smriti_branch_name") || "Main Branch",
-    companyAddress: localStorage.getItem("smriti_company_address") || "",
-    companyGstin: localStorage.getItem("smriti_company_gstin") || "",
-    companyPhone: localStorage.getItem("smriti_company_phone") || "",
-    companyEmail: localStorage.getItem("smriti_company_email") || "",
-    companyLogoUrl: localStorage.getItem("smriti_company_logo_url") || "",
+    companyAddress: localStorage.getItem("smriti_company_address") || defaultCompanyAddress,
+    companyGstin: localStorage.getItem("smriti_company_gstin") || defaultGstin,
+    companyPhone: localStorage.getItem("smriti_company_phone") || defaultPhone,
+    companyEmail: localStorage.getItem("smriti_company_email") || defaultEmail,
+    companyLogoUrl: localStorage.getItem("smriti_company_logo_url") || defaultLogo,
   };
 }
 

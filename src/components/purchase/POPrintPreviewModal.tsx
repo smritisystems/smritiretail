@@ -67,6 +67,103 @@ export interface POPrintPreviewModalProps {
   initialTemplateId?: string;
 }
 
+/**
+ * Case-insensitive, robust extractor for footwear attributes (Heels, Upper Material, Outsole).
+ * Checks direct properties, nested originalProduct, attributes dict, and common casing/alias variations.
+ */
+export function resolveFootwearAttributes(item: any): {
+  heels: string;
+  upperMaterial: string;
+  outsole: string;
+} {
+  if (!item) return { heels: "—", upperMaterial: "—", outsole: "—" };
+
+  const attrs =
+    item.attributes ||
+    item.attributes_json ||
+    item.originalProduct?.attributes ||
+    item.originalProduct?.attributes_json ||
+    {};
+
+  const findVal = (keys: string[]): string | undefined => {
+    // 1. Direct item property
+    for (const k of keys) {
+      if (item[k] !== undefined && item[k] !== null && String(item[k]).trim()) {
+        const s = String(item[k]).trim();
+        if (s !== "—" && s.toLowerCase() !== "null" && s.toLowerCase() !== "undefined") return s;
+      }
+    }
+    // 2. originalProduct direct property
+    const orig = item.originalProduct;
+    if (orig) {
+      for (const k of keys) {
+        if (orig[k] !== undefined && orig[k] !== null && String(orig[k]).trim()) {
+          const s = String(orig[k]).trim();
+          if (s !== "—" && s.toLowerCase() !== "null" && s.toLowerCase() !== "undefined") return s;
+        }
+      }
+    }
+    // 3. attributes object lookup (both exact and case/slug insensitive)
+    if (typeof attrs === "object" && attrs !== null) {
+      const attrKeys = Object.keys(attrs);
+      for (const k of keys) {
+        if (attrs[k] !== undefined && attrs[k] !== null && String(attrs[k]).trim()) {
+          const s = String(attrs[k]).trim();
+          if (s !== "—" && s.toLowerCase() !== "null" && s.toLowerCase() !== "undefined") return s;
+        }
+        const cleanK = k.toLowerCase().replace(/[^a-z0-9]/g, "");
+        const matchKey = attrKeys.find(
+          (ak) => ak.toLowerCase().replace(/[^a-z0-9]/g, "") === cleanK
+        );
+        if (matchKey && attrs[matchKey] !== undefined && attrs[matchKey] !== null && String(attrs[matchKey]).trim()) {
+          const s = String(attrs[matchKey]).trim();
+          if (s !== "—" && s.toLowerCase() !== "null" && s.toLowerCase() !== "undefined") return s;
+        }
+      }
+    }
+    return undefined;
+  };
+
+  const heels =
+    findVal([
+      "heelType",
+      "heel_type",
+      "heels",
+      "HEELS",
+      "HEEL_TYPE",
+      "Heel Type",
+      "heel",
+      "Heel",
+    ]) || "—";
+
+  const upperMaterial =
+    findVal([
+      "upperMaterial",
+      "upper_material",
+      "upper",
+      "UPPER",
+      "Upper Material",
+      "UPPER_MATERIAL",
+      "upper_mat",
+      "Upper",
+    ]) || "—";
+
+  const outsole =
+    findVal([
+      "outsoleMaterial",
+      "outsole_material",
+      "outsole",
+      "OUTSOLE",
+      "Outsole Material",
+      "OUTSOLE_MATERIAL",
+      "sole",
+      "Sole",
+      "sole_material",
+    ]) || "—";
+
+  return { heels, upperMaterial, outsole };
+}
+
 export const POPrintPreviewModal: React.FC<POPrintPreviewModalProps> = ({
   isOpen,
   onClose,
@@ -586,25 +683,13 @@ export const POPrintPreviewModal: React.FC<POPrintPreviewModalProps> = ({
     sizePivotRows.forEach((r) => {
       const art = (r.articleNo || (r as any).itemCode || (r as any).style || r.product || "").trim();
       if (art && !refMap.has(art)) {
+        const fw = resolveFootwearAttributes(r);
         refMap.set(art, {
           articleNo: art,
           color: r.color || r.originalProduct?.color || "—",
-          heels:
-            r.heelType ||
-            r.originalProduct?.attributes?.heel_type ||
-            r.originalProduct?.attributes?.heels ||
-            (r.originalProduct as any)?.heel_type ||
-            "—",
-          upperMaterial:
-            r.upperMaterial ||
-            r.originalProduct?.attributes?.upper_material ||
-            (r.originalProduct as any)?.upper_material ||
-            "—",
-          outsole:
-            r.outsoleMaterial ||
-            r.originalProduct?.attributes?.outsole_material ||
-            (r.originalProduct as any)?.outsole_material ||
-            "—",
+          heels: fw.heels,
+          upperMaterial: fw.upperMaterial,
+          outsole: fw.outsole,
           imageUrl:
             r.imageUrl ||
             r.photoUrl ||
@@ -617,25 +702,13 @@ export const POPrintPreviewModal: React.FC<POPrintPreviewModalProps> = ({
     lineItems.forEach((l) => {
       const art = (l.style || l.stockNo || l.barcode || l.product || "").trim();
       if (art && !refMap.has(art)) {
+        const fw = resolveFootwearAttributes(l);
         refMap.set(art, {
           articleNo: art,
           color: l.shade || l.colourBase || l.originalProduct?.color || "—",
-          heels:
-            l.heelType ||
-            l.originalProduct?.attributes?.heel_type ||
-            l.originalProduct?.attributes?.heels ||
-            (l.originalProduct as any)?.heel_type ||
-            "—",
-          upperMaterial:
-            l.upperMaterial ||
-            l.originalProduct?.attributes?.upper_material ||
-            (l.originalProduct as any)?.upper_material ||
-            "—",
-          outsole:
-            l.outsoleMaterial ||
-            l.originalProduct?.attributes?.outsole_material ||
-            (l.originalProduct as any)?.outsole_material ||
-            "—",
+          heels: fw.heels,
+          upperMaterial: fw.upperMaterial,
+          outsole: fw.outsole,
           imageUrl:
             l.imageUrl ||
             l.photoUrl ||

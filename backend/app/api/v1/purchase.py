@@ -228,6 +228,26 @@ async def get_purchase_order_contract(
 ):
     """Get a purchase order by ID — canonical contract URL."""
     order, items = await PurchaseService(db, tenant_ctx).get_purchase_order(order_id)
+    if items:
+        from ...models.inventory import Product
+        prod_ids = [it.product_id for it in items if it.product_id]
+        if prod_ids:
+            p_stmt = select(Product).where(Product.id.in_(prod_ids))
+            p_res = await db.execute(p_stmt)
+            prod_map = {p.id: p for p in p_res.scalars().all()}
+            for it in items:
+                prod = prod_map.get(it.product_id)
+                if prod:
+                    attrs = prod.attributes or {}
+                    it.heel_type = getattr(prod, "heel_type", None) or attrs.get("heel_type") or attrs.get("heelType") or attrs.get("heels") or attrs.get("Heel Type")
+                    it.upper_material = getattr(prod, "upper_material", None) or attrs.get("upper_material") or attrs.get("upperMaterial") or attrs.get("upper") or attrs.get("Upper Material")
+                    it.outsole_material = getattr(prod, "outsole_material", None) or attrs.get("outsole_material") or attrs.get("outsoleMaterial") or attrs.get("outsole") or attrs.get("Outsole Material") or attrs.get("sole")
+                    it.image_url = getattr(prod, "primary_image_url", None)
+                    it.color = getattr(prod, "color", None)
+                    it.size = getattr(prod, "size", None)
+                    it.brand = getattr(prod, "brand", None)
+                    it.style = getattr(prod, "style_code", None)
+
     order.items = items
     resp = PurchaseOrderResponse.model_validate(order)
     if order.supplier_id:
