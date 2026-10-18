@@ -71,12 +71,16 @@ class VendorService:
     # ─────────────────────────────────────────────────────────────────────────
 
     @classmethod
-    def _to_vendor_detail(cls, party: Party) -> VendorDetail:
+    def _to_vendor_detail(cls, party: Party, outstanding_liability_override: Optional[float] = None) -> VendorDetail:
         sp = party.supplier_profile
         gstin = party.gstin
         pan = party.pan
         meta_comm = ((party.metadata_json or {}).get("commercial_terms", {})) if party else {}
         pt_days = getattr(sp, "payment_terms_days", 30) if sp else 30
+
+        sp_out = float(getattr(sp, "outstanding_liability", 0.0) or 0.0) if sp else 0.0
+        if outstanding_liability_override is not None and sp_out <= 0.0:
+            sp_out = outstanding_liability_override
 
         commercial = VendorCommercialProfileDTO(
             supplier_type=getattr(sp, "supplier_type", "DISTRIBUTOR") if sp else "DISTRIBUTOR",
@@ -87,7 +91,7 @@ class VendorService:
             tds_section=getattr(sp, "tds_section", "194Q") if sp else "194Q",
             tds_rate=float(getattr(sp, "tds_rate", 0.10) or 0.10) if sp else 0.10,
             tax_treatment=getattr(sp, "tax_treatment", "REGISTERED_REGULAR") if sp else "REGISTERED_REGULAR",
-            outstanding_liability=float(getattr(sp, "outstanding_liability", 0.0) or 0.0) if sp else 0.0,
+            outstanding_liability=sp_out,
             payment_terms=meta_comm.get("payment_terms") or (f"{pt_days} Days" if pt_days else "30 Days"),
             freight_terms=meta_comm.get("freight_terms") or "Paid by Supplier",
             currency=meta_comm.get("currency") or "INR - Indian Rupee",
@@ -196,8 +200,10 @@ class VendorService:
         )
 
     @classmethod
-    def _to_vendor_summary(cls, party: Party) -> VendorSummary:
+    def _to_vendor_summary(cls, party: Party, outstanding_override: Optional[float] = None) -> VendorSummary:
         sp = party.supplier_profile
+        sp_out = float(getattr(sp, "outstanding_liability", 0.0) or 0.0) if sp else 0.0
+        final_out = outstanding_override if (outstanding_override is not None and sp_out <= 0.0) else sp_out
         return VendorSummary(
             id=party.id,
             code=party.party_code,
@@ -212,7 +218,7 @@ class VendorService:
             status=party.status,
             commercial_classification=getattr(sp, "commercial_classification", "APPROVED") if sp else "APPROVED",
             supplier_type=getattr(sp, "supplier_type", "DISTRIBUTOR") if sp else "DISTRIBUTOR",
-            outstanding=float(getattr(sp, "outstanding_liability", 0.0) or 0.0) if sp else 0.0,
+            outstanding=final_out,
         )
 
     # ─────────────────────────────────────────────────────────────────────────
@@ -265,7 +271,26 @@ class VendorService:
         stmt = stmt.order_by(Party.legal_name.asc()).limit(limit).offset(offset)
         res = await self.db.execute(stmt)
         parties = res.scalars().all()
-        return [self._to_vendor_summary(p) for p in parties]
+
+        # Batch load supplier outstandings across company to guarantee truthful AP liability
+        comp_id = getattr(self.tenant, "company_id", None)
+        supp_q = select(Supplier.id, Supplier.code, Supplier.outstanding)
+        if comp_id:
+            supp_q = supp_q.where(or_(Supplier.company_id == comp_id, Supplier.company_id.is_(None)))
+        supp_rows = (await self.db.execute(supp_q)).all()
+        supp_map: Dict[str, float] = {}
+        for s_id, s_code, s_out in supp_rows:
+            v = float(s_out or 0.0)
+            if s_code:
+                supp_map[s_code.upper()] = max(supp_map.get(s_code.upper(), 0.0), v)
+            if s_id:
+                supp_map[s_id] = max(supp_map.get(s_id, 0.0), v)
+
+        summaries = []
+        for p in parties:
+            out_cand = supp_map.get((p.party_code or "").upper(), supp_map.get(p.id, 0.0))
+            summaries.append(self._to_vendor_summary(p, outstanding_override=out_cand))
+        return summaries
 
     async def get_vendor_by_id(self, vendor_id: str) -> VendorDetail:
         """Fetches a complete Vendor 360 profile by Universal Party ID or legacy supplier ID."""
@@ -298,7 +323,23 @@ class VendorService:
                 detail=f"Vendor '{vendor_id}' was not found in SMRITI Universal Master.",
             )
 
-        return self._to_vendor_detail(party)
+        # Reconcile outstanding liability from legacy Supplier record if sp.outstanding_liability is 0
+        out_val = None
+        sp = party.supplier_profile
+        sp_out = float(getattr(sp, "outstanding_liability", 0.0) or 0.0) if sp else 0.0
+        if sp_out <= 0.0:
+            leg_stmt = select(Supplier.outstanding).where(
+                or_(
+                    Supplier.code == party.party_code,
+                    Supplier.id == f"sup-{party.party_code.lower()}",
+                    Supplier.id == party.id,
+                )
+            )
+            leg_out = (await self.db.execute(leg_stmt)).scalars().first()
+            if leg_out:
+                out_val = float(leg_out)
+
+        return self._to_vendor_detail(party, outstanding_liability_override=out_val)
 
     # ─────────────────────────────────────────────────────────────────────────
     # Atomic Create / Update

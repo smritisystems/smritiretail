@@ -101,6 +101,11 @@ const VendorPayablesTabBase: React.FC<VendorPayablesTabProps> = ({ vendor, onNot
       try {
         const bRes = await apiFetchV1(`/purchase/bills/?supplier_id=${encodeURIComponent(vendor.id)}`);
         rawBills = Array.isArray(bRes) ? bRes : bRes?.items || [];
+        if (rawBills.length === 0 && vendor.code) {
+          const legacyId = `sup-${vendor.code.toLowerCase()}`;
+          const bRes2 = await apiFetchV1(`/purchase/bills/?supplier_id=${encodeURIComponent(legacyId)}`);
+          rawBills = Array.isArray(bRes2) ? bRes2 : bRes2?.items || [];
+        }
       } catch {
         rawBills = [];
       }
@@ -110,10 +115,20 @@ const VendorPayablesTabBase: React.FC<VendorPayablesTabProps> = ({ vendor, onNot
       try {
         const pRes = await apiFetchV1(`/purchase/supplier-payments/?supplier_id=${encodeURIComponent(vendor.id)}`);
         paysData = Array.isArray(pRes) ? pRes : [];
+        if (paysData.length === 0 && vendor.code) {
+          const legacyId = `sup-${vendor.code.toLowerCase()}`;
+          const pRes2 = await apiFetchV1(`/purchase/supplier-payments/?supplier_id=${encodeURIComponent(legacyId)}`);
+          paysData = Array.isArray(pRes2) ? pRes2 : [];
+        }
       } catch {
         try {
           const pRes2 = await apiFetchV1(`/supplier-payments/?supplier_id=${encodeURIComponent(vendor.id)}`);
           paysData = Array.isArray(pRes2) ? pRes2 : [];
+          if (paysData.length === 0 && vendor.code) {
+            const legacyId = `sup-${vendor.code.toLowerCase()}`;
+            const pRes3 = await apiFetchV1(`/supplier-payments/?supplier_id=${encodeURIComponent(legacyId)}`);
+            paysData = Array.isArray(pRes3) ? pRes3 : [];
+          }
         } catch {
           paysData = [];
         }
