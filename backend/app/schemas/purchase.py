@@ -27,7 +27,7 @@ Classification: Internal
 import re
 from decimal import Decimal
 from typing import Optional, List, Dict, Any, Union
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from .inward_cost import InwardCostComponentCreate, InwardCostComponentResponse
 
@@ -249,8 +249,10 @@ class PurchaseOrderResponse(BaseModel):
     def populate_commercial_terms(self) -> "PurchaseOrderResponse":
         if self.total_amount is None:
             self.total_amount = self.grand_total
-        if self.order_date is None and self.created_at:
-            self.order_date = self.created_at
+        if not self.order_date and self.rule_snapshots and isinstance(self.rule_snapshots, dict):
+            if "order_date" in self.rule_snapshots and self.rule_snapshots.get("order_date"):
+                self.order_date = self.rule_snapshots.get("order_date")
+
         if not self.delivery_date and self.rule_snapshots and isinstance(self.rule_snapshots, dict):
             if "delivery_date" in self.rule_snapshots:
                 self.delivery_date = self.rule_snapshots.get("delivery_date")
@@ -259,9 +261,13 @@ class PurchaseOrderResponse(BaseModel):
             elif "vendor_bill_date" in self.rule_snapshots:
                 self.delivery_date = self.rule_snapshots.get("vendor_bill_date")
 
-        # Auto-extract Vendor Bill receiving date and bill number from notes or rule snapshots
+        # Auto-extract Vendor Bill receiving date, PO date (30 days prior), and bill number from notes or rule snapshots
         if self.notes:
-            bill_date_match = re.search(r"dated\s+([0-9]{4}-[0-9]{2}-[0-9]{2})", self.notes)
+            po_match = re.search(r"PO Issued:\s*([0-9]{4}-[0-9]{2}-[0-9]{2})", self.notes, re.IGNORECASE)
+            if po_match and not self.order_date:
+                self.order_date = po_match.group(1)
+
+            bill_date_match = re.search(r"[Dd]ated\s+([0-9]{4}-[0-9]{2}-[0-9]{2})", self.notes)
             if bill_date_match:
                 extracted_date = bill_date_match.group(1)
                 if not self.delivery_date:
@@ -270,10 +276,19 @@ class PurchaseOrderResponse(BaseModel):
                     self.received_date = extracted_date
                 if not self.vendor_bill_date:
                     self.vendor_bill_date = extracted_date
+                if not self.order_date:
+                    try:
+                        b_dt = datetime.strptime(extracted_date, "%Y-%m-%d").date()
+                        self.order_date = str(b_dt - timedelta(days=30))
+                    except Exception:
+                        pass
 
-            bill_no_match = re.search(r"Vendor Bill\s+([^ |]+)", self.notes)
+            bill_no_match = re.search(r"Vendor Bill\s+([^ |(]+)", self.notes)
             if bill_no_match and not self.vendor_bill_no:
-                self.vendor_bill_no = bill_no_match.group(1)
+                self.vendor_bill_no = bill_no_match.group(1).strip()
+
+        if self.order_date is None and self.created_at:
+            self.order_date = self.created_at
 
         if not self.received_date and self.delivery_date:
             self.received_date = self.delivery_date
@@ -513,10 +528,16 @@ class PurchaseReceiptResponse(BaseModel):
     identity_code: Optional[str] = None
     receipt_no:    str
     supplier_id:  str
+    supplier_name: Optional[str] = None
     warehouse_id: Optional[str] = None
     order_id:     Optional[str] = None
     status:       str
     notes:        Optional[str] = None
+    created_at:   Optional[datetime] = None
+    receipt_date: Optional[Union[date, datetime, str]] = None
+    vendor_bill_date: Optional[Union[date, datetime, str]] = None
+    vendor_bill_no: Optional[str] = None
+    lr_date:      Optional[Union[date, datetime, str]] = None
     subtotal:     Decimal
     tax_total:    Decimal
     grand_total:  Decimal
@@ -527,6 +548,33 @@ class PurchaseReceiptResponse(BaseModel):
     branch_id:    Optional[str] = None
 
     model_config = {"from_attributes": True}
+
+    @model_validator(mode="after")
+    def populate_receipt_dates(self) -> "PurchaseReceiptResponse":
+        if self.notes:
+            # Extract Vendor Bill Date (e.g. "Dated 2026-07-24" or "dated 2026-07-24")
+            bill_date_match = re.search(r"[Dd]ated\s+([0-9]{4}-[0-9]{2}-[0-9]{2})", self.notes)
+            if bill_date_match:
+                extracted = bill_date_match.group(1)
+                if not self.vendor_bill_date:
+                    self.vendor_bill_date = extracted
+                if not self.receipt_date:
+                    self.receipt_date = extracted
+
+            # Extract bill number
+            bill_no_match = re.search(r"Vendor Bill\s+([^ |(]+)", self.notes)
+            if bill_no_match and not self.vendor_bill_no:
+                self.vendor_bill_no = bill_no_match.group(1).strip()
+
+            # Extract effective date
+            eff_match = re.search(r"Effective.*Date:\s*([0-9]{4}-[0-9]{2}-[0-9]{2})", self.notes)
+            if eff_match and not self.receipt_date:
+                self.receipt_date = eff_match.group(1)
+
+        if not self.receipt_date and self.created_at:
+            self.receipt_date = self.created_at
+
+        return self
 
 
 # ─────────────────────────── Purchase Reorder Configurations ───────────────────────────

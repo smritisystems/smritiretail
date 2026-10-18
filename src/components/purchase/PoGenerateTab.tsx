@@ -350,10 +350,14 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
   const [header, setHeader] = useState<PurchaseOrderHeader>(() => {
     const todayStr = new Date().toISOString().split("T")[0];
     const defaultDelivery = new Date(Date.now() + 7 * 86400000).toISOString().split("T")[0];
+    const d = new Date();
+    const m = d.getMonth() + 1;
+    const y = d.getFullYear();
+    const fy = m >= 4 ? `${String(y).slice(2)}-${String(y + 1).slice(2)}` : `${String(y - 1).slice(2)}-${String(y).slice(2)}`;
     const base: PurchaseOrderHeader = {
       documentType: "Purchase Order",
       prefix: "PO",
-      orderNumber: "PO013",
+      orderNumber: `PO/${fy}/0001`,
       orderDate: todayStr,
       supplierId: "",
       supplierName: "",
@@ -661,7 +665,9 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
       // Fetch next order number sequence
       try {
         const nextRes: any = await apiFetchV1(`/purchase/orders/next-number?prefix=${encodeURIComponent(header.prefix || "PO")}`);
-        if (nextRes && nextRes.next_number) {
+        if (nextRes && nextRes.next_order_no) {
+          setHeader(h => ({ ...h, orderNumber: nextRes.next_order_no }));
+        } else if (nextRes && nextRes.next_number) {
           setHeader(h => ({ ...h, orderNumber: String(nextRes.next_number) }));
         }
       } catch {
@@ -1571,7 +1577,10 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
 
     setSaving(true);
     try {
-      const orderNo = `${header.prefix.trim()}-${header.orderNumber.trim()}`;
+      const rawNum = header.orderNumber.trim();
+      const orderNo = (rawNum.includes("/") || rawNum.startsWith("PO"))
+        ? rawNum
+        : `${header.prefix.trim()}/${rawNum}`;
       const notesArr: string[] = [];
       if (header.specialInstructions) notesArr.push(`Instructions: ${header.specialInstructions}`);
       if (header.paymentTerms) notesArr.push(`Payment: ${header.paymentTerms}`);
@@ -1641,11 +1650,19 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
       const nextRes: any = await apiFetchV1(
         `/purchase/orders/next-number?prefix=${encodeURIComponent(header.prefix.trim())}`
       ).catch(() => null);
-      if (nextRes && nextRes.next_number) {
+      if (nextRes && nextRes.next_order_no) {
+        setHeader(h => ({ ...h, orderNumber: nextRes.next_order_no }));
+      } else if (nextRes && nextRes.next_number) {
         setHeader(h => ({ ...h, orderNumber: String(nextRes.next_number) }));
       } else {
         const cur = parseInt(header.orderNumber.replace(/\D/g, ""), 10);
-        if (!isNaN(cur)) setHeader(h => ({ ...h, orderNumber: `PO${String(cur + 1).padStart(3, "0")}` }));
+        if (!isNaN(cur)) {
+          const d = new Date();
+          const m = d.getMonth() + 1;
+          const y = d.getFullYear();
+          const fy = m >= 4 ? `${String(y).slice(2)}-${String(y + 1).slice(2)}` : `${String(y - 1).slice(2)}-${String(y).slice(2)}`;
+          setHeader(h => ({ ...h, orderNumber: `PO/${fy}/${String(cur + 1).padStart(4, "0")}` }));
+        }
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Failed to commit Purchase Order to backend.";

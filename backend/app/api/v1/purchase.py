@@ -364,6 +364,29 @@ def _extract_attachments(notes: Optional[str]) -> Optional[List[Dict[str, Any]]]
 
     return None
 
+
+@router.get(
+    "/receipts/next-number",
+    summary="Get Next Available Goods Received Note (GRN) Number",
+    response_model=dict,
+)
+@router.get(
+    "/purchase-receipts/next-number",
+    summary="Get Next Available Goods Received Note (GRN) Number",
+    response_model=dict,
+)
+async def get_next_receipt_number(
+    prefix: Optional[str] = Query(default=None, description="GRN number prefix, e.g. GRN"),
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+):
+    """
+    Return the next available sequential GRN number for the given prefix.
+    Response: {"prefix": "GRN", "financial_year": "26-27", "next_number": 29, "next_receipt_no": "GRN/26-27/0029"}
+    """
+    return await PurchaseService(db, tenant_ctx).get_next_receipt_number(prefix)
+
+
 @router.post(
     "/receipts",
     response_model=PurchaseReceiptResponse,
@@ -451,6 +474,7 @@ async def list_purchase_receipts(
                 order_id=r.order_id,
                 status=r.status,
                 notes=r.notes,
+                created_at=r.created_at,
                 subtotal=r.subtotal,
                 tax_total=r.tax_total,
                 grand_total=r.grand_total,
@@ -501,6 +525,7 @@ async def get_purchase_receipt(
         order_id=receipt.order_id,
         status=receipt.status,
         notes=receipt.notes,
+        created_at=receipt.created_at,
         subtotal=receipt.subtotal,
         tax_total=receipt.tax_total,
         grand_total=receipt.grand_total,

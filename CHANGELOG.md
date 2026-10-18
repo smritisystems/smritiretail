@@ -1,3 +1,25 @@
+## [6.95.0] — 2026-10-19
+
+### Procurement & Inventory — Canonical PO & GRN Numbering Standard, Fiscal Year Partitioning, and Commercial Date Alignment v6.95.0
+
+Standardized Purchase Order (PO) and Goods Receipt Note (GRN) sequential numbering and statutory commercial date alignment across backend services, schemas, and frontend workspaces:
+- **Canonical GST-Compliant Numbering Engine (`PurchaseService`)**:
+  - Implemented dynamic Indian Statutory Financial Year resolution (`get_financial_year(target_date)`) calculating fiscal boundary spanning April 1 to March 31 (e.g. `26-27` for FY 2026–2027).
+  - Standardized PO numbering to `PO/{FY}/{seq:04d}` (e.g. `PO/26-27/0001`) and GRN numbering to `GRN/{FY}/{seq:04d}` (e.g. `GRN/26-27/0001`), conforming strictly to Indian GST Rule 46(b) (max 16 characters, consecutive alphanumeric with slashes).
+  - Added auto-sequencing endpoints `GET /api/v1/purchase/orders/next-number` and `GET /api/v1/purchase/receipts/next-number` with dynamic next-number lookups.
+- **Statutory Commercial Date Alignment**:
+  - Enforced business rule requiring PO Date to be strictly 30 days prior to Vendor Bill / Invoice Date (`Bill Date - 30 days`), reflecting authentic advance ordering lead time.
+  - Aligned GRN Date with the Vendor Bill / Delivery Date.
+  - Dynamic derivation in `PurchaseOrderResponse` ensuring PO date reflects 30 days prior across APIs even when PO status is locked (`RECEIVED`).
+  - Extended `PurchaseReceiptResponse` with `receipt_date`, `vendor_bill_date`, `vendor_bill_no`, and note parser.
+- **Frontend Workspace Synchronization (`PoGenerateTab.tsx`, `GrnReceiptTab.tsx`)**:
+  - Initialized default PO and GRN inputs to `PO/{fy}/0001` and `GRN/{fy}/0001` respectively, dynamically fetching sequential numbers from the backend API.
+  - Hardened document receipt display table to show authentic vendor bill dates and invoice references instead of placeholder system creation timestamps.
+- **Historical Remediation & Atomic SQL Migration**:
+  - Prepared atomic SQL migration script (`scripts/migrate_canonical_po_grn_numbers.sql`) mapping all 28 commercial purchase bills from `ALL VENDOR PURCHASE FOR SOFTWARE.xlsx` on instance `https://tattlythreads.smritisys.com` to `PO/26-27/0001`–`0028` and `GRN/26-27/0001`–`0028`.
+  - Synchronized live notes for all 28 GRN records with vendor invoice references and dates.
+- **Verification**: Certified with unit tests (`scripts/test_purchase_numbering.py`), TypeScript type checking (`npx tsc --noEmit` 0 errors), and comprehensive WGP Walkthrough (`docs/walkthrough/procurement/PO_And_GRN_Canonical_Numbering_And_Date_Alignment_v6.95.0.md`).
+
 ## [6.92.3] — 2026-10-19
 
 ### Catalog & Item Master — Full Item Master Harmonization, Export Attribute Flattening & DB Studio Verification v6.92.3

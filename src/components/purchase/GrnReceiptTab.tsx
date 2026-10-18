@@ -268,6 +268,31 @@ interface GrnReceiptTabProps {
   initialOrderId?: string;
 }
 
+const getInitialGrnNumber = (): string => {
+  const d = new Date();
+  const m = d.getMonth() + 1;
+  const y = d.getFullYear();
+  const fy = m >= 4 ? `${String(y).slice(2)}-${String(y + 1).slice(2)}` : `${String(y - 1).slice(2)}-${String(y).slice(2)}`;
+  return `GRN/${fy}/0001`;
+};
+
+const formatGrnDisplayDate = (r: any): string => {
+  if (!r) return "--";
+  const raw = r.receipt_date || r.vendor_bill_date || r.created_at;
+  if (raw) {
+    const d = new Date(raw);
+    if (!isNaN(d.getTime())) return d.toLocaleDateString("en-IN");
+  }
+  if (r.notes) {
+    const m = String(r.notes).match(/[Dd]ated\s+([0-9]{4}-[0-9]{2}-[0-9]{2})/);
+    if (m) {
+      const d = new Date(m[1]);
+      if (!isNaN(d.getTime())) return d.toLocaleDateString("en-IN");
+    }
+  }
+  return "--";
+};
+
 export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
   currentUser,
   onNotification,
@@ -288,10 +313,8 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
   const [workspaceMode, setWorkspaceMode] = useState<"desktop" | "wizard">("desktop");
   const [showReportsModal, setShowReportsModal] = useState(false);
 
-  // Persistent GRN Header State
-  const [grnNumber, setGrnNumber] = useState(
-    () => `GRN-${new Date().toISOString().slice(0, 10).replace(/-/g, "")}-${Math.floor(1000 + Math.random() * 9000)}`
-  );
+  // Persistent GRN Header State (Prefix / Financial Year / Running Number)
+  const [grnNumber, setGrnNumber] = useState<string>(getInitialGrnNumber);
   const [grnDate, setGrnDate] = useState(() => new Date().toISOString().split("T")[0]);
   const [supplierName, setSupplierName] = useState("");
   const [supplierId, setSupplierId] = useState("");
@@ -489,6 +512,17 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
       }
     }
   }, [initialOrderId, orders, selectedOrderId]);
+
+  // Synchronize next sequential GRN number from backend
+  useEffect(() => {
+    apiFetchV1("/purchase/receipts/next-number?prefix=GRN")
+      .then((res: any) => {
+        if (res?.next_receipt_no) {
+          setGrnNumber(res.next_receipt_no);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   const handleSelectOrder = async (orderId: string) => {
     setSelectedOrderId(orderId);
@@ -1019,7 +1053,7 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
     const printData: GrnPrintReceiptData = {
       id: fullReceipt.id,
       receipt_no: fullReceipt.receipt_no,
-      date: fullReceipt.created_at ? new Date(fullReceipt.created_at).toLocaleDateString("en-IN") : undefined,
+      date: formatGrnDisplayDate(fullReceipt),
       created_at: fullReceipt.created_at,
       supplier_id: fullReceipt.supplier_id,
       supplier_name: fullReceipt.supplier_name || fullReceipt.supplier_id,
@@ -1563,6 +1597,12 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
       setIsSuccessModalOpen(true);
       await loadReceipts();
       await loadOrders(effSupplier || undefined);
+      // Advance next sequential GRN number
+      apiFetchV1("/purchase/receipts/next-number?prefix=GRN")
+        .then((res: any) => {
+          if (res?.next_receipt_no) setGrnNumber(res.next_receipt_no);
+        })
+        .catch(() => {});
     } catch (err: any) {
       onNotification?.("GRN Failed", err?.message || "Goods receipt could not be posted. Please retry.", "error");
     } finally {
@@ -3909,7 +3949,7 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
                                 {r.supplier_name || r.supplier_id}
                               </td>
                               <td className="py-3 px-3 font-mono text-slate-500">
-                                {r.created_at ? new Date(r.created_at).toLocaleDateString("en-IN") : "--"}
+                                {formatGrnDisplayDate(r)}
                               </td>
                               <td className="py-3 px-3 text-center font-mono text-slate-600 dark:text-slate-400">
                                 {r.items ? r.items.length : "--"}
@@ -4150,7 +4190,7 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
                               {r.receipt_no}
                             </span>
                             <span className="text-slate-400 font-mono text-[10px]">
-                              {r.created_at ? new Date(r.created_at).toLocaleDateString("en-IN") : ""}
+                              {formatGrnDisplayDate(r) !== "--" ? formatGrnDisplayDate(r) : ""}
                             </span>
                           </div>
                           <div className="text-slate-700 dark:text-slate-300 font-medium text-[11px]">
