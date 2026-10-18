@@ -762,24 +762,16 @@ class PurchaseService:
         res = await self.db.execute(stmt)
         order_nos: list[str] = [row[0] for row in res.fetchall() if row[0]]
 
-        max_seq = 0
+        canonical_seqs: list[int] = []
         p1 = re.compile(rf"^{re.escape(pfx)}[/\-_]{re.escape(fy)}[/\-_](\d+)", re.IGNORECASE)
-        p2 = re.compile(r"(\d+)$")
 
         for no in order_nos:
             m1 = p1.search(no)
             if m1:
-                val = int(m1.group(1))
-                if val > max_seq:
-                    max_seq = val
-            elif no.startswith(f"{pfx}-") or no.startswith(f"{pfx}/"):
-                m2 = p2.search(no)
-                if m2:
-                    val = int(m2.group(1))
-                    if val > max_seq:
-                        max_seq = val
+                canonical_seqs.append(int(m1.group(1)))
 
-        next_seq = max_seq + 1
+        next_seq = max(canonical_seqs) + 1 if canonical_seqs else 1
+
         return {
             "prefix": pfx,
             "financial_year": fy,
@@ -811,24 +803,16 @@ class PurchaseService:
         res = await self.db.execute(stmt)
         receipt_nos: list[str] = [row[0] for row in res.fetchall() if row[0]]
 
-        max_seq = 0
+        canonical_seqs: list[int] = []
         p1 = re.compile(rf"^{re.escape(pfx)}[/\-_]{re.escape(fy)}[/\-_](\d+)", re.IGNORECASE)
-        p2 = re.compile(r"(\d+)$")
 
         for no in receipt_nos:
             m1 = p1.search(no)
             if m1:
-                val = int(m1.group(1))
-                if val > max_seq:
-                    max_seq = val
-            elif no.startswith(f"{pfx}-") or no.startswith(f"{pfx}/"):
-                m2 = p2.search(no)
-                if m2:
-                    val = int(m2.group(1))
-                    if val > max_seq:
-                        max_seq = val
+                canonical_seqs.append(int(m1.group(1)))
 
-        next_seq = max_seq + 1
+        next_seq = max(canonical_seqs) + 1 if canonical_seqs else 1
+
         return {
             "prefix": pfx,
             "financial_year": fy,
