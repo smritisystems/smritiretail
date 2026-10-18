@@ -636,10 +636,16 @@ class PurchaseService:
         if getattr(req, "commercial_terms", None):
             rule_snaps["commercial_terms"] = req.commercial_terms
 
+        if req.order_no and req.order_no.strip():
+            assigned_order_no = req.order_no.strip()
+        else:
+            po_seq_info = await self.get_next_order_number("PO")
+            assigned_order_no = po_seq_info["next_order_no"]
+
         order = PurchaseOrder(
             id=po_id,
             identity_code=identity_code,
-            order_no=req.order_no or identity_code or f"PO-{uuid.uuid4().hex[:8].upper()}",
+            order_no=assigned_order_no,
             supplier_id=supplier.id,
             status=po_status,
             notes=req.notes,
@@ -718,36 +724,116 @@ class PurchaseService:
         res = await self.db.execute(stmt)
         return res.scalars().all()
 
-    async def get_next_order_number(self, prefix: Optional[str] = None) -> dict:
+    @staticmethod
+    def get_financial_year(target_date: Optional[Any] = None) -> str:
+        """
+        Return the Indian Financial Year (FY) string (e.g. '26-27' for FY 2026-2027).
+        Indian FY runs from April 1 to March 31.
+        """
+        from datetime import date as dt_date, datetime as dt_datetime
+        d = target_date or dt_date.today()
+        if isinstance(d, dt_datetime):
+            d = d.date()
+        elif isinstance(d, str):
+            try:
+                d = dt_datetime.strptime(d[:10], "%Y-%m-%d").date()
+            except Exception:
+                d = dt_date.today()
+        if d.month >= 4:
+            return f"{str(d.year)[2:]}-{str(d.year + 1)[2:]}"
+        else:
+            return f"{str(d.year - 1)[2:]}-{str(d.year)[2:]}"
+
+    async def get_next_order_number(self, prefix: Optional[str] = None, order_date: Optional[Any] = None) -> dict:
         """
         Return the next available sequential order number for the given prefix
-        and this company.  Scans existing non-deleted POs whose order_no matches
-        <prefix>-<digits> and returns max+1.  Falls back to 1 when no POs
-        exist so the frontend never needs a hardcoded seed value.
+        and company based on Financial Year + Running Number.
+        Canonical Format: {PREFIX}/{FINANCIAL_YEAR}/{RUNNING_NUMBER:04d}
+        Example: PO/26-27/0001
         """
         import re
+        pfx = (prefix or "PO").strip().rstrip("/-")
+        fy = self.get_financial_year(order_date)
+
         stmt = select(PurchaseOrder.order_no).where(
             PurchaseOrder.company_id == self.tenant.company_id,
             PurchaseOrder.is_deleted == False,
         )
-        if prefix:
-            stmt = stmt.where(PurchaseOrder.order_no.like(f"{prefix}-%"))
         res = await self.db.execute(stmt)
         order_nos: list[str] = [row[0] for row in res.fetchall() if row[0]]
 
         max_seq = 0
-        pattern = re.compile(r"(\d+)$")
+        p1 = re.compile(rf"^{re.escape(pfx)}[/\-_]{re.escape(fy)}[/\-_](\d+)", re.IGNORECASE)
+        p2 = re.compile(r"(\d+)$")
+
         for no in order_nos:
-            m = pattern.search(no)
-            if m:
-                val = int(m.group(1))
+            m1 = p1.search(no)
+            if m1:
+                val = int(m1.group(1))
                 if val > max_seq:
                     max_seq = val
+            elif no.startswith(f"{pfx}-") or no.startswith(f"{pfx}/"):
+                m2 = p2.search(no)
+                if m2:
+                    val = int(m2.group(1))
+                    if val > max_seq:
+                        max_seq = val
 
+        next_seq = max_seq + 1
         return {
-            "prefix": prefix or "",
-            "next_number": max_seq + 1,
-            "next_order_no": f"{prefix}-{max_seq + 1}" if prefix else str(max_seq + 1),
+            "prefix": pfx,
+            "financial_year": fy,
+            "next_number": next_seq,
+            "next_order_no": f"{pfx}/{fy}/{next_seq:04d}",
+        }
+
+    async def get_next_receipt_number(self, prefix: Optional[str] = None, receipt_date: Optional[Any] = None) -> dict:
+        """
+        Return the next available sequential GRN number for the given prefix
+        and company based on Financial Year + Running Number.
+        Canonical Format: {PREFIX}/{FINANCIAL_YEAR}/{RUNNING_NUMBER:04d}
+        Example: GRN/26-27/0001
+        """
+        import re
+        pfx = (prefix or "GRN").strip().rstrip("/-")
+        fy = self.get_financial_year(receipt_date)
+
+        stmt = select(PurchaseReceipt.receipt_no).where(
+            PurchaseReceipt.is_deleted == False,
+        )
+        if self.tenant.company_id:
+            stmt = stmt.where(
+                or_(
+                    PurchaseReceipt.company_id == self.tenant.company_id,
+                    PurchaseReceipt.company_id.is_(None),
+                )
+            )
+        res = await self.db.execute(stmt)
+        receipt_nos: list[str] = [row[0] for row in res.fetchall() if row[0]]
+
+        max_seq = 0
+        p1 = re.compile(rf"^{re.escape(pfx)}[/\-_]{re.escape(fy)}[/\-_](\d+)", re.IGNORECASE)
+        p2 = re.compile(r"(\d+)$")
+
+        for no in receipt_nos:
+            m1 = p1.search(no)
+            if m1:
+                val = int(m1.group(1))
+                if val > max_seq:
+                    max_seq = val
+            elif no.startswith(f"{pfx}-") or no.startswith(f"{pfx}/"):
+                m2 = p2.search(no)
+                if m2:
+                    val = int(m2.group(1))
+                    if val > max_seq:
+                        max_seq = val
+
+        next_seq = max_seq + 1
+        return {
+            "prefix": pfx,
+            "financial_year": fy,
+            "next_number": next_seq,
+            "next_receipt_no": f"{pfx}/{fy}/{next_seq:04d}",
         }
 
     async def get_purchase_order(self, order_id: str) -> tuple[PurchaseOrder, list[PurchaseOrderItem]]:
@@ -848,7 +934,11 @@ class PurchaseService:
             purpose="GRN_CREATION",
         )
         receipt_id = tech_id
-        receipt_no = req.receipt_no or id_code
+        if req.receipt_no and req.receipt_no.strip():
+            receipt_no = req.receipt_no.strip()
+        else:
+            grn_seq_info = await self.get_next_receipt_number("GRN")
+            receipt_no = grn_seq_info["next_receipt_no"]
         identity_code = id_code
 
         # Register external challan/paper GRN as alias if custom number provided
