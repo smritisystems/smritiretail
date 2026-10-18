@@ -156,7 +156,7 @@ export const CommercialDeliveryDrawer: React.FC<CommercialDeliveryDrawerProps> =
       <div className="fixed inset-y-0 right-0 max-w-full flex pl-10">
         <div
           ref={drawerRef}
-          className="w-screen max-w-[440px] bg-white shadow-2xl flex flex-col border-l border-slate-200 transition-transform duration-300 ease-in-out transform"
+          className="w-screen max-w-[440px] bg-white dark:bg-slate-900 shadow-2xl flex flex-col border-l border-slate-200 dark:border-slate-800 transition-transform duration-300 ease-in-out transform text-slate-800 dark:text-slate-100"
         >
           {/* ── Drawer Header ── */}
           <div className="bg-slate-900 text-white px-5 py-3.5 flex items-center justify-between shrink-0 border-b border-slate-800">
@@ -187,26 +187,26 @@ export const CommercialDeliveryDrawer: React.FC<CommercialDeliveryDrawerProps> =
           </div>
 
           {/* ── Status Banner: Supplier Mapping Lineage ── */}
-          <div className="bg-slate-50 border-b border-slate-200 px-5 py-2.5 flex items-center justify-between text-xs">
+          <div className="bg-slate-50 dark:bg-slate-950/60 border-b border-slate-200 dark:border-slate-800 px-5 py-2.5 flex items-center justify-between text-xs">
             <div className="flex items-center gap-2 truncate min-w-0">
               <span className="material-symbols-outlined text-slate-400 text-[16px]">domain</span>
-              <span className="font-bold text-slate-800 truncate" title={supplierName || "No Supplier"}>
+              <span className="font-bold text-slate-800 dark:text-slate-200 truncate" title={supplierName || "No Supplier"}>
                 {supplierName || "No Supplier Selected"}
               </span>
               {supplierCode && (
-                <span className="font-mono text-[10px] font-bold px-1.5 py-0.5 rounded bg-blue-100 text-blue-800 border border-blue-200 shrink-0">
+                <span className="font-mono text-[10px] font-bold px-1.5 py-0.5 rounded bg-blue-100 dark:bg-blue-950/50 text-blue-800 dark:text-blue-300 border border-blue-200 dark:border-blue-800 shrink-0">
                   {supplierCode}
                 </span>
               )}
             </div>
 
             {isOverridden ? (
-              <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full shrink-0">
+              <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/50 border border-amber-200 dark:border-amber-800 px-2 py-0.5 rounded-full shrink-0">
                 <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
                 PO Override
               </span>
             ) : supplierName ? (
-              <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full shrink-0">
+              <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-800 px-2 py-0.5 rounded-full shrink-0">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
                 Master Default
               </span>
@@ -217,17 +217,17 @@ export const CommercialDeliveryDrawer: React.FC<CommercialDeliveryDrawerProps> =
           <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4 text-xs font-sans">
 
             {/* Section 1: Commercial & Financial Terms */}
-            <div className="space-y-3 bg-slate-50/70 p-3.5 rounded-xl border border-slate-200/80">
+            <div className="space-y-3 bg-slate-50/70 dark:bg-slate-800/40 p-3.5 rounded-xl border border-slate-200/80 dark:border-slate-700/60">
               <div className="flex items-center justify-between">
-                <h3 className="font-bold text-slate-800 uppercase text-[10px] tracking-wider flex items-center gap-1.5">
-                  <span className="material-symbols-outlined text-indigo-600 text-[14px]">payments</span>
+                <h3 className="font-bold text-slate-800 dark:text-slate-200 uppercase text-[10px] tracking-wider flex items-center gap-1.5">
+                  <span className="material-symbols-outlined text-indigo-600 dark:text-indigo-400 text-[14px]">payments</span>
                   Commercial & Payment Terms
                 </h3>
                 {onResetToDefaults && isOverridden && !readOnly && (
                   <button
                     type="button"
                     onClick={onResetToDefaults}
-                    className="text-[10px] text-indigo-600 hover:text-indigo-800 font-bold underline cursor-pointer"
+                    className="text-[10px] text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 font-bold underline cursor-pointer"
                     title="Re-populate defaults from Supplier Master"
                   >
                     Reset Defaults
@@ -237,7 +237,7 @@ export const CommercialDeliveryDrawer: React.FC<CommercialDeliveryDrawerProps> =
 
               {/* Payment Terms */}
               <div>
-                <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">
                   Payment Terms
                 </label>
                 <select
@@ -245,27 +245,27 @@ export const CommercialDeliveryDrawer: React.FC<CommercialDeliveryDrawerProps> =
                   disabled={readOnly}
                   value={data.paymentTerms || "120 Days"}
                   onChange={(e) => onChange({ paymentTerms: e.target.value })}
-                  className="w-full text-xs font-medium px-2.5 h-8 bg-white border border-slate-300 rounded-lg outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 disabled:opacity-50"
+                  className="w-full text-xs font-medium px-2.5 h-8 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100 rounded-lg outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 disabled:opacity-50"
                 >
                   {PAYMENT_TERMS_PRESETS.map((pt) => (
-                    <option key={pt} value={pt}>{pt}</option>
+                    <option key={pt} value={pt} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100">{pt}</option>
                   ))}
                 </select>
               </div>
 
               {/* Freight Terms */}
               <div>
-                <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">
                   Freight & Shipping Terms
                 </label>
                 <select
                   disabled={readOnly}
                   value={data.freightCharges || "Paid by Supplier"}
                   onChange={(e) => onChange({ freightCharges: e.target.value })}
-                  className="w-full text-xs font-medium px-2.5 h-8 bg-white border border-slate-300 rounded-lg outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 disabled:opacity-50"
+                  className="w-full text-xs font-medium px-2.5 h-8 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100 rounded-lg outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 disabled:opacity-50"
                 >
                   {FREIGHT_TERMS_PRESETS.map((ft) => (
-                    <option key={ft} value={ft}>{ft}</option>
+                    <option key={ft} value={ft} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100">{ft}</option>
                   ))}
                 </select>
               </div>
@@ -273,22 +273,22 @@ export const CommercialDeliveryDrawer: React.FC<CommercialDeliveryDrawerProps> =
               {/* Currency & Freight Amount */}
               <div className="grid grid-cols-2 gap-2.5">
                 <div>
-                  <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                  <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">
                     Currency
                   </label>
                   <select
                     disabled={readOnly}
                     value={data.currency || "INR - Indian Rupee"}
                     onChange={(e) => onChange({ currency: e.target.value })}
-                    className="w-full text-xs font-medium px-2 h-8 bg-white border border-slate-300 rounded-lg outline-none focus:border-indigo-500 disabled:opacity-50"
+                    className="w-full text-xs font-medium px-2 h-8 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100 rounded-lg outline-none focus:border-indigo-500 disabled:opacity-50"
                   >
                     {CURRENCY_PRESETS.map((cur) => (
-                      <option key={cur} value={cur}>{cur.split(" - ")[0]}</option>
+                      <option key={cur} value={cur} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100">{cur.split(" - ")[0]}</option>
                     ))}
                   </select>
                 </div>
                 <div>
-                  <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                  <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">
                     Freight Amount (₹)
                   </label>
                   <input
@@ -298,7 +298,7 @@ export const CommercialDeliveryDrawer: React.FC<CommercialDeliveryDrawerProps> =
                     disabled={readOnly}
                     value={data.freightAmount ?? 0}
                     onChange={(e) => onChange({ freightAmount: parseFloat(e.target.value) || 0 })}
-                    className="w-full font-mono text-xs font-bold text-right px-2.5 h-8 bg-white border border-slate-300 rounded-lg outline-none focus:border-indigo-500 disabled:opacity-50"
+                    className="w-full font-mono text-xs font-bold text-right px-2.5 h-8 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100 rounded-lg outline-none focus:border-indigo-500 disabled:opacity-50"
                     placeholder="0.00"
                   />
                 </div>
@@ -306,25 +306,25 @@ export const CommercialDeliveryDrawer: React.FC<CommercialDeliveryDrawerProps> =
             </div>
 
             {/* Section 2: Delivery & Destination */}
-            <div className="space-y-3 bg-slate-50/70 p-3.5 rounded-xl border border-slate-200/80">
-              <h3 className="font-bold text-slate-800 uppercase text-[10px] tracking-wider flex items-center gap-1.5">
-                <span className="material-symbols-outlined text-indigo-600 text-[14px]">local_shipping</span>
+            <div className="space-y-3 bg-slate-50/70 dark:bg-slate-800/40 p-3.5 rounded-xl border border-slate-200/80 dark:border-slate-700/60">
+              <h3 className="font-bold text-slate-800 dark:text-slate-200 uppercase text-[10px] tracking-wider flex items-center gap-1.5">
+                <span className="material-symbols-outlined text-indigo-600 dark:text-indigo-400 text-[14px]">local_shipping</span>
                 Delivery & Warehouse Destination
               </h3>
 
               {/* Delivery Location / Warehouse */}
               <div>
-                <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">
                   Delivery Destination Warehouse
                 </label>
                 <select
                   disabled={readOnly}
                   value={data.deliveryLocation || "Main Central Godown (CG-01)"}
                   onChange={(e) => onChange({ deliveryLocation: e.target.value })}
-                  className="w-full text-xs font-medium px-2.5 h-8 bg-white border border-slate-300 rounded-lg outline-none focus:border-indigo-500 disabled:opacity-50"
+                  className="w-full text-xs font-medium px-2.5 h-8 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100 rounded-lg outline-none focus:border-indigo-500 disabled:opacity-50"
                 >
                   {WAREHOUSE_PRESETS.map((w) => (
-                    <option key={w} value={w}>{w}</option>
+                    <option key={w} value={w} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100">{w}</option>
                   ))}
                 </select>
               </div>
@@ -332,7 +332,7 @@ export const CommercialDeliveryDrawer: React.FC<CommercialDeliveryDrawerProps> =
               {/* Delivery Date & Lead Time */}
               <div className="grid grid-cols-2 gap-2.5">
                 <div>
-                  <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                  <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">
                     Delivery Date
                   </label>
                   <input
@@ -340,11 +340,11 @@ export const CommercialDeliveryDrawer: React.FC<CommercialDeliveryDrawerProps> =
                     disabled={readOnly}
                     value={data.deliveryDate}
                     onChange={(e) => onChange({ deliveryDate: e.target.value })}
-                    className="w-full font-mono text-xs px-2 h-8 bg-white border border-slate-300 rounded-lg outline-none focus:border-indigo-500 disabled:opacity-50"
+                    className="w-full font-mono text-xs px-2 h-8 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100 rounded-lg outline-none focus:border-indigo-500 disabled:opacity-50"
                   />
                 </div>
                 <div>
-                  <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                  <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">
                     Lead Time (Days)
                   </label>
                   <input
@@ -354,22 +354,22 @@ export const CommercialDeliveryDrawer: React.FC<CommercialDeliveryDrawerProps> =
                     disabled={readOnly}
                     value={data.leadTimeDays ?? 7}
                     onChange={(e) => onChange({ leadTimeDays: parseInt(e.target.value, 10) || 0 })}
-                    className="w-full font-mono font-bold text-center text-xs px-2 h-8 bg-white border border-slate-300 rounded-lg outline-none focus:border-indigo-500 disabled:opacity-50"
+                    className="w-full font-mono font-bold text-center text-xs px-2 h-8 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100 rounded-lg outline-none focus:border-indigo-500 disabled:opacity-50"
                   />
                 </div>
               </div>
             </div>
 
             {/* Section 3: Buyer, Department & References */}
-            <div className="space-y-3 bg-slate-50/70 p-3.5 rounded-xl border border-slate-200/80">
-              <h3 className="font-bold text-slate-800 uppercase text-[10px] tracking-wider flex items-center gap-1.5">
-                <span className="material-symbols-outlined text-indigo-600 text-[14px]">badge</span>
+            <div className="space-y-3 bg-slate-50/70 dark:bg-slate-800/40 p-3.5 rounded-xl border border-slate-200/80 dark:border-slate-700/60">
+              <h3 className="font-bold text-slate-800 dark:text-slate-200 uppercase text-[10px] tracking-wider flex items-center gap-1.5">
+                <span className="material-symbols-outlined text-indigo-600 dark:text-indigo-400 text-[14px]">badge</span>
                 Department & Quotation Reference
               </h3>
 
               <div className="grid grid-cols-2 gap-2.5">
                 <div>
-                  <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                  <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">
                     Buyer / Merchant
                   </label>
                   <input
@@ -378,11 +378,11 @@ export const CommercialDeliveryDrawer: React.FC<CommercialDeliveryDrawerProps> =
                     value={data.buyer || ""}
                     placeholder="e.g. Senior Buyer"
                     onChange={(e) => onChange({ buyer: e.target.value })}
-                    className="w-full text-xs px-2.5 h-8 bg-white border border-slate-300 rounded-lg outline-none focus:border-indigo-500 disabled:opacity-50"
+                    className="w-full text-xs px-2.5 h-8 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100 rounded-lg outline-none focus:border-indigo-500 disabled:opacity-50"
                   />
                 </div>
                 <div>
-                  <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                  <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">
                     Department
                   </label>
                   <input
@@ -391,7 +391,7 @@ export const CommercialDeliveryDrawer: React.FC<CommercialDeliveryDrawerProps> =
                     value={data.department || "Footwear"}
                     list="comm-dept-list"
                     onChange={(e) => onChange({ department: e.target.value })}
-                    className="w-full text-xs px-2.5 h-8 bg-white border border-slate-300 rounded-lg outline-none focus:border-indigo-500 disabled:opacity-50"
+                    className="w-full text-xs px-2.5 h-8 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100 rounded-lg outline-none focus:border-indigo-500 disabled:opacity-50"
                   />
                   <datalist id="comm-dept-list">
                     {DEPARTMENT_PRESETS.map((d) => (
@@ -402,7 +402,7 @@ export const CommercialDeliveryDrawer: React.FC<CommercialDeliveryDrawerProps> =
               </div>
 
               <div>
-                <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">
                   Supplier Quotation / Ref No
                 </label>
                 <input
@@ -411,12 +411,12 @@ export const CommercialDeliveryDrawer: React.FC<CommercialDeliveryDrawerProps> =
                   value={data.supplierReference || ""}
                   placeholder="e.g. QUOT-2026-894"
                   onChange={(e) => onChange({ supplierReference: e.target.value })}
-                  className="w-full font-mono text-xs px-2.5 h-8 bg-white border border-slate-300 rounded-lg outline-none focus:border-indigo-500 disabled:opacity-50"
+                  className="w-full font-mono text-xs px-2.5 h-8 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100 rounded-lg outline-none focus:border-indigo-500 disabled:opacity-50"
                 />
               </div>
 
               <div>
-                <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">
                   Special Instructions / Packing Notes
                 </label>
                 <textarea
@@ -425,23 +425,23 @@ export const CommercialDeliveryDrawer: React.FC<CommercialDeliveryDrawerProps> =
                   value={data.specialInstructions || ""}
                   placeholder="Carton packing specifications, delivery window, gate entry rules..."
                   onChange={(e) => onChange({ specialInstructions: e.target.value })}
-                  className="w-full text-xs p-2.5 bg-white border border-slate-300 rounded-lg outline-none focus:border-indigo-500 resize-none disabled:opacity-50"
+                  className="w-full text-xs p-2.5 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100 rounded-lg outline-none focus:border-indigo-500 resize-none disabled:opacity-50"
                 />
               </div>
             </div>
 
             {/* Section 4: Business Terms & Statutory Conditions */}
-            <div className="space-y-3 bg-slate-50/70 p-3.5 rounded-xl border border-slate-200/80">
+            <div className="space-y-3 bg-slate-50/70 dark:bg-slate-800/40 p-3.5 rounded-xl border border-slate-200/80 dark:border-slate-700/60">
               <div className="flex items-center justify-between">
-                <h3 className="font-bold text-slate-800 uppercase text-[10px] tracking-wider flex items-center gap-1.5">
-                  <span className="material-symbols-outlined text-indigo-600 text-[14px]">gavel</span>
+                <h3 className="font-bold text-slate-800 dark:text-slate-200 uppercase text-[10px] tracking-wider flex items-center gap-1.5">
+                  <span className="material-symbols-outlined text-indigo-600 dark:text-indigo-400 text-[14px]">gavel</span>
                   Business Terms & Statutory Conditions
                 </h3>
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
                     onClick={() => setPreviewTerms(!previewTerms)}
-                    className="text-[10px] text-slate-600 hover:text-slate-900 font-semibold px-2 py-0.5 rounded bg-slate-200/70 hover:bg-slate-300 transition-colors"
+                    className="text-[10px] text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white font-semibold px-2 py-0.5 rounded bg-slate-200/70 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 transition-colors"
                   >
                     {previewTerms ? "Edit Terms" : "Preview Terms"}
                   </button>
@@ -449,7 +449,7 @@ export const CommercialDeliveryDrawer: React.FC<CommercialDeliveryDrawerProps> =
                     type="button"
                     disabled={readOnly}
                     onClick={() => onChange({ businessTerms: DEFAULT_BUSINESS_TERMS })}
-                    className="text-[10px] text-indigo-600 hover:text-indigo-800 font-bold underline cursor-pointer disabled:opacity-50"
+                    className="text-[10px] text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 font-bold underline cursor-pointer disabled:opacity-50"
                     title="Load standard wholesale 120-day commercial terms"
                   >
                     Load Standard Terms
@@ -458,11 +458,11 @@ export const CommercialDeliveryDrawer: React.FC<CommercialDeliveryDrawerProps> =
               </div>
 
               <div>
-                <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">
                   Contract Terms & Purchase Clauses (Prints on PO PDF)
                 </label>
                 {previewTerms ? (
-                  <div className="w-full min-h-[100px] p-2.5 bg-white border border-slate-300 rounded-lg text-xs overflow-y-auto max-h-[160px]">
+                  <div className="w-full min-h-[100px] p-2.5 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-200 rounded-lg text-xs overflow-y-auto max-h-[160px]">
                     <SafeRichTermsRenderer content={data.businessTerms ?? DEFAULT_BUSINESS_TERMS} />
                   </div>
                 ) : (
@@ -472,15 +472,15 @@ export const CommercialDeliveryDrawer: React.FC<CommercialDeliveryDrawerProps> =
                     value={data.businessTerms ?? DEFAULT_BUSINESS_TERMS}
                     placeholder="Enter custom business terms, warranty clauses, delivery conditions, penalty clauses, and statutory jurisdiction..."
                     onChange={(e) => onChange({ businessTerms: e.target.value })}
-                    className="w-full text-xs p-2.5 bg-white border border-slate-300 rounded-lg outline-none focus:border-indigo-500 resize-none disabled:opacity-50 font-sans leading-relaxed text-slate-700"
+                    className="w-full text-xs p-2.5 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100 rounded-lg outline-none focus:border-indigo-500 resize-none disabled:opacity-50 font-sans leading-relaxed"
                   />
                 )}
               </div>
             </div>
 
             {/* Informational Policy Note */}
-            <div className="p-3 bg-blue-50/70 border border-blue-200/80 rounded-xl text-[11px] text-blue-900 flex items-start gap-2">
-              <span className="material-symbols-outlined text-blue-600 text-[16px] shrink-0 mt-0.5">info</span>
+            <div className="p-3 bg-blue-50/70 dark:bg-blue-950/30 border border-blue-200/80 dark:border-blue-900/50 rounded-xl text-[11px] text-blue-900 dark:text-blue-300 flex items-start gap-2">
+              <span className="material-symbols-outlined text-blue-600 dark:text-blue-400 text-[16px] shrink-0 mt-0.5">info</span>
               <div>
                 <span className="font-bold">Commercial Terms Guarantee:</span> Changes made here apply directly to this Purchase Order's frozen snapshot (`rule_snapshots["commercial_terms"]`) and will not overwrite the Supplier Master master-record.
               </div>
@@ -489,9 +489,9 @@ export const CommercialDeliveryDrawer: React.FC<CommercialDeliveryDrawerProps> =
           </div>
 
           {/* ── Drawer Footer ── */}
-          <div className="bg-slate-50 border-t border-slate-200 px-5 py-3 flex items-center justify-between shrink-0">
+          <div className="bg-slate-50 dark:bg-slate-950/60 border-t border-slate-200 dark:border-slate-800 px-5 py-3 flex items-center justify-between shrink-0">
             <span className="text-[11px] text-slate-400">
-              Press <kbd className="px-1 py-0.5 bg-slate-200 border border-slate-300 rounded text-slate-700 font-mono">Esc</kbd> to close
+              Press <kbd className="px-1 py-0.5 bg-slate-200 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded text-slate-700 dark:text-slate-300 font-mono">Esc</kbd> to close
             </span>
             <button
               type="button"

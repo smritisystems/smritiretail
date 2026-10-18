@@ -1691,25 +1691,25 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
   const activeLineCount = lineItems.filter(l => l.stockNo && l.orderQty > 0).length;
 
   return (
-    <div className="bg-[#f8fafc] text-[#1e293b] font-sans h-full flex flex-col antialiased select-none overflow-y-auto custom-scrollbar relative">
+    <div className="bg-[#f8fafc] dark:bg-slate-900 text-[#1e293b] dark:text-slate-100 font-sans h-full flex flex-col antialiased select-none overflow-y-auto custom-scrollbar relative">
       {/* ── 1. Top Breadcrumb & Header ────────────────────────────────────── */}
-      <header className="bg-white border-b border-slate-200 px-6 py-3 shrink-0 shadow-2xs">
+      <header className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-6 py-3 shrink-0 shadow-2xs">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
           {/* Title & Status */}
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-blue-50 border border-blue-200 flex items-center justify-center text-blue-600 shadow-2xs">
+            <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 flex items-center justify-center text-blue-600 dark:text-blue-400 shadow-2xs">
               <span className="material-symbols-outlined text-[24px]">description</span>
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h1 className="text-lg font-bold text-slate-800 tracking-tight leading-none">
+                <h1 className="text-lg font-bold text-slate-800 dark:text-slate-100 tracking-tight leading-none">
                   Purchase Order
                 </h1>
-                <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-300 uppercase tracking-wider">
+                <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-300 dark:border-slate-700 uppercase tracking-wider">
                   Draft
                 </span>
               </div>
-              <p className="text-xs text-slate-500 mt-1">
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
                 Create purchase order to request goods from supplier
               </p>
             </div>
@@ -1721,7 +1721,7 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
               type="button"
               id="pogen-header-commercial-drawer-btn"
               onClick={() => setShowCommercialDrawer(prev => !prev)}
-              className="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 font-bold px-3 py-1.5 rounded-lg text-xs transition-colors shadow-2xs flex items-center gap-1.5 cursor-pointer"
+              className="bg-indigo-50 dark:bg-indigo-950/40 hover:bg-indigo-100 dark:hover:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 font-bold px-3 py-1.5 rounded-lg text-xs transition-colors shadow-2xs flex items-center gap-1.5 cursor-pointer"
               title="Open Commercial & Delivery terms drawer (Alt+C)"
             >
               <span className="material-symbols-outlined text-[16px] text-indigo-600">receipt_long</span>
@@ -1733,7 +1733,7 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
               type="button"
               onClick={handleSavePO}
               disabled={saving}
-              className="bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 font-semibold px-3 py-1.5 rounded-lg text-xs transition-colors shadow-2xs flex items-center gap-1.5 disabled:opacity-50"
+              className="bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-700 font-semibold px-3 py-1.5 rounded-lg text-xs transition-colors shadow-2xs flex items-center gap-1.5 disabled:opacity-50"
             >
               <span className="material-symbols-outlined text-[16px]">save</span>
               <span>{saving ? "Saving…" : "Save Draft"}</span>
@@ -1742,7 +1742,7 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
             <button
               type="button"
               onClick={() => setShowPrintPreview(true)}
-              className="bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 font-semibold px-3 py-1.5 rounded-lg text-xs transition-colors shadow-2xs flex items-center gap-1.5"
+              className="bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-700 font-semibold px-3 py-1.5 rounded-lg text-xs transition-colors shadow-2xs flex items-center gap-1.5"
             >
               <span className="material-symbols-outlined text-[16px]">visibility</span>
               <span>Preview (F9)</span>
@@ -1763,19 +1763,19 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
               <button
                 type="button"
                 onClick={() => setShowMoreMenu(m => !m)}
-                className="bg-white hover:bg-slate-50 border border-slate-300 text-slate-600 px-2 py-1.5 rounded-lg text-xs font-bold transition shadow-2xs flex items-center"
+                className="bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 border border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-300 px-2 py-1.5 rounded-lg text-xs font-bold transition shadow-2xs flex items-center"
               >
                 <span className="material-symbols-outlined text-[18px]">more_vert</span>
               </button>
               {showMoreMenu && (
                 <div
-                  className="absolute right-0 top-full mt-1.5 w-48 bg-white border border-slate-200 rounded-xl shadow-xl z-50 overflow-hidden py-1"
+                  className="absolute right-0 top-full mt-1.5 w-48 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl z-50 overflow-hidden py-1"
                   onMouseLeave={() => setShowMoreMenu(false)}
                 >
                   <button
                     type="button"
                     onClick={() => { setShowMoreMenu(false); excelImportInputRef.current?.click(); }}
-                    className="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-slate-700 hover:bg-slate-50 transition-colors"
+                    className="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
                   >
                     <span className="material-symbols-outlined text-[16px] text-emerald-600">upload_file</span>
                     Import from Excel
@@ -1783,7 +1783,7 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
                   <button
                     type="button"
                     onClick={() => { setShowMoreMenu(false); handleAddNewBlankRow(); }}
-                    className="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-slate-700 hover:bg-slate-50 transition-colors"
+                    className="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
                   >
                     <span className="material-symbols-outlined text-[16px] text-blue-600">add</span>
                     Add Blank Row
@@ -1800,7 +1800,7 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
                     <button
                       type="button"
                       onClick={() => { setShowMoreMenu(false); onNavigateTab("grn-studio"); }}
-                      className="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-slate-700 hover:bg-slate-50 transition-colors border-t border-slate-100"
+                      className="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors border-t border-slate-100 dark:border-slate-700"
                     >
                       <span className="material-symbols-outlined text-[16px] text-indigo-600">local_shipping</span>
                       Goods Receipt Studio
@@ -1810,7 +1810,7 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
                     <button
                       type="button"
                       onClick={() => { setShowMoreMenu(false); onClose(); }}
-                      className="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-slate-600 hover:bg-slate-50 transition-colors border-t border-slate-100"
+                      className="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors border-t border-slate-100 dark:border-slate-700"
                     >
                       <span className="material-symbols-outlined text-[16px]">close</span>
                       Close Tab
@@ -1823,7 +1823,7 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
         </div>
 
         {/* Navigation Tabs */}
-        <nav className="flex items-center gap-6 mt-3 border-t border-slate-100 pt-2 text-xs">
+        <nav className="flex items-center gap-6 mt-3 border-t border-slate-100 dark:border-slate-800 pt-2 text-xs">
           {[
             { id: "general", label: "General" },
             { id: "items", label: `Items (${activeLineCount})` },
@@ -1840,7 +1840,7 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
               className={`pb-1 font-semibold transition-all relative ${
                 activeTab === tab.id
                   ? "text-blue-600"
-                  : "text-slate-500 hover:text-slate-800"
+                  : "text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200"
               }`}
             >
               {tab.label}
@@ -1906,22 +1906,22 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
         <section className="px-6 pt-4 pb-2 shrink-0">
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3.5 text-xs">
             {/* Card 1: Document Information */}
-            <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-2xs flex flex-col justify-between">
-              <div className="flex items-center gap-2 mb-2.5 pb-1.5 border-b border-slate-100">
+            <div className="bg-white dark:bg-slate-800/90 p-3.5 rounded-xl border border-slate-200 dark:border-slate-700 shadow-2xs flex flex-col justify-between">
+              <div className="flex items-center gap-2 mb-2.5 pb-1.5 border-b border-slate-100 dark:border-slate-700">
                 <span className="material-symbols-outlined text-blue-600 text-[18px]">receipt_long</span>
-                <h2 className="font-bold text-slate-800 text-xs uppercase tracking-wider">
+                <h2 className="font-bold text-slate-800 dark:text-slate-200 text-xs uppercase tracking-wider">
                   Document Information
                 </h2>
               </div>
               <div className="space-y-2">
                 <div>
-                  <label className="block font-medium text-slate-500 mb-1 text-[11px]">
+                  <label className="block font-medium text-slate-500 dark:text-slate-400 mb-1 text-[11px]">
                     Document Type <span className="text-rose-500">*</span>
                   </label>
                   <select
                     value={header.documentType}
                     onChange={(e) => setHeader({ ...header, documentType: e.target.value as any })}
-                    className="w-full border border-slate-300 rounded-lg px-2.5 h-7 bg-white outline-none focus:border-blue-600 font-medium"
+                    className="w-full border border-slate-300 dark:border-slate-600 rounded-lg px-2.5 h-7 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 outline-none focus:border-blue-600 font-medium"
                   >
                     <option value="Purchase Order">Purchase Order</option>
                     <option value="Indent">Indent</option>
@@ -1929,16 +1929,16 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
                 </div>
                 <div className="grid grid-cols-12 gap-2">
                   <div className="col-span-4">
-                    <label className="block font-medium text-slate-500 mb-1 text-[11px]">Prefix</label>
+                    <label className="block font-medium text-slate-500 dark:text-slate-400 mb-1 text-[11px]">Prefix</label>
                     <input
                       type="text"
                       value={header.prefix}
                       onChange={(e) => setHeader({ ...header, prefix: e.target.value })}
-                      className="w-full border border-slate-300 rounded-lg px-2 h-7 bg-white font-mono font-bold outline-none focus:border-blue-600 text-center"
+                      className="w-full border border-slate-300 dark:border-slate-600 rounded-lg px-2 h-7 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 font-mono font-bold outline-none focus:border-blue-600 text-center"
                     />
                   </div>
                   <div className="col-span-8">
-                    <label className="block font-medium text-slate-500 mb-1 text-[11px]">
+                    <label className="block font-medium text-slate-500 dark:text-slate-400 mb-1 text-[11px]">
                       PO Number <span className="text-rose-500">*</span>
                     </label>
                     <div className="relative flex items-center">
@@ -1946,7 +1946,7 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
                         type="text"
                         value={header.orderNumber}
                         onChange={(e) => setHeader({ ...header, orderNumber: e.target.value })}
-                        className="w-full border border-slate-300 rounded-lg pl-2.5 pr-7 h-7 bg-white font-mono font-bold outline-none focus:border-blue-600"
+                        className="w-full border border-slate-300 dark:border-slate-600 rounded-lg pl-2.5 pr-7 h-7 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 font-mono font-bold outline-none focus:border-blue-600"
                       />
                       <button
                         type="button"
@@ -1963,7 +1963,7 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
                   </div>
                 </div>
                 <div>
-                  <label className="block font-medium text-slate-500 mb-1 text-[11px]">
+                  <label className="block font-medium text-slate-500 dark:text-slate-400 mb-1 text-[11px]">
                     PO Date <span className="text-rose-500">*</span>
                   </label>
                   <input
@@ -1977,18 +1977,18 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
                         deliveryDate: addDaysToDate(orderDate, current.leadTimeDays || 7),
                       }));
                     }}
-                    className="w-full border border-slate-300 rounded-lg px-2.5 h-7 bg-white font-mono outline-none focus:border-blue-600"
+                    className="w-full border border-slate-300 dark:border-slate-600 rounded-lg px-2.5 h-7 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 font-mono outline-none focus:border-blue-600"
                   />
                 </div>
               </div>
             </div>
 
             {/* Card 2: Supplier & Delivery */}
-            <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-2xs flex flex-col justify-between">
-              <div className="flex items-center justify-between gap-2 mb-2 pb-1.5 border-b border-slate-100">
+            <div className="bg-white dark:bg-slate-800/90 p-3.5 rounded-xl border border-slate-200 dark:border-slate-700 shadow-2xs flex flex-col justify-between">
+              <div className="flex items-center justify-between gap-2 mb-2 pb-1.5 border-b border-slate-100 dark:border-slate-700">
                 <div className="flex items-center gap-2">
                   <span className="material-symbols-outlined text-blue-600 text-[18px]">local_shipping</span>
-                  <h2 className="font-bold text-slate-800 text-xs uppercase tracking-wider">
+                  <h2 className="font-bold text-slate-800 dark:text-slate-200 text-xs uppercase tracking-wider">
                     Supplier &amp; Delivery
                   </h2>
                 </div>
@@ -2003,7 +2003,7 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
               <div className="space-y-1.5">
                 {/* Searchable Supplier */}
                 <div>
-                  <label className="block font-medium text-slate-500 mb-0.5 text-[11px]">
+                  <label className="block font-medium text-slate-500 dark:text-slate-400 mb-0.5 text-[11px]">
                     Supplier / Vendor <span className="text-rose-500">*</span>
                   </label>
                   <SupplierSelect
@@ -2021,9 +2021,9 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
 
                 {/* Selected Supplier Details Pill */}
                 {selectedSupplier && (
-                  <div className="bg-slate-50 border border-slate-200 rounded-lg p-2 text-[11px] space-y-0.5">
+                  <div className="bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-700 rounded-lg p-2 text-[11px] space-y-0.5">
                     <div className="flex items-center justify-between">
-                      <span className="font-bold text-slate-800 truncate">{selectedSupplier.name}</span>
+                      <span className="font-bold text-slate-800 dark:text-slate-200 truncate">{selectedSupplier.name}</span>
                       <button
                         type="button"
                         onClick={() => setIsScorecardOpen(true)}
@@ -2032,16 +2032,16 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
                         View Details
                       </button>
                     </div>
-                    <div className="text-slate-500 truncate text-[10px]">
+                    <div className="text-slate-500 dark:text-slate-400 truncate text-[10px]">
                       GSTIN: {selectedSupplier.gstin || "27AAAAC0553K1Z8"} | {selectedSupplier.city || "Mumbai"}, {selectedSupplier.state || "Maharashtra"}
                     </div>
-                    <div className="text-slate-500 text-[10px]">{selectedSupplier.phone || "+91 22 1234 5678"}</div>
+                    <div className="text-slate-500 dark:text-slate-400 text-[10px]">{selectedSupplier.phone || "+91 22 1234 5678"}</div>
                   </div>
                 )}
 
                 <div className="grid grid-cols-12 gap-2 pt-0.5">
                   <div className="col-span-7">
-                    <label className="block font-medium text-slate-500 mb-0.5 text-[11px]">Delivery Date</label>
+                    <label className="block font-medium text-slate-500 dark:text-slate-400 mb-0.5 text-[11px]">Delivery Date</label>
                     <input
                       type="date"
                       value={header.deliveryDate}
@@ -2053,11 +2053,11 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
                           leadTimeDays: calculateExactLeadTime(current.orderDate, deliveryDate),
                         }));
                       }}
-                      className="w-full border border-slate-300 rounded-lg px-2 h-7 bg-white font-mono outline-none focus:border-blue-600 text-xs"
+                      className="w-full border border-slate-300 dark:border-slate-600 rounded-lg px-2 h-7 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 font-mono outline-none focus:border-blue-600 text-xs"
                     />
                   </div>
                   <div className="col-span-5">
-                    <label className="block font-medium text-slate-500 mb-0.5 text-[11px]">Lead Time</label>
+                    <label className="block font-medium text-slate-500 dark:text-slate-400 mb-0.5 text-[11px]">Lead Time</label>
                     <input
                       type="number"
                       min="0"
@@ -2072,7 +2072,7 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
                           deliveryDate: addDaysToDate(current.orderDate, leadTimeDays),
                         }));
                       }}
-                      className="w-full border border-slate-300 rounded-lg px-2 h-7 bg-white font-semibold outline-none focus:border-blue-600 text-xs"
+                      className="w-full border border-slate-300 dark:border-slate-600 rounded-lg px-2 h-7 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 font-semibold outline-none focus:border-blue-600 text-xs"
                     />
                     <datalist id="po-lead-time-options">
                       {LEAD_TIME_OPTIONS.map((days) => <option key={days} value={days}>{formatLeadTimeLabel(days)}</option>)}
@@ -2081,45 +2081,45 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
                 </div>
 
                 <div>
-                  <label className="block font-medium text-slate-500 mb-0.5 text-[11px]">Delivery Location</label>
+                  <label className="block font-medium text-slate-500 dark:text-slate-400 mb-0.5 text-[11px]">Delivery Location</label>
                   <input
                     type="text"
                     value={header.deliveryLocation}
                     onChange={(e) => setHeader({ ...header, deliveryLocation: e.target.value })}
-                    className="w-full border border-slate-300 rounded-lg px-2.5 h-7 bg-white outline-none focus:border-blue-600 text-xs"
+                    className="w-full border border-slate-300 dark:border-slate-600 rounded-lg px-2.5 h-7 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 outline-none focus:border-blue-600 text-xs"
                   />
                 </div>
               </div>
             </div>
 
             {/* Card 3: Terms & Reference */}
-            <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-2xs flex flex-col justify-between">
-              <div className="flex items-center gap-2 mb-2 pb-1.5 border-b border-slate-100">
+            <div className="bg-white dark:bg-slate-800/90 p-3.5 rounded-xl border border-slate-200 dark:border-slate-700 shadow-2xs flex flex-col justify-between">
+              <div className="flex items-center gap-2 mb-2 pb-1.5 border-b border-slate-100 dark:border-slate-700">
                 <span className="material-symbols-outlined text-blue-600 text-[18px]">handshake</span>
-                <h2 className="font-bold text-slate-800 text-xs uppercase tracking-wider">
+                <h2 className="font-bold text-slate-800 dark:text-slate-200 text-xs uppercase tracking-wider">
                   Terms &amp; Reference
                 </h2>
               </div>
               <div className="space-y-1.5">
                 <div>
-                  <label className="block font-medium text-slate-500 mb-0.5 text-[11px]">Supplier Reference</label>
+                  <label className="block font-medium text-slate-500 dark:text-slate-400 mb-0.5 text-[11px]">Supplier Reference</label>
                   <input
                     id="std-terms-ref-supplier-ref-input"
                     type="text"
                     placeholder="Supplier PO / Quotation No."
                     value={header.supplierReference || ""}
                     onChange={(e) => setHeader({ ...header, supplierReference: e.target.value })}
-                    className="w-full border border-slate-300 rounded-lg px-2.5 h-7 bg-white outline-none focus:border-blue-600 text-xs"
+                    className="w-full border border-slate-300 dark:border-slate-600 rounded-lg px-2.5 h-7 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 outline-none focus:border-blue-600 text-xs"
                   />
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   <div>
-                    <label className="block font-medium text-slate-500 mb-0.5 text-[11px]">Payment Terms</label>
+                    <label className="block font-medium text-slate-500 dark:text-slate-400 mb-0.5 text-[11px]">Payment Terms</label>
                     <select
                       id="std-terms-ref-payment-terms-select"
                       value={header.paymentTerms}
                       onChange={(e) => setHeader({ ...header, paymentTerms: e.target.value })}
-                      className="w-full border border-slate-300 rounded-lg px-2 h-7 bg-white font-medium outline-none focus:border-blue-600 text-xs"
+                      className="w-full border border-slate-300 dark:border-slate-600 rounded-lg px-2 h-7 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 font-medium outline-none focus:border-blue-600 text-xs"
                     >
                       <option value="Immediate">Immediate</option>
                       <option value="15 Days">15 Days</option>
@@ -2130,12 +2130,12 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
                     </select>
                   </div>
                   <div>
-                    <label className="block font-medium text-slate-500 mb-0.5 text-[11px]">Currency</label>
+                    <label className="block font-medium text-slate-500 dark:text-slate-400 mb-0.5 text-[11px]">Currency</label>
                     <select
                       id="std-terms-ref-currency-select"
                       value={header.currency || "INR - Indian Rupee"}
                       onChange={(e) => setHeader({ ...header, currency: e.target.value })}
-                      className="w-full border border-slate-300 rounded-lg px-2 h-7 bg-white font-medium outline-none focus:border-blue-600 text-xs"
+                      className="w-full border border-slate-300 dark:border-slate-600 rounded-lg px-2 h-7 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 font-medium outline-none focus:border-blue-600 text-xs"
                     >
                       <option value="INR - Indian Rupee">INR - Rupee</option>
                       <option value="USD - US Dollar">USD - Dollar</option>
@@ -2145,23 +2145,23 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   <div>
-                    <label className="block font-medium text-slate-500 mb-0.5 text-[11px]">{PURCHASER_FIELD_LABEL}</label>
+                    <label className="block font-medium text-slate-500 dark:text-slate-400 mb-0.5 text-[11px]">{PURCHASER_FIELD_LABEL}</label>
                     <input
                       id="std-terms-ref-buyer-input"
                       type="text"
                       value={header.buyer || "manager"}
                       onChange={(e) => setHeader({ ...header, buyer: e.target.value })}
-                      className="w-full border border-slate-300 rounded-lg px-2 h-7 bg-white outline-none focus:border-blue-600 text-xs truncate"
+                      className="w-full border border-slate-300 dark:border-slate-600 rounded-lg px-2 h-7 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 outline-none focus:border-blue-600 text-xs truncate"
                     />
                   </div>
                   <div>
-                    <label className="block font-medium text-slate-500 mb-0.5 text-[11px]">Project / Dept</label>
+                    <label className="block font-medium text-slate-500 dark:text-slate-400 mb-0.5 text-[11px]">Project / Dept</label>
                     <input
                       id="std-terms-ref-department-input"
                       type="text"
                       value={header.department || "General Purchase"}
                       onChange={(e) => setHeader({ ...header, department: e.target.value })}
-                      className="w-full border border-slate-300 rounded-lg px-2 h-7 bg-white outline-none focus:border-blue-600 text-xs truncate"
+                      className="w-full border border-slate-300 dark:border-slate-600 rounded-lg px-2 h-7 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 outline-none focus:border-blue-600 text-xs truncate"
                     />
                   </div>
                 </div>
@@ -2178,24 +2178,24 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
             </div>
 
             {/* Card 4: Status & Policy */}
-            <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-2xs flex flex-col justify-between">
-              <div className="flex items-center gap-2 mb-2 pb-1.5 border-b border-slate-100">
+            <div className="bg-white dark:bg-slate-800/90 p-3.5 rounded-xl border border-slate-200 dark:border-slate-700 shadow-2xs flex flex-col justify-between">
+              <div className="flex items-center gap-2 mb-2 pb-1.5 border-b border-slate-100 dark:border-slate-700">
                 <span className="material-symbols-outlined text-blue-600 text-[18px]">verified_user</span>
-                <h2 className="font-bold text-slate-800 text-xs uppercase tracking-wider">
+                <h2 className="font-bold text-slate-800 dark:text-slate-200 text-xs uppercase tracking-wider">
                   Status &amp; Policy
                 </h2>
               </div>
               <div className="space-y-2">
                 <div className="flex items-center justify-between text-[11px]">
                   <span className="text-slate-500">Document Status</span>
-                  <span className="inline-flex items-center gap-1 font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full text-[10px]">
+                  <span className="inline-flex items-center gap-1 font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 px-2 py-0.5 rounded-full text-[10px]">
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
                     Draft
                   </span>
                 </div>
                 <div className="flex items-center justify-between text-[11px]">
                   <span className="text-slate-500">Vendor Status</span>
-                  <span className="inline-flex items-center gap-1 font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full text-[10px]">
+                  <span className="inline-flex items-center gap-1 font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 px-2 py-0.5 rounded-full text-[10px]">
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
                     Active
                   </span>
@@ -2214,16 +2214,16 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
                 <div className="grid grid-cols-2 gap-2 pt-1 border-t border-slate-100 text-[11px]">
                   <div>
                     <span className="text-slate-400 block text-[10px]">Credit Limit</span>
-                    <span className="font-bold text-slate-800 font-mono">₹ 5,00,000</span>
+                    <span className="font-bold text-slate-800 dark:text-slate-200 font-mono">₹ 5,00,000</span>
                   </div>
                   <div>
                     <span className="text-slate-400 block text-[10px]">Outstanding</span>
-                    <span className="font-bold text-slate-800 font-mono">₹ 1,25,430</span>
+                    <span className="font-bold text-slate-800 dark:text-slate-200 font-mono">₹ 1,25,430</span>
                   </div>
                 </div>
 
                 {/* Status Guidance Banner */}
-                <div className="bg-emerald-50 border border-emerald-200 rounded-lg px-2.5 py-1.5 flex items-center gap-2 text-emerald-800 text-[11px]">
+                <div className="bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/60 rounded-lg px-2.5 py-1.5 flex items-center gap-2 text-emerald-800 dark:text-emerald-300 text-[11px]">
                   <span className="material-symbols-outlined text-emerald-600 text-[16px] shrink-0">check_circle</span>
                   <span className="leading-tight">You can add items below or press F2 to browse products.</span>
                 </div>
@@ -2236,8 +2236,8 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
       {/* Other Details Tab Content */}
       {activeTab === "other" && (
         <section className="px-6 py-4 max-w-4xl space-y-4 text-xs">
-          <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs">
-            <h3 className="font-bold text-slate-800 text-sm mb-3">Commercial Terms &amp; Logistics</h3>
+          <div className="bg-white dark:bg-slate-800/90 p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-2xs">
+            <h3 className="font-bold text-slate-800 dark:text-slate-200 text-sm mb-3">Commercial Terms &amp; Logistics</h3>
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block font-medium text-slate-600 mb-1">Payment Terms</label>
@@ -2246,7 +2246,7 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
                   type="text"
                   value={header.paymentTerms}
                   onChange={(e) => setHeader({ ...header, paymentTerms: e.target.value })}
-                  className="w-full border border-slate-300 rounded-lg px-3 h-8 bg-white outline-none focus:border-blue-600"
+                  className="w-full border border-slate-300 dark:border-slate-600 rounded-lg px-3 h-8 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 outline-none focus:border-blue-600"
                 />
               </div>
               <div>
@@ -2256,20 +2256,20 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
                   type="text"
                   value={header.freightCharges}
                   onChange={(e) => setHeader({ ...header, freightCharges: e.target.value })}
-                  className="w-full border border-slate-300 rounded-lg px-3 h-8 bg-white outline-none focus:border-blue-600"
+                  className="w-full border border-slate-300 dark:border-slate-600 rounded-lg px-3 h-8 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 outline-none focus:border-blue-600"
                 />
               </div>
             </div>
           </div>
-          <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs">
-            <h3 className="font-bold text-slate-800 text-sm mb-3">Special Instructions &amp; Notes</h3>
+          <div className="bg-white dark:bg-slate-800/90 p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-2xs">
+            <h3 className="font-bold text-slate-800 dark:text-slate-200 text-sm mb-3">Special Instructions &amp; Notes</h3>
             <textarea
               id="std-other-special-instructions-input"
               rows={4}
               value={header.specialInstructions}
               onChange={(e) => setHeader({ ...header, specialInstructions: e.target.value })}
               placeholder="e.g. Ensure all cartons carry barcodes and dispatch directly to Main Store."
-              className="w-full border border-slate-300 rounded-lg p-3 bg-white outline-none focus:border-blue-600"
+              className="w-full border border-slate-300 dark:border-slate-600 rounded-lg p-3 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 outline-none focus:border-blue-600"
             />
           </div>
         </section>
@@ -2278,11 +2278,11 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
       {/* Attachments Tab Content */}
       {activeTab === "attachments" && (
         <section className="px-6 py-4 max-w-xl space-y-4 text-xs">
-          <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-2xs flex flex-col items-center justify-center text-center">
+          <div className="bg-white dark:bg-slate-800/90 p-5 rounded-xl border border-slate-200 dark:border-slate-700 shadow-2xs flex flex-col items-center justify-center text-center">
             <div className="w-16 h-16 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center mb-3">
               <span className="material-symbols-outlined text-[32px]">attach_file</span>
             </div>
-            <h3 className="font-bold text-slate-800 text-sm mb-1">Supplier Quotation &amp; Specification Files</h3>
+            <h3 className="font-bold text-slate-800 dark:text-slate-200 text-sm mb-1">Supplier Quotation &amp; Specification Files</h3>
             <p className="text-slate-500 text-xs max-w-sm mb-4">
               Upload PDF invoices, Excel quotation sheets, or supplier catalogs associated with this order.
             </p>
@@ -2310,20 +2310,20 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
       {/* History Tab Content */}
       {activeTab === "history" && (
         <section className="px-6 py-4 text-xs">
-          <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-2xs space-y-4">
+          <div className="bg-white dark:bg-slate-800/90 p-5 rounded-xl border border-slate-200 dark:border-slate-700 shadow-2xs space-y-4">
             {openedOrder ? (
               <>
                 <div className="flex items-center justify-between gap-4 border-b border-slate-100 pb-3">
                   <div>
                     <div className="text-[10px] uppercase tracking-wider text-slate-500">Purchase Order Detail</div>
-                    <h3 className="font-bold text-slate-800 text-sm mt-1">{openedOrder.order_no || "PO"}</h3>
+                    <h3 className="font-bold text-slate-800 dark:text-slate-200 text-sm mt-1">{openedOrder.order_no || "PO"}</h3>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="rounded-full bg-indigo-100 text-indigo-700 text-[10px] font-bold px-2 py-1">{normalizePurchaseStatus(openedOrder.status)}</span>
+                    <span className="rounded-full bg-indigo-100 dark:bg-indigo-950/50 text-indigo-700 dark:text-indigo-300 text-[10px] font-bold px-2 py-1">{normalizePurchaseStatus(openedOrder.status)}</span>
                     <button
                       type="button"
                       onClick={() => setOpenedOrder(null)}
-                      className="rounded border border-slate-200 px-2 py-1 text-[10px] font-semibold text-slate-600 hover:bg-slate-50"
+                      className="rounded border border-slate-200 dark:border-slate-700 px-2 py-1 text-[10px] font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700"
                     >
                       Back to history
                     </button>
@@ -2332,33 +2332,33 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
 
                 <div className="grid grid-cols-2 gap-4 text-[11px]">
                   <div className="space-y-2">
-                    <div><span className="text-slate-500">PO number:</span> <span className="font-mono font-bold text-slate-800">{openedOrder.order_no}</span></div>
-                    <div><span className="text-slate-500">PO date:</span> <span className="font-mono text-slate-700">{openedOrder.order_date || openedOrder.created_at || header.orderDate}</span></div>
-                    <div><span className="text-slate-500">Supplier:</span> <span className="font-bold text-slate-800">{openedOrder.supplier_name || openedOrder.supplier_id}</span></div>
-                    <div><span className="text-slate-500">Supplier code:</span> <span className="font-mono text-slate-700">{openedOrder.supplier_id}</span></div>
+                    <div><span className="text-slate-500 dark:text-slate-400">PO number:</span> <span className="font-mono font-bold text-slate-800 dark:text-slate-200">{openedOrder.order_no}</span></div>
+                    <div><span className="text-slate-500 dark:text-slate-400">PO date:</span> <span className="font-mono text-slate-700 dark:text-slate-300">{openedOrder.order_date || openedOrder.created_at || header.orderDate}</span></div>
+                    <div><span className="text-slate-500 dark:text-slate-400">Supplier:</span> <span className="font-bold text-slate-800 dark:text-slate-200">{openedOrder.supplier_name || openedOrder.supplier_id}</span></div>
+                    <div><span className="text-slate-500 dark:text-slate-400">Supplier code:</span> <span className="font-mono text-slate-700 dark:text-slate-300">{openedOrder.supplier_id}</span></div>
                   </div>
                   <div className="space-y-2">
-                    <div><span className="text-slate-500">Status:</span> <span className="font-bold text-slate-800">{normalizePurchaseStatus(openedOrder.status)}</span></div>
-                    <div><span className="text-slate-500">Items:</span> <span className="font-bold text-slate-800">{openedOrder.items?.length || 0}</span></div>
-                    <div><span className="text-slate-500">Subtotal:</span> <span className="font-mono text-slate-700">₹{Number(openedOrder.subtotal || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span></div>
-                    <div><span className="text-slate-500">Grand total:</span> <span className="font-mono font-bold text-emerald-700">₹{Number(openedOrder.grand_total || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span></div>
+                    <div><span className="text-slate-500 dark:text-slate-400">Status:</span> <span className="font-bold text-slate-800 dark:text-slate-200">{normalizePurchaseStatus(openedOrder.status)}</span></div>
+                    <div><span className="text-slate-500 dark:text-slate-400">Items:</span> <span className="font-bold text-slate-800 dark:text-slate-200">{openedOrder.items?.length || 0}</span></div>
+                    <div><span className="text-slate-500 dark:text-slate-400">Subtotal:</span> <span className="font-mono text-slate-700 dark:text-slate-300">₹{Number(openedOrder.subtotal || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span></div>
+                    <div><span className="text-slate-500 dark:text-slate-400">Grand total:</span> <span className="font-mono font-bold text-emerald-700 dark:text-emerald-400">₹{Number(openedOrder.grand_total || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span></div>
                   </div>
                 </div>
 
-                <div className="border border-slate-200 rounded-xl overflow-hidden">
-                  <div className="bg-slate-50 px-3 py-2 font-bold text-slate-700 border-b border-slate-200">Line Items</div>
-                  <div className="divide-y divide-slate-200">
+                <div className="border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden">
+                  <div className="bg-slate-50 dark:bg-slate-800 px-3 py-2 font-bold text-slate-700 dark:text-slate-200 border-b border-slate-200 dark:border-slate-700">Line Items</div>
+                  <div className="divide-y divide-slate-200 dark:divide-slate-700">
                     {(openedOrder.items || []).length === 0 ? (
-                      <div className="px-3 py-4 text-slate-500">No item lines returned for this purchase order.</div>
+                      <div className="px-3 py-4 text-slate-500 dark:text-slate-400">No item lines returned for this purchase order.</div>
                     ) : (
                       (openedOrder.items || []).map((item: any, idx: number) => (
                         <div key={item.id || `${openedOrder.order_no}-${idx}`} className="px-3 py-2 grid grid-cols-6 gap-2 text-[11px]">
-                          <span className="font-mono text-slate-500">{idx + 1}</span>
-                          <span className="font-bold text-slate-800">{item.name || item.code || "Item"}</span>
-                          <span className="font-mono text-slate-700">{item.code || item.product_id || "-"}</span>
-                          <span className="font-mono text-right text-slate-700">Qty {Number(item.quantity || 0)}</span>
-                          <span className="font-mono text-right text-slate-700">Rate ₹{Number(item.cost_price || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
-                          <span className="font-mono text-right font-bold text-emerald-700">₹{Number(item.line_total || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
+                          <span className="font-mono text-slate-500 dark:text-slate-400">{idx + 1}</span>
+                          <span className="font-bold text-slate-800 dark:text-slate-200">{item.name || item.code || "Item"}</span>
+                          <span className="font-mono text-slate-700 dark:text-slate-300">{item.code || item.product_id || "-"}</span>
+                          <span className="font-mono text-right text-slate-700 dark:text-slate-300">Qty {Number(item.quantity || 0)}</span>
+                          <span className="font-mono text-right text-slate-700 dark:text-slate-300">Rate ₹{Number(item.cost_price || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
+                          <span className="font-mono text-right font-bold text-emerald-700 dark:text-emerald-400">₹{Number(item.line_total || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
                         </div>
                       ))
                     )}
@@ -2375,14 +2375,14 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
                         onNotification?.("Vendor 360", `Open canonical vendor view for ${openedOrder.supplier_id || openedOrder.supplier_name || "supplier"}.`, "info");
                       }
                     }}
-                    className="rounded-lg bg-slate-900 text-white px-3 py-2 text-[10px] font-bold hover:bg-slate-700"
+                    className="rounded-lg bg-slate-900 dark:bg-slate-700 text-white px-3 py-2 text-[10px] font-bold hover:bg-slate-700 dark:hover:bg-slate-600"
                   >
                     View Vendor 360 ↗
                   </button>
                   <button
                     type="button"
                     onClick={() => setShowPrintPreview(true)}
-                    className="rounded-lg border border-amber-200 bg-amber-50 text-amber-700 px-3 py-2 text-[10px] font-bold hover:bg-amber-100"
+                    className="rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 px-3 py-2 text-[10px] font-bold hover:bg-amber-100 dark:hover:bg-amber-900/40"
                   >
                     Print PO
                   </button>
@@ -2390,21 +2390,21 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
               </>
             ) : (
               <>
-                <div className="flex items-center justify-between border-b border-slate-100 pb-2">
-                  <h3 className="font-bold text-slate-800 text-sm">Purchase Order History</h3>
+                <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-700 pb-2">
+                  <h3 className="font-bold text-slate-800 dark:text-slate-200 text-sm">Purchase Order History</h3>
                   <button
                     type="button"
                     onClick={() => loadPurchaseHistory()}
-                    className="rounded border border-slate-200 px-2 py-1 text-[10px] font-semibold text-slate-600 hover:bg-slate-50"
+                    className="rounded border border-slate-200 dark:border-slate-700 px-2 py-1 text-[10px] font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700"
                   >
                     Refresh
                   </button>
                 </div>
 
                 {historyLoading ? (
-                  <div className="text-slate-500 py-8 text-center">Loading purchase orders...</div>
+                  <div className="text-slate-500 dark:text-slate-400 py-8 text-center">Loading purchase orders...</div>
                 ) : historyOrders.length === 0 ? (
-                  <div className="text-slate-500 py-8 text-center">No purchase orders found in the persisted backend list.</div>
+                  <div className="text-slate-500 dark:text-slate-400 py-8 text-center">No purchase orders found in the persisted backend list.</div>
                 ) : (
                   <div className="space-y-2">
                     {historyOrders.map((po: any) => (
@@ -2412,16 +2412,16 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
                         key={po.id}
                         type="button"
                         onClick={() => openPersistedPurchaseOrder(po.order_no || po.id)}
-                        className="w-full text-left rounded-xl border border-slate-200 bg-slate-50/60 p-3 hover:bg-slate-100 transition"
+                        className="w-full text-left rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/60 dark:bg-slate-800/50 p-3 hover:bg-slate-100 dark:hover:bg-slate-700/60 transition"
                       >
                         <div className="flex items-center justify-between gap-3">
                           <div>
-                            <div className="font-bold text-slate-800 font-mono">{po.order_no || po.id}</div>
-                            <div className="text-[10px] text-slate-500">{po.supplier_name || po.supplier_id || "Supplier"}</div>
+                            <div className="font-bold text-slate-800 dark:text-slate-200 font-mono">{po.order_no || po.id}</div>
+                            <div className="text-[10px] text-slate-500 dark:text-slate-400">{po.supplier_name || po.supplier_id || "Supplier"}</div>
                           </div>
                           <div className="text-right">
-                            <div className="text-[10px] px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700 font-bold">{normalizePurchaseStatus(po.status)}</div>
-                            <div className="mt-1 font-mono text-[10px] text-slate-600">₹{Number(po.grand_total || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</div>
+                            <div className="text-[10px] px-2 py-0.5 rounded-full bg-indigo-100 dark:bg-indigo-950/50 text-indigo-700 dark:text-indigo-300 font-bold">{normalizePurchaseStatus(po.status)}</div>
+                            <div className="mt-1 font-mono text-[10px] text-slate-600 dark:text-slate-400">₹{Number(po.grand_total || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</div>
                           </div>
                         </div>
                       </button>
@@ -2437,9 +2437,9 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
       {/* ── 3. ITEM GRID WORKSPACE (PRIMARY WORKING SURFACE) ──────────────── */}
       {(activeTab === "general" || activeTab === "items") && (
         <main className="px-6 pt-2 pb-1 flex-1 flex flex-col min-h-0">
-          <div className="bg-white border border-slate-200 rounded-xl shadow-2xs overflow-hidden flex flex-col flex-1">
+          <div className="bg-white dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700 rounded-xl shadow-2xs overflow-hidden flex flex-col flex-1">
             {/* ── ITEM TOOLBAR (TOP CONTROL SURFACE) ── */}
-            <div className="bg-slate-50 px-4 py-2 border-b border-slate-200 flex flex-col md:flex-row items-center justify-between gap-3 shrink-0 text-xs">
+            <div className="bg-slate-50 dark:bg-slate-900/60 px-4 py-2 border-b border-slate-200 dark:border-slate-700 flex flex-col md:flex-row items-center justify-between gap-3 shrink-0 text-xs">
               {/* Left: Box Icon, Search/Scan input, and Primary Action Buttons */}
               <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
                 <div className="flex items-center gap-2">
@@ -2447,8 +2447,8 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
                     <span className="material-symbols-outlined text-[18px]">inventory_2</span>
                   </div>
                   <div>
-                    <span className="font-bold text-slate-800">Items</span>
-                    <span className="hidden sm:inline text-[11px] text-slate-500 ml-2">
+                    <span className="font-bold text-slate-800 dark:text-slate-200">Items</span>
+                    <span className="hidden sm:inline text-[11px] text-slate-500 dark:text-slate-400 ml-2">
                       Scan barcode, search or press F2 to browse products.
                     </span>
                   </div>
@@ -2469,7 +2469,7 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
                         handleBarcodeOrSearchSubmit(toolbarSearch);
                       }
                     }}
-                    className="w-full pl-8 pr-8 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-medium outline-none focus:border-blue-600 shadow-2xs"
+                    className="w-full pl-8 pr-8 py-1.5 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100 rounded-lg text-xs font-medium outline-none focus:border-blue-600 shadow-2xs"
                   />
                   {toolbarSearch && (
                     <button
@@ -2496,7 +2496,7 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
                 <button
                   type="button"
                   onClick={() => setShowBrowseModal(true)}
-                  className="bg-white hover:bg-slate-100 border border-slate-300 text-slate-700 font-bold px-3 py-1.5 rounded-lg text-xs transition-colors shadow-2xs flex items-center gap-1.5"
+                  className="bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-200 font-bold px-3 py-1.5 rounded-lg text-xs transition-colors shadow-2xs flex items-center gap-1.5"
                 >
                   <span className="material-symbols-outlined text-[16px] text-blue-600">manage_search</span>
                   <span>Browse Items (F2)</span>
@@ -2509,7 +2509,7 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
                     setInitialImportText(undefined);
                     setIsGlobalImportOpen(true);
                   }}
-                  className="bg-white hover:bg-slate-100 border border-slate-300 text-slate-700 font-bold px-3 py-1.5 rounded-lg text-xs transition-colors shadow-2xs flex items-center gap-1.5"
+                  className="bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-200 font-bold px-3 py-1.5 rounded-lg text-xs transition-colors shadow-2xs flex items-center gap-1.5"
                   title="Import from Excel, CSV, TSV or paste spreadsheet data"
                 >
                   <span className="material-symbols-outlined text-[16px] text-emerald-600">table_view</span>
@@ -2528,7 +2528,7 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
                   <button
                     type="button"
                     onClick={() => setShowMoreMenu(m => !m)}
-                    className="bg-white hover:bg-slate-100 border border-slate-300 text-slate-700 font-bold px-2 py-1.5 rounded-lg text-xs transition shadow-2xs"
+                    className="bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-200 font-bold px-2 py-1.5 rounded-lg text-xs transition shadow-2xs"
                   >
                     <span className="material-symbols-outlined text-[16px]">more_horiz</span>
                   </button>
@@ -2541,7 +2541,7 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
                 <select
                   value={itemView}
                   onChange={(e) => setItemView(e.target.value as any)}
-                  className="bg-white border border-slate-300 rounded-lg px-2.5 py-1 text-xs font-bold text-slate-700 outline-none focus:border-blue-600 shadow-2xs cursor-pointer"
+                  className="bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg px-2.5 py-1 text-xs font-bold text-slate-700 dark:text-slate-200 outline-none focus:border-blue-600 shadow-2xs cursor-pointer"
                 >
                   <option value="compact">Compact</option>
                   <option value="standard">Standard</option>
@@ -2575,27 +2575,27 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
               {/* View Mode Switching: Compact vs Standard vs Size Pivot Matrix */}
               {itemView === "compact" ? (
                 <table className="w-full text-left border-collapse text-xs min-w-[1080px]">
-                  <thead className="sticky top-0 z-10 bg-slate-50 text-slate-600 uppercase text-[10px] font-bold tracking-wider border-b border-slate-200">
+                  <thead className="sticky top-0 z-10 bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 uppercase text-[10px] font-bold tracking-wider border-b border-slate-200 dark:border-slate-700">
                     <tr>
-                      <th className="p-2 px-2.5 w-48 min-w-[180px] border-r border-slate-200 bg-slate-100 font-bold text-slate-700">Barcode</th>
-                      <th className="p-2 w-8 text-center border-r border-slate-200">#</th>
-                      <th className="p-2 px-2.5 w-28 min-w-[100px] border-r border-slate-200">Item Code</th>
-                      <th className="p-2 px-3 min-w-[160px] flex-1 border-r border-slate-200">Product Name</th>
-                      <th className="p-2 px-2.5 w-24 min-w-[80px] border-r border-slate-200">Color</th>
-                      <th className="p-2 px-2 w-14 min-w-[50px] text-center border-r border-slate-200">Size</th>
-                      <th className="p-2 px-2.5 w-24 min-w-[85px] text-right border-r border-slate-200 bg-blue-50/50 font-bold text-blue-900">
+                      <th className="p-2 px-2.5 w-48 min-w-[180px] border-r border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 font-bold text-slate-700 dark:text-slate-200">Barcode</th>
+                      <th className="p-2 w-8 text-center border-r border-slate-200 dark:border-slate-700">#</th>
+                      <th className="p-2 px-2.5 w-28 min-w-[100px] border-r border-slate-200 dark:border-slate-700">Item Code</th>
+                      <th className="p-2 px-3 min-w-[160px] flex-1 border-r border-slate-200 dark:border-slate-700">Product Name</th>
+                      <th className="p-2 px-2.5 w-24 min-w-[80px] border-r border-slate-200 dark:border-slate-700">Color</th>
+                      <th className="p-2 px-2 w-14 min-w-[50px] text-center border-r border-slate-200 dark:border-slate-700">Size</th>
+                      <th className="p-2 px-2.5 w-24 min-w-[85px] text-right border-r border-slate-200 dark:border-slate-700 bg-blue-50/50 dark:bg-blue-950/40 font-bold text-blue-900 dark:text-blue-300">
                         MRP (₹)
                       </th>
-                      <th className="p-2 px-2 w-16 min-w-[65px] text-right border-r border-slate-200 font-bold text-blue-600">Qty</th>
-                      <th className="p-2 px-2.5 w-24 min-w-[85px] text-right border-r border-slate-200 font-bold">Rate (₹)</th>
-                      <th className="p-2 px-2 w-14 min-w-[55px] text-right border-r border-slate-200">Tax (%)</th>
-                      <th className="p-2 px-3 w-28 min-w-[100px] text-right border-r border-slate-200 bg-slate-100 font-bold text-slate-800">
+                      <th className="p-2 px-2 w-16 min-w-[65px] text-right border-r border-slate-200 dark:border-slate-700 font-bold text-blue-600 dark:text-blue-400">Qty</th>
+                      <th className="p-2 px-2.5 w-24 min-w-[85px] text-right border-r border-slate-200 dark:border-slate-700 font-bold">Rate (₹)</th>
+                      <th className="p-2 px-2 w-14 min-w-[55px] text-right border-r border-slate-200 dark:border-slate-700">Tax (%)</th>
+                      <th className="p-2 px-3 w-28 min-w-[100px] text-right border-r border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 font-bold text-slate-800 dark:text-slate-200">
                         Amount (₹)
                       </th>
                       <th className="p-2 w-14 text-center">Actions</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100 font-sans">
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800 font-sans">
                     {lineItems.map((item, idx) => {
                       const isSelected = idx === activeRowIndex;
                       const hasItem = !!item.stockNo;
@@ -2610,12 +2610,12 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
                             isSelected
                               ? "bg-blue-50/60"
                               : hasItem
-                              ? "hover:bg-slate-50"
-                              : "hover:bg-slate-50/60 opacity-80 hover:opacity-100"
+                              ? "hover:bg-slate-50 dark:hover:bg-slate-800/60"
+                              : "hover:bg-slate-50/60 dark:hover:bg-slate-800/40 opacity-80 hover:opacity-100"
                           }`}
                         >
                           {/* 1. Barcode (Column 1 per Decision C) */}
-                          <td className="p-1 border-r border-slate-100 bg-slate-50/30">
+                          <td className="p-1 border-r border-slate-100 dark:border-slate-800 bg-slate-50/30 dark:bg-slate-800/30">
                             <div className="flex items-center gap-1 px-1 group">
                               <span className="material-symbols-outlined text-[14px] text-slate-400 shrink-0">barcode_scanner</span>
                               <input
@@ -2626,7 +2626,7 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
                                 title={item.barcode || "Barcode"}
                                 onFocus={() => setActiveRowIndex(idx)}
                                 onChange={(e) => handleBarcodeChange(idx, e.target.value)}
-                                className="w-full bg-transparent border-none p-0 h-6 font-mono font-semibold text-slate-800 text-xs outline-none"
+                                className="w-full bg-transparent border-none p-0 h-6 font-mono font-semibold text-slate-800 dark:text-slate-200 text-xs outline-none"
                               />
                               {item.barcode && (
                                 <button
@@ -2649,12 +2649,12 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
                           </td>
 
                           {/* 2. SNo (Column 2) */}
-                          <td className="p-2 text-center text-slate-400 font-mono font-medium border-r border-slate-100 bg-slate-50/50">
+                          <td className="p-2 text-center text-slate-400 font-mono font-medium border-r border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30">
                             {item.sNo}
                           </td>
 
                           {/* 3. Item Code / Article */}
-                          <td className="p-1 border-r border-slate-100">
+                          <td className="p-1 border-r border-slate-100 dark:border-slate-800">
                             <input
                               type="text"
                               id={`pogen-gen-stockno-${idx + 1}`}
@@ -2663,24 +2663,24 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
                               placeholder="F2 to browse / Article"
                               onFocus={() => { setActiveRowIndex(idx); setShowF2Hint(false); }}
                               onChange={(e) => handleStockNoOrArticleChange(idx, e.target.value)}
-                              className="w-full bg-transparent border border-transparent hover:border-slate-300 focus:border-blue-600 focus:bg-white rounded px-2 h-7 font-mono font-bold text-xs outline-none"
+                              className="w-full bg-transparent border border-transparent hover:border-slate-300 dark:hover:border-slate-600 focus:border-blue-600 focus:bg-white dark:focus:bg-slate-900 rounded px-2 h-7 font-mono font-bold text-xs outline-none text-slate-800 dark:text-slate-100"
                             />
                           </td>
 
                           {/* 4. Product Name */}
-                          <td className="p-1 border-r border-slate-100">
+                          <td className="p-1 border-r border-slate-100 dark:border-slate-800">
                             <input
                               type="text"
                               value={item.product}
                               placeholder="Product description"
                               onFocus={() => setActiveRowIndex(idx)}
                               onChange={(e) => updateLineItem(idx, { product: e.target.value })}
-                              className="w-full bg-transparent border border-transparent hover:border-slate-300 focus:border-blue-600 focus:bg-white rounded px-2 h-7 font-medium text-xs outline-none"
+                              className="w-full bg-transparent border border-transparent hover:border-slate-300 dark:hover:border-slate-600 focus:border-blue-600 focus:bg-white dark:focus:bg-slate-900 rounded px-2 h-7 font-medium text-xs outline-none text-slate-800 dark:text-slate-100"
                             />
                           </td>
 
                           {/* 5. Color */}
-                          <td className="p-1 border-r border-slate-100">
+                          <td className="p-1 border-r border-slate-100 dark:border-slate-800">
                             <input
                               type="text"
                               id={`pogen-gen-color-${idx + 1}`}
@@ -2689,7 +2689,7 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
                               placeholder="Color"
                               onFocus={() => setActiveRowIndex(idx)}
                               onChange={(e) => handleColorChange(idx, e.target.value)}
-                              className="w-full bg-transparent border-none px-2 h-6 text-xs outline-none text-slate-600 uppercase"
+                              className="w-full bg-transparent border-none px-2 h-6 text-xs outline-none text-slate-600 dark:text-slate-300 uppercase"
                             />
                             <datalist id={`pogen-colors-list-${idx + 1}`}>
                               {getAvailableColorsForArticle(articleCatalogIndex, item.style || item.stockNo).map(c => (
@@ -2699,7 +2699,7 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
                           </td>
 
                           {/* 6. Size */}
-                          <td className="p-1 border-r border-slate-100 text-center">
+                          <td className="p-1 border-r border-slate-100 dark:border-slate-800 text-center">
                             <input
                               type="text"
                               id={`pogen-gen-size-${idx + 1}`}
@@ -2708,7 +2708,7 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
                               placeholder="Size"
                               onFocus={() => setActiveRowIndex(idx)}
                               onChange={(e) => handleSizeChange(idx, e.target.value)}
-                              className="w-full bg-slate-50 border border-slate-200 rounded text-center h-6 font-bold text-xs outline-none text-slate-800 uppercase"
+                              className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded text-center h-6 font-bold text-xs outline-none text-slate-800 dark:text-slate-100 uppercase"
                             />
                             <datalist id={`pogen-sizes-list-${idx + 1}`}>
                               {getAvailableSizesForArticleAndColor(articleCatalogIndex, item.style || item.stockNo, item.shade).map(sz => (
@@ -2718,7 +2718,7 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
                           </td>
 
                           {/* 7. MRP (₹) */}
-                          <td className="p-1 border-r border-slate-100 bg-blue-50/20 text-right">
+                          <td className="p-1 border-r border-slate-100 dark:border-slate-800 bg-blue-50/20 dark:bg-blue-950/20 text-right">
                             <input
                               type="number"
                               min="0"
@@ -2726,12 +2726,12 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
                               placeholder="0.00"
                               onFocus={() => setActiveRowIndex(idx)}
                               onChange={(e) => updateLineItem(idx, { mrp: parseFloat(e.target.value) || 0 })}
-                              className="w-full bg-transparent border border-transparent hover:border-slate-300 focus:border-blue-600 focus:bg-white rounded px-2 h-7 font-mono font-bold text-xs text-right outline-none text-blue-900"
+                              className="w-full bg-transparent border border-transparent hover:border-slate-300 dark:hover:border-slate-600 focus:border-blue-600 focus:bg-white dark:focus:bg-slate-900 rounded px-2 h-7 font-mono font-bold text-xs text-right outline-none text-blue-900 dark:text-blue-300"
                             />
                           </td>
 
                           {/* 8. Qty */}
-                          <td className="p-1 border-r border-slate-100 text-right">
+                          <td className="p-1 border-r border-slate-100 dark:border-slate-800 text-right">
                             <input
                               type="number"
                               id={`po-qty-input-${idx}`}
@@ -2745,7 +2745,7 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
                           </td>
 
                           {/* 9. Rate (₹) */}
-                          <td className="p-1 border-r border-slate-100 text-right">
+                          <td className="p-1 border-r border-slate-100 dark:border-slate-800 text-right">
                             <input
                               type="number"
                               min="0"
@@ -2753,24 +2753,24 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
                               placeholder="0.00"
                               onFocus={() => setActiveRowIndex(idx)}
                               onChange={(e) => updateLineItem(idx, { rate: parseFloat(e.target.value) || 0 })}
-                              className="w-full bg-transparent border border-transparent hover:border-slate-300 focus:border-blue-600 focus:bg-white rounded px-2 h-7 font-mono font-bold text-xs text-right outline-none text-slate-800"
+                              className="w-full bg-transparent border border-transparent hover:border-slate-300 dark:hover:border-slate-600 focus:border-blue-600 focus:bg-white dark:focus:bg-slate-900 rounded px-2 h-7 font-mono font-bold text-xs text-right outline-none text-slate-800 dark:text-slate-100"
                             />
                           </td>
 
                           {/* 10. Tax (%) */}
-                          <td className="p-1 border-r border-slate-100 text-right">
+                          <td className="p-1 border-r border-slate-100 dark:border-slate-800 text-right">
                             <input
                               type="number"
                               min="0"
                               value={item.taxPercent ?? 5}
                               onFocus={() => setActiveRowIndex(idx)}
                               onChange={(e) => updateLineItem(idx, { taxPercent: parseFloat(e.target.value) || 0 })}
-                              className="w-full bg-transparent border-none text-right px-2 h-6 font-mono text-xs outline-none text-slate-600"
+                              className="w-full bg-transparent border-none text-right px-2 h-6 font-mono text-xs outline-none text-slate-600 dark:text-slate-300"
                             />
                           </td>
 
                           {/* 11. Amount (₹) */}
-                          <td className="p-2 px-3 border-r border-slate-100 text-right font-mono font-bold text-slate-800 bg-slate-50/50">
+                          <td className="p-2 px-3 border-r border-slate-100 dark:border-slate-800 text-right font-mono font-bold text-slate-800 dark:text-slate-200 bg-slate-50/50 dark:bg-slate-800/30">
                             ₹{item.totalValue ? item.totalValue.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "0.00"}
                           </td>
 
@@ -2802,32 +2802,32 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
                 </table>
               ) : itemView !== "size_pivot" ? (
                 <table className="w-full text-left border-collapse text-xs min-w-[1450px]">
-                  <thead className="sticky top-0 z-10 bg-slate-50 text-slate-600 uppercase text-[10px] font-bold tracking-wider border-b border-slate-200">
+                  <thead className="sticky top-0 z-10 bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 uppercase text-[10px] font-bold tracking-wider border-b border-slate-200 dark:border-slate-700">
                     <tr>
-                      <th className="p-2 px-2.5 w-48 min-w-[180px] border-r border-slate-200 bg-slate-100 font-bold text-slate-700">Barcode</th>
-                      <th className="p-2 w-10 text-center border-r border-slate-200">#</th>
-                      <th className="p-2 px-2.5 min-w-[110px] border-r border-slate-200">Item Code</th>
-                      <th className="p-2 px-3 min-w-[180px] border-r border-slate-200">Product Name</th>
-                      <th className="p-2 px-2.5 min-w-[90px] border-r border-slate-200">Brand</th>
-                      <th className="p-2 px-2.5 min-w-[80px] border-r border-slate-200">Style</th>
-                      <th className="p-2 px-2.5 min-w-[90px] border-r border-slate-200">Shade / Color</th>
-                      <th className="p-2 px-2 min-w-[60px] text-center border-r border-slate-200">Size</th>
-                      <th className="p-2 px-2.5 min-w-[90px] text-right border-r border-slate-200 bg-blue-50/50 font-bold text-blue-900">
+                      <th className="p-2 px-2.5 w-48 min-w-[180px] border-r border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 font-bold text-slate-700 dark:text-slate-200">Barcode</th>
+                      <th className="p-2 w-10 text-center border-r border-slate-200 dark:border-slate-700">#</th>
+                      <th className="p-2 px-2.5 min-w-[110px] border-r border-slate-200 dark:border-slate-700">Item Code</th>
+                      <th className="p-2 px-3 min-w-[180px] border-r border-slate-200 dark:border-slate-700">Product Name</th>
+                      <th className="p-2 px-2.5 min-w-[90px] border-r border-slate-200 dark:border-slate-700">Brand</th>
+                      <th className="p-2 px-2.5 min-w-[80px] border-r border-slate-200 dark:border-slate-700">Style</th>
+                      <th className="p-2 px-2.5 min-w-[90px] border-r border-slate-200 dark:border-slate-700">Shade / Color</th>
+                      <th className="p-2 px-2 min-w-[60px] text-center border-r border-slate-200 dark:border-slate-700">Size</th>
+                      <th className="p-2 px-2.5 min-w-[90px] text-right border-r border-slate-200 dark:border-slate-700 bg-blue-50/50 dark:bg-blue-950/40 font-bold text-blue-900 dark:text-blue-300">
                         MRP (₹)
                       </th>
-                      <th className="p-2 px-2 min-w-[65px] text-right border-r border-slate-200">Qty</th>
-                      <th className="p-2 px-2 min-w-[60px] text-right border-r border-slate-200">Free</th>
-                      <th className="p-2 px-2 min-w-[70px] text-center border-r border-slate-200">Unit</th>
-                      <th className="p-2 px-2.5 min-w-[90px] text-right border-r border-slate-200 font-bold">Rate (₹)</th>
-                      <th className="p-2 px-2 min-w-[65px] text-right border-r border-slate-200">Disc. (%)</th>
-                      <th className="p-2 px-2 min-w-[65px] text-right border-r border-slate-200">Tax (%)</th>
-                      <th className="p-2 px-3 min-w-[110px] text-right border-r border-slate-200 bg-slate-100 font-bold text-slate-800">
+                      <th className="p-2 px-2 min-w-[65px] text-right border-r border-slate-200 dark:border-slate-700">Qty</th>
+                      <th className="p-2 px-2 min-w-[60px] text-right border-r border-slate-200 dark:border-slate-700">Free</th>
+                      <th className="p-2 px-2 min-w-[70px] text-center border-r border-slate-200 dark:border-slate-700">Unit</th>
+                      <th className="p-2 px-2.5 min-w-[90px] text-right border-r border-slate-200 dark:border-slate-700 font-bold">Rate (₹)</th>
+                      <th className="p-2 px-2 min-w-[65px] text-right border-r border-slate-200 dark:border-slate-700">Disc. (%)</th>
+                      <th className="p-2 px-2 min-w-[65px] text-right border-r border-slate-200 dark:border-slate-700">Tax (%)</th>
+                      <th className="p-2 px-3 min-w-[110px] text-right border-r border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 font-bold text-slate-800 dark:text-slate-200">
                         Amount (₹)
                       </th>
                       <th className="p-2 w-20 text-center">Actions</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100 font-sans">
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800 font-sans">
                     {lineItems.map((item, idx) => {
                       const isSelected = idx === activeRowIndex;
                       const hasItem = !!item.stockNo;
@@ -2842,12 +2842,12 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
                             isSelected
                               ? "bg-blue-50/60"
                               : hasItem
-                              ? "hover:bg-slate-50"
-                              : "hover:bg-slate-50/60 opacity-80 hover:opacity-100"
+                              ? "hover:bg-slate-50 dark:hover:bg-slate-800/60"
+                              : "hover:bg-slate-50/60 dark:hover:bg-slate-800/40 opacity-80 hover:opacity-100"
                           }`}
                         >
                           {/* 1. Barcode (Column 1 per Decision C) */}
-                          <td className="p-1 border-r border-slate-100 min-w-[180px] bg-slate-50/30">
+                          <td className="p-1 border-r border-slate-100 dark:border-slate-800 min-w-[180px] bg-slate-50/30 dark:bg-slate-800/30">
                             <div className="flex items-center gap-1 px-1 group">
                               <span className="material-symbols-outlined text-[15px] text-slate-400 shrink-0">barcode_scanner</span>
                               <input
@@ -2858,7 +2858,7 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
                                 title={item.barcode || "Barcode"}
                                 onFocus={() => setActiveRowIndex(idx)}
                                 onChange={(e) => handleBarcodeChange(idx, e.target.value)}
-                                className="w-full bg-transparent border-none p-0 h-6 font-mono font-semibold text-slate-800 text-xs outline-none"
+                                className="w-full bg-transparent border-none p-0 h-6 font-mono font-semibold text-slate-800 dark:text-slate-200 text-xs outline-none"
                               />
                               {item.barcode && (
                                 <button
@@ -2881,12 +2881,12 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
                           </td>
 
                           {/* 2. SNo (Column 2) */}
-                          <td className="p-2 text-center text-slate-400 font-mono font-medium border-r border-slate-100 bg-slate-50/50">
+                          <td className="p-2 text-center text-slate-400 font-mono font-medium border-r border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30">
                             {item.sNo}
                           </td>
 
                           {/* 3. Item Code / Article (Column 3) */}
-                          <td className="p-1 border-r border-slate-100">
+                          <td className="p-1 border-r border-slate-100 dark:border-slate-800">
                             <input
                               type="text"
                               id={`pogen-gen-stockno-${idx + 1}`}
@@ -2895,24 +2895,24 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
                               placeholder="F2 to browse / Article"
                               onFocus={() => { setActiveRowIndex(idx); setShowF2Hint(false); }}
                               onChange={(e) => handleStockNoOrArticleChange(idx, e.target.value)}
-                              className="w-full bg-transparent border border-transparent hover:border-slate-300 focus:border-blue-600 focus:bg-white rounded px-2 h-7 font-mono font-bold text-xs outline-none"
+                              className="w-full bg-transparent border border-transparent hover:border-slate-300 dark:hover:border-slate-600 focus:border-blue-600 focus:bg-white dark:focus:bg-slate-900 rounded px-2 h-7 font-mono font-bold text-xs outline-none text-slate-800 dark:text-slate-100"
                             />
                           </td>
 
                           {/* 4. Product Name */}
-                          <td className="p-1 border-r border-slate-100">
+                          <td className="p-1 border-r border-slate-100 dark:border-slate-800">
                             <input
                               type="text"
                               value={item.product}
                               placeholder="Product description"
                               onFocus={() => setActiveRowIndex(idx)}
                               onChange={(e) => updateLineItem(idx, { product: e.target.value })}
-                              className="w-full bg-transparent border border-transparent hover:border-slate-300 focus:border-blue-600 focus:bg-white rounded px-2 h-7 font-medium text-xs outline-none"
+                              className="w-full bg-transparent border border-transparent hover:border-slate-300 dark:hover:border-slate-600 focus:border-blue-600 focus:bg-white dark:focus:bg-slate-900 rounded px-2 h-7 font-medium text-xs outline-none text-slate-800 dark:text-slate-100"
                             />
                           </td>
 
                           {/* 5. Brand */}
-                          <td className="p-1 border-r border-slate-100">
+                          <td className="p-1 border-r border-slate-100 dark:border-slate-800">
                             <input
                               type="text"
                               value={item.brand}
@@ -2923,7 +2923,7 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
                           </td>
 
                           {/* 6. Style */}
-                          <td className="p-1 border-r border-slate-100">
+                          <td className="p-1 border-r border-slate-100 dark:border-slate-800">
                             <input
                               type="text"
                               id={`pogen-gen-style-${idx + 1}`}
@@ -2937,7 +2937,7 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
                           </td>
 
                           {/* 7. Shade / Color */}
-                          <td className="p-1 border-r border-slate-100">
+                          <td className="p-1 border-r border-slate-100 dark:border-slate-800">
                             <input
                               type="text"
                               id={`pogen-gen-color-${idx + 1}`}
@@ -2946,7 +2946,7 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
                               placeholder="Color"
                               onFocus={() => setActiveRowIndex(idx)}
                               onChange={(e) => handleColorChange(idx, e.target.value)}
-                              className="w-full bg-transparent border-none px-2 h-6 text-xs outline-none text-slate-600 uppercase"
+                              className="w-full bg-transparent border-none px-2 h-6 text-xs outline-none text-slate-600 dark:text-slate-300 uppercase"
                             />
                             <datalist id={`pogen-colors-list-${idx + 1}`}>
                               {getAvailableColorsForArticle(articleCatalogIndex, item.style || item.stockNo).map(c => (
@@ -2956,7 +2956,7 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
                           </td>
 
                           {/* 8. Size */}
-                          <td className="p-1 border-r border-slate-100 text-center">
+                          <td className="p-1 border-r border-slate-100 dark:border-slate-800 text-center">
                             <input
                               type="text"
                               id={`pogen-gen-size-${idx + 1}`}
@@ -2965,7 +2965,7 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
                               placeholder="Size"
                               onFocus={() => setActiveRowIndex(idx)}
                               onChange={(e) => handleSizeChange(idx, e.target.value)}
-                              className="w-full bg-transparent border-none text-center h-6 font-semibold text-xs outline-none text-slate-700 uppercase"
+                              className="w-full bg-transparent border-none text-center h-6 font-semibold text-xs outline-none text-slate-700 dark:text-slate-200 uppercase"
                             />
                             <datalist id={`pogen-sizes-list-${idx + 1}`}>
                               {getAvailableSizesForArticleAndColor(articleCatalogIndex, item.style || item.stockNo, item.shade).map(sz => (
@@ -2975,7 +2975,7 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
                           </td>
 
                           {/* 9. MRP (₹) - PROMINENT RETAIL FIELD */}
-                          <td className="p-1 border-r border-slate-100 bg-blue-50/20 text-right">
+                          <td className="p-1 border-r border-slate-100 dark:border-slate-800 bg-blue-50/20 dark:bg-blue-950/20 text-right">
                             <input
                               type="number"
                               min="0"
@@ -2983,12 +2983,12 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
                               placeholder="0.00"
                               onFocus={() => setActiveRowIndex(idx)}
                               onChange={(e) => updateLineItem(idx, { mrp: parseFloat(e.target.value) || 0 })}
-                              className="w-full bg-transparent border border-transparent hover:border-slate-300 focus:border-blue-600 focus:bg-white rounded px-2 h-7 font-mono font-bold text-xs text-right outline-none text-blue-900"
+                              className="w-full bg-transparent border border-transparent hover:border-slate-300 dark:hover:border-slate-600 focus:border-blue-600 focus:bg-white dark:focus:bg-slate-900 rounded px-2 h-7 font-mono font-bold text-xs text-right outline-none text-blue-900 dark:text-blue-300"
                             />
                           </td>
 
                           {/* 10. Qty */}
-                          <td className="p-1 border-r border-slate-100 text-right">
+                          <td className="p-1 border-r border-slate-100 dark:border-slate-800 text-right">
                             <input
                               type="number"
                               id={`po-qty-input-${idx}`}
@@ -3002,7 +3002,7 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
                           </td>
 
                           {/* 11. Free */}
-                          <td className="p-1 border-r border-slate-100 text-right">
+                          <td className="p-1 border-r border-slate-100 dark:border-slate-800 text-right">
                             <input
                               type="number"
                               min="0"
@@ -3010,16 +3010,16 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
                               placeholder="0"
                               onFocus={() => setActiveRowIndex(idx)}
                               onChange={(e) => updateLineItem(idx, { freeQty: parseInt(e.target.value, 10) || 0 })}
-                              className="w-full bg-transparent border-none text-right px-2 h-6 font-mono text-xs outline-none text-slate-600"
+                              className="w-full bg-transparent border-none text-right px-2 h-6 font-mono text-xs outline-none text-slate-600 dark:text-slate-300"
                             />
                           </td>
 
                           {/* 12. Unit */}
-                          <td className="p-1 border-r border-slate-100">
+                          <td className="p-1 border-r border-slate-100 dark:border-slate-800">
                             <select
                               value={item.unit || "Pair"}
                               onChange={(e) => updateLineItem(idx, { unit: e.target.value })}
-                              className="w-full bg-transparent border-none text-center h-6 text-xs outline-none font-medium text-slate-600 cursor-pointer"
+                              className="w-full bg-transparent border-none text-center h-6 text-xs outline-none font-medium text-slate-600 dark:text-slate-300 cursor-pointer"
                             >
                               {UNITS_LIST.map(u => (
                                 <option key={u} value={u}>{u}</option>
@@ -3028,7 +3028,7 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
                           </td>
 
                           {/* 13. Rate (₹) */}
-                          <td className="p-1 border-r border-slate-100 text-right">
+                          <td className="p-1 border-r border-slate-100 dark:border-slate-800 text-right">
                             <input
                               type="number"
                               min="0"
@@ -3036,12 +3036,12 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
                               placeholder="0.00"
                               onFocus={() => setActiveRowIndex(idx)}
                               onChange={(e) => updateLineItem(idx, { rate: parseFloat(e.target.value) || 0 })}
-                              className="w-full bg-transparent border border-transparent hover:border-slate-300 focus:border-blue-600 focus:bg-white rounded px-2 h-7 font-mono font-bold text-xs text-right outline-none text-slate-800"
+                              className="w-full bg-transparent border border-transparent hover:border-slate-300 dark:hover:border-slate-600 focus:border-blue-600 focus:bg-white dark:focus:bg-slate-900 rounded px-2 h-7 font-mono font-bold text-xs text-right outline-none text-slate-800 dark:text-slate-100"
                             />
                           </td>
 
                           {/* 14. Disc. (%) */}
-                          <td className="p-1 border-r border-slate-100 text-right">
+                          <td className="p-1 border-r border-slate-100 dark:border-slate-800 text-right">
                             <input
                               type="number"
                               min="0"
@@ -3050,24 +3050,24 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
                               placeholder="0"
                               onFocus={() => setActiveRowIndex(idx)}
                               onChange={(e) => updateLineItem(idx, { discountPercent: parseFloat(e.target.value) || 0 })}
-                              className="w-full bg-transparent border-none text-right px-2 h-6 font-mono text-xs outline-none text-slate-600"
+                              className="w-full bg-transparent border-none text-right px-2 h-6 font-mono text-xs outline-none text-slate-600 dark:text-slate-300"
                             />
                           </td>
 
                           {/* 15. Tax (%) */}
-                          <td className="p-1 border-r border-slate-100 text-right">
+                          <td className="p-1 border-r border-slate-100 dark:border-slate-800 text-right">
                             <input
                               type="number"
                               min="0"
                               value={item.taxPercent ?? 5}
                               onFocus={() => setActiveRowIndex(idx)}
                               onChange={(e) => updateLineItem(idx, { taxPercent: parseFloat(e.target.value) || 0 })}
-                              className="w-full bg-transparent border-none text-right px-2 h-6 font-mono text-xs outline-none text-slate-600"
+                              className="w-full bg-transparent border-none text-right px-2 h-6 font-mono text-xs outline-none text-slate-600 dark:text-slate-300"
                             />
                           </td>
 
                           {/* 16. Amount (₹) */}
-                          <td className="p-2 px-3 border-r border-slate-100 text-right font-mono font-bold text-slate-800 bg-slate-50/50">
+                          <td className="p-2 px-3 border-r border-slate-100 dark:border-slate-800 text-right font-mono font-bold text-slate-800 dark:text-slate-200 bg-slate-50/50 dark:bg-slate-800/30">
                             ₹{item.totalValue ? item.totalValue.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "0.00"}
                           </td>
 
@@ -3100,35 +3100,35 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
               ) : (
                 /* Tab 2: Size Pivot Matrix Grid */
                 <table className="w-full text-left border-collapse min-w-[1200px] text-xs">
-                  <thead className="sticky top-0 z-10 bg-slate-50 text-slate-600 uppercase text-[10px] font-bold tracking-wider border-b border-slate-200">
+                  <thead className="sticky top-0 z-10 bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 uppercase text-[10px] font-bold tracking-wider border-b border-slate-200 dark:border-slate-700">
                     <tr>
-                      <th rowSpan={2} className="p-1 w-8 text-center border-r border-slate-200 bg-slate-100">#</th>
+                      <th rowSpan={2} className="p-1 w-8 text-center border-r border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 font-bold">#</th>
                       <th rowSpan={2} className="p-2 border-r border-slate-200 min-w-[120px]">Article No</th>
                       <th rowSpan={2} className="p-2 border-r border-slate-200 min-w-[160px]">Product</th>
                       <th rowSpan={2} className="p-2 border-r border-slate-200 min-w-[100px]">Brand</th>
                       <th rowSpan={2} className="p-2 border-r border-slate-200 min-w-[90px]">Style</th>
                       <th rowSpan={2} className="p-2 border-r border-slate-200 min-w-[90px]">Color</th>
-                      <th colSpan={DEFAULT_SIZES.length} className="p-1 text-center border-r border-slate-200 bg-slate-100">
+                      <th colSpan={DEFAULT_SIZES.length} className="p-1 text-center border-r border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800">
                         Size Quantities
                       </th>
-                      <th rowSpan={2} className="p-2 text-right border-r border-slate-200 min-w-[65px] font-bold bg-slate-100">QTY</th>
+                      <th rowSpan={2} className="p-2 text-right border-r border-slate-200 dark:border-slate-700 min-w-[65px] font-bold bg-slate-100 dark:bg-slate-800">QTY</th>
                       <th rowSpan={2} className="p-2 text-right border-r border-slate-200 min-w-[60px] font-bold">GST %</th>
                       <th rowSpan={2} className="p-2 text-right border-r border-slate-200 min-w-[80px] font-bold">Rate</th>
-                      <th rowSpan={2} className="p-2 text-right min-w-[100px] font-bold bg-slate-100">Total Value</th>
+                      <th rowSpan={2} className="p-2 text-right min-w-[100px] font-bold bg-slate-100 dark:bg-slate-800">Total Value</th>
                     </tr>
                     <tr>
                       {DEFAULT_SIZES.map(sz => (
-                        <th key={sz} className="p-1 text-center w-10 font-mono font-bold border-r border-slate-200 bg-slate-50">
+                        <th key={sz} className="p-1 text-center w-10 font-mono font-bold border-r border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800">
                           {sz}
                         </th>
                       ))}
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100 font-sans">
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800 font-sans">
                     {sizePivotRows.map((row, idx) => (
-                      <tr key={row.id} className="hover:bg-slate-50">
-                        <td className="p-2 text-center text-slate-400 font-mono border-r border-slate-100 bg-slate-50/50">{row.sNo}</td>
-                        <td className="p-1 border-r border-slate-100">
+                      <tr key={row.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/60">
+                        <td className="p-2 text-center text-slate-400 font-mono border-r border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30">{row.sNo}</td>
+                        <td className="p-1 border-r border-slate-100 dark:border-slate-800">
                           <input
                             type="text"
                             value={row.articleNo}
@@ -3137,7 +3137,7 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
                             className="w-full bg-transparent border-none px-2 h-6 font-mono font-bold text-xs outline-none"
                           />
                         </td>
-                        <td className="p-1 border-r border-slate-100">
+                        <td className="p-1 border-r border-slate-100 dark:border-slate-800">
                           <input
                             type="text"
                             value={row.product}
@@ -3145,7 +3145,7 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
                             className="w-full bg-transparent border-none px-2 h-6 text-xs outline-none"
                           />
                         </td>
-                        <td className="p-1 border-r border-slate-100">
+                        <td className="p-1 border-r border-slate-100 dark:border-slate-800">
                           <input
                             type="text"
                             value={row.brand}
@@ -3153,7 +3153,7 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
                             className="w-full bg-transparent border-none px-2 h-6 text-xs outline-none text-slate-600"
                           />
                         </td>
-                        <td className="p-1 border-r border-slate-100">
+                        <td className="p-1 border-r border-slate-100 dark:border-slate-800">
                           <input
                             type="text"
                             value={row.style}
@@ -3161,7 +3161,7 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
                             className="w-full bg-transparent border-none px-2 h-6 text-xs outline-none text-slate-600"
                           />
                         </td>
-                        <td className="p-1 border-r border-slate-100">
+                        <td className="p-1 border-r border-slate-100 dark:border-slate-800">
                           <input
                             type="text"
                             value={row.color}
@@ -3180,8 +3180,8 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
                             />
                           </td>
                         ))}
-                        <td className="p-2 text-right font-mono font-bold text-blue-600 bg-slate-50/50 border-r border-slate-100">{row.totalQty}</td>
-                        <td className="p-1 border-r border-slate-100 text-right">
+                        <td className="p-2 text-right font-mono font-bold text-blue-600 dark:text-blue-400 bg-slate-50/50 dark:bg-slate-800/30 border-r border-slate-100 dark:border-slate-800">{row.totalQty}</td>
+                        <td className="p-1 border-r border-slate-100 dark:border-slate-800 text-right">
                           <input
                             type="number"
                             value={row.gstPercent || 5}
@@ -3189,7 +3189,7 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
                             className="w-full bg-transparent border-none text-right px-2 h-6 font-mono text-xs outline-none"
                           />
                         </td>
-                        <td className="p-1 border-r border-slate-100 text-right">
+                        <td className="p-1 border-r border-slate-100 dark:border-slate-800 text-right">
                           <input
                             type="number"
                             value={row.rate || ""}
@@ -3197,7 +3197,7 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
                             className="w-full bg-transparent border-none text-right px-2 h-6 font-mono font-bold text-xs outline-none"
                           />
                         </td>
-                        <td className="p-2 text-right font-mono font-bold text-slate-800 bg-slate-50/50">
+                        <td className="p-2 text-right font-mono font-bold text-slate-800 dark:text-slate-200 bg-slate-50/50 dark:bg-slate-800/30">
                           ₹{row.totalValue.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </td>
                       </tr>
@@ -3215,30 +3215,30 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
         <section className="px-6 py-3 shrink-0">
           <div className="grid grid-cols-1 md:grid-cols-12 gap-3.5 text-xs">
             {/* Left Card: Notes (~30%) */}
-            <div className="md:col-span-4 bg-white p-3.5 rounded-xl border border-slate-200 shadow-2xs flex flex-col">
-              <div className="flex items-center gap-2 mb-2 pb-1.5 border-b border-slate-100">
+            <div className="md:col-span-4 bg-white dark:bg-slate-800/90 p-3.5 rounded-xl border border-slate-200 dark:border-slate-700 shadow-2xs flex flex-col">
+              <div className="flex items-center gap-2 mb-2 pb-1.5 border-b border-slate-100 dark:border-slate-700">
                 <span className="material-symbols-outlined text-blue-600 text-[18px]">edit_note</span>
-                <h3 className="font-bold text-slate-800 text-xs uppercase tracking-wider">Notes</h3>
+                <h3 className="font-bold text-slate-800 dark:text-slate-200 text-xs uppercase tracking-wider">Notes</h3>
               </div>
               <textarea
                 rows={4}
                 value={header.specialInstructions}
                 onChange={(e) => setHeader({ ...header, specialInstructions: e.target.value })}
                 placeholder="Add notes, special instructions or terms for supplier..."
-                className="w-full flex-1 border border-slate-200 rounded-lg p-2.5 bg-slate-50/50 outline-none focus:border-blue-600 text-xs resize-none"
+                className="w-full flex-1 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 bg-slate-50/50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 outline-none focus:border-blue-600 text-xs resize-none"
               />
             </div>
 
             {/* Center Card: Summary (~25%) */}
-            <div className="md:col-span-3 bg-white p-3.5 rounded-xl border border-slate-200 shadow-2xs flex flex-col justify-between">
-              <div className="flex items-center gap-2 mb-2 pb-1.5 border-b border-slate-100">
+            <div className="md:col-span-3 bg-white dark:bg-slate-800/90 p-3.5 rounded-xl border border-slate-200 dark:border-slate-700 shadow-2xs flex flex-col justify-between">
+              <div className="flex items-center gap-2 mb-2 pb-1.5 border-b border-slate-100 dark:border-slate-700">
                 <span className="material-symbols-outlined text-blue-600 text-[18px]">analytics</span>
-                <h3 className="font-bold text-slate-800 text-xs uppercase tracking-wider">Summary</h3>
+                <h3 className="font-bold text-slate-800 dark:text-slate-200 text-xs uppercase tracking-wider">Summary</h3>
               </div>
               <div className="space-y-2 py-1">
                 <div className="flex items-center justify-between text-xs">
                   <span className="text-slate-500 font-medium">Total Items</span>
-                  <span className="font-bold font-mono text-slate-800 text-sm">{totals.totalItems || 0}</span>
+                  <span className="font-bold font-mono text-slate-800 dark:text-slate-200 text-sm">{totals.totalItems || 0}</span>
                 </div>
                 <div className="flex items-center justify-between text-xs">
                   <span className="text-slate-500 font-medium">Total Qty</span>
@@ -3255,21 +3255,21 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
             </div>
 
             {/* Right Card: Order Amount Summary (~45%) */}
-            <div className="md:col-span-5 bg-white p-3.5 rounded-xl border border-slate-200 shadow-2xs flex flex-col justify-between">
-              <div className="flex items-center gap-2 mb-2 pb-1.5 border-b border-slate-100">
+            <div className="md:col-span-5 bg-white dark:bg-slate-800/90 p-3.5 rounded-xl border border-slate-200 dark:border-slate-700 shadow-2xs flex flex-col justify-between">
+              <div className="flex items-center gap-2 mb-2 pb-1.5 border-b border-slate-100 dark:border-slate-700">
                 <span className="material-symbols-outlined text-blue-600 text-[18px]">calculate</span>
-                <h3 className="font-bold text-slate-800 text-xs uppercase tracking-wider">Order Amount Summary</h3>
+                <h3 className="font-bold text-slate-800 dark:text-slate-200 text-xs uppercase tracking-wider">Order Amount Summary</h3>
               </div>
               <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs">
                 <div className="flex items-center justify-between">
                   <span className="text-slate-500">Gross Amount</span>
-                  <span className="font-mono font-bold text-slate-800">
+                  <span className="font-mono font-bold text-slate-800 dark:text-slate-200">
                     ₹{(totals.grossValue || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-slate-500">Taxable Amount</span>
-                  <span className="font-mono font-bold text-slate-800">
+                  <span className="font-mono font-bold text-slate-800 dark:text-slate-200">
                     ₹{(totals.taxableAmount || totals.grossValue || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </span>
                 </div>
@@ -3281,7 +3281,7 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-slate-500">CGST (2.5%)</span>
-                  <span className="font-mono text-slate-700">
+                  <span className="font-mono text-slate-700 dark:text-slate-300">
                     ₹{(totals.cgst || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </span>
                 </div>
@@ -3295,13 +3295,13 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
                       value={header.freightAmount || ""}
                       placeholder="0.00"
                       onChange={(e) => setHeader({ ...header, freightAmount: parseFloat(e.target.value) || 0 })}
-                      className="w-16 border border-slate-200 rounded px-1.5 py-0.5 text-right font-mono font-bold text-xs outline-none focus:border-blue-600"
+                      className="w-16 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 rounded px-1.5 py-0.5 text-right font-mono font-bold text-xs outline-none focus:border-blue-600"
                     />
                   </div>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-slate-500">SGST (2.5%)</span>
-                  <span className="font-mono text-slate-700">
+                  <span className="font-mono text-slate-700 dark:text-slate-300">
                     ₹{(totals.sgst || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </span>
                 </div>
@@ -3315,7 +3315,7 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
                       value={header.otherCharges || ""}
                       placeholder="0.00"
                       onChange={(e) => setHeader({ ...header, otherCharges: parseFloat(e.target.value) || 0 })}
-                      className="w-16 border border-slate-200 rounded px-1.5 py-0.5 text-right font-mono font-bold text-xs outline-none focus:border-blue-600"
+                      className="w-16 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 rounded px-1.5 py-0.5 text-right font-mono font-bold text-xs outline-none focus:border-blue-600"
                     />
                   </div>
                 </div>
@@ -3328,11 +3328,11 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
               </div>
 
               {/* Net Order Value (Prominent Display) */}
-              <div className="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between bg-blue-50/60 p-2.5 rounded-lg">
-                <span className="font-bold text-blue-900 text-sm uppercase tracking-wider">
+              <div className="mt-3 pt-2.5 border-t border-slate-100 dark:border-slate-700 flex items-center justify-between bg-blue-50/60 dark:bg-blue-950/40 p-2.5 rounded-lg">
+                <span className="font-bold text-blue-900 dark:text-blue-200 text-sm uppercase tracking-wider">
                   Net Order Value
                 </span>
-                <span className="font-extrabold text-blue-700 text-lg font-mono">
+                <span className="font-extrabold text-blue-700 dark:text-blue-300 text-lg font-mono">
                   ₹{(totals.netOrderValue || totals.totalValue || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </span>
               </div>
@@ -3340,12 +3340,12 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
           </div>
         </section>
       ) : activeTab === "items" ? (
-        <section className="px-6 py-2 shrink-0 bg-white border-t border-slate-200">
+        <section className="px-6 py-2 shrink-0 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800">
           <div className="flex flex-wrap items-center justify-between gap-3 text-xs">
             <div className="flex items-center gap-4 flex-wrap">
               <div className="flex items-center gap-1.5">
                 <span className="text-slate-500 font-medium">Items:</span>
-                <span className="font-mono font-bold text-slate-800">{totals.totalItems || 0}</span>
+                <span className="font-mono font-bold text-slate-800 dark:text-slate-200">{totals.totalItems || 0}</span>
               </div>
               <div className="flex items-center gap-1.5">
                 <span className="text-slate-500 font-medium">Total Qty:</span>
@@ -3359,17 +3359,17 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
               )}
               <div className="flex items-center gap-1.5">
                 <span className="text-slate-500 font-medium">Gross:</span>
-                <span className="font-mono text-slate-700">₹{(totals.grossValue || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                <span className="font-mono text-slate-700 dark:text-slate-300">₹{(totals.grossValue || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
               </div>
               <div className="flex items-center gap-1.5">
                 <span className="text-slate-500 font-medium">GST:</span>
-                <span className="font-mono text-slate-700">₹{((totals.cgst || 0) + (totals.sgst || 0) + (totals.igst || 0)).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                <span className="font-mono text-slate-700 dark:text-slate-300">₹{((totals.cgst || 0) + (totals.sgst || 0) + (totals.igst || 0)).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
               </div>
             </div>
 
             <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2 bg-blue-50 px-3 py-1 rounded-lg border border-blue-200">
-                <span className="text-xs font-bold text-blue-900 uppercase tracking-wider">Net Order Value:</span>
+              <div className="flex items-center gap-2 bg-blue-50 dark:bg-blue-950/40 px-3 py-1 rounded-lg border border-blue-200 dark:border-blue-800">
+                <span className="text-xs font-bold text-blue-900 dark:text-blue-200 uppercase tracking-wider">Net Order Value:</span>
                 <span className="font-mono font-extrabold text-blue-700 text-sm">
                   ₹{(totals.netOrderValue || totals.totalValue || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </span>
@@ -3389,9 +3389,9 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
 
       {/* 409 Duplicate Order Recovery Banner */}
       {duplicateOrderNo && (
-        <aside aria-label="Order Number Exists Banner" className="mx-6 mb-3 bg-amber-50 border border-amber-300 px-4 py-2 rounded-xl flex items-center gap-3 text-xs shrink-0">
+        <aside aria-label="Order Number Exists Banner" className="mx-6 mb-3 bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-800 px-4 py-2 rounded-xl flex items-center gap-3 text-xs shrink-0">
           <span className="material-symbols-outlined text-amber-600 text-[18px]">warning</span>
-          <span className="text-amber-900 font-medium">
+          <span className="text-amber-900 dark:text-amber-200 font-medium">
             Purchase Order <strong>{duplicateOrderNo}</strong> already exists for this organization.
           </span>
           {suggestedOrderNo && (
@@ -3421,12 +3421,12 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
       )}
 
       {/* ── 6. Persistent Bottom Action Bar ───────────────────────────────── */}
-      <footer className="bg-white border-t border-slate-200 px-6 py-2.5 flex items-center justify-between shrink-0 shadow-lg sticky bottom-0 z-20 text-xs">
+      <footer className="bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 px-6 py-2.5 flex items-center justify-between shrink-0 shadow-lg sticky bottom-0 z-20 text-xs">
         <div>
           <button
             type="button"
             onClick={onClose}
-            className="bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 rounded-lg px-4 py-1.5 font-bold transition shadow-2xs"
+            className="bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-700 rounded-lg px-4 py-1.5 font-bold transition shadow-2xs"
           >
             Cancel
           </button>
@@ -3436,7 +3436,7 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
             type="button"
             disabled={saving}
             onClick={handleSavePO}
-            className="bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 rounded-lg px-4 py-1.5 font-bold transition shadow-2xs disabled:opacity-50"
+            className="bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-700 rounded-lg px-4 py-1.5 font-bold transition shadow-2xs disabled:opacity-50"
           >
             {saving ? "Saving…" : "Save Draft"}
           </button>
@@ -3457,17 +3457,17 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
       {/* Post-Save Workflow Modal */}
       {savedOrderNo && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs" role="dialog" aria-modal="true">
-          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-[500px] max-w-full p-6 flex flex-col gap-4">
+          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 w-[500px] max-w-full p-6 flex flex-col gap-4">
             <div className="flex items-center gap-3">
               <div className="w-12 h-12 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center">
                 <span className="material-symbols-outlined text-[28px]">check_circle</span>
               </div>
               <div>
-                <h2 className="font-bold text-slate-800 text-base">Purchase Order Saved</h2>
+                <h2 className="font-bold text-slate-800 dark:text-slate-100 text-base">Purchase Order Saved</h2>
                 <p className="text-xs text-slate-500 font-mono mt-0.5">{savedOrderNo} committed successfully.</p>
               </div>
             </div>
-            <p className="text-xs text-slate-600">What would you like to do next?</p>
+            <p className="text-xs text-slate-600 dark:text-slate-300">What would you like to do next?</p>
             <div className="grid grid-cols-4 gap-2.5">
               <button
                 type="button"
@@ -3476,7 +3476,7 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
                   setSavedOrderNo(null);
                   await openPersistedPurchaseOrder(saved);
                 }}
-                className="flex flex-col items-center justify-center gap-1.5 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-xl py-3 px-2 font-bold text-xs text-indigo-700 transition"
+                className="flex flex-col items-center justify-center gap-1.5 bg-indigo-50 dark:bg-indigo-950/40 hover:bg-indigo-100 dark:hover:bg-indigo-900/40 border border-indigo-200 dark:border-indigo-800 rounded-xl py-3 px-2 font-bold text-xs text-indigo-700 dark:text-indigo-300 transition"
               >
                 <span className="material-symbols-outlined text-[22px]">open_in_new</span>
                 <span>Open PO</span>
@@ -3487,7 +3487,7 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
                   setSavedOrderNo(null);
                   handleClear();
                 }}
-                className="flex flex-col items-center justify-center gap-1.5 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-xl py-3 px-2 font-bold text-xs text-blue-700 transition"
+                className="flex flex-col items-center justify-center gap-1.5 bg-blue-50 dark:bg-blue-950/40 hover:bg-blue-100 dark:hover:bg-blue-900/40 border border-blue-200 dark:border-blue-800 rounded-xl py-3 px-2 font-bold text-xs text-blue-700 dark:text-blue-300 transition"
               >
                 <span className="material-symbols-outlined text-[22px]">add_circle</span>
                 <span>Create Another</span>
@@ -3503,7 +3503,7 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
                     onNotification?.("GRN Notice", `Inward order ${saved || ""}.`, "info");
                   }
                 }}
-                className="flex flex-col items-center justify-center gap-1.5 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-xl py-3 px-2 font-bold text-xs text-emerald-700 transition"
+                className="flex flex-col items-center justify-center gap-1.5 bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 border border-emerald-200 dark:border-emerald-800 rounded-xl py-3 px-2 font-bold text-xs text-emerald-700 dark:text-emerald-300 transition"
               >
                 <span className="material-symbols-outlined text-[22px]">local_shipping</span>
                 <span>Receive GRN</span>
@@ -3514,7 +3514,7 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
                   setSavedOrderNo(null);
                   setShowPrintPreview(true);
                 }}
-                className="flex flex-col items-center justify-center gap-1.5 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-xl py-3 px-2 font-bold text-xs text-amber-700 transition"
+                className="flex flex-col items-center justify-center gap-1.5 bg-amber-50 dark:bg-amber-950/40 hover:bg-amber-100 dark:hover:bg-amber-900/40 border border-amber-200 dark:border-amber-800 rounded-xl py-3 px-2 font-bold text-xs text-amber-700 dark:text-amber-300 transition"
               >
                 <span className="material-symbols-outlined text-[22px]">print</span>
                 <span>Print PO</span>

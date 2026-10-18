@@ -2935,19 +2935,19 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
   // ─────────────────────────────────────────────────────────────────────────
 
   return (
-    <div className="flex flex-col h-full bg-slate-50 text-xs font-sans" role="main">
+    <div className="flex flex-col h-full bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 text-xs font-sans" role="main">
 
       {/* ── 1. PO Header Bar ──────────────────────────────────────────────── */}
-      <header className="bg-white border-b border-slate-200 px-5 py-3 shrink-0">
+      <header className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-5 py-3 shrink-0">
         {/* Edit Mode Notification Banner */}
         {editingOrderNo && (
-          <div className="mb-2.5 bg-indigo-50 border border-indigo-200 rounded-lg px-3.5 py-1.5 flex items-center justify-between text-xs text-indigo-900 shadow-xs">
+          <div className="mb-2.5 bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800 rounded-lg px-3.5 py-1.5 flex items-center justify-between text-xs text-indigo-900 dark:text-indigo-200 shadow-xs">
             <div className="flex items-center gap-2">
               <span className="material-symbols-outlined text-indigo-600 text-base">edit_note</span>
               <span>Editing Purchase Order:</span>
-              <strong className="font-mono bg-indigo-100 text-indigo-900 px-2 py-0.5 rounded font-bold">{editingOrderNo}</strong>
+              <strong className="font-mono bg-indigo-100 dark:bg-indigo-900/80 text-indigo-900 dark:text-indigo-200 px-2 py-0.5 rounded font-bold">{editingOrderNo}</strong>
               <span className="text-slate-400">· Status:</span>
-              <span className="font-bold text-[11px] text-slate-700">{editingStatus || "DRAFT"}</span>
+              <span className="font-bold text-[11px] text-slate-700 dark:text-slate-300">{editingStatus || "DRAFT"}</span>
             </div>
             <button
               type="button"
@@ -2958,7 +2958,7 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
                 onClearOrderToEdit?.();
                 onNotification?.("Exited Edit Mode", "Switched back to new PO workspace.", "info");
               }}
-              className="text-xs text-indigo-700 hover:text-indigo-900 font-medium underline flex items-center gap-1 cursor-pointer"
+              className="text-xs text-indigo-700 dark:text-indigo-400 hover:text-indigo-900 dark:hover:text-indigo-300 font-medium underline flex items-center gap-1 cursor-pointer"
             >
               <span className="material-symbols-outlined text-[13px]">close</span> Exit Edit Mode (New PO)
             </button>
@@ -2973,9 +2973,9 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
                 <span className="material-symbols-outlined text-white text-[18px]">shopping_cart</span>
               </div>
               <div>
-                <h1 className="font-extrabold text-slate-800 text-base leading-none">Purchase Order</h1>
+                <h1 className="font-extrabold text-slate-800 dark:text-slate-100 text-base leading-none">Purchase Order</h1>
                 {/* Phase 1: composite read-only document identity — no editable Prefix/Number */}
-                <p className="text-[11px] text-slate-500 font-mono mt-0.5 font-bold tracking-wide">
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 font-mono mt-0.5 font-bold tracking-wide">
                   {header.prefix}-{header.orderNumber}
                   <span className="font-normal text-slate-400 ml-1">· {header.orderDate}</span>
                 </p>
@@ -2984,19 +2984,19 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
             {editingStatus ? (
               <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full ${
                 editingStatus === "CONFIRMED"
-                  ? "text-emerald-700 bg-emerald-50 border border-emerald-200"
-                  : "text-amber-700 bg-amber-50 border border-amber-200"
+                  ? "text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800"
+                  : "text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800"
               }`}>
                 <span className={`w-1.5 h-1.5 rounded-full ${editingStatus === "CONFIRMED" ? "bg-emerald-500" : "bg-amber-500"}`} />
                 {editingStatus}
               </span>
             ) : (
-              <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
+              <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 px-2 py-0.5 rounded-full">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
                 Draft
               </span>
             )}
-            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded-full">
+            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800 px-2 py-0.5 rounded-full">
               <span className="material-symbols-outlined text-[12px]">straighten</span>
               Sizewise
             </span>
@@ -3007,7 +3007,7 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
               type="button"
               id="sw-new-po-btn"
               onClick={handleNewPO}
-              className="flex items-center gap-1.5 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 font-bold px-3 py-1.5 rounded-lg transition text-xs shadow-2xs cursor-pointer"
+              className="flex items-center gap-1.5 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200 font-bold px-3 py-1.5 rounded-lg transition text-xs shadow-2xs cursor-pointer"
             >
               <span className="material-symbols-outlined text-[16px] text-blue-500">add</span> New
             </button>
@@ -3015,14 +3015,14 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
               type="button"
               id="sw-open-po-btn"
               onClick={() => { setShowRecallModal(true); fetchRecentOrders(); }}
-              className="flex items-center gap-1.5 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 font-bold px-3 py-1.5 rounded-lg transition text-xs shadow-2xs cursor-pointer"
+              className="flex items-center gap-1.5 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200 font-bold px-3 py-1.5 rounded-lg transition text-xs shadow-2xs cursor-pointer"
             >
               <span className="material-symbols-outlined text-[16px] text-slate-500">folder_open</span> Open
             </button>
-            <button type="button" id="sw-print-po-btn" onClick={() => setShowPrintPreview(true)} className="flex items-center gap-1.5 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 font-bold px-3 py-1.5 rounded-lg transition text-xs shadow-2xs cursor-pointer">
+            <button type="button" id="sw-print-po-btn" onClick={() => setShowPrintPreview(true)} className="flex items-center gap-1.5 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200 font-bold px-3 py-1.5 rounded-lg transition text-xs shadow-2xs cursor-pointer">
               <span className="material-symbols-outlined text-[16px] text-slate-500">print</span> Print
             </button>
-            <button type="button" className="bg-white hover:bg-slate-50 border border-slate-300 text-slate-600 px-2 py-1.5 rounded-lg transition text-xs shadow-2xs">
+            <button type="button" className="bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300 px-2 py-1.5 rounded-lg transition text-xs shadow-2xs">
               <span className="material-symbols-outlined text-[16px]">more_vert</span>
             </button>
           </div>
@@ -3036,7 +3036,7 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
             <select
               value={header.documentType}
               onChange={e => setHeader(h => ({ ...h, documentType: e.target.value }))}
-              className="border border-slate-300 rounded-lg px-2.5 h-7 bg-white outline-none focus:border-indigo-500 font-medium text-xs min-w-[140px]"
+              className="border border-slate-300 dark:border-slate-700 rounded-lg px-2.5 h-7 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 outline-none focus:border-indigo-500 font-medium text-xs min-w-[140px]"
             >
               <option>Purchase Order</option>
               <option>Indent</option>
@@ -3048,7 +3048,7 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
             <div
               id="sw-po-order-number-badge"
               title="Document number is assigned automatically. Contact your administrator to change the series."
-              className="inline-flex items-center gap-1.5 h-7 px-3 bg-slate-50 border border-slate-200 rounded-lg font-mono font-bold text-xs text-slate-700 select-all cursor-default"
+              className="inline-flex items-center gap-1.5 h-7 px-3 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-lg font-mono font-bold text-xs text-slate-700 dark:text-slate-200 select-all cursor-default"
             >
               <span className="material-symbols-outlined text-[13px] text-slate-400">tag</span>
               {header.prefix}-{header.orderNumber}
@@ -3068,7 +3068,7 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
                   deliveryDate: addDaysToDate(orderDate, h.leadTimeDays),
                 }));
               }}
-              className="border border-slate-300 rounded-lg px-2 h-7 bg-white font-mono outline-none focus:border-indigo-500 text-xs"
+              className="border border-slate-300 dark:border-slate-700 rounded-lg px-2 h-7 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 font-mono outline-none focus:border-indigo-500 text-xs"
             />
           </div>
           {/* Supplier — Proportionate max-w-md (448px) on desktop per Decision D */}
@@ -3116,7 +3116,7 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
               type="date"
               value={header.deliveryDate}
               onChange={e => setHeader(h => ({ ...h, deliveryDate: e.target.value }))}
-              className="border border-slate-300 rounded-lg px-2 h-7 bg-white font-mono outline-none focus:border-indigo-500 text-xs"
+              className="border border-slate-300 dark:border-slate-700 rounded-lg px-2 h-7 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 font-mono outline-none focus:border-indigo-500 text-xs"
             />
           </div>
           {/* Lead Time */}
@@ -3133,7 +3133,7 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
                   const leadTimeDays = Math.max(0, parseInt(e.target.value, 10) || 0);
                   setHeader(h => ({ ...h, leadTimeDays, deliveryDate: addDaysToDate(h.orderDate, leadTimeDays) }));
                 }}
-                className="border border-slate-300 rounded-lg px-2 h-7 w-14 bg-white font-semibold font-mono outline-none focus:border-indigo-500 text-xs"
+                className="border border-slate-300 dark:border-slate-700 rounded-lg px-2 h-7 w-14 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 font-semibold font-mono outline-none focus:border-indigo-500 text-xs"
               />
               <datalist id="sw-lead-time-opts">
                 {LEAD_TIME_OPTIONS.map(d => <option key={d} value={d} />)}
@@ -3148,18 +3148,18 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
               type="button"
               id="sw-open-commercial-drawer-btn"
               onClick={() => setShowCommercialDrawer(prev => !prev)}
-              className="flex items-center gap-1.5 h-7 px-3 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-700 font-bold rounded-lg transition text-xs shadow-2xs cursor-pointer"
+              className="flex items-center gap-1.5 h-7 px-3 bg-indigo-50 dark:bg-indigo-950/40 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 border border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-300 font-bold rounded-lg transition text-xs shadow-2xs cursor-pointer"
               title="Open Commercial & Delivery terms drawer (Alt+C)"
             >
               <span className="material-symbols-outlined text-[15px] text-indigo-600">receipt_long</span>
               <span>Terms & Delivery</span>
-              <kbd className="text-[9px] font-mono px-1 py-0.2 bg-indigo-200/60 text-indigo-800 rounded font-bold">Alt+C</kbd>
+              <kbd className="text-[9px] font-mono px-1 py-0.2 bg-indigo-200/60 dark:bg-indigo-900/60 text-indigo-800 dark:text-indigo-200 rounded font-bold">Alt+C</kbd>
             </button>
           </div>
         </div>
 
         {/* Sub-tabs */}
-        <nav className="flex items-center gap-6 mt-3 pt-2 border-t border-slate-100 text-xs">
+        <nav className="flex items-center gap-6 mt-3 pt-2 border-t border-slate-100 dark:border-slate-800 text-xs">
           {[
             { id: "items", label: `1. Items (${lines.filter(l => Boolean(l.itemCode)).length})`, icon: "list_alt" },
             { id: "visual", label: `2. Images & Articles (${lines.filter(l => Boolean(l.itemCode)).length})`, icon: "photo_library", isNew: true },
@@ -3173,8 +3173,8 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
               onClick={() => setActiveTab(tab.id as any)}
               className={`flex items-center gap-1.5 pb-1.5 font-semibold transition-all relative ${
                 activeTab === tab.id
-                  ? "text-indigo-600"
-                  : "text-slate-500 hover:text-slate-700"
+                  ? "text-indigo-600 dark:text-indigo-400"
+                  : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
               }`}
             >
               <span className="material-symbols-outlined text-[15px]">{tab.icon}</span>
@@ -3197,7 +3197,7 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
         <div className="flex flex-col flex-1 min-h-0">
 
           {/* ── Toolbar (7-Action Budget) ── */}
-          <div className="bg-white border-b border-slate-200 px-4 py-2 flex flex-wrap items-center gap-2 shrink-0">
+          <div className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-4 py-2 flex flex-wrap items-center gap-2 shrink-0">
             {/* 1. Scan / Search Barcode (F2) */}
             <div className="relative flex items-center min-w-[240px]">
               <span className="material-symbols-outlined absolute left-2.5 text-slate-400 text-[15px]">barcode_scanner</span>
@@ -3210,7 +3210,7 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
                   if (e.key === "Enter") { e.preventDefault(); handleBarcodeSearch(toolbarSearch); }
                 }}
                 placeholder="Scan Barcode / Search Item (F2)"
-                className="w-full pl-8 pr-8 py-1.5 bg-white border border-slate-300 rounded-lg text-xs outline-none focus:border-indigo-500 shadow-2xs"
+                className="w-full pl-8 pr-8 py-1.5 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-100 rounded-lg text-xs outline-none focus:border-indigo-500 shadow-2xs"
               />
               {toolbarSearch && (
                 <button type="button" onClick={() => setToolbarSearch("")} className="absolute right-2 text-slate-400 hover:text-slate-600 text-sm">×</button>
@@ -3221,7 +3221,7 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
             <button
               type="button"
               onClick={addBlankRow}
-              className="flex items-center gap-1 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 font-bold px-3 py-1.5 rounded-lg text-xs transition shadow-2xs"
+              className="flex items-center gap-1 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200 font-bold px-3 py-1.5 rounded-lg text-xs transition shadow-2xs"
             >
               <span className="material-symbols-outlined text-[16px] text-indigo-500">add</span>
               Add Item
@@ -3234,7 +3234,7 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
                 setInitialImportText(undefined);
                 setIsGlobalImportOpen(true);
               }}
-              className="flex items-center gap-1.5 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 font-bold px-3 py-1.5 rounded-lg text-xs transition shadow-2xs cursor-pointer"
+              className="flex items-center gap-1.5 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200 font-bold px-3 py-1.5 rounded-lg text-xs transition shadow-2xs cursor-pointer"
               title="Universal Grid Import (Excel Paste, CSV, PDT, Barcode Scanner)"
             >
               <span className="material-symbols-outlined text-[16px] text-emerald-600">table_view</span>
@@ -3243,14 +3243,14 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
             <input ref={excelInputRef} type="file" accept=".csv,.xlsx,.xls" onChange={handleExcelImport} className="hidden" />
 
             {/* 4. Size Scale Selector */}
-            <div className="flex items-center gap-1.5 bg-indigo-50/80 border border-indigo-200 px-2.5 py-1 rounded-lg">
+            <div className="flex items-center gap-1.5 bg-indigo-50/80 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800 px-2.5 py-1 rounded-lg">
               <span className="material-symbols-outlined text-[15px] text-indigo-600">straighten</span>
-              <span className="text-slate-600 font-bold text-xs whitespace-nowrap">Size Scale:</span>
+              <span className="text-slate-600 dark:text-slate-300 font-bold text-xs whitespace-nowrap">Size Scale:</span>
               <select
                 id="sw-size-scale-select"
                 value={selectedScaleKey}
                 onChange={e => handleScaleSelectChange(e.target.value)}
-                className="bg-white border border-indigo-200 rounded px-2 py-0.5 text-xs font-bold text-indigo-900 outline-none focus:border-indigo-500 shadow-2xs cursor-pointer"
+                className="bg-white dark:bg-slate-800 border border-indigo-200 dark:border-indigo-800 rounded px-2 py-0.5 text-xs font-bold text-indigo-900 dark:text-indigo-200 outline-none focus:border-indigo-500 shadow-2xs cursor-pointer"
               >
                 {Object.entries(SIZE_SCALE_PRESETS).map(([key, preset]) => (
                   <option key={key} value={key}>
@@ -3266,7 +3266,7 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
               <select
                 value={header.priceList}
                 onChange={e => setHeader(h => ({ ...h, priceList: e.target.value }))}
-                className="bg-white border border-slate-300 rounded-lg px-2.5 py-1 text-xs font-medium text-slate-700 outline-none focus:border-indigo-500 shadow-2xs"
+                className="bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-2.5 py-1 text-xs font-medium text-slate-700 dark:text-slate-200 outline-none focus:border-indigo-500 shadow-2xs"
               >
                 {PRICE_LIST_OPTIONS.map(pl => (
                   <option key={pl} value={pl}>{pl}</option>
@@ -3279,7 +3279,7 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
               type="button"
               disabled={lines.length === 0}
               onClick={() => requestDeleteRow(activeRowIndex)}
-              className="flex items-center gap-1.5 bg-white hover:bg-rose-50 border border-slate-300 hover:border-rose-300 text-slate-700 hover:text-rose-600 font-bold px-3 py-1.5 rounded-lg text-xs transition shadow-2xs disabled:opacity-40 disabled:hover:bg-white disabled:hover:text-slate-700 disabled:hover:border-slate-300"
+              className="flex items-center gap-1.5 bg-white dark:bg-slate-800 hover:bg-rose-50 dark:hover:bg-rose-950/40 border border-slate-300 dark:border-slate-600 hover:border-rose-300 dark:hover:border-rose-800 text-slate-700 dark:text-slate-200 hover:text-rose-600 dark:hover:text-rose-400 font-bold px-3 py-1.5 rounded-lg text-xs transition shadow-2xs disabled:opacity-40 disabled:hover:bg-white dark:disabled:hover:bg-slate-800 disabled:hover:text-slate-700 dark:disabled:hover:text-slate-200 disabled:hover:border-slate-300 dark:disabled:hover:border-slate-600"
             >
               <span className="material-symbols-outlined text-[16px]">delete_sweep</span>
               Delete Row
@@ -3292,7 +3292,7 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
                 id="sw-toolbar-recommend-btn"
                 disabled={lines.length === 0}
                 onClick={() => setBatchRecommendOpen(!batchRecommendOpen)}
-                className="flex items-center gap-1.5 bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-900 font-bold px-3 py-1.5 rounded-lg text-xs transition shadow-2xs disabled:opacity-40"
+                className="flex items-center gap-1.5 bg-amber-50 dark:bg-amber-950/40 hover:bg-amber-100 dark:hover:bg-amber-900/60 border border-amber-200 dark:border-amber-800 text-amber-900 dark:text-amber-200 font-bold px-3 py-1.5 rounded-lg text-xs transition shadow-2xs disabled:opacity-40"
                 title="Recommend Size Assortment Curves"
               >
                 <span className="material-symbols-outlined text-[16px] text-amber-600">auto_fix_high</span>
@@ -3301,7 +3301,7 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
               </button>
 
               {batchRecommendOpen && (
-                <div className="absolute left-0 top-full mt-1.5 w-56 bg-white border border-slate-200 rounded-xl shadow-xl py-1.5 z-40 text-xs animate-in fade-in zoom-in-95 duration-100">
+                <div className="absolute left-0 top-full mt-1.5 w-56 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl py-1.5 z-40 text-xs animate-in fade-in zoom-in-95 duration-100">
                   <div className="px-3 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
                     Select Curve Distribution
                   </div>
@@ -3309,7 +3309,7 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
                     type="button"
                     id="sw-recommend-curve-bell-btn"
                     onClick={() => handleApplyBatchRecommendation("bell")}
-                    className="w-full text-left px-3 py-2 text-slate-700 hover:bg-indigo-50 hover:text-indigo-700 flex items-center gap-2 font-medium transition cursor-pointer"
+                    className="w-full text-left px-3 py-2 text-slate-700 dark:text-slate-200 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 hover:text-indigo-700 dark:hover:text-indigo-300 flex items-center gap-2 font-medium transition cursor-pointer"
                   >
                     <span>🔔 Bell Curve (Standard Retail)</span>
                   </button>
@@ -3317,7 +3317,7 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
                     type="button"
                     id="sw-recommend-curve-core-btn"
                     onClick={() => handleApplyBatchRecommendation("core")}
-                    className="w-full text-left px-3 py-2 text-slate-700 hover:bg-indigo-50 hover:text-indigo-700 flex items-center gap-2 font-medium transition cursor-pointer"
+                    className="w-full text-left px-3 py-2 text-slate-700 dark:text-slate-200 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 hover:text-indigo-700 dark:hover:text-indigo-300 flex items-center gap-2 font-medium transition cursor-pointer"
                   >
                     <span>🎯 Core Sizes (Mid-heavy)</span>
                   </button>
@@ -3325,7 +3325,7 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
                     type="button"
                     id="sw-recommend-curve-uniform-btn"
                     onClick={() => handleApplyBatchRecommendation("uniform")}
-                    className="w-full text-left px-3 py-2 text-slate-700 hover:bg-indigo-50 hover:text-indigo-700 flex items-center gap-2 font-medium transition cursor-pointer"
+                    className="w-full text-left px-3 py-2 text-slate-700 dark:text-slate-200 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 hover:text-indigo-700 dark:hover:text-indigo-300 flex items-center gap-2 font-medium transition cursor-pointer"
                   >
                     <span>⚖️ Uniform (Equal per size)</span>
                   </button>
@@ -3336,21 +3336,21 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
             <div className="flex-1" />
 
             {/* View Mode Toggle: Article & Color vs Code & Desc */}
-            <div className="flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200">
+            <div className="flex items-center bg-slate-100 dark:bg-slate-800 p-0.5 rounded-lg border border-slate-200 dark:border-slate-700">
               <button
                 type="button"
                 id="sw-grid-mode-article-color-btn"
                 onClick={() => setGridDisplayMode("article_color")}
                 className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-bold transition cursor-pointer ${
                   gridDisplayMode === "article_color"
-                    ? "bg-white text-indigo-700 shadow-2xs border border-indigo-100"
-                    : "text-slate-600 hover:text-slate-900"
+                    ? "bg-white dark:bg-slate-900 text-indigo-700 dark:text-indigo-300 shadow-2xs border border-indigo-100 dark:border-slate-700"
+                    : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100"
                 }`}
                 title="Fashion & Footwear Mode: Show Article/Style and Color/Shade alongside Sizes"
               >
                 <span className="material-symbols-outlined text-[14px]">palette</span>
                 <span>Article &amp; Color</span>
-                <span className="text-[9px] bg-indigo-50 text-indigo-700 px-1 py-0.2 rounded font-extrabold uppercase tracking-wide">
+                <span className="text-[9px] bg-indigo-50 dark:bg-indigo-950/50 text-indigo-700 dark:text-indigo-300 px-1 py-0.2 rounded font-extrabold uppercase tracking-wide">
                   Recommended
                 </span>
               </button>
@@ -3360,8 +3360,8 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
                 onClick={() => setGridDisplayMode("item_code_desc")}
                 className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-bold transition cursor-pointer ${
                   gridDisplayMode === "item_code_desc"
-                    ? "bg-white text-indigo-700 shadow-2xs border border-indigo-100"
-                    : "text-slate-600 hover:text-slate-900"
+                    ? "bg-white dark:bg-slate-900 text-indigo-700 dark:text-indigo-300 shadow-2xs border border-indigo-100 dark:border-slate-700"
+                    : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100"
                 }`}
                 title="Standard SKU Mode: Show Item Code and Product Description"
               >
@@ -3376,7 +3376,7 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
                 type="button"
                 id="sw-toolbar-more-btn"
                 onClick={() => setShowMoreActions(prev => !prev)}
-                className="flex items-center gap-1 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 font-bold px-2.5 py-1.5 rounded-lg text-xs transition shadow-2xs"
+                className="flex items-center gap-1 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200 font-bold px-2.5 py-1.5 rounded-lg text-xs transition shadow-2xs"
                 title="More Actions"
               >
                 <span className="material-symbols-outlined text-[16px] text-slate-500">more_vert</span>
@@ -3384,11 +3384,11 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
               </button>
 
               {showMoreActions && (
-                <div className="absolute right-0 top-full mt-1.5 w-48 bg-white border border-slate-200 rounded-xl shadow-xl py-1.5 z-30 text-xs animate-in fade-in zoom-in-95 duration-100">
+                <div className="absolute right-0 top-full mt-1.5 w-48 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl py-1.5 z-30 text-xs animate-in fade-in zoom-in-95 duration-100">
                   <button
                     type="button"
                     onClick={requestCopyPreviousPO}
-                    className="w-full text-left px-3 py-2 text-slate-700 hover:bg-indigo-50 hover:text-indigo-600 flex items-center gap-2 font-medium transition"
+                    className="w-full text-left px-3 py-2 text-slate-700 dark:text-slate-200 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 hover:text-indigo-600 dark:hover:text-indigo-300 flex items-center gap-2 font-medium transition"
                   >
                     <span className="material-symbols-outlined text-[16px] text-blue-500">content_copy</span>
                     Copy Previous PO
@@ -3396,16 +3396,16 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
                   <button
                     type="button"
                     onClick={handleExportMatrixCSV}
-                    className="w-full text-left px-3 py-2 text-slate-700 hover:bg-indigo-50 hover:text-indigo-600 flex items-center gap-2 font-medium transition"
+                    className="w-full text-left px-3 py-2 text-slate-700 dark:text-slate-200 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 hover:text-indigo-600 dark:hover:text-indigo-300 flex items-center gap-2 font-medium transition"
                   >
                     <span className="material-symbols-outlined text-[16px] text-emerald-600">download</span>
                     Export Matrix to CSV
                   </button>
-                  <div className="my-1 border-t border-slate-100" />
+                  <div className="my-1 border-t border-slate-100 dark:border-slate-700" />
                   <button
                     type="button"
                     onClick={requestClearAllLines}
-                    className="w-full text-left px-3 py-2 text-rose-600 hover:bg-rose-50 flex items-center gap-2 font-medium transition"
+                    className="w-full text-left px-3 py-2 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 flex items-center gap-2 font-medium transition"
                   >
                     <span className="material-symbols-outlined text-[16px] text-rose-500">clear_all</span>
                     Clear All Rows
@@ -3435,11 +3435,11 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
             {/* Phase 1: Empty state — shown when no items have been added */}
             {lines.length === 0 && (
               <div className="flex flex-col items-center justify-center py-16 px-6 text-center select-none">
-                <div className="w-16 h-16 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center mb-4 shadow-sm">
+                <div className="w-16 h-16 rounded-2xl bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-100 dark:border-indigo-800 flex items-center justify-center mb-4 shadow-sm">
                   <span className="material-symbols-outlined text-indigo-400 text-[36px]">inventory_2</span>
                 </div>
-                <h3 className="text-sm font-bold text-slate-700 mb-1">No items added yet</h3>
-                <p className="text-xs text-slate-400 mb-5 max-w-xs">
+                <h3 className="text-sm font-bold text-slate-700 dark:text-slate-200 mb-1">No items added yet</h3>
+                <p className="text-xs text-slate-400 dark:text-slate-500 mb-5 max-w-xs">
                   Scan a barcode, search for an item, or paste from Excel (Ctrl+V) to start adding products.
                 </p>
                 <div className="flex flex-wrap items-center justify-center gap-2">
@@ -3457,7 +3457,7 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
                       setInitialImportText(undefined);
                       setIsGlobalImportOpen(true);
                     }}
-                    className="flex items-center gap-1.5 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 font-bold px-4 py-2 rounded-lg text-xs transition shadow-sm cursor-pointer"
+                    className="flex items-center gap-1.5 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200 font-bold px-4 py-2 rounded-lg text-xs transition shadow-sm cursor-pointer"
                     title="Universal Grid Import (Excel Paste, CSV, PDT, Barcode Scanner)"
                   >
                     <span className="material-symbols-outlined text-[16px] text-emerald-600">table_view</span>
@@ -3472,14 +3472,14 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
                       setActiveRowIndex(0);
                       f2Dispatcher.openLookup("variant", f2Adapter);
                     }}
-                    className="flex items-center gap-1.5 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 font-bold px-4 py-2 rounded-lg text-xs transition shadow-sm"
+                    className="flex items-center gap-1.5 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200 font-bold px-4 py-2 rounded-lg text-xs transition shadow-sm"
                   >
                     <span className="material-symbols-outlined text-[16px] text-indigo-500">manage_search</span>
                     F2 / Scan
                   </button>
                 </div>
                 <p className="text-[10px] text-slate-400 mt-3 flex items-center gap-1">
-                  <kbd className="px-1.5 py-0.5 bg-slate-100 border border-slate-300 rounded text-slate-500 font-mono text-[10px]">F2</kbd>
+                  <kbd className="px-1.5 py-0.5 bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded text-slate-500 dark:text-slate-400 font-mono text-[10px]">F2</kbd>
                   Press F2 on keyboard to open item search
                 </p>
               </div>
@@ -3490,24 +3490,24 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
               className={`w-full border-collapse text-xs min-w-[1100px] ${lines.length === 0 ? "hidden" : ""}`}
               id="sw-items-grid"
             >
-              <thead className="sticky top-0 z-10 bg-slate-100 text-slate-600 uppercase text-[10px] font-bold tracking-wider border-b border-slate-300">
+              <thead className="sticky top-0 z-10 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 uppercase text-[10px] font-bold tracking-wider border-b border-slate-300 dark:border-slate-700">
                 <tr>
-                  <th className="p-2 w-8 text-center border-r border-slate-200 bg-slate-200">#</th>
+                  <th className="p-2 w-8 text-center border-r border-slate-200 dark:border-slate-700 bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200">#</th>
                   {gridDisplayMode === "article_color" ? (
                     <>
-                      <th className="p-2 min-w-[120px] border-r border-slate-200">
+                      <th className="p-2 min-w-[120px] border-r border-slate-200 dark:border-slate-700">
                         Article / Style
                         <div className="text-[9px] text-slate-400 font-normal normal-case tracking-normal mt-0.5">Style / Model / SKU</div>
                       </th>
-                      <th className="p-2 min-w-[150px] border-r border-slate-200">
+                      <th className="p-2 min-w-[150px] border-r border-slate-200 dark:border-slate-700">
                         Color / Shade
                         <div className="text-[9px] text-slate-400 font-normal normal-case tracking-normal mt-0.5">Colorway / Finish / UOM</div>
                       </th>
                     </>
                   ) : (
                     <>
-                      <th className="p-2 min-w-[100px] border-r border-slate-200">Item Code</th>
-                      <th className="p-2 min-w-[180px] border-r border-slate-200">
+                      <th className="p-2 min-w-[100px] border-r border-slate-200 dark:border-slate-700">Item Code</th>
+                      <th className="p-2 min-w-[180px] border-r border-slate-200 dark:border-slate-700">
                         Product Description
                         <div className="text-[9px] text-slate-400 font-normal normal-case tracking-normal mt-0.5">Brand / Style / Shade</div>
                       </th>
@@ -3516,43 +3516,43 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
                   {/* Size columns group header */}
                   <th
                     colSpan={sizes.length + 1}
-                    className="p-1 text-center border-r border-slate-200 bg-indigo-50 text-indigo-700"
+                    className="p-1 text-center border-r border-slate-200 dark:border-slate-700 bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300"
                   >
                     Size-wise Order Quantity
                   </th>
-                  <th className="p-2 min-w-[80px] text-right border-r border-slate-200">Rate (₹)</th>
-                  <th className="p-2 min-w-[70px] text-right border-r border-slate-200">Stock On Hand</th>
-                  <th className="p-2 min-w-[55px] text-right border-r border-slate-200">Tax %</th>
-                  <th className="p-2 min-w-[90px] text-right border-r border-slate-200 bg-slate-50 font-bold text-slate-800">Net Value (₹)</th>
-                  <th className="p-2 min-w-[110px] text-center border-r border-slate-200">Delivery Date</th>
+                  <th className="p-2 min-w-[80px] text-right border-r border-slate-200 dark:border-slate-700">Rate (₹)</th>
+                  <th className="p-2 min-w-[70px] text-right border-r border-slate-200 dark:border-slate-700">Stock On Hand</th>
+                  <th className="p-2 min-w-[55px] text-right border-r border-slate-200 dark:border-slate-700">Tax %</th>
+                  <th className="p-2 min-w-[90px] text-right border-r border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/80 font-bold text-slate-800 dark:text-slate-100">Net Value (₹)</th>
+                  <th className="p-2 min-w-[110px] text-center border-r border-slate-200 dark:border-slate-700">Delivery Date</th>
                   <th className="p-2 min-w-[95px] text-center">Action</th>
                 </tr>
                 {/* Size sub-headers */}
-                <tr className="bg-indigo-50 border-b border-slate-200">
+                <tr className="bg-indigo-50 dark:bg-indigo-950/40 border-b border-slate-200 dark:border-slate-700">
                   {/* spacers for fixed left cols */}
-                  <td className="border-r border-slate-200 bg-slate-200" />
-                  <td className="border-r border-slate-200" />
-                  <td className="border-r border-slate-200" />
+                  <td className="border-r border-slate-200 dark:border-slate-700 bg-slate-200 dark:bg-slate-700" />
+                  <td className="border-r border-slate-200 dark:border-slate-700" />
+                  <td className="border-r border-slate-200 dark:border-slate-700" />
                   {/* size labels */}
                   {sizes.map(sz => (
-                    <th key={sz} className="p-1.5 text-center font-bold font-mono text-indigo-800 border-r border-slate-200 w-14 text-[11px]">
+                    <th key={sz} className="p-1.5 text-center font-bold font-mono text-indigo-800 dark:text-indigo-300 border-r border-slate-200 dark:border-slate-700 w-14 text-[11px]">
                       {sz}
                     </th>
                   ))}
-                  <th className="p-1.5 text-center font-bold text-indigo-800 border-r border-slate-200 text-[11px] bg-indigo-100">
+                  <th className="p-1.5 text-center font-bold text-indigo-800 dark:text-indigo-300 border-r border-slate-200 dark:border-slate-700 text-[11px] bg-indigo-100 dark:bg-indigo-900/60">
                     Total
                   </th>
                   {/* spacers for right cols */}
-                  <td className="border-r border-slate-200" />
-                  <td className="border-r border-slate-200" />
-                  <td className="border-r border-slate-200" />
-                  <td className="border-r border-slate-200 bg-slate-50" />
-                  <td className="border-r border-slate-200" />
+                  <td className="border-r border-slate-200 dark:border-slate-700" />
+                  <td className="border-r border-slate-200 dark:border-slate-700" />
+                  <td className="border-r border-slate-200 dark:border-slate-700" />
+                  <td className="border-r border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/80" />
+                  <td className="border-r border-slate-200 dark:border-slate-700" />
                   <td />
                 </tr>
               </thead>
 
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                 {groupedDisplayLines.map((group, idx) => {
                   const hasItem = !!(group.itemCode || group.articleNo || group.style);
                   const isActive = group.memberLineIndices.includes(activeRowIndex);
@@ -3562,21 +3562,21 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
                       onClick={() => setActiveRowIndex(group.primaryLineIndex)}
                       className={`transition-colors cursor-pointer ${
                         isActive
-                          ? "bg-indigo-50/70"
+                          ? "bg-indigo-50/70 dark:bg-indigo-950/50"
                           : hasItem
-                          ? "hover:bg-slate-50"
-                          : "hover:bg-slate-50/60 opacity-75 hover:opacity-100"
+                          ? "hover:bg-slate-50 dark:hover:bg-slate-800/60"
+                          : "hover:bg-slate-50/60 dark:hover:bg-slate-800/40 opacity-75 hover:opacity-100"
                       }`}
                     >
                       {/* # */}
-                      <td className="p-2 text-center text-slate-400 font-mono font-medium border-r border-slate-100 bg-slate-50/50 text-[11px]">
+                      <td className="p-2 text-center text-slate-400 dark:text-slate-500 font-mono font-medium border-r border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/40 text-[11px]">
                         {group.sNo}
                       </td>
 
                       {gridDisplayMode === "article_color" ? (
                         <>
                           {/* Col 2: Article / Style */}
-                          <td className="p-1 border-r border-slate-100">
+                          <td className="p-1 border-r border-slate-100 dark:border-slate-800">
                             <div className="flex items-center gap-1.5">
                               <button
                                 type="button"
@@ -3585,7 +3585,7 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
                                   e.stopPropagation();
                                   openImageModal(group.primaryLineIndex);
                                 }}
-                                className="w-7 h-7 rounded border border-slate-200 bg-slate-50 hover:border-indigo-500 flex items-center justify-center shrink-0 overflow-hidden group/thumb transition shadow-2xs cursor-pointer"
+                                className="w-7 h-7 rounded border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 hover:border-indigo-500 flex items-center justify-center shrink-0 overflow-hidden group/thumb transition shadow-2xs cursor-pointer"
                               >
                                 {group.imageUrl ? (
                                   <img
@@ -3612,7 +3612,7 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
                                   placeholder="Article (e.g. SH-03)"
                                   onFocus={() => setActiveRowIndex(group.primaryLineIndex)}
                                   onChange={e => handleGroupArticleChange(group, e.target.value)}
-                                  className="w-full bg-transparent border border-transparent hover:border-slate-300 focus:border-indigo-500 focus:bg-white rounded px-1.5 h-6 font-mono font-bold text-xs outline-none"
+                                  className="w-full bg-transparent border border-transparent hover:border-slate-300 dark:hover:border-slate-600 focus:border-indigo-500 focus:bg-white dark:focus:bg-slate-800 text-slate-800 dark:text-slate-100 rounded px-1.5 h-6 font-mono font-bold text-xs outline-none"
                                 />
                                 <div className="px-1 text-[9px] text-slate-400 font-mono truncate">
                                   {group.itemCode && group.itemCode !== (group.articleNo || group.style)
@@ -3624,7 +3624,7 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
                           </td>
 
                           {/* Col 3: Color / Shade */}
-                          <td className="p-1 border-r border-slate-100">
+                          <td className="p-1 border-r border-slate-100 dark:border-slate-800">
                             <div className="flex items-center gap-1.5 px-1">
                               <span
                                 className="w-3.5 h-3.5 rounded-full border border-slate-300 shrink-0 shadow-2xs"
@@ -3639,7 +3639,7 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
                                 placeholder="Color (e.g. CREAM)"
                                 onFocus={() => setActiveRowIndex(group.primaryLineIndex)}
                                 onChange={e => handleGroupColorChange(group, e.target.value)}
-                                className="w-full bg-transparent border border-transparent hover:border-slate-300 focus:border-indigo-500 focus:bg-white rounded px-1.5 h-6 font-semibold text-xs outline-none uppercase"
+                                className="w-full bg-transparent border border-transparent hover:border-slate-300 dark:hover:border-slate-600 focus:border-indigo-500 focus:bg-white dark:focus:bg-slate-800 text-slate-800 dark:text-slate-100 rounded px-1.5 h-6 font-semibold text-xs outline-none uppercase"
                               />
                               <datalist id={`sw-colors-list-${idx}`}>
                                 {getAvailableColorsForArticle(articleCatalogIndex, group.articleNo || group.style).map(col => (
@@ -3647,7 +3647,7 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
                                 ))}
                               </datalist>
                               {group.unit && (
-                                <span className="font-mono text-indigo-700 font-bold uppercase text-[9px] bg-indigo-50 border border-indigo-100 px-1 py-0.5 rounded shrink-0">
+                                <span className="font-mono text-indigo-700 dark:text-indigo-300 font-bold uppercase text-[9px] bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-100 dark:border-indigo-800 px-1 py-0.5 rounded shrink-0">
                                   {group.unit}
                                 </span>
                               )}
@@ -3660,7 +3660,7 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
                       ) : (
                         <>
                           {/* Col 2: Item Code */}
-                          <td className="p-1 border-r border-slate-100">
+                          <td className="p-1 border-r border-slate-100 dark:border-slate-800">
                             <div className="flex items-center gap-1.5">
                               <button
                                 type="button"
@@ -3669,7 +3669,7 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
                                   e.stopPropagation();
                                   openImageModal(group.primaryLineIndex);
                                 }}
-                                className="w-7 h-7 rounded border border-slate-200 bg-slate-50 hover:border-indigo-500 flex items-center justify-center shrink-0 overflow-hidden group/thumb transition shadow-2xs cursor-pointer"
+                                className="w-7 h-7 rounded border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 hover:border-indigo-500 flex items-center justify-center shrink-0 overflow-hidden group/thumb transition shadow-2xs cursor-pointer"
                               >
                                 {group.imageUrl ? (
                                   <img
@@ -3695,13 +3695,13 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
                                 placeholder="F2 / Scan"
                                 onFocus={() => setActiveRowIndex(group.primaryLineIndex)}
                                 onChange={e => handleGroupArticleChange(group, e.target.value)}
-                                className="w-full bg-transparent border border-transparent hover:border-slate-300 focus:border-indigo-500 focus:bg-white rounded px-1.5 h-7 font-mono font-bold text-xs outline-none"
+                                className="w-full bg-transparent border border-transparent hover:border-slate-300 dark:hover:border-slate-600 focus:border-indigo-500 focus:bg-white dark:focus:bg-slate-800 text-slate-800 dark:text-slate-100 rounded px-1.5 h-7 font-mono font-bold text-xs outline-none"
                               />
                             </div>
                           </td>
 
                           {/* Col 3: Product Description */}
-                          <td className="p-1 border-r border-slate-100">
+                          <td className="p-1 border-r border-slate-100 dark:border-slate-800">
                             <input
                               type="text"
                               value={group.product}
@@ -3713,12 +3713,12 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
                                   prev.map((l, i) => group.memberLineIndices.includes(i) ? { ...l, product: newProd } : l)
                                 );
                               }}
-                              className="w-full bg-transparent border border-transparent hover:border-slate-300 focus:border-indigo-500 focus:bg-white rounded px-2 h-6 font-medium text-xs outline-none"
+                              className="w-full bg-transparent border border-transparent hover:border-slate-300 dark:hover:border-slate-600 focus:border-indigo-500 focus:bg-white dark:focus:bg-slate-800 text-slate-800 dark:text-slate-100 rounded px-2 h-6 font-medium text-xs outline-none"
                             />
                             <div className="px-2 text-[10px] text-slate-400 leading-tight truncate flex items-center justify-between">
                               <span className="truncate flex items-center gap-1.5">
                                 {group.shade && (
-                                  <span className="inline-flex items-center gap-1 font-bold text-slate-700 bg-amber-50 border border-amber-200 px-1 py-0.2 rounded text-[9px]">
+                                  <span className="inline-flex items-center gap-1 font-bold text-slate-700 dark:text-slate-200 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 px-1 py-0.2 rounded text-[9px]">
                                     <span className="w-1.5 h-1.5 rounded-full inline-block" style={{ backgroundColor: getShadeHex(group.shade) }} />
                                     {group.shade}
                                   </span>
@@ -3726,7 +3726,7 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
                                 {[group.brand, group.style].filter(Boolean).join(" / ") || (!group.shade && <span className="italic">Brand / Style</span>)}
                               </span>
                               {group.unit && (
-                                <span className="font-mono text-indigo-700 font-bold uppercase text-[9px] bg-indigo-50 border border-indigo-100 px-1.5 py-0.5 rounded ml-1 shrink-0">
+                                <span className="font-mono text-indigo-700 dark:text-indigo-300 font-bold uppercase text-[9px] bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-100 dark:border-indigo-800 px-1.5 py-0.5 rounded ml-1 shrink-0">
                                   {group.unit}
                                 </span>
                               )}
@@ -3744,7 +3744,7 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
                         const isSizeAvailable = !art || !group.shade || availableSizes.length === 0 || availableSizes.includes(sz);
 
                         return (
-                          <td key={sz} className="p-0 border-r border-slate-100 text-center w-14">
+                          <td key={sz} className="p-0 border-r border-slate-100 dark:border-slate-800 text-center w-14">
                             <input
                               type="number"
                               min="0"
@@ -3757,10 +3757,10 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
                               onChange={e => handleGroupSizeQtyChange(group, sz, parseInt(e.target.value, 10) || 0)}
                               className={`w-full border-none text-center h-8 font-mono font-bold text-xs outline-none ${
                                 !isSizeAvailable
-                                  ? "bg-slate-100/70 text-slate-300 cursor-not-allowed select-none"
+                                  ? "bg-slate-100/70 dark:bg-slate-800/50 text-slate-300 dark:text-slate-600 cursor-not-allowed select-none"
                                   : (group.sizeQuantities[sz] || 0) > 0
-                                  ? "bg-transparent text-indigo-700 focus:bg-indigo-50"
-                                  : "bg-transparent text-slate-300 focus:bg-indigo-50"
+                                  ? "bg-transparent text-indigo-700 dark:text-indigo-300 focus:bg-indigo-50 dark:focus:bg-indigo-950/50"
+                                  : "bg-transparent text-slate-300 dark:text-slate-600 focus:bg-indigo-50 dark:focus:bg-indigo-950/50"
                               }`}
                             />
                           </td>
@@ -3768,7 +3768,7 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
                       })}
 
                       {/* Total Qty */}
-                      <td className="p-2 text-center font-mono font-extrabold text-indigo-600 bg-indigo-50/60 border-r border-slate-100 text-sm">
+                      <td className="p-2 text-center font-mono font-extrabold text-indigo-600 dark:text-indigo-300 bg-indigo-50/60 dark:bg-indigo-950/40 border-r border-slate-100 dark:border-slate-800 text-sm">
                         {group.totalQty || "–"}
                       </td>
 
@@ -3782,12 +3782,12 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
                           placeholder="0.00"
                           onFocus={() => setActiveRowIndex(group.primaryLineIndex)}
                           onChange={e => handleGroupRateChange(group, parseFloat(e.target.value) || 0)}
-                          className="w-full bg-transparent border border-transparent hover:border-slate-300 focus:border-indigo-500 focus:bg-white rounded px-2 h-7 font-mono font-bold text-xs text-right outline-none"
+                          className="w-full bg-transparent border border-transparent hover:border-slate-300 dark:hover:border-slate-600 focus:border-indigo-500 focus:bg-white dark:focus:bg-slate-800 text-slate-800 dark:text-slate-100 rounded px-2 h-7 font-mono font-bold text-xs text-right outline-none"
                         />
                       </td>
 
                       {/* Stock On Hand */}
-                      <td className="p-2 text-right font-mono text-slate-500 border-r border-slate-100 text-[11px]">
+                      <td className="p-2 text-right font-mono text-slate-500 dark:text-slate-400 border-r border-slate-100 dark:border-slate-800 text-[11px]">
                         {group.stockOnHand > 0 ? group.stockOnHand.toLocaleString("en-IN") : "–"}
                       </td>
 
@@ -3799,12 +3799,12 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
                           value={group.taxPercent ?? 18}
                           onFocus={() => setActiveRowIndex(group.primaryLineIndex)}
                           onChange={e => handleGroupTaxChange(group, parseFloat(e.target.value) || 0)}
-                          className="w-full bg-transparent border-none text-right px-1 h-6 font-mono text-xs outline-none"
+                          className="w-full bg-transparent border-none text-right px-1 h-6 font-mono text-xs text-slate-800 dark:text-slate-100 outline-none"
                         />
                       </td>
 
                       {/* Net Value */}
-                      <td className="p-2 px-3 text-right font-mono font-bold text-slate-800 bg-slate-50/50 border-r border-slate-100">
+                      <td className="p-2 px-3 text-right font-mono font-bold text-slate-800 dark:text-slate-100 bg-slate-50/50 dark:bg-slate-800/40 border-r border-slate-100 dark:border-slate-800">
                         {group.netValue > 0
                           ? group.netValue.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
                           : "–"}
@@ -3817,7 +3817,7 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
                           value={group.deliveryDate}
                           onFocus={() => setActiveRowIndex(group.primaryLineIndex)}
                           onChange={e => handleGroupDeliveryDateChange(group, e.target.value)}
-                          className="w-full bg-transparent border-none text-center h-6 font-mono text-[10px] outline-none focus:bg-indigo-50 rounded"
+                          className="w-full bg-transparent border-none text-center h-6 font-mono text-[10px] text-slate-800 dark:text-slate-100 outline-none focus:bg-indigo-50 dark:focus:bg-indigo-950/40 rounded"
                         />
                       </td>
 
@@ -3833,7 +3833,7 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
                                 e.stopPropagation();
                                 handleApplyRecommendationToGroup(group, "bell");
                               }}
-                              className="flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] font-bold border border-amber-300 text-amber-700 bg-amber-50/50 hover:bg-amber-100 rounded-lg transition cursor-pointer"
+                              className="flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] font-bold border border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-300 bg-amber-50/50 dark:bg-amber-950/40 hover:bg-amber-100 dark:hover:bg-amber-900/60 rounded-lg transition cursor-pointer"
                             >
                               <span className="material-symbols-outlined text-[12px] text-amber-600">auto_fix_high</span>
                               Ratio
@@ -3842,7 +3842,7 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
                               type="button"
                               title="Change item"
                               onClick={e => { e.stopPropagation(); setActiveRowIndex(group.primaryLineIndex); setShowBrowseModal(true); }}
-                              className="flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] font-bold border border-indigo-300 text-indigo-600 hover:bg-indigo-50 rounded-lg transition cursor-pointer"
+                              className="flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] font-bold border border-indigo-300 dark:border-indigo-700 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 rounded-lg transition cursor-pointer"
                             >
                               <span className="material-symbols-outlined text-[13px]">visibility</span>
                               View
@@ -3866,9 +3866,9 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
                 })}
 
                 {/* Footer totals row */}
-                <tr className="bg-indigo-100/70 border-t-2 border-indigo-300 font-bold">
-                  <td className="p-2 text-center text-slate-500 border-r border-indigo-200" />
-                  <td className="p-2 border-r border-indigo-200">
+                <tr className="bg-indigo-100/70 dark:bg-indigo-950/70 border-t-2 border-indigo-300 dark:border-indigo-700 font-bold">
+                  <td className="p-2 text-center text-slate-500 dark:text-slate-400 border-r border-indigo-200 dark:border-indigo-800" />
+                  <td className="p-2 border-r border-indigo-200 dark:border-indigo-800">
                     <button
                       type="button"
                       onClick={addBlankRow}
@@ -3878,21 +3878,21 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
                       Add Item
                     </button>
                   </td>
-                  <td className="p-2 text-right font-bold text-slate-700 border-r border-indigo-200">
+                  <td className="p-2 text-right font-bold text-slate-700 dark:text-slate-200 border-r border-indigo-200 dark:border-indigo-800">
                     Total Qty
                   </td>
                   {sizes.map(sz => (
-                    <td key={sz} className="p-2 text-center font-mono font-extrabold text-indigo-800 border-r border-indigo-200 text-sm">
+                    <td key={sz} className="p-2 text-center font-mono font-extrabold text-indigo-800 dark:text-indigo-300 border-r border-indigo-200 dark:border-indigo-800 text-sm">
                       {perSizeTotals[sz] || 0}
                     </td>
                   ))}
                   {/* Grand Total */}
-                  <td className="p-2 text-center font-mono font-extrabold text-indigo-900 bg-indigo-200 border-r border-indigo-300 text-base">
+                  <td className="p-2 text-center font-mono font-extrabold text-indigo-900 dark:text-indigo-200 bg-indigo-200 dark:bg-indigo-900 border-r border-indigo-300 dark:border-indigo-700 text-base">
                     {grandTotalQty}
                   </td>
-                  <td colSpan={5} className="p-2 text-right text-indigo-700 border-r border-indigo-200 text-xs pr-3">
+                  <td colSpan={5} className="p-2 text-right text-indigo-700 dark:text-indigo-300 border-r border-indigo-200 dark:border-indigo-800 text-xs pr-3">
                     Net Order Value:&nbsp;
-                    <span className="text-indigo-900 font-extrabold text-base">
+                    <span className="text-indigo-900 dark:text-indigo-200 font-extrabold text-base">
                       ₹{netOrderValue.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </span>
                   </td>
@@ -3903,47 +3903,47 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
           </div>
 
           {/* ── Bottom panels ── */}
-          <div className="bg-slate-50 border-t border-slate-200 px-5 py-4 shrink-0">
+          <div className="bg-slate-50 dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 px-5 py-4 shrink-0">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
 
               {/* Panel 1: Size-wise Summary */}
-              <div className="bg-white rounded-xl border border-slate-200 shadow-2xs p-4">
-                <div className="flex items-center gap-2 mb-3 pb-2 border-b border-slate-100">
+              <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-2xs p-4">
+                <div className="flex items-center gap-2 mb-3 pb-2 border-b border-slate-100 dark:border-slate-700">
                   <span className="material-symbols-outlined text-indigo-600 text-[18px]">bar_chart</span>
-                  <h3 className="font-bold text-slate-800 text-xs uppercase tracking-wider">
+                  <h3 className="font-bold text-slate-800 dark:text-slate-100 text-xs uppercase tracking-wider">
                     Size-wise Summary (All Items)
                   </h3>
                 </div>
                 <table className="w-full text-xs">
                   <thead>
-                    <tr className="text-slate-500 font-semibold">
+                    <tr className="text-slate-500 dark:text-slate-400 font-semibold">
                       <td className="py-1">Size</td>
                       {sizes.map(sz => (
                         <td key={sz} className="py-1 text-center font-mono font-bold text-indigo-700">{sz}</td>
                       ))}
-                      <td className="py-1 text-center font-bold text-slate-700">Total</td>
+                      <td className="py-1 text-center font-bold text-slate-700 dark:text-slate-200">Total</td>
                     </tr>
                   </thead>
                   <tbody>
-                    <tr className="border-t border-slate-100">
-                      <td className="py-1.5 text-slate-500 font-medium">Total Qty</td>
+                    <tr className="border-t border-slate-100 dark:border-slate-700">
+                      <td className="py-1.5 text-slate-500 dark:text-slate-400 font-medium">Total Qty</td>
                       {sizes.map(sz => (
-                        <td key={sz} className="py-1.5 text-center font-mono font-bold text-slate-800">
+                        <td key={sz} className="py-1.5 text-center font-mono font-bold text-slate-800 dark:text-slate-100">
                           {perSizeTotals[sz] || 0}
                         </td>
                       ))}
-                      <td className="py-1.5 text-center font-mono font-extrabold text-indigo-700 text-sm">
+                      <td className="py-1.5 text-center font-mono font-extrabold text-indigo-700 dark:text-indigo-300 text-sm">
                         {grandTotalQty}
                       </td>
                     </tr>
-                    <tr className="border-t border-slate-100">
-                      <td className="py-1.5 text-slate-500 font-medium align-top">% of Total</td>
+                    <tr className="border-t border-slate-100 dark:border-slate-700">
+                      <td className="py-1.5 text-slate-500 dark:text-slate-400 font-medium align-top">% of Total</td>
                       {sizes.map(sz => {
                         const pctNum = parseFloat(sizePercents[sz]) || 0;
                         return (
                           <td key={sz} className="py-1.5 text-center font-mono text-slate-600 text-[11px] align-top">
                             <div>{sizePercents[sz]}</div>
-                            <div className="w-full bg-slate-100 rounded-full h-1.5 mt-1 overflow-hidden" title={`${sz}: ${sizePercents[sz]}`}>
+                            <div className="w-full bg-slate-100 dark:bg-slate-700 rounded-full h-1.5 mt-1 overflow-hidden" title={`${sz}: ${sizePercents[sz]}`}>
                               <div
                                 className="bg-indigo-500 h-full rounded-full transition-all duration-300"
                                 style={{ width: `${Math.min(100, pctNum)}%` }}
@@ -3952,10 +3952,10 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
                           </td>
                         );
                       })}
-                      <td className="py-1.5 text-center font-mono font-bold text-slate-700 align-top">
+                      <td className="py-1.5 text-center font-mono font-bold text-slate-700 dark:text-slate-200 align-top">
                         <div>100%</div>
-                        <div className="w-full bg-slate-100 rounded-full h-1.5 mt-1 overflow-hidden">
-                          <div className="bg-slate-400 h-full rounded-full w-full" />
+                        <div className="w-full bg-slate-100 dark:bg-slate-700 rounded-full h-1.5 mt-1 overflow-hidden">
+                          <div className="bg-slate-400 dark:bg-slate-500 h-full rounded-full w-full" />
                         </div>
                       </td>
                     </tr>
@@ -3963,13 +3963,13 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
                 </table>
 
                 {/* Visual Ratio Presets & Assortment Curves */}
-                <div className="mt-3 pt-2.5 border-t border-slate-100">
+                <div className="mt-3 pt-2.5 border-t border-slate-100 dark:border-slate-700">
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider flex items-center gap-1">
                       <span className="material-symbols-outlined text-[13px] text-indigo-500">tune</span>
                       Assortment Ratio Presets
                     </span>
-                    <span className="font-mono text-[10px] text-indigo-700 font-bold bg-indigo-50 border border-indigo-100 px-1.5 py-0.5 rounded">
+                    <span className="font-mono text-[10px] text-indigo-700 dark:text-indigo-300 font-bold bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-100 dark:border-indigo-800 px-1.5 py-0.5 rounded">
                       Live Ratio: {grandTotalQty > 0 ? getSimplifiedRatioString(sizes, perSizeTotals) : "—"}
                     </span>
                   </div>
@@ -3978,7 +3978,7 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
                       type="button"
                       id="sw-footer-ratio-bell-btn"
                       onClick={() => handleApplyBatchRecommendation("bell")}
-                      className="px-2 py-1 bg-slate-50 hover:bg-indigo-50 text-slate-700 hover:text-indigo-700 border border-slate-200 hover:border-indigo-200 rounded-md text-[10px] font-semibold transition flex items-center gap-1 cursor-pointer"
+                      className="px-2 py-1 bg-slate-50 dark:bg-slate-700/60 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 text-slate-700 dark:text-slate-200 hover:text-indigo-700 dark:hover:text-indigo-300 border border-slate-200 dark:border-slate-600 hover:border-indigo-200 dark:hover:border-indigo-700 rounded-md text-[10px] font-semibold transition flex items-center gap-1 cursor-pointer"
                       title="Apply Gaussian Bell curve (peaking in central core sizes) to all active lines"
                     >
                       <span className="w-1.5 h-1.5 rounded-full bg-indigo-500"></span>
@@ -3988,7 +3988,7 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
                       type="button"
                       id="sw-footer-ratio-core-btn"
                       onClick={() => handleApplyBatchRecommendation("core")}
-                      className="px-2 py-1 bg-slate-50 hover:bg-indigo-50 text-slate-700 hover:text-indigo-700 border border-slate-200 hover:border-indigo-200 rounded-md text-[10px] font-semibold transition flex items-center gap-1 cursor-pointer"
+                      className="px-2 py-1 bg-slate-50 dark:bg-slate-700/60 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 text-slate-700 dark:text-slate-200 hover:text-indigo-700 dark:hover:text-indigo-300 border border-slate-200 dark:border-slate-600 hover:border-indigo-200 dark:hover:border-indigo-700 rounded-md text-[10px] font-semibold transition flex items-center gap-1 cursor-pointer"
                       title="Apply Core Sizes curve (heavier emphasis on 40-60% size range) to all active lines"
                     >
                       <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
@@ -3998,7 +3998,7 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
                       type="button"
                       id="sw-footer-ratio-uniform-btn"
                       onClick={() => handleApplyBatchRecommendation("uniform")}
-                      className="px-2 py-1 bg-slate-50 hover:bg-indigo-50 text-slate-700 hover:text-indigo-700 border border-slate-200 hover:border-indigo-200 rounded-md text-[10px] font-semibold transition flex items-center gap-1 cursor-pointer"
+                      className="px-2 py-1 bg-slate-50 dark:bg-slate-700/60 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 text-slate-700 dark:text-slate-200 hover:text-indigo-700 dark:hover:text-indigo-300 border border-slate-200 dark:border-slate-600 hover:border-indigo-200 dark:hover:border-indigo-700 rounded-md text-[10px] font-semibold transition flex items-center gap-1 cursor-pointer"
                       title="Apply Uniform Flat curve (equal distribution across all sizes) to all active lines"
                     >
                       <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
@@ -4009,10 +4009,10 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
               </div>
 
               {/* Panel 2: Item Summary */}
-              <div className="bg-white rounded-xl border border-slate-200 shadow-2xs p-4">
-                <div className="flex items-center gap-2 mb-3 pb-2 border-b border-slate-100">
+              <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-2xs p-4">
+                <div className="flex items-center gap-2 mb-3 pb-2 border-b border-slate-100 dark:border-slate-700">
                   <span className="material-symbols-outlined text-indigo-600 text-[18px]">calculate</span>
-                  <h3 className="font-bold text-slate-800 text-xs uppercase tracking-wider">Item Summary</h3>
+                  <h3 className="font-bold text-slate-800 dark:text-slate-100 text-xs uppercase tracking-wider">Item Summary</h3>
                 </div>
                 <div className="space-y-2">
                   {[
@@ -4032,9 +4032,9 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
                       <span className="font-mono font-bold text-slate-800">{value}</span>
                     </div>
                   ))}
-                  <div className="flex items-center justify-between pt-2 border-t border-slate-100 bg-yellow-50/80 px-2 py-1.5 rounded-lg">
-                    <span className="font-bold text-slate-800">Net PO Value (₹)</span>
-                    <span className="font-extrabold text-indigo-700 text-base font-mono">
+                  <div className="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-slate-700 bg-yellow-50/80 dark:bg-amber-950/40 border border-transparent dark:border-amber-800/60 px-2 py-1.5 rounded-lg">
+                    <span className="font-bold text-slate-800 dark:text-slate-100">Net PO Value (₹)</span>
+                    <span className="font-extrabold text-indigo-700 dark:text-indigo-300 text-base font-mono">
                       ₹{netOrderValue.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </span>
                   </div>
@@ -4042,17 +4042,17 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
               </div>
 
               {/* Panel 3: Remarks */}
-              <div className="bg-white rounded-xl border border-slate-200 shadow-2xs p-4 flex flex-col">
-                <div className="flex items-center gap-2 mb-3 pb-2 border-b border-slate-100">
+              <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-2xs p-4 flex flex-col">
+                <div className="flex items-center gap-2 mb-3 pb-2 border-b border-slate-100 dark:border-slate-700">
                   <span className="material-symbols-outlined text-indigo-600 text-[18px]">edit_note</span>
-                  <h3 className="font-bold text-slate-800 text-xs uppercase tracking-wider">Remarks</h3>
+                  <h3 className="font-bold text-slate-800 dark:text-slate-100 text-xs uppercase tracking-wider">Remarks</h3>
                 </div>
                 <textarea
                   rows={3}
                   value={header.remarks}
                   onChange={e => setHeader(h => ({ ...h, remarks: e.target.value }))}
                   placeholder="Add remarks for supplier (e.g. Regular Purchase for Q1 stock)"
-                  className="flex-1 border border-slate-200 rounded-lg p-2 bg-slate-50/50 outline-none focus:border-indigo-500 text-xs resize-none"
+                  className="flex-1 border border-slate-200 dark:border-slate-700 rounded-lg p-2 bg-slate-50/50 dark:bg-slate-900/60 text-slate-800 dark:text-slate-100 outline-none focus:border-indigo-500 text-xs resize-none"
                 />
                 <div className="mt-2">
                   <label className="block text-[10px] text-slate-400 font-medium mb-1">Internal Notes (Not Printed)</label>
@@ -4061,7 +4061,7 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
                     value={header.internalNotes}
                     onChange={e => setHeader(h => ({ ...h, internalNotes: e.target.value }))}
                     placeholder="Internal notes visible only to staff"
-                    className="w-full border border-slate-200 rounded-lg p-2 bg-slate-50/50 outline-none focus:border-indigo-500 text-xs resize-none text-slate-500 italic"
+                    className="w-full border border-slate-200 dark:border-slate-700 rounded-lg p-2 bg-slate-50/50 dark:bg-slate-900/60 text-slate-500 dark:text-slate-400 outline-none focus:border-indigo-500 text-xs resize-none italic"
                   />
                 </div>
               </div>
@@ -4111,7 +4111,7 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
               handleProcessBatchFiles(e.dataTransfer.files);
             }
           }}
-          className="relative flex flex-col flex-1 min-h-0 bg-slate-50/50"
+          className="relative flex flex-col flex-1 min-h-0 bg-slate-50/50 dark:bg-slate-900/50"
         >
           {/* Frosted Drag-and-Drop Overlay */}
           {batchUploadState.isDragging && (
@@ -4126,9 +4126,9 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
             </div>
           )}
           {/* Visual Tab Header & View Toggles */}
-          <div className="bg-white border-b border-slate-200 px-4 py-2.5 flex flex-wrap items-center justify-between gap-3 shrink-0">
+          <div className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-4 py-2.5 flex flex-wrap items-center justify-between gap-3 shrink-0">
             <div>
-              <h2 className="text-xs font-black uppercase tracking-wider text-slate-900 flex items-center gap-2">
+              <h2 className="text-xs font-black uppercase tracking-wider text-slate-900 dark:text-slate-100 flex items-center gap-2">
                 <span className="material-symbols-outlined text-indigo-600 text-[18px]">photo_library</span>
                 <span>Product Images & Articles</span>
                 <span className="text-[10px] text-slate-400 font-normal normal-case">
@@ -4138,7 +4138,7 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
             </div>
 
             <div className="flex items-center gap-2">
-              <div className="flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200 text-xs">
+              <div className="flex items-center bg-slate-100 dark:bg-slate-800 p-0.5 rounded-lg border border-slate-200 dark:border-slate-700 text-xs">
                 <button
                   type="button"
                   id="sw-visual-view-card-btn"
@@ -4146,7 +4146,7 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
                   className={`flex items-center gap-1 px-3 py-1 rounded-md font-bold transition ${
                     visualViewMode === "card"
                       ? "bg-indigo-600 text-white shadow-xs"
-                      : "text-slate-600 hover:text-slate-900"
+                      : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100"
                   }`}
                 >
                   <span className="material-symbols-outlined text-[15px]">grid_view</span>
@@ -4159,7 +4159,7 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
                   className={`flex items-center gap-1 px-3 py-1 rounded-md font-bold transition ${
                     visualViewMode === "table"
                       ? "bg-indigo-600 text-white shadow-xs"
-                      : "text-slate-600 hover:text-slate-900"
+                      : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100"
                   }`}
                 >
                   <span className="material-symbols-outlined text-[15px]">table_rows</span>
@@ -4170,7 +4170,7 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
           </div>
 
           {/* Action Strip */}
-          <div className="bg-white border-b border-slate-200 px-4 py-2 flex flex-wrap items-center gap-2 shrink-0">
+          <div className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-4 py-2 flex flex-wrap items-center gap-2 shrink-0">
             {/* Search Bar */}
             <div className="relative flex items-center min-w-[240px]">
               <span className="material-symbols-outlined absolute left-2.5 text-slate-400 text-[15px]">search</span>
@@ -4179,7 +4179,7 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
                 value={visualSearch}
                 onChange={e => setVisualSearch(e.target.value)}
                 placeholder="Search Item (F2) / Scan Barcode"
-                className="w-full pl-8 pr-7 py-1.5 bg-white border border-slate-300 rounded-lg text-xs outline-none focus:border-indigo-500 shadow-2xs"
+                className="w-full pl-8 pr-7 py-1.5 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-100 rounded-lg text-xs outline-none focus:border-indigo-500 shadow-2xs"
               />
               {visualSearch && (
                 <button type="button" onClick={() => setVisualSearch("")} className="absolute right-2 text-slate-400 hover:text-slate-600 text-sm">×</button>
@@ -4190,7 +4190,7 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
             <button
               type="button"
               onClick={addBlankRow}
-              className="flex items-center gap-1 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 font-bold px-3 py-1.5 rounded-lg text-xs transition shadow-2xs"
+              className="flex items-center gap-1 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200 font-bold px-3 py-1.5 rounded-lg text-xs transition shadow-2xs"
             >
               <span className="material-symbols-outlined text-[16px] text-indigo-500">add</span>
               Add Item
@@ -4203,7 +4203,7 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
                 setInitialImportText(undefined);
                 setIsGlobalImportOpen(true);
               }}
-              className="flex items-center gap-1.5 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 font-bold px-3 py-1.5 rounded-lg text-xs transition shadow-2xs cursor-pointer"
+              className="flex items-center gap-1.5 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200 font-bold px-3 py-1.5 rounded-lg text-xs transition shadow-2xs cursor-pointer"
               title="Universal Grid Import (Excel Paste, CSV, PDT, Barcode Scanner)"
             >
               <span className="material-symbols-outlined text-[16px] text-emerald-600">table_view</span>
@@ -4252,7 +4252,7 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
                 type="button"
                 id="sw-bulk-recommend-btn"
                 onClick={() => setBatchRecommendOpen(!batchRecommendOpen)}
-                className="flex items-center gap-1.5 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-800 font-bold px-3 py-1.5 rounded-lg text-xs transition shadow-2xs"
+                className="flex items-center gap-1.5 bg-indigo-50 dark:bg-indigo-950/40 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 border border-indigo-200 dark:border-indigo-800 text-indigo-800 dark:text-indigo-200 font-bold px-3 py-1.5 rounded-lg text-xs transition shadow-2xs"
               >
                 <span className="material-symbols-outlined text-[16px] text-amber-500">auto_fix_high</span>
                 Bulk Recommend
@@ -4260,28 +4260,28 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
               </button>
 
               {batchRecommendOpen && (
-                <div className="absolute left-0 top-full mt-1.5 w-56 bg-white border border-slate-200 rounded-xl shadow-xl py-1.5 z-40 text-xs animate-in fade-in zoom-in-95 duration-100">
-                  <div className="px-3 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                <div className="absolute left-0 top-full mt-1.5 w-56 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl py-1.5 z-40 text-xs animate-in fade-in zoom-in-95 duration-100">
+                  <div className="px-3 py-1 text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
                     Select Curve Distribution
                   </div>
                   <button
                     type="button"
                     onClick={() => handleApplyBatchRecommendation("bell")}
-                    className="w-full text-left px-3 py-2 text-slate-700 hover:bg-indigo-50 hover:text-indigo-700 flex items-center gap-2 font-medium transition"
+                    className="w-full text-left px-3 py-2 text-slate-700 dark:text-slate-200 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 hover:text-indigo-700 dark:hover:text-indigo-300 flex items-center gap-2 font-medium transition"
                   >
                     <span>🔔 Bell Curve (Standard Retail)</span>
                   </button>
                   <button
                     type="button"
                     onClick={() => handleApplyBatchRecommendation("core")}
-                    className="w-full text-left px-3 py-2 text-slate-700 hover:bg-indigo-50 hover:text-indigo-700 flex items-center gap-2 font-medium transition"
+                    className="w-full text-left px-3 py-2 text-slate-700 dark:text-slate-200 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 hover:text-indigo-700 dark:hover:text-indigo-300 flex items-center gap-2 font-medium transition"
                   >
                     <span>🎯 Core Sizes (Mid-heavy)</span>
                   </button>
                   <button
                     type="button"
                     onClick={() => handleApplyBatchRecommendation("uniform")}
-                    className="w-full text-left px-3 py-2 text-slate-700 hover:bg-indigo-50 hover:text-indigo-700 flex items-center gap-2 font-medium transition"
+                    className="w-full text-left px-3 py-2 text-slate-700 dark:text-slate-200 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 hover:text-indigo-700 dark:hover:text-indigo-300 flex items-center gap-2 font-medium transition"
                   >
                     <span>⚖️ Uniform (Equal per size)</span>
                   </button>
@@ -4293,11 +4293,11 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
           {/* Visual Items Area */}
           <div className="flex-1 overflow-auto p-4">
             {lines.filter(l => Boolean(l.itemCode)).length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-20 px-6 text-center select-none bg-white rounded-2xl border border-slate-200 shadow-2xs">
-                <div className="w-16 h-16 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center mb-4 shadow-sm">
+              <div className="flex flex-col items-center justify-center py-20 px-6 text-center select-none bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-2xs">
+                <div className="w-16 h-16 rounded-2xl bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-100 dark:border-indigo-800 flex items-center justify-center mb-4 shadow-sm">
                   <span className="material-symbols-outlined text-indigo-500 text-[36px]">photo_library</span>
                 </div>
-                <h3 className="text-sm font-bold text-slate-700 mb-1">No visual items in this Purchase Order</h3>
+                <h3 className="text-sm font-bold text-slate-700 dark:text-slate-200 mb-1">No visual items in this Purchase Order</h3>
                 <p className="text-xs text-slate-400 mb-5 max-w-sm">
                   Add product items and attach article photos to view them in the visual lookbook and apply size ratios.
                 </p>
@@ -4316,7 +4316,7 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
                       setActiveRowIndex(0);
                       f2Dispatcher.openLookup("variant", f2Adapter);
                     }}
-                    className="flex items-center gap-1.5 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 font-bold px-4 py-2 rounded-lg text-xs transition shadow-sm"
+                    className="flex items-center gap-1.5 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200 font-bold px-4 py-2 rounded-lg text-xs transition shadow-sm"
                   >
                     <span className="material-symbols-outlined text-[16px] text-indigo-500">manage_search</span>
                     F2 / Scan
@@ -4344,7 +4344,7 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
                   return (
                     <div
                       key={group.groupKey || group.id || groupIdx}
-                      className="bg-white rounded-xl border border-slate-200 shadow-2xs hover:shadow-md transition overflow-hidden flex flex-col justify-between"
+                      className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-2xs hover:shadow-md transition overflow-hidden flex flex-col justify-between"
                     >
                       {/* Card Content Top */}
                       <div className="p-4">
@@ -4352,12 +4352,12 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
                         <div className="flex items-start justify-between gap-2 mb-3">
                           <div>
                             <div className="text-[10px] text-slate-400 font-mono">Item Code</div>
-                            <div className="font-mono font-black text-indigo-900 text-sm">{group.itemCode}</div>
-                            <h4 className="font-bold text-slate-800 text-sm mt-0.5 leading-tight">{group.product}</h4>
+                            <div className="font-mono font-black text-indigo-900 dark:text-indigo-300 text-sm">{group.itemCode}</div>
+                            <h4 className="font-bold text-slate-800 dark:text-slate-100 text-sm mt-0.5 leading-tight">{group.product}</h4>
                             
                             {/* Color & Specification Pills */}
                             <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
-                              <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[11px] font-bold bg-amber-50 text-amber-900 border border-amber-200">
+                              <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[11px] font-bold bg-amber-50 dark:bg-amber-950/40 text-amber-900 dark:text-amber-200 border border-amber-200 dark:border-amber-800">
                                 <span
                                   className="w-2.5 h-2.5 rounded-full inline-block border border-amber-400 shadow-2xs shrink-0"
                                   style={{ backgroundColor: getShadeHex(group.shade) }}
@@ -4366,19 +4366,19 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
                                 <span className="font-extrabold uppercase">{group.shade || "Standard"}</span>
                               </span>
                               {group.brand && (
-                                <span className="text-[10px] text-slate-600 bg-slate-100 px-2 py-0.5 rounded border border-slate-200 font-medium">
+                                <span className="text-[10px] text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-700 px-2 py-0.5 rounded border border-slate-200 dark:border-slate-600 font-medium">
                                   Brand: {group.brand}
                                 </span>
                               )}
                               {group.style && (
-                                <span className="text-[10px] text-slate-600 bg-slate-100 px-2 py-0.5 rounded border border-slate-200 font-medium">
+                                <span className="text-[10px] text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-700 px-2 py-0.5 rounded border border-slate-200 dark:border-slate-600 font-medium">
                                   Style: {group.style}
                                 </span>
                               )}
                             </div>
                           </div>
                           <div className="flex flex-col items-end gap-1">
-                            <span className="font-mono text-indigo-700 font-bold uppercase text-[9px] bg-indigo-50 border border-indigo-100 px-2 py-0.5 rounded">
+                            <span className="font-mono text-indigo-700 dark:text-indigo-300 font-bold uppercase text-[9px] bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-100 dark:border-indigo-800 px-2 py-0.5 rounded">
                               {group.unit || "PAIR"}
                             </span>
                             <button
@@ -4398,7 +4398,7 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
                           <div className="w-full md:w-44 shrink-0 flex flex-col items-center">
                             <div
                               onClick={() => imgUrl ? setZoomLightboxUrl(imgUrl) : openImageModal(group.primaryLineIndex)}
-                              className="w-full h-36 rounded-xl border border-slate-200 bg-slate-50 relative group cursor-pointer overflow-hidden flex items-center justify-center shadow-inner"
+                              className="w-full h-36 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 relative group cursor-pointer overflow-hidden flex items-center justify-center shadow-inner"
                             >
                               {imgUrl ? (
                                 <img
@@ -4444,10 +4444,10 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
                             {/* Article & Color Badges */}
                             <div className="mt-2 w-full flex flex-col gap-1.5 text-center">
                               <div className="flex items-center justify-center gap-1">
-                                <span className="py-0.5 px-1.5 bg-slate-100 border border-slate-200 rounded text-[10px] font-mono font-bold text-slate-700 truncate max-w-[90px]" title={group.articleNo || group.itemCode}>
+                                <span className="py-0.5 px-1.5 bg-slate-100 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded text-[10px] font-mono font-bold text-slate-700 dark:text-slate-200 truncate max-w-[90px]" title={group.articleNo || group.itemCode}>
                                   Art: {group.articleNo || group.itemCode}
                                 </span>
-                                <span className="py-0.5 px-1.5 bg-amber-50 border border-amber-200 rounded text-[10px] font-bold text-amber-900 truncate flex items-center gap-1 max-w-[90px]" title={group.shade || "Standard"}>
+                                <span className="py-0.5 px-1.5 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded text-[10px] font-bold text-amber-900 dark:text-amber-200 truncate flex items-center gap-1 max-w-[90px]" title={group.shade || "Standard"}>
                                   <span className="w-2 h-2 rounded-full inline-block shrink-0" style={{ backgroundColor: getShadeHex(group.shade) }} />
                                   {group.shade || "Std"}
                                 </span>
@@ -4461,7 +4461,7 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
                                   value={group.shade || ""}
                                   placeholder="e.g. Tan, Black"
                                   onChange={e => handleGroupColorChange(group, e.target.value)}
-                                  className="w-full py-0.5 px-1.5 text-[10px] font-bold border border-slate-200 rounded bg-white text-slate-800 outline-none focus:border-indigo-500 text-center"
+                                  className="w-full py-0.5 px-1.5 text-[10px] font-bold border border-slate-200 dark:border-slate-700 rounded bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 outline-none focus:border-indigo-500 text-center"
                                   title="Directly edit Color / Shade"
                                 />
                               </div>
@@ -4487,26 +4487,26 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
                           {/* Right Column: Size Matrix Table & Financials */}
                           <div className="flex-1 flex flex-col justify-between min-w-0">
                             {/* Embedded Size Matrix Table */}
-                            <div className="overflow-x-auto border border-slate-200 rounded-lg">
+                            <div className="overflow-x-auto border border-slate-200 dark:border-slate-700 rounded-lg">
                               <table className="w-full text-xs text-center border-collapse">
                                 <thead>
-                                  <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold text-[10px]">
-                                    <th className="py-1 px-1.5 text-left border-r border-slate-200 w-12">Size</th>
+                                  <tr className="bg-slate-50 dark:bg-slate-800/80 border-b border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 font-bold text-[10px]">
+                                    <th className="py-1 px-1.5 text-left border-r border-slate-200 dark:border-slate-700 w-12">Size</th>
                                     {sizes.map(sz => (
-                                      <th key={sz} className="py-1 px-1 border-r border-slate-200 font-mono text-indigo-900">
+                                      <th key={sz} className="py-1 px-1 border-r border-slate-200 dark:border-slate-700 font-mono text-indigo-900 dark:text-indigo-300">
                                         {sz}
                                       </th>
                                     ))}
-                                    <th className="py-1 px-1.5 font-bold text-slate-700 bg-indigo-50/50">Total</th>
+                                    <th className="py-1 px-1.5 font-bold text-slate-700 dark:text-slate-200 bg-indigo-50/50 dark:bg-indigo-950/40">Total</th>
                                   </tr>
                                 </thead>
                                 <tbody>
                                   <tr>
-                                    <td className="py-1 px-1.5 text-left font-bold text-slate-600 border-r border-slate-200 text-[10px]">
+                                    <td className="py-1 px-1.5 text-left font-bold text-slate-600 dark:text-slate-300 border-r border-slate-200 dark:border-slate-700 text-[10px]">
                                       Qty
                                     </td>
                                     {sizes.map(sz => (
-                                      <td key={sz} className="p-0.5 border-r border-slate-200">
+                                      <td key={sz} className="p-0.5 border-r border-slate-200 dark:border-slate-700">
                                         <input
                                           type="number"
                                           min="0"
@@ -4515,11 +4515,11 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
                                             const v = Math.max(0, parseInt(e.target.value) || 0);
                                             handleGroupSizeQtyChange(group, sz, v);
                                           }}
-                                          className="w-9 h-6 text-center font-mono font-bold bg-white border border-slate-200 rounded text-xs outline-none focus:border-indigo-500 focus:bg-indigo-50/20"
+                                          className="w-9 h-6 text-center font-mono font-bold bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 border border-slate-200 dark:border-slate-700 rounded text-xs outline-none focus:border-indigo-500 focus:bg-indigo-50/20 dark:focus:bg-indigo-950/30"
                                         />
                                       </td>
                                     ))}
-                                    <td className="py-1 px-1.5 font-mono font-black text-indigo-700 bg-indigo-50/50">
+                                    <td className="py-1 px-1.5 font-mono font-black text-indigo-700 dark:text-indigo-300 bg-indigo-50/50 dark:bg-indigo-950/40">
                                       {group.totalQty}
                                     </td>
                                   </tr>
@@ -4533,7 +4533,7 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
                                 <button
                                   type="button"
                                   onClick={() => setCardAssortmentOpen(cardAssortmentOpen === groupIdx ? null : groupIdx)}
-                                  className="flex items-center gap-1 bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-900 px-2.5 py-1 rounded-lg text-[11px] font-bold transition shadow-2xs"
+                                  className="flex items-center gap-1 bg-amber-50 dark:bg-amber-950/40 hover:bg-amber-100 dark:hover:bg-amber-900/60 border border-amber-200 dark:border-amber-800 text-amber-900 dark:text-amber-200 px-2.5 py-1 rounded-lg text-[11px] font-bold transition shadow-2xs"
                                 >
                                   <span className="material-symbols-outlined text-[14px] text-amber-600">auto_fix_high</span>
                                   Recommend Ratio
@@ -4541,25 +4541,25 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
                                 </button>
 
                                 {cardAssortmentOpen === groupIdx && (
-                                  <div className="absolute left-0 bottom-full mb-1 w-48 bg-white border border-slate-200 rounded-xl shadow-xl py-1 z-30 text-xs animate-in fade-in zoom-in-95 duration-100">
+                                  <div className="absolute left-0 bottom-full mb-1 w-48 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl py-1 z-30 text-xs animate-in fade-in zoom-in-95 duration-100">
                                     <button
                                       type="button"
                                       onClick={() => handleApplyRecommendationToGroup(group, "bell")}
-                                      className="w-full text-left px-3 py-1.5 hover:bg-indigo-50 hover:text-indigo-700 flex items-center gap-2 font-medium"
+                                      className="w-full text-left px-3 py-1.5 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 text-slate-700 dark:text-slate-200 hover:text-indigo-700 dark:hover:text-indigo-300 flex items-center gap-2 font-medium"
                                     >
                                       <span>🔔 Bell Curve (Gaussian)</span>
                                     </button>
                                     <button
                                       type="button"
                                       onClick={() => handleApplyRecommendationToGroup(group, "core")}
-                                      className="w-full text-left px-3 py-1.5 hover:bg-indigo-50 hover:text-indigo-700 flex items-center gap-2 font-medium"
+                                      className="w-full text-left px-3 py-1.5 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 text-slate-700 dark:text-slate-200 hover:text-indigo-700 dark:hover:text-indigo-300 flex items-center gap-2 font-medium"
                                     >
                                       <span>🎯 Core Sizes (Mid-heavy)</span>
                                     </button>
                                     <button
                                       type="button"
                                       onClick={() => handleApplyRecommendationToGroup(group, "uniform")}
-                                      className="w-full text-left px-3 py-1.5 hover:bg-indigo-50 hover:text-indigo-700 flex items-center gap-2 font-medium"
+                                      className="w-full text-left px-3 py-1.5 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 text-slate-700 dark:text-slate-200 hover:text-indigo-700 dark:hover:text-indigo-300 flex items-center gap-2 font-medium"
                                     >
                                       <span>⚖️ Uniform (Equal per size)</span>
                                     </button>
@@ -4571,7 +4571,7 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
                                 <div className="text-[10px] text-slate-400">
                                   Rate: <span className="font-mono text-slate-700 font-bold">₹{group.rate.toFixed(2)}</span>
                                 </div>
-                                <div className="text-xs font-mono font-black text-indigo-950">
+                                <div className="text-xs font-mono font-black text-indigo-950 dark:text-indigo-200">
                                   Net Value: ₹{group.netValue.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                 </div>
                               </div>
@@ -4585,10 +4585,10 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
               </div>
             ) : (
               /* ── Table View ── */
-              <div className="bg-white rounded-xl border border-slate-200 shadow-2xs overflow-x-auto">
+              <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-2xs overflow-x-auto">
                 <table className="w-full text-xs text-left border-collapse">
                   <thead>
-                    <tr className="bg-slate-50 border-b border-slate-200 text-slate-600 font-bold text-[11px]">
+                    <tr className="bg-slate-50 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 font-bold text-[11px]">
                       <th className="p-2 text-center w-8">#</th>
                       <th className="p-2 text-center w-12">Photo</th>
                       <th className="p-2">Item Code</th>
@@ -4600,24 +4600,24 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
                           {sz}
                         </th>
                       ))}
-                      <th className="p-2 text-center font-bold bg-indigo-50/50 w-16">Total Qty</th>
+                      <th className="p-2 text-center font-bold bg-indigo-50/50 dark:bg-indigo-950/40 text-slate-700 dark:text-slate-200 w-16">Total Qty</th>
                       <th className="p-2 text-right w-20">Rate (₹)</th>
                       <th className="p-2 text-right w-24">Net Value (₹)</th>
                       <th className="p-2 text-center w-12">Actions</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100">
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                     {groupedDisplayLines.map((group, idx) => {
                       if (!group.itemCode) return null;
                       const imgUrl = resolveLineImage(group, articleImageMap);
                       return (
-                        <tr key={group.groupKey || group.id || idx} className="hover:bg-slate-50/70 transition">
+                        <tr key={group.groupKey || group.id || idx} className="hover:bg-slate-50/70 dark:hover:bg-slate-700/50 transition">
                           <td className="p-2 text-center text-slate-400 font-mono">{idx + 1}</td>
                           <td className="p-1 text-center">
                             <button
                               type="button"
                               onClick={() => openImageModal(group.primaryLineIndex)}
-                              className="w-9 h-9 rounded-lg border border-slate-200 bg-slate-50 flex items-center justify-center mx-auto overflow-hidden hover:border-indigo-500 shadow-2xs"
+                              className="w-9 h-9 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 flex items-center justify-center mx-auto overflow-hidden hover:border-indigo-500 shadow-2xs"
                             >
                               {imgUrl ? (
                                 <img
@@ -4634,8 +4634,8 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
                               )}
                             </button>
                           </td>
-                          <td className="p-2 font-mono font-bold text-indigo-900">{group.itemCode}</td>
-                          <td className="p-2 font-mono font-semibold text-slate-700">{group.articleNo || group.itemCode}</td>
+                          <td className="p-2 font-mono font-bold text-indigo-900 dark:text-indigo-300">{group.itemCode}</td>
+                          <td className="p-2 font-mono font-semibold text-slate-700 dark:text-slate-300">{group.articleNo || group.itemCode}</td>
                           <td className="p-2 whitespace-nowrap">
                             <div className="flex items-center gap-1.5">
                               <span
@@ -4647,13 +4647,13 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
                                 value={group.shade || ""}
                                 placeholder="Color"
                                 onChange={e => handleGroupColorChange(group, e.target.value)}
-                                className="w-20 px-1.5 py-0.5 border border-slate-200 rounded text-xs font-bold text-slate-800 outline-none focus:border-indigo-500 bg-white"
+                                className="w-20 px-1.5 py-0.5 border border-slate-200 dark:border-slate-700 rounded text-xs font-bold text-slate-800 dark:text-slate-100 outline-none focus:border-indigo-500 bg-white dark:bg-slate-900"
                                 title="Edit Color"
                               />
                             </div>
                           </td>
                           <td className="p-2">
-                            <div className="font-bold text-slate-800">{group.product}</div>
+                            <div className="font-bold text-slate-800 dark:text-slate-100">{group.product}</div>
                             <div className="text-[10px] text-slate-400">{[group.brand, group.style, group.shade].filter(Boolean).join(" / ")}</div>
                           </td>
                           {sizes.map(sz => (
@@ -4666,17 +4666,17 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
                                   const v = Math.max(0, parseInt(e.target.value) || 0);
                                   handleGroupSizeQtyChange(group, sz, v);
                                 }}
-                                className="w-10 h-6 text-center font-mono font-bold bg-white border border-slate-200 rounded text-xs outline-none focus:border-indigo-500"
+                                className="w-10 h-6 text-center font-mono font-bold bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 border border-slate-200 dark:border-slate-700 rounded text-xs outline-none focus:border-indigo-500"
                               />
                             </td>
                           ))}
-                          <td className="p-2 text-center font-mono font-black text-indigo-700 bg-indigo-50/50">
+                          <td className="p-2 text-center font-mono font-black text-indigo-700 dark:text-indigo-300 bg-indigo-50/50 dark:bg-indigo-950/40">
                             {group.totalQty}
                           </td>
-                          <td className="p-2 text-right font-mono font-bold text-slate-700">
+                          <td className="p-2 text-right font-mono font-bold text-slate-700 dark:text-slate-200">
                             {group.rate.toFixed(2)}
                           </td>
-                          <td className="p-2 text-right font-mono font-black text-indigo-950">
+                          <td className="p-2 text-right font-mono font-black text-indigo-950 dark:text-indigo-200">
                             ₹{group.netValue.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                           </td>
                           <td className="p-2 text-center">
@@ -4698,31 +4698,31 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
           </div>
 
           {/* Bottom Summary Bar for Visual View */}
-          <div className="bg-white border-t border-slate-200 px-4 py-3 shrink-0 flex flex-wrap items-center justify-between gap-3 shadow-sm">
-            <div className="flex flex-wrap items-center gap-4 text-xs font-medium text-slate-600">
-              <span className="font-bold text-indigo-950 flex items-center gap-1.5">
+          <div className="bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 px-4 py-3 shrink-0 flex flex-wrap items-center justify-between gap-3 shadow-sm">
+            <div className="flex flex-wrap items-center gap-4 text-xs font-medium text-slate-600 dark:text-slate-400">
+              <span className="font-bold text-indigo-950 dark:text-indigo-200 flex items-center gap-1.5">
                 <span className="material-symbols-outlined text-[16px] text-indigo-600">bar_chart</span>
                 All Items Summary (Images View)
               </span>
-              <span className="h-4 w-px bg-slate-200" />
-              <span>Total Items: <strong className="text-slate-800">{totalItems}</strong></span>
-              <span>Total Qty: <strong className="text-slate-800 font-mono">{grandTotalQty}</strong></span>
-              <span>Gross: <strong className="text-slate-800 font-mono">₹{grossValue.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</strong></span>
-              <span>Tax: <strong className="text-slate-800 font-mono">₹{totalTax.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</strong></span>
-              <span>Net PO Value: <strong className="text-indigo-700 font-black text-sm font-mono">₹{netOrderValue.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</strong></span>
+              <span className="h-4 w-px bg-slate-200 dark:bg-slate-700" />
+              <span>Total Items: <strong className="text-slate-800 dark:text-slate-100">{totalItems}</strong></span>
+              <span>Total Qty: <strong className="text-slate-800 dark:text-slate-100 font-mono">{grandTotalQty}</strong></span>
+              <span>Gross: <strong className="text-slate-800 dark:text-slate-100 font-mono">₹{grossValue.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</strong></span>
+              <span>Tax: <strong className="text-slate-800 dark:text-slate-100 font-mono">₹{totalTax.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</strong></span>
+              <span>Net PO Value: <strong className="text-indigo-700 dark:text-indigo-300 font-black text-sm font-mono">₹{netOrderValue.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</strong></span>
             </div>
             <div className="flex items-center gap-2">
               <button
                 type="button"
                 onClick={onClose}
-                className="px-3 py-1.5 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 text-xs font-bold rounded-lg transition"
+                className="px-3 py-1.5 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold rounded-lg transition"
               >
                 Cancel
               </button>
               <button
                 type="button"
                 onClick={() => handleSavePO("draft")}
-                className="px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold rounded-lg transition"
+                className="px-3.5 py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 border border-transparent dark:border-slate-700 text-xs font-bold rounded-lg transition"
               >
                 Save Draft
               </button>
@@ -4742,15 +4742,15 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
       {/* ── 3. DELIVERY & TAX TAB ─────────────────────────────────────────── */}
       {activeTab === "delivery" && (
         <section className="px-6 py-5 max-w-2xl space-y-4 text-xs overflow-y-auto flex-1">
-          <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs space-y-3">
-            <h3 className="font-bold text-slate-800 text-sm mb-2">Delivery Details</h3>
+          <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-2xs space-y-3">
+            <h3 className="font-bold text-slate-800 dark:text-slate-100 text-sm mb-2">Delivery Details</h3>
             <div>
               <label className="block font-medium text-slate-500 mb-1">Delivery Location / Store</label>
               <input
                 type="text"
                 value={header.deliveryLocation}
                 onChange={e => setHeader(h => ({ ...h, deliveryLocation: e.target.value }))}
-                className="w-full border border-slate-300 rounded-lg px-3 h-8 bg-white outline-none focus:border-indigo-500"
+                className="w-full border border-slate-300 dark:border-slate-700 rounded-lg px-3 h-8 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 outline-none focus:border-indigo-500"
               />
             </div>
             <div className="grid grid-cols-2 gap-3">
@@ -4765,7 +4765,7 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
                     setHeader(h => ({ ...h, commonTaxPercent: v }));
                     setLines(prev => prev.map(l => ({ ...l, taxPercent: v })));
                   }}
-                  className="w-full border border-slate-300 rounded-lg px-3 h-8 bg-white font-mono font-bold outline-none focus:border-indigo-500"
+                  className="w-full border border-slate-300 dark:border-slate-700 rounded-lg px-3 h-8 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 font-mono font-bold outline-none focus:border-indigo-500"
                 />
               </div>
               <div>
@@ -4775,7 +4775,7 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
                   min="0"
                   value={header.freightAmount}
                   onChange={e => setHeader(h => ({ ...h, freightAmount: parseFloat(e.target.value) || 0 }))}
-                  className="w-full border border-slate-300 rounded-lg px-3 h-8 bg-white font-mono font-bold outline-none focus:border-indigo-500"
+                  className="w-full border border-slate-300 dark:border-slate-700 rounded-lg px-3 h-8 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 font-mono font-bold outline-none focus:border-indigo-500"
                 />
               </div>
             </div>
@@ -4786,7 +4786,7 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
                 min="0"
                 value={header.otherCharges}
                 onChange={e => setHeader(h => ({ ...h, otherCharges: parseFloat(e.target.value) || 0 }))}
-                className="w-full border border-slate-300 rounded-lg px-3 h-8 bg-white font-mono font-bold outline-none focus:border-indigo-500"
+                className="w-full border border-slate-300 dark:border-slate-700 rounded-lg px-3 h-8 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 font-mono font-bold outline-none focus:border-indigo-500"
               />
             </div>
           </div>
@@ -4796,8 +4796,8 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
       {/* ── 4. OTHER DETAILS TAB ──────────────────────────────────────────── */}
       {activeTab === "other" && (
         <section className="px-6 py-5 max-w-2xl space-y-4 text-xs overflow-y-auto flex-1">
-          <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs space-y-3">
-            <h3 className="font-bold text-slate-800 text-sm mb-2">Commercial Terms</h3>
+          <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-2xs space-y-3">
+            <h3 className="font-bold text-slate-800 dark:text-slate-100 text-sm mb-2">Commercial Terms</h3>
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="block font-medium text-slate-500 mb-1">Payment Terms</label>
@@ -4805,7 +4805,7 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
                   id="sw-payment-terms-select"
                   value={header.paymentTerms}
                   onChange={e => setHeader(h => ({ ...h, paymentTerms: e.target.value }))}
-                  className="w-full border border-slate-300 rounded-lg px-3 h-8 bg-white font-medium outline-none focus:border-indigo-500"
+                  className="w-full border border-slate-300 dark:border-slate-700 rounded-lg px-3 h-8 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 font-medium outline-none focus:border-indigo-500"
                 >
                   <option>Immediate</option>
                   <option>15 Days</option>
@@ -4822,7 +4822,7 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
                   type="text"
                   value={header.freightCharges}
                   onChange={e => setHeader(h => ({ ...h, freightCharges: e.target.value }))}
-                  className="w-full border border-slate-300 rounded-lg px-3 h-8 bg-white outline-none focus:border-indigo-500"
+                  className="w-full border border-slate-300 dark:border-slate-700 rounded-lg px-3 h-8 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 outline-none focus:border-indigo-500"
                 />
               </div>
               <div>
@@ -4831,7 +4831,7 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
                   id="sw-currency-select"
                   value={header.currency}
                   onChange={e => setHeader(h => ({ ...h, currency: e.target.value }))}
-                  className="w-full border border-slate-300 rounded-lg px-3 h-8 bg-white font-medium outline-none focus:border-indigo-500"
+                  className="w-full border border-slate-300 dark:border-slate-700 rounded-lg px-3 h-8 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 font-medium outline-none focus:border-indigo-500"
                 >
                   <option value="INR - Indian Rupee">INR - Indian Rupee</option>
                   <option value="USD - US Dollar">USD - Dollar</option>
@@ -4846,7 +4846,7 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
                   value={header.supplierReference}
                   onChange={e => setHeader(h => ({ ...h, supplierReference: e.target.value }))}
                   placeholder="Supplier PO / Quotation No."
-                  className="w-full border border-slate-300 rounded-lg px-3 h-8 bg-white outline-none focus:border-indigo-500"
+                  className="w-full border border-slate-300 dark:border-slate-700 rounded-lg px-3 h-8 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 outline-none focus:border-indigo-500"
                 />
               </div>
               <div>
@@ -4856,7 +4856,7 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
                   type="text"
                   value={header.buyer}
                   onChange={e => setHeader(h => ({ ...h, buyer: e.target.value }))}
-                  className="w-full border border-slate-300 rounded-lg px-3 h-8 bg-white outline-none focus:border-indigo-500"
+                  className="w-full border border-slate-300 dark:border-slate-700 rounded-lg px-3 h-8 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 outline-none focus:border-indigo-500"
                 />
               </div>
               <div>
@@ -4866,7 +4866,7 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
                   type="text"
                   value={header.department}
                   onChange={e => setHeader(h => ({ ...h, department: e.target.value }))}
-                  className="w-full border border-slate-300 rounded-lg px-3 h-8 bg-white outline-none focus:border-indigo-500"
+                  className="w-full border border-slate-300 dark:border-slate-700 rounded-lg px-3 h-8 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 outline-none focus:border-indigo-500"
                 />
               </div>
             </div>
@@ -4878,7 +4878,7 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
                 value={header.specialInstructions}
                 onChange={e => setHeader(h => ({ ...h, specialInstructions: e.target.value }))}
                 placeholder="Add special instructions for the supplier…"
-                className="w-full border border-slate-300 rounded-lg p-2.5 bg-white outline-none focus:border-indigo-500 resize-none"
+                className="w-full border border-slate-300 dark:border-slate-700 rounded-lg p-2.5 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 outline-none focus:border-indigo-500 resize-none"
               />
             </div>
           </div>
@@ -4887,9 +4887,9 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
 
       {/* ── 409 Duplicate Banner ────────────────────────────────────────── */}
       {duplicateOrderNo && (
-        <aside className="mx-5 mb-3 bg-amber-50 border border-amber-300 px-4 py-2 rounded-xl flex items-center gap-3 text-xs shrink-0">
+        <aside className="mx-5 mb-3 bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-800 px-4 py-2 rounded-xl flex items-center gap-3 text-xs shrink-0">
           <span className="material-symbols-outlined text-amber-600 text-[18px]">warning</span>
-          <span className="text-amber-900 font-medium">
+          <span className="text-amber-900 dark:text-amber-200 font-medium">
             Purchase Order <strong>{duplicateOrderNo}</strong> already exists.
           </span>
           {suggestedOrderNo && (
@@ -4921,13 +4921,13 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
       {/* ── Post-save Modal ─────────────────────────────────────────────── */}
       {savedOrderNo && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" role="dialog" aria-modal="true">
-          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-[480px] max-w-full p-6 flex flex-col gap-4">
+          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 w-[480px] max-w-full p-6 flex flex-col gap-4">
             <div className="flex items-center gap-3">
               <div className="w-12 h-12 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center">
                 <span className="material-symbols-outlined text-[28px]">check_circle</span>
               </div>
               <div>
-                <h2 className="font-bold text-slate-800 text-base">Purchase Order Saved</h2>
+                <h2 className="font-bold text-slate-800 dark:text-slate-100 text-base">Purchase Order Saved</h2>
                 <p className="text-xs text-slate-500 font-mono mt-0.5">{savedOrderNo} committed successfully.</p>
               </div>
             </div>
@@ -4961,12 +4961,12 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
       )}
 
       {/* ── Action Footer ───────────────────────────────────────────────── */}
-      <footer className="bg-white border-t border-slate-200 px-6 py-2.5 flex items-center justify-between shrink-0 shadow-lg sticky bottom-0 z-20 text-xs">
+      <footer className="bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 px-6 py-2.5 flex items-center justify-between shrink-0 shadow-lg sticky bottom-0 z-20 text-xs">
         <div className="flex items-center gap-2">
           <button
             type="button"
             onClick={onClose}
-            className="bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 rounded-lg px-4 py-1.5 font-bold transition shadow-2xs"
+            className="bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-600 rounded-lg px-4 py-1.5 font-bold transition shadow-2xs"
           >
             Cancel
           </button>
@@ -4983,7 +4983,7 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
             id="sw-save-draft-btn"
             disabled={saving}
             onClick={() => handleSavePO("draft")}
-            className="bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 rounded-lg px-4 py-1.5 font-bold transition shadow-2xs disabled:opacity-50 cursor-pointer"
+            className="bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-600 rounded-lg px-4 py-1.5 font-bold transition shadow-2xs disabled:opacity-50 cursor-pointer"
           >
             {saving ? "Saving…" : (editingOrderId ? "Update Draft" : "Save Draft")}
           </button>
@@ -5029,7 +5029,7 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
           aria-modal="true"
           aria-labelledby="confirm-dialog-title"
         >
-          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-md overflow-hidden transform transition-all">
+          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 w-full max-w-md overflow-hidden transform transition-all">
             <div className="p-6">
               <div className="flex items-start gap-3.5">
                 <div
@@ -5046,20 +5046,20 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
                   </span>
                 </div>
                 <div className="flex-1 min-w-0">
-                  <h3 id="confirm-dialog-title" className="text-sm font-bold text-slate-800">
+                  <h3 id="confirm-dialog-title" className="text-sm font-bold text-slate-800 dark:text-slate-100">
                     {confirmModal.title}
                   </h3>
-                  <p className="mt-1.5 text-xs text-slate-600 leading-relaxed">
+                  <p className="mt-1.5 text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
                     {confirmModal.message}
                   </p>
                 </div>
               </div>
             </div>
-            <div className="bg-slate-50 px-6 py-3 border-t border-slate-100 flex items-center justify-end gap-2.5">
+            <div className="bg-slate-50 dark:bg-slate-900/60 px-6 py-3 border-t border-slate-100 dark:border-slate-700 flex items-center justify-end gap-2.5">
               <button
                 type="button"
                 onClick={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
-                className="px-4 py-1.5 rounded-lg border border-slate-300 text-slate-700 bg-white hover:bg-slate-50 text-xs font-semibold shadow-2xs transition"
+                className="px-4 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-xs font-semibold shadow-2xs transition"
               >
                 Cancel
               </button>
@@ -5093,11 +5093,11 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
           aria-modal="true"
           aria-labelledby="image-modal-title"
         >
-          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-150">
-            <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+            <div className="px-5 py-4 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between bg-slate-50/50 dark:bg-slate-900/40">
               <div className="flex items-center gap-2">
                 <span className="material-symbols-outlined text-indigo-600 text-[20px]">add_photo_alternate</span>
-                <h3 id="image-modal-title" className="text-sm font-bold text-slate-800">
+                <h3 id="image-modal-title" className="text-sm font-bold text-slate-800 dark:text-slate-100">
                   Attach Product Image
                 </h3>
               </div>
@@ -5112,10 +5112,10 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
 
             <div className="p-5 space-y-4 text-xs">
               {/* Product Reference */}
-              <div className="bg-indigo-50/70 border border-indigo-100 rounded-xl p-3 flex items-center justify-between">
+              <div className="bg-indigo-50/70 dark:bg-indigo-950/40 border border-indigo-100 dark:border-indigo-800 rounded-xl p-3 flex items-center justify-between">
                 <div>
                   <div className="text-[10px] text-indigo-400 font-mono">Article No</div>
-                  <div className="font-mono font-black text-indigo-950 text-sm">
+                  <div className="font-mono font-black text-indigo-950 dark:text-indigo-200 text-sm">
                     {imageModalState.articleNo || imageModalState.itemCode}
                   </div>
                 </div>
@@ -5130,13 +5130,13 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
                 )}
                 <div className="text-right">
                   <div className="text-[10px] text-indigo-400 font-mono">Item Code</div>
-                  <div className="font-mono font-bold text-slate-700">{imageModalState.itemCode}</div>
+                  <div className="font-mono font-bold text-slate-700 dark:text-slate-300">{imageModalState.itemCode}</div>
                 </div>
               </div>
 
               {/* Preview Thumbnail */}
               <div className="flex flex-col items-center gap-2">
-                <div className="w-44 h-36 rounded-xl border border-slate-200 bg-slate-50 flex items-center justify-center overflow-hidden relative shadow-inner">
+                <div className="w-44 h-36 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 flex items-center justify-center overflow-hidden relative shadow-inner">
                   {imageModalState.currentImage ? (
                     <img
                       src={imageModalState.currentImage}
@@ -5164,13 +5164,13 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
 
                 {/* Status Badges */}
                 {imageModalState.isOptimized && (
-                  <div className="flex items-center gap-1 text-[10px] text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-md py-0.5 px-2 font-medium">
+                  <div className="flex items-center gap-1 text-[10px] text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded-md py-0.5 px-2 font-medium">
                     <span className="material-symbols-outlined text-[13px] text-emerald-600">verified</span>
                     <span>Persisted Server WebP</span>
                   </div>
                 )}
                 {imageModalState.uploadError && (
-                  <div className="flex items-center gap-1 text-[10px] text-amber-700 bg-amber-50 border border-amber-200 rounded-md py-0.5 px-2 font-medium">
+                  <div className="flex items-center gap-1 text-[10px] text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-md py-0.5 px-2 font-medium">
                     <span className="material-symbols-outlined text-[13px] text-amber-600">info</span>
                     <span>{imageModalState.uploadError}</span>
                   </div>
@@ -5179,11 +5179,11 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
 
               {/* Upload Local File or Paste URL */}
               <div className="space-y-2">
-                <label className="block text-[11px] font-bold text-slate-700">
+                <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300">
                   Image Source
                 </label>
                 <div className="flex items-center gap-2">
-                  <label className={`flex-1 cursor-pointer flex items-center justify-center gap-1.5 py-2 px-3 border border-slate-300 border-dashed rounded-lg bg-slate-50 hover:bg-slate-100 text-slate-700 font-medium transition text-xs ${imageModalState.isUploading ? "opacity-50 pointer-events-none" : ""}`}>
+                  <label className={`flex-1 cursor-pointer flex items-center justify-center gap-1.5 py-2 px-3 border border-slate-300 dark:border-slate-600 border-dashed rounded-lg bg-slate-50 dark:bg-slate-900/60 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 font-medium transition text-xs ${imageModalState.isUploading ? "opacity-50 pointer-events-none" : ""}`}>
                     <span className="material-symbols-outlined text-[16px] text-indigo-600">upload_file</span>
                     <span>Upload & Optimize Photo</span>
                     <input
@@ -5214,17 +5214,17 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
                     value={imageModalState.currentImage}
                     onChange={e => setImageModalState(s => ({ ...s, currentImage: e.target.value, isOptimized: false }))}
                     placeholder="https://example.com/shoe-photo.jpg"
-                    className="w-full border border-slate-300 rounded-lg px-3 py-1.5 bg-white text-xs outline-none focus:border-indigo-500 font-mono"
+                    className="w-full border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-1.5 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 text-xs outline-none focus:border-indigo-500 font-mono"
                     disabled={imageModalState.isUploading}
                   />
                 </div>
               </div>
 
               {/* Propagation Scope Options */}
-              <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 space-y-2">
-                <div className="text-[11px] font-bold text-slate-700">Apply Image Scope:</div>
+              <div className="bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-700 rounded-xl p-3 space-y-2">
+                <div className="text-[11px] font-bold text-slate-700 dark:text-slate-200">Apply Image Scope:</div>
                 {imageModalState.color && (
-                  <label className="flex items-center gap-2 cursor-pointer text-slate-700">
+                  <label className="flex items-center gap-2 cursor-pointer text-slate-700 dark:text-slate-300">
                     <input
                       type="radio"
                       name="imageScope"
@@ -5237,7 +5237,7 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
                     </span>
                   </label>
                 )}
-                <label className="flex items-center gap-2 cursor-pointer text-slate-700">
+                <label className="flex items-center gap-2 cursor-pointer text-slate-700 dark:text-slate-300">
                   <input
                     type="radio"
                     name="imageScope"
@@ -5249,7 +5249,7 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
                     All items with Article "{imageModalState.articleNo || imageModalState.itemCode}"
                   </span>
                 </label>
-                <label className="flex items-center gap-2 cursor-pointer text-slate-700">
+                <label className="flex items-center gap-2 cursor-pointer text-slate-700 dark:text-slate-300">
                   <input
                     type="radio"
                     name="imageScope"
@@ -5259,7 +5259,7 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
                   />
                   <span>This Item Code only ({imageModalState.itemCode})</span>
                 </label>
-                <label className="flex items-center gap-2 cursor-pointer text-slate-700">
+                <label className="flex items-center gap-2 cursor-pointer text-slate-700 dark:text-slate-300">
                   <input
                     type="radio"
                     name="imageScope"
@@ -5272,11 +5272,11 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
               </div>
             </div>
 
-            <div className="bg-slate-50 px-5 py-3 border-t border-slate-100 flex items-center justify-end gap-2">
+            <div className="bg-slate-50 dark:bg-slate-900/60 px-5 py-3 border-t border-slate-100 dark:border-slate-700 flex items-center justify-end gap-2">
               <button
                 type="button"
                 onClick={() => setImageModalState(s => ({ ...s, isOpen: false }))}
-                className="px-3.5 py-1.5 rounded-lg border border-slate-300 text-slate-700 bg-white hover:bg-slate-50 text-xs font-semibold shadow-2xs transition"
+                className="px-3.5 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-xs font-semibold shadow-2xs transition"
               >
                 Cancel
               </button>
@@ -5335,21 +5335,21 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
         >
           <div
             id="sw-batch-upload-modal-dialog"
-            className="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-4xl w-full max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150"
+            className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 max-w-4xl w-full max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150"
             onClick={e => e.stopPropagation()}
           >
             {/* Modal Header */}
-            <div className="bg-slate-50 border-b border-slate-200 px-6 py-4 flex items-center justify-between shrink-0">
+            <div className="bg-slate-50 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 px-6 py-4 flex items-center justify-between shrink-0">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-indigo-100 border border-indigo-200 flex items-center justify-center text-indigo-600">
                   <span className="material-symbols-outlined text-[24px]">collections</span>
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
-                    <h3 className="text-sm font-black text-slate-900 uppercase tracking-wider">
+                    <h3 className="text-sm font-black text-slate-900 dark:text-slate-100 uppercase tracking-wider">
                       Batch Photo Upload & Auto-Binding
                     </h3>
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
                       {batchUploadState.items.length} image{batchUploadState.items.length !== 1 ? "s" : ""}
                     </span>
                   </div>
@@ -5363,15 +5363,15 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
                 id="sw-batch-modal-close-btn"
                 disabled={batchUploadState.isProcessing}
                 onClick={() => setBatchUploadState(prev => ({ ...prev, isOpen: false }))}
-                className="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-100 transition disabled:opacity-50"
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition disabled:opacity-50"
               >
                 <span className="material-symbols-outlined text-[20px]">close</span>
               </button>
             </div>
 
             {/* In-Modal Additional Files Dropstrip */}
-            <div className="bg-indigo-50/50 border-b border-indigo-100 px-6 py-2.5 flex items-center justify-between text-xs">
-              <div className="flex items-center gap-2 text-indigo-900 font-medium">
+            <div className="bg-indigo-50/50 dark:bg-indigo-950/40 border-b border-indigo-100 dark:border-indigo-800 px-6 py-2.5 flex items-center justify-between text-xs">
+              <div className="flex items-center gap-2 text-indigo-900 dark:text-indigo-200 font-medium">
                 <span className="material-symbols-outlined text-indigo-600 text-[18px]">info</span>
                 <span>Review line item bindings below before optimizing & persisting to SPIF WebP.</span>
               </div>
@@ -5398,10 +5398,10 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
                   return (
                     <div
                       key={item.id}
-                      className="flex items-center gap-4 p-3 bg-white border border-slate-200 rounded-xl hover:border-indigo-300 transition shadow-2xs"
+                      className="flex items-center gap-4 p-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl hover:border-indigo-300 transition shadow-2xs"
                     >
                       {/* Thumbnail */}
-                      <div className="relative w-14 h-14 rounded-lg overflow-hidden bg-slate-100 border border-slate-200 shrink-0">
+                      <div className="relative w-14 h-14 rounded-lg overflow-hidden bg-slate-100 dark:bg-slate-700 border border-slate-200 dark:border-slate-700 shrink-0">
                         <img
                           src={item.previewUrl}
                           alt={item.file.name}
@@ -5412,7 +5412,7 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
                       {/* File Details */}
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
-                          <span className="text-xs font-bold text-slate-800 truncate" title={item.file.name}>
+                          <span className="text-xs font-bold text-slate-800 dark:text-slate-100 truncate" title={item.file.name}>
                             {item.file.name}
                           </span>
                           <span className="text-[10px] text-slate-400 shrink-0">
@@ -5423,25 +5423,25 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
                         {/* Match Confidence Tag */}
                         <div className="flex items-center gap-2 mt-1">
                           {item.confidence === "exact_composite" && (
-                            <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                            <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800">
                               <span className="material-symbols-outlined text-[12px]">verified</span>
                               Exact Article + Color
                             </span>
                           )}
                           {item.confidence === "article_only" && (
-                            <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
+                            <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800">
                               <span className="material-symbols-outlined text-[12px]">search</span>
                               Article Matched
                             </span>
                           )}
                           {item.confidence === "color_only" && (
-                            <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
+                            <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
                               <span className="material-symbols-outlined text-[12px]">palette</span>
                               Color Matched
                             </span>
                           )}
                           {item.confidence === "none" && (
-                            <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200">
+                            <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-600">
                               <span className="material-symbols-outlined text-[12px]">edit</span>
                               Manual Target
                             </span>
@@ -5458,7 +5458,7 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
                           disabled={batchUploadState.isProcessing || item.status === "uploaded"}
                           value={item.lineIndex}
                           onChange={e => handleUpdateBatchItemLine(item.id, Number(e.target.value))}
-                          className="w-full text-xs font-semibold px-2 py-1.5 bg-slate-50 border border-slate-300 rounded-lg outline-none focus:border-indigo-500 disabled:opacity-50"
+                          className="w-full text-xs font-semibold px-2 py-1.5 bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 border border-slate-300 dark:border-slate-700 rounded-lg outline-none focus:border-indigo-500 disabled:opacity-50"
                         >
                           {groupedDisplayLines.map((g, gIdx) => {
                             const desc = g.product || g.style || `Item ${gIdx + 1}`;
@@ -5476,24 +5476,24 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
                       {/* Status Indicator */}
                       <div className="w-28 text-center shrink-0">
                         {item.status === "ready" && (
-                          <span className="text-[11px] font-bold text-slate-500 bg-slate-100 px-2.5 py-1 rounded-md">
+                          <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-700 px-2.5 py-1 rounded-md">
                             Ready
                           </span>
                         )}
                         {item.status === "optimizing" && (
-                          <span className="text-[11px] font-bold text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-md flex items-center justify-center gap-1">
+                          <span className="text-[11px] font-bold text-indigo-600 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-950/40 px-2.5 py-1 rounded-md flex items-center justify-center gap-1">
                             <span className="material-symbols-outlined animate-spin text-[14px]">refresh</span>
                             SPIF WebP...
                           </span>
                         )}
                         {item.status === "uploaded" && (
-                          <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-md flex items-center justify-center gap-1">
+                          <span className="text-[11px] font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-2.5 py-1 rounded-md flex items-center justify-center gap-1">
                             <span className="material-symbols-outlined text-[14px]">check_circle</span>
                             Optimized
                           </span>
                         )}
                         {item.status === "failed" && (
-                          <span className="text-[11px] font-bold text-red-600 bg-red-50 px-2.5 py-1 rounded-md" title={item.error}>
+                          <span className="text-[11px] font-bold text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/40 px-2.5 py-1 rounded-md" title={item.error}>
                             Failed
                           </span>
                         )}
@@ -5517,15 +5517,15 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
 
             {/* Processing Progress Bar */}
             {batchUploadState.isProcessing && (
-              <div className="bg-slate-50 border-t border-slate-200 px-6 py-2">
-                <div className="flex items-center justify-between text-xs mb-1 font-semibold text-slate-700">
+              <div className="bg-slate-50 dark:bg-slate-900 border-t border-slate-200 dark:border-slate-700 px-6 py-2">
+                <div className="flex items-center justify-between text-xs mb-1 font-semibold text-slate-700 dark:text-slate-300">
                   <span className="flex items-center gap-1.5">
                     <span className="material-symbols-outlined animate-spin text-indigo-600 text-[14px]">sync</span>
                     Optimizing images with SPIF & saving to server WebP storage...
                   </span>
                   <span>{batchUploadState.progressPercent}%</span>
                 </div>
-                <div className="w-full bg-slate-200 rounded-full h-2 overflow-hidden">
+                <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-2 overflow-hidden">
                   <div
                     className="bg-indigo-600 h-full transition-all duration-200"
                     style={{ width: `${batchUploadState.progressPercent}%` }}
@@ -5535,7 +5535,7 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
             )}
 
             {/* Modal Footer */}
-            <div className="bg-slate-50 border-t border-slate-200 px-6 py-3.5 flex items-center justify-between shrink-0">
+            <div className="bg-slate-50 dark:bg-slate-900 border-t border-slate-200 dark:border-slate-700 px-6 py-3.5 flex items-center justify-between shrink-0">
               <span className="text-xs text-slate-500 font-medium">
                 {batchUploadState.items.filter(i => i.status === "uploaded").length} of {batchUploadState.items.length} uploaded
               </span>
@@ -5545,7 +5545,7 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
                   id="sw-batch-modal-cancel-btn"
                   disabled={batchUploadState.isProcessing}
                   onClick={() => setBatchUploadState(prev => ({ ...prev, isOpen: false }))}
-                  className="px-4 py-2 bg-white border border-slate-300 hover:bg-slate-100 text-slate-700 text-xs font-bold rounded-lg transition disabled:opacity-50"
+                  className="px-4 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold rounded-lg transition disabled:opacity-50"
                 >
                   Close
                 </button>
@@ -5582,7 +5582,7 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
       {/* ── Recall PO Modal ──────────────────────────────────────────────── */}
       {showRecallModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
-          <div className="bg-white rounded-xl shadow-2xl border border-slate-200 w-full max-w-lg overflow-hidden animate-fade-in flex flex-col max-h-[85vh]">
+          <div className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl border border-slate-200 dark:border-slate-700 w-full max-w-lg overflow-hidden animate-fade-in flex flex-col max-h-[85vh]">
             <div className="bg-slate-900 text-white px-5 py-3.5 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <span className="material-symbols-outlined text-indigo-400 text-lg">history_edu</span>
@@ -5599,7 +5599,7 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
 
             <div className="p-5 overflow-y-auto space-y-4">
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                   Enter PO Number or Identity Code
                 </label>
                 <div className="flex gap-2">
@@ -5614,7 +5614,7 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
                       }
                     }}
                     placeholder="e.g. PO-2026-0001 or PO-001"
-                    className="flex-1 border border-slate-300 rounded-lg px-3 py-1.5 text-xs font-mono focus:border-indigo-500 outline-none"
+                    className="flex-1 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-1.5 text-xs font-mono bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 focus:border-indigo-500 outline-none"
                     autoFocus
                   />
                   <button
@@ -5646,16 +5646,16 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
                 {recentOrdersLoading ? (
                   <div className="p-4 text-center text-xs text-slate-400">Loading recent orders…</div>
                 ) : recentOrders.length === 0 ? (
-                  <div className="p-4 text-center text-xs text-slate-400 bg-slate-50 rounded-lg border border-slate-200">
+                  <div className="p-4 text-center text-xs text-slate-400 dark:text-slate-500 bg-slate-50 dark:bg-slate-900/60 rounded-lg border border-slate-200 dark:border-slate-700">
                     No recent purchase orders found.
                   </div>
                 ) : (
-                  <div className="divide-y divide-slate-100 border border-slate-200 rounded-lg max-h-56 overflow-y-auto">
+                  <div className="divide-y divide-slate-100 dark:divide-slate-700 border border-slate-200 dark:border-slate-700 rounded-lg max-h-56 overflow-y-auto">
                     {recentOrders.map((ord: any) => (
                       <div
                         key={ord.id || ord.order_no}
                         onClick={() => loadPOForEditing(ord.order_no || ord.id)}
-                        className="px-3.5 py-2 hover:bg-indigo-50/60 cursor-pointer transition flex items-center justify-between group"
+                        className="px-3.5 py-2 hover:bg-indigo-50/60 dark:hover:bg-indigo-950/40 cursor-pointer transition flex items-center justify-between group"
                       >
                         <div>
                           <div className="font-mono font-bold text-xs text-indigo-600 group-hover:text-indigo-800">
@@ -5684,12 +5684,12 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
               </div>
             </div>
 
-            <div className="bg-slate-50 border-t border-slate-200 px-5 py-3 flex justify-between items-center text-xs text-slate-500">
+            <div className="bg-slate-50 dark:bg-slate-900 border-t border-slate-200 dark:border-slate-700 px-5 py-3 flex justify-between items-center text-xs text-slate-500 dark:text-slate-400">
               <span>Recalling a PO populates its items and size quantities into the matrix.</span>
               <button
                 type="button"
                 onClick={() => setShowRecallModal(false)}
-                className="px-3 py-1 bg-white border border-slate-300 hover:bg-slate-100 text-slate-700 font-bold rounded-lg transition cursor-pointer"
+                className="px-3 py-1 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold rounded-lg transition cursor-pointer"
               >
                 Close
               </button>

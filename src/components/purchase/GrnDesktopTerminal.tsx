@@ -1065,25 +1065,25 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
   const displayRowsCount = Math.max(6, grnLines.length);
 
   return (
-    <div className="flex flex-col h-full w-full max-h-full overflow-hidden bg-[#f8fafc] text-slate-800 text-xs select-none">
+    <div className="flex flex-col h-full w-full max-h-full overflow-hidden bg-[#f8fafc] dark:bg-slate-900 text-slate-800 dark:text-slate-100 text-xs select-none">
       
       {/* ========================================================================= */}
       {/* 1. TOP HEADER BAR (Compact: h-9)                                          */}
       {/* ========================================================================= */}
-      <header className="h-9 bg-white border-b border-slate-200 px-3 flex items-center justify-between shadow-2xs shrink-0">
+      <header className="h-9 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-3 flex items-center justify-between shadow-2xs shrink-0">
         <div className="flex items-center gap-2">
           <div className="w-6 h-6 rounded bg-[#00288e] flex items-center justify-center text-white shadow-2xs">
             <Package size={14} />
           </div>
           <div className="flex items-baseline gap-2">
-            <h1 className="font-extrabold text-sm text-slate-900 tracking-tight leading-none">
+            <h1 className="font-extrabold text-sm text-slate-900 dark:text-slate-100 tracking-tight leading-none">
               Goods Receipt (GRN)
             </h1>
-            <span className="text-[10px] text-slate-500 font-medium">
+            <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">
               Open For {grnDate} - Smriti System
             </span>
             {selectedOrderId && (
-              <span className="px-1.5 py-0.5 bg-blue-100 text-[#00288e] font-mono font-bold text-[10px] rounded flex items-center gap-1">
+              <span className="px-1.5 py-0.5 bg-blue-100 dark:bg-blue-950/60 text-[#00288e] dark:text-blue-300 font-mono font-bold text-[10px] rounded flex items-center gap-1">
                 <FileSpreadsheet size={10} />
                 PO Linked: {invoiceNumber || selectedOrderId}
               </span>
@@ -1096,7 +1096,7 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
           <button
             type="button"
             onClick={onOpenHistory}
-            className="flex items-center gap-1 px-2.5 h-6.5 bg-white border border-slate-300 hover:bg-slate-50 rounded text-slate-700 font-semibold text-xs shadow-2xs transition"
+            className="flex items-center gap-1 px-2.5 h-6.5 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700 rounded text-slate-700 dark:text-slate-200 font-semibold text-xs shadow-2xs transition"
           >
             <FolderOpen size={12} className="text-slate-500" />
             <span>Open</span>
@@ -1105,7 +1105,7 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
           <button
             type="button"
             onClick={onResetGrn}
-            className="flex items-center gap-1 px-2.5 h-6.5 bg-white border border-slate-300 hover:bg-slate-50 rounded text-slate-700 font-semibold text-xs shadow-2xs transition"
+            className="flex items-center gap-1 px-2.5 h-6.5 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700 rounded text-slate-700 dark:text-slate-200 font-semibold text-xs shadow-2xs transition"
           >
             <Plus size={12} className="text-slate-500" />
             <span>New</span>
@@ -1124,7 +1124,7 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
           <button
             type="button"
             onClick={onOpenPrint}
-            className="flex items-center gap-1 px-2.5 h-6.5 bg-white border border-slate-300 hover:bg-slate-50 rounded text-slate-700 font-semibold text-xs shadow-2xs transition"
+            className="flex items-center gap-1 px-2.5 h-6.5 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700 rounded text-slate-700 dark:text-slate-200 font-semibold text-xs shadow-2xs transition"
           >
             <Printer size={12} className="text-slate-500" />
             <span>Print</span>
@@ -1134,7 +1134,7 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
             <button
               type="button"
               onClick={onSwitchToWizard}
-              className="flex items-center gap-1 px-2.5 h-6.5 bg-indigo-50 border border-indigo-200 hover:bg-indigo-100 rounded text-indigo-700 font-semibold text-xs shadow-2xs transition"
+              className="flex items-center gap-1 px-2.5 h-6.5 bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 rounded text-indigo-700 dark:text-indigo-300 font-semibold text-xs shadow-2xs transition"
               title="Switch to Guided 5-Step Wizard"
             >
               <ClipboardList size={12} className="text-indigo-600" />
@@ -1161,13 +1161,13 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
             <button
               type="button"
               onClick={() => setShowOptionsMenu(!showOptionsMenu)}
-              className="p-1 h-6.5 w-6.5 flex items-center justify-center bg-white border border-slate-300 hover:bg-slate-50 rounded text-slate-600 shadow-2xs transition"
+              className="p-1 h-6.5 w-6.5 flex items-center justify-center bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700 rounded text-slate-600 dark:text-slate-300 shadow-2xs transition"
               title="More Options"
             >
               <MoreVertical size={14} />
             </button>
             {showOptionsMenu && (
-              <div className="absolute right-0 mt-1 w-52 bg-white rounded-lg shadow-xl border border-slate-200 py-1 z-50 text-xs font-medium">
+              <div className="absolute right-0 mt-1 w-52 bg-white dark:bg-slate-800 rounded-lg shadow-xl border border-slate-200 dark:border-slate-700 py-1 z-50 text-xs font-medium">
                 {onOpenReports && (
                   <button
                     type="button"
@@ -1175,7 +1175,7 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
                       setShowOptionsMenu(false);
                       onOpenReports();
                     }}
-                    className="w-full text-left px-3 py-1.5 hover:bg-slate-50 flex items-center gap-2 text-indigo-600 font-semibold"
+                    className="w-full text-left px-3 py-1.5 hover:bg-slate-50 dark:hover:bg-slate-700/60 flex items-center gap-2 text-indigo-600 dark:text-indigo-400 font-semibold"
                   >
                     <span>📊</span>
                     <span>Procurement Reports</span>
@@ -1188,7 +1188,7 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
                       setShowOptionsMenu(false);
                       onOpenThreeWayMatch();
                     }}
-                    className="w-full text-left px-3 py-1.5 hover:bg-slate-50 flex items-center gap-2"
+                    className="w-full text-left px-3 py-1.5 hover:bg-slate-50 dark:hover:bg-slate-700/60 text-slate-700 dark:text-slate-200 flex items-center gap-2"
                   >
                     <span>⚖</span>
                     <span>3-Way Invoice Match</span>
@@ -1201,7 +1201,7 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
                       setShowOptionsMenu(false);
                       onOpenDebitNote();
                     }}
-                    className="w-full text-left px-3 py-1.5 hover:bg-slate-50 flex items-center gap-2 text-rose-600"
+                    className="w-full text-left px-3 py-1.5 hover:bg-slate-50 dark:hover:bg-slate-700/60 flex items-center gap-2 text-rose-600 dark:text-rose-400"
                   >
                     <span>📄</span>
                     <span>Generate Debit Note</span>
@@ -1213,7 +1213,7 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
                     setShowOptionsMenu(false);
                     setShowHotkeysModal(true);
                   }}
-                  className="w-full text-left px-3 py-1.5 hover:bg-slate-50 flex items-center gap-2"
+                  className="w-full text-left px-3 py-1.5 hover:bg-slate-50 dark:hover:bg-slate-700/60 text-slate-700 dark:text-slate-200 flex items-center gap-2"
                 >
                   <Keyboard size={13} className="text-slate-400" />
                   <span>List Hotkeys (F3)</span>
@@ -1228,18 +1228,18 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
       {/* 2. PARAMETERS CARD (Ultra-Compact Sleek Header Form: ~80px)               */}
       {/* ========================================================================= */}
       <section className="px-3 py-1.5 shrink-0">
-        <div className="bg-white border border-slate-200 rounded-lg p-2 shadow-2xs grid grid-cols-12 gap-2 items-center">
+        <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-2 shadow-2xs grid grid-cols-12 gap-2 items-center">
           
           {/* Left Column (2 Cols): Transaction Type & Reason Code */}
           <div className="col-span-12 md:col-span-2 space-y-1.5">
             <div>
-              <label className="block text-[10px] font-bold text-slate-500 mb-0.5 uppercase tracking-wider">
+              <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 mb-0.5 uppercase tracking-wider">
                 Transaction Type
               </label>
               <select
                 value={transactionType}
                 onChange={(e) => setTransactionType(e.target.value)}
-                className="w-full h-6.5 px-1.5 border border-slate-300 rounded bg-white text-[11px] font-semibold outline-none focus:border-[#00288e]"
+                className="w-full h-6.5 px-1.5 border border-slate-300 dark:border-slate-600 rounded bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 text-[11px] font-semibold outline-none focus:border-[#00288e]"
               >
                 <option value="Purchase">Purchase</option>
                 <option value="Inter-Branch Inward">Inter-Branch Inward</option>
@@ -1249,13 +1249,13 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
             </div>
 
             <div>
-              <label className="block text-[10px] font-bold text-slate-500 mb-0.5 uppercase tracking-wider">
+              <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 mb-0.5 uppercase tracking-wider">
                 Reason Code
               </label>
               <select
                 value={reasonCode}
                 onChange={(e) => setReasonCode(e.target.value)}
-                className="w-full h-6.5 px-1.5 border border-slate-300 rounded bg-white text-[11px] font-semibold outline-none focus:border-[#00288e]"
+                className="w-full h-6.5 px-1.5 border border-slate-300 dark:border-slate-600 rounded bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 text-[11px] font-semibold outline-none focus:border-[#00288e]"
               >
                 <option value="ITFR">ITFR</option>
                 <option value="NORMAL">NORMAL</option>
@@ -1270,7 +1270,7 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
             
             {/* Row 1: Supplier ID + Search + Name + Add Tax to Cost */}
             <div className="flex items-center gap-1.5">
-              <label className="w-16 text-[10px] font-bold text-slate-600 shrink-0">
+              <label className="w-16 text-[10px] font-bold text-slate-600 dark:text-slate-300 shrink-0">
                 Supplier Id
               </label>
               <div className="relative flex-1 max-w-[130px]">
@@ -1279,7 +1279,7 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
                   value={supplierId}
                   onChange={(e) => onSupplierChange(e.target.value)}
                   placeholder="ID / Code"
-                  className="w-full h-6.5 pl-2 pr-6 border border-slate-300 rounded text-[11px] font-mono font-bold outline-none focus:border-[#00288e]"
+                  className="w-full h-6.5 pl-2 pr-6 border border-slate-300 dark:border-slate-600 rounded bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 text-[11px] font-mono font-bold outline-none focus:border-[#00288e]"
                 />
                 <button
                   type="button"
@@ -1295,10 +1295,10 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
                 type="text"
                 readOnly
                 value={supplierName || (supplierId ? "Supplier Linked" : "Select or link supplier from DB...")}
-                className="flex-1 h-6.5 px-2 bg-slate-50 border border-slate-200 rounded text-[11px] text-slate-700 font-medium truncate"
+                className="flex-1 h-6.5 px-2 bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-700 rounded text-[11px] text-slate-700 dark:text-slate-300 font-medium truncate"
               />
 
-              <label className="flex items-center gap-1 text-[10px] font-bold text-slate-700 cursor-pointer ml-1 whitespace-nowrap">
+              <label className="flex items-center gap-1 text-[10px] font-bold text-slate-700 dark:text-slate-200 cursor-pointer ml-1 whitespace-nowrap">
                 <input
                   type="checkbox"
                   checked={addTaxToCost}
@@ -1311,7 +1311,7 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
 
             {/* Row 2: Ref./DC No + DC Date + Doc Remarks */}
             <div className="flex items-center gap-1.5">
-              <label className="w-16 text-[10px] font-bold text-slate-600 shrink-0">
+              <label className="w-16 text-[10px] font-bold text-slate-600 dark:text-slate-300 shrink-0">
                 Ref./DC No
               </label>
               <div className="flex items-center gap-1 flex-1 max-w-[130px]">
@@ -1324,30 +1324,30 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
                   }}
                   onBlur={() => handleRefDcBlurOrEnter(invoiceNumber)}
                   placeholder="e.g. PO-10"
-                  className="w-full h-6.5 px-2 border border-slate-300 rounded text-[11px] font-mono font-bold outline-none focus:border-[#00288e]"
+                  className="w-full h-6.5 px-2 border border-slate-300 dark:border-slate-600 rounded bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 text-[11px] font-mono font-bold outline-none focus:border-[#00288e]"
                   title="Type PO or DC number and press Enter to auto-load"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPoModal(true)}
-                  className="h-6.5 px-1.5 border border-slate-300 rounded bg-slate-50 hover:bg-slate-100 font-bold text-[11px] text-slate-600"
+                  className="h-6.5 px-1.5 border border-slate-300 dark:border-slate-600 rounded bg-slate-50 dark:bg-slate-700 hover:bg-slate-100 dark:hover:bg-slate-600 font-bold text-[11px] text-slate-600 dark:text-slate-200"
                   title="Browse Open Purchase Orders"
                 >
                   ...
                 </button>
               </div>
 
-              <label className="text-[10px] font-bold text-slate-600 shrink-0 ml-1">
+              <label className="text-[10px] font-bold text-slate-600 dark:text-slate-300 shrink-0 ml-1">
                 DC Date
               </label>
               <input
                 type="date"
                 value={invoiceDate || grnDate}
                 onChange={(e) => onInvoiceDateChange(e.target.value)}
-                className="w-28 h-6.5 px-1.5 border border-slate-300 rounded text-[11px] outline-none focus:border-[#00288e]"
+                className="w-28 h-6.5 px-1.5 border border-slate-300 dark:border-slate-600 rounded bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 text-[11px] outline-none focus:border-[#00288e]"
               />
 
-              <label className="text-[10px] font-bold text-slate-600 shrink-0 ml-1">
+              <label className="text-[10px] font-bold text-slate-600 dark:text-slate-300 shrink-0 ml-1">
                 Remarks
               </label>
               <input
@@ -1355,19 +1355,19 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
                 value={notes}
                 onChange={(e) => onNotesChange(e.target.value)}
                 placeholder="Remarks / delivery notes..."
-                className="flex-1 h-6.5 px-2 border border-slate-300 rounded text-[11px] outline-none focus:border-[#00288e]"
+                className="flex-1 h-6.5 px-2 border border-slate-300 dark:border-slate-600 rounded bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 text-[11px] outline-none focus:border-[#00288e]"
               />
             </div>
 
             {/* Row 3: Doc Prefix + Doc No. + Status Tag */}
             <div className="flex items-center gap-1.5">
-              <label className="w-16 text-[10px] font-bold text-slate-600 shrink-0">
+              <label className="w-16 text-[10px] font-bold text-slate-600 dark:text-slate-300 shrink-0">
                 Doc Prefix
               </label>
               <select
                 value={docPrefix}
                 onChange={(e) => setDocPrefix(e.target.value)}
-                className="h-6.5 px-1.5 border border-slate-300 rounded bg-white text-[11px] font-semibold outline-none focus:border-[#00288e] w-20"
+                className="h-6.5 px-1.5 border border-slate-300 dark:border-slate-600 rounded bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 text-[11px] font-semibold outline-none focus:border-[#00288e] w-20"
               >
                 <option value="P17">P17</option>
                 <option value="GRN">GRN</option>
@@ -1382,12 +1382,12 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
                 type="text"
                 value={docNo}
                 onChange={(e) => setDocNo(e.target.value)}
-                className="h-6.5 px-2 border border-slate-300 rounded text-[11px] font-bold font-mono w-20 outline-none focus:border-[#00288e]"
+                className="h-6.5 px-2 border border-slate-300 dark:border-slate-600 rounded bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 text-[11px] font-bold font-mono w-20 outline-none focus:border-[#00288e]"
               />
 
               {selectedOrderId && (
                 <div className="flex items-center gap-1.5 ml-3">
-                  <span className="text-[10px] text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded font-bold">
+                  <span className="text-[10px] text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 px-2 py-0.5 rounded font-bold">
                     ✓ PO Synced ({grnLines.length} Items)
                   </span>
                   <button
@@ -1409,13 +1409,13 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
 
           {/* Right Column (3 Cols): Sleek Action Buttons Box */}
           <div className="col-span-12 md:col-span-3">
-            <div className="border border-slate-200 rounded-lg p-1.5 bg-slate-50/70 space-y-1">
+            <div className="border border-slate-200 dark:border-slate-700 rounded-lg p-1.5 bg-slate-50/70 dark:bg-slate-900/50 space-y-1">
               
               {/* Primary 1. Select Purchase Order Button */}
               <button
                 type="button"
                 onClick={() => setShowPoModal(true)}
-                className="w-full text-left px-2 h-6.5 rounded font-bold text-[11px] text-[#00288e] bg-[#e0f2fe] hover:bg-[#bae6fd] transition flex items-center justify-between shadow-2xs"
+                className="w-full text-left px-2 h-6.5 rounded font-bold text-[11px] text-[#00288e] dark:text-blue-300 bg-[#e0f2fe] dark:bg-blue-950/60 hover:bg-[#bae6fd] dark:hover:bg-blue-900/60 transition flex items-center justify-between shadow-2xs"
               >
                 <span className="flex items-center gap-1">
                   <FileSpreadsheet size={12} />
@@ -1435,7 +1435,7 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
                 <button
                   type="button"
                   onClick={onOpenCsvImport}
-                  className="h-6 px-1.5 bg-white border border-slate-200 hover:bg-slate-100 rounded font-semibold text-slate-700 truncate text-left"
+                  className="h-6 px-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700 rounded font-semibold text-slate-700 dark:text-slate-200 truncate text-left"
                 >
                   2. Load PF File
                 </button>
@@ -1443,7 +1443,7 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
                 <button
                   type="button"
                   onClick={onOpenScanner}
-                  className="h-6 px-1.5 bg-white border border-slate-200 hover:bg-slate-100 rounded font-semibold text-slate-700 flex items-center justify-between"
+                  className="h-6 px-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700 rounded font-semibold text-slate-700 dark:text-slate-200 flex items-center justify-between"
                 >
                   <span className="truncate">3. Load PDT</span>
                   <Barcode size={11} className="text-slate-400 shrink-0" />
@@ -1452,7 +1452,7 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
                 <button
                   type="button"
                   onClick={() => setShowOutwardModal(true)}
-                  className="h-6 px-1.5 bg-white border border-slate-200 hover:bg-slate-100 rounded font-semibold text-slate-700 truncate text-left"
+                  className="h-6 px-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700 rounded font-semibold text-slate-700 dark:text-slate-200 truncate text-left"
                 >
                   4. Outward Match
                 </button>
@@ -1460,7 +1460,7 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
                 <button
                   type="button"
                   onClick={() => setShowItemTagsModal(true)}
-                  className="h-6 px-1.5 bg-white border border-slate-200 hover:bg-slate-100 rounded font-semibold text-slate-700 truncate text-left flex items-center justify-between"
+                  className="h-6 px-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700 rounded font-semibold text-slate-700 dark:text-slate-200 truncate text-left flex items-center justify-between"
                 >
                   <span>5. Item Tags</span>
                   <Tag size={10} className="text-slate-400" />
@@ -1476,20 +1476,20 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
       {/* ========================================================================= */}
       {/* 2.5 SUB-TAB NAVIGATION BAR & INSPECTION WORKSPACE TOGGLE                  */}
       {/* ========================================================================= */}
-      <nav className="px-3 pb-1 shrink-0 flex items-center justify-between border-b border-slate-200">
+      <nav className="px-3 pb-1 shrink-0 flex items-center justify-between border-b border-slate-200 dark:border-slate-800">
         <div className="flex items-center gap-1 overflow-x-auto text-[11px] font-bold">
           <button
             type="button"
             onClick={() => setActiveSubTab("ITEMS")}
             className={`px-3 py-1 rounded-t border-t border-x transition flex items-center gap-1.5 ${
               activeSubTab === "ITEMS"
-                ? "bg-white border-slate-200 text-[#00288e] shadow-2xs font-extrabold"
-                : "bg-slate-100 border-transparent text-slate-600 hover:bg-slate-200/70"
+                ? "bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-[#00288e] dark:text-blue-300 shadow-2xs font-extrabold"
+                : "bg-slate-100 dark:bg-slate-800/60 border-transparent text-slate-600 dark:text-slate-400 hover:bg-slate-200/70 dark:hover:bg-slate-800"
             }`}
           >
             <Layers size={13} className={activeSubTab === "ITEMS" ? "text-[#00288e]" : "text-slate-400"} />
             <span>1. Item Details</span>
-            <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-slate-200 text-slate-700 font-mono font-bold">
+            <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 font-mono font-bold">
               {grnLines.length}
             </span>
           </button>
@@ -1502,8 +1502,8 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
             }}
             className={`px-3 py-1 rounded-t border-t border-x transition flex items-center gap-1.5 ${
               activeSubTab === "DAMAGE"
-                ? "bg-white border-slate-200 text-rose-700 shadow-2xs font-extrabold"
-                : "bg-slate-100 border-transparent text-slate-600 hover:bg-slate-200/70"
+                ? "bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-rose-700 dark:text-rose-400 shadow-2xs font-extrabold"
+                : "bg-slate-100 dark:bg-slate-800/60 border-transparent text-slate-600 dark:text-slate-400 hover:bg-slate-200/70 dark:hover:bg-slate-800"
             }`}
           >
             <AlertTriangle size={13} className={activeSubTab === "DAMAGE" ? "text-rose-600" : "text-slate-400"} />
@@ -1523,8 +1523,8 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
             }}
             className={`px-3 py-1 rounded-t border-t border-x transition flex items-center gap-1.5 ${
               activeSubTab === "LANDED_COST"
-                ? "bg-white border-slate-200 text-[#00288e] shadow-2xs font-extrabold"
-                : "bg-slate-100 border-transparent text-slate-600 hover:bg-slate-200/70"
+                ? "bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-[#00288e] dark:text-blue-300 shadow-2xs font-extrabold"
+                : "bg-slate-100 dark:bg-slate-800/60 border-transparent text-slate-600 dark:text-slate-400 hover:bg-slate-200/70 dark:hover:bg-slate-800"
             }`}
           >
             <Truck size={13} className={activeSubTab === "LANDED_COST" ? "text-[#00288e]" : "text-slate-400"} />
@@ -1544,8 +1544,8 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
             }}
             className={`px-3 py-1 rounded-t border-t border-x transition flex items-center gap-1.5 ${
               activeSubTab === "TAX"
-                ? "bg-white border-slate-200 text-[#00288e] shadow-2xs font-extrabold"
-                : "bg-slate-100 border-transparent text-slate-600 hover:bg-slate-200/70"
+                ? "bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-[#00288e] dark:text-blue-300 shadow-2xs font-extrabold"
+                : "bg-slate-100 dark:bg-slate-800/60 border-transparent text-slate-600 dark:text-slate-400 hover:bg-slate-200/70 dark:hover:bg-slate-800"
             }`}
           >
             <Receipt size={13} className={activeSubTab === "TAX" ? "text-[#00288e]" : "text-slate-400"} />
@@ -1560,8 +1560,8 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
             }}
             className={`px-3 py-1 rounded-t border-t border-x transition flex items-center gap-1.5 ${
               activeSubTab === "DEBIT_NOTE"
-                ? "bg-white border-slate-200 text-rose-700 shadow-2xs font-extrabold"
-                : "bg-slate-100 border-transparent text-slate-600 hover:bg-slate-200/70"
+                ? "bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-rose-700 dark:text-rose-400 shadow-2xs font-extrabold"
+                : "bg-slate-100 dark:bg-slate-800/60 border-transparent text-slate-600 dark:text-slate-400 hover:bg-slate-200/70 dark:hover:bg-slate-800"
             }`}
           >
             <FileText size={13} className={activeSubTab === "DEBIT_NOTE" ? "text-rose-600" : "text-slate-400"} />
@@ -1581,8 +1581,8 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
             }}
             className={`px-3 py-1 rounded-t border-t border-x transition flex items-center gap-1.5 ${
               activeSubTab === "DOC_NOTES"
-                ? "bg-white border-slate-200 text-[#00288e] shadow-2xs font-extrabold"
-                : "bg-slate-100 border-transparent text-slate-600 hover:bg-slate-200/70"
+                ? "bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-[#00288e] dark:text-blue-300 shadow-2xs font-extrabold"
+                : "bg-slate-100 dark:bg-slate-800/60 border-transparent text-slate-600 dark:text-slate-400 hover:bg-slate-200/70 dark:hover:bg-slate-800"
             }`}
           >
             <FileSpreadsheet size={13} className={activeSubTab === "DOC_NOTES" ? "text-[#00288e]" : "text-slate-400"} />
@@ -1598,7 +1598,7 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
         {/* View Mode Toggle (Simple vs Advanced) & Inspection Workspace Toggle */}
         <div className="flex items-center gap-2">
           {/* Table View Mode Toggle */}
-          <div className="flex items-center bg-slate-100 p-0.5 rounded border border-slate-200 text-[10px] font-semibold">
+          <div className="flex items-center bg-slate-100 dark:bg-slate-800 p-0.5 rounded border border-slate-200 dark:border-slate-700 text-[10px] font-semibold">
             <button
               type="button"
               onClick={() => setViewMode("SIMPLE")}
@@ -1625,7 +1625,7 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
             </button>
           </div>
 
-          <div className="flex items-center bg-slate-100 p-0.5 rounded border border-slate-200 text-[10px] font-semibold">
+          <div className="flex items-center bg-slate-100 dark:bg-slate-800 p-0.5 rounded border border-slate-200 dark:border-slate-700 text-[10px] font-semibold">
             <button
               type="button"
               onClick={() => {
@@ -1634,8 +1634,8 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
               }}
               className={`px-2 py-0.5 rounded transition ${
                 panelLayout === "ACTIVE_TAB"
-                  ? "bg-white text-[#00288e] shadow-2xs font-bold"
-                  : "text-slate-600 hover:text-slate-900"
+                  ? "bg-white dark:bg-slate-900 text-[#00288e] dark:text-blue-300 shadow-2xs font-bold"
+                  : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100"
               }`}
               title="Focus bottom panel on selected sub-tab"
             >
@@ -1649,8 +1649,8 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
               }}
               className={`px-2 py-0.5 rounded transition ${
                 panelLayout === "ALL_COLUMNS"
-                  ? "bg-white text-[#00288e] shadow-2xs font-bold"
-                  : "text-slate-600 hover:text-slate-900"
+                  ? "bg-white dark:bg-slate-900 text-[#00288e] dark:text-blue-300 shadow-2xs font-bold"
+                  : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100"
               }`}
               title="Show Damage, Landed Cost and Tax in 3-column view"
             >
@@ -1661,7 +1661,7 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
           <button
             type="button"
             onClick={() => setShowBottomPanels(!showBottomPanels)}
-            className="flex items-center gap-1 px-2.5 py-1 text-[11px] font-bold text-slate-600 hover:text-[#00288e] bg-white border border-slate-300 rounded shadow-2xs transition"
+            className="flex items-center gap-1 px-2.5 py-1 text-[11px] font-bold text-slate-600 dark:text-slate-300 hover:text-[#00288e] dark:hover:text-blue-300 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded shadow-2xs transition"
             title="Toggle Bottom Inspection Workspace Panels"
           >
             {showBottomPanels ? (
@@ -1687,55 +1687,55 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
         {/* ========================================================================= */}
         {/* 3. MAIN TABLE GRID + DOCKED DIRECT ENTRY STRIP                            */}
         {/* ========================================================================= */}
-        <div className="bg-white border border-slate-200 rounded-lg overflow-hidden flex flex-col shadow-2xs min-h-[200px] shrink-0">
+        <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg overflow-hidden flex flex-col shadow-2xs min-h-[200px] shrink-0">
           
           {/* Scrollable Table Viewport */}
           <div className="overflow-auto flex-1 max-h-[360px]">
             <table className={`w-full text-left border-collapse text-xs whitespace-nowrap ${viewMode === "SIMPLE" ? "min-w-[1050px]" : "min-w-[1600px]"}`}>
-              <thead className="bg-[#f1f5f9] sticky top-0 z-10 border-b border-slate-200 text-[10px] font-bold text-slate-600">
+              <thead className="bg-[#f1f5f9] dark:bg-slate-900 sticky top-0 z-10 border-b border-slate-200 dark:border-slate-700 text-[10px] font-bold text-slate-600 dark:text-slate-300">
                 <tr className="h-6.5">
-                  <th className="px-2 border-r border-slate-200 w-10 text-center">#</th>
-                  <th className="px-2 border-r border-slate-200 w-32">Stock No</th>
-                  <th className="px-2 border-r border-slate-200 min-w-[160px]">Item Description</th>
-                  <th className="px-2 border-r border-slate-200 text-right w-16">Doc Qty</th>
-                  <th className="px-2 border-r border-slate-200 text-right w-16">Received Qty</th>
-                  <th className="px-2 border-r border-rose-200 text-right w-20 bg-rose-50/70 text-rose-700 font-extrabold">Damage QTY</th>
-                  <th className="px-2 border-r border-emerald-200 text-right w-20 bg-emerald-50/70 text-emerald-800 font-extrabold">Accepted Qty</th>
+                  <th className="px-2 border-r border-slate-200 dark:border-slate-700 w-10 text-center">#</th>
+                  <th className="px-2 border-r border-slate-200 dark:border-slate-700 w-32">Stock No</th>
+                  <th className="px-2 border-r border-slate-200 dark:border-slate-700 min-w-[160px]">Item Description</th>
+                  <th className="px-2 border-r border-slate-200 dark:border-slate-700 text-right w-16">Doc Qty</th>
+                  <th className="px-2 border-r border-slate-200 dark:border-slate-700 text-right w-16">Received Qty</th>
+                  <th className="px-2 border-r border-rose-200 dark:border-rose-900 text-right w-20 bg-rose-50/70 dark:bg-rose-950/40 text-rose-700 dark:text-rose-400 font-extrabold">Damage QTY</th>
+                  <th className="px-2 border-r border-emerald-200 dark:border-emerald-900 text-right w-20 bg-emerald-50/70 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 font-extrabold">Accepted Qty</th>
                   
                   {viewMode === "ADVANCED" && (
-                    <th className="px-2 border-r border-slate-200 text-right w-20">Selling Price</th>
+                    <th className="px-2 border-r border-slate-200 dark:border-slate-700 text-right w-20">Selling Price</th>
                   )}
                   
-                  <th className="px-2 border-r border-slate-200 text-right w-20">Purchase Price</th>
-                  <th className="px-2 border-r border-slate-200 text-right w-20">Value</th>
+                  <th className="px-2 border-r border-slate-200 dark:border-slate-700 text-right w-20">Purchase Price</th>
+                  <th className="px-2 border-r border-slate-200 dark:border-slate-700 text-right w-20">Value</th>
                   
                   {viewMode === "ADVANCED" && (
                     <>
-                      <th className="px-2 border-r border-slate-200 text-right w-16">Disc %</th>
-                      <th className="px-2 border-r border-slate-200 text-right w-18">Disc Amt</th>
-                      <th className="px-2 border-r border-slate-200 text-right w-22">Tax Rate</th>
-                      <th className="px-2 border-r border-slate-200 text-right w-18">Tax Amount</th>
-                      <th className="px-2 border-r border-blue-200 text-right w-20 bg-blue-50/40 text-[#00288e]">Alloc. Landed</th>
+                      <th className="px-2 border-r border-slate-200 dark:border-slate-700 text-right w-16">Disc %</th>
+                      <th className="px-2 border-r border-slate-200 dark:border-slate-700 text-right w-18">Disc Amt</th>
+                      <th className="px-2 border-r border-slate-200 dark:border-slate-700 text-right w-22">Tax Rate</th>
+                      <th className="px-2 border-r border-slate-200 dark:border-slate-700 text-right w-18">Tax Amount</th>
+                      <th className="px-2 border-r border-blue-200 dark:border-blue-900 text-right w-20 bg-blue-50/40 dark:bg-blue-950/40 text-[#00288e] dark:text-blue-300">Alloc. Landed</th>
                     </>
                   )}
 
                   {/* 3 Core Landed Cost Columns in both views */}
-                  <th className="px-2 border-r border-blue-200 text-right w-20 bg-blue-50/70 text-[#00288e] font-extrabold">Landed / Unit</th>
-                  <th className="px-2 border-r border-blue-200 text-right w-22 bg-blue-100/60 text-[#00288e] font-extrabold">Final Cost / Unit</th>
-                  <th className="px-2 border-r border-emerald-200 text-right w-24 bg-emerald-50/70 text-emerald-800 font-extrabold">Final Value</th>
+                  <th className="px-2 border-r border-blue-200 dark:border-blue-900 text-right w-20 bg-blue-50/70 dark:bg-blue-950/40 text-[#00288e] dark:text-blue-300 font-extrabold">Landed / Unit</th>
+                  <th className="px-2 border-r border-blue-200 dark:border-blue-900 text-right w-22 bg-blue-100/60 dark:bg-blue-900/40 text-[#00288e] dark:text-blue-300 font-extrabold">Final Cost / Unit</th>
+                  <th className="px-2 border-r border-emerald-200 dark:border-emerald-900 text-right w-24 bg-emerald-50/70 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 font-extrabold">Final Value</th>
 
                   {viewMode === "ADVANCED" && (
                     <>
-                      <th className="px-2 border-r border-slate-200 text-right w-18">Addon B.Tax</th>
-                      <th className="px-2 border-r border-slate-200 text-right w-18">Addon A.Tax</th>
-                      <th className="px-2 border-r border-slate-200 text-right w-20">Ded. B.Tax</th>
-                      <th className="px-2 border-r border-slate-200 text-right w-20">Ded. A.Tax</th>
+                      <th className="px-2 border-r border-slate-200 dark:border-slate-700 text-right w-18">Addon B.Tax</th>
+                      <th className="px-2 border-r border-slate-200 dark:border-slate-700 text-right w-18">Addon A.Tax</th>
+                      <th className="px-2 border-r border-slate-200 dark:border-slate-700 text-right w-20">Ded. B.Tax</th>
+                      <th className="px-2 border-r border-slate-200 dark:border-slate-700 text-right w-20">Ded. A.Tax</th>
                     </>
                   )}
                   <th className="px-2 text-center w-8">⋮</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 font-mono text-[11px]">
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-700 font-mono text-[11px]">
                 {Array.from({ length: displayRowsCount }).map((_, idx) => {
                   const item = grnLines[idx];
                   const isSelected = selectedRowIndex === idx;
@@ -1758,26 +1758,26 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
                         onClick={() => handleSelectRow(idx)}
                         className={`h-6.5 cursor-pointer transition ${
                           isSelected
-                            ? "bg-[#e0f2fe] text-blue-950 font-semibold"
-                            : "hover:bg-slate-50"
+                            ? "bg-[#e0f2fe] dark:bg-blue-950/70 text-blue-950 dark:text-blue-100 font-semibold"
+                            : "hover:bg-slate-50 dark:hover:bg-slate-700/50"
                         }`}
                       >
-                        <td className="px-2 border-r border-slate-200 text-center font-bold text-slate-500">
+                        <td className="px-2 border-r border-slate-200 dark:border-slate-700 text-center font-bold text-slate-500">
                           {idx + 1}
                         </td>
-                        <td className="px-2 border-r border-slate-200 font-bold text-slate-900">
+                        <td className="px-2 border-r border-slate-200 dark:border-slate-700 font-bold text-slate-900">
                           {item.code}
                         </td>
-                        <td className="px-2 border-r border-slate-200 font-sans font-medium text-slate-800 truncate max-w-[220px]">
+                        <td className="px-2 border-r border-slate-200 dark:border-slate-700 font-sans font-medium text-slate-800 truncate max-w-[220px]">
                           {item.name}
                         </td>
-                        <td className="px-2 border-r border-slate-200 text-right">
+                        <td className="px-2 border-r border-slate-200 dark:border-slate-700 text-right">
                           {(item.quantity_ordered || item.quantity_received).toFixed(2)}
                         </td>
-                        <td className="px-2 border-r border-slate-200 text-right font-bold text-slate-900">
+                        <td className="px-2 border-r border-slate-200 dark:border-slate-700 text-right font-bold text-slate-900">
                           {item.quantity_received.toFixed(2)}
                         </td>
-                        <td className="px-2 border-r border-rose-200 text-right bg-rose-50/40">
+                        <td className="px-2 border-r border-rose-200 dark:border-rose-900 text-right bg-rose-50/40 dark:bg-rose-950/30">
                           {item.quantity_damaged > 0 ? (
                             <span className="px-1.5 py-0.5 rounded bg-rose-100 text-rose-700 font-bold">
                               {item.quantity_damaged.toFixed(2)}
@@ -1786,70 +1786,70 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
                             <span className="text-slate-400 font-normal">0.00</span>
                           )}
                         </td>
-                        <td className="px-2 border-r border-emerald-200 text-right font-bold text-emerald-700 bg-emerald-50/40">
+                        <td className="px-2 border-r border-emerald-200 dark:border-emerald-900 text-right font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-50/40 dark:bg-emerald-950/30">
                           {acceptedQty.toFixed(2)}
                         </td>
 
                         {viewMode === "ADVANCED" && (
-                          <td className="px-2 border-r border-slate-200 text-right">
+                          <td className="px-2 border-r border-slate-200 dark:border-slate-700 text-right">
                             {(item.mrp || 0).toFixed(2)}
                           </td>
                         )}
 
-                        <td className="px-2 border-r border-slate-200 text-right font-bold text-slate-900">
+                        <td className="px-2 border-r border-slate-200 dark:border-slate-700 text-right font-bold text-slate-900">
                           {(item.cost_price || item.invoice_rate).toFixed(2)}
                         </td>
-                        <td className="px-2 border-r border-slate-200 text-right font-bold">
+                        <td className="px-2 border-r border-slate-200 dark:border-slate-700 text-right font-bold">
                           {lineValue.toFixed(2)}
                         </td>
 
                         {viewMode === "ADVANCED" && (
                           <>
-                            <td className="px-2 border-r border-slate-200 text-right font-semibold">
+                            <td className="px-2 border-r border-slate-200 dark:border-slate-700 text-right font-semibold">
                               {discPct > 0 ? `${discPct.toFixed(1)}%` : "0.0%"}
                             </td>
-                            <td className="px-2 border-r border-slate-200 text-right text-slate-700">
+                            <td className="px-2 border-r border-slate-200 dark:border-slate-700 text-right text-slate-700">
                               {discAmt.toFixed(2)}
                             </td>
-                            <td className="px-2 border-r border-slate-200 text-right font-semibold">
+                            <td className="px-2 border-r border-slate-200 dark:border-slate-700 text-right font-semibold">
                               {item.gst_rate === 0 ? (
                                 <span className="text-slate-500 font-medium">0% (Exempt)</span>
                               ) : (
                                 `${(item.gst_rate || 0).toFixed(1)}%`
                               )}
                             </td>
-                            <td className="px-2 border-r border-slate-200 text-right">
+                            <td className="px-2 border-r border-slate-200 dark:border-slate-700 text-right">
                               {taxAmt.toFixed(2)}
                             </td>
-                            <td className="px-2 border-r border-blue-200 text-right font-mono bg-blue-50/30 text-[#00288e]">
+                            <td className="px-2 border-r border-blue-200 dark:border-blue-900 text-right font-mono bg-blue-50/30 dark:bg-blue-950/30 text-[#00288e] dark:text-blue-300">
                               ₹{lineAddons.toFixed(2)}
                             </td>
                           </>
                         )}
 
                         {/* Landed Cost Columns in both views */}
-                        <td className="px-2 border-r border-blue-200 text-right font-bold text-[#00288e] bg-blue-50/30">
+                        <td className="px-2 border-r border-blue-200 dark:border-blue-900 text-right font-bold text-[#00288e] dark:text-blue-300 bg-blue-50/30 dark:bg-blue-950/30">
                           ₹{landedPerUnit.toFixed(2)}
                         </td>
-                        <td className="px-2 border-r border-blue-200 text-right font-extrabold text-[#00288e] bg-blue-100/40">
+                        <td className="px-2 border-r border-blue-200 dark:border-blue-900 text-right font-extrabold text-[#00288e] dark:text-blue-300 bg-blue-100/40 dark:bg-blue-900/30">
                           ₹{finalCostPerUnit.toFixed(2)}
                         </td>
-                        <td className="px-2 border-r border-emerald-200 text-right font-extrabold text-emerald-800 bg-emerald-50/40">
+                        <td className="px-2 border-r border-emerald-200 dark:border-emerald-900 text-right font-extrabold text-emerald-800 dark:text-emerald-300 bg-emerald-50/40 dark:bg-emerald-950/30">
                           ₹{finalInventoryValue.toFixed(2)}
                         </td>
 
                         {viewMode === "ADVANCED" && (
                           <>
-                            <td className="px-2 border-r border-slate-200 text-right">
+                            <td className="px-2 border-r border-slate-200 dark:border-slate-700 text-right">
                               {(item.addon_before_tax || 0).toFixed(2)}
                             </td>
-                            <td className="px-2 border-r border-slate-200 text-right">
+                            <td className="px-2 border-r border-slate-200 dark:border-slate-700 text-right">
                               {(item.addon_after_tax || 0).toFixed(2)}
                             </td>
-                            <td className="px-2 border-r border-slate-200 text-right">
+                            <td className="px-2 border-r border-slate-200 dark:border-slate-700 text-right">
                               {(item.deduction_before_tax || 0).toFixed(2)}
                             </td>
-                            <td className="px-2 border-r border-slate-200 text-right">
+                            <td className="px-2 border-r border-slate-200 dark:border-slate-700 text-right">
                               {(item.deduction_after_tax || 0).toFixed(2)}
                             </td>
                           </>
@@ -1877,24 +1877,24 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
                   // Empty Placeholder Row
                   return (
                     <tr key={`empty-${idx}`} className="h-6 text-slate-300">
-                      <td className="px-2 border-r border-slate-200 text-center font-bold text-slate-400">
+                      <td className="px-2 border-r border-slate-200 dark:border-slate-700 text-center font-bold text-slate-400">
                         {idx + 1}
                       </td>
-                      <td className="px-2 border-r border-slate-200">&nbsp;</td>
-                      <td className="px-2 border-r border-slate-200">&nbsp;</td>
-                      <td className="px-2 border-r border-slate-200">&nbsp;</td>
-                      <td className="px-2 border-r border-slate-200">&nbsp;</td>
+                      <td className="px-2 border-r border-slate-200 dark:border-slate-700">&nbsp;</td>
+                      <td className="px-2 border-r border-slate-200 dark:border-slate-700">&nbsp;</td>
+                      <td className="px-2 border-r border-slate-200 dark:border-slate-700">&nbsp;</td>
+                      <td className="px-2 border-r border-slate-200 dark:border-slate-700">&nbsp;</td>
                       <td className="px-2 border-r border-rose-200 bg-rose-50/20">&nbsp;</td>
                       <td className="px-2 border-r border-emerald-200 bg-emerald-50/20">&nbsp;</td>
-                      {viewMode === "ADVANCED" && <td className="px-2 border-r border-slate-200">&nbsp;</td>}
-                      <td className="px-2 border-r border-slate-200">&nbsp;</td>
-                      <td className="px-2 border-r border-slate-200">&nbsp;</td>
+                      {viewMode === "ADVANCED" && <td className="px-2 border-r border-slate-200 dark:border-slate-700">&nbsp;</td>}
+                      <td className="px-2 border-r border-slate-200 dark:border-slate-700">&nbsp;</td>
+                      <td className="px-2 border-r border-slate-200 dark:border-slate-700">&nbsp;</td>
                       {viewMode === "ADVANCED" && (
                         <>
-                          <td className="px-2 border-r border-slate-200">&nbsp;</td>
-                          <td className="px-2 border-r border-slate-200">&nbsp;</td>
-                          <td className="px-2 border-r border-slate-200">&nbsp;</td>
-                          <td className="px-2 border-r border-slate-200">&nbsp;</td>
+                          <td className="px-2 border-r border-slate-200 dark:border-slate-700">&nbsp;</td>
+                          <td className="px-2 border-r border-slate-200 dark:border-slate-700">&nbsp;</td>
+                          <td className="px-2 border-r border-slate-200 dark:border-slate-700">&nbsp;</td>
+                          <td className="px-2 border-r border-slate-200 dark:border-slate-700">&nbsp;</td>
                           <td className="px-2 border-r border-blue-200 bg-blue-50/10">&nbsp;</td>
                         </>
                       )}
@@ -1903,10 +1903,10 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
                       <td className="px-2 border-r border-emerald-200 bg-emerald-50/20">&nbsp;</td>
                       {viewMode === "ADVANCED" && (
                         <>
-                          <td className="px-2 border-r border-slate-200">&nbsp;</td>
-                          <td className="px-2 border-r border-slate-200">&nbsp;</td>
-                          <td className="px-2 border-r border-slate-200">&nbsp;</td>
-                          <td className="px-2 border-r border-slate-200">&nbsp;</td>
+                          <td className="px-2 border-r border-slate-200 dark:border-slate-700">&nbsp;</td>
+                          <td className="px-2 border-r border-slate-200 dark:border-slate-700">&nbsp;</td>
+                          <td className="px-2 border-r border-slate-200 dark:border-slate-700">&nbsp;</td>
+                          <td className="px-2 border-r border-slate-200 dark:border-slate-700">&nbsp;</td>
                         </>
                       )}
                       <td className="px-1">&nbsp;</td>
@@ -1918,11 +1918,11 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
           </div>
 
           {/* DOCKED DIRECT ENTRY STRIP (Pinned at Grid Bottom) */}
-          <div className="bg-[#f8fafc] border-t-2 border-[#00288e] p-1 overflow-x-auto shrink-0">
+          <div className="bg-[#f8fafc] dark:bg-slate-900 border-t-2 border-[#00288e] dark:border-blue-600 p-1 overflow-x-auto shrink-0">
             <div className={`flex items-center text-xs ${viewMode === "SIMPLE" ? "min-w-[1050px]" : "min-w-[1600px]"}`}>
               
               {/* Row # */}
-              <div className="w-10 text-center font-bold text-slate-600 px-1">
+              <div className="w-10 text-center font-bold text-slate-600 dark:text-slate-400 px-1">
                 {selectedRowIndex !== null ? selectedRowIndex + 1 : grnLines.length + 1}
               </div>
 
@@ -1938,7 +1938,7 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
                   }}
                   onBlur={() => handleStockNoLookup(entryStockNo)}
                   placeholder="Stock No / SKU"
-                  className="w-full h-6.5 px-2 border border-slate-300 rounded font-mono font-bold text-xs bg-white outline-none focus:border-[#00288e]"
+                  className="w-full h-6.5 px-2 border border-slate-300 dark:border-slate-600 rounded font-mono font-bold text-xs bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 outline-none focus:border-[#00288e]"
                 />
               </div>
 
@@ -1949,7 +1949,7 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
                   readOnly
                   value={entryDescription}
                   placeholder="Item Description"
-                  className="w-full h-6.5 px-2 border border-slate-200 bg-white rounded font-sans text-xs text-slate-700 truncate"
+                  className="w-full h-6.5 px-2 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 rounded font-sans text-xs text-slate-700 dark:text-slate-200 truncate"
                 />
               </div>
 
@@ -1976,7 +1976,7 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
                   onKeyDown={(e) => {
                     if (e.key === "Enter") handleCommitDirectEntry();
                   }}
-                  className="w-full h-6.5 px-1.5 text-right font-mono font-bold text-xs bg-white border border-slate-300 rounded outline-none focus:border-[#00288e]"
+                  className="w-full h-6.5 px-1.5 text-right font-mono font-bold text-xs bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded outline-none text-slate-900 dark:text-slate-100 focus:border-[#00288e]"
                   title="Physical Received Quantity counted at inward staging bay"
                 />
               </div>
@@ -2021,7 +2021,7 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
                     onKeyDown={(e) => {
                       if (e.key === "Enter") handleCommitDirectEntry();
                     }}
-                    className="w-full h-6.5 px-1.5 text-right font-mono text-xs bg-white border border-slate-300 rounded outline-none focus:border-[#00288e]"
+                    className="w-full h-6.5 px-1.5 text-right font-mono text-xs bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100 rounded outline-none focus:border-[#00288e]"
                   />
                 </div>
               )}
@@ -2035,7 +2035,7 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
                   onKeyDown={(e) => {
                     if (e.key === "Enter") handleCommitDirectEntry();
                   }}
-                  className="w-full h-6.5 px-1.5 text-right font-mono font-bold text-xs bg-white border border-slate-300 rounded outline-none focus:border-[#00288e]"
+                  className="w-full h-6.5 px-1.5 text-right font-mono font-bold text-xs bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded outline-none text-slate-900 dark:text-slate-100 focus:border-[#00288e]"
                 />
               </div>
 
@@ -2053,7 +2053,7 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
                       value={entryDiscountRate}
                       onChange={(e) => handleEntryDiscountRateChange(e.target.value)}
                       placeholder="%"
-                      className="w-full h-6.5 px-1 text-right font-mono text-xs bg-white border border-slate-300 rounded outline-none focus:border-[#00288e]"
+                      className="w-full h-6.5 px-1 text-right font-mono text-xs bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 border border-slate-300 dark:border-slate-600 rounded outline-none focus:border-[#00288e]"
                       title="Trade Discount Percentage (0% to 100%)"
                     />
                   </div>
@@ -2065,7 +2065,7 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
                       value={entryDiscountAmount}
                       onChange={(e) => handleEntryDiscountAmountChange(e.target.value)}
                       placeholder="₹"
-                      className="w-full h-6.5 px-1 text-right font-mono text-xs bg-white border border-slate-300 rounded outline-none focus:border-[#00288e]"
+                      className="w-full h-6.5 px-1 text-right font-mono text-xs bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 border border-slate-300 dark:border-slate-600 rounded outline-none focus:border-[#00288e]"
                       title="Trade Discount Flat Amount"
                     />
                   </div>
@@ -2077,7 +2077,7 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
                       value={entryTaxRate}
                       onChange={(e) => setEntryTaxRate(e.target.value)}
                       placeholder="%"
-                      className="w-full h-6.5 px-1 text-right font-mono text-xs bg-white border border-slate-300 rounded outline-none"
+                      className="w-full h-6.5 px-1 text-right font-mono text-xs bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 border border-slate-300 dark:border-slate-600 rounded outline-none"
                     />
                   </div>
 
@@ -2087,7 +2087,7 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
                       type="text"
                       value={entryTaxAmount}
                       onChange={(e) => setEntryTaxAmount(e.target.value)}
-                      className="w-full h-6.5 px-1 text-right font-mono text-xs bg-white border border-slate-300 rounded outline-none"
+                      className="w-full h-6.5 px-1 text-right font-mono text-xs bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 border border-slate-300 dark:border-slate-600 rounded outline-none"
                     />
                   </div>
 
@@ -2124,7 +2124,7 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
                       type="text"
                       value={entryAddonBeforeTax}
                       onChange={(e) => setEntryAddonBeforeTax(e.target.value)}
-                      className="w-full h-6.5 px-1 text-right font-mono text-xs bg-white border border-slate-300 rounded outline-none"
+                      className="w-full h-6.5 px-1 text-right font-mono text-xs bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 border border-slate-300 dark:border-slate-600 rounded outline-none"
                     />
                   </div>
 
@@ -2134,7 +2134,7 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
                       type="text"
                       value={entryAddonAfterTax}
                       onChange={(e) => setEntryAddonAfterTax(e.target.value)}
-                      className="w-full h-6.5 px-1 text-right font-mono text-xs bg-white border border-slate-300 rounded outline-none"
+                      className="w-full h-6.5 px-1 text-right font-mono text-xs bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 border border-slate-300 dark:border-slate-600 rounded outline-none"
                     />
                   </div>
 
@@ -2144,7 +2144,7 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
                       type="text"
                       value={entryDeductionBeforeTax}
                       onChange={(e) => setEntryDeductionBeforeTax(e.target.value)}
-                      className="w-full h-6.5 px-1 text-right font-mono text-xs bg-white border border-slate-300 rounded outline-none"
+                      className="w-full h-6.5 px-1 text-right font-mono text-xs bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 border border-slate-300 dark:border-slate-600 rounded outline-none"
                     />
                   </div>
 
@@ -2157,7 +2157,7 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
                       onKeyDown={(e) => {
                         if (e.key === "Enter") handleCommitDirectEntry();
                       }}
-                      className="w-full h-6.5 px-1 text-right font-mono text-xs bg-white border border-slate-300 rounded outline-none"
+                      className="w-full h-6.5 px-1 text-right font-mono text-xs bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 border border-slate-300 dark:border-slate-600 rounded outline-none"
                     />
                   </div>
                 </>
@@ -2174,19 +2174,19 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
         {/* 4. SUMMARY & CALCULATION SECTION                                          */}
         {/* ========================================================================= */}
         <section className="shrink-0 space-y-2">
-          <div className="bg-white border border-slate-200 rounded-lg px-3 py-2 shadow-2xs grid grid-cols-12 gap-3 items-center">
+          <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 shadow-2xs grid grid-cols-12 gap-3 items-center">
             
             {/* Left 4 Cols: 4 Core Quantity Metrics */}
             <div className="col-span-12 lg:col-span-4 grid grid-cols-4 gap-1">
-              <div className="bg-slate-50 border border-slate-200 rounded p-1 text-center">
+              <div className="bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-700 rounded p-1 text-center">
                 <span className="block text-[8px] font-bold text-slate-500 uppercase">Doc Qty</span>
-                <span className="font-mono font-bold text-xs text-slate-900">{totalDocQty.toFixed(2)}</span>
+                <span className="font-mono font-bold text-xs text-slate-900 dark:text-slate-100">{totalDocQty.toFixed(2)}</span>
               </div>
-              <div className="bg-slate-50 border border-slate-200 rounded p-1 text-center">
+              <div className="bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-700 rounded p-1 text-center">
                 <span className="block text-[8px] font-bold text-slate-500 uppercase">Received Qty</span>
-                <span className="font-mono font-bold text-xs text-slate-900">{totalActQty.toFixed(2)}</span>
+                <span className="font-mono font-bold text-xs text-slate-900 dark:text-slate-100">{totalActQty.toFixed(2)}</span>
               </div>
-              <div className={`border rounded p-1 text-center ${totalDamageQty > 0 ? "bg-rose-50 border-rose-200" : "bg-slate-50 border-slate-200"}`}>
+              <div className={`border rounded p-1 text-center ${totalDamageQty > 0 ? "bg-rose-50 border-rose-200 dark:bg-rose-950/40 dark:border-rose-900/60" : "bg-slate-50 border-slate-200 dark:bg-slate-800/60 dark:border-slate-700"}`}>
                 <span className={`block text-[8px] font-bold uppercase ${totalDamageQty > 0 ? "text-rose-600 font-extrabold" : "text-slate-500"}`}>
                   Damage
                 </span>
@@ -2194,7 +2194,7 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
                   {totalDamageQty.toFixed(2)}
                 </span>
               </div>
-              <div className="bg-emerald-50/70 border border-emerald-200 rounded p-1 text-center">
+              <div className="bg-emerald-50/70 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded p-1 text-center">
                 <span className="block text-[8px] font-bold uppercase text-emerald-800 font-extrabold">Accepted</span>
                 <span className="font-mono font-bold text-xs text-emerald-700 font-extrabold">{totalSoundQty.toFixed(2)}</span>
               </div>
@@ -2202,7 +2202,7 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
 
             {/* Middle 5 Cols: Financial Metrics (Accepted Val, Damage Val, Landed Cost, Capitalized Inv) */}
             <div className="col-span-12 lg:col-span-5 grid grid-cols-4 gap-1.5 text-[10px]">
-              <div className="bg-emerald-50/50 border border-emerald-200 rounded p-1">
+              <div className="bg-emerald-50/50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded p-1">
                 <span className="block text-[8px] font-bold uppercase text-emerald-800">Accepted Val</span>
                 <span className="font-mono font-extrabold text-xs text-emerald-700 block truncate">
                   ₹{totalAcceptedValue.toFixed(2)}
@@ -2210,7 +2210,7 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
                 <span className="text-[8px] text-emerald-600 font-mono">{totalSoundQty.toFixed(0)} sound units</span>
               </div>
 
-              <div className={`border rounded p-1 ${totalDamageValue > 0 ? "bg-rose-50/70 border-rose-200" : "bg-slate-50 border-slate-200"}`}>
+              <div className={`border rounded p-1 ${totalDamageValue > 0 ? "bg-rose-50/70 border-rose-200 dark:bg-rose-950/40 dark:border-rose-900/60" : "bg-slate-50 border-slate-200 dark:bg-slate-800/60 dark:border-slate-700"}`}>
                 <span className={`block text-[8px] font-bold uppercase ${totalDamageValue > 0 ? "text-rose-700" : "text-slate-500"}`}>Damage Val</span>
                 <span className={`font-mono font-bold text-xs block truncate ${totalDamageValue > 0 ? "text-rose-700 font-extrabold" : "text-slate-400"}`}>
                   ₹{totalDamageValue.toFixed(2)}
@@ -2241,7 +2241,7 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
                 </span>
               </div>
 
-              <div className="bg-blue-100/60 border border-blue-300 rounded p-1">
+              <div className="bg-blue-100/60 dark:bg-blue-900/40 border border-blue-300 dark:border-blue-700 rounded p-1">
                 <span className="block text-[8px] font-bold uppercase text-[#00288e]">Capitalized Inv</span>
                 <span className="font-mono font-extrabold text-xs text-[#00288e] block truncate">
                   ₹{totalInventoryValueWithLandedCost.toFixed(2)}
@@ -2254,7 +2254,7 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
             <div className="col-span-12 lg:col-span-3 flex items-center justify-end gap-3 border-l border-slate-100 pl-3">
               <div className="text-right">
                 <span className="block text-[9px] font-bold text-slate-500 uppercase">Doc. Total</span>
-                <span className="text-base font-extrabold font-mono text-[#00288e] leading-none">
+                <span className="text-base font-extrabold font-mono text-[#00288e] dark:text-blue-300 leading-none">
                   ₹{docTotal.toFixed(2)}
                 </span>
               </div>
@@ -2266,7 +2266,7 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
                   value={dcTotalInput}
                   onChange={(e) => setDcTotalInput(e.target.value)}
                   placeholder="0.00"
-                  className="w-24 h-6 px-1.5 text-right font-mono font-bold text-xs bg-[#fef9c3] border border-[#fde047] rounded outline-none focus:ring-1 focus:ring-yellow-500"
+                  className="w-24 h-6 px-1.5 text-right font-mono font-bold text-xs bg-[#fef9c3] dark:bg-yellow-950/40 border border-[#fde047] dark:border-yellow-700/60 text-slate-900 dark:text-slate-100 outline-none focus:ring-1 focus:ring-yellow-500"
                   title="Enter vendor invoice total to compare against calculated doc total"
                 />
               </div>
@@ -2277,14 +2277,14 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
           {/* ========================================================================= */}
           {/* MASTER CARD: GRN RECONCILIATION & CAPITALIZATION CONTROL (3-Column Master) */}
           {/* ========================================================================= */}
-          <div className="bg-white border-2 border-slate-300 rounded-lg p-2.5 shadow-xs">
+          <div className="bg-white dark:bg-slate-800 border-2 border-slate-300 dark:border-slate-700 rounded-lg p-2.5 shadow-xs">
             <div className="flex items-center justify-between border-b border-slate-200 pb-1.5 mb-2">
               <div className="flex items-center gap-2">
                 <div className="p-1 rounded bg-[#00288e] text-white">
                   <Package size={13} />
                 </div>
                 <div>
-                  <h3 className="font-extrabold text-xs text-slate-900 uppercase tracking-wide">
+                  <h3 className="font-extrabold text-xs text-slate-900 dark:text-slate-100 uppercase tracking-wide">
                     GRN Reconciliation &amp; Capitalization Control
                   </h3>
                   <p className="text-[9px] text-slate-500">
@@ -2305,66 +2305,66 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-[11px]">
               
               {/* Column 1: Inward Goods & Quantity Reconciliation */}
-              <div className="bg-slate-50/80 border border-slate-200 rounded p-2 space-y-1">
+              <div className="bg-slate-50/80 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-700 rounded p-2 space-y-1">
                 <div className="font-bold text-[10px] uppercase text-slate-700 border-b border-slate-200 pb-0.5 flex justify-between">
                   <span>1. Inward Quantity Reconciliation</span>
                   <span className="font-mono text-slate-500">{grnLines.length} Lines</span>
                 </div>
-                <div className="flex justify-between py-0.5 text-slate-600">
+                <div className="flex justify-between py-0.5 text-slate-600 dark:text-slate-300">
                   <span>Invoiced / Doc Quantity:</span>
-                  <span className="font-mono font-bold text-slate-900">{totalDocQty.toFixed(2)}</span>
+                  <span className="font-mono font-bold text-slate-900 dark:text-slate-100">{totalDocQty.toFixed(2)}</span>
                 </div>
-                <div className="flex justify-between py-0.5 text-slate-600">
+                <div className="flex justify-between py-0.5 text-slate-600 dark:text-slate-300">
                   <span>Physical Received Quantity:</span>
-                  <span className="font-mono font-bold text-slate-900">{totalActQty.toFixed(2)}</span>
+                  <span className="font-mono font-bold text-slate-900 dark:text-slate-100">{totalActQty.toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between py-0.5 text-rose-700">
                   <span>Less Segregated Damages (QC):</span>
                   <span className="font-mono font-bold">-{totalDamageQty.toFixed(2)}</span>
                 </div>
-                <div className="flex justify-between pt-1 border-t border-slate-200 font-bold text-emerald-800 bg-emerald-50/50 p-1 rounded">
+                <div className="flex justify-between pt-1 border-t border-slate-200 dark:border-slate-700 font-bold text-emerald-800 dark:text-emerald-300 bg-emerald-50/50 dark:bg-emerald-950/40 p-1 rounded">
                   <span>Sound Accepted Stock:</span>
                   <span className="font-mono font-extrabold text-xs">{totalSoundQty.toFixed(2)} units</span>
                 </div>
               </div>
 
               {/* Column 2: Vendor Invoice & GST ITC Audit */}
-              <div className="bg-slate-50/80 border border-slate-200 rounded p-2 space-y-1">
+              <div className="bg-slate-50/80 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-700 rounded p-2 space-y-1">
                 <div className="font-bold text-[10px] uppercase text-slate-700 border-b border-slate-200 pb-0.5 flex justify-between">
                   <span>2. Vendor Invoice &amp; Tax Audit</span>
                   <span className="font-mono text-slate-500">GSTR-2B Ready</span>
                 </div>
-                <div className="flex justify-between py-0.5 text-slate-600">
+                <div className="flex justify-between py-0.5 text-slate-600 dark:text-slate-300">
                   <span>Gross Invoiced Goods:</span>
-                  <span className="font-mono font-bold text-slate-900">₹{totalValue.toFixed(2)}</span>
+                  <span className="font-mono font-bold text-slate-900 dark:text-slate-100">₹{totalValue.toFixed(2)}</span>
                 </div>
-                <div className="flex justify-between py-0.5 text-slate-600">
+                <div className="flex justify-between py-0.5 text-slate-600 dark:text-slate-300">
                   <span>Less Trade Discounts:</span>
                   <span className="font-mono font-bold text-slate-700">-₹{totalDiscount.toFixed(2)}</span>
                 </div>
-                <div className="flex justify-between py-0.5 text-slate-600">
+                <div className="flex justify-between py-0.5 text-slate-600 dark:text-slate-300">
                   <span>GST Charged on Invoice:</span>
-                  <span className="font-mono font-bold text-slate-900">₹{totalTaxAmount.toFixed(2)}</span>
+                  <span className="font-mono font-bold text-slate-900 dark:text-slate-100">₹{totalTaxAmount.toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between py-0.5 text-rose-700">
                   <span>Blocked ITC u/s 17(5)(h):</span>
                   <span className="font-mono font-bold">-₹{totalDamageGst.toFixed(2)}</span>
                 </div>
-                <div className="flex justify-between pt-1 border-t border-slate-200 font-bold text-emerald-800 bg-emerald-50/50 p-1 rounded">
+                <div className="flex justify-between pt-1 border-t border-slate-200 dark:border-slate-700 font-bold text-emerald-800 dark:text-emerald-300 bg-emerald-50/50 dark:bg-emerald-950/40 p-1 rounded">
                   <span>Net Eligible ITC (GSTR-2B):</span>
                   <span className="font-mono font-extrabold text-xs">₹{eligibleTaxTotal.toFixed(2)}</span>
                 </div>
               </div>
 
               {/* Column 3: Ind AS 2 Inventory Capitalization Control */}
-              <div className="bg-blue-50/50 border border-blue-200 rounded p-2 space-y-1">
+              <div className="bg-blue-50/50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 rounded p-2 space-y-1">
                 <div className="font-bold text-[10px] uppercase text-[#00288e] border-b border-blue-200 pb-0.5 flex justify-between">
                   <span>3. Ind AS 2 Capitalization Control</span>
                   <span className="font-mono text-blue-600">Inventory Value</span>
                 </div>
-                <div className="flex justify-between py-0.5 text-slate-600">
+                <div className="flex justify-between py-0.5 text-slate-600 dark:text-slate-300">
                   <span>Accepted Goods Base Value:</span>
-                  <span className="font-mono font-bold text-slate-900">₹{totalAcceptedValue.toFixed(2)}</span>
+                  <span className="font-mono font-bold text-slate-900 dark:text-slate-100">₹{totalAcceptedValue.toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between py-0.5 text-[#00288e]">
                   <span>+ Capitalized Freight &amp; Shipping:</span>
@@ -2385,7 +2385,7 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
                     ).toFixed(2)}
                   </span>
                 </div>
-                <div className="flex justify-between pt-1 border-t border-blue-200 font-extrabold text-[#00288e] bg-blue-100/70 p-1 rounded">
+                <div className="flex justify-between pt-1 border-t border-blue-200 dark:border-blue-800 font-extrabold text-[#00288e] dark:text-blue-300 bg-blue-100/70 dark:bg-blue-900/50 p-1 rounded">
                   <span>Capitalized Warehouse Valuation:</span>
                   <span className="font-mono text-xs">₹{totalInventoryValueWithLandedCost.toFixed(2)}</span>
                 </div>
@@ -2405,14 +2405,14 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
               <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
                 
                 {/* Panel 1: Quality Control & Damage Management */}
-                <div className="bg-white border border-rose-200 rounded-lg p-2.5 shadow-2xs flex flex-col justify-between space-y-2">
+                <div className="bg-white dark:bg-slate-800 border border-rose-200 dark:border-rose-900/60 rounded-lg p-2.5 shadow-2xs flex flex-col justify-between space-y-2">
                   <div>
                     <div className="flex items-center justify-between border-b border-rose-100 pb-1 mb-2">
                       <div className="flex items-center gap-1.5 font-bold text-rose-800 text-[11px]">
                         <AlertTriangle size={13} className="text-rose-600" />
                         <span>2. Damage &amp; Returns (QC)</span>
                       </div>
-                      <span className={`text-[10px] px-1.5 py-0.2 rounded font-mono font-bold ${totalDamageQty > 0 ? "bg-rose-100 text-rose-700" : "bg-slate-100 text-slate-500"}`}>
+                      <span className={`text-[10px] px-1.5 py-0.2 rounded font-mono font-bold ${totalDamageQty > 0 ? "bg-rose-100 text-rose-700 dark:bg-rose-950/60 dark:text-rose-400" : "bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400"}`}>
                         {totalDamageQty.toFixed(2)} Dmg Units
                       </span>
                     </div>
@@ -2423,7 +2423,7 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
                         <select
                           value={damageReason}
                           onChange={(e) => setDamageReason(e.target.value)}
-                          className="w-full h-6 px-1.5 border border-slate-300 rounded text-[10px] font-semibold bg-white outline-none focus:border-rose-500"
+                          className="w-full h-6 px-1.5 border border-slate-300 dark:border-slate-600 rounded text-[10px] font-semibold bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 outline-none focus:border-rose-500"
                         >
                           <option value="Transit Breakage">Transit Breakage</option>
                           <option value="Packaging Defect">Packaging Defect</option>
@@ -2439,7 +2439,7 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
                         <select
                           value={damageHandlingType}
                           onChange={(e) => setDamageHandlingType(e.target.value)}
-                          className="w-full h-6 px-1.5 border border-slate-300 rounded text-[10px] font-semibold bg-white outline-none focus:border-rose-500"
+                          className="w-full h-6 px-1.5 border border-slate-300 dark:border-slate-600 rounded text-[10px] font-semibold bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 outline-none focus:border-rose-500"
                         >
                           <option value="Reject & Debit Note (Supplier Chargeback)">Reject &amp; Debit Note</option>
                           <option value="Hold in Quarantine for Inspection">Hold in Quarantine</option>
@@ -2453,7 +2453,7 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
                       <select
                         value={damageWarehouse}
                         onChange={(e) => setDamageWarehouse(e.target.value)}
-                        className="w-full h-6 px-1.5 border border-slate-300 rounded text-[10px] font-semibold bg-white outline-none focus:border-rose-500"
+                        className="w-full h-6 px-1.5 border border-slate-300 dark:border-slate-600 rounded text-[10px] font-semibold bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 outline-none focus:border-rose-500"
                       >
                         <option value="WH-MAIN-DMG (Damage Quarantine)">WH-MAIN-DMG (Damage Quarantine)</option>
                         <option value="WH-RETURN-BAY (Vendor Return Depot)">WH-RETURN-BAY (Vendor Return Depot)</option>
@@ -2468,7 +2468,7 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
                         value={qcRemarks}
                         onChange={(e) => setQcRemarks(e.target.value)}
                         placeholder="Enter inspection remarks or tag references"
-                        className="w-full h-6 px-2 border border-slate-300 rounded text-[10px] bg-white outline-none focus:border-rose-500"
+                        className="w-full h-6 px-2 border border-slate-300 dark:border-slate-600 rounded text-[10px] bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 outline-none focus:border-rose-500"
                       />
                     </div>
 
@@ -2506,7 +2506,7 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
                 </div>
 
                 {/* Panel 2: Landed Cost Addons */}
-                <div className="bg-white border border-blue-200 rounded-lg p-2.5 shadow-2xs flex flex-col justify-between space-y-2">
+                <div className="bg-white dark:bg-slate-800 border border-blue-200 dark:border-blue-900/60 rounded-lg p-2.5 shadow-2xs flex flex-col justify-between space-y-2">
                   <div>
                     <div className="flex items-center justify-between border-b border-blue-100 pb-1 mb-2">
                       <div className="flex items-center gap-1.5 font-bold text-[#00288e] text-[11px]">
@@ -2526,8 +2526,8 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
                     {/* 6 Components mini-table */}
                     <div className="space-y-1 text-[10px] max-h-[140px] overflow-y-auto pr-1">
                       {/* 1. Freight */}
-                      <div className="flex items-center justify-between bg-slate-50 p-1 rounded">
-                        <span className="text-slate-700 font-medium">Freight &amp; Shipping:</span>
+                      <div className="flex items-center justify-between bg-slate-50 dark:bg-slate-900/60 p-1 rounded">
+                        <span className="text-slate-700 dark:text-slate-300 font-medium">Freight &amp; Shipping:</span>
                         <div className="flex items-center gap-1">
                           <span className="text-[9px] text-slate-400 font-mono">({landedCostBreakdown.freightTreatment === "BEFORE_TAX" ? "B.Tax" : "A.Tax"})</span>
                           <input
@@ -2535,14 +2535,14 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
                             value={landedCostBreakdown.freightCharges || ""}
                             onChange={(e) => setLandedCostBreakdown({ ...landedCostBreakdown, freightCharges: parseFloat(e.target.value) || 0 })}
                             placeholder="0.00"
-                            className="w-16 h-5 px-1 text-right font-mono font-bold text-[10px] border border-slate-300 rounded bg-white outline-none focus:border-[#00288e]"
+                            className="w-16 h-5 px-1 text-right font-mono font-bold text-[10px] border border-slate-300 dark:border-slate-600 rounded bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 outline-none focus:border-[#00288e]"
                           />
                         </div>
                       </div>
 
                       {/* 2. Labor / Hamali */}
-                      <div className="flex items-center justify-between bg-slate-50 p-1 rounded">
-                        <span className="text-slate-700 font-medium">Labor &amp; Handling (Hamali):</span>
+                      <div className="flex items-center justify-between bg-slate-50 dark:bg-slate-900/60 p-1 rounded">
+                        <span className="text-slate-700 dark:text-slate-300 font-medium">Labor &amp; Handling (Hamali):</span>
                         <div className="flex items-center gap-1">
                           <span className="text-[9px] text-slate-400 font-mono">({landedCostBreakdown.laborTreatment === "BEFORE_TAX" ? "B.Tax" : "A.Tax"})</span>
                           <input
@@ -2550,14 +2550,14 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
                             value={landedCostBreakdown.laborHandlingCharges || ""}
                             onChange={(e) => setLandedCostBreakdown({ ...landedCostBreakdown, laborHandlingCharges: parseFloat(e.target.value) || 0 })}
                             placeholder="0.00"
-                            className="w-16 h-5 px-1 text-right font-mono font-bold text-[10px] border border-slate-300 rounded bg-white outline-none focus:border-[#00288e]"
+                            className="w-16 h-5 px-1 text-right font-mono font-bold text-[10px] border border-slate-300 dark:border-slate-600 rounded bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 outline-none focus:border-[#00288e]"
                           />
                         </div>
                       </div>
 
                       {/* 3. Insurance */}
-                      <div className="flex items-center justify-between bg-slate-50 p-1 rounded">
-                        <span className="text-slate-700 font-medium">Transit Insurance:</span>
+                      <div className="flex items-center justify-between bg-slate-50 dark:bg-slate-900/60 p-1 rounded">
+                        <span className="text-slate-700 dark:text-slate-300 font-medium">Transit Insurance:</span>
                         <div className="flex items-center gap-1">
                           <span className="text-[9px] text-slate-400 font-mono">(A.Tax)</span>
                           <input
@@ -2565,14 +2565,14 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
                             value={landedCostBreakdown.insuranceCharges || ""}
                             onChange={(e) => setLandedCostBreakdown({ ...landedCostBreakdown, insuranceCharges: parseFloat(e.target.value) || 0 })}
                             placeholder="0.00"
-                            className="w-16 h-5 px-1 text-right font-mono font-bold text-[10px] border border-slate-300 rounded bg-white outline-none focus:border-[#00288e]"
+                            className="w-16 h-5 px-1 text-right font-mono font-bold text-[10px] border border-slate-300 dark:border-slate-600 rounded bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 outline-none focus:border-[#00288e]"
                           />
                         </div>
                       </div>
 
                       {/* 4. Customs Duties */}
-                      <div className="flex items-center justify-between bg-slate-50 p-1 rounded">
-                        <span className="text-slate-700 font-medium">Customs Duties (BCD+SWS):</span>
+                      <div className="flex items-center justify-between bg-slate-50 dark:bg-slate-900/60 p-1 rounded">
+                        <span className="text-slate-700 dark:text-slate-300 font-medium">Customs Duties (BCD+SWS):</span>
                         <div className="flex items-center gap-1">
                           <span className="text-[9px] text-slate-400 font-mono">(Duty)</span>
                           <input
@@ -2587,14 +2587,14 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
                               });
                             }}
                             placeholder="0.00"
-                            className="w-16 h-5 px-1 text-right font-mono font-bold text-[10px] border border-slate-300 rounded bg-white outline-none focus:border-[#00288e]"
+                            className="w-16 h-5 px-1 text-right font-mono font-bold text-[10px] border border-slate-300 dark:border-slate-600 rounded bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 outline-none focus:border-[#00288e]"
                           />
                         </div>
                       </div>
 
                       {/* 5. Clearance Fees */}
-                      <div className="flex items-center justify-between bg-slate-50 p-1 rounded">
-                        <span className="text-slate-700 font-medium">Clearance (CHA Brokerage):</span>
+                      <div className="flex items-center justify-between bg-slate-50 dark:bg-slate-900/60 p-1 rounded">
+                        <span className="text-slate-700 dark:text-slate-300 font-medium">Clearance (CHA Brokerage):</span>
                         <div className="flex items-center gap-1">
                           <span className="text-[9px] text-slate-400 font-mono">({landedCostBreakdown.clearanceTreatment === "BEFORE_TAX" ? "B.Tax" : "A.Tax"})</span>
                           <input
@@ -2602,7 +2602,7 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
                             value={landedCostBreakdown.clearanceChaFees || ""}
                             onChange={(e) => setLandedCostBreakdown({ ...landedCostBreakdown, clearanceChaFees: parseFloat(e.target.value) || 0 })}
                             placeholder="0.00"
-                            className="w-16 h-5 px-1 text-right font-mono font-bold text-[10px] border border-slate-300 rounded bg-white outline-none focus:border-[#00288e]"
+                            className="w-16 h-5 px-1 text-right font-mono font-bold text-[10px] border border-slate-300 dark:border-slate-600 rounded bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 outline-none focus:border-[#00288e]"
                           />
                         </div>
                       </div>
@@ -2628,7 +2628,7 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
                     <button
                       type="button"
                       onClick={() => setShowLandedCostModal(true)}
-                      className="px-2 h-6 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded text-[10px] font-semibold transition"
+                      className="px-2 h-6 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 rounded text-[10px] font-semibold transition"
                     >
                       + Add Component
                     </button>
@@ -2645,7 +2645,7 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
                 </div>
 
                 {/* Panel 3: Tax & Accounting Summary */}
-                <div className="bg-white border border-slate-200 rounded-lg p-2.5 shadow-2xs flex flex-col justify-between space-y-2">
+                <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 shadow-2xs flex flex-col justify-between space-y-2">
                   <div>
                     <div className="flex items-center justify-between border-b border-slate-100 pb-1 mb-2">
                       <div className="flex items-center gap-1.5 font-bold text-slate-900 text-[11px]">
@@ -2659,26 +2659,26 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
 
                     {/* Tax Breakdown 4 items */}
                     <div className="grid grid-cols-2 gap-1.5 text-[10px] mb-2">
-                      <div className="flex justify-between bg-slate-50 p-1 rounded">
+                      <div className="flex justify-between bg-slate-50 dark:bg-slate-900/60 p-1 rounded">
                         <span className="text-slate-500">CGST (Eligible):</span>
                         <span className="font-mono font-bold text-emerald-700">₹{eligibleCgst.toFixed(2)}</span>
                       </div>
-                      <div className="flex justify-between bg-slate-50 p-1 rounded">
+                      <div className="flex justify-between bg-slate-50 dark:bg-slate-900/60 p-1 rounded">
                         <span className="text-slate-500">SGST (Eligible):</span>
                         <span className="font-mono font-bold text-emerald-700">₹{eligibleSgst.toFixed(2)}</span>
                       </div>
-                      <div className="flex justify-between bg-slate-50 p-1 rounded">
+                      <div className="flex justify-between bg-slate-50 dark:bg-slate-900/60 p-1 rounded">
                         <span className="text-slate-500">IGST (Eligible):</span>
                         <span className="font-mono font-bold text-emerald-700">₹{eligibleIgst.toFixed(2)}</span>
                       </div>
-                      <div className="flex justify-between bg-rose-50 p-1 rounded">
+                      <div className="flex justify-between bg-rose-50 dark:bg-rose-950/40 p-1 rounded">
                         <span className="text-rose-700 font-semibold">Blocked Tax (Dmg):</span>
                         <span className="font-mono font-bold text-rose-700">₹{totalDamageGst.toFixed(2)}</span>
                       </div>
                     </div>
 
                     {/* Inventory Valuation Breakdown */}
-                    <div className="bg-slate-50/70 border border-slate-200 rounded p-1.5 space-y-1 text-[10px]">
+                    <div className="bg-slate-50/70 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-700 rounded p-1.5 space-y-1 text-[10px]">
                       <div className="flex justify-between">
                         <span className="text-slate-600">Base Invoiced Value:</span>
                         <span className="font-mono text-slate-800">₹{totalValue.toFixed(2)}</span>
@@ -2699,7 +2699,7 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
                   </div>
 
                   {/* Statutory Yellow Callout Note */}
-                  <div className="p-1.5 bg-amber-50 border border-amber-200 rounded text-[9px] text-amber-900 leading-tight flex items-start gap-1">
+                  <div className="p-1.5 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded text-[9px] text-amber-900 dark:text-amber-200 leading-tight flex items-start gap-1">
                     <Info size={11} className="text-amber-700 shrink-0 mt-0.5" />
                     <span>
                       <strong>Ind AS 2:</strong> Inward freight, hamali, insurance &amp; non-refundable duties are capitalized into inventory value. Damaged units excluded &amp; logged for recovery u/s 17(5)(h).
@@ -2712,7 +2712,7 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
               /* Single Tab Focus Layout */
               <div>
                 {activeSubTab === "ITEMS" && (
-                  <div className="bg-white border border-slate-200 rounded-lg p-2.5 shadow-2xs flex flex-wrap items-center justify-between gap-3 text-xs">
+                  <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 shadow-2xs flex flex-wrap items-center justify-between gap-3 text-xs">
                     <div className="flex items-center gap-3">
                       <div className="p-1.5 rounded bg-[#00288e]/10 text-[#00288e]">
                         <Layers size={15} />
@@ -2738,7 +2738,7 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
                         )}
                         <div>
                           <span className="text-slate-400 text-[9px] uppercase font-bold block">Invoiced Value</span>
-                          <span className="font-mono font-bold text-slate-900">₹{totalValue.toFixed(2)}</span>
+                          <span className="font-mono font-bold text-slate-900 dark:text-slate-100">₹{totalValue.toFixed(2)}</span>
                         </div>
                         <div>
                           <span className="text-slate-400 text-[9px] uppercase font-bold block">Landed Addons</span>
@@ -2770,14 +2770,14 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
                       <button
                         type="button"
                         onClick={() => setActiveSubTab("TAX")}
-                        className="px-2 py-0.5 bg-slate-100 text-slate-700 hover:bg-slate-200 rounded font-semibold border border-slate-200 transition"
+                        className="px-2 py-0.5 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 rounded font-semibold border border-slate-200 dark:border-slate-700 transition"
                       >
                         Tax &amp; Ind AS 2
                       </button>
                       <button
                         type="button"
                         onClick={() => setActiveSubTab("DOC_NOTES")}
-                        className="px-2 py-0.5 bg-slate-100 text-slate-700 hover:bg-slate-200 rounded font-semibold border border-slate-200 transition"
+                        className="px-2 py-0.5 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 rounded font-semibold border border-slate-200 dark:border-slate-700 transition"
                       >
                         Notes &amp; EWB
                       </button>
@@ -2786,13 +2786,13 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
                 )}
 
                 {activeSubTab === "DAMAGE" && (
-                  <div className="bg-white border border-rose-200 rounded-lg p-3 shadow-2xs space-y-3">
+                  <div className="bg-white dark:bg-slate-800 border border-rose-200 dark:border-rose-900/60 rounded-lg p-3 shadow-2xs space-y-3">
                     <div className="flex items-center justify-between border-b border-rose-100 pb-2">
                       <div className="flex items-center gap-1.5 font-bold text-rose-800 text-xs">
                         <AlertTriangle size={15} className="text-rose-600" />
                         <span>2. Quality Control, Damage Assessment &amp; Quarantine Disposition</span>
                       </div>
-                      <span className={`text-[10px] px-2 py-0.5 rounded font-mono font-bold ${totalDamageQty > 0 ? "bg-rose-100 text-rose-700" : "bg-slate-100 text-slate-500"}`}>
+                      <span className={`text-[10px] px-2 py-0.5 rounded font-mono font-bold ${totalDamageQty > 0 ? "bg-rose-100 text-rose-700 dark:bg-rose-950/60 dark:text-rose-400" : "bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400"}`}>
                         {totalDamageQty.toFixed(2)} Damaged Units • Claim ₹{totalDebitNoteValue.toFixed(2)}
                       </span>
                     </div>
@@ -2803,7 +2803,7 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
                         <select
                           value={damageReason}
                           onChange={(e) => setDamageReason(e.target.value)}
-                          className="w-full h-7 px-2 border border-slate-300 rounded text-xs font-semibold bg-white outline-none focus:border-rose-500"
+                          className="w-full h-7 px-2 border border-slate-300 dark:border-slate-600 rounded text-xs font-semibold bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 outline-none focus:border-rose-500"
                         >
                           <option value="Transit Breakage">Transit Breakage</option>
                           <option value="Packaging Defect">Packaging Defect</option>
@@ -2819,7 +2819,7 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
                         <select
                           value={damageHandlingType}
                           onChange={(e) => setDamageHandlingType(e.target.value)}
-                          className="w-full h-7 px-2 border border-slate-300 rounded text-xs font-semibold bg-white outline-none focus:border-rose-500"
+                          className="w-full h-7 px-2 border border-slate-300 dark:border-slate-600 rounded text-xs font-semibold bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 outline-none focus:border-rose-500"
                         >
                           <option value="Reject & Debit Note (Supplier Chargeback)">Reject &amp; Debit Note</option>
                           <option value="Hold in Quarantine for Inspection">Hold in Quarantine</option>
@@ -2832,7 +2832,7 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
                         <select
                           value={damageWarehouse}
                           onChange={(e) => setDamageWarehouse(e.target.value)}
-                          className="w-full h-7 px-2 border border-slate-300 rounded text-xs font-semibold bg-white outline-none focus:border-rose-500"
+                          className="w-full h-7 px-2 border border-slate-300 dark:border-slate-600 rounded text-xs font-semibold bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 outline-none focus:border-rose-500"
                         >
                           <option value="WH-MAIN-DMG (Damage Quarantine)">WH-MAIN-DMG (Damage Quarantine)</option>
                           <option value="WH-RETURN-BAY (Vendor Return Depot)">WH-RETURN-BAY (Vendor Return Depot)</option>
@@ -2863,7 +2863,7 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
                           value={qcRemarks}
                           onChange={(e) => setQcRemarks(e.target.value)}
                           placeholder="Enter inspection remarks or tag references"
-                          className="w-full h-7 px-2 border border-slate-300 rounded text-xs bg-white outline-none focus:border-rose-500"
+                          className="w-full h-7 px-2 border border-slate-300 dark:border-slate-600 rounded text-xs bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 outline-none focus:border-rose-500"
                         />
                       </div>
 
@@ -2886,7 +2886,7 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
                 )}
 
                 {activeSubTab === "LANDED_COST" && (
-                  <div className="bg-white border border-blue-200 rounded-lg p-3 shadow-2xs space-y-3">
+                  <div className="bg-white dark:bg-slate-800 border border-blue-200 dark:border-blue-900/60 rounded-lg p-3 shadow-2xs space-y-3">
                     <div className="flex items-center justify-between border-b border-blue-100 pb-2">
                       <div className="flex items-center gap-1.5 font-bold text-[#00288e] text-xs">
                         <Truck size={15} className="text-[#00288e]" />
@@ -2906,7 +2906,7 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
 
                     <div className="grid grid-cols-2 md:grid-cols-5 gap-2 text-xs">
                       {/* 1. Freight */}
-                      <div className="bg-slate-50 p-2 rounded border border-slate-200">
+                      <div className="bg-slate-50 dark:bg-slate-800/60 p-2 rounded border border-slate-200 dark:border-slate-700">
                         <span className="text-[10px] text-slate-500 block uppercase font-bold">Freight &amp; Shipping</span>
                         <div className="flex items-center gap-1 mt-1">
                           <span className="text-[9px] text-slate-400 font-mono">({landedCostBreakdown.freightTreatment === "BEFORE_TAX" ? "B.Tax" : "A.Tax"})</span>
@@ -2915,13 +2915,13 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
                             value={landedCostBreakdown.freightCharges || ""}
                             onChange={(e) => setLandedCostBreakdown({ ...landedCostBreakdown, freightCharges: parseFloat(e.target.value) || 0 })}
                             placeholder="0.00"
-                            className="w-full h-6 px-1.5 text-right font-mono font-bold text-xs border border-slate-300 rounded bg-white outline-none focus:border-[#00288e]"
+                            className="w-full h-6 px-1.5 text-right font-mono font-bold text-xs border border-slate-300 dark:border-slate-700 rounded bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 outline-none focus:border-[#00288e]"
                           />
                         </div>
                       </div>
 
                       {/* 2. Labor / Hamali */}
-                      <div className="bg-slate-50 p-2 rounded border border-slate-200">
+                      <div className="bg-slate-50 dark:bg-slate-800/60 p-2 rounded border border-slate-200 dark:border-slate-700">
                         <span className="text-[10px] text-slate-500 block uppercase font-bold">Labor / Hamali</span>
                         <div className="flex items-center gap-1 mt-1">
                           <span className="text-[9px] text-slate-400 font-mono">({landedCostBreakdown.laborTreatment === "BEFORE_TAX" ? "B.Tax" : "A.Tax"})</span>
@@ -2930,13 +2930,13 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
                             value={landedCostBreakdown.laborHandlingCharges || ""}
                             onChange={(e) => setLandedCostBreakdown({ ...landedCostBreakdown, laborHandlingCharges: parseFloat(e.target.value) || 0 })}
                             placeholder="0.00"
-                            className="w-full h-6 px-1.5 text-right font-mono font-bold text-xs border border-slate-300 rounded bg-white outline-none focus:border-[#00288e]"
+                            className="w-full h-6 px-1.5 text-right font-mono font-bold text-xs border border-slate-300 dark:border-slate-700 rounded bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 outline-none focus:border-[#00288e]"
                           />
                         </div>
                       </div>
 
                       {/* 3. Insurance */}
-                      <div className="bg-slate-50 p-2 rounded border border-slate-200">
+                      <div className="bg-slate-50 dark:bg-slate-800/60 p-2 rounded border border-slate-200 dark:border-slate-700">
                         <span className="text-[10px] text-slate-500 block uppercase font-bold">Transit Insurance</span>
                         <div className="flex items-center gap-1 mt-1">
                           <span className="text-[9px] text-slate-400 font-mono">(A.Tax)</span>
@@ -2945,13 +2945,13 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
                             value={landedCostBreakdown.insuranceCharges || ""}
                             onChange={(e) => setLandedCostBreakdown({ ...landedCostBreakdown, insuranceCharges: parseFloat(e.target.value) || 0 })}
                             placeholder="0.00"
-                            className="w-full h-6 px-1.5 text-right font-mono font-bold text-xs border border-slate-300 rounded bg-white outline-none focus:border-[#00288e]"
+                            className="w-full h-6 px-1.5 text-right font-mono font-bold text-xs border border-slate-300 dark:border-slate-700 rounded bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 outline-none focus:border-[#00288e]"
                           />
                         </div>
                       </div>
 
                       {/* 4. Customs Duty */}
-                      <div className="bg-slate-50 p-2 rounded border border-slate-200">
+                      <div className="bg-slate-50 dark:bg-slate-800/60 p-2 rounded border border-slate-200 dark:border-slate-700">
                         <span className="text-[10px] text-slate-500 block uppercase font-bold">Customs Duty (BCD)</span>
                         <div className="flex items-center gap-1 mt-1">
                           <span className="text-[9px] text-slate-400 font-mono">(Duty)</span>
@@ -2967,13 +2967,13 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
                               });
                             }}
                             placeholder="0.00"
-                            className="w-full h-6 px-1.5 text-right font-mono font-bold text-xs border border-slate-300 rounded bg-white outline-none focus:border-[#00288e]"
+                            className="w-full h-6 px-1.5 text-right font-mono font-bold text-xs border border-slate-300 dark:border-slate-700 rounded bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 outline-none focus:border-[#00288e]"
                           />
                         </div>
                       </div>
 
                       {/* 5. Clearance (CHA) */}
-                      <div className="bg-slate-50 p-2 rounded border border-slate-200">
+                      <div className="bg-slate-50 dark:bg-slate-800/60 p-2 rounded border border-slate-200 dark:border-slate-700">
                         <span className="text-[10px] text-slate-500 block uppercase font-bold">Clearance (CHA)</span>
                         <div className="flex items-center gap-1 mt-1">
                           <span className="text-[9px] text-slate-400 font-mono">({landedCostBreakdown.clearanceTreatment === "BEFORE_TAX" ? "B.Tax" : "A.Tax"})</span>
@@ -2982,7 +2982,7 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
                             value={landedCostBreakdown.clearanceChaFees || ""}
                             onChange={(e) => setLandedCostBreakdown({ ...landedCostBreakdown, clearanceChaFees: parseFloat(e.target.value) || 0 })}
                             placeholder="0.00"
-                            className="w-full h-6 px-1.5 text-right font-mono font-bold text-xs border border-slate-300 rounded bg-white outline-none focus:border-[#00288e]"
+                            className="w-full h-6 px-1.5 text-right font-mono font-bold text-xs border border-slate-300 dark:border-slate-700 rounded bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 outline-none focus:border-[#00288e]"
                           />
                         </div>
                       </div>
@@ -3041,7 +3041,7 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
                         <button
                           type="button"
                           onClick={() => setShowLandedCostModal(true)}
-                          className="px-3 h-7 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded text-xs font-semibold transition"
+                          className="px-3 h-7 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded text-xs font-semibold transition"
                         >
                           + Configure Components
                         </button>
@@ -3059,7 +3059,7 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
                 )}
 
                 {activeSubTab === "TAX" && (
-                  <div className="bg-white border border-slate-200 rounded-lg p-3 shadow-2xs space-y-3">
+                  <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-3 shadow-2xs space-y-3">
                     <div className="flex items-center justify-between border-b border-slate-100 pb-2">
                       <div className="flex items-center gap-1.5 font-bold text-slate-900 text-xs">
                         <Receipt size={15} className="text-[#00288e]" />
@@ -3075,15 +3075,15 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
                       <div className="space-y-2">
                         <span className="text-[10px] font-bold text-slate-500 uppercase block">GST Input Tax Credit Ledger</span>
                         <div className="grid grid-cols-2 gap-2 text-xs">
-                          <div className="flex justify-between bg-slate-50 p-2 rounded border border-slate-200">
+                          <div className="flex justify-between bg-slate-50 dark:bg-slate-800/60 p-2 rounded border border-slate-200 dark:border-slate-700">
                             <span className="text-slate-500">CGST (Eligible ITC):</span>
                             <span className="font-mono font-bold text-emerald-700">₹{eligibleCgst.toFixed(2)}</span>
                           </div>
-                          <div className="flex justify-between bg-slate-50 p-2 rounded border border-slate-200">
+                          <div className="flex justify-between bg-slate-50 dark:bg-slate-800/60 p-2 rounded border border-slate-200 dark:border-slate-700">
                             <span className="text-slate-500">SGST (Eligible ITC):</span>
                             <span className="font-mono font-bold text-emerald-700">₹{eligibleSgst.toFixed(2)}</span>
                           </div>
-                          <div className="flex justify-between bg-slate-50 p-2 rounded border border-slate-200">
+                          <div className="flex justify-between bg-slate-50 dark:bg-slate-800/60 p-2 rounded border border-slate-200 dark:border-slate-700">
                             <span className="text-slate-500">IGST (Eligible ITC):</span>
                             <span className="font-mono font-bold text-emerald-700">₹{eligibleIgst.toFixed(2)}</span>
                           </div>
@@ -3102,7 +3102,7 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
                       </div>
 
                       {/* Right: Capitalization Summary */}
-                      <div className="bg-slate-50/80 border border-slate-200 rounded-lg p-3 space-y-1.5 text-xs">
+                      <div className="bg-slate-50/80 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-lg p-3 space-y-1.5 text-xs">
                         <span className="text-[10px] font-bold text-slate-500 uppercase block border-b border-slate-200 pb-1">
                           Inventory Acquisition Cost Math
                         </span>
@@ -3130,7 +3130,7 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
                 )}
 
                 {activeSubTab === "DEBIT_NOTE" && (
-                  <div className="bg-white border border-rose-200 rounded-lg p-3 shadow-2xs space-y-3">
+                  <div className="bg-white dark:bg-slate-800 border border-rose-200 dark:border-rose-900/60 rounded-lg p-3 shadow-2xs space-y-3">
                     <div className="flex items-center justify-between border-b border-rose-100 pb-2">
                       <div className="flex items-center gap-2">
                         <div className="p-1 rounded bg-rose-100 text-rose-700">
@@ -3166,7 +3166,7 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
                         <span className="text-xs font-bold text-slate-800 truncate block mt-0.5">{supplierName || supplierId || "Supplier Not Selected"}</span>
                         <span className="text-[10px] text-slate-500 font-mono">PO Ref: {selectedOrderId || "Direct Inward"}</span>
                       </div>
-                      <div className="bg-slate-50 border border-slate-200 rounded-lg p-2.5 flex flex-col justify-between">
+                      <div className="bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 flex flex-col justify-between">
                         <span className="text-slate-500 text-[10px] uppercase font-bold">Issue Claim Voucher</span>
                         <button
                           type="button"
@@ -3190,7 +3190,7 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
                       </div>
                       <div className="overflow-x-auto max-h-40">
                         <table className="w-full text-left text-xs whitespace-nowrap">
-                          <thead className="bg-slate-50 text-[10px] font-bold text-slate-600 uppercase border-b border-slate-200">
+                          <thead className="bg-slate-50 dark:bg-slate-800 text-[10px] font-bold text-slate-600 dark:text-slate-300 uppercase border-b border-slate-200 dark:border-slate-700">
                             <tr>
                               <th className="px-2 py-1">Stock No</th>
                               <th className="px-2 py-1">Item Description</th>
@@ -3203,7 +3203,7 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
                               <th className="px-2 py-1 text-right text-rose-900 font-extrabold bg-rose-50/50">Total Debit Claim</th>
                             </tr>
                           </thead>
-                          <tbody className="divide-y divide-slate-100 font-mono text-[11px]">
+                          <tbody className="divide-y divide-slate-100 dark:divide-slate-700 font-mono text-[11px]">
                             {grnLines.filter((l) => (l.quantity_damaged || 0) > 0).length === 0 ? (
                               <tr>
                                 <td colSpan={9} className="px-3 py-4 text-center text-slate-400 font-sans text-xs">
@@ -3241,7 +3241,7 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
                 )}
 
                 {activeSubTab === "DOC_NOTES" && (
-                  <div className="bg-white border border-slate-200 rounded-lg p-3 shadow-2xs space-y-3">
+                  <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-3 shadow-2xs space-y-3">
                     <div className="flex items-center justify-between border-b border-slate-100 pb-2">
                       <div className="flex items-center gap-2">
                         <div className="p-1 rounded bg-blue-100 text-[#00288e]">
@@ -3259,7 +3259,7 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
                       {/* Left Column: Transport & Indian E-Way Bill */}
-                      <div className="bg-slate-50/70 border border-slate-200 rounded-lg p-2.5 space-y-2">
+                      <div className="bg-slate-50/70 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 space-y-2">
                         <div className="flex items-center gap-1.5 font-bold text-slate-700 text-[11px] border-b border-slate-200 pb-1">
                           <Truck size={12} className="text-[#00288e]" />
                           <span>Transport &amp; E-Way Bill (CGST Rule 138)</span>
@@ -3274,7 +3274,7 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
                               value={currentEwayBillNo}
                               onChange={(e) => setEwayBillNo(e.target.value.replace(/\D/g, ""))}
                               placeholder="e.g. 241098234512"
-                              className="w-full h-6 px-1.5 border border-slate-300 rounded font-mono font-bold text-slate-900 bg-white outline-none focus:border-[#00288e]"
+                              className="w-full h-6 px-1.5 border border-slate-300 dark:border-slate-700 rounded font-mono font-bold text-slate-900 dark:text-slate-100 bg-white dark:bg-slate-900 outline-none focus:border-[#00288e]"
                             />
                           </div>
 
@@ -3284,7 +3284,7 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
                               type="date"
                               value={currentEwayBillDate}
                               onChange={(e) => setEwayBillDateVal(e.target.value)}
-                              className="w-full h-6 px-1.5 border border-slate-300 rounded text-slate-800 bg-white outline-none focus:border-[#00288e]"
+                              className="w-full h-6 px-1.5 border border-slate-300 dark:border-slate-700 rounded text-slate-800 dark:text-slate-200 bg-white dark:bg-slate-900 outline-none focus:border-[#00288e]"
                             />
                           </div>
 
@@ -3295,7 +3295,7 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
                               value={docPrefix}
                               onChange={(e) => setDocPrefix(e.target.value)}
                               placeholder="e.g. V-Trans / TCI"
-                              className="w-full h-6 px-1.5 border border-slate-300 rounded text-slate-800 bg-white outline-none focus:border-[#00288e]"
+                              className="w-full h-6 px-1.5 border border-slate-300 dark:border-slate-700 rounded text-slate-800 dark:text-slate-200 bg-white dark:bg-slate-900 outline-none focus:border-[#00288e]"
                             />
                           </div>
 
@@ -3306,14 +3306,14 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
                               value={docNo}
                               onChange={(e) => setDocNo(e.target.value)}
                               placeholder="e.g. MH-04-AB-1234"
-                              className="w-full h-6 px-1.5 border border-slate-300 rounded font-mono uppercase text-slate-800 bg-white outline-none focus:border-[#00288e]"
+                              className="w-full h-6 px-1.5 border border-slate-300 dark:border-slate-700 rounded font-mono uppercase text-slate-800 dark:text-slate-200 bg-white dark:bg-slate-900 outline-none focus:border-[#00288e]"
                             />
                           </div>
                         </div>
                       </div>
 
                       {/* Right Column: Remarks & Delivery Instructions */}
-                      <div className="bg-slate-50/70 border border-slate-200 rounded-lg p-2.5 space-y-2">
+                      <div className="bg-slate-50/70 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 space-y-2">
                         <div className="flex items-center gap-1.5 font-bold text-slate-700 text-[11px] border-b border-slate-200 pb-1">
                           <FileSpreadsheet size={12} className="text-[#00288e]" />
                           <span>Document Remarks &amp; Bay Instructions</span>
@@ -3327,7 +3327,7 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
                               value={notes}
                               onChange={(e) => onNotesChange(e.target.value)}
                               placeholder="Enter inward remarks, discrepancies, or carrier acknowledgments..."
-                              className="w-full p-1.5 border border-slate-300 rounded text-[10px] bg-white outline-none focus:border-[#00288e] resize-none"
+                              className="w-full p-1.5 border border-slate-300 dark:border-slate-700 rounded text-[10px] bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 outline-none focus:border-[#00288e] resize-none"
                             />
                           </div>
 
@@ -3338,7 +3338,7 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
                               value={deliveryInstructions}
                               onChange={(e) => setDeliveryInstructions(e.target.value)}
                               placeholder="e.g. Unload at Gate 2 Staging Bay..."
-                              className="w-full h-6 px-1.5 border border-slate-300 rounded text-[10px] bg-white outline-none focus:border-[#00288e]"
+                              className="w-full h-6 px-1.5 border border-slate-300 dark:border-slate-700 rounded text-[10px] bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 outline-none focus:border-[#00288e]"
                             />
                           </div>
                         </div>
@@ -3346,7 +3346,7 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
                     </div>
 
                     {/* Prominent Consignment Document Attachments Section */}
-                    <div className="border border-slate-200 rounded-lg p-2.5 bg-slate-50/60 space-y-2">
+                    <div className="border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 bg-slate-50/60 dark:bg-slate-800/50 space-y-2">
                       <div className="flex items-center justify-between border-b border-slate-200 pb-1.5">
                         <div className="flex items-center gap-1.5 font-bold text-slate-800 text-[11px]">
                           <Paperclip size={13} className="text-[#00288e]" />
@@ -3387,14 +3387,14 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
                         {attachments.map((att) => (
                           <div
                             key={att.id}
-                            className="bg-white border border-slate-200 rounded-lg p-2 flex items-center justify-between shadow-2xs hover:border-[#00288e] transition"
+                            className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-2 flex items-center justify-between shadow-2xs hover:border-[#00288e] transition"
                           >
                             <div className="flex items-center gap-2 overflow-hidden">
                               <div className="p-1 rounded bg-blue-50 text-[#00288e] shrink-0">
                                 <FileText size={14} />
                               </div>
                               <div className="overflow-hidden">
-                                <span className="block font-semibold text-[11px] text-slate-900 truncate" title={att.name}>
+                                <span className="block font-semibold text-[11px] text-slate-900 dark:text-slate-100 truncate" title={att.name}>
                                   {att.name}
                                 </span>
                                 <div className="flex items-center gap-1 text-[9px] text-slate-400">
@@ -3439,7 +3439,7 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
         {/* ========================================================================= */}
         {/* 4.6 DOCUMENT REMARKS & DELIVERY INSTRUCTIONS STRIP                        */}
         {/* ========================================================================= */}
-        <div className="bg-white border border-slate-200 rounded-lg px-3 py-1.5 shadow-2xs flex items-center justify-between gap-3 text-xs shrink-0">
+        <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-1.5 shadow-2xs flex items-center justify-between gap-3 text-xs shrink-0">
           <div className="flex items-center gap-2 flex-1">
             <span className="font-bold text-slate-500 uppercase text-[10px] shrink-0">Remarks:</span>
             <input
@@ -3447,7 +3447,7 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
               value={notes}
               onChange={(e) => onNotesChange(e.target.value)}
               placeholder="e.g. Received in good order except damaged cartons segregated for supplier debit note."
-              className="w-full h-6 px-2 border border-slate-300 rounded text-xs bg-white outline-none focus:border-[#00288e]"
+              className="w-full h-6 px-2 border border-slate-300 dark:border-slate-600 rounded text-xs bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 outline-none focus:border-[#00288e]"
             />
           </div>
 
@@ -3455,7 +3455,7 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
             <button
               type="button"
               onClick={() => setShowItemTagsModal(true)}
-              className="h-6 px-2 bg-slate-100 hover:bg-slate-200 border border-slate-300 rounded text-[11px] font-semibold text-slate-700 flex items-center gap-1 transition"
+              className="h-6 px-2 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 border border-slate-300 dark:border-slate-600 rounded text-[11px] font-semibold text-slate-700 dark:text-slate-200 flex items-center gap-1 transition"
             >
               <Tag size={11} className="text-slate-500" />
               <span>Show Item Tags</span>
@@ -3464,7 +3464,7 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
             <button
               type="button"
               onClick={() => setDeliveryInstructionsModal(true)}
-              className="h-6 px-2 bg-slate-100 hover:bg-slate-200 border border-slate-300 rounded text-[11px] font-semibold text-slate-700 flex items-center gap-1 transition"
+              className="h-6 px-2 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 border border-slate-300 dark:border-slate-600 rounded text-[11px] font-semibold text-slate-700 dark:text-slate-200 flex items-center gap-1 transition"
             >
               <Truck size={11} className="text-slate-500" />
               <span>Delivery Instructions</span>
@@ -3477,7 +3477,7 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
       {/* ========================================================================= */}
       {/* 5. REAL-TIME TELEMETRY & SEARCH STRIP (Compact: ~22px)                    */}
       {/* ========================================================================= */}
-      <div className="px-3 py-1 bg-slate-100 border-t border-slate-200 flex items-center justify-between text-[10px] font-medium text-slate-600 shrink-0">
+      <div className="px-3 py-1 bg-slate-100 dark:bg-slate-800 border-t border-slate-200 dark:border-slate-700 flex items-center justify-between text-[10px] font-medium text-slate-600 dark:text-slate-300 shrink-0">
         <div className="truncate">
           <span>Stock Qty: Current Bal: </span>
           <span className="font-bold text-slate-900">{telemetry.currentBalance}</span>
@@ -3515,7 +3515,7 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
       {/* ========================================================================= */}
       {/* 6. BOTTOM ACTION FOOTER BAR (Pinned: ~36px)                               */}
       {/* ========================================================================= */}
-      <footer className="h-9 bg-white border-t border-slate-200 px-3 flex items-center justify-between shadow-xs shrink-0">
+      <footer className="h-9 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 px-3 flex items-center justify-between shadow-xs shrink-0">
         <div className="flex items-center gap-1.5">
           <button
             type="button"
@@ -3524,7 +3524,7 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
               setEntryStockNo("");
               stockInputRef.current?.focus();
             }}
-            className="flex items-center gap-1 px-2.5 h-6.5 bg-white border border-slate-300 hover:bg-slate-50 rounded font-bold text-xs text-slate-700 shadow-2xs transition"
+            className="flex items-center gap-1 px-2.5 h-6.5 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700 rounded font-bold text-xs text-slate-700 dark:text-slate-200 shadow-2xs transition"
           >
             <Plus size={12} />
             <span>Add</span>
@@ -3536,7 +3536,7 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
             onClick={() => {
               if (selectedRowIndex !== null) handleSelectRow(selectedRowIndex);
             }}
-            className="flex items-center gap-1 px-2.5 h-6.5 bg-white border border-slate-200 text-slate-400 rounded font-semibold text-xs shadow-2xs disabled:opacity-40"
+            className="flex items-center gap-1 px-2.5 h-6.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-400 dark:text-slate-500 rounded font-semibold text-xs shadow-2xs disabled:opacity-40"
           >
             <Edit3 size={12} />
             <span>Edit</span>
@@ -3553,7 +3553,7 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
                 onNotification?.("Item Removed", "Row deleted from goods receipt.", "info");
               }
             }}
-            className="flex items-center gap-1 px-2.5 h-6.5 bg-white border border-slate-200 text-rose-500 rounded font-semibold text-xs shadow-2xs disabled:opacity-40"
+            className="flex items-center gap-1 px-2.5 h-6.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-rose-500 dark:text-rose-400 rounded font-semibold text-xs shadow-2xs disabled:opacity-40"
           >
             <Trash2 size={12} />
             <span>Delete</span>
@@ -3562,7 +3562,7 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
           <button
             type="button"
             onClick={onOpenPrint}
-            className="flex items-center gap-1 px-2.5 h-6.5 bg-white border border-slate-200 text-slate-500 rounded font-semibold text-xs shadow-2xs hover:bg-slate-50"
+            className="flex items-center gap-1 px-2.5 h-6.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 rounded font-semibold text-xs shadow-2xs hover:bg-slate-50 dark:hover:bg-slate-700"
           >
             <Printer size={12} />
             <span>Reprint</span>
@@ -3571,7 +3571,7 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="flex items-center gap-1 px-2.5 h-6.5 bg-white border border-slate-200 text-slate-500 rounded font-semibold text-xs shadow-2xs hover:bg-slate-50"
+            className="flex items-center gap-1 px-2.5 h-6.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 rounded font-semibold text-xs shadow-2xs hover:bg-slate-50 dark:hover:bg-slate-700"
           >
             <ExternalLink size={12} />
             <span>Exit</span>
@@ -3593,7 +3593,7 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
           <button
             type="button"
             onClick={onResetGrn}
-            className="flex items-center gap-1 px-3.5 h-7 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 rounded font-bold text-xs shadow-2xs transition"
+            className="flex items-center gap-1 px-3.5 h-7 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded font-bold text-xs shadow-2xs transition"
           >
             <X size={14} />
             <span>Cancel</span>
@@ -3608,17 +3608,17 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
       {/* Select Purchase Order Modal (Wired to Backend DB) */}
       {showPoModal && (
         <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-2xl border border-slate-200 max-w-2xl w-full p-4 space-y-3">
+          <div className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl border border-slate-200 dark:border-slate-700 max-w-2xl w-full p-4 space-y-3">
             <div className="flex items-center justify-between pb-2 border-b border-slate-200">
               <div className="flex items-center gap-2">
                 <FileSpreadsheet size={16} className="text-[#00288e]" />
-                <h3 className="font-bold text-sm text-slate-900">Select Purchase Order from Database</h3>
+                <h3 className="font-bold text-sm text-slate-900 dark:text-slate-100">Select Purchase Order from Database</h3>
               </div>
               <div className="flex items-center gap-2">
                 <button
                   type="button"
                   onClick={() => fetchLiveOrders(supplierId || undefined)}
-                  className="p-1 text-slate-500 hover:text-[#00288e] rounded hover:bg-slate-100 flex items-center gap-1 text-xs"
+                  className="p-1 text-slate-500 dark:text-slate-400 hover:text-[#00288e] dark:hover:text-blue-400 rounded hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-1 text-xs"
                   title="Refresh orders from database"
                 >
                   <RefreshCw size={13} className={ordersLoading ? "animate-spin" : ""} />
@@ -3627,7 +3627,7 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
                 <button
                   type="button"
                   onClick={() => setShowPoModal(false)}
-                  className="p-1 rounded hover:bg-slate-100 text-slate-500"
+                  className="p-1 rounded hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400"
                 >
                   <X size={15} />
                 </button>
@@ -3642,7 +3642,7 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
                 value={searchPoQuery}
                 onChange={(e) => setSearchPoQuery(e.target.value)}
                 placeholder="Search by PO Number, Supplier Name, or Status..."
-                className="w-full h-8 pl-8 pr-7 border border-slate-300 rounded text-xs outline-none focus:border-[#00288e]"
+                className="w-full h-8 pl-8 pr-7 border border-slate-300 dark:border-slate-600 rounded bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 text-xs outline-none focus:border-[#00288e]"
                 autoFocus
               />
               {searchPoQuery && (
@@ -3685,8 +3685,8 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
                       onClick={() => handleSelectPurchaseOrder(po.id || po.order_id)}
                       className={`p-2.5 rounded-lg border cursor-pointer transition flex items-center justify-between ${
                         isCurrent
-                          ? "border-[#00288e] bg-blue-50/60"
-                          : "border-slate-200 hover:bg-slate-50"
+                          ? "border-[#00288e] bg-blue-50/60 dark:bg-blue-950/60"
+                          : "border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700/60"
                       }`}
                     >
                       <div className="space-y-0.5">
@@ -3721,7 +3721,7 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
               <button
                 type="button"
                 onClick={() => setShowPoModal(false)}
-                className="px-3 py-1 bg-slate-100 hover:bg-slate-200 rounded text-xs font-bold text-slate-700"
+                className="px-3 py-1 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 rounded text-xs font-bold text-slate-700 dark:text-slate-200"
               >
                 Close
               </button>
@@ -3733,16 +3733,16 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
       {/* Supplier Browse Modal (Wired to Backend DB) */}
       {showSupplierModal && (
         <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-2xl border border-slate-200 max-w-lg w-full p-4 space-y-3">
+          <div className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl border border-slate-200 dark:border-slate-700 max-w-lg w-full p-4 space-y-3">
             <div className="flex items-center justify-between pb-2 border-b border-slate-200">
               <div className="flex items-center gap-2">
                 <Building2 size={16} className="text-[#00288e]" />
-                <h3 className="font-bold text-sm text-slate-900">Select Supplier from Database</h3>
+                <h3 className="font-bold text-sm text-slate-900 dark:text-slate-100">Select Supplier from Database</h3>
               </div>
               <button
                 type="button"
                 onClick={() => setShowSupplierModal(false)}
-                className="p-1 rounded hover:bg-slate-100 text-slate-500"
+                className="p-1 rounded hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400"
               >
                 <X size={15} />
               </button>
@@ -3756,7 +3756,7 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
                 value={searchSupplierQuery}
                 onChange={(e) => setSearchSupplierQuery(e.target.value)}
                 placeholder="Search by supplier name, code, GSTIN, or city..."
-                className="w-full h-8 pl-8 pr-7 border border-slate-300 rounded text-xs outline-none focus:border-[#00288e]"
+                className="w-full h-8 pl-8 pr-7 border border-slate-300 dark:border-slate-600 rounded bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 text-xs outline-none focus:border-[#00288e]"
                 autoFocus
               />
             </div>
@@ -3774,7 +3774,7 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
                       setShowSupplierModal(false);
                     }}
                     className={`p-2.5 rounded-lg border cursor-pointer transition flex items-center justify-between ${
-                      supplierId === s.id ? "border-[#00288e] bg-blue-50/50" : "border-slate-200 hover:bg-slate-50"
+                      supplierId === s.id ? "border-[#00288e] bg-blue-50/50 dark:bg-blue-950/50" : "border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700/60"
                     }`}
                   >
                     <div>
@@ -3793,7 +3793,7 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
               <button
                 type="button"
                 onClick={() => setShowSupplierModal(false)}
-                className="px-3.5 py-1 bg-slate-100 hover:bg-slate-200 rounded text-xs font-bold text-slate-700"
+                className="px-3.5 py-1 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 rounded text-xs font-bold text-slate-700 dark:text-slate-200"
               >
                 Close
               </button>
@@ -3805,16 +3805,16 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
       {/* Item Tags Modal */}
       {showItemTagsModal && (
         <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-2xl border border-slate-200 max-w-lg w-full p-4 space-y-3">
+          <div className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl border border-slate-200 dark:border-slate-700 max-w-lg w-full p-4 space-y-3">
             <div className="flex items-center justify-between pb-2 border-b border-slate-200">
               <div className="flex items-center gap-2">
                 <Tag size={16} className="text-[#00288e]" />
-                <h3 className="font-bold text-sm text-slate-900">Item Serial &amp; Batch Tags</h3>
+                <h3 className="font-bold text-sm text-slate-900 dark:text-slate-100">Item Serial &amp; Batch Tags</h3>
               </div>
               <button
                 type="button"
                 onClick={() => setShowItemTagsModal(false)}
-                className="p-1 rounded hover:bg-slate-100 text-slate-500"
+                className="p-1 rounded hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400"
               >
                 <X size={15} />
               </button>
@@ -3830,7 +3830,7 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
                       <span className="font-bold text-slate-800">#{idx + 1} {item.code}</span> - {item.name}
                       <div className="text-[10px] text-slate-500">Qty: {item.quantity_received} | Rate: ₹{item.cost_price}</div>
                     </div>
-                    <span className="font-mono text-[10px] px-2 py-0.5 bg-slate-100 rounded font-bold">
+                    <span className="font-mono text-[10px] px-2 py-0.5 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded font-bold">
                       TAG-{item.code}
                     </span>
                   </div>
@@ -3854,23 +3854,23 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
       {/* Outward to Inward Modal */}
       {showOutwardModal && (
         <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-2xl border border-slate-200 max-w-md w-full p-4 space-y-3">
+          <div className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl border border-slate-200 dark:border-slate-700 max-w-md w-full p-4 space-y-3">
             <div className="flex items-center justify-between pb-2 border-b border-slate-200">
               <div className="flex items-center gap-2">
                 <Layers size={16} className="text-[#00288e]" />
-                <h3 className="font-bold text-sm text-slate-900">Load Outward to Inward</h3>
+                <h3 className="font-bold text-sm text-slate-900 dark:text-slate-100">Load Outward to Inward</h3>
               </div>
               <button
                 type="button"
                 onClick={() => setShowOutwardModal(false)}
-                className="p-1 rounded hover:bg-slate-100 text-slate-500"
+                className="p-1 rounded hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400"
               >
                 <X size={15} />
               </button>
             </div>
 
             <div className="space-y-2.5 text-xs">
-              <p className="text-slate-600">
+              <p className="text-slate-600 dark:text-slate-300">
                 Match an inter-branch transfer dispatch challan from warehouse depot to automatically reconcile inward receipt.
               </p>
               <div>
@@ -3880,7 +3880,7 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
                 <input
                   type="text"
                   placeholder="e.g. TR-DISP-2026-081"
-                  className="w-full h-7 px-2.5 border border-slate-300 rounded font-mono text-xs outline-none focus:border-[#00288e]"
+                  className="w-full h-7 px-2.5 border border-slate-300 dark:border-slate-600 rounded bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 font-mono text-xs outline-none focus:border-[#00288e]"
                 />
               </div>
             </div>
@@ -3889,7 +3889,7 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
               <button
                 type="button"
                 onClick={() => setShowOutwardModal(false)}
-                className="px-3 py-1 bg-slate-100 hover:bg-slate-200 rounded text-xs font-bold text-slate-700"
+                className="px-3 py-1 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 rounded text-xs font-bold text-slate-700 dark:text-slate-200"
               >
                 Cancel
               </button>
@@ -3911,16 +3911,16 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
       {/* List Hotkeys (F3) Modal */}
       {showHotkeysModal && (
         <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-2xl border border-slate-200 max-w-md w-full p-4 space-y-3">
+          <div className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl border border-slate-200 dark:border-slate-700 max-w-md w-full p-4 space-y-3">
             <div className="flex items-center justify-between pb-2 border-b border-slate-200">
               <div className="flex items-center gap-2">
                 <Keyboard size={16} className="text-[#00288e]" />
-                <h3 className="font-bold text-sm text-slate-900">Goods Receipt Hotkeys</h3>
+                <h3 className="font-bold text-sm text-slate-900 dark:text-slate-100">Goods Receipt Hotkeys</h3>
               </div>
               <button
                 type="button"
                 onClick={() => setShowHotkeysModal(false)}
-                className="p-1 rounded hover:bg-slate-100 text-slate-500"
+                className="p-1 rounded hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400"
               >
                 <X size={15} />
               </button>
@@ -3928,24 +3928,24 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
 
             <div className="space-y-1.5 text-xs divide-y divide-slate-100">
               <div className="flex justify-between items-center py-1">
-                <span className="font-medium text-slate-700">Select Purchase Order from DB</span>
-                <span className="font-mono font-bold bg-slate-100 px-2 py-0.5 rounded text-[11px]">F2</span>
+                <span className="font-medium text-slate-700 dark:text-slate-300">Select Purchase Order from DB</span>
+                <span className="font-mono font-bold bg-slate-100 dark:bg-slate-700 text-slate-800 dark:text-slate-200 px-2 py-0.5 rounded text-[11px]">F2</span>
               </div>
               <div className="flex justify-between items-center py-1">
-                <span className="font-medium text-slate-700">List Hotkeys Guide</span>
-                <span className="font-mono font-bold bg-slate-100 px-2 py-0.5 rounded text-[11px]">F3</span>
+                <span className="font-medium text-slate-700 dark:text-slate-300">List Hotkeys Guide</span>
+                <span className="font-mono font-bold bg-slate-100 dark:bg-slate-700 text-slate-800 dark:text-slate-200 px-2 py-0.5 rounded text-[11px]">F3</span>
               </div>
               <div className="flex justify-between items-center py-1">
-                <span className="font-medium text-slate-700">Load from PDT / Camera Scanner</span>
-                <span className="font-mono font-bold bg-slate-100 px-2 py-0.5 rounded text-[11px]">F4</span>
+                <span className="font-medium text-slate-700 dark:text-slate-300">Load from PDT / Camera Scanner</span>
+                <span className="font-mono font-bold bg-slate-100 dark:bg-slate-700 text-slate-800 dark:text-slate-200 px-2 py-0.5 rounded text-[11px]">F4</span>
               </div>
               <div className="flex justify-between items-center py-1">
-                <span className="font-medium text-slate-700">Commit Direct Entry Row to Grid</span>
-                <span className="font-mono font-bold bg-slate-100 px-2 py-0.5 rounded text-[11px]">Enter</span>
+                <span className="font-medium text-slate-700 dark:text-slate-300">Commit Direct Entry Row to Grid</span>
+                <span className="font-mono font-bold bg-slate-100 dark:bg-slate-700 text-slate-800 dark:text-slate-200 px-2 py-0.5 rounded text-[11px]">Enter</span>
               </div>
               <div className="flex justify-between items-center py-1">
-                <span className="font-medium text-slate-700">Save &amp; Post Goods Receipt</span>
-                <span className="font-mono font-bold bg-slate-100 px-2 py-0.5 rounded text-[11px]">Ctrl+S</span>
+                <span className="font-medium text-slate-700 dark:text-slate-300">Save &amp; Post Goods Receipt</span>
+                <span className="font-mono font-bold bg-slate-100 dark:bg-slate-700 text-slate-800 dark:text-slate-200 px-2 py-0.5 rounded text-[11px]">Ctrl+S</span>
               </div>
             </div>
 
@@ -3967,14 +3967,14 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
       {/* ========================================================================= */}
       {showLandedCostModal && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-2xl border border-slate-200 max-w-2xl w-full p-4 space-y-3">
+          <div className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl border border-slate-200 dark:border-slate-700 max-w-2xl w-full p-4 space-y-3">
             <div className="flex items-center justify-between pb-2 border-b border-slate-200">
               <div className="flex items-center gap-2">
                 <div className="p-1 rounded bg-[#00288e] text-white">
                   <Package size={16} />
                 </div>
                 <div>
-                  <h3 className="font-extrabold text-sm text-slate-900">Components of Landed Cost in India</h3>
+                  <h3 className="font-extrabold text-sm text-slate-900 dark:text-slate-100">Components of Landed Cost in India</h3>
                   <p className="text-[10px] text-slate-500 font-medium">
                     Ind AS 2 / AS 2 Valuation of Inventories &amp; Inward GST Apportionment
                   </p>
@@ -3983,7 +3983,7 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
               <button
                 type="button"
                 onClick={() => setShowLandedCostModal(false)}
-                className="p-1 rounded hover:bg-slate-100 text-slate-500"
+                className="p-1 rounded hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400"
               >
                 <X size={16} />
               </button>
@@ -3993,10 +3993,10 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
             <div className="space-y-2 max-h-[62vh] overflow-y-auto pr-1 text-xs">
               
               {/* 1. Product Cost (FOB / EXW) */}
-              <div className="p-2 rounded border border-slate-200 bg-slate-50/60 flex items-center justify-between">
+              <div className="p-2 rounded border border-slate-200 dark:border-slate-700 bg-slate-50/60 dark:bg-slate-800/50 flex items-center justify-between">
                 <div className="space-y-0.5">
-                  <div className="font-bold text-slate-900 flex items-center gap-1.5">
-                    <span className="w-4 h-4 rounded-full bg-slate-200 text-slate-700 flex items-center justify-center text-[10px] font-bold">1</span>
+                  <div className="font-bold text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
+                    <span className="w-4 h-4 rounded-full bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 flex items-center justify-center text-[10px] font-bold">1</span>
                     <span>Product Cost (FOB / EXW)</span>
                     <span className="text-[9px] px-1.5 py-0.2 bg-emerald-100 text-emerald-800 rounded font-semibold">Baseline Invoiced</span>
                   </div>
@@ -4008,9 +4008,9 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
               </div>
 
               {/* 2. Freight & Shipping Charges */}
-              <div className="p-2 rounded border border-slate-200 bg-white space-y-1.5">
+              <div className="p-2 rounded border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/60 space-y-1.5">
                 <div className="flex items-center justify-between">
-                  <div className="font-bold text-slate-900 flex items-center gap-1.5">
+                  <div className="font-bold text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
                     <span className="w-4 h-4 rounded-full bg-blue-100 text-[#00288e] flex items-center justify-center text-[10px] font-bold">2</span>
                     <span>Freight and Shipping Charges</span>
                   </div>
@@ -4018,7 +4018,7 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
                     <select
                       value={landedCostBreakdown.freightTreatment}
                       onChange={(e) => setLandedCostBreakdown({ ...landedCostBreakdown, freightTreatment: e.target.value as any })}
-                      className="h-6 px-1.5 border border-slate-300 rounded text-[10px] font-semibold bg-slate-50 outline-none"
+                      className="h-6 px-1.5 border border-slate-300 dark:border-slate-700 rounded text-[10px] font-semibold bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-slate-100 outline-none"
                     >
                       <option value="BEFORE_TAX">On Supplier Invoice (Composite Supply)</option>
                       <option value="AFTER_TAX">Separate Transporter Bill (GTA / RCM)</option>
@@ -4039,9 +4039,9 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
               </div>
 
               {/* 3. Labor and Handling Charges */}
-              <div className="p-2 rounded border border-slate-200 bg-white space-y-1.5">
+              <div className="p-2 rounded border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/60 space-y-1.5">
                 <div className="flex items-center justify-between">
-                  <div className="font-bold text-slate-900 flex items-center gap-1.5">
+                  <div className="font-bold text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
                     <span className="w-4 h-4 rounded-full bg-blue-100 text-[#00288e] flex items-center justify-center text-[10px] font-bold">3</span>
                     <span>Labor and Handling Charges</span>
                   </div>
@@ -4049,7 +4049,7 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
                     <select
                       value={landedCostBreakdown.laborTreatment}
                       onChange={(e) => setLandedCostBreakdown({ ...landedCostBreakdown, laborTreatment: e.target.value as any })}
-                      className="h-6 px-1.5 border border-slate-300 rounded text-[10px] font-semibold bg-slate-50 outline-none"
+                      className="h-6 px-1.5 border border-slate-300 dark:border-slate-700 rounded text-[10px] font-semibold bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-slate-100 outline-none"
                     >
                       <option value="AFTER_TAX">Separate Agency Bill (Hamali/CFS)</option>
                       <option value="BEFORE_TAX">On Supplier Invoice (Direct Inward)</option>
@@ -4070,9 +4070,9 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
               </div>
 
               {/* 4. Insurance (Marine or Transit Insurance) */}
-              <div className="p-2 rounded border border-slate-200 bg-white space-y-1.5">
+              <div className="p-2 rounded border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/60 space-y-1.5">
                 <div className="flex items-center justify-between">
-                  <div className="font-bold text-slate-900 flex items-center gap-1.5">
+                  <div className="font-bold text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
                     <span className="w-4 h-4 rounded-full bg-blue-100 text-[#00288e] flex items-center justify-center text-[10px] font-bold">4</span>
                     <span>Transit Insurance</span>
                     <span className="text-[9px] px-1 py-0.2 bg-blue-100 text-[#00288e] rounded font-mono font-bold">After Tax</span>
@@ -4092,9 +4092,9 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
               </div>
 
               {/* 5. Customs Duties & Taxes (BCD & SWS) */}
-              <div className="p-2 rounded border border-slate-200 bg-white space-y-1.5">
+              <div className="p-2 rounded border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/60 space-y-1.5">
                 <div className="flex items-center justify-between">
-                  <div className="font-bold text-slate-900 flex items-center gap-1.5">
+                  <div className="font-bold text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
                     <span className="w-4 h-4 rounded-full bg-blue-100 text-[#00288e] flex items-center justify-center text-[10px] font-bold">5</span>
                     <span>Customs Duties &amp; Taxes (BCD + SWS)</span>
                     <span className="text-[9px] px-1.5 py-0.2 bg-amber-100 text-amber-900 rounded font-bold">Non-Creditable Duty</span>
@@ -4139,9 +4139,9 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
               </div>
 
               {/* 6. Clearance Fees (CHA Charges & Brokerage) */}
-              <div className="p-2 rounded border border-slate-200 bg-white space-y-1.5">
+              <div className="p-2 rounded border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/60 space-y-1.5">
                 <div className="flex items-center justify-between">
-                  <div className="font-bold text-slate-900 flex items-center gap-1.5">
+                  <div className="font-bold text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
                     <span className="w-4 h-4 rounded-full bg-blue-100 text-[#00288e] flex items-center justify-center text-[10px] font-bold">6</span>
                     <span>Clearance Fees (CHA &amp; Brokerage)</span>
                   </div>
@@ -4149,7 +4149,7 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
                     <select
                       value={landedCostBreakdown.clearanceTreatment}
                       onChange={(e) => setLandedCostBreakdown({ ...landedCostBreakdown, clearanceTreatment: e.target.value as any })}
-                      className="h-6 px-1.5 border border-slate-300 rounded text-[10px] font-semibold bg-slate-50 outline-none"
+                      className="h-6 px-1.5 border border-slate-300 dark:border-slate-700 rounded text-[10px] font-semibold bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-slate-100 outline-none"
                     >
                       <option value="AFTER_TAX">Separate CHA Invoice (Capitalized)</option>
                       <option value="BEFORE_TAX">Consolidated Supplier Invoice</option>
@@ -4206,7 +4206,7 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
                       Apportioned strictly across <strong className="text-emerald-700">{totalSoundQty.toFixed(0)} sound accepted units</strong> ({totalDamageQty.toFixed(0)} damaged units excluded per Ind AS 2 &amp; CGST Sec 17(5)(h)).
                     </span>
                   </span>
-                  <span className="font-mono text-[10px] font-semibold text-[#00288e] bg-white px-2 py-0.5 rounded border border-blue-200">
+                  <span className="font-mono text-[10px] font-semibold text-[#00288e] dark:text-blue-400 bg-white dark:bg-slate-900 px-2 py-0.5 rounded border border-blue-200 dark:border-blue-900/50">
                     {landedCostBreakdown.allocationMethod === "VALUE" ? `Basis: ₹${totalAcceptedValue.toFixed(2)} Accepted Val` : `Basis: ${totalSoundQty.toFixed(0)} Sound Units`}
                   </span>
                 </div>
@@ -4233,7 +4233,7 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
                 <button
                   type="button"
                   onClick={() => setShowLandedCostModal(false)}
-                  className="px-3 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded text-xs font-semibold"
+                  className="px-3 py-1 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded text-xs font-semibold"
                 >
                   Cancel
                 </button>
@@ -4255,16 +4255,16 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
       {/* Delivery Instructions Modal */}
       {deliveryInstructionsModal && (
         <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-2xl border border-slate-200 max-w-md w-full p-4 space-y-3">
+          <div className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl border border-slate-200 dark:border-slate-700 max-w-md w-full p-4 space-y-3">
             <div className="flex items-center justify-between pb-2 border-b border-slate-200">
               <div className="flex items-center gap-2">
                 <Truck size={16} className="text-[#00288e]" />
-                <h3 className="font-bold text-sm text-slate-900">Delivery &amp; Staging Instructions</h3>
+                <h3 className="font-bold text-sm text-slate-900 dark:text-slate-100">Delivery &amp; Staging Instructions</h3>
               </div>
               <button
                 type="button"
                 onClick={() => setDeliveryInstructionsModal(false)}
-                className="p-1 rounded hover:bg-slate-100 text-slate-500"
+                className="p-1 rounded hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400"
               >
                 <X size={15} />
               </button>
@@ -4276,7 +4276,7 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
                 rows={4}
                 value={deliveryInstructions}
                 onChange={(e) => setDeliveryInstructions(e.target.value)}
-                className="w-full p-2 border border-slate-300 rounded outline-none focus:border-[#00288e] text-xs font-sans"
+                className="w-full p-2 border border-slate-300 dark:border-slate-600 rounded bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 outline-none focus:border-[#00288e] text-xs font-sans"
               />
               <p className="text-[10px] text-slate-500">
                 Printed on goods receipt inward slip and dispatched to the gate warehouse manager.
