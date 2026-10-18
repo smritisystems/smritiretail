@@ -802,7 +802,7 @@ export const POPrintPreviewModal: React.FC<POPrintPreviewModalProps> = ({
     companyPan: tenantCompanyPan,
     poNumber: `${header.prefix || "PO"}-${header.orderNumber || "1"}`,
     orderDate: formatDisplayDate((header as any)?.orderDate || (header as any)?.notes?.match(/dated ([0-9-]+)/)?.[1]) || formatDisplayDate(new Date().toISOString()),
-    expectedDelivery: formatDisplayDate(header.deliveryDate) || "",
+    expectedDelivery: formatDisplayDate(header.deliveryDate || (header as any)?.received_date || (header as any)?.vendor_bill_date || (header as any)?.notes?.match(/dated ([0-9-]+)/)?.[1]) || "",
     warehouse: header.deliveryLocation || "Main Store (MAIN)",
     status: (header as any)?.status || (header as any)?.documentStatus || "DRAFT",
 
