@@ -180,6 +180,60 @@ class PurchaseService:
             )
         return supplier
 
+    async def _resolve_supplier_aliases(self, supplier_id: str) -> list[str]:
+        """
+        Resolves a supplier identifier into all associated sovereign identifiers
+        (Universal Party UUID, legacy supplier ID, and vendor code) so queries filter correctly.
+        """
+        clean_sup = (supplier_id or "").strip()
+        if not clean_sup:
+            return []
+        aliases = {clean_sup}
+
+        if clean_sup.startswith("sup-"):
+            code = clean_sup[4:].strip()
+            if code:
+                aliases.add(code)
+                aliases.add(code.upper())
+                aliases.add(code.lower())
+
+        from ..models.party import Party
+        party_stmt = select(Party).where(
+            or_(Party.id.in_(list(aliases)), Party.party_code.in_(list(aliases))),
+            Party.is_deleted == False,
+        )
+        if self.tenant.company_id:
+            party_stmt = party_stmt.where(
+                or_(Party.company_id == self.tenant.company_id, Party.company_id.is_(None))
+            )
+        parties = (await self.db.execute(party_stmt)).scalars().all()
+        for p in parties:
+            aliases.add(p.id)
+            if p.party_code:
+                aliases.add(p.party_code)
+                aliases.add(p.party_code.upper())
+                aliases.add(p.party_code.lower())
+                aliases.add(f"sup-{p.party_code.lower()}")
+
+        supp_stmt = select(Supplier).where(
+            or_(Supplier.id.in_(list(aliases)), Supplier.code.in_(list(aliases))),
+            Supplier.is_deleted == False,
+        )
+        if self.tenant.company_id:
+            supp_stmt = supp_stmt.where(
+                or_(Supplier.company_id == self.tenant.company_id, Supplier.company_id.is_(None))
+            )
+        suppliers = (await self.db.execute(supp_stmt)).scalars().all()
+        for s in suppliers:
+            aliases.add(s.id)
+            if s.code:
+                aliases.add(s.code)
+                aliases.add(s.code.upper())
+                aliases.add(s.code.lower())
+                aliases.add(f"sup-{s.code.lower()}")
+
+        return list(aliases)
+
     async def _get_product(self, product_id: str) -> Product:
         stmt = select(Product).where(
             (Product.id == product_id)
@@ -708,7 +762,8 @@ class PurchaseService:
             PurchaseOrder.is_deleted == False,
         )
         if supplier_id:
-            stmt = stmt.where(PurchaseOrder.supplier_id == supplier_id)
+            supplier_ids = await self._resolve_supplier_aliases(supplier_id)
+            stmt = stmt.where(PurchaseOrder.supplier_id.in_(supplier_ids))
         if status:
             # Normalise to uppercase; support comma-separated multi-status
             statuses = [s.strip().upper() for s in status.split(",") if s.strip()]
@@ -3126,7 +3181,8 @@ class PurchaseService:
             PurchaseBill.is_deleted == False,
         )
         if supplier_id:
-            stmt = stmt.where(PurchaseBill.supplier_id == supplier_id)
+            supplier_ids = await self._resolve_supplier_aliases(supplier_id)
+            stmt = stmt.where(PurchaseBill.supplier_id.in_(supplier_ids))
         if status:
             statuses = [s.strip().upper() for s in status.split(",") if s.strip()]
             if statuses:
