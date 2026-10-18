@@ -195,7 +195,7 @@ export const DrillDownSidePanel: React.FC = () => {
         q.status === "Approved" || q.status === "Converted" ? "bg-emerald-950/50 text-emerald-400 border-emerald-800/40" :
         q.status === "Cancelled" || q.status === "Rejected" ? "bg-rose-950/50 text-rose-400 border-rose-800/40" :
         q.status === "Submitted" ? "bg-indigo-950/50 text-indigo-400 border-indigo-800/40" :
-        "bg-slate-850 text-slate-400 border-slate-800"
+        "bg-slate-800 text-slate-400 border-slate-800"
     })),
     ...orders.map(so => ({
       id: so.id,
@@ -210,7 +210,7 @@ export const DrillDownSidePanel: React.FC = () => {
         so.status === "Confirmed" || so.status === "Shipped" || so.status === "Approved" ? "bg-emerald-950/50 text-emerald-400 border-emerald-800/40" :
         so.status === "Cancelled" || so.status === "Rejected" ? "bg-rose-950/50 text-rose-400 border-rose-800/40" :
         so.status === "Submitted" ? "bg-indigo-950/50 text-indigo-400 border-indigo-800/40" :
-        "bg-slate-850 text-slate-400 border-slate-800"
+        "bg-slate-800 text-slate-400 border-slate-800"
     })),
     ...getSalesInvoices().filter(inv => inv.customerId === customer?.id).map(inv => ({
       id: inv.id,
@@ -225,7 +225,7 @@ export const DrillDownSidePanel: React.FC = () => {
         inv.status === "Approved" ? "bg-emerald-950/50 text-emerald-400 border-emerald-800/40" :
         inv.status === "Cancelled" ? "bg-rose-950/50 text-rose-400 border-rose-800/40" :
         inv.status === "Submitted" ? "bg-indigo-950/50 text-indigo-400 border-indigo-800/40" :
-        "bg-slate-850 text-slate-400 border-slate-800"
+        "bg-slate-800 text-slate-400 border-slate-800"
     }))
   ];
 

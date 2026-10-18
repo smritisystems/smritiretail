@@ -119,7 +119,7 @@ export const AppShell: React.FC<AppShellProps> = ({
       userRole={userRole}
       onNavigate={onSelectModule}
     >
-    <div className="flex flex-col h-screen w-screen overflow-hidden bg-[#f8f9ff] text-[#0b1c30] font-sans antialiased">
+    <div className="flex flex-col h-screen w-screen overflow-hidden bg-[#f8f9ff] dark:bg-[#121721] text-[#0b1c30] dark:text-[#f8fafc] font-sans antialiased">
       {/* Global Header */}
       {!isFocusMode ? (
         <GlobalHeader
@@ -180,7 +180,7 @@ export const AppShell: React.FC<AppShellProps> = ({
         />
 
         {/* Workspace Canvas Area */}
-        <main className="flex-1 flex flex-col min-w-0 overflow-hidden bg-[#f8f9ff] relative">
+        <main className="flex-1 flex flex-col min-w-0 overflow-hidden bg-[#f8f9ff] dark:bg-[#121721] relative">
           {children}
         </main>
       </div>

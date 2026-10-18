@@ -12,6 +12,7 @@
  */
 
 @import "tailwindcss";
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
 @import "./smriti_scroll.css";
 
 @theme {

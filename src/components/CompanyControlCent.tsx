@@ -93,7 +93,7 @@ export const CompanyControlCenter: React.FC<CompanyControlCenterProps> = ({
         </div>
 
         {/* Navigation Tabs */}
-        <div className="bg-slate-850 border-b border-slate-800 px-6 flex space-x-1 overflow-x-auto">
+        <div className="bg-slate-800 border-b border-slate-800 px-6 flex space-x-1 overflow-x-auto">
           {[
             { id: 'company', label: 'Company Info', icon: Building2 },
             { id: 'database', label: 'Database Health', icon: Database },

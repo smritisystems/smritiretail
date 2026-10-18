@@ -1763,7 +1763,7 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                   {eligibleOrders.map((o) => (
-                    <tr key={o.order_id} className="hover:bg-indigo-50/30 dark:hover:bg-slate-850/50 transition">
+                    <tr key={o.order_id} className="hover:bg-indigo-50/30 dark:hover:bg-slate-800/50 transition">
                       <td className="py-2.5 px-3 font-mono font-bold text-indigo-600 dark:text-indigo-400">{o.order_no}</td>
                       <td className="py-2.5 px-3 font-medium text-slate-800 dark:text-slate-200">{o.supplier_name}</td>
                       <td className="py-2.5 px-3 text-center font-mono font-semibold text-slate-700 dark:text-slate-300">{o.pending_items_count}</td>
@@ -1931,7 +1931,7 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
                       <tr
                         key={row.rowId}
                         className={`transition-colors duration-200 ${
-                          isHighlighted ? "bg-emerald-100/60 dark:bg-emerald-950/50" : "hover:bg-slate-50/60 dark:hover:bg-slate-850/50"
+                          isHighlighted ? "bg-emerald-100/60 dark:bg-emerald-950/50" : "hover:bg-slate-50/60 dark:hover:bg-slate-800/50"
                         }`}
                       >
                         <td className="py-2.5 px-2.5 text-slate-400 font-mono">{idx + 1}</td>
@@ -2417,7 +2417,7 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
                   const marginPct = row.mrp && row.mrp > 0 ? ((row.mrp - landedCost) / row.mrp) * 100 : 0;
 
                   return (
-                    <tr key={row.rowId} className="hover:bg-slate-50/60 dark:hover:bg-slate-850/50">
+                    <tr key={row.rowId} className="hover:bg-slate-50/60 dark:hover:bg-slate-800/50">
                       <td className="py-2 px-2.5 font-bold text-slate-800 dark:text-slate-200">{row.code}</td>
                       <td className="py-2 px-2.5 font-sans text-slate-700 dark:text-slate-300">{row.name}</td>
                       <td className="py-2 px-2 text-right">₹{row.cost_price.toFixed(2)}</td>
@@ -2608,7 +2608,7 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
                   const gstVal = c.tax_amount ?? (c.amount * (c.tax_rate || 0)) / 100;
                   const allocationLabel = normalizeAllocationMethod(c.allocation_method) === "MANUAL" ? "Manual" : normalizeAllocationMethod(c.allocation_method) === "QUANTITY" ? "Quantity" : normalizeAllocationMethod(c.allocation_method) === "WEIGHT" ? "Weight" : "Value";
                   return (
-                    <tr key={c.id} className="hover:bg-slate-50/60 dark:hover:bg-slate-850/50">
+                    <tr key={c.id} className="hover:bg-slate-50/60 dark:hover:bg-slate-800/50">
                       <td className="py-2.5 px-3 text-slate-400">{i + 1}</td>
                       <td className="py-2.5 px-3 font-sans font-medium capitalize text-slate-800 dark:text-slate-200">
                         {c.component_type.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (l) => l.toUpperCase())}
@@ -2655,7 +2655,7 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
         <p className="text-xs text-slate-500">Determine how freight and inward charges are distributed into product inventory landed costs</p>
 
         <div className="grid grid-cols-1 md:grid-cols-4 gap-3 pt-2">
-          <label className={`rounded-xl border p-3 cursor-pointer transition ${allocationMethod === "value" ? "border-indigo-600 bg-indigo-50/50 dark:bg-indigo-950/40" : "border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-850"}`}>
+          <label className={`rounded-xl border p-3 cursor-pointer transition ${allocationMethod === "value" ? "border-indigo-600 bg-indigo-50/50 dark:bg-indigo-950/40" : "border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800"}`}>
             <div className="flex items-center gap-2">
               <input type="radio" name="allocMethodMain" checked={allocationMethod === "value"} onChange={() => setAllocationMethod("value")} className="text-indigo-600" />
               <span className="font-bold text-xs text-slate-900 dark:text-white">By Value (Ad-Valorem)</span>
@@ -2663,7 +2663,7 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
             <p className="mt-1 text-[11px] text-slate-500">Pro-rata based on net line purchase amount.</p>
           </label>
 
-          <label className={`rounded-xl border p-3 cursor-pointer transition ${allocationMethod === "quantity" ? "border-indigo-600 bg-indigo-50/50 dark:bg-indigo-950/40" : "border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-850"}`}>
+          <label className={`rounded-xl border p-3 cursor-pointer transition ${allocationMethod === "quantity" ? "border-indigo-600 bg-indigo-50/50 dark:bg-indigo-950/40" : "border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800"}`}>
             <div className="flex items-center gap-2">
               <input type="radio" name="allocMethodMain" checked={allocationMethod === "quantity"} onChange={() => setAllocationMethod("quantity")} className="text-indigo-600" />
               <span className="font-bold text-xs text-slate-900 dark:text-white">By Quantity (Per Unit)</span>
@@ -2671,7 +2671,7 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
             <p className="mt-1 text-[11px] text-slate-500">Evenly split across all accepted units.</p>
           </label>
 
-          <label className={`rounded-xl border p-3 cursor-pointer transition ${allocationMethod === "weight" ? "border-indigo-600 bg-indigo-50/50 dark:bg-indigo-950/40" : "border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-850"}`}>
+          <label className={`rounded-xl border p-3 cursor-pointer transition ${allocationMethod === "weight" ? "border-indigo-600 bg-indigo-50/50 dark:bg-indigo-950/40" : "border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800"}`}>
             <div className="flex items-center gap-2">
               <input type="radio" name="allocMethodMain" checked={allocationMethod === "weight"} onChange={() => setAllocationMethod("weight")} className="text-indigo-600" />
               <span className="font-bold text-xs text-slate-900 dark:text-white">By Weight / CBM</span>
@@ -2679,7 +2679,7 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
             <p className="mt-1 text-[11px] text-slate-500">Allocated proportional to consignment bulk.</p>
           </label>
 
-          <label className={`rounded-xl border p-3 cursor-pointer transition ${allocationMethod === "manual" ? "border-indigo-600 bg-indigo-50/50 dark:bg-indigo-950/40" : "border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-850"}`}>
+          <label className={`rounded-xl border p-3 cursor-pointer transition ${allocationMethod === "manual" ? "border-indigo-600 bg-indigo-50/50 dark:bg-indigo-950/40" : "border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800"}`}>
             <div className="flex items-center gap-2">
               <input type="radio" name="allocMethodMain" checked={allocationMethod === "manual"} onChange={() => setAllocationMethod("manual")} className="text-indigo-600" />
               <span className="font-bold text-xs text-slate-900 dark:text-white">Manual Allocation</span>
@@ -2806,7 +2806,7 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
                   const { addonPerUnit, landedCost } = lineAllocations[idx];
 
                   return (
-                    <tr key={row.rowId} className="hover:bg-slate-50/60 dark:hover:bg-slate-850/50">
+                    <tr key={row.rowId} className="hover:bg-slate-50/60 dark:hover:bg-slate-800/50">
                       <td className="py-2 px-3 font-bold text-slate-800 dark:text-slate-200">{row.code}</td>
                       <td className="py-2 px-3 font-sans text-slate-700 dark:text-slate-300">{row.name}</td>
                       <td className="py-2 px-2 text-right">{accepted}</td>
@@ -2986,7 +2986,7 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
               const { addonPerUnit, landedCost } = lineAllocations[idx];
 
               return (
-                <tr key={row.rowId} className="hover:bg-slate-50/60 dark:hover:bg-slate-850/50">
+                <tr key={row.rowId} className="hover:bg-slate-50/60 dark:hover:bg-slate-800/50">
                   <td className="py-2 px-3 text-slate-400">{idx + 1}</td>
                   <td className="py-2 px-3 font-bold text-slate-800 dark:text-slate-200">{row.code}</td>
                   <td className="py-2 px-3 font-sans text-slate-700 dark:text-slate-300">{row.name}</td>
@@ -3901,7 +3901,7 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
                         const isExpanded = expandedReceiptId === r.id;
                         return (
                           <React.Fragment key={r.id}>
-                            <tr className="hover:bg-slate-50/70 dark:hover:bg-slate-850/60 transition">
+                            <tr className="hover:bg-slate-50/70 dark:hover:bg-slate-800/60 transition">
                               <td className="py-3 px-3 font-mono font-bold text-indigo-600 dark:text-indigo-400">
                                 {r.receipt_no}
                               </td>
