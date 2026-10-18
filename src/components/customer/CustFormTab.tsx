@@ -17,6 +17,7 @@ import { User, MapPin, Store, FileText, Tag, Layers, CheckSquare, Sliders } from
 import { RetailCustomerRecord, CustomerPriceGroup } from "./types.ts";
 import { getCustomerPriceGroups, getCustomerGroups, CustomerGroup } from "../../services/customerStore.ts";
 import { SmritiCustomerPriceGroupModal } from "./CustPriceGroupDlg.tsx";
+import { StoreCodeLookupModal } from "./corporate360/StoreCodeLookupModal.tsx";
 
 interface SmritiCustomerFormTabProps {
   customer: RetailCustomerRecord;
@@ -33,6 +34,7 @@ export const SmritiCustomerFormTab: React.FC<SmritiCustomerFormTabProps> = ({
   const [priceGroups, setPriceGroups] = useState<CustomerPriceGroup[]>(() => getCustomerPriceGroups());
   const [customerGroups, setCustomerGroups] = useState<CustomerGroup[]>(() => getCustomerGroups());
   const [showPriceGroupModal, setShowPriceGroupModal] = useState<boolean>(false);
+  const [showStoreLookupModal, setShowStoreLookupModal] = useState<boolean>(false);
 
   useEffect(() => {
     const handleUpdate = () => {
@@ -261,6 +263,52 @@ export const SmritiCustomerFormTab: React.FC<SmritiCustomerFormTabProps> = ({
                 <MapPin size={12} /> Manage Address
               </button>
             </div>
+
+            {/* Store Code Network Mapping */}
+            <div className="bg-[#f7f9fb] dark:bg-[#2d3133]/40 border border-[#c6c6cd] dark:border-[#45464d] p-3 rounded-xl flex items-center justify-between">
+              <div>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-[#515f74] dark:text-[#bec6e0] block">
+                  Store Code Network
+                </span>
+                <p className="text-[11px] text-[#191c1e] dark:text-white font-medium truncate max-w-[240px] mt-0.5">
+                  {customer.storeCode ? `Primary Store: ${customer.storeCode}` : "No Store Code mapped"}
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setShowStoreLookupModal(true)}
+                className="px-3 py-1.5 bg-[#00355f] dark:bg-[#8ebdf9] text-white dark:text-[#001c37] hover:bg-[#0f4c81] rounded-lg font-bold text-xs flex items-center gap-1 transition shadow-2xs"
+                title="Search and assign Store Codes"
+              >
+                <Store size={12} /> Store Lookup
+              </button>
+            </div>
+
+            {/* Store Code Lookup Modal */}
+            <StoreCodeLookupModal
+              isOpen={showStoreLookupModal}
+              onClose={() => setShowStoreLookupModal(false)}
+              currentCustomerId={customer.id}
+              currentCustomerName={customer.name}
+              currentlyAssignedCodes={customer.storeCode ? [customer.storeCode] : []}
+              onAssignStoreCode={(selectedStore) => {
+                onChange("storeCode", selectedStore.store_code);
+                onChange("shippingStoreCode", selectedStore.store_code);
+                if (customer.mailingAddresses && customer.mailingAddresses.length > 0) {
+                  const updatedAddresses = [...customer.mailingAddresses];
+                  updatedAddresses[0] = {
+                    ...updatedAddresses[0],
+                    storeCode: selectedStore.store_code,
+                    shippingStoreCode: selectedStore.store_code,
+                    city: selectedStore.city || updatedAddresses[0].city,
+                    address1: updatedAddresses[0].address1 || selectedStore.address_summary,
+                  };
+                  onChange("mailingAddresses", updatedAddresses);
+                }
+                setShowStoreLookupModal(false);
+              }}
+            />
           </div>
         </div>
 

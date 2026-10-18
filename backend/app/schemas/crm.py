@@ -15,6 +15,7 @@ from typing import Any, List, Optional, Dict
 from datetime import datetime, date
 from decimal import Decimal
 from enum import Enum
+import uuid as uuid_pkg
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from sqlalchemy import inspect
 from sqlalchemy.orm.base import NO_VALUE
@@ -324,6 +325,125 @@ class CustomerDeliveryLocationUpdate(BaseModel):
         return self
 
 
+# ───────────────────────────── Store Typed Addresses ────────────────────────
+
+class StoreAddressItem(BaseModel):
+    """
+    Typed address for a Store Code (Delivery, Billing, Warehouse, Registered, Shipping, Other).
+    One Store Code can carry multiple typed addresses, with at most one active primary per type.
+    """
+    id: str = Field(default_factory=lambda: str(uuid_pkg.uuid4()))
+    address_type: str = Field("Delivery", alias="addressType")
+    address_title: Optional[str] = Field(None, alias="addressTitle")
+    address_line1: str = Field(..., alias="addressLine1")
+    address_line2: Optional[str] = Field(None, alias="addressLine2")
+    locality: Optional[str] = None
+    city: str
+    district: Optional[str] = None
+    state: str
+    state_code: Optional[str] = Field(None, alias="stateCode")
+    pincode: str
+    country: str = "India"
+    contact_person: Optional[str] = Field(None, alias="contactPerson")
+    phone: Optional[str] = None
+    email: Optional[str] = None
+    is_primary: bool = Field(False, alias="isPrimary")
+    is_active: bool = Field(True, alias="isActive")
+    created_at: Optional[str] = None
+    updated_at: Optional[str] = None
+
+    model_config = ConfigDict(populate_by_name=True, from_attributes=True)
+
+
+VALID_STORE_ADDRESS_TYPES = {"Delivery", "Billing", "Warehouse", "Registered", "Shipping", "Other"}
+
+
+class StoreAddressCreate(BaseModel):
+    address_type: str = Field("Delivery", alias="addressType")
+    address_title: Optional[str] = Field(None, alias="addressTitle")
+    address_line1: str = Field(..., alias="addressLine1")
+    address_line2: Optional[str] = Field(None, alias="addressLine2")
+    locality: Optional[str] = None
+    city: str
+    district: Optional[str] = None
+    state: str
+    state_code: Optional[str] = Field(None, alias="stateCode")
+    pincode: str
+    country: str = "India"
+    contact_person: Optional[str] = Field(None, alias="contactPerson")
+    phone: Optional[str] = None
+    email: Optional[str] = None
+    is_primary: bool = Field(False, alias="isPrimary")
+
+    model_config = ConfigDict(populate_by_name=True, from_attributes=True)
+
+    @field_validator("address_type")
+    @classmethod
+    def validate_address_type(cls, v: str) -> str:
+        clean = (v or "").strip().capitalize()
+        if clean not in VALID_STORE_ADDRESS_TYPES:
+            raise ValueError(
+                f"Invalid address type '{v}'. Allowed types are: {', '.join(sorted(VALID_STORE_ADDRESS_TYPES))}"
+            )
+        return clean
+
+
+class StoreAddressUpdate(BaseModel):
+    address_type: Optional[str] = Field(None, alias="addressType")
+    address_title: Optional[str] = Field(None, alias="addressTitle")
+    address_line1: Optional[str] = Field(None, alias="addressLine1")
+    address_line2: Optional[str] = Field(None, alias="addressLine2")
+    locality: Optional[str] = None
+    city: Optional[str] = None
+    district: Optional[str] = None
+    state: Optional[str] = None
+    state_code: Optional[str] = Field(None, alias="stateCode")
+    pincode: Optional[str] = None
+    country: Optional[str] = None
+    contact_person: Optional[str] = Field(None, alias="contactPerson")
+    phone: Optional[str] = None
+    email: Optional[str] = None
+    is_primary: Optional[bool] = Field(None, alias="isPrimary")
+    is_active: Optional[bool] = Field(None, alias="isActive")
+
+    model_config = ConfigDict(populate_by_name=True, from_attributes=True)
+
+    @field_validator("address_type")
+    @classmethod
+    def validate_address_type(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return None
+        clean = v.strip().capitalize()
+        if clean not in VALID_STORE_ADDRESS_TYPES:
+            raise ValueError(
+                f"Invalid address type '{v}'. Allowed types are: {', '.join(sorted(VALID_STORE_ADDRESS_TYPES))}"
+            )
+        return clean
+
+
+class StoreCodeLookupItem(BaseModel):
+    """
+    Searchable Store Code item in Master Lookup showing ownership and availability.
+    Codes assigned to other customers remain visible but disabled.
+    """
+    id: str
+    store_code: str
+    store_name: str
+    city: str
+    state: Optional[str] = None
+    store_type: str = "Supermarket"
+    status: str = "Active"
+    address_summary: str
+    assigned_customer_id: Optional[str] = None
+    assigned_customer_name: Optional[str] = None
+    assigned_customer_code: Optional[str] = None
+    is_assigned: bool = False
+    is_selectable: bool = True
+    disabled_reason: Optional[str] = None
+    addresses_count: int = 1
+    psv_value: Decimal = Decimal("0.00")
+
+
 class CustomerDeliveryLocationResponse(CustomerDeliveryLocationBase):
     id: str
     customer_id: str
@@ -336,6 +456,7 @@ class CustomerDeliveryLocationResponse(CustomerDeliveryLocationBase):
     version: Optional[int] = 1
     # Optionally embed resolved GST registration
     gst_registration: Optional[CustomerGSTRegistrationResponse] = None
+    addresses: List[StoreAddressItem] = []
 
     model_config = ConfigDict(populate_by_name=True, from_attributes=True)
 
@@ -352,6 +473,34 @@ class CustomerDeliveryLocationResponse(CustomerDeliveryLocationBase):
             gst_reg = None
             if state and "gst_registration" in state.dict and state.dict["gst_registration"] is not NO_VALUE:
                 gst_reg = data.gst_registration
+            # Parse addresses from metadata_json if present, or construct default primary delivery address
+            raw_meta = getattr(data, "metadata_json", None) or {}
+            addresses_list = []
+            if isinstance(raw_meta, dict) and "addresses" in raw_meta and isinstance(raw_meta["addresses"], list):
+                for a in raw_meta["addresses"]:
+                    try:
+                        addresses_list.append(StoreAddressItem.model_validate(a))
+                    except Exception:
+                        pass
+            if not addresses_list and getattr(data, "address_line1", None):
+                addresses_list.append(StoreAddressItem(
+                    id=f"addr-{data.id}",
+                    address_type="Delivery",
+                    address_title="Primary Delivery Address",
+                    address_line1=data.address_line1 or "",
+                    address_line2=getattr(data, "address_line2", None),
+                    city=getattr(data, "city", None) or "Mumbai",
+                    state=getattr(data, "state", None) or "Maharashtra",
+                    state_code=getattr(data, "state_code", None) or "27",
+                    pincode=getattr(data, "pincode", None) or "400001",
+                    country=getattr(data, "country", None) or "India",
+                    contact_person=getattr(data, "contact_person", None),
+                    phone=getattr(data, "phone", None),
+                    email=getattr(data, "email", None),
+                    is_primary=True,
+                    is_active=getattr(data, "is_active", True),
+                ))
+
             return {
                 "id": data.id,
                 "customer_id": data.customer_id,
@@ -381,6 +530,7 @@ class CustomerDeliveryLocationResponse(CustomerDeliveryLocationBase):
                 "is_deleted": getattr(data, "is_deleted", False),
                 "version": getattr(data, "version", 1),
                 "gst_registration": gst_reg,
+                "addresses": addresses_list,
             }
         except Exception:
             return data
@@ -1048,3 +1198,88 @@ class CustomerResponse(CustomerBase):
         if isinstance(data, dict):
             return data
         return map_customer_to_response_dict(data)
+
+
+class CorporateKpis(BaseModel):
+    total_orders: int = 0
+    orders_growth_pct: float = 0.0
+    total_purchase_value: Decimal = Decimal("0.00")
+    purchase_growth_pct: float = 0.0
+    average_order_value: Decimal = Decimal("0.00")
+    aov_growth_pct: float = 0.0
+    last_order_date: Optional[str] = None
+    last_order_relative: Optional[str] = None
+    total_stores: int = 0
+    active_stores: int = 0
+    active_stores_pct: float = 0.0
+    total_psv_value: Decimal = Decimal("0.00")
+    psv_stores_count: int = 0
+
+
+class CorporateStoreItem(BaseModel):
+    id: str
+    store_code: str
+    store_name: str
+    city: str
+    state: str
+    store_type: str = "Supermarket"
+    status: str = "Active"
+    psv_value: Decimal = Decimal("0.00")
+    psv_status: Optional[str] = "Healthy"
+    psv_value_display: Optional[str] = None
+    contact: str = "—"
+    phone: Optional[str] = None
+    email: Optional[str] = None
+    gstin: Optional[str] = None
+    address_summary: Optional[str] = None
+    addresses: List[StoreAddressItem] = []
+
+
+class CorporatePsvSummary(BaseModel):
+    total_value: Decimal = Decimal("0.00")
+    in_stock_value: Decimal = Decimal("0.00")
+    in_stock_stores: int = 0
+    low_stock_value: Decimal = Decimal("0.00")
+    low_stock_stores: int = 0
+    out_of_stock_value: Decimal = Decimal("0.00")
+    out_of_stock_stores: int = 0
+    not_reporting_stores: int = 0
+
+
+class StoreTypeSlice(BaseModel):
+    type: str
+    count: int = 0
+    percentage: float = 0.0
+    color: str = "#3b82f6"
+
+
+class RecentOrderItem(BaseModel):
+    order_no: str
+    date: str
+    stores_count: int = 1
+    items_count: int = 0
+    value: Decimal = Decimal("0.00")
+    status: str = "Completed"
+
+
+class PurchaseTrendItem(BaseModel):
+    month: str
+    purchase_value: float = 0.0
+    orders: int = 0
+
+
+class CategoryShareItem(BaseModel):
+    category: str
+    value: Decimal = Decimal("0.00")
+    share_pct: float = 0.0
+
+
+class CorporateCustomer360Response(BaseModel):
+    customer: CustomerResponse
+    kpis: CorporateKpis
+    store_network: List[CorporateStoreItem] = []
+    psv_summary: CorporatePsvSummary
+    store_type_distribution: List[StoreTypeSlice] = []
+    recent_orders: List[RecentOrderItem] = []
+    purchase_trend: List[PurchaseTrendItem] = []
+    top_categories: List[CategoryShareItem] = []

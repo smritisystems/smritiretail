@@ -236,7 +236,9 @@ class CustomerDeliveryLocationRepository(BaseRepository):
         result = await self.db.execute(stmt)
         return result.scalars().first()
 
-    async def get_by_customer_and_id(self, customer_id: str, id: str):
+    async def get_by_customer_and_id(
+        self, customer_id: str, id: str, with_for_update: bool = False
+    ):
         stmt = (
             select(self.model)
             .options(selectinload(self.model.gst_registration))
@@ -247,8 +249,61 @@ class CustomerDeliveryLocationRepository(BaseRepository):
             )
         )
         stmt = self._apply_company_filter(stmt)
+        if with_for_update:
+            stmt = stmt.with_for_update()
         result = await self.db.execute(stmt)
         return result.scalars().first()
+
+    async def get_by_store_code(
+        self, store_code: str, active_only: bool = True, with_for_update: bool = False
+    ):
+        clean_code = store_code.strip().upper()
+        stmt = select(self.model).filter(
+            self.model.store_code == clean_code,
+            self.model.is_deleted == False,
+        )
+        if active_only:
+            stmt = stmt.filter(
+                self.model.is_active == True,
+                self.model.status == "ACTIVE",
+            )
+        stmt = self._apply_company_filter(stmt)
+        if with_for_update:
+            stmt = stmt.with_for_update()
+        result = await self.db.execute(stmt)
+        return result.scalars().first()
+
+    async def search_store_code_lookup(
+        self,
+        q: Optional[str] = None,
+        skip: int = 0,
+        limit: int = 50,
+    ):
+        from ..models.crm import Customer
+        stmt = (
+            select(self.model, Customer)
+            .outerjoin(Customer, self.model.customer_id == Customer.id)
+            .filter(
+                self.model.is_deleted == False,
+                self.model.is_active == True,
+            )
+        )
+        stmt = self._apply_company_filter(stmt)
+        if q:
+            clean_q = q.strip()
+            stmt = stmt.filter(
+                (self.model.store_code.ilike(f"%{clean_q}%")) |
+                (self.model.location_name.ilike(f"%{clean_q}%")) |
+                (self.model.city.ilike(f"%{clean_q}%")) |
+                (self.model.state.ilike(f"%{clean_q}%")) |
+                (self.model.pincode.ilike(f"%{clean_q}%")) |
+                (Customer.name.ilike(f"%{clean_q}%")) |
+                (Customer.code.ilike(f"%{clean_q}%"))
+            )
+        stmt = stmt.order_by(self.model.store_code.asc())
+        stmt = stmt.offset(skip).limit(limit)
+        result = await self.db.execute(stmt)
+        return list(result.all())
 
     async def get_by_customer_and_store_code(
         self, customer_id: str, store_code: str, active_only: bool = True

@@ -33,7 +33,8 @@ import {
   CheckCircle2, 
   AlertCircle,
   Loader2,
-  Edit3
+  Edit3,
+  Building2
 } from "lucide-react";
 import { RetailCustomerRecord, CustomerAddressEntry, CustomerAddressType, CustomerGSTRegistrationOption, getCustomerAddressFingerprint } from "./types.ts";
 import { SmritiCustomerFormTab } from "./CustFormTab.tsx";
@@ -41,6 +42,7 @@ import { SmritiCustomerRetailDetailsTab } from "./CustRetailDetTab.tsx";
 import { SmritiCustomerAdditionalDetailsTab } from "./CustAddlDetTab.tsx";
 import { SmritiCustomerMailingModal } from "./CustMailingDlg.tsx";
 import { SmritiAdvancedCustomerSearchModal } from "./AdvancedCustSearch.tsx";
+import { CorporateCustomer360 } from "./corporate360/CorporateCustomer360.tsx";
 import { ExportButton } from "../export/ExportButton.tsx";
 import { ExportColumnDefinition } from "../export/types.ts";
 import { apiFetchV1 } from "../../lib/apiFetchV1.ts";
@@ -721,7 +723,7 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
 
   const [currentIndex, setCurrentIndex] = useState<number>(0);
   const [activeTab, setActiveTab] = useState<"form" | "retail" | "additional">("form");
-  const [viewMode, setViewMode] = useState<"catalogue" | "directory">("catalogue");
+  const [viewMode, setViewMode] = useState<"catalogue" | "directory" | "360">("catalogue");
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [isSaving, setIsSaving] = useState<boolean>(false);
 
@@ -1480,6 +1482,17 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
             >
               <Grid size={13} /> Directory
             </button>
+            <button
+              type="button"
+              onClick={() => setViewMode("360")}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 transition ${
+                viewMode === "360"
+                  ? "bg-white dark:bg-[#191c1e] text-[#00355f] dark:text-[#8ebdf9] shadow-xs"
+                  : "text-[#515f74] dark:text-[#bec6e0]"
+              }`}
+            >
+              <Building2 size={13} /> Corporate 360
+            </button>
           </div>
 
         </div>
@@ -1489,7 +1502,20 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
       {/* ── Main Workspace Body ────────────────────────────────────────────── */}
       <div className="flex-1 overflow-hidden flex flex-col p-5">
         
-        {viewMode === "directory" ? (
+        {viewMode === "360" ? (
+          <div className="flex-1 overflow-y-auto">
+            <CorporateCustomer360
+              customerId={currentCustomer?.id || "cust-rrl-192b561d"}
+              currentUser={currentUser}
+              onNotification={onNotification}
+              onBack={() => setViewMode("catalogue")}
+              onEditCustomer={() => {
+                setViewMode("catalogue");
+                setActiveTab("form");
+              }}
+            />
+          </div>
+        ) : viewMode === "directory" ? (
           /* Full Customer Directory Grid Mode */
           <div className="flex-1 bg-white dark:bg-[#191c1e] border border-[#c6c6cd] dark:border-[#45464d] rounded-2xl shadow-xs overflow-hidden flex flex-col">
             <div className="p-4 bg-[#f2f4f6] dark:bg-[#131b2e] border-b border-[#c6c6cd] dark:border-[#45464d] flex items-center justify-between shrink-0">
@@ -1581,6 +1607,22 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
                         >
                           <Edit3 size={12} />
                           <span>Edit</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setCurrentIndex(idx);
+                            setActiveCustomerId(c.id);
+                            activeCustomerIdRef.current = c.id;
+                            setCurrentCustomer(JSON.parse(JSON.stringify(c)));
+                            currentCustomerRef.current = c;
+                            setViewMode("360");
+                          }}
+                          className="px-2.5 py-1 bg-white dark:bg-[#191c1e] border border-[#00355f] dark:border-[#8ebdf9] text-[#00355f] dark:text-[#8ebdf9] hover:bg-[#e0e8f0] dark:hover:bg-[#2d3133] rounded-lg font-bold text-[11px] inline-flex items-center gap-1 transition shadow-2xs ml-1"
+                          title={`Open Corporate 360 for ${c.name}`}
+                        >
+                          <Building2 size={12} />
+                          <span>360</span>
                         </button>
                       </td>
                     </tr>

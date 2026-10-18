@@ -51,6 +51,7 @@ const REGISTERED_APP_TABS = [
   "document-series",
   "approval-matrix",
   "staff-management",
+  "store-directory",
   "muster-roll",
   "user-profile",
   "print-studio",

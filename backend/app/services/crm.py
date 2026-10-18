@@ -27,6 +27,7 @@ from ..models.crm import (
     CustomerBillingLocation, CustomerExternalIdentity, CustomerPolicy,
 )
 from .identity.engine import IdentityEngine
+from decimal import Decimal
 from ..models.sales import SalesInvoice
 from ..schemas.crm import (
     CustomerCreate, CustomerUpdate, CustomerGroupCreate,
@@ -36,6 +37,7 @@ from ..schemas.crm import (
     CustomerExternalIdentityCreate,
     DuplicateDecision, MatchedIdentityType, CustomerDuplicateCheckResponse,
     CustomerDuplicateCheckRequest,
+    StoreAddressItem, StoreAddressCreate, StoreAddressUpdate, StoreCodeLookupItem,
 )
 from ..repositories.customer import (
     CustomerRepository, CustomerGroupRepository,
@@ -43,7 +45,23 @@ from ..repositories.customer import (
     CustomerBillingLocationRepository, CustomerExternalIdentityRepository,
 )
 from .customer_identity import CustomerIdentityService
+import asyncio
 from ..api.deps import TenantContext
+
+# In-process asynchronous mutex registry per (tenant, store_code) to guarantee
+# absolute mutual exclusion during concurrent assignments for unassigned store codes
+_store_code_mutexes: Dict[str, asyncio.Lock] = {}
+_store_code_mutex_guard = asyncio.Lock()
+
+
+async def _get_store_code_mutex(company_id: Optional[str], store_code: str) -> asyncio.Lock:
+    clean_code = store_code.strip().upper()
+    key = f"{company_id or 'global'}:{clean_code}"
+    async with _store_code_mutex_guard:
+        if key not in _store_code_mutexes:
+            _store_code_mutexes[key] = asyncio.Lock()
+        return _store_code_mutexes[key]
+
 
 class CrmService:
     def __init__(self, db: AsyncSession, tenant_ctx: TenantContext):
@@ -682,12 +700,12 @@ class CrmService:
         return await self.delivery_repo.get_all_for_customer(customer_id, include_inactive=include_inactive)
 
     async def get_delivery_location(
-        self, customer_id: str, location_id: str
+        self, customer_id: str, location_id: str, with_for_update: bool = False
     ) -> CustomerDeliveryLocation:
         customer = await self.get_customer(customer_id)
         if not customer:
             raise HTTPException(status_code=404, detail=f"Customer '{customer_id}' not found.")
-        loc = await self.delivery_repo.get_by_customer_and_id(customer_id, location_id)
+        loc = await self.delivery_repo.get_by_customer_and_id(customer_id, location_id, with_for_update=with_for_update)
         if not loc:
             raise HTTPException(status_code=404, detail=f"Customer delivery location '{location_id}' not found.")
         return loc
@@ -702,23 +720,53 @@ class CrmService:
         store_code = loc_in.store_code.strip().upper()
         location_name = loc_in.location_name.strip()
 
-        # Centralized Duplicate Protection (Same customer + same store code -> hard duplicate)
-        dup_check = await self.identity_service.check_duplicate_delivery_location(
-            customer_id=customer_id,
-            store_code=store_code,
-            address_line1=loc_in.address_line1,
-        )
-        if dup_check.decision == DuplicateDecision.HARD_DUPLICATE:
-            raise HTTPException(
-                status_code=409,
-                detail={
-                    "error_code": "DUPLICATE_STORE_CODE",
-                    "decision": dup_check.decision.value,
-                    "matched_identity": dup_check.matched_identity.value if dup_check.matched_identity else None,
-                    "reason": dup_check.reason,
-                    "allow_override": False,
-                }
+        # Mutual exclusion lock per (tenant, store_code) to serialize concurrent claims on both
+        # existing and previously unassigned store codes
+        mutex = await _get_store_code_mutex(self.tenant_ctx.company_id, store_code)
+        async with mutex:
+            # PostgreSQL transaction-level advisory lock across database connections
+            if self.db.bind and hasattr(self.db.bind, "dialect") and self.db.bind.dialect.name == "postgresql":
+                try:
+                    lock_key = f"store_code:{self.tenant_ctx.company_id or 'global'}:{store_code}"
+                    await self.db.execute(text("SELECT pg_advisory_xact_lock(hashtext(:k))"), {"k": lock_key})
+                except Exception:
+                    pass
+
+            # Centralized Duplicate Protection (Same customer + same store code -> hard duplicate)
+            dup_check = await self.identity_service.check_duplicate_delivery_location(
+                customer_id=customer_id,
+                store_code=store_code,
+                address_line1=loc_in.address_line1,
             )
+            if dup_check.decision == DuplicateDecision.HARD_DUPLICATE:
+                raise HTTPException(
+                    status_code=409,
+                    detail={
+                        "error_code": "DUPLICATE_STORE_CODE",
+                        "decision": dup_check.decision.value,
+                        "matched_identity": dup_check.matched_identity.value if dup_check.matched_identity else None,
+                        "reason": dup_check.reason,
+                        "allow_override": False,
+                    }
+                )
+
+            # Concurrency safety: Pessimistic lock row if existing store_code is in database
+            existing_locked = await self.delivery_repo.get_by_store_code(store_code, active_only=False, with_for_update=True)
+            if existing_locked and existing_locked.status == "ACTIVE" and not existing_locked.is_deleted:
+                if existing_locked.customer_id != customer_id:
+                    owning_cust = await self.get_customer(existing_locked.customer_id)
+                    cname = owning_cust.name if owning_cust else "another customer"
+                    ccode = f" ({owning_cust.code})" if owning_cust and owning_cust.code else ""
+                    raise HTTPException(
+                        status_code=409,
+                        detail={
+                            "error_code": "DUPLICATE_STORE_CODE",
+                            "decision": "HARD_DUPLICATE",
+                            "matched_identity": "STORE_CODE",
+                            "reason": f"Store code '{store_code}' is already assigned to customer '{cname}'{ccode}. A Store Code can only belong to one customer profile at a time.",
+                            "allow_override": False,
+                        }
+                    )
 
         if loc_in.is_default:
             await self.delivery_repo.clear_default_flags(customer_id)
@@ -765,6 +813,28 @@ class CrmService:
                 )
 
         loc_id = loc_in.id or f"cdl-{uuid.uuid4().hex[:8]}"
+        initial_addr_dict = {
+            "id": f"addr-{uuid.uuid4().hex[:12]}",
+            "address_type": "Delivery",
+            "address_title": "Primary Store Front",
+            "address_line1": loc_in.address_line1 or location_name,
+            "address_line2": loc_in.address_line2,
+            "locality": None,
+            "city": loc_in.city or "Mumbai",
+            "district": None,
+            "state": target_state or "Maharashtra",
+            "state_code": target_state_code,
+            "pincode": loc_in.pincode or "400001",
+            "country": loc_in.country or "India",
+            "contact_person": loc_in.contact_person,
+            "phone": loc_in.phone,
+            "email": loc_in.email,
+            "is_primary": True,
+            "is_active": True,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+        }
+
         db_loc = CustomerDeliveryLocation(
             id=loc_id,
             customer_id=customer_id,
@@ -790,6 +860,7 @@ class CrmService:
             branch_id=self.tenant_ctx.branch_id,
             is_active=True,
             is_deleted=False,
+            metadata_json={"addresses": [initial_addr_dict]},
         )
         self.db.add(db_loc)
         try:
@@ -818,12 +889,31 @@ class CrmService:
         if loc_in.store_code:
             new_code = loc_in.store_code.strip().upper()
             if new_code != loc.store_code:
-                existing = await self.delivery_repo.get_by_customer_and_store_code(customer_id, new_code, active_only=True)
-                if existing and existing.id != location_id:
-                    raise HTTPException(
-                        status_code=400,
-                        detail=f"Delivery location with store code '{new_code}' already exists for this customer."
-                    )
+                mutex = await _get_store_code_mutex(self.tenant_ctx.company_id, new_code)
+                async with mutex:
+                    if self.db.bind and hasattr(self.db.bind, "dialect") and self.db.bind.dialect.name == "postgresql":
+                        try:
+                            lock_key = f"store_code:{self.tenant_ctx.company_id or 'global'}:{new_code}"
+                            await self.db.execute(text("SELECT pg_advisory_xact_lock(hashtext(:k))"), {"k": lock_key})
+                        except Exception:
+                            pass
+
+                    # Concurrency lock & cross-customer uniqueness check
+                    existing_locked = await self.delivery_repo.get_by_store_code(new_code, active_only=False, with_for_update=True)
+                    if existing_locked and existing_locked.id != location_id and existing_locked.status == "ACTIVE" and not existing_locked.is_deleted:
+                        owning_cust = await self.get_customer(existing_locked.customer_id)
+                        cname = owning_cust.name if owning_cust else "another customer"
+                        ccode = f" ({owning_cust.code})" if owning_cust and owning_cust.code else ""
+                        raise HTTPException(
+                            status_code=409,
+                            detail={
+                                "error_code": "DUPLICATE_STORE_CODE",
+                                "decision": "HARD_DUPLICATE",
+                                "matched_identity": "STORE_CODE",
+                                "reason": f"Store code '{new_code}' is already assigned to customer '{cname}'{ccode}. A Store Code can only belong to one customer profile at a time.",
+                                "allow_override": False,
+                            }
+                        )
                 old_code = loc.store_code
                 loc.store_code = new_code
                 await self._record_audit_event(
@@ -1008,6 +1098,267 @@ class CrmService:
             {"store_code": loc.store_code}
         )
         return loc
+
+    # --- Store Typed Addresses & Store Code Lookup Methods ---
+
+    def _extract_store_addresses(self, loc: CustomerDeliveryLocation) -> List[dict]:
+        meta = loc.metadata_json or {}
+        raw = meta.get("addresses")
+        if raw and isinstance(raw, list) and len(raw) > 0:
+            return raw
+        # Synthesize fallback canonical address from loc fields
+        return [
+            {
+                "id": f"addr-{loc.id}",
+                "address_type": "Delivery",
+                "address_title": "Primary Store Front",
+                "address_line1": loc.address_line1 or loc.location_name,
+                "address_line2": loc.address_line2,
+                "locality": None,
+                "city": loc.city or "Mumbai",
+                "district": None,
+                "state": loc.state or "Maharashtra",
+                "state_code": loc.state_code,
+                "pincode": loc.pincode or "400001",
+                "country": loc.country or "India",
+                "contact_person": loc.contact_person,
+                "phone": loc.phone,
+                "email": loc.email,
+                "is_primary": True,
+                "is_active": True,
+                "created_at": loc.created_at.isoformat() if loc.created_at else datetime.now(timezone.utc).isoformat(),
+                "updated_at": loc.modified_at.isoformat() if loc.modified_at else datetime.now(timezone.utc).isoformat(),
+            }
+        ]
+
+    async def list_store_addresses(
+        self, customer_id: str, location_id: str
+    ) -> List[StoreAddressItem]:
+        loc = await self.get_delivery_location(customer_id, location_id)
+        raw_list = self._extract_store_addresses(loc)
+        return [StoreAddressItem.model_validate(a) for a in raw_list]
+
+    async def add_store_address(
+        self, customer_id: str, location_id: str, addr_in: StoreAddressCreate
+    ) -> StoreAddressItem:
+        loc = await self.get_delivery_location(customer_id, location_id, with_for_update=True)
+        raw_list = list(self._extract_store_addresses(loc))
+
+        # If new address is primary, reset is_primary on existing active addresses of same type
+        if addr_in.is_primary:
+            for a in raw_list:
+                if a.get("address_type") == addr_in.address_type and a.get("is_active", True):
+                    a["is_primary"] = False
+
+        new_addr_dict = {
+            "id": f"addr-{uuid.uuid4().hex[:12]}",
+            "address_type": addr_in.address_type,
+            "address_title": addr_in.address_title,
+            "address_line1": addr_in.address_line1,
+            "address_line2": addr_in.address_line2,
+            "locality": addr_in.locality,
+            "city": addr_in.city,
+            "district": addr_in.district,
+            "state": addr_in.state,
+            "state_code": addr_in.state_code,
+            "pincode": addr_in.pincode,
+            "country": addr_in.country or "India",
+            "contact_person": addr_in.contact_person,
+            "phone": addr_in.phone,
+            "email": addr_in.email,
+            "is_primary": bool(addr_in.is_primary),
+            "is_active": True,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+        }
+        raw_list.append(new_addr_dict)
+
+        # Sync back to location fields if this is primary Delivery address
+        if addr_in.is_primary and addr_in.address_type in ("Delivery", "Billing"):
+            loc.address_line1 = addr_in.address_line1
+            loc.address_line2 = addr_in.address_line2
+            loc.city = addr_in.city
+            loc.state = addr_in.state
+            loc.state_code = addr_in.state_code
+            loc.pincode = addr_in.pincode
+            if addr_in.contact_person:
+                loc.contact_person = addr_in.contact_person
+            if addr_in.phone:
+                loc.phone = addr_in.phone
+            if addr_in.email:
+                loc.email = addr_in.email
+
+        meta = dict(loc.metadata_json or {})
+        meta["addresses"] = raw_list
+        loc.metadata_json = meta
+        loc.modified_at = datetime.now(timezone.utc)
+        await self.db.commit()
+
+        await self._record_audit_event(
+            "StoreAddressAdded",
+            "customer_delivery_locations",
+            location_id,
+            {"address_id": new_addr_dict["id"], "address_type": addr_in.address_type}
+        )
+        return StoreAddressItem.model_validate(new_addr_dict)
+
+    async def update_store_address(
+        self, customer_id: str, location_id: str, address_id: str, addr_in: StoreAddressUpdate
+    ) -> StoreAddressItem:
+        loc = await self.get_delivery_location(customer_id, location_id, with_for_update=True)
+        raw_list = list(self._extract_store_addresses(loc))
+
+        target = None
+        for a in raw_list:
+            if a.get("id") == address_id:
+                target = a
+                break
+
+        if not target:
+            raise HTTPException(status_code=404, detail=f"Address '{address_id}' not found on store '{loc.store_code}'.")
+
+        # Check primary reset
+        target_type = addr_in.address_type or target.get("address_type")
+        if addr_in.is_primary:
+            for a in raw_list:
+                if a.get("id") != address_id and a.get("address_type") == target_type and a.get("is_active", True):
+                    a["is_primary"] = False
+
+        # Apply updates
+        update_data = addr_in.model_dump(exclude_unset=True)
+        for k, v in update_data.items():
+            if v is not None:
+                target[k] = v
+        target["updated_at"] = datetime.now(timezone.utc).isoformat()
+
+        # Sync location base fields if target is primary Delivery
+        if target.get("is_primary") and target.get("address_type") in ("Delivery", "Billing") and target.get("is_active", True):
+            loc.address_line1 = target.get("address_line1")
+            loc.address_line2 = target.get("address_line2")
+            loc.city = target.get("city")
+            loc.state = target.get("state")
+            loc.state_code = target.get("state_code")
+            loc.pincode = target.get("pincode")
+            if target.get("contact_person"):
+                loc.contact_person = target.get("contact_person")
+            if target.get("phone"):
+                loc.phone = target.get("phone")
+            if target.get("email"):
+                loc.email = target.get("email")
+
+        meta = dict(loc.metadata_json or {})
+        meta["addresses"] = raw_list
+        loc.metadata_json = meta
+        loc.modified_at = datetime.now(timezone.utc)
+        await self.db.commit()
+
+        await self._record_audit_event(
+            "StoreAddressUpdated",
+            "customer_delivery_locations",
+            location_id,
+            {"address_id": address_id}
+        )
+        return StoreAddressItem.model_validate(target)
+
+    async def deactivate_store_address(
+        self, customer_id: str, location_id: str, address_id: str
+    ) -> StoreAddressItem:
+        loc = await self.get_delivery_location(customer_id, location_id, with_for_update=True)
+        raw_list = list(self._extract_store_addresses(loc))
+
+        target = None
+        for a in raw_list:
+            if a.get("id") == address_id:
+                target = a
+                break
+
+        if not target:
+            raise HTTPException(status_code=404, detail=f"Address '{address_id}' not found on store '{loc.store_code}'.")
+
+        # Soft deactivation: preserves historical address records
+        target["is_active"] = False
+        target["is_primary"] = False
+        target["updated_at"] = datetime.now(timezone.utc).isoformat()
+
+        meta = dict(loc.metadata_json or {})
+        meta["addresses"] = raw_list
+        loc.metadata_json = meta
+        loc.modified_at = datetime.now(timezone.utc)
+        await self.db.commit()
+
+        await self._record_audit_event(
+            "StoreAddressDeactivated",
+            "customer_delivery_locations",
+            location_id,
+            {"address_id": address_id}
+        )
+        return StoreAddressItem.model_validate(target)
+
+    async def list_store_code_lookup(
+        self,
+        q: Optional[str] = None,
+        current_customer_id: Optional[str] = None,
+        skip: int = 0,
+        limit: int = 50,
+    ) -> List[StoreCodeLookupItem]:
+        """
+        Master Store Code Lookup endpoint supporting:
+        1. All codes in the tenant.
+        2. Codes assigned to other customers remain visible but disabled (is_selectable=False)
+           with descriptive message 'Already mapped to [Customer Name] ([Code])'.
+        3. Codes belonging to current_customer_id remain selectable (is_selectable=True).
+        """
+        results = await self.delivery_repo.search_store_code_lookup(q=q, skip=skip, limit=limit)
+        items: List[StoreCodeLookupItem] = []
+
+        for loc, cust in results:
+            addresses = self._extract_store_addresses(loc)
+            primary_addr = next((a for a in addresses if a.get("is_primary") and a.get("is_active", True)), addresses[0] if addresses else None)
+            addr_summary = (
+                f"{primary_addr.get('address_line1', '')}, {primary_addr.get('city', '')} - {primary_addr.get('pincode', '')}"
+                if primary_addr
+                else (loc.address_line1 or loc.location_name or "—")
+            )
+
+            is_assigned = bool(loc.customer_id)
+            cust_name = cust.name if cust else None
+            cust_code = cust.code if cust else None
+
+            if not is_assigned:
+                is_selectable = True
+                disabled_reason = None
+            elif current_customer_id and loc.customer_id == current_customer_id:
+                # Own customer's assigned store code: selectable
+                is_selectable = True
+                disabled_reason = None
+            else:
+                # Assigned to another customer: visible but disabled
+                is_selectable = False
+                desc = f"Already mapped to {cust_name or 'another customer'}"
+                if cust_code:
+                    desc += f" ({cust_code})"
+                disabled_reason = desc
+
+            items.append(StoreCodeLookupItem(
+                id=loc.id,
+                store_code=loc.store_code,
+                store_name=loc.location_name,
+                city=loc.city or "Mumbai",
+                state=loc.state,
+                store_type="Supermarket",
+                status="Active" if (loc.status == "ACTIVE" and loc.is_active) else "Inactive",
+                address_summary=addr_summary,
+                assigned_customer_id=loc.customer_id,
+                assigned_customer_name=cust_name,
+                assigned_customer_code=cust_code,
+                is_assigned=is_assigned,
+                is_selectable=is_selectable,
+                disabled_reason=disabled_reason,
+                addresses_count=len([a for a in addresses if a.get("is_active", True)]),
+                psv_value=Decimal("0.00"),
+            ))
+
+        return items
 
     # --- Customer Billing Location Methods ---
 
