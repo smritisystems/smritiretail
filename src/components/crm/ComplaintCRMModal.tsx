@@ -74,15 +74,15 @@ export const ComplaintCRMModal: React.FC<ComplaintCRMModalProps> = ({ isOpen, on
 
   if (submitted) {
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4">
-        <div className="w-full max-w-md bg-slate-900 border border-emerald-500/30 rounded-2xl shadow-2xl p-8 text-center space-y-4">
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 dark:bg-black/80 backdrop-blur-xs p-4">
+        <div className="w-full max-w-md bg-white dark:bg-slate-900 border border-emerald-500/30 rounded-2xl shadow-2xl p-8 text-center space-y-4">
           <span className="material-symbols-outlined text-4xl text-emerald-400">check_circle</span>
-          <h2 className="text-lg font-bold text-slate-100">Complaint Registered</h2>
+          <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">Complaint Registered</h2>
           <p className="text-sm text-slate-400">Ticket ID: <span className="font-mono text-emerald-400">{submitted.lead_id}</span></p>
           <div className="flex gap-2 justify-center">
             <button onClick={() => { setSubmitted(null); setForm({ customer_name: "", mobile: "", complaint_type: "PRODUCT_QUALITY", priority: "MEDIUM", invoice_no: "", description: "" }); }}
               className="px-5 py-2 rounded-xl text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-500 transition-all">New Complaint</button>
-            <button onClick={onClose} className="px-5 py-2 rounded-xl text-xs font-bold text-slate-400 hover:bg-slate-800 transition-colors">Close</button>
+            <button onClick={onClose} className="px-5 py-2 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors">Close</button>
           </div>
         </div>
       </div>
@@ -90,19 +90,19 @@ export const ComplaintCRMModal: React.FC<ComplaintCRMModalProps> = ({ isOpen, on
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-fadeIn">
-      <div className="flex flex-col w-full max-w-xl max-h-[90vh] bg-slate-900 border border-slate-700/80 rounded-2xl shadow-2xl overflow-hidden">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800 bg-slate-950/60">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 dark:bg-black/80 backdrop-blur-xs p-4 animate-fadeIn">
+      <div className="flex flex-col w-full max-w-xl max-h-[90vh] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl overflow-hidden">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/60">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-red-500/10 border border-red-500/20 flex items-center justify-center">
               <span className="material-symbols-outlined text-red-400 text-2xl">support_agent</span>
             </div>
             <div>
-              <h2 className="text-base font-bold text-slate-100">CRM Complaint Studio</h2>
-              <p className="text-xs text-slate-400">Log and track customer complaints</p>
+              <h2 className="text-base font-bold text-slate-900 dark:text-slate-100">CRM Complaint Studio</h2>
+              <p className="text-xs text-slate-500 dark:text-slate-400">Log and track customer complaints</p>
             </div>
           </div>
-          <button onClick={onClose} className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800">
+          <button onClick={onClose} className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-slate-800">
             <span className="material-symbols-outlined text-lg">close</span>
           </button>
         </div>
@@ -115,36 +115,36 @@ export const ComplaintCRMModal: React.FC<ComplaintCRMModalProps> = ({ isOpen, on
               { label: "Invoice No",      key: "invoice_no",     placeholder: "INV-2026-001" },
             ].map((f) => (
               <div key={f.key} className={f.key === "invoice_no" ? "col-span-2" : ""}>
-                <label className="text-[10px] text-slate-500 uppercase tracking-wide block mb-1">{f.label}</label>
+                <label className="text-[10px] text-slate-600 dark:text-slate-400 uppercase tracking-wide block mb-1">{f.label}</label>
                 <input data-field-key={f.key} value={(form as any)[f.key]} onChange={(e) => setF(f.key, e.target.value)} placeholder={f.placeholder}
-                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-slate-200 focus:outline-none focus:border-red-500/60" />
+                  className="w-full bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 text-slate-900 dark:text-slate-200 focus:outline-none focus:border-red-500" />
               </div>
             ))}
             <div>
-              <label className="text-[10px] text-slate-500 uppercase tracking-wide block mb-1">Complaint Type</label>
+              <label className="text-[10px] text-slate-600 dark:text-slate-400 uppercase tracking-wide block mb-1">Complaint Type</label>
               <select value={form.complaint_type} onChange={(e) => setF("complaint_type", e.target.value)}
-                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-slate-200 focus:outline-none focus:border-red-500/60">
+                className="w-full bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 text-slate-900 dark:text-slate-200 focus:outline-none focus:border-red-500">
                 {COMPLAINT_TYPES.map((t) => <option key={t} value={t}>{t.replace(/_/g, " ")}</option>)}
               </select>
             </div>
             <div>
-              <label className="text-[10px] text-slate-500 uppercase tracking-wide block mb-1">Priority</label>
+              <label className="text-[10px] text-slate-600 dark:text-slate-400 uppercase tracking-wide block mb-1">Priority</label>
               <select value={form.priority} onChange={(e) => setF("priority", e.target.value)}
-                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-slate-200 focus:outline-none focus:border-red-500/60">
+                className="w-full bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 text-slate-900 dark:text-slate-200 focus:outline-none focus:border-red-500">
                 {PRIORITIES.map((p) => <option key={p} value={p}>{p}</option>)}
               </select>
             </div>
             <div className="col-span-2">
-              <label className="text-[10px] text-slate-500 uppercase tracking-wide block mb-1">Description *</label>
+              <label className="text-[10px] text-slate-600 dark:text-slate-400 uppercase tracking-wide block mb-1">Description *</label>
               <textarea value={form.description} onChange={(e) => setF("description", e.target.value)} rows={4}
                 placeholder="Describe the customer's complaint in detail..."
-                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-red-500/60 resize-none" />
+                className="w-full bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-900 dark:text-slate-200 focus:outline-none focus:border-red-500 resize-none" />
             </div>
           </div>
         </div>
 
-        <div className="flex items-center justify-end px-6 py-3 border-t border-slate-800 bg-slate-950/80 gap-3">
-          <button onClick={onClose} className="px-4 py-2 rounded-xl text-xs font-bold text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-colors">Cancel</button>
+        <div className="flex items-center justify-end px-6 py-3 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/80 gap-3">
+          <button onClick={onClose} className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors">Cancel</button>
           <button onClick={handleSubmit} disabled={submitting}
             className="px-5 py-2 rounded-xl text-xs font-bold text-white bg-red-600 hover:bg-red-500 disabled:opacity-40 transition-all">
             {submitting ? "Submitting..." : "Log Complaint"}

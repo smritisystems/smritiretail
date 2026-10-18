@@ -72,19 +72,19 @@ export const CustomerCreditModal: React.FC<CustomerCreditModalProps> = ({ isOpen
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-fadeIn">
-      <div className="flex flex-col w-full max-w-xl max-h-[90vh] bg-slate-900 border border-slate-700/80 rounded-2xl shadow-2xl overflow-hidden">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800 bg-slate-950/60">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 dark:bg-black/80 backdrop-blur-xs p-4 animate-fadeIn">
+      <div className="flex flex-col w-full max-w-xl max-h-[90vh] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl overflow-hidden">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/60">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center">
               <span className="material-symbols-outlined text-blue-400 text-2xl">credit_score</span>
             </div>
             <div>
-              <h2 className="text-base font-bold text-slate-100">Customer Credit Studio</h2>
-              <p className="text-xs text-slate-400">Credit limit · Risk scoring · Payment terms</p>
+              <h2 className="text-base font-bold text-slate-900 dark:text-slate-100">Customer Credit Studio</h2>
+              <p className="text-xs text-slate-500 dark:text-slate-400">Credit limit · Risk scoring · Payment terms</p>
             </div>
           </div>
-          <button onClick={onClose} className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800">
+          <button onClick={onClose} className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-slate-800">
             <span className="material-symbols-outlined text-lg">close</span>
           </button>
         </div>
@@ -94,7 +94,7 @@ export const CustomerCreditModal: React.FC<CustomerCreditModalProps> = ({ isOpen
             <input value={customerId} onChange={(e) => setCustomerId(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleLookup()}
               placeholder="Enter Customer ID (e.g. CUST-001)"
-              className="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-blue-500/60" />
+              className="flex-1 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-900 dark:text-slate-200 focus:outline-none focus:border-blue-500" />
             <button onClick={handleLookup} disabled={loading}
               className="px-4 py-2 rounded-lg text-xs font-bold text-white bg-blue-600 hover:bg-blue-500 disabled:opacity-40 transition-all">
               {loading ? "Loading..." : "Look Up"}
@@ -107,8 +107,8 @@ export const CustomerCreditModal: React.FC<CustomerCreditModalProps> = ({ isOpen
             <div className="space-y-4">
               <div className="flex items-start justify-between">
                 <div>
-                  <p className="text-lg font-bold text-slate-100">{data.customer_name ?? data.customer_id}</p>
-                  <p className="text-xs text-slate-400 mt-0.5">Segment: <span className="text-blue-400 font-semibold">{data.segment ?? "—"}</span> · Terms: <span className="text-slate-300">{data.payment_terms ?? "—"}</span></p>
+                  <p className="text-lg font-bold text-slate-900 dark:text-slate-100">{data.customer_name ?? data.customer_id}</p>
+                  <p className="text-xs text-slate-400 mt-0.5">Segment: <span className="text-blue-400 font-semibold">{data.segment ?? "—"}</span> · Terms: <span className="text-slate-700 dark:text-slate-300">{data.payment_terms ?? "—"}</span></p>
                 </div>
                 {data.risk_score != null && (
                   <div className="text-center">
@@ -118,15 +118,15 @@ export const CustomerCreditModal: React.FC<CustomerCreditModalProps> = ({ isOpen
                 )}
               </div>
 
-              <div className="bg-slate-800/40 border border-slate-700/60 rounded-xl p-4 space-y-3">
+              <div className="bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700/60 rounded-xl p-4 space-y-3">
                 <p className="text-[10px] text-slate-500 uppercase tracking-wide font-bold">Credit Position</p>
                 <div className="grid grid-cols-3 gap-3 text-center text-xs">
                   {[
-                    { label: "Credit Limit",     value: fmt(data.credit_limit ?? 0),     color: "text-slate-300" },
+                    { label: "Credit Limit",     value: fmt(data.credit_limit ?? 0),     color: "text-slate-700 dark:text-slate-300" },
                     { label: "Used",             value: fmt(data.credit_used ?? 0),      color: "text-amber-400" },
                     { label: "Available",        value: fmt(data.credit_available ?? 0), color: "text-emerald-400 font-black" },
                   ].map((m) => (
-                    <div key={m.label} className="bg-slate-900/60 border border-slate-800/40 rounded-lg p-2.5">
+                    <div key={m.label} className="bg-white dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800/40 rounded-lg p-2.5">
                       <div className={`font-mono font-bold ${m.color}`}>{m.value}</div>
                       <div className="text-[9px] text-slate-600 mt-0.5">{m.label}</div>
                     </div>
@@ -136,7 +136,7 @@ export const CustomerCreditModal: React.FC<CustomerCreditModalProps> = ({ isOpen
                   <div className="flex justify-between text-[10px] text-slate-500 mb-1">
                     <span>Utilization</span><span className={creditPct > 80 ? "text-rose-400 font-bold" : "text-slate-400"}>{creditPct}%</span>
                   </div>
-                  <div className="h-2 bg-slate-800 rounded-full overflow-hidden">
+                  <div className="h-2 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
                     <div className={`h-full rounded-full transition-all ${creditPct > 80 ? "bg-rose-500" : creditPct > 60 ? "bg-amber-500" : "bg-emerald-500"}`}
                       style={{ width: `${Math.min(100, creditPct)}%` }} />
                   </div>
@@ -148,9 +148,9 @@ export const CustomerCreditModal: React.FC<CustomerCreditModalProps> = ({ isOpen
                   { label: "Last Purchase",  value: data.last_purchase_date ?? "—" },
                   { label: "Total Purchases",value: fmt(data.total_purchases ?? 0) },
                 ].map((m) => (
-                  <div key={m.label} className="bg-slate-800/30 border border-slate-700/50 rounded-xl p-3">
+                  <div key={m.label} className="bg-slate-50 dark:bg-slate-800/30 border border-slate-200 dark:border-slate-700/50 rounded-xl p-3">
                     <p className="text-[10px] text-slate-500 uppercase tracking-wide">{m.label}</p>
-                    <p className="font-mono font-bold text-slate-200 mt-1">{m.value}</p>
+                    <p className="font-mono font-bold text-slate-800 dark:text-slate-200 mt-1">{m.value}</p>
                   </div>
                 ))}
               </div>
@@ -158,8 +158,8 @@ export const CustomerCreditModal: React.FC<CustomerCreditModalProps> = ({ isOpen
           )}
         </div>
 
-        <div className="flex items-center justify-end px-6 py-3 border-t border-slate-800 bg-slate-950/80">
-          <button onClick={onClose} className="px-4 py-2 rounded-xl text-xs font-bold text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-colors">Close</button>
+        <div className="flex items-center justify-end px-6 py-3 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/80">
+          <button onClick={onClose} className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors">Close</button>
         </div>
       </div>
     </div>

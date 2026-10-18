@@ -302,9 +302,9 @@ const DispatchInvoicingStudioTabBase: React.FC<DispatchInvoicingStudioTabProps> 
   };
 
   return (
-    <div className="min-h-full bg-slate-50 text-slate-900 p-6 space-y-6">
+    <div className="min-h-full bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 p-6 space-y-6">
       {/* Header Banner */}
-      <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-xs flex flex-wrap items-center justify-between gap-4">
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 shadow-xs flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-3.5">
           <div className="w-12 h-12 rounded-xl bg-blue-600 text-white flex items-center justify-center shadow-xs">
             <Truck className="w-6 h-6" />
@@ -332,7 +332,7 @@ const DispatchInvoicingStudioTabBase: React.FC<DispatchInvoicingStudioTabProps> 
                 setAuditResult(null);
                 setSelectedFile(null);
               }}
-              className="px-3 py-1.5 text-xs font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors flex items-center gap-1.5"
+              className="px-3 py-1.5 text-xs font-medium text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg transition-colors flex items-center gap-1.5"
             >
               <RefreshCw className="w-3.5 h-3.5" />
               New Dispatch
@@ -391,9 +391,9 @@ const DispatchInvoicingStudioTabBase: React.FC<DispatchInvoicingStudioTabProps> 
       {!batchResult && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* File Upload Dropzone (1 Column) */}
-          <div className="lg:col-span-1 bg-white border border-slate-200 rounded-xl p-5 shadow-xs flex flex-col justify-between">
+          <div className="lg:col-span-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 shadow-xs flex flex-col justify-between">
             <div>
-              <h2 className="text-sm font-bold text-slate-800 flex items-center gap-2 mb-3">
+              <h2 className="text-sm font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2 mb-3">
                 <FileSpreadsheet className="w-4 h-4 text-blue-600" />
                 1. Upload Dispatch Excel Matrix
               </h2>
@@ -448,13 +448,13 @@ const DispatchInvoicingStudioTabBase: React.FC<DispatchInvoicingStudioTabProps> 
 
               {auditResult && auditResult.available_sheets.length > 1 && (
                 <div className="mt-4">
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                     Select Sheet in Workbook
                   </label>
                   <select
                     value={sheetName}
                     onChange={(e) => setSheetName(e.target.value)}
-                    className="w-full text-xs bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    className="w-full text-xs bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-500"
                   >
                     {auditResult.available_sheets.map((s) => (
                       <option key={s} value={s}>
@@ -490,15 +490,15 @@ const DispatchInvoicingStudioTabBase: React.FC<DispatchInvoicingStudioTabProps> 
           </div>
 
           {/* Invoicing Parameters (2 Columns) */}
-          <div className="lg:col-span-2 bg-white border border-slate-200 rounded-xl p-5 shadow-xs">
-            <h2 className="text-sm font-bold text-slate-800 flex items-center gap-2 mb-3">
+          <div className="lg:col-span-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 shadow-xs">
+            <h2 className="text-sm font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2 mb-3">
               <Layers className="w-4 h-4 text-blue-600" />
               2. Commercial Billing & Dispatch Configuration
             </h2>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-medium text-slate-600 mb-1 flex items-center gap-1">
+                <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1 flex items-center gap-1">
                   <Calendar className="w-3.5 h-3.5 text-slate-400" />
                   Invoice Statutory Date
                 </label>
@@ -506,12 +506,12 @@ const DispatchInvoicingStudioTabBase: React.FC<DispatchInvoicingStudioTabProps> 
                   type="date"
                   value={invoiceDate}
                   onChange={(e) => setInvoiceDate(e.target.value)}
-                  className="w-full text-xs bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-slate-800 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  className="w-full text-xs bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-blue-500"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-slate-600 mb-1 flex items-center gap-1">
+                <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1 flex items-center gap-1">
                   <Building2 className="w-3.5 h-3.5 text-slate-400" />
                   Commercial Customer
                 </label>
@@ -519,12 +519,12 @@ const DispatchInvoicingStudioTabBase: React.FC<DispatchInvoicingStudioTabProps> 
                   type="text"
                   value={customerName}
                   onChange={(e) => setCustomerName(e.target.value)}
-                  className="w-full text-xs bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-slate-800 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  className="w-full text-xs bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-blue-500"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-slate-600 mb-1 flex items-center gap-1">
+                <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1 flex items-center gap-1">
                   <Hash className="w-3.5 h-3.5 text-slate-400" />
                   Series Prefix (Monotonic)
                 </label>
@@ -533,12 +533,12 @@ const DispatchInvoicingStudioTabBase: React.FC<DispatchInvoicingStudioTabProps> 
                   value={seriesPrefix}
                   onChange={(e) => setSeriesPrefix(e.target.value)}
                   placeholder="TT2026-2027/"
-                  className="w-full text-xs bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-slate-800 focus:outline-none focus:ring-1 focus:ring-blue-500 font-mono"
+                  className="w-full text-xs bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-blue-500 font-mono"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-slate-600 mb-1 flex items-center gap-1">
+                <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1 flex items-center gap-1">
                   <Percent className="w-3.5 h-3.5 text-slate-400" />
                   Trade Discount % (MRP Markdown)
                 </label>
@@ -547,12 +547,12 @@ const DispatchInvoicingStudioTabBase: React.FC<DispatchInvoicingStudioTabProps> 
                   step="0.01"
                   value={discountPct}
                   onChange={(e) => setDiscountPct(parseFloat(e.target.value) || 0)}
-                  className="w-full text-xs bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-slate-800 focus:outline-none focus:ring-1 focus:ring-blue-500 font-mono"
+                  className="w-full text-xs bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-blue-500 font-mono"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-slate-600 mb-1 flex items-center gap-1">
+                <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1 flex items-center gap-1">
                   <Truck className="w-3.5 h-3.5 text-slate-400" />
                   Dispatch Location Depot
                 </label>
@@ -560,12 +560,12 @@ const DispatchInvoicingStudioTabBase: React.FC<DispatchInvoicingStudioTabProps> 
                   type="text"
                   disabled
                   value="Central Logistics Godown (WH-NGP, 440029, State Code: 27)"
-                  className="w-full text-xs bg-slate-100 border border-slate-200 rounded-lg px-3 py-2 text-slate-600 cursor-not-allowed"
+                  className="w-full text-xs bg-slate-100 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-slate-600 dark:text-slate-400 cursor-not-allowed"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-slate-600 mb-1 flex items-center gap-1">
+                <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1 flex items-center gap-1">
                   <Hash className="w-3.5 h-3.5 text-slate-400" />
                   Override Starting Sequence (Optional)
                 </label>
@@ -574,7 +574,7 @@ const DispatchInvoicingStudioTabBase: React.FC<DispatchInvoicingStudioTabProps> 
                   value={startingSeq}
                   onChange={(e) => setStartingSeq(e.target.value)}
                   placeholder="Auto-detect next maximum in DB"
-                  className="w-full text-xs bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-slate-800 focus:outline-none focus:ring-1 focus:ring-blue-500 font-mono"
+                  className="w-full text-xs bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-blue-500 font-mono"
                 />
               </div>
             </div>
@@ -598,25 +598,25 @@ const DispatchInvoicingStudioTabBase: React.FC<DispatchInvoicingStudioTabProps> 
         <div className="space-y-6">
           {/* Top KPI Summary Cards */}
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3.5">
-            <div className="bg-white border border-slate-200 rounded-xl p-3.5 shadow-xs">
+            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3.5 shadow-xs">
               <div className="text-[11px] font-medium text-slate-500 uppercase tracking-wider">Total Stores</div>
               <div className="text-xl font-bold text-slate-900 mt-1">{auditResult.total_stores}</div>
               <div className="text-[11px] text-slate-500 mt-0.5">{auditResult.detected_sizes.join(", ")} sizes</div>
             </div>
 
-            <div className="bg-white border border-slate-200 rounded-xl p-3.5 shadow-xs">
+            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3.5 shadow-xs">
               <div className="text-[11px] font-medium text-slate-500 uppercase tracking-wider">Total Pairs</div>
               <div className="text-xl font-bold text-slate-900 mt-1">{formatNumber(auditResult.total_pairs)}</div>
               <div className="text-[11px] text-slate-500 mt-0.5">Physical Footwear Pairs</div>
             </div>
 
-            <div className="bg-white border border-slate-200 rounded-xl p-3.5 shadow-xs">
+            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3.5 shadow-xs">
               <div className="text-[11px] font-medium text-slate-500 uppercase tracking-wider">Taxable Value</div>
               <div className="text-xl font-bold text-slate-900 mt-1">{formatCurrency(auditResult.total_taxable)}</div>
               <div className="text-[11px] text-slate-500 mt-0.5">Pre-Tax Commercial Base</div>
             </div>
 
-            <div className="bg-white border border-slate-200 rounded-xl p-3.5 shadow-xs">
+            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3.5 shadow-xs">
               <div className="text-[11px] font-medium text-slate-500 uppercase tracking-wider">GST Total (5%)</div>
               <div className="text-xl font-bold text-blue-700 mt-1">{formatCurrency(auditResult.total_tax)}</div>
               <div className="text-[11px] text-slate-500 mt-0.5">IGST: {formatCurrency(auditResult.total_igst)}</div>
@@ -631,7 +631,7 @@ const DispatchInvoicingStudioTabBase: React.FC<DispatchInvoicingStudioTabProps> 
 
           {/* Issues / Alerts Banner */}
           {auditResult.issues.length > 0 && (
-            <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs space-y-2">
+            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 shadow-xs space-y-2">
               <h3 className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
                 <AlertTriangle className="w-4 h-4 text-amber-500" />
                 Pre-Flight Validation Messages ({auditResult.issues.length})
@@ -663,7 +663,7 @@ const DispatchInvoicingStudioTabBase: React.FC<DispatchInvoicingStudioTabProps> 
           )}
 
           {/* Store Breakdown Table */}
-          <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-xs">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden shadow-xs">
             <div className="p-4 border-b border-slate-200 flex items-center justify-between">
               <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
                 <Building2 className="w-4 h-4 text-blue-600" />
@@ -676,7 +676,7 @@ const DispatchInvoicingStudioTabBase: React.FC<DispatchInvoicingStudioTabProps> 
 
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs">
-                <thead className="bg-slate-50 text-slate-600 font-semibold border-b border-slate-200">
+                <thead className="bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-semibold border-b border-slate-200 dark:border-slate-700">
                   <tr>
                     <th className="py-2.5 px-3">Store Code</th>
                     <th className="py-2.5 px-3">Store Name</th>
@@ -691,7 +691,7 @@ const DispatchInvoicingStudioTabBase: React.FC<DispatchInvoicingStudioTabProps> 
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {auditResult.stores.map((store) => (
-                    <tr key={store.store_code} className="hover:bg-slate-50/80 transition-colors">
+                    <tr key={store.store_code} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-colors">
                       <td className="py-2.5 px-3 font-mono font-bold text-slate-900">
                         {store.store_code}
                       </td>
@@ -747,7 +747,7 @@ const DispatchInvoicingStudioTabBase: React.FC<DispatchInvoicingStudioTabProps> 
             </div>
 
             {/* Execution Footer Bar */}
-            <div className="p-4 bg-slate-50 border-t border-slate-200 flex flex-wrap items-center justify-between gap-4">
+            <div className="p-4 bg-slate-50 dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-between gap-4">
               <div className="text-xs text-slate-500">
                 Clicking Generate will commit invoices to PostgreSQL and package all printable PDFs and NIC E-Way JSONs.
               </div>
@@ -780,7 +780,7 @@ const DispatchInvoicingStudioTabBase: React.FC<DispatchInvoicingStudioTabProps> 
 
       {/* Stage 3: Completed Delivery Package & Download Center */}
       {batchResult && (
-        <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm space-y-6">
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-6 shadow-sm space-y-6">
           <div className="text-center space-y-2">
             <div className="w-12 h-12 mx-auto rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center">
               <CheckCircle2 className="w-7 h-7" />
@@ -808,20 +808,20 @@ const DispatchInvoicingStudioTabBase: React.FC<DispatchInvoicingStudioTabProps> 
 
           {/* Generated Invoices List */}
           <div className="border border-slate-200 rounded-xl overflow-hidden">
-            <div className="p-3 bg-slate-50 border-b border-slate-200 text-xs font-bold text-slate-700 flex justify-between items-center">
+            <div className="p-3 bg-slate-50 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-700 dark:text-slate-200 flex justify-between items-center">
               <span>Generated Invoices & NIC E-Way Bills</span>
               <span className="text-[11px] text-slate-500">Batch: {batchResult.batch_id}</span>
             </div>
 
             <div className="divide-y divide-slate-100 text-xs max-h-60 overflow-y-auto">
               {batchResult.generated_invoices.map((inv) => (
-                <div key={inv.invoice_id} className="p-3 flex items-center justify-between hover:bg-slate-50">
+                <div key={inv.invoice_id} className="p-3 flex items-center justify-between hover:bg-slate-50 dark:hover:bg-slate-800/50">
                   <div className="flex items-center gap-3">
                     <FileText className="w-4 h-4 text-blue-600 shrink-0" />
                     <div>
                       <div className="font-bold text-slate-900 font-mono flex items-center gap-2">
                         {inv.invoice_no}
-                        <span className="text-[10px] font-normal px-1.5 py-0.5 bg-slate-100 text-slate-600 rounded">
+                        <span className="text-[10px] font-normal px-1.5 py-0.5 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded">
                           {inv.identity_code}
                         </span>
                       </div>

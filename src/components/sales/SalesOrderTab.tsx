@@ -96,7 +96,7 @@ export const SalesOrderTab: React.FC<SalesOrderTab> = ({ onClose }) => {
   };
 
   return (
-    <div className="w-full h-full bg-slate-50 overflow-auto">
+    <div className="w-full h-full bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 overflow-auto">
       {/* List View */}
       {viewMode === "list" && (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="p-6">
@@ -120,7 +120,7 @@ export const SalesOrderTab: React.FC<SalesOrderTab> = ({ onClose }) => {
               <p className="mt-4 text-slate-600">Loading sales orders...</p>
             </div>
           ) : salesOrders.length === 0 ? (
-            <div className="text-center py-12 bg-white rounded-lg border border-slate-200">
+            <div className="text-center py-12 bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800">
               <FileText className="w-12 h-12 text-slate-400 mx-auto mb-4" />
               <h3 className="text-lg font-semibold text-slate-700 mb-2">No Sales Orders</h3>
               <p className="text-slate-600 mb-4">Create your first sales order to get started.</p>
@@ -139,7 +139,7 @@ export const SalesOrderTab: React.FC<SalesOrderTab> = ({ onClose }) => {
                   key={order.id}
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className="bg-white border border-slate-200 rounded-lg p-4 hover:shadow-md transition cursor-pointer"
+                  className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-4 hover:shadow-md transition cursor-pointer"
                   onClick={() => {
                     setSelectedOrder(order);
                     setViewMode("view");
@@ -229,7 +229,7 @@ export const SalesOrderTab: React.FC<SalesOrderTab> = ({ onClose }) => {
             </div>
 
             {/* Order Details */}
-            <div className="bg-white rounded-lg border border-slate-200 p-6 mb-6">
+            <div className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 p-6 mb-6">
               <div className="grid grid-cols-2 gap-4 mb-6">
                 <div>
                   <p className="text-xs font-semibold text-slate-600 uppercase">Customer</p>
@@ -246,7 +246,7 @@ export const SalesOrderTab: React.FC<SalesOrderTab> = ({ onClose }) => {
               {/* Items Table */}
               <div className="overflow-x-auto">
                 <table className="w-full text-sm mb-6">
-                  <thead className="bg-slate-100 border-b border-slate-200">
+                  <thead className="bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-b border-slate-200 dark:border-slate-700">
                     <tr className="text-xs font-semibold text-slate-700 uppercase">
                       <th className="px-4 py-3 text-left">Stock No.</th>
                       <th className="px-4 py-3 text-left">Description</th>

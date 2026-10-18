@@ -782,8 +782,8 @@ export const ItemDetailsGridTab: React.FC<ItemDetailsGridTabProps> = ({
                 <div className="bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 rounded-lg p-3 text-xs text-blue-800 dark:text-blue-200 flex gap-2">
                   <AlertCircle size={14} className="shrink-0 mt-0.5 text-blue-500" />
                   <span>
-                    Select cells in Excel or Google Sheets and press <kbd className="bg-white border border-blue-200 px-1 py-0.5 rounded font-mono text-[10px]">Ctrl+C</kbd>,
-                    then click inside the box below and press <kbd className="bg-white border border-blue-200 px-1 py-0.5 rounded font-mono text-[10px]">Ctrl+V</kbd>.
+                    Select cells in Excel or Google Sheets and press <kbd className="bg-white dark:bg-slate-800 border border-blue-200 dark:border-blue-900/60 text-slate-800 dark:text-slate-200 px-1 py-0.5 rounded font-mono text-[10px]">Ctrl+C</kbd>,
+                    then click inside the box below and press <kbd className="bg-white dark:bg-slate-800 border border-blue-200 dark:border-blue-900/60 text-slate-800 dark:text-slate-200 px-1 py-0.5 rounded font-mono text-[10px]">Ctrl+V</kbd>.
                     Column headers in your spreadsheet will be <strong>auto-detected and mapped</strong> to the correct Item Master fields.
                   </span>
                 </div>
