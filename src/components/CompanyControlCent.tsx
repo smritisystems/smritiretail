@@ -16,6 +16,7 @@ import {
   Building2, Database, Layers, Settings, Users, Shield, 
   Activity, CheckCircle2, AlertTriangle, Lock, RefreshCw, Eye
 } from 'lucide-react';
+import { getTenantCompanyContext } from '../lib/apiFetchV1.ts';
 
 export interface CompanyControlCenterProps {
   companyId?: string;
@@ -30,12 +31,15 @@ export const CompanyControlCenter: React.FC<CompanyControlCenterProps> = ({
 }) => {
   const [activeTab, setActiveTab] = useState<'company' | 'database' | 'modules' | 'config' | 'users' | 'lifecycle'>('company');
 
+  const tenantCtx = typeof window !== "undefined" ? getTenantCompanyContext() : null;
+  const currentCompanyName = tenantCtx?.companyName || (typeof window !== "undefined" ? (localStorage.getItem("smriti_company_name") || "") : "");
+
   // Authoritative Frontend View State - ZERO DB Secrets or Credentials Exposed
   const companyData = {
     companyId: companyId,
     companyCode: '001',
-    companyName: 'Tattly Threads',
-    legalName: 'Tattly Threads',
+    companyName: currentCompanyName || 'Statutory Entity',
+    legalName: currentCompanyName || 'Statutory Entity',
     status: 'READY',
     companyAdmin: 'Jawahar Ramkripal Mallah',
     branches: ['Main Corporate Branch - Mumbai', 'South Distribution Hub'],

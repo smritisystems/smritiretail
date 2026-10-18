@@ -559,7 +559,7 @@ const DispatchInvoicingStudioTabBase: React.FC<DispatchInvoicingStudioTabProps> 
                 <input
                   type="text"
                   disabled
-                  value="Tattly Threads Nagpur Depot (WH-NGP, 440029, GST: 27)"
+                  value="Central Logistics Godown (WH-NGP, 440029, State Code: 27)"
                   className="w-full text-xs bg-slate-100 border border-slate-200 rounded-lg px-3 py-2 text-slate-600 cursor-not-allowed"
                 />
               </div>

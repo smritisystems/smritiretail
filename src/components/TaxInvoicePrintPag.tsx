@@ -97,7 +97,7 @@ export const TaxInvoicePrintPage: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   
-  // Sequence and navigation state across the 54 Tattly Threads invoices
+  // Sequence and navigation state across the tenant tax invoices
   const [invoicesList, setInvoicesList] = useState<any[]>([]);
   const [currentIndex, setCurrentIndex] = useState<number>(0);
   const [showListModal, setShowListModal] = useState<boolean>(false);
@@ -226,7 +226,7 @@ export const TaxInvoicePrintPage: React.FC = () => {
     // Rely on standard session token from login
   };
 
-  // Load the 54 Tattly Threads invoices for sequence navigation
+  // Load the tenant invoices for sequence navigation
   useEffect(() => {
     const fetchInvoicesList = async () => {
       try {

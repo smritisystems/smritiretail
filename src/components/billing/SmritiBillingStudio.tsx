@@ -22,7 +22,7 @@ import {
 import { calculateGST, parseAndValidateGSTIN, GST_STATE_MAP } from "../../utils/gstEngine.ts";
 import { SmritiPosParkedCartService, ParkedCartRecord } from "../../services/smritiPosParkedCartService.ts";
 import { ProPosOfflineSyncEngine } from "../../sync/ProPosOfflineSyncEngine.ts";
-import { apiFetchV1 } from "../../lib/apiFetchV1.ts";
+import { apiFetchV1, getTenantCompanyContext } from "../../lib/apiFetchV1.ts";
 import { recordAuditAction } from "../../lib/apiFetch";
 import { SmritiF2AdvancedItemSearch, SmritiF2SelectedItem } from "./SmritiF2AdvancedItemSearch.tsx";
 import { BulkAddItemsModal } from "./modals/BulkAddItemsModal.tsx";
@@ -142,7 +142,7 @@ export const INITIAL_DEMO_CART_ITEMS: ProPosCartItem[] = [
     name: "TATLD CASUAL CHAPPAL",
     size: "41",
     color: "BRONZE",
-    brand: "Tattly Threads",
+    brand: "HERITAGE",
     salesStaff: "Amit Pat",
     qty: 2,
     mrp: 2599,
@@ -2814,150 +2814,197 @@ export const SmritiBillingStudio: React.FC<SmritiBillingStudioProps> = ({
             </div>
 
             {/* Printable Preview: Thermal 80mm OR A4 Statutory Invoice */}
-            {receiptPrintView === "THERMAL_80MM" ? (
-              <div className="flex-1 overflow-y-auto bg-slate-50 dark:bg-slate-950 p-4 rounded-xl border border-slate-200 font-mono text-xs space-y-2">
-                <div className="text-center pb-2 border-b border-dashed border-slate-300">
-                  <div className="font-bold text-sm">TATTLY THREADS</div>
-                  <div className="text-[10px] text-slate-500">Main Branch (MAIN) • GSTIN: 27AAXFT2508H1ZR</div>
-                  <div className="text-[10px] text-slate-500">Tax Invoice / Cash Receipt</div>
-                </div>
+            {(() => {
+              const tenantCtx = typeof window !== "undefined" ? getTenantCompanyContext() : null;
+              const storeName = lastBillRecord.sellerName || tenantCtx?.companyName || "";
+              const storeAddress = lastBillRecord.sellerAddress || tenantCtx?.companyAddress || "";
+              const storeGstin = lastBillRecord.sellerGstin || tenantCtx?.companyGstin || "";
+              const isIdentityMissing = !storeName;
 
-                <div className="text-[11px] space-y-0.5">
-                  <div>Invoice No: <span className="font-bold">{lastBillRecord.billNo}</span></div>
-                  <div>Customer: {lastBillRecord.customer.name}</div>
-                  {lastBillRecord.customer.gstin && <div>GSTIN: {lastBillRecord.customer.gstin}</div>}
-                  <div>Outlet: {lastBillRecord.selectedOutlet || selectedOutlet}</div>
-                  <div>Place of Supply: {lastBillRecord.customer.stateName || "Maharashtra"} (27)</div>
-                  <div>Tender: {lastBillRecord.paymentMode}</div>
-                </div>
-
-                <div className="py-2 border-t border-b border-dashed border-slate-300 space-y-1">
-                  {lastBillRecord.items.map((it: any, i: number) => (
-                    <div key={i} className="flex justify-between text-[11px]">
-                      <span className="truncate max-w-[200px]">{it.name} x {it.qty}</span>
-                      <span>₹{Number(it.lineTotal).toFixed(2)}</span>
+              if (isIdentityMissing) {
+                return (
+                  <div
+                    data-testid="print-blocked-container"
+                    className="flex-1 overflow-y-auto bg-amber-50 dark:bg-amber-950/40 p-6 rounded-xl border-2 border-red-500 text-center flex flex-col items-center justify-center space-y-3"
+                  >
+                    <div className="w-10 h-10 rounded-full bg-red-100 text-red-600 flex items-center justify-center font-bold text-lg">
+                      ✕
                     </div>
-                  ))}
-                </div>
-
-                <div className="space-y-0.5 pt-1 text-[11px]">
-                  <div className="flex justify-between">
-                    <span>Subtotal:</span>
-                    <span>₹{Number(lastBillRecord.subTotal || 0).toFixed(2)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Tax Total (GST):</span>
-                    <span>₹{Number(lastBillRecord.taxTotal || 0).toFixed(2)}</span>
-                  </div>
-                  <div className="flex justify-between font-bold text-sm pt-1 border-t border-slate-300">
-                    <span>Payable Amount:</span>
-                    <span>₹{Number(lastBillRecord.netPayable || 0).toFixed(2)}</span>
-                  </div>
-                  {Number(lastBillRecord.changeDue || 0) > 0 && (
-                    <div className="flex justify-between text-emerald-600">
-                      <span>Change Returned:</span>
-                      <span>₹{Number(lastBillRecord.changeDue || 0).toFixed(2)}</span>
+                    <div>
+                      <h4 className="font-bold text-sm text-red-700 dark:text-red-400 uppercase tracking-wide">
+                        Store Identity Not Configured
+                      </h4>
+                      <p className="text-xs text-slate-600 dark:text-slate-300 mt-1 max-w-sm">
+                        Receipt printing and preview are prohibited until the company profile has a legal seller name.
+                      </p>
                     </div>
-                  )}
-                </div>
-
-                <div className="text-center pt-3 text-[10px] text-slate-500">
-                  *** Thank You for Shopping with Us! ***
-                </div>
-              </div>
-            ) : (
-              <div className="flex-1 overflow-y-auto bg-white dark:bg-slate-950 p-4 rounded-xl border border-slate-300 font-sans text-xs space-y-3">
-                <div className="flex justify-between items-start pb-2 border-b border-slate-200">
-                  <div>
-                    <h4 className="font-extrabold text-sm text-blue-900 dark:text-blue-300">TATTLY THREADS</h4>
-                    <p className="text-[10px] text-slate-500">Office No. 81, Beside Jio Gallery, Mumbai</p>
-                    <p className="text-[10px] text-slate-500 font-mono">GSTIN: 27AAXFT2508H1ZR</p>
+                    <div className="text-[10px] uppercase font-mono font-bold px-3 py-1 bg-red-600 text-white rounded">
+                      Printing Blocked
+                    </div>
                   </div>
-                  <div className="text-right">
-                    <span className="px-2 py-0.5 bg-blue-100 text-blue-800 rounded font-bold text-[10px] uppercase">Tax Invoice</span>
-                    <p className="font-mono font-bold text-xs mt-1">{lastBillRecord.billNo}</p>
-                    <p className="text-[10px] text-slate-500">{lastBillRecord.billDate}</p>
-                  </div>
-                </div>
+                );
+              }
 
-                <div className="grid grid-cols-2 gap-2 p-2 bg-slate-50 dark:bg-slate-900 rounded text-[11px]">
-                  <div>
-                    <span className="font-bold text-slate-700 dark:text-slate-300 block">Billed To (Recipient):</span>
-                    <span className="font-semibold">{lastBillRecord.customer.name}</span>
-                    <p className="text-slate-500 font-mono">{lastBillRecord.customer.phone}</p>
-                    {lastBillRecord.customer.gstin && (
-                      <p className="font-mono text-blue-600">GSTIN: {lastBillRecord.customer.gstin}</p>
+              return receiptPrintView === "THERMAL_80MM" ? (
+                <div className="flex-1 overflow-y-auto bg-slate-50 dark:bg-slate-950 p-4 rounded-xl border border-slate-200 font-mono text-xs space-y-2">
+                  <div className="text-center pb-2 border-b border-dashed border-slate-300">
+                    <div className="font-bold text-sm uppercase">{storeName}</div>
+                    <div className="text-[10px] text-slate-500">
+                      {storeAddress ? `${storeAddress} • ` : ""}{storeGstin ? `GSTIN: ${storeGstin}` : ""}
+                    </div>
+                    <div className="text-[10px] text-slate-500">Tax Invoice / Cash Receipt</div>
+                  </div>
+
+                  <div className="text-[11px] space-y-0.5">
+                    <div>Invoice No: <span className="font-bold">{lastBillRecord.billNo}</span></div>
+                    <div>Customer: {lastBillRecord.customer.name}</div>
+                    {lastBillRecord.customer.gstin && <div>GSTIN: {lastBillRecord.customer.gstin}</div>}
+                    <div>Outlet: {lastBillRecord.selectedOutlet || selectedOutlet}</div>
+                    <div>Place of Supply: {lastBillRecord.customer.stateName || "Maharashtra"} (27)</div>
+                    <div>Tender: {lastBillRecord.paymentMode}</div>
+                  </div>
+
+                  <div className="py-2 border-t border-b border-dashed border-slate-300 space-y-1">
+                    {lastBillRecord.items.map((it: any, i: number) => (
+                      <div key={i} className="flex justify-between text-[11px]">
+                        <span className="truncate max-w-[200px]">{it.name} x {it.qty}</span>
+                        <span>₹{Number(it.lineTotal).toFixed(2)}</span>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="space-y-0.5 pt-1 text-[11px]">
+                    <div className="flex justify-between">
+                      <span>Subtotal:</span>
+                      <span>₹{Number(lastBillRecord.subTotal || 0).toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Tax Total (GST):</span>
+                      <span>₹{Number(lastBillRecord.taxTotal || 0).toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between font-bold text-sm pt-1 border-t border-slate-300">
+                      <span>Payable Amount:</span>
+                      <span>₹{Number(lastBillRecord.netPayable || 0).toFixed(2)}</span>
+                    </div>
+                    {Number(lastBillRecord.changeDue || 0) > 0 && (
+                      <div className="flex justify-between text-emerald-600">
+                        <span>Change Returned:</span>
+                        <span>₹{Number(lastBillRecord.changeDue || 0).toFixed(2)}</span>
+                      </div>
                     )}
                   </div>
-                  <div>
-                    <span className="font-bold text-slate-700 dark:text-slate-300 block">Shipped To (Delivery Site):</span>
-                    <span>{lastBillRecord.selectedOutlet || selectedOutlet}</span>
-                    <p className="text-slate-500">POS State: {posState} (27)</p>
+
+                  <div className="text-center pt-3 text-[10px] text-slate-500">
+                    *** Thank You for Shopping with Us! ***
                   </div>
                 </div>
+              ) : (
+                <div className="flex-1 overflow-y-auto bg-white dark:bg-slate-950 p-4 rounded-xl border border-slate-300 font-sans text-xs space-y-3">
+                  <div className="flex justify-between items-start pb-2 border-b border-slate-200">
+                    <div>
+                      <h4 className="font-extrabold text-sm text-blue-900 dark:text-blue-300 uppercase">{storeName}</h4>
+                      {storeAddress && <p className="text-[10px] text-slate-500">{storeAddress}</p>}
+                      {storeGstin && <p className="text-[10px] text-slate-500 font-mono">GSTIN: {storeGstin}</p>}
+                    </div>
+                    <div className="text-right">
+                      <span className="px-2 py-0.5 bg-blue-100 text-blue-800 rounded font-bold text-[10px] uppercase">Tax Invoice</span>
+                      <p className="font-mono font-bold text-xs mt-1">{lastBillRecord.billNo}</p>
+                      <p className="text-[10px] text-slate-500">{lastBillRecord.billDate}</p>
+                    </div>
+                  </div>
 
-                <table className="w-full text-left text-[11px] border-collapse">
-                  <thead className="bg-slate-100 dark:bg-slate-800 font-bold border-b">
-                    <tr>
-                      <th className="py-1 px-1.5">#</th>
-                      <th className="py-1 px-1.5">Item Description</th>
-                      <th className="py-1 px-1.5 text-center">Qty</th>
-                      <th className="py-1 px-1.5 text-right">Rate</th>
-                      <th className="py-1 px-1.5 text-right">Tax</th>
-                      <th className="py-1 px-1.5 text-right">Amount</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {lastBillRecord.items.map((it: any, i: number) => (
-                      <tr key={i}>
-                        <td className="py-1 px-1.5 text-slate-500">{i + 1}</td>
-                        <td className="py-1 px-1.5 font-medium">{it.name} ({it.brand} {it.color} {it.size})</td>
-                        <td className="py-1 px-1.5 text-center font-mono">{it.qty}</td>
-                        <td className="py-1 px-1.5 text-right font-mono">₹{Number(it.unitPrice).toFixed(2)}</td>
-                        <td className="py-1 px-1.5 text-right font-mono">{it.taxPct || 5}%</td>
-                        <td className="py-1 px-1.5 text-right font-mono font-bold">₹{Number(it.lineTotal).toFixed(2)}</td>
+                  <div className="grid grid-cols-2 gap-2 p-2 bg-slate-50 dark:bg-slate-900 rounded text-[11px]">
+                    <div>
+                      <span className="font-bold text-slate-700 dark:text-slate-300 block">Billed To (Recipient):</span>
+                      <span className="font-semibold">{lastBillRecord.customer.name}</span>
+                      <p className="text-slate-500 font-mono">{lastBillRecord.customer.phone}</p>
+                      {lastBillRecord.customer.gstin && (
+                        <p className="font-mono text-blue-600">GSTIN: {lastBillRecord.customer.gstin}</p>
+                      )}
+                    </div>
+                    <div>
+                      <span className="font-bold text-slate-700 dark:text-slate-300 block">Shipped To (Delivery Site):</span>
+                      <span>{lastBillRecord.selectedOutlet || selectedOutlet}</span>
+                      <p className="text-slate-500">POS State: {posState} (27)</p>
+                    </div>
+                  </div>
+
+                  <table className="w-full text-left text-[11px] border-collapse">
+                    <thead className="bg-slate-100 dark:bg-slate-800 font-bold border-b">
+                      <tr>
+                        <th className="py-1 px-1.5">#</th>
+                        <th className="py-1 px-1.5">Item Description</th>
+                        <th className="py-1 px-1.5 text-center">Qty</th>
+                        <th className="py-1 px-1.5 text-right">Rate</th>
+                        <th className="py-1 px-1.5 text-right">Tax</th>
+                        <th className="py-1 px-1.5 text-right">Amount</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {lastBillRecord.items.map((it: any, i: number) => (
+                        <tr key={i}>
+                          <td className="py-1 px-1.5 text-slate-500">{i + 1}</td>
+                          <td className="py-1 px-1.5 font-medium">{it.name} ({it.brand} {it.color} {it.size})</td>
+                          <td className="py-1 px-1.5 text-center font-mono">{it.qty}</td>
+                          <td className="py-1 px-1.5 text-right font-mono">₹{Number(it.unitPrice).toFixed(2)}</td>
+                          <td className="py-1 px-1.5 text-right font-mono">{it.taxPct || 5}%</td>
+                          <td className="py-1 px-1.5 text-right font-mono font-bold">₹{Number(it.lineTotal).toFixed(2)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
 
-                <div className="pt-2 border-t flex justify-between font-mono text-[11px]">
-                  <span>Grand Total (Net Payable):</span>
-                  <span className="font-bold text-xs text-blue-700">₹{Number(lastBillRecord.netPayable || 0).toFixed(2)}</span>
+                  <div className="pt-2 border-t flex justify-between font-mono text-[11px]">
+                    <span>Grand Total (Net Payable):</span>
+                    <span className="font-bold text-xs text-blue-700">₹{Number(lastBillRecord.netPayable || 0).toFixed(2)}</span>
+                  </div>
                 </div>
-              </div>
-            )}
+              );
+            })()}
 
-            <div className="grid grid-cols-3 gap-2 mt-4 pt-3 border-t">
-              <button
-                type="button"
-                onClick={() => window.print()}
-                className="py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5"
-              >
-                <Printer size={13} />
-                <span>Thermal Slip</span>
-              </button>
+            {(() => {
+              const tenantCtx = typeof window !== "undefined" ? getTenantCompanyContext() : null;
+              const isIdentityMissing = !tenantCtx?.companyName && !lastBillRecord.sellerName;
+              return (
+                <div className="grid grid-cols-3 gap-2 mt-4 pt-3 border-t">
+                  <button
+                    type="button"
+                    disabled={isIdentityMissing}
+                    onClick={() => {
+                      if (!isIdentityMissing) window.print();
+                    }}
+                    className={`py-2 text-white rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5 ${
+                      isIdentityMissing
+                        ? "bg-slate-400 dark:bg-slate-700 cursor-not-allowed opacity-60"
+                        : "bg-blue-600 hover:bg-blue-700"
+                    }`}
+                  >
+                    <Printer size={13} />
+                    <span>Thermal Slip</span>
+                  </button>
 
-              <button
-                type="button"
-                onClick={() => {
-                  const shareText = `Invoice: ${lastBillRecord.billNo}%0AAmount: Rs.${lastBillRecord.netPayable}%0AThank you!`;
-                  window.open(`https://wa.me/?text=${shareText}`, "_blank");
-                }}
-                className="py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5"
-              >
-                <Share2 size={13} />
-                <span>WhatsApp</span>
-              </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const shareText = `Invoice: ${lastBillRecord.billNo}%0AAmount: Rs.${lastBillRecord.netPayable}%0AThank you!`;
+                      window.open(`https://wa.me/?text=${shareText}`, "_blank");
+                    }}
+                    className="py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5"
+                  >
+                    <Share2 size={13} />
+                    <span>WhatsApp</span>
+                  </button>
 
-              <button
-                type="button"
-                onClick={() => setShowReceiptModal(false)}
-                className="py-2 bg-slate-800 text-white rounded-lg text-xs font-bold"
-              >
-                <span>Close</span>
-              </button>
-            </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowReceiptModal(false)}
+                    className="py-2 bg-slate-800 text-white rounded-lg text-xs font-bold"
+                  >
+                    <span>Close</span>
+                  </button>
+                </div>
+              );
+            })()}
           </div>
         </div>
       )}

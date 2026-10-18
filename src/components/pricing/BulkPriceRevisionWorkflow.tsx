@@ -362,7 +362,7 @@ const BulkPriceRevisionWorkflowBase: React.FC<BulkPriceRevisionWorkflowProps> = 
     sizes: string[];
     suppliers: string[];
   }>({
-    brands: ["SMRITI", "SND", "Tattly Threads"],
+    brands: ["SMRITI", "SND", "GENERAL"],
     categories: ["Footwear", "Apparel", "Accessories"],
     colors: ["BEIGE", "BLACK", "BLUE", "BROWN", "GOLD", "TAN"],
     sizes: ["36", "37", "38", "39", "40", "41", "42"],

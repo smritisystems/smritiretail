@@ -44,7 +44,7 @@ import {
 } from "lucide-react";
 import { formatCurrency, formatNumber, formatDate } from "../../utils/formatters";
 import { GlobalExportService } from "../../services/globalExportService";
-import { apiFetchV1 } from "../../lib/apiFetchV1";
+import { apiFetchV1, getTenantCompanyContext } from "../../lib/apiFetchV1";
 
 export interface ReportColumnDef {
   key: string;
@@ -415,7 +415,7 @@ export const SmritiReportEngine: React.FC<SmritiReportEngineProps> = ({
       data: exportRows,
       metadata: {
         moduleTitle: reportTitle,
-        companyName: "Tattly Threads / SMRITI Retail OS",
+        companyName: (typeof window !== "undefined" ? getTenantCompanyContext().companyName : "") || "SMRITI Retail OS",
         exportTimestamp: new Date().toLocaleString(),
         searchTerm: searchTerm || undefined,
       },

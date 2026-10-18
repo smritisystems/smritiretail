@@ -105,7 +105,7 @@ export function getTenantCompanyContext(): {
     return {
       companyId: "COMP-001",
       companyCode: "001",
-      companyName: "Tattly Threads",
+      companyName: "",
       branchId: "MAIN",
       branchCode: "MAIN",
       branchName: "Main Branch",
@@ -119,7 +119,7 @@ export function getTenantCompanyContext(): {
   return {
     companyId: localStorage.getItem("smriti_company_id") || "COMP-001",
     companyCode: localStorage.getItem("smriti_company_code") || "001",
-    companyName: localStorage.getItem("smriti_company_name") || "Tattly Threads",
+    companyName: localStorage.getItem("smriti_company_name") || "",
     branchId: localStorage.getItem("smriti_branch_id") || "MAIN",
     branchCode: localStorage.getItem("smriti_branch_code") || "MAIN",
     branchName: localStorage.getItem("smriti_branch_name") || "Main Branch",
