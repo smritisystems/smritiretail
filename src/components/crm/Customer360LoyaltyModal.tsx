@@ -65,19 +65,19 @@ export const Customer360LoyaltyModal: React.FC<Customer360LoyaltyModalProps> = (
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-fadeIn">
-      <div className="flex flex-col w-full max-w-xl max-h-[90vh] bg-slate-900 border border-slate-700/80 rounded-2xl shadow-2xl overflow-hidden">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800 bg-slate-950/60">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 dark:bg-black/80 backdrop-blur-xs p-4 animate-fadeIn">
+      <div className="flex flex-col w-full max-w-xl max-h-[90vh] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl overflow-hidden">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/60">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center">
               <span className="material-symbols-outlined text-rose-400 text-2xl">person_search</span>
             </div>
             <div>
-              <h2 className="text-base font-bold text-slate-100">Customer 360 Loyalty View</h2>
-              <p className="text-xs text-slate-400">Unified customer profile · Loyalty · Credit · RFM</p>
+              <h2 className="text-base font-bold text-slate-900 dark:text-slate-100">Customer 360 Loyalty View</h2>
+              <p className="text-xs text-slate-500 dark:text-slate-400">Unified customer profile · Loyalty · Credit · RFM</p>
             </div>
           </div>
-          <button onClick={onClose} className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800">
+          <button onClick={onClose} className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-slate-800">
             <span className="material-symbols-outlined text-lg">close</span>
           </button>
         </div>
@@ -87,7 +87,7 @@ export const Customer360LoyaltyModal: React.FC<Customer360LoyaltyModalProps> = (
             <input value={customerId} onChange={(e) => setCustomerId(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleLookup()}
               placeholder="Customer ID (e.g. CUST-001)"
-              className="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-rose-500/60" />
+              className="flex-1 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-900 dark:text-slate-200 focus:outline-none focus:border-rose-500" />
             <button onClick={handleLookup} disabled={loading}
               className="px-4 py-2 rounded-lg text-xs font-bold text-white bg-rose-600 hover:bg-rose-500 disabled:opacity-40 transition-all">
               {loading ? "Loading..." : "Load 360"}
@@ -100,8 +100,8 @@ export const Customer360LoyaltyModal: React.FC<Customer360LoyaltyModalProps> = (
             <div className="space-y-4">
               <div className="flex items-start justify-between">
                 <div>
-                  <p className="text-lg font-bold text-slate-100">{data.customer_name ?? data.customer_id}</p>
-                  <p className="text-xs text-slate-400">Segment: <span className="text-rose-400 font-semibold">{data.segment ?? "—"}</span> · Tier: <span className="text-yellow-400 font-semibold">{data.tier ?? "—"}</span></p>
+                  <p className="text-lg font-bold text-slate-900 dark:text-slate-100">{data.customer_name ?? data.customer_id}</p>
+                  <p className="text-xs text-slate-600 dark:text-slate-400">Segment: <span className="text-rose-400 font-semibold">{data.segment ?? "—"}</span> · Tier: <span className="text-yellow-400 font-semibold">{data.tier ?? "—"}</span></p>
                 </div>
                 <div className="text-right">
                   <p className="text-2xl font-black font-mono text-yellow-400">⭐ {data.points_balance ?? 0}</p>
@@ -115,13 +115,13 @@ export const Customer360LoyaltyModal: React.FC<Customer360LoyaltyModalProps> = (
                   { label: "Churn Risk",        value: data.churn_risk ?? "—",               color: data.churn_risk === "HIGH" ? "text-rose-400" : "text-emerald-400" },
                   { label: "Credit Available",  value: fmt(data.credit_available ?? 0),      color: "text-emerald-400" },
                   { label: "LTV",               value: fmt(data.ltv ?? 0),                   color: "text-sky-400 font-black" },
-                  { label: "Monetary Value",    value: fmt(data.monetary_value ?? 0),        color: "text-slate-300" },
-                  { label: "Purchase Frequency",value: `${data.frequency ?? 0}x`,            color: "text-slate-300" },
+                  { label: "Monetary Value",    value: fmt(data.monetary_value ?? 0),        color: "text-slate-700 dark:text-slate-300" },
+                  { label: "Purchase Frequency",value: `${data.frequency ?? 0}x`,            color: "text-slate-700 dark:text-slate-300" },
                   { label: "Last Purchase",     value: data.last_purchase_date ?? "—",       color: "text-slate-400" },
-                  { label: "Total Purchases",   value: fmt(data.total_purchases ?? 0),       color: "text-slate-300" },
+                  { label: "Total Purchases",   value: fmt(data.total_purchases ?? 0),       color: "text-slate-700 dark:text-slate-300" },
                 ].map((m) => (
-                  <div key={m.label} className="bg-slate-800/30 border border-slate-700/50 rounded-xl p-3">
-                    <p className="text-[10px] text-slate-500 uppercase tracking-wide">{m.label}</p>
+                  <div key={m.label} className="bg-slate-50 dark:bg-slate-800/30 border border-slate-200 dark:border-slate-700/50 rounded-xl p-3">
+                    <p className="text-[10px] text-slate-500 dark:text-slate-400 uppercase tracking-wide">{m.label}</p>
                     <p className={`font-mono font-bold mt-1 ${m.color}`}>{m.value}</p>
                   </div>
                 ))}
@@ -130,8 +130,8 @@ export const Customer360LoyaltyModal: React.FC<Customer360LoyaltyModalProps> = (
           )}
         </div>
 
-        <div className="flex items-center justify-end px-6 py-3 border-t border-slate-800 bg-slate-950/80">
-          <button onClick={onClose} className="px-4 py-2 rounded-xl text-xs font-bold text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-colors">Close</button>
+        <div className="flex items-center justify-end px-6 py-3 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/80">
+          <button onClick={onClose} className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors">Close</button>
         </div>
       </div>
     </div>

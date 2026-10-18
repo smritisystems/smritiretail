@@ -85,10 +85,10 @@ export const TaxInvoiceDoc: React.FC<TaxInvoiceDocumentPanelProps> = ({
   const hasSelectedCustomer = Boolean(docState.customerId && docState.customerName && docState.customerCode !== "WALK-IN");
 
   return (
-    <div className="flex flex-col flex-none border-b border-slate-200 bg-white shadow-2xs select-none">
+    <div className="flex flex-col flex-none border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-2xs select-none">
       {/* ─── LAYER 1: Billing Workspace Controls Bar ───────────────────────────────── */}
       <section
-        className="bg-white px-4 py-2 flex flex-wrap items-center justify-between border-b border-slate-200 gap-3"
+        className="bg-white dark:bg-slate-900 px-4 py-2 flex flex-wrap items-center justify-between border-b border-slate-200 gap-3"
         data-purpose="billing-control-bar"
       >
         <div className="flex items-center space-x-4 flex-wrap gap-y-2">
@@ -108,7 +108,7 @@ export const TaxInvoiceDoc: React.FC<TaxInvoiceDocumentPanelProps> = ({
           </div>
 
           {/* Vertical Divider */}
-          <div className="hidden sm:block h-7 w-px bg-slate-200"></div>
+          <div className="hidden sm:block h-7 w-px bg-slate-200 dark:bg-slate-800"></div>
 
           {/* Selector: Bill Type */}
           <div className="flex flex-col">
@@ -118,7 +118,7 @@ export const TaxInvoiceDoc: React.FC<TaxInvoiceDocumentPanelProps> = ({
             <select
               value={docState.billType}
               onChange={(e) => onChange({ billType: e.target.value as any })}
-              className="text-xs font-semibold text-slate-700 bg-slate-50 hover:bg-slate-100 border border-slate-300 rounded px-2 py-1 mt-0.5 min-w-[120px] focus:outline-none focus:border-blue-600 cursor-pointer"
+              className="text-xs font-semibold text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-300 dark:border-slate-700 rounded px-2 py-1 mt-0.5 min-w-[120px] focus:outline-none focus:border-blue-600 cursor-pointer"
             >
               <option value="Product">📦 Product</option>
               <option value="Tax Invoice">📄 Tax Invoice</option>
@@ -136,7 +136,7 @@ export const TaxInvoiceDoc: React.FC<TaxInvoiceDocumentPanelProps> = ({
             <select
               value={docState.transactionMode}
               onChange={(e) => onChange({ transactionMode: e.target.value as any })}
-              className="text-xs font-semibold text-slate-700 bg-slate-50 hover:bg-slate-100 border border-slate-300 rounded px-2 py-1 mt-0.5 min-w-[120px] focus:outline-none focus:border-blue-600 cursor-pointer"
+              className="text-xs font-semibold text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-300 dark:border-slate-700 rounded px-2 py-1 mt-0.5 min-w-[120px] focus:outline-none focus:border-blue-600 cursor-pointer"
             >
               <option value="Tax Invoice">⇄ Regular / Local</option>
               <option value="Interstate Sale">⇄ Interstate Sale (IGST)</option>
@@ -163,7 +163,7 @@ export const TaxInvoiceDoc: React.FC<TaxInvoiceDocumentPanelProps> = ({
             <button
               type="button"
               onClick={onNewClick}
-              className="flex items-center space-x-1 px-2.5 py-1 rounded text-slate-700 hover:bg-slate-100 text-xs font-medium border border-slate-200 transition cursor-pointer"
+              className="flex items-center space-x-1 px-2.5 py-1 rounded text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs font-medium border border-slate-200 transition cursor-pointer"
             >
               <Plus className="w-3.5 h-3.5 text-blue-600" />
               <span>New</span>
@@ -172,7 +172,7 @@ export const TaxInvoiceDoc: React.FC<TaxInvoiceDocumentPanelProps> = ({
           <button
             type="button"
             onClick={onImportClick}
-            className="flex items-center space-x-1 px-2.5 py-1 rounded text-slate-700 hover:bg-slate-100 text-xs font-medium border border-slate-200 transition cursor-pointer"
+            className="flex items-center space-x-1 px-2.5 py-1 rounded text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs font-medium border border-slate-200 transition cursor-pointer"
           >
             <Download className="w-3.5 h-3.5 text-slate-600" />
             <span>Import</span>
@@ -180,7 +180,7 @@ export const TaxInvoiceDoc: React.FC<TaxInvoiceDocumentPanelProps> = ({
           <button
             type="button"
             onClick={onRecallClick}
-            className="flex items-center space-x-1 px-2.5 py-1 rounded text-slate-700 hover:bg-slate-100 text-xs font-medium border border-slate-200 transition cursor-pointer"
+            className="flex items-center space-x-1 px-2.5 py-1 rounded text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs font-medium border border-slate-200 transition cursor-pointer"
           >
             <History className="w-3.5 h-3.5 text-slate-600" />
             <span>Recall</span>
@@ -189,7 +189,7 @@ export const TaxInvoiceDoc: React.FC<TaxInvoiceDocumentPanelProps> = ({
             <button
               type="button"
               onClick={onPrintClick}
-              className="flex items-center space-x-1 px-2.5 py-1 rounded text-slate-700 hover:bg-slate-100 text-xs font-medium border border-slate-200 transition cursor-pointer"
+              className="flex items-center space-x-1 px-2.5 py-1 rounded text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs font-medium border border-slate-200 transition cursor-pointer"
             >
               <Printer className="w-3.5 h-3.5 text-slate-600" />
               <span>Print</span>
@@ -211,15 +211,15 @@ export const TaxInvoiceDoc: React.FC<TaxInvoiceDocumentPanelProps> = ({
 
       {/* ─── LAYER 2: 8 High-Fidelity Transaction Context Cards Ribbon ─────────────── */}
       <section
-        className="bg-white px-3 py-2 border-b border-slate-200 overflow-x-auto shadow-2xs"
+        className="bg-white dark:bg-slate-900 px-3 py-2 border-b border-slate-200 dark:border-slate-800 overflow-x-auto shadow-2xs"
         data-purpose="transaction-context-strip"
       >
         <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2 min-w-[1100px]">
           {/* Card 0A: Bill From */}
           <div
-            className="group relative bg-white border border-slate-200 rounded-lg p-2 transition-all duration-150 flex items-center space-x-2.5"
+            className="group relative bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-2 transition-all duration-150 flex items-center space-x-2.5"
           >
-            <div className="w-8 h-8 rounded bg-slate-100 text-slate-700 border border-slate-300 flex items-center justify-center flex-none font-bold text-sm">
+            <div className="w-8 h-8 rounded bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-300 dark:border-slate-700 flex items-center justify-center flex-none font-bold text-sm">
               <Building2 className="w-4 h-4" />
             </div>
             {(() => {
@@ -243,7 +243,7 @@ export const TaxInvoiceDoc: React.FC<TaxInvoiceDocumentPanelProps> = ({
           {/* Card 0B: Dispatch From */}
           <div
             onClick={() => togglePopover("dispatch")}
-            className="group relative bg-white border border-blue-200 hover:border-blue-400 rounded-lg p-2 cursor-pointer transition-all duration-150 hover:shadow-md flex items-center space-x-2.5"
+            className="group relative bg-white dark:bg-slate-900 border border-blue-200 dark:border-blue-900/60 hover:border-blue-400 dark:hover:border-blue-600 rounded-lg p-2 cursor-pointer transition-all duration-150 hover:shadow-md flex items-center space-x-2.5"
           >
             <div className="w-8 h-8 rounded bg-indigo-50 text-indigo-700 border border-indigo-200 flex items-center justify-center flex-none font-bold text-sm">
               <Truck className="w-4 h-4" />
@@ -287,7 +287,7 @@ export const TaxInvoiceDoc: React.FC<TaxInvoiceDocumentPanelProps> = ({
           {/* Card 2: GST */}
           <div
             onClick={() => togglePopover("gst")}
-            className="group relative bg-white border border-slate-200 hover:border-slate-300 rounded-lg p-2 cursor-pointer transition-all duration-150 hover:shadow-md flex items-center space-x-2.5"
+            className="group relative bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-slate-300 rounded-lg p-2 cursor-pointer transition-all duration-150 hover:shadow-md flex items-center space-x-2.5"
           >
             <div className="w-8 h-8 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center justify-center flex-none font-bold text-sm">
               <FileText className="w-4 h-4" />
@@ -309,7 +309,7 @@ export const TaxInvoiceDoc: React.FC<TaxInvoiceDocumentPanelProps> = ({
           {/* Card 3: Bill To */}
           <div
             onClick={() => togglePopover("billing")}
-            className="group relative bg-white border border-slate-200 hover:border-slate-300 rounded-lg p-2 cursor-pointer transition-all duration-150 hover:shadow-md flex items-center space-x-2.5"
+            className="group relative bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-slate-300 rounded-lg p-2 cursor-pointer transition-all duration-150 hover:shadow-md flex items-center space-x-2.5"
           >
             <div className="w-8 h-8 rounded bg-amber-50 text-amber-700 border border-amber-200 flex items-center justify-center flex-none font-bold text-sm">
               <MapPin className="w-4 h-4" />
@@ -331,7 +331,7 @@ export const TaxInvoiceDoc: React.FC<TaxInvoiceDocumentPanelProps> = ({
           {/* Card 4: Ship To */}
           <div
             onClick={() => togglePopover("delivery")}
-            className="group relative bg-white border border-slate-200 hover:border-slate-300 rounded-lg p-2 cursor-pointer transition-all duration-150 hover:shadow-md flex items-center space-x-2.5"
+            className="group relative bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-slate-300 rounded-lg p-2 cursor-pointer transition-all duration-150 hover:shadow-md flex items-center space-x-2.5"
           >
             <div className="w-8 h-8 rounded bg-orange-50 text-orange-700 border border-orange-200 flex items-center justify-center flex-none font-bold text-sm">
               <Truck className="w-4 h-4" />
@@ -353,7 +353,7 @@ export const TaxInvoiceDoc: React.FC<TaxInvoiceDocumentPanelProps> = ({
           {/* Card 5: POS (Place of Supply) */}
           <div
             onClick={() => togglePopover("delivery")}
-            className="group relative bg-white border border-slate-200 hover:border-slate-300 rounded-lg p-2 cursor-pointer transition-all duration-150 hover:shadow-md flex items-center space-x-2.5"
+            className="group relative bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-slate-300 rounded-lg p-2 cursor-pointer transition-all duration-150 hover:shadow-md flex items-center space-x-2.5"
           >
             <div className="w-8 h-8 rounded bg-sky-50 text-sky-700 border border-sky-200 flex items-center justify-center flex-none font-bold text-sm">
               <MapPin className="w-4 h-4" />
@@ -377,7 +377,7 @@ export const TaxInvoiceDoc: React.FC<TaxInvoiceDocumentPanelProps> = ({
           {/* Card 6: Payment / Credit Details */}
           <div
             onClick={() => togglePopover("credit")}
-            className="group relative bg-white border border-slate-200 hover:border-slate-300 rounded-lg p-2 cursor-pointer transition-all duration-150 hover:shadow-md flex items-center space-x-2.5"
+            className="group relative bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-slate-300 rounded-lg p-2 cursor-pointer transition-all duration-150 hover:shadow-md flex items-center space-x-2.5"
           >
             <div className="w-8 h-8 rounded bg-indigo-50 text-indigo-700 border border-indigo-200 flex items-center justify-center flex-none font-bold text-sm">
               <CreditCard className="w-4 h-4" />
@@ -397,7 +397,7 @@ export const TaxInvoiceDoc: React.FC<TaxInvoiceDocumentPanelProps> = ({
           </div>
 
           {/* Card 7: Sales Staff */}
-          <div className="group relative bg-white border border-slate-200 hover:border-slate-300 rounded-lg p-2 cursor-pointer transition-all duration-150 hover:shadow-md flex items-center space-x-2.5">
+          <div className="group relative bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-slate-300 rounded-lg p-2 cursor-pointer transition-all duration-150 hover:shadow-md flex items-center space-x-2.5">
             <div className="w-8 h-8 rounded bg-teal-50 text-teal-700 border border-teal-200 flex items-center justify-center flex-none font-bold text-sm">
               <UserCheck className="w-4 h-4" />
             </div>
@@ -416,7 +416,7 @@ export const TaxInvoiceDoc: React.FC<TaxInvoiceDocumentPanelProps> = ({
           </div>
 
           {/* Card 8: Quick Net Amount Box */}
-          <div className="bg-slate-50 border border-slate-200 rounded-lg p-2 flex flex-col justify-center items-end text-right">
+          <div className="bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-lg p-2 flex flex-col justify-center items-end text-right">
             <span className="text-[10px] font-bold uppercase text-slate-500 tracking-wider leading-tight">
               Net Amount
             </span>
@@ -430,13 +430,13 @@ export const TaxInvoiceDoc: React.FC<TaxInvoiceDocumentPanelProps> = ({
       {/* ─── LAYER 3: Interactive Popover Panels ──────────────────────────────────── */}
       {activePopover && (
         <section
-          className="bg-slate-100 px-3 py-2 border-b border-slate-200 animate-in fade-in duration-150"
+          className="bg-slate-100 dark:bg-slate-950 px-3 py-2 border-b border-slate-200 dark:border-slate-800 animate-in fade-in duration-150"
           data-purpose="active-context-popovers"
         >
           <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
             {/* Popover 1: Customer Details */}
             {activePopover === "customer" && (
-              <div className="bg-white rounded-lg border border-slate-200 shadow-sm p-3 flex flex-col justify-between text-xs md:col-span-2">
+              <div className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 shadow-sm p-3 flex flex-col justify-between text-xs md:col-span-2">
                 <div>
                   <div className="flex items-center justify-between pb-2 border-b border-slate-100 mb-2">
                     <h3 className="font-bold text-slate-900 text-xs">Customer Master &amp; Credit</h3>
@@ -501,7 +501,7 @@ export const TaxInvoiceDoc: React.FC<TaxInvoiceDocumentPanelProps> = ({
 
             {/* Popover 2: GST Registration */}
             {activePopover === "gst" && (
-              <div className="bg-white rounded-lg border border-slate-200 shadow-sm p-3 flex flex-col justify-between text-xs md:col-span-2">
+              <div className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 shadow-sm p-3 flex flex-col justify-between text-xs md:col-span-2">
                 <div>
                   <div className="flex items-center justify-between pb-2 border-b border-slate-100 mb-2">
                     <h3 className="font-bold text-slate-900 text-xs">GST Registration</h3>
@@ -568,7 +568,7 @@ export const TaxInvoiceDoc: React.FC<TaxInvoiceDocumentPanelProps> = ({
 
             {/* Popover 0B: Dispatch From Location */}
             {activePopover === "dispatch" && (
-              <div className="bg-white rounded-lg border border-slate-200 shadow-sm p-3 flex flex-col justify-between text-xs md:col-span-2">
+              <div className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 shadow-sm p-3 flex flex-col justify-between text-xs md:col-span-2">
                 <div>
                   <div className="flex items-center justify-between pb-2 border-b border-slate-100 mb-2">
                     <h3 className="font-bold text-slate-900 text-xs">Dispatch From (Physical Origin)</h3>
@@ -646,7 +646,7 @@ export const TaxInvoiceDoc: React.FC<TaxInvoiceDocumentPanelProps> = ({
 
             {/* Popover 3: Billing Location */}
             {activePopover === "billing" && (
-              <div className="bg-white rounded-lg border border-slate-200 shadow-sm p-3 flex flex-col justify-between text-xs md:col-span-2">
+              <div className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 shadow-sm p-3 flex flex-col justify-between text-xs md:col-span-2">
                 <div>
                   <div className="flex items-center justify-between pb-2 border-b border-slate-100 mb-2">
                     <h3 className="font-bold text-slate-900 text-xs">Billing Location</h3>
@@ -728,7 +728,7 @@ export const TaxInvoiceDoc: React.FC<TaxInvoiceDocumentPanelProps> = ({
 
             {/* Popover 4: Delivery Location */}
             {activePopover === "delivery" && (
-              <div className="bg-white rounded-lg border border-slate-200 shadow-sm p-3 flex flex-col justify-between text-xs md:col-span-2">
+              <div className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 shadow-sm p-3 flex flex-col justify-between text-xs md:col-span-2">
                 <div>
                   <div className="flex items-center justify-between pb-2 border-b border-slate-100 mb-2">
                     <h3 className="font-bold text-slate-900 text-xs">Delivery Location</h3>
@@ -817,7 +817,7 @@ export const TaxInvoiceDoc: React.FC<TaxInvoiceDocumentPanelProps> = ({
 
             {/* Popover 5: Credit Details */}
             {activePopover === "credit" && (
-              <div className="bg-white rounded-lg border border-slate-200 shadow-sm p-3 flex flex-col justify-between text-xs md:col-span-2">
+              <div className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 shadow-sm p-3 flex flex-col justify-between text-xs md:col-span-2">
                 <div>
                   <div className="flex items-center justify-between pb-2 border-b border-slate-100 mb-2">
                     <h3 className="font-bold text-slate-900 text-xs">Credit &amp; Payment Terms</h3>

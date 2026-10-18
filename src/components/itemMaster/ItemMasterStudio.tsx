@@ -1228,11 +1228,11 @@ StyleCode	ProductName	Brand	Gender	ProductType	HeelType	UpperMaterial	Color	Size
                                       value={currentVal}
                                       onChange={e => handleApplyCellCorrection(row.rowNumber, fieldKey, e.target.value)}
                                       onBlur={() => setEditingCell(null)}
-                                      className="w-full text-xs font-semibold px-1.5 py-0.5 rounded border border-[#1565c0] bg-white outline-none"
+                                      className="w-full text-xs font-semibold px-1.5 py-0.5 rounded border border-[#1565c0] dark:border-blue-500 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 outline-none"
                                     >
                                       <option value="">— Select —</option>
                                       {approvedOptions.map(opt => (
-                                        <option key={opt} value={opt}>{opt}</option>
+                                        <option key={opt} value={opt} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100">{opt}</option>
                                       ))}
                                     </select>
                                   ) : (
@@ -1245,7 +1245,7 @@ StyleCode	ProductName	Brand	Gender	ProductType	HeelType	UpperMaterial	Color	Size
                                       onKeyDown={e => {
                                         if (e.key === "Enter" || e.key === "Escape") setEditingCell(null);
                                       }}
-                                      className="w-full text-xs px-1.5 py-0.5 rounded border border-[#1565c0] bg-white outline-none"
+                                      className="w-full text-xs px-1.5 py-0.5 rounded border border-[#1565c0] dark:border-blue-500 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 outline-none"
                                     />
                                   )}
                                 </div>

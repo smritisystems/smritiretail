@@ -277,11 +277,11 @@ export const TaxInvoiceItemGrid: React.FC<TaxInvoiceItemGridProps> = ({
   const minGuideRows = Math.max(0, 5 - items.length);
 
   return (
-    <main className="flex-1 flex flex-col bg-white overflow-hidden" data-purpose="item-billing-grid-container">
+    <main className="flex-1 flex flex-col bg-white dark:bg-slate-900 overflow-hidden" data-purpose="item-billing-grid-container">
       {/* ─── Top Auxiliary Section: Scan Dock & Active Item Preview Strip ─────────── */}
-      <div className="border-b border-slate-200 bg-slate-50 flex flex-col flex-none select-none shadow-2xs">
+      <div className="border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/60 flex flex-col flex-none select-none shadow-2xs">
         {/* Row 1: Rapid Barcode Scanner Dock & Live Scanned Item Insights */}
-        <div className="px-3 py-2 bg-white border-b border-slate-200 flex flex-wrap items-center justify-between gap-3 overflow-x-auto">
+        <div className="px-3 py-2 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-between gap-3 overflow-x-auto">
           {/* Rapid Barcode / SKU Scan Input Dock */}
           <form onSubmit={handleScanSubmit} className="flex items-center space-x-2 flex-none">
             <div className="flex items-center space-x-1.5 bg-blue-50/80 border border-blue-200 text-blue-800 px-2 py-1 rounded text-xs font-semibold">
@@ -320,7 +320,7 @@ export const TaxInvoiceItemGrid: React.FC<TaxInvoiceItemGridProps> = ({
           </form>
 
           {/* Vertical Divider */}
-          <div className="hidden lg:block h-7 w-px bg-slate-200 flex-none"></div>
+          <div className="hidden lg:block h-7 w-px bg-slate-200 dark:bg-slate-800 flex-none"></div>
 
           {/* Active Item Rapid Preview Strip */}
           <div className="hidden md:flex items-center space-x-4 text-xs flex-1 min-w-[500px] justify-between">
@@ -484,7 +484,7 @@ export const TaxInvoiceItemGrid: React.FC<TaxInvoiceItemGridProps> = ({
           </thead>
           <tbody className="divide-y divide-slate-200 font-sans">
             {/* ── PRIMARY ACTIVE ENTRY ROW (Stitch Row 1) ── */}
-            <tr className="bg-white hover:bg-slate-50/70 transition-colors divide-x divide-slate-200">
+            <tr className="bg-white dark:bg-slate-900 hover:bg-slate-50/70 dark:hover:bg-slate-800/50 transition-colors divide-x divide-slate-200 dark:divide-slate-800">
               <td className="py-2 px-3 text-center font-mono font-medium text-slate-500">
                 {items.length + 1}
               </td>
@@ -533,7 +533,7 @@ export const TaxInvoiceItemGrid: React.FC<TaxInvoiceItemGridProps> = ({
                     }
                   }}
                   placeholder="Enter item description"
-                  className="h-8 w-full text-xs placeholder:text-slate-400 bg-white border border-slate-300 focus:border-blue-600 rounded px-2 focus:outline-none"
+                  className="h-8 w-full text-xs placeholder:text-slate-400 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-100 focus:border-blue-600 rounded px-2 focus:outline-none"
                 />
               </td>
               {/* Rate */}
@@ -549,7 +549,7 @@ export const TaxInvoiceItemGrid: React.FC<TaxInvoiceItemGridProps> = ({
                       handleCommitRow();
                     }
                   }}
-                  className="h-8 w-full text-right font-mono text-xs bg-white border border-slate-300 focus:border-blue-600 rounded px-2 focus:outline-none"
+                  className="h-8 w-full text-right font-mono text-xs bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-100 focus:border-blue-600 rounded px-2 focus:outline-none"
                   placeholder="0.00"
                 />
               </td>
@@ -567,7 +567,7 @@ export const TaxInvoiceItemGrid: React.FC<TaxInvoiceItemGridProps> = ({
                       handleCommitRow();
                     }
                   }}
-                  className="h-8 w-full text-center font-mono text-xs font-bold text-slate-800 bg-white border border-slate-300 focus:border-blue-600 rounded px-2 focus:outline-none"
+                  className="h-8 w-full text-center font-mono text-xs font-bold text-slate-800 dark:text-slate-100 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 focus:border-blue-600 rounded px-2 focus:outline-none"
                 />
               </td>
               {/* Value (calculated) */}
@@ -587,7 +587,7 @@ export const TaxInvoiceItemGrid: React.FC<TaxInvoiceItemGridProps> = ({
                       handleCommitRow();
                     }
                   }}
-                  className="h-8 w-full text-right font-mono text-xs bg-white border border-slate-300 focus:border-blue-600 rounded px-2 focus:outline-none"
+                  className="h-8 w-full text-right font-mono text-xs bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-100 focus:border-blue-600 rounded px-2 focus:outline-none"
                   placeholder="0.00"
                 />
               </td>
@@ -608,7 +608,7 @@ export const TaxInvoiceItemGrid: React.FC<TaxInvoiceItemGridProps> = ({
                 <select
                   value={salesStaff}
                   onChange={(e) => setSalesStaff(e.target.value)}
-                  className="h-8 w-full text-xs bg-white text-slate-700 border border-slate-300 focus:border-blue-600 rounded px-1.5 focus:outline-none cursor-pointer"
+                  className="h-8 w-full text-xs bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-700 focus:border-blue-600 rounded px-1.5 focus:outline-none cursor-pointer"
                 >
                   {staffList.map((s) => (
                     <option key={s.id} value={s.name}>
@@ -622,7 +622,7 @@ export const TaxInvoiceItemGrid: React.FC<TaxInvoiceItemGridProps> = ({
                 <button
                   type="button"
                   onClick={handleCommitRow}
-                  className="w-7 h-7 mx-auto bg-slate-100 hover:bg-blue-600 hover:text-white rounded border border-slate-300 flex items-center justify-center text-slate-600 transition cursor-pointer"
+                  className="w-7 h-7 mx-auto bg-slate-100 dark:bg-slate-800 hover:bg-blue-600 hover:text-white rounded border border-slate-300 dark:border-slate-700 flex items-center justify-center text-slate-600 transition cursor-pointer"
                   title="Add Line Item (Enter)"
                 >
                   <Plus className="w-4 h-4" />
@@ -641,9 +641,9 @@ export const TaxInvoiceItemGrid: React.FC<TaxInvoiceItemGridProps> = ({
               return (
                 <tr
                   key={item.id || idx}
-                  className="bg-white hover:bg-slate-50 transition-colors divide-x divide-slate-200 group"
+                  className="bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors divide-x divide-slate-200 dark:divide-slate-800 group"
                 >
-                  <td className="py-2 px-3 text-center font-mono font-medium text-slate-600 bg-slate-50/50">
+                  <td className="py-2 px-3 text-center font-mono font-medium text-slate-600 dark:text-slate-400 bg-slate-50/50 dark:bg-slate-850">
                     {idx + 1}
                   </td>
                   <td className="py-2 px-3 font-mono font-bold text-blue-700">
@@ -712,7 +712,7 @@ export const TaxInvoiceItemGrid: React.FC<TaxInvoiceItemGridProps> = ({
             {Array.from({ length: minGuideRows }).map((_, guideIdx) => (
               <tr
                 key={`guide-${guideIdx}`}
-                className="bg-white hover:bg-slate-50/50 transition-colors divide-x divide-slate-200 h-9"
+                className="bg-white dark:bg-slate-900 hover:bg-slate-50/50 dark:hover:bg-slate-800/50 transition-colors divide-x divide-slate-200 dark:divide-slate-800 h-9"
               >
                 <td className="py-2 px-3 text-center font-mono font-medium text-slate-400">
                   {items.length + 2 + guideIdx}

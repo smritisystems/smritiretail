@@ -782,7 +782,7 @@ export const DistTaxInvoice: React.FC<SmritiDistributorTaxInvoiceWorkspaceProps>
             placeOfSupplyCode={docState.placeOfSupplyCode}
           />
         ) : (
-          <div className="flex-1 flex flex-col bg-white p-3 overflow-y-auto">
+          <div className="flex-1 flex flex-col bg-white dark:bg-slate-900 p-3 overflow-y-auto">
             <div className="flex items-center justify-between pb-2 border-b border-slate-200 mb-3">
               <div className="flex items-center space-x-2">
                 <span className="font-bold text-slate-800 text-sm capitalize">
@@ -815,7 +815,7 @@ export const DistTaxInvoice: React.FC<SmritiDistributorTaxInvoiceWorkspaceProps>
         )}
 
         {/* Persistent review area keeps the checkout decision visible below the grid. */}
-        <section className="flex-none border-t border-slate-200 bg-slate-50 px-4 py-2.5" data-purpose="invoice-review-summary">
+        <section className="flex-none border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/60 px-4 py-2.5" data-purpose="invoice-review-summary">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2">
@@ -877,13 +877,13 @@ export const DistTaxInvoice: React.FC<SmritiDistributorTaxInvoiceWorkspaceProps>
       />
 
       {/* ── 5. Keyboard-First Function Keys Footer ── */}
-      <footer className="bg-white border-t border-slate-200 px-4 py-2 flex flex-wrap items-center justify-between text-xs select-none" data-purpose="keyboard-shortcuts-footer">
+      <footer className="bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 px-4 py-2 flex flex-wrap items-center justify-between text-xs select-none" data-purpose="keyboard-shortcuts-footer">
         {/* Left: Function Key Badges */}
         <div className="flex items-center space-x-3 overflow-x-auto">
           {/* F2 Customer */}
           <div
             onClick={() => setIsCustomerModalOpen(true)}
-            className="flex items-center space-x-1.5 cursor-pointer hover:bg-slate-100 p-1 rounded transition"
+            className="flex items-center space-x-1.5 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 p-1 rounded transition"
           >
             <kbd className="px-2 py-0.5 font-bold font-mono bg-blue-100 text-blue-700 rounded border border-blue-300 text-[11px] shadow-2xs">
               F2
@@ -894,7 +894,7 @@ export const DistTaxInvoice: React.FC<SmritiDistributorTaxInvoiceWorkspaceProps>
           {/* F11 Item Entry */}
           <div
             onClick={() => setIsSkuModalOpen(true)}
-            className="flex items-center space-x-1.5 cursor-pointer hover:bg-slate-100 p-1 rounded transition"
+            className="flex items-center space-x-1.5 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 p-1 rounded transition"
           >
             <kbd className="px-2 py-0.5 font-bold font-mono bg-blue-100 text-blue-700 rounded border border-blue-300 text-[11px] shadow-2xs">
               F11
@@ -903,7 +903,7 @@ export const DistTaxInvoice: React.FC<SmritiDistributorTaxInvoiceWorkspaceProps>
           </div>
 
           {/* F6 Discounts */}
-          <div className="flex items-center space-x-1.5 cursor-pointer hover:bg-slate-100 p-1 rounded transition">
+          <div className="flex items-center space-x-1.5 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 p-1 rounded transition">
             <kbd className="px-2 py-0.5 font-bold font-mono bg-blue-100 text-blue-700 rounded border border-blue-300 text-[11px] shadow-2xs">
               F6
             </kbd>
@@ -913,7 +913,7 @@ export const DistTaxInvoice: React.FC<SmritiDistributorTaxInvoiceWorkspaceProps>
           {/* F7/F8 Settlement */}
           <div
             onClick={() => setIsSettlementModalOpen(true)}
-            className="flex items-center space-x-1.5 cursor-pointer hover:bg-slate-100 p-1 rounded transition"
+            className="flex items-center space-x-1.5 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 p-1 rounded transition"
           >
             <kbd className="px-2 py-0.5 font-bold font-mono bg-blue-100 text-blue-700 rounded border border-blue-300 text-[11px] shadow-2xs">
               F7/F8
@@ -922,7 +922,7 @@ export const DistTaxInvoice: React.FC<SmritiDistributorTaxInvoiceWorkspaceProps>
           </div>
 
           {/* F12 Suspend */}
-          <div className="hidden sm:flex items-center space-x-1.5 cursor-pointer hover:bg-slate-100 p-1 rounded transition">
+          <div className="hidden sm:flex items-center space-x-1.5 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 p-1 rounded transition">
             <kbd className="px-2 py-0.5 font-bold font-mono bg-blue-100 text-blue-700 rounded border border-blue-300 text-[11px] shadow-2xs">
               F12
             </kbd>
@@ -932,7 +932,7 @@ export const DistTaxInvoice: React.FC<SmritiDistributorTaxInvoiceWorkspaceProps>
           {/* Ctrl+P Print */}
           <div
             onClick={() => window.print()}
-            className="hidden md:flex items-center space-x-1.5 cursor-pointer hover:bg-slate-100 p-1 rounded transition"
+            className="hidden md:flex items-center space-x-1.5 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 p-1 rounded transition"
           >
             <kbd className="px-2 py-0.5 font-bold font-mono bg-blue-100 text-blue-700 rounded border border-blue-300 text-[11px] shadow-2xs">
               Ctrl+P
@@ -943,7 +943,7 @@ export const DistTaxInvoice: React.FC<SmritiDistributorTaxInvoiceWorkspaceProps>
           {/* Ctrl+S Save */}
           <div
             onClick={handleSaveInvoice}
-            className="flex items-center space-x-1.5 cursor-pointer hover:bg-slate-100 p-1 rounded transition"
+            className="flex items-center space-x-1.5 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 p-1 rounded transition"
           >
             <kbd className="px-2 py-0.5 font-bold font-mono bg-blue-100 text-blue-700 rounded border border-blue-300 text-[11px] shadow-2xs">
               Ctrl+S
@@ -966,7 +966,7 @@ export const DistTaxInvoice: React.FC<SmritiDistributorTaxInvoiceWorkspaceProps>
       {/* ── MODAL 1: SKU Catalog Search Modal (F11) ── */}
       {isSkuModalOpen && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-2xl border border-slate-200 w-full max-w-3xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+          <div className="bg-white dark:bg-slate-900 rounded-xl shadow-2xl border border-slate-200 dark:border-slate-800 w-full max-w-3xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
             <div className="bg-slate-900 px-4 py-3 text-white flex items-center justify-between">
               <div className="flex items-center space-x-2">
                 <Search className="w-5 h-5 text-cyan-400" />
@@ -995,7 +995,7 @@ export const DistTaxInvoice: React.FC<SmritiDistributorTaxInvoiceWorkspaceProps>
 
               <div className="border border-slate-200 rounded-lg overflow-hidden max-h-60 overflow-y-auto">
                 <table className="w-full text-xs text-left">
-                  <thead className="bg-slate-100 text-slate-700 font-semibold border-b border-slate-200 sticky top-0">
+                  <thead className="bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-semibold border-b border-slate-200 dark:border-slate-700 sticky top-0">
                     <tr>
                       <th className="p-2">SKU</th>
                       <th className="p-2">Description</th>
@@ -1046,7 +1046,7 @@ export const DistTaxInvoice: React.FC<SmritiDistributorTaxInvoiceWorkspaceProps>
               </div>
             </div>
 
-            <div className="bg-slate-50 px-4 py-2 border-t border-slate-200 flex justify-end space-x-2">
+            <div className="bg-slate-50 dark:bg-slate-950/60 px-4 py-2 border-t border-slate-200 dark:border-slate-800 flex justify-end space-x-2">
               <button
                 type="button"
                 onClick={() => setIsSkuModalOpen(false)}
@@ -1062,7 +1062,7 @@ export const DistTaxInvoice: React.FC<SmritiDistributorTaxInvoiceWorkspaceProps>
       {/* ── MODAL 2: Settle & Save Modal (F8) ── */}
       {isSettlementModalOpen && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-2xl border border-slate-200 w-full max-w-lg overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+          <div className="bg-white dark:bg-slate-900 rounded-xl shadow-2xl border border-slate-200 dark:border-slate-800 w-full max-w-lg overflow-hidden animate-in fade-in zoom-in-95 duration-150">
             <div className="bg-slate-900 px-4 py-3 text-white flex items-center justify-between">
               <h2 className="font-bold text-sm flex items-center space-x-2">
                 <span>Settlement Confirmation (F8)</span>
@@ -1131,7 +1131,7 @@ export const DistTaxInvoice: React.FC<SmritiDistributorTaxInvoiceWorkspaceProps>
                 <button
                   type="button"
                   onClick={() => setIsSettlementModalOpen(false)}
-                  className="px-3 py-1.5 text-xs font-semibold text-slate-600 border border-slate-300 rounded hover:bg-slate-100 cursor-pointer"
+                  className="px-3 py-1.5 text-xs font-semibold text-slate-600 dark:text-slate-300 border border-slate-300 dark:border-slate-700 rounded hover:bg-slate-100 cursor-pointer"
                 >
                   Cancel
                 </button>
@@ -1152,7 +1152,7 @@ export const DistTaxInvoice: React.FC<SmritiDistributorTaxInvoiceWorkspaceProps>
       {/* ── MODAL 3: Customer Master Directory Modal (F2) ── */}
       {isCustomerModalOpen && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white border border-slate-200 rounded-xl w-full max-w-2xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh] animate-in fade-in zoom-in-95 duration-150">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl w-full max-w-2xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh] animate-in fade-in zoom-in-95 duration-150">
             <div className="p-4 bg-slate-900 text-white flex justify-between items-center">
               <div className="flex items-center gap-2">
                 <Search className="w-5 h-5 text-cyan-400" />
@@ -1169,21 +1169,21 @@ export const DistTaxInvoice: React.FC<SmritiDistributorTaxInvoiceWorkspaceProps>
               </button>
             </div>
 
-            <div className="p-4 border-b border-slate-200 bg-slate-50">
+            <div className="p-4 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/60">
               <input
                 type="text"
                 autoFocus
                 value={customerSearchQuery}
                 onChange={(e) => setCustomerSearchQuery(e.target.value)}
                 placeholder="Search by customer name, code, mobile, or GSTIN..."
-                className="w-full h-9 px-3 border border-slate-300 rounded text-xs bg-white text-slate-800 focus:border-blue-600 focus:outline-none"
+                className="w-full h-9 px-3 border border-slate-300 dark:border-slate-700 rounded text-xs bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 focus:border-blue-600 focus:outline-none"
               />
             </div>
 
             <div className="flex-1 overflow-auto p-2">
               <table className="w-full text-left border-collapse text-xs">
                 <thead>
-                  <tr className="bg-slate-100 text-slate-600 uppercase font-semibold text-[10px] tracking-wider border-b border-slate-200">
+                  <tr className="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 uppercase font-semibold text-[10px] tracking-wider border-b border-slate-200 dark:border-slate-700">
                     <th className="p-2">Code</th>
                     <th className="p-2">Customer Name</th>
                     <th className="p-2">Mobile</th>
@@ -1228,12 +1228,12 @@ export const DistTaxInvoice: React.FC<SmritiDistributorTaxInvoiceWorkspaceProps>
               </table>
             </div>
 
-            <div className="p-3 bg-slate-50 border-t border-slate-200 flex justify-between items-center text-xs text-slate-500">
-              <span>Press <kbd className="bg-slate-200 px-1 py-0.5 rounded text-[11px] font-mono">ESC</kbd> to close</span>
+            <div className="p-3 bg-slate-50 dark:bg-slate-950/60 border-t border-slate-200 dark:border-slate-800 flex justify-between items-center text-xs text-slate-500">
+              <span>Press <kbd className="bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 px-1 py-0.5 rounded text-[11px] font-mono">ESC</kbd> to close</span>
               <button
                 type="button"
                 onClick={() => setIsCustomerModalOpen(false)}
-                className="px-3 py-1 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded text-xs font-semibold cursor-pointer"
+                className="px-3 py-1 bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded text-xs font-semibold cursor-pointer"
               >
                 Close
               </button>
@@ -1244,7 +1244,7 @@ export const DistTaxInvoice: React.FC<SmritiDistributorTaxInvoiceWorkspaceProps>
 
       {isNewCustomerModalOpen && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white border border-slate-200 rounded-xl w-full max-w-md shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl w-full max-w-md shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
             <div className="p-4 bg-slate-900 text-white flex justify-between items-center">
               <h2 className="text-sm font-bold">Create New Customer</h2>
               <button type="button" onClick={() => setIsNewCustomerModalOpen(false)} className="text-slate-400 hover:text-white cursor-pointer" aria-label="Close new customer dialog">
@@ -1281,7 +1281,7 @@ export const DistTaxInvoice: React.FC<SmritiDistributorTaxInvoiceWorkspaceProps>
                 />
               </label>
             </div>
-            <div className="p-3 bg-slate-50 border-t border-slate-200 flex justify-end gap-2">
+            <div className="p-3 bg-slate-50 dark:bg-slate-950/60 border-t border-slate-200 dark:border-slate-800 flex justify-end gap-2">
               <button type="button" onClick={() => setIsNewCustomerModalOpen(false)} className="px-3 py-1.5 rounded border border-slate-300 text-xs font-semibold text-slate-700 hover:bg-white cursor-pointer">
                 Cancel
               </button>
