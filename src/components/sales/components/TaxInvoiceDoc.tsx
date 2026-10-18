@@ -32,6 +32,7 @@ import {
 } from "lucide-react";
 import { TaxInvoiceDocumentState } from "../types.ts";
 import { GST_STATE_MAP } from "../../../utils/gstEngine.ts";
+import { getTenantCompanyContext } from "../../../lib/apiFetchV1.ts";
 
 export interface TaxInvoiceDocumentPanelProps {
   docState: TaxInvoiceDocumentState;
@@ -221,17 +222,22 @@ export const TaxInvoiceDoc: React.FC<TaxInvoiceDocumentPanelProps> = ({
             <div className="w-8 h-8 rounded bg-slate-100 text-slate-700 border border-slate-300 flex items-center justify-center flex-none font-bold text-sm">
               <Building2 className="w-4 h-4" />
             </div>
-            <div className="min-w-0 flex-1">
-              <div className="text-[10px] uppercase font-bold text-slate-500 tracking-wider leading-none">
-                Bill From
-              </div>
-              <div className="text-xs font-bold text-slate-900 truncate mt-0.5 leading-tight">
-                Tattly Threads
-              </div>
-              <div className="text-[11px] text-slate-500 leading-none mt-0.5 font-mono">
-                Mumbai (27)
-              </div>
-            </div>
+            {(() => {
+              const ctx = typeof window !== "undefined" ? getTenantCompanyContext() : null;
+              return (
+                <div className="min-w-0 flex-1">
+                  <div className="text-[10px] uppercase font-bold text-slate-500 tracking-wider leading-none">
+                    Bill From
+                  </div>
+                  <div className="text-xs font-bold text-slate-900 truncate mt-0.5 leading-tight">
+                    {ctx?.companyName || "Configured Seller"}
+                  </div>
+                  <div className="text-[11px] text-slate-500 leading-none mt-0.5 font-mono">
+                    {ctx?.companyGstin ? `GSTIN: ${ctx.companyGstin}` : "Statutory Profile"}
+                  </div>
+                </div>
+              );
+            })()}
           </div>
 
           {/* Card 0B: Dispatch From */}
@@ -250,7 +256,7 @@ export const TaxInvoiceDoc: React.FC<TaxInvoiceDocumentPanelProps> = ({
                 {docState.dispatchFromLocationId === "wh-central-001" ? "WH-MAIN" : (docState.dispatchFromLocationId === "wh-shop-001" ? "WH-SHOP" : "WH-NGP")}
               </div>
               <div className="text-[11px] text-slate-500 leading-none mt-0.5 truncate">
-                {docState.dispatchFromName ? docState.dispatchFromName.replace("Tattly Threads ", "") : "Nagpur Depot"}
+                {docState.dispatchFromName || "Nagpur Depot"}
               </div>
             </div>
             <ArrowRight className="w-4 h-4 text-slate-400 group-hover:text-blue-600 flex-none" />
@@ -582,10 +588,13 @@ export const TaxInvoiceDoc: React.FC<TaxInvoiceDocumentPanelProps> = ({
                       value={docState.dispatchFromLocationId || "wh-ngp-001"}
                       onChange={(e) => {
                         const val = e.target.value;
+                        const tenantCtx = typeof window !== "undefined" ? getTenantCompanyContext() : null;
+                        const companyName = tenantCtx?.companyName || "";
+                        const companyGstin = tenantCtx?.companyGstin || "";
                         const whList = [
-                          { id: "wh-ngp-001", code: "WH-NGP", name: "Tattly Threads Nagpur Depot", address: "Om Sai Nagar, Kalamana", city: "Nagpur", state: "Maharashtra", state_code: "27", pincode: "440029" },
-                          { id: "wh-central-001", code: "WH-MAIN", name: "Central Distribution Godown", address: "Plot 12, Industrial Estate", city: "Mumbai", state: "Maharashtra", state_code: "27", pincode: "400001" },
-                          { id: "wh-shop-001", code: "WH-SHOP", name: "Retail Floor & Display Shelf", address: "Office No. 81, Ibrahim Rehmatullah Road", city: "Mumbai", state: "Maharashtra", state_code: "27", pincode: "400003" },
+                          { id: "wh-ngp-001", code: "WH-NGP", name: companyName ? `${companyName} Nagpur Depot` : "Nagpur Depot", address: "Om Sai Nagar, Kalamana", city: "Nagpur", state: "Maharashtra", state_code: "27", pincode: "440029" },
+                          { id: "wh-central-001", code: "WH-MAIN", name: companyName ? `${companyName} Central Godown` : "Central Distribution Godown", address: "Plot 12, Industrial Estate", city: "Mumbai", state: "Maharashtra", state_code: "27", pincode: "400001" },
+                          { id: "wh-shop-001", code: "WH-SHOP", name: companyName ? `${companyName} Retail Floor` : "Retail Floor & Display Shelf", address: "Office No. 81, Ibrahim Rehmatullah Road", city: "Mumbai", state: "Maharashtra", state_code: "27", pincode: "400003" },
                         ];
                         const sel = whList.find(w => w.id === val || w.code === val) || whList[0];
                         onChange({
@@ -595,7 +604,7 @@ export const TaxInvoiceDoc: React.FC<TaxInvoiceDocumentPanelProps> = ({
                           dispatchFromSnapshot: {
                             location_id: sel.id,
                             code: sel.code,
-                            name: "Tattly Threads",
+                            name: companyName,
                             location_name: sel.name,
                             address_line1: sel.address,
                             city: sel.city,
@@ -603,13 +612,13 @@ export const TaxInvoiceDoc: React.FC<TaxInvoiceDocumentPanelProps> = ({
                             state: sel.state,
                             state_code: sel.state_code,
                             pincode: sel.pincode,
-                            gstin: "27AAXFT2508H1ZR",
+                            gstin: companyGstin,
                           }
                         });
                       }}
                       className="mt-1 w-full text-xs font-medium border border-slate-300 rounded px-2 py-1.5 bg-slate-50"
                     >
-                      <option value="wh-ngp-001">[WH-NGP] Tattly Threads Nagpur Depot — Nagpur (440029)</option>
+                      <option value="wh-ngp-001">[WH-NGP] Nagpur Depot — Nagpur (440029)</option>
                       <option value="wh-central-001">[WH-MAIN] Central Distribution Godown — Mumbai (400001)</option>
                       <option value="wh-shop-001">[WH-SHOP] Retail Floor &amp; Display Shelf — Mumbai (400003)</option>
                     </select>
@@ -617,12 +626,12 @@ export const TaxInvoiceDoc: React.FC<TaxInvoiceDocumentPanelProps> = ({
                   <div className="space-y-1.5 text-[11px]">
                     <div className="flex justify-between">
                       <span className="text-slate-500">Warehouse:</span>
-                      <span className="font-mono font-bold text-slate-900">{docState.dispatchFromName || "Tattly Threads Nagpur Depot"}</span>
+                      <span className="font-mono font-bold text-slate-900">{docState.dispatchFromName || "Warehouse / Depot"}</span>
                     </div>
                     <div>
                       <span className="text-slate-500 block">Address:</span>
                       <p className="text-slate-700 text-[10px] leading-relaxed mt-0.5">
-                        {docState.dispatchFromAddress || "Om Sai Nagar, Kalamana, Nagpur, Maharashtra - 440029"}
+                        {docState.dispatchFromAddress || "Configured Warehouse Address"}
                       </p>
                     </div>
                     <div className="pt-2 border-t border-slate-100">

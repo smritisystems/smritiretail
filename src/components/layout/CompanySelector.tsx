@@ -52,7 +52,7 @@ export const CompanySelector: React.FC = () => {
           const mapped: CompanyOption[] = data.companies.map((item: any) => ({
             company_id: item.id || "COMP-001",
             company_code: (item.id || "COMP-001").replace(/^COMP-/, "") || "001",
-            company_name: item.name || "Tattly Threads",
+            company_name: item.name || "",
             status: item.status || "READY"
           }));
           setCompanies(mapped);

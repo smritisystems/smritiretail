@@ -17,6 +17,7 @@ import React, { useEffect, useState } from "react";
 import ReactDOM from "react-dom";
 import { CreditCard, FileText, Printer, X } from "lucide-react";
 import { User } from "../../types.ts";
+import { getTenantCompanyContext } from "../../lib/apiFetchV1.ts";
 
 interface StaffPrintModalProps {
   isOpen: boolean;
@@ -103,8 +104,9 @@ const StaffPrintModal: React.FC<StaffPrintModalProps> = ({ isOpen, onClose, staf
 
   useEffect(() => {
     if (typeof window !== "undefined") {
+      const tenantCtx = getTenantCompanyContext();
       const companyId = localStorage.getItem("smriti_company_id") || localStorage.getItem("smriti_company_code") || "";
-      const storedCompanyName = localStorage.getItem("smriti_company_name") || "";
+      const storedCompanyName = tenantCtx.companyName || localStorage.getItem("smriti_company_name") || "";
       setCompanyName(storedCompanyName || "");
       setCompanyAddress(localStorage.getItem("smriti_company_address") || localStorage.getItem("smriti_company_address_display") || "");
       try {
@@ -515,7 +517,17 @@ const StaffPrintModal: React.FC<StaffPrintModalProps> = ({ isOpen, onClose, staf
     </div>
   );
 
-  const printable = mode === "id" ? <div className="flex flex-col gap-4">{idCard}{idCardBack}</div> : formDocument;
+  const isIdentityConfigured = Boolean(companyName.trim());
+  const printable = !isIdentityConfigured ? (
+    <div data-testid="print-blocked-container" className="p-8 text-center bg-rose-50 border border-rose-200 text-rose-800 rounded">
+      <h3 className="text-sm font-bold">Print Blocked: Statutory Identity Missing</h3>
+      <p className="text-xs mt-1">Tenant company name is required before generating or printing staff documents.</p>
+    </div>
+  ) : mode === "id" ? (
+    <div className="flex flex-col gap-4">{idCard}{idCardBack}</div>
+  ) : (
+    formDocument
+  );
 
   return (
     <>
@@ -619,8 +631,9 @@ const StaffPrintModal: React.FC<StaffPrintModalProps> = ({ isOpen, onClose, staf
             </div>
             <button
               id="btn-trigger-print"
+              disabled={!isIdentityConfigured}
               onClick={() => window.print()}
-              className="rounded-lg bg-indigo-600 px-3 py-2 text-xs font-bold text-white hover:bg-indigo-700 transition-colors"
+              className="rounded-lg bg-indigo-600 px-3 py-2 text-xs font-bold text-white hover:bg-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             >
               <Printer size={14} className="mr-1 inline" />
               Print

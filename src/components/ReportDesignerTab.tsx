@@ -2407,7 +2407,7 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
                       Statutory GST Tax Invoices Master Register
                     </h5>
                     <p className="text-[10px] text-theme-muted font-mono mt-0.5">
-                      Seller: Tattly Threads (27AAXFT2508H1ZR) • Customer: Reliance Retail Limited • GST Rate: 5.00%
+                      Statutory GST Compliance Register • Filter by Tax Rate, Customer &amp; Financial Year
                     </p>
                   </div>
                   <a
@@ -2720,7 +2720,7 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
                       Detailed Line-Item Sales Orders Register
                     </h5>
                     <p className="text-[11px] text-theme-muted font-mono mt-0.5">
-                      Seller: Tattly Threads (27AAXFT2508H1ZR) • Customer: Reliance Retail Limited • GST Rate: 5.00%
+                      Detailed Order Fulfillment Register • Filter by Delivery State, Customer &amp; Timeline
                     </p>
                   </div>
                   <div className="flex items-center gap-2 flex-wrap">

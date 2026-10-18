@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { VendorDetail } from "../../types/vendor.ts";
 import { withCapability } from "../../types/architecture.ts";
+import { getTenantCompanyContext } from "../../lib/apiFetchV1.ts";
 
 interface VendorPrintModalProps {
   isOpen: boolean;
@@ -38,14 +39,24 @@ const VendorPrintModalBase: React.FC<VendorPrintModalProps> = ({
   const [withData, setWithData] = useState<boolean>(initialWithData && Boolean(vendor));
   const [includeBanking, setIncludeBanking] = useState<boolean>(true);
   const [includeDeclaration, setIncludeDeclaration] = useState<boolean>(true);
-  const [tenantName, setTenantName] = useState<string>("Tattly Threads");
-  const [branchName, setBranchName] = useState<string>("Main Corporate Branch");
+  const [tenantName, setTenantName] = useState<string>(() => {
+    if (typeof window !== "undefined") {
+      return getTenantCompanyContext().companyName || "";
+    }
+    return "";
+  });
+  const [branchName, setBranchName] = useState<string>(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("smriti_branch_name") || "Main Corporate Branch";
+    }
+    return "Main Corporate Branch";
+  });
 
   useEffect(() => {
     if (typeof window !== "undefined") {
-      const cName = localStorage.getItem("smriti_company_name");
+      const ctx = getTenantCompanyContext();
+      if (ctx.companyName) setTenantName(ctx.companyName);
       const bName = localStorage.getItem("smriti_branch_name");
-      if (cName) setTenantName(cName);
       if (bName) setBranchName(bName);
     }
   }, []);
@@ -95,7 +106,17 @@ const VendorPrintModalBase: React.FC<VendorPrintModalProps> = ({
     );
   };
 
-  const printableDocument = (
+  const isIdentityConfigured = Boolean(tenantName.trim());
+
+  const printableDocument = !isIdentityConfigured ? (
+    <div data-testid="print-blocked-container" className="p-12 text-center bg-rose-50 border border-rose-200 text-rose-800 rounded-lg max-w-[820px] mx-auto my-8">
+      <h3 className="text-base font-bold">Print Blocked: Statutory Identity Missing</h3>
+      <p className="text-xs mt-2">
+        Statutory tenant legal name is required before generating or printing vendor KYC documentation.
+        Please configure your company profile first.
+      </p>
+    </div>
+  ) : (
     <div className="vendor-printable-sheet bg-white text-slate-900 p-8 max-w-[820px] mx-auto min-h-[1120px] text-[11px] font-sans leading-relaxed shadow-sm">
       {/* ─────────────────── DOCUMENT HEADER ─────────────────── */}
       <div className="border-b-2 border-slate-900 pb-3 mb-4">
@@ -680,7 +701,9 @@ const VendorPrintModalBase: React.FC<VendorPrintModalProps> = ({
 
             <button
               onClick={handlePrint}
-              className="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-md shadow-indigo-600/20 flex items-center space-x-2 transition"
+              disabled={!isIdentityConfigured}
+              data-testid="vendor-print-btn"
+              className="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-bold shadow-md shadow-indigo-600/20 flex items-center space-x-2 transition"
             >
               <Printer size={15} />
               <span>Print Document</span>

@@ -280,7 +280,7 @@ export const CompanyProfileStudio: React.FC<Props> = ({
     if (profile.gst_number && !/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/.test(profile.gst_number)) {
       showNotification(
         "SMRITI-VAL-001: Invalid GSTIN Format",
-        "GSTIN must be 15 characters adhering to GST statutory specification (e.g., 27AAXFT2508H1ZR).",
+        "GSTIN must be 15 characters adhering to GST statutory specification (e.g., 27ABCDE1234F1Z5).",
         "error"
       );
       setActiveTab("statutory");
@@ -291,7 +291,7 @@ export const CompanyProfileStudio: React.FC<Props> = ({
     if (profile.pan && !/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(profile.pan)) {
       showNotification(
         "SMRITI-VAL-002: Invalid PAN Format",
-        "PAN must be exactly 10 alphanumeric characters (e.g., AAXFT2508H).",
+        "PAN must be exactly 10 alphanumeric characters (e.g., ABCDE1234F).",
         "error"
       );
       setActiveTab("statutory");
@@ -977,7 +977,7 @@ export const CompanyProfileStudio: React.FC<Props> = ({
                         maxLength={15}
                         value={profile.gst_number || ""}
                         onChange={(e) => updateField("gst_number", e.target.value)}
-                        placeholder="27AAXFT2508H1ZR"
+                        placeholder="27ABCDE1234F1Z5"
                         className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-800 focus:border-indigo-500 text-xs font-mono font-bold text-white tracking-wider outline-hidden uppercase"
                       />
                       <div className="flex items-center justify-between text-[10px] text-slate-400 mt-1">
@@ -1610,7 +1610,7 @@ export const CompanyProfileStudio: React.FC<Props> = ({
                   type="text"
                   value={activeBankModal.account_no}
                   onChange={(e) => setActiveBankModal({ ...activeBankModal, account_no: e.target.value })}
-                  placeholder="43976711765"
+                  placeholder="000000000000"
                   className="w-full px-3 py-2 rounded-lg bg-slate-950 border border-slate-800 text-white font-mono"
                 />
               </div>
@@ -1621,7 +1621,7 @@ export const CompanyProfileStudio: React.FC<Props> = ({
                   maxLength={11}
                   value={activeBankModal.ifsc}
                   onChange={(e) => setActiveBankModal({ ...activeBankModal, ifsc: e.target.value.toUpperCase() })}
-                  placeholder="SBIN0030425"
+                  placeholder="ABCD0123456"
                   className="w-full px-3 py-2 rounded-lg bg-slate-950 border border-slate-800 text-white font-mono uppercase"
                 />
               </div>
