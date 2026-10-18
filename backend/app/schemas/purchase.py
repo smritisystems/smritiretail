@@ -136,6 +136,14 @@ class PurchaseOrderItemResponse(BaseModel):
     gst_rate:   Decimal
     tax_amount: Decimal
     line_total: Decimal
+    heel_type:        Optional[str] = None
+    upper_material:   Optional[str] = None
+    outsole_material: Optional[str] = None
+    image_url:        Optional[str] = None
+    brand:            Optional[str] = None
+    color:            Optional[str] = None
+    size:             Optional[str] = None
+    style:            Optional[str] = None
 
     model_config = {"from_attributes": True}
 

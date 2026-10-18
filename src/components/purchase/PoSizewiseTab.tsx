@@ -42,7 +42,7 @@ import React, {
 } from "react";
 import { apiFetchV1 } from "../../lib/apiFetchV1.ts";
 import { PurchBrowseDlg } from "./PurchBrowseDlg.tsx";
-import { POPrintPreviewModal } from "./POPrintPreviewModal.tsx";
+import { POPrintPreviewModal, resolveFootwearAttributes } from "./POPrintPreviewModal.tsx";
 import { useF2Screen, useF2Dispatcher } from "../../context/F2DispatcherContext.tsx";
 import type { LookupResult } from "../../context/F2DispatcherContext.tsx";
 import type { Product } from "../../types.ts";
@@ -156,6 +156,9 @@ export interface SizewisePOLine {
   deliveryDate: string;
   originalProduct?: Product;
   imageUrl?: string;
+  heelType?: string;
+  upperMaterial?: string;
+  outsoleMaterial?: string;
 }
 
 /**
@@ -186,6 +189,9 @@ export interface GroupedSizewiseDisplayRow {
   sizeToLineIndex: Record<string, number>;
   memberLineIndices: number[];
   primaryLineIndex: number;
+  heelType?: string;
+  upperMaterial?: string;
+  outsoleMaterial?: string;
 }
 
 /**
@@ -209,6 +215,11 @@ export function buildGroupedSizewiseLines(
     // Blank or unconfigured rows keep their individual identity so they remain individually editable
     const isBlank = !art && !col && !line.itemCode?.trim() && (!line.totalQty || line.totalQty === 0);
     const groupKey = isBlank ? `__blank_${line.id || idx}` : `${art.toUpperCase()}:::${col.toUpperCase()}`;
+
+    const fwAttrs = resolveFootwearAttributes(line);
+    const resolvedHeel = line.heelType || (fwAttrs.heels !== "—" ? fwAttrs.heels : undefined);
+    const resolvedUpper = line.upperMaterial || (fwAttrs.upperMaterial !== "—" ? fwAttrs.upperMaterial : undefined);
+    const resolvedOutsole = line.outsoleMaterial || (fwAttrs.outsole !== "—" ? fwAttrs.outsole : undefined);
 
     if (!groupMap.has(groupKey)) {
       const initialSizeQtys: Record<string, number> = {};
@@ -237,6 +248,9 @@ export function buildGroupedSizewiseLines(
         stockOnHand: Number(line.stockOnHand || 0),
         imageUrl: line.imageUrl || "",
         originalProduct: line.originalProduct,
+        heelType: resolvedHeel,
+        upperMaterial: resolvedUpper,
+        outsoleMaterial: resolvedOutsole,
         sizeQuantities: initialSizeQtys,
         totalQty: 0,
         netValue: 0,
@@ -265,6 +279,10 @@ export function buildGroupedSizewiseLines(
       if ((!existing.rate || existing.rate === 0) && line.rate) existing.rate = line.rate;
       if (!existing.barcode && line.barcode) existing.barcode = line.barcode;
       if (!existing.product && line.product) existing.product = line.product;
+      if (!existing.originalProduct && line.originalProduct) existing.originalProduct = line.originalProduct;
+      if (!existing.heelType && resolvedHeel) existing.heelType = resolvedHeel;
+      if (!existing.upperMaterial && resolvedUpper) existing.upperMaterial = resolvedUpper;
+      if (!existing.outsoleMaterial && resolvedOutsole) existing.outsoleMaterial = resolvedOutsole;
     }
   });
 
@@ -1233,6 +1251,15 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
               size: p.size,
               stock: Number(p.stock || 0),
               category: p.category,
+              attributes: p.attributes || p.attributes_json || {},
+              primaryImageUrl: p.primary_image_url || p.primaryImageUrl || p.image_url,
+              galleryImages: p.gallery_images || p.galleryImages,
+              heel_type: p.heel_type || p.heelType,
+              upper_material: p.upper_material || p.upperMaterial,
+              outsole_material: p.outsole_material || p.outsoleMaterial,
+              department: p.department,
+              article: p.article || p.article_no,
+              article_no: p.article_no || p.article,
             }))
           );
         }
@@ -1486,25 +1513,38 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
           }
           const rate = parseFloat(item.rate || item.cost_price || item.unit_price || 0);
 
+          // Lookup matching product in catalog index
+          const matchedProduct = products.find(
+            p => p.id === item.product_id || p.code === rawCode || (item.barcode && p.barcode === item.barcode)
+          );
+          const matchedVariant = art ? resolveVariantFromIndex(articleCatalogIndex, art, col, "") : undefined;
+          const origProduct = matchedProduct || matchedVariant?.originalProduct;
+          const fwAttrs = resolveFootwearAttributes(origProduct || item);
+
           if (!groupedPoMap.has(groupKey)) {
             groupedPoMap.set(groupKey, {
               id: `sw-line-${groupedPoMap.size + 1}`,
               sNo: groupedPoMap.size + 1,
               itemCode: rawCode,
               articleNo: art,
-              barcode: item.barcode || "",
+              barcode: item.barcode || origProduct?.barcode || "",
               product: rawName,
-              brand: item.brand || "",
+              brand: item.brand || origProduct?.brand || "",
               style: art,
               shade: col,
               unit: item.unit || item.uom || "Pair",
               sizeQuantities: sizeQtys,
               totalQty,
               rate,
-              stockOnHand: Number(item.stock || item.stockOnHand || 0),
+              stockOnHand: Number(item.stock || item.stockOnHand || origProduct?.stock || 0),
               taxPercent: Number(item.gst_rate || item.tax_percent || item.taxPercent || header.commonTaxPercent),
               netValue: totalQty * rate,
               deliveryDate: item.delivery_date || header.deliveryDate,
+              originalProduct: origProduct,
+              imageUrl: item.imageUrl || origProduct?.primaryImageUrl,
+              heelType: fwAttrs.heels !== "—" ? fwAttrs.heels : undefined,
+              upperMaterial: fwAttrs.upperMaterial !== "—" ? fwAttrs.upperMaterial : undefined,
+              outsoleMaterial: fwAttrs.outsole !== "—" ? fwAttrs.outsole : undefined,
             });
           } else {
             const existing = groupedPoMap.get(groupKey)!;
@@ -1515,7 +1555,16 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
             });
             existing.totalQty = activeSizes.reduce((sum, sz) => sum + (existing.sizeQuantities[sz] || 0), 0);
             existing.netValue = existing.totalQty * existing.rate;
-            if (!existing.barcode && item.barcode) existing.barcode = item.barcode;
+            if (!existing.barcode && (item.barcode || origProduct?.barcode)) {
+              existing.barcode = item.barcode || origProduct?.barcode;
+            }
+            if (!existing.originalProduct && origProduct) existing.originalProduct = origProduct;
+            if (!existing.heelType && fwAttrs.heels !== "—") existing.heelType = fwAttrs.heels;
+            if (!existing.upperMaterial && fwAttrs.upperMaterial !== "—") existing.upperMaterial = fwAttrs.upperMaterial;
+            if (!existing.outsoleMaterial && fwAttrs.outsole !== "—") existing.outsoleMaterial = fwAttrs.outsole;
+            if (!existing.imageUrl && (item.imageUrl || origProduct?.primaryImageUrl)) {
+              existing.imageUrl = item.imageUrl || origProduct?.primaryImageUrl;
+            }
           }
         });
 
@@ -1597,6 +1646,8 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
       const currColor = (lines[idx]?.shade || "").toUpperCase();
       const keepColor = availableColors.map(c => c.toUpperCase()).includes(currColor);
       const newShade = keepColor ? currColor : (availableColors.length === 1 ? availableColors[0] : "");
+      const matchedVariant = newShade ? resolveVariantFromIndex(articleCatalogIndex, summary.article, newShade, "") : undefined;
+      const fwAttrs = resolveFootwearAttributes(matchedVariant?.originalProduct || (summary as any));
 
       updateLine(idx, {
         articleNo: summary.article,
@@ -1608,6 +1659,10 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
         taxPercent: summary.gstPercentage !== undefined ? summary.gstPercentage : lines[idx]?.taxPercent,
         imageUrl: summary.imageUrl || lines[idx]?.imageUrl,
         shade: newShade,
+        originalProduct: matchedVariant?.originalProduct || lines[idx]?.originalProduct,
+        heelType: fwAttrs.heels !== "—" ? fwAttrs.heels : lines[idx]?.heelType,
+        upperMaterial: fwAttrs.upperMaterial !== "—" ? fwAttrs.upperMaterial : lines[idx]?.upperMaterial,
+        outsoleMaterial: fwAttrs.outsole !== "—" ? fwAttrs.outsole : lines[idx]?.outsoleMaterial,
       });
     } else {
       updateLine(idx, {
@@ -1622,12 +1677,17 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
     const shadeVal = val.toUpperCase();
     const art = lines[idx]?.articleNo || lines[idx]?.style;
     const variant = art ? resolveVariantFromIndex(articleCatalogIndex, art, shadeVal, "") : undefined;
+    const fwAttrs = resolveFootwearAttributes(variant?.originalProduct);
     updateLine(idx, {
       shade: shadeVal,
       ...(variant ? {
         rate: variant.costPrice || lines[idx]?.rate,
         taxPercent: variant.gstPercentage !== undefined ? variant.gstPercentage : lines[idx]?.taxPercent,
         imageUrl: variant.imageUrl || lines[idx]?.imageUrl,
+        originalProduct: variant.originalProduct || lines[idx]?.originalProduct,
+        heelType: fwAttrs.heels !== "—" ? fwAttrs.heels : lines[idx]?.heelType,
+        upperMaterial: fwAttrs.upperMaterial !== "—" ? fwAttrs.upperMaterial : lines[idx]?.upperMaterial,
+        outsoleMaterial: fwAttrs.outsole !== "—" ? fwAttrs.outsole : lines[idx]?.outsoleMaterial,
       } : {}),
     });
   }, [articleCatalogIndex, lines, updateLine]);
@@ -2502,25 +2562,38 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
         }
         const rate = parseFloat(item.rate || item.unit_price || item.price || 0);
 
+        // Lookup matching product in catalog index
+        const matchedProduct = products.find(
+          p => p.id === item.product_id || p.code === rawCode || (item.barcode && p.barcode === item.barcode)
+        );
+        const matchedVariant = art ? resolveVariantFromIndex(articleCatalogIndex, art, col, "") : undefined;
+        const origProduct = matchedProduct || matchedVariant?.originalProduct;
+        const fwAttrs = resolveFootwearAttributes(origProduct || item);
+
         if (!groupedPoMap.has(groupKey)) {
           groupedPoMap.set(groupKey, {
             id: `sw-line-${groupedPoMap.size + 1}`,
             sNo: groupedPoMap.size + 1,
             itemCode: rawCode,
             articleNo: art,
-            barcode: item.barcode || "",
+            barcode: item.barcode || origProduct?.barcode || "",
             product: rawName,
-            brand: item.brand || "",
+            brand: item.brand || origProduct?.brand || "",
             style: art,
             shade: col,
             unit: item.unit || item.uom || "Pair",
             sizeQuantities: sizeQtys,
             totalQty,
             rate,
-            stockOnHand: Number(item.stock || item.stockOnHand || 0),
+            stockOnHand: Number(item.stock || item.stockOnHand || origProduct?.stock || 0),
             taxPercent: Number(item.tax_percent || item.taxPercent || header.commonTaxPercent),
             netValue: totalQty * rate,
             deliveryDate: item.delivery_date || header.deliveryDate,
+            originalProduct: origProduct,
+            imageUrl: item.imageUrl || origProduct?.primaryImageUrl,
+            heelType: fwAttrs.heels !== "—" ? fwAttrs.heels : undefined,
+            upperMaterial: fwAttrs.upperMaterial !== "—" ? fwAttrs.upperMaterial : undefined,
+            outsoleMaterial: fwAttrs.outsole !== "—" ? fwAttrs.outsole : undefined,
           });
         } else {
           const existing = groupedPoMap.get(groupKey)!;
@@ -2531,7 +2604,16 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
           });
           existing.totalQty = sizes.reduce((sum, sz) => sum + (existing.sizeQuantities[sz] || 0), 0);
           existing.netValue = existing.totalQty * existing.rate;
-          if (!existing.barcode && item.barcode) existing.barcode = item.barcode;
+          if (!existing.barcode && (item.barcode || origProduct?.barcode)) {
+            existing.barcode = item.barcode || origProduct?.barcode;
+          }
+          if (!existing.originalProduct && origProduct) existing.originalProduct = origProduct;
+          if (!existing.heelType && fwAttrs.heels !== "—") existing.heelType = fwAttrs.heels;
+          if (!existing.upperMaterial && fwAttrs.upperMaterial !== "—") existing.upperMaterial = fwAttrs.upperMaterial;
+          if (!existing.outsoleMaterial && fwAttrs.outsole !== "—") existing.outsoleMaterial = fwAttrs.outsole;
+          if (!existing.imageUrl && (item.imageUrl || origProduct?.primaryImageUrl)) {
+            existing.imageUrl = item.imageUrl || origProduct?.primaryImageUrl;
+          }
         }
       });
 

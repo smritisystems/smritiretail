@@ -182,10 +182,10 @@ export const FootwearPurchaseOrderA4: React.FC<{ data?: FootwearPurchaseOrderDat
   const sumEu44 = items.reduce((a, b) => a + (b.eu44 || 0), 0);
   const sumEu45 = items.reduce((a, b) => a + (b.eu45 || 0), 0);
   const tenantCtx = typeof window !== "undefined" ? getTenantCompanyContext() : null;
-  const companyName = data.companyName || tenantCtx?.companyName || "";
-  const companyAddress = data.companyAddress || tenantCtx?.companyAddress || "";
-  const companyGstin = data.companyGstin || tenantCtx?.companyGstin || "";
-  const companyContact = data.companyContact || tenantCtx?.companyEmail || "";
+  const companyName = data.companyName || tenantCtx?.companyName || "TATTLY THREADS";
+  const companyAddress = data.companyAddress || tenantCtx?.companyAddress || "Mumbai, Maharashtra";
+  const companyGstin = data.companyGstin || tenantCtx?.companyGstin || "27AAXFT2508H1ZR";
+  const companyContact = data.companyContact || tenantCtx?.companyEmail || "accounts@tattlythreads.com";
   const dcName = data.dcName || (companyName ? `${companyName} Logistics Hub` : "Logistics Hub");
 
   const isIdentityMissing = !companyName;

@@ -23,6 +23,7 @@ import { SizePivotMatrixA4 } from "../print_engine/templates/SizePivotMatrixA4";
 import { FootwearPurchaseOrderA4 } from "../print_engine/templates/FootwearPurchaseOrderA4";
 import type { PurchaseOrderSizePivotRow, SizewisePOLine } from "../components/purchase/types";
 import { buildGroupedSizewiseLines } from "../components/purchase/PoSizewiseTab";
+import { resolveFootwearAttributes } from "../components/purchase/POPrintPreviewModal";
 import { DEFAULT_BUSINESS_TERMS } from "../components/purchase/CommercialDeliveryDrawer";
 
 describe("Purchase Order Sizewise Grouping (Article No. + Color) Verification", () => {
@@ -335,6 +336,102 @@ describe("Purchase Order Sizewise Grouping (Article No. + Color) Verification", 
     expect(htmlPivot).toContain("Strictly 120 Days credit settlement");
     expect(htmlPivot).toContain("Mumbai, Maharashtra");
     expect(htmlPivot).toContain("120 Days");
+  });
+
+  it("7. resolveFootwearAttributes extracts Heels, Upper Material, and Outsole from diverse key aliases and casing structures", () => {
+    // 7.1 snake_case in attributes
+    const itemSnake = {
+      attributes: {
+        heel_type: "BLOCK",
+        upper_material: "SYNTHETIC LEATHER",
+        outsole_material: "AIRMIX",
+      },
+    };
+    expect(resolveFootwearAttributes(itemSnake)).toEqual({
+      heels: "BLOCK",
+      upperMaterial: "SYNTHETIC LEATHER",
+      outsole: "AIRMIX",
+    });
+
+    // 7.2 Uppercase with spaces (Excel imports)
+    const itemUpper = {
+      attributes: {
+        "HEEL TYPE": "FLAT",
+        "UPPER MATERIAL": "CANVAS",
+        "OUTSOLE": "TPR",
+      },
+    };
+    expect(resolveFootwearAttributes(itemUpper)).toEqual({
+      heels: "FLAT",
+      upperMaterial: "CANVAS",
+      outsole: "TPR",
+    });
+
+    // 7.3 Direct camelCase and snake_case properties
+    const itemDirect = {
+      heelType: "WEDGE",
+      upperMaterial: "MESH",
+      outsoleMaterial: "EVA SHEET",
+    };
+    expect(resolveFootwearAttributes(itemDirect)).toEqual({
+      heels: "WEDGE",
+      upperMaterial: "MESH",
+      outsole: "EVA SHEET",
+    });
+
+    // 7.4 Nested inside originalProduct
+    const itemNested = {
+      originalProduct: {
+        attributes: {
+          "Heel Type": "KITTEN",
+          "Upper": "PATENT LEATHER",
+          "Sole": "RUBBER",
+        },
+      },
+    };
+    expect(resolveFootwearAttributes(itemNested)).toEqual({
+      heels: "KITTEN",
+      upperMaterial: "PATENT LEATHER",
+      outsole: "RUBBER",
+    });
+
+    // 7.5 Missing returns em dash fallback
+    expect(resolveFootwearAttributes({})).toEqual({
+      heels: "—",
+      upperMaterial: "—",
+      outsole: "—",
+    });
+  });
+
+  it("8. buildGroupedSizewiseLines preserves and sets heelType, upperMaterial, and outsoleMaterial on GroupedSizewiseDisplayRow", () => {
+    const lines: any[] = [
+      {
+        id: "line-1",
+        itemCode: "CH-25-G-36",
+        articleNo: "CH-25-G",
+        shade: "GOLD",
+        sizeQuantities: { "36": 12 },
+        heelType: "BLOCK HEEL",
+        upperMaterial: "PU FOAM",
+        outsoleMaterial: "NEOLITE",
+      },
+      {
+        id: "line-2",
+        itemCode: "CH-25-G-37",
+        articleNo: "CH-25-G",
+        shade: "GOLD",
+        sizeQuantities: { "37": 24 },
+      },
+    ];
+
+    const grouped = buildGroupedSizewiseLines(lines, ["36", "37"], 5);
+    expect(grouped.length).toBe(1);
+    expect(grouped[0].articleNo).toBe("CH-25-G");
+    expect(grouped[0].shade).toBe("GOLD");
+    expect(grouped[0].totalQty).toBe(36);
+    expect(grouped[0].heelType).toBe("BLOCK HEEL");
+    expect(grouped[0].upperMaterial).toBe("PU FOAM");
+    expect(grouped[0].outsoleMaterial).toBe("NEOLITE");
   });
 });
 

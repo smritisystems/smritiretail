@@ -114,6 +114,33 @@ const AppContent: React.FC = () => {
             companyName: data.company_name ?? localStorage.getItem("smriti_company_name"),
             branchName: data.branch_name ?? localStorage.getItem("smriti_branch_name"),
           });
+
+          // Proactively synchronize authoritative corporate profile into tenant context cache
+          try {
+            const comp = await apiFetchV1<any>("/company/profile");
+            if (comp) {
+              const fullAddress = [
+                comp.address_line1,
+                comp.address_line2,
+                comp.city,
+                comp.state,
+                comp.pincode,
+              ].filter(Boolean).join(", ");
+
+              persistTenantContext({
+                companyId: comp.id || data.company_id,
+                companyCode: comp.company_code || data.company_code,
+                companyName: comp.trade_name || comp.legal_name || comp.name || "Tattly Threads",
+                companyGstin: comp.gst_number || "27AAXFT2508H1ZR",
+                companyAddress: fullAddress || undefined,
+                companyPhone: comp.phone || "+91 9324117007",
+                companyEmail: comp.accounts_email || comp.email || comp.dispatch_email || "accounts@tattlythreads.com",
+                companyLogoUrl: comp.logo_url || comp.print_logo_url || "/assets/branding/tattly_logo_black.png",
+              });
+            }
+          } catch {
+            // Non-blocking background sync fallback
+          }
         }
 
         setCurrentUser({

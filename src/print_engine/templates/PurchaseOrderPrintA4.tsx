@@ -310,6 +310,10 @@ export const PurchaseOrderPrintA4: React.FC<{ data: PurchaseOrderPrintData }> = 
           derivedMap.set(art, {
             articleNo: art,
             color: it.color || "—",
+            heels: (it as any).heels || (it as any).heelType || (it as any).heel_type || "—",
+            upperMaterial: (it as any).upperMaterial || (it as any).upper_material || "—",
+            outsole: (it as any).outsole || (it as any).outsoleMaterial || (it as any).outsole_material || "—",
+            imageUrl: (it as any).imageUrl || (it as any).photoUrl,
           });
         }
       });
@@ -321,6 +325,10 @@ export const PurchaseOrderPrintA4: React.FC<{ data: PurchaseOrderPrintData }> = 
           derivedMap.set(art, {
             articleNo: art,
             color: it.color || "—",
+            heels: (it as any).heels || (it as any).heelType || (it as any).heel_type || "—",
+            upperMaterial: (it as any).upperMaterial || (it as any).upper_material || "—",
+            outsole: (it as any).outsole || (it as any).outsoleMaterial || (it as any).outsole_material || "—",
+            imageUrl: (it as any).imageUrl || (it as any).photoUrl,
           });
         }
       });

@@ -103,7 +103,7 @@ export const SizePivotMatrixA4: React.FC<SizePivotMatrixA4Props> = (props) => {
   const poNumberDisplay = `${header.prefix || "PO"}-${header.orderNumber || "1"}`;
 
   const tenantCtx = typeof window !== "undefined" ? getTenantCompanyContext() : null;
-  const companyName = header.billTo || header.buyer || tenantCtx?.companyName || "";
+  const companyName = header.billTo || header.buyer || (props.data?.header as any)?.billTo || tenantCtx?.companyName || "TATTLY THREADS";
   const logoUrl = tenantCtx?.companyLogoUrl || null;
   const isIdentityMissing = !companyName;
 
