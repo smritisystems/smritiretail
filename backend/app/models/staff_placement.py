@@ -36,10 +36,28 @@ class StaffPlacementAssignment(BaseEntity):
     __table_args__ = (
         UniqueConstraint("company_id", "staff_user_id", "host_delivery_location_id", "effective_from", name="uq_staff_placement_location_start"),
         Index(
-            "uq_staff_placement_active_user",
-            "company_id", "staff_user_id",
+            "uq_staff_placement_active_branch_user",
+            "company_id", "staff_user_id", "internal_branch_id",
             unique=True,
-            postgresql_where=text("is_deleted = false AND status = 'ACTIVE'"),
+            postgresql_where=text("is_deleted = false AND status = 'ACTIVE' AND internal_branch_id IS NOT NULL"),
+        ),
+        Index(
+            "uq_staff_placement_active_cdl_user",
+            "company_id", "staff_user_id", "host_delivery_location_id",
+            unique=True,
+            postgresql_where=text("is_deleted = false AND status = 'ACTIVE' AND host_delivery_location_id IS NOT NULL"),
+        ),
+        Index(
+            "uq_store_active_primary_rep",
+            "company_id", "host_delivery_location_id",
+            unique=True,
+            postgresql_where=text("is_deleted = false AND status = 'ACTIVE' AND role_at_location = 'PRIMARY_REPRESENTATIVE' AND host_delivery_location_id IS NOT NULL"),
+        ),
+        Index(
+            "uq_branch_active_manager",
+            "company_id", "internal_branch_id",
+            unique=True,
+            postgresql_where=text("is_deleted = false AND status = 'ACTIVE' AND role_at_location = 'STORE_MANAGER' AND internal_branch_id IS NOT NULL"),
         ),
     )
 

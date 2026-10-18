@@ -740,6 +740,9 @@ export interface Customer {
   lastPurchaseDate?: string;
   lastPaymentDate?: string;
   tags?: string[];
+  storeCode?: string;
+  servicingStoreName?: string;
+  primaryRepName?: string;
 }
 
 // The resolved, ready-to-use shape after merging a Customer's overrides
