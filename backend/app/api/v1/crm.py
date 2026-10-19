@@ -2260,3 +2260,254 @@ async def expire_loyalty_points(
             "message": f"Loyalty member '{member_id}' not found or inactive.",
         })
     return {"member_id": member_id, "expired_points": body.points, "status": "expired"}
+
+
+# ---------------------------------------------------------------------------
+# C3: Customer Purchase History  (v3.13.0)
+# GET /api/v1/crm/customers/{customer_id}/purchases
+# ---------------------------------------------------------------------------
+
+@router.get(
+    "/customers/{customer_id}/purchases",
+    summary="Customer Purchase History",
+    tags=["Customer Catalogue"],
+)
+async def get_customer_purchases(
+    customer_id: str,
+    limit: int = Query(20, ge=1, le=200),
+    offset: int = Query(0, ge=0),
+    status: Optional[str] = Query(None, description="Filter: PAID | Submitted | Draft | Cancelled"),
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+):
+    """
+    C3 — Paginated purchase (invoice) history for a customer.
+    Returns: invoice_no, date, grand_total, status, payment_mode, source_type.
+    Ordered by date DESC.
+    """
+    # Verify customer exists
+    cust_check = await db.execute(
+        select(Customer.id).where(
+            Customer.id == customer_id,
+            Customer.company_id == tenant_ctx.company_id,
+            Customer.is_deleted == False,
+        )
+    )
+    if not cust_check.scalar_one_or_none():
+        raise HTTPException(status_code=404, detail={
+            "code": "SMRITI-DATA-001",
+            "message": f"Customer '{customer_id}' not found.",
+        })
+
+    from sqlalchemy import desc as sa_desc
+    stmt = (
+        select(
+            SalesInvoice.id,
+            SalesInvoice.invoice_no,
+            SalesInvoice.date,
+            SalesInvoice.grand_total,
+            SalesInvoice.tax_total,
+            SalesInvoice.status,
+            SalesInvoice.payment_mode,
+            SalesInvoice.source_type,
+            SalesInvoice.sales_channel,
+            SalesInvoice.salesperson_name,
+            SalesInvoice.discount_amount,
+            SalesInvoice.net_amount,
+        )
+        .where(
+            SalesInvoice.customer_id == customer_id,
+            SalesInvoice.company_id == tenant_ctx.company_id,
+            SalesInvoice.is_deleted == False,
+        )
+        .order_by(sa_desc(SalesInvoice.date))
+        .offset(offset)
+        .limit(limit)
+    )
+    if status:
+        stmt = stmt.where(SalesInvoice.status == status)
+
+    # Total count
+    count_stmt = (
+        select(func.count()).select_from(SalesInvoice).where(
+            SalesInvoice.customer_id == customer_id,
+            SalesInvoice.company_id == tenant_ctx.company_id,
+            SalesInvoice.is_deleted == False,
+        )
+    )
+    if status:
+        count_stmt = count_stmt.where(SalesInvoice.status == status)
+
+    total_res = await db.execute(count_stmt)
+    total = total_res.scalar_one()
+
+    rows = await db.execute(stmt)
+    invoices = rows.mappings().all()
+
+    return {
+        "customer_id": customer_id,
+        "total": total,
+        "offset": offset,
+        "limit": limit,
+        "data": [
+            {
+                "id": inv["id"],
+                "invoice_no": inv["invoice_no"],
+                "date": str(inv["date"]) if inv["date"] else None,
+                "grand_total": float(inv["grand_total"] or 0),
+                "tax_total": float(inv["tax_total"] or 0),
+                "net_amount": float(inv["net_amount"] or 0),
+                "discount_amount": float(inv["discount_amount"] or 0),
+                "status": inv["status"],
+                "payment_mode": inv["payment_mode"],
+                "source_type": inv["source_type"],
+                "sales_channel": inv["sales_channel"],
+                "salesperson": inv["salesperson_name"],
+            }
+            for inv in invoices
+        ],
+    }
+
+
+# ---------------------------------------------------------------------------
+# H8: Customer 360 Composite Endpoint  (v3.13.0)
+# GET /api/v1/crm/customers/{customer_id}/360
+# ---------------------------------------------------------------------------
+
+@router.get(
+    "/customers/{customer_id}/360",
+    summary="Customer 360 Composite View",
+    tags=["Customer Catalogue"],
+)
+async def get_customer_360(
+    customer_id: str,
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+):
+    """
+    H8 — Composite 360 view for a customer.
+    Aggregates in a single call:
+    - Identity: name, code, mobile, email, status, type, environment, gst_no
+    - Credit: limit, outstanding, credit_hold
+    - Purchase: total_invoices, total_spend, last_purchase_date, avg_order_value
+    - Loyalty: enrolled, tier_name, points_balance
+    - Segments: segment_count, segment_names[]
+    - Group: group_id, group_name, group_code
+    """
+    from sqlalchemy import desc as sa_desc, case as sa_case
+
+    # 1. Customer base
+    cust_res = await db.execute(
+        select(Customer).where(
+            Customer.id == customer_id,
+            Customer.company_id == tenant_ctx.company_id,
+            Customer.is_deleted == False,
+        )
+    )
+    cust = cust_res.scalar_one_or_none()
+    if not cust:
+        raise HTTPException(status_code=404, detail={
+            "code": "SMRITI-DATA-001",
+            "message": f"Customer '{customer_id}' not found.",
+        })
+
+    # 2. Purchase aggregates
+    inv_agg = await db.execute(
+        select(
+            func.count(SalesInvoice.id).label("invoice_count"),
+            func.sum(SalesInvoice.grand_total).label("total_spend"),
+            func.max(SalesInvoice.date).label("last_purchase_date"),
+            func.avg(SalesInvoice.grand_total).label("avg_order_value"),
+        ).where(
+            SalesInvoice.customer_id == customer_id,
+            SalesInvoice.company_id == tenant_ctx.company_id,
+            SalesInvoice.is_deleted == False,
+            SalesInvoice.status.notin_(["Draft", "Cancelled"]),
+        )
+    )
+    inv_row = inv_agg.mappings().first()
+    invoice_count = int(inv_row["invoice_count"] or 0)
+    total_spend = float(inv_row["total_spend"] or 0)
+    last_purchase_date = str(inv_row["last_purchase_date"]) if inv_row["last_purchase_date"] else None
+    avg_order_value = round(float(inv_row["avg_order_value"] or 0), 2)
+
+    # 3. Loyalty
+    from ...models.loyalty import LoyaltyMember, LoyaltyTier
+    loy_res = await db.execute(
+        select(
+            LoyaltyMember.id,
+            LoyaltyMember.current_points_balance,
+            LoyaltyMember.loyalty_tier_id,
+            LoyaltyTier.name.label("tier_name"),
+        )
+        .outerjoin(LoyaltyTier, LoyaltyMember.loyalty_tier_id == LoyaltyTier.id)
+        .where(
+            LoyaltyMember.customer_id == customer_id,
+            LoyaltyMember.company_id == tenant_ctx.company_id,
+            LoyaltyMember.is_deleted == False,
+        )
+    )
+    loy_row = loy_res.mappings().first()
+    loyalty_enrolled = loy_row is not None
+    loyalty_points = float(loy_row["current_points_balance"] or 0) if loy_row else 0.0
+    loyalty_tier = loy_row["tier_name"] if loy_row else None
+
+    # 4. Segments
+    from ...models.crm import CrmSegment, CrmSegmentMembership
+    seg_res = await db.execute(
+        select(CrmSegment.name)
+        .join(CrmSegmentMembership, CrmSegmentMembership.segment_id == CrmSegment.id)
+        .where(
+            CrmSegmentMembership.customer_id == customer_id,
+            CrmSegmentMembership.is_deleted == False,
+            CrmSegment.company_id == tenant_ctx.company_id,
+            CrmSegment.is_deleted == False,
+        )
+    )
+    segment_names = [r[0] for r in seg_res.all()]
+
+    # 5. Group
+    grp = None
+    if cust.customer_group_id:
+        grp_res = await db.execute(
+            select(CustomerGroup.id, CustomerGroup.name, CustomerGroup.code,
+                   CustomerGroup.credit_limit, CustomerGroup.credit_days)
+            .where(CustomerGroup.id == cust.customer_group_id)
+        )
+        grp = grp_res.mappings().first()
+
+    return {
+        "customer_id": customer_id,
+        # Identity
+        "code": cust.code,
+        "name": cust.name,
+        "mobile": cust.mobile,
+        "email": cust.email,
+        "status": cust.status,
+        "customer_type": cust.customer_type,
+        "environment": cust.environment,
+        "gst_no": cust.gst_no,
+        # Credit
+        "credit_limit": float(cust.credit_limit or 0),
+        "credit_days": cust.credit_days or 0,
+        "outstanding": float(cust.outstanding or 0),
+        "credit_hold": bool(getattr(cust, "credit_hold", False)),
+        # Purchase history aggregates
+        "invoice_count": invoice_count,
+        "total_spend": total_spend,
+        "last_purchase_date": last_purchase_date,
+        "avg_order_value": avg_order_value,
+        # Loyalty
+        "loyalty_enrolled": loyalty_enrolled,
+        "loyalty_tier": loyalty_tier,
+        "loyalty_points_balance": loyalty_points,
+        # Segments
+        "segment_count": len(segment_names),
+        "segments": segment_names,
+        # Group
+        "group_id": grp["id"] if grp else None,
+        "group_name": grp["name"] if grp else None,
+        "group_code": grp["code"] if grp else None,
+        "group_credit_limit": float(grp["credit_limit"] or 0) if grp else None,
+        "group_credit_days": grp["credit_days"] if grp else None,
+    }
