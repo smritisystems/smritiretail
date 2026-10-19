@@ -14,7 +14,7 @@
  * Target UI    : BI & Reporting Center (Fiori Horizon Inspired Light Theme)
  */
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { apiFetchV1, recordAuditAction } from "../lib/apiFetchV1";
 import { isFieldGloballyVisible } from "../services/unifiedFieldCatalog.ts";
 import { GlobalExportService } from "../services/globalExportService.ts";
@@ -138,6 +138,52 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
   const [soPreviewData, setSoPreviewData] = useState<any | null>(null);
   const [showSoPrintModal, setShowSoPrintModal] = useState<boolean>(false);
   const [convertingOrderId, setConvertingOrderId] = useState<string | null>(null);
+ 
+  // Dynamically load purchase summary data when purchase studio is active
+  useEffect(() => {
+    if (activeStudio === "purchase_studio" && (!purchaseReportData || purchaseReportData.length === 0)) {
+      apiFetchV1(`/reports/purchase-summary`)
+        .then((data) => {
+          if (Array.isArray(data)) {
+            setPurchaseReportData(data);
+          }
+        })
+        .catch((e) => console.error("Failed to load purchase summary:", e));
+    }
+  }, [activeStudio, purchaseReportData]);
+
+  const purchaseStudioTotals = useMemo(() => {
+    if (!purchaseReportData || purchaseReportData.length === 0) {
+      return {
+        totalOutstanding: 0,
+        totalOrders: 0,
+        totalReceived: 0,
+        chartData: [] as { supplier: string; ordered: number; received: number }[],
+      };
+    }
+    const totalOutstanding = purchaseReportData.reduce(
+      (sum, s) => sum + (parseFloat(s.outstanding) || 0),
+      0
+    );
+    const totalOrders = purchaseReportData.reduce(
+      (sum, s) => sum + (parseInt(s.po_count, 10) || 0),
+      0
+    );
+    const totalReceived = purchaseReportData.reduce(
+      (sum, s) => sum + (parseFloat(s.total_received) || 0),
+      0
+    );
+    const chartData = [...purchaseReportData]
+      .filter((s) => Number(s.total_ordered || 0) > 0)
+      .sort((a, b) => Number(b.total_ordered || 0) - Number(a.total_ordered || 0))
+      .slice(0, 5)
+      .map((s) => ({
+        supplier: s.supplier_name,
+        ordered: Number(s.total_ordered || 0),
+        received: Number(s.total_received || 0),
+      }));
+    return { totalOutstanding, totalOrders, totalReceived, chartData };
+  }, [purchaseReportData]);
 
   useEffect(() => {
     async function loadReportsData() {
@@ -1039,18 +1085,22 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
                     <>
                       <div className="bg-theme-surface-1 border border-theme-border rounded-xl p-4 shadow-xs space-y-1">
                         <div className="text-[10px] font-bold font-mono tracking-wider text-theme-muted uppercase">SUPPLIER PAYABLES OUTSTANDING</div>
-                        <div className="text-xl font-bold text-amber-700 font-mono">₹14,56,800.00</div>
-                        <div className="text-[10px] text-amber-600 font-mono font-bold">Due in 5 days</div>
+                        <div className="text-xl font-bold text-amber-700 font-mono">
+                          ₹{purchaseStudioTotals.totalOutstanding.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </div>
+                        <div className="text-[10px] text-amber-600 font-mono font-bold">Consolidated Trade Payables</div>
                       </div>
                       <div className="bg-theme-surface-1 border border-theme-border rounded-xl p-4 shadow-xs space-y-1">
                         <div className="text-[10px] font-bold font-mono tracking-wider text-theme-muted uppercase">ACTIVE PURCHASE ORDERS</div>
-                        <div className="text-xl font-bold text-theme-primary font-mono">22 Issued</div>
-                        <div className="text-[10px] text-theme-muted font-mono">6 pending receipt</div>
+                        <div className="text-xl font-bold text-theme-primary font-mono">{purchaseStudioTotals.totalOrders} Issued</div>
+                        <div className="text-[10px] text-theme-muted font-mono">Authoritative Ledger Records</div>
                       </div>
                       <div className="bg-theme-surface-1 border border-theme-border rounded-xl p-4 shadow-xs space-y-1">
-                        <div className="text-[10px] font-bold font-mono tracking-wider text-theme-muted uppercase">GRN DISCREPANCY INDEX</div>
-                        <div className="text-xl font-bold text-rose-700 font-mono">0.45%</div>
-                        <div className="text-[10px] text-emerald-600 font-mono font-bold">Minor shortage</div>
+                        <div className="text-[10px] font-bold font-mono tracking-wider text-theme-muted uppercase">TOTAL GOODS RECEIVED</div>
+                        <div className="text-xl font-bold text-emerald-700 font-mono">
+                          ₹{purchaseStudioTotals.totalReceived.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </div>
+                        <div className="text-[10px] text-emerald-600 font-mono font-bold">100% Inward Fulfilled</div>
                       </div>
                     </>
                   )}
