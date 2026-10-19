@@ -1,12 +1,18 @@
-﻿"""v1539: H2 customer_group code field + M3 crm_segments and crm_segment_memberships
-
-Revision ID: v1539
-Revises: v1538_staff_multistore_placement_policy
-Create Date: 2026-10-19
-
+"""
+Project      : SMRITI Retail OS
 Author       : Jawahar Ramkripal Mallah
-Copyright    : (c) SMRITIBooks.com. All Rights Reserved.
+Designation  : Chief Systems Architect & Creator
+Email        : support@smritibooks.com
+Websites     : smritibooks.com | erpnbook.com | aitdl.com
+Version      : 6.99.0
+Created      : 2026-10-19
+Modified     : 2026-10-19
+Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
+Classification: Internal
+Revision ID  : v1539
+Revises      : v1538_staff_multistore_placement_policy
+Title        : H2 customer_group code field + M3 crm_segments and crm_segment_memberships
 """
 from alembic import op
 import sqlalchemy as sa
@@ -21,9 +27,6 @@ depends_on = None
 def upgrade() -> None:
 
 
-    # Add uuid columns required by BaseEntity ORM mapping
-    op.add_column("crm_segments", sa.Column("uuid", sa.String(36), nullable=True, server_default=sa.text("gen_random_uuid()::text")))
-    op.add_column("crm_segment_memberships", sa.Column("uuid", sa.String(36), nullable=True, server_default=sa.text("gen_random_uuid()::text")))
     # H2: Add short code field to customer_groups
     op.add_column(
         "customer_groups",
@@ -35,6 +38,7 @@ def upgrade() -> None:
     op.create_table(
         "crm_segments",
         sa.Column("id",              sa.String(50),  primary_key=True, nullable=False),
+        sa.Column("uuid",            sa.String(36),  nullable=True, server_default=sa.text("gen_random_uuid()::text")),
         sa.Column("company_id",      sa.String(50),  nullable=True),
         sa.Column("branch_id",       sa.String(50),  nullable=True),
         sa.Column("code",            sa.String(30),  nullable=False),
@@ -52,7 +56,7 @@ def upgrade() -> None:
         sa.Column("modified_at",     sa.DateTime(timezone=True), nullable=True),
         sa.Column("created_by",      sa.String(100), nullable=True),
         sa.Column("updated_by",      sa.String(100), nullable=True),
-                sa.UniqueConstraint("company_id", "code", name="uq_crm_segments_company_code"),
+        sa.UniqueConstraint("company_id", "code", name="uq_crm_segments_company_code"),
     )
     op.create_index("ix_crm_segments_company", "crm_segments", ["company_id"])
     op.create_index("ix_crm_segments_code",    "crm_segments", ["code"])
@@ -61,6 +65,7 @@ def upgrade() -> None:
     op.create_table(
         "crm_segment_memberships",
         sa.Column("id",                sa.String(50),  primary_key=True, nullable=False),
+        sa.Column("uuid",              sa.String(36),  nullable=True, server_default=sa.text("gen_random_uuid()::text")),
         sa.Column("company_id",        sa.String(50),  nullable=True),
         sa.Column("branch_id",         sa.String(50),  nullable=True),
         sa.Column("segment_id",        sa.String(50),  nullable=False),
