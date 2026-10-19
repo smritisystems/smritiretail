@@ -2471,7 +2471,8 @@ async def get_customer_360(
     if cust.customer_group_id:
         grp_res = await db.execute(
             select(CustomerGroup.id, CustomerGroup.name, CustomerGroup.code,
-                   CustomerGroup.credit_limit, CustomerGroup.credit_days)
+                   CustomerGroup.credit_limit, CustomerGroup.credit_days,
+                   CustomerGroup.credit_hold)
             .where(CustomerGroup.id == cust.customer_group_id)
         )
         grp = grp_res.mappings().first()
@@ -2486,12 +2487,12 @@ async def get_customer_360(
         "status": cust.status,
         "customer_type": cust.customer_type,
         "environment": cust.environment,
-        "gst_no": cust.gst_no,
-        # Credit
-        "credit_limit": float(cust.credit_limit or 0),
-        "credit_days": cust.credit_days or 0,
+        "gst_no": cust.gst_number,
+        # Credit - credit_limit and credit_days live on CustomerGroup, not Customer
+        "credit_limit": float(grp["credit_limit"] or 0) if grp else 0.0,
+        "credit_days": grp["credit_days"] if grp else 0,
         "outstanding": float(cust.outstanding or 0),
-        "credit_hold": bool(getattr(cust, "credit_hold", False)),
+        "credit_hold": bool(grp.get("credit_hold", False)) if grp else False,
         # Purchase history aggregates
         "invoice_count": invoice_count,
         "total_spend": total_spend,
