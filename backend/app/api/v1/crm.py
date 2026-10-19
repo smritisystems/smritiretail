@@ -160,6 +160,7 @@ async def validate_customer_add(
 async def list_customers(
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=100),
+    status: Optional[str] = Query(None, description="Filter by status: Active, Inactive, Archived. Omit for all."),
     invoice_series: Optional[str] = Query(None, max_length=50),
     invoice_from: Optional[int] = Query(None, ge=0),
     invoice_to: Optional[int] = Query(None, ge=0),
@@ -167,7 +168,11 @@ async def list_customers(
     tenant_ctx: TenantContext = Depends(get_tenant_context),
 ):
     repo = CustomerRepository(db, tenant_ctx)
-    customers = await repo.get_all(skip=skip, limit=limit, invoice_series=invoice_series, invoice_from=invoice_from, invoice_to=invoice_to)
+    customers = await repo.get_all(
+        skip=skip, limit=limit,
+        invoice_series=invoice_series, invoice_from=invoice_from, invoice_to=invoice_to,
+        status=status,
+    )
     return [CustomerResponse.from_orm_customer(c) for c in customers]
 
 
@@ -176,14 +181,26 @@ async def search_customers(
     q: Optional[str] = Query(None),
     skip: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=100),
+    # H7 fix: default to 'Active' to exclude archived customers from search results.
+    # Pass status=all to include archived records.
+    status: Optional[str] = Query(
+        "Active",
+        description="Filter by status. Defaults to 'Active' to exclude archived customers. Pass status=all to include all."
+    ),
     invoice_series: Optional[str] = Query(None, max_length=50),
     invoice_from: Optional[int] = Query(None, ge=0),
     invoice_to: Optional[int] = Query(None, ge=0),
     db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
 ):
+    # Normalize 'all' sentinel to None (no filter)
+    effective_status = None if (status or "").lower() == "all" else status
     repo = CustomerRepository(db, tenant_ctx)
-    customers = await repo.search(q=q, skip=skip, limit=limit, invoice_series=invoice_series, invoice_from=invoice_from, invoice_to=invoice_to)
+    customers = await repo.search(
+        q=q, skip=skip, limit=limit,
+        invoice_series=invoice_series, invoice_from=invoice_from, invoice_to=invoice_to,
+        status=effective_status,
+    )
     return [CustomerResponse.from_orm_customer(c) for c in customers]
 
 
@@ -1188,6 +1205,185 @@ async def list_customer_price_groups(
         }
         for g in groups
     ]
+
+
+# --- Customer Segments Endpoints (M1) ---
+
+@router.get(
+    "/segments",
+    summary="List Customer Segments",
+    tags=["Customer Catalogue"],
+)
+async def list_customer_segments(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=100),
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+):
+    """
+    Returns all customer segments (tag-based groupings) for the tenant.
+    Segments are derived from the `tags` array on the Customer model —
+    each unique tag is treated as a segment label with its member count.
+    """
+    from sqlalchemy import text as sa_text
+    stmt = sa_text("""
+        SELECT
+            tag AS segment_name,
+            COUNT(DISTINCT id) AS member_count
+        FROM customers, UNNEST(tags) AS tag
+        WHERE company_id = :company_id
+          AND is_deleted = false
+          AND status = 'Active'
+          AND tag IS NOT NULL
+          AND tag != ''
+        GROUP BY tag
+        ORDER BY member_count DESC
+        OFFSET :skip LIMIT :lim
+    """)
+    rows = (await db.execute(stmt, {
+        "company_id": tenant_ctx.company_id,
+        "skip": skip,
+        "lim": limit,
+    })).fetchall()
+    return [
+        {
+            "segment_name": row[0],
+            "member_count": row[1],
+            "type": "TAG_BASED",
+        }
+        for row in rows
+    ]
+
+
+@router.get(
+    "/customers/{customer_id}/segments",
+    summary="Customer Segment Memberships",
+    tags=["Customer Catalogue"],
+)
+async def get_customer_segments(
+    customer_id: str,
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+):
+    """
+    Returns the segments (tags) the given customer belongs to.
+    """
+    customer_stmt = select(Customer).where(
+        Customer.id == customer_id,
+        Customer.company_id == tenant_ctx.company_id,
+        Customer.is_deleted == False,
+    )
+    customer = (await db.execute(customer_stmt)).scalars().first()
+    if not customer:
+        raise HTTPException(status_code=404, detail="Customer not found")
+
+    tags = customer.tags or []
+    return {
+        "customer_id": customer_id,
+        "customer_code": customer.code,
+        "customer_name": customer.name,
+        "segments": [
+            {"segment_name": t, "type": "TAG_BASED"}
+            for t in tags if t
+        ],
+        "segment_count": len([t for t in tags if t]),
+    }
+
+
+# --- Customer Export Endpoint (M2) ---
+
+@router.get(
+    "/customers/export",
+    summary="Export Customer Master Data",
+    tags=["Customer Catalogue"],
+    dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN, UserRole.REPORT_USER))],
+)
+async def export_customers(
+    fmt: str = Query("csv", description="Export format: csv or json"),
+    status: Optional[str] = Query(None, description="Filter by status (Active, Inactive, Archived). Omit for all."),
+    q: Optional[str] = Query(None, description="Optional search query"),
+    limit: int = Query(1000, ge=1, le=5000),
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+):
+    """
+    Exports customer master data for the tenant in CSV or JSON format.
+    Includes: code, name, mobile, email, GST number, group, outstanding, status, tags.
+    MANAGER / SYSADMIN / REPORT_USER access only.
+    """
+    from fastapi.responses import StreamingResponse, JSONResponse
+    import csv, io
+
+    stmt = (
+        select(Customer)
+        .options(
+            selectinload(Customer.group),
+            selectinload(Customer.policy),
+        )
+        .where(
+            Customer.company_id == tenant_ctx.company_id,
+            Customer.is_deleted == False,
+        )
+    )
+    if status:
+        stmt = stmt.where(Customer.status == status)
+    if q:
+        clean_q = q.strip()
+        stmt = stmt.where(
+            (Customer.name.ilike(f"%{clean_q}%")) |
+            (Customer.code.ilike(f"%{clean_q}%")) |
+            (Customer.mobile.ilike(f"%{clean_q}%")) |
+            (Customer.email.ilike(f"%{clean_q}%"))
+        )
+    stmt = stmt.order_by(Customer.created_at.asc()).limit(limit)
+    customers = (await db.execute(stmt)).scalars().all()
+
+    FIELDS = [
+        "code", "name", "mobile", "email", "gst_number",
+        "customer_type", "environment", "status", "outstanding",
+        "group_name", "credit_limit", "credit_days",
+        "payment_category", "payment_term", "tags",
+    ]
+
+    def _row(c: Customer) -> dict:
+        grp = c.group
+        pol = c.policy
+        return {
+            "code":             c.code or "",
+            "name":             c.name or "",
+            "mobile":           c.mobile or "",
+            "email":            c.email or "",
+            "gst_number":       c.gst_number or "",
+            "customer_type":    c.customer_type or "",
+            "environment":      c.environment or "",
+            "status":           c.status or "Active",
+            "outstanding":      str(c.outstanding or 0),
+            "group_name":       grp.name if grp else "",
+            "credit_limit":     str(grp.credit_limit if grp else 0),
+            "credit_days":      str(grp.credit_days if grp else 0),
+            "payment_category": (pol.payment_category if pol else "") or "",
+            "payment_term":     (pol.payment_term if pol else "") or "",
+            "tags":             "|".join(c.tags or []),
+        }
+
+    if fmt.lower() == "json":
+        return JSONResponse(
+            content={"total": len(customers), "data": [_row(c) for c in customers]},
+            headers={"Content-Disposition": "attachment; filename=customers_export.json"},
+        )
+
+    # CSV
+    output = io.StringIO()
+    writer = csv.DictWriter(output, fieldnames=FIELDS)
+    writer.writeheader()
+    for c in customers:
+        writer.writerow(_row(c))
+    output.seek(0)
+    return StreamingResponse(
+        iter([output.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=customers_export.csv"},
+    )
 
 
 # --- Customer GST Registration Endpoints ---
