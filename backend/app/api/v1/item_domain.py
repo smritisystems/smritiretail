@@ -508,3 +508,35 @@ async def get_item_governed_lookups(
     company_id = getattr(current_user, "company_id", None)
     lookups = await ItemDomainService.get_governed_lookups(control_db, company_id=company_id)
     return ItemLookupsResponse(dimensions=lookups)
+
+
+# ---------------------------------------------------------------------------
+# 5. Catalog Review Triage & Activation Domain Endpoint
+# ---------------------------------------------------------------------------
+
+@router.post(
+    "/item-domain/triage",
+    summary="Triage Catalog Review Items and Activate Footwear Styles",
+    dependencies=[Depends(require_role(UserRole.SYSADMIN, UserRole.MANAGER))],
+)
+async def triage_catalog_review_items(
+    db: AsyncSession = Depends(get_company_db),
+    current_user: dict = Depends(get_current_user),
+):
+    """
+    Audits and resolves items currently in REQUIRES_REVIEW status:
+    - Preserves QUAR-* items as REQUIRES_REVIEW
+    - Sets primary_uom (PRS) and tax_rate (5.00% for footwear)
+    - Transitions legitimate styles to ACTIVE
+    - Activates child item_variants and aligns tax rates
+    - Backfills child company_id values across all catalog tables
+    """
+    from ...services.item.item_review_triage_svc import ItemReviewTriageService
+    result = await ItemReviewTriageService.triage_requires_review_items(db, auto_commit=True)
+    backfill = await ItemReviewTriageService.backfill_child_company_ids(db, auto_commit=True)
+    return {
+        "status": "SUCCESS",
+        "triage": result,
+        "backfill": backfill,
+    }
+

@@ -16,7 +16,7 @@ import logging
 from decimal import Decimal
 from typing import Dict, Any, List, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, update, text
+from sqlalchemy import select, update, text, case, or_
 
 from app.models.item_master import Item, ItemVariant, ItemBarcode
 
@@ -143,7 +143,7 @@ class ItemReviewTriageService:
             # Resolve missing statutory attributes
             cat = (item.category or "").strip().upper()
             if not item.primary_uom:
-                if "FOOTWEAR" in cat or "SHOE" in cat or "CH-" in code:
+                if "FOOTWEAR" in cat or "SHOE" in cat or "CH-" in code or "SND-" in code or "SH-" in code or "CHAPPAL" in cat or "SANDAL" in cat:
                     item.primary_uom = "PRS"
                     item.uom = "PRS"
                 else:
@@ -153,19 +153,27 @@ class ItemReviewTriageService:
             if not item.uom:
                 item.uom = item.primary_uom
 
-            if item.tax_rate is None:
-                item.tax_rate = Decimal("18.00") if "FOOTWEAR" in cat else Decimal("5.00")
+            if item.tax_rate is None or item.tax_rate == 0 or item.tax_rate == Decimal("0.00"):
+                item.tax_rate = Decimal("5.00")
 
             # Transition to ACTIVE
             item.status = "ACTIVE"
             item.is_active = True
             activated_count += 1
 
-            # Ensure linked variants are active
+            # Ensure linked variants are active with aligned tax_rate
             await session.execute(
                 update(ItemVariant)
                 .where(ItemVariant.item_id == item.id)
-                .values(is_active=True, is_deleted=False)
+                .values(
+                    is_active=True,
+                    is_deleted=False,
+                    status="ACTIVE",
+                    tax_rate=case(
+                        (or_(ItemVariant.tax_rate.is_(None), ItemVariant.tax_rate == 0), item.tax_rate),
+                        else_=ItemVariant.tax_rate,
+                    ),
+                )
             )
 
             resolved_details.append({
@@ -173,6 +181,7 @@ class ItemReviewTriageService:
                 "item_code": item.item_code,
                 "category": item.category,
                 "primary_uom": item.primary_uom,
+                "tax_rate": float(item.tax_rate) if item.tax_rate else 5.0,
                 "new_status": item.status,
             })
 
