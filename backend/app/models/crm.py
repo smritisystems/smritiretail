@@ -23,6 +23,9 @@ from ..db.base import BaseEntity
 class CustomerGroup(BaseEntity):
     __tablename__ = "customer_groups"
 
+    # H2: Business-meaningful short code (e.g. CG-CORP, CG-VIP, CG-RETAIL)
+    # Nullable initially for backward compat with existing groups; set via admin UI or migration.
+    code = Column(String(30), nullable=True, unique=False, index=True)
     name = Column(String(100), nullable=False, unique=True)
     credit_limit = Column(Numeric(15, 2), default=0.00)
     unlimited_credit = Column(Boolean, default=False)
@@ -527,3 +530,57 @@ class CrmCustomerActivity(BaseEntity):
     summary = Column(String(255), nullable=False)
     details = Column(Text, nullable=True)
     activity_date = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+
+# ---------------------------------------------------------------------------
+# M3: Rule-Based CRM Segment Master (v3.12.0)
+# ---------------------------------------------------------------------------
+
+class CrmSegment(BaseEntity):
+    """
+    Named customer segment with optional rule definition.
+    Supports both TAG_BASED (derived from Customer.tags) and RULE_BASED
+    (RFM tier, spend threshold, last-purchase window, group membership).
+    Members are tracked in CrmSegmentMembership.
+    """
+    __tablename__ = "crm_segments"
+    __table_args__ = (
+        UniqueConstraint("company_id", "code", name="uq_crm_segments_company_code"),
+        Index("ix_crm_segments_company", "company_id"),
+    )
+
+    code        = Column(String(30), nullable=False, index=True)
+    name        = Column(String(100), nullable=False)
+    description = Column(Text, nullable=True)
+    # TAG_BASED | RULE_BASED | MANUAL
+    segment_type = Column(String(20), nullable=False, default="TAG_BASED")
+    # JSON rule definition — e.g. {"min_spend": 10000, "days_since_purchase": 90}
+    rule_definition = Column(JSONB, nullable=True)
+    # Denormalised member count — updated by segment recalculation job
+    member_count = Column(Integer, nullable=False, default=0, server_default="0")
+    is_active   = Column(Boolean, nullable=False, default=True, server_default=text("true"))
+
+    memberships = relationship("CrmSegmentMembership", back_populates="segment", cascade="all, delete-orphan")
+
+
+class CrmSegmentMembership(BaseEntity):
+    """
+    Junction table: maps a Customer to a CrmSegment.
+    Supports manual, tag-based, and rule-based assignment.
+    """
+    __tablename__ = "crm_segment_memberships"
+    __table_args__ = (
+        UniqueConstraint("segment_id", "customer_id", name="uq_crm_segment_customer"),
+        Index("ix_crm_segment_memberships_customer", "customer_id"),
+        Index("ix_crm_segment_memberships_segment", "segment_id"),
+    )
+
+    segment_id  = Column(String(50), ForeignKey("crm_segments.id", ondelete="CASCADE"), nullable=False, index=True)
+    customer_id = Column(String(50), ForeignKey("customers.id",  ondelete="CASCADE"), nullable=False, index=True)
+    # MANUAL | TAG_SYNC | RULE_SYNC
+    assignment_source = Column(String(20), nullable=False, default="MANUAL")
+    assigned_at = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc))
+
+    segment  = relationship("CrmSegment", back_populates="memberships")
+    customer = relationship("Customer", foreign_keys=[customer_id])
+
