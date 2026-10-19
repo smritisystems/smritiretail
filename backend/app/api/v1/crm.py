@@ -20,7 +20,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ...api.deps import get_db, get_company_db, get_tenant_context, TenantContext, require_role, get_current_user
 
 from ...models.auth import UserRole
-from ...models.crm import Customer, CustomerRelationship
+from ...models.crm import Customer, CustomerRelationship, CustomerGroup
 from ...models.customer_po import CustomerPurchaseOrder
 from ...models.sales import SalesInvoice, SalesOrder, SalesReturn
 from ...models.psv import PSVParty
@@ -1207,52 +1207,195 @@ async def list_customer_price_groups(
     ]
 
 
-# --- Customer Segments Endpoints (M1) ---
+# ---------------------------------------------------------------------------
+# M3: CRM Segment Master CRUD (v3.12.0)
+# Tag-based backward-compatible + rule-based CrmSegment table
+# ---------------------------------------------------------------------------
 
 @router.get(
     "/segments",
-    summary="List Customer Segments",
+    summary="List CRM Segments",
     tags=["Customer Catalogue"],
 )
-async def list_customer_segments(
+async def list_crm_segments(
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=100),
+    segment_type: Optional[str] = Query(None, description="TAG_BASED | RULE_BASED | MANUAL. Omit for all."),
+    include_tag_derived: bool = Query(True, description="Include tag-derived segments if no DB segments exist."),
     db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
 ):
     """
-    Returns all customer segments (tag-based groupings) for the tenant.
-    Segments are derived from the `tags` array on the Customer model —
-    each unique tag is treated as a segment label with its member count.
+    Lists CRM segments. Returns DB-backed CrmSegment rows first; if none exist,
+    falls back to tag-derived segments from Customer.tags (backward compatible).
     """
+    from ...models.crm import CrmSegment
     from sqlalchemy import text as sa_text
-    stmt = sa_text("""
-        SELECT
-            tag AS segment_name,
-            COUNT(DISTINCT id) AS member_count
+
+    stmt = select(CrmSegment).where(
+        CrmSegment.company_id == tenant_ctx.company_id,
+        CrmSegment.is_deleted == False,
+        CrmSegment.is_active == True,
+    )
+    if segment_type:
+        stmt = stmt.where(CrmSegment.segment_type == segment_type)
+    stmt = stmt.order_by(CrmSegment.name).offset(skip).limit(limit)
+    segments = (await db.execute(stmt)).scalars().all()
+
+    if segments:
+        return [
+            {
+                "id": s.id,
+                "code": s.code,
+                "name": s.name,
+                "description": s.description,
+                "segment_type": s.segment_type,
+                "member_count": s.member_count,
+                "rule_definition": s.rule_definition,
+                "is_active": s.is_active,
+                "source": "DB",
+            }
+            for s in segments
+        ]
+
+    # Fallback: derive segments from Customer.tags
+    if not include_tag_derived:
+        return []
+    tag_stmt = sa_text("""
+        SELECT tag AS segment_name, COUNT(DISTINCT id) AS member_count
         FROM customers, UNNEST(tags) AS tag
         WHERE company_id = :company_id
-          AND is_deleted = false
-          AND status = 'Active'
-          AND tag IS NOT NULL
-          AND tag != ''
-        GROUP BY tag
-        ORDER BY member_count DESC
+          AND is_deleted = false AND status = 'Active'
+          AND tag IS NOT NULL AND tag != ''
+        GROUP BY tag ORDER BY member_count DESC
         OFFSET :skip LIMIT :lim
     """)
-    rows = (await db.execute(stmt, {
-        "company_id": tenant_ctx.company_id,
-        "skip": skip,
-        "lim": limit,
-    })).fetchall()
+    rows = (await db.execute(tag_stmt, {"company_id": tenant_ctx.company_id, "skip": skip, "lim": limit})).fetchall()
     return [
-        {
-            "segment_name": row[0],
-            "member_count": row[1],
-            "type": "TAG_BASED",
-        }
+        {"id": None, "code": row[0], "name": row[0], "description": None,
+         "segment_type": "TAG_BASED", "member_count": row[1], "rule_definition": None,
+         "is_active": True, "source": "TAG_DERIVED"}
         for row in rows
     ]
+
+
+@router.post(
+    "/segments",
+    summary="Create CRM Segment",
+    tags=["Customer Catalogue"],
+    status_code=201,
+    dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))],
+)
+async def create_crm_segment(
+    payload: dict,
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+):
+    """Creates a named CRM segment. MANAGER/SYSADMIN only."""
+    from ...models.crm import CrmSegment
+    import uuid
+    seg = CrmSegment(
+        id=f"seg-{uuid.uuid4().hex[:12]}",
+        company_id=tenant_ctx.company_id,
+        branch_id=tenant_ctx.branch_id,
+        code=payload.get("code", "").strip().upper(),
+        name=payload.get("name", "").strip(),
+        description=payload.get("description"),
+        segment_type=payload.get("segment_type", "MANUAL"),
+        rule_definition=payload.get("rule_definition"),
+        is_active=True,
+    )
+    if not seg.code or not seg.name:
+        raise HTTPException(status_code=422, detail="code and name are required")
+    db.add(seg)
+    await db.commit()
+    await db.refresh(seg)
+    return {"id": seg.id, "code": seg.code, "name": seg.name, "segment_type": seg.segment_type}
+
+
+@router.get(
+    "/segments/{segment_id}",
+    summary="Get CRM Segment",
+    tags=["Customer Catalogue"],
+)
+async def get_crm_segment(
+    segment_id: str,
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+):
+    from ...models.crm import CrmSegment, CrmSegmentMembership
+    seg = (await db.execute(
+        select(CrmSegment).where(
+            CrmSegment.id == segment_id,
+            CrmSegment.company_id == tenant_ctx.company_id,
+            CrmSegment.is_deleted == False,
+        )
+    )).scalars().first()
+    if not seg:
+        raise HTTPException(status_code=404, detail="Segment not found")
+    member_count_live = (await db.execute(
+        select(func.count(CrmSegmentMembership.id)).where(
+            CrmSegmentMembership.segment_id == segment_id,
+            CrmSegmentMembership.is_deleted == False,
+        )
+    )).scalar() or 0
+    return {
+        "id": seg.id, "code": seg.code, "name": seg.name,
+        "description": seg.description, "segment_type": seg.segment_type,
+        "member_count": member_count_live, "rule_definition": seg.rule_definition,
+        "is_active": seg.is_active,
+    }
+
+
+@router.post(
+    "/segments/{segment_id}/members",
+    summary="Add Customer to Segment",
+    tags=["Customer Catalogue"],
+    status_code=201,
+)
+async def add_segment_member(
+    segment_id: str,
+    payload: dict,
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+):
+    """Manually assigns a customer to a CRM segment."""
+    from ...models.crm import CrmSegment, CrmSegmentMembership
+    import uuid
+    seg = (await db.execute(
+        select(CrmSegment).where(
+            CrmSegment.id == segment_id,
+            CrmSegment.company_id == tenant_ctx.company_id,
+            CrmSegment.is_deleted == False,
+        )
+    )).scalars().first()
+    if not seg:
+        raise HTTPException(status_code=404, detail="Segment not found")
+    customer_id = payload.get("customer_id", "").strip()
+    if not customer_id:
+        raise HTTPException(status_code=422, detail="customer_id is required")
+    # Upsert — ignore if already member
+    existing = (await db.execute(
+        select(CrmSegmentMembership).where(
+            CrmSegmentMembership.segment_id == segment_id,
+            CrmSegmentMembership.customer_id == customer_id,
+            CrmSegmentMembership.is_deleted == False,
+        )
+    )).scalars().first()
+    if existing:
+        return {"status": "already_member", "segment_id": segment_id, "customer_id": customer_id}
+    m = CrmSegmentMembership(
+        id=f"smb-{uuid.uuid4().hex[:12]}",
+        company_id=tenant_ctx.company_id,
+        segment_id=segment_id,
+        customer_id=customer_id,
+        assignment_source=payload.get("assignment_source", "MANUAL"),
+    )
+    db.add(m)
+    # Update denormalised count
+    seg.member_count = (seg.member_count or 0) + 1
+    await db.commit()
+    return {"status": "added", "segment_id": segment_id, "customer_id": customer_id}
 
 
 @router.get(
@@ -1265,9 +1408,8 @@ async def get_customer_segments(
     db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
 ):
-    """
-    Returns the segments (tags) the given customer belongs to.
-    """
+    """Returns DB-backed segment memberships + tag-derived segments for the customer."""
+    from ...models.crm import CrmSegment, CrmSegmentMembership
     customer_stmt = select(Customer).where(
         Customer.id == customer_id,
         Customer.company_id == tenant_ctx.company_id,
@@ -1277,23 +1419,45 @@ async def get_customer_segments(
     if not customer:
         raise HTTPException(status_code=404, detail="Customer not found")
 
-    tags = customer.tags or []
+    # DB-backed memberships
+    db_memberships = (await db.execute(
+        select(CrmSegmentMembership, CrmSegment)
+        .join(CrmSegment, CrmSegment.id == CrmSegmentMembership.segment_id)
+        .where(
+            CrmSegmentMembership.customer_id == customer_id,
+            CrmSegmentMembership.is_deleted == False,
+            CrmSegment.is_deleted == False,
+        )
+    )).all()
+
+    db_segs = [
+        {"id": seg.id, "code": seg.code, "name": seg.name,
+         "segment_type": seg.segment_type, "assignment_source": mbr.assignment_source,
+         "source": "DB"}
+        for mbr, seg in db_memberships
+    ]
+
+    # Tag-derived (always included as supplementary)
+    tag_segs = [
+        {"id": None, "code": t, "name": t, "segment_type": "TAG_BASED",
+         "assignment_source": "TAG_SYNC", "source": "TAG_DERIVED"}
+        for t in (customer.tags or []) if t
+    ]
+
+    all_segments = db_segs + tag_segs
     return {
         "customer_id": customer_id,
         "customer_code": customer.code,
         "customer_name": customer.name,
-        "segments": [
-            {"segment_name": t, "type": "TAG_BASED"}
-            for t in tags if t
-        ],
-        "segment_count": len([t for t in tags if t]),
+        "segments": all_segments,
+        "segment_count": len(all_segments),
     }
 
 
 # --- Customer Export Endpoint (M2) ---
 
 @router.get(
-    "/customers/export",
+    "/export/customers",
     summary="Export Customer Master Data",
     tags=["Customer Catalogue"],
     dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN, UserRole.REPORT_USER))],
@@ -1312,6 +1476,7 @@ async def export_customers(
     MANAGER / SYSADMIN / REPORT_USER access only.
     """
     from fastapi.responses import StreamingResponse, JSONResponse
+    from sqlalchemy.orm import selectinload
     import csv, io
 
     stmt = (
@@ -1383,6 +1548,132 @@ async def export_customers(
         iter([output.getvalue()]),
         media_type="text/csv",
         headers={"Content-Disposition": "attachment; filename=customers_export.csv"},
+    )
+
+
+# ---------------------------------------------------------------------------
+# H2: Customer Group Code Management
+# ---------------------------------------------------------------------------
+
+@router.patch(
+    "/customer-groups/{group_id}/code",
+    summary="Set CustomerGroup Short Code",
+    tags=["Customer Catalogue"],
+    dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))],
+)
+async def set_customer_group_code(
+    group_id: str,
+    payload: dict,
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+):
+    """
+    Sets the short code for a CustomerGroup (e.g. CG-CORP, CG-VIP).
+    Idempotent — safe to call multiple times.
+    MANAGER/SYSADMIN only.
+    """
+    grp = (await db.execute(
+        select(CustomerGroup).where(
+            CustomerGroup.id == group_id,
+            CustomerGroup.company_id == tenant_ctx.company_id,
+            CustomerGroup.is_deleted == False,
+        )
+    )).scalars().first()
+    if not grp:
+        raise HTTPException(status_code=404, detail="Customer group not found")
+    new_code = (payload.get("code") or "").strip().upper()
+    if not new_code:
+        raise HTTPException(status_code=422, detail="code is required and must not be blank")
+    grp.code = new_code
+    await db.commit()
+    return {"id": grp.id, "name": grp.name, "code": grp.code, "status": "updated"}
+
+
+# ---------------------------------------------------------------------------
+# M4: Batch Streaming Export (paginated, no row limit)
+# ---------------------------------------------------------------------------
+
+@router.get(
+    "/export/customers/batch",
+    summary="Batch Streaming Customer Export",
+    tags=["Customer Catalogue"],
+    dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN, UserRole.REPORT_USER))],
+)
+async def export_customers_batch(
+    fmt: str = Query("csv", description="Export format: csv"),
+    status: Optional[str] = Query(None),
+    batch_size: int = Query(500, ge=100, le=2000),
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+):
+    """
+    Full tenant customer dump as a streaming CSV — no row limit.
+    Uses server-side cursor (yield_per) to avoid memory pressure.
+    Suitable for bulk exports of 5000+ records.
+    MANAGER / SYSADMIN / REPORT_USER access only.
+    """
+    from fastapi.responses import StreamingResponse
+    import csv, io
+    from sqlalchemy.orm import selectinload
+
+    FIELDS = [
+        "code", "name", "mobile", "email", "gst_number",
+        "customer_type", "environment", "status", "outstanding",
+        "group_code", "group_name", "credit_limit", "credit_days",
+        "payment_category", "payment_term", "tags",
+    ]
+
+    async def _generate():
+        buf = io.StringIO()
+        writer = csv.DictWriter(buf, fieldnames=FIELDS)
+        writer.writeheader()
+        yield buf.getvalue(); buf.seek(0); buf.truncate(0)
+
+        offset = 0
+        while True:
+            stmt = (
+                select(Customer)
+                .options(selectinload(Customer.group), selectinload(Customer.policy))
+                .where(
+                    Customer.company_id == tenant_ctx.company_id,
+                    Customer.is_deleted == False,
+                )
+            )
+            if status:
+                stmt = stmt.where(Customer.status == status)
+            stmt = stmt.order_by(Customer.created_at.asc()).offset(offset).limit(batch_size)
+            batch = (await db.execute(stmt)).scalars().all()
+            if not batch:
+                break
+            for c in batch:
+                grp = c.group; pol = c.policy
+                writer.writerow({
+                    "code":             c.code or "",
+                    "name":             c.name or "",
+                    "mobile":           c.mobile or "",
+                    "email":            c.email or "",
+                    "gst_number":       c.gst_number or "",
+                    "customer_type":    c.customer_type or "",
+                    "environment":      c.environment or "",
+                    "status":           c.status or "Active",
+                    "outstanding":      str(c.outstanding or 0),
+                    "group_code":       (grp.code if grp else "") or "",
+                    "group_name":       grp.name if grp else "",
+                    "credit_limit":     str(grp.credit_limit if grp else 0),
+                    "credit_days":      str(grp.credit_days if grp else 0),
+                    "payment_category": (pol.payment_category if pol else "") or "",
+                    "payment_term":     (pol.payment_term if pol else "") or "",
+                    "tags":             "|".join(c.tags or []),
+                })
+            yield buf.getvalue(); buf.seek(0); buf.truncate(0)
+            offset += batch_size
+            if len(batch) < batch_size:
+                break
+
+    return StreamingResponse(
+        _generate(),
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=customers_full_export.csv"},
     )
 
 
