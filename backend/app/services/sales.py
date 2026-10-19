@@ -1848,6 +1848,19 @@ class SalesService:
 
         invoice.modified_at = datetime.now(timezone.utc)
         self.db.add(invoice)
+
+        # Synchronize PSV on invoice update
+        try:
+            from .psv_projection import PSVProjectionService
+            await PSVProjectionService.sync_updated_invoice(
+                session=self.db,
+                invoice_id=invoice.id,
+                company_id=self.tenant_ctx.company_id,
+                branch_id=self.tenant_ctx.branch_id,
+            )
+        except Exception as psv_exc:
+            logger.warning("PSV synchronization notice on invoice update: %s", psv_exc)
+
         await self.db.commit()
 
         result = await self.db.execute(
@@ -1980,6 +1993,18 @@ class SalesService:
         invoice.is_deleted  = True
         invoice.modified_at = datetime.now(timezone.utc)
         self.db.add(invoice)
+
+        # Synchronize PSV cancellation
+        try:
+            from .psv_projection import PSVProjectionService
+            await PSVProjectionService.cancel_posted_invoice(
+                session=self.db,
+                invoice_id=invoice.id,
+                company_id=self.tenant_ctx.company_id,
+            )
+        except Exception as e:
+            logger.warning("PSV synchronization notice on invoice cancellation: %s", e)
+
         await self.db.commit()
         await self.db.refresh(invoice)
         return invoice

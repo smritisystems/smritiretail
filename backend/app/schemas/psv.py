@@ -152,6 +152,7 @@ class PSVQuantityReconciliationItem(BaseModel):
     sku: str
     product_name: str
     style_code: Optional[str] = None
+    vendor_code: Optional[str] = None
     color: Optional[str] = None
     size: Optional[str] = None
     mrp: Optional[Decimal] = None
@@ -163,7 +164,8 @@ class PSVQuantityReconciliationItem(BaseModel):
     short_qty: Decimal = Decimal("0.0000")
     excess_qty: Decimal = Decimal("0.0000")
     rejected_qty: Decimal = Decimal("0.0000")
-    reconciliation_status: str = "UNRECEIVED"
+    reconciliation_status: str = "READY_FOR_RECEIVING"
+    workflow_status: str = "Ready for Receiving"
     events_count: int = 0
     pending_event_ids: List[str] = Field(default_factory=list)
 

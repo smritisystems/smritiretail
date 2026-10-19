@@ -1124,6 +1124,25 @@ class CanonicalSalesPostingWriter:
             }
             session.add(idemp_record)
 
+        # Flush to persist db_invoice and its items to session
+        await session.flush()
+
+        # Automatic PSV Preparation (Immediate visibility in PSV workspace as Ready for Receiving)
+        try:
+            from .psv_projection import PSVProjectionService
+            await PSVProjectionService.project_posted_invoice(
+                session=session,
+                invoice_id=db_invoice.id,
+                company_id=company_id,
+                branch_id=branch_id,
+            )
+        except Exception as psv_exc:
+            logger.warning(
+                "Automatic PSV preparation encountered notice for invoice %s: %s",
+                db_invoice.id,
+                psv_exc,
+            )
+
         if commit:
             await session.commit()
         else:

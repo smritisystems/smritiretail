@@ -43,6 +43,7 @@ from ...services.compliance_audit import ComplianceAuditService
 from ...services.master_lookup_import_service import (
     extract_vendor_article_codes_from_po_pdf_bytes,
 )
+from ...services.product_code_parser import ProductCodeParser
 
 router = APIRouter()
 
@@ -203,10 +204,20 @@ async def sync_style_article_from_purchase_orders(
 
     style_to_vendor: dict[str, str] = {}
     target_clean = vendor_code.strip().upper() if vendor_code else None
+    parser = ProductCodeParser()
 
     for r in lines:
         m = dict(r._mapping)
         style = (m["style_code"] or "").strip().upper()
+        vcode = (m["supplier_code"] or "").strip().upper()
+
+        if m.get("item_code"):
+            parsed = parser.parse(m["item_code"])
+            if not style and parsed.article_code:
+                style = parsed.article_code.upper()
+            if not vcode and parsed.vendor_code:
+                vcode = parsed.vendor_code.upper()
+
         if not style and m["item_code"] and "-" in m["item_code"]:
             parts = m["item_code"].split("-")
             if len(parts) >= 3:
@@ -214,7 +225,6 @@ async def sync_style_article_from_purchase_orders(
         if not style:
             continue
 
-        vcode = (m["supplier_code"] or "").strip().upper()
         if not vcode and m["supplier_id"]:
             if "tt_" in m["supplier_id"]:
                 vcode = m["supplier_id"].split("tt_")[1].split("_")[0].upper()
