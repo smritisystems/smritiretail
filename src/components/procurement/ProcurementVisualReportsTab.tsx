@@ -1861,12 +1861,15 @@ export const ProcurementVisualReportsTab: React.FC<ProcurementVisualReportsTabPr
                             <button
                               type="button"
                               onClick={() => {
-                                if (item.next_action === "create_grn") onNavigateTab?.("grn-studio");
-                                else onNotification?.("Action Initiated", `Opening workflow for ${item.next_action_label}`, "info");
+                                if (item.next_action === "create_grn" && onNavigateTab) {
+                                  onNavigateTab("grn-studio");
+                                } else {
+                                  setSelectedDoc(item);
+                                }
                               }}
                               className="inline-flex items-center gap-1 px-2.5 py-1 rounded text-[11px] font-bold text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200 transition-colors cursor-pointer"
                             >
-                              <FileText size={11} className="text-blue-600" />
+                              <Eye size={11} className="text-blue-600" />
                               <span>{item.next_action_label}</span>
                             </button>
                           ) : (

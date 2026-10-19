@@ -4742,27 +4742,51 @@ class UnifiedAccountingLedgerService:
         company_name = comp.name if comp else (company_id.upper() or "SMRITI Retail")
 
         # 2. Fetch Supplier / Party details
-        supp_stmt = select(Supplier).where(Supplier.id == supplier_id, Supplier.company_id == company_id)
+        supp_stmt = select(Supplier).where(
+            or_(Supplier.id == supplier_id, Supplier.code == supplier_id),
+            or_(Supplier.company_id == company_id, Supplier.company_id.is_(None))
+        )
         supplier = (await session.execute(supp_stmt)).scalar_one_or_none()
-        if not supplier:
-            # Fallback to Party master (Universal Party)
-            party_stmt = select(Party).where(Party.id == supplier_id, Party.company_id == company_id)
-            party = (await session.execute(party_stmt)).scalar_one_or_none()
-            if party:
-                supp_dict = {
-                    "id": party.id,
-                    "code": party.code,
-                    "name": party.legal_name or party.name,
-                    "gstin": party.tax_id,
-                    "pan": party.pan,
-                    "email": party.email,
-                    "phone": party.phone,
-                    "address": party.billing_address,
-                    "payment_terms_days": 30,
-                }
-            else:
-                raise HTTPException(status_code=404, detail=f"Supplier {supplier_id} not found for this company.")
-        else:
+
+        party_stmt = select(Party).where(
+            or_(Party.id == supplier_id, Party.party_code == supplier_id),
+            or_(Party.company_id == company_id, Party.company_id.is_(None))
+        )
+        party = (await session.execute(party_stmt)).scalar_one_or_none()
+
+        if not supplier and not party:
+            raise HTTPException(status_code=404, detail=f"Supplier {supplier_id} not found for this company.")
+
+        cand_ids = {supplier_id}
+        if supplier:
+            cand_ids.add(str(supplier.id))
+            if supplier.code:
+                cand_ids.add(str(supplier.code))
+            if not party and supplier.code:
+                party = (await session.execute(
+                    select(Party).where(
+                        Party.party_code == supplier.code,
+                        or_(Party.company_id == company_id, Party.company_id.is_(None))
+                    )
+                )).scalar_one_or_none()
+
+        if party:
+            cand_ids.add(str(party.id))
+            if party.party_code:
+                cand_ids.add(str(party.party_code))
+            if not supplier and party.party_code:
+                supplier = (await session.execute(
+                    select(Supplier).where(
+                        Supplier.code == party.party_code,
+                        or_(Supplier.company_id == company_id, Supplier.company_id.is_(None))
+                    )
+                )).scalar_one_or_none()
+                if supplier:
+                    cand_ids.add(str(supplier.id))
+                    if supplier.code:
+                        cand_ids.add(str(supplier.code))
+
+        if supplier:
             supp_dict = {
                 "id": supplier.id,
                 "code": supplier.code,
@@ -4773,6 +4797,18 @@ class UnifiedAccountingLedgerService:
                 "phone": getattr(supplier, "phone", None) or getattr(supplier, "mobile", None),
                 "address": getattr(supplier, "address", None),
                 "payment_terms_days": getattr(supplier, "payment_terms_days", 30) or 30,
+            }
+        else:
+            supp_dict = {
+                "id": party.id,
+                "code": party.party_code,
+                "name": party.legal_name or party.trade_name or "Vendor",
+                "gstin": getattr(party, "gstin", None),
+                "pan": getattr(party, "pan", None),
+                "email": getattr(party, "email", None),
+                "phone": getattr(party, "phone", None) or getattr(party, "mobile", None),
+                "address": getattr(party, "address_line1", None) or "",
+                "payment_terms_days": 30,
             }
 
         # 3. Get Account 2010 (Accounts Payable)
@@ -4793,7 +4829,7 @@ class UnifiedAccountingLedgerService:
                 .where(
                     GeneralLedgerEntry.company_id == company_id,
                     GeneralLedgerEntry.account_id == acc_creditors.id,
-                    GeneralLedgerEntry.party_id == supplier_id,
+                    GeneralLedgerEntry.party_id.in_(list(cand_ids)),
                     GeneralLedgerEntry.entry_date < from_date,
                     GeneralLedgerEntry.is_deleted == False,
                     JournalVoucher.is_cancelled == False,
@@ -4820,7 +4856,7 @@ class UnifiedAccountingLedgerService:
             .join(Account, GeneralLedgerEntry.account_id == Account.id)
             .where(
                 GeneralLedgerEntry.company_id == company_id,
-                GeneralLedgerEntry.party_id == supplier_id,
+                GeneralLedgerEntry.party_id.in_(list(cand_ids)),
                 GeneralLedgerEntry.account_id == acc_creditors.id,
                 GeneralLedgerEntry.is_deleted == False,
                 JournalVoucher.is_cancelled == False,
@@ -4881,7 +4917,7 @@ class UnifiedAccountingLedgerService:
             # Fallback for legacy fixtures / unposted records: construct from PurchaseBill & SupplierPayment
             pb_filters = [
                 PurchaseBill.company_id == company_id,
-                PurchaseBill.supplier_id == supplier_id,
+                PurchaseBill.supplier_id.in_(list(cand_ids)),
                 PurchaseBill.is_deleted == False,
                 PurchaseBill.status != "CANCELLED",
             ]
@@ -4895,7 +4931,7 @@ class UnifiedAccountingLedgerService:
 
             sp_filters = [
                 SupplierPayment.company_id == company_id,
-                SupplierPayment.supplier_id == supplier_id,
+                SupplierPayment.supplier_id.in_(list(cand_ids)),
                 SupplierPayment.is_deleted == False,
             ]
             if from_date:
@@ -4962,7 +4998,7 @@ class UnifiedAccountingLedgerService:
             select(SupplierPayment)
             .where(
                 SupplierPayment.company_id == company_id,
-                SupplierPayment.supplier_id == supplier_id,
+                SupplierPayment.supplier_id.in_(list(cand_ids)),
                 SupplierPayment.is_deleted == False,
                 SupplierPayment.notes.like("%__PAYMENT_TYPE__:ADVANCE%"),
             )
@@ -4993,7 +5029,7 @@ class UnifiedAccountingLedgerService:
             select(func.count(PurchaseBill.id))
             .where(
                 PurchaseBill.company_id == company_id,
-                PurchaseBill.supplier_id == supplier_id,
+                PurchaseBill.supplier_id.in_(list(cand_ids)),
                 PurchaseBill.is_deleted == False,
                 PurchaseBill.status.notin_(["CANCELLED", "DRAFT", "PAID"]),
                 PurchaseBill.paid_amount < PurchaseBill.total_amount,
@@ -5203,29 +5239,66 @@ class UnifiedAccountingLedgerService:
         await cls.seed_default_chart_of_accounts(session, company_id)
 
         # 1. Fetch Supplier & Universal Party info
-        supp_stmt = select(Supplier).where(Supplier.id == supplier_id, Supplier.company_id == company_id)
+        supp_stmt = select(Supplier).where(
+            or_(Supplier.id == supplier_id, Supplier.code == supplier_id),
+            or_(Supplier.company_id == company_id, Supplier.company_id.is_(None))
+        )
         supplier = (await session.execute(supp_stmt)).scalar_one_or_none()
-        party_id = supplier_id
+
+        party_stmt = select(Party).where(
+            or_(Party.id == supplier_id, Party.party_code == supplier_id),
+            or_(Party.company_id == company_id, Party.company_id.is_(None))
+        )
+        party = (await session.execute(party_stmt)).scalar_one_or_none()
+
+        if not supplier and not party:
+            raise HTTPException(status_code=404, detail=f"Supplier {supplier_id} not found.")
+
+        cand_ids = {supplier_id}
+        if supplier:
+            cand_ids.add(str(supplier.id))
+            if supplier.code:
+                cand_ids.add(str(supplier.code))
+            if not party and supplier.code:
+                party = (await session.execute(
+                    select(Party).where(
+                        Party.party_code == supplier.code,
+                        or_(Party.company_id == company_id, Party.company_id.is_(None))
+                    )
+                )).scalar_one_or_none()
+
+        if party:
+            cand_ids.add(str(party.id))
+            if party.party_code:
+                cand_ids.add(str(party.party_code))
+            if not supplier and party.party_code:
+                supplier = (await session.execute(
+                    select(Supplier).where(
+                        Supplier.code == party.party_code,
+                        or_(Supplier.company_id == company_id, Supplier.company_id.is_(None))
+                    )
+                )).scalar_one_or_none()
+                if supplier:
+                    cand_ids.add(str(supplier.id))
+                    if supplier.code:
+                        cand_ids.add(str(supplier.code))
+
         if supplier:
             supp_name = supplier.name
             supp_code = supplier.code
-            gstin = getattr(supplier, "gst_number", None) or ""
+            gstin = getattr(supplier, "gst_number", None) or getattr(supplier, "gstin", None) or ""
             pan = getattr(supplier, "pan", None) or (gstin[2:12].upper() if len(gstin) >= 12 else None)
         else:
-            party_stmt = select(Party).where(Party.id == supplier_id, Party.company_id == company_id)
-            party = (await session.execute(party_stmt)).scalar_one_or_none()
-            if not party:
-                raise HTTPException(status_code=404, detail=f"Supplier {supplier_id} not found.")
-            supp_name = party.legal_name or party.name
-            supp_code = party.code
-            gstin = getattr(party, "tax_id", None) or ""
+            supp_name = party.legal_name or party.trade_name or "Unknown Supplier"
+            supp_code = party.party_code
+            gstin = getattr(party, "gstin", None) or ""
             pan = getattr(party, "pan", None) or (gstin[2:12].upper() if len(gstin) >= 12 else None)
 
         has_valid_pan = StatutoryTdsEngine.is_valid_pan(pan)
 
         # 2. Fetch SupplierProfile for active TDS section & rate
         prof_stmt = select(SupplierProfile).where(
-            SupplierProfile.party_id.in_([supplier_id, party_id]),
+            SupplierProfile.party_id.in_(list(cand_ids)),
             SupplierProfile.company_id == company_id,
         )
         profile = (await session.execute(prof_stmt)).scalars().first()
@@ -5256,7 +5329,7 @@ class UnifiedAccountingLedgerService:
             .where(
                 GeneralLedgerEntry.company_id == company_id,
                 GeneralLedgerEntry.account_id == acc_tds.id,
-                GeneralLedgerEntry.party_id.in_([supplier_id, party_id]),
+                GeneralLedgerEntry.party_id.in_(list(cand_ids)),
                 GeneralLedgerEntry.is_deleted == False,
             )
         )
@@ -5283,7 +5356,7 @@ class UnifiedAccountingLedgerService:
             select(func.coalesce(func.sum(PurchaseBill.total_amount), 0))
             .where(
                 PurchaseBill.company_id == company_id,
-                PurchaseBill.supplier_id == supplier_id,
+                PurchaseBill.supplier_id.in_(list(cand_ids)),
                 PurchaseBill.is_deleted == False,
                 PurchaseBill.status.notin_(["DRAFT", "CANCELLED"]),
             )
