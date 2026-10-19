@@ -988,11 +988,12 @@ async def confirm_purchase_order(
 
 @router.get("/reports/outstanding", summary="Supplier Outstanding Report")
 async def get_outstanding_report(
+    supplier_id: Optional[str] = Query(default=None, description="Optional supplier identifier or party ID to filter scorecard"),
     db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
 ):
-    """List suppliers with open (DRAFT/CONFIRMED) POs and total outstanding values."""
-    return await PurchaseService(db, tenant_ctx).get_outstanding_suppliers()
+    """List suppliers with POs, outstanding values, and scorecard SLA metrics."""
+    return await PurchaseService(db, tenant_ctx).get_outstanding_suppliers(supplier_id=supplier_id)
 
 
 @router.get("/reports/pending-delivery", summary="Pending Delivery Report")
