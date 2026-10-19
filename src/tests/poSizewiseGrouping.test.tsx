@@ -25,6 +25,7 @@ import type { PurchaseOrderSizePivotRow, SizewisePOLine } from "../components/pu
 import { buildGroupedSizewiseLines } from "../components/purchase/PoSizewiseTab";
 import { resolveFootwearAttributes } from "../components/purchase/POPrintPreviewModal";
 import { DEFAULT_BUSINESS_TERMS } from "../components/purchase/CommercialDeliveryDrawer";
+import { parseFootwearSku } from "../components/vendor/tabs/VendorProcurementTab";
 
 describe("Purchase Order Sizewise Grouping (Article No. + Color) Verification", () => {
   const basePOData: PurchaseOrderPrintData = {
@@ -432,6 +433,74 @@ describe("Purchase Order Sizewise Grouping (Article No. + Color) Verification", 
     expect(grouped[0].heelType).toBe("BLOCK HEEL");
     expect(grouped[0].upperMaterial).toBe("PU FOAM");
     expect(grouped[0].outsoleMaterial).toBe("NEOLITE");
+  });
+
+  it("9. parseFootwearSku accurately decomposes standard footwear barcodes into style, color, size, and brand", () => {
+    const item1 = { code: "CH-25-G-GOLD-36" };
+    expect(parseFootwearSku(item1)).toEqual({
+      style: "CH-25-G",
+      color: "GOLD",
+      size: "36",
+      brand: "Tattly Threads",
+    });
+
+    const item2 = { code: "SND-07-G-BLACK-40", brand: "SMRITI Footwear" };
+    expect(parseFootwearSku(item2)).toEqual({
+      style: "SND-07-G",
+      color: "BLACK",
+      size: "40",
+      brand: "SMRITI Footwear",
+    });
+
+    const item3 = { code: "FLT-12-BRN-38", style: "FLT-12", color: "BROWN", size: "38" };
+    expect(parseFootwearSku(item3)).toEqual({
+      style: "FLT-12",
+      color: "BROWN",
+      size: "38",
+      brand: "Tattly Threads",
+    });
+  });
+
+  it("10. Vendor Directory PO reprint renders consolidated sizewise matrix with correct status and non-blank sizes", () => {
+    // Simulating PO-G-AS_26-27_0023 single variant lines from Vendor Directory
+    const vendorPOLines = [
+      { articleNo: "CH-25-G", color: "GOLD", sizeQuantities: { "36": 34 }, totalQty: 34, rate: 525, amount: 17850, taxPercent: 5, taxAmount: 892.5 },
+      { articleNo: "CH-25-G", color: "GOLD", sizeQuantities: { "37": 34 }, totalQty: 34, rate: 525, amount: 17850, taxPercent: 5, taxAmount: 892.5 },
+      { articleNo: "CH-25-G", color: "GOLD", sizeQuantities: { "38": 68 }, totalQty: 68, rate: 525, amount: 35700, taxPercent: 5, taxAmount: 1785.0 },
+      { articleNo: "CH-25-G", color: "BROWN", sizeQuantities: { "36": 34 }, totalQty: 34, rate: 525, amount: 17850, taxPercent: 5, taxAmount: 892.5 },
+    ];
+
+    const html = renderToStaticMarkup(
+      <PurchaseOrderPrintA4
+        data={{
+          ...basePOData,
+          poNumber: "PO-G-AS_26-27_0023",
+          status: "RECEIVED",
+          orderDate: "24 Jul 2026",
+          expectedDelivery: "23 Aug 2026",
+          supplierName: "A. S. Shoes",
+          supplierCode: "G",
+          sizewiseItems: vendorPOLines,
+        }}
+      />
+    );
+
+    // Verify PO Number, Supplier with code G, and status RECEIVED
+    expect(html).toContain("PO-G-AS_26-27_0023");
+    expect(html).toContain("RECEIVED");
+    expect(html).toContain("A. S. Shoes");
+    expect(html).toContain("(G)");
+    expect(html).not.toContain("pty_6b43521cfc03");
+
+    // Order date and delivery date
+    expect(html).toContain("24 Jul 2026");
+    expect(html).toContain("23 Aug 2026");
+
+    // Verify consolidated rows: CH-25-G GOLD should have total 136 (34+34+68)
+    expect(html).toContain("CH-25-G");
+    expect(html).toContain("GOLD");
+    expect(html).toContain("BROWN");
+    expect(html).toContain(">136<");
   });
 });
 

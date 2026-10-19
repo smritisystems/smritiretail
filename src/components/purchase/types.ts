@@ -95,6 +95,8 @@ export interface PurchaseOrderHeader {
   // Vendor policy context (loaded after vendor select — display-only)
   policyName?: string;
   vendorStatus?: string;
+  status?: string;
+  documentStatus?: string;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

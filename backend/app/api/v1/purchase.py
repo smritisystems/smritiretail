@@ -150,6 +150,39 @@ async def list_purchase_orders_contract(
     )
     items_res = await db.execute(items_stmt)
     all_items = items_res.scalars().all()
+    if all_items:
+        from ...models.inventory import Product
+        from sqlalchemy import or_
+        prod_ids = [it.product_id for it in all_items if it.product_id]
+        item_codes = [it.code for it in all_items if it.code]
+        query_conditions = []
+        if prod_ids:
+            query_conditions.append(Product.id.in_(prod_ids))
+        if item_codes:
+            query_conditions.append(Product.code.in_(item_codes))
+        if query_conditions:
+            p_stmt = select(Product).where(or_(*query_conditions))
+            p_res = await db.execute(p_stmt)
+            prods = p_res.scalars().all()
+            prod_map = {}
+            for p in prods:
+                if p.id:
+                    prod_map[p.id] = p
+                if p.code:
+                    prod_map[p.code] = p
+            for it in all_items:
+                prod = prod_map.get(it.product_id) or prod_map.get(it.code)
+                if prod:
+                    attrs = prod.attributes or {}
+                    it.heel_type = getattr(prod, "heel_type", None) or attrs.get("heel_type") or attrs.get("heelType") or attrs.get("heels") or attrs.get("Heel Type")
+                    it.upper_material = getattr(prod, "upper_material", None) or attrs.get("upper_material") or attrs.get("upperMaterial") or attrs.get("upper") or attrs.get("Upper Material")
+                    it.outsole_material = getattr(prod, "outsole_material", None) or attrs.get("outsole_material") or attrs.get("outsoleMaterial") or attrs.get("outsole") or attrs.get("Outsole Material") or attrs.get("sole")
+                    it.image_url = getattr(prod, "primary_image_url", None) or attrs.get("image_url") or attrs.get("image_link")
+                    it.color = getattr(prod, "color", None) or attrs.get("color")
+                    it.size = getattr(prod, "size", None) or attrs.get("size")
+                    it.brand = getattr(prod, "brand", None) or attrs.get("brand")
+                    it.style = getattr(prod, "style_code", None) or attrs.get("style_code") or attrs.get("style")
+
     items_by_order: Dict[str, List[PurchaseOrderItemResponse]] = defaultdict(list)
     for it in all_items:
         items_by_order[it.order_id].append(PurchaseOrderItemResponse.model_validate(it))

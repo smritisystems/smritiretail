@@ -18,7 +18,44 @@ import { VendorDetail } from "../../../types/vendor";
 import { apiFetchV1 } from "../../../lib/apiFetchV1";
 import { withCapability } from "../../../types/architecture";
 import { POPrintPreviewModal } from "../../purchase/POPrintPreviewModal";
-import type { PurchaseOrderHeader, PurchaseOrderLineItem } from "../../purchase/types";
+import type { PurchaseOrderHeader, PurchaseOrderLineItem, PurchaseOrderSizePivotRow } from "../../purchase/types";
+
+/**
+ * Robust footwear SKU and barcode attribute parser.
+ * Extracts Article/Style, Color/Shade, Size, and Brand from barcode pattern {style}-{color}-{size}
+ * or direct item properties.
+ */
+export function parseFootwearSku(item: any): {
+  style: string;
+  color: string;
+  size: string;
+  brand: string;
+} {
+  const code = String(item.code || item.barcode || item.stockNo || "").trim();
+  let style = String(item.style || item.style_code || "").trim();
+  let color = String(item.color || item.shade || item.colourBase || "").trim();
+  let size = String(item.size || "").trim();
+  const brand = String(item.brand || "Tattly Threads").trim();
+
+  // If any attribute is missing, extract from standard footwear barcode structure {style}-{color}-{size}
+  if ((!style || !color || !size) && code.includes("-")) {
+    const parts = code.split("-");
+    if (parts.length >= 3) {
+      const candidateSize = parts[parts.length - 1];
+      const candidateColor = parts[parts.length - 2];
+      const candidateStyle = parts.slice(0, parts.length - 2).join("-");
+
+      if (!size && candidateSize) size = candidateSize;
+      if (!color && candidateColor) color = candidateColor;
+      if (!style && candidateStyle) style = candidateStyle;
+    }
+  }
+
+  if (!style) style = code || item.name || "Footwear Article";
+  if (!color) color = "Standard";
+
+  return { style, color, size, brand };
+}
 
 interface VendorProcurementTabProps {
   vendor: VendorDetail;
@@ -45,24 +82,32 @@ const VendorProcurementTabBase: React.FC<VendorProcurementTabProps> = ({ vendor 
   const buildHeader = (order: any): PurchaseOrderHeader => {
     const orderNo = String(order.order_no || order.id || "PO");
     const separator = orderNo.lastIndexOf("-");
+    const rawOrderDate =
+      (order.order_date ? String(order.order_date).slice(0, 10) : "") ||
+      (order.notes?.match(/dated ([0-9-]+)/)?.[1]) ||
+      (order.delivery_date ? String(order.delivery_date).slice(0, 10) : "") ||
+      (order.created_at ? new Date(order.created_at).toISOString().slice(0, 10) : "");
+
     return {
       documentType: "Purchase Order",
       prefix: separator > 0 ? orderNo.slice(0, separator) : "PO",
       orderNumber: separator > 0 ? orderNo.slice(separator + 1) : orderNo,
-      orderDate: order.created_at ? new Date(order.created_at).toISOString().slice(0, 10) : "",
-      supplierId: vendor.id,
-      supplierName: vendor.legalName,
+      orderDate: rawOrderDate,
+      supplierId: vendor.code || vendor.id,
+      supplierName: vendor.legalName || vendor.tradeName || "Selected Supplier",
       billTo: "",
       deliveryDate: order.delivery_date || "",
       leadTimeDays: 0,
       deliveryLocation: order.delivery_location || "Main Store (MAIN)",
-      commonTaxPercent: Number(order.items?.[0]?.gst_rate || 0),
-      paymentTerms: order.payment_terms || "30 Days",
-      freightCharges: order.freight_charges || "",
+      commonTaxPercent: Number(order.items?.[0]?.gst_rate !== undefined ? order.items[0].gst_rate : 5),
+      paymentTerms: order.commercial_terms?.payment_terms || order.payment_terms || "120 Days",
+      freightCharges: order.commercial_terms?.freight_terms || order.freight_charges || "Paid by Supplier",
       specialInstructions: order.notes || "",
-      supplierReference: order.supplier_reference || "",
-      buyer: order.created_by || "",
-      department: "General Purchase",
+      supplierReference: order.supplier_reference || order.vendor_bill_no || "",
+      buyer: order.created_by || "admin",
+      department: "Footwear Sourcing & Procurement",
+      status: order.status || "CONFIRMED",
+      documentStatus: order.status || "CONFIRMED",
     };
   };
 
@@ -70,33 +115,79 @@ const VendorProcurementTabBase: React.FC<VendorProcurementTabProps> = ({ vendor 
     (order.items || []).map((item: any, index: number) => {
       const quantity = Number(item.quantity || 0);
       const rate = Number(item.cost_price || 0);
-      const taxPercent = Number(item.gst_rate || 0);
+      const taxPercent = Number(item.gst_rate !== undefined ? item.gst_rate : 5);
       const value = Number(item.line_total || quantity * rate);
+      const { style, color, size, brand } = parseFootwearSku(item);
+
       return {
         id: String(item.id || `${order.id}-line-${index}`),
         sNo: index + 1,
         stockNo: item.code || item.product_id || "",
         barcode: item.code || "",
         product: item.name || item.code || "Item",
-        brand: "",
-        style: "",
-        shade: "",
-        size: "",
+        brand,
+        style,
+        shade: color,
+        size,
         fibre: "",
-        colourBase: "",
+        colourBase: color,
         styling: "",
         rate,
         orderQty: quantity,
-        unit: "EA",
+        unit: item.unit || "Pair",
         value,
-        stockOnHand: 0,
+        stockOnHand: Number(item.stock_on_hand || 0),
         taxPercent,
-        taxAmount: Number(item.tax_amount || value * taxPercent / 100),
+        taxAmount: Number(item.tax_amount || (value * taxPercent) / 100),
         addOnPercent: 0,
         addOnAmount: 0,
-        totalValue: value + Number(item.tax_amount || value * taxPercent / 100),
+        totalValue: value + Number(item.tax_amount || (value * taxPercent) / 100),
+        heelType: item.heel_type,
+        upperMaterial: item.upper_material,
+        outsoleMaterial: item.outsole_material,
+        imageUrl: item.image_url,
       };
     });
+
+  const buildPivotRows = (lines: PurchaseOrderLineItem[]): PurchaseOrderSizePivotRow[] => {
+    const pivotMap = new Map<string, PurchaseOrderSizePivotRow>();
+    lines.forEach((l) => {
+      const art = l.style || l.stockNo || l.product || "Footwear Article";
+      const col = l.shade || "Standard";
+      const key = `${art.toUpperCase()}:::${col.toUpperCase()}`;
+      const qty = Number(l.orderQty) || 0;
+      const rate = Number(l.rate) || 0;
+      const sz = l.size ? l.size.trim() : "Standard";
+      const taxRate = l.taxPercent !== undefined ? l.taxPercent : 5;
+      const lineTaxable = l.value !== undefined ? l.value : qty * rate;
+      const lineTax = l.taxAmount !== undefined ? l.taxAmount : (lineTaxable * taxRate) / 100;
+
+      if (!pivotMap.has(key)) {
+        pivotMap.set(key, {
+          id: `${key}-pivot`,
+          sNo: pivotMap.size + 1,
+          articleNo: art,
+          product: l.product || art,
+          brand: l.brand || "Tattly Threads",
+          style: art,
+          color: col,
+          sizeQuantities: { [sz]: qty },
+          totalQty: qty,
+          gstPercent: taxRate,
+          rate: rate,
+          totalValue: lineTaxable,
+          taxAmount: lineTax,
+        });
+      } else {
+        const existing = pivotMap.get(key)!;
+        existing.sizeQuantities[sz] = (existing.sizeQuantities[sz] || 0) + qty;
+        existing.totalQty += qty;
+        existing.totalValue += lineTaxable;
+        existing.taxAmount = (existing.taxAmount || 0) + lineTax;
+      }
+    });
+    return Array.from(pivotMap.values());
+  };
 
   useEffect(() => {
     // Fetch POs filtered server-side by the Universal Party ID.
@@ -164,7 +255,13 @@ const VendorProcurementTabBase: React.FC<VendorProcurementTabProps> = ({ vendor 
                     <FileText size={13} className="text-indigo-600 dark:text-indigo-400" />
                     <span>{po.order_no || po.id}</span>
                   </td>
-                  <td className="p-3 text-slate-500 dark:text-slate-400">{po.created_at ? new Date(po.created_at).toLocaleDateString("en-GB") : "—"}</td>
+                  <td className="p-3 text-slate-500 dark:text-slate-400">
+                    {po.order_date
+                      ? (typeof po.order_date === "string" && po.order_date.includes("-")
+                          ? po.order_date.split("T")[0].split("-").reverse().join("/")
+                          : new Date(po.order_date).toLocaleDateString("en-GB"))
+                      : (po.created_at ? new Date(po.created_at).toLocaleDateString("en-GB") : "—")}
+                  </td>
                   <td className="p-3">
                     <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-50 dark:bg-indigo-500/10 text-indigo-700 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-500/20">
                       {po.status || "CONFIRMED"}
@@ -193,26 +290,30 @@ const VendorProcurementTabBase: React.FC<VendorProcurementTabProps> = ({ vendor 
         </div>
       )}
 
-      {reprintOrder && (
-        <POPrintPreviewModal
-          isOpen={true}
-          onClose={() => setReprintOrder(null)}
-          header={buildHeader(reprintOrder)}
-          lineItems={buildLines(reprintOrder)}
-          sizePivotRows={[]}
-          activeTab="generation"
-          vendor={{
-            id: vendor.id,
-            name: vendor.legalName,
-            code: vendor.code,
-            address: vendor.addresses?.[0]?.addressLine1,
-            gstin: vendor.gstin,
-            phone: vendor.contacts?.[0]?.phone,
-            state: vendor.state,
-          }}
-          reprintMode
-        />
-      )}
+      {reprintOrder && (() => {
+        const lines = buildLines(reprintOrder);
+        const pivotRows = buildPivotRows(lines);
+        return (
+          <POPrintPreviewModal
+            isOpen={true}
+            onClose={() => setReprintOrder(null)}
+            header={buildHeader(reprintOrder)}
+            lineItems={lines}
+            sizePivotRows={pivotRows}
+            activeTab="pivot"
+            vendor={{
+              id: vendor.id,
+              name: vendor.legalName,
+              code: vendor.code,
+              address: vendor.addresses?.[0]?.addressLine1,
+              gstin: vendor.gstin,
+              phone: vendor.contacts?.[0]?.phone,
+              state: vendor.state,
+            }}
+            reprintMode
+          />
+        );
+      })()}
     </div>
   );
 };

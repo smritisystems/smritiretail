@@ -441,7 +441,7 @@ export const POPrintPreviewModal: React.FC<POPrintPreviewModalProps> = ({
     paymentTerms: header.paymentTerms && header.paymentTerms !== "30 Days" ? header.paymentTerms : "120 Days",
     purchaser: header.buyer || "—",
     supplierReference: header.supplierReference || "—",
-    documentStatus: "DRAFT",
+    documentStatus: header.status || (header as any)?.documentStatus || (reprintMode ? "ORIGINAL UNCHANGED" : "DRAFT"),
     businessTerms: resolvedBusinessTerms,
     secondaryCurrencyTotal:
       currency === "EUR" ? "Domestic Valuation (@ ₹ 88.20 / EUR)" : undefined,
@@ -636,15 +636,32 @@ export const POPrintPreviewModal: React.FC<POPrintPreviewModalProps> = ({
     }>();
 
     lineItems.forEach((l) => {
-      const art = (l.style || l.stockNo || l.product || "Footwear Article").trim();
-      const col = (l.shade || l.colourBase || l.originalProduct?.color || "Standard").trim();
+      let lStyle = (l.style || "").trim();
+      let lShade = (l.shade || l.colourBase || l.originalProduct?.color || "").trim();
+      let lSize = (l.size || "").trim();
+
+      if ((!lStyle || !lShade || !lSize) && (l.barcode || l.stockNo)) {
+        const rawCode = (l.barcode || l.stockNo || "").trim();
+        const parts = rawCode.split("-");
+        if (parts.length >= 3) {
+          const sz = parts[parts.length - 1];
+          const col = parts[parts.length - 2];
+          const st = parts.slice(0, parts.length - 2).join("-");
+          if (!lSize && sz) lSize = sz;
+          if (!lShade && col) lShade = col;
+          if (!lStyle && st) lStyle = st;
+        }
+      }
+
+      const art = (lStyle || l.stockNo || l.product || "Footwear Article").trim();
+      const col = (lShade || "Standard").trim();
       const key = `${art.toUpperCase()}:::${col.toUpperCase()}`;
       const qty = Number(l.orderQty) || 0;
       const rate = Number(l.rate) || 0;
       const taxRate = l.taxPercent !== undefined ? Number(l.taxPercent) : (header.commonTaxPercent ?? 5);
       const lineTaxable = l.value !== undefined ? Number(l.value) : (qty * rate);
       const lineTax = l.taxAmount !== undefined ? Number(l.taxAmount) : (lineTaxable * taxRate) / 100;
-      const szKey = l.size ? l.size.trim() : "Standard";
+      const szKey = lSize || "Standard";
 
       if (!groupedMap.has(key)) {
         groupedMap.set(key, {
