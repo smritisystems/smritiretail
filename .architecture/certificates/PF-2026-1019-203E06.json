@@ -1,0 +1,15 @@
+{
+  "certificate_id": "PF-2026-1019-203E06",
+  "entity": "customer",
+  "capability": "customer.crud",
+  "asset_type": "types",
+  "proposed_name": "types.ts",
+  "target_file_path": "src/components/customer/lifecycle/types.ts",
+  "decision": "CREATE_APPROVED",
+  "canonical_owner": "src/components/customer/CustMasterWs.tsx",
+  "content_hash": "20a15a4815f5803926081e18bad24867f5aca25c75d8ed36947ec53bf2a92e12",
+  "git_commit": "bcdcd4ff56b88e0dcc5a28515496bde4b9b95f3a",
+  "issued_at": "2026-10-19T14:38:43.676829+00:00",
+  "expires_at": "2026-10-26T14:38:43.676829+00:00",
+  "status": "ISSUED"
+}

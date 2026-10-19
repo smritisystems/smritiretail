@@ -1,0 +1,15 @@
+{
+  "certificate_id": "PF-2026-1019-CC252E",
+  "entity": "customer",
+  "capability": "customer.crud",
+  "asset_type": "component",
+  "proposed_name": "EnterpriseCustomerSearchModal.tsx",
+  "target_file_path": "src/components/customer/lifecycle/EnterpriseCustomerSearchModal.tsx",
+  "decision": "CREATE_APPROVED",
+  "canonical_owner": "src/components/customer/CustMasterWs.tsx",
+  "content_hash": "415f7341b39c62d2b85fe1c2fea82127c4c8ef022f8b69456a4502ad1d93bfe9",
+  "git_commit": "bcdcd4ff56b88e0dcc5a28515496bde4b9b95f3a",
+  "issued_at": "2026-10-19T15:03:45.562317+00:00",
+  "expires_at": "2026-10-26T15:03:45.562317+00:00",
+  "status": "ISSUED"
+}

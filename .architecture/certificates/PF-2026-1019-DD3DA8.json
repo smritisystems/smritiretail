@@ -1,0 +1,15 @@
+{
+  "certificate_id": "PF-2026-1019-DD3DA8",
+  "entity": "customer",
+  "capability": "customer.crud",
+  "asset_type": "component",
+  "proposed_name": "CorporateActivityAuditPanel.tsx",
+  "target_file_path": "src/components/customer/corporateWorkspace/CorporateActivityAuditPanel.tsx",
+  "decision": "CREATE_APPROVED",
+  "canonical_owner": "src/components/customer/CustMasterWs.tsx",
+  "content_hash": "a5c53c0927c4c77afe5a0976921584192a0a9f151fcf0fa5da827022d822aa93",
+  "git_commit": "bcdcd4ff56b88e0dcc5a28515496bde4b9b95f3a",
+  "issued_at": "2026-10-19T11:10:26.096772+00:00",
+  "expires_at": "2026-10-26T11:10:26.096772+00:00",
+  "status": "ISSUED"
+}

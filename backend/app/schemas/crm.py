@@ -6,13 +6,13 @@ Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
 Version      : 3.23.0
 Created      : 2026-07-11
-Modified     : 2026-09-18
+Modified     : 2026-10-19
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 """
 
 from typing import Any, List, Optional, Dict
-from datetime import datetime, date
+from datetime import datetime, date, timezone
 from decimal import Decimal
 from enum import Enum
 import uuid as uuid_pkg
@@ -959,6 +959,7 @@ class CustomerUpdate(BaseModel):
     outstanding: Optional[Decimal] = None
     status: Optional[str] = None
     tags: Optional[List[str]] = None
+    expected_modified_at: Optional[datetime] = Field(None, alias="expectedModifiedAt")
 
     model_config = ConfigDict(populate_by_name=True, from_attributes=True)
 
@@ -972,6 +973,50 @@ class CustomerUpdate(BaseModel):
         if not GSTIN_REGEX.match(value):
             raise ValueError(f"Invalid GSTIN format '{value}'")
         return value
+
+
+class CustomerDeactivateRequest(BaseModel):
+    """Payload for customer account deactivation."""
+    reason: Optional[str] = Field(None, description="Operational explanation for customer deactivation")
+
+    model_config = ConfigDict(populate_by_name=True, from_attributes=True)
+
+
+class CustomerDeleteEligibilityResponse(BaseModel):
+    """Authoritative pre-flight evaluation response for customer deletion."""
+    customer_id: str = Field(..., alias="customerId")
+    customer_code: Optional[str] = Field(None, alias="customerCode")
+    customer_name: str = Field(..., alias="customerName")
+    status: str
+    eligible: bool
+    blockers: List[str] = []
+    warnings: List[str] = []
+    recommendation: str = "DEACTIVATE"  # "DEACTIVATE" or "PERMANENT_DELETE"
+    reason: str
+    metrics: Dict[str, Any] = {}
+
+    model_config = ConfigDict(populate_by_name=True, from_attributes=True)
+
+
+class CustomerMergeRequest(BaseModel):
+    """Payload for authoritative customer account consolidation (BD-2)."""
+    target_customer_id: str = Field(..., alias="targetCustomerId", description="Surviving target customer ID")
+    source_customer_id: str = Field(..., alias="sourceCustomerId", description="Duplicate customer ID being absorbed")
+    reason: Optional[str] = Field(None, description="Operational explanation for customer merge")
+
+    model_config = ConfigDict(populate_by_name=True, from_attributes=True)
+
+
+class CustomerMergeResponse(BaseModel):
+    """Result of authoritative customer account consolidation."""
+    target_customer_id: str = Field(..., alias="targetCustomerId")
+    source_customer_id: str = Field(..., alias="sourceCustomerId")
+    status: str = "merged"
+    message: str
+    reassigned_records: Dict[str, int] = Field(default_factory=dict, alias="reassignedRecords")
+    merged_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), alias="mergedAt")
+
+    model_config = ConfigDict(populate_by_name=True, from_attributes=True)
 
 
 class CustomerRelationshipCreate(BaseModel):
@@ -989,6 +1034,49 @@ class CustomerRelationshipResponse(CustomerRelationshipCreate):
     dependant_customer_name: Optional[str] = Field(None, alias="dependantCustomerName")
 
     model_config = ConfigDict(populate_by_name=True, from_attributes=True)
+
+
+# ──────────────────────── CustomerCompanyRelationship ───────────────────────
+
+class CustomerCompanyRelationshipBase(BaseModel):
+    company_id: str
+    branch_id: Optional[str] = None
+    customer_group_id: Optional[str] = None
+    price_tier_id: Optional[str] = None
+    credit_limit: Decimal = Field(default=Decimal("0.00"))
+    credit_days: int = Field(default=0)
+    credit_hold: bool = Field(default=False)
+    status: str = Field(default="Active")
+
+    model_config = ConfigDict(populate_by_name=True, from_attributes=True)
+
+
+class CustomerCompanyRelationshipCreate(CustomerCompanyRelationshipBase):
+    customer_id: str
+
+
+class CustomerCompanyRelationshipUpdate(BaseModel):
+    customer_group_id: Optional[str] = None
+    price_tier_id: Optional[str] = None
+    credit_limit: Optional[Decimal] = None
+    credit_days: Optional[int] = None
+    credit_hold: Optional[bool] = None
+    status: Optional[str] = None
+
+    model_config = ConfigDict(populate_by_name=True, from_attributes=True)
+
+
+class CustomerCompanyRelationshipResponse(CustomerCompanyRelationshipBase):
+    id: str
+    uuid: str
+    customer_id: str
+    is_active: bool
+    is_deleted: bool
+    created_at: datetime
+    modified_at: Optional[datetime] = None
+
+    model_config = ConfigDict(populate_by_name=True, from_attributes=True)
+
 
 def get_loaded_customer_group(customer: Any) -> Optional[Any]:
     """
@@ -1157,6 +1245,11 @@ def map_customer_to_response_dict(customer: Any) -> dict:
             CustomerExternalIdentityResponse.model_validate(ei)
             for ei in get_loaded_relationship(customer, "external_identities")
         ],
+        "company_relationships": [
+            CustomerCompanyRelationshipResponse.model_validate(rel)
+            for rel in get_loaded_relationship(customer, "company_relationships")
+            if not getattr(rel, "is_deleted", False)
+        ],
     }
 
 
@@ -1177,6 +1270,7 @@ class CustomerResponse(CustomerBase):
     billing_locations: List[CustomerBillingLocationResponse] = []
     external_identities: List[CustomerExternalIdentityResponse] = []
     dependants: List[CustomerRelationshipResponse] = []
+    company_relationships: List[CustomerCompanyRelationshipResponse] = []
     loyalty_pgm_id: Optional[str] = Field(None, alias="loyaltyPgmId")
     loyalty_pgm_code: Optional[str] = Field(None, alias="loyaltyPgmCode")
     loyalty_tier: Optional[str] = Field(None, alias="loyaltyTier")
@@ -1283,3 +1377,42 @@ class CorporateCustomer360Response(BaseModel):
     recent_orders: List[RecentOrderItem] = []
     purchase_trend: List[PurchaseTrendItem] = []
     top_categories: List[CategoryShareItem] = []
+
+
+# ──────────────────────── Customer Credit Exposure (BD-6) ───────────────────
+
+class CompanyCreditExposureItem(BaseModel):
+    company_id: str = Field(..., alias="companyId")
+    company_name: Optional[str] = Field(None, alias="companyName")
+    company_code: Optional[str] = Field(None, alias="companyCode")
+    relationship_id: Optional[str] = Field(None, alias="relationshipId")
+    customer_group_id: Optional[str] = Field(None, alias="customerGroupId")
+    credit_limit: Decimal = Field(default=Decimal("0.00"), alias="creditLimit")
+    credit_days: int = Field(default=0, alias="creditDays")
+    credit_hold: bool = Field(default=False, alias="creditHold")
+    credit_used: Decimal = Field(default=Decimal("0.00"), alias="creditUsed")
+    available_credit: Decimal = Field(default=Decimal("0.00"), alias="availableCredit")
+    utilization_percent: float = Field(default=0.0, alias="utilizationPercent")
+    exposure_status: str = Field(default="NORMAL", alias="exposureStatus")  # NORMAL | HIGH_WARNING | CRITICAL_BREACH | ON_HOLD
+    status: str = Field(default="Active")
+
+    model_config = ConfigDict(populate_by_name=True, from_attributes=True)
+
+
+class CustomerCreditExposureResponse(BaseModel):
+    customer_id: str = Field(..., alias="customerId")
+    customer_name: str = Field(..., alias="customerName")
+    code: Optional[str] = None
+    identity_code: Optional[str] = Field(None, alias="identityCode")
+    pan_number: Optional[str] = Field(None, alias="panNumber")
+    total_credit_limit: Decimal = Field(default=Decimal("0.00"), alias="totalCreditLimit")
+    total_credit_used: Decimal = Field(default=Decimal("0.00"), alias="totalCreditUsed")
+    total_available_credit: Decimal = Field(default=Decimal("0.00"), alias="totalAvailableCredit")
+    group_utilization_percent: float = Field(default=0.0, alias="groupUtilizationPercent")
+    group_risk_level: str = Field(default="LOW", alias="groupRiskLevel")  # LOW | MODERATE | HIGH | CRITICAL | ON_HOLD
+    company_count: int = Field(default=0, alias="companyCount")
+    hold_count: int = Field(default=0, alias="holdCount")
+    company_exposures: List[CompanyCreditExposureItem] = Field(default_factory=list, alias="companyExposures")
+
+    model_config = ConfigDict(populate_by_name=True, from_attributes=True)
+

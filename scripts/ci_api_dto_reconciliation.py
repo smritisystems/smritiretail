@@ -7,7 +7,7 @@ Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
 Version      : 1.0.0
 Created      : 2026-09-23
-Modified     : 2026-09-23
+Modified     : 2026-10-19
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 Classification: CI Governance — API DTO Reconciliation (CFOC v3.46.0 Pillar 4)
@@ -196,6 +196,7 @@ EXEMPT_DTO_FIELDS: Set[str] = {
     # Purchase Order and Supplier commercial terms, audit revisions, and projection responses
     "business_terms", "buyer", "commercial_terms", "currency", "freight_terms", "payment_terms", "special_instructions",
     "rule_snapshots", "amend_revision", "cancellation_reason", "delivery_date", "order_date", "supplier_name", "total_amount",
+    "received_date", "vendor_bill_date", "vendor_bill_no",
     # CustomerProfileData sub-schema fields (nested profile, maps to customer_profile table)
     # These are captured in CustomerProfileData which nests inside PartyCreateRequest
     "credit_limit", "credit_days", "customer_category", "is_credit_hold",

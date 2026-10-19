@@ -8,7 +8,7 @@
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
  * Version      : 6.99.0
  * Created      : 2026-10-18
- * Modified     : 2026-10-18
+ * Modified     : 2026-10-19
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
@@ -438,6 +438,7 @@ export const StoreAddressModal: React.FC<StoreAddressModalProps> = ({
                   </label>
                   <input
                     type="text"
+                    data-field-key="address_title"
                     placeholder="e.g. Inward Goods Dock, Main Accounts Wing"
                     value={editingAddress?.address_title || ""}
                     onChange={(e) => setEditingAddress({ ...editingAddress, address_title: e.target.value })}
@@ -452,6 +453,7 @@ export const StoreAddressModal: React.FC<StoreAddressModalProps> = ({
                   </label>
                   <input
                     type="text"
+                    data-field-key="address_line1"
                     required
                     placeholder="Plot / Gate / Building / Street"
                     value={editingAddress?.address_line1 || ""}
@@ -467,6 +469,7 @@ export const StoreAddressModal: React.FC<StoreAddressModalProps> = ({
                   </label>
                   <input
                     type="text"
+                    data-field-key="address_line2"
                     placeholder="Industrial Area, Landmark"
                     value={editingAddress?.address_line2 || ""}
                     onChange={(e) => setEditingAddress({ ...editingAddress, address_line2: e.target.value })}
@@ -481,6 +484,7 @@ export const StoreAddressModal: React.FC<StoreAddressModalProps> = ({
                   </label>
                   <input
                     type="text"
+                    data-field-key="city"
                     required
                     value={editingAddress?.city || ""}
                     onChange={(e) => setEditingAddress({ ...editingAddress, city: e.target.value })}
@@ -495,6 +499,7 @@ export const StoreAddressModal: React.FC<StoreAddressModalProps> = ({
                   </label>
                   <input
                     type="text"
+                    data-field-key="state"
                     required
                     value={editingAddress?.state || ""}
                     onChange={(e) => setEditingAddress({ ...editingAddress, state: e.target.value })}
@@ -509,6 +514,7 @@ export const StoreAddressModal: React.FC<StoreAddressModalProps> = ({
                   </label>
                   <input
                     type="text"
+                    data-field-key="pincode"
                     required
                     maxLength={6}
                     value={editingAddress?.pincode || ""}
@@ -524,6 +530,7 @@ export const StoreAddressModal: React.FC<StoreAddressModalProps> = ({
                   </label>
                   <input
                     type="text"
+                    data-field-key="contact_person"
                     placeholder="Name & Designation"
                     value={editingAddress?.contact_person || ""}
                     onChange={(e) => setEditingAddress({ ...editingAddress, contact_person: e.target.value })}
@@ -538,6 +545,7 @@ export const StoreAddressModal: React.FC<StoreAddressModalProps> = ({
                   </label>
                   <input
                     type="text"
+                    data-field-key="mobile_phone"
                     placeholder="+91..."
                     value={editingAddress?.phone || ""}
                     onChange={(e) => setEditingAddress({ ...editingAddress, phone: e.target.value })}
@@ -552,6 +560,7 @@ export const StoreAddressModal: React.FC<StoreAddressModalProps> = ({
                   </label>
                   <input
                     type="email"
+                    data-field-key="email_address"
                     placeholder="dispatch@..."
                     value={editingAddress?.email || ""}
                     onChange={(e) => setEditingAddress({ ...editingAddress, email: e.target.value })}
@@ -563,6 +572,7 @@ export const StoreAddressModal: React.FC<StoreAddressModalProps> = ({
                 <div className="sm:col-span-2 pt-1 flex items-center gap-2">
                   <input
                     type="checkbox"
+                    data-field-key="is_primary_address"
                     id="is_primary_checkbox"
                     checked={Boolean(editingAddress?.is_primary)}
                     onChange={(e) => setEditingAddress({ ...editingAddress, is_primary: e.target.checked })}

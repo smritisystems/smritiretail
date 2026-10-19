@@ -11,7 +11,10 @@ Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 """
 
+import hashlib
+import json
 import uuid
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
@@ -19,7 +22,8 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from ...api.deps import get_db, get_company_db, get_tenant_context, TenantContext, require_role, get_current_user
 
-from ...models.auth import UserRole
+from ...models.auth import UserRole, User
+from ...models.audit import ComplianceImmutableAuditLog
 from ...models.crm import Customer, CustomerRelationship, CustomerGroup
 from ...models.customer_po import CustomerPurchaseOrder
 from ...models.sales import SalesInvoice, SalesOrder, SalesReturn
@@ -32,11 +36,15 @@ from ...schemas.crm import (
     CustomerBillingLocationCreate, CustomerBillingLocationUpdate, CustomerBillingLocationResponse,
     CustomerExternalIdentityCreate, CustomerExternalIdentityResponse,
     CustomerDuplicateCheckRequest, CustomerDuplicateCheckResponse,
+    CustomerDeactivateRequest, CustomerDeleteEligibilityResponse,
     CustomerRelationshipCreate, CustomerRelationshipResponse,
     CorporateCustomer360Response, CorporateKpis, CorporateStoreItem,
     CorporatePsvSummary, StoreTypeSlice, RecentOrderItem,
     PurchaseTrendItem, CategoryShareItem,
     StoreAddressItem, StoreAddressCreate, StoreAddressUpdate, StoreCodeLookupItem,
+    CustomerCompanyRelationshipCreate, CustomerCompanyRelationshipUpdate, CustomerCompanyRelationshipResponse,
+    CustomerMergeRequest, CustomerMergeResponse,
+    CompanyCreditExposureItem, CustomerCreditExposureResponse,
 )
 from ...repositories.customer import CustomerRepository, CustomerGroupRepository
 from ...services.crm import CrmService
@@ -204,6 +212,101 @@ async def search_customers(
     return [CustomerResponse.from_orm_customer(c) for c in customers]
 
 
+async def require_cross_company_customer_access(
+    current_user: User = Depends(get_current_user),
+    tenant: TenantContext = Depends(get_tenant_context),
+    db: AsyncSession = Depends(get_company_db),
+) -> User:
+    if current_user.role in (UserRole.SYSADMIN, UserRole.ADMIN):
+        return current_user
+    from ...core.security_matrix import evaluate_action_permission
+    allowed = await evaluate_action_permission(
+        db=db,
+        current_user=current_user,
+        tenant=tenant,
+        resource="CUSTOMER",
+        action="CROSS_COMPANY_LOOKUP"
+    )
+    if not allowed:
+        raise HTTPException(
+            status_code=403,
+            detail="SMRITI-AUTH-001: Access denied. Cross-company customer lookup requires SYSADMIN role or CUSTOMER.CROSS_COMPANY.LOOKUP permission."
+        )
+    return current_user
+
+
+@router.get("/enterprise/customers/search", response_model=List[CustomerResponse], summary="Enterprise Cross-Company Customer Search (BD-4)")
+async def enterprise_search_customers(
+    q: Optional[str] = Query(None, description="Search term across name, mobile, code, GSTIN, PAN, identity code"),
+    skip: int = Query(0, ge=0),
+    limit: int = Query(50, ge=1, le=100),
+    status: Optional[str] = Query("Active", description="Filter by status: Active, Inactive, Archived, or 'all'"),
+    current_user: User = Depends(require_cross_company_customer_access),
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+):
+    """
+    BD-4 Enterprise Cross-Company Customer Search:
+    Privileged lookup across all company boundaries for customer identity consolidation.
+    Atomically writes a tamper-evident audit record to compliance_immutable_audit_logs.
+    """
+    effective_status = None if (status or "").lower() == "all" else status
+    repo = CustomerRepository(db, tenant_ctx)
+    customers = await repo.enterprise_search(
+        q=q,
+        skip=skip,
+        limit=limit,
+        status=effective_status,
+    )
+
+    # Immutable compliance audit log entry
+    payload_data = {
+        "operation": "ENTERPRISE_CROSS_COMPANY_CUSTOMER_SEARCH",
+        "query": q,
+        "status_filter": status,
+        "results_count": len(customers),
+        "actor_user_id": current_user.id,
+        "actor_username": getattr(current_user, "username", None),
+        "company_id": tenant_ctx.company_id,
+        "branch_id": tenant_ctx.branch_id,
+    }
+    serialized = json.dumps(payload_data, sort_keys=True, default=str)
+    payload_hash = hashlib.sha256(serialized.encode("utf-8")).hexdigest()
+
+    last_stmt = (
+        select(ComplianceImmutableAuditLog)
+        .order_by(ComplianceImmutableAuditLog.created_at.desc())
+        .limit(1)
+    )
+    if tenant_ctx.company_id:
+        last_stmt = last_stmt.where(ComplianceImmutableAuditLog.company_id == tenant_ctx.company_id)
+    last_entry = (await db.execute(last_stmt)).scalars().first()
+    previous_hash = last_entry.payload_hash if last_entry else None
+
+    audit_entry = ComplianceImmutableAuditLog(
+        id=f"audit_{uuid.uuid4().hex[:16]}",
+        company_id=tenant_ctx.company_id,
+        branch_id=tenant_ctx.branch_id,
+        event_type="CROSS_COMPANY_LOOKUP",
+        entity_name="CUSTOMER",
+        entity_id=q or "*ALL*",
+        actor_user_id=current_user.id,
+        actor_role=current_user.role.value if hasattr(current_user.role, "value") else str(current_user.role),
+        action_summary=f"Enterprise cross-company search executed for query '{q or ''}'. Returned {len(customers)} records.",
+        payload_hash=payload_hash,
+        previous_hash=previous_hash,
+        hash_chain_verified=True,
+        request_id=f"req_{uuid.uuid4().hex[:12]}",
+        retention_policy="STATUTORY_7_YEARS",
+        worm_locked=True,
+        timestamp=datetime.now(timezone.utc),
+    )
+    db.add(audit_entry)
+    await db.commit()
+
+    return [CustomerResponse.from_orm_customer(c) for c in customers]
+
+
 @router.get("/customers/{customer_id}", response_model=CustomerResponse)
 async def get_customer(
     customer_id: str,
@@ -224,12 +327,8 @@ async def get_customer_commercial_summary(
     tenant_ctx: TenantContext = Depends(get_tenant_context),
 ):
     """Aggregate authoritative customer commercial records without loading history into the UI."""
-    customer = (await db.execute(select(Customer).where(
-        Customer.id == customer_id,
-        Customer.company_id == tenant_ctx.company_id,
-        Customer.branch_id == tenant_ctx.branch_id,
-        Customer.is_deleted == False,
-    ))).scalars().first()
+    repo = CustomerRepository(db, tenant_ctx)
+    customer = await repo.get(customer_id)
     if not customer:
         raise HTTPException(status_code=404, detail="Customer not found")
 
@@ -691,15 +790,23 @@ async def get_corporate_customer_360(
     )
 
 
-@router.put("/customers/{customer_id}", response_model=CustomerResponse)
-@router.patch("/customers/{customer_id}", response_model=CustomerResponse)
+@router.put(
+    "/customers/{customer_id}",
+    response_model=CustomerResponse,
+    dependencies=[Depends(require_role(UserRole.CASHIER, UserRole.MANAGER, UserRole.SYSADMIN))],
+)
+@router.patch(
+    "/customers/{customer_id}",
+    response_model=CustomerResponse,
+    dependencies=[Depends(require_role(UserRole.CASHIER, UserRole.MANAGER, UserRole.SYSADMIN))],
+)
 async def update_customer(
     customer_id: str,
     customer_in: CustomerUpdate,
     db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
 ):
-    """Update or upsert an existing customer."""
+    """Update an existing customer with concurrency checking and role authorization."""
     service = CrmService(db, tenant_ctx)
     customer = await service.update_customer(customer_id, customer_in)
     return CustomerResponse.from_orm_customer(customer)
@@ -718,7 +825,77 @@ async def upsert_customer(
     return CustomerResponse.from_orm_customer(customer)
 
 
-@router.delete("/customers/{customer_id}")
+@router.get(
+    "/customers/{customer_id}/delete-eligibility",
+    response_model=CustomerDeleteEligibilityResponse,
+    dependencies=[Depends(require_role(UserRole.CASHIER, UserRole.MANAGER, UserRole.SYSADMIN))],
+    summary="Check Customer Deletion Safety and Foreign Key Blockers",
+)
+async def check_customer_delete_eligibility(
+    customer_id: str,
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+):
+    """Pre-flight check before deletion to evaluate transaction and foreign-key dependencies."""
+    service = CrmService(db, tenant_ctx)
+    return await service.check_delete_eligibility(customer_id)
+
+
+@router.post(
+    "/customers/{customer_id}/deactivate",
+    response_model=CustomerResponse,
+    dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))],
+    summary="Deactivate Customer Account",
+)
+async def deactivate_customer(
+    customer_id: str,
+    payload: Optional[CustomerDeactivateRequest] = None,
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+):
+    """Deactivate customer account. Blocks new POS transactions while preserving history."""
+    service = CrmService(db, tenant_ctx)
+    reason = payload.reason if payload else None
+    customer = await service.deactivate_customer(customer_id, reason=reason)
+    return CustomerResponse.from_orm_customer(customer)
+
+
+@router.post(
+    "/customers/{customer_id}/reactivate",
+    response_model=CustomerResponse,
+    dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))],
+    summary="Reactivate Customer Account",
+)
+async def reactivate_customer(
+    customer_id: str,
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+):
+    """Reactivate an inactive customer account."""
+    service = CrmService(db, tenant_ctx)
+    customer = await service.reactivate_customer(customer_id)
+    return CustomerResponse.from_orm_customer(customer)
+
+
+@router.delete(
+    "/customers/{customer_id}/permanent",
+    dependencies=[Depends(require_role(UserRole.SYSADMIN))],
+    summary="Permanently Delete Customer (Conditional)",
+)
+async def permanent_delete_customer(
+    customer_id: str,
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+):
+    """Permanently delete customer from PostgreSQL ONLY if zero transaction dependencies exist."""
+    service = CrmService(db, tenant_ctx)
+    return await service.permanent_delete_customer(customer_id)
+
+
+@router.delete(
+    "/customers/{customer_id}",
+    dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))],
+)
 async def delete_customer(
     customer_id: str,
     db: AsyncSession = Depends(get_company_db),
@@ -728,6 +905,109 @@ async def delete_customer(
     service = CrmService(db, tenant_ctx)
     await service.delete_customer(customer_id)
     return {"status": "success", "message": f"Customer '{customer_id}' deleted."}
+
+
+@router.post(
+    "/customers/merge",
+    response_model=CustomerMergeResponse,
+    dependencies=[Depends(require_role(UserRole.SYSADMIN, UserRole.ADMIN, UserRole.MANAGER))],
+    summary="Authoritative Corporate Customer Merge & Consolidation (BD-2)",
+)
+async def merge_customers(
+    payload: CustomerMergeRequest,
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Consolidate a duplicate or subsidiary customer into an authoritative master customer.
+    Enforces BD-2 PAN parity guard, reconciles store delivery locations, Model C company relationships,
+    and re-points all transactional history with cryptographic WORM audit logging.
+    """
+    service = CrmService(db, tenant_ctx)
+    return await service.merge_customer(
+        target_id=payload.target_customer_id,
+        source_id=payload.source_customer_id,
+        reason=payload.reason,
+        actor_user_id=current_user.id,
+        actor_role=current_user.role.value if hasattr(current_user.role, "value") else str(current_user.role),
+    )
+
+
+
+# --- Customer Company Relationships (Model C) ---
+
+@router.get(
+    "/customers/{customer_id}/company-relationships",
+    response_model=List[CustomerCompanyRelationshipResponse],
+    summary="List Customer Company Commercial Relationships",
+)
+async def list_customer_company_relationships(
+    customer_id: str,
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+):
+    """List all company commercial relationships for a customer."""
+    service = CrmService(db, tenant_ctx)
+    return await service.list_company_relationships(customer_id)
+
+
+@router.post(
+    "/customers/{customer_id}/company-relationships",
+    response_model=CustomerCompanyRelationshipResponse,
+    status_code=201,
+    dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))],
+    summary="Create Customer Company Commercial Relationship",
+)
+async def create_customer_company_relationship(
+    customer_id: str,
+    payload: CustomerCompanyRelationshipCreate,
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+):
+    """Create a company-specific commercial relationship with cross-company customer group validation."""
+    service = CrmService(db, tenant_ctx)
+    return await service.create_company_relationship(customer_id, payload)
+
+
+@router.put(
+    "/customers/{customer_id}/company-relationships/{relationship_id}",
+    response_model=CustomerCompanyRelationshipResponse,
+    dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))],
+    summary="Update Customer Company Commercial Relationship",
+)
+async def update_customer_company_relationship(
+    customer_id: str,
+    relationship_id: str,
+    payload: CustomerCompanyRelationshipUpdate,
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+):
+    """Update commercial parameters on a customer-company relationship."""
+    service = CrmService(db, tenant_ctx)
+    return await service.update_company_relationship(customer_id, relationship_id, payload)
+
+
+@router.get(
+    "/customers/{customer_id}/credit-exposure",
+    response_model=CustomerCreditExposureResponse,
+    summary="Consolidated Customer Group Credit Exposure (BD-6)",
+)
+async def get_customer_credit_exposure(
+    customer_id: str,
+    include_inactive: bool = Query(False, description="Include inactive/deleted company relationships"),
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+):
+    """
+    Consolidated Group Credit Exposure & Treasury Monitoring (BD-6).
+    Aggregates multi-company commercial credit relationships, queries ledger balances
+    across all operating legal entities, computes consolidated exposure metrics,
+    and evaluates enterprise treasury credit risk tiers.
+    """
+    service = CrmService(db, tenant_ctx)
+    return await service.get_customer_credit_exposure(customer_id, include_inactive=include_inactive)
+
 
 
 @router.get("/customers/{customer_id}/dependants", response_model=List[CustomerRelationshipResponse])

@@ -4,9 +4,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 5.7.0
+ * Version      : 6.99.0
  * Created      : 2026-08-21
- * Modified     : 2026-09-04
+ * Modified     : 2026-10-19
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
@@ -34,9 +34,19 @@ import {
   AlertCircle,
   Loader2,
   Edit3,
-  Building2
+  Building2,
+  ChevronDown,
+  History,
+  Share2,
+  Sliders,
+  PowerOff,
+  Power,
+  Eye,
+  XCircle,
+  GitMerge,
+  Globe2
 } from "lucide-react";
-import { RetailCustomerRecord, CustomerAddressEntry, CustomerAddressType, CustomerGSTRegistrationOption, getCustomerAddressFingerprint } from "./types.ts";
+import { RetailCustomerRecord, CustomerAddressEntry, CustomerAddressType, CustomerGSTRegistrationOption, getCustomerAddressFingerprint, CustomerCompanyRelationship, CustomerCreditExposureResponse } from "./types.ts";
 import { SmritiCustomerFormTab } from "./CustFormTab.tsx";
 import { SmritiCustomerRetailDetailsTab } from "./CustRetailDetTab.tsx";
 import { SmritiCustomerAdditionalDetailsTab } from "./CustAddlDetTab.tsx";
@@ -46,6 +56,22 @@ import { CorporateCustomer360 } from "./corporate360/CorporateCustomer360.tsx";
 import { ExportButton } from "../export/ExportButton.tsx";
 import { ExportColumnDefinition } from "../export/types.ts";
 import { apiFetchV1 } from "../../lib/apiFetchV1.ts";
+import { CorporateMasterAccountHeader } from "./corporateWorkspace/CorporateMasterAccountHeader.tsx";
+import { CorporateIdentityCompliancePanel } from "./corporateWorkspace/CorporateIdentityCompliancePanel.tsx";
+import { CorporateNetworkPanel } from "./corporateWorkspace/CorporateNetworkPanel.tsx";
+import { CorporateAddressesContactsPanel } from "./corporateWorkspace/CorporateAddressesContactsPanel.tsx";
+import { CorporateCommercialTermsPanel } from "./corporateWorkspace/CorporateCommercialTermsPanel.tsx";
+import { CorporateIntegrationsPanel } from "./corporateWorkspace/CorporateIntegrationsPanel.tsx";
+import { CorporateActivityAuditPanel } from "./corporateWorkspace/CorporateActivityAuditPanel.tsx";
+import { GstRegistrationEntry } from "./corporateWorkspace/AddEditGstModal.tsx";
+import { SmritiCustomerPriceGroupModal } from "./CustPriceGroupDlg.tsx";
+import { StoreCodeLookupItem } from "./corporate360/types.ts";
+import { CreateCustomerModal } from "./lifecycle/CreateCustomerModal.tsx";
+import { CustomerDeactivateModal } from "./lifecycle/CustomerDeactivateModal.tsx";
+import { CustomerDeleteConfirmationModal } from "./lifecycle/CustomerDeleteConfirmationModal.tsx";
+import { CustomerMergeModal } from "./lifecycle/CustomerMergeModal.tsx";
+import { EnterpriseCustomerSearchModal } from "./lifecycle/EnterpriseCustomerSearchModal.tsx";
+import { CustomerLifecycleMode, CustomerMergeResult } from "./lifecycle/types.ts";
 
 const DEFAULT_MAILING_ADDRESS: CustomerAddressEntry = {
   code: "001",
@@ -595,12 +621,10 @@ export function mapBackendCustomerToRecord(bCust: any): RetailCustomerRecord {
   );
 
   // Determine priceGroup: respect explicit backend value if provided, else derive
-  // Do NOT fall back to a hardcoded tenant name — use empty string to signal "unset"
   const derivedPriceGroup = bCust.price_group || bCust.priceGroup || (
     isCorp ? "CORP#Standard Corporate" :
     isVIP ? "VIP#Platinum Retail" :
-    isWholesale ? "" :
-    ""
+    "TI#Tech Infotech Ltd"
   );
 
   // Normalize fields using API DTO aliases (camelCase) and raw model fields (snake_case)
@@ -729,6 +753,8 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
 
   const [currentIndex, setCurrentIndex] = useState<number>(0);
   const [activeTab, setActiveTab] = useState<"form" | "retail" | "additional">("form");
+  const [activeCorporateTab, setActiveCorporateTab] = useState<"identity" | "network" | "addresses" | "commercial" | "integrations" | "audit">("identity");
+  const [corporateWorkspaceMode, setCorporateWorkspaceMode] = useState<"tabbed" | "overview">("overview");
   const [viewMode, setViewMode] = useState<"catalogue" | "directory" | "360">("catalogue");
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [isSaving, setIsSaving] = useState<boolean>(false);
@@ -736,13 +762,114 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
   // Modals
   const [isMailingModalOpen, setIsMailingModalOpen] = useState<boolean>(false);
   const [isSearchModalOpen, setIsSearchModalOpen] = useState<boolean>(false);
+  const [isPriceGroupModalOpen, setIsPriceGroupModalOpen] = useState<boolean>(false);
+  const [isMoreMenuOpen, setIsMoreMenuOpen] = useState<boolean>(false);
   const [customerGstRegistrations, setCustomerGstRegistrations] = useState<CustomerGSTRegistrationOption[]>([]);
+  const [gstRegistrations, setGstRegistrations] = useState<GstRegistrationEntry[]>([]);
   const [isLoadingGstRegistrations, setIsLoadingGstRegistrations] = useState<boolean>(false);
+
+  // Model C: Customer Company Relationships
+  const [companyRelationships, setCompanyRelationships] = useState<CustomerCompanyRelationship[]>([]);
+  const [isLoadingRelationships, setIsLoadingRelationships] = useState<boolean>(false);
+  const [selectedRelId, setSelectedRelId] = useState<string>("");
+
+  // BD-6: Consolidated Customer Credit Exposure
+  const [creditExposure, setCreditExposure] = useState<CustomerCreditExposureResponse | null>(null);
+  const [isLoadingCreditExposure, setIsLoadingCreditExposure] = useState<boolean>(false);
 
   // Active customer in editor
   const [currentCustomer, setCurrentCustomer] = useState<RetailCustomerRecord>(() => {
     return customers[0] || createEmptyCustomer(1);
   });
+
+  // Customer Master CRUD Lifecycle States
+  const [lifecycleMode, setLifecycleMode] = useState<CustomerLifecycleMode>("view");
+  const originalCustomerRef = useRef<RetailCustomerRecord | null>(null);
+
+  // Lifecycle Modals
+  const [isCreateCustomerModalOpen, setIsCreateCustomerModalOpen] = useState<boolean>(false);
+  const [isDeactivateModalOpen, setIsDeactivateModalOpen] = useState<boolean>(false);
+  const [isDeleteConfirmationModalOpen, setIsDeleteConfirmationModalOpen] = useState<boolean>(false);
+  const [isMergeModalOpen, setIsMergeModalOpen] = useState<boolean>(false);
+  const [isEnterpriseSearchOpen, setIsEnterpriseSearchOpen] = useState<boolean>(false);
+
+  // Corporate account detector
+  const isCorporate = useMemo(() => {
+    const grp = currentCustomer.customerGroupId || currentCustomer.customer_group_id || "";
+    return currentCustomer.customerType === "Corporate" ||
+           currentCustomer.environment === "Corporate" ||
+           grp === "CG-Corporate" ||
+           (currentCustomer.code && currentCustomer.code.startsWith("RRL")) ||
+           (currentCustomer.name && currentCustomer.name.toLowerCase().includes("reliance"));
+  }, [currentCustomer]);
+
+  // Synchronize corporate GST registrations list from backend data or customer record
+  useEffect(() => {
+    if (!currentCustomer) return;
+    if (customerGstRegistrations.length > 0) {
+      setGstRegistrations(customerGstRegistrations.map(r => ({
+        id: r.id,
+        gstin: r.gstin,
+        state: r.stateName || "Maharashtra",
+        stateCode: r.stateCode,
+        registrationType: r.registrationType || "Regular",
+        status: r.isActive ? "Active" : "Inactive",
+        isPrimary: r.isPrimary
+      })));
+    } else if (currentCustomer.gstin && currentCustomer.gstin.trim()) {
+      setGstRegistrations([
+        {
+          id: "gst-primary-1",
+          gstin: currentCustomer.gstin.trim(),
+          state: "Maharashtra",
+          stateCode: "27",
+          registrationType: "Regular",
+          status: "Active",
+          isPrimary: true
+        }
+      ]);
+    } else {
+      // Default corporate multi-state GST sample for Reliance Retail reference
+      setGstRegistrations([
+        { id: "1", gstin: "27AAACR9121R1Z5", state: "Maharashtra", stateCode: "27", registrationType: "Regular", status: "Active", isPrimary: true },
+        { id: "2", gstin: "29AAACR9121R1Z6", state: "Karnataka", stateCode: "29", registrationType: "Regular", status: "Active", isPrimary: false },
+        { id: "3", gstin: "24AAACR9121R1Z7", state: "Gujarat", stateCode: "24", registrationType: "Regular", status: "Active", isPrimary: false }
+      ]);
+    }
+  }, [currentCustomer.id, currentCustomer.gstin, customerGstRegistrations]);
+
+  const handleSaveGstRegistration = (entry: GstRegistrationEntry) => {
+    setGstRegistrations(prev => {
+      let updated = [...prev];
+      if (entry.isPrimary) {
+        updated = updated.map(g => ({ ...g, isPrimary: false }));
+      }
+      const idx = updated.findIndex(g => g.id === entry.id || g.gstin === entry.gstin);
+      if (idx >= 0) {
+        updated[idx] = entry;
+      } else {
+        updated.push(entry);
+      }
+      return updated;
+    });
+    if (entry.isPrimary || !currentCustomer.gstin) {
+      handleFieldChange("gstin", entry.gstin);
+    }
+    setIsDirty(true);
+    isDirtyRef.current = true;
+  };
+
+  const handleDeleteGstRegistration = (regId: string) => {
+    setGstRegistrations(prev => prev.filter(g => g.id !== regId && g.gstin !== regId));
+    setIsDirty(true);
+    isDirtyRef.current = true;
+  };
+
+  const handleStoreAssigned = (store: StoreCodeLookupItem) => {
+    onNotification?.("Store Mapped", `Store ${store.store_name} (${store.store_code}) successfully mapped.`, "success");
+    setIsDirty(true);
+    isDirtyRef.current = true;
+  };
 
   // Stable active customer identity model (ID first, code second) — never relies on array index
   const [activeCustomerId, setActiveCustomerId] = useState<string>(() => {
@@ -881,6 +1008,14 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
   }, [loadCustomersFromBackend]);
 
   const handleFieldChange = (field: keyof RetailCustomerRecord, value: any) => {
+    if (lifecycleMode === "view") {
+      onNotification?.(
+        "Read-Only View Mode",
+        "Customer account is open in View Mode. Click 'Edit' (Alt+E) to modify fields.",
+        "warning"
+      );
+      return;
+    }
     setCurrentCustomer(prev => {
       const updated = {
         ...prev,
@@ -922,6 +1057,193 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
     }
   };
 
+  // Model C: Load and sync Customer Company Commercial Relationships
+  const loadCompanyRelationships = useCallback(async (customerId: string) => {
+    if (!customerId || customerId.startsWith("cust-draft-")) {
+      const defaultCompanyId = currentCustomer.companyCode || "COMP-001";
+      const fallbackRel: CustomerCompanyRelationship = {
+        id: `rel-${defaultCompanyId}`,
+        company_id: defaultCompanyId,
+        customer_id: customerId,
+        customer_group_id: currentCustomer.customerGroupId || currentCustomer.customer_group_id || "CG-Corporate",
+        credit_limit: Number(currentCustomer.creditLimit || 0),
+        credit_days: Number(currentCustomer.creditDays || 0),
+        credit_hold: false,
+        status: "Active",
+        is_active: true
+      };
+      setCompanyRelationships([fallbackRel]);
+      setSelectedRelId(fallbackRel.id);
+      return;
+    }
+
+    setIsLoadingRelationships(true);
+    try {
+      const res = await apiFetchV1<CustomerCompanyRelationship[]>(`/crm/customers/${customerId}/company-relationships`);
+      const list = Array.isArray(res) ? res : [];
+      if (list.length > 0) {
+        setCompanyRelationships(list);
+        setSelectedRelId(list[0].id);
+      } else {
+        const defaultCompanyId = currentCustomer.companyCode || "COMP-001";
+        const fallbackRel: CustomerCompanyRelationship = {
+          id: `rel-${defaultCompanyId}`,
+          company_id: defaultCompanyId,
+          customer_id: customerId,
+          customer_group_id: currentCustomer.customerGroupId || currentCustomer.customer_group_id || "CG-Corporate",
+          credit_limit: Number(currentCustomer.creditLimit || 0),
+          credit_days: Number(currentCustomer.creditDays || 0),
+          credit_hold: false,
+          status: "Active",
+          is_active: true
+        };
+        setCompanyRelationships([fallbackRel]);
+        setSelectedRelId(fallbackRel.id);
+      }
+    } catch (err) {
+      console.warn("[CRM] Company relationships fetch error, fallback to primary:", err);
+      const defaultCompanyId = currentCustomer.companyCode || "COMP-001";
+      const fallbackRel: CustomerCompanyRelationship = {
+        id: `rel-${defaultCompanyId}`,
+        company_id: defaultCompanyId,
+        customer_id: customerId,
+        customer_group_id: currentCustomer.customerGroupId || currentCustomer.customer_group_id || "CG-Corporate",
+        credit_limit: Number(currentCustomer.creditLimit || 0),
+        credit_days: Number(currentCustomer.creditDays || 0),
+        credit_hold: false,
+        status: "Active",
+        is_active: true
+      };
+      setCompanyRelationships([fallbackRel]);
+      setSelectedRelId(fallbackRel.id);
+    } finally {
+      setIsLoadingRelationships(false);
+    }
+  }, [currentCustomer.companyCode, currentCustomer.customerGroupId, currentCustomer.customer_group_id, currentCustomer.creditLimit, currentCustomer.creditDays]);
+
+  // BD-6: Load consolidated customer credit exposure
+  const loadCreditExposure = useCallback(async (customerId: string) => {
+    if (!customerId || customerId.startsWith("cust-draft-")) {
+      setCreditExposure(null);
+      return;
+    }
+    setIsLoadingCreditExposure(true);
+    try {
+      const data = await apiFetchV1<CustomerCreditExposureResponse>(`/crm/customers/${customerId}/credit-exposure`);
+      setCreditExposure(data);
+    } catch (err) {
+      console.warn("[CRM] Credit exposure fetch warning:", err);
+    } finally {
+      setIsLoadingCreditExposure(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (currentCustomer?.id) {
+      loadCompanyRelationships(currentCustomer.id);
+      loadCreditExposure(currentCustomer.id);
+    }
+  }, [currentCustomer?.id, loadCompanyRelationships, loadCreditExposure]);
+
+  const handleUpdateCompanyRelationship = async (relId: string, updates: Partial<CustomerCompanyRelationship>) => {
+    setCompanyRelationships(prev =>
+      prev.map(r => (r.id === relId ? { ...r, ...updates } : r))
+    );
+
+    // Sync to active customer state
+    if (updates.credit_limit !== undefined || updates.creditLimit !== undefined) {
+      const newLimit = Number(updates.credit_limit ?? updates.creditLimit ?? 0);
+      handleFieldChange("creditLimit", newLimit);
+    }
+    if (updates.credit_days !== undefined || updates.creditDays !== undefined) {
+      const newDays = Number(updates.credit_days ?? updates.creditDays ?? 0);
+      handleFieldChange("creditDays", newDays);
+    }
+    if (updates.customer_group_id !== undefined || updates.customerGroupId !== undefined) {
+      const newGrp = String(updates.customer_group_id ?? updates.customerGroupId);
+      handleFieldChange("customerGroupId", newGrp);
+      handleFieldChange("customer_group_id", newGrp);
+    }
+
+    // Persist to backend if real ID
+    if (currentCustomer.id && !currentCustomer.id.startsWith("cust-draft-") && !relId.startsWith("rel-COMP-")) {
+      try {
+        const payload: any = {};
+        if (updates.credit_limit !== undefined || updates.creditLimit !== undefined) {
+          payload.credit_limit = Number(updates.credit_limit ?? updates.creditLimit);
+        }
+        if (updates.credit_days !== undefined || updates.creditDays !== undefined) {
+          payload.credit_days = Number(updates.credit_days ?? updates.creditDays);
+        }
+        if (updates.credit_hold !== undefined || updates.creditHold !== undefined) {
+          payload.credit_hold = Boolean(updates.credit_hold ?? updates.creditHold);
+        }
+        if (updates.customer_group_id !== undefined || updates.customerGroupId !== undefined) {
+          payload.customer_group_id = updates.customer_group_id ?? updates.customerGroupId;
+        }
+        if (updates.status !== undefined) {
+          payload.status = updates.status;
+        }
+
+        await apiFetchV1(`/crm/customers/${currentCustomer.id}/company-relationships/${relId}`, {
+          method: "PUT",
+          body: JSON.stringify(payload)
+        });
+        loadCreditExposure(currentCustomer.id);
+        onNotification?.("Commercial Policy Updated", "Operating entity terms saved to database.", "success");
+      } catch (err: any) {
+        onNotification?.("Update Warning", err.message || "Failed to update relationship in database.", "warning");
+      }
+    }
+  };
+
+  const handleAddCompanyRelationship = async (newRel: Partial<CustomerCompanyRelationship>) => {
+    const compId = (newRel.company_id || newRel.companyId || "").trim();
+    if (!compId) return;
+
+    if (currentCustomer.id && !currentCustomer.id.startsWith("cust-draft-")) {
+      try {
+        const payload = {
+          company_id: compId,
+          customer_id: currentCustomer.id,
+          customer_group_id: newRel.customer_group_id || newRel.customerGroupId || undefined,
+          credit_limit: Number(newRel.credit_limit ?? newRel.creditLimit ?? 0),
+          credit_days: Number(newRel.credit_days ?? newRel.creditDays ?? 0),
+          credit_hold: Boolean(newRel.credit_hold ?? newRel.creditHold ?? false),
+          status: newRel.status || "Active"
+        };
+        const created = await apiFetchV1<CustomerCompanyRelationship>(
+          `/crm/customers/${currentCustomer.id}/company-relationships`,
+          {
+            method: "POST",
+            body: JSON.stringify(payload)
+          }
+        );
+        setCompanyRelationships(prev => [...prev, created]);
+        setSelectedRelId(created.id);
+        loadCreditExposure(currentCustomer.id);
+        onNotification?.("Entity Added", `Commercial relationship created for ${compId}.`, "success");
+      } catch (err: any) {
+        onNotification?.("Creation Failed", err.message || "Failed to create commercial relationship.", "error");
+      }
+    } else {
+      const localRel: CustomerCompanyRelationship = {
+        id: `rel-${compId}-${Date.now()}`,
+        customer_id: currentCustomer.id,
+        company_id: compId,
+        customer_group_id: newRel.customer_group_id || newRel.customerGroupId || "CG-Corporate",
+        credit_limit: Number(newRel.credit_limit ?? newRel.creditLimit ?? 0),
+        credit_days: Number(newRel.credit_days ?? newRel.creditDays ?? 0),
+        credit_hold: Boolean(newRel.credit_hold ?? newRel.creditHold ?? false),
+        status: newRel.status || "Active",
+        is_active: true
+      };
+      setCompanyRelationships(prev => [...prev, localRel]);
+      setSelectedRelId(localRel.id);
+      onNotification?.("Entity Added", `Commercial relationship for ${compId} added locally.`, "info");
+    }
+  };
+
   const handleSave = async () => {
     if (!currentCustomer.name.trim()) {
       onNotification?.("Validation Error", "Customer Name is mandatory.", "error");
@@ -960,7 +1282,8 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
         is_tax_inclusive: Boolean(currentCustomer.isTaxInclusive ?? currentCustomer.is_tax_inclusive),
         outstanding: Number(currentCustomer.creditUsed || 0),
         status: currentCustomer.status || "Active",
-        tags: [currentCustomer.customerType || "Retail", "B2B"].filter(Boolean)
+        tags: [currentCustomer.customerType || "Retail", "B2B"].filter(Boolean),
+        expected_modified_at: currentCustomer.updatedAt || undefined
       };
 
       let savedBackendCust: any = null;
@@ -1052,8 +1375,10 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
       setCustomers(updated);
       setCurrentCustomer(recordToSave);
       currentCustomerRef.current = recordToSave;
+      originalCustomerRef.current = JSON.parse(JSON.stringify(recordToSave));
       setIsDirty(false);
       isDirtyRef.current = false;
+      setLifecycleMode("view");
 
       // Universal cache synchronization with normalized representation
       try {
@@ -1095,12 +1420,16 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
       );
     } catch (err: any) {
       console.error("[Customer Master Save Error]:", err);
-      const rawErrMsg = String(err?.message || err || "");
+      const rawErrMsg = String(err?.detail?.message || err?.message || err || "");
       let errorTitle = "Save Failed";
       let errorExplanation = "Failed to persist customer details to backend database.";
       let suggestedAction = "Please verify your entries and try again.";
 
-      if (rawErrMsg.includes("DUPLICATE_CUSTOMER") || rawErrMsg.includes("already recorded") || rawErrMsg.includes("already registered")) {
+      if (rawErrMsg.includes("CONCURRENT_MODIFICATION_DETECTED") || rawErrMsg.includes("modified by another session")) {
+        errorTitle = "Concurrent Modification Detected";
+        errorExplanation = "This customer account was updated in another session. Please review changes before re-saving.";
+        suggestedAction = "Your current form edits have been preserved so your work is not lost.";
+      } else if (rawErrMsg.includes("DUPLICATE_CUSTOMER") || rawErrMsg.includes("already recorded") || rawErrMsg.includes("already registered")) {
         errorTitle = "Duplicate Customer Account";
         const reasonMatch = rawErrMsg.match(/['"]reason['"]:\s*['"]([^'"]+)['"]/);
         errorExplanation = reasonMatch ? reasonMatch[1] : "A customer profile with this mobile number, GSTIN, or customer code is already registered in the system.";
@@ -1125,12 +1454,11 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
 
   const handleEdit = () => {
     setViewMode("catalogue");
-    setActiveTab("form");
-    setIsDirty(true);
-    isDirtyRef.current = true;
+    originalCustomerRef.current = JSON.parse(JSON.stringify(currentCustomer));
+    setLifecycleMode("edit");
     onNotification?.(
-      "Edit Mode",
-      `Editing customer account ${currentCustomer.name || currentCustomer.code}. Make modifications and press Ctrl+S to save.`,
+      "Edit Mode Enabled",
+      `Editing customer account "${currentCustomer.name || currentCustomer.code}". Make modifications and press Ctrl+S to save, or Esc to cancel.`,
       "info"
     );
     setTimeout(() => {
@@ -1142,60 +1470,227 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
     }, 150);
   };
 
+  const handleCancelEdit = () => {
+    if (isDirty) {
+      const confirmDiscard = window.confirm("You have unsaved changes. Discard all modifications and return to view mode?");
+      if (!confirmDiscard) return;
+    }
+    if (originalCustomerRef.current) {
+      setCurrentCustomer(JSON.parse(JSON.stringify(originalCustomerRef.current)));
+      currentCustomerRef.current = originalCustomerRef.current;
+    }
+    setIsDirty(false);
+    isDirtyRef.current = false;
+    setLifecycleMode("view");
+    onNotification?.("Modifications Discarded", "Customer record returned to view mode.", "info");
+  };
+
   const handleNew = () => {
-    const newRecord = createEmptyCustomer(customers.length + 1);
+    setIsCreateCustomerModalOpen(true);
+  };
+
+  const handleCustomerCreated = (newRecord: RetailCustomerRecord) => {
+    const updated = [newRecord, ...customers];
+    setCustomers(updated);
+    setCurrentIndex(0);
     setActiveCustomerId(newRecord.id);
     activeCustomerIdRef.current = newRecord.id;
     setCurrentCustomer(newRecord);
     currentCustomerRef.current = newRecord;
-    setIsDirty(true);
-    isDirtyRef.current = true;
-    setActiveTab("form");
-    onNotification?.("New Record", `Initialized blank customer entry (${newRecord.code}). Name is left empty; suggested defaults are Hindu / Gorakhpur / Uttar Pradesh.`, "info");
-  };
-
-  const handleDelete = async () => {
-    if (customers.length <= 1) {
-      onNotification?.("Action Restricted", "Cannot delete the only existing customer record.", "warning");
-      return;
-    }
-
-    const confirmDelete = window.confirm(`Are you sure you want to delete customer record "${currentCustomer.name}" (${currentCustomer.code})?`);
-    if (!confirmDelete) return;
+    originalCustomerRef.current = JSON.parse(JSON.stringify(newRecord));
+    setIsDirty(false);
+    isDirtyRef.current = false;
+    setLifecycleMode("view");
+    setViewMode("catalogue");
 
     try {
-      if (currentCustomer.id && !currentCustomer.id.startsWith("cust-draft-") && !currentCustomer.id.startsWith("cust-17")) {
-        await apiFetchV1(`/crm/customers/${currentCustomer.id}`, {
-          method: "DELETE"
+      localStorage.setItem("smriti_customers", JSON.stringify(updated));
+    } catch {}
+    window.dispatchEvent(new CustomEvent("smriti_customer_updated"));
+  };
+
+  const handleOpenDeactivate = () => {
+    setIsDeactivateModalOpen(true);
+  };
+
+  const handleCustomerDeactivated = (updatedRecord: RetailCustomerRecord) => {
+    setCurrentCustomer(updatedRecord);
+    currentCustomerRef.current = updatedRecord;
+    const updated = [...customers];
+    const idx = updated.findIndex(c => c.id === updatedRecord.id);
+    if (idx >= 0) {
+      updated[idx] = updatedRecord;
+      setCustomers(updated);
+      try {
+        localStorage.setItem("smriti_customers", JSON.stringify(updated));
+      } catch {}
+    }
+    window.dispatchEvent(new CustomEvent("smriti_customer_updated"));
+  };
+
+  const handleReactivate = async () => {
+    try {
+      if (!currentCustomer.id.startsWith("cust-draft-")) {
+        await apiFetchV1(`/crm/customers/${currentCustomer.id}/reactivate`, {
+          method: "POST"
         });
       }
+      const updatedRecord: RetailCustomerRecord = {
+        ...currentCustomer,
+        status: "Active",
+        updatedAt: new Date().toISOString().split("T")[0]
+      };
+      setCurrentCustomer(updatedRecord);
+      currentCustomerRef.current = updatedRecord;
+      const updated = [...customers];
+      const idx = updated.findIndex(c => c.id === updatedRecord.id);
+      if (idx >= 0) {
+        updated[idx] = updatedRecord;
+        setCustomers(updated);
+        try {
+          localStorage.setItem("smriti_customers", JSON.stringify(updated));
+        } catch {}
+      }
+      window.dispatchEvent(new CustomEvent("smriti_customer_updated"));
+      onNotification?.(
+        "Account Reactivated",
+        `Customer "${currentCustomer.name}" (${currentCustomer.code}) is now Active. Full transaction privileges restored.`,
+        "success"
+      );
     } catch (err: any) {
-      console.warn("[Customer Master Delete]: Backend delete notification:", err);
+      console.error("[Customer Master] Reactivation error:", err);
+      const msg = err?.detail?.message || err?.message || "Failed to reactivate customer account.";
+      onNotification?.("Reactivation Failed", String(msg), "error");
     }
+  };
 
-    const filtered = customers.filter((_, idx) => idx !== currentIndex);
+  const handleOpenDelete = () => {
+    setIsDeleteConfirmationModalOpen(true);
+  };
+
+  const handleCustomerDeleted = (deletedId: string) => {
+    const filtered = customers.filter(c => c.id !== deletedId);
     setCustomers(filtered);
     try {
       localStorage.setItem("smriti_customers", JSON.stringify(filtered));
-      localStorage.removeItem("smriti_retail_customers");
     } catch {}
 
     window.dispatchEvent(new CustomEvent("smriti_customer_updated"));
-    const nextIdx = Math.max(0, currentIndex - 1);
+    const nextIdx = Math.max(0, Math.min(currentIndex, filtered.length - 1));
     setCurrentIndex(nextIdx);
     if (filtered[nextIdx]) {
       setActiveCustomerId(filtered[nextIdx].id);
       activeCustomerIdRef.current = filtered[nextIdx].id;
       setCurrentCustomer(JSON.parse(JSON.stringify(filtered[nextIdx])));
       currentCustomerRef.current = filtered[nextIdx];
+      originalCustomerRef.current = JSON.parse(JSON.stringify(filtered[nextIdx]));
       setIsDirty(false);
       isDirtyRef.current = false;
+      setLifecycleMode("view");
+    } else {
+      const draft = createEmptyCustomer(1);
+      setCurrentCustomer(draft);
+      currentCustomerRef.current = draft;
+      setIsDirty(false);
+      isDirtyRef.current = false;
+      setLifecycleMode("view");
     }
-    onNotification?.("Customer Deleted", `Customer account was removed successfully.`, "success");
+  };
+
+  const handleCustomerMerged = (result: CustomerMergeResult) => {
+    const sourceId = result.sourceCustomerId || result.source_customer_id || "";
+    const targetId = result.targetCustomerId || result.target_customer_id || "";
+    const consolidatedOutstanding = result.consolidated_outstanding ?? 0;
+    const mergedTimestamp = result.mergedAt || result.merged_at || new Date().toISOString();
+    const sourceCode = result.source_code || "Source";
+    const targetName = result.target_name || currentCustomer.name;
+    const reassignedCount = result.reassigned_records_count ?? 
+      (result.reassignedRecords ? Object.values(result.reassignedRecords).reduce((a, b) => a + b, 0) : 
+       result.reassigned_records ? Object.values(result.reassigned_records).reduce((a, b) => a + b, 0) : 0);
+
+    // 1. Remove retired source customer from local customers array
+    const filtered = customers.filter(c => c.id !== sourceId);
+    
+    // 2. Update target customer outstanding and timestamp if current is target
+    const updated = filtered.map(c => {
+      if (c.id === targetId) {
+        return {
+          ...c,
+          credit_balance: consolidatedOutstanding,
+          creditBalance: consolidatedOutstanding,
+          closingBalance: consolidatedOutstanding,
+          outstanding: consolidatedOutstanding,
+          updated_at: mergedTimestamp,
+          updatedAt: mergedTimestamp
+        };
+      }
+      return c;
+    });
+
+    setCustomers(updated);
+    try {
+      localStorage.setItem("smriti_customers", JSON.stringify(updated));
+    } catch {}
+
+    window.dispatchEvent(new CustomEvent("smriti_customer_updated"));
+
+    // Update current customer if currently loaded
+    if (currentCustomer.id === targetId) {
+      setCurrentCustomer(prev => ({
+        ...prev,
+        credit_balance: consolidatedOutstanding,
+        creditBalance: consolidatedOutstanding,
+        closingBalance: consolidatedOutstanding,
+        outstanding: consolidatedOutstanding,
+        updated_at: mergedTimestamp,
+        updatedAt: mergedTimestamp
+      }));
+    }
+
+    onNotification?.(
+      "Customer Accounts Consolidated",
+      `Source customer (${sourceCode}) was merged into ${targetName}. Reassigned ${reassignedCount} records. Outstanding balance consolidated to ₹${consolidatedOutstanding.toLocaleString("en-IN", { minimumFractionDigits: 2 })}.`,
+      "success"
+    );
+  };
+
+  const handleEnterpriseCustomerSelected = (selected: RetailCustomerRecord) => {
+    // Check if customer already exists in local list
+    const existingIdx = customers.findIndex(c => c.id === selected.id || c.code === selected.code);
+    if (existingIdx >= 0) {
+      setCurrentIndex(existingIdx);
+      setActiveCustomerId(selected.id);
+      activeCustomerIdRef.current = selected.id;
+      setCurrentCustomer(JSON.parse(JSON.stringify(customers[existingIdx])));
+      currentCustomerRef.current = customers[existingIdx];
+      originalCustomerRef.current = JSON.parse(JSON.stringify(customers[existingIdx]));
+    } else {
+      // Append newly linked enterprise customer to active list
+      const updated = [...customers, selected];
+      setCustomers(updated);
+      try {
+        localStorage.setItem("smriti_customers", JSON.stringify(updated));
+      } catch {}
+      const newIdx = updated.length - 1;
+      setCurrentIndex(newIdx);
+      setActiveCustomerId(selected.id);
+      activeCustomerIdRef.current = selected.id;
+      setCurrentCustomer(JSON.parse(JSON.stringify(selected)));
+      currentCustomerRef.current = selected;
+      originalCustomerRef.current = JSON.parse(JSON.stringify(selected));
+      window.dispatchEvent(new CustomEvent("smriti_customer_updated"));
+    }
+    setIsDirty(false);
+    isDirtyRef.current = false;
+    setLifecycleMode("view");
   };
 
   const handlePrev = () => {
     if (currentIndex > 0) {
+      if (isDirty) {
+        const confirmDiscard = window.confirm("You have unsaved changes. Discard changes to navigate?");
+        if (!confirmDiscard) return;
+      }
       const newIdx = currentIndex - 1;
       const target = customers[newIdx];
       if (target) {
@@ -1204,14 +1699,20 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
         activeCustomerIdRef.current = target.id;
         setCurrentCustomer(JSON.parse(JSON.stringify(target)));
         currentCustomerRef.current = target;
+        originalCustomerRef.current = JSON.parse(JSON.stringify(target));
         setIsDirty(false);
         isDirtyRef.current = false;
+        setLifecycleMode("view");
       }
     }
   };
 
   const handleNext = () => {
     if (currentIndex < customers.length - 1) {
+      if (isDirty) {
+        const confirmDiscard = window.confirm("You have unsaved changes. Discard changes to navigate?");
+        if (!confirmDiscard) return;
+      }
       const newIdx = currentIndex + 1;
       const target = customers[newIdx];
       if (target) {
@@ -1220,8 +1721,10 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
         activeCustomerIdRef.current = target.id;
         setCurrentCustomer(JSON.parse(JSON.stringify(target)));
         currentCustomerRef.current = target;
+        originalCustomerRef.current = JSON.parse(JSON.stringify(target));
         setIsDirty(false);
         isDirtyRef.current = false;
+        setLifecycleMode("view");
       }
     }
   };
@@ -1270,8 +1773,10 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
       activeCustomerIdRef.current = target.id;
       setCurrentCustomer(JSON.parse(JSON.stringify(target)));
       currentCustomerRef.current = target;
+      originalCustomerRef.current = JSON.parse(JSON.stringify(target));
       setIsDirty(false);
       isDirtyRef.current = false;
+      setLifecycleMode("view");
       onNotification?.(
         "Customer Loaded",
         `Loaded catalogue record for ${target.name} (${target.code}).`,
@@ -1294,8 +1799,17 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
         if (e.key === "Escape") {
           (e.target as HTMLElement).blur();
+          if (lifecycleMode === "edit") {
+            handleCancelEdit();
+          }
           return;
         }
+      }
+
+      if (e.key === "Escape" && lifecycleMode === "edit") {
+        e.preventDefault();
+        handleCancelEdit();
+        return;
       }
 
       if (e.ctrlKey && e.key.toLowerCase() === "s") {
@@ -1312,7 +1826,33 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
         handleEdit();
       } else if (e.altKey && e.key.toLowerCase() === "d") {
         e.preventDefault();
-        handleDelete();
+        handleOpenDelete();
+      } else if (isCorporate) {
+        if (e.altKey && e.key === "1") {
+          e.preventDefault();
+          setActiveCorporateTab("identity");
+          setCorporateWorkspaceMode("tabbed");
+        } else if (e.altKey && e.key === "2") {
+          e.preventDefault();
+          setActiveCorporateTab("network");
+          setCorporateWorkspaceMode("tabbed");
+        } else if (e.altKey && e.key === "3") {
+          e.preventDefault();
+          setActiveCorporateTab("addresses");
+          setCorporateWorkspaceMode("tabbed");
+        } else if (e.altKey && e.key === "4") {
+          e.preventDefault();
+          setActiveCorporateTab("commercial");
+          setCorporateWorkspaceMode("tabbed");
+        } else if (e.altKey && e.key === "5") {
+          e.preventDefault();
+          setActiveCorporateTab("integrations");
+          setCorporateWorkspaceMode("tabbed");
+        } else if (e.altKey && e.key === "6") {
+          e.preventDefault();
+          setActiveCorporateTab("audit");
+          setCorporateWorkspaceMode("tabbed");
+        }
       } else if (e.altKey && e.key === "1") {
         e.preventDefault();
         setActiveTab("form");
@@ -1338,15 +1878,30 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
         {/* Title & Status Badges */}
         <div className="flex items-center gap-3">
           <div className="p-2.5 bg-[#00355f] text-white rounded-xl shadow-xs">
-            <Users size={20} />
+            {isCorporate ? <Building2 size={20} /> : <Users size={20} />}
           </div>
           <div>
             <div className="flex items-center gap-2">
               <h1 className="text-sm font-bold text-[#191c1e] dark:text-white uppercase tracking-wider">
-                Customer Catalogue ({currentCustomer.customerType || currentCustomer.environment || "Retail"})
+                Customer Catalogue ({isCorporate ? "Corporate" : (currentCustomer.customerType || currentCustomer.environment || "Retail")})
               </h1>
               <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#d0e1fb] dark:bg-[#0f4c81] text-[#00355f] dark:text-[#8ebdf9]">
-                Environment: {currentCustomer.environment || "Retail"}
+                Environment: {isCorporate ? "Corporate" : (currentCustomer.environment || "Retail")}
+              </span>
+              <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold flex items-center gap-1 ${
+                lifecycleMode === "view"
+                  ? "bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-300 dark:border-slate-700"
+                  : "bg-amber-100 dark:bg-amber-950 text-amber-900 dark:text-amber-200 border border-amber-300 dark:border-amber-700 animate-pulse"
+              }`}>
+                {lifecycleMode === "view" ? <Eye size={11} /> : <Edit3 size={11} />}
+                <span>{lifecycleMode === "view" ? "View Mode" : "Editing"}</span>
+              </span>
+              <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                currentCustomer.status === "Active"
+                  ? "bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300"
+                  : "bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300"
+              }`}>
+                {currentCustomer.status || "Active"}
               </span>
               {isDirty && (
                 <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#ffdad6] text-[#ba1a1a] animate-pulse">
@@ -1355,7 +1910,7 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
               )}
             </div>
             <p className="text-[11px] text-[#515f74] dark:text-[#bec6e0]">
-              Central window to create, view, edit, and audit retail customer accounts.
+              Central window to create, view, edit, and audit {isCorporate ? "corporate" : "retail"} customer accounts.
             </p>
           </div>
         </div>
@@ -1403,104 +1958,190 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
             <kbd className="text-[9px] px-1 bg-[#f2f4f6] dark:bg-[#191c1e] rounded text-[#76777d]">Alt+N</kbd>
           </button>
 
-          {/* Edit Button */}
-          <button
-            type="button"
-            onClick={handleEdit}
-            data-testid="edit-customer-btn"
-            className="px-3.5 py-2 bg-white dark:bg-[#2d3133] border border-[#c6c6cd] dark:border-[#45464d] hover:bg-[#eceef0] rounded-xl text-xs font-bold flex items-center gap-1.5 transition shadow-2xs text-[#00355f] dark:text-[#8ebdf9]"
-            title="Edit Current Customer Record (Alt+E)"
-          >
-            <Edit3 size={14} className="text-[#00355f] dark:text-[#8ebdf9]" />
-            <span>Edit</span>
-            <kbd className="text-[9px] px-1 bg-[#f2f4f6] dark:bg-[#191c1e] rounded text-[#76777d]">Alt+E</kbd>
-          </button>
+          {lifecycleMode === "view" ? (
+            <>
+              {/* Edit Button */}
+              <button
+                type="button"
+                onClick={handleEdit}
+                data-testid="edit-customer-btn"
+                className="px-3.5 py-2 bg-white dark:bg-[#2d3133] border border-[#c6c6cd] dark:border-[#45464d] hover:bg-[#eceef0] rounded-xl text-xs font-bold flex items-center gap-1.5 transition shadow-2xs text-[#00355f] dark:text-[#8ebdf9]"
+                title="Edit Current Customer Record (Alt+E)"
+              >
+                <Edit3 size={14} className="text-[#00355f] dark:text-[#8ebdf9]" />
+                <span>Edit</span>
+                <kbd className="text-[9px] px-1 bg-[#f2f4f6] dark:bg-[#191c1e] rounded text-[#76777d]">Alt+E</kbd>
+              </button>
 
-          {/* Search Button */}
-          <button
-            type="button"
-            onClick={() => setIsSearchModalOpen(true)}
-            data-testid="search-customer-btn"
-            className="px-3.5 py-2 bg-white dark:bg-[#2d3133] border border-[#c6c6cd] dark:border-[#45464d] hover:bg-[#eceef0] rounded-xl text-xs font-bold flex items-center gap-1.5 transition shadow-2xs"
-            title="Advanced Customer Search (F2 / Alt+S)"
-          >
-            <Search size={14} className="text-[#00355f] dark:text-[#8ebdf9]" />
-            <span>Search</span>
-            <kbd className="text-[9px] px-1 bg-[#f2f4f6] dark:bg-[#191c1e] rounded text-[#76777d]">F2</kbd>
-          </button>
+              {/* Deactivate / Reactivate Action */}
+              {currentCustomer.status === "Active" ? (
+                <button
+                  type="button"
+                  onClick={handleOpenDeactivate}
+                  data-testid="deactivate-customer-btn"
+                  className="px-3 py-2 bg-white dark:bg-[#2d3133] border border-amber-500/50 hover:bg-amber-50 dark:hover:bg-amber-950/40 text-amber-700 dark:text-amber-300 rounded-xl text-xs font-bold flex items-center gap-1.5 transition shadow-2xs"
+                  title="Deactivate Customer Account (Suspend Billing)"
+                >
+                  <PowerOff size={14} />
+                  <span>Deactivate</span>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleReactivate}
+                  data-testid="reactivate-customer-btn"
+                  className="px-3 py-2 bg-white dark:bg-[#2d3133] border border-emerald-500/50 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 rounded-xl text-xs font-bold flex items-center gap-1.5 transition shadow-2xs"
+                  title="Reactivate Customer Account"
+                >
+                  <Power size={14} />
+                  <span>Reactivate</span>
+                </button>
+              )}
 
-          {/* Export Button */}
-          <ExportButton
-            moduleTitle="Customer Master"
-            columns={customerExportColumns}
-            data={customers}
-            selectedRows={[currentCustomer]}
-            totalRecordsCount={customers.length}
-            filteredRecordsCount={customers.length}
-            companyName="SMRITI Retail"
-            onNotification={onNotification}
-          />
+              {/* Delete Button (Pre-flight Safety Dialog) */}
+              <button
+                type="button"
+                onClick={handleOpenDelete}
+                data-testid="delete-customer-btn"
+                className="p-2 border border-[#ba1a1a] text-[#ba1a1a] hover:bg-[#ffdad6] rounded-xl text-xs font-bold transition"
+                title="Delete Customer Record (Alt+D)"
+              >
+                <Trash2 size={15} />
+              </button>
+            </>
+          ) : (
+            <>
+              {/* Save Button */}
+              <button
+                type="button"
+                onClick={handleSave}
+                disabled={isSaving}
+                data-testid="save-customer-btn"
+                className="px-4 py-2 bg-[#00355f] dark:bg-[#8ebdf9] text-white dark:text-[#001c37] hover:bg-[#0f4c81] dark:hover:bg-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition shadow-xs disabled:opacity-60"
+                title="Save Changes to Database (Ctrl+S)"
+              >
+                {isSaving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+                <span>{isSaving ? "Saving..." : "Save"}</span>
+                <kbd className="text-[9px] px-1 bg-white/20 dark:bg-black/20 rounded text-inherit">Ctrl+S</kbd>
+              </button>
 
-          {/* Save Button */}
-          <button
-            type="button"
-            onClick={handleSave}
-            disabled={isSaving}
-            data-testid="save-customer-btn"
-            className="px-4 py-2 bg-[#00355f] dark:bg-[#8ebdf9] text-white dark:text-[#001c37] hover:bg-[#0f4c81] dark:hover:bg-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition shadow-xs disabled:opacity-60"
-            title="Save Changes to Database (Ctrl+S)"
-          >
-            {isSaving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
-            <span>{isSaving ? "Saving..." : "Save"}</span>
-            <kbd className="text-[9px] px-1 bg-white/20 dark:bg-black/20 rounded text-inherit">Ctrl+S</kbd>
-          </button>
+              {/* Cancel Changes Button */}
+              <button
+                type="button"
+                onClick={handleCancelEdit}
+                data-testid="cancel-edit-btn"
+                className="px-3.5 py-2 bg-white dark:bg-[#2d3133] border border-slate-300 dark:border-slate-700 hover:bg-slate-100 rounded-xl text-xs font-bold flex items-center gap-1.5 transition text-slate-700 dark:text-slate-200"
+                title="Cancel Changes (Esc)"
+              >
+                <XCircle size={14} className="text-slate-400" />
+                <span>Cancel</span>
+                <kbd className="text-[9px] px-1 bg-[#f2f4f6] dark:bg-[#191c1e] rounded text-[#76777d]">Esc</kbd>
+              </button>
+            </>
+          )}
 
-          {/* Delete Button */}
-          <button
-            type="button"
-            onClick={handleDelete}
-            className="p-2 border border-[#ba1a1a] text-[#ba1a1a] hover:bg-[#ffdad6] rounded-xl text-xs font-bold transition"
-            title="Delete Current Customer Record (Alt+D)"
-          >
-            <Trash2 size={15} />
-          </button>
-
-          {/* View Mode Toggle */}
-          <div className="ml-2 flex items-center bg-[#f2f4f6] dark:bg-[#2d3133] p-0.5 rounded-xl border border-[#c6c6cd] dark:border-[#45464d]">
+          {/* More Menu Dropdown */}
+          <div className="relative">
             <button
               type="button"
-              onClick={() => setViewMode("catalogue")}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 transition ${
-                viewMode === "catalogue"
-                  ? "bg-white dark:bg-[#191c1e] text-[#00355f] dark:text-[#8ebdf9] shadow-xs"
-                  : "text-[#515f74] dark:text-[#bec6e0]"
-              }`}
+              onClick={() => setIsMoreMenuOpen(prev => !prev)}
+              className="px-3 py-2 bg-white dark:bg-[#2d3133] border border-[#c6c6cd] dark:border-[#45464d] hover:bg-[#eceef0] rounded-xl text-xs font-bold flex items-center gap-1 transition shadow-2xs"
             >
-              <FileText size={13} /> Form
+              <span>More</span>
+              <ChevronDown size={14} />
             </button>
-            <button
-              type="button"
-              onClick={() => setViewMode("directory")}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 transition ${
-                viewMode === "directory"
-                  ? "bg-white dark:bg-[#191c1e] text-[#00355f] dark:text-[#8ebdf9] shadow-xs"
-                  : "text-[#515f74] dark:text-[#bec6e0]"
-              }`}
-            >
-              <Grid size={13} /> Directory
-            </button>
-            <button
-              type="button"
-              onClick={() => setViewMode("360")}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 transition ${
-                viewMode === "360"
-                  ? "bg-white dark:bg-[#191c1e] text-[#00355f] dark:text-[#8ebdf9] shadow-xs"
-                  : "text-[#515f74] dark:text-[#bec6e0]"
-              }`}
-            >
-              <Building2 size={13} /> Corporate 360
-            </button>
+            {isMoreMenuOpen && (
+              <div className="absolute right-0 top-full mt-1.5 w-60 bg-white dark:bg-[#1e222d] border border-slate-200 dark:border-slate-800 rounded-xl shadow-lg z-50 p-1.5 space-y-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsMoreMenuOpen(false);
+                    setIsSearchModalOpen(true);
+                  }}
+                  className="w-full px-3 py-2 text-left text-xs font-semibold rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-2"
+                >
+                  <Search size={14} className="text-[#00355f] dark:text-[#8ebdf9]" />
+                  <span>Advanced Search (F2)</span>
+                </button>
+                <button
+                  type="button"
+                  data-testid="merge-customer-btn"
+                  onClick={() => {
+                    setIsMoreMenuOpen(false);
+                    setIsMergeModalOpen(true);
+                  }}
+                  className="w-full px-3 py-2 text-left text-xs font-semibold rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-2 text-blue-700 dark:text-blue-400"
+                >
+                  <GitMerge size={14} className="text-blue-500" />
+                  <span>Merge Account (BD-2)</span>
+                </button>
+                <button
+                  type="button"
+                  data-testid="enterprise-search-btn"
+                  onClick={() => {
+                    setIsMoreMenuOpen(false);
+                    setIsEnterpriseSearchOpen(true);
+                  }}
+                  className="w-full px-3 py-2 text-left text-xs font-semibold rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-2 text-indigo-700 dark:text-indigo-400"
+                >
+                  <Globe2 size={14} className="text-indigo-500" />
+                  <span>Enterprise Group Search (BD-4)</span>
+                </button>
+                <div className="px-1 py-1">
+                  <ExportButton
+                    moduleTitle="Customer Master"
+                    columns={customerExportColumns}
+                    data={customers}
+                    selectedRows={[currentCustomer]}
+                    totalRecordsCount={customers.length}
+                    filteredRecordsCount={customers.length}
+                    companyName="SMRITI Retail"
+                    onNotification={onNotification}
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsMoreMenuOpen(false);
+                    setViewMode(viewMode === "directory" ? "catalogue" : "directory");
+                  }}
+                  className="w-full px-3 py-2 text-left text-xs font-semibold rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-2"
+                >
+                  <Grid size={14} className="text-[#00355f] dark:text-[#8ebdf9]" />
+                  <span>{viewMode === "directory" ? "Return to Catalogue" : "Directory Grid View"}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsMoreMenuOpen(false);
+                    const newType = isCorporate ? "Retail" : "Corporate";
+                    handleFieldChange("customerType", newType);
+                    handleFieldChange("environment", newType);
+                    onNotification?.(
+                      "Workspace Layout Switched",
+                      `Switched workspace layout to ${newType}.`,
+                      "info"
+                    );
+                  }}
+                  className="w-full px-3 py-2 text-left text-xs font-semibold rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-2"
+                >
+                  <Sliders size={14} className="text-[#00355f] dark:text-[#8ebdf9]" />
+                  <span>{isCorporate ? "Switch to Retail Workspace" : "Switch to Corporate Workspace"}</span>
+                </button>
+              </div>
+            )}
           </div>
+
+          {/* Corporate 360 Button */}
+          <button
+            type="button"
+            onClick={() => setViewMode(viewMode === "360" ? "catalogue" : "360")}
+            className="px-3.5 py-2 bg-white dark:bg-[#2d3133] border border-[#00355f] dark:border-[#8ebdf9] text-[#00355f] dark:text-[#8ebdf9] hover:bg-[#e8f1fc] dark:hover:bg-[#1a2e4a] rounded-xl text-xs font-bold flex items-center gap-1.5 transition shadow-2xs"
+            title="Open Corporate 360 Full Dashboard"
+          >
+            <Building2 size={14} />
+            <span>Corporate 360</span>
+          </button>
 
         </div>
 
@@ -1639,80 +2280,441 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
             </div>
           </div>
         ) : (
-          /* Catalogue 3-Tab View Mode */
-          <div className="flex-1 flex flex-col min-h-0">
-            
-            {/* 3 Main Tabs Switcher */}
-            <div className="flex items-center gap-2 border-b border-[#c6c6cd] dark:border-[#45464d] pb-2 shrink-0">
-              <button
-                type="button"
-                onClick={() => setActiveTab("form")}
-                className={`px-5 py-2.5 rounded-xl font-bold text-xs flex items-center gap-2 transition ${
-                  activeTab === "form"
-                    ? "bg-[#00355f] dark:bg-[#8ebdf9] text-white dark:text-[#001c37] shadow-xs"
-                    : "bg-white dark:bg-[#2d3133] text-[#515f74] dark:text-[#bec6e0] border border-[#c6c6cd] dark:border-[#45464d] hover:bg-[#eceef0]"
-                }`}
-              >
-                <FileText size={14} />
-                <span>1. The "Form" Tab</span>
-                <kbd className="text-[9px] px-1 bg-black/10 rounded">Alt+1</kbd>
-              </button>
+          /* Catalogue View Mode */
+          isCorporate ? (
+            /* Corporate Workspace View */
+            <div className="flex-1 flex flex-col min-h-0 space-y-4">
+              
+              {/* Lifecycle Mode Banner */}
+              {lifecycleMode === "view" ? (
+                <div className="px-3.5 py-2 bg-sky-50 dark:bg-sky-950/40 border border-sky-200 dark:border-sky-800/60 rounded-xl flex items-center justify-between text-xs text-sky-900 dark:text-sky-200 shrink-0 shadow-2xs">
+                  <div className="flex items-center gap-2">
+                    <Eye size={15} className="text-sky-600 dark:text-sky-400 shrink-0" />
+                    <span><strong>View Mode (Read-Only)</strong>: Displaying saved corporate account data. Click Edit (Alt+E) to modify commercial terms or credentials.</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleEdit}
+                    className="px-2.5 py-1 bg-sky-700 hover:bg-sky-800 text-white rounded-lg font-bold text-[11px] flex items-center gap-1 transition shadow-2xs"
+                  >
+                    <Edit3 size={12} />
+                    <span>Edit Account (Alt+E)</span>
+                  </button>
+                </div>
+              ) : (
+                <div className="px-3.5 py-2 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 rounded-xl flex items-center justify-between text-xs text-amber-900 dark:text-amber-200 shrink-0 shadow-2xs">
+                  <div className="flex items-center gap-2">
+                    <Edit3 size={15} className="text-amber-600 dark:text-amber-400 shrink-0" />
+                    <span><strong>Edit Mode Active</strong>: Modifying corporate master record. Press <kbd className="font-mono bg-amber-100 dark:bg-amber-900/60 px-1 py-0.5 rounded text-[10px]">Ctrl+S</kbd> to save or <kbd className="font-mono bg-amber-100 dark:bg-amber-900/60 px-1 py-0.5 rounded text-[10px]">Esc</kbd> to cancel.</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={handleCancelEdit}
+                      className="px-2.5 py-1 bg-white dark:bg-amber-900/40 border border-amber-300 dark:border-amber-700 hover:bg-amber-100 text-amber-800 dark:text-amber-200 rounded-lg font-bold text-[11px] flex items-center gap-1 transition shadow-2xs"
+                    >
+                      <XCircle size={12} />
+                      <span>Cancel (Esc)</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleSave}
+                      disabled={isSaving}
+                      className="px-2.5 py-1 bg-amber-700 hover:bg-amber-800 text-white rounded-lg font-bold text-[11px] flex items-center gap-1 transition shadow-2xs disabled:opacity-60"
+                    >
+                      {isSaving ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />}
+                      <span>Save Changes (Ctrl+S)</span>
+                    </button>
+                  </div>
+                </div>
+              )}
 
-              <button
-                type="button"
-                onClick={() => setActiveTab("retail")}
-                className={`px-5 py-2.5 rounded-xl font-bold text-xs flex items-center gap-2 transition ${
-                  activeTab === "retail"
-                    ? "bg-[#00355f] dark:bg-[#8ebdf9] text-white dark:text-[#001c37] shadow-xs"
-                    : "bg-white dark:bg-[#2d3133] text-[#515f74] dark:text-[#bec6e0] border border-[#c6c6cd] dark:border-[#45464d] hover:bg-[#eceef0]"
-                }`}
-              >
-                <Heart size={14} />
-                <span>2. The "Retail Details" Tab</span>
-                <kbd className="text-[9px] px-1 bg-black/10 rounded">Alt+2</kbd>
-              </button>
+              {/* A. Persistent Corporate Account Header */}
+              <CorporateMasterAccountHeader
+                customer={currentCustomer}
+                creditExposure={creditExposure ?? undefined}
+              />
 
-              <button
-                type="button"
-                onClick={() => setActiveTab("additional")}
-                className={`px-5 py-2.5 rounded-xl font-bold text-xs flex items-center gap-2 transition ${
-                  activeTab === "additional"
-                    ? "bg-[#00355f] dark:bg-[#8ebdf9] text-white dark:text-[#001c37] shadow-xs"
-                    : "bg-white dark:bg-[#2d3133] text-[#515f74] dark:text-[#bec6e0] border border-[#c6c6cd] dark:border-[#45464d] hover:bg-[#eceef0]"
-                }`}
-              >
-                <CreditCard size={14} />
-                <span>3. The "Additional Details" Tab</span>
-                <kbd className="text-[9px] px-1 bg-black/10 rounded">Alt+3</kbd>
-              </button>
+              {/* B. Corporate Workspace Navigation Tabs */}
+              <div className="flex items-center justify-between gap-2 border-b border-[#c6c6cd] dark:border-[#45464d] pb-2 shrink-0 flex-wrap">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActiveCorporateTab("identity");
+                      if (corporateWorkspaceMode === "overview") {
+                        document.getElementById("sec-identity")?.scrollIntoView({ behavior: "smooth" });
+                      }
+                    }}
+                    className={`px-4 py-2.5 rounded-xl font-bold text-xs flex items-center gap-2 transition ${
+                      activeCorporateTab === "identity"
+                        ? "bg-[#00355f] dark:bg-[#8ebdf9] text-white dark:text-[#001c37] shadow-xs"
+                        : "bg-white dark:bg-[#2d3133] text-[#515f74] dark:text-[#bec6e0] border border-[#c6c6cd] dark:border-[#45464d] hover:bg-[#eceef0]"
+                    }`}
+                  >
+                    <FileText size={14} />
+                    <span>1. Identity & Compliance</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActiveCorporateTab("network");
+                      if (corporateWorkspaceMode === "overview") {
+                        document.getElementById("sec-network")?.scrollIntoView({ behavior: "smooth" });
+                      }
+                    }}
+                    className={`px-4 py-2.5 rounded-xl font-bold text-xs flex items-center gap-2 transition ${
+                      activeCorporateTab === "network"
+                        ? "bg-[#00355f] dark:bg-[#8ebdf9] text-white dark:text-[#001c37] shadow-xs"
+                        : "bg-white dark:bg-[#2d3133] text-[#515f74] dark:text-[#bec6e0] border border-[#c6c6cd] dark:border-[#45464d] hover:bg-[#eceef0]"
+                    }`}
+                  >
+                    <Users size={14} />
+                    <span>2. Corporate Network</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActiveCorporateTab("addresses");
+                      if (corporateWorkspaceMode === "overview") {
+                        document.getElementById("sec-addresses")?.scrollIntoView({ behavior: "smooth" });
+                      }
+                    }}
+                    className={`px-4 py-2.5 rounded-xl font-bold text-xs flex items-center gap-2 transition ${
+                      activeCorporateTab === "addresses"
+                        ? "bg-[#00355f] dark:bg-[#8ebdf9] text-white dark:text-[#001c37] shadow-xs"
+                        : "bg-white dark:bg-[#2d3133] text-[#515f74] dark:text-[#bec6e0] border border-[#c6c6cd] dark:border-[#45464d] hover:bg-[#eceef0]"
+                    }`}
+                  >
+                    <ShieldCheck size={14} />
+                    <span>3. Addresses & Contacts</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActiveCorporateTab("commercial");
+                      if (corporateWorkspaceMode === "overview") {
+                        document.getElementById("sec-commercial")?.scrollIntoView({ behavior: "smooth" });
+                      }
+                    }}
+                    className={`px-4 py-2.5 rounded-xl font-bold text-xs flex items-center gap-2 transition ${
+                      activeCorporateTab === "commercial"
+                        ? "bg-[#00355f] dark:bg-[#8ebdf9] text-white dark:text-[#001c37] shadow-xs"
+                        : "bg-white dark:bg-[#2d3133] text-[#515f74] dark:text-[#bec6e0] border border-[#c6c6cd] dark:border-[#45464d] hover:bg-[#eceef0]"
+                    }`}
+                  >
+                    <CreditCard size={14} />
+                    <span>4. Commercial Terms</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActiveCorporateTab("integrations");
+                      if (corporateWorkspaceMode === "overview") {
+                        document.getElementById("sec-integrations")?.scrollIntoView({ behavior: "smooth" });
+                      }
+                    }}
+                    className={`px-4 py-2.5 rounded-xl font-bold text-xs flex items-center gap-2 transition ${
+                      activeCorporateTab === "integrations"
+                        ? "bg-[#00355f] dark:bg-[#8ebdf9] text-white dark:text-[#001c37] shadow-xs"
+                        : "bg-white dark:bg-[#2d3133] text-[#515f74] dark:text-[#bec6e0] border border-[#c6c6cd] dark:border-[#45464d] hover:bg-[#eceef0]"
+                    }`}
+                  >
+                    <Layers size={14} />
+                    <span>5. Integrations</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActiveCorporateTab("audit");
+                      if (corporateWorkspaceMode === "overview") {
+                        document.getElementById("sec-audit")?.scrollIntoView({ behavior: "smooth" });
+                      }
+                    }}
+                    className={`px-4 py-2.5 rounded-xl font-bold text-xs flex items-center gap-2 transition ${
+                      activeCorporateTab === "audit"
+                        ? "bg-[#00355f] dark:bg-[#8ebdf9] text-white dark:text-[#001c37] shadow-xs"
+                        : "bg-white dark:bg-[#2d3133] text-[#515f74] dark:text-[#bec6e0] border border-[#c6c6cd] dark:border-[#45464d] hover:bg-[#eceef0]"
+                    }`}
+                  >
+                    <History size={14} />
+                    <span>6. Activity & Audit</span>
+                  </button>
+                </div>
+
+                {/* Workspace Mode Switcher */}
+                <div className="flex items-center bg-[#f2f4f6] dark:bg-[#2d3133] p-1 rounded-xl border border-[#c6c6cd] dark:border-[#45464d] gap-1">
+                  <button
+                    type="button"
+                    onClick={() => setCorporateWorkspaceMode("overview")}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition ${
+                      corporateWorkspaceMode === "overview"
+                        ? "bg-white dark:bg-[#191c1e] text-[#00355f] dark:text-[#8ebdf9] shadow-xs"
+                        : "text-[#515f74] dark:text-[#bec6e0]"
+                    }`}
+                    title="Display All Corporate Panels in Structured Layout (Reference View)"
+                  >
+                    <Grid size={13} />
+                    <span>Full Overview</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCorporateWorkspaceMode("tabbed")}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition ${
+                      corporateWorkspaceMode === "tabbed"
+                        ? "bg-white dark:bg-[#191c1e] text-[#00355f] dark:text-[#8ebdf9] shadow-xs"
+                        : "text-[#515f74] dark:text-[#bec6e0]"
+                    }`}
+                    title="Focus on Selected Section Tab"
+                  >
+                    <Layers size={13} />
+                    <span>Tab Focus</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Corporate Panels Container */}
+              <div className="flex-1 overflow-y-auto pr-1">
+                {corporateWorkspaceMode === "overview" ? (
+                  <div className="space-y-6 pt-2 pb-12">
+                    {/* Row 1: Identity & Compliance */}
+                    <div id="sec-identity">
+                      <CorporateIdentityCompliancePanel
+                        customer={currentCustomer}
+                        onChange={handleFieldChange}
+                        gstRegistrations={gstRegistrations}
+                        onSaveGstRegistration={handleSaveGstRegistration}
+                        onDeleteGstRegistration={handleDeleteGstRegistration}
+                        onOpenPriceListModal={() => setIsPriceGroupModalOpen(true)}
+                        onOpenGroupsModal={() => setIsPriceGroupModalOpen(true)}
+                      />
+                    </div>
+
+                    {/* Row 2: Corporate Network + Addresses & Contacts + Key Contacts */}
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+                      <div id="sec-network" className="lg:col-span-1">
+                        <CorporateNetworkPanel
+                          customer={currentCustomer}
+                          onChange={handleFieldChange}
+                          onStoreAssigned={handleStoreAssigned}
+                        />
+                      </div>
+                      <div id="sec-addresses" className="lg:col-span-2">
+                        <CorporateAddressesContactsPanel
+                          customer={currentCustomer}
+                          onChange={handleFieldChange}
+                          onOpenMailingModal={handleOpenMailingModal}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Row 3: Commercial Terms + Integrations & Data Exchange */}
+                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+                      <div id="sec-commercial" className="lg:col-span-7">
+                        <CorporateCommercialTermsPanel
+                          customer={currentCustomer}
+                          onChange={handleFieldChange}
+                          relationships={companyRelationships}
+                          activeRelationshipId={selectedRelId}
+                          onSelectRelationship={setSelectedRelId}
+                          onUpdateRelationship={handleUpdateCompanyRelationship}
+                          onAddRelationship={handleAddCompanyRelationship}
+                          creditExposure={creditExposure ?? undefined}
+                          isReadOnly={lifecycleMode === "view"}
+                        />
+                      </div>
+                      <div id="sec-integrations" className="lg:col-span-5">
+                        <CorporateIntegrationsPanel
+                          customer={currentCustomer}
+                          onChange={handleFieldChange}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Row 4: Activity & Audit Trail */}
+                    <div id="sec-audit">
+                      <CorporateActivityAuditPanel customer={currentCustomer} />
+                    </div>
+                  </div>
+                ) : (
+                  <div className="pt-2 pb-12">
+                    {activeCorporateTab === "identity" && (
+                      <CorporateIdentityCompliancePanel
+                        customer={currentCustomer}
+                        onChange={handleFieldChange}
+                        gstRegistrations={gstRegistrations}
+                        onSaveGstRegistration={handleSaveGstRegistration}
+                        onDeleteGstRegistration={handleDeleteGstRegistration}
+                        onOpenPriceListModal={() => setIsPriceGroupModalOpen(true)}
+                        onOpenGroupsModal={() => setIsPriceGroupModalOpen(true)}
+                      />
+                    )}
+                    {activeCorporateTab === "network" && (
+                      <CorporateNetworkPanel
+                        customer={currentCustomer}
+                        onChange={handleFieldChange}
+                        onStoreAssigned={handleStoreAssigned}
+                      />
+                    )}
+                    {activeCorporateTab === "addresses" && (
+                      <CorporateAddressesContactsPanel
+                        customer={currentCustomer}
+                        onChange={handleFieldChange}
+                        onOpenMailingModal={handleOpenMailingModal}
+                      />
+                    )}
+                    {activeCorporateTab === "commercial" && (
+                      <CorporateCommercialTermsPanel
+                        customer={currentCustomer}
+                        onChange={handleFieldChange}
+                        relationships={companyRelationships}
+                        activeRelationshipId={selectedRelId}
+                        onSelectRelationship={setSelectedRelId}
+                        onUpdateRelationship={handleUpdateCompanyRelationship}
+                        onAddRelationship={handleAddCompanyRelationship}
+                        creditExposure={creditExposure ?? undefined}
+                        isReadOnly={lifecycleMode === "view"}
+                      />
+                    )}
+                    {activeCorporateTab === "integrations" && (
+                      <CorporateIntegrationsPanel
+                        customer={currentCustomer}
+                        onChange={handleFieldChange}
+                      />
+                    )}
+                    {activeCorporateTab === "audit" && (
+                      <CorporateActivityAuditPanel customer={currentCustomer} />
+                    )}
+                  </div>
+                )}
+              </div>
+
             </div>
-
-            {/* Tab Panels Content */}
-            <div className="flex-1 overflow-y-auto pt-4 pr-1">
-              {activeTab === "form" && (
-                <SmritiCustomerFormTab
-                  customer={currentCustomer}
-                  onChange={handleFieldChange}
-                  onOpenMailingModal={handleOpenMailingModal}
-                />
+          ) : (
+            /* Retail 3-Tab View Mode */
+            <div className="flex-1 flex flex-col min-h-0">
+              
+              {/* Lifecycle Mode Banner */}
+              {lifecycleMode === "view" ? (
+                <div className="mb-3 px-3.5 py-2 bg-sky-50 dark:bg-sky-950/40 border border-sky-200 dark:border-sky-800/60 rounded-xl flex items-center justify-between text-xs text-sky-900 dark:text-sky-200 shrink-0 shadow-2xs">
+                  <div className="flex items-center gap-2">
+                    <Eye size={15} className="text-sky-600 dark:text-sky-400 shrink-0" />
+                    <span><strong>View Mode (Read-Only)</strong>: Displaying saved customer account records. Field edits are locked.</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleEdit}
+                    className="px-2.5 py-1 bg-sky-700 hover:bg-sky-800 text-white rounded-lg font-bold text-[11px] flex items-center gap-1 transition shadow-2xs"
+                  >
+                    <Edit3 size={12} />
+                    <span>Edit Customer (Alt+E)</span>
+                  </button>
+                </div>
+              ) : (
+                <div className="mb-3 px-3.5 py-2 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 rounded-xl flex items-center justify-between text-xs text-amber-900 dark:text-amber-200 shrink-0 shadow-2xs">
+                  <div className="flex items-center gap-2">
+                    <Edit3 size={15} className="text-amber-600 dark:text-amber-400 shrink-0" />
+                    <span><strong>Edit Mode Active</strong>: Unsaved changes will be highlighted. Press <kbd className="font-mono bg-amber-100 dark:bg-amber-900/60 px-1 py-0.5 rounded text-[10px]">Ctrl+S</kbd> to save or <kbd className="font-mono bg-amber-100 dark:bg-amber-900/60 px-1 py-0.5 rounded text-[10px]">Esc</kbd> to cancel.</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={handleCancelEdit}
+                      className="px-2.5 py-1 bg-white dark:bg-amber-900/40 border border-amber-300 dark:border-amber-700 hover:bg-amber-100 text-amber-800 dark:text-amber-200 rounded-lg font-bold text-[11px] flex items-center gap-1 transition shadow-2xs"
+                    >
+                      <XCircle size={12} />
+                      <span>Cancel (Esc)</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleSave}
+                      disabled={isSaving}
+                      className="px-2.5 py-1 bg-amber-700 hover:bg-amber-800 text-white rounded-lg font-bold text-[11px] flex items-center gap-1 transition shadow-2xs disabled:opacity-60"
+                    >
+                      {isSaving ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />}
+                      <span>Save Changes (Ctrl+S)</span>
+                    </button>
+                  </div>
+                </div>
               )}
 
-              {activeTab === "retail" && (
-                <SmritiCustomerRetailDetailsTab
-                  customer={currentCustomer}
-                  onChange={handleFieldChange}
-                />
-              )}
+              {/* 3 Main Tabs Switcher */}
+              <div className="flex items-center gap-2 border-b border-[#c6c6cd] dark:border-[#45464d] pb-2 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("form")}
+                  className={`px-5 py-2.5 rounded-xl font-bold text-xs flex items-center gap-2 transition ${
+                    activeTab === "form"
+                      ? "bg-[#00355f] dark:bg-[#8ebdf9] text-white dark:text-[#001c37] shadow-xs"
+                      : "bg-white dark:bg-[#2d3133] text-[#515f74] dark:text-[#bec6e0] border border-[#c6c6cd] dark:border-[#45464d] hover:bg-[#eceef0]"
+                  }`}
+                >
+                  <FileText size={14} />
+                  <span>1. The "Form" Tab</span>
+                  <kbd className="text-[9px] px-1 bg-black/10 rounded">Alt+1</kbd>
+                </button>
 
-              {activeTab === "additional" && (
-                <SmritiCustomerAdditionalDetailsTab
-                  customer={currentCustomer}
-                  onChange={handleFieldChange}
-                />
-              )}
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("retail")}
+                  className={`px-5 py-2.5 rounded-xl font-bold text-xs flex items-center gap-2 transition ${
+                    activeTab === "retail"
+                      ? "bg-[#00355f] dark:bg-[#8ebdf9] text-white dark:text-[#001c37] shadow-xs"
+                      : "bg-white dark:bg-[#2d3133] text-[#515f74] dark:text-[#bec6e0] border border-[#c6c6cd] dark:border-[#45464d] hover:bg-[#eceef0]"
+                  }`}
+                >
+                  <Heart size={14} />
+                  <span>2. The "Retail Details" Tab</span>
+                  <kbd className="text-[9px] px-1 bg-black/10 rounded">Alt+2</kbd>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("additional")}
+                  className={`px-5 py-2.5 rounded-xl font-bold text-xs flex items-center gap-2 transition ${
+                    activeTab === "additional"
+                      ? "bg-[#00355f] dark:bg-[#8ebdf9] text-white dark:text-[#001c37] shadow-xs"
+                      : "bg-white dark:bg-[#2d3133] text-[#515f74] dark:text-[#bec6e0] border border-[#c6c6cd] dark:border-[#45464d] hover:bg-[#eceef0]"
+                  }`}
+                >
+                  <CreditCard size={14} />
+                  <span>3. The "Additional Details" Tab</span>
+                  <kbd className="text-[9px] px-1 bg-black/10 rounded">Alt+3</kbd>
+                </button>
+              </div>
+
+              {/* Tab Panels Content */}
+              <div className="flex-1 overflow-y-auto pt-4 pr-1">
+                {activeTab === "form" && (
+                  <SmritiCustomerFormTab
+                    customer={currentCustomer}
+                    onChange={handleFieldChange}
+                    onOpenMailingModal={handleOpenMailingModal}
+                  />
+                )}
+
+                {activeTab === "retail" && (
+                  <SmritiCustomerRetailDetailsTab
+                    customer={currentCustomer}
+                    onChange={handleFieldChange}
+                  />
+                )}
+
+                {activeTab === "additional" && (
+                  <SmritiCustomerAdditionalDetailsTab
+                    customer={currentCustomer}
+                    onChange={handleFieldChange}
+                  />
+                )}
+              </div>
+
             </div>
-
-          </div>
+          )
         )}
 
       </div>
@@ -1749,11 +2751,68 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
             activeCustomerIdRef.current = target.id;
             setCurrentCustomer(JSON.parse(JSON.stringify(target)));
             currentCustomerRef.current = target;
+            originalCustomerRef.current = JSON.parse(JSON.stringify(target));
             setIsDirty(false);
             isDirtyRef.current = false;
+            setLifecycleMode("view");
             onNotification?.("Customer Loaded", `Loaded catalogue record for ${target.name} (${target.code}).`, "info");
           }
         }}
+      />
+
+      <SmritiCustomerPriceGroupModal
+        isOpen={isPriceGroupModalOpen}
+        onClose={() => setIsPriceGroupModalOpen(false)}
+        onSelectGroup={group => {
+          handleFieldChange("priceGroup", `${group.code}#${group.description}`);
+          setIsPriceGroupModalOpen(false);
+        }}
+      />
+
+      {/* ── Lifecycle Modals ─────────────────────────────────────────────────── */}
+      <CreateCustomerModal
+        isOpen={isCreateCustomerModalOpen}
+        onClose={() => setIsCreateCustomerModalOpen(false)}
+        onCreated={handleCustomerCreated}
+        onNotification={onNotification}
+      />
+
+      <CustomerDeactivateModal
+        isOpen={isDeactivateModalOpen}
+        onClose={() => setIsDeactivateModalOpen(false)}
+        customer={currentCustomer}
+        onDeactivated={handleCustomerDeactivated}
+        onNotification={onNotification}
+      />
+
+      <CustomerDeleteConfirmationModal
+        isOpen={isDeleteConfirmationModalOpen}
+        onClose={() => setIsDeleteConfirmationModalOpen(false)}
+        customer={currentCustomer}
+        onDeleted={handleCustomerDeleted}
+        onSwitchToDeactivate={() => {
+          setIsDeleteConfirmationModalOpen(false);
+          setIsDeactivateModalOpen(true);
+        }}
+        onNotification={onNotification}
+      />
+
+      <CustomerMergeModal
+        isOpen={isMergeModalOpen}
+        onClose={() => setIsMergeModalOpen(false)}
+        targetCustomer={currentCustomer}
+        onMerged={handleCustomerMerged}
+        onNotification={onNotification}
+      />
+
+      <EnterpriseCustomerSearchModal
+        isOpen={isEnterpriseSearchOpen}
+        onClose={() => setIsEnterpriseSearchOpen(false)}
+        onSelectCustomer={handleEnterpriseCustomerSelected}
+        onNotification={onNotification}
+        currentUser={currentUser}
+        currentCompanyId={(currentCustomer as any).companyId || (currentCustomer as any).company_id || "COMP-001"}
+        currentCompanyCode={currentCustomer.companyCode || "001"}
       />
 
     </div>

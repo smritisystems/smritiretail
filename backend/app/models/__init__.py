@@ -6,7 +6,7 @@ Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
 Version      : 3.22.0
 Created      : 2026-07-11
-Modified     : 2026-10-14
+Modified     : 2026-10-19
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 """
@@ -15,6 +15,7 @@ License      : Proprietary Commercial Software
 from .crm import (
     CustomerGroup, Customer, CustomerGSTRegistration, CustomerDeliveryLocation,
     CustomerCreditLedgerEntry, CustomerPolicy, CustomerRelationship,
+    CustomerCompanyRelationship,
 )
 from .inventory import Product, StockMovement, WarehouseLocation
 from .sales import (

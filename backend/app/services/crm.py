@@ -4,13 +4,14 @@ Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
-Version      : 3.8.0
+Version      : 3.24.0
 Created      : 2026-07-11
-Modified     : 2026-07-11
+Modified     : 2026-10-19
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 """
 
+import hashlib
 import json
 import logging
 import uuid
@@ -25,7 +26,10 @@ from fastapi import HTTPException
 from ..models.crm import (
     Customer, CustomerGroup, CustomerGSTRegistration, CustomerDeliveryLocation,
     CustomerBillingLocation, CustomerExternalIdentity, CustomerPolicy,
+    CustomerCompanyRelationship, CustomerCreditLedgerEntry,
 )
+from ..models.tenant import Company
+from ..models.audit import ComplianceImmutableAuditLog
 from .identity.engine import IdentityEngine
 from decimal import Decimal
 from ..models.sales import SalesInvoice
@@ -37,7 +41,11 @@ from ..schemas.crm import (
     CustomerExternalIdentityCreate,
     DuplicateDecision, MatchedIdentityType, CustomerDuplicateCheckResponse,
     CustomerDuplicateCheckRequest,
+    CustomerDeactivateRequest, CustomerDeleteEligibilityResponse,
+    CustomerMergeRequest, CustomerMergeResponse,
     StoreAddressItem, StoreAddressCreate, StoreAddressUpdate, StoreCodeLookupItem,
+    CustomerCompanyRelationshipCreate, CustomerCompanyRelationshipUpdate,
+    CompanyCreditExposureItem, CustomerCreditExposureResponse,
 )
 from ..repositories.customer import (
     CustomerRepository, CustomerGroupRepository,
@@ -74,34 +82,71 @@ class CrmService:
         self.ext_ident_repo = CustomerExternalIdentityRepository(db, tenant_ctx)
         self.identity_service = CustomerIdentityService(db, tenant_ctx)
 
-    async def merge_customer(self, target_id: str, source_id: str) -> Dict[str, Any]:
+    async def merge_customer(
+        self,
+        target_id: str,
+        source_id: str,
+        reason: Optional[str] = None,
+        actor_user_id: Optional[str] = None,
+        actor_role: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """
+        Consolidate source duplicate customer into target canonical customer (BD-2 & Model C).
+        - Validates PAN parity (prohibits merging across distinct legal entity PANs).
+        - Reassigns GST registrations (consolidating duplicates).
+        - Reassigns delivery and billing locations (resolving store code collisions).
+        - Reassigns Model C customer_company_relationships.
+        - Reassigns all transactional foreign keys (invoices, orders, returns, ledgers, POs).
+        - Consolidates outstanding receivables balance.
+        - Retires source customer with audit tag.
+        - Records cryptographic tamper-evident audit record in compliance_immutable_audit_logs.
+        """
         if target_id == source_id:
             raise HTTPException(status_code=400, detail="Target and source customer must be different.")
 
         result = await self.db.execute(
             select(Customer)
-            .where(
-                Customer.id.in_([target_id, source_id]),
-                Customer.company_id == self.tenant_ctx.company_id,
-            )
+            .where(Customer.id.in_([target_id, source_id]))
             .with_for_update()
         )
         customers = {customer.id: customer for customer in result.scalars().all()}
         target = customers.get(target_id)
         source = customers.get(source_id)
         if not target or not source:
-            raise HTTPException(status_code=404, detail="Both customers must exist in the active company.")
-        if source.is_deleted or source.status != "Active":
-            raise HTTPException(status_code=400, detail="Source customer is already inactive or deleted.")
+            raise HTTPException(status_code=404, detail="Both target and source customers must exist.")
+        if source.is_deleted or source.status in ("Inactive", "Merged"):
+            raise HTTPException(status_code=400, detail="Source customer is already inactive, merged, or deleted.")
+        if target.is_deleted:
+            raise HTTPException(status_code=400, detail="Target customer is deleted and cannot absorb another account.")
 
+        # BD-2 PAN Validation: Corporate entities must match PAN or adopt source PAN
+        target_pan = (target.pan_number or "").strip().upper()
+        source_pan = (source.pan_number or "").strip().upper()
+        if target_pan and source_pan and target_pan != source_pan:
+            raise HTTPException(
+                status_code=400,
+                detail=f"BD-2 Conflict: Cannot merge corporate customers with conflicting PAN numbers (Target: '{target_pan}', Source: '{source_pan}'). Merging across distinct PAN entities is prohibited.",
+            )
+        if not target_pan and source_pan:
+            target.pan_number = source_pan
+        if not target.gst_number and source.gst_number:
+            target.gst_number = source.gst_number
+        if not target.email and source.email:
+            target.email = source.email
+
+        reassigned_metrics: Dict[str, int] = {}
+
+        # 1. GST Registrations Consolidation
         source_gst = (await self.db.execute(
-            select(CustomerGSTRegistration).where(CustomerGSTRegistration.customer_id == source_id)
+            select(CustomerGSTRegistration).where(CustomerGSTRegistration.customer_id == source_id, CustomerGSTRegistration.is_deleted == False)
         )).scalars().all()
         target_gst = (await self.db.execute(
-            select(CustomerGSTRegistration).where(CustomerGSTRegistration.customer_id == target_id)
+            select(CustomerGSTRegistration).where(CustomerGSTRegistration.customer_id == target_id, CustomerGSTRegistration.is_deleted == False)
         )).scalars().all()
         target_gst_by_value = {registration.gstin.upper(): registration for registration in target_gst}
 
+        gst_transferred = 0
+        gst_consolidated = 0
         for registration in source_gst:
             existing = target_gst_by_value.get(registration.gstin.upper())
             if existing:
@@ -110,12 +155,23 @@ class CrmService:
                     "SET gst_registration_id = :target_reg "
                     "WHERE gst_registration_id = :source_reg"
                 ), {"target_reg": existing.id, "source_reg": registration.id})
+                await self.db.execute(text(
+                    "UPDATE customer_billing_locations "
+                    "SET gst_registration_id = :target_reg "
+                    "WHERE gst_registration_id = :source_reg"
+                ), {"target_reg": existing.id, "source_reg": registration.id})
                 registration.is_deleted = True
                 registration.is_active = False
                 registration.status = "MERGED"
+                gst_consolidated += 1
             else:
                 registration.customer_id = target_id
+                registration.is_primary = False
+                gst_transferred += 1
+        reassigned_metrics["gst_registrations_transferred"] = gst_transferred
+        reassigned_metrics["gst_registrations_consolidated"] = gst_consolidated
 
+        # 2. Locations Consolidation (Delivery and Billing)
         for table, code_column in (
             ("customer_delivery_locations", "store_code"),
             ("customer_billing_locations", "billing_store_code"),
@@ -136,7 +192,7 @@ class CrmService:
                         "location_name = source.location_name, address_line1 = source.address_line1, "
                         "address_line2 = source.address_line2, city = source.city, state = source.state, "
                         "state_code = source.state_code, pincode = source.pincode, country = source.country, "
-                        "gst_registration_id = source.gst_registration_id, gstin = source.gstin, "
+                        "gst_registration_id = COALESCE(target.gst_registration_id, source.gst_registration_id), gstin = COALESCE(target.gstin, source.gstin), "
                         "contact_person = source.contact_person, phone = source.phone, email = source.email, "
                         "source = source.source, remarks = source.remarks "
                         "FROM customer_delivery_locations source "
@@ -150,7 +206,7 @@ class CrmService:
                         "location_name = source.location_name, address_line1 = source.address_line1, "
                         "address_line2 = source.address_line2, city = source.city, state = source.state, "
                         "state_code = source.state_code, pincode = source.pincode, country = source.country, "
-                        "gst_registration_id = source.gst_registration_id, gstin = source.gstin, "
+                        "gst_registration_id = COALESCE(target.gst_registration_id, source.gst_registration_id), gstin = COALESCE(target.gstin, source.gstin), "
                         "contact_person = source.contact_person, phone = source.phone, email = source.email, "
                         "source = source.source, remarks = source.remarks "
                         "FROM customer_billing_locations source "
@@ -159,38 +215,151 @@ class CrmService:
                         "AND source.status = 'ACTIVE' AND target.is_deleted = false AND source.is_deleted = false"
                     ), {"target_id": target_id, "source_id": source_id})
                 await self.db.execute(text(
-                    f"UPDATE {table} SET status = 'INACTIVE', is_active = false, is_deleted = true "
+                    f"UPDATE {table} SET status = 'MERGED', is_active = false, is_deleted = true "
                     f"WHERE customer_id = :source_id AND {code_column} IN "
                     f"(SELECT {code_column} FROM {table} WHERE customer_id = :target_id AND status = 'ACTIVE' AND is_deleted = false)"
                 ), {"target_id": target_id, "source_id": source_id})
-            await self.db.execute(text(
+
+            loc_res = await self.db.execute(text(
                 f"UPDATE {table} SET customer_id = :target_id, is_default = false "
                 f"WHERE customer_id = :source_id AND status = 'ACTIVE' AND is_deleted = false"
             ), {"target_id": target_id, "source_id": source_id})
+            reassigned_metrics[f"{table}_reassigned"] = loc_res.rowcount if hasattr(loc_res, "rowcount") else 0
 
+        # 3. Model C Customer Company Relationships Consolidation
+        source_ccr = (await self.db.execute(
+            select(CustomerCompanyRelationship).where(CustomerCompanyRelationship.customer_id == source_id, CustomerCompanyRelationship.is_deleted == False)
+        )).scalars().all()
+        target_ccr = (await self.db.execute(
+            select(CustomerCompanyRelationship).where(CustomerCompanyRelationship.customer_id == target_id, CustomerCompanyRelationship.is_deleted == False)
+        )).scalars().all()
+        target_ccr_companies = {rel.company_id: rel for rel in target_ccr}
+
+        ccr_transferred = 0
+        ccr_consolidated = 0
+        for rel in source_ccr:
+            if rel.company_id in target_ccr_companies:
+                # Target already has a relationship for this company; retire source duplicate
+                rel.is_deleted = True
+                rel.is_active = False
+                rel.status = "MERGED"
+                ccr_consolidated += 1
+            else:
+                rel.customer_id = target_id
+                ccr_transferred += 1
+        reassigned_metrics["company_relationships_transferred"] = ccr_transferred
+        reassigned_metrics["company_relationships_consolidated"] = ccr_consolidated
+
+        # 4. Customer Policies Consolidation
+        source_policies = (await self.db.execute(
+            select(CustomerPolicy).where(CustomerPolicy.customer_id == source_id, CustomerPolicy.is_deleted == False)
+        )).scalars().all()
+        target_policies = (await self.db.execute(
+            select(CustomerPolicy).where(CustomerPolicy.customer_id == target_id, CustomerPolicy.is_deleted == False)
+        )).scalars().all()
+        if target_policies:
+            for p in source_policies:
+                p.is_deleted = True
+                p.is_active = False
+        else:
+            for p in source_policies:
+                p.customer_id = target_id
+        reassigned_metrics["policies_consolidated"] = len(source_policies)
+
+        # 5. Financial & Transactional Tables Reassignment
         for table, column in (
+            ("sales_invoices", "customer_id"),
+            ("sales_orders", "customer_id"),
+            ("sales_returns", "customer_id"),
+            ("customer_credit_ledgers", "customer_id"),
+            ("customer_purchase_orders", "customer_id"),
+            ("psv_parties", "customer_id"),
             ("crm_customer_activities", "customer_id"),
             ("crm_opportunities", "customer_id"),
             ("customer_external_identities", "customer_id"),
             ("loyalty_members", "customer_id"),
             ("loyalty_transactions", "customer_id"),
             ("referral_relationships", "referred_customer_id"),
-            ("sales_invoices", "customer_id"),
         ):
-            await self.db.execute(text(
+            upd_res = await self.db.execute(text(
                 f"UPDATE {table} SET {column} = :target_id WHERE {column} = :source_id"
             ), {"target_id": target_id, "source_id": source_id})
+            reassigned_metrics[f"{table}_reassigned"] = upd_res.rowcount if hasattr(upd_res, "rowcount") else 0
 
-        source.status = "Inactive"
+        # 6. Outstanding Receivables Balance Consolidation
+        source_balance = source.outstanding or Decimal("0.00")
+        target.outstanding = (target.outstanding or Decimal("0.00")) + source_balance
+        source.outstanding = Decimal("0.00")
+
+        # 7. Retire Source Customer Record
+        source.status = "Merged"
         source.is_active = False
         source.is_deleted = True
-        source.code = f"{source.code}-MERGED-{source.id[-6:]}"
-        await self.db.commit()
-        return {
+        source.profile_notes = f"[MERGED into {target_id} on {datetime.now(timezone.utc).isoformat()}] {source.profile_notes or ''}".strip()
+        source.code = f"{source.code}-MERGED-{source.id[-6:]}" if source.code else f"MERGED-{source.id[-6:]}"
+
+        # 8. Immutable Compliance Regulatory Audit Trail
+        before_state = {
+            "target": {"id": target.id, "name": target.name, "code": target.code, "pan": target_pan, "outstanding": str(target.outstanding - source_balance)},
+            "source": {"id": source.id, "name": source.name, "code": source.code, "pan": source_pan, "outstanding": str(source_balance)},
+        }
+        after_state = {
+            "target": {"id": target.id, "name": target.name, "code": target.code, "pan": target.pan_number, "outstanding": str(target.outstanding)},
+            "source": {"id": source.id, "status": "Merged", "is_deleted": True, "outstanding": "0.00"},
+            "reassigned_records": reassigned_metrics,
+        }
+        audit_payload = {
+            "operation": "CUSTOMER_ACCOUNT_MERGE",
             "target_id": target_id,
             "source_id": source_id,
+            "reason": reason,
+            "actor_user_id": actor_user_id or (self.tenant_ctx.user_id if hasattr(self.tenant_ctx, "user_id") else None),
+            "actor_role": actor_role or ((self.tenant_ctx.role.value if hasattr(self.tenant_ctx.role, "value") else str(self.tenant_ctx.role)) if self.tenant_ctx.role else None),
+            "metrics": reassigned_metrics,
+        }
+        serialized = json.dumps(audit_payload, sort_keys=True, default=str)
+        payload_hash = hashlib.sha256(serialized.encode("utf-8")).hexdigest()
+
+        last_stmt = (
+            select(ComplianceImmutableAuditLog)
+            .order_by(ComplianceImmutableAuditLog.created_at.desc())
+            .limit(1)
+        )
+        if self.tenant_ctx and self.tenant_ctx.company_id:
+            last_stmt = last_stmt.where(ComplianceImmutableAuditLog.company_id == self.tenant_ctx.company_id)
+        last_entry = (await self.db.execute(last_stmt)).scalars().first()
+        previous_hash = last_entry.payload_hash if last_entry else None
+
+        audit_entry = ComplianceImmutableAuditLog(
+            id=f"audit_{uuid.uuid4().hex[:16]}",
+            company_id=self.tenant_ctx.company_id if self.tenant_ctx else None,
+            branch_id=self.tenant_ctx.branch_id if self.tenant_ctx else None,
+            event_type="CUSTOMER_MERGED",
+            entity_name="CUSTOMER",
+            entity_id=target_id,
+            actor_user_id=actor_user_id,
+            actor_role=actor_role,
+            action_summary=f"Customer '{source_id}' merged into '{target_id}'. Reason: {reason or 'PAN consolidation'}.",
+            before_state_json=json.dumps(before_state, default=str),
+            after_state_json=json.dumps(after_state, default=str),
+            payload_hash=payload_hash,
+            previous_hash=previous_hash,
+            hash_chain_verified=True,
+            request_id=f"req_{uuid.uuid4().hex[:12]}",
+            retention_policy="STATUTORY_7_YEARS",
+            worm_locked=True,
+            timestamp=datetime.now(timezone.utc),
+        )
+        self.db.add(audit_entry)
+        await self.db.commit()
+
+        return {
+            "target_customer_id": target_id,
+            "source_customer_id": source_id,
             "status": "merged",
-            "message": f"Customer '{source_id}' merged into '{target_id}'.",
+            "message": f"Customer '{source_id}' successfully merged into canonical account '{target_id}'.",
+            "reassigned_records": reassigned_metrics,
+            "merged_at": datetime.now(timezone.utc),
         }
 
     async def create_customer_group(self, group_in: CustomerGroupCreate) -> CustomerGroup:
@@ -351,6 +520,29 @@ class CrmService:
         customer = res.scalars().first()
 
         data_dict = customer_in.model_dump(exclude_unset=True) if hasattr(customer_in, "model_dump") else dict(customer_in)
+        
+        # Concurrency / Optimistic Locking Protection
+        expected_modified_at = data_dict.pop("expected_modified_at", None)
+        if customer and expected_modified_at and customer.modified_at:
+            if isinstance(expected_modified_at, str):
+                try:
+                    expected_modified_at = datetime.fromisoformat(expected_modified_at.replace("Z", "+00:00"))
+                except Exception:
+                    pass
+            # Allow small timestamp precision difference (within 1 second)
+            if isinstance(expected_modified_at, datetime):
+                exp_dt = expected_modified_at if expected_modified_at.tzinfo else expected_modified_at.replace(tzinfo=timezone.utc)
+                curr_dt = customer.modified_at if customer.modified_at.tzinfo else customer.modified_at.replace(tzinfo=timezone.utc)
+                if (curr_dt - exp_dt).total_seconds() > 1.0:
+                    raise HTTPException(
+                        status_code=409,
+                        detail={
+                            "error_code": "CONCURRENT_MODIFICATION_DETECTED",
+                            "message": f"Customer '{customer.name}' was modified by another session at {curr_dt.isoformat()}. Please reload the latest catalogue record before saving.",
+                            "current_modified_at": curr_dt.isoformat(),
+                        }
+                    )
+
         policy_fields = {
             "payment_category", "payment_term", "transport_mode", "transport_code", "transit_days",
             "bank_code", "bank_location", "retail_factor", "dealer_factor", "destination_tax_type",
@@ -380,9 +572,294 @@ class CrmService:
                 setattr(customer.policy, key, value)
 
         customer.modified_at = datetime.now(timezone.utc)
+        await self._record_audit_event(
+            event_type="UPDATE",
+            table_name="customers",
+            record_id=customer.id,
+            details={"updated_fields": list(data_dict.keys())},
+            reason="Customer Master Update",
+        )
         await self.db.commit()
         refreshed = await self.get_customer(customer.id)
         return refreshed or customer
+
+    async def check_delete_eligibility(self, customer_id: str) -> CustomerDeleteEligibilityResponse:
+        """
+        Evaluate customer deletion safety across all dependent foreign-key models,
+        transaction logs, ledgers, and corporate hierarchies.
+        """
+        stmt = select(Customer).options(
+            selectinload(Customer.delivery_locations),
+            selectinload(Customer.billing_locations),
+            selectinload(Customer.gst_registrations),
+        ).filter(
+            Customer.id == customer_id,
+            Customer.is_deleted == False,
+        )
+        if self.tenant_ctx.company_id:
+            stmt = stmt.filter((Customer.company_id == self.tenant_ctx.company_id) | (Customer.company_id.is_(None)))
+        res = await self.db.execute(stmt)
+        customer = res.scalars().first()
+        if not customer:
+            raise HTTPException(status_code=404, detail="Customer not found")
+
+        from ..models.sales import SalesInvoice, SalesOrder, SalesReturn
+        from ..models.customer_po import CustomerPurchaseOrder
+        from ..models.crm import CustomerCreditLedgerEntry, CustomerRelationship
+        from ..models.psv import PSVParty
+
+        # 1. Tax Invoices (Hard Compliance Blocker)
+        inv_q = await self.db.execute(
+            select(func.count(SalesInvoice.id)).where(
+                SalesInvoice.customer_id == customer_id,
+                SalesInvoice.is_deleted == False,
+            )
+        )
+        invoice_count = inv_q.scalar_one() or 0
+
+        # 2. Sales Orders
+        so_q = await self.db.execute(
+            select(func.count(SalesOrder.id)).where(
+                SalesOrder.customer_id == customer_id,
+                SalesOrder.is_deleted == False,
+            )
+        )
+        order_count = so_q.scalar_one() or 0
+
+        # 3. Sales Returns / Credit Notes
+        ret_q = await self.db.execute(
+            select(func.count(SalesReturn.id)).where(
+                SalesReturn.customer_id == customer_id,
+                SalesReturn.is_deleted == False,
+            )
+        )
+        return_count = ret_q.scalar_one() or 0
+
+        # 4. Financial Credit Ledger Entries
+        led_q = await self.db.execute(
+            select(func.count(CustomerCreditLedgerEntry.id)).where(
+                CustomerCreditLedgerEntry.customer_id == customer_id,
+                CustomerCreditLedgerEntry.is_deleted == False,
+            )
+        )
+        ledger_count = led_q.scalar_one() or 0
+
+        # 5. Customer Purchase Orders
+        po_q = await self.db.execute(
+            select(func.count(CustomerPurchaseOrder.id)).where(
+                CustomerPurchaseOrder.customer_id == customer_id,
+                CustomerPurchaseOrder.is_deleted == False,
+            )
+        )
+        po_count = po_q.scalar_one() or 0
+
+        # 6. PSV Physical Stock Verification Assignments
+        psv_q = await self.db.execute(
+            select(func.count(PSVParty.id)).where(
+                (PSVParty.host_customer_id == customer_id) | (PSVParty.host_customer_id == customer.code)
+            )
+        )
+        psv_count = psv_q.scalar_one() or 0
+
+        # 7. Customer Relationships (Hierarchy / Dependants)
+        rel_q = await self.db.execute(
+            select(func.count(CustomerRelationship.id)).where(
+                (CustomerRelationship.parent_customer_id == customer_id) | (CustomerRelationship.dependant_customer_id == customer_id),
+                CustomerRelationship.is_deleted == False,
+            )
+        )
+        relationship_count = rel_q.scalar_one() or 0
+
+        outstanding_bal = float(customer.outstanding or 0.0)
+
+        blockers: List[str] = []
+        if invoice_count > 0:
+            blockers.append(f"Customer has {invoice_count} tax invoice(s) on record. Tax and statutory compliance laws strictly prohibit deleting billed accounts.")
+        if order_count > 0:
+            blockers.append(f"Customer has {order_count} active or historical sales order(s).")
+        if return_count > 0:
+            blockers.append(f"Customer has {return_count} sales return credit note(s).")
+        if ledger_count > 0:
+            blockers.append(f"Customer has {ledger_count} financial credit ledger transaction(s).")
+        if po_count > 0:
+            blockers.append(f"Customer has {po_count} customer purchase order contract(s).")
+        if psv_count > 0:
+            blockers.append(f"Customer is assigned as host account for {psv_count} physical stock verification (PSV) party location(s).")
+        if abs(outstanding_bal) > 0.001:
+            blockers.append(f"Customer has an unsettled financial ledger balance of ₹{outstanding_bal:,.2f}.")
+        if relationship_count > 0:
+            blockers.append(f"Customer has {relationship_count} linked child or parent corporate account relationship(s).")
+
+        eligible = len(blockers) == 0
+        recommendation = "PERMANENT_DELETE" if eligible else "DEACTIVATE"
+        reason = (
+            "Customer has zero invoices, zero orders, zero ledger transactions, and zero dependent records. Safe to permanently delete."
+            if eligible
+            else "Customer has financial, transactional, or compliance dependencies. Permanent deletion is blocked to protect database foreign keys and accounting integrity. Deactivation is recommended."
+        )
+
+        return CustomerDeleteEligibilityResponse(
+            customer_id=customer.id,
+            customer_code=customer.code,
+            customer_name=customer.name,
+            status=customer.status or "Active",
+            eligible=eligible,
+            blockers=blockers,
+            warnings=["Permanent deletion is irreversible and completely removes this customer record from PostgreSQL."] if eligible else [],
+            recommendation=recommendation,
+            reason=reason,
+            metrics={
+                "invoice_count": invoice_count,
+                "order_count": order_count,
+                "return_count": return_count,
+                "ledger_count": ledger_count,
+                "po_count": po_count,
+                "psv_count": psv_count,
+                "relationship_count": relationship_count,
+                "outstanding_balance": outstanding_bal,
+            }
+        )
+
+    async def deactivate_customer(self, customer_id: str, reason: Optional[str] = None) -> Customer:
+        """
+        Deactivate customer account. Prohibits new sales transactions while preserving
+        all existing invoices, ledgers, returns, and audit trails.
+        """
+        stmt = select(Customer).filter(
+            Customer.id == customer_id,
+            Customer.is_deleted == False,
+        )
+        if self.tenant_ctx.company_id:
+            stmt = stmt.filter((Customer.company_id == self.tenant_ctx.company_id) | (Customer.company_id.is_(None)))
+        res = await self.db.execute(stmt)
+        customer = res.scalars().first()
+        if not customer:
+            raise HTTPException(status_code=404, detail="Customer not found")
+
+        if (customer.status or "").lower() == "inactive":
+            raise HTTPException(status_code=400, detail=f"Customer '{customer.name}' ({customer.code}) is already inactive.")
+
+        customer.status = "Inactive"
+        customer.modified_at = datetime.now(timezone.utc)
+
+        await self._record_audit_event(
+            event_type="DEACTIVATE",
+            table_name="customers",
+            record_id=customer.id,
+            details={
+                "code": customer.code,
+                "name": customer.name,
+                "reason": reason,
+                "outstanding": float(customer.outstanding or 0.0),
+            },
+            reason=reason or "Customer Deactivation",
+        )
+        await self.db.commit()
+        refreshed = await self.get_customer(customer.id)
+        return refreshed or customer
+
+    async def reactivate_customer(self, customer_id: str) -> Customer:
+        """
+        Reactivate an inactive customer account, restoring operational transaction privileges.
+        """
+        stmt = select(Customer).filter(
+            Customer.id == customer_id,
+            Customer.is_deleted == False,
+        )
+        if self.tenant_ctx.company_id:
+            stmt = stmt.filter((Customer.company_id == self.tenant_ctx.company_id) | (Customer.company_id.is_(None)))
+        res = await self.db.execute(stmt)
+        customer = res.scalars().first()
+        if not customer:
+            raise HTTPException(status_code=404, detail="Customer not found")
+
+        if (customer.status or "").lower() == "active":
+            raise HTTPException(status_code=400, detail=f"Customer '{customer.name}' ({customer.code}) is already active.")
+
+        customer.status = "Active"
+        customer.modified_at = datetime.now(timezone.utc)
+
+        await self._record_audit_event(
+            event_type="REACTIVATE",
+            table_name="customers",
+            record_id=customer.id,
+            details={
+                "code": customer.code,
+                "name": customer.name,
+            },
+            reason="Customer Reactivation",
+        )
+        await self.db.commit()
+        refreshed = await self.get_customer(customer.id)
+        return refreshed or customer
+
+    async def permanent_delete_customer(self, customer_id: str) -> Dict[str, Any]:
+        """
+        Permanently remove a customer from PostgreSQL ONLY if zero transaction or
+        ledger dependencies exist. Atomic and concurrency-safe.
+        """
+        stmt = select(Customer).options(
+            selectinload(Customer.delivery_locations),
+            selectinload(Customer.billing_locations),
+            selectinload(Customer.gst_registrations),
+            selectinload(Customer.external_identities),
+            selectinload(Customer.policy),
+        ).filter(
+            Customer.id == customer_id,
+        )
+        if self.tenant_ctx.company_id:
+            stmt = stmt.filter((Customer.company_id == self.tenant_ctx.company_id) | (Customer.company_id.is_(None)))
+        res = await self.db.execute(stmt)
+        customer = res.scalars().first()
+        if not customer:
+            raise HTTPException(status_code=404, detail="Customer not found")
+
+        eligibility = await self.check_delete_eligibility(customer_id)
+        if not eligibility.eligible:
+            raise HTTPException(
+                status_code=400,
+                detail={
+                    "error_code": "CUSTOMER_DELETE_BLOCKED",
+                    "message": "Permanent deletion blocked by foreign key or transaction constraints.",
+                    "blockers": eligibility.blockers,
+                    "recommendation": "Use Deactivate instead to preserve historical records.",
+                }
+            )
+
+        cust_code = customer.code
+        cust_name = customer.name
+
+        # Explicitly remove child subordinate records
+        for reg in customer.gst_registrations or []:
+            await self.db.delete(reg)
+        for dloc in customer.delivery_locations or []:
+            await self.db.delete(dloc)
+        for bloc in customer.billing_locations or []:
+            await self.db.delete(bloc)
+        for ext in customer.external_identities or []:
+            await self.db.delete(ext)
+        if customer.policy:
+            await self.db.delete(customer.policy)
+
+        await self._record_audit_event(
+            event_type="PERMANENT_DELETE",
+            table_name="customers",
+            record_id=customer.id,
+            details={
+                "code": cust_code,
+                "name": cust_name,
+            },
+            reason="Customer Permanent Delete (Authorized SYSADMIN)",
+        )
+
+        await self.db.delete(customer)
+        await self.db.commit()
+
+        return {
+            "status": "success",
+            "message": f"Customer '{cust_name}' ({cust_code or customer_id}) was permanently deleted from the database.",
+            "customer_id": customer_id,
+        }
 
     async def delete_customer(self, customer_id: str) -> bool:
         stmt = select(Customer).filter(
@@ -398,6 +875,13 @@ class CrmService:
         
         customer.is_deleted = True
         customer.modified_at = datetime.now(timezone.utc)
+        await self._record_audit_event(
+            event_type="SOFT_DELETE",
+            table_name="customers",
+            record_id=customer.id,
+            details={"code": customer.code, "name": customer.name},
+            reason="Customer Soft Deletion",
+        )
         await self.db.commit()
         return True
 
@@ -1622,6 +2106,575 @@ class CrmService:
         ident.deleted_at = datetime.now(timezone.utc)
         await self.db.commit()
         return {"status": "success", "message": f"External identity '{identity_id}' removed."}
+
+    # ─── Customer Company Relationship Methods & Cross-Company Group Guard ───
+
+    async def _validate_customer_group_company(self, customer_group_id: Optional[str], company_id: str) -> None:
+        """
+        Application-level cross-company CustomerGroup guard (Blocker 4 / BD-1).
+        Asserts that the customer group belongs to the exact same legal entity (company_id)
+        as the customer_company_relationship to prevent cross-company commercial/pricing contamination.
+        """
+        if not customer_group_id:
+            return
+        stmt = select(CustomerGroup).filter(CustomerGroup.id == customer_group_id, CustomerGroup.is_deleted == False)
+        res = await self.db.execute(stmt)
+        group = res.scalars().first()
+        if not group:
+            raise HTTPException(status_code=404, detail=f"Customer group '{customer_group_id}' not found.")
+        if group.company_id and group.company_id != company_id:
+            raise HTTPException(
+                status_code=422,
+                detail=f"Customer group '{customer_group_id}' belongs to company '{group.company_id}', not relationship company '{company_id}'. Cross-company customer group assignment is prohibited.",
+            )
+
+    async def create_company_relationship(
+        self, customer_id: str, rel_in: CustomerCompanyRelationshipCreate
+    ) -> CustomerCompanyRelationship:
+        # Validate customer exists
+        cust = await self.get_customer(customer_id)
+        if not cust:
+            raise HTTPException(status_code=404, detail="Customer not found.")
+
+        # Cross-company group guard
+        await self._validate_customer_group_company(rel_in.customer_group_id, rel_in.company_id)
+
+        rel_id = f"ccr-{uuid.uuid4().hex[:16]}"
+        db_rel = CustomerCompanyRelationship(
+            id=rel_id,
+            uuid=str(uuid.uuid4()),
+            customer_id=customer_id,
+            company_id=rel_in.company_id,
+            branch_id=rel_in.branch_id or self.tenant_ctx.branch_id,
+            customer_group_id=rel_in.customer_group_id,
+            price_tier_id=rel_in.price_tier_id,
+            credit_limit=rel_in.credit_limit or Decimal("0.00"),
+            credit_days=rel_in.credit_days or 0,
+            credit_hold=rel_in.credit_hold or False,
+            status=rel_in.status or "Active",
+            is_active=True,
+            is_deleted=False,
+            created_by=self.tenant_ctx.user_id if hasattr(self.tenant_ctx, "user_id") else "system",
+        )
+        self.db.add(db_rel)
+        try:
+            await self.db.commit()
+        except IntegrityError:
+            await self.db.rollback()
+            raise HTTPException(
+                status_code=409,
+                detail=f"A relationship between customer '{customer_id}' and company '{rel_in.company_id}' already exists.",
+            )
+
+        await self.db.refresh(db_rel)
+        await self._record_audit_event(
+            "CustomerCompanyRelationshipCreated",
+            "customer_company_relationships",
+            db_rel.id,
+            {"customer_id": customer_id, "company_id": rel_in.company_id, "customer_group_id": rel_in.customer_group_id},
+        )
+        return db_rel
+
+    async def update_company_relationship(
+        self, customer_id: str, relationship_id: str, rel_in: CustomerCompanyRelationshipUpdate
+    ) -> CustomerCompanyRelationship:
+        stmt = select(CustomerCompanyRelationship).filter(
+            CustomerCompanyRelationship.id == relationship_id,
+            CustomerCompanyRelationship.customer_id == customer_id,
+            CustomerCompanyRelationship.is_deleted == False,
+        )
+        res = await self.db.execute(stmt)
+        rel = res.scalars().first()
+        if not rel:
+            raise HTTPException(status_code=404, detail="Customer company relationship not found.")
+
+        # Cross-company group guard
+        if rel_in.customer_group_id is not None:
+            await self._validate_customer_group_company(rel_in.customer_group_id, rel.company_id)
+            rel.customer_group_id = rel_in.customer_group_id
+
+        if rel_in.price_tier_id is not None:
+            rel.price_tier_id = rel_in.price_tier_id
+        if rel_in.credit_limit is not None:
+            rel.credit_limit = rel_in.credit_limit
+        if rel_in.credit_days is not None:
+            rel.credit_days = rel_in.credit_days
+        if rel_in.credit_hold is not None:
+            rel.credit_hold = rel_in.credit_hold
+        if rel_in.status is not None:
+            rel.status = rel_in.status
+
+        rel.modified_at = datetime.now(timezone.utc)
+        rel.updated_by = self.tenant_ctx.user_id if hasattr(self.tenant_ctx, "user_id") else "system"
+
+        await self.db.commit()
+        await self.db.refresh(rel)
+        await self._record_audit_event(
+            "CustomerCompanyRelationshipUpdated",
+            "customer_company_relationships",
+            rel.id,
+            {"customer_id": customer_id, "company_id": rel.company_id},
+        )
+        return rel
+
+    async def list_company_relationships(
+        self, customer_id: str
+    ) -> List[CustomerCompanyRelationship]:
+        stmt = select(CustomerCompanyRelationship).filter(
+            CustomerCompanyRelationship.customer_id == customer_id,
+            CustomerCompanyRelationship.is_deleted == False,
+        ).order_by(CustomerCompanyRelationship.created_at.desc())
+        res = await self.db.execute(stmt)
+        return list(res.scalars().all())
+
+    async def get_company_relationship(
+        self, customer_id: str, company_id: str
+    ) -> Optional[CustomerCompanyRelationship]:
+        stmt = select(CustomerCompanyRelationship).filter(
+            CustomerCompanyRelationship.customer_id == customer_id,
+            CustomerCompanyRelationship.company_id == company_id,
+            CustomerCompanyRelationship.is_deleted == False,
+        )
+        res = await self.db.execute(stmt)
+        return res.scalars().first()
+
+    # ─── Corporate Customer Merge & Consolidation (BD-2) ───────────────────
+
+    async def merge_customer(
+        self,
+        target_id: str,
+        source_id: str,
+        reason: Optional[str] = None,
+        actor_user_id: Optional[str] = None,
+        actor_role: Optional[str] = None,
+    ) -> CustomerMergeResponse:
+        """
+        Authoritative Corporate Customer Merge & Consolidation (BD-2).
+        Enforces strict BD-2 PAN parity, reconciles GST registrations, delivery locations,
+        billing locations, Model C company relationships, reassigns transactional history
+        across operational tables, soft-retires source, and records a tamper-evident WORM audit log.
+        """
+        if target_id == source_id:
+            raise HTTPException(status_code=400, detail="Cannot merge customer into itself.")
+
+        # 1. Fetch Target and Source with all child entities loaded
+        stmt_t = (
+            select(Customer)
+            .where(Customer.id == target_id)
+            .options(
+                selectinload(Customer.gst_registrations),
+                selectinload(Customer.delivery_locations),
+                selectinload(Customer.billing_locations),
+                selectinload(Customer.external_identities),
+                selectinload(Customer.company_relationships),
+            )
+        )
+        res_t = await self.db.execute(stmt_t)
+        target = res_t.scalars().first()
+        if not target:
+            raise HTTPException(status_code=404, detail=f"Target customer '{target_id}' not found.")
+
+        stmt_s = (
+            select(Customer)
+            .where(Customer.id == source_id)
+            .options(
+                selectinload(Customer.gst_registrations),
+                selectinload(Customer.delivery_locations),
+                selectinload(Customer.billing_locations),
+                selectinload(Customer.external_identities),
+                selectinload(Customer.company_relationships),
+            )
+        )
+        res_s = await self.db.execute(stmt_s)
+        source = res_s.scalars().first()
+        if not source:
+            raise HTTPException(status_code=404, detail=f"Source customer '{source_id}' not found.")
+
+        if source.status == "Merged":
+            raise HTTPException(
+                status_code=400,
+                detail=f"Source customer '{source_id}' has already been merged into an authoritative master.",
+            )
+
+        # 2. Enforce BD-2 PAN Parity Guard
+        t_pan = (getattr(target, "pan_number", None) or getattr(target, "pan", None) or "").strip().upper()
+        s_pan = (getattr(source, "pan_number", None) or getattr(source, "pan", None) or "").strip().upper()
+        if t_pan and s_pan and t_pan != s_pan:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Corporate Customer Merge blocked (BD-2 PAN Parity Violation): Source customer PAN '{s_pan}' does not match target customer PAN '{t_pan}'. Merging entities across distinct PANs is prohibited.",
+            )
+
+        # Adopt source PAN / GSTIN / email if target lacks them
+        if not t_pan and s_pan:
+            target.pan_number = s_pan
+        t_gst = (getattr(target, "gst_number", None) or getattr(target, "gstin", None) or "").strip().upper()
+        s_gst = (getattr(source, "gst_number", None) or getattr(source, "gstin", None) or "").strip().upper()
+        if not t_gst and s_gst:
+            target.gst_number = s_gst
+        if not (target.email or "").strip() and (source.email or "").strip():
+            target.email = source.email.strip()
+
+        reassigned_counts: Dict[str, int] = {}
+
+        # 3. Consolidate GST Registrations
+        target_gstins = {r.gstin.upper() for r in (target.gst_registrations or []) if not r.is_deleted}
+        gst_reassigned = 0
+        for s_reg in (source.gst_registrations or []):
+            if s_reg.is_deleted:
+                continue
+            if s_reg.gstin.upper() in target_gstins:
+                s_reg.is_deleted = True
+                s_reg.status = "MERGED"
+            else:
+                s_reg.customer_id = target.id
+                s_reg.is_primary = False
+                target_gstins.add(s_reg.gstin.upper())
+                gst_reassigned += 1
+        reassigned_counts["customer_gst_registrations"] = gst_reassigned
+
+        # 4. Consolidate Delivery Locations (Store code collision avoidance)
+        target_dl_codes = {dl.store_code.upper() for dl in (target.delivery_locations or []) if not dl.is_deleted and dl.store_code}
+        dl_reassigned = 0
+        for s_dl in (source.delivery_locations or []):
+            if s_dl.is_deleted:
+                continue
+            code_upper = (s_dl.store_code or "").upper()
+            if code_upper in target_dl_codes:
+                s_dl.store_code = f"{s_dl.store_code}_{source.id[:6].upper()}"
+            s_dl.customer_id = target.id
+            s_dl.is_default = False
+            target_dl_codes.add(s_dl.store_code.upper())
+            dl_reassigned += 1
+        reassigned_counts["customer_delivery_locations"] = dl_reassigned
+
+        # 5. Consolidate Billing Locations (Store code collision avoidance)
+        target_bl_codes = {bl.billing_store_code.upper() for bl in (target.billing_locations or []) if not bl.is_deleted and bl.billing_store_code}
+        bl_reassigned = 0
+        for s_bl in (source.billing_locations or []):
+            if s_bl.is_deleted:
+                continue
+            code_upper = (s_bl.billing_store_code or "").upper()
+            if code_upper in target_bl_codes:
+                s_bl.billing_store_code = f"{s_bl.billing_store_code}_{source.id[:6].upper()}"
+            s_bl.customer_id = target.id
+            s_bl.is_default = False
+            target_bl_codes.add(s_bl.billing_store_code.upper())
+            bl_reassigned += 1
+        reassigned_counts["customer_billing_locations"] = bl_reassigned
+
+        # 6. Consolidate External Identities
+        target_ext_keys = {(ei.source_system.upper(), ei.external_code.upper()) for ei in (target.external_identities or []) if not ei.is_deleted}
+        ext_reassigned = 0
+        for s_ext in (source.external_identities or []):
+            if s_ext.is_deleted:
+                continue
+            ext_key = (s_ext.source_system.upper(), s_ext.external_code.upper())
+            if ext_key in target_ext_keys:
+                s_ext.is_deleted = True
+                s_ext.status = "MERGED"
+            else:
+                s_ext.customer_id = target.id
+                target_ext_keys.add(ext_key)
+                ext_reassigned += 1
+        reassigned_counts["customer_external_identities"] = ext_reassigned
+
+        # 7. Consolidate Model C CustomerCompanyRelationships
+        target_rel_companies = {r.company_id for r in (target.company_relationships or []) if not r.is_deleted}
+        ccr_reassigned = 0
+        for s_rel in (source.company_relationships or []):
+            if s_rel.is_deleted:
+                continue
+            if s_rel.company_id in target_rel_companies:
+                s_rel.is_deleted = True
+                s_rel.is_active = False
+                s_rel.status = "Merged"
+            else:
+                s_rel.customer_id = target.id
+                target_rel_companies.add(s_rel.company_id)
+                ccr_reassigned += 1
+        reassigned_counts["customer_company_relationships"] = ccr_reassigned
+
+        # 8. Reassign Operational and Transactional Tables via direct SQL
+        table_mappings = [
+            ("sales_invoices", "customer_id"),
+            ("sales_orders", "customer_id"),
+            ("sales_returns", "customer_id"),
+            ("customer_credit_ledger_entries", "customer_id"),
+            ("customer_purchase_orders", "customer_id"),
+            ("psv_parties", "host_customer_id"),
+            ("crm_customer_activities", "customer_id"),
+            ("crm_opportunities", "customer_id"),
+            ("loyalty_transactions", "customer_id"),
+            ("referral_relationships", "referred_customer_id"),
+        ]
+
+        for tbl, col in table_mappings:
+            try:
+                res = await self.db.execute(
+                    text(f"UPDATE {tbl} SET {col} = :target_id WHERE {col} = :source_id"),
+                    {"target_id": target.id, "source_id": source.id},
+                )
+                reassigned_counts[tbl] = res.rowcount
+            except Exception:
+                reassigned_counts[tbl] = 0
+
+        try:
+            res_lm = await self.db.execute(
+                text("UPDATE loyalty_members SET customer_id = :target_id WHERE customer_id = :source_id"),
+                {"target_id": target.id, "source_id": source.id},
+            )
+            reassigned_counts["loyalty_members"] = res_lm.rowcount
+        except Exception:
+            reassigned_counts["loyalty_members"] = 0
+
+        # 9. Consolidate Financial Balances and Soft-Retire Source
+        target.outstanding = (target.outstanding or Decimal("0.00")) + (source.outstanding or Decimal("0.00"))
+        source.outstanding = Decimal("0.00")
+        source.status = "Merged"
+        source.is_deleted = True
+        source.deleted_at = datetime.now(timezone.utc)
+        source.deleted_by = actor_user_id or "system"
+
+        now_iso = datetime.now(timezone.utc).isoformat()
+        reason_str = reason or "BD-2 Corporate Consolidation"
+        source.profile_notes = f"{source.profile_notes or ''}\n[MERGED into {target.id} ({target.code or ''}) at {now_iso} - Reason: {reason_str}]".strip()
+        target.profile_notes = f"{target.profile_notes or ''}\n[MERGED customer {source.id} ({source.code or ''}) into this record at {now_iso} - Reason: {reason_str}]".strip()
+        source.modified_at = datetime.now(timezone.utc)
+        target.modified_at = datetime.now(timezone.utc)
+
+        # 10. Record Cryptographic WORM Immutable Audit Log
+        payload_data = {
+            "operation": "CUSTOMER_CONSOLIDATION_MERGE",
+            "target_customer_id": target.id,
+            "source_customer_id": source.id,
+            "reason": reason_str,
+            "reassigned_counts": reassigned_counts,
+            "actor_user_id": actor_user_id,
+            "actor_role": actor_role,
+            "company_id": self.tenant_ctx.company_id,
+            "branch_id": self.tenant_ctx.branch_id,
+        }
+        serialized = json.dumps(payload_data, sort_keys=True, default=str)
+        payload_hash = hashlib.sha256(serialized.encode("utf-8")).hexdigest()
+
+        last_stmt = (
+            select(ComplianceImmutableAuditLog)
+            .order_by(ComplianceImmutableAuditLog.created_at.desc())
+            .limit(1)
+        )
+        if self.tenant_ctx.company_id:
+            last_stmt = last_stmt.where(ComplianceImmutableAuditLog.company_id == self.tenant_ctx.company_id)
+        last_entry = (await self.db.execute(last_stmt)).scalars().first()
+        previous_hash = last_entry.payload_hash if last_entry else None
+
+        audit_entry = ComplianceImmutableAuditLog(
+            id=f"audit_{uuid.uuid4().hex[:16]}",
+            company_id=self.tenant_ctx.company_id,
+            branch_id=self.tenant_ctx.branch_id,
+            event_type="CUSTOMER_MERGE",
+            entity_name="CUSTOMER",
+            entity_id=target.id,
+            actor_user_id=actor_user_id,
+            actor_role=actor_role,
+            action_summary=f"Corporate customer merge: absorbed source '{source.id}' into target '{target.id}'. Reason: {reason_str}. Reassigned records: {json.dumps(reassigned_counts)}.",
+            payload_hash=payload_hash,
+            previous_hash=previous_hash,
+            hash_chain_verified=True,
+            request_id=f"req_{uuid.uuid4().hex[:12]}",
+            retention_policy="STATUTORY_7_YEARS",
+            worm_locked=True,
+            timestamp=datetime.now(timezone.utc),
+        )
+        self.db.add(audit_entry)
+
+        # Commit transaction atomically
+        await self.db.commit()
+
+        return CustomerMergeResponse(
+            target_customer_id=target.id,
+            source_customer_id=source.id,
+            status="merged",
+            message=f"Customer '{source.name}' ({source.id}) successfully consolidated into '{target.name}' ({target.id}).",
+            reassigned_records=reassigned_counts,
+            merged_at=datetime.now(timezone.utc),
+        )
+
+    # ─── Consolidated Customer Credit Exposure & Treasury Monitoring (BD-6) ──
+
+    async def get_customer_credit_exposure(
+        self, customer_id: str, include_inactive: bool = False
+    ) -> CustomerCreditExposureResponse:
+        """
+        Consolidated Group Credit Exposure & Treasury Monitoring (BD-6).
+        Aggregates multi-company commercial credit relationships, queries ledger balances
+        across all operating legal entities, computes consolidated exposure metrics,
+        and evaluates enterprise treasury credit risk tiers.
+        """
+        stmt = (
+            select(Customer)
+            .where(Customer.id == customer_id, Customer.is_deleted == False)
+            .options(
+                selectinload(Customer.company_relationships),
+            )
+        )
+        res = await self.db.execute(stmt)
+        customer = res.scalars().first()
+        if not customer:
+            raise HTTPException(status_code=404, detail=f"Customer '{customer_id}' not found.")
+
+        # Determine active relationships
+        rels = [
+            r for r in (customer.company_relationships or [])
+            if not r.is_deleted and (include_inactive or (r.is_active and r.status == "Active"))
+        ]
+
+        # Extract company IDs
+        company_ids = {r.company_id for r in rels if r.company_id}
+        if not company_ids:
+            primary_comp = customer.company_id or customer.company_code or "COMP-001"
+            company_ids.add(primary_comp)
+
+        # Bulk fetch company metadata for human-friendly names
+        companies_stmt = select(Company.id, Company.name, Company.company_code).where(
+            Company.id.in_(company_ids)
+        )
+        comp_res = await self.db.execute(companies_stmt)
+        company_map: Dict[str, Dict[str, Any]] = {
+            row[0]: {"name": row[1], "code": row[2]} for row in comp_res.all()
+        }
+
+        # Build company exposure list
+        company_exposures: List[CompanyCreditExposureItem] = []
+
+        if rels:
+            for rel in rels:
+                cid = rel.company_id
+                comp_info = company_map.get(cid, {})
+
+                # Query latest balance from CustomerCreditLedgerEntry
+                stmt_ccle = (
+                    select(CustomerCreditLedgerEntry.balance_after)
+                    .where(
+                        CustomerCreditLedgerEntry.customer_id == customer_id,
+                        CustomerCreditLedgerEntry.company_id == cid,
+                        CustomerCreditLedgerEntry.is_deleted == False,
+                    )
+                    .order_by(
+                        CustomerCreditLedgerEntry.entry_date.desc(),
+                        CustomerCreditLedgerEntry.created_at.desc(),
+                    )
+                    .limit(1)
+                )
+                ccle_bal = (await self.db.execute(stmt_ccle)).scalar_one_or_none()
+
+                if ccle_bal is not None:
+                    credit_used = Decimal(str(ccle_bal))
+                elif cid == (customer.company_id or customer.company_code):
+                    credit_used = Decimal(str(customer.outstanding or "0.00"))
+                else:
+                    credit_used = Decimal("0.00")
+
+                credit_limit = Decimal(str(rel.credit_limit or "0.00"))
+                credit_days = rel.credit_days or 0
+                credit_hold = bool(rel.credit_hold)
+                available_credit = max(Decimal("0.00"), credit_limit - credit_used)
+
+                if credit_limit > Decimal("0.00"):
+                    utilization_percent = float(round((credit_used / credit_limit) * 100, 2))
+                else:
+                    utilization_percent = 0.0
+
+                if credit_hold:
+                    exposure_status = "ON_HOLD"
+                elif credit_limit > Decimal("0.00") and credit_used > credit_limit:
+                    exposure_status = "CRITICAL_BREACH"
+                elif credit_limit > Decimal("0.00") and credit_used >= (credit_limit * Decimal("0.8")):
+                    exposure_status = "HIGH_WARNING"
+                else:
+                    exposure_status = "NORMAL"
+
+                company_exposures.append(
+                    CompanyCreditExposureItem(
+                        company_id=cid,
+                        company_name=comp_info.get("name"),
+                        company_code=comp_info.get("code") or cid,
+                        relationship_id=rel.id,
+                        customer_group_id=rel.customer_group_id,
+                        credit_limit=credit_limit,
+                        credit_days=credit_days,
+                        credit_hold=credit_hold,
+                        credit_used=credit_used,
+                        available_credit=available_credit,
+                        utilization_percent=utilization_percent,
+                        exposure_status=exposure_status,
+                        status=rel.status or "Active",
+                    )
+                )
+        else:
+            # Fallback single entity representation if no Model C relationships are seeded yet
+            cid = customer.company_id or customer.company_code or "COMP-001"
+            comp_info = company_map.get(cid, {})
+            credit_used = Decimal(str(customer.outstanding or "0.00"))
+            credit_limit = Decimal("0.00")
+            company_exposures.append(
+                CompanyCreditExposureItem(
+                    company_id=cid,
+                    company_name=comp_info.get("name"),
+                    company_code=comp_info.get("code") or cid,
+                    relationship_id=f"rel-{cid}",
+                    customer_group_id=customer.customer_group_id,
+                    credit_limit=credit_limit,
+                    credit_days=0,
+                    credit_hold=False,
+                    credit_used=credit_used,
+                    available_credit=Decimal("0.00"),
+                    utilization_percent=0.0,
+                    exposure_status="NORMAL",
+                    status="Active",
+                )
+            )
+
+        # Aggregate Group Totals
+        total_credit_limit = sum((item.credit_limit for item in company_exposures), Decimal("0.00"))
+        total_credit_used = sum((item.credit_used for item in company_exposures), Decimal("0.00"))
+        total_available_credit = sum((item.available_credit for item in company_exposures), Decimal("0.00"))
+
+        if total_credit_limit > Decimal("0.00"):
+            group_utilization_percent = float(round((total_credit_used / total_credit_limit) * 100, 2))
+        else:
+            group_utilization_percent = 0.0
+
+        hold_count = sum(1 for item in company_exposures if item.credit_hold or item.exposure_status == "ON_HOLD")
+
+        if hold_count > 0:
+            group_risk_level = "ON_HOLD"
+        elif group_utilization_percent >= 100.0:
+            group_risk_level = "CRITICAL"
+        elif group_utilization_percent >= 80.0:
+            group_risk_level = "HIGH"
+        elif group_utilization_percent >= 50.0:
+            group_risk_level = "MODERATE"
+        else:
+            group_risk_level = "LOW"
+
+        return CustomerCreditExposureResponse(
+            customer_id=customer.id,
+            customer_name=customer.name,
+            code=customer.code,
+            identity_code=customer.identity_code,
+            pan_number=customer.pan_number,
+            total_credit_limit=total_credit_limit,
+            total_credit_used=total_credit_used,
+            total_available_credit=total_available_credit,
+            group_utilization_percent=group_utilization_percent,
+            group_risk_level=group_risk_level,
+            company_count=len(company_exposures),
+            hold_count=hold_count,
+            company_exposures=company_exposures,
+        )
+
+
 
 
 

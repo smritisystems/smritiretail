@@ -6,7 +6,7 @@ Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
 Version      : 6.17.0
 Created      : 2026-07-11
-Modified     : 2026-09-04
+Modified     : 2026-10-19 (v6.99.0 — added CustomerCompanyRelationship model and subordinate relationship mappings)
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 Classification: Internal
@@ -53,6 +53,7 @@ class CustomerGroup(BaseEntity):
 
     # Relationships
     customers = relationship("Customer", back_populates="group")
+    company_relationships = relationship("CustomerCompanyRelationship", back_populates="customer_group")
 
 
 class Customer(BaseEntity):
@@ -162,6 +163,12 @@ class Customer(BaseEntity):
         viewonly=True,
         lazy="selectin",
     )
+    company_relationships = relationship(
+        "CustomerCompanyRelationship",
+        back_populates="customer",
+        cascade="all, delete-orphan",
+        lazy="selectin",
+    )
 
     @property
     def canonical_gstin(self):
@@ -176,6 +183,31 @@ class Customer(BaseEntity):
         primary = next((registration for registration in active_registrations if registration.is_primary), None)
         registration = primary or (active_registrations[0] if active_registrations else None)
         return registration.gstin if registration else self.gst_number
+
+    @property
+    def pan(self):
+        return self.pan_number
+
+    @pan.setter
+    def pan(self, value):
+        self.pan_number = value
+
+    @property
+    def gstin(self):
+        return self.canonical_gstin
+
+    @gstin.setter
+    def gstin(self, value):
+        self.gst_number = value
+
+    @property
+    def notes(self):
+        return self.profile_notes
+
+    @notes.setter
+    def notes(self, value):
+        self.profile_notes = value
+
 
 
 
@@ -583,4 +615,29 @@ class CrmSegmentMembership(BaseEntity):
 
     segment  = relationship("CrmSegment", back_populates="memberships")
     customer = relationship("Customer", foreign_keys=[customer_id])
+
+
+class CustomerCompanyRelationship(BaseEntity):
+    """
+    Junction entity defining company-specific commercial terms, credit limits,
+    price tiers, and customer group assignments for a customer within a company.
+    """
+    __tablename__ = "customer_company_relationships"
+    __table_args__ = (
+        UniqueConstraint("customer_id", "company_id", name="uq_ccr_customer_company"),
+        Index("ix_ccr_company_customer", "company_id", "customer_id"),
+        Index("ix_ccr_customer_group", "customer_group_id"),
+        Index("ix_ccr_customer", "customer_id"),
+    )
+
+    customer_id = Column(String(50), ForeignKey("customers.id", ondelete="CASCADE"), nullable=False, index=True)
+    customer_group_id = Column(String(50), ForeignKey("customer_groups.id", ondelete="RESTRICT"), nullable=True, index=True)
+    price_tier_id = Column(String(50), nullable=True)
+    credit_limit = Column(Numeric(15, 2), nullable=False, default=0.00, server_default=text("0.00"))
+    credit_days = Column(Integer, nullable=False, default=0, server_default=text("0"))
+    credit_hold = Column(Boolean, nullable=False, default=False, server_default=text("false"))
+    status = Column(String(20), nullable=False, default="Active", server_default="Active")
+
+    customer = relationship("Customer", back_populates="company_relationships")
+    customer_group = relationship("CustomerGroup", back_populates="company_relationships")
 
