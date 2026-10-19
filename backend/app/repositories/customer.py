@@ -63,6 +63,7 @@ class CustomerRepository(BaseRepository[Customer]):
         self, skip: int = 0, limit: int = 100,
         invoice_series: Optional[str] = None, invoice_from: Optional[int] = None,
         invoice_to: Optional[int] = None,
+        status: Optional[str] = None,
     ) -> List[Customer]:
         stmt = (
             select(Customer)
@@ -78,6 +79,8 @@ class CustomerRepository(BaseRepository[Customer]):
             )
             .filter(Customer.is_deleted == False)
         )
+        if status:
+            stmt = stmt.filter(Customer.status == status)
         stmt = self._apply_tenant_filter(stmt)
         stmt = self._apply_invoice_scope(stmt, invoice_series, invoice_from, invoice_to)
         stmt = stmt.order_by(Customer.created_at.asc(), Customer.id.asc())
@@ -89,9 +92,11 @@ class CustomerRepository(BaseRepository[Customer]):
         self, q: Optional[str] = None, skip: int = 0, limit: int = 50,
         invoice_series: Optional[str] = None, invoice_from: Optional[int] = None,
         invoice_to: Optional[int] = None,
+        status: Optional[str] = None,
     ) -> List[Customer]:
         """
-        Search customers by name or mobile under tenant context, eagerly loading group for credit policy.
+        Search customers by name, mobile, code, email, GST number under tenant context.
+        Optionally filters by status (Active/Inactive/Archived). Eagerly loads group for credit policy.
         """
         stmt = (
             select(Customer)
@@ -107,6 +112,8 @@ class CustomerRepository(BaseRepository[Customer]):
             )
             .filter(Customer.is_deleted == False)
         )
+        if status:
+            stmt = stmt.filter(Customer.status == status)
         stmt = self._apply_tenant_filter(stmt)
         stmt = self._apply_invoice_scope(stmt, invoice_series, invoice_from, invoice_to)
         if q:
