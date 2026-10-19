@@ -1989,6 +1989,11 @@ class SalesService:
         except Exception as e:
             logger.warning("Notice recording cancellation outbox event: %s", e)
 
+        # Suffix invoice_no with _VOID so the unique (company_id, invoice_no)
+        # constraint slot is freed, allowing the same number to be reissued
+        # after a correction without a unique-key violation.
+        original_no         = invoice.invoice_no
+        invoice.invoice_no  = f"{original_no}_VOID_{invoice.id[:8]}"
         invoice.status      = "Cancelled"
         invoice.is_deleted  = True
         invoice.modified_at = datetime.now(timezone.utc)

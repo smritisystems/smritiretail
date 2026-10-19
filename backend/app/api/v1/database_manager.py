@@ -564,3 +564,108 @@ async def execute_query(
         )
     finally:
         await engine.dispose()
+
+
+@router.post(
+    "/admin-rename-cancelled-invoices",
+    summary="SYSADMIN: Rename cancelled invoice_no to free unique-key slot for reissue",
+)
+async def admin_rename_cancelled_invoices(
+    invoice_ids: List[str],
+    database: str = "smriti001",
+    current_user: User = Depends(get_current_user),
+):
+    """
+    SYSADMIN-only. For each supplied invoice UUID that has status='Cancelled'
+    in sales_invoices, renames invoice_no to '{original}_VOID_{id[:8]}' to
+    free the unique (company_id, invoice_no) constraint slot for reissue.
+    Works regardless of is_deleted value (handles both True and False variants).
+    """
+    verify_sysadmin_role(current_user)
+    url = sanitize_db_url(database)
+    engine = create_async_engine(url, echo=False)
+    freed, not_found, errors = [], [], []
+    try:
+        async with engine.begin() as conn:
+            for inv_id in invoice_ids:
+                if not re.match(r'^[0-9a-f\-]{20,36}$', inv_id, re.IGNORECASE):
+                    errors.append(f"Invalid ID format: {inv_id}")
+                    continue
+                sel = text(
+                    "SELECT id, invoice_no FROM sales_invoices "
+                    "WHERE id = :iid AND status = 'Cancelled'"
+                )
+                res = await conn.execute(sel, {"iid": inv_id})
+                row = res.fetchone()
+                if not row:
+                    not_found.append(inv_id)
+                    continue
+                orig_no = row[1]
+                new_no  = f"{orig_no}_VOID_{inv_id[:8]}"
+                upd = text(
+                    "UPDATE sales_invoices SET invoice_no = :new_no, "
+                    "is_deleted = true, modified_at = NOW() "
+                    "WHERE id = :iid AND status = 'Cancelled'"
+                )
+                await conn.execute(upd, {"new_no": new_no, "iid": inv_id})
+                freed.append({"id": inv_id, "old": orig_no, "new": new_no})
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+    finally:
+        await engine.dispose()
+    return {
+        "success": True,
+        "freed":     freed,
+        "not_found": not_found,
+        "errors":    errors,
+        "message":   f"Renamed {len(freed)} cancelled invoice(s); {len(not_found)} not found.",
+    }
+
+
+@router.post(
+    "/admin-hard-delete-invoices",
+    summary="SYSADMIN: Hard-delete invoice records by ID (irreversible)",
+)
+async def admin_hard_delete_invoices(
+    invoice_ids: List[str],
+    database: str = "smriti001",
+    current_user: User = Depends(get_current_user),
+):
+    """
+    SYSADMIN-only. Permanently removes sales_invoice and related line-item
+    records for the given IDs. Only operates on records that are already
+    Cancelled. This is irreversible — use only for correction-reimport workflows.
+    """
+    verify_sysadmin_role(current_user)
+    url = sanitize_db_url(database)
+    engine = create_async_engine(url, echo=False)
+    deleted, skipped, errors = [], [], []
+    try:
+        async with engine.begin() as conn:
+            for inv_id in invoice_ids:
+                if not re.match(r'^[0-9a-f\-]{20,36}$', inv_id, re.IGNORECASE):
+                    errors.append(f"Invalid ID: {inv_id}")
+                    continue
+                chk = text("SELECT id, invoice_no, status FROM sales_invoices WHERE id = :iid")
+                res = await conn.execute(chk, {"iid": inv_id})
+                row = res.fetchone()
+                if not row:
+                    skipped.append(inv_id)
+                    continue
+                if row[2] not in ("Cancelled", "CANCELLED"):
+                    skipped.append(f"{inv_id} (status={row[2]}, not cancelled)")
+                    continue
+                await conn.execute(text("DELETE FROM sales_invoice_items WHERE invoice_id = :iid"), {"iid": inv_id})
+                await conn.execute(text("DELETE FROM sales_invoices WHERE id = :iid"), {"iid": inv_id})
+                deleted.append({"id": inv_id, "invoice_no": row[1]})
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+    finally:
+        await engine.dispose()
+    return {
+        "success": True,
+        "deleted": deleted,
+        "skipped": skipped,
+        "errors":  errors,
+        "message": f"Hard-deleted {len(deleted)} invoice(s); {len(skipped)} skipped (non-cancelled).",
+    }
