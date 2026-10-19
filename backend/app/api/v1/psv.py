@@ -12,7 +12,7 @@ License      : Proprietary Commercial Software
 Classification: Internal
 """
 
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, Header
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
@@ -33,6 +33,9 @@ from app.schemas.psv import (
     PSVSkuTrackingResponse,
     PSVStoreResolutionReq,
     PSVStoreResolutionResp,
+    PSVQuantityReconciliationResponse,
+    PSVReceiveInvoiceReq,
+    PSVReceiveInvoiceResp,
 )
 
 router = APIRouter(prefix="/psv", tags=["Projected Stock Visibility (PSV)"])
@@ -265,4 +268,102 @@ async def resolve_store_party(
     )
     await session.commit()
     return PSVStoreResolutionResp(**res)
+
+
+@router.get("/reconciliation", response_model=PSVQuantityReconciliationResponse)
+async def get_psv_quantity_reconciliation(
+    party_id: Optional[str] = Query(None, description="Optional PSV party ID filter"),
+    invoice_id: Optional[str] = Query(None, description="Optional sales invoice ID filter"),
+    invoice_no: Optional[str] = Query(None, description="Optional invoice number search string"),
+    style_code: Optional[str] = Query(None, description="Optional Article/Style code filter"),
+    color: Optional[str] = Query(None, description="Optional variant color filter"),
+    size: Optional[str] = Query(None, description="Optional variant size filter"),
+    approval_status: Optional[str] = Query(None, description="Optional approval status filter: PENDING | APPROVED"),
+    reconciliation_status: Optional[str] = Query(None, description="Optional status filter: RECONCILED | SHORTAGE | EXCESS | PENDING_APPROVAL | UNRECEIVED | HAS_REJECTIONS"),
+    has_discrepancy: Optional[bool] = Query(None, description="Filter for items with quantity discrepancies or pending approvals"),
+    limit: int = Query(200, ge=1, le=1000),
+    offset: int = Query(0, ge=0),
+    session: AsyncSession = Depends(get_company_db),
+    current_user: User = Depends(get_current_user),
+    company_id: str = Header(default="COMP-001", alias="X-Company-ID"),
+) -> PSVQuantityReconciliationResponse:
+    """
+    Authoritative backend quantity reconciliation between Sales Tax Invoices, physical receiving records,
+    pending approvals, and stock ledger.
+    
+    Returns item-level:
+      - Document Qty (from Sales Tax Invoice)
+      - Received Qty (actual physical received quantity)
+      - Pending Approval Qty (unapproved goods awaiting review)
+      - Approved Qty (accepted physical stock)
+      - Short Qty (document qty - received qty)
+      - Excess Qty (received qty - document qty)
+      - Rejected Qty (quantity rejected on inspection)
+      - Canonical attributes: Style/Article Code, Color, Size, SKU
+    """
+    res = await PSVProjectionService.get_quantity_reconciliation(
+        session=session,
+        company_id=company_id,
+        party_id=party_id,
+        invoice_id=invoice_id,
+        invoice_no=invoice_no,
+        style_code=style_code,
+        color=color,
+        size=size,
+        approval_status=approval_status,
+        reconciliation_status=reconciliation_status,
+        has_discrepancy=has_discrepancy,
+        limit=limit,
+        offset=offset,
+    )
+    return res
+
+
+@router.post("/receive-invoice", response_model=PSVReceiveInvoiceResp)
+async def record_psv_invoice_receipt(
+    req: PSVReceiveInvoiceReq,
+    session: AsyncSession = Depends(get_company_db),
+    current_user: User = Depends(get_current_user),
+    company_id: str = Header(default="COMP-001", alias="X-Company-ID"),
+) -> PSVReceiveInvoiceResp:
+    """
+    Records physical goods receipt (and optional inspection rejections) against a Sales Tax Invoice.
+    
+    Rules:
+      - Received quantities default to PENDING approval unless auto_approve=True is requested by a MANAGER/ADMIN.
+      - Pending quantities do not inflate available stock.
+      - Identifies items using canonical Article/Style Code, Color, Size, or SKU.
+    """
+    user_role_str = getattr(current_user, "role", "STAFF")
+    if hasattr(user_role_str, "value"):
+        user_role_str = user_role_str.value
+    resp = await PSVProjectionService.record_invoice_receipt(
+        session=session,
+        company_id=company_id,
+        user_id=str(current_user.id),
+        user_role=str(user_role_str),
+        req=req,
+        commit=True,
+    )
+    return resp
+
+
+@router.post("/invoices/{invoice_id}/project")
+async def project_sales_invoice_to_psv(
+    invoice_id: str,
+    session: AsyncSession = Depends(get_company_db),
+    current_user: User = Depends(get_current_user),
+    company_id: str = Header(default="COMP-001", alias="X-Company-ID"),
+) -> Dict[str, Any]:
+    """
+    Explicitly / idempotently projects a Sales Tax Invoice's items into the PSV ledger
+    as BILLED_TO_PARTNER movements (Document Qty).
+    """
+    res = await PSVProjectionService.project_posted_invoice(
+        session=session,
+        invoice_id=invoice_id,
+        company_id=company_id,
+    )
+    await session.commit()
+    return res
 

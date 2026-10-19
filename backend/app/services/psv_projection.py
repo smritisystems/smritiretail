@@ -28,10 +28,11 @@ from ..models.psv import (
     PSVVisibilityPolicy,
     PSVPartyScope,
 )
-from ..models.sales import SalesInvoice
+from ..models.sales import SalesInvoice, SalesInvoiceItem
 from ..models.crm import Customer, CustomerDeliveryLocation
 from ..models.tenant import Company
 from ..models.inventory import Product
+from ..models.item_master import Item, ItemVariant
 from ..models.control.control_models import ControlPSVConfig
 from .partner_resolver import PartnerIdentifierResolver
 from ..schemas.psv import (
@@ -39,6 +40,11 @@ from ..schemas.psv import (
     PSVScopedBalanceItem,
     PSVVisibilityPolicyCreateReq,
     PSVPartyScopeCreateReq,
+    PSVQuantityReconciliationItem,
+    PSVQuantityReconciliationSummary,
+    PSVQuantityReconciliationResponse,
+    PSVReceiveInvoiceReq,
+    PSVReceiveInvoiceResp,
 )
 
 
@@ -221,26 +227,50 @@ class PSVProjectionService:
                 SalesInvoice.company_id == company_id,
             ).options(selectinload(SalesInvoice.items))
         )).scalar_one_or_none()
-        if not invoice or not invoice.delivery_location_id or not invoice.delivery_store_code:
+        if not invoice:
+            return {"status": "NOT_FOUND", "invoice_id": invoice_id, "projected": 0}
+
+        party = None
+        location = None
+        if invoice.delivery_location_id:
+            try:
+                resolved_party = await cls.resolve_or_create_store_psv_party(
+                    session=session,
+                    company_id=company_id,
+                    delivery_location_id=invoice.delivery_location_id,
+                    customer_id=invoice.customer_id,
+                    branch_id=branch_id,
+                )
+                party = (await session.execute(
+                    select(PSVParty).where(PSVParty.id == resolved_party["psv_party_id"])
+                )).scalar_one_or_none()
+            except HTTPException:
+                party = None
+
+            location = (await session.execute(select(CustomerDeliveryLocation).where(
+                CustomerDeliveryLocation.id == invoice.delivery_location_id,
+            ))).scalar_one_or_none()
+
+        if not party and invoice.party_id:
+            party = (await session.execute(
+                select(PSVParty).where(PSVParty.id == invoice.party_id, PSVParty.company_id == company_id)
+            )).scalar_one_or_none()
+
+        if not party and invoice.customer_id:
+            p_stmt = select(PSVParty).where(
+                PSVParty.company_id == company_id,
+                PSVParty.host_customer_id == invoice.customer_id,
+            )
+            if invoice.delivery_store_code:
+                p_stmt = p_stmt.where(PSVParty.store_code == invoice.delivery_store_code)
+            party = (await session.execute(p_stmt.limit(1))).scalar_one_or_none()
+
+        if not party:
             return {"status": "SKIPPED_NO_PARTNER_LOCATION", "invoice_id": invoice_id, "projected": 0}
 
-        try:
-            resolved_party = await cls.resolve_or_create_store_psv_party(
-                session=session,
-                company_id=company_id,
-                delivery_location_id=invoice.delivery_location_id,
-                customer_id=invoice.customer_id,
-                branch_id=branch_id,
-            )
-            party = (await session.execute(
-                select(PSVParty).where(PSVParty.id == resolved_party["psv_party_id"])
-            )).scalar_one()
-        except HTTPException:
-            return {"status": "SKIPPED_UNKNOWN_PARTNER_LOCATION", "invoice_id": invoice_id, "projected": 0}
-
-        location = (await session.execute(select(CustomerDeliveryLocation).where(
-            CustomerDeliveryLocation.id == invoice.delivery_location_id,
-        ))).scalar_one_or_none()
+        host_cust_id = location.customer_id if location else (party.host_customer_id or invoice.customer_id)
+        loc_id = location.id if location else party.delivery_location_id
+        store_code = location.store_code if location else (party.store_code or invoice.delivery_store_code)
 
         projected = 0
         for line in invoice.items:
@@ -256,9 +286,9 @@ class PSVProjectionService:
                     "source_document_id": invoice.id,
                     "source_document_line_id": str(line.id),
                     "psv_party_id": party.id,
-                    "host_customer_id": location.customer_id,
-                    "delivery_location_id": location.id,
-                    "store_code_snapshot": location.store_code,
+                    "host_customer_id": host_cust_id,
+                    "delivery_location_id": loc_id,
+                    "store_code_snapshot": store_code,
                     "invoice_id": invoice.id,
                     "invoice_line_id": str(line.id),
                     "sku": line.code,
@@ -837,3 +867,555 @@ class PSVProjectionService:
             total_projected_units=tot_units,
             total_skus_tracked=len(items),
         )
+
+    @classmethod
+    async def record_invoice_receipt(
+        cls,
+        session: AsyncSession,
+        company_id: str,
+        user_id: str,
+        user_role: str,
+        req: PSVReceiveInvoiceReq,
+        commit: bool = True,
+    ) -> PSVReceiveInvoiceResp:
+        """
+        Records physical goods receipt (and optional rejections) against a Sales Tax Invoice.
+        
+        Guarantees:
+        1. Validates invoice exists and belongs to company_id tenant.
+        2. Ensures invoice line items are projected into PSV (Document Qty).
+        3. Identifies and matches items by invoice_line_id, SKU, or canonical (style, color, size) attributes.
+        4. Supports partial receipts, excess receipts, and multiple receiving deliveries.
+        5. Managerial approval rule: PENDING by default unless auto_approve requested by MANAGER/ADMIN.
+        6. Pending receipts do NOT inflate available stock ledger until approved.
+        7. Rejections are tracked with audit reason.
+        """
+        # 1. Fetch invoice
+        inv_stmt = (
+            select(SalesInvoice)
+            .where(
+                SalesInvoice.id == req.invoice_id,
+                SalesInvoice.company_id == company_id,
+            )
+            .options(selectinload(SalesInvoice.items))
+        )
+        invoice = (await session.execute(inv_stmt)).scalar_one_or_none()
+        if not invoice:
+            raise HTTPException(status_code=404, detail="SMRITI-VAL-404: Sales Tax Invoice not found.")
+
+        # 2. Ensure invoice is projected into PSV
+        await cls.project_posted_invoice(
+            session=session,
+            invoice_id=invoice.id,
+            company_id=company_id,
+        )
+
+        # 3. Resolve party
+        party_id = req.party_id
+        if not party_id:
+            # Look for party via delivery location or customer
+            if invoice.delivery_location_id:
+                party_res = await cls.resolve_or_create_store_psv_party(
+                    session=session,
+                    company_id=company_id,
+                    delivery_location_id=invoice.delivery_location_id,
+                    customer_id=invoice.customer_id,
+                )
+                party_id = party_res.get("psv_party_id")
+            elif invoice.party_id:
+                party_id = invoice.party_id
+            elif invoice.customer_id:
+                p = (await session.execute(
+                    select(PSVParty.id)
+                    .where(
+                        PSVParty.company_id == company_id,
+                        PSVParty.host_customer_id == invoice.customer_id,
+                    )
+                    .limit(1)
+                )).scalar_one_or_none()
+                party_id = p
+
+        if not party_id:
+            # Fallback to party from existing stock event for this invoice
+            party_id = (await session.execute(
+                select(PSVStockEvent.psv_party_id)
+                .where(
+                    PSVStockEvent.company_id == company_id,
+                    PSVStockEvent.invoice_id == invoice.id,
+                )
+                .limit(1)
+            )).scalar_one_or_none()
+
+        if not party_id:
+            raise HTTPException(
+                status_code=400,
+                detail="SMRITI-VAL-002: Unable to resolve PSV party for invoice. Please provide party_id.",
+            )
+
+        # 4. Determine approval permission
+        clean_role = (user_role or "").strip().upper()
+        is_manager = clean_role in ("MANAGER", "ADMIN", "SYSADMIN")
+        effective_approval_status = "APPROVED" if (req.auto_approve and is_manager) else "PENDING"
+
+        # 5. Build lookup maps for canonical variant matching on invoice items
+        invoice_lines_by_id = {str(item.id): item for item in invoice.items}
+        invoice_lines_by_sku = {(item.code or "").strip().upper(): item for item in invoice.items}
+
+        # Load product attributes for invoice items
+        prod_ids = [item.product_id for item in invoice.items if item.product_id]
+        products_map = {}
+        if prod_ids:
+            p_rows = (await session.execute(
+                select(Product).where(Product.id.in_(prod_ids))
+            )).scalars().all()
+            products_map = {p.id: p for p in p_rows}
+
+        event_ids_created: List[str] = []
+        approved_count = 0
+        pending_count = 0
+
+        receipt_dt = req.receipt_date or datetime.now(timezone.utc)
+        receipt_ref = req.receipt_reference or f"RECEIPT-{invoice.invoice_no}"
+
+        for r_line in req.items:
+            matched_item: Optional[SalesInvoiceItem] = None
+
+            # a) Match by line ID
+            if r_line.invoice_line_id and str(r_line.invoice_line_id) in invoice_lines_by_id:
+                matched_item = invoice_lines_by_id[str(r_line.invoice_line_id)]
+
+            # b) Match by SKU
+            if not matched_item and r_line.sku:
+                matched_item = invoice_lines_by_sku.get(r_line.sku.strip().upper())
+
+            # c) Match by Article / Style + Color + Size
+            if not matched_item and (r_line.style_code or r_line.color or r_line.size):
+                req_style = (r_line.style_code or "").strip().upper()
+                req_color = (r_line.color or "").strip().upper()
+                req_size = (r_line.size or "").strip().upper()
+                for item in invoice.items:
+                    prod = products_map.get(item.product_id)
+                    p_style = ((prod.style_code if prod else None) or "").strip().upper()
+                    p_color = ((prod.color if prod else None) or "").strip().upper()
+                    p_size = ((prod.size if prod else None) or "").strip().upper()
+                    if (not req_style or req_style == p_style) and \
+                       (not req_color or req_color == p_color) and \
+                       (not req_size or req_size == p_size):
+                        matched_item = item
+                        break
+
+            line_id_str = str(matched_item.id) if matched_item else (r_line.invoice_line_id or "LINE-GEN")
+            line_sku = matched_item.code if matched_item else (r_line.sku or "SKU-UNKNOWN")
+            prod_id = matched_item.product_id if matched_item else None
+
+            # Handle Received Qty
+            if r_line.received_qty > Decimal("0"):
+                sec_id = f"RCV-{invoice.id}-{line_id_str}-{uuid.uuid4().hex[:8]}"
+                res = await cls.project_psv_stock_event(
+                    psv_session=session,
+                    event_payload={
+                        "source_event_id": sec_id,
+                        "correlation_id": f"SALES-INVOICE-{invoice.id}",
+                        "company_id": company_id,
+                        "company_code": company_id,
+                        "product_id": prod_id,
+                        "source_document_type": "STORE_RECEIPT",
+                        "source_document_id": receipt_ref,
+                        "source_document_line_id": line_id_str,
+                        "psv_party_id": party_id,
+                        "host_customer_id": invoice.customer_id,
+                        "delivery_location_id": invoice.delivery_location_id,
+                        "store_code_snapshot": invoice.delivery_store_code,
+                        "invoice_id": invoice.id,
+                        "invoice_line_id": line_id_str,
+                        "sku": line_sku,
+                        "movement_type": "STORE_RECEIVED",
+                        "quantity": r_line.received_qty,
+                        "source_event_created_at": receipt_dt,
+                        "event_date": receipt_dt,
+                        "approval_status": effective_approval_status,
+                        "reported_by": user_id,
+                        "approval_reason": receipt_ref,
+                    },
+                    commit=False,
+                )
+                if "event_id" in res:
+                    event_ids_created.append(res["event_id"])
+                    if effective_approval_status == "APPROVED":
+                        approved_count += 1
+                    else:
+                        pending_count += 1
+
+            # Handle Rejected Qty
+            if r_line.rejected_qty > Decimal("0"):
+                rej_sec_id = f"REJ-{invoice.id}-{line_id_str}-{uuid.uuid4().hex[:8]}"
+                res_rej = await cls.project_psv_stock_event(
+                    psv_session=session,
+                    event_payload={
+                        "source_event_id": rej_sec_id,
+                        "correlation_id": f"SALES-INVOICE-{invoice.id}",
+                        "company_id": company_id,
+                        "company_code": company_id,
+                        "product_id": prod_id,
+                        "source_document_type": "STORE_RECEIPT_REJECTION",
+                        "source_document_id": receipt_ref,
+                        "source_document_line_id": line_id_str,
+                        "psv_party_id": party_id,
+                        "host_customer_id": invoice.customer_id,
+                        "delivery_location_id": invoice.delivery_location_id,
+                        "store_code_snapshot": invoice.delivery_store_code,
+                        "invoice_id": invoice.id,
+                        "invoice_line_id": line_id_str,
+                        "sku": line_sku,
+                        "movement_type": "REJECTED",
+                        "quantity": r_line.rejected_qty,
+                        "source_event_created_at": receipt_dt,
+                        "event_date": receipt_dt,
+                        "approval_status": "APPROVED",
+                        "reported_by": user_id,
+                        "approval_reason": r_line.rejection_reason or "Rejected during receiving inspection",
+                    },
+                    commit=False,
+                )
+                if "event_id" in res_rej:
+                    event_ids_created.append(res_rej["event_id"])
+
+        if commit:
+            await session.commit()
+        else:
+            await session.flush()
+
+        return PSVReceiveInvoiceResp(
+            status="RECORDED",
+            invoice_id=invoice.id,
+            party_id=party_id,
+            events_created=len(event_ids_created),
+            approved_count=approved_count,
+            pending_count=pending_count,
+            event_ids=event_ids_created,
+        )
+
+    @classmethod
+    async def get_quantity_reconciliation(
+        cls,
+        session: AsyncSession,
+        company_id: str,
+        party_id: Optional[str] = None,
+        invoice_id: Optional[str] = None,
+        invoice_no: Optional[str] = None,
+        style_code: Optional[str] = None,
+        color: Optional[str] = None,
+        size: Optional[str] = None,
+        approval_status: Optional[str] = None,
+        reconciliation_status: Optional[str] = None,
+        has_discrepancy: Optional[bool] = None,
+        limit: int = 200,
+        offset: int = 0,
+    ) -> PSVQuantityReconciliationResponse:
+        """
+        Authoritative Quantity Reconciliation between Sales Tax Invoices, physical receiving records,
+        pending approvals, and stock ledger.
+        
+        Calculates for each item:
+          - Document Qty: Quantity recorded on the Sales Tax Invoice.
+          - Received Qty: Physically received quantity (Approved + Pending).
+          - Pending Approval Qty: Received quantity awaiting managerial review.
+          - Approved Qty: Accepted and approved quantity.
+          - Short Qty: max(0, Document Qty - Received Qty).
+          - Excess Qty: max(0, Received Qty - Document Qty).
+          - Rejected Qty: Quantity rejected during physical receiving inspection.
+        
+        Item identification prioritizes canonical Article/Style Code, Color, and Size
+        in addition to SKU/barcode matching.
+        """
+        # 1. Base query for active sales invoices for this company
+        inv_stmt = select(SalesInvoice).where(
+            SalesInvoice.company_id == company_id,
+            SalesInvoice.status != "Cancelled",
+        )
+
+        if invoice_id:
+            inv_stmt = inv_stmt.where(SalesInvoice.id == invoice_id)
+
+        if invoice_no:
+            inv_stmt = inv_stmt.where(SalesInvoice.invoice_no.ilike(f"%{invoice_no.strip()}%"))
+
+        if party_id:
+            party = (await session.execute(
+                select(PSVParty).where(PSVParty.id == party_id, PSVParty.company_id == company_id)
+            )).scalar_one_or_none()
+            if party:
+                conds = [SalesInvoice.party_id == party_id]
+                if party.delivery_location_id:
+                    conds.append(SalesInvoice.delivery_location_id == party.delivery_location_id)
+                if party.host_customer_id and party.store_code:
+                    conds.append(and_(
+                        SalesInvoice.customer_id == party.host_customer_id,
+                        SalesInvoice.delivery_store_code == party.store_code,
+                    ))
+                elif party.host_customer_id:
+                    conds.append(SalesInvoice.customer_id == party.host_customer_id)
+                # Invoices linked via stock events
+                evt_subq = select(PSVStockEvent.invoice_id).where(
+                    PSVStockEvent.company_id == company_id,
+                    PSVStockEvent.psv_party_id == party_id,
+                    PSVStockEvent.invoice_id.isnot(None),
+                )
+                conds.append(SalesInvoice.id.in_(evt_subq))
+                inv_stmt = inv_stmt.where(or_(*conds))
+            else:
+                inv_stmt = inv_stmt.where(SalesInvoice.party_id == party_id)
+
+        inv_stmt = inv_stmt.options(selectinload(SalesInvoice.items)).order_by(
+            SalesInvoice.date.desc(),
+            SalesInvoice.id.desc(),
+        )
+        invoices = (await session.execute(inv_stmt)).scalars().all()
+
+        if not invoices:
+            return PSVQuantityReconciliationResponse(
+                summary=PSVQuantityReconciliationSummary(),
+                items=[],
+            )
+
+        inv_ids = [inv.id for inv in invoices]
+
+        # 2. Load all PSV Parties for party name / store code resolution
+        parties = (await session.execute(
+            select(PSVParty).where(PSVParty.company_id == company_id)
+        )).scalars().all()
+        party_by_loc = {p.delivery_location_id: p for p in parties if p.delivery_location_id}
+        party_by_cust_store = {(p.host_customer_id, p.store_code): p for p in parties if p.host_customer_id and p.store_code}
+        party_by_id = {p.id: p for p in parties}
+        party_by_cust = {p.host_customer_id: p for p in parties if p.host_customer_id}
+
+        # 3. Load all PSVStockEvent records linked to these invoices
+        events = (await session.execute(
+            select(PSVStockEvent).where(
+                PSVStockEvent.company_id == company_id,
+                PSVStockEvent.invoice_id.in_(inv_ids),
+            )
+        )).scalars().all()
+
+        from collections import defaultdict
+        events_by_inv_line = defaultdict(list)
+        events_by_inv_sku = defaultdict(list)
+        events_by_inv_prod = defaultdict(list)
+
+        for ev in events:
+            if ev.invoice_line_id:
+                events_by_inv_line[(ev.invoice_id, str(ev.invoice_line_id))].append(ev)
+            if ev.sku:
+                events_by_inv_sku[(ev.invoice_id, ev.sku.strip().upper())].append(ev)
+            if ev.product_id:
+                events_by_inv_prod[(ev.invoice_id, ev.product_id)].append(ev)
+
+        # 4. Batch load Products, Items, and ItemVariants for catalog attribute resolution
+        all_items = [line for inv in invoices for line in inv.items]
+        prod_ids = list({line.product_id for line in all_items if line.product_id})
+        item_ids = list({line.item_id for line in all_items if line.item_id})
+        var_ids = list({line.variant_id for line in all_items if line.variant_id})
+
+        products_map: Dict[str, Product] = {}
+        if prod_ids:
+            p_rows = (await session.execute(select(Product).where(Product.id.in_(prod_ids)))).scalars().all()
+            products_map = {p.id: p for p in p_rows}
+
+        items_map: Dict[str, Item] = {}
+        if item_ids:
+            i_rows = (await session.execute(select(Item).where(Item.id.in_(item_ids)))).scalars().all()
+            items_map = {i.id: i for i in i_rows}
+
+        variants_map: Dict[str, ItemVariant] = {}
+        if var_ids:
+            v_rows = (await session.execute(select(ItemVariant).where(ItemVariant.id.in_(var_ids)))).scalars().all()
+            variants_map = {v.id: v for v in v_rows}
+
+        # 5. Process each invoice item and compute quantity reconciliation
+        all_reconciled_items: List[PSVQuantityReconciliationItem] = []
+
+        total_doc_qty = Decimal("0.0000")
+        total_rec_qty = Decimal("0.0000")
+        total_pen_qty = Decimal("0.0000")
+        total_app_qty = Decimal("0.0000")
+        total_short_qty = Decimal("0.0000")
+        total_excess_qty = Decimal("0.0000")
+        total_rej_qty = Decimal("0.0000")
+        reconciled_cnt = 0
+        discrepancy_cnt = 0
+        pending_cnt = 0
+
+        clean_filter_style = style_code.strip().upper() if style_code else None
+        clean_filter_color = color.strip().upper() if color else None
+        clean_filter_size = size.strip().upper() if size else None
+        clean_filter_app_status = approval_status.strip().upper() if approval_status else None
+        clean_filter_rec_status = reconciliation_status.strip().upper() if reconciliation_status else None
+
+        for inv in invoices:
+            party = (
+                party_by_id.get(inv.party_id)
+                or party_by_loc.get(inv.delivery_location_id)
+                or party_by_cust_store.get((inv.customer_id, inv.delivery_store_code))
+                or party_by_cust.get(inv.customer_id)
+            )
+            p_id = party.id if party else (inv.party_id or f"unassigned-{inv.customer_id or 'unknown'}")
+            p_name = party.name if party else (inv.customer_name or "Unknown Party")
+            s_code = party.store_code if party else (inv.delivery_store_code or None)
+            d_loc_id = party.delivery_location_id if party else inv.delivery_location_id
+
+            for line in inv.items:
+                doc_qty = Decimal(str(line.quantity or 0))
+
+                # Resolve catalog attributes
+                prod = products_map.get(line.product_id)
+                itm = items_map.get(line.item_id) or (items_map.get(prod.item_id) if prod and prod.item_id else None)
+                var = variants_map.get(line.variant_id) or (variants_map.get(prod.item_variant_id) if prod and prod.item_variant_id else None)
+
+                i_style = prod.style_code if prod and prod.style_code else (itm.style_code if itm and itm.style_code else None)
+                i_color = prod.color if prod and prod.color else (var.color if var and var.color else None)
+                i_size = prod.size if prod and prod.size else (var.size if var and var.size else None)
+                i_mrp = prod.mrp if prod and prod.mrp is not None else getattr(line, "mrp", None)
+                i_price = Decimal(str(line.price or 0)) if line.price is not None else None
+
+                # Match receiving and rejection events
+                matched_events: List[PSVStockEvent] = []
+                line_str_id = str(line.id)
+
+                # 1. Direct line match
+                if (inv.id, line_str_id) in events_by_inv_line:
+                    matched_events.extend(events_by_inv_line[(inv.id, line_str_id)])
+
+                # 2. SKU match (fallback if line id not stamped on event)
+                line_sku_clean = (line.code or "").strip().upper()
+                if (inv.id, line_sku_clean) in events_by_inv_sku:
+                    for ev in events_by_inv_sku[(inv.id, line_sku_clean)]:
+                        if ev not in matched_events and not ev.invoice_line_id:
+                            matched_events.append(ev)
+
+                # 3. Product ID match (fallback)
+                if line.product_id and (inv.id, line.product_id) in events_by_inv_prod:
+                    for ev in events_by_inv_prod[(inv.id, line.product_id)]:
+                        if ev not in matched_events and not ev.invoice_line_id:
+                            matched_events.append(ev)
+
+                # Aggregate quantities
+                app_qty = Decimal("0.0000")
+                pen_qty = Decimal("0.0000")
+                rej_qty = Decimal("0.0000")
+                pen_ids: List[str] = []
+
+                for ev in matched_events:
+                    mtype = ev.movement_type.upper()
+                    eqty = Decimal(str(ev.quantity or 0))
+                    if mtype in ("STORE_RECEIVED", "RECEIVED", "RECEIVED_AT_STORE"):
+                        if ev.approval_status == "APPROVED":
+                            app_qty += eqty
+                        else:
+                            pen_qty += eqty
+                            pen_ids.append(ev.event_id)
+                    elif mtype in ("REJECTED", "STORE_REJECTED"):
+                        rej_qty += eqty
+
+                rec_qty = app_qty + pen_qty
+                s_qty = max(Decimal("0.0000"), doc_qty - rec_qty)
+                e_qty = max(Decimal("0.0000"), rec_qty - doc_qty)
+
+                # Determine reconciliation status
+                if rec_qty == Decimal("0.0000"):
+                    r_status = "UNRECEIVED"
+                elif pen_qty > Decimal("0.0000"):
+                    r_status = "PENDING_APPROVAL"
+                elif s_qty > Decimal("0.0000"):
+                    r_status = "SHORTAGE"
+                elif e_qty > Decimal("0.0000"):
+                    r_status = "EXCESS"
+                elif rej_qty > Decimal("0.0000"):
+                    r_status = "HAS_REJECTIONS"
+                else:
+                    r_status = "RECONCILED"
+
+                # Filters evaluation
+                if clean_filter_style and (i_style or "").strip().upper() != clean_filter_style:
+                    continue
+                if clean_filter_color and (i_color or "").strip().upper() != clean_filter_color:
+                    continue
+                if clean_filter_size and (i_size or "").strip().upper() != clean_filter_size:
+                    continue
+                if clean_filter_rec_status and r_status.upper() != clean_filter_rec_status:
+                    continue
+                if clean_filter_app_status == "PENDING" and pen_qty <= Decimal("0.0000"):
+                    continue
+                if clean_filter_app_status == "APPROVED" and (app_qty <= Decimal("0.0000") or pen_qty > Decimal("0.0000")):
+                    continue
+                if has_discrepancy is True and not (s_qty > Decimal("0") or e_qty > Decimal("0") or rej_qty > Decimal("0") or pen_qty > Decimal("0")):
+                    continue
+                if has_discrepancy is False and (s_qty > Decimal("0") or e_qty > Decimal("0") or rej_qty > Decimal("0") or pen_qty > Decimal("0")):
+                    continue
+
+                # Accumulate summary stats
+                total_doc_qty += doc_qty
+                total_rec_qty += rec_qty
+                total_pen_qty += pen_qty
+                total_app_qty += app_qty
+                total_short_qty += s_qty
+                total_excess_qty += e_qty
+                total_rej_qty += rej_qty
+
+                if r_status == "RECONCILED":
+                    reconciled_cnt += 1
+                if s_qty > Decimal("0") or e_qty > Decimal("0") or rej_qty > Decimal("0"):
+                    discrepancy_cnt += 1
+                if pen_qty > Decimal("0"):
+                    pending_cnt += 1
+
+                inv_date_str = inv.date.isoformat() if inv.date else None
+                recon_item = PSVQuantityReconciliationItem(
+                    invoice_id=inv.id,
+                    invoice_no=inv.invoice_no,
+                    invoice_date=inv_date_str,
+                    party_id=p_id,
+                    party_name=p_name,
+                    store_code=s_code,
+                    delivery_location_id=d_loc_id,
+                    invoice_line_id=line_str_id,
+                    sku=line.code,
+                    product_name=line.name,
+                    style_code=i_style,
+                    color=i_color,
+                    size=i_size,
+                    mrp=Decimal(str(i_mrp)) if i_mrp is not None else None,
+                    unit_price=i_price,
+                    document_qty=doc_qty,
+                    received_qty=rec_qty,
+                    pending_approval_qty=pen_qty,
+                    approved_qty=app_qty,
+                    short_qty=s_qty,
+                    excess_qty=e_qty,
+                    rejected_qty=rej_qty,
+                    reconciliation_status=r_status,
+                    events_count=len([e for e in matched_events if e.movement_type.upper() not in ("BILLED_TO_PARTNER", "INVOICE", "GST_BILLED")]),
+                    pending_event_ids=pen_ids,
+                )
+                all_reconciled_items.append(recon_item)
+
+        summary = PSVQuantityReconciliationSummary(
+            total_items=len(all_reconciled_items),
+            total_document_qty=total_doc_qty,
+            total_received_qty=total_rec_qty,
+            total_pending_approval_qty=total_pen_qty,
+            total_approved_qty=total_app_qty,
+            total_short_qty=total_short_qty,
+            total_excess_qty=total_excess_qty,
+            total_rejected_qty=total_rej_qty,
+            reconciled_count=reconciled_cnt,
+            discrepancy_count=discrepancy_cnt,
+            pending_approval_count=pending_cnt,
+        )
+
+        paged_items = all_reconciled_items[offset : offset + limit]
+
+        return PSVQuantityReconciliationResponse(
+            summary=summary,
+            items=paged_items,
+        )
+
