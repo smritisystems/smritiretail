@@ -4,15 +4,32 @@
   Designation  : Chief Systems Architect & Creator
   Email        : support@smritibooks.com
   Websites     : smritibooks.com | erpnbook.com | aitdl.com
-  Version      : 6.91.0
+  Version      : 6.99.0
   Created      : 2026-10-13
-  Modified     : 2026-10-17
+  Modified     : 2026-10-19
   Copyright    : © SMRITIBooks.com. All Rights Reserved.
   License      : Proprietary Commercial Software
   Classification: Internal
 -->
 
 # SMRITI Retail OS — Release Notes
+
+## Release v6.99.0 (2026-10-19 Update)
+
+### CRM & Customer Master — Enterprise Model C Architecture, Corporate Customer Merge (BD-2), Privileged Search (BD-4) & Consolidated Credit Exposure (BD-6)
+
+#### Overview
+Delivered the complete Model C enterprise customer master architecture, commercial relationship governance, transaction lifecycle safety, privileged cross-company discovery, corporate customer consolidation, and consolidated treasury monitoring across SMRITI Retail OS.
+
+#### Key Highlights
+- **Tenant-Level Customer Identity (Model C)**: Authored and applied Alembic migration `v1540_customer_company_relationships.py` on PostgreSQL `smriti001` with full `BaseEntity` AST parity, `(customer_id, company_id)` composite uniqueness, and idempotent backfill of 879/879 active customer commercial relationships.
+- **Commercial Terms Panel & Entity Switcher**: Surfaced multi-company switcher chips, credit limit/days inputs, and live hold badges in `CorporateCommercialTermsPanel.tsx` with optimistic REST updates (`PUT /crm/customers/{id}/company-relationships/{rel_id}`).
+- **Transaction Safety Pre-Flight**: Implemented `check_delete_eligibility` pre-flight evaluator across 8 relational tables, permanently blocking hard deletion of billed accounts (`HTTP 400 CUSTOMER_DELETE_BLOCKED`) while permitting clean draft deletion with subordinate cascading.
+- **Multi-Company Repository Unification**: Overrode `_apply_tenant_filter` in `CustomerRepository` evaluating compound Model C visibility with eager `selectinload(company_relationships)` pre-loading.
+- **Corporate Customer Merge & PAN Consolidation (BD-2)**: Implemented `CrmService.merge_customer` enforcing strict statutory PAN parity guard, consolidating 5 subordinate collection types, reassigning historical transactional ledgers across 10 tables, and soft-retiring source accounts with SHA-256 payload-hashed WORM audit logs.
+- **Privileged Cross-Company Customer Search (BD-4)**: Mounted privileged endpoint `GET /api/v1/crm/enterprise/customers/search` protected by `require_cross_company_customer_access` with cryptographic tamper-evident audit logging, terms inspection chips, and inline relationship creation drawer.
+- **Consolidated Credit Exposure & Treasury Monitoring (BD-6)**: Engineered `CrmService.get_customer_credit_exposure` aggregating multi-company limits and querying latest balances (`CustomerCreditLedgerEntry.balance_after`), calculating utilization %, and categorizing treasury risk tiers with 4 KPI cards and a group credit-hold alert banner.
+- **100% Test Certified**: Verified across 31/31 backend Pytest tests, 34/34 frontend Vitest tests, TypeScript compilation (`tsc --noEmit` 0 errors), 11/11 architecture CI duplication checks, and clean production Vite build.
 
 ## Release v6.99.0 (2026-10-17)
 

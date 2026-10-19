@@ -1,0 +1,15 @@
+{
+  "certificate_id": "PF-2026-1019-C55EBD",
+  "entity": "customer",
+  "capability": "customer.crud",
+  "asset_type": "component",
+  "proposed_name": "IntegrationLogsModal.tsx",
+  "target_file_path": "src/components/customer/corporateWorkspace/IntegrationLogsModal.tsx",
+  "decision": "CREATE_APPROVED",
+  "canonical_owner": "src/components/customer/CustMasterWs.tsx",
+  "content_hash": "4582e5fb12afe5ecb5357dc231f5abcf8b8afcddd9479059d5f05c0d7daabd92",
+  "git_commit": "bcdcd4ff56b88e0dcc5a28515496bde4b9b95f3a",
+  "issued_at": "2026-10-19T11:10:28.216469+00:00",
+  "expires_at": "2026-10-26T11:10:28.216469+00:00",
+  "status": "ISSUED"
+}

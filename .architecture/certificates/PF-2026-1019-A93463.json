@@ -1,0 +1,15 @@
+{
+  "certificate_id": "PF-2026-1019-A93463",
+  "entity": "customer",
+  "capability": "customer.crud",
+  "asset_type": "types",
+  "proposed_name": "types.ts",
+  "target_file_path": "src/components/customer/lifecycle/types.ts",
+  "decision": "CREATE_APPROVED",
+  "canonical_owner": "src/components/customer/CustMasterWs.tsx",
+  "content_hash": "a964d603884f1916eae46eb6d8afecb1776cda9f73166356ea70e99e4d32bdf1",
+  "git_commit": "bcdcd4ff56b88e0dcc5a28515496bde4b9b95f3a",
+  "issued_at": "2026-10-19T11:10:29.425017+00:00",
+  "expires_at": "2026-10-26T11:10:29.425017+00:00",
+  "status": "ISSUED"
+}

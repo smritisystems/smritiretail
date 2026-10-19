@@ -4,9 +4,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 5.5.0
+ * Version      : 6.99.0
  * Created      : 2026-08-21
- * Modified     : 2026-08-21
+ * Modified     : 2026-10-19
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
@@ -138,6 +138,30 @@ export interface RetailCustomerRecord {
   applyParentMailingInfo: boolean;
   dependants: CustomerDependantEntry[];
   
+  // Enterprise Corporate Workspace Extensions (Reference Redesign)
+  shortName?: string;
+  legalEntityType?: string;
+  accountManager?: string;
+  tanNumber?: string;
+  iecNumber?: string;
+  industry?: string;
+  businessNature?: string;
+  annualTurnover?: string;
+  website?: string;
+  businessDescription?: string;
+  corporateParent?: string;
+  networkType?: string;
+  externalCustomerCode?: string;
+  ediEnabled?: boolean;
+  keyContacts?: Array<{
+    id?: string;
+    name: string;
+    designation: string;
+    email: string;
+    phone: string;
+    isPrimary: boolean;
+  }>;
+
   // Personal Details
   gender: "Female" | "Male" | "Other";
   dateOfBirth: string;
@@ -192,6 +216,9 @@ export interface RetailCustomerRecord {
   status: "Active" | "Inactive" | "Blocked" | "Suspended";
   createdAt: string;
   updatedAt: string;
+
+  // Model C Commercial Relationships
+  companyRelationships?: CustomerCompanyRelationship[];
 }
 
 export interface CustomerSearchFilterState {
@@ -234,4 +261,67 @@ export interface CustomerPriceGroup {
   createdAt?: string;
   modifiedAt?: string;
 }
+
+export interface CustomerCompanyRelationship {
+  id: string;
+  uuid?: string;
+  customerId?: string;
+  customer_id?: string;
+  companyId?: string;
+  company_id?: string;
+  branchId?: string | null;
+  branch_id?: string | null;
+  customerGroupId?: string | null;
+  customer_group_id?: string | null;
+  priceTierId?: string | null;
+  price_tier_id?: string | null;
+  creditLimit?: number;
+  credit_limit?: number;
+  creditDays?: number;
+  credit_days?: number;
+  creditHold?: boolean;
+  credit_hold?: boolean;
+  status?: string;
+  isActive?: boolean;
+  is_active?: boolean;
+  isDeleted?: boolean;
+  is_deleted?: boolean;
+  createdAt?: string;
+  created_at?: string;
+  modifiedAt?: string;
+  modified_at?: string;
+}
+
+export interface CompanyCreditExposureItem {
+  companyId: string;
+  companyName?: string;
+  companyCode?: string;
+  relationshipId?: string;
+  customerGroupId?: string;
+  creditLimit: number;
+  creditDays: number;
+  creditHold: boolean;
+  creditUsed: number;
+  availableCredit: number;
+  utilizationPercent: number;
+  exposureStatus: "NORMAL" | "HIGH_WARNING" | "CRITICAL_BREACH" | "ON_HOLD" | string;
+  status: string;
+}
+
+export interface CustomerCreditExposureResponse {
+  customerId: string;
+  customerName: string;
+  code?: string;
+  identityCode?: string;
+  panNumber?: string;
+  totalCreditLimit: number;
+  totalCreditUsed: number;
+  totalAvailableCredit: number;
+  groupUtilizationPercent: number;
+  groupRiskLevel: "LOW" | "MODERATE" | "HIGH" | "CRITICAL" | "ON_HOLD" | string;
+  companyCount: number;
+  holdCount: number;
+  companyExposures: CompanyCreditExposureItem[];
+}
+
 

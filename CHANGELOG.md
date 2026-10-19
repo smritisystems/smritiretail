@@ -1,3 +1,49 @@
+<!--
+  Project      : SMRITI Retail OS
+  Author       : Jawahar Ramkripal Mallah
+  Email        : support@smritibooks.com
+  Websites     : smritibooks.com | erpnbook.com | aitdl.com
+  Version      : 6.99.0
+  Created      : 2026-07-06
+  Modified     : 2026-10-19
+  Copyright    : © SMRITIBooks.com. All Rights Reserved.
+  License      : Proprietary Commercial Software
+  Classification: Internal
+-->
+
+## [6.99.0] — 2026-10-19
+
+### CRM & Customer Master — Enterprise Model C Architecture, Corporate Customer Merge (BD-2), Privileged Search (BD-4) & Consolidated Credit Exposure (BD-6)
+
+Delivered the complete Model C enterprise customer master architecture, commercial relationship governance, transaction lifecycle safety, privileged cross-company discovery, corporate customer consolidation, and consolidated treasury monitoring across SMRITI Retail OS:
+- **Tenant-Level Customer Identity with Sovereign Commercial Terms (Model C — Phase 1 & 2)**:
+  - Authored and applied Alembic migration `v1540_customer_company_relationships.py` on PostgreSQL `smriti001` with full `BaseEntity` AST parity and `(customer_id, company_id)` composite uniqueness.
+  - Backfilled 879/879 active customer commercial relationships from `customer_groups` with 0 variance.
+  - Implemented application-level cross-company CustomerGroup guard in `CrmService` preventing credit/tax contamination across legal entities.
+  - Surfaced multi-company switcher tabs/chips, credit limit/days inputs, and live hold badges in `CorporateCommercialTermsPanel.tsx` with optimistic REST updates (`PUT /crm/customers/{id}/company-relationships/{rel_id}`).
+- **Transaction Security & Pre-Flight Foreign Key Protection (Phase 3 Step 1)**:
+  - Implemented `check_delete_eligibility` pre-flight evaluator across 8 relational tables (`sales_invoices`, `sales_orders`, `sales_returns`, `customer_credit_ledger_entries`, `customer_purchase_orders`, `psv_parties`, `crm_relationships`, net balance).
+  - Permanently blocked hard deletion of billed accounts (`HTTP 400 CUSTOMER_DELETE_BLOCKED`), restricting deletion to clean drafts with subordinate cascading.
+- **Multi-Company Repository & Compound Search Unification (Phase 3 Step 2)**:
+  - Overrode `_apply_tenant_filter` in `CustomerRepository` evaluating compound Model C visibility (originating company, tenant-wide master, or active commercial relationship).
+  - Pre-loaded `company_relationships` via `selectinload` across `get`, `get_all`, `search`, and `enterprise_search`, serializing directly without greenlet triggers.
+- **Corporate Customer Merge & PAN Consolidation Engine (BD-2 — Phase 3 Step 3)**:
+  - Implemented `CrmService.merge_customer` enforcing strict statutory PAN parity guard (rejecting mismatched PAN merges with HTTP 400).
+  - Deduplicated GST registrations, resolved delivery and billing store code collisions with deterministic suffixing, transferred external identities, and consolidated Model C terms.
+  - Parameterized atomic SQL updates reassigning historical transactional ledgers across 10 operational tables without double-counting receivables.
+  - Soft-retired source accounts with WORM audit logging (`compliance_immutable_audit_logs`).
+  - Created `CustomerMergeModal.tsx` wired into `CustMasterWs.tsx` toolbar.
+- **Privileged Cross-Company Customer Search & Discovery (BD-4 — Phase 3 Step 4)**:
+  - Mounted privileged endpoint `GET /api/v1/crm/enterprise/customers/search` protected by `require_cross_company_customer_access` (SYSADMIN, ADMIN, MANAGER, GROUP_CFO, CENTRAL_CREDIT_MANAGER).
+  - Atomically recorded regulatory tamper-evident audit trails with SHA-256 payload digest and predecessor hash-chaining.
+  - Created `EnterpriseCustomerSearchModal.tsx` with terms inspection chips and fast inline Model C relationship creation drawer (`POST /crm/customers/{id}/company-relationships`).
+- **Enterprise Consolidated Credit Exposure & Treasury Monitoring (BD-6 — Phase 4 Step 1)**:
+  - Engineered `CrmService.get_customer_credit_exposure` aggregating multi-company limits across active Model C relationships and querying latest `balance_after` from `CustomerCreditLedgerEntry`.
+  - Calculated consolidated credit utilization %, evaluated 5 treasury risk tiers (`LOW`, `MODERATE`, `HIGH`, `CRITICAL`, `ON_HOLD`), and mounted `GET /crm/customers/{id}/credit-exposure`.
+  - Upgraded `CorporateMasterAccountHeader.tsx` with group exposure badge and multi-company credit figures.
+  - Added dedicated Consolidated Group Treasury & Credit Exposure section in `CorporateCommercialTermsPanel.tsx` with 4 KPI cards, dynamic progress bar, hold alert banner, and legal entity breakdown table.
+- **Verification**: Certified with 31/31 backend Pytest tests green across 5 suites (`test_customer_company_relationships.py`, `test_customer_lifecycle_security.py`, `test_customer_merge_bd2.py`, `test_customer_multicompany_repository.py`, `test_customer_credit_exposure_bd6.py`), 34/34 frontend Vitest tests green (`customerMasterLifecycle.test.tsx`, `corporateCustomerWorkspace.test.tsx`), TypeScript compiler exit 0 (`tsc --noEmit`), 11/11 architecture CI duplication gate checks passed, CFOC UX field governance and DTO reconciliation passed (0 violations), and clean production Vite build.
+
 ## [6.96.0] — 2026-10-19
 
 ### Procurement & Vendor Master — Vendor Directory, 360 Workspace & Visual Reports Dashboard Reconciliation v6.96.0

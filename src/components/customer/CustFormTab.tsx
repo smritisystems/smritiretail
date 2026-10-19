@@ -4,9 +4,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 5.5.0
+ * Version      : 6.99.0
  * Created      : 2026-08-21
- * Modified     : 2026-08-21
+ * Modified     : 2026-10-19
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
@@ -35,6 +35,8 @@ export const SmritiCustomerFormTab: React.FC<SmritiCustomerFormTabProps> = ({
   const [customerGroups, setCustomerGroups] = useState<CustomerGroup[]>(() => getCustomerGroups());
   const [showPriceGroupModal, setShowPriceGroupModal] = useState<boolean>(false);
   const [showStoreLookupModal, setShowStoreLookupModal] = useState<boolean>(false);
+
+  const isCorporate = customer.customerType === "Corporate" || customer.customerType === "Wholesale" || customer.customerType === "Distribution" || customer.environment === "Corporate" || customer.customerGroupId === "CG-Corporate" || (customer.code ? customer.code.startsWith("RRL") : false);
 
   useEffect(() => {
     const handleUpdate = () => {
@@ -319,74 +321,83 @@ export const SmritiCustomerFormTab: React.FC<SmritiCustomerFormTabProps> = ({
           </h3>
 
           <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="text-[#515f74] dark:text-[#bec6e0] font-bold text-[10px] uppercase block mb-1">
-                Religion
-              </label>
-              <select
-                value={customer.religion}
-                onChange={e => onChange("religion", e.target.value)}
-                className="w-full p-2 bg-white dark:bg-[#191c1e] border border-[#c6c6cd] dark:border-[#45464d] rounded-lg text-xs font-medium"
-              >
-                <option value="Muslim">Muslim</option>
-                <option value="Hindu">Hindu</option>
-                <option value="Christian">Christian</option>
-                <option value="Sikh">Sikh</option>
-                <option value="Jain">Jain</option>
-                <option value="Buddhist">Buddhist</option>
-                <option value="Other">Other</option>
-              </select>
-            </div>
+            {!isCorporate ? (
+              <>
+                <div>
+                  <label className="text-[#515f74] dark:text-[#bec6e0] font-bold text-[10px] uppercase block mb-1">
+                    Religion
+                  </label>
+                  <select
+                    value={customer.religion}
+                    onChange={e => onChange("religion", e.target.value)}
+                    className="w-full p-2 bg-white dark:bg-[#191c1e] border border-[#c6c6cd] dark:border-[#45464d] rounded-lg text-xs font-medium"
+                  >
+                    <option value="Muslim">Muslim</option>
+                    <option value="Hindu">Hindu</option>
+                    <option value="Christian">Christian</option>
+                    <option value="Sikh">Sikh</option>
+                    <option value="Jain">Jain</option>
+                    <option value="Buddhist">Buddhist</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </div>
 
-            <div>
-              <label className="text-[#515f74] dark:text-[#bec6e0] font-bold text-[10px] uppercase block mb-1">
-                Ethnicity
-              </label>
-              <select
-                value={customer.ethnicity}
-                onChange={e => onChange("ethnicity", e.target.value)}
-                className="w-full p-2 bg-white dark:bg-[#191c1e] border border-[#c6c6cd] dark:border-[#45464d] rounded-lg text-xs font-medium"
-              >
-                <option value="Asian">Asian</option>
-                <option value="Arab">Arab</option>
-                <option value="European">European</option>
-                <option value="Australian">Australian</option>
-                <option value="American">American</option>
-                <option value="African">African</option>
-                <option value="Other">Other</option>
-              </select>
-            </div>
+                <div>
+                  <label className="text-[#515f74] dark:text-[#bec6e0] font-bold text-[10px] uppercase block mb-1">
+                    Ethnicity
+                  </label>
+                  <select
+                    value={customer.ethnicity}
+                    onChange={e => onChange("ethnicity", e.target.value)}
+                    className="w-full p-2 bg-white dark:bg-[#191c1e] border border-[#c6c6cd] dark:border-[#45464d] rounded-lg text-xs font-medium"
+                  >
+                    <option value="Asian">Asian</option>
+                    <option value="Arab">Arab</option>
+                    <option value="European">European</option>
+                    <option value="Australian">Australian</option>
+                    <option value="American">American</option>
+                    <option value="African">African</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </div>
 
-            <div>
-              <label className="text-[#515f74] dark:text-[#bec6e0] font-bold text-[10px] uppercase block mb-1">
-                Age Group
-              </label>
-              <select
-                value={customer.ageGroup}
-                onChange={e => onChange("ageGroup", e.target.value)}
-                className="w-full p-2 bg-white dark:bg-[#191c1e] border border-[#c6c6cd] dark:border-[#45464d] rounded-lg text-xs font-medium"
-              >
-                <option value="<20">&lt;20</option>
-                <option value=">=20 - <35">&gt;=20 - &lt;35</option>
-                <option value=">=35 - <45">&gt;=35 - &lt;45</option>
-                <option value=">=45 - <60">&gt;=45 - &lt;60</option>
-                <option value=">=60">&gt;=60</option>
-              </select>
-            </div>
+                <div>
+                  <label className="text-[#515f74] dark:text-[#bec6e0] font-bold text-[10px] uppercase block mb-1">
+                    Age Group
+                  </label>
+                  <select
+                    value={customer.ageGroup}
+                    onChange={e => onChange("ageGroup", e.target.value)}
+                    className="w-full p-2 bg-white dark:bg-[#191c1e] border border-[#c6c6cd] dark:border-[#45464d] rounded-lg text-xs font-medium"
+                  >
+                    <option value="<20">&lt;20</option>
+                    <option value=">=20 - <35">&gt;=20 - &lt;35</option>
+                    <option value=">=35 - <45">&gt;=35 - &lt;45</option>
+                    <option value=">=45 - <60">&gt;=45 - &lt;60</option>
+                    <option value=">=60">&gt;=60</option>
+                  </select>
+                </div>
 
-            <div>
-              <label className="text-[#515f74] dark:text-[#bec6e0] font-bold text-[10px] uppercase block mb-1">
-                Profession
-              </label>
-              <input
-                type="text"
-                value={customer.profession}
-                data-field-key="customer_profession"
-                onChange={(e) => onChange("profession", e.target.value)}
-                placeholder="e.g. Architect, Doctor, Teacher"
-                className="w-full p-2 bg-white dark:bg-[#191c1e] border border-[#c6c6cd] dark:border-[#45464d] rounded-lg text-xs font-medium"
-              />
-            </div>
+                <div>
+                  <label className="text-[#515f74] dark:text-[#bec6e0] font-bold text-[10px] uppercase block mb-1">
+                    Profession
+                  </label>
+                  <input
+                    type="text"
+                    value={customer.profession}
+                    data-field-key="customer_profession"
+                    onChange={(e) => onChange("profession", e.target.value)}
+                    placeholder="e.g. Architect, Doctor, Teacher"
+                    className="w-full p-2 bg-white dark:bg-[#191c1e] border border-[#c6c6cd] dark:border-[#45464d] rounded-lg text-xs font-medium"
+                  />
+                </div>
+              </>
+            ) : (
+              <div className="col-span-2 p-3 bg-blue-50/70 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 rounded-xl text-slate-600 dark:text-slate-300">
+                <span className="font-bold text-[#00355f] dark:text-[#8ebdf9] block mb-0.5">Corporate / B2B Account Profile</span>
+                Personal consumer demographics (religion, ethnicity, age group, profession) are suppressed for corporate profiles per SMRITI Governance.
+              </div>
+            )}
 
             <div className="col-span-2">
               <label className="text-[#515f74] dark:text-[#bec6e0] font-bold text-[10px] uppercase block mb-1">

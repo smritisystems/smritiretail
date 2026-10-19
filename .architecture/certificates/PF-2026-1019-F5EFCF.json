@@ -1,0 +1,15 @@
+{
+  "certificate_id": "PF-2026-1019-F5EFCF",
+  "entity": "customer",
+  "capability": "customer.crud",
+  "asset_type": "component",
+  "proposed_name": "CustomerDeactivateModal.tsx",
+  "target_file_path": "src/components/customer/lifecycle/CustomerDeactivateModal.tsx",
+  "decision": "CREATE_APPROVED",
+  "canonical_owner": "src/components/customer/CustMasterWs.tsx",
+  "content_hash": "7d08d2c796bf11cc32e6ad3ac134b06aa00f374be6e5a6a451d40400db63106a",
+  "git_commit": "bcdcd4ff56b88e0dcc5a28515496bde4b9b95f3a",
+  "issued_at": "2026-10-19T11:10:28.815859+00:00",
+  "expires_at": "2026-10-26T11:10:28.815859+00:00",
+  "status": "ISSUED"
+}

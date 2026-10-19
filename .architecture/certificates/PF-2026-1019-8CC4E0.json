@@ -1,0 +1,15 @@
+{
+  "certificate_id": "PF-2026-1019-8CC4E0",
+  "entity": "customer",
+  "capability": "customer.crud",
+  "asset_type": "component",
+  "proposed_name": "CustomerDeleteConfirmationModal.tsx",
+  "target_file_path": "src/components/customer/lifecycle/CustomerDeleteConfirmationModal.tsx",
+  "decision": "CREATE_APPROVED",
+  "canonical_owner": "src/components/customer/CustMasterWs.tsx",
+  "content_hash": "fc2247d100804f1d89d5ba4b2733c86cf66e188e7e2cc4690486e9defffacfad",
+  "git_commit": "bcdcd4ff56b88e0dcc5a28515496bde4b9b95f3a",
+  "issued_at": "2026-10-19T13:45:47.478220+00:00",
+  "expires_at": "2026-10-26T13:45:47.478220+00:00",
+  "status": "ISSUED"
+}

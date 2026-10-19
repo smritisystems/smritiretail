@@ -6,7 +6,7 @@ Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
 Version      : 3.8.0
 Created      : 2026-07-11
-Modified     : 2026-07-11
+Modified     : 2026-10-19
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 """
@@ -14,16 +14,50 @@ License      : Proprietary Commercial Software
 from typing import List, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from sqlalchemy import and_, cast, Integer, func
+from sqlalchemy import and_, cast, Integer, func, or_
 from sqlalchemy.orm import selectinload
 from ..models.crm import CustomerRelationship
-from ..models.crm import Customer, CustomerGroup
+from ..models.crm import Customer, CustomerGroup, CustomerCompanyRelationship
 from .base import BaseRepository
 from ..api.deps import TenantContext
 
 class CustomerRepository(BaseRepository[Customer]):
     def __init__(self, db: AsyncSession, tenant_ctx: Optional[TenantContext] = None):
         super().__init__(Customer, db, tenant_ctx)
+
+    def _apply_tenant_filter(self, stmt):
+        """
+        Model C Multi-Company Unification Filter:
+        Customers are visible in the active company if:
+        1. Customer was created for / bound to this company (Customer.company_id == tenant_ctx.company_id), OR
+        2. Customer is a tenant-wide master record (Customer.company_id IS NULL), OR
+        3. An active commercial relationship exists linking this Customer to this company
+           (EXISTS in customer_company_relationships where company_id == tenant_ctx.company_id and is_deleted == False).
+        """
+        if self.tenant_ctx and self.tenant_ctx.company_id:
+            rel_exists = (
+                select(1)
+                .select_from(CustomerCompanyRelationship)
+                .filter(
+                    CustomerCompanyRelationship.customer_id == Customer.id,
+                    CustomerCompanyRelationship.company_id == self.tenant_ctx.company_id,
+                    CustomerCompanyRelationship.is_deleted == False,
+                )
+                .exists()
+            )
+            company_filter = or_(
+                Customer.company_id == self.tenant_ctx.company_id,
+                Customer.company_id.is_(None),
+                rel_exists,
+            )
+            stmt = stmt.filter(company_filter)
+
+            if hasattr(self.model, "branch_id") and self.tenant_ctx.branch_id:
+                if self.tenant_ctx.branch_id in ("BR-MAIN-001", "MAIN", "BR-001"):
+                    stmt = stmt.filter(or_(self.model.branch_id.in_(["BR-MAIN-001", "MAIN", "BR-001"]), self.model.branch_id.is_(None)))
+                else:
+                    stmt = stmt.filter(or_(self.model.branch_id == self.tenant_ctx.branch_id, self.model.branch_id.is_(None)))
+        return stmt
 
     async def get(self, id: str) -> Optional[Customer]:
         stmt = (
@@ -37,6 +71,7 @@ class CustomerRepository(BaseRepository[Customer]):
                 selectinload(Customer.policy),
                 selectinload(Customer.dependant_relationships).selectinload(CustomerRelationship.dependant_customer),
                 selectinload(Customer.loyalty_members),
+                selectinload(Customer.company_relationships),
             )
             .filter(Customer.id == id, Customer.is_deleted == False)
         )
@@ -76,6 +111,7 @@ class CustomerRepository(BaseRepository[Customer]):
                 selectinload(Customer.policy),
                 selectinload(Customer.dependant_relationships).selectinload(CustomerRelationship.dependant_customer),
                 selectinload(Customer.loyalty_members),
+                selectinload(Customer.company_relationships),
             )
             .filter(Customer.is_deleted == False)
         )
@@ -109,6 +145,7 @@ class CustomerRepository(BaseRepository[Customer]):
                 selectinload(Customer.policy),
                 selectinload(Customer.dependant_relationships).selectinload(CustomerRelationship.dependant_customer),
                 selectinload(Customer.loyalty_members),
+                selectinload(Customer.company_relationships),
             )
             .filter(Customer.is_deleted == False)
         )
@@ -126,6 +163,52 @@ class CustomerRepository(BaseRepository[Customer]):
                 (Customer.email.ilike(f"%{clean_q}%")) |
                 (Customer.gst_number.ilike(f"%{clean_q}%"))
             )
+        stmt = stmt.offset(skip).limit(limit)
+        result = await self.db.execute(stmt)
+        return list(result.scalars().all())
+
+    async def enterprise_search(
+        self,
+        q: Optional[str] = None,
+        skip: int = 0,
+        limit: int = 50,
+        status: Optional[str] = None,
+    ) -> List[Customer]:
+        """
+        BD-4 Enterprise Cross-Company Customer Search:
+        Unrestricted across company boundaries for global identity lookups.
+        Must only be called from audited enterprise search endpoints.
+        """
+        stmt = (
+            select(Customer)
+            .options(
+                selectinload(Customer.group),
+                selectinload(Customer.gst_registrations),
+                selectinload(Customer.delivery_locations),
+                selectinload(Customer.billing_locations),
+                selectinload(Customer.external_identities),
+                selectinload(Customer.policy),
+                selectinload(Customer.dependant_relationships).selectinload(CustomerRelationship.dependant_customer),
+                selectinload(Customer.loyalty_members),
+                selectinload(Customer.company_relationships),
+            )
+            .filter(Customer.is_deleted == False)
+        )
+        if status and status.lower() != "all":
+            stmt = stmt.filter(Customer.status == status)
+        if q:
+            clean_q = q.strip()
+            stmt = stmt.filter(
+                (Customer.name.ilike(f"%{clean_q}%")) |
+                (Customer.mobile.ilike(f"%{clean_q}%")) |
+                (Customer.code.ilike(f"%{clean_q}%")) |
+                (Customer.id.ilike(f"%{clean_q}%")) |
+                (Customer.email.ilike(f"%{clean_q}%")) |
+                (Customer.gst_number.ilike(f"%{clean_q}%")) |
+                (Customer.pan_number.ilike(f"%{clean_q}%")) |
+                (Customer.identity_code.ilike(f"%{clean_q}%"))
+            )
+        stmt = stmt.order_by(Customer.name.asc(), Customer.id.asc())
         stmt = stmt.offset(skip).limit(limit)
         result = await self.db.execute(stmt)
         return list(result.scalars().all())

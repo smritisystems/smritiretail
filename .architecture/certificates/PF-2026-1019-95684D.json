@@ -1,0 +1,15 @@
+{
+  "certificate_id": "PF-2026-1019-95684D",
+  "entity": "customer",
+  "capability": "customer.crud",
+  "asset_type": "component",
+  "proposed_name": "CorporateNetworkPanel.tsx",
+  "target_file_path": "src/components/customer/corporateWorkspace/CorporateNetworkPanel.tsx",
+  "decision": "CREATE_APPROVED",
+  "canonical_owner": "src/components/customer/CustMasterWs.tsx",
+  "content_hash": "b63bc00f4504e46f2f77fb9c659894e744495369ec63cd7b359f181e3fbbda82",
+  "git_commit": "bcdcd4ff56b88e0dcc5a28515496bde4b9b95f3a",
+  "issued_at": "2026-10-19T11:10:27.921092+00:00",
+  "expires_at": "2026-10-26T11:10:27.921092+00:00",
+  "status": "ISSUED"
+}

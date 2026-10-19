@@ -6,7 +6,7 @@ Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
 Version      : 4.0.0
 Created      : 2026-09-23
-Modified     : 2026-09-23 (v4.0.0 — added item_barcodes, sales_invoice_lines, purchase_receipts column classifications)
+Modified     : 2026-10-19 (v4.0.0 — added item_barcodes, sales_invoice_lines, purchase_receipts, and PO receiving date column classifications)
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 Classification: Architecture Governance — Declarative Database Column Classification Contract
@@ -78,7 +78,7 @@ STANDARD_TECHNICAL_FK_COLUMNS: Set[str] = {
 }
 
 STANDARD_MIGRATION_COLUMNS: Set[str] = {
-    "identity_code", "legacy_code", "old_id", "sync_token", "import_batch_id",
+    "identity_code", "legacy_code", "code", "old_id", "sync_token", "import_batch_id",
     "imported_at", "import_validation_status", "import_validation_notes",
     "source_type", "source_system", "source_file", "sis_code", "pos_state",
     "customer_po_number_snapshot", "customer_po_date_snapshot",
@@ -113,6 +113,8 @@ STANDARD_MIGRATION_COLUMNS: Set[str] = {
     # loyalty ledger snapshot fields
     "transaction_type", "points", "balance_after", "reference_type", "invoice_amount",
     "narration", "expiry_date",
+    # PO receiving date fields
+    "received_date", "vendor_bill_date", "vendor_bill_no",
 }
 
 

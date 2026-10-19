@@ -4,9 +4,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 5.5.0
+ * Version      : 6.99.0
  * Created      : 2026-08-21
- * Modified     : 2026-08-21
+ * Modified     : 2026-10-19
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
@@ -25,6 +25,8 @@ export const SmritiCustomerRetailDetailsTab: React.FC<SmritiCustomerRetailDetail
   customer,
   onChange
 }) => {
+  const isCorporate = customer.customerType === "Corporate" || customer.customerType === "Wholesale" || customer.customerType === "Distribution" || customer.environment === "Corporate" || customer.customerGroupId === "CG-Corporate" || (customer.code ? customer.code.startsWith("RRL") : false);
+
   const [newDepCode, setNewDepCode] = useState("");
   const [newDepName, setNewDepName] = useState("");
   const [newDepRelation, setNewDepRelation] = useState("Spouse");
@@ -48,7 +50,19 @@ export const SmritiCustomerRetailDetailsTab: React.FC<SmritiCustomerRetailDetail
 
   return (
     <div className="space-y-5 text-xs">
-      
+      {isCorporate ? (
+        <div className="bg-white dark:bg-[#191c1e] border border-[#c6c6cd] dark:border-[#45464d] p-5 rounded-2xl shadow-xs space-y-3">
+          <h3 className="text-xs font-bold text-[#00355f] dark:text-[#8ebdf9] uppercase tracking-wider flex items-center gap-2 border-b border-[#eceef0] dark:border-[#2d3133] pb-2.5">
+            <Heart size={15} /> Corporate Customer Governance
+          </h3>
+          <div className="p-4 bg-blue-50/70 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 rounded-xl text-slate-600 dark:text-slate-300 space-y-1.5 leading-relaxed">
+            <span className="font-bold text-[#00355f] dark:text-[#8ebdf9] text-xs block">B2B Account Standards</span>
+            <p>Personal consumer demographics (gender, DOB, marital anniversary), family dependants, and retail shopper loyalty controls are suppressed for Corporate / B2B customer accounts.</p>
+            <p className="text-[11px] text-slate-500">Corporate branch stores and delivery network mapping are managed through the <strong>Corporate Network</strong> tab. Statutory and commercial terms apply directly.</p>
+          </div>
+        </div>
+      ) : (
+        <>
       {/* 1. Personal Demographics Details */}
       <div className="bg-white dark:bg-[#191c1e] border border-[#c6c6cd] dark:border-[#45464d] p-5 rounded-2xl shadow-xs space-y-4">
         <h3 className="text-xs font-bold text-[#00355f] dark:text-[#8ebdf9] uppercase tracking-wider flex items-center gap-2 border-b border-[#eceef0] dark:border-[#2d3133] pb-2.5">
@@ -362,6 +376,8 @@ export const SmritiCustomerRetailDetailsTab: React.FC<SmritiCustomerRetailDetail
           </div>
         </div>
       </div>
+      </>
+      )}
 
     </div>
   );

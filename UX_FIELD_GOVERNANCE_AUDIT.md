@@ -25,8 +25,8 @@ All business fields in SMRITI are declared authoritatively in `backend/app/gover
 | :--- | :--- | :--- | :--- |
 | **CFOC Registry Version** | 3.46.0 | v3.45.0 | PASS |
 | **Deterministic Fingerprint** | `2ac971144155d554...` | SHA-256 stable across runs | PASS |
-| **Physical DB Tables** | 616 tables | 295 tables across `smriti001` & `smritisys` | PASS |
-| **Physical DB Columns** | 13080 columns | Live information_schema catalog | PASS |
+| **Physical DB Tables** | 624 tables | 295 tables across `smriti001` & `smritisys` | PASS |
+| **Physical DB Columns** | 13300 columns | Live information_schema catalog | PASS |
 | **Canonical Field Definitions** | 147 fields | Declared in `CANONICAL_FIELDS` SSOT | PASS |
 | **UX Field References (Configured)** | 91 references | Master Form Fields & Grid Columns | PASS |
 | **Master Screen Mappings** | 9 screens | Master Configs in `src/components/global/` | PASS |
@@ -50,7 +50,7 @@ All business fields in SMRITI are declared authoritatively in `backend/app/gover
 | **Technical & Foreign Key Columns** | 67 | Foreign keys (`*_id`), technical tokens, passwords, nonces |
 | **Framework & Internal Columns** | 42 | `identity_code`, `*_json`, `metadata`, `attributes`, `extra_data`, media attachments |
 | **Migration & Support Columns** | 45 | Legacy Shoper 9 migration columns and flat file import buffers |
-| **Unregistered Business Columns** | 157 | Unmapped business columns on governed tables |
+| **Unregistered Business Columns** | 158 | Unmapped business columns on governed tables |
 
 ---
 
@@ -65,7 +65,7 @@ All business fields in SMRITI are declared authoritatively in `backend/app/gover
 - [x] **Exception Governance (0 exceptions strictly audited with 0 schema or expiry defects)**
 - [x] **Generated Registry Zero-Drift (100% deterministic parity between Python SSOT and TS artifact)**
 - [x] **Migration-Time CFOC Parity (All migration columns on governed tables are classified; fail-closed parser verified)**
-- [x] **Declarative Column Classification (3269 columns classified across closed 5-category contract)**
+- [x] **Declarative Column Classification (3322 columns classified across closed 5-category contract)**
 
 ---
 
