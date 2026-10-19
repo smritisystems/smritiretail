@@ -204,6 +204,8 @@ async def get_vendor_statement(
     vendor_id: str,
     from_date: Optional[date] = Query(None, description="Start date for statement period (YYYY-MM-DD)"),
     to_date: Optional[date] = Query(None, description="End date for statement period (YYYY-MM-DD)"),
+    start_date: Optional[date] = Query(None, description="Alias for start date (YYYY-MM-DD)"),
+    end_date: Optional[date] = Query(None, description="Alias for end date (YYYY-MM-DD)"),
     tenant: TenantContext = Depends(get_tenant_context),
     db: AsyncSession = Depends(get_company_db),
 ):
@@ -212,12 +214,14 @@ async def get_vendor_statement(
     for Account 2010 (Accounts Payable) and Account 2050 (Supplier Advances).
     Computes opening balances, running transaction ledger lines, and unallocated advance balances.
     """
+    eff_from = from_date or start_date
+    eff_to = to_date or end_date
     return await UnifiedAccountingLedgerService.get_vendor_statement_of_account(
         session=db,
         company_id=tenant.company_id,
         supplier_id=vendor_id,
-        from_date=from_date,
-        to_date=to_date,
+        from_date=eff_from,
+        to_date=eff_to,
         branch_id=tenant.branch_id,
     )
 
