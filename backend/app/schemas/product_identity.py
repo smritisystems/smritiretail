@@ -153,3 +153,34 @@ class ProductIdentityResponse(ProductIdentityBase):
 class ProductIdentitySearchResponse(BaseModel):
     items: List[ProductIdentityResponse]
     total: int
+
+
+class ParseProductCodeRequest(BaseModel):
+    code: str
+    format_order: Optional[List[str]] = None
+    require_vendor: bool = False
+
+
+class ParseProductCodeBatchRequest(BaseModel):
+    codes: List[str]
+    format_order: Optional[List[str]] = None
+    require_vendor: bool = False
+
+
+class ParseProductCodeResponse(BaseModel):
+    original_code: str
+    normalized_code: str
+    article_code: Optional[str] = None
+    vendor_code: Optional[str] = None
+    color: Optional[str] = None
+    color_normalized: Optional[str] = None
+    size: Optional[str] = None
+    size_normalized: Optional[str] = None
+    format_pattern: str = "ARTICLE-VENDOR-COLOR-SIZE"
+    confidence: float = 1.0
+    matched_strategy: str = "MULTI_SEGMENT_ANCHORING"
+    is_valid: bool = True
+    attributes: Dict[str, Any] = Field(default_factory=dict)
+    warnings: List[str] = Field(default_factory=list)
+    reconciliation_key: List[str] = Field(default_factory=list)
+    style_with_vendor: str = ""

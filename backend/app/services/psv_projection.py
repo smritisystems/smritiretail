@@ -35,6 +35,7 @@ from ..models.inventory import Product
 from ..models.item_master import Item, ItemVariant
 from ..models.control.control_models import ControlPSVConfig
 from .partner_resolver import PartnerIdentifierResolver
+from .product_code_parser import ProductCodeParser
 from ..schemas.psv import (
     PSVScopedVisibilityResponse,
     PSVScopedBalanceItem,
@@ -265,6 +266,33 @@ class PSVProjectionService:
                 p_stmt = p_stmt.where(PSVParty.store_code == invoice.delivery_store_code)
             party = (await session.execute(p_stmt.limit(1))).scalar_one_or_none()
 
+            if not party:
+                customer = (await session.execute(
+                    select(Customer).where(Customer.id == invoice.customer_id)
+                )).scalar_one_or_none()
+                if customer:
+                    store_cd = invoice.delivery_store_code or getattr(customer, "code", None) or "STORE"
+                    new_party_id = f"psv-{company_id}-{customer.id}-{store_cd}"[:50]
+                    party = (await session.execute(
+                        select(PSVParty).where(PSVParty.id == new_party_id)
+                    )).scalar_one_or_none()
+                    if not party:
+                        party = PSVParty(
+                            id=new_party_id,
+                            company_id=company_id,
+                            branch_id=branch_id,
+                            host_customer_id=customer.id,
+                            delivery_location_id=invoice.delivery_location_id,
+                            store_code=store_cd,
+                            store_name_snapshot=invoice.customer_name or customer.name,
+                            stock_model="OUTRIGHT_SALE",
+                            name=invoice.customer_name or customer.name,
+                            location=getattr(customer, "city", None) or (getattr(customer, "address", None) or "Default")[:255],
+                            status="Healthy",
+                        )
+                        session.add(party)
+                        await session.flush()
+
         if not party:
             return {"status": "SKIPPED_NO_PARTNER_LOCATION", "invoice_id": invoice_id, "projected": 0}
 
@@ -305,6 +333,101 @@ class PSVProjectionService:
 
         await session.flush()
         return {"status": "PROJECTED", "invoice_id": invoice_id, "party_id": party.id, "projected": projected}
+
+    @classmethod
+    async def sync_updated_invoice(
+        cls,
+        session: AsyncSession,
+        invoice_id: str,
+        company_id: str,
+        branch_id: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """
+        Synchronizes PSV projection when a draft or submitted sales invoice is updated.
+        Reverses obsolete line items and re-projects current items.
+        """
+        invoice = (await session.execute(
+            select(SalesInvoice).where(
+                SalesInvoice.id == invoice_id,
+                SalesInvoice.company_id == company_id,
+            ).options(selectinload(SalesInvoice.items))
+        )).scalar_one_or_none()
+        if not invoice:
+            return {"status": "NOT_FOUND", "invoice_id": invoice_id}
+
+        existing_evts = (await session.execute(
+            select(PSVStockEvent).where(
+                PSVStockEvent.company_id == company_id,
+                PSVStockEvent.invoice_id == invoice_id,
+                PSVStockEvent.movement_type == "BILLED_TO_PARTNER",
+            )
+        )).scalars().all()
+
+        current_line_ids = {str(item.id) for item in invoice.items}
+
+        for ev in existing_evts:
+            if ev.invoice_line_id and str(ev.invoice_line_id) not in current_line_ids:
+                bal_stmt = select(PSVStockBalance).where(
+                    PSVStockBalance.psv_party_id == ev.psv_party_id,
+                    PSVStockBalance.sku == ev.sku,
+                    PSVStockBalance.company_id == company_id,
+                )
+                bal = (await session.execute(bal_stmt)).scalar_one_or_none()
+                if bal:
+                    bal.billed_qty = max(Decimal("0.0000"), bal.billed_qty - ev.quantity)
+                    bal.current_balance = max(Decimal("0.0000"), bal.current_balance - ev.quantity)
+                ev.approval_status = "CANCELLED"
+                ev.sync_status = "CANCELLED"
+
+        return await cls.project_posted_invoice(
+            session=session,
+            invoice_id=invoice_id,
+            company_id=company_id,
+            branch_id=branch_id,
+        )
+
+    @classmethod
+    async def cancel_posted_invoice(
+        cls,
+        session: AsyncSession,
+        invoice_id: str,
+        company_id: str,
+    ) -> Dict[str, Any]:
+        """
+        Reverses PSV projection when a Sales Tax Invoice is cancelled or deleted.
+        Deducts billed quantities from PSVStockBalance and marks events as CANCELLED.
+        """
+        events = (await session.execute(
+            select(PSVStockEvent).where(
+                PSVStockEvent.company_id == company_id,
+                PSVStockEvent.invoice_id == invoice_id,
+            )
+        )).scalars().all()
+
+        if not events:
+            return {"status": "NO_EVENTS_FOUND", "invoice_id": invoice_id}
+
+        affected_parties = set()
+        for ev in events:
+            if ev.movement_type in ["GST_BILLED", "INVOICE", "INWARD", "BILLED_TO_PARTNER"]:
+                bal_stmt = select(PSVStockBalance).where(
+                    PSVStockBalance.psv_party_id == ev.psv_party_id,
+                    PSVStockBalance.sku == ev.sku,
+                    PSVStockBalance.company_id == company_id,
+                )
+                bal = (await session.execute(bal_stmt)).scalar_one_or_none()
+                if bal:
+                    bal.billed_qty = max(Decimal("0.0000"), bal.billed_qty - ev.quantity)
+                    bal.current_balance = max(Decimal("0.0000"), bal.current_balance - ev.quantity)
+                ev.approval_status = "CANCELLED"
+                ev.sync_status = "CANCELLED"
+                affected_parties.add(ev.psv_party_id)
+
+        for p_id in affected_parties:
+            await cls._recompute_party_metrics(session=session, party_id=p_id, company_id=company_id)
+
+        await session.flush()
+        return {"status": "CANCELLED_IN_PSV", "invoice_id": invoice_id, "reversed_events": len(events)}
 
     @classmethod
     async def is_psv_enabled_for_company(
@@ -1250,6 +1373,7 @@ class PSVProjectionService:
         clean_filter_size = size.strip().upper() if size else None
         clean_filter_app_status = approval_status.strip().upper() if approval_status else None
         clean_filter_rec_status = reconciliation_status.strip().upper() if reconciliation_status else None
+        product_parser = ProductCodeParser()
 
         for inv in invoices:
             party = (
@@ -1271,9 +1395,13 @@ class PSVProjectionService:
                 itm = items_map.get(line.item_id) or (items_map.get(prod.item_id) if prod and prod.item_id else None)
                 var = variants_map.get(line.variant_id) or (variants_map.get(prod.item_variant_id) if prod and prod.item_variant_id else None)
 
-                i_style = prod.style_code if prod and prod.style_code else (itm.style_code if itm and itm.style_code else None)
-                i_color = prod.color if prod and prod.color else (var.color if var and var.color else None)
-                i_size = prod.size if prod and prod.size else (var.size if var and var.size else None)
+                # Attribute-Based Product Code Parsing (e.g. SND-06-G-BLUE-41)
+                parsed_code = product_parser.parse(line.code) if line.code else None
+
+                i_style = prod.style_code if prod and prod.style_code else (itm.style_code if itm and itm.style_code else (parsed_code.article_code if parsed_code else None))
+                i_vendor = getattr(prod, "vendor_code", None) or (parsed_code.vendor_code if parsed_code else None)
+                i_color = prod.color if prod and prod.color else (var.color if var and var.color else (parsed_code.color_normalized or parsed_code.color if parsed_code else None))
+                i_size = prod.size if prod and prod.size else (var.size if var and var.size else (parsed_code.size_normalized or parsed_code.size if parsed_code else None))
                 i_mrp = prod.mrp if prod and prod.mrp is not None else getattr(line, "mrp", None)
                 i_price = Decimal(str(line.price or 0)) if line.price is not None else None
 
@@ -1298,6 +1426,20 @@ class PSVProjectionService:
                         if ev not in matched_events and not ev.invoice_line_id:
                             matched_events.append(ev)
 
+                # 4. Attribute-based match fallback (Article + Vendor + Color + Size)
+                if not matched_events:
+                    line_dict = {
+                        "code": line.code,
+                        "style_code": i_style,
+                        "color": i_color,
+                        "size": i_size,
+                    }
+                    for ev in events:
+                        if ev.invoice_id == inv.id and not ev.invoice_line_id and ev not in matched_events:
+                            ev_dict = {"code": ev.sku}
+                            if product_parser.match_attributes(line_dict, ev_dict):
+                                matched_events.append(ev)
+
                 # Aggregate quantities
                 app_qty = Decimal("0.0000")
                 pen_qty = Decimal("0.0000")
@@ -1320,19 +1462,25 @@ class PSVProjectionService:
                 s_qty = max(Decimal("0.0000"), doc_qty - rec_qty)
                 e_qty = max(Decimal("0.0000"), rec_qty - doc_qty)
 
-                # Determine reconciliation status
+                # Determine reconciliation and workflow status
                 if rec_qty == Decimal("0.0000"):
-                    r_status = "UNRECEIVED"
+                    r_status = "READY_FOR_RECEIVING"
+                    w_status = "Ready for Receiving"
                 elif pen_qty > Decimal("0.0000"):
                     r_status = "PENDING_APPROVAL"
+                    w_status = "Pending Approval"
                 elif s_qty > Decimal("0.0000"):
                     r_status = "SHORTAGE"
+                    w_status = "Discrepancy: Shortage"
                 elif e_qty > Decimal("0.0000"):
                     r_status = "EXCESS"
+                    w_status = "Discrepancy: Excess"
                 elif rej_qty > Decimal("0.0000"):
                     r_status = "HAS_REJECTIONS"
+                    w_status = "Has Rejections"
                 else:
                     r_status = "RECONCILED"
+                    w_status = "Reconciled"
 
                 # Filters evaluation
                 if clean_filter_style and (i_style or "").strip().upper() != clean_filter_style:
@@ -1341,8 +1489,12 @@ class PSVProjectionService:
                     continue
                 if clean_filter_size and (i_size or "").strip().upper() != clean_filter_size:
                     continue
-                if clean_filter_rec_status and r_status.upper() != clean_filter_rec_status:
-                    continue
+                if clean_filter_rec_status:
+                    if clean_filter_rec_status in ("UNRECEIVED", "READY_FOR_RECEIVING"):
+                        if r_status not in ("UNRECEIVED", "READY_FOR_RECEIVING"):
+                            continue
+                    elif r_status.upper() != clean_filter_rec_status:
+                        continue
                 if clean_filter_app_status == "PENDING" and pen_qty <= Decimal("0.0000"):
                     continue
                 if clean_filter_app_status == "APPROVED" and (app_qty <= Decimal("0.0000") or pen_qty > Decimal("0.0000")):
@@ -1379,8 +1531,9 @@ class PSVProjectionService:
                     delivery_location_id=d_loc_id,
                     invoice_line_id=line_str_id,
                     sku=line.code,
-                    product_name=line.name,
+                    product_name=line.name or (prod.name if prod else line.code),
                     style_code=i_style,
+                    vendor_code=i_vendor,
                     color=i_color,
                     size=i_size,
                     mrp=Decimal(str(i_mrp)) if i_mrp is not None else None,
@@ -1393,6 +1546,7 @@ class PSVProjectionService:
                     excess_qty=e_qty,
                     rejected_qty=rej_qty,
                     reconciliation_status=r_status,
+                    workflow_status=w_status,
                     events_count=len([e for e in matched_events if e.movement_type.upper() not in ("BILLED_TO_PARTNER", "INVOICE", "GST_BILLED")]),
                     pending_event_ids=pen_ids,
                 )

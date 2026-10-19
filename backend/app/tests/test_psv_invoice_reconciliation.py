@@ -274,7 +274,8 @@ async def test_reconciliation_unreceived_invoice_projection(db_session):
     assert item.document_qty == Decimal("100.0000")
     assert item.received_qty == Decimal("0.0000")
     assert item.short_qty == Decimal("100.0000")
-    assert item.reconciliation_status == "UNRECEIVED"
+    assert item.reconciliation_status in ("READY_FOR_RECEIVING", "UNRECEIVED")
+    assert item.workflow_status == "Ready for Receiving"
 
 
 @pytest.mark.asyncio

@@ -24,6 +24,7 @@ from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 
 from app.services.invoice_pdf_service import InvoicePdfService
 from app.services.dispatch_invoicing_engine import DISPATCH_FROM_SNAPSHOT
+from app.services.product_code_parser import ProductCodeParser
 
 try:
     from playwright.async_api import async_playwright
@@ -372,12 +373,13 @@ class DispatchArtifactPipeline:
             cell.fill = PatternFill(start_color="0F766E", end_color="0F766E", fill_type="solid")
             cell.alignment = center_align
 
+        parser = ProductCodeParser()
         for rec in invoice_records:
             for it in rec["items"]:
-                parts = it["code"].split("-")
-                art = parts[0] if len(parts) > 0 else ""
-                color = parts[1] if len(parts) > 1 else ""
-                sz = parts[2] if len(parts) > 2 else ""
+                parsed = parser.parse(it.get("code") or "")
+                art = parsed.article_code or ""
+                color = parsed.color_normalized or parsed.color or ""
+                sz = parsed.size_normalized or parsed.size or ""
 
                 row_v = [
                     rec["invoice_no"],
