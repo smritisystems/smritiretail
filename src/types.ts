@@ -220,6 +220,53 @@ export interface PSVParty {
   skuTracking?: PSVPartySkuTracking[]; // per-SKU tracking
 }
 
+export interface PSVQuantityReconciliationItem {
+  invoice_id: string;
+  invoice_no: string;
+  invoice_date?: string | null;
+  party_id: string;
+  party_name: string;
+  store_code?: string | null;
+  delivery_location_id?: string | null;
+  invoice_line_id: string;
+  sku: string;
+  product_name: string;
+  style_code?: string | null;
+  color?: string | null;
+  size?: string | null;
+  mrp?: number | null;
+  unit_price?: number | null;
+  document_qty: number;
+  received_qty: number;
+  pending_approval_qty: number;
+  approved_qty: number;
+  short_qty: number;
+  excess_qty: number;
+  rejected_qty: number;
+  reconciliation_status: "RECONCILED" | "SHORTAGE" | "EXCESS" | "PENDING_APPROVAL" | "UNRECEIVED" | "HAS_REJECTIONS";
+  events_count: number;
+  pending_event_ids: string[];
+}
+
+export interface PSVQuantityReconciliationSummary {
+  total_items: number;
+  total_document_qty: number;
+  total_received_qty: number;
+  total_pending_approval_qty: number;
+  total_approved_qty: number;
+  total_short_qty: number;
+  total_excess_qty: number;
+  total_rejected_qty: number;
+  reconciled_count: number;
+  discrepancy_count: number;
+  pending_approval_count: number;
+}
+
+export interface PSVQuantityReconciliationResponse {
+  summary: PSVQuantityReconciliationSummary;
+  items: PSVQuantityReconciliationItem[];
+}
+
 export interface Bill {
   id: string;
   timestamp: string;

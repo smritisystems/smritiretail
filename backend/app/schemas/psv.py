@@ -137,3 +137,87 @@ class PSVStoreResolutionResp(BaseModel):
     is_newly_created: bool
     status: str = "Healthy"
 
+
+class PSVQuantityReconciliationItem(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    invoice_id: str
+    invoice_no: str
+    invoice_date: Optional[str] = None
+    party_id: str
+    party_name: str
+    store_code: Optional[str] = None
+    delivery_location_id: Optional[str] = None
+    invoice_line_id: str
+    sku: str
+    product_name: str
+    style_code: Optional[str] = None
+    color: Optional[str] = None
+    size: Optional[str] = None
+    mrp: Optional[Decimal] = None
+    unit_price: Optional[Decimal] = None
+    document_qty: Decimal = Decimal("0.0000")
+    received_qty: Decimal = Decimal("0.0000")
+    pending_approval_qty: Decimal = Decimal("0.0000")
+    approved_qty: Decimal = Decimal("0.0000")
+    short_qty: Decimal = Decimal("0.0000")
+    excess_qty: Decimal = Decimal("0.0000")
+    rejected_qty: Decimal = Decimal("0.0000")
+    reconciliation_status: str = "UNRECEIVED"
+    events_count: int = 0
+    pending_event_ids: List[str] = Field(default_factory=list)
+
+
+class PSVQuantityReconciliationSummary(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    total_items: int = 0
+    total_document_qty: Decimal = Decimal("0.0000")
+    total_received_qty: Decimal = Decimal("0.0000")
+    total_pending_approval_qty: Decimal = Decimal("0.0000")
+    total_approved_qty: Decimal = Decimal("0.0000")
+    total_short_qty: Decimal = Decimal("0.0000")
+    total_excess_qty: Decimal = Decimal("0.0000")
+    total_rejected_qty: Decimal = Decimal("0.0000")
+    reconciled_count: int = 0
+    discrepancy_count: int = 0
+    pending_approval_count: int = 0
+
+
+class PSVQuantityReconciliationResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    summary: PSVQuantityReconciliationSummary
+    items: List[PSVQuantityReconciliationItem] = Field(default_factory=list)
+
+
+class PSVReceiveInvoiceLineReq(BaseModel):
+    invoice_line_id: Optional[str] = None
+    sku: Optional[str] = None
+    style_code: Optional[str] = None
+    color: Optional[str] = None
+    size: Optional[str] = None
+    received_qty: Decimal = Field(default=Decimal("0.0000"), ge=Decimal("0.0000"))
+    rejected_qty: Decimal = Field(default=Decimal("0.0000"), ge=Decimal("0.0000"))
+    rejection_reason: Optional[str] = None
+
+
+class PSVReceiveInvoiceReq(BaseModel):
+    invoice_id: str
+    party_id: Optional[str] = None
+    receipt_reference: Optional[str] = None
+    receipt_date: Optional[datetime] = None
+    auto_approve: bool = False
+    items: List[PSVReceiveInvoiceLineReq]
+
+
+class PSVReceiveInvoiceResp(BaseModel):
+    status: str
+    invoice_id: str
+    party_id: str
+    events_created: int
+    approved_count: int
+    pending_count: int
+    event_ids: List[str] = Field(default_factory=list)
+
+
