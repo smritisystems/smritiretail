@@ -152,6 +152,177 @@ async def import_style_article_from_po_pdf(
     return {"created": created, "source": file.filename, "vendorCode": vendor_code}
 
 
+@router.post(
+    "/lookup/style_article/sync-from-pos",
+    status_code=200,
+    dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))],
+)
+async def sync_style_article_from_purchase_orders(
+    vendor_code: Optional[str] = Query(None, description="Optional vendor code to filter sync"),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Extract distinct article/style codes from Purchase Orders and register/assign them
+    to the respective vendor in the style_article Master Lookup.
+    """
+    from ...models.purchase import PurchaseOrder, PurchaseOrderItem, Supplier
+    from ...models.inventory import Product
+
+    type_code = "style_article"
+    q_type = select(MasterType).where(MasterType.code == type_code)
+    res_type = await db.execute(q_type)
+    master_type = res_type.scalar_one_or_none()
+    if not master_type:
+        raise HTTPException(status_code=404, detail=f"Master type with code '{type_code}' not found.")
+
+    company_id = getattr(current_user, "company_id", None)
+    branch_id = getattr(current_user, "branch_id", None)
+
+    po_query = (
+        select(
+            PurchaseOrder.supplier_id,
+            Supplier.code.label("supplier_code"),
+            Product.style_code,
+            PurchaseOrderItem.code.label("item_code"),
+            PurchaseOrderItem.name.label("item_name"),
+        )
+        .select_from(PurchaseOrder)
+        .join(PurchaseOrderItem, PurchaseOrderItem.order_id == PurchaseOrder.id)
+        .join(Product, Product.id == PurchaseOrderItem.product_id)
+        .outerjoin(Supplier, Supplier.id == PurchaseOrder.supplier_id)
+        .where(
+            PurchaseOrder.is_deleted == False,
+        )
+    )
+    if company_id:
+        po_query = po_query.where(PurchaseOrder.company_id == company_id)
+
+    res_lines = await db.execute(po_query)
+    lines = res_lines.fetchall()
+
+    style_to_vendor: dict[str, str] = {}
+    target_clean = vendor_code.strip().upper() if vendor_code else None
+
+    for r in lines:
+        m = dict(r._mapping)
+        style = (m["style_code"] or "").strip().upper()
+        if not style and m["item_code"] and "-" in m["item_code"]:
+            parts = m["item_code"].split("-")
+            if len(parts) >= 3:
+                style = "-".join(parts[:-2]).upper()
+        if not style:
+            continue
+
+        vcode = (m["supplier_code"] or "").strip().upper()
+        if not vcode and m["supplier_id"]:
+            if "tt_" in m["supplier_id"]:
+                vcode = m["supplier_id"].split("tt_")[1].split("_")[0].upper()
+            elif "-" in m["supplier_id"]:
+                vcode = m["supplier_id"].split("-")[-1].upper()
+        if not vcode:
+            continue
+
+        if target_clean and vcode != target_clean:
+            continue
+
+        style_to_vendor[style] = vcode
+
+    created_count = 0
+    updated_count = 0
+    synced_items = []
+
+    for style, vcode in style_to_vendor.items():
+        q_val = select(MasterValue).where(
+            MasterValue.master_type_id == master_type.id,
+            MasterValue.code == style,
+            MasterValue.is_deleted == False,
+        )
+        if company_id:
+            q_val = q_val.where(MasterValue.company_id == company_id)
+
+        existing = (await db.execute(q_val)).scalar_one_or_none()
+        if existing:
+            if existing.vendor_code != vcode:
+                existing.vendor_code = vcode
+                existing.updated_at = datetime.now(timezone.utc)
+                updated_count += 1
+            synced_items.append({"id": str(existing.id), "code": existing.code, "vendorCode": existing.vendor_code, "action": "RETAINED_OR_UPDATED"})
+        else:
+            new_item = MasterValue(
+                master_type_id=master_type.id,
+                company_id=company_id,
+                branch_id=branch_id,
+                code=style,
+                name=style,
+                vendor_code=vcode,
+                parent_value_id=None,
+                data={"source": "PURCHASE_ORDER_SYNC"},
+                active=True,
+                sort_order=0,
+                is_deleted=False,
+            )
+            db.add(new_item)
+            await db.flush()
+            created_count += 1
+            synced_items.append({"id": str(new_item.id), "code": new_item.code, "vendorCode": new_item.vendor_code, "action": "CREATED"})
+
+    await db.commit()
+    return {
+        "status": "SUCCESS",
+        "synced_count": len(style_to_vendor),
+        "created_count": created_count,
+        "updated_count": updated_count,
+        "vendor_code": target_clean,
+        "styles": style_to_vendor,
+        "items": synced_items,
+    }
+
+
+@router.post(
+    "/lookup/style_article/values/{id}/unassign",
+    response_model=MasterValueResponse,
+    dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))],
+)
+async def unassign_style_article_vendor(
+    id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Unassign vendor ownership from a style/article lookup value."""
+    type_code = "style_article"
+    q_type = select(MasterType).where(MasterType.code == type_code)
+    master_type = (await db.execute(q_type)).scalar_one_or_none()
+    if not master_type:
+        raise HTTPException(status_code=404, detail="Master type 'style_article' not found.")
+
+    q_val = select(MasterValue).where(
+        MasterValue.id == id,
+        MasterValue.master_type_id == master_type.id,
+        MasterValue.is_deleted.is_(False),
+    ).with_for_update()
+    item = (await db.execute(q_val)).scalar_one_or_none()
+    if not item:
+        raise HTTPException(status_code=404, detail="Article / Style value not found.")
+
+    before_vendor = item.vendor_code
+    item.vendor_code = None
+    item.updated_at = datetime.now(timezone.utc)
+    await _audit_master_value_change(
+        db,
+        current_user,
+        "UNASSIGN_VENDOR",
+        type_code,
+        str(item.id),
+        f"Unassigned vendor '{before_vendor}' from style_article '{item.code}'.",
+        before={"vendor_code": before_vendor},
+        after={"vendor_code": None},
+    )
+    await db.commit()
+    await db.refresh(item)
+    return item
+
+
 async def _audit_master_value_change(
     db: AsyncSession,
     current_user: User,
@@ -1041,25 +1212,36 @@ async def update_lookup_value(
         )
     if payload.name is not None:
         setattr(item, "name", payload.name)
-    if payload.vendorCode is not None:
+    if "vendorCode" in payload.model_fields_set or payload.vendorCode is not None:
         if type_code != "style_article":
             raise HTTPException(status_code=400, detail="Vendor ownership is supported only for Style / Article values.")
-        vendor_code = payload.vendorCode.strip().upper()
-        vendor_lookup_type = await db.scalar(select(MasterType).where(MasterType.code == "vendor_code"))
-        vendor_query = select(MasterValue).where(
-            MasterValue.master_type_id == vendor_lookup_type.id if vendor_lookup_type else False,
-            MasterValue.code == vendor_code,
-            MasterValue.active.is_(True),
-            MasterValue.is_deleted.is_(False),
-        )
-        vendor_query = _scope_value_query(vendor_query, current_user)
-        if not (await db.execute(vendor_query)).scalar_one_or_none():
-            raise HTTPException(status_code=400, detail=f"Vendor Code '{vendor_code}' is not an active System Lookup value.")
-        _assign_single_vendor_owner(
-            item,
-            vendor_code,
-            allow_reassign=_is_sysadmin(current_user),
-        )
+        raw_code = (payload.vendorCode or "").strip().upper() if payload.vendorCode else ""
+        if not raw_code:
+            # Unassign article from vendor
+            item.vendor_code = None
+        else:
+            vendor_lookup_type = await db.scalar(select(MasterType).where(MasterType.code == "vendor_code"))
+            if vendor_lookup_type:
+                vendor_query = select(MasterValue).where(
+                    MasterValue.master_type_id == vendor_lookup_type.id,
+                    MasterValue.code == raw_code,
+                    MasterValue.active.is_(True),
+                    MasterValue.is_deleted.is_(False),
+                )
+                vendor_query = _scope_value_query(vendor_query, current_user)
+                has_code = (await db.execute(vendor_query)).scalar_one_or_none()
+                if not has_code:
+                    from ...models.purchase import Supplier
+                    from ...models.party import Party
+                    sup_match = await db.scalar(select(Supplier).where(Supplier.code == raw_code, Supplier.is_deleted == False))
+                    party_match = await db.scalar(select(Party).where(Party.party_code == raw_code, Party.is_deleted == False))
+                    if not sup_match and not party_match:
+                        raise HTTPException(status_code=400, detail=f"Vendor Code '{raw_code}' is not an active System Lookup value or Supplier.")
+            _assign_single_vendor_owner(
+                item,
+                raw_code,
+                allow_reassign=True,
+            )
     if payload.parent_value_id is not None:
         setattr(item, "parent_value_id", payload.parent_value_id)
     if payload.active is not None:

@@ -41,7 +41,11 @@ import {
   ArchiveRestore,
   Ban,
   AlertTriangle,
-  Loader2
+  Loader2,
+  RefreshCw,
+  PackagePlus,
+  X,
+  Tag
 } from "lucide-react";
 import { 
   VendorSummary, 
@@ -244,7 +248,13 @@ const VendorArticleStyleTab: React.FC<{
 }> = ({ vendor, onNotification }) => {
   const [articles, setArticles] = useState<VendorArticleRegistryValue[]>([]);
   const [loadingArticles, setLoadingArticles] = useState(false);
-  const [assigningArticleId, setAssigningArticleId] = useState<string | null>(null);
+  const [actionArticleId, setActionArticleId] = useState<string | null>(null);
+  const [syncingPOs, setSyncingPOs] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [showNewArticleForm, setShowNewArticleForm] = useState(false);
+  const [newCode, setNewCode] = useState("");
+  const [newName, setNewName] = useState("");
+  const [savingNewArticle, setSavingNewArticle] = useState(false);
 
   const loadArticles = useCallback(async () => {
     if (!vendor) return;
@@ -265,102 +275,413 @@ const VendorArticleStyleTab: React.FC<{
     loadArticles();
   }, [loadArticles]);
 
+  const syncFromPurchaseOrders = async () => {
+    if (!vendor || syncingPOs) return;
+    setSyncingPOs(true);
+    try {
+      const res = await apiFetchV1<any>(
+        `/masters/lookup/style_article/sync-from-pos?vendor_code=${encodeURIComponent(vendor.code)}`,
+        { method: "POST" }
+      );
+      const count = res?.synced_count ?? res?.created_count ?? 0;
+      onNotification?.(
+        "PO Articles Synced",
+        `Successfully discovered and assigned ${count} Article / Style(s) from Purchase Orders for ${vendor.code}.`,
+        "success"
+      );
+      await loadArticles();
+    } catch (error: any) {
+      onNotification?.("PO Sync Failed", error?.message || "Failed to sync articles from Purchase Orders.", "error");
+    } finally {
+      setSyncingPOs(false);
+    }
+  };
+
   const assignArticle = async (article: VendorArticleRegistryValue) => {
     if (!vendor || article.vendorCode) return;
-    setAssigningArticleId(article.id);
+    setActionArticleId(article.id);
     try {
       const updated = await apiFetchV1(`/masters/lookup/style_article/values/${article.id}`, {
         method: "PUT",
         body: JSON.stringify({ vendorCode: vendor.code })
       });
       setArticles((current) => current.map((item) => item.id === article.id ? normalizeVendorArticle(updated) : item));
-      onNotification?.("Article Assigned", `${article.code} is now owned by ${vendor.code}.`, "success");
+      onNotification?.("Article Assigned", `${article.code} is now assigned to ${vendor.code}.`, "success");
     } catch (error: any) {
-      onNotification?.("Assignment Blocked", error?.message || "Article / Style could not be assigned.", "error");
+      onNotification?.("Assignment Failed", error?.message || "Article / Style could not be assigned.", "error");
     } finally {
-      setAssigningArticleId(null);
+      setActionArticleId(null);
+    }
+  };
+
+  const unassignArticle = async (article: VendorArticleRegistryValue) => {
+    if (!vendor) return;
+    setActionArticleId(article.id);
+    try {
+      const updated = await apiFetchV1(`/masters/lookup/style_article/values/${article.id}/unassign`, {
+        method: "POST"
+      });
+      setArticles((current) => current.map((item) => item.id === article.id ? normalizeVendorArticle(updated) : item));
+      onNotification?.("Article Unassigned", `${article.code} has been unassigned from ${vendor.code}.`, "info");
+    } catch (error: any) {
+      try {
+        const updated = await apiFetchV1(`/masters/lookup/style_article/values/${article.id}`, {
+          method: "PUT",
+          body: JSON.stringify({ vendorCode: null })
+        });
+        setArticles((current) => current.map((item) => item.id === article.id ? normalizeVendorArticle(updated) : item));
+        onNotification?.("Article Unassigned", `${article.code} has been unassigned from ${vendor.code}.`, "info");
+      } catch (fallbackError: any) {
+        onNotification?.("Unassign Failed", fallbackError?.message || error?.message || "Could not unassign article.", "error");
+      }
+    } finally {
+      setActionArticleId(null);
+    }
+  };
+
+  const handleCreateAndAssign = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!vendor || !newCode.trim()) return;
+    setSavingNewArticle(true);
+    try {
+      const created = await apiFetchV1<any>(`/masters/lookup/style_article/values`, {
+        method: "POST",
+        body: JSON.stringify({
+          code: newCode.trim().toUpperCase(),
+          name: newName.trim() || newCode.trim().toUpperCase(),
+          vendorCode: vendor.code,
+          active: true
+        })
+      });
+      setArticles((current) => [
+        ...current.filter((item) => item.code !== created.code),
+        normalizeVendorArticle(created)
+      ]);
+      setNewCode("");
+      setNewName("");
+      setShowNewArticleForm(false);
+      onNotification?.("Article Created", `Created and assigned ${created.code} to ${vendor.code}.`, "success");
+    } catch (error: any) {
+      onNotification?.("Create Failed", error?.message || "Could not create article.", "error");
+    } finally {
+      setSavingNewArticle(false);
     }
   };
 
   if (!vendor) return null;
 
   const vendorCodeUpper = (vendor.code || "").toUpperCase();
-  // Strict Vendor Isolation: Only articles owned by this vendor are assigned
-  const assignedArticles = articles.filter((article) => article.vendorCode?.toUpperCase() === vendorCodeUpper);
-  // Unassigned pool: articles not owned by any vendor available to be claimed
-  const unassignedArticles = articles.filter((article) => !article.vendorCode);
+  const q = searchQuery.trim().toLowerCase();
+
+  const allAssignedArticles = articles.filter(
+    (article) => article.vendorCode?.toUpperCase() === vendorCodeUpper
+  );
+
+  const assignedArticles = allAssignedArticles.filter((article) => {
+    if (!q) return true;
+    return article.code.toLowerCase().includes(q) || article.name.toLowerCase().includes(q);
+  });
+
+  const unassignedArticles = articles.filter((article) => {
+    if (article.vendorCode) return false;
+    if (!q) return true;
+    return article.code.toLowerCase().includes(q) || article.name.toLowerCase().includes(q);
+  });
+
+  const totalAssignedCount = allAssignedArticles.length;
+  const totalUnassignedCount = articles.filter((a) => !a.vendorCode).length;
 
   return (
     <div className="space-y-4">
-      <div className="rounded-xl border border-indigo-200 bg-indigo-50/60 px-3 py-2 text-[11px] text-indigo-700 dark:border-indigo-500/30 dark:bg-indigo-500/10 dark:text-indigo-300">
-        Register and maintain Article / Style definitions owned by {vendor.code} for this vendor directory entry.
-      </div>
-      <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900/40">
-        <div className="flex items-center justify-between border-b border-slate-200 pb-3 dark:border-slate-800">
-          <div>
-            <h3 className="text-sm font-bold text-slate-900 dark:text-white">Master Registry Articles / Styles</h3>
-            <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
-              Articles owned by {vendor.code}. Only {vendor.code} can view and use these articles.
-            </p>
-          </div>
-          <span className="rounded border border-indigo-200 bg-indigo-50 px-2 py-1 text-[10px] font-mono font-bold text-indigo-700 dark:border-indigo-500/30 dark:bg-indigo-500/10 dark:text-indigo-300">
-            {assignedArticles.length} assigned
+      {/* Informational Guidance Banner */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl border border-indigo-200 bg-indigo-50/70 p-3 text-xs text-indigo-900 dark:border-indigo-500/30 dark:bg-indigo-500/10 dark:text-indigo-200">
+        <div className="flex items-center gap-2.5">
+          <Tag className="h-4 w-4 shrink-0 text-indigo-600 dark:text-indigo-400" />
+          <span>
+            Manage Article / Style definitions for vendor <strong>{vendor.code}</strong>. You can automatically sync styles from Purchase Orders or assign and unassign catalog styles anytime.
           </span>
         </div>
-        {loadingArticles ? (
-          <div className="py-8 text-center text-xs text-slate-400">Loading Master Registry articles...</div>
-        ) : assignedArticles.length === 0 && unassignedArticles.length === 0 ? (
-          <div className="py-8 text-center text-xs text-slate-400">No active Article / Style values found for {vendor.code}.</div>
-        ) : (
-          <div className="mt-3 max-h-64 space-y-2 overflow-y-auto pr-1">
-            {assignedArticles.map((article) => (
-              <div key={article.id} className="flex items-center justify-between rounded-lg border border-slate-200 px-3 py-2 dark:border-slate-800">
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="truncate text-xs font-bold text-slate-900 dark:text-white">{article.name}</span>
-                    <span className="font-mono text-[10px] text-slate-500">{article.code}</span>
-                  </div>
-                  <div className="mt-0.5 text-[10px] text-slate-400">
-                    Owned by {vendor.code}
-                  </div>
-                </div>
-                <span className="shrink-0 rounded border border-emerald-200 bg-emerald-50 px-2 py-1 text-[10px] font-bold text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-300">Assigned</span>
-              </div>
-            ))}
+        <div className="flex items-center gap-2 self-end sm:self-auto shrink-0">
+          <button
+            type="button"
+            onClick={syncFromPurchaseOrders}
+            disabled={syncingPOs || loadingArticles}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-indigo-300 bg-white px-3 py-1.5 text-[11px] font-semibold text-indigo-700 shadow-sm transition-all hover:bg-indigo-50 active:scale-95 disabled:opacity-50 dark:border-indigo-500/40 dark:bg-slate-800 dark:text-indigo-300 dark:hover:bg-slate-700"
+            title="Scan Purchase Orders to discover styles ordered from this vendor and automatically assign them"
+          >
+            <RefreshCw className={`h-3.5 w-3.5 ${syncingPOs ? "animate-spin text-indigo-600" : ""}`} />
+            {syncingPOs ? "Syncing POs..." : "Assign from Purchase Orders"}
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowNewArticleForm((prev) => !prev)}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-[11px] font-semibold text-white shadow-sm transition-all hover:bg-indigo-500 active:scale-95"
+          >
+            {showNewArticleForm ? (
+              <>
+                <X className="h-3.5 w-3.5" />
+                Cancel
+              </>
+            ) : (
+              <>
+                <Plus className="h-3.5 w-3.5" />
+                + New Article
+              </>
+            )}
+          </button>
+        </div>
+      </div>
 
-            {unassignedArticles.length > 0 && (
-              <div className="pt-2 border-t border-slate-100 dark:border-slate-800 mt-2">
-                <div className="text-[10px] font-bold uppercase text-slate-400 dark:text-slate-500 mb-2">
-                  Unassigned Articles (Available to Claim)
+      {/* New Article Quick Creator Form */}
+      {showNewArticleForm && (
+        <form
+          onSubmit={handleCreateAndAssign}
+          className="rounded-xl border border-indigo-200 bg-white p-4 shadow-sm dark:border-indigo-900/50 dark:bg-slate-900/70"
+        >
+          <div className="mb-3 flex items-center justify-between">
+            <h4 className="text-xs font-bold text-slate-800 dark:text-slate-100 flex items-center gap-1.5">
+              <PackagePlus className="h-4 w-4 text-indigo-600" />
+              Register New Article / Style for {vendor.code}
+            </h4>
+            <span className="text-[10px] text-slate-400">Will be saved to Master Registry and linked directly</span>
+          </div>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div>
+              <label className="block text-[11px] font-medium text-slate-600 dark:text-slate-300 mb-1">
+                Article / Style Code <span className="text-rose-500">*</span>
+              </label>
+              <input
+                type="text"
+                placeholder="e.g. CH-26-G or ART-900"
+                value={newCode}
+                onChange={(e) => setNewCode(e.target.value)}
+                required
+                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-mono uppercase text-slate-900 placeholder-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+              />
+            </div>
+            <div>
+              <label className="block text-[11px] font-medium text-slate-600 dark:text-slate-300 mb-1">
+                Article Name / Description
+              </label>
+              <input
+                type="text"
+                placeholder="e.g. Leather Oxford Shoes"
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs text-slate-900 placeholder-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+              />
+            </div>
+          </div>
+          <div className="mt-3 flex items-center justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                setShowNewArticleForm(false);
+                setNewCode("");
+                setNewName("");
+              }}
+              className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={savingNewArticle || !newCode.trim()}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-1.5 text-xs font-semibold text-white hover:bg-indigo-500 disabled:opacity-50"
+            >
+              {savingNewArticle && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+              Save & Assign
+            </button>
+          </div>
+        </form>
+      )}
+
+      {/* Main Articles Workspace Card */}
+      <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900/40">
+        {/* Header with Search and Counters */}
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-slate-200 pb-3 dark:border-slate-800">
+          <div>
+            <div className="flex items-center gap-2">
+              <h3 className="text-sm font-bold text-slate-900 dark:text-white">Master Registry Articles / Styles</h3>
+              <span className="rounded-full border border-indigo-200 bg-indigo-50 px-2 py-0.5 text-[10px] font-mono font-bold text-indigo-700 dark:border-indigo-500/30 dark:bg-indigo-500/10 dark:text-indigo-300">
+                {totalAssignedCount} assigned
+              </span>
+              {totalUnassignedCount > 0 && (
+                <span className="rounded-full border border-slate-200 bg-slate-100 px-2 py-0.5 text-[10px] font-mono text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400">
+                  {totalUnassignedCount} pool
+                </span>
+              )}
+            </div>
+            <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
+              Articles assigned to {vendor.code}. Use &ldquo;Unassign&rdquo; to detach an article or claim unassigned styles below.
+            </p>
+          </div>
+
+          <div className="relative w-full sm:w-64">
+            <Search className="absolute left-2.5 top-2 h-3.5 w-3.5 text-slate-400" />
+            <input
+              type="text"
+              placeholder="Search style or code..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full rounded-lg border border-slate-200 bg-slate-50/50 py-1.5 pl-8 pr-7 text-xs text-slate-900 placeholder-slate-400 focus:border-indigo-500 focus:bg-white focus:outline-none focus:ring-1 focus:ring-indigo-500 dark:border-slate-700 dark:bg-slate-800/60 dark:text-white"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery("")}
+                className="absolute right-2 top-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Content Section */}
+        {loadingArticles ? (
+          <div className="py-12 flex flex-col items-center justify-center gap-2 text-xs text-slate-400">
+            <Loader2 className="h-5 w-5 animate-spin text-indigo-500" />
+            <span>Loading Master Registry articles...</span>
+          </div>
+        ) : assignedArticles.length === 0 && unassignedArticles.length === 0 ? (
+          <div className="py-10 text-center">
+            <Package className="mx-auto h-8 w-8 text-slate-300 dark:text-slate-600" />
+            <p className="mt-2 text-xs font-semibold text-slate-600 dark:text-slate-300">
+              {searchQuery ? `No articles match "${searchQuery}"` : `No articles found for ${vendor.code}`}
+            </p>
+            <p className="mt-1 text-[11px] text-slate-400">
+              Click &ldquo;Assign from Purchase Orders&rdquo; above to automatically link all styles ever ordered from {vendor.code}.
+            </p>
+            {!searchQuery && (
+              <button
+                type="button"
+                onClick={syncFromPurchaseOrders}
+                disabled={syncingPOs}
+                className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-indigo-50 px-3 py-1.5 text-xs font-medium text-indigo-600 hover:bg-indigo-100 dark:bg-indigo-900/30 dark:text-indigo-300"
+              >
+                <RefreshCw className={`h-3.5 w-3.5 ${syncingPOs ? "animate-spin" : ""}`} />
+                Scan & Assign from POs Now
+              </button>
+            )}
+          </div>
+        ) : (
+          <div className="mt-3 space-y-4">
+            {/* Assigned Articles List */}
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                  Assigned to {vendor.code} ({assignedArticles.length})
+                </span>
+              </div>
+              {assignedArticles.length === 0 ? (
+                <div className="rounded-lg border border-dashed border-slate-200 p-4 text-center text-xs text-slate-400 dark:border-slate-800">
+                  No articles currently assigned{searchQuery ? " matching query" : ""}.
                 </div>
-                <div className="space-y-2">
-                  {unassignedArticles.map((article) => (
-                    <div key={article.id} className="flex items-center justify-between rounded-lg border border-dashed border-slate-200 px-3 py-2 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/20">
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2">
-                          <span className="truncate text-xs font-bold text-slate-900 dark:text-white">{article.name}</span>
-                          <span className="font-mono text-[10px] text-slate-500">{article.code}</span>
+              ) : (
+                <div className="max-h-72 space-y-1.5 overflow-y-auto pr-1">
+                  {assignedArticles.map((article) => {
+                    const isBusy = actionArticleId === article.id;
+                    return (
+                      <div
+                        key={article.id}
+                        className="group flex items-center justify-between rounded-lg border border-slate-200 bg-white px-3 py-2 transition-colors hover:border-slate-300 dark:border-slate-800 dark:bg-slate-900/20 dark:hover:border-slate-700"
+                      >
+                        <div className="min-w-0 pr-3">
+                          <div className="flex items-center gap-2">
+                            <span className="truncate text-xs font-bold text-slate-900 dark:text-white">
+                              {article.name}
+                            </span>
+                            <span className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                              {article.code}
+                            </span>
+                          </div>
+                          <div className="mt-0.5 flex items-center gap-2 text-[10px] text-slate-400">
+                            <span>Owned by {vendor.code}</span>
+                            <span>•</span>
+                            <span className="text-emerald-600 dark:text-emerald-400">Active in Master Registry</span>
+                          </div>
                         </div>
-                        <div className="mt-0.5 text-[10px] text-slate-400">
-                          Unassigned
+
+                        <div className="flex items-center gap-2 shrink-0">
+                          <span className="rounded-md border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-300">
+                            Assigned
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => unassignArticle(article)}
+                            disabled={isBusy}
+                            className="inline-flex items-center gap-1 rounded-md border border-rose-200 bg-rose-50/50 px-2 py-1 text-[10px] font-medium text-rose-700 transition-colors hover:bg-rose-100 hover:border-rose-300 active:scale-95 disabled:opacity-50 dark:border-rose-900/50 dark:bg-rose-950/30 dark:text-rose-300 dark:hover:bg-rose-900/50"
+                            title={`Unassign ${article.code} from ${vendor.code} (makes it unassigned)`}
+                          >
+                            {isBusy ? (
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                            ) : (
+                              <X className="h-3 w-3" />
+                            )}
+                            {isBusy ? "Unassigning..." : "Unassign"}
+                          </button>
                         </div>
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => assignArticle(article)}
-                        disabled={assigningArticleId === article.id}
-                        className="shrink-0 rounded bg-indigo-600 px-2.5 py-1 text-[10px] font-bold text-white hover:bg-indigo-500 disabled:opacity-50"
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Unassigned Pool Section */}
+            {unassignedArticles.length > 0 && (
+              <div className="border-t border-slate-200 pt-3 dark:border-slate-800">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                    Unassigned Catalog Pool ({unassignedArticles.length}) — Available to Claim
+                  </span>
+                </div>
+                <div className="max-h-60 space-y-1.5 overflow-y-auto pr-1">
+                  {unassignedArticles.map((article) => {
+                    const isBusy = actionArticleId === article.id;
+                    return (
+                      <div
+                        key={article.id}
+                        className="flex items-center justify-between rounded-lg border border-dashed border-slate-200 bg-slate-50/60 px-3 py-2 dark:border-slate-800 dark:bg-slate-900/30"
                       >
-                        {assigningArticleId === article.id ? "Assigning..." : `Assign to ${vendor.code}`}
-                      </button>
-                    </div>
-                  ))}
+                        <div className="min-w-0 pr-3">
+                          <div className="flex items-center gap-2">
+                            <span className="truncate text-xs font-bold text-slate-900 dark:text-white">
+                              {article.name}
+                            </span>
+                            <span className="rounded bg-slate-200/70 px-1.5 py-0.5 font-mono text-[10px] text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                              {article.code}
+                            </span>
+                          </div>
+                          <div className="mt-0.5 text-[10px] text-slate-400">
+                            Unassigned — not linked to any vendor
+                          </div>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => assignArticle(article)}
+                          disabled={isBusy}
+                          className="inline-flex items-center gap-1 shrink-0 rounded-md bg-indigo-600 px-2.5 py-1 text-[10px] font-semibold text-white shadow-sm transition-all hover:bg-indigo-500 active:scale-95 disabled:opacity-50"
+                        >
+                          {isBusy ? (
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                          ) : (
+                            <Plus className="h-3 w-3" />
+                          )}
+                          {isBusy ? "Assigning..." : `Assign to ${vendor.code}`}
+                        </button>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             )}
           </div>
         )}
       </div>
+
       <VariantTplSec
         products={[]}
         onRefreshProducts={async () => undefined}
@@ -369,7 +690,7 @@ const VendorArticleStyleTab: React.FC<{
         }}
         defaultVendorCode={vendor.code}
         vendorFilterCode={vendor.code}
-        articleOptions={assignedArticles}
+        articleOptions={allAssignedArticles}
       />
     </div>
   );
