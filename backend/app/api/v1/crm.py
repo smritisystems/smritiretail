@@ -4,9 +4,9 @@ Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
-Version      : 3.9.0
+Version      : 3.10.0
 Created      : 2026-07-11
-Modified     : 2026-07-11
+Modified     : 2026-10-19
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 """
@@ -791,6 +791,313 @@ async def merge_customer(
     return await service.merge_customer(target_id, source_id)
 
 
+
+# ---------------------------------------------------------------------------
+# CUSTOMER CATALOGUE — Per-Customer Sub-Resource Endpoints (v3.10.0)
+# ---------------------------------------------------------------------------
+
+@router.get(
+    "/customers/{customer_id}/loyalty",
+    summary="Customer Loyalty Profile",
+    tags=["Customer Catalogue"],
+)
+async def get_customer_loyalty(
+    customer_id: str,
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+):
+    """
+    Returns the loyalty membership profile, points balance, tier, and recent
+    loyalty transactions for a given customer.
+    """
+    from ...models.loyalty import LoyaltyMember, LoyaltyTier, LoyaltyPointsLedger
+
+    member_stmt = select(LoyaltyMember).where(
+        LoyaltyMember.customer_id == customer_id,
+        LoyaltyMember.company_id == tenant_ctx.company_id,
+        LoyaltyMember.is_deleted == False,
+    )
+    member = (await db.execute(member_stmt)).scalars().first()
+    if not member:
+        return {
+            "customer_id": customer_id,
+            "enrolled": False,
+            "member_id": None,
+            "card_number": None,
+            "loyalty_program_id": None,
+            "loyalty_program_code": None,
+            "tier_id": None,
+            "tier_name": None,
+            "current_points_balance": 0,
+            "total_points_earned": 0,
+            "total_points_redeemed": 0,
+            "total_lifetime_spend": 0,
+            "joined_date": None,
+            "recent_transactions": [],
+        }
+
+    # Fetch tier name
+    tier_name = None
+    if member.loyalty_tier_id:
+        tier_stmt = select(LoyaltyTier).where(LoyaltyTier.id == member.loyalty_tier_id)
+        tier = (await db.execute(tier_stmt)).scalars().first()
+        tier_name = tier.name if tier else None
+
+    # Fetch last 10 loyalty transactions
+    txn_stmt = (
+        select(LoyaltyPointsLedger)
+        .where(LoyaltyPointsLedger.member_id == member.id)
+        .order_by(LoyaltyPointsLedger.timestamp.desc())
+        .limit(10)
+    )
+    txns = (await db.execute(txn_stmt)).scalars().all()
+    recent_transactions = [
+        {
+            "id": t.id,
+            "transaction_type": t.transaction_type,
+            "points": float(t.points or 0),
+            "reference_invoice_id": t.reference_invoice_id,
+            "narration": t.narration,
+            "timestamp": t.timestamp.isoformat() if t.timestamp else None,
+        }
+        for t in txns
+    ]
+
+    return {
+        "customer_id": customer_id,
+        "enrolled": True,
+        "member_id": member.id,
+        "card_number": member.card_number,
+        "loyalty_program_id": member.loyalty_program_id,
+        "loyalty_program_code": member.loyalty_program_code,
+        "tier_id": member.loyalty_tier_id,
+        "tier_name": tier_name,
+        "current_points_balance": float(member.current_points_balance or 0),
+        "total_points_earned": float(member.total_points_earned or 0),
+        "total_points_redeemed": float(member.total_points_redeemed or 0),
+        "total_lifetime_spend": float(member.total_lifetime_spend or 0),
+        "joined_date": member.joined_date.isoformat() if member.joined_date else None,
+        "recent_transactions": recent_transactions,
+    }
+
+
+@router.get(
+    "/customers/{customer_id}/credit",
+    summary="Customer Credit & Outstanding Summary",
+    tags=["Customer Catalogue"],
+)
+async def get_customer_credit(
+    customer_id: str,
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+):
+    """
+    Returns credit limit, credit used (outstanding), credit days, credit hold
+    status, and available credit for the given customer.
+    Credit policy fields live on CustomerGroup; payment terms on CustomerPolicy.
+    """
+    from sqlalchemy.orm import selectinload
+    customer_stmt = (
+        select(Customer)
+        .where(
+            Customer.id == customer_id,
+            Customer.company_id == tenant_ctx.company_id,
+            Customer.is_deleted == False,
+        )
+        .options(selectinload(Customer.group), selectinload(Customer.policy))
+    )
+    customer = (await db.execute(customer_stmt)).scalars().first()
+    if not customer:
+        raise HTTPException(status_code=404, detail="Customer not found")
+
+    # Credit fields live on the customer's group, not directly on Customer
+    grp = customer.group
+    credit_limit = float((grp.credit_limit if grp else None) or 0)
+    unlimited_credit = bool((grp.unlimited_credit if grp else None) or False)
+    credit_days = int((grp.credit_days if grp else None) or 0)
+    credit_hold = bool((grp.credit_hold if grp else None) or False)
+
+    # Payment terms live on CustomerPolicy
+    pol = customer.policy
+    payment_term = (pol.payment_term if pol else None) or ""
+    payment_category = (pol.payment_category if pol else None) or "CASH"
+
+    outstanding = float(customer.outstanding or 0)
+    available_credit = max(0.0, credit_limit - outstanding)
+    utilisation_pct = round((outstanding / credit_limit * 100), 1) if credit_limit > 0 else 0.0
+
+    return {
+        "customer_id": customer_id,
+        "customer_code": customer.code,
+        "customer_name": customer.name,
+        "group_id": grp.id if grp else None,
+        "group_name": grp.name if grp else None,
+        "credit_limit": credit_limit,
+        "unlimited_credit": unlimited_credit,
+        "credit_days": credit_days,
+        "credit_hold": credit_hold,
+        "outstanding": outstanding,
+        "available_credit": available_credit,
+        "utilisation_pct": utilisation_pct,
+        "payment_term": payment_term,
+        "payment_category": payment_category,
+    }
+
+
+@router.get(
+    "/customers/{customer_id}/purchases",
+    summary="Customer Purchase History",
+    tags=["Customer Catalogue"],
+)
+async def get_customer_purchases(
+    customer_id: str,
+    limit: int = Query(20, ge=1, le=100),
+    skip: int = Query(0, ge=0),
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+):
+    """
+    Returns paginated sales invoices for the given customer, ordered by date
+    descending. Includes invoice totals, payment mode, and status.
+    """
+    customer_stmt = select(Customer).where(
+        Customer.id == customer_id,
+        Customer.company_id == tenant_ctx.company_id,
+        Customer.is_deleted == False,
+    )
+    customer = (await db.execute(customer_stmt)).scalars().first()
+    if not customer:
+        raise HTTPException(status_code=404, detail="Customer not found")
+
+    # Total count
+    count_stmt = select(func.count(SalesInvoice.id)).where(
+        SalesInvoice.customer_id == customer_id,
+        SalesInvoice.company_id == tenant_ctx.company_id,
+        SalesInvoice.is_deleted == False,
+    )
+    total = (await db.execute(count_stmt)).scalar() or 0
+
+    # Paginated rows
+    inv_stmt = (
+        select(SalesInvoice)
+        .where(
+            SalesInvoice.customer_id == customer_id,
+            SalesInvoice.company_id == tenant_ctx.company_id,
+            SalesInvoice.is_deleted == False,
+        )
+        .order_by(SalesInvoice.date.desc())
+        .offset(skip)
+        .limit(limit)
+    )
+    invoices = (await db.execute(inv_stmt)).scalars().all()
+
+    return {
+        "customer_id": customer_id,
+        "total": total,
+        "skip": skip,
+        "limit": limit,
+        "data": [
+            {
+                "invoice_no": inv.invoice_no,
+                "date": inv.date.isoformat() if inv.date else None,
+                "grand_total": float(inv.grand_total or 0),
+                "tax_total": float(inv.tax_total or 0),
+                "paid_amount": float(inv.paid_amount or 0),
+                "balance_amount": float(inv.balance_amount or 0),
+                "discount_amount": float(inv.discount_amount or 0),
+                "payment_mode": inv.payment_mode,
+                "status": inv.status,
+                "source_document_type": inv.source_document_type,
+                "warehouse_id": inv.warehouse_id,
+            }
+            for inv in invoices
+        ],
+    }
+
+
+@router.get(
+    "/customers/{customer_id}/summary",
+    summary="Customer 360 Summary",
+    tags=["Customer Catalogue"],
+)
+async def get_customer_summary(
+    customer_id: str,
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+):
+    """
+    Returns a lightweight aggregated 360 summary for a customer:
+    total invoices, lifetime spend, last purchase date, outstanding,
+    loyalty tier, and credit status. Designed for quick display in
+    the Customer Catalogue list and detail header card.
+    """
+    from ...models.loyalty import LoyaltyMember, LoyaltyTier
+
+    customer_stmt = select(Customer).where(
+        Customer.id == customer_id,
+        Customer.company_id == tenant_ctx.company_id,
+        Customer.is_deleted == False,
+    )
+    customer = (await db.execute(customer_stmt)).scalars().first()
+    if not customer:
+        raise HTTPException(status_code=404, detail="Customer not found")
+
+    # Sales aggregation
+    inv_agg = (await db.execute(
+        select(
+            func.count(SalesInvoice.id),
+            func.coalesce(func.sum(SalesInvoice.grand_total), 0),
+            func.max(SalesInvoice.date),
+        ).where(
+            SalesInvoice.customer_id == customer_id,
+            SalesInvoice.company_id == tenant_ctx.company_id,
+            SalesInvoice.is_deleted == False,
+        )
+    )).one()
+    invoice_count, lifetime_spend, last_purchase_date = inv_agg
+
+    # Loyalty membership
+    member = (await db.execute(
+        select(LoyaltyMember).where(
+            LoyaltyMember.customer_id == customer_id,
+            LoyaltyMember.company_id == tenant_ctx.company_id,
+            LoyaltyMember.is_deleted == False,
+        )
+    )).scalars().first()
+
+    tier_name = None
+    if member and member.loyalty_tier_id:
+        tier = (await db.execute(
+            select(LoyaltyTier).where(LoyaltyTier.id == member.loyalty_tier_id)
+        )).scalars().first()
+        tier_name = tier.name if tier else None
+
+    # Credit fields are on the group, not the Customer row directly
+    grp = customer.group
+    credit_limit = float((grp.credit_limit if grp else None) or 0)
+    credit_hold = bool((grp.credit_hold if grp else None) or False)
+
+    return {
+        "customer_id": customer_id,
+        "customer_code": customer.code,
+        "customer_name": customer.name,
+        "customer_type": customer.customer_type,
+        "status": customer.status,
+        "invoice_count": int(invoice_count or 0),
+        "lifetime_spend": float(lifetime_spend or 0),
+        "last_purchase_date": last_purchase_date.isoformat() if last_purchase_date else None,
+        "outstanding": float(customer.outstanding or 0),
+        "credit_limit": credit_limit,
+        "credit_hold": credit_hold,
+        "loyalty_enrolled": member is not None,
+        "loyalty_points_balance": float(member.current_points_balance or 0) if member else 0,
+        "loyalty_tier": tier_name,
+        "loyalty_card_number": member.card_number if member else None,
+        "gst_number": customer.gst_number,
+        "tags": customer.tags or [],
+    }
+
+
 # --- Customer Group Endpoints ---
 
 @router.post(
@@ -831,6 +1138,56 @@ async def get_customer_group(
     if not group:
         raise HTTPException(status_code=404, detail="Customer group not found")
     return group
+
+
+# --- Customer Price Groups Endpoint ---
+
+@router.get(
+    "/customer-price-groups",
+    summary="List Customer Price Groups",
+    tags=["Customer Catalogue"],
+)
+async def list_customer_price_groups(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=100),
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+):
+    """
+    Returns all customer price groups available for the tenant.
+    Used by the Customer Catalogue form to populate the Price Group dropdown.
+    Each group includes code, description, credit terms, and allowed transactions.
+    """
+    from ...models.crm import CustomerGroup
+    stmt = (
+        select(CustomerGroup)
+        .where(
+            CustomerGroup.company_id == tenant_ctx.company_id,
+            CustomerGroup.is_deleted == False,
+            CustomerGroup.is_active == True,
+        )
+        .order_by(CustomerGroup.name)
+        .offset(skip)
+        .limit(limit)
+    )
+    groups = (await db.execute(stmt)).scalars().all()
+    return [
+        {
+            "id": g.id,
+            "name": g.name,
+            "credit_limit": float(g.credit_limit or 0),
+            "unlimited_credit": bool(g.unlimited_credit),
+            "credit_days": int(g.credit_days or 0),
+            "tax_inclusive": bool(g.tax_inclusive),
+            "default_pricing_basis": getattr(g, "default_pricing_basis", "MRP") or "MRP",
+            "can_purchase_on_credit": bool(g.can_purchase_on_credit),
+            "can_receive_discount": bool(g.can_receive_discount),
+            "max_discount_percent": float(g.max_discount_percent or 0),
+            "rounding_rule": g.rounding_rule or "Nearest1",
+            "allowed_payment_methods": g.allowed_payment_methods or [],
+        }
+        for g in groups
+    ]
 
 
 # --- Customer GST Registration Endpoints ---

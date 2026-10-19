@@ -492,7 +492,8 @@ const createEmptyCustomer = (newCodeNumber: number): RetailCustomerRecord => ({
   id: `cust-draft-${Date.now()}`,
   code: `CUST-${String(newCodeNumber).padStart(3, "0")}`,
   name: "",
-  priceGroup: "TI#Tech Infotech Ltd",
+  // priceGroup will be overridden by the first available group loaded from /api/v1/customer-price-groups
+  priceGroup: "",
   phone: "",
   email: "",
   customerGroupId: "CG-Retail",
@@ -530,8 +531,9 @@ const createEmptyCustomer = (newCodeNumber: number): RetailCustomerRecord => ({
   dateOfBirth: "",
   isMarried: false,
   weddingAnniversary: "",
-  loyaltyPgmId: "024",
-  loyaltyPgmCode: "DSC",
+  // loyaltyPgmId/Code intentionally left blank — assigned when customer enrolls in a program
+  loyaltyPgmId: "",
+  loyaltyPgmCode: "",
   loyaltyTier: "Standard",
   loyaltyPointsBalance: 0,
   paymentCategory: "CASH",
@@ -593,11 +595,12 @@ export function mapBackendCustomerToRecord(bCust: any): RetailCustomerRecord {
   );
 
   // Determine priceGroup: respect explicit backend value if provided, else derive
+  // Do NOT fall back to a hardcoded tenant name — use empty string to signal "unset"
   const derivedPriceGroup = bCust.price_group || bCust.priceGroup || (
     isCorp ? "CORP#Standard Corporate" :
     isVIP ? "VIP#Platinum Retail" :
-    isWholesale ? "TI#Tech Infotech Ltd" :
-    "TI#Tech Infotech Ltd"
+    isWholesale ? "" :
+    ""
   );
 
   // Normalize fields using API DTO aliases (camelCase) and raw model fields (snake_case)
@@ -663,9 +666,10 @@ export function mapBackendCustomerToRecord(bCust: any): RetailCustomerRecord {
     dateOfBirth: bCust.date_of_birth || "",
     isMarried: bCust.is_married ?? false,
     weddingAnniversary: bCust.wedding_anniversary || "",
-    loyaltyPgmId: bCust.loyalty_pgm_id || "024",
-    loyaltyPgmCode: bCust.loyalty_pgm_code || "DSC",
-    loyaltyTier: bCust.loyalty_tier || "Standard",
+    // loyaltyPgmId/Code: respect backend value; do NOT fall back to hardcoded defaults
+    loyaltyPgmId: bCust.loyalty_pgm_id || bCust.loyaltyPgmId || "",
+    loyaltyPgmCode: bCust.loyalty_pgm_code || bCust.loyaltyPgmCode || "",
+    loyaltyTier: bCust.loyalty_tier || bCust.loyaltyTier || "Standard",
     loyaltyPointsBalance: Number(bCust.loyalty_points_balance || 0),
     paymentCategory: bCust.payment_category || bCust.paymentCategory || "CASH",
     paymentTerm: normalizedTerm,
@@ -711,6 +715,7 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
   onNotification
 }) => {
   const [customers, setCustomers] = useState<RetailCustomerRecord[]>(() => {
+    // Restore from offline cache if available; never use hardcoded seed data
     try {
       const stored = localStorage.getItem("smriti_customers") || localStorage.getItem("smriti_retail_customers");
       if (stored) {
@@ -718,7 +723,8 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
         if (Array.isArray(parsed) && parsed.length > 0) return parsed.map(mapBackendCustomerToRecord);
       }
     } catch {}
-    return SEED_CUSTOMERS;
+    // Empty initial state — loadCustomersFromBackend() populates on mount
+    return [];
   });
 
   const [currentIndex, setCurrentIndex] = useState<number>(0);
@@ -766,7 +772,8 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
   const loadCustomersFromBackend = useCallback(async () => {
     setIsLoading(true);
     try {
-      const res = await apiFetchV1("/crm/customers");
+      // Fetch with explicit limit — the API caps at 100 per request
+      const res = await apiFetchV1("/crm/customers?limit=100&skip=0");
       const list = Array.isArray(res) ? res : (res?.items || []);
       if (list && list.length > 0) {
         const mappedList = list.map(mapBackendCustomerToRecord);
