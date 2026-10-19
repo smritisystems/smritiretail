@@ -1437,6 +1437,84 @@ async def get_customer_group(
     return group
 
 
+@router.put(
+    "/customer-groups/{group_id}",
+    response_model=CustomerGroupResponse,
+    dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))],
+    summary="Full update of a Customer Group (credit policy, limits, permissions)",
+    tags=["Customer Catalogue"],
+)
+async def update_customer_group_put(
+    group_id: str,
+    group_in: CustomerGroupUpdate,
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+):
+    """
+    Full replace update for a CustomerGroup record. Accepts all mutable fields.
+    Requires MANAGER or SYSADMIN role.
+    Used by corporate customer workflow to update credit limits, payment terms,
+    and billing permissions without recreating the group.
+    """
+    from ...models.crm import CustomerGroup as CustomerGroupModel
+    stmt = select(CustomerGroupModel).where(
+        CustomerGroupModel.id == group_id,
+        (CustomerGroupModel.company_id == tenant_ctx.company_id) | (CustomerGroupModel.company_id.is_(None)),
+        CustomerGroupModel.is_deleted == False,
+    )
+    res = await db.execute(stmt)
+    group = res.scalars().first()
+    if not group:
+        raise HTTPException(status_code=404, detail="Customer group not found")
+
+    update_data = group_in.model_dump(exclude_unset=True, by_alias=False)
+    for field, value in update_data.items():
+        if hasattr(group, field):
+            setattr(group, field, value)
+
+    await db.commit()
+    await db.refresh(group)
+    return group
+
+
+@router.patch(
+    "/customer-groups/{group_id}",
+    response_model=CustomerGroupResponse,
+    dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))],
+    summary="Partial update of a Customer Group",
+    tags=["Customer Catalogue"],
+)
+async def update_customer_group_patch(
+    group_id: str,
+    group_in: CustomerGroupUpdate,
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+):
+    """
+    Partial update for a CustomerGroup — only provided fields are changed.
+    Requires MANAGER or SYSADMIN role.
+    """
+    from ...models.crm import CustomerGroup as CustomerGroupModel
+    stmt = select(CustomerGroupModel).where(
+        CustomerGroupModel.id == group_id,
+        (CustomerGroupModel.company_id == tenant_ctx.company_id) | (CustomerGroupModel.company_id.is_(None)),
+        CustomerGroupModel.is_deleted == False,
+    )
+    res = await db.execute(stmt)
+    group = res.scalars().first()
+    if not group:
+        raise HTTPException(status_code=404, detail="Customer group not found")
+
+    update_data = group_in.model_dump(exclude_unset=True, by_alias=False)
+    for field, value in update_data.items():
+        if hasattr(group, field):
+            setattr(group, field, value)
+
+    await db.commit()
+    await db.refresh(group)
+    return group
+
+
 # --- Customer Price Groups Endpoint ---
 
 @router.get(

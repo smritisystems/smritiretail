@@ -828,6 +828,50 @@ async def cancel_sales_invoice(
     return {"success": True, "message": f"Invoice {invoice.invoice_no} cancelled successfully."}
 
 
+@router.post(
+    "/invoices/admin/free-cancelled-numbers",
+    status_code=200,
+    dependencies=[Depends(require_role(UserRole.SYSADMIN))],
+    summary="SYSADMIN: Rename cancelled invoice_no to free unique-key slot for reissue",
+    tags=["Sales Invoices"],
+)
+async def admin_free_cancelled_invoice_numbers(
+    invoice_nos: List[str],
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+):
+    """
+    SYSADMIN-only. For each supplied invoice_no that is in Cancelled/is_deleted state,
+    renames it to '{invoice_no}_VOID_{id[:8]}' to free the unique (company_id, invoice_no)
+    slot so the number can be reissued correctly after a cancellation-and-correction workflow.
+    """
+    from ...models.sales import SalesInvoice as SalesInvoiceModel
+    from datetime import datetime, timezone
+    freed, not_found = [], []
+    for no in invoice_nos:
+        stmt = select(SalesInvoiceModel).where(
+            SalesInvoiceModel.invoice_no  == no,
+            SalesInvoiceModel.company_id  == tenant_ctx.company_id,
+            SalesInvoiceModel.is_deleted  == True,
+            SalesInvoiceModel.status      == "Cancelled",
+        )
+        res  = await db.execute(stmt)
+        inv  = res.scalars().first()
+        if not inv:
+            not_found.append(no)
+            continue
+        inv.invoice_no  = f"{no}_VOID_{inv.id[:8]}"
+        inv.modified_at = datetime.now(timezone.utc)
+        db.add(inv)
+        freed.append(no)
+    await db.commit()
+    return {
+        "freed":     freed,
+        "not_found": not_found,
+        "message":   f"Freed {len(freed)} slot(s); {len(not_found)} not found or not cancelled.",
+    }
+
+
 # ─────────────────────────── Phase 4B: Convert Quotation ─────────────────────
 
 @router.post(

@@ -126,6 +126,15 @@ class SalesInvoiceBase(BaseModel):
     promotion_campaign_id: Optional[str] = Field(None, max_length=50, validation_alias=AliasChoices("promotion_campaign_id", "promotionCampaignId"))
     promotion_coupon_code: Optional[str] = Field(None, max_length=50, validation_alias=AliasChoices("promotion_coupon_code", "promotionCouponCode"))
     promotion_coupon_id: Optional[str] = Field(None, max_length=50, validation_alias=AliasChoices("promotion_coupon_id", "promotionCouponId"))
+    # Supervisor price/credit override token — accepted directly on invoice create for
+    # programmatic/API callers (bulk import, EDI). Read by SalesService at creation time
+    # via getattr(invoice_in, "supervisor_override_code", None).
+    supervisor_override_code: Optional[str] = Field(
+        None,
+        max_length=100,
+        validation_alias=AliasChoices("supervisor_override_code", "supervisorOverrideCode"),
+        description="Supervisor authorization code for price/credit override (API bulk import)"
+    )
 
 class SalesInvoiceCreate(SalesInvoiceBase):
     id: Optional[str] = Field(None, max_length=50, description="REJECTED if provided. Persistent technical IDs must not be supplied by clients; they are governed and generated server-side by IdentityEngine.")
