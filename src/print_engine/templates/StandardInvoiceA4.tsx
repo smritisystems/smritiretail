@@ -339,7 +339,17 @@ export const StandardInvoiceA4: React.FC<{ data?: InvoiceData }> = ({ data = {} 
   
   // Dates
   const invoiceDate = data.invoiceDate || data.invoice_date || data.date || "12-Aug-2026";
-  const formattedDate = typeof invoiceDate === "string" ? invoiceDate.substring(0, 10) : new Date().toISOString().substring(0, 10);
+  // Format date as DD-MM-YYYY to match tax invoice reference format
+  function formatDateDDMMYYYY(d: string): string {
+    if (!d) return "";
+    const s = d.substring(0, 10); // e.g. "2026-09-15"
+    const parts = s.split("-");
+    if (parts.length === 3 && parts[0].length === 4) {
+      return `${parts[2]}-${parts[1]}-${parts[0]}`; // DD-MM-YYYY
+    }
+    return s;
+  }
+  const formattedDate = typeof invoiceDate === "string" ? formatDateDDMMYYYY(invoiceDate) : formatDateDDMMYYYY(new Date().toISOString());
 
   // Metadata
   const sisCode = data.sisCode || parsed.sisCode || "1888";
@@ -389,11 +399,14 @@ export const StandardInvoiceA4: React.FC<{ data?: InvoiceData }> = ({ data = {} 
       ? Number(item.mrp)
       : (rateInclGst === 1068 ? 1899 : rateInclGst === 1236.72 ? 2199 : rateInclGst === 1011.76 ? 1799 : rateInclGst === 899.28 ? 1599 : (rateInclGst > 0 ? Math.round(rateInclGst * 1.778) : 0));
 
-    const disc = (item.disc !== undefined && item.disc !== null && Number(item.disc) >= 0)
-      ? Number(item.disc)
-      : ((item.discount !== undefined && item.discount !== null && Number(item.discount) >= 0)
-        ? Number(item.discount)
-        : (mrp > rateInclGst ? Math.round((mrp - rateInclGst) * 100) / 100 : 0));
+    // disc = discount PERCENT (not amount) — computed from MRP vs rate
+    // If disc_pct or discPct is passed directly (from API), use it
+    const rawDiscPct = (item as any).disc_pct ?? (item as any).discPct;
+    const disc = (rawDiscPct !== undefined && rawDiscPct !== null && Number(rawDiscPct) >= 0)
+      ? Number(rawDiscPct)
+      : (mrp > 0 && mrp > rateInclGst
+        ? Math.round(((mrp - rateInclGst) / mrp) * 10000) / 100
+        : 0);
 
     return {
       sno: idx + 1,
@@ -401,7 +414,7 @@ export const StandardInvoiceA4: React.FC<{ data?: InvoiceData }> = ({ data = {} 
       hsn,
       qty,
       mrp,
-      disc,
+      disc,  // now a PERCENTAGE (e.g. 43.76)
       rateInclGst,
       taxableVal,
       lineGst,
@@ -469,9 +482,9 @@ export const StandardInvoiceA4: React.FC<{ data?: InvoiceData }> = ({ data = {} 
                         {companyAddress}
                       </p>
                       <div className="text-[10.5px] text-slate-600 mt-0.5 font-mono leading-tight">
-                        <div>Web: {website}</div>
-                        <div>Dispatch: {dispatchEmail}</div>
-                        <div>Accounts: {accountsEmail}</div>
+                        {website && <div>Web: {website}</div>}
+                        {dispatchEmail && <div>Dispatch: {dispatchEmail}</div>}
+                        {accountsEmail && <div>Accounts: {accountsEmail}</div>}
                       </div>
                       <p className="text-[10.5px] text-slate-800 font-bold mt-0.5 m-0">
                         GSTIN: <span className="font-mono">{companyGst}</span>
@@ -494,7 +507,8 @@ export const StandardInvoiceA4: React.FC<{ data?: InvoiceData }> = ({ data = {} 
                       <div className="bg-slate-900 text-white font-bold text-[10.5px] uppercase tracking-widest px-2.5 py-1 rounded inline-block">
                         {isJobWorkOrder ? "JOB WORK ORDER" : isPurchaseOrder ? "PURCHASE ORDER" : "TAX INVOICE"}
                       </div>
-                      <div className="mt-1.5 text-right">
+                      <div className="text-[9px] text-slate-500 mt-0.5">(E. &amp; O.E.)</div>
+                      <div className="mt-1 text-right">
                         <p className="text-xs font-extrabold text-slate-900 m-0 whitespace-nowrap font-mono tracking-tight">
                           {isJobWorkOrder ? "Job Work No" : isPurchaseOrder ? "PO No" : "Invoice No"}: {invoiceNo}
                         </p>
@@ -510,17 +524,17 @@ export const StandardInvoiceA4: React.FC<{ data?: InvoiceData }> = ({ data = {} 
                       {logoUrl && <img src={logoUrl} alt={companyName || "Logo"} className="h-5 w-auto object-contain" />}
                       <span className="font-extrabold text-xs text-slate-900 uppercase tracking-tight">{companyName || "COMPANY NAME NOT SET"} — {isJobWorkOrder ? "JOB WORK ORDER" : isPurchaseOrder ? "PURCHASE ORDER" : "TAX INVOICE"}</span>
                     </div>
-                    <span className="text-[11px] font-bold font-mono text-slate-700">{isJobWorkOrder ? "Job Work No" : isPurchaseOrder ? "PO No" : "Invoice No"}: {invoiceNo}</span>
+                    <span className="text-[11px] font-bold font-mono text-slate-700">{isJobWorkOrder ? "Job Work No" : isPurchaseOrder ? "PO No" : "Invoice No"}: {invoiceNo} | Date: {formattedDate}</span>
                   </div>
                 )}
 
                 {/* 2. DEDICATED METADATA GRID (PAGE 1 ONLY) */}
                 {isPage1 && (
                   <div className="grid grid-cols-3 gap-3 mb-3 bg-slate-50 border border-slate-200 p-2.5 rounded text-[10.5px]">
-                    {/* BOX 1: BILLED TO (BUYER) */}
+                    {/* BOX 1: BILLED TO (RECIPIENT) */}
                     <div>
                       <p className="font-bold text-slate-800 border-b border-slate-200 pb-1 mb-1 uppercase text-[9px] tracking-wider">
-                        {isJobWorkOrder ? "Job Work Contractor" : isPurchaseOrder ? "Supplier Details" : "Billed To (Buyer Details)"}
+                        {isJobWorkOrder ? "Job Work Contractor" : isPurchaseOrder ? "Supplier Details" : "BILLED TO (RECIPIENT)"}
                       </p>
                       <p className="font-extrabold text-slate-950 text-[10.5px] m-0">{isPurchaseOrder || isJobWorkOrder ? (data.supplierName || customerName) : customerName}</p>
                       <p className="text-slate-600 m-0 mt-0.5 leading-snug">{isPurchaseOrder || isJobWorkOrder ? (data.supplierAddress || customerAddress) : customerAddress}</p>
@@ -532,10 +546,10 @@ export const StandardInvoiceA4: React.FC<{ data?: InvoiceData }> = ({ data = {} 
                       {(isPurchaseOrder || isJobWorkOrder) && data.supplierPhone && <p className="text-slate-600 m-0 mt-0.5">{data.supplierPhone}</p>}
                     </div>
 
-                    {/* BOX 2: RECIPIENT DETAILS (SHIPPED TO) */}
+                    {/* BOX 2: SHIPPED TO (DELIVERY SITE) */}
                     <div>
                       <p className="font-bold text-slate-800 border-b border-slate-200 pb-1 mb-1 uppercase text-[9px] tracking-wider">
-                        {isJobWorkOrder ? "Work Delivery Details" : isPurchaseOrder ? "Delivery Details" : "Recipient Details (Shipped To)"}
+                        {isJobWorkOrder ? "Work Delivery Details" : isPurchaseOrder ? "Delivery Details" : "SHIPPED TO (DELIVERY SITE)"}
                       </p>
                       <p className="font-extrabold text-slate-950 text-[10.5px] m-0">
                         {isPurchaseOrder || isJobWorkOrder ? (data.deliveryLocation || "Main Store") : (data.shippingName || data.shipping_name || `Reliance Retail Limited (RRL-${sisCode})`)}
@@ -591,12 +605,18 @@ export const StandardInvoiceA4: React.FC<{ data?: InvoiceData }> = ({ data = {} 
                           )}
                           {!isPurchaseOrder && (
                             <tr>
-                              <td className="py-0.5 text-slate-500 font-medium whitespace-nowrap" style={{ position: "relative", left: "-8px", top: "3px" }}>E-Way Bill No.:</td>
-                              <td className="py-0.5 font-bold font-mono text-slate-900 min-w-[130px] inline-block tracking-wider" style={{ "--eway-bill-field-width": "130px", "--eway-bill-field-height": "14px" } as React.CSSProperties}>
+                              <td className="py-0.5 text-slate-500 font-medium">Reverse Charge:</td>
+                              <td className="py-0.5 font-bold text-slate-900">No</td>
+                            </tr>
+                          )}
+                          {!isPurchaseOrder && (
+                            <tr>
+                              <td className="py-0.5 text-slate-500 font-medium">E-Way Bill No.:</td>
+                              <td className="py-0.5 font-bold font-mono text-slate-900 min-w-[130px] inline-block tracking-wider">
                                 {ewayBillNo ? (
                                   <span>{ewayBillNo}</span>
                                 ) : (
-                                  <span id="eway_bill_acro_box" className="inline-block w-[var(--eway-bill-field-width,130px)] h-[var(--eway-bill-field-height,14px)] border-b border-slate-300 align-middle relative top-[2px]"></span>
+                                  <span className="inline-block w-[130px] h-[14px] border-b border-slate-300 align-middle relative top-[2px]"></span>
                                 )}
                               </td>
                             </tr>
@@ -633,10 +653,9 @@ export const StandardInvoiceA4: React.FC<{ data?: InvoiceData }> = ({ data = {} 
                         <td className="p-1 border border-slate-200 text-center font-mono text-slate-600">{item.hsn}</td>
                         <td className="p-1 border border-slate-200 text-right font-bold font-mono">{item.qty}</td>
                         <td className="p-1 border border-slate-200 text-right font-mono text-slate-700">{currencySymbol}{item.mrp.toFixed(2)}</td>
-                        <td className="p-1 border border-slate-200 text-right font-mono text-slate-600">{currencySymbol}{item.disc.toFixed(2)}</td>
-                        <td className="p-1 border border-slate-200 text-right font-mono">{currencySymbol}{item.rateInclGst.toFixed(2)}</td>
+                        <td className="p-1 border border-slate-200 text-right font-mono text-slate-600">{item.disc.toFixed(2)}%</td>
                         <td className="p-1 border border-slate-200 text-right font-mono">{currencySymbol}{item.taxableVal.toFixed(2)}</td>
-                        <td className="p-1 border border-slate-200 text-right font-mono text-slate-700">{currencySymbol}{item.lineGst.toFixed(2)}</td>
+                        <td className="p-1 border border-slate-200 text-right font-mono text-slate-700">{item.gstRate.toFixed(0)}%</td>
                         <td className="p-1 border border-slate-200 text-right font-extrabold font-mono text-slate-950">{currencySymbol}{item.grossLineValue.toFixed(2)}</td>
                       </tr>
                     ))}

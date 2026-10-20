@@ -329,7 +329,8 @@ export const TaxInvoiceA4: React.FC<TaxInvoiceA4Props> = ({ data, onEWayBillNoCh
     );
   }
 
-  const logoB64 = data.logoUrl || null;
+  // Original horizontal logo rotated 90° CCW via CSS to match reference invoice column layout
+  const logoB64 = data.logoUrl || "/assets/branding/tattly_logo_black.png";
 
   return (
     <div className="tax-invoice-a4-wrapper w-full max-w-[210mm] bg-white text-black p-[6mm] pl-[10mm] mx-auto box-border text-[11px] leading-normal font-sans border border-gray-200 print:border-none print:p-0 print:m-0 print:w-full print:max-w-none">
@@ -394,11 +395,29 @@ export const TaxInvoiceA4: React.FC<TaxInvoiceA4Props> = ({ data, onEWayBillNoCh
       <div className="flex justify-between items-start border-b border-gray-300 pb-3 mb-3 gap-3">
         <div className="w-[57%] flex items-start gap-3">
           {logoB64 && (
-            <img
-              src={logoB64}
-              alt={data.companyDisplayName || data.companyName || "Company Logo"}
-              className="h-12 w-auto object-contain mt-0.5"
-            />
+            <div style={{
+              flexShrink: 0,
+              width: "18mm",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              overflow: "visible",
+              paddingRight: "2mm",
+            }}>
+              <img
+                src={logoB64}
+                alt={data.companyDisplayName || data.companyName || "Company Logo"}
+                style={{
+                  height: "18mm",
+                  width: "auto",
+                  maxWidth: "none",
+                  objectFit: "contain",
+                  transform: "rotate(-90deg)",
+                  transformOrigin: "center center",
+                  display: "block",
+                }}
+              />
+            </div>
           )}
           <div>
             <h1 className="text-gray-900 font-bold text-base leading-tight tracking-wide">{data.companyDisplayName || data.companyName || "[Authoritative Seller Name Required]"}</h1>
