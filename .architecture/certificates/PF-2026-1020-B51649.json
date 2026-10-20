@@ -1,0 +1,15 @@
+{
+  "certificate_id": "PF-2026-1020-B51649",
+  "entity": "customer",
+  "capability": "customer.crud",
+  "asset_type": "component",
+  "proposed_name": "CustomerMasterSideNav.tsx",
+  "target_file_path": "src/components/customer/corporateWorkspace/CustomerMasterSideNav.tsx",
+  "decision": "CREATE_NEW",
+  "canonical_owner": "src/components/customer/corporateWorkspace/CustomerMasterSideNav.tsx",
+  "content_hash": "797b9bf5974490cb59a8673afd1696e31abe837f1aa9ad980ffd0927ca9be9fd",
+  "git_commit": "8deafb6f0dd3aaf72cb6ba1f4740e67add547e5a",
+  "issued_at": "2026-10-20T08:00:58.546230+00:00",
+  "expires_at": "2026-10-27T08:00:58.546230+00:00",
+  "status": "ISSUED"
+}

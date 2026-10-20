@@ -16,55 +16,79 @@
  */
 
 import React from "react";
+import {
+  LayoutDashboard,
+  User,
+  Building2,
+  MapPin,
+  GitFork,
+  Store,
+  BadgePercent,
+  Package,
+  Receipt,
+  FolderOpen,
+  History,
+} from "lucide-react";
 import { CorporateTabKey } from "./types.ts";
 
 interface CorporateCustomerTabsProps {
   activeTab: CorporateTabKey;
   onTabChange: (tab: CorporateTabKey) => void;
-  storesCount: number;
+  storesCount?: number;
+  childCount?: number;
 }
 
 export const CorporateCustomerTabs: React.FC<CorporateCustomerTabsProps> = ({
   activeTab,
   onTabChange,
-  storesCount,
 }) => {
-  const tabs: { key: CorporateTabKey; label: string; badge?: string }[] = [
-    { key: "overview", label: "Overview" },
-    { key: "stores", label: `Stores (${storesCount.toLocaleString("en-IN")})` },
-    { key: "orders", label: "Orders" },
-    { key: "invoices", label: "Invoices" },
-    { key: "payments", label: "Payments" },
-    { key: "psv", label: "PSV & Inventory" },
-    { key: "products", label: "Products" },
-    { key: "communication", label: "Communication" },
-    { key: "contracts", label: "Contracts" },
-    { key: "addresses", label: "Addresses" },
-    { key: "team", label: "Team" },
-    { key: "notes", label: "Notes" },
-    { key: "history", label: "History" },
+  const tabs: {
+    key: CorporateTabKey;
+    label: string;
+    icon: React.ComponentType<{ size?: number | string; className?: string }>;
+  }[] = [
+    { key: "overview", label: "Overview", icon: LayoutDashboard },
+    { key: "basic", label: "Basic Details", icon: User },
+    { key: "corporate_tax", label: "Corporate & Tax", icon: Building2 },
+    { key: "addresses", label: "Addresses", icon: MapPin },
+    { key: "parent_child", label: "Parent – Child", icon: GitFork },
+    { key: "stores", label: "Stores / Outlets", icon: Store },
+    { key: "commercial", label: "Commercial Terms", icon: BadgePercent },
+    { key: "psv", label: "PSV Stock", icon: Package },
+    { key: "sales_invoices", label: "Sales & Invoices", icon: Receipt },
+    { key: "contacts_docs", label: "Contacts & Documents", icon: FolderOpen },
+    { key: "activity_audit", label: "Activity & Audit", icon: History },
   ];
 
+  // Helper to map legacy active tab keys to the new tabs
+  const getResolvedActiveKey = (key: CorporateTabKey): CorporateTabKey => {
+    if (key === "orders" || key === "invoices") return "sales_invoices";
+    if (key === "team" || key === "notes" || key === "contracts" || key === "communication") return "contacts_docs";
+    if (key === "history") return "activity_audit";
+    return key;
+  };
+
+  const currentKey = getResolvedActiveKey(activeTab);
+
   return (
-    <div className="border-b border-slate-200 dark:border-slate-800 overflow-x-auto scrollbar-none bg-white dark:bg-[#1e222d] rounded-t-xl px-2">
-      <nav className="flex items-center space-x-1 sm:space-x-4 min-w-max">
+    <div className="bg-white dark:bg-[#1a202c] border border-slate-200 dark:border-slate-800 rounded-xl p-1.5 overflow-x-auto scrollbar-none shadow-2xs">
+      <nav className="flex items-center gap-1.5 min-w-max">
         {tabs.map((tab) => {
-          const isActive = activeTab === tab.key;
+          const Icon = tab.icon;
+          const isActive = currentKey === tab.key;
           return (
             <button
               key={tab.key}
               type="button"
               onClick={() => onTabChange(tab.key)}
-              className={`py-3 px-2 sm:px-3 text-xs font-semibold whitespace-nowrap transition-all border-b-2 relative ${
+              className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all flex items-center gap-1.5 whitespace-nowrap ${
                 isActive
-                  ? "text-[#0284c7] dark:text-[#38bdf8] border-[#0284c7] dark:border-[#38bdf8] font-bold"
-                  : "text-slate-600 dark:text-slate-400 border-transparent hover:text-slate-900 dark:hover:text-slate-200 hover:border-slate-300 dark:hover:border-slate-700"
+                  ? "bg-[#0066cc] dark:bg-[#0052a3] text-white shadow-2xs font-bold"
+                  : "text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800/60"
               }`}
             >
+              <Icon size={14} className={isActive ? "text-white" : "text-slate-500 dark:text-slate-400"} />
               <span>{tab.label}</span>
-              {isActive && (
-                <span className="absolute bottom-[-2px] left-0 right-0 h-[2px] bg-[#0284c7] dark:bg-[#38bdf8] rounded-t-sm" />
-              )}
             </button>
           );
         })}

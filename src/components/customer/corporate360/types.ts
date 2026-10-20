@@ -19,18 +19,46 @@ import { Customer } from "../../../types.ts";
 
 export type CorporateTabKey =
   | "overview"
+  | "basic"
+  | "corporate_tax"
+  | "addresses"
+  | "parent_child"
   | "stores"
+  | "commercial"
+  | "psv"
+  | "sales_invoices"
+  | "contacts_docs"
+  | "activity_audit"
+  // Legacy aliases
   | "orders"
   | "invoices"
   | "payments"
-  | "psv"
   | "products"
   | "communication"
   | "contracts"
-  | "addresses"
   | "team"
   | "notes"
   | "history";
+
+export interface PsvDetailedItem {
+  id: string;
+  doc_no: string;
+  date: string;
+  customer_code: string;
+  customer_name?: string;
+  store_code: string;
+  article_style: string;
+  color: string;
+  size: string;
+  barcode: string;
+  document_qty: number;
+  received_qty: number;
+  pending_approval_qty: number;
+  approved_qty: number;
+  shortage_qty: number;
+  excess_qty: number;
+  status: "Approved" | "Pending" | "Excess" | "Shortage" | "Rejected" | string;
+}
 
 export interface CorporateKpis {
   total_orders: number;
