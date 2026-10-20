@@ -136,9 +136,7 @@ export const SupplierRfqWorkspaceBase: React.FC = () => {
     d.setDate(d.getDate() + 10);
     return d.toISOString().split("T")[0];
   });
-  const [rfqLines, setRfqLines] = useState<Array<{ product_id: string; code: string; name: string; quantity: number }>>([
-    { product_id: "prod-sample-1", code: "SKU-FOOT-001", name: "Classic Formal Leather Shoe - Tan", quantity: 50 },
-  ]);
+  const [rfqLines, setRfqLines] = useState<Array<{ product_id: string; code: string; name: string; quantity: number }>>([]);
 
   // Quotation Entry State
   const [quoteSupplierId, setQuoteSupplierId] = useState("");

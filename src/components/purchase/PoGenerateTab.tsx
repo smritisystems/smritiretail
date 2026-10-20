@@ -648,18 +648,7 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
           };
         });
       } else {
-        // Fallback demo suppliers if db is fresh
-        const fallbackSuppliers = [
-          { id: "SUP-548042", name: "Apex Fabrics Ltd", code: "SUP-548042", gstin: "27AAAAC0553K1Z8", city: "Mumbai", state: "Maharashtra", phone: "+91 22 1234 5678", payment_terms: "120 Days", freight_terms: "Paid by Supplier", currency: "INR - Indian Rupee" },
-          { id: "SUP-102941", name: "Campus Activewear Ltd", code: "SUP-102941", gstin: "07AAACC2914E1Z1", city: "Delhi", state: "Delhi", phone: "+91 11 9876 5432", payment_terms: "15 Days", freight_terms: "To Pay", currency: "INR - Indian Rupee" },
-          { id: "SUP-309481", name: "Bata Footwear India Ltd", code: "SUP-309481", gstin: "19AABCB1234P1Z5", city: "Kolkata", state: "West Bengal", phone: "+91 33 4455 6677", payment_terms: "45 Days", freight_terms: "Paid by Supplier", currency: "INR - Indian Rupee" },
-        ];
-        setSuppliersList(fallbackSuppliers);
-        setHeader(current => ({
-          ...current,
-          supplierId: current.supplierId || fallbackSuppliers[0].id,
-          supplierName: current.supplierName || fallbackSuppliers[0].name
-        }));
+        setSuppliersList([]);
       }
 
       // Fetch next order number sequence
@@ -2059,9 +2048,9 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
                       </button>
                     </div>
                     <div className="text-slate-500 dark:text-slate-400 truncate text-[10px]">
-                      GSTIN: {selectedSupplier.gstin || "27AAAAC0553K1Z8"} | {selectedSupplier.city || "Mumbai"}, {selectedSupplier.state || "Maharashtra"}
+                      GSTIN: {selectedSupplier.gstin || "Not Registered"} | {selectedSupplier.city || "—"}{selectedSupplier.state ? `, ${selectedSupplier.state}` : ""}
                     </div>
-                    <div className="text-slate-500 dark:text-slate-400 text-[10px]">{selectedSupplier.phone || "+91 22 1234 5678"}</div>
+                    <div className="text-slate-500 dark:text-slate-400 text-[10px]">{selectedSupplier.phone || "No Phone"}</div>
                   </div>
                 )}
 

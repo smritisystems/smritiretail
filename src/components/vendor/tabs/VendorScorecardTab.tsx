@@ -4,10 +4,10 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 3.105.0
+ * Version      : 6.99.0
  * Created      : 2026-08-28
- * Modified     : 2026-10-19
- * Copyright    : (c) SMRITIBooks.com. All Rights Reserved.
+ * Modified     : 2026-10-21
+ * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
  *
@@ -112,7 +112,26 @@ const ScoreProgressBar: React.FC<{
 
 export const VendorScorecardTab: React.FC<VendorScorecardTabProps> = ({ supplierId, vendor }) => {
   const effectiveIdentifier = vendor?.code || vendor?.id || supplierId;
-  const [selectedScorecard, setSelectedScorecard] = useState<SupplierScorecard | null>(null);
+  const [selectedScorecard, setSelectedScorecard] = useState<SupplierScorecard | null>(() => {
+    if (!vendor) return null;
+    return {
+      supplier_id: vendor.id,
+      supplier_name: vendor.legalName || vendor.tradeName || "Selected Vendor",
+      supplier_code: vendor.code || "",
+      total_orders: 0,
+      total_value: 0,
+      outstanding_value: vendor.commercial?.outstandingLiability || 0,
+      total_outstanding: vendor.commercial?.outstandingLiability || 0,
+      ledger_outstanding: vendor.commercial?.outstandingLiability || 0,
+      overdue_value: 0,
+      on_time_delivery_pct: 0,
+      quality_score: 0,
+      fill_rate_pct: 0,
+      last_order_date: "—",
+      open_statuses: [],
+      orders: [],
+    };
+  });
   const [peerScorecards, setPeerScorecards] = useState<SupplierScorecard[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -146,7 +165,7 @@ export const VendorScorecardTab: React.FC<VendorScorecardTabProps> = ({ supplier
         if (fromAll) {
           setSelectedScorecard(fromAll);
         } else if (vendor) {
-          // New or zero-PO vendor synthesized baseline
+          // New or zero-PO vendor baseline (honest unrated state)
           setSelectedScorecard({
             supplier_id: vendor.id,
             supplier_name: vendor.legalName || vendor.tradeName || "Selected Vendor",
@@ -157,9 +176,9 @@ export const VendorScorecardTab: React.FC<VendorScorecardTabProps> = ({ supplier
             total_outstanding: vendor.commercial?.outstandingLiability || 0,
             ledger_outstanding: vendor.commercial?.outstandingLiability || 0,
             overdue_value: 0,
-            on_time_delivery_pct: 100.0,
-            quality_score: 100.0,
-            fill_rate_pct: 100.0,
+            on_time_delivery_pct: 0,
+            quality_score: 0,
+            fill_rate_pct: 0,
             last_order_date: "—",
             open_statuses: [],
             orders: [],
@@ -181,17 +200,25 @@ export const VendorScorecardTab: React.FC<VendorScorecardTabProps> = ({ supplier
 
   // Derived Composite Performance Index (0 - 100)
   const compositeScore = useMemo(() => {
-    if (!selectedScorecard) return 100;
-    if (selectedScorecard.total_orders === 0) return 100;
-    const onTimeWeight = (selectedScorecard.on_time_delivery_pct ?? 100) * 0.40;
-    const qualityWeight = (selectedScorecard.quality_score ?? 100) * 0.30;
-    const fillWeight = (selectedScorecard.fill_rate_pct ?? 100) * 0.20;
+    if (!selectedScorecard) return 0;
+    if (selectedScorecard.total_orders === 0) return 0;
+    const onTimeWeight = (selectedScorecard.on_time_delivery_pct ?? 0) * 0.40;
+    const qualityWeight = (selectedScorecard.quality_score ?? 0) * 0.30;
+    const fillWeight = (selectedScorecard.fill_rate_pct ?? 0) * 0.20;
     const complianceWeight = (selectedScorecard.overdue_value ?? 0) === 0 ? 10 : 0;
     return Math.min(100, Math.round(onTimeWeight + qualityWeight + fillWeight + complianceWeight));
   }, [selectedScorecard]);
 
   // SLA Tier Classification
   const tierInfo = useMemo(() => {
+    if (!selectedScorecard || selectedScorecard.total_orders === 0) {
+      return {
+        grade: "UNRATED",
+        tier: "TIER 0 — NEW VENDOR (NO ORDERS RECORDED)",
+        badgeBg: "bg-slate-100 text-slate-700 border-slate-300 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700",
+        description: "No purchase orders or delivery history recorded to evaluate performance.",
+      };
+    }
     if (compositeScore >= 95) {
       return {
         grade: "AAA",
@@ -222,7 +249,7 @@ export const VendorScorecardTab: React.FC<VendorScorecardTabProps> = ({ supplier
       badgeBg: "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-500/10 dark:text-rose-400 dark:border-rose-500/30",
       description: "SLA breach threshold reached. Expedited review required.",
     };
-  }, [compositeScore]);
+  }, [selectedScorecard, compositeScore]);
 
   if (loading) {
     return (
@@ -295,11 +322,15 @@ export const VendorScorecardTab: React.FC<VendorScorecardTabProps> = ({ supplier
             <div className="text-right">
               <div className="flex items-baseline justify-end gap-1">
                 <span className="text-2xl font-black text-slate-900 dark:text-white font-mono">
-                  {compositeScore}
+                  {selectedScorecard.total_orders > 0 ? compositeScore : "—"}
                 </span>
-                <span className="text-xs text-slate-400 font-medium">/ 100</span>
+                {selectedScorecard.total_orders > 0 && (
+                  <span className="text-xs text-slate-400 font-medium">/ 100</span>
+                )}
               </div>
-              <span className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 flex items-center justify-end gap-1">
+              <span className={`text-[10px] font-semibold flex items-center justify-end gap-1 ${
+                selectedScorecard.total_orders > 0 ? "text-emerald-600 dark:text-emerald-400" : "text-slate-500 dark:text-slate-400"
+              }`}>
                 <CheckCircle2 size={12} /> Grade {tierInfo.grade} Rating
               </span>
             </div>
@@ -326,12 +357,12 @@ export const VendorScorecardTab: React.FC<VendorScorecardTabProps> = ({ supplier
           </div>
           <div className="mt-2">
             <div className="text-2xl font-bold font-mono text-emerald-600 dark:text-emerald-400">
-              {selectedScorecard.on_time_delivery_pct}%
+              {selectedScorecard.total_orders > 0 ? `${selectedScorecard.on_time_delivery_pct}%` : "—"}
             </div>
             <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
               {selectedScorecard.total_orders > 0 
                 ? `${selectedScorecard.total_orders} of ${selectedScorecard.total_orders} orders punctual`
-                : "No past delayed consignments"}
+                : "No orders recorded yet"}
             </div>
           </div>
         </div>
@@ -346,10 +377,10 @@ export const VendorScorecardTab: React.FC<VendorScorecardTabProps> = ({ supplier
           </div>
           <div className="mt-2">
             <div className="text-2xl font-bold font-mono text-indigo-600 dark:text-indigo-400">
-              {selectedScorecard.fill_rate_pct}%
+              {selectedScorecard.total_orders > 0 ? `${selectedScorecard.fill_rate_pct}%` : "—"}
             </div>
             <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
-              Zero quantity short-shipment
+              {selectedScorecard.total_orders > 0 ? "Fulfillment against ordered qty" : "No orders recorded yet"}
             </div>
           </div>
         </div>
@@ -364,10 +395,10 @@ export const VendorScorecardTab: React.FC<VendorScorecardTabProps> = ({ supplier
           </div>
           <div className="mt-2">
             <div className="text-2xl font-bold font-mono text-teal-600 dark:text-teal-400">
-              {selectedScorecard.quality_score}%
+              {selectedScorecard.total_orders > 0 ? `${selectedScorecard.quality_score}%` : "—"}
             </div>
             <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
-              Passed footwear inbound checks
+              {selectedScorecard.total_orders > 0 ? "Inbound inspection pass rate" : "No QC inspections on record"}
             </div>
           </div>
         </div>
@@ -414,21 +445,21 @@ export const VendorScorecardTab: React.FC<VendorScorecardTabProps> = ({ supplier
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <ScoreProgressBar
             label="On-Time Dispatch & Delivery"
-            actual={selectedScorecard.on_time_delivery_pct}
+            actual={selectedScorecard.total_orders > 0 ? selectedScorecard.on_time_delivery_pct : 0}
             target={90}
             colorClass="bg-emerald-500"
             description="Goods delivered on or prior to stipulated PO delivery date"
           />
           <ScoreProgressBar
             label="Inward Quality Acceptance"
-            actual={selectedScorecard.quality_score}
+            actual={selectedScorecard.total_orders > 0 ? selectedScorecard.quality_score : 0}
             target={95}
             colorClass="bg-teal-500"
             description="Inspection grade pass without discrepancy or return claim"
           />
           <ScoreProgressBar
             label="Line Item Fill Rate"
-            actual={selectedScorecard.fill_rate_pct}
+            actual={selectedScorecard.total_orders > 0 ? selectedScorecard.fill_rate_pct : 0}
             target={95}
             colorClass="bg-indigo-500"
             description="PO quantity delivered in full without SKU shortages"
@@ -438,7 +469,7 @@ export const VendorScorecardTab: React.FC<VendorScorecardTabProps> = ({ supplier
             actual={selectedScorecard.overdue_value === 0 ? 100 : 80}
             target={85}
             colorClass="bg-blue-500"
-            description="Statutory billing adherence within 120-day credit period"
+            description={`Statutory billing adherence within ${vendor?.commercial?.paymentTermsDays || 30}-day credit terms`}
           />
         </div>
       </div>
@@ -503,10 +534,31 @@ export const VendorScorecardTab: React.FC<VendorScorecardTabProps> = ({ supplier
                       </span>
                     </td>
                     <td className="py-2.5 px-4 text-center font-sans">
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/30">
-                        <CheckCircle2 size={11} />
-                        ON TIME
-                      </span>
+                      {(() => {
+                        const isDelayed = po.received_date && po.delivery_date && new Date(po.received_date) > new Date(po.delivery_date);
+                        const isReceived = Boolean(po.received_date);
+                        if (isDelayed) {
+                          return (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-rose-50 dark:bg-rose-500/10 text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-500/30">
+                              <Clock size={11} />
+                              DELAYED
+                            </span>
+                          );
+                        }
+                        if (isReceived) {
+                          return (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/30">
+                              <CheckCircle2 size={11} />
+                              ON TIME
+                            </span>
+                          );
+                        }
+                        return (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700">
+                            PENDING
+                          </span>
+                        );
+                      })()}
                     </td>
                   </tr>
                 ))}
@@ -525,7 +577,7 @@ export const VendorScorecardTab: React.FC<VendorScorecardTabProps> = ({ supplier
           <div>
             <h4 className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-2">
               <TrendingUp size={14} className="text-indigo-500" />
-              Category Peer Benchmark ({peerScorecards.length} Footwear Suppliers)
+              Category Peer Benchmark ({peerScorecards.length} Suppliers)
             </h4>
             <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
               Compare {selectedScorecard.supplier_name} against category peers across On-Time % and Total Volume

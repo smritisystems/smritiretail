@@ -4,9 +4,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.50.0
+ * Version      : 6.99.0
  * Created      : 2026-10-02
- * Modified     : 2026-10-02
+ * Modified     : 2026-10-21
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
@@ -101,6 +101,7 @@ export const VendorStatementOfAccountModal: React.FC<VendorStatementOfAccountMod
   const [fromDate, setFromDate] = useState<string>("");
   const [toDate, setToDate] = useState<string>("");
   const [loading, setLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
   const [statementData, setStatementData] = useState<StatementResponse | null>(null);
 
   const vendorName = vendor.tradeName || vendor.legalName || (vendor as any).name || "Vendor";
@@ -164,6 +165,7 @@ export const VendorStatementOfAccountModal: React.FC<VendorStatementOfAccountMod
   const fetchStatement = useCallback(async () => {
     if (!isOpen || !vendor?.id) return;
     setLoading(true);
+    setError(null);
 
     try {
       const params = new URLSearchParams();
@@ -176,60 +178,14 @@ export const VendorStatementOfAccountModal: React.FC<VendorStatementOfAccountMod
       const res: StatementResponse = await apiFetchV1(endpoint);
       setStatementData(res);
     } catch (err: any) {
-      // Fallback: construct synthesized client-side statement for standalone / preview resilience
-      const opening = 0;
-      const outstanding = vendorOutstanding;
-      const advances = 0;
-      const net = Math.max(0, outstanding - advances);
-
-      setStatementData({
-        company_id: "CMP-NX-PREVIEW",
-        company_name: "SMRITI Retail Enterprise",
-        from_date: fromDate || undefined,
-        to_date: toDate || undefined,
-        supplier: {
-          id: vendor.id,
-          code: vendor.code || `VEND-${vendor.id.slice(0, 6)}`,
-          name: vendorName,
-          gst_number: vendorGstin,
-          email: vendor.email,
-          mobile: vendorPhone,
-          address: vendorAddress,
-          state: vendorState,
-        },
-        summary: {
-          opening_balance: opening,
-          total_billed: outstanding,
-          total_paid: 0,
-          total_knocked_off: 0,
-          total_debit_notes: 0,
-          closing_balance: outstanding,
-          unallocated_advance: advances,
-          net_payable: net,
-        },
-        lines: [
-          {
-            date: new Date().toISOString().split("T")[0],
-            voucher_no: "PB-CURR-001",
-            voucher_type: "PURCHASE_BILL",
-            reference_doc_type: "PURCHASE_BILL",
-            reference_doc_no: "PB-CURR-001",
-            account_code: "2010",
-            account_name: "Accounts Payable / Sundry Creditors",
-            narration: `Current Accounts Payable balance for ${vendorName}`,
-            debit: 0,
-            credit: outstanding,
-            running_balance: outstanding,
-          },
-        ],
-        unpaid_bills_count: outstanding > 0 ? 1 : 0,
-        active_advances_count: advances > 0 ? 1 : 0,
-        generated_at: new Date().toISOString(),
-      });
+      setStatementData(null);
+      const msg = err?.message || "Failed to load statement of account from accounting ledger.";
+      setError(msg);
+      onNotification?.("Statement Error", msg, "error");
     } finally {
       setLoading(false);
     }
-  }, [isOpen, vendor, fromDate, toDate, vendorName, vendorGstin, vendorOutstanding, vendorPhone, vendorAddress, vendorState]);
+  }, [isOpen, vendor?.id, fromDate, toDate, onNotification]);
 
   useEffect(() => {
     if (isOpen) {
@@ -447,6 +403,29 @@ export const VendorStatementOfAccountModal: React.FC<VendorStatementOfAccountMod
 
         {/* PRINTABLE STATEMENT BODY */}
         <div className="flex-1 overflow-y-auto p-6 space-y-6 print:p-0 print:overflow-visible">
+          {error && (
+            <div className="p-4 rounded-xl border border-rose-200 bg-rose-50 dark:border-rose-800/40 dark:bg-rose-950/30 text-rose-700 dark:text-rose-300 flex items-start gap-3">
+              <AlertCircle className="w-5 h-5 shrink-0 mt-0.5 text-rose-600 dark:text-rose-400" />
+              <div>
+                <p className="text-xs font-bold">Unable to Retrieve Statement of Account</p>
+                <p className="text-[11px] mt-0.5">{error}</p>
+                <button
+                  type="button"
+                  onClick={fetchStatement}
+                  className="mt-2 text-[10px] font-semibold text-rose-800 dark:text-rose-200 underline"
+                >
+                  Retry Request
+                </button>
+              </div>
+            </div>
+          )}
+
+          {loading && (
+            <div className="p-8 text-center space-y-2">
+              <RefreshCw className="w-6 h-6 mx-auto text-indigo-500 animate-spin" />
+              <p className="text-xs text-slate-500 dark:text-slate-400">Loading authoritative general ledger transactions...</p>
+            </div>
+          )}
           
           {/* A4 PRINT HEADER */}
           <div className="border-b border-slate-200 dark:border-slate-800 pb-5">
@@ -717,10 +696,12 @@ export const VendorStatementOfAccountModal: React.FC<VendorStatementOfAccountMod
                 <span className="font-semibold text-slate-700 dark:text-slate-300">
                   Authoritative Double-Entry Reconciliation Verified
                 </span>
-                <span>(Net Balance = Closing AP ₹{statementData?.summary.closing_balance.toFixed(2)} - Unallocated Advances ₹{statementData?.summary.unallocated_advance.toFixed(2)} = ₹{statementData?.summary.net_payable.toFixed(2)})</span>
+                {statementData && (
+                  <span>(Net Balance = Closing AP ₹{statementData.summary.closing_balance.toFixed(2)} - Unallocated Advances ₹{statementData.summary.unallocated_advance.toFixed(2)} = ₹{statementData.summary.net_payable.toFixed(2)})</span>
+                )}
               </div>
               <div className="text-[11px] font-mono">
-                Hash: SHA256-SOA-CONFIRMED-V6.50
+                Hash: SHA256-SOA-CONFIRMED-V6.99
               </div>
             </div>
 

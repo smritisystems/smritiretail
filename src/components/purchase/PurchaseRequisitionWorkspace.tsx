@@ -90,9 +90,7 @@ export const PurchaseRequisitionWorkspaceBase: React.FC = () => {
   });
   const [priority, setPriority] = useState("NORMAL");
   const [justification, setJustification] = useState("");
-  const [createLines, setCreateLines] = useState<Array<{ product_id: string; code: string; name: string; quantity: number; cost: number }>>([
-    { product_id: "prod-sample-1", code: "SKU-FOOT-001", name: "Classic Formal Leather Shoe - Tan", quantity: 10, cost: 850 },
-  ]);
+  const [createLines, setCreateLines] = useState<Array<{ product_id: string; code: string; name: string; quantity: number; cost: number }>>([]);
 
   // Convert to PO State
   const [suppliers, setSuppliers] = useState<Array<{ id: string; name: string; code: string }>>([]);
@@ -601,52 +599,57 @@ export const PurchaseRequisitionWorkspaceBase: React.FC = () => {
                 </button>
               </div>
               <div className="space-y-2 max-h-48 overflow-y-auto border p-2 rounded-lg border-slate-200 dark:border-slate-700">
-                {createLines.map((line, idx) => (
-                  <div key={idx} className="flex gap-2 items-center">
-                    <input
-                      type="text"
-                      placeholder="Item Name"
-                      value={line.name}
-                      onChange={(e) => {
-                        const copy = [...createLines];
-                        copy[idx].name = e.target.value;
-                        setCreateLines(copy);
-                      }}
-                      className="flex-1 p-1.5 border rounded bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700"
-                    />
-                    <input
-                      type="number"
-                      placeholder="Qty"
-                      value={line.quantity}
-                      onChange={(e) => {
-                        const copy = [...createLines];
-                        copy[idx].quantity = Number(e.target.value);
-                        setCreateLines(copy);
-                      }}
-                      className="w-20 p-1.5 border rounded text-right bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700"
-                    />
-                    <input
-                      type="number"
-                      placeholder="Cost"
-                      value={line.cost}
-                      onChange={(e) => {
-                        const copy = [...createLines];
-                        copy[idx].cost = Number(e.target.value);
-                        setCreateLines(copy);
-                      }}
-                      className="w-24 p-1.5 border rounded text-right bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700"
-                    />
-                    {createLines.length > 1 && (
+                {createLines.length === 0 ? (
+                  <div className="py-6 text-center text-xs text-slate-400">
+                    No requisition lines added yet. Click &quot;+ Add Item&quot; above to specify required products.
+                  </div>
+                ) : (
+                  createLines.map((line, idx) => (
+                    <div key={idx} className="flex gap-2 items-center">
+                      <input
+                        type="text"
+                        placeholder="Item Name"
+                        value={line.name}
+                        onChange={(e) => {
+                          const copy = [...createLines];
+                          copy[idx].name = e.target.value;
+                          setCreateLines(copy);
+                        }}
+                        className="flex-1 p-1.5 border rounded bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700"
+                      />
+                      <input
+                        type="number"
+                        placeholder="Qty"
+                        value={line.quantity}
+                        onChange={(e) => {
+                          const copy = [...createLines];
+                          copy[idx].quantity = Number(e.target.value);
+                          setCreateLines(copy);
+                        }}
+                        className="w-20 p-1.5 border rounded text-right bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700"
+                      />
+                      <input
+                        type="number"
+                        placeholder="Cost"
+                        value={line.cost}
+                        onChange={(e) => {
+                          const copy = [...createLines];
+                          copy[idx].cost = Number(e.target.value);
+                          setCreateLines(copy);
+                        }}
+                        className="w-24 p-1.5 border rounded text-right bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700"
+                      />
                       <button
                         type="button"
                         onClick={() => setCreateLines(createLines.filter((_, i) => i !== idx))}
-                        className="text-rose-500 font-bold px-1"
+                        className="text-rose-500 font-bold px-1 hover:text-rose-700"
+                        title="Remove Line"
                       >
                         ✕
                       </button>
-                    )}
-                  </div>
-                ))}
+                    </div>
+                  ))
+                )}
               </div>
             </div>
 

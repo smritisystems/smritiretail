@@ -5,13 +5,63 @@
   Websites     : smritibooks.com | erpnbook.com | aitdl.com
   Version      : 6.99.0
   Created      : 2026-07-06
-  Modified     : 2026-10-19
+  Modified     : 2026-10-21
   Copyright    : © SMRITIBooks.com. All Rights Reserved.
   License      : Proprietary Commercial Software
   Classification: Internal
 -->
 
-## [6.99.0] — 2026-10-20
+## [6.99.0] — 2026-10-21
+
+### CRM & Customer 360° Dashboard — Live Portal Reconciliation & Prototype Elimination
+
+Audited and permanently eliminated prototype dummy values and visual disparities across the Customer 360° Dashboard workspace (`Customer360DashboardView.tsx`, `CorporateCustomer360.tsx`, and backend `backend/app/api/v1/crm.py`) for enterprise corporate accounts (Reliance Retail Limited `RRL-001` / `cust-rrl-192b561d`):
+- **Credit Limit & Currency Formatting Parity**:
+  - Reconciled visual discrepancy between Top Hero Card (`₹ 5,00,00,000`) and Right Intelligence Sidebar (`₹ 99,99,999`) by binding both cards to a unified formatted Indian currency helper `formattedCreditLimit` (`₹ ${Number(val).toLocaleString('en-IN')}` -> `₹ 9,99,99,999`).
+- **Statutory GSTIN-PAN Parity & Real-Time Integrity Validation**:
+  - Eradicated static prototype fallback PAN `"AABCR1234F"` from form state.
+  - Implemented `resolvePan` helper prioritizing `panNumber`, `pan`, and `pan_number` with authoritative fallback derivation from characters 3–12 of GSTIN (`AABCR1718E`).
+  - Added live visual statutory parity badge in Card 2 (`✓ Matches GSTIN` vs `⚠ Differs from GSTIN`).
+- **Honest Empty State for IEC**:
+  - Eliminated hardcoded `"IEC1234567"` placeholder fallback; rendered empty string with `placeholder="Not Registered"`.
+- **Dynamic Ledger Receivables & Dynamic Store/Account Counts**:
+  - Replaced hardcoded dummy outstanding `₹ 2,15,43,250` with live customer ledger balance (`formattedOutstanding` -> `₹ 0`).
+  - Replaced static constants (`12` child accounts, `85` stores) with dynamic `childCustomersCount` (derived from `dependants.length`) and `storesCount` (derived from `delivery_locations.length`).
+- **Dynamic Hierarchy Nodes & Operational Dates**:
+  - Replaced static dummy child nodes (`Phoenix Mall`, `Inorbit Mall`, `Amanora Mall`) with dynamic cards derived from `actualChildAccounts`.
+  - Bound operational dates (`lastPurchaseDate`, `lastInvoiceDate`, `relationshipSince`) and sparkline SVG bar trends to dynamic backend data.
+- **Backend Defensive Execution (`backend/app/api/v1/crm.py`)**:
+  - Hardened `get_corporate_customer_360` with defensive `try/except` wrappers around secondary PSV, Sales Order, and Sales Invoice joins, preventing HTTP 400 `SMRITI-DATA-001` failures when optional tables or columns experience operational drift.
+- **Automated Verification & Zero-Error Compilation**:
+  - Certified with 45/45 Vitest customer tests green, 16/16 backend Pytest tests green, and zero `npx tsc --noEmit` errors.
+
+### Procurement & Vendor Master — Live Portal Dummy Data Elimination & Data Integrity Audit
+
+Audited and permanently eliminated unintended placeholder, mock, and hardcoded demo fixtures from Procurement and Vendor Master workspaces:
+- **Clean Requisitions & RFQ Workspaces (`PurchaseRequisitionWorkspace.tsx`, `SupplierRfqWorkspace.tsx`)**:
+  - Eliminated hardcoded sample footwear product line (`Classic Formal Leather Shoe - Tan`, `SKU-FOOT-001`, 150 pairs @ ₹1,850.00).
+  - Initialized both workspaces with truthful empty lines (`createLines = []`, `rfqLines = []`) and clear honest empty states requiring user/catalog selection.
+- **Dynamic Purchase Order Generation & Sizewise Tabs (`PoGenerateTab.tsx`, `PoSizewiseTab.tsx`)**:
+  - Removed mock supplier prototype dropdown entries (`Apex Fabrics`, `Campus Activewear`, `Bata Footwear`, and `A. S. Shoes`) and synthetic fallback GSTIN `27AAAAC0553K1Z8`.
+  - Defaulted active suppliers strictly to dynamic backend data (`suppliers = []`), dynamically binding GSTIN, PAN, and state to the chosen supplier or honest empty values.
+- **Fail-Safe PO Print Engine & Multi-Category Attribute Resolution (`POPrintPreviewModal.tsx`)**:
+  - Eliminated synthetic footwear attributes (`"Genuine Calf Leather / Microfiber"`, `"Anti-Skid TPR / Goodyear Welt"`) and static 5-size runs (`[7, 8, 9, 10, 11]`).
+  - Added dynamic `resolveFootwearAttributes()` decoding real line item attributes or yielding `null` when not applicable.
+  - Dynamically bound tenant/company identity (`name`, `legalName`, `gstin`, `pan`, `address`) via `customCompanyProfile` prop or `getTenantCompanyContext()`, eliminating hardcoded mock company coordinates (`27AABCT9981K1Z2`, `AABCT9981K`).
+  - Preserved purchase order header payment terms instead of overriding with a fixed 120-day dummy string.
+  - Ensured isomorphic rendering safe for SSR and automated testing environments.
+- **Supplier Scorecard & Real Transaction Evaluation (`SupplierScorecardModal.tsx`, `VendorScorecardTab.tsx`)**:
+  - Eliminated static demo scorecard profiles (`Kapoor`, `Mehta`, `Sharma`) and demo toggle switches.
+  - Replaced phantom 100% Grade AAA ratings on zero-order vendors with truthful `UNRATED` / `TIER 0 — NEW VENDOR (NO ORDERS RECORDED)` status and non-fabricated `—` scores.
+  - Dynamically calculated on-time delivery percentages, fulfillment rates, and SLA progress bars against actual database purchase orders.
+- **Vendor Subledger & Statement of Account Integrity (`VendorPayablesTab.tsx`, `VendorStatementOfAccountModal.tsx`)**:
+  - Eliminated synthetic placeholder invoice row `LEDGER-${vendor.code}` previously injected to represent unitemized ledger balances.
+  - Added dedicated informational alert banner for master opening balances with truthful empty bills state.
+  - Eliminated fabricated statement fallback voucher `PB-CURR-001` and company `CMP-NX-PREVIEW`, rendering honest error alerts upon data fetching failures and updating cryptographic audit seal to V6.99.
+- **Three-Way Matching Modal GSTIN Context (`GrnReceiptTab.tsx`)**:
+  - Dynamically resolved vendor GSTIN from `suppliersList` and `selectedOrder` instead of passing an empty placeholder string.
+- **Automated Procurement Integrity Suite (`src/tests/procurementDataIntegrityAndDummyElimination.test.tsx`)**:
+  - Created comprehensive 8-suite automated test certified green verifying honest empty states, dynamic PO print profile resolution, truthful unrated scorecard rendering, and subledger integrity.
 
 ### CRM & Customer Master — Live Portal Dummy Data Elimination & Data Integrity Audit
 
