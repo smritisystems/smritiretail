@@ -1,0 +1,15 @@
+{
+  "certificate_id": "PF-2026-1020-3217BB",
+  "entity": "customer",
+  "capability": "customer.crud",
+  "asset_type": "component",
+  "proposed_name": "EnterpriseCustomerMasterView.tsx",
+  "target_file_path": "src/components/customer/corporateWorkspace/EnterpriseCustomerMasterView.tsx",
+  "decision": "CREATE_NEW",
+  "canonical_owner": "src/components/customer/corporateWorkspace/EnterpriseCustomerMasterView.tsx",
+  "content_hash": "97eca5a337650eddbd380c66131cc1ae8350618cddebf3b0fe9e882ec722003e",
+  "git_commit": "8deafb6f0dd3aaf72cb6ba1f4740e67add547e5a",
+  "issued_at": "2026-10-20T08:00:58.781823+00:00",
+  "expires_at": "2026-10-27T08:00:58.781823+00:00",
+  "status": "ISSUED"
+}

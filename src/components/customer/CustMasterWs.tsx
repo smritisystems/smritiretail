@@ -64,6 +64,7 @@ import { CorporateCommercialTermsPanel } from "./corporateWorkspace/CorporateCom
 import { CorporateIntegrationsPanel } from "./corporateWorkspace/CorporateIntegrationsPanel.tsx";
 import { CorporateActivityAuditPanel } from "./corporateWorkspace/CorporateActivityAuditPanel.tsx";
 import { GstRegistrationEntry } from "./corporateWorkspace/AddEditGstModal.tsx";
+import { EnterpriseCustomerMasterView } from "./corporateWorkspace/EnterpriseCustomerMasterView.tsx";
 import { SmritiCustomerPriceGroupModal } from "./CustPriceGroupDlg.tsx";
 import { StoreCodeLookupItem } from "./corporate360/types.ts";
 import { CreateCustomerModal } from "./lifecycle/CreateCustomerModal.tsx";
@@ -756,6 +757,7 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
   const [activeCorporateTab, setActiveCorporateTab] = useState<"identity" | "network" | "addresses" | "commercial" | "integrations" | "audit">("identity");
   const [corporateWorkspaceMode, setCorporateWorkspaceMode] = useState<"tabbed" | "overview">("overview");
   const [viewMode, setViewMode] = useState<"catalogue" | "directory" | "360">("catalogue");
+  const [layoutStyle, setLayoutStyle] = useState<"enterprise" | "classic">("enterprise");
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [isSaving, setIsSaving] = useState<boolean>(false);
 
@@ -1513,6 +1515,35 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
     setIsDeactivateModalOpen(true);
   };
 
+  const handleDuplicate = () => {
+    const newCode = `${currentCustomer.code || "CUST"}-COPY`;
+    const duplicated: RetailCustomerRecord = {
+      ...JSON.parse(JSON.stringify(currentCustomer)),
+      id: `cust-draft-${Date.now()}`,
+      code: newCode,
+      name: `${currentCustomer.name || "Customer"} (Copy)`,
+      shortName: `${currentCustomer.shortName || currentCustomer.name || "Customer"} (Copy)`,
+      status: "Active",
+      createdAt: new Date().toISOString().split("T")[0],
+      updatedAt: new Date().toISOString().split("T")[0]
+    };
+    setCurrentCustomer(duplicated);
+    currentCustomerRef.current = duplicated;
+    setIsDirty(true);
+    isDirtyRef.current = true;
+    setLifecycleMode("edit");
+    onNotification?.(
+      "Customer Record Duplicated",
+      `Created duplicate draft with code ${newCode}. Press Save to persist to database.`,
+      "info"
+    );
+  };
+
+  const handleSaveAndNew = async () => {
+    await handleSave();
+    handleNew();
+  };
+
   const handleCustomerDeactivated = (updatedRecord: RetailCustomerRecord) => {
     setCurrentCustomer(updatedRecord);
     currentCustomerRef.current = updatedRecord;
@@ -1871,9 +1902,55 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
 
   return (
     <div className="flex flex-col h-full bg-[#f7f9fb] dark:bg-[#191c1e] text-[#191c1e] dark:text-[#eff1f3] overflow-hidden">
-      
-      {/* ── Top Header & High-Density Action Bar ──────────────────────────────── */}
-      <header className="px-6 py-3.5 bg-white dark:bg-[#131b2e] border-b border-[#c6c6cd] dark:border-[#45464d] flex flex-wrap items-center justify-between gap-3 shrink-0 shadow-xs">
+      {viewMode === "360" ? (
+        <div className="flex-1 overflow-y-auto">
+          <CorporateCustomer360
+            customerId={currentCustomer?.id || "cust-rrl-192b561d"}
+            customer={currentCustomer}
+            currentUser={currentUser}
+            onChange={(field, value) => handleFieldChange(field as any, value)}
+            onSave={handleSave}
+            onSaveAndNew={handleSaveAndNew}
+            onDuplicate={handleDuplicate}
+            onDeactivate={handleOpenDeactivate}
+            onNotification={onNotification}
+            onBack={() => setViewMode("catalogue")}
+            onEditCustomer={() => {
+              setViewMode("catalogue");
+              setActiveTab("form");
+            }}
+            isSaving={isSaving}
+            isDirty={isDirty}
+          />
+        </div>
+      ) : viewMode === "catalogue" && layoutStyle === "enterprise" ? (
+        <EnterpriseCustomerMasterView
+          customer={currentCustomer}
+          onChange={handleFieldChange}
+          onSave={handleSave}
+          onSaveAndNew={handleSaveAndNew}
+          onDuplicate={handleDuplicate}
+          onDeactivate={handleOpenDeactivate}
+          onBack={() => setViewMode("directory")}
+          onOpenDirectory={() => setViewMode("directory")}
+          onOpen360={() => setViewMode("360")}
+          onToggleLayout={() => setLayoutStyle("classic")}
+          isSaving={isSaving}
+          isDirty={isDirty}
+          lifecycleMode={lifecycleMode}
+          onEdit={handleEdit}
+          onCancelEdit={handleCancelEdit}
+          onOpenMailingModal={handleOpenMailingModal}
+          onOpenStoreLookupModal={() => setIsSearchModalOpen(true)}
+          onOpenContactModal={() => handleOpenMailingModal()}
+          onOpenAddChildModal={() => setIsCreateCustomerModalOpen(true)}
+          gstRegistrations={gstRegistrations}
+          onNotification={onNotification}
+        />
+      ) : (
+        <>
+          {/* ── Top Header & High-Density Action Bar ──────────────────────────────── */}
+          <header className="px-6 py-3.5 bg-white dark:bg-[#131b2e] border-b border-[#c6c6cd] dark:border-[#45464d] flex flex-wrap items-center justify-between gap-3 shrink-0 shadow-xs">
         
         {/* Title & Status Badges */}
         <div className="flex items-center gap-3">
@@ -2135,7 +2212,7 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
           {/* Corporate 360 Button */}
           <button
             type="button"
-            onClick={() => setViewMode(viewMode === "360" ? "catalogue" : "360")}
+            onClick={() => setViewMode("360")}
             className="px-3.5 py-2 bg-white dark:bg-[#2d3133] border border-[#00355f] dark:border-[#8ebdf9] text-[#00355f] dark:text-[#8ebdf9] hover:bg-[#e8f1fc] dark:hover:bg-[#1a2e4a] rounded-xl text-xs font-bold flex items-center gap-1.5 transition shadow-2xs"
             title="Open Corporate 360 Full Dashboard"
           >
@@ -2150,20 +2227,7 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
       {/* ── Main Workspace Body ────────────────────────────────────────────── */}
       <div className="flex-1 overflow-hidden flex flex-col p-5">
         
-        {viewMode === "360" ? (
-          <div className="flex-1 overflow-y-auto">
-            <CorporateCustomer360
-              customerId={currentCustomer?.id || "cust-rrl-192b561d"}
-              currentUser={currentUser}
-              onNotification={onNotification}
-              onBack={() => setViewMode("catalogue")}
-              onEditCustomer={() => {
-                setViewMode("catalogue");
-                setActiveTab("form");
-              }}
-            />
-          </div>
-        ) : viewMode === "directory" ? (
+        {viewMode === "directory" ? (
           /* Full Customer Directory Grid Mode */
           <div className="flex-1 bg-white dark:bg-[#191c1e] border border-[#c6c6cd] dark:border-[#45464d] rounded-2xl shadow-xs overflow-hidden flex flex-col">
             <div className="p-4 bg-[#f2f4f6] dark:bg-[#131b2e] border-b border-[#c6c6cd] dark:border-[#45464d] flex items-center justify-between shrink-0">
@@ -2718,6 +2782,8 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
         )}
 
       </div>
+    </>
+  )}
 
       {/* ── Sub-Modals ──────────────────────────────────────────────────────── */}
       <SmritiCustomerMailingModal
