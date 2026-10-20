@@ -73,6 +73,7 @@ export interface EnterpriseCustomerMasterViewProps {
   onOpenStoreLookupModal?: () => void;
   onOpenContactModal?: (contact?: any) => void;
   onOpenAddChildModal?: () => void;
+  onSelectCustomer?: (customerIdentifier: string) => void;
   gstRegistrations?: GstRegistrationEntry[];
   onNotification?: (title: string, message: string, type?: "success" | "error" | "info" | "warning") => void;
 }
@@ -97,101 +98,231 @@ export const EnterpriseCustomerMasterView: React.FC<EnterpriseCustomerMasterView
   onOpenStoreLookupModal,
   onOpenContactModal,
   onOpenAddChildModal,
+  onSelectCustomer,
   gstRegistrations = [],
   onNotification,
 }) => {
   const [activeSection, setActiveSection] = useState<CustomerMasterSectionId>("basic");
   const [addressSubTab, setAddressSubTab] = useState<"billing" | "delivery" | "registered">("billing");
+  const [storeSearch, setStoreSearch] = useState<string>("");
+  const [childSearch, setChildSearch] = useState<string>("");
 
-  // Sample Documents & Notes matching reference screenshot
-  const [documents, setDocuments] = useState<Array<{ id: string; name: string; type: string; date: string }>>([
-    { id: "1", name: "GST Registration.pdf", type: "Tax Document", date: "12/04/2026" },
-    { id: "2", name: "MSA_Reliance.pdf", type: "Agreement", date: "15/04/2026" },
-    { id: "3", name: "PAN_Certificate.pdf", type: "KYC Document", date: "10/04/2026" },
-    { id: "4", name: "Store_List.xlsx", type: "Reference", date: "10/05/2026" },
-  ]);
+  // Documents & Notes
+  const [documents, setDocuments] = useState<Array<{ id: string; name: string; type: string; date: string }>>([]);
 
-  // Sample Audit Entries matching reference screenshot
-  const auditLogs = [
-    { id: "1", dateTime: "16/05/2026 10:30", action: "Updated", by: "admin", details: "Commercial terms changed" },
-    { id: "2", dateTime: "12/05/2026 14:12", action: "Address Added", by: "admin", details: "New delivery address added" },
-    { id: "3", dateTime: "05/04/2026 09:44", action: "Created", by: "admin", details: "Customer created" },
-    { id: "4", dateTime: "02/04/2026 11:20", action: "Store Linked", by: "admin", details: "REL-MUM-001 linked" },
-  ];
+  // Audit Entries
+  const auditLogs: Array<{ id: string; dateTime: string; action: string; by: string; details: string }> = [];
 
-  // Sample Stores matching reference screenshot
-  const storeNetwork = [
-    { id: "1", code: "REL-MUM-001", name: "Phoenix Mall", location: "Mumbai", type: "Store", status: "Active" },
-    { id: "2", code: "REL-MUM-002", name: "Inorbit Mall", location: "Mumbai", type: "Store", status: "Active" },
-    { id: "3", code: "REL-PUN-001", name: "Amanora Mall", location: "Pune", type: "Store", status: "Active" },
-    { id: "4", code: "REL-AHM-001", name: "AlphaOne Mall", location: "Ahmedabad", type: "Store", status: "Active" },
-  ];
+  // Dynamic Stores derived from customer delivery locations / addresses / dependants
+  const storeNetwork = useMemo(() => {
+    // 1. First check customer.mailingAddresses for delivery locations with store codes
+    const addressStores = (customer.mailingAddresses || [])
+      .filter((a) => a.storeCode || a.shippingStoreCode || a.addressType === "shipping")
+      .map((a, idx) => {
+        const code = a.storeCode || a.shippingStoreCode || `STR-${String(idx + 1).padStart(3, "0")}`;
+        const name = a.locationName || (a.contactPerson ? `${a.contactPerson}` : `${a.city || "Retail"} Store`);
+        const location = a.city ? (a.state ? `${a.city}, ${a.state}` : a.city) : (a.state || "India");
+        const isHub = name.toLowerCase().includes("hub") || name.toLowerCase().includes("wh") || name.toLowerCase().includes("warehouse");
+        return {
+          id: a.id || a.code || String(idx + 1),
+          code,
+          name,
+          location,
+          type: isHub ? "Regional Hub" : "Store",
+          status: "Active",
+        };
+      });
 
-  // Sample Child Customers matching reference screenshot
-  const childCustomers: HierarchyChildNode[] = [
-    { id: "1", code: "REL001-001", name: "Reliance - Phoenix Mall", storeCode: "REL-MUM-001", location: "Mumbai", status: "Active" },
-    { id: "2", code: "REL001-002", name: "Reliance - Inorbit Mall", storeCode: "REL-MUM-002", location: "Mumbai", status: "Active" },
-    { id: "3", code: "REL001-003", name: "Reliance - Amanora Mall", storeCode: "REL-PUN-001", location: "Pune", status: "Active" },
-    { id: "4", code: "REL001-004", name: "Reliance - AlphaOne", storeCode: "REL-AHM-001", location: "Ahmedabad", status: "Active" },
-  ];
+    if (addressStores.length > 0) return addressStores;
 
-  // Sample Contacts matching reference screenshot
-  const contacts = [
-    { id: "1", name: "Amit Sharma", designation: "Purchase Head", phone: "9876543210", email: "amit@reliance.com" },
-    { id: "2", name: "Neha Verma", designation: "Accounts", phone: "9876501234", email: "neha@reliance.com" },
-    { id: "3", name: "Rajiv Mehta", designation: "Store Operations", phone: "9876512345", email: "rajiv@reliance.com" },
-  ];
+    // 2. Check customer.dependants
+    if (customer.dependants && customer.dependants.length > 0) {
+      return customer.dependants.map((dep: any, idx: number) => {
+        let storeCode = "";
+        let location = "India";
+        if (dep.notes) {
+          const matchStore = dep.notes.match(/Store Code:\s*([^|]+)/i);
+          if (matchStore) storeCode = matchStore[1].trim();
+          const matchState = dep.notes.match(/State:\s*([^|]+)/i);
+          if (matchState) location = matchState[1].trim();
+        }
+        return {
+          id: dep.id || dep.dependantCustomerId || String(idx + 1),
+          code: storeCode || `RRL-${String(idx + 1).padStart(3, "0")}`,
+          name: dep.dependantCustomerName || `Store Outlet ${storeCode || idx + 1}`,
+          location,
+          type: "Store",
+          status: "Active",
+        };
+      });
+    }
 
-  // Addresses categorized
+    return [];
+  }, [customer.mailingAddresses, customer.dependants]);
+
+  // Dynamic Child Customers derived from customer dependants / store network
+  const childCustomers: HierarchyChildNode[] = useMemo(() => {
+    if (customer.dependants && customer.dependants.length > 0) {
+      return customer.dependants.map((dep: any, idx: number) => {
+        let storeCode = "";
+        let location = "";
+        if (dep.notes) {
+          const matchStore = dep.notes.match(/Store Code:\s*([^|]+)/i);
+          if (matchStore) storeCode = matchStore[1].trim();
+          const matchState = dep.notes.match(/State:\s*([^|]+)/i);
+          if (matchState) location = matchState[1].trim();
+        }
+        if (!storeCode && customer.mailingAddresses) {
+          const matched = customer.mailingAddresses.find(
+            (a) => a.locationName === dep.dependantCustomerName || a.contactPerson === dep.dependantCustomerName
+          );
+          if (matched) {
+            storeCode = matched.storeCode || matched.shippingStoreCode || "";
+            location = matched.city ? (matched.state ? `${matched.city}, ${matched.state}` : matched.city) : (matched.state || "");
+          }
+        }
+        const code = storeCode ? `RRL-${storeCode}` : (dep.code || `REL001-${String(idx + 1).padStart(3, "0")}`);
+        return {
+          id: dep.id || dep.dependantCustomerId || String(idx + 1),
+          code,
+          name: dep.dependantCustomerName || `Reliance Outlet ${storeCode || idx + 1}`,
+          storeCode: storeCode || "—",
+          location: location || "India",
+          status: "Active",
+        };
+      });
+    }
+
+    // If dependants array not populated, derive child nodes from mailingAddresses stores
+    const addressStores = (customer.mailingAddresses || []).filter(
+      (a) => a.storeCode || a.shippingStoreCode || a.addressType === "shipping"
+    );
+    if (addressStores.length > 0) {
+      return addressStores.map((a, idx) => {
+        const storeCode = a.storeCode || a.shippingStoreCode || String(idx + 1);
+        return {
+          id: a.id || a.code || String(idx + 1),
+          code: `RRL-${storeCode}`,
+          name: a.locationName || (a.contactPerson ? `${a.contactPerson}` : `${a.city || "Retail"} Store`),
+          storeCode,
+          location: a.city ? (a.state ? `${a.city}, ${a.state}` : a.city) : (a.state || "India"),
+          status: "Active",
+        };
+      });
+    }
+
+    return [];
+  }, [customer.dependants, customer.mailingAddresses]);
+
+  // Filtered store network based on storeSearch
+  const filteredStoreNetwork = useMemo(() => {
+    if (!storeSearch.trim()) return storeNetwork;
+    const q = storeSearch.trim().toLowerCase();
+    return storeNetwork.filter(
+      (st) =>
+        st.code.toLowerCase().includes(q) ||
+        st.name.toLowerCase().includes(q) ||
+        st.location.toLowerCase().includes(q) ||
+        st.type.toLowerCase().includes(q)
+    );
+  }, [storeNetwork, storeSearch]);
+
+  // Filtered child customers based on childSearch
+  const filteredChildCustomers = useMemo(() => {
+    if (!childSearch.trim()) return childCustomers;
+    const q = childSearch.trim().toLowerCase();
+    return childCustomers.filter(
+      (cc) =>
+        cc.code.toLowerCase().includes(q) ||
+        cc.name.toLowerCase().includes(q) ||
+        (cc.storeCode && cc.storeCode.toLowerCase().includes(q)) ||
+        (cc.location && cc.location.toLowerCase().includes(q))
+    );
+  }, [childCustomers, childSearch]);
+
+  // Dynamic Contacts derived from addresses or customer profile
+  const contacts = useMemo(() => {
+    const list: Array<{ id: string; name: string; designation: string; phone: string; email: string }> = [];
+    if (customer.mailingAddresses) {
+      customer.mailingAddresses.forEach((a, idx) => {
+        if (a.contactPerson && a.contactPerson.trim()) {
+          list.push({
+            id: `c-${idx}`,
+            name: a.contactPerson,
+            designation: a.locationName || (a.addressType === "billing" ? "Corporate Billing Officer" : "Store Manager"),
+            phone: a.mobilePhone || customer.phone || "—",
+            email: a.email1 || customer.email || "—"
+          });
+        }
+      });
+    }
+    if (list.length === 0 && (customer.phone || customer.email)) {
+      list.push({
+        id: "c-primary",
+        name: customer.name || "Primary Contact",
+        designation: "Authorized Representative",
+        phone: customer.phone || "—",
+        email: customer.email || "—"
+      });
+    }
+    return list;
+  }, [customer.mailingAddresses, customer.phone, customer.email, customer.name]);
+
+  // Addresses categorized dynamically from customer.mailingAddresses
   const billingAddresses = useMemo(() => {
-    return [
-      {
-        id: "b1",
-        isDefault: true,
-        name: "Head Office",
-        address: "3rd Floor, MMRDA Building, BKC",
-        city: "Mumbai",
-        state: "Maharashtra",
-        pin: "400051",
-        gstin: customer.gstin || "27AABCR1234F1Z5",
-      },
-      {
-        id: "b2",
-        isDefault: false,
-        name: "Regional Office",
-        address: "R-Tech Park, MIDC",
-        city: "Navi Mumbai",
-        state: "Maharashtra",
-        pin: "400710",
-        gstin: "—",
-      },
-    ];
-  }, [customer.gstin]);
+    const list = (customer.mailingAddresses || []).filter(
+      (a) => a.addressType === "billing" || a.addressType === "mailing"
+    );
+    if (list.length > 0) {
+      return list.map((a, idx) => ({
+        id: a.id || a.code || `b-${idx}`,
+        isDefault: Boolean(a.isDefault),
+        name: a.locationName || (a.contactPerson ? a.contactPerson : (idx === 0 ? "Head Office" : "Regional Office")),
+        address: [a.address1, a.address2, a.locality].filter(Boolean).join(", ") || (idx === 0 ? "Corporate Headquarters" : "Regional Office"),
+        city: a.city || "—",
+        state: a.state || "—",
+        pin: a.postalCode || "—",
+        gstin: a.gstin || customer.gstin || "—",
+      }));
+    }
+    return [];
+  }, [customer.mailingAddresses, customer.gstin]);
 
   const deliveryAddresses = useMemo(() => {
-    return [
-      {
-        id: "d1",
-        isDefault: true,
-        name: "Phoenix Mall Outlet",
-        address: "Senapati Bapat Marg, Lower Parel",
-        city: "Mumbai",
-        state: "Maharashtra",
-        pin: "400013",
-        gstin: customer.gstin || "27AABCR1234F1Z5",
-      },
-      {
-        id: "d2",
-        isDefault: false,
-        name: "Inorbit Mall Store",
-        address: "Link Road, Malad West",
-        city: "Mumbai",
-        state: "Maharashtra",
-        pin: "400064",
-        gstin: customer.gstin || "27AABCR1234F1Z5",
-      },
-    ];
-  }, [customer.gstin]);
+    const list = (customer.mailingAddresses || []).filter(
+      (a) => a.addressType === "shipping" || Boolean(a.shippingStoreCode || a.storeCode)
+    );
+    if (list.length > 0) {
+      return list.map((a, idx) => ({
+        id: a.id || a.code || `d-${idx}`,
+        isDefault: Boolean(a.isDefault),
+        name: a.locationName || (a.contactPerson ? a.contactPerson : (a.city ? `${a.city} Outlet (${a.storeCode || a.shippingStoreCode || idx + 1})` : `Store ${a.storeCode || a.shippingStoreCode || idx + 1}`)),
+        address: [a.address1, a.address2, a.locality].filter(Boolean).join(", ") || "Physical Store Delivery Location",
+        city: a.city || "—",
+        state: a.state || "—",
+        pin: a.postalCode || "—",
+        gstin: a.gstin || customer.gstin || "—",
+      }));
+    }
+    return [];
+  }, [customer.mailingAddresses, customer.gstin]);
+
+  const registeredAddresses = useMemo(() => {
+    const list = (customer.mailingAddresses || []).filter((a) => a.addressType === "mailing");
+    if (list.length > 0) {
+      return list.map((a, idx) => ({
+        id: a.id || a.code || `r-${idx}`,
+        isDefault: Boolean(a.isDefault),
+        name: a.locationName || (a.contactPerson ? a.contactPerson : "Corporate Registered Office"),
+        address: [a.address1, a.address2, a.locality].filter(Boolean).join(", ") || "Registered Corporate Office",
+        city: a.city || "—",
+        state: a.state || "—",
+        pin: a.postalCode || "—",
+        gstin: a.gstin || customer.gstin || "—",
+      }));
+    }
+    return [];
+  }, [customer.mailingAddresses, customer.gstin]);
 
   const scrollToSection = (sectionId: CustomerMasterSectionId) => {
     setActiveSection(sectionId);
@@ -355,6 +486,40 @@ export const EnterpriseCustomerMasterView: React.FC<EnterpriseCustomerMasterView
                   </h2>
                 </div>
 
+                {/* Parent Customer Banner (Visible when viewing child customer) */}
+                {Boolean(customer.isDependant || customer.primaryAccountCode) && (
+                  <div className="p-3 bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 rounded-lg flex items-center justify-between">
+                    <div className="flex items-center gap-2.5">
+                      <div className="p-1.5 bg-blue-600 text-white rounded-md shrink-0">
+                        <Building2 size={14} />
+                      </div>
+                      <div>
+                        <div className="text-xs font-bold text-blue-900 dark:text-blue-100 flex items-center gap-2">
+                          <span>Child Store Account of:</span>
+                          <span className="font-extrabold">{customer.primaryAccountName || "Reliance Retail Limited"}</span>
+                          <span className="font-mono text-[11px] bg-blue-200 dark:bg-blue-900 text-blue-800 dark:text-blue-200 px-1.5 py-0.5 rounded">
+                            {customer.primaryAccountCode || "—"}
+                          </span>
+                        </div>
+                        <div className="text-[11px] text-blue-700 dark:text-blue-300 mt-0.5">
+                          Relationship Type: <span className="font-bold">{customer.customerType || "STORE"}</span> • Centralized B2B Corporate Parent
+                        </div>
+                      </div>
+                    </div>
+                    {onBack && (
+                      <button
+                        type="button"
+                        onClick={() => onSelectCustomer && customer.primaryAccountCode ? onSelectCustomer(customer.primaryAccountCode) : onBack()}
+                        className="px-3 py-1.5 bg-white dark:bg-slate-800 border border-blue-300 dark:border-blue-700 hover:bg-blue-50 text-blue-700 dark:text-blue-300 rounded-lg text-xs font-bold flex items-center gap-1.5 transition shadow-2xs shrink-0"
+                        title={`Navigate to Parent Account (${customer.primaryAccountCode || "Parent"})`}
+                      >
+                        <ChevronLeft size={13} />
+                        <span>View Parent</span>
+                      </button>
+                    )}
+                  </div>
+                )}
+
                 {/* 3-Column Field Grid */}
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
                   {/* Customer Code */}
@@ -365,7 +530,7 @@ export const EnterpriseCustomerMasterView: React.FC<EnterpriseCustomerMasterView
                     <input
                       type="text"
                       readOnly={isReadOnly}
-                      value={customer.code || "REL001"}
+                      value={customer.code || ""}
                       onChange={(e) => onChange("code", e.target.value)}
                       className={`w-full p-2 border rounded-lg font-mono font-bold text-xs outline-none ${
                         isReadOnly
@@ -383,7 +548,7 @@ export const EnterpriseCustomerMasterView: React.FC<EnterpriseCustomerMasterView
                     <input
                       type="text"
                       readOnly={isReadOnly}
-                      value={customer.name || "Reliance Retail Limited"}
+                      value={customer.name || ""}
                       onChange={(e) => onChange("name", e.target.value)}
                       className={`w-full p-2 border rounded-lg font-bold text-xs outline-none ${
                         isReadOnly
@@ -401,7 +566,7 @@ export const EnterpriseCustomerMasterView: React.FC<EnterpriseCustomerMasterView
                     <input
                       type="text"
                       readOnly={isReadOnly}
-                      value={customer.shortName || customer.name || "Reliance Retail"}
+                      value={customer.shortName || customer.name || ""}
                       onChange={(e) => onChange("shortName", e.target.value)}
                       className="w-full p-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-xs outline-none focus:border-blue-500"
                     />
@@ -529,7 +694,11 @@ export const EnterpriseCustomerMasterView: React.FC<EnterpriseCustomerMasterView
 
               {/* Customer Summary Panel (lg:col-span-4) */}
               <div className="lg:col-span-4">
-                <CustomerSummaryCard customer={customer} />
+                <CustomerSummaryCard
+                  customer={customer}
+                  childCustomerCount={childCustomers.length}
+                  totalStoreCount={storeNetwork.length}
+                />
               </div>
             </div>
 
@@ -557,7 +726,7 @@ export const EnterpriseCustomerMasterView: React.FC<EnterpriseCustomerMasterView
                   <input
                     type="text"
                     readOnly={isReadOnly}
-                    value={customer.name || "Reliance Retail Limited"}
+                    value={customer.name || ""}
                     onChange={(e) => onChange("name", e.target.value)}
                     className="w-full p-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-bold outline-none focus:border-blue-500"
                   />
@@ -571,7 +740,7 @@ export const EnterpriseCustomerMasterView: React.FC<EnterpriseCustomerMasterView
                   <input
                     type="text"
                     readOnly={isReadOnly}
-                    value={customer.gstin || "27AABCR1234F1Z5"}
+                    value={customer.gstin || ""}
                     onChange={(e) => onChange("gstin", e.target.value.toUpperCase())}
                     className="w-full p-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-mono font-bold outline-none focus:border-blue-500"
                   />
@@ -585,7 +754,7 @@ export const EnterpriseCustomerMasterView: React.FC<EnterpriseCustomerMasterView
                   <input
                     type="text"
                     readOnly={isReadOnly}
-                    value={customer.panNumber || "AABCR1234F"}
+                    value={customer.panNumber || ""}
                     onChange={(e) => onChange("panNumber", e.target.value.toUpperCase())}
                     className="w-full p-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-mono font-bold outline-none focus:border-blue-500"
                   />
@@ -599,7 +768,7 @@ export const EnterpriseCustomerMasterView: React.FC<EnterpriseCustomerMasterView
                   <input
                     type="text"
                     readOnly={isReadOnly}
-                    value={customer.iecNumber || "IEC1234567"}
+                    value={customer.iecNumber || ""}
                     onChange={(e) => onChange("iecNumber", e.target.value)}
                     className="w-full p-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-mono outline-none focus:border-blue-500"
                   />
@@ -615,8 +784,8 @@ export const EnterpriseCustomerMasterView: React.FC<EnterpriseCustomerMasterView
                     readOnly={isReadOnly}
                     value={
                       customer.mailingAddresses?.[0]?.address1
-                        ? `${customer.mailingAddresses[0].address1}, ${customer.mailingAddresses[0].locality || "Bandra-Kurla Complex"}, ${customer.mailingAddresses[0].city} - ${customer.mailingAddresses[0].postalCode}, ${customer.mailingAddresses[0].state}, India`
-                        : "3rd Floor, Corporate Office, MMRDA Building, Bandra-Kurla Complex, Mumbai - 400051, Maharashtra, India"
+                        ? `${customer.mailingAddresses[0].address1}, ${customer.mailingAddresses[0].city} - ${customer.mailingAddresses[0].postalCode || ""}, ${customer.mailingAddresses[0].state || ""}, India`
+                        : ""
                     }
                     className="w-full p-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-xs leading-relaxed outline-none focus:border-blue-500 resize-none"
                   />
@@ -647,12 +816,12 @@ export const EnterpriseCustomerMasterView: React.FC<EnterpriseCustomerMasterView
                   </label>
                   <select
                     disabled={isReadOnly}
-                    value={customer.priceGroup || "Reliance Corporate"}
+                    value={customer.priceGroup || "Standard Retail"}
                     onChange={(e) => onChange("priceGroup", e.target.value)}
                     className="w-full p-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-bold outline-none focus:border-purple-500"
                   >
-                    <option value="Reliance Corporate">Reliance Corporate</option>
                     <option value="Standard Retail">Standard Retail</option>
+                    <option value="Reliance Corporate">Reliance Corporate</option>
                     <option value="Wholesale Tier 1">Wholesale Tier 1</option>
                     <option value="Distributor Price">Distributor Price</option>
                   </select>
@@ -665,15 +834,16 @@ export const EnterpriseCustomerMasterView: React.FC<EnterpriseCustomerMasterView
                   </label>
                   <select
                     disabled={isReadOnly}
-                    value={customer.paymentTerm || "30 Days"}
+                    value={customer.paymentTerm || "Immediate"}
                     onChange={(e) => onChange("paymentTerm", e.target.value)}
                     className="w-full p-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-bold outline-none focus:border-purple-500"
                   >
-                    <option value="30 Days">30 Days</option>
+                    <option value="Immediate">Immediate</option>
                     <option value="15 Days">15 Days</option>
+                    <option value="30 Days">30 Days</option>
                     <option value="45 Days">45 Days</option>
                     <option value="60 Days">60 Days</option>
-                    <option value="Immediate">Immediate</option>
+                    <option value="90 Days">90 Days</option>
                   </select>
                 </div>
 
@@ -685,7 +855,7 @@ export const EnterpriseCustomerMasterView: React.FC<EnterpriseCustomerMasterView
                   <input
                     type="number"
                     readOnly={isReadOnly}
-                    value={customer.creditLimit || 5000000}
+                    value={typeof customer.creditLimit === "number" ? customer.creditLimit : 0}
                     onChange={(e) => onChange("creditLimit", Number(e.target.value))}
                     className="w-full p-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-mono font-bold outline-none focus:border-purple-500"
                   />
@@ -699,7 +869,7 @@ export const EnterpriseCustomerMasterView: React.FC<EnterpriseCustomerMasterView
                   <input
                     type="number"
                     readOnly={isReadOnly}
-                    value={customer.creditDays || 30}
+                    value={typeof customer.creditDays === "number" ? customer.creditDays : 0}
                     onChange={(e) => onChange("creditDays", Number(e.target.value))}
                     className="w-full p-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-mono font-bold outline-none focus:border-purple-500"
                   />
@@ -712,10 +882,11 @@ export const EnterpriseCustomerMasterView: React.FC<EnterpriseCustomerMasterView
                   </label>
                   <select
                     disabled={isReadOnly}
-                    value={customer.accountManager || "Corporate Sales"}
+                    value={customer.accountManager || ""}
                     onChange={(e) => onChange("accountManager", e.target.value)}
                     className="w-full p-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-xs outline-none focus:border-purple-500"
                   >
+                    <option value="">— Direct / None —</option>
                     <option value="Corporate Sales">Corporate Sales</option>
                     <option value="Key Accounts Team">Key Accounts Team</option>
                     <option value="Direct Sales Head">Direct Sales Head</option>
@@ -788,14 +959,14 @@ export const EnterpriseCustomerMasterView: React.FC<EnterpriseCustomerMasterView
                       : "text-slate-600 dark:text-slate-400 hover:bg-slate-100"
                   }`}
                 >
-                  Registered Office
+                  Registered Office ({registeredAddresses.length})
                 </button>
               </div>
 
               {/* Addresses Table */}
-              <div className="border border-slate-200 dark:border-slate-800 rounded-lg overflow-x-auto">
+              <div className="border border-slate-200 dark:border-slate-800 rounded-lg overflow-x-auto max-h-[360px] overflow-y-auto">
                 <table className="w-full text-left text-xs border-collapse min-w-[650px]">
-                  <thead className="bg-slate-50 dark:bg-slate-800/60 font-bold text-[10px] uppercase text-slate-500 border-b border-slate-200 dark:border-slate-800">
+                  <thead className="sticky top-0 bg-slate-50 dark:bg-slate-800 font-bold text-[10px] uppercase text-slate-500 border-b border-slate-200 dark:border-slate-800 z-10">
                     <tr>
                       <th className="p-2 w-12 text-center">Default</th>
                       <th className="p-2">Address Name</th>
@@ -808,44 +979,56 @@ export const EnterpriseCustomerMasterView: React.FC<EnterpriseCustomerMasterView
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                    {(addressSubTab === "billing" ? billingAddresses : deliveryAddresses).map((addr) => (
-                      <tr key={addr.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/40">
-                        <td className="p-2 text-center">
-                          <input
-                            type="radio"
-                            name="default_addr"
-                            checked={addr.isDefault}
-                            readOnly
-                            className="text-blue-600 focus:ring-blue-500"
-                          />
-                        </td>
-                        <td className="p-2 font-bold text-slate-900 dark:text-white">{addr.name}</td>
-                        <td className="p-2 text-slate-600 dark:text-slate-300">{addr.address}</td>
-                        <td className="p-2">{addr.city}</td>
-                        <td className="p-2">{addr.state}</td>
-                        <td className="p-2 font-mono">{addr.pin}</td>
-                        <td className="p-2 font-mono text-[11px] font-bold text-slate-700 dark:text-slate-300">
-                          {addr.gstin}
-                        </td>
-                        <td className="p-2 text-right space-x-1">
-                          <button
-                            type="button"
-                            onClick={onOpenMailingModal}
-                            className="p-1 text-slate-400 hover:text-blue-600 rounded transition"
-                            title="Edit Address"
-                          >
-                            <Edit2 size={13} />
-                          </button>
-                          <button
-                            type="button"
-                            className="p-1 text-slate-400 hover:text-red-600 rounded transition"
-                            title="Delete Address"
-                          >
-                            <Trash2 size={13} />
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
+                    {(() => {
+                      const list = addressSubTab === "billing" ? billingAddresses : (addressSubTab === "delivery" ? deliveryAddresses : registeredAddresses);
+                      if (list.length === 0) {
+                        return (
+                          <tr>
+                            <td colSpan={8} className="p-8 text-center text-xs text-slate-500">
+                              No {addressSubTab === "billing" ? "billing" : addressSubTab === "delivery" ? "delivery" : "registered"} addresses recorded for this customer.
+                            </td>
+                          </tr>
+                        );
+                      }
+                      return list.map((addr) => (
+                        <tr key={addr.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/40">
+                          <td className="p-2 text-center">
+                            <input
+                              type="radio"
+                              name="default_addr"
+                              checked={addr.isDefault}
+                              readOnly
+                              className="text-blue-600 focus:ring-blue-500"
+                            />
+                          </td>
+                          <td className="p-2 font-bold text-slate-900 dark:text-white">{addr.name}</td>
+                          <td className="p-2 text-slate-600 dark:text-slate-300">{addr.address}</td>
+                          <td className="p-2">{addr.city}</td>
+                          <td className="p-2">{addr.state}</td>
+                          <td className="p-2 font-mono">{addr.pin}</td>
+                          <td className="p-2 font-mono text-[11px] font-bold text-slate-700 dark:text-slate-300">
+                            {addr.gstin}
+                          </td>
+                          <td className="p-2 text-right space-x-1">
+                            <button
+                              type="button"
+                              onClick={onOpenMailingModal}
+                              className="p-1 text-slate-400 hover:text-blue-600 rounded transition"
+                              title="Edit Address"
+                            >
+                              <Edit2 size={13} />
+                            </button>
+                            <button
+                              type="button"
+                              className="p-1 text-slate-400 hover:text-red-600 rounded transition"
+                              title="Delete Address"
+                            >
+                              <Trash2 size={13} />
+                            </button>
+                          </td>
+                        </tr>
+                      ));
+                    })()}
                   </tbody>
                 </table>
               </div>
@@ -871,53 +1054,90 @@ export const EnterpriseCustomerMasterView: React.FC<EnterpriseCustomerMasterView
                 id="sec-store-network"
                 className="bg-white dark:bg-[#1e293b] border border-slate-200 dark:border-slate-800 rounded-xl p-4 shadow-xs space-y-3.5"
               >
-                <div className="flex items-center gap-2 pb-2 border-b border-slate-100 dark:border-slate-800">
-                  <div className="w-5 h-5 rounded-full bg-teal-600 text-white flex items-center justify-center font-bold text-xs">
-                    5
+                <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
+                  <div className="flex items-center gap-2">
+                    <div className="w-5 h-5 rounded-full bg-teal-600 text-white flex items-center justify-center font-bold text-xs">
+                      5
+                    </div>
+                    <div>
+                      <h2 className="font-bold text-xs uppercase tracking-wide text-teal-700 dark:text-teal-400">
+                        Store / Outlet Network ({storeNetwork.length})
+                      </h2>
+                      {storeSearch && (
+                        <span className="text-[10px] text-slate-500 font-medium">
+                          Showing {filteredStoreNetwork.length} of {storeNetwork.length}
+                        </span>
+                      )}
+                    </div>
                   </div>
-                  <h2 className="font-bold text-xs uppercase tracking-wide text-teal-700 dark:text-teal-400">
-                    Store / Outlet Network
-                  </h2>
+
+                  <div className="relative flex items-center">
+                    <input
+                      type="text"
+                      placeholder="Search stores..."
+                      value={storeSearch}
+                      onChange={(e) => setStoreSearch(e.target.value)}
+                      className="px-2.5 py-1 text-xs border border-slate-200 dark:border-slate-700 rounded-lg bg-slate-50 dark:bg-slate-900 w-36 sm:w-48 focus:w-56 transition-all outline-none"
+                    />
+                    {storeSearch && (
+                      <button
+                        type="button"
+                        onClick={() => setStoreSearch("")}
+                        className="absolute right-2 text-slate-400 hover:text-slate-600 text-xs font-bold"
+                        title="Clear filter"
+                      >
+                        ×
+                      </button>
+                    )}
+                  </div>
                 </div>
 
-                <div className="border border-slate-200 dark:border-slate-800 rounded-lg overflow-x-auto">
-                  <table className="w-full text-left text-xs border-collapse">
-                    <thead className="bg-slate-50 dark:bg-slate-800/60 font-bold text-[10px] uppercase text-slate-500 border-b border-slate-200 dark:border-slate-800">
-                      <tr>
-                        <th className="p-2">Store Code</th>
-                        <th className="p-2">Store Name</th>
-                        <th className="p-2">Location</th>
-                        <th className="p-2">Type</th>
-                        <th className="p-2">Status</th>
-                        <th className="p-2 text-right">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-[11px]">
-                      {storeNetwork.map((st) => (
-                        <tr key={st.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/40">
-                          <td className="p-2 font-mono font-bold text-slate-900 dark:text-white">{st.code}</td>
-                          <td className="p-2 font-medium">{st.name}</td>
-                          <td className="p-2">{st.location}</td>
-                          <td className="p-2 text-slate-500">{st.type}</td>
-                          <td className="p-2">
-                            <span className="inline-flex items-center gap-1 text-emerald-700 dark:text-emerald-400 font-bold">
-                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                              {st.status}
-                            </span>
-                          </td>
-                          <td className="p-2 text-right">
-                            <button
-                              type="button"
-                              onClick={onOpenStoreLookupModal}
-                              className="p-1 text-slate-400 hover:text-blue-600 rounded transition"
-                            >
-                              <Edit2 size={12} />
-                            </button>
-                          </td>
+                <div className="border border-slate-200 dark:border-slate-800 rounded-lg overflow-x-auto max-h-[360px] overflow-y-auto">
+                  {filteredStoreNetwork.length === 0 ? (
+                    <div className="p-8 text-center text-xs text-slate-500">
+                      {storeSearch
+                        ? <>No store outlets match <span className="font-bold font-mono">"{storeSearch}"</span>.</>
+                        : "No store or delivery locations recorded for this customer."}
+                    </div>
+                  ) : (
+                    <table className="w-full text-left text-xs border-collapse">
+                      <thead className="sticky top-0 bg-slate-50 dark:bg-slate-800 font-bold text-[10px] uppercase text-slate-500 border-b border-slate-200 dark:border-slate-800 z-10">
+                        <tr>
+                          <th className="p-2">Store Code</th>
+                          <th className="p-2">Store Name</th>
+                          <th className="p-2">Location</th>
+                          <th className="p-2">Type</th>
+                          <th className="p-2">Status</th>
+                          <th className="p-2 text-right">Actions</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-[11px]">
+                        {filteredStoreNetwork.map((st) => (
+                          <tr key={st.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/40">
+                            <td className="p-2 font-mono font-bold text-slate-900 dark:text-white">{st.code}</td>
+                            <td className="p-2 font-medium">{st.name}</td>
+                            <td className="p-2">{st.location}</td>
+                            <td className="p-2 text-slate-500">{st.type}</td>
+                            <td className="p-2">
+                              <span className="inline-flex items-center gap-1 text-emerald-700 dark:text-emerald-400 font-bold">
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                                {st.status}
+                              </span>
+                            </td>
+                            <td className="p-2 text-right">
+                              <button
+                                type="button"
+                                onClick={onOpenStoreLookupModal}
+                                className="p-1 text-slate-400 hover:text-blue-600 rounded transition"
+                              >
+                                <Edit2 size={12} />
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  )}
                 </div>
 
                 <div className="flex justify-end pt-1">
@@ -958,31 +1178,39 @@ export const EnterpriseCustomerMasterView: React.FC<EnterpriseCustomerMasterView
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-[11px]">
-                      {contacts.map((c) => (
-                        <tr key={c.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/40">
-                          <td className="p-2 font-bold text-slate-900 dark:text-white">{c.name}</td>
-                          <td className="p-2 text-slate-600 dark:text-slate-300">{c.designation}</td>
-                          <td className="p-2 font-mono">{c.phone}</td>
-                          <td className="p-2 font-mono text-[10px] text-slate-600 dark:text-slate-400 truncate max-w-[130px]">
-                            {c.email}
-                          </td>
-                          <td className="p-2 text-right space-x-1">
-                            <button
-                              type="button"
-                              onClick={() => onOpenContactModal?.(c)}
-                              className="p-1 text-slate-400 hover:text-blue-600 rounded transition"
-                            >
-                              <Edit2 size={12} />
-                            </button>
-                            <button
-                              type="button"
-                              className="p-1 text-slate-400 hover:text-red-600 rounded transition"
-                            >
-                              <Trash2 size={12} />
-                            </button>
+                      {contacts.length === 0 ? (
+                        <tr>
+                          <td colSpan={5} className="p-8 text-center text-xs text-slate-500">
+                            No contact persons recorded for this customer.
                           </td>
                         </tr>
-                      ))}
+                      ) : (
+                        contacts.map((c) => (
+                          <tr key={c.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/40">
+                            <td className="p-2 font-bold text-slate-900 dark:text-white">{c.name}</td>
+                            <td className="p-2 text-slate-600 dark:text-slate-300">{c.designation}</td>
+                            <td className="p-2 font-mono">{c.phone}</td>
+                            <td className="p-2 font-mono text-[10px] text-slate-600 dark:text-slate-400 truncate max-w-[130px]">
+                              {c.email}
+                            </td>
+                            <td className="p-2 text-right space-x-1">
+                              <button
+                                type="button"
+                                onClick={() => onOpenContactModal?.(c)}
+                                className="p-1 text-slate-400 hover:text-blue-600 rounded transition"
+                              >
+                                <Edit2 size={12} />
+                              </button>
+                              <button
+                                type="button"
+                                className="p-1 text-slate-400 hover:text-red-600 rounded transition"
+                              >
+                                <Trash2 size={12} />
+                              </button>
+                            </td>
+                          </tr>
+                        ))
+                      )}
                     </tbody>
                   </table>
                 </div>
@@ -1006,52 +1234,121 @@ export const EnterpriseCustomerMasterView: React.FC<EnterpriseCustomerMasterView
               id="sec-parent-child"
               className="bg-white dark:bg-[#1e293b] border border-slate-200 dark:border-slate-800 rounded-xl p-4 shadow-xs space-y-3.5"
             >
-              <div className="flex items-center gap-2 pb-2 border-b border-slate-100 dark:border-slate-800">
-                <div className="w-5 h-5 rounded-full bg-purple-600 text-white flex items-center justify-center font-bold text-xs">
-                  7
+              <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
+                <div className="flex items-center gap-2">
+                  <div className="w-5 h-5 rounded-full bg-purple-600 text-white flex items-center justify-center font-bold text-xs">
+                    7
+                  </div>
+                  <div>
+                    <h2 className="font-bold text-xs uppercase tracking-wide text-purple-700 dark:text-purple-400">
+                      Child Customers ({childCustomers.length})
+                    </h2>
+                    {childSearch && (
+                      <span className="text-[10px] text-slate-500 font-medium">
+                        Showing {filteredChildCustomers.length} of {childCustomers.length}
+                      </span>
+                    )}
+                  </div>
                 </div>
-                <h2 className="font-bold text-xs uppercase tracking-wide text-purple-700 dark:text-purple-400">
-                  Child Customers ({childCustomers.length})
-                </h2>
+
+                <div className="relative flex items-center">
+                  <input
+                    type="text"
+                    placeholder="Search child accounts..."
+                    value={childSearch}
+                    onChange={(e) => setChildSearch(e.target.value)}
+                    className="px-2.5 py-1 text-xs border border-slate-200 dark:border-slate-700 rounded-lg bg-slate-50 dark:bg-slate-900 w-36 sm:w-48 focus:w-56 transition-all outline-none"
+                  />
+                  {childSearch && (
+                    <button
+                      type="button"
+                      onClick={() => setChildSearch("")}
+                      className="absolute right-2 text-slate-400 hover:text-slate-600 text-xs font-bold"
+                      title="Clear filter"
+                    >
+                      ×
+                    </button>
+                  )}
+                </div>
               </div>
 
-              <div className="border border-slate-200 dark:border-slate-800 rounded-lg overflow-x-auto">
-                <table className="w-full text-left text-xs border-collapse min-w-[650px]">
-                  <thead className="bg-slate-50 dark:bg-slate-800/60 font-bold text-[10px] uppercase text-slate-500 border-b border-slate-200 dark:border-slate-800">
-                    <tr>
-                      <th className="p-2">Customer Code</th>
-                      <th className="p-2">Customer Name</th>
-                      <th className="p-2">Store Code</th>
-                      <th className="p-2">Location</th>
-                      <th className="p-2">Status</th>
-                      <th className="p-2 text-right">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-[11px]">
-                    {childCustomers.map((cc) => (
-                      <tr key={cc.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/40">
-                        <td className="p-2 font-mono font-bold text-[#00355f] dark:text-[#8ebdf9]">{cc.code}</td>
-                        <td className="p-2 font-bold text-slate-900 dark:text-white">{cc.name}</td>
-                        <td className="p-2 font-mono">{cc.storeCode || "—"}</td>
-                        <td className="p-2">{cc.location || "Mumbai"}</td>
-                        <td className="p-2">
-                          <span className="inline-flex items-center gap-1 text-emerald-700 dark:text-emerald-400 font-bold">
-                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                            {cc.status || "Active"}
-                          </span>
-                        </td>
-                        <td className="p-2 text-right">
-                          <button
-                            type="button"
-                            className="p-1 text-slate-400 hover:text-blue-600 rounded transition"
-                          >
-                            <Edit2 size={12} />
-                          </button>
-                        </td>
+              <div className="border border-slate-200 dark:border-slate-800 rounded-lg overflow-x-auto max-h-[360px] overflow-y-auto">
+                {filteredChildCustomers.length === 0 ? (
+                  <div className="p-8 text-center text-xs text-slate-500">
+                    {childSearch
+                      ? <>No child customer accounts match <span className="font-bold font-mono">"{childSearch}"</span>.</>
+                      : "No child customer accounts linked to this corporate account."}
+                  </div>
+                ) : (
+                  <table className="w-full text-left text-xs border-collapse min-w-[650px]">
+                    <thead className="sticky top-0 bg-slate-50 dark:bg-slate-800 font-bold text-[10px] uppercase text-slate-500 border-b border-slate-200 dark:border-slate-800 z-10">
+                      <tr>
+                        <th className="p-2">Customer Code</th>
+                        <th className="p-2">Customer Name</th>
+                        <th className="p-2">Store Code</th>
+                        <th className="p-2">Location</th>
+                        <th className="p-2">Status</th>
+                        <th className="p-2 text-right">Actions</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-[11px]">
+                      {filteredChildCustomers.map((cc) => (
+                        <tr key={cc.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/40">
+                          <td
+                            className="p-2 font-mono font-bold text-[#00355f] dark:text-[#8ebdf9] cursor-pointer hover:underline"
+                            onClick={() => {
+                              if (onSelectCustomer) {
+                                onSelectCustomer(cc.code);
+                              } else {
+                                onNotification?.("Child Account", `Opening child store account ${cc.code} - ${cc.name}...`, "info");
+                              }
+                            }}
+                            title="Open Child Account Record"
+                          >
+                            {cc.code}
+                          </td>
+                          <td
+                            className="p-2 font-bold text-slate-900 dark:text-white cursor-pointer hover:underline"
+                            onClick={() => {
+                              if (onSelectCustomer) {
+                                onSelectCustomer(cc.code);
+                              } else {
+                                onNotification?.("Child Account", `Opening child store account ${cc.code} - ${cc.name}...`, "info");
+                              }
+                            }}
+                            title="Open Child Account Record"
+                          >
+                            {cc.name}
+                          </td>
+                          <td className="p-2 font-mono">{cc.storeCode || "—"}</td>
+                          <td className="p-2">{cc.location || "Mumbai"}</td>
+                          <td className="p-2">
+                            <span className="inline-flex items-center gap-1 text-emerald-700 dark:text-emerald-400 font-bold">
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                              {cc.status || "Active"}
+                            </span>
+                          </td>
+                          <td className="p-2 text-right">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (onSelectCustomer) {
+                                  onSelectCustomer(cc.code);
+                                } else {
+                                  onNotification?.("Child Account", `Viewing child store account ${cc.code}...`, "info");
+                                }
+                              }}
+                              className="p-1 text-slate-400 hover:text-blue-600 rounded transition"
+                              title="Open Account Record"
+                            >
+                              <Edit2 size={12} />
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
               </div>
 
               <div className="flex justify-end pt-1">
@@ -1094,37 +1391,45 @@ export const EnterpriseCustomerMasterView: React.FC<EnterpriseCustomerMasterView
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-[11px]">
-                      {documents.map((doc) => (
-                        <tr key={doc.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/40">
-                          <td className="p-2 font-medium text-slate-900 dark:text-white flex items-center gap-1.5">
-                            <Files size={13} className="text-blue-500 shrink-0" />
-                            <span className="truncate">{doc.name}</span>
-                          </td>
-                          <td className="p-2 text-slate-500">{doc.type}</td>
-                          <td className="p-2 font-mono text-[10px] text-slate-500">{doc.date}</td>
-                          <td className="p-2 text-right space-x-1">
-                            <button
-                              type="button"
-                              onClick={() => onNotification?.("Download Document", `Downloading ${doc.name}...`, "info")}
-                              className="p-1 text-slate-400 hover:text-blue-600 rounded transition"
-                              title="Download Document"
-                            >
-                              <Download size={12} />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setDocuments((prev) => prev.filter((d) => d.id !== doc.id));
-                                onNotification?.("Document Removed", `${doc.name} removed from record.`, "info");
-                              }}
-                              className="p-1 text-slate-400 hover:text-red-600 rounded transition"
-                              title="Delete Document"
-                            >
-                              <Trash2 size={12} />
-                            </button>
+                      {documents.length === 0 ? (
+                        <tr>
+                          <td colSpan={4} className="p-8 text-center text-xs text-slate-500">
+                            No compliance documents or agreements attached.
                           </td>
                         </tr>
-                      ))}
+                      ) : (
+                        documents.map((doc) => (
+                          <tr key={doc.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/40">
+                            <td className="p-2 font-medium text-slate-900 dark:text-white flex items-center gap-1.5">
+                              <Files size={13} className="text-blue-500 shrink-0" />
+                              <span className="truncate">{doc.name}</span>
+                            </td>
+                            <td className="p-2 text-slate-500">{doc.type}</td>
+                            <td className="p-2 font-mono text-[10px] text-slate-500">{doc.date}</td>
+                            <td className="p-2 text-right space-x-1">
+                              <button
+                                type="button"
+                                onClick={() => onNotification?.("Download Document", `Downloading ${doc.name}...`, "info")}
+                                className="p-1 text-slate-400 hover:text-blue-600 rounded transition"
+                                title="Download Document"
+                              >
+                                <Download size={12} />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setDocuments((prev) => prev.filter((d) => d.id !== doc.id));
+                                  onNotification?.("Document Removed", `${doc.name} removed from record.`, "info");
+                                }}
+                                className="p-1 text-slate-400 hover:text-red-600 rounded transition"
+                                title="Delete Document"
+                              >
+                                <Trash2 size={12} />
+                              </button>
+                            </td>
+                          </tr>
+                        ))
+                      )}
                     </tbody>
                   </table>
                 </div>
@@ -1166,16 +1471,24 @@ export const EnterpriseCustomerMasterView: React.FC<EnterpriseCustomerMasterView
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-[11px]">
-                      {auditLogs.map((log) => (
-                        <tr key={log.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/40">
-                          <td className="p-2 font-mono text-[10px] text-slate-500 whitespace-nowrap">
-                            {log.dateTime}
+                      {auditLogs.length === 0 ? (
+                        <tr>
+                          <td colSpan={4} className="p-8 text-center text-xs text-slate-500">
+                            No audit activity recorded yet.
                           </td>
-                          <td className="p-2 font-bold text-slate-800 dark:text-slate-200">{log.action}</td>
-                          <td className="p-2 font-mono text-slate-500">{log.by}</td>
-                          <td className="p-2 text-slate-600 dark:text-slate-300">{log.details}</td>
                         </tr>
-                      ))}
+                      ) : (
+                        auditLogs.map((log) => (
+                          <tr key={log.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/40">
+                            <td className="p-2 font-mono text-[10px] text-slate-500 whitespace-nowrap">
+                              {log.dateTime}
+                            </td>
+                            <td className="p-2 font-bold text-slate-800 dark:text-slate-200">{log.action}</td>
+                            <td className="p-2 font-mono text-slate-500">{log.by}</td>
+                            <td className="p-2 text-slate-600 dark:text-slate-300">{log.details}</td>
+                          </tr>
+                        ))
+                      )}
                     </tbody>
                   </table>
                 </div>
@@ -1193,7 +1506,11 @@ export const EnterpriseCustomerMasterView: React.FC<EnterpriseCustomerMasterView
               customer={customer}
               childrenNodes={childCustomers}
               onSelectCustomer={(code) => {
-                onNotification?.("Customer Selected", `Navigating to child customer ${code}...`, "info");
+                if (onSelectCustomer) {
+                  onSelectCustomer(code);
+                } else {
+                  onNotification?.("Customer Selected", `Navigating to child customer ${code}...`, "info");
+                }
               }}
             />
 

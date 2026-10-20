@@ -67,21 +67,12 @@ export const CorporateNetworkPanel: React.FC<CorporateNetworkPanelProps> = ({
       .map((a, idx) => ({
         id: a.code || String(idx),
         storeCode: a.storeCode || a.shippingStoreCode || `RRL-${String(idx + 1).padStart(3, "0")}`,
-        storeName: a.contactPerson ? `${a.contactPerson} Store` : `${a.city || "Retail"} Store`,
+        storeName: a.locationName || (a.contactPerson ? `${a.contactPerson} Store` : `${a.city || "Retail"} Store`),
         city: a.city || "Mumbai",
         status: "Active"
       }));
 
-    if (fromAddresses.length > 0) return fromAddresses;
-
-    // Default corporate network items matching the reference screenshot
-    return [
-      { id: "1", storeCode: "RRL-001", storeName: "Mumbai Phoenix Mall", city: "Mumbai", status: "Active" },
-      { id: "2", storeCode: "RRL-002", storeName: "DLF Mall", city: "Delhi", status: "Active" },
-      { id: "3", storeCode: "RRL-003", storeName: "Orion Mall", city: "Bangalore", status: "Active" },
-      { id: "4", storeCode: "RRL-004", storeName: "Nexus Mall", city: "Hyderabad", status: "Active" },
-      { id: "5", storeCode: "RRL-005", storeName: "Seawoods Mall", city: "Navi Mumbai", status: "Active" },
-    ];
+    return fromAddresses;
   }, [propStores, customer.mailingAddresses]);
 
   // Filtered stores
@@ -97,9 +88,9 @@ export const CorporateNetworkPanel: React.FC<CorporateNetworkPanelProps> = ({
   }, [stores, searchTerm]);
 
   // Dynamic metrics calculation
-  const totalLocations = Math.max(stores.length, 67);
-  const mappedCount = Math.max(stores.length, 45);
-  const unmappedCount = Math.max(totalLocations - mappedCount, 22);
+  const totalLocations = stores.length;
+  const mappedCount = stores.length;
+  const unmappedCount = 0;
 
   const currentlyAssignedCodes = useMemo(() => stores.map(s => s.storeCode), [stores]);
 

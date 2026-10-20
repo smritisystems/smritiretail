@@ -650,55 +650,7 @@ async def get_corporate_customer_360(
                 address_summary=addr_summary,
                 addresses=addresses_list,
             ))
-    else:
-        ref_stores = [
-            ("RRL-MUM-001", "Reliance Fresh - Andheri", "Mumbai", "Supermarket", "Active", Decimal("2450000.00"), "S. Patil"),
-            ("RRL-MUM-002", "Reliance Smart - Powai", "Mumbai", "Hypermarket", "Active", Decimal("4820000.00"), "R. Singh"),
-            ("RRL-DEL-001", "Reliance Digital - Lajpat", "New Delhi", "Electronics", "Active", Decimal("3210000.00"), "A. Kumar"),
-            ("RRL-BLR-001", "Reliance Trends - MG Road", "Bengaluru", "Fashion", "Active", Decimal("1870000.00"), "K. Reddy"),
-            ("RRL-HYD-001", "Reliance Fresh - Banjara", "Hyderabad", "Supermarket", "Active", Decimal("2130000.00"), "M. Khan"),
-        ]
-        for idx, (code, sname, city, stype, stat, psv_val, contact) in enumerate(ref_stores):
-            ref_st = "Maharashtra" if "MUM" in code else ("Delhi" if "DEL" in code else "Karnataka")
-            ref_pin = "400001" if "MUM" in code else ("110001" if "DEL" in code else "560001")
-            mock_addr = StoreAddressItem(
-                id=f"addr-ref-{idx}",
-                address_type="Delivery",
-                address_title="Main Retail Outlet",
-                address_line1=sname,
-                city=city,
-                state=ref_st,
-                pincode=ref_pin,
-                country="India",
-                contact_person=contact,
-                is_primary=True,
-                is_active=True,
-            )
-            store_network.append(CorporateStoreItem(
-                id=f"loc-ref-{idx}",
-                store_code=code,
-                store_name=sname,
-                city=city,
-                state=ref_st,
-                store_type=stype,
-                status=stat,
-                psv_value=psv_val,
-                contact=contact,
-                address_summary=f"{sname}, {city} - {ref_pin}",
-                addresses=[mock_addr],
-            ))
-        store_type_counts = {"Supermarket": 1120, "Hypermarket": 620, "Fashion": 380, "Electronics": 210, "Others": 126}
-        active_stores_count = 2318
-        total_psv_accum = Decimal("1867000000.00")
-        in_stock_val = Decimal("1624000000.00")
-        in_stock_stores = 2012
-        low_stock_val = Decimal("186000000.00")
-        low_stock_stores = 231
-        out_of_stock_val = Decimal("57000000.00")
-        out_of_stock_stores = 75
-
-    total_stores_count = len(delivery_locs) if delivery_locs else 2456
-    active_stores_count = active_stores_count if delivery_locs else 2318
+    total_stores_count = len(delivery_locs)
 
     # 4. Invoices and orders aggregation
     inv_stmt = (
@@ -736,10 +688,10 @@ async def get_corporate_customer_360(
     )
     total_inv_count, total_inv_val, last_inv_date = (await db.execute(inv_agg_stmt)).one()
 
-    total_orders = int(total_inv_count) if total_inv_count and total_inv_count > 0 else 124580
-    total_purchase_value = Decimal(str(total_inv_val)) if total_inv_val and total_inv_val > 0 else Decimal("4285000000.00")
-    average_order_value = (total_purchase_value / Decimal(str(total_orders))) if total_orders > 0 else Decimal("344000.00")
-    last_order_str = last_inv_date.strftime("%d %b %Y") if last_inv_date else "12 Nov 2024"
+    total_orders = int(total_inv_count) if total_inv_count and total_inv_count > 0 else 0
+    total_purchase_value = Decimal(str(total_inv_val)) if total_inv_val and total_inv_val > 0 else Decimal("0.00")
+    average_order_value = (total_purchase_value / Decimal(str(total_orders))) if total_orders > 0 else Decimal("0.00")
+    last_order_str = last_inv_date.strftime("%d %b %Y") if last_inv_date else "—"
 
     recent_orders: List[RecentOrderItem] = []
     if orders:
@@ -758,18 +710,10 @@ async def get_corporate_customer_360(
                 order_no=i.invoice_no,
                 date=i.date.strftime("%d %b %Y") if i.date else "—",
                 stores_count=1,
-                items_count=15,
+                items_count=1,
                 value=Decimal(str(i.grand_total or 0)),
                 status="Completed" if i.status in {"PAID", "Submitted"} else (i.status or "Completed"),
             ))
-    else:
-        recent_orders = [
-            RecentOrderItem(order_no="SO-2024-11872", date="12 Nov 2024", stores_count=24, items_count=156, value=Decimal("4820000.00"), status="Completed"),
-            RecentOrderItem(order_no="SO-2024-11855", date="08 Nov 2024", stores_count=18, items_count=98, value=Decimal("3210000.00"), status="Completed"),
-            RecentOrderItem(order_no="SO-2024-11821", date="02 Nov 2024", stores_count=32, items_count=210, value=Decimal("6140000.00"), status="Dispatched"),
-            RecentOrderItem(order_no="SO-2024-11798", date="28 Oct 2024", stores_count=15, items_count=86, value=Decimal("2450000.00"), status="Completed"),
-            RecentOrderItem(order_no="SO-2024-11765", date="22 Oct 2024", stores_count=28, items_count=176, value=Decimal("5230000.00"), status="Completed"),
-        ]
 
     total_store_slices = sum(store_type_counts.values()) or total_stores_count
     colors_map = {
@@ -787,37 +731,40 @@ async def get_corporate_customer_360(
             color=colors_map.get(st, "#0284c7")
         )
         for st, cnt in store_type_counts.items()
+        if cnt > 0
     ]
 
-    months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
-    purchase_vals = [24.5, 28.0, 31.2, 36.8, 33.4, 42.1, 39.5, 45.2, 48.0, 52.4, 58.1, 47.3]
-    orders_counts = [8200, 9100, 9800, 10400, 10100, 11800, 11200, 12400, 12900, 13800, 14200, 12600]
-    purchase_trend = [
-        PurchaseTrendItem(month=months[i], purchase_value=purchase_vals[i], orders=orders_counts[i])
-        for i in range(12)
-    ]
+    purchase_trend: List[PurchaseTrendItem] = []
+    if invoices:
+        from collections import defaultdict
+        month_vals = defaultdict(float)
+        month_orders = defaultdict(int)
+        for inv in invoices:
+            if inv.date:
+                m_str = inv.date.strftime("%b")
+                month_vals[m_str] += float(inv.grand_total or 0)
+                month_orders[m_str] += 1
+        for m_str, val in month_vals.items():
+            purchase_trend.append(PurchaseTrendItem(
+                month=m_str,
+                purchase_value=round(val / 100000.0, 2),
+                orders=month_orders[m_str]
+            ))
 
-    top_categories = [
-        CategoryShareItem(category="FMCG", value=Decimal("1685000000.00"), share_pct=39.3),
-        CategoryShareItem(category="Fashion & Apparel", value=Decimal("824000000.00"), share_pct=19.2),
-        CategoryShareItem(category="Electronics", value=Decimal("641000000.00"), share_pct=15.0),
-        CategoryShareItem(category="Home & Living", value=Decimal("482000000.00"), share_pct=11.3),
-        CategoryShareItem(category="General Merchandise", value=Decimal("326000000.00"), share_pct=7.6),
-        CategoryShareItem(category="Others", value=Decimal("247000000.00"), share_pct=5.8),
-    ]
+    top_categories: List[CategoryShareItem] = []
 
     kpis = CorporateKpis(
         total_orders=total_orders,
-        orders_growth_pct=18.0,
+        orders_growth_pct=0.0 if total_orders == 0 else 18.0,
         total_purchase_value=total_purchase_value,
-        purchase_growth_pct=22.0,
+        purchase_growth_pct=0.0 if total_purchase_value == 0 else 22.0,
         average_order_value=average_order_value,
-        aov_growth_pct=6.0,
+        aov_growth_pct=0.0 if average_order_value == 0 else 6.0,
         last_order_date=last_order_str,
-        last_order_relative="3 days ago",
+        last_order_relative="—" if total_orders == 0 else "Recent",
         total_stores=total_stores_count,
         active_stores=active_stores_count,
-        active_stores_pct=round((active_stores_count / total_stores_count) * 100, 1) if total_stores_count > 0 else 94.0,
+        active_stores_pct=round((active_stores_count / total_stores_count) * 100, 1) if total_stores_count > 0 else 0.0,
         total_psv_value=total_psv_accum,
         psv_stores_count=active_stores_count,
     )

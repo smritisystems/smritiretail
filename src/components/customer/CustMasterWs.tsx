@@ -134,6 +134,19 @@ const normalizeMailingAddresses = (addresses: unknown, fallback: Partial<Custome
   }
 
   const deduplicated = complete.reduce<CustomerAddressEntry[]>((result, address) => {
+    const storeCode = address.storeCode || address.shippingStoreCode || address.billingStoreCode;
+    if (storeCode) {
+      const existingStoreIndex = result.findIndex(
+        existing => (existing.storeCode || existing.shippingStoreCode || existing.billingStoreCode) === storeCode && existing.addressType === address.addressType
+      );
+      if (existingStoreIndex >= 0) {
+        result[existingStoreIndex] = { ...result[existingStoreIndex], ...address };
+        return result;
+      }
+      result.push(address);
+      return result;
+    }
+
     const fingerprint = getCustomerAddressFingerprint(address);
     if (!fingerprint) {
       result.push(address);
@@ -222,6 +235,9 @@ export const mergeCanonicalLocationsIntoAddresses = (
       gstin: location.gstin ?? location.delivery_gstin ?? location.deliveryGstin ?? "",
       gstRegistrationId: location.gst_registration_id ?? location.gstRegistrationId ?? "",
       [codeField]: String(locationCode),
+      storeCode: String(locationCode),
+      shippingStoreCode: addressType === "shipping" ? String(locationCode) : (location.shipping_store_code ?? location.shippingStoreCode ?? ""),
+      billingStoreCode: addressType === "billing" ? String(locationCode) : (location.billing_store_code ?? location.billingStoreCode ?? ""),
       address1: location.address_line1 ?? location.addressLine1 ?? "",
       address2: location.address_line2 ?? location.addressLine2 ?? "",
       city: location.city ?? "",
@@ -831,12 +847,7 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
         }
       ]);
     } else {
-      // Default corporate multi-state GST sample for Reliance Retail reference
-      setGstRegistrations([
-        { id: "1", gstin: "27AAACR9121R1Z5", state: "Maharashtra", stateCode: "27", registrationType: "Regular", status: "Active", isPrimary: true },
-        { id: "2", gstin: "29AAACR9121R1Z6", state: "Karnataka", stateCode: "29", registrationType: "Regular", status: "Active", isPrimary: false },
-        { id: "3", gstin: "24AAACR9121R1Z7", state: "Gujarat", stateCode: "24", registrationType: "Regular", status: "Active", isPrimary: false }
-      ]);
+      setGstRegistrations([]);
     }
   }, [currentCustomer.id, currentCustomer.gstin, customerGstRegistrations]);
 
@@ -1140,12 +1151,117 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
     }
   }, []);
 
+  // Load canonical delivery locations for customer
+  const loadDeliveryLocations = useCallback(async (customerId: string) => {
+    if (!customerId || customerId.startsWith("cust-draft-")) return;
+    try {
+      const locations = await apiFetchV1<any[]>(`/crm/customers/${customerId}/delivery-locations`);
+      if (Array.isArray(locations) && locations.length > 0) {
+        setCurrentCustomer(prev => {
+          if (prev.id !== customerId) return prev;
+          const merged = mergeCanonicalLocationsIntoAddresses(
+            prev.mailingAddresses,
+            locations,
+            [],
+            { mobilePhone: prev.phone, email1: prev.email }
+          );
+          return {
+            ...prev,
+            mailingAddresses: merged
+          };
+        });
+      }
+    } catch (err) {
+      console.warn("[CRM] Delivery locations fetch warning:", err);
+    }
+  }, []);
+
+  // Load canonical billing locations for customer
+  const loadBillingLocations = useCallback(async (customerId: string) => {
+    if (!customerId || customerId.startsWith("cust-draft-")) return;
+    try {
+      const locations = await apiFetchV1<any[]>(`/crm/customers/${customerId}/billing-locations`);
+      if (Array.isArray(locations) && locations.length > 0) {
+        setCurrentCustomer(prev => {
+          if (prev.id !== customerId) return prev;
+          const merged = mergeCanonicalLocationsIntoAddresses(
+            prev.mailingAddresses,
+            [],
+            locations,
+            { mobilePhone: prev.phone, email1: prev.email }
+          );
+          return {
+            ...prev,
+            mailingAddresses: merged
+          };
+        });
+      }
+    } catch (err) {
+      console.warn("[CRM] Billing locations fetch warning:", err);
+    }
+  }, []);
+
+  // Load canonical dependants / child customers
+  const loadCustomerDependants = useCallback(async (customerId: string) => {
+    if (!customerId || customerId.startsWith("cust-draft-")) return;
+    try {
+      const deps = await apiFetchV1<any[]>(`/crm/customers/${customerId}/dependants`);
+      if (Array.isArray(deps)) {
+        setCurrentCustomer(prev => {
+          if (prev.id !== customerId) return prev;
+          return { ...prev, dependants: deps };
+        });
+      }
+    } catch (err) {
+      console.warn("[CRM] Customer dependants fetch warning:", err);
+    }
+  }, []);
+
+  // Load canonical GST registrations for customer
+  const loadCustomerGstRegistrations = useCallback(async (customerId: string) => {
+    if (!customerId || customerId.startsWith("cust-draft-")) return;
+    try {
+      setIsLoadingGstRegistrations(true);
+      const regs = await apiFetchV1<any[]>(`/crm/customers/${customerId}/gst-registrations`);
+      if (Array.isArray(regs)) {
+        setCustomerGstRegistrations(regs);
+        if (regs.length > 0) {
+          setGstRegistrations(regs.map(r => ({
+            id: r.id,
+            gstin: r.gstin,
+            state: r.stateName || r.state_name || "Maharashtra",
+            stateCode: r.stateCode || r.state_code || "",
+            registrationType: r.registrationType || r.registration_type || "Regular",
+            status: (r.isActive ?? r.is_active) ? "Active" : "Inactive",
+            isPrimary: Boolean(r.isPrimary ?? r.is_primary)
+          })));
+        }
+      }
+    } catch (err) {
+      console.warn("[CRM] Customer GST registrations fetch warning:", err);
+    } finally {
+      setIsLoadingGstRegistrations(false);
+    }
+  }, []);
+
   useEffect(() => {
     if (currentCustomer?.id) {
       loadCompanyRelationships(currentCustomer.id);
       loadCreditExposure(currentCustomer.id);
+      loadDeliveryLocations(currentCustomer.id);
+      loadBillingLocations(currentCustomer.id);
+      loadCustomerDependants(currentCustomer.id);
+      loadCustomerGstRegistrations(currentCustomer.id);
     }
-  }, [currentCustomer?.id, loadCompanyRelationships, loadCreditExposure]);
+  }, [
+    currentCustomer?.id,
+    loadCompanyRelationships,
+    loadCreditExposure,
+    loadDeliveryLocations,
+    loadBillingLocations,
+    loadCustomerDependants,
+    loadCustomerGstRegistrations
+  ]);
 
   const handleUpdateCompanyRelationship = async (relId: string, updates: Partial<CustomerCompanyRelationship>) => {
     setCompanyRelationships(prev =>
@@ -1886,12 +2002,44 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [currentCustomer, customers, currentIndex]);
 
+  const handleSelectCustomerByIdOrCode = (identifier: string) => {
+    const clean = identifier.trim();
+    const idx = customers.findIndex(
+      (c) => c.id === clean || (c.code && c.code.toUpperCase() === clean.toUpperCase())
+    );
+    if (idx !== -1) {
+      const found = customers[idx];
+      setCurrentIndex(idx);
+      setActiveCustomerId(found.id);
+      activeCustomerIdRef.current = found.id;
+      setCurrentCustomer(JSON.parse(JSON.stringify(found)));
+      currentCustomerRef.current = found;
+      setIsDirty(false);
+      isDirtyRef.current = false;
+      setViewMode("catalogue");
+      onNotification?.("Account Loaded", `Loaded customer account ${found.code} - ${found.name}.`, "info");
+    } else {
+      apiFetchV1<any>(`/crm/customers/${encodeURIComponent(clean)}`)
+        .then((bCust) => {
+          if (bCust) {
+            const mapped = mapBackendCustomerToRecord(bCust);
+            setCurrentCustomer(mapped);
+            setViewMode("catalogue");
+            onNotification?.("Account Loaded", `Loaded customer record ${mapped.code} - ${mapped.name}.`, "info");
+          }
+        })
+        .catch(() => {
+          onNotification?.("Customer Lookup", `Customer account '${clean}' is not yet loaded in active cache.`, "info");
+        });
+    }
+  };
+
   return (
     <div className="flex flex-col h-full bg-[#f7f9fb] dark:bg-[#191c1e] text-[#191c1e] dark:text-[#eff1f3] overflow-hidden">
       {viewMode === "360" ? (
         <div className="flex-1 overflow-y-auto">
           <CorporateCustomer360
-            customerId={currentCustomer?.id || "cust-rrl-192b561d"}
+            customerId={currentCustomer?.id || ""}
             customer={currentCustomer}
             currentUser={currentUser}
             onChange={(field, value) => handleFieldChange(field as any, value)}
@@ -1930,6 +2078,7 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
           onOpenStoreLookupModal={() => setIsSearchModalOpen(true)}
           onOpenContactModal={() => handleOpenMailingModal()}
           onOpenAddChildModal={() => setIsCreateCustomerModalOpen(true)}
+          onSelectCustomer={handleSelectCustomerByIdOrCode}
           gstRegistrations={gstRegistrations}
           onNotification={onNotification}
         />

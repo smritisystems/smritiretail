@@ -16,9 +16,9 @@ Founders
 
 * Websites: aitdl.com | erpnbook.com | smritibooks.com
 
-* Version    : 6.47.4
+* Version    : 6.99.0
 * Created    : 2026-10-01
-* Modified   : 2026-10-01
+* Modified   : 2026-10-20
 * Copyright  : © AITDL.com and SMRITIBooks.com. All Rights Reserved.
 * License    : Proprietary Commercial Software
 Classification: Internal
@@ -36,8 +36,9 @@ from app.api.deps import TenantContext
 from app.models.auth import User
 from app.models.purchase import PurchaseReceipt, PurchaseReceiptItem, PurchaseOrder, PurchaseOrderItem
 from app.models.goods_receipt import GoodsReceiptNote, GoodsReceiptLine
-from app.models.inventory import StockMovement
+from app.models.inventory import StockMovement, ProductBatchStock
 from app.models.workflow import WorkflowEvent
+from app.services.stock_synchronizer import StockSynchronizer
 from ..contracts import BaseDocumentLifecycleHandler
 from ..registry import register_lifecycle_handler
 from ..exceptions import (
@@ -246,6 +247,24 @@ class GoodsReceiptLifecycleHandler(BaseDocumentLifecycleHandler):
                         )
                         db.add(sm_rev)
 
+                        # Decrement Batch Stock if applicable
+                        batch_no = getattr(it, "batch_no", None)
+                        wh_id = getattr(doc, "warehouse_id", None)
+                        if batch_no and wh_id:
+                            batch_stmt = select(ProductBatchStock).where(
+                                ProductBatchStock.company_id == tenant_ctx.company_id,
+                                ProductBatchStock.warehouse_id == wh_id,
+                                ProductBatchStock.product_id == it.product_id,
+                                ProductBatchStock.batch_no == batch_no,
+                                ProductBatchStock.is_deleted == False,
+                            )
+                            batch_stock = (await db.execute(batch_stmt)).scalar_one_or_none()
+                            if batch_stock:
+                                batch_stock.quantity = Decimal(str(batch_stock.quantity)) - qty
+
+                        await db.flush()
+                        await StockSynchronizer.sync_product_stock_cache(db, it.product_id, tenant_ctx.company_id)
+
                 # Recompute linked PO status after cancellation
                 po_id = getattr(doc, "order_id", getattr(doc, "primary_po_id", None))
                 if po_id:
@@ -314,6 +333,42 @@ class GoodsReceiptLifecycleHandler(BaseDocumentLifecycleHandler):
                         user=getattr(user, "username", str(user.id)),
                     )
                     db.add(sm)
+
+                    # Update or create Batch Stock if applicable
+                    batch_no = getattr(it, "batch_no", None)
+                    wh_id = getattr(doc, "warehouse_id", None)
+                    if batch_no and wh_id:
+                        batch_stmt = select(ProductBatchStock).where(
+                            ProductBatchStock.company_id == tenant_ctx.company_id,
+                            ProductBatchStock.warehouse_id == wh_id,
+                            ProductBatchStock.product_id == it.product_id,
+                            ProductBatchStock.batch_no == batch_no,
+                            ProductBatchStock.is_deleted == False,
+                        )
+                        batch_stock = (await db.execute(batch_stmt)).scalar_one_or_none()
+                        if batch_stock:
+                            batch_stock.quantity = Decimal(str(batch_stock.quantity)) + qty
+                        else:
+                            new_batch = ProductBatchStock(
+                                id=f"pbs_{uuid.uuid4().hex[:12]}",
+                                uuid=f"pbs_{uuid.uuid4().hex[:12]}",
+                                company_id=tenant_ctx.company_id,
+                                branch_id=tenant_ctx.branch_id,
+                                warehouse_id=wh_id,
+                                product_id=it.product_id,
+                                variant_id=getattr(it, "variant_id", None),
+                                batch_no=batch_no,
+                                mfg_date=getattr(it, "mfg_date", None),
+                                expiry_date=getattr(it, "expiry_date", None),
+                                mrp=getattr(it, "mrp", None),
+                                purchase_rate=getattr(it, "cost_price", getattr(it, "rate", None)),
+                                quantity=qty,
+                                is_deleted=False,
+                            )
+                            db.add(new_batch)
+
+                    await db.flush()
+                    await StockSynchronizer.sync_product_stock_cache(db, it.product_id, tenant_ctx.company_id)
 
             # 2. Update linked PO status based on total received vs ordered
             po_id = getattr(doc, "order_id", getattr(doc, "primary_po_id", None))

@@ -4,9 +4,9 @@ Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
-Version      : 6.16.0
+Version      : 6.99.0
 Created      : 2026-08-23
-Modified     : 2026-08-23
+Modified     : 2026-10-20
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 Classification: Internal
@@ -27,6 +27,7 @@ from ..models.party import Party
 from ..platform.events import EventEnvelope, get_platform_event_service
 from .outbox_service import OutboxService
 from .identity.engine import IdentityEngine
+from .stock_synchronizer import StockSynchronizer
 
 
 def _quantize_currency(val: float | Decimal) -> Decimal:
@@ -145,7 +146,7 @@ class UnifiedSalesLedgerService:
                 product_id=product_id,
                 product_name=name,
                 sku=code,
-                quantity=-qty,  # Negative debit for sales
+                quantity=qty,  # Standard magnitude with OUTWARD_SALE movement type
                 movement_type="OUTWARD_SALE",
                 reference_doc_type="SALES_INVOICE",
                 reference_doc_id=invoice_id,
@@ -158,22 +159,22 @@ class UnifiedSalesLedgerService:
             )
             stock_movements.append(movement)
 
-            # 4. Stock reconciliation: update Product.stock directly (post-v1489 application-managed inventory)
-            prod_stmt = select(Product).where(Product.id == product_id, Product.company_id == company_id)
-            prod_row = (await session.execute(prod_stmt)).scalar_one_or_none()
-            if prod_row:
-                prod_row.stock = float(Decimal(str(prod_row.stock or 0)) - qty)
-
-            # 5. Decrement Batch Stock if applicable
+            # 4. Decrement Batch Stock if applicable
             if batch_no:
                 batch_stmt = select(ProductBatchStock).where(
+                    ProductBatchStock.company_id == company_id,
                     ProductBatchStock.product_id == product_id,
-                    ProductBatchStock.batch_number == batch_no,
+                    ProductBatchStock.batch_no == batch_no,
                     ProductBatchStock.is_deleted == False
                 )
                 batch_stock = (await session.execute(batch_stmt)).scalar_one_or_none()
                 if batch_stock:
-                    batch_stock.current_stock_qty = Decimal(str(batch_stock.current_stock_qty)) - qty
+                    batch_stock.quantity = Decimal(str(batch_stock.quantity)) - qty
+
+            # 5. Stock reconciliation via canonical StockSynchronizer
+            session.add(movement)
+            await session.flush()
+            await StockSynchronizer.sync_product_stock_cache(session, product_id, company_id)
 
         # 6. Sales Invoice Master Header
         invoice = SalesInvoice(
@@ -304,13 +305,17 @@ class UnifiedSalesLedgerService:
             # Restore Batch Stock
             if itm.batch_no:
                 batch_stmt = select(ProductBatchStock).where(
+                    ProductBatchStock.company_id == company_id,
                     ProductBatchStock.product_id == itm.product_id,
-                    ProductBatchStock.batch_number == itm.batch_no,
+                    ProductBatchStock.batch_no == itm.batch_no,
                     ProductBatchStock.is_deleted == False
                 )
                 batch_stock = (await session.execute(batch_stmt)).scalar_one_or_none()
                 if batch_stock:
-                    batch_stock.current_stock_qty = Decimal(str(batch_stock.current_stock_qty)) + qty
+                    batch_stock.quantity = Decimal(str(batch_stock.quantity)) + qty
+
+            await session.flush()
+            await StockSynchronizer.sync_product_stock_cache(session, itm.product_id, company_id)
 
         inv_id = invoice.id
         invoice.status = "Cancelled"

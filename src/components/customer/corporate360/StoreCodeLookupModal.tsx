@@ -66,126 +66,14 @@ export const StoreCodeLookupModal: React.FC<StoreCodeLookupModalProps> = ({
       if (Array.isArray(res)) {
         setItems(res);
       } else {
-        // Fallback default mock items if backend lookup has no seeded data yet
-        setItems(getFallbackLookupItems(currentCustomerId));
+        setItems([]);
       }
     } catch {
-      // Graceful fallback to simulated master catalog
-      setItems(getFallbackLookupItems(currentCustomerId));
+      setItems([]);
     } finally {
       setLoading(false);
     }
   };
-
-  const getFallbackLookupItems = (currId?: string): StoreCodeLookupItem[] => [
-    {
-      id: "cdl-rel-001",
-      store_code: "RRL-MUM-001",
-      store_name: "Reliance Fresh - Andheri",
-      city: "Mumbai",
-      state: "Maharashtra",
-      store_type: "Supermarket",
-      status: "Active",
-      address_summary: "Plot 4, Andheri West, Mumbai - 400053",
-      assigned_customer_id: currId || "cust-ril-001",
-      assigned_customer_name: currentCustomerName || "Reliance Retail Ltd.",
-      assigned_customer_code: "CUST-REL-0001",
-      is_assigned: true,
-      is_selectable: true,
-      disabled_reason: undefined,
-      addresses_count: 2,
-      psv_value: 2450000,
-    },
-    {
-      id: "cdl-rel-002",
-      store_code: "RRL-MUM-002",
-      store_name: "Reliance Smart - Powai",
-      city: "Mumbai",
-      state: "Maharashtra",
-      store_type: "Hypermarket",
-      status: "Active",
-      address_summary: "Hiranandani Gardens, Powai, Mumbai - 400076",
-      assigned_customer_id: currId || "cust-ril-001",
-      assigned_customer_name: currentCustomerName || "Reliance Retail Ltd.",
-      assigned_customer_code: "CUST-REL-0001",
-      is_assigned: true,
-      is_selectable: true,
-      disabled_reason: undefined,
-      addresses_count: 3,
-      psv_value: 4820000,
-    },
-    {
-      id: "cdl-tata-001",
-      store_code: "TATA-STR-101",
-      store_name: "Star Bazaar - Korum Mall",
-      city: "Thane",
-      state: "Maharashtra",
-      store_type: "Hypermarket",
-      status: "Active",
-      address_summary: "Korum Mall, Eastern Express Hwy, Thane - 400606",
-      assigned_customer_id: "cust-other-tata",
-      assigned_customer_name: "Tata Trent Hypermarket Ltd.",
-      assigned_customer_code: "CUST-TATA-002",
-      is_assigned: true,
-      is_selectable: false,
-      disabled_reason: "Already mapped to Tata Trent Hypermarket Ltd. (CUST-TATA-002)",
-      addresses_count: 2,
-      psv_value: 3100000,
-    },
-    {
-      id: "cdl-dmt-001",
-      store_code: "DMRT-BOM-009",
-      store_name: "DMart - Malad West",
-      city: "Mumbai",
-      state: "Maharashtra",
-      store_type: "Supermarket",
-      status: "Active",
-      address_summary: "Link Road, Malad West, Mumbai - 400064",
-      assigned_customer_id: "cust-other-dmart",
-      assigned_customer_name: "Avenue Supermarts Ltd.",
-      assigned_customer_code: "CUST-DMART-003",
-      is_assigned: true,
-      is_selectable: false,
-      disabled_reason: "Already mapped to Avenue Supermarts Ltd. (CUST-DMART-003)",
-      addresses_count: 1,
-      psv_value: 5400000,
-    },
-    {
-      id: "cdl-open-001",
-      store_code: "WH-BHIWANDI-09",
-      store_name: "Western Hub Logistics Shed 9",
-      city: "Bhiwandi",
-      state: "Maharashtra",
-      store_type: "Warehouse",
-      status: "Active",
-      address_summary: "Dapode Road, Sector 3, Bhiwandi - 421302",
-      assigned_customer_id: undefined,
-      assigned_customer_name: undefined,
-      is_assigned: false,
-      is_selectable: true,
-      disabled_reason: undefined,
-      addresses_count: 1,
-      psv_value: 0,
-    },
-    {
-      id: "cdl-open-002",
-      store_code: "RRL-DEL-001",
-      store_name: "Reliance Digital - Lajpat",
-      city: "New Delhi",
-      state: "Delhi",
-      store_type: "Electronics",
-      status: "Active",
-      address_summary: "Central Market, Lajpat Nagar, New Delhi - 110024",
-      assigned_customer_id: currId || "cust-ril-001",
-      assigned_customer_name: currentCustomerName || "Reliance Retail Ltd.",
-      assigned_customer_code: "CUST-REL-0001",
-      is_assigned: true,
-      is_selectable: true,
-      disabled_reason: undefined,
-      addresses_count: 2,
-      psv_value: 3210000,
-    },
-  ];
 
   const filteredItems = useMemo(() => {
     if (!searchTerm.trim()) return items;

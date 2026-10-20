@@ -269,28 +269,25 @@ describe("Corporate Customer 360 Dashboard Components", () => {
     expect(markup).toContain("National Key Account Manager");
   });
 
-  it("renders 13 Customer Navigation Tabs with active tab indicator", () => {
+  it("renders 11 Customer Navigation Tabs with active tab indicator", () => {
     const markup = renderToStaticMarkup(
       <CorporateCustomerTabs
         activeTab="overview"
         onTabChange={vi.fn()}
-        storesCount={2456}
       />
     );
 
     expect(markup).toContain("Overview");
-    expect(markup).toContain("Stores (2,456)");
-    expect(markup).toContain("Orders");
-    expect(markup).toContain("Invoices");
-    expect(markup).toContain("Payments");
-    expect(markup).toContain("PSV &amp; Inventory");
-    expect(markup).toContain("Products");
-    expect(markup).toContain("Communication");
-    expect(markup).toContain("Contracts");
+    expect(markup).toContain("Basic Details");
+    expect(markup).toContain("Corporate &amp; Tax");
     expect(markup).toContain("Addresses");
-    expect(markup).toContain("Team");
-    expect(markup).toContain("Notes");
-    expect(markup).toContain("History");
+    expect(markup).toContain("Parent – Child");
+    expect(markup).toContain("Stores / Outlets");
+    expect(markup).toContain("Commercial Terms");
+    expect(markup).toContain("PSV Stock");
+    expect(markup).toContain("Sales &amp; Invoices");
+    expect(markup).toContain("Contacts &amp; Documents");
+    expect(markup).toContain("Activity &amp; Audit");
   });
 
   it("renders 6 KPI Cards with Indian currency formatting and trend metrics", () => {
