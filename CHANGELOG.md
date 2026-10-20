@@ -11,6 +11,63 @@
   Classification: Internal
 -->
 
+## [6.99.0] — 2026-10-20
+
+### CRM & Customer Master — Live Portal Dummy Data Elimination & Data Integrity Audit
+
+Audited and permanently eliminated unintended placeholder, mock, and hardcoded demo fixtures from the Customer Master workspace and corporate API:
+- **Truthful Customer Metrics & Dynamic Invoice Preview (`CustomerSummaryCard.tsx`, `CustomerTaxInvoicePreview.tsx`)**:
+  - Eliminated hardcoded counts (`12` child accounts, `85` stores, ₹ 5,000,000 credit limit) and fallback PAN/GSTIN values.
+  - Replaced hardcoded sample tax invoice `TT2026-2027/18` with dynamic API query (`/sales/invoices?customer_id=...&limit=1`) and rendered honest empty state when no invoices exist.
+  - Fixed barcode mapping and calculated invoice subtotal, tax amount, and grand total strictly from numeric backend values.
+- **Dynamic Hierarchy Tree & Store Network (`CustomerHierarchyTree.tsx`, `CorporateNetworkPanel.tsx`, `StoreCodeLookupModal.tsx`)**:
+  - Replaced static demo branches (`Phoenix Mall`, `Inorbit Mall`, `Amanora Mall`) with dynamic child accounts and rendered honest empty states.
+  - Removed mock stores `RRL-001` through `RRL-005` fallback and eliminated `getFallbackLookupItems`.
+- **Backend Production Alignment (`backend/app/api/v1/crm.py`)**:
+  - Eliminated hardcoded `ref_stores` (2,456 stores) and mock orders (124,580 orders, ₹ 4.285B) in `get_corporate_customer_360`, returning authentic zero metrics and dynamic monthly invoice aggregations.
+- **Parent Workspace Data Hydration (`CustMasterWs.tsx`)**:
+  - Hydrated delivery locations, billing locations, dependants, and multi-state GST registrations on customer selection.
+  - Wired bidirectional customer account navigation from hierarchy cards and lookup modals.
+
+### Inventory & WMS — Stock Movement Validation, Authoritative Ledger Reconciliation Engine & Audit Suite
+
+Delivered the complete physical inventory movement invariant validation, non-destructive ledger reconciliation engine, multi-channel reporting (REST, CLI, UI), and comprehensive 14-scenario automated audit test suite:
+- **Authoritative Stock Synchronizer & Ledger Fixes (`backend/app/services/stock_synchronizer.py`, `sales_ledger_svc.py`, `goods_receipt.py`)**:
+  - Expanded `INFLOW_MOVEMENT_TYPES` and `OUTFLOW_MOVEMENT_TYPES` to recognize `SALES_CANCEL`, `INWARD_INITIAL`, `OUTWARD_ECOM`, `ADJUSTMENT`, and `TRANSFER`.
+  - Reconciled signed adjustments and transfers dynamically without double-counting.
+  - Enforced immutable opening ledger synthesis (`OPENING_STOCK`) for legacy/unledgered products with positive stock caches.
+  - Fixed `ProductBatchStock` column mapping (`batch_no` and `quantity`) in `sales_ledger_svc.py` and connected automatic cache synchronization hooks on invoice creation and cancellation.
+  - Added atomic `ProductBatchStock` mutation and cache synchronization in `goods_receipt.py` for goods receipt receipt and cancellation events.
+- **Stock Reconciliation Engine (`backend/app/services/stock_reconciliation_engine.py`)**:
+  - Implemented `StockReconciliationEngine.run_reconciliation_audit(...)` evaluating the authoritative 10-component invariant formula:
+    `Expected Closing Stock = Opening + Receipts + Sales Returns + Transfer In + Pos Adjustments - Dispatches - Purchase Returns - Transfer Out - Neg Adjustments - Damage`
+  - Implemented 9-state discrepancy classification taxonomy: `MISSING_MOVEMENT`, `DUPLICATE_MOVEMENT`, `INCORRECT_QUANTITY`, `WRONG_WAREHOUSE_OR_COMPANY`, `VARIANT_MISMATCH`, `FAILED_REVERSAL`, `NEGATIVE_STOCK`, `CACHE_MISMATCH`, and `UNEXPLAINED_VARIANCE`.
+  - Added read-only non-destructive correction proposal generator (`generate_correction_proposal`) with delta tracking and explicit approval gate.
+- **Multi-Channel Audit Delivery (REST API, CLI, UI)**:
+  - Mounted REST endpoints `GET /api/v1/inventory/reconciliation` and `GET /api/v1/inventory/reconciliation/correction-proposal` in `backend/app/api/v1/inventory.py`.
+  - Created SMRITI CLI command `python -m app.cli stock reconcile` and `python -m app.cli stock proposal` in `backend/app/cli/commands/stock_cmd.py`.
+  - Created `src/components/inventory/StockReconciliationAuditModal.tsx` and integrated audit button in `src/components/StockLedgerTab.tsx`.
+- **Automated Verification Suite (`backend/app/tests/test_stock_movement_reconciliation_audit.py`)**:
+  - Delivered 14 automated scenarios covering purchase receipts, sales deductions, PO non-movement, SO non-movement, returns, cancellations/reversals, warehouse transfers, idempotency/retries, variant isolation, tenant boundaries, opening adjustments, negative stock policies, cache reconciliation, and atomic rollbacks.
+  - Certified with 14/14 tests green and 13/13 regression tests green (27/27 total passing).
+
+## [6.99.1] — 2026-10-20
+
+### CRM & Customer Master — Reliance Retail Limited Parent-Child Customer Hierarchy Reconciler & Dynamic Search Workspace
+
+Delivered the complete enterprise customer hierarchy reconciliation and dynamic workspace integration for Reliance Retail Limited (RRL) across 60 store/site codes extracted from authoritative purchase orders (`5182778151`–`5182778210`) spanning 14 Indian states and GSTINs:
+- **Canonical Database Hierarchy Reconciler (`scripts/reconcile_reliance_hierarchy.py`)**:
+  - Validated authoritative manifest `stores_ready_for_import.json` with 60 stores and 14 state GSTINs under parent PAN `AABCR1718E`.
+  - Audited local PostgreSQL (`smriti001:2781`) achieving 100% parity across canonical tables: `customers`, `customer_relationships`, `customer_delivery_locations`, and `customer_gst_registrations`.
+  - Executed idempotent read-only dry run on remote production API (`https://tattlythreads.smritisys.com/api/v1`) auditing 60 existing customer relationships and preserving 8 regional logistics/distribution hub locations.
+  - Verified remote invoice safety: 106 sales invoices are linked exclusively to parent customer `cust-rrl-192b561d` with 0 child customer foreign key conflicts.
+- **Dynamic Enterprise Customer Master Workspace (`EnterpriseCustomerMasterView.tsx`, `CustMasterWs.tsx`)**:
+  - Implemented live debounced search filter inputs and counters in Card 5 (Store / Outlet Network) and Card 7 (Child Customers).
+  - Added empty state views when search terms produce no matching stores or accounts.
+  - Added bidirectional parent-child navigation with parent account breadcrumbs and clickable customer codes.
+  - Implemented automatic delivery location hydration (`loadDeliveryLocations`) on customer load.
+- **Verification**: Certified with TypeScript compiler exit 0 (`tsc --noEmit`), Vite production build exit 0 (3,741 modules transformed), CI UX Field Governance guard passing (0 critical violations), and headless Playwright screenshot verification (`reliance_card5_store_search.png`, `reliance_card7_child_search.png`).
+
 ## [6.99.0] — 2026-10-19
 
 ### CRM & Customer Master — Enterprise Model C Architecture, Corporate Customer Merge (BD-2), Privileged Search (BD-4) & Consolidated Credit Exposure (BD-6)

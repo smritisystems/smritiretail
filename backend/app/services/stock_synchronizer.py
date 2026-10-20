@@ -4,9 +4,9 @@ Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
-Version      : 1.0.0
+Version      : 6.99.0
 Created      : 2026-09-25
-Modified     : 2026-09-25
+Modified     : 2026-10-20
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 Classification: Centralized Stock Synchronization & Source-of-Truth Engine
@@ -22,25 +22,38 @@ from ..models.inventory import Product, ProductBatchStock, StockMovement
 
 INFLOW_MOVEMENT_TYPES = {
     "IN",
+    "INWARD",
     "INWARD_PURCHASE",
     "INWARD_GRN",
     "GRN",
     "RETURN_INWARD",
+    "SALES_RETURN",
     "ADJUSTMENT_IN",
     "TRANSFER_IN",
     "INWARD_SURPLUS",
     "OPENING_STOCK",
+    "INWARD_INITIAL",
+    "SALES_CANCEL",
+    "PURCHASE",
+    "RETURN",
 }
 
 OUTFLOW_MOVEMENT_TYPES = {
     "OUT",
+    "OUTWARD",
     "OUTWARD_SALE",
+    "SALE",
     "ADJUSTMENT_OUT",
     "TRANSFER_OUT",
     "RETURN_OUTWARD",
+    "PURCHASE_RETURN",
     "OUTWARD_LOSS",
     "OUTWARD_DISPATCH",
     "POS_SALE",
+    "OUTWARD_ECOM",
+    "DISPATCH",
+    "DAMAGE",
+    "WRITE_OFF",
 }
 
 
@@ -149,7 +162,9 @@ class StockSynchronizer:
 
             # Ensure unledgered initial product stock has an immutable OPENING_STOCK movement
             has_primary_inward = any(
-                (m.movement_type or "").upper() in ("OPENING_STOCK", "IN", "INWARD_PURCHASE", "INWARD_GRN", "GRN", "INWARD_SURPLUS")
+                (m.movement_type or "").upper() in (
+                    "OPENING_STOCK", "IN", "INWARD", "INWARD_PURCHASE", "INWARD_GRN", "GRN", "INWARD_SURPLUS", "INWARD_INITIAL"
+                )
                 for m in movements
             )
             if not has_primary_inward and product.stock and product.stock > 0:
@@ -174,11 +189,13 @@ class StockSynchronizer:
             computed = Decimal("0.00")
             for m in movements:
                 mtype = (m.movement_type or "").upper()
-                raw_qty = Decimal(str(abs(m.quantity or 0)))
+                qty_val = Decimal(str(m.quantity or 0))
                 if mtype in INFLOW_MOVEMENT_TYPES:
-                    computed += raw_qty
+                    computed += abs(qty_val)
                 elif mtype in OUTFLOW_MOVEMENT_TYPES:
-                    computed -= raw_qty
+                    computed -= abs(qty_val)
+                elif mtype in ("ADJUSTMENT", "STOCK_ADJUSTMENT", "TRANSFER", "STOCK_TRANSFER"):
+                    computed += qty_val
             authoritative_stock = computed
 
         # Update cached materialized stock
@@ -274,11 +291,13 @@ class StockSynchronizer:
                 auth_qty = Decimal("0.00")
                 for m in movements:
                     mtype = (m.movement_type or "").upper()
-                    raw_qty = Decimal(str(abs(m.quantity or 0)))
+                    qty_val = Decimal(str(m.quantity or 0))
                     if mtype in INFLOW_MOVEMENT_TYPES:
-                        auth_qty += raw_qty
+                        auth_qty += abs(qty_val)
                     elif mtype in OUTFLOW_MOVEMENT_TYPES:
-                        auth_qty -= raw_qty
+                        auth_qty -= abs(qty_val)
+                    elif mtype in ("ADJUSTMENT", "STOCK_ADJUSTMENT", "TRANSFER", "STOCK_TRANSFER"):
+                        auth_qty += qty_val
 
             cached_qty = Decimal(str(p.stock or 0))
             drift = cached_qty - auth_qty

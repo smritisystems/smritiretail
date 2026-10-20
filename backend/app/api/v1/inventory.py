@@ -4,9 +4,9 @@ Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
-Version      : 3.26.0
+Version      : 6.99.0
 Created      : 2026-07-11
-Modified     : 2026-09-30
+Modified     : 2026-10-20
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 """
@@ -704,4 +704,83 @@ async def get_product_image(filename: str):
     if not os.path.exists(filepath):
         return Response(content=DEFAULT_PRODUCT_PLACEHOLDER_SVG, media_type="image/svg+xml")
     return FileResponse(filepath, media_type="image/webp")
+
+
+@router.get(
+    "/reconciliation",
+    summary="Run Read-Only Stock Movement Reconciliation Audit",
+    description="Audits all inventory transactions against physical stock invariants across 9 discrepancy taxonomies."
+)
+async def get_stock_reconciliation_audit(
+    branch_id: Optional[str] = Query(None, description="Optional branch filter"),
+    warehouse_id: Optional[str] = Query(None, description="Optional warehouse filter"),
+    start_date: Optional[date] = Query(None, description="Start date filter"),
+    end_date: Optional[date] = Query(None, description="End date filter"),
+    product_id: Optional[str] = Query(None, description="Specific product ID"),
+    sku: Optional[str] = Query(None, description="SKU or product code search"),
+    limit: int = Query(500, ge=1, le=5000, description="Product batch audit limit"),
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Executes a comprehensive, non-destructive stock movement invariant audit.
+    Evaluates:
+      Expected on-hand = Opening + Receipts + Sales Returns + Transfer In + Pos Adjustments
+                         - Sales Dispatches - Purchase Returns - Transfer Out - Neg Adjustments - Damage
+    Identifies drifts against actual ledger and cached values.
+    """
+    from ...services.stock_reconciliation_engine import StockReconciliationEngine
+    return await StockReconciliationEngine.run_reconciliation_audit(
+        session=db,
+        company_id=tenant_ctx.company_id,
+        branch_id=branch_id or tenant_ctx.branch_id,
+        warehouse_id=warehouse_id,
+        start_date=start_date,
+        end_date=end_date,
+        product_id=product_id,
+        sku=sku,
+        limit=limit,
+    )
+
+
+@router.get(
+    "/reconciliation/correction-proposal",
+    summary="Generate Read-Only Historical Correction Proposal",
+    description="Generates non-destructive historical correction proposals with before/after quantities and audit justifications."
+)
+async def get_historical_correction_proposal(
+    branch_id: Optional[str] = Query(None, description="Optional branch filter"),
+    warehouse_id: Optional[str] = Query(None, description="Optional warehouse filter"),
+    start_date: Optional[date] = Query(None, description="Start date filter"),
+    end_date: Optional[date] = Query(None, description="End date filter"),
+    product_id: Optional[str] = Query(None, description="Specific product ID"),
+    sku: Optional[str] = Query(None, description="SKU or product code search"),
+    limit: int = Query(500, ge=1, le=5000, description="Product batch audit limit"),
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Generates a structured, non-destructive historical correction proposal.
+    Strictly read-only; requires explicit administrator authorization to execute.
+    """
+    from ...services.stock_reconciliation_engine import StockReconciliationEngine
+    audit_report = await StockReconciliationEngine.run_reconciliation_audit(
+        session=db,
+        company_id=tenant_ctx.company_id,
+        branch_id=branch_id or tenant_ctx.branch_id,
+        warehouse_id=warehouse_id,
+        start_date=start_date,
+        end_date=end_date,
+        product_id=product_id,
+        sku=sku,
+        limit=limit,
+    )
+    return await StockReconciliationEngine.generate_correction_proposal(
+        session=db,
+        company_id=tenant_ctx.company_id,
+        audit_report=audit_report,
+    )
+
 

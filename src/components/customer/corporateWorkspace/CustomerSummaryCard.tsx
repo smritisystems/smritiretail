@@ -40,20 +40,20 @@ interface CustomerSummaryCardProps {
 
 export const CustomerSummaryCard: React.FC<CustomerSummaryCardProps> = ({
   customer,
-  childCustomerCount = 12,
-  totalStoreCount = 85,
+  childCustomerCount = 0,
+  totalStoreCount = 0,
 }) => {
-  const customerName = customer.name || "Reliance Retail Limited";
-  const customerCode = customer.code || "REL001";
+  const customerName = customer.name || "—";
+  const customerCode = customer.code || "—";
   const status = customer.status || "Active";
   const customerType = customer.customerType || "Corporate / Enterprise";
-  const relationshipType = customer.corporateParent ? "Child / Branch" : "Parent";
+  const relationshipType = customer.corporateParent || customer.isDependant ? "Child / Branch" : "Parent";
   const businessCategory = customer.businessNature || "Key Account";
-  const gstin = customer.gstin || "27AABCR1234F1Z5";
-  const pan = customer.panNumber || (gstin ? gstin.slice(2, 12) : "AABCR1234F");
-  const priceList = customer.priceGroup || "Reliance Corporate";
-  const paymentTerms = customer.paymentTerm || "30 Days";
-  const creditLimit = customer.creditLimit || 5000000;
+  const gstin = customer.gstin?.trim() || "Not Registered";
+  const pan = customer.panNumber?.trim() || (customer.gstin && customer.gstin.length >= 12 ? customer.gstin.slice(2, 12) : "—");
+  const priceList = customer.priceGroup || "Standard";
+  const paymentTerms = customer.paymentTerm || "Not Configured";
+  const creditLimit = typeof customer.creditLimit === "number" ? customer.creditLimit : 0;
 
   return (
     <div className="bg-white dark:bg-[#191c1e] border border-slate-200 dark:border-slate-800 rounded-xl p-4 shadow-xs space-y-3.5">

@@ -21,6 +21,7 @@ from app.cli.commands import (
     fleet_cmd,
     governance_cmd,
     health_cmd,
+    stock_cmd,
     version_cmd,
 )
 
@@ -49,6 +50,7 @@ def build_parser() -> argparse.ArgumentParser:
     db_cmd.register_subparser(subparsers)
     governance_cmd.register_subparser(subparsers)
     attendance_cmd.register_subparser(subparsers)
+    stock_cmd.register_subparser(subparsers)
 
     return parser
 
