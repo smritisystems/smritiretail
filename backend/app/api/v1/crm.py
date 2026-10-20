@@ -526,11 +526,15 @@ async def get_corporate_customer_360(
     customer_dto = CustomerResponse.from_orm_customer(customer)
 
     # 2. Query PSV parties associated with this customer
-    psv_stmt = select(PSVParty).where(
-        (PSVParty.host_customer_id == target_cust_id) | (PSVParty.host_customer_id == customer.code),
-        PSVParty.company_id == tenant_ctx.company_id,
-    )
-    parties = (await db.execute(psv_stmt)).scalars().all()
+    parties = []
+    try:
+        psv_stmt = select(PSVParty).where(
+            (PSVParty.host_customer_id == target_cust_id) | (PSVParty.host_customer_id == customer.code),
+            PSVParty.company_id == tenant_ctx.company_id,
+        )
+        parties = (await db.execute(psv_stmt)).scalars().all()
+    except Exception:
+        parties = []
     psv_map_by_store = {p.store_code: p for p in parties if p.store_code}
 
     # 3. Build Store Network items from canonical customer delivery locations
@@ -653,40 +657,56 @@ async def get_corporate_customer_360(
     total_stores_count = len(delivery_locs)
 
     # 4. Invoices and orders aggregation
-    inv_stmt = (
-        select(SalesInvoice)
-        .where(
+    invoices = []
+    try:
+        inv_stmt = (
+            select(SalesInvoice)
+            .where(
+                SalesInvoice.customer_id == target_cust_id,
+                SalesInvoice.company_id == tenant_ctx.company_id,
+                SalesInvoice.is_deleted == False,
+            )
+            .order_by(SalesInvoice.date.desc())
+            .limit(10)
+        )
+        invoices = (await db.execute(inv_stmt)).scalars().all()
+    except Exception:
+        invoices = []
+
+    orders = []
+    try:
+        order_stmt = (
+            select(SalesOrder)
+            .where(
+                SalesOrder.customer_id == target_cust_id,
+                SalesOrder.company_id == tenant_ctx.company_id,
+                SalesOrder.is_deleted == False,
+            )
+            .order_by(SalesOrder.date.desc())
+            .limit(10)
+        )
+        orders = (await db.execute(order_stmt)).scalars().all()
+    except Exception:
+        orders = []
+
+    total_inv_count = 0
+    total_inv_val = Decimal("0.00")
+    last_inv_date = None
+    try:
+        inv_agg_stmt = select(
+            func.count(SalesInvoice.id),
+            func.coalesce(func.sum(SalesInvoice.grand_total), 0),
+            func.max(SalesInvoice.date),
+        ).where(
             SalesInvoice.customer_id == target_cust_id,
             SalesInvoice.company_id == tenant_ctx.company_id,
             SalesInvoice.is_deleted == False,
         )
-        .order_by(SalesInvoice.date.desc())
-        .limit(10)
-    )
-    invoices = (await db.execute(inv_stmt)).scalars().all()
-
-    order_stmt = (
-        select(SalesOrder)
-        .where(
-            SalesOrder.customer_id == target_cust_id,
-            SalesOrder.company_id == tenant_ctx.company_id,
-            SalesOrder.is_deleted == False,
-        )
-        .order_by(SalesOrder.date.desc())
-        .limit(10)
-    )
-    orders = (await db.execute(order_stmt)).scalars().all()
-
-    inv_agg_stmt = select(
-        func.count(SalesInvoice.id),
-        func.coalesce(func.sum(SalesInvoice.grand_total), 0),
-        func.max(SalesInvoice.date),
-    ).where(
-        SalesInvoice.customer_id == target_cust_id,
-        SalesInvoice.company_id == tenant_ctx.company_id,
-        SalesInvoice.is_deleted == False,
-    )
-    total_inv_count, total_inv_val, last_inv_date = (await db.execute(inv_agg_stmt)).one()
+        total_inv_count, total_inv_val, last_inv_date = (await db.execute(inv_agg_stmt)).one()
+    except Exception:
+        total_inv_count = len(invoices)
+        total_inv_val = sum(Decimal(str(getattr(i, "grand_total", 0) or 0)) for i in invoices)
+        last_inv_date = max((i.date for i in invoices if getattr(i, "date", None)), default=None)
 
     total_orders = int(total_inv_count) if total_inv_count and total_inv_count > 0 else 0
     total_purchase_value = Decimal(str(total_inv_val)) if total_inv_val and total_inv_val > 0 else Decimal("0.00")

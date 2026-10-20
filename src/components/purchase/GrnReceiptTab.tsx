@@ -6,9 +6,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.70.1
+ * Version      : 6.99.0
  * Created      : 2026-09-18
- * Modified     : 2026-10-05
+ * Modified     : 2026-10-21
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
@@ -3224,7 +3224,18 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
           vendor_invoice_no: invoiceNumber,
           vendor_invoice_date: invoiceDate,
           vendor_name: supplierName,
-          vendor_gstin: "",
+          vendor_gstin: (() => {
+            const matched = suppliersList.find(
+              (s) => s.id === supplierId || s.name === supplierName || s.supplier_name === supplierName
+            );
+            return (
+              matched?.gst_number ||
+              matched?.gstin ||
+              (selectedOrder as any)?.vendor_gstin ||
+              (selectedOrder as any)?.supplier?.gst_number ||
+              ""
+            );
+          })(),
           items: grnLines.map((line) => ({
             id: line.rowId,
             item_code: line.code,

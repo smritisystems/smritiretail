@@ -129,6 +129,7 @@ export const CorporateCustomer360: React.FC<CorporateCustomer360Props> = ({
     <Customer360DashboardView
       customerId={customerId}
       customer={propCustomer || data?.customer}
+      corporate360Data={data}
       currentUser={currentUser}
       onChange={onChange}
       onSave={onSave}

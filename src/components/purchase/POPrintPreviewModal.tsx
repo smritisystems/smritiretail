@@ -66,6 +66,16 @@ export interface POPrintPreviewModalProps {
   } | null;
   reprintMode?: boolean;
   initialTemplateId?: string;
+  customCompanyProfile?: {
+    name?: string;
+    address?: string;
+    gstin?: string;
+    pan?: string;
+    city?: string;
+    state?: string;
+    email?: string;
+    phone?: string;
+  };
 }
 
 /**
@@ -202,6 +212,7 @@ export const POPrintPreviewModal: React.FC<POPrintPreviewModalProps> = ({
   vendor,
   reprintMode = false,
   initialTemplateId,
+  customCompanyProfile,
 }) => {
   // Modal Customizer Controls State (Approved SMRITI PO Defaults)
   const [template, setTemplate] = useState<
@@ -237,7 +248,7 @@ export const POPrintPreviewModal: React.FC<POPrintPreviewModalProps> = ({
   };
   const [sizingScale, setSizingScale] = useState<"EURO" | "UK" | "US">("EURO");
   const [currency, setCurrency] = useState<"EUR" | "INR" | "USD">(() => {
-    const headerCurrency = (header.currency || "").toUpperCase();
+    const headerCurrency = (header?.currency || "").toUpperCase();
     if (headerCurrency.includes("EUR")) return "EUR";
     if (headerCurrency.includes("USD")) return "USD";
     return "INR";
@@ -280,9 +291,9 @@ export const POPrintPreviewModal: React.FC<POPrintPreviewModalProps> = ({
     if (validPivotRows.length > 0) {
       const groupedFwMap = new Map<string, FootwearPurchaseOrderItem>();
 
-      validPivotRows.forEach((r, idx) => {
-        const art = (r.articleNo || `FW-ART-${100 + idx}`).trim();
-        const col = (r.color || "Standard Noir / Tan").trim();
+      validPivotRows.forEach((r) => {
+        const art = (r.articleNo || r.product || "—").trim();
+        const col = (r.color || "—").trim();
         const key = `${art.toUpperCase()}:::${col.toUpperCase()}`;
 
         const q40 = Number(r.sizeQuantities?.["40"] || r.sizeQuantities?.["EU 40"] || r.sizeQuantities?.["S"] || 0);
@@ -291,34 +302,35 @@ export const POPrintPreviewModal: React.FC<POPrintPreviewModalProps> = ({
         const q43 = Number(r.sizeQuantities?.["43"] || r.sizeQuantities?.["EU 43"] || r.sizeQuantities?.["XL"] || 0);
         const q44 = Number(r.sizeQuantities?.["44"] || r.sizeQuantities?.["EU 44"] || r.sizeQuantities?.["XXL"] || 0);
         const q45 = Number(r.sizeQuantities?.["45"] || r.sizeQuantities?.["EU 45"] || 0);
-        const rowPairs = r.totalQty || (q40 + q41 + q42 + q43 + q44 + q45) || 12;
-        const rate = currency === "EUR" ? (r.rate ? r.rate / fxEurToInr : 22.50) : r.rate || 1999;
+        const rowPairs = Number(r.totalQty ?? (q40 + q41 + q42 + q43 + q44 + q45));
+        const rate = currency === "EUR" ? (r.rate ? r.rate / fxEurToInr : 0) : Number(r.rate || 0);
         const lineTotal = +(rate * rowPairs).toFixed(2);
+        const fwAttrs = resolveFootwearAttributes(r);
 
         if (!groupedFwMap.has(key)) {
-          const cartons = Math.max(1, Math.round(rowPairs / 12));
+          const cartons = rowPairs > 0 ? Math.max(1, Math.round(rowPairs / 12)) : 0;
           groupedFwMap.set(key, {
             articleCode: art,
             photoUrl: r.photoUrl || r.imageUrl || r.originalProduct?.primaryImageUrl,
-            modelName: r.product || "Footwear Style Line",
-            category: r.brand || "Footwear Collection",
+            modelName: r.product || "—",
+            category: r.brand || "—",
             taricCode: "64035910",
             hsnCode: "6403",
             color: col,
             size: "EU 40-45",
             colorHex: "#334155",
-            finish: "Polished Finish",
-            upperMaterial: "Genuine Calf Leather / Microfiber",
-            soleMaterial: "Anti-Skid TPR / Goodyear Welt",
-            liningMaterial: "Breathable Sweat-Absorption Mesh",
-            insoleMaterial: "High-Density Memory Cushion",
-            ratioString: "1 : 2 : 3 : 3 : 2 : 1 = 12 Prs/Ctn",
-            eu40: q40 || cartons * 1,
-            eu41: q41 || cartons * 2,
-            eu42: q42 || cartons * 3,
-            eu43: q43 || cartons * 3,
-            eu44: q44 || cartons * 2,
-            eu45: q45 || cartons * 1,
+            finish: "—",
+            upperMaterial: fwAttrs.upperMaterial,
+            soleMaterial: fwAttrs.outsole,
+            liningMaterial: "—",
+            insoleMaterial: "—",
+            ratioString: "—",
+            eu40: q40,
+            eu41: q41,
+            eu42: q42,
+            eu43: q43,
+            eu44: q44,
+            eu45: q45,
             cartons: cartons,
             pairs: rowPairs,
             ratePerPair: +rate.toFixed(2),
@@ -334,7 +346,7 @@ export const POPrintPreviewModal: React.FC<POPrintPreviewModalProps> = ({
           existing.eu44 = (existing.eu44 || 0) + q44;
           existing.eu45 = (existing.eu45 || 0) + q45;
           existing.pairs += rowPairs;
-          existing.cartons = Math.max(1, Math.round(existing.pairs / 12));
+          existing.cartons = existing.pairs > 0 ? Math.max(1, Math.round(existing.pairs / 12)) : 0;
           existing.lineTotal += lineTotal;
           if (!existing.photoUrl && (r.photoUrl || r.imageUrl)) {
             existing.photoUrl = r.photoUrl || r.imageUrl;
@@ -352,32 +364,33 @@ export const POPrintPreviewModal: React.FC<POPrintPreviewModalProps> = ({
 
     if (validLines.length > 0) {
       mappedFootwearItems = validLines.map((l, idx) => {
-        const totalPairs = l.orderQty || 12;
-        const cartons = Math.max(1, Math.round(totalPairs / 12));
-        const rate = currency === "EUR" ? (l.rate ? l.rate / fxEurToInr : 19.50) : l.rate || 1800;
+        const totalPairs = Number(l.orderQty || 0);
+        const cartons = totalPairs > 0 ? Math.max(1, Math.round(totalPairs / 12)) : 0;
+        const rate = currency === "EUR" ? (l.rate ? l.rate / fxEurToInr : 0) : Number(l.rate || 0);
         const lineTotal = +(rate * totalPairs).toFixed(2);
+        const fwAttrs = resolveFootwearAttributes(l);
 
         return {
-          articleCode: l.stockNo || l.barcode || `FW-ART-${200 + idx}`,
-          modelName: l.product || l.barcode || "Commercial Shoe Line",
-          category: l.brand || "Footwear Division",
+          articleCode: l.stockNo || l.barcode || `ART-${idx + 1}`,
+          modelName: l.product || l.barcode || "—",
+          category: l.brand || "—",
           taricCode: "64035910",
-          hsnCode: "6403",
-          color: l.shade || "Classic Nero",
-          size: l.size || "EU 40-45",
+          hsnCode: (l as any).hsnCode || (l as any).hsn_code || "6403",
+          color: l.shade || "—",
+          size: l.size || "—",
           colorHex: "#1e293b",
-          finish: "Standard Matt Finish",
-          upperMaterial: "Full Grain Leather / Mesh",
-          soleMaterial: "Phylon EVA / Molded Rubber",
-          liningMaterial: "Anti-Bacterial Fabric",
-          insoleMaterial: "Anatomic Arch Support",
-          ratioString: "1 : 2 : 3 : 3 : 2 : 1 = 12 Prs/Ctn",
-          eu40: cartons * 1,
-          eu41: cartons * 2,
-          eu42: cartons * 3,
-          eu43: cartons * 3,
-          eu44: cartons * 2,
-          eu45: cartons * 1,
+          finish: "—",
+          upperMaterial: fwAttrs.upperMaterial,
+          soleMaterial: fwAttrs.outsole,
+          liningMaterial: "—",
+          insoleMaterial: "—",
+          ratioString: "—",
+          eu40: 0,
+          eu41: 0,
+          eu42: totalPairs,
+          eu43: 0,
+          eu44: 0,
+          eu45: 0,
           cartons: cartons,
           pairs: totalPairs,
           ratePerPair: +rate.toFixed(2),
@@ -401,12 +414,12 @@ export const POPrintPreviewModal: React.FC<POPrintPreviewModalProps> = ({
     DEFAULT_BUSINESS_TERMS;
 
   const tenantCtx = getTenantCompanyContext();
-  const tenantCompanyName = tenantCtx.companyName || (typeof localStorage !== "undefined" ? localStorage.getItem("smriti_company_name") || "" : "");
-  const tenantCompanyAddress = tenantCtx.companyAddress || (typeof localStorage !== "undefined" ? localStorage.getItem("smriti_company_address") || "" : "");
-  const tenantCompanyGstin = tenantCtx.companyGstin || (typeof localStorage !== "undefined" ? localStorage.getItem("smriti_company_gstin") || "" : "");
-  const tenantCompanyEmail = tenantCtx.companyEmail || (typeof localStorage !== "undefined" ? localStorage.getItem("smriti_company_email") || "" : "");
-  const tenantCompanyPhone = tenantCtx.companyPhone || (typeof localStorage !== "undefined" ? localStorage.getItem("smriti_company_phone") || "" : "");
-  const tenantCompanyPan = tenantCompanyGstin && tenantCompanyGstin.length >= 12 ? tenantCompanyGstin.slice(2, 12) : "";
+  const tenantCompanyName = customCompanyProfile?.name || tenantCtx.companyName || (typeof localStorage !== "undefined" ? localStorage.getItem("smriti_company_name") || "" : "");
+  const tenantCompanyAddress = customCompanyProfile?.address || tenantCtx.companyAddress || (typeof localStorage !== "undefined" ? localStorage.getItem("smriti_company_address") || "" : "");
+  const tenantCompanyGstin = customCompanyProfile?.gstin || tenantCtx.companyGstin || (typeof localStorage !== "undefined" ? localStorage.getItem("smriti_company_gstin") || "" : "");
+  const tenantCompanyEmail = customCompanyProfile?.email || tenantCtx.companyEmail || (typeof localStorage !== "undefined" ? localStorage.getItem("smriti_company_email") || "" : "");
+  const tenantCompanyPhone = customCompanyProfile?.phone || tenantCtx.companyPhone || (typeof localStorage !== "undefined" ? localStorage.getItem("smriti_company_phone") || "" : "");
+  const tenantCompanyPan = customCompanyProfile?.pan || (tenantCompanyGstin && tenantCompanyGstin.length >= 12 ? tenantCompanyGstin.slice(2, 12) : "");
 
   // Construct Footwear PO Data payload
   const footwearData: FootwearPurchaseOrderData = {
@@ -423,11 +436,11 @@ export const POPrintPreviewModal: React.FC<POPrintPreviewModalProps> = ({
     vendorAddress: vendor?.address || "Registered Supplier Premises",
     vendorGstin: vendor?.gstin || vendor?.gst_number || "—",
     vendorContact: vendor?.mobile || vendor?.phone || "—",
-    dcCode: "DC-MAIN-01",
-    dcName: "Main Store Distribution Depot",
-    dcAddress: tenantCompanyAddress,
-    dcGstin: tenantCompanyGstin,
-    dcReceivingGate: "Gate 1 - Central Footwear Bay",
+    dcCode: header.deliveryLocation || "MAIN",
+    dcName: header.deliveryLocation || "Main Store",
+    dcAddress: tenantCompanyAddress || "—",
+    dcGstin: tenantCompanyGstin || "—",
+    dcReceivingGate: "—",
     currency: currency,
     currencySymbol: currencySymbol,
     sizingScale: sizingScale,
@@ -438,7 +451,7 @@ export const POPrintPreviewModal: React.FC<POPrintPreviewModalProps> = ({
     totalPairs: mappedTotalPairs,
     netOrderValue: mappedNetTotal,
     netOrderValueInWords: `${currencySymbol} ${mappedNetTotal.toFixed(2)} (calculated from live PO lines)`,
-    paymentTerms: header.paymentTerms && header.paymentTerms !== "30 Days" ? header.paymentTerms : "120 Days",
+    paymentTerms: header.paymentTerms || "30 Days Net",
     purchaser: header.buyer || "—",
     supplierReference: header.supplierReference || "—",
     documentStatus: header.status || (header as any)?.documentStatus || (reprintMode ? "ORIGINAL UNCHANGED" : "DRAFT"),
@@ -456,7 +469,7 @@ export const POPrintPreviewModal: React.FC<POPrintPreviewModalProps> = ({
     supplierPhone: vendor?.mobile || vendor?.phone || "",
     deliveryLocation: header.deliveryLocation || "Main Store (MAIN)",
     deliveryDate: header.deliveryDate || "",
-    paymentTerms: header.paymentTerms && header.paymentTerms !== "30 Days" ? header.paymentTerms : "120 Days",
+    paymentTerms: header.paymentTerms || "30 Days Net",
     supplierReference: header.supplierReference || "",
     purchaser: header.buyer || "",
     department: header.department || "General Purchase",
@@ -467,12 +480,12 @@ export const POPrintPreviewModal: React.FC<POPrintPreviewModalProps> = ({
     date: header.orderDate || new Date().toISOString().split("T")[0],
     dueDate: header.deliveryDate || "",
     company: {
-      name: "SMRITI Retail OS",
-      address: "Central Logistics Park, SMRITI Retail OS",
-      gstin: "27AABCT9981K1Z2",
-      phone: "+91 712 2987654",
-      email: "procurement@smritibooks.com",
-      pan: "AABCT9981K",
+      name: tenantCompanyName || "Company Profile Not Configured",
+      address: tenantCompanyAddress || "—",
+      gstin: tenantCompanyGstin || "—",
+      phone: tenantCompanyPhone || "—",
+      email: tenantCompanyEmail || "—",
+      pan: tenantCompanyPan || "—",
     },
     customer: {
       name: header.supplierName || vendor?.name || "Selected Supplier",
@@ -897,9 +910,9 @@ export const POPrintPreviewModal: React.FC<POPrintPreviewModalProps> = ({
     orientation: orientation,
   };
 
-  if (!isOpen || typeof document === "undefined") return null;
+  if (!isOpen) return null;
 
-  return createPortal(
+  const modalContent = (
     <div
       className="print-preview-modal-root print-preview-visible fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex flex-col items-center overflow-y-auto print:static print:inset-auto print:h-auto print:w-full print:p-0 print:m-0 print:bg-white print:overflow-visible"
       role="dialog"
@@ -1184,9 +1197,14 @@ export const POPrintPreviewModal: React.FC<POPrintPreviewModalProps> = ({
           )}
         </div>
       </div>
-    </div>,
-    document.body
+    </div>
   );
+
+  if (typeof document === "undefined") {
+    return modalContent;
+  }
+
+  return createPortal(modalContent, document.body);
 };
 
 export default POPrintPreviewModal;

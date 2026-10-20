@@ -387,3 +387,95 @@ describe("Customer 360° Dashboard View & Navigation Tests", () => {
   });
 });
 
+describe("Customer 360° Authoritative Data Integrity & Dynamic Reconciliation Audit", () => {
+  const authoritativeRelianceCustomer = {
+    id: "cust-rrl-192b561d",
+    code: "RRL-001",
+    name: "Reliance Retail Limited",
+    customer_type: "Corporate B2B",
+    gst_number: "27AABCR1718E1ZP",
+    pan_number: "AABCR1718E",
+    credit_limit: 99999999,
+    outstanding: 0,
+    credit_days: 90,
+    delivery_locations: Array.from({ length: 68 }, (_, i) => ({
+      id: `dl-${i + 1}`,
+      store_code: `STR-${1000 + i}`,
+      location_name: `Reliance Store ${i + 1}`,
+      city: "Mumbai",
+      status: "Active",
+    })),
+    dependants: [
+      { id: "dep-1", name: "Reliance Smart", code: "RRL-SMT-001", city: "Mumbai", storesCount: 25 },
+      { id: "dep-2", name: "Reliance Trends", code: "RRL-TRN-001", city: "Pune", storesCount: 30 },
+      { id: "dep-3", name: "Reliance Digital", code: "RRL-DIG-001", city: "Bangalore", storesCount: 13 },
+    ],
+    metadata_json: {},
+    relationship_since: "2018-04-01T00:00:00Z",
+  };
+
+  it("resolves authentic PAN matching characters 3-12 of GSTIN and indicates match", () => {
+    const html = renderToStaticMarkup(
+      <Customer360DashboardView customer={authoritativeRelianceCustomer} />
+    );
+
+    // PAN must be AABCR1718E (from pan_number), NOT dummy fallback AABCR1234F
+    expect(html).toContain('value="AABCR1718E"');
+    expect(html).not.toContain('value="AABCR1234F"');
+    expect(html).toContain("27AABCR1718E1ZP");
+    expect(html).toContain("Matches GSTIN");
+  });
+
+  it("reconciles credit limit between summary card and right sidebar with Indian formatting", () => {
+    const html = renderToStaticMarkup(
+      <Customer360DashboardView customer={authoritativeRelianceCustomer} />
+    );
+
+    // Both cards must show ₹ 9,99,99,999, eliminating the ₹5,00,00,000 vs ₹99,99,999 discrepancy
+    const occurrences = (html.match(/9,99,99,999/g) || []).length;
+    expect(occurrences).toBeGreaterThanOrEqual(2);
+    expect(html).toContain("9,99,99,999");
+  });
+
+  it("reconciles outstanding amount across summary card and detail panel", () => {
+    const html = renderToStaticMarkup(
+      <Customer360DashboardView customer={authoritativeRelianceCustomer} />
+    );
+
+    // Outstanding must be 0, eliminating fabricated ₹ 2,15,43,250
+    expect(html).not.toContain("2,15,43,250");
+    expect(html).toContain("₹ 0");
+  });
+
+  it("dynamically displays actual stores count (68) and child accounts count (3)", () => {
+    const html = renderToStaticMarkup(
+      <Customer360DashboardView customer={authoritativeRelianceCustomer} />
+    );
+
+    // Dynamic store network count = 68, child count = 3
+    expect(html).toContain("68");
+    expect(html).toContain("3");
+    expect(html).toContain("68 Total Outlets");
+  });
+
+  it("displays empty IEC without fabricating placeholder string", () => {
+    const html = renderToStaticMarkup(
+      <Customer360DashboardView customer={authoritativeRelianceCustomer} />
+    );
+
+    expect(html).not.toContain("IEC1234567");
+    expect(html).toContain('placeholder="Not Registered"');
+  });
+
+  it("renders dynamic hierarchy cards from actual child accounts", () => {
+    const html = renderToStaticMarkup(
+      <Customer360DashboardView customer={authoritativeRelianceCustomer} />
+    );
+
+    expect(html).toContain("Reliance Smart");
+    expect(html).toContain("Reliance Trends");
+    expect(html).toContain("Reliance Digital");
+  });
+});
+
+

@@ -1293,9 +1293,7 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
             business_terms: s.business_terms || s.special_instructions || "",
             commercial_terms: s.commercial_terms || undefined,
           }))
-        : [
-            { id: "SUP-548042", name: "A. S. Shoes", code: "G", gstin: "27ABEPA1910C1ZK", city: "Mumbai", state: "Maharashtra", payment_terms: "120 Days", payment_terms_days: 120, freight_terms: "Paid by Supplier", currency: "INR - Indian Rupee" },
-          ];
+        : [];
       setSuppliersList(suppliers);
 
       if (!header.supplierId && suppliers.length > 0) {

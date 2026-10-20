@@ -4,9 +4,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.51.0
+ * Version      : 6.99.0
  * Created      : 2026-09-11
- * Modified     : 2026-10-02
+ * Modified     : 2026-10-21
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
@@ -80,7 +80,7 @@ const VendorPayablesTabBase: React.FC<VendorPayablesTabProps> = ({ vendor, onNot
   const [payments, setPayments] = useState<any[]>([]);
   const [advances, setAdvances] = useState<AdvanceRecord[]>([]);
   const [tdsSummary, setTdsSummary] = useState<TdsVendorSummary | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
 
   // Modal State
   const [isKnockoffModalOpen, setIsKnockoffModalOpen] = useState(false);
@@ -238,27 +238,6 @@ const VendorPayablesTabBase: React.FC<VendorPayablesTabProps> = ({ vendor, onNot
           remaining -= deduct;
           if (remaining <= 0) break;
         }
-      }
-
-      // Fallback: use outstanding_liability from supplier profile if no records exist
-      if (built.length === 0 && (vendor.commercial?.outstandingLiability ?? 0) > 0) {
-        const due = new Date();
-        due.setDate(due.getDate() - Math.max(0, termsDays - 5));
-        const dueDateStr = due.toISOString().slice(0, 10);
-        const { bucket, daysOverdue } = classifyAging(dueDateStr, today);
-        built.push({
-          id: `ledger-${vendor.id}`,
-          invoiceNo: `LEDGER-${vendor.code}`,
-          invoiceDate: new Date(Date.now() - termsDays * 86400000).toISOString().slice(0, 10),
-          dueDate: dueDateStr,
-          invoiceAmt: vendor.commercial!.outstandingLiability,
-          paidAmt: 0,
-          outstandingAmt: vendor.commercial!.outstandingLiability,
-          agingBucket: bucket,
-          daysOverdue,
-          status: "POSTED",
-          isPurchaseBill: false,
-        });
       }
 
       setInvoices(built);
@@ -531,9 +510,13 @@ const VendorPayablesTabBase: React.FC<VendorPayablesTabProps> = ({ vendor, onNot
         ) : invoices.length === 0 ? (
           <div className="py-10 text-center space-y-2 rounded-xl border border-dashed border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/40">
             <CheckCircle2 size={28} className="mx-auto text-emerald-400" />
-            <div className="text-sm font-semibold text-slate-700 dark:text-slate-300">No Outstanding Payables</div>
+            <div className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+              {(vendor.commercial?.outstandingLiability ?? 0) > 0 ? "No Itemized Purchase Bills" : "No Outstanding Payables"}
+            </div>
             <p className="text-xs text-slate-400 dark:text-slate-500 max-w-sm mx-auto">
-              This vendor has no open purchase bills or outstanding liabilities on record.
+              {(vendor.commercial?.outstandingLiability ?? 0) > 0
+                ? `Opening liability of ₹${Number(vendor.commercial?.outstandingLiability).toFixed(2)} is on record, but no individual purchase bills or PO vouchers exist in the subledger.`
+                : "This vendor has no open purchase bills or outstanding liabilities on record."}
             </p>
           </div>
         ) : (

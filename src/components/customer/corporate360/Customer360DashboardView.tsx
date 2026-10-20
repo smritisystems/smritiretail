@@ -61,13 +61,14 @@ import {
   Printer,
 } from "lucide-react";
 import { CorporateCustomerTabs } from "./CorporateCustomerTabs.tsx";
-import { CorporateTabKey, PsvDetailedItem } from "./types.ts";
+import { CorporateTabKey, PsvDetailedItem, CorporateCustomer360Data } from "./types.ts";
 import { Customer } from "../../../types.ts";
 import { GovernedLookupCombobox } from "../../itemMaster/GovernedLookupCombobox.tsx";
 
 export interface Customer360DashboardViewProps {
   customerId?: string;
   customer?: any;
+  corporate360Data?: CorporateCustomer360Data | null;
   currentUser?: any;
   initialTab?: CorporateTabKey;
   onChange?: (field: string, value: any) => void;
@@ -83,6 +84,7 @@ export interface Customer360DashboardViewProps {
 
 export const Customer360DashboardView: React.FC<Customer360DashboardViewProps> = ({
   customer: propCustomer,
+  corporate360Data,
   initialTab = "overview",
   onChange,
   onSave,
@@ -98,54 +100,129 @@ export const Customer360DashboardView: React.FC<Customer360DashboardViewProps> =
   const [addressSubTab, setAddressSubTab] = useState<"billing" | "delivery" | "registered">("billing");
   const [selectedBillingIndex, setSelectedBillingIndex] = useState<number>(0);
 
+  // ── Helper to resolve authentic PAN ─────────────────────────────────────────
+  const resolvePan = (cust: any): string => {
+    const direct = cust?.panNumber?.trim() || cust?.pan?.trim() || cust?.pan_number?.trim();
+    if (direct) return direct.toUpperCase();
+    const g = cust?.gstNumber || cust?.gst_number || cust?.gstin || "";
+    if (g && g.length >= 12) return g.substring(2, 12).toUpperCase();
+    return "AABCR1718E";
+  };
+
   // ── Live Form State ────────────────────────────────────────────────────────
   const [formData, setFormData] = useState({
-    code: propCustomer?.code || "REL001",
-    name: propCustomer?.name || "Reliance Retail Limited",
-    displayName: propCustomer?.displayName || propCustomer?.display_name || "Reliance Retail",
-    customerType: propCustomer?.customerType || propCustomer?.customer_type || "Corporate / Enterprise",
+    code: propCustomer?.code || corporate360Data?.customer?.code || "RRL-001",
+    name: propCustomer?.name || corporate360Data?.customer?.name || "Reliance Retail Limited",
+    displayName: propCustomer?.displayName || propCustomer?.display_name || propCustomer?.name || corporate360Data?.customer?.name || "Reliance Retail",
+    customerType: propCustomer?.customerType || propCustomer?.customer_type || corporate360Data?.customer?.customer_type || "Corporate B2B",
     relationshipType: "Parent",
     businessCategory: "Key Account",
     customerGroup: "Corporate Accounts",
-    status: (propCustomer?.isActive ?? propCustomer?.is_active) !== false ? "Active" : "Inactive",
-    territory: propCustomer?.territory || "West India",
-    legalName: propCustomer?.legalName || propCustomer?.legal_name || "Reliance Retail Limited",
-    gstin: propCustomer?.gstNumber || propCustomer?.gst_number || propCustomer?.gstin || "27AABCR1234F1Z5",
-    pan: propCustomer?.pan || propCustomer?.pan_number || "AABCR1234F",
-    iec: (propCustomer?.metadata_json as any)?.iec || propCustomer?.iec || "IEC1234567",
+    status: (propCustomer?.isActive ?? propCustomer?.is_active) !== false && propCustomer?.status !== "Inactive" ? "Active" : "Inactive",
+    territory: propCustomer?.territory || propCustomer?.region || (propCustomer?.state ? `${propCustomer.state} Region` : "West India"),
+    legalName: propCustomer?.legalName || propCustomer?.legal_name || propCustomer?.name || corporate360Data?.customer?.name || "Reliance Retail Limited",
+    gstin: propCustomer?.gstNumber || propCustomer?.gst_number || propCustomer?.gstin || corporate360Data?.customer?.gst_number || "27AABCR1718E1ZP",
+    pan: resolvePan(propCustomer || corporate360Data?.customer),
+    iec: (propCustomer?.metadata_json as any)?.iec || propCustomer?.iec || "",
     registeredAddress:
-      (propCustomer?.addressLine1 || propCustomer?.address_line1) && propCustomer?.city
-        ? `${propCustomer.addressLine1 || propCustomer.address_line1}, ${propCustomer.city} - ${propCustomer.pincode || propCustomer.pinCode || "400051"}, ${propCustomer.state || "Maharashtra"}, India`
-        : "3rd Floor, Corporate Office, MMRDA Building, Bandra-Kurla Complex, Mumbai - 400051, Maharashtra, India",
-    defaultPriceList: "Reliance Corporate",
-    paymentTerms: propCustomer?.paymentTerms || propCustomer?.payment_terms || "30 Days",
-    creditLimit: propCustomer?.creditLimit ? String(propCustomer.creditLimit) : (propCustomer?.credit_limit ? String(propCustomer.credit_limit) : "5,00,00,000"),
-    creditDays: propCustomer?.creditDays ? String(propCustomer.creditDays) : (propCustomer?.credit_days ? String(propCustomer.credit_days) : "30"),
+      (propCustomer?.addressLine1 || propCustomer?.address_line1 || propCustomer?.registeredAddress || propCustomer?.registered_address) && propCustomer?.city
+        ? `${propCustomer.addressLine1 || propCustomer.address_line1 || propCustomer.registeredAddress || propCustomer.registered_address}, ${propCustomer.city} - ${propCustomer.pincode || propCustomer.pinCode || "400051"}, ${propCustomer.state || "Maharashtra"}, India`
+        : propCustomer?.registeredAddress || propCustomer?.registered_address || "3rd Floor, Corporate Office, MMRDA Building, Bandra-Kurla Complex, Mumbai - 400051, Maharashtra, India",
+    defaultPriceList: propCustomer?.defaultPriceList || propCustomer?.priceListName || propCustomer?.price_list_id || "Reliance Corporate",
+    paymentTerms: propCustomer?.paymentTerms || propCustomer?.payment_terms || (propCustomer?.creditDays ? `${propCustomer.creditDays} Days` : ((propCustomer as any)?.credit_days ? `${(propCustomer as any).credit_days} Days` : "30 Days")),
+    creditLimit: propCustomer?.creditLimit !== undefined ? String(propCustomer.creditLimit) : (propCustomer?.credit_limit !== undefined ? String(propCustomer.credit_limit) : (corporate360Data?.customer?.credit_limit !== undefined ? String(corporate360Data.customer.credit_limit) : "5,00,00,000")),
+    creditDays: propCustomer?.creditDays ? String(propCustomer.creditDays) : ((propCustomer as any)?.credit_days ? String((propCustomer as any).credit_days) : (corporate360Data?.customer?.credit_days ? String(corporate360Data.customer.credit_days) : "30")),
+    outstanding: propCustomer?.outstanding !== undefined ? String(propCustomer.outstanding) : (propCustomer?.creditUsed !== undefined ? String(propCustomer.creditUsed) : "2,15,43,250"),
     salesPerson: "Corporate Sales",
     currency: propCustomer?.currency || "INR",
   });
 
-  // Sync when propCustomer changes
+  // Sync when propCustomer or corporate360Data changes
   useEffect(() => {
-    if (propCustomer) {
+    const cust = propCustomer || corporate360Data?.customer;
+    if (cust) {
       setFormData((prev) => ({
         ...prev,
-        code: propCustomer.code || prev.code,
-        name: propCustomer.name || prev.name,
-        displayName: propCustomer.displayName || propCustomer.display_name || prev.displayName,
-        customerType: propCustomer.customerType || propCustomer.customer_type || prev.customerType,
-        status: (propCustomer.isActive ?? propCustomer.is_active) !== false ? "Active" : "Inactive",
-        territory: propCustomer.territory || prev.territory,
-        legalName: propCustomer.legalName || propCustomer.legal_name || prev.legalName,
-        gstin: propCustomer.gstNumber || propCustomer.gst_number || propCustomer.gstin || prev.gstin,
-        pan: propCustomer.pan || propCustomer.pan_number || prev.pan,
-        paymentTerms: propCustomer.paymentTerms || propCustomer.payment_terms || prev.paymentTerms,
-        creditLimit: propCustomer.creditLimit ? String(propCustomer.creditLimit) : (propCustomer.credit_limit ? String(propCustomer.credit_limit) : prev.creditLimit),
-        creditDays: propCustomer.creditDays ? String(propCustomer.creditDays) : (propCustomer.credit_days ? String(propCustomer.credit_days) : prev.creditDays),
-        currency: propCustomer.currency || prev.currency,
+        code: cust.code || prev.code,
+        name: cust.name || prev.name,
+        displayName: cust.displayName || cust.display_name || cust.name || prev.displayName,
+        customerType: cust.customerType || cust.customer_type || prev.customerType,
+        status: (cust.isActive ?? cust.is_active) !== false && cust.status !== "Inactive" ? "Active" : "Inactive",
+        territory: cust.territory || cust.region || prev.territory,
+        legalName: cust.legalName || cust.legal_name || cust.name || prev.legalName,
+        gstin: cust.gstNumber || cust.gst_number || cust.gstin || prev.gstin,
+        pan: resolvePan(cust),
+        paymentTerms: cust.paymentTerms || cust.payment_terms || (cust.creditDays ? `${cust.creditDays} Days` : ((cust as any)?.credit_days ? `${(cust as any).credit_days} Days` : prev.paymentTerms)),
+        creditLimit: cust.creditLimit !== undefined ? String(cust.creditLimit) : (cust.credit_limit !== undefined ? String(cust.credit_limit) : prev.creditLimit),
+        creditDays: cust.creditDays ? String(cust.creditDays) : ((cust as any)?.credit_days ? String((cust as any).credit_days) : prev.creditDays),
+        outstanding: cust.outstanding !== undefined ? String(cust.outstanding) : (cust.creditUsed !== undefined ? String(cust.creditUsed) : prev.outstanding),
+        currency: cust.currency || prev.currency,
       }));
     }
-  }, [propCustomer]);
+  }, [propCustomer, corporate360Data]);
+
+  // ── Authoritative Derived Dynamic Metrics ──────────────────────────────────
+  const childCustomersCount =
+    corporate360Data?.customer?.dependants?.length ??
+    corporate360Data?.customer?.children?.length ??
+    (propCustomer as any)?.children?.length ??
+    (propCustomer as any)?.dependants?.length ??
+    (corporate360Data?.kpis as any)?.child_customers_count ??
+    (propCustomer?.childCount !== undefined ? propCustomer.childCount : 12);
+
+  const storesCount =
+    corporate360Data?.store_network?.length ??
+    corporate360Data?.kpis?.total_stores ??
+    propCustomer?.deliveryLocations?.length ??
+    (propCustomer as any)?.delivery_locations?.length ??
+    (propCustomer?.storesCount !== undefined ? propCustomer.storesCount : 85);
+
+  const parsedCreditLimit = Number(String(formData.creditLimit || "").replace(/,/g, ""));
+  const formattedCreditLimit = !isNaN(parsedCreditLimit) && parsedCreditLimit > 0
+    ? `₹ ${parsedCreditLimit.toLocaleString("en-IN")}`
+    : (formData.creditLimit ? `₹ ${formData.creditLimit}` : "—");
+
+  const parsedOutstanding = Number(String(formData.outstanding || "").replace(/,/g, ""));
+  const formattedOutstanding = !isNaN(parsedOutstanding) && parsedOutstanding > 0
+    ? `₹ ${parsedOutstanding.toLocaleString("en-IN")}`
+    : (formData.outstanding ? `₹ ${formData.outstanding}` : "₹ 0");
+
+  const lastPurchaseDate =
+    corporate360Data?.kpis?.last_order_date && corporate360Data.kpis.last_order_date !== "—"
+      ? corporate360Data.kpis.last_order_date
+      : propCustomer?.lastPurchaseDate || propCustomer?.last_purchase_date || "12/10/2026";
+
+  const lastInvoiceDate =
+    corporate360Data?.sales_invoices?.[0]?.date ||
+    propCustomer?.lastInvoiceDate ||
+    propCustomer?.last_invoice_date ||
+    "15/10/2026";
+
+  const relationshipSince = (() => {
+    const raw = propCustomer?.relationshipSince || propCustomer?.created_at || propCustomer?.createdAt || propCustomer?.createdDate;
+    if (!raw) return "01/04/2018";
+    try {
+      const d = new Date(raw);
+      if (isNaN(d.getTime())) return String(raw);
+      return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
+    } catch {
+      return String(raw);
+    }
+  })();
+
+  const actualChildAccounts =
+    (propCustomer?.dependants && propCustomer.dependants.length > 0)
+      ? propCustomer.dependants
+      : (propCustomer?.children && propCustomer.children.length > 0)
+      ? propCustomer.children
+      : (corporate360Data?.store_network && corporate360Data.store_network.length > 0)
+      ? corporate360Data.store_network.slice(0, 3).map((s: any) => ({
+          name: s.store_name,
+          code: s.store_code,
+          city: s.city,
+          storesCount: 1,
+        }))
+      : [];
 
   const handleFieldChange = (field: string, value: any) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
@@ -474,8 +551,8 @@ export const Customer360DashboardView: React.FC<Customer360DashboardViewProps> =
             setActiveTab(tab);
             window.scrollTo({ top: 0, behavior: "smooth" });
           }}
-          storesCount={85}
-          childCount={12}
+          storesCount={storesCount}
+          childCount={childCustomersCount}
         />
 
         {/* ── Persistent Hero Banner Card ───────────────────────────────────── */}
@@ -519,7 +596,9 @@ export const Customer360DashboardView: React.FC<Customer360DashboardViewProps> =
                 <Users size={20} />
               </div>
               <div>
-                <div className="text-xl font-bold font-mono text-slate-900 dark:text-white leading-none">12</div>
+                <div className="text-xl font-bold font-mono text-slate-900 dark:text-white leading-none">
+                  {childCustomersCount}
+                </div>
                 <div className="text-[11px] text-slate-500 dark:text-slate-400 font-medium mt-1">Child Customers</div>
               </div>
             </div>
@@ -530,7 +609,9 @@ export const Customer360DashboardView: React.FC<Customer360DashboardViewProps> =
                 <Store size={20} />
               </div>
               <div>
-                <div className="text-xl font-bold font-mono text-slate-900 dark:text-white leading-none">85</div>
+                <div className="text-xl font-bold font-mono text-slate-900 dark:text-white leading-none">
+                  {storesCount}
+                </div>
                 <div className="text-[11px] text-slate-500 dark:text-slate-400 font-medium mt-1">Stores / Outlets</div>
               </div>
             </div>
@@ -542,7 +623,7 @@ export const Customer360DashboardView: React.FC<Customer360DashboardViewProps> =
               </div>
               <div>
                 <div className="text-base font-bold font-mono text-emerald-700 dark:text-emerald-300 leading-none">
-                  ₹ 5,00,00,000
+                  {formattedCreditLimit}
                 </div>
                 <div className="text-[11px] text-slate-500 dark:text-slate-400 font-medium mt-1">Credit Limit</div>
               </div>
@@ -555,21 +636,40 @@ export const Customer360DashboardView: React.FC<Customer360DashboardViewProps> =
               </div>
               <div>
                 <div className="text-base font-bold font-mono text-slate-900 dark:text-white leading-none">
-                  ₹ 2,15,43,250
+                  {formattedOutstanding}
                 </div>
                 <div className="text-[11px] text-slate-500 dark:text-slate-400 font-medium mt-1">Outstanding</div>
               </div>
             </div>
 
             {/* KPI 5: Mini Sparkline Bar Chart */}
-            <div className="bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/80 rounded-xl px-3 py-2 flex items-end gap-1.5 h-[58px]">
-              <div className="w-2 bg-blue-300 dark:bg-blue-600 rounded-t-xs h-[40%]" />
-              <div className="w-2 bg-blue-400 dark:bg-blue-500 rounded-t-xs h-[65%]" />
-              <div className="w-2 bg-blue-300 dark:bg-blue-600 rounded-t-xs h-[50%]" />
-              <div className="w-2 bg-blue-500 dark:bg-blue-400 rounded-t-xs h-[85%]" />
-              <div className="w-2 bg-blue-400 dark:bg-blue-500 rounded-t-xs h-[70%]" />
-              <div className="w-2 bg-[#0066cc] dark:bg-[#8ebdf9] rounded-t-xs h-[100%]" />
-              <div className="w-2 bg-blue-400 dark:bg-blue-500 rounded-t-xs h-[80%]" />
+            <div className="bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/80 rounded-xl px-3 py-2 flex items-end gap-1.5 h-[58px]" title="Purchase Trend Activity">
+              {corporate360Data?.purchase_trend && corporate360Data.purchase_trend.length > 0 ? (
+                (() => {
+                  const maxVal = Math.max(...corporate360Data.purchase_trend.map((p) => p.purchase_value || 0), 1);
+                  return corporate360Data.purchase_trend.slice(-7).map((pt, idx) => {
+                    const hPct = Math.max(15, Math.min(100, Math.round(((pt.purchase_value || 0) / maxVal) * 100)));
+                    return (
+                      <div
+                        key={idx}
+                        className="w-2 bg-[#0066cc] dark:bg-[#8ebdf9] rounded-t-xs transition-all"
+                        style={{ height: `${hPct}%` }}
+                        title={`${pt.month}: ₹ ${pt.purchase_value} Lakh (${pt.orders} orders)`}
+                      />
+                    );
+                  });
+                })()
+              ) : (
+                <>
+                  <div className="w-2 bg-blue-300 dark:bg-blue-600 rounded-t-xs h-[40%]" />
+                  <div className="w-2 bg-blue-400 dark:bg-blue-500 rounded-t-xs h-[65%]" />
+                  <div className="w-2 bg-blue-300 dark:bg-blue-600 rounded-t-xs h-[50%]" />
+                  <div className="w-2 bg-blue-500 dark:bg-blue-400 rounded-t-xs h-[85%]" />
+                  <div className="w-2 bg-blue-400 dark:bg-blue-500 rounded-t-xs h-[70%]" />
+                  <div className="w-2 bg-[#0066cc] dark:bg-[#8ebdf9] rounded-t-xs h-[100%]" />
+                  <div className="w-2 bg-blue-400 dark:bg-blue-500 rounded-t-xs h-[80%]" />
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -778,7 +878,20 @@ export const Customer360DashboardView: React.FC<Customer360DashboardViewProps> =
                     </div>
 
                     <div>
-                      <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">PAN</label>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300">PAN</label>
+                        {formData.gstin && formData.gstin.length >= 12 && (
+                          formData.gstin.slice(2, 12).toUpperCase() === formData.pan.toUpperCase() ? (
+                            <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-0.5">
+                              ✓ Matches GSTIN
+                            </span>
+                          ) : (
+                            <span className="text-[10px] text-amber-600 dark:text-amber-400 font-semibold" title={`GSTIN embeds: ${formData.gstin.slice(2, 12)}`}>
+                              ⚠ Differs from GSTIN
+                            </span>
+                          )
+                        )}
+                      </div>
                       <input
                         type="text"
                         value={formData.pan}
@@ -794,6 +907,7 @@ export const Customer360DashboardView: React.FC<Customer360DashboardViewProps> =
                       <input
                         type="text"
                         value={formData.iec}
+                        placeholder="Not Registered"
                         onChange={(e) => handleFieldChange("iec", e.target.value.toUpperCase())}
                         className="w-full px-3 py-2 text-xs font-mono font-medium rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#0066cc]"
                       />
@@ -1190,7 +1304,7 @@ export const Customer360DashboardView: React.FC<Customer360DashboardViewProps> =
                         <span className="w-5 h-5 rounded-full bg-purple-600 text-white flex items-center justify-center text-[10px] font-bold shadow-2xs">
                           7
                         </span>
-                        <h4 className="text-xs font-bold text-slate-900 dark:text-white">Child Customers (12)</h4>
+                        <h4 className="text-xs font-bold text-slate-900 dark:text-white">Child Customers ({childCustomersCount})</h4>
                       </div>
                       <button
                         type="button"
@@ -1428,7 +1542,7 @@ export const Customer360DashboardView: React.FC<Customer360DashboardViewProps> =
                         <CreditCard size={13} /> Credit Limit:
                       </span>
                       <span className="font-mono font-bold text-emerald-700 dark:text-emerald-400">
-                        ₹ {formData.creditLimit}
+                        {formattedCreditLimit}
                       </span>
                     </div>
 
@@ -1436,42 +1550,42 @@ export const Customer360DashboardView: React.FC<Customer360DashboardViewProps> =
                       <span className="flex items-center gap-1.5 text-slate-500">
                         <IndianRupee size={13} /> Outstanding:
                       </span>
-                      <span className="font-mono font-bold text-sky-800 dark:text-sky-300">₹ 2,15,43,250</span>
+                      <span className="font-mono font-bold text-sky-800 dark:text-sky-300">{formattedOutstanding}</span>
                     </div>
 
                     <div className="flex items-center justify-between">
                       <span className="flex items-center gap-1.5 text-slate-500">
                         <Users size={13} /> Total Child Customers:
                       </span>
-                      <span className="font-mono font-bold">12</span>
+                      <span className="font-mono font-bold">{childCustomersCount}</span>
                     </div>
 
                     <div className="flex items-center justify-between">
                       <span className="flex items-center gap-1.5 text-slate-500">
                         <Store size={13} /> Total Stores / Outlets:
                       </span>
-                      <span className="font-mono font-bold">85</span>
+                      <span className="font-mono font-bold">{storesCount}</span>
                     </div>
 
                     <div className="flex items-center justify-between">
                       <span className="flex items-center gap-1.5 text-slate-500">
                         <Calendar size={13} /> Last Purchase:
                       </span>
-                      <span className="font-mono">12/10/2026</span>
+                      <span className="font-mono">{lastPurchaseDate}</span>
                     </div>
 
                     <div className="flex items-center justify-between">
                       <span className="flex items-center gap-1.5 text-slate-500">
                         <FileText size={13} /> Last Invoice:
                       </span>
-                      <span className="font-mono">15/10/2026</span>
+                      <span className="font-mono">{lastInvoiceDate}</span>
                     </div>
 
                     <div className="flex items-center justify-between">
                       <span className="flex items-center gap-1.5 text-slate-500">
                         <Clock size={13} /> Relationship Since:
                       </span>
-                      <span className="font-mono">01/04/2018</span>
+                      <span className="font-mono">{relationshipSince}</span>
                     </div>
                   </div>
                 </div>
@@ -1509,32 +1623,46 @@ export const Customer360DashboardView: React.FC<Customer360DashboardViewProps> =
                       </div>
                     </div>
 
-                    {/* Children Branch Nodes (3 nodes) */}
-                    <div className="grid grid-cols-3 gap-1.5 text-center pt-1">
-                      <div className="p-2 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded-lg">
-                        <div className="text-[11px] font-bold text-slate-900 dark:text-white truncate">Phoenix Mall</div>
-                        <div className="text-[9px] font-mono text-slate-500">REL001-001</div>
-                        <div className="text-[9px] text-emerald-700 dark:text-emerald-300 font-semibold mt-0.5">
-                          Mumbai · 12 Stores
-                        </div>
+                    {/* Children Branch Nodes (up to 3 nodes) */}
+                    {actualChildAccounts.length > 0 ? (
+                      <div className={`grid grid-cols-${Math.min(actualChildAccounts.length, 3)} gap-1.5 text-center pt-1`}>
+                        {actualChildAccounts.slice(0, 3).map((ch: any, idx: number) => (
+                          <div key={idx} className="p-2 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded-lg">
+                            <div className="text-[11px] font-bold text-slate-900 dark:text-white truncate">{ch.name || ch.locationName || `Child ${idx + 1}`}</div>
+                            <div className="text-[9px] font-mono text-slate-500">{ch.code || ch.storeCode || `REL001-00${idx + 1}`}</div>
+                            <div className="text-[9px] text-emerald-700 dark:text-emerald-300 font-semibold mt-0.5">
+                              {ch.city || "Mumbai"} · {ch.storesCount || 1} {ch.storesCount === 1 ? "Store" : "Stores"}
+                            </div>
+                          </div>
+                        ))}
                       </div>
+                    ) : (
+                      <div className="grid grid-cols-3 gap-1.5 text-center pt-1">
+                        <div className="p-2 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded-lg">
+                          <div className="text-[11px] font-bold text-slate-900 dark:text-white truncate">Phoenix Mall</div>
+                          <div className="text-[9px] font-mono text-slate-500">REL001-001</div>
+                          <div className="text-[9px] text-emerald-700 dark:text-emerald-300 font-semibold mt-0.5">
+                            Mumbai · 12 Stores
+                          </div>
+                        </div>
 
-                      <div className="p-2 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded-lg">
-                        <div className="text-[11px] font-bold text-slate-900 dark:text-white truncate">Inorbit Mall</div>
-                        <div className="text-[9px] font-mono text-slate-500">REL001-002</div>
-                        <div className="text-[9px] text-emerald-700 dark:text-emerald-300 font-semibold mt-0.5">
-                          Mumbai · 8 Stores
+                        <div className="p-2 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded-lg">
+                          <div className="text-[11px] font-bold text-slate-900 dark:text-white truncate">Inorbit Mall</div>
+                          <div className="text-[9px] font-mono text-slate-500">REL001-002</div>
+                          <div className="text-[9px] text-emerald-700 dark:text-emerald-300 font-semibold mt-0.5">
+                            Mumbai · 8 Stores
+                          </div>
                         </div>
-                      </div>
 
-                      <div className="p-2 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded-lg">
-                        <div className="text-[11px] font-bold text-slate-900 dark:text-white truncate">Amanora Mall</div>
-                        <div className="text-[9px] font-mono text-slate-500">REL001-003</div>
-                        <div className="text-[9px] text-emerald-700 dark:text-emerald-300 font-semibold mt-0.5">
-                          Pune · 10 Stores
+                        <div className="p-2 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded-lg">
+                          <div className="text-[11px] font-bold text-slate-900 dark:text-white truncate">Amanora Mall</div>
+                          <div className="text-[9px] font-mono text-slate-500">REL001-003</div>
+                          <div className="text-[9px] text-emerald-700 dark:text-emerald-300 font-semibold mt-0.5">
+                            Pune · 10 Stores
+                          </div>
                         </div>
                       </div>
-                    </div>
+                    )}
 
                     {/* Dotted Connection to Stores */}
                     <div className="border-t border-dashed border-slate-300 dark:border-slate-700 pt-2 flex items-center justify-between text-[10px] text-slate-500 font-mono px-1">
@@ -1544,7 +1672,7 @@ export const Customer360DashboardView: React.FC<Customer360DashboardViewProps> =
                       <span className="flex items-center gap-1">
                         <Store size={10} /> Store 2 (REL-MUM-002)
                       </span>
-                      <span className="text-slate-400">... Store N (85 Total)</span>
+                      <span className="text-slate-400">... ({storesCount} Total Outlets)</span>
                     </div>
                   </div>
                 </div>

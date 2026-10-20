@@ -182,6 +182,7 @@ export interface CorporateCustomer360Data {
   customer: Customer & {
     customer_type?: string;
     credit_limit?: number;
+    credit_days?: number;
     payment_term?: string;
     payment_terms?: string;
     price_group?: string;
@@ -206,6 +207,10 @@ export interface CorporateCustomer360Data {
     state?: string;
     pincode?: string;
     country?: string;
+    children?: any[];
+    dependants?: any[];
+    delivery_locations?: any[];
+    stores?: any[];
   };
   kpis: CorporateKpis;
   store_network: CorporateStoreItem[];
@@ -214,4 +219,11 @@ export interface CorporateCustomer360Data {
   recent_orders: RecentOrderItem[];
   purchase_trend: PurchaseTrendItem[];
   top_categories: CategoryShareItem[];
+  sales_invoices?: Array<{
+    id?: string;
+    invoice_number?: string;
+    date?: string;
+    total_amount?: number;
+    status?: string;
+  }>;
 }

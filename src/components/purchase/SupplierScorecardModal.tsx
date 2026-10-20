@@ -158,51 +158,12 @@ const STATUS_STYLES: Record<SupplierSLAStatus, { bg: string; border: string; tex
   CRITICAL: { bg: "bg-red-950/30",     border: "border-red-600/50",     text: "text-red-400",     badge: "bg-red-600/20 text-red-300 border-red-500/30" },
 };
 
-const SAMPLE_DEMO_PROFILES: SupplierProfile[] = [
-  { supplierId: "SUP-001", supplierName: "Kapoor Textiles Ltd.",    gstIn: "27AABCK1234A1Z5", category: "Apparel",     contractedLeadTimeDays: 7,  contractedFillRatePct: 95, penaltyPerDayDelay: 500 },
-  { supplierId: "SUP-002", supplierName: "Mehta Synthetics Pvt.",   gstIn: "29AABCM5678B2Z6", category: "Footwear",    contractedLeadTimeDays: 10, contractedFillRatePct: 90, penaltyPerDayDelay: 200 },
-  { supplierId: "SUP-003", supplierName: "Sharma Accessories Co.",  gstIn: "07AABCS9012C3Z7", category: "Accessories", contractedLeadTimeDays: 5,  contractedFillRatePct: 98, penaltyPerDayDelay: 300 },
-];
-
-function makeSampleDemoOrders(): PurchaseOrderRecord[] {
-  const makeO = (supplierId: string, poNum: string, oQty: number, acc: number, rej: number, daysLate: number): PurchaseOrderRecord => {
-    const pd = new Date(2026, 5, 1);
-    const ed = new Date(pd);
-    ed.setDate(ed.getDate() + 7);
-    const ad = new Date(ed);
-    ad.setDate(ad.getDate() + daysLate);
-    return {
-      poNumber: poNum,
-      supplierId,
-      orderedQty: oQty,
-      orderedValue: oQty * 800,
-      poDate: pd.toISOString(),
-      expectedDeliveryDate: ed.toISOString(),
-      actualDeliveryDate: ad.toISOString(),
-      receivedQty: acc + rej,
-      acceptedQty: acc,
-      rejectedQty: rej,
-      qualityVerdict: rej > 0 ? "PARTIAL_REJECTION" : "ACCEPTED",
-    };
-  };
-  return [
-    makeO("SUP-001", "PO-001", 200, 198, 2, 0),
-    makeO("SUP-001", "PO-002", 150, 148, 0, 0),
-    makeO("SUP-001", "PO-003", 100, 90, 5, 3),
-    makeO("SUP-002", "PO-004", 300, 240, 30, 5),
-    makeO("SUP-002", "PO-005", 250, 210, 20, 8),
-    makeO("SUP-003", "PO-006", 80, 80, 0, 0),
-    makeO("SUP-003", "PO-007", 100, 99, 1, 1),
-  ];
-}
-
 export const SupplierScorecardModal: React.FC<SupplierScorecardModalProps> = ({
   isOpen,
   onClose,
   initialSupplierId,
   onNotification,
 }) => {
-  const [dataMode, setDataMode] = useState<"live" | "demo">("live");
   const [loading, setLoading] = useState(false);
   const [dbSuppliers, setDbSuppliers] = useState<SupplierProfile[]>([]);
   const [dbOrders, setDbOrders] = useState<PurchaseOrderRecord[]>([]);
@@ -264,9 +225,7 @@ export const SupplierScorecardModal: React.FC<SupplierScorecardModalProps> = ({
       } else {
         setSelectedId("");
       }
-      setDataMode("live");
     } catch {
-      setDataMode("live");
       setSelectedId("");
     } finally {
       setLoading(false);
@@ -279,17 +238,9 @@ export const SupplierScorecardModal: React.FC<SupplierScorecardModalProps> = ({
     }
   }, [isOpen, loadData]);
 
-  const activeProfiles = useMemo(() => {
-    return dataMode === "live" ? dbSuppliers : SAMPLE_DEMO_PROFILES;
-  }, [dataMode, dbSuppliers]);
-
-  const activeOrders = useMemo(() => {
-    return dataMode === "live" ? dbOrders : makeSampleDemoOrders();
-  }, [dataMode, dbOrders]);
-
   const report = useMemo(() => {
-    return generateScorecardReport(activeProfiles, activeOrders);
-  }, [activeProfiles, activeOrders]);
+    return generateScorecardReport(dbSuppliers, dbOrders);
+  }, [dbSuppliers, dbOrders]);
 
   const selected = useMemo(() => {
     return report.entries.find((e) => e.supplierId === selectedId) ?? report.entries[0];
@@ -312,7 +263,7 @@ export const SupplierScorecardModal: React.FC<SupplierScorecardModalProps> = ({
               <div className="flex items-center gap-2">
                 <h2 className="text-base font-bold text-slate-100">Supplier Scorecard &amp; Vendor SLA Compliance Audit</h2>
                 <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
-                  {dataMode === "live" ? "● PostgreSQL Live Sourcing" : "● Demo SLA Benchmark"}
+                  ● PostgreSQL Live Sourcing
                 </span>
               </div>
               <p className="text-xs text-slate-400">OTD % · Fill Rate · Quality Rejection · Penalty Accrual · Composite Score</p>
@@ -320,23 +271,6 @@ export const SupplierScorecardModal: React.FC<SupplierScorecardModalProps> = ({
           </div>
 
           <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => {
-                const nextMode = dataMode === "live" ? "demo" : "live";
-                setDataMode(nextMode);
-                if (nextMode === "demo") {
-                  setSelectedId("SUP-001");
-                } else if (dbSuppliers.length > 0) {
-                  setSelectedId(dbSuppliers[0].supplierId);
-                }
-                onNotification?.("Audit Source Switched", `Switched to ${nextMode.toUpperCase()} mode.`, "info");
-              }}
-              className="px-3 py-1.5 rounded-lg border border-slate-700 text-xs font-semibold text-slate-300 hover:bg-slate-800 transition"
-            >
-              {dataMode === "live" ? "Show Demo Benchmark" : "Show DB Live Data"}
-            </button>
-
             <button
               type="button"
               onClick={onClose}
@@ -369,14 +303,13 @@ export const SupplierScorecardModal: React.FC<SupplierScorecardModalProps> = ({
           </div>
         ) : !selected ? (
           <div className="flex-1 flex flex-col items-center justify-center p-12 text-slate-400 text-sm space-y-3">
-            <p>No supplier records found in active database.</p>
-            <button
-              type="button"
-              onClick={() => setDataMode("demo")}
-              className="px-4 py-2 rounded-xl bg-indigo-600 text-white font-bold text-xs hover:bg-indigo-500"
-            >
-              Load Demo Benchmark Model
-            </button>
+            <div className="w-12 h-12 rounded-full bg-slate-800 flex items-center justify-center text-slate-500 mb-2">
+              <span className="material-symbols-outlined text-2xl">verified_user</span>
+            </div>
+            <p className="font-semibold text-slate-300">No Supplier Records Found</p>
+            <p className="text-xs text-slate-500 max-w-sm text-center">
+              No registered suppliers or purchase orders are currently recorded in the active company database.
+            </p>
           </div>
         ) : (
           <div className="flex flex-1 overflow-hidden">
@@ -434,7 +367,7 @@ export const SupplierScorecardModal: React.FC<SupplierScorecardModalProps> = ({
                   <div>
                     <p className="text-xl font-bold text-slate-100">{selected.supplierName}</p>
                     <p className="text-xs text-slate-400">
-                      {selected.category} · GSTIN: {activeProfiles.find((p) => p.supplierId === selected.supplierId)?.gstIn ?? "—"}
+                      {selected.category} · GSTIN: {dbSuppliers.find((p: SupplierProfile) => p.supplierId === selected.supplierId)?.gstIn ?? "—"}
                     </p>
                     <div className="flex items-center gap-3 mt-2">
                       <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full border ${st.badge}`}>
