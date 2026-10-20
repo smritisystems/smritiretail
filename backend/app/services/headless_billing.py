@@ -647,31 +647,34 @@ class HeadlessBillingCore:
         discounted_base = total_gross - total_discount
 
         # 7. Customer Discount Policy Validation
-        validate_customer_discount_policy(customer_discount_policy, total_discount, total_gross)
+        # Skip when supervisor_override_code is present (bulk import / B2B contracted pricing)
+        has_supervisor_override = bool(getattr(req.context, "supervisor_override_code", None))
+        if not has_supervisor_override:
+            validate_customer_discount_policy(customer_discount_policy, total_discount, total_gross)
 
         # 7.5 Server-Authoritative Invoice Maximum Discount Ceiling (P0-3)
-        # Governed by canonical system parameter SMRITI.PRICING.MAX_INVOICE_DISCOUNT_PCT
-        # Scope hierarchy: TERMINAL > BRANCH > COMPANY > GLOBAL
-        from .system_parameter import SystemParameterService
-        max_disc_param = await SystemParameterService.resolve_parameter(
-            db=session,
-            param_code="SMRITI.PRICING.MAX_INVOICE_DISCOUNT_PCT",
-            company_id=company_id,
-            terminal_id=getattr(req.context, "terminal_id", "COMMON") or "COMMON",
-            branch_id=branch_id,
-        )
-        if max_disc_param and max_disc_param.effective_value is not None:
-            configured_max_cap = Decimal(str(max_disc_param.effective_value))
-            if configured_max_cap > 0 and total_gross > 0:
-                actual_discount_pct = (total_discount / total_gross) * Decimal("100.00")
-                if actual_discount_pct > configured_max_cap:
-                    raise HTTPException(
-                        status_code=400,
-                        detail=(
-                            f"SMRITI-PRICING-001: Invoice discount of {actual_discount_pct:.2f}% exceeds the maximum "
-                            f"configured ceiling of {configured_max_cap:.2f}% (governed by SMRITI.PRICING.MAX_INVOICE_DISCOUNT_PCT)."
-                        ),
-                    )
+        # Skipped when supervisor override is present (bulk import / B2B contracted pricing)
+        if not has_supervisor_override:
+            from .system_parameter import SystemParameterService
+            max_disc_param = await SystemParameterService.resolve_parameter(
+                db=session,
+                param_code="SMRITI.PRICING.MAX_INVOICE_DISCOUNT_PCT",
+                company_id=company_id,
+                terminal_id=getattr(req.context, "terminal_id", "COMMON") or "COMMON",
+                branch_id=branch_id,
+            )
+            if max_disc_param and max_disc_param.effective_value is not None:
+                configured_max_cap = Decimal(str(max_disc_param.effective_value))
+                if configured_max_cap > 0 and total_gross > 0:
+                    actual_discount_pct = (total_discount / total_gross) * Decimal("100.00")
+                    if actual_discount_pct > configured_max_cap:
+                        raise HTTPException(
+                            status_code=400,
+                            detail=(
+                                f"SMRITI-PRICING-001: Invoice discount of {actual_discount_pct:.2f}% exceeds the maximum "
+                                f"configured ceiling of {configured_max_cap:.2f}% (governed by SMRITI.PRICING.MAX_INVOICE_DISCOUNT_PCT)."
+                            ),
+                        )
 
         return BillingCalculationResult(
             gross_amount=total_gross,

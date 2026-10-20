@@ -134,6 +134,9 @@ class CanonicalPostingRequest(BaseModel):
     sales_channel: Optional[str] = Field(None, description="Operational sales channel: MODERN_TRADE, GENERAL_TRADE, B2B_WHOLESALE, POS_RETAIL, ECOMMERCE")
     source_document_type: Optional[str] = Field(None, description="Source document type (e.g. PACKING_SLIP_CONSOLIDATED, CUSTOMER_PO, SALES_ORDER)")
     source_document_id: Optional[str] = Field(None, description="Source document identifier or comma-separated packing slip numbers")
+    # Explicit invoice date for backdated / bulk-import workflows.
+    # When None the canonical writer defaults to date.today() (live POS behaviour).
+    invoice_date: Optional[date] = Field(None, description="Explicit invoice date (ISO-8601). Use only for bulk-import / correction workflows.")
 
 
 class CanonicalPostingLineResult(BaseModel):
