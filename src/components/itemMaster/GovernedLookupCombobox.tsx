@@ -25,7 +25,7 @@
  */
 
 import React, { useState, useRef, useEffect, useMemo } from "react";
-import { ChevronDown, Check, X } from "lucide-react";
+import { ChevronDown, Check, X, Plus, Loader2 } from "lucide-react";
 
 export interface LookupItem {
   code: string;
@@ -42,6 +42,9 @@ export interface GovernedLookupComboboxProps {
   disabled?: boolean;
   className?: string;
   autoFocus?: boolean;
+  onCreateNew?: () => void;
+  createActionLabel?: string;
+  loading?: boolean;
 }
 
 /**
@@ -63,6 +66,9 @@ export const GovernedLookupCombobox: React.FC<GovernedLookupComboboxProps> = ({
   disabled = false,
   className = "",
   autoFocus = false,
+  onCreateNew,
+  createActionLabel,
+  loading = false,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
@@ -201,6 +207,10 @@ export const GovernedLookupCombobox: React.FC<GovernedLookupComboboxProps> = ({
         />
 
         <div className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center gap-0.5">
+          {loading && (
+            <Loader2 size={13} className="animate-spin text-blue-600 dark:text-blue-400 mr-0.5" />
+          )}
+
           {value && !disabled && (
             <button
               type="button"
@@ -271,6 +281,24 @@ export const GovernedLookupCombobox: React.FC<GovernedLookupComboboxProps> = ({
               ) : (
                 <span>No matching options (custom value allowed).</span>
               )}
+            </div>
+          )}
+
+          {onCreateNew && (
+            <div className="p-1 border-t border-slate-100 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-900/60 sticky bottom-0">
+              <button
+                type="button"
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setIsOpen(false);
+                  onCreateNew();
+                }}
+                className="w-full text-left px-2.5 py-1.5 text-xs font-semibold text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/60 rounded-md flex items-center gap-1.5 transition"
+              >
+                <Plus size={13} />
+                <span>{createActionLabel || "Create New Master Record"}</span>
+              </button>
             </div>
           )}
         </div>

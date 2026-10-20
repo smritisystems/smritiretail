@@ -63,6 +63,7 @@ import {
 import { CorporateCustomerTabs } from "./CorporateCustomerTabs.tsx";
 import { CorporateTabKey, PsvDetailedItem } from "./types.ts";
 import { Customer } from "../../../types.ts";
+import { GovernedLookupCombobox } from "../../itemMaster/GovernedLookupCombobox.tsx";
 
 export interface Customer360DashboardViewProps {
   customerId?: string;
@@ -2087,58 +2088,72 @@ export const Customer360DashboardView: React.FC<Customer360DashboardViewProps> =
                   <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
                     Type of Customer <span className="text-rose-500">*</span>
                   </label>
-                  <select
+                  <GovernedLookupCombobox
+                    id="crm-360-customer-type"
                     value={formData.customerType}
-                    onChange={(e) => handleFieldChange("customerType", e.target.value)}
-                    className="w-full px-3.5 py-2 text-xs font-medium rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#0066cc]"
-                  >
-                    <option value="Corporate / Enterprise">Corporate / Enterprise</option>
-                    <option value="Retail">Retail</option>
-                    <option value="Modern Trade">Modern Trade</option>
-                    <option value="Institutional">Institutional</option>
-                  </select>
+                    onChange={(val) => handleFieldChange("customerType", val)}
+                    options={[
+                      { code: "CORP", name: "Corporate / Enterprise" },
+                      { code: "RETAIL", name: "Retail" },
+                      { code: "MODERN_TRADE", name: "Modern Trade" },
+                      { code: "INSTITUTIONAL", name: "Institutional" },
+                      { code: "WHOLESALE", name: "Wholesale" },
+                      { code: "VIP", name: "VIP Privilege Account" },
+                      { code: "WALKIN", name: "Walk-In Occasional" },
+                    ]}
+                    placeholder="Select or enter Customer Type"
+                  />
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
                     Relationship Type <span className="text-rose-500">*</span>
                   </label>
-                  <select
+                  <GovernedLookupCombobox
+                    id="crm-360-relationship-type"
                     value={formData.relationshipType}
-                    onChange={(e) => handleFieldChange("relationshipType", e.target.value)}
-                    className="w-full px-3.5 py-2 text-xs font-medium rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#0066cc]"
-                  >
-                    <option value="Parent">Parent</option>
-                    <option value="Child">Child</option>
-                    <option value="Standalone">Standalone</option>
-                  </select>
+                    onChange={(val) => handleFieldChange("relationshipType", val)}
+                    options={[
+                      { code: "Parent", name: "Parent" },
+                      { code: "Child", name: "Child" },
+                      { code: "Standalone", name: "Standalone" },
+                    ]}
+                    placeholder="Select Relationship Type"
+                  />
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
                     Business Category <span className="text-rose-500">*</span>
                   </label>
-                  <select
+                  <GovernedLookupCombobox
+                    id="crm-360-business-category"
                     value={formData.businessCategory}
-                    onChange={(e) => handleFieldChange("businessCategory", e.target.value)}
-                    className="w-full px-3.5 py-2 text-xs font-medium rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#0066cc]"
-                  >
-                    <option value="Key Account">Key Account</option>
-                    <option value="Standard Account">Standard Account</option>
-                    <option value="Strategic Partner">Strategic Partner</option>
-                  </select>
+                    onChange={(val) => handleFieldChange("businessCategory", val)}
+                    options={[
+                      { code: "KEY_ACCOUNT", name: "Key Account" },
+                      { code: "STANDARD_ACCOUNT", name: "Standard Account" },
+                      { code: "STRATEGIC_PARTNER", name: "Strategic Partner" },
+                      { code: "GENERAL_TRADE", name: "General Trade" },
+                    ]}
+                    placeholder="Select Business Category"
+                  />
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
                     Customer Group
                   </label>
-                  <select
+                  <GovernedLookupCombobox
+                    id="crm-360-customer-group"
                     value={formData.customerGroup}
-                    onChange={(e) => handleFieldChange("customerGroup", e.target.value)}
-                    className="w-full px-3.5 py-2 text-xs font-medium rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#0066cc]"
-                  >
-                    <option value="Corporate Accounts">Corporate Accounts</option>
-                    <option value="Modern Trade Accounts">Modern Trade Accounts</option>
-                    <option value="General Retail">General Retail</option>
-                  </select>
+                    onChange={(val) => handleFieldChange("customerGroup", val)}
+                    options={[
+                      { code: "CG-Corporate", name: "Corporate Accounts" },
+                      { code: "CG-ModernTrade", name: "Modern Trade Accounts" },
+                      { code: "CG-Retail", name: "General Retail" },
+                      { code: "CG-Wholesale", name: "Wholesale Tier 1" },
+                      { code: "CG-LargeRetail", name: "VIP Privilege" },
+                    ]}
+                    placeholder="Select Customer Group"
+                  />
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
@@ -2188,7 +2203,7 @@ export const Customer360DashboardView: React.FC<Customer360DashboardViewProps> =
                 </div>
                 <div>
                   <span className="text-slate-400 block text-[10px] uppercase font-bold">System Record ID</span>
-                  <span className="font-mono text-slate-800 dark:text-slate-200">cust-rrl-192b561d</span>
+                  <span className="font-mono text-slate-800 dark:text-slate-200">{propCustomer?.id || (formData as any).id || "Auto-generated on Save"}</span>
                 </div>
               </div>
             </div>
@@ -2683,16 +2698,22 @@ export const Customer360DashboardView: React.FC<Customer360DashboardViewProps> =
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Payment Terms</label>
-                  <select
+                  <GovernedLookupCombobox
+                    id="crm-360-payment-terms"
                     value={formData.paymentTerms}
-                    onChange={(e) => handleFieldChange("paymentTerms", e.target.value)}
-                    className="w-full px-3.5 py-2 text-xs font-medium rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900"
-                  >
-                    <option value="30 Days">30 Days</option>
-                    <option value="15 Days">15 Days</option>
-                    <option value="45 Days">45 Days</option>
-                    <option value="Immediate">Immediate / COD</option>
-                  </select>
+                    onChange={(val) => handleFieldChange("paymentTerms", val)}
+                    options={[
+                      { code: "NET30", name: "Net 30 Days Credit" },
+                      { code: "NET15", name: "Net 15 Days Credit" },
+                      { code: "NET45", name: "Net 45 Days Credit" },
+                      { code: "NET60", name: "Net 60 Days Credit" },
+                      { code: "COD", name: "Cash on Delivery" },
+                      { code: "IMMEDIATE", name: "Immediate Payment" },
+                      { code: "ADV50", name: "50% Advance, Balance on Delivery" },
+                      { code: "PDC30", name: "Post Dated Cheque 30 Days" },
+                    ]}
+                    placeholder="Select Payment Terms"
+                  />
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Credit Limit (₹)</label>

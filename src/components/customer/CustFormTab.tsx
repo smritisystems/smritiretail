@@ -18,6 +18,8 @@ import { RetailCustomerRecord, CustomerPriceGroup } from "./types.ts";
 import { getCustomerPriceGroups, getCustomerGroups, CustomerGroup } from "../../services/customerStore.ts";
 import { SmritiCustomerPriceGroupModal } from "./CustPriceGroupDlg.tsx";
 import { StoreCodeLookupModal } from "./corporate360/StoreCodeLookupModal.tsx";
+import { GovernedLookupCombobox } from "../itemMaster/GovernedLookupCombobox.tsx";
+import { apiFetchV1 } from "../../lib/apiFetchV1.ts";
 
 interface SmritiCustomerFormTabProps {
   customer: RetailCustomerRecord;
@@ -36,7 +38,23 @@ export const SmritiCustomerFormTab: React.FC<SmritiCustomerFormTabProps> = ({
   const [showPriceGroupModal, setShowPriceGroupModal] = useState<boolean>(false);
   const [showStoreLookupModal, setShowStoreLookupModal] = useState<boolean>(false);
 
+  const [recommendedCode, setRecommendedCode] = useState<string>("");
+
   const isCorporate = customer.customerType === "Corporate" || customer.customerType === "Wholesale" || customer.customerType === "Distribution" || customer.environment === "Corporate" || customer.customerGroupId === "CG-Corporate" || (customer.code ? customer.code.startsWith("RRL") : false);
+
+  useEffect(() => {
+    if (!customer.code || customer.code === "Generating...") {
+      apiFetchV1<{ suggestedCode: string }>("/crm/customers/code-recommendation")
+        .then((res) => {
+          if (res?.suggestedCode) {
+            setRecommendedCode(res.suggestedCode);
+          }
+        })
+        .catch((err) => {
+          console.warn("[CustFormTab] Failed to fetch code recommendation:", err);
+        });
+    }
+  }, [customer.code]);
 
   useEffect(() => {
     const handleUpdate = () => {
@@ -65,13 +83,20 @@ export const SmritiCustomerFormTab: React.FC<SmritiCustomerFormTabProps> = ({
 
           <div className="space-y-3">
             <div>
-              <label className="text-[#515f74] dark:text-[#bec6e0] font-bold text-[10px] uppercase block mb-1">
-                Customer Code
-              </label>
+              <div className="flex justify-between items-center mb-1">
+                <label className="text-[#515f74] dark:text-[#bec6e0] font-bold text-[10px] uppercase block">
+                  Customer Code
+                </label>
+                <span className="text-[10px] font-semibold text-[#00355f] dark:text-[#8ebdf9]">
+                  {customer.code && customer.code !== "Generating..."
+                    ? "Assigned (Company Scope)"
+                    : "Hybrid Policy • Auto-Recommended"}
+                </span>
+              </div>
               <input
                 type="text"
                 readOnly
-                value={customer.code || "Generating..."}
+                value={customer.code || recommendedCode || "Generating..."}
                 data-field-key="customer_code"
                 className="w-full p-2 bg-[#f2f4f6] dark:bg-[#2d3133] border border-[#c6c6cd] dark:border-[#45464d] rounded-lg font-mono font-bold text-xs text-[#00355f] dark:text-[#8ebdf9] cursor-not-allowed"
               />
@@ -403,15 +428,34 @@ export const SmritiCustomerFormTab: React.FC<SmritiCustomerFormTabProps> = ({
               <label className="text-[#515f74] dark:text-[#bec6e0] font-bold text-[10px] uppercase block mb-1">
                 Customer Type
               </label>
-              <select
-                value={customer.customerType}
-                data-field-key="customer_type"
-                onChange={e => {
-                  const val = e.target.value;
-                  onChange("customerType", val);
-                  if (val === "Corporate" || val === "Wholesale" || val === "Distribution") {
+              <GovernedLookupCombobox
+                id="customer_type"
+                value={
+                  customer.customerType === "Corporate" ? "Corporate / B2B" :
+                  customer.customerType === "VIP" ? "VIP Privilege Account" :
+                  customer.customerType === "Wholesale" ? "Wholesale Trader" :
+                  customer.customerType === "Distribution" ? "Distribution Channel" :
+                  customer.customerType === "Walk-In" ? "Walk-In Occasional" : "Retail Shopper"
+                }
+                options={[
+                  { code: "Retail", name: "Retail Shopper" },
+                  { code: "Corporate", name: "Corporate / B2B" },
+                  { code: "VIP", name: "VIP Privilege Account" },
+                  { code: "Wholesale", name: "Wholesale Trader" },
+                  { code: "Distribution", name: "Distribution Channel" },
+                  { code: "Walk-In", name: "Walk-In Occasional" },
+                ]}
+                placeholder="Select or enter Customer Type"
+                onChange={(val) => {
+                  const typeKey = val.includes("Corporate") ? "Corporate" :
+                                  val.includes("VIP") ? "VIP" :
+                                  val.includes("Wholesale") ? "Wholesale" :
+                                  val.includes("Distribution") ? "Distribution" :
+                                  val.includes("Walk-In") ? "Walk-In" : "Retail";
+                  onChange("customerType", typeKey);
+                  if (typeKey === "Corporate" || typeKey === "Wholesale" || typeKey === "Distribution") {
                     onChange("environment", "Corporate");
-                    if (val === "Corporate") {
+                    if (typeKey === "Corporate") {
                       onChange("customerGroupId", "CG-Corporate");
                       onChange("customer_group_id", "CG-Corporate");
                       const corpGrp = priceGroups.find(p => p.code === "CORP");
@@ -426,7 +470,7 @@ export const SmritiCustomerFormTab: React.FC<SmritiCustomerFormTabProps> = ({
                         onChange("allowMiscIssue", corpGrp.allowMiscIssue);
                       }
                     }
-                  } else if (val === "VIP") {
+                  } else if (typeKey === "VIP") {
                     onChange("environment", "Retail");
                     onChange("customerGroupId", "CG-LargeRetail");
                     onChange("customer_group_id", "CG-LargeRetail");
@@ -436,14 +480,7 @@ export const SmritiCustomerFormTab: React.FC<SmritiCustomerFormTabProps> = ({
                     onChange("customer_group_id", "CG-Retail");
                   }
                 }}
-                className="w-full p-2 bg-white dark:bg-[#191c1e] border border-[#c6c6cd] dark:border-[#45464d] rounded-lg text-xs font-semibold"
-              >
-                <option value="Retail">Retail Shopper</option>
-                <option value="Corporate">Corporate / B2B</option>
-                <option value="VIP">VIP Privilege Account</option>
-                <option value="Wholesale">Wholesale Trader</option>
-                <option value="Walk-In">Walk-In Occasional</option>
-              </select>
+              />
             </div>
           </div>
         </div>

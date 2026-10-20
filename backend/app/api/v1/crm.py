@@ -45,6 +45,8 @@ from ...schemas.crm import (
     CustomerCompanyRelationshipCreate, CustomerCompanyRelationshipUpdate, CustomerCompanyRelationshipResponse,
     CustomerMergeRequest, CustomerMergeResponse,
     CompanyCreditExposureItem, CustomerCreditExposureResponse,
+    CustomerCodeRecommendationResponse, CustomerCodeValidationRequest,
+    CustomerCodeValidationResponse, EligibleCustomerCodeItem,
 )
 from ...repositories.customer import CustomerRepository, CustomerGroupRepository
 from ...services.crm import CrmService
@@ -81,11 +83,63 @@ async def create_customer(
     customer_in: CustomerCreate,
     db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
+    current_user: User = Depends(get_current_user),
 ):
     """Create a new customer. CASHIER, MANAGER, and SYSADMIN may create customers."""
     service = CrmService(db, tenant_ctx)
-    customer = await service.create_customer(customer_in)
+    customer = await service.create_customer(customer_in, current_user=current_user)
     return CustomerResponse.from_orm_customer(customer)
+
+
+# --- Customer Code Policy & Recommendation Endpoints ---
+
+@router.get(
+    "/customers/code-recommendation",
+    response_model=CustomerCodeRecommendationResponse,
+    summary="Get Suggested Customer Code and Assignment Policy",
+    dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN, UserRole.CASHIER))],
+)
+async def get_customer_code_recommendation(
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+    current_user: User = Depends(get_current_user),
+):
+    """Retrieve next sequential Customer Code and role-based assignment permissions."""
+    service = CrmService(db, tenant_ctx)
+    return await service.get_customer_code_recommendation(current_user=current_user)
+
+
+@router.post(
+    "/customers/validate-code",
+    response_model=CustomerCodeValidationResponse,
+    summary="Validate Customer Code Uniqueness and Policy Compliance",
+    dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN, UserRole.CASHIER))],
+)
+async def validate_customer_code(
+    payload: CustomerCodeValidationRequest,
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+    current_user: User = Depends(get_current_user),
+):
+    """Validate customer code format, role permissions, and company-scoped uniqueness."""
+    service = CrmService(db, tenant_ctx)
+    return await service.validate_customer_code(payload.code, current_user=current_user)
+
+
+@router.get(
+    "/customers/eligible-codes",
+    response_model=List[EligibleCustomerCodeItem],
+    summary="Get Eligible Inactive / Unassigned Customer Codes for Hybrid Selection",
+    dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN, UserRole.CASHIER))],
+)
+async def get_eligible_customer_codes(
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+    current_user: User = Depends(get_current_user),
+):
+    """List inactive or unassigned codes eligible for reuse in Hybrid mode."""
+    service = CrmService(db, tenant_ctx)
+    return await service.get_eligible_customer_code_pool()
 
 
 class CustomerValidationRequest(BaseModel):
@@ -426,8 +480,9 @@ async def get_corporate_customer_360(
             )
         )
         customer = (await db.execute(stmt)).scalars().first()
-
-    if not customer:
+        if not customer:
+            raise HTTPException(status_code=404, detail=f"Corporate customer '{customer_id}' not found.")
+    else:
         fallback_stmt = (
             select(Customer)
             .where(
@@ -449,23 +504,23 @@ async def get_corporate_customer_360(
         )
         customer = (await db.execute(fallback_stmt)).scalars().first()
 
-    if not customer:
-        any_stmt = (
-            select(Customer)
-            .where(Customer.company_id == tenant_ctx.company_id, Customer.is_deleted == False)
-            .order_by(Customer.created_at.desc())
-            .options(
-                selectinload(Customer.delivery_locations),
-                selectinload(Customer.billing_locations),
-                selectinload(Customer.gst_registrations),
-                selectinload(Customer.group),
-                selectinload(Customer.policy),
+        if not customer:
+            any_stmt = (
+                select(Customer)
+                .where(Customer.company_id == tenant_ctx.company_id, Customer.is_deleted == False)
+                .order_by(Customer.created_at.desc())
+                .options(
+                    selectinload(Customer.delivery_locations),
+                    selectinload(Customer.billing_locations),
+                    selectinload(Customer.gst_registrations),
+                    selectinload(Customer.group),
+                    selectinload(Customer.policy),
+                )
             )
-        )
-        customer = (await db.execute(any_stmt)).scalars().first()
+            customer = (await db.execute(any_stmt)).scalars().first()
 
-    if not customer:
-        raise HTTPException(status_code=404, detail="Customer not found")
+        if not customer:
+            raise HTTPException(status_code=404, detail="Customer not found")
 
     target_cust_id = customer.id
     customer_dto = CustomerResponse.from_orm_customer(customer)
@@ -1052,6 +1107,29 @@ async def create_customer_dependant(
     customers = (await db.execute(customer_stmt)).scalars().all()
     if len(customers) != 2 or customer_id == relationship_in.dependant_customer_id:
         raise HTTPException(status_code=400, detail="Both customers must exist in the same tenant and be distinct")
+
+    # Prevent circular parent-child customer relationships (A -> B -> A or multi-level A -> B -> C -> A)
+    visited_ancestors = set()
+    queue = [customer_id]
+    while queue:
+        curr = queue.pop(0)
+        if curr == relationship_in.dependant_customer_id:
+            raise HTTPException(
+                status_code=400,
+                detail="Circular customer relationship detected: the specified child customer is already an ancestor of the parent customer.",
+            )
+        if curr not in visited_ancestors:
+            visited_ancestors.add(curr)
+            parents_stmt = select(CustomerRelationship.parent_customer_id).where(
+                CustomerRelationship.dependant_customer_id == curr,
+                CustomerRelationship.company_id == tenant_ctx.company_id,
+                CustomerRelationship.is_deleted == False,
+            )
+            parent_ids = (await db.execute(parents_stmt)).scalars().all()
+            for pid in parent_ids:
+                if pid not in visited_ancestors:
+                    queue.append(pid)
+
     row = CustomerRelationship(
         id=f"cr-{uuid.uuid4().hex[:12]}",
         parent_customer_id=customer_id,
