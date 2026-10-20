@@ -62,9 +62,10 @@ except ImportError:
 
 WORKSPACE_ROOT = Path(__file__).resolve().parents[3]
 # Logo Asset Paths
-TATTLY_LOGO_PATH = str(WORKSPACE_ROOT / "TT" / "logo" / "tattly_logo_black.png")
-TATTLY_SIGNATURE_PATH = str(WORKSPACE_ROOT / "TT" / "signature" / "krutika_signature.png")
-UPI_BADGE_PATH = str(WORKSPACE_ROOT / "static" / "upi_badge_clean.png")
+TATTLY_LOGO_PATH          = str(WORKSPACE_ROOT / "TT" / "logo" / "tattly_logo_black.png")
+TATTLY_VERTICAL_LOGO_PATH = str(WORKSPACE_ROOT / "TT" / "logo" / "Vrtical_Logo.png")
+TATTLY_SIGNATURE_PATH     = str(WORKSPACE_ROOT / "TT" / "signature" / "krutika_signature.png")
+UPI_BADGE_PATH            = str(WORKSPACE_ROOT / "static" / "upi_badge_clean.png")
 
 
 def number_to_indian_words(num: float) -> str:
@@ -189,12 +190,37 @@ def get_tattly_logo_base64() -> str:
 
 
 def get_tattly_logo_rotated_anticlockwise_base64() -> str:
-    """Loads Tattly Threads black logo asset rotated 90 degrees anticlockwise as base64 PNG data URI."""
+    """Loads Tattly Threads black logo asset rotated 90 degrees anticlockwise as base64 PNG data URI.
+    Falls back to the native Vrtical_Logo.png which is already portrait-oriented."""
+    # Prefer the native vertical logo — no rotation overhead, better quality
+    return get_tattly_vertical_logo_base64() or _get_tattly_logo_rotated_fallback()
+
+
+def get_tattly_vertical_logo_base64() -> str:
+    """Loads the native portrait-oriented Tattly Threads vertical logo (Vrtical_Logo.png) as base64 PNG.
+    This logo is pre-composed in portrait orientation and matches the original invoice header format."""
+    paths = [
+        TATTLY_VERTICAL_LOGO_PATH,
+        str(WORKSPACE_ROOT / "TT" / "logo" / "Vrtical_Logo.png"),
+        str(WORKSPACE_ROOT / "TT" / "logo" / "vertical_logo.png"),
+    ]
+    for p in paths:
+        if os.path.exists(p):
+            try:
+                with open(p, "rb") as f:
+                    b64 = base64.b64encode(f.read()).decode("utf-8")
+                    return f"data:image/png;base64,{b64}"
+            except Exception:
+                pass
+    return ""
+
+
+def _get_tattly_logo_rotated_fallback() -> str:
+    """Fallback: PIL-rotate the horizontal logo 90° CCW if Vrtical_Logo.png is unavailable."""
     if os.path.exists(TATTLY_LOGO_PATH):
         try:
             from PIL import Image
             img = Image.open(TATTLY_LOGO_PATH)
-            # Pillow rotate 90 is counter-clockwise (anticlockwise)
             rot_img = img.rotate(90, expand=True)
             buf = io.BytesIO()
             rot_img.save(buf, format="PNG")
@@ -206,10 +232,13 @@ def get_tattly_logo_rotated_anticlockwise_base64() -> str:
 
 
 def get_krutika_signature_base64() -> str:
-    """Loads Krutika 2K enhanced signature transparent PNG asset as base64 data URI."""
+    """Loads Krutika signature PNG asset as base64 data URI.
+    Primary: TT/signature/krutika_signature.png (as specified).
+    Fallback: _2k enhanced version, then static paths."""
     paths = [
-        str(WORKSPACE_ROOT / "TT" / "signature" / "krutika_signature_2k.png"),
-        TATTLY_SIGNATURE_PATH,
+        TATTLY_SIGNATURE_PATH,                                                             # PRIMARY: TT/signature/krutika_signature.png
+        str(WORKSPACE_ROOT / "TT" / "signature" / "krutika_signature.png"),               # explicit redundant path
+        str(WORKSPACE_ROOT / "TT" / "signature" / "krutika_signature_2k.png"),            # fallback: 2k enhanced
         str(WORKSPACE_ROOT / "static" / "krutika_signature.png"),
         str(WORKSPACE_ROOT / "assets" / "Media" / "signature" / "krutika_signature.png")
     ]
@@ -600,8 +629,10 @@ class InvoicePdfService:
             logo_uri = custom_logo
             logo_rotated_uri = custom_logo
         elif "TATTLY" in (company_name or "").upper():
-            logo_uri = get_tattly_logo_base64()
-            logo_rotated_uri = get_tattly_logo_rotated_anticlockwise_base64()
+            # Use native portrait Vrtical_Logo.png — no rotation needed, pixel-perfect
+            _vlogo = get_tattly_vertical_logo_base64()
+            logo_uri          = _vlogo or get_tattly_logo_base64()
+            logo_rotated_uri  = _vlogo or get_tattly_logo_rotated_anticlockwise_base64()
         else:
             logo_uri = ""
             logo_rotated_uri = ""
