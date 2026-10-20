@@ -27,7 +27,12 @@ import {
   FileText,
   CreditCard,
   ChevronRight,
-  Zap
+  Zap,
+  Hash,
+  RefreshCw,
+  Lock,
+  Sparkles,
+  Check
 } from "lucide-react";
 import { apiFetchV1 } from "../../../lib/apiFetchV1";
 import { RetailCustomerRecord } from "../types";
@@ -67,6 +72,72 @@ export const CreateCustomerModal: React.FC<CreateCustomerModalProps> = ({
   const [allowDuplicateOverride, setAllowDuplicateOverride] = useState<boolean>(false);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
+  // Customer Code Assignment State
+  const [codeAssignmentMode, setCodeAssignmentMode] = useState<"SUGGESTED" | "MANUAL" | "EXISTING">("SUGGESTED");
+  const [suggestedCode, setSuggestedCode] = useState<string>("");
+  const [customCode, setCustomCode] = useState<string>("");
+  const [manualEntryAllowed, setManualEntryAllowed] = useState<boolean>(true);
+  const [hasEligibleExistingCodes, setHasEligibleExistingCodes] = useState<boolean>(false);
+  const [eligibleCodes, setEligibleCodes] = useState<Array<{ code: string; name?: string; status: string; description?: string }>>([]);
+  const [selectedExistingCode, setSelectedExistingCode] = useState<string>("");
+  const [codeValidationState, setCodeValidationState] = useState<{ isValid: boolean; reason?: string } | null>(null);
+  const [isValidatingCode, setIsValidatingCode] = useState<boolean>(false);
+  const [isLoadingRecommendation, setIsLoadingRecommendation] = useState<boolean>(false);
+
+  const fetchRecommendation = useCallback(async () => {
+    setIsLoadingRecommendation(true);
+    try {
+      const res = await apiFetchV1<{
+        suggestedCode: string;
+        assignmentMode: string;
+        uniquenessScope: string;
+        manualEntryAllowed: boolean;
+        prefix: string;
+        hasEligibleExistingCodes: boolean;
+      }>("/crm/customers/code-recommendation");
+      setSuggestedCode(res.suggestedCode || "");
+      setManualEntryAllowed(res.manualEntryAllowed ?? true);
+      setHasEligibleExistingCodes(res.hasEligibleExistingCodes ?? false);
+      if (res.hasEligibleExistingCodes) {
+        try {
+          const eligibleRes = await apiFetchV1<Array<{ code: string; name?: string; status: string; description?: string }>>("/crm/customers/eligible-codes");
+          setEligibleCodes(eligibleRes || []);
+        } catch (e) {
+          console.warn("[CreateCustomerModal] Failed to load eligible codes:", e);
+        }
+      }
+    } catch (err) {
+      console.warn("[CreateCustomerModal] Failed to fetch code recommendation:", err);
+      setSuggestedCode("Auto-Generated");
+    } finally {
+      setIsLoadingRecommendation(false);
+    }
+  }, []);
+
+  const validateCustomCode = useCallback(async (codeToValidate: string) => {
+    const clean = codeToValidate.trim();
+    if (!clean) {
+      setCodeValidationState(null);
+      return;
+    }
+    setIsValidatingCode(true);
+    try {
+      const res = await apiFetchV1<{
+        isValid: boolean;
+        code: string;
+        reason?: string;
+      }>("/crm/customers/validate-code", {
+        method: "POST",
+        body: JSON.stringify({ code: clean })
+      });
+      setCodeValidationState({ isValid: res.isValid, reason: res.reason });
+    } catch (err: any) {
+      setCodeValidationState({ isValid: false, reason: err?.message || "Validation failed" });
+    } finally {
+      setIsValidatingCode(false);
+    }
+  }, []);
+
   // Focus ref
   const nameInputRef = useRef<HTMLInputElement>(null);
 
@@ -81,11 +152,16 @@ export const CreateCustomerModal: React.FC<CreateCustomerModalProps> = ({
       setAllowDuplicateOverride(false);
       setCustomerType("Retail");
       setCustomerGroup("CG-Retail");
+      setCodeAssignmentMode("SUGGESTED");
+      setCustomCode("");
+      setSelectedExistingCode("");
+      setCodeValidationState(null);
+      fetchRecommendation();
       setTimeout(() => {
         nameInputRef.current?.focus();
       }, 100);
     }
-  }, [isOpen]);
+  }, [isOpen, fetchRecommendation]);
 
   // Adjust default group on type toggle
   const handleTypeChange = (newType: "Retail" | "Corporate") => {
@@ -205,6 +281,36 @@ export const CreateCustomerModal: React.FC<CreateCustomerModalProps> = ({
         payload.credit_days = Number(creditDays) || 0;
       }
 
+      // Governed Customer Code resolution
+      let effectiveCode: string | undefined = undefined;
+      if (codeAssignmentMode === "SUGGESTED") {
+        effectiveCode = undefined; // Backend atomically allocates next code under row-lock
+      } else if (codeAssignmentMode === "MANUAL") {
+        const clean = customCode.trim().toUpperCase();
+        if (!clean) {
+          onNotification?.("Validation Error", "Please provide a valid Customer Code or select Auto-Recommended.", "error");
+          setIsSubmitting(false);
+          return;
+        }
+        if (codeValidationState && !codeValidationState.isValid) {
+          onNotification?.("Validation Error", codeValidationState.reason || "The entered Customer Code is invalid.", "error");
+          setIsSubmitting(false);
+          return;
+        }
+        effectiveCode = clean;
+      } else if (codeAssignmentMode === "EXISTING") {
+        if (!selectedExistingCode) {
+          onNotification?.("Validation Error", "Please select an eligible existing customer code.", "error");
+          setIsSubmitting(false);
+          return;
+        }
+        effectiveCode = selectedExistingCode;
+      }
+
+      if (effectiveCode) {
+        payload.code = effectiveCode;
+      }
+
       // Authoritative Server-Side Customer Creation (generates code and internal UUID)
       const res = await apiFetchV1<any>("/crm/customers", {
         method: "POST",
@@ -297,8 +403,23 @@ export const CreateCustomerModal: React.FC<CreateCustomerModalProps> = ({
       onClose();
     } catch (err: any) {
       console.error("[CreateCustomerModal] Create error:", err);
-      const rawMsg = err?.detail?.reason || err?.detail?.message || err?.message || "Failed to create customer.";
-      onNotification?.("Creation Failed", String(rawMsg), "error");
+      const detail = err?.data?.detail || err?.detail || err;
+      if (detail?.error_code === "CUSTOMER_CODE_COLLISION") {
+        if (detail.suggested_code) {
+          setSuggestedCode(detail.suggested_code);
+          if (codeAssignmentMode === "SUGGESTED") {
+            setCustomCode("");
+          }
+        }
+        onNotification?.(
+          "Customer Code Conflict",
+          `${detail.message || "Customer Code collided with another record."} Fresh suggestion: ${detail.suggested_code || "Updated"}. Your form inputs have been preserved.`,
+          "warning"
+        );
+      } else {
+        const rawMsg = detail?.reason || detail?.message || err?.message || "Failed to create customer.";
+        onNotification?.("Creation Failed", String(rawMsg), "error");
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -378,6 +499,156 @@ export const CreateCustomerModal: React.FC<CreateCustomerModalProps> = ({
             <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">
               2. Essential Identity & Contact
             </label>
+
+            {/* Governed Customer Code Selection (Hybrid Policy) */}
+            <div className="p-3 bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-xl space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="text-[10px] font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400 flex items-center gap-1.5">
+                  <Hash size={13} className="text-[#00355f] dark:text-[#8ebdf9]" />
+                  <span>Customer Code Assignment (Hybrid Mode)</span>
+                </label>
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => setCodeAssignmentMode("SUGGESTED")}
+                    className={`px-2 py-0.5 rounded text-[10px] font-bold transition flex items-center gap-1 ${
+                      codeAssignmentMode === "SUGGESTED"
+                        ? "bg-[#00355f] text-white shadow-xs"
+                        : "bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-300"
+                    }`}
+                  >
+                    <Sparkles size={11} /> Auto-Suggested
+                  </button>
+
+                  <button
+                    type="button"
+                    disabled={!manualEntryAllowed}
+                    onClick={() => {
+                      if (manualEntryAllowed) {
+                        setCodeAssignmentMode("MANUAL");
+                        if (!customCode && suggestedCode) {
+                          setCustomCode(suggestedCode);
+                        }
+                      }
+                    }}
+                    title={manualEntryAllowed ? "Enter custom customer code" : "Manual customer code entry requires Manager/Admin privileges"}
+                    className={`px-2 py-0.5 rounded text-[10px] font-bold transition flex items-center gap-1 ${
+                      codeAssignmentMode === "MANUAL"
+                        ? "bg-[#00355f] text-white shadow-xs"
+                        : manualEntryAllowed
+                        ? "bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-300"
+                        : "bg-slate-100 dark:bg-slate-900 text-slate-400 cursor-not-allowed opacity-60"
+                    }`}
+                  >
+                    <Lock size={11} /> Custom Code
+                  </button>
+
+                  {hasEligibleExistingCodes && eligibleCodes.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setCodeAssignmentMode("EXISTING")}
+                      className={`px-2 py-0.5 rounded text-[10px] font-bold transition flex items-center gap-1 ${
+                        codeAssignmentMode === "EXISTING"
+                          ? "bg-[#00355f] text-white shadow-xs"
+                          : "bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-300"
+                      }`}
+                    >
+                      Eligible Inactive ({eligibleCodes.length})
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {codeAssignmentMode === "SUGGESTED" && (
+                <div className="flex items-center gap-2">
+                  <div className="flex-1 relative">
+                    <input
+                      type="text"
+                      readOnly
+                      data-field-key="suggested_customer_code"
+                      value={isLoadingRecommendation ? "Fetching candidate code..." : suggestedCode || "CUST-000101"}
+                      className="w-full px-3 py-1.5 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-lg text-xs font-mono font-bold text-[#00355f] dark:text-[#8ebdf9] cursor-not-allowed"
+                    />
+                    <span className="absolute right-2 top-1.5 text-[9px] font-semibold px-1.5 py-0.5 bg-blue-100 dark:bg-blue-950/70 text-blue-700 dark:text-blue-300 rounded">
+                      Sequential • Company Scope
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={fetchRecommendation}
+                    disabled={isLoadingRecommendation}
+                    title="Refresh code recommendation"
+                    className="p-1.5 bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-300 rounded-lg transition"
+                  >
+                    <RefreshCw size={13} className={isLoadingRecommendation ? "animate-spin" : ""} />
+                  </button>
+                </div>
+              )}
+
+              {codeAssignmentMode === "MANUAL" && (
+                <div className="space-y-1">
+                  <div className="relative">
+                    <input
+                      type="text"
+                      data-field-key="manual_customer_code"
+                      value={customCode}
+                      onChange={(e) => {
+                        const val = e.target.value.toUpperCase();
+                        setCustomCode(val);
+                        if (codeValidationState) setCodeValidationState(null);
+                      }}
+                      onBlur={() => validateCustomCode(customCode)}
+                      placeholder="e.g. CUST-VIP-001"
+                      className="w-full px-3 py-1.5 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-lg text-xs font-mono font-bold uppercase text-slate-800 dark:text-slate-200 focus:outline-hidden focus:ring-2 focus:ring-[#00355f]"
+                    />
+                    {isValidatingCode && (
+                      <span className="absolute right-2.5 top-2">
+                        <Loader2 size={13} className="animate-spin text-slate-400" />
+                      </span>
+                    )}
+                    {!isValidatingCode && codeValidationState && (
+                      <span className="absolute right-2.5 top-2">
+                        {codeValidationState.isValid ? (
+                          <CheckCircle2 size={14} className="text-emerald-500" />
+                        ) : (
+                          <AlertCircle size={14} className="text-red-500" />
+                        )}
+                      </span>
+                    )}
+                  </div>
+                  {codeValidationState && (
+                    <p className={`text-[10px] font-medium ${codeValidationState.isValid ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}>
+                      {codeValidationState.reason}
+                    </p>
+                  )}
+                  {!manualEntryAllowed && (
+                    <p className="text-[10px] text-amber-600 dark:text-amber-400 font-medium">
+                      * Manual customer code entry is restricted to managers and administrators.
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {codeAssignmentMode === "EXISTING" && (
+                <div className="space-y-1">
+                  <select
+                    value={selectedExistingCode}
+                    onChange={(e) => setSelectedExistingCode(e.target.value)}
+                    className="w-full px-3 py-1.5 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-lg text-xs font-mono font-bold text-slate-800 dark:text-slate-200"
+                  >
+                    <option value="">-- Select an eligible unassigned code --</option>
+                    {eligibleCodes.map((c) => (
+                      <option key={c.code} value={c.code}>
+                        {c.code} ({c.name || "Historical Customer"} — {c.status})
+                      </option>
+                    ))}
+                  </select>
+                  <p className="text-[10px] text-slate-500">
+                    Reassigns an unassigned or inactive customer code within company scope.
+                  </p>
+                </div>
+              )}
+            </div>
 
             <div className="grid grid-cols-2 gap-3">
               <div className="col-span-2">

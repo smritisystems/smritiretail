@@ -1295,24 +1295,10 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
           body: JSON.stringify(backendPayload)
         });
       } else {
-        try {
-          savedBackendCust = await apiFetchV1("/crm/customers", {
-            method: "POST",
-            body: JSON.stringify(backendPayload)
-          });
-        } catch (postErr: any) {
-          const postErrStr = String(postErr?.message || postErr || "");
-          const existingIdMatch = postErrStr.match(/['"]id['"]:\s*['"]([^'"]+)['"]/);
-          if (existingIdMatch && existingIdMatch[1]) {
-            const matchedId = existingIdMatch[1];
-            savedBackendCust = await apiFetchV1(`/crm/customers/${matchedId}`, {
-              method: "PUT",
-              body: JSON.stringify(backendPayload)
-            });
-          } else {
-            throw postErr;
-          }
-        }
+        savedBackendCust = await apiFetchV1("/crm/customers", {
+          method: "POST",
+          body: JSON.stringify(backendPayload)
+        });
       }
 
       const rawSavedGstin = savedBackendCust?.gstNumber ?? savedBackendCust?.gst_number ?? savedBackendCust?.gstin ?? currentCustomer.gstin;

@@ -1416,3 +1416,36 @@ class CustomerCreditExposureResponse(BaseModel):
 
     model_config = ConfigDict(populate_by_name=True, from_attributes=True)
 
+
+class CustomerCodeRecommendationResponse(BaseModel):
+    suggested_code: str = Field(..., alias="suggestedCode")
+    assignment_mode: str = Field(default="HYBRID", alias="assignmentMode")
+    uniqueness_scope: str = Field(default="COMPANY", alias="uniquenessScope")
+    manual_entry_allowed: bool = Field(default=True, alias="manualEntryAllowed")
+    prefix: str = Field(default="CUST-")
+    has_eligible_existing_codes: bool = Field(default=False, alias="hasEligibleExistingCodes")
+
+    model_config = ConfigDict(populate_by_name=True, from_attributes=True)
+
+
+class CustomerCodeValidationRequest(BaseModel):
+    code: str
+
+
+class CustomerCodeValidationResponse(BaseModel):
+    is_valid: bool = Field(..., alias="isValid")
+    code: str
+    reason: Optional[str] = None
+    company_id: Optional[str] = Field(None, alias="companyId")
+
+    model_config = ConfigDict(populate_by_name=True, from_attributes=True)
+
+
+class EligibleCustomerCodeItem(BaseModel):
+    code: str
+    name: Optional[str] = None
+    status: str = "AVAILABLE"
+    description: Optional[str] = None
+
+    model_config = ConfigDict(populate_by_name=True, from_attributes=True)
+

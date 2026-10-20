@@ -14,9 +14,10 @@ License      : Proprietary Commercial Software
 import hashlib
 import json
 import logging
+import re
 import uuid
 from datetime import datetime, timezone
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Set
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
@@ -28,9 +29,13 @@ from ..models.crm import (
     CustomerBillingLocation, CustomerExternalIdentity, CustomerPolicy,
     CustomerCompanyRelationship, CustomerCreditLedgerEntry,
 )
+from ..models.auth import User, UserRole
+from ..models.identity_registry import SmritiNumberingRegistry
 from ..models.tenant import Company
 from ..models.audit import ComplianceImmutableAuditLog
+from ..models.security import SmritiAuditLog
 from .identity.engine import IdentityEngine
+from .system_parameter import SystemParameterService
 from decimal import Decimal
 from ..models.sales import SalesInvoice
 from ..schemas.crm import (
@@ -46,6 +51,8 @@ from ..schemas.crm import (
     StoreAddressItem, StoreAddressCreate, StoreAddressUpdate, StoreCodeLookupItem,
     CustomerCompanyRelationshipCreate, CustomerCompanyRelationshipUpdate,
     CompanyCreditExposureItem, CustomerCreditExposureResponse,
+    CustomerCodeRecommendationResponse, CustomerCodeValidationResponse,
+    EligibleCustomerCodeItem,
 )
 from ..repositories.customer import (
     CustomerRepository, CustomerGroupRepository,
@@ -402,10 +409,417 @@ class CrmService:
         await self.db.refresh(db_group)
         return db_group
 
-    async def create_customer(self, customer_in: CustomerCreate) -> Customer:
+    def _require_company_id(self) -> str:
+        """
+        Enforce mandatory company context.
+        Zero implicit fallback to COMP-001. Fails closed if missing or invalid.
+        """
+        cid = self.tenant_ctx.company_id if self.tenant_ctx else None
+        if not cid or str(cid).strip().lower() in ("none", "null", "undefined", ""):
+            raise HTTPException(
+                status_code=400,
+                detail="Active company context is required for Customer operations."
+            )
+        return str(cid).strip()
+
+    async def _resolve_code_policy_config(self, company_id: str) -> Dict[str, Any]:
+        """
+        Resolves authoritative Customer Code assignment policy configuration:
+        1. SMRITI.CUSTOMER.CODE_ASSIGNMENT_MODE (default 'HYBRID', options: 'HYBRID', 'AUTO', 'MANUAL')
+        2. SMRITI.CUSTOMER.CODE_PREFIX (default 'CUST-')
+        3. SMRITI.CUSTOMER.IS_CUST_CODE_ASSIGNED or 'IsCustCodeAssigned' (default True)
+        4. SMRITI.CUSTOMER.CODE_MANUAL_ROLES (default 'SYSADMIN,ADMIN,MANAGER')
+        """
+        config = {
+            "assignment_mode": "HYBRID",
+            "prefix": "CUST-",
+            "is_cust_code_assigned": True,
+            "manual_roles": {"SYSADMIN", "ADMIN", "MANAGER"},
+        }
+        try:
+            p_mode = await SystemParameterService.resolve_parameter(
+                self.db, "SMRITI.CUSTOMER.CODE_ASSIGNMENT_MODE", company_id=company_id
+            )
+            if p_mode and p_mode.effective_value:
+                val = str(p_mode.effective_value).strip().upper()
+                if val in ("HYBRID", "AUTO", "MANUAL"):
+                    config["assignment_mode"] = val
+
+            p_prefix = await SystemParameterService.resolve_parameter(
+                self.db, "SMRITI.CUSTOMER.CODE_PREFIX", company_id=company_id
+            )
+            if p_prefix and p_prefix.effective_value:
+                pfx = str(p_prefix.effective_value).strip()
+                if pfx:
+                    config["prefix"] = pfx if pfx.endswith("-") else f"{pfx}-"
+
+            p_assigned = await SystemParameterService.resolve_parameter(
+                self.db, "SMRITI.CUSTOMER.IS_CUST_CODE_ASSIGNED", company_id=company_id
+            )
+            if not p_assigned:
+                p_assigned = await SystemParameterService.resolve_parameter(
+                    self.db, "IsCustCodeAssigned", company_id=company_id
+                )
+            if p_assigned is not None and p_assigned.effective_value is not None:
+                config["is_cust_code_assigned"] = bool(p_assigned.effective_value)
+
+            p_roles = await SystemParameterService.resolve_parameter(
+                self.db, "SMRITI.CUSTOMER.CODE_MANUAL_ROLES", company_id=company_id
+            )
+            if p_roles and p_roles.effective_value:
+                roles_str = str(p_roles.effective_value).strip()
+                parsed_roles = {r.strip().upper() for r in roles_str.split(",") if r.strip()}
+                if parsed_roles:
+                    config["manual_roles"] = parsed_roles
+        except Exception as e:
+            logger = logging.getLogger("smriti.crm.policy")
+            logger.warning(f"Error resolving Customer Code system parameters: {e}")
+
+        return config
+
+    def _is_manual_entry_allowed(
+        self,
+        current_user: Optional[User],
+        manual_roles: Set[str],
+    ) -> bool:
+        """
+        Checks whether the user has privilege to manually assign or customize Customer Codes.
+        Evaluates user role enum.
+        """
+        if not current_user:
+            role = self.tenant_ctx.role if self.tenant_ctx else None
+            role_str = str(role.value if hasattr(role, "value") else (role or "")).upper()
+            return role_str in manual_roles
+
+        # 1. SYSADMIN always allowed
+        if current_user.role == UserRole.SYSADMIN:
+            return True
+
+        # 2. Check role enum
+        user_role_str = current_user.role.value if hasattr(current_user.role, "value") else str(current_user.role)
+        if user_role_str.upper() in manual_roles:
+            return True
+
+        return False
+
+    async def preview_next_customer_code(self, prefix: Optional[str] = None) -> str:
+        """
+        Read-only, non-mutating preview of the next valid sequential Customer Code
+        within the tenant's company scope.
+        Inspects existing customers (including inactive/archived to prevent historical collisions)
+        and numbering registry to compute a collision-free candidate.
+        DOES NOT reserve, advance, or mutate the numbering registry.
+        """
+        company_id = self._require_company_id()
+        if not prefix:
+            cfg = await self._resolve_code_policy_config(company_id)
+            prefix = cfg["prefix"]
+        prefix_clean = prefix.rstrip("-")
+
+        # Include ALL customer records in the company scope to prevent reuse of historical codes
+        stmt = select(Customer.code).where(
+            Customer.company_id == company_id,
+            Customer.code.like(f"{prefix}%"),
+        )
+        res = await self.db.execute(stmt)
+        existing_codes = {c.strip().upper() for (c,) in res.all() if c}
+
+        max_num = 0
+        pattern = re.compile(rf"^{re.escape(prefix)}(\d+)$", re.IGNORECASE)
+        for c in existing_codes:
+            m = pattern.match(c)
+            if m:
+                val = int(m.group(1))
+                if val > max_num:
+                    max_num = val
+
+        reg_stmt = select(SmritiNumberingRegistry.sequence_value).where(
+            SmritiNumberingRegistry.entity_type.in_(["CUSTOMER", "CUSTOMER_CODE"]),
+            SmritiNumberingRegistry.prefix == prefix_clean,
+            SmritiNumberingRegistry.company_id == company_id,
+        )
+        reg_res = await self.db.execute(reg_stmt)
+        reg_val = reg_res.scalar() or 0
+
+        candidate_seq = max(max_num, reg_val) + 1
+        while f"{prefix}{candidate_seq:06d}" in existing_codes:
+            candidate_seq += 1
+
+        return f"{prefix}{candidate_seq:06d}"
+
+    async def allocate_next_customer_code(self, prefix: Optional[str] = None) -> str:
+        """
+        Atomic sequential allocation of next customer code under row-lock.
+        Advances and synchronizes SmritiNumberingRegistry within company scope.
+        Safe against race conditions during first-time initialization using nested savepoints.
+        Never reuses inactive or deleted customer codes.
+        """
+        company_id = self._require_company_id()
+        if not prefix:
+            cfg = await self._resolve_code_policy_config(company_id)
+            prefix = cfg["prefix"]
+        prefix_clean = prefix.rstrip("-")
+
+        # 1. Acquire row lock on numbering registry
+        num_stmt = (
+            select(SmritiNumberingRegistry)
+            .where(
+                SmritiNumberingRegistry.entity_type == "CUSTOMER_CODE",
+                SmritiNumberingRegistry.prefix == prefix_clean,
+                SmritiNumberingRegistry.company_id == company_id,
+            )
+            .with_for_update()
+        )
+        num_res = await self.db.execute(num_stmt)
+        num_rec = num_res.scalars().first()
+
+        # 2. Inspect ALL existing customer records (active, inactive, deleted)
+        # to ensure historical sequence continuity and zero silent reuse
+        stmt = select(Customer.code).where(
+            Customer.company_id == company_id,
+            Customer.code.like(f"{prefix}%"),
+        )
+        res = await self.db.execute(stmt)
+        existing_codes = {c.strip().upper() for (c,) in res.all() if c}
+
+        max_num = 0
+        pattern = re.compile(rf"^{re.escape(prefix)}(\d+)$", re.IGNORECASE)
+        for c in existing_codes:
+            m = pattern.match(c)
+            if m:
+                val = int(m.group(1))
+                if val > max_num:
+                    max_num = val
+
+        if not num_rec:
+            candidate_seq = max(1, max_num + 1)
+            while f"{prefix}{candidate_seq:06d}" in existing_codes:
+                candidate_seq += 1
+
+            # Safe initialization using nested savepoint
+            try:
+                async with self.db.begin_nested():
+                    new_rec = SmritiNumberingRegistry(
+                        id=uuid.uuid4().hex[:32],
+                        entity_type="CUSTOMER_CODE",
+                        identity_group="CRM",
+                        group_code="CRM",
+                        prefix=prefix_clean,
+                        format_template=f"{prefix_clean}-{{seq:06d}}",
+                        scope="COMPANY",
+                        sequence_value=candidate_seq,
+                        padding=6,
+                        reset_policy="NEVER",
+                        tenant_id=company_id,
+                        company_id=company_id,
+                        status="ACTIVE",
+                    )
+                    self.db.add(new_rec)
+                    await self.db.flush()
+                    allocated_seq = candidate_seq
+            except IntegrityError:
+                # Concurrent transaction initialized the registry first; re-query with row lock
+                num_res = await self.db.execute(num_stmt)
+                num_rec = num_res.scalars().first()
+                if num_rec:
+                    candidate_seq = max(num_rec.sequence_value + 1, max_num + 1)
+                    while f"{prefix}{candidate_seq:06d}" in existing_codes:
+                        candidate_seq += 1
+                    num_rec.sequence_value = candidate_seq
+                    allocated_seq = candidate_seq
+                    await self.db.flush()
+                else:
+                    allocated_seq = candidate_seq
+        else:
+            candidate_seq = max(num_rec.sequence_value + 1, max_num + 1)
+            while f"{prefix}{candidate_seq:06d}" in existing_codes:
+                candidate_seq += 1
+            num_rec.sequence_value = candidate_seq
+            allocated_seq = candidate_seq
+            await self.db.flush()
+
+        return f"{prefix}{allocated_seq:06d}"
+
+    async def get_customer_code_recommendation(
+        self,
+        current_user: Optional[User] = None,
+    ) -> CustomerCodeRecommendationResponse:
+        """
+        Returns governed Customer Code assignment policy and suggested next code.
+        Reads policy from SystemParameter configuration hierarchy.
+        """
+        company_id = self._require_company_id()
+        cfg = await self._resolve_code_policy_config(company_id)
+        manual_allowed = self._is_manual_entry_allowed(current_user, cfg["manual_roles"])
+        if cfg["assignment_mode"] == "AUTO":
+            manual_allowed = False
+
+        suggested = await self.preview_next_customer_code(prefix=cfg["prefix"])
+
+        inact_stmt = select(Customer.code).where(
+            Customer.company_id == company_id,
+            Customer.code.is_not(None),
+            (Customer.status != "Active") | (Customer.is_deleted == True),
+        ).limit(1)
+        inact_res = await self.db.execute(inact_stmt)
+        has_eligible = inact_res.scalars().first() is not None
+
+        return CustomerCodeRecommendationResponse(
+            suggested_code=suggested,
+            assignment_mode=cfg["assignment_mode"],
+            uniqueness_scope="COMPANY",
+            manual_entry_allowed=manual_allowed,
+            prefix=cfg["prefix"],
+            has_eligible_existing_codes=has_eligible,
+        )
+
+    async def validate_customer_code(
+        self,
+        code: str,
+        current_user: Optional[User] = None,
+    ) -> CustomerCodeValidationResponse:
+        """
+        Validates customer code syntax, format normalization, role permissions, and company uniqueness.
+        """
+        company_id = self._require_company_id()
+        cfg = await self._resolve_code_policy_config(company_id)
+        manual_allowed = self._is_manual_entry_allowed(current_user, cfg["manual_roles"])
+
+        code_raw = (code or "").strip()
+        if not code_raw:
+            return CustomerCodeValidationResponse(
+                is_valid=False,
+                code=code,
+                reason="Customer code cannot be empty.",
+                company_id=company_id,
+            )
+
+        code_clean = code_raw.upper()
+
+        if len(code_clean) < 2 or len(code_clean) > 50:
+            return CustomerCodeValidationResponse(
+                is_valid=False,
+                code=code_clean,
+                reason="Customer code must be between 2 and 50 characters.",
+                company_id=company_id,
+            )
+
+        # Standard format validation: alphanumeric plus hyphens, underscores, dots
+        if not re.match(r"^[A-Z0-9_\-\.]+$", code_clean):
+            return CustomerCodeValidationResponse(
+                is_valid=False,
+                code=code_clean,
+                reason="Customer code must contain only alphanumeric characters, hyphens, dots, or underscores.",
+                company_id=company_id,
+            )
+
+        if cfg["assignment_mode"] == "AUTO":
+            return CustomerCodeValidationResponse(
+                is_valid=False,
+                code=code_clean,
+                reason="Manual Customer Code entry is disabled by policy (Assignment Mode is AUTO).",
+                company_id=company_id,
+            )
+
+        # If user is not authorized for manual entry, verify whether this matches the suggested code
+        if not manual_allowed:
+            suggested = await self.preview_next_customer_code(prefix=cfg["prefix"])
+            if code_clean != suggested:
+                return CustomerCodeValidationResponse(
+                    is_valid=False,
+                    code=code_clean,
+                    reason="Manual Customer Code assignment is restricted to authorized roles (Managers and Administrators).",
+                    company_id=company_id,
+                )
+
+        stmt = select(Customer.id, Customer.name).where(
+            Customer.company_id == company_id,
+            Customer.code == code_clean,
+            Customer.status == "Active",
+            Customer.is_deleted == False,
+        )
+        res = await self.db.execute(stmt)
+        existing = res.first()
+        if existing:
+            return CustomerCodeValidationResponse(
+                is_valid=False,
+                code=code_clean,
+                reason=f"Customer code '{code_clean}' is already assigned to active customer '{existing[1]}' in this company.",
+                company_id=company_id,
+            )
+
+        return CustomerCodeValidationResponse(
+            is_valid=True,
+            code=code_clean,
+            reason="Code is available.",
+            company_id=company_id,
+        )
+
+    async def get_eligible_customer_code_pool(self) -> List[EligibleCustomerCodeItem]:
+        """
+        Returns eligible unassigned or inactive customer codes for reuse in Hybrid mode.
+        Scoped strictly to the active company context.
+        """
+        company_id = self._require_company_id()
+        stmt = select(
+            Customer.code, Customer.name, Customer.status, Customer.is_deleted
+        ).where(
+            Customer.company_id == company_id,
+            Customer.code.is_not(None),
+            (Customer.status != "Active") | (Customer.is_deleted == True),
+        ).order_by(Customer.code.asc()).limit(100)
+        res = await self.db.execute(stmt)
+        rows = res.all()
+
+        active_stmt = select(Customer.code).where(
+            Customer.company_id == company_id,
+            Customer.code.is_not(None),
+            Customer.status == "Active",
+            Customer.is_deleted == False,
+        )
+        active_res = await self.db.execute(active_stmt)
+        active_codes = {c.strip().upper() for (c,) in active_res.all() if c}
+
+        pool: List[EligibleCustomerCodeItem] = []
+        seen = set()
+        for r_code, r_name, r_status, r_is_deleted in rows:
+            if not r_code:
+                continue
+            clean = r_code.strip().upper()
+            if clean in active_codes or clean in seen:
+                continue
+            seen.add(clean)
+            stat = "ARCHIVED" if r_status == "Archived" else ("DELETED" if r_is_deleted else "INACTIVE")
+            pool.append(EligibleCustomerCodeItem(
+                code=clean,
+                name=r_name or "Historical Customer",
+                status=stat,
+                description=f"Inactive code previously assigned to {r_name or 'customer'}",
+            ))
+        return pool
+
+    async def create_customer(
+        self,
+        customer_in: CustomerCreate,
+        current_user: Optional[User] = None,
+    ) -> Customer:
+        company_id = self._require_company_id()
+        cfg = await self._resolve_code_policy_config(company_id)
+        manual_allowed = self._is_manual_entry_allowed(current_user, cfg["manual_roles"])
+
         # Centralized Authoritative Duplicate Check
         dup_check = await self.identity_service.check_duplicate_customer(customer_in)
         if dup_check.decision == DuplicateDecision.HARD_DUPLICATE:
+            if dup_check.matched_identity == MatchedIdentityType.CUSTOMER_CODE:
+                fresh_code = await self.preview_next_customer_code(prefix=cfg["prefix"])
+                raise HTTPException(
+                    status_code=409,
+                    detail={
+                        "error_code": "CUSTOMER_CODE_COLLISION",
+                        "message": dup_check.reason or f"Customer code is already assigned to an active customer in this company.",
+                        "suggested_code": fresh_code,
+                    }
+                )
             raise HTTPException(
                 status_code=409,
                 detail={
@@ -444,11 +858,8 @@ class CrmService:
             stmt = select(CustomerGroup).filter(
                 CustomerGroup.id == customer_in.customer_group_id,
                 CustomerGroup.is_deleted == False,
+                (CustomerGroup.company_id == company_id) | (CustomerGroup.company_id.is_(None)),
             )
-            if self.tenant_ctx.company_id:
-                stmt = stmt.filter(
-                    (CustomerGroup.company_id == self.tenant_ctx.company_id) | (CustomerGroup.company_id.is_(None))
-                )
             res = await self.db.execute(stmt)
             group = res.scalars().first()
             if not group:
@@ -458,8 +869,8 @@ class CrmService:
             tech_id, id_code = await IdentityEngine.allocate_internal(
                 session=self.db,
                 entity_type="CUSTOMER",
-                tenant_id=self.tenant_ctx.company_id or "COMP-001",
-                company_id=self.tenant_ctx.company_id or "COMP-001",
+                tenant_id=company_id,
+                company_id=company_id,
             )
             cust_dict["id"] = tech_id
             cust_dict["identity_code"] = id_code
@@ -467,13 +878,79 @@ class CrmService:
             _, id_code = await IdentityEngine.allocate_internal(
                 session=self.db,
                 entity_type="CUSTOMER",
-                tenant_id=self.tenant_ctx.company_id or "COMP-001",
-                company_id=self.tenant_ctx.company_id or "COMP-001",
+                tenant_id=company_id,
+                company_id=company_id,
             )
             cust_dict["identity_code"] = id_code
 
-        if not cust_dict.get("code"):
-            cust_dict["code"] = f"CUST-{cust_dict['id'][:8].upper()}"
+        # Governed Customer Code assignment
+        raw_provided = cust_dict.get("code")
+        provided_code = str(raw_provided).strip().upper() if raw_provided is not None and str(raw_provided).strip() else None
+
+        is_historical_reuse = False
+        historical_cust_info = None
+
+        if provided_code:
+            # Policy enforcement: If mode is AUTO, manual entry is disallowed
+            if cfg["assignment_mode"] == "AUTO":
+                raise HTTPException(
+                    status_code=403,
+                    detail="Manual Customer Code entry is disabled by policy (Assignment Mode is AUTO)."
+                )
+
+            # Role enforcement: manual assignment restricted to authorized users
+            if not manual_allowed:
+                # Check if it matches the current suggested code
+                suggested_code = await self.preview_next_customer_code(prefix=cfg["prefix"])
+                if provided_code != suggested_code:
+                    raise HTTPException(
+                        status_code=403,
+                        detail="Manual Customer Code assignment is restricted to authorized roles (Managers and Administrators). System-generated codes are required for your role."
+                    )
+
+            # Syntax/length validation
+            if len(provided_code) < 2 or len(provided_code) > 50 or not re.match(r"^[A-Z0-9_\-\.]+$", provided_code):
+                raise HTTPException(
+                    status_code=400,
+                    detail="Customer code format is invalid. Must be 2-50 characters containing only alphanumeric characters, hyphens, dots, or underscores."
+                )
+
+            # Uniqueness check within active company scope
+            dup_stmt = select(Customer.id, Customer.name).where(
+                Customer.company_id == company_id,
+                Customer.code == provided_code,
+                Customer.status == "Active",
+                Customer.is_deleted == False,
+            )
+            dup_res = await self.db.execute(dup_stmt)
+            existing_cust = dup_res.first()
+            if existing_cust:
+                fresh_code = await self.preview_next_customer_code(prefix=cfg["prefix"])
+                raise HTTPException(
+                    status_code=409,
+                    detail={
+                        "error_code": "CUSTOMER_CODE_COLLISION",
+                        "message": f"Customer code '{provided_code}' is already assigned to active customer '{existing_cust[1]}' in this company.",
+                        "suggested_code": fresh_code,
+                    }
+                )
+
+            # Audit check: Was this code previously used by an inactive/deleted customer?
+            hist_stmt = select(Customer.id, Customer.name, Customer.status, Customer.is_deleted).where(
+                Customer.company_id == company_id,
+                Customer.code == provided_code,
+                (Customer.status != "Active") | (Customer.is_deleted == True),
+            )
+            hist_res = await self.db.execute(hist_stmt)
+            hist_match = hist_res.first()
+            if hist_match:
+                is_historical_reuse = True
+                historical_cust_info = hist_match
+
+            cust_dict["code"] = provided_code
+        else:
+            # Atomic sequential allocation
+            cust_dict["code"] = await self.allocate_next_customer_code(prefix=cfg["prefix"])
 
         # Clean virtual policy and control fields before database column instantiation
         cust_dict.pop("credit_limit", None)
@@ -484,7 +961,7 @@ class CrmService:
 
         db_customer = Customer(
             **cust_dict,
-            company_id=self.tenant_ctx.company_id,
+            company_id=company_id,
             branch_id=self.tenant_ctx.branch_id
         )
 
@@ -492,15 +969,47 @@ class CrmService:
             db_customer.policy = CustomerPolicy(
                 id=f"cp-{uuid.uuid4().hex[:12]}",
                 **policy_dict,
-                company_id=self.tenant_ctx.company_id,
+                company_id=company_id,
                 branch_id=self.tenant_ctx.branch_id,
             )
 
         self.db.add(db_customer)
+
+        # Audit log for historical code reuse (Rule 9)
+        if is_historical_reuse and historical_cust_info:
+            audit_log = SmritiAuditLog(
+                id=uuid.uuid4().hex[:32],
+                tenant_id=company_id,
+                entity_id=db_customer.id,
+                changed_table="customers",
+                changed_record_id=db_customer.id,
+                field_name="code",
+                old_value=f"Reused from inactive customer: {historical_cust_info[1]} (id: {historical_cust_info[0]}, status: {historical_cust_info[2]})",
+                new_value=cust_dict["code"],
+                change_type="HISTORICAL_CODE_REUSE",
+                change_reason="Explicit authorized reassignment of inactive/archived customer code",
+                change_source="CRM_CUSTOMER_CREATE",
+                changed_by=getattr(current_user, "id", "SYSTEM"),
+                changed_by_name=getattr(current_user, "username", "Unknown"),
+                changed_at=datetime.now(timezone.utc),
+            )
+            self.db.add(audit_log)
+
         try:
             await self.db.commit()
         except IntegrityError as exc:
             await self.db.rollback()
+            err_msg = str(exc.orig) if hasattr(exc, "orig") else str(exc)
+            if "uq_customers_company_code_active" in err_msg or "code" in err_msg:
+                fresh_code = await self.preview_next_customer_code(prefix=cfg["prefix"])
+                raise HTTPException(
+                    status_code=409,
+                    detail={
+                        "error_code": "CUSTOMER_CODE_COLLISION",
+                        "message": f"Customer code '{cust_dict.get('code')}' collided with a concurrently created customer in this company.",
+                        "suggested_code": fresh_code,
+                    }
+                )
             raise HTTPException(
                 status_code=409,
                 detail="Customer could not be created due to database integrity constraints or race-condition conflict."
