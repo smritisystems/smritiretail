@@ -808,7 +808,7 @@ class CanonicalSalesPostingWriter:
             company_id=company_id,
             branch_id=branch_obj.id if branch_obj else branch_id,
             invoice_no=invoice_no,
-            date=date.today(),
+            date=getattr(req, "invoice_date", None) or date.today(),
             customer_id=db_customer.id if db_customer else req.customer_id,
             customer_name=req.customer_name or (db_customer.name if db_customer else "Walk-in Customer"),
             customer_gstin=req.customer_gstin or (getattr(db_customer, "gst_number", None) or getattr(db_customer, "gstin", None) if db_customer else None),

@@ -221,6 +221,8 @@ class SalesService:
             promotion_campaign_id=getattr(invoice_in, "promotion_campaign_id", None),
             promotion_coupon_code=getattr(invoice_in, "promotion_coupon_code", None),
             promotion_coupon_id=getattr(invoice_in, "promotion_coupon_id", None),
+            # Pass explicit invoice date for backdated/bulk-import workflows
+            invoice_date=invoice_in.date if invoice_in.date else None,
         )
 
         result = await CanonicalSalesPostingWriter.post_sales_transaction(
