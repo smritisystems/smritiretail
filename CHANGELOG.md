@@ -13,6 +13,31 @@
 
 ## [6.99.1] — 2026-10-21
 
+### Inventory & Stock Ledger — Single-Door Stock Ledger Architecture & Transaction Convergence
+
+- **Single-Door Stock Ledger Service (`StockLedger.post()` / `StockLedger.post_many()`)**:
+  - Established sole, authoritative entry point for all physical inventory mutations in SMRITI Retail OS.
+  - Implemented SHA-256 dual-hash idempotency: `idempotency_key` based on business reference coordinates and `payload_hash` based on quantitative parameters, raising HTTP 409 Conflict upon payload divergence.
+  - Implemented dual-path replay lookup: partial unique index `uq_sm_company_idempotency_key` (`WHERE idempotency_key IS NOT NULL`) and legacy backward-compatible fallback lookup.
+  - Enforced atomic savepoint-guarded insertion (`session.begin_nested()`) preventing outer transaction rollback on concurrent race conditions.
+- **Deadlock-Free Canonical 3-Tier Lock Hierarchy**:
+  - Multi-item mutations acquire PostgreSQL row locks in strict deterministic global order: `Product` row -> `ProductBatchStock` row -> `Warehouse` tenant validation.
+  - Locks are sorted by composite key `(product_id, batch_no, warehouse_id)`, guaranteeing deadlock freedom under concurrent multi-terminal bursts.
+- **Decoupled Pure Synchronizer**:
+  - Removed `OPENING_STOCK` creation side-effect from `StockSynchronizer.sync_product_stock_cache()`.
+  - Replaced side-effect with `HEALTH_FINDING_UNLEDGERED_OPENING_STOCK` warning log and pure cache recomputation from ledger movements.
+  - Added explicit administrative opening stock operation `StockLedger.post_admin_opening_stock()`.
+- **Valuation Security & Pydantic Boundary Defense**:
+  - Fortified `StockMovementCreate` schema with validator rejecting client-supplied `unit_cost` with HTTP 422.
+  - Enforced typed internal dataclass `InternalCost(unit_cost, cost_source)` accepted exclusively from trusted backend callers.
+- **Comprehensive Caller Migration**:
+  - Migrated legacy callers across `inventory.py`, `sales_stock_authority.py`, `goods_receipt.py`, `stock_acct_svc.py`, `ecom_engine.py`, and `stock_audit_service.py` to route all stock movements through `StockLedger`.
+- **AST Static Analysis CI Guard**:
+  - Implemented `scripts/ci_stock_single_door_guard.py` verifying zero direct `StockMovement` instantiations, zero direct `product.stock` assignments, and zero raw `func.sum(StockMovement.quantity)` queries across 763 scanned files in `backend/app/`.
+- **Automated Verification**:
+  - Certified with 16/16 backend tests green across `test_single_door_stock_ledger.py`, `test_single_door_ast_guard.py`, and `test_phase0_synchronizer_characterization.py`.
+
+
 ### CRM & Customer 360° Dashboard — Stores, Outlets & Financial Exposure Integrity Remediation
 
 Remediated data integrity defects across the Customer 360° Dashboard workspace (`Customer360DashboardView.tsx`, `CorporateAccountHeader.tsx`, `CorporateKpiCards.tsx`, `CorporateStoreNetwork.tsx`, `CorporateStoreTypeWidget.tsx`, `CorporatePsvWidget.tsx`, `backend/app/schemas/crm.py`, and `backend/app/api/v1/crm.py`) for enterprise corporate accounts (Reliance Retail Limited `RRL-001` / `cust-rrl-192b561d`):
