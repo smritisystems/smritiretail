@@ -4,9 +4,9 @@
   Designation  : Chief Systems Architect & Creator
   Email        : support@smritibooks.com
   Websites     : smritibooks.com | erpnbook.com | aitdl.com
-  Version      : 6.69.0
+  Version      : 6.99.1
   Created      : 2026-07-11
-  Modified     : 2026-10-17
+  Modified     : 2026-10-21
   Copyright    : © SMRITIBooks.com. All Rights Reserved.
   License      : Proprietary Commercial Software
   Classification: Internal
@@ -16,6 +16,7 @@
 
 This directory contains formal, version-controlled implementation plans for SMRITI Retail OS modules and core system enhancements.
 
+| 2026-10-21 | v6.99.1 | **[CRM & Customer 360: Stores, Outlets & Financial Exposure Integrity Remediation Plan](./crm/CRM_Customer_360_Stores_Outlets_Integrity_Remediation_Plan_v6.99.1.md)** | `backend/app/schemas/crm.py`, `backend/app/api/v1/crm.py`, `src/components/customer/corporate360/Customer360DashboardView.tsx`, `src/components/customer/corporate360/CorporateAccountHeader.tsx`, `src/components/customer/corporate360/CorporateKpiCards.tsx`, `src/components/customer/corporate360/CorporateStoreNetwork.tsx`, `src/tests/customer360DashboardView.test.tsx` | Completed | [Walkthrough](../walkthrough/crm/CRM_Customer_360_Stores_Outlets_Integrity_Remediation_v6.99.1.md) |
 | 2026-10-20 | v6.99.0 | **[Inventory: Stock Movement Validation & Reconciliation Audit Implementation Plan](./inventory/Inventory_Stock_Movement_Validation_And_Reconciliation_Audit_Plan_v6.99.0.md)** | `backend/app/services/stock_reconciliation_engine.py`, `backend/app/services/stock_synchronizer.py`, `backend/app/services/sales_ledger_svc.py`, `backend/app/services/lifecycle/handlers/goods_receipt.py`, `backend/app/api/v1/inventory.py`, `backend/app/cli/commands/stock_cmd.py`, `src/components/inventory/StockReconciliationAuditModal.tsx`, `backend/app/tests/test_stock_movement_reconciliation_audit.py` | Approved | [Walkthrough](../walkthrough/inventory/Inventory_Stock_Movement_Validation_And_Reconciliation_Audit_Walkthrough_v6.99.0.md) |
 | 2026-10-20 | v1.0.0 | **[CRM & Customer Master: Governed Master Lookup Integration for Customer Creation Plan](./crm/Customer_Creation_Governed_Master_Lookup_Integration_Plan_v1.0.0.md)** | `src/components/customer/CustMasterWs.tsx`, `backend/app/api/v1/crm.py`, `src/components/itemMaster/GovernedLookupCombobox.tsx`, `src/components/customer/corporate360/Customer360DashboardView.tsx`, `src/components/customer/CustFormTab.tsx`, `src/tests/customerGovernedMasterLookup.test.tsx` | Approved | [Walkthrough](../walkthrough/crm/Customer_Creation_Governed_Master_Lookup_Integration_v1.0.0.md) |
 | 2026-10-20 | v1.0.0 | **[CRM & Master Lookup: Customer Code Configurable Assignment Policy (Hybrid Mode) Plan](./crm/Customer_Code_Configurable_Assignment_Policy_Plan_v1.0.0.md)** | `backend/app/api/v1/crm.py`, `backend/app/services/crm.py`, `backend/app/tests/test_customer_code_policy_db.py`, `src/components/customer/CustFormTab.tsx`, `src/components/customer/corporate360/Customer360DashboardView.tsx`, `src/components/customer/lifecycle/CreateCustomerModal.tsx`, `src/tests/customerCodeAssignmentPolicy.test.tsx` | Completed | [Walkthrough](../walkthrough/crm/Customer_Code_Configurable_Assignment_Policy_v1.0.0.md) |

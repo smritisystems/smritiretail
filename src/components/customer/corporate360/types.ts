@@ -181,8 +181,13 @@ export interface CategoryShareItem {
 export interface CorporateCustomer360Data {
   customer: Customer & {
     customer_type?: string;
-    credit_limit?: number;
-    credit_days?: number;
+    credit_limit?: number | string;
+    creditLimit?: number | string;
+    credit_days?: number | string;
+    creditDays?: number | string;
+    outstanding?: number | string;
+    credit_used?: number | string;
+    creditUsed?: number | string;
     payment_term?: string;
     payment_terms?: string;
     price_group?: string;

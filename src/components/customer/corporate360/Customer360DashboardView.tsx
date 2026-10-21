@@ -130,9 +130,9 @@ export const Customer360DashboardView: React.FC<Customer360DashboardViewProps> =
         : propCustomer?.registeredAddress || propCustomer?.registered_address || "3rd Floor, Corporate Office, MMRDA Building, Bandra-Kurla Complex, Mumbai - 400051, Maharashtra, India",
     defaultPriceList: propCustomer?.defaultPriceList || propCustomer?.priceListName || propCustomer?.price_list_id || "Reliance Corporate",
     paymentTerms: propCustomer?.paymentTerms || propCustomer?.payment_terms || (propCustomer?.creditDays ? `${propCustomer.creditDays} Days` : ((propCustomer as any)?.credit_days ? `${(propCustomer as any).credit_days} Days` : "30 Days")),
-    creditLimit: propCustomer?.creditLimit !== undefined ? String(propCustomer.creditLimit) : (propCustomer?.credit_limit !== undefined ? String(propCustomer.credit_limit) : (corporate360Data?.customer?.credit_limit !== undefined ? String(corporate360Data.customer.credit_limit) : "5,00,00,000")),
-    creditDays: propCustomer?.creditDays ? String(propCustomer.creditDays) : ((propCustomer as any)?.credit_days ? String((propCustomer as any).credit_days) : (corporate360Data?.customer?.credit_days ? String(corporate360Data.customer.credit_days) : "30")),
-    outstanding: propCustomer?.outstanding !== undefined ? String(propCustomer.outstanding) : (propCustomer?.creditUsed !== undefined ? String(propCustomer.creditUsed) : "2,15,43,250"),
+    creditLimit: propCustomer?.creditLimit !== undefined ? String(propCustomer.creditLimit) : (propCustomer?.credit_limit !== undefined ? String(propCustomer.credit_limit) : (corporate360Data?.customer?.creditLimit !== undefined ? String(corporate360Data.customer.creditLimit) : (corporate360Data?.customer?.credit_limit !== undefined ? String(corporate360Data.customer.credit_limit) : "0"))),
+    creditDays: propCustomer?.creditDays ? String(propCustomer.creditDays) : ((propCustomer as any)?.credit_days ? String((propCustomer as any).credit_days) : (corporate360Data?.customer?.creditDays ? String(corporate360Data.customer.creditDays) : (corporate360Data?.customer?.credit_days ? String(corporate360Data.customer.credit_days) : "0"))),
+    outstanding: propCustomer?.outstanding !== undefined ? String(propCustomer.outstanding) : (propCustomer?.creditUsed !== undefined ? String(propCustomer.creditUsed) : (corporate360Data?.customer?.outstanding !== undefined ? String(corporate360Data.customer.outstanding) : (corporate360Data?.customer?.creditUsed !== undefined ? String(corporate360Data.customer.creditUsed) : (corporate360Data?.customer?.credit_used !== undefined ? String(corporate360Data.customer.credit_used) : "0")))),
     salesPerson: "Corporate Sales",
     currency: propCustomer?.currency || "INR",
   });
@@ -155,7 +155,7 @@ export const Customer360DashboardView: React.FC<Customer360DashboardViewProps> =
         paymentTerms: cust.paymentTerms || cust.payment_terms || (cust.creditDays ? `${cust.creditDays} Days` : ((cust as any)?.credit_days ? `${(cust as any).credit_days} Days` : prev.paymentTerms)),
         creditLimit: cust.creditLimit !== undefined ? String(cust.creditLimit) : (cust.credit_limit !== undefined ? String(cust.credit_limit) : prev.creditLimit),
         creditDays: cust.creditDays ? String(cust.creditDays) : ((cust as any)?.credit_days ? String((cust as any).credit_days) : prev.creditDays),
-        outstanding: cust.outstanding !== undefined ? String(cust.outstanding) : (cust.creditUsed !== undefined ? String(cust.creditUsed) : prev.outstanding),
+        outstanding: cust.outstanding !== undefined ? String(cust.outstanding) : (cust.creditUsed !== undefined ? String(cust.creditUsed) : (cust.credit_used !== undefined ? String(cust.credit_used) : prev.outstanding)),
         currency: cust.currency || prev.currency,
       }));
     }
@@ -168,14 +168,58 @@ export const Customer360DashboardView: React.FC<Customer360DashboardViewProps> =
     (propCustomer as any)?.children?.length ??
     (propCustomer as any)?.dependants?.length ??
     (corporate360Data?.kpis as any)?.child_customers_count ??
-    (propCustomer?.childCount !== undefined ? propCustomer.childCount : 12);
+    (propCustomer?.childCount !== undefined ? propCustomer.childCount : 0);
 
-  const storesCount =
-    corporate360Data?.store_network?.length ??
-    corporate360Data?.kpis?.total_stores ??
-    propCustomer?.deliveryLocations?.length ??
-    (propCustomer as any)?.delivery_locations?.length ??
-    (propCustomer?.storesCount !== undefined ? propCustomer.storesCount : 85);
+  const liveStoreNetwork = useMemo(() => {
+    if (corporate360Data?.store_network && corporate360Data.store_network.length > 0) {
+      return corporate360Data.store_network.map((s) => ({
+        id: s.id,
+        code: s.store_code,
+        name: s.store_name,
+        location: s.city ? `${s.city}${s.state ? `, ${s.state}` : ""}` : (s.state || "—"),
+        city: s.city || "—",
+        state: s.state || "—",
+        type: s.store_type || "Store",
+        status: s.status || "Active",
+        psvStatus: s.psv_status,
+        psvValueDisplay: s.psv_value_display,
+      }));
+    }
+    const dlocs = (propCustomer?.deliveryLocations || (propCustomer as any)?.delivery_locations || []) as any[];
+    if (dlocs && dlocs.length > 0) {
+      return dlocs
+        .filter((loc) => !loc.is_deleted && !loc.isDeleted)
+        .map((loc, idx) => ({
+          id: loc.id || `loc-${idx}`,
+          code: loc.store_code || loc.storeCode || `LOC-${idx + 1}`,
+          name: loc.location_name || loc.locationName || loc.name || "Delivery Outlet",
+          location: loc.city ? `${loc.city}${loc.state ? `, ${loc.state}` : ""}` : (loc.state || "—"),
+          city: loc.city || "—",
+          state: loc.state || "—",
+          type: loc.location_type || "Store",
+          status: loc.status || (loc.is_active !== false && loc.isActive !== false ? "Active" : "Inactive"),
+          psvStatus: "Healthy",
+          psvValueDisplay: "—",
+        }));
+    }
+    return [];
+  }, [corporate360Data, propCustomer]);
+
+  const activeStoresCount = useMemo(() => {
+    if (corporate360Data?.kpis?.active_stores !== undefined) {
+      return corporate360Data.kpis.active_stores;
+    }
+    return liveStoreNetwork.filter((s) => (s.status || "").toUpperCase() === "ACTIVE").length;
+  }, [corporate360Data, liveStoreNetwork]);
+
+  const totalStoresCount = useMemo(() => {
+    if (corporate360Data?.kpis?.total_stores !== undefined) {
+      return corporate360Data.kpis.total_stores;
+    }
+    return liveStoreNetwork.length;
+  }, [corporate360Data, liveStoreNetwork]);
+
+  const storesCount = propCustomer?.storesCount !== undefined ? propCustomer.storesCount : activeStoresCount;
 
   const parsedCreditLimit = Number(String(formData.creditLimit || "").replace(/,/g, ""));
   const formattedCreditLimit = !isNaN(parsedCreditLimit) && parsedCreditLimit > 0
@@ -210,19 +254,50 @@ export const Customer360DashboardView: React.FC<Customer360DashboardViewProps> =
     }
   })();
 
-  const actualChildAccounts =
-    (propCustomer?.dependants && propCustomer.dependants.length > 0)
-      ? propCustomer.dependants
-      : (propCustomer?.children && propCustomer.children.length > 0)
-      ? propCustomer.children
-      : (corporate360Data?.store_network && corporate360Data.store_network.length > 0)
-      ? corporate360Data.store_network.slice(0, 3).map((s: any) => ({
-          name: s.store_name,
-          code: s.store_code,
-          city: s.city,
-          storesCount: 1,
-        }))
-      : [];
+  const actualChildAccounts = useMemo(() => {
+    if (propCustomer?.dependants && propCustomer.dependants.length > 0) {
+      return propCustomer.dependants;
+    }
+    if (propCustomer?.children && propCustomer.children.length > 0) {
+      return propCustomer.children;
+    }
+    if (corporate360Data?.customer?.dependants && corporate360Data.customer.dependants.length > 0) {
+      return corporate360Data.customer.dependants;
+    }
+    if (corporate360Data?.customer?.children && corporate360Data.customer.children.length > 0) {
+      return corporate360Data.customer.children;
+    }
+    return [];
+  }, [propCustomer, corporate360Data]);
+
+  const [storeSearchQuery, setStoreSearchQuery] = useState<string>("");
+  const filteredStoreNetwork = useMemo(() => {
+    const q = storeSearchQuery.trim().toLowerCase();
+    if (!q) return liveStoreNetwork;
+    return liveStoreNetwork.filter(
+      (s) =>
+        s.code.toLowerCase().includes(q) ||
+        s.name.toLowerCase().includes(q) ||
+        s.location.toLowerCase().includes(q) ||
+        s.type.toLowerCase().includes(q)
+    );
+  }, [liveStoreNetwork, storeSearchQuery]);
+
+  const liveInvoices = useMemo(() => {
+    if (corporate360Data?.recent_orders && corporate360Data.recent_orders.length > 0) {
+      return corporate360Data.recent_orders.map((o, idx) => ({
+        id: `ord-${idx}-${o.order_no}`,
+        no: o.order_no,
+        date: o.date,
+        store: liveStoreNetwork[0]?.code || "HQ-DEL",
+        storeName: liveStoreNetwork[0]?.name || "Corporate Central",
+        amount: typeof o.value === "number" ? o.value.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : String(o.value),
+        status: o.status || "Paid",
+        items: o.items_count || 1,
+      }));
+    }
+    return [];
+  }, [corporate360Data, liveStoreNetwork]);
 
   const handleFieldChange = (field: string, value: any) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
@@ -371,6 +446,24 @@ export const Customer360DashboardView: React.FC<Customer360DashboardViewProps> =
     onNotification?.("Filters Reset", "PSV Stock Visibility filters reset to default.", "info");
   };
 
+  // Sample Documents matching screenshot
+  const documents = [
+    { id: "d1", name: "GST Registration.pdf", type: "Tax Document", date: "12/04/2026" },
+    { id: "d2", name: "MSA_Reliance.pdf", type: "Agreement", date: "15/04/2026" },
+    { id: "d3", name: "PAN_Certificate.pdf", type: "KYC Document", date: "10/04/2026" },
+    { id: "d4", name: "Store_List.xlsx", type: "Reference", date: "10/05/2026" },
+    { id: "d5", name: "Commercial Terms.pdf", type: "Policy", date: "20/05/2026" },
+  ];
+
+  // Invoices (live if present, fallback for demo)
+  const fallbackInvoices = [
+    { id: "i1", no: "TT2026-2027/18", date: "15/06/2026", store: "REL-MUM-001", storeName: "Phoenix Mall", amount: "5,990.00", status: "Paid", items: 10 },
+    { id: "i2", no: "TT2026-2027/17", date: "10/06/2026", store: "REL-MUM-002", storeName: "Inorbit Mall", amount: "2,995.00", status: "Paid", items: 10 },
+    { id: "i3", no: "TT2026-2027/16", date: "28/05/2026", store: "REL-PUN-001", storeName: "Amanora Mall", amount: "2,097.00", status: "Unpaid", items: 10 },
+    { id: "i4", no: "TT2026-2027/15", date: "12/05/2026", store: "REL-AHM-001", storeName: "AlphaOne Mall", amount: "4,560.00", status: "Paid", items: 10 },
+  ];
+  const invoices = liveInvoices.length > 0 ? liveInvoices : fallbackInvoices;
+
   // Sample Addresses matching screenshot
   const billingAddresses = [
     {
@@ -415,15 +508,6 @@ export const Customer360DashboardView: React.FC<Customer360DashboardViewProps> =
     },
   ];
 
-  // Sample Stores matching screenshot
-  const storeNetwork = [
-    { id: "s1", code: "REL-MUM-001", name: "Phoenix Mall", location: "Mumbai", type: "Store", status: "Active" },
-    { id: "s2", code: "REL-MUM-002", name: "Inorbit Mall", location: "Mumbai", type: "Store", status: "Active" },
-    { id: "s3", code: "REL-PUN-001", name: "Amanora Mall", location: "Pune", type: "Store", status: "Active" },
-    { id: "s4", code: "REL-AHM-001", name: "AlphaOne Mall", location: "Ahmedabad", type: "Store", status: "Active" },
-    { id: "s5", code: "REL-BLR-001", name: "Orion Mall", location: "Bangalore", type: "Store", status: "Inactive" },
-  ];
-
   // Sample Contacts matching screenshot
   const contacts = [
     { id: "c1", name: "Amit Sharma", designation: "Purchase Head", phone: "9876543210", email: "amit@reliance.com" },
@@ -431,37 +515,11 @@ export const Customer360DashboardView: React.FC<Customer360DashboardViewProps> =
     { id: "c3", name: "Rajiv Mehta", designation: "Store Operations", phone: "9876512345", email: "rajiv@reliance.com" },
   ];
 
-  // Sample Child Customers matching screenshot
-  const childCustomers = [
-    { id: "cc1", code: "REL001-001", name: "Reliance - Phoenix Mall", storeCode: "REL-MUM-001", location: "Mumbai", status: "Active" },
-    { id: "cc2", code: "REL001-002", name: "Reliance - Inorbit Mall", storeCode: "REL-MUM-002", location: "Mumbai", status: "Active" },
-    { id: "cc3", code: "REL001-003", name: "Reliance - Amanora Mall", storeCode: "REL-PUN-001", location: "Pune", status: "Active" },
-    { id: "cc4", code: "REL001-004", name: "Reliance - AlphaOne", storeCode: "REL-AHM-001", location: "Ahmedabad", status: "Active" },
-    { id: "cc5", code: "REL001-005", name: "Reliance - Orion Mall", storeCode: "REL-BLR-001", location: "Bangalore", status: "Inactive" },
-  ];
-
-  // Sample Documents matching screenshot
-  const documents = [
-    { id: "d1", name: "GST Registration.pdf", type: "Tax Document", date: "12/04/2026" },
-    { id: "d2", name: "MSA_Reliance.pdf", type: "Agreement", date: "15/04/2026" },
-    { id: "d3", name: "PAN_Certificate.pdf", type: "KYC Document", date: "10/04/2026" },
-    { id: "d4", name: "Store_List.xlsx", type: "Reference", date: "10/05/2026" },
-    { id: "d5", name: "Commercial Terms.pdf", type: "Policy", date: "20/05/2026" },
-  ];
-
-  // Sample Invoices matching screenshot
-  const invoices = [
-    { id: "i1", no: "TT2026-2027/18", date: "15/06/2026", store: "REL-MUM-001", amount: "5,990.00", status: "Paid" },
-    { id: "i2", no: "TT2026-2027/17", date: "10/06/2026", store: "REL-MUM-002", amount: "2,995.00", status: "Paid" },
-    { id: "i3", no: "TT2026-2027/16", date: "28/05/2026", store: "REL-PUN-001", amount: "2,097.00", status: "Unpaid" },
-    { id: "i4", no: "TT2026-2027/15", date: "12/05/2026", store: "REL-AHM-001", amount: "4,560.00", status: "Paid" },
-  ];
-
   // Sample Activity matching screenshot
   const recentActivity = [
     { id: "a1", time: "15/10/2026 11:20", title: "Store Linked", desc: "REL-MUM-005 added" },
     { id: "a2", time: "12/10/2026 14:10", title: "Address Updated", desc: "New delivery address" },
-    { id: "a3", time: "05/10/2026 09:44", title: "Credit Limit Changed", desc: "₹ 3,00,00,000 → ₹ 5,00,00,000" },
+    { id: "a3", time: "05/10/2026 09:44", title: "Credit Limit Changed", desc: "Approved by Central Treasury" },
     { id: "a4", time: "02/10/2026 16:20", title: "Document Uploaded", desc: "GST Registration.pdf" },
   ];
 
@@ -644,10 +702,11 @@ export const Customer360DashboardView: React.FC<Customer360DashboardViewProps> =
 
             {/* KPI 5: Mini Sparkline Bar Chart */}
             <div className="bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/80 rounded-xl px-3 py-2 flex items-end gap-1.5 h-[58px]" title="Purchase Trend Activity">
-              {corporate360Data?.purchase_trend && corporate360Data.purchase_trend.length > 0 ? (
+              {corporate360Data?.purchase_trend &&
+              corporate360Data.purchase_trend.some((p) => (p.purchase_value || 0) > 0 || (p.orders || 0) > 0) ? (
                 (() => {
                   const maxVal = Math.max(...corporate360Data.purchase_trend.map((p) => p.purchase_value || 0), 1);
-                  return corporate360Data.purchase_trend.slice(-7).map((pt, idx) => {
+                  return corporate360Data.purchase_trend.slice(-6).map((pt, idx) => {
                     const hPct = Math.max(15, Math.min(100, Math.round(((pt.purchase_value || 0) / maxVal) * 100)));
                     return (
                       <div
@@ -660,15 +719,9 @@ export const Customer360DashboardView: React.FC<Customer360DashboardViewProps> =
                   });
                 })()
               ) : (
-                <>
-                  <div className="w-2 bg-blue-300 dark:bg-blue-600 rounded-t-xs h-[40%]" />
-                  <div className="w-2 bg-blue-400 dark:bg-blue-500 rounded-t-xs h-[65%]" />
-                  <div className="w-2 bg-blue-300 dark:bg-blue-600 rounded-t-xs h-[50%]" />
-                  <div className="w-2 bg-blue-500 dark:bg-blue-400 rounded-t-xs h-[85%]" />
-                  <div className="w-2 bg-blue-400 dark:bg-blue-500 rounded-t-xs h-[70%]" />
-                  <div className="w-2 bg-[#0066cc] dark:bg-[#8ebdf9] rounded-t-xs h-[100%]" />
-                  <div className="w-2 bg-blue-400 dark:bg-blue-500 rounded-t-xs h-[80%]" />
-                </>
+                <div className="flex items-center justify-center w-full h-full text-[10px] text-slate-400 font-medium text-center">
+                  <span>Awaiting Trend</span>
+                </div>
               )}
             </div>
           </div>
@@ -1208,35 +1261,43 @@ export const Customer360DashboardView: React.FC<Customer360DashboardViewProps> =
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                          {storeNetwork.map((st) => (
-                            <tr key={st.id} className="hover:bg-slate-50/70 dark:hover:bg-slate-800/40">
-                              <td className="py-2 px-2.5 font-mono font-bold text-[#0066cc] dark:text-[#8ebdf9]">
-                                {st.code}
-                              </td>
-                              <td className="py-2 px-2.5 font-medium">{st.name}</td>
-                              <td className="py-2 px-2">{st.location}</td>
-                              <td className="py-2 px-2">{st.type}</td>
-                              <td className="py-2 px-2">
-                                <span
-                                  className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-semibold ${
-                                    st.status === "Active"
-                                      ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 border border-emerald-200"
-                                      : "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400"
-                                  }`}
-                                >
-                                  ● {st.status}
-                                </span>
-                              </td>
-                              <td className="py-2 px-2 text-right space-x-1">
-                                <button type="button" className="text-slate-500 hover:text-blue-600 p-0.5">
-                                  <Eye size={12} />
-                                </button>
-                                <button type="button" className="text-slate-500 hover:text-slate-800 p-0.5">
-                                  <Edit size={12} />
-                                </button>
+                          {liveStoreNetwork.length > 0 ? (
+                            liveStoreNetwork.slice(0, 5).map((st) => (
+                              <tr key={st.id} className="hover:bg-slate-50/70 dark:hover:bg-slate-800/40">
+                                <td className="py-2 px-2.5 font-mono font-bold text-[#0066cc] dark:text-[#8ebdf9]">
+                                  {st.code}
+                                </td>
+                                <td className="py-2 px-2.5 font-medium">{st.name}</td>
+                                <td className="py-2 px-2">{st.location}</td>
+                                <td className="py-2 px-2">{st.type}</td>
+                                <td className="py-2 px-2">
+                                  <span
+                                    className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-semibold ${
+                                      (st.status || "").toUpperCase() === "ACTIVE"
+                                        ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 border border-emerald-200"
+                                        : "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400"
+                                    }`}
+                                  >
+                                    ● {st.status}
+                                  </span>
+                                </td>
+                                <td className="py-2 px-2 text-right space-x-1">
+                                  <button type="button" className="text-slate-500 hover:text-blue-600 p-0.5">
+                                    <Eye size={12} />
+                                  </button>
+                                  <button type="button" className="text-slate-500 hover:text-slate-800 p-0.5">
+                                    <Edit size={12} />
+                                  </button>
+                                </td>
+                              </tr>
+                            ))
+                          ) : (
+                            <tr>
+                              <td colSpan={6} className="py-6 text-center text-xs text-slate-400">
+                                No store or outlet fulfillment destinations found for this customer account.
                               </td>
                             </tr>
-                          ))}
+                          )}
                         </tbody>
                       </table>
                     </div>
@@ -1327,28 +1388,36 @@ export const Customer360DashboardView: React.FC<Customer360DashboardViewProps> =
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                          {childCustomers.map((cc) => (
-                            <tr key={cc.id} className="hover:bg-slate-50/70 dark:hover:bg-slate-800/40">
-                              <td className="py-1.5 px-1.5 font-mono font-bold text-[#0066cc] dark:text-[#8ebdf9]">
-                                {cc.code}
-                              </td>
-                              <td className="py-1.5 px-1.5 truncate max-w-[80px]" title={cc.name}>
-                                {cc.name}
-                              </td>
-                              <td className="py-1.5 px-1 font-mono text-[10px]">{cc.storeCode}</td>
-                              <td className="py-1.5 px-1">
-                                <span className="text-[9px] text-emerald-600 font-bold">● {cc.status}</span>
-                              </td>
-                              <td className="py-1.5 px-1 text-right space-x-1">
-                                <button type="button" className="text-slate-400 hover:text-blue-600">
-                                  <Edit size={10} />
-                                </button>
-                                <button type="button" className="text-slate-400 hover:text-rose-600">
-                                  <Trash2 size={10} />
-                                </button>
+                          {actualChildAccounts.length > 0 ? (
+                            actualChildAccounts.map((cc: any, idx: number) => (
+                              <tr key={cc.id || cc.code || idx} className="hover:bg-slate-50/70 dark:hover:bg-slate-800/40">
+                                <td className="py-1.5 px-1.5 font-mono font-bold text-[#0066cc] dark:text-[#8ebdf9]">
+                                  {cc.code || `CC-${idx + 1}`}
+                                </td>
+                                <td className="py-1.5 px-1.5 truncate max-w-[80px]" title={cc.name}>
+                                  {cc.name}
+                                </td>
+                                <td className="py-1.5 px-1 font-mono text-[10px]">{cc.storeCode || cc.store_code || "—"}</td>
+                                <td className="py-1.5 px-1">
+                                  <span className="text-[9px] text-emerald-600 font-bold">● {cc.status || "Active"}</span>
+                                </td>
+                                <td className="py-1.5 px-1 text-right space-x-1">
+                                  <button type="button" className="text-slate-400 hover:text-blue-600">
+                                    <Edit size={10} />
+                                  </button>
+                                  <button type="button" className="text-slate-400 hover:text-rose-600">
+                                    <Trash2 size={10} />
+                                  </button>
+                                </td>
+                              </tr>
+                            ))
+                          ) : (
+                            <tr>
+                              <td colSpan={5} className="py-4 text-center text-[11px] text-slate-400">
+                                Direct Single-Tier Account — 0 Child Accounts
                               </td>
                             </tr>
-                          ))}
+                          )}
                         </tbody>
                       </table>
                     </div>
@@ -1631,48 +1700,34 @@ export const Customer360DashboardView: React.FC<Customer360DashboardViewProps> =
                             <div className="text-[11px] font-bold text-slate-900 dark:text-white truncate">{ch.name || ch.locationName || `Child ${idx + 1}`}</div>
                             <div className="text-[9px] font-mono text-slate-500">{ch.code || ch.storeCode || `REL001-00${idx + 1}`}</div>
                             <div className="text-[9px] text-emerald-700 dark:text-emerald-300 font-semibold mt-0.5">
-                              {ch.city || "Mumbai"} · {ch.storesCount || 1} {ch.storesCount === 1 ? "Store" : "Stores"}
+                              {ch.city || "—"} · {ch.storesCount || 1} {ch.storesCount === 1 ? "Store" : "Stores"}
                             </div>
                           </div>
                         ))}
                       </div>
                     ) : (
-                      <div className="grid grid-cols-3 gap-1.5 text-center pt-1">
-                        <div className="p-2 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded-lg">
-                          <div className="text-[11px] font-bold text-slate-900 dark:text-white truncate">Phoenix Mall</div>
-                          <div className="text-[9px] font-mono text-slate-500">REL001-001</div>
-                          <div className="text-[9px] text-emerald-700 dark:text-emerald-300 font-semibold mt-0.5">
-                            Mumbai · 12 Stores
-                          </div>
-                        </div>
-
-                        <div className="p-2 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded-lg">
-                          <div className="text-[11px] font-bold text-slate-900 dark:text-white truncate">Inorbit Mall</div>
-                          <div className="text-[9px] font-mono text-slate-500">REL001-002</div>
-                          <div className="text-[9px] text-emerald-700 dark:text-emerald-300 font-semibold mt-0.5">
-                            Mumbai · 8 Stores
-                          </div>
-                        </div>
-
-                        <div className="p-2 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded-lg">
-                          <div className="text-[11px] font-bold text-slate-900 dark:text-white truncate">Amanora Mall</div>
-                          <div className="text-[9px] font-mono text-slate-500">REL001-003</div>
-                          <div className="text-[9px] text-emerald-700 dark:text-emerald-300 font-semibold mt-0.5">
-                            Pune · 10 Stores
-                          </div>
-                        </div>
+                      <div className="p-3 text-center text-xs text-slate-500 dark:text-slate-400 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-2xs">
+                        Direct Single-Tier Account (0 Child Entities Enrolled)
                       </div>
                     )}
 
                     {/* Dotted Connection to Stores */}
                     <div className="border-t border-dashed border-slate-300 dark:border-slate-700 pt-2 flex items-center justify-between text-[10px] text-slate-500 font-mono px-1">
-                      <span className="flex items-center gap-1">
-                        <Store size={10} /> Store 1 (REL-MUM-001)
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <Store size={10} /> Store 2 (REL-MUM-002)
-                      </span>
-                      <span className="text-slate-400">... ({storesCount} Total Outlets)</span>
+                      {liveStoreNetwork.length > 0 ? (
+                        <>
+                          <span className="flex items-center gap-1">
+                            <Store size={10} /> {liveStoreNetwork[0].code}
+                          </span>
+                          {liveStoreNetwork.length > 1 && (
+                            <span className="flex items-center gap-1">
+                              <Store size={10} /> {liveStoreNetwork[1].code}
+                            </span>
+                          )}
+                          <span className="text-slate-400">... ({totalStoresCount} Total Outlets)</span>
+                        </>
+                      ) : (
+                        <span className="text-slate-400 text-[10px]">No linked fulfillment destinations</span>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -2614,40 +2669,39 @@ export const Customer360DashboardView: React.FC<Customer360DashboardViewProps> =
                   <div className="w-8 h-8 rounded-lg bg-[#00355f] text-white flex items-center justify-center mx-auto">
                     <Building2 size={16} />
                   </div>
-                  <h4 className="text-xs font-bold text-slate-900 dark:text-white">Reliance Retail Limited (Parent)</h4>
+                  <h4 className="text-xs font-bold text-slate-900 dark:text-white">{formData.name} (Parent)</h4>
                   <div className="text-[11px] text-slate-500 dark:text-slate-400 font-mono">
-                    REL001 · GSTIN: 27AABCR1234F1Z5 · Total Network: 85 Stores
+                    {formData.code} · GSTIN: {formData.gstin} · Total Network: {totalStoresCount} Outlets
                   </div>
                 </div>
 
                 <div className="h-6 w-px bg-sky-300 dark:bg-sky-700 mx-auto my-1" />
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <div className="p-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl space-y-1 text-center shadow-2xs">
-                    <span className="text-[10px] uppercase font-bold text-emerald-600 block">Child Customer 01</span>
-                    <h5 className="text-xs font-bold text-slate-900 dark:text-white">Phoenix Mall</h5>
-                    <span className="text-[11px] font-mono text-slate-500 block">REL001-001 (Mumbai)</span>
-                    <span className="text-[10px] text-slate-400 block">12 Stores Linked</span>
+                {actualChildAccounts.length > 0 ? (
+                  <div className={`grid grid-cols-1 sm:grid-cols-${Math.min(actualChildAccounts.length, 3)} gap-3`}>
+                    {actualChildAccounts.slice(0, 3).map((ch: any, idx: number) => (
+                      <div key={idx} className="p-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl space-y-1 text-center shadow-2xs">
+                        <span className="text-[10px] uppercase font-bold text-emerald-600 block">Child Customer 0{idx + 1}</span>
+                        <h5 className="text-xs font-bold text-slate-900 dark:text-white">{ch.name || ch.locationName || `Child ${idx + 1}`}</h5>
+                        <span className="text-[11px] font-mono text-slate-500 block">{ch.code || ch.storeCode || `CC-00${idx + 1}`} ({ch.city || "—"})</span>
+                        <span className="text-[10px] text-slate-400 block">{ch.storesCount || 1} {ch.storesCount === 1 ? "Store" : "Stores"} Linked</span>
+                      </div>
+                    ))}
                   </div>
-                  <div className="p-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl space-y-1 text-center shadow-2xs">
-                    <span className="text-[10px] uppercase font-bold text-emerald-600 block">Child Customer 02</span>
-                    <h5 className="text-xs font-bold text-slate-900 dark:text-white">Inorbit Mall</h5>
-                    <span className="text-[11px] font-mono text-slate-500 block">REL001-002 (Mumbai)</span>
-                    <span className="text-[10px] text-slate-400 block">8 Stores Linked</span>
+                ) : (
+                  <div className="p-4 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-center space-y-1 max-w-lg mx-auto shadow-2xs">
+                    <span className="text-xs font-bold text-slate-700 dark:text-slate-200">Direct Single-Tier Corporate Hierarchy</span>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                      No subsidiary or child branch customer accounts are enrolled under this enterprise parent. All fulfillment destinations and ledger entries map directly to {formData.name}.
+                    </p>
                   </div>
-                  <div className="p-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl space-y-1 text-center shadow-2xs">
-                    <span className="text-[10px] uppercase font-bold text-emerald-600 block">Child Customer 03</span>
-                    <h5 className="text-xs font-bold text-slate-900 dark:text-white">Amanora Mall</h5>
-                    <span className="text-[11px] font-mono text-slate-500 block">REL001-003 (Pune)</span>
-                    <span className="text-[10px] text-slate-400 block">10 Stores Linked</span>
-                  </div>
-                </div>
+                )}
               </div>
 
               {/* Linked Child Customers Table */}
               <div className="space-y-3">
                 <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
-                  Child Accounts Roster ({childCustomers.length} Active Branches)
+                  Child Accounts Roster ({actualChildAccounts.length} Active Branches)
                 </h4>
                 <div className="border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden">
                   <table className="w-full text-left text-xs">
@@ -2662,24 +2716,32 @@ export const Customer360DashboardView: React.FC<Customer360DashboardViewProps> =
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                      {childCustomers.map((c) => (
-                        <tr key={c.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/40">
-                          <td className="p-3 font-mono font-bold text-[#0066cc] dark:text-[#8ebdf9]">{c.code}</td>
-                          <td className="p-3 font-semibold text-slate-900 dark:text-white">{c.name}</td>
-                          <td className="p-3 font-mono text-slate-500">{c.storeCode}</td>
-                          <td className="p-3 text-slate-600 dark:text-slate-300">{c.location}</td>
-                          <td className="p-3">
-                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                              c.status === "Active" ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300" : "bg-slate-200 text-slate-700"
-                            }`}>
-                              {c.status}
-                            </span>
-                          </td>
-                          <td className="p-3 text-right">
-                            <button type="button" className="p-1 text-slate-400 hover:text-slate-700 dark:hover:text-white"><Eye size={14} /></button>
+                      {actualChildAccounts.length > 0 ? (
+                        actualChildAccounts.map((c: any) => (
+                          <tr key={c.id || c.code} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/40">
+                            <td className="p-3 font-mono font-bold text-[#0066cc] dark:text-[#8ebdf9]">{c.code}</td>
+                            <td className="p-3 font-semibold text-slate-900 dark:text-white">{c.name}</td>
+                            <td className="p-3 font-mono text-slate-500">{c.storeCode || "—"}</td>
+                            <td className="p-3 text-slate-600 dark:text-slate-300">{c.location || c.city || "—"}</td>
+                            <td className="p-3">
+                              <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                                (c.status || "Active").toLowerCase() === "active" ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300" : "bg-slate-200 text-slate-700"
+                              }`}>
+                                {c.status || "Active"}
+                              </span>
+                            </td>
+                            <td className="p-3 text-right">
+                              <button type="button" className="p-1 text-slate-400 hover:text-slate-700 dark:hover:text-white"><Eye size={14} /></button>
+                            </td>
+                          </tr>
+                        ))
+                      ) : (
+                        <tr>
+                          <td colSpan={6} className="p-8 text-center text-slate-400">
+                            No child customer accounts enrolled under this corporate entity.
                           </td>
                         </tr>
-                      ))}
+                      )}
                     </tbody>
                   </table>
                 </div>
@@ -2696,10 +2758,10 @@ export const Customer360DashboardView: React.FC<Customer360DashboardViewProps> =
                 <div>
                   <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
                     <Store size={18} className="text-[#0066cc]" />
-                    <span>Modern Trade Stores & Outlets Network (85 Stores)</span>
+                    <span>Modern Trade Stores & Outlets Network ({activeStoresCount} Active{totalStoresCount > activeStoresCount ? ` / ${totalStoresCount} Total` : ""})</span>
                   </h3>
                   <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                    Authoritative network of 85 modern trade fulfillment destinations and retail counters.
+                    Authoritative network of {activeStoresCount} active modern trade fulfillment destinations and retail counters.
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
@@ -2707,6 +2769,8 @@ export const Customer360DashboardView: React.FC<Customer360DashboardViewProps> =
                     <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                     <input
                       type="text"
+                      value={storeSearchQuery}
+                      onChange={(e) => setStoreSearchQuery(e.target.value)}
                       placeholder="Search store code or city..."
                       className="pl-8 pr-3 py-1.5 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900"
                     />
@@ -2736,24 +2800,34 @@ export const Customer360DashboardView: React.FC<Customer360DashboardViewProps> =
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                    {storeNetwork.map((s) => (
-                      <tr key={s.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/40">
-                        <td className="p-3 font-mono font-bold text-[#0066cc] dark:text-[#8ebdf9]">{s.code}</td>
-                        <td className="p-3 font-semibold text-slate-900 dark:text-white">{s.name}</td>
-                        <td className="p-3 text-slate-600 dark:text-slate-300">{s.location}</td>
-                        <td className="p-3 text-slate-500">{s.type}</td>
-                        <td className="p-3">
-                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                            s.status === "Active" ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300" : "bg-slate-200 text-slate-700"
-                          }`}>
-                            {s.status}
-                          </span>
-                        </td>
-                        <td className="p-3 text-right">
-                          <button type="button" className="p-1 text-slate-400 hover:text-slate-700 dark:hover:text-white"><Eye size={14} /></button>
+                    {filteredStoreNetwork.length > 0 ? (
+                      filteredStoreNetwork.map((s) => (
+                        <tr key={s.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/40">
+                          <td className="p-3 font-mono font-bold text-[#0066cc] dark:text-[#8ebdf9]">{s.code}</td>
+                          <td className="p-3 font-semibold text-slate-900 dark:text-white">{s.name}</td>
+                          <td className="p-3 text-slate-600 dark:text-slate-300">{s.location}</td>
+                          <td className="p-3 text-slate-500">{s.type}</td>
+                          <td className="p-3">
+                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                              (s.status || "").toUpperCase() === "ACTIVE"
+                                ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300"
+                                : "bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300"
+                            }`}>
+                              {s.status}
+                            </span>
+                          </td>
+                          <td className="p-3 text-right">
+                            <button type="button" className="p-1 text-slate-400 hover:text-slate-700 dark:hover:text-white"><Eye size={14} /></button>
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan={6} className="p-8 text-center text-slate-400">
+                          No modern trade stores or fulfillment outlets linked to this account.
                         </td>
                       </tr>
-                    ))}
+                    )}
                   </tbody>
                 </table>
               </div>
@@ -2790,22 +2864,28 @@ export const Customer360DashboardView: React.FC<Customer360DashboardViewProps> =
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
                 <div className="p-4 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded-xl">
                   <span className="text-[11px] text-emerald-800 dark:text-emerald-300 font-semibold block">Total Credit Limit</span>
-                  <div className="text-lg font-bold font-mono text-emerald-700 dark:text-emerald-200 mt-0.5">₹ 5,00,00,000</div>
+                  <div className="text-lg font-bold font-mono text-emerald-700 dark:text-emerald-200 mt-0.5">{formattedCreditLimit}</div>
                   <span className="text-[10px] text-emerald-600 dark:text-emerald-400 block mt-1">Approved by Central Treasury</span>
                 </div>
                 <div className="p-4 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-xl">
                   <span className="text-[11px] text-amber-800 dark:text-amber-300 font-semibold block">Outstanding Exposure</span>
-                  <div className="text-lg font-bold font-mono text-amber-700 dark:text-amber-200 mt-0.5">₹ 2,15,43,250</div>
-                  <span className="text-[10px] text-amber-600 dark:text-amber-400 block mt-1">43.1% Limit Utilized</span>
+                  <div className="text-lg font-bold font-mono text-amber-700 dark:text-amber-200 mt-0.5">{formattedOutstanding}</div>
+                  <span className="text-[10px] text-amber-600 dark:text-amber-400 block mt-1">
+                    {parsedCreditLimit > 0 ? ((parsedOutstanding / parsedCreditLimit) * 100).toFixed(1) : "0.0"}% Limit Utilized
+                  </span>
                 </div>
                 <div className="p-4 bg-sky-50 dark:bg-sky-950/40 border border-sky-200 dark:border-sky-800 rounded-xl">
                   <span className="text-[11px] text-sky-800 dark:text-sky-300 font-semibold block">Available Credit</span>
-                  <div className="text-lg font-bold font-mono text-sky-700 dark:text-sky-200 mt-0.5">₹ 2,84,56,750</div>
+                  <div className="text-lg font-bold font-mono text-sky-700 dark:text-sky-200 mt-0.5">
+                    ₹ {Math.max(0, parsedCreditLimit - parsedOutstanding).toLocaleString("en-IN")}
+                  </div>
                   <span className="text-[10px] text-sky-600 dark:text-sky-400 block mt-1">Billing Permitted</span>
                 </div>
                 <div className="p-4 bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 rounded-xl">
                   <span className="text-[11px] text-blue-800 dark:text-blue-300 font-semibold block">Treasury Risk Tier</span>
-                  <div className="text-lg font-bold text-blue-700 dark:text-blue-200 mt-0.5">LOW RISK</div>
+                  <div className="text-lg font-bold text-blue-700 dark:text-blue-200 mt-0.5">
+                    {parsedOutstanding > parsedCreditLimit && parsedCreditLimit > 0 ? "OVER LIMIT" : "LOW RISK"}
+                  </div>
                   <span className="text-[10px] text-blue-600 dark:text-blue-400 block mt-1">0 Days Overdue</span>
                 </div>
               </div>
@@ -3147,7 +3227,7 @@ export const Customer360DashboardView: React.FC<Customer360DashboardViewProps> =
                 <div>
                   <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
                     <Receipt size={18} className="text-[#0066cc]" />
-                    <span>Sales Tax Invoices & Transaction History (4 Invoices)</span>
+                    <span>Sales Tax Invoices & Transaction History ({invoices.length} Invoices)</span>
                   </h3>
                   <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                     Authoritative sales documents, invoice statuses, and settlement tracking.
@@ -3181,28 +3261,36 @@ export const Customer360DashboardView: React.FC<Customer360DashboardViewProps> =
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                    {invoices.map((inv) => (
-                      <tr key={inv.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/40">
-                        <td className="p-3 font-mono font-bold text-[#0066cc] dark:text-[#8ebdf9]">{inv.no}</td>
-                        <td className="p-3 text-slate-500 font-mono">{inv.date}</td>
-                        <td className="p-3 font-mono">{inv.store}</td>
-                        <td className="p-3 font-semibold text-slate-800 dark:text-slate-200">
-                          {inv.store === "REL-MUM-001" ? "Phoenix Mall" : inv.store === "REL-MUM-002" ? "Inorbit Mall" : inv.store === "REL-PUN-001" ? "Amanora Mall" : "AlphaOne Mall"}
-                        </td>
-                        <td className="p-3 text-right font-mono">10</td>
-                        <td className="p-3 text-right font-mono font-bold text-slate-900 dark:text-white">₹ {inv.amount}</td>
-                        <td className="p-3">
-                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                            inv.status === "Paid" ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300" : "bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300"
-                          }`}>
-                            {inv.status}
-                          </span>
-                        </td>
-                        <td className="p-3 text-right">
-                          <button type="button" className="p-1 text-slate-400 hover:text-slate-700 dark:hover:text-white"><Eye size={14} /></button>
+                    {invoices.length > 0 ? (
+                      invoices.map((inv) => (
+                        <tr key={inv.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/40">
+                          <td className="p-3 font-mono font-bold text-[#0066cc] dark:text-[#8ebdf9]">{inv.no}</td>
+                          <td className="p-3 text-slate-500 font-mono">{inv.date}</td>
+                          <td className="p-3 font-mono">{inv.store}</td>
+                          <td className="p-3 font-semibold text-slate-800 dark:text-slate-200">{inv.storeName}</td>
+                          <td className="p-3 text-right font-mono">{inv.items}</td>
+                          <td className="p-3 text-right font-mono font-bold text-slate-900 dark:text-white">₹ {inv.amount}</td>
+                          <td className="p-3">
+                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                              (inv.status || "").toLowerCase() === "paid" || (inv.status || "").toLowerCase() === "completed"
+                                ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300"
+                                : "bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300"
+                            }`}>
+                              {inv.status}
+                            </span>
+                          </td>
+                          <td className="p-3 text-right">
+                            <button type="button" className="p-1 text-slate-400 hover:text-slate-700 dark:hover:text-white"><Eye size={14} /></button>
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan={8} className="p-8 text-center text-slate-400">
+                          No sales tax invoices found for this customer account.
                         </td>
                       </tr>
-                    ))}
+                    )}
                   </tbody>
                 </table>
               </div>

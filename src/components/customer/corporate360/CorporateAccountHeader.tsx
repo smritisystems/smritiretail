@@ -56,9 +56,11 @@ export const CorporateAccountHeader: React.FC<CorporateAccountHeaderProps> = ({
   const [showMoreMenu, setShowMoreMenu] = useState(false);
 
   // Formatting helpers
-  const formatCreditLimit = (val?: number) => {
-    if (!val) return "₹ 50,00,00,000";
-    return `₹ ${val.toLocaleString("en-IN", { maximumFractionDigits: 0 })}`;
+  const formatCreditLimit = (val?: number | string) => {
+    if (val === undefined || val === null || val === "" || val === 0 || val === "0") return "—";
+    const num = typeof val === "number" ? val : Number(String(val).replace(/,/g, ""));
+    if (isNaN(num)) return String(val);
+    return `₹ ${num.toLocaleString("en-IN", { maximumFractionDigits: 0 })}`;
   };
 
   return (
@@ -185,7 +187,7 @@ export const CorporateAccountHeader: React.FC<CorporateAccountHeaderProps> = ({
               <div>
                 <span className="block text-[10px] text-slate-400 uppercase tracking-wider font-semibold">Credit Limit</span>
                 <span className="font-semibold font-mono text-slate-900 dark:text-white">
-                  {formatCreditLimit(customer.credit_limit || 500000000)}
+                  {formatCreditLimit(customer.credit_limit ?? customer.creditLimit)}
                 </span>
               </div>
               <div>

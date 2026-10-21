@@ -11,6 +11,30 @@
   Classification: Internal
 -->
 
+## [6.99.1] — 2026-10-21
+
+### CRM & Customer 360° Dashboard — Stores, Outlets & Financial Exposure Integrity Remediation
+
+Remediated data integrity defects across the Customer 360° Dashboard workspace (`Customer360DashboardView.tsx`, `CorporateAccountHeader.tsx`, `CorporateKpiCards.tsx`, `CorporateStoreNetwork.tsx`, `CorporateStoreTypeWidget.tsx`, `CorporatePsvWidget.tsx`, `backend/app/schemas/crm.py`, and `backend/app/api/v1/crm.py`) for enterprise corporate accounts (Reliance Retail Limited `RRL-001` / `cust-rrl-192b561d`):
+- **Dynamic Store & Outlet Network Binding**:
+  - Removed static 85-store heading/subtitle and static Phoenix Mall mock table from production execution paths.
+  - Dynamically bound the store network table and summary cards to authoritative customer delivery locations.
+  - Filtered soft-deleted delivery locations (`is_deleted = TRUE`), accurately surfacing the 7 active non-deleted locations (3 Distribution Centers / Logistics Hubs and 4 Retail Counters) while excluding all 59 soft-deleted locations.
+- **Strict Entity Tier Separation & Authentic Empty States**:
+  - Maintained distinct entity types across customer master accounts, delivery locations, retail counters, and distribution centers without coercing delivery locations into child customers.
+  - Rendered authentic single-tier empty states (`Direct Single-Tier Account — 0 Child Accounts`) for single-tier corporate accounts with 0 child entities.
+- **Accounting Semantics Reconciliation**:
+  - Reconciled Revolving Credit Ledger Exposure (`customer.outstanding` = ₹155.24) against Total Unpaid Sales Invoice Receivables (₹275.20 across 4 invoices including POS cash underpayments) without modifying database records or hardcoding either figure.
+- **Authoritative Credit Limit Mapping**:
+  - Corrected credit limit mapping to prioritize company-specific relationship (`CustomerCompanyRelationship`) before falling back to `CustomerGroup` (₹1,00,000 / ₹9,99,99,999), permanently eliminating the ₹5,00,00,000 prototype fallback.
+- **Trailing Six Calendar Months Purchase Trend Aggregation**:
+  - Implemented SQL date aggregation over the trailing 6 calendar months using UTC PostgreSQL date boundaries, replacing the arbitrary `limit(10)` snippet.
+  - Displayed authentic `"Awaiting Trend"` empty states when insufficient purchase history exists.
+- **Component Prototype Fallback Elimination**:
+  - Eliminated hardcoded prototype fallbacks (`2318`, `2456`, `"12 Nov 2024"`, `500000000`, `1624000000`) across `CorporateAccountHeader.tsx`, `CorporateKpiCards.tsx`, `CorporateStoreNetwork.tsx`, `CorporateStoreTypeWidget.tsx`, and `CorporatePsvWidget.tsx`.
+- **Automated Verification & Regression Suite**:
+  - Certified with 31/31 Vitest tests green, 16/16 backend Pytest tests green, 11/11 architecture CI duplication checks passed, 0 `tsc --noEmit` errors, and clean Vite production build.
+
 ## [6.99.0] — 2026-10-21
 
 ### CRM & Customer 360° Dashboard — Live Portal Reconciliation & Prototype Elimination

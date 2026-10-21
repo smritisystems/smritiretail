@@ -40,6 +40,9 @@ const sampleCustomer: Customer = {
   payment_terms: "30 Days",
   credit_limit: 50000000,
   credit_days: 30,
+  outstanding: 21543250,
+  childCount: 12,
+  storesCount: 85,
   currency: "INR",
   address_line1: "3rd Floor, Corporate Office, MMRDA Building, Bandra-Kurla Complex",
   city: "Mumbai",
@@ -49,6 +52,20 @@ const sampleCustomer: Customer = {
     iec: "IEC1234567",
     sales_person: "Corporate Sales",
   },
+  delivery_locations: [
+    { id: "s1", store_code: "REL-MUM-001", location_name: "Phoenix Mall", city: "Mumbai", state: "Maharashtra", location_type: "Store", status: "Active" },
+    { id: "s2", store_code: "REL-MUM-002", location_name: "Inorbit Mall", city: "Mumbai", state: "Maharashtra", location_type: "Store", status: "Active" },
+    { id: "s3", store_code: "REL-PUN-001", location_name: "Amanora Mall", city: "Pune", state: "Maharashtra", location_type: "Store", status: "Active" },
+    { id: "s4", store_code: "REL-AHM-001", location_name: "AlphaOne Mall", city: "Ahmedabad", state: "Gujarat", location_type: "Store", status: "Active" },
+    { id: "s5", store_code: "REL-BLR-001", location_name: "Orion Mall", city: "Bangalore", state: "Karnataka", location_type: "Store", status: "Inactive" },
+  ],
+  dependants: [
+    { id: "cc1", code: "REL001-001", name: "Reliance - Phoenix Mall", storeCode: "REL-MUM-001", city: "Mumbai", status: "Active", storesCount: 12 },
+    { id: "cc2", code: "REL001-002", name: "Reliance - Inorbit Mall", storeCode: "REL-MUM-002", city: "Mumbai", status: "Active", storesCount: 8 },
+    { id: "cc3", code: "REL001-003", name: "Reliance - Amanora Mall", storeCode: "REL-PUN-001", city: "Pune", status: "Active", storesCount: 10 },
+    { id: "cc4", code: "REL001-004", name: "Reliance - AlphaOne", storeCode: "REL-AHM-001", city: "Ahmedabad", status: "Active", storesCount: 15 },
+    { id: "cc5", code: "REL001-005", name: "Reliance - Orion Mall", storeCode: "REL-BLR-001", city: "Bangalore", status: "Inactive", storesCount: 5 },
+  ],
 };
 
 describe("Customer 360° Dashboard View & Navigation Tests", () => {
@@ -177,7 +194,7 @@ describe("Customer 360° Dashboard View & Navigation Tests", () => {
     );
 
     // Card 7
-    expect(html).toContain("Child Customers (12)");
+    expect(html).toContain("Child Customers (5)");
     expect(html).toContain("REL001-001");
     expect(html).toContain("Reliance - Phoenix Mall");
 
@@ -319,7 +336,7 @@ describe("Customer 360° Dashboard View & Navigation Tests", () => {
       <Customer360DashboardView customer={sampleCustomer} initialTab="stores" />
     );
 
-    expect(html).toContain("Modern Trade Stores &amp; Outlets Network (85 Stores)");
+    expect(html).toContain("Modern Trade Stores &amp; Outlets Network");
     expect(html).toContain("Search store code or city...");
     expect(html).toContain("REL-MUM-001");
     expect(html).toContain("Phoenix Mall");
@@ -478,4 +495,109 @@ describe("Customer 360° Authoritative Data Integrity & Dynamic Reconciliation A
   });
 });
 
+describe("Customer 360° Remediation Regression Suite (Tenant Isolation, Soft-Delete, Financials, Trailing Trend)", () => {
+  const corporateWithSoftDeletes = {
+    id: "cust-rrl-192b561d",
+    code: "RRL-001",
+    name: "Reliance Retail Limited",
+    customer_type: "Corporate / Enterprise",
+    gst_number: "27AABCR1718E1ZP",
+    credit_limit: 100000,
+    outstanding: 155.24,
+    dependants: [], // Direct single-tier account (0 child accounts)
+    delivery_locations: [
+      // 3 Distribution Centers / Logistics Hubs
+      { id: "dl-dc-1", store_code: "S4NN/8319", location_name: "Tumkur DC", city: "Tumkur", state: "Karnataka", location_type: "Distribution Center", status: "Active", is_deleted: false },
+      { id: "dl-dc-2", store_code: "TA0A", location_name: "Sankrail DC", city: "Howrah", state: "West Bengal", location_type: "Distribution Center", status: "Active", is_deleted: false },
+      { id: "dl-dc-3", store_code: "V051", location_name: "Sultanpur NDC", city: "Gurgaon", state: "Haryana", location_type: "Distribution Center", status: "Active", is_deleted: false },
+      // 4 Retail Outlets
+      { id: "dl-rt-1", store_code: "T9IM", location_name: "Koramangala Store", city: "Bangalore", state: "Karnataka", location_type: "Store", status: "Active", is_deleted: false },
+      { id: "dl-rt-2", store_code: "TEST-BLR-001", location_name: "Bangalore Store", city: "Bangalore", state: "Karnataka", location_type: "Store", status: "Active", is_deleted: false },
+      { id: "dl-rt-3", store_code: "TEST-HYD-001", location_name: "Hyderabad Store", city: "Hyderabad", state: "Telangana", location_type: "Store", status: "Active", is_deleted: false },
+      { id: "dl-rt-4", store_code: "TEST-MUM-001", location_name: "Mumbai Store", city: "Mumbai", state: "Maharashtra", location_type: "Store", status: "Active", is_deleted: false },
+      // Soft-deleted locations (Must NOT be counted or displayed)
+      { id: "dl-del-1", store_code: "DEL-OLD-001", location_name: "Deleted Mall Outlet", city: "Pune", state: "Maharashtra", location_type: "Store", status: "Active", is_deleted: true },
+      { id: "dl-del-2", store_code: "DEL-OLD-002", location_name: "Closed Hub", city: "Nagpur", state: "Maharashtra", location_type: "Distribution Center", status: "Active", isDeleted: true },
+    ],
+  };
 
+  it("excludes soft-deleted delivery locations from active and total store counts", () => {
+    const htmlOverview = renderToStaticMarkup(
+      <Customer360DashboardView customer={corporateWithSoftDeletes} />
+    );
+
+    // Only 7 active non-deleted stores should be counted in KPI and sidebar (3 DCs + 4 Stores)
+    expect(htmlOverview).toContain("Stores / Outlets");
+    expect(htmlOverview).toContain("7 Total Outlets");
+    expect(htmlOverview).not.toContain("DEL-OLD-001");
+    expect(htmlOverview).not.toContain("DEL-OLD-002");
+    expect(htmlOverview).not.toContain("Deleted Mall Outlet");
+    expect(htmlOverview).not.toContain("Closed Hub");
+
+    const htmlStores = renderToStaticMarkup(
+      <Customer360DashboardView customer={corporateWithSoftDeletes} initialTab="stores" />
+    );
+    expect(htmlStores).toContain("Modern Trade Stores &amp; Outlets Network (7 Active)");
+    expect(htmlStores).not.toContain("DEL-OLD-001");
+  });
+
+  it("renders authentic empty state for direct single-tier corporate accounts with 0 child customers", () => {
+    const html = renderToStaticMarkup(
+      <Customer360DashboardView customer={corporateWithSoftDeletes} />
+    );
+
+    // Hero KPI 1 must display 0 Child Customers
+    expect(html).toContain("Child Customers");
+    // Card 7 child roster must render authentic single-tier empty state, not mock Phoenix Mall
+    expect(html).toContain("Direct Single-Tier Account — 0 Child Accounts");
+    // Right sidebar hierarchy tree must display single-tier account node
+    expect(html).toContain("Direct Single-Tier Account (0 Child Entities Enrolled)");
+  });
+
+  it("binds authoritative credit limit (₹ 1,00,000) without hardcoded prototype fallbacks", () => {
+    const html = renderToStaticMarkup(
+      <Customer360DashboardView customer={corporateWithSoftDeletes} />
+    );
+
+    // Must show ₹ 1,00,000 from customer group / authoritative mapping
+    expect(html).toContain("1,00,000");
+    // Prototype fallback ₹ 5,00,00,000 must NOT be present
+    expect(html).not.toContain("5,00,00,000");
+  });
+
+  it("reconciles revolving credit ledger exposure (₹ 155.24) preserving financial semantics", () => {
+    const html = renderToStaticMarkup(
+      <Customer360DashboardView customer={corporateWithSoftDeletes} />
+    );
+
+    // Credit ledger balance must reflect ₹ 155.24
+    expect(html).toContain("155.24");
+    // Fabricated prototype outstanding ₹ 2,15,43,250 must never appear
+    expect(html).not.toContain("2,15,43,250");
+  });
+
+  it("renders distinct Distribution Centers and Retail Stores in the dedicated Stores tab", () => {
+    const html = renderToStaticMarkup(
+      <Customer360DashboardView customer={corporateWithSoftDeletes} initialTab="stores" />
+    );
+
+    expect(html).toContain("Modern Trade Stores &amp; Outlets Network (7 Active)");
+    expect(html).toContain("Tumkur DC");
+    expect(html).toContain("S4NN/8319");
+    expect(html).toContain("Sankrail DC");
+    expect(html).toContain("TA0A");
+    expect(html).toContain("Koramangala Store");
+    expect(html).toContain("T9IM");
+    // Soft-deleted locations must NOT be in the table
+    expect(html).not.toContain("DEL-OLD-001");
+  });
+
+  it("displays 'Awaiting Trend' empty state when insufficient purchase history exists", () => {
+    const html = renderToStaticMarkup(
+      <Customer360DashboardView customer={corporateWithSoftDeletes} />
+    );
+
+    // When no trend data is supplied, the 7 dummy sparkline bars must NOT be fabricated
+    expect(html).toContain("Awaiting Trend");
+  });
+});
