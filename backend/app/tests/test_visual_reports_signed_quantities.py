@@ -267,7 +267,7 @@ async def test_visual_reports_signed_quantities_and_timeline_reconciliation(db_s
 
     # Check reconciliation status (cached stock 65 matches on-hand 65)
     assert summary.is_reconciled is True, "Expected is_reconciled to be True"
-    assert "100% Reconciled" in summary.reconciliation_status, f"Unexpected status: {summary.reconciliation_status}"
+    assert summary.reconciliation_status in ("All clear", "100% Reconciled (0 Drift)"), f"Unexpected status: {summary.reconciliation_status}"
 
 
 @pytest.mark.asyncio

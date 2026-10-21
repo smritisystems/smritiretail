@@ -129,5 +129,5 @@ class VisualReportsSummaryResponse(BaseModel):
     fulfillment_stream: List[FulfillmentStreamItem]
     config: DashboardConfigPayload
     is_reconciled: bool = True
-    reconciliation_status: str = "100% Reconciled (0 Drift)"
+    reconciliation_status: str = "All clear"
     drift_quantity: float = 0.0
