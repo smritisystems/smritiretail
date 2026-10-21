@@ -12,6 +12,7 @@ License      : Proprietary Commercial Software
 Classification: Centralized Stock Synchronization & Source-of-Truth Engine
 """
 
+import logging
 from decimal import Decimal
 
 from pydantic import BaseModel
@@ -19,42 +20,14 @@ from sqlalchemy import func, select, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..models.inventory import Product, ProductBatchStock, StockMovement
+from .stock_movement_types import (
+    INFLOW_MOVEMENT_TYPES,
+    OUTFLOW_MOVEMENT_TYPES,
+    SIGNED_MOVEMENT_TYPES,
+    ALL_MOVEMENT_TYPES,
+)
 
-INFLOW_MOVEMENT_TYPES = {
-    "IN",
-    "INWARD",
-    "INWARD_PURCHASE",
-    "INWARD_GRN",
-    "GRN",
-    "RETURN_INWARD",
-    "SALES_RETURN",
-    "ADJUSTMENT_IN",
-    "TRANSFER_IN",
-    "INWARD_SURPLUS",
-    "OPENING_STOCK",
-    "INWARD_INITIAL",
-    "SALES_CANCEL",
-    "PURCHASE",
-    "RETURN",
-}
-
-OUTFLOW_MOVEMENT_TYPES = {
-    "OUT",
-    "OUTWARD",
-    "OUTWARD_SALE",
-    "SALE",
-    "ADJUSTMENT_OUT",
-    "TRANSFER_OUT",
-    "RETURN_OUTWARD",
-    "PURCHASE_RETURN",
-    "OUTWARD_LOSS",
-    "OUTWARD_DISPATCH",
-    "POS_SALE",
-    "OUTWARD_ECOM",
-    "DISPATCH",
-    "DAMAGE",
-    "WRITE_OFF",
-}
+logger = logging.getLogger("smriti.stock_synchronizer")
 
 
 class StockDriftRecord(BaseModel):
@@ -194,8 +167,14 @@ class StockSynchronizer:
                     computed += abs(qty_val)
                 elif mtype in OUTFLOW_MOVEMENT_TYPES:
                     computed -= abs(qty_val)
-                elif mtype in ("ADJUSTMENT", "STOCK_ADJUSTMENT", "TRANSFER", "STOCK_TRANSFER"):
+                elif mtype in SIGNED_MOVEMENT_TYPES:
                     computed += qty_val
+                else:
+                    logger.error(
+                        f"UNCLASSIFIED_MOVEMENT_TYPE: Unknown movement_type '{m.movement_type}' "
+                        f"on StockMovement '{m.id}' for product '{product_id}'! Raising error to prevent silent cache corruption."
+                    )
+                    raise ValueError(f"Unclassified movement_type '{m.movement_type}' on StockMovement '{m.id}'")
             authoritative_stock = computed
 
         # Update cached materialized stock
@@ -296,8 +275,14 @@ class StockSynchronizer:
                         auth_qty += abs(qty_val)
                     elif mtype in OUTFLOW_MOVEMENT_TYPES:
                         auth_qty -= abs(qty_val)
-                    elif mtype in ("ADJUSTMENT", "STOCK_ADJUSTMENT", "TRANSFER", "STOCK_TRANSFER"):
+                    elif mtype in SIGNED_MOVEMENT_TYPES:
                         auth_qty += qty_val
+                    else:
+                        logger.error(
+                            f"UNCLASSIFIED_MOVEMENT_TYPE: Unknown movement_type '{m.movement_type}' "
+                            f"on StockMovement '{m.id}' for product '{p.id}'! Raising error."
+                        )
+                        raise ValueError(f"Unclassified movement_type '{m.movement_type}' on StockMovement '{m.id}'")
 
             cached_qty = Decimal(str(p.stock or 0))
             drift = cached_qty - auth_qty
