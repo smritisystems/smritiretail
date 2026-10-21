@@ -284,11 +284,36 @@ class SalesStockAuthority:
                     ProductBatchStock.product_id == product_id,
                     ProductBatchStock.batch_no == batch_no,
                     ProductBatchStock.is_deleted.is_(False),
-                ).with_for_update()
+                )
+                if warehouse_id:
+                    batch_stmt = batch_stmt.where(ProductBatchStock.warehouse_id == warehouse_id)
+                batch_stmt = batch_stmt.with_for_update()
                 batch_obj = (await session.execute(batch_stmt)).scalars().first()
+                if not batch_obj and warehouse_id:
+                    batch_fallback_stmt = select(ProductBatchStock).where(
+                        ProductBatchStock.company_id == tenant_ctx.company_id,
+                        ProductBatchStock.product_id == product_id,
+                        ProductBatchStock.batch_no == batch_no,
+                        ProductBatchStock.is_deleted.is_(False),
+                    ).with_for_update()
+                    batch_obj = (await session.execute(batch_fallback_stmt)).scalars().first()
+
                 if batch_obj:
                     batch_obj.quantity += qty
                     batch_obj.modified_at = datetime.now(timezone.utc)
+                    session.add(batch_obj)
+                elif warehouse_id:
+                    new_batch_id = f"pbs_{uuid.uuid4().hex[:12]}"
+                    batch_obj = ProductBatchStock(
+                        id=new_batch_id,
+                        company_id=tenant_ctx.company_id,
+                        branch_id=tenant_ctx.branch_id,
+                        warehouse_id=warehouse_id,
+                        product_id=product_id,
+                        batch_no=batch_no,
+                        quantity=qty,
+                        is_active=True,
+                    )
                     session.add(batch_obj)
 
             # 4. Resolve Historical Cost (Tier 1: Original Invoice Snapshot, Tier 2: ProductCostValuation, Tier 3: Product.cost_price)

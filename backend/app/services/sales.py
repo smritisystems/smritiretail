@@ -1309,7 +1309,6 @@ class SalesService:
             tax_total = Decimal("0.00")
             grand_total = Decimal("0.00")
             sr_items = []
-            product_stock_updates = []
 
             successful_statuses = {"approved", "processed", "completed", "submitted", "draft"}
             returned_quantities_by_product = {}
@@ -1439,7 +1438,6 @@ class SalesService:
                     tax_amount=item_tax,
                     total_amount=item_total
                 ))
-                product_stock_updates.append((product, item.quantity, inv_item_id_val))
 
             # Check supervisor authorization threshold if applicable
             auth_policy = policy.values.get("authorization_policy")
@@ -1504,128 +1502,6 @@ class SalesService:
             )
 
             _ret_creator = getattr(self.tenant_ctx, "user_id", None) or "system"
-            resolver = InventoryWarehouseResolver(self.db)
-
-            # Apply stock increments and record StockMovement (RETURN_INWARD)
-            for product, qty, inv_item_id in product_stock_updates:
-                if product.tracking_mode != "No-stock":
-                    movement_id = IdentityEngine.generate_technical_id()
-                    resolved_warehouse = await resolver.resolve(company_id=self.tenant_ctx.company_id, branch_id=self.tenant_ctx.branch_id)
-                    resolved_cost = Decimal("0.00")
-                    val_source = "UNRESOLVED_ZERO_COST"
-
-                    # Tier 1: Historical TransactionCostSnapshot from original sales invoice
-                    if db_sr.original_invoice_id:
-                        from ..models.profitability import TransactionCostSnapshot
-                        snap = None
-                        if inv_item_id:
-                            snap_stmt = (
-                                select(TransactionCostSnapshot)
-                                .where(
-                                    TransactionCostSnapshot.sales_invoice_id == db_sr.original_invoice_id,
-                                    TransactionCostSnapshot.sales_invoice_item_id == str(inv_item_id),
-                                    TransactionCostSnapshot.company_id == self.tenant_ctx.company_id,
-                                    TransactionCostSnapshot.is_deleted == False,
-                                )
-                            )
-                            snap = (await self.db.execute(snap_stmt)).scalars().first()
-
-                        if snap and snap.cost_per_unit is not None and Decimal(str(snap.cost_per_unit)) > Decimal("0.00"):
-                            resolved_cost = Decimal(str(snap.cost_per_unit)).quantize(Decimal("0.01"))
-                            val_source = f"HISTORICAL_SNAPSHOT ({snap.valuation_method_used or 'EXACT_LINE'})"
-                        else:
-                            # Exact line not provided or not matched; inspect all snapshots for this SKU on the invoice
-                            snaps_stmt = (
-                                select(TransactionCostSnapshot)
-                                .where(
-                                    TransactionCostSnapshot.sales_invoice_id == db_sr.original_invoice_id,
-                                    TransactionCostSnapshot.product_id == product.id,
-                                    TransactionCostSnapshot.company_id == self.tenant_ctx.company_id,
-                                    TransactionCostSnapshot.is_deleted == False,
-                                )
-                            )
-                            snaps = (await self.db.execute(snaps_stmt)).scalars().all()
-                            if len(snaps) == 1 and snaps[0].cost_per_unit is not None and Decimal(str(snaps[0].cost_per_unit)) > Decimal("0.00"):
-                                resolved_cost = Decimal(str(snaps[0].cost_per_unit)).quantize(Decimal("0.01"))
-                                val_source = f"HISTORICAL_SNAPSHOT ({snaps[0].valuation_method_used or 'SINGLE_LINE'})"
-                            elif len(snaps) > 1 and len({Decimal(str(s.cost_per_unit)) for s in snaps if s.cost_per_unit}) == 1:
-                                resolved_cost = Decimal(str(snaps[0].cost_per_unit)).quantize(Decimal("0.01"))
-                                val_source = f"HISTORICAL_SNAPSHOT ({snaps[0].valuation_method_used or 'UNIFORM_COST_LINES'})"
-                            elif len(snaps) > 1:
-                                # Multi-line invoice with distinct costs and no exact line link:
-                                # NEVER silently pick an arbitrary latest snapshot; explicitly flag fallback as provisional.
-                                logger.warning(
-                                    "[SMRITI-COST-002] Multi-line return for product %s on invoice %s missing exact line item linkage. Fallback marked as PROVISIONAL_AMBIGUOUS_LINE_FALLBACK.",
-                                    product.id,
-                                    db_sr.original_invoice_id,
-                                )
-
-                    # Tier 2: Unlinked Return Policy or fallback to CostManagementEngine
-                    if resolved_cost <= Decimal("0.00"):
-                        from .cost_engine import CostManagementEngine
-                        cogs_cost, cogs_m = await CostManagementEngine.resolve_cogs_unit_cost(
-                            session=self.db,
-                            company_id=self.tenant_ctx.company_id,
-                            product_id=product.id,
-                        )
-                        if cogs_cost > Decimal("0.00"):
-                            resolved_cost = cogs_cost
-                            if not db_sr.original_invoice_id:
-                                val_source = f"UNLINKED_RETURN_POLICY ({cogs_m})"
-                            else:
-                                val_source = f"PROVISIONAL_AMBIGUOUS_LINE_FALLBACK ({cogs_m})"
-                        else:
-                            val_source = "UNRESOLVED_ZERO_COST"
-                            logger.warning(
-                                "[SMRITI-COST-001] Missing or zero cost for product %s on return %s. Valuation recorded as 0.00 with UNRESOLVED_ZERO_COST flag.",
-                                product.id,
-                                db_sr.return_no,
-                            )
-                    db_movement = StockMovement(
-                        id=movement_id,
-                        uuid=movement_id,
-                        product_id=product.id,
-                        product_name=product.name,
-                        sku=product.sku or product.code,
-                        quantity=qty,
-                        movement_type="RETURN_INWARD",
-                        reference_doc_type="Sales Return",
-                        reference_doc_id=db_sr.id,
-                        warehouse_id=resolved_warehouse.id,
-                        warehouse=resolved_warehouse.name,
-                        unit_cost=resolved_cost,
-                        remarks=f"Stock incremented for sales return: {db_sr.return_no} [Valuation: {val_source}]",
-                        source_module="Sales",
-                        company_id=self.tenant_ctx.company_id,
-                        branch_id=self.tenant_ctx.branch_id
-                    )
-                    self.db.add(db_movement)
-                    await self.db.flush()
-
-                    # Synchronize cached aggregate via canonical StockSynchronizer
-                    from .stock_synchronizer import StockSynchronizer
-                    await StockSynchronizer.sync_product_stock_cache(self.db, product.id, self.tenant_ctx.company_id)
-                    product.modified_at = datetime.now(timezone.utc)
-                    self.db.add(product)
-
-                    # Record INVENTORY_POSTED audit event
-                    await ComplianceAuditService.record_audit_event(
-                        session=self.db,
-                        company_id=self.tenant_ctx.company_id,
-                        branch_id=self.tenant_ctx.branch_id,
-                        event_type="INVENTORY_POSTED",
-                        entity_name="StockMovement",
-                        entity_id=movement_id,
-                        actor_user_id=_ret_creator,
-                        action_summary=f"Restocked {qty} units of {product.name} ({product.code}) via RETURN_INWARD for {db_sr.return_no}",
-                        after_state={
-                            "product_id": product.id,
-                            "sku": product.sku or product.code,
-                            "quantity": float(qty),
-                            "movement_type": "RETURN_INWARD",
-                            "return_id": db_sr.id,
-                        },
-                    )
 
             # Process authoritative refund effect via SalesReturnRefundAdapter
             await SalesReturnRefundAdapter.process_sales_return_refund(
