@@ -13,6 +13,7 @@ Classification: Canonical Visual Reports Dashboard Service
 Capability    : @SmritiCapability("REPORTS", "VISUAL_REPORTS_SERVICE")
 """
 
+import logging
 import uuid
 from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
@@ -41,27 +42,13 @@ from .stock_movement_types import (
     OUTFLOW_MOVEMENT_TYPES,
     SIGNED_MOVEMENT_TYPES,
 )
+from .stock_ledger_query import (
+    get_signed_movement_quantity_expr,
+    audit_unclassified_movements,
+)
+from .stock_synchronizer import StockSynchronizer
 
-
-def get_signed_movement_quantity_expr(
-    quantity_col=StockMovement.quantity,
-    type_col=StockMovement.movement_type,
-):
-    """
-    Returns a SQL CASE expression computing the signed quantity based on movement_type:
-    - INFLOW: +abs(quantity)
-    - OUTFLOW: -abs(quantity)
-    - SIGNED: quantity as stored
-    - Other/unknown: Decimal('0')
-    Matches StockSynchronizer.sync_product_stock_cache logic exactly.
-    """
-    upper_type = func.upper(func.coalesce(type_col, ""))
-    return case(
-        (upper_type.in_(tuple(INFLOW_MOVEMENT_TYPES)), func.abs(quantity_col)),
-        (upper_type.in_(tuple(OUTFLOW_MOVEMENT_TYPES)), -func.abs(quantity_col)),
-        (upper_type.in_(tuple(SIGNED_MOVEMENT_TYPES)), quantity_col),
-        else_=Decimal("0"),
-    )
+logger = logging.getLogger("smriti.visual_reports")
 
 
 class VisualReportsService:
@@ -116,6 +103,9 @@ class VisualReportsService:
         e_date = end_date or today
         s_date = start_date or (e_date - timedelta(days=29))
 
+        # Audit unclassified movement types (logs ERROR and surfaces counts)
+        await audit_unclassified_movements(session, company_id, store_location_id)
+
         # 1. Authoritative Company Name from database
         comp_name_res = (await session.execute(text("SELECT name FROM companies WHERE id = :cid"), {"cid": company_id})).scalar()
         company_name = comp_name_res or company_id
@@ -144,48 +134,58 @@ class VisualReportsService:
                 - SalesOrderReservation.released_quantity
                 - SalesOrderReservation.consumed_quantity
             ), 0))
-            .where(SalesOrderReservation.company_id == company_id, SalesOrderReservation.status == "ACTIVE")
+            .where(
+                SalesOrderReservation.company_id == company_id,
+                SalesOrderReservation.is_deleted == False,
+                SalesOrderReservation.status.in_(("ACTIVE", "PARTIAL")),
+            )
         )
+        if store_location_id and store_location_id != "All Locations":
+            stmt_reserved = stmt_reserved.where(
+                or_(
+                    SalesOrderReservation.warehouse_id == store_location_id,
+                    SalesOrderReservation.branch_id == store_location_id,
+                )
+            )
         total_reserved = float((await session.execute(stmt_reserved)).scalar() or 0)
 
         # 4. Available Stock
         total_available = max(0.0, total_on_hand - total_reserved)
 
-        # 5. Live Document Counts filtered by Selected Date Range & Excluding Invalid Invoices
-        start_dt = datetime.combine(s_date, datetime.min.time(), tzinfo=timezone.utc)
-        end_dt = datetime.combine(e_date, datetime.max.time(), tzinfo=timezone.utc)
-
+        # 5. Live Document Counts filtered by Selected Date Range & Excluding Invalid Invoices (Null-safe + Business Date)
         stmt_so = select(func.count(SalesOrder.id)).where(
             SalesOrder.company_id == company_id,
             SalesOrder.is_deleted == False,
-            SalesOrder.created_at >= start_dt,
-            SalesOrder.created_at <= end_dt,
+            SalesOrder.date >= s_date,
+            SalesOrder.date <= e_date,
         )
         so_count = (await session.execute(stmt_so)).scalar() or 0
 
+        ps_date_expr = cast(func.timezone("Asia/Kolkata", PackingSlip.created_at), Date)
         stmt_slips = select(func.count(PackingSlip.id)).where(
             PackingSlip.company_id == company_id,
             PackingSlip.is_deleted == False,
-            PackingSlip.status.notin_(("CANCELLED", "Cancelled")),
-            PackingSlip.created_at >= start_dt,
-            PackingSlip.created_at <= end_dt,
+            or_(PackingSlip.status.is_(None), func.upper(PackingSlip.status).notin_(("CANCELLED",))),
+            ps_date_expr >= s_date,
+            ps_date_expr <= e_date,
         )
         ps_count = (await session.execute(stmt_slips)).scalar() or 0
 
+        ds_date_expr = cast(func.timezone("Asia/Kolkata", Dispatch.created_at), Date)
         stmt_dispatches = select(func.count(Dispatch.id)).where(
             Dispatch.company_id == company_id,
             Dispatch.is_deleted == False,
-            Dispatch.created_at >= start_dt,
-            Dispatch.created_at <= end_dt,
+            ds_date_expr >= s_date,
+            ds_date_expr <= e_date,
         )
         ds_count = (await session.execute(stmt_dispatches)).scalar() or 0
 
         stmt_invoices = select(func.count(SalesInvoice.id)).where(
             SalesInvoice.company_id == company_id,
             SalesInvoice.is_deleted == False,
-            SalesInvoice.status.notin_(("Cancelled", "Draft", "CANCELLED", "DRAFT")),
-            SalesInvoice.created_at >= start_dt,
-            SalesInvoice.created_at <= end_dt,
+            or_(SalesInvoice.status.is_(None), func.upper(SalesInvoice.status).notin_(("CANCELLED", "DRAFT"))),
+            SalesInvoice.date >= s_date,
+            SalesInvoice.date <= e_date,
         )
         inv_count = (await session.execute(stmt_invoices)).scalar() or 0
 
@@ -258,27 +258,32 @@ class VisualReportsService:
             ),
         ]
 
-        # 6. Stock Flow Timeline (Running On-Hand Balance + Dispatched + Invoiced)
-        # Opening balance before start_dt
+        # 6. Stock Flow Timeline (Running On-Hand Balance + Dispatched + Invoiced + Outstanding Reservations)
+        sm_date_expr = cast(func.timezone("Asia/Kolkata", StockMovement.created_at), Date)
+
+        # Opening on-hand balance before s_date
         stmt_opening = (
             select(func.coalesce(func.sum(signed_qty_expr), 0))
             .where(
                 StockMovement.company_id == company_id,
                 StockMovement.is_deleted == False,
-                StockMovement.created_at < start_dt,
+                sm_date_expr < s_date,
             )
         )
         if store_location_id and store_location_id != "All Locations":
             stmt_opening = stmt_opening.where(
-                or_(StockMovement.warehouse_id == store_location_id, StockMovement.location_id == store_location_id)
+                or_(
+                    StockMovement.warehouse_id == store_location_id,
+                    StockMovement.location_id == store_location_id,
+                    StockMovement.branch_id == store_location_id,
+                )
             )
         opening_balance = float((await session.execute(stmt_opening)).scalar() or 0)
 
         # Daily movements within requested window
-        date_col = cast(StockMovement.created_at, Date)
         stmt_daily_moves = (
             select(
-                date_col.label("m_date"),
+                sm_date_expr.label("m_date"),
                 func.coalesce(func.sum(signed_qty_expr), 0).label("daily_net"),
                 func.coalesce(
                     func.sum(
@@ -293,43 +298,73 @@ class VisualReportsService:
             .where(
                 StockMovement.company_id == company_id,
                 StockMovement.is_deleted == False,
-                StockMovement.created_at >= start_dt,
-                StockMovement.created_at <= end_dt,
+                sm_date_expr >= s_date,
+                sm_date_expr <= e_date,
             )
         )
         if store_location_id and store_location_id != "All Locations":
             stmt_daily_moves = stmt_daily_moves.where(
-                or_(StockMovement.warehouse_id == store_location_id, StockMovement.location_id == store_location_id)
+                or_(
+                    StockMovement.warehouse_id == store_location_id,
+                    StockMovement.location_id == store_location_id,
+                    StockMovement.branch_id == store_location_id,
+                )
             )
-        stmt_daily_moves = stmt_daily_moves.group_by(date_col).order_by(date_col)
+        stmt_daily_moves = stmt_daily_moves.group_by(sm_date_expr).order_by(sm_date_expr)
         daily_moves_res = (await session.execute(stmt_daily_moves)).all()
         daily_moves_map = {row[0]: (float(row[1]), int(row[2])) for row in daily_moves_res}
 
-        # Daily invoices
-        inv_date_col = cast(SalesInvoice.created_at, Date)
+        # Daily invoices bucketed by business date (SalesInvoice.date)
         stmt_daily_invoices = (
             select(
-                inv_date_col.label("inv_date"),
+                SalesInvoice.date.label("inv_date"),
                 func.count(SalesInvoice.id).label("inv_count"),
             )
             .where(
                 SalesInvoice.company_id == company_id,
                 SalesInvoice.is_deleted == False,
-                SalesInvoice.status.notin_(("Cancelled", "Draft", "CANCELLED", "DRAFT")),
-                SalesInvoice.created_at >= start_dt,
-                SalesInvoice.created_at <= end_dt,
+                or_(SalesInvoice.status.is_(None), func.upper(SalesInvoice.status).notin_(("CANCELLED", "DRAFT"))),
+                SalesInvoice.date >= s_date,
+                SalesInvoice.date <= e_date,
             )
-            .group_by(inv_date_col)
-            .order_by(inv_date_col)
+            .group_by(SalesInvoice.date)
+            .order_by(SalesInvoice.date)
         )
         daily_inv_res = (await session.execute(stmt_daily_invoices)).all()
         daily_inv_map = {row[0]: int(row[1]) for row in daily_inv_res}
 
-        # Daily active reservations
-        res_date_col = cast(SalesOrderReservation.created_at, Date)
+        # Outstanding active reservations balance as of each date
+        res_date_expr = cast(func.timezone("Asia/Kolkata", SalesOrderReservation.created_at), Date)
+        stmt_res_opening = (
+            select(
+                func.coalesce(
+                    func.sum(
+                        SalesOrderReservation.reserved_quantity
+                        - SalesOrderReservation.released_quantity
+                        - SalesOrderReservation.consumed_quantity
+                    ),
+                    0,
+                )
+            )
+            .where(
+                SalesOrderReservation.company_id == company_id,
+                SalesOrderReservation.is_deleted == False,
+                SalesOrderReservation.status.in_(("ACTIVE", "PARTIAL")),
+                res_date_expr < s_date,
+            )
+        )
+        if store_location_id and store_location_id != "All Locations":
+            stmt_res_opening = stmt_res_opening.where(
+                or_(
+                    SalesOrderReservation.warehouse_id == store_location_id,
+                    SalesOrderReservation.branch_id == store_location_id,
+                )
+            )
+        opening_res = float((await session.execute(stmt_res_opening)).scalar() or 0)
+
         stmt_daily_res = (
             select(
-                res_date_col.label("r_date"),
+                res_date_expr.label("r_date"),
                 func.coalesce(
                     func.sum(
                         SalesOrderReservation.reserved_quantity
@@ -341,19 +376,28 @@ class VisualReportsService:
             )
             .where(
                 SalesOrderReservation.company_id == company_id,
-                SalesOrderReservation.status == "ACTIVE",
-                SalesOrderReservation.created_at >= start_dt,
-                SalesOrderReservation.created_at <= end_dt,
+                SalesOrderReservation.is_deleted == False,
+                SalesOrderReservation.status.in_(("ACTIVE", "PARTIAL")),
+                res_date_expr >= s_date,
+                res_date_expr <= e_date,
             )
-            .group_by(res_date_col)
-            .order_by(res_date_col)
+            .group_by(res_date_expr)
+            .order_by(res_date_expr)
         )
+        if store_location_id and store_location_id != "All Locations":
+            stmt_daily_res = stmt_daily_res.where(
+                or_(
+                    SalesOrderReservation.warehouse_id == store_location_id,
+                    SalesOrderReservation.branch_id == store_location_id,
+                )
+            )
         daily_res_res = (await session.execute(stmt_daily_res)).all()
-        daily_res_map = {row[0]: int(row[1]) for row in daily_res_res}
+        daily_res_map = {row[0]: float(row[1]) for row in daily_res_res}
 
-        # Construct running on-hand timeline
+        # Construct running on-hand and outstanding reservation timeline
         stock_flow: List[StockFlowDataPoint] = []
         running_on_hand = opening_balance
+        running_reserved = opening_res
         total_days = (e_date - s_date).days
 
         if total_days <= 90:
@@ -361,15 +405,16 @@ class VisualReportsService:
             while curr_date <= e_date:
                 d_net, d_disp = daily_moves_map.get(curr_date, (0.0, 0))
                 d_inv = daily_inv_map.get(curr_date, 0)
-                d_res = daily_res_map.get(curr_date, 0)
+                running_reserved += daily_res_map.get(curr_date, 0.0)
                 running_on_hand += d_net
-                avail = max(0, int(running_on_hand - d_res))
+                curr_res = int(round(running_reserved))
+                avail = max(0, int(round(running_on_hand - curr_res)))
                 stock_flow.append(
                     StockFlowDataPoint(
                         date=curr_date.isoformat(),
                         day_label=curr_date.strftime("%d %b"),
-                        on_hand=int(running_on_hand),
-                        reserved=int(d_res),
+                        on_hand=int(round(running_on_hand)),
+                        reserved=curr_res,
                         available=avail,
                         dispatched=int(d_disp),
                         invoiced=int(d_inv),
@@ -381,15 +426,16 @@ class VisualReportsService:
             for d in all_dates:
                 d_net, d_disp = daily_moves_map.get(d, (0.0, 0))
                 d_inv = daily_inv_map.get(d, 0)
-                d_res = daily_res_map.get(d, 0)
+                running_reserved += daily_res_map.get(d, 0.0)
                 running_on_hand += d_net
-                avail = max(0, int(running_on_hand - d_res))
+                curr_res = int(round(running_reserved))
+                avail = max(0, int(round(running_on_hand - curr_res)))
                 stock_flow.append(
                     StockFlowDataPoint(
                         date=d.isoformat() if hasattr(d, "isoformat") else str(d),
                         day_label=d.strftime("%d %b") if hasattr(d, "strftime") else str(d),
-                        on_hand=int(running_on_hand),
-                        reserved=int(d_res),
+                        on_hand=int(round(running_on_hand)),
+                        reserved=curr_res,
                         available=avail,
                         dispatched=int(d_disp),
                         invoiced=int(d_inv),
@@ -583,31 +629,31 @@ class VisualReportsService:
         ]
 
         # 11. Dispatch & Invoice Summary
-        today_dt = datetime.combine(today, datetime.min.time(), tzinfo=timezone.utc)
-        week_dt = datetime.combine(today - timedelta(days=today.weekday()), datetime.min.time(), tzinfo=timezone.utc)
-        month_dt = datetime.combine(today.replace(day=1), datetime.min.time(), tzinfo=timezone.utc)
+        ds_date_col = cast(func.timezone("Asia/Kolkata", Dispatch.created_at), Date)
+        week_start_date = today - timedelta(days=today.weekday())
+        month_start_date = today.replace(day=1)
 
-        stmt_ds_today = select(func.count(Dispatch.id)).where(Dispatch.company_id == company_id, Dispatch.is_deleted == False, Dispatch.created_at >= today_dt)
+        stmt_ds_today = select(func.count(Dispatch.id)).where(Dispatch.company_id == company_id, Dispatch.is_deleted == False, ds_date_col == today)
         ds_today = (await session.execute(stmt_ds_today)).scalar() or 0
 
-        stmt_ds_week = select(func.count(Dispatch.id)).where(Dispatch.company_id == company_id, Dispatch.is_deleted == False, Dispatch.created_at >= week_dt)
+        stmt_ds_week = select(func.count(Dispatch.id)).where(Dispatch.company_id == company_id, Dispatch.is_deleted == False, ds_date_col >= week_start_date)
         ds_week = (await session.execute(stmt_ds_week)).scalar() or 0
 
-        stmt_ds_month = select(func.count(Dispatch.id)).where(Dispatch.company_id == company_id, Dispatch.is_deleted == False, Dispatch.created_at >= month_dt)
+        stmt_ds_month = select(func.count(Dispatch.id)).where(Dispatch.company_id == company_id, Dispatch.is_deleted == False, ds_date_col >= month_start_date)
         ds_month = (await session.execute(stmt_ds_month)).scalar() or 0
 
         inv_valid_conds = [
             SalesInvoice.company_id == company_id,
             SalesInvoice.is_deleted == False,
-            SalesInvoice.status.notin_(("Cancelled", "Draft", "CANCELLED", "DRAFT")),
+            or_(SalesInvoice.status.is_(None), func.upper(SalesInvoice.status).notin_(("CANCELLED", "DRAFT"))),
         ]
-        stmt_inv_today = select(func.count(SalesInvoice.id)).where(*inv_valid_conds, SalesInvoice.created_at >= today_dt)
+        stmt_inv_today = select(func.count(SalesInvoice.id)).where(*inv_valid_conds, SalesInvoice.date == today)
         inv_today = (await session.execute(stmt_inv_today)).scalar() or 0
 
-        stmt_inv_week = select(func.count(SalesInvoice.id)).where(*inv_valid_conds, SalesInvoice.created_at >= week_dt)
+        stmt_inv_week = select(func.count(SalesInvoice.id)).where(*inv_valid_conds, SalesInvoice.date >= week_start_date)
         inv_week = (await session.execute(stmt_inv_week)).scalar() or 0
 
-        stmt_inv_month = select(func.count(SalesInvoice.id), func.coalesce(func.sum(SalesInvoice.grand_total), 0)).where(*inv_valid_conds, SalesInvoice.created_at >= month_dt)
+        stmt_inv_month = select(func.count(SalesInvoice.id), func.coalesce(func.sum(SalesInvoice.grand_total), 0)).where(*inv_valid_conds, SalesInvoice.date >= month_start_date)
         inv_month_row = (await session.execute(stmt_inv_month)).one()
         inv_month_cnt = inv_month_row[0] or 0
         inv_month_val = float(inv_month_row[1] or 0)
@@ -631,19 +677,27 @@ class VisualReportsService:
             ),
         ]
 
-        # 12. Real Drift Comparison against Product.stock Cache
-        stmt_cached_stock = select(func.coalesce(func.sum(Product.stock), 0)).where(
-            Product.company_id == company_id,
-            Product.is_deleted == False,
-        )
-        total_cached = float((await session.execute(stmt_cached_stock)).scalar() or 0)
-        drift_val = round(abs(total_on_hand - total_cached), 2)
-        is_reconciled = (drift_val == 0.0)
-        if is_reconciled:
-            reconciliation_status = "100% Reconciled (0 Drift)"
-        else:
-            match_pct = max(0.0, round((1.0 - (drift_val / max(abs(total_on_hand), 1.0))) * 100, 1))
-            reconciliation_status = f"{match_pct}% Reconciled ({int(drift_val)} Drift)"
+        # 12. Drift Calculation via StockSynchronizer.detect_stock_drift
+        try:
+            drift_records = await StockSynchronizer.detect_stock_drift(
+                session=session,
+                company_id=company_id,
+                store_location_id=store_location_id if store_location_id and store_location_id != "All Locations" else None,
+            )
+            drifting_count = len(drift_records)
+            is_reconciled = (drifting_count == 0)
+            if is_reconciled:
+                reconciliation_status = "All clear"
+            elif drifting_count == 1:
+                reconciliation_status = "1 product drifting"
+            else:
+                reconciliation_status = f"{drifting_count} products drifting"
+            drift_val = float(sum(abs(r.drift) for r in drift_records))
+        except Exception as ex:
+            logger.error(f"Failed to detect stock drift: {ex}")
+            is_reconciled = False
+            reconciliation_status = "Never run"
+            drift_val = 0.0
 
         # 13. Active Fulfillment Stream (Real Open Documents)
         fulfillment_stream: List[FulfillmentStreamItem] = []

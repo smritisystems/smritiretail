@@ -628,16 +628,17 @@ export const VisualReportsDashboardTab: React.FC<VisualReportsDashboardTabProps>
                         <Bar dataKey="reserved" name="Reserved" fill="#f59e0b" />
                       </BarChart>
                     ) : (
-                      <LineChart data={stockFlow} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
+                      <LineChart data={stockFlow} margin={{ top: 10, right: 25, left: -10, bottom: 0 }}>
                         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                         <XAxis dataKey="day_label" tick={{ fontSize: 10, fill: "#64748b" }} axisLine={false} tickLine={false} />
-                        <YAxis tick={{ fontSize: 10, fill: "#64748b" }} axisLine={false} tickLine={false} tickFormatter={(v) => `${v.toLocaleString()}`} />
+                        <YAxis yAxisId="left" tick={{ fontSize: 10, fill: "#64748b" }} axisLine={false} tickLine={false} tickFormatter={(v) => `${v.toLocaleString()}`} />
+                        <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 10, fill: "#06b6d4" }} axisLine={false} tickLine={false} tickFormatter={(v) => `${v}`} />
                         <Tooltip />
-                        <Line type="monotone" dataKey="on_hand" name="On-Hand" stroke="#2563eb" strokeWidth={2.5} dot={{ r: 3 }} />
-                        <Line type="monotone" dataKey="available" name="Available" stroke="#10b981" strokeWidth={2.5} dot={{ r: 3 }} />
-                        <Line type="monotone" dataKey="reserved" name="Reserved" stroke="#f59e0b" strokeWidth={2.5} dot={{ r: 3 }} />
-                        <Line type="monotone" dataKey="dispatched" name="Dispatched" stroke="#8b5cf6" strokeWidth={2.5} dot={{ r: 3 }} />
-                        <Line type="monotone" dataKey="invoiced" name="Invoiced" stroke="#06b6d4" strokeWidth={2.5} dot={{ r: 3 }} />
+                        <Line yAxisId="left" type="monotone" dataKey="on_hand" name="On-Hand" stroke="#2563eb" strokeWidth={2.5} dot={{ r: 3 }} />
+                        <Line yAxisId="left" type="monotone" dataKey="available" name="Available" stroke="#10b981" strokeWidth={2.5} dot={{ r: 3 }} />
+                        <Line yAxisId="left" type="monotone" dataKey="reserved" name="Reserved" stroke="#f59e0b" strokeWidth={2.5} dot={{ r: 3 }} />
+                        <Line yAxisId="left" type="monotone" dataKey="dispatched" name="Dispatched" stroke="#8b5cf6" strokeWidth={2.5} dot={{ r: 3 }} />
+                        <Line yAxisId="right" type="monotone" dataKey="invoiced" name="Invoices (Count)" stroke="#06b6d4" strokeWidth={2.5} strokeDasharray="3 3" dot={{ r: 3 }} />
                       </LineChart>
                     )}
                   </ResponsiveContainer>
@@ -663,7 +664,7 @@ export const VisualReportsDashboardTab: React.FC<VisualReportsDashboardTabProps>
                   </div>
                   <div className="flex items-center gap-1.5 text-sky-600">
                     <span className="w-2.5 h-2.5 rounded-full bg-sky-500"></span>
-                    <span>Invoiced</span>
+                    <span>Invoices (Count)</span>
                   </div>
                 </div>
               </div>
@@ -739,13 +740,15 @@ export const VisualReportsDashboardTab: React.FC<VisualReportsDashboardTabProps>
                 <div className="mt-4 pt-2 border-t border-slate-100 text-[11px] text-slate-500 flex items-center justify-between">
                   <span>Actual workflow stage fulfillment metrics</span>
                   <span
-                    className={`font-semibold ${
-                      dashboardData?.is_reconciled ?? true
-                        ? "text-emerald-600"
-                        : "text-amber-600"
+                    className={`font-semibold px-2 py-0.5 rounded text-xs ${
+                      dashboardData?.is_reconciled
+                        ? "text-emerald-700 bg-emerald-50 border border-emerald-200"
+                        : dashboardData?.reconciliation_status === "Never run"
+                        ? "text-slate-600 bg-slate-100 border border-slate-300"
+                        : "text-amber-700 bg-amber-50 border border-amber-200"
                     }`}
                   >
-                    {dashboardData?.reconciliation_status || "100% Reconciled"}
+                    {dashboardData?.reconciliation_status || "All clear"}
                   </span>
                 </div>
               </div>

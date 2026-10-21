@@ -26,10 +26,11 @@ from typing import Dict, List, Optional, Any
 from fastapi import APIRouter, Depends, Query, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from sqlalchemy import func, and_, or_, text
+from sqlalchemy import func, and_, or_, text, case, cast, Date
 
 from ...api.deps import get_company_db, get_tenant_context, get_current_user, TenantContext
 from ...models.inventory import Product, StockMovement
+from ...services.stock_ledger_query import get_signed_movement_quantity_expr
 
 router = APIRouter(prefix="/inventory-reports")
 
@@ -83,38 +84,33 @@ async def stock_balance(
         p_stmt = p_stmt.where(Product.category.ilike(f"%{category}%"))
     products = (await db.execute(p_stmt)).scalars().all()
 
-    # Batch-load movements aggregated by product
+    # Batch-load movements aggregated by product using signed quantities
+    signed_qty = get_signed_movement_quantity_expr()
+    in_qty_expr = case((signed_qty > 0, signed_qty), else_=Decimal(0))
+    out_qty_expr = case((signed_qty < 0, -signed_qty), else_=Decimal(0))
+    in_val_expr = case((signed_qty > 0, signed_qty * func.coalesce(StockMovement.unit_cost, Decimal(0))), else_=Decimal(0))
+
     mv_stmt = select(
         StockMovement.product_id,
-        StockMovement.movement_type,
-        StockMovement.warehouse,
-        func.sum(StockMovement.quantity).label("total_qty"),
-        func.sum(StockMovement.quantity * func.coalesce(StockMovement.unit_cost, 0)).label("total_value"),
+        func.sum(in_qty_expr).label("total_in"),
+        func.sum(out_qty_expr).label("total_out"),
+        func.sum(in_val_expr).label("total_value_in"),
     ).where(StockMovement.is_deleted == False)
     mv_stmt = _tenant_inv(mv_stmt, StockMovement, tenant)
     if warehouse:
         mv_stmt = mv_stmt.where(StockMovement.warehouse.ilike(f"%{warehouse}%"))
-    mv_stmt = mv_stmt.group_by(
-        StockMovement.product_id,
-        StockMovement.movement_type,
-        StockMovement.warehouse,
-    )
+    mv_stmt = mv_stmt.group_by(StockMovement.product_id)
     mv_rows = (await db.execute(mv_stmt)).fetchall()
 
     # Build product balance map
-    bal: Dict[str, Dict] = {}
-    for row in mv_rows:
-        pid = row.product_id
-        if pid not in bal:
-            bal[pid] = {"in": Decimal(0), "out": Decimal(0), "value_in": Decimal(0)}
-        qty = Decimal(str(row.total_qty or 0))
-        val = Decimal(str(row.total_value or 0))
-        mt = (row.movement_type or "").upper()
-        if mt in ("IN", "INWARD_GRN", "RETURN", "ADJUSTMENT_IN", "TRANSFER_IN"):
-            bal[pid]["in"] += qty
-            bal[pid]["value_in"] += val
-        else:
-            bal[pid]["out"] += qty
+    bal: Dict[str, Dict] = {
+        row.product_id: {
+            "in": Decimal(str(row.total_in or 0)),
+            "out": Decimal(str(row.total_out or 0)),
+            "value_in": Decimal(str(row.total_value_in or 0)),
+        }
+        for row in mv_rows
+    }
 
     lines = []
     total_items = 0
@@ -262,27 +258,22 @@ async def stock_availability(
         p_stmt = p_stmt.where(Product.category.ilike(f"%{category}%"))
     products = (await db.execute(p_stmt)).scalars().all()
 
-    # Aggregate on-hand per product
-    mv_agg = (await db.execute(
+    # Aggregate on-hand per product using signed quantities
+    signed_qty = get_signed_movement_quantity_expr()
+    mv_stmt = (
         select(
             StockMovement.product_id,
-            StockMovement.movement_type,
-            func.sum(StockMovement.quantity).label("qty"),
-        ).where(StockMovement.is_deleted == False)
-        .group_by(StockMovement.product_id, StockMovement.movement_type)
-    )).fetchall()
+            func.sum(signed_qty).label("on_hand"),
+        )
+        .where(StockMovement.is_deleted == False)
+    )
+    mv_stmt = _tenant_inv(mv_stmt, StockMovement, tenant)
+    mv_agg = (await db.execute(mv_stmt.group_by(StockMovement.product_id))).fetchall()
 
-    bal: Dict[str, Decimal] = {}
-    for row in mv_agg:
-        pid = row.product_id
-        qty = Decimal(str(row.qty or 0))
-        mt = (row.movement_type or "").upper()
-        if pid not in bal:
-            bal[pid] = Decimal(0)
-        if mt in ("IN", "INWARD_GRN", "RETURN", "ADJUSTMENT_IN", "TRANSFER_IN"):
-            bal[pid] += qty
-        else:
-            bal[pid] -= qty
+    bal: Dict[str, Decimal] = {
+        row.product_id: Decimal(str(row.on_hand or 0))
+        for row in mv_agg
+    }
 
     lines = []
     for prod in products:
@@ -382,24 +373,25 @@ async def stock_aging(
         p_stmt = p_stmt.where(Product.category.ilike(f"%{category}%"))
     products = (await db.execute(p_stmt)).scalars().all()
 
-    # Get on-hand balance
-    mv_agg = (await db.execute(
-        select(StockMovement.product_id, StockMovement.movement_type,
-               func.sum(StockMovement.quantity).label("qty"))
+    # Get on-hand balance using signed quantities
+    signed_qty = get_signed_movement_quantity_expr()
+    mv_stmt = (
+        select(
+            StockMovement.product_id,
+            func.sum(signed_qty).label("on_hand"),
+        )
         .where(StockMovement.is_deleted == False)
-        .group_by(StockMovement.product_id, StockMovement.movement_type)
-    )).fetchall()
-    bal: Dict[str, Decimal] = {}
-    for row in mv_agg:
-        pid = row.product_id
-        qty = Decimal(str(row.qty or 0))
-        if pid not in bal:
-            bal[pid] = Decimal(0)
-        mt = (row.movement_type or "").upper()
-        if mt in ("IN", "INWARD_GRN", "RETURN", "ADJUSTMENT_IN"):
-            bal[pid] += qty
-        else:
-            bal[pid] -= qty
+    )
+    mv_stmt = _tenant_inv(mv_stmt, StockMovement, tenant)
+    if as_on_date:
+        mv_stmt = mv_stmt.where(
+            cast(func.timezone("Asia/Kolkata", StockMovement.created_at), Date) <= as_on_date
+        )
+    mv_agg = (await db.execute(mv_stmt.group_by(StockMovement.product_id))).fetchall()
+    bal: Dict[str, Decimal] = {
+        row.product_id: Decimal(str(row.on_hand or 0))
+        for row in mv_agg
+    }
 
     # Build aged summary
     bucket_totals = {lbl: 0 for lbl in bucket_labels}

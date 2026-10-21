@@ -213,40 +213,62 @@ class StockSynchronizer:
         cls,
         session: AsyncSession,
         company_id: str,
+        store_location_id: str | None = None,
         limit: int = 500,
     ) -> list[StockDriftRecord]:
         """
         Detects silent divergence between `products.stock` cache and authoritative ledgers.
+        Supports location-level filtering when store_location_id is provided.
         Returns a list of StockDriftRecord items.
         """
-        prod_stmt = select(Product).where(
+        prod_filter = [
             Product.company_id == company_id,
             Product.is_deleted.is_(False),
-        ).limit(limit)
+        ]
+        if store_location_id and store_location_id != "All Locations":
+            prod_filter.append(Product.branch_id == store_location_id)
+
+        prod_stmt = select(Product).where(*prod_filter).limit(limit)
         products = (await session.execute(prod_stmt)).scalars().all()
 
         drift_records: list[StockDriftRecord] = []
         for p in products:
             # Check batch stock count
-            batch_count_stmt = select(func.count(ProductBatchStock.id)).where(
+            batch_count_filter = [
                 ProductBatchStock.company_id == company_id,
                 ProductBatchStock.product_id == p.id,
                 ProductBatchStock.is_deleted.is_(False),
-            )
+            ]
+            if store_location_id and store_location_id != "All Locations":
+                batch_count_filter.append(
+                    or_(
+                        ProductBatchStock.warehouse_id == store_location_id,
+                        ProductBatchStock.branch_id == store_location_id,
+                    )
+                )
+            batch_count_stmt = select(func.count(ProductBatchStock.id)).where(*batch_count_filter)
             has_batches = ((await session.execute(batch_count_stmt)).scalar() or 0) > 0
 
             if has_batches:
                 sot = "BATCH_LEDGER"
+                sum_filter = [
+                    ProductBatchStock.company_id == company_id,
+                    ProductBatchStock.product_id == p.id,
+                    ProductBatchStock.is_deleted.is_(False),
+                ]
+                if store_location_id and store_location_id != "All Locations":
+                    sum_filter.append(
+                        or_(
+                            ProductBatchStock.warehouse_id == store_location_id,
+                            ProductBatchStock.branch_id == store_location_id,
+                        )
+                    )
                 sum_stmt = select(
                     func.coalesce(
                         func.sum(ProductBatchStock.quantity - ProductBatchStock.damaged_quantity),
                         0,
                     )
-                ).where(
-                    ProductBatchStock.company_id == company_id,
-                    ProductBatchStock.product_id == p.id,
-                    ProductBatchStock.is_deleted.is_(False),
-                )
+                ).where(*sum_filter)
                 auth_qty = Decimal(str((await session.execute(sum_stmt)).scalar() or 0))
             else:
                 sot = "MOVEMENT_LEDGER"
@@ -255,6 +277,14 @@ class StockSynchronizer:
                     StockMovement.company_id == company_id,
                     StockMovement.is_deleted.is_(False),
                 ]
+                if store_location_id and store_location_id != "All Locations":
+                    moves_filter.append(
+                        or_(
+                            StockMovement.warehouse_id == store_location_id,
+                            StockMovement.location_id == store_location_id,
+                            StockMovement.branch_id == store_location_id,
+                        )
+                    )
                 if p_canon_var_id:
                     moves_filter.append(
                         or_(
