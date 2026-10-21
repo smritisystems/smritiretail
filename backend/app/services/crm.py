@@ -36,6 +36,11 @@ from ..models.audit import ComplianceImmutableAuditLog
 from ..models.security import SmritiAuditLog
 from .identity.engine import IdentityEngine
 from .system_parameter import SystemParameterService
+from .customer_gstin_validator import (
+    validate_and_derive_gstin_state,
+    normalize_state,
+    warn_city_state_mismatch,
+)
 from decimal import Decimal
 from ..models.sales import SalesInvoice
 from ..schemas.crm import (
@@ -1497,6 +1502,13 @@ class CrmService:
 
         normalized_gstin = reg_in.gstin.strip().upper()
 
+        # Phase 5 Prevention: validate GSTIN format and auto-derive authoritative state fields
+        normalized_gstin, derived_state_code, derived_state_name = validate_and_derive_gstin_state(
+            gstin=normalized_gstin,
+            submitted_state_name=(reg_in.state_name or "").strip() or None,
+            submitted_state_code=(reg_in.state_code or "").strip() or None,
+        )
+
         # Centralized Duplicate Protection (Same customer duplicate OR different customer collision)
         dup_check = await self.identity_service.check_duplicate_gst_registration(customer_id, normalized_gstin)
         if dup_check.decision == DuplicateDecision.HARD_DUPLICATE:
@@ -1521,8 +1533,8 @@ class CrmService:
             id=reg_id,
             customer_id=customer_id,
             gstin=normalized_gstin,
-            state_name=reg_in.state_name.strip(),
-            state_code=reg_in.state_code.strip(),
+            state_name=derived_state_name,   # always derived from GSTIN, never NULL
+            state_code=derived_state_code,   # always derived from GSTIN, never NULL
             registration_type=reg_in.registration_type or "REGULAR",
             is_primary=bool(reg_in.is_primary),
             status=reg_in.status or "ACTIVE",
@@ -1813,11 +1825,11 @@ class CrmService:
             "address_line1": loc_in.address_line1 or location_name,
             "address_line2": loc_in.address_line2,
             "locality": None,
-            "city": loc_in.city or "Mumbai",
+            "city": loc_in.city or None,
             "district": None,
-            "state": target_state or "Maharashtra",
+            "state": normalize_state(target_state) if target_state else None,
             "state_code": target_state_code,
-            "pincode": loc_in.pincode or "400001",
+            "pincode": loc_in.pincode or None,
             "country": loc_in.country or "India",
             "contact_person": loc_in.contact_person,
             "phone": loc_in.phone,
@@ -1835,8 +1847,8 @@ class CrmService:
             location_name=location_name,
             address_line1=loc_in.address_line1,
             address_line2=loc_in.address_line2,
-            city=loc_in.city,
-            state=target_state,
+            city=loc_in.city or None,
+            state=normalize_state(target_state) if target_state else None,
             state_code=target_state_code,
             pincode=loc_in.pincode,
             country=loc_in.country or "India",
@@ -2001,9 +2013,18 @@ class CrmService:
         if loc_in.address_line2 is not None:
             loc.address_line2 = loc_in.address_line2
         if loc_in.city is not None:
-            loc.city = loc_in.city
+            loc.city = loc_in.city or None
         if loc_in.state is not None:
-            loc.state = loc_in.state
+            loc.state = normalize_state(loc_in.state) if loc_in.state else None
+        # Phase 5 Prevention: advisory city/state compatibility warning (non-blocking)
+        effective_city = loc_in.city if loc_in.city is not None else loc.city
+        effective_state = normalize_state(loc_in.state) if loc_in.state is not None else loc.state
+        advisory = warn_city_state_mismatch(effective_city, effective_state)
+        if advisory:
+            import logging as _logging
+            _logging.getLogger(__name__).warning(
+                "CRM city/state advisory on delivery_location %s: %s", location_id, advisory
+            )
         if loc_in.state_code is not None:
             loc.state_code = loc_in.state_code
         if loc_in.pincode is not None:
