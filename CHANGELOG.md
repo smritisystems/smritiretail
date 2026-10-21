@@ -3,13 +3,34 @@
   Author       : Jawahar Ramkripal Mallah
   Email        : support@smritibooks.com
   Websites     : smritibooks.com | erpnbook.com | aitdl.com
-  Version      : 6.99.3
+  Version      : 6.99.4
   Created      : 2026-07-06
   Modified     : 2026-10-21
   Copyright    : © SMRITIBooks.com. All Rights Reserved.
   License      : Proprietary Commercial Software
   Classification: Internal
 -->
+
+## [6.99.4] — 2026-10-21
+
+### Procurement & Purchase Orders — Headless Purchase Order Date Alignment with Authoritative GRN & Bill Chronology
+
+- **Canonical SYSADMIN PO Date Remediation Endpoint (`backend/app/api/v1/database_manager.py`)**:
+  - Implemented `POST /api/v1/database-manager/admin-remediate-po-dates` guarded by `verify_sysadmin_role`.
+  - Supports dry-run inspection mode (`dry_run=True`) auditing PO-to-GRN mappings and diff calculations without mutating rows.
+  - Implemented atomic mutation mode (`dry_run=False`) executing in a dedicated transaction (`engine.begin()`) with pessimistic row locking (`FOR UPDATE`).
+  - Automatically provisions pre-mutation audit backup table `_backup_purchase_orders_date` (`backup_id`, `backup_at`, `po_id`, `order_no`, `status`, `grand_total`, `old_created_at`, `new_created_at`).
+  - Synchronously updates `created_at`, `submitted_at`, `confirmed_at`, and `modified_at` on `purchase_orders`.
+- **DTO & Schema Specifications (`backend/app/schemas/database_manager.py`)**:
+  - Registered `PoDateCorrectionItem` validating `order_no`, `target_date`, `order_id`, and `bill_no`.
+  - Registered `PoDateRemediationRequest` supporting `database` targeting (defaulting to `smriti001`) and `dry_run` toggle.
+- **Dual-Mode Headless PO Remediation Engine (`scripts/reconcile_live_po_dates.py`)**:
+  - Compiles authoritative dates from client Excel source (`ALL VENDOR PURCHASE FOR SOFTWARE.xlsx`) for all 28 commercial vendor purchase orders across 9 suppliers.
+  - Aligns PO timestamps to 10:00:00 UTC (1 hour prior to GRN at 11:00:00 UTC on the same vendor bill date) matching retail spot-procurement best practices.
+  - Provides dual-engine execution: Direct Database Engine (SQLAlchemy asyncpg) and Remote REST API Engine (FastAPI client).
+- **Automated Test Suite & Verification**:
+  - Created `backend/app/tests/test_admin_po_date_remediation.py` certifying DTO validation, defaults, and SQL injection prevention via `DB_NAME_PATTERN` (3/3 tests passed green).
+  - Created post-execution verification script `scripts/verify_remediated_po_dates.py` verifying full procurement chain chronology (`PO <= GRN <= Bill`) and financial preservation.
 
 ## [6.99.3] — 2026-10-21
 
