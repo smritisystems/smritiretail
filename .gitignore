@@ -153,3 +153,5 @@ fix-typescript-errors.*
 public/assets/prn/
 *.prn
 
+# TypeScript incremental build cache
+*.tsbuildinfo

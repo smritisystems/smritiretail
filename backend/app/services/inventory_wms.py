@@ -135,7 +135,22 @@ class InventoryWmsService:
         res_prod = await self.db.execute(q_prod)
         product = res_prod.scalars().first()
         if not product:
-            raise HTTPException(status_code=404, detail=f"Product {product_id} not found.")
+            from sqlalchemy import or_
+            q_fallback = select(Product).where(
+                or_(
+                    Product.item_variant_id == product_id,
+                    Product.sku == product_id,
+                    Product.code == product_id,
+                ),
+                Product.company_id == self.tenant_ctx.company_id,
+                Product.is_deleted == False
+            ).with_for_update()
+            res_fb = await self.db.execute(q_fallback)
+            product = res_fb.scalars().first()
+            if product:
+                product_id = product.id
+            else:
+                raise HTTPException(status_code=404, detail=f"Product {product_id} not found.")
 
         # 2. Lock or create batch stock record
         q_count = select(func.count(ProductBatchStock.id)).where(

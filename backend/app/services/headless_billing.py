@@ -372,6 +372,9 @@ class HeadlessBillingCore:
                     is_quarantined=False,
                     is_consistent=(line_res.product_id is not None and line_res.variant_id is not None),
                 )
+            elif identity.is_valid and not identity.legacy_product_id and line_res.product_id:
+                identity.legacy_product_id = line_res.product_id
+                identity.is_consistent = True
 
             if not identity.is_valid and not item.is_fee_line:
                 raise HTTPException(
@@ -629,9 +632,10 @@ class HeadlessBillingCore:
             )
             calculated_lines.append(line_res)
 
-            if not item.is_fee_line and identity.legacy_product_id:
+            effective_product_id = identity.legacy_product_id or line_res.product_id
+            if not item.is_fee_line and effective_product_id:
                 batch_deductions.append({
-                    "product_id": identity.legacy_product_id,
+                    "product_id": effective_product_id,
                     "batch_no": item.batch_no or "DEFAULT",
                     "quantity": qty,
                     "line_no": line_no,
