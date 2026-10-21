@@ -64,7 +64,7 @@ async def main():
             print(f"{idx:<3} | {r['order_no']:<22} | {po_ts[:19]:<24} | {grn_ts[:19]:<24} | {b_date:<10} | {chrono}")
 
         print("-" * 105)
-        print(f"Total PO Amount: ₹{total_po_amount:,.2f}")
+        print(f"Total PO Amount: INR {total_po_amount:,.2f}")
         print(f"All 28 Procurement Chains Chronologically Valid (PO <= GRN): {all_chrono_valid}")
 
         # 3. Check backup table audit log

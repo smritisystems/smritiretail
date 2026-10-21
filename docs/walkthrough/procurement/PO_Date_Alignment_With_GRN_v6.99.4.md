@@ -118,6 +118,107 @@ backend\app\tests\test_admin_po_date_remediation.py::test_db_name_pattern_saniti
 ======================= 3 passed, 24 warnings in 45.85s =======================
 ```
 
+### 8.2 Live Production Execution (`scripts/reconcile_live_po_dates.py`)
+```bash
+python scripts/reconcile_live_po_dates.py --mode api --api-url https://tattlythreads.smritisys.com --database smriti001 --execute
+```
+**Literal Terminal Output:**
+```
+Successfully compiled 28 authoritative Purchase Orders from client Excel source.
+=========================================================================================================
+SMRITI RETAIL OS: HEADLESS PURCHASE ORDER DATE REMEDIATION [REMOTE REST API ENGINE]
+Mode          : LIVE MUTATION (PESSIMISTIC BACKUP & SYNCHRONIZATION)
+Target API    : https://tattlythreads.smritisys.com
+Target DB     : smriti001
+Total POs     : 28
+=========================================================================================================
+
+[1/3] Authenticating with SYSADMIN credentials...
+  [OK] SYSADMIN JWT Token acquired.
+
+[2/3] Calling POST /api/v1/database-manager/admin-remediate-po-dates (dry_run=False, db=smriti001)...
+  [OK] Server responded with success=True: Successfully remediated 28 Purchase Orders in smriti001.
+
+#   | PO NUMBER              | CURRENT / OLD TS             | TARGET / NEW TS              | STATUS
+-----------------------------------------------------------------------------------------------
+1   | PO-A-463               | 2026-10-16T10:14:00+00:00    | 2026-07-22T10:00:00+00:00    | REMEDIATED
+2   | PO-A-464               | 2026-10-16T10:14:00+00:00    | 2026-07-22T10:00:00+00:00    | REMEDIATED
+3   | PO-A-462               | 2026-10-16T10:14:00+00:00    | 2026-06-26T10:00:00+00:00    | REMEDIATED
+4   | PO-B-LF_26-27_144      | 2026-10-16T10:14:00+00:00    | 2026-07-25T10:00:00+00:00    | REMEDIATED
+5   | PO-B-LF_26-27_154      | 2026-10-16T10:14:00+00:00    | 2026-08-07T10:00:00+00:00    | REMEDIATED
+6   | PO-B-LF_26-27_186      | 2026-10-16T10:14:00+00:00    | 2026-08-24T10:00:00+00:00    | REMEDIATED
+7   | PO-C-846               | 2026-10-16T10:14:00+00:00    | 2026-07-06T10:00:00+00:00    | REMEDIATED
+8   | PO-C-847               | 2026-10-16T10:14:00+00:00    | 2026-07-16T10:00:00+00:00    | REMEDIATED
+9   | PO-C-849               | 2026-10-16T10:14:00+00:00    | 2026-10-05T10:00:00+00:00    | REMEDIATED
+10  | PO-D-522               | 2026-10-16T10:14:00+00:00    | 2026-07-17T10:00:00+00:00    | REMEDIATED
+11  | PO-D-525               | 2026-10-16T10:14:00+00:00    | 2026-07-21T10:00:00+00:00    | REMEDIATED
+12  | PO-D-526               | 2026-10-16T10:14:00+00:00    | 2026-07-27T10:00:00+00:00    | REMEDIATED
+13  | PO-E-489               | 2026-10-16T10:14:00+00:00    | 2026-08-01T10:00:00+00:00    | REMEDIATED
+14  | PO-E-490               | 2026-10-16T10:14:00+00:00    | 2026-08-01T10:00:00+00:00    | REMEDIATED
+15  | PO-E-485               | 2026-10-16T10:14:00+00:00    | 2026-06-27T10:00:00+00:00    | REMEDIATED
+16  | PO-F-707               | 2026-10-16T10:14:00+00:00    | 2026-09-07T10:00:00+00:00    | REMEDIATED
+17  | PO-F-704               | 2026-10-16T10:14:00+00:00    | 2026-08-10T10:00:00+00:00    | REMEDIATED
+18  | PO-F-706               | 2026-10-16T10:14:00+00:00    | 2026-08-22T10:00:00+00:00    | REMEDIATED
+19  | PO-F-702               | 2026-10-16T10:14:00+00:00    | 2026-07-27T10:00:00+00:00    | REMEDIATED
+20  | PO-G-AS_26-27_0019     | 2026-10-16T10:14:00+00:00    | 2026-07-31T10:00:00+00:00    | REMEDIATED
+21  | PO-G-AS_26-27_0013     | 2026-10-16T10:14:00+00:00    | 2026-07-02T10:00:00+00:00    | REMEDIATED
+22  | PO-G-AS_26-27_0016     | 2026-10-16T10:14:00+00:00    | 2026-07-20T10:00:00+00:00    | REMEDIATED
+23  | PO-G-AS_26-27_0023     | 2026-10-16T10:14:00+00:00    | 2026-08-23T10:00:00+00:00    | REMEDIATED
+24  | PO-I-945               | 2026-10-16T10:14:00+00:00    | 2026-08-17T10:00:00+00:00    | REMEDIATED
+25  | PO-I-944               | 2026-10-16T10:14:00+00:00    | 2026-08-16T10:00:00+00:00    | REMEDIATED
+26  | PO-I-941               | 2026-10-16T10:14:00+00:00    | 2026-07-22T10:00:00+00:00    | REMEDIATED
+27  | PO-J-22                | 2026-10-16T10:14:00+00:00    | 2026-07-24T10:00:00+00:00    | REMEDIATED
+28  | PO-J-25                | 2026-10-16T10:14:00+00:00    | 2026-07-31T10:00:00+00:00    | REMEDIATED
+-----------------------------------------------------------------------------------------------
+[SUCCESS] Live remediation finished. 28 PO records remediated successfully.
+```
+
+### 8.3 Post-Execution Parity Verification (`scripts/verify_remediated_po_dates.py`)
+```bash
+python scripts/verify_remediated_po_dates.py
+```
+**Literal Terminal Output:**
+```
+Total Matched Procurement Chains in smriti001: 28
+
+#   | PO NUMBER              | PO CREATED_AT            | GRN CREATED_AT           | BILL DATE  | CHRONO ORDER
+---------------------------------------------------------------------------------------------------------
+1   | PO-A-462               | 2026-06-26T10:00:00      | 2026-06-26T11:00:00      | 2026-06-26 | OK (PO <= GRN)
+2   | PO-E-485               | 2026-06-27T10:00:00      | 2026-06-27T11:00:00      | 2026-06-27 | OK (PO <= GRN)
+3   | PO-G-AS_26-27_0013     | 2026-07-02T10:00:00      | 2026-07-02T11:00:00      | 2026-07-02 | OK (PO <= GRN)
+4   | PO-C-846               | 2026-07-06T10:00:00      | 2026-07-06T11:00:00      | 2026-07-06 | OK (PO <= GRN)
+5   | PO-C-847               | 2026-07-16T10:00:00      | 2026-07-16T11:00:00      | 2026-07-16 | OK (PO <= GRN)
+6   | PO-D-522               | 2026-07-17T10:00:00      | 2026-07-17T11:00:00      | 2026-07-17 | OK (PO <= GRN)
+7   | PO-G-AS_26-27_0016     | 2026-07-20T10:00:00      | 2026-07-20T11:00:00      | 2026-07-20 | OK (PO <= GRN)
+8   | PO-D-525               | 2026-07-21T10:00:00      | 2026-07-21T11:00:00      | 2026-07-21 | OK (PO <= GRN)
+9   | PO-A-463               | 2026-07-22T10:00:00      | 2026-07-22T11:00:00      | 2026-07-22 | OK (PO <= GRN)
+10  | PO-A-464               | 2026-07-22T10:00:00      | 2026-07-22T11:00:00      | 2026-07-22 | OK (PO <= GRN)
+11  | PO-I-941               | 2026-07-22T10:00:00      | 2026-07-22T11:00:00      | 2026-07-22 | OK (PO <= GRN)
+12  | PO-J-22                | 2026-07-24T10:00:00      | 2026-07-24T11:00:00      | 2026-07-24 | OK (PO <= GRN)
+13  | PO-B-LF_26-27_144      | 2026-07-25T10:00:00      | 2026-07-25T11:00:00      | 2026-07-25 | OK (PO <= GRN)
+14  | PO-F-702               | 2026-07-27T10:00:00      | 2026-07-27T11:00:00      | 2026-07-27 | OK (PO <= GRN)
+15  | PO-D-526               | 2026-07-27T10:00:00      | 2026-07-27T11:00:00      | 2026-07-27 | OK (PO <= GRN)
+16  | PO-G-AS_26-27_0019     | 2026-07-31T10:00:00      | 2026-07-31T11:00:00      | 2026-07-31 | OK (PO <= GRN)
+17  | PO-J-25                | 2026-07-31T10:00:00      | 2026-07-31T11:00:00      | 2026-07-31 | OK (PO <= GRN)
+18  | PO-E-489               | 2026-08-01T10:00:00      | 2026-08-01T11:00:00      | 2026-08-01 | OK (PO <= GRN)
+19  | PO-E-490               | 2026-08-01T10:00:00      | 2026-08-01T11:00:00      | 2026-08-01 | OK (PO <= GRN)
+20  | PO-B-LF_26-27_154      | 2026-08-07T10:00:00      | 2026-08-07T11:00:00      | 2026-08-07 | OK (PO <= GRN)
+21  | PO-F-704               | 2026-08-10T10:00:00      | 2026-08-10T11:00:00      | 2026-08-10 | OK (PO <= GRN)
+22  | PO-I-944               | 2026-08-16T10:00:00      | 2026-08-16T11:00:00      | 2026-08-16 | OK (PO <= GRN)
+23  | PO-I-945               | 2026-08-17T10:00:00      | 2026-08-17T11:00:00      | 2026-08-17 | OK (PO <= GRN)
+24  | PO-F-706               | 2026-08-22T10:00:00      | 2026-08-22T11:00:00      | 2026-08-22 | OK (PO <= GRN)
+25  | PO-G-AS_26-27_0023     | 2026-08-23T10:00:00      | 2026-08-23T11:00:00      | 2026-08-23 | OK (PO <= GRN)
+26  | PO-B-LF_26-27_186      | 2026-08-24T10:00:00      | 2026-08-24T11:00:00      | 2026-08-24 | OK (PO <= GRN)
+27  | PO-F-707               | 2026-09-07T10:00:00      | 2026-09-07T11:00:00      | 2026-09-07 | OK (PO <= GRN)
+28  | PO-C-849               | 2026-10-05T10:00:00      | 2026-10-05T11:00:00      | 2026-10-05 | OK (PO <= GRN)
+---------------------------------------------------------------------------------------------------------
+Total PO Amount: INR 9,888,228.00
+All 28 Procurement Chains Chronologically Valid (PO <= GRN): True
+
+Backup Audit Table in smriti001:
+  _backup_purchase_orders_date: 28 rows backed up
+```
+
 ---
 
 ## 9. Verification Results
