@@ -222,13 +222,14 @@ async def run_direct_db_remediation(db_url: str, bills: Dict[str, Dict[str, Any]
         await engine.dispose()
 
 
-async def run_remote_api_remediation(api_url: str, bills: Dict[str, Dict[str, Any]], execute: bool):
+async def run_remote_api_remediation(api_url: str, bills: Dict[str, Dict[str, Any]], execute: bool, database: str = "smriti001"):
     """Executes remediation via the live FastAPI backend."""
     mode = "EXECUTE (MUTATION COMMITTED)" if execute else "DRY-RUN (AUDIT ONLY)"
     print("=" * 105)
     print(f"SMRITI RETAIL OS: HEADLESS GRN DATE REMEDIATION [REMOTE REST API ENGINE]")
     print(f"Mode          : {mode}")
     print(f"Target API    : {api_url}")
+    print(f"Target DB     : {database}")
     print(f"Total GRNs    : {len(bills)}")
     print("=" * 105)
 
@@ -260,10 +261,10 @@ async def run_remote_api_remediation(api_url: str, bills: Dict[str, Dict[str, An
         print("  [OK] SYSADMIN JWT Token acquired.")
 
         # 2. Invoke Remediation Endpoint
-        print(f"\n[2/3] Calling POST /api/v1/database-manager/admin-remediate-grn-dates (dry_run={not execute})...")
+        print(f"\n[2/3] Calling POST /api/v1/database-manager/admin-remediate-grn-dates (dry_run={not execute}, db={database})...")
         endpoint_url = f"{api_url}/api/v1/database-manager/admin-remediate-grn-dates"
         payload = {
-            "database": "smriti001",
+            "database": database,
             "dry_run": not execute,
             "corrections": corrections_payload,
         }
@@ -298,6 +299,7 @@ async def main():
     )
     parser.add_argument("--api-url", default=DEFAULT_API_URL, help="Target REST API base URL")
     parser.add_argument("--db-url", default=DEFAULT_DB_URL, help="Direct PostgreSQL asyncpg URL")
+    parser.add_argument("--database", default="smriti001", help="Target database name (default: smriti001)")
     parser.add_argument("--execute", action="store_true", help="Apply live mutations (default is dry-run)")
 
     args = parser.parse_args()
@@ -306,9 +308,13 @@ async def main():
     print(f"Successfully compiled {len(bills)} authoritative GRN bill dates from client Excel source.")
 
     if args.mode == "db":
-        await run_direct_db_remediation(args.db_url, bills, execute=args.execute)
+        # Adjust db-url if database specified
+        db_url = args.db_url
+        if args.database != "smriti001" and "smriti001" in db_url:
+            db_url = db_url.replace("smriti001", args.database)
+        await run_direct_db_remediation(db_url, bills, execute=args.execute)
     else:
-        await run_remote_api_remediation(args.api_url, bills, execute=args.execute)
+        await run_remote_api_remediation(args.api_url, bills, execute=args.execute, database=args.database)
 
 
 if __name__ == "__main__":
