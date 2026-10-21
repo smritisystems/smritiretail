@@ -430,76 +430,57 @@ class StockAuditService:
                     canonical_item_id = c_res.item_id
                     canonical_variant_id = c_res.variant_id
 
+            from .stock_ledger import StockLedger, MovementRequest, InternalCost
+
             if adj_qty < 0:
                 # Stock deficit / loss
                 loss_qty = abs(adj_qty)
-                if batch_stock:
-                    batch_stock.quantity = max(0.0, float(batch_stock.quantity) - loss_qty)
-                    batch_stock.last_counted_date = datetime.now(timezone.utc)
-
-                movement = StockMovement(
-                    id=f"sm-aud-{uuid.uuid4().hex[:12]}",
-                    uuid=str(uuid.uuid4()),
+                post_req = MovementRequest(
                     company_id=self.tenant.company_id,
                     branch_id=self.tenant.branch_id,
                     product_id=item.product_id,
-                    item_id=canonical_item_id,
-                    variant_id=canonical_variant_id,
-                    product_name=prod_name,
-                    sku=prod_sku,
+                    quantity=Decimal(str(loss_qty)),
                     movement_type="OUTWARD_LOSS",
-                    quantity=loss_qty,
-                    warehouse_id=audit.warehouse_id,
-                    batch=item.batch_no,
-                    unit_cost=float(item.unit_cost),
                     reference_doc_type="STOCK_AUDIT",
                     reference_doc_id=audit.audit_no,
-                    remarks=f"Audit Write-off: {item.discrepancy_reason or 'Stock Loss'}{intervening_note}"
+                    line_ref=str(item.id),
+                    warehouse_id=audit.warehouse_id,
+                    batch_no=item.batch_no,
+                    allow_negative_stock=True,
+                    internal_cost=InternalCost(
+                        unit_cost=Decimal(str(item.unit_cost or 0)),
+                        cost_source="STOCK_AUDIT_DISCREPANCY",
+                    ),
+                    remarks=f"Audit Write-off: {item.discrepancy_reason or 'Stock Loss'}{intervening_note}",
+                    source_module="StockAudit",
+                    user="SYSTEM",
                 )
-                self.db.add(movement)
+                await StockLedger.post(self.db, post_req)
 
             elif adj_qty > 0:
                 # Stock surplus / found stock
                 surplus_qty = adj_qty
-                if batch_stock:
-                    batch_stock.quantity = float(batch_stock.quantity) + surplus_qty
-                    batch_stock.last_counted_date = datetime.now(timezone.utc)
-                else:
-                    new_batch = ProductBatchStock(
-                        id=f"pbs-{uuid.uuid4().hex[:12]}",
-                        uuid=str(uuid.uuid4()),
-                        company_id=self.tenant.company_id,
-                        branch_id=self.tenant.branch_id,
-                        warehouse_id=audit.warehouse_id,
-                        product_id=item.product_id,
-                        batch_no=item.batch_no,
-                        quantity=surplus_qty,
-                        reserved_quantity=0.0,
-                        damaged_quantity=0.0,
-                        last_counted_date=datetime.now(timezone.utc)
-                    )
-                    self.db.add(new_batch)
-
-                movement = StockMovement(
-                    id=f"sm-aud-{uuid.uuid4().hex[:12]}",
-                    uuid=str(uuid.uuid4()),
+                post_req = MovementRequest(
                     company_id=self.tenant.company_id,
                     branch_id=self.tenant.branch_id,
                     product_id=item.product_id,
-                    item_id=canonical_item_id,
-                    variant_id=canonical_variant_id,
-                    product_name=prod_name,
-                    sku=prod_sku,
+                    quantity=Decimal(str(surplus_qty)),
                     movement_type="INWARD_SURPLUS",
-                    quantity=surplus_qty,
-                    warehouse_id=audit.warehouse_id,
-                    batch=item.batch_no,
-                    unit_cost=float(item.unit_cost),
                     reference_doc_type="STOCK_AUDIT",
                     reference_doc_id=audit.audit_no,
-                    remarks=f"Audit Surplus Inward: {item.discrepancy_reason or 'Found Stock'}{intervening_note}"
+                    line_ref=str(item.id),
+                    warehouse_id=audit.warehouse_id,
+                    batch_no=item.batch_no,
+                    allow_negative_stock=True,
+                    internal_cost=InternalCost(
+                        unit_cost=Decimal(str(item.unit_cost or 0)),
+                        cost_source="STOCK_AUDIT_DISCREPANCY",
+                    ),
+                    remarks=f"Audit Surplus Inward: {item.discrepancy_reason or 'Found Stock'}{intervening_note}",
+                    source_module="StockAudit",
+                    user="SYSTEM",
                 )
-                self.db.add(movement)
+                await StockLedger.post(self.db, post_req)
 
             item.is_reconciled = True
 
