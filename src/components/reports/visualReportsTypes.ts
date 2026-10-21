@@ -123,4 +123,7 @@ export interface VisualReportsSummaryResponse {
   dispatch_invoice_summary: DispatchInvoiceSummaryRow[];
   fulfillment_stream: FulfillmentStreamItem[];
   config: DashboardConfigPayload;
+  is_reconciled?: boolean;
+  reconciliation_status?: string;
+  drift_quantity?: number;
 }
