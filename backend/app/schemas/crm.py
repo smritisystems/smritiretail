@@ -1224,26 +1224,39 @@ def map_customer_to_response_dict(customer: Any) -> dict:
         "is_active": customer.is_active if customer.is_active is not None else True,
         "is_deleted": customer.is_deleted if customer.is_deleted is not None else False,
         "version": customer.version if customer.version is not None else 1,
-        # Sourced authoritatively from eagerly-loaded CustomerGroup
-        "credit_limit": grp.credit_limit if grp else None,
-        "credit_days": grp.credit_days if grp else None,
+        # Sourced authoritatively from company relationship (if present) or eagerly-loaded CustomerGroup
+        "credit_limit": (
+            next((rel.credit_limit for rel in get_loaded_relationship(customer, "company_relationships") if not getattr(rel, "is_deleted", False) and getattr(rel, "company_id", None) == customer.company_id and rel.credit_limit is not None), None)
+            or (grp.credit_limit if grp else None)
+        ),
+        "credit_days": (
+            next((rel.credit_days for rel in get_loaded_relationship(customer, "company_relationships") if not getattr(rel, "is_deleted", False) and getattr(rel, "company_id", None) == customer.company_id and rel.credit_days is not None), None)
+            or (grp.credit_days if grp else None)
+        ),
         "unlimited_credit": grp.unlimited_credit if grp else None,
-        "credit_hold": grp.credit_hold if grp else None,
+        "credit_hold": (
+            next((rel.credit_hold for rel in get_loaded_relationship(customer, "company_relationships") if not getattr(rel, "is_deleted", False) and getattr(rel, "company_id", None) == customer.company_id and rel.credit_hold is not None), None)
+            or (grp.credit_hold if grp else None)
+        ),
         "billing_locations": [
             CustomerBillingLocationResponse.model_validate(bl)
             for bl in get_loaded_relationship(customer, "billing_locations")
+            if not getattr(bl, "is_deleted", False)
         ],
         "gst_registrations": [
             CustomerGSTRegistrationResponse.model_validate(reg)
             for reg in get_loaded_relationship(customer, "gst_registrations")
+            if not getattr(reg, "is_deleted", False)
         ],
         "delivery_locations": [
             CustomerDeliveryLocationResponse.model_validate(loc)
             for loc in get_loaded_relationship(customer, "delivery_locations")
+            if not getattr(loc, "is_deleted", False)
         ],
         "external_identities": [
             CustomerExternalIdentityResponse.model_validate(ei)
             for ei in get_loaded_relationship(customer, "external_identities")
+            if not getattr(ei, "is_deleted", False)
         ],
         "company_relationships": [
             CustomerCompanyRelationshipResponse.model_validate(rel)

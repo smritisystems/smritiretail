@@ -109,7 +109,7 @@ export const CorporateStoreNetwork: React.FC<CorporateStoreNetworkProps> = ({
     return filteredStores.slice(start, start + pageSize);
   }, [filteredStores, page, pageSize]);
 
-  const totalStores = totalStoresCount || totalCount || stores.length || 2456;
+  const totalStores = totalStoresCount ?? totalCount ?? stores.length;
 
   const formatPsv = (val: number) => {
     if (val >= 10000000) {

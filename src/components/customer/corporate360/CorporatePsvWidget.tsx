@@ -44,20 +44,20 @@ export const CorporatePsvWidget: React.FC<CorporatePsvWidgetProps> = ({
   const chartData = [
     {
       name: "In Stock",
-      value: psvSummary.in_stock_value || 1624000000,
-      stores: psvSummary.in_stock_stores || 2012,
+      value: psvSummary.in_stock_value ?? 0,
+      stores: psvSummary.in_stock_stores ?? 0,
       color: "#0284c7",
     },
     {
       name: "Low Stock",
-      value: psvSummary.low_stock_value || 186000000,
-      stores: psvSummary.low_stock_stores || 231,
+      value: psvSummary.low_stock_value ?? 0,
+      stores: psvSummary.low_stock_stores ?? 0,
       color: "#f59e0b",
     },
     {
       name: "Out of Stock",
-      value: psvSummary.out_of_stock_value || 57000000,
-      stores: psvSummary.out_of_stock_stores || 75,
+      value: psvSummary.out_of_stock_value ?? 0,
+      stores: psvSummary.out_of_stock_stores ?? 0,
       color: "#ef4444",
     },
   ];

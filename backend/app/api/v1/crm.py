@@ -537,23 +537,33 @@ async def get_corporate_customer_360(
         parties = []
     psv_map_by_store = {p.store_code: p for p in parties if p.store_code}
 
-    # 3. Build Store Network items from canonical customer delivery locations
-    delivery_locs = customer.delivery_locations or []
+    # 3. Build Store Network items from canonical non-deleted customer delivery locations
+    delivery_locs = [loc for loc in (customer.delivery_locations or []) if not getattr(loc, "is_deleted", False)]
     store_network: List[CorporateStoreItem] = []
 
     def derive_store_type(name: str, remarks: Optional[str]) -> str:
         s = f"{name} {remarks or ''}".lower()
-        if "fresh" in s or "super" in s or "grocery" in s:
+        if any(w in s for w in ["dc", "ndc", "hub", "depot", "logistics", "warehouse", "distribution"]):
+            return "Distribution Center"
+        if any(w in s for w in ["fresh", "super", "grocery"]):
             return "Supermarket"
-        if "smart" in s or "hyper" in s or "mart" in s:
+        if any(w in s for w in ["smart", "hyper", "mart"]):
             return "Hypermarket"
-        if "footwear" in s or "trends" in s or "fashion" in s or "apparel" in s:
+        if any(w in s for w in ["footwear", "trends", "fashion", "apparel"]):
             return "Fashion"
-        if "digital" in s or "elec" in s or "resq" in s:
+        if any(w in s for w in ["digital", "elec", "resq"]):
             return "Electronics"
-        return "Others"
+        return "Store"
 
-    store_type_counts = {"Supermarket": 0, "Hypermarket": 0, "Fashion": 0, "Electronics": 0, "Others": 0}
+    store_type_counts = {
+        "Distribution Center": 0,
+        "Supermarket": 0,
+        "Hypermarket": 0,
+        "Fashion": 0,
+        "Electronics": 0,
+        "Store": 0,
+        "Others": 0,
+    }
     active_stores_count = 0
     total_psv_accum = Decimal("0.00")
     in_stock_val = Decimal("0.00")
@@ -569,7 +579,7 @@ async def get_corporate_customer_360(
             matched_psv = psv_map_by_store.get(loc.store_code)
             stype = derive_store_type(loc.location_name, loc.remarks)
             store_type_counts[stype] = store_type_counts.get(stype, 0) + 1
-            is_active = (loc.status or "").upper() == "ACTIVE"
+            is_active = (loc.status or "").upper() == "ACTIVE" and bool(getattr(loc, "is_active", True))
             if is_active:
                 active_stores_count += 1
 
@@ -737,10 +747,12 @@ async def get_corporate_customer_360(
 
     total_store_slices = sum(store_type_counts.values()) or total_stores_count
     colors_map = {
+        "Distribution Center": "#6366f1",
         "Supermarket": "#0284c7",
         "Hypermarket": "#0d9488",
         "Fashion": "#8b5cf6",
         "Electronics": "#f59e0b",
+        "Store": "#10b981",
         "Others": "#64748b",
     }
     store_type_distribution = [
@@ -755,21 +767,53 @@ async def get_corporate_customer_360(
     ]
 
     purchase_trend: List[PurchaseTrendItem] = []
-    if invoices:
-        from collections import defaultdict
-        month_vals = defaultdict(float)
-        month_orders = defaultdict(int)
-        for inv in invoices:
-            if inv.date:
-                m_str = inv.date.strftime("%b")
-                month_vals[m_str] += float(inv.grand_total or 0)
-                month_orders[m_str] += 1
-        for m_str, val in month_vals.items():
+    try:
+        from dateutil.relativedelta import relativedelta
+        today = datetime.now(timezone.utc).date()
+        start_date = today.replace(day=1) - relativedelta(months=5)
+
+        trend_stmt = (
+            select(
+                SalesInvoice.date,
+                SalesInvoice.grand_total,
+            )
+            .where(
+                SalesInvoice.customer_id == target_cust_id,
+                SalesInvoice.company_id == tenant_ctx.company_id,
+                SalesInvoice.is_deleted == False,
+                SalesInvoice.date >= start_date,
+            )
+            .order_by(SalesInvoice.date.asc())
+        )
+        trend_invoices = (await db.execute(trend_stmt)).all()
+
+        month_keys = []
+        for i in range(5, -1, -1):
+            m_dt = today.replace(day=1) - relativedelta(months=i)
+            m_key = m_dt.strftime("%Y-%m")
+            m_label = m_dt.strftime("%b")
+            month_keys.append((m_key, m_label))
+
+        month_totals = {mk[0]: Decimal("0.00") for mk in month_keys}
+        month_orders = {mk[0]: 0 for mk in month_keys}
+
+        for inv_date, grand_total in trend_invoices:
+            if inv_date:
+                inv_key = inv_date.strftime("%Y-%m")
+                if inv_key in month_totals:
+                    month_totals[inv_key] += Decimal(str(grand_total or 0))
+                    month_orders[inv_key] += 1
+
+        for m_key, m_label in month_keys:
+            val = month_totals[m_key]
+            orders_cnt = month_orders[m_key]
             purchase_trend.append(PurchaseTrendItem(
-                month=m_str,
-                purchase_value=round(val / 100000.0, 2),
-                orders=month_orders[m_str]
+                month=m_label,
+                purchase_value=round(float(val) / 100000.0, 2),
+                orders=orders_cnt,
             ))
+    except Exception:
+        purchase_trend = []
 
     top_categories: List[CategoryShareItem] = []
 

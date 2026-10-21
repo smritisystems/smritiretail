@@ -38,7 +38,7 @@ export const CorporateStoreTypeWidget: React.FC<CorporateStoreTypeWidgetProps> =
   const items = distribution || storeTypes || [];
   const [metricMode, setMetricMode] = useState<"COUNT" | "PERCENT">("COUNT");
 
-  const totalStores = totalStoresCount || totalStoresProp || items.reduce((acc, s) => acc + s.count, 0) || 2456;
+  const totalStores = totalStoresCount ?? totalStoresProp ?? items.reduce((acc, s) => acc + s.count, 0);
 
   return (
     <div className="bg-white dark:bg-[#1e222d] border border-slate-200 dark:border-slate-800 rounded-xl p-4 shadow-xs flex flex-col justify-between">
