@@ -24,10 +24,14 @@ from ..models.sales import SalesInvoice, SalesInvoiceItem
 from ..models.inventory import Product, StockMovement, ProductBatchStock
 from ..models.crm import Customer
 from ..models.party import Party
+from ..models.auth import UserRole
+from ..api.deps import TenantContext
 from ..platform.events import EventEnvelope, get_platform_event_service
 from .outbox_service import OutboxService
 from .identity.engine import IdentityEngine
 from .stock_synchronizer import StockSynchronizer
+from .sales_stock_authority import SalesStockAuthority
+from .system_parameter import SystemParameterService
 
 
 def _quantize_currency(val: float | Decimal) -> Decimal:
@@ -63,14 +67,39 @@ class UnifiedSalesLedgerService:
         """
         clean_inv_no = invoice_no.strip().upper()
         
-        # Check uniqueness
+        # Check uniqueness & idempotency
         stmt = select(SalesInvoice).where(
             SalesInvoice.invoice_no == clean_inv_no,
+            SalesInvoice.company_id == company_id,
             SalesInvoice.is_deleted == False
         )
         existing = (await session.execute(stmt)).scalar_one_or_none()
         if existing:
-            raise ValueError(f"Invoice '{clean_inv_no}' already exists in company database.")
+            return existing
+
+        # Resolve allow_negative_stock from tenant policy and customer settings
+        allow_negative_stock = False
+        try:
+            allow_neg_param = await SystemParameterService.resolve_parameter(
+                db=session,
+                param_code="SMRITI.STOCK.ALLOW_NEGATIVE_STOCK",
+                company_id=company_id,
+                branch_id=branch_id,
+            )
+            allow_negative_stock = bool(allow_neg_param.effective_value) if allow_neg_param else False
+        except Exception:
+            allow_negative_stock = False
+
+        if customer_id and not allow_negative_stock:
+            try:
+                cust_res = await session.execute(
+                    select(Customer).where(Customer.id == customer_id, Customer.company_id == company_id)
+                )
+                cust_obj = cust_res.scalars().first()
+                if cust_obj and getattr(cust_obj, "allow_negative_stock_sales", False):
+                    allow_negative_stock = True
+            except Exception:
+                pass
 
         invoice_id = IdentityEngine.generate_technical_id()
         total_taxable = Decimal("0.00")
@@ -78,7 +107,7 @@ class UnifiedSalesLedgerService:
         grand_total = Decimal("0.00")
 
         invoice_items: List[SalesInvoiceItem] = []
-        stock_movements: List[StockMovement] = []
+        authority_lines: List[Dict[str, Any]] = []
 
         for idx, itm in enumerate(items_data, start=1):
             product_id = itm.get("product_id") or itm.get("item_id") or itm.get("id") or IdentityEngine.generate_technical_id()
@@ -136,47 +165,16 @@ class UnifiedSalesLedgerService:
             )
             invoice_items.append(inv_item)
 
-            # 3. Stock Movement Ledger Entry (Authoritative Stock Truth)
-            sm_id = IdentityEngine.generate_technical_id()
-            movement = StockMovement(
-                id=sm_id,
-                uuid=sm_id,
-                company_id=company_id,
-                branch_id=branch_id,
-                product_id=product_id,
-                product_name=name,
-                sku=code,
-                quantity=qty,  # Standard magnitude with OUTWARD_SALE movement type
-                movement_type="OUTWARD_SALE",
-                reference_doc_type="SALES_INVOICE",
-                reference_doc_id=invoice_id,
-                warehouse_id=warehouse_id,
-                batch=batch_no,
-                unit_cost=price,
-                remarks=f"B2B Sale Inv #{clean_inv_no}",
-                is_active=True,
-                is_deleted=False
-            )
-            stock_movements.append(movement)
+            authority_lines.append({
+                "product_id": product_id,
+                "sku": code,
+                "product_name": name,
+                "quantity": qty,
+                "batch_no": batch_no,
+                "unit_cost": itm.get("unit_cost"),
+            })
 
-            # 4. Decrement Batch Stock if applicable
-            if batch_no:
-                batch_stmt = select(ProductBatchStock).where(
-                    ProductBatchStock.company_id == company_id,
-                    ProductBatchStock.product_id == product_id,
-                    ProductBatchStock.batch_no == batch_no,
-                    ProductBatchStock.is_deleted == False
-                )
-                batch_stock = (await session.execute(batch_stmt)).scalar_one_or_none()
-                if batch_stock:
-                    batch_stock.quantity = Decimal(str(batch_stock.quantity)) - qty
-
-            # 5. Stock reconciliation via canonical StockSynchronizer
-            session.add(movement)
-            await session.flush()
-            await StockSynchronizer.sync_product_stock_cache(session, product_id, company_id)
-
-        # 6. Sales Invoice Master Header
+        # 3. Sales Invoice Master Header
         invoice = SalesInvoice(
             id=invoice_id,
             company_id=company_id,
@@ -201,8 +199,21 @@ class UnifiedSalesLedgerService:
         session.add(invoice)
         for itm_obj in invoice_items:
             session.add(itm_obj)
-        for smv_obj in stock_movements:
-            session.add(smv_obj)
+        await session.flush()
+
+        # 4. Authoritative Stock Deduction via SalesStockAuthority
+        tenant_ctx = TenantContext(company_id=company_id, branch_id=branch_id, role=UserRole.SYSADMIN)
+        await SalesStockAuthority.record_outward_sale(
+            session=session,
+            tenant_ctx=tenant_ctx,
+            invoice_id=invoice.id,
+            invoice_no=clean_inv_no,
+            items=authority_lines,
+            reference_doc_type="SALES_INVOICE",
+            warehouse_id=warehouse_id,
+            user_id="SYSTEM",
+            allow_negative_stock=allow_negative_stock,
+        )
 
         # 7. Stage Canonical Outbox Event atomically in the same transaction via PlatformEventService Kernel
         event_service = get_platform_event_service()
@@ -271,51 +282,16 @@ class UnifiedSalesLedgerService:
         if invoice.status == "Cancelled":
             return invoice
 
-        # Reversal movements
-        for itm in invoice.items:
-            qty = Decimal(str(itm.quantity))
-            rev_sm_id = IdentityEngine.generate_technical_id()
-            rev_movement = StockMovement(
-                id=rev_sm_id,
-                uuid=rev_sm_id,
-                company_id=company_id,
-                branch_id=branch_id,
-                product_id=itm.product_id,
-                product_name=itm.name,
-                sku=itm.code,
-                quantity=qty,  # Positive credit restore
-                movement_type="RETURN_INWARD",
-                reference_doc_type="SALES_INVOICE_CANCEL",
-                reference_doc_id=invoice.id,
-                warehouse_id=invoice.warehouse_id,
-                batch=itm.batch_no,
-                unit_cost=itm.price,
-                remarks=f"Cancellation Reversal Inv #{clean_inv_no}: {reason}",
-                is_active=True,
-                is_deleted=False
-            )
-            session.add(rev_movement)
-
-            # Restore Product master stock
-            prod_stmt = select(Product).where(Product.id == itm.product_id)
-            prod = (await session.execute(prod_stmt)).scalar_one_or_none()
-            if prod:
-                prod.stock = int(prod.stock + qty)
-
-            # Restore Batch Stock
-            if itm.batch_no:
-                batch_stmt = select(ProductBatchStock).where(
-                    ProductBatchStock.company_id == company_id,
-                    ProductBatchStock.product_id == itm.product_id,
-                    ProductBatchStock.batch_no == itm.batch_no,
-                    ProductBatchStock.is_deleted == False
-                )
-                batch_stock = (await session.execute(batch_stmt)).scalar_one_or_none()
-                if batch_stock:
-                    batch_stock.quantity = Decimal(str(batch_stock.quantity)) + qty
-
-            await session.flush()
-            await StockSynchronizer.sync_product_stock_cache(session, itm.product_id, company_id)
+        # Compensating Reversal via SalesStockAuthority
+        tenant_ctx = TenantContext(company_id=company_id, branch_id=branch_id, role=UserRole.SYSADMIN)
+        await SalesStockAuthority.record_sales_cancellation_reversal(
+            session=session,
+            tenant_ctx=tenant_ctx,
+            invoice_id=invoice.id,
+            invoice_no=clean_inv_no,
+            user_id="SYSTEM",
+            reason=reason,
+        )
 
         inv_id = invoice.id
         invoice.status = "Cancelled"
