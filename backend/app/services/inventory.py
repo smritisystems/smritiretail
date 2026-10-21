@@ -619,14 +619,28 @@ class InventoryService:
     ) -> StockMovement:
         """
         Stock reconciliation & physical audit adjustment method.
-        Computes delta, updates product.stock, records StockMovement and emits Outbox event.
+        Computes delta against authoritative ledger balance, records signed StockMovement,
+        synchronizes cache via StockSynchronizer, and emits Outbox event.
+        Rejects fractional adjustments with 422 as products.stock is an integer column.
         Dual-key converged: writes product_id, item_id, variant_id.
         """
+        qty_dec = Decimal(str(new_quantity))
+        if qty_dec % Decimal("1") != Decimal("0"):
+            raise HTTPException(
+                status_code=422,
+                detail={
+                    "code": "FRACTIONAL_STOCK_NOT_PERMITTED",
+                    "message": "Fractional stock adjustments are not permitted; products.stock column type is Integer."
+                }
+            )
+
+        from .stock_synchronizer import StockSynchronizer, INFLOW_MOVEMENT_TYPES, OUTFLOW_MOVEMENT_TYPES
+
         stmt = select(Product).filter(
             Product.id == product_id,
             Product.is_deleted == False,
             Product.company_id == self.tenant_ctx.company_id,
-        )
+        ).with_for_update()
         if self.tenant_ctx.branch_id:
             stmt = stmt.filter(
                 (Product.branch_id == self.tenant_ctx.branch_id) | (Product.branch_id.is_(None))
@@ -642,9 +656,58 @@ class InventoryService:
             provided_variant_id=variant_id,
         )
 
-        delta = new_quantity - float(product.stock)
-        product.stock = int(new_quantity)
-        self.db.add(product)
+        # Compute authoritative ledger balance (not stale products.stock cache)
+        batch_count = (await self.db.execute(
+            select(func.count(ProductBatchStock.id)).where(
+                ProductBatchStock.company_id == self.tenant_ctx.company_id,
+                ProductBatchStock.product_id == product.id,
+                ProductBatchStock.is_deleted == False,
+            )
+        )).scalar() or 0
+
+        if batch_count > 0:
+            ledger_stock = (await self.db.execute(
+                select(
+                    func.coalesce(
+                        func.sum(ProductBatchStock.quantity - ProductBatchStock.damaged_quantity),
+                        0,
+                    )
+                ).where(
+                    ProductBatchStock.company_id == self.tenant_ctx.company_id,
+                    ProductBatchStock.product_id == product.id,
+                    ProductBatchStock.is_deleted == False,
+                )
+            )).scalar() or Decimal("0.00")
+        else:
+            canon_var_id = getattr(product, "item_variant_id", None) or (str(product.variant_id) if getattr(product, "variant_id", None) else None)
+            moves_filter = [
+                StockMovement.company_id == self.tenant_ctx.company_id,
+                StockMovement.is_deleted == False,
+            ]
+            if canon_var_id:
+                moves_filter.append(
+                    or_(
+                        StockMovement.product_id == product.id,
+                        StockMovement.variant_id == canon_var_id,
+                    )
+                )
+            else:
+                moves_filter.append(StockMovement.product_id == product.id)
+
+            moves = (await self.db.execute(select(StockMovement).where(*moves_filter))).scalars().all()
+            computed = Decimal("0.00")
+            for m in moves:
+                mtype = (m.movement_type or "").upper()
+                q = Decimal(str(m.quantity or 0))
+                if mtype in INFLOW_MOVEMENT_TYPES:
+                    computed += abs(q)
+                elif mtype in OUTFLOW_MOVEMENT_TYPES:
+                    computed -= abs(q)
+                elif mtype in ("ADJUSTMENT", "STOCK_ADJUSTMENT"):
+                    computed += q
+            ledger_stock = computed
+
+        delta = qty_dec - Decimal(str(ledger_stock))
 
         movement_id = IdentityEngine.generate_technical_id()
         movement = StockMovement(
@@ -653,7 +716,7 @@ class InventoryService:
             item_id=canonical_item_id,
             variant_id=canonical_variant_id,
             product_name=product.name,
-            sku=product.sku or "",
+            sku=product.sku or product.code or "",
             quantity=delta,
             movement_type="ADJUSTMENT",
             reference_doc_type="Stock Adjustment",
@@ -665,6 +728,10 @@ class InventoryService:
             branch_id=self.tenant_ctx.branch_id,
         )
         self.db.add(movement)
+        await self.db.flush()
+
+        # Synchronize cached products.stock from authoritative ledger
+        await StockSynchronizer.sync_product_stock_cache(self.db, product.id, self.tenant_ctx.company_id)
 
         # Record Transactional Outbox event atomically
         from .outbox_service import OutboxService
@@ -674,17 +741,19 @@ class InventoryService:
             payload={
                 "action": "STOCK_ADJUSTED",
                 "product_id": product.id,
-                "sku": product.sku,
+                "sku": product.sku or product.code,
                 "adjusted_quantity": str(delta),
-                "new_stock": str(new_quantity),
+                "new_stock": str(qty_dec),
                 "reason": reason,
                 "company_code": self.tenant_ctx.company_id
             },
             causation_id=movement_id
         )
 
+        saved_mov_id = movement.id
         await self.db.commit()
-        await self.db.refresh(movement)
-        return movement
+
+        res_mov = await self.db.execute(select(StockMovement).where(StockMovement.id == saved_mov_id))
+        return res_mov.scalar_one()
 
 
