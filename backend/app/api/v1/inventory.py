@@ -27,8 +27,13 @@ from ...api.deps import (
     get_current_user, require_role, require_permission, verify_internal_service_key
 )
 from ...models.auth import User, UserRole
-from ...models.inventory import Product, StockMovement
+from ...models.inventory import Product, StockMovement, ProductBatchStock, Warehouse
 from ...models.sales import SalesInvoice
+from ...services.stock_movement_types import (
+    ALL_MOVEMENT_TYPES, INFLOW_MOVEMENT_TYPES, OUTFLOW_MOVEMENT_TYPES, SIGNED_MOVEMENT_TYPES
+)
+from ...services.stock_synchronizer import StockSynchronizer
+from ...services.identity.engine import IdentityEngine
 from ...repositories.product import ProductRepository
 from ...schemas.pagination import PaginatedResponse
 from ...schemas.inventory import (
@@ -349,6 +354,13 @@ async def list_stock_ledger(
     status_code=201,
     dependencies=[Depends(verify_internal_service_key)],
 )
+@router.post(
+    "/movements",
+    response_model=StockMovementResponse,
+    status_code=201,
+    dependencies=[Depends(verify_internal_service_key)],
+    include_in_schema=False,
+)
 async def create_stock_movement(
     movement_in: StockMovementCreate,
     db: AsyncSession = Depends(get_company_db),
@@ -356,30 +368,141 @@ async def create_stock_movement(
     """
     Record an inventory stock movement.
     Trusted first-party call — secured by X-Internal-Service-Key.
+    Validates movement_type against canonical allow-list, enforces reference docs,
+    applies idempotency, updates ProductBatchStock, and synchronizes product stock cache.
     """
     import uuid
-    
-    # Check if product exists
+
+    # 1. Validate movement_type against single shared allow-list
+    m_type = (movement_in.movement_type or "").upper()
+    if m_type not in ALL_MOVEMENT_TYPES:
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "code": "INVALID_MOVEMENT_TYPE",
+                "message": f"Unknown movement_type '{movement_in.movement_type}'. Allowed types: {sorted(list(ALL_MOVEMENT_TYPES))}"
+            }
+        )
+
+    # 2. Require reference_doc_type and reference_doc_id
+    ref_doc_type = str(movement_in.reference_doc_type or "").strip()
+    if not ref_doc_type:
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "code": "MISSING_REFERENCE_DOC_TYPE",
+                "message": "reference_doc_type is required."
+            }
+        )
+    ref_doc_id = str(movement_in.reference_doc_id or "").strip()
+    if not ref_doc_id:
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "code": "MISSING_REFERENCE_DOC_ID",
+                "message": "reference_doc_id is required."
+            }
+        )
+
+    # 3. Check if product exists (locked for update)
     product_res = await db.execute(
-        select(Product).filter(Product.id == movement_in.product_id, Product.is_deleted == False)
+        select(Product).filter(Product.id == movement_in.product_id, Product.is_deleted == False).with_for_update()
     )
     product = product_res.scalars().first()
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
-        
+
+    # 4. Idempotency on (company_id, reference_doc_type, reference_doc_id, product_id, movement_type)
+    idem_stmt = select(StockMovement).where(
+        StockMovement.company_id == product.company_id,
+        StockMovement.reference_doc_type == ref_doc_type,
+        StockMovement.reference_doc_id == ref_doc_id,
+        StockMovement.product_id == product.id,
+        StockMovement.movement_type == m_type,
+        StockMovement.is_deleted == False
+    )
+    existing_mov = (await db.execute(idem_stmt)).scalars().first()
+    if existing_mov:
+        return existing_mov
+
+    qty_dec = Decimal(str(movement_in.quantity))
+
+    # 5. Resolve warehouse_id and warehouse text
+    wh_id = None
+    wh_code = movement_in.warehouse
+    if movement_in.warehouse:
+        wh_res = await db.execute(select(Warehouse).where(
+            Warehouse.company_id == product.company_id,
+            or_(Warehouse.id == movement_in.warehouse, Warehouse.code == movement_in.warehouse),
+            Warehouse.is_deleted == False
+        ))
+        wh_obj = wh_res.scalar_one_or_none()
+        if wh_obj:
+            wh_id = wh_obj.id
+            wh_code = wh_obj.code
+        else:
+            wh_id_check = (await db.execute(select(Warehouse.id).where(Warehouse.id == movement_in.warehouse))).scalar_one_or_none()
+            if wh_id_check:
+                wh_id = movement_in.warehouse
+
+    # 6. Update ProductBatchStock when batch is supplied
+    if movement_in.batch:
+        batch_stmt = select(ProductBatchStock).where(
+            ProductBatchStock.company_id == product.company_id,
+            ProductBatchStock.product_id == product.id,
+            ProductBatchStock.batch_no == movement_in.batch,
+            ProductBatchStock.is_deleted == False
+        ).with_for_update()
+        batch_stock = (await db.execute(batch_stmt)).scalar_one_or_none()
+
+        if m_type in INFLOW_MOVEMENT_TYPES:
+            delta_batch = abs(qty_dec)
+        elif m_type in OUTFLOW_MOVEMENT_TYPES:
+            delta_batch = -abs(qty_dec)
+        else:
+            delta_batch = qty_dec
+
+        if batch_stock:
+            batch_stock.quantity = Decimal(str(batch_stock.quantity)) + delta_batch
+        else:
+            target_wh_id = wh_id
+            if not target_wh_id:
+                wh_first = (await db.execute(select(Warehouse.id).where(
+                    Warehouse.company_id == product.company_id,
+                    Warehouse.is_deleted == False
+                ))).scalars().first()
+                target_wh_id = wh_first
+            if target_wh_id:
+                new_batch = ProductBatchStock(
+                    id=IdentityEngine.generate_technical_id(),
+                    company_id=product.company_id,
+                    branch_id=product.branch_id,
+                    product_id=product.id,
+                    warehouse_id=target_wh_id,
+                    batch_no=movement_in.batch,
+                    quantity=max(Decimal("0.00"), delta_batch),
+                )
+                db.add(new_batch)
+
+    # 7. Write StockMovement
     movement_id = movement_in.id or f"SM-{int(datetime.now(timezone.utc).timestamp())}-{uuid.uuid4().hex[:6]}"
-    
+    canonical_item_id = product.item_id
+    canonical_variant_id = product.item_variant_id
+
     db_movement = StockMovement(
         id=movement_id,
         uuid=str(uuid.uuid4()),
-        product_id=movement_in.product_id,
-        product_name=movement_in.product_name,
-        sku=movement_in.sku,
-        quantity=movement_in.quantity,
-        movement_type=movement_in.movement_type,
-        reference_doc_type=movement_in.reference_doc_type,
-        reference_doc_id=movement_in.reference_doc_id,
-        warehouse=movement_in.warehouse,
+        product_id=product.id,
+        item_id=canonical_item_id,
+        variant_id=canonical_variant_id,
+        product_name=movement_in.product_name or product.name,
+        sku=movement_in.sku or product.code or product.sku or "",
+        quantity=qty_dec,
+        movement_type=m_type,
+        reference_doc_type=ref_doc_type,
+        reference_doc_id=ref_doc_id,
+        warehouse=wh_code,
+        warehouse_id=wh_id,
         bin=movement_in.bin,
         batch=movement_in.batch,
         serial=movement_in.serial,
@@ -387,17 +510,24 @@ async def create_stock_movement(
         remarks=movement_in.remarks,
         user=movement_in.user,
         device=movement_in.device,
-        branch=movement_in.branch,
-        source_module=movement_in.source_module,
+        branch=movement_in.branch or product.branch_id,
+        source_module=movement_in.source_module or "Inventory",
         approval=movement_in.approval,
         company_id=product.company_id,
         branch_id=product.branch_id,
     )
-    
+
     db.add(db_movement)
+    await db.flush()
+
+    # 8. Call StockSynchronizer.sync_product_stock_cache before commit
+    await StockSynchronizer.sync_product_stock_cache(db, product.id, product.company_id)
+
+    saved_mov_id = db_movement.id
     await db.commit()
-    await db.refresh(db_movement)
-    return db_movement
+
+    res_mov = await db.execute(select(StockMovement).where(StockMovement.id == saved_mov_id))
+    return res_mov.scalar_one()
 
 
 
