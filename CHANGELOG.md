@@ -3,13 +3,33 @@
   Author       : Jawahar Ramkripal Mallah
   Email        : support@smritibooks.com
   Websites     : smritibooks.com | erpnbook.com | aitdl.com
-  Version      : 6.99.2
+  Version      : 6.99.3
   Created      : 2026-07-06
   Modified     : 2026-10-21
   Copyright    : © SMRITIBooks.com. All Rights Reserved.
   License      : Proprietary Commercial Software
   Classification: Internal
 -->
+
+## [6.99.3] — 2026-10-21
+
+### Procurement & Goods Receipt — Headless GRN Historical Date Correction & Stock Movement Integrity Repair
+
+- **Canonical SYSADMIN Remediation Endpoint (`backend/app/api/v1/database_manager.py`)**:
+  - Implemented `POST /api/v1/database-manager/admin-remediate-grn-dates` guarded by `verify_sysadmin_role`.
+  - Supports dry-run inspection mode (`dry_run=True`) calculating diffs and downstream stock movement impact without mutating rows.
+  - Implemented atomic mutation mode (`dry_run=False`) executing in a dedicated transaction (`engine.begin()`) with pessimistic row locking (`FOR UPDATE`).
+  - Automatically provisions pre-mutation audit backup tables `_backup_purchase_receipts_grn_date` and `_backup_stock_movements_grn_date` with `varchar(64)` ID compatibility.
+  - Synchronously updates `created_at` on both `purchase_receipts` and corresponding `stock_movements` matching on UUID or receipt number string.
+- **DTO & Schema Specifications (`backend/app/schemas/database_manager.py`)**:
+  - Created `GrnDateCorrectionItem` validating `receipt_no`, `target_date`, `receipt_id`, and `bill_no`.
+  - Created `GrnDateRemediationRequest` supporting `database` targeting (defaulting to `smriti001`) and `dry_run` toggle.
+- **Dual-Mode Headless Remediation Engine (`scripts/reconcile_live_grn_dates.py`)**:
+  - Compiles authoritative dates from client Excel source (`ALL VENDOR PURCHASE FOR SOFTWARE.xlsx`) for all 28 commercial vendor purchase bills across 9 suppliers.
+  - Provides dual-engine execution: Direct Database Engine (SQLAlchemy asyncpg) and Remote REST API Engine (FastAPI client).
+- **Automated Test Suite & Verification**:
+  - Created `backend/app/tests/test_admin_grn_date_remediation.py` certifying DTO validation, defaults, and SQL injection prevention via `DB_NAME_PATTERN` (3/3 tests passed green).
+  - Verified 100% mathematical parity: 28/28 GRNs and 407/407 stock movements matched and ready.
 
 ## [6.99.2] — 2026-10-21
 
