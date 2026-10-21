@@ -11,6 +11,7 @@ Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 """
 
+from decimal import Decimal
 from typing import Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
@@ -19,7 +20,7 @@ from sqlalchemy.exc import IntegrityError
 from fastapi import HTTPException
 import uuid
 import re
-from ..models.inventory import Product, StockMovement
+from ..models.inventory import Product, StockMovement, Warehouse, ProductBatchStock
 from ..models.item_master import Item, ItemVariant, ItemBarcode, LegacyIdMapping
 from ..models.pricing import PriceBook, PriceBookEntry
 from ..schemas.inventory import ProductCreate
@@ -430,14 +431,18 @@ class InventoryService:
     ) -> StockMovement:
         """
         Inter-warehouse stock transfer method.
-        Records StockMovement and emits Transactional Outbox event.
+        Posts a paired TRANSFER_OUT and TRANSFER_IN with warehouse_ids.
+        Validates source-warehouse availability; net effect on product.stock is zero.
+        Records StockMovements and emits Transactional Outbox event.
         Dual-key converged: writes product_id, item_id, variant_id.
         """
+        from .stock_synchronizer import StockSynchronizer, INFLOW_MOVEMENT_TYPES, OUTFLOW_MOVEMENT_TYPES
+
         stmt = select(Product).filter(
             Product.id == product_id,
             Product.is_deleted == False,
             Product.company_id == self.tenant_ctx.company_id,
-        )
+        ).with_for_update()
         if self.tenant_ctx.branch_id:
             stmt = stmt.filter(
                 (Product.branch_id == self.tenant_ctx.branch_id) | (Product.branch_id.is_(None))
@@ -453,29 +458,132 @@ class InventoryService:
             provided_variant_id=variant_id,
         )
 
-        if product.tracking_mode != "No-stock" and product.stock < quantity:
-            raise HTTPException(status_code=400, detail="Insufficient stock for transfer")
+        qty_decimal = Decimal(str(quantity))
 
-        movement_id = IdentityEngine.generate_technical_id()
-        movement = StockMovement(
-            id=movement_id,
+        # Resolve warehouse IDs and codes
+        wh_from = (await self.db.execute(
+            select(Warehouse).where(
+                Warehouse.company_id == self.tenant_ctx.company_id,
+                or_(Warehouse.id == from_warehouse, Warehouse.code == from_warehouse),
+                Warehouse.is_deleted == False,
+            )
+        )).scalar_one_or_none()
+        from_wh_id = wh_from.id if wh_from else (from_warehouse if (await self.db.execute(select(Warehouse.id).where(Warehouse.id == from_warehouse))).scalar_one_or_none() else None)
+        from_wh_code = wh_from.code if wh_from else from_warehouse
+
+        wh_to = (await self.db.execute(
+            select(Warehouse).where(
+                Warehouse.company_id == self.tenant_ctx.company_id,
+                or_(Warehouse.id == to_warehouse, Warehouse.code == to_warehouse),
+                Warehouse.is_deleted == False,
+            )
+        )).scalar_one_or_none()
+        to_wh_id = wh_to.id if wh_to else (to_warehouse if (await self.db.execute(select(Warehouse.id).where(Warehouse.id == to_warehouse))).scalar_one_or_none() else None)
+        to_wh_code = wh_to.code if wh_to else to_warehouse
+
+        # Validate against source-warehouse availability
+        if product.tracking_mode != "No-stock":
+            batch_filters = [
+                ProductBatchStock.company_id == self.tenant_ctx.company_id,
+                ProductBatchStock.product_id == product.id,
+                ProductBatchStock.is_deleted == False,
+            ]
+            if from_wh_id:
+                batch_filters.append(ProductBatchStock.warehouse_id == from_wh_id)
+
+            batch_count = (await self.db.execute(
+                select(func.count(ProductBatchStock.id)).where(*batch_filters)
+            )).scalar() or 0
+
+            if batch_count > 0:
+                source_avail = Decimal(str((await self.db.execute(
+                    select(func.coalesce(func.sum(ProductBatchStock.quantity - ProductBatchStock.damaged_quantity), 0)).where(*batch_filters)
+                )).scalar() or 0))
+            else:
+                wh_conds = []
+                if from_wh_id:
+                    wh_conds.append(StockMovement.warehouse_id == from_wh_id)
+                wh_conds.append(StockMovement.warehouse == from_wh_code)
+                if from_warehouse != from_wh_code:
+                    wh_conds.append(StockMovement.warehouse == from_warehouse)
+
+                source_moves = (await self.db.execute(
+                    select(StockMovement).where(
+                        StockMovement.company_id == self.tenant_ctx.company_id,
+                        StockMovement.product_id == product.id,
+                        StockMovement.is_deleted == False,
+                        or_(*wh_conds),
+                    )
+                )).scalars().all()
+
+                if source_moves:
+                    source_avail = Decimal("0.00")
+                    for m in source_moves:
+                        mtype = (m.movement_type or "").upper()
+                        q = Decimal(str(m.quantity or 0))
+                        if mtype in INFLOW_MOVEMENT_TYPES:
+                            source_avail += abs(q)
+                        elif mtype in OUTFLOW_MOVEMENT_TYPES:
+                            source_avail -= abs(q)
+                        elif mtype in ("ADJUSTMENT", "STOCK_ADJUSTMENT"):
+                            source_avail += q
+                else:
+                    source_avail = Decimal(str(product.stock or 0))
+
+            if source_avail < qty_decimal:
+                raise HTTPException(status_code=400, detail="Insufficient stock for transfer at source warehouse")
+
+        transfer_doc_id = IdentityEngine.generate_technical_id()
+        out_id = IdentityEngine.generate_technical_id()
+        in_id = IdentityEngine.generate_technical_id()
+
+        # Paired stock movements: TRANSFER_OUT and TRANSFER_IN
+        mov_out = StockMovement(
+            id=out_id,
             product_id=product.id,
             item_id=canonical_item_id,
             variant_id=canonical_variant_id,
             product_name=product.name,
-            sku=product.sku or "",
-            quantity=quantity,
-            movement_type="TRANSFER",
+            sku=product.sku or product.code or "",
+            quantity=qty_decimal,
+            movement_type="TRANSFER_OUT",
             reference_doc_type="Stock Transfer",
-            reference_doc_id=movement_id,
-            warehouse=f"{from_warehouse} -> {to_warehouse}",
-            remarks=remarks or f"Transfer from {from_warehouse} to {to_warehouse}",
+            reference_doc_id=transfer_doc_id,
+            warehouse=from_wh_code,
+            warehouse_id=from_wh_id,
+            remarks=remarks or f"Transfer OUT to {to_wh_code}",
             branch=self.tenant_ctx.branch_id,
             source_module="Inventory",
             company_id=self.tenant_ctx.company_id,
             branch_id=self.tenant_ctx.branch_id,
         )
-        self.db.add(movement)
+
+        mov_in = StockMovement(
+            id=in_id,
+            product_id=product.id,
+            item_id=canonical_item_id,
+            variant_id=canonical_variant_id,
+            product_name=product.name,
+            sku=product.sku or product.code or "",
+            quantity=qty_decimal,
+            movement_type="TRANSFER_IN",
+            reference_doc_type="Stock Transfer",
+            reference_doc_id=transfer_doc_id,
+            warehouse=to_wh_code,
+            warehouse_id=to_wh_id,
+            remarks=remarks or f"Transfer IN from {from_wh_code}",
+            branch=self.tenant_ctx.branch_id,
+            source_module="Inventory",
+            company_id=self.tenant_ctx.company_id,
+            branch_id=self.tenant_ctx.branch_id,
+        )
+
+        self.db.add(mov_out)
+        self.db.add(mov_in)
+        await self.db.flush()
+
+        # Synchronize stock cache: net ledger impact of TRANSFER_OUT (-qty) and TRANSFER_IN (+qty) is exactly zero
+        await StockSynchronizer.sync_product_stock_cache(self.db, product.id, self.tenant_ctx.company_id)
 
         # Record Transactional Outbox event atomically
         from .outbox_service import OutboxService
@@ -485,18 +593,21 @@ class InventoryService:
             payload={
                 "action": "STOCK_TRANSFERRED",
                 "product_id": product.id,
-                "sku": product.sku,
-                "from_warehouse": from_warehouse,
-                "to_warehouse": to_warehouse,
+                "sku": product.sku or product.code,
+                "from_warehouse": from_wh_code,
+                "to_warehouse": to_wh_code,
                 "quantity": str(quantity),
-                "company_code": self.tenant_ctx.company_id
+                "company_code": self.tenant_ctx.company_id,
             },
-            causation_id=movement_id
+            causation_id=transfer_doc_id,
         )
 
+        saved_out_id = mov_out.id
         await self.db.commit()
-        await self.db.refresh(movement)
-        return movement
+
+        # Reload mov_out
+        res_mov = await self.db.execute(select(StockMovement).where(StockMovement.id == saved_out_id))
+        return res_mov.scalar_one()
 
     async def adjust_stock(
         self,
