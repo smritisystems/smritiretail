@@ -289,21 +289,50 @@ class SalesReturnLifecycleHandler(BaseDocumentLifecycleHandler):
                 SalesReturnItem.is_deleted == False
             )
             ret_items = (await db.execute(ret_items_stmt)).scalars().all()
-            lines = [
-                {
+            lines = []
+            for it in ret_items:
+                batch_val = getattr(it, "batch_no", None)
+                if not batch_val and getattr(it, "batch", None):
+                    batch_val = getattr(it.batch, "batch_number", None)
+                if not batch_val and it.sales_invoice_item_id:
+                    inv_item = (await db.execute(
+                        select(SalesInvoiceItem).where(SalesInvoiceItem.id == it.sales_invoice_item_id)
+                    )).scalars().first()
+                    if inv_item and inv_item.batch_no:
+                        batch_val = inv_item.batch_no
+
+                lines.append({
                     "product_id": it.product_id,
                     "quantity": it.quantity,
-                    "batch_no": getattr(it, "batch_no", None),
-                }
-                for it in ret_items
-            ]
+                    "batch_no": batch_val,
+                    "unit_cost": getattr(it, "unit_cost", None),
+                    "sales_invoice_item_id": it.sales_invoice_item_id,
+                })
+
+            wh_id = getattr(doc, "warehouse_id", None)
+            if not wh_id and doc.original_invoice_id:
+                orig_inv = (await db.execute(
+                    select(SalesInvoice).where(SalesInvoice.id == doc.original_invoice_id)
+                )).scalars().first()
+                if orig_inv and orig_inv.warehouse_id:
+                    wh_id = orig_inv.warehouse_id
+            if not wh_id:
+                try:
+                    from app.services.inventory_warehouse_resolver import InventoryWarehouseResolver
+                    resolver = InventoryWarehouseResolver(db)
+                    wh_obj = await resolver.resolve(company_id=tenant_ctx.company_id, branch_id=tenant_ctx.branch_id)
+                    if wh_obj:
+                        wh_id = wh_obj.id
+                except Exception:
+                    wh_id = None
+
             await SalesStockAuthority.record_return_inward(
                 session=db,
                 tenant_ctx=tenant_ctx,
                 return_id=doc.id,
                 return_no=doc.return_no,
                 items=lines,
-                warehouse_id=getattr(doc, "warehouse_id", None),
+                warehouse_id=wh_id,
                 user_id=getattr(user, "username", None) or str(user.id),
                 original_invoice_id=doc.original_invoice_id,
             )
