@@ -589,7 +589,9 @@ export const VisualReportsDashboardTab: React.FC<VisualReportsDashboardTabProps>
             {config.charts_visible?.stock_flow !== false && (
               <div className="lg:col-span-7 bg-white border border-slate-200/90 rounded-xl p-4 shadow-2xs flex flex-col justify-between">
                 <div className="flex items-center justify-between mb-2">
-                  <h3 className="font-bold text-sm text-slate-900 tracking-tight">Stock Flow (Last 14 Days)</h3>
+                  <h3 className="font-bold text-sm text-slate-900 tracking-tight">
+                    Stock Flow ({dashboardData?.date_range_label || dateRangeLabel})
+                  </h3>
                   <div className="flex items-center gap-2">
                     <select
                       value={flowViewMode}
@@ -736,7 +738,15 @@ export const VisualReportsDashboardTab: React.FC<VisualReportsDashboardTabProps>
 
                 <div className="mt-4 pt-2 border-t border-slate-100 text-[11px] text-slate-500 flex items-center justify-between">
                   <span>Actual workflow stage fulfillment metrics</span>
-                  <span className="font-semibold text-emerald-600">100% Reconciled</span>
+                  <span
+                    className={`font-semibold ${
+                      dashboardData?.is_reconciled ?? true
+                        ? "text-emerald-600"
+                        : "text-amber-600"
+                    }`}
+                  >
+                    {dashboardData?.reconciliation_status || "100% Reconciled"}
+                  </span>
                 </div>
               </div>
             )}
@@ -755,49 +765,51 @@ export const VisualReportsDashboardTab: React.FC<VisualReportsDashboardTabProps>
                     View All &rarr;
                   </button>
                 </div>
-                <table className="w-full text-left text-[11px] border-collapse">
-                  <thead>
-                    <tr className="border-b border-slate-200 text-slate-400 font-bold">
-                      <th className="py-1">Category</th>
-                      <th className="py-1 text-right">On-Hand</th>
-                      <th className="py-1 text-right">Reserved</th>
-                      <th className="py-1 text-right">Available</th>
-                      <th className="py-1 text-right">Reserved %</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {categoryPositions.length === 0 ? (
-                      <tr>
-                        <td colSpan={5} className="py-4 text-center text-slate-400 font-medium">
-                          No category stock records found for this period.
-                        </td>
+                <div className="overflow-x-auto my-auto">
+                  <table className="w-full text-left text-[11px] border-collapse min-w-[280px]">
+                    <thead>
+                      <tr className="border-b border-slate-200 text-slate-400 font-bold">
+                        <th className="py-1 px-1.5 whitespace-nowrap">Category</th>
+                        <th className="py-1 px-1.5 text-right whitespace-nowrap">On-Hand</th>
+                        <th className="py-1 px-1.5 text-right whitespace-nowrap">Reserved</th>
+                        <th className="py-1 px-1.5 text-right whitespace-nowrap">Available</th>
+                        <th className="py-1 px-1.5 text-right whitespace-nowrap">Reserved %</th>
                       </tr>
-                    ) : (
-                      categoryPositions.map((row) => (
-                        <tr key={row.category} className="hover:bg-slate-50">
-                          <td className="py-1.5 font-medium text-slate-800">{row.category}</td>
-                          <td className="py-1.5 text-right font-mono">{row.on_hand.toLocaleString()}</td>
-                          <td className="py-1.5 text-right font-mono text-amber-600">{row.reserved.toLocaleString()}</td>
-                          <td className="py-1.5 text-right font-mono text-emerald-600">{row.available.toLocaleString()}</td>
-                          <td className="py-1.5 text-right font-mono font-bold text-slate-700">
-                            <div className="flex items-center justify-end gap-1.5">
-                              <div className="w-10 bg-slate-100 h-1 rounded-full overflow-hidden">
-                                <div className="bg-blue-600 h-full" style={{ width: `${row.reserved_pct}%` }}></div>
-                              </div>
-                              <span>{row.reserved_pct.toFixed(1)}%</span>
-                            </div>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {categoryPositions.length === 0 ? (
+                        <tr>
+                          <td colSpan={5} className="py-4 text-center text-slate-400 font-medium">
+                            No category stock records found for this period.
                           </td>
                         </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
+                      ) : (
+                        categoryPositions.map((row) => (
+                          <tr key={row.category} className="hover:bg-slate-50">
+                            <td className="py-1.5 px-1.5 font-medium text-slate-800 whitespace-nowrap">{row.category}</td>
+                            <td className="py-1.5 px-1.5 text-right font-mono whitespace-nowrap">{row.on_hand.toLocaleString()}</td>
+                            <td className="py-1.5 px-1.5 text-right font-mono text-amber-600 whitespace-nowrap">{row.reserved.toLocaleString()}</td>
+                            <td className="py-1.5 px-1.5 text-right font-mono text-emerald-600 whitespace-nowrap">{row.available.toLocaleString()}</td>
+                            <td className="py-1.5 px-1.5 text-right font-mono font-bold text-slate-700 whitespace-nowrap">
+                              <div className="flex items-center justify-end gap-1.5">
+                                <div className="w-10 bg-slate-100 h-1 rounded-full overflow-hidden">
+                                  <div className="bg-blue-600 h-full" style={{ width: `${row.reserved_pct}%` }}></div>
+                                </div>
+                                <span>{row.reserved_pct.toFixed(1)}%</span>
+                              </div>
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             )}
 
             {/* 2. Top 10 SKUs by Reserved Quantity */}
             {config.charts_visible?.top_skus !== false && (
-              <div className="lg:col-span-4 bg-white border border-slate-200/90 rounded-xl p-3.5 shadow-2xs flex flex-col justify-between">
+              <div className="lg:col-span-3 bg-white border border-slate-200/90 rounded-xl p-3.5 shadow-2xs flex flex-col justify-between">
                 <div className="flex items-center justify-between mb-2">
                   <h4 className="font-bold text-xs text-slate-900 tracking-tight">Top 10 SKUs by Reserved Quantity</h4>
                   <button type="button" className="text-[11px] text-blue-600 font-bold hover:underline">
@@ -805,15 +817,15 @@ export const VisualReportsDashboardTab: React.FC<VisualReportsDashboardTabProps>
                   </button>
                 </div>
                 <div className="overflow-x-auto">
-                  <table className="w-full text-left text-[11px] border-collapse">
+                  <table className="w-full text-left text-[11px] border-collapse min-w-[290px]">
                     <thead>
                       <tr className="border-b border-slate-200 text-slate-400 font-bold">
-                        <th className="py-1">#</th>
-                        <th className="py-1">SKU</th>
-                        <th className="py-1">Product Name</th>
-                        <th className="py-1 text-right">On-Hand</th>
-                        <th className="py-1 text-right">Reserved</th>
-                        <th className="py-1 text-right">Reserved %</th>
+                        <th className="py-1 px-1 whitespace-nowrap">#</th>
+                        <th className="py-1 px-1 whitespace-nowrap">SKU</th>
+                        <th className="py-1 px-1 whitespace-nowrap">Product Name</th>
+                        <th className="py-1 px-1 text-right whitespace-nowrap">On-Hand</th>
+                        <th className="py-1 px-1 text-right whitespace-nowrap">Reserved</th>
+                        <th className="py-1 px-1 text-right whitespace-nowrap">Reserved %</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
@@ -826,12 +838,12 @@ export const VisualReportsDashboardTab: React.FC<VisualReportsDashboardTabProps>
                       ) : (
                         topSkus.map((sku) => (
                           <tr key={sku.sku} className="hover:bg-slate-50">
-                            <td className="py-1 text-slate-400 font-mono">{sku.rank}</td>
-                            <td className="py-1 font-mono font-bold text-blue-700">{sku.sku}</td>
-                            <td className="py-1 text-slate-800 truncate max-w-[110px]">{sku.product_name}</td>
-                            <td className="py-1 text-right font-mono">{sku.on_hand}</td>
-                            <td className="py-1 text-right font-mono font-bold text-amber-600">{sku.reserved}</td>
-                            <td className="py-1 text-right font-mono">
+                            <td className="py-1 px-1 text-slate-400 font-mono whitespace-nowrap">{sku.rank}</td>
+                            <td className="py-1 px-1 font-mono font-bold text-blue-700 whitespace-nowrap">{sku.sku}</td>
+                            <td className="py-1 px-1 text-slate-800 truncate max-w-[100px] whitespace-nowrap">{sku.product_name}</td>
+                            <td className="py-1 px-1 text-right font-mono whitespace-nowrap">{sku.on_hand}</td>
+                            <td className="py-1 px-1 text-right font-mono font-bold text-amber-600 whitespace-nowrap">{sku.reserved}</td>
+                            <td className="py-1 px-1 text-right font-mono whitespace-nowrap">
                               <div className="flex items-center justify-end gap-1.5">
                                 <div className="w-8 bg-slate-100 h-1 rounded-full overflow-hidden">
                                   <div className="bg-orange-500 h-full" style={{ width: `${sku.reserved_pct}%` }}></div>
@@ -905,7 +917,7 @@ export const VisualReportsDashboardTab: React.FC<VisualReportsDashboardTabProps>
             )}
 
             {/* 4. Dispatch & Invoice Summary */}
-            <div className="lg:col-span-2 bg-white border border-slate-200/90 rounded-xl p-3.5 shadow-2xs flex flex-col justify-between">
+            <div className="lg:col-span-3 bg-white border border-slate-200/90 rounded-xl p-3.5 shadow-2xs flex flex-col justify-between">
               <div className="flex items-center justify-between mb-2">
                 <h4 className="font-bold text-xs text-slate-900 tracking-tight">Dispatch &amp; Invoice Summary</h4>
                 <button type="button" className="text-[11px] text-blue-600 font-bold hover:underline">
@@ -914,24 +926,24 @@ export const VisualReportsDashboardTab: React.FC<VisualReportsDashboardTabProps>
               </div>
 
               <div className="overflow-x-auto my-auto">
-                <table className="w-full text-left text-[11px] border-collapse">
+                <table className="w-full text-left text-[11px] border-collapse min-w-[320px]">
                   <thead>
                     <tr className="border-b border-slate-200 text-slate-400 font-bold">
-                      <th className="py-1">Document</th>
-                      <th className="py-1 text-center">Today</th>
-                      <th className="py-1 text-center">This Week</th>
-                      <th className="py-1 text-center">This Month</th>
-                      <th className="py-1 text-right">Value (₹)</th>
+                      <th className="py-1 px-1.5 whitespace-nowrap">Document</th>
+                      <th className="py-1 px-1.5 text-center whitespace-nowrap">Today</th>
+                      <th className="py-1 px-1.5 text-center whitespace-nowrap">This Week</th>
+                      <th className="py-1 px-1.5 text-center whitespace-nowrap">This Month</th>
+                      <th className="py-1 px-1.5 text-right whitespace-nowrap">Value (₹)</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {dispatchInvoiceSummary.map((row) => (
                       <tr key={row.document_type} className="hover:bg-slate-50">
-                        <td className="py-2 font-bold text-slate-800">{row.document_type}</td>
-                        <td className="py-2 text-center font-mono">{row.today}</td>
-                        <td className="py-2 text-center font-mono">{row.this_week}</td>
-                        <td className="py-2 text-center font-mono font-bold">{row.this_month}</td>
-                        <td className="py-2 text-right font-mono font-bold text-emerald-700">{row.formatted_value}</td>
+                        <td className="py-2 px-1.5 font-bold text-slate-800 whitespace-nowrap">{row.document_type}</td>
+                        <td className="py-2 px-1.5 text-center font-mono whitespace-nowrap">{row.today}</td>
+                        <td className="py-2 px-1.5 text-center font-mono whitespace-nowrap">{row.this_week}</td>
+                        <td className="py-2 px-1.5 text-center font-mono font-bold whitespace-nowrap">{row.this_month}</td>
+                        <td className="py-2 px-1.5 text-right font-mono font-bold text-emerald-700 whitespace-nowrap">{row.formatted_value}</td>
                       </tr>
                     ))}
                   </tbody>
