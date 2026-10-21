@@ -105,35 +105,30 @@ class StockAccountingBoundaryService:
         if req_variant_id and canonical_variant_id and req_variant_id != canonical_variant_id:
             raise ValueError(f"Provided variant_id '{req_variant_id}' does not match canonical variant '{canonical_variant_id}'.")
 
-        # Create immutable movement record with dual-key canonical identity
-        movement = StockMovement(
-            id=f"sm_{uuid.uuid4().hex[:12]}",
+        # Post movement via Single-Door StockLedger
+        from .stock_ledger import StockLedger, MovementRequest, InternalCost
+        cost_val = req.unit_cost or product.cost_price or Decimal("0.00")
+        post_req = MovementRequest(
             company_id=company_id,
+            branch_id=product.branch_id,
             product_id=product.id,
-            item_id=canonical_item_id,
-            variant_id=canonical_variant_id,
-            product_name=product.name,
-            sku=product.sku or "SKU-UNKNOWN",
             quantity=Decimal(str(req.quantity)),
             movement_type=m_type,
             reference_doc_type=req.reference_doc_type,
             reference_doc_id=req.reference_doc_id,
             warehouse_id=wh_id,
-            warehouse=req.warehouse or req.warehouse_id,
-            bin=req.bin,
-            batch=req.batch,
-            serial=req.serial,
-            unit_cost=Decimal(str(req.unit_cost or product.cost_price or 0.00)),
+            batch_no=req.batch,
+            allow_negative_stock=True,
+            internal_cost=InternalCost(
+                unit_cost=Decimal(str(cost_val)),
+                cost_source="STOCK_ACCT_CALLER",
+            ),
             remarks=req.remarks,
-            user=user_id,
             source_module=req.source_module or "INVENTORY",
+            user=user_id,
         )
-        session.add(movement)
-
-        # Update materialized product stock via canonical StockSynchronizer
-        await session.flush()
-        from .stock_synchronizer import StockSynchronizer
-        await StockSynchronizer.sync_product_stock_cache(session, product.id, company_id)
+        post_res = await StockLedger.post(session, post_req)
+        movement = post_res.movement
 
         if commit:
             await session.commit()

@@ -397,6 +397,13 @@ class StockMovementCreate(BaseModel):
             raise ValueError("Persistent technical ID cannot be supplied by client; it is governed and generated server-side by IdentityEngine.")
         return None
 
+    @field_validator("unit_cost")
+    @classmethod
+    def reject_client_supplied_unit_cost(cls, v: Optional[Decimal]) -> Optional[Decimal]:
+        if v is not None:
+            raise ValueError("unit_cost cannot be set by client payload; valuation is governed server-side via CostManagementEngine.")
+        return None
+
 
 class StockMovementResponse(BaseModel):
     id: str

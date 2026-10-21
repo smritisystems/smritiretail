@@ -16,7 +16,7 @@ import uuid
 import logging
 from decimal import Decimal
 from datetime import datetime, timezone
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Tuple
 
 from fastapi import HTTPException
 from sqlalchemy import select, and_, func
@@ -29,6 +29,7 @@ from app.models.fulfillment import Dispatch, DispatchItem, PackingSlip
 from app.models.profitability import ProductCostValuation, TransactionCostSnapshot
 from .stock_synchronizer import StockSynchronizer
 from .identity.engine import IdentityEngine
+from .stock_ledger import StockLedger, MovementRequest, InternalCost
 
 logger = logging.getLogger("smriti.sales_stock_authority")
 
@@ -79,6 +80,7 @@ class SalesStockAuthority:
         Atomically updates batch stocks and synchronizes product stock cache.
         """
         movements: List[StockMovement] = []
+        requests: List[MovementRequest] = []
         user = user_id or "SYSTEM"
 
         ref_type_upper = (reference_doc_type or "SALES_INVOICE").upper().replace(" ", "_")
@@ -89,7 +91,7 @@ class SalesStockAuthority:
         else:
             ref_types = [reference_doc_type]
 
-        for line in items:
+        for line_idx, line in enumerate(items):
             product_id = line.get("product_id")
             qty = Decimal(str(line.get("quantity") or 0))
             if qty <= Decimal("0.00"):
@@ -133,101 +135,51 @@ class SalesStockAuthority:
                     )
                     continue
 
-            # 2. Row Lock on Product
-            prod_stmt = select(Product).where(
-                Product.id == product_id,
-                Product.company_id == tenant_ctx.company_id,
-                Product.is_deleted.is_(False),
-            ).with_for_update()
-            product = (await session.execute(prod_stmt)).scalars().first()
-            if not product:
+            # Check tracking mode on product
+            prod_check = (await session.execute(
+                select(Product).where(
+                    Product.id == product_id,
+                    Product.company_id == tenant_ctx.company_id,
+                    Product.is_deleted.is_(False),
+                )
+            )).scalars().first()
+            if not prod_check:
                 raise HTTPException(status_code=404, detail=f"Product '{product_id}' not found for tenant.")
-
-            if (product.tracking_mode or "").lower() == "no-stock":
+            if (prod_check.tracking_mode or "").lower() == "no-stock":
                 continue
 
-            # 3. Check for Batch Tracking
-            batch_no = line.get("batch_no")
-            if batch_no:
-                batch_stmt = select(ProductBatchStock).where(
-                    ProductBatchStock.company_id == tenant_ctx.company_id,
-                    ProductBatchStock.product_id == product_id,
-                    ProductBatchStock.batch_no == batch_no,
-                    ProductBatchStock.is_deleted.is_(False),
-                ).with_for_update()
-                batch_obj = (await session.execute(batch_stmt)).scalars().first()
-                if batch_obj:
-                    if batch_obj.quantity < qty and not allow_negative_stock:
-                        raise HTTPException(
-                            status_code=400,
-                            detail=f"Insufficient batch stock for '{product.name}' (Batch: {batch_no}). Required {qty}, available {batch_obj.quantity}."
-                        )
-                    batch_obj.quantity -= qty
-                    batch_obj.modified_at = datetime.now(timezone.utc)
-                    session.add(batch_obj)
-            else:
-                # Standard non-batch product concurrency & negative stock check
-                avail_stock = Decimal(str(product.stock or 0))
-                if avail_stock < qty and not allow_negative_stock:
-                    raise HTTPException(
-                        status_code=400,
-                        detail=f"Insufficient physical stock for '{product.name}'. Required {qty}, available {avail_stock}."
-                    )
-
-            # 4. Create Authoritative StockMovement
             src_module = "Distribution" if "DISTRIBUTION" in ref_type_upper else "Sales"
-            # 4. Resolve Authoritative COGS Unit Cost via CostManagementEngine
-            resolved_cost = Decimal("0.00")
-            val_source = "UNRESOLVED_ZERO_COST"
+            cost_obj = None
             if line.get("unit_cost") is not None and Decimal(str(line.get("unit_cost"))) > Decimal("0.00"):
-                resolved_cost = Decimal(str(line.get("unit_cost"))).quantize(Decimal("0.01"))
-                val_source = "EXPLICIT_LINE_UNIT_COST"
-            else:
-                from .cost_engine import CostManagementEngine
-                resolved_cost, val_source = await CostManagementEngine.resolve_cogs_unit_cost(
-                    session=session,
+                cost_obj = InternalCost(
+                    unit_cost=Decimal(str(line.get("unit_cost"))).quantize(Decimal("0.01")),
+                    cost_source="EXPLICIT_LINE_UNIT_COST",
+                )
+
+            requests.append(
+                MovementRequest(
                     company_id=tenant_ctx.company_id,
-                    product_id=product.id,
+                    branch_id=tenant_ctx.branch_id,
+                    product_id=product_id,
+                    movement_type="OUTWARD_SALE",
+                    quantity=qty,
+                    reference_doc_type=reference_doc_type,
+                    reference_doc_id=invoice_id,
+                    warehouse_id=warehouse_id,
+                    batch_no=line.get("batch_no"),
+                    internal_cost=cost_obj,
+                    allow_negative_stock=allow_negative_stock,
+                    remarks=f"Authoritative stock deduction for {reference_doc_type} {invoice_no}",
+                    source_module=src_module,
+                    user=user,
+                    line_ref=line.get("line_ref") or f"LINE-{line_idx + 1}",
                 )
-
-            # Never fallback to selling price (product.price)
-            if resolved_cost <= Decimal("0.00"):
-                logger.warning(
-                    "[SMRITI-COST-001] Missing or zero cost for product %s (%s) on %s %s. Stock movement recorded at 0.00 with UNRESOLVED_ZERO_COST flag.",
-                    product.id,
-                    product.name,
-                    reference_doc_type,
-                    invoice_no,
-                )
-
-            movement_id = f"sm_out_{uuid.uuid4().hex[:12]}"
-            mov = StockMovement(
-                id=movement_id,
-                uuid=movement_id,
-                company_id=tenant_ctx.company_id,
-                branch_id=tenant_ctx.branch_id,
-                product_id=product.id,
-                item_id=product.item_id,
-                variant_id=product.item_variant_id,
-                product_name=product.name,
-                sku=line.get("sku") or product.sku or product.code,
-                quantity=qty,
-                movement_type="OUTWARD_SALE",
-                reference_doc_type=reference_doc_type,
-                reference_doc_id=invoice_id,
-                warehouse_id=warehouse_id,
-                batch=batch_no,
-                unit_cost=resolved_cost,
-                remarks=f"Authoritative stock deduction for {reference_doc_type} {invoice_no} [Valuation: {val_source}]",
-                source_module=src_module,
-                user=user,
             )
-            session.add(mov)
-            movements.append(mov)
-            await session.flush()
 
-            # 5. Synchronize Materialized Cache via StockSynchronizer
-            await StockSynchronizer.sync_product_stock_cache(session, product.id, tenant_ctx.company_id)
+        if requests:
+            post_results = await StockLedger.post_many(session, requests)
+            for r in post_results:
+                movements.append(r.movement)
 
         return movements
 
@@ -250,6 +202,7 @@ class SalesStockAuthority:
         Atomically updates batch stocks and synchronizes product stock cache.
         """
         movements: List[StockMovement] = []
+        requests: List[MovementRequest] = []
         user = user_id or "SYSTEM"
 
         for line in items:
@@ -272,58 +225,20 @@ class SalesStockAuthority:
                 movements.append(existing_mov)
                 continue
 
-            # 2. Row Lock on Product
-            prod_stmt = select(Product).where(
-                Product.id == product_id,
-                Product.company_id == tenant_ctx.company_id,
-                Product.is_deleted.is_(False),
-            ).with_for_update()
-            product = (await session.execute(prod_stmt)).scalars().first()
-            if not product:
+            # Check tracking mode on product
+            prod_check = (await session.execute(
+                select(Product).where(
+                    Product.id == product_id,
+                    Product.company_id == tenant_ctx.company_id,
+                    Product.is_deleted.is_(False),
+                )
+            )).scalars().first()
+            if not prod_check:
                 raise HTTPException(status_code=404, detail=f"Product '{product_id}' not found for tenant.")
-
-            if (product.tracking_mode or "").lower() == "no-stock":
+            if (prod_check.tracking_mode or "").lower() == "no-stock":
                 continue
 
-            # 3. Batch Tracking update if applicable
             batch_no = line.get("batch_no")
-            if batch_no:
-                batch_stmt = select(ProductBatchStock).where(
-                    ProductBatchStock.company_id == tenant_ctx.company_id,
-                    ProductBatchStock.product_id == product_id,
-                    ProductBatchStock.batch_no == batch_no,
-                    ProductBatchStock.is_deleted.is_(False),
-                )
-                if warehouse_id:
-                    batch_stmt = batch_stmt.where(ProductBatchStock.warehouse_id == warehouse_id)
-                batch_stmt = batch_stmt.with_for_update()
-                batch_obj = (await session.execute(batch_stmt)).scalars().first()
-                if not batch_obj and warehouse_id:
-                    batch_fallback_stmt = select(ProductBatchStock).where(
-                        ProductBatchStock.company_id == tenant_ctx.company_id,
-                        ProductBatchStock.product_id == product_id,
-                        ProductBatchStock.batch_no == batch_no,
-                        ProductBatchStock.is_deleted.is_(False),
-                    ).with_for_update()
-                    batch_obj = (await session.execute(batch_fallback_stmt)).scalars().first()
-
-                if batch_obj:
-                    batch_obj.quantity += qty
-                    batch_obj.modified_at = datetime.now(timezone.utc)
-                    session.add(batch_obj)
-                elif warehouse_id:
-                    new_batch_id = f"pbs_{uuid.uuid4().hex[:12]}"
-                    batch_obj = ProductBatchStock(
-                        id=new_batch_id,
-                        company_id=tenant_ctx.company_id,
-                        branch_id=tenant_ctx.branch_id,
-                        warehouse_id=warehouse_id,
-                        product_id=product_id,
-                        batch_no=batch_no,
-                        quantity=qty,
-                        is_active=True,
-                    )
-                    session.add(batch_obj)
 
             # 4. Resolve Historical Cost (Tier 1: Original Invoice Snapshot, Tier 2: ProductCostValuation, Tier 3: Product.cost_price)
             unit_cost = Decimal("0.00")
@@ -348,10 +263,9 @@ class SalesStockAuthority:
                     unit_cost = Decimal(str(snap.cost_per_unit)).quantize(Decimal("0.01"))
                     val_method = f"HISTORICAL_SNAPSHOT ({snap.valuation_method_used or 'EXACT_LINE'})"
                 else:
-                    # Exact line not provided or not matched; check if there is an unambiguous snapshot
                     snaps_stmt = select(TransactionCostSnapshot).where(
                         TransactionCostSnapshot.sales_invoice_id == original_invoice_id,
-                        TransactionCostSnapshot.product_id == product.id,
+                        TransactionCostSnapshot.product_id == prod_check.id,
                         TransactionCostSnapshot.company_id == tenant_ctx.company_id,
                         TransactionCostSnapshot.is_deleted == False
                     )
@@ -363,17 +277,15 @@ class SalesStockAuthority:
                         unit_cost = Decimal(str(snaps[0].cost_per_unit)).quantize(Decimal("0.01"))
                         val_method = f"HISTORICAL_SNAPSHOT ({snaps[0].valuation_method_used or 'UNIFORM_COST_LINES'})"
                     elif len(snaps) > 1:
-                        # Multi-line invoice with distinct costs and no exact line link:
-                        # NEVER silently pick an arbitrary latest snapshot; explicitly flag fallback as provisional.
                         logger.warning(
                             "[SMRITI-COST-002] Multi-line return for product %s on invoice %s missing exact line item linkage. Fallback marked as PROVISIONAL_AMBIGUOUS_LINE_FALLBACK.",
-                            product.id,
+                            prod_check.id,
                             original_invoice_id,
                         )
 
             if unit_cost <= Decimal("0.00"):
                 pcv_stmt = select(ProductCostValuation).where(
-                    ProductCostValuation.product_id == product.id,
+                    ProductCostValuation.product_id == prod_check.id,
                     ProductCostValuation.company_id == tenant_ctx.company_id,
                     ProductCostValuation.is_deleted == False
                 )
@@ -399,50 +311,44 @@ class SalesStockAuthority:
                         else:
                             val_method = f"PROVISIONAL_AMBIGUOUS_LINE_FALLBACK ({raw_method})"
 
-            if unit_cost <= Decimal("0.00") and product.cost_price and Decimal(str(product.cost_price)) > Decimal("0.00"):
-                unit_cost = Decimal(str(product.cost_price)).quantize(Decimal("0.01"))
+            if unit_cost <= Decimal("0.00") and prod_check.cost_price and Decimal(str(prod_check.cost_price)) > Decimal("0.00"):
+                unit_cost = Decimal(str(prod_check.cost_price)).quantize(Decimal("0.01"))
                 if original_invoice_id:
                     val_method = "PROVISIONAL_AMBIGUOUS_LINE_FALLBACK (CATALOG_COST)"
                 else:
                     val_method = "PROVISIONAL_CATALOG_COST"
 
-            # Never fallback to selling price (product.price)
-            if unit_cost <= Decimal("0.00"):
-                logger.warning(
-                    "[SMRITI-COST-001] Missing or zero cost for return inward product %s on return %s. Valuation recorded as 0.00 with ZERO_COST_UNVALUED.",
-                    product.id,
-                    return_no,
+            cost_obj = None
+            if unit_cost > Decimal("0.00"):
+                cost_obj = InternalCost(
+                    unit_cost=unit_cost,
+                    cost_source=val_method,
                 )
 
-            # 5. Create Authoritative StockMovement
-            movement_id = f"sm_ret_{uuid.uuid4().hex[:12]}"
-            mov = StockMovement(
-                id=movement_id,
-                uuid=movement_id,
-                company_id=tenant_ctx.company_id,
-                branch_id=tenant_ctx.branch_id,
-                product_id=product.id,
-                item_id=product.item_id,
-                variant_id=product.item_variant_id,
-                product_name=product.name,
-                sku=product.sku or product.code,
-                quantity=qty,
-                movement_type="RETURN_INWARD",
-                reference_doc_type="SALES_RETURN",
-                reference_doc_id=return_id,
-                warehouse_id=warehouse_id,
-                batch=batch_no,
-                unit_cost=unit_cost,
-                remarks=f"Authoritative stock return via Sales Return {return_no} (Cost: {unit_cost}, Method: {val_method})",
-                source_module="Sales",
-                user=user,
+            requests.append(
+                MovementRequest(
+                    company_id=tenant_ctx.company_id,
+                    branch_id=tenant_ctx.branch_id,
+                    product_id=product_id,
+                    movement_type="RETURN_INWARD",
+                    quantity=qty,
+                    reference_doc_type="SALES_RETURN",
+                    reference_doc_id=return_id,
+                    warehouse_id=warehouse_id,
+                    batch_no=batch_no,
+                    internal_cost=cost_obj,
+                    allow_negative_stock=True,
+                    remarks=f"Authoritative stock return via Sales Return {return_no} (Cost: {unit_cost}, Method: {val_method})",
+                    source_module="Sales",
+                    user=user,
+                    line_ref=line.get("line_ref") or f"LINE-{len(requests) + 1}",
+                )
             )
-            session.add(mov)
-            movements.append(mov)
-            await session.flush()
 
-            # 6. Synchronize Materialized Cache via StockSynchronizer
-            await StockSynchronizer.sync_product_stock_cache(session, product.id, tenant_ctx.company_id)
+        if requests:
+            post_results = await StockLedger.post_many(session, requests)
+            for r in post_results:
+                movements.append(r.movement)
 
         return movements
 
@@ -458,10 +364,9 @@ class SalesStockAuthority:
     ) -> List[StockMovement]:
         """
         Creates compensating stock movements for a cancelled Sales Invoice.
-        Reverses original OUTWARD_SALE movements.
+        Reverses original OUTWARD_SALE movements via single-door StockLedger.post_many().
         """
         user = user_id or "SYSTEM"
-        reversals: List[StockMovement] = []
 
         # Find original outward movements (supporting both SALES_INVOICE and Sales Invoice)
         orig_stmt = select(StockMovement).where(
@@ -486,62 +391,36 @@ class SalesStockAuthority:
         if existing_rev:
             return list(existing_rev)
 
+        requests: List[MovementRequest] = []
         for om in orig_movements:
-            # Row lock product
-            prod_stmt = select(Product).where(
-                Product.id == om.product_id,
-                Product.company_id == tenant_ctx.company_id,
-                Product.is_deleted.is_(False),
-            ).with_for_update()
-            product = (await session.execute(prod_stmt)).scalars().first()
-            if not product:
-                continue
-
-            # Batch restore if batch tracked
-            if om.batch:
-                batch_stmt = select(ProductBatchStock).where(
-                    ProductBatchStock.company_id == tenant_ctx.company_id,
-                    ProductBatchStock.product_id == om.product_id,
-                    ProductBatchStock.batch_no == om.batch,
-                    ProductBatchStock.is_deleted.is_(False),
-                ).with_for_update()
-                batch_obj = (await session.execute(batch_stmt)).scalars().first()
-                if batch_obj:
-                    batch_obj.quantity += Decimal(str(om.quantity))
-                    batch_obj.modified_at = datetime.now(timezone.utc)
-                    session.add(batch_obj)
-
-            # Create compensating reversal movement
-            rev_id = f"sm_rev_{uuid.uuid4().hex[:12]}"
-            rev_mov = StockMovement(
-                id=rev_id,
-                uuid=rev_id,
-                company_id=tenant_ctx.company_id,
-                branch_id=tenant_ctx.branch_id,
-                product_id=om.product_id,
-                item_id=om.item_id,
-                variant_id=om.variant_id,
-                product_name=om.product_name,
-                sku=om.sku,
-                quantity=om.quantity,
-                movement_type="RETURN_INWARD",
-                reference_doc_type="SALES_INVOICE_CANCEL",
-                reference_doc_id=invoice_id,
-                warehouse_id=om.warehouse_id,
-                batch=om.batch,
-                unit_cost=om.unit_cost,
-                remarks=f"Compensating stock reversal for cancelled Invoice {invoice_no}: {reason or 'Cancelled'}",
-                source_module="Sales",
-                user=user,
+            cost_obj = None
+            if om.unit_cost is not None:
+                cost_obj = InternalCost(
+                    unit_cost=Decimal(str(om.unit_cost)),
+                    cost_source="ORIGINAL_OUTWARD_REVERSAL",
+                )
+            requests.append(
+                MovementRequest(
+                    company_id=tenant_ctx.company_id,
+                    branch_id=tenant_ctx.branch_id or om.branch_id,
+                    product_id=om.product_id,
+                    quantity=Decimal(str(om.quantity)),
+                    movement_type="RETURN_INWARD",
+                    reference_doc_type="SALES_INVOICE_CANCEL",
+                    reference_doc_id=invoice_id,
+                    line_ref=om.id,
+                    warehouse_id=om.warehouse_id,
+                    batch_no=om.batch,
+                    allow_negative_stock=True,
+                    internal_cost=cost_obj,
+                    remarks=f"Compensating stock reversal for cancelled Invoice {invoice_no}: {reason or 'Cancelled'}",
+                    source_module="Sales",
+                    user=user,
+                )
             )
-            session.add(rev_mov)
-            reversals.append(rev_mov)
-            await session.flush()
 
-            # Resynchronize cache
-            await StockSynchronizer.sync_product_stock_cache(session, product.id, tenant_ctx.company_id)
-
-        return reversals
+        post_results = await StockLedger.post_many(session, requests)
+        return [res.movement for res in post_results]
 
     @classmethod
     async def record_dispatch_outward(
@@ -560,9 +439,8 @@ class SalesStockAuthority:
         """
         Records dispatch movements ensuring ZERO double-deduction.
         If an invoice already deducted stock via OUTWARD_SALE, dispatch does NOT deduct physical stock again.
-        If dispatch is fulfilling a Sales Order reservation, physical stock is deducted and reservation released.
+        If dispatch is fulfilling a Sales Order reservation, physical stock is deducted via StockLedger and reservation released.
         """
-        movements: List[StockMovement] = []
         user = user_id or "SYSTEM"
 
         # Check if invoice already deducted physical stock
@@ -579,34 +457,14 @@ class SalesStockAuthority:
             if inv_mov_count > 0:
                 invoice_already_deducted = True
 
-        for line in items:
+        movements: List[StockMovement] = []
+        requests: List[MovementRequest] = []
+        pending_release_items: List[Tuple[str, Decimal]] = []
+
+        for idx, line in enumerate(items):
             product_id = line.get("product_id")
             qty = Decimal(str(line.get("quantity") or 0))
-            sku = line.get("sku")
-            if qty <= Decimal("0.00"):
-                continue
-
-            # Idempotency check for this dispatch
-            existing_stmt = select(StockMovement).where(
-                StockMovement.company_id == tenant_ctx.company_id,
-                StockMovement.reference_doc_type.in_(["DISPATCH", "Dispatch"]),
-                StockMovement.reference_doc_id == dispatch_id,
-                StockMovement.product_id == product_id,
-                StockMovement.is_deleted.is_(False),
-            )
-            existing_mov = (await session.execute(existing_stmt)).scalars().first()
-            if existing_mov:
-                movements.append(existing_mov)
-                continue
-
-            # Row lock product
-            prod_stmt = select(Product).where(
-                Product.id == product_id,
-                Product.company_id == tenant_ctx.company_id,
-                Product.is_deleted.is_(False),
-            ).with_for_update()
-            product = (await session.execute(prod_stmt)).scalars().first()
-            if not product:
+            if qty <= Decimal("0.00") or not product_id:
                 continue
 
             if invoice_already_deducted:
@@ -616,48 +474,48 @@ class SalesStockAuthority:
                     "Dispatch %s for invoice %s: Physical stock already deducted via invoice. Skipping duplicate deduction.",
                     dispatch_no, invoice_id
                 )
-                # Release reserved stock if reserved for SO
-                if source_order_id and product.reserved_stock:
-                    product.reserved_stock = max(Decimal("0.00"), Decimal(str(product.reserved_stock)) - qty)
-                    session.add(product)
+                if source_order_id:
+                    pending_release_items.append((product_id, qty))
                 continue
-            else:
-                # Dispatch is deducting stock from SO reservation (dispatch-before-invoice workflow)
-                avail_stock = Decimal(str(product.stock or 0))
-                if avail_stock < qty and not allow_negative_stock:
-                    raise HTTPException(
-                        status_code=400,
-                        detail=f"Insufficient physical stock for '{product.name}'. Required {qty}, available {avail_stock}."
-                    )
 
-                movement_id = f"sm_dsp_{uuid.uuid4().hex[:12]}"
-                mov = StockMovement(
-                    id=movement_id,
-                    uuid=movement_id,
+            requests.append(
+                MovementRequest(
                     company_id=tenant_ctx.company_id,
                     branch_id=tenant_ctx.branch_id,
-                    product_id=product.id,
-                    item_id=product.item_id,
-                    variant_id=product.item_variant_id,
-                    product_name=product.name,
-                    sku=sku or product.sku or product.code,
+                    product_id=product_id,
                     quantity=qty,
                     movement_type="OUTWARD_DISPATCH",
                     reference_doc_type="DISPATCH",
                     reference_doc_id=dispatch_id,
+                    line_ref=str(idx),
+                    warehouse_id=line.get("warehouse_id"),
+                    batch_no=line.get("batch") or line.get("batch_no"),
+                    allow_negative_stock=allow_negative_stock,
                     remarks=f"Authoritative dispatch stock deduction: {dispatch_no}",
                     source_module="Fulfillment",
                     user=user,
                 )
-                session.add(mov)
-                movements.append(mov)
+            )
+            if source_order_id:
+                pending_release_items.append((product_id, qty))
 
-                # Release reserved stock if reserved
-                if source_order_id and product.reserved_stock:
-                    product.reserved_stock = max(Decimal("0.00"), Decimal(str(product.reserved_stock)) - qty)
+        if requests:
+            post_results = await StockLedger.post_many(session, requests)
+            movements.extend([res.movement for res in post_results])
+
+        # Release reserved stock for SO fulfilling dispatch
+        if pending_release_items:
+            for pid, q in pending_release_items:
+                prod_stmt = select(Product).where(
+                    Product.id == pid,
+                    Product.company_id == tenant_ctx.company_id,
+                    Product.is_deleted.is_(False),
+                ).with_for_update()
+                product = (await session.execute(prod_stmt)).scalars().first()
+                if product and product.reserved_stock:
+                    product.reserved_stock = max(Decimal("0.00"), Decimal(str(product.reserved_stock)) - q)
                     session.add(product)
-
-                await session.flush()
-                await StockSynchronizer.sync_product_stock_cache(session, product.id, tenant_ctx.company_id)
+            await session.flush()
 
         return movements
+

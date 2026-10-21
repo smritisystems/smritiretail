@@ -39,6 +39,7 @@ from app.models.goods_receipt import GoodsReceiptNote, GoodsReceiptLine
 from app.models.inventory import StockMovement, ProductBatchStock
 from app.models.workflow import WorkflowEvent
 from app.services.stock_synchronizer import StockSynchronizer
+from app.services.stock_ledger import StockLedger, MovementRequest, InternalCost
 from ..contracts import BaseDocumentLifecycleHandler
 from ..registry import register_lifecycle_handler
 from ..exceptions import (
@@ -223,47 +224,36 @@ class GoodsReceiptLifecycleHandler(BaseDocumentLifecycleHandler):
             # Stock reversal if the goods receipt was previously received/completed
             if prev_status in ("RECEIVED", "COMPLETED"):
                 items = getattr(doc, "items", getattr(doc, "lines", []))
-                for it in items:
+                reversal_requests = []
+                for it_idx, it in enumerate(items):
                     qty = Decimal(str(getattr(it, "quantity_received", getattr(it, "quantity", 0))))
                     if qty > Decimal("0.00"):
-                        sm_rev = StockMovement(
-                            id=f"sm_{uuid.uuid4().hex[:12]}",
-                            company_id=tenant_ctx.company_id,
-                            branch_id=tenant_ctx.branch_id,
-                            product_id=it.product_id,
-                            item_id=getattr(it, "item_id", None),
-                            variant_id=getattr(it, "variant_id", None),
-                            product_name=getattr(it, "name", "Product"),
-                            sku=getattr(it, "code", getattr(it, "sku", "SKU-UNKNOWN")),
-                            quantity=qty,
-                            movement_type="RETURN_OUTWARD",
-                            reference_doc_type="GOODS_RECEIPT",
-                            reference_doc_id=str(doc.id),
-                            warehouse_id=getattr(doc, "warehouse_id", None),
-                            batch=getattr(it, "batch_no", None),
-                            unit_cost=Decimal(str(getattr(it, "cost_price", getattr(it, "rate", 0.00)))),
-                            remarks=f"Stock reversal due to GRN cancellation: {reason}",
-                            user=getattr(user, "username", str(user.id)),
-                        )
-                        db.add(sm_rev)
-
-                        # Decrement Batch Stock if applicable
-                        batch_no = getattr(it, "batch_no", None)
-                        wh_id = getattr(doc, "warehouse_id", None)
-                        if batch_no and wh_id:
-                            batch_stmt = select(ProductBatchStock).where(
-                                ProductBatchStock.company_id == tenant_ctx.company_id,
-                                ProductBatchStock.warehouse_id == wh_id,
-                                ProductBatchStock.product_id == it.product_id,
-                                ProductBatchStock.batch_no == batch_no,
-                                ProductBatchStock.is_deleted == False,
+                        raw_cost = getattr(it, "cost_price", getattr(it, "rate", None))
+                        cost_obj = None
+                        if raw_cost is not None:
+                            cost_obj = InternalCost(
+                                unit_cost=Decimal(str(raw_cost)),
+                                cost_source="GRN_CANCEL_REVERSAL",
                             )
-                            batch_stock = (await db.execute(batch_stmt)).scalar_one_or_none()
-                            if batch_stock:
-                                batch_stock.quantity = Decimal(str(batch_stock.quantity)) - qty
-
-                        await db.flush()
-                        await StockSynchronizer.sync_product_stock_cache(db, it.product_id, tenant_ctx.company_id)
+                        reversal_requests.append(
+                            MovementRequest(
+                                company_id=tenant_ctx.company_id,
+                                branch_id=tenant_ctx.branch_id,
+                                product_id=it.product_id,
+                                movement_type="RETURN_OUTWARD",
+                                quantity=qty,
+                                reference_doc_type="GOODS_RECEIPT",
+                                reference_doc_id=str(doc.id),
+                                warehouse_id=getattr(doc, "warehouse_id", None),
+                                batch_no=getattr(it, "batch_no", None),
+                                internal_cost=cost_obj,
+                                remarks=f"Stock reversal due to GRN cancellation: {reason}",
+                                user=getattr(user, "username", str(user.id)),
+                                line_ref=f"LINE-{it_idx + 1}",
+                            )
+                        )
+                if reversal_requests:
+                    await StockLedger.post_many(db, reversal_requests)
 
                 # Recompute linked PO status after cancellation
                 po_id = getattr(doc, "order_id", getattr(doc, "primary_po_id", None))
@@ -308,67 +298,38 @@ class GoodsReceiptLifecycleHandler(BaseDocumentLifecycleHandler):
             if hasattr(doc, "posted_by"):
                 doc.posted_by = getattr(user, "username", str(user.id))
 
-            # 1. Authoritative inward stock movement creation
+            # 1. Authoritative inward stock movement creation via StockLedger single door
             items = getattr(doc, "items", getattr(doc, "lines", []))
-            for it in items:
+            inward_requests = []
+            for it_idx, it in enumerate(items):
                 qty = Decimal(str(getattr(it, "quantity_received", getattr(it, "quantity", 0))))
                 if qty > Decimal("0.00"):
-                    sm = StockMovement(
-                        id=f"sm_{uuid.uuid4().hex[:12]}",
-                        company_id=tenant_ctx.company_id,
-                        branch_id=tenant_ctx.branch_id,
-                        product_id=it.product_id,
-                        item_id=getattr(it, "item_id", None),
-                        variant_id=getattr(it, "variant_id", None),
-                        product_name=getattr(it, "name", "Product"),
-                        sku=getattr(it, "code", getattr(it, "sku", "SKU-UNKNOWN")),
-                        quantity=qty,
-                        movement_type="INWARD_GRN",
-                        reference_doc_type="GOODS_RECEIPT",
-                        reference_doc_id=str(doc.id),
-                        warehouse_id=getattr(doc, "warehouse_id", None),
-                        batch=getattr(it, "batch_no", None),
-                        unit_cost=Decimal(str(getattr(it, "cost_price", getattr(it, "rate", 0.00)))),
-                        remarks=f"Inward stock receipt via GRN {getattr(doc, 'receipt_no', getattr(doc, 'grn_number', doc.id))}",
-                        user=getattr(user, "username", str(user.id)),
-                    )
-                    db.add(sm)
-
-                    # Update or create Batch Stock if applicable
-                    batch_no = getattr(it, "batch_no", None)
-                    wh_id = getattr(doc, "warehouse_id", None)
-                    if batch_no and wh_id:
-                        batch_stmt = select(ProductBatchStock).where(
-                            ProductBatchStock.company_id == tenant_ctx.company_id,
-                            ProductBatchStock.warehouse_id == wh_id,
-                            ProductBatchStock.product_id == it.product_id,
-                            ProductBatchStock.batch_no == batch_no,
-                            ProductBatchStock.is_deleted == False,
+                    raw_cost = getattr(it, "cost_price", getattr(it, "rate", None))
+                    cost_obj = None
+                    if raw_cost is not None:
+                        cost_obj = InternalCost(
+                            unit_cost=Decimal(str(raw_cost)),
+                            cost_source="GRN_INWARD",
                         )
-                        batch_stock = (await db.execute(batch_stmt)).scalar_one_or_none()
-                        if batch_stock:
-                            batch_stock.quantity = Decimal(str(batch_stock.quantity)) + qty
-                        else:
-                            new_batch = ProductBatchStock(
-                                id=f"pbs_{uuid.uuid4().hex[:12]}",
-                                uuid=f"pbs_{uuid.uuid4().hex[:12]}",
-                                company_id=tenant_ctx.company_id,
-                                branch_id=tenant_ctx.branch_id,
-                                warehouse_id=wh_id,
-                                product_id=it.product_id,
-                                variant_id=getattr(it, "variant_id", None),
-                                batch_no=batch_no,
-                                mfg_date=getattr(it, "mfg_date", None),
-                                expiry_date=getattr(it, "expiry_date", None),
-                                mrp=getattr(it, "mrp", None),
-                                purchase_rate=getattr(it, "cost_price", getattr(it, "rate", None)),
-                                quantity=qty,
-                                is_deleted=False,
-                            )
-                            db.add(new_batch)
-
-                    await db.flush()
-                    await StockSynchronizer.sync_product_stock_cache(db, it.product_id, tenant_ctx.company_id)
+                    inward_requests.append(
+                        MovementRequest(
+                            company_id=tenant_ctx.company_id,
+                            branch_id=tenant_ctx.branch_id,
+                            product_id=it.product_id,
+                            movement_type="INWARD_GRN",
+                            quantity=qty,
+                            reference_doc_type="GOODS_RECEIPT",
+                            reference_doc_id=str(doc.id),
+                            warehouse_id=getattr(doc, "warehouse_id", None),
+                            batch_no=getattr(it, "batch_no", None),
+                            internal_cost=cost_obj,
+                            remarks=f"Inward stock receipt via GRN {getattr(doc, 'receipt_no', getattr(doc, 'grn_number', doc.id))}",
+                            user=getattr(user, "username", str(user.id)),
+                            line_ref=f"LINE-{it_idx + 1}",
+                        )
+                    )
+            if inward_requests:
+                await StockLedger.post_many(db, inward_requests)
 
             # 2. Update linked PO status based on total received vs ordered
             po_id = getattr(doc, "order_id", getattr(doc, "primary_po_id", None))

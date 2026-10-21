@@ -194,7 +194,7 @@ class InventoryWmsService:
                         mrp=mrp or product.mrp,
                         purchase_rate=purchase_rate or unit_cost or product.buying_price,
                         sale_rate=sale_rate or product.price,
-                        quantity=agg_stock + qty_delta_dec,
+                        quantity=agg_stock,
                         reserved_quantity=Decimal("0.0000"),
                         damaged_quantity=Decimal("0.0000"),
                         last_counted_date=datetime.now(timezone.utc),
@@ -224,7 +224,7 @@ class InventoryWmsService:
                     mrp=mrp,
                     purchase_rate=purchase_rate or unit_cost,
                     sale_rate=sale_rate,
-                    quantity=qty_delta_dec,
+                    quantity=Decimal("0.0000"),
                     reserved_quantity=Decimal("0.0000"),
                     damaged_quantity=Decimal("0.0000"),
                     last_counted_date=datetime.now(timezone.utc),
@@ -239,7 +239,6 @@ class InventoryWmsService:
                         status_code=400,
                         detail=f"SMRITI-STOCK-001: Insufficient available stock in batch {batch_no}. Available: {available}, Requested: {abs(qty_delta_dec)}."
                     )
-            batch_stock.quantity = Decimal(str(batch_stock.quantity)) + qty_delta_dec
             if mfg_date:
                 batch_stock.mfg_date = mfg_date
             if expiry_date:
@@ -251,45 +250,29 @@ class InventoryWmsService:
             if sale_rate is not None:
                 batch_stock.sale_rate = sale_rate
 
-        # 3. Create immutable StockMovement audit record
-        sm_id = IdentityEngine.generate_technical_id()
-        eff_item_id = item_id or getattr(product, "item_id", None)
-        eff_variant_id = variant_id or getattr(product, "item_variant_id", None)
-        movement = StockMovement(
-            id=sm_id,
-            uuid=sm_id,
+        # 3. Post immutable StockMovement audit record via Single-Door StockLedger
+        from .stock_ledger import StockLedger, MovementRequest, InternalCost
+        post_req = MovementRequest(
             company_id=self.tenant_ctx.company_id,
             branch_id=self.tenant_ctx.branch_id,
             product_id=product_id,
-            item_id=eff_item_id,
-            variant_id=eff_variant_id,
-            product_name=product.name,
-            sku=product.sku or product.code,
             quantity=abs(qty_delta_dec),
             movement_type=movement_type,
             reference_doc_type=reference_doc_type,
             reference_doc_id=reference_doc_id,
             warehouse_id=warehouse_id,
-            batch=batch_no,
-            unit_cost=unit_cost or purchase_rate,
+            batch_no=batch_no,
+            allow_negative_stock=True,
+            internal_cost=InternalCost(
+                unit_cost=Decimal(str(unit_cost or purchase_rate or 0)),
+                cost_source="WMS_CALLER",
+            ),
             remarks=remarks,
-            user=user,
             source_module="WMS",
-            batch_id=batch_id,
-            serial_id=serial_id,
-            location_id=location_id,
+            user=user,
         )
-        self.db.add(movement)
-
+        post_res = await StockLedger.post(self.db, post_req)
         await self.db.flush()
-
-        # 4. Synchronize products.stock cached aggregate via canonical StockSynchronizer
-        from .stock_synchronizer import StockSynchronizer
-        await StockSynchronizer.sync_product_stock_cache(
-            session=self.db,
-            product_id=product_id,
-            company_id=self.tenant_ctx.company_id,
-        )
         return batch_stock
 
     async def create_stock_transfer(

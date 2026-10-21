@@ -421,7 +421,10 @@ class EcomGrowthEngine:
                 raw_payload = {}
         raw_lines = raw_payload.get("line_items", []) if isinstance(raw_payload, dict) else []
 
-        for l in raw_lines:
+        from .stock_ledger import StockLedger, MovementRequest, InternalCost
+        stock_requests: List[MovementRequest] = []
+
+        for idx, l in enumerate(raw_lines):
             sku = l.get("sku", "GENERAL_SKU")
             qty = Decimal(str(l.get("quantity", 1.0)))
             unit_p = Decimal(str(l.get("unit_price", 0.0)))
@@ -434,23 +437,29 @@ class EcomGrowthEngine:
                 cur_res = Decimal(str(getattr(prod_obj, "reserved_stock", 0) or 0))
                 prod_obj.reserved_stock = max(Decimal("0.00"), cur_res - qty)
 
-            # Post Outward Stock Movement (Trigger trg_inventory_state_reconciliation updates Product.stock)
-            mov = StockMovement(
-                id=f"sm_{uuid.uuid4().hex[:12]}",
-                company_id=company_id,
-                movement_type="OUTWARD_ECOM",
-                reference_doc_type="ECOM_INVOICE",
-                reference_doc_id=invoice.invoice_no,
-                product_id=prod_obj.id if prod_obj else "unknown",
-                product_name=prod_obj.name if prod_obj else sku,
-                sku=sku,
-                quantity=-abs(qty),
-                unit_cost=unit_p,
-                remarks=f"Converged eCommerce Sale {order_import.channel_code}:{order_import.external_order_id}",
-                is_active=True,
-                is_deleted=False,
-            )
-            session.add(mov)
+                stock_requests.append(
+                    MovementRequest(
+                        company_id=company_id,
+                        branch_id=prod_obj.branch_id,
+                        product_id=prod_obj.id,
+                        quantity=abs(qty),
+                        movement_type="OUTWARD_ECOM",
+                        reference_doc_type="ECOM_INVOICE",
+                        reference_doc_id=invoice.invoice_no,
+                        line_ref=str(idx),
+                        allow_negative_stock=True,
+                        internal_cost=InternalCost(
+                            unit_cost=unit_p,
+                            cost_source="ECOM_ORDER_UNIT_PRICE",
+                        ),
+                        remarks=f"Converged eCommerce Sale {order_import.channel_code}:{order_import.external_order_id}",
+                        source_module="ECOM",
+                        user="SYSTEM",
+                    )
+                )
+
+        if stock_requests:
+            await StockLedger.post_many(session, stock_requests)
 
         order_import.order_status = "CONVERGED"
         order_import.converged_invoice_id = invoice.id

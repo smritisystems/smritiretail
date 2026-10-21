@@ -27,6 +27,7 @@ from ..schemas.inventory import ProductCreate
 from ..api.deps import TenantContext
 from .attributes import AttributesService
 from .identity.engine import IdentityEngine
+from .stock_ledger import StockLedger, MovementRequest, InternalCost
 
 class InventoryService:
     def __init__(self, db: AsyncSession, tenant_ctx: TenantContext):
@@ -129,30 +130,29 @@ class InventoryService:
         if product.tracking_mode == "No-stock":
             return None
 
-        # Stock is updated automatically by PostgreSQL trigger trg_inventory_state_reconciliation on StockMovement insert
-        self.db.add(product)
+        int_cost = None
+        if unit_cost is not None:
+            int_cost = InternalCost(
+                unit_cost=Decimal(str(unit_cost)),
+                cost_source="LEGACY_INVENTORY_ADAPTER",
+            )
 
-        # Create StockMovement record with dual-key canonical identity
-        movement = StockMovement(
-            id=IdentityEngine.generate_technical_id(),
-            product_id=product.id,
-            item_id=canonical_item_id,
-            variant_id=canonical_variant_id,
-            product_name=product.name,
-            sku=product.sku or "",
-            quantity=quantity,
-            movement_type=movement_type,
-            reference_doc_type=reference_doc_type,
-            reference_doc_id=reference_doc_id,
-            unit_cost=unit_cost,
-            remarks=remarks,
-            branch=self.tenant_ctx.branch_id,
-            source_module=source_module,
-            company_id=self.tenant_ctx.company_id,
-            branch_id=self.tenant_ctx.branch_id,
+        post_res = await StockLedger.post(
+            session=self.db,
+            request=MovementRequest(
+                company_id=self.tenant_ctx.company_id,
+                branch_id=self.tenant_ctx.branch_id,
+                product_id=product.id,
+                movement_type=movement_type,
+                quantity=Decimal(str(quantity)),
+                reference_doc_type=reference_doc_type,
+                reference_doc_id=reference_doc_id,
+                internal_cost=int_cost,
+                remarks=remarks,
+                source_module=source_module or "Inventory",
+            ),
         )
-        self.db.add(movement)
-        return movement
+        return post_res.movement
 
     async def record_movement(
         self,
@@ -537,53 +537,38 @@ class InventoryService:
         out_id = IdentityEngine.generate_technical_id()
         in_id = IdentityEngine.generate_technical_id()
 
-        # Paired stock movements: TRANSFER_OUT and TRANSFER_IN
-        mov_out = StockMovement(
-            id=out_id,
-            product_id=product.id,
-            item_id=canonical_item_id,
-            variant_id=canonical_variant_id,
-            product_name=product.name,
-            sku=product.sku or product.code or "",
-            quantity=qty_decimal,
-            movement_type="TRANSFER_OUT",
-            reference_doc_type="Stock Transfer",
-            reference_doc_id=transfer_doc_id,
-            warehouse=from_wh_code,
-            warehouse_id=from_wh_id,
-            remarks=remarks or f"Transfer OUT to {to_wh_code}",
-            branch=self.tenant_ctx.branch_id,
-            source_module="Inventory",
-            company_id=self.tenant_ctx.company_id,
-            branch_id=self.tenant_ctx.branch_id,
-        )
-
-        mov_in = StockMovement(
-            id=in_id,
-            product_id=product.id,
-            item_id=canonical_item_id,
-            variant_id=canonical_variant_id,
-            product_name=product.name,
-            sku=product.sku or product.code or "",
-            quantity=qty_decimal,
-            movement_type="TRANSFER_IN",
-            reference_doc_type="Stock Transfer",
-            reference_doc_id=transfer_doc_id,
-            warehouse=to_wh_code,
-            warehouse_id=to_wh_id,
-            remarks=remarks or f"Transfer IN from {from_wh_code}",
-            branch=self.tenant_ctx.branch_id,
-            source_module="Inventory",
-            company_id=self.tenant_ctx.company_id,
-            branch_id=self.tenant_ctx.branch_id,
-        )
-
-        self.db.add(mov_out)
-        self.db.add(mov_in)
-        await self.db.flush()
-
-        # Synchronize stock cache: net ledger impact of TRANSFER_OUT (-qty) and TRANSFER_IN (+qty) is exactly zero
-        await StockSynchronizer.sync_product_stock_cache(self.db, product.id, self.tenant_ctx.company_id)
+        # Route transfer through StockLedger single door
+        transfer_items = [
+            MovementRequest(
+                company_id=self.tenant_ctx.company_id,
+                branch_id=self.tenant_ctx.branch_id,
+                product_id=product.id,
+                movement_type="TRANSFER_OUT",
+                quantity=qty_decimal,
+                reference_doc_type="Stock Transfer",
+                reference_doc_id=transfer_doc_id,
+                warehouse_id=from_wh_id,
+                remarks=remarks or f"Transfer OUT to {to_wh_code}",
+                source_module="Inventory",
+                line_ref="OUT",
+            ),
+            MovementRequest(
+                company_id=self.tenant_ctx.company_id,
+                branch_id=self.tenant_ctx.branch_id,
+                product_id=product.id,
+                movement_type="TRANSFER_IN",
+                quantity=qty_decimal,
+                reference_doc_type="Stock Transfer",
+                reference_doc_id=transfer_doc_id,
+                warehouse_id=to_wh_id,
+                remarks=remarks or f"Transfer IN from {from_wh_code}",
+                source_module="Inventory",
+                line_ref="IN",
+            ),
+        ]
+        post_results = await StockLedger.post_many(self.db, transfer_items)
+        mov_out = post_results[0].movement
+        mov_in = post_results[1].movement
 
         # Record Transactional Outbox event atomically
         from .outbox_service import OutboxService
@@ -709,29 +694,21 @@ class InventoryService:
 
         delta = qty_dec - Decimal(str(ledger_stock))
 
-        movement_id = IdentityEngine.generate_technical_id()
-        movement = StockMovement(
-            id=movement_id,
-            product_id=product.id,
-            item_id=canonical_item_id,
-            variant_id=canonical_variant_id,
-            product_name=product.name,
-            sku=product.sku or product.code or "",
-            quantity=delta,
-            movement_type="ADJUSTMENT",
-            reference_doc_type="Stock Adjustment",
-            reference_doc_id=movement_id,
-            remarks=reason or "Physical audit inventory adjustment",
-            branch=self.tenant_ctx.branch_id,
-            source_module="Inventory",
-            company_id=self.tenant_ctx.company_id,
-            branch_id=self.tenant_ctx.branch_id,
+        adj_result = await StockLedger.post(
+            session=self.db,
+            request=MovementRequest(
+                company_id=self.tenant_ctx.company_id,
+                branch_id=self.tenant_ctx.branch_id,
+                product_id=product.id,
+                movement_type="ADJUSTMENT",
+                quantity=delta,
+                reference_doc_type="Stock Adjustment",
+                reference_doc_id=movement_id,
+                remarks=reason or "Physical audit inventory adjustment",
+                source_module="Inventory",
+            ),
         )
-        self.db.add(movement)
-        await self.db.flush()
-
-        # Synchronize cached products.stock from authoritative ledger
-        await StockSynchronizer.sync_product_stock_cache(self.db, product.id, self.tenant_ctx.company_id)
+        movement = adj_result.movement
 
         # Record Transactional Outbox event atomically
         from .outbox_service import OutboxService

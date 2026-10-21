@@ -133,11 +133,24 @@ class StockMovement(BaseEntity):
     branch = Column(String(100), nullable=True)
     source_module = Column(String(50), nullable=True)
     approval = Column(String(50), nullable=True)
+    idempotency_key = Column(String(64), nullable=True, index=True)
+    payload_hash = Column(String(64), nullable=True)
+    cost_source = Column(String(50), nullable=True)
 
     # Tracking Relationships (Phase 5)
     batch_rel = relationship("ItemBatch", foreign_keys=[batch_id], lazy="selectin")
     serial_rel = relationship("ItemSerial", foreign_keys=[serial_id], lazy="selectin")
     location_rel = relationship("ItemWarehouseLocation", foreign_keys=[location_id], lazy="selectin")
+
+    __table_args__ = (
+        Index(
+            "uq_sm_company_idempotency_key",
+            "company_id",
+            "idempotency_key",
+            unique=True,
+            postgresql_where=text("idempotency_key IS NOT NULL"),
+        ),
+    )
 
 
 # RETIRED — Phase C (2026-09-16, v6.26.0)
