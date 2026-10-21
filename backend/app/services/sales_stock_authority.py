@@ -35,20 +35,29 @@ logger = logging.getLogger("smriti.sales_stock_authority")
 
 class SalesStockAuthority:
     """
-    Sole authoritative transactional stock movement engine for Sales operations.
+    Sole authoritative transactional stock movement engine for Sales and Return operations.
     Enforces the fundamental SMRITI Ledger Principle:
     
     LEDGER = SOURCE OF TRUTH.
     `products.stock` is strictly a synchronized materialized read cache.
     `stock_movements` and `product_batch_stocks` are the sole transactional authorities.
     
-    Guarantees:
-    1. Single authoritative stock movement per business event.
+    Convergence & Single-Writer Invariants (v6.99.1):
+    1. Single authoritative stock movement per business event:
+       - Outward sales route strictly through `record_outward_sale` (including
+         both direct SalesService and UnifiedSalesLedgerService/offline sync).
+       - Sales return restocking occurs exclusively through `record_return_inward`
+         upon approval/PROCESS (premature creation-time stock mutations removed).
+       - Inward return movements restore both authoritative batch stocks
+         (ProductBatchStock) and synchronize cached product stock.
+       - Cancellation reversals route strictly through `record_sales_cancellation_reversal`.
     2. Zero double-deduction (Dispatch does not re-deduct stock if Invoice already deducted it;
        Invoice does not re-deduct if Dispatch already deducted it).
     3. Row-level locking on Product and Batch rows for concurrency protection.
-    4. Strict idempotency and duplicate movement rejection across doc types (Sales Invoice, Distribution Order, etc.).
-    5. Compensating reversals for cancellations and returns.
+    4. Strict idempotency and duplicate movement rejection across doc types (Sales Invoice,
+       Distribution Order, Sales Return, etc.).
+    5. Cost valuation integrity: unit cost resolves via CostValuation engine / snapshot,
+       never falling back to selling price.
     6. Complete tenant isolation (company_id, branch_id).
     """
 
