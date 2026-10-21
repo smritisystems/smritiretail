@@ -520,13 +520,16 @@ class ProductResolutionService:
                     COALESCE(pbe.selling_price, v.selling_price, i.selling_price, 0.00) as selling_price,
                     COALESCE(pbe.mrp, v.mrp, i.mrp, 0.00) as mrp,
                     COALESCE(pbe.cost_price, v.cost_price, i.cost_price, 0.00) as cost_price,
-                    lim.legacy_id as legacy_product_id,
+                    COALESCE(lim.legacy_id, p.id) as legacy_product_id,
                     lim.disposition
                 FROM item_barcodes ib
                 JOIN item_variants v ON ib.variant_id = v.id
                 JOIN items i ON v.item_id = i.id
                 LEFT JOIN legacy_id_mappings lim 
                   ON lim.canonical_id = v.id AND lim.legacy_table = 'products'
+                LEFT JOIN products p
+                  ON (p.item_variant_id = v.id OR p.sku = v.variant_sku OR p.code = v.variant_sku)
+                     AND p.company_id = :cid AND p.is_deleted = false
                 LEFT JOIN price_book_entries pbe 
                   ON pbe.variant_id = v.id AND pbe.is_deleted = false
                 WHERE (ib.company_id = :cid OR ib.company_id IS NULL)
@@ -563,17 +566,20 @@ class ProductResolutionService:
                     COALESCE(pbe.selling_price, v.selling_price, i.selling_price, 0.00) as selling_price,
                     COALESCE(pbe.mrp, v.mrp, i.mrp, 0.00) as mrp,
                     COALESCE(pbe.cost_price, v.cost_price, i.cost_price, 0.00) as cost_price,
-                    lim.legacy_id as legacy_product_id,
+                    COALESCE(lim.legacy_id, p.id) as legacy_product_id,
                     lim.disposition
                 FROM item_variants v
                 JOIN items i ON v.item_id = i.id
                 LEFT JOIN item_barcodes ib ON ib.variant_id = v.id AND ib.is_primary = true AND ib.is_deleted = false
                 LEFT JOIN legacy_id_mappings lim 
                   ON (lim.canonical_id = v.id OR lim.canonical_id = i.id OR lim.legacy_id = :q) AND lim.legacy_table = 'products'
+                LEFT JOIN products p
+                  ON (p.item_variant_id = v.id OR p.sku = v.variant_sku OR p.code = v.variant_sku)
+                     AND p.company_id = :cid AND p.is_deleted = false
                 LEFT JOIN price_book_entries pbe 
                   ON pbe.variant_id = v.id AND pbe.is_deleted = false
                 WHERE (v.company_id = :cid OR v.company_id IS NULL)
-                  AND (v.id = :q OR i.id = :q OR lim.legacy_id = :q)
+                  AND (v.id = :q OR i.id = :q OR lim.legacy_id = :q OR p.id = :q)
                   AND v.is_deleted = false
                 ORDER BY (v.company_id IS NOT NULL) DESC
                 LIMIT 1
@@ -606,13 +612,16 @@ class ProductResolutionService:
                     COALESCE(pbe.selling_price, v.selling_price, i.selling_price, 0.00) as selling_price,
                     COALESCE(pbe.mrp, v.mrp, i.mrp, 0.00) as mrp,
                     COALESCE(pbe.cost_price, v.cost_price, i.cost_price, 0.00) as cost_price,
-                    lim.legacy_id as legacy_product_id,
+                    COALESCE(lim.legacy_id, p.id) as legacy_product_id,
                     lim.disposition
                 FROM item_variants v
                 JOIN items i ON v.item_id = i.id
                 LEFT JOIN item_barcodes ib ON ib.variant_id = v.id AND ib.is_primary = true AND ib.is_deleted = false
                 LEFT JOIN legacy_id_mappings lim 
                   ON lim.canonical_id = v.id AND lim.legacy_table = 'products'
+                LEFT JOIN products p
+                  ON (p.item_variant_id = v.id OR p.sku = v.variant_sku OR p.code = v.variant_sku)
+                     AND p.company_id = :cid AND p.is_deleted = false
                 LEFT JOIN price_book_entries pbe 
                   ON pbe.variant_id = v.id AND pbe.is_deleted = false
                 WHERE (v.company_id = :cid OR v.company_id IS NULL)

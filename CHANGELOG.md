@@ -3,13 +3,37 @@
   Author       : Jawahar Ramkripal Mallah
   Email        : support@smritibooks.com
   Websites     : smritibooks.com | erpnbook.com | aitdl.com
-  Version      : 6.99.0
+  Version      : 6.99.2
   Created      : 2026-07-06
   Modified     : 2026-10-21
   Copyright    : © SMRITIBooks.com. All Rights Reserved.
   License      : Proprietary Commercial Software
   Classification: Internal
 -->
+
+## [6.99.2] — 2026-10-21
+
+### Inventory & Stock Ledger — Sales Stock Depletion & Dual-Key Product Resolution
+
+- **Canonical Transaction Writer Fallback Hardening (`canonical_transaction_writer.py`)**:
+  - Enhanced `resolve_dual_key_for_line` across variant ID, SKU, and barcode queries to perform a `LEFT JOIN products p ON (p.item_variant_id = v.id OR p.sku = v.variant_sku OR p.code = v.variant_sku) AND p.company_id = :cid AND p.is_deleted = false`.
+  - Returned `COALESCE(lim.legacy_id, p.id) AS legacy_product_id`, guaranteeing legacy product key resolution even if `legacy_id_mappings` table lacks an entry for the variant.
+  - Added direct fallback lookup to `products` in Step 4 when an explicit `product_id` is supplied.
+- **Product Resolution Service Convergence (`product_resolution_service.py`)**:
+  - Enhanced `_query_canonical` queries (`stmt_bc`, `stmt_id`, `stmt_sku`) to join `products p` and return `COALESCE(lim.legacy_id, p.id) AS legacy_product_id`.
+- **Headless Billing Pipeline Batch Deduction Restoration (`headless_billing.py`)**:
+  - Automatically populated `identity.legacy_product_id = line_res.product_id` when the identity is valid but missing a legacy ID.
+  - Evaluated `effective_product_id = identity.legacy_product_id or line_res.product_id` prior to appending line items to `batch_deductions`.
+  - Guaranteed `batch_deductions` is non-empty for physical merchandise, enabling Step 11 (`Physical Stock Mutation via WMS`) in `canonical_sales_writer.py` to execute.
+- **WMS Batch Stock Mutation Variant Fallback (`inventory_wms.py`)**:
+  - Enhanced `atomic_mutate_batch_stock` with automated fallback lookup to match `Product.item_variant_id == product_id OR Product.sku == product_id OR Product.code == product_id` when passed a variant identifier or SKU.
+- **Authoritative Unledgered Sales Reconciliation Engine (`scripts/reconcile_sales_stock_movements.py`)**:
+  - Engineered dual-mode (`--dry-run` and `--apply`) reconciliation CLI tool.
+  - Dynamically introspected schema for `sales_invoice_lines` (`product_id` vs `variant_id`) and `stock_movements` (`idempotency_key`).
+  - Identified submitted sales invoices lacking `OUTWARD_SALE` movements, resolved lines to products, and backfilled stock movements strictly through `StockLedger.post_many()` with deterministic idempotency keys.
+- **Automated Verification & Static Analysis Guard**:
+  - Created test suite `backend/app/tests/test_sales_stock_dual_key_depletion.py` (2/2 tests green).
+  - Validated 100% compliance with `scripts/ci_stock_single_door_guard.py` (0 violations across 764 scanned files).
 
 ## [6.99.1] — 2026-10-21
 

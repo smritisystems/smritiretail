@@ -98,11 +98,14 @@ class CanonicalTransactionWriter:
                         v.item_id,
                         v.variant_sku,
                         v.variant_name,
-                        lim.legacy_id as legacy_product_id,
+                        COALESCE(lim.legacy_id, p.id) as legacy_product_id,
                         lim.disposition
                     FROM item_variants v
                     LEFT JOIN legacy_id_mappings lim 
                       ON lim.canonical_id = v.id AND lim.legacy_table = 'products'
+                    LEFT JOIN products p 
+                      ON (p.item_variant_id = v.id OR p.sku = v.variant_sku OR p.code = v.variant_sku)
+                         AND p.company_id = :cid AND p.is_deleted = false
                     WHERE v.id = :vid AND v.company_id = :cid AND v.is_deleted = false
                 """),
                 {"vid": variant_id, "cid": company_id}
@@ -162,12 +165,15 @@ class CanonicalTransactionWriter:
                         v.item_id,
                         v.variant_sku,
                         v.variant_name,
-                        lim.legacy_id as legacy_product_id,
+                        COALESCE(lim.legacy_id, p.id) as legacy_product_id,
                         lim.disposition
                     FROM item_variants v
                     LEFT JOIN item_barcodes b ON b.variant_id = v.id AND b.is_active = true
                     LEFT JOIN legacy_id_mappings lim 
                       ON lim.canonical_id = v.id AND lim.legacy_table = 'products'
+                    LEFT JOIN products p 
+                      ON (p.item_variant_id = v.id OR p.sku = v.variant_sku OR p.code = v.variant_sku)
+                         AND p.company_id = :cid AND p.is_deleted = false
                     WHERE (b.barcode = :q OR v.variant_sku = :q OR v.variant_sku = UPPER(:q))
                       AND v.company_id = :cid
                       AND v.is_deleted = false
@@ -257,6 +263,29 @@ class CanonicalTransactionWriter:
                         is_quarantined=False,
                         is_consistent=False
                     )
+
+            # Direct fallback in products table if not recorded in legacy_id_mappings
+            prod_res = await session.execute(
+                text("""
+                    SELECT p.id as legacy_product_id, p.item_variant_id as variant_id, p.item_id, p.sku, p.name
+                    FROM products p
+                    WHERE p.id = :pid AND p.company_id = :cid AND p.is_deleted = false
+                """),
+                {"pid": product_id, "cid": company_id}
+            )
+            prod_row = prod_res.fetchone()
+            if prod_row:
+                return DualKeyWriteIdentity(
+                    canonical_variant_id=prod_row.variant_id,
+                    canonical_item_id=prod_row.item_id,
+                    legacy_product_id=prod_row.legacy_product_id,
+                    sku=prod_row.sku,
+                    name=prod_row.name,
+                    line_type="PHYSICAL_INVENTORY",
+                    is_valid=True,
+                    is_quarantined=False,
+                    is_consistent=(prod_row.variant_id is not None)
+                )
 
         return DualKeyWriteIdentity(
             canonical_variant_id=None,
