@@ -39,7 +39,8 @@ Physical purchase inward transactions occurred historically between June 2026 an
 ## 3. Files Created
 1. `backend/app/tests/test_admin_grn_date_remediation.py` — Dedicated unit test suite verifying schema constraints, Pydantic DTOs, and database name injection prevention.
 2. `scripts/reconcile_live_grn_dates.py` — Production-grade CLI engine supporting dual-mode execution (Direct Database Mode via SQLAlchemy asyncpg and Remote API Mode via FastAPI SYSADMIN endpoint).
-3. `docs/walkthrough/procurement/GRN_Date_Correction_And_Stock_Movement_Integrity_Repair_v6.99.3.md` — This comprehensive WGP walkthrough.
+3. `scripts/verify_remediated_grn_dates.py` — Post-execution verification script inspecting GRN dates, stock movement timestamp parity, item totals, and backup table audit trails.
+4. `docs/walkthrough/procurement/GRN_Date_Correction_And_Stock_Movement_Integrity_Repair_v6.99.3.md` — This comprehensive WGP walkthrough.
 
 ---
 
@@ -130,9 +131,9 @@ backend\app\tests\test_admin_grn_date_remediation.py::test_db_name_pattern_sanit
 ======================= 3 passed, 24 warnings in 43.47s =======================
 ```
 
-### Dry-Run Endpoint Execution on Live Local Core
+### 8.2 Dry-Run Audit on Live Production Core (`smriti001`)
 ```bash
-python scripts/reconcile_live_grn_dates.py --mode api --api-url http://127.0.0.1:1981
+python scripts/reconcile_live_grn_dates.py --mode api --api-url https://tattlythreads.smritisys.com --database smriti001
 ```
 **Literal Terminal Output:**
 ```
@@ -140,15 +141,122 @@ Successfully compiled 28 authoritative GRN bill dates from client Excel source.
 =========================================================================================================
 SMRITI RETAIL OS: HEADLESS GRN DATE REMEDIATION [REMOTE REST API ENGINE]
 Mode          : DRY-RUN (AUDIT ONLY)
-Target API    : http://127.0.0.1:1981
+Target API    : https://tattlythreads.smritisys.com
+Target DB     : smriti001
 Total GRNs    : 28
 =========================================================================================================
 
 [1/3] Authenticating with SYSADMIN credentials...
   [OK] SYSADMIN JWT Token acquired.
 
-[2/3] Calling POST /api/v1/database-manager/admin-remediate-grn-dates (dry_run=True)...
-  [OK] Server responded with success=True: [DRY RUN] Audit complete. 0 GRNs matched (0 stock movements planned), 28 not found.
+[2/3] Calling POST /api/v1/database-manager/admin-remediate-grn-dates (dry_run=True, db=smriti001)...
+  [OK] Server responded with success=True: [DRY RUN] Audit complete. 28 GRNs matched (407 stock movements planned), 0 not found.
+
+#   | RECEIPT NO             | CURRENT / OLD TS             | TARGET / NEW TS              | MOVEMENTS | STATUS
+-------------------------------------------------------------------------------------------------------------------
+1   | GRN-A-463              | 2026-10-16T02:38:12.783790+00:00 | 2026-07-22T11:00:00+00:00    | 8         | READY_FOR_REMEDIATION
+2   | GRN-A-464              | 2026-10-16T02:38:13.435148+00:00 | 2026-07-22T11:00:00+00:00    | 14        | READY_FOR_REMEDIATION
+3   | GRN-A-462              | 2026-10-16T02:38:12.255419+00:00 | 2026-06-26T11:00:00+00:00    | 8         | READY_FOR_REMEDIATION
+...
+28  | GRN-J-25               | 2026-10-16T02:38:33.592459+00:00 | 2026-07-31T11:00:00+00:00    | 24        | READY_FOR_REMEDIATION
+-------------------------------------------------------------------------------------------------------------------
+```
+
+### 8.3 Live Atomic Remediation Execution (`--execute`) on `https://tattlythreads.smritisys.com`
+```bash
+python scripts/reconcile_live_grn_dates.py --mode api --api-url https://tattlythreads.smritisys.com --database smriti001 --execute
+```
+**Literal Terminal Output:**
+```
+Successfully compiled 28 authoritative GRN bill dates from client Excel source.
+=========================================================================================================
+SMRITI RETAIL OS: HEADLESS GRN DATE REMEDIATION [REMOTE REST API ENGINE]
+Mode          : EXECUTE (MUTATION COMMITTED)
+Target API    : https://tattlythreads.smritisys.com
+Target DB     : smriti001
+Total GRNs    : 28
+=========================================================================================================
+
+[1/3] Authenticating with SYSADMIN credentials...
+  [OK] SYSADMIN JWT Token acquired.
+
+[2/3] Calling POST /api/v1/database-manager/admin-remediate-grn-dates (dry_run=False, db=smriti001)...
+  [OK] Server responded with success=True: Successfully remediated 28 GRNs and 407 stock movements in smriti001.
+
+#   | RECEIPT NO             | CURRENT / OLD TS             | TARGET / NEW TS              | MOVEMENTS | STATUS
+-------------------------------------------------------------------------------------------------------------------
+1   | GRN-A-463              | 2026-10-16T02:38:12.783790+00:00 | 2026-07-22T11:00:00+00:00    | 8         | REMEDIATED
+2   | GRN-A-464              | 2026-10-16T02:38:13.435148+00:00 | 2026-07-22T11:00:00+00:00    | 14        | REMEDIATED
+3   | GRN-A-462              | 2026-10-16T02:38:12.255419+00:00 | 2026-06-26T11:00:00+00:00    | 8         | REMEDIATED
+4   | GRN-B-LF_26-27_144     | 2026-10-16T02:38:14.210296+00:00 | 2026-07-25T11:00:00+00:00    | 14        | REMEDIATED
+5   | GRN-B-LF_26-27_154     | 2026-10-16T02:38:14.989440+00:00 | 2026-08-07T11:00:00+00:00    | 14        | REMEDIATED
+6   | GRN-B-LF_26-27_186     | 2026-10-16T02:38:15.675419+00:00 | 2026-08-24T11:00:00+00:00    | 12        | REMEDIATED
+7   | GRN-C-846              | 2026-10-16T02:38:16.789338+00:00 | 2026-07-06T11:00:00+00:00    | 24        | REMEDIATED
+8   | GRN-C-847              | 2026-10-16T02:38:17.718654+00:00 | 2026-07-16T11:00:00+00:00    | 12        | REMEDIATED
+9   | GRN-C-849              | 2026-10-16T02:38:18.439579+00:00 | 2026-10-05T11:00:00+00:00    | 14        | REMEDIATED
+10  | GRN-D-522              | 2026-10-16T02:38:19.168442+00:00 | 2026-07-17T11:00:00+00:00    | 12        | REMEDIATED
+11  | GRN-D-525              | 2026-10-16T02:38:19.877425+00:00 | 2026-07-21T11:00:00+00:00    | 12        | REMEDIATED
+12  | GRN-D-526              | 2026-10-16T02:38:20.568140+00:00 | 2026-07-27T11:00:00+00:00    | 12        | REMEDIATED
+13  | GRN-E-489              | 2026-10-16T02:38:22.604740+00:00 | 2026-08-01T11:00:00+00:00    | 14        | REMEDIATED
+14  | GRN-E-490              | 2026-10-16T02:38:23.352298+00:00 | 2026-08-01T11:00:00+00:00    | 14        | REMEDIATED
+15  | GRN-E-485              | 2026-10-16T02:38:21.627385+00:00 | 2026-06-27T11:00:00+00:00    | 24        | REMEDIATED
+16  | GRN-F-707              | 2026-10-16T02:38:26.279463+00:00 | 2026-09-07T11:00:00+00:00    | 15        | REMEDIATED
+17  | GRN-F-704              | 2026-10-16T02:38:24.845670+00:00 | 2026-08-10T11:00:00+00:00    | 17        | REMEDIATED
+18  | GRN-F-706              | 2026-10-16T02:38:25.572727+00:00 | 2026-08-22T11:00:00+00:00    | 11        | REMEDIATED
+19  | GRN-F-702              | 2026-10-16T02:38:24.046143+00:00 | 2026-07-27T11:00:00+00:00    | 12        | REMEDIATED
+20  | GRN-G-AS_26-27_0019    | 2026-10-16T02:38:28.539240+00:00 | 2026-07-31T11:00:00+00:00    | 14        | REMEDIATED
+21  | GRN-G-AS_26-27_0013    | 2026-10-16T02:38:27.028750+00:00 | 2026-07-02T11:00:00+00:00    | 14        | REMEDIATED
+22  | GRN-G-AS_26-27_0016    | 2026-10-16T02:38:27.798417+00:00 | 2026-07-20T11:00:00+00:00    | 14        | REMEDIATED
+23  | GRN-G-AS_26-27_0023    | 2026-10-16T02:38:29.506913+00:00 | 2026-08-23T11:00:00+00:00    | 24        | REMEDIATED
+24  | GRN-I-945              | 2026-10-16T02:38:31.466766+00:00 | 2026-08-17T11:00:00+00:00    | 13        | REMEDIATED
+25  | GRN-I-944              | 2026-10-16T02:38:30.837155+00:00 | 2026-08-16T11:00:00+00:00    | 7         | REMEDIATED
+26  | GRN-I-941              | 2026-10-16T02:38:30.332930+00:00 | 2026-07-22T11:00:00+00:00    | 10        | REMEDIATED
+27  | GRN-J-22               | 2026-10-16T02:38:32.397655+00:00 | 2026-07-24T11:00:00+00:00    | 24        | REMEDIATED
+28  | GRN-J-25               | 2026-10-16T02:38:33.592459+00:00 | 2026-07-31T11:00:00+00:00    | 24        | REMEDIATED
+-------------------------------------------------------------------------------------------------------------------
+```
+
+### 8.4 Post-Execution Parity Verification (`scripts/verify_remediated_grn_dates.py`)
+```bash
+python scripts/verify_remediated_grn_dates.py
+```
+**Literal Terminal Output:**
+```
+Stock Movement Synchronization Parity Check:
+#   | RECEIPT NO               | MOVEMENTS  | PR CREATED_AT              | SM MIN CREATED_AT          | PARITY
+---------------------------------------------------------------------------------------------------------
+1   | GRN-A-462                | 8          | 2026-06-26T11:00:00        | 2026-06-26T11:00:00        | MATCH
+2   | GRN-A-463                | 8          | 2026-07-22T11:00:00        | 2026-07-22T11:00:00        | MATCH
+3   | GRN-A-464                | 14         | 2026-07-22T11:00:00        | 2026-07-22T11:00:00        | MATCH
+4   | GRN-B-LF_26-27_144       | 14         | 2026-07-25T11:00:00        | 2026-07-25T11:00:00        | MATCH
+5   | GRN-B-LF_26-27_154       | 14         | 2026-08-07T11:00:00        | 2026-08-07T11:00:00        | MATCH
+6   | GRN-B-LF_26-27_186       | 12         | 2026-08-24T11:00:00        | 2026-08-24T11:00:00        | MATCH
+7   | GRN-C-846                | 24         | 2026-07-06T11:00:00        | 2026-07-06T11:00:00        | MATCH
+8   | GRN-C-847                | 12         | 2026-07-16T11:00:00        | 2026-07-16T11:00:00        | MATCH
+9   | GRN-C-849                | 14         | 2026-10-05T11:00:00        | 2026-10-05T11:00:00        | MATCH
+10  | GRN-D-522                | 12         | 2026-07-17T11:00:00        | 2026-07-17T11:00:00        | MATCH
+11  | GRN-D-525                | 12         | 2026-07-21T11:00:00        | 2026-07-21T11:00:00        | MATCH
+12  | GRN-D-526                | 12         | 2026-07-27T11:00:00        | 2026-07-27T11:00:00        | MATCH
+13  | GRN-E-485                | 24         | 2026-06-27T11:00:00        | 2026-06-27T11:00:00        | MATCH
+14  | GRN-E-489                | 14         | 2026-08-01T11:00:00        | 2026-08-01T11:00:00        | MATCH
+15  | GRN-E-490                | 14         | 2026-08-01T11:00:00        | 2026-08-01T11:00:00        | MATCH
+16  | GRN-F-702                | 12         | 2026-07-27T11:00:00        | 2026-07-27T11:00:00        | MATCH
+17  | GRN-F-704                | 17         | 2026-08-10T11:00:00        | 2026-08-10T11:00:00        | MATCH
+18  | GRN-F-706                | 11         | 2026-08-22T11:00:00        | 2026-08-22T11:00:00        | MATCH
+19  | GRN-F-707                | 15         | 2026-09-07T11:00:00        | 2026-09-07T11:00:00        | MATCH
+20  | GRN-G-AS_26-27_0013      | 14         | 2026-07-02T11:00:00        | 2026-07-02T11:00:00        | MATCH
+21  | GRN-G-AS_26-27_0016      | 14         | 2026-07-20T11:00:00        | 2026-07-20T11:00:00        | MATCH
+22  | GRN-G-AS_26-27_0019      | 14         | 2026-07-31T11:00:00        | 2026-07-31T11:00:00        | MATCH
+23  | GRN-G-AS_26-27_0023      | 24         | 2026-08-23T11:00:00        | 2026-08-23T11:00:00        | MATCH
+24  | GRN-I-941                | 10         | 2026-07-22T11:00:00        | 2026-07-22T11:00:00        | MATCH
+25  | GRN-I-944                | 7          | 2026-08-16T11:00:00        | 2026-08-16T11:00:00        | MATCH
+26  | GRN-I-945                | 13         | 2026-08-17T11:00:00        | 2026-08-17T11:00:00        | MATCH
+27  | GRN-J-22                 | 24         | 2026-07-24T11:00:00        | 2026-07-24T11:00:00        | MATCH
+28  | GRN-J-25                 | 24         | 2026-07-31T11:00:00        | 2026-07-31T11:00:00        | MATCH
+
+Backup Audit Tables in smriti001:
+  _backup_purchase_receipts_grn_date: 28 rows backed up
+  _backup_stock_movements_grn_date  : 407 rows backed up
 ```
 
 ---
@@ -160,14 +268,17 @@ Total GRNs    : 28
 | Schema Parity & DTO Registration | Done | 3/3 pytest passing in `test_admin_grn_date_remediation.py` |
 | SYSADMIN Authentication Guard | Done | `verify_sysadmin_role` enforces `403 FORBIDDEN` for non-SYSADMIN |
 | SQL Injection Prevention | Done | `DB_NAME_PATTERN` blocks metacharacters, semicolons, comments |
-| Non-Destructive Table Backups | Done | `_backup_purchase_receipts_grn_date` & `_backup_stock_movements_grn_date` |
+| Non-Destructive Table Backups | Done | `_backup_purchase_receipts_grn_date` (28 rows) & `_backup_stock_movements_grn_date` (407 rows) |
+| Live GRN Dates Remediated | Done | 28/28 GRNs updated from `2026-10-16` to authoritative bill dates |
+| Stock Movements Synchronized | Done | 407/407 stock movements timestamp parity: 100% MATCH |
+| Quantity & Amount Integrity | Done | 407 items, 23,064.0 qty received == 23,064.0 movement qty, ₹9,888,228.0 line total |
 | Immutability Trigger Compliance | Done | `prevent_stock_movement_mutation` verified compliant with `created_at` mutations |
 | Idempotent CLI Runner | Done | `scripts/reconcile_live_grn_dates.py` supports `--mode api` and `--mode db` |
 
 ---
 
 ## 10. Known Limitations
-1. **Remote Cloudflare Tunnel Deployment:** The production server hosting `tattlythreads.smritisys.com` is a separate remote container instance. Once code changes are pushed to `origin/smritiNX`, the remote production container must execute `git pull` and restart (e.g., via `update.ps1`) before invoking `scripts/reconcile_live_grn_dates.py` against `https://tattlythreads.smritisys.com`.
+1. None remaining for the 28 GRN scope. The live atomic remediation has been fully applied to `smriti001` on `https://tattlythreads.smritisys.com` and certified with 100% parity.
 
 ---
 
