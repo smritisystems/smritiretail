@@ -4,11 +4,12 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.42.4
+ * Version      : 6.99.10
  * Created      : 2026-07-10
- * Modified     : 2026-09-20
+ * Modified     : 2026-10-22
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
+ * Classification: Layout Engine Store Layer (Dynamic Mode Initialization)
  */
 
 import React, { createContext, useContext, useState, useEffect } from "react";
@@ -101,15 +102,19 @@ interface ProviderProps {
   children: React.ReactNode;
   initialActiveTab?: string;
   onTabChange?: (tab: string) => void;
+  initialUxMode?: UXMode;
 }
 
 export const LayoutEngineProvider: React.FC<ProviderProps> = ({
   children,
   initialActiveTab = "dashboard",
   onTabChange,
+  initialUxMode,
 }) => {
-  const [preferences, setPreferences] =
-    useState<LayoutPreferences>(DEFAULT_PREFERENCES);
+  const [preferences, setPreferences] = useState<LayoutPreferences>(() => {
+    const mode = initialUxMode || getInitialUxMode();
+    return { ...DEFAULT_PREFERENCES, uxMode: mode };
+  });
   const [recentlyUsed, setRecentlyUsed] = useState<string[]>([
     "dashboard",
     "pos",
@@ -453,7 +458,7 @@ export const LayoutEngineProvider: React.FC<ProviderProps> = ({
     const local = localStorage.getItem("smriti_layout_preferences");
     const localUxMode = (localStorage.getItem("smriti_ux_mode") as UXMode) || "regular";
     const loadedPrefs = local
-      ? { ...DEFAULT_PREFERENCES, ...JSON.parse(local) }
+      ? { ...DEFAULT_PREFERENCES, ...JSON.parse(local), uxMode: localUxMode }
       : { ...DEFAULT_PREFERENCES, uxMode: localUxMode };
 
     setPreferences(loadedPrefs);
