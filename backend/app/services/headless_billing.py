@@ -99,6 +99,30 @@ class HeadlessBillingCore:
                     status_code=403,
                     detail=f"SMRITI-CUST-002: Cross-tenant customer access forbidden. Customer '{req.customer_id}' does not belong to company '{company_id}'.",
                 )
+            if db_customer:
+                from ..models.crm import CustomerRelationship
+                rel_stmt = (
+                    select(CustomerRelationship, Customer)
+                    .join(Customer, CustomerRelationship.parent_customer_id == Customer.id)
+                    .where(
+                        CustomerRelationship.dependant_customer_id == db_customer.id,
+                        CustomerRelationship.is_deleted == False,
+                        Customer.is_deleted == False,
+                    )
+                )
+                rel_rows = (await session.execute(rel_stmt)).all()
+                is_child = bool(db_customer.is_dependant or rel_rows)
+                if is_child:
+                    has_enabled_parent = any(
+                        parent.show_child_customers_in_billing
+                        for _, parent in rel_rows
+                    )
+                    if not has_enabled_parent:
+                        parent_name = rel_rows[0][1].name if rel_rows else "Unknown Parent"
+                        raise HTTPException(
+                            status_code=400,
+                            detail=f"SMRITI-CUST-042: Child customer '{db_customer.name}' cannot be billed because child customer visibility is disabled by parent customer '{parent_name}'.",
+                        )
 
         # 1b. Resolve Applicable Price Book and Customer Tier from Server-Side Trusted Models
         applicable_price_book_code = getattr(req.context, "price_book_code", None)

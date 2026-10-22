@@ -1234,7 +1234,7 @@ export const EnterpriseCustomerMasterView: React.FC<EnterpriseCustomerMasterView
               id="sec-parent-child"
               className="bg-white dark:bg-[#1e293b] border border-slate-200 dark:border-slate-800 rounded-xl p-4 shadow-xs space-y-3.5"
             >
-              <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-slate-100 dark:border-slate-800">
                 <div className="flex items-center gap-2">
                   <div className="w-5 h-5 rounded-full bg-purple-600 text-white flex items-center justify-center font-bold text-xs">
                     7
@@ -1251,24 +1251,54 @@ export const EnterpriseCustomerMasterView: React.FC<EnterpriseCustomerMasterView
                   </div>
                 </div>
 
-                <div className="relative flex items-center">
-                  <input
-                    type="text"
-                    placeholder="Search child accounts..."
-                    value={childSearch}
-                    onChange={(e) => setChildSearch(e.target.value)}
-                    className="px-2.5 py-1 text-xs border border-slate-200 dark:border-slate-700 rounded-lg bg-slate-50 dark:bg-slate-900 w-36 sm:w-48 focus:w-56 transition-all outline-none"
-                  />
-                  {childSearch && (
-                    <button
-                      type="button"
-                      onClick={() => setChildSearch("")}
-                      className="absolute right-2 text-slate-400 hover:text-slate-600 text-xs font-bold"
-                      title="Clear filter"
+                <div className="flex items-center gap-3">
+                  {/* Parent Setting: Show Child Customers in Billing */}
+                  <div className="flex items-center gap-2 bg-slate-50 dark:bg-slate-900 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-800">
+                    <label className="flex items-center gap-2 cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={Boolean(customer.showChildCustomersInBilling)}
+                        onChange={(e) => {
+                          onChange("showChildCustomersInBilling", e.target.checked);
+                          onChange("show_child_customers_in_billing", e.target.checked);
+                        }}
+                        className="rounded text-blue-600 focus:ring-blue-500"
+                      />
+                      <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                        Show Child Customers in Billing
+                      </span>
+                    </label>
+                    <span
+                      className={`text-[9px] px-1.5 py-0.5 rounded-full font-bold uppercase ${
+                        customer.showChildCustomersInBilling
+                          ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300"
+                          : "bg-slate-200 text-slate-600 dark:bg-slate-800 dark:text-slate-400"
+                      }`}
+                      title="When enabled, eligible child customers under this parent can be searched and selected while creating bills or sales invoices."
                     >
-                      ×
-                    </button>
-                  )}
+                      {customer.showChildCustomersInBilling ? "ON" : "OFF"}
+                    </span>
+                  </div>
+
+                  <div className="relative flex items-center">
+                    <input
+                      type="text"
+                      placeholder="Search child accounts..."
+                      value={childSearch}
+                      onChange={(e) => setChildSearch(e.target.value)}
+                      className="px-2.5 py-1 text-xs border border-slate-200 dark:border-slate-700 rounded-lg bg-slate-50 dark:bg-slate-900 w-36 sm:w-48 focus:w-56 transition-all outline-none"
+                    />
+                    {childSearch && (
+                      <button
+                        type="button"
+                        onClick={() => setChildSearch("")}
+                        className="absolute right-2 text-slate-400 hover:text-slate-600 text-xs font-bold"
+                        title="Clear filter"
+                      >
+                        ×
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
 

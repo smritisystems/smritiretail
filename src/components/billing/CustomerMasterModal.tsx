@@ -40,6 +40,9 @@ export interface BillingCustomer {
   available_credit: number;
   status: string;
   address?: string;
+  is_child_customer?: boolean;
+  parent_customer_id?: string;
+  parent_customer_name?: string;
 }
 
 interface CustomerMasterModalProps {
@@ -342,7 +345,19 @@ export const CustomerMasterModal: React.FC<CustomerMasterModalProps> = ({
                   }`}
                 >
                   <td className="py-2 px-3 font-mono text-[11px] text-slate-600">{c.code}</td>
-                  <td className="py-2 px-3">{c.name}</td>
+                  <td className="py-2 px-3">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span>{c.name}</span>
+                      {c.is_child_customer && (
+                        <span
+                          className="text-[9px] bg-purple-100 text-purple-800 dark:bg-purple-900/60 dark:text-purple-300 font-bold px-1.5 py-0.2 rounded"
+                          title={c.parent_customer_name ? `Child of ${c.parent_customer_name}` : "Child Customer"}
+                        >
+                          Child{c.parent_customer_name ? `: ${c.parent_customer_name}` : ""}
+                        </span>
+                      )}
+                    </div>
+                  </td>
                   <td className="py-2 px-3 font-mono text-[11px] text-slate-500">{c.phone || "—"}</td>
                   <td className="py-2 px-3 text-right font-mono text-[11px]">{fmtCurrency(c.credit_limit)}</td>
                   <td className="py-2 px-3 text-right font-mono text-[11px] text-red-600 font-bold">

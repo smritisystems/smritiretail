@@ -845,6 +845,7 @@ class CustomerBase(BaseModel):
     buying_factor: Optional[Decimal] = Field(None, alias="buyingFactor")
     selling_factor: Optional[Decimal] = Field(None, alias="sellingFactor")
     is_dependant: Optional[bool] = Field(False, alias="isDependant")
+    show_child_customers_in_billing: Optional[bool] = Field(False, alias="showChildCustomersInBilling")
     gender: Optional[str] = None
     date_of_birth: Optional[date] = Field(None, alias="dateOfBirth")
     is_married: Optional[bool] = Field(None, alias="isMarried")
@@ -928,6 +929,7 @@ class CustomerUpdate(BaseModel):
     buying_factor: Optional[Decimal] = Field(None, alias="buyingFactor")
     selling_factor: Optional[Decimal] = Field(None, alias="sellingFactor")
     is_dependant: Optional[bool] = Field(None, alias="isDependant")
+    show_child_customers_in_billing: Optional[bool] = Field(None, alias="showChildCustomersInBilling")
     gender: Optional[str] = None
     date_of_birth: Optional[date] = Field(None, alias="dateOfBirth")
     is_married: Optional[bool] = Field(None, alias="isMarried")
@@ -1182,6 +1184,7 @@ def map_customer_to_response_dict(customer: Any) -> dict:
         "buying_factor": getattr(customer, "buying_factor", None),
         "selling_factor": getattr(customer, "selling_factor", None),
         "is_dependant": bool(getattr(customer, "is_dependant", False)),
+        "show_child_customers_in_billing": bool(getattr(customer, "show_child_customers_in_billing", False)),
         "gender": getattr(customer, "gender", None),
         "date_of_birth": getattr(customer, "date_of_birth", None),
         "is_married": getattr(customer, "is_married", None),

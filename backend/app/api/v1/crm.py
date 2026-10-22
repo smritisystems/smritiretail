@@ -223,6 +223,7 @@ async def list_customers(
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=100),
     status: Optional[str] = Query(None, description="Filter by status: Active, Inactive, Archived. Omit for all."),
+    billing_only: bool = Query(False, description="Filter for Billing/POS: excludes child customers whose parent disabled visibility."),
     invoice_series: Optional[str] = Query(None, max_length=50),
     invoice_from: Optional[int] = Query(None, ge=0),
     invoice_to: Optional[int] = Query(None, ge=0),
@@ -234,6 +235,7 @@ async def list_customers(
         skip=skip, limit=limit,
         invoice_series=invoice_series, invoice_from=invoice_from, invoice_to=invoice_to,
         status=status,
+        billing_only=billing_only,
     )
     return [CustomerResponse.from_orm_customer(c) for c in customers]
 
@@ -249,6 +251,7 @@ async def search_customers(
         "Active",
         description="Filter by status. Defaults to 'Active' to exclude archived customers. Pass status=all to include all."
     ),
+    billing_only: bool = Query(False, description="Filter for Billing/POS: excludes child customers whose parent disabled visibility."),
     invoice_series: Optional[str] = Query(None, max_length=50),
     invoice_from: Optional[int] = Query(None, ge=0),
     invoice_to: Optional[int] = Query(None, ge=0),
@@ -262,6 +265,7 @@ async def search_customers(
         q=q, skip=skip, limit=limit,
         invoice_series=invoice_series, invoice_from=invoice_from, invoice_to=invoice_to,
         status=effective_status,
+        billing_only=billing_only,
     )
     return [CustomerResponse.from_orm_customer(c) for c in customers]
 

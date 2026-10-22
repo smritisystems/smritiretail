@@ -410,6 +410,8 @@ const SEED_CUSTOMERS: RetailCustomerRecord[] = [
     sellingFactor: 1.00,
     mailingAddresses: createDefaultAddressSet(),
     isDependant: false,
+    showChildCustomersInBilling: false,
+    show_child_customers_in_billing: false,
     primaryAccountCode: "",
     primaryAccountName: "",
     applyParentMailingInfo: false,
@@ -566,6 +568,8 @@ const createEmptyCustomer = (newCodeNumber: number): RetailCustomerRecord => ({
     isDefault: index === 0
   })),
   isDependant: false,
+  showChildCustomersInBilling: false,
+  show_child_customers_in_billing: false,
   primaryAccountCode: "",
   primaryAccountName: "",
   applyParentMailingInfo: false,
@@ -699,6 +703,8 @@ export function mapBackendCustomerToRecord(bCust: any): RetailCustomerRecord {
       }
     ),
     isDependant: bCust.is_dependant ?? false,
+    showChildCustomersInBilling: bCust.show_child_customers_in_billing ?? bCust.showChildCustomersInBilling ?? false,
+    show_child_customers_in_billing: bCust.show_child_customers_in_billing ?? bCust.showChildCustomersInBilling ?? false,
     primaryAccountCode: bCust.primary_account_code || "",
     primaryAccountName: bCust.primary_account_name || "",
     applyParentMailingInfo: bCust.apply_parent_mailing_info ?? false,
@@ -1398,6 +1404,7 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
         pricing_basis: currentCustomer.pricingBasis || currentCustomer.pricing_basis || "MRP",
         allow_promotions_on_rate: Boolean(currentCustomer.allowPromotionsOnRate ?? currentCustomer.allow_promotions_on_rate),
         is_tax_inclusive: Boolean(currentCustomer.isTaxInclusive ?? currentCustomer.is_tax_inclusive),
+        show_child_customers_in_billing: Boolean(currentCustomer.showChildCustomersInBilling ?? currentCustomer.show_child_customers_in_billing),
         outstanding: Number(currentCustomer.creditUsed || 0),
         status: currentCustomer.status || "Active",
         tags: [currentCustomer.customerType || "Retail", "B2B"].filter(Boolean),
@@ -1441,6 +1448,8 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
         allow_promotions_on_rate: rawSavedAllowPromo,
         isTaxInclusive: rawSavedTaxInc,
         is_tax_inclusive: rawSavedTaxInc,
+        showChildCustomersInBilling: savedBackendCust?.show_child_customers_in_billing ?? savedBackendCust?.showChildCustomersInBilling ?? currentCustomer.showChildCustomersInBilling ?? false,
+        show_child_customers_in_billing: savedBackendCust?.show_child_customers_in_billing ?? savedBackendCust?.showChildCustomersInBilling ?? currentCustomer.show_child_customers_in_billing ?? false,
         creditLimit: rawSavedLimit !== undefined && rawSavedLimit !== null ? Number(rawSavedLimit) : 0,
         creditDays: rawSavedDays !== undefined && rawSavedDays !== null ? Number(rawSavedDays) : 0,
         paymentTerm: rawSavedTerm !== undefined && rawSavedTerm !== null && String(rawSavedTerm).trim() !== ""
