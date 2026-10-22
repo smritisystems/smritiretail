@@ -3,13 +3,42 @@
   Author       : Jawahar Ramkripal Mallah
   Email        : support@smritibooks.com
   Websites     : smritibooks.com | erpnbook.com | aitdl.com
-  Version      : 6.99.8
+  Version      : 6.99.12
   Created      : 2026-07-06
   Modified     : 2026-10-22
   Copyright    : © SMRITIBooks.com. All Rights Reserved.
   License      : Proprietary Commercial Software
   Classification: Internal
 -->
+
+## [6.99.12] — 2026-10-22
+
+### Foundation & UI Architecture — Classic UX Top Navigation, Submenu & Viewport Overflow Remediation
+
+- **Enterprise Menu Bar Portal Architecture (`EnterpriseMenuBar.tsx`)**:
+  - Implemented standalone `EnterpriseMenuBar` rendered via React Portal (`createPortal(..., document.body)`) to break free from ancestor CSS overflow stacking contexts (`overflow-x: auto` / `overflow: hidden`).
+  - Implemented trigger coordinate computation (`getBoundingClientRect()`) anchoring dropdowns precisely at `top: rect.bottom + window.scrollY` and `left: rect.left + window.scrollX`.
+  - Added horizontal viewport boundary collision detection with automatic flip-to-left when dropdown or submenu width exceeds `window.innerWidth - 16px`.
+  - Added vertical viewport clamping (`max-h-[calc(100vh-60px)]` with custom scrollbar) ensuring dropdowns never overflow below screen boundaries regardless of display resolution.
+  - Built multi-tier nested flyout submenus (`Master -> Item Master -> Categories / Units / Pricing / Barcodes`, `Master -> Party Master -> Customers / Suppliers`) with `z-[10000]` stacking, chevron indicators, and keyboard accessibility.
+  - Implemented responsive horizontal partitioning: renders all 12 primary modules (`Home`, `Master`, `Transactions`, `Inventory`, `Purchase`, `Sales`, `Accounts`, `CRM`, `Reports`, `Tools`, `Settings`, `Help`) on viewports >= 1200px, and dynamically partitions into 8 direct modules + a "More ▾" overflow dropdown on viewports < 1200px (1024×768).
+  - Added full keyboard navigation (`Escape` key to close open menus and nested flyouts) and outside click listeners.
+- **Global Header Refactoring (`GlobalHeader.tsx`)**:
+  - Replaced the embedded inline top navigation in `GlobalHeader.tsx` with `<EnterpriseMenuBar />`.
+  - Restored missing imports (`useTheme`, `useLayoutEngine`, `UxSwitcherModal`), resolving TypeScript compilation failures.
+  - Fixed dark mode background/border tokens (`bg-slate-900 border-slate-700` in dark theme; `bg-slate-100 border-slate-300` in light theme).
+- **Navigation Rail Stacking & Height Fix (`NavRail.tsx`)**:
+  - Replaced faulty `h-[calc(100vh-52px)]` with `h-full` inside the flex container, eliminating the 28px bottom overflow past `WorkspaceStatusBar` caused by parent padding (`pb-8`).
+  - Added dark mode styling to the footer collapse toggle button (`dark:bg-slate-800 dark:border-slate-700 dark:text-slate-300`).
+- **Launchpad Type Contract Alignment (`FioriLaunchpad.tsx`)**:
+  - Added optional `uxMode?: "regular" | "classic"` prop to `FioriLaunchpadProps`, eliminating TS2322 type checking errors.
+- **Workspace Canvas Overflow Elimination (`App.tsx`)**:
+  - Expanded the zero-padding, zero-overflow canvas container rule (`p-0 overflow-hidden`) to all full-bleed Classic UX studios (`sales`, `purchase`, `item-master`, `crm`, `finance`, etc.), eliminating double scrollbars and canvas clipping.
+- **Verification & Evidence**:
+  - 5/5 unit tests passed (`src/tests/enterpriseMenuBar.test.tsx`).
+  - 8/8 UX switcher tests passed (`src/tests/uxSwitcher.test.tsx`).
+  - 0 TypeScript compilation errors (`tsc --noEmit`).
+  - 30 headless Playwright screenshots captured and verified across 4 screen resolutions (1600×900, 1366×768, 1280×720, 1024×768), dark and light themes, open dropdowns, nested flyouts, and responsive "More" dropdowns.
 
 ## [6.99.11] — 2026-10-22
 
