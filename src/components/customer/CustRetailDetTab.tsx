@@ -226,6 +226,40 @@ export const SmritiCustomerRetailDetailsTab: React.FC<SmritiCustomerRetailDetail
           </div>
         </div>
 
+        {/* Parent Customer Setting: Show Child Customers in Billing */}
+        <div className="flex items-center justify-between p-3.5 bg-gradient-to-r from-blue-50/50 to-indigo-50/50 dark:from-[#131b2e] dark:to-[#19223c] rounded-xl border border-blue-200 dark:border-blue-900/50">
+          <div className="space-y-0.5">
+            <div className="flex items-center gap-2">
+              <span className="font-bold text-xs text-[#00355f] dark:text-[#8ebdf9]">
+                Show Child Customers in Billing
+              </span>
+              <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase ${
+                customer.showChildCustomersInBilling
+                  ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800"
+                  : "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400 border border-slate-300 dark:border-slate-700"
+              }`}>
+                {customer.showChildCustomersInBilling ? "Enabled" : "Disabled"}
+              </span>
+            </div>
+            <p className="text-[11px] text-[#515f74] dark:text-[#bec6e0] leading-tight">
+              When enabled, eligible child customers under this parent can be searched and selected while creating bills or sales invoices.
+            </p>
+          </div>
+          <label className="relative inline-flex items-center cursor-pointer ml-4">
+            <input
+              type="checkbox"
+              id="toggle-show-child-billing"
+              checked={Boolean(customer.showChildCustomersInBilling)}
+              onChange={e => {
+                onChange("showChildCustomersInBilling", e.target.checked);
+                onChange("show_child_customers_in_billing", e.target.checked);
+              }}
+              className="sr-only peer"
+            />
+            <div className="w-11 h-6 bg-slate-300 peer-focus:outline-hidden rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-slate-600 peer-checked:bg-blue-600"></div>
+          </label>
+        </div>
+
         {/* Dependants List Table */}
         <div className="space-y-2">
           <div className="flex justify-between items-center">

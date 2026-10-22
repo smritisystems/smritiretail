@@ -87,6 +87,7 @@ class Customer(BaseEntity):
     buying_factor = Column(Numeric(10, 4), nullable=True)
     selling_factor = Column(Numeric(10, 4), nullable=True)
     is_dependant = Column(Boolean, nullable=False, default=False, server_default=text("false"))
+    show_child_customers_in_billing = Column(Boolean, nullable=False, default=False, server_default=text("false"))
     gender = Column(String(20), nullable=True)
     date_of_birth = Column(Date, nullable=True)
     is_married = Column(Boolean, nullable=True)

@@ -446,7 +446,7 @@ export const SmritiProPosBillingTerminal: React.FC<SmritiProPosBillingTerminalPr
       try {
         const lookupTerms = [enrichedCustomer.code, enrichedCustomer.name].filter(Boolean);
         const responses = await Promise.all(
-          lookupTerms.map(term => apiFetchV1<any[]>(`/crm/customers/search?q=${encodeURIComponent(term)}&limit=20`).catch(() => []))
+          lookupTerms.map(term => apiFetchV1<any[]>(`/crm/customers/search?q=${encodeURIComponent(term)}&limit=20&billing_only=true`).catch(() => []))
         );
         const candidates = responses.flatMap(response => Array.isArray(response) ? response : []);
         const match = candidates.find(candidate =>

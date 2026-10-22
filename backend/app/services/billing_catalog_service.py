@@ -17,10 +17,11 @@ from decimal import Decimal
 from typing import List, Optional, Tuple, Any
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from sqlalchemy import text, func
+from sqlalchemy import text, func, or_, and_, not_
+from sqlalchemy.orm import aliased
 
 from ..models.inventory import Product
-from ..models.crm import Customer, CustomerGroup
+from ..models.crm import Customer, CustomerGroup, CustomerRelationship
 from ..schemas.billing_catalog import (
     BillingProductItem,
     CategoryFacet,
@@ -478,11 +479,65 @@ class BillingCatalogService:
         q_str = _clean_str(q)
         stat_str = _clean_str(status_tab) or "All"
 
-        stmt = select(Customer, CustomerGroup).outerjoin(
-            CustomerGroup, Customer.customer_group_id == CustomerGroup.id
-        ).where(
-            Customer.company_id == company_id,
-            Customer.is_deleted == False,
+        ParentCustomer = aliased(Customer, name="parent_cust")
+        ParentLookup = aliased(Customer, name="parent_lookup")
+        RelLookup = aliased(CustomerRelationship, name="rel_lookup")
+
+        parent_enabled_subquery = (
+            select(1)
+            .select_from(CustomerRelationship)
+            .join(ParentCustomer, CustomerRelationship.parent_customer_id == ParentCustomer.id)
+            .where(
+                CustomerRelationship.dependant_customer_id == Customer.id,
+                CustomerRelationship.is_deleted == False,
+                ParentCustomer.is_deleted == False,
+                ParentCustomer.show_child_customers_in_billing == True,
+            )
+            .exists()
+        )
+
+        is_child_subquery = (
+            select(1)
+            .select_from(CustomerRelationship)
+            .where(
+                CustomerRelationship.dependant_customer_id == Customer.id,
+                CustomerRelationship.is_deleted == False,
+            )
+            .exists()
+        )
+
+        # Standalone customer (not marked dependant and no parent relationship)
+        # OR child customer whose parent customer explicitly enabled show_child_customers_in_billing
+        billing_visibility_filter = or_(
+            and_(
+                Customer.is_dependant == False,
+                not_(is_child_subquery),
+            ),
+            parent_enabled_subquery,
+        )
+
+        stmt = (
+            select(Customer, CustomerGroup, ParentLookup)
+            .outerjoin(CustomerGroup, Customer.customer_group_id == CustomerGroup.id)
+            .outerjoin(
+                RelLookup,
+                and_(
+                    RelLookup.dependant_customer_id == Customer.id,
+                    RelLookup.is_deleted == False,
+                ),
+            )
+            .outerjoin(
+                ParentLookup,
+                and_(
+                    RelLookup.parent_customer_id == ParentLookup.id,
+                    ParentLookup.is_deleted == False,
+                ),
+            )
+            .where(
+                Customer.company_id == company_id,
+                Customer.is_deleted == False,
+                billing_visibility_filter,
+            )
         )
 
         if q_str:
@@ -504,10 +559,11 @@ class BillingCatalogService:
         rows = res.all()
 
         mapped_customers: List[BillingCustomerItem] = []
-        for cust, grp in rows:
+        for cust, grp, parent_obj in rows:
             credit_limit = Decimal(str(grp.credit_limit if grp and grp.credit_limit else "0.00"))
             balance = Decimal(str(cust.outstanding or "0.00"))
             avail = max(Decimal("0.00"), credit_limit - balance)
+            is_child = bool(cust.is_dependant or parent_obj is not None)
             mapped_customers.append(
                 BillingCustomerItem(
                     id=str(cust.id),
@@ -522,6 +578,9 @@ class BillingCatalogService:
                     status=cust.status or "Active",
                     address=cust.profile_notes,
                     is_active=bool(cust.is_active if cust.is_active is not None else True),
+                    is_child_customer=is_child,
+                    parent_customer_id=str(parent_obj.id) if parent_obj else None,
+                    parent_customer_name=parent_obj.name if parent_obj else None,
                 )
             )
 

@@ -59,6 +59,48 @@ class CustomerRepository(BaseRepository[Customer]):
                     stmt = stmt.filter(or_(self.model.branch_id == self.tenant_ctx.branch_id, self.model.branch_id.is_(None)))
         return stmt
 
+    def _apply_billing_visibility_filter(self, stmt):
+        """
+        Billing visibility filter:
+        Child customers (is_dependant=True or existing in customer_relationships as dependant)
+        appear in billing ONLY when their parent customer has show_child_customers_in_billing=True.
+        Standalone customers (not dependant) always appear.
+        """
+        from sqlalchemy.orm import aliased
+        ParentCust = aliased(Customer, name="parent_cust_repo")
+
+        parent_enabled_subquery = (
+            select(1)
+            .select_from(CustomerRelationship)
+            .join(ParentCust, CustomerRelationship.parent_customer_id == ParentCust.id)
+            .where(
+                CustomerRelationship.dependant_customer_id == Customer.id,
+                CustomerRelationship.is_deleted == False,
+                ParentCust.is_deleted == False,
+                ParentCust.show_child_customers_in_billing == True,
+            )
+            .exists()
+        )
+
+        is_child_subquery = (
+            select(1)
+            .select_from(CustomerRelationship)
+            .where(
+                CustomerRelationship.dependant_customer_id == Customer.id,
+                CustomerRelationship.is_deleted == False,
+            )
+            .exists()
+        )
+
+        visibility_filter = or_(
+            and_(
+                Customer.is_dependant == False,
+                ~is_child_subquery,
+            ),
+            parent_enabled_subquery,
+        )
+        return stmt.filter(visibility_filter)
+
     async def get(self, id: str) -> Optional[Customer]:
         stmt = (
             select(Customer)
@@ -99,6 +141,7 @@ class CustomerRepository(BaseRepository[Customer]):
         invoice_series: Optional[str] = None, invoice_from: Optional[int] = None,
         invoice_to: Optional[int] = None,
         status: Optional[str] = None,
+        billing_only: bool = False,
     ) -> List[Customer]:
         stmt = (
             select(Customer)
@@ -119,6 +162,8 @@ class CustomerRepository(BaseRepository[Customer]):
             stmt = stmt.filter(Customer.status == status)
         stmt = self._apply_tenant_filter(stmt)
         stmt = self._apply_invoice_scope(stmt, invoice_series, invoice_from, invoice_to)
+        if billing_only:
+            stmt = self._apply_billing_visibility_filter(stmt)
         stmt = stmt.order_by(Customer.created_at.asc(), Customer.id.asc())
         stmt = stmt.offset(skip).limit(limit)
         result = await self.db.execute(stmt)
@@ -129,6 +174,7 @@ class CustomerRepository(BaseRepository[Customer]):
         invoice_series: Optional[str] = None, invoice_from: Optional[int] = None,
         invoice_to: Optional[int] = None,
         status: Optional[str] = None,
+        billing_only: bool = False,
     ) -> List[Customer]:
         """
         Search customers by name, mobile, code, email, GST number under tenant context.
@@ -153,6 +199,8 @@ class CustomerRepository(BaseRepository[Customer]):
             stmt = stmt.filter(Customer.status == status)
         stmt = self._apply_tenant_filter(stmt)
         stmt = self._apply_invoice_scope(stmt, invoice_series, invoice_from, invoice_to)
+        if billing_only:
+            stmt = self._apply_billing_visibility_filter(stmt)
         if q:
             clean_q = q.strip()
             stmt = stmt.filter(

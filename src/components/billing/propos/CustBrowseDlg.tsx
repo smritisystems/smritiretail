@@ -71,7 +71,7 @@ export const SmritiCustomerBrowseModal: React.FC<SmritiCustomerBrowseModalProps>
   // Fetch live customers from server on modal mount
   useEffect(() => {
     let isMounted = true;
-    apiFetchV1("/crm/customers")
+    apiFetchV1("/crm/customers?billing_only=true")
       .then((res: any) => {
         if (isMounted && Array.isArray(res) && res.length > 0) {
           setCustomerList(mapToProPosCustomers(res));

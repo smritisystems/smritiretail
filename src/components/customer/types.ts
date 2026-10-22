@@ -133,6 +133,8 @@ export interface RetailCustomerRecord {
   
   // Retail Details: Dependant / Sub-Ordinate
   isDependant: boolean;
+  showChildCustomersInBilling?: boolean;
+  show_child_customers_in_billing?: boolean;
   primaryAccountCode: string;
   primaryAccountName: string;
   applyParentMailingInfo: boolean;

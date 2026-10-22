@@ -11,6 +11,33 @@
   Classification: Internal
 -->
 
+## [6.99.13] — 2026-10-22
+
+### CRM & POS Billing — Parent-Controlled Child Customer Visibility in Billing
+
+- **Parent-Level Visibility Configuration (`customers.show_child_customers_in_billing`)**:
+  - Added Alembic migration `v1543` adding `show_child_customers_in_billing BOOLEAN NOT NULL DEFAULT FALSE` to `customers` table with partial index `ix_customers_comp_show_child_billing` on `(company_id, show_child_customers_in_billing) WHERE is_deleted = false`.
+  - Added `show_child_customers_in_billing` column in SQLAlchemy `Customer` model and Pydantic schemas (`CustomerBase`, `CustomerUpdate`, `CustomerResponse`, `map_customer_to_response_dict`).
+- **Billing Catalog Service & Single-Door Query Isolation**:
+  - Hardened `BillingCatalogService.get_customers()` to execute relationship-aware SQL query filtering subordinate accounts, guaranteeing child customers appear only when the parent customer configuration has `show_child_customers_in_billing == True`.
+  - Added `is_child_customer: bool = False`, `parent_customer_id: Optional[str]`, and `parent_customer_name: Optional[str]` to `BillingCustomerItem`.
+  - Added `billing_only: bool = False` parameter to `CustomerRepository.get_all()` and `CustomerRepository.search()`, and exposed `billing_only` query parameter in `/api/v1/crm/customers` and `/api/v1/crm/customers/search`.
+- **Headless Billing & POS Transaction Validation Guard**:
+  - Implemented transactional validation guard in `headless_billing.py` (`calculate_billing`).
+  - Blocks direct `/checkout` and `/preview` API submissions for child customers whose parent has visibility disabled, returning structured HTTP 400 error code `SMRITI-CUST-042`.
+  - Ensures standalone customers continue to bill without restriction and existing invoices remain immutable.
+- **Frontend Master Workspace & Billing Selectors**:
+  - Added "Show Child Customers in Billing" toggle card with status badge and explanatory tooltip in Customer Retail Details tab (`CustRetailDetTab.tsx` Section 2).
+  - Added "Show Child Customers in Billing" toggle and ON/OFF indicator in Enterprise Customer Master Card 7 header (`EnterpriseCustomerMasterView.tsx`).
+  - Added `showChildCustomersInBilling` state propagation in `CustMasterWs.tsx`.
+  - Added subordinate customer indicator badge (`Child: {parent_customer_name}`) in `CustomerMasterModal.tsx`.
+  - Appended `billing_only=true` query parameter to live customer fetches in `CustBrowseDlg.tsx` and `ProPosBillingTerm.tsx`.
+- **Verification & Evidence**:
+  - 7/7 backend integration tests passed (`backend/tests/test_child_customer_billing_visibility.py`).
+  - 5/5 frontend unit tests passed (`src/tests/childCustomerBillingVisibility.test.tsx`).
+  - 0 TypeScript compilation errors (`tsc --noEmit`).
+  - 0 Python compilation errors (`python -m py_compile`).
+
 ## [6.99.12] — 2026-10-22
 
 ### Foundation & UI Architecture — Classic UX Top Navigation, Submenu & Viewport Overflow Remediation

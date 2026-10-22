@@ -64,6 +64,9 @@ class BillingCustomerItem(BaseModel):
     status: str = "Active"
     address: Optional[str] = None
     is_active: bool = True
+    is_child_customer: bool = False
+    parent_customer_id: Optional[str] = None
+    parent_customer_name: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
 
