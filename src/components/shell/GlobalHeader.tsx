@@ -16,6 +16,8 @@ import { useDrillDown } from '../drilldown/drilldown_store.tsx';
 import { CompanySelector } from '../layout/CompanySelector.tsx';
 import { Breadcrumb } from '../../navigation/breadcrumb/index.ts';
 import { useTheme } from '../../contexts/ThemeContext.tsx';
+import { useLayoutEngine } from '../../layout_engine/layout_store.tsx';
+import { UxSwitcherModal } from './UxSwitcherModal.tsx';
 
 interface GlobalHeaderProps {
   activeModuleTitle: string;
@@ -53,9 +55,12 @@ export const GlobalHeader: React.FC<GlobalHeaderProps> = ({
   const { category: activeCategory, fieldLabel } = useActiveField();
   const { setSearchOpen } = useDrillDown();
   const { theme, toggleTheme, activePreset, setPreset, presets } = useTheme();
+  const { uxMode, setUxMode, toggleUxMode } = useLayoutEngine();
   const [searchQuery, setSearchQuery] = useState('');
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  const [isUxSubmenuOpen, setIsUxSubmenuOpen] = useState(false);
+  const [isUxModalOpen, setIsUxModalOpen] = useState(false);
   const [unreadNotifications] = useState(3);
 
   const notifications = [
@@ -162,6 +167,25 @@ export const GlobalHeader: React.FC<GlobalHeaderProps> = ({
       {/* Right Controls (Focus Mode, Notifications, User Menu) */}
       <div className="flex items-center gap-1.5">
         <CompanySelector />
+
+        {/* UX Mode Indicator Pill (Toggle button in top bar - Panel 2) */}
+        <button
+          type="button"
+          onClick={toggleUxMode}
+          title={`Active UX Mode: ${uxMode === 'regular' ? 'Regular UX (Simple & Guided)' : 'Classic UX (Traditional ERP)'}. Click to switch modes.`}
+          className={`px-2.5 py-1 rounded-full text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer border shadow-2xs ${
+            uxMode === 'regular'
+              ? 'bg-blue-500/25 text-white border-blue-300/40 hover:bg-blue-500/40 hover:border-white'
+              : 'bg-indigo-950/70 text-indigo-100 border-indigo-400/50 hover:bg-indigo-900/80 hover:border-white'
+          }`}
+        >
+          <span className="material-symbols-outlined text-[16px]">
+            {uxMode === 'regular' ? 'laptop_mac' : 'desktop_windows'}
+          </span>
+          <span className="text-[11px] font-medium tracking-wide">
+            {uxMode === 'regular' ? 'Regular UX' : 'Classic UX'}
+          </span>
+        </button>
 
         {/* Global Theme Quick Toggle */}
         <button
@@ -275,6 +299,91 @@ export const GlobalHeader: React.FC<GlobalHeaderProps> = ({
                 <div className="text-xs text-[#454652] dark:text-slate-400">{userRole}</div>
                 <div className="mt-2 inline-flex items-center gap-1 text-[10px] font-semibold bg-[#286b33]/10 text-[#286b33] dark:bg-emerald-500/10 dark:text-emerald-400 px-2 py-0.5 rounded-md border border-[#286b33]/20 dark:border-emerald-500/20">
                   <span className="w-1.5 h-1.5 rounded-full bg-[#286b33] dark:bg-emerald-400" /> Active Shift #412
+                </div>
+              </div>
+
+              {/* UX Mode Switcher Section (Panel 1 from Reference) */}
+              <div className="px-3 py-2 bg-[#f8f9ff]/70 dark:bg-slate-800/60 border-b border-[#c5c5d4]/50 dark:border-slate-800">
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="text-[10px] font-mono uppercase tracking-wider text-[#757684] dark:text-slate-400 font-bold flex items-center gap-1">
+                    <span className="material-symbols-outlined text-[14px]">tune</span> UX Mode
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsUserMenuOpen(false);
+                      setIsUxModalOpen(true);
+                    }}
+                    className="text-[10px] text-[#24389c] dark:text-indigo-400 hover:underline font-semibold cursor-pointer"
+                  >
+                    Compare Modes
+                  </button>
+                </div>
+
+                <div className="space-y-1">
+                  {/* Regular UX Option */}
+                  <button
+                    type="button"
+                    onClick={() => setUxMode('regular')}
+                    className={`w-full text-left p-2 rounded-lg text-xs flex items-start justify-between transition-colors cursor-pointer border ${
+                      uxMode === 'regular'
+                        ? 'bg-white dark:bg-slate-800 text-[#24389c] dark:text-indigo-300 font-semibold border-indigo-200 dark:border-indigo-700 shadow-xs'
+                        : 'text-[#0b1c30] dark:text-slate-300 hover:bg-white/60 dark:hover:bg-slate-800/50 border-transparent'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <div className={`w-4 h-4 rounded-full border flex items-center justify-center shrink-0 mt-0.5 ${
+                        uxMode === 'regular'
+                          ? 'border-[#24389c] bg-[#24389c] text-white'
+                          : 'border-slate-400 dark:border-slate-500'
+                      }`}>
+                        {uxMode === 'regular' && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                      </div>
+                      <div>
+                        <div className="text-xs font-bold leading-none">Regular UX</div>
+                        <div className="text-[10px] text-[#757684] dark:text-slate-400 font-normal mt-0.5">
+                          Simple, clean and guided
+                        </div>
+                      </div>
+                    </div>
+                    {uxMode === 'regular' && (
+                      <span className="text-[9px] bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 px-1.5 py-0.5 rounded font-bold">
+                        ACTIVE
+                      </span>
+                    )}
+                  </button>
+
+                  {/* Classic UX Option */}
+                  <button
+                    type="button"
+                    onClick={() => setUxMode('classic')}
+                    className={`w-full text-left p-2 rounded-lg text-xs flex items-start justify-between transition-colors cursor-pointer border ${
+                      uxMode === 'classic'
+                        ? 'bg-white dark:bg-slate-800 text-[#24389c] dark:text-indigo-300 font-semibold border-indigo-200 dark:border-indigo-700 shadow-xs'
+                        : 'text-[#0b1c30] dark:text-slate-300 hover:bg-white/60 dark:hover:bg-slate-800/50 border-transparent'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <div className={`w-4 h-4 rounded-full border flex items-center justify-center shrink-0 mt-0.5 ${
+                        uxMode === 'classic'
+                          ? 'border-[#24389c] bg-[#24389c] text-white'
+                          : 'border-slate-400 dark:border-slate-500'
+                      }`}>
+                        {uxMode === 'classic' && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                      </div>
+                      <div>
+                        <div className="text-xs font-bold leading-none">Classic UX</div>
+                        <div className="text-[10px] text-[#757684] dark:text-slate-400 font-normal mt-0.5">
+                          Traditional, detailed and powerful
+                        </div>
+                      </div>
+                    </div>
+                    {uxMode === 'classic' && (
+                      <span className="text-[9px] bg-blue-500/15 text-blue-600 dark:text-blue-400 px-1.5 py-0.5 rounded font-bold">
+                        ACTIVE
+                      </span>
+                    )}
+                  </button>
                 </div>
               </div>
 
@@ -392,6 +501,12 @@ export const GlobalHeader: React.FC<GlobalHeaderProps> = ({
           </button>
         )}
       </div>
+
+      {/* UX Mode Switcher Dialog Modal */}
+      <UxSwitcherModal
+        isOpen={isUxModalOpen}
+        onClose={() => setIsUxModalOpen(false)}
+      />
     </header>
   );
 };

@@ -11,6 +11,39 @@
   Classification: Internal
 -->
 
+## [6.99.9] — 2026-10-22
+
+### Foundation & UI Architecture — Premium UX Switcher (Regular UX ↔ Classic UX)
+
+- **UX Mode Switcher & Preferences (`layout_store.tsx`, `system.py`)**:
+  - Implemented the authoritative Regular UX ↔ Classic UX Switcher in SMRITI Retail OS.
+  - Persistent user preference in PostgreSQL (`user_preferences` / `/api/v1/system/layout/preferences`).
+  - Synchronous `localStorage` zero-flash hydration (`smriti_ux_mode`) preventing layout shift or theme flickering.
+  - Independent from Light/Dark visual theme engine with zero interference.
+  - Decoupled from transaction memory: toggling modes preserves 100% of active POS cart items and form drafts.
+- **Top Bar & Profile Switcher Controls (`GlobalHeader.tsx`, `UxSwitcherModal.tsx`)**:
+  - Interactive top bar mode indicator pill (`[ 💻 Regular UX ]` / `[ 💻 Classic UX ]`) with 1-click toggle.
+  - User session dropdown radio panel with clear subtitles matching the approved visual reference.
+  - Polished `UxSwitcherModal` component for side-by-side mode comparison and instant application.
+- **Regular UX Presentation (`RegularUxDashboard.tsx`)**:
+  - Spacious, guided layout tailored for everyday retail cashiers and store managers.
+  - Greeting banner, store selector, and date display.
+  - 4 KPI summary cards: `Today Sales: ₹ 24,560`, `Bills: 42`, `Items Sold: 128`, `New Customers: 6`.
+  - 4 Colorful quick-action cards: `POS Billing` (blue), `Item Master` (green), `Customer` (orange), `Reports` (purple).
+  - Recent Sales table with status badges (`Paid`) and clean typography.
+- **Classic UX Presentation (`ClassicUxWorkspace.tsx`)**:
+  - Authentic high-density ERP layout tailored for power accountants and advanced users.
+  - Top Classic ERP Menu Ribbon: `Master`, `Transactions`, `Inventory`, `Accounts`, `CRM`, `Reports`, `Tools`, `Settings`, `Help`.
+  - Left accordion tree sidebar with hierarchical category menus (`Sales`, `Purchase`, `Inventory`, etc.).
+  - Multi-tab strip (`Dashboard`, `POS Billing ✕`).
+  - Dense master-detail POS form: Customer, Price List, Warehouse, Bill Date, Bill No (`SI-000126`).
+  - Function keys toolbar: `New (F2)`, `Clear (F3)`, `Hold (F4)`, `Recall (F5)`, `Add (F7)`, `Print (F8)`, `Discount (F9)`, `Save (F10)`.
+  - 8-line numbered ledger grid and real-time tax/discount ledger calculations.
+- **Verification**:
+  - 1/1 backend Pytest lifecycle tests green in `test_ux_mode_preferences.py`.
+  - 5/5 frontend Vitest tests green in `src/tests/uxSwitcher.test.tsx`.
+  - Clean `tsc --noEmit` / `npm run lint` with 0 errors.
+
 ## [6.99.8] — 2026-10-22
 
 ### Operations & Disaster Recovery — Master Backup & Restore Engine, Windows CLI & Integrity Verification

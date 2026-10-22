@@ -76,7 +76,7 @@ interface AppNotification {
 
 const AppContent: React.FC = () => {
   const toastIdRef = useRef(0);
-  const { preferences, addToRecentlyUsed, registeredWorkspaces } = useLayoutEngine();
+  const { preferences, addToRecentlyUsed, registeredWorkspaces, uxMode } = useLayoutEngine();
   useLayoutModuleRegistration();
   const { globalZoom, popOutTab } = useWorkspace();
   const { addNotification: addSystemNotification } = useNotifications();
@@ -677,8 +677,10 @@ const AppContent: React.FC = () => {
       <div className="flex-1 flex flex-col h-full w-full min-w-0 max-w-full overflow-hidden relative">
         <DrillDownBreadcrumbs />
         <div className={`flex-1 min-w-0 max-w-full relative ${
-          activeTab === "grn-studio" || activeTab === "billing-workspace" || activeTab === "pos" || activeTab === "grn"
+          activeTab === "grn-studio" || activeTab === "billing-workspace" || activeTab === "pos" || activeTab === "grn" || (uxMode === "classic" && (activeTab === "dashboard" || activeTab === "billing-workspace"))
             ? "p-0 overflow-hidden"
+            : uxMode === "classic"
+            ? "overflow-y-auto overflow-x-hidden p-1.5 text-xs"
             : "overflow-y-auto overflow-x-hidden p-3"
         }`}>
           <AnimatePresence mode="wait">
