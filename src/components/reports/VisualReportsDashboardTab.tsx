@@ -179,6 +179,9 @@ export const VisualReportsDashboardTab: React.FC<VisualReportsDashboardTabProps>
       if (selectedCompanyId && selectedCompanyId !== "all") {
         params.append("company_id", selectedCompanyId);
       }
+      if (selectedLocation && selectedLocation !== "all" && selectedLocation !== "All Locations") {
+        params.append("store_location_id", selectedLocation);
+      }
       if (dateRangePreset === "Today") {
         const today = new Date().toISOString().split("T")[0];
         params.append("start_date", today);
@@ -248,6 +251,15 @@ export const VisualReportsDashboardTab: React.FC<VisualReportsDashboardTabProps>
     else if (preset === "MTD") setDateRangeLabel("Month to Date");
     else setDateRangeLabel("Custom Date Range");
   };
+
+  // ── Dynamic Applied Filter Count ──────────────────────────────────────────
+  const appliedFilterCount = useMemo(() => {
+    let count = 0;
+    if (selectedCompanyId && selectedCompanyId !== "all") count++;
+    if (selectedLocation && selectedLocation !== "all" && selectedLocation !== "All Locations") count++;
+    if (dateRangePreset) count++;
+    return count;
+  }, [selectedCompanyId, selectedLocation, dateRangePreset]);
 
   // ── Derived Filtered Fulfillment Stream ───────────────────────────────────
   const filteredStreamItems = useMemo(() => {
@@ -471,7 +483,7 @@ export const VisualReportsDashboardTab: React.FC<VisualReportsDashboardTabProps>
                 className="flex items-center gap-1.5 px-3 py-1.5 border border-slate-300 rounded-lg text-slate-700 hover:bg-slate-50 font-semibold transition"
               >
                 <Filter size={13} className="text-blue-600" />
-                <span>Filters: 3 applied</span>
+                <span>Filters: {appliedFilterCount} applied</span>
                 <ChevronDown size={13} className="text-slate-400" />
               </button>
               <button

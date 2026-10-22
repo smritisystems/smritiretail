@@ -13,6 +13,27 @@
 
 ## [6.99.5] — 2026-10-22
 
+### Visual Reports Dashboard — Database-to-UX Audit, Dual-Ledger Invariant Alignment & Active Fulfillment Stream Auto-Fix
+
+- **Dual-Ledger Invariant Alignment (`backend/app/services/visual_reports_service.py`)**:
+  - Reconciled On-Hand Stock (`total_on_hand` = 200,989 pairs) with `ProductBatchStock` (`SUM(quantity - damaged_quantity)`) for batch-tracked items and positive `Product.stock` for non-batch items per Section 7 / `StockSynchronizer` Invariant E-001.
+  - Eliminated negative on-hand totals caused by historical audit write-offs on signed movements.
+  - Harmonized Category Stock Positions across 19 categories (103,707 Footwear + 79,834 General + 5,969 Industrial + 4,667 Apparel + ...), summing directly to total on-hand inventory.
+  - Reconciled Top Reserved SKUs query from `SalesOrderReservation` ledger with fallback to open sales order pending line items (`sales_order_items.pending_quantity > 0`).
+- **Active Fulfillment Stream Pipeline (`backend/app/services/visual_reports_service.py`)**:
+  - Eradicated empty stream list (`[]`), replacing with live indexed queries across 4 document tables: `sales_orders` (SO), `packing_slips` (PS), `dispatches` (DS), and `sales_invoices` (INV).
+  - Populates 100 live documents with customer names, item summaries, quantities, monetary values, statuses, next actions, and operational audit timestamps.
+- **Donut Chart & Counter Metric Synchronization (`backend/app/services/visual_reports_service.py`)**:
+  - Constrained packing slip status donut slices to the active date filter window (`ps_date_expr >= s_date AND ps_date_expr <= e_date`) with fallback to overall distribution when range is empty, ensuring donut slice counts match `total_packing_slips_count` and center donut metric.
+- **Dashboard Controls & Store Location Filter Binding (`src/components/reports/VisualReportsDashboardTab.tsx`)**:
+  - Replaced hardcoded `Filters: 3 applied` button with dynamically evaluated memoized count (`appliedFilterCount`) inspecting `selectedCompanyId`, `selectedLocation`, and `dateRangePreset`.
+  - Bound `store_location_id` query parameter in `loadDashboardData()` whenever a specific store/warehouse location is selected.
+  - Capped Order-to-Invoice progress percentages at 100% and aligned stage subtexts for retail POS/direct billing flows.
+- **Verification & Test Suite**:
+  - Verified backend Pytest suite: 7/7 tests green across `test_visual_reports_dashboard.py`, `test_visual_reports_followup.py`, and `test_visual_reports_signed_quantities.py`.
+  - Verified frontend Vitest suite: 20/20 tests green across `visualReportsDashboard.test.ts`, `procurementAndReportsAudit.test.ts`, and `procurementVisualReports.test.ts`.
+  - Verified `npx tsc --noEmit` with 0 errors.
+
 ### BI & Reporting Center — Report Builder Live PostgreSQL Data Binding & Dummy Data Elimination
 
 - **Report Builder Canonical REST Query Endpoint (`backend/app/api/v1/reports.py`)**:
