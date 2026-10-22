@@ -23,11 +23,12 @@ import {
   FileText, ExternalLink, Hash, Calendar, Layers, CheckSquare,
   Sparkles, ShieldCheck, Clock, ChevronUp, Menu, Settings,
   ShoppingBag, TrendingUp, Boxes, Package, Users, Building, Landmark,
-  GripVertical, ArrowLeft, ArrowRight, Eye, AlertCircle
+  GripVertical, ArrowLeft, ArrowRight, Eye, AlertCircle, Loader2
 } from "lucide-react";
 import { withCapability } from "../../types/architecture.ts";
 import { formatCurrency, formatNumber, formatDate } from "../../utils/formatters.ts";
 import { GlobalExportService } from "../../services/globalExportService.ts";
+import { apiFetchV1 } from "../../lib/apiFetchV1.ts";
 
 export type SidebarState = "expanded" | "collapsed" | "hidden";
 export type FiltersState = "expanded" | "compact" | "hidden";
@@ -115,7 +116,9 @@ export const REPORT_BUILDER_CATALOG_FIELDS: ReportBuilderField[] = [
 ];
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Default Realistic Footwear Dataset Matching User Mockups Exactly (132 units, ₹66,500)
+// ─────────────────────────────────────────────────────────────────────────────
+// Benchmark Mockup Reference Dataset (132 units, ₹66,500)
+// Used exclusively for static schema contract tests. Live UX fetches from PostgreSQL.
 // ─────────────────────────────────────────────────────────────────────────────
 export const DEFAULT_REPORT_BUILDER_ROWS: ReportBuilderRow[] = [
   { id: "row-1", supplier: "ABC Footwear", po_no: "PO-2025-001", po_date: "2025-04-02", invoice_no: "INV-8801", article_sku: "CH-01", color: "Black", size: 7, quantity: 24, net_amount: 12000 },
@@ -147,7 +150,7 @@ const STORAGE_KEY = "smriti_report_builder_layout_v1";
 
 const ReportBuilderBase: React.FC<ReportBuilderProps> = ({
   initialTitle = "Report Builder",
-  initialData = DEFAULT_REPORT_BUILDER_ROWS,
+  initialData = [],
   onNotification,
   onReturnToCatalog,
 }) => {
@@ -275,10 +278,10 @@ const ReportBuilderBase: React.FC<ReportBuilderProps> = ({
   // ───────────────────────────────────────────────────────────────────────────
   // 3. Filters State: Applied vs Draft / Unsaved Edits (Rule 3)
   // ───────────────────────────────────────────────────────────────────────────
-  const [appliedDateRange, setAppliedDateRange] = useState({ start: "2025-04-01", end: "2025-04-30" });
-  const [appliedBranch, setAppliedBranch] = useState<string>("Main Store");
-  const [draftDateRange, setDraftDateRange] = useState({ start: "2025-04-01", end: "2025-04-30" });
-  const [draftBranch, setDraftBranch] = useState<string>("Main Store");
+  const [appliedDateRange, setAppliedDateRange] = useState({ start: "2026-01-01", end: "2026-12-31" });
+  const [appliedBranch, setAppliedBranch] = useState<string>("All Branches");
+  const [draftDateRange, setDraftDateRange] = useState({ start: "2026-01-01", end: "2026-12-31" });
+  const [draftBranch, setDraftBranch] = useState<string>("All Branches");
 
   // Check if draft filter differs from applied filter
   const isFilterDirty = useMemo(() => {
@@ -305,13 +308,77 @@ const ReportBuilderBase: React.FC<ReportBuilderProps> = ({
   };
 
   // ───────────────────────────────────────────────────────────────────────────
-  // 4. Data, Sorting & Grid State (Rule 5)
+  // 4. Data, Sorting, Live Fetch & Grid State (Rule 5)
   // ───────────────────────────────────────────────────────────────────────────
-  const [data, setData] = useState<ReportBuilderRow[]>(initialData);
+  const [data, setData] = useState<ReportBuilderRow[]>(initialData || []);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
+  const [serverTotals, setServerTotals] = useState<Record<string, number>>({});
+  const [totalRecords, setTotalRecords] = useState<number>(0);
   const [sortField, setSortField] = useState<string>("supplier");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [isSavedView, setIsSavedView] = useState<boolean>(false);
+
+  // Live Query Fetcher connecting directly to FastAPI backend
+  const fetchReportData = async (options?: { category?: string; search?: string }) => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const activeCategory = options?.category || "Purchase";
+      const params = new URLSearchParams();
+      params.set("category", activeCategory);
+      if (appliedDateRange.start) params.set("start_date", appliedDateRange.start);
+      if (appliedDateRange.end) params.set("end_date", appliedDateRange.end);
+      if (appliedBranch && appliedBranch !== "All Branches" && appliedBranch !== "ALL") {
+        params.set("branch_id", appliedBranch);
+      }
+      const s = options?.search !== undefined ? options.search : fieldSearchTerm.trim();
+      if (s) params.set("search", s);
+      if (sortField) params.set("sort_field", sortField);
+      if (sortDirection) params.set("sort_direction", sortDirection);
+      params.set("limit", String(pageSize));
+      params.set("offset", String((currentPage - 1) * pageSize));
+
+      const res = await apiFetchV1<{
+        category: string;
+        total_count: number;
+        rows: ReportBuilderRow[];
+        totals: Record<string, number>;
+        generated_at: string;
+      }>(`/reports/builder/query?${params.toString()}`);
+
+      if (res && Array.isArray(res.rows)) {
+        setData(res.rows);
+        setTotalRecords(res.total_count ?? res.rows.length);
+        if (res.totals) {
+          setServerTotals(res.totals);
+        }
+      } else {
+        setData([]);
+        setTotalRecords(0);
+      }
+    } catch (err: any) {
+      console.error("[ReportBuilder] Failed to fetch live report data:", err);
+      const errMsg = err?.message || "Failed to load report records from database.";
+      setError(errMsg);
+      setData([]); // CRITICAL: NEVER silently fall back to dummy data!
+      onNotification?.("error", errMsg);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Fetch live records on mount and when query parameters change
+  useEffect(() => {
+    fetchReportData();
+  }, [appliedDateRange.start, appliedDateRange.end, appliedBranch, currentPage, pageSize, sortField, sortDirection]);
+
+  const handleRunQuery = async () => {
+    onNotification?.("info", "Executing live report query against database...");
+    await fetchReportData();
+    onNotification?.("success", "Report query executed with current filters and columns.");
+  };
 
   // Close menus when clicking outside
   const layoutMenuRef = useRef<HTMLDivElement>(null);
@@ -404,8 +471,11 @@ const ReportBuilderBase: React.FC<ReportBuilderProps> = ({
     return sorted;
   }, [data, sortField, sortDirection]);
 
-  // Total Row Calculations (Grand totals matching mockup: 132 units, ₹66,500)
+  // Total Row Calculations (Grand totals matching mockup: dynamically uses server or client aggregates)
   const totals = useMemo(() => {
+    if (Object.keys(serverTotals).length > 0) {
+      return serverTotals;
+    }
     const res: Record<string, number> = {};
     activeColumns.forEach((col) => {
       if (col.isSummary) {
@@ -413,7 +483,7 @@ const ReportBuilderBase: React.FC<ReportBuilderProps> = ({
       }
     });
     return res;
-  }, [activeColumns, displayRows]);
+  }, [serverTotals, activeColumns, displayRows]);
 
   // Toggle field selection
   const handleToggleField = (key: string) => {
@@ -695,12 +765,13 @@ const ReportBuilderBase: React.FC<ReportBuilderProps> = ({
           <button
             type="button"
             id="report-builder-run-btn"
-            onClick={() => onNotification?.("success", "Report query executed with current filters and columns.")}
-            className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 shadow-2xs transition-colors cursor-pointer"
-            title="Execute query and refresh data"
+            onClick={handleRunQuery}
+            disabled={isLoading}
+            className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 shadow-2xs transition-colors cursor-pointer"
+            title="Execute query and refresh data from database"
           >
-            <Play size={13} className="fill-current" />
-            <span>Run</span>
+            {isLoading ? <Loader2 size={13} className="animate-spin" /> : <Play size={13} className="fill-current" />}
+            <span>{isLoading ? "Running..." : "Run"}</span>
           </button>
 
           {/* Action 2: Save View */}
@@ -1428,10 +1499,59 @@ const ReportBuilderBase: React.FC<ReportBuilderProps> = ({
                 </thead>
 
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-slate-700 dark:text-slate-200">
-                  {displayRows.length === 0 ? (
+                  {isLoading ? (
                     <tr>
-                      <td colSpan={activeColumns.length} className="px-4 py-12 text-center text-slate-400 font-mono">
-                        No records match the active criteria.
+                      <td colSpan={activeColumns.length} className="px-4 py-16 text-center text-slate-500">
+                        <div className="flex flex-col items-center justify-center gap-3">
+                          <Loader2 size={24} className="animate-spin text-blue-600" />
+                          <span className="font-semibold text-xs text-slate-700 dark:text-slate-300">
+                            Querying live database records...
+                          </span>
+                        </div>
+                      </td>
+                    </tr>
+                  ) : error ? (
+                    <tr>
+                      <td colSpan={activeColumns.length} className="px-4 py-12 text-center">
+                        <div className="flex flex-col items-center justify-center gap-2 max-w-md mx-auto text-rose-600 dark:text-rose-400">
+                          <AlertCircle size={24} />
+                          <p className="font-semibold text-xs">{error}</p>
+                          <button
+                            type="button"
+                            onClick={() => fetchReportData()}
+                            className="mt-2 px-3 py-1 bg-rose-100 dark:bg-rose-950/60 hover:bg-rose-200 text-rose-800 dark:text-rose-200 rounded text-xs font-semibold cursor-pointer"
+                          >
+                            Retry Query
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ) : displayRows.length === 0 ? (
+                    <tr>
+                      <td colSpan={activeColumns.length} className="px-6 py-16 text-center">
+                        <div className="max-w-md mx-auto flex flex-col items-center gap-3">
+                          <div className="w-12 h-12 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center text-slate-400">
+                            <ShoppingBag size={24} />
+                          </div>
+                          <h4 className="text-sm font-bold text-slate-800 dark:text-slate-200">
+                            No purchase records found
+                          </h4>
+                          <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                            No transactions match the selected date range ({formatDate(appliedDateRange.start)} – {formatDate(appliedDateRange.end)}) or branch filter. Check your filters or add purchase orders in Procurement Studio.
+                          </p>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setDraftDateRange({ start: "2026-01-01", end: "2026-12-31" });
+                              setAppliedDateRange({ start: "2026-01-01", end: "2026-12-31" });
+                              setDraftBranch("All Branches");
+                              setAppliedBranch("All Branches");
+                            }}
+                            className="mt-2 px-3 py-1.5 bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800 rounded-lg text-xs font-semibold hover:bg-blue-100 transition-colors cursor-pointer"
+                          >
+                            Expand Date Range to Fiscal Year 2026
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ) : (
@@ -1503,14 +1623,14 @@ const ReportBuilderBase: React.FC<ReportBuilderProps> = ({
             {/* Pagination Controls Footer Bar (Matching Mockup 1 & 2) */}
             <div className="border-t border-slate-200 dark:border-slate-700 px-4 py-2.5 flex items-center justify-between text-xs text-slate-500 bg-white dark:bg-slate-800 shrink-0">
               <span className="font-mono">
-                1 - {displayRows.length} of {displayRows.length} rows
+                {displayRows.length > 0 ? (currentPage - 1) * pageSize + 1 : 0} - {Math.min(currentPage * pageSize, totalRecords || displayRows.length)} of {totalRecords || displayRows.length} rows
               </span>
 
               <div className="flex items-center gap-3">
                 <div className="flex items-center gap-1">
                   <button
                     type="button"
-                    disabled={currentPage <= 1}
+                    disabled={currentPage <= 1 || isLoading}
                     onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
                     className="p-1 border border-slate-200 dark:border-slate-700 rounded hover:bg-slate-50 disabled:opacity-30 cursor-pointer"
                   >
@@ -1521,7 +1641,8 @@ const ReportBuilderBase: React.FC<ReportBuilderProps> = ({
                   </span>
                   <button
                     type="button"
-                    disabled
+                    disabled={currentPage * pageSize >= (totalRecords || displayRows.length) || isLoading}
+                    onClick={() => setCurrentPage((p) => p + 1)}
                     className="p-1 border border-slate-200 dark:border-slate-700 rounded hover:bg-slate-50 disabled:opacity-30 cursor-pointer"
                   >
                     <ChevronRight size={14} />

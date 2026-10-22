@@ -52,6 +52,7 @@ from ...schemas.reports import (
     UniversalReportEnvelope,
     PreparedReportEnqueueRequest,
     PreparedReportStatusResponse,
+    ReportBuilderResponse,
 )
 from ...schemas.report_schedule import ReportScheduleCreate, ReportScheduleResponse
 from ...schemas.visual_reports import VisualReportsSummaryResponse, DashboardConfigPayload
@@ -1122,6 +1123,43 @@ async def save_procurement_dashboard_config(
         company_id=tenant_ctx.company_id,
         user_id=user_id,
         config=payload,
+    )
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Dynamic Report Builder Live Query Endpoint
+# ─────────────────────────────────────────────────────────────────────────────
+
+@router.get("/builder/query", response_model=ReportBuilderResponse, summary="Query Live Data for SMRITI Report Builder")
+async def query_report_builder(
+    category: Optional[str] = Query("Purchase", description="Domain category (Purchase, Items, Inventory, Suppliers)"),
+    start_date: Optional[date] = Query(None, description="Filter by start date (YYYY-MM-DD)"),
+    end_date: Optional[date] = Query(None, description="Filter by end date (YYYY-MM-DD)"),
+    branch_id: Optional[str] = Query(None, description="Filter by branch"),
+    search: Optional[str] = Query(None, description="Search term across entities"),
+    sort_field: Optional[str] = Query("supplier", description="Field to sort by"),
+    sort_direction: Optional[str] = Query("asc", description="Sort direction (asc/desc)"),
+    limit: Optional[int] = Query(100, ge=1, le=1000, description="Max rows to return"),
+    offset: Optional[int] = Query(0, ge=0, description="Pagination offset"),
+    tenant: TenantContext = Depends(get_tenant_context),
+    db: AsyncSession = Depends(get_company_db),
+    current_user=Depends(get_current_user),
+):
+    """
+    Executes a production-governed database query across transactional tables
+    for the SMRITI Report Builder.
+    """
+    service = ReportsService(db, tenant)
+    return await service.query_report_builder(
+        category=category or "Purchase",
+        start_date=start_date,
+        end_date=end_date,
+        branch_id=branch_id,
+        search=search,
+        sort_field=sort_field,
+        sort_direction=sort_direction,
+        limit=limit or 100,
+        offset=offset or 0,
     )
 
 
