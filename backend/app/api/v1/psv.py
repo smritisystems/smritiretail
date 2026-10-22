@@ -273,6 +273,10 @@ async def resolve_store_party(
 @router.get("/reconciliation", response_model=PSVQuantityReconciliationResponse)
 async def get_psv_quantity_reconciliation(
     party_id: Optional[str] = Query(None, description="Optional PSV party ID filter"),
+    customer_id: Optional[str] = Query(None, description="Optional Customer ID or Code filter"),
+    store_code: Optional[str] = Query(None, description="Optional store code or delivery location filter"),
+    start_date: Optional[str] = Query(None, description="Optional start date filter (YYYY-MM-DD)"),
+    end_date: Optional[str] = Query(None, description="Optional end date filter (YYYY-MM-DD)"),
     invoice_id: Optional[str] = Query(None, description="Optional sales invoice ID filter"),
     invoice_no: Optional[str] = Query(None, description="Optional invoice number search string"),
     style_code: Optional[str] = Query(None, description="Optional Article/Style code filter"),
@@ -305,6 +309,10 @@ async def get_psv_quantity_reconciliation(
         session=session,
         company_id=company_id,
         party_id=party_id,
+        customer_id=customer_id,
+        store_code=store_code,
+        start_date=start_date,
+        end_date=end_date,
         invoice_id=invoice_id,
         invoice_no=invoice_no,
         style_code=style_code,

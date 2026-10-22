@@ -15,7 +15,7 @@
  * Capability   : withCapability("customer.crud", "CRM")
  */
 
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import {
   Building2,
   Users,
@@ -61,14 +61,24 @@ import {
   Printer,
 } from "lucide-react";
 import { CorporateCustomerTabs } from "./CorporateCustomerTabs.tsx";
-import { CorporateTabKey, PsvDetailedItem, CorporateCustomer360Data } from "./types.ts";
+import {
+  CorporateTabKey,
+  PsvDetailedItem,
+  CorporateCustomer360Data,
+  PsvQuantityReconciliationSummary,
+  PsvQuantityReconciliationPayload,
+} from "./types.ts";
 import { Customer } from "../../../types.ts";
 import { GovernedLookupCombobox } from "../../itemMaster/GovernedLookupCombobox.tsx";
+import { apiFetchV1 } from "../../../lib/apiFetchV1.ts";
 
 export interface Customer360DashboardViewProps {
   customerId?: string;
   customer?: any;
   corporate360Data?: CorporateCustomer360Data | null;
+  initialPsvItems?: PsvDetailedItem[];
+  initialPsvSummary?: PsvQuantityReconciliationSummary | null;
+  initialInvoices?: any[];
   currentUser?: any;
   initialTab?: CorporateTabKey;
   onChange?: (field: string, value: any) => void;
@@ -83,8 +93,13 @@ export interface Customer360DashboardViewProps {
 }
 
 export const Customer360DashboardView: React.FC<Customer360DashboardViewProps> = ({
+  customerId,
   customer: propCustomer,
   corporate360Data,
+  initialPsvItems,
+  initialPsvSummary,
+  initialInvoices,
+  currentUser,
   initialTab = "overview",
   onChange,
   onSave,
@@ -94,6 +109,7 @@ export const Customer360DashboardView: React.FC<Customer360DashboardViewProps> =
   onBack,
   onNotification,
   isSaving = false,
+  isDirty = false,
 }) => {
   // ── Navigation & View State ────────────────────────────────────────────────
   const [activeTab, setActiveTab] = useState<CorporateTabKey>(initialTab);
@@ -234,17 +250,17 @@ export const Customer360DashboardView: React.FC<Customer360DashboardViewProps> =
   const lastPurchaseDate =
     corporate360Data?.kpis?.last_order_date && corporate360Data.kpis.last_order_date !== "—"
       ? corporate360Data.kpis.last_order_date
-      : propCustomer?.lastPurchaseDate || propCustomer?.last_purchase_date || "12/10/2026";
+      : propCustomer?.lastPurchaseDate || propCustomer?.last_purchase_date || "—";
 
   const lastInvoiceDate =
     corporate360Data?.sales_invoices?.[0]?.date ||
     propCustomer?.lastInvoiceDate ||
     propCustomer?.last_invoice_date ||
-    "15/10/2026";
+    "—";
 
   const relationshipSince = (() => {
     const raw = propCustomer?.relationshipSince || propCustomer?.created_at || propCustomer?.createdAt || propCustomer?.createdDate;
-    if (!raw) return "01/04/2018";
+    if (!raw) return "—";
     try {
       const d = new Date(raw);
       if (isNaN(d.getTime())) return String(raw);
@@ -305,6 +321,8 @@ export const Customer360DashboardView: React.FC<Customer360DashboardViewProps> =
   };
 
   // ── PSV Detailed Table Filters & Pagination ───────────────────────────────
+  const effectiveCustomerId = customerId || propCustomer?.id || propCustomer?.code || corporate360Data?.customer?.id;
+
   const [psvPartyFilter, setPsvPartyFilter] = useState<string>("all");
   const [psvChildFilter, setPsvChildFilter] = useState<string>("all");
   const [psvStoreFilter, setPsvStoreFilter] = useState<string>("all");
@@ -317,111 +335,77 @@ export const Customer360DashboardView: React.FC<Customer360DashboardViewProps> =
   const [psvCurrentPage, setPsvCurrentPage] = useState<number>(1);
   const [psvRowsPerPage, setPsvRowsPerPage] = useState<number>(5);
 
-  // ── Reference Dataset (Matches approved screenshot exactly) ───────────────
-  const psvDetailedRows: PsvDetailedItem[] = useMemo(
-    () => [
-      {
-        id: "1",
-        doc_no: "PO-2026-001",
-        date: "10/10/2026",
-        customer_code: "REL001-002",
-        customer_name: "Reliance - Inorbit Mall",
-        store_code: "REL-MUM-002",
-        article_style: "Men's T-Shirt",
-        color: "Navy",
-        size: "L",
-        barcode: "8901234567890",
-        document_qty: 100,
-        received_qty: 100,
-        pending_approval_qty: 0,
-        approved_qty: 100,
-        shortage_qty: 0,
-        excess_qty: 0,
-        status: "Approved",
-      },
-      {
-        id: "2",
-        doc_no: "PO-2026-002",
-        date: "08/10/2026",
-        customer_code: "REL001-001",
-        customer_name: "Reliance - Phoenix Mall",
-        store_code: "REL-MUM-001",
-        article_style: "Men's Shirt",
-        color: "White",
-        size: "M",
-        barcode: "8901234567891",
-        document_qty: 200,
-        received_qty: 180,
-        pending_approval_qty: 20,
-        approved_qty: 160,
-        shortage_qty: 20,
-        excess_qty: 0,
-        status: "Pending",
-      },
-      {
-        id: "3",
-        doc_no: "PO-2026-003",
-        date: "05/10/2026",
-        customer_code: "REL001-003",
-        customer_name: "Reliance - Amanora Mall",
-        store_code: "REL-PUN-001",
-        article_style: "Women's Kurti",
-        color: "Red",
-        size: "XL",
-        barcode: "8901234567892",
-        document_qty: 150,
-        received_qty: 150,
-        pending_approval_qty: 0,
-        approved_qty: 150,
-        shortage_qty: 0,
-        excess_qty: 0,
-        status: "Approved",
-      },
-      {
-        id: "4",
-        doc_no: "PO-2026-004",
-        date: "02/10/2026",
-        customer_code: "REL001-004",
-        customer_name: "Reliance - AlphaOne",
-        store_code: "REL-AHM-001",
-        article_style: "Men's Jeans",
-        color: "Blue",
-        size: "32",
-        barcode: "8901234567893",
-        document_qty: 300,
-        received_qty: 280,
-        pending_approval_qty: 0,
-        approved_qty: 280,
-        shortage_qty: 20,
-        excess_qty: 0,
-        status: "Approved",
-      },
-      {
-        id: "5",
-        doc_no: "PO-2026-005",
-        date: "28/09/2026",
-        customer_code: "REL001-001",
-        customer_name: "Reliance - Phoenix Mall",
-        store_code: "REL-MUM-001",
-        article_style: "Men's T-Shirt",
-        color: "Black",
-        size: "L",
-        barcode: "8901234567894",
-        document_qty: 250,
-        received_qty: 240,
-        pending_approval_qty: 0,
-        approved_qty: 240,
-        shortage_qty: 0,
-        excess_qty: 10,
-        status: "Excess",
-      },
-    ],
-    []
+  // ── Live PSV Reconciliation State & Database Query Hook ───────────────────
+  const [psvLiveSummary, setPsvLiveSummary] = useState<PsvQuantityReconciliationSummary | null>(
+    initialPsvSummary || corporate360Data?.psv_reconciliation?.summary || propCustomer?.psvSummary || null
   );
+  const [psvLiveItems, setPsvLiveItems] = useState<PsvDetailedItem[]>(
+    initialPsvItems || corporate360Data?.psv_reconciliation?.items || propCustomer?.psvDetailedRows || []
+  );
+  const [isPsvLoading, setIsPsvLoading] = useState<boolean>(false);
+  const [psvError, setPsvError] = useState<string | null>(null);
+
+  const fetchLivePsvData = useCallback(async () => {
+    if (!effectiveCustomerId) return;
+    setIsPsvLoading(true);
+    setPsvError(null);
+    try {
+      const q = new URLSearchParams();
+      q.set("customer_id", String(effectiveCustomerId));
+      if (psvStoreFilter !== "all") q.set("store_code", psvStoreFilter);
+      if (psvDateFrom) q.set("start_date", psvDateFrom);
+      if (psvDateTo) q.set("end_date", psvDateTo);
+      if (psvStatusFilter !== "all") {
+        if (psvStatusFilter === "Approved") q.set("approval_status", "APPROVED");
+        else if (psvStatusFilter === "Pending") q.set("approval_status", "PENDING");
+        else q.set("reconciliation_status", psvStatusFilter.toUpperCase());
+      }
+      q.set("limit", "500");
+
+      const res = await apiFetchV1<PsvQuantityReconciliationPayload>(
+        `/psv/reconciliation?${q.toString()}`
+      );
+      if (res && res.summary) {
+        setPsvLiveSummary(res.summary);
+        setPsvLiveItems(res.items || []);
+      }
+    } catch (err: any) {
+      console.warn("[Customer360DashboardView] Failed to fetch live PSV reconciliation:", err);
+      setPsvError(err?.message || "Failed to load live PSV stream");
+    } finally {
+      setIsPsvLoading(false);
+    }
+  }, [effectiveCustomerId, psvStoreFilter, psvDateFrom, psvDateTo, psvStatusFilter]);
+
+  useEffect(() => {
+    // If not injected via initial test props, query live PostgreSQL database
+    if (effectiveCustomerId && !initialPsvItems && !corporate360Data?.psv_reconciliation && !propCustomer?.psvDetailedRows) {
+      fetchLivePsvData();
+    }
+  }, [effectiveCustomerId, fetchLivePsvData]);
+
+  // Dynamically extract filter options from live items
+  const availableStyles = useMemo(() => {
+    const set = new Set<string>();
+    psvLiveItems.forEach((r) => { if (r.article_style) set.add(r.article_style); });
+    return Array.from(set).sort();
+  }, [psvLiveItems]);
+
+  const availableColors = useMemo(() => {
+    const set = new Set<string>();
+    psvLiveItems.forEach((r) => { if (r.color) set.add(r.color); });
+    return Array.from(set).sort();
+  }, [psvLiveItems]);
+
+  const availableSizes = useMemo(() => {
+    const set = new Set<string>();
+    psvLiveItems.forEach((r) => { if (r.size) set.add(r.size); });
+    return Array.from(set).sort();
+  }, [psvLiveItems]);
 
   // Filtered PSV Detailed rows
   const filteredPsvRows = useMemo(() => {
-    return psvDetailedRows.filter((r) => {
+    return psvLiveItems.filter((r) => {
       if (psvChildFilter !== "all" && r.customer_code !== psvChildFilter) return false;
       if (psvStoreFilter !== "all" && r.store_code !== psvStoreFilter) return false;
       if (psvArticleFilter !== "all" && r.article_style !== psvArticleFilter) return false;
@@ -430,7 +414,7 @@ export const Customer360DashboardView: React.FC<Customer360DashboardViewProps> =
       if (psvStatusFilter !== "all" && r.status !== psvStatusFilter) return false;
       return true;
     });
-  }, [psvDetailedRows, psvChildFilter, psvStoreFilter, psvArticleFilter, psvColorFilter, psvSizeFilter, psvStatusFilter]);
+  }, [psvLiveItems, psvChildFilter, psvStoreFilter, psvArticleFilter, psvColorFilter, psvSizeFilter, psvStatusFilter]);
 
   const handleResetFilters = () => {
     setPsvPartyFilter("all");
@@ -443,85 +427,120 @@ export const Customer360DashboardView: React.FC<Customer360DashboardViewProps> =
     setPsvDateFrom("2026-01-01");
     setPsvDateTo("2026-10-20");
     setPsvCurrentPage(1);
+    fetchLivePsvData();
     onNotification?.("Filters Reset", "PSV Stock Visibility filters reset to default.", "info");
   };
 
-  // Sample Documents matching screenshot
-  const documents = [
-    { id: "d1", name: "GST Registration.pdf", type: "Tax Document", date: "12/04/2026" },
-    { id: "d2", name: "MSA_Reliance.pdf", type: "Agreement", date: "15/04/2026" },
-    { id: "d3", name: "PAN_Certificate.pdf", type: "KYC Document", date: "10/04/2026" },
-    { id: "d4", name: "Store_List.xlsx", type: "Reference", date: "10/05/2026" },
-    { id: "d5", name: "Commercial Terms.pdf", type: "Policy", date: "20/05/2026" },
-  ];
+  // Authoritative quantities and records counts
+  const psvDocQty = psvLiveSummary ? psvLiveSummary.total_document_qty.toLocaleString("en-IN") : (propCustomer?.psvSummary?.total_document_qty?.toLocaleString("en-IN") ?? (isPsvLoading ? "..." : "0"));
+  const psvRecQty = psvLiveSummary ? psvLiveSummary.total_received_qty.toLocaleString("en-IN") : (propCustomer?.psvSummary?.total_received_qty?.toLocaleString("en-IN") ?? (isPsvLoading ? "..." : "0"));
+  const psvAppQty = psvLiveSummary ? psvLiveSummary.total_approved_qty.toLocaleString("en-IN") : (propCustomer?.psvSummary?.total_approved_qty?.toLocaleString("en-IN") ?? (isPsvLoading ? "..." : "0"));
+  const psvPendQty = psvLiveSummary ? psvLiveSummary.total_pending_approval_qty.toLocaleString("en-IN") : (propCustomer?.psvSummary?.total_pending_approval_qty?.toLocaleString("en-IN") ?? (isPsvLoading ? "..." : "0"));
+  const psvShortQty = psvLiveSummary ? psvLiveSummary.total_short_qty.toLocaleString("en-IN") : (propCustomer?.psvSummary?.total_short_qty?.toLocaleString("en-IN") ?? (isPsvLoading ? "..." : "0"));
+  const psvExcessQty = psvLiveSummary ? psvLiveSummary.total_excess_qty.toLocaleString("en-IN") : (propCustomer?.psvSummary?.total_excess_qty?.toLocaleString("en-IN") ?? (isPsvLoading ? "..." : "0"));
+  const psvTotalCountDisplay = psvLiveSummary ? psvLiveSummary.total_items.toLocaleString("en-IN") : (propCustomer?.psvTotalRecords ? String(propCustomer.psvTotalRecords) : (isPsvLoading ? "..." : String(filteredPsvRows.length)));
 
-  // Invoices (live if present, fallback for demo)
-  const fallbackInvoices = [
-    { id: "i1", no: "TT2026-2027/18", date: "15/06/2026", store: "REL-MUM-001", storeName: "Phoenix Mall", amount: "5,990.00", status: "Paid", items: 10 },
-    { id: "i2", no: "TT2026-2027/17", date: "10/06/2026", store: "REL-MUM-002", storeName: "Inorbit Mall", amount: "2,995.00", status: "Paid", items: 10 },
-    { id: "i3", no: "TT2026-2027/16", date: "28/05/2026", store: "REL-PUN-001", storeName: "Amanora Mall", amount: "2,097.00", status: "Unpaid", items: 10 },
-    { id: "i4", no: "TT2026-2027/15", date: "12/05/2026", store: "REL-AHM-001", storeName: "AlphaOne Mall", amount: "4,560.00", status: "Paid", items: 10 },
-  ];
-  const invoices = liveInvoices.length > 0 ? liveInvoices : fallbackInvoices;
+  // Invoices: live database invoices or explicit prop injection, zero silent mock fallback
+  const invoices = initialInvoices || (liveInvoices.length > 0 ? liveInvoices : (propCustomer?.invoices || []));
 
-  // Sample Addresses matching screenshot
-  const billingAddresses = [
-    {
-      id: "b1",
-      name: "Head Office",
-      address: "3rd Floor, MMRDA BKC, Mumbai",
-      city: "Mumbai",
-      state: "MH",
-      pin: "400051",
-      gstin: "27AABCR1234F1Z5",
-      isDefault: true,
-    },
-    {
-      id: "b2",
-      name: "Regional Office",
-      address: "R-Tech Park, MIDC",
-      city: "Navi Mumbai",
-      state: "MH",
-      pin: "400710",
-      gstin: "—",
-      isDefault: false,
-    },
-  ];
+  // Documents: database-backed KYC & attachments
+  const documents = useMemo(() => {
+    const docs = (propCustomer as any)?.documents || (corporate360Data?.customer as any)?.documents;
+    return Array.isArray(docs) ? docs : [];
+  }, [propCustomer, corporate360Data]);
 
-  const deliveryAddresses = [
-    { id: "d1", name: "Phoenix Mall DC", address: "Kurla West", city: "Mumbai", state: "MH", pin: "400070", gstin: "27AABCR1234F1Z5" },
-    { id: "d2", name: "Inorbit Hub", address: "Link Road, Malad", city: "Mumbai", state: "MH", pin: "400064", gstin: "27AABCR1234F1Z5" },
-    { id: "d3", name: "Amanora Depot", address: "Hadapsar", city: "Pune", state: "MH", pin: "411028", gstin: "27AABCR1234F1Z5" },
-    { id: "d4", name: "AlphaOne Dock", address: "Vastrapur", city: "Ahmedabad", state: "GJ", pin: "380015", gstin: "24AABCR1234F1Z3" },
-    { id: "d5", name: "Orion Express", address: "Malleshwaram", city: "Bangalore", state: "KA", pin: "560055", gstin: "29AABCR1234F1Z1" },
-  ];
+  // Addresses: dynamically derived from customer billing and delivery locations
+  const billingAddresses = useMemo(() => {
+    if (propCustomer?.billingAddresses && Array.isArray(propCustomer.billingAddresses)) {
+      return propCustomer.billingAddresses;
+    }
+    const locs = (propCustomer as any)?.billing_locations || (corporate360Data?.customer as any)?.billing_locations || [];
+    if (locs.length > 0) {
+      return locs.map((l: any, i: number) => ({
+        id: l.id || `bill-${i}`,
+        name: l.location_name || l.name || `Billing Hub ${i + 1}`,
+        address: l.address_line1 || l.address || "—",
+        city: l.city || "—",
+        state: l.state || "—",
+        pin: l.pincode || l.pin || "—",
+        gstin: l.gstin || propCustomer?.gst_number || "—",
+        isDefault: Boolean(l.is_default || i === 0),
+      }));
+    }
+    if (propCustomer?.address_line1) {
+      return [{
+        id: "b-main",
+        name: "Head Office",
+        address: propCustomer.address_line1,
+        city: propCustomer.city || "—",
+        state: propCustomer.state || "—",
+        pin: propCustomer.pincode || "—",
+        gstin: propCustomer.gst_number || "—",
+        isDefault: true,
+      }];
+    }
+    return [];
+  }, [propCustomer, corporate360Data]);
 
-  const registeredAddresses = [
-    {
-      id: "r1",
-      name: "Corporate Headquarters",
-      address: "3rd Floor, Corporate Office, MMRDA Building, Bandra-Kurla Complex",
-      city: "Mumbai",
-      state: "MH",
-      pin: "400051",
-      gstin: "27AABCR1234F1Z5",
-    },
-  ];
+  const deliveryAddresses = useMemo(() => {
+    if (propCustomer?.deliveryAddresses && Array.isArray(propCustomer.deliveryAddresses)) {
+      return propCustomer.deliveryAddresses;
+    }
+    const locs = (propCustomer as any)?.delivery_locations || (corporate360Data?.customer as any)?.delivery_locations || [];
+    if (locs.length > 0) {
+      return locs.map((l: any, i: number) => ({
+        id: l.id || `del-${i}`,
+        name: l.location_name || l.name || `Delivery Hub ${i + 1}`,
+        address: l.address_line1 || l.address || l.store_code || "—",
+        city: l.city || "—",
+        state: l.state || "—",
+        pin: l.pincode || l.pin || "—",
+        gstin: l.gstin || propCustomer?.gst_number || "—",
+      }));
+    }
+    return [];
+  }, [propCustomer, corporate360Data]);
 
-  // Sample Contacts matching screenshot
-  const contacts = [
-    { id: "c1", name: "Amit Sharma", designation: "Purchase Head", phone: "9876543210", email: "amit@reliance.com" },
-    { id: "c2", name: "Neha Verma", designation: "Accounts", phone: "9876501234", email: "neha@reliance.com" },
-    { id: "c3", name: "Rajiv Mehta", designation: "Store Operations", phone: "9876512345", email: "rajiv@reliance.com" },
-  ];
+  const registeredAddresses = useMemo(() => {
+    if (propCustomer?.registeredAddresses && Array.isArray(propCustomer.registeredAddresses)) {
+      return propCustomer.registeredAddresses;
+    }
+    if (propCustomer?.registered_address || propCustomer?.address_line1 || corporate360Data?.customer?.address_line1) {
+      return [{
+        id: "r1",
+        name: "Corporate Headquarters",
+        address: propCustomer?.registered_address || propCustomer?.address_line1 || corporate360Data?.customer?.address_line1 || "—",
+        city: propCustomer?.city || corporate360Data?.customer?.city || "—",
+        state: propCustomer?.state || corporate360Data?.customer?.state || "—",
+        pin: propCustomer?.pincode || corporate360Data?.customer?.pincode || "—",
+        gstin: propCustomer?.gst_number || corporate360Data?.customer?.gst_number || "—",
+      }];
+    }
+    return [];
+  }, [propCustomer, corporate360Data]);
 
-  // Sample Activity matching screenshot
-  const recentActivity = [
-    { id: "a1", time: "15/10/2026 11:20", title: "Store Linked", desc: "REL-MUM-005 added" },
-    { id: "a2", time: "12/10/2026 14:10", title: "Address Updated", desc: "New delivery address" },
-    { id: "a3", time: "05/10/2026 09:44", title: "Credit Limit Changed", desc: "Approved by Central Treasury" },
-    { id: "a4", time: "02/10/2026 16:20", title: "Document Uploaded", desc: "GST Registration.pdf" },
-  ];
+  // Contacts: canonical company contacts or assigned account manager
+  const contacts = useMemo(() => {
+    const cList = (propCustomer as any)?.contacts || (corporate360Data?.customer as any)?.contacts;
+    if (Array.isArray(cList) && cList.length > 0) return cList;
+    const am = (corporate360Data as any)?.account_manager;
+    if (am?.name) {
+      return [{
+        id: "am-1",
+        name: am.name,
+        designation: am.designation || "Account Manager",
+        phone: am.phone || "—",
+        email: am.email || "—",
+      }];
+    }
+    return [];
+  }, [propCustomer, corporate360Data]);
+
+  // Activity: audit log stream
+  const recentActivity = useMemo(() => {
+    const act = (propCustomer as any)?.recentActivity || (propCustomer as any)?.activity || (corporate360Data?.customer as any)?.activity;
+    return Array.isArray(act) ? act : [];
+  }, [propCustomer, corporate360Data]);
 
   return (
     <div className="flex flex-col h-full bg-[#f4f7fb] dark:bg-[#111827] text-slate-900 dark:text-slate-100 overflow-y-auto">
@@ -1160,7 +1179,7 @@ export const Customer360DashboardView: React.FC<Customer360DashboardViewProps> =
                       </thead>
                       <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                         {addressSubTab === "billing" &&
-                          billingAddresses.map((addr, idx) => (
+                          billingAddresses.map((addr: any, idx: number) => (
                             <tr key={addr.id} className="hover:bg-slate-50/70 dark:hover:bg-slate-800/40">
                               <td className="py-2 px-2.5 text-center">
                                 <input
@@ -1191,7 +1210,7 @@ export const Customer360DashboardView: React.FC<Customer360DashboardViewProps> =
                           ))}
 
                         {addressSubTab === "delivery" &&
-                          deliveryAddresses.map((addr) => (
+                          deliveryAddresses.map((addr: any) => (
                             <tr key={addr.id} className="hover:bg-slate-50/70 dark:hover:bg-slate-800/40">
                               <td className="py-2 px-2.5 text-center text-slate-400">—</td>
                               <td className="py-2 px-3 font-semibold text-slate-900 dark:text-white">{addr.name}</td>
@@ -1214,7 +1233,7 @@ export const Customer360DashboardView: React.FC<Customer360DashboardViewProps> =
                           ))}
 
                         {addressSubTab === "registered" &&
-                          registeredAddresses.map((addr) => (
+                          registeredAddresses.map((addr: any) => (
                             <tr key={addr.id} className="hover:bg-slate-50/70 dark:hover:bg-slate-800/40">
                               <td className="py-2 px-2.5 text-center text-emerald-600 font-bold">●</td>
                               <td className="py-2 px-3 font-semibold text-slate-900 dark:text-white">{addr.name}</td>
@@ -1504,7 +1523,7 @@ export const Customer360DashboardView: React.FC<Customer360DashboardViewProps> =
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                          {invoices.map((inv) => (
+                          {invoices.map((inv: any) => (
                             <tr key={inv.id} className="hover:bg-slate-50/70 dark:hover:bg-slate-800/40">
                               <td className="py-1.5 px-1.5 font-mono font-bold text-[#0066cc] dark:text-[#8ebdf9]">
                                 {inv.no}
@@ -1757,7 +1776,7 @@ export const Customer360DashboardView: React.FC<Customer360DashboardViewProps> =
                       </div>
                       <div>
                         <div className="text-base font-bold font-mono text-emerald-800 dark:text-emerald-200 leading-none">
-                          5,420
+                          {psvDocQty}
                         </div>
                         <div className="text-[10px] text-slate-500 mt-0.5">Document Qty</div>
                       </div>
@@ -1770,7 +1789,7 @@ export const Customer360DashboardView: React.FC<Customer360DashboardViewProps> =
                       </div>
                       <div>
                         <div className="text-base font-bold font-mono text-emerald-800 dark:text-emerald-200 leading-none">
-                          5,180
+                          {psvRecQty}
                         </div>
                         <div className="text-[10px] text-slate-500 mt-0.5">Received Qty</div>
                       </div>
@@ -1783,7 +1802,7 @@ export const Customer360DashboardView: React.FC<Customer360DashboardViewProps> =
                       </div>
                       <div>
                         <div className="text-base font-bold font-mono text-amber-800 dark:text-amber-200 leading-none">
-                          4,980
+                          {psvAppQty}
                         </div>
                         <div className="text-[10px] text-slate-500 mt-0.5">Approved Qty</div>
                       </div>
@@ -1796,7 +1815,7 @@ export const Customer360DashboardView: React.FC<Customer360DashboardViewProps> =
                       </div>
                       <div>
                         <div className="text-base font-bold font-mono text-sky-800 dark:text-sky-200 leading-none">
-                          240
+                          {psvPendQty}
                         </div>
                         <div className="text-[10px] text-slate-500 mt-0.5">Pending Approval</div>
                       </div>
@@ -1809,7 +1828,7 @@ export const Customer360DashboardView: React.FC<Customer360DashboardViewProps> =
                       </div>
                       <div>
                         <div className="text-base font-bold font-mono text-rose-800 dark:text-rose-200 leading-none">
-                          120
+                          {psvShortQty}
                         </div>
                         <div className="text-[10px] text-slate-500 mt-0.5">Shortage</div>
                       </div>
@@ -1822,7 +1841,7 @@ export const Customer360DashboardView: React.FC<Customer360DashboardViewProps> =
                       </div>
                       <div>
                         <div className="text-base font-bold font-mono text-[#0066cc] dark:text-[#8ebdf9] leading-none">
-                          80
+                          {psvExcessQty}
                         </div>
                         <div className="text-[10px] text-slate-500 mt-0.5">Excess</div>
                       </div>
@@ -2013,9 +2032,10 @@ export const Customer360DashboardView: React.FC<Customer360DashboardViewProps> =
                 <div className="flex items-center gap-1.5 self-end">
                   <button
                     type="button"
-                    onClick={() =>
-                      onNotification?.("PSV Filter Applied", `Showing ${filteredPsvRows.length} matching stock records.`, "success")
-                    }
+                    onClick={() => {
+                      fetchLivePsvData();
+                      onNotification?.("PSV Live Query", `Querying live PostgreSQL PSV reconciliation stream.`, "success");
+                    }}
                     className="px-3.5 py-1.5 bg-[#0066cc] hover:bg-[#0052a3] text-white rounded-lg font-bold text-xs flex items-center gap-1 transition shadow-xs"
                   >
                     <Search size={12} />
@@ -2056,7 +2076,21 @@ export const Customer360DashboardView: React.FC<Customer360DashboardViewProps> =
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 dark:divide-slate-800 font-medium">
-                    {filteredPsvRows.map((row) => (
+                    {filteredPsvRows.length === 0 ? (
+                      <tr>
+                        <td colSpan={16} className="py-8 text-center text-slate-400 text-xs">
+                          {isPsvLoading ? (
+                            <div className="flex items-center justify-center gap-2">
+                              <Loader2 className="animate-spin text-[#0066cc]" size={16} />
+                              <span>Loading authoritative PSV reconciliation stream from PostgreSQL...</span>
+                            </div>
+                          ) : (
+                            "No PSV reconciliation records found for this customer."
+                          )}
+                        </td>
+                      </tr>
+                    ) : (
+                      filteredPsvRows.map((row) => (
                       <tr key={row.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40">
                         <td className="py-2.5 px-3 font-mono font-bold text-[#0066cc] dark:text-[#8ebdf9]">
                           {row.doc_no}
@@ -2116,14 +2150,14 @@ export const Customer360DashboardView: React.FC<Customer360DashboardViewProps> =
                           </button>
                         </td>
                       </tr>
-                    ))}
+                    )))}
                   </tbody>
                 </table>
               </div>
 
               {/* Pagination footer matching screenshot */}
               <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-slate-100 dark:border-slate-800 text-xs text-slate-500">
-                <div>Showing 1-{filteredPsvRows.length} of 125 records</div>
+                <div>Showing {filteredPsvRows.length > 0 ? `1-${filteredPsvRows.length}` : "0"} of {psvTotalCountDisplay} records</div>
                 <div className="flex items-center gap-1.5">
                   <button
                     type="button"
@@ -2608,7 +2642,7 @@ export const Customer360DashboardView: React.FC<Customer360DashboardViewProps> =
 
               {/* Address Cards Grid */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {(addressSubTab === "billing" ? billingAddresses : addressSubTab === "delivery" ? deliveryAddresses : registeredAddresses).map((addr: any, idx) => (
+                {(addressSubTab === "billing" ? billingAddresses : addressSubTab === "delivery" ? deliveryAddresses : registeredAddresses).map((addr: any, idx: number) => (
                   <div
                     key={addr.id || idx}
                     className="bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/80 rounded-xl p-4 space-y-2 relative"
@@ -2980,7 +3014,7 @@ export const Customer360DashboardView: React.FC<Customer360DashboardViewProps> =
                   <FileText size={16} />
                 </div>
                 <div>
-                  <div className="text-base font-bold font-mono text-slate-900 dark:text-white leading-none">5,420</div>
+                  <div className="text-base font-bold font-mono text-slate-900 dark:text-white leading-none">{psvDocQty}</div>
                   <div className="text-[10px] text-slate-500 font-medium mt-1">Document Qty</div>
                 </div>
               </div>
@@ -2989,7 +3023,7 @@ export const Customer360DashboardView: React.FC<Customer360DashboardViewProps> =
                   <CheckCircle2 size={16} />
                 </div>
                 <div>
-                  <div className="text-base font-bold font-mono text-slate-900 dark:text-white leading-none">5,180</div>
+                  <div className="text-base font-bold font-mono text-slate-900 dark:text-white leading-none">{psvRecQty}</div>
                   <div className="text-[10px] text-slate-500 font-medium mt-1">Received Qty</div>
                 </div>
               </div>
@@ -2998,7 +3032,7 @@ export const Customer360DashboardView: React.FC<Customer360DashboardViewProps> =
                   <Clock size={16} />
                 </div>
                 <div>
-                  <div className="text-base font-bold font-mono text-slate-900 dark:text-white leading-none">4,980</div>
+                  <div className="text-base font-bold font-mono text-slate-900 dark:text-white leading-none">{psvAppQty}</div>
                   <div className="text-[10px] text-slate-500 font-medium mt-1">Approved Qty</div>
                 </div>
               </div>
@@ -3007,7 +3041,7 @@ export const Customer360DashboardView: React.FC<Customer360DashboardViewProps> =
                   <ShieldCheck size={16} />
                 </div>
                 <div>
-                  <div className="text-base font-bold font-mono text-slate-900 dark:text-white leading-none">240</div>
+                  <div className="text-base font-bold font-mono text-slate-900 dark:text-white leading-none">{psvPendQty}</div>
                   <div className="text-[10px] text-slate-500 font-medium mt-1">Pending Approval</div>
                 </div>
               </div>
@@ -3016,7 +3050,7 @@ export const Customer360DashboardView: React.FC<Customer360DashboardViewProps> =
                   <XCircle size={16} />
                 </div>
                 <div>
-                  <div className="text-base font-bold font-mono text-slate-900 dark:text-white leading-none">120</div>
+                  <div className="text-base font-bold font-mono text-slate-900 dark:text-white leading-none">{psvShortQty}</div>
                   <div className="text-[10px] text-slate-500 font-medium mt-1">Shortage</div>
                 </div>
               </div>
@@ -3025,7 +3059,7 @@ export const Customer360DashboardView: React.FC<Customer360DashboardViewProps> =
                   <AlertTriangle size={16} />
                 </div>
                 <div>
-                  <div className="text-base font-bold font-mono text-slate-900 dark:text-white leading-none">80</div>
+                  <div className="text-base font-bold font-mono text-slate-900 dark:text-white leading-none">{psvExcessQty}</div>
                   <div className="text-[10px] text-slate-500 font-medium mt-1">Excess</div>
                 </div>
               </div>
@@ -3038,7 +3072,7 @@ export const Customer360DashboardView: React.FC<Customer360DashboardViewProps> =
                   <Layers size={16} className="text-[#0066cc]" />
                   <span>SMRITI PSV (Party Stock Visibility) — Live Reconciliation Stream</span>
                 </h3>
-                <span className="text-xs text-slate-400 font-mono">125 Total Records</span>
+                <span className="text-xs text-slate-400 font-mono">{psvTotalCountDisplay} Total Records</span>
               </div>
 
               {/* 10-Control Filter Strip */}
@@ -3143,7 +3177,10 @@ export const Customer360DashboardView: React.FC<Customer360DashboardViewProps> =
                 <div className="flex items-end gap-1">
                   <button
                     type="button"
-                    onClick={() => onNotification?.("PSV Query Executed", "Reconciliation ledger filtered.", "success")}
+                    onClick={() => {
+                      fetchLivePsvData();
+                      onNotification?.("PSV Query Executed", "Reconciliation ledger queried from database.", "success");
+                    }}
                     className="flex-1 py-1 bg-[#0066cc] text-white text-[11px] font-bold rounded-lg hover:bg-[#0052a3]"
                   >
                     Search
@@ -3182,7 +3219,21 @@ export const Customer360DashboardView: React.FC<Customer360DashboardViewProps> =
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                    {filteredPsvRows.map((r) => (
+                    {filteredPsvRows.length === 0 ? (
+                      <tr>
+                        <td colSpan={16} className="p-8 text-center text-slate-400 text-xs">
+                          {isPsvLoading ? (
+                            <div className="flex items-center justify-center gap-2">
+                              <Loader2 className="animate-spin text-[#0066cc]" size={16} />
+                              <span>Loading authoritative PSV reconciliation stream from PostgreSQL...</span>
+                            </div>
+                          ) : (
+                            "No PSV reconciliation records found for this customer account."
+                          )}
+                        </td>
+                      </tr>
+                    ) : (
+                      filteredPsvRows.map((r) => (
                       <tr key={r.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/40">
                         <td className="p-2.5 font-mono font-bold text-[#0066cc] dark:text-[#8ebdf9]">{r.doc_no}</td>
                         <td className="p-2.5 text-slate-500 font-mono">{r.date}</td>
@@ -3211,7 +3262,7 @@ export const Customer360DashboardView: React.FC<Customer360DashboardViewProps> =
                           <button type="button" className="p-1 text-slate-400 hover:text-slate-700 dark:hover:text-white"><Eye size={13} /></button>
                         </td>
                       </tr>
-                    ))}
+                    )))}
                   </tbody>
                 </table>
               </div>
@@ -3262,7 +3313,7 @@ export const Customer360DashboardView: React.FC<Customer360DashboardViewProps> =
                   </thead>
                   <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                     {invoices.length > 0 ? (
-                      invoices.map((inv) => (
+                      invoices.map((inv: any) => (
                         <tr key={inv.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/40">
                           <td className="p-3 font-mono font-bold text-[#0066cc] dark:text-[#8ebdf9]">{inv.no}</td>
                           <td className="p-3 text-slate-500 font-mono">{inv.date}</td>

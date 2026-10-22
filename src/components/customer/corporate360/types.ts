@@ -60,6 +60,21 @@ export interface PsvDetailedItem {
   status: "Approved" | "Pending" | "Excess" | "Shortage" | "Rejected" | string;
 }
 
+export interface PsvQuantityReconciliationSummary {
+  total_items: number;
+  total_document_qty: number;
+  total_received_qty: number;
+  total_approved_qty: number;
+  total_pending_approval_qty: number;
+  total_short_qty: number;
+  total_excess_qty: number;
+}
+
+export interface PsvQuantityReconciliationPayload {
+  summary: PsvQuantityReconciliationSummary;
+  items: PsvDetailedItem[];
+}
+
 export interface CorporateKpis {
   total_orders: number;
   orders_growth_pct: number;
@@ -231,4 +246,5 @@ export interface CorporateCustomer360Data {
     total_amount?: number;
     status?: string;
   }>;
+  psv_reconciliation?: PsvQuantityReconciliationPayload;
 }

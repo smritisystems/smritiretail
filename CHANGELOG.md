@@ -13,6 +13,24 @@
 
 ## [6.99.5] — 2026-10-22
 
+### CRM & Customer 360° — Master Data-to-UX Connectivity Audit, PSV Live Stream Binding & Prototype Elimination
+
+- **Core Runtime Prototype Cleanup (`src/App.tsx`)**:
+  - Permanently eradicated silent dummy product fallback injection (`dummy-master-0001` / `DUMMY-001`), ensuring authentic empty-state handling across product master catalogs.
+- **Backend PSV Service & Endpoint Scoping (`backend/app/services/psv_projection.py` & `backend/app/api/v1/psv.py`)**:
+  - Added `customer_id`, `store_code`, `start_date`, and `end_date` parameters to `PSVProjectionService.get_quantity_reconciliation()` and the FastAPI endpoint `GET /api/v1/psv/reconciliation`.
+  - Enables customer-scoped quantity reconciliation across Sales Tax Invoices, physical receipts, pending approvals, and ledger balances.
+- **Customer 360° Dashboard Live PSV Binding (`src/components/customer/corporate360/Customer360DashboardView.tsx`)**:
+  - Replaced hardcoded static reference dataset (`psvDetailedRows` lines with fake `PO-2026-001` through `PO-2026-005`) with live reactive database query hooks calling `apiFetchV1` to `GET /api/v1/psv/reconciliation`.
+  - Bound all 6 metric tiles on both the Overview tab (Card 9) and the dedicated PSV Stock tab (Tab 7) to live reconciliation counters (`total_document_qty`, `total_received_qty`, `total_approved_qty`, `total_pending_approval_qty`, `total_short_qty`, `total_excess_qty`).
+  - Replaced static `125 Total Records` badges with dynamic, database-aggregated item counts (`{summary.total_items} Total Records`).
+  - Dynamically populated Store / Outlet dropdown options from active customer store network (`liveStoreNetwork`), and dynamically extracted Article/Style, Color, and Size options from live query results.
+  - Eliminated silent mock fallback arrays for `fallbackInvoices` (`TT2026-2027/18` through `15`), dummy documents, fake contacts, dummy recent activities, and fabricated BKC/Inorbit addresses.
+- **Verification & Test Suite**:
+  - Added dedicated unit tests in `src/tests/customer360DashboardView.test.tsx` verifying honest empty states (`0 Total Records`, zero fake lines), zero silent fallback on sales tax invoices, and live database reconciliation contract binding (34/34 tests green).
+  - Verified backend Pytest suite: 10/10 tests green across `test_psv_invoice_reconciliation.py` and `test_psv.py`.
+  - Verified `npx tsc --noEmit` with 0 errors.
+
 ### Visual Reports Dashboard — Database-to-UX Audit, Dual-Ledger Invariant Alignment & Active Fulfillment Stream Auto-Fix
 
 - **Dual-Ledger Invariant Alignment (`backend/app/services/visual_reports_service.py`)**:
