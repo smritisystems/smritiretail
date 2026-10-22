@@ -20,6 +20,9 @@ import {
   PSVParty,
 } from "../../types.js";
 import { SmritiErrorBoundary } from "../ErrorBoundary.tsx";
+import { useLayoutEngine, UXMode } from "../../layout_engine/layout_store.tsx";
+import { RegularUxDashboard } from "../dashboard/RegularUxDashboard.tsx";
+import { ClassicUxWorkspace } from "../dashboard/ClassicUxWorkspace.tsx";
 
 // Synchronously imported (lightweight or frequently used)
 import { DashboardTab } from "../DashboardTab.tsx";
@@ -308,6 +311,7 @@ export interface TabRendererContextProps {
   setActiveTab: (tab: string) => void;
   setSelectedFormula: (f: Formula | null) => void;
   markSetupCompleted: () => void;
+  uxMode?: UXMode;
 }
 
 export const renderTabNode = (tabId: string, ctx: TabRendererContextProps): React.ReactNode => {
@@ -324,15 +328,28 @@ export const renderTabNode = (tabId: string, ctx: TabRendererContextProps): Reac
     setActiveTab,
     setSelectedFormula,
     markSetupCompleted,
+    uxMode,
   } = ctx;
 
   switch (tabId) {
     case "dashboard":
+      if (uxMode === "classic") {
+        return (
+          <ClassicUxWorkspace
+            products={products}
+            currentUser={currentUser}
+            onNavigateTab={(tab) => setActiveTab(mapModuleId(tab))}
+            onNotification={addNotification}
+          />
+        );
+      }
       return (
-        <DashboardTab
+        <RegularUxDashboard
           products={products}
           formulas={formulas}
           psvParties={psvParties}
+          currentUser={currentUser}
+          onNavigateTab={(tab) => setActiveTab(mapModuleId(tab))}
           onSelectFormula={(formula) => setSelectedFormula(formula)}
         />
       );
@@ -410,6 +427,16 @@ export const renderTabNode = (tabId: string, ctx: TabRendererContextProps): Reac
     case "billing-workspace":
     case "billing":
     case "pos":
+      if (uxMode === "classic") {
+        return (
+          <ClassicUxWorkspace
+            products={products}
+            currentUser={currentUser}
+            onNavigateTab={(tab) => setActiveTab(mapModuleId(tab))}
+            onNotification={addNotification}
+          />
+        );
+      }
       return (
         <BillingWorkspace
           products={products}
@@ -758,10 +785,12 @@ export interface TabRendererProps extends TabRendererContextProps {
 }
 
 export const TabRenderer: React.FC<TabRendererProps> = (props) => {
+  const { uxMode } = useLayoutEngine();
+  const resolvedCtx: TabRendererContextProps = { ...props, uxMode: props.uxMode || uxMode };
   return (
     <SmritiErrorBoundary key={props.tabId} tabId={props.tabId} onNotification={props.addNotification}>
       <Suspense fallback={<TabLoadingFallback />}>
-        {renderTabNode(props.tabId, props)}
+        {renderTabNode(props.tabId, resolvedCtx)}
       </Suspense>
     </SmritiErrorBoundary>
   );

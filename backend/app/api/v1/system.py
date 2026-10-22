@@ -51,6 +51,7 @@ DEFAULT_LAYOUT_PREFERENCES: Dict[str, Any] = {
     "lastWorkspace": "dashboard",
     "collapsedGroups": [],
     "favorites": ["pos", "sales"],
+    "uxMode": "regular",
 }
 
 SETUP_COMPLETED_KEY = "setup_completed"
@@ -541,6 +542,7 @@ async def save_layout_preferences(
         "lastWorkspace": payload.get("lastWorkspace", payload.get("last_workspace", current_layout.get("lastWorkspace", "dashboard"))),
         "collapsedGroups": payload.get("collapsedGroups", payload.get("collapsed_groups", current_layout.get("collapsedGroups", []))) or [],
         "favorites": payload.get("favorites", current_layout.get("favorites", ["pos", "sales"])) or ["pos", "sales"],
+        "uxMode": str(payload.get("uxMode", payload.get("ux_mode", current_layout.get("uxMode", "regular")))).lower(),
     }
 
     item_master = payload.get("itemMaster")

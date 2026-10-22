@@ -15,6 +15,7 @@ import React, { createContext, useContext, useState, useEffect } from "react";
 import { apiFetchV1 } from "../lib/apiFetch.ts";
 
 export type DockPosition = "left" | "right" | "top" | "bottom";
+export type UXMode = "regular" | "classic";
 
 export interface WorkspaceConfig {
   id: string;
@@ -31,12 +32,14 @@ export interface LayoutPreferences {
   lastWorkspace: string;
   collapsedGroups: string[];
   favorites: string[];
+  uxMode: UXMode;
 }
 
 interface LayoutStoreContextType {
   preferences: LayoutPreferences;
   recentlyUsed: string[];
   registeredWorkspaces: WorkspaceConfig[];
+  uxMode: UXMode;
 
   setLayout: (position: DockPosition) => void;
   getLayout: () => LayoutPreferences;
@@ -44,6 +47,8 @@ interface LayoutStoreContextType {
   setCollapsed: (state: boolean) => void;
   setIconOnly: (state: boolean) => void;
   setSidebarWidth: (width: number) => void;
+  setUxMode: (mode: UXMode) => void;
+  toggleUxMode: () => void;
   savePreferences: (customPrefs?: Partial<LayoutPreferences>) => Promise<void>;
   restorePreferences: () => Promise<void>;
   registerWorkspace: (
@@ -59,6 +64,14 @@ interface LayoutStoreContextType {
   addToRecentlyUsed: (workspaceId: string) => void;
 }
 
+const getInitialUxMode = (): UXMode => {
+  if (typeof window !== "undefined") {
+    const saved = localStorage.getItem("smriti_ux_mode");
+    if (saved === "classic" || saved === "regular") return saved;
+  }
+  return "regular";
+};
+
 const DEFAULT_PREFERENCES: LayoutPreferences = {
   position: "left",
   collapsed: false,
@@ -67,6 +80,7 @@ const DEFAULT_PREFERENCES: LayoutPreferences = {
   lastWorkspace: "dashboard",
   collapsedGroups: [],
   favorites: ["pos", "sales"],
+  uxMode: getInitialUxMode(),
 };
 
 const LayoutStoreContext = createContext<LayoutStoreContextType | undefined>(
@@ -437,11 +451,34 @@ export const LayoutEngineProvider: React.FC<ProviderProps> = ({
 
   const restorePreferences = async () => {
     const local = localStorage.getItem("smriti_layout_preferences");
-    const loadedPrefs = local ? JSON.parse(local) : DEFAULT_PREFERENCES;
+    const localUxMode = (localStorage.getItem("smriti_ux_mode") as UXMode) || "regular";
+    const loadedPrefs = local
+      ? { ...DEFAULT_PREFERENCES, ...JSON.parse(local) }
+      : { ...DEFAULT_PREFERENCES, uxMode: localUxMode };
 
     setPreferences(loadedPrefs);
     if (loadedPrefs.lastWorkspace && onTabChange) {
       onTabChange(loadedPrefs.lastWorkspace);
+    }
+
+    // Attempt to hydrate layout preferences from backend
+    try {
+      const serverPrefs = await apiFetchV1<any>("/layout/preferences");
+      if (serverPrefs && typeof serverPrefs === "object") {
+        const serverUxMode = (serverPrefs.uxMode || serverPrefs.ux_mode) as UXMode;
+        const merged: LayoutPreferences = {
+          ...loadedPrefs,
+          ...serverPrefs,
+          ...(serverUxMode ? { uxMode: serverUxMode } : {}),
+        };
+        setPreferences(merged);
+        localStorage.setItem("smriti_layout_preferences", JSON.stringify(merged));
+        if (merged.uxMode) {
+          localStorage.setItem("smriti_ux_mode", merged.uxMode);
+        }
+      }
+    } catch {
+      // Offline fallback: retain local preferences
     }
 
     // Centralized Menu Resolver: Fetch resolved navigation tree from backend (only if authenticated)
@@ -454,6 +491,9 @@ export const LayoutEngineProvider: React.FC<ProviderProps> = ({
 
     // Save to local storage
     localStorage.setItem("smriti_layout_preferences", JSON.stringify(updated));
+    if (updated.uxMode) {
+      localStorage.setItem("smriti_ux_mode", updated.uxMode);
+    }
 
     // Map to backend structure (both camelCase and snake_case for maximum compatibility)
     const payload = {
@@ -468,6 +508,8 @@ export const LayoutEngineProvider: React.FC<ProviderProps> = ({
       collapsed_groups: updated.collapsedGroups,
       collapsedGroups: updated.collapsedGroups,
       favorites: updated.favorites,
+      uxMode: updated.uxMode,
+      ux_mode: updated.uxMode,
     };
 
     try {
@@ -478,6 +520,16 @@ export const LayoutEngineProvider: React.FC<ProviderProps> = ({
     } catch (e) {
       console.warn("Failed to sync preferences to server:", e);
     }
+  };
+
+  const setUxMode = (mode: UXMode) => {
+    localStorage.setItem("smriti_ux_mode", mode);
+    savePreferences({ uxMode: mode });
+  };
+
+  const toggleUxMode = () => {
+    const nextMode: UXMode = preferences.uxMode === "classic" ? "regular" : "classic";
+    setUxMode(nextMode);
   };
 
   const setLayout = (position: DockPosition) => {
@@ -553,12 +605,15 @@ export const LayoutEngineProvider: React.FC<ProviderProps> = ({
         preferences,
         recentlyUsed,
         registeredWorkspaces,
+        uxMode: preferences.uxMode || "regular",
         setLayout,
         getLayout,
         toggleSidebar,
         setCollapsed,
         setIconOnly,
         setSidebarWidth,
+        setUxMode,
+        toggleUxMode,
         savePreferences,
         restorePreferences,
         registerWorkspace,

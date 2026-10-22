@@ -16,6 +16,7 @@ import { NavRail, NavRailState } from './NavRail';
 import { BusinessContext, TransactionState } from './navigationResolver';
 import { WorkspaceStatusBar } from './WorkspaceStatusBar';
 import { BreadcrumbProvider } from '../../navigation/breadcrumb/index.ts';
+import { useLayoutEngine } from '../../layout_engine/layout_store.tsx';
 
 interface AppShellProps {
   activeModuleId: string;
@@ -71,6 +72,9 @@ export const AppShell: React.FC<AppShellProps> = ({
   userRole,
   children,
 }) => {
+  const { uxMode } = useLayoutEngine();
+  const hideNavRailForClassic = uxMode === 'classic' && (activeModuleId === 'dashboard' || activeModuleId === 'billing-workspace' || activeModuleId === 'pos');
+
   const [railState, setRailState] = useState<NavRailState>(() => {
     const saved = localStorage.getItem('smriti_nav_rail_state');
     return (saved === 'EXPANDED' || saved === 'COMPACT') ? saved : 'EXPANDED';
@@ -168,16 +172,18 @@ export const AppShell: React.FC<AppShellProps> = ({
       {/* Main Content Body */}
       <div className="flex-1 flex overflow-hidden relative pb-8">
         {/* Hideable Navigation Rail */}
-        <NavRail
-          railState={railState}
-          activeContext={resolvedContext}
-          activeModuleId={activeModuleId}
-          documentId={documentId}
-          transactionState={transactionState}
-          userRole={userRole}
-          onSelectModule={onSelectModule}
-          onToggleRailState={handleToggleNavRail}
-        />
+        {!hideNavRailForClassic && (
+          <NavRail
+            railState={railState}
+            activeContext={resolvedContext}
+            activeModuleId={activeModuleId}
+            documentId={documentId}
+            transactionState={transactionState}
+            userRole={userRole}
+            onSelectModule={onSelectModule}
+            onToggleRailState={handleToggleNavRail}
+          />
+        )}
 
         {/* Workspace Canvas Area */}
         <main className="flex-1 flex flex-col min-w-0 overflow-hidden bg-[#f8f9ff] dark:bg-[#121721] relative">
