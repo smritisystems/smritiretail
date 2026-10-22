@@ -19,6 +19,13 @@ import { LayoutEngineProvider } from '../layout_engine/layout_store.tsx';
 import { UxSwitcherModal } from '../components/shell/UxSwitcherModal.tsx';
 import { RegularUxDashboard } from '../components/dashboard/RegularUxDashboard.tsx';
 import { ClassicUxWorkspace } from '../components/dashboard/ClassicUxWorkspace.tsx';
+import { ClassicWorkspaceDirectory } from '../components/launchpad/ClassicWorkspaceDirectory.tsx';
+import { FioriLaunchpad } from '../components/launchpad/FioriLaunchpad.tsx';
+import { GlobalHeader } from '../components/shell/GlobalHeader.tsx';
+import { WorkspaceProvider } from '../contexts/WorkspaceContext.tsx';
+import { ActiveFieldProvider } from '../context/ActiveFieldContext.tsx';
+import { DrillDownProvider } from '../components/drilldown/drilldown_store.tsx';
+import { ThemeProvider } from '../contexts/ThemeContext.tsx';
 
 // Mock apiFetch
 vi.mock('../lib/apiFetch.ts', () => ({
@@ -177,5 +184,153 @@ describe('SMRITI Retail OS — Premium UX Switcher & Presentation Verification',
     expect(html).toContain('CGST (2.5%)');
     expect(html).toContain('SGST (2.5%)');
     expect(html).toContain('Grand Total');
+  });
+
+  it('6. ClassicWorkspaceDirectory renders authentic dense table view with 9 columns, toolbar F-keys, tree sidebar, and details panel', () => {
+    const html = renderToStaticMarkup(
+      <WorkspaceProvider>
+        <ClassicWorkspaceDirectory
+          currentUser={{ role: 'System Admin', name: 'Jawahar' }}
+          onSelectModule={() => {}}
+        />
+      </WorkspaceProvider>
+    );
+
+    // Sub-header tabs strip
+    expect(html).toContain('Dashboard');
+    expect(html).toContain('Workspaces');
+    expect(html).toContain('Enterprise Classic ERP View');
+
+    // Left hierarchical sidebar tree
+    expect(html).toContain('All Workspaces');
+    expect(html).toContain('Favorites');
+    expect(html).toContain('Recent');
+    expect(html).toContain('My Workspaces');
+    expect(html).toContain('Retail Operations');
+    expect(html).toContain('Finance &amp; Ledgers');
+    expect(html).toContain('CRM &amp; Customers');
+    expect(html).toContain('Masters');
+    expect(html).toContain('Reports');
+    expect(html).toContain('Tools &amp; Config');
+
+    // Toolbar controls & F-keys
+    expect(html).toContain('Workspaces (Classic View)');
+    expect(html).toContain('New Workspace (F2)');
+    expect(html).toContain('Open (Enter)');
+    expect(html).toContain('Edit (F4)');
+    expect(html).toContain('Deactivate (F5)');
+    expect(html).toContain('View Details (F6)');
+    expect(html).toContain('Table View');
+    expect(html).toContain('Card View');
+
+    // 9 Table Columns
+    expect(html).toContain('#');
+    expect(html).toContain('Workspace Name');
+    expect(html).toContain('Description');
+    expect(html).toContain('Category');
+    expect(html).toContain('Icon');
+    expect(html).toContain('Status');
+    expect(html).toContain('Type');
+    expect(html).toContain('Actions');
+
+    // Sample Rows
+    expect(html).toContain('Desktop Billing Terminal');
+    expect(html).toContain('Sales Studio');
+    expect(html).toContain('Purchase Studio');
+
+    // Right-side Details Panel
+    expect(html).toContain('Open Workspace');
+    expect(html).toContain('Details');
+    expect(html).toContain('Shortcuts');
+    expect(html).toContain('Access');
+    expect(html).toContain('Workspace ID');
+    expect(html).toContain('Route');
+    expect(html).toContain('Quick Actions');
+    expect(html).toContain('Add to Favorites');
+    expect(html).toContain('Copy Link');
+    expect(html).toContain('Edit Workspace');
+  });
+
+  it('7. GlobalHeader renders Enterprise Top Menu when uxMode is classic and Omni-Search when uxMode is regular', () => {
+    // Mode: classic
+    localStorage.setItem('smriti_ux_mode', 'classic');
+    const classicHtml = renderToStaticMarkup(
+      <ThemeProvider>
+        <LayoutEngineProvider initialUxMode="classic">
+          <ActiveFieldProvider>
+            <DrillDownProvider>
+              <GlobalHeader
+                activeModuleId="workspaces"
+                activeModuleTitle="Workspaces"
+                onNavigateHome={() => {}}
+                onToggleNavRail={() => {}}
+                isNavRailCollapsed={false}
+                isFocusMode={false}
+                onToggleFocusMode={() => {}}
+              />
+            </DrillDownProvider>
+          </ActiveFieldProvider>
+        </LayoutEngineProvider>
+      </ThemeProvider>
+    );
+
+    // Enterprise Top Menu in Classic Mode
+    expect(classicHtml).toContain('aria-label="Enterprise Main Menu"');
+    expect(classicHtml).toContain('Home');
+    expect(classicHtml).toContain('Master');
+    expect(classicHtml).toContain('Transactions');
+    expect(classicHtml).toContain('Inventory');
+    expect(classicHtml).toContain('Purchase');
+    expect(classicHtml).toContain('Sales');
+    expect(classicHtml).toContain('Accounts');
+    expect(classicHtml).toContain('CRM');
+    expect(classicHtml).toContain('Reports');
+    expect(classicHtml).toContain('Tools');
+    expect(classicHtml).toContain('Settings');
+    expect(classicHtml).toContain('Help');
+    expect(classicHtml).not.toContain('Omni-Search');
+
+    // Mode: regular
+    localStorage.setItem('smriti_ux_mode', 'regular');
+    const regularHtml = renderToStaticMarkup(
+      <ThemeProvider>
+        <LayoutEngineProvider initialUxMode="regular">
+          <ActiveFieldProvider>
+            <DrillDownProvider>
+              <GlobalHeader
+                activeModuleId="launchpad"
+                activeModuleTitle="Launchpad"
+                onNavigateHome={() => {}}
+                onToggleNavRail={() => {}}
+                isNavRailCollapsed={false}
+                isFocusMode={false}
+                onToggleFocusMode={() => {}}
+              />
+            </DrillDownProvider>
+          </ActiveFieldProvider>
+        </LayoutEngineProvider>
+      </ThemeProvider>
+    );
+
+    // Omni-Search in Regular Mode
+    expect(regularHtml).toContain('Omni-Search');
+    expect(regularHtml).toContain('Ctrl+K');
+  });
+
+  it('8. FioriLaunchpad renders spacious touch-friendly cards in Regular UX mode', () => {
+    const html = renderToStaticMarkup(
+      <WorkspaceProvider>
+        <FioriLaunchpad
+          currentUser={{ role: 'System Admin', name: 'Jawahar' }}
+          onSelectModule={() => {}}
+          uxMode="regular"
+        />
+      </WorkspaceProvider>
+    );
+
+    // Spacious search and tiles
+    expect(html).toContain('Search workspaces (e.g. POS, Barcode, GST, Ledger, Purchase)...');
+    expect(html).toContain('Desktop Billing Terminal');
+    expect(html).toContain('Store Status');
   });
 });

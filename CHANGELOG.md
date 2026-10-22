@@ -11,6 +11,34 @@
   Classification: Internal
 -->
 
+## [6.99.11] — 2026-10-22
+
+### Foundation & UI Architecture — Classic UX Workspace Directory & Traditional ERP Navigation Parity
+
+- **Classic UX Workspace Directory Component (`ClassicWorkspaceDirectory.tsx`)**:
+  - Implemented the authentic high-density ERP workspace directory matching the approved visual specification (`media_1792670496311.jpg`).
+  - Dense 9-column workspace table (`#`, `Select`, `Workspace Name`, `Description`, `Category`, `Icon`, `Status`, `Type`, `Actions`) with row selection, hover highlights, active status badges (`ACTIVE`, `INACTIVE`), and row action triggers.
+  - Hierarchical left functional tree navigation sidebar (`Workspace`, `Retail Operations`, `Finance & Ledgers`, `CRM & Customers`, `Masters`, `Reports`, `Tools & Config`) with node collapse/expand, search filter, and item counters.
+  - Sub-header tabs strip (`Dashboard ×`, `Workspaces ×`) with active tab indicator and close affordances.
+  - F-Key action toolbar (`+ New Workspace (F2)`, `Open (Enter)`, `Edit (F4)`, `Deactivate (F5)`, `View Details (F6)`, `Table/Card View` toggle).
+  - Right-side 320px metadata details panel with `Details | Shortcuts | Access` tabs, `WS-001` ID formatting, `/billing/desktop` route formatting, quick action buttons (`Open Workspace`, `Add to Favorites`, `Copy Link`, `Edit Workspace`), and properties grid.
+- **Enterprise Top Menu Ribbon (`GlobalHeader.tsx`)**:
+  - Added horizontal `EnterpriseTopMenu` when `uxMode === 'classic'` (`Home | Master | Transactions | Inventory | Purchase | Sales | Accounts | CRM | Reports | Tools | Settings | Help`).
+  - Includes dropdown submenus for immediate workspace jumping and active module indicators.
+  - Preserved modern center Omni-Search bar (`Ctrl+K`) and Breadcrumbs when `uxMode === 'regular'`.
+- **Shell Layout Adaptation (`AppShell.tsx`, `App.tsx`, `TabRenderer.tsx`)**:
+  - Configured `AppShell.tsx` to suppress outer `NavRail` for `launchpad` and `workspaces` in Classic mode, allowing `ClassicWorkspaceDirectory` to display its functional tree full-bleed.
+  - Added `p-0 overflow-hidden` wrapper in `App.tsx` on active workspace canvas in Classic UX to prevent dual scrollbars and margin clipping.
+  - Routed `launchpad` and `workspaces` tabs in `TabRenderer.tsx` to `ClassicWorkspaceDirectory` when `uxMode === 'classic'`, preserving `<FioriLaunchpad />` when `uxMode === 'regular'`.
+- **Preference Hydration & State Protection (`layout_store.tsx`)**:
+  - Enforced `smriti_ux_mode` precedence over layout preferences JSON in `restorePreferences`, eliminating mode rollback during server synchronization.
+- **Verification**:
+  - 8/8 frontend Vitest tests green (`src/tests/uxSwitcher.test.tsx`).
+  - 11/11 launchpad catalog tests green (`src/tests/fioriLaunchpad.test.ts`).
+  - 58 catalog tiles validated with 150 render cases (`scripts/validate-launchpad-registry.mjs`).
+  - Clean `tsc --noEmit` with 0 errors.
+  - Headless Playwright screenshot verification confirming visual fidelity.
+
 ## [6.99.10] — 2026-10-22
 
 ### Foundation & Disaster Recovery — Critical Backup Integrity Remediation & Full Database Recovery Engine

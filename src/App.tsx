@@ -4,11 +4,12 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 3.18.1
+ * Version      : 6.99.10
  * Created      : 2026-07-10
- * Modified     : 2026-09-12
+ * Modified     : 2026-10-22
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
+ * Classification: Authoritative Root Application Canvas (Mode-Adaptive Shell)
  */
 import React, { useState, useEffect, useRef, useCallback, Suspense, lazy } from "react";
 import { apiFetch, apiFetchV1 } from "./lib/apiFetch.ts";
@@ -677,7 +678,7 @@ const AppContent: React.FC = () => {
       <div className="flex-1 flex flex-col h-full w-full min-w-0 max-w-full overflow-hidden relative">
         <DrillDownBreadcrumbs />
         <div className={`flex-1 min-w-0 max-w-full relative ${
-          activeTab === "grn-studio" || activeTab === "billing-workspace" || activeTab === "pos" || activeTab === "grn" || (uxMode === "classic" && (activeTab === "dashboard" || activeTab === "billing-workspace"))
+          activeTab === "grn-studio" || activeTab === "billing-workspace" || activeTab === "pos" || activeTab === "grn" || (uxMode === "classic" && (activeTab === "dashboard" || activeTab === "billing-workspace" || activeTab === "launchpad" || activeTab === "workspaces"))
             ? "p-0 overflow-hidden"
             : uxMode === "classic"
             ? "overflow-y-auto overflow-x-hidden p-1.5 text-xs"

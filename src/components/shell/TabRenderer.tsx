@@ -4,11 +4,12 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.69.0
+ * Version      : 6.99.10
  * Created      : 2026-09-16
- * Modified     : 2026-10-03
+ * Modified     : 2026-10-22
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
+ * Classification: Central Tab Renderer (Mode-Aware Workspace Directory Router)
  */
 import React, { Suspense, lazy } from "react";
 import {
@@ -39,6 +40,7 @@ import { AboutSmritiTab } from "../AboutSmritiTab.tsx";
 import { TaxInvoicePrintPage } from "../TaxInvoicePrintPag.tsx";
 import { DevTrackerTab } from "../../modules/dev_tracker/ui/DevTrackerTab.tsx";
 import { FioriLaunchpad } from "../launchpad/FioriLaunchpad.tsx";
+import { ClassicWorkspaceDirectory } from "../launchpad/ClassicWorkspaceDirectory.tsx";
 import { SecurityAccessShell } from "../security/SecurityAccessShell.tsx";
 
 // Lazy-loaded components (heavy feature modules)
@@ -353,13 +355,28 @@ export const renderTabNode = (tabId: string, ctx: TabRendererContextProps): Reac
           onSelectFormula={(formula) => setSelectedFormula(formula)}
         />
       );
+    case "workspaces":
     case "launchpad":
+      if (uxMode === "classic") {
+        return (
+          <ClassicWorkspaceDirectory
+            currentUser={currentUser}
+            onSelectModule={(modId) => {
+              setActiveTab(mapModuleId(modId));
+            }}
+            onNavigateTab={(tab) => {
+              setActiveTab(mapModuleId(tab));
+            }}
+          />
+        );
+      }
       return (
         <FioriLaunchpad
           currentUser={currentUser}
           onSelectModule={(modId) => {
             setActiveTab(mapModuleId(modId));
           }}
+          uxMode={uxMode}
         />
       );
     case "day-close":

@@ -1,13 +1,15 @@
 /**
  * Project      : SMRITI Retail OS
  * Author       : Jawahar Ramkripal Mallah
+ * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.42.4
+ * Version      : 6.99.10
  * Created      : 2026-08-16
- * Modified     : 2026-09-20
+ * Modified     : 2026-10-22
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
+ * Classification: Application Shell Layer (UX Mode Sensitive NavRail)
  */
 
 import React, { useState, useEffect } from 'react';
@@ -73,7 +75,13 @@ export const AppShell: React.FC<AppShellProps> = ({
   children,
 }) => {
   const { uxMode } = useLayoutEngine();
-  const hideNavRailForClassic = uxMode === 'classic' && (activeModuleId === 'dashboard' || activeModuleId === 'billing-workspace' || activeModuleId === 'pos');
+  const hideNavRailForClassic = uxMode === 'classic' && (
+    activeModuleId === 'dashboard' ||
+    activeModuleId === 'billing-workspace' ||
+    activeModuleId === 'pos' ||
+    activeModuleId === 'launchpad' ||
+    activeModuleId === 'workspaces'
+  );
 
   const [railState, setRailState] = useState<NavRailState>(() => {
     const saved = localStorage.getItem('smriti_nav_rail_state');
