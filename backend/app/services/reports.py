@@ -3763,7 +3763,7 @@ class ReportsService:
                     "warehouse": "Main Godown",
                     "reserved_qty": float(p.reserved_stock or 0),
                     "available_qty": stk - float(p.reserved_stock or 0),
-                    "reorder_level": float(p.reorder_level or 0),
+                    "reorder_level": float(getattr(p, "reorder_level", 0.0) or 0.0),
                     "valuation_cost": val,
                 })
             return {
