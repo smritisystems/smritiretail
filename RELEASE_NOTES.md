@@ -14,6 +14,19 @@
 
 # SMRITI Retail OS — Release Notes
 
+## Release v6.99.14 (2026-10-23)
+
+### CRM, Billing & Transactions — End-to-End Customer Lifecycle Hardening & Validation
+
+#### Overview
+Certifies the complete customer lifecycle from customer creation and concurrency-protected profile editing to POS billing directory discovery, parent-controlled child customer visibility, sales invoice posting, and dual-key repository retrieval. Remediates a child customer billing bypass in headless checkout and isolates auxiliary PSV projections via nested savepoints.
+
+#### Key Highlights
+- **Universal Child Customer Billing Guard (`headless_billing.py`)**: Extracted child customer visibility evaluation outside of `if db_customer is None:`. Guarantees that pre-resolved customer entities supplied by canonical transactional writers cannot bypass parent visibility policies, raising HTTP 400 (`SMRITI-CUST-042`) on unauthorized subordinate checkout attempts.
+- **Nested Savepoint Isolation for Auxiliary Projections (`canonical_sales_writer.py`)**: Isolated `PSVProjectionService.project_posted_invoice` within `async with session.begin_nested():`. Prevents any secondary projection warning or schema drift from triggering `InFailedSQLTransactionError` in `asyncpg` and rolling back core sales invoice and inventory stock ledger transactions.
+- **Test Database Schema Parity**: Aligned `psv_sku_tracking` on `smriti_test_phase2c` to include `product_id VARCHAR(50)` matching canonical Alembic migration `a1b2c3d4e5f6_add_missing_core_tables.py` and ORM model `PSVPartySkuTracking`.
+- **End-to-End Test Certification**: 4/4 integration tests passed in `test_customer_lifecycle_e2e.py` and 37/37 frontend customer tests passed in Vitest with zero mock data and zero production mutation.
+
 ## Release v6.99.12 (2026-10-22)
 
 ### Foundation & UI Architecture — Classic UX Top Navigation, Submenu & Viewport Overflow Remediation

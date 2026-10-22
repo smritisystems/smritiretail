@@ -11,6 +11,23 @@
   Classification: Internal
 -->
 
+## [6.99.14] — 2026-10-23
+
+### CRM, Billing & Transactions — End-to-End Customer Lifecycle Hardening & Validation
+
+- **Universal Child Customer Billing Guard (`headless_billing.py`)**:
+  - Unnested the subordinate customer visibility check in `HeadlessBillingCore.calculate_billing` from `if db_customer is None:`.
+  - Guarantees that callers providing pre-resolved customer entities (such as `CanonicalSalesPostingWriter.post_sales_transaction`) are subjected to parent customer billing visibility governance (`show_child_customers_in_billing`), closing a potential checkout bypass and returning HTTP 400 (`SMRITI-CUST-042`).
+- **Auxiliary Savepoint Isolation in Canonical Sales Writer (`canonical_sales_writer.py`)**:
+  - Enclosed `PSVProjectionService.project_posted_invoice` invocation within `async with session.begin_nested():`.
+  - Protects primary transactional commits (`sales_invoices`, line items, `stock_movements`, tenders) from being poisoned by non-fatal auxiliary Party Stock Visibility projection exceptions or column drift in `asyncpg`.
+- **Physical Schema Parity**:
+  - Aligned table `psv_sku_tracking` on test database `smriti_test_phase2c` to include `product_id VARCHAR(50)` matching Alembic migration `a1b2c3d4e5f6_add_missing_core_tables.py` and ORM model `PSVPartySkuTracking`.
+- **End-to-End Integration & Certification Test Suite**:
+  - Created authoritative 4-phase integration test suite `backend/tests/test_customer_lifecycle_e2e.py` (563 lines).
+  - Validates customer creation (required fields, GSTIN regex, code/mobile 409 collisions), customer editing & optimistic locking (`expected_modified_at` stale timestamp 409), POS directory lookup & parent-child visibility toggling, child customer checkout rejection (`SMRITI-CUST-042`), authorized standalone invoice posting, and dual-key repository retrieval by ID and invoice number.
+  - Certified with 4/4 backend Pytest tests passed and 37/37 frontend Vitest customer tests passed.
+
 ## [6.99.13] — 2026-10-22
 
 ### CRM & POS Billing — Parent-Controlled Child Customer Visibility in Billing
