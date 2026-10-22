@@ -4,15 +4,32 @@
   Designation  : Chief Systems Architect & Creator
   Email        : support@smritibooks.com
   Websites     : smritibooks.com | erpnbook.com | aitdl.com
-  Version      : 6.99.0
+  Version      : 6.99.12
   Created      : 2026-10-13
-  Modified     : 2026-10-19
+  Modified     : 2026-10-22
   Copyright    : © SMRITIBooks.com. All Rights Reserved.
   License      : Proprietary Commercial Software
   Classification: Internal
 -->
 
 # SMRITI Retail OS — Release Notes
+
+## Release v6.99.12 (2026-10-22)
+
+### Foundation & UI Architecture — Classic UX Top Navigation, Submenu & Viewport Overflow Remediation
+
+#### Overview
+Eliminates navigation clipping, trapped submenus, and viewport double-scrollbars in the Classic UX ERP mode of SMRITI Retail OS. Decouples the horizontal top enterprise menu from container overflow contexts via React Portal architecture, introduces multi-tier nested flyout submenus with automated boundary collision detection, aligns sidebar geometry with the workspace status bar, and enables full-bleed canvas rendering for operational studios.
+
+#### Key Highlights
+- **Enterprise Menu Bar Portal Architecture (`EnterpriseMenuBar.tsx`)**: Decouples top module navigation dropdowns from ancestor `overflow-x: auto` clipping by rendering menus directly into `document.body` via React Portals (`createPortal`) stacked at `z-[9999]`.
+- **Precise Coordinate Geometry & Boundary Flipping**: Drops down exactly aligned to trigger bottom coordinates (`top: rect.bottom + window.scrollY`, `left: rect.left + window.scrollX`), with automatic horizontal flip-to-left when dropdown or submenu width reaches the viewport margin (`window.innerWidth - 16px`).
+- **Vertical Clamping & Screen Resolution Safety**: Drops down with `max-h-[calc(100vh-60px)]` and custom scrollbars, preventing menu items from extending past screen boundaries on standard laptop screens (1366×768, 1280×720, 1024×768).
+- **Multi-Tier Nested Flyouts**: Introduces hierarchical submenus (`Master -> Item Master -> Categories / Units / Pricing / Barcodes`, `Master -> Party Master -> Customers / Suppliers`) with `z-[10000]` stacking, hover timers, chevron indicators, and full keyboard escape dismissal.
+- **Dynamic Responsive Horizontal Partitioning**: Seamlessly displays all 12 primary modules (`Home`, `Master`, `Transactions`, `Inventory`, `Purchase`, `Sales`, `Accounts`, `CRM`, `Reports`, `Tools`, `Settings`, `Help`) on screens >= 1200px, and dynamically partitions into 8 direct modules plus a dedicated "More ▾" overflow dropdown on compact viewports (1024×768).
+- **Navigation Rail Stacking Alignment (`NavRail.tsx`)**: Replaced faulty `h-[calc(100vh-52px)]` with `h-full` within the flex layout, eliminating the 28px bottom overflow past `WorkspaceStatusBar` caused by parent padding (`pb-8`).
+- **Workspace Canvas Double-Scrollbar Elimination (`App.tsx`)**: Configured full-bleed zero-padding container rules (`p-0 overflow-hidden`) for all primary studios (`sales`, `purchase`, `item-master`, `stock-ledger`, `report-designer`), removing double scrollbars and toolbar truncation.
+- **100% Certified Verification**: 13/13 Vitest tests green, clean TypeScript validation (`tsc --noEmit` 0 errors), and 30 Playwright headless screenshots captured across 4 resolutions in both dark and light modes.
 
 ## Release v6.99.0 (2026-10-19 Update)
 

@@ -1,0 +1,607 @@
+/**
+ * Project      : SMRITI Retail OS
+ * Author       : Jawahar Ramkripal Mallah
+ * Designation  : Chief Systems Architect & Creator
+ * Email        : support@smritibooks.com
+ * Websites     : smritibooks.com | erpnbook.com | aitdl.com
+ * Version      : 6.99.12
+ * Created      : 2026-10-22
+ * Modified     : 2026-10-22
+ * Copyright    : © SMRITIBooks.com. All Rights Reserved.
+ * License      : Proprietary Commercial Software
+ * Classification: Classic Enterprise ERP Menu Bar & Portal-Anchored Submenus
+ */
+
+import React, { useState, useRef, useEffect, useCallback } from "react";
+import { createPortal } from "react-dom";
+
+export interface MenuItemDef {
+  id: string;
+  label: string;
+  icon?: string;
+  moduleId?: string;
+  children?: MenuItemDef[];
+}
+
+export const ENTERPRISE_MENU_ITEMS: MenuItemDef[] = [
+  { id: "home", label: "Home", icon: "home", moduleId: "launchpad" },
+  {
+    id: "master",
+    label: "Master",
+    moduleId: "item-master",
+    children: [
+      {
+        id: "items-group",
+        label: "Items & Catalog",
+        icon: "category",
+        children: [
+          { id: "item-master", label: "Item Master Catalog", moduleId: "item-master", icon: "inventory" },
+          { id: "price-revision", label: "Price List & Revisions", moduleId: "price-revision", icon: "sell" },
+          { id: "ufe", label: "UOM & Tax Formulas", moduleId: "ufe", icon: "percent" },
+        ],
+      },
+      {
+        id: "parties-group",
+        label: "Parties & Entities",
+        icon: "group",
+        children: [
+          { id: "customer-master", label: "Customers 360", moduleId: "customer-master", icon: "person" },
+          { id: "vendor-360", label: "Suppliers 360", moduleId: "vendor-360", icon: "local_shipping" },
+          { id: "store-directory", label: "Stores & Branches", moduleId: "store-directory", icon: "store" },
+        ],
+      },
+    ],
+  },
+  {
+    id: "transactions",
+    label: "Transactions",
+    moduleId: "billing-workspace",
+    children: [
+      {
+        id: "sales-desk",
+        label: "Sales Desks",
+        icon: "point_of_sale",
+        children: [
+          { id: "billing-workspace", label: "POS Billing Desk", moduleId: "billing-workspace", icon: "desktop_windows" },
+          { id: "sales", label: "Sales Orders & Dispatch", moduleId: "sales", icon: "receipt_long" },
+          { id: "propos", label: "ProPOS Fast Lane", moduleId: "propos", icon: "terminal" },
+          { id: "sales-promotions", label: "Promotions & Offers", moduleId: "sales-promotions", icon: "loyalty" },
+        ],
+      },
+      {
+        id: "procurement-desk",
+        label: "Procurement & Inward",
+        icon: "shopping_cart",
+        children: [
+          { id: "purchase", label: "Purchase Orders", moduleId: "purchase", icon: "shopping_bag" },
+          { id: "grn-studio", label: "Goods Receipt Note (GRN)", moduleId: "grn-studio", icon: "inbox" },
+          { id: "approval-matrix", label: "PO Approval Matrix", moduleId: "approval-matrix", icon: "verified" },
+        ],
+      },
+      { id: "day-close", label: "Day End / Shift Close", moduleId: "day-close", icon: "lock_clock" },
+    ],
+  },
+  {
+    id: "inventory",
+    label: "Inventory",
+    moduleId: "stock-ledger",
+    children: [
+      { id: "stock-ledger", label: "Stock Ledger & Movements", moduleId: "stock-ledger", icon: "inventory_2" },
+      { id: "barcode", label: "Barcode Studio & Labels", moduleId: "barcode", icon: "barcode_scanner" },
+      { id: "physical-stock", label: "Physical Stock Audit", moduleId: "physical-stock", icon: "fact_check" },
+      { id: "inventory", label: "Inventory Analytics Dashboard", moduleId: "inventory", icon: "warehouse" },
+    ],
+  },
+  {
+    id: "purchase",
+    label: "Purchase",
+    moduleId: "purchase",
+    children: [
+      { id: "purchase", label: "Purchase Studio", moduleId: "purchase", icon: "shopping_bag" },
+      { id: "grn-studio", label: "Goods Receipt (GRN)", moduleId: "grn-studio", icon: "inbox" },
+      { id: "procurement-visual-reports", label: "Procurement Visual Reports", moduleId: "procurement-visual-reports", icon: "query_stats" },
+      { id: "approval-matrix", label: "Approval Matrix", moduleId: "approval-matrix", icon: "verified" },
+    ],
+  },
+  {
+    id: "sales",
+    label: "Sales",
+    moduleId: "sales",
+    children: [
+      { id: "billing-workspace", label: "POS Terminal Desk", moduleId: "billing-workspace", icon: "point_of_sale" },
+      { id: "sales", label: "Sales Studio & Ledger", moduleId: "sales", icon: "receipt_long" },
+      { id: "propos", label: "ProPOS Suite", moduleId: "propos", icon: "terminal" },
+      { id: "sales-promotions", label: "Sales Promotions", moduleId: "sales-promotions", icon: "loyalty" },
+    ],
+  },
+  {
+    id: "accounts",
+    label: "Accounts",
+    moduleId: "business-ledger",
+    children: [
+      { id: "business-ledger", label: "Business Ledger", moduleId: "business-ledger", icon: "menu_book" },
+      { id: "ewaybill-management", label: "GST & E-Way Compliance", moduleId: "ewaybill-management", icon: "verified_user" },
+      { id: "accounting-sync", label: "Tally / ERP Sync", moduleId: "accounting-sync", icon: "sync_alt" },
+      { id: "cost-truth", label: "Cost Truth Dashboard", moduleId: "cost-truth", icon: "insights" },
+    ],
+  },
+  {
+    id: "crm",
+    label: "CRM",
+    moduleId: "customer-master",
+    children: [
+      { id: "customer-master", label: "Customer Master 360°", moduleId: "customer-master", icon: "contacts" },
+      { id: "vendor-360", label: "Supplier Master 360°", moduleId: "vendor-360", icon: "badge" },
+      { id: "corporate-360", label: "Corporate Account Groups", moduleId: "corporate-360", icon: "domain" },
+      { id: "crm", label: "CRM Engagement Studio", moduleId: "crm", icon: "hub" },
+    ],
+  },
+  {
+    id: "reports",
+    label: "Reports",
+    moduleId: "report-designer",
+    children: [
+      { id: "report-designer", label: "BI Report Designer", moduleId: "report-designer", icon: "analytics" },
+      { id: "visual-reports", label: "BI Visual Dashboards", moduleId: "visual-reports", icon: "bar_chart" },
+      { id: "procurement-visual-reports", label: "Procurement Analytics", moduleId: "procurement-visual-reports", icon: "pie_chart" },
+      { id: "audit-logs", label: "Immutable Audit Logs", moduleId: "audit-logs", icon: "history" },
+    ],
+  },
+  {
+    id: "tools",
+    label: "Tools",
+    moduleId: "system-parameters",
+    children: [
+      { id: "data-exchange", label: "Data Management", moduleId: "data-exchange", icon: "swap_horiz" },
+      { id: "bulk-import-sheet", label: "Bulk Import / Export", moduleId: "bulk-import-sheet", icon: "upload_file" },
+      { id: "system-parameters", label: "System Parameters", moduleId: "system-parameters", icon: "build" },
+      { id: "backup-restore", label: "Backup & Recovery Hub", moduleId: "backup-restore", icon: "settings_backup_restore" },
+    ],
+  },
+  {
+    id: "settings",
+    label: "Settings",
+    moduleId: "company-profile",
+    children: [
+      { id: "company-profile", label: "Company Profile Studio", moduleId: "company-profile", icon: "business" },
+      { id: "profiles", label: "Store & POS Profiles", moduleId: "profiles", icon: "settings_applications" },
+      { id: "staff-management", label: "Staff & Role Hierarchy", moduleId: "staff-management", icon: "badge" },
+      { id: "security-management", label: "Security & Permissions", moduleId: "security-management", icon: "security" },
+    ],
+  },
+  {
+    id: "help",
+    label: "Help",
+    moduleId: "wiki",
+    children: [
+      { id: "wiki", label: "SMRITI Wiki Documentation", moduleId: "wiki", icon: "auto_stories" },
+      { id: "training", label: "Staff Training Academy", moduleId: "training", icon: "school" },
+      { id: "about-smriti", label: "About SMRITI Retail OS", moduleId: "about-smriti", icon: "info" },
+    ],
+  },
+];
+
+interface EnterpriseMenuBarProps {
+  activeModuleId: string;
+  onNavigateHome: () => void;
+  onSelectModule?: (moduleId: string) => void;
+}
+
+export const EnterpriseMenuBar: React.FC<EnterpriseMenuBarProps> = ({
+  activeModuleId,
+  onNavigateHome,
+  onSelectModule,
+}) => {
+  const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
+  const [activeSubmenu, setActiveSubmenu] = useState<string | null>(null);
+  const [containerWidth, setContainerWidth] = useState<number>(() =>
+    typeof window !== "undefined" ? window.innerWidth : 1600
+  );
+
+  const triggerRefs = useRef<Record<string, HTMLButtonElement | null>>({});
+  const childItemRefs = useRef<Record<string, HTMLButtonElement | null>>({});
+  const dropdownRef = useRef<HTMLDivElement | null>(null);
+  const submenuRef = useRef<HTMLDivElement | null>(null);
+
+  // Resize listener for responsive breakpoint calculations
+  useEffect(() => {
+    const handleResize = () => {
+      setContainerWidth(window.innerWidth);
+    };
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
+  // Close menus on outside click or escape key
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setActiveDropdown(null);
+        setActiveSubmenu(null);
+      }
+    };
+
+    const handlePointerDown = (e: MouseEvent) => {
+      const target = e.target as Node;
+      // If clicking inside active trigger button, ignore (handled by onClick)
+      const clickedTrigger = Object.values(triggerRefs.current).some(
+        (el) => el && el.contains(target)
+      );
+      if (clickedTrigger) return;
+
+      // If clicking inside dropdown or submenu, ignore
+      if (dropdownRef.current && dropdownRef.current.contains(target)) return;
+      if (submenuRef.current && submenuRef.current.contains(target)) return;
+
+      setActiveDropdown(null);
+      setActiveSubmenu(null);
+    };
+
+    document.addEventListener("keydown", handleKeyDown);
+    document.addEventListener("mousedown", handlePointerDown);
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+      document.removeEventListener("mousedown", handlePointerDown);
+    };
+  }, []);
+
+  // Determine active category highlighting
+  const isCategoryActive = useCallback(
+    (item: MenuItemDef): boolean => {
+      if (item.moduleId === activeModuleId) return true;
+      if (item.id === "home" && (activeModuleId === "launchpad" || activeModuleId === "workspaces")) {
+        return true;
+      }
+      const checkChildren = (children?: MenuItemDef[]): boolean => {
+        if (!children) return false;
+        return children.some(
+          (c) => c.moduleId === activeModuleId || checkChildren(c.children)
+        );
+      };
+      return checkChildren(item.children);
+    },
+    [activeModuleId]
+  );
+
+  // Responsive partitioning of menu items
+  // >= 1200: all 12 items (Home, Master, Transactions, Inventory, Purchase, Sales, Accounts, CRM, Reports, Tools, Settings, Help)
+  // 1080 - 1199: 9 items + More
+  // 900 - 1079: 7 items + More
+  // < 900: 5 items + More
+  const maxVisible =
+    containerWidth >= 1200
+      ? 12
+      : containerWidth >= 1080
+      ? 9
+      : containerWidth >= 900
+      ? 7
+      : 5;
+
+  const visibleItems = ENTERPRISE_MENU_ITEMS.slice(0, maxVisible);
+  const overflowItems = ENTERPRISE_MENU_ITEMS.slice(maxVisible);
+  const hasOverflow = overflowItems.length > 0;
+
+  // Handle trigger button click
+  const handleTriggerClick = (item: MenuItemDef) => {
+    const hasChildren = Boolean(item.children && item.children.length > 0);
+    if (!hasChildren) {
+      setActiveDropdown(null);
+      setActiveSubmenu(null);
+      if (item.moduleId === "launchpad") {
+        onNavigateHome();
+      } else if (item.moduleId && onSelectModule) {
+        onSelectModule(item.moduleId);
+      }
+      return;
+    }
+
+    if (activeDropdown === item.id) {
+      setActiveDropdown(null);
+      setActiveSubmenu(null);
+    } else {
+      setActiveDropdown(item.id);
+      setActiveSubmenu(null);
+    }
+  };
+
+  // Hover switching between open menu items (standard desktop ERP behavior)
+  const handleTriggerHover = (item: MenuItemDef) => {
+    if (activeDropdown && activeDropdown !== item.id) {
+      const hasChildren = Boolean(item.children && item.children.length > 0);
+      if (hasChildren) {
+        setActiveDropdown(item.id);
+        setActiveSubmenu(null);
+      }
+    }
+  };
+
+  // Get active menu definition (either from visible items or overflow menu)
+  const currentActiveItem =
+    activeDropdown === "overflow"
+      ? { id: "overflow", label: "More", children: overflowItems }
+      : ENTERPRISE_MENU_ITEMS.find((item) => item.id === activeDropdown);
+
+  // Calculate dropdown positioning coordinates from trigger button
+  const getDropdownCoords = () => {
+    if (!activeDropdown) return null;
+    const triggerEl = triggerRefs.current[activeDropdown];
+    if (!triggerEl) return null;
+
+    const rect = triggerEl.getBoundingClientRect();
+    const dropdownWidth = 240;
+    let left = rect.left;
+
+    // Boundary protection: avoid clipping off right edge
+    if (typeof window !== "undefined" && left + dropdownWidth > window.innerWidth - 12) {
+      left = Math.max(12, window.innerWidth - dropdownWidth - 12);
+    }
+
+    return {
+      top: rect.bottom + 2,
+      left,
+    };
+  };
+
+  // Calculate nested submenu flyout coordinates
+  const getSubmenuCoords = () => {
+    if (!activeSubmenu) return null;
+    const childEl = childItemRefs.current[activeSubmenu];
+    if (!childEl) return null;
+
+    const rect = childEl.getBoundingClientRect();
+    const submenuWidth = 220;
+    let left = rect.right + 2;
+
+    // Flip to left if overflowing right edge
+    if (typeof window !== "undefined" && left + submenuWidth > window.innerWidth - 12) {
+      left = Math.max(12, rect.left - submenuWidth - 2);
+    }
+
+    let top = rect.top;
+    if (typeof window !== "undefined" && top + 260 > window.innerHeight - 12) {
+      top = Math.max(12, window.innerHeight - 272);
+    }
+
+    return {
+      top,
+      left,
+    };
+  };
+
+  const dropdownCoords = getDropdownCoords();
+  const submenuCoords = getSubmenuCoords();
+
+  // Find active child for flyout submenu
+  const activeSubmenuDef = currentActiveItem?.children?.find(
+    (c) => c.id === activeSubmenu
+  );
+
+  return (
+    <>
+      <nav
+        aria-label="Enterprise Main Menu"
+        className="flex-1 flex items-center gap-0.5 ml-2 mr-2 overflow-visible py-0.5 select-none"
+      >
+        {visibleItems.map((item) => {
+          const isActive = isCategoryActive(item);
+          const isOpen = activeDropdown === item.id;
+          const hasChildren = Boolean(item.children && item.children.length > 0);
+
+          return (
+            <button
+              key={item.id}
+              ref={(el) => {
+                triggerRefs.current[item.id] = el;
+              }}
+              type="button"
+              onClick={() => handleTriggerClick(item)}
+              onMouseEnter={() => handleTriggerHover(item)}
+              className={`px-2.5 py-1 rounded text-xs font-medium flex items-center gap-1 transition-colors cursor-pointer whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80 ${
+                isActive || isOpen
+                  ? "bg-[#1a2b7b] text-white font-bold shadow-2xs"
+                  : "text-indigo-100 hover:text-white hover:bg-[#3f51b5]/80"
+              }`}
+              aria-expanded={isOpen}
+              aria-haspopup={hasChildren ? "menu" : undefined}
+            >
+              {item.icon && (
+                <span className="material-symbols-outlined text-[15px]">{item.icon}</span>
+              )}
+              <span>{item.label}</span>
+              {hasChildren && (
+                <span className="material-symbols-outlined text-[13px] opacity-70">
+                  arrow_drop_down
+                </span>
+              )}
+            </button>
+          );
+        })}
+
+        {/* Responsive Overflow "More ▾" Menu */}
+        {hasOverflow && (
+          <button
+            ref={(el) => {
+              triggerRefs.current["overflow"] = el;
+            }}
+            type="button"
+            onClick={() => {
+              if (activeDropdown === "overflow") {
+                setActiveDropdown(null);
+                setActiveSubmenu(null);
+              } else {
+                setActiveDropdown("overflow");
+                setActiveSubmenu(null);
+              }
+            }}
+            onMouseEnter={() => {
+              if (activeDropdown && activeDropdown !== "overflow") {
+                setActiveDropdown("overflow");
+                setActiveSubmenu(null);
+              }
+            }}
+            className={`px-2.5 py-1 rounded text-xs font-medium flex items-center gap-1 transition-colors cursor-pointer whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80 ${
+              activeDropdown === "overflow" || overflowItems.some(isCategoryActive)
+                ? "bg-[#1a2b7b] text-white font-bold shadow-2xs"
+                : "text-indigo-100 hover:text-white hover:bg-[#3f51b5]/80"
+            }`}
+            aria-expanded={activeDropdown === "overflow"}
+            aria-haspopup="menu"
+            title="More Modules"
+          >
+            <span className="material-symbols-outlined text-[15px]">more_horiz</span>
+            <span>More</span>
+            <span className="material-symbols-outlined text-[13px] opacity-70">
+              arrow_drop_down
+            </span>
+          </button>
+        )}
+      </nav>
+
+      {/* Portal-Anchored Primary Dropdown Menu (Guaranteed Zero Clipping) */}
+      {typeof document !== "undefined" &&
+        activeDropdown &&
+        dropdownCoords &&
+        currentActiveItem &&
+        currentActiveItem.children &&
+        createPortal(
+          <div
+            ref={dropdownRef}
+            role="menu"
+            aria-label={`${currentActiveItem.label} Submenu`}
+            style={{
+              position: "fixed",
+              top: `${dropdownCoords.top}px`,
+              left: `${dropdownCoords.left}px`,
+              zIndex: 9999,
+            }}
+            className="w-60 max-h-[calc(100vh-60px)] overflow-y-auto bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 rounded-lg shadow-2xl border border-slate-200 dark:border-slate-800 py-1.5 animate-in fade-in zoom-in-95 duration-100 select-none"
+          >
+            {/* Header label for overflow menu */}
+            {activeDropdown === "overflow" && (
+              <div className="px-3 py-1 mb-1 text-[10px] font-mono uppercase tracking-wider text-slate-400 dark:text-slate-500 border-b border-slate-100 dark:border-slate-800">
+                Additional Modules
+              </div>
+            )}
+
+            {currentActiveItem.children.map((child) => {
+              const hasSubChildren = Boolean(child.children && child.children.length > 0);
+              const isChildActive =
+                activeModuleId === child.moduleId ||
+                Boolean(child.children?.some((sc) => sc.moduleId === activeModuleId));
+              const isSubOpen = activeSubmenu === child.id;
+
+              return (
+                <div key={child.id} className="relative">
+                  <button
+                    ref={(el) => {
+                      childItemRefs.current[child.id] = el;
+                    }}
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      if (hasSubChildren) {
+                        setActiveSubmenu(isSubOpen ? null : child.id);
+                      } else {
+                        setActiveDropdown(null);
+                        setActiveSubmenu(null);
+                        if (child.moduleId === "launchpad") {
+                          onNavigateHome();
+                        } else if (child.moduleId && onSelectModule) {
+                          onSelectModule(child.moduleId);
+                        }
+                      }
+                    }}
+                    onMouseEnter={() => {
+                      if (hasSubChildren) {
+                        setActiveSubmenu(child.id);
+                      } else {
+                        setActiveSubmenu(null);
+                      }
+                    }}
+                    className={`w-full text-left px-3 py-1.5 text-xs flex items-center justify-between transition-colors cursor-pointer ${
+                      isChildActive || isSubOpen
+                        ? "bg-blue-50 dark:bg-slate-800 text-blue-700 dark:text-blue-300 font-semibold"
+                        : "hover:bg-slate-100 dark:hover:bg-slate-800/80 hover:text-blue-600 dark:hover:text-blue-400"
+                    }`}
+                  >
+                    <div className="flex items-center gap-2 truncate">
+                      {child.icon && (
+                        <span className="material-symbols-outlined text-[16px] text-slate-400 dark:text-slate-500 shrink-0">
+                          {child.icon}
+                        </span>
+                      )}
+                      <span className="truncate">{child.label}</span>
+                    </div>
+                    {hasSubChildren && (
+                      <span className="material-symbols-outlined text-[15px] text-slate-400 dark:text-slate-500">
+                        chevron_right
+                      </span>
+                    )}
+                  </button>
+                </div>
+              );
+            })}
+          </div>,
+          document.body
+        )}
+
+      {/* Portal-Anchored Nested Secondary Submenu (Flyout to the right) */}
+      {typeof document !== "undefined" &&
+        activeSubmenu &&
+        submenuCoords &&
+        activeSubmenuDef &&
+        activeSubmenuDef.children &&
+        createPortal(
+          <div
+            ref={submenuRef}
+            role="menu"
+            aria-label={`${activeSubmenuDef.label} Submenu`}
+            style={{
+              position: "fixed",
+              top: `${submenuCoords.top}px`,
+              left: `${submenuCoords.left}px`,
+              zIndex: 10000,
+            }}
+            className="w-56 max-h-[calc(100vh-60px)] overflow-y-auto bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 rounded-lg shadow-2xl border border-slate-200 dark:border-slate-800 py-1.5 animate-in fade-in zoom-in-95 duration-100 select-none"
+          >
+            <div className="px-3 py-1 mb-1 text-[10px] font-mono uppercase tracking-wider text-slate-400 dark:text-slate-500 border-b border-slate-100 dark:border-slate-800">
+              {activeSubmenuDef.label}
+            </div>
+            {activeSubmenuDef.children.map((leaf) => {
+              const isLeafActive = activeModuleId === leaf.moduleId;
+
+              return (
+                <button
+                  key={leaf.id}
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    setActiveDropdown(null);
+                    setActiveSubmenu(null);
+                    if (leaf.moduleId === "launchpad") {
+                      onNavigateHome();
+                    } else if (leaf.moduleId && onSelectModule) {
+                      onSelectModule(leaf.moduleId);
+                    }
+                  }}
+                  className={`w-full text-left px-3 py-1.5 text-xs flex items-center gap-2 transition-colors cursor-pointer ${
+                    isLeafActive
+                      ? "bg-blue-50 dark:bg-slate-800 text-blue-700 dark:text-blue-300 font-semibold"
+                      : "hover:bg-slate-100 dark:hover:bg-slate-800/80 hover:text-blue-600 dark:hover:text-blue-400"
+                  }`}
+                >
+                  {leaf.icon && (
+                    <span className="material-symbols-outlined text-[16px] text-slate-400 dark:text-slate-500 shrink-0">
+                      {leaf.icon}
+                    </span>
+                  )}
+                  <span className="truncate">{leaf.label}</span>
+                </button>
+              );
+            })}
+          </div>,
+          document.body
+        )}
+    </>
+  );
+};

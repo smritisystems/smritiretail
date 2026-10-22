@@ -3,11 +3,12 @@
  * Author       : Jawahar Ramkripal Mallah
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 3.17.0
+ * Version      : 6.99.12
  * Created      : 2026-08-16
- * Modified     : 2026-08-16
+ * Modified     : 2026-10-22
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
+ * Classification: Navigation Rail (Viewport & Status Bar Aligned)
  */
 
 import React, { useState } from 'react';
@@ -71,7 +72,7 @@ export const NavRail: React.FC<NavRailProps> = ({
 
   return (
     <aside
-      className={`bg-[#f8f9ff] dark:bg-slate-900 border-r border-[#c5c5d4] dark:border-slate-800 flex flex-col justify-between transition-all duration-200 z-20 h-[calc(100vh-52px)] select-none shrink-0 ${
+      className={`bg-[#f8f9ff] dark:bg-slate-900 border-r border-[#c5c5d4] dark:border-slate-800 flex flex-col justify-between transition-all duration-200 z-20 h-full select-none shrink-0 ${
         isExpanded ? 'w-56' : 'w-14'
       }`}
     >
@@ -189,11 +190,11 @@ export const NavRail: React.FC<NavRailProps> = ({
       </div>
 
       {/* Rail Footer Toggle */}
-      <div className="p-2 border-t border-[#c5c5d4] bg-white flex items-center justify-between">
+      <div className="p-2 border-t border-[#c5c5d4] dark:border-slate-800 bg-white dark:bg-slate-900 flex items-center justify-between">
         <button
           type="button"
           onClick={onToggleRailState}
-          className="w-full flex items-center justify-center gap-2 py-1.5 text-xs text-[#3d425f] hover:bg-[#eff4ff] hover:text-[#24389c] rounded-md transition-colors font-medium"
+          className="w-full flex items-center justify-center gap-2 py-1.5 text-xs text-[#3d425f] dark:text-slate-300 hover:bg-[#eff4ff] dark:hover:bg-slate-800 hover:text-[#24389c] dark:hover:text-indigo-400 rounded-md transition-colors font-medium cursor-pointer"
         >
           <span className="material-symbols-outlined text-[18px]">
             {isExpanded ? 'chevron_left' : 'chevron_right'}

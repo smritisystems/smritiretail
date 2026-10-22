@@ -4,12 +4,12 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.2.0
+ * Version      : 6.99.12
  * Created      : 2026-08-16
- * Modified     : 2026-08-21
+ * Modified     : 2026-10-22
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
- * Classification: Internal
+ * Classification: Fiori Launchpad Interactive Workspace Hub
  */
 
 import React, { useMemo, useState, useEffect } from "react";
@@ -35,6 +35,7 @@ export {
 export interface FioriLaunchpadProps {
   currentUser?: { role: string; name: string } | null;
   onSelectModule: (moduleId: string) => void;
+  uxMode?: "regular" | "classic";
 }
 
 export const FioriLaunchpad: React.FC<FioriLaunchpadProps> = ({ currentUser, onSelectModule }) => {
