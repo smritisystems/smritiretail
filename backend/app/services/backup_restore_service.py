@@ -131,19 +131,34 @@ class BackupRestoreService:
         history = await self.get_history()
 
         latest = history[0] if history else None
-        is_protected = bool(latest and latest.verification_status == "Verified")
+        is_protected = bool(
+            latest
+            and latest.verification_status == "Verified"
+            and getattr(latest, "is_complete_business_backup", True)
+            and getattr(latest, "backup_category", "FULL") == "FULL"
+        )
 
         last_time_str = latest.backup_time_pretty if latest else "No backups yet"
         
         # Calculate next scheduled backup time based on settings
         next_scheduled = "Today at 8:00 PM" if settings_cfg.automatic_backup_enabled else "Scheduled backups disabled"
 
+        if is_protected:
+            protection_title = "Your business data is protected"
+            protection_subtitle = "Full verified database backup preserved"
+        elif latest and getattr(latest, "backup_category", "") == "PARTIAL":
+            protection_title = "Partial backup recorded — Full backup recommended"
+            protection_subtitle = f"Previous backup is an incomplete data export ({len(latest.omitted_tables)} tables omitted). Create a full backup."
+        else:
+            protection_title = "Backup recommended"
+            protection_subtitle = "Protect your store data by creating a backup"
+
         return BackupStatusResponse(
             is_protected=is_protected,
-            protection_title="Your business data is protected" if is_protected else "Backup recommended",
-            protection_subtitle="Backup verified and stored securely" if is_protected else "Protect your store data by creating a backup",
+            protection_title=protection_title,
+            protection_subtitle=protection_subtitle,
             last_backup_time_pretty=last_time_str,
-            last_backup_verified=bool(latest and latest.verification_status == "Verified"),
+            last_backup_verified=is_protected,
             next_scheduled_backup_pretty=next_scheduled,
             automatic_backup_enabled=settings_cfg.automatic_backup_enabled,
             total_backups_count=len(history),
@@ -151,7 +166,7 @@ class BackupRestoreService:
         )
 
     async def get_history(self) -> List[BackupItemInfo]:
-        """Reads all verified backup packages from the backup directory."""
+        """Reads all verified backup packages from the backup directory with completeness auditing."""
         items: List[BackupItemInfo] = []
         if not os.path.exists(BACKUP_DIR):
             return items
@@ -165,6 +180,31 @@ class BackupRestoreService:
                         # Verify the actual payload file exists on disk
                         payload_path = os.path.join(BACKUP_DIR, data.get("filename", ""))
                         if os.path.exists(payload_path):
+                            # Retrofit audit for legacy manifests
+                            if "backup_category" not in data:
+                                entities = data.get("entities_count", {})
+                                zero_entities = [k for k, v in entities.items() if v == 0]
+                                nonzero_entities = [f"{k.replace('_', ' ').title()} ({v:,})" for k, v in entities.items() if v > 0]
+                                is_dump = data.get("filename", "").endswith(".dump")
+                                if not is_dump and zero_entities:
+                                    data["backup_category"] = "PARTIAL"
+                                    data["backup_type"] = "LOGICAL_EXPORT"
+                                    data["is_complete_business_backup"] = False
+                                    data["is_restorable"] = False
+                                    data["completeness_status"] = "Partial"
+                                    data["verification_status"] = "Partial"
+                                    data["omitted_tables"] = zero_entities
+                                    data["data_included"] = ", ".join(nonzero_entities) if nonzero_entities else "No entities extracted"
+                                    data["has_schema"] = False
+                                    data["has_indexes"] = False
+                                    data["has_sequences"] = False
+                                else:
+                                    data["backup_category"] = "FULL"
+                                    data["backup_type"] = "FULL_DATABASE_BACKUP" if is_dump else "LOGICAL_EXPORT"
+                                    data["is_complete_business_backup"] = True
+                                    data["is_restorable"] = True
+                                    data["completeness_status"] = "Complete"
+                                    data["omitted_tables"] = []
                             items.append(BackupItemInfo(**data))
                 except Exception:
                     continue
@@ -184,10 +224,15 @@ class BackupRestoreService:
         self,
         storage_location: str = "local",
         initiating_user: str = "System Administrator",
+        backup_mode: str = "full",
     ) -> BackupJobProgress:
         from ..core.backup_engine import MasterBackupEngine
         engine = MasterBackupEngine(self.db, self.company_id)
-        return await engine.start_job(storage_location=storage_location, initiating_user=initiating_user)
+        return await engine.start_job(
+            storage_location=storage_location,
+            initiating_user=initiating_user,
+            backup_mode=backup_mode,
+        )
 
     async def get_job_progress(self, job_id: str) -> Optional[BackupJobProgress]:
         from ..core.backup_engine import MasterBackupEngine
@@ -289,6 +334,16 @@ class BackupRestoreService:
             preserved_backup_id=preserved_latest.backup_id,
             message=f"Pruned {len(pruned_ids)} backup(s) older than {max_days} days. Freed {freed_pretty}.",
         )
+    async def _resolve_target_db_name(self) -> str:
+        """Resolves the company-specific transactional database name."""
+        try:
+            target_db_name = await resolve_company_database_name(self.company_id, self.db)
+            if target_db_name:
+                return target_db_name
+        except Exception:
+            pass
+        return "smriti001"
+
     # ─────────────────────────────────────────────────────────────────────────
     # 4. RESTORE & RECOVERY REVIEW
     # ─────────────────────────────────────────────────────────────────────────
@@ -309,12 +364,41 @@ class BackupRestoreService:
             if computed_hash != target.sha256_hash:
                 raise ValueError("Integrity verification failed: Backup package hash mismatch.")
 
+        # Enforce completeness requirement: Partial backups CANNOT be restored to production
+        is_partial = (
+            getattr(target, "backup_category", "FULL") == "PARTIAL"
+            or not getattr(target, "is_complete_business_backup", True)
+            or not getattr(target, "is_restorable", True)
+        )
+
+        if is_partial:
+            omitted = getattr(target, "omitted_tables", [])
+            omitted_desc = f"{len(omitted)} table(s) omitted: {', '.join(omitted)}" if omitted else "Essential business tables are missing"
+            return RestoreReviewResponse(
+                backup=target,
+                can_restore=False,
+                block_reason="PARTIAL_BACKUP_CANNOT_OVERWRITE_PRODUCTION",
+                warning_title="Incomplete Backup Cannot Be Restored to Production",
+                warning_body=(
+                    f"This backup is an incomplete data export ({omitted_desc}). "
+                    "Restoration is strictly blocked to prevent database inconsistency, referential integrity failure, and permanent data loss."
+                ),
+                pre_restore_snapshot_created=False,
+                backup_category="PARTIAL",
+                is_complete_business_backup=False,
+                omitted_tables=omitted,
+            )
+
         return RestoreReviewResponse(
             backup=target,
             can_restore=True,
+            block_reason=None,
             warning_title="This will replace your current data",
-            warning_body="Your existing products, sales, customers, settings and files will be replaced with the data from this backup.",
+            warning_body="Your existing database tables, records, schemas and sequences will be replaced with the data from this verified backup.",
             pre_restore_snapshot_created=True,
+            backup_category="FULL",
+            is_complete_business_backup=True,
+            omitted_tables=[],
         )
 
     async def execute_restore(self, backup_id: str, confirmed: bool) -> RestoreResultResponse:
@@ -323,21 +407,51 @@ class BackupRestoreService:
 
         # 1. Review and verify backup integrity
         review = await self.review_restore_point(backup_id)
+        if not review.can_restore:
+            raise ValueError(f"Restoration blocked: {review.warning_body}")
+
         target = review.backup
 
         # 2. Automatically create a pre-restore safety snapshot before any changes
         pre_restore_uuid = uuid.uuid4().hex[:8]
         pre_restore_backup_id = f"bak-safety-{pre_restore_uuid}"
 
-        # 3. Read and uncompress payload
         payload_path = os.path.join(BACKUP_DIR, target.filename)
-        with open(payload_path, "rb") as f:
-            raw_json = gzip.decompress(f.read()).decode("utf-8")
-            bundle_data = json.loads(raw_json)
+        if target.filename.endswith(".dump"):
+            import subprocess
+            target_db = await self._resolve_target_db_name()
+            container_dest = f"/tmp/{target.filename}"
+            cp_proc = subprocess.run(
+                ["docker", "cp", payload_path, f"smriti-db:{container_dest}"],
+                capture_output=True,
+                text=True,
+                timeout=60,
+            )
+            if cp_proc.returncode != 0:
+                raise ValueError(f"Failed to copy backup archive to database container: {cp_proc.stderr}")
 
-        # 4. In-session verification of entities
-        entities = bundle_data.get("entities", {})
-        restored_counts = {k: len(v) for k, v in entities.items()}
+            restore_proc = subprocess.run(
+                [
+                    "docker", "exec", "smriti-db",
+                    "pg_restore", "-U", "postgres",
+                    "--no-owner", "--no-acl", "--clean", "--if-exists",
+                    "-d", target_db, container_dest
+                ],
+                capture_output=True,
+                text=True,
+                timeout=300,
+            )
+            if restore_proc.returncode > 1:
+                raise ValueError(f"Database restoration command failed: {restore_proc.stderr}")
+
+            restored_counts = target.entities_count
+        else:
+            with open(payload_path, "rb") as f:
+                raw_json = gzip.decompress(f.read()).decode("utf-8")
+                bundle_data = json.loads(raw_json)
+
+            entities = bundle_data.get("entities", {})
+            restored_counts = {k: len(v) for k, v in entities.items()}
 
         now_iso = datetime.now(timezone.utc).isoformat()
         return RestoreResultResponse(

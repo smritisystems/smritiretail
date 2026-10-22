@@ -30,10 +30,23 @@ class BackupItemInfo(BaseModel):
     storage_location_type: str = "local"  # "local", "gdrive", "onedrive"
     backup_size_bytes: int
     backup_size_pretty: str
-    verification_status: str = "Verified"  # "Verified", "Failed", "Pending"
+    verification_status: str = "Verified"  # "Verified", "Failed", "Pending", "Partial"
     sha256_hash: str
     entities_count: Dict[str, int] = Field(default_factory=dict)
     is_restorable: bool = True
+
+    # Forensic Integrity & Completeness Metadata
+    backup_type: str = "FULL_DATABASE_BACKUP"  # "FULL_DATABASE_BACKUP" | "LOGICAL_EXPORT"
+    backup_category: str = "FULL"  # "FULL" | "PARTIAL" | "FAILED"
+    is_complete_business_backup: bool = True
+    omitted_tables: List[str] = Field(default_factory=list)
+    extraction_failures: Dict[str, str] = Field(default_factory=dict)
+    file_integrity_status: str = "Passed"  # "Passed" | "Failed"
+    completeness_status: str = "Complete"  # "Complete" | "Partial" | "Failed"
+    has_schema: bool = True
+    has_indexes: bool = True
+    has_sequences: bool = True
+    media_included: bool = False
 
 
 class BackupStatusResponse(BaseModel):
@@ -101,6 +114,7 @@ class BackupCreateRequest(BaseModel):
     company_id: Optional[str] = None
     storage_location: Optional[str] = "local"  # "local", "gdrive", "onedrive"
     include_files: bool = True
+    backup_mode: Optional[str] = "full"  # "full" (pg_dump) or "logical" (json)
 
 
 class RestoreReviewRequest(BaseModel):
@@ -115,6 +129,10 @@ class RestoreReviewResponse(BaseModel):
         "Your existing products, sales, customers, settings and files will be replaced with the data from this backup."
     )
     pre_restore_snapshot_created: bool = True
+    block_reason: Optional[str] = None
+    backup_category: Optional[str] = None
+    is_complete_business_backup: Optional[bool] = None
+    omitted_tables: List[str] = Field(default_factory=list)
 
 
 class RestoreExecuteRequest(BaseModel):

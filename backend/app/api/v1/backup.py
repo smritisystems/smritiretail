@@ -93,10 +93,15 @@ async def create_backup(
     current_user: User = Depends(_verify_backup_permission),
 ):
     storage = payload.storage_location if payload and payload.storage_location else "local"
+    backup_mode = payload.backup_mode if payload and payload.backup_mode else "full"
     user_name = current_user.username if hasattr(current_user, "username") and current_user.username else "System Administrator"
     service = BackupRestoreService(db, tenant.company_id)
     try:
-        return await service.start_backup_job(storage_location=storage, initiating_user=user_name)
+        return await service.start_backup_job(
+            storage_location=storage,
+            initiating_user=user_name,
+            backup_mode=backup_mode,
+        )
     except ValueError as val_err:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(val_err))
 
