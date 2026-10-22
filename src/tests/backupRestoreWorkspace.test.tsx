@@ -148,7 +148,7 @@ describe("BackupRestoreWorkspace Rendering & Interaction Contracts", () => {
     expect(markup).toContain('id="backup-settings-card-btn"');
   });
 
-  it("3. renders Screen 2: Backup in Progress with stepper and cancel button", () => {
+  it("3. renders Screen 2: Backup Live Monitor with real stages, elapsed time, and logs toggle", () => {
     const markup = renderToStaticMarkup(
       <BackupRestoreWorkspace
         initialStatus={mockStatus}
@@ -158,13 +158,19 @@ describe("BackupRestoreWorkspace Rendering & Interaction Contracts", () => {
       />
     );
     expect(markup).toContain("Back Up Now");
-    expect(markup).toContain("Please keep this window open.");
-    expect(markup).toContain("Preparing backup");
-    expect(markup).toContain("Creating backup");
-    expect(markup).toContain("Verifying backup");
-    expect(markup).toContain("Finalizing");
+    expect(markup).toContain("Preflight checks");
+    expect(markup).toContain("Database backup");
+    expect(markup).toContain("Application configuration");
+    expect(markup).toContain("Persistent files");
+    expect(markup).toContain("Archive creation");
+    expect(markup).toContain("Integrity verification");
+    expect(markup).toContain("Manifest creation");
+    expect(markup).toContain("Retention cleanup");
     expect(markup).toContain("Cancel Backup");
+    expect(markup).toContain("Close Monitor");
+    expect(markup).toContain("Live Process Logs");
   });
+
 
   it("4. renders Screen 3: Backup Completed with summary details", () => {
     const markup = renderToStaticMarkup(

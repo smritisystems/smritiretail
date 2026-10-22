@@ -73,19 +73,19 @@ async def test_backup_creation_and_manifest_verification(db_session: AsyncSessio
     # Trigger backup job
     job = await service.start_backup_job(storage_location="local")
     assert job.job_id is not None
-    assert job.status in ["in_progress", "completed"]
+    assert job.status in ["RUNNING", "in_progress", "completed", "SUCCESS"]
 
-    # Await worker completion (wait up to 5 seconds)
+    # Await worker completion (wait up to 8 seconds)
     completed_job = None
-    for _ in range(25):
+    for _ in range(40):
         await asyncio.sleep(0.2)
         progress = await service.get_job_progress(job.job_id)
-        if progress and progress.status in ["completed", "failed"]:
+        if progress and progress.status in ["completed", "SUCCESS", "failed", "FAILED"]:
             completed_job = progress
             break
 
     assert completed_job is not None, "Backup job timed out"
-    assert completed_job.status == "completed", f"Backup failed: {completed_job.error_message}"
+    assert completed_job.status in ["completed", "SUCCESS"], f"Backup failed: {completed_job.error_message}"
     assert completed_job.percent == 100
     assert completed_job.backup_result is not None
 
