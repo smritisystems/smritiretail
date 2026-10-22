@@ -1130,12 +1130,13 @@ class CanonicalSalesPostingWriter:
         # Automatic PSV Preparation (Immediate visibility in PSV workspace as Ready for Receiving)
         try:
             from .psv_projection import PSVProjectionService
-            await PSVProjectionService.project_posted_invoice(
-                session=session,
-                invoice_id=db_invoice.id,
-                company_id=company_id,
-                branch_id=branch_id,
-            )
+            async with session.begin_nested():
+                await PSVProjectionService.project_posted_invoice(
+                    session=session,
+                    invoice_id=db_invoice.id,
+                    company_id=company_id,
+                    branch_id=branch_id,
+                )
         except Exception as psv_exc:
             logger.warning(
                 "Automatic PSV preparation encountered notice for invoice %s: %s",
