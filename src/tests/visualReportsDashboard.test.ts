@@ -270,4 +270,54 @@ describe("SMRITI Visual Reports Dashboard Suite", () => {
     expect(deserialized.layout_mode).toBe("focused");
     expect(deserialized.charts_visible.stock_flow).toBe(true);
   });
+
+  it("STEP 6: should accurately compute dynamic applied filter count", () => {
+    const computeAppliedFilters = (
+      companyId?: string,
+      location?: string,
+      datePreset?: string
+    ) => {
+      let count = 0;
+      if (companyId && companyId !== "all") count++;
+      if (location && location !== "all" && location !== "All Locations") count++;
+      if (datePreset) count++;
+      return count;
+    };
+
+    expect(computeAppliedFilters("COMP-001", "All Locations", "MTD")).toBe(2);
+    expect(computeAppliedFilters("COMP-001", "LOC-NORTH", "Today")).toBe(3);
+    expect(computeAppliedFilters(undefined, "All Locations", undefined)).toBe(0);
+    expect(computeAppliedFilters("all", "All Locations", "Last 7 Days")).toBe(1);
+  });
+
+  it("STEP 7: should build query parameters with store_location_id when location is specified", () => {
+    const buildQueryParams = (
+      companyId?: string,
+      location?: string,
+      datePreset?: string
+    ) => {
+      const params = new URLSearchParams();
+      if (companyId && companyId !== "all") {
+        params.append("company_id", companyId);
+      }
+      if (location && location !== "all" && location !== "All Locations") {
+        params.append("store_location_id", location);
+      }
+      if (datePreset === "Today") {
+        params.append("start_date", "2026-10-22");
+        params.append("end_date", "2026-10-22");
+      }
+      return params.toString();
+    };
+
+    const qs = buildQueryParams("COMP-001", "WH-MAIN", "Today");
+    expect(qs).toContain("company_id=COMP-001");
+    expect(qs).toContain("store_location_id=WH-MAIN");
+    expect(qs).toContain("start_date=2026-10-22");
+    expect(qs).toContain("end_date=2026-10-22");
+
+    const qsDefault = buildQueryParams("COMP-001", "All Locations", undefined);
+    expect(qsDefault).toBe("company_id=COMP-001");
+    expect(qsDefault).not.toContain("store_location_id");
+  });
 });
