@@ -829,3 +829,13 @@ class PreparedReportStatusResponse(BaseModel):
     error_message: Optional[str] = None
     forensic_hash: Optional[str] = None
     is_cached_hit: bool = False
+
+
+# ── Dynamic Report Builder Schemas ──────────────────────────────────────────
+
+class ReportBuilderResponse(BaseModel):
+    category: str
+    total_count: int
+    rows: List[Dict[str, Any]]
+    totals: Dict[str, float] = {}
+    generated_at: str

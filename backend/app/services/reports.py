@@ -30,7 +30,7 @@ from ..models.sales import (
     SalesInvoice, SalesInvoiceItem, SalesReturn, SalesReturnItem,
     SalesOrder, SalesOrderItem, SalesOrderInvoiceAllocation
 )
-from ..models.purchase import Supplier, PurchaseOrder, PurchaseReceipt, PurchaseReceiptItem, PurchaseBill
+from ..models.purchase import Supplier, PurchaseOrder, PurchaseOrderItem, PurchaseReceipt, PurchaseReceiptItem, PurchaseBill
 from ..models.supplier_payment import SupplierPayment
 from ..models.report_schedule import ReportSchedule
 from ..models.crm import Customer, CustomerGSTRegistration, CustomerDeliveryLocation, CustomerBillingLocation
@@ -3562,5 +3562,257 @@ class ReportsService:
             "purchase_receipts": float(purchase_receipts.quantize(ZERO, rounding=ROUND_HALF_UP)),
             "purchase_bills":    float(purchase_bills.quantize(ZERO, rounding=ROUND_HALF_UP)),
             "net_position":      float(net_position),
+        }
+
+    async def query_report_builder(
+        self,
+        category: str = "Purchase",
+        start_date: Optional[date] = None,
+        end_date: Optional[date] = None,
+        branch_id: Optional[str] = None,
+        search: Optional[str] = None,
+        sort_field: Optional[str] = "supplier",
+        sort_direction: Optional[str] = "asc",
+        limit: int = 100,
+        offset: int = 0,
+    ) -> Dict[str, Any]:
+        """
+        Execute live parameterized query for SMRITI Report Builder across domains.
+        Returns rows, server-calculated totals, and metadata.
+        """
+        category_normalized = (category or "Purchase").capitalize()
+        company_id = getattr(self.tenant, "company_id", None) or (str(self.tenant) if self.tenant else None)
+
+        if category_normalized == "Purchase":
+            stmt = (
+                select(
+                    PurchaseOrderItem.id,
+                    Supplier.name.label("supplier"),
+                    Supplier.code.label("supplier_code"),
+                    Supplier.city.label("city"),
+                    Supplier.city.label("supplier_city"),
+                    PurchaseOrder.order_no.label("po_no"),
+                    PurchaseOrder.created_at.label("po_date"),
+                    PurchaseBill.bill_no.label("invoice_no"),
+                    PurchaseOrderItem.code.label("article_sku"),
+                    Product.color.label("color"),
+                    Product.size.label("size"),
+                    PurchaseOrderItem.quantity.label("quantity"),
+                    PurchaseOrderItem.line_total.label("net_amount"),
+                )
+                .join(PurchaseOrder, PurchaseOrderItem.order_id == PurchaseOrder.id)
+                .join(Supplier, PurchaseOrder.supplier_id == Supplier.id)
+                .outerjoin(Product, PurchaseOrderItem.product_id == Product.id)
+                .outerjoin(PurchaseBill, PurchaseBill.order_id == PurchaseOrder.id)
+                .where(
+                    PurchaseOrder.is_deleted == False,
+                    PurchaseOrderItem.is_deleted == False,
+                )
+            )
+
+            if company_id:
+                stmt = stmt.where(PurchaseOrder.company_id == company_id)
+            if branch_id and branch_id.upper() not in ["ALL", ""]:
+                stmt = stmt.where(PurchaseOrder.branch_id == branch_id)
+            if start_date:
+                stmt = stmt.where(func.date(PurchaseOrder.created_at) >= start_date)
+            if end_date:
+                stmt = stmt.where(func.date(PurchaseOrder.created_at) <= end_date)
+            if search and search.strip():
+                pattern = f"%{search.strip()}%"
+                stmt = stmt.where(
+                    or_(
+                        Supplier.name.ilike(pattern),
+                        PurchaseOrder.order_no.ilike(pattern),
+                        PurchaseOrderItem.code.ilike(pattern),
+                        Product.color.ilike(pattern),
+                        PurchaseBill.bill_no.ilike(pattern),
+                    )
+                )
+
+            # Order by
+            order_col = Supplier.name
+            if sort_field == "po_no":
+                order_col = PurchaseOrder.order_no
+            elif sort_field == "po_date":
+                order_col = PurchaseOrder.created_at
+            elif sort_field == "quantity":
+                order_col = PurchaseOrderItem.quantity
+            elif sort_field == "net_amount":
+                order_col = PurchaseOrderItem.line_total
+            elif sort_field == "article_sku":
+                order_col = PurchaseOrderItem.code
+
+            if sort_direction == "desc":
+                stmt = stmt.order_by(order_col.desc(), PurchaseOrderItem.id.desc())
+            else:
+                stmt = stmt.order_by(order_col.asc(), PurchaseOrderItem.id.asc())
+
+            # Count total matching records
+            count_stmt = select(func.count()).select_from(stmt.subquery())
+            total_count_res = await self.db.execute(count_stmt)
+            total_count = total_count_res.scalar_one_or_none() or 0
+
+            # Totals aggregate query for quantity and net_amount
+            totals_stmt = (
+                select(
+                    func.coalesce(func.sum(PurchaseOrderItem.quantity), 0).label("tot_qty"),
+                    func.coalesce(func.sum(PurchaseOrderItem.line_total), 0).label("tot_amt"),
+                )
+                .select_from(PurchaseOrderItem)
+                .join(PurchaseOrder, PurchaseOrderItem.order_id == PurchaseOrder.id)
+                .join(Supplier, PurchaseOrder.supplier_id == Supplier.id)
+                .outerjoin(Product, PurchaseOrderItem.product_id == Product.id)
+                .outerjoin(PurchaseBill, PurchaseBill.order_id == PurchaseOrder.id)
+                .where(
+                    PurchaseOrder.is_deleted == False,
+                    PurchaseOrderItem.is_deleted == False,
+                )
+            )
+            if company_id:
+                totals_stmt = totals_stmt.where(PurchaseOrder.company_id == company_id)
+            if branch_id and branch_id.upper() not in ["ALL", ""]:
+                totals_stmt = totals_stmt.where(PurchaseOrder.branch_id == branch_id)
+            if start_date:
+                totals_stmt = totals_stmt.where(func.date(PurchaseOrder.created_at) >= start_date)
+            if end_date:
+                totals_stmt = totals_stmt.where(func.date(PurchaseOrder.created_at) <= end_date)
+            if search and search.strip():
+                pattern = f"%{search.strip()}%"
+                totals_stmt = totals_stmt.where(
+                    or_(
+                        Supplier.name.ilike(pattern),
+                        PurchaseOrder.order_no.ilike(pattern),
+                        PurchaseOrderItem.code.ilike(pattern),
+                        Product.color.ilike(pattern),
+                        PurchaseBill.bill_no.ilike(pattern),
+                    )
+                )
+
+            totals_res = await self.db.execute(totals_stmt)
+            tot_row = totals_res.one_or_none()
+            total_qty = float(tot_row[0]) if tot_row else 0.0
+            total_amt = float(tot_row[1]) if tot_row else 0.0
+
+            # Pagination
+            stmt = stmt.offset(offset).limit(limit)
+            result = await self.db.execute(stmt)
+            mappings = result.mappings().all()
+
+            rows = []
+            for r in mappings:
+                po_dt = r["po_date"]
+                po_date_str = po_dt.strftime("%d %b") if hasattr(po_dt, "strftime") else str(po_dt or "-")
+                rows.append({
+                    "id": f"row-{r['id']}",
+                    "supplier": r["supplier"] or "-",
+                    "supplier_code": r["supplier_code"] or "-",
+                    "supplier_city": r["supplier_city"] or "-",
+                    "city": r["city"] or "-",
+                    "po_no": r["po_no"] or "-",
+                    "po_date": po_date_str,
+                    "invoice_no": r["invoice_no"] or "-",
+                    "article_sku": r["article_sku"] or "-",
+                    "color": r["color"] or "-",
+                    "size": r["size"] or "-",
+                    "quantity": float(r["quantity"] or 0),
+                    "net_amount": float(r["net_amount"] or 0),
+                })
+
+            return {
+                "category": category_normalized,
+                "total_count": total_count,
+                "rows": rows,
+                "totals": {
+                    "quantity": total_qty,
+                    "net_amount": total_amt,
+                },
+                "generated_at": datetime.now(timezone.utc).isoformat(),
+            }
+
+        elif category_normalized in ["Items", "Inventory"]:
+            stmt = select(Product).where(Product.is_deleted == False)
+            if company_id:
+                stmt = stmt.where(Product.company_id == company_id)
+            if search and search.strip():
+                patt = f"%{search.strip()}%"
+                stmt = stmt.where(or_(Product.name.ilike(patt), Product.code.ilike(patt)))
+            count_stmt = select(func.count()).select_from(stmt.subquery())
+            total_count = (await self.db.execute(count_stmt)).scalar_one_or_none() or 0
+            res = await self.db.execute(stmt.offset(offset).limit(limit))
+            prods = res.scalars().all()
+            rows = []
+            tot_qty = 0.0
+            tot_amt = 0.0
+            for p in prods:
+                stk = float(p.stock or 0)
+                cp = float(p.cost_price or 0)
+                val = stk * cp
+                tot_qty += stk
+                tot_amt += val
+                rows.append({
+                    "id": f"prod-{p.id}",
+                    "item_code": p.code or "-",
+                    "item_name": p.name or "-",
+                    "item_category": p.category or "-",
+                    "brand": p.brand or "-",
+                    "mrp": float(p.mrp or 0),
+                    "standard_cost": cp,
+                    "selling_price": float(p.buying_price or 0),
+                    "stock_on_hand": stk,
+                    "warehouse": "Main Godown",
+                    "reserved_qty": float(p.reserved_stock or 0),
+                    "available_qty": stk - float(p.reserved_stock or 0),
+                    "reorder_level": float(p.reorder_level or 0),
+                    "valuation_cost": val,
+                })
+            return {
+                "category": category_normalized,
+                "total_count": total_count,
+                "rows": rows,
+                "totals": {"stock_on_hand": tot_qty, "valuation_cost": tot_amt},
+                "generated_at": datetime.now(timezone.utc).isoformat(),
+            }
+
+        elif category_normalized == "Suppliers":
+            stmt = select(Supplier).where(Supplier.is_deleted == False)
+            if company_id:
+                stmt = stmt.where(Supplier.company_id == company_id)
+            if search and search.strip():
+                patt = f"%{search.strip()}%"
+                stmt = stmt.where(or_(Supplier.name.ilike(patt), Supplier.code.ilike(patt)))
+            count_stmt = select(func.count()).select_from(stmt.subquery())
+            total_count = (await self.db.execute(count_stmt)).scalar_one_or_none() or 0
+            res = await self.db.execute(stmt.offset(offset).limit(limit))
+            sups = res.scalars().all()
+            rows = []
+            tot_bal = 0.0
+            for s in sups:
+                bal = float(s.outstanding or 0)
+                tot_bal += bal
+                rows.append({
+                    "id": f"sup-{s.id}",
+                    "supplier_code": s.code or "-",
+                    "sup_full_name": s.name or "-",
+                    "supplier": s.name or "-",
+                    "supplier_gstin": s.gst_number or "-",
+                    "supplier_city": s.city or "-",
+                    "city": s.city or "-",
+                    "supplier_balance": bal,
+                })
+            return {
+                "category": category_normalized,
+                "total_count": total_count,
+                "rows": rows,
+                "totals": {"supplier_balance": tot_bal},
+                "generated_at": datetime.now(timezone.utc).isoformat(),
+            }
+
+        return {
+            "category": category_normalized,
+            "total_count": 0,
+            "rows": [],
+            "totals": {},
+            "generated_at": datetime.now(timezone.utc).isoformat(),
         }
 

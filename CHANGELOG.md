@@ -3,13 +3,37 @@
   Author       : Jawahar Ramkripal Mallah
   Email        : support@smritibooks.com
   Websites     : smritibooks.com | erpnbook.com | aitdl.com
-  Version      : 6.99.4
+  Version      : 6.99.5
   Created      : 2026-07-06
-  Modified     : 2026-10-21
+  Modified     : 2026-10-22
   Copyright    : © SMRITIBooks.com. All Rights Reserved.
   License      : Proprietary Commercial Software
   Classification: Internal
 -->
+
+## [6.99.5] — 2026-10-22
+
+### BI & Reporting Center — Report Builder Live PostgreSQL Data Binding & Dummy Data Elimination
+
+- **Report Builder Canonical REST Query Endpoint (`backend/app/api/v1/reports.py`)**:
+  - Implemented `GET /api/v1/reports/builder/query` providing live, parameterized query access across transactional domain tables.
+  - Enforced multi-tenant isolation through `deps.get_current_tenant` and dynamic company DB routing.
+  - Supports server-side pagination (`limit`, `page`), date range boundaries (`from_date`, `to_date`), branch isolation (`branch_id`), supplier targeting (`supplier_id`), search filtering (`search`), and column sorting (`sort_by`, `sort_order`).
+- **Live Reporting Service Aggregation Engine (`backend/app/services/reports.py`)**:
+  - Implemented `ReportsService.query_report_builder()` joining `purchase_order_items`, `purchase_orders`, `suppliers`, `products`, and `purchase_bills`.
+  - Computes exact server-side aggregate totals (`func.sum(quantity)`, `func.sum(net_amount)`) over the filtered result set.
+  - Formats date presentation, supplier codes, and invoice linkages.
+- **DTO & Schema Specifications (`backend/app/schemas/reports.py`)**:
+  - Registered `ReportBuilderResponse` supporting `category`, `total_count`, `rows` (`data`), `totals`, and `generated_at`.
+- **Frontend Real Data Hook & UX Binding (`src/components/reports/ReportBuilder.tsx`)**:
+  - Integrated `apiFetchV1` to fetch live rows from `/api/v1/reports/builder/query` on initial mount and on filter changes.
+  - Wired the "Run" button to execute live server queries (`handleRunQuery`).
+  - Added skeleton loading state (`isLoading`), error banner with retry (`fetchError`), and honest empty state with fiscal year guidance.
+  - Completely eliminated silent fallback to hardcoded mock rows (`DEFAULT_REPORT_BUILDER_ROWS`).
+  - Bound bottom summary metrics to live server aggregate totals.
+- **Verification & Test Suite**:
+  - Created `src/tests/reportBuilderLiveData.test.ts` verifying API call formation, live data rendering, honest empty state, error state, and total aggregation without dummy data fallback (4/4 tests passed).
+  - Validated with `tsc --noEmit` (0 errors) and Vitest regression suite `src/tests/reportBuilder.test.ts` (16/16 tests passed).
 
 ## [6.99.4] — 2026-10-21
 
