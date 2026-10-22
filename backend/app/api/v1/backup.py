@@ -30,8 +30,13 @@ from ...schemas.backup import (
     RestoreExecuteRequest,
     RestoreResultResponse,
     BackupSettingsConfig,
+    PreflightCheckResponse,
+    BackupLogsResponse,
+    PruneBackupsRequest,
+    PruneBackupsResponse,
 )
 from ...services.backup_restore_service import BackupRestoreService
+from ...core.backup_engine import MasterBackupEngine
 
 router = APIRouter(prefix="/backup", tags=["Backup & Restore"])
 
@@ -44,6 +49,20 @@ def _verify_backup_permission(user: User = Depends(deps.get_current_user)) -> Us
             detail="Access denied: Backup and recovery operations require Manager or Administrator privileges.",
         )
     return user
+
+
+@router.get("/preflight", response_model=PreflightCheckResponse, summary="Perform System & Storage Preflight Checks")
+async def get_preflight_checks(
+    current_user: User = Depends(_verify_backup_permission),
+):
+    return MasterBackupEngine.get_preflight_check()
+
+
+@router.get("/active-job", response_model=Optional[BackupJobProgress], summary="Get Current Running Job If Any")
+async def get_active_job(
+    current_user: User = Depends(_verify_backup_permission),
+):
+    return MasterBackupEngine.get_active_running_job()
 
 
 @router.get("/status", response_model=BackupStatusResponse, summary="Get Overall Data Protection Status")
@@ -74,8 +93,12 @@ async def create_backup(
     current_user: User = Depends(_verify_backup_permission),
 ):
     storage = payload.storage_location if payload and payload.storage_location else "local"
+    user_name = current_user.username if hasattr(current_user, "username") and current_user.username else "System Administrator"
     service = BackupRestoreService(db, tenant.company_id)
-    return await service.start_backup_job(storage_location=storage)
+    try:
+        return await service.start_backup_job(storage_location=storage, initiating_user=user_name)
+    except ValueError as val_err:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(val_err))
 
 
 @router.get("/jobs/{job_id}", response_model=BackupJobProgress, summary="Get Live Backup Job Progress")
@@ -95,6 +118,15 @@ async def get_backup_job_progress(
     return job
 
 
+@router.get("/jobs/{job_id}/logs", response_model=BackupLogsResponse, summary="Get Live Structured Logs for Job")
+async def get_backup_job_logs(
+    job_id: str,
+    tail: int = Query(100, ge=1, le=1000),
+    current_user: User = Depends(_verify_backup_permission),
+):
+    return MasterBackupEngine.get_logs(job_id, tail=tail)
+
+
 @router.post("/jobs/{job_id}/cancel", summary="Cancel Active Backup Job")
 async def cancel_backup_job(
     job_id: str,
@@ -110,6 +142,36 @@ async def cancel_backup_job(
             detail="Unable to cancel job: Job already completed, failed, or does not exist.",
         )
     return {"success": True, "message": "Backup job cancelled."}
+
+
+@router.post("/jobs/{job_id}/retry", response_model=BackupJobProgress, summary="Retry a Failed Backup Job")
+async def retry_backup_job(
+    job_id: str,
+    db: AsyncSession = Depends(deps.get_db),
+    tenant: deps.TenantContext = Depends(deps.get_tenant_context),
+    current_user: User = Depends(_verify_backup_permission),
+):
+    service = BackupRestoreService(db, tenant.company_id)
+    prev_job = await service.get_job_progress(job_id)
+    storage = prev_job.storage_location_type if prev_job else "local"
+    user_name = current_user.username if hasattr(current_user, "username") and current_user.username else "System Administrator"
+    try:
+        return await service.start_backup_job(storage_location=storage, initiating_user=user_name)
+    except ValueError as val_err:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(val_err))
+
+
+@router.post("/prune", response_model=PruneBackupsResponse, summary="Manually Trigger Retention Pruning")
+async def prune_backups(
+    payload: Optional[PruneBackupsRequest] = None,
+    db: AsyncSession = Depends(deps.get_db),
+    tenant: deps.TenantContext = Depends(deps.get_tenant_context),
+    current_user: User = Depends(_verify_backup_permission),
+):
+    service = BackupRestoreService(db, tenant.company_id)
+    override = payload.retention_override if payload else None
+    return await service.prune_expired_backups(retention_override=override)
+
 
 
 @router.post("/restore/review", response_model=RestoreReviewResponse, summary="Review Recovery Point Before Restoring")

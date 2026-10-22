@@ -25,6 +25,7 @@ import {
   ArrowLeft,
   CheckCircle2,
   AlertTriangle,
+  AlertCircle,
   HardDrive,
   Cloud,
   FileCheck2,
@@ -33,8 +34,17 @@ import {
   RefreshCw,
   Loader2,
   XCircle,
+  Terminal,
 } from "lucide-react";
 import { apiFetchV1 } from "../../lib/apiFetchV1";
+
+export interface BackupLogEntry {
+  timestamp: string;
+  level: string;
+  stage: string;
+  message: string;
+}
+
 
 export interface BackupItemInfo {
   id: string;
@@ -76,13 +86,25 @@ export interface BackupSettings {
 
 export interface BackupJobProgress {
   job_id: string;
-  status: "in_progress" | "completed" | "failed" | "cancelled";
-  stage: "preparing" | "creating" | "verifying" | "finalizing" | "completed";
+  status: string; // "QUEUED" | "RUNNING" | "VERIFYING" | "SUCCESS" | "FAILED" | "CANCELLED" | "INTERRUPTED" | "in_progress" | "completed" | "failed" | "cancelled"
+  stage: string;
   percent: number;
   stage_message: string;
+  initiating_user?: string;
+  destination?: string;
+  storage_location_type?: string;
+  archive_size_bytes?: number;
+  archive_size_pretty?: string;
+  process_exit_code?: number;
+  verification_result?: string;
   error_message?: string;
   backup_result?: BackupItemInfo;
+  started_at?: string;
+  updated_at?: string;
+  completed_at?: string;
+  elapsed_seconds?: number;
 }
+
 
 type ScreenType =
   | "main"
@@ -119,9 +141,19 @@ export const BackupRestoreWorkspace: React.FC<BackupRestoreWorkspaceProps> = ({
     }
   );
 
-  // Active Job State
+  // Active Job State & Live Monitoring
   const [activeJob, setActiveJob] = useState<BackupJobProgress | null>(null);
   const [completedBackup, setCompletedBackup] = useState<BackupItemInfo | null>(null);
+  const [showConfirmModal, setShowConfirmModal] = useState<boolean>(false);
+  const [preflightInfo, setPreflightInfo] = useState<{
+    passed: boolean;
+    free_space_pretty: string;
+    destination_path: string;
+    message: string;
+  } | null>(null);
+  const [liveLogs, setLiveLogs] = useState<BackupLogEntry[]>([]);
+  const [showLogsConsole, setShowLogsConsole] = useState<boolean>(false);
+  const [elapsedSeconds, setElapsedSeconds] = useState<number>(0);
 
   // Restore flow state
   const [selectedRestoreId, setSelectedRestoreId] = useState<string | null>(null);
@@ -130,7 +162,7 @@ export const BackupRestoreWorkspace: React.FC<BackupRestoreWorkspaceProps> = ({
   const [restoreError, setRestoreError] = useState<string | null>(null);
   const [restoreSuccessMsg, setRestoreSuccessMsg] = useState<string | null>(null);
 
-  // Load Status and Settings on Mount
+  // Load Status, Settings, and Reconcile Active Running Jobs on Mount
   useEffect(() => {
     if (!initialStatus) {
       loadStatusAndSettings();
@@ -140,16 +172,30 @@ export const BackupRestoreWorkspace: React.FC<BackupRestoreWorkspaceProps> = ({
   const loadStatusAndSettings = async () => {
     setLoadingStatus(true);
     try {
-      const [statusRes, settingsRes, historyRes] = await Promise.all([
+      const [statusRes, settingsRes, historyRes, activeRes] = await Promise.all([
         apiFetchV1<BackupStatus>("/backup/status"),
         apiFetchV1<BackupSettings>("/backup/settings"),
         apiFetchV1<BackupItemInfo[]>("/backup/history"),
+        apiFetchV1<BackupJobProgress | null>("/backup/active-job").catch(() => null),
       ]);
       setStatusData(statusRes);
       setSettings(settingsRes);
       setHistory(Array.isArray(historyRes) ? historyRes : []);
       if (Array.isArray(historyRes) && historyRes.length > 0) {
         setSelectedRestoreId(historyRes[0].backup_id);
+      }
+
+      // Browser Refresh Resilience: Reconnect to active running job if one is in-flight
+      if (
+        activeRes &&
+        (activeRes.status === "RUNNING" ||
+          activeRes.status === "QUEUED" ||
+          activeRes.status === "VERIFYING" ||
+          activeRes.status === "in_progress")
+      ) {
+        setActiveJob(activeRes);
+        setCurrentScreen("backup_progress");
+        pollJobProgress(activeRes.job_id);
       }
     } catch (err) {
       console.error("[BackupWorkspace] Failed to fetch backup metadata", err);
@@ -186,10 +232,23 @@ export const BackupRestoreWorkspace: React.FC<BackupRestoreWorkspaceProps> = ({
   };
 
   // ─────────────────────────────────────────────────────────────────────────
-  // ACTION 1: BACK UP NOW
+  // ACTION 1: BACK UP NOW (WITH PREFLIGHT & CONFIRMATION MODAL)
   // ─────────────────────────────────────────────────────────────────────────
   const handleStartBackupNow = async () => {
+    try {
+      const pf = await apiFetchV1<any>("/backup/preflight");
+      setPreflightInfo(pf);
+    } catch {
+      setPreflightInfo(null);
+    }
+    setShowConfirmModal(true);
+  };
+
+  const confirmAndExecuteBackup = async () => {
+    setShowConfirmModal(false);
     setCurrentScreen("backup_progress");
+    setLiveLogs([]);
+    setElapsedSeconds(0);
     try {
       const job = await apiFetchV1<BackupJobProgress>("/backup/create", {
         method: "POST",
@@ -206,24 +265,39 @@ export const BackupRestoreWorkspace: React.FC<BackupRestoreWorkspaceProps> = ({
   };
 
   const pollJobProgress = (jobId: string) => {
+    const startTime = Date.now();
     const interval = setInterval(async () => {
       try {
-        const updated = await apiFetchV1<BackupJobProgress>(`/backup/jobs/${jobId}`);
+        const [updated, logsRes] = await Promise.all([
+          apiFetchV1<BackupJobProgress>(`/backup/jobs/${jobId}`),
+          apiFetchV1<{ logs: BackupLogEntry[] }>(`/backup/jobs/${jobId}/logs?tail=80`).catch(() => null),
+        ]);
         setActiveJob(updated);
-        if (updated.status === "completed") {
+        setElapsedSeconds(Math.floor((Date.now() - startTime) / 1000));
+        if (logsRes && Array.isArray(logsRes.logs)) {
+          setLiveLogs(logsRes.logs);
+        }
+
+        if (updated.status === "completed" || updated.status === "SUCCESS") {
           clearInterval(interval);
           setCompletedBackup(updated.backup_result || null);
           loadStatusAndSettings();
           setTimeout(() => {
             setCurrentScreen("backup_completed");
-          }, 600);
-        } else if (updated.status === "failed" || updated.status === "cancelled") {
+          }, 800);
+        } else if (
+          updated.status === "failed" ||
+          updated.status === "FAILED" ||
+          updated.status === "cancelled" ||
+          updated.status === "CANCELLED" ||
+          updated.status === "INTERRUPTED"
+        ) {
           clearInterval(interval);
         }
       } catch (e) {
         clearInterval(interval);
       }
-    }, 400);
+    }, 600);
   };
 
   const handleCancelBackup = async () => {
@@ -237,6 +311,26 @@ export const BackupRestoreWorkspace: React.FC<BackupRestoreWorkspaceProps> = ({
       console.error("Cancel failed", err);
     }
   };
+
+  const handleCloseMonitor = () => {
+    // Navigates to dashboard without terminating the active background backup
+    setCurrentScreen("main");
+  };
+
+  const handleRetryBackup = async () => {
+    if (!activeJob) return;
+    try {
+      const retried = await apiFetchV1<BackupJobProgress>(`/backup/jobs/${activeJob.job_id}/retry`, {
+        method: "POST",
+      });
+      setActiveJob(retried);
+      setLiveLogs([]);
+      pollJobProgress(retried.job_id);
+    } catch (err) {
+      console.error("Retry failed", err);
+    }
+  };
+
 
   // ─────────────────────────────────────────────────────────────────────────
   // ACTION 2: RESTORE MY DATA
@@ -429,72 +523,173 @@ export const BackupRestoreWorkspace: React.FC<BackupRestoreWorkspaceProps> = ({
             <ChevronRight size={20} className="text-theme-muted group-hover:text-theme-primary transition-colors" />
           </button>
         </div>
+
+        {/* Create System Backup Confirmation Modal */}
+        {showConfirmModal && renderConfirmationModal()}
       </div>
     );
   };
 
   // ─────────────────────────────────────────────────────────────────────────
-  // SCREEN 2: BACK UP NOW (IN PROGRESS)
+  // CONFIRMATION MODAL: CREATE SYSTEM BACKUP
+  // ─────────────────────────────────────────────────────────────────────────
+  const renderConfirmationModal = () => {
+    const dest =
+      settings.storage_location === "local"
+        ? "This Device (Local Host Storage)"
+        : settings.storage_location === "gdrive"
+        ? "Google Drive"
+        : "OneDrive";
+
+    return (
+      <div
+        id="backup-confirmation-modal"
+        className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-150"
+      >
+        <div className="bg-theme-surface-1 border border-theme-divider rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-5">
+          <div className="flex items-start gap-4">
+            <div className="w-12 h-12 rounded-2xl bg-blue-50 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-900/60 flex items-center justify-center text-blue-600 dark:text-blue-400 shrink-0">
+              <UploadCloud size={24} />
+            </div>
+            <div>
+              <h3 className="text-base font-bold text-theme-primary font-display">
+                Create System Backup?
+              </h3>
+              <p className="text-xs text-theme-muted mt-1 leading-relaxed">
+                This will create a backup of the configured SMRITI Retail OS databases, application configuration, and required persistent files.
+              </p>
+            </div>
+          </div>
+
+          <div className="bg-theme-surface-2 border border-theme-divider rounded-xl p-3.5 space-y-2 text-xs">
+            <div className="flex items-center justify-between">
+              <span className="text-theme-muted">Configured Destination:</span>
+              <span className="font-semibold text-theme-primary">{dest}</span>
+            </div>
+            <div className="flex items-start justify-between gap-2">
+              <span className="text-theme-muted">Backup Scope:</span>
+              <span className="font-semibold text-theme-primary text-right">
+                PostgreSQL Databases, Config, Persistent Files & Ledgers
+              </span>
+            </div>
+            {preflightInfo && (
+              <div className="flex items-center justify-between pt-1 border-t border-theme-divider/40">
+                <span className="text-theme-muted">Available Disk Space:</span>
+                <span className="font-semibold text-emerald-600 dark:text-emerald-400">
+                  {preflightInfo.free_space_pretty}
+                </span>
+              </div>
+            )}
+          </div>
+
+          <div className="bg-blue-50/60 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-900/40 rounded-xl p-3 text-[11px] text-blue-800 dark:text-blue-300">
+            <p className="leading-normal">
+              Normal billing can continue consistently during the backup operation. Starting a backup does not delete existing data.
+            </p>
+          </div>
+
+          <div className="flex items-center justify-end gap-3 pt-1">
+            <button
+              id="backup-confirm-cancel-btn"
+              onClick={() => setShowConfirmModal(false)}
+              className="px-4 py-2 rounded-xl border border-theme-divider text-xs font-semibold text-theme-muted hover:text-theme-primary hover:bg-theme-surface-2 transition-colors cursor-pointer"
+            >
+              Cancel
+            </button>
+            <button
+              id="backup-confirm-start-btn"
+              onClick={confirmAndExecuteBackup}
+              className="px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-sm transition-colors cursor-pointer"
+            >
+              Start Backup
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // SCREEN 2: BACK UP NOW (LIVE MONITOR & REAL-TIME LOGS)
   // ─────────────────────────────────────────────────────────────────────────
   const renderProgressScreen = () => {
     const percent = activeJob ? activeJob.percent : 68;
     const stage = activeJob ? activeJob.stage : "creating";
     const stageMessage = activeJob ? activeJob.stage_message : "Building a secure backup file";
+    const jobStatus = activeJob ? activeJob.status : "RUNNING";
+    const isFailed = jobStatus === "FAILED" || jobStatus === "INTERRUPTED";
+    const isSuccess = jobStatus === "SUCCESS" || jobStatus === "completed";
 
-    // Stepper logic
     const steps = [
-      {
-        id: "preparing",
-        label: "Preparing backup",
-        desc: "Collecting your business data",
-      },
-      {
-        id: "creating",
-        label: "Creating backup",
-        desc: "Building a secure backup file",
-      },
-      {
-        id: "verifying",
-        label: "Verifying backup",
-        desc: "Checking data integrity",
-      },
-      {
-        id: "finalizing",
-        label: "Finalizing",
-        desc: "Saving to your selected storage",
-      },
+      { id: "preflight", label: "Preflight checks", desc: "Checking disk space and permissions" },
+      { id: "database_backup", label: "Database backup", desc: "Exporting relational transactional tables" },
+      { id: "app_config", label: "Application configuration", desc: "Recording system settings and migration lineage" },
+      { id: "persistent_files", label: "Persistent files", desc: "Indexing document attachments and ledgers" },
+      { id: "archive_creation", label: "Archive creation", desc: "Building compressed encrypted package" },
+      { id: "integrity_verification", label: "Integrity verification", desc: "Verifying SHA-256 and test decompression" },
+      { id: "manifest_finalization", label: "Manifest creation", desc: "Writing tamper-evident manifest" },
+      { id: "retention_cleanup", label: "Retention cleanup", desc: "Enforcing backup retention policy" },
+    ];
+
+    const stageOrder = [
+      "preflight",
+      "database_backup",
+      "app_config",
+      "persistent_files",
+      "archive_creation",
+      "integrity_verification",
+      "manifest_finalization",
+      "retention_cleanup",
+      "completed",
     ];
 
     const getStepStatus = (stepId: string) => {
-      const order = ["preparing", "creating", "verifying", "finalizing", "completed"];
-      const currentIdx = order.indexOf(stage);
-      const stepIdx = order.indexOf(stepId);
-      if (currentIdx > stepIdx) return "done";
-      if (currentIdx === stepIdx) return "active";
+      const currentIdx = stageOrder.indexOf(stage);
+      const stepIdx = stageOrder.indexOf(stepId);
+      if (isSuccess || currentIdx > stepIdx) return "done";
+      if (currentIdx === stepIdx) return isFailed ? "failed" : "active";
       return "pending";
     };
 
     return (
-      <div className="max-w-xl mx-auto space-y-8 pt-4 pb-12 animate-in fade-in duration-200">
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => setCurrentScreen("main")}
-            className="p-1.5 rounded-lg text-theme-muted hover:text-theme-primary hover:bg-theme-surface-2"
-          >
-            <ArrowLeft size={20} />
-          </button>
-          <div>
-            <h2 className="text-xl font-bold text-theme-primary font-display">
-              Back Up Now
-            </h2>
-            <p className="text-xs text-theme-muted">
-              Creating a backup of your business data.
-            </p>
+      <div className="max-w-xl mx-auto space-y-6 pt-4 pb-12 animate-in fade-in duration-200">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={handleCloseMonitor}
+              className="p-1.5 rounded-lg text-theme-muted hover:text-theme-primary hover:bg-theme-surface-2 cursor-pointer"
+              title="Return to Dashboard (Backup will continue in background)"
+            >
+              <ArrowLeft size={20} />
+            </button>
+            <div>
+              <h2 className="text-xl font-bold text-theme-primary font-display flex items-center gap-2">
+                Back Up Now
+                <span className={`text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full font-mono font-bold ${
+                  isFailed
+                    ? "bg-red-100 text-red-700 dark:bg-red-950/60 dark:text-red-400"
+                    : isSuccess
+                    ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-400"
+                    : "bg-blue-100 text-blue-700 dark:bg-blue-950/60 dark:text-blue-400 animate-pulse"
+                }`}>
+                  {jobStatus}
+                </span>
+              </h2>
+              <p className="text-xs text-theme-muted">
+                {activeJob?.job_id ? `Job ID: ${activeJob.job_id}` : "Creating a backup of your business data."}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-mono text-theme-muted bg-theme-surface-2 px-2.5 py-1 rounded-lg border border-theme-divider">
+              Elapsed: {Math.floor(elapsedSeconds / 60)}m {elapsedSeconds % 60}s
+            </span>
           </div>
         </div>
 
         {/* Progress Card */}
-        <div className="bg-theme-surface-1 border border-theme-divider rounded-2xl p-8 flex flex-col items-center space-y-6 shadow-sm">
+        <div className="bg-theme-surface-1 border border-theme-divider rounded-2xl p-6 sm:p-8 flex flex-col items-center space-y-6 shadow-sm">
           {/* Circular Progress Ring */}
           <div className="relative w-36 h-36 flex items-center justify-center">
             <svg className="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
@@ -514,7 +709,9 @@ export const BackupRestoreWorkspace: React.FC<BackupRestoreWorkspaceProps> = ({
                 strokeDasharray={264}
                 strokeDashoffset={264 - (264 * percent) / 100}
                 strokeLinecap="round"
-                className="stroke-blue-600 transition-all duration-300 ease-out"
+                className={`transition-all duration-300 ease-out ${
+                  isFailed ? "stroke-red-500" : isSuccess ? "stroke-emerald-500" : "stroke-blue-600"
+                }`}
                 fill="none"
               />
             </svg>
@@ -529,18 +726,47 @@ export const BackupRestoreWorkspace: React.FC<BackupRestoreWorkspaceProps> = ({
             <h3 className="text-base font-bold text-theme-primary font-display">
               {stageMessage}...
             </h3>
-            <p className="text-xs text-theme-muted">Please keep this window open.</p>
+            <p className="text-xs text-theme-muted">
+              {isFailed ? "Backup process halted." : "Normal billing operations can safely continue."}
+            </p>
           </div>
 
-          {/* Stepper List */}
-          <div className="w-full max-w-sm space-y-4 pt-2">
+          {/* Failure Alert Box */}
+          {isFailed && (
+            <div className="w-full bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900/60 rounded-xl p-4 text-xs space-y-2 text-red-800 dark:text-red-300">
+              <div className="flex items-center gap-2 font-bold">
+                <AlertCircle size={16} className="text-red-600 shrink-0" />
+                <span>Backup failed or could not be verified.</span>
+              </div>
+              <p className="text-[11px] text-red-700 dark:text-red-400">
+                {activeJob?.error_message || "An unexpected error occurred during execution."}
+              </p>
+              <p className="text-[11px] text-theme-muted">
+                Your previous verified recovery point has been preserved intact.
+              </p>
+              <div className="pt-2 flex items-center gap-3">
+                <button
+                  id="retry-backup-btn"
+                  onClick={handleRetryBackup}
+                  className="px-4 py-1.5 rounded-lg bg-red-600 hover:bg-red-700 text-white font-bold text-xs shadow-sm cursor-pointer"
+                >
+                  Retry Backup
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Real 8-Stage Stepper List */}
+          <div className="w-full max-w-md space-y-3 pt-2">
             {steps.map((s) => {
               const st = getStepStatus(s.id);
               return (
                 <div key={s.id} className="flex items-start gap-3">
                   <div className="mt-0.5">
                     {st === "done" ? (
-                      <CheckCircle2 size={18} className="text-[#10B981]" />
+                      <CheckCircle2 size={16} className="text-[#10B981]" />
+                    ) : st === "failed" ? (
+                      <XCircle size={16} className="text-red-500" />
                     ) : st === "active" ? (
                       <div className="w-4 h-4 rounded-full border-2 border-blue-600 flex items-center justify-center animate-pulse">
                         <div className="w-1.5 h-1.5 rounded-full bg-blue-600" />
@@ -554,6 +780,8 @@ export const BackupRestoreWorkspace: React.FC<BackupRestoreWorkspaceProps> = ({
                       className={`text-xs font-semibold ${
                         st === "done"
                           ? "text-[#10B981]"
+                          : st === "failed"
+                          ? "text-red-500 font-bold"
                           : st === "active"
                           ? "text-blue-600 font-bold"
                           : "text-theme-muted"
@@ -568,12 +796,73 @@ export const BackupRestoreWorkspace: React.FC<BackupRestoreWorkspaceProps> = ({
             })}
           </div>
 
-          <button
-            onClick={handleCancelBackup}
-            className="w-full max-w-xs mt-2 py-2 px-4 rounded-xl border border-theme-divider text-xs font-semibold text-theme-muted hover:text-theme-body hover:bg-theme-surface-2 transition-colors cursor-pointer"
-          >
-            Cancel Backup
-          </button>
+          {/* Live Structured Logs Collapsible Console */}
+          <div className="w-full max-w-md pt-2 border-t border-theme-divider/60">
+            <button
+              id="toggle-live-logs-btn"
+              onClick={() => setShowLogsConsole(!showLogsConsole)}
+              className="flex items-center justify-between w-full text-xs font-semibold text-theme-muted hover:text-theme-primary py-1 cursor-pointer"
+            >
+              <div className="flex items-center gap-2">
+                <Terminal size={14} />
+                <span>Live Process Logs ({liveLogs.length} entries)</span>
+              </div>
+              <ChevronRight
+                size={16}
+                className={`transform transition-transform ${showLogsConsole ? "rotate-90" : ""}`}
+              />
+            </button>
+
+            {showLogsConsole && (
+              <div className="mt-2 bg-gray-950 text-gray-200 rounded-xl p-3 font-mono text-[11px] max-h-48 overflow-y-auto space-y-1 shadow-inner border border-gray-800">
+                {liveLogs.length === 0 ? (
+                  <p className="text-gray-500 italic">Connecting to process log stream...</p>
+                ) : (
+                  liveLogs.map((log, idx) => (
+                    <div key={idx} className="leading-snug flex items-start gap-2">
+                      <span className="text-gray-500 shrink-0 text-[10px]">
+                        {log.timestamp ? log.timestamp.substring(11, 19) : ""}
+                      </span>
+                      <span
+                        className={`text-[10px] font-bold shrink-0 ${
+                          log.level === "SUCCESS"
+                            ? "text-emerald-400"
+                            : log.level === "WARN"
+                            ? "text-amber-400"
+                            : log.level === "ERROR"
+                            ? "text-red-400"
+                            : "text-blue-400"
+                        }`}
+                      >
+                        [{log.stage}]
+                      </span>
+                      <span className="text-gray-300 break-words">{log.message}</span>
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Footer Controls */}
+          <div className="flex items-center gap-3 w-full max-w-md pt-2">
+            {!isFailed && !isSuccess && (
+              <button
+                id="cancel-backup-btn"
+                onClick={handleCancelBackup}
+                className="flex-1 py-2 px-4 rounded-xl border border-theme-divider text-xs font-semibold text-theme-muted hover:text-red-600 hover:bg-theme-surface-2 transition-colors cursor-pointer"
+              >
+                Cancel Backup
+              </button>
+            )}
+            <button
+              id="close-monitor-btn"
+              onClick={handleCloseMonitor}
+              className="flex-1 py-2 px-4 rounded-xl border border-theme-divider text-xs font-semibold text-theme-muted hover:text-theme-primary hover:bg-theme-surface-2 transition-colors cursor-pointer text-center"
+            >
+              Close Monitor
+            </button>
+          </div>
         </div>
       </div>
     );

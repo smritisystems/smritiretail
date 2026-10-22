@@ -242,9 +242,30 @@ async def lifespan(_app: FastAPI):
         else:
             logger.info("[SMRITI Startup] Report Scheduler Daemon is DISABLED (REPORT_SCHEDULER_ENABLED=false).")
 
+        # Master Backup Engine — Reconcile Interrupted Jobs
+        try:
+            from .core.backup_engine import MasterBackupEngine
+            reconciled = MasterBackupEngine.reconcile_interrupted_jobs()
+            if reconciled > 0:
+                logger.info(f"[SMRITI Startup] Reconciled {reconciled} interrupted backup job(s) -> INTERRUPTED.")
+        except Exception as b_exc:
+            logger.warning(f"[SMRITI Startup] Backup job crash reconciliation notice: {b_exc}")
+
+        # Backup & Disaster Recovery Scheduler Daemon — off-hours backups & retention
+        if getattr(settings, "BACKUP_SCHEDULER_ENABLED", True):
+            try:
+                from .core.backup_scheduler import start_backup_scheduler
+                start_backup_scheduler(poll_interval_seconds=getattr(settings, "BACKUP_SCHEDULER_POLL_SECONDS", 60))
+                logger.info(
+                    f"[SMRITI Startup] Backup & Disaster Recovery Scheduler started "
+                    f"(poll_interval={getattr(settings, 'BACKUP_SCHEDULER_POLL_SECONDS', 60)}s)."
+                )
+            except Exception as bs_exc:
+                logger.warning(f"[SMRITI Startup] Backup Scheduler failed to start: {bs_exc}")
+
     yield
 
-    # Graceful shutdown: stop the report scheduler daemon if it was started
+    # Graceful shutdown: stop schedulers
     if settings.REPORT_SCHEDULER_ENABLED:
         try:
             from .core.scheduler import stop_scheduler
@@ -252,6 +273,15 @@ async def lifespan(_app: FastAPI):
             logger.info("[SMRITI Shutdown] Report Scheduler Daemon stopped.")
         except Exception as stop_exc:
             logger.warning(f"[SMRITI Shutdown] Error stopping Report Scheduler Daemon: {stop_exc}")
+
+    if getattr(settings, "BACKUP_SCHEDULER_ENABLED", True):
+        try:
+            from .core.backup_scheduler import stop_backup_scheduler
+            await stop_backup_scheduler()
+            logger.info("[SMRITI Shutdown] Backup Scheduler stopped cleanly.")
+        except Exception as stop_bs_exc:
+            logger.warning(f"[SMRITI Shutdown] Error stopping Backup Scheduler: {stop_bs_exc}")
+
 
 
 # Initialize FastAPI instance

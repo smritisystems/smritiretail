@@ -199,6 +199,12 @@ class Settings(BaseSettings):
     REPORT_SCHEDULER_ENABLED: bool = False
     REPORT_SCHEDULER_POLL_SECONDS: int = 60
 
+    # Backup & Disaster Recovery Scheduler Daemon — asyncio background worker
+    # Automatically triggers off-hours backups and retention pruning.
+    BACKUP_SCHEDULER_ENABLED: bool = True
+    BACKUP_SCHEDULER_POLL_SECONDS: int = 60
+
+
     model_config = {
         "env_file": (str(_root_env_path), ".env"),
         "case_sensitive": True,

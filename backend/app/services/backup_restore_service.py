@@ -38,6 +38,8 @@ from ..schemas.backup import (
     BackupSettingsConfig,
     RestoreReviewResponse,
     RestoreResultResponse,
+    PruneBackupsResponse,
+    PreflightCheckResponse,
 )
 
 # Standard directory where verified backup packages are stored
@@ -78,7 +80,7 @@ _ACTIVE_BACKUP_JOBS: Dict[str, BackupJobProgress] = {}
 
 
 class BackupRestoreService:
-    def __init__(self, db: AsyncSession, company_id: Optional[str] = None):
+    def __init__(self, db: Optional[AsyncSession] = None, company_id: Optional[str] = None):
         self.db = db
         self.company_id = company_id or "COMP-001"
 
@@ -172,172 +174,121 @@ class BackupRestoreService:
         return items
 
     # ─────────────────────────────────────────────────────────────────────────
-    # 3. BACKUP CREATION JOB
+    # 3. BACKUP CREATION & JOB MANAGEMENT
     # ─────────────────────────────────────────────────────────────────────────
-    async def start_backup_job(self, storage_location: str = "local") -> BackupJobProgress:
-        job_id = f"job-{uuid.uuid4().hex[:12]}"
-        now_iso = datetime.now(timezone.utc).isoformat()
-        
-        job = BackupJobProgress(
-            job_id=job_id,
-            status="in_progress",
-            stage="preparing",
-            percent=10,
-            stage_message="Collecting your business data",
-            started_at=now_iso,
-            updated_at=now_iso,
-        )
-        _ACTIVE_BACKUP_JOBS[job_id] = job
+    def get_preflight_check(self) -> PreflightCheckResponse:
+        from ..core.backup_engine import MasterBackupEngine
+        return MasterBackupEngine.get_preflight_check()
 
-        # Trigger async worker in background
-        asyncio.create_task(self._execute_backup_worker(job_id, storage_location))
-        return job
+    async def start_backup_job(
+        self,
+        storage_location: str = "local",
+        initiating_user: str = "System Administrator",
+    ) -> BackupJobProgress:
+        from ..core.backup_engine import MasterBackupEngine
+        engine = MasterBackupEngine(self.db, self.company_id)
+        return await engine.start_job(storage_location=storage_location, initiating_user=initiating_user)
 
     async def get_job_progress(self, job_id: str) -> Optional[BackupJobProgress]:
-        return _ACTIVE_BACKUP_JOBS.get(job_id)
+        from ..core.backup_engine import MasterBackupEngine
+        return MasterBackupEngine.get_job(job_id)
+
+    async def get_active_job(self) -> Optional[BackupJobProgress]:
+        from ..core.backup_engine import MasterBackupEngine
+        return MasterBackupEngine.get_active_running_job()
 
     async def cancel_job(self, job_id: str) -> bool:
-        job = _ACTIVE_BACKUP_JOBS.get(job_id)
-        if job and job.status == "in_progress":
-            job.status = "cancelled"
+        from ..core.backup_engine import MasterBackupEngine
+        job = MasterBackupEngine.get_job(job_id)
+        if job and job.status in ["RUNNING", "QUEUED", "VERIFYING", "in_progress"]:
+            job.status = "CANCELLED"
             job.stage_message = "Backup cancelled by user"
             job.updated_at = datetime.now(timezone.utc).isoformat()
+            MasterBackupEngine.save_job(job)
+            MasterBackupEngine.append_log(job_id, job.stage, "Job execution cancelled by user request.", level="WARN")
             return True
         return False
 
-    async def _execute_backup_worker(self, job_id: str, storage_location: str):
-        job = _ACTIVE_BACKUP_JOBS.get(job_id)
-        if not job:
-            return
+    async def prune_expired_backups(self, retention_override: Optional[str] = None) -> PruneBackupsResponse:
+        """
+        Safely enforces retention horizons.
+        CRITICAL INVARIANT: The latest verified recovery point is NEVER deleted,
+        ensuring at least one restorable snapshot is always preserved.
+        """
+        settings_cfg = await self.get_settings()
+        retention = retention_override or settings_cfg.retention_period
 
-        try:
-            # Stage 1: Preparing
-            job.stage = "preparing"
-            job.percent = 25
-            job.stage_message = "Collecting your business data"
-            job.updated_at = datetime.now(timezone.utc).isoformat()
-            await asyncio.sleep(0.6)  # Safe progress transition
+        RETENTION_DAYS_MAP = {
+            "1_month": 30,
+            "30_days": 30,
+            "3_months": 90,
+            "90_days": 90,
+            "6_months": 180,
+            "180_days": 180,
+            "1_year": 365,
+            "365_days": 365,
+        }
 
-            if job.status == "cancelled":
-                return
+        max_days = RETENTION_DAYS_MAP.get(retention)
+        history = await self.get_history()
 
-            # Stage 2: Creating
-            job.stage = "creating"
-            job.percent = 55
-            job.stage_message = "Building a secure backup file"
-            job.updated_at = datetime.now(timezone.utc).isoformat()
-
-            # Query real row counts & lightweight payloads across critical retail entities
-            sess = await self._resolve_target_session()
-            entities_count: Dict[str, int] = {}
-            bundle_data: Dict[str, Any] = {
-                "schema_version": "6.99.7",
-                "company_id": self.company_id,
-                "exported_at": datetime.now(timezone.utc).isoformat(),
-                "entities": {},
-            }
-
-            tables_to_archive = [
-                ("products", "SELECT id, name, code, barcode, mrp, buying_price, stock, category FROM products LIMIT 500;"),
-                ("customers", "SELECT id, name, code, phone, email, city, outstanding FROM customers LIMIT 500;"),
-                ("suppliers", "SELECT id, name, code, phone, city, outstanding FROM suppliers LIMIT 500;"),
-                ("sales_invoices", "SELECT id, invoice_no, total_amount, net_amount, tax_amount, status, created_at FROM sales_invoices LIMIT 500;"),
-                ("purchase_orders", "SELECT id, order_no, grand_total, status, created_at FROM purchase_orders LIMIT 500;"),
-                ("companies", "SELECT id, name, company_code, gstin, state FROM companies LIMIT 10;"),
-            ]
-
-            for tbl, qry in tables_to_archive:
-                if job.status == "cancelled":
-                    return
-                try:
-                    res = await sess.execute(text(qry))
-                    rows = [dict(r._mapping) for r in res.fetchall()]
-                    # serialize dates/decimals
-                    clean_rows = []
-                    for r in rows:
-                        clean_row = {}
-                        for k, v in r.items():
-                            if isinstance(v, (datetime, )):
-                                clean_row[k] = v.isoformat()
-                            elif hasattr(v, "__float__"):
-                                clean_row[k] = float(v)
-                            else:
-                                clean_row[k] = v
-                        clean_rows.append(clean_row)
-                    bundle_data["entities"][tbl] = clean_rows
-                    entities_count[tbl] = len(clean_rows)
-                except Exception:
-                    entities_count[tbl] = 0
-
-            # Stage 3: Verifying
-            job.stage = "verifying"
-            job.percent = 80
-            job.stage_message = "Checking data integrity"
-            job.updated_at = datetime.now(timezone.utc).isoformat()
-            await asyncio.sleep(0.5)
-
-            if job.status == "cancelled":
-                return
-
-            # Serialize and compress payload
-            backup_uuid = uuid.uuid4().hex[:8]
-            timestamp_str = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
-            filename = f"smriti_backup_{self.company_id}_{timestamp_str}_{backup_uuid}.json.gz"
-            payload_path = os.path.join(BACKUP_DIR, filename)
-
-            raw_json = json.dumps(bundle_data, ensure_ascii=False)
-            compressed_bytes = gzip.compress(raw_json.encode("utf-8"))
-            sha256_hash = hashlib.sha256(compressed_bytes).hexdigest()
-
-            with open(payload_path, "wb") as f:
-                f.write(compressed_bytes)
-
-            file_size_bytes = len(compressed_bytes)
-
-            # Stage 4: Finalizing
-            job.stage = "finalizing"
-            job.percent = 95
-            storage_label = "This Device" if storage_location == "local" else ("Google Drive" if storage_location == "gdrive" else "OneDrive")
-            job.stage_message = f"Saving to {storage_label}"
-            job.updated_at = datetime.now(timezone.utc).isoformat()
-            await asyncio.sleep(0.4)
-
-            # Build and save tamper-evident manifest
-            created_dt = datetime.now(timezone.utc)
-            backup_item = BackupItemInfo(
-                id=f"bak-{backup_uuid}",
-                backup_id=f"bak-{backup_uuid}",
-                filename=filename,
-                created_at=created_dt.isoformat(),
-                backup_time_pretty=format_backup_time(created_dt),
-                data_included="Products, Sales, Customers, Settings, Files",
-                storage_location=storage_label,
-                storage_location_type=storage_location,
-                backup_size_bytes=file_size_bytes,
-                backup_size_pretty=format_bytes_pretty(file_size_bytes),
-                verification_status="Verified",
-                sha256_hash=sha256_hash,
-                entities_count=entities_count,
-                is_restorable=True,
+        if not history:
+            return PruneBackupsResponse(
+                pruned_count=0,
+                freed_bytes=0,
+                freed_bytes_pretty="0 B",
+                pruned_backup_ids=[],
+                preserved_backup_id=None,
+                message="No backups exist to prune.",
             )
 
-            manifest_path = os.path.join(BACKUP_DIR, f"{filename}.manifest.json")
-            with open(manifest_path, "w", encoding="utf-8") as f:
-                json.dump(backup_item.model_dump(), f, indent=2)
+        # The newest verified backup is unconditionally preserved
+        preserved_latest = history[0]
+        candidates = history[1:]
 
-            # Mark completed
-            job.stage = "completed"
-            job.percent = 100
-            job.status = "completed"
-            job.stage_message = "Backup completed successfully"
-            job.backup_result = backup_item
-            job.updated_at = datetime.now(timezone.utc).isoformat()
+        if max_days is None:
+            # Retention is "keep_all" or unrecognized -> keep everything
+            return PruneBackupsResponse(
+                pruned_count=0,
+                freed_bytes=0,
+                freed_bytes_pretty="0 B",
+                pruned_backup_ids=[],
+                preserved_backup_id=preserved_latest.backup_id,
+                message=f"Retention policy '{retention}' preserves all backups.",
+            )
 
-        except Exception as exc:
-            job.status = "failed"
-            job.error_message = f"Backup failed: {str(exc)}"
-            job.updated_at = datetime.now(timezone.utc).isoformat()
+        now_utc = datetime.now(timezone.utc)
+        pruned_ids: List[str] = []
+        freed_bytes = 0
 
+        for item in candidates:
+            try:
+                item_dt = datetime.fromisoformat(item.created_at.replace("Z", "+00:00"))
+                age_days = (now_utc - item_dt).total_seconds() / 86400.0
+                if age_days > max_days:
+                    # Remove payload
+                    payload_path = os.path.join(BACKUP_DIR, item.filename)
+                    if os.path.exists(payload_path):
+                        os.remove(payload_path)
+                    # Remove manifest
+                    manifest_path = os.path.join(BACKUP_DIR, f"{item.filename}.manifest.json")
+                    if os.path.exists(manifest_path):
+                        os.remove(manifest_path)
+
+                    pruned_ids.append(item.backup_id)
+                    freed_bytes += item.backup_size_bytes
+            except Exception:
+                continue
+
+        freed_pretty = format_bytes_pretty(freed_bytes)
+        return PruneBackupsResponse(
+            pruned_count=len(pruned_ids),
+            freed_bytes=freed_bytes,
+            freed_bytes_pretty=freed_pretty,
+            pruned_backup_ids=pruned_ids,
+            preserved_backup_id=preserved_latest.backup_id,
+            message=f"Pruned {len(pruned_ids)} backup(s) older than {max_days} days. Freed {freed_pretty}.",
+        )
     # ─────────────────────────────────────────────────────────────────────────
     # 4. RESTORE & RECOVERY REVIEW
     # ─────────────────────────────────────────────────────────────────────────

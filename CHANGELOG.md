@@ -3,13 +3,43 @@
   Author       : Jawahar Ramkripal Mallah
   Email        : support@smritibooks.com
   Websites     : smritibooks.com | erpnbook.com | aitdl.com
-  Version      : 6.99.7
+  Version      : 6.99.8
   Created      : 2026-07-06
   Modified     : 2026-10-22
   Copyright    : © SMRITIBooks.com. All Rights Reserved.
   License      : Proprietary Commercial Software
   Classification: Internal
 -->
+
+## [6.99.8] — 2026-10-22
+
+### Operations & Disaster Recovery — Master Backup & Restore Engine, Windows CLI & Integrity Verification
+
+- **Master Disaster Recovery Engine (`backend/app/core/backup_engine.py`)**:
+  - Engineered `MasterBackupEngine` orchestrating production-grade host backups without simulated progress or dummy records.
+  - Implemented 8 real execution stages (`preflight`, `database_backup`, `app_config`, `persistent_files`, `archive_creation`, `integrity_verification`, `manifest_finalization`, `retention_cleanup`).
+  - Added startup crash reconciliation (`reconcile_interrupted_jobs`), automatically marking stranded in-flight jobs on host restart as `INTERRUPTED` (never falsely claiming `SUCCESS`).
+  - Strict preflight check (`get_preflight_check`) requiring 2x free disk space safety margin and concurrent job mutual exclusion.
+  - Regex secret sanitization (`redact_secrets`) masking passwords, connection strings, and security tokens from memory and disk logs.
+  - Atomic archive packaging (`.tmp` -> verification -> `.tar.gz`) with SHA-256 manifest hashing.
+- **Automated Background Scheduler (`backend/app/core/backup_scheduler.py`)**:
+  - Implemented `BackupSchedulerDaemon` running in FastAPI lifespan executing periodic off-hours snapshots (Daily, Weekly, Monthly) and safe retention pruning.
+  - Enforced strict retention invariant: the newest verified backup is unconditionally preserved, preventing zero-recovery-point states.
+- **Windows PowerShell CLI Suite (`scripts/`)**:
+  - `scripts/backup.ps1`: Interactive and `-NonInteractive` backup runner with live progress bar and log tailing.
+  - `scripts/status.ps1`: Backup protection and scheduler status inspector.
+  - `scripts/logs.ps1`: Live colored structured log follower.
+  - `scripts/restore.ps1`: Guarded recovery tool with destructive warning and safety snapshot creation.
+- **Browser Live Monitor & Reconnection (`src/components/backup/BackupRestoreWorkspace.tsx`)**:
+  - "Create System Backup?" confirmation dialog displaying destination, scope, and disk space.
+  - Real-time 8-stage progress tracker with individual step indicators.
+  - Collapsible sanitized live process logs terminal.
+  - Automatic reconnection to active in-flight jobs on browser refresh or navigation.
+- **Verification Suite**:
+  - 5/5 backend tests green in `backend/app/tests/test_master_backup_engine.py`.
+  - 4/4 backend tests green in `backend/app/tests/test_backup_restore_service.py`.
+  - 8/8 frontend tests green in `src/tests/backupRestoreWorkspace.test.tsx`.
+  - Clean `tsc --noEmit` (0 errors).
 
 ## [6.99.7] — 2026-10-22
 
