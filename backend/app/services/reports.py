@@ -18,11 +18,12 @@ Founders
 
 from decimal import Decimal, ROUND_HALF_UP
 from datetime import date, datetime, timezone, timedelta
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Union
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from sqlalchemy import func, or_
+from sqlalchemy import func, or_, case, literal, distinct
 from fastapi import HTTPException
+from .report_field_registry import ReportFieldRegistry, FieldSemanticType, AggregationFunction
 
 from ..models.inventory import Product
 from ..models.item_master import Item, ItemVariant
@@ -3567,6 +3568,9 @@ class ReportsService:
     async def query_report_builder(
         self,
         category: str = "Purchase",
+        consolidation_mode: str = "auto",
+        selected_columns: Optional[Union[List[str], str]] = None,
+        group_by_columns: Optional[Union[List[str], str]] = None,
         start_date: Optional[date] = None,
         end_date: Optional[date] = None,
         branch_id: Optional[str] = None,
@@ -3577,83 +3581,96 @@ class ReportsService:
         offset: int = 0,
     ) -> Dict[str, Any]:
         """
-        Execute live parameterized query for SMRITI Report Builder across domains.
-        Returns rows, server-calculated totals, and metadata.
+        Execute live parameterized query for SMRITI Report Builder across domains
+        with intelligent auto-consolidation and dynamic metadata-driven grouping.
         """
         category_normalized = (category or "Purchase").capitalize()
         company_id = getattr(self.tenant, "company_id", None) or (str(self.tenant) if self.tenant else None)
+        mode = (consolidation_mode or "auto").lower().strip()
 
+        # Parse column selections
+        if isinstance(selected_columns, str):
+            selected_cols = [c.strip() for c in selected_columns.split(",") if c.strip()]
+        elif isinstance(selected_columns, (list, tuple)):
+            selected_cols = [str(c).strip() for c in selected_columns if str(c).strip()]
+        else:
+            selected_cols = []
+
+        if isinstance(group_by_columns, str):
+            custom_group_cols = [c.strip() for c in group_by_columns.split(",") if c.strip()]
+        elif isinstance(group_by_columns, (list, tuple)):
+            custom_group_cols = [str(c).strip() for c in group_by_columns if str(c).strip()]
+        else:
+            custom_group_cols = []
+
+        # ─────────────────────────────────────────────────────────────────────
+        # 1. PURCHASE DOMAIN
+        # ─────────────────────────────────────────────────────────────────────
         if category_normalized == "Purchase":
-            stmt = (
-                select(
-                    PurchaseOrderItem.id,
-                    Supplier.name.label("supplier"),
-                    Supplier.code.label("supplier_code"),
-                    Supplier.city.label("city"),
-                    Supplier.city.label("supplier_city"),
-                    PurchaseOrder.order_no.label("po_no"),
-                    PurchaseOrder.created_at.label("po_date"),
-                    PurchaseBill.bill_no.label("invoice_no"),
-                    PurchaseOrderItem.code.label("article_sku"),
-                    Product.color.label("color"),
-                    Product.size.label("size"),
-                    PurchaseOrderItem.quantity.label("quantity"),
-                    PurchaseOrderItem.line_total.label("net_amount"),
-                )
-                .join(PurchaseOrder, PurchaseOrderItem.order_id == PurchaseOrder.id)
-                .join(Supplier, PurchaseOrder.supplier_id == Supplier.id)
-                .outerjoin(Product, PurchaseOrderItem.product_id == Product.id)
-                .outerjoin(PurchaseBill, PurchaseBill.order_id == PurchaseOrder.id)
+            # Subquery to retrieve first non-cancelled bill number without 1:N Cartesian multiplication
+            bill_subquery = (
+                select(PurchaseBill.bill_no)
                 .where(
-                    PurchaseOrder.is_deleted == False,
-                    PurchaseOrderItem.is_deleted == False,
+                    PurchaseBill.order_id == PurchaseOrder.id,
+                    PurchaseBill.is_deleted == False
                 )
+                .limit(1)
+                .scalar_subquery()
             )
 
+            # Base expressions map
+            dim_expr_map = {
+                "supplier": Supplier.name,
+                "supplier_code": Supplier.code,
+                "supplier_city": Supplier.city,
+                "city": Supplier.city,
+                "po_no": PurchaseOrder.order_no,
+                "po_date": func.to_char(PurchaseOrder.created_at, "YYYY-MM-DD"),
+                "invoice_no": bill_subquery,
+                "article_sku": PurchaseOrderItem.code,
+                "color": func.coalesce(Product.color, "-"),
+                "size": func.coalesce(Product.size, "-"),
+            }
+
+            # Filter conditions
+            base_filters = [
+                PurchaseOrder.is_deleted == False,
+                PurchaseOrderItem.is_deleted == False,
+            ]
             if company_id:
-                stmt = stmt.where(PurchaseOrder.company_id == company_id)
+                base_filters.append(PurchaseOrder.company_id == company_id)
             if branch_id and branch_id.upper() not in ["ALL", ""]:
-                stmt = stmt.where(PurchaseOrder.branch_id == branch_id)
+                base_filters.append(PurchaseOrder.branch_id == branch_id)
             if start_date:
-                stmt = stmt.where(func.date(PurchaseOrder.created_at) >= start_date)
+                base_filters.append(func.date(PurchaseOrder.created_at) >= start_date)
             if end_date:
-                stmt = stmt.where(func.date(PurchaseOrder.created_at) <= end_date)
+                base_filters.append(func.date(PurchaseOrder.created_at) <= end_date)
             if search and search.strip():
-                pattern = f"%{search.strip()}%"
-                stmt = stmt.where(
+                patt = f"%{search.strip()}%"
+                base_filters.append(
                     or_(
-                        Supplier.name.ilike(pattern),
-                        PurchaseOrder.order_no.ilike(pattern),
-                        PurchaseOrderItem.code.ilike(pattern),
-                        Product.color.ilike(pattern),
-                        PurchaseBill.bill_no.ilike(pattern),
+                        Supplier.name.ilike(patt),
+                        Supplier.code.ilike(patt),
+                        PurchaseOrder.order_no.ilike(patt),
+                        PurchaseOrderItem.code.ilike(patt),
+                        Product.color.ilike(patt),
+                        bill_subquery.ilike(patt),
                     )
                 )
 
-            # Order by
-            order_col = Supplier.name
-            if sort_field == "po_no":
-                order_col = PurchaseOrder.order_no
-            elif sort_field == "po_date":
-                order_col = PurchaseOrder.created_at
-            elif sort_field == "quantity":
-                order_col = PurchaseOrderItem.quantity
-            elif sort_field == "net_amount":
-                order_col = PurchaseOrderItem.line_total
-            elif sort_field == "article_sku":
-                order_col = PurchaseOrderItem.code
-
-            if sort_direction == "desc":
-                stmt = stmt.order_by(order_col.desc(), PurchaseOrderItem.id.desc())
+            # Determine active grouping dimensions
+            if mode == "detailed":
+                active_dims: List[str] = []
+            elif mode == "groupby" and custom_group_cols:
+                active_dims = [c for c in custom_group_cols if c in dim_expr_map]
             else:
-                stmt = stmt.order_by(order_col.asc(), PurchaseOrderItem.id.asc())
+                # Auto consolidation: active dimensions are the selected dimensions
+                if selected_cols:
+                    active_dims = [c for c in selected_cols if ReportFieldRegistry.is_dimension("Purchase", c) and c in dim_expr_map]
+                else:
+                    active_dims = ["supplier", "po_date", "article_sku", "color", "size"]
 
-            # Count total matching records
-            count_stmt = select(func.count()).select_from(stmt.subquery())
-            total_count_res = await self.db.execute(count_stmt)
-            total_count = total_count_res.scalar_one_or_none() or 0
-
-            # Totals aggregate query for quantity and net_amount
+            # Grand totals (Always clean sums on distinct item lines without join inflation)
             totals_stmt = (
                 select(
                     func.coalesce(func.sum(PurchaseOrderItem.quantity), 0).label("tot_qty"),
@@ -3663,61 +3680,153 @@ class ReportsService:
                 .join(PurchaseOrder, PurchaseOrderItem.order_id == PurchaseOrder.id)
                 .join(Supplier, PurchaseOrder.supplier_id == Supplier.id)
                 .outerjoin(Product, PurchaseOrderItem.product_id == Product.id)
-                .outerjoin(PurchaseBill, PurchaseBill.order_id == PurchaseOrder.id)
-                .where(
-                    PurchaseOrder.is_deleted == False,
-                    PurchaseOrderItem.is_deleted == False,
-                )
+                .where(*base_filters)
             )
-            if company_id:
-                totals_stmt = totals_stmt.where(PurchaseOrder.company_id == company_id)
-            if branch_id and branch_id.upper() not in ["ALL", ""]:
-                totals_stmt = totals_stmt.where(PurchaseOrder.branch_id == branch_id)
-            if start_date:
-                totals_stmt = totals_stmt.where(func.date(PurchaseOrder.created_at) >= start_date)
-            if end_date:
-                totals_stmt = totals_stmt.where(func.date(PurchaseOrder.created_at) <= end_date)
-            if search and search.strip():
-                pattern = f"%{search.strip()}%"
-                totals_stmt = totals_stmt.where(
-                    or_(
-                        Supplier.name.ilike(pattern),
-                        PurchaseOrder.order_no.ilike(pattern),
-                        PurchaseOrderItem.code.ilike(pattern),
-                        Product.color.ilike(pattern),
-                        PurchaseBill.bill_no.ilike(pattern),
-                    )
-                )
-
-            totals_res = await self.db.execute(totals_stmt)
-            tot_row = totals_res.one_or_none()
+            tot_row = (await self.db.execute(totals_stmt)).one_or_none()
             total_qty = float(tot_row[0]) if tot_row else 0.0
             total_amt = float(tot_row[1]) if tot_row else 0.0
 
-            # Pagination
-            stmt = stmt.offset(offset).limit(limit)
-            result = await self.db.execute(stmt)
+            # Build Main Statement
+            if mode == "detailed":
+                stmt = (
+                    select(
+                        PurchaseOrderItem.id.label("raw_id"),
+                        Supplier.name.label("supplier"),
+                        Supplier.code.label("supplier_code"),
+                        Supplier.city.label("supplier_city"),
+                        Supplier.city.label("city"),
+                        PurchaseOrder.order_no.label("po_no"),
+                        func.to_char(PurchaseOrder.created_at, "YYYY-MM-DD").label("po_date"),
+                        bill_subquery.label("invoice_no"),
+                        PurchaseOrderItem.code.label("article_sku"),
+                        func.coalesce(Product.color, "-").label("color"),
+                        func.coalesce(Product.size, "-").label("size"),
+                        PurchaseOrderItem.quantity.label("quantity"),
+                        PurchaseOrderItem.line_total.label("net_amount"),
+                        literal(1).label("_record_count"),
+                        literal(False).label("_is_consolidated"),
+                    )
+                    .select_from(PurchaseOrderItem)
+                    .join(PurchaseOrder, PurchaseOrderItem.order_id == PurchaseOrder.id)
+                    .join(Supplier, PurchaseOrder.supplier_id == Supplier.id)
+                    .outerjoin(Product, PurchaseOrderItem.product_id == Product.id)
+                    .where(*base_filters)
+                )
+
+                # Sorting
+                sort_col = Supplier.name
+                if sort_field == "po_no":
+                    sort_col = PurchaseOrder.order_no
+                elif sort_field == "po_date":
+                    sort_col = PurchaseOrder.created_at
+                elif sort_field == "quantity":
+                    sort_col = PurchaseOrderItem.quantity
+                elif sort_field == "net_amount":
+                    sort_col = PurchaseOrderItem.line_total
+                elif sort_field == "article_sku":
+                    sort_col = PurchaseOrderItem.code
+                elif sort_field == "color":
+                    sort_col = Product.color
+                elif sort_field == "size":
+                    sort_col = Product.size
+
+                if sort_direction == "desc":
+                    stmt = stmt.order_by(sort_col.desc(), PurchaseOrderItem.id.desc())
+                else:
+                    stmt = stmt.order_by(sort_col.asc(), PurchaseOrderItem.id.asc())
+
+            else:
+                # CONSOLIDATED MODE (Auto or GroupBy)
+                select_items = [
+                    func.min(PurchaseOrderItem.id).label("raw_id"),
+                    func.coalesce(func.sum(PurchaseOrderItem.quantity), 0).label("quantity"),
+                    func.coalesce(func.sum(PurchaseOrderItem.line_total), 0).label("net_amount"),
+                    func.count(distinct(PurchaseOrderItem.id)).label("_record_count"),
+                    case(
+                        (func.count(distinct(PurchaseOrderItem.id)) > 1, True),
+                        else_=False
+                    ).label("_is_consolidated"),
+                ]
+
+                # Group by expressions
+                group_by_exprs = []
+                seen_exprs = set()
+                for d in active_dims:
+                    expr = dim_expr_map[d]
+                    select_items.append(expr.label(d))
+                    expr_key = str(expr)
+                    if expr_key not in seen_exprs:
+                        group_by_exprs.append(expr)
+                        seen_exprs.add(expr_key)
+
+                stmt = (
+                    select(*select_items)
+                    .select_from(PurchaseOrderItem)
+                    .join(PurchaseOrder, PurchaseOrderItem.order_id == PurchaseOrder.id)
+                    .join(Supplier, PurchaseOrder.supplier_id == Supplier.id)
+                    .outerjoin(Product, PurchaseOrderItem.product_id == Product.id)
+                    .where(*base_filters)
+                )
+
+                if group_by_exprs:
+                    stmt = stmt.group_by(*group_by_exprs)
+
+                # Sorting on grouped query
+                sort_expr = None
+                if sort_field == "quantity":
+                    sort_expr = func.sum(PurchaseOrderItem.quantity)
+                elif sort_field == "net_amount":
+                    sort_expr = func.sum(PurchaseOrderItem.line_total)
+                elif sort_field in active_dims:
+                    sort_expr = dim_expr_map[sort_field]
+                elif active_dims:
+                    sort_expr = dim_expr_map[active_dims[0]]
+                else:
+                    sort_expr = func.min(PurchaseOrderItem.id)
+
+                if sort_direction == "desc":
+                    stmt = stmt.order_by(sort_expr.desc())
+                else:
+                    stmt = stmt.order_by(sort_expr.asc())
+
+            # Count total matching records (rows in the result set)
+            count_stmt = select(func.count()).select_from(stmt.subquery())
+            total_count = (await self.db.execute(count_stmt)).scalar_one_or_none() or 0
+
+            # Execute paginated query
+            paged_stmt = stmt.offset(offset).limit(limit)
+            result = await self.db.execute(paged_stmt)
             mappings = result.mappings().all()
 
             rows = []
             for r in mappings:
-                po_dt = r["po_date"]
-                po_date_str = po_dt.strftime("%d %b") if hasattr(po_dt, "strftime") else str(po_dt or "-")
-                rows.append({
-                    "id": f"row-{r['id']}",
-                    "supplier": r["supplier"] or "-",
-                    "supplier_code": r["supplier_code"] or "-",
-                    "supplier_city": r["supplier_city"] or "-",
-                    "city": r["city"] or "-",
-                    "po_no": r["po_no"] or "-",
+                po_dt_raw = r.get("po_date")
+                po_date_str = str(po_dt_raw) if po_dt_raw else "-"
+                if po_date_str != "-" and len(po_date_str) >= 10:
+                    try:
+                        dt_obj = datetime.strptime(po_date_str[:10], "%Y-%m-%d")
+                        po_date_str = dt_obj.strftime("%d %b")
+                    except Exception:
+                        pass
+
+                row_dict = {
+                    "id": f"row-{r.get('raw_id') or abs(hash(str(r.items())))}",
+                    "supplier": r.get("supplier") or ("All Suppliers" if "supplier" not in active_dims and mode != "detailed" else "-"),
+                    "supplier_code": r.get("supplier_code") or "-",
+                    "supplier_city": r.get("supplier_city") or r.get("city") or "-",
+                    "city": r.get("city") or r.get("supplier_city") or "-",
+                    "po_no": r.get("po_no") or ("Multiple POs" if "po_no" not in active_dims and mode != "detailed" else "-"),
                     "po_date": po_date_str,
-                    "invoice_no": r["invoice_no"] or "-",
-                    "article_sku": r["article_sku"] or "-",
-                    "color": r["color"] or "-",
-                    "size": r["size"] or "-",
-                    "quantity": float(r["quantity"] or 0),
-                    "net_amount": float(r["net_amount"] or 0),
-                })
+                    "invoice_no": r.get("invoice_no") or "-",
+                    "article_sku": r.get("article_sku") or ("Consolidated SKUs" if "article_sku" not in active_dims and mode != "detailed" else "-"),
+                    "color": r.get("color") or ("All Colors" if "color" not in active_dims and mode != "detailed" else "-"),
+                    "size": r.get("size") or ("All Sizes" if "size" not in active_dims and mode != "detailed" else "-"),
+                    "quantity": float(r.get("quantity") or 0),
+                    "net_amount": float(r.get("net_amount") or 0),
+                    "_record_count": int(r.get("_record_count") or 1),
+                    "_is_consolidated": bool(r.get("_is_consolidated", False)),
+                }
+                rows.append(row_dict)
 
             return {
                 "category": category_normalized,
@@ -3727,69 +3836,337 @@ class ReportsService:
                     "quantity": total_qty,
                     "net_amount": total_amt,
                 },
+                "consolidation_mode": mode,
+                "group_by_dimensions": active_dims,
                 "generated_at": datetime.now(timezone.utc).isoformat(),
             }
 
-        elif category_normalized in ["Items", "Inventory"]:
-            stmt = select(Product).where(Product.is_deleted == False)
+        # ─────────────────────────────────────────────────────────────────────
+        # 2. SALES DOMAIN
+        # ─────────────────────────────────────────────────────────────────────
+        elif category_normalized == "Sales":
+            sales_dim_map = {
+                "sale_invoice_no": SalesInvoice.invoice_no,
+                "sale_date": func.to_char(SalesInvoice.created_at, "YYYY-MM-DD"),
+                "customer_name": Customer.name,
+                "staff_name": func.coalesce(SalesInvoiceItem.salesperson_name, "Store Staff"),
+                "article_sku": SalesInvoiceItem.code,
+                "color": func.coalesce(Product.color, "-"),
+                "size": func.coalesce(Product.size, "-"),
+                "payment_mode": SalesInvoice.payment_mode,
+            }
+
+            sales_filters = [
+                SalesInvoice.is_deleted == False,
+                SalesInvoiceItem.is_deleted == False,
+            ]
             if company_id:
-                stmt = stmt.where(Product.company_id == company_id)
+                sales_filters.append(SalesInvoice.company_id == company_id)
+            if branch_id and branch_id.upper() not in ["ALL", ""]:
+                sales_filters.append(SalesInvoice.branch_id == branch_id)
+            if start_date:
+                sales_filters.append(func.date(SalesInvoice.created_at) >= start_date)
+            if end_date:
+                sales_filters.append(func.date(SalesInvoice.created_at) <= end_date)
             if search and search.strip():
                 patt = f"%{search.strip()}%"
-                stmt = stmt.where(or_(Product.name.ilike(patt), Product.code.ilike(patt)))
+                sales_filters.append(
+                    or_(
+                        Customer.name.ilike(patt),
+                        SalesInvoice.invoice_no.ilike(patt),
+                        SalesInvoiceItem.code.ilike(patt),
+                        Product.color.ilike(patt),
+                    )
+                )
+
+            # Active dims
+            if mode == "detailed":
+                active_dims = []
+            elif mode == "groupby" and custom_group_cols:
+                active_dims = [c for c in custom_group_cols if c in sales_dim_map]
+            else:
+                if selected_cols:
+                    active_dims = [c for c in selected_cols if ReportFieldRegistry.is_dimension("Sales", c) and c in sales_dim_map]
+                else:
+                    active_dims = ["customer_name", "sale_invoice_no", "article_sku", "color", "size"]
+
+            # Grand totals
+            tot_stmt = (
+                select(
+                    func.coalesce(func.sum(SalesInvoiceItem.quantity), 0).label("tot_qty"),
+                    func.coalesce(func.sum(SalesInvoiceItem.total_amount), 0).label("tot_amt"),
+                    func.coalesce(func.sum(SalesInvoiceItem.tax_amount), 0).label("tot_tax"),
+                )
+                .select_from(SalesInvoiceItem)
+                .join(SalesInvoice, SalesInvoiceItem.invoice_id == SalesInvoice.id)
+                .join(Customer, SalesInvoice.customer_id == Customer.id)
+                .outerjoin(Product, SalesInvoiceItem.product_id == Product.id)
+                .where(*sales_filters)
+            )
+            tot_res = (await self.db.execute(tot_stmt)).one_or_none()
+            tot_qty = float(tot_res[0]) if tot_res else 0.0
+            tot_amt = float(tot_res[1]) if tot_res else 0.0
+            tot_tax = float(tot_res[2]) if tot_res else 0.0
+
+            if mode == "detailed":
+                stmt = (
+                    select(
+                        SalesInvoiceItem.id.label("raw_id"),
+                        SalesInvoice.invoice_no.label("sale_invoice_no"),
+                        func.to_char(SalesInvoice.created_at, "YYYY-MM-DD").label("sale_date"),
+                        Customer.name.label("customer_name"),
+                        func.coalesce(SalesInvoiceItem.salesperson_name, "Store Staff").label("staff_name"),
+                        SalesInvoiceItem.code.label("article_sku"),
+                        func.coalesce(Product.color, "-").label("color"),
+                        func.coalesce(Product.size, "-").label("size"),
+                        SalesInvoice.payment_mode.label("payment_mode"),
+                        SalesInvoiceItem.quantity.label("quantity"),
+                        func.coalesce(SalesInvoiceItem.taxable_value, SalesInvoiceItem.price * SalesInvoiceItem.quantity, 0).label("gross_total"),
+                        func.coalesce(SalesInvoiceItem.tax_amount, 0).label("tax_amount"),
+                        func.coalesce(SalesInvoiceItem.total_amount, 0).label("net_total"),
+                        literal(1).label("_record_count"),
+                        literal(False).label("_is_consolidated"),
+                    )
+                    .select_from(SalesInvoiceItem)
+                    .join(SalesInvoice, SalesInvoiceItem.invoice_id == SalesInvoice.id)
+                    .join(Customer, SalesInvoice.customer_id == Customer.id)
+                    .outerjoin(Product, SalesInvoiceItem.product_id == Product.id)
+                    .where(*sales_filters)
+                    .order_by(SalesInvoice.created_at.desc(), SalesInvoiceItem.id.desc())
+                )
+            else:
+                select_items = [
+                    func.min(SalesInvoiceItem.id).label("raw_id"),
+                    func.coalesce(func.sum(SalesInvoiceItem.quantity), 0).label("quantity"),
+                    func.coalesce(func.sum(func.coalesce(SalesInvoiceItem.taxable_value, SalesInvoiceItem.price * SalesInvoiceItem.quantity, 0)), 0).label("gross_total"),
+                    func.coalesce(func.sum(SalesInvoiceItem.tax_amount), 0).label("tax_amount"),
+                    func.coalesce(func.sum(SalesInvoiceItem.total_amount), 0).label("net_total"),
+                    func.count(distinct(SalesInvoiceItem.id)).label("_record_count"),
+                    case((func.count(distinct(SalesInvoiceItem.id)) > 1, True), else_=False).label("_is_consolidated"),
+                ]
+                group_by_exprs = []
+                seen_exprs = set()
+                for d in active_dims:
+                    expr = sales_dim_map[d]
+                    select_items.append(expr.label(d))
+                    expr_key = str(expr)
+                    if expr_key not in seen_exprs:
+                        group_by_exprs.append(expr)
+                        seen_exprs.add(expr_key)
+
+                stmt = (
+                    select(*select_items)
+                    .select_from(SalesInvoiceItem)
+                    .join(SalesInvoice, SalesInvoiceItem.invoice_id == SalesInvoice.id)
+                    .join(Customer, SalesInvoice.customer_id == Customer.id)
+                    .outerjoin(Product, SalesInvoiceItem.product_id == Product.id)
+                    .where(*sales_filters)
+                )
+                if group_by_exprs:
+                    stmt = stmt.group_by(*group_by_exprs)
+                stmt = stmt.order_by(func.sum(SalesInvoiceItem.total_amount).desc())
+
             count_stmt = select(func.count()).select_from(stmt.subquery())
             total_count = (await self.db.execute(count_stmt)).scalar_one_or_none() or 0
-            res = await self.db.execute(stmt.offset(offset).limit(limit))
-            prods = res.scalars().all()
+
+            mappings = (await self.db.execute(stmt.offset(offset).limit(limit))).mappings().all()
             rows = []
-            tot_qty = 0.0
-            tot_amt = 0.0
-            for p in prods:
-                stk = float(p.stock or 0)
-                cp = float(p.cost_price or 0)
-                val = stk * cp
-                tot_qty += stk
-                tot_amt += val
+            for r in mappings:
+                s_dt = r.get("sale_date")
                 rows.append({
-                    "id": f"prod-{p.id}",
-                    "item_code": p.code or "-",
-                    "item_name": p.name or "-",
-                    "item_category": p.category or "-",
-                    "brand": p.brand or "-",
-                    "mrp": float(p.mrp or 0),
-                    "standard_cost": cp,
-                    "selling_price": float(p.buying_price or 0),
-                    "stock_on_hand": stk,
-                    "warehouse": "Main Godown",
-                    "reserved_qty": float(p.reserved_stock or 0),
-                    "available_qty": stk - float(p.reserved_stock or 0),
-                    "reorder_level": float(getattr(p, "reorder_level", 0.0) or 0.0),
-                    "valuation_cost": val,
+                    "id": f"sale-{r.get('raw_id') or abs(hash(str(r.items())))}",
+                    "sale_invoice_no": r.get("sale_invoice_no") or "-",
+                    "sale_date": str(s_dt) if s_dt else "-",
+                    "customer_name": r.get("customer_name") or "-",
+                    "staff_name": r.get("staff_name") or "-",
+                    "article_sku": r.get("article_sku") or "-",
+                    "color": r.get("color") or "-",
+                    "size": r.get("size") or "-",
+                    "payment_mode": r.get("payment_mode") or "Cash",
+                    "quantity": float(r.get("quantity") or 0),
+                    "gross_total": float(r.get("gross_total") or 0),
+                    "tax_amount": float(r.get("tax_amount") or 0),
+                    "net_total": float(r.get("net_total") or 0),
+                    "_record_count": int(r.get("_record_count") or 1),
+                    "_is_consolidated": bool(r.get("_is_consolidated", False)),
                 })
+
             return {
                 "category": category_normalized,
                 "total_count": total_count,
                 "rows": rows,
-                "totals": {"stock_on_hand": tot_qty, "valuation_cost": tot_amt},
+                "totals": {
+                    "quantity": tot_qty,
+                    "net_total": tot_amt,
+                    "gross_total": tot_amt - tot_tax,
+                    "tax_amount": tot_tax,
+                },
+                "consolidation_mode": mode,
+                "group_by_dimensions": active_dims,
                 "generated_at": datetime.now(timezone.utc).isoformat(),
             }
 
-        elif category_normalized == "Suppliers":
-            stmt = select(Supplier).where(Supplier.is_deleted == False)
+        # ─────────────────────────────────────────────────────────────────────
+        # 3. ITEMS / INVENTORY DOMAIN
+        # ─────────────────────────────────────────────────────────────────────
+        elif category_normalized in ["Items", "Inventory"]:
+            inv_dim_map = {
+                "item_code": Product.code,
+                "item_name": Product.name,
+                "item_category": Product.category,
+                "brand": Product.brand,
+                "color": func.coalesce(Product.color, "-"),
+                "size": func.coalesce(Product.size, "-"),
+                "warehouse": literal("Main Godown"),
+            }
+
+            prod_filters = [Product.is_deleted == False]
             if company_id:
-                stmt = stmt.where(Supplier.company_id == company_id)
+                prod_filters.append(Product.company_id == company_id)
             if search and search.strip():
                 patt = f"%{search.strip()}%"
-                stmt = stmt.where(or_(Supplier.name.ilike(patt), Supplier.code.ilike(patt)))
+                prod_filters.append(or_(Product.name.ilike(patt), Product.code.ilike(patt)))
+
+            # Active dims
+            if mode == "detailed":
+                active_dims = []
+            elif mode == "groupby" and custom_group_cols:
+                active_dims = [c for c in custom_group_cols if c in inv_dim_map]
+            else:
+                if selected_cols:
+                    active_dims = [c for c in selected_cols if ReportFieldRegistry.is_dimension("Inventory", c) and c in inv_dim_map]
+                else:
+                    active_dims = ["item_code", "item_name", "item_category", "brand", "color", "size"]
+
+            # Grand totals
+            tot_stmt = (
+                select(
+                    func.coalesce(func.sum(Product.stock), 0).label("tot_stk"),
+                    func.coalesce(func.sum(Product.stock * func.coalesce(Product.cost_price, 0)), 0).label("tot_val"),
+                )
+                .where(*prod_filters)
+            )
+            tot_res = (await self.db.execute(tot_stmt)).one_or_none()
+            tot_stk = float(tot_res[0]) if tot_res else 0.0
+            tot_val = float(tot_res[1]) if tot_res else 0.0
+
+            if mode == "detailed":
+                stmt = (
+                    select(
+                        Product.id.label("raw_id"),
+                        Product.code.label("item_code"),
+                        Product.name.label("item_name"),
+                        Product.category.label("item_category"),
+                        Product.brand.label("brand"),
+                        func.coalesce(Product.color, "-").label("color"),
+                        func.coalesce(Product.size, "-").label("size"),
+                        literal("Main Godown").label("warehouse"),
+                        func.coalesce(Product.stock, 0).label("stock_on_hand"),
+                        func.coalesce(Product.reserved_stock, 0).label("reserved_qty"),
+                        (func.coalesce(Product.stock, 0) - func.coalesce(Product.reserved_stock, 0)).label("available_qty"),
+                        (func.coalesce(Product.stock, 0) * func.coalesce(Product.cost_price, 0)).label("valuation_cost"),
+                        func.coalesce(Product.cost_price, 0).label("standard_cost"),
+                        func.coalesce(Product.buying_price, 0).label("selling_price"),
+                        func.coalesce(Product.mrp, 0).label("mrp"),
+                        func.coalesce(Product.reorder_level, 0).label("reorder_level"),
+                        literal(1).label("_record_count"),
+                        literal(False).label("_is_consolidated"),
+                    )
+                    .where(*prod_filters)
+                    .order_by(Product.name.asc())
+                )
+            else:
+                select_items = [
+                    func.min(Product.id).label("raw_id"),
+                    func.coalesce(func.sum(Product.stock), 0).label("stock_on_hand"),
+                    func.coalesce(func.sum(Product.reserved_stock), 0).label("reserved_qty"),
+                    func.coalesce(func.sum(Product.stock - func.coalesce(Product.reserved_stock, 0)), 0).label("available_qty"),
+                    func.coalesce(func.sum(Product.stock * func.coalesce(Product.cost_price, 0)), 0).label("valuation_cost"),
+                    func.round(func.avg(Product.cost_price), 2).label("standard_cost"),
+                    func.round(func.avg(Product.buying_price), 2).label("selling_price"),
+                    func.round(func.avg(Product.mrp), 2).label("mrp"),
+                    func.max(Product.reorder_level).label("reorder_level"),
+                    func.count(distinct(Product.id)).label("_record_count"),
+                    case((func.count(distinct(Product.id)) > 1, True), else_=False).label("_is_consolidated"),
+                ]
+                group_by_exprs = []
+                seen_exprs = set()
+                for d in active_dims:
+                    expr = inv_dim_map[d]
+                    select_items.append(expr.label(d))
+                    expr_key = str(expr)
+                    if expr_key not in seen_exprs:
+                        group_by_exprs.append(expr)
+                        seen_exprs.add(expr_key)
+
+                stmt = select(*select_items).where(*prod_filters)
+                if group_by_exprs:
+                    stmt = stmt.group_by(*group_by_exprs)
+                stmt = stmt.order_by(func.sum(Product.stock).desc())
+
             count_stmt = select(func.count()).select_from(stmt.subquery())
             total_count = (await self.db.execute(count_stmt)).scalar_one_or_none() or 0
-            res = await self.db.execute(stmt.offset(offset).limit(limit))
-            sups = res.scalars().all()
+
+            mappings = (await self.db.execute(stmt.offset(offset).limit(limit))).mappings().all()
             rows = []
-            tot_bal = 0.0
+            for r in mappings:
+                rows.append({
+                    "id": f"prod-{r.get('raw_id') or abs(hash(str(r.items())))}",
+                    "item_code": r.get("item_code") or "-",
+                    "item_name": r.get("item_name") or "-",
+                    "item_category": r.get("item_category") or "-",
+                    "brand": r.get("brand") or "-",
+                    "color": r.get("color") or "-",
+                    "size": r.get("size") or "-",
+                    "warehouse": r.get("warehouse") or "Main Godown",
+                    "stock_on_hand": float(r.get("stock_on_hand") or 0),
+                    "reserved_qty": float(r.get("reserved_qty") or 0),
+                    "available_qty": float(r.get("available_qty") or 0),
+                    "valuation_cost": float(r.get("valuation_cost") or 0),
+                    "standard_cost": float(r.get("standard_cost") or 0),
+                    "selling_price": float(r.get("selling_price") or 0),
+                    "mrp": float(r.get("mrp") or 0),
+                    "reorder_level": float(r.get("reorder_level") or 0),
+                    "_record_count": int(r.get("_record_count") or 1),
+                    "_is_consolidated": bool(r.get("_is_consolidated", False)),
+                })
+
+            return {
+                "category": category_normalized,
+                "total_count": total_count,
+                "rows": rows,
+                "totals": {
+                    "stock_on_hand": tot_stk,
+                    "valuation_cost": tot_val,
+                },
+                "consolidation_mode": mode,
+                "group_by_dimensions": active_dims,
+                "generated_at": datetime.now(timezone.utc).isoformat(),
+            }
+
+        # ─────────────────────────────────────────────────────────────────────
+        # 4. SUPPLIERS DOMAIN
+        # ─────────────────────────────────────────────────────────────────────
+        elif category_normalized == "Suppliers":
+            sup_filters = [Supplier.is_deleted == False]
+            if company_id:
+                sup_filters.append(Supplier.company_id == company_id)
+            if search and search.strip():
+                patt = f"%{search.strip()}%"
+                sup_filters.append(or_(Supplier.name.ilike(patt), Supplier.code.ilike(patt)))
+
+            count_stmt = select(func.count()).select_from(select(Supplier).where(*sup_filters).subquery())
+            total_count = (await self.db.execute(count_stmt)).scalar_one_or_none() or 0
+
+            tot_stmt = select(func.coalesce(func.sum(Supplier.outstanding), 0)).where(*sup_filters)
+            tot_bal = float((await self.db.execute(tot_stmt)).scalar_one_or_none() or 0.0)
+
+            stmt = select(Supplier).where(*sup_filters).order_by(Supplier.name.asc())
+            sups = (await self.db.execute(stmt.offset(offset).limit(limit))).scalars().all()
+
+            rows = []
             for s in sups:
                 bal = float(s.outstanding or 0)
-                tot_bal += bal
                 rows.append({
                     "id": f"sup-{s.id}",
                     "supplier_code": s.code or "-",
@@ -3799,12 +4176,62 @@ class ReportsService:
                     "supplier_city": s.city or "-",
                     "city": s.city or "-",
                     "supplier_balance": bal,
+                    "_record_count": 1,
+                    "_is_consolidated": False,
                 })
+
             return {
                 "category": category_normalized,
                 "total_count": total_count,
                 "rows": rows,
                 "totals": {"supplier_balance": tot_bal},
+                "consolidation_mode": mode,
+                "group_by_dimensions": ["supplier_code", "supplier", "city"],
+                "generated_at": datetime.now(timezone.utc).isoformat(),
+            }
+
+        # ─────────────────────────────────────────────────────────────────────
+        # 5. CUSTOMERS DOMAIN
+        # ─────────────────────────────────────────────────────────────────────
+        elif category_normalized == "Customers":
+            cust_filters = [Customer.is_deleted == False]
+            if company_id:
+                cust_filters.append(Customer.company_id == company_id)
+            if search and search.strip():
+                patt = f"%{search.strip()}%"
+                cust_filters.append(or_(Customer.name.ilike(patt), Customer.code.ilike(patt)))
+
+            count_stmt = select(func.count()).select_from(select(Customer).where(*cust_filters).subquery())
+            total_count = (await self.db.execute(count_stmt)).scalar_one_or_none() or 0
+
+            tot_stmt = select(func.coalesce(func.sum(Customer.outstanding), 0)).where(*cust_filters)
+            tot_bal = float((await self.db.execute(tot_stmt)).scalar_one_or_none() or 0.0)
+
+            stmt = select(Customer).where(*cust_filters).order_by(Customer.name.asc())
+            custs = (await self.db.execute(stmt.offset(offset).limit(limit))).scalars().all()
+
+            rows = []
+            for c in custs:
+                bal = float(c.outstanding or 0)
+                rows.append({
+                    "id": f"cust-{c.id}",
+                    "customer_code": c.code or "-",
+                    "crm_name": c.name or "-",
+                    "customer_name": c.name or "-",
+                    "phone": c.phone or "-",
+                    "city": c.city or "-",
+                    "outstanding_balance": bal,
+                    "_record_count": 1,
+                    "_is_consolidated": False,
+                })
+
+            return {
+                "category": category_normalized,
+                "total_count": total_count,
+                "rows": rows,
+                "totals": {"outstanding_balance": tot_bal},
+                "consolidation_mode": mode,
+                "group_by_dimensions": ["customer_code", "customer_name", "city"],
                 "generated_at": datetime.now(timezone.utc).isoformat(),
             }
 
@@ -3813,6 +4240,8 @@ class ReportsService:
             "total_count": 0,
             "rows": [],
             "totals": {},
+            "consolidation_mode": mode,
+            "group_by_dimensions": [],
             "generated_at": datetime.now(timezone.utc).isoformat(),
         }
 

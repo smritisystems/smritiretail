@@ -3,13 +3,45 @@
   Author       : Jawahar Ramkripal Mallah
   Email        : support@smritibooks.com
   Websites     : smritibooks.com | erpnbook.com | aitdl.com
-  Version      : 6.99.5
+  Version      : 6.99.6
   Created      : 2026-07-06
   Modified     : 2026-10-22
   Copyright    : © SMRITIBooks.com. All Rights Reserved.
   License      : Proprietary Commercial Software
   Classification: Internal
 -->
+
+## [6.99.6] — 2026-10-22
+
+### BI & Reporting Center — Report Designer Intelligent Auto-Consolidation & Dynamic Server-Side Grouping
+
+- **Centralized Semantic Field Registry (`backend/app/services/report_field_registry.py`)**:
+  - Established `ReportFieldRegistry` classifying reporting fields across Purchase, Sales, Inventory, Items, Suppliers, Customers, and Finance domains.
+  - Distinguishes Grouping Dimensions (Supplier, PO No, Article, Color, Size, Branch, Date), Additive Measures (Quantity, Net Amount, Tax Amount -> `SUM`), Non-Additive Measures (Rates, Unit Prices, MRP -> `AVG`), and Record Counts.
+  - Enforced business rule preventing naive summation of non-additive numeric columns (e.g. Size, Tax Rate %).
+- **Server-Side Dynamic Grouping & Aggregation Engine (`backend/app/services/reports.py`)**:
+  - Upgraded `ReportsService.query_report_builder` to support `consolidation_mode` (`auto`, `detailed`, `groupby`).
+  - Auto mode: Dynamically derives `GROUP BY` column list from active selected dimensions. Collapses identical dimension rows (e.g., same Supplier, PO No, Article, Color) into a single consolidated row with exact `SUM(quantity)` and `SUM(net_amount)`.
+  - Dimension Splitting: Automatically splits rows into discrete items when granular dimensions (e.g., Size, Color, SKU) are selected.
+  - Custom Group By mode: Explicitly groups by user-specified dimension attributes.
+  - Detailed Rows mode: Renders discrete underlying database records without aggregation.
+  - Record Count & Consolidation Flags: Emits `_record_count` (`func.count(distinct(PurchaseOrderItem.id))`) and `_is_consolidated` (`case((func.count(...) > 1, True), else_=False)`).
+- **Cartesian Join Inflation Elimination (`backend/app/services/reports.py`)**:
+  - Replaced 1:N outer joins on `PurchaseBill` with correlated scalar subqueries (`bill_subquery`).
+  - Completely eliminated row count duplication and monetary inflation caused by multi-bill purchase orders.
+- **REST API & Schema Extensions (`backend/app/schemas/reports.py` & `backend/app/api/v1/reports.py`)**:
+  - Extended `ReportBuilderResponse` with `consolidation_mode` and `group_by_dimensions`.
+  - Added query parameters: `consolidation_mode` (default `"auto"`), `selected_columns`, and `group_by_columns`.
+- **Report Designer UX & Live Drill-Down (`src/components/reports/ReportBuilder.tsx`)**:
+  - Added Row Consolidation mode selector toolbar dropdown (`Auto Consolidation`, `Detailed Rows`, `Custom Group By`).
+  - Wired reactive auto-refetching on column toggle (`selectedFieldKeys` and `consolidationMode` dependencies).
+  - Added interactive visual badge (`N lines`) in table cells for consolidated rows.
+  - Implemented Drill-Down Drawer / Modal displaying raw underlying line items for any consolidated row.
+- **Verification & Test Suite**:
+  - Backend Integration Tests: 3/3 tests passed in `backend/app/tests/test_report_builder_auto_consolidation.py` verifying field classification, multi-size auto-consolidation, dimension splitting, and join inflation protection.
+  - Frontend Vitest Tests: 5/5 tests passed in `src/tests/reportBuilderAutoConsolidation.test.ts`.
+  - Existing regression suites: 20/20 tests passed across `reportBuilder.test.ts` and `reportBuilderLiveData.test.ts`.
+  - TypeScript compiler check: `npx tsc --noEmit` exited 0 (0 errors).
 
 ## [6.99.5] — 2026-10-22
 

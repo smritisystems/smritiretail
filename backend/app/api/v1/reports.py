@@ -1132,7 +1132,10 @@ async def save_procurement_dashboard_config(
 
 @router.get("/builder/query", response_model=ReportBuilderResponse, summary="Query Live Data for SMRITI Report Builder")
 async def query_report_builder(
-    category: Optional[str] = Query("Purchase", description="Domain category (Purchase, Items, Inventory, Suppliers)"),
+    category: Optional[str] = Query("Purchase", description="Domain category (Purchase, Sales, Items, Inventory, Suppliers, Customers, Finance)"),
+    consolidation_mode: Optional[str] = Query("auto", description="Consolidation mode: auto, detailed, or groupby"),
+    selected_columns: Optional[str] = Query(None, description="Comma-separated column keys to drive dynamic consolidation"),
+    group_by_columns: Optional[str] = Query(None, description="Comma-separated explicit grouping dimension keys"),
     start_date: Optional[date] = Query(None, description="Filter by start date (YYYY-MM-DD)"),
     end_date: Optional[date] = Query(None, description="Filter by end date (YYYY-MM-DD)"),
     branch_id: Optional[str] = Query(None, description="Filter by branch"),
@@ -1147,11 +1150,14 @@ async def query_report_builder(
 ):
     """
     Executes a production-governed database query across transactional tables
-    for the SMRITI Report Builder.
+    for the SMRITI Report Builder with intelligent auto-consolidation.
     """
     service = ReportsService(db, tenant)
     return await service.query_report_builder(
         category=category or "Purchase",
+        consolidation_mode=consolidation_mode or "auto",
+        selected_columns=selected_columns,
+        group_by_columns=group_by_columns,
         start_date=start_date,
         end_date=end_date,
         branch_id=branch_id,
