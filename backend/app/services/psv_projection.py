@@ -1224,6 +1224,10 @@ class PSVProjectionService:
         session: AsyncSession,
         company_id: str,
         party_id: Optional[str] = None,
+        customer_id: Optional[str] = None,
+        store_code: Optional[str] = None,
+        start_date: Optional[Any] = None,
+        end_date: Optional[Any] = None,
         invoice_id: Optional[str] = None,
         invoice_no: Optional[str] = None,
         style_code: Optional[str] = None,
@@ -1256,6 +1260,48 @@ class PSVProjectionService:
             SalesInvoice.company_id == company_id,
             SalesInvoice.status != "Cancelled",
         )
+
+        if customer_id and customer_id.lower() not in {"all", "all customers", "null", ""}:
+            clean_cid = customer_id.strip()
+            inv_stmt = inv_stmt.where(
+                or_(
+                    SalesInvoice.customer_id == clean_cid,
+                    SalesInvoice.customer_id.in_(
+                        select(Customer.id).where(
+                            Customer.company_id == company_id,
+                            or_(Customer.id == clean_cid, Customer.code == clean_cid)
+                        )
+                    )
+                )
+            )
+
+        if store_code and store_code.lower() not in {"all", "all stores", "all locations", "null", ""}:
+            clean_store = store_code.strip()
+            inv_stmt = inv_stmt.where(
+                or_(
+                    SalesInvoice.delivery_store_code == clean_store,
+                    SalesInvoice.delivery_location_id.in_(
+                        select(CustomerDeliveryLocation.id).where(
+                            CustomerDeliveryLocation.company_id == company_id,
+                            CustomerDeliveryLocation.store_code == clean_store,
+                        )
+                    )
+                )
+            )
+
+        if start_date:
+            try:
+                s_dt = datetime.fromisoformat(str(start_date).split("T")[0]).date() if isinstance(start_date, str) else start_date
+                inv_stmt = inv_stmt.where(SalesInvoice.date >= s_dt)
+            except Exception:
+                pass
+
+        if end_date:
+            try:
+                e_dt = datetime.fromisoformat(str(end_date).split("T")[0]).date() if isinstance(end_date, str) else end_date
+                inv_stmt = inv_stmt.where(SalesInvoice.date <= e_dt)
+            except Exception:
+                pass
 
         if invoice_id:
             inv_stmt = inv_stmt.where(SalesInvoice.id == invoice_id)

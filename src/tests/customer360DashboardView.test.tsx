@@ -66,6 +66,151 @@ const sampleCustomer: Customer = {
     { id: "cc4", code: "REL001-004", name: "Reliance - AlphaOne", storeCode: "REL-AHM-001", city: "Ahmedabad", status: "Active", storesCount: 15 },
     { id: "cc5", code: "REL001-005", name: "Reliance - Orion Mall", storeCode: "REL-BLR-001", city: "Bangalore", status: "Inactive", storesCount: 5 },
   ],
+  psvDetailedRows: [
+    {
+      id: "1",
+      doc_no: "PO-2026-001",
+      date: "10/10/2026",
+      customer_code: "REL001-002",
+      customer_name: "Reliance - Inorbit Mall",
+      store_code: "REL-MUM-002",
+      article_style: "Men's T-Shirt",
+      color: "Navy",
+      size: "L",
+      barcode: "8901234567890",
+      document_qty: 100,
+      received_qty: 100,
+      pending_approval_qty: 0,
+      approved_qty: 100,
+      shortage_qty: 0,
+      excess_qty: 0,
+      status: "Approved",
+    },
+    {
+      id: "2",
+      doc_no: "PO-2026-002",
+      date: "08/10/2026",
+      customer_code: "REL001-001",
+      customer_name: "Reliance - Phoenix Mall",
+      store_code: "REL-MUM-001",
+      article_style: "Men's Shirt",
+      color: "White",
+      size: "M",
+      barcode: "8901234567891",
+      document_qty: 200,
+      received_qty: 180,
+      pending_approval_qty: 20,
+      approved_qty: 160,
+      shortage_qty: 20,
+      excess_qty: 0,
+      status: "Pending",
+    },
+    {
+      id: "3",
+      doc_no: "PO-2026-003",
+      date: "05/10/2026",
+      customer_code: "REL001-003",
+      customer_name: "Reliance - Amanora Mall",
+      store_code: "REL-PUN-001",
+      article_style: "Women's Kurti",
+      color: "Red",
+      size: "XL",
+      barcode: "8901234567892",
+      document_qty: 150,
+      received_qty: 150,
+      pending_approval_qty: 0,
+      approved_qty: 150,
+      shortage_qty: 0,
+      excess_qty: 0,
+      status: "Approved",
+    },
+    {
+      id: "4",
+      doc_no: "PO-2026-004",
+      date: "02/10/2026",
+      customer_code: "REL001-004",
+      customer_name: "Reliance - AlphaOne",
+      store_code: "REL-AHM-001",
+      article_style: "Men's Jeans",
+      color: "Blue",
+      size: "32",
+      barcode: "8901234567893",
+      document_qty: 80,
+      received_qty: 70,
+      pending_approval_qty: 0,
+      approved_qty: 70,
+      shortage_qty: 10,
+      excess_qty: 0,
+      status: "Shortage",
+    },
+    {
+      id: "5",
+      doc_no: "PO-2026-005",
+      date: "01/10/2026",
+      customer_code: "REL001-001",
+      customer_name: "Reliance - Phoenix Mall",
+      store_code: "REL-MUM-001",
+      article_style: "Men's T-Shirt",
+      color: "Black",
+      size: "L",
+      barcode: "8901234567894",
+      document_qty: 250,
+      received_qty: 240,
+      pending_approval_qty: 0,
+      approved_qty: 240,
+      shortage_qty: 0,
+      excess_qty: 10,
+      status: "Excess",
+    },
+  ] as any,
+  psvSummary: {
+    total_items: 125,
+    total_document_qty: 5420,
+    total_received_qty: 5180,
+    total_approved_qty: 4980,
+    total_pending_approval_qty: 240,
+    total_short_qty: 120,
+    total_excess_qty: 80,
+  },
+  psvTotalRecords: 125,
+  invoices: [
+    { id: "i1", no: "TT2026-2027/18", date: "15/06/2026", store: "REL-MUM-001", storeName: "Phoenix Mall", amount: "5,990.00", status: "Paid", items: 10 },
+    { id: "i2", no: "TT2026-2027/17", date: "10/06/2026", store: "REL-MUM-002", storeName: "Inorbit Mall", amount: "2,995.00", status: "Paid", items: 10 },
+    { id: "i3", no: "TT2026-2027/16", date: "28/05/2026", store: "REL-PUN-001", storeName: "Amanora Mall", amount: "2,097.00", status: "Unpaid", items: 10 },
+    { id: "i4", no: "TT2026-2027/15", date: "12/05/2026", store: "REL-AHM-001", storeName: "AlphaOne Mall", amount: "4,560.00", status: "Paid", items: 10 },
+  ],
+  billingAddresses: [
+    { id: "b1", name: "Head Office", address: "3rd Floor, MMRDA BKC, Mumbai", city: "Mumbai", state: "MH", pin: "400051", gstin: "27AABCR1234F1Z5", isDefault: true },
+    { id: "b2", name: "Regional Office", address: "R-Tech Park, MIDC", city: "Navi Mumbai", state: "MH", pin: "400710", gstin: "—", isDefault: false },
+  ],
+  deliveryAddresses: [
+    { id: "d1", name: "Phoenix Mall DC", address: "Kurla West", city: "Mumbai", state: "MH", pin: "400070", gstin: "27AABCR1234F1Z5" },
+    { id: "d2", name: "Inorbit Hub", address: "Link Road, Malad", city: "Mumbai", state: "MH", pin: "400064", gstin: "27AABCR1234F1Z5" },
+    { id: "d3", name: "Amanora Depot", address: "Hadapsar", city: "Pune", state: "MH", pin: "411028", gstin: "27AABCR1234F1Z5" },
+    { id: "d4", name: "AlphaOne Dock", address: "Vastrapur", city: "Ahmedabad", state: "GJ", pin: "380015", gstin: "24AABCR1234F1Z3" },
+    { id: "d5", name: "Orion Express", address: "Malleshwaram", city: "Bangalore", state: "KA", pin: "560055", gstin: "29AABCR1234F1Z1" },
+  ],
+  registeredAddresses: [
+    { id: "r1", name: "Corporate Headquarters", address: "3rd Floor, Corporate Office, MMRDA Building, Bandra-Kurla Complex", city: "Mumbai", state: "MH", pin: "400051", gstin: "27AABCR1234F1Z5" },
+  ],
+  documents: [
+    { id: "d1", name: "GST Registration.pdf", type: "Tax Document", date: "12/04/2026" },
+    { id: "d2", name: "MSA_Reliance.pdf", type: "Agreement", date: "15/04/2026" },
+    { id: "d3", name: "PAN_Certificate.pdf", type: "KYC Document", date: "10/04/2026" },
+    { id: "d4", name: "Store_List.xlsx", type: "Reference", date: "10/05/2026" },
+    { id: "d5", name: "Commercial Terms.pdf", type: "Policy", date: "20/05/2026" },
+  ],
+  contacts: [
+    { id: "c1", name: "Amit Sharma", designation: "Purchase Head", phone: "9876543210", email: "amit@reliance.com" },
+    { id: "c2", name: "Neha Verma", designation: "Accounts", phone: "9876501234", email: "neha@reliance.com" },
+    { id: "c3", name: "Rajiv Mehta", designation: "Store Operations", phone: "9876512345", email: "rajiv@reliance.com" },
+  ],
+  recentActivity: [
+    { id: "a1", time: "15/10/2026 11:20", title: "Store Linked", desc: "REL-MUM-005 added" },
+    { id: "a2", time: "12/10/2026 14:10", title: "Address Updated", desc: "New delivery address" },
+    { id: "a3", time: "05/10/2026 09:44", title: "Credit Limit Changed", desc: "Approved by Central Treasury" },
+    { id: "a4", time: "02/10/2026 16:20", title: "Document Uploaded", desc: "GST Registration.pdf" },
+  ],
 };
 
 describe("Customer 360° Dashboard View & Navigation Tests", () => {
@@ -599,5 +744,104 @@ describe("Customer 360° Remediation Regression Suite (Tenant Isolation, Soft-De
 
     // When no trend data is supplied, the 7 dummy sparkline bars must NOT be fabricated
     expect(html).toContain("Awaiting Trend");
+  });
+  // ── MASTER DATA-TO-UX CONNECTIVITY & ZERO MOCK FALLBACK AUDIT SUITE ──
+
+  it("renders honest zero-state when customer has no PSV records (zero silent mock fallback)", () => {
+    const emptyCustomer: Customer = {
+      id: "cust-empty-001",
+      code: "EMPTY001",
+      name: "Empty Stores Private Limited",
+      legal_name: "Empty Stores Private Limited",
+      is_active: true,
+      is_deleted: false,
+      company_id: "COMP-001",
+    };
+
+    const html = renderToStaticMarkup(
+      <Customer360DashboardView customer={emptyCustomer} initialTab="psv" />
+    );
+
+    // Metric tiles must display 0, never hardcoded 5,420 or 5,180
+    expect(html).toContain("0 Total Records");
+    expect(html).not.toContain("125 Total Records");
+    // Table must display honest empty state, never fake PO-2026-001
+    expect(html).toContain("No PSV reconciliation records found for this customer account.");
+    expect(html).not.toContain("PO-2026-001");
+    expect(html).not.toContain("Men's T-Shirt");
+  });
+
+  it("renders honest zero-state for sales tax invoices when empty (zero silent fallbackInvoices)", () => {
+    const emptyCustomer: Customer = {
+      id: "cust-empty-002",
+      code: "EMPTY002",
+      name: "Zero Invoices Enterprise",
+      legal_name: "Zero Invoices Enterprise",
+      is_active: true,
+      is_deleted: false,
+      company_id: "COMP-001",
+    };
+
+    const html = renderToStaticMarkup(
+      <Customer360DashboardView customer={emptyCustomer} initialTab="sales_invoices" />
+    );
+
+    expect(html).toContain("Sales Tax Invoices &amp; Transaction History (0 Invoices)");
+    expect(html).toContain("No sales tax invoices found for this customer account.");
+    // Dummy fallback invoices must never be injected
+    expect(html).not.toContain("TT2026-2027/18");
+    expect(html).not.toContain("TT2026-2027/17");
+  });
+
+  it("renders database-backed PSV reconciliation payload when received from apiFetchV1", () => {
+    const livePsvSummary = {
+      total_items: 14788,
+      total_document_qty: 20247,
+      total_received_qty: 20247,
+      total_approved_qty: 20247,
+      total_pending_approval_qty: 0,
+      total_short_qty: 0,
+      total_excess_qty: 0,
+    };
+
+    const livePsvItems = [
+      {
+        id: "psv-live-001",
+        doc_no: "INV-592609",
+        date: "2026-10-18",
+        customer_code: "RRL-001",
+        customer_name: "Reliance Retail Limited",
+        store_code: "S4NN/8319",
+        article_style: "Regular Sandal",
+        color: "Beige",
+        size: "36",
+        barcode: "8901234567890",
+        document_qty: 2,
+        received_qty: 2,
+        pending_approval_qty: 0,
+        approved_qty: 2,
+        shortage_qty: 0,
+        excess_qty: 0,
+        status: "Approved",
+      },
+    ];
+
+    const html = renderToStaticMarkup(
+      <Customer360DashboardView
+        customerId="cust-rrl-192b561d"
+        initialPsvSummary={livePsvSummary}
+        initialPsvItems={livePsvItems}
+        initialTab="psv"
+      />
+    );
+
+    // Dynamic counts from live DB summary
+    expect(html).toContain("14,788 Total Records");
+    expect(html).toContain("20,247");
+    // Canonical PostgreSQL line item
+    expect(html).toContain("INV-592609");
+    expect(html).toContain("Regular Sandal");
+    expect(html).toContain("8901234567890");
+    expect(html).toContain("S4NN/8319");
   });
 });
