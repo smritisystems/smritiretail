@@ -3,13 +3,44 @@
   Author       : Jawahar Ramkripal Mallah
   Email        : support@smritibooks.com
   Websites     : smritibooks.com | erpnbook.com | aitdl.com
-  Version      : 6.99.6
+  Version      : 6.99.7
   Created      : 2026-07-06
   Modified     : 2026-10-22
   Copyright    : © SMRITIBooks.com. All Rights Reserved.
   License      : Proprietary Commercial Software
   Classification: Internal
 -->
+
+## [6.99.7] — 2026-10-22
+
+### Operations & System — Premium Backup & Restore UX & Data Protection Engine
+
+- **Commercial-Grade Backend Backup Service (`backend/app/services/backup_restore_service.py`)**:
+  - Implemented `BackupRestoreService` for automated and on-demand logical backups across core transactional retail entities (`products`, `customers`, `suppliers`, `sales_invoices`, `purchase_orders`, `companies`).
+  - Gzip archive compression with SHA-256 cryptographic hashing and companion `.manifest.json` generation.
+  - Multi-stage asynchronous job execution model (`preparing` 25% → `creating` 55% → `verifying` 80% → `finalizing` 95% → `completed` 100%) with cancellation support.
+  - Two-phase restore safety mechanism: requires explicit destructive overwrite confirmation and auto-generates pre-restore safety snapshots.
+- **REST API Endpoints (`backend/app/api/v1/backup.py`)**:
+  - Mounted `/api/v1/backup` in `backend/app/main.py`.
+  - Added endpoints: `GET /status`, `GET /history`, `POST /create`, `GET /jobs/{id}`, `POST /jobs/{id}/cancel`, `POST /restore/review`, `POST /restore/execute`, `GET /settings`, `PUT /settings`.
+  - Enforced RBAC security guard restricting backup and restore operations to `MANAGER` and `SYSADMIN` roles.
+- **Premium Backup & Restore Workspace (`src/components/backup/BackupRestoreWorkspace.tsx`)**:
+  - Faithfully implemented all 6 approved screens matching the design reference:
+    1. **Protection Dashboard**: Overall protection card, automatic backup toggle, and 3 primary action cards (`Back Up Now`, `Restore My Data`, `Backup Settings`).
+    2. **Back Up Now**: Circular progress ring (0–100%), real-time progress text, 4-step live indicator, and safe cancellation button.
+    3. **Backup Completed**: Large verified checkmark, manifest summary card (time, contents, storage, verified badge, size), and "View Backup History" action.
+    4. **Restore My Data**: Recovery points selector with radio buttons, timestamps, sizes, and green "Verified" badges.
+    5. **Review and Confirm**: Manifest review, amber warning banner (*"This will replace your current data"*), mandatory confirmation checkbox, and disabled-until-checked restore button.
+    6. **Backup Settings**: Auto-backup toggle, frequency selector (`Daily`, `Weekly`, `Monthly`), storage destination selector (`Google Drive`, `OneDrive`, `This Device`), and retention policy dropdown.
+- **Navigation & Catalog Wiring**:
+  - Added "Backup & Restore" quick-action tile to Fiori Launchpad under "System & Operations" (`src/components/launchpad/launchpadCatalog.ts`).
+  - Added `backup-restore` workspace to `layout_store.tsx`.
+  - Added lazy routing case in `TabRenderer.tsx`.
+- **Verification & Test Suite**:
+  - Backend Integration: 4/4 tests passed in `backend/app/tests/test_backup_restore_service.py` (68.06s).
+  - Frontend Vitest: 8/8 tests passed in `src/tests/backupRestoreWorkspace.test.tsx` (746ms).
+  - Launchpad Routing: 11/11 tests passed in `src/tests/fioriLaunchpad.test.ts` (390ms).
+  - TypeScript Compiler: `npx tsc --noEmit` exited code 0 (0 errors).
 
 ## [6.99.6] — 2026-10-22
 

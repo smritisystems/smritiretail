@@ -381,6 +381,12 @@ export const LayoutEngineProvider: React.FC<ProviderProps> = ({
       category: "System",
     },
     {
+      id: "backup-restore",
+      label: "Backup & Restore",
+      icon: "cloud_upload",
+      category: "System",
+    },
+    {
       id: "database-manager",
       label: "Database Manager (DB Studio)",
       icon: "storage",

@@ -90,6 +90,7 @@ const VisualReportsDashboardTab = lazy(() => import("../reports/VisualReportsDas
 const ProcurementVisualReportsTab = lazy(() => import("../procurement/ProcurementVisualReportsTab.tsx").then(m => ({ default: m.ProcurementVisualReportsTab })));
 const StoreDirectoryWs = lazy(() => import("../store/StoreDirectoryWs.tsx").then(m => ({ default: m.StoreDirectoryWs })));
 const CorporateCustomer360 = lazy(() => import("../customer/corporate360/CorporateCustomer360.tsx").then(m => ({ default: m.CorporateCustomer360 })));
+const BackupRestoreWorkspace = lazy(() => import("../backup/BackupRestoreWorkspace.tsx").then(m => ({ default: m.BackupRestoreWorkspace })));
 
 export const TabLoadingFallback: React.FC = () => (
   <div className="w-full h-full flex flex-col items-center justify-center bg-theme-base text-theme-primary">
@@ -579,6 +580,10 @@ export const renderTabNode = (tabId: string, ctx: TabRendererContextProps): Reac
       return <DataExchangeTab onNotification={addNotification} />;
     case "database-manager":
       return <DatabaseManagerTab onNotification={addNotification} />;
+    case "backup-restore":
+    case "backup":
+    case "restore":
+      return <BackupRestoreWorkspace />;
     case "legacy-migration":
       return <LegacyMigDashTab />;
     case "physical-stock":
