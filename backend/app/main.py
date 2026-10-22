@@ -44,6 +44,7 @@ from .api.v1 import (
     assignments,
     attributes,
     auth,
+    backup,
     barcode,
     barcode_registry,
     barcodes,
@@ -431,6 +432,7 @@ _ROUTER_REGISTRY = [
     (company_center,        "",                      ["Company Control Center"]),
     (company_profile,       "/company",              ["Company Profile & Settings"]),
     (database_manager,      "/database-manager",     ["Database Manager"]),
+    (backup,                "",                      ["Backup & Restore"]),
     (training,              "",                      ["Training Academy"]),
     (staff,                 "",                      ["Staff Management"]),
 

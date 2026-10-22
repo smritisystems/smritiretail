@@ -20,6 +20,7 @@ from . import (
     attributes,
     auth,
     assignments,
+    backup,
     barcode,
     billing,
     billing_csv,

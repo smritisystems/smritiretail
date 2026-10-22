@@ -529,6 +529,18 @@ export const LAUNCHPAD_CATALOG: TileData[] = [
     accentColor: "indigo",
   },
   {
+    id: "backup-restore",
+    title: "Backup & Restore",
+    subtitle: "Protect business data with automated backups, verified recovery points & guided restore",
+    icon: "cloud_upload",
+    tag: "Recovery",
+    badgeType: "success",
+    group: "System & Operations",
+    roles: ["MANAGER", "SYSADMIN"],
+    isQuickAction: true,
+    accentColor: "blue",
+  },
+  {
     id: "database-manager",
     title: "Database Manager (DB Studio)",
     subtitle: "Multi-tenant database schema browser, table data explorer, live telemetry & SQL console",

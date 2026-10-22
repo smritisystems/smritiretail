@@ -79,7 +79,8 @@ const REGISTERED_APP_TABS = [
   "document-studio",
   "bulk-import-sheet",
   "databridge",
-  "legacy-telemetry"
+  "legacy-telemetry",
+  "backup-restore"
 ];
 
 describe("Fiori Launchpad Canonical Routing & Catalog Integrity", () => {
