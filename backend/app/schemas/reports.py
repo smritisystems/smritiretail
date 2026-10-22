@@ -838,4 +838,6 @@ class ReportBuilderResponse(BaseModel):
     total_count: int
     rows: List[Dict[str, Any]]
     totals: Dict[str, float] = {}
+    consolidation_mode: Optional[str] = "auto"
+    group_by_dimensions: Optional[List[str]] = []
     generated_at: str

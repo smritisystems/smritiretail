@@ -319,6 +319,13 @@ const ReportBuilderBase: React.FC<ReportBuilderProps> = ({
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [isSavedView, setIsSavedView] = useState<boolean>(false);
+  const [consolidationMode, setConsolidationMode] = useState<"auto" | "detailed" | "groupby">("auto");
+  const [customGroupByKeys, setCustomGroupByKeys] = useState<string[]>(["supplier", "po_no", "article_sku"]);
+  const [showConsolidationMenu, setShowConsolidationMenu] = useState<boolean>(false);
+  const [drillDownRow, setDrillDownRow] = useState<ReportBuilderRow | null>(null);
+  const [drillDownLoading, setDrillDownLoading] = useState<boolean>(false);
+  const [drillDownRows, setDrillDownRows] = useState<ReportBuilderRow[]>([]);
+  const consolidationMenuRef = useRef<HTMLDivElement>(null);
 
   // Live Query Fetcher connecting directly to FastAPI backend
   const fetchReportData = async (options?: { category?: string; search?: string }) => {
@@ -337,6 +344,11 @@ const ReportBuilderBase: React.FC<ReportBuilderProps> = ({
       if (s) params.set("search", s);
       if (sortField) params.set("sort_field", sortField);
       if (sortDirection) params.set("sort_direction", sortDirection);
+      params.set("consolidation_mode", consolidationMode);
+      params.set("selected_columns", selectedFieldKeys.join(","));
+      if (consolidationMode === "groupby" && customGroupByKeys.length > 0) {
+        params.set("group_by_columns", customGroupByKeys.join(","));
+      }
       params.set("limit", String(pageSize));
       params.set("offset", String((currentPage - 1) * pageSize));
 
@@ -372,7 +384,37 @@ const ReportBuilderBase: React.FC<ReportBuilderProps> = ({
   // Fetch live records on mount and when query parameters change
   useEffect(() => {
     fetchReportData();
-  }, [appliedDateRange.start, appliedDateRange.end, appliedBranch, currentPage, pageSize, sortField, sortDirection]);
+  }, [appliedDateRange.start, appliedDateRange.end, appliedBranch, currentPage, pageSize, sortField, sortDirection, consolidationMode, selectedFieldKeys, customGroupByKeys]);
+
+  const handleOpenDrillDown = async (row: ReportBuilderRow) => {
+    setDrillDownRow(row);
+    setDrillDownLoading(true);
+    try {
+      const qParams = new URLSearchParams();
+      qParams.set("category", "Purchase");
+      qParams.set("consolidation_mode", "detailed");
+      if (appliedDateRange.start) qParams.set("start_date", appliedDateRange.start);
+      if (appliedDateRange.end) qParams.set("end_date", appliedDateRange.end);
+      if (appliedBranch && appliedBranch !== "All Branches" && appliedBranch !== "ALL") {
+        qParams.set("branch_id", appliedBranch);
+      }
+      if (row.po_no && row.po_no !== "Multiple POs" && row.po_no !== "-") {
+        qParams.set("search", row.po_no);
+      } else if (row.article_sku && row.article_sku !== "Consolidated SKUs" && row.article_sku !== "-") {
+        qParams.set("search", row.article_sku);
+      } else if (row.supplier && row.supplier !== "All Suppliers" && row.supplier !== "-") {
+        qParams.set("search", row.supplier);
+      }
+      qParams.set("limit", "100");
+      const res = await apiFetchV1<{ rows: ReportBuilderRow[] }>(`/reports/builder/query?${qParams.toString()}`);
+      setDrillDownRows(res?.rows || []);
+    } catch (err: any) {
+      console.error("[ReportBuilder] Failed to load drill-down records:", err);
+      setDrillDownRows([]);
+    } finally {
+      setDrillDownLoading(false);
+    }
+  };
 
   const handleRunQuery = async () => {
     onNotification?.("info", "Executing live report query against database...");
@@ -390,6 +432,9 @@ const ReportBuilderBase: React.FC<ReportBuilderProps> = ({
       }
       if (exportMenuRef.current && !exportMenuRef.current.contains(e.target as Node)) {
         setShowExportMenu(false);
+      }
+      if (consolidationMenuRef.current && !consolidationMenuRef.current.contains(e.target as Node)) {
+        setShowConsolidationMenu(false);
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
@@ -761,6 +806,98 @@ const ReportBuilderBase: React.FC<ReportBuilderProps> = ({
 
         {/* Primary Action Buttons Bar (Max 7 buttons: Run, Save, Export, Layout, Filters, Settings, Focus) */}
         <div className="flex items-center gap-2 flex-wrap">
+          {/* Row Consolidation Mode Control */}
+          <div className="relative" ref={consolidationMenuRef}>
+            <button
+              type="button"
+              id="report-builder-consolidation-mode-btn"
+              onClick={() => setShowConsolidationMenu(!showConsolidationMenu)}
+              className="px-3 py-1.5 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-750 text-slate-700 dark:text-slate-200 rounded-lg text-xs font-semibold flex items-center gap-1.5 shadow-2xs transition-colors cursor-pointer"
+              title="Configure intelligent row auto-consolidation and dynamic grouping"
+              aria-label="Row Consolidation"
+            >
+              <Layers size={13} className="text-blue-600 dark:text-blue-400" />
+              <span>
+                {consolidationMode === "auto" ? "Auto Consolidation" : consolidationMode === "detailed" ? "Detailed Rows" : "Group By"}
+              </span>
+              <ChevronDown size={13} />
+            </button>
+
+            {showConsolidationMenu && (
+              <div className="absolute left-0 top-full mt-1.5 w-60 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl py-1.5 z-40 text-xs">
+                <div className="px-3.5 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                  Row Consolidation Mode
+                </div>
+                <button
+                  type="button"
+                  id="consolidation-mode-auto-btn"
+                  onClick={() => {
+                    setConsolidationMode("auto");
+                    setShowConsolidationMenu(false);
+                    onNotification?.("success", "Switched to Auto Consolidation (Dynamic Grouping based on visible dimensions).");
+                  }}
+                  className={`w-full text-left px-3.5 py-2 hover:bg-slate-50 dark:hover:bg-slate-700 flex items-center justify-between cursor-pointer ${
+                    consolidationMode === "auto" ? "bg-blue-50/70 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 font-semibold" : "text-slate-700 dark:text-slate-200"
+                  }`}
+                >
+                  <div className="flex flex-col">
+                    <span className="flex items-center gap-1.5 font-medium">
+                      <Sparkles size={12} className="text-blue-600" /> Auto Consolidation
+                    </span>
+                    <span className="text-[10px] text-slate-400 font-normal">
+                      Group by selected dimensions & sum measures
+                    </span>
+                  </div>
+                  {consolidationMode === "auto" && <Check size={14} className="text-blue-600 shrink-0" />}
+                </button>
+                <button
+                  type="button"
+                  id="consolidation-mode-detailed-btn"
+                  onClick={() => {
+                    setConsolidationMode("detailed");
+                    setShowConsolidationMenu(false);
+                    onNotification?.("info", "Switched to Detailed Rows (Displaying all individual database line records).");
+                  }}
+                  className={`w-full text-left px-3.5 py-2 hover:bg-slate-50 dark:hover:bg-slate-700 flex items-center justify-between cursor-pointer ${
+                    consolidationMode === "detailed" ? "bg-blue-50/70 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 font-semibold" : "text-slate-700 dark:text-slate-200"
+                  }`}
+                >
+                  <div className="flex flex-col">
+                    <span className="flex items-center gap-1.5 font-medium">
+                      <FileSpreadsheet size={12} className="text-emerald-600" /> Detailed Rows
+                    </span>
+                    <span className="text-[10px] text-slate-400 font-normal">
+                      Show individual underlying line items
+                    </span>
+                  </div>
+                  {consolidationMode === "detailed" && <Check size={14} className="text-blue-600 shrink-0" />}
+                </button>
+                <button
+                  type="button"
+                  id="consolidation-mode-groupby-btn"
+                  onClick={() => {
+                    setConsolidationMode("groupby");
+                    setShowConsolidationMenu(false);
+                    onNotification?.("info", "Switched to Custom Group By mode.");
+                  }}
+                  className={`w-full text-left px-3.5 py-2 hover:bg-slate-50 dark:hover:bg-slate-700 flex items-center justify-between cursor-pointer ${
+                    consolidationMode === "groupby" ? "bg-blue-50/70 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 font-semibold" : "text-slate-700 dark:text-slate-200"
+                  }`}
+                >
+                  <div className="flex flex-col">
+                    <span className="flex items-center gap-1.5 font-medium">
+                      <SlidersHorizontal size={12} className="text-purple-600" /> Custom Group By
+                    </span>
+                    <span className="text-[10px] text-slate-400 font-normal">
+                      Group by explicit dimensions
+                    </span>
+                  </div>
+                  {consolidationMode === "groupby" && <Check size={14} className="text-blue-600 shrink-0" />}
+                </button>
+              </div>
+            )}
+          </div>
+
           {/* Action 1: Run */}
           <button
             type="button"
@@ -1572,6 +1709,9 @@ const ReportBuilderBase: React.FC<ReportBuilderProps> = ({
                             formattedVal = formatDate(String(val));
                           }
 
+                          const isFirstCol = activeColumns[0]?.key === col.key;
+                          const hasConsolidatedLines = (row._record_count && row._record_count > 1) || row._is_consolidated;
+
                           return (
                             <td
                               key={col.key}
@@ -1579,7 +1719,23 @@ const ReportBuilderBase: React.FC<ReportBuilderProps> = ({
                                 col.align === "right" ? "text-right font-mono" : "text-left"
                               } ${col.key === "net_amount" ? "font-semibold text-slate-900 dark:text-white" : ""}`}
                             >
-                              {formattedVal}
+                              <div className={`inline-flex items-center gap-2 ${col.align === "right" ? "justify-end w-full" : "justify-start"}`}>
+                                <span>{formattedVal}</span>
+                                {isFirstCol && hasConsolidatedLines && (
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleOpenDrillDown(row);
+                                    }}
+                                    className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 hover:bg-blue-100 dark:hover:bg-blue-900/60 transition-colors cursor-pointer shrink-0"
+                                    title={`Consolidated from ${row._record_count} records. Click to view breakdown.`}
+                                  >
+                                    <Sparkles size={10} />
+                                    <span>{row._record_count} lines</span>
+                                  </button>
+                                )}
+                              </div>
                             </td>
                           );
                         })}
@@ -1663,6 +1819,96 @@ const ReportBuilderBase: React.FC<ReportBuilderProps> = ({
           </div>
         </div>
       </div>
+
+      {/* ───────────────────────────────────────────────────────────────────── */}
+      {/* 2.5 DRILL-DOWN MODAL FOR CONSOLIDATED RECORDS                           */}
+      {/* ───────────────────────────────────────────────────────────────────── */}
+      {drillDownRow && (
+        <div className="fixed inset-0 z-50 overflow-hidden bg-slate-900/50 backdrop-blur-2xs flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-2xl max-w-4xl w-full max-h-[85vh] flex flex-col overflow-hidden text-xs">
+            <div className="px-5 py-3.5 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between bg-slate-50 dark:bg-slate-800/80">
+              <div className="flex items-center gap-2">
+                <span className="p-1.5 bg-blue-100 dark:bg-blue-950 text-blue-600 rounded-lg">
+                  <Layers size={16} />
+                </span>
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+                    Consolidated Records Drill-Down
+                  </h3>
+                  <p className="text-[11px] text-slate-500">
+                    Showing underlying individual line items ({drillDownRows.length} lines)
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setDrillDownRow(null)}
+                className="p-1.5 text-slate-400 hover:text-slate-700 dark:hover:text-white rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 cursor-pointer"
+                title="Close drill-down"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-auto p-4">
+              {drillDownLoading ? (
+                <div className="py-12 flex flex-col items-center justify-center gap-2 text-slate-500">
+                  <Loader2 size={24} className="animate-spin text-blue-600" />
+                  <span>Loading underlying records...</span>
+                </div>
+              ) : drillDownRows.length === 0 ? (
+                <div className="py-12 text-center text-slate-500">
+                  No individual lines found for this consolidated group.
+                </div>
+              ) : (
+                <div className="overflow-x-auto border border-slate-200 dark:border-slate-700 rounded-lg">
+                  <table className="w-full text-left border-collapse">
+                    <thead className="bg-slate-50 dark:bg-slate-750 text-slate-700 dark:text-slate-300 font-semibold border-b border-slate-200 dark:border-slate-700">
+                      <tr>
+                        <th className="px-3 py-2">Supplier</th>
+                        <th className="px-3 py-2">PO No</th>
+                        <th className="px-3 py-2">Article / SKU</th>
+                        <th className="px-3 py-2">Color</th>
+                        <th className="px-3 py-2">Size</th>
+                        <th className="px-3 py-2 text-right">Quantity</th>
+                        <th className="px-3 py-2 text-right">Net Amount</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                      {drillDownRows.map((r, i) => (
+                        <tr key={r.id || i} className="hover:bg-slate-50 dark:hover:bg-slate-750">
+                          <td className="px-3 py-2">{r.supplier || "-"}</td>
+                          <td className="px-3 py-2 font-mono">{r.po_no || "-"}</td>
+                          <td className="px-3 py-2 font-mono">{r.article_sku || "-"}</td>
+                          <td className="px-3 py-2">{r.color || "-"}</td>
+                          <td className="px-3 py-2">{r.size || "-"}</td>
+                          <td className="px-3 py-2 text-right font-mono font-semibold">{r.quantity}</td>
+                          <td className="px-3 py-2 text-right font-mono font-bold text-slate-900 dark:text-white">
+                            ₹{Number(r.net_amount || 0).toLocaleString("en-IN")}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
+            <div className="px-5 py-3 border-t border-slate-200 dark:border-slate-700 flex items-center justify-between bg-slate-50 dark:bg-slate-800/80 text-xs">
+              <span className="text-slate-500 font-mono">
+                Consolidated Group: {drillDownRow.supplier || drillDownRow.po_no || drillDownRow.article_sku}
+              </span>
+              <button
+                type="button"
+                onClick={() => setDrillDownRow(null)}
+                className="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg shadow-2xs cursor-pointer"
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ───────────────────────────────────────────────────────────────────── */}
       {/* 3. ADVANCED CONFIGURATION DRAWER (Rule 4)                               */}
