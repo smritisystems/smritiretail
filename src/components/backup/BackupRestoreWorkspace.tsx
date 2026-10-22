@@ -57,10 +57,21 @@ export interface BackupItemInfo {
   storage_location_type: "local" | "gdrive" | "onedrive";
   backup_size_bytes: number;
   backup_size_pretty: string;
-  verification_status: "Verified" | "Failed" | "Pending";
+  verification_status: "Verified" | "Failed" | "Pending" | "Partial";
   sha256_hash: string;
   entities_count?: Record<string, number>;
   is_restorable: boolean;
+  backup_type?: string;
+  backup_category?: "FULL" | "PARTIAL" | "FAILED";
+  is_complete_business_backup?: boolean;
+  omitted_tables?: string[];
+  extraction_failures?: Record<string, string>;
+  file_integrity_status?: string;
+  completeness_status?: string;
+  has_schema?: boolean;
+  has_indexes?: boolean;
+  has_sequences?: boolean;
+  media_included?: boolean;
 }
 
 export interface BackupStatus {
@@ -873,44 +884,80 @@ export const BackupRestoreWorkspace: React.FC<BackupRestoreWorkspaceProps> = ({
   // ─────────────────────────────────────────────────────────────────────────
   const renderCompletedScreen = () => {
     const item = completedBackup || statusData?.latest_backup;
-    const backupTime = item ? item.backup_time_pretty : "Today, 9:30 AM";
-    const dataIncluded = item ? item.data_included : "Products, Sales, Customers, Settings, Files";
-    const storageLocation = item ? item.storage_location : "This Device";
-    const backupSize = item ? item.backup_size_pretty : "245 MB";
+    const isPartial = item ? (item.backup_category === "PARTIAL" || item.is_complete_business_backup === false) : false;
+    const isFailed = item ? (item.verification_status === "Failed" || item.backup_category === "FAILED") : false;
+
+    const backupTime = item?.backup_time_pretty || "Just now";
+    const dataIncluded = item?.data_included || "No entity records extracted";
+    const storageLocation = item?.storage_location || "This Device";
+    const backupSize = item?.backup_size_pretty || "0 B";
+    const backupType = item?.backup_type === "FULL_DATABASE_BACKUP" ? "Full Database Backup (pg_dump)" : "Logical Data Export";
+    const omittedTables = item?.omitted_tables || [];
 
     return (
-      <div className="max-w-xl mx-auto space-y-6 pt-4 pb-12 animate-in fade-in duration-200">
+      <div className="w-full max-w-[620px] mx-auto space-y-6 pt-4 pb-12 animate-in fade-in duration-200">
         <div className="flex items-center gap-3">
           <button
             onClick={() => setCurrentScreen("main")}
-            className="p-1.5 rounded-lg text-theme-muted hover:text-theme-primary hover:bg-theme-surface-2"
+            className="p-1.5 rounded-lg text-theme-muted hover:text-theme-primary hover:bg-theme-surface-2 transition-colors cursor-pointer"
           >
             <ArrowLeft size={20} />
           </button>
           <div>
             <h2 className="text-xl font-bold text-theme-primary font-display">
-              Backup Completed
+              {isPartial ? "Backup Completed (Partial Export)" : isFailed ? "Backup Failed" : "Backup Completed"}
             </h2>
           </div>
         </div>
 
-        <div className="bg-theme-surface-1 border border-theme-divider rounded-2xl p-8 flex flex-col items-center space-y-6 shadow-sm">
-          {/* Green Check Icon */}
-          <div className="w-16 h-16 rounded-full bg-[#10B981] flex items-center justify-center shadow-lg shadow-emerald-500/20">
-            <CheckCircle2 size={36} className="text-white" strokeWidth={2.5} />
-          </div>
+        <div className="bg-theme-surface-1 border border-theme-divider rounded-2xl p-6 sm:p-8 flex flex-col items-center space-y-5 shadow-sm">
+          {/* Status Icon - Restrained 56px */}
+          {isPartial ? (
+            <div className="w-14 h-14 rounded-full bg-amber-500 flex items-center justify-center shadow-lg shadow-amber-500/20">
+              <AlertTriangle size={28} className="text-white" strokeWidth={2.2} />
+            </div>
+          ) : isFailed ? (
+            <div className="w-14 h-14 rounded-full bg-rose-500 flex items-center justify-center shadow-lg shadow-rose-500/20">
+              <XCircle size={28} className="text-white" strokeWidth={2.2} />
+            </div>
+          ) : (
+            <div className="w-14 h-14 rounded-full bg-[#10B981] flex items-center justify-center shadow-lg shadow-emerald-500/20">
+              <CheckCircle2 size={28} className="text-white" strokeWidth={2.2} />
+            </div>
+          )}
 
-          <div className="text-center space-y-1">
+          <div className="text-center space-y-1 max-w-md">
             <h3 className="text-lg font-bold text-theme-primary font-display">
-              Backup completed successfully!
+              {isPartial
+                ? "Partial data export completed"
+                : isFailed
+                ? "Backup verification failed"
+                : "Full backup completed and verified!"}
             </h3>
-            <p className="text-xs text-theme-muted">
-              Your business data has been backed up and verified.
+            <p className="text-xs text-theme-muted leading-relaxed">
+              {isPartial
+                ? "Some database tables were omitted or empty during export. This backup is preserved for reference but is blocked from production restore."
+                : isFailed
+                ? "The backup archive could not be verified. Please review job logs or retry."
+                : "Your entire database schema, records, indexes, sequences and configuration have been securely archived."}
             </p>
           </div>
 
+          {/* Partial Warning Callout */}
+          {isPartial && (
+            <div className="w-full bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 rounded-xl p-3.5 text-xs text-amber-800 dark:text-amber-200 space-y-1">
+              <div className="flex items-center gap-1.5 font-bold">
+                <AlertCircle size={15} />
+                <span>Production Restore Blocked</span>
+              </div>
+              <p className="text-[11px] leading-relaxed text-amber-700 dark:text-amber-300">
+                To prevent data corruption or missing records, SMRITI Retail OS will not allow this partial export to overwrite your live production database.
+              </p>
+            </div>
+          )}
+
           {/* Manifest Summary Details Card */}
-          <div className="w-full bg-theme-surface-2 border border-theme-divider rounded-xl p-4 space-y-3 text-xs">
+          <div className="w-full bg-theme-surface-2 border border-theme-divider rounded-xl p-4 space-y-2.5 text-xs">
             <div className="flex items-center justify-between py-1 border-b border-theme-divider/40">
               <div className="flex items-center gap-2 text-theme-muted">
                 <Calendar size={14} />
@@ -922,29 +969,59 @@ export const BackupRestoreWorkspace: React.FC<BackupRestoreWorkspaceProps> = ({
             <div className="flex items-center justify-between py-1 border-b border-theme-divider/40">
               <div className="flex items-center gap-2 text-theme-muted">
                 <Database size={14} />
+                <span>Backup type</span>
+              </div>
+              <span className="font-semibold text-theme-primary">{backupType}</span>
+            </div>
+
+            <div className="flex items-start justify-between py-1 border-b border-theme-divider/40 gap-4">
+              <div className="flex items-center gap-2 text-theme-muted shrink-0">
+                <FileCheck2 size={14} />
                 <span>Data included</span>
               </div>
-              <span className="font-semibold text-theme-primary truncate max-w-[220px]">
+              <span className="font-semibold text-theme-primary text-right max-w-[300px] break-words">
                 {dataIncluded}
               </span>
             </div>
 
+            {isPartial && omittedTables.length > 0 && (
+              <div className="flex items-start justify-between py-1 border-b border-theme-divider/40 gap-4">
+                <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400 font-medium shrink-0">
+                  <AlertTriangle size={14} />
+                  <span>Omitted tables ({omittedTables.length})</span>
+                </div>
+                <span className="font-semibold text-amber-700 dark:text-amber-300 text-right max-w-[280px] break-words">
+                  {omittedTables.join(", ")}
+                </span>
+              </div>
+            )}
+
             <div className="flex items-center justify-between py-1 border-b border-theme-divider/40">
               <div className="flex items-center gap-2 text-theme-muted">
                 <Cloud size={14} />
-                <span>Storage location</span>
+                <span>Destination</span>
               </div>
               <span className="font-semibold text-theme-primary">{storageLocation}</span>
             </div>
 
             <div className="flex items-center justify-between py-1 border-b border-theme-divider/40">
               <div className="flex items-center gap-2 text-theme-muted">
-                <FileCheck2 size={14} />
-                <span>Verification</span>
+                <ShieldCheck size={14} />
+                <span>Verification status</span>
               </div>
-              <span className="font-bold text-[#10B981] flex items-center gap-1">
-                Passed
-              </span>
+              {isPartial ? (
+                <span className="font-bold text-amber-600 dark:text-amber-400 flex items-center gap-1">
+                  Partial (Incomplete)
+                </span>
+              ) : isFailed ? (
+                <span className="font-bold text-rose-600 dark:text-rose-400 flex items-center gap-1">
+                  Verification Failed
+                </span>
+              ) : (
+                <span className="font-bold text-[#10B981] flex items-center gap-1">
+                  Full backup verified
+                </span>
+              )}
             </div>
 
             <div className="flex items-center justify-between py-1">
@@ -959,16 +1036,18 @@ export const BackupRestoreWorkspace: React.FC<BackupRestoreWorkspaceProps> = ({
           {/* Action Buttons */}
           <div className="w-full space-y-2 pt-2">
             <button
+              id="view-backup-history-btn"
               onClick={() => setCurrentScreen("restore_select")}
               className="w-full py-3 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs transition-colors shadow-sm cursor-pointer"
             >
               View Backup History
             </button>
             <button
+              id="back-to-backup-centre-btn"
               onClick={() => setCurrentScreen("main")}
               className="w-full py-2.5 px-4 rounded-xl border border-theme-divider text-xs font-semibold text-theme-muted hover:text-theme-body hover:bg-theme-surface-2 transition-colors cursor-pointer"
             >
-              Back to Home
+              Back to Backup Centre
             </button>
           </div>
         </div>
@@ -1045,9 +1124,15 @@ export const BackupRestoreWorkspace: React.FC<BackupRestoreWorkspaceProps> = ({
                       <span className="text-sm font-bold text-theme-primary font-display">
                         {b.backup_time_pretty}
                       </span>
-                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[#ECFDF5] text-[#059669] border border-[#A7F3D0] dark:bg-emerald-950 dark:border-emerald-800">
-                        Verified
-                      </span>
+                      {b.backup_category === "PARTIAL" || b.is_restorable === false || b.is_complete_business_backup === false ? (
+                        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-950 dark:border-amber-800">
+                          Partial (Non-Restorable)
+                        </span>
+                      ) : (
+                        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[#ECFDF5] text-[#059669] border border-[#A7F3D0] dark:bg-emerald-950 dark:border-emerald-800">
+                          Full Backup Verified
+                        </span>
+                      )}
                     </div>
                     <p className="text-xs text-theme-muted truncate">{b.data_included}</p>
                     <p className="text-[11px] text-theme-muted font-mono">
@@ -1080,10 +1165,12 @@ export const BackupRestoreWorkspace: React.FC<BackupRestoreWorkspaceProps> = ({
   // ─────────────────────────────────────────────────────────────────────────
   const renderRestoreConfirmScreen = () => {
     const item = selectedBackup || history[0];
+    const isPartial = item ? (item.backup_category === "PARTIAL" || item.is_complete_business_backup === false || item.is_restorable === false) : false;
     const backupTime = item ? item.backup_time_pretty : "Today, 9:30 AM";
     const dataIncluded = item ? item.data_included : "Products, Sales, Customers, Settings, Files";
     const storageLocation = item ? item.storage_location : "This Device";
     const backupSize = item ? item.backup_size_pretty : "245 MB";
+    const omittedTables = item?.omitted_tables || [];
 
     return (
       <div className="max-w-xl mx-auto space-y-6 pt-4 pb-12 animate-in fade-in duration-200">
@@ -1124,6 +1211,18 @@ export const BackupRestoreWorkspace: React.FC<BackupRestoreWorkspaceProps> = ({
             </span>
           </div>
 
+          {isPartial && omittedTables.length > 0 && (
+            <div className="flex items-start justify-between py-1.5 border-b border-theme-divider/40 gap-4">
+              <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400 font-medium shrink-0">
+                <AlertTriangle size={14} />
+                <span>Omitted tables ({omittedTables.length})</span>
+              </div>
+              <span className="font-semibold text-amber-700 dark:text-amber-300 text-right max-w-[240px] break-words">
+                {omittedTables.join(", ")}
+              </span>
+            </div>
+          )}
+
           <div className="flex items-center justify-between py-1.5 border-b border-theme-divider/40">
             <div className="flex items-center gap-2 text-theme-muted">
               <Cloud size={14} />
@@ -1145,37 +1244,61 @@ export const BackupRestoreWorkspace: React.FC<BackupRestoreWorkspaceProps> = ({
               <FileCheck2 size={14} />
               <span>Verification</span>
             </div>
-            <span className="font-bold text-[#10B981]">Passed</span>
+            {isPartial ? (
+              <span className="font-bold text-amber-600 dark:text-amber-400">Partial (Incomplete)</span>
+            ) : (
+              <span className="font-bold text-[#10B981]">Full Backup Verified</span>
+            )}
           </div>
         </div>
 
-        {/* Amber Warning Banner */}
-        <div className="bg-[#FEF3C7] dark:bg-amber-950/40 border border-[#FCD34D] dark:border-amber-800/60 rounded-2xl p-4 flex items-start gap-3">
-          <AlertTriangle size={20} className="text-[#D97706] shrink-0 mt-0.5" />
-          <div className="space-y-1">
-            <h4 className="text-xs font-bold text-[#92400E] dark:text-amber-200">
-              This will replace your current data
-            </h4>
-            <p className="text-[11px] text-[#B45309] dark:text-amber-300 leading-relaxed">
-              Your existing products, sales, customers, settings and files will be replaced with
-              the data from this backup.
-            </p>
+        {/* Warning or Blocker Banner */}
+        {isPartial ? (
+          <div className="bg-rose-50 dark:bg-rose-950/40 border border-rose-300 dark:border-rose-800/60 rounded-2xl p-4 flex items-start gap-3">
+            <XCircle size={22} className="text-rose-600 dark:text-rose-400 shrink-0 mt-0.5" />
+            <div className="space-y-1">
+              <h4 className="text-xs font-bold text-rose-800 dark:text-rose-200">
+                Incomplete Backup Cannot Be Restored to Production
+              </h4>
+              <p className="text-[11px] text-rose-700 dark:text-rose-300 leading-relaxed">
+                This backup is an incomplete data export ({omittedTables.length > 0 ? `${omittedTables.length} tables omitted: ${omittedTables.join(", ")}` : "Required business entities missing"}). Restoration is strictly blocked to prevent database inconsistency and permanent data loss.
+              </p>
+            </div>
           </div>
-        </div>
+        ) : (
+          <div className="bg-[#FEF3C7] dark:bg-amber-950/40 border border-[#FCD34D] dark:border-amber-800/60 rounded-2xl p-4 flex items-start gap-3">
+            <AlertTriangle size={20} className="text-[#D97706] shrink-0 mt-0.5" />
+            <div className="space-y-1">
+              <h4 className="text-xs font-bold text-[#92400E] dark:text-amber-200">
+                This will replace your current data
+              </h4>
+              <p className="text-[11px] text-[#B45309] dark:text-amber-300 leading-relaxed">
+                Your existing products, sales, customers, settings and files will be replaced with
+                the data from this backup.
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* Checkbox confirmation */}
-        <label className="flex items-center gap-3 cursor-pointer select-none">
-          <input
-            id="restore-confirm-checkbox"
-            type="checkbox"
-            checked={restoreConfirmed}
-            onChange={(e) => setRestoreConfirmed(e.target.checked)}
-            className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 border-gray-300 dark:border-gray-600 cursor-pointer"
-          />
-          <span className="text-xs text-theme-body font-medium">
-            I understand and want to restore my data from this backup.
-          </span>
-        </label>
+        {!isPartial ? (
+          <label className="flex items-center gap-3 cursor-pointer select-none">
+            <input
+              id="restore-confirm-checkbox"
+              type="checkbox"
+              checked={restoreConfirmed}
+              onChange={(e) => setRestoreConfirmed(e.target.checked)}
+              className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 border-gray-300 dark:border-gray-600 cursor-pointer"
+            />
+            <span className="text-xs text-theme-body font-medium">
+              I understand and want to restore my data from this backup.
+            </span>
+          </label>
+        ) : (
+          <p className="text-xs text-rose-600 dark:text-rose-400 font-medium">
+            Production restoration is blocked. Please select a full verified backup to restore.
+          </p>
+        )}
 
         {restoreError && (
           <div className="p-3 rounded-xl bg-red-50 dark:bg-red-950/50 border border-red-200 text-xs text-red-600">
@@ -1187,10 +1310,10 @@ export const BackupRestoreWorkspace: React.FC<BackupRestoreWorkspaceProps> = ({
         <div className="space-y-2 pt-2">
           <button
             id="execute-restore-btn"
-            disabled={!restoreConfirmed || restoringInProgress}
+            disabled={isPartial || !restoreConfirmed || restoringInProgress}
             onClick={handleExecuteRestore}
             className={`w-full py-3 px-4 rounded-xl text-white font-semibold text-xs transition-all shadow-sm flex items-center justify-center gap-2 ${
-              restoreConfirmed && !restoringInProgress
+              !isPartial && restoreConfirmed && !restoringInProgress
                 ? "bg-blue-600 hover:bg-blue-700 cursor-pointer"
                 : "bg-gray-300 dark:bg-gray-700 cursor-not-allowed opacity-60"
             }`}
@@ -1200,6 +1323,8 @@ export const BackupRestoreWorkspace: React.FC<BackupRestoreWorkspaceProps> = ({
                 <Loader2 size={16} className="animate-spin" />
                 <span>Restoring Data...</span>
               </>
+            ) : isPartial ? (
+              <span>Restoration Blocked (Incomplete Backup)</span>
             ) : (
               <span>Restore My Data</span>
             )}

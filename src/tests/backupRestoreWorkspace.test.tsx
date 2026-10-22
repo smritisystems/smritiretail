@@ -172,7 +172,7 @@ describe("BackupRestoreWorkspace Rendering & Interaction Contracts", () => {
   });
 
 
-  it("4. renders Screen 3: Backup Completed with summary details", () => {
+  it("4. renders Screen 3: Backup Completed with verified full database backup summary details", () => {
     const markup = renderToStaticMarkup(
       <BackupRestoreWorkspace
         initialStatus={mockStatus}
@@ -181,18 +181,18 @@ describe("BackupRestoreWorkspace Rendering & Interaction Contracts", () => {
         initialScreen="backup_completed"
       />
     );
-    expect(markup).toContain("Backup completed successfully!");
-    expect(markup).toContain("Your business data has been backed up and verified.");
+    expect(markup).toContain("Full backup completed and verified!");
+    expect(markup).toContain("Your entire database schema, records, indexes, sequences and configuration have been securely archived.");
     expect(markup).toContain("Backup time");
     expect(markup).toContain("Data included");
-    expect(markup).toContain("Storage location");
-    expect(markup).toContain("Verification");
-    expect(markup).toContain("Passed");
+    expect(markup).toContain("Destination");
+    expect(markup).toContain("Verification status");
+    expect(markup).toContain("Full backup verified");
     expect(markup).toContain("View Backup History");
-    expect(markup).toContain("Back to Home");
+    expect(markup).toContain("Back to Backup Centre");
   });
 
-  it("5. renders Screen 4: Restore My Data point selector", () => {
+  it("5. renders Screen 4: Restore My Data point selector with verification badges", () => {
     const markup = renderToStaticMarkup(
       <BackupRestoreWorkspace
         initialStatus={mockStatus}
@@ -205,11 +205,11 @@ describe("BackupRestoreWorkspace Rendering & Interaction Contracts", () => {
     expect(markup).toContain("Choose a backup to recover your business data.");
     expect(markup).toContain("Today, 9:30 AM");
     expect(markup).toContain("Yesterday, 8:00 PM");
-    expect(markup).toContain("Verified");
+    expect(markup).toContain("Full Backup Verified");
     expect(markup).toContain("Continue to Review");
   });
 
-  it("6. renders Screen 5: Review and Confirm with destructive warning and checkbox", () => {
+  it("6. renders Screen 5: Review and Confirm with destructive warning and checkbox for full backup", () => {
     const markup = renderToStaticMarkup(
       <BackupRestoreWorkspace
         initialStatus={mockStatus}
@@ -231,7 +231,64 @@ describe("BackupRestoreWorkspace Rendering & Interaction Contracts", () => {
     expect(markup).toContain('id="execute-restore-btn"');
   });
 
-  it("7. renders Screen 6: Backup Settings with frequency and storage options", () => {
+  it("7. renders Screen 3 with warning banner and omitted tables for partial data export", () => {
+    const partialItem = {
+      ...mockStatus.latest_backup,
+      backup_id: "bak-partial-123",
+      backup_category: "PARTIAL" as const,
+      is_complete_business_backup: false,
+      verification_status: "Partial" as const,
+      data_included: "Products (1,000)",
+      omitted_tables: ["customers", "suppliers", "sales_invoices"],
+    };
+    const partialStatus = {
+      ...mockStatus,
+      latest_backup: partialItem,
+    };
+
+    const markup = renderToStaticMarkup(
+      <BackupRestoreWorkspace
+        initialStatus={partialStatus}
+        initialSettings={mockSettings}
+        initialHistory={[partialItem]}
+        initialScreen="backup_completed"
+      />
+    );
+    expect(markup).toContain("Partial data export completed");
+    expect(markup).toContain("Production Restore Blocked");
+    expect(markup).toContain("Omitted tables (3)");
+    expect(markup).toContain("customers, suppliers, sales_invoices");
+    expect(markup).toContain("Partial (Incomplete)");
+    expect(markup).toContain("Back to Backup Centre");
+  });
+
+  it("8. renders Screen 5 with hard-blocked production restore for partial export", () => {
+    const partialItem = {
+      ...mockStatus.latest_backup,
+      backup_id: "bak-partial-123",
+      backup_category: "PARTIAL" as const,
+      is_complete_business_backup: false,
+      is_restorable: false,
+      verification_status: "Partial" as const,
+      data_included: "Products (1,000)",
+      omitted_tables: ["customers", "suppliers", "sales_invoices"],
+    };
+
+    const markup = renderToStaticMarkup(
+      <BackupRestoreWorkspace
+        initialStatus={{ ...mockStatus, latest_backup: partialItem }}
+        initialSettings={mockSettings}
+        initialHistory={[partialItem]}
+        initialScreen="restore_confirm"
+      />
+    );
+    expect(markup).toContain("Incomplete Backup Cannot Be Restored to Production");
+    expect(markup).toContain("Restoration is strictly blocked to prevent database inconsistency");
+    expect(markup).toContain("Restoration Blocked (Incomplete Backup)");
+    expect(markup).not.toContain('id="restore-confirm-checkbox"');
+  });
+
+  it("9. renders Screen 6: Backup Settings with frequency and storage options", () => {
     const markup = renderToStaticMarkup(
       <BackupRestoreWorkspace
         initialStatus={mockStatus}
@@ -254,7 +311,7 @@ describe("BackupRestoreWorkspace Rendering & Interaction Contracts", () => {
     expect(markup).toContain("Keep backups for");
   });
 
-  it("8. validates backup history and settings payload mapping contracts", async () => {
+  it("10. validates backup history and settings payload mapping contracts", async () => {
     const statusResult = await apiFetchV1("/backup/status");
     expect(statusResult).toEqual(mockStatus);
 

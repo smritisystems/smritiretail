@@ -11,6 +11,38 @@
   Classification: Internal
 -->
 
+## [6.99.10] — 2026-10-22
+
+### Foundation & Disaster Recovery — Critical Backup Integrity Remediation & Full Database Recovery Engine
+
+- **Completeness vs File Integrity Segregation (`backup_engine.py`, `backup.py`, `backup_restore_service.py`)**:
+  - Remediated critical backup integrity flaw where partial data exports (20.9 KB, only 1,000 products) were falsely labeled and certified as "Verified" and "Complete" system backups.
+  - Established `file_integrity_status` (physical readability and cryptographic SHA-256 hash) as an independent validation dimension from `completeness_status` (coverage of all mandatory database entities).
+  - Configured automatic classification: if any required entity is omitted or contains 0 rows, the backup is strictly marked `backup_category = "PARTIAL"`, `is_complete_business_backup = False`, `is_restorable = False`, and `verification_status = "Partial"`.
+  - Added retroactive legacy manifest auditing in `get_history()` to instantly detect and remediate previous unverified manifests.
+- **Native PostgreSQL Recovery Artifacts (`backup_engine.py`, `backup_restore_service.py`)**:
+  - Integrated PostgreSQL-native `pg_dump -Fc` producing ~14.5 MB custom archive bundles containing all 311 tables, 1,369 indexes, sequences, DDL schemas, and live records.
+  - Added TOC verification via `pg_restore -l` verifying archive header and table entry counts (>2,600 TOC entries).
+  - Built matching `pg_restore` disaster recovery path in `execute_restore()`.
+- **Database Extraction & Savepoint Isolation (`backup_engine.py`)**:
+  - Repaired schema column mismatch against live PostgreSQL database `smriti001`: corrected `phone` to canonical `mobile` on `customers` and `suppliers`, `total_amount` to `grand_total` on `sales_invoices`, and `stock_ledger` to `stock_movements`.
+  - Wrapped individual table extractions inside nested transaction savepoints (`async with sess.begin_nested():`), completely eliminating the transaction abort cascade (`InFailedSQLTransactionError`).
+  - Recorded omitted tables and extraction failure reasons directly in the manifest and job logs.
+- **Production Restore Guard (`backup_restore_service.py`, `BackupRestoreWorkspace.tsx`)**:
+  - Hard-blocked production database restoration from partial exports (`can_restore = False`, `block_reason = "PARTIAL_BACKUP_CANNOT_OVERWRITE_PRODUCTION"`).
+  - Throws explicit `ValueError` / `HTTP 400` explaining that restoring an incomplete export would cause permanent production data loss.
+- **Backup Completion & Review UX Remediations (`BackupRestoreWorkspace.tsx`)**:
+  - Resized desktop completion card to 620px (responsive within 560–680px range).
+  - Restrained 56px status icon (`w-14 h-14`): emerald check for full, amber alert for partial, rose circle for failed.
+  - Added amber callout detailing omitted tables and explaining that production restore is blocked.
+  - Set primary action to **View Backup History** and secondary action to **Back to Backup Centre**.
+  - In restore review screen, displayed Red Blocked Banner and disabled the confirmation checkbox and restore button for partial exports.
+- **Verification**:
+  - 14/14 backend Pytest tests green (`test_backup_integrity_remediation.py`, `test_master_backup_engine.py`, `test_backup_restore_service.py`).
+  - 10/10 frontend Vitest tests green (`src/tests/backupRestoreWorkspace.test.tsx`).
+  - Isolated database restore test executed into temporary database `smriti_test_isolated_*` verifying 100% table (311/311) and record count parity with zero residue and zero production overwrites.
+  - Clean `tsc --noEmit` / `npm run lint` with 0 errors.
+
 ## [6.99.9] — 2026-10-22
 
 ### Foundation & UI Architecture — Premium UX Switcher (Regular UX ↔ Classic UX)
