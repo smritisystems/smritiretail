@@ -16,16 +16,39 @@
 
   * Websites: aitdl.com | erpnbook.com | smritibooks.com
 
-  * Version    : 2.1.2
+  * Author     : Jawahar Ramkripal Mallah
+  * Designation: Chief Systems Architect & Creator
+  * Email      : support@smritibooks.com
+  * Version    : 6.99.1
   * Created    : 2026-07-11
-  * Modified   : 2026-10-16
-  * Copyright  : © AITDL.com and SMRITIBooks.com. All Rights Reserved.
+  * Modified   : 2026-10-24
+  * Copyright  : © SMRITIBooks.com. All Rights Reserved. (also © AITDL.com)
   * License    : Proprietary Commercial Software
 -->
 
 # SMRITI Retail OS — Troubleshooting & Support Manual
 
 This document details common operational issues and resolutions.
+
+## Shell and workspace context
+
+### [SMRITI-UX-001] A Classic menu item is not visible in the top bar
+**Symptom:** Some Classic menu groups are not shown beside the brand and account controls.
+**Cause:** The available header space is limited at the current window size.
+**Resolution:** Select **More** to open the remaining navigation groups. Use the search icon to open global search on a narrow screen.
+**Fixed In:** v6.99.1
+
+### [SMRITI-CONTEXT-001] Company or branch context is unavailable
+**Symptom:** The header or status bar says that company or branch context is unavailable.
+**Cause:** The current session has not supplied a company or branch name.
+**Resolution:** Open the company and branch control and select an available workspace. If no choices are listed, sign in again or ask an administrator to confirm your workspace access.
+**Fixed In:** v6.99.1
+
+### [SMRITI-NET-001] The network label does not match application access
+**Symptom:** The status bar reports network availability, but a SMRITI page does not load.
+**Cause:** The label reflects the browser's network flag and does not check the application or account session.
+**Resolution:** Refresh the page. If it still does not load, sign in again or contact your administrator.
+**Fixed In:** v6.99.1
 
 ---
 

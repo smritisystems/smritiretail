@@ -4,9 +4,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 3.25.0
+ * Version      : 6.99.1
  * Created      : 2026-08-14
- * Modified     : 2026-08-18
+ * Modified     : 2026-10-24
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
@@ -34,10 +34,10 @@ export const CompanySelector: React.FC = () => {
   const [companies, setCompanies] = useState<CompanyOption[]>([]);
   const [branches, setBranches] = useState<BranchOption[]>([]);
   const [selectedCompanyId, setSelectedCompanyId] = useState<string>(() => {
-    return localStorage.getItem("smriti_company_id") || "COMP-001";
+    return localStorage.getItem("smriti_company_id") || "";
   });
   const [selectedBranchId, setSelectedBranchId] = useState<string>(() => {
-    return localStorage.getItem("smriti_branch_id") || "MAIN";
+    return localStorage.getItem("smriti_branch_id") || "";
   });
   const [isOpen, setIsOpen] = useState(false);
   const [switching, setSwitching] = useState(false);
@@ -49,12 +49,14 @@ export const CompanySelector: React.FC = () => {
       try {
         const data = await apiFetchV1('/auth/tenants');
         if (isMounted && data && Array.isArray(data.companies) && data.companies.length > 0) {
-          const mapped: CompanyOption[] = data.companies.map((item: any) => ({
-            company_id: item.id || "COMP-001",
-            company_code: (item.id || "COMP-001").replace(/^COMP-/, "") || "001",
+          const mapped: CompanyOption[] = data.companies
+            .filter((item: any) => Boolean(item?.id))
+            .map((item: any) => ({
+            company_id: item.id,
+            company_code: item.company_code || item.code || "",
             company_name: item.name || "",
-            status: item.status || "READY"
-          }));
+            status: item.status
+            }));
           setCompanies(mapped);
           setBranches(Array.isArray(data.branches) ? data.branches : []);
         }
@@ -65,6 +67,11 @@ export const CompanySelector: React.FC = () => {
 
     loadCompanyRegistry();
 
+    const syncSelectedContext = () => {
+      setSelectedCompanyId(localStorage.getItem("smriti_company_id") || "");
+      setSelectedBranchId(localStorage.getItem("smriti_branch_id") || "");
+    };
+
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.altKey && (e.key === "F3" || e.code === "F3")) {
         e.preventDefault();
@@ -74,9 +81,15 @@ export const CompanySelector: React.FC = () => {
     };
 
     window.addEventListener("keydown", handleKeyDown);
+    window.addEventListener("smriti_tenant_context_updated", syncSelectedContext);
+    window.addEventListener("smriti_company_context_updated", syncSelectedContext);
+    window.addEventListener("storage", syncSelectedContext);
     return () => {
       isMounted = false;
       window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("smriti_tenant_context_updated", syncSelectedContext);
+      window.removeEventListener("smriti_company_context_updated", syncSelectedContext);
+      window.removeEventListener("storage", syncSelectedContext);
     };
   }, []);
 
@@ -109,6 +122,7 @@ export const CompanySelector: React.FC = () => {
         localStorage.setItem("smriti_branch_id", targetBranch.id);
         localStorage.setItem("smriti_branch_name", targetBranch.name);
         localStorage.setItem("smriti_branch_code", targetBranch.code);
+        window.dispatchEvent(new CustomEvent("smriti_company_context_updated"));
         setSelectedCompanyId(comp.company_id);
         setSelectedBranchId(targetBranch.id);
         setIsOpen(false);
@@ -127,40 +141,42 @@ export const CompanySelector: React.FC = () => {
 
   const currentComp = companies.find(c => c.company_id === selectedCompanyId) || {
     company_id: selectedCompanyId,
-    company_code: selectedCompanyId.replace(/^COMP-/, "") || "001",
-    company_name: localStorage.getItem("smriti_company_name") || "SMRITI Workspace",
-    status: "READY"
+    company_code: localStorage.getItem("smriti_company_code") || "",
+    company_name: localStorage.getItem("smriti_company_name") || "",
   };
 
   const currentBranch = branches.find(b => b.id === selectedBranchId) || {
     id: selectedBranchId,
-    name: localStorage.getItem("smriti_branch_name") || "Main Store",
-    code: localStorage.getItem("smriti_branch_code") || "MAIN",
+    name: localStorage.getItem("smriti_branch_name") || "",
+    code: localStorage.getItem("smriti_branch_code") || "",
     company: selectedCompanyId
   };
 
   return (
     <div className="relative inline-block text-left">
       <button
+        type="button"
         onClick={() => {
           setError(null);
           setIsOpen(!isOpen);
         }}
-        className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white border border-blue-400 transition-all text-xs font-bold shadow-md cursor-pointer select-none"
+        aria-label={`Company and branch: ${currentComp.company_name || "Company not selected"}, ${currentBranch.name || "Branch not selected"}. Change context`}
+        aria-expanded={isOpen}
+        aria-haspopup="dialog"
+        aria-controls="company-branch-menu"
+        className="flex max-w-[44vw] sm:max-w-none items-center gap-2 px-2 sm:px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white border border-blue-400 transition-all text-xs font-bold shadow-md cursor-pointer select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80"
         title="Switch Active Business Company & Branch (Alt+F3)"
       >
         <Building2 className="w-4 h-4 text-emerald-300 shrink-0" />
-        <div className="flex flex-col text-left">
+        <div className="hidden sm:flex flex-col text-left">
           <div className="flex items-center gap-1.5">
-            <span className="max-w-[140px] truncate font-display">{currentComp.company_name}</span>
-            <span className="px-1 py-0.2 text-[9px] font-mono font-bold bg-blue-700 text-white rounded border border-blue-500">
-              {currentComp.company_code}
-            </span>
+            <span className="max-w-[90px] sm:max-w-[140px] truncate font-display">{currentComp.company_name || "Company not selected"}</span>
+            {currentComp.company_code && <span className="px-1 py-0.2 text-[10px] font-mono font-bold bg-blue-700 text-white rounded border border-blue-500">{currentComp.company_code}</span>}
           </div>
           <div className="flex items-center gap-1 text-[10px] text-blue-200 font-mono opacity-90">
             <GitBranch className="w-2.5 h-2.5" />
-            <span className="max-w-[120px] truncate">{currentBranch.name}</span>
-            <span>({currentBranch.code})</span>
+            <span className="max-w-[74px] sm:max-w-[120px] truncate">{currentBranch.name || "Branch not selected"}</span>
+            {currentBranch.code && <span>({currentBranch.code})</span>}
           </div>
         </div>
         <ChevronDown className="w-3.5 h-3.5 text-blue-200 shrink-0 ml-0.5" />
@@ -168,8 +184,10 @@ export const CompanySelector: React.FC = () => {
 
       {isOpen && (
         <>
-          <div 
-            className="fixed inset-0 z-40" 
+          <button
+            type="button"
+            aria-label="Close company and branch selector"
+            className="fixed inset-0 z-40 cursor-default"
             onClick={() => {
               if (!switching) {
                 setIsOpen(false);
@@ -177,7 +195,7 @@ export const CompanySelector: React.FC = () => {
               }
             }} 
           />
-          <div className="absolute right-0 mt-2 w-80 rounded-xl bg-theme-surface-2 border border-theme-divider shadow-2xl z-50 py-1 overflow-hidden animate-in fade-in duration-150">
+          <div id="company-branch-menu" role="dialog" aria-label="Select company and branch" className="absolute right-0 mt-2 w-80 max-w-[calc(100vw-1rem)] rounded-xl bg-theme-surface-2 border border-theme-divider shadow-2xl z-50 py-1 overflow-hidden animate-in fade-in duration-150">
             <div className="px-3.5 py-2 text-[10px] font-mono font-bold text-theme-muted border-b border-theme-divider uppercase tracking-wider bg-theme-surface-3 flex items-center justify-between">
               <span>Select Organization Workspace</span>
               {switching && <RefreshCw className="w-3 h-3 animate-spin text-blue-500" />}
@@ -192,6 +210,9 @@ export const CompanySelector: React.FC = () => {
             )}
 
             <div className="max-h-72 overflow-y-auto divide-y divide-theme-divider">
+              {companies.length === 0 && !switching && (
+                <p className="px-4 py-6 text-center text-xs text-theme-muted">No company choices are available in this session.</p>
+              )}
               {companies.map((comp) => {
                 const compBranches = branches.filter((b) => b.company === comp.company_id);
                 const isCompActive = comp.company_id === selectedCompanyId;
@@ -220,6 +241,7 @@ export const CompanySelector: React.FC = () => {
                             <button
                               key={br.id}
                               disabled={switching}
+                              aria-pressed={isBranchSelected}
                               onClick={() => handleSelectBranch(comp, br)}
                               className={`w-full text-left px-2.5 py-1.5 rounded-md text-xs flex items-center justify-between hover:bg-theme-surface-hover transition-colors cursor-pointer ${
                                 isBranchSelected

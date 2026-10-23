@@ -4,9 +4,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.99.12
+ * Version      : 6.99.1
  * Created      : 2026-07-10
- * Modified     : 2026-10-22
+ * Modified     : 2026-10-24
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Authoritative Root Application Canvas (Mode-Adaptive Shell)
@@ -634,8 +634,8 @@ const AppContent: React.FC = () => {
         setActiveTab("launchpad");
       }}
       onLogout={handleLogout}
-      userName={currentUser?.name || "Operator"}
-      userRole={currentUser?.role || "Operator"}
+      userName={currentUser?.name}
+      userRole={currentUser?.role}
     >
       <div className="relative w-full h-full">
       {/* Toast Notification Stack */}

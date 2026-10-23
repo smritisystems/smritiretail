@@ -19,10 +19,13 @@
 
   * Websites: aitdl.com | erpnbook.com | smritibooks.com
 
-  * Version    : 6.69.0
+  * Author     : Jawahar Ramkripal Mallah
+  * Designation: Chief Systems Architect & Creator
+  * Email      : support@smritibooks.com
+  * Version    : 6.99.1
   * Created    : 2026-07-11
-  * Modified   : 2026-10-16
-  * Copyright  : Ã‚Â© SMRITIBooks.com. All Rights Reserved.
+  * Modified   : 2026-10-24
+  * Copyright  : © SMRITIBooks.com. All Rights Reserved. (also © AITDL.com)
   * License    : Proprietary Commercial Software
   * Classification: Internal
 -->
@@ -32,6 +35,7 @@
 This directory contains formal walkthroughs documenting major features, bug fixes, refactoring, and optimizations in SMRITI Retail OS.
 
 
+| 2026-10-24 | v6.99.1 | UI Shell: Premium Shell Context, Responsive Navigation, and Workspace Style Accessibility - Removed sample identity and notification values, shared company and branch context across modes, added measured Classic overflow and mobile navigation/search, and made the workspace style dialog keyboard accessible. | [Walkthrough](./ui/SMRITI_Shell_Consistency_and_Accessibility_Walkthrough_v6.99.1.md) | [Plan](../implementation/ui/SMRITI_Shell_Consistency_and_Accessibility_Plan_v6.99.1.md) - [Ledger](./CONSOLIDATED_WALKTHROUGHS.md#shell-premium-context-responsive-navigation-workspace-style) | Partially Verified |
 | 2026-10-23 | v6.99.18 | **CRM & Customer Master: Store Location Persistence and Tenant-Scoped Branch Lookup** — Replaced the fake mapping action with canonical delivery-location creation, removed fabricated customer/store identities, scoped the F2 branch lookup by tenant, removed ambiguous GRN store-to-warehouse aliasing, and made lock errors fail closed. Verified TypeScript and 11 focused Customer 360 tests. | [Walkthrough](./crm/Customer_Store_Branch_Relation_Audit_Walkthrough_v6.99.18.md) | — | Partially Verified |
 | 2026-10-23 | v6.99.17 | **CRM & Customer Master: Directory Workspace Controls and Export Scope** — Corrected the Classic-to-Enterprise workspace action, scoped directory exports to the filtered current page and summary columns, clarified directory versus catalogue navigation, and aligned session cache tests with session storage. Verified with TypeScript validation, production build, 20 Customer-related test suites (171 tests), and local demo HTTP 200. | [Walkthrough](./customer/Customer_Directory_Workspace_Controls_And_Export_v6.99.17.md) | — | Partially Verified |
 | 2026-10-23 | v6.99.13 | **Database & Systems: Automated Database Migration, Pre-Migration Backup & Child Customer Billing Remediation** — Delivered an enterprise-grade automated database migration, backup snapshot, and rollback engine (`scripts/auto_migrate.py`, `scripts/migrate.ps1`, `package.json`). Guarantees every migration session begins with a compressed `pg_dump -Fc` binary snapshot, SHA-256 manifest, and pre-migration row count census before executing Alembic head migrations across `smritisys` and tenant databases (`smriti001` through `smriti004`). Features automated rollback (`--auto-rollback`) and zero-data-loss verification. Diagnosed and resolved the 6 core architectural and configuration root causes preventing child customer billing in freshly installed versions: enabled parent visibility gate (`show_child_customers_in_billing`), mounted `SmritiCreditBillingTerminal` in `BillingWorkspace.tsx`, removed hardcoded mock SKUs (`SHOE-001`) that caused HTTP 400 errors, resolved Alembic migration `v1541` variant SKU uniqueness collision, calibrated A4 Tax Invoice background watermark to 75% page size, and validated live atomic checkout `INV-20261023-3CA746` in headless Playwright. Certified with 5/5 Vitest tests green (`childCustomerBillingVisibility.test.tsx`), zero syntax errors, and live PostgreSQL snapshot verification. | [Walkthrough](./db/DB_Automated_Migration_Pre_Backup_And_Child_Billing_Remediation_v6.99.13.md) | — | Done |

@@ -16,16 +16,30 @@
 
   * Websites: aitdl.com | erpnbook.com | smritibooks.com
 
-  * Version    : 2.1.2
+  * Author     : Jawahar Ramkripal Mallah
+  * Designation: Chief Systems Architect & Creator
+  * Email      : support@smritibooks.com
+  * Version    : 6.99.1
   * Created    : 2026-07-11
-  * Modified   : 2026-10-16
-  * Copyright  : © AITDL.com and SMRITIBooks.com. All Rights Reserved.
+  * Modified   : 2026-10-24
+  * Copyright  : © SMRITIBooks.com. All Rights Reserved. (also © AITDL.com)
   * License    : Proprietary Commercial Software
 -->
 
 # SMRITI Retail OS — User Guide & Help Manual
 
 Welcome to the SMRITI Retail OS user and operation manual. This document guides store operators, managers, and cashiers on standard workflow practices.
+
+## Shell controls — updated 2026-10-24
+
+1. Use the company and branch control in the top bar to review or change the active workspace. It is available in both Regular and Classic styles. The company and branch names appear only when the current session provides them.
+2. Select **Workspace style** to preview Regular and Classic layouts. The current module stays open while the layout changes. Use **Escape** to close the chooser, or use **Tab** and **Shift+Tab** to move through its controls.
+3. On a narrow screen, select the search icon to open global search. In Classic style, items that do not fit appear under **More**.
+4. In the left navigation, the active module is highlighted. When the rail is compact, point to an icon to see its label or use the control's accessible name with a screen reader.
+
+### Common question: What does the network label confirm?
+
+The status bar reports whether the browser says a network is available. It does not confirm that your account or the SMRITI application is connected.
 
 
 

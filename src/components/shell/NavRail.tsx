@@ -1,11 +1,12 @@
 /**
  * Project      : SMRITI Retail OS
  * Author       : Jawahar Ramkripal Mallah
+ * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.99.12
+ * Version      : 6.99.1
  * Created      : 2026-08-16
- * Modified     : 2026-10-22
+ * Modified     : 2026-10-24
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Navigation Rail (Viewport & Status Bar Aligned)
@@ -28,6 +29,7 @@ interface NavRailProps {
   documentId?: string;
   transactionState?: TransactionState;
   userRole?: string;
+  isMobileDrawer?: boolean;
   onSelectModule: (moduleId: string) => void;
   onToggleRailState: () => void;
 }
@@ -39,6 +41,7 @@ export const NavRail: React.FC<NavRailProps> = ({
   documentId,
   transactionState,
   userRole,
+  isMobileDrawer = false,
   onSelectModule,
   onToggleRailState,
 }) => {
@@ -50,7 +53,7 @@ export const NavRail: React.FC<NavRailProps> = ({
 
   const isExpanded = railState === 'EXPANDED';
 
-  // Resolve contextual navigation menu based on active context, document, transaction state, and role
+  // Resolve contextual navigation menu based on active context, document, and transaction state.
   const navData = resolveNavigation({
     context: activeContext,
     workspace: activeModuleId,
@@ -72,8 +75,9 @@ export const NavRail: React.FC<NavRailProps> = ({
 
   return (
     <aside
+      aria-label="Contextual navigation"
       className={`bg-[#f8f9ff] dark:bg-slate-900 border-r border-[#c5c5d4] dark:border-slate-800 flex flex-col justify-between transition-all duration-200 z-20 h-full select-none shrink-0 ${
-        isExpanded ? 'w-56' : 'w-14'
+        isExpanded ? 'w-60' : 'w-16'
       }`}
     >
       {/* Context Badge Header */}
@@ -116,7 +120,9 @@ export const NavRail: React.FC<NavRailProps> = ({
                     ? item.title
                     : undefined
                 }
-                className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-xs transition-all relative ${
+              aria-label={`Open ${item.title}`}
+              aria-current={isActive ? 'page' : undefined}
+              className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm transition-all relative ${
                   isDisabled
                     ? 'opacity-40 bg-gray-100 dark:bg-slate-800 text-gray-500 dark:text-slate-500 cursor-not-allowed border border-dashed border-gray-300 dark:border-slate-700'
                     : isActive
@@ -170,7 +176,8 @@ export const NavRail: React.FC<NavRailProps> = ({
                           window.dispatchEvent(new CustomEvent('smriti_report_studio_select', { detail: { studioId: studio.id } }));
                           onSelectModule('report-designer');
                         }}
-                        className="w-full text-left px-2 py-1.5 rounded-md text-[11px] text-[#3d425f] dark:text-slate-300 hover:bg-[#e5eeff] dark:hover:bg-slate-800 hover:text-[#24389c] dark:hover:text-indigo-400 transition-colors"
+                        aria-label={`Open ${studio.label} report studio`}
+                        className="w-full text-left px-2 py-1.5 rounded-md text-xs text-[#3d425f] dark:text-slate-300 hover:bg-[#e5eeff] dark:hover:bg-slate-800 hover:text-[#24389c] dark:hover:text-indigo-400 transition-colors"
                       >
                         {studio.label}
                       </button>
@@ -194,12 +201,16 @@ export const NavRail: React.FC<NavRailProps> = ({
         <button
           type="button"
           onClick={onToggleRailState}
+          aria-label={isMobileDrawer ? 'Close navigation menu' : isExpanded ? 'Collapse navigation rail' : 'Expand navigation rail'}
+          title={isMobileDrawer ? 'Close navigation menu' : isExpanded ? 'Collapse navigation rail' : 'Expand navigation rail'}
+          aria-expanded={isMobileDrawer ? undefined : isExpanded}
+          aria-controls="workspace-navigation"
           className="w-full flex items-center justify-center gap-2 py-1.5 text-xs text-[#3d425f] dark:text-slate-300 hover:bg-[#eff4ff] dark:hover:bg-slate-800 hover:text-[#24389c] dark:hover:text-indigo-400 rounded-md transition-colors font-medium cursor-pointer"
         >
           <span className="material-symbols-outlined text-[18px]">
-            {isExpanded ? 'chevron_left' : 'chevron_right'}
+            {isMobileDrawer ? 'close' : isExpanded ? 'chevron_left' : 'chevron_right'}
           </span>
-          {isExpanded && <span>Collapse Menu</span>}
+          {isExpanded && <span>{isMobileDrawer ? 'Close Menu' : 'Collapse Menu'}</span>}
         </button>
       </div>
     </aside>
