@@ -17,6 +17,7 @@ import { Product, POSProfile, Shift, Customer } from "../../types.ts";
 import { SmritiProPosEodReport } from "./propos/ProPosEodReportVie.tsx";
 import { SmritiDailyReportsDashboard } from "./propos/ProPosDailyReports.tsx";
 import { SmritiBillingStudio } from "./SmritiBillingStudio.tsx";
+import { SmritiCreditBillingTerminal } from "./SmritiCreditBillingTerminal.tsx";
 import { GiftCardLifecycleModal } from "../pos/GiftCardLifecycleModal.tsx";
 import { GiftVoucherModal } from "../pos/GiftVoucherModal.tsx";
 import { ProPosReconciliationDlg } from "./propos/ProPosReconciliationDlg.tsx";
@@ -451,22 +452,10 @@ export const BillingWorkspace: React.FC<BillingWorkspaceProps> = ({
         ) : auxView === "SHIFT_REPORTS" ? (
           <SmritiDailyReportsDashboard />
         ) : auxView === "CREDIT_BILLING" ? (
-          <SmritiBillingStudio
-            key="credit-billing-studio"
-            products={products}
-            customers={customers}
-            profiles={profiles}
-            shifts={shifts}
+          <SmritiCreditBillingTerminal
             currentUser={currentUser}
-            mode="CREDIT_BILLING"
-            onModeChange={(m) => {
-              if (m === "RETAIL_POS") setAuxView("WORKSPACE");
-              else if (m === "B2B_DISTRIBUTOR") setAuxView("B2B_DISTRIBUTOR");
-            }}
-            onRefreshData={onRefreshData}
             onNotification={showToast}
-            isStandaloneTab={isStandaloneTab}
-            shiftId={activeShift?.id}
+            onBack={() => setAuxView("WORKSPACE")}
           />
         ) : auxView === "B2B_DISTRIBUTOR" ? (
           <SmritiBillingStudio

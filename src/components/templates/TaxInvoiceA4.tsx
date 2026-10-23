@@ -120,6 +120,7 @@ interface TaxInvoiceA4Props {
     dispatchEmail?: string;
     accountsEmail?: string;
     logoUrl?: string;
+    watermarkUrl?: string;
     headerText?: string;
     footerText?: string;
     headerAlignment?: "left" | "center" | "right";
@@ -333,7 +334,7 @@ export const TaxInvoiceA4: React.FC<TaxInvoiceA4Props> = ({ data, onEWayBillNoCh
   const logoB64 = data.logoUrl || "/assets/branding/tattly_logo_black.png";
 
   return (
-    <div className="tax-invoice-a4-wrapper w-full max-w-[210mm] bg-white text-black p-[6mm] pl-[10mm] mx-auto box-border text-[11px] leading-normal font-sans border border-gray-200 print:border-none print:p-0 print:m-0 print:w-full print:max-w-none">
+    <div className="tax-invoice-a4-wrapper relative overflow-hidden w-full max-w-[210mm] bg-white text-black p-[6mm] pl-[10mm] mx-auto box-border text-[11px] leading-normal font-sans border border-gray-200 print:border-none print:p-0 print:m-0 print:w-full print:max-w-none">
 
       {/* Universal Print Styles for A4 Multi-Page Pagination & Visibility */}
       <style>{`
@@ -391,6 +392,19 @@ export const TaxInvoiceA4: React.FC<TaxInvoiceA4Props> = ({ data, onEWayBillNoCh
         }
       `}</style>
 
+      {/* Background Document Watermark (75% of page size — between 70% and 80%) */}
+      <div
+        className="pointer-events-none select-none absolute inset-0 flex items-center justify-center overflow-hidden z-0"
+        style={{ minHeight: "100%" }}
+      >
+        <img
+          src={data.watermarkUrl || "/assets/branding/tattly_logo_black.png"}
+          alt=""
+          className="w-[75%] max-w-[80%] max-h-[75%] object-contain opacity-[0.06] mix-blend-multiply"
+        />
+      </div>
+
+      <div className="relative z-10">
       {/* Seller Header & Invoice Metadata Box */}
       <div className="flex justify-between items-start border-b border-gray-300 pb-3 mb-3 gap-3">
         <div className="w-[57%] flex items-start gap-3">
@@ -793,6 +807,7 @@ export const TaxInvoiceA4: React.FC<TaxInvoiceA4Props> = ({ data, onEWayBillNoCh
             <p className="font-bold text-gray-600 mt-0.5">SMRITI OS Retail Suite -- Powered by SMRITI SYSTEMS</p>
           </div>
         </div>
+      </div>
       </div>
 
     </div>

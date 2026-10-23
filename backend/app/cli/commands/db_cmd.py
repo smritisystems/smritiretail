@@ -59,6 +59,43 @@ def register_subparser(subparsers: argparse._SubParsersAction) -> None:
         help="Output structured JSON results."
     )
 
+    # migrate sub-action
+    migrate_parser = db_sub.add_parser(
+        "migrate",
+        help="Automated database migration with pre-migration snapshot backup and verification."
+    )
+    migrate_parser.add_argument(
+        "--db",
+        default="all",
+        help="Target database: 'all' (default), 'control', 'smriti001', or specific database name."
+    )
+    migrate_parser.add_argument(
+        "--backup-only",
+        action="store_true",
+        help="Only create verified pre-migration backups without running migrations."
+    )
+    migrate_parser.add_argument(
+        "--no-backup",
+        action="store_true",
+        help="Skip pre-migration backup."
+    )
+    migrate_parser.add_argument(
+        "--auto-rollback",
+        action="store_true",
+        help="Automatically restore pre-migration backup if migration fails."
+    )
+    migrate_parser.add_argument(
+        "--verify-only",
+        action="store_true",
+        help="Inspect migration status without migrating."
+    )
+    migrate_parser.add_argument(
+        "--restore",
+        type=str,
+        default=None,
+        help="Restore specified backup file to target database."
+    )
+
     parser.set_defaults(func=run_db_cmd)
 
 
@@ -189,6 +226,23 @@ def run_db_cmd(args: argparse.Namespace) -> int:
         return run_db_guard(args)
     elif args.db_action == "stats":
         return run_db_stats(args)
+    elif args.db_action == "migrate":
+        import os
+        import subprocess
+        workspace_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))))
+        script_path = os.path.join(workspace_root, "scripts", "auto_migrate.py")
+        cmd = [sys.executable, script_path, "--db", getattr(args, "db", "all")]
+        if getattr(args, "backup_only", False):
+            cmd.append("--backup-only")
+        if getattr(args, "no_backup", False):
+            cmd.append("--no-backup")
+        if getattr(args, "auto_rollback", False):
+            cmd.append("--auto-rollback")
+        if getattr(args, "verify_only", False):
+            cmd.append("--verify-only")
+        if getattr(args, "restore", None):
+            cmd.extend(["--restore", args.restore])
+        return subprocess.run(cmd).returncode
     else:
         print(f"Unknown action: {args.db_action}", file=sys.stderr)
         return 1

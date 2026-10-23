@@ -45,7 +45,7 @@ def upgrade() -> None:
           AND item_code NOT LIKE 'QUAR-%';
     """))
 
-    # 2. Ensure all child variants for active items are active
+    # 2. Ensure all child variants for active items are active (skipping duplicate SKUs)
     op.execute(sa.text("""
         UPDATE item_variants iv
         SET is_active = true,
@@ -57,7 +57,14 @@ def upgrade() -> None:
             END
         FROM items i
         WHERE iv.item_id = i.id
-          AND i.status = 'ACTIVE';
+          AND i.status = 'ACTIVE'
+          AND NOT EXISTS (
+              SELECT 1 FROM item_variants dup
+              WHERE dup.company_id = iv.company_id
+                AND dup.variant_sku = iv.variant_sku
+                AND dup.is_deleted = false
+                AND dup.id != iv.id
+          );
     """))
 
     # 3. Synchronize company_id across child tables if null
