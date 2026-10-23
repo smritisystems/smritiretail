@@ -6,8 +6,9 @@ Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
-Version      : 6.99.13
+Version      : 6.99.16
 Created      : 2026-10-23
+Modified     : 2026-10-23
 Copyright    : (c) SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 Classification: Database Automated Migration & Pre-Migration Backup Engine
@@ -23,6 +24,7 @@ import argparse
 import subprocess
 from datetime import datetime, timezone
 from typing import Dict, List, Optional, Any, Tuple
+from urllib.parse import urlparse
 import psycopg2
 
 # Base Paths
@@ -46,6 +48,26 @@ PG_PORT = int(os.getenv("POSTGRES_PORT", "2781"))
 PG_USER = os.getenv("POSTGRES_USER", "postgres")
 PG_PASSWORD = os.getenv("POSTGRES_PASSWORD", "postgres")
 DEFAULT_CTRL_DB = os.getenv("POSTGRES_DB", "smritisys")
+
+# Parse DATABASE_URL if provided (e.g. inside Docker container)
+db_url_env = os.getenv("DATABASE_URL")
+if db_url_env:
+    try:
+        parsed_url = urlparse(db_url_env)
+        if parsed_url.hostname:
+            PG_HOST = parsed_url.hostname
+        if parsed_url.port:
+            PG_PORT = parsed_url.port
+        elif parsed_url.hostname and parsed_url.hostname not in {"localhost", "127.0.0.1"}:
+            PG_PORT = 5432
+        if parsed_url.username:
+            PG_USER = parsed_url.username
+        if parsed_url.password:
+            PG_PASSWORD = parsed_url.password
+        if parsed_url.path and parsed_url.path.lstrip("/"):
+            DEFAULT_CTRL_DB = parsed_url.path.lstrip("/")
+    except Exception:
+        pass
 
 
 # Ensure UTF-8 output encoding on Windows consoles
@@ -408,12 +430,40 @@ def restore_database(dbname: str, backup_file: str) -> bool:
                 check=False,
             )
         if res.returncode == 0 or b"warning" in res.stderr.lower():
-            print(f"  [+] Restore completed successfully for '{dbname}'!")
+            print(f"  [+] Restore completed successfully via Docker for '{dbname}'!")
             return True
         else:
-            print(f"  [-] Docker restore failed: {res.stderr.decode('utf-8', errors='replace')}")
+            print(f"  [-] Docker restore notice: {res.stderr.decode('utf-8', errors='replace')}")
     except Exception as exc:
-        print(f"  [-] Error running restore: {exc}")
+        print(f"  [!] Notice running Docker restore: {exc}")
+
+    # Fallback: Restore via native pg_restore
+    try:
+        env = os.environ.copy()
+        env["PGPASSWORD"] = PG_PASSWORD
+        with open(backup_file, "rb") as f_in:
+            res = subprocess.run(
+                [
+                    "pg_restore",
+                    "-h", PG_HOST,
+                    "-p", str(PG_PORT),
+                    "-U", PG_USER,
+                    "-d", dbname,
+                    "--clean",
+                    "--if-exists",
+                ],
+                stdin=f_in,
+                capture_output=True,
+                env=env,
+                check=False,
+            )
+        if res.returncode == 0 or b"warning" in res.stderr.lower():
+            print(f"  [+] Restore completed successfully via native pg_restore for '{dbname}'!")
+            return True
+        else:
+            print(f"  [-] Native pg_restore failed: {res.stderr.decode('utf-8', errors='replace')}")
+    except Exception as exc:
+        print(f"  [-] Error running native pg_restore: {exc}")
 
     return False
 

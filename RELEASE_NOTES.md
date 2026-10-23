@@ -14,6 +14,19 @@
 
 # SMRITI Retail OS — Release Notes
 
+## Release v6.99.16 (2026-10-23)
+
+### Database & Systems — Cross-Platform Container-Aware Migration Auto-Routing & Seeder Hardening
+
+#### Overview
+Eliminates developer and operator friction when running database migrations and seed scripts on systems configured purely with Docker without a global Python installation on the host OS. Introduces an intelligent Node.js bridge (`scripts/run_migrate.mjs`) and container-aware PowerShell wrapper (`scripts/migrate.ps1`) that automatically delegate commands to the `smriti-api` Docker container when host Python is absent.
+
+#### Key Highlights
+- **Automated Docker Bridge (`scripts/run_migrate.mjs`)**: Directly integrated into `npm run db:migrate`, `npm run db:backup`, and `npm run db:verify`. Seamlessly detects host Python status and falls back to running `auto_migrate.py` directly inside the `smriti-api` container via `docker exec`.
+- **Docker Environment Parsing (`scripts/auto_migrate.py`)**: Automatically resolves `DATABASE_URL` (`smriti-db:5432`) when executed within Docker and adds native `pg_restore` fallback when containerized.
+- **PowerShell CLI Docker Auto-Fallback (`scripts/migrate.ps1`)**: Automatically checks if `smriti-api` is running and delegates PowerShell commands directly to the container if Python is missing from the Windows host.
+- **Cross-Platform Seeder (`scripts/seed_child_billing_demo.py`)**: Dynamically resolves PostgreSQL connections across host (`localhost:2781`) and container (`smriti-db:5432`) networks.
+
 ## Release v6.99.15 (2026-10-23)
 
 ### Database & Systems — Automated Database Migration, Pre-Migration Backup Snapshot & Child Customer Billing Remediation

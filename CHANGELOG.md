@@ -11,6 +11,21 @@
   Classification: Internal
 -->
 
+## [6.99.16] — 2026-10-23
+
+### Database & Systems — Cross-Platform Container-Aware Migration Auto-Routing & Seeder Hardening
+
+- **Universal Docker & Host Migration Bridge (`scripts/run_migrate.mjs`, `package.json`)**:
+  - Implemented cross-platform Node.js migration runner `scripts/run_migrate.mjs` bound to `npm run db:migrate`, `npm run db:backup`, and `npm run db:verify`.
+  - Automatically detects whether Python 3 is installed and active on the host OS; if absent (e.g. pure Docker runtime on Windows), transparently forwards command execution into the running `smriti-api` Docker container (`docker exec -it smriti-api python /workspace/scripts/auto_migrate.py`).
+  - Emits clear, actionable instructions if neither host Python nor the container is active.
+- **Container Environment Parsing & Native Fallback (`scripts/auto_migrate.py`, `scripts/migrate.ps1`)**:
+  - Enhanced `scripts/auto_migrate.py` with automated `DATABASE_URL` parsing to support Docker container network hostnames (`smriti-db:5432`) without requiring external environment configuration.
+  - Added native `pg_restore` fallback in `restore_database` for container execution where the nested `docker` CLI is unavailable.
+  - Updated PowerShell runner `scripts/migrate.ps1` to automatically inspect container status and route to Docker when host Python is uninstalled.
+- **Dynamic Database Resolution in Child Customer Billing Seeder (`scripts/seed_child_billing_demo.py`)**:
+  - Upgraded `scripts/seed_child_billing_demo.py` to parse `DATABASE_URL`, `POSTGRES_HOST`, and `POSTGRES_PORT` dynamically, allowing one-command seeding from either host PowerShell or inside the `smriti-api` container.
+
 ## [6.99.15] — 2026-10-23
 
 ### Database & Systems — Automated Database Migration, Pre-Migration Backup Snapshot & Child Customer Billing Remediation

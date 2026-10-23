@@ -6,19 +6,39 @@ Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
-Version      : 6.99.13
+Version      : 6.99.16
 Created      : 2026-10-23
+Modified     : 2026-10-23
 Copyright    : (c) SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 Classification: Demo & Seeding Runner for Child Customer Billing
 """
 
+import os
 import asyncio
 import uuid
+from urllib.parse import urlparse
 import asyncpg
 
 async def main():
-    conn = await asyncpg.connect('postgresql://postgres:postgres@127.0.0.1:2781/smriti001')
+    target_db = os.getenv("TENANT_DB", "smriti001")
+    db_url = os.getenv("DATABASE_URL")
+    if db_url:
+        parsed = urlparse(db_url)
+        host = parsed.hostname or "127.0.0.1"
+        port = parsed.port or (5432 if parsed.hostname and parsed.hostname != "127.0.0.1" else 2781)
+        user = parsed.username or "postgres"
+        password = parsed.password or "postgres"
+        conn_str = f"postgresql://{user}:{password}@{host}:{port}/{target_db}"
+    else:
+        host = os.getenv("POSTGRES_HOST", "127.0.0.1")
+        port = int(os.getenv("POSTGRES_PORT", "2781"))
+        user = os.getenv("POSTGRES_USER", "postgres")
+        password = os.getenv("POSTGRES_PASSWORD", "postgres")
+        conn_str = f"postgresql://{user}:{password}@{host}:{port}/{target_db}"
+
+    print(f"Connecting to database via {host}:{port}/{target_db}...")
+    conn = await asyncpg.connect(conn_str)
     
     parent_id = 'cust-corp-parent-01'
     child_id = 'cust-bnd-child-01'
