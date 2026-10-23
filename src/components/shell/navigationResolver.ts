@@ -4,9 +4,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.42.4
+ * Version      : 6.99.1
  * Created      : 2026-08-16
- * Modified     : 2026-09-20
+ * Modified     : 2026-10-24
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  */
@@ -81,7 +81,6 @@ function getAncestorsForContext(context: BusinessContext, isDocumentActive: bool
 }
 
 export function resolveNavigation(query: NavigationQuery): ResolvedNavigation {
-  const role = query.userRole || 'Operator';
   const state = query.transactionState || 'DRAFT';
   const isDocumentActive = Boolean(query.documentId);
 

@@ -4,9 +4,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.99.10
+ * Version      : 6.99.1
  * Created      : 2026-08-16
- * Modified     : 2026-10-22
+ * Modified     : 2026-10-24
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Application Shell Layer (UX Mode Sensitive NavRail)
@@ -89,6 +89,30 @@ export const AppShell: React.FC<AppShellProps> = ({
   });
   const [savedRailState, setSavedRailState] = useState<NavRailState>('EXPANDED');
   const [isFocusMode, setIsFocusMode] = useState<boolean>(false);
+  const [isMobileViewport, setIsMobileViewport] = useState(() =>
+    typeof window !== 'undefined' && window.innerWidth <= 767,
+  );
+  const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
+
+  useEffect(() => {
+    const updateViewport = () => {
+      const isMobile = window.innerWidth <= 767;
+      setIsMobileViewport(isMobile);
+      if (!isMobile) setIsMobileNavOpen(false);
+    };
+    updateViewport();
+    window.addEventListener('resize', updateViewport);
+    return () => window.removeEventListener('resize', updateViewport);
+  }, []);
+
+  useEffect(() => {
+    if (!isMobileNavOpen) return;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setIsMobileNavOpen(false);
+    };
+    document.addEventListener('keydown', closeOnEscape);
+    return () => document.removeEventListener('keydown', closeOnEscape);
+  }, [isMobileNavOpen]);
 
   useEffect(() => {
     if (railState !== 'HIDDEN') {
@@ -102,6 +126,10 @@ export const AppShell: React.FC<AppShellProps> = ({
       setRailState(savedRailState === 'HIDDEN' ? 'EXPANDED' : savedRailState);
       return;
     }
+    if (isMobileViewport) {
+      setIsMobileNavOpen((open) => !open);
+      return;
+    }
     setRailState((prev) => {
       const next = prev === 'EXPANDED' ? 'COMPACT' : 'EXPANDED';
       localStorage.setItem('smriti_nav_rail_state', next);
@@ -113,6 +141,7 @@ export const AppShell: React.FC<AppShellProps> = ({
     setIsFocusMode((prev) => {
       const next = !prev;
       if (next) {
+        setIsMobileNavOpen(false);
         setSavedRailState(railState);
         setRailState('HIDDEN');
       } else {
@@ -124,6 +153,10 @@ export const AppShell: React.FC<AppShellProps> = ({
 
   const resolvedContext = activeContext || mapModuleToContext(activeModuleId);
   const canNavigateBack = navigationHistory.length > 1;
+  const handleNavModuleSelect = (moduleId: string) => {
+    onSelectModule(moduleId);
+    setIsMobileNavOpen(false);
+  };
 
   return (
     <BreadcrumbProvider
@@ -142,6 +175,9 @@ export const AppShell: React.FC<AppShellProps> = ({
           canNavigateBack={canNavigateBack}
           onToggleNavRail={handleToggleNavRail}
           isNavRailCollapsed={railState === 'COMPACT' || railState === 'HIDDEN'}
+          showNavigationToggle={!hideNavRailForClassic}
+          isMobileViewport={isMobileViewport}
+          isMobileNavOpen={isMobileNavOpen}
           isFocusMode={isFocusMode}
           onToggleFocusMode={handleToggleFocusMode}
           onSelectModule={onSelectModule}
@@ -180,17 +216,36 @@ export const AppShell: React.FC<AppShellProps> = ({
       {/* Main Content Body */}
       <div className="flex-1 flex overflow-hidden relative pb-8">
         {/* Hideable Navigation Rail */}
-        {!hideNavRailForClassic && (
-          <NavRail
-            railState={railState}
-            activeContext={resolvedContext}
-            activeModuleId={activeModuleId}
-            documentId={documentId}
-            transactionState={transactionState}
-            userRole={userRole}
-            onSelectModule={onSelectModule}
-            onToggleRailState={handleToggleNavRail}
-          />
+        {!hideNavRailForClassic && railState !== 'HIDDEN' && (
+          <>
+            {isMobileViewport && isMobileNavOpen && (
+              <button
+                type="button"
+                aria-label="Close navigation drawer"
+                className="fixed left-0 right-0 top-12 bottom-8 z-30 bg-slate-950/40 md:hidden"
+                onClick={() => setIsMobileNavOpen(false)}
+              />
+            )}
+            <div
+              id="workspace-navigation"
+              aria-hidden={isMobileViewport && !isMobileNavOpen}
+              className={isMobileViewport
+                ? `fixed left-0 top-12 bottom-8 z-40 h-auto shadow-2xl ${isMobileNavOpen ? 'block' : 'hidden'}`
+                : 'relative h-full shrink-0'}
+            >
+              <NavRail
+                railState={isMobileViewport ? 'EXPANDED' : railState}
+                activeContext={resolvedContext}
+                activeModuleId={activeModuleId}
+                documentId={documentId}
+                transactionState={transactionState}
+                userRole={userRole}
+                isMobileDrawer={isMobileViewport}
+                onSelectModule={handleNavModuleSelect}
+                onToggleRailState={handleToggleNavRail}
+              />
+            </div>
+          </>
         )}
 
         {/* Workspace Canvas Area */}

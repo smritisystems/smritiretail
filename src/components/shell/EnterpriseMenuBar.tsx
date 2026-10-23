@@ -4,9 +4,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.99.12
+ * Version      : 6.99.1
  * Created      : 2026-10-22
- * Modified     : 2026-10-22
+ * Modified     : 2026-10-24
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Classic Enterprise ERP Menu Bar & Portal-Anchored Submenus
@@ -194,22 +194,54 @@ export const EnterpriseMenuBar: React.FC<EnterpriseMenuBarProps> = ({
 }) => {
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
   const [activeSubmenu, setActiveSubmenu] = useState<string | null>(null);
-  const [containerWidth, setContainerWidth] = useState<number>(() =>
-    typeof window !== "undefined" ? window.innerWidth : 1600
-  );
+  const [availableWidth, setAvailableWidth] = useState(0);
+  const [visibleCount, setVisibleCount] = useState(ENTERPRISE_MENU_ITEMS.length);
 
+  const menuContainerRef = useRef<HTMLDivElement | null>(null);
   const triggerRefs = useRef<Record<string, HTMLButtonElement | null>>({});
+  const measurementRefs = useRef<Record<string, HTMLButtonElement | null>>({});
+  const moreMeasurementRef = useRef<HTMLButtonElement | null>(null);
   const childItemRefs = useRef<Record<string, HTMLButtonElement | null>>({});
   const dropdownRef = useRef<HTMLDivElement | null>(null);
   const submenuRef = useRef<HTMLDivElement | null>(null);
 
-  // Resize listener for responsive breakpoint calculations
+  // Measure the space left in the header after brand and account controls.
   useEffect(() => {
-    const handleResize = () => {
-      setContainerWidth(window.innerWidth);
+    const container = menuContainerRef.current;
+    if (!container) return;
+
+    const measureMenu = () => {
+      const width = container.clientWidth;
+      setAvailableWidth(width);
+
+      const moreWidth = moreMeasurementRef.current?.getBoundingClientRect().width ?? 72;
+      const itemWidths = ENTERPRISE_MENU_ITEMS.map(
+        (item) => measurementRefs.current[item.id]?.getBoundingClientRect().width ?? 0,
+      );
+      let nextCount = 0;
+      let occupied = 0;
+
+      for (let index = 0; index < itemWidths.length; index += 1) {
+        const gap = nextCount > 0 ? 2 : 0;
+        const moreReserve = index < itemWidths.length - 1 ? moreWidth + 2 : 0;
+        if (occupied + gap + itemWidths[index] + moreReserve > width) break;
+        occupied += gap + itemWidths[index];
+        nextCount += 1;
+      }
+
+      setVisibleCount((current) => current === nextCount ? current : nextCount);
     };
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
+
+    measureMenu();
+    if (typeof ResizeObserver === "undefined") {
+      window.addEventListener("resize", measureMenu);
+      return () => window.removeEventListener("resize", measureMenu);
+    }
+
+    const observer = new ResizeObserver(measureMenu);
+    observer.observe(container);
+    void document.fonts?.ready.then(measureMenu);
+    return () => observer.disconnect();
   }, []);
 
   // Close menus on outside click or escape key
@@ -263,22 +295,8 @@ export const EnterpriseMenuBar: React.FC<EnterpriseMenuBarProps> = ({
     [activeModuleId]
   );
 
-  // Responsive partitioning of menu items
-  // >= 1200: all 12 items (Home, Master, Transactions, Inventory, Purchase, Sales, Accounts, CRM, Reports, Tools, Settings, Help)
-  // 1080 - 1199: 9 items + More
-  // 900 - 1079: 7 items + More
-  // < 900: 5 items + More
-  const maxVisible =
-    containerWidth >= 1200
-      ? 12
-      : containerWidth >= 1080
-      ? 9
-      : containerWidth >= 900
-      ? 7
-      : 5;
-
-  const visibleItems = ENTERPRISE_MENU_ITEMS.slice(0, maxVisible);
-  const overflowItems = ENTERPRISE_MENU_ITEMS.slice(maxVisible);
+  const visibleItems = ENTERPRISE_MENU_ITEMS.slice(0, visibleCount);
+  const overflowItems = ENTERPRISE_MENU_ITEMS.slice(visibleCount);
   const hasOverflow = overflowItems.length > 0;
 
   // Handle trigger button click
@@ -378,9 +396,10 @@ export const EnterpriseMenuBar: React.FC<EnterpriseMenuBarProps> = ({
 
   return (
     <>
+      <div ref={menuContainerRef} className="relative min-w-0 flex-1 mx-2">
       <nav
         aria-label="Enterprise Main Menu"
-        className="flex-1 flex items-center gap-0.5 ml-2 mr-2 overflow-visible py-0.5 select-none"
+        className="flex min-w-0 items-center gap-0.5 overflow-visible py-0.5 select-none"
       >
         {visibleItems.map((item) => {
           const isActive = isCategoryActive(item);
@@ -446,16 +465,44 @@ export const EnterpriseMenuBar: React.FC<EnterpriseMenuBarProps> = ({
             }`}
             aria-expanded={activeDropdown === "overflow"}
             aria-haspopup="menu"
+            aria-label="More navigation modules"
             title="More Modules"
           >
             <span className="material-symbols-outlined text-[15px]">more_horiz</span>
-            <span>More</span>
+            <span className={availableWidth < 96 ? "sr-only" : undefined}>More</span>
             <span className="material-symbols-outlined text-[13px] opacity-70">
               arrow_drop_down
             </span>
           </button>
         )}
       </nav>
+
+      <div aria-hidden="true" className="absolute left-0 top-0 flex h-0 w-max gap-0.5 overflow-hidden invisible pointer-events-none">
+        {ENTERPRISE_MENU_ITEMS.map((item) => (
+          <button
+            key={item.id}
+            ref={(element) => { measurementRefs.current[item.id] = element; }}
+            type="button"
+            tabIndex={-1}
+            className="px-2.5 py-1 rounded text-xs font-bold flex items-center gap-1 whitespace-nowrap"
+          >
+            {item.icon && <span className="material-symbols-outlined text-[15px]">{item.icon}</span>}
+            <span>{item.label}</span>
+            {item.children?.length ? <span className="material-symbols-outlined text-[13px]">arrow_drop_down</span> : null}
+          </button>
+        ))}
+        <button
+          ref={moreMeasurementRef}
+          type="button"
+          tabIndex={-1}
+          className="px-2.5 py-1 rounded text-xs font-medium flex items-center gap-1 whitespace-nowrap"
+        >
+          <span className="material-symbols-outlined text-[15px]">more_horiz</span>
+          <span>More</span>
+          <span className="material-symbols-outlined text-[13px]">arrow_drop_down</span>
+        </button>
+      </div>
+      </div>
 
       {/* Portal-Anchored Primary Dropdown Menu (Guaranteed Zero Clipping) */}
       {typeof document !== "undefined" &&

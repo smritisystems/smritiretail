@@ -16,16 +16,29 @@
 
   * Websites: aitdl.com | erpnbook.com | smritibooks.com
 
-  * Version    : 3.0.0
+  * Author     : Jawahar Ramkripal Mallah
+  * Designation: Chief Systems Architect & Creator
+  * Email      : support@smritibooks.com
+  * Version    : 6.99.1
   * Created    : 2026-07-11
-  * Modified   : 2026-10-16
-  * Copyright  : © AITDL.com and SMRITIBooks.com. All Rights Reserved.
+  * Modified   : 2026-10-24
+  * Copyright  : © SMRITIBooks.com. All Rights Reserved. (also © AITDL.com)
   * License    : Proprietary Commercial Software
 -->
 
 # SMRITI Retail OS — Developer & Architecture Guide
 
 Welcome to the SMRITI developer setup and reference guide. This document details the Clean Architecture rules, swappable database interfaces, and background synchronization engines powering SMRITI Retail OS.
+
+## Shell navigation and workspace context — updated 2026-10-24
+
+- `AppShell` owns the mobile navigation drawer and keeps the current module tree mounted when the presentation style changes.
+- `GlobalHeader` is the shared entry point for workspace style, company and branch context, global search, notifications, and account actions. User identity is passed from the authenticated app state; missing identity uses a generic account label.
+- `CompanySelector` reads the current persisted tenant and branch context, refreshes its selection after tenant context events, and only commits a switch after a successful response from the context-switch service.
+- `EnterpriseMenuBar` measures its available header container with `ResizeObserver` and moves additional menu groups under **More**. The Regular contextual rail and Classic menu still use separate navigation definitions; a shared permission-aware source has not been established.
+- `UxSwitcherModal` is a keyboard-operable dialog with focus trapping, Escape dismissal, and focus restoration. Changing styles leaves the active module selected.
+- `WorkspaceStatusBar` reads current persisted tenant labels and reports browser network availability. It does not claim to verify an application or session connection.
+- `useOptionalNotifications` lets the header render without a notification provider. The store has no seeded sample notices; it displays notifications added during the current provider session.
 
 ---
 

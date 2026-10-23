@@ -1,15 +1,31 @@
 <!--
   Project      : SMRITI Retail OS
   Author       : Jawahar Ramkripal Mallah
+  Designation  : Chief Systems Architect & Creator
   Email        : support@smritibooks.com
   Websites     : smritibooks.com | erpnbook.com | aitdl.com
-  Version      : 6.99.12
+  Version      : 6.99.1
   Created      : 2026-07-06
-  Modified     : 2026-10-22
+  Modified     : 2026-10-24
   Copyright    : © SMRITIBooks.com. All Rights Reserved.
   License      : Proprietary Commercial Software
   Classification: Internal
 -->
+
+## [v6.99.1] — 2026-10-24
+
+### Added
+- Added a mobile navigation drawer, mobile search access, measured Classic menu overflow, and keyboard focus management for the workspace style chooser.
+
+### Changed
+- Made company and branch selection available in Regular and Classic styles; refreshed shell context after tenant updates.
+- Made the status bar distinguish browser network availability from application connectivity.
+
+### Fixed
+- Removed sample account, shift, notification, company, and branch values; stopped displaying a branch identifier as a branch code.
+
+### Documentation
+- Updated the UI walkthrough and implementation plan, their indexes and ledgers, the user and developer guides, troubleshooting, and the knowledge-base home.
 
 ## [6.99.18] ? 2026-10-23
 

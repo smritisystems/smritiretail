@@ -6,7 +6,7 @@
   Websites     : smritibooks.com | erpnbook.com | aitdl.com
   Version      : 6.99.1
   Created      : 2026-07-11
-  Modified     : 2026-10-21
+  Modified     : 2026-10-24
   Copyright    : © SMRITIBooks.com. All Rights Reserved.
   License      : Proprietary Commercial Software
   Classification: Internal
@@ -15,6 +15,8 @@
 # SMRITI Retail OS — Implementation Plans Index
 
 This directory contains formal, version-controlled implementation plans for SMRITI Retail OS modules and core system enhancements.
+
+| 2026-10-24 | v6.99.1 | **[UI Shell: Premium Shell Context, Responsive Navigation, and Workspace Style](./ui/SMRITI_Shell_Consistency_and_Accessibility_Plan_v6.99.1.md)** | `src/App.tsx`, `src/components/layout/CompanySelector.tsx`, `src/components/shell/`, `src/notifications/notification_store.tsx` | Partially Verified | [Walkthrough](../walkthrough/ui/SMRITI_Shell_Consistency_and_Accessibility_Walkthrough_v6.99.1.md) · [Plan ledger](./CONSOLIDATED_PLANS.md#shell-premium-context-responsive-navigation-workspace-style) |
 
 | 2026-10-23 | v6.99.18 | **[CRM: Customer Store and Branch Relation Audit Plan](./crm/Customer_Store_Branch_Relation_Audit_Plan_v6.99.18.md)** | CRM store location UX, tenant-scoped Branch lookup, GRN importer, customer hierarchy | Implemented; migration/report follow-up remains | [Walkthrough](../walkthrough/crm/Customer_Store_Branch_Relation_Audit_Walkthrough_v6.99.18.md) |
 
