@@ -52,7 +52,6 @@ import { SmritiCustomerRetailDetailsTab } from "./CustRetailDetTab.tsx";
 import { SmritiCustomerAdditionalDetailsTab } from "./CustAddlDetTab.tsx";
 import { SmritiCustomerMailingModal } from "./CustMailingDlg.tsx";
 import { SmritiAdvancedCustomerSearchModal } from "./AdvancedCustSearch.tsx";
-import { CorporateCustomer360 } from "./corporate360/CorporateCustomer360.tsx";
 import { ExportButton } from "../export/ExportButton.tsx";
 import { ExportColumnDefinition } from "../export/types.ts";
 import { apiFetchV1 } from "../../lib/apiFetchV1.ts";
@@ -61,11 +60,9 @@ import { CorporateMasterAccountHeader } from "./corporateWorkspace/CorporateMast
 import { CorporateIdentityCompliancePanel } from "./corporateWorkspace/CorporateIdentityCompliancePanel.tsx";
 import { CorporateNetworkPanel } from "./corporateWorkspace/CorporateNetworkPanel.tsx";
 import { CorporateAddressesContactsPanel } from "./corporateWorkspace/CorporateAddressesContactsPanel.tsx";
-import { CorporateCommercialTermsPanel } from "./corporateWorkspace/CorporateCommercialTermsPanel.tsx";
 import { CorporateIntegrationsPanel } from "./corporateWorkspace/CorporateIntegrationsPanel.tsx";
 import { CorporateActivityAuditPanel } from "./corporateWorkspace/CorporateActivityAuditPanel.tsx";
 import { GstRegistrationEntry } from "./corporateWorkspace/AddEditGstModal.tsx";
-import { EnterpriseCustomerMasterView } from "./corporateWorkspace/EnterpriseCustomerMasterView.tsx";
 import { SmritiCustomerPriceGroupModal } from "./CustPriceGroupDlg.tsx";
 import { StoreCodeLookupItem } from "./corporate360/types.ts";
 import { CreateCustomerModal } from "./lifecycle/CreateCustomerModal.tsx";
@@ -74,6 +71,22 @@ import { CustomerDeleteConfirmationModal } from "./lifecycle/CustomerDeleteConfi
 import { CustomerMergeModal } from "./lifecycle/CustomerMergeModal.tsx";
 import { EnterpriseCustomerSearchModal } from "./lifecycle/EnterpriseCustomerSearchModal.tsx";
 import { CustomerLifecycleMode, CustomerMergeResult } from "./lifecycle/types.ts";
+
+const LazyCorporateCustomer360 = React.lazy(() =>
+  import("./corporate360/CorporateCustomer360.tsx").then((module) => ({
+    default: module.CorporateCustomer360,
+  })),
+);
+const LazyEnterpriseCustomerMasterView = React.lazy(() =>
+  import("./corporateWorkspace/EnterpriseCustomerMasterView.tsx").then((module) => ({
+    default: module.EnterpriseCustomerMasterView,
+  })),
+);
+const LazyCorporateCommercialTermsPanel = React.lazy(() =>
+  import("./corporateWorkspace/CorporateCommercialTermsPanel.tsx").then((module) => ({
+    default: module.CorporateCommercialTermsPanel,
+  })),
+);
 
 const DEFAULT_MAILING_ADDRESS: CustomerAddressEntry = {
   code: "001",
@@ -2030,50 +2043,54 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
     <div className="flex flex-col h-full bg-[#f7f9fb] dark:bg-[#191c1e] text-[#191c1e] dark:text-[#eff1f3] overflow-hidden">
       {viewMode === "360" ? (
         <div className="flex-1 overflow-y-auto">
-          <CorporateCustomer360
-            customerId={currentCustomer?.id || ""}
+          <React.Suspense fallback={<div role="status" className="p-4 text-sm text-slate-500">Loading customer profile…</div>}>
+            <LazyCorporateCustomer360
+              customerId={currentCustomer?.id || ""}
+              customer={currentCustomer}
+              currentUser={currentUser}
+              onChange={(field, value) => handleFieldChange(field as any, value)}
+              onSave={handleSave}
+              onSaveAndNew={handleSaveAndNew}
+              onDuplicate={handleDuplicate}
+              onDeactivate={handleOpenDeactivate}
+              onNotification={onNotification}
+              onBack={() => setViewMode("catalogue")}
+              onEditCustomer={() => {
+                setViewMode("catalogue");
+                setActiveTab("form");
+              }}
+              isSaving={isSaving}
+              isDirty={isDirty}
+            />
+          </React.Suspense>
+        </div>
+      ) : viewMode === "catalogue" && layoutStyle === "enterprise" ? (
+        <React.Suspense fallback={<div role="status" className="p-4 text-sm text-slate-500">Loading enterprise customer workspace…</div>}>
+          <LazyEnterpriseCustomerMasterView
             customer={currentCustomer}
-            currentUser={currentUser}
-            onChange={(field, value) => handleFieldChange(field as any, value)}
+            onChange={handleFieldChange}
             onSave={handleSave}
             onSaveAndNew={handleSaveAndNew}
             onDuplicate={handleDuplicate}
             onDeactivate={handleOpenDeactivate}
-            onNotification={onNotification}
-            onBack={() => setViewMode("catalogue")}
-            onEditCustomer={() => {
-              setViewMode("catalogue");
-              setActiveTab("form");
-            }}
+            onBack={() => setViewMode("directory")}
+            onOpenDirectory={() => setViewMode("directory")}
+            onOpen360={() => setViewMode("360")}
+            onToggleLayout={() => setLayoutStyle("classic")}
             isSaving={isSaving}
             isDirty={isDirty}
+            lifecycleMode={lifecycleMode}
+            onEdit={handleEdit}
+            onCancelEdit={handleCancelEdit}
+            onOpenMailingModal={handleOpenMailingModal}
+            onOpenStoreLookupModal={() => setIsSearchModalOpen(true)}
+            onOpenContactModal={() => handleOpenMailingModal()}
+            onOpenAddChildModal={() => setIsCreateCustomerModalOpen(true)}
+            onSelectCustomer={handleSelectCustomerByIdOrCode}
+            gstRegistrations={gstRegistrations}
+            onNotification={onNotification}
           />
-        </div>
-      ) : viewMode === "catalogue" && layoutStyle === "enterprise" ? (
-        <EnterpriseCustomerMasterView
-          customer={currentCustomer}
-          onChange={handleFieldChange}
-          onSave={handleSave}
-          onSaveAndNew={handleSaveAndNew}
-          onDuplicate={handleDuplicate}
-          onDeactivate={handleOpenDeactivate}
-          onBack={() => setViewMode("directory")}
-          onOpenDirectory={() => setViewMode("directory")}
-          onOpen360={() => setViewMode("360")}
-          onToggleLayout={() => setLayoutStyle("classic")}
-          isSaving={isSaving}
-          isDirty={isDirty}
-          lifecycleMode={lifecycleMode}
-          onEdit={handleEdit}
-          onCancelEdit={handleCancelEdit}
-          onOpenMailingModal={handleOpenMailingModal}
-          onOpenStoreLookupModal={() => setIsSearchModalOpen(true)}
-          onOpenContactModal={() => handleOpenMailingModal()}
-          onOpenAddChildModal={() => setIsCreateCustomerModalOpen(true)}
-          onSelectCustomer={handleSelectCustomerByIdOrCode}
-          gstRegistrations={gstRegistrations}
-          onNotification={onNotification}
-        />
+        </React.Suspense>
       ) : (
         <>
           {/* ── Top Header & High-Density Action Bar ──────────────────────────────── */}
@@ -2694,17 +2711,19 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
                     {/* Row 3: Commercial Terms + Integrations & Data Exchange */}
                     <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
                       <div id="sec-commercial" className="lg:col-span-7">
-                        <CorporateCommercialTermsPanel
-                          customer={currentCustomer}
-                          onChange={handleFieldChange}
-                          relationships={companyRelationships}
-                          activeRelationshipId={selectedRelId}
-                          onSelectRelationship={setSelectedRelId}
-                          onUpdateRelationship={handleUpdateCompanyRelationship}
-                          onAddRelationship={handleAddCompanyRelationship}
-                          creditExposure={creditExposure ?? undefined}
-                          isReadOnly={lifecycleMode === "view"}
-                        />
+                        <React.Suspense fallback={<div role="status" className="p-3 text-sm text-slate-500">Loading commercial terms…</div>}>
+                          <LazyCorporateCommercialTermsPanel
+                            customer={currentCustomer}
+                            onChange={handleFieldChange}
+                            relationships={companyRelationships}
+                            activeRelationshipId={selectedRelId}
+                            onSelectRelationship={setSelectedRelId}
+                            onUpdateRelationship={handleUpdateCompanyRelationship}
+                            onAddRelationship={handleAddCompanyRelationship}
+                            creditExposure={creditExposure ?? undefined}
+                            isReadOnly={lifecycleMode === "view"}
+                          />
+                        </React.Suspense>
                       </div>
                       <div id="sec-integrations" className="lg:col-span-5">
                         <CorporateIntegrationsPanel
@@ -2747,17 +2766,19 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
                       />
                     )}
                     {activeCorporateTab === "commercial" && (
-                      <CorporateCommercialTermsPanel
-                        customer={currentCustomer}
-                        onChange={handleFieldChange}
-                        relationships={companyRelationships}
-                        activeRelationshipId={selectedRelId}
-                        onSelectRelationship={setSelectedRelId}
-                        onUpdateRelationship={handleUpdateCompanyRelationship}
-                        onAddRelationship={handleAddCompanyRelationship}
-                        creditExposure={creditExposure ?? undefined}
-                        isReadOnly={lifecycleMode === "view"}
-                      />
+                      <React.Suspense fallback={<div role="status" className="p-3 text-sm text-slate-500">Loading commercial terms…</div>}>
+                        <LazyCorporateCommercialTermsPanel
+                          customer={currentCustomer}
+                          onChange={handleFieldChange}
+                          relationships={companyRelationships}
+                          activeRelationshipId={selectedRelId}
+                          onSelectRelationship={setSelectedRelId}
+                          onUpdateRelationship={handleUpdateCompanyRelationship}
+                          onAddRelationship={handleAddCompanyRelationship}
+                          creditExposure={creditExposure ?? undefined}
+                          isReadOnly={lifecycleMode === "view"}
+                        />
+                      </React.Suspense>
                     )}
                     {activeCorporateTab === "integrations" && (
                       <CorporateIntegrationsPanel

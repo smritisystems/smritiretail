@@ -23,27 +23,26 @@ import {
 import { SmritiErrorBoundary } from "../ErrorBoundary.tsx";
 import { useLayoutEngine, UXMode } from "../../layout_engine/layout_store.tsx";
 import { RegularUxDashboard } from "../dashboard/RegularUxDashboard.tsx";
-import { ClassicUxWorkspace } from "../dashboard/ClassicUxWorkspace.tsx";
+const ClassicUxWorkspace = lazy(() => import("../dashboard/ClassicUxWorkspace.tsx").then(m => ({ default: m.ClassicUxWorkspace })));
 
 // Synchronously imported (lightweight or frequently used)
-import { DashboardTab } from "../DashboardTab.tsx";
 import { FieldExplorerTab } from "../FieldExplorerTab.tsx";
 import { FormulaRegistryTab } from "../FormulaRegistryTab.tsx";
-import { PsvTab } from "../PsvTab.tsx";
 import { PosProfilesTab } from "../PosProfilesTab.tsx";
 import { WikiTab } from "../WikiTab.tsx";
-import { CustomerMasterTab } from "../CustomerMasterTab.tsx";
-import { VendorMasterWs } from "../vendor/VendorMasterWs.tsx";
 import { DocumentSeriesTab } from "../DocumentSeriesTab.tsx";
-import { UserProfileTab } from "../UserProfileTab.tsx";
-import { AboutSmritiTab } from "../AboutSmritiTab.tsx";
-import { TaxInvoicePrintPage } from "../TaxInvoicePrintPag.tsx";
-import { DevTrackerTab } from "../../modules/dev_tracker/ui/DevTrackerTab.tsx";
 import { FioriLaunchpad } from "../launchpad/FioriLaunchpad.tsx";
-import { ClassicWorkspaceDirectory } from "../launchpad/ClassicWorkspaceDirectory.tsx";
-import { SecurityAccessShell } from "../security/SecurityAccessShell.tsx";
 
 // Lazy-loaded components (heavy feature modules)
+const PsvTab = lazy(() => import("../PsvTab.tsx").then(m => ({ default: m.PsvTab })));
+const CustomerMasterTab = lazy(() => import("../CustomerMasterTab.tsx").then(m => ({ default: m.CustomerMasterTab })));
+const VendorMasterWs = lazy(() => import("../vendor/VendorMasterWs.tsx").then(m => ({ default: m.VendorMasterWs })));
+const UserProfileTab = lazy(() => import("../UserProfileTab.tsx").then(m => ({ default: m.UserProfileTab })));
+const AboutSmritiTab = lazy(() => import("../AboutSmritiTab.tsx").then(m => ({ default: m.AboutSmritiTab })));
+const TaxInvoicePrintPage = lazy(() => import("../TaxInvoicePrintPag.tsx").then(m => ({ default: m.TaxInvoicePrintPage })));
+const DevTrackerTab = lazy(() => import("../../modules/dev_tracker/ui/DevTrackerTab.tsx").then(m => ({ default: m.DevTrackerTab })));
+const ClassicWorkspaceDirectory = lazy(() => import("../launchpad/ClassicWorkspaceDirectory.tsx").then(m => ({ default: m.ClassicWorkspaceDirectory })));
+const SecurityAccessShell = lazy(() => import("../security/SecurityAccessShell.tsx").then(m => ({ default: m.SecurityAccessShell })));
 const SalesStudioTab = lazy(() => import("../SalesStudioTab.tsx").then(m => ({ default: m.SalesStudioTab })));
 const EWayBillManagementTab = lazy(() => import("../compliance/EWayBillManagementTab.tsx").then(m => ({ default: m.EWayBillManagementTab })));
 const ReportDesignerTab = lazy(() => import("../ReportDesignerTab.tsx").then(m => ({ default: m.ReportDesignerTab })));
