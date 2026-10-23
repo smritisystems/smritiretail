@@ -14,6 +14,20 @@
 
 # SMRITI Retail OS — Release Notes
 
+## Release v6.99.15 (2026-10-23)
+
+### Database & Systems — Automated Database Migration, Pre-Migration Backup Snapshot & Child Customer Billing Remediation
+
+#### Overview
+Delivers a resilient, automated database migration, backup snapshot, and rollback engine (`scripts/auto_migrate.py`, `scripts/migrate.ps1`, `package.json`). Guarantees every migration session begins with a compressed `pg_dump -Fc` binary snapshot, SHA-256 manifest, and pre-migration row count census before executing Alembic head migrations across `smritisys` and tenant databases (`smriti001` through `smriti004`). In addition, diagnoses and permanently eliminates the 6 core defects preventing child customer billing in freshly installed versions.
+
+#### Key Highlights
+- **Automated Pre-Migration Snapshot Engine (`scripts/auto_migrate.py`)**: Guarantees that every migration session begins with a compressed binary `pg_dump -Fc` snapshot (14.5 MB), SHA-256 hash calculation, and pre-migration row count census before any DDL mutation is permitted.
+- **Fail-Safe & Automated Rollback**: Supports `--auto-rollback` to terminate active connections and cleanly restore pre-migration database state via `pg_restore --clean` if any migration fails.
+- **PowerShell & NPM Lifecyle CLI Integration**: Provides `scripts/migrate.ps1` with PowerShell parameter binding, `npm run db:migrate`, `npm run db:backup`, `npm run db:verify`, and unified CLI command `python -m backend.app.cli db migrate`.
+- **Zero-Data-Loss Verification**: Post-migration engine performs automated row count comparison across core entities (`companies`, `users`, `customers`, `products`, `item_variants`, `sales_invoices`, `stock_movements`) and validates schema integrity flags (`show_child_customers_in_billing`, `customer_relationships`).
+- **Child Customer Billing Remediation**: Corrected `BillingWorkspace.tsx` component routing to mount `SmritiCreditBillingTerminal`, removed hardcoded dummy products (`SHOE-001`), fixed Alembic migration `v1541` variant uniqueness constraint, calibrated statutory A4 Tax Invoice background watermark to 75% page size with horizontal logo emblem, and validated live atomic checkout `INV-20261023-3CA746`.
+
 ## Release v6.99.14 (2026-10-23)
 
 ### CRM, Billing & Transactions — End-to-End Customer Lifecycle Hardening & Validation

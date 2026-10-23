@@ -75,6 +75,7 @@ import {
   broadcastBillingDock,
   BillingDockMessage,
 } from "./billingDockProtocol.ts";
+import { SmritiProPosTaxInvoiceReceipt } from "./propos/ProPosTaxInvoiceRc.tsx";
 
 export interface SmritiCreditBillingTerminalProps {
   currentUser?: { role: string; name: string; username?: string; terminalId?: string; companyId?: string; branchId?: string } | null;
@@ -159,28 +160,17 @@ export const SmritiCreditBillingTerminal: React.FC<SmritiCreditBillingTerminalPr
   const [submitting, setSubmitting] = useState(false);
   const [lastError, setLastError] = useState<string | null>(null);
   const [submittedInvoiceNo, setSubmittedInvoiceNo] = useState<string | null>(null);
+  const [showPrintModal, setShowPrintModal] = useState<boolean>(false);
   const idempotencyKeyRef = useRef<string | null>(null);
 
   // ---- Header & Customer State matching Image 1 ----
   const [header, setHeader] = useState<CreditBillingHeader>({
-    customer: {
-      id: "cust-001",
-      code: "CUST-001",
-      name: "ABC Footwear",
-      phone: "+91 98765 43210",
-      email: "accounts@abcfootwear.in",
-      address: "Shop No. 10, Market Road, Mumbai - 400001",
-      gst_number: "27ABCDE1234F1Z5",
-      credit_limit: 200000,
-      balance: 64800,
-      available_credit: 135200,
-      status: "Active",
-    },
+    customer: null,
     priceLevel: "Retail",
     warehouse: "Main Store",
     salesman: "-- Select --",
-    invoiceDate: "25/09/2026",
-    dueDate: "25/10/2026",
+    invoiceDate: "23/10/2026",
+    dueDate: "23/11/2026",
   });
 
   // ---- Items State matching Image 1 ----
@@ -188,86 +178,23 @@ export const SmritiCreditBillingTerminal: React.FC<SmritiCreditBillingTerminalPr
     {
       id: "item-001",
       sNo: 1,
-      itemCode: "SHOE-001",
-      itemDescription: "Sports Shoes - Black",
-      rate: 1500.0,
+      itemCode: "SKU-GRN-CDB22EE6",
+      itemDescription: "GRN Test Product cdb22ee6",
+      rate: 180.0,
       qty: 2,
-      unit: "Pair",
-      discPercent: 5.0,
-      discAmt: 150.0,
-      amount: 2850.0,
-      productId: "prod-shoe-001",
-      hsnCode: "640411",
-      gstRate: 18.0,
-      taxAmt: 513.0,
-      stock: 32,
-      mrp: 1899.0,
-      purchaseRate: 1100.0,
-      lastSaleRate: 1500.0,
-      taxCategory: "GST 18%",
-    },
-    {
-      id: "item-002",
-      sNo: 2,
-      itemCode: "SHOE-002",
-      itemDescription: "Running Shoes - Blue",
-      rate: 1800.0,
-      qty: 1,
-      unit: "Pair",
+      unit: "PCS",
       discPercent: 0.0,
       discAmt: 0.0,
-      amount: 1800.0,
-      productId: "prod-shoe-002",
+      amount: 360.0,
+      productId: "prod-grn-cdb22ee6",
       hsnCode: "640411",
-      gstRate: 18.0,
-      taxAmt: 324.0,
-      stock: 18,
-      mrp: 2199.0,
-      purchaseRate: 1350.0,
-      lastSaleRate: 1800.0,
-      taxCategory: "GST 18%",
-    },
-    {
-      id: "item-003",
-      sNo: 3,
-      itemCode: "ACC-001",
-      itemDescription: "Shoe Care Kit",
-      rate: 250.0,
-      qty: 4,
-      unit: "Nos",
-      discPercent: 10.0,
-      discAmt: 100.0,
-      amount: 900.0,
-      productId: "prod-acc-001",
-      hsnCode: "340510",
-      gstRate: 18.0,
-      taxAmt: 162.0,
-      stock: 120,
-      mrp: 299.0,
-      purchaseRate: 160.0,
-      lastSaleRate: 250.0,
-      taxCategory: "GST 18%",
-    },
-    {
-      id: "item-004",
-      sNo: 4,
-      itemCode: "BAG-001",
-      itemDescription: "Sports Bag",
-      rate: 950.0,
-      qty: 1,
-      unit: "Nos",
-      discPercent: 0.0,
-      discAmt: 0.0,
-      amount: 950.0,
-      productId: "prod-bag-001",
-      hsnCode: "420292",
-      gstRate: 18.0,
-      taxAmt: 171.0,
-      stock: 25,
-      mrp: 1299.0,
-      purchaseRate: 680.0,
-      lastSaleRate: 950.0,
-      taxCategory: "GST 18%",
+      gstRate: 5.0,
+      taxAmt: 18.0,
+      stock: 389,
+      mrp: 500.0,
+      purchaseRate: 150.0,
+      lastSaleRate: 180.0,
+      taxCategory: "GST 5%",
     },
   ]);
 
@@ -633,9 +560,10 @@ export const SmritiCreditBillingTerminal: React.FC<SmritiCreditBillingTerminalPr
       } else if (e.key === "F4") {
         e.preventDefault();
         handleSaveDraft();
-      } else if (e.key === "F5") {
+      } else if (e.key === "F5" || e.key === "F9") {
         e.preventDefault();
-        onNotification?.("Invoice Preview", `Subtotal: ${fmtINR(calcTotals.subtotal)} | Net: ${fmtINR(calcTotals.netAmount)}`, "info");
+        setShowPrintModal(true);
+        onNotification?.("Invoice Preview", `Opening Tax Invoice Print Preview (A4 Statutory)...`, "info");
       } else if (e.key === "F6") {
         e.preventDefault();
         void handleSubmitInvoice();
@@ -645,13 +573,11 @@ export const SmritiCreditBillingTerminal: React.FC<SmritiCreditBillingTerminalPr
       } else if (e.key === "F8") {
         e.preventDefault();
         setMode("HOLD");
-      } else if (e.key === "F9") {
-        e.preventDefault();
-        onNotification?.("Print Dispatch", "Routing invoice to thermal/A4 statutory print spooler.", "info");
       } else if (e.key === "Escape") {
         setViewDropdownOpen(false);
         setIsCustomerModalOpen(false);
         setIsProductListModalOpen(false);
+        setShowPrintModal(false);
       }
     };
     window.addEventListener("keydown", handleKey);
@@ -1913,9 +1839,7 @@ export const SmritiCreditBillingTerminal: React.FC<SmritiCreditBillingTerminalPr
 
               <button
                 type="button"
-                onClick={() =>
-                  onNotification?.("Invoice Preview", `Subtotal: ${fmtINR(calcTotals.subtotal)} | Net: ${fmtINR(calcTotals.netAmount)}`, "info")
-                }
+                onClick={() => setShowPrintModal(true)}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-[#c4c5d5] dark:border-[#444653] text-[#475569] hover:bg-[#f1f5f9] text-xs font-bold transition bg-white dark:bg-[#1e232a]"
               >
                 <Eye size={13} />
@@ -1924,6 +1848,7 @@ export const SmritiCreditBillingTerminal: React.FC<SmritiCreditBillingTerminalPr
 
               <button
                 type="button"
+                onClick={() => setShowPrintModal(true)}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-[#c4c5d5] dark:border-[#444653] text-[#475569] hover:bg-[#f1f5f9] text-xs font-bold transition bg-white dark:bg-[#1e232a]"
               >
                 <Printer size={13} />
@@ -2327,6 +2252,61 @@ export const SmritiCreditBillingTerminal: React.FC<SmritiCreditBillingTerminalPr
           setIsProductListModalOpen(false);
         }}
       />
+
+      {/* ── 13. STATUTORY TAX INVOICE PRINT PREVIEW MODAL (A4 & THERMAL) ── */}
+      {showPrintModal && (
+        <SmritiProPosTaxInvoiceReceipt
+          billNo={submittedInvoiceNo || "INV-20261023-7A149D"}
+          billDate={new Date().toISOString().split("T")[0]}
+          customer={{
+            id: header.customer?.id || "cust-bnd-child-01",
+            name: header.customer?.name || "Reliance Fresh - Bandra West (Child Outlet)",
+            phone: header.customer?.phone || "+91 98200 12345",
+            address: header.customer?.address || "Shop 4, Hill Road, Bandra West, Mumbai 400050",
+            code: header.customer?.code || "RRL-BND-CHILD",
+            gstin: header.customer?.gst_number || undefined,
+            state: "Maharashtra",
+            stateCode: "27",
+          }}
+          salesStaff={currentUser?.name || "System Administrator"}
+          items={items.map((it, idx) => ({
+            id: it.id,
+            itemNo: idx + 1,
+            sku: it.itemCode,
+            barcode: (it as any).barcode || it.itemCode,
+            name: it.itemDescription,
+            size: "Standard",
+            color: "Default",
+            brand: "Tattly",
+            salesStaff: currentUser?.name || "System Administrator",
+            qty: it.qty,
+            mrp: it.mrp || it.rate,
+            unitPrice: it.rate,
+            discountPct: it.discPercent,
+            discountAmt: it.discAmt,
+            taxPct: it.gstRate || 5.0,
+            taxAmt: it.taxAmt || 0,
+            hsnCode: it.hsnCode || "640411",
+            lineTotal: it.amount,
+          }))}
+          subTotal={calcTotals.subtotal}
+          discountTotal={calcTotals.itemDiscount + calcTotals.billDiscount}
+          taxTotal={calcTotals.totalTax}
+          netPayable={calcTotals.netAmount}
+          defaultFormat="a4"
+          storeProfile={{
+            storeName: "Tattly Threads Private Limited",
+            gstin: "27AAXFT2508H1ZR",
+            addressLine1: "Unit 402, Trade World B-Wing, Kamala Mills",
+            city: "Mumbai",
+            state: "Maharashtra",
+            stateCode: "27",
+            pincode: "400013",
+            phone: "+91-22-23000000",
+          }}
+          onClose={() => setShowPrintModal(false)}
+        />
+      )}
     </div>
   );
 };

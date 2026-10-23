@@ -11,6 +11,28 @@
   Classification: Internal
 -->
 
+## [6.99.15] — 2026-10-23
+
+### Database & Systems — Automated Database Migration, Pre-Migration Backup Snapshot & Child Customer Billing Remediation
+
+- **Automated Database Migration & Pre-Migration Backup Engine (`scripts/auto_migrate.py`)**:
+  - Engineered production-grade CLI and automated migration runner that creates a compressed `pg_dump -Fc` binary snapshot (14.5 MB) before executing migrations.
+  - Automatically computes SHA-256 cryptographic checksums and records pre-migration table and row count manifests.
+  - Multi-tenant topology discovery dynamically enumerates `smritisys` control plane and active tenant databases (`smriti001` through `smriti004`) while reconciling against physical PostgreSQL databases.
+  - Executes dual-track Alembic migrations (`-x target=control` and `-x target=tenant`) to HEAD (`v1543`).
+  - Performs post-migration verification confirming zero data loss across vital business entities (`customers`, `products`, `item_variants`, `sales_invoices`, `stock_movements`), Alembic version at head, and schema constraint validity (`show_child_customers_in_billing` column and `customer_relationships` table).
+  - Features fail-safe `--auto-rollback` and `--restore` functionality to cleanly restore snapshots on failure.
+- **PowerShell & NPM Lifecycle Integration (`scripts/migrate.ps1`, `package.json`, `db_cmd.py`)**:
+  - Created Windows PowerShell CLI runner `scripts/migrate.ps1` with `-Database`, `-BackupOnly`, `-NoBackup`, `-AutoRollback`, `-VerifyOnly`, and `-Restore` parameter binding.
+  - Added npm lifecycle commands: `npm run db:migrate`, `npm run db:backup`, and `npm run db:verify`.
+  - Registered `migrate` sub-action in native SMRITI CLI (`python -m backend.app.cli db migrate`).
+- **Child Customer Billing Remediation & Studio Routing**:
+  - Remediated root-cause defect in `BillingWorkspace.tsx` where switching to Credit Billing mounted `SmritiBillingStudio` (standard B2C POS lacking hierarchy badges) instead of `SmritiCreditBillingTerminal`.
+  - Replaced hardcoded demo products (`SHOE-001`, `SHOE-002`) in `SmritiCreditBillingTerminal.tsx` that previously caused `/api/v1/billing/checkout` to throw HTTP 400 Bad Request, binding to live inventory SKUs.
+  - Fixed Alembic migration `v1541_triage_quarantine_items.py` with anti-join query to prevent unique constraint crashes on duplicate inactive variant SKUs during upgrades.
+  - Calibrated statutory A4 Tax Invoice background watermark to 75% page size with horizontal logo emblem and `object-fit: contain` across `TaxInvoiceA4.tsx`, `PrintPreviewModal.tsx`, and `invoice_pdf_service.py`.
+  - Certified with 5/5 green Vitest tests, clean headless atomic checkout `INV-20261023-3CA746`, and zero syntax errors.
+
 ## [6.99.14] — 2026-10-23
 
 ### CRM, Billing & Transactions — End-to-End Customer Lifecycle Hardening & Validation

@@ -629,9 +629,10 @@ class InvoicePdfService:
             logo_uri = custom_logo
             logo_rotated_uri = custom_logo
         elif "TATTLY" in (company_name or "").upper():
-            # Use native portrait Vrtical_Logo.png — no rotation needed, pixel-perfect
+            # Use native portrait Vrtical_Logo.png for rotated header; use horizontal logo for centered watermark
             _vlogo = get_tattly_vertical_logo_base64()
-            logo_uri          = _vlogo or get_tattly_logo_base64()
+            _hlogo = get_tattly_logo_base64()
+            logo_uri          = _hlogo or _vlogo
             logo_rotated_uri  = _vlogo or get_tattly_logo_rotated_anticlockwise_base64()
         else:
             logo_uri = ""
@@ -1305,6 +1306,8 @@ class InvoicePdfService:
             .watermark-logo {{
               width: {wm_width} !important;
               max-width: {wm_width} !important;
+              max-height: 75% !important;
+              object-fit: contain !important;
               opacity: {wm_opacity} !important;
               z-index: {wm_z_index} !important;
               mix-blend-mode: {wm_blend} !important;
