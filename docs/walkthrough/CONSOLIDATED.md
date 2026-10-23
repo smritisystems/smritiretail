@@ -854,3 +854,7 @@ The purpose of this implementation is to provide seamless, error-free store-leve
 
 
 
+## Customer Store and Branch Relation Audit - v6.99.18
+
+Customer legal accounts, customer delivery locations, SMRITI branches and warehouses remain separate entities. The Customer store action now persists canonical delivery locations; child accounts and store codes are no longer fabricated from address data. Branch lookup uses validated tenant context and real branch records only. Ambiguous GRN store identifiers no longer resolve to warehouses. See [walkthrough](./crm/Customer_Store_Branch_Relation_Audit_Walkthrough_v6.99.18.md) and [implementation plan](../implementation/crm/Customer_Store_Branch_Relation_Audit_Plan_v6.99.18.md). Database uniqueness alignment and store-level sales reporting remain follow-up work.
+

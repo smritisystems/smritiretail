@@ -4,9 +4,9 @@ Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 3.32.0
+ * Version      : 6.99.1
  * Created      : 2026-07-14
- * Modified     : 2026-09-14
+ * Modified     : 2026-10-23
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 Classification: Internal
@@ -24,7 +24,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
 
-from ...api.deps import get_company_db, get_db, get_current_user, require_role
+from ...api.deps import get_company_db, get_db, get_current_user, get_tenant_context, require_role, TenantContext
 from ...core.logging import logger
 from ...models.auth import User, UserRole
 from ...models.master_lookup import MasterType, MasterValue
@@ -1958,38 +1958,25 @@ async def list_schemes_lookup(
 async def list_stores_lookup(
     q: Optional[str] = Query(default=None),
     limit: int = Query(default=100, ge=1, le=500),
-    control_db: AsyncSession = Depends(get_db),
+    tenant_db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
     current_user: User = Depends(get_current_user),
 ):
-    """F2 Universal Lookup adapter for Chain Stores & Branches."""
+    """F2 lookup for active branches in the authenticated company."""
     from ...models.tenant import Branch
-    rows = []
-    try:
-        stmt = select(Branch).where(Branch.is_active == True)
-        if q and q.strip():
-            term = f"%{q.strip()}%"
-            stmt = stmt.where(or_(Branch.name.ilike(term), Branch.code.ilike(term)))
-        res = await control_db.execute(stmt)
-        for b in res.scalars().all():
-            rows.append({
-                "code": b.code or b.id,
-                "name": b.name,
-                "city": getattr(b, "city", None) or "Mumbai",
-                "state": getattr(b, "state", None) or "Maharashtra",
-            })
-    except Exception as exc:
-        logger.warning(f"[MasterLookup] Notice reading stores/branches: {exc}")
-
-    if not rows:
-        fallback_stores = [
-            {"code": "BR-MAIN-001", "name": "SMRITI Flagship Retail Terminal", "city": "Mumbai", "state": "Maharashtra"},
-            {"code": "BR-NORTH-002", "name": "SMRITI North Regional Store", "city": "Delhi", "state": "Delhi"},
-            {"code": "BR-SOUTH-003", "name": "SMRITI Fashion Galleria", "city": "Bengaluru", "state": "Karnataka"},
-        ]
-        if q and q.strip():
-            term = q.strip().lower()
-            fallback_stores = [s for s in fallback_stores if term in s["code"].lower() or term in s["name"].lower()]
-        rows = fallback_stores
+    stmt = select(Branch).where(
+        Branch.company_id == tenant_ctx.company_id,
+        Branch.is_active.is_(True),
+        Branch.is_deleted.is_(False),
+    )
+    if q and q.strip():
+        term = f"%{q.strip()}%"
+        stmt = stmt.where(or_(Branch.name.ilike(term), Branch.code.ilike(term)))
+    res = await tenant_db.execute(stmt.limit(limit))
+    rows = [
+        {"code": b.code, "name": b.name, "city": b.city, "state": b.state}
+        for b in res.scalars().all()
+    ]
     return rows[:limit]
 
 
