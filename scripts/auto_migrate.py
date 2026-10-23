@@ -283,6 +283,35 @@ def create_database_backup(dbname: str, backup_dir: str) -> Dict[str, Any]:
         except Exception as exc:
             err_msg += " | " + str(exc)
 
+    # 3. Fallback to In-Engine PostgreSQL TEMPLATE Clone Snapshot (Zero external binaries required)
+    if not dump_success:
+        try:
+            conn = get_pg_connection("postgres")
+            conn.autocommit = True
+            cur = conn.cursor()
+            cur.execute(f"""
+                SELECT pg_terminate_backend(pid)
+                FROM pg_stat_activity
+                WHERE datname = '{dbname}' AND pid <> pg_backend_pid();
+            """)
+            snap_db = f"{dbname}_snap_{timestamp}"
+            cur.execute(f'CREATE DATABASE "{snap_db}" TEMPLATE "{dbname}";')
+            cur.close()
+            conn.close()
+
+            with open(backup_file, "w", encoding="utf-8") as f_out:
+                f_out.write(json.dumps({
+                    "type": "pg_template_clone",
+                    "source_database": dbname,
+                    "snapshot_database": snap_db,
+                    "timestamp": timestamp,
+                    "initial_version": initial_version,
+                }, indent=2))
+            dump_success = True
+            print(f"  [+] In-Engine Snapshot Created: '{snap_db}' (via PostgreSQL Server-Side Clone)")
+        except Exception as snap_exc:
+            err_msg += f" | In-Engine snapshot error: {snap_exc}"
+
     if not dump_success:
         raise RuntimeError(f"Failed to create pre-migration backup for database '{dbname}': {err_msg}")
 
@@ -404,6 +433,30 @@ def restore_database(dbname: str, backup_file: str) -> bool:
     if not os.path.exists(backup_file):
         print(f"  [-] Error: Backup file not found: {backup_file}")
         return False
+
+    # Check for in-engine PostgreSQL template clone snapshot first
+    if os.path.exists(backup_file):
+        try:
+            with open(backup_file, "r", encoding="utf-8") as f:
+                content = json.load(f)
+                if isinstance(content, dict) and content.get("type") == "pg_template_clone":
+                    snap_db = content["snapshot_database"]
+                    conn = get_pg_connection("postgres")
+                    conn.autocommit = True
+                    cur = conn.cursor()
+                    cur.execute(f"""
+                        SELECT pg_terminate_backend(pid)
+                        FROM pg_stat_activity
+                        WHERE (datname = '{dbname}' OR datname = '{snap_db}') AND pid <> pg_backend_pid();
+                    """)
+                    cur.execute(f'DROP DATABASE IF EXISTS "{dbname}";')
+                    cur.execute(f'CREATE DATABASE "{dbname}" TEMPLATE "{snap_db}";')
+                    cur.close()
+                    conn.close()
+                    print(f"  [+] In-Engine Snapshot Restored successfully: '{dbname}' from '{snap_db}'!")
+                    return True
+        except Exception:
+            pass
 
     # Terminate active connections to allow clean restore
     try:
