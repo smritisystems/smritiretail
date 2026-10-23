@@ -14,6 +14,7 @@
 import React, { useEffect, useState } from "react";
 import { Building2, GitBranch, Globe2, UserRound } from "lucide-react";
 import { APP_VERSION_LABEL } from "../../config/version.ts";
+import { apiFetchV1 } from "../../lib/apiFetchV1.ts";
 
 interface WorkspaceStatusBarProps {
   activeModuleTitle: string;
@@ -31,7 +32,7 @@ export const WorkspaceStatusBar: React.FC<WorkspaceStatusBarProps> = ({
   userName,
   userRole,
 }) => {
-  const [online, setOnline] = useState(() => typeof navigator === "undefined" || navigator.onLine);
+  const [connectionStatus, setConnectionStatus] = useState<"checking" | "connected" | "unavailable">("checking");
   const [companyName, setCompanyName] = useState("");
   const [companyCode, setCompanyCode] = useState("");
   const [branchName, setBranchName] = useState("");
@@ -46,17 +47,53 @@ export const WorkspaceStatusBar: React.FC<WorkspaceStatusBarProps> = ({
       setBranchName(readWorkspaceValue("smriti_branch_name"));
       setBranchCode(readWorkspaceValue("smriti_branch_code"));
     };
-    const updateOnline = () => setOnline(navigator.onLine);
+    let isMounted = true;
+    let checkInFlight = false;
+    let retryAfterCurrentCheck = false;
+    const checkApplicationConnection = async () => {
+      if (checkInFlight) {
+        retryAfterCurrentCheck = true;
+        return;
+      }
+      if (typeof navigator !== "undefined" && !navigator.onLine) {
+        setConnectionStatus("unavailable");
+        return;
+      }
+      if (!localStorage.getItem("smriti_jwt_token") && !localStorage.getItem("smriti_session_token")) {
+        setConnectionStatus("unavailable");
+        return;
+      }
+
+      checkInFlight = true;
+      setConnectionStatus("checking");
+      try {
+        await apiFetchV1("/auth/me");
+        if (isMounted) setConnectionStatus(typeof navigator === "undefined" || navigator.onLine ? "connected" : "unavailable");
+      } catch {
+        if (isMounted) setConnectionStatus("unavailable");
+      } finally {
+        checkInFlight = false;
+        if (isMounted && retryAfterCurrentCheck) {
+          retryAfterCurrentCheck = false;
+          window.setTimeout(() => void checkApplicationConnection(), 0);
+        }
+      }
+    };
+    const updateOffline = () => setConnectionStatus("unavailable");
 
     syncWorkspace();
-    window.addEventListener("online", updateOnline);
-    window.addEventListener("offline", updateOnline);
+    void checkApplicationConnection();
+    const connectionInterval = window.setInterval(() => void checkApplicationConnection(), 60_000);
+    window.addEventListener("online", checkApplicationConnection);
+    window.addEventListener("offline", updateOffline);
     window.addEventListener("smriti_company_context_updated", syncWorkspace);
     window.addEventListener("smriti_tenant_context_updated", syncWorkspace);
     window.addEventListener("storage", syncWorkspace);
     return () => {
-      window.removeEventListener("online", updateOnline);
-      window.removeEventListener("offline", updateOnline);
+      isMounted = false;
+      window.clearInterval(connectionInterval);
+      window.removeEventListener("online", checkApplicationConnection);
+      window.removeEventListener("offline", updateOffline);
       window.removeEventListener("smriti_company_context_updated", syncWorkspace);
       window.removeEventListener("smriti_tenant_context_updated", syncWorkspace);
       window.removeEventListener("storage", syncWorkspace);
@@ -83,9 +120,13 @@ export const WorkspaceStatusBar: React.FC<WorkspaceStatusBarProps> = ({
           <UserRound size={12} className="text-[#64748b] dark:text-slate-400" />
           <span className="hidden max-w-[110px] truncate md:inline text-slate-700 dark:text-slate-300">{displayUserName}</span>
           {displayUserRole && <span className="hidden sm:inline rounded bg-[#e0e7ff] dark:bg-indigo-950 px-1.5 py-0.5 text-[10px] font-bold text-[#3730a3] dark:text-indigo-300">{displayUserRole}</span>}
-          <span className={`flex items-center gap-1 ${online ? "text-emerald-700 dark:text-emerald-400" : "text-rose-700 dark:text-rose-400"}`} title="Browser-reported network availability; application connectivity is not checked." aria-label={`Browser network ${online ? "available" : "unavailable"}; application connectivity is not checked`}>
+          <span
+            className={`flex items-center gap-1 ${connectionStatus === "connected" ? "text-emerald-700 dark:text-emerald-400" : connectionStatus === "checking" ? "text-amber-700 dark:text-amber-400" : "text-rose-700 dark:text-rose-400"}`}
+            title={connectionStatus === "connected" ? "The authenticated /auth/me request succeeded." : connectionStatus === "checking" ? "Checking the authenticated application connection." : "The authenticated application request failed or the browser is offline."}
+            aria-label={connectionStatus === "connected" ? "Application connection confirmed by authenticated session check" : connectionStatus === "checking" ? "Checking authenticated application connection" : "Application connection or session unavailable"}
+          >
             <Globe2 size={12} />
-            <span className="hidden sm:inline">{online ? "NETWORK AVAILABLE" : "NETWORK UNAVAILABLE"}</span>
+            <span className="hidden sm:inline">{connectionStatus === "connected" ? "APP CONNECTED" : connectionStatus === "checking" ? "CHECKING APP" : "APP UNAVAILABLE"}</span>
           </span>
           <span className="hidden text-[#64748b] dark:text-slate-500 lg:inline">{APP_VERSION_LABEL}</span>
         </span>

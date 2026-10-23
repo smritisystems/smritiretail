@@ -19,6 +19,8 @@ import {
   resolveNavigation,
   ContextualMenuItem,
 } from './navigationResolver';
+import { useLayoutEngine } from '../../layout_engine/layout_store';
+import { filterContextualNavigation } from './navigationAccess';
 
 export type NavRailState = 'EXPANDED' | 'COMPACT' | 'HIDDEN';
 
@@ -46,6 +48,7 @@ export const NavRail: React.FC<NavRailProps> = ({
   onToggleRailState,
 }) => {
   const [isReportsExpanded, setIsReportsExpanded] = useState(true);
+  const { resolvedNavigationIds } = useLayoutEngine();
 
   if (railState === 'HIDDEN') {
     return null;
@@ -61,6 +64,11 @@ export const NavRail: React.FC<NavRailProps> = ({
     transactionState,
     userRole,
   });
+  const visibleNavigationItems = filterContextualNavigation(
+    navData.items,
+    activeModuleId,
+    resolvedNavigationIds,
+  );
 
   const reportStudios = [
     { id: 'sales_studio', label: 'Sales' },
@@ -99,7 +107,7 @@ export const NavRail: React.FC<NavRailProps> = ({
 
       {/* Scrollable Navigation Items */}
       <div className="flex-1 overflow-y-auto overflow-x-hidden py-2 px-2 space-y-1">
-        {navData.items.map((item: ContextualMenuItem) => {
+        {visibleNavigationItems.map((item: ContextualMenuItem) => {
           const isActive = activeModuleId === item.id;
           const isDisabled = Boolean(item.disabled);
 

@@ -19,10 +19,12 @@
 
 ### Changed
 - Made company and branch selection available in Regular and Classic styles; refreshed shell context after tenant updates.
-- Made the status bar distinguish browser network availability from application connectivity.
+- Filtered Regular and Classic navigation from the same authenticated `/menus/resolved` module list.
+- Made the status bar report an application connection only after an authenticated `/auth/me` request succeeds.
+- Kept company and branch codes tied to explicit context data instead of deriving them from IDs.
 
 ### Fixed
-- Removed sample account, shift, notification, company, and branch values; stopped displaying a branch identifier as a branch code.
+- Removed sample account, shift, company profile, contact, and branch values; labeled the in-memory notification count as session activity.
 
 ### Documentation
 - Updated the UI walkthrough and implementation plan, their indexes and ledgers, the user and developer guides, troubleshooting, and the knowledge-base home.

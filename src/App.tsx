@@ -110,11 +110,11 @@ const AppContent: React.FC = () => {
         if (data.company_id) {
           persistTenantContext({
             companyId: data.company_id,
-            companyCode: data.company_code ?? localStorage.getItem("smriti_company_code"),
+            companyCode: data.company_code ?? null,
             branchId: data.branch_id ?? localStorage.getItem("smriti_branch_id"),
-            branchCode: data.branch_code ?? localStorage.getItem("smriti_branch_code"),
-            companyName: data.company_name ?? localStorage.getItem("smriti_company_name"),
-            branchName: data.branch_name ?? localStorage.getItem("smriti_branch_name"),
+            branchCode: data.branch_code ?? null,
+            companyName: data.company_name ?? null,
+            branchName: data.branch_name ?? null,
           });
 
           // Proactively synchronize authoritative corporate profile into tenant context cache
@@ -131,13 +131,13 @@ const AppContent: React.FC = () => {
 
               persistTenantContext({
                 companyId: comp.id || data.company_id,
-                companyCode: comp.company_code || data.company_code,
-                companyName: comp.trade_name || comp.legal_name || comp.name || "Tattly Threads",
-                companyGstin: comp.gst_number || "27AAXFT2508H1ZR",
-                companyAddress: fullAddress || undefined,
-                companyPhone: comp.phone || "+91 9324117007",
-                companyEmail: comp.accounts_email || comp.email || comp.dispatch_email || "accounts@tattlythreads.com",
-                companyLogoUrl: comp.logo_url || comp.print_logo_url || "/assets/branding/tattly_logo_black.png",
+                companyCode: comp.company_code || data.company_code || null,
+                companyName: comp.trade_name || comp.legal_name || comp.name || null,
+                companyGstin: comp.gst_number || null,
+                companyAddress: fullAddress || null,
+                companyPhone: comp.phone || null,
+                companyEmail: comp.accounts_email || comp.email || comp.dispatch_email || null,
+                companyLogoUrl: comp.logo_url || comp.print_logo_url || null,
               });
             }
           } catch {

@@ -6,7 +6,7 @@
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
  * Version      : 6.27.3
  * Created      : 2026-07-12
- * Modified     : 2026-09-16
+ * Modified     : 2026-10-24
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  */
@@ -69,21 +69,26 @@ export function persistTenantContext(params: {
 
   const normalizedCompanyId = normalizeCompanyId(params.companyId);
   const normalizedBranchId = normalizeBranchId(params.branchId);
-  const companyCode = params.companyCode ? String(params.companyCode).trim() : normalizedCompanyId.replace(/^COMP-/i, "") || "001";
-  const branchCode = params.branchCode ? String(params.branchCode).trim() : normalizedBranchId;
 
   localStorage.setItem("smriti_company_id", normalizedCompanyId);
-  localStorage.setItem("smriti_company_code", companyCode);
   localStorage.setItem("smriti_branch_id", normalizedBranchId);
-  localStorage.setItem("smriti_branch_code", branchCode);
 
-  if (params.companyName) localStorage.setItem("smriti_company_name", params.companyName);
-  if (params.branchName) localStorage.setItem("smriti_branch_name", params.branchName);
-  if (params.companyAddress) localStorage.setItem("smriti_company_address", params.companyAddress);
-  if (params.companyGstin) localStorage.setItem("smriti_company_gstin", params.companyGstin);
-  if (params.companyPhone) localStorage.setItem("smriti_company_phone", params.companyPhone);
-  if (params.companyEmail) localStorage.setItem("smriti_company_email", params.companyEmail);
-  if (params.companyLogoUrl) localStorage.setItem("smriti_company_logo_url", params.companyLogoUrl);
+  const syncOptionalValue = (key: string, value: string | null | undefined) => {
+    if (value === undefined) return;
+    const normalized = String(value ?? "").trim();
+    if (normalized) localStorage.setItem(key, normalized);
+    else localStorage.removeItem(key);
+  };
+
+  syncOptionalValue("smriti_company_code", params.companyCode);
+  syncOptionalValue("smriti_branch_code", params.branchCode);
+  syncOptionalValue("smriti_company_name", params.companyName);
+  syncOptionalValue("smriti_branch_name", params.branchName);
+  syncOptionalValue("smriti_company_address", params.companyAddress);
+  syncOptionalValue("smriti_company_gstin", params.companyGstin);
+  syncOptionalValue("smriti_company_phone", params.companyPhone);
+  syncOptionalValue("smriti_company_email", params.companyEmail);
+  syncOptionalValue("smriti_company_logo_url", params.companyLogoUrl);
 
   window.dispatchEvent(new CustomEvent("smriti_tenant_context_updated", { detail: params }));
 }
@@ -101,22 +106,14 @@ export function getTenantCompanyContext(): {
   companyEmail: string;
   companyLogoUrl: string;
 } {
-  const defaultCompanyName = "Tattly Threads";
-  const defaultCompanyAddress =
-    "Office No. 81, Ibrahim Rehmatullah Road, Beside Jio Gallery, near HP Petrol Pump, Mumbai, Maharashtra - 400003";
-  const defaultGstin = "27AAXFT2508H1ZR";
-  const defaultPhone = "+91 9324117007";
-  const defaultEmail = "accounts@tattlythreads.com";
-  const defaultLogo = "/assets/branding/tattly_logo_black.png";
-
   if (typeof window === "undefined") {
     return {
-      companyId: "COMP-001",
-      companyCode: "001",
+      companyId: "",
+      companyCode: "",
       companyName: "",
-      branchId: "MAIN",
-      branchCode: "MAIN",
-      branchName: "Main Branch",
+      branchId: "",
+      branchCode: "",
+      branchName: "",
       companyAddress: "",
       companyGstin: "",
       companyPhone: "",
@@ -125,17 +122,17 @@ export function getTenantCompanyContext(): {
     };
   }
   return {
-    companyId: localStorage.getItem("smriti_company_id") || "COMP-001",
-    companyCode: localStorage.getItem("smriti_company_code") || "001",
-    companyName: localStorage.getItem("smriti_company_name") || defaultCompanyName,
-    branchId: localStorage.getItem("smriti_branch_id") || "MAIN",
-    branchCode: localStorage.getItem("smriti_branch_code") || "MAIN",
-    branchName: localStorage.getItem("smriti_branch_name") || "Main Branch",
-    companyAddress: localStorage.getItem("smriti_company_address") || defaultCompanyAddress,
-    companyGstin: localStorage.getItem("smriti_company_gstin") || defaultGstin,
-    companyPhone: localStorage.getItem("smriti_company_phone") || defaultPhone,
-    companyEmail: localStorage.getItem("smriti_company_email") || defaultEmail,
-    companyLogoUrl: localStorage.getItem("smriti_company_logo_url") || defaultLogo,
+    companyId: localStorage.getItem("smriti_company_id") || "",
+    companyCode: localStorage.getItem("smriti_company_code") || "",
+    companyName: localStorage.getItem("smriti_company_name") || "",
+    branchId: localStorage.getItem("smriti_branch_id") || "",
+    branchCode: localStorage.getItem("smriti_branch_code") || "",
+    branchName: localStorage.getItem("smriti_branch_name") || "",
+    companyAddress: localStorage.getItem("smriti_company_address") || "",
+    companyGstin: localStorage.getItem("smriti_company_gstin") || "",
+    companyPhone: localStorage.getItem("smriti_company_phone") || "",
+    companyEmail: localStorage.getItem("smriti_company_email") || "",
+    companyLogoUrl: localStorage.getItem("smriti_company_logo_url") || "",
   };
 }
 

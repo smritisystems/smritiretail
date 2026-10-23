@@ -1183,11 +1183,11 @@ The shell separates global and contextual navigation, but Classic and Regular na
 
 ### 6. Architecture Impact
 
-Changes are limited to React shell components and the in-memory notification context. No API, database schema, authentication flow, or routing contract is changed. `AppShell` owns viewport and drawer state; `GlobalHeader` owns shared actions; `EnterpriseMenuBar` measures its own available width.
+The shell reuses the authenticated `/menus/resolved` response as the allowed-module source for both navigation styles and `/auth/me` to confirm application/session connectivity. No API, database schema, authentication flow, or routing contract is changed. `AppShell` owns viewport and drawer state; `GlobalHeader` owns shared actions; `EnterpriseMenuBar` measures its own available width.
 
 ### 7. Proposed Design
 
-Use one workspace style dialog entry point, keep company and branch selection in both styles, show notifications only from provider state, remove fabricated identity and status fallbacks, use a measured Classic overflow menu, and expose mobile search plus a drawer. Keep the selected module in the existing app tree while changing presentation style.
+Use one workspace style dialog entry point, keep company and branch selection in both styles, label session-scoped notifications accurately, remove fabricated identity and tenant fallbacks, use a measured Classic overflow menu, and expose mobile search plus a drawer. Filter Regular and Classic navigation using the same backend-resolved allowed-module IDs. Keep the selected module in the existing app tree while changing presentation style.
 
 ### 8. Files Created
 
@@ -1206,7 +1206,10 @@ Use one workspace style dialog entry point, keep company and branch selection in
 - `src/components/shell/UxSwitcherModal.tsx`
 - `src/components/shell/WorkspaceStatusBar.tsx`
 - `src/components/shell/navigationResolver.ts`
+- `src/components/shell/navigationAccess.ts`
 - `src/notifications/notification_store.tsx`
+- `src/layout_engine/layout_store.tsx`
+- `src/lib/apiFetchV1.ts`
 - `CHANGELOG.md`
 - `docs/HOME.md`
 - `docs/user_guide/USER_GUIDE.md`
@@ -1220,9 +1223,9 @@ No package or service dependency is added. The responsive Classic menu uses the 
 
 ### 11. Risks
 
-- The Classic and contextual menus remain separate and are not proven permission-equivalent.
+- The menu labels and grouping remain separate presentation definitions, while both modes now use the same backend-resolved allowed-module IDs.
 - Notification state remains in-memory and session-scoped.
-- `navigator.onLine` does not prove that the application or user session is available.
+- The application connection indicator reflects the last authenticated `/auth/me` request and does not claim that every service is healthy.
 - Browser interaction behavior has not been exercised in this environment.
 
 ### 12. Rollback Strategy
