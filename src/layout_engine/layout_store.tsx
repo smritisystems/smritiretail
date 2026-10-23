@@ -6,13 +6,13 @@
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
  * Version      : 6.99.10
  * Created      : 2026-07-10
- * Modified     : 2026-10-22
+ * Modified     : 2026-10-24
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Layout Engine Store Layer (Dynamic Mode Initialization)
  */
 
-import React, { createContext, useContext, useState, useEffect } from "react";
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from "react";
 import { apiFetchV1 } from "../lib/apiFetch.ts";
 
 export type DockPosition = "left" | "right" | "top" | "bottom";
@@ -40,6 +40,7 @@ interface LayoutStoreContextType {
   preferences: LayoutPreferences;
   recentlyUsed: string[];
   registeredWorkspaces: WorkspaceConfig[];
+  resolvedNavigationIds: string[] | null;
   uxMode: UXMode;
 
   setLayout: (position: DockPosition) => void;
@@ -415,6 +416,74 @@ export const LayoutEngineProvider: React.FC<ProviderProps> = ({
 
   // Force-render trigger
   const [, setTick] = useState(0);
+  const [resolvedNavigationIds, setResolvedNavigationIds] = useState<string[] | null>(null);
+  const menuResolutionPromiseRef = useRef<Promise<void> | null>(null);
+  const menuResolutionGenerationRef = useRef(0);
+
+  const reloadResolvedMenus = useCallback(async () => {
+    if (menuResolutionPromiseRef.current) return menuResolutionPromiseRef.current;
+
+    const token = localStorage.getItem("smriti_jwt_token") || localStorage.getItem("smriti_session_token");
+    if (!token) {
+      menuResolutionGenerationRef.current += 1;
+      menuResolutionPromiseRef.current = null;
+      setResolvedNavigationIds(null);
+      return;
+    }
+
+    const requestGeneration = ++menuResolutionGenerationRef.current;
+    setResolvedNavigationIds(null);
+    const loadMenus = (async () => {
+      try {
+        const response = await apiFetchV1<any>("/menus/resolved");
+        const resolvedMenus = Array.isArray(response)
+          ? response
+          : Array.isArray(response?.data)
+            ? response.data
+            : Array.isArray(response?.items)
+              ? response.items
+              : null;
+
+        if (!resolvedMenus) return;
+        if (requestGeneration !== menuResolutionGenerationRef.current) return;
+
+        const allowedIds = new Set<string>();
+        const dynamicWorkspaces: WorkspaceConfig[] = resolvedMenus.flatMap((menu: any) => {
+          const route = String(menu?.route || "").replace(/^\/+/, "").trim();
+          const menuId = String(menu?.id || "").replace(/^menu-/i, "").trim();
+          const id = route || menuId;
+          if (!id) return [];
+
+          allowedIds.add(id);
+          if (menuId) allowedIds.add(menuId);
+          return [{
+            id,
+            label: String(menu?.title || menu?.label || id),
+            icon: String(menu?.icon || "grid_view"),
+            category: String(menu?.module || "Operations"),
+          }];
+        });
+
+        setRegisteredWorkspaces(dynamicWorkspaces);
+        setResolvedNavigationIds(Array.from(allowedIds));
+        setTick((tick) => tick + 1);
+        if (typeof window !== "undefined") window.dispatchEvent(new Event("resize"));
+      } catch (err) {
+        if (requestGeneration === menuResolutionGenerationRef.current) {
+          console.warn("[MenuResolver] Failed to reload resolved menus", err);
+        }
+      }
+    })();
+
+    menuResolutionPromiseRef.current = loadMenus;
+    try {
+      await loadMenus;
+    } finally {
+      if (requestGeneration === menuResolutionGenerationRef.current) {
+        menuResolutionPromiseRef.current = null;
+      }
+    }
+  }, []);
 
   // Load preferences on startup & subscribe to live security / menu events
   useEffect(() => {
@@ -426,33 +495,19 @@ export const LayoutEngineProvider: React.FC<ProviderProps> = ({
 
     window.addEventListener("smriti_menu_permissions_updated", handlePermissionsUpdated);
     window.addEventListener("smriti_security_config_updated", handlePermissionsUpdated);
+    const clearResolvedMenus = () => {
+      menuResolutionGenerationRef.current += 1;
+      menuResolutionPromiseRef.current = null;
+      setResolvedNavigationIds(null);
+    };
+    window.addEventListener("smriti_auth_session_cleared", clearResolvedMenus);
 
     return () => {
       window.removeEventListener("smriti_menu_permissions_updated", handlePermissionsUpdated);
       window.removeEventListener("smriti_security_config_updated", handlePermissionsUpdated);
+      window.removeEventListener("smriti_auth_session_cleared", clearResolvedMenus);
     };
   }, []);
-
-  const reloadResolvedMenus = async () => {
-    const token = localStorage.getItem("smriti_jwt_token") || localStorage.getItem("smriti_session_token");
-    if (token) {
-      try {
-        const res = await apiFetchV1("/menus/resolved");
-        if (Array.isArray(res)) {
-          const dynamicWorkspaces: WorkspaceConfig[] = res.map((m: any) => ({
-            id: (m.route || "").replace(/^\//, "") || m.id.replace(/^menu-/, ""),
-            label: m.title || m.label,
-            icon: m.icon || "grid_view",
-            category: m.module || "Operations",
-          }));
-          setRegisteredWorkspaces(dynamicWorkspaces);
-          refreshLayout();
-        }
-      } catch (err) {
-        console.warn("[MenuResolver] Failed to reload resolved menus", err);
-      }
-    }
-  };
 
   const restorePreferences = async () => {
     const local = localStorage.getItem("smriti_layout_preferences");
@@ -610,6 +665,7 @@ export const LayoutEngineProvider: React.FC<ProviderProps> = ({
         preferences,
         recentlyUsed,
         registeredWorkspaces,
+        resolvedNavigationIds,
         uxMode: preferences.uxMode || "regular",
         setLayout,
         getLayout,

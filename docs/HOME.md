@@ -51,7 +51,7 @@ Welcome to the **SMRITI Retail OS** integrated knowledge base. This wiki is auto
 
 | Date | Version | Area | What Changed |
 | :--- | :--- | :--- | :--- |
-| 2026-10-24 | v6.99.1 | UI Shell | Shared company and branch context, responsive header overflow and search, keyboard-accessible workspace style chooser, and honest session/network labels |
+| 2026-10-24 | v6.99.1 | UI Shell | Shared company context, permission-filtered navigation in both styles, authenticated app connection checks, responsive header controls, and session-only activity labels |
 | 2026-10-16 | v1.0.0 | Sales & Inventory Projection | Implemented conditional Store Code visibility and automatic idempotent PSV account resolution/creation for Modern Trade |
 | 2026-07-11 | v3.6.0 | Foundation | Initialized SMRITI FastAPI Core Python backend under a top-level folder with SQLAlchemy 2.0, Alembic, versioned APIs, and pytest suites |
 | 2026-07-11 | v3.5.0 | Foundation | Added automated SMRITI Development Intelligence Center (SDIC) with DHI scoring, dynamic Recharts trendlines, and 15 auto-generated reports |

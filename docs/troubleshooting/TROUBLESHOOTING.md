@@ -44,10 +44,10 @@ This document details common operational issues and resolutions.
 **Resolution:** Open the company and branch control and select an available workspace. If no choices are listed, sign in again or ask an administrator to confirm your workspace access.
 **Fixed In:** v6.99.1
 
-### [SMRITI-NET-001] The network label does not match application access
-**Symptom:** The status bar reports network availability, but a SMRITI page does not load.
-**Cause:** The label reflects the browser's network flag and does not check the application or account session.
-**Resolution:** Refresh the page. If it still does not load, sign in again or contact your administrator.
+### [SMRITI-NET-001] The application connection check fails
+**Symptom:** The status bar shows **APP UNAVAILABLE** or remains at **CHECKING APP**.
+**Cause:** The authenticated `/auth/me` request failed, or the browser is offline.
+**Resolution:** Restore network access and retry. If the status remains unavailable, sign in again; contact your administrator if the authenticated request continues to fail.
 **Fixed In:** v6.99.1
 
 ---

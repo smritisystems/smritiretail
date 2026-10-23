@@ -20,7 +20,7 @@ Record the shell changes that remove sample identity values, make company and br
 
 ## 2. Scope
 
-The change covers the global header, company selector, contextual rail, Classic menu overflow, mobile drawer, workspace style dialog, notification display, and status bar. It does not combine the two navigation definitions or connect a live application-health service.
+The change covers the global header, company selector, contextual rail, Classic menu overflow, mobile drawer, workspace style dialog, notification display, and status bar. Both navigation styles now filter modules using the authenticated `/menus/resolved` response, and the status bar checks `/auth/me` before reporting an application connection.
 
 ## 3. Files Created
 
@@ -39,6 +39,9 @@ The change covers the global header, company selector, contextual rail, Classic 
 - `src/components/shell/UxSwitcherModal.tsx`
 - `src/components/shell/WorkspaceStatusBar.tsx`
 - `src/components/shell/navigationResolver.ts`
+- `src/components/shell/navigationAccess.ts`
+- `src/layout_engine/layout_store.tsx`
+- `src/lib/apiFetchV1.ts`
 - `src/notifications/notification_store.tsx`
 - User, developer, troubleshooting, home, changelog, and documentation index/ledger files listed in the documentation impact report.
 
@@ -49,7 +52,8 @@ The change covers the global header, company selector, contextual rail, Classic 
 - Display notification counts only from notifications added to the active notification provider session.
 - Measure the Classic menu container with `ResizeObserver`; use the measured widths of menu items and the More trigger to determine overflow.
 - Keep company and branch context visible in both workspace styles and refresh it when the application emits tenant-context events.
-- Keep browser network availability separate from application or session connectivity.
+- Use the same backend-resolved allowed-module IDs for navigation visibility in both workspace styles.
+- Check the authenticated `/auth/me` route for application/session connectivity; keep the indicator's claim limited to that successful request.
 
 ## 6. Design Rationale
 
@@ -57,7 +61,7 @@ The header had competing actions and sample values. Shared context and one works
 
 ## 7. Implementation Summary
 
-Removed the sample operator fallback, seeded notifications, fabricated company and branch labels, default READY state, and shift number. Added shared company selection, mobile search and drawer behavior, actual-container Classic overflow, navigation names, and keyboard focus handling in the workspace style dialog. The status bar now labels browser network state accurately and no longer presents a branch ID as a branch code.
+Removed the sample operator, company profile, and contact fallbacks, seeded notifications, default READY state, and shift number. Added shared company selection, mobile search and drawer behavior, actual-container Classic overflow, navigation names, and keyboard focus handling in the workspace style dialog. Regular and Classic menus now use the same backend-resolved allowed-module IDs; the status bar reports application connectivity only after an authenticated `/auth/me` request succeeds. Session-only activity is labeled as such, and branch IDs are not presented as branch codes.
 
 ## 8. Tests Executed
 
@@ -73,15 +77,15 @@ Partially Verified
 
 ## 10. Known Limitations
 
-- The contextual rail and Classic menu still use separate navigation definitions; a shared permission-aware navigation source was not established in this change.
-- Notifications are session-scoped in the current provider and are not wired here to a server notification feed.
-- The network indicator reflects `navigator.onLine`; it does not verify the application or authenticated session.
+- Navigation labels and grouping remain separate presentation definitions, but both are filtered by the same backend-resolved permission list.
+- Notifications are session-scoped in the current provider. No persistent in-app notification feed endpoint is available to this shell.
+- The connection indicator confirms a successful authenticated `/auth/me` request; it does not represent health for every backend service.
 - Company and branch labels use the application's persisted tenant context and context events; no new live context service was added.
 
 ## 11. Future Work
 
-- Establish a shared permission-aware navigation source for Regular and Classic modes.
-- Connect notification data and application connectivity to their authoritative services.
+- Add a persistent notification feed if the backend exposes one for the shell.
+- Consolidate the labels and grouping metadata if a single navigation catalog is needed across presentations.
 - Perform live keyboard and responsive checks at narrow and wide viewport sizes.
 
 ## 12. Related ADRs

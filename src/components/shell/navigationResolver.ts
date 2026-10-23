@@ -156,7 +156,7 @@ export function resolveNavigation(query: NavigationQuery): ResolvedNavigation {
           { id: 'grn', title: 'Goods Receipt (GRN)', icon: 'local_shipping' },
           { id: 'supplier-mgmt', title: 'Vendor 360 Workspace', icon: 'local_shipping' },
           { id: 'approval-matrix', title: 'PO Approval Matrix', icon: 'rule' },
-          { id: 'inventory', title: 'Stock Ledger Impact', icon: 'warehouse' },
+          { id: 'stock-ledger', title: 'Stock Ledger Impact', icon: 'warehouse' },
           { id: 'reports', title: 'Procurement BI', icon: 'analytics' },
         ],
         nextBestAction: {

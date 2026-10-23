@@ -37,9 +37,9 @@ Welcome to the SMRITI Retail OS user and operation manual. This document guides 
 3. On a narrow screen, select the search icon to open global search. In Classic style, items that do not fit appear under **More**.
 4. In the left navigation, the active module is highlighted. When the rail is compact, point to an icon to see its label or use the control's accessible name with a screen reader.
 
-### Common question: What does the network label confirm?
+### Common question: What does the connection label confirm?
 
-The status bar reports whether the browser says a network is available. It does not confirm that your account or the SMRITI application is connected.
+**APP CONNECTED** means an authenticated request to the application succeeded. **APP UNAVAILABLE** means that request failed or the browser is offline; it does not identify which service caused the failure. Activity counts in the header are for this session and are not a persisted notification inbox.
 
 
 

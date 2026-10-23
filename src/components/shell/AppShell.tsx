@@ -74,7 +74,7 @@ export const AppShell: React.FC<AppShellProps> = ({
   userRole,
   children,
 }) => {
-  const { uxMode } = useLayoutEngine();
+  const { uxMode, reloadResolvedMenus } = useLayoutEngine();
   const hideNavRailForClassic = uxMode === 'classic' && (
     activeModuleId === 'dashboard' ||
     activeModuleId === 'billing-workspace' ||
@@ -93,6 +93,12 @@ export const AppShell: React.FC<AppShellProps> = ({
     typeof window !== 'undefined' && window.innerWidth <= 767,
   );
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
+
+  useEffect(() => {
+    if (userName?.trim() || userRole?.trim()) {
+      void reloadResolvedMenus();
+    }
+  }, [userName, userRole, reloadResolvedMenus]);
 
   useEffect(() => {
     const updateViewport = () => {

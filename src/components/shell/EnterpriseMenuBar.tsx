@@ -12,8 +12,9 @@
  * Classification: Classic Enterprise ERP Menu Bar & Portal-Anchored Submenus
  */
 
-import React, { useState, useRef, useEffect, useCallback } from "react";
+import React, { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { createPortal } from "react-dom";
+import { filterNavigationTree } from "./navigationAccess";
 
 export interface MenuItemDef {
   id: string;
@@ -185,17 +186,23 @@ interface EnterpriseMenuBarProps {
   activeModuleId: string;
   onNavigateHome: () => void;
   onSelectModule?: (moduleId: string) => void;
+  resolvedNavigationIds: string[] | null;
 }
 
 export const EnterpriseMenuBar: React.FC<EnterpriseMenuBarProps> = ({
   activeModuleId,
   onNavigateHome,
   onSelectModule,
+  resolvedNavigationIds,
 }) => {
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
   const [activeSubmenu, setActiveSubmenu] = useState<string | null>(null);
   const [availableWidth, setAvailableWidth] = useState(0);
   const [visibleCount, setVisibleCount] = useState(ENTERPRISE_MENU_ITEMS.length);
+  const menuItems = useMemo(
+    () => filterNavigationTree(ENTERPRISE_MENU_ITEMS, resolvedNavigationIds),
+    [resolvedNavigationIds],
+  );
 
   const menuContainerRef = useRef<HTMLDivElement | null>(null);
   const triggerRefs = useRef<Record<string, HTMLButtonElement | null>>({});
@@ -215,7 +222,7 @@ export const EnterpriseMenuBar: React.FC<EnterpriseMenuBarProps> = ({
       setAvailableWidth(width);
 
       const moreWidth = moreMeasurementRef.current?.getBoundingClientRect().width ?? 72;
-      const itemWidths = ENTERPRISE_MENU_ITEMS.map(
+      const itemWidths = menuItems.map(
         (item) => measurementRefs.current[item.id]?.getBoundingClientRect().width ?? 0,
       );
       let nextCount = 0;
@@ -242,7 +249,15 @@ export const EnterpriseMenuBar: React.FC<EnterpriseMenuBarProps> = ({
     observer.observe(container);
     void document.fonts?.ready.then(measureMenu);
     return () => observer.disconnect();
-  }, []);
+  }, [menuItems]);
+
+  useEffect(() => {
+    if (!activeDropdown || activeDropdown === "overflow") return;
+    if (!menuItems.some((item) => item.id === activeDropdown)) {
+      setActiveDropdown(null);
+      setActiveSubmenu(null);
+    }
+  }, [activeDropdown, menuItems]);
 
   // Close menus on outside click or escape key
   useEffect(() => {
@@ -295,8 +310,8 @@ export const EnterpriseMenuBar: React.FC<EnterpriseMenuBarProps> = ({
     [activeModuleId]
   );
 
-  const visibleItems = ENTERPRISE_MENU_ITEMS.slice(0, visibleCount);
-  const overflowItems = ENTERPRISE_MENU_ITEMS.slice(visibleCount);
+  const visibleItems = menuItems.slice(0, visibleCount);
+  const overflowItems = menuItems.slice(visibleCount);
   const hasOverflow = overflowItems.length > 0;
 
   // Handle trigger button click
@@ -337,7 +352,7 @@ export const EnterpriseMenuBar: React.FC<EnterpriseMenuBarProps> = ({
   const currentActiveItem =
     activeDropdown === "overflow"
       ? { id: "overflow", label: "More", children: overflowItems }
-      : ENTERPRISE_MENU_ITEMS.find((item) => item.id === activeDropdown);
+      : menuItems.find((item) => item.id === activeDropdown);
 
   // Calculate dropdown positioning coordinates from trigger button
   const getDropdownCoords = () => {
@@ -478,7 +493,7 @@ export const EnterpriseMenuBar: React.FC<EnterpriseMenuBarProps> = ({
       </nav>
 
       <div aria-hidden="true" className="absolute left-0 top-0 flex h-0 w-max gap-0.5 overflow-hidden invisible pointer-events-none">
-        {ENTERPRISE_MENU_ITEMS.map((item) => (
+        {menuItems.map((item) => (
           <button
             key={item.id}
             ref={(element) => { measurementRefs.current[item.id] = element; }}

@@ -64,7 +64,7 @@ export const GlobalHeader: React.FC<GlobalHeaderProps> = ({
   const { category: activeCategory, fieldLabel } = useActiveField();
   const { setSearchOpen } = useDrillDown();
   const { theme, toggleTheme, activePreset, setPreset, presets } = useTheme();
-  const { uxMode } = useLayoutEngine();
+  const { uxMode, resolvedNavigationIds } = useLayoutEngine();
   const { notifications, unreadCount, markAsRead, markAllAsRead } = useOptionalNotifications();
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
@@ -113,6 +113,7 @@ export const GlobalHeader: React.FC<GlobalHeaderProps> = ({
           activeModuleId={activeModuleId}
           onNavigateHome={onNavigateHome}
           onSelectModule={onSelectModule}
+          resolvedNavigationIds={resolvedNavigationIds}
         />
       ) : (
         /* Regular Mode Left Navigation & Center Search */
@@ -257,10 +258,10 @@ export const GlobalHeader: React.FC<GlobalHeaderProps> = ({
               setIsNotificationsOpen(!isNotificationsOpen);
               setIsUserMenuOpen(false);
             }}
-            aria-label={`Notifications${unreadCount > 0 ? `, ${unreadCount} unread` : ''}`}
+            aria-label={`Session activity${unreadCount > 0 ? `, ${unreadCount} unread` : ''}`}
             aria-expanded={isNotificationsOpen}
             aria-haspopup="dialog"
-            title="System Notifications"
+            title="Activity in this session"
             className="p-1.5 hover:bg-[#3f51b5] rounded-md transition-colors text-indigo-100 hover:text-white relative"
           >
             <span className="material-symbols-outlined text-[20px]">notifications</span>
@@ -273,14 +274,14 @@ export const GlobalHeader: React.FC<GlobalHeaderProps> = ({
 
           {/* Notifications Dropdown */}
           {isNotificationsOpen && (
-            <div role="dialog" aria-label="System Notifications" className="absolute right-0 mt-2 w-80 max-w-[calc(100vw-1rem)] bg-white dark:bg-slate-900 text-[#0b1c30] dark:text-slate-100 rounded-xl shadow-xl border border-[#c5c5d4] dark:border-slate-700 py-2 z-50 overflow-hidden">
+            <div role="dialog" aria-label="Activity in this session" className="absolute right-0 mt-2 w-80 max-w-[calc(100vw-1rem)] bg-white dark:bg-slate-900 text-[#0b1c30] dark:text-slate-100 rounded-xl shadow-xl border border-[#c5c5d4] dark:border-slate-700 py-2 z-50 overflow-hidden">
               <div className="px-4 py-2 border-b border-[#c5c5d4] dark:border-slate-700 flex items-center justify-between bg-[#f8f9ff] dark:bg-slate-800">
-                <span className="font-semibold text-xs text-[#24389c] dark:text-indigo-400">System Notifications</span>
+                <span className="font-semibold text-xs text-[#24389c] dark:text-indigo-400">Activity in this session</span>
                 {unreadCount > 0 && <span className="text-[10px] bg-[#3f51b5] text-white px-2 py-0.5 rounded-full font-bold">{unreadCount} unread</span>}
               </div>
               <div className="max-h-64 overflow-y-auto">
                 {notifications.length === 0 ? (
-                  <p className="px-4 py-6 text-center text-xs text-[#757684] dark:text-slate-400">No notifications in this session.</p>
+                  <p className="px-4 py-6 text-center text-xs text-[#757684] dark:text-slate-400">No activity in this session.</p>
                 ) : notifications.map((n) => (
                   <button
                     key={n.id}
