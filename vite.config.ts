@@ -107,7 +107,13 @@ export default defineConfig({
             return "vendor-icons";
           }
           // ── Vendor: Animation ───────────────────────────────────────────
-          if (id.includes("motion") || id.includes("framer")) {
+          // Match animation packages only; broad substring matching also
+          // captures application modules such as sales-promotion services.
+          const normalizedId = id.replace(/\\/g, "/");
+          if (
+            normalizedId.includes("/node_modules/motion/") ||
+            normalizedId.includes("/node_modules/framer-motion/")
+          ) {
             return "vendor-motion";
           }
           // ── Vendor: Documents (xlsx, jspdf, html2canvas) ────────────────

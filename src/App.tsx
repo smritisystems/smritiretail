@@ -51,23 +51,22 @@ import { WorkspaceProvider, useWorkspace } from "./contexts/WorkspaceContext.tsx
 import { FloatingWindowHost } from "./components/FloatingWindowHost.tsx";
 import { ShortcutProvider } from "./contexts/ShortcutContext.tsx";
 import { ShortcutPalette } from "./components/ShortcutPalette.tsx";
-import { PasswordReset } from "./components/PasswordReset.tsx";
-import { LoginScreen } from "./components/LoginScreen.tsx";
-import { CompanySelectionScreen } from "./components/CompanySelectScree.tsx";
 import { SmritiErrorBoundary } from "./components/ErrorBoundary.tsx";
 import { clearAuthSession, normalizeBranchId, normalizeCompanyId, persistTenantContext } from "./lib/apiFetchV1.ts";
 import { AppShell } from "./components/shell/AppShell.tsx";
-import { SalesOrderFormPremium } from "./components/sales/SalesOrderFormPremium.tsx";
-import { VendorReturnModal } from "./components/procurement/VendorReturnModal.tsx";
-import { SupplierAdvanceKnockoffVisualizer } from "./components/procurement/SupplierAdvanceKnockoffVisualizer.tsx";
-import { StandaloneVendorPayablesPreview } from "./components/vendor/StandaloneVendorPayablesPreview.tsx";
-import { StandaloneWindowView } from "./components/standalone/StandaloneWindowView.tsx";
 import { TabRenderer, mapModuleId, TabLoadingFallback } from "./components/shell/TabRenderer.tsx";
 import { useInactivityTimeout } from "./hooks/useInactivityTimeout.ts";
 import { InactivityWarningModal } from "./components/auth/InactivityWarningModal.tsx";
 import { clearCustomerSessionCache } from "./services/customerStore.ts";
 
 const PrintPreviewModal = lazy(() => import("./components/PrintPreviewModal.tsx").then(m => ({ default: m.PrintPreviewModal })));
+const LoginScreen = lazy(() => import("./components/LoginScreen.tsx").then(m => ({ default: m.LoginScreen })));
+const PasswordReset = lazy(() => import("./components/PasswordReset.tsx").then(m => ({ default: m.PasswordReset })));
+const CompanySelectionScreen = lazy(() => import("./components/CompanySelectScree.tsx").then(m => ({ default: m.CompanySelectionScreen })));
+const VendorReturnModal = lazy(() => import("./components/procurement/VendorReturnModal.tsx").then(m => ({ default: m.VendorReturnModal })));
+const SupplierAdvanceKnockoffVisualizer = lazy(() => import("./components/procurement/SupplierAdvanceKnockoffVisualizer.tsx").then(m => ({ default: m.SupplierAdvanceKnockoffVisualizer })));
+const StandaloneVendorPayablesPreview = lazy(() => import("./components/vendor/StandaloneVendorPayablesPreview.tsx").then(m => ({ default: m.StandaloneVendorPayablesPreview })));
+const StandaloneWindowView = lazy(() => import("./components/standalone/StandaloneWindowView.tsx").then(m => ({ default: m.StandaloneWindowView })));
 
 interface AppNotification {
   id: string;
@@ -91,6 +90,10 @@ const AppContent: React.FC = () => {
   const standaloneVendorReturn = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("standalone_vendor_return") === "1";
   const standaloneSupplierAdvance = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("standalone_supplier_advance") === "1";
   const standaloneVendorAdvanceKnockoff = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("standalone_vendor_advance_knockoff") === "1";
+  const standaloneWindowActive = typeof window !== "undefined" && (
+    new URLSearchParams(window.location.search).has("standalone_tab") ||
+    new URLSearchParams(window.location.search).get("standalone_sales_order") === "1"
+  );
 
   const checkAuth = async () => {
     const token = localStorage.getItem("smriti_jwt_token") || localStorage.getItem("smriti_session_token");
@@ -514,27 +517,29 @@ const AppContent: React.FC = () => {
 
     if (standaloneVendorReturn) {
     return (
-      <VendorReturnModal
-        isOpen={true}
-        onClose={() => {
-          const params = new URLSearchParams(window.location.search);
-          params.delete("standalone_vendor_return");
-          const nextUrl = `${window.location.pathname}${params.toString() ? `?${params.toString()}` : ""}`;
-          window.location.href = nextUrl;
-        }}
-        onNotification={(title, message, type) => {
-          addNotification(title, message, type);
-        }}
-      />
+      <Suspense fallback={<TabLoadingFallback />}>
+        <VendorReturnModal
+          isOpen={true}
+          onClose={() => {
+            const params = new URLSearchParams(window.location.search);
+            params.delete("standalone_vendor_return");
+            const nextUrl = `${window.location.pathname}${params.toString() ? `?${params.toString()}` : ""}`;
+            window.location.href = nextUrl;
+          }}
+          onNotification={(title, message, type) => {
+            addNotification(title, message, type);
+          }}
+        />
+      </Suspense>
     );
   }
 
   if (standaloneSupplierAdvance) {
-    return <SupplierAdvanceKnockoffVisualizer />;
+    return <Suspense fallback={<TabLoadingFallback />}><SupplierAdvanceKnockoffVisualizer /></Suspense>;
   }
 
   if (standaloneVendorAdvanceKnockoff) {
-    return <StandaloneVendorPayablesPreview />;
+    return <Suspense fallback={<TabLoadingFallback />}><StandaloneVendorPayablesPreview /></Suspense>;
   }
 
   if (checkingAuth) {
@@ -552,39 +557,45 @@ const AppContent: React.FC = () => {
 
   if (!currentUser) {
     return (
-      <LoginScreen
-        onLoginSuccess={(user) => {
-          setSessionTimeoutNotice(null);
-          handleLoginSuccess(user);
-        }}
-        sessionNotice={sessionTimeoutNotice}
-        onClearSessionNotice={() => setSessionTimeoutNotice(null)}
-      />
+      <Suspense fallback={<TabLoadingFallback />}>
+        <LoginScreen
+          onLoginSuccess={(user) => {
+            setSessionTimeoutNotice(null);
+            handleLoginSuccess(user);
+          }}
+          sessionNotice={sessionTimeoutNotice}
+          onClearSessionNotice={() => setSessionTimeoutNotice(null)}
+        />
+      </Suspense>
     );
   }
 
   if (currentUser.passwordResetRequired) {
     return (
-      <PasswordReset
-        onResetSuccess={() => {
-          setCurrentUser((prev) => prev ? { ...prev, passwordResetRequired: false } : prev);
-        }}
-      />
+      <Suspense fallback={<TabLoadingFallback />}>
+        <PasswordReset
+          onResetSuccess={() => {
+            setCurrentUser((prev) => prev ? { ...prev, passwordResetRequired: false } : prev);
+          }}
+        />
+      </Suspense>
     );
   }
 
   if (currentUser && !companyContextResolved) {
     return (
       <>
-        <CompanySelectionScreen
-          currentUser={currentUser}
-          onCompanySelected={(ctx) => {
-            setCurrentUser((prev) => prev ? { ...prev, companyId: ctx.companyId, branchId: ctx.branchId } : prev);
-            setCompanyContextResolved(true);
-            fetchSystemState();
-          }}
-          onLogout={handleLogout}
-        />
+        <Suspense fallback={<TabLoadingFallback />}>
+          <CompanySelectionScreen
+            currentUser={currentUser}
+            onCompanySelected={(ctx) => {
+              setCurrentUser((prev) => prev ? { ...prev, companyId: ctx.companyId, branchId: ctx.branchId } : prev);
+              setCompanyContextResolved(true);
+              fetchSystemState();
+            }}
+            onLogout={handleLogout}
+          />
+        </Suspense>
         {isWarningOpen && (
           <InactivityWarningModal
             remainingSeconds={remainingSeconds}
@@ -670,7 +681,11 @@ const AppContent: React.FC = () => {
         </AnimatePresence>
       </div>
 
-      <StandaloneWindowView registeredWorkspaces={registeredWorkspaces} renderTabSafe={renderTabSafe} />
+      {standaloneWindowActive && (
+        <Suspense fallback={<TabLoadingFallback />}>
+          <StandaloneWindowView registeredWorkspaces={registeredWorkspaces} renderTabSafe={renderTabSafe} />
+        </Suspense>
+      )}
 
       {/* UniversalBrowseEngine v2 — canonical F2 lookup dialog */}
       <UniversalBrowseEngine userRole={currentUser?.role} />
