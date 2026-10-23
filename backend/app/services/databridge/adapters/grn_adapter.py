@@ -4,9 +4,9 @@ Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
-Version      : 1.0.0
+Version      : 6.99.1
 Created      : 2026-10-06
-Modified     : 2026-10-06
+Modified     : 2026-10-23
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 Classification: Internal — DataBridge Goods Receipt Note (GRN) Adapter
@@ -68,7 +68,7 @@ class DataBridgeGrnAdapter(BaseDataBridgeAdapter):
             "order_no", "po_no", "po_number", "order_number", "purchase_order_no", "order_id",
         ],
         "warehouse_id": [
-            "warehouse_id", "warehouse", "godown_id", "godown", "location_id", "store_id",
+            "warehouse_id", "warehouse", "godown_id", "godown",
         ],
         "notes": [
             "notes", "remarks", "narration", "comment", "note",

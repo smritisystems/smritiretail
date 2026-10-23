@@ -1136,3 +1136,7 @@ Approved
 
 
 
+## Customer Store and Branch Relation Audit - v6.99.18
+
+Plan: [Customer Store and Branch Relation Audit](./crm/Customer_Store_Branch_Relation_Audit_Plan_v6.99.18.md). Implemented CRM location persistence, tenant-scoped branch lookup, actual-data hierarchy display, unambiguous GRN mapping, and fail-closed store-code locks. No migration applied. Follow-up: reconcile database uniqueness with service ownership scope and add store-level sales report dimensions.
+

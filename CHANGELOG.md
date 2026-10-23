@@ -11,6 +11,26 @@
   Classification: Internal
 -->
 
+## [6.99.18] ? 2026-10-23
+
+### CRM & Customer Master ? Store Location Persistence and Tenant-Scoped Branch Lookup
+
+- Replaced the false customer store-code mapping action with persisted Customer Delivery Location creation and refresh.
+- Removed fabricated child customer/store identities from customer hierarchy and report filters.
+- Scoped F2 branch lookup to the authenticated tenant and removed sample branch/geography fallbacks.
+- Removed ambiguous GRN `store_id`/`location_id` aliases for warehouse resolution and made advisory lock failures fail closed.
+- Added customer/store architecture audit plan and walkthrough. Verified TypeScript validation, the focused Customer 360 suite (11 tests), Python compilation, and the production Vite build; no database migration or production write was performed.
+
+## [6.99.17] ? 2026-10-23
+
+### CRM & Customer Master ? Directory Controls and Export Scope
+
+- Fixed the Classic Customer Master workspace action so it switches to the Enterprise layout without changing the selected customer's type or environment.
+- Made directory export use the filtered directory page and its visible summary fields; the separate catalogue export keeps its existing fields.
+- Hid the catalogue record navigator while viewing the directory and kept the directory pager visible with a clear result range.
+- Updated Customer cache test storage mocks and widened the session-cache projection to accept both app Customer and retail workspace record shapes.
+- Verified with TypeScript validation, production Vite build, and 20 Customer-related test suites (171 tests).
+
 ## [6.99.16] — 2026-10-23
 
 ### Database & Systems — Cross-Platform Container-Aware Migration Auto-Routing & Seeder Hardening

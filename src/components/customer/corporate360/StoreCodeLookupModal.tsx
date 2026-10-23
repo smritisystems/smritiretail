@@ -6,9 +6,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.99.0
+ * Version      : 6.99.1
  * Created      : 2026-10-18
- * Modified     : 2026-10-18
+ * Modified     : 2026-10-23
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
@@ -40,15 +40,21 @@ export const StoreCodeLookupModal: React.FC<StoreCodeLookupModalProps> = ({
   const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(false);
   const [items, setItems] = useState<StoreCodeLookupItem[]>([]);
-  const [selectedItem, setSelectedItem] = useState<StoreCodeLookupItem | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [newStoreCode, setNewStoreCode] = useState("");
+  const [newStoreName, setNewStoreName] = useState("");
+  const [newCity, setNewCity] = useState("");
+  const [newAddress, setNewAddress] = useState("");
   const [feedbackMessage, setFeedbackMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
   useEffect(() => {
     if (!isOpen) {
       setSearchTerm("");
-      setSelectedItem(null);
       setFeedbackMessage(null);
+      setNewStoreCode("");
+      setNewStoreName("");
+      setNewCity("");
+      setNewAddress("");
       return;
     }
     fetchLookupItems();
@@ -82,20 +88,44 @@ export const StoreCodeLookupModal: React.FC<StoreCodeLookupModalProps> = ({
       (item) =>
         item.store_code.toLowerCase().includes(q) ||
         item.store_name.toLowerCase().includes(q) ||
-        item.city.toLowerCase().includes(q) ||
+        (item.city || "").toLowerCase().includes(q) ||
         (item.assigned_customer_name && item.assigned_customer_name.toLowerCase().includes(q))
     );
   }, [items, searchTerm]);
 
-  const handleConfirmAssignment = async () => {
-    if (!selectedItem || !selectedItem.is_selectable) return;
+  const handleCreateLocation = async () => {
+    if (!currentCustomerId || !newStoreCode.trim() || !newStoreName.trim()) return;
     setIsSubmitting(true);
     setFeedbackMessage(null);
     try {
-      await onAssignStoreCode(selectedItem);
+      const saved = await apiFetchV1<any>(`/crm/customers/${currentCustomerId}/delivery-locations`, {
+        method: "POST",
+        body: {
+          storeCode: newStoreCode.trim().toUpperCase(),
+          locationName: newStoreName.trim(),
+          city: newCity.trim() || undefined,
+          addressLine1: newAddress.trim() || undefined,
+          source: "MANUAL",
+          status: "ACTIVE",
+        },
+      });
+      await onAssignStoreCode({
+        id: saved.id,
+        store_code: saved.store_code ?? saved.storeCode ?? newStoreCode.trim().toUpperCase(),
+        store_name: saved.location_name ?? saved.locationName ?? newStoreName.trim(),
+        city: saved.city ?? newCity.trim(),
+        state: saved.state ?? "",
+        store_type: "Customer Location",
+        status: saved.status ?? "ACTIVE",
+        address_summary: saved.address_line1 ?? saved.addressLine1 ?? newAddress.trim(),
+        is_assigned: true,
+        is_selectable: false,
+        addresses_count: 1,
+        psv_value: 0,
+      });
       setFeedbackMessage({
         type: "success",
-        text: `Store Code ${selectedItem.store_code} successfully mapped to customer.`,
+        text: `Store location ${newStoreCode.trim().toUpperCase()} was saved to this customer.`,
       });
       setTimeout(() => {
         onClose();
@@ -123,10 +153,10 @@ export const StoreCodeLookupModal: React.FC<StoreCodeLookupModalProps> = ({
             </div>
             <div>
               <h2 className="text-base font-bold text-slate-900 dark:text-white">
-                Store Code Master Lookup
+                Add Customer Store Location
               </h2>
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                Search and assign canonical Store Codes. Multi-store mapping with tenant-wide exclusive assignment.
+                Create a persisted customer delivery location. The store code is an external identifier; the saved location ID is the internal identity.
               </p>
             </div>
           </div>
@@ -140,11 +170,21 @@ export const StoreCodeLookupModal: React.FC<StoreCodeLookupModalProps> = ({
 
         {/* Search Bar & Feedback Alert */}
         <div className="p-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/40">
+          {!currentCustomerId ? (
+            <div className="mb-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">Save the customer before adding store locations.</div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mb-3">
+              <input aria-label="Store code" placeholder="Store code (required)" value={newStoreCode} onChange={e => setNewStoreCode(e.target.value)} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-xs" />
+              <input aria-label="Store or site name" placeholder="Store / site name (required)" value={newStoreName} onChange={e => setNewStoreName(e.target.value)} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-xs" />
+              <input aria-label="City" placeholder="City" value={newCity} onChange={e => setNewCity(e.target.value)} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-xs" />
+              <input aria-label="Address" placeholder="Address" value={newAddress} onChange={e => setNewAddress(e.target.value)} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-xs" />
+            </div>
+          )}
           <div className="relative">
             <Search size={16} className="absolute left-3.5 top-3 text-slate-400" />
             <input
               type="text"
-              placeholder="Search by Store Code (e.g. RRL-MUM-001), Store Name, City, or Owning Customer..."
+              placeholder="Search existing customer locations"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl pl-10 pr-4 py-2.5 text-xs text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:border-[#0284c7] focus:ring-1 focus:ring-[#0284c7]"
@@ -171,7 +211,7 @@ export const StoreCodeLookupModal: React.FC<StoreCodeLookupModalProps> = ({
             <table className="w-full text-left text-xs border-collapse">
               <thead>
                 <tr className="bg-slate-100 dark:bg-slate-900 text-slate-600 dark:text-slate-400 font-semibold border-b border-slate-200 dark:border-slate-800">
-                  <th className="py-2.5 px-3 w-10 text-center">Select</th>
+                  <th className="py-2.5 px-3">Record</th>
                   <th className="py-2.5 px-3">Store Code</th>
                   <th className="py-2.5 px-3">Store / Site Name</th>
                   <th className="py-2.5 px-3">City & Address</th>
@@ -182,46 +222,18 @@ export const StoreCodeLookupModal: React.FC<StoreCodeLookupModalProps> = ({
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                 {loading ? (
                   <tr>
-                    <td colSpan={6} className="py-8 text-center text-slate-400 text-xs">
+                    <td colSpan={5} className="py-8 text-center text-slate-400 text-xs">
                       Loading Store Codes...
                     </td>
                   </tr>
                 ) : filteredItems.length > 0 ? (
                   filteredItems.map((item) => {
-                    const isSelected = selectedItem?.id === item.id;
                     const isAlreadyAssignedToCurrent =
                       currentlyAssignedCodes.includes(item.store_code) ||
                       (item.assigned_customer_id && item.assigned_customer_id === currentCustomerId);
 
                     return (
-                      <tr
-                        key={item.id}
-                        onClick={() => {
-                          if (item.is_selectable) {
-                            setSelectedItem(isSelected ? null : item);
-                          }
-                        }}
-                        className={`transition ${
-                          item.is_selectable
-                            ? isSelected
-                              ? "bg-sky-50/80 dark:bg-sky-950/40 border-l-4 border-l-[#0284c7] cursor-pointer"
-                              : "hover:bg-slate-50 dark:hover:bg-slate-800/60 cursor-pointer"
-                            : "bg-slate-50/60 dark:bg-slate-900/40 opacity-70 cursor-not-allowed"
-                        }`}
-                      >
-                        {/* Radio selection */}
-                        <td className="py-2.5 px-3 text-center">
-                          <input
-                            type="radio"
-                            name="storeCodeSelect"
-                            checked={isSelected}
-                            disabled={!item.is_selectable}
-                            onChange={() => {
-                              if (item.is_selectable) setSelectedItem(item);
-                            }}
-                            className="cursor-pointer text-[#0284c7] focus:ring-[#0284c7]"
-                          />
-                        </td>
+                      <tr key={item.id} className={item.is_selectable ? "" : "bg-slate-50/60 dark:bg-slate-900/40 opacity-70"}>
 
                         {/* Store Code */}
                         <td className="py-2.5 px-3 font-mono font-semibold text-slate-900 dark:text-white whitespace-nowrap">
@@ -251,11 +263,11 @@ export const StoreCodeLookupModal: React.FC<StoreCodeLookupModalProps> = ({
                           {item.is_selectable ? (
                             isAlreadyAssignedToCurrent ? (
                               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-sky-50 dark:bg-sky-950/70 text-[#0284c7] dark:text-[#38bdf8] border border-sky-200 dark:border-sky-800">
-                                <Check size={10} /> Currently Assigned
+                                <Check size={10} /> Saved on this customer
                               </span>
                             ) : (
                               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 dark:bg-emerald-950/70 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
-                                Available for Mapping
+                                Available for mapping
                               </span>
                             )
                           ) : (
@@ -272,7 +284,7 @@ export const StoreCodeLookupModal: React.FC<StoreCodeLookupModalProps> = ({
                   })
                 ) : (
                   <tr>
-                    <td colSpan={6} className="py-8 text-center text-slate-400 text-xs">
+                    <td colSpan={5} className="py-8 text-center text-slate-400 text-xs">
                       No matching Store Codes found.
                     </td>
                   </tr>
@@ -285,13 +297,7 @@ export const StoreCodeLookupModal: React.FC<StoreCodeLookupModalProps> = ({
         {/* Footer Actions */}
         <div className="px-6 py-3.5 border-t border-slate-100 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-900/60 flex items-center justify-between">
           <div className="text-xs text-slate-500 dark:text-slate-400">
-            {selectedItem ? (
-              <span>
-                Selected: <strong className="text-slate-900 dark:text-white font-mono">{selectedItem.store_code}</strong> ({selectedItem.store_name})
-              </span>
-            ) : (
-              <span>Select an available Store Code to map to this customer profile.</span>
-            )}
+            <span>Existing locations are shown for reference. Create a new location above.</span>
           </div>
 
           <div className="flex items-center gap-2">
@@ -305,16 +311,16 @@ export const StoreCodeLookupModal: React.FC<StoreCodeLookupModalProps> = ({
             </button>
             <button
               type="button"
-              onClick={handleConfirmAssignment}
-              disabled={!selectedItem || !selectedItem.is_selectable || isSubmitting}
+              onClick={handleCreateLocation}
+              disabled={!currentCustomerId || !newStoreCode.trim() || !newStoreName.trim() || isSubmitting}
               className="px-4 py-1.5 rounded-lg text-xs font-semibold bg-[#0284c7] hover:bg-[#0369a1] text-white shadow-xs disabled:opacity-50 disabled:cursor-not-allowed transition flex items-center gap-1.5"
             >
               {isSubmitting ? (
-                <span>Mapping Store...</span>
+                <span>Saving Location...</span>
               ) : (
                 <>
                   <Check size={14} />
-                  <span>Map Store Code</span>
+                  <span>Create Location</span>
                 </>
               )}
             </button>

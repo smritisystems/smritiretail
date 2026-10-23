@@ -4,9 +4,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.99.0
+ * Version      : 6.99.1
  * Created      : 2026-08-21
- * Modified     : 2026-10-19
+ * Modified     : 2026-10-23
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
@@ -883,8 +883,9 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
     isDirtyRef.current = true;
   };
 
-  const handleStoreAssigned = (store: StoreCodeLookupItem) => {
-    onNotification?.("Store Mapped", `Store ${store.store_name} (${store.store_code}) successfully mapped.`, "success");
+  const handleStoreAssigned = async (store: StoreCodeLookupItem) => {
+    await loadDeliveryLocations(currentCustomerRef.current.id);
+    onNotification?.("Store Location Saved", `Store ${store.store_name} (${store.store_code}) was saved to this customer.`, "success");
     setIsDirty(true);
     isDirtyRef.current = true;
   };

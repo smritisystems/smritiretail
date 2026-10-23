@@ -4,9 +4,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.92.0
+ * Version      : 6.99.1
  * Created      : 2026-10-18
- * Modified     : 2026-10-18
+ * Modified     : 2026-10-23
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Corporate Customer 360 Test Suite
@@ -438,9 +438,9 @@ describe("Corporate Customer 360 Dashboard Components", () => {
       />
     );
 
-    expect(markup).toContain("Store Code Master Lookup");
-    expect(markup).toContain("Search by Store Code");
-    expect(markup).toContain("Map Store Code");
+    expect(markup).toContain("Add Customer Store Location");
+    expect(markup).toContain("Store code (required)");
+    expect(markup).toContain("Create Location");
     expect(markup).toContain("Cancel");
   });
 

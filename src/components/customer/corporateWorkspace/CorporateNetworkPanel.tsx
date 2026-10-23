@@ -6,9 +6,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.99.0
+ * Version      : 6.99.1
  * Created      : 2026-10-19
- * Modified     : 2026-10-19
+ * Modified     : 2026-10-23
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
@@ -64,11 +64,11 @@ export const CorporateNetworkPanel: React.FC<CorporateNetworkPanelProps> = ({
     // Check if customer delivery locations exist in mailingAddresses with store codes
     const fromAddresses = (customer.mailingAddresses || [])
       .filter(a => a.storeCode || a.shippingStoreCode || a.billingStoreCode)
-      .map((a, idx) => ({
-        id: a.code || String(idx),
-        storeCode: a.storeCode || a.shippingStoreCode || `RRL-${String(idx + 1).padStart(3, "0")}`,
-        storeName: a.locationName || (a.contactPerson ? `${a.contactPerson} Store` : `${a.city || "Retail"} Store`),
-        city: a.city || "Mumbai",
+      .map((a) => ({
+        id: a.id || a.code || `${a.storeCode || a.shippingStoreCode || "location"}`,
+        storeCode: a.storeCode || a.shippingStoreCode || "—",
+        storeName: a.locationName || (a.contactPerson ? `${a.contactPerson} Store` : "Unnamed location"),
+        city: a.city || "—",
         status: "Active"
       }));
 

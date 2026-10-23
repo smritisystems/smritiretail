@@ -6,9 +6,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.99.0
+ * Version      : 6.99.1
  * Created      : 2026-10-20
- * Modified     : 2026-10-20
+ * Modified     : 2026-10-23
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
@@ -205,9 +205,9 @@ export const Customer360DashboardView: React.FC<Customer360DashboardViewProps> =
     if (dlocs && dlocs.length > 0) {
       return dlocs
         .filter((loc) => !loc.is_deleted && !loc.isDeleted)
-        .map((loc, idx) => ({
-          id: loc.id || `loc-${idx}`,
-          code: loc.store_code || loc.storeCode || `LOC-${idx + 1}`,
+        .map((loc) => ({
+          id: loc.id,
+          code: loc.store_code || loc.storeCode || "—",
           name: loc.location_name || loc.locationName || loc.name || "Delivery Outlet",
           location: loc.city ? `${loc.city}${loc.state ? `, ${loc.state}` : ""}` : (loc.state || "—"),
           city: loc.city || "—",
@@ -488,9 +488,9 @@ export const Customer360DashboardView: React.FC<Customer360DashboardViewProps> =
     }
     const locs = (propCustomer as any)?.delivery_locations || (corporate360Data?.customer as any)?.delivery_locations || [];
     if (locs.length > 0) {
-      return locs.map((l: any, i: number) => ({
-        id: l.id || `del-${i}`,
-        name: l.location_name || l.name || `Delivery Hub ${i + 1}`,
+      return locs.map((l: any) => ({
+        id: l.id,
+        name: l.location_name || l.name || "Unnamed delivery location",
         address: l.address_line1 || l.address || l.store_code || "—",
         city: l.city || "—",
         state: l.state || "—",
@@ -1717,7 +1717,7 @@ export const Customer360DashboardView: React.FC<Customer360DashboardViewProps> =
                         {actualChildAccounts.slice(0, 3).map((ch: any, idx: number) => (
                           <div key={idx} className="p-2 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded-lg">
                             <div className="text-[11px] font-bold text-slate-900 dark:text-white truncate">{ch.name || ch.locationName || `Child ${idx + 1}`}</div>
-                            <div className="text-[9px] font-mono text-slate-500">{ch.code || ch.storeCode || `REL001-00${idx + 1}`}</div>
+                            <div className="text-[9px] font-mono text-slate-500">{ch.code || ch.storeCode || "—"}</div>
                             <div className="text-[9px] text-emerald-700 dark:text-emerald-300 font-semibold mt-0.5">
                               {ch.city || "—"} · {ch.storesCount || 1} {ch.storesCount === 1 ? "Store" : "Stores"}
                             </div>
@@ -1918,10 +1918,11 @@ export const Customer360DashboardView: React.FC<Customer360DashboardViewProps> =
                     className="px-2 py-1.5 text-xs rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
                   >
                     <option value="all">All</option>
-                    <option value="REL001-001">REL001-001 (Phoenix)</option>
-                    <option value="REL001-002">REL001-002 (Inorbit)</option>
-                    <option value="REL001-003">REL001-003 (Amanora)</option>
-                    <option value="REL001-004">REL001-004 (AlphaOne)</option>
+                    {(corporate360Data?.customer?.dependants || []).map((child: any) => (
+                      <option key={child.dependantCustomerId || child.id} value={child.dependantCustomerCode || child.code || child.dependantCustomerId || child.id}>
+                        {child.dependantCustomerCode || child.code || child.dependantCustomerName || child.name || child.id}
+                      </option>
+                    ))}
                   </select>
                 </div>
 
@@ -3091,9 +3092,11 @@ export const Customer360DashboardView: React.FC<Customer360DashboardViewProps> =
                     className="w-full px-2 py-1 text-[11px] rounded-lg border bg-white dark:bg-slate-900"
                   >
                     <option value="all">All</option>
-                    <option value="REL001-001">REL001-001</option>
-                    <option value="REL001-002">REL001-002</option>
-                    <option value="REL001-003">REL001-003</option>
+                    {(corporate360Data?.customer?.dependants || []).map((child: any) => (
+                      <option key={child.dependantCustomerId || child.id} value={child.dependantCustomerCode || child.code || child.dependantCustomerId || child.id}>
+                        {child.dependantCustomerCode || child.code || child.dependantCustomerName || child.name || child.id}
+                      </option>
+                    ))}
                   </select>
                 </div>
                 <div>
@@ -3104,8 +3107,7 @@ export const Customer360DashboardView: React.FC<Customer360DashboardViewProps> =
                     className="w-full px-2 py-1 text-[11px] rounded-lg border bg-white dark:bg-slate-900"
                   >
                     <option value="all">All</option>
-                    <option value="REL-MUM-001">REL-MUM-001</option>
-                    <option value="REL-MUM-002">REL-MUM-002</option>
+                    {liveStoreNetwork.map((store) => <option key={store.id} value={store.code}>{store.code}</option>)}
                   </select>
                 </div>
                 <div>

@@ -4,9 +4,9 @@ Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
-Version      : 3.24.0
+Version      : 6.99.1
 Created      : 2026-07-11
-Modified     : 2026-10-19
+Modified     : 2026-10-23
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 """
@@ -1737,11 +1737,8 @@ class CrmService:
         async with mutex:
             # PostgreSQL transaction-level advisory lock across database connections
             if self.db.bind and hasattr(self.db.bind, "dialect") and self.db.bind.dialect.name == "postgresql":
-                try:
-                    lock_key = f"store_code:{self.tenant_ctx.company_id or 'global'}:{store_code}"
-                    await self.db.execute(text("SELECT pg_advisory_xact_lock(hashtext(:k))"), {"k": lock_key})
-                except Exception:
-                    pass
+                lock_key = f"store_code:{self.tenant_ctx.company_id or 'global'}:{store_code}"
+                await self.db.execute(text("SELECT pg_advisory_xact_lock(hashtext(:k))"), {"k": lock_key})
 
             # Centralized Duplicate Protection (Same customer + same store code -> hard duplicate)
             dup_check = await self.identity_service.check_duplicate_delivery_location(
@@ -1903,11 +1900,8 @@ class CrmService:
                 mutex = await _get_store_code_mutex(self.tenant_ctx.company_id, new_code)
                 async with mutex:
                     if self.db.bind and hasattr(self.db.bind, "dialect") and self.db.bind.dialect.name == "postgresql":
-                        try:
-                            lock_key = f"store_code:{self.tenant_ctx.company_id or 'global'}:{new_code}"
-                            await self.db.execute(text("SELECT pg_advisory_xact_lock(hashtext(:k))"), {"k": lock_key})
-                        except Exception:
-                            pass
+                        lock_key = f"store_code:{self.tenant_ctx.company_id or 'global'}:{new_code}"
+                        await self.db.execute(text("SELECT pg_advisory_xact_lock(hashtext(:k))"), {"k": lock_key})
 
                     # Concurrency lock & cross-customer uniqueness check
                     existing_locked = await self.delivery_repo.get_by_store_code(new_code, active_only=False, with_for_update=True)

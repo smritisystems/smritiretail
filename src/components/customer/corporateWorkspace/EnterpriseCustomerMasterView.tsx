@@ -6,9 +6,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.99.0
+ * Version      : 6.99.1
  * Created      : 2026-10-20
- * Modified     : 2026-10-20
+ * Modified     : 2026-10-23
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
@@ -119,7 +119,7 @@ export const EnterpriseCustomerMasterView: React.FC<EnterpriseCustomerMasterView
     const addressStores = (customer.mailingAddresses || [])
       .filter((a) => a.storeCode || a.shippingStoreCode || a.addressType === "shipping")
       .map((a, idx) => {
-        const code = a.storeCode || a.shippingStoreCode || `STR-${String(idx + 1).padStart(3, "0")}`;
+        const code = a.storeCode || a.shippingStoreCode || "—";
         const name = a.locationName || (a.contactPerson ? `${a.contactPerson}` : `${a.city || "Retail"} Store`);
         const location = a.city ? (a.state ? `${a.city}, ${a.state}` : a.city) : (a.state || "India");
         const isHub = name.toLowerCase().includes("hub") || name.toLowerCase().includes("wh") || name.toLowerCase().includes("warehouse");
@@ -148,8 +148,8 @@ export const EnterpriseCustomerMasterView: React.FC<EnterpriseCustomerMasterView
         }
         return {
           id: dep.id || dep.dependantCustomerId || String(idx + 1),
-          code: storeCode || `RRL-${String(idx + 1).padStart(3, "0")}`,
-          name: dep.dependantCustomerName || `Store Outlet ${storeCode || idx + 1}`,
+          code: storeCode || dep.code || "—",
+          name: dep.dependantCustomerName || "Unnamed customer",
           location,
           type: "Store",
           status: "Active",
@@ -181,31 +181,13 @@ export const EnterpriseCustomerMasterView: React.FC<EnterpriseCustomerMasterView
             location = matched.city ? (matched.state ? `${matched.city}, ${matched.state}` : matched.city) : (matched.state || "");
           }
         }
-        const code = storeCode ? `RRL-${storeCode}` : (dep.code || `REL001-${String(idx + 1).padStart(3, "0")}`);
+        const code = storeCode || dep.code || "—";
         return {
           id: dep.id || dep.dependantCustomerId || String(idx + 1),
           code,
-          name: dep.dependantCustomerName || `Reliance Outlet ${storeCode || idx + 1}`,
+          name: dep.dependantCustomerName || "Unnamed customer",
           storeCode: storeCode || "—",
           location: location || "India",
-          status: "Active",
-        };
-      });
-    }
-
-    // If dependants array not populated, derive child nodes from mailingAddresses stores
-    const addressStores = (customer.mailingAddresses || []).filter(
-      (a) => a.storeCode || a.shippingStoreCode || a.addressType === "shipping"
-    );
-    if (addressStores.length > 0) {
-      return addressStores.map((a, idx) => {
-        const storeCode = a.storeCode || a.shippingStoreCode || String(idx + 1);
-        return {
-          id: a.id || a.code || String(idx + 1),
-          code: `RRL-${storeCode}`,
-          name: a.locationName || (a.contactPerson ? `${a.contactPerson}` : `${a.city || "Retail"} Store`),
-          storeCode,
-          location: a.city ? (a.state ? `${a.city}, ${a.state}` : a.city) : (a.state || "India"),
           status: "Active",
         };
       });
