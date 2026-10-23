@@ -16,6 +16,7 @@ from datetime import datetime, date, timezone
 from decimal import Decimal
 from enum import Enum
 import uuid as uuid_pkg
+import re
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from sqlalchemy import inspect
 from sqlalchemy.orm.base import NO_VALUE
@@ -904,13 +905,26 @@ class CustomerBase(BaseModel):
 
 class CustomerCreate(CustomerBase):
     id: Optional[str] = Field(None, max_length=50)
+    mobile: Optional[str] = Field(None, max_length=20)
     allow_duplicate_override: Optional[bool] = Field(False, alias="allowDuplicateOverride")
+
+    @field_validator("mobile", mode="before")
+    @classmethod
+    def normalize_customer_mobile(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return None
+        clean = re.sub(r"[\s().-]+", "", str(value))
+        if not clean:
+            return None
+        if not re.fullmatch(r"\+?[0-9]{1,20}", clean):
+            raise ValueError("Mobile number must contain up to 20 digits and an optional leading +.")
+        return clean
 
 class CustomerUpdate(BaseModel):
     customer_group_id: Optional[str] = Field(None, alias="customerGroupId")
     code: Optional[str] = None
     name: Optional[str] = None
-    mobile: Optional[str] = None
+    mobile: Optional[str] = Field(None, max_length=20)
     email: Optional[str] = None
     gst_number: Optional[str] = Field(None, alias="gstNumber")
     is_tax_inclusive: Optional[bool] = Field(None, alias="isTaxInclusive")
@@ -964,6 +978,18 @@ class CustomerUpdate(BaseModel):
     expected_modified_at: Optional[datetime] = Field(None, alias="expectedModifiedAt")
 
     model_config = ConfigDict(populate_by_name=True, from_attributes=True)
+
+    @field_validator("mobile", mode="before")
+    @classmethod
+    def normalize_customer_mobile_update(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return None
+        clean = re.sub(r"[\s().-]+", "", str(value))
+        if not clean:
+            return None
+        if not re.fullmatch(r"\+?[0-9]{1,20}", clean):
+            raise ValueError("Mobile number must contain up to 20 digits and an optional leading +.")
+        return clean
 
     @field_validator("gst_number")
     @classmethod
@@ -1308,6 +1334,27 @@ class CustomerResponse(CustomerBase):
         if isinstance(data, dict):
             return data
         return map_customer_to_response_dict(data)
+
+
+class CustomerDirectoryItem(BaseModel):
+    """Minimal customer projection for searchable directory screens."""
+    id: str
+    code: Optional[str] = None
+    name: str
+    mobile: Optional[str] = None
+    customer_group_id: Optional[str] = None
+    customer_group_name: Optional[str] = None
+    status: str = "Active"
+    is_active: bool = True
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class CustomerDirectoryResponse(BaseModel):
+    items: List[CustomerDirectoryItem]
+    total: int
+    skip: int
+    limit: int
 
 
 class CorporateKpis(BaseModel):

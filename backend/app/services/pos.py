@@ -1250,6 +1250,9 @@ class POSService:
                     batch_id=item.batch_id,
                     serial_id=item.serial_id,
                     warehouse_location_id=item.warehouse_location_id,
+                    customer_po_line_id=getattr(item, "customer_po_line_id", None),
+                    source_line_type=getattr(item, "source_line_type", None),
+                    source_line_id=getattr(item, "source_line_id", None),
                 )
             )
 
@@ -1325,6 +1328,9 @@ class POSService:
             elif len(tenders) == 1:
                 pm = tenders[0].tender_type
 
+        effective_sales_channel = getattr(req, "sales_channel", None) or "POS_RETAIL"
+        effective_source_channel = "CUSTOMER_PO" if getattr(req, "customer_po_id", None) else effective_sales_channel
+
         canon_req = CanonicalPostingRequest(
             context=CanonicalPostingContext(
                 company_id=self.tenant.company_id,
@@ -1332,7 +1338,8 @@ class POSService:
                 warehouse_id=getattr(self.tenant, "warehouse_id", None),
                 shift_id=req.shift_id,
                 cashier_id=getattr(self.tenant, "user_id", None) or shift.cashier_id,
-                source_channel="POS_RETAIL",
+                source_channel=effective_source_channel,
+                sales_channel=effective_sales_channel,
                 client_invoice_no=req.invoice_no,
                 idempotency_key=req.invoice_no,
                 allow_negative_stock=False,
@@ -1351,6 +1358,11 @@ class POSService:
             payment_mode=pm,
             items=canon_items,
             tenders=tenders,
+            customer_po_id=getattr(req, "customer_po_id", None),
+            po_reference_no=getattr(req, "customer_po_reference", None) or getattr(req, "customer_po", None),
+            source_document_type=getattr(req, "source_document_type", None) or ("CUSTOMER_PO" if getattr(req, "customer_po_id", None) else None),
+            source_document_id=getattr(req, "source_document_id", None) or getattr(req, "customer_po_id", None),
+            sales_channel=effective_sales_channel,
             promotion_campaign_id=req.promotion_campaign_id,
             promotion_coupon_code=req.promotion_coupon_code,
             promotion_coupon_id=req.promotion_coupon_id,

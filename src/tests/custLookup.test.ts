@@ -45,6 +45,11 @@ Object.defineProperty(globalThis, "localStorage", {
   writable: true
 });
 
+Object.defineProperty(globalThis, "sessionStorage", {
+  value: mockLocalStorage,
+  writable: true
+});
+
 const listeners: Record<string, Function[]> = {};
 const mockWindow = {
   addEventListener: vi.fn((event: string, cb: Function) => {

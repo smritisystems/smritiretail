@@ -969,6 +969,7 @@ class CrmService:
             company_id=company_id,
             branch_id=self.tenant_ctx.branch_id
         )
+        db_customer.is_active = (str(db_customer.status or "Active").strip().lower() == "active")
 
         if any(value is not None for value in policy_dict.values()):
             db_customer.policy = CustomerPolicy(
@@ -1074,6 +1075,9 @@ class CrmService:
         for k, v in data_dict.items():
             if v is not None and hasattr(customer, k):
                 setattr(customer, k, v)
+
+        if data_dict.get("status") is not None:
+            customer.is_active = str(data_dict["status"]).strip().lower() == "active"
 
         if policy_dict:
             if customer.policy is None:
@@ -1254,6 +1258,7 @@ class CrmService:
             raise HTTPException(status_code=400, detail=f"Customer '{customer.name}' ({customer.code}) is already inactive.")
 
         customer.status = "Inactive"
+        customer.is_active = False
         customer.modified_at = datetime.now(timezone.utc)
 
         await self._record_audit_event(
@@ -1291,6 +1296,7 @@ class CrmService:
             raise HTTPException(status_code=400, detail=f"Customer '{customer.name}' ({customer.code}) is already active.")
 
         customer.status = "Active"
+        customer.is_active = True
         customer.modified_at = datetime.now(timezone.utc)
 
         await self._record_audit_event(

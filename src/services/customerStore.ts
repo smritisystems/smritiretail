@@ -259,13 +259,87 @@ export const initialCustomerGroups: CustomerGroup[] = [
  *
  * PostgreSQL (via GET /api/v1/customers) is the single source of truth.
  * Boot-time hydration is performed by refreshCustomerCache() called from App.tsx.
- * localStorage["smriti_customers"] is the offline read cache only.
+ * PostgreSQL is the source of truth; customer fallback data is cached only
+ * in the current browser tab and expires after 15 minutes.
  *
  * DO NOT add hardcoded records here — they will conflict with live DB data.
  */
 export const initialCustomers: Customer[] = [];
 
 export const initialSalesInvoices: SalesInvoice[] = [];
+
+const CUSTOMER_SESSION_CACHE_KEY = "smriti_customer_session_cache";
+const CUSTOMER_PENDING_SESSION_KEY = "smriti_pending_customer_session";
+const CUSTOMER_SESSION_CACHE_TTL_MS = 15 * 60 * 1000;
+
+function readCustomerSessionCache(): Customer[] {
+  if (typeof window === "undefined" || typeof sessionStorage === "undefined") return [];
+  try {
+    localStorage.removeItem("smriti_customers");
+    localStorage.removeItem("smriti_retail_customers");
+    const raw = sessionStorage.getItem(CUSTOMER_SESSION_CACHE_KEY);
+    if (!raw) return [];
+    const cache = JSON.parse(raw) as { expiresAt?: number; customers?: Customer[] };
+    if (!cache.expiresAt || cache.expiresAt <= Date.now() || !Array.isArray(cache.customers)) {
+      sessionStorage.removeItem(CUSTOMER_SESSION_CACHE_KEY);
+      return [];
+    }
+    return cache.customers;
+  } catch {
+    try { sessionStorage.removeItem(CUSTOMER_SESSION_CACHE_KEY); } catch {}
+    return [];
+  }
+}
+
+function writeCustomerSessionCache<T extends { id: string; name: string }>(customers: T[]): void {
+  if (typeof window === "undefined" || typeof sessionStorage === "undefined") return;
+  try {
+    localStorage.removeItem("smriti_customers");
+    localStorage.removeItem("smriti_retail_customers");
+    const safeCustomers = customers.map(customer => {
+      const source = customer as unknown as Record<string, any>;
+      return {
+        id: source.id,
+        customerGroupId: source.customerGroupId || source.customer_group_id || "",
+        name: source.name,
+        mobile: source.mobile || source.phone || "",
+        phone: source.phone,
+        email: source.email,
+        gstNumber: source.gstNumber || source.gstin,
+        code: source.code,
+        creditLimit: source.creditLimit,
+        creditLimitOverride: source.creditLimitOverride,
+        creditDays: source.creditDays,
+        unlimitedCredit: source.unlimitedCredit,
+        creditHold: source.creditHold,
+        isTaxInclusive: source.isTaxInclusive ?? source.is_tax_inclusive,
+        pricingBasis: source.pricingBasis || source.pricing_basis,
+        allowPromotionsOnRate: source.allowPromotionsOnRate ?? source.allow_promotions_on_rate,
+        outstanding: source.outstanding ?? source.creditUsed ?? source.creditBalance,
+        status: source.status || "Active",
+        loyaltyMember: source.loyaltyMember,
+        loyaltyTier: source.loyaltyTier,
+        loyaltyPointsBalance: source.loyaltyPointsBalance ?? source.loyalty_points_balance,
+      };
+    });
+    sessionStorage.setItem(CUSTOMER_SESSION_CACHE_KEY, JSON.stringify({
+      expiresAt: Date.now() + CUSTOMER_SESSION_CACHE_TTL_MS,
+      customers: safeCustomers
+    }));
+  } catch {}
+}
+
+export function cacheCustomersSession<T extends { id: string; name: string }>(customers: T[]): void {
+  writeCustomerSessionCache(customers);
+}
+
+export function clearCustomerSessionCache(): void {
+  if (typeof window === "undefined") return;
+  try { sessionStorage.removeItem(CUSTOMER_SESSION_CACHE_KEY); } catch {}
+  try { sessionStorage.removeItem(CUSTOMER_PENDING_SESSION_KEY); } catch {}
+  try { localStorage.removeItem("smriti_customers"); } catch {}
+  try { localStorage.removeItem("smriti_retail_customers"); } catch {}
+}
 /* Legacy demo invoice fixtures removed from the live data path.
 export const legacyDemoSalesInvoices: SalesInvoice[] = [
   {
@@ -560,21 +634,8 @@ export function getCustomerGroups(): CustomerGroup[] {
 }
 
 export function getCustomers(): Customer[] {
-  // Returns backend-seeded cache. Empty [] if cache not yet populated.
-  // Call refreshCustomerCache() on app boot to pre-populate from PostgreSQL.
-  let customersList: Customer[] = [];
-  if (typeof window !== "undefined" && typeof localStorage !== "undefined") {
-    const saved = localStorage.getItem("smriti_customers");
-    if (saved) {
-      try {
-        customersList = JSON.parse(saved);
-      } catch {
-        customersList = [];
-      }
-    }
-    // Remove legacy isolated key if present
-    localStorage.removeItem("smriti_retail_customers");
-  }
+  // Same-tab fallback only; backend data remains authoritative.
+  const customersList = readCustomerSessionCache();
 
   // Live-compute outstanding balances based on invoices and returns
   const invoices = getSalesInvoices();
@@ -599,11 +660,10 @@ export function getCustomers(): Customer[] {
 }
 
 export function saveCustomers(customers: Customer[]) {
-  // Updates the offline cache only. Does NOT fire backend requests.
+  // Updates a short-lived same-tab fallback only. Does NOT fire backend requests.
   // For backend writes, use CustMasterWs.handleSave() → POST/PUT /api/v1/customers.
   if (typeof window !== "undefined" && typeof localStorage !== "undefined") {
-    localStorage.setItem("smriti_customers", JSON.stringify(customers));
-    localStorage.removeItem("smriti_retail_customers");
+    writeCustomerSessionCache(customers);
     try {
       window.dispatchEvent(new CustomEvent("smriti_customer_updated"));
     } catch (e) {
@@ -730,11 +790,12 @@ export async function persistCustomerChange(customer: Customer) {
     });
   } catch (e) {
     try {
-      const pending = JSON.parse(localStorage.getItem("smriti_pending_customers") || "[]");
+      const cached = JSON.parse(sessionStorage.getItem(CUSTOMER_PENDING_SESSION_KEY) || "{}");
+      const pending = cached.expiresAt > Date.now() && Array.isArray(cached.customers) ? cached.customers : [];
       if (!pending.some((c: any) => c.id === customer.id)) {
         pending.push(customer);
-        localStorage.setItem("smriti_pending_customers", JSON.stringify(pending));
       }
+      sessionStorage.setItem(CUSTOMER_PENDING_SESSION_KEY, JSON.stringify({ expiresAt: Date.now() + CUSTOMER_SESSION_CACHE_TTL_MS, customers: pending }));
     } catch (err) {
       console.error("[CRM Sync] Failed to update pending queue:", err);
     }
@@ -744,7 +805,8 @@ export async function persistCustomerChange(customer: Customer) {
 export async function syncPendingCustomers() {
   let pending: Customer[] = [];
   try {
-    pending = JSON.parse(localStorage.getItem("smriti_pending_customers") || "[]");
+    const cached = JSON.parse(sessionStorage.getItem(CUSTOMER_PENDING_SESSION_KEY) || "{}");
+    pending = cached.expiresAt > Date.now() && Array.isArray(cached.customers) ? cached.customers : [];
   } catch (e) {
     return;
   }
@@ -762,16 +824,16 @@ export async function syncPendingCustomers() {
       remaining.push(cust);
     }
   }
-  localStorage.setItem("smriti_pending_customers", JSON.stringify(remaining));
+  if (remaining.length) sessionStorage.setItem(CUSTOMER_PENDING_SESSION_KEY, JSON.stringify({ expiresAt: Date.now() + CUSTOMER_SESSION_CACHE_TTL_MS, customers: remaining }));
+  else sessionStorage.removeItem(CUSTOMER_PENDING_SESSION_KEY);
 }
 
 /**
  * refreshCustomerCache — canonical boot-time hydration function.
  *
  * Call this once after authentication is confirmed (App.tsx).
- * Fetches all customers from PostgreSQL and writes them into
- * localStorage["smriti_customers"] so all getCustomers() callers
- * immediately see live DB data without any hardcoded seed fallback.
+ * Fetches customers into a same-tab fallback cache that expires after
+ * 15 minutes and is removed when the authenticated session is cleared.
  *
  * Also flushes any pending offline edits before fetching.
  */
@@ -783,8 +845,7 @@ export async function refreshCustomerCache(): Promise<void> {
   try {
     const serverCustomers = await apiFetchV1("/crm/customers");
     if (Array.isArray(serverCustomers)) {
-      localStorage.setItem("smriti_customers", JSON.stringify(serverCustomers));
-      localStorage.removeItem("smriti_retail_customers");
+      writeCustomerSessionCache(serverCustomers);
       if (typeof window !== "undefined") {
         window.dispatchEvent(new CustomEvent("smriti_customer_updated"));
       }

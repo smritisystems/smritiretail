@@ -46,7 +46,7 @@ import {
   GitMerge,
   Globe2
 } from "lucide-react";
-import { RetailCustomerRecord, CustomerAddressEntry, CustomerAddressType, CustomerGSTRegistrationOption, getCustomerAddressFingerprint, CustomerCompanyRelationship, CustomerCreditExposureResponse } from "./types.ts";
+import { RetailCustomerRecord, CustomerAddressEntry, CustomerAddressType, CustomerGSTRegistrationOption, getCustomerAddressFingerprint, CustomerCompanyRelationship, CustomerCreditExposureResponse, CustomerDirectoryItem, CustomerDirectoryResponse } from "./types.ts";
 import { SmritiCustomerFormTab } from "./CustFormTab.tsx";
 import { SmritiCustomerRetailDetailsTab } from "./CustRetailDetTab.tsx";
 import { SmritiCustomerAdditionalDetailsTab } from "./CustAddlDetTab.tsx";
@@ -56,6 +56,7 @@ import { CorporateCustomer360 } from "./corporate360/CorporateCustomer360.tsx";
 import { ExportButton } from "../export/ExportButton.tsx";
 import { ExportColumnDefinition } from "../export/types.ts";
 import { apiFetchV1 } from "../../lib/apiFetchV1.ts";
+import { cacheCustomersSession } from "../../services/customerStore.ts";
 import { CorporateMasterAccountHeader } from "./corporateWorkspace/CorporateMasterAccountHeader.tsx";
 import { CorporateIdentityCompliancePanel } from "./corporateWorkspace/CorporateIdentityCompliancePanel.tsx";
 import { CorporateNetworkPanel } from "./corporateWorkspace/CorporateNetworkPanel.tsx";
@@ -761,18 +762,7 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
   currentUser,
   onNotification
 }) => {
-  const [customers, setCustomers] = useState<RetailCustomerRecord[]>(() => {
-    // Restore from offline cache if available; never use hardcoded seed data
-    try {
-      const stored = localStorage.getItem("smriti_customers") || localStorage.getItem("smriti_retail_customers");
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed.map(mapBackendCustomerToRecord);
-      }
-    } catch {}
-    // Empty initial state — loadCustomersFromBackend() populates on mount
-    return [];
-  });
+  const [customers, setCustomers] = useState<RetailCustomerRecord[]>([]);
 
   const [currentIndex, setCurrentIndex] = useState<number>(0);
   const [activeTab, setActiveTab] = useState<"form" | "retail" | "additional">("form");
@@ -782,6 +772,15 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
   const [layoutStyle, setLayoutStyle] = useState<"enterprise" | "classic">("enterprise");
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [isSaving, setIsSaving] = useState<boolean>(false);
+  const [directoryItems, setDirectoryItems] = useState<CustomerDirectoryItem[]>([]);
+  const [directoryTotal, setDirectoryTotal] = useState(0);
+  const [directoryPage, setDirectoryPage] = useState(0);
+  const [directoryQuery, setDirectoryQuery] = useState("");
+  const [directoryStatus, setDirectoryStatus] = useState("all");
+  const [isDirectoryLoading, setIsDirectoryLoading] = useState(false);
+  const [directoryError, setDirectoryError] = useState("");
+  const [directoryRefreshVersion, setDirectoryRefreshVersion] = useState(0);
+  const directoryPageSize = 25;
 
   // Modals
   const [isMailingModalOpen, setIsMailingModalOpen] = useState<boolean>(false);
@@ -921,13 +920,9 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
       // Fetch with explicit limit — the API caps at 100 per request
       const res = await apiFetchV1("/crm/customers?limit=100&skip=0");
       const list = Array.isArray(res) ? res : (res?.items || []);
-      if (list && list.length > 0) {
+      {
         const mappedList = list.map(mapBackendCustomerToRecord);
         setCustomers(mappedList);
-        localStorage.setItem("smriti_customers", JSON.stringify(list));
-        try {
-          localStorage.removeItem("smriti_retail_customers");
-        } catch {}
 
         // Identity-based reconciliation
         const currentActiveId = activeCustomerIdRef.current;
@@ -968,50 +963,7 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
         }
       }
     } catch (err) {
-      // Offline fallback: load from cached smriti_customers
-      try {
-        const cached = localStorage.getItem("smriti_customers") || localStorage.getItem("smriti_retail_customers");
-        if (cached) {
-          const parsed = JSON.parse(cached);
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            const mapped: RetailCustomerRecord[] = parsed.map(mapBackendCustomerToRecord);
-            setCustomers(mapped);
-
-            const currentActiveId = activeCustomerIdRef.current;
-            const currentCust = currentCustomerRef.current;
-            if (currentActiveId?.startsWith("cust-draft-") || currentCust?.id?.startsWith("cust-draft-")) {
-              return;
-            }
-
-            const matchIndex = mapped.findIndex(
-              (c: RetailCustomerRecord) => (currentActiveId && c.id === currentActiveId) ||
-                   (currentCust?.id && c.id === currentCust.id) ||
-                   (currentCust?.code && c.code === currentCust.code)
-            );
-
-            let targetCust: RetailCustomerRecord | null = null;
-            let targetIndex = 0;
-
-            if (matchIndex >= 0) {
-              targetIndex = matchIndex;
-              targetCust = mapped[matchIndex];
-            } else if (mapped.length > 0 && !currentActiveId?.startsWith("cust-draft-")) {
-              targetIndex = 0;
-              targetCust = mapped[0];
-            }
-
-            if (targetCust) {
-              setCurrentIndex(targetIndex);
-              setActiveCustomerId(targetCust.id);
-              activeCustomerIdRef.current = targetCust.id;
-              if (!isDirtyRef.current) {
-                setCurrentCustomer(JSON.parse(JSON.stringify(targetCust)));
-                currentCustomerRef.current = targetCust;
-              }
-            }
-          }
-        }
-      } catch {}
+      console.warn("[Customer Master] Backend customer list unavailable; no persistent profile cache was loaded.", err);
     } finally {
       setIsLoading(false);
     }
@@ -1021,10 +973,75 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
     loadCustomersFromBackend();
     const handleCustomerUpdated = () => {
       loadCustomersFromBackend();
+      setDirectoryRefreshVersion(version => version + 1);
     };
     window.addEventListener("smriti_customer_updated", handleCustomerUpdated);
     return () => window.removeEventListener("smriti_customer_updated", handleCustomerUpdated);
   }, [loadCustomersFromBackend]);
+
+  useEffect(() => {
+    if (viewMode !== "directory") return;
+    let cancelled = false;
+    const timer = window.setTimeout(async () => {
+      setIsDirectoryLoading(true);
+      setDirectoryError("");
+      try {
+        const params = new URLSearchParams({
+          skip: String(directoryPage * directoryPageSize),
+          limit: String(directoryPageSize),
+          status: directoryStatus
+        });
+        if (directoryQuery.trim()) params.set("q", directoryQuery.trim());
+        const result = await apiFetchV1<CustomerDirectoryResponse>(`/crm/customers/directory?${params.toString()}`);
+        if (!cancelled) {
+          setDirectoryItems(result.items || []);
+          setDirectoryTotal(result.total || 0);
+        }
+      } catch (err: any) {
+        if (!cancelled) {
+          setDirectoryItems([]);
+          setDirectoryTotal(0);
+          setDirectoryError(err?.message || "Could not load the customer directory.");
+        }
+      } finally {
+        if (!cancelled) setIsDirectoryLoading(false);
+      }
+    }, 200);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [viewMode, directoryPage, directoryPageSize, directoryQuery, directoryStatus, directoryRefreshVersion]);
+
+  const handleOpenDirectoryCustomer = async (item: CustomerDirectoryItem, intent: "view" | "edit" | "360" = "view") => {
+    setIsLoading(true);
+    try {
+      const backendCustomer = await apiFetchV1<any>(`/crm/customers/${encodeURIComponent(item.id)}`);
+      const record = mapBackendCustomerToRecord(backendCustomer);
+      const updated = [...customers];
+      const existingIndex = updated.findIndex(customer => customer.id === record.id);
+      const targetIndex = existingIndex >= 0 ? existingIndex : updated.length;
+      if (existingIndex >= 0) updated[existingIndex] = record;
+      else updated.push(record);
+      setCustomers(updated);
+      cacheCustomersSession(updated);
+      setCurrentIndex(targetIndex);
+      setActiveCustomerId(record.id);
+      activeCustomerIdRef.current = record.id;
+      setCurrentCustomer(JSON.parse(JSON.stringify(record)));
+      currentCustomerRef.current = record;
+      originalCustomerRef.current = JSON.parse(JSON.stringify(record));
+      setIsDirty(intent === "edit");
+      isDirtyRef.current = intent === "edit";
+      setLifecycleMode(intent === "edit" ? "edit" : "view");
+      if (intent === "edit") setActiveTab("form");
+      setViewMode(intent === "360" ? "360" : "catalogue");
+    } catch (err: any) {
+      onNotification?.("Customer Load Failed", err?.message || "Could not open this customer profile.", "error");
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleFieldChange = (field: keyof RetailCustomerRecord, value: any) => {
     if (lifecycleMode === "view") {
@@ -1493,37 +1510,7 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
       isDirtyRef.current = false;
       setLifecycleMode("view");
 
-      // Universal cache synchronization with normalized representation
-      try {
-        localStorage.setItem("smriti_customers", JSON.stringify(updated.map(c => ({
-          id: c.id,
-          code: c.code,
-          name: c.name,
-          mobile: c.phone,
-          email: c.email,
-          gstNumber: c.gstin,
-          customerGroupId: c.customerGroupId || c.customer_group_id,
-          pricingBasis: c.pricingBasis || c.pricing_basis,
-          allowPromotionsOnRate: c.allowPromotionsOnRate ?? c.allow_promotions_on_rate,
-          isTaxInclusive: c.isTaxInclusive ?? c.is_tax_inclusive,
-          creditLimit: c.creditLimit,
-          creditDays: c.creditDays,
-          paymentTerm: c.paymentTerm,
-          outstanding: c.creditUsed,
-          status: c.status,
-          tags: [c.customerType || "Retail", "B2B"],
-          customer_type: c.customerType,
-          customerType: c.customerType,
-          environment: c.environment,
-          price_group: c.priceGroup,
-          priceGroup: c.priceGroup,
-          store_code: c.storeCode || null,
-          billing_store_code: c.billingStoreCode || null,
-          shipping_store_code: c.shippingStoreCode || null,
-          mailing_addresses: normalizeMailingAddresses(c.mailingAddresses)
-        }))));
-        localStorage.removeItem("smriti_retail_customers");
-      } catch {}
+      cacheCustomersSession(updated);
 
       window.dispatchEvent(new CustomEvent("smriti_customer_updated"));
       onNotification?.(
@@ -1616,9 +1603,8 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
     setLifecycleMode("view");
     setViewMode("catalogue");
 
-    try {
-      localStorage.setItem("smriti_customers", JSON.stringify(updated));
-    } catch {}
+    cacheCustomersSession(updated);
+
     window.dispatchEvent(new CustomEvent("smriti_customer_updated"));
   };
 
@@ -1663,9 +1649,7 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
     if (idx >= 0) {
       updated[idx] = updatedRecord;
       setCustomers(updated);
-      try {
-        localStorage.setItem("smriti_customers", JSON.stringify(updated));
-      } catch {}
+      cacheCustomersSession(updated);
     }
     window.dispatchEvent(new CustomEvent("smriti_customer_updated"));
   };
@@ -1689,9 +1673,7 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
       if (idx >= 0) {
         updated[idx] = updatedRecord;
         setCustomers(updated);
-        try {
-          localStorage.setItem("smriti_customers", JSON.stringify(updated));
-        } catch {}
+        cacheCustomersSession(updated);
       }
       window.dispatchEvent(new CustomEvent("smriti_customer_updated"));
       onNotification?.(
@@ -1713,10 +1695,7 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
   const handleCustomerDeleted = (deletedId: string) => {
     const filtered = customers.filter(c => c.id !== deletedId);
     setCustomers(filtered);
-    try {
-      localStorage.setItem("smriti_customers", JSON.stringify(filtered));
-    } catch {}
-
+    cacheCustomersSession(filtered);
     window.dispatchEvent(new CustomEvent("smriti_customer_updated"));
     const nextIdx = Math.max(0, Math.min(currentIndex, filtered.length - 1));
     setCurrentIndex(nextIdx);
@@ -1770,10 +1749,7 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
     });
 
     setCustomers(updated);
-    try {
-      localStorage.setItem("smriti_customers", JSON.stringify(updated));
-    } catch {}
-
+    cacheCustomersSession(updated);
     window.dispatchEvent(new CustomEvent("smriti_customer_updated"));
 
     // Update current customer if currently loaded
@@ -1810,9 +1786,7 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
       // Append newly linked enterprise customer to active list
       const updated = [...customers, selected];
       setCustomers(updated);
-      try {
-        localStorage.setItem("smriti_customers", JSON.stringify(updated));
-      } catch {}
+      cacheCustomersSession(updated);
       const newIdx = updated.length - 1;
       setCurrentIndex(newIdx);
       setActiveCustomerId(selected.id);
@@ -1884,6 +1858,14 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
     { key: "state", label: "State", datatype: "text", width: 15 },
     { key: "gstin", label: "GSTIN", datatype: "text", width: 18 },
     { key: "status", label: "Status", datatype: "text", width: 10 },
+  ], []);
+
+  const directoryExportColumns = useMemo<ExportColumnDefinition[]>(() => [
+    { key: "code", label: "Customer Code", datatype: "text", width: 18 },
+    { key: "name", label: "Customer Name", datatype: "text", width: 32 },
+    { key: "mobile", label: "Phone", datatype: "text", width: 16 },
+    { key: "customer_group_name", label: "Customer Group", datatype: "text", width: 24 },
+    { key: "status", label: "Status", datatype: "text", width: 12 },
   ], []);
 
   // ─── F2 Universal Lookup Architecture v2 — Screen Registration (Phase C Batch 1) ──
@@ -2139,8 +2121,8 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
         {/* Action Buttons Toolbar */}
         <div className="flex items-center gap-2">
           
-          {/* Record Navigator (< | >) */}
-          <div className="flex items-center bg-[#f2f4f6] dark:bg-[#2d3133] border border-[#c6c6cd] dark:border-[#45464d] rounded-xl px-2 py-1 gap-1.5">
+          {/* Catalogue Record Navigator (< | >) */}
+          {viewMode !== "directory" && <div className="flex items-center bg-[#f2f4f6] dark:bg-[#2d3133] border border-[#c6c6cd] dark:border-[#45464d] rounded-xl px-2 py-1 gap-1.5" aria-label="Catalogue record navigation">
             <button
               type="button"
               onClick={handlePrev}
@@ -2151,7 +2133,7 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
               <ChevronLeft size={16} />
             </button>
             <span className="font-mono text-xs font-bold px-1.5 text-[#00355f] dark:text-[#8ebdf9]">
-              {customers.length > 0 ? `${currentIndex + 1} of ${customers.length}` : "0 of 0"}
+              {customers.length > 0 ? `Catalogue record ${currentIndex + 1} of ${customers.length}` : "Catalogue record 0 of 0"}
             </span>
             <button
               type="button"
@@ -2162,9 +2144,9 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
             >
               <ChevronRight size={16} />
             </button>
-          </div>
+          </div>}
 
-          <div className="h-5 w-[1px] bg-[#c6c6cd] dark:bg-[#45464d] mx-1" />
+          {viewMode !== "directory" && <div className="h-5 w-[1px] bg-[#c6c6cd] dark:bg-[#45464d] mx-1" />}
 
           {/* New Button */}
           <button
@@ -2311,11 +2293,13 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
                 <div className="px-1 py-1">
                   <ExportButton
                     moduleTitle="Customer Master"
-                    columns={customerExportColumns}
-                    data={customers}
-                    selectedRows={[currentCustomer]}
-                    totalRecordsCount={customers.length}
-                    filteredRecordsCount={customers.length}
+                    columns={viewMode === "directory" ? directoryExportColumns : customerExportColumns}
+                    data={viewMode === "directory" ? directoryItems : customers}
+                    selectedRows={viewMode === "directory" ? [] : [currentCustomer]}
+                    totalRecordsCount={viewMode === "directory" ? directoryTotal : customers.length}
+                    filteredRecordsCount={viewMode === "directory" ? directoryTotal : customers.length}
+                    searchTerm={viewMode === "directory" ? directoryQuery : ""}
+                    appliedFilters={viewMode === "directory" ? { status: directoryStatus } : {}}
                     companyName="SMRITI Retail"
                     onNotification={onNotification}
                   />
@@ -2335,19 +2319,17 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
                   type="button"
                   onClick={() => {
                     setIsMoreMenuOpen(false);
-                    const newType = isCorporate ? "Retail" : "Corporate";
-                    handleFieldChange("customerType", newType);
-                    handleFieldChange("environment", newType);
+                    setLayoutStyle("enterprise");
                     onNotification?.(
                       "Workspace Layout Switched",
-                      `Switched workspace layout to ${newType}.`,
+                      "Switched to the Enterprise Customer Workspace.",
                       "info"
                     );
                   }}
                   className="w-full px-3 py-2 text-left text-xs font-semibold rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-2"
                 >
                   <Sliders size={14} className="text-[#00355f] dark:text-[#8ebdf9]" />
-                  <span>{isCorporate ? "Switch to Retail Workspace" : "Switch to Corporate Workspace"}</span>
+                  <span>Switch to Enterprise Workspace</span>
                 </button>
               </div>
             )}
@@ -2376,88 +2358,69 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
           <div className="flex-1 bg-white dark:bg-[#191c1e] border border-[#c6c6cd] dark:border-[#45464d] rounded-2xl shadow-xs overflow-hidden flex flex-col">
             <div className="p-4 bg-[#f2f4f6] dark:bg-[#131b2e] border-b border-[#c6c6cd] dark:border-[#45464d] flex items-center justify-between shrink-0">
               <span className="font-bold text-xs uppercase tracking-wider text-[#00355f] dark:text-[#8ebdf9]">
-                Customer Master Directory ({customers.length} Accounts)
+                Customer Directory ({directoryTotal} Accounts)
               </span>
-              <button
-                type="button"
-                onClick={() => setIsSearchModalOpen(true)}
-                className="px-3 py-1.5 bg-[#00355f] text-white rounded-lg text-xs font-bold flex items-center gap-1"
-              >
-                <Search size={12} /> Open Advanced Search Filter
-              </button>
+              <div className="flex items-center gap-2">
+                <label className="relative">
+                  <span className="sr-only">Search customer directory</span>
+                  <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500" />
+                  <input
+                    value={directoryQuery}
+                    onChange={event => { setDirectoryQuery(event.target.value); setDirectoryPage(0); }}
+                    placeholder="Name, code, or phone"
+                    className="pl-8 pr-2 py-1.5 bg-white dark:bg-[#191c1e] border border-[#c6c6cd] dark:border-[#45464d] rounded-lg text-xs w-48"
+                  />
+                </label>
+                <label className="sr-only" htmlFor="customer-directory-status">Filter by status</label>
+                <select id="customer-directory-status" value={directoryStatus} onChange={event => { setDirectoryStatus(event.target.value); setDirectoryPage(0); }} className="px-2 py-1.5 bg-white dark:bg-[#191c1e] border border-[#c6c6cd] dark:border-[#45464d] rounded-lg text-xs">
+                  <option value="all">All statuses</option><option value="Active">Active</option><option value="Inactive">Inactive</option><option value="Archived">Archived</option><option value="Merged">Merged</option>
+                </select>
+                <button type="button" onClick={() => setIsSearchModalOpen(true)} className="px-3 py-1.5 bg-[#00355f] text-white rounded-lg text-xs font-bold flex items-center gap-1">
+                  <Search size={12} /> Advanced Search
+                </button>
+              </div>
             </div>
 
-            <div className="flex-1 overflow-auto">
-              <table className="w-full text-left text-xs border-collapse min-w-[800px]">
+            <div className="flex-1 min-h-0 overflow-auto">
+              <table className="w-full text-left text-xs border-collapse min-w-[700px]">
                 <thead className="sticky top-0 bg-[#f7f9fb] dark:bg-[#131b2e] border-b border-[#c6c6cd] dark:border-[#45464d] font-bold text-[10px] uppercase text-[#515f74] dark:text-[#bec6e0]">
                   <tr>
                     <th className="p-3">Customer Code</th>
                     <th className="p-3">Customer Name</th>
-                    <th className="p-3">Price Group</th>
+                    <th className="p-3">Customer Group</th>
                     <th className="p-3">Phone</th>
-                    <th className="p-3">City</th>
-                    <th className="p-3">Classification</th>
-                    <th className="p-3">Loyalty Tier</th>
-                    <th className="p-3">Credit Limit</th>
                     <th className="p-3">Status</th>
                     <th className="p-3 text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#eceef0] dark:divide-[#2d3133]">
-                  {customers.map((c, idx) => (
+                  {isDirectoryLoading ? (
+                    <tr><td colSpan={6} className="p-8 text-center text-slate-500">Loading customers…</td></tr>
+                  ) : directoryError ? (
+                    <tr><td colSpan={6} role="alert" className="p-8 text-center text-red-700">{directoryError}</td></tr>
+                  ) : directoryItems.length === 0 ? (
+                    <tr><td colSpan={6} className="p-8 text-center text-slate-500">No customers match this search.</td></tr>
+                  ) : directoryItems.map(c => {
+                    const active = c.status?.toLowerCase() === "active" && c.is_active;
+                    return (
                     <tr
                       key={c.id || c.code}
-                      onClick={() => {
-                        setCurrentIndex(idx);
-                        setActiveCustomerId(c.id);
-                        activeCustomerIdRef.current = c.id;
-                        setCurrentCustomer(JSON.parse(JSON.stringify(c)));
-                        currentCustomerRef.current = c;
-                        setIsDirty(false);
-                        isDirtyRef.current = false;
-                        setViewMode("catalogue");
-                      }}
+                      onClick={() => void handleOpenDirectoryCustomer(c)}
                       className="hover:bg-[#f7f9fb] dark:hover:bg-[#2d3133] cursor-pointer transition"
                     >
-                      <td className="p-3 font-mono font-bold text-[#00355f] dark:text-[#8ebdf9]">{c.code}</td>
-                      <td className="p-3 font-bold">{c.name}</td>
-                      <td className="p-3 text-[11px]">{c.priceGroup}</td>
-                      <td className="p-3 font-mono">{c.phone || "—"}</td>
-                      <td className="p-3">{c.mailingAddresses[0]?.city || "Bangalore"}</td>
-                      <td className="p-3">{c.religion} • {c.ageGroup}</td>
-                      <td className="p-3 font-semibold">{c.loyaltyTier} ({c.loyaltyPointsBalance} pts)</td>
-                      <td className="p-3 font-mono font-bold">₹{c.creditLimit.toLocaleString("en-IN")}</td>
+                      <td className="p-3 font-mono font-bold text-[#00355f] dark:text-[#8ebdf9]">{c.code || "—"}</td>
+                      <td className="p-3 font-bold"><button type="button" onClick={event => { event.stopPropagation(); void handleOpenDirectoryCustomer(c); }} className="text-left hover:underline">{c.name}</button></td>
+                      <td className="p-3 text-[11px]">{c.customer_group_name || "—"}</td>
+                      <td className="p-3 font-mono">{c.mobile || "—"}</td>
                       <td className="p-3">
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#dcfce7] text-[#166534]">
-                          {c.status}
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${active ? "bg-[#dcfce7] text-[#166534]" : "bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-200"}`}>
+                          {c.status || "Unknown"}
                         </span>
                       </td>
                       <td className="p-3 text-right" onClick={(e) => e.stopPropagation()}>
                         <button
                           type="button"
-                          onClick={() => {
-                            setCurrentIndex(idx);
-                            setActiveCustomerId(c.id);
-                            activeCustomerIdRef.current = c.id;
-                            setCurrentCustomer(JSON.parse(JSON.stringify(c)));
-                            currentCustomerRef.current = c;
-                            setIsDirty(true);
-                            isDirtyRef.current = true;
-                            setViewMode("catalogue");
-                            setActiveTab("form");
-                            onNotification?.(
-                              "Edit Mode",
-                              `Editing customer account ${c.name} (${c.code}).`,
-                              "info"
-                            );
-                            setTimeout(() => {
-                              const nameEl = document.querySelector('input[data-field-key="customer_name"]') as HTMLInputElement;
-                              if (nameEl) {
-                                nameEl.focus();
-                                nameEl.select();
-                              }
-                            }, 150);
-                          }}
+                          onClick={() => void handleOpenDirectoryCustomer(c, "edit")}
                           className="px-2.5 py-1 bg-[#00355f] dark:bg-[#8ebdf9] text-white dark:text-[#001c37] hover:bg-[#0f4c81] dark:hover:bg-white rounded-lg font-bold text-[11px] inline-flex items-center gap-1 transition shadow-2xs"
                           title={`Edit Customer ${c.code}`}
                         >
@@ -2467,12 +2430,7 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
                         <button
                           type="button"
                           onClick={() => {
-                            setCurrentIndex(idx);
-                            setActiveCustomerId(c.id);
-                            activeCustomerIdRef.current = c.id;
-                            setCurrentCustomer(JSON.parse(JSON.stringify(c)));
-                            currentCustomerRef.current = c;
-                            setViewMode("360");
+                            void handleOpenDirectoryCustomer(c, "360");
                           }}
                           className="px-2.5 py-1 bg-white dark:bg-[#191c1e] border border-[#00355f] dark:border-[#8ebdf9] text-[#00355f] dark:text-[#8ebdf9] hover:bg-[#e0e8f0] dark:hover:bg-[#2d3133] rounded-lg font-bold text-[11px] inline-flex items-center gap-1 transition shadow-2xs ml-1"
                           title={`Open Corporate 360 for ${c.name}`}
@@ -2482,9 +2440,20 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
                         </button>
                       </td>
                     </tr>
-                  ))}
+                    );
+                  })}
                 </tbody>
               </table>
+            </div>
+            <div className="px-4 py-3 border-t border-[#c6c6cd] dark:border-[#45464d] flex items-center justify-between text-xs shrink-0">
+              <span aria-live="polite">
+                {directoryTotal === 0 ? "0 customers" : `Showing ${directoryPage * directoryPageSize + 1}–${Math.min((directoryPage + 1) * directoryPageSize, directoryTotal)} of ${directoryTotal} customers`}
+              </span>
+              <div className="flex items-center gap-2">
+                <button type="button" disabled={directoryPage === 0 || isDirectoryLoading} onClick={() => setDirectoryPage(page => Math.max(0, page - 1))} className="px-3 py-1.5 border rounded-lg disabled:opacity-40">Previous</button>
+                <span>Page {directoryPage + 1} of {Math.max(1, Math.ceil(directoryTotal / directoryPageSize))}</span>
+                <button type="button" disabled={(directoryPage + 1) * directoryPageSize >= directoryTotal || isDirectoryLoading} onClick={() => setDirectoryPage(page => page + 1)} className="px-3 py-1.5 border rounded-lg disabled:opacity-40">Next</button>
+              </div>
             </div>
           </div>
         ) : (
@@ -2951,22 +2920,9 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
       <SmritiAdvancedCustomerSearchModal
         isOpen={isSearchModalOpen}
         onClose={() => setIsSearchModalOpen(false)}
-        customers={customers}
         onSelectCustomer={selected => {
-          const idx = customers.findIndex(c => c.id === selected.id || c.code === selected.code);
-          if (idx >= 0) {
-            const target = customers[idx];
-            setCurrentIndex(idx);
-            setActiveCustomerId(target.id);
-            activeCustomerIdRef.current = target.id;
-            setCurrentCustomer(JSON.parse(JSON.stringify(target)));
-            currentCustomerRef.current = target;
-            originalCustomerRef.current = JSON.parse(JSON.stringify(target));
-            setIsDirty(false);
-            isDirtyRef.current = false;
-            setLifecycleMode("view");
-            onNotification?.("Customer Loaded", `Loaded catalogue record for ${target.name} (${target.code}).`, "info");
-          }
+          setIsSearchModalOpen(false);
+          void handleOpenDirectoryCustomer(selected);
         }}
       />
 

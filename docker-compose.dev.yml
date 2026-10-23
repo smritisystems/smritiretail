@@ -19,7 +19,7 @@ services:
       POSTGRES_PASSWORD: "${POSTGRES_DEV_PASSWORD:-postgres}"
       POSTGRES_DB: "${POSTGRES_DEV_DB:-smritisys_dev}"
     ports:
-      - "${POSTGRES_DEV_PORT:-2782}:5432"
+      - "127.0.0.1:${POSTGRES_DEV_PORT:-2782}:5432"
     volumes:
       - smriti_dev_db_volume:/var/lib/postgresql/data
     healthcheck:

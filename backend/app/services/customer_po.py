@@ -364,41 +364,48 @@ class CustomerPOService:
             invoice = await SalesService(self.db, self.tenant_ctx).create_sales_invoice(
                 invoice_in, idempotency_key=effective_key, commit=False
             )
-            total_qty = Decimal("0")
-            total_value = Decimal("0")
-            for source_item, requested_qty in zip(source_items, request.lines):
-                line = po_lines[requested_qty.customer_po_line_id]
-                invoice_item = next(item for item in invoice.items if item.customer_po_line_id == line.id)
-                value = (Decimal(str(invoice_item.total_amount)) or Decimal("0"))
-                line.quantity_billed += requested_qty.quantity
-                line.quantity_remaining = max(Decimal("0"), line.quantity_ordered - line.quantity_cancelled - line.quantity_billed)
-                line.billed_value += value
-                line.remaining_value = max(Decimal("0"), line.ordered_value - line.billed_value)
-                line.line_status = "FULLY_BILLED" if line.quantity_remaining <= 0 else "PARTIALLY_BILLED"
-                self.db.add(CustomerPOInvoiceAllocation(
-                    id=f"cpoa-{uuid.uuid4().hex[:16]}",
-                    company_id=self.tenant_ctx.company_id,
-                    branch_id=self.tenant_ctx.branch_id,
-                    created_by=getattr(self.tenant_ctx, "user_id", None),
-                    customer_po_id=po.id,
-                    customer_po_line_id=line.id,
-                    invoice_id=invoice.id,
-                    invoice_item_id=invoice_item.id,
-                    customer_po_number=po.po_number,
-                    invoice_number=invoice.invoice_no,
-                    allocated_quantity=requested_qty.quantity,
-                    allocated_value=value,
-                    status="ALLOCATED",
-                    allocation_metadata={"policy": {**policy_snapshot, "value": policy}},
-                ))
-                total_qty += requested_qty.quantity
-                total_value += value
-            po.billed_quantity += total_qty
-            po.remaining_quantity = max(Decimal("0"), po.ordered_quantity - po.cancelled_quantity - po.billed_quantity)
-            po.billed_value += total_value
-            po.remaining_value = max(Decimal("0"), po.ordered_value - po.cancelled_value - po.billed_value)
-            po.status = "FULLY_BILLED" if po.remaining_quantity <= 0 else "PARTIALLY_BILLED"
-            self.db.add(po)
+            alloc_check = (await self.db.execute(
+                self._scope(
+                    select(CustomerPOInvoiceAllocation).where(CustomerPOInvoiceAllocation.invoice_id == invoice.id),
+                    CustomerPOInvoiceAllocation,
+                )
+            )).scalars().first()
+            if not alloc_check:
+                total_qty = Decimal("0")
+                total_value = Decimal("0")
+                for source_item, requested_qty in zip(source_items, request.lines):
+                    line = po_lines[requested_qty.customer_po_line_id]
+                    invoice_item = next(item for item in invoice.items if item.customer_po_line_id == line.id)
+                    value = (Decimal(str(invoice_item.total_amount)) or Decimal("0"))
+                    line.quantity_billed += requested_qty.quantity
+                    line.quantity_remaining = max(Decimal("0"), line.quantity_ordered - line.quantity_cancelled - line.quantity_billed)
+                    line.billed_value += value
+                    line.remaining_value = max(Decimal("0"), line.ordered_value - line.billed_value)
+                    line.line_status = "FULLY_BILLED" if line.quantity_remaining <= 0 else "PARTIALLY_BILLED"
+                    self.db.add(CustomerPOInvoiceAllocation(
+                        id=f"cpoa-{uuid.uuid4().hex[:16]}",
+                        company_id=self.tenant_ctx.company_id,
+                        branch_id=self.tenant_ctx.branch_id,
+                        created_by=getattr(self.tenant_ctx, "user_id", None),
+                        customer_po_id=po.id,
+                        customer_po_line_id=line.id,
+                        invoice_id=invoice.id,
+                        invoice_item_id=invoice_item.id,
+                        customer_po_number=po.po_number,
+                        invoice_number=invoice.invoice_no,
+                        allocated_quantity=requested_qty.quantity,
+                        allocated_value=value,
+                        status="ALLOCATED",
+                        allocation_metadata={"policy": {**policy_snapshot, "value": policy}},
+                    ))
+                    total_qty += requested_qty.quantity
+                    total_value += value
+                po.billed_quantity += total_qty
+                po.remaining_quantity = max(Decimal("0"), po.ordered_quantity - po.cancelled_quantity - po.billed_quantity)
+                po.billed_value += total_value
+                po.remaining_value = max(Decimal("0"), po.ordered_value - po.cancelled_value - po.billed_value)
+                po.status = "FULLY_BILLED" if po.remaining_quantity <= 0 else "PARTIALLY_BILLED"
+                self.db.add(po)
             await self.db.commit()
             return invoice
         except HTTPException:

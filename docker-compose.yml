@@ -19,7 +19,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
       POSTGRES_DB: ${POSTGRES_DB:-smritisys}
     ports:
-      - "${POSTGRES_PORT:-2781}:5432"
+      - "127.0.0.1:${POSTGRES_PORT:-2781}:5432"
     networks:
       default:
         aliases:
@@ -73,9 +73,9 @@ services:
     environment:
       DATABASE_URL: "postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@smriti-db:5432/${POSTGRES_DB:-smritisys}"
       GEMINI_API_KEY: "${GEMINI_API_KEY}"
-      JWT_SECRET_KEY: "${JWT_SECRET_KEY:-smriti-jwt-secret-standalone-runtime-default-1981}"
-      INTERNAL_SERVICE_KEY: "${INTERNAL_SERVICE_KEY:-smriti-internal-key-standalone-runtime-default-1981}"
-      SGIP_VAULT_MASTER_KEY: "${SGIP_VAULT_MASTER_KEY:-smriti-vault-key-standalone-runtime-default-1981}"
+      JWT_SECRET_KEY: "${JWT_SECRET_KEY:?Error: JWT_SECRET_KEY must be set in .env or environment}"
+      INTERNAL_SERVICE_KEY: "${INTERNAL_SERVICE_KEY:?Error: INTERNAL_SERVICE_KEY must be set in .env or environment}"
+      SGIP_VAULT_MASTER_KEY: "${SGIP_VAULT_MASTER_KEY:?Error: SGIP_VAULT_MASTER_KEY must be set in .env or environment}"
       SDIC_REPOSITORY_ROOT: "/workspace"
       # Run Alembic migrations on startup by default. Set SKIP_MIGRATIONS=true to disable.
       SKIP_MIGRATIONS: "${SKIP_MIGRATIONS:-false}"
@@ -104,7 +104,7 @@ services:
       MSSQL_SA_PASSWORD: "${MSSQL_SA_PASSWORD:-netmanthan@123}"
       MSSQL_PID: "Developer"
     ports:
-      - "${MSSQL_PORT:-1433}:1433"
+      - "127.0.0.1:${MSSQL_PORT:-1433}:1433"
     volumes:
       - smriti_mssql_volume:/var/opt/mssql
     healthcheck:

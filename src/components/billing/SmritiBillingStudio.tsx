@@ -6,7 +6,7 @@
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
  * Version      : 6.90.0
  * Created      : 2026-10-17
- * Modified     : 2026-10-17
+ * Modified     : 2026-10-23
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Canonical SMRITI Billing Studio Component
@@ -525,6 +525,7 @@ export const SmritiBillingStudio: React.FC<SmritiBillingStudioProps> = ({
   const [deliveryStore, setDeliveryStore] = useState<string>("Same as Billing Store");
   const [posState, setPosState] = useState<string>("Maharashtra");
   const [poReference, setPoReference] = useState<string>("");
+  const [customerPoId, setCustomerPoId] = useState<string | null>(null);
 
   // Autofocus scanner input on initial mount for instant scanning readiness
   useEffect(() => {
@@ -1240,6 +1241,8 @@ export const SmritiBillingStudio: React.FC<SmritiBillingStudioProps> = ({
       customer_id: customer.id !== WALK_IN_CUSTOMER.id ? customer.id : undefined,
       customer_name: customer.name,
       customer_po: poReference || undefined,
+      customer_po_id: customerPoId || (customer as any)?.activeCustomerPoId || (customer as any)?.customer_po_id || undefined,
+      customer_po_reference: poReference || undefined,
       delivery_location_id: resolvedDeliveryLocationId,
       store_code: resolvedStoreCode,
       billing_store_code: resolvedStoreCode,
@@ -1248,8 +1251,8 @@ export const SmritiBillingStudio: React.FC<SmritiBillingStudioProps> = ({
       bill_discount_val: calculations.billDiscount,
       bill_discount_type: billDiscountType === "PERCENT" ? "percent" : "flat",
       sales_channel: salesChannel,
-      source_document_type: activeConsolidatedSlips.length > 0 ? "PACKING_SLIP_CONSOLIDATED" : undefined,
-      source_document_id: activeConsolidatedSlips.length > 0 ? activeConsolidatedSlips.map((s) => s.packingSlipNumber).join(",") : undefined,
+      source_document_type: activeConsolidatedSlips.length > 0 ? "PACKING_SLIP_CONSOLIDATED" : (customerPoId || (customer as any)?.activeCustomerPoId) ? "CUSTOMER_PO" : undefined,
+      source_document_id: activeConsolidatedSlips.length > 0 ? activeConsolidatedSlips.map((s) => s.packingSlipNumber).join(",") : (customerPoId || (customer as any)?.activeCustomerPoId || undefined),
       tenders: backendTenders,
       items: calculations.recomputedItems.map((item) => ({
         product_id: item.productId,
@@ -1263,7 +1266,9 @@ export const SmritiBillingStudio: React.FC<SmritiBillingStudioProps> = ({
         mrp: item.mrp,
         is_tax_inclusive: item.isTaxInclusive,
         salesperson_name: item.salesStaff || globalSalesperson,
-        source_line_type: activeConsolidatedSlips.length > 0 ? "PACKING_SLIP_ITEM" : undefined,
+        customer_po_line_id: (item as any)?.customerPoLineId || (item as any)?.customer_po_line_id || undefined,
+        source_line_type: (item as any)?.customerPoLineId ? "CUSTOMER_PO_LINE" : (activeConsolidatedSlips.length > 0 ? "PACKING_SLIP_ITEM" : undefined),
+        source_line_id: (item as any)?.customerPoLineId || (item as any)?.source_line_id || undefined,
       })),
     };
 

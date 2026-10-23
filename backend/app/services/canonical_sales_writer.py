@@ -40,10 +40,12 @@ from ..core.gst_engine import (
 from ..models.sales import SalesInvoice, SalesInvoiceItem
 from ..models.pos import Shift
 from ..models.crm import Customer, CustomerGroup, CustomerCreditLedgerEntry, CustomerGSTRegistration, CustomerDeliveryLocation, CustomerBillingLocation
+from ..models.customer_po import CustomerPurchaseOrder, CustomerPurchaseOrderLine, CustomerPOInvoiceAllocation
 from ..models.pricing import CustomerPriceTier
 from ..models.item_master import ItemBarcode
 from ..models.inventory import Product, Warehouse
 from ..models.tenant import Company, Branch
+from ..core.sales_channels import channel_requires_store_location
 from .canonical_transaction_writer import CanonicalTransactionWriter
 from .inventory_wms import InventoryWmsService
 from .payments_engine import PaymentsEngine
@@ -583,6 +585,89 @@ class CanonicalSalesPostingWriter:
                     "metadata_json": delivery_loc_record.metadata_json,
                 }
 
+        # 3.6 Enforce Modern Trade Store Location Requirement
+        effective_channel = (
+            getattr(req, "sales_channel", None)
+            or getattr(req.context, "sales_channel", None)
+            or req.context.source_channel
+            or "B2B_WHOLESALE"
+        )
+        if channel_requires_store_location(effective_channel):
+            if not getattr(req, "delivery_location_id", None) or not delivery_store_code:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Modern Trade billing requires both delivery location and store code. (SMRITI-VAL-004: Delivery Location / Store Code is mandatory when billing under Modern Trade or store-tracked sales channel.)",
+                )
+
+        # 3.7 Customer PO Ingress Validation & Row Locking
+        po_obj = None
+        po_lines_map = {}
+        po_policy = "BLOCK"
+        if getattr(req, "customer_po_id", None):
+            q_po = select(CustomerPurchaseOrder).where(
+                CustomerPurchaseOrder.id == req.customer_po_id,
+                CustomerPurchaseOrder.company_id == company_id,
+                CustomerPurchaseOrder.is_deleted == False,
+            ).with_for_update()
+            res_po = await session.execute(q_po)
+            po_obj = res_po.scalars().first()
+            if not po_obj:
+                raise HTTPException(status_code=404, detail="Customer PO not found.")
+            if po_obj.status in {"CANCELLED", "CLOSED", "FULLY_BILLED"}:
+                raise HTTPException(
+                    status_code=409,
+                    detail=(
+                        f"Customer PO '{po_obj.po_number}' is {po_obj.status} and cannot accept further billing. "
+                        f"All authorized quantity has been consumed. To bill additional units, "
+                        f"create a new PO or request re-opening of this one. (SMRITI-CPO-003)"
+                    ),
+                )
+            if resolved_customer_id and resolved_customer_id not in (None, po_obj.customer_id, "CUST-WALKIN"):
+                raise HTTPException(
+                    status_code=400,
+                    detail="Invoice customer does not match the Customer PO customer.",
+                )
+
+            q_lines = select(CustomerPurchaseOrderLine).where(
+                CustomerPurchaseOrderLine.customer_po_id == po_obj.id,
+                CustomerPurchaseOrderLine.company_id == company_id,
+                CustomerPurchaseOrderLine.is_deleted == False,
+            ).with_for_update()
+            res_lines = await session.execute(q_lines)
+            po_lines_map = {l.id: l for l in res_lines.scalars().all()}
+
+            from .customer_po import CustomerPOService
+            cpo_svc = CustomerPOService(session, TenantContext(company_id=company_id, branch_id=branch_id))
+            po_policy, _ = await cpo_svc._policy()
+            if po_obj.billing_policy_snapshot and isinstance(po_obj.billing_policy_snapshot, dict):
+                po_policy = str(po_obj.billing_policy_snapshot.get("overbilling_policy", po_policy)).upper()
+
+            for item in req.items:
+                if getattr(item, "customer_po_line_id", None):
+                    po_line = po_lines_map.get(item.customer_po_line_id)
+                    if not po_line or po_line.customer_po_id != po_obj.id:
+                        raise HTTPException(
+                            status_code=400,
+                            detail="PO line does not belong to the selected Customer PO.",
+                        )
+                    if Decimal(str(item.quantity)) <= Decimal("0.00"):
+                        raise HTTPException(
+                            status_code=400,
+                            detail="Billing quantity must be greater than zero.",
+                        )
+                    if Decimal(str(item.quantity)) > po_line.quantity_remaining:
+                        override_code = req.context.supervisor_override_code or getattr(req, "supervisor_override_code", None)
+                        if po_policy == "BLOCK":
+                            raise HTTPException(
+                                status_code=409,
+                                detail=f"Overbilling blocked: Item {po_line.code} ordered {po_line.quantity_ordered} remaining {po_line.quantity_remaining}.",
+                            )
+                        elif po_policy == "ALLOW_WITH_AUTHORIZATION" and not override_code:
+                            raise HTTPException(
+                                status_code=409,
+                                detail=f"Supervisor override required for overbilling PO line {po_line.line_number}: ordered {po_line.quantity_ordered} remaining {po_line.quantity_remaining}.",
+                            )
+
         # 4. Resolve Interstate / Tax Jurisdiction
         branch_state_code = gst_sc
         if not branch_state_code and branch_obj and getattr(branch_obj, "state_code", None):
@@ -841,8 +926,10 @@ class CanonicalSalesPostingWriter:
             pos_state=pos_state_name,
             payment_mode=(req.payment_mode or ("SPLIT" if len(req.tenders) > 1 else (req.tenders[0].tender_type if req.tenders else "CREDIT"))).upper(),
             status="Submitted",
-            po_reference=req.po_reference_no,
+            po_reference=req.po_reference_no or (po_obj.po_number if po_obj else None),
             customer_po_id=req.customer_po_id,
+            customer_po_number_snapshot=po_obj.po_number if po_obj else getattr(req, "customer_po_number_snapshot", None),
+            customer_po_date_snapshot=po_obj.po_date if po_obj else getattr(req, "customer_po_date_snapshot", None),
             sales_channel=(
                 getattr(req, "sales_channel", None)
                 or getattr(req.context, "sales_channel", None)
@@ -874,6 +961,7 @@ class CanonicalSalesPostingWriter:
         session.add(db_invoice)
 
         # 9. Persist SalesInvoiceItem records
+        db_items_list = []
         for l in calculated_lines:
             db_item = SalesInvoiceItem(
                 invoice_id=db_invoice.id,
@@ -909,8 +997,65 @@ class CanonicalSalesPostingWriter:
                 warehouse_location_id=l.warehouse_location_id,
             )
             session.add(db_item)
+            db_items_list.append(db_item)
 
         await session.flush()
+
+        # 9B. Update Customer PO Balances & Create Allocations Atomically
+        if po_obj and po_lines_map:
+            total_po_allocated_qty = Decimal("0")
+            total_po_allocated_val = Decimal("0")
+            for db_item in db_items_list:
+                if getattr(db_item, "customer_po_line_id", None) and db_item.customer_po_line_id in po_lines_map:
+                    po_line = po_lines_map[db_item.customer_po_line_id]
+                    item_qty = Decimal(str(db_item.quantity))
+                    item_val = Decimal(str(db_item.total_amount or "0.00"))
+
+                    # Cap stored quantity_billed at the DB check constraint ceiling
+                    # (ck_customer_po_line_billed_qty_bounded: quantity_billed <= ordered + cancelled).
+                    # Under ALLOW_WITH_AUTHORIZATION the excess is captured in allocation_metadata
+                    # for audit; the CPO line itself stores no more than the ceiling.
+                    line_qty_ceiling = po_line.quantity_ordered + po_line.quantity_cancelled
+                    new_line_billed = min(po_line.quantity_billed + item_qty, line_qty_ceiling)
+                    line_overrun_qty = max(Decimal("0"), (po_line.quantity_billed + item_qty) - line_qty_ceiling)
+                    po_line.quantity_billed = new_line_billed
+                    po_line.quantity_remaining = max(Decimal("0"), line_qty_ceiling - po_line.quantity_billed)
+                    po_line.billed_value += item_val
+                    po_line.remaining_value = max(Decimal("0"), po_line.ordered_value - po_line.billed_value)
+                    po_line.line_status = "FULLY_BILLED" if po_line.quantity_remaining <= Decimal("0") else "PARTIALLY_BILLED"
+                    session.add(po_line)
+
+                    session.add(CustomerPOInvoiceAllocation(
+                        id=f"cpoa-{uuid.uuid4().hex[:16]}",
+                        company_id=company_id,
+                        branch_id=branch_id,
+                        created_by=req.context.cashier_id,
+                        customer_po_id=po_obj.id,
+                        customer_po_line_id=po_line.id,
+                        invoice_id=db_invoice.id,
+                        invoice_item_id=db_item.id,
+                        customer_po_number=po_obj.po_number,
+                        invoice_number=db_invoice.invoice_no,
+                        allocated_quantity=item_qty,
+                        allocated_value=item_val,
+                        status="ALLOCATED",
+                        allocation_metadata={
+                            "policy": po_policy,
+                            **({"authorized_overrun_qty": str(line_overrun_qty)} if line_overrun_qty > Decimal("0") else {}),
+                        },
+                    ))
+                    total_po_allocated_qty += item_qty
+                    total_po_allocated_val += item_val
+
+            # Cap header-level billed_quantity at DB check constraint ceiling
+            # (ck_customer_po_billed_qty_bounded: billed_quantity <= ordered + cancelled).
+            po_qty_ceiling = po_obj.ordered_quantity + po_obj.cancelled_quantity
+            po_obj.billed_quantity = min(po_obj.billed_quantity + total_po_allocated_qty, po_qty_ceiling)
+            po_obj.remaining_quantity = max(Decimal("0"), po_qty_ceiling - po_obj.billed_quantity)
+            po_obj.billed_value += total_po_allocated_val
+            po_obj.remaining_value = max(Decimal("0"), po_obj.ordered_value - po_obj.cancelled_value - po_obj.billed_value)
+            po_obj.status = "FULLY_BILLED" if po_obj.remaining_quantity <= Decimal("0") else "PARTIALLY_BILLED"
+            session.add(po_obj)
 
         if promotion_result:
             for applied in promotion_result.applied_promotions:
