@@ -103,6 +103,11 @@ Object.defineProperty(globalThis, "localStorage", {
   writable: true
 });
 
+Object.defineProperty(globalThis, "sessionStorage", {
+  value: mockLocalStorage,
+  writable: true
+});
+
 Object.defineProperty(globalThis, "window", {
   value: mockWindow,
   writable: true

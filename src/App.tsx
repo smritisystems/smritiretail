@@ -65,6 +65,7 @@ import { StandaloneWindowView } from "./components/standalone/StandaloneWindowVi
 import { TabRenderer, mapModuleId, TabLoadingFallback } from "./components/shell/TabRenderer.tsx";
 import { useInactivityTimeout } from "./hooks/useInactivityTimeout.ts";
 import { InactivityWarningModal } from "./components/auth/InactivityWarningModal.tsx";
+import { clearCustomerSessionCache } from "./services/customerStore.ts";
 
 const PrintPreviewModal = lazy(() => import("./components/PrintPreviewModal.tsx").then(m => ({ default: m.PrintPreviewModal })));
 
@@ -203,6 +204,7 @@ const AppContent: React.FC = () => {
 
   useEffect(() => {
     const handleSessionCleared = (e: Event) => {
+      clearCustomerSessionCache();
       const customEvent = e as CustomEvent<{ reason?: string }>;
       const reason = customEvent.detail?.reason;
       if (reason === "inactivity_timeout") {
@@ -237,8 +239,7 @@ const AppContent: React.FC = () => {
 
   useEffect(() => {
     if (!currentUser) return;
-    // Boot-time hydration: populate localStorage["smriti_customers"] from PostgreSQL.
-    // This ensures all getCustomers() callers see live DB data, not stale seed data.
+    // Boot-time hydration: populate the short-lived same-tab customer fallback from PostgreSQL.
     import("./services/customerStore.js").then((m) => {
       m.refreshCustomerCache();
     });

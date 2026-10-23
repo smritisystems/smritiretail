@@ -18,7 +18,7 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from ...api.deps import get_db, get_company_db, get_tenant_context, TenantContext, require_role, get_current_user
 
@@ -30,6 +30,7 @@ from ...models.sales import SalesInvoice, SalesOrder, SalesReturn
 from ...models.psv import PSVParty
 from ...schemas.crm import (
     CustomerCreate, CustomerUpdate, CustomerResponse,
+    CustomerDirectoryItem, CustomerDirectoryResponse,
     CustomerGroupCreate, CustomerGroupUpdate, CustomerGroupResponse,
     CustomerGSTRegistrationCreate, CustomerGSTRegistrationUpdate, CustomerGSTRegistrationResponse,
     CustomerDeliveryLocationCreate, CustomerDeliveryLocationUpdate, CustomerDeliveryLocationResponse,
@@ -238,6 +239,63 @@ async def list_customers(
         billing_only=billing_only,
     )
     return [CustomerResponse.from_orm_customer(c) for c in customers]
+
+
+@router.get("/customers/directory", response_model=CustomerDirectoryResponse)
+async def customer_directory(
+    q: Optional[str] = Query(None, max_length=120),
+    skip: int = Query(0, ge=0),
+    limit: int = Query(25, ge=1, le=100),
+    status: Optional[str] = Query(None, description="Filter by customer status. Omit or pass all for every status."),
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+):
+    """Return a paginated customer summary without loading sensitive profile data."""
+    repository = CustomerRepository(db, tenant_ctx)
+    filters = [Customer.is_deleted == False]
+    normalized_status = (status or "").strip()
+    if normalized_status and normalized_status.lower() != "all":
+        filters.append(func.lower(Customer.status) == normalized_status.lower())
+
+    clean_query = (q or "").strip()
+    if clean_query:
+        needle = f"%{clean_query}%"
+        filters.append(or_(
+            Customer.name.ilike(needle),
+            Customer.code.ilike(needle),
+            Customer.mobile.ilike(needle),
+        ))
+
+    count_stmt = repository._apply_tenant_filter(
+        select(func.count(Customer.id)).where(*filters)
+    )
+    total = int((await db.execute(count_stmt)).scalar_one() or 0)
+
+    rows_stmt = (
+        select(
+            Customer.id,
+            Customer.code,
+            Customer.name,
+            Customer.mobile,
+            Customer.customer_group_id,
+            CustomerGroup.name.label("customer_group_name"),
+            Customer.status,
+            Customer.is_active,
+        )
+        .outerjoin(CustomerGroup, CustomerGroup.id == Customer.customer_group_id)
+        .where(*filters)
+        .order_by(Customer.name.asc(), Customer.id.asc())
+        .offset(skip)
+        .limit(limit)
+    )
+    rows_stmt = repository._apply_tenant_filter(rows_stmt)
+    rows = (await db.execute(rows_stmt)).mappings().all()
+    return CustomerDirectoryResponse(
+        items=[CustomerDirectoryItem.model_validate(dict(row)) for row in rows],
+        total=total,
+        skip=skip,
+        limit=limit,
+    )
 
 
 @router.get("/customers/search", response_model=List[CustomerResponse])

@@ -24,6 +24,24 @@ export interface CustomerGSTRegistrationOption {
   isActive: boolean;
 }
 
+export interface CustomerDirectoryItem {
+  id: string;
+  code: string | null;
+  name: string;
+  mobile: string | null;
+  customer_group_id: string | null;
+  customer_group_name: string | null;
+  status: string;
+  is_active: boolean;
+}
+
+export interface CustomerDirectoryResponse {
+  items: CustomerDirectoryItem[];
+  total: number;
+  skip: number;
+  limit: number;
+}
+
 export interface CustomerAddressEntry {
   id?: string;
   code: string;
@@ -221,23 +239,6 @@ export interface RetailCustomerRecord {
 
   // Model C Commercial Relationships
   companyRelationships?: CustomerCompanyRelationship[];
-}
-
-export interface CustomerSearchFilterState {
-  code: string;
-  name: string;
-  priceGroup: string;
-  loyaltyPgmId: string;
-  dateOfBirth: string;
-  religion: string;
-  ethnicity: string;
-  ageGroup: string;
-  profession: string;
-  city: string;
-  phone: string;
-  state: string;
-  locality: string;
-  email: string;
 }
 
 export interface CustomerPriceGroup {

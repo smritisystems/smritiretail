@@ -182,6 +182,12 @@ async def test_canonical_sales_writer_rejects_empty_items():
 @pytest.mark.asyncio
 async def test_canonical_sales_writer_rejects_negative_tender():
     mock_session = AsyncMock()
+    mock_comp = MagicMock()
+    mock_comp.is_active = True
+    mock_comp.gst_number = "27AAACA0001A1Z5"
+    mock_result = MagicMock()
+    mock_result.scalars.return_value.first.return_value = mock_comp
+    mock_session.execute.return_value = mock_result
 
     ctx = CanonicalPostingContext(
         company_id="COMP-01",
@@ -221,6 +227,12 @@ async def test_canonical_sales_writer_rejects_negative_tender():
 @pytest.mark.asyncio
 async def test_canonical_sales_writer_rejects_cash_over_2_lakh():
     mock_session = AsyncMock()
+    mock_comp = MagicMock()
+    mock_comp.is_active = True
+    mock_comp.gst_number = "27AAACA0001A1Z5"
+    mock_result = MagicMock()
+    mock_result.scalars.return_value.first.return_value = mock_comp
+    mock_session.execute.return_value = mock_result
 
     ctx = CanonicalPostingContext(
         company_id="COMP-01",

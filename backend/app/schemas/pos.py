@@ -286,6 +286,9 @@ class POSCheckoutItem(BaseModel):
     batch_id:         Optional[str] = None
     serial_id:        Optional[str] = None
     warehouse_location_id: Optional[str] = None
+    customer_po_line_id:   Optional[str] = None
+    source_line_type:      Optional[str] = None
+    source_line_id:        Optional[str] = None
 
 
 class POSTenderItem(BaseModel):
@@ -360,6 +363,11 @@ class POSCheckoutRequest(BaseModel):
     promotion_campaign_id: Optional[str] = None
     promotion_coupon_code: Optional[str] = None
     promotion_coupon_id: Optional[str] = None
+    customer_po_id:       Optional[str] = None
+    customer_po_reference: Optional[str] = None
+    sales_channel:        Optional[str] = None
+    source_document_type: Optional[str] = None
+    source_document_id:   Optional[str] = None
 
 
 class POSCheckoutResponse(BaseModel):
