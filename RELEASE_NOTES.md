@@ -14,6 +14,25 @@
 
 # SMRITI Retail OS — Release Notes
 
+## Release v6.89.0 (2026-10-24)
+
+### Sales & Billing — Premium Billing Desk UX Transformation & Ergonomic Overhaul
+
+#### Overview
+Transforms the canonical desktop POS billing experience (`BillingTerm.tsx`, `BillingWorkspace.tsx`) into a high-density, modern enterprise retail billing desk ("Power of an Enterprise ERP. Simplicity of WhatsApp.") matching the reference design. Eliminates dual-header space competition, HUD occlusion over totals and checkout triggers, button clipping, and excessive vertical spacing. Introduces a side-by-side layout featuring a ~74% line items grid with an inline F11 direct entry row on the left, and a ~26% dedicated Bill Summary card with a prominent Net Payable banner on the right.
+
+#### Key Highlights
+- **Single Canonical Navigation**: Suppressed duplicate top navigation bars in `BillingWorkspace.tsx` during active billing (`auxView !== "WORKSPACE"`), routing all primary document and workspace actions through the compact header in `BillingTerm.tsx`.
+- **4-Zone High-Density Ergonomics**:
+  - **Zone A (Compact Top Header)**: Brand badge, sales channel pill (`[ POS Retail ▾ ]`), live clock, document sequence pill with edit pencil (`[ INV/C/0001 ✎ ]`), status mode badge (`[ NEW ]` / `[ DRAFT ]` / `[ AUDIT ]`), quick action buttons (`[ 📄 New ]`, `[ 💾 Save ]`, `[ 🖨 Print ]`, `[ ⋯ More ▾ ]`), register shift status, and cashier avatar.
+  - **Zone B (Transaction Details Card)**: 3-column structured layout with Customer search (`F2`), quick-add trigger, Walk-in Customer card with category and balance chips, 4 compact selectors (Source, Channel, Bill Type, Transaction) with expandable corporate B2B drawer (`▾ More Details`), and Sales Staff selection with `[ ⏱ Recall ]`.
+  - **Zone C (High-Density Line Items Grid, ~74% width)**: 38px compact table with 10 columns, active row inspector ribbon, double-click cell editing, and inline `F11` Direct Entry row with barcode scanner guard.
+  - **Zone D (Dedicated Bill Summary Card, ~26% width)**: Side-by-side with item grid, featuring real-time gross sales, line discounts, bill promo pill (`[ F6 ]`), statutory GST, add-ons/deductions, round-off, and high-impact Net Payable banner (`text-blue-600 font-black text-2xl`).
+  - **Zone E (Collapsible Auxiliary Drawers & Bottom Action Bar)**: Dedicated tabs for Transporter Details, Payment Details, Section 15 AddOns & Deductions, and Document Remarks. Prominently displays unclipped `[ 💵 Exact Cash (F7) ]` and vibrant royal blue `[ ✔ Settle & Save (F8) ]` buttons on the right.
+- **HUD & Toast Occlusion Elimination**: Suppressed floating `CtxInspectorHUD.tsx` when Billing Desk is active (`[data-billing-desk="true"]`), and relocated toast notifications to `top-16 right-6`, ensuring totals and checkout buttons remain 100% visible at all times.
+- **100% Compliance & Business Logic Fidelity**: Preserved Indian GST Rule 46(b) statutory validation, multi-tier tax calculations, Section 15 pricing factors, F2 item and customer lookup, multi-tender settlement modal, and backend API integration.
+- **Verification Battery**: 50/50 tests passed in Vitest (`billingTerm.test.ts`, `canonicalBillingConsolidation.test.ts`, `smritiF2BillingSearch.test.ts`, `invoicingTransactionBrowser.test.ts`, `billingWorkspaceConvergence.test.ts`), `tsc --noEmit` exited with code 0 (0 type errors), and verified via headless Playwright browser captures.
+
 ## Release v6.99.16 (2026-10-23)
 
 ### Database & Systems — Cross-Platform Container-Aware Migration Auto-Routing & Seeder Hardening
