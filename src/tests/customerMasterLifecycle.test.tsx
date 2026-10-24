@@ -8,7 +8,7 @@
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
  * Version      : 6.99.0
  * Created      : 2026-10-19
- * Modified     : 2026-10-19
+ * Modified     : 2026-10-24
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
@@ -274,6 +274,20 @@ describe("Customer Master CRUD Lifecycle - Safety and Modals", () => {
         />
       );
       expect(html).toBe("");
+    });
+
+    it("renders the selected parent as read-only child-account context", () => {
+      const html = renderToString(
+        <CreateCustomerModal
+          isOpen={true}
+          onClose={vi.fn()}
+          onCreated={vi.fn()}
+          parentCustomer={{ id: "cust-parent-001", code: "CUST-001", name: "ABC Retail Group" }}
+        />
+      );
+
+      expect(html).toContain("New Child Customer Account");
+      expect(html).toContain("This account will be linked under ABC Retail Group (CUST-001).");
     });
   });
 

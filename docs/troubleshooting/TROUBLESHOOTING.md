@@ -78,3 +78,10 @@ This document details common operational issues and resolutions.
   2. Select the customer's registered store delivery location for this shipment.
   3. If billing standard counter retail or wholesale without store tracking, change the **Sales Channel** dropdown in Row 1 to `General Trade` or `B2B Wholesale`.
 
+
+
+### [SMRITI-DATA-001] Child customer appears as a separate parent account
+**Symptom:** A customer created from **Add Child Customer** does not appear under the parent account.
+**Cause:** The parent account was not carried into the creation workflow, so the new customer was saved without its hierarchy relationship.
+**Resolution:** Open the saved parent account, use **Add Child Customer**, verify the parent name in the dialog, and create the child. For an account created before the fix, have an administrator review and attach it through the approved parent-child relationship workflow.
+**Fixed In:** v1.0.1 (2026-10-24)

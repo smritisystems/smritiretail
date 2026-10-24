@@ -6,7 +6,7 @@
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
  * Version      : 6.99.0
  * Created      : 2026-08-21
- * Modified     : 2026-10-19
+ * Modified     : 2026-10-24
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
@@ -33,6 +33,10 @@ export interface CustomerDirectoryItem {
   customer_group_name: string | null;
   status: string;
   is_active: boolean;
+  is_dependant?: boolean;
+  parent_customer_id?: string | null;
+  primary_account_code?: string | null;
+  primary_account_name?: string | null;
 }
 
 export interface CustomerDirectoryResponse {
@@ -102,8 +106,13 @@ export const getCustomerAddressFingerprint = (address: Partial<CustomerAddressEn
 };
 
 export interface CustomerDependantEntry {
+  id?: string;
   code: string;
   name: string;
+  dependantCustomerId?: string;
+  dependantCustomerCode?: string;
+  dependantCustomerName?: string;
+  parentCustomerId?: string;
   relation: string;
   applySameMailing: boolean;
   notes?: string;
@@ -113,6 +122,7 @@ export interface RetailCustomerRecord {
   id: string;
   code: string;
   name: string;
+  parentCustomerId?: string;
   priceGroup: string;
   customerGroupId?: string;
   customer_group_id?: string;

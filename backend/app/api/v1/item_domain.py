@@ -381,7 +381,7 @@ async def update_item_variant(
     except BusinessLogicError as ble:
         if ble.code == "SMRITI-IDENTITY-TRANSACTED":
             raise HTTPException(status_code=409, detail=ble.message)
-        if ble.code in ("SMRITI-SKU-COLLISION", "SMRITI-BARCODE-COLLISION"):
+        if ble.code in ("SMRITI-SKU-COLLISION", "SMRITI-BARCODE-COLLISION", "SMRITI-VARIANT-COMBINATION-COLLISION"):
             raise HTTPException(status_code=409, detail=ble.message)
         if ble.code in ("SMRITI-VARIANT-NOT-FOUND", "SMRITI-DATA-004"):
             raise HTTPException(status_code=404, detail=ble.message)

@@ -15,7 +15,7 @@ Classification: Internal
 from typing import Dict, Any, List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, Header
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
+from sqlalchemy import select, func, case, cast, Date
 from sqlalchemy.orm import selectinload
 
 from app.api.deps import get_company_db, get_current_user, get_tenant_context, TenantContext
@@ -52,35 +52,38 @@ async def list_psv_parties(
     including per-SKU tracking and a 4-day stock/sales history window
     for the velocity chart in PsvTab.
     """
+    effective_company_id = session.info.get("company_id") or current_user.company_id or company_id or "COMP-001"
     # 1. Load all parties for this company with sku_tracking eagerly loaded
     party_stmt = (
         select(PSVParty)
-        .where(PSVParty.company_id == company_id)
+        .where(PSVParty.company_id == effective_company_id)
         .options(selectinload(PSVParty.sku_tracking))
         .order_by(PSVParty.name)
     )
     parties = (await session.execute(party_stmt)).scalars().all()
+    if not parties:
+        return []
 
     # 2. Build 4-day history per party from psv_stock_events
     # Group events by (party_id, event_date.date) and bucket into stock/sales
     history_stmt = (
         select(
             PSVStockEvent.psv_party_id,
-            func.date_trunc("day", PSVStockEvent.event_date).label("day"),
+            cast(PSVStockEvent.event_date, Date).label("day"),
             func.sum(
-                func.case(
+                case(
                     (PSVStockEvent.movement_type.in_(["SOLD", "SOLD_THROUGH", "OUTWARD_SALE", "POS_SALE"]), PSVStockEvent.quantity),
                     else_=0,
                 )
             ).label("sales"),
         )
         .where(
-            PSVStockEvent.company_id == company_id,
+            PSVStockEvent.company_id == effective_company_id,
             PSVStockEvent.psv_party_id.in_([p.id for p in parties]),
             PSVStockEvent.approval_status == "APPROVED",
         )
-        .group_by(PSVStockEvent.psv_party_id, func.date_trunc("day", PSVStockEvent.event_date))
-        .order_by(PSVStockEvent.psv_party_id, func.date_trunc("day", PSVStockEvent.event_date).desc())
+        .group_by(PSVStockEvent.psv_party_id, cast(PSVStockEvent.event_date, Date))
+        .order_by(PSVStockEvent.psv_party_id, cast(PSVStockEvent.event_date, Date).desc())
     )
     history_rows = (await session.execute(history_stmt)).all()
 
@@ -101,7 +104,7 @@ async def list_psv_parties(
         PSVStockBalance.psv_party_id,
         func.sum(PSVStockBalance.current_balance).label("total_balance"),
     ).where(
-        PSVStockBalance.company_id == company_id,
+        PSVStockBalance.company_id == effective_company_id,
         PSVStockBalance.psv_party_id.in_([p.id for p in parties]),
     ).group_by(PSVStockBalance.psv_party_id)
     bal_rows = (await session.execute(bal_stmt)).all()

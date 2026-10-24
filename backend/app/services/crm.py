@@ -6,7 +6,7 @@ Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
 Version      : 6.99.1
 Created      : 2026-07-11
-Modified     : 2026-10-23
+Modified     : 2026-10-24
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 """
@@ -27,7 +27,7 @@ from fastapi import HTTPException
 from ..models.crm import (
     Customer, CustomerGroup, CustomerGSTRegistration, CustomerDeliveryLocation,
     CustomerBillingLocation, CustomerExternalIdentity, CustomerPolicy,
-    CustomerCompanyRelationship, CustomerCreditLedgerEntry,
+    CustomerCompanyRelationship, CustomerCreditLedgerEntry, CustomerRelationship,
 )
 from ..models.auth import User, UserRole
 from ..models.identity_registry import SmritiNumberingRegistry
@@ -809,6 +809,23 @@ class CrmService:
         current_user: Optional[User] = None,
     ) -> Customer:
         company_id = self._require_company_id()
+        parent_customer_id = customer_in.parent_customer_id
+        if parent_customer_id:
+            if customer_in.id and customer_in.id == parent_customer_id:
+                raise HTTPException(status_code=400, detail="A customer cannot be its own parent account.")
+            parent_stmt = self.customer_repo._apply_tenant_filter(
+                select(Customer.id).where(Customer.id == parent_customer_id)
+            ).where(
+                Customer.is_deleted.is_(False),
+                Customer.is_active.is_(True),
+            )
+            parent_exists = (await self.db.execute(parent_stmt)).scalar_one_or_none()
+            if parent_exists is None:
+                raise HTTPException(
+                    status_code=404,
+                    detail="The selected parent account is unavailable in the current company and branch.",
+                )
+
         cfg = await self._resolve_code_policy_config(company_id)
         manual_allowed = self._is_manual_entry_allowed(current_user, cfg["manual_roles"])
 
@@ -850,7 +867,9 @@ class CrmService:
                     }
                 )
 
-        cust_dict = customer_in.model_dump()
+        cust_dict = customer_in.model_dump(exclude={"parent_customer_id"})
+        if parent_customer_id:
+            cust_dict["is_dependant"] = True
         policy_fields = {
             "payment_category", "payment_term", "transport_mode", "transport_code", "transit_days",
             "bank_code", "bank_location", "retail_factor", "dealer_factor", "destination_tax_type",
@@ -981,6 +1000,17 @@ class CrmService:
 
         self.db.add(db_customer)
 
+        if parent_customer_id:
+            self.db.add(CustomerRelationship(
+                id=f"cr-{uuid.uuid4().hex[:12]}",
+                parent_customer_id=parent_customer_id,
+                dependant_customer_id=db_customer.id,
+                relation="Child",
+                apply_same_mailing=False,
+                company_id=company_id,
+                branch_id=self.tenant_ctx.branch_id,
+            ))
+
         # Audit log for historical code reuse (Rule 9)
         if is_historical_reuse and historical_cust_info:
             audit_log = SmritiAuditLog(
@@ -1035,6 +1065,19 @@ class CrmService:
         customer = res.scalars().first()
 
         data_dict = customer_in.model_dump(exclude_unset=True) if hasattr(customer_in, "model_dump") else dict(customer_in)
+
+        if customer and data_dict.get("is_dependant") is False:
+            parent_link = await self.db.execute(select(CustomerRelationship.id).where(
+                CustomerRelationship.dependant_customer_id == customer_id,
+                CustomerRelationship.company_id == self.tenant_ctx.company_id,
+                CustomerRelationship.branch_id == self.tenant_ctx.branch_id,
+                CustomerRelationship.is_deleted == False,
+            ).limit(1))
+            if parent_link.scalar_one_or_none() is not None:
+                raise HTTPException(
+                    status_code=400,
+                    detail="This account is linked to a parent account. Remove the approved relationship before changing its child-account status.",
+                )
         
         # Concurrency / Optimistic Locking Protection
         expected_modified_at = data_dict.pop("expected_modified_at", None)

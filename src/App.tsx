@@ -246,6 +246,9 @@ const AppContent: React.FC = () => {
     import("./services/customerStore.js").then((m) => {
       m.refreshCustomerCache();
     });
+    apiFetchV1("/psv/parties").then((data: any) => {
+      if (Array.isArray(data)) setPsvParties(data);
+    }).catch((err) => console.warn("[PSV] Failed to load parties:", err));
   }, [currentUser]);
 
   useEffect(() => {

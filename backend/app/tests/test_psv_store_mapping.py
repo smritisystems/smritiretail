@@ -22,8 +22,8 @@ from sqlalchemy.exc import IntegrityError
 from app.main import app
 from app.models.auth import User, UserRole
 from app.models.tenant import Company, Branch
-from app.models.crm import Customer, CustomerDeliveryLocation
-from app.models.psv import PSVParty
+from app.models.crm import Customer, CustomerDeliveryLocation, CustomerRelationship
+from app.models.psv import PSVParty, PSVStockBalance, PSVStockEvent
 from app.models.inventory import StockMovement
 from app.core.security import create_access_token, hash_password
 from app.api.deps import TenantContext, get_db, get_company_db, get_tenant_context, get_current_user
@@ -35,6 +35,9 @@ from app.core.sales_channels import (
     DEFAULT_CHANNEL_CAPABILITIES,
 )
 from app.services.psv_projection import PSVProjectionService
+from app.services.billing_catalog_service import BillingCatalogService
+from app.services.crm import CrmService
+from app.schemas.crm import CustomerCreate, CustomerUpdate
 
 
 async def _create_test_environment(db_session):
@@ -577,6 +580,8 @@ async def test_canonical_sales_posting_persists_sales_channel(db_session):
         sales_channel="MODERN_TRADE",
         customer_id=customer.id,
         customer_name=customer.name,
+        delivery_location_id=loc.id,
+        delivery_store_code=loc.store_code,
         payment_mode="CASH",
         place_of_supply="27",
         items=[
@@ -614,6 +619,283 @@ async def test_canonical_sales_posting_persists_sales_channel(db_session):
     invoice = inv_res.scalars().first()
     assert invoice is not None
     assert invoice.sales_channel == "MODERN_TRADE"
+
+
+@pytest.mark.asyncio
+async def test_parent_child_store_pos_invoice_projects_to_correct_psv_party(db_session):
+    """Exercise customer hierarchy, store billing, canonical stock, and PSV together."""
+    from decimal import Decimal
+
+    from app.models.inventory import Product, ProductBatchStock, StockMovement, Warehouse
+    from app.models.item_master import Item, ItemVariant
+    from app.models.sales import SalesInvoice
+    from app.schemas.canonical_posting import (
+        CanonicalPostingContext,
+        CanonicalPostingLineItem,
+        CanonicalPostingRequest,
+        CanonicalTenderItem,
+    )
+    from app.services.canonical_sales_writer import CanonicalSalesPostingWriter
+
+    company, branch, user, original_customer, _ = await _create_test_environment(db_session)
+    suffix = uuid.uuid4().hex[:6].upper()
+    tenant = TenantContext(company_id=company.id, branch_id=branch.id, role=user.role)
+    crm = CrmService(db_session, tenant)
+
+    parent = await crm.create_customer(
+        CustomerCreate(
+            name=f"Lifecycle Parent {suffix}",
+            code=f"PAR-{suffix}",
+            mobile=f"98{uuid.uuid4().int % 100000000:08d}",
+            show_child_customers_in_billing=False,
+        ),
+        current_user=user,
+    )
+    standalone = await crm.create_customer(
+        CustomerCreate(
+            name=f"Lifecycle Standalone {suffix}",
+            code=f"STD-{suffix}",
+            mobile=f"96{uuid.uuid4().int % 100000000:08d}",
+        ),
+        current_user=user,
+    )
+    children = []
+    locations = []
+    for index in (1, 2):
+        child = await crm.create_customer(
+            CustomerCreate(
+                name=f"Lifecycle Child {index} {suffix}",
+                code=f"CH{index}-{suffix}",
+                mobile=f"97{uuid.uuid4().int % 100000000:08d}",
+                parent_customer_id=parent.id,
+            ),
+            current_user=user,
+        )
+        location = CustomerDeliveryLocation(
+            id=f"cdl-{suffix.lower()}-{index}",
+            company_id=company.id,
+            customer_id=child.id,
+            store_code=f"S{suffix[:4]}{index}",
+            location_name=f"Lifecycle Store {index} {suffix}",
+            city="Gorakhpur",
+            state="Uttar Pradesh",
+            state_code="09",
+            status="ACTIVE",
+            is_deleted=False,
+        )
+        db_session.add(location)
+        children.append(child)
+        locations.append(location)
+    await db_session.commit()
+
+    assert original_customer.is_dependant is False
+    assert standalone.is_dependant is False
+    assert all(child.is_dependant is True for child in children)
+    for child in children:
+        relationship = (await db_session.execute(select(CustomerRelationship).where(
+            CustomerRelationship.parent_customer_id == parent.id,
+            CustomerRelationship.dependant_customer_id == child.id,
+            CustomerRelationship.company_id == company.id,
+            CustomerRelationship.is_deleted.is_(False),
+        ))).scalar_one()
+        assert relationship.relation == "Child"
+    billing_hidden = await BillingCatalogService.get_customers(
+        session=db_session, company_id=company.id, q=suffix
+    )
+    hidden_ids = {customer.id for customer in billing_hidden.items}
+    assert parent.id in hidden_ids
+    assert standalone.id in hidden_ids
+    assert not ({child.id for child in children} & hidden_ids)
+
+    await crm.update_customer(parent.id, CustomerUpdate(show_child_customers_in_billing=True))
+    billing_visible = await BillingCatalogService.get_customers(
+        session=db_session, company_id=company.id, q=suffix
+    )
+    visible_ids = {customer.id for customer in billing_visible.items}
+    assert {child.id for child in children} <= visible_ids
+    assert standalone.id in visible_ids
+
+    parties = []
+    for child, location in zip(children, locations, strict=True):
+        resolved = await PSVProjectionService.resolve_or_create_store_psv_party(
+            session=db_session,
+            company_id=company.id,
+            customer_id=child.id,
+            delivery_location_id=location.id,
+            branch_id=branch.id,
+        )
+        party = await db_session.get(PSVParty, resolved["psv_party_id"])
+        assert party is not None
+        assert party.host_customer_id == child.id
+        assert party.host_customer_id != parent.id
+        assert party.delivery_location_id == location.id
+        assert party.store_code == location.store_code
+        parties.append(party)
+    await db_session.commit()
+
+    warehouse = Warehouse(
+        id=f"wh-{suffix.lower()}",
+        company_id=company.id,
+        branch_id=branch.id,
+        code=f"WH-{suffix}",
+        name=f"Lifecycle Warehouse {suffix}",
+        pincode="273001",
+        state="Uttar Pradesh",
+        is_active=True,
+    )
+    item = Item(
+        id=f"itm-{suffix.lower()}",
+        company_id=company.id,
+        branch_id=branch.id,
+        item_code=f"SKU-{suffix}",
+        item_name=f"Lifecycle Item {suffix}",
+        category="General",
+        primary_uom="NOS",
+        uom="NOS",
+        selling_price=Decimal("1000.00"),
+        mrp=Decimal("1000.00"),
+        is_active=True,
+    )
+    db_session.add_all([warehouse, item])
+    await db_session.flush()
+    variant = ItemVariant(
+        id=f"var-{suffix.lower()}",
+        company_id=company.id,
+        item_id=item.id,
+        variant_sku=f"SKU-{suffix}",
+        variant_name=f"Lifecycle Item Variant {suffix}",
+        selling_price=Decimal("1000.00"),
+        mrp=Decimal("1000.00"),
+        is_active=True,
+    )
+    db_session.add(variant)
+    await db_session.flush()
+    product = Product(
+        id=f"prd-{suffix.lower()}",
+        company_id=company.id,
+        branch_id=branch.id,
+        item_id=item.id,
+        item_variant_id=variant.id,
+        name=item.item_name,
+        code=item.item_code,
+        barcode=f"BAR-{suffix}",
+        category="General",
+        mrp=Decimal("1000.00"),
+        price=Decimal("1000.00"),
+        gst_percentage=Decimal("0.00"),
+        stock=Decimal("10.00"),
+        is_active=True,
+    )
+    db_session.add(product)
+    await db_session.flush()
+    batch = ProductBatchStock(
+        id=f"pbs-{suffix.lower()}",
+        uuid=f"pbs-{suffix.lower()}",
+        company_id=company.id,
+        branch_id=branch.id,
+        product_id=product.id,
+        warehouse_id=warehouse.id,
+        batch_no=f"B-{suffix}",
+        quantity=Decimal("10.00"),
+        reserved_quantity=Decimal("0.00"),
+        damaged_quantity=Decimal("0.00"),
+        mrp=Decimal("1000.00"),
+        sale_rate=Decimal("1000.00"),
+    )
+    db_session.add(batch)
+    await db_session.commit()
+
+    idempotency_key = f"LIFECYCLE-{suffix}"
+    request = CanonicalPostingRequest(
+        context=CanonicalPostingContext(
+            company_id=company.id,
+            branch_id=branch.id,
+            warehouse_id=warehouse.id,
+            idempotency_key=idempotency_key,
+            source_channel="POS_RETAIL",
+            sales_channel="MODERN_TRADE",
+        ),
+        customer_id=children[0].id,
+        customer_name=children[0].name,
+        delivery_location_id=locations[0].id,
+        items=[CanonicalPostingLineItem(
+            product_id=product.id,
+            variant_id=variant.id,
+            code=product.code,
+            name=product.name,
+            quantity=Decimal("2.00"),
+            unit_price=Decimal("1000.00"),
+            gst_rate=Decimal("0.00"),
+            is_tax_inclusive=True,
+            mrp=Decimal("1000.00"),
+            batch_no=batch.batch_no,
+        )],
+        tenders=[CanonicalTenderItem(tender_type="CASH", amount=Decimal("2000.00"))],
+        payment_mode="CASH",
+    )
+    posted = await CanonicalSalesPostingWriter.post_sales_transaction(
+        session=db_session, req=request, idempotency_key=idempotency_key, commit=True
+    )
+    assert posted.success is True
+    assert posted.customer_id == children[0].id
+
+    invoice = await db_session.get(SalesInvoice, posted.invoice_id)
+    assert invoice is not None
+    assert invoice.customer_id == children[0].id
+    assert invoice.delivery_location_id == locations[0].id
+    assert invoice.delivery_store_code == locations[0].store_code
+
+    event = (await db_session.execute(select(PSVStockEvent).where(
+        PSVStockEvent.invoice_id == invoice.id,
+        PSVStockEvent.company_id == company.id,
+    ))).scalar_one()
+    assert event.psv_party_id == parties[0].id
+    assert event.host_customer_id == children[0].id
+    assert event.delivery_location_id == locations[0].id
+    assert event.store_code_snapshot == locations[0].store_code
+    assert event.quantity == Decimal("2.00")
+    balance = (await db_session.execute(select(PSVStockBalance).where(
+        PSVStockBalance.company_id == company.id,
+        PSVStockBalance.psv_party_id == parties[0].id,
+        PSVStockBalance.sku == product.code,
+    ))).scalar_one()
+    assert balance.billed_qty == Decimal("2.00")
+    assert balance.current_balance == Decimal("2.00")
+    reconciliation = await PSVProjectionService.get_quantity_reconciliation(
+        session=db_session,
+        company_id=company.id,
+        invoice_id=invoice.id,
+    )
+    assert reconciliation.summary.total_items == 1
+    assert reconciliation.summary.total_document_qty == Decimal("2.0000")
+    assert reconciliation.items[0].party_id == parties[0].id
+    assert reconciliation.items[0].store_code == locations[0].store_code
+    assert await db_session.scalar(select(func.count(PSVStockEvent.event_id)).where(
+        PSVStockEvent.invoice_id == invoice.id
+    )) == 1
+
+    stock_movement = (await db_session.execute(select(StockMovement).where(
+        StockMovement.reference_doc_id == invoice.id,
+        StockMovement.company_id == company.id,
+    ))).scalar_one()
+    assert stock_movement.movement_type == "OUTWARD_SALE"
+    assert stock_movement.quantity == Decimal("2.00")
+    persisted_batch = await db_session.get(ProductBatchStock, batch.id)
+    assert persisted_batch.quantity == Decimal("8.00")
+
+    replay = await CanonicalSalesPostingWriter.post_sales_transaction(
+        session=db_session, req=request, idempotency_key=idempotency_key, commit=True
+    )
+    assert replay.is_replayed is True
+    assert replay.invoice_id == invoice.id
+    assert await db_session.scalar(select(func.count(SalesInvoice.id)).where(
+        SalesInvoice.company_id == company.id,
+        SalesInvoice.customer_id == children[0].id,
+        SalesInvoice.id == invoice.id,
+    )) == 1
+    assert await db_session.scalar(select(func.count(PSVStockEvent.event_id)).where(
+        PSVStockEvent.invoice_id == invoice.id
+    )) == 1
 
 
 @pytest.mark.asyncio

@@ -6,49 +6,264 @@ Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
 Version      : 3.17.0
 Created      : 2026-10-22
-Modified     : 2026-10-22
+Modified     : 2026-10-24
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 Classification: E2E Customer Lifecycle & Billing Integration Audit
 """
 
-import os
-import sys
-import uuid
 import time
+import uuid
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
-from datetime import datetime, timezone, timedelta
+
 import pytest
 from fastapi import HTTPException
 from pydantic import ValidationError
+from sqlalchemy import func, select
 
 from app.api.deps import TenantContext
-from app.models.auth import User, UserRole
-from app.models.crm import Customer, CustomerRelationship
-from app.models.inventory import Product
-from app.schemas.crm import CustomerCreate, CustomerUpdate
-from app.schemas.canonical_posting import (
-    CanonicalPostingRequest,
-    CanonicalPostingContext,
-    CanonicalPostingLineItem,
-    CanonicalTenderItem,
-)
+from app.api.v1.crm import customer_directory, list_customer_dependants
 from app.db.session import (
-    get_company_sessionmaker,
     _company_database_name_cache,
+    get_company_sessionmaker,
 )
-from app.services.crm import CrmService
-from app.services.billing_catalog_service import BillingCatalogService
-from app.services.canonical_sales_writer import CanonicalSalesPostingWriter
+from app.models.auth import User, UserRole
+from app.models.crm import CustomerDeliveryLocation, CustomerRelationship
+from app.models.inventory import Product
+from app.models.item_master import Item, ItemVariant
+from app.models.psv import PSVParty, PSVStockBalance, PSVStockEvent
 from app.repositories.customer import CustomerRepository
 from app.repositories.sales import SalesInvoiceRepository
-
-from app.models.item_master import Item, ItemVariant
+from app.schemas.canonical_posting import (
+    CanonicalPostingContext,
+    CanonicalPostingLineItem,
+    CanonicalPostingRequest,
+    CanonicalTenderItem,
+)
+from app.schemas.crm import CustomerCreate, CustomerResponse, CustomerUpdate
+from app.services.billing_catalog_service import BillingCatalogService
+from app.services.canonical_sales_writer import CanonicalSalesPostingWriter
+from app.services.crm import CrmService
+from app.services.psv_projection import PSVProjectionService
 
 # Ensure isolated test database routing
 TEST_DB = "smriti_test_phase2c"
 TEST_COMPANY_ID = "COMP-001"
 TEST_BRANCH_ID = "BR-MAIN-001"
+
+
+@pytest.mark.asyncio
+async def test_add_child_customer_persists_parent_and_directory_relationship(tenant_ctx, admin_user):
+    """Creating through the parent-aware customer flow persists and returns the canonical link."""
+    sessionmaker = get_company_sessionmaker(TEST_DB)
+    suffix = uuid.uuid4().hex[:8].upper()
+    parent_code = f"PAR-{suffix}"
+    child_code = f"CHD-{suffix}"
+    standalone_code = f"STD-{suffix}"
+    parent_id = child_id = standalone_id = None
+
+    async with sessionmaker() as session:
+        service = CrmService(session, tenant_ctx)
+        parent = await service.create_customer(CustomerCreate(
+            name=f"Parent Account {suffix}",
+            code=parent_code,
+            mobile=f"98{uuid.uuid4().int % 100000000:08d}",
+            status="Active",
+        ), current_user=admin_user)
+        child = await service.create_customer(CustomerCreate(
+            name=f"Child Account {suffix}",
+            code=child_code,
+            mobile=f"97{uuid.uuid4().int % 100000000:08d}",
+            status="Active",
+            parent_customer_id=parent.id,
+        ), current_user=admin_user)
+        parent_id, child_id = parent.id, child.id
+
+        assert child.is_dependant is True
+        relationship = (await session.execute(select(CustomerRelationship).where(
+            CustomerRelationship.parent_customer_id == parent_id,
+            CustomerRelationship.dependant_customer_id == child_id,
+            CustomerRelationship.company_id == TEST_COMPANY_ID,
+            CustomerRelationship.branch_id == TEST_BRANCH_ID,
+            CustomerRelationship.is_deleted.is_(False),
+        ))).scalar_one()
+        assert relationship.relation == "Child"
+
+        loaded_child = await service.get_customer(child_id)
+        child_response = CustomerResponse.from_orm_customer(loaded_child)
+        assert child_response.parent_customer_id == parent_id
+        assert child_response.primary_account_code == parent_code
+        assert child_response.primary_account_name == f"Parent Account {suffix}"
+
+        parent_children = await list_customer_dependants(parent_id, db=session, tenant_ctx=tenant_ctx)
+        assert any(
+            row.dependant_customer_id == child_id
+            and row.dependant_customer_code == child_code
+            for row in parent_children
+        )
+
+        directory = await customer_directory(
+            q=child_code,
+            skip=0,
+            limit=25,
+            status="all",
+            db=session,
+            tenant_ctx=tenant_ctx,
+        )
+        directory_child = next(row for row in directory.items if row.id == child_id)
+        assert directory_child.is_dependant is True
+        assert directory_child.parent_customer_id == parent_id
+        assert directory_child.primary_account_code == parent_code
+        assert directory_child.primary_account_name == f"Parent Account {suffix}"
+
+        # Editing the child must not silently detach it.
+        await service.update_customer(child_id, CustomerUpdate(name=f"Renamed Child {suffix}"))
+        assert (await session.execute(select(CustomerRelationship.id).where(
+            CustomerRelationship.parent_customer_id == parent_id,
+            CustomerRelationship.dependant_customer_id == child_id,
+            CustomerRelationship.is_deleted.is_(False),
+        ))).scalar_one_or_none() is not None
+        with pytest.raises(HTTPException) as detach_info:
+            await service.update_customer(child_id, CustomerUpdate(is_dependant=False))
+        assert detach_info.value.status_code == 400
+
+        standalone = await service.create_customer(CustomerCreate(
+            name=f"Standalone Account {suffix}",
+            code=standalone_code,
+            mobile=f"96{uuid.uuid4().int % 100000000:08d}",
+            status="Active",
+        ), current_user=admin_user)
+        standalone_id = standalone.id
+        assert standalone.is_dependant is False
+        assert (await session.execute(select(CustomerRelationship.id).where(
+            CustomerRelationship.dependant_customer_id == standalone_id,
+            CustomerRelationship.is_deleted.is_(False),
+        ))).scalar_one_or_none() is None
+
+        # The same parent ID cannot be used from a different company or branch context.
+        for invalid_context in (
+            TenantContext(company_id="COMP-OTHER", branch_id=TEST_BRANCH_ID, role=UserRole.SYSADMIN),
+            TenantContext(company_id=TEST_COMPANY_ID, branch_id="BR-OTHER", role=UserRole.SYSADMIN),
+        ):
+            with pytest.raises(HTTPException) as exc_info:
+                await CrmService(session, invalid_context).create_customer(CustomerCreate(
+                    name=f"Rejected Child {suffix}",
+                    mobile=f"95{uuid.uuid4().int % 100000000:08d}",
+                    parent_customer_id=parent_id,
+                ), current_user=admin_user)
+            assert exc_info.value.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_add_child_customer_accepts_company_shared_parent(tenant_ctx, admin_user):
+    """A shared parent visible through canonical tenant scoping can own a branch child."""
+    sessionmaker = get_company_sessionmaker(TEST_DB)
+    suffix = uuid.uuid4().hex[:8].upper()
+
+    async with sessionmaker() as session:
+        service = CrmService(session, tenant_ctx)
+        parent = await service.create_customer(CustomerCreate(
+            name=f"Shared Parent {suffix}",
+            code=f"SHRP-{suffix}",
+            mobile=f"94{uuid.uuid4().int % 100000000:08d}",
+            status="Active",
+        ), current_user=admin_user)
+        parent.branch_id = None
+        await session.commit()
+
+        child = await service.create_customer(CustomerCreate(
+            name=f"Branch Child {suffix}",
+            code=f"SHRC-{suffix}",
+            mobile=f"93{uuid.uuid4().int % 100000000:08d}",
+            status="Active",
+            parent_customer_id=parent.id,
+        ), current_user=admin_user)
+
+        relationship = (await session.execute(select(CustomerRelationship).where(
+            CustomerRelationship.parent_customer_id == parent.id,
+            CustomerRelationship.dependant_customer_id == child.id,
+            CustomerRelationship.company_id == TEST_COMPANY_ID,
+            CustomerRelationship.branch_id == TEST_BRANCH_ID,
+            CustomerRelationship.is_deleted.is_(False),
+        ))).scalar_one()
+        assert relationship.relation == "Child"
+        assert child.is_dependant is True
+
+
+@pytest.mark.asyncio
+async def test_child_store_resolves_to_child_psv_party_without_inventory_side_effects(tenant_ctx, admin_user):
+    """PSV binds a child's store to the child ID and does not roll stock up to its parent."""
+    sessionmaker = get_company_sessionmaker(TEST_DB)
+    suffix = uuid.uuid4().hex[:8].upper()
+    child_id = location_id = None
+
+    async with sessionmaker() as session:
+        service = CrmService(session, tenant_ctx)
+        parent = await service.create_customer(CustomerCreate(
+            name=f"PSV Parent {suffix}",
+            code=f"PSVP-{suffix}",
+            mobile=f"96{uuid.uuid4().int % 100000000:08d}",
+            status="Active",
+        ), current_user=admin_user)
+        child = await service.create_customer(CustomerCreate(
+            name=f"PSV Child Store {suffix}",
+            code=f"PSVC-{suffix}",
+            mobile=f"95{uuid.uuid4().int % 100000000:08d}",
+            status="Active",
+            parent_customer_id=parent.id,
+        ), current_user=admin_user)
+        location = CustomerDeliveryLocation(
+            id=f"cdl-psv-{suffix.lower()}",
+            company_id=TEST_COMPANY_ID,
+            customer_id=child.id,
+            store_code=f"S{suffix[:6]}",
+            location_name=f"Child Store {suffix}",
+            city="Gorakhpur",
+            state="Uttar Pradesh",
+            status="ACTIVE",
+            is_deleted=False,
+        )
+        session.add(location)
+        await session.commit()
+        child_id, location_id = child.id, location.id
+
+        before_events = await session.scalar(select(func.count(PSVStockEvent.event_id)))
+        before_balances = await session.scalar(select(func.count(PSVStockBalance.id)))
+
+        result = await PSVProjectionService.resolve_or_create_store_psv_party(
+            session=session,
+            company_id=TEST_COMPANY_ID,
+            customer_id=child.id,
+            delivery_location_id=location.id,
+        )
+        await session.commit()
+
+        assert result["host_customer_id"] == child.id
+        assert result["delivery_location_id"] == location.id
+        assert result["host_customer_id"] != parent.id
+        party = (await session.execute(
+            select(PSVParty).where(PSVParty.id == result["psv_party_id"])
+        )).scalar_one()
+        assert party.host_customer_id == child.id
+        assert party.delivery_location_id == location.id
+        assert await session.scalar(select(func.count(PSVStockEvent.event_id))) == before_events
+        assert await session.scalar(select(func.count(PSVStockBalance.id))) == before_balances
+
+    # Resolve again after reloading the persisted customer/store relationship.
+    async with sessionmaker() as session:
+        persisted_location = (await session.execute(
+            select(CustomerDeliveryLocation).where(CustomerDeliveryLocation.id == location_id)
+        )).scalar_one()
+        second_result = await PSVProjectionService.resolve_or_create_store_psv_party(
+            session=session,
+            company_id=TEST_COMPANY_ID,
+            customer_id=child_id,
+            delivery_location_id=persisted_location.id,
+        )
+        assert second_result["host_customer_id"] == child_id
+        assert second_result["is_newly_created"] is False
+
 
 
 @pytest.fixture(autouse=True)
@@ -200,7 +415,7 @@ async def test_phase4_customer_edit_concurrency_and_persistence(tenant_ctx, admi
     # 1. Optimistic Locking Test: Stale expected_modified_at must raise 409
     async with sessionmaker() as session:
         crm_service = CrmService(session, tenant_ctx)
-        stale_time = (initial_modified_at or datetime.now(timezone.utc)) - timedelta(hours=2)
+        stale_time = (initial_modified_at or datetime.now(UTC)) - timedelta(hours=2)
         with pytest.raises(HTTPException) as exc_info:
             await crm_service.update_customer(
                 cust_id,
@@ -255,6 +470,7 @@ async def test_phase5_billing_pos_customer_selection_and_parent_child_visibility
 
     parent_code = f"PAR-{unique_suffix}"
     child_code = f"CHD-{unique_suffix}"
+    standalone_code = f"STD-{unique_suffix}"
 
     async with sessionmaker() as session:
         crm_service = CrmService(session, tenant_ctx)
@@ -281,6 +497,16 @@ async def test_phase5_billing_pos_customer_selection_and_parent_child_visibility
             current_user=admin_user,
         )
 
+        # A customer created without the relationship remains an independent billable account.
+        standalone = await crm_service.create_customer(
+            CustomerCreate(
+                name=f"Standalone Account {unique_suffix}",
+                code=standalone_code,
+                mobile=f"93{uuid.uuid4().int % 100000000:08d}",
+            ),
+            current_user=admin_user,
+        )
+
         # 3. Create Parent-Child Relationship link
         rel = CustomerRelationship(
             id=f"rel-{uuid.uuid4().hex[:12]}",
@@ -295,6 +521,7 @@ async def test_phase5_billing_pos_customer_selection_and_parent_child_visibility
         await session.commit()
         parent_id = parent.id
         child_id = child.id
+        standalone_id = standalone.id
 
     # 4. Billing Directory Search: Child MUST BE HIDDEN (Parent setting = False)
     async with sessionmaker() as session:
@@ -306,6 +533,7 @@ async def test_phase5_billing_pos_customer_selection_and_parent_child_visibility
         found_ids = {c.id for c in catalog_res.items}
         assert parent_id in found_ids, "Parent customer must appear in billing directory"
         assert child_id not in found_ids, "Child customer MUST BE HIDDEN when parent setting is False"
+        assert standalone_id in found_ids, "Independent customer must remain available for billing"
 
     # 5. Enable visibility on Parent Customer
     async with sessionmaker() as session:
@@ -325,6 +553,7 @@ async def test_phase5_billing_pos_customer_selection_and_parent_child_visibility
         found_ids2 = {c.id for c in catalog_res2.items}
         assert parent_id in found_ids2, "Parent customer must appear in billing directory"
         assert child_id in found_ids2, "Child customer MUST BE VISIBLE when parent setting is True"
+        assert standalone_id in found_ids2, "Independent customer must remain available for billing"
 
 
 @pytest.mark.asyncio

@@ -219,6 +219,40 @@ async def test_untransacted_variant_hard_delete_and_sku_release(db_session):
 
 
 @pytest.mark.asyncio
+async def test_untransacted_variant_edit_rejects_duplicate_style_color_size(db_session):
+    comp, _ = await _make_tenant(db_session, "dup-edit")
+    style = await ItemDomainService.create_style(
+        db_session,
+        ItemStyleCreateRequest(style_code=f"ST-{uuid.uuid4().hex[:8]}", style_name="Duplicate Edit Style"),
+        company_id=comp.id,
+    )
+    suffix = uuid.uuid4().hex[:8].upper()
+    first, _, _ = await ItemDomainService.create_variant(
+        db_session,
+        ItemVariantCreateRequest(style_id=style.id, variant_sku=f"SKU-A-{suffix}", color="RED", size="8"),
+        company_id=comp.id,
+    )
+    second, _, _ = await ItemDomainService.create_variant(
+        db_session,
+        ItemVariantCreateRequest(style_id=style.id, variant_sku=f"SKU-B-{suffix}", color="BLUE", size="8"),
+        company_id=comp.id,
+    )
+
+    with pytest.raises(BusinessLogicError) as exc:
+        await ItemDomainService.update_variant(
+            db_session,
+            second.id,
+            ItemVariantUpdateRequest(color="red"),
+            company_id=comp.id,
+            current_user={"username": "test"},
+        )
+    assert exc.value.code == "SMRITI-VARIANT-COMBINATION-COLLISION"
+    await db_session.refresh(second)
+    assert second.color == "BLUE"
+    assert first.id != second.id
+
+
+@pytest.mark.asyncio
 async def test_transacted_variant_blocks_hard_delete_409(db_session):
     """
     Test 2: Guarded Deletion Blocks Transacted Variant with HTTP 409 Conflict.

@@ -74,7 +74,10 @@ export const GlobalHeader: React.FC<GlobalHeaderProps> = ({
   const closeUxModal = useCallback(() => setIsUxModalOpen(false), []);
 
   return (
-    <header className="bg-[#24389c] text-white h-12 px-3 flex items-center justify-between border-b border-[#3f51b5] select-none shadow-sm z-30 relative shrink-0">
+    <header
+      aria-hidden={isMobileViewport && isMobileNavOpen ? true : undefined}
+      className={`bg-[#24389c] text-white h-12 px-3 flex items-center justify-between border-b border-[#3f51b5] select-none shadow-sm z-30 relative shrink-0 ${isMobileViewport && isMobileNavOpen ? 'pointer-events-none' : ''}`}
+    >
       {/* Brand Title */}
       <button
         type="button"

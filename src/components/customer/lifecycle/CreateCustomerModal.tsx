@@ -6,7 +6,7 @@
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
  * Version      : 6.99.0
  * Created      : 2026-10-19
- * Modified     : 2026-10-19
+ * Modified     : 2026-10-24
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
   * Capability    : withCapability("customer.crud", "CRM")
@@ -42,6 +42,7 @@ interface CreateCustomerModalProps {
   isOpen: boolean;
   onClose: () => void;
   onCreated: (createdCustomer: RetailCustomerRecord) => void;
+  parentCustomer?: Pick<RetailCustomerRecord, "id" | "code" | "name"> | null;
   onNotification?: (title: string, message: string, type?: "success" | "error" | "info" | "warning") => void;
 }
 
@@ -49,6 +50,7 @@ export const CreateCustomerModal: React.FC<CreateCustomerModalProps> = ({
   isOpen,
   onClose,
   onCreated,
+  parentCustomer = null,
   onNotification
 }) => {
   // Form fields
@@ -267,6 +269,7 @@ export const CreateCustomerModal: React.FC<CreateCustomerModalProps> = ({
         price_group: priceGroup,
         status: "Active",
         tags: [customerType, isCorp ? "B2B" : "Individual"].filter(Boolean),
+        ...(parentCustomer ? { parent_customer_id: parentCustomer.id, is_dependant: true } : {}),
         allow_duplicate_override: allowDuplicateOverride
       };
 
@@ -321,6 +324,7 @@ export const CreateCustomerModal: React.FC<CreateCustomerModalProps> = ({
         id: res.id || `cust-${Date.now()}`,
         code: res.code || `CUST-${Date.now()}`,
         name: res.name || cleanName,
+        parentCustomerId: res.parent_customer_id || res.parentCustomerId || parentCustomer?.id || "",
         phone: res.mobile || cleanMobile,
         email: res.email || email.trim(),
         customerType: res.customer_type || customerType,
@@ -350,9 +354,9 @@ export const CreateCustomerModal: React.FC<CreateCustomerModalProps> = ({
         buyingFactor: 1.0,
         sellingFactor: 1.0,
         mailingAddresses: [],
-        isDependant: false,
-        primaryAccountCode: "",
-        primaryAccountName: "",
+        isDependant: res.is_dependant ?? res.isDependant ?? Boolean(parentCustomer),
+        primaryAccountCode: parentCustomer?.code || "",
+        primaryAccountName: parentCustomer?.name || "",
         applyParentMailingInfo: false,
         dependants: [],
         gender: "Female",
@@ -441,10 +445,12 @@ export const CreateCustomerModal: React.FC<CreateCustomerModalProps> = ({
             </div>
             <div>
               <h2 id="new-customer-title" className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider">
-                New Customer Account
+                {parentCustomer ? "New Child Customer Account" : "New Customer Account"}
               </h2>
               <p className="text-[11px] text-slate-500">
-                Create retail shopper or corporate enterprise customer profile
+                {parentCustomer
+                  ? `This account will be linked under ${parentCustomer.name} (${parentCustomer.code}).`
+                  : "Create retail shopper or corporate enterprise customer profile"}
               </p>
             </div>
           </div>

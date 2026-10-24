@@ -1956,6 +1956,28 @@ class ItemDomainService:
                     code="SMRITI-IDENTITY-TRANSACTED",
                 )
 
+            # Physical identity is (company, style, color, size). SKU uniqueness
+            # alone does not prevent two variants in the same style from
+            # acquiring the same dimensions during an edit.
+            candidate_color = (new_color.strip().upper() if new_color is not None else (variant.color or "").strip().upper()) or None
+            candidate_size = (new_size.strip().upper() if new_size is not None else (variant.size or "").strip().upper()) or None
+            if candidate_color is not None and candidate_size is not None:
+                duplicate = await session.scalar(
+                    select(ItemVariant.id).where(
+                        ItemVariant.company_id == company_id,
+                        ItemVariant.item_id == variant.item_id,
+                        func.upper(func.coalesce(ItemVariant.color, "")) == (candidate_color or ""),
+                        func.upper(func.coalesce(ItemVariant.size, "")) == (candidate_size or ""),
+                        ItemVariant.id != variant.id,
+                        ItemVariant.is_deleted == False,
+                    ).limit(1)
+                )
+                if duplicate:
+                    raise BusinessLogicError(
+                        "Another variant already uses this Style, Color, and Size combination.",
+                        code="SMRITI-VARIANT-COMBINATION-COLLISION",
+                    )
+
             # Validate SKU uniqueness if SKU changed
             if new_sku and new_sku != variant.variant_sku:
                 collision = await session.scalar(
@@ -1982,6 +2004,8 @@ class ItemDomainService:
                     variant.color = norm_color
                 else:
                     variant.color = None
+                if isinstance(variant.attributes_json, dict):
+                    variant.attributes_json = {**variant.attributes_json, "color": variant.color}
 
             if new_size is not None:
                 if new_size.strip():
@@ -1992,6 +2016,8 @@ class ItemDomainService:
                     variant.size = norm_size
                 else:
                     variant.size = None
+                if isinstance(variant.attributes_json, dict):
+                    variant.attributes_json = {**variant.attributes_json, "size": variant.size}
 
             # If color/size changed and SKU wasn't explicitly provided, recalculate SKU
             if not new_sku and (new_color or new_size):
@@ -2063,7 +2089,12 @@ class ItemDomainService:
         if req.is_active is not None:
             variant.is_active = req.is_active
         if req.attributes_json is not None:
-            variant.attributes_json = req.attributes_json
+            # Color and Size are first-class identity columns. Generic metadata
+            # writes cannot silently diverge from those canonical dimensions.
+            metadata = dict(req.attributes_json)
+            metadata["color"] = variant.color
+            metadata["size"] = variant.size
+            variant.attributes_json = metadata
 
         # 3. Synchronize secondary barcodes if provided
         if req.secondary_barcodes is not None:
