@@ -130,7 +130,7 @@ export function resolveNavigation(query: NavigationQuery): ResolvedNavigation {
         contextIcon: 'point_of_sale',
         items: [
           LAUNCHPAD_ITEM,
-          { id: 'sales', title: 'Sales Billing', icon: 'point_of_sale', isNextBestAction: true },
+          { id: 'billing-workspace', title: 'Billing Workspace', icon: 'point_of_sale', isNextBestAction: true },
           { id: 'sales-promotions', title: 'Promotions Studio', icon: 'percent' },
           { id: 'crm', title: 'Customer 360', icon: 'badge' },
           { id: 'tax-invoice-print', title: 'Statutory A4 Print', icon: 'print' },
@@ -138,8 +138,8 @@ export function resolveNavigation(query: NavigationQuery): ResolvedNavigation {
           { id: 'reports', title: 'Sales Analytics', icon: 'analytics' },
         ],
         nextBestAction: {
-          id: 'sales',
-          title: 'Open Sales Billing',
+          id: 'billing-workspace',
+          title: 'Open Billing Workspace',
           icon: 'point_of_sale',
         },
         breadcrumbAncestors: getAncestorsForContext('sales', false),

@@ -13,9 +13,16 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { BillingWorkspaceMode, BillingAuxiliaryView } from "../components/billing/BillingWorkspace.tsx";
+import {
+  BillingWorkspaceMode,
+  BillingAuxiliaryView,
+  getBillingDefaults,
+  normalizeBillingAuxiliaryView,
+} from "../components/billing/BillingWorkspace.tsx";
 import { mapModuleId } from "../components/shell/TabRenderer.tsx";
 import { ENTERPRISE_MENU_ITEMS } from "../components/shell/EnterpriseMenuBar.tsx";
+import { filterNavigationTree } from "../components/shell/navigationAccess.ts";
+import { resolveNavigation } from "../components/shell/navigationResolver.ts";
 
 const flattenMenuLabels = (items: typeof ENTERPRISE_MENU_ITEMS): string[] =>
   items.flatMap((item) => [item.label, ...flattenMenuLabels(item.children || [])]);
@@ -39,7 +46,6 @@ describe("SMRITI Canonical Billing Consolidation & Route Parity Tests", () => {
       "CREDIT_BILLING",
       "B2B_DISTRIBUTOR",
       "SALES_MANAGEMENT",
-      "CREDIT_TAX_INVOICE",
     ];
 
     expect(validViews).toContain("WORKSPACE");
@@ -48,13 +54,35 @@ describe("SMRITI Canonical Billing Consolidation & Route Parity Tests", () => {
     expect(validViews).toContain("CREDIT_BILLING");
     expect(validViews).toContain("B2B_DISTRIBUTOR");
     expect(validViews).toContain("SALES_MANAGEMENT");
-    expect(validViews).toContain("CREDIT_TAX_INVOICE");
-    expect(validViews).toHaveLength(7);
+    expect(validViews).toHaveLength(6);
+  });
+
+  it("routes legacy billing views into the single canonical workspace", () => {
+    expect(normalizeBillingAuxiliaryView("CREDIT_TAX_INVOICE")).toBe("WORKSPACE");
+    expect(normalizeBillingAuxiliaryView("CREDIT_BILLING")).toBe("WORKSPACE");
+    expect(normalizeBillingAuxiliaryView("B2B_DISTRIBUTOR")).toBe("WORKSPACE");
+  });
+
+  it("selects the correct initial transaction and channel for legacy billing routes", () => {
+    expect(getBillingDefaults("RETAIL_POS")).toEqual({ transaction: "Cash", salesChannel: "POS_RETAIL" });
+    expect(getBillingDefaults("CREDIT_BILLING")).toEqual({ transaction: "Credit", salesChannel: "B2B_WHOLESALE" });
+    expect(getBillingDefaults("B2B_DISTRIBUTOR")).toEqual({ transaction: "Credit", salesChannel: "B2B_WHOLESALE" });
   });
 
   it("should expose a single Billing & Sales navigation entry", () => {
     expect(flattenMenuLabels(ENTERPRISE_MENU_ITEMS).filter((label) => label === "Billing & Sales")).toHaveLength(1);
     expect(ENTERPRISE_MENU_ITEMS.some((item) => item.id === "sales")).toBe(false);
+  });
+
+  it("keeps the canonical Billing entry visible for legacy sales-module permissions", () => {
+    const visibleMenu = filterNavigationTree(ENTERPRISE_MENU_ITEMS, ["sales"]);
+    expect(flattenMenuLabels(visibleMenu).filter((label) => label === "Billing & Sales")).toHaveLength(1);
+  });
+
+  it("routes contextual sales navigation to the canonical Billing Workspace", () => {
+    const navigation = resolveNavigation({ context: "sales" });
+    expect(navigation.items.find((item) => item.isNextBestAction)?.id).toBe("billing-workspace");
+    expect(navigation.nextBestAction?.id).toBe("billing-workspace");
   });
 
   // TEST 3 — Route Harmonization & TabRenderer Map Module Id Resolution
@@ -77,6 +105,10 @@ describe("SMRITI Canonical Billing Consolidation & Route Parity Tests", () => {
     expect(mapModuleId("credit_billing")).toBe("credit-billing");
     expect(mapModuleId("credit-sale")).toBe("credit-billing");
     expect(mapModuleId("menu-credit-billing")).toBe("credit-billing");
+    expect(mapModuleId("credit-tax-invoice")).toBe("credit-note");
+    expect(mapModuleId("credit-note")).toBe("credit-note");
+    expect(mapModuleId("sales-return")).toBe("credit-note");
+    expect(mapModuleId("sales_return")).toBe("credit-note");
 
     // ProPOS legacy routes
     expect(mapModuleId("propos")).toBe("propos-workspace");
@@ -86,30 +118,9 @@ describe("SMRITI Canonical Billing Consolidation & Route Parity Tests", () => {
     expect(mapModuleId("menu-propos")).toBe("propos-workspace");
   });
 
-  // TEST 4 — Tri-Modal Keyboard Hotkey Mapping
-  it("TEST 4: should declare collision-free keyboard shortcuts across modes and actions", () => {
-    const hotkeyMatrix: Record<string, { action: string; category: string }> = {
-      "Alt+1": { action: "SWITCH_RETAIL_POS", category: "Mode" },
-      "Alt+2": { action: "SWITCH_CREDIT_BILLING", category: "Mode" },
-      "Alt+3": { action: "SWITCH_B2B_DISTRIBUTOR", category: "Mode" },
-      F1: { action: "NEW_BILL_FOCUS_BARCODE", category: "Workflow" },
-      F2: { action: "ADVANCED_ITEM_STOCK_LOOKUP", category: "Workflow" },
-      F3: { action: "CUSTOMER_SEARCH", category: "Workflow" },
-      F4: { action: "PAYMENT_SETTLEMENT", category: "Workflow" },
-      F5: { action: "HOLD_PARK_BILL", category: "Cart" },
-      F6: { action: "RECALL_PARKED_BILL", category: "Cart" },
-      F9: { action: "FAST_CASH_1_CLICK", category: "Payment" },
-      F10: { action: "CONFIRM_POST_BILL", category: "Payment" },
-      Escape: { action: "DISMISS_CANCEL", category: "Control" },
-    };
-
-    expect(Object.keys(hotkeyMatrix)).toHaveLength(12);
-    expect(hotkeyMatrix["Alt+1"].action).toBe("SWITCH_RETAIL_POS");
-    expect(hotkeyMatrix["Alt+2"].action).toBe("SWITCH_CREDIT_BILLING");
-    expect(hotkeyMatrix["Alt+3"].action).toBe("SWITCH_B2B_DISTRIBUTOR");
-    expect(hotkeyMatrix["F1"].action).toBe("NEW_BILL_FOCUS_BARCODE");
-    expect(hotkeyMatrix["F9"].action).toBe("FAST_CASH_1_CLICK");
-    expect(hotkeyMatrix["F10"].action).toBe("CONFIRM_POST_BILL");
+  it("routes credit note aliases to Sales Documents, not credit-sale billing", () => {
+    expect(mapModuleId("credit-tax-invoice")).toBe("credit-note");
+    expect(mapModuleId("credit-note")).toBe("credit-note");
   });
 
   // TEST 5 — Tax Invariance Contract

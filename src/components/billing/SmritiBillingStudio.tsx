@@ -9,7 +9,9 @@
  * Modified     : 2026-10-23
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
- * Classification: Canonical SMRITI Billing Studio Component
+ * Classification: Legacy SMRITI Billing Studio Component
+ * @deprecated Legacy standalone UI. The active billing routes now use `BillingWorkspace` with the shared `BillingTerm` editor.
+ * Unified Billing UX migration completed 2026-10-24. Retained temporarily for backward compatibility.
  */
 
 import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";

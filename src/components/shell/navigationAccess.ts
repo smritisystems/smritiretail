@@ -27,9 +27,28 @@ const MODULE_ALIASES: Record<string, string[]> = {
   vendors: ["supplier-mgmt", "vendor-360", "vendor-master"],
   "b2b-dispatch-studio": ["dispatch-studio"],
   "dispatch-studio": ["b2b-dispatch-studio"],
-  "billing-workspace": ["billing", "desktop-billing"],
-  "desktop-billing": ["billing", "billing-workspace"],
-  billing: ["desktop-billing", "billing-workspace"],
+  "billing-workspace": [
+    "billing",
+    "desktop-billing",
+    "pos",
+    "sales",
+    "credit-billing",
+    "credit_billing",
+    "credit-sale",
+    "credit-tax-invoice",
+    "credit_tax_invoice",
+    "credit-note",
+    "credit_note",
+    "tax-invoice",
+    "dist-invoice",
+    "create-tax-invoice",
+    "sales-return",
+    "sales_return",
+  ],
+  "desktop-billing": ["billing", "billing-workspace", "pos", "sales"],
+  billing: ["desktop-billing", "billing-workspace", "pos", "sales"],
+  pos: ["billing", "billing-workspace", "desktop-billing", "sales"],
+  sales: ["billing", "billing-workspace", "desktop-billing", "pos"],
   "company-profile": ["company-setup"],
   "company-setup": ["company-profile"],
 };
@@ -46,7 +65,8 @@ export function isNavigationModuleAllowed(
 
   const normalizedId = normalizeNavigationId(moduleId);
   if (["home", "launchpad"].includes(normalizedId)) return true;
-  if (!resolvedNavigationIds) return false;
+  if (resolvedNavigationIds === null) return true;
+  if (!resolvedNavigationIds || resolvedNavigationIds.length === 0) return false;
 
   const allowedIds = new Set(resolvedNavigationIds.map(normalizeNavigationId));
   const candidates = [normalizedId, ...(MODULE_ALIASES[normalizedId] || [])];

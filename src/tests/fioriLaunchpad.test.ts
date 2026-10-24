@@ -16,6 +16,7 @@ import {
   LAUNCHPAD_CATALOG,
   getVisibleLaunchpadTiles,
   getQuickActionTiles,
+  synthesizeLaunchpadCatalogWithRemoteMenus,
 } from "../components/launchpad/launchpadCatalog.ts";
 
 const REGISTERED_APP_TABS = [
@@ -126,6 +127,20 @@ describe("Fiori Launchpad Canonical Routing & Catalog Integrity", () => {
     const ids = LAUNCHPAD_CATALOG.map((t) => t.id);
     const uniqueIds = new Set(ids);
     expect(ids.length).toBe(uniqueIds.size);
+  });
+
+  it("should merge legacy billing menu routes into one canonical launchpad tile", () => {
+    const merged = synthesizeLaunchpadCatalogWithRemoteMenus([
+      { id: "menu-pos", title: "POS Billing", route: "/pos", module: "sales" },
+      { id: "menu-credit-billing", title: "Credit Billing", route: "/credit-billing", module: "sales" },
+      { id: "menu-dist-invoice", title: "Distributor Invoice", route: "/dist-invoice", module: "sales" },
+      { id: "menu-sales", title: "Sales", route: "/sales", module: "sales" },
+    ]);
+
+    expect(merged.filter((tile) => tile.id === "billing-workspace")).toHaveLength(1);
+    expect(merged.some((tile) => tile.id === "credit-billing" || tile.id === "dist-invoice")).toBe(false);
+    expect(merged.find((tile) => tile.id === "billing-workspace")?.title).toBe("Billing Workspace");
+    expect(merged.find((tile) => tile.id === "sales")?.title).toBe("Sales Documents");
   });
 
   it("should have primary quick actions defined for mobile/touch fast-switching", () => {

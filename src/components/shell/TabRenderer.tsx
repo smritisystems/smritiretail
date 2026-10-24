@@ -43,7 +43,6 @@ const TaxInvoicePrintPage = lazy(() => import("../TaxInvoicePrintPag.tsx").then(
 const DevTrackerTab = lazy(() => import("../../modules/dev_tracker/ui/DevTrackerTab.tsx").then(m => ({ default: m.DevTrackerTab })));
 const ClassicWorkspaceDirectory = lazy(() => import("../launchpad/ClassicWorkspaceDirectory.tsx").then(m => ({ default: m.ClassicWorkspaceDirectory })));
 const SecurityAccessShell = lazy(() => import("../security/SecurityAccessShell.tsx").then(m => ({ default: m.SecurityAccessShell })));
-const SalesStudioTab = lazy(() => import("../SalesStudioTab.tsx").then(m => ({ default: m.SalesStudioTab })));
 const EWayBillManagementTab = lazy(() => import("../compliance/EWayBillManagementTab.tsx").then(m => ({ default: m.EWayBillManagementTab })));
 const ReportDesignerTab = lazy(() => import("../ReportDesignerTab.tsx").then(m => ({ default: m.ReportDesignerTab })));
 const PurchaseStudioTab = lazy(() => import("../PurchaseStudioTab.tsx").then(m => ({ default: m.PurchaseStudioTab })));
@@ -80,7 +79,6 @@ const DispatchInvoicingStudioTab = lazy(() => import("../sales/DispatchInvoicing
 const CommunicatorStudioTab = lazy(() => import("../communicator/CommunicatorStudioTab.tsx").then(m => ({ default: m.CommunicatorStudioTab })));
 const SalesOrderTab = lazy(() => import("../sales/SalesOrderTab.tsx").then(m => ({ default: m.SalesOrderTab })));
 const SupplierDashboardTab = lazy(() => import("../SupplierDashTab.tsx").then(m => ({ default: m.SupplierDashboardTab })));
-const ProPosWs = lazy(() => import("../billing/propos/ProPosWs.tsx").then(m => ({ default: m.ProPosWs })));
 const DocumentStudioScreen = lazy(() => import("../global/document/DocStudioScreen.tsx").then(m => ({ default: m.DocumentStudioScreen })));
 const BulkImportSection = lazy(() => import("../BulkImportSection.tsx").then(m => ({ default: m.BulkImportSection })));
 const DataBridgeWorkspace = lazy(() => import("../databridge/DataBridgeWorkspace.tsx").then(m => ({ default: m.DataBridgeWorkspace })));
@@ -169,6 +167,12 @@ export const mapModuleId = (id: string): string => {
     credit_billing: "credit-billing",
     "credit-sale": "credit-billing",
     "menu-credit-billing": "credit-billing",
+    "credit-tax-invoice": "credit-note",
+    credit_tax_invoice: "credit-note",
+    "credit-note": "credit-note",
+    credit_note: "credit-note",
+    "sales-return": "credit-note",
+    sales_return: "credit-note",
     "ewaybill-management": "ewaybill-management",
     ewaybill_management: "ewaybill-management",
     "eway-bill-management": "ewaybill-management",
@@ -443,16 +447,6 @@ export const renderTabNode = (tabId: string, ctx: TabRendererContextProps): Reac
     case "billing-workspace":
     case "billing":
     case "pos":
-      if (uxMode === "classic") {
-        return (
-          <ClassicUxWorkspace
-            products={products}
-            currentUser={currentUser}
-            onNavigateTab={(tab) => setActiveTab(mapModuleId(tab))}
-            onNotification={addNotification}
-          />
-        );
-      }
       return (
         <BillingWorkspace
           products={products}
@@ -475,7 +469,19 @@ export const renderTabNode = (tabId: string, ctx: TabRendererContextProps): Reac
           onRefreshData={fetchSystemState}
           onNotification={addNotification}
           initialMode="CREDIT_BILLING"
-          initialView="CREDIT_BILLING"
+        />
+      );
+    case "credit-tax-invoice":
+    case "credit-note":
+      return (
+        <BillingWorkspace
+          products={products}
+          profiles={profiles}
+          shifts={shifts}
+          currentUser={currentUser}
+          onRefreshData={fetchSystemState}
+          onNotification={addNotification}
+          initialView="SALES_MANAGEMENT"
         />
       );
     case "tax-invoice":
@@ -495,10 +501,14 @@ export const renderTabNode = (tabId: string, ctx: TabRendererContextProps): Reac
       );
     case "sales":
       return (
-        <SalesStudioTab
+        <BillingWorkspace
           products={products}
-          onNotification={addNotification}
+          profiles={profiles}
+          shifts={shifts}
           currentUser={currentUser}
+          onRefreshData={fetchSystemState}
+          onNotification={addNotification}
+          initialView="SALES_MANAGEMENT"
         />
       );
     case "ewaybill-management":

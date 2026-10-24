@@ -34,12 +34,14 @@ class ContextRegistry {
   constructor() {
     // Load favorites & pinned from localStorage if offline-persistence is available
     try {
-      const favs = localStorage.getItem("smriti_acas_favorites");
-      if (favs) this.favoriteActionIds = JSON.parse(favs);
-      const pinned = localStorage.getItem("smriti_acas_pinned");
-      if (pinned) this.pinnedActionIds = JSON.parse(pinned);
-      const recents = localStorage.getItem("smriti_acas_recents");
-      if (recents) this.recentActionIds = JSON.parse(recents);
+      if (typeof window !== "undefined" && typeof localStorage !== "undefined") {
+        const favs = localStorage.getItem("smriti_acas_favorites");
+        if (favs) this.favoriteActionIds = JSON.parse(favs);
+        const pinned = localStorage.getItem("smriti_acas_pinned");
+        if (pinned) this.pinnedActionIds = JSON.parse(pinned);
+        const recents = localStorage.getItem("smriti_acas_recents");
+        if (recents) this.recentActionIds = JSON.parse(recents);
+      }
     } catch (e) {
       console.warn("Could not load ACAS persistent preferences", e);
     }
@@ -76,7 +78,9 @@ class ContextRegistry {
   public recordExecution(actionId: string): void {
     this.recentActionIds = [actionId, ...this.recentActionIds.filter(id => id !== actionId)].slice(0, 8);
     try {
-      localStorage.setItem("smriti_acas_recents", JSON.stringify(this.recentActionIds));
+      if (typeof window !== "undefined" && typeof localStorage !== "undefined") {
+        localStorage.setItem("smriti_acas_recents", JSON.stringify(this.recentActionIds));
+      }
     } catch (e) {
       // Ignored in strict sandbox environment
     }
@@ -92,7 +96,9 @@ class ContextRegistry {
       this.favoriteActionIds.push(actionId);
     }
     try {
-      localStorage.setItem("smriti_acas_favorites", JSON.stringify(this.favoriteActionIds));
+      if (typeof window !== "undefined" && typeof localStorage !== "undefined") {
+        localStorage.setItem("smriti_acas_favorites", JSON.stringify(this.favoriteActionIds));
+      }
     } catch (e) {}
   }
 
@@ -106,7 +112,9 @@ class ContextRegistry {
       this.pinnedActionIds.push(actionId);
     }
     try {
-      localStorage.setItem("smriti_acas_pinned", JSON.stringify(this.pinnedActionIds));
+      if (typeof window !== "undefined" && typeof localStorage !== "undefined") {
+        localStorage.setItem("smriti_acas_pinned", JSON.stringify(this.pinnedActionIds));
+      }
     } catch (e) {}
   }
 

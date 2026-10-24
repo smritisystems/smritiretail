@@ -435,7 +435,7 @@ describe("SMRITI F2 Advanced Item Search Engine", () => {
         }
       };
 
-      // Emulate the adapter logic in ProPosBillingTerm
+      // Preserve the legacy search-result adapter contract used by billing lookup clients.
       let directStockNo = "";
       let directBarcode = "";
       let directDescription = "";
@@ -652,4 +652,3 @@ describe("SMRITI F2 Advanced Item Search Engine", () => {
     });
   });
 });
-
