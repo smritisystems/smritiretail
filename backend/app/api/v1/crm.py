@@ -543,70 +543,50 @@ async def get_corporate_customer_360(
     from decimal import Decimal
     from sqlalchemy.orm import selectinload
 
-    # 1. Look up customer by ID or Code (with fallback to first corporate / Reliance account)
+    # 1. Resolve the requested customer only. Never substitute another customer
+    # when a caller omits an identity or sends a legacy placeholder.
     cid = customer_id.strip()
-    customer = None
-    if cid and cid.lower() not in {"default", "corporate", "reliance", "cust-rel-0001"}:
-        stmt = (
-            select(Customer)
-            .where(
-                (Customer.id == cid) | (Customer.code == cid),
-                Customer.company_id == tenant_ctx.company_id,
-                Customer.is_deleted == False,
-            )
-            .options(
-                selectinload(Customer.delivery_locations),
-                selectinload(Customer.billing_locations),
-                selectinload(Customer.gst_registrations),
-                selectinload(Customer.group),
-                selectinload(Customer.policy),
-            )
-        )
-        customer = (await db.execute(stmt)).scalars().first()
-        if not customer:
-            raise HTTPException(status_code=404, detail=f"Corporate customer '{customer_id}' not found.")
-    else:
-        fallback_stmt = (
-            select(Customer)
-            .where(
-                Customer.company_id == tenant_ctx.company_id,
-                Customer.is_deleted == False,
-                (Customer.id == "cust-rrl-192b561d") | (Customer.code == "RRL-001") | (Customer.code.ilike("%RRL%")) | (Customer.code.ilike("%REL%")) | (Customer.name.ilike("%Reliance%")),
-            )
-            .order_by(
-                func.case((Customer.id == "cust-rrl-192b561d", 1), (Customer.code == "RRL-001", 2), else_=3),
-                Customer.id,
-            )
-            .options(
-                selectinload(Customer.delivery_locations),
-                selectinload(Customer.billing_locations),
-                selectinload(Customer.gst_registrations),
-                selectinload(Customer.group),
-                selectinload(Customer.policy),
-            )
-        )
-        customer = (await db.execute(fallback_stmt)).scalars().first()
+    if not cid:
+        raise HTTPException(status_code=400, detail="A customer ID or code is required.")
 
-        if not customer:
-            any_stmt = (
-                select(Customer)
-                .where(Customer.company_id == tenant_ctx.company_id, Customer.is_deleted == False)
-                .order_by(Customer.created_at.desc())
-                .options(
-                    selectinload(Customer.delivery_locations),
-                    selectinload(Customer.billing_locations),
-                    selectinload(Customer.gst_registrations),
-                    selectinload(Customer.group),
-                    selectinload(Customer.policy),
-                )
-            )
-            customer = (await db.execute(any_stmt)).scalars().first()
-
-        if not customer:
-            raise HTTPException(status_code=404, detail="Customer not found")
+    customer_repository = CustomerRepository(db, tenant_ctx)
+    stmt = (
+        select(Customer)
+        .where(
+            (Customer.id == cid) | (Customer.code == cid),
+            Customer.is_deleted == False,
+        )
+        .options(
+            selectinload(Customer.delivery_locations),
+            selectinload(Customer.billing_locations),
+            selectinload(Customer.gst_registrations),
+            selectinload(Customer.group),
+            selectinload(Customer.policy),
+            selectinload(Customer.company_relationships),
+        )
+    )
+    stmt = customer_repository._apply_tenant_filter(stmt)
+    customer = (await db.execute(stmt)).scalars().first()
+    if not customer:
+        raise HTTPException(status_code=404, detail=f"Customer '{customer_id}' not found in the active company.")
 
     target_cust_id = customer.id
     customer_dto = CustomerResponse.from_orm_customer(customer)
+    active_company_terms = next((
+        relationship for relationship in (customer.company_relationships or [])
+        if relationship.company_id == tenant_ctx.company_id
+        and not getattr(relationship, "is_deleted", False)
+        and str(getattr(relationship, "status", "Active")).lower() == "active"
+    ), None)
+    if active_company_terms:
+        # Customer identity is shared across companies, but transaction terms are
+        # company-specific. Project the active tenant's relationship terms onto
+        # this response rather than leaking the identity owner's defaults.
+        customer_dto.credit_limit = active_company_terms.credit_limit
+        customer_dto.credit_days = active_company_terms.credit_days
+        customer_dto.credit_hold = active_company_terms.credit_hold
+        if active_company_terms.customer_group_id:
+            customer_dto.customer_group_id = active_company_terms.customer_group_id
 
     # 2. Query PSV parties associated with this customer
     parties = []
@@ -658,7 +638,7 @@ async def get_corporate_customer_360(
     not_reporting_stores = 0
 
     if delivery_locs:
-        for idx, loc in enumerate(delivery_locs):
+        for loc in delivery_locs:
             matched_psv = psv_map_by_store.get(loc.store_code)
             stype = derive_store_type(loc.location_name, loc.remarks)
             store_type_counts[stype] = store_type_counts.get(stype, 0) + 1
@@ -669,7 +649,7 @@ async def get_corporate_customer_360(
             if matched_psv and matched_psv.capital_locked is not None:
                 psv_val = Decimal(str(matched_psv.capital_locked))
                 total_psv_accum += psv_val
-                status_val = (matched_psv.status or "Healthy").upper()
+                status_val = (matched_psv.status or "").upper()
                 if status_val in {"ACTIVE", "HEALTHY", "NORMAL"}:
                     in_stock_val += psv_val
                     in_stock_stores += 1
@@ -678,10 +658,12 @@ async def get_corporate_customer_360(
                     low_stock_val += psv_val
                     low_stock_stores += 1
                     psv_status = "Low Stock"
-                else:
+                elif status_val:
                     out_of_stock_val += psv_val
                     out_of_stock_stores += 1
                     psv_status = "Critical"
+                else:
+                    psv_status = "Unknown"
 
                 if psv_val >= 10000000:
                     psv_display = f"₹ {(float(psv_val) / 10000000):.2f} Cr"
@@ -706,26 +688,6 @@ async def get_corporate_customer_360(
                         addresses_list.append(StoreAddressItem.model_validate(a))
                     elif isinstance(a, StoreAddressItem):
                         addresses_list.append(a)
-            if not addresses_list:
-                addresses_list = [
-                    StoreAddressItem(
-                        id=f"addr-{loc.id}",
-                        address_type="Delivery",
-                        address_title="Primary Store Front",
-                        address_line1=loc.address_line1 or loc.location_name,
-                        address_line2=loc.address_line2,
-                        city=loc.city or "Mumbai",
-                        state=loc.state or "Maharashtra",
-                        state_code=loc.state_code,
-                        pincode=loc.pincode or "400001",
-                        country=loc.country or "India",
-                        contact_person=loc.contact_person,
-                        phone=loc.phone,
-                        email=loc.email,
-                        is_primary=True,
-                        is_active=True,
-                    )
-                ]
             primary_addr = next((a for a in addresses_list if a.is_primary and a.is_active), addresses_list[0] if addresses_list else None)
             addr_summary = f"{primary_addr.address_line1}, {primary_addr.city} - {primary_addr.pincode}" if primary_addr else (loc.address_line1 or loc.location_name or "—")
 
@@ -733,18 +695,18 @@ async def get_corporate_customer_360(
                 id=loc.id,
                 store_code=loc.store_code,
                 store_name=loc.location_name,
-                city=loc.city or "Mumbai",
-                state=loc.state or "Maharashtra",
+                city=loc.city or "",
+                state=loc.state or "",
                 store_type=stype,
                 status="Active" if is_active else "Inactive",
                 psv_value=psv_val,
                 psv_status=psv_status,
                 psv_value_display=psv_display,
-                contact=loc.contact_person or "S. Patil",
+                contact=loc.contact_person or "",
                 phone=loc.phone,
                 email=loc.email,
-                gstin=loc.gstin or customer.gst_number,
-                address_summary=addr_summary,
+                gstin=loc.gstin,
+                address_summary=addr_summary or None,
                 addresses=addresses_list,
             ))
     total_stores_count = len(delivery_locs)
@@ -815,7 +777,7 @@ async def get_corporate_customer_360(
                 stores_count=1,
                 items_count=int(o.total_qty or 1),
                 value=Decimal(str(o.grand_total or 0)),
-                status=o.status or "Completed",
+                status=o.status,
             ))
     elif invoices:
         for i in invoices[:5]:
@@ -825,7 +787,7 @@ async def get_corporate_customer_360(
                 stores_count=1,
                 items_count=1,
                 value=Decimal(str(i.grand_total or 0)),
-                status="Completed" if i.status in {"PAID", "Submitted"} else (i.status or "Completed"),
+                status=i.status,
             ))
 
     total_store_slices = sum(store_type_counts.values()) or total_stores_count

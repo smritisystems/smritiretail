@@ -2064,13 +2064,8 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
             <LazyCorporateCustomer360
               customerId={currentCustomer?.id || ""}
               customer={currentCustomer}
-              currentUser={currentUser}
-              onChange={(field, value) => handleFieldChange(field as any, value)}
               onSave={handleSave}
-              onSaveAndNew={handleSaveAndNew}
-              onDuplicate={handleDuplicate}
               onDeactivate={handleOpenDeactivate}
-              onNotification={onNotification}
               onBack={() => setViewMode("catalogue")}
               onEditCustomer={() => {
                 setViewMode("catalogue");

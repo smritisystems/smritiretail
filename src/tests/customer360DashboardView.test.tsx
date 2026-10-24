@@ -1,847 +1,102 @@
-/**
- * Project      : SMRITI Retail OS
- * Repository   : SMRITIRetailNX
- * Organization : AITDL NETWORKS
- * Author       : Jawahar Ramkripal Mallah
- * Designation  : Chief Systems Architect & Creator
- * Email        : support@smritibooks.com
- * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.99.0
- * Created      : 2026-10-20
- * Modified     : 2026-10-20
- * Copyright    : © SMRITIBooks.com. All Rights Reserved.
- * License      : Proprietary Commercial Software
- * Classification: Corporate Customer 360 Test Suite
- * Capability   : withCapability("customer.crud", "CRM")
- */
-
 import React from "react";
-import { describe, it, expect, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
 import { Customer360DashboardView } from "../components/customer/corporate360/Customer360DashboardView.tsx";
+import { CorporateCustomer360 } from "../components/customer/corporate360/CorporateCustomer360.tsx";
 import { CorporateCustomerTabs } from "../components/customer/corporate360/CorporateCustomerTabs.tsx";
-import { Customer } from "../types.ts";
 
-const sampleCustomer: Customer = {
-  id: "cust-rrl-192b561d",
-  code: "REL001",
-  name: "Reliance Retail Limited",
-  legal_name: "Reliance Retail Limited",
-  display_name: "Reliance Retail",
-  customer_type: "Corporate / Enterprise",
+const customer = {
+  id: "cust-001",
+  code: "CUST-001",
+  name: "Northwind Retail",
+  customer_type: "Business",
+  status: "Active",
   is_active: true,
-  is_deleted: false,
-  company_id: "COMP-001",
-  created_at: "2018-04-01T00:00:00Z",
-  modified_at: "2026-10-20T00:00:00Z",
-  territory: "West India",
-  gst_number: "27AABCR1234F1Z5",
-  pan: "AABCR1234F",
-  payment_terms: "30 Days",
-  credit_limit: 50000000,
+  credit_limit: 250000,
+  credit_used: 40000,
   credit_days: 30,
-  outstanding: 21543250,
-  childCount: 12,
-  storesCount: 85,
-  currency: "INR",
-  address_line1: "3rd Floor, Corporate Office, MMRDA Building, Bandra-Kurla Complex",
-  city: "Mumbai",
-  state: "Maharashtra",
-  pincode: "400051",
-  metadata_json: {
-    iec: "IEC1234567",
-    sales_person: "Corporate Sales",
-  },
-  delivery_locations: [
-    { id: "s1", store_code: "REL-MUM-001", location_name: "Phoenix Mall", city: "Mumbai", state: "Maharashtra", location_type: "Store", status: "Active" },
-    { id: "s2", store_code: "REL-MUM-002", location_name: "Inorbit Mall", city: "Mumbai", state: "Maharashtra", location_type: "Store", status: "Active" },
-    { id: "s3", store_code: "REL-PUN-001", location_name: "Amanora Mall", city: "Pune", state: "Maharashtra", location_type: "Store", status: "Active" },
-    { id: "s4", store_code: "REL-AHM-001", location_name: "AlphaOne Mall", city: "Ahmedabad", state: "Gujarat", location_type: "Store", status: "Active" },
-    { id: "s5", store_code: "REL-BLR-001", location_name: "Orion Mall", city: "Bangalore", state: "Karnataka", location_type: "Store", status: "Inactive" },
-  ],
-  dependants: [
-    { id: "cc1", code: "REL001-001", name: "Reliance - Phoenix Mall", storeCode: "REL-MUM-001", city: "Mumbai", status: "Active", storesCount: 12 },
-    { id: "cc2", code: "REL001-002", name: "Reliance - Inorbit Mall", storeCode: "REL-MUM-002", city: "Mumbai", status: "Active", storesCount: 8 },
-    { id: "cc3", code: "REL001-003", name: "Reliance - Amanora Mall", storeCode: "REL-PUN-001", city: "Pune", status: "Active", storesCount: 10 },
-    { id: "cc4", code: "REL001-004", name: "Reliance - AlphaOne", storeCode: "REL-AHM-001", city: "Ahmedabad", status: "Active", storesCount: 15 },
-    { id: "cc5", code: "REL001-005", name: "Reliance - Orion Mall", storeCode: "REL-BLR-001", city: "Bangalore", status: "Inactive", storesCount: 5 },
-  ],
-  psvDetailedRows: [
-    {
-      id: "1",
-      doc_no: "PO-2026-001",
-      date: "10/10/2026",
-      customer_code: "REL001-002",
-      customer_name: "Reliance - Inorbit Mall",
-      store_code: "REL-MUM-002",
-      article_style: "Men's T-Shirt",
-      color: "Navy",
-      size: "L",
-      barcode: "8901234567890",
-      document_qty: 100,
-      received_qty: 100,
-      pending_approval_qty: 0,
-      approved_qty: 100,
-      shortage_qty: 0,
-      excess_qty: 0,
-      status: "Approved",
-    },
-    {
-      id: "2",
-      doc_no: "PO-2026-002",
-      date: "08/10/2026",
-      customer_code: "REL001-001",
-      customer_name: "Reliance - Phoenix Mall",
-      store_code: "REL-MUM-001",
-      article_style: "Men's Shirt",
-      color: "White",
-      size: "M",
-      barcode: "8901234567891",
-      document_qty: 200,
-      received_qty: 180,
-      pending_approval_qty: 20,
-      approved_qty: 160,
-      shortage_qty: 20,
-      excess_qty: 0,
-      status: "Pending",
-    },
-    {
-      id: "3",
-      doc_no: "PO-2026-003",
-      date: "05/10/2026",
-      customer_code: "REL001-003",
-      customer_name: "Reliance - Amanora Mall",
-      store_code: "REL-PUN-001",
-      article_style: "Women's Kurti",
-      color: "Red",
-      size: "XL",
-      barcode: "8901234567892",
-      document_qty: 150,
-      received_qty: 150,
-      pending_approval_qty: 0,
-      approved_qty: 150,
-      shortage_qty: 0,
-      excess_qty: 0,
-      status: "Approved",
-    },
-    {
-      id: "4",
-      doc_no: "PO-2026-004",
-      date: "02/10/2026",
-      customer_code: "REL001-004",
-      customer_name: "Reliance - AlphaOne",
-      store_code: "REL-AHM-001",
-      article_style: "Men's Jeans",
-      color: "Blue",
-      size: "32",
-      barcode: "8901234567893",
-      document_qty: 80,
-      received_qty: 70,
-      pending_approval_qty: 0,
-      approved_qty: 70,
-      shortage_qty: 10,
-      excess_qty: 0,
-      status: "Shortage",
-    },
-    {
-      id: "5",
-      doc_no: "PO-2026-005",
-      date: "01/10/2026",
-      customer_code: "REL001-001",
-      customer_name: "Reliance - Phoenix Mall",
-      store_code: "REL-MUM-001",
-      article_style: "Men's T-Shirt",
-      color: "Black",
-      size: "L",
-      barcode: "8901234567894",
-      document_qty: 250,
-      received_qty: 240,
-      pending_approval_qty: 0,
-      approved_qty: 240,
-      shortage_qty: 0,
-      excess_qty: 10,
-      status: "Excess",
-    },
-  ] as any,
-  psvSummary: {
-    total_items: 125,
-    total_document_qty: 5420,
-    total_received_qty: 5180,
-    total_approved_qty: 4980,
-    total_pending_approval_qty: 240,
-    total_short_qty: 120,
-    total_excess_qty: 80,
-  },
-  psvTotalRecords: 125,
-  invoices: [
-    { id: "i1", no: "TT2026-2027/18", date: "15/06/2026", store: "REL-MUM-001", storeName: "Phoenix Mall", amount: "5,990.00", status: "Paid", items: 10 },
-    { id: "i2", no: "TT2026-2027/17", date: "10/06/2026", store: "REL-MUM-002", storeName: "Inorbit Mall", amount: "2,995.00", status: "Paid", items: 10 },
-    { id: "i3", no: "TT2026-2027/16", date: "28/05/2026", store: "REL-PUN-001", storeName: "Amanora Mall", amount: "2,097.00", status: "Unpaid", items: 10 },
-    { id: "i4", no: "TT2026-2027/15", date: "12/05/2026", store: "REL-AHM-001", storeName: "AlphaOne Mall", amount: "4,560.00", status: "Paid", items: 10 },
-  ],
-  billingAddresses: [
-    { id: "b1", name: "Head Office", address: "3rd Floor, MMRDA BKC, Mumbai", city: "Mumbai", state: "MH", pin: "400051", gstin: "27AABCR1234F1Z5", isDefault: true },
-    { id: "b2", name: "Regional Office", address: "R-Tech Park, MIDC", city: "Navi Mumbai", state: "MH", pin: "400710", gstin: "—", isDefault: false },
-  ],
-  deliveryAddresses: [
-    { id: "d1", name: "Phoenix Mall DC", address: "Kurla West", city: "Mumbai", state: "MH", pin: "400070", gstin: "27AABCR1234F1Z5" },
-    { id: "d2", name: "Inorbit Hub", address: "Link Road, Malad", city: "Mumbai", state: "MH", pin: "400064", gstin: "27AABCR1234F1Z5" },
-    { id: "d3", name: "Amanora Depot", address: "Hadapsar", city: "Pune", state: "MH", pin: "411028", gstin: "27AABCR1234F1Z5" },
-    { id: "d4", name: "AlphaOne Dock", address: "Vastrapur", city: "Ahmedabad", state: "GJ", pin: "380015", gstin: "24AABCR1234F1Z3" },
-    { id: "d5", name: "Orion Express", address: "Malleshwaram", city: "Bangalore", state: "KA", pin: "560055", gstin: "29AABCR1234F1Z1" },
-  ],
-  registeredAddresses: [
-    { id: "r1", name: "Corporate Headquarters", address: "3rd Floor, Corporate Office, MMRDA Building, Bandra-Kurla Complex", city: "Mumbai", state: "MH", pin: "400051", gstin: "27AABCR1234F1Z5" },
-  ],
-  documents: [
-    { id: "d1", name: "GST Registration.pdf", type: "Tax Document", date: "12/04/2026" },
-    { id: "d2", name: "MSA_Reliance.pdf", type: "Agreement", date: "15/04/2026" },
-    { id: "d3", name: "PAN_Certificate.pdf", type: "KYC Document", date: "10/04/2026" },
-    { id: "d4", name: "Store_List.xlsx", type: "Reference", date: "10/05/2026" },
-    { id: "d5", name: "Commercial Terms.pdf", type: "Policy", date: "20/05/2026" },
-  ],
-  contacts: [
-    { id: "c1", name: "Amit Sharma", designation: "Purchase Head", phone: "9876543210", email: "amit@reliance.com" },
-    { id: "c2", name: "Neha Verma", designation: "Accounts", phone: "9876501234", email: "neha@reliance.com" },
-    { id: "c3", name: "Rajiv Mehta", designation: "Store Operations", phone: "9876512345", email: "rajiv@reliance.com" },
-  ],
-  recentActivity: [
-    { id: "a1", time: "15/10/2026 11:20", title: "Store Linked", desc: "REL-MUM-005 added" },
-    { id: "a2", time: "12/10/2026 14:10", title: "Address Updated", desc: "New delivery address" },
-    { id: "a3", time: "05/10/2026 09:44", title: "Credit Limit Changed", desc: "Approved by Central Treasury" },
-    { id: "a4", time: "02/10/2026 16:20", title: "Document Uploaded", desc: "GST Registration.pdf" },
-  ],
+  credit_hold: false,
+  show_child_customers_in_billing: true,
+  dependants: [{ dependant_customer_code: "CH-001", dependant_customer_name: "Northwind Outlet", status: "Active" }],
+  billing_locations: [{ id: "bill-1", location_name: "Head Office", city: "Pune", is_default: true }],
+  delivery_locations: [{ id: "loc-1", store_code: "NW-01", location_name: "Pune Store", city: "Pune", status: "Active" }],
+  gst_registrations: [{ id: "gst-1", gstin: "27ABCDE1234F1Z5", state_name: "Maharashtra", status: "ACTIVE", is_primary: true }],
+  invoices: [{ id: "inv-1", invoice_number: "INV-001", date: "2026-10-20", total_amount: 1180, status: "PAID" }],
 };
 
-describe("Customer 360° Dashboard View & Navigation Tests", () => {
-  it("renders page title and action buttons (< Back, Save, Save & New, Duplicate, Deactivate, More)", () => {
-    const html = renderToStaticMarkup(
-      <Customer360DashboardView customer={sampleCustomer} />
-    );
-
-    expect(html).toContain("Customer 360° Dashboard");
-    expect(html).toContain("REL001");
-    expect(html).toContain("Back");
-    expect(html).toContain("Save");
-    expect(html).toContain("Save &amp; New");
-    expect(html).toContain("Duplicate");
-    expect(html).toContain("Deactivate");
-    expect(html).toContain("More");
+describe("Customer 360 dashboard", () => {
+  it("does not select a customer implicitly when the dashboard opens without context", () => {
+    const html = renderToStaticMarkup(<CorporateCustomer360 onBack={vi.fn()} />);
+    expect(html).toContain("Select a customer to view the dashboard");
+    expect(html).toContain("Open Customer Master");
+    expect(html).not.toContain("Reliance");
   });
 
-  it("renders all 11 horizontal navigation tabs in the tab strip", () => {
-    const onTabChange = vi.fn();
-    const html = renderToStaticMarkup(
-      <CorporateCustomerTabs activeTab="overview" onTabChange={onTabChange} />
-    );
-
-    expect(html).toContain("Overview");
-    expect(html).toContain("Basic Details");
-    expect(html).toContain("Corporate &amp; Tax");
-    expect(html).toContain("Addresses");
-    expect(html).toContain("Parent – Child");
-    expect(html).toContain("Stores / Outlets");
-    expect(html).toContain("Commercial Terms");
-    expect(html).toContain("PSV Stock");
-    expect(html).toContain("Sales &amp; Invoices");
-    expect(html).toContain("Contacts &amp; Documents");
-    expect(html).toContain("Activity &amp; Audit");
+  it("shows customer-specific summary data and omits unsourced prototype values", () => {
+    const html = renderToStaticMarkup(<Customer360DashboardView customer={customer} />);
+    expect(html).toContain("Northwind Retail");
+    expect(html).toContain("CUST-001");
+    expect(html).toContain("1 / 1");
+    expect(html).toContain("₹2,50,000");
+    expect(html).not.toContain("Reliance");
+    expect(html).not.toContain("AABCR1718E");
+    expect(html).not.toContain("2,456");
+    expect(html).not.toContain("85 stores");
   });
 
-  it("renders the persistent Hero Banner with customer name, 3 pills, and 5 KPI cards", () => {
-    const html = renderToStaticMarkup(
-      <Customer360DashboardView customer={sampleCustomer} />
-    );
-
-    // Customer Name & Code
-    expect(html).toContain("Reliance Retail Limited");
-    expect(html).toContain("REL001");
-
-    // 3 Badges / Pills
-    expect(html).toContain("Corporate / Enterprise");
-    expect(html).toContain("Parent");
-    expect(html).toContain("Key Account");
-
-    // 5 KPI cards
-    expect(html).toContain("12");
-    expect(html).toContain("Child Customers");
-    expect(html).toContain("85");
-    expect(html).toContain("Stores / Outlets");
-    expect(html).toContain("5,00,00,000");
-    expect(html).toContain("Credit Limit");
-    expect(html).toContain("2,15,43,250");
-    expect(html).toContain("Outstanding");
+  it("explains the business consequence when the customer is inactive", () => {
+    const html = renderToStaticMarkup(<Customer360DashboardView customer={{ ...customer, status: "Inactive", is_active: false }} />);
+    expect(html).toContain("New billing is blocked.");
+    expect(html).toContain("This customer is inactive");
+    expect(html).not.toContain(">Deactivate<");
   });
 
-  it("renders Cards 1, 2, 3 with form inputs and [Edit] buttons", () => {
+  it("shows a pending PSV action and explains why approval matters", () => {
     const html = renderToStaticMarkup(
-      <Customer360DashboardView customer={sampleCustomer} />
+      <Customer360DashboardView customer={customer} initialPsvSummary={{
+        total_items: 1,
+        total_document_qty: 10,
+        total_received_qty: 10,
+        total_approved_qty: 6,
+        total_pending_approval_qty: 4,
+        total_short_qty: 0,
+        total_excess_qty: 0,
+      }} />,
     );
-
-    // Card 1
-    expect(html).toContain("Basic Details");
-    expect(html).toContain("Customer Code");
-    expect(html).toContain("Customer Name");
-    expect(html).toContain("Display Name");
-    expect(html).toContain("Type of Customer");
-    expect(html).toContain("Relationship Type");
-    expect(html).toContain("Business Category");
-
-    // Card 2
-    expect(html).toContain("Corporate Identity &amp; Tax");
-    expect(html).toContain("Legal Name");
-    expect(html).toContain("27AABCR1234F1Z5");
-    expect(html).toContain("AABCR1234F");
-    expect(html).toContain("IEC1234567");
-    expect(html).toContain("Registered Address");
-
-    // Card 3
-    expect(html).toContain("Commercial Terms");
-    expect(html).toContain("Default Price List");
-    expect(html).toContain("Payment Terms");
+    expect(html).toContain("4 units await PSV approval.");
+    expect(html).toContain("Unapproved receipts are not included in approved stock.");
+    expect(html).toContain("Review reconciliation");
   });
 
-  it("renders Card 4 Addresses with pills (Billing, Delivery, Registered) and table", () => {
-    const html = renderToStaticMarkup(
-      <Customer360DashboardView customer={sampleCustomer} />
-    );
-
-    expect(html).toContain("Addresses");
-    expect(html).toContain("Billing (2)");
-    expect(html).toContain("Delivery (5)");
-    expect(html).toContain("Registered Office (1)");
-    expect(html).toContain("Head Office");
-    expect(html).toContain("Regional Office");
+  it("shows unsaved changes only when the parent reports a dirty record", () => {
+    const save = vi.fn();
+    const html = renderToStaticMarkup(<Customer360DashboardView customer={customer} isDirty onSave={save} />);
+    expect(html).toContain("Changes are not saved.");
+    expect(html).toContain("Save changes");
   });
 
-  it("renders Card 5 Store / Outlet Network and Card 6 Contacts", () => {
-    const html = renderToStaticMarkup(
-      <Customer360DashboardView customer={sampleCustomer} />
-    );
-
-    // Card 5 Stores
-    expect(html).toContain("Store / Outlet Network");
-    expect(html).toContain("REL-MUM-001");
-    expect(html).toContain("Phoenix Mall");
-    expect(html).toContain("Inorbit Mall");
-
-    // Card 6 Contacts
-    expect(html).toContain("Contacts");
-    expect(html).toContain("Amit Sharma");
-    expect(html).toContain("Purchase Head");
-    expect(html).toContain("Neha Verma");
-    expect(html).toContain("Rajiv Mehta");
+  it("shows real persisted locations and registrations without sample rows", () => {
+    const html = renderToStaticMarkup(<Customer360DashboardView customer={customer} initialTab="corporate_tax" />);
+    expect(html).toContain("27ABCDE1234F1Z5");
+    expect(html).toContain("Maharashtra");
+    expect(html).not.toContain("Reliance Retail Mumbai HQ");
+    expect(html).not.toContain("27AABCR1234F1Z5");
   });
 
-  it("renders Card 7 Child Customers, Card 8 Documents, and Card 9 Invoices", () => {
-    const html = renderToStaticMarkup(
-      <Customer360DashboardView customer={sampleCustomer} />
-    );
-
-    // Card 7
-    expect(html).toContain("Child Customers (5)");
-    expect(html).toContain("REL001-001");
-    expect(html).toContain("Reliance - Phoenix Mall");
-
-    // Card 8
-    expect(html).toContain("Documents &amp; Notes");
-    expect(html).toContain("GST Registration.pdf");
-    expect(html).toContain("MSA_Reliance.pdf");
-
-    // Card 9
-    expect(html).toContain("Sales &amp; Invoices");
-    expect(html).toContain("TT2026-2027/18");
-    expect(html).toContain("5,990.00");
+  it("shows company terms, customer relationships, sales, and PSV as separate business sections", () => {
+    const keys = ["commercial", "parent_child", "sales_invoices", "psv"] as const;
+    const labels = keys.map((activeTab) => renderToStaticMarkup(<CorporateCustomerTabs activeTab={activeTab} onTabChange={() => undefined} />));
+    expect(labels.join(" ")).toContain("Commercial Terms");
+    expect(labels.join(" ")).toContain("Parent");
+    expect(labels.join(" ")).toContain("Sales &amp; Invoices");
+    expect(labels.join(" ")).toContain("PSV Reconciliation");
+    expect(labels.join(" ")).not.toContain("Contacts &amp; Documents");
+    expect(labels.join(" ")).not.toContain("Activity &amp; Audit");
   });
 
-  it("renders the 4 Right Sidebar cards: Summary, Hierarchy Tree, PSV Summary, Recent Activity", () => {
-    const html = renderToStaticMarkup(
-      <Customer360DashboardView customer={sampleCustomer} />
-    );
-
-    // Summary Card
-    expect(html).toContain("Default Price List:");
-    expect(html).toContain("Total Stores / Outlets:");
-    expect(html).toContain("Relationship Since:");
-
-    // Hierarchy Tree Card
-    expect(html).toContain("Parent – Child Hierarchy");
-    expect(html).toContain("Reliance Retail Limited (Parent)");
-    expect(html).toContain("Phoenix Mall");
-    expect(html).toContain("Inorbit Mall");
-    expect(html).toContain("Amanora Mall");
-
-    // PSV Summary (6 colorful metric tiles)
-    expect(html).toContain("PSV Stock Visibility (Summary)");
-    expect(html).toContain("5,420");
-    expect(html).toContain("Document Qty");
-    expect(html).toContain("5,180");
-    expect(html).toContain("Received Qty");
-    expect(html).toContain("4,980");
-    expect(html).toContain("Approved Qty");
-    expect(html).toContain("240");
-    expect(html).toContain("Pending Approval");
-    expect(html).toContain("120");
-    expect(html).toContain("Shortage");
-    expect(html).toContain("80");
-    expect(html).toContain("Excess");
-
-    // Recent Activity Card
-    expect(html).toContain("Recent Activity");
-    expect(html).toContain("Store Linked");
-    expect(html).toContain("Address Updated");
-    expect(html).toContain("Credit Limit Changed");
-    expect(html).toContain("Document Uploaded");
-  });
-
-  it("renders Card 10 PSV Stock Visibility (Detailed) with 10 filter controls and 16-column table", () => {
-    const html = renderToStaticMarkup(
-      <Customer360DashboardView customer={sampleCustomer} />
-    );
-
-    expect(html).toContain("PSV Stock Visibility (Detailed)");
-    expect(html).toContain("Party");
-    expect(html).toContain("Child Customer");
-    expect(html).toContain("Store / Outlet");
-    expect(html).toContain("Article / Style");
-    expect(html).toContain("Color");
-    expect(html).toContain("Size");
-    expect(html).toContain("Status");
-    expect(html).toContain("From");
-    expect(html).toContain("To");
-    expect(html).toContain("Search");
-    expect(html).toContain("Reset");
-
-    // Detailed Table Columns & Rows
-    expect(html).toContain("Doc No.");
-    expect(html).toContain("Barcode");
-    expect(html).toContain("PO-2026-001");
-    expect(html).toContain("PO-2026-002");
-    expect(html).toContain("PO-2026-003");
-    expect(html).toContain("PO-2026-004");
-    expect(html).toContain("PO-2026-005");
-    expect(html).toContain("8901234567890");
-    expect(html).toContain("8901234567891");
-
-    // Pagination
-    expect(html).toContain("Showing 1-5 of 125 records");
-    expect(html).toContain("Rows per page");
-  });
-
-  it("renders dedicated Basic Details tab when initialTab='basic'", () => {
-    const html = renderToStaticMarkup(
-      <Customer360DashboardView customer={sampleCustomer} initialTab="basic" />
-    );
-
-    expect(html).toContain("Basic Details — Master Account Profile");
-    expect(html).toContain("Customer Code");
-    expect(html).toContain("System Record ID");
-    expect(html).toContain("cust-rrl-192b561d");
-  });
-
-  it("renders dedicated Corporate & Tax tab when initialTab='corporate_tax'", () => {
-    const html = renderToStaticMarkup(
-      <Customer360DashboardView customer={sampleCustomer} initialTab="corporate_tax" />
-    );
-
-    expect(html).toContain("Corporate Identity &amp; Statutory Tax Compliance");
-    expect(html).toContain("Multi-State GST Registrations (3 States Linked)");
-    expect(html).toContain("Add GSTIN Registration");
-    expect(html).toContain("27AABCR1234F1Z5");
-    expect(html).toContain("24AABCR1234F1Z3");
-    expect(html).toContain("29AABCR1234F1Z1");
-  });
-
-  it("renders dedicated Addresses tab when initialTab='addresses'", () => {
-    const html = renderToStaticMarkup(
-      <Customer360DashboardView customer={sampleCustomer} initialTab="addresses" />
-    );
-
-    expect(html).toContain("Multi-Location Address Directory (8 Configured Addresses)");
-    expect(html).toContain("Billing (2)");
-    expect(html).toContain("Delivery (5)");
-    expect(html).toContain("Registered (1)");
-    expect(html).toContain("Head Office");
-  });
-
-  it("renders dedicated Parent – Child tab when initialTab='parent_child'", () => {
-    const html = renderToStaticMarkup(
-      <Customer360DashboardView customer={sampleCustomer} initialTab="parent_child" />
-    );
-
-    expect(html).toContain("Parent – Child Corporate Account Network");
-    expect(html).toContain("Reliance Retail Limited (Parent)");
-    expect(html).toContain("Child Accounts Roster (5 Active Branches)");
-    expect(html).toContain("REL001-001");
-    expect(html).toContain("Link Child Customer");
-  });
-
-  it("renders dedicated Stores / Outlets tab when initialTab='stores'", () => {
-    const html = renderToStaticMarkup(
-      <Customer360DashboardView customer={sampleCustomer} initialTab="stores" />
-    );
-
-    expect(html).toContain("Modern Trade Stores &amp; Outlets Network");
-    expect(html).toContain("Search store code or city...");
-    expect(html).toContain("REL-MUM-001");
-    expect(html).toContain("Phoenix Mall");
-  });
-
-  it("renders dedicated Commercial Terms tab when initialTab='commercial'", () => {
-    const html = renderToStaticMarkup(
-      <Customer360DashboardView customer={sampleCustomer} initialTab="commercial" />
-    );
-
-    expect(html).toContain("Commercial Terms, Pricing &amp; Credit Exposure");
-    expect(html).toContain("Total Credit Limit");
-    expect(html).toContain("5,00,00,000");
-    expect(html).toContain("2,15,43,250");
-    expect(html).toContain("Save Terms");
-  });
-
-  it("renders dedicated PSV Stock tab when initialTab='psv'", () => {
-    const html = renderToStaticMarkup(
-      <Customer360DashboardView customer={sampleCustomer} initialTab="psv" />
-    );
-
-    expect(html).toContain("SMRITI PSV (Party Stock Visibility) — Live Reconciliation Stream");
-    expect(html).toContain("5,420");
-    expect(html).toContain("Shortage");
-    expect(html).toContain("Excess");
-    expect(html).toContain("Document Qty");
-    expect(html).toContain("PO-2026-001");
-  });
-
-  it("renders dedicated Sales & Invoices tab when initialTab='sales_invoices'", () => {
-    const html = renderToStaticMarkup(
-      <Customer360DashboardView customer={sampleCustomer} initialTab="sales_invoices" />
-    );
-
-    expect(html).toContain("Sales Tax Invoices &amp; Transaction History (4 Invoices)");
-    expect(html).toContain("Export Ledger");
-    expect(html).toContain("TT2026-2027/18");
-    expect(html).toContain("TT2026-2027/17");
-    expect(html).toContain("5,990.00");
-  });
-
-  it("renders dedicated Contacts & Documents tab when initialTab='contacts_docs'", () => {
-    const html = renderToStaticMarkup(
-      <Customer360DashboardView customer={sampleCustomer} initialTab="contacts_docs" />
-    );
-
-    expect(html).toContain("Key Contacts Directory");
-    expect(html).toContain("Document Vault &amp; KYC");
-    expect(html).toContain("Amit Sharma");
-    expect(html).toContain("GST Registration.pdf");
-    expect(html).toContain("Upload");
-  });
-
-  it("renders dedicated Activity & Audit tab when initialTab='activity_audit'", () => {
-    const html = renderToStaticMarkup(
-      <Customer360DashboardView customer={sampleCustomer} initialTab="activity_audit" />
-    );
-
-    expect(html).toContain("Tamper-Evident Activity &amp; Audit History");
-    expect(html).toContain("SHA-256 Chain Verified");
-    expect(html).toContain("Store Linked");
-    expect(html).toContain("Address Updated");
-    expect(html).toContain("Audit Hash:");
-  });
-});
-
-describe("Customer 360° Authoritative Data Integrity & Dynamic Reconciliation Audit", () => {
-  const authoritativeRelianceCustomer = {
-    id: "cust-rrl-192b561d",
-    code: "RRL-001",
-    name: "Reliance Retail Limited",
-    customer_type: "Corporate B2B",
-    gst_number: "27AABCR1718E1ZP",
-    pan_number: "AABCR1718E",
-    credit_limit: 99999999,
-    outstanding: 0,
-    credit_days: 90,
-    delivery_locations: Array.from({ length: 68 }, (_, i) => ({
-      id: `dl-${i + 1}`,
-      store_code: `STR-${1000 + i}`,
-      location_name: `Reliance Store ${i + 1}`,
-      city: "Mumbai",
-      status: "Active",
-    })),
-    dependants: [
-      { id: "dep-1", name: "Reliance Smart", code: "RRL-SMT-001", city: "Mumbai", storesCount: 25 },
-      { id: "dep-2", name: "Reliance Trends", code: "RRL-TRN-001", city: "Pune", storesCount: 30 },
-      { id: "dep-3", name: "Reliance Digital", code: "RRL-DIG-001", city: "Bangalore", storesCount: 13 },
-    ],
-    metadata_json: {},
-    relationship_since: "2018-04-01T00:00:00Z",
-  };
-
-  it("resolves authentic PAN matching characters 3-12 of GSTIN and indicates match", () => {
-    const html = renderToStaticMarkup(
-      <Customer360DashboardView customer={authoritativeRelianceCustomer} />
-    );
-
-    // PAN must be AABCR1718E (from pan_number), NOT dummy fallback AABCR1234F
-    expect(html).toContain('value="AABCR1718E"');
-    expect(html).not.toContain('value="AABCR1234F"');
-    expect(html).toContain("27AABCR1718E1ZP");
-    expect(html).toContain("Matches GSTIN");
-  });
-
-  it("reconciles credit limit between summary card and right sidebar with Indian formatting", () => {
-    const html = renderToStaticMarkup(
-      <Customer360DashboardView customer={authoritativeRelianceCustomer} />
-    );
-
-    // Both cards must show ₹ 9,99,99,999, eliminating the ₹5,00,00,000 vs ₹99,99,999 discrepancy
-    const occurrences = (html.match(/9,99,99,999/g) || []).length;
-    expect(occurrences).toBeGreaterThanOrEqual(2);
-    expect(html).toContain("9,99,99,999");
-  });
-
-  it("reconciles outstanding amount across summary card and detail panel", () => {
-    const html = renderToStaticMarkup(
-      <Customer360DashboardView customer={authoritativeRelianceCustomer} />
-    );
-
-    // Outstanding must be 0, eliminating fabricated ₹ 2,15,43,250
-    expect(html).not.toContain("2,15,43,250");
-    expect(html).toContain("₹ 0");
-  });
-
-  it("dynamically displays actual stores count (68) and child accounts count (3)", () => {
-    const html = renderToStaticMarkup(
-      <Customer360DashboardView customer={authoritativeRelianceCustomer} />
-    );
-
-    // Dynamic store network count = 68, child count = 3
-    expect(html).toContain("68");
-    expect(html).toContain("3");
-    expect(html).toContain("68 Total Outlets");
-  });
-
-  it("displays empty IEC without fabricating placeholder string", () => {
-    const html = renderToStaticMarkup(
-      <Customer360DashboardView customer={authoritativeRelianceCustomer} />
-    );
-
-    expect(html).not.toContain("IEC1234567");
-    expect(html).toContain('placeholder="Not Registered"');
-  });
-
-  it("renders dynamic hierarchy cards from actual child accounts", () => {
-    const html = renderToStaticMarkup(
-      <Customer360DashboardView customer={authoritativeRelianceCustomer} />
-    );
-
-    expect(html).toContain("Reliance Smart");
-    expect(html).toContain("Reliance Trends");
-    expect(html).toContain("Reliance Digital");
-  });
-});
-
-describe("Customer 360° Remediation Regression Suite (Tenant Isolation, Soft-Delete, Financials, Trailing Trend)", () => {
-  const corporateWithSoftDeletes = {
-    id: "cust-rrl-192b561d",
-    code: "RRL-001",
-    name: "Reliance Retail Limited",
-    customer_type: "Corporate / Enterprise",
-    gst_number: "27AABCR1718E1ZP",
-    credit_limit: 100000,
-    outstanding: 155.24,
-    dependants: [], // Direct single-tier account (0 child accounts)
-    delivery_locations: [
-      // 3 Distribution Centers / Logistics Hubs
-      { id: "dl-dc-1", store_code: "S4NN/8319", location_name: "Tumkur DC", city: "Tumkur", state: "Karnataka", location_type: "Distribution Center", status: "Active", is_deleted: false },
-      { id: "dl-dc-2", store_code: "TA0A", location_name: "Sankrail DC", city: "Howrah", state: "West Bengal", location_type: "Distribution Center", status: "Active", is_deleted: false },
-      { id: "dl-dc-3", store_code: "V051", location_name: "Sultanpur NDC", city: "Gurgaon", state: "Haryana", location_type: "Distribution Center", status: "Active", is_deleted: false },
-      // 4 Retail Outlets
-      { id: "dl-rt-1", store_code: "T9IM", location_name: "Koramangala Store", city: "Bangalore", state: "Karnataka", location_type: "Store", status: "Active", is_deleted: false },
-      { id: "dl-rt-2", store_code: "TEST-BLR-001", location_name: "Bangalore Store", city: "Bangalore", state: "Karnataka", location_type: "Store", status: "Active", is_deleted: false },
-      { id: "dl-rt-3", store_code: "TEST-HYD-001", location_name: "Hyderabad Store", city: "Hyderabad", state: "Telangana", location_type: "Store", status: "Active", is_deleted: false },
-      { id: "dl-rt-4", store_code: "TEST-MUM-001", location_name: "Mumbai Store", city: "Mumbai", state: "Maharashtra", location_type: "Store", status: "Active", is_deleted: false },
-      // Soft-deleted locations (Must NOT be counted or displayed)
-      { id: "dl-del-1", store_code: "DEL-OLD-001", location_name: "Deleted Mall Outlet", city: "Pune", state: "Maharashtra", location_type: "Store", status: "Active", is_deleted: true },
-      { id: "dl-del-2", store_code: "DEL-OLD-002", location_name: "Closed Hub", city: "Nagpur", state: "Maharashtra", location_type: "Distribution Center", status: "Active", isDeleted: true },
-    ],
-  };
-
-  it("excludes soft-deleted delivery locations from active and total store counts", () => {
-    const htmlOverview = renderToStaticMarkup(
-      <Customer360DashboardView customer={corporateWithSoftDeletes} />
-    );
-
-    // Only 7 active non-deleted stores should be counted in KPI and sidebar (3 DCs + 4 Stores)
-    expect(htmlOverview).toContain("Stores / Outlets");
-    expect(htmlOverview).toContain("7 Total Outlets");
-    expect(htmlOverview).not.toContain("DEL-OLD-001");
-    expect(htmlOverview).not.toContain("DEL-OLD-002");
-    expect(htmlOverview).not.toContain("Deleted Mall Outlet");
-    expect(htmlOverview).not.toContain("Closed Hub");
-
-    const htmlStores = renderToStaticMarkup(
-      <Customer360DashboardView customer={corporateWithSoftDeletes} initialTab="stores" />
-    );
-    expect(htmlStores).toContain("Modern Trade Stores &amp; Outlets Network (7 Active)");
-    expect(htmlStores).not.toContain("DEL-OLD-001");
-  });
-
-  it("renders authentic empty state for direct single-tier corporate accounts with 0 child customers", () => {
-    const html = renderToStaticMarkup(
-      <Customer360DashboardView customer={corporateWithSoftDeletes} />
-    );
-
-    // Hero KPI 1 must display 0 Child Customers
-    expect(html).toContain("Child Customers");
-    // Card 7 child roster must render authentic single-tier empty state, not mock Phoenix Mall
-    expect(html).toContain("Direct Single-Tier Account — 0 Child Accounts");
-    // Right sidebar hierarchy tree must display single-tier account node
-    expect(html).toContain("Direct Single-Tier Account (0 Child Entities Enrolled)");
-  });
-
-  it("binds authoritative credit limit (₹ 1,00,000) without hardcoded prototype fallbacks", () => {
-    const html = renderToStaticMarkup(
-      <Customer360DashboardView customer={corporateWithSoftDeletes} />
-    );
-
-    // Must show ₹ 1,00,000 from customer group / authoritative mapping
-    expect(html).toContain("1,00,000");
-    // Prototype fallback ₹ 5,00,00,000 must NOT be present
-    expect(html).not.toContain("5,00,00,000");
-  });
-
-  it("reconciles revolving credit ledger exposure (₹ 155.24) preserving financial semantics", () => {
-    const html = renderToStaticMarkup(
-      <Customer360DashboardView customer={corporateWithSoftDeletes} />
-    );
-
-    // Credit ledger balance must reflect ₹ 155.24
-    expect(html).toContain("155.24");
-    // Fabricated prototype outstanding ₹ 2,15,43,250 must never appear
-    expect(html).not.toContain("2,15,43,250");
-  });
-
-  it("renders distinct Distribution Centers and Retail Stores in the dedicated Stores tab", () => {
-    const html = renderToStaticMarkup(
-      <Customer360DashboardView customer={corporateWithSoftDeletes} initialTab="stores" />
-    );
-
-    expect(html).toContain("Modern Trade Stores &amp; Outlets Network (7 Active)");
-    expect(html).toContain("Tumkur DC");
-    expect(html).toContain("S4NN/8319");
-    expect(html).toContain("Sankrail DC");
-    expect(html).toContain("TA0A");
-    expect(html).toContain("Koramangala Store");
-    expect(html).toContain("T9IM");
-    // Soft-deleted locations must NOT be in the table
-    expect(html).not.toContain("DEL-OLD-001");
-  });
-
-  it("displays 'Awaiting Trend' empty state when insufficient purchase history exists", () => {
-    const html = renderToStaticMarkup(
-      <Customer360DashboardView customer={corporateWithSoftDeletes} />
-    );
-
-    // When no trend data is supplied, the 7 dummy sparkline bars must NOT be fabricated
-    expect(html).toContain("Awaiting Trend");
-  });
-  // ── MASTER DATA-TO-UX CONNECTIVITY & ZERO MOCK FALLBACK AUDIT SUITE ──
-
-  it("renders honest zero-state when customer has no PSV records (zero silent mock fallback)", () => {
-    const emptyCustomer: Customer = {
-      id: "cust-empty-001",
-      code: "EMPTY001",
-      name: "Empty Stores Private Limited",
-      legal_name: "Empty Stores Private Limited",
-      is_active: true,
-      is_deleted: false,
-      company_id: "COMP-001",
-    };
-
-    const html = renderToStaticMarkup(
-      <Customer360DashboardView customer={emptyCustomer} initialTab="psv" />
-    );
-
-    // Metric tiles must display 0, never hardcoded 5,420 or 5,180
-    expect(html).toContain("0 Total Records");
-    expect(html).not.toContain("125 Total Records");
-    // Table must display honest empty state, never fake PO-2026-001
-    expect(html).toContain("No PSV reconciliation records found for this customer account.");
-    expect(html).not.toContain("PO-2026-001");
-    expect(html).not.toContain("Men's T-Shirt");
-  });
-
-  it("renders honest zero-state for sales tax invoices when empty (zero silent fallbackInvoices)", () => {
-    const emptyCustomer: Customer = {
-      id: "cust-empty-002",
-      code: "EMPTY002",
-      name: "Zero Invoices Enterprise",
-      legal_name: "Zero Invoices Enterprise",
-      is_active: true,
-      is_deleted: false,
-      company_id: "COMP-001",
-    };
-
-    const html = renderToStaticMarkup(
-      <Customer360DashboardView customer={emptyCustomer} initialTab="sales_invoices" />
-    );
-
-    expect(html).toContain("Sales Tax Invoices &amp; Transaction History (0 Invoices)");
-    expect(html).toContain("No sales tax invoices found for this customer account.");
-    // Dummy fallback invoices must never be injected
-    expect(html).not.toContain("TT2026-2027/18");
-    expect(html).not.toContain("TT2026-2027/17");
-  });
-
-  it("renders database-backed PSV reconciliation payload when received from apiFetchV1", () => {
-    const livePsvSummary = {
-      total_items: 14788,
-      total_document_qty: 20247,
-      total_received_qty: 20247,
-      total_approved_qty: 20247,
-      total_pending_approval_qty: 0,
-      total_short_qty: 0,
-      total_excess_qty: 0,
-    };
-
-    const livePsvItems = [
-      {
-        id: "psv-live-001",
-        doc_no: "INV-592609",
-        date: "2026-10-18",
-        customer_code: "RRL-001",
-        customer_name: "Reliance Retail Limited",
-        store_code: "S4NN/8319",
-        article_style: "Regular Sandal",
-        color: "Beige",
-        size: "36",
-        barcode: "8901234567890",
-        document_qty: 2,
-        received_qty: 2,
-        pending_approval_qty: 0,
-        approved_qty: 2,
-        shortage_qty: 0,
-        excess_qty: 0,
-        status: "Approved",
-      },
-    ];
-
-    const html = renderToStaticMarkup(
-      <Customer360DashboardView
-        customerId="cust-rrl-192b561d"
-        initialPsvSummary={livePsvSummary}
-        initialPsvItems={livePsvItems}
-        initialTab="psv"
-      />
-    );
-
-    // Dynamic counts from live DB summary
-    expect(html).toContain("14,788 Total Records");
-    expect(html).toContain("20,247");
-    // Canonical PostgreSQL line item
-    expect(html).toContain("INV-592609");
-    expect(html).toContain("Regular Sandal");
-    expect(html).toContain("8901234567890");
-    expect(html).toContain("S4NN/8319");
+  it("keeps credit holds visible as a billing decision and points to commercial terms", () => {
+    const html = renderToStaticMarkup(<Customer360DashboardView customer={{ ...customer, credit_hold: true }} />);
+    expect(html).toContain("Credit invoices are on hold.");
+    expect(html).toContain("Review terms");
   });
 });

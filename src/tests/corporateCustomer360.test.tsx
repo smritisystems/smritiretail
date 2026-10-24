@@ -269,7 +269,7 @@ describe("Corporate Customer 360 Dashboard Components", () => {
     expect(markup).toContain("National Key Account Manager");
   });
 
-  it("renders 11 Customer Navigation Tabs with active tab indicator", () => {
+  it("renders the customer workflow sections without unsupported placeholder tabs", () => {
     const markup = renderToStaticMarkup(
       <CorporateCustomerTabs
         activeTab="overview"
@@ -284,10 +284,10 @@ describe("Corporate Customer 360 Dashboard Components", () => {
     expect(markup).toContain("Parent – Child");
     expect(markup).toContain("Stores / Outlets");
     expect(markup).toContain("Commercial Terms");
-    expect(markup).toContain("PSV Stock");
+    expect(markup).toContain("PSV Reconciliation");
     expect(markup).toContain("Sales &amp; Invoices");
-    expect(markup).toContain("Contacts &amp; Documents");
-    expect(markup).toContain("Activity &amp; Audit");
+    expect(markup).not.toContain("Contacts &amp; Documents");
+    expect(markup).not.toContain("Activity &amp; Audit");
   });
 
   it("renders 6 KPI Cards with Indian currency formatting and trend metrics", () => {

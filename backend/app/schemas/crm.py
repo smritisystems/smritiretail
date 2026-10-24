@@ -339,11 +339,11 @@ class StoreAddressItem(BaseModel):
     address_line1: str = Field(..., alias="addressLine1")
     address_line2: Optional[str] = Field(None, alias="addressLine2")
     locality: Optional[str] = None
-    city: str
+    city: Optional[str] = None
     district: Optional[str] = None
-    state: str
+    state: Optional[str] = None
     state_code: Optional[str] = Field(None, alias="stateCode")
-    pincode: str
+    pincode: Optional[str] = None
     country: str = "India"
     contact_person: Optional[str] = Field(None, alias="contactPerson")
     phone: Optional[str] = None
@@ -365,11 +365,11 @@ class StoreAddressCreate(BaseModel):
     address_line1: str = Field(..., alias="addressLine1")
     address_line2: Optional[str] = Field(None, alias="addressLine2")
     locality: Optional[str] = None
-    city: str
+    city: Optional[str] = None
     district: Optional[str] = None
-    state: str
+    state: Optional[str] = None
     state_code: Optional[str] = Field(None, alias="stateCode")
-    pincode: str
+    pincode: Optional[str] = None
     country: str = "India"
     contact_person: Optional[str] = Field(None, alias="contactPerson")
     phone: Optional[str] = None

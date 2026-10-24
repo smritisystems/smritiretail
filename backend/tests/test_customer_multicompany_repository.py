@@ -104,6 +104,7 @@ def test_customer_repository_model_c_tenant_filter_generation():
     # Verify company filter clauses are in compiled statement
     assert "customers.company_id =" in sql_str or "customers.company_id IS" in sql_str
     assert "customer_company_relationships" in sql_str
+    assert "customer_company_relationships.status =" in sql_str
     assert "EXISTS" in sql_str
 
 

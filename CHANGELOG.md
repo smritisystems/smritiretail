@@ -14,7 +14,12 @@
 
 ## [v1.0.1] - 2026-10-24
 
+### Changed
+- Refactored Customer 360 into a focused read-only dashboard highlighting business conditions (unsaved changes, inactive accounts blocking billing, credit holds, and PSV quantities pending approval) while delegating mutations cleanly to Customer Master.
+- Enforced strict tenant company validation on customer lookup via customer_repository._apply_tenant_filter and multi-company active commercial terms.
+
 ### Fixed
+- Address Schema Concurrency: Updated StoreAddressItem and StoreAddressCreate in backend/app/schemas/crm.py so delivery locations created without state or postal code attributes validate without throwing ValidationError.
 - Customer Master **Add Child Customer** now carries the selected parent internal customer ID, checks that the parent belongs to the active company and branch, and saves the child relationship atomically. Customer responses expose parent identity and child codes so hierarchy details remain visible after reload. The Customer Directory now shows the linked parent, and child relationship writes use the existing role and branch checks.
 
 ### Documentation

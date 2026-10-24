@@ -42,6 +42,7 @@ class CustomerRepository(BaseRepository[Customer]):
                     CustomerCompanyRelationship.customer_id == Customer.id,
                     CustomerCompanyRelationship.company_id == self.tenant_ctx.company_id,
                     CustomerCompanyRelationship.is_deleted == False,
+                    CustomerCompanyRelationship.status == "Active",
                 )
                 .exists()
             )

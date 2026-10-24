@@ -20,50 +20,42 @@ import { AlertCircle, RefreshCw } from "lucide-react";
 import { apiFetchV1 } from "../../../lib/apiFetchV1.ts";
 import { CorporateCustomer360Data } from "./types.ts";
 import { Customer360DashboardView } from "./Customer360DashboardView.tsx";
-import { Customer } from "../../../types.ts";
 
 export interface CorporateCustomer360Props {
   customerId?: string;
   customer?: any;
-  currentUser?: { role?: string; name?: string; id?: string } | null;
-  onNotification?: (title: string, message: string, type?: "success" | "error" | "info" | "warning") => void;
-  onNavigateTab?: (tabId: string) => void;
   onBack?: () => void;
   onEditCustomer?: (customer: any) => void;
-  onChange?: (field: string, value: any) => void;
   onSave?: () => void;
-  onSaveAndNew?: () => void;
-  onDuplicate?: () => void;
   onDeactivate?: () => void;
   isSaving?: boolean;
   isDirty?: boolean;
 }
 
 export const CorporateCustomer360: React.FC<CorporateCustomer360Props> = ({
-  customerId = "CUST-REL-0001",
+  customerId,
   customer: propCustomer,
-  currentUser,
-  onNotification,
   onBack,
-  onChange,
+  onEditCustomer,
   onSave,
-  onSaveAndNew,
-  onDuplicate,
   onDeactivate,
   isSaving = false,
   isDirty = false,
 }) => {
+  const resolvedCustomerId = customerId || propCustomer?.id || propCustomer?.code;
   const [data, setData] = useState<CorporateCustomer360Data | null>(null);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [isLoading, setIsLoading] = useState<boolean>(Boolean(resolvedCustomerId));
   const [error, setError] = useState<string | null>(null);
 
   // Authoritative data fetcher
   const load360Data = useCallback(async () => {
+    if (!resolvedCustomerId) return;
     setIsLoading(true);
     setError(null);
+    setData(null);
     try {
       const res = await apiFetchV1<CorporateCustomer360Data>(
-        `/crm/customers/${encodeURIComponent(customerId)}/corporate-360`
+        `/crm/customers/${encodeURIComponent(resolvedCustomerId)}/corporate-360`
       );
       if (res && res.customer) {
         setData(res);
@@ -76,11 +68,31 @@ export const CorporateCustomer360: React.FC<CorporateCustomer360Props> = ({
     } finally {
       setIsLoading(false);
     }
-  }, [customerId]);
+  }, [resolvedCustomerId]);
 
   useEffect(() => {
+    if (!resolvedCustomerId) {
+      setData(null);
+      setError(null);
+      setIsLoading(false);
+      return;
+    }
     load360Data();
   }, [load360Data]);
+
+  if (!resolvedCustomerId) {
+    return (
+      <div className="p-6 max-w-xl mx-auto mt-12 bg-white dark:bg-[#1e222d] border border-slate-200 dark:border-slate-800 rounded-2xl text-center space-y-3">
+        <h2 className="text-base font-semibold text-slate-900 dark:text-white">Select a customer to view the dashboard</h2>
+        <p className="text-sm text-slate-600 dark:text-slate-400">Open a customer from Customer Master to see its profile, commercial terms, transactions, and pending PSV reconciliation.</p>
+        {onBack && (
+          <button type="button" onClick={onBack} className="px-3 py-2 rounded-lg bg-[#0066cc] text-white text-sm font-semibold">
+            Open Customer Master
+          </button>
+        )}
+      </div>
+    );
+  }
 
   // Skeleton Loading UI
   if (isLoading && !data && !propCustomer) {
@@ -99,7 +111,7 @@ export const CorporateCustomer360: React.FC<CorporateCustomer360Props> = ({
   }
 
   // Error State with Retry
-  if (error && !data && !propCustomer) {
+  if (error && !data) {
     return (
       <div className="p-6 max-w-xl mx-auto mt-12 bg-white dark:bg-[#1e222d] border border-rose-200 dark:border-rose-900 rounded-2xl shadow-xl text-center space-y-4">
         <div className="w-12 h-12 rounded-full bg-rose-100 dark:bg-rose-950 flex items-center justify-center text-rose-600 mx-auto">
@@ -113,14 +125,17 @@ export const CorporateCustomer360: React.FC<CorporateCustomer360Props> = ({
             {error}
           </p>
         </div>
-        <button
-          type="button"
-          onClick={load360Data}
-          className="px-4 py-2 bg-[#0284c7] hover:bg-[#0369a1] text-white text-xs font-semibold rounded-lg transition inline-flex items-center gap-2"
-        >
-          <RefreshCw size={14} />
-          <span>Retry Loading Profile</span>
-        </button>
+        <div className="flex justify-center gap-2">
+          {onBack && <button type="button" onClick={onBack} className="px-4 py-2 border border-slate-300 dark:border-slate-700 text-xs font-semibold rounded-lg">Back to Customer Master</button>}
+          <button
+            type="button"
+            onClick={load360Data}
+            className="px-4 py-2 bg-[#0284c7] hover:bg-[#0369a1] text-white text-xs font-semibold rounded-lg transition inline-flex items-center gap-2"
+          >
+            <RefreshCw size={14} />
+            <span>Retry Loading Profile</span>
+          </button>
+        </div>
       </div>
     );
   }
@@ -128,16 +143,12 @@ export const CorporateCustomer360: React.FC<CorporateCustomer360Props> = ({
   return (
     <Customer360DashboardView
       customerId={customerId}
-      customer={propCustomer || data?.customer}
+      customer={data?.customer || propCustomer}
       corporate360Data={data}
-      currentUser={currentUser}
-      onChange={onChange}
+      onEditCustomer={onEditCustomer}
       onSave={onSave}
-      onSaveAndNew={onSaveAndNew}
-      onDuplicate={onDuplicate}
       onDeactivate={onDeactivate}
       onBack={onBack}
-      onNotification={onNotification}
       isSaving={isSaving}
       isDirty={isDirty}
     />

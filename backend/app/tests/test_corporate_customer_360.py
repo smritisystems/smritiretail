@@ -14,7 +14,12 @@ Target Test  : Corporate Customer 360 Contract & Serialization Suite
 """
 
 from decimal import Decimal
+from types import SimpleNamespace
+from unittest.mock import AsyncMock, MagicMock
 import pytest
+from fastapi import HTTPException
+from app.api.deps import TenantContext
+from app.api.v1.crm import get_corporate_customer_360
 from app.schemas.crm import (
     CustomerResponse,
     CorporateCustomer360Response,
@@ -201,6 +206,24 @@ def test_corporate_customer_360_full_response_contract():
     assert resp.recent_orders[0].order_no == "SO-2024-11872"
     assert len(resp.purchase_trend) == 2
     assert resp.top_categories[0].category == "FMCG"
+
+
+@pytest.mark.asyncio
+async def test_corporate_customer_360_requires_an_exact_customer_identity():
+    result = MagicMock()
+    result.scalars.return_value.first.return_value = None
+    db = SimpleNamespace(execute=AsyncMock(return_value=result))
+    tenant = TenantContext(company_id="COMP-001", branch_id="BR-MAIN-001")
+
+    with pytest.raises(HTTPException) as missing:
+        await get_corporate_customer_360(" ", db, tenant)
+    assert missing.value.status_code == 400
+    db.execute.assert_not_awaited()
+
+    with pytest.raises(HTTPException) as unknown:
+        await get_corporate_customer_360("default", db, tenant)
+    assert unknown.value.status_code == 404
+    db.execute.assert_awaited_once()
 
 
 def test_corporate_customer_multi_store_mapping():
