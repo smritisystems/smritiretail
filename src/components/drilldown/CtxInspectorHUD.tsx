@@ -6,9 +6,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.14.0
+ * Version      : 6.89.0
  * Created      : 2026-08-21
- * Modified     : 2026-08-22
+ * Modified     : 2026-10-24
  * Copyright    : © AITDL.com and SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Target UI    : Contextual Field Inspector HUD (Secure Login Portal & Authenticated Intelligence)
@@ -39,7 +39,11 @@ export const ContextualInspectorHUD: React.FC = () => {
   // Auto-expand HUD when focus moves to a contextual field in an authenticated session
   useEffect(() => {
     if (category !== "general" && !isHidden && isAuthenticated) {
-      setIsMinimized(false);
+      // Do not auto-expand inside Billing Desk to prevent occluding totals & checkout buttons
+      const isBillingActive = typeof document !== "undefined" && Boolean(document.querySelector('[data-billing-desk="true"], [data-testid="billing-terminal"]'));
+      if (!isBillingActive) {
+        setIsMinimized(false);
+      }
     }
   }, [category, isHidden, isAuthenticated]);
 
@@ -57,6 +61,12 @@ export const ContextualInspectorHUD: React.FC = () => {
       localStorage.removeItem(HUD_HIDDEN_STORAGE_KEY);
     } catch {}
   };
+
+  // If in Billing Workspace / Desk, suppress floating HUD completely so totals & checkout are 100% visible
+  const isBillingActive = typeof document !== "undefined" && Boolean(document.querySelector('[data-billing-desk="true"], [data-testid="billing-terminal"]'));
+  if (isBillingActive) {
+    return null;
+  }
 
   // If permanently hidden, render a tiny unobtrusive floating dot to restore
   if (isHidden) {

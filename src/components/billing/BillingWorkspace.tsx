@@ -187,20 +187,20 @@ export const BillingWorkspace: React.FC<BillingWorkspaceProps> = ({
 
   return (
     <div className="h-full flex flex-col overflow-hidden font-sans transition-colors duration-300 bg-[#f8f9fa] dark:bg-[#191c1e] text-[#191c1e] dark:text-[#eff1f3]">
-      {/* ── Top Unified Billing Navigation Header ── */}
+      {/* ── Top Unified Billing Navigation Header (Only shown when viewing auxiliary modules) ── */}
+      {auxView !== "WORKSPACE" && (
       <header className="border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-[#131b2e] flex flex-wrap justify-between items-center px-4 py-2 shrink-0 z-20 shadow-2xs gap-2 transition-colors duration-300">
         {/* One billing workspace with supporting sales documents and operations */}
         <div className="flex items-center gap-2 flex-wrap">
           <button
             type="button"
             onClick={() => setAuxView("WORKSPACE")}
-            aria-pressed={auxView === "WORKSPACE"}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
-              auxView === "WORKSPACE" ? "bg-[#041632] text-white shadow-xs" : "bg-white border border-slate-300 text-slate-700 hover:bg-slate-50"
-            }`}
+            aria-pressed={false}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer bg-[#041632] hover:bg-[#0b295c] text-white shadow-xs"
+            title="Return to primary Billing Desk"
           >
             <Receipt size={14} />
-            <span>Billing</span>
+            <span>← Back to Billing Desk</span>
           </button>
 
           <button
@@ -344,6 +344,7 @@ export const BillingWorkspace: React.FC<BillingWorkspaceProps> = ({
           </button>
         </div>
       </header>
+      )}
 
       {/* ── Main Workspace Body ── */}
       <div className="flex-1 overflow-hidden relative">
@@ -379,6 +380,13 @@ export const BillingWorkspace: React.FC<BillingWorkspaceProps> = ({
               isStandaloneTab={isStandaloneTab}
               initialTransaction={getBillingDefaults(initialMode).transaction}
               initialSalesChannel={getBillingDefaults(initialMode).salesChannel}
+              onOpenSalesDocuments={() => setAuxView("SALES_MANAGEMENT")}
+              onOpenPackingSlips={() => setShowPackingSlipModal(true)}
+              onOpenConsolidatedBilling={() => setShowConsolidatedModal(true)}
+              onOpenShiftReports={() => setAuxView("SHIFT_REPORTS")}
+              onOpenEodReport={() => setAuxView("EOD_Z_REPORT")}
+              onOpenShiftManager={() => setAuxView("SHIFT_REPORTS")}
+              onOpenHotkeys={() => setShowHotkeysModal(true)}
             />
           </div>
         )}
@@ -448,7 +456,7 @@ export const BillingWorkspace: React.FC<BillingWorkspaceProps> = ({
 
       {/* ── Toast Notification Container ── */}
       {toast && (
-        <div className="fixed bottom-6 right-6 z-50 animate-in fade-in slide-in-from-bottom-4 duration-200">
+        <div className="fixed top-16 right-6 z-50 animate-in fade-in slide-in-from-top-4 duration-200">
           <div
             className={`p-4 rounded-xl shadow-2xl flex items-center gap-3 border text-xs font-semibold ${
               toast.type === "success"

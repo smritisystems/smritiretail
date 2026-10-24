@@ -4,9 +4,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.28.0
+ * Version      : 6.89.0
  * Created      : 2026-08-21
- * Modified     : 2026-10-16
+ * Modified     : 2026-10-24
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Canonical Billing Engine
@@ -95,7 +95,17 @@ import {
   Banknote,
   ChevronDown,
   ChevronUp,
-  AlertTriangle
+  AlertTriangle,
+  Check,
+  Edit2,
+  FilePlus,
+  Save,
+  Menu,
+  MoreHorizontal,
+  Package,
+  Barcode,
+  Users,
+  Percent
 } from "lucide-react";
 
 interface SmritiBillingTerminalProps {
@@ -109,6 +119,13 @@ interface SmritiBillingTerminalProps {
   isStandaloneTab?: boolean;
   initialTransaction?: TransactionType;
   initialSalesChannel?: string;
+  onOpenSalesDocuments?: () => void;
+  onOpenPackingSlips?: () => void;
+  onOpenConsolidatedBilling?: () => void;
+  onOpenShiftReports?: () => void;
+  onOpenEodReport?: () => void;
+  onOpenShiftManager?: () => void;
+  onOpenHotkeys?: () => void;
 }
 
 export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
@@ -119,7 +136,14 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
   onNotification,
   isStandaloneTab = false,
   initialTransaction = "Credit",
-  initialSalesChannel = "B2B_WHOLESALE"
+  initialSalesChannel = "B2B_WHOLESALE",
+  onOpenSalesDocuments,
+  onOpenPackingSlips,
+  onOpenConsolidatedBilling,
+  onOpenShiftReports,
+  onOpenEodReport,
+  onOpenShiftManager,
+  onOpenHotkeys,
 }) => {
   const invoiceCustomerScope = { series: "TT2026-2027", from: 18, to: 137 };
 
@@ -479,8 +503,11 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
     staff: currentUser?.name || "Staff A"
   });
 
-  // Tabbed Details State (Footer Left Card)
+  // Tabbed Details State (Footer Left Card & Bottom Drawers)
   const [activeFooterTab, setActiveFooterTab] = useState<"transporter" | "payment" | "addons">("transporter");
+  const [activeFooterDrawer, setActiveFooterDrawer] = useState<"none" | "transporter" | "payment" | "addons" | "remarks">("none");
+  const [showMoreDetails, setShowMoreDetails] = useState<boolean>(false);
+  const [showMoreMenu, setShowMoreMenu] = useState<boolean>(false);
   const [transporterRows, setTransporterRows] = useState<TransporterRow[]>([
     {
       sNo: 1,
@@ -2494,173 +2521,254 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
   return (
     <div 
       ref={terminalContainerRef}
-      className={`flex flex-col bg-surface text-on-surface font-sans select-none overflow-hidden transition-all ${
+      data-billing-desk="true"
+      data-context-type="billing"
+      data-testid="billing-terminal"
+      className={`flex flex-col bg-[#f8f9fa] dark:bg-[#12161f] text-slate-900 dark:text-slate-100 font-sans select-none overflow-hidden transition-all ${
         isFullscreen ? "fixed inset-0 z-50 h-screen w-screen" : "h-full"
       }`}
     >
       
-      {/* Top Application Bar */}
-      <header className="bg-surface dark:bg-primary-container text-primary dark:text-primary-fixed w-full top-0 sticky z-50 border-b border-outline-variant dark:border-outline shadow-xs">
-        <div className="flex justify-between items-center px-margin-page h-16 w-full max-w-container-max-width mx-auto">
-          
-          {/* Logo & Brand Title */}
-          <div className="flex items-center gap-stack-gap">
-            <span className="p-2 bg-primary/10 dark:bg-primary-fixed-dim/20 rounded-lg text-primary dark:text-primary-fixed">
-              <Receipt size={26} className="text-secondary" />
-            </span>
-            <span className="font-headline-lg text-headline-lg font-bold text-primary dark:text-primary-fixed tracking-tight">
-              Billing Desk
-              <span className="text-[10px] font-normal uppercase tracking-wider text-on-surface-variant dark:text-primary-fixed/70">
-                Distributor Workspace
-              </span>
-            </span>
+      {/* ── ZONE A: Compact Premium Header ── */}
+      <header className="bg-white dark:bg-[#131b2e] border-b border-slate-200 dark:border-slate-800 px-4 py-2 flex items-center justify-between shrink-0 z-30 shadow-2xs gap-3">
+        {/* Left: Menu, Logo Badge, Title & Sales Channel Pill */}
+        <div className="flex items-center gap-2.5 shrink-0">
+          <button
+            type="button"
+            onClick={() => onOpenHotkeys ? onOpenHotkeys() : setShowMoreMenu(v => !v)}
+            className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 hover:bg-slate-100 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition cursor-pointer"
+            title="Billing Menu & Workspace Navigation (F1)"
+          >
+            <Menu size={16} />
+          </button>
+
+          <div className="w-8 h-8 rounded-lg bg-blue-600 text-white flex items-center justify-center font-bold shadow-xs">
+            <Receipt size={18} />
           </div>
 
-          {/* Clock, Action Buttons, Separator, System Controls & Avatar */}
-          <div className="flex items-center gap-gutter">
-            
-            {/* Live Date & Time Badges */}
-            <div className="flex items-center gap-stack-gap text-on-surface-variant font-code-md text-code-md">
-              <span className="bg-surface-container-high px-2 py-1 rounded font-bold">{liveDate}</span>
-              <span className="bg-surface-container-high px-2 py-1 rounded font-bold">{liveTime}</span>
+          <div className="flex items-center gap-2">
+            <span className="font-bold text-base text-slate-900 dark:text-white tracking-tight">
+              Billing Desk
+            </span>
+
+            {/* Sales Channel Pill Selector */}
+            <div className="relative">
+              <select
+                aria-label="Sales Channel"
+                data-testid="sales-channel-select"
+                value={headerState.salesChannel || "POS_RETAIL"}
+                onChange={e => setHeaderState(prev => ({ ...prev, salesChannel: e.target.value }))}
+                className="bg-amber-100/90 dark:bg-amber-950/60 hover:bg-amber-200/80 text-amber-900 dark:text-amber-200 border border-amber-300 dark:border-amber-700 font-bold text-xs rounded-full px-3 py-1 cursor-pointer outline-none transition shadow-2xs"
+              >
+                {SALES_CHANNELS.map(ch => (
+                  <option key={ch.value} value={ch.value}>{ch.label}</option>
+                ))}
+              </select>
             </div>
+          </div>
+        </div>
 
-            {/* Quick Action Icons */}
-            <div className="flex items-center gap-unit">
-              <button
-                type="button"
-                onClick={handleNewInvoice}
-                className="p-2 text-on-surface-variant hover:bg-surface-container-high dark:hover:bg-primary-fixed-dim transition-colors rounded active:opacity-80 cursor-pointer"
-                title="New (Ctrl+N)"
-              >
-                <Plus size={18} />
-              </button>
-              <button
-                type="button"
-                onClick={handleVoidInvoice}
-                className="p-2 text-on-surface-variant hover:bg-surface-container-high dark:hover:bg-primary-fixed-dim transition-colors rounded active:opacity-80 cursor-pointer"
-                title="Void (Ctrl+V)"
-              >
-                <Trash2 size={18} className="text-error" />
-              </button>
-              <button
-                type="button"
-                onClick={handleReturnInvoice}
-                className="p-2 text-on-surface-variant hover:bg-surface-container-high dark:hover:bg-primary-fixed-dim transition-colors rounded active:opacity-80 cursor-pointer"
-                title="Return / Recall (Ctrl+R)"
-              >
-                <RotateCcw size={18} />
-              </button>
-              <button
-                type="button"
-                onClick={handleReprintInvoice}
-                className="p-2 text-on-surface-variant hover:bg-surface-container-high dark:hover:bg-primary-fixed-dim transition-colors rounded active:opacity-80 cursor-pointer"
-                title="Reprint / Preview (Ctrl+P)"
-              >
-                <Printer size={18} />
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowTransactionBrowserModal(true)}
-                className="p-2 text-on-surface-variant hover:bg-surface-container-high dark:hover:bg-primary-fixed-dim transition-colors rounded active:opacity-80 cursor-pointer"
-                title="Commercial Transactions & Audit (F4 / Alt+6)"
-              >
-                <History size={18} className="text-secondary" />
-              </button>
-            </div>
+        {/* Center: Live Date/Time, Doc Number Pill & Status Pill */}
+        <div className="flex items-center gap-3">
+          <div className="hidden sm:flex items-center gap-1.5 font-mono text-xs text-slate-500 dark:text-slate-400 font-medium">
+            <span>{liveDate}</span>
+            <span>·</span>
+            <span>{liveTime}</span>
+          </div>
 
-            {/* Vertical Separator */}
-            <div className="h-8 w-px bg-outline-variant"></div>
+          <div className="flex items-center gap-1.5 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-2.5 py-1 rounded-lg text-xs font-mono font-bold text-slate-800 dark:text-slate-200 shadow-2xs">
+            <span>{headerState.docPrefix ? `${headerState.docPrefix}${headerState.docNo || "0001"}` : headerState.docNo || "INV/C/0001"}</span>
+            <button
+              type="button"
+              onClick={() => setShowDefinePrefixModal(true)}
+              title="Define Bill Prefix / Numbering (Setup > General > Bill Prefix)"
+              className="text-slate-400 hover:text-blue-600 transition cursor-pointer"
+            >
+              <Edit2 size={12} />
+            </button>
+          </div>
 
-            {/* System Utility Icons */}
-            <div className="flex gap-1.5">
-              <button
-                type="button"
-                onClick={() => onNotification?.("Notifications", "System is up to date.", "success")}
-                className="p-2 text-on-surface-variant hover:bg-surface-container-high dark:hover:bg-primary-fixed-dim transition-colors rounded active:opacity-80 cursor-pointer"
-                title="Notifications"
-              >
-                <Bell size={17} />
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowSmritiItemSearchModal(true)}
-                className="p-2 text-on-surface-variant hover:bg-surface-container-high dark:hover:bg-primary-fixed-dim transition-colors rounded active:opacity-80 cursor-pointer"
-                title="Item Search (F2)"
-              >
-                <Settings size={17} />
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowAttachmentPanel(!showAttachmentPanel)}
-                className={`p-2 transition-colors rounded active:opacity-80 cursor-pointer ${
-                  showAttachmentPanel 
-                    ? "bg-surface-container-high text-primary" 
-                    : "text-on-surface-variant hover:bg-surface-container-high dark:hover:bg-primary-fixed-dim"
-                }`}
-                title="Attachments (Add contracts, POs, approvals)"
-              >
-                <Paperclip size={17} />
-              </button>
-              <button
-                type="button"
-                onClick={handleToggleFullscreen}
-                className="p-2 text-on-surface-variant hover:bg-surface-container-high dark:hover:bg-primary-fixed-dim transition-colors rounded active:opacity-80 cursor-pointer"
-                title={isFullscreen ? "Exit Fullscreen" : "Fullscreen Invoicing Terminal"}
-              >
-                {isFullscreen ? <Minimize2 size={17} /> : <Maximize2 size={17} />}
-              </button>
-              <button
-                type="button"
-                onClick={() => onNotification?.("Help", "F2: Search Customer | F11: Direct Entry | F8: Settlement | F12: Suspend | Ctrl+P: Preview/Reprint", "success")}
-                className="p-2 text-on-surface-variant hover:bg-surface-container-high dark:hover:bg-primary-fixed-dim transition-colors rounded active:opacity-80 cursor-pointer"
-                title="Help & Shortcuts"
-              >
-                <HelpCircle size={17} />
-              </button>
-            </div>
+          <span
+            className="bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 text-[11px] font-bold px-2.5 py-0.5 rounded-full uppercase tracking-wider"
+            data-testid="invoice-workspace-mode"
+          >
+            {isReadOnlyView ? "AUDIT" : items.length === 0 ? "NEW" : headerState.transaction === "Credit" ? "B2B CREDIT" : "DRAFT"}
+          </span>
+        </div>
 
-            {/* User Profile Avatar */}
-            <div className="w-8 h-8 rounded-full border border-outline-variant bg-surface-container-high flex items-center justify-center font-bold text-xs text-primary font-code-md">
-              {currentUser?.name ? currentUser.name.substring(0, 2).toUpperCase() : "SD"}
-            </div>
+        {/* Right: Primary Actions, Overflow Menu, Shift HUD & Avatar */}
+        <div className="flex items-center gap-2 shrink-0">
+          {/* New Bill */}
+          <button
+            type="button"
+            onClick={handleNewInvoice}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white hover:bg-slate-50 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-semibold transition cursor-pointer shadow-2xs"
+            title="New Invoice (Ctrl+N)"
+          >
+            <FilePlus size={14} className="text-blue-600" />
+            <span className="hidden md:inline">New</span>
+          </button>
 
-            {/* Settlement F8 Primary Action */}
-            {isReadOnlyView ? (
-              <button
-                type="button"
-                onClick={() => loadedDocMetadata?.id && void openCanonicalInvoicePrint(loadedDocMetadata.id)}
-                className="h-9 px-4 bg-secondary hover:bg-secondary-container text-on-secondary rounded font-title-sm text-xs font-bold transition-colors flex items-center gap-1.5 shadow-xs cursor-pointer ml-1"
-                title="Print Canonical Document"
-              >
-                <Printer size={15} />
-                <span>Print Document</span>
-              </button>
-            ) : (
-              <div className="flex items-center gap-1.5">
-                <button
-                  type="button"
-                  disabled={items.length === 0 || !hasGstProfile}
-                  onClick={handleExactCashSettlement}
-                  className="h-9 px-3 bg-secondary hover:bg-secondary-container text-on-secondary rounded font-title-sm text-xs font-bold transition-colors flex items-center gap-1.5 shadow-xs cursor-pointer disabled:opacity-50"
-                  title="Exact Cash Checkout (F7)"
-                >
-                  <Banknote size={15} />
-                  <span>Exact Cash (F7)</span>
-                </button>
-                <button
-                  type="button"
-                  disabled={items.length === 0 || !hasGstProfile}
-                  onClick={openSettlement}
-                  className="h-9 px-4 bg-primary hover:bg-primary-container text-on-primary rounded font-title-sm text-xs font-bold transition-colors flex items-center gap-1.5 shadow-xs cursor-pointer disabled:opacity-50"
-                  title="Settlement (F8)"
-                >
-                  <CreditCard size={15} />
-                  <span>Settle &amp; Save (F8)</span>
-                </button>
-              </div>
+          {/* Save / Hold */}
+          <button
+            type="button"
+            onClick={handleSuspendInvoice}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white hover:bg-slate-50 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-semibold transition cursor-pointer shadow-2xs"
+            title="Park / Hold Invoice (F12)"
+          >
+            <Save size={14} className="text-blue-600" />
+            <span className="hidden md:inline">Save</span>
+          </button>
+
+          {/* Print / Preview */}
+          <button
+            type="button"
+            onClick={handleReprintInvoice}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white hover:bg-slate-50 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-semibold transition cursor-pointer shadow-2xs"
+            title="Print Preview / Reprint (Ctrl+P)"
+          >
+            <Printer size={14} className="text-blue-600" />
+            <span className="hidden md:inline">Print</span>
+          </button>
+
+          {/* More Actions Dropdown */}
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setShowMoreMenu(v => !v)}
+              className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white hover:bg-slate-50 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-semibold transition cursor-pointer shadow-2xs"
+              title="More Options & Supporting Workspaces"
+            >
+              <MoreHorizontal size={14} />
+              <span className="hidden md:inline">More</span>
+              <ChevronDown size={12} />
+            </button>
+
+            {showMoreMenu && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setShowMoreMenu(false)} />
+                <div className="absolute right-0 top-full mt-1.5 z-50 bg-white dark:bg-[#191c1e] border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl p-1.5 min-w-[220px] flex flex-col gap-0.5 text-xs animate-in fade-in slide-in-from-top-1 font-medium">
+                  {onOpenSalesDocuments && (
+                    <button
+                      type="button"
+                      onClick={() => { onOpenSalesDocuments(); setShowMoreMenu(false); }}
+                      className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 text-left w-full cursor-pointer"
+                    >
+                      <FileText size={14} className="text-teal-600" />
+                      <span>Sales Documents Studio</span>
+                    </button>
+                  )}
+                  {onOpenPackingSlips && (
+                    <button
+                      type="button"
+                      onClick={() => { onOpenPackingSlips(); setShowMoreMenu(false); }}
+                      className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 text-left w-full cursor-pointer"
+                    >
+                      <Package size={14} className="text-indigo-600" />
+                      <span>Packing Slips (Direct)</span>
+                    </button>
+                  )}
+                  {onOpenConsolidatedBilling && (
+                    <button
+                      type="button"
+                      onClick={() => { onOpenConsolidatedBilling(); setShowMoreMenu(false); }}
+                      className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 text-left w-full cursor-pointer"
+                    >
+                      <FileText size={14} className="text-blue-600" />
+                      <span>Consolidated Billing</span>
+                    </button>
+                  )}
+                  <div className="h-px bg-slate-200 dark:bg-slate-700 my-1" />
+                  <button
+                    type="button"
+                    onClick={() => { setShowTransactionBrowserModal(true); setShowMoreMenu(false); }}
+                    className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 text-left w-full cursor-pointer"
+                  >
+                    <History size={14} className="text-amber-600" />
+                    <span>Commercial Audit Browser (F4)</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setShowRecallModal(true); setShowMoreMenu(false); }}
+                    className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 text-left w-full cursor-pointer"
+                  >
+                    <RotateCcw size={14} className="text-purple-600" />
+                    <span>Recall Held Bills {suspendedBills.length > 0 ? `(${suspendedBills.length})` : ""}</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { handleVoidInvoice(); setShowMoreMenu(false); }}
+                    className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-red-50 dark:hover:bg-red-950/40 text-red-600 text-left w-full cursor-pointer"
+                  >
+                    <Trash2 size={14} />
+                    <span>Void Bill (Ctrl+V)</span>
+                  </button>
+                  <div className="h-px bg-slate-200 dark:bg-slate-700 my-1" />
+                  {onOpenShiftReports && (
+                    <button
+                      type="button"
+                      onClick={() => { onOpenShiftReports(); setShowMoreMenu(false); }}
+                      className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 text-left w-full cursor-pointer"
+                    >
+                      <FileText size={14} className="text-cyan-600" />
+                      <span>Shift Reports</span>
+                    </button>
+                  )}
+                  {onOpenEodReport && (
+                    <button
+                      type="button"
+                      onClick={() => { onOpenEodReport(); setShowMoreMenu(false); }}
+                      className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 text-left w-full cursor-pointer"
+                    >
+                      <FileText size={14} className="text-emerald-600" />
+                      <span>EOD Z-Report Closeout</span>
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => { setShowAttachmentPanel(!showAttachmentPanel); setShowMoreMenu(false); }}
+                    className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 text-left w-full cursor-pointer"
+                  >
+                    <Paperclip size={14} className="text-slate-600" />
+                    <span>Attachments Panel</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { handleToggleFullscreen(); setShowMoreMenu(false); }}
+                    className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 text-left w-full cursor-pointer"
+                  >
+                    {isFullscreen ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
+                    <span>{isFullscreen ? "Exit Fullscreen" : "Fullscreen Mode"}</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { if (onOpenHotkeys) onOpenHotkeys(); else setShowSmritiItemSearchModal(true); setShowMoreMenu(false); }}
+                    className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 text-left w-full cursor-pointer"
+                  >
+                    <HelpCircle size={14} className="text-blue-600" />
+                    <span>Shortcuts &amp; Help (F1)</span>
+                  </button>
+                </div>
+              </>
             )}
+          </div>
 
+          {/* Active Shift Badge */}
+          <div
+            onClick={() => onOpenShiftManager?.()}
+            className="hidden lg:flex items-center gap-1.5 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 px-2.5 py-1 rounded-full text-xs font-semibold text-emerald-800 dark:text-emerald-300 cursor-pointer hover:bg-emerald-100 transition shadow-2xs"
+            title="Register &amp; Shift Status (Click to inspect)"
+          >
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+            <span>REG-01 · Shift Active</span>
+          </div>
+
+          {/* User Avatar */}
+          <div
+            className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900/60 text-blue-700 dark:text-blue-200 font-bold text-xs flex items-center justify-center border border-blue-200 dark:border-blue-700 font-mono shadow-2xs"
+            title={currentUser?.name || "Cashier Admin"}
+          >
+            {currentUser?.name ? currentUser.name.substring(0, 2).toUpperCase() : "AD"}
           </div>
         </div>
       </header>
@@ -2699,182 +2807,23 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
         </div>
       )}
 
-      <div className="border-b border-outline-variant bg-surface-container-lowest/95 px-margin-page py-2 shadow-xs">
-        <div className="max-w-container-max-width mx-auto flex flex-wrap items-center gap-2 text-[11px] font-semibold">
-          <span className="rounded-full bg-primary-container px-3 py-1 text-on-primary" data-testid="invoice-workspace-mode">
-            {headerState.transaction === "Credit" ? "B2B CREDIT" : "B2B CASH"}
-          </span>
-          <span className="rounded-full border border-outline-variant bg-surface-container-low px-3 py-1 text-on-surface-variant">
-            {items.length} {items.length === 1 ? "item" : "items"}
-          </span>
-          <span className="rounded-full border border-outline-variant bg-surface-container-low px-3 py-1 text-on-surface-variant">
-            {headerState.customer?.name || "Customer required"}
-          </span>
-          <span className={`rounded-full border px-3 py-1 ${
-            headerState.customer?.gstNumber || headerState.billedGstin
-              ? "border-emerald-300 bg-emerald-50 text-emerald-800"
-              : "border-amber-300 bg-amber-50 text-amber-800"
-          }`}>
-            {headerState.customer?.gstNumber || headerState.billedGstin ? "GST profile ready" : "GST profile pending"}
-          </span>
-          {headerState.poReference && (
-            <span className="rounded-full border border-blue-300 bg-blue-50 px-3 py-1 text-blue-800">
-              PO {headerState.poReference}
-            </span>
-          )}
-          <span className="ml-auto font-code-md text-sm font-bold text-primary">
-            Net ₹{summaryTotals.netAmount.toFixed(2)}
-          </span>
-        </div>
-      </div>
-
       {/* Main Invoicing Canvas */}
-      <main className="flex-1 flex flex-col p-stack-gap gap-stack-gap overflow-y-auto max-w-container-max-width mx-auto w-full">
+      <main className="flex-1 flex flex-col p-2.5 gap-2.5 overflow-hidden max-w-[1920px] mx-auto w-full min-h-0">
         
-        {/* HEADER SECTION */}
-        <section className="bg-surface-container-lowest border border-outline-variant rounded p-stack-gap flex flex-col gap-stack-gap shadow-xs">
-          
-          {/* Row 1: Bill Type, Transaction, Doc Prefix, Doc No, Action Buttons */}
-          <div className="flex flex-wrap items-end gap-gutter">
-            <div className="flex flex-col gap-unit w-48">
-              <label className="font-label-caps text-label-caps text-on-surface-variant font-bold">Billing Source</label>
-              <select
-                aria-label="Billing Source"
-                value={headerState.billingSource || "DIRECT"}
-                onChange={event => {
-                  const source = event.target.value as BillingHeaderState["billingSource"];
-                  setHeaderState(prev => ({ ...prev, billingSource: source, customerPoId: null, poReference: "" }));
-                  setSelectedCustomerPO(null);
-                  if (source !== "CUSTOMER_PO") setItems([]);
-                }}
-                className="border-outline-variant text-body-md focus:border-secondary focus:ring-secondary rounded h-9 bg-surface-container-lowest px-2.5 font-medium border"
-              >
-                <option value="DIRECT">Direct Invoice</option>
-                <option value="CUSTOMER_PO">Customer PO</option>
-                <option value="SALES_ORDER" disabled>Sales Order (Not configured)</option>
-                <option value="DELIVERY" disabled>Delivery (Not configured)</option>
-              </select>
-            </div>
-
-            {/* Operational Sales Channel */}
-            <div className="flex flex-col gap-unit w-48">
-              <label className="font-label-caps text-label-caps text-on-surface-variant font-bold">Sales Channel</label>
-              <select
-                aria-label="Sales Channel"
-                data-testid="sales-channel-select"
-                value={headerState.salesChannel || "B2B_WHOLESALE"}
-                onChange={e => setHeaderState(prev => ({ ...prev, salesChannel: e.target.value }))}
-                className="border-outline-variant text-body-md focus:border-secondary focus:ring-secondary rounded h-9 bg-surface-container-lowest px-2.5 font-medium border"
-              >
-                {SALES_CHANNELS.map(ch => (
-                  <option key={ch.value} value={ch.value}>{ch.label}</option>
-                ))}
-              </select>
-            </div>
-            <div className="flex flex-col gap-unit w-48">
-              <label className="font-label-caps text-label-caps text-on-surface-variant font-bold">Bill Type</label>
-              <select
-                value={headerState.billType}
-                onChange={e => setHeaderState({ ...headerState, billType: e.target.value as BillType })}
-                className="border-outline-variant text-body-md focus:border-secondary focus:ring-secondary rounded h-9 bg-surface-container-lowest px-2.5 font-medium border"
-              >
-                <option value="Product">Product</option>
-                <option value="Service">Service</option>
-                <option value="Both">Both</option>
-              </select>
-            </div>
-
-            <div className="flex flex-col gap-unit w-48">
-              <label className="font-label-caps text-label-caps text-on-surface-variant font-bold">Transaction</label>
-              <select
-                value={headerState.transaction}
-                onChange={e => setHeaderState({ ...headerState, transaction: e.target.value as TransactionType })}
-                className="border-outline-variant text-body-md focus:border-secondary focus:ring-secondary rounded h-9 bg-surface-container-lowest px-2.5 font-medium border"
-              >
-                <option value="Credit">Credit</option>
-                <option value="Cash">Cash</option>
-                <option value="Retail">Retail</option>
-              </select>
-            </div>
-
-            <div className="flex flex-col gap-unit w-36">
-              <div className="flex items-center justify-between">
-                <label className="font-label-caps text-label-caps text-on-surface-variant font-bold">Doc Prefix</label>
-                <button
-                  type="button"
-                  onClick={() => setShowDefinePrefixModal(true)}
-                  className="text-[10px] text-primary hover:underline font-bold"
-                  title="Define Bill Prefix (Setup > General > Bill Prefix)"
-                >
-                  Define ⚙️
-                </button>
-              </div>
-              <div className="flex items-center gap-1">
-                <input
-                  type="text"
-                  value={headerState.docPrefix}
-                  readOnly
-                  placeholder="INV/"
-                  className="bg-surface-container-low border-outline-variant text-body-md font-code-md text-on-surface-variant rounded h-9 cursor-not-allowed px-2.5 border flex-1"
-                />
-                {resolvedPrefixInfo && (
-                  <span
-                    className={`text-[9px] font-bold px-1.5 py-1 rounded ${
-                      resolvedPrefixInfo.gstRule46bValid
-                        ? "bg-emerald-100 text-emerald-800"
-                        : "bg-rose-100 text-rose-800"
-                    }`}
-                    title={resolvedPrefixInfo.validationMessage || "Statutory GST Rule 46(b) compliant"}
-                  >
-                    {resolvedPrefixInfo.gstRule46bLength}/16
-                  </span>
-                )}
-              </div>
-            </div>
-
-            <div className="flex flex-col gap-unit w-28">
-              <label className="font-label-caps text-label-caps text-on-surface-variant font-bold">Doc No.</label>
-              <input
-                type="text"
-                value={headerState.docNo}
-                readOnly
-                placeholder="0001"
-                className="bg-surface-container-low border-outline-variant text-body-md font-code-md text-on-surface-variant rounded h-9 cursor-not-allowed px-2.5 border"
-              />
-            </div>
-
-            {lastCompletedInvoice?.invoiceNumber && (
-              <div className="flex flex-col gap-unit min-w-44">
-                <label className="font-label-caps text-label-caps text-on-surface-variant font-bold">Last Saved Bill No.</label>
-                <div className="bg-emerald-50 border border-emerald-300 text-emerald-800 rounded h-9 px-2.5 flex items-center font-code-md font-bold">
-                  {lastCompletedInvoice.invoiceNumber}
-                </div>
-              </div>
-            )}
-
-            <div className="flex gap-2 ml-auto">
-
-              <button
-                type="button"
-                onClick={() => setShowRecallModal(true)}
-                className="h-9 px-4 bg-surface-container-high hover:bg-surface-variant text-primary border border-outline-variant rounded font-title-sm text-title-sm transition-colors flex items-center gap-2 cursor-pointer"
-                title="Recall Held Invoice (Ctrl+R)"
-              >
-                <History size={16} className="text-secondary" />
-                <span>Recall {suspendedBills.length > 0 ? `(${suspendedBills.length})` : ""}</span>
-              </button>
-            </div>
-          </div>
-
-          {/* Row 2: Customer F2 search, Display, Add button, Sales Staff */}
-          <div className="flex flex-wrap items-end gap-gutter">
+        {/* ZONE B: TRANSACTION & CUSTOMER CARD (3-Column Clean Desk Layout) */}
+        <section className="bg-white dark:bg-[#1e293b] border border-slate-200 dark:border-slate-800 rounded-xl p-3 shadow-xs shrink-0">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 items-start">
             
-            {/* Customer Search & Quick Add */}
-            <div className="flex flex-col gap-unit flex-1 relative">
-              <label className="font-label-caps text-label-caps text-on-surface-variant font-bold">
-                Customer <span className="text-error">*</span>
+            {/* Column 1: Customer Identification (4 cols) */}
+            <div className="lg:col-span-4 flex flex-col gap-1.5">
+              <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                <Users size={14} className="text-blue-600 dark:text-blue-400" />
+                <span>Customer</span>
+                <span className="text-rose-500 font-bold" title="Customer selection is required">*</span>
               </label>
-              <div className="flex gap-2">
+
+              {/* Customer Search Bar with Quick Add Button */}
+              <div className="relative flex items-center gap-1.5">
                 <div className="relative flex-1">
                   <input
                     ref={customerInputRef}
@@ -2910,10 +2859,11 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
                         setShowCustomerDropdown(false);
                       }
                     }}
-                    placeholder="Search customer (F2)"
-                    className="w-full border-outline-variant text-body-md focus:border-secondary focus:ring-secondary rounded h-9 pl-9 pr-2 border bg-surface-container-lowest font-medium"
+                    placeholder="Search customer (F2)..."
+                    className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg h-8 pl-8 pr-7 text-xs font-medium text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-blue-500 transition shadow-2xs"
                   />
-                  <Search size={16} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-on-surface-variant" />
+                  <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <ChevronDown size={13} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
                   
                   {/* Real-Time Backend Customer Typeahead Dropdown */}
                   <TypeaheadDrop
@@ -2931,944 +2881,1065 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
                   />
                 </div>
 
-                <input
-                  type="text"
-                  name="customerNameDisplay"
-                  aria-label="Customer Name Display"
-                  value={headerState.customer?.name || ""}
-                  readOnly
-                  placeholder="Customer Name Display"
-                  className="flex-1 bg-surface-container-low border-outline-variant text-body-md text-on-surface-variant rounded h-9 px-3 border truncate font-medium"
-                />
-
                 <button
                   type="button"
                   onClick={() => setShowAddCustomerModal(true)}
-                  className="h-9 px-4 bg-surface-container-high hover:bg-surface-variant text-primary border border-outline-variant rounded font-title-sm text-title-sm transition-colors cursor-pointer"
+                  className="h-8 w-8 rounded-lg border border-blue-200 dark:border-blue-800 bg-blue-50 hover:bg-blue-100 dark:bg-blue-950/60 dark:hover:bg-blue-900/60 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0 cursor-pointer shadow-2xs transition"
+                  title="Quick Add Customer"
                 >
-                  Add
+                  <UserPlus size={14} />
                 </button>
               </div>
-            </div>
 
-            {/* Sales Staff */}
-            <div className="flex flex-col gap-unit w-64">
-              <label className="font-label-caps text-label-caps text-on-surface-variant font-bold">Sales Staff</label>
-              <select
-                value={headerState.salesStaff}
-                onChange={e => setHeaderState({ ...headerState, salesStaff: e.target.value })}
-                className="border-outline-variant text-body-md focus:border-secondary focus:ring-secondary rounded h-9 border bg-surface-container-lowest px-2.5 font-medium"
-              >
-                <option value="">Select Staff...</option>
-                <option value="EMP001 - John Doe">EMP001 - John Doe</option>
-                <option value="EMP002 - Jane Smith">EMP002 - Jane Smith</option>
-                <option value="EMP003 - Rahul Sharma">EMP003 - Rahul Sharma</option>
-              </select>
-            </div>
-
-          </div>
-
-          {/* Row 3: Corporate B2B Multi-State GST & Delivery Location Strip */}
-          {headerState.customer && (
-            <div className="flex flex-wrap items-end gap-gutter pt-2 border-t border-outline-variant/60" data-testid="b2b-corporate-strip">
-              {headerState.billingSource === "CUSTOMER_PO" && (
-                <div className="flex flex-col gap-unit flex-1 min-w-[320px]">
-                  <div className="flex items-center justify-between">
-                    <label className="font-label-caps text-label-caps text-on-surface-variant font-bold">Customer PO</label>
-                    <span className="text-[10px] text-blue-700 font-semibold">
-                      {selectedCustomerPO ? `${selectedCustomerPO.status} · ${selectedCustomerPO.remaining_quantity} remaining` : `${customerPOs.length} available`}
-                    </span>
+              {/* Active Customer Display Card */}
+              {headerState.customer ? (
+                <div className="flex items-center justify-between bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-2 text-xs">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <div className="w-8 h-8 rounded-full bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-300 flex items-center justify-center shrink-0">
+                      <User size={15} />
+                    </div>
+                    <div className="flex flex-col min-w-0">
+                      <span className="font-bold text-slate-800 dark:text-slate-100 truncate text-xs">
+                        {headerState.customer.name}
+                      </span>
+                      <span className="text-[11px] text-slate-500 dark:text-slate-400 font-mono">
+                        {headerState.customer.id || headerState.customer.code || "CUST-0001"} · {headerState.customer.customerGroupId || "Retail"} {headerState.customer.mobile ? `· ${headerState.customer.mobile}` : ""}
+                      </span>
+                    </div>
                   </div>
-                  <select
-                    aria-label="Customer PO"
-                    data-testid="customer-po-select"
-                    value={headerState.customerPoId || ""}
-                    onChange={event => void selectCustomerPO(event.target.value)}
-                    className="border-outline-variant text-body-md focus:border-secondary focus:ring-secondary rounded h-9 border bg-surface-container-lowest px-2.5 font-medium"
-                    disabled={isLoadingCustomerPOs}
-                  >
-                    <option value="">{isLoadingCustomerPOs ? "Loading Customer POs..." : "-- Select Customer PO --"}</option>
-                    {customerPOs.map(po => (
-                      <option key={po.id} value={po.id}>
-                        {po.po_number} · {po.status} · Remaining {po.remaining_quantity}
-                      </option>
-                    ))}
-                  </select>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    {headerState.customer.gstNumber && (
+                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 font-mono">
+                        {headerState.customer.gstNumber}
+                      </span>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setHeaderState(prev => ({ ...prev, customer: null, billedPartyGstinId: null, billedGstin: null, deliveryLocationId: null, deliveryStoreCode: null, deliveryGstin: null, placeOfSupplyCode: null, poReference: "", customerPoId: null }));
+                        setSelectedCustomerPO(null);
+                        setCustomerSearchInput("");
+                      }}
+                      className="text-slate-400 hover:text-rose-600 p-1 cursor-pointer transition"
+                      title="Clear selected customer"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-center justify-between bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-2 text-xs">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <div className="w-8 h-8 rounded-full bg-slate-200 dark:bg-slate-800 text-slate-500 dark:text-slate-400 flex items-center justify-center shrink-0">
+                      <User size={15} />
+                    </div>
+                    <div className="flex flex-col min-w-0">
+                      <span className="font-bold text-slate-800 dark:text-slate-200 text-xs">Walk-in Customer</span>
+                      <span className="text-[11px] text-slate-500 dark:text-slate-400 font-mono">C-0001 | Retail</span>
+                    </div>
+                  </div>
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-300">Default</span>
                 </div>
               )}
-              
-              {/* Billed GST Registration */}
-              <div className="flex flex-col gap-unit flex-1 min-w-[240px]">
-                <div className="flex items-center justify-between">
-                  <label className="font-label-caps text-label-caps text-on-surface-variant font-bold flex items-center gap-1.5">
-                    <span>Billed GST Registration</span>
-                    {customerGstRegistrations.length > 1 && (
-                      <span className="text-[10px] text-amber-600 dark:text-amber-400 font-semibold bg-amber-50 dark:bg-amber-950/60 px-1.5 py-0.5 rounded">
-                        {customerGstRegistrations.length} GSTINs (Select)
-                      </span>
-                    )}
-                  </label>
-                  {isLoadingB2BData && (
-                    <span className="text-[10px] text-secondary animate-pulse">Loading B2B data...</span>
-                  )}
-                </div>
-                <select
-                  aria-label="Billed GST Registration"
-                  data-testid="billed-gst-registration"
-                  value={headerState.billedPartyGstinId || ""}
-                  onChange={e => handleBilledGstinChange(e.target.value)}
-                  className="border-outline-variant text-body-md focus:border-secondary focus:ring-secondary rounded h-9 border bg-surface-container-lowest px-2.5 font-medium"
+            </div>
+
+            {/* Column 2: Transaction Parameters & Settings (5 cols) */}
+            <div className="lg:col-span-5 flex flex-col gap-1.5">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                  Transaction Parameters
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setShowMoreDetails(v => !v)}
+                  className="text-[11px] font-semibold text-blue-600 dark:text-blue-400 hover:text-blue-800 flex items-center gap-0.5 cursor-pointer"
                 >
-                  <option value="">
-                    {customerGstRegistrations.length === 0
-                      ? (headerState.customer.gstNumber ? `Default (${headerState.customer.gstNumber})` : "Unregistered / Counter Cash")
-                      : "-- Select Billed GSTIN --"}
-                  </option>
-                  {customerGstRegistrations.map(reg => (
-                    <option key={reg.id} value={reg.id}>
-                      {reg.gstin} — {reg.state_name} ({reg.state_code}){reg.trade_name ? ` • ${reg.trade_name}` : ""}{reg.is_primary ? " [Primary]" : ""}
-                    </option>
-                  ))}
-                </select>
+                  <span>{showMoreDetails ? "▴ Less Details" : "▾ More Details"}</span>
+                  {(headerState.billedPartyGstinId || headerState.deliveryLocationId || headerState.poReference) && (
+                    <span className="w-1.5 h-1.5 rounded-full bg-blue-600 ml-0.5" />
+                  )}
+                </button>
               </div>
 
-              {/* Billing Location / Store */}
-              <div className="flex flex-col gap-unit flex-1 min-w-[280px]">
-                <div className="flex items-center justify-between">
-                  <label className="font-label-caps text-label-caps text-on-surface-variant font-bold flex items-center gap-1.5">
-                    <span>Billing Location / Store</span>
-                    {customerBillingLocations.length > 0 && (
-                      <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold bg-emerald-50 dark:bg-emerald-950/60 px-1.5 py-0.5 rounded">
-                        {customerBillingLocations.length} Billing Sites
-                      </span>
-                    )}
-                  </label>
-                </div>
-                {customerBillingLocations.length > 1 ? (
+              {/* 2x2 Clean Grid of Select Dropdowns */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                {/* Billing Source */}
+                <div className="flex flex-col gap-0.5">
+                  <span className="text-[10px] font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider">Source</span>
                   <select
-                    aria-label="Billing Location"
-                    data-testid="billing-location-select"
-                    value={headerState.billingLocationId || ""}
-                    onChange={e => handleBillingLocationChange(e.target.value)}
-                    className="border-outline-variant text-body-md focus:border-secondary focus:ring-secondary rounded h-9 border bg-surface-container-lowest px-2.5 font-medium"
+                    aria-label="Billing Source"
+                    value={headerState.billingSource || "DIRECT"}
+                    onChange={event => {
+                      const source = event.target.value as BillingHeaderState["billingSource"];
+                      setHeaderState(prev => ({ ...prev, billingSource: source, customerPoId: null, poReference: "" }));
+                      setSelectedCustomerPO(null);
+                      if (source !== "CUSTOMER_PO") setItems([]);
+                    }}
+                    className="bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg h-8 px-2 text-xs font-medium text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer"
                   >
-                    <option value="">-- Select Billing Location / Store --</option>
-                    {customerBillingLocations.map(loc => (
-                      <option key={loc.id} value={loc.id}>
-                        [{loc.billing_store_code}] {loc.name || "Billing Location"} — {loc.city}, {loc.state} ({loc.gstin || "No GSTIN"})
-                      </option>
+                    <option value="DIRECT">Direct Invoice</option>
+                    <option value="CUSTOMER_PO">Customer PO</option>
+                    <option value="SALES_ORDER" disabled>Sales Order</option>
+                    <option value="DELIVERY" disabled>Delivery</option>
+                  </select>
+                </div>
+
+                {/* Sales Channel */}
+                <div className="flex flex-col gap-0.5">
+                  <span className="text-[10px] font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider">Channel</span>
+                  <select
+                    aria-label="Sales Channel"
+                    data-testid="sales-channel-select"
+                    value={headerState.salesChannel || "B2B_WHOLESALE"}
+                    onChange={e => setHeaderState(prev => ({ ...prev, salesChannel: e.target.value }))}
+                    className="bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg h-8 px-2 text-xs font-medium text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer"
+                  >
+                    {SALES_CHANNELS.map(ch => (
+                      <option key={ch.value} value={ch.value}>{ch.label}</option>
                     ))}
                   </select>
-                ) : (
-                  <div className="h-9 px-2.5 flex items-center border border-outline-variant rounded bg-surface-container-low text-body-md font-medium">
-                    {customerBillingLocations.length === 1
-                      ? `${customerBillingLocations[0].name || "Billing Location"} — ${customerBillingLocations[0].city}, ${customerBillingLocations[0].state}`
-                      : "No registered billing location"}
-                  </div>
-                )}
+                </div>
+
+                {/* Bill Type */}
+                <div className="flex flex-col gap-0.5">
+                  <span className="text-[10px] font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider">Bill Type</span>
+                  <select
+                    value={headerState.billType}
+                    onChange={e => setHeaderState({ ...headerState, billType: e.target.value as BillType })}
+                    className="bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg h-8 px-2 text-xs font-medium text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer"
+                  >
+                    <option value="Product">Product</option>
+                    <option value="Service">Service</option>
+                    <option value="Both">Both</option>
+                  </select>
+                </div>
+
+                {/* Transaction Mode */}
+                <div className="flex flex-col gap-0.5">
+                  <span className="text-[10px] font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider">Transaction</span>
+                  <select
+                    value={headerState.transaction}
+                    onChange={e => setHeaderState({ ...headerState, transaction: e.target.value as TransactionType })}
+                    className="bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg h-8 px-2 text-xs font-medium text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer"
+                  >
+                    <option value="Credit">Credit</option>
+                    <option value="Cash">Cash</option>
+                    <option value="Retail">Retail</option>
+                  </select>
+                </div>
               </div>
 
-              {/* Delivery Location / Store (Conditional on Sales Channel requirement) */}
-              {isStoreLocationRequired && (
-                <div data-testid="delivery-location-container" className="flex flex-col gap-unit flex-1 min-w-[280px]">
-                  <div className="flex items-center justify-between">
-                    <label className="font-label-caps text-label-caps text-on-surface-variant font-bold flex items-center gap-1.5">
-                      <span>Delivery Location / Store</span>
-                      <span className="text-error font-bold" title="Store Location is mandatory for this channel">*</span>
-                      {customerDeliveryLocations.length > 0 && (
-                        <span className="text-[10px] text-blue-600 dark:text-blue-400 font-semibold bg-blue-50 dark:bg-blue-950/60 px-1.5 py-0.5 rounded">
-                          {customerDeliveryLocations.length} Stores
-                        </span>
-                      )}
-                    </label>
-                  </div>
-                  {customerDeliveryLocations.length > 1 ? (
+              {/* Expandable B2B & Supply Details Drawer */}
+              {showMoreDetails && (
+                <div className="mt-2 pt-2 border-t border-slate-200 dark:border-slate-700/60 flex flex-wrap gap-2 animate-in fade-in" data-testid="b2b-corporate-strip">
+                  {headerState.billingSource === "CUSTOMER_PO" && (
+                    <div className="flex flex-col gap-0.5 flex-1 min-w-[200px]">
+                      <span className="text-[10px] font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider">Customer PO</span>
+                      <select
+                        aria-label="Customer PO"
+                        data-testid="customer-po-select"
+                        value={headerState.customerPoId || ""}
+                        onChange={event => void selectCustomerPO(event.target.value)}
+                        className="bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg h-8 px-2 text-xs font-medium text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        disabled={isLoadingCustomerPOs}
+                      >
+                        <option value="">{isLoadingCustomerPOs ? "Loading POs..." : "-- Select Customer PO --"}</option>
+                        {customerPOs.map(po => (
+                          <option key={po.id} value={po.id}>
+                            {po.po_number} · Remaining {po.remaining_quantity}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+
+                  {/* Billed GST Registration */}
+                  <div className="flex flex-col gap-0.5 flex-1 min-w-[200px]">
+                    <span className="text-[10px] font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider">Billed GSTIN</span>
                     <select
-                      aria-label="Delivery Location"
-                      data-testid="delivery-location-select"
-                      value={headerState.deliveryLocationId || ""}
-                      onChange={e => handleDeliveryLocationChange(e.target.value)}
-                      className="border-outline-variant text-body-md focus:border-secondary focus:ring-secondary rounded h-9 border bg-surface-container-lowest px-2.5 font-medium"
+                      aria-label="Billed GST Registration"
+                      data-testid="billed-gst-registration"
+                      value={headerState.billedPartyGstinId || ""}
+                      onChange={e => handleBilledGstinChange(e.target.value)}
+                      className="bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg h-8 px-2 text-xs font-medium text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-blue-500"
                     >
-                      <option value="">-- Select Delivery Location / Store --</option>
-                      {customerDeliveryLocations.map(loc => (
-                        <option key={loc.id} value={loc.id}>
-                          [{loc.store_code}] {loc.location_name} — {loc.city}, {loc.state_name} ({loc.delivery_gstin || "No GSTIN"})
+                      <option value="">
+                        {customerGstRegistrations.length === 0
+                          ? (headerState.customer?.gstNumber ? `Default (${headerState.customer.gstNumber})` : "Unregistered / Counter Cash")
+                          : "-- Select Billed GSTIN --"}
+                      </option>
+                      {customerGstRegistrations.map(reg => (
+                        <option key={reg.id} value={reg.id}>
+                          {reg.gstin} — {reg.state_name} ({reg.state_code})
                         </option>
                       ))}
                     </select>
-                  ) : (
-                    <div className="h-9 px-2.5 flex items-center border border-outline-variant rounded bg-surface-container-low text-body-md font-medium">
-                      {customerDeliveryLocations.length === 1
-                        ? `${customerDeliveryLocations[0].location_name} — ${customerDeliveryLocations[0].city}, ${customerDeliveryLocations[0].state_name}`
-                        : "No registered delivery location"}
+                  </div>
+
+                  {/* Billing Location / Store */}
+                  <div className="flex flex-col gap-0.5 flex-1 min-w-[200px]">
+                    <span className="text-[10px] font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider">Billing Location</span>
+                    {customerBillingLocations.length > 1 ? (
+                      <select
+                        aria-label="Billing Location"
+                        data-testid="billing-location-select"
+                        value={headerState.billingLocationId || ""}
+                        onChange={e => handleBillingLocationChange(e.target.value)}
+                        className="bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg h-8 px-2 text-xs font-medium text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                      >
+                        <option value="">-- Select Billing Location --</option>
+                        {customerBillingLocations.map(loc => (
+                          <option key={loc.id} value={loc.id}>
+                            [{loc.billing_store_code}] {loc.name || "Site"} — {loc.city}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <div className="h-8 px-2 flex items-center border border-slate-300 dark:border-slate-700 rounded-lg bg-slate-100 dark:bg-slate-800 text-xs font-medium text-slate-700 dark:text-slate-300 truncate">
+                        {customerBillingLocations.length === 1
+                          ? `${customerBillingLocations[0].name || "Site"} — ${customerBillingLocations[0].city}`
+                          : "Primary Store Location"}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Delivery Location if Required */}
+                  {isStoreLocationRequired && (
+                    <div data-testid="delivery-location-container" className="flex flex-col gap-0.5 flex-1 min-w-[200px]">
+                      <span className="text-[10px] font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider">Delivery Store *</span>
+                      {customerDeliveryLocations.length > 1 ? (
+                        <select
+                          aria-label="Delivery Location"
+                          data-testid="delivery-location-select"
+                          value={headerState.deliveryLocationId || ""}
+                          onChange={e => handleDeliveryLocationChange(e.target.value)}
+                          className="bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg h-8 px-2 text-xs font-medium text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        >
+                          <option value="">-- Select Delivery Store --</option>
+                          {customerDeliveryLocations.map(loc => (
+                            <option key={loc.id} value={loc.id}>
+                              [{loc.store_code}] {loc.location_name}
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        <div className="h-8 px-2 flex items-center border border-slate-300 dark:border-slate-700 rounded-lg bg-slate-100 dark:bg-slate-800 text-xs font-medium text-slate-700 dark:text-slate-300 truncate">
+                          {customerDeliveryLocations[0]?.location_name || "Main Retail Store"}
+                        </div>
+                      )}
                     </div>
                   )}
-                </div>
-              )}
 
-              {/* Store Code Badge (Conditional on Sales Channel requirement) */}
-              {isStoreLocationRequired && (
-                <div data-testid="delivery-store-code-container" className="flex flex-col gap-unit w-28">
-                  <label className="font-label-caps text-label-caps text-on-surface-variant font-bold flex items-center gap-1">
-                    <span>Store Code</span>
-                    <span className="text-error font-bold" title="Mandatory for this channel">*</span>
-                  </label>
-                  <div 
-                    data-testid="delivery-store-code-display"
-                    className="h-9 px-2.5 flex items-center bg-surface-container-low border border-outline-variant rounded text-body-md font-mono font-bold text-primary"
-                  >
-                    {headerState.deliveryStoreCode || "—"}
+                  {/* Store Code Badge */}
+                  {isStoreLocationRequired && (
+                    <div data-testid="delivery-store-code-container" className="flex flex-col gap-0.5 w-24">
+                      <span className="text-[10px] font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider">Store Code</span>
+                      <div 
+                        data-testid="delivery-store-code-display"
+                        className="h-8 px-2 flex items-center bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-xs font-mono font-bold text-blue-700 dark:text-blue-300"
+                      >
+                        {headerState.deliveryStoreCode || "—"}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* POS State */}
+                  <div className="flex flex-col gap-0.5 w-20">
+                    <span className="text-[10px] font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider">POS State</span>
+                    <div 
+                      data-testid="pos-code-display"
+                      title={headerState.placeOfSupplyCode || "Default POS"}
+                      className="h-8 px-2 flex items-center bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-xs font-mono font-bold text-slate-700 dark:text-slate-300"
+                    >
+                      {headerState.placeOfSupplyCode || "—"}
+                    </div>
+                  </div>
+
+                  {/* PO Reference */}
+                  <div className="flex flex-col gap-0.5 flex-1 min-w-[140px]">
+                    <span className="text-[10px] font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider">PO Reference</span>
+                    <input
+                      type="text"
+                      name="poReference"
+                      aria-label="PO Reference"
+                      data-testid="po-reference-input"
+                      placeholder="PO / Order Ref"
+                      value={headerState.poReference || ""}
+                      onChange={e => setHeaderState(prev => ({ ...prev, poReference: e.target.value }))}
+                      className="bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg h-8 px-2 text-xs font-medium text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    />
                   </div>
                 </div>
               )}
+            </div>
 
-              {/* Place of Supply (POS) */}
-              <div className="flex flex-col gap-unit w-24">
-                <label className="font-label-caps text-label-caps text-on-surface-variant font-bold">POS State</label>
-                <div 
-                  data-testid="pos-code-display"
-                  title={headerState.placeOfSupplyCode || "Default POS"}
-                  className="h-9 px-2.5 flex items-center bg-surface-container-low border border-outline-variant rounded text-body-md font-mono font-bold text-secondary"
+            {/* Column 3: Staff & Operations (3 cols) */}
+            <div className="lg:col-span-3 flex flex-col gap-1.5">
+              <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                Sales Staff
+              </label>
+
+              {/* Sales Staff Select with Quick Add Button */}
+              <div className="flex items-center gap-1.5">
+                <select
+                  value={headerState.salesStaff}
+                  onChange={e => setHeaderState({ ...headerState, salesStaff: e.target.value })}
+                  className="bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg h-8 px-2 text-xs font-medium text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer flex-1"
                 >
-                  {headerState.placeOfSupplyCode || "—"}
-                </div>
-              </div>
-
-              {/* PO Reference */}
-              <div className="flex flex-col gap-unit w-36">
-                <label className="font-label-caps text-label-caps text-on-surface-variant font-bold">PO Reference</label>
-                <input
-                  type="text"
-                  name="poReference"
-                  aria-label="PO Reference"
-                  data-testid="po-reference-input"
-                  placeholder="PO / Order Ref"
-                  value={headerState.poReference || ""}
-                  onChange={e => setHeaderState(prev => ({ ...prev, poReference: e.target.value }))}
-                  className="border-outline-variant text-body-md focus:border-secondary focus:ring-secondary rounded h-9 px-2.5 border bg-surface-container-lowest font-medium"
-                />
-              </div>
-
-            </div>
-          )}
-
-        </section>
-
-        {/* DETAIL SECTION (MAIN WORKSPACE) */}
-        <section className="flex-1 bg-surface-container-lowest border border-outline-variant rounded flex flex-col overflow-hidden min-h-[300px] shadow-xs">
-          
-          {/* Multi-attribute quick inspector ribbon */}
-          {selectedItemProductMeta && (
-            <div className="bg-blue-50 dark:bg-blue-950/40 border-b border-blue-200 dark:border-blue-800 px-3 py-1.5 text-xs flex items-center justify-between text-blue-900 dark:text-cyan-200 shrink-0">
-              <div className="flex items-center gap-3 overflow-x-auto">
-                <span><strong>Barcode:</strong> {selectedItemProductMeta.barcode}</span>
-                <span>•</span>
-                <span><strong>Stock/SKU:</strong> {selectedItemProductMeta.stockNo || selectedItemProductMeta.sku}</span>
-                <span>•</span>
-                <span><strong>Stock:</strong> {selectedItemProductMeta.stockQty} {selectedItemProductMeta.uom}</span>
-                <span>•</span>
-                <span><strong>MRP:</strong> ₹{selectedItemProductMeta.mrp.toFixed(2)}</span>
-                <span>•</span>
-                <span><strong>Cost:</strong> ₹{selectedItemProductMeta.costPrice.toFixed(2)}</span>
-                <span>•</span>
-                <span><strong>Size/Color:</strong> {selectedItemProductMeta.size}/{selectedItemProductMeta.color}</span>
-                <span>•</span>
-                <span><strong>Brand:</strong> {selectedItemProductMeta.brand}</span>
-                <span>•</span>
-                <span><strong>HSN:</strong> {selectedItemProductMeta.hsnCode} ({selectedItemProductMeta.gstPercentage}%)</span>
-              </div>
-              <button
-                type="button"
-                onClick={() => setSelectedItemProductMeta(null)}
-                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-xs px-1 cursor-pointer"
-              >
-                ✕
-              </button>
-            </div>
-          )}
-
-          {/* Main Line Items Table */}
-          <div className="flex-1 overflow-x-auto overflow-y-auto">
-            <table className="w-full text-left border-collapse min-w-[1100px]">
-              <thead className="sticky top-0 bg-surface-container-high border-b border-outline-variant z-10">
-                <tr className="font-label-caps text-label-caps text-on-surface-variant font-bold">
-                  <th className="px-3 py-2 w-10 text-center border-r border-outline-variant">S.No</th>
-                  <th className="px-3 py-2 w-[100px] border-r border-outline-variant">Stock No</th>
-                  <th className="px-3 py-2 border-r border-outline-variant">Item Description</th>
-                  <th className="px-3 py-2 w-[80px] text-right border-r border-outline-variant">Rate</th>
-                  <th className="px-3 py-2 w-[80px] text-right border-r border-outline-variant">Qty</th>
-                  <th className="px-3 py-2 w-[100px] text-right border-r border-outline-variant">Value</th>
-                  <th className="px-3 py-2 w-[80px] border-r border-outline-variant">Disc Code</th>
-                  <th className="px-3 py-2 w-[80px] text-right border-r border-outline-variant">Disc Qty</th>
-                  <th className="px-3 py-2 w-[80px] text-right border-r border-outline-variant">Disc %</th>
-                  <th className="px-3 py-2 w-[100px] text-right border-r border-outline-variant">Disc Amt</th>
-                  <th className="px-3 py-2 w-[120px] text-right border-r border-outline-variant">Total</th>
-                  <th className="px-3 py-2 w-[120px]">Sales Staff</th>
-                  <th className="px-2 py-2 w-8 text-center"></th>
-                </tr>
-              </thead>
-              <tbody className="font-code-md text-code-md divide-y divide-outline-variant/40">
-                {items.map((item, idx) => (
-                  <tr
-                    key={item.id}
-                    onClick={() => setSelectedRowIndex(idx)}
-                    onDoubleClick={() => handleRowDoubleClick(item, idx)}
-                    className={`transition-colors cursor-pointer ${
-                      editingLineId === item.id
-                        ? "bg-primary/20 ring-2 ring-primary font-bold"
-                        : selectedRowIndex === idx
-                        ? "bg-secondary-fixed/40 font-semibold"
-                        : "hover:bg-surface-container-low"
-                    }`}
-                    title="Double-click to edit line in Direct Entry (Ctrl+D to delete)"
-                  >
-                    <td className="px-3 py-2 text-center border-r border-outline-variant bg-surface-container-low">
-                      {item.sNo}
-                    </td>
-                    <td className="px-3 py-2 border-r border-outline-variant font-bold text-primary">
-                      {item.stockNo}
-                    </td>
-                    <td className="px-3 py-2 border-r border-outline-variant truncate max-w-xs font-sans font-medium">
-                      {item.itemDescription}
-                    </td>
-                    <td className="px-3 py-2 text-right border-r border-outline-variant">
-                      {Number(item.rate).toFixed(2)}
-                    </td>
-                    <td className="px-3 py-2 text-right border-r border-outline-variant font-bold">
-                      {item.qty}
-                    </td>
-                    <td className="px-3 py-2 text-right border-r border-outline-variant">
-                      {Number(item.value).toFixed(2)}
-                    </td>
-                    <td className="px-3 py-2 border-r border-outline-variant text-on-surface-variant">
-                      {item.discCode || "-"}
-                    </td>
-                    <td className="px-3 py-2 text-right border-r border-outline-variant">
-                      {item.discQty || "0"}
-                    </td>
-                    <td className="px-3 py-2 text-right border-r border-outline-variant">
-                      {item.discPercent ? `${item.discPercent}%` : "-"}
-                    </td>
-                    <td className="px-3 py-2 text-right border-r border-outline-variant">
-                      {item.discAmt > 0 ? item.discAmt.toFixed(2) : "-"}
-                    </td>
-                    <td className="px-3 py-2 text-right border-r border-outline-variant font-bold text-primary">
-                      {Number(item.total).toFixed(2)}
-                    </td>
-                    <td className="px-3 py-2 border-r border-outline-variant truncate max-w-[120px] text-on-surface-variant font-sans">
-                      {item.salesStaff}
-                    </td>
-                    <td className="px-2 py-2 text-center">
-                      {!isReadOnlyView && (
-                        <button
-                          type="button"
-                          onClick={e => {
-                            e.stopPropagation();
-                            handleRemoveItem(item.id);
-                          }}
-                          className="text-on-surface-variant hover:text-error transition-colors p-1 cursor-pointer"
-                          title="Delete Row"
-                        >
-                          <Trash2 size={13} />
-                        </button>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-
-                {/* Empty placeholders if rows < 5 */}
-                {Array.from({ length: Math.max(0, 5 - items.length) }).map((_, i) => (
-                  <tr key={"empty-" + i} className="border-b border-outline-variant/30">
-                    <td className="px-3 py-2 text-center border-r border-outline-variant bg-surface-container-low text-on-surface-variant/40">
-                      {items.length + i + 1}
-                    </td>
-                    <td colSpan={12} className="px-3 py-2 text-on-surface-variant/20 italic"></td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          {/* Active Line Inspector Ribbon when row is selected */}
-          {selectedRowIndex >= 0 && selectedRowIndex < items.length && (() => {
-            const sel = items[selectedRowIndex];
-            return (
-              <div className="bg-surface-container border-t border-outline-variant/60 px-3 py-1.5 text-xs flex flex-wrap items-center justify-between gap-2 shrink-0">
-                <div className="flex items-center gap-3 font-code-md text-[11px] overflow-x-auto">
-                  <span className="font-bold text-primary">Line #{sel.sNo}: {sel.stockNo}</span>
-                  <span className="text-on-surface font-sans font-medium">{sel.itemDescription}</span>
-                  {sel.brand && <span className="text-on-surface-variant bg-surface-variant px-1.5 py-0.5 rounded text-[10px]">Brand: {sel.brand}</span>}
-                  {sel.size && <span className="text-on-surface-variant bg-surface-variant px-1.5 py-0.5 rounded text-[10px]">Size: {sel.size}</span>}
-                  {sel.hsnCode && <span className="text-on-surface-variant text-[10px]">HSN: {sel.hsnCode}</span>}
-                  <span className="text-on-surface-variant text-[10px]">GST: {sel.gstPercentage}% (₹{(sel.taxAmount || 0).toFixed(2)})</span>
-                  {(sel.discAmt || 0) > 0 && <span className="text-secondary font-semibold text-[10px]">Disc: {sel.discCode || "ILD"} -₹{(sel.discAmt || 0).toFixed(2)} ({sel.discPercent || 0}%)</span>}
-                </div>
-                <div className="flex items-center gap-2 shrink-0">
-                  <span className="text-on-surface-variant text-[10px] hidden md:inline">Double-click to edit | Ctrl+D to delete</span>
-                  {!isReadOnlyView && (
-                    <button
-                      type="button"
-                      onClick={() => handleRowDoubleClick(sel, selectedRowIndex)}
-                      className="px-2 py-0.5 bg-secondary hover:bg-secondary-container text-on-secondary rounded text-[10px] font-bold cursor-pointer"
-                    >
-                      Edit Line
-                    </button>
-                  )}
-                </div>
-              </div>
-            );
-          })()}
-
-          {/* Active In-Place Editing Banner */}
-          {editingLineId && (
-            <div className="bg-primary/10 border-t border-b border-primary/30 px-3 py-1.5 text-xs text-primary flex items-center justify-between font-medium shrink-0">
-              <div className="flex items-center gap-2">
-                <span className="font-bold">Editing Line #{items.find(it => it.id === editingLineId)?.sNo} ({items.find(it => it.id === editingLineId)?.stockNo})</span>
-                <span className="text-on-surface-variant text-[11px]">— Modify Rate, Qty, or Discount in Direct Entry and press Enter to save.</span>
-              </div>
-              <button
-                type="button"
-                onClick={() => {
-                  setEditingLineId(null);
-                  setDirectEntry({
-                    barcode: "",
-                    stockNo: "",
-                    itemDescription: "",
-                    rate: "",
-                    qty: "1",
-                    discCode: "",
-                    discQty: "",
-                    discPercent: "",
-                    staff: directEntry.staff
-                  });
-                }}
-                className="text-xs text-error hover:underline font-bold cursor-pointer"
-              >
-                Cancel Edit (Esc)
-              </button>
-            </div>
-          )}
-
-          {/* Direct Entry Row (F11 / F1) at Bottom of Detail Card */}
-          <div className="bg-surface-container-low border-t border-outline-variant p-2 flex gap-2 items-center shrink-0">
-            <span className="font-label-caps text-label-caps text-on-surface-variant bg-surface-variant px-2 py-1 rounded w-10 text-center font-bold">
-              F11
-            </span>
-
-            {/* Inputs aligned with table columns */}
-            <div className="flex-1 flex gap-2 items-center">
-              {/* Stock / Barcode Search — data-f2-entity="variant" enables F2 → UniversalBrowseEngine (variant) */}
-              <div className="w-[100px] relative">
-                <input
-                  ref={directStockNoRef}
-                  type="text"
-                  id="directStockNo"
-                  name="directStockNo"
-                  aria-label="Stock No (F2 to browse)"
-                  data-f2-entity="variant"
-                  value={directEntry.stockNo}
-                  onChange={e => handleItemSearchChange(e.target.value, "stockNo")}
-                  onFocus={() => {
-                    setActiveItemSearchField("stockNo");
-                    if (productSuggestions.length > 0) setShowProductDropdown(true);
-                  }}
-                  onKeyDown={e => handleItemInputKeyDown(e, "stockNo")}
-                  placeholder="Stock No"
-                  className="w-full border-outline-variant h-8 font-code-md text-xs rounded px-2 bg-surface-container-lowest font-bold focus:border-secondary outline-none border"
-                />
-                {activeItemSearchField === "stockNo" && (
-                  <SmritiItemTypeaheadDropdown
-                    isOpen={showProductDropdown && (productSuggestions.length > 0 || isProductSearching || Boolean(productSearchError))}
-                    items={productSuggestions}
-                    selectedIndex={productSelectedIndex}
-                    isLoading={isProductSearching}
-                    errorMessage={productSearchError}
-                    onSelect={(opt) => {
-                      applyProductAutoPopulate(opt);
-                      directStockNoRef.current?.focus();
-                    }}
-                    onClose={() => setShowProductDropdown(false)}
-                    searchFieldType="stockNo"
-                    anchorRef={directStockNoRef}
-                  />
-                )}
-              </div>
-
-              {/* Item Description Display */}
-              <input
-                type="text"
-                value={directEntry.itemDescription}
-                onChange={e => setDirectEntry({ ...directEntry, itemDescription: e.target.value })}
-                onKeyDown={e => e.key === "Enter" && void handleCommitDirectEntry()}
-                placeholder="Item Description"
-                className="flex-1 bg-surface-container border-outline-variant h-8 text-xs rounded px-2 font-medium border focus:border-secondary outline-none truncate"
-              />
-
-              {/* Rate */}
-              <input
-                type="number"
-                step="0.01"
-                min="0"
-                max="9999999.99"
-                value={directEntry.rate}
-                onChange={e => setDirectEntry({ ...directEntry, rate: e.target.value })}
-                onKeyDown={e => e.key === "Enter" && void handleCommitDirectEntry()}
-                placeholder="Rate"
-                className="w-[80px] border-outline-variant h-8 font-code-md text-xs rounded px-2 text-right bg-surface-container-lowest font-bold focus:border-secondary outline-none border"
-              />
-
-              {/* Qty with Retail Barcode Scanner Guard */}
-              <input
-                type="text"
-                value={directEntry.qty}
-                onChange={e => {
-                  const clean = e.target.value.trim();
-                  // Retail Scanner Guard: if barcode scanner fires into quantity field (8+ digits)
-                  if (clean.length >= 8 && /^\d+$/.test(clean)) {
-                    setDirectEntry(prev => ({
-                      ...prev,
-                      barcode: clean,
-                      stockNo: prev.stockNo || clean,
-                      qty: "1"
-                    }));
-                    onNotification?.("Barcode Intercepted", `Barcode ${clean} scanned into Qty was redirected to Barcode field.`, "info");
-                    directBarcodeRef.current?.focus();
-                    return;
-                  }
-                  setDirectEntry(prev => ({ ...prev, qty: e.target.value }));
-                }}
-                onKeyDown={e => e.key === "Enter" && void handleCommitDirectEntry()}
-                placeholder="Qty"
-                className="w-[80px] border-outline-variant h-8 font-code-md text-xs rounded px-2 text-right bg-surface-container-lowest font-bold focus:border-secondary outline-none border"
-              />
-
-              {/* Value */}
-              <input
-                type="text"
-                value={directGrossValue > 0 ? directGrossValue.toFixed(2) : ""}
-                readOnly
-                placeholder="Value"
-                className="w-[100px] bg-surface-variant border-outline-variant h-8 font-code-md text-xs rounded px-2 text-right font-bold text-on-surface border"
-              />
-
-              {/* Disc Code */}
-              <input
-                type="text"
-                value={directEntry.discCode}
-                onChange={e => setDirectEntry({ ...directEntry, discCode: e.target.value })}
-                placeholder="Disc Code"
-                className="w-[80px] border-outline-variant h-8 font-code-md text-xs rounded px-2 bg-surface-container-lowest focus:border-secondary outline-none border"
-              />
-
-              {/* Disc Qty */}
-              <input
-                type="number"
-                min="0"
-                value={directEntry.discQty}
-                onChange={e => setDirectEntry({ ...directEntry, discQty: e.target.value })}
-                placeholder="Disc Qty"
-                className="w-[80px] border-outline-variant h-8 font-code-md text-xs rounded px-2 text-right bg-surface-container-lowest focus:border-secondary outline-none border"
-              />
-
-              {/* Disc % */}
-              <input
-                type="number"
-                min="0"
-                max="100"
-                step="0.01"
-                value={directEntry.discPercent}
-                onChange={e => setDirectEntry({ ...directEntry, discPercent: e.target.value })}
-                placeholder="Disc %"
-                className="w-[80px] border-outline-variant h-8 font-code-md text-xs rounded px-2 text-right bg-surface-container-lowest focus:border-secondary outline-none border"
-              />
-
-              {/* Disc Amt */}
-              <input
-                type="text"
-                value={directDiscAmt > 0 ? directDiscAmt.toFixed(2) : ""}
-                readOnly
-                placeholder="Disc Amt"
-                className="w-[100px] bg-surface-container-highest border-outline-variant h-8 font-code-md text-xs rounded px-2 text-right font-bold text-on-surface border"
-              />
-
-              {/* Total */}
-              <input
-                type="text"
-                value={directLineTotal > 0 ? directLineTotal.toFixed(2) : ""}
-                readOnly
-                placeholder="Total"
-                className="w-[120px] bg-surface-container-lowest border-outline-variant h-8 font-code-md text-xs rounded px-2 text-right font-bold text-primary border"
-              />
-
-              {/* Staff Select */}
-              <select
-                value={directEntry.staff}
-                onChange={e => setDirectEntry({ ...directEntry, staff: e.target.value })}
-                className="w-[120px] border-outline-variant h-8 text-xs rounded px-1.5 bg-surface-container-lowest border font-medium"
-              >
-                <option value="Staff A">Staff A</option>
-                <option value="Staff B">Staff B</option>
-                <option value="Staff C">Staff C</option>
-              </select>
-
-              {/* Add Button */}
-              <button
-                type="button"
-                onClick={() => void handleCommitDirectEntry()}
-                disabled={isResolvingProduct}
-                className="h-8 w-8 bg-primary hover:bg-primary-container text-on-primary rounded flex items-center justify-center shadow-2xs shrink-0 cursor-pointer disabled:opacity-50"
-                title="Add Item (Enter)"
-              >
-                <Plus size={16} />
-              </button>
-            </div>
-          </div>
-
-        </section>
-
-        {/* FOOTER SECTION */}
-        <section className="flex flex-col gap-stack-gap shrink-0">
-          <div className="flex flex-col lg:flex-row gap-gutter">
-            
-            {/* Left Tabbed Details (Transporter / Payment / AddOns) */}
-            <div className="flex-1 bg-surface-container-lowest border border-outline-variant rounded flex flex-col shadow-xs overflow-hidden">
-              <div className="flex border-b border-outline-variant bg-surface-container-low font-label-caps text-label-caps">
+                  <option value="">Select Staff...</option>
+                  <option value="EMP001 - John Doe">EMP001 - John Doe</option>
+                  <option value="EMP002 - Jane Smith">EMP002 - Jane Smith</option>
+                  <option value="EMP003 - Rahul Sharma">EMP003 - Rahul Sharma</option>
+                </select>
                 <button
                   type="button"
-                  onClick={() => setActiveFooterTab("transporter")}
-                  className={`px-4 py-2 border-r border-outline-variant font-bold transition-colors cursor-pointer ${
-                    activeFooterTab === "transporter"
-                      ? "bg-surface-container-lowest text-primary border-t-2 border-t-primary"
-                      : "text-on-surface-variant hover:bg-surface-container-high"
-                  }`}
+                  onClick={() => onNotification?.("Sales Staff", "Sales staff directory registered in ERP Master.", "info")}
+                  className="h-8 w-8 rounded-lg border border-blue-200 dark:border-blue-800 bg-blue-50 hover:bg-blue-100 dark:bg-blue-950/60 dark:hover:bg-blue-900/60 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0 cursor-pointer shadow-2xs transition"
+                  title="Quick Add / Staff Directory"
                 >
-                  Transporter Details
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setActiveFooterTab("payment")}
-                  className={`px-4 py-2 border-r border-outline-variant font-bold transition-colors cursor-pointer ${
-                    activeFooterTab === "payment"
-                      ? "bg-surface-container-lowest text-primary border-t-2 border-t-primary"
-                      : "text-on-surface-variant hover:bg-surface-container-high"
-                  }`}
-                >
-                  Payment Details
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setActiveFooterTab("addons")}
-                  className={`px-4 py-2 border-r border-outline-variant font-bold transition-colors cursor-pointer ${
-                    activeFooterTab === "addons"
-                      ? "bg-surface-container-lowest text-primary border-t-2 border-t-primary"
-                      : "text-on-surface-variant hover:bg-surface-container-high"
-                  }`}
-                >
-                  AddOns And Deductions
+                  <UserPlus size={14} />
                 </button>
               </div>
 
-              {/* Tab 1: Transporter Details */}
-              {activeFooterTab === "transporter" && (
-                <div className="p-2 overflow-x-auto flex-1 max-h-36">
-                  <table className="w-full text-left border border-outline-variant text-xs">
-                    <thead className="bg-surface-container-high border-b border-outline-variant font-label-caps text-label-caps text-on-surface-variant font-bold">
-                      <tr>
-                        <th className="px-2 py-1 w-10 border-r border-outline-variant text-center">S.No</th>
-                        <th className="px-2 py-1 w-28 border-r border-outline-variant">Type</th>
-                        <th className="px-2 py-1 w-20 border-r border-outline-variant">Code</th>
-                        <th className="px-2 py-1 border-r border-outline-variant">Description</th>
-                        <th className="px-2 py-1 w-24 border-r border-outline-variant">(Fixed/Variable)</th>
-                        <th className="px-2 py-1 w-20 border-r border-outline-variant text-right">Rate/Amt</th>
-                        <th className="px-2 py-1 w-20 border-r border-outline-variant text-right">Rate</th>
-                        <th className="px-2 py-1 w-24 text-right">Amount</th>
-                      </tr>
-                    </thead>
-                    <tbody className="font-code-md text-xs text-on-surface-variant">
-                      {transporterRows.map((t, idx) => (
-                        <tr key={idx} className="border-b border-outline-variant">
-                          <td className="px-2 py-1 border-r border-outline-variant text-center bg-surface-container-low">{t.sNo}</td>
-                          <td className="px-2 py-1 border-r border-outline-variant">
-                            <input
-                              type="text"
-                              value={t.type}
-                              onChange={e => {
-                                const val = e.target.value;
-                                setTransporterRows(prev => prev.map((r, i) => i === idx ? { ...r, type: val } : r));
-                              }}
-                              className="w-full bg-transparent border-none p-0 text-xs font-sans outline-none"
-                            />
-                          </td>
-                          <td className="px-2 py-1 border-r border-outline-variant">{t.code}</td>
-                          <td className="px-2 py-1 border-r border-outline-variant">{t.description}</td>
-                          <td className="px-2 py-1 border-r border-outline-variant">{t.rateType}</td>
-                          <td className="px-2 py-1 border-r border-outline-variant text-right">{t.rateAmt}</td>
-                          <td className="px-2 py-1 border-r border-outline-variant text-right">{t.rate}</td>
-                          <td className="px-2 py-1 text-right font-bold text-primary">
-                            <input
-                              type="number"
-                              value={t.amount || ""}
-                              placeholder="0.00"
-                              onChange={e => {
-                                const val = parseFloat(e.target.value) || 0;
-                                setTransporterRows(prev => prev.map((r, i) => i === idx ? { ...r, amount: val } : r));
-                              }}
-                              className="w-full bg-surface border border-outline-variant rounded px-1.5 py-0.5 text-right font-code-md text-xs font-bold outline-none"
-                            />
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+              {/* Action Buttons: Recall Held Bills & Last Saved Bill */}
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => setShowRecallModal(true)}
+                  className={`flex-1 h-8 rounded-lg border text-xs font-semibold flex items-center justify-center gap-1.5 transition cursor-pointer ${
+                    suspendedBills.length > 0
+                      ? "bg-purple-50 dark:bg-purple-950/40 border-purple-300 dark:border-purple-800 text-purple-700 dark:text-purple-300"
+                      : "bg-slate-50 dark:bg-slate-800/80 border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100"
+                  }`}
+                  title="Recall Held Invoice (Ctrl+R)"
+                >
+                  <History size={13} className="text-purple-600" />
+                  <span>Recall {suspendedBills.length > 0 ? `(${suspendedBills.length})` : ""}</span>
+                </button>
+              </div>
+
+              {lastCompletedInvoice?.invoiceNumber && (
+                <div className="text-[10px] font-mono text-emerald-700 dark:text-emerald-400 font-semibold bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded px-2 py-0.5 truncate text-center" title={`Last Saved: ${lastCompletedInvoice.invoiceNumber}`}>
+                  Saved: {lastCompletedInvoice.invoiceNumber}
                 </div>
               )}
+            </div>
 
-              {/* Tab 2: Payment Details */}
-              {activeFooterTab === "payment" && (
-                <div className="p-3 flex-1 flex flex-col justify-center items-center gap-2 max-h-36 bg-surface-container-low">
-                  <p className="text-xs text-on-surface-variant font-medium">Payment Mode: <strong>{headerState.transaction}</strong></p>
+          </div>
+        </section>
+
+        {/* ZONES C & D: ITEM GRID (~74%) & BILL SUMMARY (~26%) SIDE-BY-SIDE */}
+        <div className="flex-1 flex flex-col lg:flex-row gap-2.5 min-h-0 overflow-hidden">
+          
+          {/* ZONE C: LINE ITEMS GRID & DIRECT ENTRY (~74% width) */}
+          <section className="flex-1 bg-white dark:bg-[#1e293b] border border-slate-200 dark:border-slate-800 rounded-xl flex flex-col overflow-hidden shadow-xs min-h-0">
+            
+            {/* Multi-attribute quick inspector ribbon */}
+            {selectedItemProductMeta && (
+              <div className="bg-blue-50 dark:bg-blue-950/40 border-b border-blue-200 dark:border-blue-800 px-3 py-1.5 text-xs flex items-center justify-between text-blue-900 dark:text-cyan-200 shrink-0">
+                <div className="flex items-center gap-3 overflow-x-auto">
+                  <span><strong>Barcode:</strong> {selectedItemProductMeta.barcode}</span>
+                  <span>•</span>
+                  <span><strong>Stock/SKU:</strong> {selectedItemProductMeta.stockNo || selectedItemProductMeta.sku}</span>
+                  <span>•</span>
+                  <span><strong>Stock:</strong> {selectedItemProductMeta.stockQty} {selectedItemProductMeta.uom}</span>
+                  <span>•</span>
+                  <span><strong>MRP:</strong> ₹{selectedItemProductMeta.mrp.toFixed(2)}</span>
+                  <span>•</span>
+                  <span><strong>Cost:</strong> ₹{selectedItemProductMeta.costPrice.toFixed(2)}</span>
+                  <span>•</span>
+                  <span><strong>Size/Color:</strong> {selectedItemProductMeta.size}/{selectedItemProductMeta.color}</span>
+                  <span>•</span>
+                  <span><strong>Brand:</strong> {selectedItemProductMeta.brand}</span>
+                  <span>•</span>
+                  <span><strong>HSN:</strong> {selectedItemProductMeta.hsnCode} ({selectedItemProductMeta.gstPercentage}%)</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setSelectedItemProductMeta(null)}
+                  className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-xs px-1 cursor-pointer"
+                >
+                  ✕
+                </button>
+              </div>
+            )}
+
+            {/* Main Line Items Table */}
+            <div className="flex-1 overflow-x-auto overflow-y-auto min-h-0">
+              <table className="w-full text-left border-collapse min-w-[980px]">
+                <thead className="sticky top-0 bg-slate-100 dark:bg-slate-800/90 border-b border-slate-200 dark:border-slate-700 z-10 text-[11px] font-bold text-slate-700 dark:text-slate-300">
+                  <tr>
+                    <th className="px-2.5 py-2 w-10 text-center border-r border-slate-200 dark:border-slate-700">#</th>
+                    <th className="px-2.5 py-2 w-[110px] border-r border-slate-200 dark:border-slate-700">Stock No (F11)</th>
+                    <th className="px-3 py-2 border-r border-slate-200 dark:border-slate-700">Item Description</th>
+                    <th className="px-2.5 py-2 w-[85px] text-right border-r border-slate-200 dark:border-slate-700">Rate (₹)</th>
+                    <th className="px-2.5 py-2 w-[70px] text-right border-r border-slate-200 dark:border-slate-700">Qty</th>
+                    <th className="px-2.5 py-2 w-[90px] text-right border-r border-slate-200 dark:border-slate-700">Gross (₹)</th>
+                    <th className="px-2.5 py-2 w-[75px] text-right border-r border-slate-200 dark:border-slate-700">Disc %</th>
+                    <th className="px-2.5 py-2 w-[85px] text-right border-r border-slate-200 dark:border-slate-700">Disc (₹)</th>
+                    <th className="px-3 py-2 w-[100px] text-right border-r border-slate-200 dark:border-slate-700 font-bold text-blue-700 dark:text-blue-300">Total (₹)</th>
+                    <th className="px-2.5 py-2 w-[100px] border-r border-slate-200 dark:border-slate-700">Staff</th>
+                    <th className="px-2 py-2 w-8 text-center"></th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-xs">
+                  {items.map((item, idx) => (
+                    <tr
+                      key={item.id}
+                      onClick={() => setSelectedRowIndex(idx)}
+                      onDoubleClick={() => handleRowDoubleClick(item, idx)}
+                      className={`h-9 transition-colors cursor-pointer ${
+                        editingLineId === item.id
+                          ? "bg-blue-50 dark:bg-blue-950/60 ring-2 ring-blue-500 font-bold"
+                          : selectedRowIndex === idx
+                          ? "bg-slate-100 dark:bg-slate-800 font-semibold"
+                          : "hover:bg-slate-50 dark:hover:bg-slate-800/50"
+                      }`}
+                      title="Double-click to edit line in Direct Entry (Ctrl+D to delete)"
+                    >
+                      <td className="px-2.5 py-1.5 text-center border-r border-slate-100 dark:border-slate-800 font-mono text-slate-500 text-[11px]">
+                        {item.sNo}
+                      </td>
+                      <td className="px-2.5 py-1.5 border-r border-slate-100 dark:border-slate-800 font-mono font-bold text-blue-600 dark:text-blue-400">
+                        {item.stockNo}
+                      </td>
+                      <td className="px-3 py-1.5 border-r border-slate-100 dark:border-slate-800 truncate max-w-xs font-medium text-slate-800 dark:text-slate-100">
+                        {item.itemDescription}
+                      </td>
+                      <td className="px-2.5 py-1.5 text-right border-r border-slate-100 dark:border-slate-800 font-mono">
+                        {Number(item.rate).toFixed(2)}
+                      </td>
+                      <td className="px-2.5 py-1.5 text-right border-r border-slate-100 dark:border-slate-800 font-mono font-bold text-slate-900 dark:text-slate-100">
+                        {item.qty}
+                      </td>
+                      <td className="px-2.5 py-1.5 text-right border-r border-slate-100 dark:border-slate-800 font-mono text-slate-600 dark:text-slate-400">
+                        {Number(item.value).toFixed(2)}
+                      </td>
+                      <td className="px-2.5 py-1.5 text-right border-r border-slate-100 dark:border-slate-800 font-mono text-slate-600 dark:text-slate-400">
+                        {item.discPercent ? `${item.discPercent}%` : "-"}
+                      </td>
+                      <td className="px-2.5 py-1.5 text-right border-r border-slate-100 dark:border-slate-800 font-mono text-rose-600 dark:text-rose-400">
+                        {item.discAmt > 0 ? item.discAmt.toFixed(2) : "-"}
+                      </td>
+                      <td className="px-3 py-1.5 text-right border-r border-slate-100 dark:border-slate-800 font-mono font-bold text-blue-700 dark:text-blue-300">
+                        {Number(item.total).toFixed(2)}
+                      </td>
+                      <td className="px-2.5 py-1.5 border-r border-slate-100 dark:border-slate-800 truncate max-w-[100px] text-slate-500 text-[11px]">
+                        {item.salesStaff}
+                      </td>
+                      <td className="px-2 py-1.5 text-center">
+                        {!isReadOnlyView && (
+                          <button
+                            type="button"
+                            onClick={e => {
+                              e.stopPropagation();
+                              handleRemoveItem(item.id);
+                            }}
+                            className="text-slate-400 hover:text-rose-600 transition-colors p-1 cursor-pointer"
+                            title="Delete Row"
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+
+                  {/* Clean empty placeholders if rows < 4 */}
+                  {Array.from({ length: Math.max(0, 4 - items.length) }).map((_, i) => (
+                    <tr key={"empty-" + i} className="h-9 border-b border-slate-100 dark:border-slate-800/40">
+                      <td className="px-2.5 py-1.5 text-center border-r border-slate-100 dark:border-slate-800 text-slate-400 text-[11px]">
+                        {items.length + i + 1}
+                      </td>
+                      <td colSpan={10} className="px-3 py-1.5 text-slate-400/60 italic text-xs">
+                        {items.length === 0 && i === 0 ? "Scan barcode or enter Stock No below to add items..." : ""}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Active Line Inspector Ribbon when row is selected */}
+            {selectedRowIndex >= 0 && selectedRowIndex < items.length && (() => {
+              const sel = items[selectedRowIndex];
+              return (
+                <div className="bg-slate-100 dark:bg-slate-800 border-t border-slate-200 dark:border-slate-700 px-3 py-1.5 text-xs flex flex-wrap items-center justify-between gap-2 shrink-0">
+                  <div className="flex items-center gap-3 font-mono text-[11px] overflow-x-auto">
+                    <span className="font-bold text-blue-600 dark:text-blue-400">Line #{sel.sNo}: {sel.stockNo}</span>
+                    <span className="text-slate-800 dark:text-slate-200 font-sans font-medium">{sel.itemDescription}</span>
+                    {sel.brand && <span className="text-slate-600 dark:text-slate-400 bg-slate-200 dark:bg-slate-700 px-1.5 py-0.5 rounded text-[10px]">Brand: {sel.brand}</span>}
+                    {sel.size && <span className="text-slate-600 dark:text-slate-400 bg-slate-200 dark:bg-slate-700 px-1.5 py-0.5 rounded text-[10px]">Size: {sel.size}</span>}
+                    {sel.hsnCode && <span className="text-slate-600 dark:text-slate-400 text-[10px]">HSN: {sel.hsnCode}</span>}
+                    <span className="text-slate-600 dark:text-slate-400 text-[10px]">GST: {sel.gstPercentage}% (₹{(sel.taxAmount || 0).toFixed(2)})</span>
+                    {(sel.discAmt || 0) > 0 && <span className="text-emerald-600 dark:text-emerald-400 font-semibold text-[10px]">Disc: {sel.discCode || "ILD"} -₹{(sel.discAmt || 0).toFixed(2)} ({sel.discPercent || 0}%)</span>}
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className="text-slate-400 text-[10px] hidden md:inline">Double-click to edit | Ctrl+D to delete</span>
+                    {!isReadOnlyView && (
+                      <button
+                        type="button"
+                        onClick={() => handleRowDoubleClick(sel, selectedRowIndex)}
+                        className="px-2 py-0.5 bg-blue-600 hover:bg-blue-700 text-white rounded text-[10px] font-bold cursor-pointer"
+                      >
+                        Edit Line
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* Active In-Place Editing Banner */}
+            {editingLineId && (
+              <div className="bg-blue-50 dark:bg-blue-950/60 border-t border-b border-blue-200 dark:border-blue-800 px-3 py-1.5 text-xs text-blue-800 dark:text-blue-200 flex items-center justify-between font-medium shrink-0">
+                <div className="flex items-center gap-2">
+                  <span className="font-bold">Editing Line #{items.find(it => it.id === editingLineId)?.sNo} ({items.find(it => it.id === editingLineId)?.stockNo})</span>
+                  <span className="text-slate-500 dark:text-slate-400 text-[11px]">— Modify Rate, Qty, or Discount in Direct Entry and press Enter to save.</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditingLineId(null);
+                    setDirectEntry({
+                      barcode: "",
+                      stockNo: "",
+                      itemDescription: "",
+                      rate: "",
+                      qty: "1",
+                      discCode: "",
+                      discQty: "",
+                      discPercent: "",
+                      staff: directEntry.staff
+                    });
+                  }}
+                  className="text-xs text-rose-600 hover:underline font-bold cursor-pointer"
+                >
+                  Cancel Edit (Esc)
+                </button>
+              </div>
+            )}
+
+            {/* Direct Entry Row (F11 / F1) at Bottom of Item Card */}
+            <div className="bg-slate-50 dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 p-2 flex gap-2 items-center shrink-0">
+              <span className="text-[10px] font-mono font-bold text-blue-700 dark:text-blue-300 bg-blue-100 dark:bg-blue-950/80 px-2 py-1 rounded shrink-0">
+                F11
+              </span>
+
+              {/* Inputs aligned with table columns */}
+              <div className="flex-1 flex gap-1.5 items-center flex-wrap sm:flex-nowrap">
+                {/* Stock / Barcode Search */}
+                <div className="w-[110px] relative shrink-0">
+                  <input
+                    ref={directStockNoRef}
+                    type="text"
+                    id="directStockNo"
+                    name="directStockNo"
+                    aria-label="Stock No (F2 to browse)"
+                    data-f2-entity="variant"
+                    value={directEntry.stockNo}
+                    onChange={e => handleItemSearchChange(e.target.value, "stockNo")}
+                    onFocus={() => {
+                      setActiveItemSearchField("stockNo");
+                      if (productSuggestions.length > 0) setShowProductDropdown(true);
+                    }}
+                    onKeyDown={e => handleItemInputKeyDown(e, "stockNo")}
+                    placeholder="Stock / Barcode"
+                    className="w-full border border-slate-300 dark:border-slate-700 h-8 font-mono text-xs rounded-lg px-2 bg-white dark:bg-slate-800 font-bold text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  />
+                  {activeItemSearchField === "stockNo" && (
+                    <SmritiItemTypeaheadDropdown
+                      isOpen={showProductDropdown && (productSuggestions.length > 0 || isProductSearching || Boolean(productSearchError))}
+                      items={productSuggestions}
+                      selectedIndex={productSelectedIndex}
+                      isLoading={isProductSearching}
+                      errorMessage={productSearchError}
+                      onSelect={(opt) => {
+                        applyProductAutoPopulate(opt);
+                        directStockNoRef.current?.focus();
+                      }}
+                      onClose={() => setShowProductDropdown(false)}
+                      searchFieldType="stockNo"
+                      anchorRef={directStockNoRef}
+                    />
+                  )}
+                </div>
+
+                {/* Item Description Display */}
+                <input
+                  type="text"
+                  value={directEntry.itemDescription}
+                  onChange={e => setDirectEntry({ ...directEntry, itemDescription: e.target.value })}
+                  onKeyDown={e => e.key === "Enter" && void handleCommitDirectEntry()}
+                  placeholder="Item Description"
+                  className="flex-1 min-w-[120px] bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 h-8 text-xs rounded-lg px-2 font-medium text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-blue-500 truncate"
+                />
+
+                {/* Rate */}
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  max="9999999.99"
+                  value={directEntry.rate}
+                  onChange={e => setDirectEntry({ ...directEntry, rate: e.target.value })}
+                  onKeyDown={e => e.key === "Enter" && void handleCommitDirectEntry()}
+                  placeholder="Rate"
+                  className="w-[85px] border border-slate-300 dark:border-slate-700 h-8 font-mono text-xs rounded-lg px-2 text-right bg-white dark:bg-slate-800 font-bold text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-blue-500 shrink-0"
+                />
+
+                {/* Qty with Retail Barcode Scanner Guard */}
+                <input
+                  type="text"
+                  value={directEntry.qty}
+                  onChange={e => {
+                    const clean = e.target.value.trim();
+                    if (clean.length >= 8 && /^\d+$/.test(clean)) {
+                      setDirectEntry(prev => ({
+                        ...prev,
+                        barcode: clean,
+                        stockNo: prev.stockNo || clean,
+                        qty: "1"
+                      }));
+                      onNotification?.("Barcode Intercepted", `Barcode ${clean} scanned into Qty was redirected to Barcode field.`, "info");
+                      directBarcodeRef.current?.focus();
+                      return;
+                    }
+                    setDirectEntry(prev => ({ ...prev, qty: e.target.value }));
+                  }}
+                  onKeyDown={e => e.key === "Enter" && void handleCommitDirectEntry()}
+                  placeholder="Qty"
+                  className="w-[65px] border border-slate-300 dark:border-slate-700 h-8 font-mono text-xs rounded-lg px-2 text-right bg-white dark:bg-slate-800 font-bold text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-blue-500 shrink-0"
+                />
+
+                {/* Gross Value */}
+                <input
+                  type="text"
+                  value={directGrossValue > 0 ? directGrossValue.toFixed(2) : ""}
+                  readOnly
+                  placeholder="Value"
+                  className="w-[85px] bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 h-8 font-mono text-xs rounded-lg px-2 text-right font-bold text-slate-700 dark:text-slate-300 shrink-0 hidden sm:block"
+                />
+
+                {/* Disc Code */}
+                <input
+                  type="text"
+                  value={directEntry.discCode}
+                  onChange={e => setDirectEntry({ ...directEntry, discCode: e.target.value })}
+                  placeholder="Disc Code"
+                  className="w-[75px] border border-slate-300 dark:border-slate-700 h-8 font-mono text-xs rounded-lg px-2 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-blue-500 shrink-0 hidden md:block"
+                />
+
+                {/* Disc % */}
+                <input
+                  type="number"
+                  min="0"
+                  max="100"
+                  step="0.01"
+                  value={directEntry.discPercent}
+                  onChange={e => setDirectEntry({ ...directEntry, discPercent: e.target.value })}
+                  placeholder="Disc %"
+                  className="w-[70px] border border-slate-300 dark:border-slate-700 h-8 font-mono text-xs rounded-lg px-2 text-right bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-blue-500 shrink-0"
+                />
+
+                {/* Total */}
+                <input
+                  type="text"
+                  value={directLineTotal > 0 ? directLineTotal.toFixed(2) : ""}
+                  readOnly
+                  placeholder="Total"
+                  className="w-[95px] bg-blue-50/70 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 h-8 font-mono text-xs rounded-lg px-2 text-right font-bold text-blue-700 dark:text-blue-300 shrink-0"
+                />
+
+                {/* Add Button */}
+                <button
+                  type="button"
+                  onClick={() => void handleCommitDirectEntry()}
+                  disabled={isResolvingProduct}
+                  className="h-8 w-8 bg-blue-600 hover:bg-blue-700 text-white rounded-lg flex items-center justify-center shadow-xs shrink-0 cursor-pointer disabled:opacity-50 transition"
+                  title="Add Item (Enter)"
+                >
+                  <Plus size={16} />
+                </button>
+              </div>
+            </div>
+
+          </section>
+
+          {/* ZONE D: BILL SUMMARY & NET PAYABLE CARD (~26% width / w-80 to w-96) */}
+          <aside className="w-full lg:w-80 xl:w-96 bg-white dark:bg-[#1e293b] border border-slate-200 dark:border-slate-800 rounded-xl flex flex-col p-3 shadow-xs shrink-0 justify-between gap-3">
+            
+            {/* Header & Stats */}
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-700 pb-2">
+                <span className="text-xs font-bold text-slate-800 dark:text-slate-100 uppercase tracking-wider flex items-center gap-1.5">
+                  <Receipt size={14} className="text-blue-600" />
+                  <span>Bill Summary</span>
+                </span>
+                <span className="text-[11px] font-bold text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/60 px-2 py-0.5 rounded-full border border-blue-200 dark:border-blue-800">
+                  {summaryTotals.itemCount} {summaryTotals.itemCount === 1 ? "item" : "items"} · {summaryTotals.totalQty.toFixed(1)} qty
+                </span>
+              </div>
+
+              {/* Financial Breakdown Table */}
+              <div className="flex flex-col divide-y divide-slate-100 dark:divide-slate-800 text-xs">
+                {/* Subtotal / Sales Value */}
+                <div className="flex items-center justify-between py-1.5">
+                  <span className="text-slate-600 dark:text-slate-400 font-medium">Sales Value (Gross)</span>
+                  <span className="font-mono font-semibold text-slate-800 dark:text-slate-200">
+                    ₹{summaryTotals.salesValue.toFixed(2)}
+                  </span>
+                </div>
+
+                {/* Line Item Discounts */}
+                {summaryTotals.itemDiscount > 0 && (
+                  <div className="flex items-center justify-between py-1.5">
+                    <span className="text-slate-600 dark:text-slate-400 font-medium">Line Discounts</span>
+                    <span className="font-mono font-semibold text-emerald-600 dark:text-emerald-400">
+                      -₹{summaryTotals.itemDiscount.toFixed(2)}
+                    </span>
+                  </div>
+                )}
+
+                {/* Bill Discount (Promo / F6) */}
+                <div 
+                  onClick={() => setShowF6PromoModal(true)}
+                  className="flex items-center justify-between py-1.5 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/60 -mx-1 px-1 rounded transition"
+                  title="Manage Bill Discounts & Promotions (F6)"
+                >
+                  <span className="text-slate-600 dark:text-slate-400 font-medium flex items-center gap-1">
+                    <span>Bill Discount</span>
+                    <span className="text-[9px] font-mono font-bold bg-blue-100 dark:bg-blue-900/60 text-blue-700 dark:text-blue-300 px-1 py-0.2 rounded">F6</span>
+                    {billLevelPromo.code !== "NONE" && (
+                      <span className="text-[9px] font-bold text-amber-700 bg-amber-100 dark:bg-amber-950 dark:text-amber-300 px-1 rounded uppercase">
+                        {billLevelPromo.code}
+                      </span>
+                    )}
+                  </span>
+                  <span className="font-mono font-semibold text-emerald-600 dark:text-emerald-400">
+                    {summaryTotals.billDiscount > 0 ? `-₹${summaryTotals.billDiscount.toFixed(2)}` : "₹0.00"}
+                  </span>
+                </div>
+
+                {/* GST / Taxes */}
+                <div className="flex items-center justify-between py-1.5">
+                  <span className="text-slate-600 dark:text-slate-400 font-medium">Sales Tax (GST)</span>
+                  <span className="font-mono font-semibold text-slate-800 dark:text-slate-200">
+                    +₹{summaryTotals.totalTax.toFixed(2)}
+                  </span>
+                </div>
+
+                {/* Add-ons & Freight */}
+                {summaryTotals.totalAddons > 0 && (
+                  <div className="flex items-center justify-between py-1.5">
+                    <span className="text-slate-600 dark:text-slate-400 font-medium">Add-ons (Freight/Charges)</span>
+                    <span className="font-mono font-semibold text-blue-600 dark:text-blue-400">
+                      +₹{summaryTotals.totalAddons.toFixed(2)}
+                    </span>
+                  </div>
+                )}
+
+                {/* Deductions */}
+                {summaryTotals.totalDeductions > 0 && (
+                  <div className="flex items-center justify-between py-1.5">
+                    <span className="text-slate-600 dark:text-slate-400 font-medium">Deductions</span>
+                    <span className="font-mono font-semibold text-rose-600 dark:text-rose-400">
+                      -₹{summaryTotals.totalDeductions.toFixed(2)}
+                    </span>
+                  </div>
+                )}
+
+                {/* Round Off */}
+                <div className="flex items-center justify-between py-1.5">
+                  <span className="text-slate-500 font-medium text-[11px]">Round Off</span>
+                  <span className="font-mono text-slate-500 text-[11px]">
+                    ₹{(summaryTotals.netAmount - (summaryTotals.salesValue - summaryTotals.itemDiscount - summaryTotals.billDiscount + summaryTotals.totalTax + summaryTotals.totalAddons - summaryTotals.totalDeductions)).toFixed(2)}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Net Payable Banner matching proposed premium UX */}
+            <div className="pt-2 border-t border-slate-200 dark:border-slate-700/80 flex items-center justify-between">
+              <div className="flex flex-col">
+                <span className="text-base font-bold text-blue-600 dark:text-blue-400">
+                  Net Payable
+                </span>
+                <span className="text-[10px] text-slate-500 dark:text-slate-400">
+                  {headerState.transaction === "Credit" ? "B2B Credit" : "Counter Cash"} · GST Inc.
+                </span>
+              </div>
+              <span className="text-2xl font-black tracking-tight font-mono text-blue-600 dark:text-blue-400">
+                ₹{summaryTotals.netAmount.toFixed(2)}
+              </span>
+            </div>
+
+          </aside>
+
+        </div>
+
+        {/* ZONE E: ACTIVE DRAWER (Opened conditionally when activeFooterDrawer !== 'none') */}
+        {activeFooterDrawer !== "none" && (
+          <section className="bg-white dark:bg-[#1e293b] border border-slate-200 dark:border-slate-800 rounded-xl p-3 shadow-md shrink-0 animate-in slide-in-from-bottom-2">
+            <div className="flex items-center justify-between pb-2 mb-2 border-b border-slate-200 dark:border-slate-700">
+              <span className="text-xs font-bold text-slate-800 dark:text-slate-100 flex items-center gap-1.5 uppercase tracking-wider">
+                {activeFooterDrawer === "transporter" && "🚚 Transporter Details"}
+                {activeFooterDrawer === "payment" && "💳 Payment & Settlement Studio"}
+                {activeFooterDrawer === "addons" && "➕ Addons & Deductions (Statutory Factors)"}
+                {activeFooterDrawer === "remarks" && "📝 Document Remarks"}
+              </span>
+              <button
+                type="button"
+                onClick={() => setActiveFooterDrawer("none")}
+                className="text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 text-xs font-bold p-1 cursor-pointer"
+              >
+                ✕ Close Drawer
+              </button>
+            </div>
+
+            {/* Tab 1: Transporter Details */}
+            {activeFooterDrawer === "transporter" && (
+              <div className="overflow-x-auto max-h-36">
+                <table className="w-full text-left border border-slate-200 dark:border-slate-700 text-xs">
+                  <thead className="bg-slate-100 dark:bg-slate-800 font-bold text-slate-700 dark:text-slate-300">
+                    <tr>
+                      <th className="px-2 py-1 w-10 border-r border-slate-200 dark:border-slate-700 text-center">#</th>
+                      <th className="px-2 py-1 w-28 border-r border-slate-200 dark:border-slate-700">Type</th>
+                      <th className="px-2 py-1 w-20 border-r border-slate-200 dark:border-slate-700">Code</th>
+                      <th className="px-2 py-1 border-r border-slate-200 dark:border-slate-700">Description</th>
+                      <th className="px-2 py-1 w-24 border-r border-slate-200 dark:border-slate-700">Rate Type</th>
+                      <th className="px-2 py-1 w-24 text-right">Amount (₹)</th>
+                    </tr>
+                  </thead>
+                  <tbody className="font-mono text-xs">
+                    {transporterRows.map((t, idx) => (
+                      <tr key={idx} className="border-b border-slate-200 dark:border-slate-700">
+                        <td className="px-2 py-1 border-r border-slate-200 dark:border-slate-700 text-center bg-slate-50 dark:bg-slate-900">{t.sNo}</td>
+                        <td className="px-2 py-1 border-r border-slate-200 dark:border-slate-700 font-sans">{t.type}</td>
+                        <td className="px-2 py-1 border-r border-slate-200 dark:border-slate-700">{t.code}</td>
+                        <td className="px-2 py-1 border-r border-slate-200 dark:border-slate-700 font-sans">{t.description}</td>
+                        <td className="px-2 py-1 border-r border-slate-200 dark:border-slate-700">{t.rateType}</td>
+                        <td className="px-2 py-1 text-right font-bold text-blue-600">
+                          <input
+                            type="number"
+                            value={t.amount || ""}
+                            placeholder="0.00"
+                            onChange={e => {
+                              const val = parseFloat(e.target.value) || 0;
+                              setTransporterRows(prev => prev.map((r, i) => i === idx ? { ...r, amount: val } : r));
+                            }}
+                            className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded px-1.5 py-0.5 text-right font-mono text-xs font-bold outline-none"
+                          />
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {/* Tab 2: Payment Details */}
+            {activeFooterDrawer === "payment" && (
+              <div className="p-3 flex flex-col justify-center items-center gap-2 bg-slate-50 dark:bg-slate-900 rounded-lg">
+                <p className="text-xs text-slate-700 dark:text-slate-300 font-medium">
+                  Active Transaction Mode: <strong>{headerState.transaction}</strong> · Total Payable: <strong className="font-mono text-blue-600">₹{summaryTotals.netAmount.toFixed(2)}</strong>
+                </p>
+                <div className="flex items-center gap-2">
                   <button
                     type="button"
                     onClick={() => {
                       if (items.length > 0) setShowSettlementModal(true);
                       else alert("Add items before opening settlement.");
                     }}
-                    className="bg-primary hover:bg-primary-container text-on-primary px-4 py-1.5 rounded text-xs font-bold transition shadow-2xs cursor-pointer"
+                    className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-1.5 rounded-lg text-xs font-bold transition shadow-xs cursor-pointer"
                   >
                     Open Multi-Tender Settlement Studio (F8)
                   </button>
+                  <button
+                    type="button"
+                    onClick={() => handleExactCashSettlementRef.current?.()}
+                    disabled={items.length === 0}
+                    className="bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer"
+                  >
+                    Exact Cash Quick Settlement (F7)
+                  </button>
                 </div>
-              )}
+              </div>
+            )}
 
-              {/* Tab 3: Addons & Deductions */}
-              {activeFooterTab === "addons" && (
-                <div className="p-2 overflow-x-auto flex-1 max-h-40 flex flex-col gap-1.5">
-                  <div className="flex items-center justify-between pb-1 shrink-0">
-                    <div className="flex items-center gap-1.5 text-xs text-on-surface-variant font-medium">
-                      <span>Statutory Section 15 GST Factors</span>
-                      {headerState.customer?.priceGroupCode && (
-                        <span className="font-mono text-[10px] bg-primary/10 text-primary px-1.5 py-0.2 rounded font-bold">
-                          Group: {headerState.customer.priceGroupCode}
-                        </span>
-                      )}
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setShowDefineFactorsModal(true)}
-                      className="text-[11px] font-bold text-primary hover:underline flex items-center gap-1"
-                    >
-                      <span>Define Factors (Alt+S)</span>
-                    </button>
+            {/* Tab 3: Addons & Deductions */}
+            {activeFooterDrawer === "addons" && (
+              <div className="overflow-x-auto max-h-40 flex flex-col gap-1.5">
+                <div className="flex items-center justify-between pb-1 shrink-0">
+                  <div className="flex items-center gap-1.5 text-xs text-slate-600 dark:text-slate-400 font-medium">
+                    <span>Statutory Section 15 GST Factors</span>
+                    {headerState.customer?.priceGroupCode && (
+                      <span className="font-mono text-[10px] bg-blue-100 dark:bg-blue-900/60 text-blue-700 dark:text-blue-300 px-1.5 py-0.2 rounded font-bold">
+                        Group: {headerState.customer.priceGroupCode}
+                      </span>
+                    )}
                   </div>
-                  <table className="w-full text-left border border-outline-variant text-xs">
-                    <thead className="bg-surface-container-high border-b border-outline-variant font-label-caps text-label-caps text-on-surface-variant font-bold">
-                      <tr>
-                        <th className="px-2 py-1 w-10 border-r border-outline-variant text-center">S.No</th>
-                        <th className="px-2 py-1 w-24 border-r border-outline-variant">Type</th>
-                        <th className="px-2 py-1 w-20 border-r border-outline-variant">Code</th>
-                        <th className="px-2 py-1 border-r border-outline-variant">Description</th>
-                        <th className="px-2 py-1 w-28 border-r border-outline-variant text-center">Timing (GST)</th>
-                        <th className="px-2 py-1 w-24 text-right">Amount</th>
-                      </tr>
-                    </thead>
-                    <tbody className="font-code-md text-xs">
-                      {addonRows.map((a, idx) => (
-                        <tr key={idx} className="border-b border-outline-variant">
-                          <td className="px-2 py-1 border-r border-outline-variant text-center bg-surface-container-low">{a.sNo}</td>
-                          <td className="px-2 py-1 border-r border-outline-variant">
-                            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
-                              a.type === "Addon" ? "bg-emerald-500/10 text-emerald-600" : "bg-rose-500/10 text-rose-600"
-                            }`}>
-                              {a.type === "Addon" ? "Addon (+)" : "Deduction (-)"}
-                            </span>
-                          </td>
-                          <td className="px-2 py-1 border-r border-outline-variant font-mono font-bold">{a.code}</td>
-                          <td className="px-2 py-1 border-r border-outline-variant">{a.description}</td>
-                          <td className="px-2 py-1 border-r border-outline-variant text-center">
-                            <span className={`text-[9px] font-bold font-mono px-1 py-0.2 rounded ${
-                              a.timing === "ABOVE_TAX" ? "bg-indigo-500/10 text-indigo-600" : "bg-teal-500/10 text-teal-600"
-                            }`}>
-                              {a.timing === "ABOVE_TAX" ? "Above Tax" : "Below Tax"}
-                            </span>
-                          </td>
-                          <td className="px-2 py-1 text-right font-bold text-primary">
-                            <input
-                              type="number"
-                              value={a.amount || ""}
-                              placeholder="0.00"
-                              onChange={e => {
-                                const val = parseFloat(e.target.value) || 0;
-                                setAddonRows(prev => prev.map((r, i) => i === idx ? { ...r, amount: val } : r));
-                              }}
-                              className="w-full bg-surface border border-outline-variant rounded px-1.5 py-0.5 text-right font-code-md text-xs font-bold outline-none"
-                            />
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                  <button
+                    type="button"
+                    onClick={() => setShowDefineFactorsModal(true)}
+                    className="text-[11px] font-bold text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
+                  >
+                    <span>Define Factors (Alt+S)</span>
+                  </button>
                 </div>
-              )}
+                <table className="w-full text-left border border-slate-200 dark:border-slate-700 text-xs">
+                  <thead className="bg-slate-100 dark:bg-slate-800 font-bold text-slate-700 dark:text-slate-300">
+                    <tr>
+                      <th className="px-2 py-1 w-10 border-r border-slate-200 dark:border-slate-700 text-center">#</th>
+                      <th className="px-2 py-1 w-24 border-r border-slate-200 dark:border-slate-700">Type</th>
+                      <th className="px-2 py-1 w-20 border-r border-slate-200 dark:border-slate-700">Code</th>
+                      <th className="px-2 py-1 border-r border-slate-200 dark:border-slate-700">Description</th>
+                      <th className="px-2 py-1 w-28 border-r border-slate-200 dark:border-slate-700 text-center">Timing (GST)</th>
+                      <th className="px-2 py-1 w-24 text-right">Amount (₹)</th>
+                    </tr>
+                  </thead>
+                  <tbody className="font-mono text-xs">
+                    {addonRows.map((a, idx) => (
+                      <tr key={idx} className="border-b border-slate-200 dark:border-slate-700">
+                        <td className="px-2 py-1 border-r border-slate-200 dark:border-slate-700 text-center bg-slate-50 dark:bg-slate-900">{a.sNo}</td>
+                        <td className="px-2 py-1 border-r border-slate-200 dark:border-slate-700">
+                          <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded font-sans ${
+                            a.type === "Addon" ? "bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300" : "bg-rose-100 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300"
+                          }`}>
+                            {a.type === "Addon" ? "Addon (+)" : "Deduction (-)"}
+                          </span>
+                        </td>
+                        <td className="px-2 py-1 border-r border-slate-200 dark:border-slate-700 font-bold">{a.code}</td>
+                        <td className="px-2 py-1 border-r border-slate-200 dark:border-slate-700 font-sans">{a.description}</td>
+                        <td className="px-2 py-1 border-r border-slate-200 dark:border-slate-700 text-center">
+                          <span className="text-[9px] font-bold px-1 py-0.2 rounded bg-indigo-100 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300">
+                            {a.timing === "ABOVE_TAX" ? "Above Tax" : "Below Tax"}
+                          </span>
+                        </td>
+                        <td className="px-2 py-1 text-right font-bold text-blue-600">
+                          <input
+                            type="number"
+                            value={a.amount || ""}
+                            placeholder="0.00"
+                            onChange={e => {
+                              const val = parseFloat(e.target.value) || 0;
+                              setAddonRows(prev => prev.map((r, i) => i === idx ? { ...r, amount: val } : r));
+                            }}
+                            className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded px-1.5 py-0.5 text-right font-mono text-xs font-bold outline-none"
+                          />
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
 
-              {/* Document Remarks Input */}
-              <div className="p-2 border-t border-outline-variant bg-surface-container-low shrink-0">
-                <label className="font-label-caps text-label-caps text-on-surface-variant uppercase font-bold mb-1 block">
-                  Document Remarks
+            {/* Tab 4: Document Remarks */}
+            {activeFooterDrawer === "remarks" && (
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
+                  Document Remarks &amp; Shipping Instructions
                 </label>
                 <input
                   type="text"
                   value={headerState.remarks}
                   onChange={e => setHeaderState({ ...headerState, remarks: e.target.value })}
                   placeholder="e.g. Dispatched via Express logistics, Fragile handling requested"
-                  className="w-full border border-outline-variant rounded h-7 text-xs px-2 bg-surface focus:border-secondary outline-none font-medium"
+                  className="w-full border border-slate-300 dark:border-slate-700 rounded-lg h-8 text-xs px-2.5 bg-slate-50 dark:bg-slate-900 focus:outline-none focus:ring-1 focus:ring-blue-500 font-medium"
                 />
               </div>
-            </div>
+            )}
+          </section>
+        )}
 
-            {/* Right Totals Grid */}
-            <div className="w-full lg:w-80 bg-surface-container-lowest border border-outline-variant rounded flex flex-col p-2 shadow-xs">
-              <table className="w-full text-left font-body-sm text-xs">
-                <thead className="font-label-caps text-label-caps text-on-surface-variant border-b border-outline-variant uppercase font-bold">
-                  <tr>
-                    <th className="pb-1.5 w-28">Description</th>
-                    <th className="pb-1.5 text-right">Net Values</th>
-                  </tr>
-                </thead>
-                <tbody className="font-code-md text-xs divide-y divide-outline-variant/30">
-                  <tr>
-                    <td className="py-1.5 text-on-surface-variant font-medium">Sales</td>
-                    <td className="py-1.5">
-                      <input
-                        type="text"
-                        value={summaryTotals.salesValue.toFixed(2)}
-                        readOnly
-                        className="w-full h-6 text-right bg-surface-variant border border-outline-variant rounded px-1.5 font-bold text-on-surface"
-                      />
-                    </td>
-                  </tr>
-                  <tr>
-                    <td
-                      onClick={() => setShowF6PromoModal(true)}
-                      className="py-1.5 text-on-surface-variant font-medium cursor-pointer hover:text-primary transition-colors flex items-center gap-1.5"
-                      title="Open Sales Promo & Discounts [F6]"
-                    >
-                      <span>Discounts</span>
-                      <span className="font-mono text-[9px] px-1 py-0.5 rounded bg-surface-variant text-on-surface-variant font-bold">F6</span>
-                    </td>
-                    <td className="py-1.5">
-                      <input
-                        type="text"
-                        value={(summaryTotals.itemDiscount + summaryTotals.billDiscount).toFixed(2)}
-                        readOnly
-                        className="w-full h-6 text-right bg-surface-variant border border-outline-variant rounded px-1.5 font-bold text-on-surface cursor-pointer"
-                        onClick={() => setShowF6PromoModal(true)}
-                        title="Click to manage promotional discounts [F6]"
-                      />
-                    </td>
-                  </tr>
-                  <tr>
-                    <td className="py-1.5 text-on-surface-variant font-medium">Sales Tax</td>
-                    <td className="py-1.5">
-                      <input
-                        type="text"
-                        value={summaryTotals.totalTax.toFixed(2)}
-                        readOnly
-                        className="w-full h-6 text-right bg-surface-variant border border-outline-variant rounded px-1.5 font-bold text-on-surface"
-                      />
-                    </td>
-                  </tr>
-                  <tr>
-                    <td className="py-1.5 text-on-surface-variant font-medium">Add-ons</td>
-                    <td className="py-1.5">
-                      <input
-                        type="text"
-                        value={summaryTotals.totalAddons.toFixed(2)}
-                        readOnly
-                        className="w-full h-6 text-right bg-surface-variant border border-outline-variant rounded px-1.5 font-bold text-on-surface"
-                      />
-                    </td>
-                  </tr>
-                  <tr>
-                    <td className="py-1.5 text-on-surface-variant font-medium">Deductions</td>
-                    <td className="py-1.5">
-                      <input
-                        type="text"
-                        value={summaryTotals.totalDeductions.toFixed(2)}
-                        readOnly
-                        className="w-full h-6 text-right bg-surface-variant border border-outline-variant rounded px-1.5 font-bold text-on-surface"
-                      />
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-
-          </div>
-
-          {/* Bottom High-Visibility Status Bar */}
-          <div className="bg-primary-container text-on-primary border border-outline-variant rounded flex font-label-caps text-[10px] sm:text-label-caps overflow-hidden shadow-sm shrink-0">
-            <div className="flex-1 flex flex-col justify-center items-center p-2 border-r border-outline-variant/30">
-              <span className="opacity-70 uppercase tracking-wider">No. of Items</span>
-              <span className="font-code-md font-bold text-base text-white">{summaryTotals.itemCount}</span>
-            </div>
-
-            <div className="flex-1 flex flex-col justify-center items-center p-2 border-r border-outline-variant/30">
-              <span className="opacity-70 uppercase tracking-wider">Total Qty.</span>
-              <span className="font-code-md font-bold text-base text-white">{summaryTotals.totalQty.toFixed(2)}</span>
-            </div>
-
-            <div className="flex-1 flex flex-col justify-center items-center p-2 border-r border-outline-variant/30">
-              <span className="opacity-70 uppercase tracking-wider">Sales Value</span>
-              <span className="font-code-md font-bold text-base text-white">₹{summaryTotals.salesValue.toFixed(2)}</span>
-            </div>
-
-            <div className="flex-1 flex flex-col justify-center items-center p-2 border-r border-outline-variant/30">
-              <span className="opacity-70 uppercase tracking-wider">Item Lvl. Discount</span>
-              <span className="font-code-md font-bold text-base text-white">₹{summaryTotals.itemDiscount.toFixed(2)}</span>
-            </div>
-
-            <div
-              onClick={() => setShowF6PromoModal(true)}
-              className="flex-1 flex flex-col justify-center items-center p-2 border-r border-outline-variant/30 cursor-pointer hover:bg-white/10 transition-colors"
-              title="Open Sales Promo & Discounts [F6]"
+        {/* ZONE E: BOTTOM ACTION BAR (Drawer Tabs on Left, F7 & F8 on Right) */}
+        <div className="bg-white dark:bg-[#131b2e] border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 flex flex-wrap items-center justify-between gap-2 shadow-xs shrink-0">
+          {/* Left: 4 Drawer Buttons */}
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <button
+              type="button"
+              onClick={() => setActiveFooterDrawer(prev => prev === "transporter" ? "none" : "transporter")}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition cursor-pointer flex items-center gap-1.5 ${
+                activeFooterDrawer === "transporter"
+                  ? "bg-blue-50 dark:bg-blue-950/60 border-blue-300 dark:border-blue-700 text-blue-700 dark:text-blue-300"
+                  : "bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100"
+              }`}
             >
-              <span className="opacity-70 uppercase tracking-wider flex items-center gap-1">
-                <span>Bill Discount</span>
-                <span className="font-mono text-[8px] px-0.5 rounded bg-white/20 text-white font-bold">F6</span>
-              </span>
-              <div className="flex items-center gap-1">
-                <span className="font-code-md font-bold text-base text-white">₹{summaryTotals.billDiscount.toFixed(2)}</span>
-                {billLevelPromo.code !== "NONE" && (
-                  <span className="text-[9px] bg-amber-400 text-slate-900 font-bold px-1 rounded uppercase tracking-wider" title={billLevelPromo.description}>
-                    {billLevelPromo.code}
-                  </span>
-                )}
-              </div>
-            </div>
+              <span>🚚 Transporter Details</span>
+              {transporterRows.some(r => (r.amount || 0) > 0) && (
+                <span className="w-1.5 h-1.5 rounded-full bg-blue-600" />
+              )}
+            </button>
 
-            <div className="flex-1 flex flex-col justify-center items-center p-2 border-r border-outline-variant/30">
-              <span className="opacity-70 uppercase tracking-wider">Total Tax</span>
-              <span className="font-code-md font-bold text-base text-white">₹{summaryTotals.totalTax.toFixed(2)}</span>
-            </div>
+            <button
+              type="button"
+              onClick={() => setActiveFooterDrawer(prev => prev === "payment" ? "none" : "payment")}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition cursor-pointer flex items-center gap-1.5 ${
+                activeFooterDrawer === "payment"
+                  ? "bg-blue-50 dark:bg-blue-950/60 border-blue-300 dark:border-blue-700 text-blue-700 dark:text-blue-300"
+                  : "bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100"
+              }`}
+            >
+              <span>💳 Payment Details</span>
+            </button>
 
-            <div className="flex-1 flex flex-col justify-center items-center p-2 border-r border-outline-variant/30">
-              <span className="opacity-70 uppercase tracking-wider">Total Addons</span>
-              <span className="font-code-md font-bold text-base text-white">₹{summaryTotals.totalAddons.toFixed(2)}</span>
-            </div>
+            <button
+              type="button"
+              onClick={() => setActiveFooterDrawer(prev => prev === "addons" ? "none" : "addons")}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition cursor-pointer flex items-center gap-1.5 ${
+                activeFooterDrawer === "addons"
+                  ? "bg-blue-50 dark:bg-blue-950/60 border-blue-300 dark:border-blue-700 text-blue-700 dark:text-blue-300"
+                  : "bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100"
+              }`}
+            >
+              <span>➕ AddOns &amp; Deductions</span>
+              {addonRows.some(a => (a.amount || 0) > 0) && (
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
+              )}
+            </button>
 
-            <div className="flex-1 flex flex-col justify-center items-center p-2 border-r border-outline-variant/30">
-              <span className="opacity-70 uppercase tracking-wider">Total Deductions</span>
-              <span className="font-code-md font-bold text-base text-white">₹{summaryTotals.totalDeductions.toFixed(2)}</span>
-            </div>
-
-            <div className="flex-[1.5] bg-[#315384] text-white flex flex-col justify-center items-end p-2 px-4">
-              <span className="opacity-80 font-bold uppercase tracking-wider">Net Amount</span>
-              <span className="font-code-md font-bold text-2xl text-white">₹{summaryTotals.netAmount.toFixed(2)}</span>
-            </div>
+            <button
+              type="button"
+              onClick={() => setActiveFooterDrawer(prev => prev === "remarks" ? "none" : "remarks")}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition cursor-pointer flex items-center gap-1.5 ${
+                activeFooterDrawer === "remarks"
+                  ? "bg-blue-50 dark:bg-blue-950/60 border-blue-300 dark:border-blue-700 text-blue-700 dark:text-blue-300"
+                  : "bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100"
+              }`}
+            >
+              <span>📝 Document Remarks</span>
+              {headerState.remarks && (
+                <span className="w-1.5 h-1.5 rounded-full bg-indigo-600" />
+              )}
+            </button>
           </div>
 
-        </section>
+          {/* Right: Checkout Buttons (F7 Exact Cash & F8 Settle & Save) */}
+          <div className="flex items-center gap-2 ml-auto">
+            <button
+              type="button"
+              onClick={() => handleExactCashSettlementRef.current?.()}
+              disabled={isReadOnlyView || items.length === 0}
+              className="px-4 py-2 bg-white hover:bg-slate-50 dark:bg-slate-800 dark:hover:bg-slate-700 border border-slate-300 dark:border-slate-600 text-slate-800 dark:text-slate-100 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed shadow-2xs"
+              title="Exact Cash Settlement (F7)"
+            >
+              <Banknote size={15} className="text-slate-600 dark:text-slate-300" />
+              <span>Exact Cash (F7)</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={openSettlement}
+              disabled={isReadOnlyView || items.length === 0}
+              className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold transition flex items-center gap-2 cursor-pointer shadow-md hover:shadow-lg disabled:opacity-40 disabled:cursor-not-allowed"
+              title="Settle & Save Invoice (F8)"
+            >
+              <Check size={16} />
+              <span>Settle &amp; Save (F8)</span>
+            </button>
+          </div>
+        </div>
 
       </main>
 
@@ -3887,14 +3958,6 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
           />
         </div>
       )}
-
-      {/* Persistent Bottom Shortcut Footer */}
-      <footer className="bg-surface-container-highest border-t border-outline-variant mt-auto w-full flex justify-between items-center px-margin-page py-2 shrink-0 z-30 font-label-caps text-label-caps">
-        <span className="text-on-surface-variant font-medium">
-          Ready... <strong className="text-primary">F2:</strong> Search | <strong className="text-primary">F11:</strong> Direct Entry | <strong className="text-primary">F6:</strong> Discounts | <strong className="text-primary">Alt+P:</strong> Define Promos | <strong className="text-primary">Alt+S:</strong> Define Factors | <strong className="text-primary">F7:</strong> Exact Cash | <strong className="text-primary">F8:</strong> Settle | <strong className="text-primary">F12:</strong> Suspend | <strong className="text-primary">Ctrl+4:</strong> AddOns
-        </span>
-        <span className="text-primary font-bold">© 2026 smritisys.com</span>
-      </footer>
 
       {/* MODALS */}
 
