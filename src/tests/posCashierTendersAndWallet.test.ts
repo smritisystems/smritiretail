@@ -22,8 +22,7 @@ import {
 import * as apiFetchModule from "../lib/apiFetchV1";
 
 /**
- * Pure helper mirroring the cashier checkout split-tender synthesis
- * implemented inside SmritiProPosBillingTerminal.handleSettlementSuccess.
+ * Pure regression helper for the legacy cashier split-tender contract.
  */
 function buildCheckoutTendersAndPaymentMode(
   tenders: ProPosTenderSplit,

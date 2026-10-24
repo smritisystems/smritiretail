@@ -208,6 +208,11 @@ export const EnterpriseMenuBar: React.FC<EnterpriseMenuBarProps> = ({
       const width = container.clientWidth;
       setAvailableWidth(width);
 
+      if (width <= 0) {
+        setVisibleCount(menuItems.length);
+        return;
+      }
+
       const moreWidth = moreMeasurementRef.current?.getBoundingClientRect().width ?? 72;
       const itemWidths = menuItems.map(
         (item) => measurementRefs.current[item.id]?.getBoundingClientRect().width ?? 0,

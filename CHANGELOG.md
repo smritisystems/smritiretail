@@ -12,6 +12,37 @@
   Classification: Internal
 -->
 
+## [v1.0.5] - 2026-10-24
+
+### Changed
+- **Canonical Billing Engine**: `BillingWorkspace.tsx` now hosts the established `BillingTerm.tsx` editor as its only invoice-entry surface. POS, credit sale, wholesale, and Modern Trade workflows use the existing transaction and sales-channel selectors.
+- **Single Navigation Entry**: Legacy POS, tax invoice, credit-sale, and ProPOS routes resolve to the Billing Workspace; credit-note/return aliases open Sales Documents inside that workspace.
+- **Duplicate UI Retirement**: Removed the compact editor, its UI-only test suite, the standalone credit terminal, legacy ProPOS terminal/workspace, and the mock billing screen from Classic UX.
+- **Compatibility**: Kept sales APIs, document types, historical invoices, and legacy route aliases. Classic UX now links to the same Billing Workspace.
+
+### Known Limitation
+- Packing-slip/consolidated-billing selections are not yet transferred into the canonical invoice editor. The UI now reports this instead of claiming that invoice lines were loaded; use the supported Customer PO source until this handoff is migrated.
+
+## [v1.0.4] - 2026-10-24
+
+### Added
+- **Unified Canonical Multi-Profile Billing Workspace**: Established `CompactCreditTaxInvoiceEditor.tsx` as the single canonical desktop ERP editor across 5 core document profiles: `Tax Invoice`, `Credit Tax Invoice`, `POS / Quick Billing`, `Sales Return`, and `Sales Order`.
+- **Single Item-Entry Toolbar**: Added rapid data entry controls including Barcode Scanner focus (`F2`), Bulk File Import (`.csv,.tsv,.txt`), and direct spreadsheet Copy & Paste parser (`navigator.clipboard.readText()`).
+- **Dynamic Sequence & Row Allocation**: Implemented dynamic quick-append row index `#${items.length + 1}` and multi-prefix sequence discovery via `NumberingEngine`.
+- **Multi-Destination Server Posting**: Profile-driven transactional posting to `/api/v1/sales/invoices/`, `/api/v1/sales/orders/`, and `SalesReturnService.createSalesReturn` guarded by idempotency keys.
+
+### Changed
+- **Classic UX Convergence**: Replaced hardcoded mock POS billing table in `ClassicUxWorkspace.tsx` with direct delegation to `<CompactCreditTaxInvoiceEditor initialBillType="POS / Quick Billing" ... />`.
+- **Billing Workspace Consolidation**: Consolidated `BillingWorkspace.tsx` around `CompactCreditTaxInvoiceEditor` across `CREDIT_BILLING`, `B2B_DISTRIBUTOR`, and `WORKSPACE` modes.
+- **Route & Shell Harmonization**: Added route aliases for `credit-tax-invoice`, `credit_tax_invoice`, `credit-note`, `credit_note`, `sales-return`, and `sales_return` in `TabRenderer.tsx`.
+
+### Deprecated
+- Marked legacy standalone modules as `@deprecated`: `SmritiBillingStudio.tsx`, `SmritiCreditBillingTerminal.tsx`, `BillingTerm.tsx`, `ProPosBillingTerm.tsx`, and `DistTaxInvoice.tsx`.
+
+### Documentation
+- Created implementation plan `docs/implementation/foundation/Unified_Billing_UX_Migration_And_Legacy_Retirement_Plan_v1.0.0.md` and indexed in `docs/implementation/README.md`.
+- Created walkthrough `docs/walkthrough/billing/Billing_Unified_UX_Migration_And_Legacy_Retirement_v1.0.0.md` and updated `docs/walkthrough/README.md`.
+
 ## [v1.0.3] - 2026-10-24
 
 ### Added

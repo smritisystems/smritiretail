@@ -72,7 +72,7 @@ describe('SMRITI Retail OS — Premium UX Switcher & Presentation Verification',
       </LayoutEngineProvider>
     );
 
-    expect(html).toContain('UX Presentation Mode');
+    expect(html).toContain('Workspace style');
     expect(html).toContain('Regular UX');
     expect(html).toContain('Simple, clean and guided • Everyday Retail');
     expect(html).toContain('Classic UX');
@@ -80,7 +80,7 @@ describe('SMRITI Retail OS — Premium UX Switcher & Presentation Verification',
     expect(html).toContain('Spacious layouts &amp; cards');
     expect(html).toContain('Top ERP menu bar');
     expect(html).toContain('Multi-tab workspaces');
-    expect(html).toContain('Shared DB, taxes, validation &amp; active cart safe');
+    expect(html).toContain('Your current workspace stays open while the layout changes.');
   });
 
   it('3. UxSwitcherModal renders nothing when isOpen is false', () => {
@@ -132,7 +132,7 @@ describe('SMRITI Retail OS — Premium UX Switcher & Presentation Verification',
     expect(html).toContain('Rajesh Shoes');
   });
 
-  it('5. ClassicUxWorkspace renders traditional ERP layout with top menus, tabs, dense grid, and F-keys', () => {
+  it('5. ClassicUxWorkspace routes billing to the shared workspace without a duplicate invoice screen', () => {
     const html = renderToStaticMarkup(
       <ClassicUxWorkspace
         currentUser={{ role: 'System Admin', name: 'Jawahar' }}
@@ -152,38 +152,11 @@ describe('SMRITI Retail OS — Premium UX Switcher & Presentation Verification',
     expect(html).toContain('Settings');
     expect(html).toContain('Help');
 
-    // Tabs Bar
-    expect(html).toContain('POS Billing');
-    expect(html).toContain('Dashboard');
-
-    // Function Key Toolbar
-    expect(html).toContain('New (F2)');
-    expect(html).toContain('Clear (F3)');
-    expect(html).toContain('Hold (F4)');
-    expect(html).toContain('Recall (F5)');
-    expect(html).toContain('Save (F10)');
-    expect(html).toContain('Print (F8)');
-
-    // Header master fields
-    expect(html).toContain('Walk-in Customer');
-    expect(html).toContain('Retail Price');
-    expect(html).toContain('Main Store');
-    expect(html).toContain('22-10-2026');
-    expect(html).toContain('SI-000126');
-
-    // Tabular items from reference
-    expect(html).toContain('Sports Shoe');
-    expect(html).toContain('Casual Shoe');
-    expect(html).toContain('Slipper');
-    expect(html).toContain('8901234567890');
-    expect(html).toContain('SH-001');
-
-    // Totals
-    expect(html).toContain('Sub Total');
-    expect(html).toContain('Discount');
-    expect(html).toContain('CGST (2.5%)');
-    expect(html).toContain('SGST (2.5%)');
-    expect(html).toContain('Grand Total');
+    expect(html.match(/Billing Workspace/g)).toHaveLength(1);
+    expect(html).toContain('Sales Documents');
+    expect(html).not.toContain('POS Billing');
+    expect(html).not.toContain('New (F2)');
+    expect(html).toContain('Classic ERP Operational Overview');
   });
 
   it('6. ClassicWorkspaceDirectory renders authentic dense table view with 9 columns, toolbar F-keys, tree sidebar, and details panel', () => {
@@ -234,8 +207,8 @@ describe('SMRITI Retail OS — Premium UX Switcher & Presentation Verification',
     expect(html).toContain('Actions');
 
     // Sample Rows
-    expect(html).toContain('Desktop Billing Terminal');
-    expect(html).toContain('Sales Studio');
+    expect(html).toContain('Billing Workspace');
+    expect(html).toContain('Sales Documents');
     expect(html).toContain('Purchase Studio');
 
     // Right-side Details Panel
@@ -281,7 +254,6 @@ describe('SMRITI Retail OS — Premium UX Switcher & Presentation Verification',
     expect(classicHtml).toContain('Transactions');
     expect(classicHtml).toContain('Inventory');
     expect(classicHtml).toContain('Purchase');
-    expect(classicHtml).toContain('Sales');
     expect(classicHtml).toContain('Accounts');
     expect(classicHtml).toContain('CRM');
     expect(classicHtml).toContain('Reports');
@@ -330,7 +302,7 @@ describe('SMRITI Retail OS — Premium UX Switcher & Presentation Verification',
 
     // Spacious search and tiles
     expect(html).toContain('Search workspaces (e.g. POS, Barcode, GST, Ledger, Purchase)...');
-    expect(html).toContain('Desktop Billing Terminal');
+    expect(html).toContain('Billing Workspace');
     expect(html).toContain('Store Status');
   });
 });

@@ -41,7 +41,7 @@ export interface BillingLineItem {
   customerPoLineId?: string;
 }
 export type BillType = "Product" | "Service";
-export type TransactionType = "Credit" | "Cash";
+export type TransactionType = "Credit" | "Cash" | "Retail";
 
 export const CANONICAL_PAYMENT_MODES = [
   "CASH",
@@ -394,4 +394,3 @@ export interface CsvImportResult {
   distinguished_validations?: string[];
   rows: CsvImportRow[];
 }
-

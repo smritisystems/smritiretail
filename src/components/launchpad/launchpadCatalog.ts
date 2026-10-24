@@ -32,8 +32,8 @@ export const LAUNCHPAD_CATALOG: TileData[] = [
   // 1. Retail Operations
   {
     id: "billing-workspace",
-    title: "Desktop Billing Terminal",
-    subtitle: "High-speed retail barcode checkout, docked direct entry, exact cash & multi-tender settlement",
+    title: "Billing Workspace",
+    subtitle: "POS checkout, tax invoices, credit notes, returns and sales orders",
     icon: "receipt_long",
     tag: "Billing",
     badgeType: "success",
@@ -45,8 +45,8 @@ export const LAUNCHPAD_CATALOG: TileData[] = [
   },
   {
     id: "sales",
-    title: "Sales Studio",
-    subtitle: "B2C retail billing, multi-tender transactions & invoice history register",
+    title: "Sales Documents",
+    subtitle: "Review and manage quotations, orders, invoices, returns and customer records",
     icon: "receipt_long",
     tag: "Sales",
     badgeType: "success",
@@ -741,14 +741,40 @@ export function synthesizeLaunchpadCatalogWithRemoteMenus(
 
   const catalogCopy = [...baseCatalog];
   const seenIds = new Set<string>();
+  const billingMenuAliases = new Set([
+    "billing",
+    "billing-workspace",
+    "desktop",
+    "desktop-billing",
+    "pos",
+    "tax-invoice",
+    "create-tax-invoice",
+    "dist-invoice",
+    "credit-billing",
+    "credit-sale",
+    "credit-tax-invoice",
+    "credit-note",
+    "sales-return",
+  ]);
+
+  const normalizeMenuId = (value: string) =>
+    value
+      .replace(/^\/+|\/+$/g, "")
+      .replace(/^menu-/i, "")
+      .trim()
+      .toLowerCase()
+      .replace(/_/g, "-");
 
   for (const m of remoteMenus) {
-    const rawRoute = (m.route || "").replace(/^\//, "").trim();
-    const cleanId = m.id.replace(/^menu-/, "").trim();
+    const rawRoute = (m.route || "").trim();
+    const cleanId = normalizeMenuId(m.id);
+    const routeId = normalizeMenuId(rawRoute);
+    const routeLeaf = routeId.split("/").pop() || "";
+    const billingAlias = [cleanId, routeId, routeLeaf].some((id) => billingMenuAliases.has(id));
+    const canonicalId = billingAlias ? "billing-workspace" : cleanId;
 
-    // Find if matching tile exists in catalog
     const matchedIdx = catalogCopy.findIndex(
-      (t) => t.id === m.id || t.id === cleanId || (rawRoute && t.id === rawRoute)
+      (t) => t.id === canonicalId || (routeId && t.id === routeId)
     );
 
     if (matchedIdx >= 0) {
@@ -756,18 +782,18 @@ export function synthesizeLaunchpadCatalogWithRemoteMenus(
       seenIds.add(existing.id);
       catalogCopy[matchedIdx] = {
         ...existing,
-        title: m.title || existing.title,
-        icon: m.icon || existing.icon,
-        tag: m.badge || existing.tag,
+        title: billingAlias || existing.id === "sales" ? existing.title : m.title || existing.title,
+        icon: billingAlias ? existing.icon : m.icon || existing.icon,
+        tag: billingAlias ? existing.tag : m.badge || existing.tag,
+        roles: billingAlias ? undefined : existing.roles,
       };
     } else {
-      // Synthesize new tile for novel remote menu item
-      const tileId = rawRoute || cleanId || m.id;
+      const tileId = billingAlias ? "billing-workspace" : routeId || canonicalId || m.id;
       if (!seenIds.has(tileId)) {
         seenIds.add(tileId);
         catalogCopy.push({
           id: tileId,
-          title: m.title,
+          title: billingAlias ? "Billing Workspace" : m.title,
           subtitle: `Dynamic Control Plane Module (${m.module || "General"})`,
           icon: m.icon || "widgets",
           tag: m.badge || m.module || undefined,

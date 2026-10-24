@@ -9,8 +9,9 @@
  * Modified     : 2026-10-16
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
- * Classification: Internal
+ * Classification: Canonical Billing Engine
  * Source Module: Stitch Distributor Invoicing Terminal
+ * Shared by the canonical Billing Workspace for POS, credit, wholesale, and tax invoices.
  */
 
 import React, { useState, useEffect, useRef, useMemo } from "react";
@@ -106,6 +107,8 @@ interface SmritiBillingTerminalProps {
   onRefreshData?: () => void;
   onNotification?: (title: string, message: string, type: "success" | "error" | "info") => void;
   isStandaloneTab?: boolean;
+  initialTransaction?: TransactionType;
+  initialSalesChannel?: string;
 }
 
 export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
@@ -114,7 +117,9 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
   currentUser,
   onRefreshData,
   onNotification,
-  isStandaloneTab = false
+  isStandaloneTab = false,
+  initialTransaction = "Credit",
+  initialSalesChannel = "B2B_WHOLESALE"
 }) => {
   const invoiceCustomerScope = { series: "TT2026-2027", from: 18, to: 137 };
 
@@ -129,7 +134,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
   // Header State
   const [headerState, setHeaderState] = useState<BillingHeaderState>({
     billType: "Product",
-    transaction: "Credit",
+    transaction: initialTransaction,
     docPrefix: "",
     docNo: "",
     billDate: new Date().toLocaleDateString("en-GB"),
@@ -146,7 +151,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
     poReference: "",
     billingSource: "DIRECT",
     customerPoId: null,
-    salesChannel: "B2B_WHOLESALE",
+    salesChannel: initialSalesChannel,
     psvPartyId: null
   });
 
@@ -3900,7 +3905,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
         billDate={headerState.billDate}
         customer={headerState.customer}
         netAmount={summaryTotals.netAmount}
-        transaction={headerState.transaction}
+        transaction={headerState.transaction === "Credit" ? "Credit" : "Cash"}
         onCompleteSettlement={handleCompleteSettlement}
         onSuspendBill={handleSuspendInvoice}
         onClose={() => setShowSettlementModal(false)}

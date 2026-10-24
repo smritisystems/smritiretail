@@ -8,8 +8,9 @@
  * Created      : 2026-08-24
  * Modified     : 2026-09-07
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
- * License      : Proprietary Commercial Software
- * Classification: Internal
+ * Classification: Internal (Legacy Standalone View)
+ * @deprecated The standalone billing UI is retired; active invoice routes use `BillingWorkspace` with `BillingTerm`.
+ * Retained for utility calculation exports and historical regression test suites.
  */
 
 import React, { useState, useEffect, useMemo, useCallback } from "react";

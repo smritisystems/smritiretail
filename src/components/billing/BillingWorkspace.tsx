@@ -4,22 +4,21 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.87.0
+ * Version      : 7.0.0
  * Created      : 2026-09-08
- * Modified     : 2026-10-17
+ * Modified     : 2026-10-24
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
- * Classification: Single Consolidated Billing Workspace Component (Phase 1 Canonical Consolidation)
+ * Classification: Single Consolidated Billing Workspace Component (Canonical ERP UX)
+ * Capability    : @SmritiCapability("SALES", "UNIFIED_CANONICAL_BILLING")
  */
 
 import React, { useState, useEffect, useCallback } from "react";
 import { Product, POSProfile, Shift, Customer } from "../../types.ts";
 import { SmritiProPosEodReport } from "./propos/ProPosEodReportVie.tsx";
 import { SmritiDailyReportsDashboard } from "./propos/ProPosDailyReports.tsx";
-import { SmritiBillingStudio } from "./SmritiBillingStudio.tsx";
-import { SmritiCreditBillingTerminal } from "./SmritiCreditBillingTerminal.tsx";
 import { SalesStudioTab } from "../SalesStudioTab.tsx";
-import { CompactCreditTaxInvoiceEditor } from "../sales/CompactCreditTaxInvoiceEditor.tsx";
+import { BillingTerm } from "./BillingTerm.tsx";
 import { GiftCardLifecycleModal } from "../pos/GiftCardLifecycleModal.tsx";
 import { GiftVoucherModal } from "../pos/GiftVoucherModal.tsx";
 import { ProPosReconciliationDlg } from "./propos/ProPosReconciliationDlg.tsx";
@@ -34,21 +33,17 @@ import {
   BarChart3,
   Clock,
   ShieldCheck,
-  HelpCircle,
   X,
   Keyboard,
   CheckCircle,
   AlertCircle,
   Info,
   RotateCcw,
-  Sparkles,
-  CreditCard,
   Gift,
   Ticket,
   Zap,
   ShoppingBag,
   MoreHorizontal,
-  Building2,
   FileText,
   Package,
   Settings,
@@ -58,6 +53,16 @@ import { APP_VERSION } from "../../config/version.ts";
 
 export type BillingWorkspaceMode = "RETAIL_POS" | "CREDIT_BILLING" | "B2B_DISTRIBUTOR";
 export type BillingAuxiliaryView = "WORKSPACE" | "EOD_Z_REPORT" | "SHIFT_REPORTS" | "CREDIT_BILLING" | "B2B_DISTRIBUTOR" | "SALES_MANAGEMENT" | "CREDIT_TAX_INVOICE";
+
+export const normalizeBillingAuxiliaryView = (view: BillingAuxiliaryView): BillingAuxiliaryView =>
+  view === "CREDIT_BILLING" || view === "B2B_DISTRIBUTOR" || view === "CREDIT_TAX_INVOICE"
+    ? "WORKSPACE"
+    : view;
+
+export const getBillingDefaults = (mode: BillingWorkspaceMode) => ({
+  transaction: mode === "RETAIL_POS" ? "Cash" as const : "Credit" as const,
+  salesChannel: mode === "RETAIL_POS" ? "POS_RETAIL" : "B2B_WHOLESALE",
+});
 
 export interface BillingWorkspaceProps {
   products?: Product[];
@@ -84,26 +89,14 @@ export const BillingWorkspace: React.FC<BillingWorkspaceProps> = ({
   initialView = "WORKSPACE",
   isStandaloneTab = false,
 }) => {
-  const [auxView, setAuxView] = useState<BillingAuxiliaryView>(() => {
-    if (initialView && initialView !== "WORKSPACE") return initialView;
-    if (initialMode === "B2B_DISTRIBUTOR") return "B2B_DISTRIBUTOR";
-    if (initialMode === "CREDIT_BILLING") return "CREDIT_BILLING";
-    return "WORKSPACE";
-  });
+  const [auxView, setAuxView] = useState<BillingAuxiliaryView>(() => normalizeBillingAuxiliaryView(initialView));
   const [showHotkeysModal, setShowHotkeysModal] = useState<boolean>(false);
   const [currentTime, setCurrentTime] = useState<string>(() => new Date().toLocaleTimeString());
 
   useEffect(() => {
-    if (initialView && initialView !== "WORKSPACE") {
-      setAuxView(initialView);
-    } else if (initialMode === "B2B_DISTRIBUTOR") {
-      setAuxView("B2B_DISTRIBUTOR");
-    } else if (initialMode === "CREDIT_BILLING") {
-      setAuxView("CREDIT_BILLING");
-    } else if (initialView === "WORKSPACE" || initialMode === "RETAIL_POS") {
-      setAuxView("WORKSPACE");
-    }
-  }, [initialView, initialMode]);
+    const resolvedView = normalizeBillingAuxiliaryView(initialView);
+    setAuxView(resolvedView);
+  }, [initialView]);
   // Active shift determination
   const activeShift = shifts.find((s) => s.status?.toUpperCase() === "OPEN") || shifts[0] || null;
   const registerLabel = activeShift?.profileId || "REG-01";
@@ -150,7 +143,6 @@ export const BillingWorkspace: React.FC<BillingWorkspaceProps> = ({
       ],
     },
   ]);
-  const [consolidatedBatch, setConsolidatedBatch] = useState<any | null>(null);
   // REC-07: Secondary toolbar overflow menu
   const [showOverflowMenu, setShowOverflowMenu] = useState<boolean>(false);
 
@@ -171,37 +163,13 @@ export const BillingWorkspace: React.FC<BillingWorkspaceProps> = ({
     [onNotification]
   );
 
-  // Global Keyboard Shortcuts for Mode Switching and Navigation
+  // Global Keyboard Shortcuts for workspace navigation
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       // F1: Focus Workspace
       if (e.key === "F1") {
         e.preventDefault();
         setAuxView("WORKSPACE");
-        return;
-      }
-
-      // Alt+1: Retail POS workspace
-      if (e.altKey && e.key === "1") {
-        e.preventDefault();
-        setAuxView("WORKSPACE");
-        showToast("Mode Switched", "Retail POS Mode Active (Alt+1)", "info");
-        return;
-      }
-
-      // Alt+2: Credit Billing workspace
-      if (e.altKey && e.key === "2") {
-        e.preventDefault();
-        setAuxView("CREDIT_BILLING");
-        showToast("Mode Switched", "Credit Billing Mode Active (Alt+2)", "info");
-        return;
-      }
-
-      // Alt+3: B2B Distributor Tax Invoicing
-      if (e.altKey && e.key === "3") {
-        e.preventDefault();
-        setAuxView("B2B_DISTRIBUTOR");
-        showToast("Mode Switched", "B2B Distributor Invoicing Active (Alt+3)", "info");
         return;
       }
 
@@ -218,63 +186,21 @@ export const BillingWorkspace: React.FC<BillingWorkspaceProps> = ({
   }, [showHotkeysModal, showToast]);
 
   return (
-    <div className={`h-full flex flex-col overflow-hidden font-sans transition-colors duration-300 ${
-      auxView === "CREDIT_BILLING"
-        ? "bg-[#1a0f2e] dark:bg-[#0f0920] text-[#e8d5ff]"
-        : auxView === "B2B_DISTRIBUTOR"
-        ? "bg-[#f8fafc] dark:bg-[#0f172a] text-[#0f172a] dark:text-[#f1f5f9]"
-        : "bg-[#f8f9fa] dark:bg-[#191c1e] text-[#191c1e] dark:text-[#eff1f3]"
-    }`}>
+    <div className="h-full flex flex-col overflow-hidden font-sans transition-colors duration-300 bg-[#f8f9fa] dark:bg-[#191c1e] text-[#191c1e] dark:text-[#eff1f3]">
       {/* ── Top Unified Billing Navigation Header ── */}
-      <header className={`border-b flex flex-wrap justify-between items-center px-4 py-2 shrink-0 z-20 shadow-2xs gap-2 transition-colors duration-300 ${
-        auxView === "CREDIT_BILLING"
-          ? "bg-[#2d1057] dark:bg-[#1e0a3c] border-[#6d28d9]/40"
-          : auxView === "B2B_DISTRIBUTOR"
-          ? "bg-white dark:bg-[#1e293b] border-slate-300 dark:border-slate-700"
-          : "bg-white dark:bg-[#131b2e] border-slate-200 dark:border-slate-800"
-      }`}>
-        {/* Left Action Buttons: billing modes and contextual sales documents */}
+      <header className="border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-[#131b2e] flex flex-wrap justify-between items-center px-4 py-2 shrink-0 z-20 shadow-2xs gap-2 transition-colors duration-300">
+        {/* One billing workspace with supporting sales documents and operations */}
         <div className="flex items-center gap-2 flex-wrap">
           <button
             type="button"
             onClick={() => setAuxView("WORKSPACE")}
+            aria-pressed={auxView === "WORKSPACE"}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
-              auxView === "WORKSPACE"
-                ? "bg-[#041632] text-white shadow-xs"
-                : "bg-white border border-slate-300 text-slate-700 hover:bg-slate-50"
+              auxView === "WORKSPACE" ? "bg-[#041632] text-white shadow-xs" : "bg-white border border-slate-300 text-slate-700 hover:bg-slate-50"
             }`}
           >
             <Receipt size={14} />
-            <span>Counter POS</span>
-            <kbd className="text-[9px] px-1 py-0.2 bg-white/20 rounded font-mono opacity-90">Alt+1</kbd>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setAuxView("CREDIT_BILLING")}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
-              auxView === "CREDIT_BILLING"
-                ? "bg-[#7c3aed] text-white shadow-xs"
-                : "bg-white border border-slate-300 text-slate-700 hover:bg-slate-50"
-            }`}
-          >
-            <CreditCard size={14} />
-            <span>Credit</span>
-            <kbd className="text-[9px] px-1 py-0.2 bg-slate-100 text-slate-600 rounded font-mono">Alt+2</kbd>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setAuxView("B2B_DISTRIBUTOR")}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
-              auxView === "B2B_DISTRIBUTOR"
-                ? "bg-[#2563eb] text-white shadow-xs"
-                : "bg-white border border-slate-300 text-slate-700 hover:bg-slate-50"
-            }`}
-          >
-            <Building2 size={14} />
-            <span>B2B / Tax Invoice</span>
-            <kbd className="text-[9px] px-1 py-0.2 bg-slate-100 text-slate-600 rounded font-mono">Alt+3</kbd>
+            <span>Billing</span>
           </button>
 
           <button
@@ -289,20 +215,6 @@ export const BillingWorkspace: React.FC<BillingWorkspaceProps> = ({
           >
             <FileText size={14} />
             <span>Sales Documents</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setAuxView("CREDIT_TAX_INVOICE")}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
-              auxView === "CREDIT_TAX_INVOICE"
-                ? "bg-[#0b1736] text-white shadow-xs"
-                : "bg-white border border-slate-300 text-slate-700 hover:bg-slate-50"
-            }`}
-            aria-pressed={auxView === "CREDIT_TAX_INVOICE"}
-          >
-            <RotateCcw size={14} />
-            <span>Credit Tax Invoice</span>
           </button>
 
           <button
@@ -433,54 +345,9 @@ export const BillingWorkspace: React.FC<BillingWorkspaceProps> = ({
         </div>
       </header>
 
-      {/* REC-20: Credit Billing mode contextual alert banner */}
-      {auxView === "CREDIT_BILLING" && (
-        <div className="flex items-center gap-3 px-5 py-2.5 bg-purple-950/70 border-b border-purple-500/30 text-purple-200 text-[11px] font-semibold shrink-0">
-          <CreditCard size={13} className="text-purple-400 shrink-0" />
-          <span>
-            <span className="font-bold text-purple-300">Credit Billing Mode Active</span>
-            {" — "}Transactions here are posted as credit invoices against customer accounts. Cash and card tender are disabled in this mode.
-          </span>
-          <button
-            type="button"
-            onClick={() => setAuxView("WORKSPACE")}
-            className="ml-auto text-[10px] font-bold text-purple-300 hover:text-white border border-purple-500/40 hover:border-purple-400 px-2 py-0.5 rounded transition-colors"
-          >
-            Back to POS
-          </button>
-        </div>
-      )}
-
-      {/* B2B Distributor mode contextual alert banner */}
-      {auxView === "B2B_DISTRIBUTOR" && (
-        <div className="flex items-center gap-3 px-5 py-2.5 bg-blue-950/70 border-b border-blue-500/30 text-blue-200 text-[11px] font-semibold shrink-0">
-          <Building2 size={13} className="text-blue-400 shrink-0" />
-          <span>
-            <span className="font-bold text-blue-300">B2B Distributor & Tax Invoicing Active</span>
-            {" — "}Customer PO linking, Modern Trade store code tracking, and PSV account projection enabled.
-          </span>
-          <button
-            type="button"
-            onClick={() => setAuxView("WORKSPACE")}
-            className="ml-auto text-[10px] font-bold text-blue-300 hover:text-white border border-blue-500/40 hover:border-blue-400 px-2 py-0.5 rounded transition-colors"
-          >
-            Back to POS
-          </button>
-        </div>
-      )}
-
       {/* ── Main Workspace Body ── */}
       <div className="flex-1 overflow-hidden relative">
-        {auxView === "CREDIT_TAX_INVOICE" ? (
-          <div className="h-full overflow-hidden">
-            <CompactCreditTaxInvoiceEditor
-              onExit={() => setAuxView("WORKSPACE")}
-              onClose={() => setAuxView("WORKSPACE")}
-              onNotification={showToast}
-              currentUser={currentUser}
-            />
-          </div>
-        ) : auxView === "SALES_MANAGEMENT" ? (
+        {auxView === "SALES_MANAGEMENT" ? (
           <div className="h-full overflow-auto">
             <SalesStudioTab
               products={products}
@@ -498,52 +365,22 @@ export const BillingWorkspace: React.FC<BillingWorkspaceProps> = ({
           />
         ) : auxView === "SHIFT_REPORTS" ? (
           <SmritiDailyReportsDashboard />
-        ) : auxView === "CREDIT_BILLING" ? (
-          <SmritiCreditBillingTerminal
-            currentUser={currentUser}
-            onNotification={showToast}
-            onBack={() => setAuxView("WORKSPACE")}
-          />
-        ) : auxView === "B2B_DISTRIBUTOR" ? (
-          <SmritiBillingStudio
-            key="b2b-distributor-studio"
-            products={products}
-            customers={customers}
-            profiles={profiles}
-            shifts={shifts}
-            currentUser={currentUser}
-            mode="B2B_DISTRIBUTOR"
-            consolidatedBatch={consolidatedBatch}
-            onClearConsolidatedBatch={() => setConsolidatedBatch(null)}
-            packingSlips={workspacePackingSlips}
-            onSavePackingSlips={(slips) => setWorkspacePackingSlips(slips)}
-            onModeChange={(m) => {
-              if (m === "RETAIL_POS") setAuxView("WORKSPACE");
-              else if (m === "CREDIT_BILLING") setAuxView("CREDIT_BILLING");
-            }}
-            onRefreshData={onRefreshData}
-            onNotification={showToast}
-            isStandaloneTab={isStandaloneTab}
-            shiftId={activeShift?.id}
-          />
         ) : (
-          <SmritiBillingStudio
-            key="counter-pos-studio"
-            products={products}
-            customers={customers}
-            profiles={profiles}
-            shifts={shifts}
-            currentUser={currentUser}
-            mode="RETAIL_POS"
-            onModeChange={(m) => {
-              if (m === "CREDIT_BILLING") setAuxView("CREDIT_BILLING");
-              else if (m === "B2B_DISTRIBUTOR") setAuxView("B2B_DISTRIBUTOR");
-            }}
-            onRefreshData={onRefreshData}
-            onNotification={showToast}
-            isStandaloneTab={isStandaloneTab}
-            shiftId={activeShift?.id}
-          />
+          <div className="h-full overflow-hidden">
+            <BillingTerm
+              key={initialMode}
+              products={products}
+              customers={customers}
+              profiles={profiles}
+              shifts={shifts}
+              currentUser={currentUser}
+              onRefreshData={onRefreshData}
+              onNotification={(title, message, type) => showToast(title, message, type)}
+              isStandaloneTab={isStandaloneTab}
+              initialTransaction={getBillingDefaults(initialMode).transaction}
+              initialSalesChannel={getBillingDefaults(initialMode).salesChannel}
+            />
+          </div>
         )}
       </div>
 
@@ -566,14 +403,6 @@ export const BillingWorkspace: React.FC<BillingWorkspaceProps> = ({
             </div>
 
             <div className="grid grid-cols-2 gap-3 py-4 text-xs">
-              <div className="flex items-center justify-between p-2 rounded-lg bg-[#f3f4f5] dark:bg-[#25292e]">
-                <span>Retail POS Mode</span>
-                <kbd className="px-2 py-0.5 rounded bg-white dark:bg-black/40 font-mono font-bold shadow-2xs">Alt+1</kbd>
-              </div>
-              <div className="flex items-center justify-between p-2 rounded-lg bg-[#f3f4f5] dark:bg-[#25292e]">
-                <span>Retail POS Workspace</span>
-                <kbd className="px-2 py-0.5 rounded bg-white dark:bg-black/40 font-mono font-bold shadow-2xs">Alt+1</kbd>
-              </div>
               <div className="flex items-center justify-between p-2 rounded-lg bg-[#f3f4f5] dark:bg-[#25292e]">
                 <span>Billing Workspace Focus</span>
                 <kbd className="px-2 py-0.5 rounded bg-white dark:bg-black/40 font-mono font-bold shadow-2xs">F1</kbd>
@@ -710,26 +539,12 @@ export const BillingWorkspace: React.FC<BillingWorkspaceProps> = ({
           products={products}
           currentUser={currentUser}
           onSelectSlipForBilling={(slip) => {
-            setConsolidatedBatch({
-              selectedSlips: [slip],
-              items: slip.items.map((it) => ({
-                productId: it.productId,
-                sku: it.sku,
-                name: it.name,
-                unitPrice: 1499.0,
-                mrp: 1999.0,
-                taxPct: 5.0,
-                orderedQty: it.quantity,
-                packedQty: it.quantity,
-                previouslyInvoicedQty: 0,
-                remainingEligibleQty: it.quantity,
-                invoiceQty: it.quantity,
-                allocations: [{ packingSlipId: slip.id, packingSlipNumber: slip.packingSlipNumber, quantity: it.quantity }],
-              })),
-              customer: customers.find((c) => c.id === slip.customerId) || null,
-            });
-            setAuxView("B2B_DISTRIBUTOR");
-            showToast("Packing Slip Loaded", `Packing Slip #${slip.packingSlipNumber} loaded into Billing Studio.`, "success");
+            setAuxView("WORKSPACE");
+            showToast(
+              "Packing Slip Selected",
+              `Packing Slip #${slip.packingSlipNumber} was not loaded into the invoice. Use the Customer PO source until packing-slip invoicing is migrated.`,
+              "warning"
+            );
           }}
           onNotification={(title, msg, type) => showToast(title, msg, type)}
         />
@@ -744,12 +559,11 @@ export const BillingWorkspace: React.FC<BillingWorkspaceProps> = ({
           customers={customers}
           currentUser={currentUser}
           onApplyConsolidatedItems={(params) => {
-            setConsolidatedBatch(params);
-            setAuxView("B2B_DISTRIBUTOR");
+            setAuxView("WORKSPACE");
             showToast(
-              "Consolidated Invoicing",
-              `Loaded ${params.items.length} lines from ${params.selectedSlips.length} slips into Billing Studio.`,
-              "success"
+              "Consolidated Invoice Not Loaded",
+              `${params.items.length} lines from ${params.selectedSlips.length} packing slips were not transferred. Use the Customer PO source until packing-slip invoicing is migrated.`,
+              "warning"
             );
           }}
           onNotification={(title, msg, type) => showToast(title, msg, type)}
