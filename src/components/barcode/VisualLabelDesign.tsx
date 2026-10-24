@@ -76,6 +76,7 @@ export interface LabelSizePreset {
 }
 
 const STANDARD_PRESETS: LabelSizePreset[] = [
+  { id: "100x50-3stub", name: "100mm × 50.7mm (Tattly Threads Footwear 3-Stub)", widthMm: 100, heightMm: 50.7, columns: 1, description: "Tattly Threads Footwear Box Tag with Dual Tear-Off Stubs" },
   { id: "50x25", name: "50mm × 25mm (Standard 1-Up)", widthMm: 50, heightMm: 25, columns: 1, description: "Standard Apparel & Retail Barcode Tag" },
   { id: "38x25", name: "38mm × 25mm (Compact 2-Up)", widthMm: 38, heightMm: 25, columns: 2, description: "Supermarket & Grocery Shelf Sticker" },
   { id: "100x50", name: "100mm × 50mm (Shipping Dispatch)", widthMm: 100, heightMm: 50, columns: 1, description: "Master Carton & Logistics Label" },
@@ -230,13 +231,13 @@ export const VisualLabelDesigner: React.FC<VisualLabelDesignerProps> = ({
   onNotification
 }) => {
   const [selectedPreset, setSelectedPreset] = useState<LabelSizePreset>(STANDARD_PRESETS[0]);
-  const [labelWidthMm, setLabelWidthMm] = useState<number>(50);
-  const [labelHeightMm, setLabelHeightMm] = useState<number>(25);
+  const [labelWidthMm, setLabelWidthMm] = useState<number>(100);
+  const [labelHeightMm, setLabelHeightMm] = useState<number>(50.7);
   const [elements, setElements] = useState<VisualLabelElement[]>(DEFAULT_ELEMENTS);
   const [selectedElementId, setSelectedElementId] = useState<string>("el_brand");
   const [selectedSampleIndex, setSelectedSampleIndex] = useState<number>(0);
   const [saving, setSaving] = useState<boolean>(false);
-  const [layoutName, setLayoutName] = useState<string>("Standard Retail Tag 50x25");
+  const [layoutName, setLayoutName] = useState<string>("Tattly Threads Footwear 100x50.7mm");
   const [showZplCode, setShowZplCode] = useState<boolean>(false);
 
   // Cipher map for Cost Mask preview (0->A, 1->B... 9->J)
@@ -268,6 +269,11 @@ export const VisualLabelDesigner: React.FC<VisualLabelDesignerProps> = ({
     setSelectedPreset(preset);
     setLabelWidthMm(preset.widthMm);
     setLabelHeightMm(preset.heightMm);
+    if (preset.id === "100x50-3stub") {
+      setLayoutName("Tattly Threads Footwear 100x50.7mm");
+    } else {
+      setLayoutName(`Standard Tag ${preset.widthMm}x${preset.heightMm}`);
+    }
   };
 
   const handleUpdateSelectedElement = (updates: Partial<VisualLabelElement>) => {
@@ -299,7 +305,7 @@ export const VisualLabelDesigner: React.FC<VisualLabelDesignerProps> = ({
         val = activeProduct.name || "Item Description";
         break;
       case "style_code":
-        val = activeProduct.styleCode || activeProduct.code || "";
+        val = (activeProduct as any).style_code || activeProduct.styleCode || activeProduct.code || "";
         break;
       case "barcode":
         val = activeProduct.barcode || activeProduct.code || "8901234567890";

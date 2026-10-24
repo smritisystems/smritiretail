@@ -20,6 +20,7 @@ from ..core.gst_engine import (
     calculate_line_item_tax,
     determine_gstr1_table,
     GST_STATE_CODES,
+    resolve_gst_state_name_from_db,
 )
 
 
@@ -144,3 +145,52 @@ def test_gstr1_table_classification():
 
     # B2C Intra-state
     assert determine_gstr1_table(is_registered_b2b=False, is_interstate=False, invoice_grand_total=Decimal("500000.00")) == "B2CS"
+
+
+def test_gst_code_99_and_statutory_state_resolution():
+    # Statutory Code 99: Centre Jurisdiction
+    assert "99" in GST_STATE_CODES
+    assert GST_STATE_CODES["99"] == "Centre Jurisdiction"
+
+    # Legacy statutory codes 25 and 28
+    assert "25" in GST_STATE_CODES
+    assert GST_STATE_CODES["25"] == "Daman and Diu"
+    assert "28" in GST_STATE_CODES
+    assert GST_STATE_CODES["28"] == "Andhra Pradesh (Old)"
+
+    # Validate GSTIN with Code 99
+    is_valid, state_code, state_name = validate_gstin("99AAAAA0000A1Z5")
+    assert is_valid is True
+    assert state_code == "99"
+    assert state_name == "Centre Jurisdiction"
+
+
+@pytest.mark.asyncio
+async def test_resolve_gst_state_name_from_db_strict_authority():
+    from unittest.mock import AsyncMock, patch, MagicMock
+    from app.models.localization import StateRef
+
+    mock_db = AsyncMock()
+
+    # 1. State exists in states_ref -> returns canonical name
+    with patch("app.services.localization_svc.GlobalReferenceService.get_state_by_gst_code", new_callable=AsyncMock) as mock_get:
+        mock_ref = MagicMock(spec=StateRef)
+        mock_ref.name = "Centre Jurisdiction"
+        mock_get.return_value = mock_ref
+
+        name_99 = await resolve_gst_state_name_from_db(mock_db, "99")
+        assert name_99 == "Centre Jurisdiction"
+
+    # 2. State does NOT exist in states_ref -> returns None (NO SILENT STATIC FALLBACK)
+    with patch("app.services.localization_svc.GlobalReferenceService.get_state_by_gst_code", new_callable=AsyncMock) as mock_get:
+        mock_get.return_value = None
+
+        name_unknown = await resolve_gst_state_name_from_db(mock_db, "99")
+        assert name_unknown is None  # Proves no fallback to static dictionary!
+
+    # 3. None session raises ValueError (DB is mandatory authority)
+    with pytest.raises(ValueError) as exc_info:
+        await resolve_gst_state_name_from_db(None, "27")
+    assert "SMRITI-REF-002" in str(exc_info.value)
+
+

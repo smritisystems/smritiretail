@@ -505,7 +505,7 @@ async def test_sr_return_quantity_001(db_session):
     assert "exceeds remaining quantity" in res.text
 
 
-async def test_sr_concurrency_001(db_session):
+async def test_sr_concurrency_001(db_session, db_engine):
     """TEST-SR-CONCURRENCY-001: two real concurrent requests against the same invoice yield one success and one rejection."""
     s = uuid.uuid4().hex[:6]
     comp, br = await _make_tenant(db_session, s)
@@ -516,6 +516,15 @@ async def test_sr_concurrency_001(db_session):
     _set_tenant(comp.id, br.id)
 
     headers = _bearer(cashier, comp.id, br.id)
+
+    session_factory = sessionmaker(db_engine, class_=AsyncSession, expire_on_commit=False)
+
+    async def _get_concurrent_db():
+        async with session_factory() as s_conn:
+            yield s_conn
+
+    app.dependency_overrides[get_db] = _get_concurrent_db
+    app.dependency_overrides[get_company_db] = _get_concurrent_db
 
     async def submit_return(label: str):
         payload = {
@@ -539,7 +548,13 @@ async def test_sr_concurrency_001(db_session):
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             return await client.post("/api/v1/sales/returns/", json=payload, headers=headers)
 
-    r1, r2 = await asyncio.gather(submit_return("A"), submit_return("B"))
+    try:
+        r1, r2 = await asyncio.gather(submit_return("A"), submit_return("B"))
+    finally:
+        async def _restore_db():
+            yield db_session
+        app.dependency_overrides[get_db] = _restore_db
+        app.dependency_overrides[get_company_db] = _restore_db
 
     successes = [r for r in (r1, r2) if r.status_code == 201]
     failures = [r for r in (r1, r2) if r.status_code != 201]
@@ -824,10 +839,12 @@ async def test_sr_refund_policy_001(db_session):
     """TEST-SR-REFUND-POLICY-001: refund behavior follows database policy values and rejects cash when cash is disallowed."""
     s = uuid.uuid4().hex[:6]
     comp, br = await _make_tenant(db_session, s)
-    cashier = await _make_cashier(db_session, s, comp.id, br.id)
-    customer = await _make_customer(db_session, s, comp.id, br.id)
-    product = await _make_product(db_session, s, comp.id, br.id, stock=10)
-    _set_tenant(comp.id, br.id)
+    comp_id = str(comp.id)
+    br_id = str(br.id)
+    cashier = await _make_cashier(db_session, s, comp_id, br_id)
+    customer = await _make_customer(db_session, s, comp_id, br_id)
+    product = await _make_product(db_session, s, comp_id, br_id, stock=10)
+    _set_tenant(comp_id, br_id)
 
     policy = (await db_session.execute(
         select(PolicyDefinition).where(
@@ -846,8 +863,8 @@ async def test_sr_refund_policy_001(db_session):
     }
     await db_session.commit()
 
-    invoice_v1 = await _make_invoice(db_session, f"{s}-v1", comp.id, br.id, product.id, customer.id, qty=Decimal("1.00"))
-    headers_v1 = _bearer(cashier, comp.id, br.id)
+    invoice_v1 = await _make_invoice(db_session, f"{s}-v1", comp_id, br_id, product.id, customer.id, qty=Decimal("1.00"))
+    headers_v1 = _bearer(cashier, comp_id, br_id)
     payload_v1 = {
         "id": f"sr-ref-policy-v1-{s}",
         "return_no": f"RET-REF-POL-V1-{s}",
@@ -868,7 +885,7 @@ async def test_sr_refund_policy_001(db_session):
         res_v1 = await client.post("/api/v1/sales/returns/", json=payload_v1, headers=headers_v1)
 
     assert res_v1.status_code == 201, res_v1.text
-    txs_v1 = (await db_session.execute(select(PaymentTransaction).where(PaymentTransaction.reference_doc_id == payload_v1["id"], PaymentTransaction.company_id == comp.id))).scalars().all()
+    txs_v1 = (await db_session.execute(select(PaymentTransaction).where(PaymentTransaction.reference_doc_id == payload_v1["id"], PaymentTransaction.company_id == comp_id))).scalars().all()
     assert len(txs_v1) == 1, "V1 must create a persisted PaymentTransaction when cash is allowed"
     assert txs_v1[0].tender_type == "CASH"
 
@@ -879,7 +896,7 @@ async def test_sr_refund_policy_001(db_session):
     }
     await db_session.commit()
 
-    invoice_v2 = await _make_invoice(db_session, f"{s}-v2", comp.id, br.id, product.id, customer.id, qty=Decimal("1.00"))
+    invoice_v2 = await _make_invoice(db_session, f"{s}-v2", comp_id, br_id, product.id, customer.id, qty=Decimal("1.00"))
     payload_v2 = {
         "id": f"sr-ref-policy-v2-{s}",
         "return_no": f"RET-REF-POL-V2-{s}",
@@ -902,7 +919,7 @@ async def test_sr_refund_policy_001(db_session):
     assert res_v2.status_code == 422, res_v2.text
     assert "not permitted by return policy" in res_v2.text.lower()
 
-    txs_v2 = (await db_session.execute(select(PaymentTransaction).where(PaymentTransaction.reference_doc_id == payload_v2["id"], PaymentTransaction.company_id == comp.id))).scalars().all()
+    txs_v2 = (await db_session.execute(select(PaymentTransaction).where(PaymentTransaction.reference_doc_id == payload_v2["id"], PaymentTransaction.company_id == comp_id))).scalars().all()
     assert len(txs_v2) == 0, "V2 must reject without creating an unauthorized cash refund"
 
 

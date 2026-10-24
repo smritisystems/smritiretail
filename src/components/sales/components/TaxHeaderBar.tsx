@@ -4,26 +4,31 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 4.10.0
+ * Version      : 4.12.0
  * Created      : 2026-08-24
- * Modified     : 2026-08-24
+ * Modified     : 2026-09-07
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
  */
 
 import React, { useState, useEffect } from "react";
-import { 
-  Receipt, 
-  PlusSquare, 
-  XCircle, 
-  RotateCcw, 
-  Printer, 
-  Bell, 
-  Settings, 
+import {
+  Receipt,
+  MapPin,
+  Clock,
   HelpCircle,
-  LogOut,
+  Users,
+  Package,
+  BarChart3,
+  Tag,
+  Settings,
+  Plus,
   Save,
+  Trash2,
+  Printer,
+  Search,
+  LogOut,
   Loader2
 } from "lucide-react";
 import { ExportButton } from "../../export/ExportButton.tsx";
@@ -58,7 +63,7 @@ export const TaxHeaderBar: React.FC<TaxHeaderBarolbarProps> = ({
 }) => {
   const [currentDateTime, setCurrentDateTime] = useState({
     date: new Date().toLocaleDateString("en-GB"),
-    time: new Date().toLocaleTimeString("en-US", { hour12: true }),
+    time: new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }),
   });
 
   useEffect(() => {
@@ -66,126 +71,177 @@ export const TaxHeaderBar: React.FC<TaxHeaderBarolbarProps> = ({
       const now = new Date();
       setCurrentDateTime({
         date: now.toLocaleDateString("en-GB"),
-        time: now.toLocaleTimeString("en-US", { hour12: true }),
+        time: now.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }),
       });
     }, 1000);
     return () => clearInterval(timer);
   }, []);
 
+  const cashierName = currentUser?.name || "John Doe";
+  const cashierInitials = cashierName
+    .split(" ")
+    .map((n) => n[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
+
   return (
-    <header className="bg-surface dark:bg-primary-container text-primary dark:text-primary-fixed w-full top-0 sticky z-50 border-b border-outline-variant dark:border-outline">
-      <div className="flex justify-between items-center px-margin-page h-16 w-full max-w-container-max-width mx-auto">
-        <div className="flex items-center gap-stack-gap">
-          <Receipt className="w-8 h-8 text-primary dark:text-primary-fixed" />
-          <span className="font-headline-lg text-headline-lg font-bold text-primary dark:text-primary-fixed">
-            Smriti Distributor
-          </span>
+    <header className="bg-[#0b2444] text-white flex-none border-b border-[#133763] shadow-sm z-30 select-none" data-purpose="app-shell-header">
+      <div className="flex items-center justify-between px-3 h-12 w-full">
+        {/* Left: Brand and Core Module Tabs */}
+        <div className="flex items-center space-x-6">
+          <div className="flex items-center space-x-2.5">
+            {/* SMRITI Logo Symbol */}
+            <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center font-black tracking-tighter text-white text-base shadow-sm">
+              <span>S</span>
+            </div>
+            <div>
+              <span className="text-base font-black tracking-wider uppercase bg-gradient-to-r from-white via-slate-100 to-slate-300 bg-clip-text text-transparent leading-none block">
+                SMRITI
+              </span>
+              <span className="text-[9px] block tracking-widest text-cyan-300 font-semibold uppercase leading-tight">
+                RETAIL OS
+              </span>
+            </div>
+          </div>
+
+          {/* Main Navigation Bar */}
+          <nav aria-label="Primary Navigation" className="hidden lg:flex items-center space-x-1">
+            <button
+              type="button"
+              className="flex items-center space-x-1.5 px-3 py-1.5 rounded-md bg-[#0066cc] text-white font-medium text-xs shadow-inner cursor-pointer"
+            >
+              <Receipt className="w-4 h-4" />
+              <span>Billing</span>
+            </button>
+            <button
+              type="button"
+              onClick={onFind}
+              className="flex items-center space-x-1.5 px-3 py-1.5 rounded-md text-slate-300 hover:text-white hover:bg-white/10 transition-colors font-medium text-xs cursor-pointer"
+            >
+              <Users className="w-4 h-4 text-slate-400" />
+              <span>Customers (F2)</span>
+            </button>
+            <button
+              type="button"
+              className="flex items-center space-x-1.5 px-3 py-1.5 rounded-md text-slate-300 hover:text-white hover:bg-white/10 transition-colors font-medium text-xs cursor-pointer"
+            >
+              <Package className="w-4 h-4 text-slate-400" />
+              <span>Products</span>
+            </button>
+            <button
+              type="button"
+              className="flex items-center space-x-1.5 px-3 py-1.5 rounded-md text-slate-300 hover:text-white hover:bg-white/10 transition-colors font-medium text-xs cursor-pointer"
+            >
+              <BarChart3 className="w-4 h-4 text-slate-400" />
+              <span>Reports</span>
+            </button>
+            <button
+              type="button"
+              className="flex items-center space-x-1.5 px-3 py-1.5 rounded-md text-slate-300 hover:text-white hover:bg-white/10 transition-colors font-medium text-xs cursor-pointer"
+            >
+              <Tag className="w-4 h-4 text-slate-400" />
+              <span>Promotions</span>
+            </button>
+            <button
+              type="button"
+              className="flex items-center space-x-1.5 px-3 py-1.5 rounded-md text-slate-300 hover:text-white hover:bg-white/10 transition-colors font-medium text-xs cursor-pointer"
+            >
+              <Settings className="w-4 h-4 text-slate-400" />
+              <span>Settings</span>
+            </button>
+          </nav>
         </div>
 
-        <div className="flex items-center gap-gutter">
-          {/* Realtime Date & Time badges */}
-          <div className="flex items-center gap-stack-gap text-on-surface-variant">
-            <span className="font-code-md text-code-md bg-surface-container-high px-2 py-1 rounded">
-              {currentDateTime.date}
-            </span>
-            <span className="font-code-md text-code-md bg-surface-container-high px-2 py-1 rounded">
-              {currentDateTime.time}
+        {/* Right: Operational Status & Current User Meta */}
+        <div className="flex items-center space-x-4 text-xs">
+          {/* Store / Location Context */}
+          <div className="hidden sm:flex items-center space-x-1.5 text-slate-300 border-r border-slate-700/60 pr-3">
+            <MapPin className="w-3.5 h-3.5 text-slate-400" />
+            <div className="leading-tight">
+              <span className="font-medium text-slate-200 block">Reliance Demo Co.</span>
+              <span className="text-[10px] text-slate-400 block">Mumbai HO</span>
+            </div>
+          </div>
+
+          {/* Timestamp */}
+          <div className="hidden md:flex items-center space-x-1.5 text-slate-300 border-r border-slate-700/60 pr-3 font-mono">
+            <Clock className="w-3.5 h-3.5 text-slate-400" />
+            <div className="leading-tight">
+              <div className="text-slate-200">{currentDateTime.date}</div>
+              <div className="text-[10px] text-slate-400">{currentDateTime.time}</div>
+            </div>
+          </div>
+
+          {/* Shift Badge */}
+          <div className="flex items-center space-x-1.5 bg-emerald-950/60 border border-emerald-500/40 px-2.5 py-1 rounded-full text-emerald-400">
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+            <span className="font-medium text-[11px]">
+              Shift Active <span className="font-mono font-bold">REG-01</span>
             </span>
           </div>
 
-          {/* Quick Action Icons matching code.html */}
-          <div className="flex items-center gap-unit">
+          {/* User Profile Avatar */}
+          <div className="flex items-center space-x-2 border-l border-slate-700/60 pl-3">
+            <div className="w-7 h-7 rounded-full bg-slate-200 text-slate-800 flex items-center justify-center font-bold text-xs shadow">
+              {cashierInitials}
+            </div>
+            <div className="hidden xl:block leading-none text-left">
+              <div className="font-medium text-slate-200">{cashierName}</div>
+              <div className="text-[10px] text-slate-400 font-mono">EMP001</div>
+            </div>
+          </div>
+
+          {/* Quick Action Toolbar */}
+          <div className="flex items-center space-x-1 border-l border-slate-700/60 pl-2">
             <button
               type="button"
               onClick={onNew}
-              className="p-2 text-on-surface-variant hover:bg-surface-container-high dark:hover:bg-primary-fixed-dim transition-colors rounded active:opacity-80 cursor-pointer"
-              title="New (Ctrl+N)"
+              title="New Invoice (Ctrl+N)"
+              className="p-1 text-slate-300 hover:text-white hover:bg-white/10 rounded transition cursor-pointer"
             >
-              <PlusSquare className="w-5 h-5" />
+              <Plus className="w-4 h-4" />
             </button>
             <button
               type="button"
               onClick={onSave}
               disabled={isSaving}
-              className="p-2 text-primary dark:text-primary-fixed hover:bg-surface-container-high dark:hover:bg-primary-fixed-dim transition-colors rounded active:opacity-80 cursor-pointer disabled:opacity-50"
-              title="Save & Commit (Ctrl+S)"
+              title="Save Invoice (Ctrl+S / F8)"
+              className="p-1 text-emerald-400 hover:text-emerald-300 hover:bg-white/10 rounded transition cursor-pointer disabled:opacity-50"
             >
-              {isSaving ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />}
-            </button>
-            <button
-              type="button"
-              onClick={onDelete}
-              className="p-2 text-on-surface-variant hover:bg-surface-container-high dark:hover:bg-primary-fixed-dim transition-colors rounded active:opacity-80 cursor-pointer"
-              title="Void (Ctrl+V)"
-            >
-              <XCircle className="w-5 h-5 text-error" />
-            </button>
-            <button
-              type="button"
-              onClick={onFind}
-              className="p-2 text-on-surface-variant hover:bg-surface-container-high dark:hover:bg-primary-fixed-dim transition-colors rounded active:opacity-80 cursor-pointer"
-              title="Return (Ctrl+R)"
-            >
-              <RotateCcw className="w-5 h-5" />
+              {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
             </button>
             <button
               type="button"
               onClick={onPrint}
-              className="p-2 text-on-surface-variant hover:bg-surface-container-high dark:hover:bg-primary-fixed-dim transition-colors rounded active:opacity-80 cursor-pointer"
-              title="Reprint (Ctrl+P)"
+              title="Print (Ctrl+P)"
+              className="p-1 text-slate-300 hover:text-white hover:bg-white/10 rounded transition cursor-pointer"
             >
-              <Printer className="w-5 h-5" />
+              <Printer className="w-4 h-4" />
             </button>
-          </div>
-
-          <div className="h-8 w-px bg-outline-variant"></div>
-
-          {/* Utility & Navigation Icons */}
-          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={onDelete}
+              title="Clear Draft"
+              className="p-1 text-rose-400 hover:text-rose-300 hover:bg-white/10 rounded transition cursor-pointer"
+            >
+              <Trash2 className="w-4 h-4" />
+            </button>
             <ExportButton
               columns={exportColumns}
               data={exportData}
               moduleTitle="Smriti Distributor Tax Invoice"
             />
-
-
-            <button
-              type="button"
-              className="p-2 text-on-surface-variant hover:bg-surface-container-high dark:hover:bg-primary-fixed-dim transition-colors rounded active:opacity-80 cursor-pointer"
-              title="Notifications"
-            >
-              <Bell className="w-5 h-5" />
-            </button>
-            <button
-              type="button"
-              className="p-2 text-on-surface-variant hover:bg-surface-container-high dark:hover:bg-primary-fixed-dim transition-colors rounded active:opacity-80 cursor-pointer"
-              title="Settings"
-            >
-              <Settings className="w-5 h-5" />
-            </button>
-            <button
-              type="button"
-              className="p-2 text-on-surface-variant hover:bg-surface-container-high dark:hover:bg-primary-fixed-dim transition-colors rounded active:opacity-80 cursor-pointer"
-              title="Help"
-            >
-              <HelpCircle className="w-5 h-5" />
-            </button>
-            <button
-              type="button"
-              onClick={onExit}
-              className="p-2 text-rose-500 hover:bg-rose-100 dark:hover:bg-rose-950 transition-colors rounded active:opacity-80 cursor-pointer"
-              title="Exit Workspace (ESC)"
-            >
-              <LogOut className="w-5 h-5" />
-            </button>
-          </div>
-
-          {/* User profile avatar badge */}
-          <div
-            className="w-8 h-8 rounded-full border border-outline-variant bg-primary-container text-on-primary flex items-center justify-center font-bold text-xs"
-            title={currentUser?.name || "Jawahar Mallah"}
-          >
-            {currentUser?.name ? currentUser.name.charAt(0).toUpperCase() : "J"}
+            {onExit && (
+              <button
+                type="button"
+                onClick={onExit}
+                title="Exit (Esc)"
+                className="p-1 text-slate-400 hover:text-rose-400 hover:bg-white/10 rounded transition cursor-pointer"
+              >
+                <LogOut className="w-4 h-4" />
+              </button>
+            )}
           </div>
         </div>
       </div>

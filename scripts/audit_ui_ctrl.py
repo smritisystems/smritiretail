@@ -129,7 +129,7 @@ def run_ui_ux_audit():
     # ------------------------------------------------------------
     awe_saef_data = [
         {"component": "ACAS Context Registry", "location": "src/context-actions/ContextRegistry.ts", "mode_support": "Adaptive Context Actions", "max_actions": 10, "source_of_truth": "Code Heuristic + localStorage", "classification": "USER_PERSONALIZATION"},
-        {"component": "AWE Item Master Mode", "location": "src/components/ItemMasterTab.tsx", "mode_support": "SIMPLE / ADVANCED", "max_fields": "Dynamic Field Masking", "source_of_truth": "localStorage (smriti_item_master_mode)", "classification": "USER_PERSONALIZATION"},
+        {"component": "AWE Item Master Mode", "location": "src/components/itemMaster/ItemMasterWs.tsx", "mode_support": "SIMPLE / ADVANCED", "max_fields": "Dynamic Field Masking", "source_of_truth": "localStorage (smriti_item_master_mode)", "classification": "USER_PERSONALIZATION"},
         {"component": "Workspace Zoom / Density", "location": "src/App.tsx", "mode_support": "COMPACT / COMFORTABLE", "max_time": "N/A", "source_of_truth": "localStorage (smriti_workspace_global_zoom)", "classification": "USER_PERSONALIZATION"},
         {"component": "Workspace Focus Mode", "location": "src/App.tsx", "mode_support": "STANDARD / FOCUS", "max_time": "N/A", "source_of_truth": "localStorage (smriti_workspace_focus_mode)", "classification": "USER_PERSONALIZATION"},
     ]
@@ -152,7 +152,7 @@ def run_ui_ux_audit():
     # 7. FORM / FIELD CONFIGURATION
     # ------------------------------------------------------------
     form_data = [
-        {"feature": "Dynamic Product Attributes", "location": "src/components/ItemMasterTab.tsx", "backend_table": "attribute_definitions", "ownership": "COMPANY", "source_of_truth": "/api/v1/attributes/definitions"},
+        {"feature": "Dynamic Product Attributes", "location": "src/components/itemMaster/ItemMasterWs.tsx", "backend_table": "attribute_definitions", "ownership": "COMPANY", "source_of_truth": "/api/v1/attributes/definitions"},
         {"feature": "Document Numbering Series", "location": "src/components/DocumentSeriesTab.tsx", "backend_table": "document_series", "ownership": "COMPANY", "source_of_truth": "/api/v1/numbering/series"},
         {"feature": "Print Template Formatting", "location": "src/components/PrintPreviewModal.tsx", "backend_table": "print_templates", "ownership": "COMPANY", "source_of_truth": "/api/v1/barcode/layouts"},
         {"feature": "Tally Field Mapping", "location": "src/components/AccountingSyncTab.tsx", "backend_table": "tally_configs", "ownership": "COMPANY", "source_of_truth": "/api/v1/system/tally"},

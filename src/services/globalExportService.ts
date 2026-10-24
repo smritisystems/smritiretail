@@ -72,6 +72,143 @@ export function sanitizeExportRecord(record: any): any {
 }
 
 /**
+ * Resolves a field value from an item row with deep fallback across casing
+ * conventions (snake_case / camelCase), canonical SMRITI catalog aliases,
+ * and flexible JSON attributes dictionaries.
+ */
+export function getRowValue(row: any, colKey: string): any {
+  if (!row || typeof row !== "object") return undefined;
+
+  // 1. Direct property match
+  if (row[colKey] !== undefined && row[colKey] !== null) {
+    return row[colKey];
+  }
+
+  // 2. Casing transformation: snake_case <-> camelCase
+  const camelKey = colKey.replace(/_([a-z0-9])/g, (_, l) => l.toUpperCase());
+  if (row[camelKey] !== undefined && row[camelKey] !== null) {
+    return row[camelKey];
+  }
+
+  const snakeKey = colKey.replace(/([A-Z])/g, (l) => `_${l.toLowerCase()}`);
+  if (row[snakeKey] !== undefined && row[snakeKey] !== null) {
+    return row[snakeKey];
+  }
+
+  // 3. Domain-specific retail catalog aliases
+  if (colKey === "article" || colKey === "style_code" || colKey === "styleCode" || colKey === "design_code") {
+    const val = row.style_code ?? row.styleCode ?? row.article ?? row.article_code ?? row.articleCode ?? row.style ?? row.style_article ?? row.article_no ?? row.design_code;
+    if (val !== undefined && val !== null) return val;
+  }
+
+  if (colKey === "color" || colKey === "colour" || colKey === "shade" || colKey === "color_shade") {
+    const val = row.color ?? row.colour ?? row.shade ?? row.color_shade;
+    if (val !== undefined && val !== null) return val;
+  }
+
+  if (colKey === "size") {
+    const val = row.size ?? row.size_eu ?? row.size_uk;
+    if (val !== undefined && val !== null) return val;
+  }
+
+  if (colKey === "buying_price" || colKey === "buyingPrice" || colKey === "dealer_price" || colKey === "dealerPrice") {
+    const val = row.buying_price ?? row.buyingPrice ?? row.dealer_price ?? row.dealerPrice;
+    if (val !== undefined && val !== null) return val;
+  }
+
+  if (colKey === "cost_price" || colKey === "costPrice") {
+    const val = row.cost_price ?? row.costPrice;
+    if (val !== undefined && val !== null) return val;
+  }
+
+  if (colKey === "mrp" || colKey === "price" || colKey === "retail_price" || colKey === "retailPrice") {
+    const val = row.mrp ?? row.price ?? row.retailPrice ?? row.retail_price;
+    if (val !== undefined && val !== null) return val;
+  }
+
+  if (colKey === "hsn_code" || colKey === "hsnCode" || colKey === "hsn") {
+    const val = row.hsn_code ?? row.hsnCode ?? row.hsn;
+    if (val !== undefined && val !== null) return val;
+  }
+
+  if (colKey === "gst_percentage" || colKey === "gstPercentage" || colKey === "taxRate" || colKey === "tax_rate") {
+    const val = row.gst_percentage ?? row.gstPercentage ?? row.taxRate ?? row.tax_rate;
+    if (val !== undefined && val !== null) return val;
+  }
+
+  if (colKey === "gender") {
+    const val = row.gender ?? row.target_gender ?? row.gender_category ?? row.a4;
+    if (val !== undefined && val !== null) return val;
+  }
+
+  if (colKey === "product_type" || colKey === "productType") {
+    const val = row.product_type ?? row.productType;
+    if (val !== undefined && val !== null) return val;
+  }
+
+  // 4. Extensible Attributes JSON container
+  if (row.attributes && typeof row.attributes === "object") {
+    const attrs = row.attributes;
+    if (attrs[colKey] !== undefined && attrs[colKey] !== null) return attrs[colKey];
+    if (attrs[camelKey] !== undefined && attrs[camelKey] !== null) return attrs[camelKey];
+    if (attrs[snakeKey] !== undefined && attrs[snakeKey] !== null) return attrs[snakeKey];
+
+    // Case-insensitive attribute key match
+    const lowerKey = colKey.toLowerCase();
+    for (const [k, v] of Object.entries(attrs)) {
+      if (k.toLowerCase() === lowerKey && v !== undefined && v !== null) {
+        return v;
+      }
+    }
+
+    if (colKey === "article" || colKey === "style_code" || colKey === "styleCode") {
+      const val = attrs.article ?? attrs.Article ?? attrs.style_code ?? attrs.styleCode ?? attrs.design_code;
+      if (val !== undefined && val !== null) return val;
+    }
+
+    if (colKey === "color" || colKey === "colour") {
+      const val = attrs.color ?? attrs.Color ?? attrs.colour ?? attrs.Colour ?? attrs.shade ?? attrs.Shade ?? attrs.color_shade;
+      if (val !== undefined && val !== null) return val;
+    }
+
+    if (colKey === "gender") {
+      const val = attrs.gender ?? attrs.Gender ?? attrs.target_gender ?? attrs.gender_category ?? attrs.a4;
+      if (val !== undefined && val !== null) return val;
+    }
+
+    if (colKey === "product_type" || colKey === "productType") {
+      const val = attrs.product_type ?? attrs.productType ?? attrs["Product Type"] ?? attrs.type ?? attrs.Type;
+      if (val !== undefined && val !== null) return val;
+    }
+
+    if (colKey === "size") {
+      const val = attrs.size ?? attrs.Size ?? attrs.size_eu ?? attrs.size_uk;
+      if (val !== undefined && val !== null) return val;
+    }
+
+    if (colKey === "hsn_code" || colKey === "hsnCode") {
+      const val = attrs.hsn ?? attrs.hsn_code ?? attrs.hsnCode;
+      if (val !== undefined && val !== null) return val;
+    }
+  }
+
+  // 5. Intelligent Fallback for Gender and Product Type
+  if (colKey === "gender") {
+    const combined = `${row.category || ""} ${row.name || ""}`.toLowerCase();
+    if (/\b(men|mens|gents|male)\b/.test(combined)) return "Men";
+    if (/\b(women|womens|ladies|female)\b/.test(combined)) return "Women";
+    if (/\b(kids|boys|girls|children)\b/.test(combined)) return "Kids";
+    if (/\b(unisex)\b/.test(combined)) return "Unisex";
+  }
+
+  if (colKey === "product_type" || colKey === "productType") {
+    if (row.category) return row.category;
+  }
+
+  return undefined;
+}
+
+/**
  * Formats a value according to its column datatype.
  */
 export function formatCellValue(value: any, col: ExportColumnDefinition, row?: any): string {
@@ -214,7 +351,7 @@ export function serializeToCSV(
   // 3. Table Data Rows
   for (const row of data) {
     const rowValues = visibleCols.map((c) => {
-      const val = row[c.key];
+      const val = getRowValue(row, c.key);
       const formatted = formatCellValue(val, c, row);
       return escapeCSVValue(formatted);
     });
@@ -227,7 +364,7 @@ export function serializeToCSV(
     const summaryValues = visibleCols.map((c, idx) => {
       if (idx === 0) return escapeCSVValue("TOTAL / SUMMARY");
       if (c.isSummary && (c.datatype === "number" || c.datatype === "currency")) {
-        const sum = data.reduce((acc, row) => acc + (Number(row[c.key]) || 0), 0);
+        const sum = data.reduce((acc, row) => acc + (Number(getRowValue(row, c.key)) || 0), 0);
         return escapeCSVValue(formatCellValue(sum, c));
       }
       return "";
@@ -277,7 +414,7 @@ export function serializeToTSV(
   // 3. Table Data Rows
   for (const row of data) {
     const rowValues = visibleCols.map((c) => {
-      const val = row[c.key];
+      const val = getRowValue(row, c.key);
       const formatted = formatCellValue(val, c, row);
       return String(formatted).replace(/[\t\r\n]/g, " ");
     });
@@ -290,7 +427,7 @@ export function serializeToTSV(
     const summaryValues = visibleCols.map((c, idx) => {
       if (idx === 0) return "TOTAL / SUMMARY";
       if (c.isSummary && (c.datatype === "number" || c.datatype === "currency")) {
-        const sum = data.reduce((acc, row) => acc + (Number(row[c.key]) || 0), 0);
+        const sum = data.reduce((acc, row) => acc + (Number(getRowValue(row, c.key)) || 0), 0);
         return formatCellValue(sum, c);
       }
       return "";
@@ -448,7 +585,7 @@ export function serializeToSpreadsheetML(
   for (const row of data) {
     xml += `   <Row ss:Height="20">\n`;
     for (const col of visibleCols) {
-      const val = row[col.key];
+      const val = getRowValue(row, col.key);
       if (val === null || val === undefined || String(val).trim() === "" || String(val).trim() === "—") {
         xml += `    <Cell ss:StyleID="TextCell"><Data ss:Type="String"></Data></Cell>\n`;
       } else if (col.datatype === "number" || col.datatype === "percentage") {
@@ -486,7 +623,8 @@ export function serializeToSpreadsheetML(
         xml += `    <Cell ss:StyleID="SummaryStyle"><Data ss:Type="String">TOTAL / SUMMARY</Data></Cell>\n`;
       } else if (col.isSummary && (col.datatype === "number" || col.datatype === "currency")) {
         const sum = data.reduce((acc, row) => {
-          const raw = typeof row[col.key] === "number" ? row[col.key] : parseFloat(String(row[col.key] || "").replace(/[^0-9.-]/g, ""));
+          const rowVal = getRowValue(row, col.key);
+          const raw = typeof rowVal === "number" ? rowVal : parseFloat(String(rowVal || "").replace(/[^0-9.-]/g, ""));
           return acc + (!isNaN(raw) ? raw : 0);
         }, 0);
         const style = col.datatype === "currency" ? "CurrencyCell" : "NumberCell";
@@ -824,7 +962,7 @@ export function serializeToOpenXMLXLSX(
     const dataRowIndex = currentRow;
     const cells = visibleCols.map((col, colIdx) => {
       const cellRef = `${getExcelColumnName(colIdx)}${dataRowIndex}`;
-      const val = row[col.key];
+      const val = getRowValue(row, col.key);
 
       if (val === null || val === undefined || String(val).trim() === "" || String(val).trim() === "—") {
         return `<c r="${cellRef}" s="2"/>`;
@@ -865,7 +1003,8 @@ export function serializeToOpenXMLXLSX(
       }
       if (col.isSummary && (col.datatype === "number" || col.datatype === "currency")) {
         const sum = data.reduce((acc, row) => {
-          const raw = typeof row[col.key] === "number" ? row[col.key] : parseFloat(String(row[col.key] || "").replace(/[^0-9.-]/g, ""));
+          const rowVal = getRowValue(row, col.key);
+          const raw = typeof rowVal === "number" ? rowVal : parseFloat(String(rowVal || "").replace(/[^0-9.-]/g, ""));
           return acc + (!isNaN(raw) ? raw : 0);
         }, 0);
         const styleId = col.datatype === "currency" ? 4 : 7;
@@ -1087,7 +1226,7 @@ export function serializeToHTML(
       ${data.map((row) => `
         <tr>
           ${visibleCols.map((c) => {
-            const val = formatCellValue(row[c.key], c, row);
+            const val = formatCellValue(getRowValue(row, c.key), c, row);
             const alignClass = c.align === "right" ? "text-right" : c.align === "center" ? "text-center" : "";
             return `<td class="${alignClass}">${escapeXML(val)}</td>`;
           }).join("")}
@@ -1264,6 +1403,7 @@ export class GlobalExportService {
       queryParams = {},
       metadata,
       selectedRows,
+      onEnrichData,
       onProgress,
       abortSignal,
       customFilename,
@@ -1373,16 +1513,18 @@ export class GlobalExportService {
         percentage: 95,
       });
 
+      const finalRecords = onEnrichData ? onEnrichData(allRecords) : allRecords;
+
       const result = await this.exportDataset({
         moduleName,
         format,
         scope,
         columns,
-        data: allRecords,
+        data: finalRecords,
         metadata: {
           moduleTitle: moduleName,
           ...metadata,
-          totalRecordsCount: allRecords.length,
+          totalRecordsCount: finalRecords.length,
         },
         customFilename,
         sheetName,

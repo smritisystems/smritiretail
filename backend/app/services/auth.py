@@ -24,10 +24,14 @@ Founders
 """
 
 import uuid
+import logging
+from typing import Optional
 from datetime import datetime, timezone, timedelta
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.exc import IntegrityError
+
+logger = logging.getLogger(__name__)
 from fastapi import HTTPException
 from ..models.auth import User, RefreshTokenBlacklist, UserRole
 from ..models.user_assignment import UserCompanyAssignment, UserBranchAssignment
@@ -54,6 +58,83 @@ def _build_token_payload(user: User, company_id: str = None, branch_id: str = No
 class AuthService:
     def __init__(self, db: AsyncSession):
         self.db = db
+
+    async def _resolve_token_expirations(
+        self,
+        company_id: Optional[str] = None,
+        branch_id: Optional[str] = None,
+    ) -> tuple[Optional[int], Optional[int]]:
+        """
+        Resolve tenant-specific access and refresh token expirations.
+        Behavior:
+        1. Parameter absent -> returns None (caller applies documented system defaults).
+        2. Parameter exists and is valid -> returns parsed positive integer.
+        3. Parameter exists but is invalid -> raises HTTPException(500, SMRITI-AUTH-CFG-001).
+        4. Resolution fails unexpectedly -> logs error with context and raises HTTPException(500, SMRITI-AUTH-CFG-002).
+        """
+        from .system_parameter import SystemParameterService
+        exp_min: Optional[int] = None
+        exp_days: Optional[int] = None
+
+        if not company_id:
+            return exp_min, exp_days
+
+        try:
+            min_p = await SystemParameterService.resolve_parameter(
+                db=self.db,
+                param_code="SMRITI.AUTH.TOKEN_EXPIRE_MINUTES",
+                company_id=company_id,
+                branch_id=branch_id,
+            )
+            if min_p and min_p.effective_value is not None:
+                try:
+                    val_min = int(str(min_p.effective_value).strip())
+                    if val_min <= 0:
+                        raise ValueError(f"Value must be positive, got {val_min}")
+                    exp_min = val_min
+                except (ValueError, TypeError) as conv_err:
+                    logger.error(
+                        f"SMRITI-AUTH-CFG-001: Invalid security configuration for SMRITI.AUTH.TOKEN_EXPIRE_MINUTES: '{min_p.effective_value}'. Error: {conv_err}"
+                    )
+                    raise HTTPException(
+                        status_code=500,
+                        detail=f"SMRITI-AUTH-CFG-001: Invalid security configuration for SMRITI.AUTH.TOKEN_EXPIRE_MINUTES: '{min_p.effective_value}'. Must be a positive integer.",
+                    )
+
+            days_p = await SystemParameterService.resolve_parameter(
+                db=self.db,
+                param_code="SMRITI.AUTH.REFRESH_TOKEN_EXPIRE_DAYS",
+                company_id=company_id,
+                branch_id=branch_id,
+            )
+            if days_p and days_p.effective_value is not None:
+                try:
+                    val_days = int(str(days_p.effective_value).strip())
+                    if val_days <= 0:
+                        raise ValueError(f"Value must be positive, got {val_days}")
+                    exp_days = val_days
+                except (ValueError, TypeError) as conv_err:
+                    logger.error(
+                        f"SMRITI-AUTH-CFG-001: Invalid security configuration for SMRITI.AUTH.REFRESH_TOKEN_EXPIRE_DAYS: '{days_p.effective_value}'. Error: {conv_err}"
+                    )
+                    raise HTTPException(
+                        status_code=500,
+                        detail=f"SMRITI-AUTH-CFG-001: Invalid security configuration for SMRITI.AUTH.REFRESH_TOKEN_EXPIRE_DAYS: '{days_p.effective_value}'. Must be a positive integer.",
+                    )
+
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error(
+                f"SMRITI-AUTH-CFG-002: Unexpected failure resolving security parameters for company='{company_id}', branch='{branch_id}': {e}",
+                exc_info=True,
+            )
+            raise HTTPException(
+                status_code=500,
+                detail=f"SMRITI-AUTH-CFG-002: Security parameter resolution failed: {str(e)}",
+            )
+
+        return exp_min, exp_days
 
     # ------------------------------------------------------------------
     # Bootstrap — first-run SYSADMIN creation
@@ -139,26 +220,40 @@ class AuthService:
                 headers={"WWW-Authenticate": "Bearer"},
             )
 
-        # Fallback to default company/branch assignments if unassigned
-        if user.role != UserRole.SYSADMIN:
-            if not user.company_id:
-                default_comp_res = await self.db.execute(
-                    select(UserCompanyAssignment).where(
-                        UserCompanyAssignment.user_id == user.id,
-                        UserCompanyAssignment.is_default == True,
-                        UserCompanyAssignment.is_deleted == False,
-                        UserCompanyAssignment.is_active == True,
-                    )
-                )
-                default_comp = default_comp_res.scalars().first()
-                if default_comp:
-                    user.company_id = default_comp.company_id
+        # Resolve default company/branch from user_company_assignments for ALL roles.
+        # SYSADMIN users have company_id=NULL on the User record by design (they are global),
+        # but are assigned a default working company via user_company_assignments.
+        # NOTE: The UserCompanyAssignment ORM model does not map branch_id (it exists in the
+        # DB table but not in the SQLAlchemy model). We use a raw SQL query to retrieve both
+        # company_id and branch_id in one shot to avoid silent None from unmapped attributes.
+        resolved_company_id = user.company_id
+        resolved_branch_id = user.branch_id
 
-            if not user.branch_id and user.company_id:
+        if not resolved_company_id:
+            try:
+                from sqlalchemy import text as sa_text
+                raw_res = await self.db.execute(
+                    sa_text(
+                        "SELECT company_id, branch_id FROM user_company_assignments "
+                        "WHERE user_id = :uid AND is_default = true "
+                        "AND is_deleted = false AND is_active = true LIMIT 1"
+                    ),
+                    {"uid": user.id},
+                )
+                row = raw_res.fetchone()
+                if row:
+                    resolved_company_id = row[0]
+                    if row[1]:
+                        resolved_branch_id = row[1]
+            except Exception as e:
+                logger.warning(f"Notice: unable to query user_company_assignments: {e}")
+
+        if not resolved_branch_id and resolved_company_id:
+            try:
                 default_br_res = await self.db.execute(
                     select(UserBranchAssignment).where(
                         UserBranchAssignment.user_id == user.id,
-                        UserBranchAssignment.company_id == user.company_id,
+                        UserBranchAssignment.company_id == resolved_company_id,
                         UserBranchAssignment.is_default == True,
                         UserBranchAssignment.is_deleted == False,
                         UserBranchAssignment.is_active == True,
@@ -166,9 +261,13 @@ class AuthService:
                 )
                 default_br = default_br_res.scalars().first()
                 if default_br:
-                    user.branch_id = default_br.branch_id
+                    resolved_branch_id = default_br.branch_id
+            except Exception as e:
+                logger.warning(f"Notice: unable to query user_branch_assignments: {e}")
 
-        if user.role != UserRole.SYSADMIN and (not user.company_id or not user.branch_id):
+        # For non-SYSADMIN users, company+branch must be resolved or login is rejected.
+        # SYSADMIN users may operate without a company (global admin access).
+        if user.role != UserRole.SYSADMIN and (not resolved_company_id or not resolved_branch_id):
             raise HTTPException(
                 status_code=403,
                 detail=(
@@ -177,14 +276,25 @@ class AuthService:
                 ),
             )
 
-        payload = _build_token_payload(user)
+
+        if resolved_company_id and not user.company_id:
+            user.company_id = resolved_company_id
+        if resolved_branch_id and not user.branch_id:
+            user.branch_id = resolved_branch_id
+
+        exp_min, exp_days = await self._resolve_token_expirations(
+            company_id=resolved_company_id,
+            branch_id=resolved_branch_id,
+        )
+
+        payload = _build_token_payload(user, company_id=resolved_company_id, branch_id=resolved_branch_id)
         return {
-            "access_token":  create_access_token(payload),
-            "refresh_token": create_refresh_token(payload),
+            "access_token":  create_access_token(payload, expires_minutes=exp_min),
+            "refresh_token": create_refresh_token(payload, expires_days=exp_days),
             "token_type":    "bearer",
             "role":          user.role,
-            "company_id":    user.company_id,
-            "branch_id":     user.branch_id,
+            "company_id":    resolved_company_id,
+            "branch_id":     resolved_branch_id,
             "password_reset_required": user.status == "PendingPasswordChange",
             "user":          user,
         }
@@ -225,12 +335,17 @@ class AuthService:
                     detail="Access denied: You are not assigned to the specified target branch.",
                 )
 
+        exp_min, exp_days = await self._resolve_token_expirations(
+            company_id=req.target_company_id,
+            branch_id=req.target_branch_id,
+        )
+
         payload = _build_token_payload(user, company_id=req.target_company_id, branch_id=req.target_branch_id)
         user.company_id = req.target_company_id
         user.branch_id = req.target_branch_id
         return {
-            "access_token":  create_access_token(payload),
-            "refresh_token": create_refresh_token(payload),
+            "access_token":  create_access_token(payload, expires_minutes=exp_min),
+            "refresh_token": create_refresh_token(payload, expires_days=exp_days),
             "token_type":    "bearer",
             "role":          user.role,
             "company_id":    req.target_company_id,
@@ -277,9 +392,14 @@ class AuthService:
                 headers={"WWW-Authenticate": "Bearer"},
             )
 
-        new_payload = _build_token_payload(user)
+        exp_min, _ = await self._resolve_token_expirations(
+            company_id=payload.get("company_id") or user.company_id,
+            branch_id=payload.get("branch_id") or user.branch_id,
+        )
+
+        new_payload = _build_token_payload(user, company_id=payload.get("company_id"), branch_id=payload.get("branch_id"))
         return {
-            "access_token": create_access_token(new_payload),
+            "access_token": create_access_token(new_payload, expires_minutes=exp_min),
             "token_type":   "bearer",
         }
 

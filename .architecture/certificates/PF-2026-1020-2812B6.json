@@ -1,0 +1,15 @@
+{
+  "certificate_id": "PF-2026-1020-2812B6",
+  "entity": "customer",
+  "capability": "customer.crud",
+  "asset_type": "component",
+  "proposed_name": "CustomerSummaryCard.tsx",
+  "target_file_path": "src/components/customer/corporateWorkspace/CustomerSummaryCard.tsx",
+  "decision": "CREATE_NEW",
+  "canonical_owner": "src/components/customer/corporateWorkspace/CustomerSummaryCard.tsx",
+  "content_hash": "e96821c8077345d2d197fae3148b74511d80f9365686608717558ad836a2cbe1",
+  "git_commit": "8deafb6f0dd3aaf72cb6ba1f4740e67add547e5a",
+  "issued_at": "2026-10-20T08:00:58.627772+00:00",
+  "expires_at": "2026-10-27T08:00:58.627772+00:00",
+  "status": "ISSUED"
+}

@@ -106,3 +106,38 @@ class SqlQueryResponse(BaseModel):
     error: Optional[str] = None
 
     model_config = ConfigDict(populate_by_name=True)
+
+
+class GrnDateCorrectionItem(BaseModel):
+    receipt_no: str
+    target_date: str
+    receipt_id: Optional[str] = None
+    bill_no: Optional[str] = None
+
+    model_config = ConfigDict(populate_by_name=True)
+
+
+class GrnDateRemediationRequest(BaseModel):
+    database: str = "smriti001"
+    dry_run: bool = True
+    corrections: List[GrnDateCorrectionItem]
+
+    model_config = ConfigDict(populate_by_name=True)
+
+
+class PoDateCorrectionItem(BaseModel):
+    order_no: str
+    target_date: str
+    order_id: Optional[str] = None
+    bill_no: Optional[str] = None
+
+    model_config = ConfigDict(populate_by_name=True)
+
+
+class PoDateRemediationRequest(BaseModel):
+    database: str = "smriti001"
+    dry_run: bool = True
+    corrections: List[PoDateCorrectionItem]
+
+    model_config = ConfigDict(populate_by_name=True)
+

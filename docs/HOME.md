@@ -16,10 +16,13 @@
 
   * Websites: aitdl.com | erpnbook.com | smritibooks.com
 
-  * Version    : 3.6.0
+  * Author     : Jawahar Ramkripal Mallah
+  * Designation: Chief Systems Architect & Creator
+  * Email      : support@smritibooks.com
+  * Version    : 6.99.1
   * Created    : 2026-07-11
-  * Modified   : 2026-07-11
-  * Copyright  : © AITDL.com and SMRITIBooks.com. All Rights Reserved.
+  * Modified   : 2026-10-24
+  * Copyright  : © SMRITIBooks.com. All Rights Reserved. (also © AITDL.com)
   * License    : Proprietary Commercial Software
 -->
 
@@ -38,7 +41,7 @@ Welcome to the **SMRITI Retail OS** integrated knowledge base. This wiki is auto
 | 🔍 **Troubleshooting** | [Troubleshooting & Support Manual](troubleshooting/TROUBLESHOOTING.md) | Common issues, resolutions, CRM sync, hotkey fixes |
 | 🏗️ **Architecture** | [Platform Adapter Rules](architecture/PLATFORM_ADAPTER.md) | Framework isolation, PAL adapter coding rules |
 | 📖 **Walkthroughs** | [Walkthrough Index](walkthrough/README.md) | Versioned development walkthroughs index |
-| 📋 **Consolidated Walkthroughs** | [All Walkthroughs Ledger](walkthrough/CONSOLIDATED.md) | Master chronological walkthrough ledger |
+| 📋 **Consolidated Walkthroughs** | [All Walkthroughs Ledger](walkthrough/CONSOLIDATED_WALKTHROUGHS.md) | Master chronological walkthrough ledger |
 | 🗂️ **Implementation Plans** | [Implementation Plans Index](implementation/README.md) | Versioned implementation plans index |
 | 📋 **Consolidated Plans** | [All Plans Ledger](implementation/CONSOLIDATED_PLANS.md) | Master chronological implementation plans ledger |
 
@@ -48,6 +51,8 @@ Welcome to the **SMRITI Retail OS** integrated knowledge base. This wiki is auto
 
 | Date | Version | Area | What Changed |
 | :--- | :--- | :--- | :--- |
+| 2026-10-24 | v6.99.1 | UI Shell | Shared company context, permission-filtered navigation in both styles, authenticated app connection checks, responsive header controls, and session-only activity labels |
+| 2026-10-16 | v1.0.0 | Sales & Inventory Projection | Implemented conditional Store Code visibility and automatic idempotent PSV account resolution/creation for Modern Trade |
 | 2026-07-11 | v3.6.0 | Foundation | Initialized SMRITI FastAPI Core Python backend under a top-level folder with SQLAlchemy 2.0, Alembic, versioned APIs, and pytest suites |
 | 2026-07-11 | v3.5.0 | Foundation | Added automated SMRITI Development Intelligence Center (SDIC) with DHI scoring, dynamic Recharts trendlines, and 15 auto-generated reports |
 | 2026-07-11 | v3.4.0 | Foundation | Added comprehensive About SMRITI Retail OS module with 20 sections, search engine, diagnostics, and print styling |

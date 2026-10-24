@@ -6,7 +6,7 @@ Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
 Version      : 6.16.0
 Created      : 2026-08-23
-Modified     : 2026-08-23
+Modified     : 2026-09-09
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 Classification: Internal
@@ -260,7 +260,19 @@ async def test_purchase_receipt_automated_gl_posting():
 
         res_supp = await session.execute(select(Supplier).where(Supplier.company_id == "COMP-001", Supplier.is_deleted == False).limit(1))
         supplier = res_supp.scalars().first()
-        assert supplier is not None
+        if not supplier:
+            supplier = Supplier(
+                id=f"supp_test_{unique_suffix}",
+                company_id="COMP-001",
+                branch_id="BR-MAIN-001",
+                name="Apex Fabrics Ltd",
+                code=f"SUP-{unique_suffix.upper()}",
+                gst_number="27AABCA1234F1Z5",
+                is_active=True,
+                is_deleted=False
+            )
+            session.add(supplier)
+            await session.commit()
 
         # Purchase: Subtotal = 2000.00, Tax = 360.00 (CGST 180, SGST 180), Total = 2360.00
         pr = PurchaseReceipt(

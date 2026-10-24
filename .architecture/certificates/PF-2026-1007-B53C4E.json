@@ -1,0 +1,15 @@
+{
+  "certificate_id": "PF-2026-1007-B53C4E",
+  "entity": "databridge",
+  "capability": "databridge.procurement_adapters",
+  "asset_type": "SOURCE_CODE",
+  "proposed_name": "purchase_debit_note_adapter.py",
+  "target_file_path": "backend/app/services/databridge/adapters/purchase_debit_note_adapter.py",
+  "decision": "CANONICAL",
+  "canonical_owner": "backend/app/services/databridge/adapters/purchase_debit_note_adapter.py",
+  "content_hash": "265c6b05415c5fcde7e87b1798fd2bfe09c196ea2e517c2e9e68d569c7d92111",
+  "git_commit": "32119847fbdfe7d0360d615d29b2d8851d525799",
+  "issued_at": "2026-10-07T09:33:47.383706+00:00",
+  "expires_at": "2026-10-14T09:33:47.383706+00:00",
+  "status": "ISSUED"
+}

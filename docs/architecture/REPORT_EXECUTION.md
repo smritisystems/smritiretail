@@ -37,3 +37,18 @@ Report Definition -> Dataset Query -> Company Resolver -> smriti001 -> Live Busi
 ```text
 FINAL STATUS: REPORT_EXECUTION_DATA_INTEGRITY_VERIFIED
 ```
+
+---
+
+## 3. Report Builder Live Integration (v6.99.5 - 2026-10-22)
+
+```text
+ReportBuilder.tsx -> apiFetchV1 -> GET /api/v1/reports/builder/query -> ReportsService.query_report_builder -> smriti001 Live Tables -> UI Grid & Server Totals
+```
+
+- **Canonical Endpoint**: `GET /api/v1/reports/builder/query` (`backend/app/api/v1/reports.py`).
+- **Service Engine**: `ReportsService.query_report_builder()` (`backend/app/services/reports.py`).
+- **Isolation Guarantee**: Multi-tenant resolution via `deps.get_company_db` and `deps.get_current_tenant`.
+- **Domain Coverage**: Dynamic parameterized join across `purchase_order_items`, `purchase_orders`, `suppliers`, `products`, and `purchase_bills`.
+- **Quantitative Metrics**: Verified across 179 live items in tenant `COMP-001` (Total Quantity: 1,716.0, Net Amount: ₹1,643,318.05; 20/20 Vitest tests passed, 0 lint errors).
+- **Zero Dummy Data Policy**: Silent fallback to mock rows completely eliminated; honest loading, empty, and error states enforced.

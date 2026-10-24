@@ -34,13 +34,14 @@ from ...api.deps import (
 )
 from ...models.system import SystemConfig  # system_configs table
 
-router = APIRouter(prefix="/governance")
+router = APIRouter()
 
 # ---------------------------------------------------------------------------
 # Shared helpers
 # ---------------------------------------------------------------------------
 
 ADMIN_ROLES = ["SYSADMIN", "ADMIN"]
+OBSERVABILITY_ROLES = ["SYSADMIN", "ADMIN", "MANAGER"]
 
 def _require_admin(current_user):
     role = getattr(current_user, "role", None) or getattr(current_user, "user_role", "")
@@ -48,6 +49,14 @@ def _require_admin(current_user):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="SMRITI-PERM-001: This operation requires ADMIN or SYSADMIN role."
+        )
+
+def _require_admin_or_manager(current_user):
+    role = getattr(current_user, "role", None) or getattr(current_user, "user_role", "")
+    if role not in OBSERVABILITY_ROLES:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="SMRITI-PERM-001: This operation requires ADMIN, SYSADMIN, or MANAGER role."
         )
 
 
@@ -513,4 +522,52 @@ async def create_promotion(
         "value":      value,
         "start_date": start_date.isoformat(),
         "end_date":   end_date.isoformat(),
+    }
+
+
+# ---------------------------------------------------------------------------
+# GOV-008: Option B Legacy Telemetry Summary (Phase 5 Deprecation Gateway)
+# GET /api/v1/governance/legacy-telemetry/summary
+# ---------------------------------------------------------------------------
+
+@router.get("/legacy-telemetry/summary")
+async def get_legacy_telemetry_summary(
+    company_id: Optional[str] = Query(default=None, description="Filter by company"),
+    tenant: TenantContext = Depends(get_tenant_context),
+    current_user = Depends(get_current_user),
+):
+    """
+    Returns aggregated telemetry metrics of calls to legacy product endpoints
+    and runtime product fallbacks, supporting Option B migration governance.
+    """
+    _require_admin_or_manager(current_user)
+    from ...services.legacy_product_telemetry import LegacyProductTelemetrySink
+    cid = company_id or (tenant.company_id if tenant else None)
+    return LegacyProductTelemetrySink.get_metrics_summary(company_id=cid)
+
+
+@router.get("/legacy-telemetry/events")
+async def get_legacy_telemetry_events(
+    limit: int = Query(default=100, ge=1, le=1000, description="Max events to return"),
+    company_id: Optional[str] = Query(default=None, description="Filter by company"),
+    event_type: Optional[str] = Query(default=None, description="Filter by event type"),
+    from_disk: bool = Query(default=False, description="Read from durable disk log"),
+    tenant: TenantContext = Depends(get_tenant_context),
+    current_user = Depends(get_current_user),
+):
+    """
+    Returns recent legacy endpoint access and runtime fallback telemetry events.
+    """
+    _require_admin_or_manager(current_user)
+    from ...services.legacy_product_telemetry import LegacyProductTelemetrySink
+    cid = company_id or (tenant.company_id if tenant else None)
+    events = LegacyProductTelemetrySink.get_events(
+        limit=limit,
+        company_id=cid,
+        event_type=event_type,
+        from_disk=from_disk,
+    )
+    return {
+        "count": len(events),
+        "events": events,
     }

@@ -17,8 +17,10 @@ from datetime import datetime
 from typing import Dict, Any, Optional, List
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from ...services.localization_svc import LocalizationService
+from ...api.deps import get_db, get_current_user
+from ...services.localization_svc import LocalizationService, GlobalReferenceService
 
 router = APIRouter(prefix="/reference", tags=["Global Reference Data & Localization"])
 
@@ -33,49 +35,45 @@ class FormatPreviewResponse(BaseModel):
 
 
 @router.get("/countries")
-async def get_countries():
+async def get_countries(
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
     """
     Fetch authoritative list of supported countries and ISO codes.
     """
     return [
-        {"code": "IN", "iso3": "IND", "numeric_code": "356", "name": "India", "phone_code": "+91", "default_currency": "INR", "is_active": True},
-        {"code": "US", "iso3": "USA", "numeric_code": "840", "name": "United States", "phone_code": "+1", "default_currency": "USD", "is_active": True},
-        {"code": "AE", "iso3": "ARE", "numeric_code": "784", "name": "United Arab Emirates", "phone_code": "+971", "default_currency": "AED", "is_active": True},
-        {"code": "GB", "iso3": "GBR", "numeric_code": "826", "name": "United Kingdom", "phone_code": "+44", "default_currency": "GBP", "is_active": True},
-        {"code": "SG", "iso3": "SGP", "numeric_code": "702", "name": "Singapore", "phone_code": "+65", "default_currency": "SGD", "is_active": True},
-        {"code": "DE", "iso3": "DEU", "numeric_code": "276", "name": "Germany", "phone_code": "+49", "default_currency": "EUR", "is_active": True},
-        {"code": "AU", "iso3": "AUS", "numeric_code": "036", "name": "Australia", "phone_code": "+61", "default_currency": "AUD", "is_active": True},
-        {"code": "CA", "iso3": "CAN", "numeric_code": "124", "name": "Canada", "phone_code": "+1", "default_currency": "CAD", "is_active": True},
+        {
+            "code": country.code,
+            "iso3": country.iso3,
+            "numeric_code": country.numeric_code,
+            "name": country.name,
+            "phone_code": country.phone_code,
+            "default_currency": country.default_currency,
+            "is_active": country.is_active,
+        }
+        for country in await GlobalReferenceService(db).get_countries()
     ]
 
 
 @router.get("/gst-states")
-async def get_gst_states():
+async def get_gst_states(
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
     """
     Fetch official 2-digit Indian GST State / Union Territory directory.
     Authoritative for CGST+SGST vs IGST determination.
     """
     return [
-        {"gst_code": "01", "state_code": "JK", "name": "Jammu & Kashmir", "type": "UNION_TERRITORY"},
-        {"gst_code": "02", "state_code": "HP", "name": "Himachal Pradesh", "type": "STATE"},
-        {"gst_code": "03", "state_code": "PB", "name": "Punjab", "type": "STATE"},
-        {"gst_code": "04", "state_code": "CH", "name": "Chandigarh", "type": "UNION_TERRITORY"},
-        {"gst_code": "05", "state_code": "UK", "name": "Uttarakhand", "type": "STATE"},
-        {"gst_code": "06", "state_code": "HR", "name": "Haryana", "type": "STATE"},
-        {"gst_code": "07", "state_code": "DL", "name": "Delhi", "type": "UNION_TERRITORY"},
-        {"gst_code": "08", "state_code": "RJ", "name": "Rajasthan", "type": "STATE"},
-        {"gst_code": "09", "state_code": "UP", "name": "Uttar Pradesh", "type": "STATE"},
-        {"gst_code": "10", "state_code": "BR", "name": "Bihar", "type": "STATE"},
-        {"gst_code": "19", "state_code": "WB", "name": "West Bengal", "type": "STATE"},
-        {"gst_code": "24", "state_code": "GJ", "name": "Gujarat", "type": "STATE"},
-        {"gst_code": "27", "state_code": "MH", "name": "Maharashtra", "type": "STATE"},
-        {"gst_code": "29", "state_code": "KA", "name": "Karnataka", "type": "STATE"},
-        {"gst_code": "32", "state_code": "KL", "name": "Kerala", "type": "STATE"},
-        {"gst_code": "33", "state_code": "TN", "name": "Tamil Nadu", "type": "STATE"},
-        {"gst_code": "36", "state_code": "TS", "name": "Telangana", "type": "STATE"},
-        {"gst_code": "37", "state_code": "AP", "name": "Andhra Pradesh", "type": "STATE"},
-        {"gst_code": "38", "state_code": "LA", "name": "Ladakh", "type": "UNION_TERRITORY"},
-        {"gst_code": "97", "state_code": "OT", "name": "Other Territory", "type": "SPECIAL_ZONE"},
+        {
+            "gst_code": state.gst_state_code,
+            "state_code": state.state_code,
+            "name": state.name,
+            "type": state.state_type,
+        }
+        for state in await GlobalReferenceService(db).get_states("IN")
+        if state.gst_state_code
     ]
 
 

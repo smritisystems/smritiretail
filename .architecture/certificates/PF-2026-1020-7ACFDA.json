@@ -1,0 +1,15 @@
+{
+  "certificate_id": "PF-2026-1020-7ACFDA",
+  "entity": "customer",
+  "capability": "customer.crud",
+  "asset_type": "component",
+  "proposed_name": "CustomerTaxInvoicePreview.tsx",
+  "target_file_path": "src/components/customer/corporateWorkspace/CustomerTaxInvoicePreview.tsx",
+  "decision": "CREATE_NEW",
+  "canonical_owner": "src/components/customer/corporateWorkspace/CustomerTaxInvoicePreview.tsx",
+  "content_hash": "15ee650ad31f3b7f47a0c75cf9f46e01129e382262ad1ae6cd8245b44ce36269",
+  "git_commit": "8deafb6f0dd3aaf72cb6ba1f4740e67add547e5a",
+  "issued_at": "2026-10-20T08:03:53.732933+00:00",
+  "expires_at": "2026-10-27T08:03:53.732933+00:00",
+  "status": "ISSUED"
+}

@@ -36,13 +36,13 @@ import {
   RefreshCw
 } from "lucide-react";
 
-interface SmritiProPosEodReportwProps {
+interface SmritiProPosEodReportProps {
   initialEod?: EodRegisterCloseout;
   onCommitCloseout: (eod: EodRegisterCloseout) => void;
   onNotification?: (title: string, msg: string, type: "success" | "error") => void;
 }
 
-export const SmritiProPosEodReportw: React.FC<SmritiProPosEodReportwProps> = ({
+export const SmritiProPosEodReport: React.FC<SmritiProPosEodReportProps> = ({
   initialEod,
   onCommitCloseout,
   onNotification
@@ -72,11 +72,13 @@ export const SmritiProPosEodReportw: React.FC<SmritiProPosEodReportwProps> = ({
   const [remarks, setRemarks] = useState<string>("");
   const [isLocked, setIsLocked] = useState<boolean>(false);
   const [closingGLVoucher, setClosingGLVoucher] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   // Load shifts list and active shift
   const loadShiftsAndActive = async () => {
     try {
       setLoading(true);
+      setLoadError(null);
       const shifts = await apiFetchV1<any[]>("/pos/shifts/");
       setShiftsList(shifts || []);
       
@@ -84,9 +86,16 @@ export const SmritiProPosEodReportw: React.FC<SmritiProPosEodReportwProps> = ({
       if (currentShift) {
         setSelectedShiftId(currentShift.id);
         await loadZReportForShift(currentShift.id);
+      } else {
+        setSelectedShiftId("");
+        setZReport(null);
+        setLoadError("No live open shift is available for Day Close.");
       }
     } catch (err) {
-      console.warn("Could not fetch remote shifts list, using default view:", err);
+      console.error("Could not fetch live shifts list:", err);
+      setSelectedShiftId("");
+      setZReport(null);
+      setLoadError("Live shift data could not be loaded. Day Close is unavailable.");
     } finally {
       setLoading(false);
     }
@@ -95,6 +104,7 @@ export const SmritiProPosEodReportw: React.FC<SmritiProPosEodReportwProps> = ({
   const loadZReportForShift = async (shiftId: string) => {
     try {
       setLoading(true);
+      setLoadError(null);
       const data = await apiFetchV1<POSZReportData>(`/pos/shifts/${shiftId}/z-report`);
       setZReport(data);
       if (data.denominations) {
@@ -111,6 +121,8 @@ export const SmritiProPosEodReportw: React.FC<SmritiProPosEodReportwProps> = ({
       setActualUpiInput(data.upi_sales ? data.upi_sales.toFixed(2) : "0.00");
     } catch (err: any) {
       console.error("Failed to load shift Z-Report:", err);
+      setZReport(null);
+      setLoadError("Live Z-Report could not be loaded. Day Close is unavailable.");
     } finally {
       setLoading(false);
     }
@@ -120,12 +132,12 @@ export const SmritiProPosEodReportw: React.FC<SmritiProPosEodReportwProps> = ({
     loadShiftsAndActive();
   }, []);
 
-  const systemCash = zReport ? zReport.net_expected_cash : 48250.00;
-  const systemCard = zReport ? zReport.card_sales : 34200.00;
-  const systemUpi = zReport ? zReport.upi_sales : 21540.00;
-  const grossSales = zReport ? zReport.total_sales : 104590.00;
-  const discountsTotal = zReport ? zReport.discount_total : 5400.00;
-  const returnsTotal = 2499.00;
+  const systemCash = zReport?.net_expected_cash ?? 0;
+  const systemCard = zReport?.card_sales ?? 0;
+  const systemUpi = zReport?.upi_sales ?? 0;
+  const grossSales = zReport?.total_sales ?? 0;
+  const discountsTotal = zReport?.discount_total ?? 0;
+  const returnsTotal = 0;
   const netSales = grossSales - discountsTotal;
 
   const actualCashCounted = calculateDenominationTotal(denominations);
@@ -184,8 +196,7 @@ export const SmritiProPosEodReportw: React.FC<SmritiProPosEodReportwProps> = ({
         setLoading(false);
       }
     } else {
-      setIsLocked(true);
-      onNotification?.("Z-Report Finalized", "Day-end register closeout and audit logs generated successfully.", "success");
+      onNotification?.("Closeout unavailable", "No live shift is selected. Day Close was not posted.", "error");
     }
   };
 
@@ -246,6 +257,16 @@ export const SmritiProPosEodReportw: React.FC<SmritiProPosEodReportwProps> = ({
           </div>
         </div>
 
+        {loadError && (
+          <div className="p-4 rounded-2xl bg-[#fff7ed] dark:bg-[#431407] border border-[#fed7aa] text-[#9a3412] dark:text-[#fdba74] flex items-center gap-3">
+            <AlertTriangle size={20} />
+            <div>
+              <div className="text-xs font-bold">Day Close unavailable</div>
+              <div className="text-[11px] mt-0.5">{loadError} No sample totals or local closeout will be used.</div>
+            </div>
+          </div>
+        )}
+
         {/* GL Balancing Confirmation Banner */}
         {closingGLVoucher && (
           <div className="p-4 rounded-2xl bg-[#dcfce7] dark:bg-[#14532d]/40 border border-[#86efac] text-[#166534] dark:text-[#86efac] flex items-center justify-between shadow-xs">
@@ -267,7 +288,7 @@ export const SmritiProPosEodReportw: React.FC<SmritiProPosEodReportwProps> = ({
           <div className="bg-white dark:bg-[#2d3133] p-4 rounded-xl border border-[#c4c5d5] dark:border-[#444653] shadow-xs">
             <span className="text-[10px] font-bold uppercase tracking-wider text-[#565e74] dark:text-[#bec6e0]">Gross Turnover</span>
             <div className="text-xl font-bold font-mono text-[#00288e] dark:text-[#a8b8ff] mt-1">₹{grossSales.toFixed(2)}</div>
-            <span className="text-[10px] text-[#565e74]">{zReport?.total_bills || 48} Invoices</span>
+            <span className="text-[10px] text-[#565e74]">{zReport?.total_bills ?? 0} Invoices</span>
           </div>
 
           <div className="bg-white dark:bg-[#2d3133] p-4 rounded-xl border border-[#c4c5d5] dark:border-[#444653] shadow-xs">
@@ -471,4 +492,4 @@ export const SmritiProPosEodReportw: React.FC<SmritiProPosEodReportwProps> = ({
   );
 };
 
-export default SmritiProPosEodReportw;
+export default SmritiProPosEodReport;

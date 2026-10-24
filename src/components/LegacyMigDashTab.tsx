@@ -43,7 +43,9 @@ import {
   Table2,
   Filter,
   X,
+  Radio,
 } from "lucide-react";
+import { LegacyDeprecationTelemetryTab } from "./governance/LegacyDeprecationTelemetryTab.tsx";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -258,6 +260,7 @@ export const LegacyMigDashTab: React.FC = () => {
   const [search, setSearch]   = useState("");
   const [page, setPage]       = useState(1);
   const [view, setView]       = useState<"overview" | "list">("overview");
+  const [consoleMode, setConsoleMode] = useState<"menu-lineage" | "api-telemetry">("menu-lineage");
 
   const fetchStats = useCallback(async () => {
     setLoading(true); setError(null);
@@ -328,7 +331,46 @@ export const LegacyMigDashTab: React.FC = () => {
   return (
     <div style={{ padding: "20px 24px", maxWidth: 1200, fontFamily: "Inter, sans-serif" }}>
 
-      {/* ── Header ── */}
+      {/* ── Mode Switcher ── */}
+      <div style={{ display: "flex", gap: 8, marginBottom: 20, borderBottom: "1px solid rgba(255,255,255,0.08)", paddingBottom: 12 }}>
+        <button
+          type="button"
+          onClick={() => setConsoleMode("menu-lineage")}
+          style={{
+            display: "flex", alignItems: "center", gap: 7, padding: "7px 16px", borderRadius: 8,
+            fontSize: 12, fontWeight: 600, cursor: "pointer", border: "none",
+            background: consoleMode === "menu-lineage" ? "rgba(99,102,241,0.25)" : "transparent",
+            color: consoleMode === "menu-lineage" ? "#a5b4fc" : "rgba(255,255,255,0.45)",
+            borderBottom: consoleMode === "menu-lineage" ? "2px solid #818cf8" : "2px solid transparent",
+            transition: "all 0.15s",
+          }}
+        >
+          <GitBranch size={14} />
+          <span>Shoper9 Menu Lineage</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setConsoleMode("api-telemetry")}
+          style={{
+            display: "flex", alignItems: "center", gap: 7, padding: "7px 16px", borderRadius: 8,
+            fontSize: 12, fontWeight: 600, cursor: "pointer", border: "none",
+            background: consoleMode === "api-telemetry" ? "rgba(245,158,11,0.2)" : "transparent",
+            color: consoleMode === "api-telemetry" ? "#fcd34d" : "rgba(255,255,255,0.45)",
+            borderBottom: consoleMode === "api-telemetry" ? "2px solid #fbbf24" : "2px solid transparent",
+            transition: "all 0.15s",
+          }}
+        >
+          <Radio size={14} />
+          <span>RFC 8594 API Telemetry</span>
+          <span style={{ fontSize: 9, padding: "1px 6px", borderRadius: 10, background: "rgba(245,158,11,0.25)", color: "#fbbf24", fontWeight: 700 }}>LIVE</span>
+        </button>
+      </div>
+
+      {consoleMode === "api-telemetry" ? (
+        <LegacyDeprecationTelemetryTab embedded />
+      ) : (
+        <>
+          {/* ── Header ── */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           <div style={{
@@ -603,6 +645,8 @@ export const LegacyMigDashTab: React.FC = () => {
             </div>
           )}
         </div>
+      )}
+      </>
       )}
 
       <style>{`@keyframes spin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }`}</style>

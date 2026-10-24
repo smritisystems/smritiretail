@@ -1,0 +1,15 @@
+{
+  "certificate_id": "PF-2026-1017-E4F73C",
+  "entity": "purchase_order",
+  "capability": "purchase_order.procurement_visual_reports_dashboard",
+  "asset_type": "component",
+  "proposed_name": "ProcurementVisualReportsTab.tsx",
+  "target_file_path": "src/components/procurement/ProcurementVisualReportsTab.tsx",
+  "decision": "CREATE_APPROVED",
+  "canonical_owner": "src/components/procurement/ProcurementVisualReportsTab.tsx",
+  "content_hash": "38ed7f87053e46affe5c287ce9a6a81c9eb0e156e9796dac82b990061ce98d74",
+  "git_commit": "49079072e1c43bcb8d572ac36f34349b8d8ec634",
+  "issued_at": "2026-10-17T10:16:58.225698+00:00",
+  "expires_at": "2026-10-24T10:16:58.225698+00:00",
+  "status": "ISSUED"
+}

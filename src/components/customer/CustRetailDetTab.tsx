@@ -4,9 +4,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 5.5.0
+ * Version      : 6.99.0
  * Created      : 2026-08-21
- * Modified     : 2026-08-21
+ * Modified     : 2026-10-19
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
@@ -25,6 +25,8 @@ export const SmritiCustomerRetailDetailsTab: React.FC<SmritiCustomerRetailDetail
   customer,
   onChange
 }) => {
+  const isCorporate = customer.customerType === "Corporate" || customer.customerType === "Wholesale" || customer.customerType === "Distribution" || customer.environment === "Corporate" || customer.customerGroupId === "CG-Corporate" || (customer.code ? customer.code.startsWith("RRL") : false);
+
   const [newDepCode, setNewDepCode] = useState("");
   const [newDepName, setNewDepName] = useState("");
   const [newDepRelation, setNewDepRelation] = useState("Spouse");
@@ -48,7 +50,19 @@ export const SmritiCustomerRetailDetailsTab: React.FC<SmritiCustomerRetailDetail
 
   return (
     <div className="space-y-5 text-xs">
-      
+      {isCorporate ? (
+        <div className="bg-white dark:bg-[#191c1e] border border-[#c6c6cd] dark:border-[#45464d] p-5 rounded-2xl shadow-xs space-y-3">
+          <h3 className="text-xs font-bold text-[#00355f] dark:text-[#8ebdf9] uppercase tracking-wider flex items-center gap-2 border-b border-[#eceef0] dark:border-[#2d3133] pb-2.5">
+            <Heart size={15} /> Corporate Customer Governance
+          </h3>
+          <div className="p-4 bg-blue-50/70 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 rounded-xl text-slate-600 dark:text-slate-300 space-y-1.5 leading-relaxed">
+            <span className="font-bold text-[#00355f] dark:text-[#8ebdf9] text-xs block">B2B Account Standards</span>
+            <p>Personal consumer demographics (gender, DOB, marital anniversary), family dependants, and retail shopper loyalty controls are suppressed for Corporate / B2B customer accounts.</p>
+            <p className="text-[11px] text-slate-500">Corporate branch stores and delivery network mapping are managed through the <strong>Corporate Network</strong> tab. Statutory and commercial terms apply directly.</p>
+          </div>
+        </div>
+      ) : (
+        <>
       {/* 1. Personal Demographics Details */}
       <div className="bg-white dark:bg-[#191c1e] border border-[#c6c6cd] dark:border-[#45464d] p-5 rounded-2xl shadow-xs space-y-4">
         <h3 className="text-xs font-bold text-[#00355f] dark:text-[#8ebdf9] uppercase tracking-wider flex items-center gap-2 border-b border-[#eceef0] dark:border-[#2d3133] pb-2.5">
@@ -212,6 +226,40 @@ export const SmritiCustomerRetailDetailsTab: React.FC<SmritiCustomerRetailDetail
           </div>
         </div>
 
+        {/* Parent Customer Setting: Show Child Customers in Billing */}
+        <div className="flex items-center justify-between p-3.5 bg-gradient-to-r from-blue-50/50 to-indigo-50/50 dark:from-[#131b2e] dark:to-[#19223c] rounded-xl border border-blue-200 dark:border-blue-900/50">
+          <div className="space-y-0.5">
+            <div className="flex items-center gap-2">
+              <span className="font-bold text-xs text-[#00355f] dark:text-[#8ebdf9]">
+                Show Child Customers in Billing
+              </span>
+              <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase ${
+                customer.showChildCustomersInBilling
+                  ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800"
+                  : "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400 border border-slate-300 dark:border-slate-700"
+              }`}>
+                {customer.showChildCustomersInBilling ? "Enabled" : "Disabled"}
+              </span>
+            </div>
+            <p className="text-[11px] text-[#515f74] dark:text-[#bec6e0] leading-tight">
+              When enabled, eligible child customers under this parent can be searched and selected while creating bills or sales invoices.
+            </p>
+          </div>
+          <label className="relative inline-flex items-center cursor-pointer ml-4">
+            <input
+              type="checkbox"
+              id="toggle-show-child-billing"
+              checked={Boolean(customer.showChildCustomersInBilling)}
+              onChange={e => {
+                onChange("showChildCustomersInBilling", e.target.checked);
+                onChange("show_child_customers_in_billing", e.target.checked);
+              }}
+              className="sr-only peer"
+            />
+            <div className="w-11 h-6 bg-slate-300 peer-focus:outline-hidden rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-slate-600 peer-checked:bg-blue-600"></div>
+          </label>
+        </div>
+
         {/* Dependants List Table */}
         <div className="space-y-2">
           <div className="flex justify-between items-center">
@@ -362,6 +410,8 @@ export const SmritiCustomerRetailDetailsTab: React.FC<SmritiCustomerRetailDetail
           </div>
         </div>
       </div>
+      </>
+      )}
 
     </div>
   );

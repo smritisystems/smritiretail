@@ -15,6 +15,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { X, Check, AlertCircle, Loader2 } from "lucide-react";
 import { MasterConfig, MasterFormFieldDef, SelectOption } from "./types.ts";
 import { apiFetchV1 } from "../../../lib/apiFetchV1.ts";
+import { getCanonicalField } from "../../../services/canonicalFieldRegistry.ts";
 
 interface MasterFormDrawerProps<T = any> {
   isOpen: boolean;
@@ -101,12 +102,24 @@ export const MasterFormDrawer: React.FC<MasterFormDrawerProps> = ({
     setErrors([]);
     const newFieldErrors: Record<string, string> = {};
 
-    // 1. Mandatory Field & Custom Field Validations
+    // 1. Mandatory Field & Canonical Metadata Validations
     config.fields.forEach((f) => {
       if (f.showWhen && !f.showWhen(formData)) return;
       const val = formData[f.name];
-      if (f.required && (val === undefined || val === null || val === "" || (Array.isArray(val) && val.length === 0))) {
-        newFieldErrors[f.name] = `${f.label} is required.`;
+      const canon = f.fieldId ? getCanonicalField(f.fieldId) : undefined;
+      const label = f.label || canon?.label || f.name;
+      const isReq = f.required !== undefined ? f.required : Boolean(canon?.required);
+      const maxLen = f.maxLength ?? canon?.maxLength;
+
+      if (isReq && (val === undefined || val === null || val === "" || (Array.isArray(val) && val.length === 0))) {
+        newFieldErrors[f.name] = `${label} is required.`;
+      } else if (maxLen && typeof val === "string" && val.length > maxLen) {
+        newFieldErrors[f.name] = `${label} exceeds maximum length of ${maxLen} characters.`;
+      } else if (canon?.validationRule === "MOBILE_INDIA" && typeof val === "string" && val.trim()) {
+        const clean = val.replace(/\D/g, "");
+        if (clean.length !== 10) {
+          newFieldErrors[f.name] = `${label} must be a valid 10-digit mobile number.`;
+        }
       } else if (f.validate) {
         const err = f.validate(val, formData);
         if (err) newFieldErrors[f.name] = err;
@@ -212,7 +225,14 @@ export const MasterFormDrawer: React.FC<MasterFormDrawerProps> = ({
                 if (field.showWhen && !field.showWhen(formData)) return null;
                 const fieldId = `field-${field.name}`;
                 const val = formData[field.name] ?? "";
-                const isFieldDisabled = typeof field.disabled === "function" ? field.disabled(formData, isEdit) : Boolean(field.disabled);
+                const isCodeField = field.name === "code" && isEdit;
+                const isFieldDisabled = isCodeField || (typeof field.disabled === "function" ? field.disabled(formData, isEdit) : Boolean(field.disabled));
+                
+                const canon = field.fieldId ? getCanonicalField(field.fieldId) : undefined;
+                const displayLabel = field.label || canon?.label || field.name;
+                const isRequired = field.required !== undefined ? field.required : Boolean(canon?.required);
+                const displayPlaceholder = field.placeholder || canon?.placeholder || `Enter ${displayLabel.toLowerCase()}`;
+                const displayMaxLength = field.maxLength ?? canon?.maxLength;
 
                 return (
                   <div
@@ -220,7 +240,8 @@ export const MasterFormDrawer: React.FC<MasterFormDrawerProps> = ({
                     className={`space-y-1.5 ${field.colSpan === 2 ? "col-span-full" : "col-span-1"}`}
                   >
                     <label htmlFor={fieldId} className="block text-[11px] font-bold uppercase tracking-wider text-theme-muted font-mono">
-                      {field.label} {field.required && <span className="text-rose-400">*</span>}
+                      {displayLabel} {isRequired && <span className="text-rose-400">*</span>}
+                      {isCodeField && <span className="ml-1 normal-case tracking-normal text-theme-muted">(immutable)</span>}
                     </label>
 
                     {/* TEXT / EMAIL / PASSWORD / NUMBER */}
@@ -230,8 +251,8 @@ export const MasterFormDrawer: React.FC<MasterFormDrawerProps> = ({
                         type={field.type}
                         value={val}
                         disabled={isFieldDisabled}
-                        placeholder={field.placeholder || `Enter ${field.label.toLowerCase()}`}
-                        maxLength={field.maxLength}
+                        placeholder={displayPlaceholder}
+                        maxLength={displayMaxLength}
                         min={field.min}
                         max={field.max}
                         step={field.step}
@@ -260,7 +281,7 @@ export const MasterFormDrawer: React.FC<MasterFormDrawerProps> = ({
                             : "border-theme-divider focus:border-blue-500 focus:ring-blue-500"
                         } ${isFieldDisabled ? "opacity-50 cursor-not-allowed bg-theme-surface-3" : ""}`}
                       >
-                        <option value="">-- Select {field.label} --</option>
+                        <option value="">-- Select {displayLabel} --</option>
                         {/* Static Options */}
                         {field.options && Array.isArray(field.options) && field.options.map((opt, oIdx) => {
                           const label = typeof opt === "string" ? opt : opt.label;
@@ -287,7 +308,7 @@ export const MasterFormDrawer: React.FC<MasterFormDrawerProps> = ({
                         rows={3}
                         value={val}
                         disabled={isFieldDisabled}
-                        placeholder={field.placeholder || `Enter ${field.label.toLowerCase()}`}
+                        placeholder={displayPlaceholder}
                         onChange={(e) => handleFieldChange(field.name, e.target.value)}
                         className={`w-full px-3 py-2 bg-theme-surface-2 border rounded-lg text-xs text-theme-primary placeholder:text-theme-muted/50 focus:outline-none focus:ring-1 transition-all ${
                           fieldErrors[field.name]
@@ -308,7 +329,7 @@ export const MasterFormDrawer: React.FC<MasterFormDrawerProps> = ({
                           className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 border-theme-divider bg-theme-surface-2"
                         />
                         <span className="text-xs text-theme-primary font-medium">
-                          {field.description || `Enable ${field.label}`}
+                          {field.description || canon?.helpText || `Enable ${displayLabel}`}
                         </span>
                       </label>
                     )}

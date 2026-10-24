@@ -59,21 +59,30 @@ export const SalesOrderTab: React.FC<SalesOrderTab> = ({ onClose }) => {
       const response = await apiFetchV1("/sales/orders", {
         method: "POST",
         body: JSON.stringify({
+          order_no: formData.docNumber || `${formData.docPrefix}-${formData.docDate.replace(/-/g, "")}`,
+          date: formData.docDate,
           customer_id: formData.customerId,
-          customer_code: formData.customerCode,
           customer_name: formData.customerName,
-          sales_staff: formData.salesStaff,
-          doc_prefix: formData.docPrefix,
-          doc_date: formData.docDate,
-          doc_time: formData.docTime,
+          po_number: formData.referenceNo || null,
+          po_metadata: {
+            source: "SALES_ORDER_FORM",
+            reference_no: formData.referenceNo || null,
+            delivery_terms: formData.deliveryTerms || null,
+            payment_terms: formData.paymentTerms || null,
+          },
+          status: formData.orderStatus || "Draft",
+          tax_total: formData.totalTax,
+          grand_total: formData.netAmount,
           items: formData.items.map((item) => ({
-            stock_no: item.stockNo,
-            description: item.description,
-            rate: item.rate,
+            product_id: item.id || item.stockNo,
+            code: item.stockNo,
+            ean: item.barcode || item.stockNo,
+            name: item.description,
+            price: item.rate,
             quantity: item.quantity,
-            disc_percent: item.discPercent || 0,
-            disc_amount: item.discAmount || 0,
-            sales_staff: item.salesStaff,
+            gst_rate: item.gstRate ?? item.taxPercent ?? 18,
+            tax_amount: item.taxAmount || 0,
+            total_amount: item.total,
           })),
         }),
       });
@@ -87,7 +96,7 @@ export const SalesOrderTab: React.FC<SalesOrderTab> = ({ onClose }) => {
   };
 
   return (
-    <div className="w-full h-full bg-slate-50 overflow-auto">
+    <div className="w-full h-full bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 overflow-auto">
       {/* List View */}
       {viewMode === "list" && (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="p-6">
@@ -111,7 +120,7 @@ export const SalesOrderTab: React.FC<SalesOrderTab> = ({ onClose }) => {
               <p className="mt-4 text-slate-600">Loading sales orders...</p>
             </div>
           ) : salesOrders.length === 0 ? (
-            <div className="text-center py-12 bg-white rounded-lg border border-slate-200">
+            <div className="text-center py-12 bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800">
               <FileText className="w-12 h-12 text-slate-400 mx-auto mb-4" />
               <h3 className="text-lg font-semibold text-slate-700 mb-2">No Sales Orders</h3>
               <p className="text-slate-600 mb-4">Create your first sales order to get started.</p>
@@ -130,7 +139,7 @@ export const SalesOrderTab: React.FC<SalesOrderTab> = ({ onClose }) => {
                   key={order.id}
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className="bg-white border border-slate-200 rounded-lg p-4 hover:shadow-md transition cursor-pointer"
+                  className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-4 hover:shadow-md transition cursor-pointer"
                   onClick={() => {
                     setSelectedOrder(order);
                     setViewMode("view");
@@ -138,7 +147,7 @@ export const SalesOrderTab: React.FC<SalesOrderTab> = ({ onClose }) => {
                 >
                   <div className="flex items-center justify-between">
                     <div>
-                      <h3 className="font-semibold text-slate-900">{order.order_number}</h3>
+                      <h3 className="font-semibold text-slate-900">{order.order_no || order.order_number}</h3>
                       <p className="text-sm text-slate-600">
                         Customer: {order.customer_name || order.customer_code}
                       </p>
@@ -147,7 +156,7 @@ export const SalesOrderTab: React.FC<SalesOrderTab> = ({ onClose }) => {
                       </p>
                     </div>
                     <div className="text-right">
-                      <p className="font-bold text-lg text-slate-900">₹{order.net_amount?.toLocaleString("en-IN")}</p>
+                      <p className="font-bold text-lg text-slate-900">₹{(order.grand_total ?? order.net_amount ?? 0).toLocaleString("en-IN")}</p>
                       <p className={`text-xs font-semibold ${
                         order.status === "OPEN" ? "text-blue-600" : 
                         order.status === "COMPLETED" ? "text-green-600" :
@@ -172,8 +181,38 @@ export const SalesOrderTab: React.FC<SalesOrderTab> = ({ onClose }) => {
         />
       )}
 
-      {/* View/Edit View */}
+      {/* View / Audit View */}
       {viewMode === "view" && selectedOrder && (
+        <SalesOrderFormPremium
+          initialData={{
+            docNumber: selectedOrder.order_no || selectedOrder.order_number,
+            customerName: selectedOrder.customer_name,
+            customerCode: selectedOrder.customer_code,
+            docDate: selectedOrder.date,
+            orderStatus: selectedOrder.status,
+            deliveryTerms: selectedOrder.delivery_terms || "Door Delivery",
+            paymentTerms: selectedOrder.payment_terms || "Net 30",
+            remarks: selectedOrder.remarks || "",
+            items: selectedOrder.items?.map((item: any) => ({
+              id: item.id || `${selectedOrder.order_no || selectedOrder.order_number}-${item.product_id}`,
+              stockNo: item.stock_no || item.code || item.product_id,
+              description: item.description || item.name || "Item",
+              rate: Number(item.rate ?? item.price ?? 0),
+              quantity: Number(item.quantity ?? 1),
+              value: Number(item.value ?? item.total_amount ?? 0),
+              discPercent: Number(item.disc_percent ?? 0),
+              discAmount: Number(item.disc_amount ?? 0),
+              taxPercent: Number(item.tax_percent ?? 18),
+              taxAmount: Number(item.tax_amount ?? 0),
+              total: Number(item.total ?? item.total_amount ?? 0),
+            })) || [],
+          }}
+          onCancel={() => setViewMode("list")}
+          readOnly={true}
+        />
+      )}
+
+      {false && viewMode === "view" && selectedOrder && (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="p-6">
           <div className="max-w-7xl mx-auto">
             <div className="flex items-center justify-between mb-6">
@@ -190,7 +229,7 @@ export const SalesOrderTab: React.FC<SalesOrderTab> = ({ onClose }) => {
             </div>
 
             {/* Order Details */}
-            <div className="bg-white rounded-lg border border-slate-200 p-6 mb-6">
+            <div className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 p-6 mb-6">
               <div className="grid grid-cols-2 gap-4 mb-6">
                 <div>
                   <p className="text-xs font-semibold text-slate-600 uppercase">Customer</p>
@@ -207,7 +246,7 @@ export const SalesOrderTab: React.FC<SalesOrderTab> = ({ onClose }) => {
               {/* Items Table */}
               <div className="overflow-x-auto">
                 <table className="w-full text-sm mb-6">
-                  <thead className="bg-slate-100 border-b border-slate-200">
+                  <thead className="bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-b border-slate-200 dark:border-slate-700">
                     <tr className="text-xs font-semibold text-slate-700 uppercase">
                       <th className="px-4 py-3 text-left">Stock No.</th>
                       <th className="px-4 py-3 text-left">Description</th>

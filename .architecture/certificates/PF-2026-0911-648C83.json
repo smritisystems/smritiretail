@@ -1,0 +1,15 @@
+{
+  "certificate_id": "PF-2026-0911-648C83",
+  "entity": "report",
+  "capability": "report.prepared_service",
+  "asset_type": "service",
+  "proposed_name": "prepared_report_service.py",
+  "target_file_path": "backend/app/services/prepared_report_service.py",
+  "decision": "CREATE_APPROVED",
+  "canonical_owner": "prepared_report_service.py",
+  "content_hash": "723f8060cc658485f7aac23ff135453debe82bf79720c263602615077a3a44e7",
+  "git_commit": "0e982853f08bbf936913eb6c7ed3d0a5961a0498",
+  "issued_at": "2026-09-11T18:25:13.501559+00:00",
+  "expires_at": "2026-09-18T18:25:13.501559+00:00",
+  "status": "ISSUED"
+}

@@ -1,0 +1,15 @@
+{
+  "certificate_id": "PF-2026-0919-6982A2",
+  "entity": "purchase",
+  "capability": "purchase.landed_cost_engine",
+  "asset_type": "type_definition",
+  "proposed_name": "inwardCost.ts",
+  "target_file_path": "src/components/purchase/types/inwardCost.ts",
+  "decision": "CREATE_NEW",
+  "canonical_owner": "src/components/purchase/types/inwardCost.ts",
+  "content_hash": "f0c75ac33626af9ad322f86883a8f018d3e5b9c0002641db6c5dc3e6d1aa25f4",
+  "git_commit": "529b6ce54bdd9d51b942fd1618c45ff53ff56890",
+  "issued_at": "2026-09-19T18:28:15.199968+00:00",
+  "expires_at": "2026-09-26T18:28:15.199968+00:00",
+  "status": "ISSUED"
+}

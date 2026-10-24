@@ -337,8 +337,15 @@
           transform: translate(-50%, -50%);
           width: 75%;
           max-width: 75%;
-          opacity: 0.13;
-          z-index: 0;
+          opacity: 0.11;
+          z-index: 50;
           pointer-events: none;
           user-select: none;
+          mix-blend-mode: multiply;
         }
+        .upi-qr-card {
+          position: relative;
+          z-index: 60;
+          background: #ffffff;
+        }
+

@@ -1,0 +1,15 @@
+{
+  "certificate_id": "PF-2026-1016-F36DD6",
+  "entity": "reports",
+  "capability": "reports.report_builder",
+  "asset_type": "component",
+  "proposed_name": "src/components/reports/ReportBuilder.tsx",
+  "target_file_path": "src/components/reports/ReportBuilder.tsx",
+  "decision": "CREATE_APPROVED",
+  "canonical_owner": "src/components/reports/ReportBuilder.tsx",
+  "content_hash": "d7ebdba5926de1997fdd261e1e5fd0804c5ecac752227bcc806c89d7fb4d56de",
+  "git_commit": "d31f67424fa8d2d51e3dfa79fff72d71e08210e1",
+  "issued_at": "2026-10-16T09:05:05.561062+00:00",
+  "expires_at": "2026-10-23T09:05:05.561062+00:00",
+  "status": "ISSUED"
+}

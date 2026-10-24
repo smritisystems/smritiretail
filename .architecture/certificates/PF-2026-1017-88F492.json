@@ -1,0 +1,15 @@
+{
+  "certificate_id": "PF-2026-1017-88F492",
+  "entity": "company",
+  "capability": "company.profile_studio",
+  "asset_type": "api",
+  "proposed_name": "company_profile.py",
+  "target_file_path": "backend/app/api/v1/company_profile.py",
+  "decision": "CREATE_NEW",
+  "canonical_owner": "backend/app/api/v1/company_profile.py",
+  "content_hash": "654784962b24174d58ddc5fbae2531ab107b5874a67bd2840a831f6cb6005fac",
+  "git_commit": "bbfdfaa65d73c70d6d9b2340a854c4bb23f8ed42",
+  "issued_at": "2026-10-17T20:33:04.039328+00:00",
+  "expires_at": "2026-10-24T20:33:04.039328+00:00",
+  "status": "ISSUED"
+}

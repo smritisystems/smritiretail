@@ -46,7 +46,7 @@ async def get_dev_tracker_status(
     if not cached_results:
         try:
             results = scan_codebase()
-            write_reports(results)
+            write_reports(results, results.get("repositoryRoot"))
             cached_results = results
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Codebase initial scan failed: {e}")
@@ -63,7 +63,7 @@ async def trigger_dev_tracker_scan(
     global cached_results
     try:
         results = scan_codebase()
-        write_reports(results)
+        write_reports(results, results.get("repositoryRoot"))
         cached_results = results
         return cached_results
     except Exception as e:

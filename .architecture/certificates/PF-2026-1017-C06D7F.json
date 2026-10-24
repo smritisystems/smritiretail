@@ -1,0 +1,15 @@
+{
+  "certificate_id": "PF-2026-1017-C06D7F",
+  "entity": "reports",
+  "capability": "reports.visual_reports_dashboard",
+  "asset_type": "component",
+  "proposed_name": "VisualReportsDashboardTab.tsx",
+  "target_file_path": "src/components/reports/VisualReportsDashboardTab.tsx",
+  "decision": "CREATE_APPROVED",
+  "canonical_owner": "src/components/reports/VisualReportsDashboardTab.tsx",
+  "content_hash": "fb5271622b4c9c8a7d6d8d84b62b24c740a90fa1c18af0d2bc980beb109a0890",
+  "git_commit": "a963ab51d620438e4aea59887cd01a97095a611a",
+  "issued_at": "2026-10-17T09:34:24.106356+00:00",
+  "expires_at": "2026-10-24T09:34:24.106356+00:00",
+  "status": "ISSUED"
+}

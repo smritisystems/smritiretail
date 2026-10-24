@@ -50,14 +50,48 @@ class SalesOrderPdfService:
         order: Any,
         items: List[Any],
         allocations: Optional[List[Any]] = None,
-        company_name: str = "TATTLY THREADS",
-        company_gstin: str = "27AAXFT2508H1ZR",
+        company_name: Optional[str] = None,
+        company_gstin: Optional[str] = None,
         extra_meta: Optional[Dict[str, Any]] = None,
+        seller_ctx: Optional[Any] = None,
     ) -> str:
         """
         Renders pixel-faithful Sales Order Confirmation HTML directly from an authoritative model.
+        Enforces corporate identity: requires company legal name and address. Bank details optional.
         """
         meta = extra_meta or {}
+
+        # Resolve authoritative corporate legal identity
+        company_name = (
+            company_name
+            or getattr(seller_ctx, "company_name", None)
+            or getattr(order, "seller_name", None)
+            or meta.get("company_name")
+            or meta.get("seller_name")
+        )
+        if not company_name:
+            from .seller_resolver import missing
+            raise missing("MISSING_COMPANY", "company legal name")
+
+        company_gstin = (
+            company_gstin
+            or getattr(seller_ctx, "company_gstin", None)
+            or getattr(order, "seller_gstin", None)
+            or meta.get("company_gstin")
+            or meta.get("seller_gstin")
+            or ""
+        )
+
+        company_address = (
+            getattr(seller_ctx, "company_address", None)
+            or getattr(order, "seller_address", None)
+            or meta.get("company_address")
+            or meta.get("seller_address")
+        )
+        if not company_address:
+            from .seller_resolver import missing
+            raise missing("MISSING_COMPANY", "seller address")
+
         order_no = getattr(order, "order_no", None) or f"SO-{getattr(order, 'id', '001')}"
         po_number = getattr(order, "po_number", None) or meta.get("po_number", "N/A")
         
@@ -92,16 +126,16 @@ class SalesOrderPdfService:
         is_interstate = (pos_code != supplier_state_code)
         place_of_supply_display = format_place_of_supply(pos_state_name, is_interstate, customer_gstin, supplier_gstin=company_gstin)
 
-        # Dynamic Bank Details
-        bank_name = os.getenv("DEFAULT_BANK_NAME", "STATE BANK OF INDIA")
-        account_holder_name = "TATTLY THREADS"
-        account_no = os.getenv("DEFAULT_BANK_ACCOUNT_NO", "43976711765")
-        ifsc_code = os.getenv("DEFAULT_BANK_IFSC", "SBIN0030425")
-        bank_branch = os.getenv("DEFAULT_BANK_BRANCH", "WARDHMAN NAGAR NAGPUR")
+        # Dynamic Bank Details (Optional for non-tax documents like Sales Orders)
+        bank_name = (getattr(seller_ctx, "bank_name", None) if seller_ctx else None) or meta.get("bank_name", "")
+        account_holder_name = (getattr(seller_ctx, "company_name", None) if seller_ctx else None) or company_name or ""
+        account_no = (getattr(seller_ctx, "account_no", None) if seller_ctx else None) or meta.get("account_no", "")
+        ifsc_code = (getattr(seller_ctx, "ifsc_code", None) if seller_ctx else None) or meta.get("ifsc_code", "")
+        bank_branch = (getattr(seller_ctx, "bank_branch", None) if seller_ctx else None) or meta.get("bank_branch", "")
 
-        company_web = meta.get("company_website", "www.tattlythreads.com")
-        dispatch_email = meta.get("dispatch_email", "dispatch@tattlythreads.com")
-        accounts_email = meta.get("accounts_email", "accounts@tattlythreads.com")
+        company_web = (getattr(seller_ctx, "website", None) if seller_ctx else None) or meta.get("company_website", "")
+        dispatch_email = (getattr(seller_ctx, "dispatch_email", None) if seller_ctx else None) or meta.get("dispatch_email", "")
+        accounts_email = (getattr(seller_ctx, "accounts_email", None) if seller_ctx else None) or meta.get("accounts_email", "")
 
         # Barcode & Verification QR
         barcode_uri = generate_barcode_base64(order_no)
@@ -295,17 +329,14 @@ class SalesOrderPdfService:
                           <td style="vertical-align: top; padding-left: 6px;">
                             <div style="font-weight: 900; font-size: 11pt; color: #0f172a; letter-spacing: 0.5px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">{company_name}</div>
                             <div style="font-size: 6.8pt; color: #475569; line-height: 1.35; margin-top: 1px;">
-                              Office No. 81, Ibrahim Rehmatullah Road, Beside Jio Gallery,<br/>
-                              near HP Petrol Pump, Mumbai, Maharashtra - 400003
+                              {company_address.replace(chr(10), "<br/>")}
                             </div>
                             <div style="font-size: 6.8pt; color: #475569; margin-top: 1px;">
-                              Web: {company_web}<br/>
-                              Dispatch: {dispatch_email}<br/>
-                              Accounts: {accounts_email}
+                              {f'<div>Web: {company_web}</div>' if company_web else ''}
+                              {f'<div>Dispatch: {dispatch_email}</div>' if dispatch_email else ''}
+                              {f'<div>Accounts: {accounts_email}</div>' if accounts_email else ''}
                             </div>
-                            <div style="font-family: monospace; font-size: 9.5pt; font-weight: 800; color: #1e3a8a; margin-top: 3px; letter-spacing: 0.8px;">
-                              GSTIN: {company_gstin}
-                            </div>
+                            {f'<div style="font-family: monospace; font-size: 9.5pt; font-weight: 800; color: #1e3a8a; margin-top: 3px; letter-spacing: 0.8px;">GSTIN: {company_gstin}</div>' if company_gstin else ''}
                           </td>
                         </tr>
                       </table>
@@ -464,13 +495,15 @@ class SalesOrderPdfService:
                 <!-- Bank & Signatory -->
                 <div class="bottom-grid">
                   <div style="width: 60%;">
-                    <div class="bank-box" style="border: 1px solid #d1d5db; border-radius: 3px; padding: 5px 8px; background: rgba(249, 250, 251, 0.70);">
+                    {f'''
+                    <div class="bank-box" style="border: 1px solid #d1d5db; border-radius: 3px; padding: 5px 8px; background: rgba(249, 250, 251, 0.70); margin-bottom: 6px;">
                       <div style="font-size: 6.00pt; font-weight: 800; color: #374151; font-family: monospace; text-transform: uppercase; letter-spacing: 0.8px; border-bottom: 1px solid #e5e7eb; padding-bottom: 2px; margin-bottom: 3px;">&#127970; BANK DETAILS FOR REMITTANCE</div>
                       <div style="font-family: monospace; font-size: 6.58pt; color: #6b7280; margin-bottom: 1px;">A/C Name: <b style="color: #111827;">{account_holder_name}</b></div>
                       <div style="font-weight: 800; color: #111827; font-size: 8.2pt; font-family: sans-serif; margin-bottom: 1px;">{bank_name}</div>
                       <div style="font-family: monospace; font-size: 7.31pt; color: #374151; margin-bottom: 1px;">A/C No: <b style="color: #111827; letter-spacing: 0.5px;">{account_no}</b></div>
                       <div style="font-family: monospace; font-size: 7.31pt; color: #374151;">IFSC: <b style="color: #111827;">{ifsc_code}</b>&nbsp;&nbsp;|&nbsp;&nbsp;Branch: {bank_branch}</div>
                     </div>
+                    ''' if (bank_name and account_no) else ''}
                     
                     <div>
                       <div style="font-size: 6.5px; font-weight: 700; color: #6b7280; font-family: monospace; text-transform: uppercase;">ORDER ACCEPTANCE & TERMS</div>
@@ -601,12 +634,25 @@ class SalesOrderPdfService:
         if not order:
             raise ValueError(f"Sales Order '{order_id}' not found")
 
+        from .seller_resolver import resolve_seller_context_async
+        target_cid = company_id or getattr(order, "company_id", "COMP-001")
+        seller_ctx = await resolve_seller_context_async(
+            db=session,
+            company_id=target_cid,
+            invoice=order,
+            doc_type="SALES_ORDER",
+        )
+
+        company_name = getattr(seller_ctx, "company_name", None)
+        company_gstin = getattr(seller_ctx, "company_gstin", "")
+
         html = cls.generate_order_html_from_model(
             order=order,
             items=list(order.items or []),
             allocations=list(order.allocations or []),
-            company_name="TATTLY THREADS",
-            company_gstin="27AAXFT2508H1ZR"
+            company_name=company_name,
+            company_gstin=company_gstin,
+            seller_ctx=seller_ctx,
         )
         pdf_bytes = await cls.render_pdf(html)
         meta = {

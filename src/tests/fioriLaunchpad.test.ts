@@ -4,9 +4,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 4.0.0
+ * Version      : 6.98.0
  * Created      : 2026-08-19
- * Modified     : 2026-08-19
+ * Modified     : 2026-10-17
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  */
@@ -16,27 +16,35 @@ import {
   LAUNCHPAD_CATALOG,
   getVisibleLaunchpadTiles,
   getQuickActionTiles,
+  synthesizeLaunchpadCatalogWithRemoteMenus,
 } from "../components/launchpad/launchpadCatalog.ts";
 
 const REGISTERED_APP_TABS = [
   "dashboard",
   "launchpad",
-  "pos",
+  "billing-workspace",
   "sales",
-  "create-tax-invoice",
   "customer-master",
   "crm",
   "loyalty",
   "profiles",
+  "sales-promotions",
   "purchase",
+  "procurement-visual-reports",
+  "grn-studio",
   "supplier-mgmt",
+  "vendor-360",
   "business-ledger",
   "accounting-sync",
   "report-designer",
+  "visual-reports",
   "item-master",
   "item-create-grid",
   "barcode",
+  "barcode-management",
+  "price-revision",
   "stock-ledger",
+  "wms-dashboard",
   "masters",
   "ufe",
   "formulas",
@@ -44,12 +52,15 @@ const REGISTERED_APP_TABS = [
   "document-series",
   "approval-matrix",
   "staff-management",
+  "store-directory",
+  "muster-roll",
   "user-profile",
   "print-studio",
   "print-history",
   "terms-engine",
   "data-exchange",
   "database-manager",
+  "company-profile",
   "company-setup",
   "about-smriti",
   "dev-tracker",
@@ -61,7 +72,16 @@ const REGISTERED_APP_TABS = [
   "legacy-migration",
   "physical-stock",
   "wiki",
-  "training-academy"
+  "training-academy",
+  "ewaybill-management",
+  "system-parameters",
+  "supplier-dashboard",
+  "propos-workspace",
+  "document-studio",
+  "bulk-import-sheet",
+  "databridge",
+  "legacy-telemetry",
+  "backup-restore"
 ];
 
 describe("Fiori Launchpad Canonical Routing & Catalog Integrity", () => {
@@ -109,20 +129,34 @@ describe("Fiori Launchpad Canonical Routing & Catalog Integrity", () => {
     expect(ids.length).toBe(uniqueIds.size);
   });
 
+  it("should merge legacy billing menu routes into one canonical launchpad tile", () => {
+    const merged = synthesizeLaunchpadCatalogWithRemoteMenus([
+      { id: "menu-pos", title: "POS Billing", route: "/pos", module: "sales" },
+      { id: "menu-credit-billing", title: "Credit Billing", route: "/credit-billing", module: "sales" },
+      { id: "menu-dist-invoice", title: "Distributor Invoice", route: "/dist-invoice", module: "sales" },
+      { id: "menu-sales", title: "Sales", route: "/sales", module: "sales" },
+    ]);
+
+    expect(merged.filter((tile) => tile.id === "billing-workspace")).toHaveLength(1);
+    expect(merged.some((tile) => tile.id === "credit-billing" || tile.id === "dist-invoice")).toBe(false);
+    expect(merged.find((tile) => tile.id === "billing-workspace")?.title).toBe("Billing Workspace");
+    expect(merged.find((tile) => tile.id === "sales")?.title).toBe("Sales Documents");
+  });
+
   it("should have primary quick actions defined for mobile/touch fast-switching", () => {
     const quickActions = LAUNCHPAD_CATALOG.filter((t) => t.isQuickAction);
     expect(quickActions.length).toBeGreaterThanOrEqual(4);
     const qaIds = quickActions.map((t) => t.id);
-    expect(qaIds).toContain("pos");
+    expect(qaIds).not.toContain("pos");
     expect(qaIds).toContain("item-master");
     expect(qaIds).toContain("stock-ledger");
-    expect(qaIds).toContain("create-tax-invoice");
+    expect(qaIds).not.toContain("create-tax-invoice");
   });
 
   it("should allow cashiers access to core POS, Item Master, and Stock Ledger", () => {
     const cashierTiles = getVisibleLaunchpadTiles("CASHIER");
     const cashierIds = cashierTiles.map((t) => t.id);
-    expect(cashierIds).toContain("pos");
+    expect(cashierIds).not.toContain("pos");
     expect(cashierIds).toContain("item-master");
     expect(cashierIds).toContain("stock-ledger");
     expect(cashierIds).not.toContain("company-setup");
@@ -154,7 +188,20 @@ describe("Fiori Launchpad Canonical Routing & Catalog Integrity", () => {
     const cashierQA = getQuickActionTiles("CASHIER");
     expect(cashierQA.length).toBeGreaterThanOrEqual(4);
     const qaIds = cashierQA.map((t) => t.id);
-    expect(qaIds).toContain("pos");
+    expect(qaIds).not.toContain("pos");
     expect(qaIds).toContain("item-master");
+  });
+
+  it("should register system-parameters studio in catalog and resolve in system navigation context", async () => {
+    const paramTile = LAUNCHPAD_CATALOG.find((t) => t.id === "system-parameters");
+    expect(paramTile).toBeDefined();
+    expect(paramTile?.title).toBe("System Parameters Studio");
+    expect(paramTile?.group).toBe("System & Operations");
+    expect(paramTile?.roles).toContain("SYSADMIN");
+    expect(paramTile?.roles).toContain("MANAGER");
+
+    const { resolveNavigation } = await import("../components/shell/navigationResolver.ts");
+    const sysNav = resolveNavigation({ context: "system" });
+    expect(sysNav.items.some((item) => item.id === "system-parameters")).toBe(true);
   });
 });

@@ -204,3 +204,7 @@ class TallyIntegrationService:
         xml_str = ET.tostring(envelope, encoding="utf-8")
         parsed = minidom.parseString(xml_str)
         return parsed.toprettyxml(indent="  ")
+
+
+# Backward-compatible convenience alias
+TallyService = TallyIntegrationService

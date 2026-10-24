@@ -13,20 +13,24 @@ Classification: Internal
 """
 
 import asyncio
+import os
 from sqlalchemy.future import select
 from sqlalchemy import update
 try:
-    from app.db.session import async_session
+    from app.db.session import get_company_sessionmaker, validate_company_database_name
     from app.models.sales import SalesInvoice
     from app.models.crm import Customer
 except ImportError:
-    from backend.app.db.session import async_session
+    from backend.app.db.session import get_company_sessionmaker, validate_company_database_name
     from backend.app.models.sales import SalesInvoice
     from backend.app.models.crm import Customer
 
 
-async def reconcile_orphan_invoice_customers():
-    async with async_session() as db:
+async def reconcile_orphan_invoice_customers(database_name: str | None = None):
+    target_db = (database_name or os.getenv("CUSTOMER_RECONCILE_DATABASE") or "smriti001").strip().lower()
+    if target_db == "smritisys" or not validate_company_database_name(target_db):
+        raise RuntimeError("Customer reconciliation must target a registered company database, never smritisys.")
+    async with get_company_sessionmaker(target_db)() as db:
         # 1. Fetch all customer IDs
         cust_res = await db.execute(select(Customer.id))
         valid_customer_ids = set(cust_res.scalars().all())

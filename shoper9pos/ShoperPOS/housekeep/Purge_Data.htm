@@ -1,0 +1,93 @@
+<!doctype HTML public "-//W3C//DTD HTML 4.0 Frameset//EN">
+
+<html>
+
+<head>
+<title>Purge Data</title>
+<meta http-equiv="content-type" content="text/html; charset=windows-1252">
+<meta name="generator" content="RoboHelp by eHelp Corporation www.ehelp.com">
+<link rel="StyleSheet" href="../Shoper.css"><style title="hcp" type="text/css">
+<!--
+span.hcp1 { font-weight:bold; }
+span.hcp2 { font-weight:bold; x-text-underline:normal; text-decoration:underline; }
+-->
+</style>
+</head>
+<body>
+<h1>Purge Data</h1>
+
+<p class=Body-Text>Use this option if database contains master records 
+ of non transacted items and you want to reduce the size of the database 
+ by removing such records from the item master. The purge will affect only 
+ those records which have stock less than that specified as a cut-off. 
+ Usage of purge helps in reducing the time taken for all Shoper transactions.</p>
+
+<p class=InvocationSequence>How to reach: <span class="hcp1">Housekeeping 
+ &gt; Purge Data</span></p>
+
+<p class=Body-Text>The <span class="hcp1">Purge Master Tables</span> 
+ window is displayed as shown where you can set the criteria for purging 
+ the data.</p>
+
+<p class=Body-Text>&nbsp;<img 
+ src="Purge_Data.gif"
+	x-maintain-ratio=TRUE
+	style="border: none;
+			float: none;
+			width: 300px;
+			height: 297px;
+			border-style: none;
+			border-style: none;"
+	width=300
+	height=297
+	border=0></p>
+
+<p class=Body-Text>The purging of the records pertaining to any item depends 
+ on two basic conditions namely transactions done and current stock of 
+ the item. </p>
+
+<p class=Body-Text>Select the current stock criteria from the drop down 
+ box, i.e., current stock is &lt; [Less Than], &lt;= [Less Than Or Equal 
+ To] and = [Equal To]. Enter the value in the next box.</p>
+
+<p class=Body-Text>Apply the selected criteria on <span class="hcp1">Entire 
+ Master</span> or <span class="hcp1">Specific Items</span>.</p>
+
+<p class=Body-Text><span class="hcp1">Entire Master</span>: 
+ Click this option to apply the above purging condition on all the items 
+ in the master.</p>
+
+<p class=Body-Text><span class="hcp1">Specific Items</span>: 
+ To apply the above purging condition selectively on items matching the 
+ selections made with respect to five item classifications namely Class1 
+ (<span class="hcp1">Product</span>), Class2 (<span class="hcp1">Brand</span>), 
+ SubClass1 (<span class="hcp1">Style</span>), SubClass2 (<span class="hcp1">Shade</span>) and SizePackUOM (<span class="hcp1">Size</span>).</p>
+
+<p class=Body-Text
+	style="margin-left: 47px;"><span class="hcp1">Specific 
+ Items – Filter</span>: This is enabled when <span class="hcp1">Specific 
+ Items</span> is selected. Select any or all the values displayed on selecting 
+ any of the five item classifications.</p>
+
+<p class=Body-Text
+	style="margin-left: 47px;"><span class="hcp1">Only Selected 
+ Items</span>: Apply the basic conditions of purging only on the items 
+ selected.</p>
+
+<p class=Body-Text
+	style="margin-left: 47px;"><span class="hcp1">Exclude 
+ Selected Items</span>: Apply the basic conditions of purging only on the 
+ items excluding the ones selected. </p>
+
+<p class=Navigation><span class="hcp2">V</span><span class="hcp1">iew</span>: To display the items selected for 
+ purging.</p>
+
+<p class=Navigation><span class="hcp2">C</span><span class="hcp1">ancel</span>: To clear all the selections criteria 
+ applied and to make fresh selections.</p>
+
+<p class=Navigation><span class="hcp2">C</span><span class="hcp1">onfirm</span>: To purge the records.</p>
+
+<p class=Navigation><span class="hcp1">E</span><span class="hcp2">x</span><span class="hcp1">it</span>: To quit the option.</p>
+
+</body>
+</html>

@@ -1,0 +1,981 @@
+<!doctype HTML public "-//W3C//DTD HTML 4.0 Frameset//EN">
+
+<html>
+
+<head>
+<title>Release Notes 1.0</title>
+<meta http-equiv="content-type" content="text/html; charset=windows-1252">
+<meta name="generator" content="RoboHelp by eHelp Corporation www.ehelp.com">
+<link rel="StyleSheet" href="../Shoper.css"><style title="hcp" type="text/css">
+<!--
+ul.hcp1 { list-style:circle; }
+ul.hcp2 { list-style:square; }
+-->
+</style>
+</head>
+<body>
+<h1>New Features in Shoper 9 POS Series A Release 1.0</h1>
+
+<p class=Body-Text>Some of the new features in Shoper 9 POS include,</p>
+
+<ul>
+	
+	<li class=kadov-p-Cbullet><p class=bullet><a href="#Installation">Installation 
+ &amp; Configuration</a></p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet><a href="#LiveUpdate">LiveUpdate</a></p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet><a href="#Sales_Promotion">Sales 
+ Promotions</a></p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet><a href="#Billing">Billing</a></p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet><a href="#Purchase_Order">Purchase 
+ Order/Indent</a></p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet><a href="#Inwards">Inwards</a></p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet><a href="#Outwards">Outwards</a></p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet><a href="#ItemMasterEntry">Item 
+ Master Entry</a></p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet><a href="#ItemMasterImport">Item 
+ Master Import</a></p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet><a href="#BarcodePrinting">Barcode 
+ Printing</a></p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet><a href="#PhysicalStockTake">Physical 
+ Stock Take</a></p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet><a href="#DataSynchronisation">Data 
+ Synchronisation</a></p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet><a href="#TallyInterface">Tally 
+ Interface</a></p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet><a href="#PricingMasterExport">Pricing 
+ Master Export</a></p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet><a href="#PriceRevision">Price 
+ Revision</a></p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet><a href="#SizeCatalogueManagement">Size 
+ Catalogue Management</a></p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet><a href="#Franchisee_Module">Franchisee 
+ Module</a></p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet><a href="#CustomerMailer">Customer 
+ Mailer</a></p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet><a href="#StockacrossChain">Stock 
+ across Chain</a></p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet><a href="#Catalogues">Catalogues</a></p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet><a href="#Housekeeping">Housekeeping</a></p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet><a href="#CostPriceVarianceFixing">Cost 
+ Price Variance Fixing</a></p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet><a href="#DatabaseTuningUtility">Database 
+ Tuning Utility</a></p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet><a href="#Reports">Reports</a></p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet><a href="#Licensing">Licensing</a></p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet><a href="#SupportCentre">Support 
+ Centre</a></p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet><a href="#Others">Others</a></p></li>
+</ul>
+
+<h2><a name=Installation>Installation &amp; Configuration</a></h2>
+
+<ul>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>The installation process 
+ has been simplified to a great extent and the user experience during the 
+ installation process is radically enhanced.</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>The number of user inputs 
+ required is minimal and the process of creating a company has been simplified.</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Customisations can now be 
+ installed and deployed in simple manner with the help of templates, custom 
+ installer, etc.</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Re-installation has now become 
+ a simple and is supported out-of the box.</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>In data migration, if both 
+ source and destination are in the same SQL server, improvements in time 
+ of more than 400%.</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Enabling Secondary Database 
+ support for an installation has been simplified and is available as a 
+ standard menu option.</p></li>
+</ul>
+
+<h2><a name=LiveUpdate>LiveUpdate</a></h2>
+
+<ul>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>The Live update mechanism 
+ has been greatly improved and simplified.</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>To help you better mange 
+ and control your live updates, LiveUpdate tool has been separated into 
+ two components, viz: Downloader &amp; Patcher.</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Downloader can be installed 
+ in a machine where Shoper is not present (for security reasons).</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Patcher is capable of updating 
+ full client where Shoper is installed.</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Live update, in addition 
+ to supporting FTP, now also supports HTTP mode for its operation.</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>LiveUpdate engine is capable 
+ of detecting and updating itself, if newer versions of it are available.</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>LiveUpdate engine also supports 
+ the deployment of customisations to Shoper by partners from download locations 
+ which are independent and different from that of Tally.</p></li>
+</ul>
+
+<h2><a name=Sales_Promotion>Sales Promotions</a></h2>
+
+<ul>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Defining sales promotions 
+ for all/ specific items in a store in specific situations is now a very 
+ simple process.</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Promotions can be defined 
+ according to a particular customer classification.</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>In a situation where you 
+ have multiple promotions available for a single item, the promotion(s) 
+ can be prioritised and set as required.</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>By entering multiple sales 
+ promotions data in a specified format, the sales promotions can be imported 
+ at one go.</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>At each stage of the promotions 
+ definition, the required item details can be imported from text files, 
+ making data entry easy.</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Promotions can be based on 
+ item rate, item quantity or a combination of both.</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>For any discount, maximum 
+ allowed discount percentage/amount can be specified.</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Discount schemes can now 
+ be specified based on the Bill value range or the Bill quantity range.</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Possible to define discounts 
+ on Rate/Amount/Either.</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Supports Last Piece Discount.</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>New items created are automatically 
+ added to existing sales promos, if they satisfy the conditions for that 
+ definition.</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>As part of Item Master Creation/PT 
+ file load/HO Sync., all active sales promos can now used in billing immediately.</p></li>
+</ul>
+
+<h2><a name=Billing>Billing</a></h2>
+
+<ul>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>The user experience has been 
+ dramatically enhanced with an improved User Interface.</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Billing now supports the 
+ creation of Credit Bills in a retail environment.</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Seamless integration of Sales 
+ Promotion functionality.</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>The browsing feature has 
+ been enhanced to handle all intermediate transactions like Slips, suspensions, 
+ service orders, etc.</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Billing now remembers the 
+ payment modes entered on navigating away from the payment details to the 
+ item details and then coming back to the payment option.</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Add-ons/Deductions can be 
+ configured to affect the tax assessable value based on requirements.</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>It is now possible to change 
+ the customer code while making a transaction.</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>When a customer returns an 
+ item purchased earlier, it is now possible to make the refund by way of 
+ cash.</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>You can configure valid ranges 
+ of values for Quantity and Rate, thereby, eliminating the possible erroneous 
+ entry of Barcode in these columns.</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>For a sales transaction involving 
+ a foreign currency, the foreign currency units are also recorded, along 
+ with the conversion rate.</p></li>
+</ul>
+
+<h2><a name=Purchase_Order>Purchase Order/Indent</a></h2>
+
+<ul>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Flexibility in raising purchase 
+ order/indent based on item classification or stock number.</p></li>
+</ul>
+
+<ol style="list-style: circle;"
+	type=circle>
+	
+	<ul type="circle" class="hcp1">
+		
+		<li class=kadov-p-CBody-Text><p class=Body-Text>Item Classification 
+ 1 (Product)</p></li>
+		
+		<li class=kadov-p-CBody-Text><p class=Body-Text>Item Classification 
+ 2 (Brand)</p></li>
+		
+		<li class=kadov-p-CBody-Text><p class=Body-Text>Item Sub Classification 
+ 1 (Style)</p></li>
+		
+		<li class=kadov-p-CBody-Text><p class=Body-Text>Item Sub Classification 
+ 2 (Shade)</p></li>
+		
+		<li class=kadov-p-CBody-Text><p class=Body-Text>Size Code</p></li>
+		
+		<li class=kadov-p-CBody-Text><p class=Body-Text>32 analysis codes</p></li>
+		
+		<li class=kadov-p-CBody-Text><p class=Body-Text>Stock Number</p></li>
+	</ul>
+</ol>
+
+<ul>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Flexibility to raise the 
+ purchase order/indent with Cost price, MRP, user entered rate or based 
+ on the rate in Previous Purchase Order.</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Provision to generate purchase 
+ order size wise.</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Different transaction types 
+ are supported in the process of procurement.</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Sharing of information between 
+ Shoper POS, Distributor and Head Office.</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Flexibility in decision making 
+ at the time of consolidation in respect of Rate, Quantity, Items ordered 
+ and delivery dates.</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Purchase order/indent Import 
+ and Export options.</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Purchase order/indent status 
+ report.</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Supports capturing Bill To 
+ and Ship To Addresses. </p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Options to reopen/close/reprint 
+ purchase order/indent.</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Options to close Dispatch 
+ Advice and Sales Order.</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Flexibility to capture Discounts, 
+ Add-ons, Deductions, etc. at both line level and document level.</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Option to change document 
+ prefix when financial year changes.</p></li>
+</ul>
+
+<h2><a name=Inwards>Inwards</a></h2>
+
+<ul>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Saving of transactions with 
+ large item details has now been optimised.</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>You can configure taxes to 
+ affect the cost price of the items in an inward transaction. This can 
+ be managed at a vendor level or document level.</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Purchase Transaction can 
+ be based on Last Purchase Price or Current Cost Price.</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Inward-size/wise - This is 
+ another flavour of Goods Inward process whereby instead of entering the 
+ details of the items on the basis of stock number, details are captured 
+ based on the item categorisation/classification details. The four primary 
+ classifications (Itemclass1, Itemclass2, Itemsubclass1, Itemsubclass2) 
+ are accepted and for this combination all the sizes are shown in a matrix 
+ format and the transaction quantities for each size is accepted. Depending 
+ on your business requirements, this can be enabled or disabled.</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>PDT extensions are enabled 
+ which helps partners in doing customisations.</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Based on the vendor selected 
+ in Inward, under Vendor, all open (pending) purchase orders or indents 
+ will be displayed in the Browse window.</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Multiple purchase orders 
+ can now be selected in a single Inward document.</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Purchase order details in 
+ goods inwards can now be pre-filled, if the PO is generated on stock number.</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Attribute level purchase 
+ orders mapping while scanning items in goods inwards.</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>You can now display Purchaser 
+ Order Rate in Goods Inwards while generating purchase transaction with 
+ PO reference.</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Browsing of indents designated 
+ for transfer in has now been enabled in transactions.</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>The PDT loading option has 
+ been optimised for importing large files.</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Loading of multiple PDT files 
+ in one transaction now supported.</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Validation between DC/Invoice 
+ Total and Document Total.</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>You can configure valid ranges 
+ of values for Quantity and Rate, thereby, eliminating the possible erroneous 
+ entry of Barcode in these columns.</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Option to load PT File with 
+ purchase order details.</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Option to load Physical Verification 
+ details with purchase order details.</p></li>
+</ul>
+
+<h2><a name=Outwards>Outwards</a></h2>
+
+<ul>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Option for accepting tax, 
+ add-ons, deductions, discounts, etc. at item level is now provided.</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>This is another flavour of 
+ Goods Outward process, whereby, instead of entering the details of the 
+ items on the basis of stock number, details are captured based on the 
+ item categorisation/classification details. The four primary classifications 
+ (Itemclass1, Itemclass2, Itemsubclass1, Itemsubclass2) are accepted and 
+ for this combination all the sizes are shown in a matrix format and the 
+ transaction quantities for each size is accepted. Depending on your business 
+ requirements, this can be enabled or disabled.</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Optimisation in PDT loading 
+ option (importing large file).</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>PDT extensions are enabled 
+ which helps partners in doing customisations.</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Loading of multiple PDT files 
+ in one transaction now supported.</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Optimisation in saving transaction 
+ with large item details.</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Option to Load Dispatch Advice 
+ in goods outwards transaction.</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Option to toggle between 
+ Stock Number scanning and size-wise mode of operations.</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Transfer Out transaction 
+ can be based on retail price or dealer price or cost price.</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>You can configure valid ranges 
+ of values for Quantity and Rate, thereby, eliminating the possible erroneous 
+ entry of Barcode in these columns.</p></li>
+</ul>
+
+<h2><a name=ItemMasterEntry>Item Master Entry</a></h2>
+
+<ul>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>To ensure better data integrity, 
+ important fields in the master will automatically be selected for data 
+ entry and the system will ensure that proper data is entered in these 
+ fields while saving the transaction.</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>To ensure better security 
+ and control, Price information is blocked from editing.</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Stock Number display enabled 
+ for newly added items in Item Master Entry.</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Item Master Entry program 
+ is enhanced to hide the batch serial number columns from the user. Data 
+ will be updated with default value.</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Item Master Entry has now 
+ provision for previewing images attached to an item.</p></li>
+</ul>
+
+<h2><a name=ItemMasterImport>Item Master Import</a></h2>
+
+<ul>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Blank/invalid values are 
+ not allowed to be inputted in the important fields required for proper 
+ functioning of the system. Master import will automatically validate the 
+ information before updating the system.</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Item masters can be imported 
+ in the system on a scheduled/automatic mode or you can choose to manually 
+ import the same based on your business needs.</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Shoper automatically checks 
+ and ensures that only the correct files are imported, thereby, avoiding 
+ mistakes/errors caused by accidentally importing wrong files. </p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>For audit purposes, detailed 
+ logs are created for each import.</p></li>
+</ul>
+
+<h2><a name=BarcodePrinting>Barcode Printing</a></h2>
+
+<ul>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Capability to print in laser/inkjet 
+ in addition to dedicated barcode printers.</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Separate intuitive and easy 
+ designers for designing your label and page layouts.</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Ability to print barcodes 
+ based on Purchase Order and master information available in Shoper.</p></li>
+</ul>
+
+<h2><a name=PhysicalStockTake>Physical Stock Take</a></h2>
+
+<ul>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Stock taking UI has been 
+ made more intuitive and simple, and has been optimised for better performance 
+ even with large data volumes.</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>History option to get a report 
+ listing information of the previously conducted completed stock taking 
+ processes.</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Size wise entry option provided 
+ to accept item details.</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Preview option for displaying 
+ import log view window. All stock numbers imported from file, whether 
+ valid or invalid, are listed.</p></li>
+</ul>
+
+<h2><a name=DataSynchronisation>Data Synchronisation</a></h2>
+
+<ul>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Head Office control over 
+ synchronisation activities both at Head Office and Point of Sale.</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Enhanced to handle the incremental 
+ data synchronisation in addition to Day-end data synchronisation.</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Provision to synchronise 
+ data from/to multiple HO locations.</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>A new mode of Communication 
+ called “Online” is introduced which will post the data directly to Head 
+ Office as part of data synchronisation.</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Data is encrypted to prevent 
+ unauthorised access.</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>After receiving and loading 
+ data at HO, an acknowledgement is sent to POS. Based on this acknowledgement, 
+ further incremental synchronisation is carried out.</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Synchronisation with user 
+ intervention.</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Log files for data download 
+ and upload functionality at POS.</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Support for Outlook Express 
+ and MS Outlook.</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>In case data is unloaded 
+ at HO, a request is sent to POS. POS will process the request and send 
+ the data from the requested date automatically.</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>FTP data transfer has been 
+ enhanced to support any specific port.</p></li>
+</ul>
+
+<h2><a name=TallyInterface>Tally Interface</a></h2>
+
+<ul type="square" class="hcp2">
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Capability for posting transactions 
+ details to Tally in a highly flexible and simple manner, with support 
+ for:</p></li>
+</ul>
+
+<ul type="circle" class="hcp1">
+	
+	<ul type="circle" class="hcp1">
+		
+		<li class=kadov-p-CBody-Text><p class=Body-Text>Automated ledger 
+ creation with control over ledger naming. </p></li>
+		
+		<li class=kadov-p-CBody-Text><p class=Body-Text>Flexibility in 
+ defining the starting date of posting data from Shoper to Tally.</p></li>
+		
+		<li class=kadov-p-CBody-Text><p class=Body-Text>Flexibility of 
+ having multiple mapping defined.</p></li>
+		
+		<li class=kadov-p-CBody-Text><p class=Body-Text>Flexibility in 
+ selection of transaction types to be posted from Shoper to Tally.</p></li>
+		
+		<li class=kadov-p-CBody-Text><p class=Body-Text>Flexibility in 
+ posting Payment modes, Add-ons and deductions as per business requirement.</p></li>
+		
+		<li class=kadov-p-CBody-Text><p class=Body-Text>Enhanced bill reference 
+ in posting the transactions from Shoper to Tally.</p></li>
+		
+		<li class=kadov-p-CBody-Text><p class=Body-Text>Bill references 
+ are posted for all the applicable transactions.</p></li>
+		
+		<li class=kadov-p-CBody-Text><p class=Body-Text>Ability to activate 
+ and deactivate interface for the company.</p></li>
+		
+		<li class=kadov-p-CBody-Text><p class=Body-Text>Profit and Loss 
+ Account generation based on showrooms.</p></li>
+		
+		<li class=kadov-p-CBody-Text><p class=Body-Text>VAT compliances 
+ in Tally.</p></li>
+		
+		<li class=kadov-p-CBody-Text><p class=Body-Text>Elegant handling 
+ of reposting data from Shoper to Tally.</p></li>
+		
+		<li class=kadov-p-CBody-Text><p class=Body-Text>Post data to more 
+ than one Tally company for various business cases.</p></li>
+		
+		<li class=kadov-p-CBody-Text><p class=Body-Text>Post multiple Shoper 
+ companies data to single Tally company for consolidation.</p></li>
+		
+		<li class=kadov-p-CBody-Text><p class=Body-Text>Post selective 
+ transactions only as per business requirement.</p></li>
+		
+		<li class=kadov-p-CBody-Text><p class=Body-Text>Post individual 
+ bills or daily consolidated bill for each transaction type.</p></li>
+		
+		<li class=kadov-p-CBody-Text><p class=Body-Text>Tax specific information 
+ is gathered from Tally and ledgers are created as per statutory and accounting 
+ requirements.</p></li>
+		
+		<li class=kadov-p-CBody-Text><p class=Body-Text>Provision to post 
+ transfer transactions where transfers are required for VAT filing in some 
+ states.</p></li>
+		
+		<li class=kadov-p-CBody-Text><p class=Body-Text>HSN based posting 
+ for states where HSN is mandatory for VAT.</p></li>
+		
+		<li class=kadov-p-CBody-Text><p class=Body-Text>Multi currency 
+ and multi pay mode entries to Tally.</p></li>
+		
+		<li class=kadov-p-CBody-Text><p class=Body-Text>Ability to control 
+ the impact of restore operation in Tally/Shoper. </p></li>
+		
+		<li class=kadov-p-CBody-Text><p class=Body-Text>Enhanced and controlled 
+ offline posting of data into Tally.</p></li>
+	</ul>
+</ul>
+
+<h2><a name=PricingMasterExport>Pricing Master Export</a></h2>
+
+<ul>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Pricing Master Export is 
+ enabled for creating masters with all the information including the extended 
+ analysis codes which are now available.</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Improved filters for exporting 
+ data selectively.</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Pricing Master Export and 
+ Price Revision Export options are provided.</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Records with invalid data 
+ in the important fields will not be allowed to be exported. Detailed log 
+ of these entries will be created for audit/verification purposes.</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>File name will be created 
+ with Source Company code, Destination Company code and Running numbers.</p></li>
+</ul>
+
+<h2><a name=PriceRevision>Price Revision</a></h2>
+
+<ul>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Shoper supports a comprehensive 
+ module for managing revisions to items’ selling prices.</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Price revisions can be defined 
+ at both Shoper HO and Shoper POS.</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>PDT extensions are enabled 
+ which helps partners in doing customisations.</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Price revision listing gives 
+ you details of all price revisions defined in the system for selected 
+ items in the specified period. You may export the report to Excel.</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Import option for price revision 
+ allows you to import price revision definitions, which is defined at Shoper 
+ HO or other Shoper POS locations.</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Shoper automatically checks 
+ and ensures that only the correct files are imported, thereby, avoiding 
+ mistakes/errors caused by accidentally importing wrong files.</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>For audit purposes, detailed 
+ logs are created for each import.</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>The Price Revision option 
+ allows you to change prices of all items or selected items effective from 
+ a specific date. This Price Revision is applied to the item master as 
+ on the date defined in the Price Revision catalogue.</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Any price revision can either 
+ be an increase or decrease and can affect either the Retail Price or the 
+ Distributor Price or both.</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Create new Price Revision, 
+ edit existing Price Revision and delete existing Price Revision options 
+ are provided.</p></li>
+</ul>
+
+<h2><a name=SizeCatalogueManagement>Size Catalogue Management</a></h2>
+
+<ul>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Managing sizes defined for 
+ an item category is made very easy by means of a simple and intuitive 
+ interface for size catalogue management.</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Size Catalogue Management 
+ allows you to modify the existing size groups according to the changing 
+ requirements of your business. The options available are Merge Size Group, 
+ Split Size Group, Re-arrange sizes and Mark applicable sizes.</p></li>
+</ul>
+
+<h2><a name=Franchisee_Module>Franchisee Module</a></h2>
+
+<ul>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Simplified definition and 
+ configuration of franchisee information in chain of store installations.</p></li>
+</ul>
+
+<h2><a name=CustomerMailer>Customer Mailer</a></h2>
+
+<ul>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Facility to define the customer 
+ list for communication purposes.</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Flexibility in maintaining 
+ the communication list.</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Communication created based 
+ on different criteria of customer and items.</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Flexibility in creating and 
+ communicating the message.</p></li>
+</ul>
+
+<h2><a name=StockacrossChain>Stock across Chain</a></h2>
+
+<ul>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>A feature to view stock availability 
+ in other showrooms.</p></li>
+</ul>
+
+<h2><a name=Catalogues>Catalogues</a></h2>
+
+<h3>Tax</h3>
+
+<ul>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Defining tax information 
+ for multiple categories of items and locations has been simplified.</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Detailed listing of taxes 
+ defined in the system is provided.</p></li>
+</ul>
+
+<h3>Currency</h3>
+
+<ul>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Introduced browse option 
+ for the payment code. The validation of paymode code name specification 
+ has also been implemented.</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Entry of tender elements 
+ made compulsory when cataloguing the pay mode Credit Card.</p></li>
+</ul>
+
+<h2><a name=Housekeeping>Housekeeping</a></h2>
+
+<ul>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Backup and Restore options 
+ have now been enhanced to automatically take backup of other critical 
+ files like templates, configurations, etc.</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Backup, Restore and Compact 
+ have now been defined as separate options, which in turn improves user 
+ and security management controls.</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>You can now archive your 
+ historical data keeping your current data compact and efficient, thereby, 
+ improving operational performance of the system. The archived data will 
+ be available as a separate company in Shoper for your reporting needs.</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Masters which are not used 
+ in the system can be now removed, thereby, improving the operational performance 
+ of the system.</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>The program has been enhanced 
+ to handle previous years’ prefix and document number. This is also applicable 
+ for invalid genlookup entries.</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>The backup program has been 
+ enhanced to include security DB, and important INI files with the existing 
+ application database.</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>A log is now maintained listing 
+ the details of Backup and Restore done during a specified period.</p></li>
+</ul>
+
+<h2><a name=CostPriceVarianceFixing>Cost Price Variance Fixing</a></h2>
+
+<ul>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>To set right any anomalies 
+ in the cost price.</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Filter Option is provided 
+ to list the master for which user wants to fix the cost price. And option 
+ provided to accept revised cost price for listed items in the grid.</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Contra transactions are automatically 
+ created to ensure correctness of reporting and for audit purposes.</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>PDT extensions have been 
+ enabled which helps partners in doing customisations.</p></li>
+</ul>
+
+<h2><a name=DatabaseTuningUtility>Database Tuning Utility</a></h2>
+
+<ul>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>A utility to fine tune the 
+ performance of the application to check the database for possible errors.</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>The activities included are 
+ Checking Database, Re-Indexing DB Master Tables, Re-Indexing DB Transaction 
+ Tables, Shrinking Database, and Truncation of Database Logs. </p></li>
+</ul>
+
+<h2><a name=Reports>Reports</a></h2>
+
+<p class=Body-Text>Shoper 9 comes with a host of new reports and many enhancements 
+ in existing reports. Some among them are listed here.</p>
+
+<ul>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Price Revisions Listing: 
+ Items for which price has been revised can be listed in a summarised or 
+ detailed format. This information can be exported to Excel.</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>New reports added under Replication 
+ reports:</p></li>
+</ul>
+
+<ul type="square" class="hcp2">
+	
+	<ul type="circle" class="hcp1">
+		
+		<li class=kadov-p-CBody-Text><p class=Body-Text>Inward Discrepancy</p></li>
+		
+		<li class=kadov-p-CBody-Text><p class=Body-Text>Sales Promotions 
+ Listings</p></li>
+		
+		<li class=kadov-p-CBody-Text><p class=Body-Text>Sales Promotions</p></li>
+		
+		<li class=kadov-p-CBody-Text><p class=Body-Text>Style Catalogue 
+ View</p></li>
+		
+		<li class=kadov-p-CBody-Text><p class=Body-Text>Purchase Order 
+ Status </p></li>
+	</ul>
+</ul>
+
+<ul>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Aging report with flexibility 
+ of choosing the attributes to be printed. Report can be generated in time 
+ units of days/weeks/fortnights/months/quarters.</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Transaction Details with 
+ Image: Provides transaction details along with Image of Items for the 
+ selection, based on Master data or purchase.</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Bill wise sales</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Advance receipt status</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Transaction details with 
+ image</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Monthly sales comparison</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Style catalogue views</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Stock across chain report</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Stock Aging report</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Stock discrepancy report</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Optimisations in Top Selling 
+ Items report</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Synch. Status Reports</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Attribute wise sales and 
+ stock</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Sales promotions reports</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>All crystal reports are enhanced 
+ to display decimal places as per the settings.</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Performance improvement in 
+ all reports.</p></li>
+</ul>
+
+<h2><a name=Licensing>Licensing</a></h2>
+
+<ul>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Shoper 9 uses a common Licensing 
+ mechanism of Tally which is simple and user-friendly. It addresses all 
+ the licensing activities from a single screen; for users across segments 
+ of busi­ness. Besides, allowing activation of Single User (Silver) and 
+ Multi User (Gold) license, it also extends the feature to Multi-Site Licensing.</p></li>
+</ul>
+
+<h2><a name=SupportCentre>Support Centre</a></h2>
+
+<ul>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Log product issues and seek 
+ solutions/assistance from within Shoper.</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Request for support from 
+ the solution provider of your choice. </p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Track status of your support 
+ requests.</p></li>
+</ul>
+
+<h2><a name=Others>Others</a></h2>
+
+<ul>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Generalised bill printing 
+ now supports printing on Inkjet/laser printers.</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Delivery Challan can now 
+ be printed on an Inkjet/laser printer.</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>All imports are now more 
+ robust and automatically rollback to the previous state if there are errors 
+ during loading/saving. Imports are also optimised to a high degree.</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Flexible imports of masters 
+ like promotions, pricing details, tax details, etc.</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Shoper will warn the user 
+ and inform them that errors have occurred while importing data with option 
+ to view the records that caused errors, ignore and continue or rollback 
+ the imported data.</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Item browse now has ability 
+ to remember transaction level filter settings and will start with the 
+ appropriate settings based on the transaction from where it is invoked.</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Cash payouts can now be done 
+ against any advances received.</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Pending transactions like 
+ Sales order, Purchase order, etc. can be closed before servicing of the 
+ order.</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Shoper can be configured 
+ to accept multiple addresses for Customers, Vendors, Salespersons, etc.</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Physical verification transaction 
+ can now be recorded in a size wise matrix format for easier data entry 
+ purposes.</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>A browse feature for list 
+ of suspended bills is now available.</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Billing now supports 22 digit 
+ credit card number captures.</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>The Node ID has now been 
+ made case insensitive.</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Reason Code is now printed 
+ in the PT/TT file information summary.</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Bill wise Item wise sales 
+ report has been enhanced to print an additional column showing MRP.</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>A Record in General Lookup 
+ cannot be deleted if it has been used in any catalogue.</p></li>
+</ul>
+
+<p class=Body-Text>&nbsp;</p>
+
+</body>
+</html>

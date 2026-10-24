@@ -16,15 +16,16 @@
  *
  * * Websites: aitdl.com | erpnbook.com | smritibooks.com
  *
- * * Version    : 2.1.2
+ * * Version    : 3.31.0
  * * Created    : 2026-07-10
- * * Modified   : 2026-07-11
+ * * Modified   : 2026-09-02
  * * Copyright  : © AITDL.com and SMRITIBooks.com. All Rights Reserved.
  * * License    : Proprietary Commercial Software
  */
 
 import { apiFetchV1 } from "../lib/apiFetchV1";
 import { Customer, CustomerGroup, CustomerPriceGroup, SalesInvoice, SalesReturn } from "../types";
+export type { CustomerGroup };
 
 export const initialCustomerPriceGroups: CustomerPriceGroup[] = [
   {
@@ -127,6 +128,8 @@ export const initialCustomerGroups: CustomerGroup[] = [
     warningThresholdPercent: 80,
     allowOverride: false,
     taxInclusive: true,
+    defaultPricingBasis: "MRP",
+    defaultAllowPromotionsOnRate: false,
     maxDiscountPercent: 10,
     minMarginPercent: 15,
     roundingRule: "Nearest1",
@@ -146,13 +149,15 @@ export const initialCustomerGroups: CustomerGroup[] = [
     name: "Corporate Clients",
     creditLimit: 500000,
     unlimitedCredit: false,
-    creditDays: 30,
+    creditDays: 60,
     graceDays: 7,
     creditHold: false,
     autoBlockSales: true,
     warningThresholdPercent: 85,
     allowOverride: true,
     taxInclusive: false,
+    defaultPricingBasis: "RATE",
+    defaultAllowPromotionsOnRate: false,
     maxDiscountPercent: 20,
     minMarginPercent: 10,
     roundingRule: "None",
@@ -179,6 +184,8 @@ export const initialCustomerGroups: CustomerGroup[] = [
     warningThresholdPercent: 90,
     allowOverride: true,
     taxInclusive: false,
+    defaultPricingBasis: "MRP",
+    defaultAllowPromotionsOnRate: false,
     maxDiscountPercent: 25,
     minMarginPercent: 8,
     roundingRule: "None",
@@ -247,104 +254,94 @@ export const initialCustomerGroups: CustomerGroup[] = [
   }
 ];
 
-export const initialCustomers: Customer[] = [
-  {
-    id: "CUST-WALKIN",
-    code: "CUST-WALKIN",
-    customerGroupId: "CG-Retail",
-    name: "Walk-In / Cash Customer",
-    mobile: "9999999999",
-    email: "cash@smritiretail.com",
-    outstanding: 0,
-    status: "Active",
-    createdDate: "2026-07-10",
-    tags: ["Walk-In", "Cash", "B2C"],
-  },
-  {
-    id: "CUST-001",
-    customerGroupId: "CG-Retail",
-    name: "Rahul Sharma",
-    mobile: "9876543210",
-    email: "rahul.sharma@gmail.com",
-    outstanding: 15000,
-    status: "Active",
-    createdDate: "2026-07-10",
-    tags: ["VIP", "Retail"],
-  },
-  {
-    id: "CUST-002",
-    customerGroupId: "CG-LargeRetail",
-    name: "Super Textiles Ltd",
-    mobile: "9988776655",
-    email: "finance@supertextiles.com",
-    gstNumber: "27AAACS1094J1Z3",
-    outstanding: 450000,
-    status: "Active",
-    createdDate: "2026-07-10",
-    tags: ["Wholesale", "Corporate"],
-  },
-  {
-    id: "CUST-003",
-    customerGroupId: "CG-Branches",
-    name: "Branch - South Delhi",
-    mobile: "9911223344",
-    email: "southdelhi@smriti.com",
-    outstanding: 0,
-    status: "Active",
-    createdDate: "2026-07-10",
-    tags: ["Internal", "Branch"],
-  },
-  {
-    id: "CUST-004",
-    customerGroupId: "CG-Franchises",
-    name: "Franchise - Mumbai Central",
-    mobile: "9922334455",
-    email: "mumbaifranchise@smriti.com",
-    outstanding: 120000,
-    status: "Active",
-    createdDate: "2026-07-10",
-    tags: ["Franchise", "Premium"],
-  },
-  {
-    id: "cust-rrl-192b561d",
-    code: "CUST-005",
-    customerGroupId: "CG-LargeRetail",
-    name: "Reliance Retail",
-    mobile: "9822334455",
-    email: "operations@relianceretail.com",
-    gstNumber: "27AAACR1234F1Z1",
-    outstanding: 180000,
-    status: "Active",
-    createdDate: "2026-07-10",
-    tags: ["Wholesale", "Key-Account"],
-  },
-  {
-    id: "CUST-006",
-    customerGroupId: "CG-LargeRetail",
-    name: "Shoppers Stop",
-    mobile: "9833445566",
-    email: "billing@shoppersstop.com",
-    gstNumber: "27AAACS4321E1Z2",
-    outstanding: 250000,
-    status: "Active",
-    createdDate: "2026-07-10",
-    tags: ["Key-Account"],
-  },
-  {
-    id: "CUST-007",
-    customerGroupId: "CG-LargeRetail",
-    name: "Lifestyle Stores",
-    mobile: "9844556677",
-    email: "accounts@lifestylestores.com",
-    gstNumber: "27AAACL5678A1Z3",
-    outstanding: 320000,
-    status: "Active",
-    createdDate: "2026-07-10",
-    tags: ["Wholesale"],
-  },
-];
+/**
+ * initialCustomers — intentionally empty.
+ *
+ * PostgreSQL (via GET /api/v1/customers) is the single source of truth.
+ * Boot-time hydration is performed by refreshCustomerCache() called from App.tsx.
+ * PostgreSQL is the source of truth; customer fallback data is cached only
+ * in the current browser tab and expires after 15 minutes.
+ *
+ * DO NOT add hardcoded records here — they will conflict with live DB data.
+ */
+export const initialCustomers: Customer[] = [];
 
-export const initialSalesInvoices: SalesInvoice[] = [
+export const initialSalesInvoices: SalesInvoice[] = [];
+
+const CUSTOMER_SESSION_CACHE_KEY = "smriti_customer_session_cache";
+const CUSTOMER_PENDING_SESSION_KEY = "smriti_pending_customer_session";
+const CUSTOMER_SESSION_CACHE_TTL_MS = 15 * 60 * 1000;
+
+function readCustomerSessionCache(): Customer[] {
+  if (typeof window === "undefined" || typeof sessionStorage === "undefined") return [];
+  try {
+    localStorage.removeItem("smriti_customers");
+    localStorage.removeItem("smriti_retail_customers");
+    const raw = sessionStorage.getItem(CUSTOMER_SESSION_CACHE_KEY);
+    if (!raw) return [];
+    const cache = JSON.parse(raw) as { expiresAt?: number; customers?: Customer[] };
+    if (!cache.expiresAt || cache.expiresAt <= Date.now() || !Array.isArray(cache.customers)) {
+      sessionStorage.removeItem(CUSTOMER_SESSION_CACHE_KEY);
+      return [];
+    }
+    return cache.customers;
+  } catch {
+    try { sessionStorage.removeItem(CUSTOMER_SESSION_CACHE_KEY); } catch {}
+    return [];
+  }
+}
+
+function writeCustomerSessionCache<T extends { id: string; name: string }>(customers: T[]): void {
+  if (typeof window === "undefined" || typeof sessionStorage === "undefined") return;
+  try {
+    localStorage.removeItem("smriti_customers");
+    localStorage.removeItem("smriti_retail_customers");
+    const safeCustomers = customers.map(customer => {
+      const source = customer as unknown as Record<string, any>;
+      return {
+        id: source.id,
+        customerGroupId: source.customerGroupId || source.customer_group_id || "",
+        name: source.name,
+        mobile: source.mobile || source.phone || "",
+        phone: source.phone,
+        email: source.email,
+        gstNumber: source.gstNumber || source.gstin,
+        code: source.code,
+        creditLimit: source.creditLimit,
+        creditLimitOverride: source.creditLimitOverride,
+        creditDays: source.creditDays,
+        unlimitedCredit: source.unlimitedCredit,
+        creditHold: source.creditHold,
+        isTaxInclusive: source.isTaxInclusive ?? source.is_tax_inclusive,
+        pricingBasis: source.pricingBasis || source.pricing_basis,
+        allowPromotionsOnRate: source.allowPromotionsOnRate ?? source.allow_promotions_on_rate,
+        outstanding: source.outstanding ?? source.creditUsed ?? source.creditBalance,
+        status: source.status || "Active",
+        loyaltyMember: source.loyaltyMember,
+        loyaltyTier: source.loyaltyTier,
+        loyaltyPointsBalance: source.loyaltyPointsBalance ?? source.loyalty_points_balance,
+      };
+    });
+    sessionStorage.setItem(CUSTOMER_SESSION_CACHE_KEY, JSON.stringify({
+      expiresAt: Date.now() + CUSTOMER_SESSION_CACHE_TTL_MS,
+      customers: safeCustomers
+    }));
+  } catch {}
+}
+
+export function cacheCustomersSession<T extends { id: string; name: string }>(customers: T[]): void {
+  writeCustomerSessionCache(customers);
+}
+
+export function clearCustomerSessionCache(): void {
+  if (typeof window === "undefined") return;
+  try { sessionStorage.removeItem(CUSTOMER_SESSION_CACHE_KEY); } catch {}
+  try { sessionStorage.removeItem(CUSTOMER_PENDING_SESSION_KEY); } catch {}
+  try { localStorage.removeItem("smriti_customers"); } catch {}
+  try { localStorage.removeItem("smriti_retail_customers"); } catch {}
+}
+/* Legacy demo invoice fixtures removed from the live data path.
+export const legacyDemoSalesInvoices: SalesInvoice[] = [
   {
     id: "SINV-001",
     invoiceNo: "SINV-2026-0001",
@@ -507,8 +504,11 @@ export const initialSalesInvoices: SalesInvoice[] = [
     ]
   }
 ];
+*/
 
-export const initialSalesReturns: SalesReturn[] = [
+export const initialSalesReturns: SalesReturn[] = [];
+/* Legacy demo return fixtures removed from the live data path.
+export const legacyDemoSalesReturns: SalesReturn[] = [
   {
     id: "SRET-001",
     returnNo: "SRET-2026-0001",
@@ -576,6 +576,7 @@ export const initialSalesReturns: SalesReturn[] = [
     ]
   }
 ];
+*/
 
 export function getSalesInvoices(): SalesInvoice[] {
   if (typeof window !== "undefined" && typeof localStorage !== "undefined") {
@@ -583,9 +584,8 @@ export function getSalesInvoices(): SalesInvoice[] {
     if (saved) {
       return JSON.parse(saved);
     }
-    localStorage.setItem("smriti_sales_invoices", JSON.stringify(initialSalesInvoices));
   }
-  return initialSalesInvoices;
+  return [];
 }
 
 export function saveSalesInvoices(invoices: SalesInvoice[]) {
@@ -600,9 +600,8 @@ export function getSalesReturns(): SalesReturn[] {
     if (saved) {
       return JSON.parse(saved);
     }
-    localStorage.setItem("smriti_sales_returns", JSON.stringify(initialSalesReturns));
   }
-  return initialSalesReturns;
+  return [];
 }
 
 export function saveSalesReturns(returns: SalesReturn[]) {
@@ -635,16 +634,8 @@ export function getCustomerGroups(): CustomerGroup[] {
 }
 
 export function getCustomers(): Customer[] {
-  let customersList: Customer[] = initialCustomers;
-  if (typeof window !== "undefined" && typeof localStorage !== "undefined") {
-    const saved = localStorage.getItem("smriti_customers");
-    if (saved) {
-      customersList = JSON.parse(saved);
-    } else {
-      localStorage.setItem("smriti_customers", JSON.stringify(initialCustomers));
-      customersList = initialCustomers;
-    }
-  }
+  // Same-tab fallback only; backend data remains authoritative.
+  const customersList = readCustomerSessionCache();
 
   // Live-compute outstanding balances based on invoices and returns
   const invoices = getSalesInvoices();
@@ -669,16 +660,16 @@ export function getCustomers(): Customer[] {
 }
 
 export function saveCustomers(customers: Customer[]) {
+  // Updates a short-lived same-tab fallback only. Does NOT fire backend requests.
+  // For backend writes, use CustMasterWs.handleSave() → POST/PUT /api/v1/customers.
   if (typeof window !== "undefined" && typeof localStorage !== "undefined") {
-    localStorage.setItem("smriti_customers", JSON.stringify(customers));
+    writeCustomerSessionCache(customers);
     try {
       window.dispatchEvent(new CustomEvent("smriti_customer_updated"));
     } catch (e) {
-      console.error("Failed to dispatch smriti_customer_updated event:", e);
+      console.error("[CRM] Failed to dispatch smriti_customer_updated:", e);
     }
   }
-  // Persist to server asynchronously
-  customers.forEach(cust => persistCustomerChange(cust));
 }
 
 export function saveCustomerGroups(groups: CustomerGroup[]) {
@@ -793,17 +784,18 @@ function formatCustomerForApi(c: Customer) {
 export async function persistCustomerChange(customer: Customer) {
   try {
     const payload = formatCustomerForApi(customer);
-    await apiFetchV1(`/customers/${customer.id}`, {
+    await apiFetchV1(`/crm/customers/${customer.id}`, {
       method: "PUT",
       body: JSON.stringify(payload)
     });
   } catch (e) {
     try {
-      const pending = JSON.parse(localStorage.getItem("smriti_pending_customers") || "[]");
+      const cached = JSON.parse(sessionStorage.getItem(CUSTOMER_PENDING_SESSION_KEY) || "{}");
+      const pending = cached.expiresAt > Date.now() && Array.isArray(cached.customers) ? cached.customers : [];
       if (!pending.some((c: any) => c.id === customer.id)) {
         pending.push(customer);
-        localStorage.setItem("smriti_pending_customers", JSON.stringify(pending));
       }
+      sessionStorage.setItem(CUSTOMER_PENDING_SESSION_KEY, JSON.stringify({ expiresAt: Date.now() + CUSTOMER_SESSION_CACHE_TTL_MS, customers: pending }));
     } catch (err) {
       console.error("[CRM Sync] Failed to update pending queue:", err);
     }
@@ -813,7 +805,8 @@ export async function persistCustomerChange(customer: Customer) {
 export async function syncPendingCustomers() {
   let pending: Customer[] = [];
   try {
-    pending = JSON.parse(localStorage.getItem("smriti_pending_customers") || "[]");
+    const cached = JSON.parse(sessionStorage.getItem(CUSTOMER_PENDING_SESSION_KEY) || "{}");
+    pending = cached.expiresAt > Date.now() && Array.isArray(cached.customers) ? cached.customers : [];
   } catch (e) {
     return;
   }
@@ -823,7 +816,7 @@ export async function syncPendingCustomers() {
   for (const cust of pending) {
     try {
       const payload = formatCustomerForApi(cust);
-      await apiFetchV1(`/customers/${cust.id}`, {
+      await apiFetchV1(`/crm/customers/${cust.id}`, {
         method: "PUT",
         body: JSON.stringify(payload)
       });
@@ -831,31 +824,50 @@ export async function syncPendingCustomers() {
       remaining.push(cust);
     }
   }
-  localStorage.setItem("smriti_pending_customers", JSON.stringify(remaining));
+  if (remaining.length) sessionStorage.setItem(CUSTOMER_PENDING_SESSION_KEY, JSON.stringify({ expiresAt: Date.now() + CUSTOMER_SESSION_CACHE_TTL_MS, customers: remaining }));
+  else sessionStorage.removeItem(CUSTOMER_PENDING_SESSION_KEY);
 }
 
-export async function syncCustomersWithBackend() {
-  // Sync any pending edits first
+/**
+ * refreshCustomerCache — canonical boot-time hydration function.
+ *
+ * Call this once after authentication is confirmed (App.tsx).
+ * Fetches customers into a same-tab fallback cache that expires after
+ * 15 minutes and is removed when the authenticated session is cleared.
+ *
+ * Also flushes any pending offline edits before fetching.
+ */
+export async function refreshCustomerCache(): Promise<void> {
+  // 1. Flush pending offline edits first
   await syncPendingCustomers();
 
+  // 2. Hydrate customer list from backend
   try {
-    const serverCustomers = await apiFetchV1("/customers");
-    if (Array.isArray(serverCustomers) && serverCustomers.length > 0) {
-      localStorage.setItem("smriti_customers", JSON.stringify(serverCustomers));
-      window.dispatchEvent(new CustomEvent("smriti_customer_updated"));
+    const serverCustomers = await apiFetchV1("/crm/customers");
+    if (Array.isArray(serverCustomers)) {
+      writeCustomerSessionCache(serverCustomers);
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("smriti_customer_updated"));
+      }
     }
   } catch (e) {
-    console.warn("[CRM Sync] Failed to sync customers from backend, using local cache:", e);
+    console.warn("[CRM] refreshCustomerCache: backend unreachable, serving cached data.", e);
   }
 
+  // 3. Hydrate customer groups from backend
   try {
-    const serverGroups = await apiFetchV1("/customer-groups");
+    const serverGroups = await apiFetchV1("/crm/customer-groups");
     if (Array.isArray(serverGroups) && serverGroups.length > 0) {
       localStorage.setItem("smriti_customer_groups", JSON.stringify(serverGroups));
     }
   } catch (e) {
-    console.warn("[CRM Sync] Failed to sync customer groups from backend:", e);
+    console.warn("[CRM] refreshCustomerCache: customer-groups fetch failed.", e);
   }
+}
+
+/** @deprecated Use refreshCustomerCache() instead. Kept for backward compatibility. */
+export async function syncCustomersWithBackend() {
+  return refreshCustomerCache();
 }
 
 if (typeof window !== "undefined") {

@@ -4,9 +4,9 @@ Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
-Version      : 3.29.0
+Version      : 3.29.1
 Created      : 2026-08-20
-Modified     : 2026-08-20
+Modified     : 2026-09-23
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 Classification: Internal
@@ -34,6 +34,10 @@ from ...schemas.database_manager import (
     MigrationInfo,
     SqlQueryRequest,
     SqlQueryResponse,
+    GrnDateCorrectionItem,
+    GrnDateRemediationRequest,
+    PoDateCorrectionItem,
+    PoDateRemediationRequest,
 )
 
 router = APIRouter()
@@ -487,6 +491,8 @@ async def execute_query(
     """
     Executes an administrative read-only SELECT query against the specified database.
     Destructive DDL/DML statements are strictly prohibited.
+    Results are hard-capped at 1,000 rows server-side to prevent data exfiltration.
+    Requires SYSADMIN role.
     """
     verify_sysadmin_role(current_user)
 
@@ -520,8 +526,10 @@ async def execute_query(
 
     try:
         async with engine.connect() as conn:
-            # Enforce max limit if no limit specified
-            max_r = req.max_rows or 50
+            # Enforce max limit — server-side hard cap at 1,000 rows to prevent data exfiltration.
+            # The client-requested max_rows is honoured only up to this ceiling.
+            _MAX_ROWS_HARD_CAP = 1_000
+            max_r = min(req.max_rows or 50, _MAX_ROWS_HARD_CAP)
             exec_q = f"{raw_query.rstrip(';')} LIMIT {max_r};"
 
             res = await conn.execute(text(exec_q))
@@ -560,3 +568,449 @@ async def execute_query(
         )
     finally:
         await engine.dispose()
+
+
+@router.post(
+    "/admin-rename-cancelled-invoices",
+    summary="SYSADMIN: Rename cancelled invoice_no to free unique-key slot for reissue",
+)
+async def admin_rename_cancelled_invoices(
+    invoice_ids: List[str],
+    database: str = "smriti001",
+    current_user: User = Depends(get_current_user),
+):
+    """
+    SYSADMIN-only. For each supplied invoice UUID that has status='Cancelled'
+    in sales_invoices, renames invoice_no to '{original}_VOID_{id[:8]}' to
+    free the unique (company_id, invoice_no) constraint slot for reissue.
+    Works regardless of is_deleted value (handles both True and False variants).
+    """
+    verify_sysadmin_role(current_user)
+    url = sanitize_db_url(database)
+    engine = create_async_engine(url, echo=False)
+    freed, not_found, errors = [], [], []
+    try:
+        async with engine.begin() as conn:
+            for inv_id in invoice_ids:
+                if not re.match(r'^[0-9a-f\-]{20,36}$', inv_id, re.IGNORECASE):
+                    errors.append(f"Invalid ID format: {inv_id}")
+                    continue
+                sel = text(
+                    "SELECT id, invoice_no FROM sales_invoices "
+                    "WHERE id = :iid AND status = 'Cancelled'"
+                )
+                res = await conn.execute(sel, {"iid": inv_id})
+                row = res.fetchone()
+                if not row:
+                    not_found.append(inv_id)
+                    continue
+                orig_no = row[1]
+                new_no  = f"{orig_no}_VOID_{inv_id[:8]}"
+                upd = text(
+                    "UPDATE sales_invoices SET invoice_no = :new_no, "
+                    "is_deleted = true, modified_at = NOW() "
+                    "WHERE id = :iid AND status = 'Cancelled'"
+                )
+                await conn.execute(upd, {"new_no": new_no, "iid": inv_id})
+                freed.append({"id": inv_id, "old": orig_no, "new": new_no})
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+    finally:
+        await engine.dispose()
+    return {
+        "success": True,
+        "freed":     freed,
+        "not_found": not_found,
+        "errors":    errors,
+        "message":   f"Renamed {len(freed)} cancelled invoice(s); {len(not_found)} not found.",
+    }
+
+
+@router.post(
+    "/admin-hard-delete-invoices",
+    summary="SYSADMIN: Hard-delete invoice records by ID (irreversible)",
+)
+async def admin_hard_delete_invoices(
+    invoice_ids: List[str],
+    database: str = "smriti001",
+    current_user: User = Depends(get_current_user),
+):
+    """
+    SYSADMIN-only. Permanently removes sales_invoice and related line-item
+    records for the given IDs. Only operates on records that are already
+    Cancelled. This is irreversible — use only for correction-reimport workflows.
+    """
+    verify_sysadmin_role(current_user)
+    url = sanitize_db_url(database)
+    engine = create_async_engine(url, echo=False)
+    deleted, skipped, errors = [], [], []
+    try:
+        async with engine.begin() as conn:
+            for inv_id in invoice_ids:
+                if not re.match(r'^[0-9a-f\-]{20,36}$', inv_id, re.IGNORECASE):
+                    errors.append(f"Invalid ID: {inv_id}")
+                    continue
+                chk = text("SELECT id, invoice_no, status FROM sales_invoices WHERE id = :iid")
+                res = await conn.execute(chk, {"iid": inv_id})
+                row = res.fetchone()
+                if not row:
+                    skipped.append(inv_id)
+                    continue
+                if row[2] not in ("Cancelled", "CANCELLED"):
+                    skipped.append(f"{inv_id} (status={row[2]}, not cancelled)")
+                    continue
+                await conn.execute(text("DELETE FROM sales_invoice_items WHERE invoice_id = :iid"), {"iid": inv_id})
+                await conn.execute(text("DELETE FROM sales_invoices WHERE id = :iid"), {"iid": inv_id})
+                deleted.append({"id": inv_id, "invoice_no": row[1]})
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+    finally:
+        await engine.dispose()
+    return {
+        "success": True,
+        "deleted": deleted,
+        "skipped": skipped,
+        "errors":  errors,
+        "message": f"Hard-deleted {len(deleted)} invoice(s); {len(skipped)} skipped (non-cancelled).",
+    }
+
+
+@router.post(
+    "/admin-remediate-grn-dates",
+    summary="SYSADMIN: Remediate historical GRN and stock movement created_at timestamps",
+)
+async def admin_remediate_grn_dates(
+    req: GrnDateRemediationRequest,
+    current_user: User = Depends(get_current_user),
+):
+    """
+    SYSADMIN-only. Remediates historical Goods Receipt Note (GRN) created_at timestamps
+    and downstream stock_movements created_at timestamps using authoritative vendor bill dates.
+    Strictly preserves GRN numbers, IDs, items, costs, taxes, and status (RECEIVED).
+    Does NOT amend, cancel, or recreate submitted GRNs or stock records.
+    Backs up all affected rows before mutating when dry_run=False.
+    """
+    verify_sysadmin_role(current_user)
+    if not DB_NAME_PATTERN.match(req.database):
+        raise HTTPException(status_code=400, detail="Invalid database name format.")
+
+    url = sanitize_db_url(req.database)
+    engine = create_async_engine(url, echo=False)
+
+    audit_log = []
+    not_found = []
+    errors = []
+    total_movements_affected = 0
+
+    try:
+        if req.dry_run:
+            async with engine.connect() as conn:
+                for item in req.corrections:
+                    sel = text("""
+                        SELECT id::text, receipt_no, status, created_at, notes
+                        FROM purchase_receipts
+                        WHERE receipt_no = :rno OR id::text = :rid
+                        LIMIT 1;
+                    """)
+                    res = await conn.execute(sel, {"rno": item.receipt_no, "rid": item.receipt_id or item.receipt_no})
+                    row = res.fetchone()
+                    if not row:
+                        not_found.append(item.receipt_no)
+                        continue
+
+                    grn_id = str(row[0])
+                    actual_rno = row[1]
+                    cur_ts = row[3]
+
+                    sm_res = await conn.execute(
+                        text("SELECT count(*) FROM stock_movements WHERE reference_doc_id::text = :gid OR reference_doc_id::text = :rno"),
+                        {"gid": grn_id, "rno": actual_rno}
+                    )
+                    sm_count = sm_res.scalar() or 0
+                    total_movements_affected += sm_count
+
+                    audit_log.append({
+                        "grn_id": grn_id,
+                        "receipt_no": actual_rno,
+                        "current_created_at": cur_ts.isoformat() if cur_ts else None,
+                        "target_created_at": item.target_date,
+                        "stock_movements_count": sm_count,
+                        "status": "READY_FOR_REMEDIATION",
+                    })
+
+            return {
+                "success": True,
+                "mode": "DRY_RUN",
+                "database": req.database,
+                "remediations_planned": len(audit_log),
+                "total_movements_planned": total_movements_affected,
+                "not_found": not_found,
+                "errors": errors,
+                "planned_items": audit_log,
+                "message": f"[DRY RUN] Audit complete. {len(audit_log)} GRNs matched ({total_movements_affected} stock movements planned), {len(not_found)} not found.",
+            }
+        else:
+            # LIVE MUTATION WITH BACKUP IN DEDICATED TRANSACTION
+            async with engine.begin() as conn:
+                # 1. Ensure backup tables exist
+                await conn.execute(text("""
+                    CREATE TABLE IF NOT EXISTS _backup_purchase_receipts_grn_date (
+                        backup_id serial PRIMARY KEY,
+                        backup_at timestamptz DEFAULT NOW(),
+                        grn_id varchar(64),
+                        receipt_no varchar(128),
+                        old_created_at timestamptz,
+                        new_created_at timestamptz
+                    );
+                """))
+                await conn.execute(text("""
+                    CREATE TABLE IF NOT EXISTS _backup_stock_movements_grn_date (
+                        backup_id serial PRIMARY KEY,
+                        backup_at timestamptz DEFAULT NOW(),
+                        movement_id varchar(64),
+                        reference_doc_id varchar(64),
+                        old_created_at timestamptz,
+                        new_created_at timestamptz
+                    );
+                """))
+
+                for item in req.corrections:
+                    sel = text("""
+                        SELECT id, receipt_no, status, created_at
+                        FROM purchase_receipts
+                        WHERE receipt_no = :rno OR id::text = :rid
+                        FOR UPDATE;
+                    """)
+                    res = await conn.execute(sel, {"rno": item.receipt_no, "rid": item.receipt_id or item.receipt_no})
+                    row = res.fetchone()
+                    if not row:
+                        not_found.append(item.receipt_no)
+                        continue
+
+                    raw_grn_id = row[0]
+                    actual_rno = row[1]
+                    old_ts = row[3]
+                    str_grn_id = str(raw_grn_id)
+
+                    # Parse target timestamp
+                    raw_target = item.target_date.strip().replace("Z", "+00:00")
+                    new_ts = datetime.fromisoformat(raw_target)
+
+                    # Backup existing state
+                    await conn.execute(text("""
+                        INSERT INTO _backup_purchase_receipts_grn_date (grn_id, receipt_no, old_created_at, new_created_at)
+                        VALUES (:gid, :rno, :old_ts, :new_ts);
+                    """), {"gid": str_grn_id, "rno": actual_rno, "old_ts": old_ts, "new_ts": new_ts})
+
+                    await conn.execute(text("""
+                        INSERT INTO _backup_stock_movements_grn_date (movement_id, reference_doc_id, old_created_at, new_created_at)
+                        SELECT id::text, reference_doc_id::text, created_at, :new_ts
+                        FROM stock_movements
+                        WHERE reference_doc_id::text = :gid OR reference_doc_id::text = :rno;
+                    """), {"gid": str_grn_id, "rno": actual_rno, "new_ts": new_ts})
+
+                    # Update purchase_receipts created_at and modified_at
+                    await conn.execute(text("""
+                        UPDATE purchase_receipts
+                        SET created_at = :new_ts, modified_at = NOW()
+                        WHERE id = :raw_gid;
+                    """), {"new_ts": new_ts, "raw_gid": raw_grn_id})
+
+                    # Update stock_movements created_at and modified_at
+                    upd_sm = await conn.execute(text("""
+                        UPDATE stock_movements
+                        SET created_at = :new_ts, modified_at = NOW()
+                        WHERE reference_doc_id::text = :gid OR reference_doc_id::text = :rno;
+                    """), {"new_ts": new_ts, "gid": str_grn_id, "rno": actual_rno})
+
+                    sm_count = upd_sm.rowcount
+                    total_movements_affected += sm_count
+
+                    audit_log.append({
+                        "grn_id": str_grn_id,
+                        "receipt_no": actual_rno,
+                        "old_created_at": old_ts.isoformat() if old_ts else None,
+                        "new_created_at": new_ts.isoformat(),
+                        "stock_movements_updated": sm_count,
+                        "status": "REMEDIATED",
+                    })
+
+            return {
+                "success": True,
+                "mode": "LIVE_COMMITTED",
+                "database": req.database,
+                "remediated_count": len(audit_log),
+                "total_movements_updated": total_movements_affected,
+                "not_found": not_found,
+                "errors": errors,
+                "remediated_items": audit_log,
+                "message": f"Successfully remediated {len(audit_log)} GRNs and {total_movements_affected} stock movements in {req.database}.",
+            }
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e),
+            "remediated_count": len(audit_log),
+            "not_found": not_found,
+            "errors": errors + [str(e)],
+        }
+    finally:
+        await engine.dispose()
+
+
+@router.post(
+    "/admin-remediate-po-dates",
+    summary="SYSADMIN: Remediate Purchase Order dates based on authoritative GRN / Bill dates",
+)
+async def admin_remediate_po_dates(
+    req: PoDateRemediationRequest,
+    current_user: User = Depends(get_current_user),
+):
+    """
+    SYSADMIN-only governed administrative endpoint.
+    Aligns historical Purchase Order creation dates with authoritative Goods Receipt Notes (GRN)
+    and vendor bill dates (timed 1 hour prior to GRN on the same day).
+    Supports dry_run=True for read-only audit inspection and dry_run=False for live
+    atomic mutation with table-level backup (_backup_purchase_orders_date).
+    """
+    verify_sysadmin_role(current_user)
+    if not DB_NAME_PATTERN.match(req.database):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid database name: {req.database}",
+        )
+
+    url = sanitize_db_url(req.database)
+    engine = create_async_engine(url, echo=False)
+    audit_log = []
+    not_found = []
+    errors = []
+
+    try:
+        if req.dry_run:
+            async with engine.connect() as conn:
+                for item in req.corrections:
+                    sel = text("""
+                        SELECT id, order_no, status, created_at, grand_total
+                        FROM purchase_orders
+                        WHERE order_no = :ono OR id::text = :oid;
+                    """)
+                    res = await conn.execute(sel, {"ono": item.order_no, "oid": item.order_id or item.order_no})
+                    row = res.fetchone()
+                    if not row:
+                        not_found.append(item.order_no)
+                        continue
+
+                    po_id = str(row[0])
+                    actual_ono = row[1]
+                    cur_ts = row[3]
+                    grand_total = float(row[4] or 0.0)
+
+                    audit_log.append({
+                        "order_id": po_id,
+                        "order_no": actual_ono,
+                        "bill_no": item.bill_no,
+                        "current_created_at": cur_ts.isoformat() if cur_ts else None,
+                        "target_created_at": item.target_date,
+                        "grand_total": grand_total,
+                        "status": "READY_FOR_REMEDIATION",
+                    })
+
+            return {
+                "success": True,
+                "mode": "DRY_RUN",
+                "database": req.database,
+                "remediations_planned": len(audit_log),
+                "not_found": not_found,
+                "errors": errors,
+                "planned_items": audit_log,
+                "message": f"[DRY RUN] Audit complete. {len(audit_log)} POs matched, {len(not_found)} not found.",
+            }
+        else:
+            # LIVE MUTATION WITH BACKUP IN DEDICATED TRANSACTION
+            async with engine.begin() as conn:
+                # 1. Ensure backup table exists
+                await conn.execute(text("""
+                    CREATE TABLE IF NOT EXISTS _backup_purchase_orders_date (
+                        backup_id serial PRIMARY KEY,
+                        backup_at timestamptz DEFAULT NOW(),
+                        po_id varchar(64),
+                        order_no varchar(128),
+                        status varchar(32),
+                        grand_total numeric(15, 2),
+                        old_created_at timestamptz,
+                        new_created_at timestamptz
+                    );
+                """))
+
+                for item in req.corrections:
+                    sel = text("""
+                        SELECT id, order_no, status, created_at, grand_total
+                        FROM purchase_orders
+                        WHERE order_no = :ono OR id::text = :oid
+                        FOR UPDATE;
+                    """)
+                    res = await conn.execute(sel, {"ono": item.order_no, "oid": item.order_id or item.order_no})
+                    row = res.fetchone()
+                    if not row:
+                        not_found.append(item.order_no)
+                        continue
+
+                    raw_po_id = row[0]
+                    actual_ono = row[1]
+                    cur_st = row[2]
+                    old_ts = row[3]
+                    grand_total = row[4]
+                    str_po_id = str(raw_po_id)
+
+                    raw_target = item.target_date.strip().replace("Z", "+00:00")
+                    new_ts = datetime.fromisoformat(raw_target)
+
+                    # Backup existing state
+                    await conn.execute(text("""
+                        INSERT INTO _backup_purchase_orders_date (po_id, order_no, status, grand_total, old_created_at, new_created_at)
+                        VALUES (:pid, :ono, :st, :gt, :old_ts, :new_ts);
+                    """), {"pid": str_po_id, "ono": actual_ono, "st": cur_st, "gt": grand_total, "old_ts": old_ts, "new_ts": new_ts})
+
+                    # Update purchase_orders created_at, submitted_at, confirmed_at, modified_at
+                    await conn.execute(text("""
+                        UPDATE purchase_orders
+                        SET created_at = :new_ts,
+                            submitted_at = :new_ts,
+                            confirmed_at = :new_ts,
+                            modified_at = NOW()
+                        WHERE id = :raw_pid;
+                    """), {"new_ts": new_ts, "raw_pid": raw_po_id})
+
+                    audit_log.append({
+                        "order_id": str_po_id,
+                        "order_no": actual_ono,
+                        "old_created_at": old_ts.isoformat() if old_ts else None,
+                        "new_created_at": new_ts.isoformat(),
+                        "status": "REMEDIATED",
+                    })
+
+            return {
+                "success": True,
+                "mode": "LIVE_COMMITTED",
+                "database": req.database,
+                "remediated_count": len(audit_log),
+                "not_found": not_found,
+                "errors": errors,
+                "remediated_items": audit_log,
+                "message": f"Successfully remediated {len(audit_log)} Purchase Orders in {req.database}.",
+            }
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e),
+            "remediated_count": len(audit_log),
+            "not_found": not_found,
+            "errors": errors + [str(e)],
+        }
+    finally:
+        await engine.dispose()
+
+
+
+

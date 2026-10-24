@@ -1,0 +1,15 @@
+{
+  "certificate_id": "PF-2026-1019-961FC2",
+  "entity": "customer",
+  "capability": "customer.crud",
+  "asset_type": "component",
+  "proposed_name": "CorporateAddressesContactsPanel.tsx",
+  "target_file_path": "src/components/customer/corporateWorkspace/CorporateAddressesContactsPanel.tsx",
+  "decision": "CREATE_APPROVED",
+  "canonical_owner": "src/components/customer/CustMasterWs.tsx",
+  "content_hash": "d42ae2078819b33f7c022c70130b00a5d6d6d9180cdfb0e9224983cc97f8be93",
+  "git_commit": "bcdcd4ff56b88e0dcc5a28515496bde4b9b95f3a",
+  "issued_at": "2026-10-19T11:10:26.429330+00:00",
+  "expires_at": "2026-10-26T11:10:26.429330+00:00",
+  "status": "ISSUED"
+}

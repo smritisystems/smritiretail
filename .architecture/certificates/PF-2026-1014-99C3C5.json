@@ -1,0 +1,15 @@
+{
+  "certificate_id": "PF-2026-1014-99C3C5",
+  "entity": "purchase",
+  "capability": "purchase.po_mode_conversion",
+  "asset_type": "service",
+  "proposed_name": "poModeConversion.ts",
+  "target_file_path": "src/components/purchase/poModeConversion.ts",
+  "decision": "CREATE_APPROVED",
+  "canonical_owner": "poModeConversion.ts",
+  "content_hash": "949761837c3c8f78bc724aa9620f5341512b8e745ff648f08b2594835764a0a1",
+  "git_commit": "92a82fb0e1af87feeb329530cde191d3e3d7c1aa",
+  "issued_at": "2026-10-14T15:44:04.248275+00:00",
+  "expires_at": "2026-10-21T15:44:04.248275+00:00",
+  "status": "ISSUED"
+}

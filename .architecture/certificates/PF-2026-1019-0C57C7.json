@@ -1,0 +1,15 @@
+{
+  "certificate_id": "PF-2026-1019-0C57C7",
+  "entity": "customer",
+  "capability": "customer.crud",
+  "asset_type": "component",
+  "proposed_name": "AddEditGstModal.tsx",
+  "target_file_path": "src/components/customer/corporateWorkspace/AddEditGstModal.tsx",
+  "decision": "CREATE_APPROVED",
+  "canonical_owner": "src/components/customer/CustMasterWs.tsx",
+  "content_hash": "fd148c5748b7a975ca1b0f4e24b53a98eb8afefe905efaf9ff60ac6d41bb5967",
+  "git_commit": "bcdcd4ff56b88e0dcc5a28515496bde4b9b95f3a",
+  "issued_at": "2026-10-19T11:10:25.775456+00:00",
+  "expires_at": "2026-10-26T11:10:25.775456+00:00",
+  "status": "ISSUED"
+}

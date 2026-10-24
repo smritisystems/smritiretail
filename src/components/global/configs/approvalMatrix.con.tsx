@@ -129,6 +129,7 @@ export const approvalMatrixConfig: MasterConfig<ApprovalMatrix> = {
   columns: [
     {
       key: "name",
+      fieldId: "approval_policy.name",
       label: "Rule Name / Details",
       width: "240px",
       sortable: true,
@@ -141,6 +142,7 @@ export const approvalMatrixConfig: MasterConfig<ApprovalMatrix> = {
     },
     {
       key: "documentType",
+      fieldId: "approval_policy.document_type",
       label: "Document Type",
       width: "150px",
       render: (val) => (
@@ -192,6 +194,7 @@ export const approvalMatrixConfig: MasterConfig<ApprovalMatrix> = {
   fields: [
     {
       name: "name",
+      fieldId: "approval_policy.name",
       label: "Rule Name",
       type: "text",
       required: true,
@@ -200,6 +203,7 @@ export const approvalMatrixConfig: MasterConfig<ApprovalMatrix> = {
     },
     {
       name: "documentType",
+      fieldId: "approval_policy.document_type",
       label: "Governed Document Type",
       type: "select",
       required: true,

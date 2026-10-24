@@ -134,7 +134,7 @@ export const DevTrackerTab: React.FC = () => {
         <div>
           <div className="flex items-center gap-2">
             <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
-            <h1 className="text-2xl font-bold font-display text-white tracking-tight">
+            <h1 className="text-2xl font-bold font-display text-theme-body tracking-tight">
               SMRITI Development Intelligence Center (SDIC)
             </h1>
           </div>
@@ -167,9 +167,9 @@ export const DevTrackerTab: React.FC = () => {
               <span>Export</span>
             </button>
             <div className="absolute right-0 mt-1.5 w-32 rounded-lg bg-theme-surface-2 border border-theme-divider shadow-xl hidden group-hover:block z-20 p-1 flex flex-col gap-0.5">
-              <button onClick={() => handleExport("json")} className="w-full text-left px-2.5 py-1.5 text-xs text-theme-muted hover:text-white hover:bg-theme-surface-hover rounded">JSON Format</button>
-              <button onClick={() => handleExport("csv")} className="w-full text-left px-2.5 py-1.5 text-xs text-theme-muted hover:text-white hover:bg-theme-surface-hover rounded">CSV Table</button>
-              <button onClick={() => handleExport("md")} className="w-full text-left px-2.5 py-1.5 text-xs text-theme-muted hover:text-white hover:bg-theme-surface-hover rounded">Markdown</button>
+              <button onClick={() => handleExport("json")} className="w-full text-left px-2.5 py-1.5 text-xs text-theme-muted hover:text-theme-body hover:bg-theme-surface-hover rounded">JSON Format</button>
+              <button onClick={() => handleExport("csv")} className="w-full text-left px-2.5 py-1.5 text-xs text-theme-muted hover:text-theme-body hover:bg-theme-surface-hover rounded">CSV Table</button>
+              <button onClick={() => handleExport("md")} className="w-full text-left px-2.5 py-1.5 text-xs text-theme-muted hover:text-theme-body hover:bg-theme-surface-hover rounded">Markdown</button>
             </div>
           </div>
         </div>
@@ -194,8 +194,8 @@ export const DevTrackerTab: React.FC = () => {
                   strokeDasharray={314.16} strokeDashoffset={314.16 - (314.16 * data.releaseScores.dhi) / 100} strokeLinecap="round" />
               </svg>
               <div className="absolute flex flex-col items-center">
-                <span className="text-3xl font-bold font-display text-white">{data.releaseScores.dhi}%</span>
-                <span className="text-[10px] font-mono font-bold bg-[#2563EB]/15 text-blue-400 px-2 py-0.5 rounded border border-[#2563EB]/25 mt-1">Grade {data.releaseScores.grade}</span>
+                <span className="text-3xl font-bold font-display text-theme-body">{data.releaseScores.dhi}%</span>
+                <span className="text-[10px] font-mono font-bold bg-theme-info-bg text-theme-primary px-2 py-0.5 rounded border border-theme-primary/25 mt-1">Grade {data.releaseScores.grade}</span>
               </div>
             </div>
           </div>
@@ -204,19 +204,19 @@ export const DevTrackerTab: React.FC = () => {
           <div className="bg-theme-surface-1 border border-theme-divider rounded-xl p-4 space-y-3.5 shadow-sm text-xs font-mono">
             <div className="flex justify-between items-center pb-2 border-b border-theme-divider/50">
               <span className="text-theme-muted">Release Score:</span>
-              <span className="font-bold text-white">{data.releaseScores.releaseScore}%</span>
+              <span className="font-bold text-theme-body">{data.releaseScores.releaseScore}%</span>
             </div>
             <div className="flex justify-between items-center pb-2 border-b border-theme-divider/50">
               <span className="text-theme-muted">Security Score:</span>
-              <span className="font-bold text-white">{data.releaseScores.securityScore}%</span>
+              <span className="font-bold text-theme-body">{data.releaseScores.securityScore}%</span>
             </div>
             <div className="flex justify-between items-center pb-2 border-b border-theme-divider/50">
               <span className="text-theme-muted">Quality Index:</span>
-              <span className="font-bold text-white">{data.releaseScores.qualityScore}%</span>
+              <span className="font-bold text-theme-body">{data.releaseScores.qualityScore}%</span>
             </div>
             <div className="flex justify-between items-center">
               <span className="text-theme-muted">Test Coverage:</span>
-              <span className="font-bold text-white">{data.releaseScores.testCoverage}%</span>
+              <span className="font-bold text-theme-body">{data.releaseScores.testCoverage}%</span>
             </div>
           </div>
 
@@ -228,15 +228,15 @@ export const DevTrackerTab: React.FC = () => {
             <div className="space-y-2.5 font-mono text-[11px] text-theme-muted">
               <div className="flex justify-between">
                 <span>Branch:</span>
-                <span className="font-semibold text-white">{data.gitInfo.branch}</span>
+                <span className="font-semibold text-theme-body">{data.gitInfo.branch}</span>
               </div>
               <div className="flex justify-between">
                 <span>Commit:</span>
-                <span className="font-semibold text-white">{data.gitInfo.lastCommitHash}</span>
+                <span className="font-semibold text-theme-body">{data.gitInfo.lastCommitHash}</span>
               </div>
               <div className="flex justify-between">
                 <span>Author:</span>
-                <span className="font-semibold text-white truncate max-w-[120px]">{data.gitInfo.lastCommitAuthor}</span>
+                <span className="font-semibold text-theme-body truncate max-w-[120px]">{data.gitInfo.lastCommitAuthor}</span>
               </div>
               <div className="flex justify-between">
                 <span>Changes:</span>
@@ -254,15 +254,15 @@ export const DevTrackerTab: React.FC = () => {
             </span>
             <div className="grid grid-cols-3 gap-2 text-center">
               <div className="bg-theme-surface-2 p-2 rounded border border-theme-divider">
-                <span className="block text-white font-bold text-sm">{data.codeHealth.todoCount}</span>
+                <span className="block text-theme-body font-bold text-sm">{data.codeHealth.todoCount}</span>
                 <span className="text-[8px] text-theme-muted uppercase">TODO</span>
               </div>
               <div className="bg-theme-surface-2 p-2 rounded border border-theme-divider">
-                <span className="block text-white font-bold text-sm">{data.codeHealth.fixmeCount}</span>
+                <span className="block text-theme-body font-bold text-sm">{data.codeHealth.fixmeCount}</span>
                 <span className="text-[8px] text-theme-muted uppercase">FIX</span>
               </div>
               <div className="bg-theme-surface-2 p-2 rounded border border-theme-divider">
-                <span className="block text-white font-bold text-sm">{data.codeHealth.hackCount}</span>
+                <span className="block text-theme-body font-bold text-sm">{data.codeHealth.hackCount}</span>
                 <span className="text-[8px] text-theme-muted uppercase">HACK</span>
               </div>
             </div>
@@ -297,15 +297,15 @@ export const DevTrackerTab: React.FC = () => {
               {activeTab === "overview" && (
                 <div className="space-y-6">
                   {/* AI Suggestions / Recommendations Panel */}
-                  <div className="bg-gradient-to-r from-blue-900/30 via-indigo-900/25 to-theme-surface-1 border border-[#2563EB]/20 rounded-xl p-6 shadow-sm">
-                    <h3 className="text-xs font-bold font-mono uppercase tracking-wider text-white mb-4 flex items-center gap-1.5">
-                      <Sparkles size={14} className="text-blue-400" /> AI Steering Intelligence Suggestions
+                  <div className="bg-theme-surface-1 border border-theme-divider rounded-xl p-6 shadow-sm">
+                    <h3 className="text-xs font-bold font-mono uppercase tracking-wider text-theme-body mb-4 flex items-center gap-1.5">
+                      <Sparkles size={14} className="text-theme-primary" /> AI Steering Intelligence Suggestions
                     </h3>
                     <div className="space-y-3.5">
                       {data.modules.slice(0, 3).map((m, idx) => (
                         <div key={idx} className="bg-theme-surface-2/60 border border-theme-divider/70 p-4 rounded-lg flex items-start justify-between gap-4">
                           <div>
-                            <span className="px-2 py-0.5 bg-[#2563EB]/10 border border-[#2563EB]/20 text-[9px] font-mono text-blue-400 font-bold rounded uppercase">
+                            <span className="px-2 py-0.5 bg-theme-info-bg border border-theme-primary/20 text-[9px] font-mono text-theme-primary font-bold rounded uppercase">
                               {m.name} module
                             </span>
                             <p className="text-xs text-theme-muted mt-2 leading-relaxed">
@@ -313,9 +313,9 @@ export const DevTrackerTab: React.FC = () => {
                             </p>
                           </div>
                           <span className={`px-2 py-0.5 rounded text-[9px] font-mono font-bold uppercase shrink-0 ${
-                            m.riskRating === "Critical" ? "bg-rose-500/10 text-rose-400 border border-rose-500/20" : 
-                            m.riskRating === "High" ? "bg-amber-500/10 text-amber-400 border border-amber-500/20" : 
-                            "bg-indigo-500/10 text-indigo-400 border border-indigo-500/20"
+                            m.riskRating === "Critical" ? "bg-theme-error-bg text-theme-error border border-theme-error/20" : 
+                            m.riskRating === "High" ? "bg-theme-warning-bg text-theme-warning border border-theme-warning/20" : 
+                            "bg-theme-info-bg text-theme-primary border border-theme-primary/20"
                           }`}>
                             {m.riskRating === "Critical" ? "High Priority" : m.riskRating === "High" ? "Medium Priority" : "Standard"}
                           </span>
@@ -326,13 +326,13 @@ export const DevTrackerTab: React.FC = () => {
 
                   {/* Summary progress bars */}
                   <div className="bg-theme-surface-1 border border-theme-divider rounded-xl p-6 shadow-sm space-y-4 font-mono text-xs">
-                    <h3 className="text-xs font-bold font-display text-white pb-2 border-b border-theme-divider/40">Subsystem Completions Breakdown</h3>
+                    <h3 className="text-xs font-bold font-display text-theme-body pb-2 border-b border-theme-divider/40">Subsystem Completions Breakdown</h3>
                     
                     <div className="space-y-3">
                       <div>
                         <div className="flex justify-between mb-1.5">
                           <span className="text-theme-muted">Frontend Completeness Score:</span>
-                          <span className="text-white font-bold">{Math.round(data.releaseScores.developmentScore)}%</span>
+                          <span className="text-theme-body font-bold">{Math.round(data.releaseScores.developmentScore)}%</span>
                         </div>
                         <div className="h-2 w-full bg-theme-surface-2 rounded-full overflow-hidden">
                           <div className="h-full bg-blue-500" style={{ width: `${data.releaseScores.developmentScore}%` }}></div>
@@ -342,7 +342,7 @@ export const DevTrackerTab: React.FC = () => {
                       <div>
                         <div className="flex justify-between mb-1.5">
                           <span className="text-theme-muted">Security Check Integrations:</span>
-                          <span className="text-white font-bold">{data.releaseScores.securityScore}%</span>
+                          <span className="text-theme-body font-bold">{data.releaseScores.securityScore}%</span>
                         </div>
                         <div className="h-2 w-full bg-theme-surface-2 rounded-full overflow-hidden">
                           <div className="h-full bg-indigo-500" style={{ width: `${data.releaseScores.securityScore}%` }}></div>
@@ -352,7 +352,7 @@ export const DevTrackerTab: React.FC = () => {
                       <div>
                         <div className="flex justify-between mb-1.5">
                           <span className="text-theme-muted">Technical documentation index:</span>
-                          <span className="text-white font-bold">{data.releaseScores.documentation}%</span>
+                          <span className="text-theme-body font-bold">{data.releaseScores.documentation}%</span>
                         </div>
                         <div className="h-2 w-full bg-theme-surface-2 rounded-full overflow-hidden">
                           <div className="h-full bg-emerald-500" style={{ width: `${data.releaseScores.documentation}%` }}></div>
@@ -394,18 +394,18 @@ export const DevTrackerTab: React.FC = () => {
                       <tbody className="divide-y divide-theme-divider">
                         {filteredModules.map(m => (
                           <tr key={m.id} className="hover:bg-theme-surface-hover/30">
-                            <td className="p-3 font-semibold text-white font-display">{m.name}</td>
+                            <td className="p-3 font-semibold text-theme-body font-display">{m.name}</td>
                             <td className="p-3 text-theme-muted font-mono">{m.category}</td>
                             <td className="p-3">
                               <span className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase ${
-                                m.riskRating === "Critical" ? "bg-rose-500/10 text-rose-400 border border-rose-500/20" : 
-                                m.riskRating === "High" ? "bg-amber-500/10 text-amber-400 border border-amber-500/20" : 
+                                m.riskRating === "Critical" ? "bg-theme-error-bg text-theme-error border border-theme-error/20" : 
+                                m.riskRating === "High" ? "bg-theme-warning-bg text-theme-warning border border-theme-warning/20" : 
                                 "bg-theme-surface-3 text-theme-muted border border-theme-divider"
                               }`}>
                                 {m.riskRating}
                               </span>
                             </td>
-                            <td className="p-3 font-mono font-bold text-white">{m.overallPercentage}%</td>
+                            <td className="p-3 font-mono font-bold text-theme-body">{m.overallPercentage}%</td>
                           </tr>
                         ))}
                       </tbody>
@@ -430,7 +430,7 @@ export const DevTrackerTab: React.FC = () => {
                     <tbody className="divide-y divide-theme-divider font-mono text-theme-muted">
                       {data.modules.map(m => (
                         <tr key={m.id} className="hover:bg-theme-surface-hover/30">
-                          <td className="p-3 font-semibold text-white font-display">{m.name}</td>
+                          <td className="p-3 font-semibold text-theme-body font-display">{m.name}</td>
                           <td className="p-3">{m.uiDesigned ? "✅ Yes" : "❌ No"}</td>
                           <td className="p-3">{m.frontendStarted ? "✓ Started" : "✕"}</td>
                           <td className="p-3">{m.frontendComplete ? "✓ Complete" : "✕"}</td>
@@ -458,7 +458,7 @@ export const DevTrackerTab: React.FC = () => {
                     <tbody className="divide-y divide-theme-divider font-mono text-theme-muted">
                       {data.modules.map(m => (
                         <tr key={m.id} className="hover:bg-theme-surface-hover/30">
-                          <td className="p-3 font-semibold text-white font-display">{m.name}</td>
+                          <td className="p-3 font-semibold text-theme-body font-display">{m.name}</td>
                           <td className="p-3">{m.apiComplete ? "✅ Routes Connected" : "❌ Routes Missing"}</td>
                           <td className="p-3">{m.businessLogicComplete ? "✓ Mapped" : "✕"}</td>
                           <td className="p-3">{m.validationComplete ? "✓ Active Checks" : "✕"}</td>
@@ -474,7 +474,7 @@ export const DevTrackerTab: React.FC = () => {
               {activeTab === "tests" && (
                 <div className="space-y-4">
                   <div className="bg-theme-surface-1 border border-theme-divider rounded-xl p-5 shadow-sm space-y-3 text-xs font-mono">
-                    <h3 className="font-bold text-white flex items-center gap-1.5 uppercase font-display border-b border-theme-divider/40 pb-2">
+                    <h3 className="font-bold text-theme-body flex items-center gap-1.5 uppercase font-display border-b border-theme-divider/40 pb-2">
                       <ShieldCheck size={16} className="text-emerald-400" /> Automated Test Registry Summary
                     </h3>
                     <div className="space-y-2.5 text-theme-muted">
@@ -493,7 +493,7 @@ export const DevTrackerTab: React.FC = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-xs">
                   {/* Large Components warning list */}
                   <div className="bg-theme-surface-1 border border-theme-divider rounded-xl p-5 shadow-sm space-y-3 font-mono">
-                    <h3 className="font-bold text-white uppercase font-display border-b border-theme-divider pb-2 flex items-center gap-1.5">
+                    <h3 className="font-bold text-theme-body uppercase font-display border-b border-theme-divider pb-2 flex items-center gap-1.5">
                       <AlertTriangle size={15} className="text-amber-500" /> Large components (&gt; 500 lines)
                     </h3>
                     {data.codeHealth.largeComponents.length > 0 ? (
@@ -511,7 +511,7 @@ export const DevTrackerTab: React.FC = () => {
 
                   {/* Unused APIs List */}
                   <div className="bg-theme-surface-1 border border-theme-divider rounded-xl p-5 shadow-sm space-y-3 font-mono">
-                    <h3 className="font-bold text-white uppercase font-display border-b border-theme-divider pb-2 flex items-center gap-1.5">
+                    <h3 className="font-bold text-theme-body uppercase font-display border-b border-theme-divider pb-2 flex items-center gap-1.5">
                       <AlertTriangle size={15} className="text-amber-500" /> Unused API Routers
                     </h3>
                     {data.codeHealth.unusedApis.length > 0 ? (
@@ -532,16 +532,16 @@ export const DevTrackerTab: React.FC = () => {
               {/* RELEASE READINESS PANEL */}
               {activeTab === "readiness" && (
                 <div className="bg-theme-surface-1 border border-theme-divider rounded-xl p-6 shadow-sm space-y-4">
-                  <h3 className="font-bold text-white uppercase tracking-wider font-display border-b border-theme-divider pb-2.5">Release Readiness Auditing</h3>
+                  <h3 className="font-bold text-theme-body uppercase tracking-wider font-display border-b border-theme-divider pb-2.5">Release Readiness Auditing</h3>
                   
                   <div className="p-4 bg-theme-surface-2 rounded-lg border border-theme-divider flex items-center justify-between gap-4">
                     <div>
-                      <h4 className="font-bold text-sm text-white font-display">Target Version Profile: v{data.gitInfo.releaseVersion}</h4>
-                      <p className="text-xs text-theme-muted mt-1 font-mono">Calculated DHI health limits are evaluated against standard release rules.</p>
+                      <h4 className="font-bold text-sm text-theme-body font-display">Target Version Profile: v{data.gitInfo.releaseVersion}</h4>
+                      <p className="text-xs text-theme-muted mt-1 font-mono">Heuristic assessment only. Release decisions require CI, security, migration, and smoke-test evidence.</p>
                     </div>
                     
-                    <span className="px-3 py-1.5 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-lg font-bold font-mono uppercase text-xs">
-                      🚀 Approved for staging
+                    <span className="px-3 py-1.5 bg-theme-warning-bg border border-theme-warning/20 text-theme-warning rounded-lg font-bold font-mono uppercase text-xs">
+                      Assessment only
                     </span>
                   </div>
                 </div>
@@ -550,7 +550,7 @@ export const DevTrackerTab: React.FC = () => {
               {/* HISTORY LINE CHART */}
               {activeTab === "history" && (
                 <div className="bg-theme-surface-1 border border-theme-divider rounded-xl p-6 shadow-sm space-y-4">
-                  <h3 className="font-bold text-white uppercase tracking-wider font-display border-b border-theme-divider pb-2.5">DHI Health Index Progress History</h3>
+                  <h3 className="font-bold text-theme-body uppercase tracking-wider font-display border-b border-theme-divider pb-2.5">DHI Health Index Progress History</h3>
                   
                   <div className="w-full h-72">
                     <ResponsiveContainer width="100%" height="100%">
@@ -558,10 +558,10 @@ export const DevTrackerTab: React.FC = () => {
                         { timestamp: "2026-07-10", dhi: 70, qualityScore: 80, releaseScore: 72 },
                         { timestamp: new Date().toISOString().split("T")[0], dhi: data.releaseScores.dhi, qualityScore: data.releaseScores.qualityScore, releaseScore: data.releaseScores.releaseScore }
                       ]}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#25355a" />
-                        <XAxis dataKey="timestamp" stroke="#68738D" fontSize={10} />
-                        <YAxis stroke="#68738D" fontSize={10} />
-                        <ChartTooltip contentStyle={{ backgroundColor: "#1e293b", borderColor: "#334155" }} />
+                        <CartesianGrid strokeDasharray="3 3" stroke="var(--c-theme-divider)" />
+                        <XAxis dataKey="timestamp" stroke="var(--c-theme-chart-axis)" fontSize={10} />
+                        <YAxis stroke="var(--c-theme-chart-axis)" fontSize={10} />
+                        <ChartTooltip contentStyle={{ backgroundColor: "var(--c-theme-surface-1)", borderColor: "var(--c-theme-divider)", color: "var(--c-theme-body)" }} />
                         <Legend wrapperStyle={{ fontSize: 11 }} />
                         <Line type="monotone" dataKey="dhi" stroke="#3b82f6" name="DHI score" strokeWidth={2.5} activeDot={{ r: 6 }} />
                         <Line type="monotone" dataKey="qualityScore" stroke="#10b981" name="Quality Score" strokeWidth={1.5} />

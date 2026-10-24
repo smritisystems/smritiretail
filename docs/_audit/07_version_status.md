@@ -1,10 +1,10 @@
-﻿<!--
+<!--
   Project      : SMRITI Retail OS
   Author       : Jawahar Ramkripal Mallah
   Email        : support@smritibooks.com
-  Version      : 3.16.0
+  Version      : 3.30.0
   Created      : 2026-08-17
-  Modified     : 2026-08-17
+  Modified     : 2026-09-09
   Copyright    : (c) SMRITIBooks.com. All Rights Reserved.
   License      : Proprietary Commercial Software
   Classification: Internal -- Audit Artifact
@@ -127,3 +127,46 @@
 ### Finding: backend/tests/conftest.py is untracked (not committed).
 ### Integration tests in backend/tests/ may depend on this file.
 ### Status: UNVERIFIED (file exists on disk but not in git -- could be inadvertent or intentional)
+
+---
+
+## RESOLUTION LOG — Production Readiness Sprint v3.30.0 (2026-09-09)
+
+### CLOSED: Version Drift Finding (Section 1)
+
+**Evidence:**
+```
+package.json         : "version": "3.30.0"   [canonical SSOT]
+src/config/version.ts: APP_VERSION = "3.30.0"  [was 3.29.0 — FIXED]
+backend/app/core/config.py: VERSION = "3.30.0" [was 3.16.0 — FIXED]
+vite.config.ts header: Version : 3.30.0        [was 3.17.0 — FIXED]
+```
+**Interpretation:** All four runtime-relevant version locations now agree. File-header UADHP versions in individual source files legitimately differ (per-file tracking) and are excluded from the SSOT requirement. `db_provisioner.py` `schema_version: 6.16.0` is the highest applied Alembic revision, not the app version — correctly left unchanged.
+**Status: Done** — Verified 2026-09-09 via PowerShell version audit script.
+
+---
+
+### CLOSED: TypeScript Error Finding
+
+**Evidence:**
+```
+Command: npx tsc --noEmit 2>&1 | Measure-Object -Line
+Output:
+Lines Words Characters Property
+----- ----- ---------- --------
+    0
+```
+**Interpretation:** 0 lines of output = 0 TypeScript errors. Both `loyaltyTierEngine.ts` (10,917 bytes) and `rmaEngine.ts` (7,622 bytes) exist in `src/utils/`. The external rating's finding of 162 TS errors and missing engine files reflects a prior state that has since been remediated.
+**Status: Done** — Verified 2026-09-09.
+
+---
+
+### CLOSED: Secrets Hygiene Finding
+
+**Evidence:**
+```
+Command: Get-Content .env | Select-String "fallback|sgip_vault_master_secret|9a12c418"
+Output: (empty — 0 matches)
+```
+New secrets are 256-bit (64 hex chars) random values. Rotation procedure documented in `SECRETS_NOTICE.md`.
+**Status: Done** — Verified 2026-09-09.

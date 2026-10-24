@@ -1,0 +1,510 @@
+<!doctype HTML public "-//W3C//DTD HTML 4.0 Frameset//EN">
+
+<html>
+
+<head>
+<title>Release Notes 1.4</title>
+<meta http-equiv="content-type" content="text/html; charset=windows-1252">
+<meta name="generator" content="RoboHelp by eHelp Corporation www.ehelp.com">
+<link rel="StyleSheet" href="../Shoper.css"><style title="hcp" type="text/css">
+<!--
+span.hcp1 { font-weight:bold; }
+-->
+</style>
+</head>
+<body>
+<h1>New Features in Shoper 9 POS Series A Release 1.4</h1>
+
+<p class=Body-Text>Enhancements:</p>
+
+<ul>
+	
+	<li class=kadov-p-Cbullet><p class=bullet><a href="#Installation_ENH">Installation</a></p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet><a href="#SalesPromo_ENH">Sales 
+ Promotion</a></p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet><a href="#PriceRevAuthorise_ENH">Price 
+ Revision Authorisation</a></p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet><a href="#ImportExport_ENH">Import 
+ and Export</a></p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet><a href="#Licensing_ENH">Licensing</a></p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet><a href="#Help_ENH">Help</a></p></li>
+</ul>
+
+<p class=Body-Text>Issues Resolved:</p>
+
+<ul>
+	
+	<li class=kadov-p-Cbullet><p class=bullet><a href="#Billing_ISR">Billing</a></p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet><a href="#BillPrint_ISR">Bill 
+ Printing</a></p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet><a href="#SalesSlips_ISR">Sales 
+ Slips</a></p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet><a href="#ExtensionFwk_ISR">Extension 
+ Framework</a></p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet><a href="#GoodsInwards_ISR">Goods 
+ Inwards</a></p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet><a href="#PhysicalStkTake_ISR">Physical 
+ Stock Take</a></p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet><a href="#DataCom_ISR">Data 
+ Communication</a></p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet><a href="#Catalogue_ISR">Catalogue</a></p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet><a href="#Setup_ISR">Setup</a></p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet><a href="#Housekeeping_ISR">Housekeeping</a></p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet><a href="#Reports_ISR">Reports</a></p></li>
+</ul>
+
+<h2>Enhancements</h2>
+
+<h3><a name=Installation_ENH>Installation</a></h3>
+
+<ul>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>The process of Installation, 
+ Migration and Restoration is simplified in Shoper 9 Series A Release 1.4. 
+ Now you are able to install, migrate and restore with minimal user input.</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>During Shoper 9 POS installation, 
+ if earlier version of Shoper installation is found then the installer 
+ will prompt for migration process. If earlier version of Shoper is with 
+ <span class="hcp1">MSDE</span>, Shoper 9 installer will 
+ install <span class="hcp1">SQL Server 2005 Express</span> 
+ edition automatically.</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Company creation is simplified 
+ by minimising the number of steps and user inputs.</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Provision for setting <span class="hcp1">Shoper Open Date</span> is provided in company 
+ creation process. Now, you need not go to the system parameter for setting 
+ <span class="hcp1">Shoper Open Date</span>.</p></li>
+</ul>
+
+<h3><a name=SalesPromo_ENH>Sales Promotion</a></h3>
+
+<ul>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Defining sales promotion 
+ has been made extremely simple by a new user interface. Some of the capabilities 
+ provided in this enhanced definition method are:</p></li>
+	
+	<ul>
+		
+		<li style="list-style: circle;"
+			type=circle
+			class=kadov-p-CBody-Text><p class=Body-Text>Capability to define 
+ promotions based on any of the item classifications configured in Shoper 
+ 9.</p></li>
+		
+		<li class=kadov-p-CBody-Text><p class=Body-Text>The definition 
+ details like selection of the promotion type, configuration details and 
+ header details pertaining to the previous definition are preserved for 
+ use in new definition. This reduces the user inputs.</p></li>
+		
+		<li class=kadov-p-CBody-Text><p class=Body-Text>Optimisation in 
+ terms of speed when loading large number of items from an external file 
+ (CSV).</p></li>
+		
+		<li class=kadov-p-CBody-Text><p class=Body-Text>Supports concurrent 
+ definition by multiple users.</p></li>
+	</ul>
+</ul>
+
+<h3><a name=PriceRevAuthorise_ENH>Price Revision Authorisation</a></h3>
+
+<ul>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>A new option <span class="hcp1">Price 
+ Revision Authorisation</span> under <span class="hcp1">Setup 
+ &gt; Supervisory Functions</span> is provided to authorise the price revisions 
+ that are imported from Head Office (HO). Authorisation can be configured 
+ to be automatic or manual.</p></li>
+</ul>
+
+<h3><a name=ImportExport_ENH>Import and Export</a></h3>
+
+<ul>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>The price revision program 
+ has been enhanced to import attribute level based price revisions instead 
+ of stock number based data.</p></li>
+</ul>
+
+<h3><a name=Licensing_ENH>Licensing</a></h3>
+
+<ul>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Shoper 9 Licensing has been 
+ enhanced so make it is easier to use and faster to configure; and also 
+ gives a better user experience.</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Other enhancements incorporated 
+ in licensing are:</p></li>
+</ul>
+
+<ol style="list-style: circle;"
+	type=circle>
+	
+	<ul style="list-style: circle;"
+		type=circle>
+		
+		<li class=kadov-p-CBody-Text><p class=Body-Text>On invoking Shoper 
+ 9 if license is not activated, <span class="hcp1">Manage 
+ License</span> window appears. License can be activated using this window 
+ or may use Shoper 9 in evaluation mode by selecting <span class="hcp1">Work 
+ in Evaluation Mode</span>.</p></li>
+		
+		<li class=kadov-p-CBody-Text><p class=Body-Text>Number of steps 
+ involved in activation and reactivation of Shoper 9 license is minimised.</p></li>
+		
+		<li class=kadov-p-CBody-Text><p class=Body-Text>The form for activating 
+ additional site can be reached in a single click.</p></li>
+		
+		<li class=kadov-p-CBody-Text><p class=Body-Text>Single form is 
+ provided to activate <span class="hcp1">Single Site</span> 
+ and <span class="hcp1">Promotional Rental License</span>.</p></li>
+		
+		<li class=kadov-p-CBody-Text><p class=Body-Text>Reactivation of 
+ license has become a single step process and the option <span class="hcp1">Unlock 
+ License</span> is eliminated.</p></li>
+		
+		<li class=kadov-p-CBody-Text><p class=Body-Text>Reactivation of 
+ license can be done only using site administrator's e-mail Id.</p></li>
+		
+		<li class=kadov-p-CBody-Text><p class=Body-Text>During reactivation, 
+ of a license associated with multiple accounts or multiple sites, then 
+ available sites are displayed for selection, based on the e-mail Id provided.</p></li>
+		
+		<li class=kadov-p-CBody-Text><p class=Body-Text>In case of a license 
+ failure, the system detects and lists the problems, and also displays 
+ the cause and possible solutions to the problem.</p></li>
+	</ul>
+</ol>
+
+<h3><a name=Help_ENH>Help</a></h3>
+
+<ul>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Shoper 9 is enhanced to allow 
+ access to <span class="hcp1">Live Chat</span> from menu. 
+ You can now chat with our customer support executive online, without the 
+ hassle of switching applications.</p></li>
+</ul>
+
+<h2>Issues Resolved</h2>
+
+<h3><a name=Billing_ISR>Billing</a></h3>
+
+<ul>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>A price factor applied in 
+ sales slips was getting applied again when recalled in billing.</p></li>
+</ul>
+
+<p class=bullet
+	style="margin-left: 64px;">This issue has been resolved.</p>
+
+<ul>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>The net sales value in billing 
+ was negative when a fixed item level discount was applied on an item whose 
+ rate is lesser than the maximum discount limit.</p></li>
+</ul>
+
+<p class=bullet
+	style="margin-left: 64px;">This issue has been resolved.</p>
+
+<ul>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>The total column in item 
+ selection grid displayed an amount less than the actual rate of item even 
+ though no discount was applied. This was experienced when multiple item 
+ level discounts were defined.</p></li>
+</ul>
+
+<p class=bullet
+	style="margin-left: 64px;">This issue has been resolved.</p>
+
+<ul>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Shoper 9 POS did not allow 
+ to enter sales man name in the item selection grid (in bill) post release 
+ 1.3.</p></li>
+</ul>
+
+<p class=bullet
+	style="margin-left: 64px;">This issue has been resolved.</p>
+
+<ul>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>After recording a sales return/exchange 
+ transaction (with reference), an exchange bill was not generated even 
+ though the tax code is catalogued.</p></li>
+</ul>
+
+<p class=bullet
+	style="margin-left: 64px;">This issue has been resolved.</p>
+
+<h3><a name=BillPrint_ISR>Bill Printing</a></h3>
+
+<ul>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>An error message was displayed 
+ during bill printing when special characters were found in the customer’s 
+ name in the customer catalogue or due to a mismatch in the customer’s 
+ name in the master tables.</p></li>
+</ul>
+
+<p class=bullet
+	style="margin-left: 64px;">This issue has been resolved.</p>
+
+<ul>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>The current DC printing format 
+ has been redesigned to optimise space usage in the printed copy.</p></li>
+</ul>
+
+<h3><a name=SalesSlips_ISR>Sales Slips</a></h3>
+
+<ul>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>A file containing stock numbers 
+ with quantity is not being imported in Sales slips post release 1.3.</p></li>
+</ul>
+
+<p class=bullet
+	style="margin-left: 64px;">This issue has been resolved.</p>
+
+<ul>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>It was not possible to select 
+ the values in the fields Trail Date and Delivery Date in Sales slips.</p></li>
+</ul>
+
+<p class=bullet
+	style="margin-left: 64px;">This issue has been resolved.</p>
+
+<ul>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>When the quantity of an item 
+ selected in Sales DC was equal to its balance quantity it could not be 
+ recalled in a Bill.</p></li>
+</ul>
+
+<p class=bullet
+	style="margin-left: 64px;">This issue has been resolved.</p>
+
+<ul>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Sales Advice Slips, Sales 
+ Order, Service Order and Sales DC have been enhanced by allowing edit 
+ option to add/remove items and alter quantity.</p></li>
+</ul>
+
+<h3><a name=ExtensionFwk_ISR>Extension Framework</a></h3>
+
+<ul>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>The action for the <span class="hcp1">Return Value</span> 30 (Stop Process) from 
+ <span class="hcp1">Extension Framework</span> has now been 
+ enhanced in <span class="hcp1">Goods Inwards</span>. The 
+ entries made in Goods Inwards can be edited and the process can be continued.</p></li>
+</ul>
+
+<h3><a name=GoodsInwards_ISR>Goods Inwards</a></h3>
+
+<ul>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>On deleting a stock number 
+ from the grid, the details of that item was being saved with a blank stock 
+ number.</p></li>
+</ul>
+
+<p class=bullet
+	style="margin-left: 64px;">This issue has been resolved.</p>
+
+<h3><a name=PhysicalStkTake_ISR>Physical Stock Take</a></h3>
+
+<ul>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Incorrect values were displayed 
+ in the <span class="hcp1">Phy. Vs Computed Stock Report</span> 
+ on selecting <span class="hcp1">Summary</span> and <span class="hcp1">All Stock Nos</span>.</p></li>
+</ul>
+
+<p class=bullet
+	style="margin-left: 64px;">This issue has been resolved.</p>
+
+<ul>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>The counter number was not 
+ updated correctly on performing <span class="hcp1">Discrepancy 
+ Update</span>. Due to this, the <span class="hcp1">Phystocktakingitembkup</span> 
+ table was not synchronising after a physical stock take.</p></li>
+</ul>
+
+<p class=bullet
+	style="margin-left: 64px;">This issue has been resolved.</p>
+
+<h3><a name=DataCom_ISR>Data Communication</a></h3>
+
+<ul>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>Shoper 9 POS was not able 
+ to download data from Outlook Express when the mail sent from Shoper 9 
+ HO contained multiple attachments.</p></li>
+</ul>
+
+<p class=bullet
+	style="margin-left: 64px;">This issue has been resolved.</p>
+
+<h3><a name=Catalogue_ISR>Catalogue</a></h3>
+
+<ul>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>When customer details are 
+ edited, the corresponding mailing list details were being deleted.</p></li>
+</ul>
+
+<p class=bullet
+	style="margin-left: 64px;">This issue has been resolved.</p>
+
+<ul>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>While editing customer details, 
+ a runtime error was being displayed if any description was of length more 
+ than 16 characters.</p></li>
+</ul>
+
+<p class=bullet
+	style="margin-left: 64px;">This issue has been resolved.</p>
+
+<ul>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>While adding item master 
+ details, if any description field contains special characters, the records 
+ were not getting saved and no message about this was displayed.</p></li>
+</ul>
+
+<p class=bullet
+	style="margin-left: 64px;">This issue has been resolved.</p>
+
+<h3><a name=Setup_ISR>Setup</a></h3>
+
+<ul>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>It was difficult to view 
+ lengthy Item Description in the Item Browse window.</p></li>
+</ul>
+
+<p class=bullet
+	style="margin-left: 64px;">This issue has been resolved. </p>
+
+<p class=bullet
+	style="margin-left: 64px;">Now the Item Description field is set to 
+ fit the length of the description.</p>
+
+<h3><a name=Housekeeping_ISR>Housekeeping</a></h3>
+
+<ul>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>During Backup / Restore / 
+ Day End, if temporary backup folder is not present in the application 
+ folder then it was not getting created.</p></li>
+</ul>
+
+<p class=bullet
+	style="margin-left: 64px;">This issue has been resolved. </p>
+
+<p class=bullet
+	style="margin-left: 64px;">Now Shoper 9 POS will create temporary backup 
+ folder in the application folder, if required.</p>
+
+<h3><a name=Reports_ISR>Reports</a></h3>
+
+<h4 style="margin-left: 64px;">Stock Reports</h4>
+
+<ul>
+	
+	<ul>
+		
+		<li class=kadov-p-Cbullet><p class=bullet>Error occurred while 
+ trying to <span class="hcp1">View the Attribute + Sizewise 
+ Report</span> without selecting any Analysis code.</p></li>
+	</ul>
+</ul>
+
+<p class=bullet
+	style="margin-left: 104px;">This issue has been resolved.</p>
+
+<ul>
+	
+	<ul>
+		
+		<li class=kadov-p-Cbullet><p class=bullet>The <span class="hcp1">Balance 
+ - Style / Model wise</span> report could not be viewed if <span class="hcp1">Specific</span> 
+ classification filter for <span class="hcp1">Product</span> 
+ and <span class="hcp1">Brand</span> was applied.</p></li>
+	</ul>
+	
+	<ul>
+		
+		<li class=kadov-p-Cbullet><p class=bullet>The <span class="hcp1">Transaction 
+ wise Goods Register Report</span> took a while to open.</p></li>
+	</ul>
+</ul>
+
+<p class=bullet
+	style="margin-left: 104px;">This issue has been resolved.</p>
+
+<p class=bullet
+	style="margin-left: 104px;">Report optimisation has now been done to 
+ reduce the report opening time.</p>
+
+<ul>
+	
+	<ul>
+		
+		<li class=kadov-p-Cbullet><p class=bullet>On selecting a specific 
+ <span class="hcp1">Supplier</span> in the report <span class="hcp1">Transaction 
+ Wise Goods Register</span>, the report could not be opened for <span class="hcp1">Miscellaneous</span> 
+ transactions.</p></li>
+	</ul>
+</ul>
+
+<p class=bullet
+	style="margin-left: 104px;">This issue has been resolved.</p>
+
+<ul>
+	
+	<ul>
+		
+		<li class=kadov-p-Cbullet><p class=bullet>Only 7 digits of the 
+ supplier codes were displayed in the report <span class="hcp1">Transaction 
+ Wise Goods Register</span>.</p></li>
+	</ul>
+</ul>
+
+<p class=bullet
+	style="margin-left: 104px;">This issue has been resolved. </p>
+
+<p class=bullet
+	style="margin-left: 104px;">Now, a 16 digit code can be displayed.</p>
+
+<p class=Body-Text>&nbsp;</p>
+
+</body>
+</html>

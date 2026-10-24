@@ -1,0 +1,15 @@
+{
+  "certificate_id": "PF-2026-1013-CE7597",
+  "entity": "item",
+  "capability": "item.price_revision",
+  "asset_type": "component",
+  "proposed_name": "BulkPriceRevisionWorkflow.tsx",
+  "target_file_path": "src/components/pricing/BulkPriceRevisionWorkflow.tsx",
+  "decision": "CREATE_APPROVED",
+  "canonical_owner": "BulkPriceRevisionWorkflow.tsx",
+  "content_hash": "f1676f6cefc7b98c19f38e41bcf9c3df3b1c7e6282b72164c690e472e0171613",
+  "git_commit": "5932ba64e4148721b2e5a3f799a4dce6e006d245",
+  "issued_at": "2026-10-13T17:57:20.902448+00:00",
+  "expires_at": "2026-10-20T17:57:20.902448+00:00",
+  "status": "ISSUED"
+}

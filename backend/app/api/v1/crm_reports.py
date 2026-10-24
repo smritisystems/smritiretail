@@ -243,6 +243,8 @@ async def customer_outstanding(
     if customer_id:
         clauses.append("si.customer_id = :customer_id")
         params["customer_id"] = customer_id
+    if overdue_only:
+        clauses.append("COALESCE(si.date, CURRENT_DATE) + INTERVAL '30 days' < CURRENT_DATE")
 
     where = " AND ".join(clauses)
     sql = f"""
@@ -250,15 +252,15 @@ async def customer_outstanding(
             si.customer_id,
             COALESCE(si.customer_name, c.name, 'Unknown') AS customer_name,
             COUNT(si.id)                                   AS invoice_count,
-            SUM(si.grand_total)                            AS total_invoiced,
-            SUM(COALESCE(si.grand_total, 0))               AS outstanding,
+            SUM(COALESCE(si.grand_total, 0))               AS total_invoiced,
+            SUM(GREATEST(COALESCE(si.grand_total, 0) - COALESCE(si.paid_amount, 0), 0)) AS outstanding,
             MIN(si.date)                                   AS oldest_invoice,
             MAX(si.date)                                   AS latest_invoice
         FROM sales_invoices si
         LEFT JOIN customers c ON c.id = si.customer_id
         WHERE {where}
         GROUP BY si.customer_id, customer_name
-        HAVING SUM(COALESCE(si.grand_total, 0)) > 0
+        HAVING SUM(GREATEST(COALESCE(si.grand_total, 0) - COALESCE(si.paid_amount, 0), 0)) > 0
         ORDER BY outstanding DESC
         LIMIT 500
     """

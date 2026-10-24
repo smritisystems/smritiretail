@@ -1,0 +1,15 @@
+{
+  "certificate_id": "PF-2026-1016-F45288",
+  "entity": "purchase",
+  "capability": "purchase.procurement_phase2_api",
+  "asset_type": "api",
+  "proposed_name": "backend/app/api/v1/procurement_phase2.py",
+  "target_file_path": "backend/app/api/v1/procurement_phase2.py",
+  "decision": "CREATE_APPROVED",
+  "canonical_owner": "backend/app/api/v1/procurement_phase2.py",
+  "content_hash": "246ebcac6bee09b80e6743e663c5bf652a606e8050432f67b7c3307cbfbcda4f",
+  "git_commit": "d31f67424fa8d2d51e3dfa79fff72d71e08210e1",
+  "issued_at": "2026-10-16T08:45:31.733610+00:00",
+  "expires_at": "2026-10-23T08:45:31.733610+00:00",
+  "status": "ISSUED"
+}

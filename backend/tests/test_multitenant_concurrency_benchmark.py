@@ -26,6 +26,7 @@ from app.models.inventory import Product
 from app.models.sync import POSOfflineSyncQueue
 from app.schemas.sync import SyncBatchRequest, SyncOperationItem
 from app.services.conflict_engine import OfflineConflictResolutionEngine
+from conftest import utmih_delete_stock_movements
 
 
 class BenchmarkMemoryStore:
@@ -265,7 +266,7 @@ async def test_04_concurrent_offline_batch_ingestion_throughput():
         async with sessionmaker() as cleanup_session:
             from sqlalchemy import text
             await cleanup_session.execute(text("DELETE FROM sales_invoice_items WHERE invoice_id IN (SELECT id FROM sales_invoices WHERE invoice_no LIKE 'OFF-T%');"))
-            await cleanup_session.execute(text("DELETE FROM stock_movements WHERE reference_doc_id IN (SELECT id FROM sales_invoices WHERE invoice_no LIKE 'OFF-T%') OR product_id = :prod_id;"), {"prod_id": prod_id})
+            await utmih_delete_stock_movements(cleanup_session, "reference_doc_id IN (SELECT id FROM sales_invoices WHERE invoice_no LIKE 'OFF-T%') OR product_id = :prod_id", {"prod_id": prod_id})
             await cleanup_session.execute(text("DELETE FROM sales_invoices WHERE invoice_no LIKE 'OFF-T%';"))
             await cleanup_session.execute(text("DELETE FROM pos_offline_sync_queue WHERE terminal_id LIKE 'POS-%';"))
             await cleanup_session.execute(text("DELETE FROM product_batch_stocks WHERE product_id = :prod_id;"), {"prod_id": prod_id})

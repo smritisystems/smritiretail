@@ -15,6 +15,7 @@
 import React, { useState, useEffect } from "react";
 import { CashDenominations, POSZReportData } from "./types.ts";
 import ProPosDenomination, { calculateDenominationTotal } from "./ProPosDenomination.tsx";
+import ProPosShiftHandoverSlip from "./ProPosShiftHandoverSlip.tsx";
 import { apiFetchV1 } from "../../../lib/apiFetchV1.ts";
 import {
   Lock,
@@ -54,6 +55,7 @@ export const SmritiProPosShiftCloseModal: React.FC<SmritiProPosShiftCloseModalPr
   const [closing, setClosing] = useState<boolean>(false);
   const [zReportData, setZReportData] = useState<POSZReportData | null>(null);
   const [closedResult, setClosedResult] = useState<POSZReportData | null>(null);
+  const [showHandoverSlip, setShowHandoverSlip] = useState<boolean>(false);
 
   // Denominations State
   const [denominations, setDenominations] = useState<CashDenominations>({
@@ -88,31 +90,9 @@ export const SmritiProPosShiftCloseModal: React.FC<SmritiProPosShiftCloseModalPr
         }
       } catch (err: any) {
         console.error("Failed to load shift Z-Report:", err);
-        // Fallback default structure for graceful UI rendering
         if (isMounted) {
-          setZReportData({
-            shift_id: shiftId,
-            shift_code: `SHIFT-${shiftId.slice(-6).toUpperCase()}`,
-            cashier_id: "cashier-current",
-            register_id: registerId,
-            branch_id: "MAIN",
-            company_id: "CMP01",
-            start_time: new Date().toISOString(),
-            status: "OPEN",
-            opening_float: 5000,
-            cash_sales: 15400,
-            card_sales: 12000,
-            upi_sales: 8500,
-            other_sales: 0,
-            total_sales: 35900,
-            tax_total: 1795,
-            discount_total: 500,
-            total_bills: 24,
-            cash_drops_total: 5000,
-            till_expenses_total: 450,
-            cash_in_total: 0,
-            net_expected_cash: 5000 + 15400 - 5000 - 450,
-          });
+          setZReportData(null);
+          onNotification?.("Day Close unavailable", "The live shift Z-Report could not be loaded. No sample totals are shown.", "error");
         }
       } finally {
         if (isMounted) setLoading(false);
@@ -130,6 +110,10 @@ export const SmritiProPosShiftCloseModal: React.FC<SmritiProPosShiftCloseModalPr
   const cashVariance = countedCash - expectedCash;
 
   const handleCloseShift = async () => {
+    if (!zReportData || zReportData.status !== "OPEN") {
+      onNotification?.("Day Close unavailable", "There is no live open shift available to close.", "error");
+      return;
+    }
     if (countedCash === 0 && expectedCash > 0) {
       const confirmZero = window.confirm(
         "Physical cash counted is ₹0.00 while expected cash is ₹" +
@@ -141,12 +125,24 @@ export const SmritiProPosShiftCloseModal: React.FC<SmritiProPosShiftCloseModalPr
 
     setClosing(true);
     try {
+      const backendDenominations = {
+        notes_2000: denominations.notes_2000 || 0,
+        notes_500: denominations.notes_500 || 0,
+        notes_200: denominations.notes_200 || 0,
+        notes_100: denominations.notes_100 || 0,
+        notes_50: denominations.notes_50 || 0,
+        notes_20: denominations.notes_20 || 0,
+        notes_10: denominations.notes_10 || 0,
+        notes_5: denominations.notes_5 || 0,
+        notes_2: denominations.notes_2 || 0,
+        notes_1: denominations.notes_1 || 0,
+        coins_total: denominations.coins || 0,
+      };
+
       const payload = {
-        actual_cash: countedCash,
-        actual_card: parseFloat(actualCard) || (zReportData?.card_sales ?? 0),
-        actual_upi: parseFloat(actualUpi) || (zReportData?.upi_sales ?? 0),
-        denominations,
-        notes: closingNotes.trim() || undefined,
+        closing_balance: countedCash,
+        closing_notes: closingNotes.trim() || undefined,
+        denominations: backendDenominations,
       };
 
       const res = await apiFetchV1<any>(`/pos/shifts/close/${shiftId}`, {
@@ -157,13 +153,13 @@ export const SmritiProPosShiftCloseModal: React.FC<SmritiProPosShiftCloseModalPr
       const updatedZReport: POSZReportData = {
         ...(zReportData || ({} as any)),
         shift_id: shiftId,
-        shift_code: res.shift_code || zReportData?.shift_code || shiftId,
+        shift_code: res.identity_code || res.shift_code || zReportData?.shift_code || shiftId,
         status: "CLOSED",
-        end_time: res.end_time || new Date().toISOString(),
-        actual_cash_counted: countedCash,
-        cash_variance: res.cash_variance ?? cashVariance,
+        end_time: res.closed_at || res.end_time || new Date().toISOString(),
+        actual_cash_counted: res.closing_balance !== undefined ? Number(res.closing_balance) : countedCash,
+        cash_variance: res.variance !== undefined ? Number(res.variance) : (res.cash_variance ?? cashVariance),
         denominations,
-        closing_notes: closingNotes,
+        closing_notes: res.closing_notes || closingNotes,
         shift_close_voucher_id: res.shift_close_voucher_id || "JV-BALANCED",
       };
 
@@ -229,7 +225,7 @@ export const SmritiProPosShiftCloseModal: React.FC<SmritiProPosShiftCloseModalPr
                 Shift Successfully Closed &amp; Reconciled
               </h2>
               <p className="text-xs text-[#64748b] dark:text-[#94a3b8] mt-1">
-                Z-Report has been committed to PostgreSQL. Dual-entry General Ledger balancing entries posted.
+                Z-Report has been committed to ledger. Dual-entry General Ledger balancing entries posted.
               </p>
             </div>
 
@@ -263,24 +259,42 @@ export const SmritiProPosShiftCloseModal: React.FC<SmritiProPosShiftCloseModalPr
               </div>
             </div>
 
-            {/* Actions */}
-            <div className="flex gap-4">
-              <button
-                type="button"
-                onClick={handlePrintSlip}
-                className="px-6 py-2.5 bg-[#00288e] hover:bg-[#1e40af] text-white text-xs font-bold rounded-xl shadow-md transition flex items-center gap-2"
-              >
-                <Printer size={15} />
-                <span>Print Official Z-Report Slip</span>
-              </button>
-              <button
-                type="button"
-                onClick={onClose}
-                className="px-6 py-2.5 bg-[#f1f5f9] dark:bg-[#334155] text-[#334155] dark:text-[#f8fafc] hover:bg-[#e2e8f0] text-xs font-bold rounded-xl transition"
-              >
-                Done
-              </button>
-            </div>
+            {/* Handover Slip Modal / Drawer */}
+            {showHandoverSlip ? (
+              <div className="w-full">
+                <ProPosShiftHandoverSlip
+                  data={closedResult}
+                  onClose={() => setShowHandoverSlip(false)}
+                />
+              </div>
+            ) : (
+              /* Actions */
+              <div className="flex flex-wrap justify-center gap-4">
+                <button
+                  type="button"
+                  onClick={() => setShowHandoverSlip(true)}
+                  className="px-6 py-2.5 bg-[#00288e] hover:bg-[#1e40af] text-white text-xs font-bold rounded-xl shadow-md transition flex items-center gap-2 cursor-pointer"
+                >
+                  <Receipt size={15} />
+                  <span>80mm Cashier Handover Slip</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handlePrintSlip}
+                  className="px-6 py-2.5 bg-[#f1f5f9] dark:bg-[#334155] text-[#1e293b] dark:text-[#f8fafc] hover:bg-[#e2e8f0] text-xs font-bold rounded-xl shadow-xs transition flex items-center gap-2 cursor-pointer"
+                >
+                  <Printer size={15} />
+                  <span>Print Full Z-Report</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="px-6 py-2.5 bg-[#e2e8f0] dark:bg-[#1e293b] text-[#334155] dark:text-[#f8fafc] hover:bg-[#cbd5e1] text-xs font-bold rounded-xl transition cursor-pointer"
+                >
+                  Done
+                </button>
+              </div>
+            )}
           </div>
         ) : (
           /* Normal Reconciliation Flow */

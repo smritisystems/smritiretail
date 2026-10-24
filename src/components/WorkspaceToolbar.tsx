@@ -57,6 +57,8 @@ export const WorkspaceToolbar: React.FC<WorkspaceToolbarProps> = ({
   const { 
     focusMode, 
     globalZoom, 
+    isAutoFit,
+    toggleAutoFit,
     floatingWindows,
     toggleFocusMode, 
     adjustGlobalZoom, 
@@ -165,17 +167,28 @@ export const WorkspaceToolbar: React.FC<WorkspaceToolbarProps> = ({
           </div>
         )}
 
-        {/* Zoom Level Indicator */}
-        <div className="text-[10px] font-mono text-theme-muted bg-theme-surface-2 px-2 py-1 rounded border border-theme-divider mr-1.5">
-          Zoom: <strong className="text-theme-body">{(zoomValue * 100).toFixed(0)}%</strong>
-        </div>
+        {/* Auto-Fit / Resolution Zoom Controls */}
+        <button
+          onClick={toggleAutoFit}
+          className={`flex items-center space-x-1 px-2 py-1 rounded text-[10px] font-mono border transition-all cursor-pointer ${
+            isAutoFit 
+              ? "bg-theme-primary/10 border-theme-primary text-theme-primary font-semibold shadow-xs" 
+              : "bg-theme-surface-2 border-theme-divider text-theme-muted hover:text-theme-body hover:bg-theme-surface-hover"
+          }`}
+          title={isAutoFit ? "Auto-Fit Resolution: Active (Adapts automatically without hiding content)" : "Click to Auto-Fit to Screen Resolution"}
+        >
+          <span className="material-symbols-outlined text-[13px] leading-none">
+            {isAutoFit ? "fit_screen" : "aspect_ratio"}
+          </span>
+          <span>{isAutoFit ? `Auto: ${(zoomValue * 100).toFixed(0)}%` : `Zoom: ${(zoomValue * 100).toFixed(0)}%`}</span>
+        </button>
 
         {/* Zoom Actions */}
         <button
           onClick={handleZoomOut}
           disabled={zoomValue <= 0.5}
           className="p-1.5 rounded-lg text-theme-muted hover:text-theme-body hover:bg-theme-surface-hover transition-all cursor-pointer disabled:opacity-40"
-          title="Zoom Out"
+          title="Zoom Out (Switch to manual)"
         >
           <ZoomOut size={14} />
         </button>
@@ -183,14 +196,14 @@ export const WorkspaceToolbar: React.FC<WorkspaceToolbarProps> = ({
           onClick={handleZoomIn}
           disabled={zoomValue >= 2.0}
           className="p-1.5 rounded-lg text-theme-muted hover:text-theme-body hover:bg-theme-surface-hover transition-all cursor-pointer disabled:opacity-40"
-          title="Zoom In"
+          title="Zoom In (Switch to manual)"
         >
           <ZoomIn size={14} />
         </button>
         <button
           onClick={handleResetZoom}
           className="p-1.5 rounded-lg text-theme-muted hover:text-theme-body hover:bg-theme-surface-hover transition-all cursor-pointer"
-          title="Reset Zoom (100%)"
+          title="Reset to Screen Auto-Fit"
         >
           <RotateCcw size={14} />
         </button>

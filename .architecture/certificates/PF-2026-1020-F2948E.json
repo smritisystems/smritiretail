@@ -1,0 +1,15 @@
+{
+  "certificate_id": "PF-2026-1020-F2948E",
+  "entity": "customer",
+  "capability": "customer.crud",
+  "asset_type": "component",
+  "proposed_name": "Customer360DashboardView.tsx",
+  "target_file_path": "src/components/customer/corporate360/Customer360DashboardView.tsx",
+  "decision": "CREATE_NEW",
+  "canonical_owner": "src/components/customer/corporate360/Customer360DashboardView.tsx",
+  "content_hash": "3119353cb160b32d93416ba99d0c1ed59781d6b3a795e3a549b3305c4516f122",
+  "git_commit": "8deafb6f0dd3aaf72cb6ba1f4740e67add547e5a",
+  "issued_at": "2026-10-20T09:01:32.531865+00:00",
+  "expires_at": "2026-10-27T09:01:32.531865+00:00",
+  "status": "ISSUED"
+}
