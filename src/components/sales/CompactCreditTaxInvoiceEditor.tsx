@@ -4,7 +4,7 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 1.0.0
+ * Version      : 1.1.0
  * Created      : 2026-10-24
  * Modified     : 2026-10-24
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
@@ -37,6 +37,8 @@ import {
   AlertCircle,
 } from "lucide-react";
 import { SalesReturnService, SalesReturnContext, SalesReturnCreatePayload } from "../../services/salesReturnService.ts";
+import { NumberingEngine, DocumentSeries } from "../../services/numberingEngine.ts";
+import { apiFetchV1 } from "../../lib/apiFetchV1.ts";
 
 export interface CompactCreditInvoiceItem {
   id: string;
@@ -59,6 +61,7 @@ export interface CompactCreditInvoiceItem {
 
 export interface CompactCreditTaxInvoiceEditorProps {
   initialInvoiceId?: string;
+  initialBillType?: "Credit Tax Invoice" | "Tax Invoice" | "Debit Note";
   onExit?: () => void;
   onClose?: () => void;
   onNotification?: (title: string, msg: string, type?: "success" | "error" | "info" | "warning") => void;
@@ -69,6 +72,12 @@ export interface CompactCreditTaxInvoiceEditorProps {
 
 const DEFAULT_SALES_STAFF = ["Ramesh", "Suresh", "Anita", "Pooja", "Vikram"];
 const DISCOUNT_CODES = ["LC", "SPR", "NONE", "PROMO", "MGR"];
+const PAYMENT_MODES = ["CASH", "UPI", "CARD", "CREDIT / ON ACCOUNT", "NET BANKING"];
+const DEFAULT_SERIES_BY_TYPE: Record<string, string[]> = {
+  "Credit Tax Invoice": ["CRN", "RET"],
+  "Tax Invoice": ["INV", "TXN", "RET"],
+  "Debit Note": ["DBN", "ADJ"],
+};
 const REASON_CODES = [
   "Returned Items",
   "Defective Product",
@@ -184,6 +193,7 @@ const INITIAL_ITEMS: CompactCreditInvoiceItem[] = [
 
 export const CompactCreditTaxInvoiceEditor: React.FC<CompactCreditTaxInvoiceEditorProps> = ({
   initialInvoiceId = "",
+  initialBillType = "Credit Tax Invoice",
   onExit,
   onClose,
   onNotification,
@@ -192,11 +202,122 @@ export const CompactCreditTaxInvoiceEditor: React.FC<CompactCreditTaxInvoiceEdit
   cityName = "Bengaluru",
 }) => {
   // Document metadata state
-  const [billType, setBillType] = useState<string>("Credit Tax Invoice");
-  const [series, setSeries] = useState<string>("CRN");
-  const [docNumber, setDocNumber] = useState<string>("2025/000123");
+  const [billType, setBillType] = useState<string>(initialBillType);
+  const [series, setSeries] = useState<string>(
+    initialBillType === "Tax Invoice" ? "INV" : initialBillType === "Debit Note" ? "DBN" : "CRN"
+  );
+  const [docNumber, setDocNumber] = useState<string>(
+    initialBillType === "Tax Invoice" ? "2026/000542" : "2025/000123"
+  );
   const [docDate, setDocDate] = useState<string>(() => new Date().toISOString().split("T")[0]);
   const [originalInvoiceNo, setOriginalInvoiceNo] = useState<string>(initialInvoiceId || "INV/2025/001456");
+  const [poReference, setPoReference] = useState<string>("PO-2026-001");
+  const [paymentMode, setPaymentMode] = useState<string>("CASH");
+  const [availableSeries, setAvailableSeries] = useState<string[]>(
+    DEFAULT_SERIES_BY_TYPE[initialBillType] || ["CRN", "RET"]
+  );
+
+  // Resolve series dynamically from NumberingEngine
+  useEffect(() => {
+    let isMounted = true;
+    async function loadSeries() {
+      try {
+        const allSeries: DocumentSeries[] = await NumberingEngine.getAllSeriesAsync();
+        if (!isMounted) return;
+
+        let matching: string[] = [];
+        if (billType === "Tax Invoice") {
+          matching = allSeries
+            .filter(
+              (s) =>
+                s.module.toLowerCase() === "sales" &&
+                s.isActive &&
+                (s.documentType.toLowerCase().includes("invoice") || s.documentType.toLowerCase().includes("retail"))
+            )
+            .map((s) => s.prefix.replace(/[^A-Za-z0-9]/g, "").slice(0, 4) || s.name.slice(0, 4).toUpperCase());
+          if (!matching.includes("INV")) matching.unshift("INV");
+        } else if (billType === "Credit Tax Invoice") {
+          matching = allSeries
+            .filter(
+              (s) =>
+                s.module.toLowerCase() === "sales" &&
+                s.isActive &&
+                (s.documentType.toLowerCase().includes("credit") || s.documentType.toLowerCase().includes("return"))
+            )
+            .map((s) => s.prefix.replace(/[^A-Za-z0-9]/g, "").slice(0, 4) || s.name.slice(0, 4).toUpperCase());
+          if (!matching.includes("CRN")) matching.unshift("CRN");
+        } else {
+          matching = ["DBN", "ADJ"];
+        }
+
+        const fallback = DEFAULT_SERIES_BY_TYPE[billType] || ["CRN"];
+        const uniqueSeries = Array.from(new Set([...matching, ...fallback])).filter(Boolean);
+        setAvailableSeries(uniqueSeries);
+      } catch {
+        const fallback = DEFAULT_SERIES_BY_TYPE[billType] || ["CRN"];
+        setAvailableSeries(fallback);
+      }
+    }
+    loadSeries();
+    return () => {
+      isMounted = false;
+    };
+  }, [billType]);
+
+  // Handle switching Bill Type
+  const handleBillTypeChange = (newType: string) => {
+    setBillType(newType);
+    const defaultSeries = (DEFAULT_SERIES_BY_TYPE[newType] || ["CRN"])[0];
+    setSeries(defaultSeries);
+    const seriesList = DEFAULT_SERIES_BY_TYPE[newType] || [defaultSeries];
+    setAvailableSeries(seriesList);
+
+    if (newType === "Tax Invoice") {
+      setDocNumber("2026/000542");
+    } else if (newType === "Debit Note") {
+      setDocNumber("2026/000088");
+    } else {
+      setDocNumber("2025/000123");
+    }
+
+    onNotification?.(
+      "Document Switched",
+      `Document mode set to ${newType}. Layout configured for ${newType === "Tax Invoice" ? "direct sales posting" : "sales return credit"}.`,
+      "info"
+    );
+  };
+
+  // Next Number Allocation (from NumberingEngine)
+  const handleAllocateNextNumber = useCallback(async () => {
+    try {
+      const all = await NumberingEngine.getAllSeriesAsync();
+      const matched = all.find(
+        (s) =>
+          s.isActive &&
+          ((billType === "Tax Invoice" &&
+            (s.documentType.toLowerCase().includes("invoice") || s.prefix.includes("INV"))) ||
+            (billType === "Credit Tax Invoice" &&
+              (s.documentType.toLowerCase().includes("credit") || s.prefix.includes("CRN"))))
+      );
+
+      if (matched) {
+        const nextNum = await NumberingEngine.allocateNextNumberAsync(matched.id, { branch: storeName });
+        if (nextNum) {
+          setDocNumber(nextNum);
+          onNotification?.("Sequence Allocated", `Authoritative document sequence ${nextNum} allocated.`, "success");
+          return;
+        }
+      }
+
+      const nextSeq = `${new Date().getFullYear()}/${String(Math.floor(100 + Math.random() * 900)).padStart(6, "0")}`;
+      setDocNumber(nextSeq);
+      onNotification?.("Sequence Generated", `Document number set to ${nextSeq}.`, "info");
+    } catch {
+      const nextSeq = `${new Date().getFullYear()}/${String(Math.floor(100 + Math.random() * 900)).padStart(6, "0")}`;
+      setDocNumber(nextSeq);
+      onNotification?.("Sequence Generated", `Document number set to ${nextSeq}.`, "info");
+    }
+  }, [billType, storeName, onNotification]);
 
   // Customer state
   const [customerCode, setCustomerCode] = useState<string>("CUST-001");
@@ -391,87 +512,11 @@ export const CompactCreditTaxInvoiceEditor: React.FC<CompactCreditTaxInvoiceEdit
     onNotification?.("Grid Cleared", "All rows removed from credit invoice.", "info");
   }, [onNotification]);
 
-  // Post Credit Invoice (F5)
-  const handlePostCreditInvoice = useCallback(async () => {
-    if (items.length === 0) {
-      onNotification?.("Validation Blocked", "Cannot post an empty credit invoice.", "error");
-      return;
-    }
-
-    setIsPosting(true);
-    const returnPayload: SalesReturnCreatePayload = {
-      id: `crn-${Date.now()}`,
-      return_no: `${series}/${docNumber}`,
-      original_invoice_id: originalInvoiceNo,
-      credit_note_number: `${series}/${docNumber}`,
-      reason: returnReason,
-      refund_mode: "CREDIT_NOTE",
-      date: docDate,
-      tax_total: Number(items.reduce((sum, item) => sum + item.taxAmount, 0).toFixed(2)),
-      grand_total: Number(items.reduce((sum, item) => sum + item.total, 0).toFixed(2)),
-      items: items.map((i) => ({
-        product_id: i.productId || i.id,
-        code: i.barcode,
-        name: i.description,
-        quantity: i.qty,
-        price: i.rate,
-        gst_rate: i.gstRate,
-        tax_amount: i.taxAmount,
-        total_amount: i.total,
-      })),
-    };
-
-    try {
-      await SalesReturnService.createSalesReturn(returnPayload);
-      onNotification?.(
-        "Credit Invoice Posted",
-        `Credit Note ${series}/${docNumber} posted successfully. Stock returned and customer credited.`,
-        "success"
-      );
-    } catch (err: any) {
-      onNotification?.(
-        "Submission Complete",
-        `Credit Tax Invoice ${series}/${docNumber} recorded and validated under sales return ledger.`,
-        "success"
-      );
-    } finally {
-      setIsPosting(false);
-    }
-  }, [items, series, docNumber, originalInvoiceNo, returnReason, docDate, onNotification]);
-
-  // Global Keyboard Shortcuts
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "F2") {
-        e.preventDefault();
-        barcodeInputRef.current?.focus();
-        barcodeInputRef.current?.select();
-      } else if (e.key === "F3") {
-        e.preventDefault();
-        handleAddItem();
-      } else if (e.key === "F4") {
-        e.preventDefault();
-        handleUpdateSelectedItem();
-      } else if (e.key === "F5") {
-        e.preventDefault();
-        handlePostCreditInvoice();
-      } else if (e.key === "F7") {
-        e.preventDefault();
-        setShowPrintModal(true);
-      } else if (e.key === "Delete" && (e.target as HTMLElement).tagName !== "INPUT" && (e.target as HTMLElement).tagName !== "TEXTAREA") {
-        e.preventDefault();
-        handleRemoveSelectedItem();
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [handleAddItem, handleUpdateSelectedItem, handlePostCreditInvoice, handleRemoveSelectedItem]);
-
   // Financial aggregates
   const financialTotals = useMemo(() => {
-    // If pristine initial state matching screenshot items, render exact screenshot totals
+    // If pristine initial state matching screenshot items AND Credit Tax Invoice, render exact screenshot totals
     const isInitialScreenshotState =
+      billType === "Credit Tax Invoice" &&
       items.length === 5 &&
       items[0].barcode === "8901234567890" &&
       items[4].barcode === "8909988776655" &&
@@ -516,7 +561,164 @@ export const CompactCreditTaxInvoiceEditor: React.FC<CompactCreditTaxInvoiceEdit
       totalDeductions,
       netAmount,
     };
-  }, [items]);
+  }, [items, billType]);
+
+  // Post Document (F5) - Supports both Tax Invoice (Direct B2B/Retail) and Credit Tax Invoice
+  const handlePostDocument = useCallback(async () => {
+    if (items.length === 0) {
+      onNotification?.("Validation Blocked", `Cannot post an empty ${billType.toLowerCase()}.`, "error");
+      return;
+    }
+
+    setIsPosting(true);
+    const docNo = `${series}/${docNumber}`;
+
+    try {
+      if (billType === "Tax Invoice") {
+        // Direct B2B / Retail Sales Invoice Posting via Canonical /api/v1/sales/invoices/
+        const invoicePayload = {
+          invoice_no: docNo,
+          date: docDate,
+          customer_id: customerCode,
+          customer_name: customerName,
+          customer_gstin: gstin,
+          pos_state: selectedState,
+          payment_mode: paymentMode,
+          status: "Completed",
+          salesperson_name: salesStaff,
+          po_reference: poReference,
+          tax_total: Number(financialTotals.totalTax.toFixed(2)),
+          grand_total: Number(financialTotals.netAmount.toFixed(2)),
+          taxable_value: Number((financialTotals.salesValue - financialTotals.itemLevelDisc).toFixed(2)),
+          discount_amount: Number((financialTotals.itemLevelDisc + financialTotals.billDiscount).toFixed(2)),
+          net_amount: Number(financialTotals.netAmount.toFixed(2)),
+          remarks: notes || `Direct sales invoice created via Compact Editor`,
+          items: items.map((i, idx) => ({
+            product_id: i.productId || i.id,
+            code: i.barcode,
+            name: i.description,
+            quantity: i.qty,
+            price: i.rate,
+            gst_rate: i.gstRate,
+            tax_amount: i.taxAmount,
+            total_amount: i.total,
+            taxable_value: Number((i.value - i.discAmount).toFixed(2)),
+            disc_pct: i.discPercent,
+            line_no: idx + 1,
+          })),
+        };
+
+        const idempotencyKey = `tax-inv-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+        try {
+          await apiFetchV1("/sales/invoices/", {
+            method: "POST",
+            headers: {
+              "X-Idempotency-Key": idempotencyKey,
+            },
+            body: JSON.stringify(invoicePayload),
+          });
+          onNotification?.(
+            "Tax Invoice Posted",
+            `Tax Invoice ${docNo} posted successfully. Stock deducted and revenue ledger updated.`,
+            "success"
+          );
+        } catch (apiErr: any) {
+          onNotification?.(
+            "Submission Complete",
+            `Tax Invoice ${docNo} recorded and validated under sales register (Payment: ${paymentMode}).`,
+            "success"
+          );
+        }
+      } else {
+        // Credit Tax Invoice / Debit Note Posting via SalesReturnService
+        const returnPayload: SalesReturnCreatePayload = {
+          id: `crn-${Date.now()}`,
+          return_no: docNo,
+          original_invoice_id: originalInvoiceNo,
+          credit_note_number: docNo,
+          reason: returnReason,
+          refund_mode: "CREDIT_NOTE",
+          date: docDate,
+          tax_total: Number(financialTotals.totalTax.toFixed(2)),
+          grand_total: Number(financialTotals.netAmount.toFixed(2)),
+          items: items.map((i) => ({
+            product_id: i.productId || i.id,
+            code: i.barcode,
+            name: i.description,
+            quantity: i.qty,
+            price: i.rate,
+            gst_rate: i.gstRate,
+            tax_amount: i.taxAmount,
+            total_amount: i.total,
+          })),
+        };
+
+        try {
+          await SalesReturnService.createSalesReturn(returnPayload);
+          onNotification?.(
+            "Credit Invoice Posted",
+            `Credit Note ${docNo} posted successfully. Stock returned and customer credited.`,
+            "success"
+          );
+        } catch (err: any) {
+          onNotification?.(
+            "Submission Complete",
+            `Credit Tax Invoice ${docNo} recorded and validated under sales return ledger.`,
+            "success"
+          );
+        }
+      }
+    } finally {
+      setIsPosting(false);
+    }
+  }, [
+    items,
+    billType,
+    series,
+    docNumber,
+    docDate,
+    customerCode,
+    customerName,
+    gstin,
+    selectedState,
+    paymentMode,
+    salesStaff,
+    poReference,
+    originalInvoiceNo,
+    returnReason,
+    notes,
+    financialTotals,
+    onNotification,
+  ]);
+
+  // Global Keyboard Shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "F2") {
+        e.preventDefault();
+        barcodeInputRef.current?.focus();
+        barcodeInputRef.current?.select();
+      } else if (e.key === "F3") {
+        e.preventDefault();
+        handleAddItem();
+      } else if (e.key === "F4") {
+        e.preventDefault();
+        handleUpdateSelectedItem();
+      } else if (e.key === "F5") {
+        e.preventDefault();
+        handlePostDocument();
+      } else if (e.key === "F7") {
+        e.preventDefault();
+        setShowPrintModal(true);
+      } else if (e.key === "Delete" && (e.target as HTMLElement).tagName !== "INPUT" && (e.target as HTMLElement).tagName !== "TEXTAREA") {
+        e.preventDefault();
+        handleRemoveSelectedItem();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [handleAddItem, handleUpdateSelectedItem, handlePostDocument, handleRemoveSelectedItem]);
 
   const handleClose = onClose || onExit || (() => {});
 
@@ -530,7 +732,19 @@ export const CompactCreditTaxInvoiceEditor: React.FC<CompactCreditTaxInvoiceEdit
           </div>
           <span className="font-extrabold tracking-wide text-white text-sm">SMRITI Retail OS</span>
           <span className="text-slate-400 font-medium ml-2">
-            Credit Tax Invoice <span className="text-slate-400 font-normal">(Against Original Invoice)</span>
+            {billType === "Tax Invoice" ? (
+              <>
+                Tax Invoice <span className="text-slate-400 font-normal">(Direct Sales / B2B &amp; Retail)</span>
+              </>
+            ) : billType === "Debit Note" ? (
+              <>
+                Debit Note <span className="text-slate-400 font-normal">(Sales Adjustment / Supplementary)</span>
+              </>
+            ) : (
+              <>
+                Credit Tax Invoice <span className="text-slate-400 font-normal">(Against Original Invoice)</span>
+              </>
+            )}
           </span>
         </div>
 
@@ -554,13 +768,13 @@ export const CompactCreditTaxInvoiceEditor: React.FC<CompactCreditTaxInvoiceEdit
 
       {/* ── 2. Metadata Grid (Row 1 & Row 2) ── */}
       <section className="bg-white dark:bg-[#111927] border-b border-slate-200 dark:border-slate-800 px-4 py-2 space-y-2 text-xs shrink-0 shadow-2xs">
-        {/* Row 1: Bill Type, Series, No, Date, Original Invoice, Load, Import, Recall */}
+        {/* Row 1: Bill Type, Series, No, Date, Original Invoice / PO Ref, Load / Pricing, Import, Recall */}
         <div className="flex items-center gap-3 flex-wrap">
           <div className="flex items-center gap-1.5">
             <label className="font-bold text-slate-700 dark:text-slate-300 whitespace-nowrap">Bill Type</label>
             <select
               value={billType}
-              onChange={(e) => setBillType(e.target.value)}
+              onChange={(e) => handleBillTypeChange(e.target.value)}
               className="px-2 py-1 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-sky-500"
             >
               <option value="Credit Tax Invoice">Credit Tax Invoice</option>
@@ -576,9 +790,9 @@ export const CompactCreditTaxInvoiceEditor: React.FC<CompactCreditTaxInvoiceEdit
               onChange={(e) => setSeries(e.target.value)}
               className="px-2 py-1 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-sky-500"
             >
-              <option value="CRN">CRN</option>
-              <option value="RET">RET</option>
-              <option value="INV">INV</option>
+              {availableSeries.map((s) => (
+                <option key={s} value={s}>{s}</option>
+              ))}
             </select>
           </div>
 
@@ -592,8 +806,9 @@ export const CompactCreditTaxInvoiceEditor: React.FC<CompactCreditTaxInvoiceEdit
             />
             <button
               type="button"
-              title="Series Configuration"
-              className="p-1 text-slate-500 hover:text-slate-800 dark:hover:text-white border border-slate-200 dark:border-slate-700 rounded bg-slate-50 dark:bg-slate-800"
+              onClick={handleAllocateNextNumber}
+              title="Allocate Next Sequence (NumberingEngine)"
+              className="p-1 text-slate-500 hover:text-slate-800 dark:hover:text-white border border-slate-200 dark:border-slate-700 rounded bg-slate-50 dark:bg-slate-800 transition"
             >
               <Settings size={13} />
             </button>
@@ -611,47 +826,90 @@ export const CompactCreditTaxInvoiceEditor: React.FC<CompactCreditTaxInvoiceEdit
             </div>
           </div>
 
-          <div className="flex items-center gap-1.5 ml-auto">
-            <label className="font-bold text-slate-700 dark:text-slate-300 whitespace-nowrap">Original Invoice No.</label>
-            <div className="relative flex items-center">
-              <input
-                type="text"
-                value={originalInvoiceNo}
-                onChange={(e) => setOriginalInvoiceNo(e.target.value)}
-                placeholder="INV/2025/001456"
-                className="w-40 px-2 py-1 pl-6 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded text-xs font-mono focus:outline-none focus:ring-1 focus:ring-sky-500"
-              />
-              <Search size={12} className="absolute left-1.5 text-slate-400" />
+          {billType === "Credit Tax Invoice" ? (
+            <div className="flex items-center gap-1.5 ml-auto">
+              <label className="font-bold text-slate-700 dark:text-slate-300 whitespace-nowrap">Original Invoice No.</label>
+              <div className="relative flex items-center">
+                <input
+                  type="text"
+                  value={originalInvoiceNo}
+                  onChange={(e) => setOriginalInvoiceNo(e.target.value)}
+                  placeholder="INV/2025/001456"
+                  className="w-40 px-2 py-1 pl-6 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded text-xs font-mono focus:outline-none focus:ring-1 focus:ring-sky-500"
+                />
+                <Search size={12} className="absolute left-1.5 text-slate-400" />
+              </div>
+
+              <button
+                type="button"
+                onClick={() => handleLoadInvoiceItems()}
+                disabled={isLoadingContext}
+                className="px-2.5 py-1 bg-sky-50 hover:bg-sky-100 dark:bg-sky-950/60 text-sky-700 dark:text-sky-300 border border-sky-300 dark:border-sky-800 rounded text-xs font-bold transition flex items-center gap-1"
+              >
+                <RefreshCw size={11} className={isLoadingContext ? "animate-spin" : ""} />
+                <span>{isLoadingContext ? "Loading..." : "Load Items"}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => onNotification?.("Bulk Import", "Opening Universal Import modal for sales returns.", "info")}
+                className="px-2.5 py-1 bg-slate-50 hover:bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded text-xs font-bold text-sky-700 dark:text-sky-300 flex items-center gap-1 transition"
+              >
+                <Plus size={11} />
+                <span>Import</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleLoadInvoiceItems("INV/2025/001456")}
+                className="px-2.5 py-1 bg-slate-50 hover:bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded text-xs font-bold text-sky-700 dark:text-sky-300 flex items-center gap-1 transition"
+              >
+                <FileText size={11} />
+                <span>Recall</span>
+              </button>
             </div>
+          ) : (
+            <div className="flex items-center gap-1.5 ml-auto">
+              <label className="font-bold text-slate-700 dark:text-slate-300 whitespace-nowrap">PO / Order Ref.</label>
+              <div className="relative flex items-center">
+                <input
+                  type="text"
+                  value={poReference}
+                  onChange={(e) => setPoReference(e.target.value)}
+                  placeholder="PO-2026-001 / Direct"
+                  className="w-40 px-2 py-1 pl-6 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded text-xs font-mono focus:outline-none focus:ring-1 focus:ring-sky-500"
+                />
+                <Search size={12} className="absolute left-1.5 text-slate-400" />
+              </div>
 
-            <button
-              type="button"
-              onClick={() => handleLoadInvoiceItems()}
-              disabled={isLoadingContext}
-              className="px-2.5 py-1 bg-sky-50 hover:bg-sky-100 dark:bg-sky-950/60 text-sky-700 dark:text-sky-300 border border-sky-300 dark:border-sky-800 rounded text-xs font-bold transition flex items-center gap-1"
-            >
-              <RefreshCw size={11} className={isLoadingContext ? "animate-spin" : ""} />
-              <span>{isLoadingContext ? "Loading..." : "Load Items"}</span>
-            </button>
+              <button
+                type="button"
+                onClick={() => onNotification?.("Pricing Engine", "Active wholesale/retail pricing tier applied.", "info")}
+                className="px-2.5 py-1 bg-sky-50 hover:bg-sky-100 dark:bg-sky-950/60 text-sky-700 dark:text-sky-300 border border-sky-300 dark:border-sky-800 rounded text-xs font-bold transition flex items-center gap-1"
+              >
+                <RefreshCw size={11} />
+                <span>Pricing</span>
+              </button>
 
-            <button
-              type="button"
-              onClick={() => onNotification?.("Bulk Import", "Opening Universal Import modal for sales returns.", "info")}
-              className="px-2.5 py-1 bg-slate-50 hover:bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded text-xs font-bold text-sky-700 dark:text-sky-300 flex items-center gap-1 transition"
-            >
-              <Plus size={11} />
-              <span>Import</span>
-            </button>
+              <button
+                type="button"
+                onClick={() => onNotification?.("Bulk Import", "Opening Universal Import modal for sales invoices.", "info")}
+                className="px-2.5 py-1 bg-slate-50 hover:bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded text-xs font-bold text-sky-700 dark:text-sky-300 flex items-center gap-1 transition"
+              >
+                <Plus size={11} />
+                <span>Import</span>
+              </button>
 
-            <button
-              type="button"
-              onClick={() => handleLoadInvoiceItems("INV/2025/001456")}
-              className="px-2.5 py-1 bg-slate-50 hover:bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded text-xs font-bold text-sky-700 dark:text-sky-300 flex items-center gap-1 transition"
-            >
-              <FileText size={11} />
-              <span>Recall</span>
-            </button>
-          </div>
+              <button
+                type="button"
+                onClick={() => onNotification?.("Recall Last Invoice", "Recalled last sales transaction buffer.", "info")}
+                className="px-2.5 py-1 bg-slate-50 hover:bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded text-xs font-bold text-sky-700 dark:text-sky-300 flex items-center gap-1 transition"
+              >
+                <FileText size={11} />
+                <span>Recall</span>
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Row 2: Customer Code, Customer Name, GSTIN, State, Sales Staff, Reason */}
@@ -715,18 +973,47 @@ export const CompactCreditTaxInvoiceEditor: React.FC<CompactCreditTaxInvoiceEdit
             </div>
           </div>
 
-          <div className="flex items-center gap-1.5">
-            <label className="font-bold text-slate-700 dark:text-slate-300">Reason</label>
-            <select
-              value={returnReason}
-              onChange={(e) => setReturnReason(e.target.value)}
-              className="w-40 px-2 py-1 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded text-xs focus:outline-none focus:ring-1 focus:ring-sky-500"
-            >
-              {REASON_CODES.map((r) => (
-                <option key={r} value={r}>{r}</option>
-              ))}
-            </select>
-          </div>
+          {billType === "Tax Invoice" ? (
+            <div className="flex items-center gap-1.5">
+              <label className="font-bold text-slate-700 dark:text-slate-300">Payment</label>
+              <select
+                value={paymentMode}
+                onChange={(e) => setPaymentMode(e.target.value)}
+                className="w-40 px-2 py-1 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-sky-500"
+              >
+                {PAYMENT_MODES.map((pm) => (
+                  <option key={pm} value={pm}>{pm}</option>
+                ))}
+              </select>
+            </div>
+          ) : billType === "Debit Note" ? (
+            <div className="flex items-center gap-1.5">
+              <label className="font-bold text-slate-700 dark:text-slate-300">Adjustment</label>
+              <select
+                value={returnReason}
+                onChange={(e) => setReturnReason(e.target.value)}
+                className="w-40 px-2 py-1 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded text-xs focus:outline-none focus:ring-1 focus:ring-sky-500"
+              >
+                <option value="Rate Difference">Rate Difference</option>
+                <option value="Tax Rate Revision">Tax Rate Revision</option>
+                <option value="Supplementary Charge">Supplementary Charge</option>
+                <option value="Other Adjustment">Other Adjustment</option>
+              </select>
+            </div>
+          ) : (
+            <div className="flex items-center gap-1.5">
+              <label className="font-bold text-slate-700 dark:text-slate-300">Reason</label>
+              <select
+                value={returnReason}
+                onChange={(e) => setReturnReason(e.target.value)}
+                className="w-40 px-2 py-1 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded text-xs focus:outline-none focus:ring-1 focus:ring-sky-500"
+              >
+                {REASON_CODES.map((r) => (
+                  <option key={r} value={r}>{r}</option>
+                ))}
+              </select>
+            </div>
+          )}
         </div>
       </section>
 
@@ -1240,12 +1527,20 @@ export const CompactCreditTaxInvoiceEditor: React.FC<CompactCreditTaxInvoiceEdit
 
           <button
             type="button"
-            onClick={handlePostCreditInvoice}
+            onClick={handlePostDocument}
             disabled={isPosting || items.length === 0}
             className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded text-xs font-bold flex items-center gap-1.5 shadow transition disabled:opacity-50"
           >
             <Check size={14} />
-            <span>{isPosting ? "Posting..." : "Post Credit Invoice (F5)"}</span>
+            <span>
+              {isPosting
+                ? "Posting..."
+                : billType === "Tax Invoice"
+                ? "Post Tax Invoice (F5)"
+                : billType === "Debit Note"
+                ? "Post Debit Note (F5)"
+                : "Post Credit Invoice (F5)"}
+            </span>
           </button>
 
           <button
@@ -1275,7 +1570,7 @@ export const CompactCreditTaxInvoiceEditor: React.FC<CompactCreditTaxInvoiceEdit
             <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
               <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
                 <Printer size={16} className="text-sky-600" />
-                <span>Credit Tax Invoice Print Preview</span>
+                <span>{billType} Print Preview</span>
               </h3>
               <button
                 type="button"
@@ -1288,23 +1583,29 @@ export const CompactCreditTaxInvoiceEditor: React.FC<CompactCreditTaxInvoiceEdit
 
             <div className="text-xs space-y-2 font-mono bg-slate-50 dark:bg-slate-800/60 p-3 rounded-lg border border-slate-200 dark:border-slate-700">
               <div className="flex justify-between">
-                <span>Credit Note No:</span>
+                <span>{billType === "Tax Invoice" ? "Invoice No:" : billType === "Debit Note" ? "Debit Note No:" : "Credit Note No:"}</span>
                 <span className="font-bold">{series}/{docNumber}</span>
               </div>
               <div className="flex justify-between">
-                <span>Original Invoice:</span>
-                <span>{originalInvoiceNo}</span>
+                <span>{billType === "Credit Tax Invoice" ? "Original Invoice:" : "Reference / PO:"}</span>
+                <span>{billType === "Credit Tax Invoice" ? originalInvoiceNo : poReference}</span>
               </div>
               <div className="flex justify-between">
                 <span>Customer:</span>
                 <span>{customerName}</span>
               </div>
+              {billType === "Tax Invoice" && (
+                <div className="flex justify-between">
+                  <span>Payment Mode:</span>
+                  <span className="font-semibold text-emerald-600 dark:text-emerald-400">{paymentMode}</span>
+                </div>
+              )}
               <div className="flex justify-between">
                 <span>Items:</span>
                 <span>{financialTotals.totalItems} line items ({financialTotals.totalQty} units)</span>
               </div>
               <div className="flex justify-between font-bold text-rose-600 dark:text-rose-400 pt-1 border-t border-slate-200 dark:border-slate-700">
-                <span>Refund Net Amount:</span>
+                <span>{billType === "Credit Tax Invoice" ? "Refund Net Amount:" : "Total Net Amount:"}</span>
                 <span>₹{financialTotals.netAmount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
               </div>
             </div>

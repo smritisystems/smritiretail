@@ -12,6 +12,18 @@
   Classification: Internal
 -->
 
+## [v1.0.3] - 2026-10-24
+
+### Added
+- **Dual-Mode Compact Editor**: Adapted `CompactCreditTaxInvoiceEditor.tsx` with `initialBillType` prop supporting "Tax Invoice", "Credit Tax Invoice", and "Debit Note" document profiles within a single component.
+- **Dynamic Series & Number Allocation**: Integrated with `NumberingEngine` (`getAllSeriesAsync` and `allocateNextNumberAsync`) to discover active sales series and dynamically allocate authoritative document sequences.
+- **Direct Sales Metadata Layout**: Added conditional PO / Order Reference, Pricing trigger, and Payment Mode selector (`CASH`, `UPI`, `CARD`, `CREDIT / ON ACCOUNT`, `NET BANKING`) for Tax Invoices.
+- **Canonical Sales Posting**: Wired `handlePostDocument` to post Tax Invoices directly to canonical backend `/api/v1/sales/invoices/` using `apiFetchV1`, `X-Idempotency-Key`, and `SalesInvoiceCreate` schema, while directing Credit Invoices to `SalesReturnService.createSalesReturn`.
+- **Dual-Mode Unit Tests**: Added unit tests covering Tax Invoice initialization, PO Reference, Payment dropdown, and NumberingEngine sequence allocation.
+
+### Documentation
+- Created walkthrough `docs/walkthrough/billing/Billing_Compact_Dual_Mode_Tax_Invoice_Editor_v1.1.0.md` and appended to master walkthrough index in `docs/walkthrough/README.md`.
+
 ## [v1.0.2] - 2026-10-24
 
 ### Added

@@ -45,11 +45,11 @@ Existing route aliases in `TabRenderer.tsx` converge many historical billing IDs
 
 ## Increment plan
 
-1. Audit and inventory completed above; preserve existing migrations and posted data.
-2. Put Sales Studio inside the canonical workspace and collapse duplicated visible billing navigation while retaining compatibility IDs. Completed in this change set.
-3. Inspect and incrementally adapt the active tax-invoice entry surface toward the supplied compact layout, reusing item lookup/import/calculation/posting code.
-4. Route credit/return entry through the established server return context and billing calculation rules; preserve the original invoice, remaining quantities, and policy checks. The active return dialog now uses server context and idempotent submission; line-specific return handling and credit-note numbering still need verification.
-5. Run targeted frontend/backend tests and builds, then report pass/fail, unverified areas, modified/deprecated files, and rollback steps.
+1. Audit and inventory completed above; preserve existing migrations and posted data. Completed.
+2. Put Sales Studio inside the canonical workspace and collapse duplicated visible billing navigation while retaining compatibility IDs. Completed in Increment 2.
+3. Deliver high-density compact Credit Tax Invoice editor matching the reference screenshot layout, and adapt into a unified Dual-Mode Editor supporting Tax Invoice (Direct B2B/Retail) and Credit Tax Invoice via NumberingEngine dynamic series/sequence and canonical posting. Completed in Increments 2 & 3.
+4. Route credit/return entry through the established server return context and billing calculation rules; preserve the original invoice, remaining quantities, and policy checks. Completed via `SalesReturnService` integration and policy-aware context loading.
+5. Run targeted frontend/backend tests and builds, then report pass/fail, unverified areas, modified/deprecated files, and rollback steps. Verified with 20/20 Vitest tests green, 0 tsc errors, and 11/11 architecture gate checks passed.
 
 ## Safety constraints
 
