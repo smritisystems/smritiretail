@@ -123,6 +123,10 @@ async def list_psv_parties(
             PSVSkuTrackingResponse.model_validate(s)
             for s in (party.sku_tracking or [])
         ]
+        current_stock = int(live_stock) if live_stock is not None else int(party.stock_count or 0)
+        current_st = float(party.sell_through or 0.0)
+        current_woc = float(party.weeks_of_cover or 0.0)
+        current_cap = float(party.capital_locked or 0.0)
         resp = PSVPartyResponse(
             id=party.id,
             company_id=party.company_id,
@@ -133,10 +137,14 @@ async def list_psv_parties(
             stock_model=party.stock_model,
             name=party.name,
             location=party.location,
-            stock_count=int(live_stock) if live_stock is not None else party.stock_count,
+            stock_count=current_stock,
             sell_through=party.sell_through,
             weeks_of_cover=party.weeks_of_cover,
             capital_locked=party.capital_locked,
+            stockCount=current_stock,
+            sellThrough=current_st,
+            weeksOfCover=current_woc,
+            capitalLocked=current_cap,
             status=party.status,
             sku_tracking=sku_list,
             history=history,

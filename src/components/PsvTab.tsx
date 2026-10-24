@@ -645,19 +645,19 @@ export const PsvTab: React.FC<PsvTabProps> = ({ psvParties, currentUser }) => {
                           <div className="bg-theme-surface-3/60 rounded-lg py-1.5 px-1">
                             <div className="text-[9px] text-theme-muted uppercase tracking-wide">Stock Left</div>
                             <div className="text-xs font-bold font-mono text-theme-body mt-0.5">
-                              {p.stockCount} pcs
+                              {Number(p.stockCount ?? (p as any).stock_count ?? 0)} pcs
                             </div>
                           </div>
                           <div className="bg-theme-surface-3/60 rounded-lg py-1.5 px-1">
                             <div className="text-[9px] text-theme-muted uppercase tracking-wide">Sold %</div>
-                            <div className={`text-xs font-bold font-mono mt-0.5 ${sellThroughColour(p.sellThrough).split(" ")[1]}`}>
-                              {p.sellThrough}%
+                            <div className={`text-xs font-bold font-mono mt-0.5 ${sellThroughColour(Number(p.sellThrough ?? (p as any).sell_through ?? 0)).split(" ")[1]}`}>
+                              {Number(p.sellThrough ?? (p as any).sell_through ?? 0)}%
                             </div>
                           </div>
                           <div className="bg-theme-surface-3/60 rounded-lg py-1.5 px-1">
                             <div className="text-[9px] text-theme-muted uppercase tracking-wide">Weeks Left</div>
-                            <div className={`text-xs font-bold font-mono mt-0.5 ${weeksColour(p.weeksOfCover)}`}>
-                              {p.weeksOfCover} wk
+                            <div className={`text-xs font-bold font-mono mt-0.5 ${weeksColour(Number(p.weeksOfCover ?? (p as any).weeks_of_cover ?? 0))}`}>
+                              {Number(p.weeksOfCover ?? (p as any).weeks_of_cover ?? 0)} wk
                             </div>
                           </div>
                         </div>
@@ -701,7 +701,7 @@ export const PsvTab: React.FC<PsvTabProps> = ({ psvParties, currentUser }) => {
                         💰 Money Tied in Unsold Stock
                       </div>
                       <div className="text-rose-400 font-bold font-mono text-xl mt-0.5">
-                        {formatCurrency(activeParty.capitalLocked)}
+                        {formatCurrency(Number(activeParty.capitalLocked ?? (activeParty as any).capital_locked ?? 0))}
                       </div>
                       <div className="text-[10px] text-theme-muted mt-0.5">
                         This money will come back once goods sell.
@@ -714,34 +714,34 @@ export const PsvTab: React.FC<PsvTabProps> = ({ psvParties, currentUser }) => {
                     <MetricTile
                       icon="📦"
                       label="Stock with Distributor"
-                      value={`${activeParty.stockCount} pcs`}
+                      value={`${Number(activeParty.stockCount ?? (activeParty as any).stock_count ?? 0)} pcs`}
                       sub="Total pieces currently at their shop/warehouse"
                       valueClass="text-blue-400"
                     />
                     <MetricTile
                       icon="🛒"
                       label="How Much Has Sold"
-                      value={`${activeParty.sellThrough}%`}
-                      sub={sellThroughMessage(activeParty.sellThrough)}
-                      valueClass={activeParty.sellThrough >= 50 ? "text-emerald-400" : "text-rose-400"}
+                      value={`${Number(activeParty.sellThrough ?? (activeParty as any).sell_through ?? 0)}%`}
+                      sub={sellThroughMessage(Number(activeParty.sellThrough ?? (activeParty as any).sell_through ?? 0))}
+                      valueClass={Number(activeParty.sellThrough ?? (activeParty as any).sell_through ?? 0) >= 50 ? "text-emerald-400" : "text-rose-400"}
                     />
                     <MetricTile
                       icon="⏳"
                       label="Stock Will Last"
-                      value={`${activeParty.weeksOfCover} weeks`}
+                      value={`${Number(activeParty.weeksOfCover ?? (activeParty as any).weeks_of_cover ?? 0)} weeks`}
                       sub={
-                        activeParty.weeksOfCover >= 4
+                        Number(activeParty.weeksOfCover ?? (activeParty as any).weeks_of_cover ?? 0) >= 4
                           ? "Comfortable — no rush to restock"
-                          : activeParty.weeksOfCover >= 2
+                          : Number(activeParty.weeksOfCover ?? (activeParty as any).weeks_of_cover ?? 0) >= 2
                           ? "Getting low — plan a reorder"
                           : "Very low — reorder soon!"
                       }
-                      valueClass={weeksColour(activeParty.weeksOfCover)}
+                      valueClass={weeksColour(Number(activeParty.weeksOfCover ?? (activeParty as any).weeks_of_cover ?? 0))}
                     />
                     <MetricTile
                       icon="💸"
                       label="Locked Capital"
-                      value={formatCurrency(activeParty.capitalLocked)}
+                      value={formatCurrency(Number(activeParty.capitalLocked ?? (activeParty as any).capital_locked ?? 0))}
                       sub="Value of unsold goods at MRP"
                       valueClass="text-rose-400"
                     />

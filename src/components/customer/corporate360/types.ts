@@ -26,19 +26,7 @@ export type CorporateTabKey =
   | "stores"
   | "commercial"
   | "psv"
-  | "sales_invoices"
-  | "contacts_docs"
-  | "activity_audit"
-  // Legacy aliases
-  | "orders"
-  | "invoices"
-  | "payments"
-  | "products"
-  | "communication"
-  | "contracts"
-  | "team"
-  | "notes"
-  | "history";
+  | "sales_invoices";
 
 export interface PsvDetailedItem {
   id: string;

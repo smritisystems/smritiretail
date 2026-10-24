@@ -785,9 +785,6 @@ export const renderTabNode = (tabId: string, ctx: TabRendererContextProps): Reac
     case "customer-profile":
       return (
         <CorporateCustomer360
-          currentUser={currentUser}
-          onNotification={addNotification}
-          onNavigateTab={setActiveTab}
           onBack={() => setActiveTab("customer-master")}
         />
       );

@@ -26,16 +26,12 @@ import {
   BadgePercent,
   Package,
   Receipt,
-  FolderOpen,
-  History,
 } from "lucide-react";
 import { CorporateTabKey } from "./types.ts";
 
 interface CorporateCustomerTabsProps {
   activeTab: CorporateTabKey;
   onTabChange: (tab: CorporateTabKey) => void;
-  storesCount?: number;
-  childCount?: number;
 }
 
 export const CorporateCustomerTabs: React.FC<CorporateCustomerTabsProps> = ({
@@ -54,28 +50,16 @@ export const CorporateCustomerTabs: React.FC<CorporateCustomerTabsProps> = ({
     { key: "parent_child", label: "Parent – Child", icon: GitFork },
     { key: "stores", label: "Stores / Outlets", icon: Store },
     { key: "commercial", label: "Commercial Terms", icon: BadgePercent },
-    { key: "psv", label: "PSV Stock", icon: Package },
     { key: "sales_invoices", label: "Sales & Invoices", icon: Receipt },
-    { key: "contacts_docs", label: "Contacts & Documents", icon: FolderOpen },
-    { key: "activity_audit", label: "Activity & Audit", icon: History },
+    { key: "psv", label: "PSV Reconciliation", icon: Package },
   ];
-
-  // Helper to map legacy active tab keys to the new tabs
-  const getResolvedActiveKey = (key: CorporateTabKey): CorporateTabKey => {
-    if (key === "orders" || key === "invoices") return "sales_invoices";
-    if (key === "team" || key === "notes" || key === "contracts" || key === "communication") return "contacts_docs";
-    if (key === "history") return "activity_audit";
-    return key;
-  };
-
-  const currentKey = getResolvedActiveKey(activeTab);
 
   return (
     <div className="bg-white dark:bg-[#1a202c] border border-slate-200 dark:border-slate-800 rounded-xl p-1.5 overflow-x-auto scrollbar-none shadow-2xs">
       <nav className="flex items-center gap-1.5 min-w-max">
         {tabs.map((tab) => {
           const Icon = tab.icon;
-          const isActive = currentKey === tab.key;
+          const isActive = activeTab === tab.key;
           return (
             <button
               key={tab.key}

@@ -75,6 +75,35 @@ interface AppNotification {
   type: "success" | "error" | "info" | "warning";
 }
 
+function normalizePsvParty(p: any): PSVParty {
+  return {
+    id: p.id,
+    companyId: p.company_id || p.companyId,
+    hostCustomerId: p.host_customer_id || p.hostCustomerId,
+    deliveryLocationId: p.delivery_location_id || p.deliveryLocationId,
+    storeCode: p.store_code || p.storeCode,
+    storeNameSnapshot: p.store_name_snapshot || p.storeNameSnapshot,
+    stockModel: p.stock_model || p.stockModel || "OUTRIGHT_SALE",
+    name: p.name,
+    location: p.location,
+    stockCount: Number(p.stock_count ?? p.stockCount ?? 0),
+    sellThrough: Number(p.sell_through ?? p.sellThrough ?? 0),
+    weeksOfCover: Number(p.weeks_of_cover ?? p.weeksOfCover ?? 0),
+    capitalLocked: Number(p.capital_locked ?? p.capitalLocked ?? 0),
+    status: p.status || "Healthy",
+    history: Array.isArray(p.history) ? p.history : [],
+    skuTracking: (p.sku_tracking || p.skuTracking || []).map((s: any) => ({
+      id: s.id,
+      productId: s.product_id || s.productId || s.sku || "",
+      sku: s.sku,
+      productName: s.product_name || s.productName || s.sku,
+      invoicedQty: Number(s.invoiced_qty ?? s.invoicedQty ?? 0),
+      confirmedSoldQty: Number(s.confirmed_sold_qty ?? s.confirmedSoldQty ?? 0),
+      returnedQty: Number(s.returned_qty ?? s.returnedQty ?? 0),
+    })),
+  };
+}
+
 const AppContent: React.FC = () => {
   const toastIdRef = useRef(0);
   const { preferences, addToRecentlyUsed, registeredWorkspaces, uxMode } = useLayoutEngine();
@@ -247,7 +276,7 @@ const AppContent: React.FC = () => {
       m.refreshCustomerCache();
     });
     apiFetchV1("/psv/parties").then((data: any) => {
-      if (Array.isArray(data)) setPsvParties(data);
+      if (Array.isArray(data)) setPsvParties(data.map(normalizePsvParty));
     }).catch((err) => console.warn("[PSV] Failed to load parties:", err));
   }, [currentUser]);
 
@@ -456,7 +485,7 @@ const AppContent: React.FC = () => {
       try {
         const psvData = await apiFetchV1("/psv/parties");
         if (Array.isArray(psvData)) {
-          setPsvParties(psvData);
+          setPsvParties(psvData.map(normalizePsvParty));
         }
       } catch (err) {
         console.error("Failed to load PSV parties from FastAPI:", err);

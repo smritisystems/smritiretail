@@ -45,6 +45,11 @@ class PSVPartyResponse(BaseModel):
     sell_through: Decimal = Decimal("0.00")
     weeks_of_cover: Decimal = Decimal("0.00")
     capital_locked: Decimal = Decimal("0.00")
+    # CamelCase compatibility fields for frontend UI
+    stockCount: int = 0
+    sellThrough: float = 0.0
+    weeksOfCover: float = 0.0
+    capitalLocked: float = 0.0
     status: str = "Healthy"
     sku_tracking: List[PSVSkuTrackingResponse] = Field(default_factory=list)
     # history: computed time-series for velocity chart (populated by GET /parties)
