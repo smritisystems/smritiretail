@@ -63,9 +63,7 @@ export const ENTERPRISE_MENU_ITEMS: MenuItemDef[] = [
         label: "Sales Desks",
         icon: "point_of_sale",
         children: [
-          { id: "billing-workspace", label: "POS Billing Desk", moduleId: "billing-workspace", icon: "desktop_windows" },
-          { id: "sales", label: "Sales Orders & Dispatch", moduleId: "sales", icon: "receipt_long" },
-          { id: "propos", label: "ProPOS Fast Lane", moduleId: "propos", icon: "terminal" },
+          { id: "billing-workspace", label: "Billing & Sales", moduleId: "billing-workspace", icon: "point_of_sale" },
           { id: "sales-promotions", label: "Promotions & Offers", moduleId: "sales-promotions", icon: "loyalty" },
         ],
       },
@@ -102,17 +100,6 @@ export const ENTERPRISE_MENU_ITEMS: MenuItemDef[] = [
       { id: "grn-studio", label: "Goods Receipt (GRN)", moduleId: "grn-studio", icon: "inbox" },
       { id: "procurement-visual-reports", label: "Procurement Visual Reports", moduleId: "procurement-visual-reports", icon: "query_stats" },
       { id: "approval-matrix", label: "Approval Matrix", moduleId: "approval-matrix", icon: "verified" },
-    ],
-  },
-  {
-    id: "sales",
-    label: "Sales",
-    moduleId: "sales",
-    children: [
-      { id: "billing-workspace", label: "POS Terminal Desk", moduleId: "billing-workspace", icon: "point_of_sale" },
-      { id: "sales", label: "Sales Studio & Ledger", moduleId: "sales", icon: "receipt_long" },
-      { id: "propos", label: "ProPOS Suite", moduleId: "propos", icon: "terminal" },
-      { id: "sales-promotions", label: "Sales Promotions", moduleId: "sales-promotions", icon: "loyalty" },
     ],
   },
   {

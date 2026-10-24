@@ -1,0 +1,15 @@
+{
+  "certificate_id": "PF-2026-1024-8AB205",
+  "entity": "sales",
+  "capability": "sales.credit_tax_invoice",
+  "asset_type": "component",
+  "proposed_name": "CompactCreditTaxInvoiceEditor.tsx",
+  "target_file_path": "src/components/sales/CompactCreditTaxInvoiceEditor.tsx",
+  "decision": "CREATE_APPROVED",
+  "canonical_owner": "src/components/sales/CompactCreditTaxInvoiceEditor.tsx",
+  "content_hash": "a108246d4115a2eb114b6461b9633d96bbd29f286cc149b9d8ee7d634770493b",
+  "git_commit": "ffe5b4ff5d86f3df2dc7d5a12d44631c7e486ff7",
+  "issued_at": "2026-10-24T11:14:17.075846+00:00",
+  "expires_at": "2026-10-31T11:14:17.075846+00:00",
+  "status": "ISSUED"
+}

@@ -34,6 +34,7 @@
 
 This directory contains formal walkthroughs documenting major features, bug fixes, refactoring, and optimizations in SMRITI Retail OS.
 
+| 2026-10-24 | v1.0.0 | **Billing & Sales: Compact Credit Tax Invoice Editor (Against Original Invoice)** — Implemented high-density ERP editor matching reference design with complete keyboard-driven cashier ergonomics (F2/F3/F4/F5/F7/Del), 13-column item table, middle edit drawer, notes/GST breakdown, KPI status footer, and canonical `SalesReturnService` integration. Verified with 6/6 unit tests green, clean TypeScript `tsc --noEmit`, and 11/11 auxiliary view tests green. | [Walkthrough](./billing/Billing_Credit_Tax_Invoice_Compact_Editor_v1.0.0.md) | — | — | Done |
 | 2026-10-24 | v1.0.1 | CRM & Customer Master: Parent-Child Customer Creation Link - Persists the selected parent link atomically and shows it in Parent-Child and Directory views. Focused UI, backend, and isolated-database integration checks passed; remote production remains unverified. | [Walkthrough](./crm/CRM_Parent_Child_Customer_Creation_Link_Walkthrough_v1.0.1.md) | [Plan](../implementation/crm/CRM_Parent_Child_Customer_Creation_Link_Plan_v1.0.1.md) | [Ledger](./CONSOLIDATED_WALKTHROUGHS.md#crm-parent-child-customer-creation-link) | Partially Verified |
 
 
