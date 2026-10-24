@@ -43,6 +43,8 @@ import { apiFetchV1 } from "../../lib/apiFetchV1.ts";
 export interface CompactCreditInvoiceItem {
   id: string;
   productId?: string;
+  itemId?: string;
+  variantId?: string;
   barcode: string;
   description: string;
   rate: number;
@@ -61,7 +63,7 @@ export interface CompactCreditInvoiceItem {
 
 export interface CompactCreditTaxInvoiceEditorProps {
   initialInvoiceId?: string;
-  initialBillType?: "Credit Tax Invoice" | "Tax Invoice" | "Debit Note";
+  initialBillType?: "Credit Tax Invoice" | "Tax Invoice";
   onExit?: () => void;
   onClose?: () => void;
   onNotification?: (title: string, msg: string, type?: "success" | "error" | "info" | "warning") => void;
@@ -73,11 +75,6 @@ export interface CompactCreditTaxInvoiceEditorProps {
 const DEFAULT_SALES_STAFF = ["Ramesh", "Suresh", "Anita", "Pooja", "Vikram"];
 const DISCOUNT_CODES = ["LC", "SPR", "NONE", "PROMO", "MGR"];
 const PAYMENT_MODES = ["CASH", "UPI", "CARD", "CREDIT / ON ACCOUNT", "NET BANKING"];
-const DEFAULT_SERIES_BY_TYPE: Record<string, string[]> = {
-  "Credit Tax Invoice": ["CRN", "RET"],
-  "Tax Invoice": ["INV", "TXN", "RET"],
-  "Debit Note": ["DBN", "ADJ"],
-};
 const REASON_CODES = [
   "Returned Items",
   "Defective Product",
@@ -98,99 +95,6 @@ const STATES = [
   "West Bengal (19)",
 ];
 
-const INITIAL_ITEMS: CompactCreditInvoiceItem[] = [
-  {
-    id: "item-1",
-    productId: "prod-1",
-    barcode: "8901234567890",
-    description: "Running Shoes (Blue - Size 42)",
-    rate: 2999.0,
-    qty: 1.0,
-    maxQty: 2,
-    value: 2999.0,
-    discCode: "LC",
-    discQty: 0.0,
-    discPercent: 0.0,
-    discAmount: 0.0,
-    total: 2999.0,
-    salesStaff: "Ramesh",
-    gstRate: 12.0,
-    taxAmount: 321.32,
-  },
-  {
-    id: "item-2",
-    productId: "prod-2",
-    barcode: "8909876543210",
-    description: "T-Shirt (Medium)",
-    rate: 699.0,
-    qty: 2.0,
-    maxQty: 3,
-    value: 1398.0,
-    discCode: "SPR",
-    discQty: 0.0,
-    discPercent: 10.0,
-    discAmount: 139.8,
-    total: 1258.2,
-    salesStaff: "Suresh",
-    gstRate: 5.0,
-    taxAmount: 59.91,
-  },
-  {
-    id: "item-3",
-    productId: "prod-3",
-    barcode: "8901122334455",
-    description: "Jeans (Size 32)",
-    rate: 1499.0,
-    qty: 1.0,
-    maxQty: 1,
-    value: 1499.0,
-    discCode: "LC",
-    discQty: 0.0,
-    discPercent: 0.0,
-    discAmount: 0.0,
-    total: 1499.0,
-    salesStaff: "Ramesh",
-    gstRate: 5.0,
-    taxAmount: 71.38,
-  },
-  {
-    id: "item-4",
-    productId: "prod-4",
-    barcode: "8905566778899",
-    description: "Handbag (Brown)",
-    rate: 1999.0,
-    qty: 1.0,
-    maxQty: 1,
-    value: 1999.0,
-    discCode: "SPR",
-    discQty: 0.0,
-    discPercent: 5.0,
-    discAmount: 99.95,
-    total: 1899.05,
-    salesStaff: "Anita",
-    gstRate: 18.0,
-    taxAmount: 289.68,
-  },
-  {
-    id: "item-5",
-    productId: "prod-5",
-    barcode: "8909988776655",
-    description: "Watch (Analog)",
-    rate: 4999.0,
-    qty: 1.0,
-    maxQty: 1,
-    value: 4999.0,
-    discCode: "LC",
-    discQty: 0.0,
-    discPercent: 0.0,
-    discAmount: 0.0,
-    total: 4999.0,
-    salesStaff: "Suresh",
-    gstRate: 18.0,
-    taxAmount: 610.02,
-  },
-];
-
 export const CompactCreditTaxInvoiceEditor: React.FC<CompactCreditTaxInvoiceEditorProps> = ({
   initialInvoiceId = "",
   initialBillType = "Credit Tax Invoice",
@@ -203,19 +107,15 @@ export const CompactCreditTaxInvoiceEditor: React.FC<CompactCreditTaxInvoiceEdit
 }) => {
   // Document metadata state
   const [billType, setBillType] = useState<string>(initialBillType);
-  const [series, setSeries] = useState<string>(
-    initialBillType === "Tax Invoice" ? "INV" : initialBillType === "Debit Note" ? "DBN" : "CRN"
-  );
-  const [docNumber, setDocNumber] = useState<string>(
-    initialBillType === "Tax Invoice" ? "2026/000542" : "2025/000123"
-  );
+  const [series, setSeries] = useState<string>(initialBillType === "Tax Invoice" ? "INV" : "CRN");
+  const [selectedSeriesId, setSelectedSeriesId] = useState<string>("");
+  const [docNumber, setDocNumber] = useState<string>("");
   const [docDate, setDocDate] = useState<string>(() => new Date().toISOString().split("T")[0]);
-  const [originalInvoiceNo, setOriginalInvoiceNo] = useState<string>(initialInvoiceId || "INV/2025/001456");
-  const [poReference, setPoReference] = useState<string>("PO-2026-001");
+  const [originalInvoiceNo, setOriginalInvoiceNo] = useState<string>(initialInvoiceId);
+  const [originalInvoiceIdResolved, setOriginalInvoiceIdResolved] = useState<string>(initialInvoiceId);
+  const [poReference, setPoReference] = useState<string>("");
   const [paymentMode, setPaymentMode] = useState<string>("CASH");
-  const [availableSeries, setAvailableSeries] = useState<string[]>(
-    DEFAULT_SERIES_BY_TYPE[initialBillType] || ["CRN", "RET"]
-  );
+  const [availableSeries, setAvailableSeries] = useState<DocumentSeries[]>([]);
 
   // Resolve series dynamically from NumberingEngine
   useEffect(() => {
@@ -225,7 +125,7 @@ export const CompactCreditTaxInvoiceEditor: React.FC<CompactCreditTaxInvoiceEdit
         const allSeries: DocumentSeries[] = await NumberingEngine.getAllSeriesAsync();
         if (!isMounted) return;
 
-        let matching: string[] = [];
+        let matching: DocumentSeries[] = [];
         if (billType === "Tax Invoice") {
           matching = allSeries
             .filter(
@@ -233,9 +133,7 @@ export const CompactCreditTaxInvoiceEditor: React.FC<CompactCreditTaxInvoiceEdit
                 s.module.toLowerCase() === "sales" &&
                 s.isActive &&
                 (s.documentType.toLowerCase().includes("invoice") || s.documentType.toLowerCase().includes("retail"))
-            )
-            .map((s) => s.prefix.replace(/[^A-Za-z0-9]/g, "").slice(0, 4) || s.name.slice(0, 4).toUpperCase());
-          if (!matching.includes("INV")) matching.unshift("INV");
+            );
         } else if (billType === "Credit Tax Invoice") {
           matching = allSeries
             .filter(
@@ -243,19 +141,17 @@ export const CompactCreditTaxInvoiceEditor: React.FC<CompactCreditTaxInvoiceEdit
                 s.module.toLowerCase() === "sales" &&
                 s.isActive &&
                 (s.documentType.toLowerCase().includes("credit") || s.documentType.toLowerCase().includes("return"))
-            )
-            .map((s) => s.prefix.replace(/[^A-Za-z0-9]/g, "").slice(0, 4) || s.name.slice(0, 4).toUpperCase());
-          if (!matching.includes("CRN")) matching.unshift("CRN");
-        } else {
-          matching = ["DBN", "ADJ"];
+            );
         }
 
-        const fallback = DEFAULT_SERIES_BY_TYPE[billType] || ["CRN"];
-        const uniqueSeries = Array.from(new Set([...matching, ...fallback])).filter(Boolean);
-        setAvailableSeries(uniqueSeries);
+        setAvailableSeries(matching);
+        if (matching.length > 0) {
+          const current = matching.find((s) => s.prefix === series) || matching[0];
+          setSelectedSeriesId(current.id);
+          setSeries(current.prefix);
+        }
       } catch {
-        const fallback = DEFAULT_SERIES_BY_TYPE[billType] || ["CRN"];
-        setAvailableSeries(fallback);
+        setAvailableSeries([]);
       }
     }
     loadSeries();
@@ -265,20 +161,14 @@ export const CompactCreditTaxInvoiceEditor: React.FC<CompactCreditTaxInvoiceEdit
   }, [billType]);
 
   // Handle switching Bill Type
-  const handleBillTypeChange = (newType: string) => {
+  const handleBillTypeChange = (newType: "Credit Tax Invoice" | "Tax Invoice") => {
     setBillType(newType);
-    const defaultSeries = (DEFAULT_SERIES_BY_TYPE[newType] || ["CRN"])[0];
-    setSeries(defaultSeries);
-    const seriesList = DEFAULT_SERIES_BY_TYPE[newType] || [defaultSeries];
-    setAvailableSeries(seriesList);
-
-    if (newType === "Tax Invoice") {
-      setDocNumber("2026/000542");
-    } else if (newType === "Debit Note") {
-      setDocNumber("2026/000088");
-    } else {
-      setDocNumber("2025/000123");
-    }
+    const defaultPrefix = newType === "Tax Invoice" ? "INV" : "CRN";
+    setSeries(defaultPrefix);
+    setSelectedSeriesId("");
+    setAvailableSeries([]);
+    setDocNumber("");
+    setOriginalInvoiceIdResolved("");
 
     onNotification?.(
       "Document Switched",
@@ -294,14 +184,18 @@ export const CompactCreditTaxInvoiceEditor: React.FC<CompactCreditTaxInvoiceEdit
       const matched = all.find(
         (s) =>
           s.isActive &&
+          s.module.toLowerCase() === "sales" &&
+          (s.id === selectedSeriesId || s.prefix === series) &&
           ((billType === "Tax Invoice" &&
-            (s.documentType.toLowerCase().includes("invoice") || s.prefix.includes("INV"))) ||
+            s.documentType.toLowerCase().includes("invoice")) ||
             (billType === "Credit Tax Invoice" &&
-              (s.documentType.toLowerCase().includes("credit") || s.prefix.includes("CRN"))))
+              (s.documentType.toLowerCase().includes("credit") || s.documentType.toLowerCase().includes("return"))))
       );
 
       if (matched) {
-        const nextNum = await NumberingEngine.allocateNextNumberAsync(matched.id, { branch: storeName });
+        setSelectedSeriesId(matched.id);
+        setSeries(matched.prefix);
+        const nextNum = await NumberingEngine.allocateNextNumberAsync(matched.id);
         if (nextNum) {
           setDocNumber(nextNum);
           onNotification?.("Sequence Allocated", `Authoritative document sequence ${nextNum} allocated.`, "success");
@@ -309,15 +203,11 @@ export const CompactCreditTaxInvoiceEditor: React.FC<CompactCreditTaxInvoiceEdit
         }
       }
 
-      const nextSeq = `${new Date().getFullYear()}/${String(Math.floor(100 + Math.random() * 900)).padStart(6, "0")}`;
-      setDocNumber(nextSeq);
-      onNotification?.("Sequence Generated", `Document number set to ${nextSeq}.`, "info");
-    } catch {
-      const nextSeq = `${new Date().getFullYear()}/${String(Math.floor(100 + Math.random() * 900)).padStart(6, "0")}`;
-      setDocNumber(nextSeq);
-      onNotification?.("Sequence Generated", `Document number set to ${nextSeq}.`, "info");
+      onNotification?.("Numbering Not Configured", `No active ${billType} series matches '${series}'. Configure a series before posting.`, "error");
+    } catch (err: any) {
+      onNotification?.("Number Allocation Failed", err?.message || "The authoritative document sequence could not be allocated. Please retry.", "error");
     }
-  }, [billType, storeName, onNotification]);
+  }, [billType, selectedSeriesId, series, onNotification]);
 
   // Customer state
   const [customerCode, setCustomerCode] = useState<string>("CUST-001");
@@ -328,13 +218,14 @@ export const CompactCreditTaxInvoiceEditor: React.FC<CompactCreditTaxInvoiceEdit
   const [returnReason, setReturnReason] = useState<string>("Returned Items");
 
   // Items state
-  const [items, setItems] = useState<CompactCreditInvoiceItem[]>(INITIAL_ITEMS);
-  const [selectedItemIndex, setSelectedItemIndex] = useState<number>(2); // Jeans initially selected
+  const [items, setItems] = useState<CompactCreditInvoiceItem[]>([]);
+  const [selectedItemIndex, setSelectedItemIndex] = useState<number>(-1);
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [notes, setNotes] = useState<string>("");
 
   // UI state
   const [isLoadingContext, setIsLoadingContext] = useState<boolean>(false);
+  const [isResolvingItem, setIsResolvingItem] = useState<boolean>(false);
   const [isPosting, setIsPosting] = useState<boolean>(false);
   const [showPrintModal, setShowPrintModal] = useState<boolean>(false);
   const [showOptionsDropdown, setShowOptionsDropdown] = useState<boolean>(false);
@@ -380,6 +271,8 @@ export const CompactCreditTaxInvoiceEditor: React.FC<CompactCreditTaxInvoiceEdit
     try {
       const ctx = await SalesReturnService.getReturnContext(targetId);
       if (ctx && ctx.lines && ctx.lines.length > 0) {
+        setOriginalInvoiceIdResolved(ctx.invoice_id);
+        setOriginalInvoiceNo(ctx.invoice_no || targetId);
         if (ctx.customer) {
           setCustomerCode(ctx.customer.id || "CUST-001");
           setCustomerName(ctx.customer.name || "Walk-in Customer");
@@ -388,8 +281,10 @@ export const CompactCreditTaxInvoiceEditor: React.FC<CompactCreditTaxInvoiceEdit
           setReturnReason(ctx.effective_policy.allowed_return_reasons[0]);
         }
 
-        const mappedLines: CompactCreditInvoiceItem[] = ctx.lines.map((line, idx) => {
-          const qty = line.remaining_quantity > 0 ? line.remaining_quantity : 1;
+        const mappedLines: CompactCreditInvoiceItem[] = ctx.lines
+          .filter((line) => line.remaining_quantity > 0)
+          .map((line, idx) => {
+          const qty = line.remaining_quantity;
           const rate = line.unit_price;
           const val = rate * qty;
           const gstRate = line.gst_rate || 5;
@@ -415,16 +310,19 @@ export const CompactCreditTaxInvoiceEditor: React.FC<CompactCreditTaxInvoiceEdit
         });
 
         setItems(mappedLines);
-        setSelectedItemIndex(0);
+        setSelectedItemIndex(mappedLines.length ? 0 : -1);
         onNotification?.("Invoice Loaded", `Retrieved ${mappedLines.length} eligible return items from #${ctx.invoice_no || targetId}`, "success");
       } else {
+        setOriginalInvoiceIdResolved("");
+        setItems([]);
+        setSelectedItemIndex(-1);
         onNotification?.("Notice", `Invoice #${targetId} loaded without returnable lines.`, "info");
       }
     } catch (err: any) {
       onNotification?.(
-        "Lookup Notice",
-        `Server return-context lookup completed for #${targetId} (Using active document buffer).`,
-        "info"
+        "Invoice Lookup Failed",
+        err?.message || `Could not validate original invoice #${targetId}.`,
+        "error"
       );
     } finally {
       setIsLoadingContext(false);
@@ -434,11 +332,16 @@ export const CompactCreditTaxInvoiceEditor: React.FC<CompactCreditTaxInvoiceEdit
   // Handle drawer update (F4)
   const handleUpdateSelectedItem = useCallback(() => {
     if (selectedItemIndex < 0 || selectedItemIndex >= items.length) return;
+    const selected = items[selectedItemIndex];
+    const qty = Math.max(0.01, drawerQty);
+    if (selected.maxQty !== undefined && qty > selected.maxQty) {
+      onNotification?.("Quantity Exceeds Returnable Amount", `Only ${selected.maxQty} unit(s) remain eligible on the original invoice line.`, "error");
+      return;
+    }
 
     setItems((prev) => {
       const copy = [...prev];
       const cur = copy[selectedItemIndex];
-      const qty = Math.max(0.01, drawerQty);
       const rate = Math.max(0, drawerRate);
       const val = Number((rate * qty).toFixed(2));
 
@@ -476,26 +379,95 @@ export const CompactCreditTaxInvoiceEditor: React.FC<CompactCreditTaxInvoiceEdit
 
   // Add Item Line (F3)
   const handleAddItem = useCallback(() => {
+    if (billType === "Credit Tax Invoice") {
+      onNotification?.("Load Original Invoice", "Credit invoice lines must come from the validated original invoice.", "warning");
+      return;
+    }
     const newItem: CompactCreditInvoiceItem = {
-      id: `item-${Date.now()}`,
-      barcode: `890${Math.floor(1000000000 + Math.random() * 9000000000)}`,
-      description: "General Merchandise Item",
-      rate: 999.0,
-      qty: 1.0,
-      value: 999.0,
+      id: crypto.randomUUID(),
+      barcode: "",
+      description: "",
+      rate: 0,
+      qty: 1,
+      value: 0,
       discCode: "NONE",
       discQty: 0.0,
       discPercent: 0.0,
       discAmount: 0.0,
-      total: 999.0,
+      total: 0,
       salesStaff: salesStaff,
-      gstRate: 12.0,
-      taxAmount: 107.04,
+      gstRate: 0,
+      taxAmount: 0,
     };
     setItems((prev) => [...prev, newItem]);
     setSelectedItemIndex(items.length);
-    onNotification?.("Item Added", "New line appended to credit invoice.", "info");
-  }, [items.length, salesStaff, onNotification]);
+    onNotification?.("Item Row Added", "Search for and select a valid item before posting.", "info");
+  }, [billType, items.length, salesStaff, onNotification]);
+
+  const handleResolveItem = useCallback(async (rawQuery: string) => {
+    const query = rawQuery.trim();
+    if (!query) return;
+    if (billType === "Credit Tax Invoice") {
+      onNotification?.("Load Original Invoice", "Credit invoice lines must come from the validated original invoice.", "warning");
+      return;
+    }
+    setIsResolvingItem(true);
+    try {
+      const resolved = await apiFetchV1<any>(`/universal/items/resolve?query=${encodeURIComponent(query)}`);
+      const productId = resolved?.product_id || resolved?.productId || resolved?.item_id || resolved?.itemId;
+      const itemId = resolved?.item_id || resolved?.itemId;
+      const variantId = resolved?.variant_id || resolved?.variantId;
+      const barcode = resolved?.barcode || resolved?.item_code || resolved?.sku || query;
+      const description = resolved?.item_name || resolved?.name || resolved?.description;
+      if (!productId || !description) {
+        onNotification?.("Item Not Found", `No unambiguous item matched '${query}'. Check the barcode or search term.`, "warning");
+        return;
+      }
+      const rate = Number(resolved?.selling_price ?? resolved?.mrp ?? 0);
+      const gstRate = Number(resolved?.tax_rate ?? resolved?.gst_percentage ?? resolved?.gst_rate ?? 0);
+      const newItem: CompactCreditInvoiceItem = {
+        id: crypto.randomUUID(),
+        productId: String(productId),
+        itemId: itemId ? String(itemId) : undefined,
+        variantId: variantId ? String(variantId) : undefined,
+        barcode: String(barcode),
+        description: String(description),
+        rate,
+        qty: 1,
+        value: rate,
+        discCode: "NONE",
+        discQty: 0,
+        discPercent: 0,
+        discAmount: 0,
+        total: rate,
+        salesStaff,
+        gstRate,
+        taxAmount: 0,
+      };
+      const blankIndex = selectedItemIndex >= 0 && !items[selectedItemIndex]?.productId ? selectedItemIndex : -1;
+      const existingIndex = items.findIndex((line) => line.productId === newItem.productId && line.variantId === newItem.variantId);
+      setItems((prev) => {
+        if (blankIndex >= 0) {
+          const copy = [...prev];
+          copy[blankIndex] = newItem;
+          return copy;
+        }
+        if (existingIndex < 0) return [...prev, newItem];
+        const copy = [...prev];
+        const existing = copy[existingIndex];
+        const qty = existing.qty + 1;
+        const value = Number((existing.rate * qty).toFixed(2));
+        copy[existingIndex] = { ...existing, qty, value, total: Number((value - existing.discAmount).toFixed(2)) };
+        return copy;
+      });
+      setSelectedItemIndex(blankIndex >= 0 ? blankIndex : existingIndex >= 0 ? existingIndex : items.length);
+      setSearchQuery("");
+    } catch (err: any) {
+      onNotification?.("Item Lookup Failed", err?.message || `Unable to resolve '${query}'.`, "error");
+    } finally {
+      setIsResolvingItem(false);
+    }
+  }, [billType, items, selectedItemIndex, onNotification, salesStaff]);
 
   // Remove Selected Item (Del)
   const handleRemoveSelectedItem = useCallback(() => {
@@ -514,32 +486,6 @@ export const CompactCreditTaxInvoiceEditor: React.FC<CompactCreditTaxInvoiceEdit
 
   // Financial aggregates
   const financialTotals = useMemo(() => {
-    // If pristine initial state matching screenshot items AND Credit Tax Invoice, render exact screenshot totals
-    const isInitialScreenshotState =
-      billType === "Credit Tax Invoice" &&
-      items.length === 5 &&
-      items[0].barcode === "8901234567890" &&
-      items[4].barcode === "8909988776655" &&
-      items[0].qty === 1 &&
-      items[1].qty === 2 &&
-      items[2].qty === 1 &&
-      items[3].qty === 1 &&
-      items[4].qty === 1;
-
-    if (isInitialScreenshotState) {
-      return {
-        totalItems: 5,
-        totalQty: 6.0,
-        salesValue: 11894.0,
-        itemLevelDisc: 239.75,
-        billDiscount: 0.0,
-        totalTax: 975.75,
-        totalAdditions: 0.0,
-        totalDeductions: 0.0,
-        netAmount: 11793.0,
-      };
-    }
-
     const totalItems = items.length;
     const totalQty = items.reduce((sum, item) => sum + item.qty, 0);
     const salesValue = items.reduce((sum, item) => sum + item.value, 0);
@@ -561,7 +507,7 @@ export const CompactCreditTaxInvoiceEditor: React.FC<CompactCreditTaxInvoiceEdit
       totalDeductions,
       netAmount,
     };
-  }, [items, billType]);
+  }, [items]);
 
   // Post Document (F5) - Supports both Tax Invoice (Direct B2B/Retail) and Credit Tax Invoice
   const handlePostDocument = useCallback(async () => {
@@ -569,9 +515,21 @@ export const CompactCreditTaxInvoiceEditor: React.FC<CompactCreditTaxInvoiceEdit
       onNotification?.("Validation Blocked", `Cannot post an empty ${billType.toLowerCase()}.`, "error");
       return;
     }
+    if (!series || !docNumber.trim()) {
+      onNotification?.("Validation Blocked", "Select a configured series and allocate the authoritative document number before posting.", "error");
+      return;
+    }
+    if (billType === "Credit Tax Invoice" && !originalInvoiceIdResolved) {
+      onNotification?.("Validation Blocked", "Load and validate the original invoice before posting a credit invoice.", "error");
+      return;
+    }
+    if (items.some((item) => !item.barcode.trim() || !item.description.trim() || item.qty <= 0 || item.rate < 0)) {
+      onNotification?.("Validation Blocked", "Resolve every item and enter a valid quantity and rate before posting.", "error");
+      return;
+    }
 
     setIsPosting(true);
-    const docNo = `${series}/${docNumber}`;
+    const docNo = docNumber.startsWith(`${series}/`) ? docNumber : `${series}/${docNumber}`;
 
     try {
       if (billType === "Tax Invoice") {
@@ -584,6 +542,7 @@ export const CompactCreditTaxInvoiceEditor: React.FC<CompactCreditTaxInvoiceEdit
           customer_gstin: gstin,
           pos_state: selectedState,
           payment_mode: paymentMode,
+          paid_amount: paymentMode === "CREDIT / ON ACCOUNT" ? 0 : Number(financialTotals.netAmount.toFixed(2)),
           status: "Completed",
           salesperson_name: salesStaff,
           po_reference: poReference,
@@ -594,7 +553,9 @@ export const CompactCreditTaxInvoiceEditor: React.FC<CompactCreditTaxInvoiceEdit
           net_amount: Number(financialTotals.netAmount.toFixed(2)),
           remarks: notes || `Direct sales invoice created via Compact Editor`,
           items: items.map((i, idx) => ({
-            product_id: i.productId || i.id,
+            product_id: i.productId,
+            item_id: i.itemId,
+            variant_id: i.variantId,
             code: i.barcode,
             name: i.description,
             quantity: i.qty,
@@ -608,33 +569,22 @@ export const CompactCreditTaxInvoiceEditor: React.FC<CompactCreditTaxInvoiceEdit
           })),
         };
 
-        const idempotencyKey = `tax-inv-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-        try {
-          await apiFetchV1("/sales/invoices/", {
-            method: "POST",
-            headers: {
-              "X-Idempotency-Key": idempotencyKey,
-            },
-            body: JSON.stringify(invoicePayload),
-          });
-          onNotification?.(
-            "Tax Invoice Posted",
-            `Tax Invoice ${docNo} posted successfully. Stock deducted and revenue ledger updated.`,
-            "success"
-          );
-        } catch (apiErr: any) {
-          onNotification?.(
-            "Submission Complete",
-            `Tax Invoice ${docNo} recorded and validated under sales register (Payment: ${paymentMode}).`,
-            "success"
-          );
-        }
+        await apiFetchV1("/sales/invoices/", {
+          method: "POST",
+          headers: { "X-Idempotency-Key": `sales-invoice-${docNo}`.slice(0, 50) },
+          body: JSON.stringify(invoicePayload),
+        });
+        onNotification?.(
+          "Tax Invoice Posted",
+          `Tax Invoice ${docNo} was accepted by the sales service.`,
+          "success"
+        );
       } else {
-        // Credit Tax Invoice / Debit Note Posting via SalesReturnService
+        // Credit Tax Invoice posting uses the authoritative return service.
         const returnPayload: SalesReturnCreatePayload = {
-          id: `crn-${Date.now()}`,
+          id: crypto.randomUUID(),
           return_no: docNo,
-          original_invoice_id: originalInvoiceNo,
+          original_invoice_id: originalInvoiceIdResolved,
           credit_note_number: docNo,
           reason: returnReason,
           refund_mode: "CREDIT_NOTE",
@@ -642,7 +592,7 @@ export const CompactCreditTaxInvoiceEditor: React.FC<CompactCreditTaxInvoiceEdit
           tax_total: Number(financialTotals.totalTax.toFixed(2)),
           grand_total: Number(financialTotals.netAmount.toFixed(2)),
           items: items.map((i) => ({
-            product_id: i.productId || i.id,
+            product_id: i.productId || "",
             code: i.barcode,
             name: i.description,
             quantity: i.qty,
@@ -653,21 +603,19 @@ export const CompactCreditTaxInvoiceEditor: React.FC<CompactCreditTaxInvoiceEdit
           })),
         };
 
-        try {
-          await SalesReturnService.createSalesReturn(returnPayload);
-          onNotification?.(
-            "Credit Invoice Posted",
-            `Credit Note ${docNo} posted successfully. Stock returned and customer credited.`,
-            "success"
-          );
-        } catch (err: any) {
-          onNotification?.(
-            "Submission Complete",
-            `Credit Tax Invoice ${docNo} recorded and validated under sales return ledger.`,
-            "success"
-          );
-        }
+        await SalesReturnService.createSalesReturn(returnPayload, `sales-return-${docNo}`.slice(0, 50));
+        onNotification?.(
+          "Credit Invoice Posted",
+          `Credit Note ${docNo} was accepted by the sales return service.`,
+          "success"
+        );
       }
+    } catch (err: any) {
+      onNotification?.(
+        "Posting Failed",
+        err?.message || `The ${billType.toLowerCase()} could not be posted. No success was recorded; correct the issue and retry.`,
+        "error"
+      );
     } finally {
       setIsPosting(false);
     }
@@ -736,10 +684,6 @@ export const CompactCreditTaxInvoiceEditor: React.FC<CompactCreditTaxInvoiceEdit
               <>
                 Tax Invoice <span className="text-slate-400 font-normal">(Direct Sales / B2B &amp; Retail)</span>
               </>
-            ) : billType === "Debit Note" ? (
-              <>
-                Debit Note <span className="text-slate-400 font-normal">(Sales Adjustment / Supplementary)</span>
-              </>
             ) : (
               <>
                 Credit Tax Invoice <span className="text-slate-400 font-normal">(Against Original Invoice)</span>
@@ -774,12 +718,11 @@ export const CompactCreditTaxInvoiceEditor: React.FC<CompactCreditTaxInvoiceEdit
             <label className="font-bold text-slate-700 dark:text-slate-300 whitespace-nowrap">Bill Type</label>
             <select
               value={billType}
-              onChange={(e) => handleBillTypeChange(e.target.value)}
+          onChange={(e) => handleBillTypeChange(e.target.value as "Credit Tax Invoice" | "Tax Invoice")}
               className="px-2 py-1 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-sky-500"
             >
               <option value="Credit Tax Invoice">Credit Tax Invoice</option>
               <option value="Tax Invoice">Tax Invoice</option>
-              <option value="Debit Note">Debit Note</option>
             </select>
           </div>
 
@@ -787,12 +730,27 @@ export const CompactCreditTaxInvoiceEditor: React.FC<CompactCreditTaxInvoiceEdit
             <label className="font-bold text-slate-700 dark:text-slate-300">Series</label>
             <select
               value={series}
-              onChange={(e) => setSeries(e.target.value)}
+              onChange={(e) => {
+                const prefix = e.target.value;
+                setSeries(prefix);
+                const matched = availableSeries.find((s) => s.prefix === prefix);
+                if (matched) {
+                  setSelectedSeriesId(matched.id);
+                }
+              }}
               className="px-2 py-1 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-sky-500"
             >
-              {availableSeries.map((s) => (
-                <option key={s} value={s}>{s}</option>
-              ))}
+              {availableSeries.length > 0 ? (
+                availableSeries.map((s) => (
+                  <option key={s.id} value={s.prefix}>
+                    {s.prefix}
+                  </option>
+                ))
+              ) : (
+                <option value={series || (billType === "Tax Invoice" ? "INV" : "CRN")}>
+                  {series || (billType === "Tax Invoice" ? "INV" : "CRN")}
+                </option>
+              )}
             </select>
           </div>
 
@@ -833,8 +791,11 @@ export const CompactCreditTaxInvoiceEditor: React.FC<CompactCreditTaxInvoiceEdit
                 <input
                   type="text"
                   value={originalInvoiceNo}
-                  onChange={(e) => setOriginalInvoiceNo(e.target.value)}
-                  placeholder="INV/2025/001456"
+                  onChange={(e) => {
+                    setOriginalInvoiceNo(e.target.value);
+                    setOriginalInvoiceIdResolved("");
+                  }}
+                  placeholder="Invoice number or ID"
                   className="w-40 px-2 py-1 pl-6 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded text-xs font-mono focus:outline-none focus:ring-1 focus:ring-sky-500"
                 />
                 <Search size={12} className="absolute left-1.5 text-slate-400" />
@@ -984,20 +945,6 @@ export const CompactCreditTaxInvoiceEditor: React.FC<CompactCreditTaxInvoiceEdit
                 {PAYMENT_MODES.map((pm) => (
                   <option key={pm} value={pm}>{pm}</option>
                 ))}
-              </select>
-            </div>
-          ) : billType === "Debit Note" ? (
-            <div className="flex items-center gap-1.5">
-              <label className="font-bold text-slate-700 dark:text-slate-300">Adjustment</label>
-              <select
-                value={returnReason}
-                onChange={(e) => setReturnReason(e.target.value)}
-                className="w-40 px-2 py-1 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded text-xs focus:outline-none focus:ring-1 focus:ring-sky-500"
-              >
-                <option value="Rate Difference">Rate Difference</option>
-                <option value="Tax Rate Revision">Tax Rate Revision</option>
-                <option value="Supplementary Charge">Supplementary Charge</option>
-                <option value="Other Adjustment">Other Adjustment</option>
               </select>
             </div>
           ) : (
@@ -1537,8 +1484,6 @@ export const CompactCreditTaxInvoiceEditor: React.FC<CompactCreditTaxInvoiceEdit
                 ? "Posting..."
                 : billType === "Tax Invoice"
                 ? "Post Tax Invoice (F5)"
-                : billType === "Debit Note"
-                ? "Post Debit Note (F5)"
                 : "Post Credit Invoice (F5)"}
             </span>
           </button>
@@ -1583,8 +1528,8 @@ export const CompactCreditTaxInvoiceEditor: React.FC<CompactCreditTaxInvoiceEdit
 
             <div className="text-xs space-y-2 font-mono bg-slate-50 dark:bg-slate-800/60 p-3 rounded-lg border border-slate-200 dark:border-slate-700">
               <div className="flex justify-between">
-                <span>{billType === "Tax Invoice" ? "Invoice No:" : billType === "Debit Note" ? "Debit Note No:" : "Credit Note No:"}</span>
-                <span className="font-bold">{series}/{docNumber}</span>
+                <span>{billType === "Tax Invoice" ? "Invoice No:" : "Credit Note No:"}</span>
+                <span className="font-bold">{docNumber.startsWith(`${series}/`) ? docNumber : `${series}/${docNumber}`}</span>
               </div>
               <div className="flex justify-between">
                 <span>{billType === "Credit Tax Invoice" ? "Original Invoice:" : "Reference / PO:"}</span>
