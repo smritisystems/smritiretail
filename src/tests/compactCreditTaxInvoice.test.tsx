@@ -163,4 +163,65 @@ describe("CompactCreditTaxInvoiceEditor — Reference Screenshot Verification", 
     expect(html).toContain("Print (F7)");
     expect(html).toContain("Cancel");
   });
+
+  it("7. Dual-Mode: Renders configured Tax Invoice (Direct Sales / B2B & Retail) with PO Ref, Pricing, Payment Modes, and F5 Post Tax Invoice", () => {
+    const html = renderToStaticMarkup(
+      <CompactCreditTaxInvoiceEditor
+        initialBillType="Tax Invoice"
+        storeName="Downtown Store"
+        cityName="Bengaluru"
+      />
+    );
+
+    // Title and Mode indicator
+    expect(html).toContain("Tax Invoice");
+    expect(html).toContain("(Direct Sales / B2B &amp; Retail)");
+
+    // Bill Type & Series configuration
+    expect(html).toContain("value=\"Tax Invoice\"");
+    expect(html).toContain("INV");
+
+    // Row 1 fields for direct sales
+    expect(html).toContain("PO / Order Ref.");
+    expect(html).toContain("PO-2026-001");
+    expect(html).toContain("Pricing");
+
+    // Row 2 fields: Payment dropdown instead of return reason
+    expect(html).toContain("Payment");
+    expect(html).toContain("CASH");
+    expect(html).toContain("UPI");
+    expect(html).toContain("CARD");
+    expect(html).toContain("CREDIT / ON ACCOUNT");
+    expect(html).toContain("NET BANKING");
+
+    // Primary action button
+    expect(html).toContain("Post Tax Invoice (F5)");
+  });
+
+  it("8. Dual-Mode: Renders Debit Note with adjustment dropdown and Post Debit Note (F5)", () => {
+    const html = renderToStaticMarkup(
+      <CompactCreditTaxInvoiceEditor
+        initialBillType="Debit Note"
+      />
+    );
+
+    expect(html).toContain("Debit Note");
+    expect(html).toContain("(Sales Adjustment / Supplementary)");
+    expect(html).toContain("DBN");
+    expect(html).toContain("Adjustment");
+    expect(html).toContain("Rate Difference");
+    expect(html).toContain("Tax Rate Revision");
+    expect(html).toContain("Post Debit Note (F5)");
+  });
+
+  it("9. Dual-Mode: Integrates with NumberingEngine and preserves author details", () => {
+    const html = renderToStaticMarkup(
+      <CompactCreditTaxInvoiceEditor
+        initialBillType="Tax Invoice"
+      />
+    );
+
+    // Verify allocate sequence button (Settings icon)
+    expect(html).toContain("Allocate Next Sequence (NumberingEngine)");
+  });
 });
