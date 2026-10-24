@@ -12,6 +12,26 @@
   Classification: Internal
 -->
 
+## [v6.89.0] - 2026-10-24
+
+### Added
+- **4-Zone High-Density Billing Desk Layout**: Transformed canonical `BillingTerm.tsx` into a modern, enterprise retail billing experience matching the reference architecture:
+  - **Zone A (Compact Top Header)**: Brand badge, channel selector pill, live date/time clock, document sequence pill with edit pencil (`INV/C/0001 ✎`), workspace status mode badge (`[NEW]`), quick action buttons (`[ 📄 New ]`, `[ 💾 Save ]`, `[ 🖨 Print ]`, `[ ⋯ More ▾ ]`), register shift status pill, and cashier avatar.
+  - **Zone B (Structured Transaction Details Card)**: 3-column structured grid for Customer selection (F2 search, `+ Quick Add`, customer chip with category, GSTIN, and ledger balance badges), sales configuration (Source, Channel, Bill Type, Transaction, and expandable `▾ More Details` drawer for corporate B2B parameters), and cashier shift/hold recovery.
+  - **Zone C (High-Density Line Items Grid, ~74% width)**: 34px compact table with 10 columns, active row inspector ribbon, double-click cell editing, and inline `F11` Direct Entry row with barcode scanner guard.
+  - **Zone D (Dedicated Bill Summary Card, ~26% width)**: Side-by-side with item grid, featuring item/qty counters, gross amount, line discount, bill discount pill (`[ F6 ]`), statutory GST, add-ons/deductions, round-off, and high-impact Net Payable banner (`₹ X,XXX.XX`).
+  - **Zone E (Collapsible Auxiliary Drawers & Bottom Action Bar)**: Dedicated tabs for Transporter, Payment, AddOns & Deductions, and Remarks. Prominently displays unclipped `[ 💵 Exact Cash (F7) ]` and `[ ✔ Settle & Save (F8) ]` buttons on the right.
+- **HUD Occlusion Elimination**: Suppressed floating `CtxInspectorHUD.tsx` when Billing Desk is active (`[data-billing-desk="true"]`), preventing total calculation and checkout button occlusion.
+- **Single Canonical Navigation**: Suppressed duplicate top navigation bars in `BillingWorkspace.tsx` when `auxView === "WORKSPACE"`, delegating all primary controls directly to `BillingTerm.tsx`.
+
+### Changed
+- **Side-by-Side Ergonomics**: Replaced vertical column stacking with ~74% / ~26% split, fitting all standard POS workflows within 900px vertical viewports with zero scrolling.
+- **Preserved Core Business Logic**: Maintained 100% fidelity with Indian GST Rule 46(b) statutory compliance, Section 15 tax factors, F2 customer lookup, multi-tender settlement modal, and backend API integration.
+
+### Documentation
+- Created walkthrough `docs/walkthrough/billing/Billing_Desk_UX_Transformation_v6.89.0.md` and updated `docs/walkthrough/README.md`.
+- Created implementation plan `docs/implementation/billing/Billing_Desk_UX_Transformation_Plan_v6.89.0.md` and updated `docs/implementation/README.md`.
+
 ## [v1.0.5] - 2026-10-24
 
 ### Changed
