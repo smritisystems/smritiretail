@@ -16,6 +16,8 @@
 
 This directory contains formal, version-controlled implementation plans for SMRITI Retail OS modules and core system enhancements.
 
+| 2026-10-24 | v1.0.1 | **[CRM: Parent-Child Customer Creation Link Plan](./crm/CRM_Parent_Child_Customer_Creation_Link_Plan_v1.0.1.md)** | Customer Master child creation, tenant-scoped parent validation, transactional relationship persistence, Parent-Child and Directory response mapping | Partially verified: 35 frontend, 10 backend, and 1 database-backed test passed; remote production unverified | [Walkthrough](../walkthrough/crm/CRM_Parent_Child_Customer_Creation_Link_Walkthrough_v1.0.1.md) | [Plan ledger](./CONSOLIDATED_PLANS.md#crm-parent-child-customer-creation-link) |
+
 | 2026-10-24 | v6.99.1 | **[UI Shell: Premium Shell Context, Responsive Navigation, and Workspace Style](./ui/SMRITI_Shell_Consistency_and_Accessibility_Plan_v6.99.1.md)** | `src/App.tsx`, `src/components/layout/CompanySelector.tsx`, `src/components/shell/`, `src/notifications/notification_store.tsx` | Partially Verified | [Walkthrough](../walkthrough/ui/SMRITI_Shell_Consistency_and_Accessibility_Walkthrough_v6.99.1.md) · [Plan ledger](./CONSOLIDATED_PLANS.md#shell-premium-context-responsive-navigation-workspace-style) |
 
 | 2026-10-23 | v6.99.18 | **[CRM: Customer Store and Branch Relation Audit Plan](./crm/Customer_Store_Branch_Relation_Audit_Plan_v6.99.18.md)** | CRM store location UX, tenant-scoped Branch lookup, GRN importer, customer hierarchy | Implemented; migration/report follow-up remains | [Walkthrough](../walkthrough/crm/Customer_Store_Branch_Relation_Audit_Walkthrough_v6.99.18.md) |

@@ -28,7 +28,11 @@
 
 # SMRITI Retail OS — Developer & Architecture Guide
 
-Welcome to the SMRITI developer setup and reference guide. This document details the Clean Architecture rules, swappable database interfaces, and background synchronization engines powering SMRITI Retail OS.
+Welcome to the SMRITI developer setup and reference guide.
+
+## Customer Master parent-child creation - updated 2026-10-24
+
+`CustMasterWs` passes the persisted parent customer `{id, code, name}` to `CreateCustomerModal` only for **Add Child Customer**. The modal sends `parent_customer_id`; `CrmService.create_customer` validates that parent within the active company and branch, sets `is_dependant`, and inserts `CustomerRelationship(relation="Child")` in the same transaction as the child record. `CustomerRepository.get` loads the parent relationship and `map_customer_to_response_dict` exposes the parent ID, name, and code. Relationship responses include child customer codes. The paginated Customer Directory reads parent identity from the same tenant-scoped relationship table. Child-link creation is restricted to the existing customer-creation roles, and linked accounts cannot clear `is_dependant` through ordinary updates. Standalone customer creation leaves parent context unset. This document details the Clean Architecture rules, swappable database interfaces, and background synchronization engines powering SMRITI Retail OS.
 
 ## Shell navigation and workspace context — updated 2026-10-24
 

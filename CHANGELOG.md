@@ -12,6 +12,14 @@
   Classification: Internal
 -->
 
+## [v1.0.1] - 2026-10-24
+
+### Fixed
+- Customer Master **Add Child Customer** now carries the selected parent internal customer ID, checks that the parent belongs to the active company and branch, and saves the child relationship atomically. Customer responses expose parent identity and child codes so hierarchy details remain visible after reload. The Customer Directory now shows the linked parent, and child relationship writes use the existing role and branch checks.
+
+### Documentation
+- Added the CRM parent-child creation plan and walkthrough and updated customer workflow, developer, troubleshooting, index, and consolidated ledger documentation.
+
 ## [v6.99.1] — 2026-10-24
 
 ### Added

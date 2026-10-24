@@ -8,7 +8,7 @@
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
  * Version      : 6.99.1
  * Created      : 2026-10-20
- * Modified     : 2026-10-23
+ * Modified     : 2026-10-24
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
@@ -148,7 +148,7 @@ export const EnterpriseCustomerMasterView: React.FC<EnterpriseCustomerMasterView
         }
         return {
           id: dep.id || dep.dependantCustomerId || String(idx + 1),
-          code: storeCode || dep.code || "—",
+          code: dep.dependantCustomerCode || dep.dependant_customer_code || dep.code || storeCode || "—",
           name: dep.dependantCustomerName || "Unnamed customer",
           location,
           type: "Store",
@@ -181,9 +181,9 @@ export const EnterpriseCustomerMasterView: React.FC<EnterpriseCustomerMasterView
             location = matched.city ? (matched.state ? `${matched.city}, ${matched.state}` : matched.city) : (matched.state || "");
           }
         }
-        const code = storeCode || dep.code || "—";
+        const code = dep.dependantCustomerCode || dep.dependant_customer_code || dep.code || storeCode || "—";
         return {
-          id: dep.id || dep.dependantCustomerId || String(idx + 1),
+          id: dep.dependantCustomerId || dep.dependant_customer_id || dep.id || String(idx + 1),
           code,
           name: dep.dependantCustomerName || "Unnamed customer",
           storeCode: storeCode || "—",
@@ -478,7 +478,7 @@ export const EnterpriseCustomerMasterView: React.FC<EnterpriseCustomerMasterView
                       <div>
                         <div className="text-xs font-bold text-blue-900 dark:text-blue-100 flex items-center gap-2">
                           <span>Child Store Account of:</span>
-                          <span className="font-extrabold">{customer.primaryAccountName || "Reliance Retail Limited"}</span>
+                          <span className="font-extrabold">{customer.primaryAccountName || "Parent Account"}</span>
                           <span className="font-mono text-[11px] bg-blue-200 dark:bg-blue-900 text-blue-800 dark:text-blue-200 px-1.5 py-0.5 rounded">
                             {customer.primaryAccountCode || "—"}
                           </span>
@@ -491,7 +491,7 @@ export const EnterpriseCustomerMasterView: React.FC<EnterpriseCustomerMasterView
                     {onBack && (
                       <button
                         type="button"
-                        onClick={() => onSelectCustomer && customer.primaryAccountCode ? onSelectCustomer(customer.primaryAccountCode) : onBack()}
+                        onClick={() => onSelectCustomer && (customer.parentCustomerId || customer.primaryAccountCode) ? onSelectCustomer(customer.parentCustomerId || customer.primaryAccountCode) : onBack()}
                         className="px-3 py-1.5 bg-white dark:bg-slate-800 border border-blue-300 dark:border-blue-700 hover:bg-blue-50 text-blue-700 dark:text-blue-300 rounded-lg text-xs font-bold flex items-center gap-1.5 transition shadow-2xs shrink-0"
                         title={`Navigate to Parent Account (${customer.primaryAccountCode || "Parent"})`}
                       >
@@ -1281,6 +1281,18 @@ export const EnterpriseCustomerMasterView: React.FC<EnterpriseCustomerMasterView
                       </button>
                     )}
                   </div>
+
+                  {onOpenAddChildModal && (
+                    <button
+                      type="button"
+                      onClick={onOpenAddChildModal}
+                      className="px-2.5 py-1 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-xs font-bold flex items-center gap-1 transition shadow-xs shrink-0"
+                      title="Add Child Customer Account linked to this parent"
+                    >
+                      <Plus size={12} />
+                      <span>+ Add Child</span>
+                    </button>
+                  )}
                 </div>
               </div>
 

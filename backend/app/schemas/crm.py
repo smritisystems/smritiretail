@@ -6,7 +6,7 @@ Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
 Version      : 3.23.0
 Created      : 2026-07-11
-Modified     : 2026-10-19
+Modified     : 2026-10-24
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 """
@@ -906,6 +906,7 @@ class CustomerBase(BaseModel):
 class CustomerCreate(CustomerBase):
     id: Optional[str] = Field(None, max_length=50)
     mobile: Optional[str] = Field(None, max_length=20)
+    parent_customer_id: Optional[str] = Field(None, max_length=50, alias="parentCustomerId")
     allow_duplicate_override: Optional[bool] = Field(False, alias="allowDuplicateOverride")
 
     @field_validator("mobile", mode="before")
@@ -1060,6 +1061,7 @@ class CustomerRelationshipResponse(CustomerRelationshipCreate):
     id: str
     parent_customer_id: str = Field(..., alias="parentCustomerId")
     dependant_customer_name: Optional[str] = Field(None, alias="dependantCustomerName")
+    dependant_customer_code: Optional[str] = Field(None, alias="dependantCustomerCode")
 
     model_config = ConfigDict(populate_by_name=True, from_attributes=True)
 
@@ -1176,10 +1178,19 @@ def map_customer_to_response_dict(customer: Any) -> dict:
             "parent_customer_id": relationship.parent_customer_id,
             "dependant_customer_id": relationship.dependant_customer_id,
             "dependant_customer_name": getattr(dependant, "name", None),
+            "dependant_customer_code": getattr(dependant, "code", None),
             "relation": relationship.relation,
             "apply_same_mailing": relationship.apply_same_mailing,
             "notes": relationship.notes,
         })
+    parent_relationships = get_loaded_relationship(customer, "parent_relationships")
+    parent_relationship = next((
+        relationship for relationship in parent_relationships
+        if not getattr(relationship, "is_deleted", False)
+        and relationship.company_id == customer.company_id
+        and relationship.branch_id == customer.branch_id
+    ), None)
+    parent_customer = getattr(parent_relationship, "parent_customer", None) if parent_relationship else None
 
     return {
         "id": customer.id,
@@ -1210,6 +1221,9 @@ def map_customer_to_response_dict(customer: Any) -> dict:
         "buying_factor": getattr(customer, "buying_factor", None),
         "selling_factor": getattr(customer, "selling_factor", None),
         "is_dependant": bool(getattr(customer, "is_dependant", False)),
+        "parent_customer_id": parent_relationship.parent_customer_id if parent_relationship else None,
+        "primary_account_code": getattr(parent_customer, "code", None),
+        "primary_account_name": getattr(parent_customer, "name", None),
         "show_child_customers_in_billing": bool(getattr(customer, "show_child_customers_in_billing", False)),
         "gender": getattr(customer, "gender", None),
         "date_of_birth": getattr(customer, "date_of_birth", None),
@@ -1306,6 +1320,9 @@ class CustomerResponse(CustomerBase):
     is_active: bool = True
     is_deleted: bool = False
     version: Optional[int] = 1
+    parent_customer_id: Optional[str] = Field(None, alias="parentCustomerId")
+    primary_account_code: Optional[str] = Field(None, alias="primaryAccountCode")
+    primary_account_name: Optional[str] = Field(None, alias="primaryAccountName")
     # Corporate B2B extensions — empty list for retail/non-corporate customers
     gst_registrations: List[CustomerGSTRegistrationResponse] = []
     delivery_locations: List[CustomerDeliveryLocationResponse] = []
@@ -1346,6 +1363,10 @@ class CustomerDirectoryItem(BaseModel):
     customer_group_name: Optional[str] = None
     status: str = "Active"
     is_active: bool = True
+    is_dependant: bool = False
+    parent_customer_id: Optional[str] = None
+    primary_account_code: Optional[str] = None
+    primary_account_name: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
 

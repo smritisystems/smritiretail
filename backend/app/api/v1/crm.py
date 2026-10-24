@@ -6,7 +6,7 @@ Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
 Version      : 3.10.0
 Created      : 2026-07-11
-Modified     : 2026-10-19
+Modified     : 2026-10-24
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 """
@@ -271,6 +271,23 @@ async def customer_directory(
     )
     total = int((await db.execute(count_stmt)).scalar_one() or 0)
 
+    from sqlalchemy.orm import aliased
+    parent_relationship = aliased(CustomerRelationship)
+    parent_customer = aliased(Customer)
+    parent_customer_id = (
+        select(parent_relationship.parent_customer_id)
+        .where(
+            parent_relationship.dependant_customer_id == Customer.id,
+            parent_relationship.company_id == tenant_ctx.company_id,
+            parent_relationship.branch_id == tenant_ctx.branch_id,
+            parent_relationship.is_deleted == False,
+        )
+        .order_by(parent_relationship.created_at.asc(), parent_relationship.id.asc())
+        .limit(1)
+        .correlate(Customer)
+        .scalar_subquery()
+    )
+
     rows_stmt = (
         select(
             Customer.id,
@@ -281,6 +298,10 @@ async def customer_directory(
             CustomerGroup.name.label("customer_group_name"),
             Customer.status,
             Customer.is_active,
+            func.coalesce(Customer.is_dependant, False).label("is_dependant"),
+            parent_customer_id.label("parent_customer_id"),
+            select(parent_customer.code).where(parent_customer.id == parent_customer_id).scalar_subquery().label("primary_account_code"),
+            select(parent_customer.name).where(parent_customer.id == parent_customer_id).scalar_subquery().label("primary_account_name"),
         )
         .outerjoin(CustomerGroup, CustomerGroup.id == Customer.customer_group_id)
         .where(*filters)
@@ -1158,13 +1179,19 @@ async def list_customer_dependants(
         parent_customer_id=row.parent_customer_id,
         dependant_customer_id=row.dependant_customer_id,
         dependant_customer_name=row.dependant_customer.name if row.dependant_customer else None,
+        dependant_customer_code=row.dependant_customer.code if row.dependant_customer else None,
         relation=row.relation,
         apply_same_mailing=row.apply_same_mailing,
         notes=row.notes,
     ) for row in rows]
 
 
-@router.post("/customers/{customer_id}/dependants", response_model=CustomerRelationshipResponse, status_code=201)
+@router.post(
+    "/customers/{customer_id}/dependants",
+    response_model=CustomerRelationshipResponse,
+    status_code=201,
+    dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN, UserRole.CASHIER))],
+)
 async def create_customer_dependant(
     customer_id: str,
     relationship_in: CustomerRelationshipCreate,
@@ -1196,6 +1223,7 @@ async def create_customer_dependant(
             parents_stmt = select(CustomerRelationship.parent_customer_id).where(
                 CustomerRelationship.dependant_customer_id == curr,
                 CustomerRelationship.company_id == tenant_ctx.company_id,
+                CustomerRelationship.branch_id == tenant_ctx.branch_id,
                 CustomerRelationship.is_deleted == False,
             )
             parent_ids = (await db.execute(parents_stmt)).scalars().all()
@@ -1218,6 +1246,7 @@ async def create_customer_dependant(
         parent_customer_id=row.parent_customer_id,
         dependant_customer_id=row.dependant_customer_id,
         dependant_customer_name=row.dependant_customer.name if row.dependant_customer else None,
+        dependant_customer_code=row.dependant_customer.code if row.dependant_customer else None,
         relation=row.relation,
         apply_same_mailing=row.apply_same_mailing,
         notes=row.notes,

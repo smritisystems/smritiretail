@@ -30,6 +30,13 @@
 
 Welcome to the SMRITI Retail OS user and operation manual. This document guides store operators, managers, and cashiers on standard workflow practices.
 
+## Customer Master child accounts ? updated 2026-10-24
+
+1. Open and save the existing Parent Account.
+2. Select **Add Child Customer** from that parent?s **Parent ? Child** section.
+3. Confirm the dialog names the parent account, complete the child details, and save.
+4. The child appears in the parent?s Child Customers list. Open the child to see its parent account banner.
+
 ## Shell controls — updated 2026-10-24
 
 1. Use the company and branch control in the top bar to review or change the active workspace. It is available in both Regular and Classic styles. The company and branch names appear only when the current session provides them.

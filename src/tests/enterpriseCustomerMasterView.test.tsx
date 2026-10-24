@@ -8,7 +8,7 @@
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
  * Version      : 6.99.0
  * Created      : 2026-10-20
- * Modified     : 2026-10-20
+ * Modified     : 2026-10-24
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
@@ -160,6 +160,32 @@ describe("Enterprise Customer Master Reference Layout Tests", () => {
     expect(html).toContain("Child Customers");
     expect(html).toContain("Documents &amp; Notes");
     expect(html).toContain("Activity &amp; Audit");
+  });
+
+  it("renders canonical dependant code and name in the Parent-Child section", () => {
+    const html = renderToString(
+      <EnterpriseCustomerMasterView
+        customer={{
+          ...MOCK_CUSTOMER,
+          dependants: [{
+            id: "rel-parent-child-1",
+            code: "CUST-002",
+            name: "ABC Retail - Gorakhpur Store",
+            parentCustomerId: MOCK_CUSTOMER.id,
+            dependantCustomerId: "cust-child-002",
+            dependantCustomerCode: "CUST-002",
+            dependantCustomerName: "ABC Retail - Gorakhpur Store",
+            relation: "Child",
+            applySameMailing: false,
+          }],
+        }}
+        onChange={vi.fn()}
+        onSave={vi.fn()}
+      />
+    );
+
+    expect(html).toContain("CUST-002");
+    expect(html).toContain("ABC Retail - Gorakhpur Store");
   });
 
   it("renders Customer Summary Card with identity, GSTIN, PAN, and metrics", () => {

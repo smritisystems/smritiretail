@@ -6,7 +6,7 @@
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
  * Version      : 6.99.1
  * Created      : 2026-08-21
- * Modified     : 2026-10-23
+ * Modified     : 2026-10-24
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
@@ -681,6 +681,7 @@ export function mapBackendCustomerToRecord(bCust: any): RetailCustomerRecord {
     id: bCust.id || `cust-${Date.now()}`,
     code: bCust.code || bCust.id || "CUST-001",
     name: bCust.name || "",
+    parentCustomerId: bCust.parent_customer_id || bCust.parentCustomerId || "",
     priceGroup: derivedPriceGroup,
     customerGroupId: resolvedGroupId,
     customer_group_id: resolvedGroupId,
@@ -716,11 +717,11 @@ export function mapBackendCustomerToRecord(bCust: any): RetailCustomerRecord {
           email1: bCust.email || ""
       }
     ),
-    isDependant: bCust.is_dependant ?? false,
+    isDependant: bCust.is_dependant ?? bCust.isDependant ?? false,
     showChildCustomersInBilling: bCust.show_child_customers_in_billing ?? bCust.showChildCustomersInBilling ?? false,
     show_child_customers_in_billing: bCust.show_child_customers_in_billing ?? bCust.showChildCustomersInBilling ?? false,
-    primaryAccountCode: bCust.primary_account_code || "",
-    primaryAccountName: bCust.primary_account_name || "",
+    primaryAccountCode: bCust.primary_account_code || bCust.primaryAccountCode || "",
+    primaryAccountName: bCust.primary_account_name || bCust.primaryAccountName || "",
     applyParentMailingInfo: bCust.apply_parent_mailing_info ?? false,
     dependants: bCust.dependants || [],
     gender: bCust.gender || "Female",
@@ -824,6 +825,7 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
 
   // Lifecycle Modals
   const [isCreateCustomerModalOpen, setIsCreateCustomerModalOpen] = useState<boolean>(false);
+  const [createCustomerParent, setCreateCustomerParent] = useState<Pick<RetailCustomerRecord, "id" | "code" | "name"> | null>(null);
   const [isDeactivateModalOpen, setIsDeactivateModalOpen] = useState<boolean>(false);
   const [isDeleteConfirmationModalOpen, setIsDeleteConfirmationModalOpen] = useState<boolean>(false);
   const [isMergeModalOpen, setIsMergeModalOpen] = useState<boolean>(false);
@@ -1600,6 +1602,21 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
   };
 
   const handleNew = () => {
+    setCreateCustomerParent(null);
+    setIsCreateCustomerModalOpen(true);
+  };
+
+  const handleOpenAddChildCustomer = () => {
+    if (!currentCustomer.id || currentCustomer.id.startsWith("cust-draft-")) {
+      onNotification?.("Parent Account Required", "Save or select an existing customer account before adding a child account.", "warning");
+      return;
+    }
+
+    setCreateCustomerParent({
+      id: currentCustomer.id,
+      code: currentCustomer.code,
+      name: currentCustomer.name,
+    });
     setIsCreateCustomerModalOpen(true);
   };
 
@@ -2085,7 +2102,7 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
             onOpenMailingModal={handleOpenMailingModal}
             onOpenStoreLookupModal={() => setIsSearchModalOpen(true)}
             onOpenContactModal={() => handleOpenMailingModal()}
-            onOpenAddChildModal={() => setIsCreateCustomerModalOpen(true)}
+            onOpenAddChildModal={handleOpenAddChildCustomer}
             onSelectCustomer={handleSelectCustomerByIdOrCode}
             gstRegistrations={gstRegistrations}
             onNotification={onNotification}
@@ -2427,7 +2444,10 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
                       className="hover:bg-[#f7f9fb] dark:hover:bg-[#2d3133] cursor-pointer transition"
                     >
                       <td className="p-3 font-mono font-bold text-[#00355f] dark:text-[#8ebdf9]">{c.code || "—"}</td>
-                      <td className="p-3 font-bold"><button type="button" onClick={event => { event.stopPropagation(); void handleOpenDirectoryCustomer(c); }} className="text-left hover:underline">{c.name}</button></td>
+                      <td className="p-3 font-bold">
+                        <button type="button" onClick={event => { event.stopPropagation(); void handleOpenDirectoryCustomer(c); }} className="text-left hover:underline">{c.name}</button>
+                        {c.is_dependant && <div className="mt-0.5 text-[10px] font-normal text-slate-500">Child of {c.primary_account_name || "Parent Account"}{c.primary_account_code ? ` (${c.primary_account_code})` : ""}</div>}
+                      </td>
                       <td className="p-3 text-[11px]">{c.customer_group_name || "—"}</td>
                       <td className="p-3 font-mono">{c.mobile || "—"}</td>
                       <td className="p-3">
@@ -2960,7 +2980,11 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
       {/* ── Lifecycle Modals ─────────────────────────────────────────────────── */}
       <CreateCustomerModal
         isOpen={isCreateCustomerModalOpen}
-        onClose={() => setIsCreateCustomerModalOpen(false)}
+        parentCustomer={createCustomerParent}
+        onClose={() => {
+          setIsCreateCustomerModalOpen(false);
+          setCreateCustomerParent(null);
+        }}
         onCreated={handleCustomerCreated}
         onNotification={onNotification}
       />

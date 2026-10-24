@@ -26,11 +26,9 @@ from sqlalchemy.orm import selectinload
 from ...api.deps import get_db, get_current_user, require_role
 from ...core.security import hash_password
 from ...models.auth import User, UserRole
-from ...models.psv import PSVParty, PSVPartySkuTracking
 from ...models.system import TallyConfig, SystemConfig
 from ...models.tenant import Company, Branch
 from ...models.pos import CashRegister
-from ...schemas.psv import PSVPartyResponse
 from ...schemas.system import (
     TallyConfigCreate, TallyConfigUpdate, TallyConfigResponse,
     SystemConfigCreate, SystemConfigUpdate, SystemConfigResponse,
@@ -326,59 +324,6 @@ async def health_check(
         }
     }
 
-
-@router.get(
-    "/psv/parties",
-    response_model=List[PSVPartyResponse],
-    summary="List PSV Partner Parties",
-    description="Returns Partner SKU Verification (PSV) partner party inventory and SKU tracking data.",
-)
-async def list_psv_parties(
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    """
-    List all PSV partner party records with SKU tracking details.
-    """
-    q = (
-        select(PSVParty)
-        .options(selectinload(PSVParty.sku_tracking).selectinload(PSVPartySkuTracking.product))
-        .order_by(PSVParty.name)
-    )
-    res = await db.execute(q)
-    parties = res.scalars().all()
-
-    result = []
-    for party in parties:
-        result.append({
-            "id": party.id,
-            "company_id": party.company_id,
-            "host_customer_id": party.host_customer_id,
-            "delivery_location_id": party.delivery_location_id,
-            "store_code": party.store_code,
-            "store_name_snapshot": party.store_name_snapshot,
-            "stock_model": party.stock_model or "OUTRIGHT_SALE",
-            "name": party.name,
-            "location": party.location,
-            "stock_count": int(party.stock_count or 0),
-            "sell_through": party.sell_through or 0.0,
-            "weeks_of_cover": party.weeks_of_cover or 0.0,
-            "capital_locked": party.capital_locked or 0.0,
-            "status": party.status or "Healthy",
-            "sku_tracking": [
-                {
-                    "id": sku.id,
-                    "party_id": sku.party_id,
-                    "sku": sku.sku,
-                    "invoiced_qty": int(sku.invoiced_qty or 0),
-                    "confirmed_sold_qty": int(sku.confirmed_sold_qty or 0),
-                    "returned_qty": int(sku.returned_qty or 0),
-                }
-                for sku in (party.sku_tracking or [])
-            ],
-        })
-
-    return result
 
 
 # ─────────────────────────── Audit Logs ──────────────────────────────────────

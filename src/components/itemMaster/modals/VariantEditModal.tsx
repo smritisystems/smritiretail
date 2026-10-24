@@ -12,7 +12,7 @@
  * Classification: Internal Modal
  */
 
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import {
   X,
   Lock,
@@ -76,7 +76,9 @@ export const VariantEditModal: React.FC<VariantEditModalProps> = ({
 
   // Status & Telemetry
   const [deletionStatus, setDeletionStatus] = useState<DeletionStatus | null>(null);
+  const [deletionStatusTarget, setDeletionStatusTarget] = useState<string | null>(null);
   const [isLoadingStatus, setIsLoadingStatus] = useState<boolean>(false);
+  const deletionStatusRequestId = useRef(0);
   const [isSaving, setIsSaving] = useState<boolean>(false);
   const [isTogglingStatus, setIsTogglingStatus] = useState<boolean>(false);
   const [isDeleting, setIsDeleting] = useState<boolean>(false);
@@ -137,23 +139,36 @@ export const VariantEditModal: React.FC<VariantEditModalProps> = ({
   // Fetch pre-flight deletion and transaction status
   const loadDeletionStatus = useCallback(async () => {
     if (!product || !targetId) return;
+    const requestId = ++deletionStatusRequestId.current;
     setIsLoadingStatus(true);
     try {
       const res = await apiFetchV1<DeletionStatus>(`/item-variants/${encodeURIComponent(targetId)}/deletion-status`);
-      setDeletionStatus(res);
-      if (res.is_active !== undefined) {
-        setIsActive(res.is_active);
+      if (requestId === deletionStatusRequestId.current) {
+        setDeletionStatus(res);
+        setDeletionStatusTarget(targetId);
+        if (res.is_active !== undefined) {
+          setIsActive(res.is_active);
+        }
       }
     } catch {
       // If domain status endpoint fails, fallback to conservative transacted assumption
-      setDeletionStatus(null);
+      if (requestId === deletionStatusRequestId.current) {
+        setDeletionStatus(null);
+        setDeletionStatusTarget(targetId);
+      }
     } finally {
-      setIsLoadingStatus(false);
+      if (requestId === deletionStatusRequestId.current) setIsLoadingStatus(false);
     }
   }, [product, targetId]);
 
   useEffect(() => {
     if (isOpen && product) {
+      // Do not carry another row's status into this edit session. Also invalidate
+      // any older request that may resolve after the newly selected variant.
+      deletionStatusRequestId.current += 1;
+      setDeletionStatus(null);
+      setDeletionStatusTarget(null);
+      setIsLoadingStatus(true);
       setSku(product.code || product.sku || "");
       setPrimaryBarcode(product.barcode || "");
       setColor(product.color || (product.attributes as any)?.color || "");
@@ -178,9 +193,15 @@ export const VariantEditModal: React.FC<VariantEditModalProps> = ({
 
       void loadDeletionStatus();
     }
+    return () => {
+      deletionStatusRequestId.current += 1;
+    };
   }, [isOpen, product, loadDeletionStatus]);
 
-  const isTransacted = deletionStatus ? !deletionStatus.can_hard_delete : false;
+  // Identity edits require a positive backend preflight. A failed preflight
+  // must never present the record as transaction-free.
+  const statusIsCurrent = deletionStatusTarget === targetId && deletionStatus !== null;
+  const isTransacted = statusIsCurrent ? !deletionStatus.can_hard_delete : true;
 
   const handleAddBarcode = () => {
     if (!product) return;
@@ -335,6 +356,11 @@ export const VariantEditModal: React.FC<VariantEditModalProps> = ({
             {isLoadingStatus ? (
               <span className="flex items-center gap-1.5 text-slate-500">
                 <RefreshCw size={12} className="animate-spin" /> Checking ledger activity...
+              </span>
+            ) : !statusIsCurrent ? (
+              <span className="flex items-center gap-1.5 text-amber-700 dark:text-amber-400 font-medium">
+                <Lock size={13} className="text-amber-600 dark:text-amber-400" />
+                <span>Ledger status unavailable — identity locked until verified</span>
               </span>
             ) : isTransacted ? (
               <span className="flex items-center gap-1.5 text-amber-700 dark:text-amber-400 font-medium">

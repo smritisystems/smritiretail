@@ -12,7 +12,7 @@
  * Classification: Application Shell Layer (UX Mode Sensitive NavRail)
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { GlobalHeader } from './GlobalHeader';
 import { NavRail, NavRailState } from './NavRail';
 import { BusinessContext, TransactionState } from './navigationResolver';
@@ -93,6 +93,7 @@ export const AppShell: React.FC<AppShellProps> = ({
     typeof window !== 'undefined' && window.innerWidth <= 767,
   );
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
+  const mobileNavigationRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     if (userName?.trim() || userRole?.trim()) {
@@ -113,11 +114,54 @@ export const AppShell: React.FC<AppShellProps> = ({
 
   useEffect(() => {
     if (!isMobileNavOpen) return;
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setIsMobileNavOpen(false);
+    const previouslyFocused = document.activeElement instanceof HTMLElement
+      ? document.activeElement
+      : null;
+    const drawer = mobileNavigationRef.current;
+    const getFocusableItems = () => Array.from(
+      drawer?.querySelectorAll<HTMLElement>(
+        'a[href], button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])',
+      ) ?? [],
+    ).filter((element) => element.getClientRects().length > 0);
+
+    const focusFrame = window.requestAnimationFrame(() => {
+      const activeNavigationItem = drawer?.querySelector<HTMLElement>('[aria-current="page"]');
+      (activeNavigationItem ?? getFocusableItems()[0] ?? drawer)?.focus();
+    });
+
+    const handleDrawerKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        setIsMobileNavOpen(false);
+        return;
+      }
+      if (event.key !== 'Tab') return;
+
+      const focusableItems = getFocusableItems();
+      const first = focusableItems[0];
+      const last = focusableItems[focusableItems.length - 1];
+      if (!first || !last) {
+        event.preventDefault();
+        drawer?.focus();
+        return;
+      }
+
+      const focusIsOutsideDrawer = !drawer?.contains(document.activeElement);
+      if (event.shiftKey && (document.activeElement === first || focusIsOutsideDrawer)) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && (document.activeElement === last || focusIsOutsideDrawer)) {
+        event.preventDefault();
+        first.focus();
+      }
     };
-    document.addEventListener('keydown', closeOnEscape);
-    return () => document.removeEventListener('keydown', closeOnEscape);
+
+    document.addEventListener('keydown', handleDrawerKeyDown);
+    return () => {
+      window.cancelAnimationFrame(focusFrame);
+      document.removeEventListener('keydown', handleDrawerKeyDown);
+      if (previouslyFocused?.isConnected) previouslyFocused.focus();
+    };
   }, [isMobileNavOpen]);
 
   useEffect(() => {
@@ -228,13 +272,20 @@ export const AppShell: React.FC<AppShellProps> = ({
               <button
                 type="button"
                 aria-label="Close navigation drawer"
+                aria-hidden="true"
+                tabIndex={-1}
                 className="fixed left-0 right-0 top-12 bottom-8 z-30 bg-slate-950/40 md:hidden"
                 onClick={() => setIsMobileNavOpen(false)}
               />
             )}
             <div
+              ref={mobileNavigationRef}
               id="workspace-navigation"
               aria-hidden={isMobileViewport && !isMobileNavOpen}
+              role={isMobileViewport && isMobileNavOpen ? 'dialog' : undefined}
+              aria-modal={isMobileViewport && isMobileNavOpen ? true : undefined}
+              aria-label={isMobileViewport && isMobileNavOpen ? 'Workspace navigation' : undefined}
+              tabIndex={isMobileViewport && isMobileNavOpen ? -1 : undefined}
               className={isMobileViewport
                 ? `fixed left-0 top-12 bottom-8 z-40 h-auto shadow-2xl ${isMobileNavOpen ? 'block' : 'hidden'}`
                 : 'relative h-full shrink-0'}
@@ -255,15 +306,20 @@ export const AppShell: React.FC<AppShellProps> = ({
         )}
 
         {/* Workspace Canvas Area */}
-        <main className="flex-1 flex flex-col min-w-0 overflow-hidden bg-[#f8f9ff] dark:bg-[#121721] relative">
+        <main
+          aria-hidden={isMobileViewport && isMobileNavOpen ? true : undefined}
+          className="flex-1 flex flex-col min-w-0 overflow-hidden bg-[#f8f9ff] dark:bg-[#121721] relative"
+        >
           {children}
         </main>
       </div>
-      <WorkspaceStatusBar
-        activeModuleTitle={activeModuleTitle}
-        userName={userName}
-        userRole={userRole}
-      />
+      <div aria-hidden={isMobileViewport && isMobileNavOpen ? true : undefined}>
+        <WorkspaceStatusBar
+          activeModuleTitle={activeModuleTitle}
+          userName={userName}
+          userRole={userRole}
+        />
+      </div>
       </div>
     </BreadcrumbProvider>
   );

@@ -130,7 +130,7 @@ export const NavRail: React.FC<NavRailProps> = ({
                 }
               aria-label={`Open ${item.title}`}
               aria-current={isActive ? 'page' : undefined}
-              className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm transition-all relative ${
+              className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm transition-all relative focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#3f51b5] dark:focus-visible:ring-indigo-400 ${
                   isDisabled
                     ? 'opacity-40 bg-gray-100 dark:bg-slate-800 text-gray-500 dark:text-slate-500 cursor-not-allowed border border-dashed border-gray-300 dark:border-slate-700'
                     : isActive
@@ -185,7 +185,7 @@ export const NavRail: React.FC<NavRailProps> = ({
                           onSelectModule('report-designer');
                         }}
                         aria-label={`Open ${studio.label} report studio`}
-                        className="w-full text-left px-2 py-1.5 rounded-md text-xs text-[#3d425f] dark:text-slate-300 hover:bg-[#e5eeff] dark:hover:bg-slate-800 hover:text-[#24389c] dark:hover:text-indigo-400 transition-colors"
+                        className="w-full text-left px-2 py-1.5 rounded-md text-xs text-[#3d425f] dark:text-slate-300 hover:bg-[#e5eeff] dark:hover:bg-slate-800 hover:text-[#24389c] dark:hover:text-indigo-400 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#3f51b5] dark:focus-visible:ring-indigo-400"
                       >
                         {studio.label}
                       </button>
@@ -213,7 +213,7 @@ export const NavRail: React.FC<NavRailProps> = ({
           title={isMobileDrawer ? 'Close navigation menu' : isExpanded ? 'Collapse navigation rail' : 'Expand navigation rail'}
           aria-expanded={isMobileDrawer ? undefined : isExpanded}
           aria-controls="workspace-navigation"
-          className="w-full flex items-center justify-center gap-2 py-1.5 text-xs text-[#3d425f] dark:text-slate-300 hover:bg-[#eff4ff] dark:hover:bg-slate-800 hover:text-[#24389c] dark:hover:text-indigo-400 rounded-md transition-colors font-medium cursor-pointer"
+          className="w-full flex items-center justify-center gap-2 py-1.5 text-xs text-[#3d425f] dark:text-slate-300 hover:bg-[#eff4ff] dark:hover:bg-slate-800 hover:text-[#24389c] dark:hover:text-indigo-400 rounded-md transition-colors font-medium cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#3f51b5] dark:focus-visible:ring-indigo-400"
         >
           <span className="material-symbols-outlined text-[18px]">
             {isMobileDrawer ? 'close' : isExpanded ? 'chevron_left' : 'chevron_right'}
