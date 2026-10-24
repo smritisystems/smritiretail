@@ -18,6 +18,8 @@ import { SmritiProPosEodReport } from "./propos/ProPosEodReportVie.tsx";
 import { SmritiDailyReportsDashboard } from "./propos/ProPosDailyReports.tsx";
 import { SmritiBillingStudio } from "./SmritiBillingStudio.tsx";
 import { SmritiCreditBillingTerminal } from "./SmritiCreditBillingTerminal.tsx";
+import { SalesStudioTab } from "../SalesStudioTab.tsx";
+import { CompactCreditTaxInvoiceEditor } from "../sales/CompactCreditTaxInvoiceEditor.tsx";
 import { GiftCardLifecycleModal } from "../pos/GiftCardLifecycleModal.tsx";
 import { GiftVoucherModal } from "../pos/GiftVoucherModal.tsx";
 import { ProPosReconciliationDlg } from "./propos/ProPosReconciliationDlg.tsx";
@@ -55,7 +57,7 @@ import {
 import { APP_VERSION } from "../../config/version.ts";
 
 export type BillingWorkspaceMode = "RETAIL_POS" | "CREDIT_BILLING" | "B2B_DISTRIBUTOR";
-export type BillingAuxiliaryView = "WORKSPACE" | "EOD_Z_REPORT" | "SHIFT_REPORTS" | "CREDIT_BILLING" | "B2B_DISTRIBUTOR";
+export type BillingAuxiliaryView = "WORKSPACE" | "EOD_Z_REPORT" | "SHIFT_REPORTS" | "CREDIT_BILLING" | "B2B_DISTRIBUTOR" | "SALES_MANAGEMENT" | "CREDIT_TAX_INVOICE";
 
 export interface BillingWorkspaceProps {
   products?: Product[];
@@ -231,7 +233,7 @@ export const BillingWorkspace: React.FC<BillingWorkspaceProps> = ({
           ? "bg-white dark:bg-[#1e293b] border-slate-300 dark:border-slate-700"
           : "bg-white dark:bg-[#131b2e] border-slate-200 dark:border-slate-800"
       }`}>
-        {/* Left Action Buttons: Counter POS, Credit, B2B/Tax Invoice, Packing Slips, Consolidated Billing */}
+        {/* Left Action Buttons: billing modes and contextual sales documents */}
         <div className="flex items-center gap-2 flex-wrap">
           <button
             type="button"
@@ -273,6 +275,34 @@ export const BillingWorkspace: React.FC<BillingWorkspaceProps> = ({
             <Building2 size={14} />
             <span>B2B / Tax Invoice</span>
             <kbd className="text-[9px] px-1 py-0.2 bg-slate-100 text-slate-600 rounded font-mono">Alt+3</kbd>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setAuxView("SALES_MANAGEMENT")}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+              auxView === "SALES_MANAGEMENT"
+                ? "bg-[#0f766e] text-white shadow-xs"
+                : "bg-white border border-slate-300 text-slate-700 hover:bg-slate-50"
+            }`}
+            aria-pressed={auxView === "SALES_MANAGEMENT"}
+          >
+            <FileText size={14} />
+            <span>Sales Documents</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setAuxView("CREDIT_TAX_INVOICE")}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+              auxView === "CREDIT_TAX_INVOICE"
+                ? "bg-[#0b1736] text-white shadow-xs"
+                : "bg-white border border-slate-300 text-slate-700 hover:bg-slate-50"
+            }`}
+            aria-pressed={auxView === "CREDIT_TAX_INVOICE"}
+          >
+            <RotateCcw size={14} />
+            <span>Credit Tax Invoice</span>
           </button>
 
           <button
@@ -441,7 +471,24 @@ export const BillingWorkspace: React.FC<BillingWorkspaceProps> = ({
 
       {/* ── Main Workspace Body ── */}
       <div className="flex-1 overflow-hidden relative">
-        {auxView === "EOD_Z_REPORT" ? (
+        {auxView === "CREDIT_TAX_INVOICE" ? (
+          <div className="h-full overflow-hidden">
+            <CompactCreditTaxInvoiceEditor
+              onExit={() => setAuxView("WORKSPACE")}
+              onClose={() => setAuxView("WORKSPACE")}
+              onNotification={showToast}
+              currentUser={currentUser}
+            />
+          </div>
+        ) : auxView === "SALES_MANAGEMENT" ? (
+          <div className="h-full overflow-auto">
+            <SalesStudioTab
+              products={products}
+              currentUser={currentUser}
+              onNotification={showToast}
+            />
+          </div>
+        ) : auxView === "EOD_Z_REPORT" ? (
           <SmritiProPosEodReport
             onCommitCloseout={(eod) => {
               showToast("Register Closed", `Z-Report committed for shift ${eod.shiftId}`, "success");

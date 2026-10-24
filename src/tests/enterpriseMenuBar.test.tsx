@@ -25,7 +25,6 @@ describe('SMRITI Retail OS — Classic UX Enterprise Menu Bar Verification', () 
       'transactions',
       'inventory',
       'purchase',
-      'sales',
       'accounts',
       'crm',
       'reports',
@@ -36,7 +35,7 @@ describe('SMRITI Retail OS — Classic UX Enterprise Menu Bar Verification', () 
 
     const actualIds = ENTERPRISE_MENU_ITEMS.map((item) => item.id);
     expect(actualIds).toEqual(expectedTopLevelIds);
-    expect(ENTERPRISE_MENU_ITEMS.length).toBe(12);
+    expect(ENTERPRISE_MENU_ITEMS.length).toBe(11);
   });
 
   it('2. Multi-tier nested submenu hierarchies exist for Master and Transactions', () => {
@@ -58,15 +57,17 @@ describe('SMRITI Retail OS — Classic UX Enterprise Menu Bar Verification', () 
     const salesDesk = transactions?.children?.find((c) => c.id === 'sales-desk');
     expect(salesDesk).toBeDefined();
     expect(salesDesk?.children?.some((leaf) => leaf.moduleId === 'billing-workspace')).toBe(true);
-    expect(salesDesk?.children?.some((leaf) => leaf.moduleId === 'sales')).toBe(true);
+    expect(salesDesk?.children?.filter((leaf) => leaf.moduleId === 'billing-workspace')).toHaveLength(1);
+    expect(ENTERPRISE_MENU_ITEMS.some((item) => item.id === 'sales')).toBe(false);
   });
 
   it('3. EnterpriseMenuBar renders fully accessible navigation landmark and buttons', () => {
     const html = renderToStaticMarkup(
       <EnterpriseMenuBar
-        activeModuleId="sales"
+        activeModuleId="billing-workspace"
         onNavigateHome={() => {}}
         onSelectModule={() => {}}
+        resolvedNavigationIds={getAllNavigationIds()}
       />
     );
 
@@ -76,7 +77,6 @@ describe('SMRITI Retail OS — Classic UX Enterprise Menu Bar Verification', () 
     expect(html).toContain('Transactions');
     expect(html).toContain('Inventory');
     expect(html).toContain('Purchase');
-    expect(html).toContain('Sales');
     expect(html).toContain('Accounts');
     expect(html).toContain('CRM');
     expect(html).toContain('Reports');
@@ -85,17 +85,18 @@ describe('SMRITI Retail OS — Classic UX Enterprise Menu Bar Verification', () 
     expect(html).toContain('Help');
   });
 
-  it('4. Sales category indicates active styling when activeModuleId is sales', () => {
+  it('4. Billing & Sales category indicates active styling for the canonical workspace', () => {
     const html = renderToStaticMarkup(
       <EnterpriseMenuBar
-        activeModuleId="sales"
+        activeModuleId="billing-workspace"
         onNavigateHome={() => {}}
         onSelectModule={() => {}}
+        resolvedNavigationIds={getAllNavigationIds()}
       />
     );
 
-    // Sales button should contain active class styling (bg-[#1a2b7b] text-white font-bold)
-    expect(html).toMatch(/Sales<\/span>/);
+    expect(html).toContain('Transactions');
+    expect(html).toContain('bg-[#1a2b7b] text-white font-bold');
   });
 
   it('5. Home category indicates active styling when activeModuleId is launchpad or workspaces', () => {
@@ -104,6 +105,7 @@ describe('SMRITI Retail OS — Classic UX Enterprise Menu Bar Verification', () 
         activeModuleId="launchpad"
         onNavigateHome={() => {}}
         onSelectModule={() => {}}
+        resolvedNavigationIds={getAllNavigationIds()}
       />
     );
     expect(htmlLaunchpad).toContain('Home');
@@ -113,8 +115,18 @@ describe('SMRITI Retail OS — Classic UX Enterprise Menu Bar Verification', () 
         activeModuleId="workspaces"
         onNavigateHome={() => {}}
         onSelectModule={() => {}}
+        resolvedNavigationIds={getAllNavigationIds()}
       />
     );
     expect(htmlWorkspaces).toContain('Home');
   });
 });
+
+function getAllNavigationIds(): string[] {
+  const collect = (items: MenuItemDef[]): string[] => items.flatMap((item) => [
+    item.id,
+    ...(item.moduleId ? [item.moduleId] : []),
+    ...collect(item.children || []),
+  ]);
+  return collect(ENTERPRISE_MENU_ITEMS);
+}

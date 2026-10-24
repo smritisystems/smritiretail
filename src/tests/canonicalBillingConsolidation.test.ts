@@ -15,6 +15,10 @@
 import { describe, it, expect } from "vitest";
 import { BillingWorkspaceMode, BillingAuxiliaryView } from "../components/billing/BillingWorkspace.tsx";
 import { mapModuleId } from "../components/shell/TabRenderer.tsx";
+import { ENTERPRISE_MENU_ITEMS } from "../components/shell/EnterpriseMenuBar.tsx";
+
+const flattenMenuLabels = (items: typeof ENTERPRISE_MENU_ITEMS): string[] =>
+  items.flatMap((item) => [item.label, ...flattenMenuLabels(item.children || [])]);
 
 describe("SMRITI Canonical Billing Consolidation & Route Parity Tests", () => {
   // TEST 1 — Tri-Modal Operational Union Contract
@@ -34,6 +38,8 @@ describe("SMRITI Canonical Billing Consolidation & Route Parity Tests", () => {
       "SHIFT_REPORTS",
       "CREDIT_BILLING",
       "B2B_DISTRIBUTOR",
+      "SALES_MANAGEMENT",
+      "CREDIT_TAX_INVOICE",
     ];
 
     expect(validViews).toContain("WORKSPACE");
@@ -41,7 +47,14 @@ describe("SMRITI Canonical Billing Consolidation & Route Parity Tests", () => {
     expect(validViews).toContain("SHIFT_REPORTS");
     expect(validViews).toContain("CREDIT_BILLING");
     expect(validViews).toContain("B2B_DISTRIBUTOR");
-    expect(validViews).toHaveLength(5);
+    expect(validViews).toContain("SALES_MANAGEMENT");
+    expect(validViews).toContain("CREDIT_TAX_INVOICE");
+    expect(validViews).toHaveLength(7);
+  });
+
+  it("should expose a single Billing & Sales navigation entry", () => {
+    expect(flattenMenuLabels(ENTERPRISE_MENU_ITEMS).filter((label) => label === "Billing & Sales")).toHaveLength(1);
+    expect(ENTERPRISE_MENU_ITEMS.some((item) => item.id === "sales")).toBe(false);
   });
 
   // TEST 3 — Route Harmonization & TabRenderer Map Module Id Resolution

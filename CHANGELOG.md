@@ -12,6 +12,22 @@
   Classification: Internal
 -->
 
+## [v1.0.2] - 2026-10-24
+
+### Added
+- **Compact Credit Tax Invoice Editor**: High-density ERP editor (`CompactCreditTaxInvoiceEditor.tsx`) for Credit Tax Invoice (Against Original Invoice) matching reference screenshot layout, dual-row metadata matrix, 13-column item grid, middle "Edit Selected Item" drawer, notes/GST tax breakdown, and high-contrast KPI footer.
+- **Keyboard Ergonomics**: Indian retail ERP accelerator hotkeys: `F2` (focus barcode scanner), `F3` (add item line), `F4` (update line item from drawer), `F5` (post credit invoice), `F7` (open print preview), and `Delete` (remove row).
+- **Unit Test Suite**: Created `compactCreditTaxInvoice.test.tsx` asserting complete visual fidelity, financial KPIs, middle drawer synchronization, and bottom action bar.
+
+### Changed
+- **Unified Billing & Sales Navigation**: Collapsed separate POS, ProPOS, and Sales Studio menu items in `EnterpriseMenuBar.tsx` into a single canonical **Billing & Sales** entry while retaining legacy compatibility route IDs.
+- **Billing Workspace Integration**: Mounted `CompactCreditTaxInvoiceEditor` inside `BillingWorkspace.tsx` under auxiliary view `"CREDIT_TAX_INVOICE"` alongside POS, Credit Billing, and Sales Studio tabs.
+- **Sales Return Integration**: Updated `ProcessSalesReturn.tsx` and `CompactCreditTaxInvoiceEditor.tsx` to query server-side policy and remaining quantities via `SalesReturnService`.
+
+### Documentation
+- Created walkthrough `docs/walkthrough/billing/Billing_Credit_Tax_Invoice_Compact_Editor_v1.0.0.md` and updated master walkthrough index in `docs/walkthrough/README.md`.
+- Documented refactoring architecture inventory and ownership boundaries in `docs/architecture/unified-billing-sales-refactor.md`.
+
 ## [v1.0.1] - 2026-10-24
 
 ### Changed
