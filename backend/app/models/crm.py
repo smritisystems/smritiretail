@@ -472,6 +472,8 @@ class CustomerPolicy(BaseEntity):
     customer_id = Column(String(50), ForeignKey("customers.id", ondelete="CASCADE"), nullable=False, unique=True, index=True)
     payment_category = Column(String(30), nullable=True)
     payment_term = Column(String(100), nullable=True)
+    default_sales_channel = Column(String(50), nullable=True)
+    require_po_number = Column(Boolean, nullable=True)
     transport_mode = Column(String(30), nullable=True)
     transport_code = Column(String(50), nullable=True)
     transit_days = Column(Integer, nullable=True)
@@ -641,4 +643,3 @@ class CustomerCompanyRelationship(BaseEntity):
 
     customer = relationship("Customer", back_populates="company_relationships")
     customer_group = relationship("CustomerGroup", back_populates="company_relationships")
-

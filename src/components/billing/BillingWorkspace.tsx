@@ -25,8 +25,9 @@ import { ProPosReconciliationDlg } from "./propos/ProPosReconciliationDlg.tsx";
 import { ProPosSupervisorAuthModal } from "./propos/ProPosSupervisorAuthModal.tsx";
 import { DynamicPricingStudioModal } from "./propos/DynamicPricingStudioModal.tsx";
 import { OmniOrderStudioModal } from "../pos/OmniOrderStudioModal.tsx";
-import { PackingSlipManagementModal, PackingSlipRecord } from "./modals/PackingSlipManagementModal.tsx";
-import { ConsolidatedBillingModal } from "./modals/ConsolidatedBillingModal.tsx";
+import { PackingSlipManagementModal } from "./modals/PackingSlipManagementModal.tsx";
+import { BillingProfileConfigModal } from "./modals/BillingProfileConfigModal.tsx";
+import { apiFetchV1 } from "../../lib/apiFetchV1.ts";
 import {
   Receipt,
   FileSpreadsheet,
@@ -109,40 +110,9 @@ export const BillingWorkspace: React.FC<BillingWorkspaceProps> = ({
   const [showDynamicPricingModal, setShowDynamicPricingModal] = useState<boolean>(false);
   const [showOmniOrderModal, setShowOmniOrderModal] = useState<boolean>(false);
   const [showPackingSlipModal, setShowPackingSlipModal] = useState<boolean>(false);
-  const [showConsolidatedModal, setShowConsolidatedModal] = useState<boolean>(false);
-  const [workspacePackingSlips, setWorkspacePackingSlips] = useState<PackingSlipRecord[]>([
-    {
-      id: "ps_demo_001",
-      packingSlipNumber: "PS-20261017-001",
-      salesInvoiceId: "UNBILLED",
-      orderId: "SO-2026-8801",
-      customerId: "cust-ril-01",
-      customerName: "Reliance Retail Ltd (B2B)",
-      status: "PACKED",
-      totalPackages: 2,
-      weightKg: 4.5,
-      createdAt: "2026-10-17 10:15:00",
-      items: [
-        { id: "psi_1", productId: "p-chap-01", sku: "FL-CHP-01", name: "Premium Leather Chappal", quantity: 10, batchNumber: "B26-01" },
-        { id: "psi_2", productId: "p-snk-01", sku: "FL-SNK-01", name: "Urban Street Sneaker", quantity: 8, batchNumber: "B26-02" },
-      ],
-    },
-    {
-      id: "ps_demo_002",
-      packingSlipNumber: "PS-20261017-002",
-      salesInvoiceId: "UNBILLED",
-      orderId: "SO-2026-8802",
-      customerId: "cust-ril-01",
-      customerName: "Reliance Retail Ltd (B2B)",
-      status: "PACKED",
-      totalPackages: 1,
-      weightKg: 2.8,
-      createdAt: "2026-10-17 11:30:00",
-      items: [
-        { id: "psi_3", productId: "p-run-01", sku: "FL-RUN-01", name: "Sprint Pro Running Shoe", quantity: 12, batchNumber: "B26-03" },
-      ],
-    },
-  ]);
+  const [showBillingPolicyModal, setShowBillingPolicyModal] = useState<boolean>(false);
+  const [billingProfileData, setBillingProfileData] = useState<any>(null);
+  const [billingEffectiveConfiguration, setBillingEffectiveConfiguration] = useState<any>({});
   // REC-07: Secondary toolbar overflow menu
   const [showOverflowMenu, setShowOverflowMenu] = useState<boolean>(false);
 
@@ -162,6 +132,26 @@ export const BillingWorkspace: React.FC<BillingWorkspaceProps> = ({
     },
     [onNotification]
   );
+  const canManageBillingPolicy = ["MANAGER", "SYSADMIN"].includes(String(currentUser?.role || "").toUpperCase());
+  const refreshBillingPolicyConfiguration = useCallback(async () => {
+    const [profile, policy] = await Promise.all([
+      apiFetchV1<any>("/billing/profile"),
+      apiFetchV1<any>("/billing/transaction-policy"),
+    ]);
+    const profileData = profile?.data || profile;
+    const policyData = policy?.data || policy;
+    setBillingProfileData(profileData || {});
+    setBillingEffectiveConfiguration(policyData?.configuration || profileData?.effective_configuration || {});
+  }, []);
+  const openBillingPolicyModal = useCallback(async () => {
+    try {
+      await refreshBillingPolicyConfiguration();
+      setShowBillingPolicyModal(true);
+    } catch (error) {
+      console.error("[BillingWorkspace] Billing policy settings could not be loaded:", error);
+      showToast("Billing Policy Unavailable", "Company and branch billing settings could not be loaded. Check the connection or ask an administrator.", "error");
+    }
+  }, [refreshBillingPolicyConfiguration, showToast]);
 
   // Global Keyboard Shortcuts for workspace navigation
   useEffect(() => {
@@ -229,12 +219,13 @@ export const BillingWorkspace: React.FC<BillingWorkspaceProps> = ({
 
           <button
             type="button"
-            onClick={() => setShowConsolidatedModal(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 rounded-lg text-xs font-bold transition cursor-pointer shadow-2xs"
+            disabled
+            title="Consolidated billing is unavailable until packing-slip quantities are loaded from the fulfillment service."
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 border border-slate-300 text-slate-500 rounded-lg text-xs font-bold cursor-not-allowed shadow-2xs"
             data-field-key="nav-consolidated-billing-btn"
           >
             <FileText size={14} />
-            <span>Consolidated Billing</span>
+            <span>Consolidated Billing (Unavailable)</span>
           </button>
         </div>
 
@@ -309,7 +300,7 @@ export const BillingWorkspace: React.FC<BillingWorkspaceProps> = ({
                     onClick={() => { setAuxView(auxView === "EOD_Z_REPORT" ? "WORKSPACE" : "EOD_Z_REPORT"); setShowOverflowMenu(false); }}
                     className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold text-amber-800 hover:bg-slate-50 text-left w-full cursor-pointer"
                   >
-                    <FileSpreadsheet size={13} /> EOD Z-Report (F8)
+                    <FileSpreadsheet size={13} /> EOD Z-Report
                   </button>
                 </div>
               </>
@@ -382,7 +373,7 @@ export const BillingWorkspace: React.FC<BillingWorkspaceProps> = ({
               initialSalesChannel={getBillingDefaults(initialMode).salesChannel}
               onOpenSalesDocuments={() => setAuxView("SALES_MANAGEMENT")}
               onOpenPackingSlips={() => setShowPackingSlipModal(true)}
-              onOpenConsolidatedBilling={() => setShowConsolidatedModal(true)}
+              onOpenBillingConfiguration={canManageBillingPolicy ? () => { void openBillingPolicyModal(); } : undefined}
               onOpenShiftReports={() => setAuxView("SHIFT_REPORTS")}
               onOpenEodReport={() => setAuxView("EOD_Z_REPORT")}
               onOpenShiftManager={() => setAuxView("SHIFT_REPORTS")}
@@ -420,24 +411,24 @@ export const BillingWorkspace: React.FC<BillingWorkspaceProps> = ({
                 <kbd className="px-2 py-0.5 rounded bg-white dark:bg-black/40 font-mono font-bold shadow-2xs">F2</kbd>
               </div>
               <div className="flex items-center justify-between p-2 rounded-lg bg-[#f3f4f5] dark:bg-[#25292e]">
-                <span>Hold / Park Active Cart</span>
-                <kbd className="px-2 py-0.5 rounded bg-white dark:bg-black/40 font-mono font-bold shadow-2xs">F5</kbd>
+                <span>Direct Item Entry Focus</span>
+                <kbd className="px-2 py-0.5 rounded bg-white dark:bg-black/40 font-mono font-bold shadow-2xs">F11</kbd>
               </div>
               <div className="flex items-center justify-between p-2 rounded-lg bg-[#f3f4f5] dark:bg-[#25292e]">
-                <span>Recall Suspended Cart</span>
+                <span>Promotional Discounts</span>
                 <kbd className="px-2 py-0.5 rounded bg-white dark:bg-black/40 font-mono font-bold shadow-2xs">F6</kbd>
               </div>
               <div className="flex items-center justify-between p-2 rounded-lg bg-[#f3f4f5] dark:bg-[#25292e]">
-                <span>EOD Z-Report / Shift Close</span>
-                <kbd className="px-2 py-0.5 rounded bg-white dark:bg-black/40 font-mono font-bold shadow-2xs">F8</kbd>
+                <span>Hold / Park Active Cart</span>
+                <kbd className="px-2 py-0.5 rounded bg-white dark:bg-black/40 font-mono font-bold shadow-2xs">F12</kbd>
               </div>
               <div className="flex items-center justify-between p-2 rounded-lg bg-[#f3f4f5] dark:bg-[#25292e]">
                 <span>Tender Settlement Modal</span>
-                <kbd className="px-2 py-0.5 rounded bg-white dark:bg-black/40 font-mono font-bold shadow-2xs">F10</kbd>
+                <kbd className="px-2 py-0.5 rounded bg-white dark:bg-black/40 font-mono font-bold shadow-2xs">F8</kbd>
               </div>
               <div className="flex items-center justify-between p-2 rounded-lg bg-[#f3f4f5] dark:bg-[#25292e]">
-                <span>Fast Cash Checkout</span>
-                <kbd className="px-2 py-0.5 rounded bg-white dark:bg-black/40 font-mono font-bold shadow-2xs">F12</kbd>
+                <span>Exact Cash Settlement</span>
+                <kbd className="px-2 py-0.5 rounded bg-white dark:bg-black/40 font-mono font-bold shadow-2xs">F7</kbd>
               </div>
             </div>
 
@@ -546,37 +537,33 @@ export const BillingWorkspace: React.FC<BillingWorkspaceProps> = ({
           customers={customers}
           products={products}
           currentUser={currentUser}
-          onSelectSlipForBilling={(slip) => {
-            setAuxView("WORKSPACE");
-            showToast(
-              "Packing Slip Selected",
-              `Packing Slip #${slip.packingSlipNumber} was not loaded into the invoice. Use the Customer PO source until packing-slip invoicing is migrated.`,
-              "warning"
-            );
-          }}
           onNotification={(title, msg, type) => showToast(title, msg, type)}
         />
       )}
 
-      {/* B2B Consolidated Billing Modal */}
-      {showConsolidatedModal && (
-        <ConsolidatedBillingModal
-          isOpen={showConsolidatedModal}
-          onClose={() => setShowConsolidatedModal(false)}
-          availableSlips={workspacePackingSlips}
-          customers={customers}
-          currentUser={currentUser}
-          onApplyConsolidatedItems={(params) => {
-            setAuxView("WORKSPACE");
-            showToast(
-              "Consolidated Invoice Not Loaded",
-              `${params.items.length} lines from ${params.selectedSlips.length} packing slips were not transferred. Use the Customer PO source until packing-slip invoicing is migrated.`,
-              "warning"
-            );
+      {showBillingPolicyModal && (
+        <BillingProfileConfigModal
+          isOpen={showBillingPolicyModal}
+          onClose={() => setShowBillingPolicyModal(false)}
+          activeProfile={
+            billingProfileData?.billing_profile === "B2C_ONLY" || (!billingProfileData?.billing_profile && initialMode === "RETAIL_POS")
+              ? "B2C_ONLY"
+              : "B2B_ONLY"
+          }
+          effectiveConfig={billingEffectiveConfiguration}
+          customOverrides={billingProfileData?.custom_overrides || {}}
+          history={billingProfileData?.history || []}
+          canManage={canManageBillingPolicy}
+          onConfigSaved={() => {
+            void refreshBillingPolicyConfiguration().catch(error => {
+              console.error("[BillingWorkspace] Saved billing policy could not be refreshed:", error);
+              showToast("Settings Saved", "The policy was saved, but the displayed effective values could not be refreshed.", "warning");
+            });
           }}
-          onNotification={(title, msg, type) => showToast(title, msg, type)}
+          onNotification={showToast}
         />
       )}
+
     </div>
   );
 };

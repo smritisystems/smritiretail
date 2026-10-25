@@ -14,13 +14,19 @@
  * Shared by the canonical Billing Workspace for POS, credit, wholesale, and tax invoices.
  */
 
-import React, { useState, useEffect, useRef, useMemo } from "react";
+import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { Product, Customer, POSProfile, Shift } from "../../types.ts";
-import { apiFetchV1 } from "../../lib/apiFetchV1.ts";
+import { apiFetchV1, getTenantCompanyContext, normalizeBranchId, normalizeCompanyId } from "../../lib/apiFetchV1.ts";
 import { useF2Screen } from "../../context/F2DispatcherContext.tsx";
 import type { LookupResult } from "../../context/F2DispatcherContext.tsx";
 import type { SalesLineItem, SalesTransaction } from "../../domain/sales/transaction";
 import { calculateLineTotal, recomputeTransaction } from "../../services/sales/transactionCalculator";
+import {
+  buildBillingPreviewRequest,
+  BillingPreviewRequest,
+  BillingPreviewResult,
+  prepareBillingPostingLines,
+} from "./billingPreview.ts";
 import { getCustomers, saveCustomers } from "../../services/customerStore.ts";
 import { 
   searchBackendCustomers, 
@@ -65,6 +71,8 @@ import {
   BillPrefixResolveResult
 } from "../../services/smritiBillPrefixService.ts";
 import { SmritiInvoiceSettlementModal } from "./InvoiceSettlementD.tsx";
+import { BarcodeCSVImportModal, ResolvedCartItem } from "./BarcodeCSVImportModal.tsx";
+import { BulkAddItemsModal } from "./modals/BulkAddItemsModal.tsx";
 import { PrintPreviewModal } from "../PrintPreviewModal.tsx";
 import { InvoicingTransactionBrowserModal, InvoicingBrowserTab } from "./InvoicingTransactionBrowserModal.tsx";
 import { TransactionAttachmentPanel } from "../common/TransactionAttachmentPanel.tsx";
@@ -122,11 +130,82 @@ interface SmritiBillingTerminalProps {
   onOpenSalesDocuments?: () => void;
   onOpenPackingSlips?: () => void;
   onOpenConsolidatedBilling?: () => void;
+  onOpenBillingConfiguration?: () => void;
   onOpenShiftReports?: () => void;
   onOpenEodReport?: () => void;
   onOpenShiftManager?: () => void;
   onOpenHotkeys?: () => void;
 }
+
+interface BillingSalespersonOption {
+  id: string;
+  code: string;
+  name: string;
+  status?: string;
+  role?: string;
+}
+
+interface ResolvedBillingTransactionPolicy {
+  configuration?: {
+    allowed_sales_channels?: string[];
+    allowed_source_types?: string[];
+    allowed_bill_types?: string[];
+    allowed_transactions?: string[];
+    default_sales_channel?: string | null;
+    default_transaction?: "CASH" | "CREDIT" | "";
+    default_source_type?: string;
+    default_bill_type?: string;
+    customer_selection_required?: boolean;
+  };
+  customer?: {
+    default_sales_channel?: string;
+    channel_conflict?: boolean;
+    default_transaction?: "CASH" | "CREDIT" | "";
+    allowed_transactions?: string[];
+    credit_limit?: number;
+    credit_days?: number;
+    outstanding?: number;
+    available_credit?: number | null;
+    unlimited_credit?: boolean;
+    credit_hold?: boolean;
+    require_po_number?: boolean;
+    can_override_credit?: boolean;
+    allow_credit_override?: boolean;
+    default_transaction_permitted?: boolean;
+    configuration_warning?: string | null;
+    can_change_transaction_mode?: boolean;
+  } | null;
+  allowed_transactions?: string[];
+  default_transaction?: "CASH" | "CREDIT" | "";
+  default_transaction_permitted?: boolean;
+  configuration_warning?: string | null;
+  can_change_transaction_mode?: boolean;
+}
+
+export const DEFAULT_TRANSPORTER_ROWS: TransporterRow[] = [
+  {
+    sNo: 1,
+    type: "Road Freight",
+    code: "TR-01",
+    description: "Local Express Logistics",
+    rateType: "Fixed",
+    rateAmt: 0,
+    rate: 0,
+    amount: 0
+  }
+];
+
+export const DEFAULT_ADDON_ROWS: AddonDeductionRow[] = [
+  {
+    sNo: 1,
+    type: "Addon",
+    code: "INS",
+    description: "Transit Insurance",
+    rateType: "Fixed",
+    rate: 0,
+    amount: 0
+  }
+];
 
 export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
   products = [],
@@ -140,11 +219,13 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
   onOpenSalesDocuments,
   onOpenPackingSlips,
   onOpenConsolidatedBilling,
+  onOpenBillingConfiguration,
   onOpenShiftReports,
   onOpenEodReport,
   onOpenShiftManager,
   onOpenHotkeys,
 }) => {
+  const settlementIdempotencyKeyRef = useRef<{ key: string; fingerprint: string } | null>(null);
   const invoiceCustomerScope = { series: "TT2026-2027", from: 18, to: 137 };
 
   // Main Line Items Table State
@@ -163,7 +244,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
     docNo: "",
     billDate: new Date().toLocaleDateString("en-GB"),
     customer: null,
-    salesStaff: currentUser?.name || "EMP001 - John Doe",
+    salesStaff: currentUser?.name || "",
     remarks: "",
     billedPartyGstinId: null,
     billedGstin: null,
@@ -178,6 +259,105 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
     salesChannel: initialSalesChannel,
     psvPartyId: null
   });
+  const [billingTransactionPolicy, setBillingTransactionPolicy] = useState<ResolvedBillingTransactionPolicy | null>(null);
+  const [billingPolicyLoading, setBillingPolicyLoading] = useState(false);
+  const [billingPolicyError, setBillingPolicyError] = useState<string | null>(null);
+  const [creditOverrideReason, setCreditOverrideReason] = useState("");
+  const [transactionModeConfirmed, setTransactionModeConfirmed] = useState(false);
+  const billingPolicyRequestIdRef = useRef(0);
+  const loadBillingTransactionPolicy = useCallback(async (customerId?: string | null) => {
+    const requestId = ++billingPolicyRequestIdRef.current;
+    setBillingPolicyLoading(true);
+    setBillingPolicyError(null);
+    try {
+      const query = customerId ? `?customer_id=${encodeURIComponent(customerId)}` : "";
+      const resolved = await apiFetchV1<ResolvedBillingTransactionPolicy>(`/billing/transaction-policy${query}`);
+      if (requestId !== billingPolicyRequestIdRef.current) return;
+      setBillingTransactionPolicy(resolved);
+      const configuration = resolved.configuration || {};
+      const customerPolicy = resolved.customer;
+      const allowedChannels = configuration.allowed_sales_channels || [];
+      const allowedSources = configuration.allowed_source_types || [];
+      const allowedBillTypes = configuration.allowed_bill_types || [];
+      const allowedTransactions = customerPolicy?.allowed_transactions
+        || resolved.allowed_transactions
+        || configuration.allowed_transactions
+        || [];
+      const defaultChannel = customerPolicy?.default_sales_channel
+        || configuration.default_sales_channel
+        || initialSalesChannel;
+      const defaultSource = configuration.default_source_type || "DIRECT";
+      const defaultBillType = configuration.default_bill_type || "Product";
+      const defaultTransaction = customerPolicy?.default_transaction
+        || resolved.default_transaction
+        || configuration.default_transaction
+        || "";
+      const defaultTransactionPermitted = customerPolicy?.default_transaction_permitted
+        ?? resolved.default_transaction_permitted
+        ?? allowedTransactions.includes(defaultTransaction);
+      setHeaderState(previous => ({
+        ...previous,
+        salesChannel: allowedChannels.includes(defaultChannel)
+          ? defaultChannel
+          : (allowedChannels.includes(configuration.default_sales_channel || "") ? configuration.default_sales_channel! : previous.salesChannel),
+        billingSource: allowedSources.includes(defaultSource)
+          ? defaultSource as BillingHeaderState["billingSource"]
+          : previous.billingSource,
+        billType: allowedBillTypes.some(value => value.toLowerCase() === defaultBillType.toLowerCase())
+          ? defaultBillType as BillType
+          : (allowedBillTypes[0] as BillType) || previous.billType,
+        transaction: defaultTransactionPermitted && defaultTransaction === "CREDIT"
+          ? "Credit"
+          : defaultTransactionPermitted && defaultTransaction === "CASH"
+            ? "Cash"
+            : previous.transaction,
+      }));
+      setTransactionModeConfirmed(false);
+      setCreditOverrideReason("");
+    } catch (error) {
+      if (requestId === billingPolicyRequestIdRef.current) {
+        setBillingTransactionPolicy(null);
+        console.error("[BillingTerm] Billing policy resolution failed:", error);
+        setBillingPolicyError("Billing policy could not be loaded.");
+      }
+    } finally {
+      if (requestId === billingPolicyRequestIdRef.current) setBillingPolicyLoading(false);
+    }
+  }, [currentUser?.branchId, currentUser?.companyId, initialSalesChannel]);
+  const [salespeople, setSalespeople] = useState<BillingSalespersonOption[]>([]);
+  const [salespeopleError, setSalespeopleError] = useState<string | null>(null);
+
+  useEffect(() => {
+    void loadBillingTransactionPolicy(headerState.customer?.id);
+    return () => {
+      billingPolicyRequestIdRef.current += 1;
+    };
+  }, [headerState.customer?.id, loadBillingTransactionPolicy]);
+
+  useEffect(() => {
+    let isMounted = true;
+    apiFetchV1<{ items?: BillingSalespersonOption[] }>("/staff?limit=200")
+      .then(response => {
+        const records = Array.isArray(response) ? response : response?.items;
+        if (!Array.isArray(records)) {
+          throw new Error("Staff directory returned an unsupported response.");
+        }
+        if (isMounted) {
+          setSalespeople(records.filter(person =>
+            Boolean(person.name) && String(person.status || "Active").toUpperCase() === "ACTIVE"
+          ));
+          setSalespeopleError(null);
+        }
+      })
+      .catch(error => {
+        if (isMounted) {
+          setSalespeopleError(error instanceof Error ? error.message : "Staff directory could not be loaded.");
+        }
+      });
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const isStoreLocationRequired = useMemo(() => {
     const channelKey = (headerState.salesChannel || "B2B_WHOLESALE").toUpperCase();
@@ -500,37 +680,31 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
     discCode: "",
     discQty: "",
     discPercent: "",
-    staff: currentUser?.name || "Staff A"
+    staff: currentUser?.name || ""
   });
+
+  const salesStaffOptions = useMemo(() => {
+    const options = new Map<string, string>();
+    for (const person of salespeople) {
+      options.set(person.name, person.code ? `${person.code} · ${person.name}` : person.name);
+    }
+    for (const value of [currentUser?.name, headerState.salesStaff, directEntry.staff, ...items.map(item => item.salesStaff)]) {
+      if (value?.trim() && !options.has(value)) options.set(value, value);
+    }
+    return Array.from(options, ([value, label]) => ({ value, label }));
+  }, [salespeople, currentUser?.name, headerState.salesStaff, directEntry.staff, items]);
 
   // Tabbed Details State (Footer Left Card & Bottom Drawers)
   const [activeFooterTab, setActiveFooterTab] = useState<"transporter" | "payment" | "addons">("transporter");
   const [activeFooterDrawer, setActiveFooterDrawer] = useState<"none" | "transporter" | "payment" | "addons" | "remarks">("none");
   const [showMoreDetails, setShowMoreDetails] = useState<boolean>(false);
   const [showMoreMenu, setShowMoreMenu] = useState<boolean>(false);
-  const [transporterRows, setTransporterRows] = useState<TransporterRow[]>([
-    {
-      sNo: 1,
-      type: "Road Freight",
-      code: "TR-01",
-      description: "Local Express Logistics",
-      rateType: "Fixed",
-      rateAmt: 0,
-      rate: 0,
-      amount: 0
-    }
-  ]);
-  const [addonRows, setAddonRows] = useState<AddonDeductionRow[]>([
-    {
-      sNo: 1,
-      type: "Addon",
-      code: "INS",
-      description: "Transit Insurance",
-      rateType: "Fixed",
-      rate: 0,
-      amount: 0
-    }
-  ]);
+  const [transporterRows, setTransporterRows] = useState<TransporterRow[]>(() =>
+    DEFAULT_TRANSPORTER_ROWS.map(r => ({ ...r }))
+  );
+  const [addonRows, setAddonRows] = useState<AddonDeductionRow[]>(() =>
+    DEFAULT_ADDON_ROWS.map(r => ({ ...r }))
+  );
 
   // Customers State & Auto-Populate Search
   // getCustomers() returns backend-seeded cache (populated by refreshCustomerCache on login).
@@ -675,7 +849,16 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
   });
   const [isManualBillPromoOverride, setIsManualBillPromoOverride] = useState<boolean>(false);
   const [showSettlementModal, setShowSettlementModal] = useState<boolean>(false);
+  const [billingPreview, setBillingPreview] = useState<{
+    fingerprint: string;
+    result?: BillingPreviewResult;
+    error?: string;
+    loading: boolean;
+  } | null>(null);
+  const [billingPreviewRetry, setBillingPreviewRetry] = useState(0);
   const [showRecallModal, setShowRecallModal] = useState<boolean>(false);
+  const [showBulkAddItemsModal, setShowBulkAddItemsModal] = useState<boolean>(false);
+  const [showBarcodeCSVImportModal, setShowBarcodeCSVImportModal] = useState<boolean>(false);
   const [expandedHeldBillId, setExpandedHeldBillId] = useState<string | null>(null);
   const [showTransactionBrowserModal, setShowTransactionBrowserModal] = useState<boolean>(false);
   const [isReadOnlyView, setIsReadOnlyView] = useState<boolean>(false);
@@ -721,27 +904,118 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
   }, [headerState.transaction, headerState.billType, isReadOnlyView, loadedDocMetadata, items.length]);
 
   const hasGstProfile = Boolean(headerState.customer?.gstNumber || headerState.billedGstin);
+  const transactionCustomerPolicy = billingTransactionPolicy?.customer;
+  const permittedTransactions = transactionCustomerPolicy?.allowed_transactions
+    || billingTransactionPolicy?.allowed_transactions
+    || billingTransactionPolicy?.configuration?.allowed_transactions
+    || [];
+  const permittedSalesChannels = billingTransactionPolicy?.configuration?.allowed_sales_channels || [];
+  const permittedSources = billingTransactionPolicy?.configuration?.allowed_source_types || [];
+  const permittedBillTypes = billingTransactionPolicy?.configuration?.allowed_bill_types || [];
+  const permittedTransactionType = headerState.transaction === "Credit" ? "CREDIT" : "CASH";
+  const configuredTransactionType = transactionCustomerPolicy?.default_transaction
+    || billingTransactionPolicy?.default_transaction
+    || billingTransactionPolicy?.configuration?.default_transaction
+    || "";
+  const configuredTransactionIsPermitted = transactionCustomerPolicy?.default_transaction_permitted
+    ?? billingTransactionPolicy?.default_transaction_permitted
+    ?? permittedTransactions.includes(configuredTransactionType);
+  const canChangeTransactionMode = Boolean(
+    transactionCustomerPolicy?.can_change_transaction_mode
+    ?? billingTransactionPolicy?.can_change_transaction_mode
+  );
+  const transactionModeConflict = Boolean(
+    configuredTransactionType
+    && (!configuredTransactionIsPermitted || configuredTransactionType !== permittedTransactionType)
+  );
 
   const openSettlement = () => {
     if (items.length === 0) {
       onNotification?.("Settlement", "Add items to invoice before opening settlement.", "error");
       return;
     }
+    if (billingPolicyLoading || !billingTransactionPolicy || billingPolicyError) {
+      onNotification?.("Billing Policy Unavailable", "Wait for company, branch, and customer billing policy to load before settlement. Check the connection or ask an administrator if the issue continues.", "error");
+      return;
+    }
+    if (billingTransactionPolicy.configuration?.customer_selection_required && !headerState.customer) {
+      onNotification?.("Customer Required", "Select a customer before billing under the active company or branch policy.", "error");
+      return;
+    }
+    if (transactionCustomerPolicy?.channel_conflict) {
+      onNotification?.("Channel Policy Conflict", "The customer's configured sales channel is not allowed by company or branch policy. Ask an administrator to resolve the configuration.", "error");
+      return;
+    }
+    if (!permittedTransactions.includes(permittedTransactionType)) {
+      onNotification?.("Transaction Type Not Allowed", "The selected cash or credit mode is not permitted for this customer and branch.", "error");
+      return;
+    }
+    if ((!configuredTransactionIsPermitted || transactionModeConflict) && !transactionModeConfirmed) {
+      onNotification?.(
+        "Billing Mode Confirmation Required",
+        canChangeTransactionMode
+          ? "Select an eligible billing mode explicitly before settlement."
+          : "The configured billing mode is not available to this user. Ask an authorized user or administrator to resolve it.",
+        "error"
+      );
+      return;
+    }
+    if (transactionModeConflict && !canChangeTransactionMode) {
+      onNotification?.("Billing Mode Change Not Authorized", "Changing the configured billing mode requires explicit permission.", "error");
+      return;
+    }
+    const allowedChannels = billingTransactionPolicy.configuration?.allowed_sales_channels || [];
+    const allowedSources = billingTransactionPolicy.configuration?.allowed_source_types || [];
+    const allowedBillTypes = billingTransactionPolicy.configuration?.allowed_bill_types || [];
+    if (!allowedChannels.includes(headerState.salesChannel || "")) {
+      onNotification?.("Sales Channel Not Allowed", "Choose a sales channel permitted by company and branch policy.", "error");
+      return;
+    }
+    if (!allowedSources.includes(headerState.billingSource || "DIRECT")) {
+      onNotification?.("Billing Source Not Allowed", "Choose a billing source permitted by company and branch policy.", "error");
+      return;
+    }
+    if (!allowedBillTypes.some(value => value.toLowerCase() === headerState.billType.toLowerCase())) {
+      onNotification?.("Bill Type Not Allowed", "Choose a bill type permitted by company and branch policy.", "error");
+      return;
+    }
+    if (transactionCustomerPolicy?.require_po_number && !headerState.poReference?.trim() && !headerState.customerPoId) {
+      setShowMoreDetails(true);
+      onNotification?.("PO Reference Required", "Enter the customer purchase-order reference in Details before settlement.", "error");
+      return;
+    }
+    if (!previewIsCurrent) {
+      onNotification?.(
+        "Billing Preview Pending",
+        currentPreviewError || "Wait for the backend-authoritative billing preview before opening settlement.",
+        "error",
+      );
+      return;
+    }
+    if (hasUnsupportedCharges) {
+      onNotification?.(
+        "Additional Charges Not Supported",
+        "The backend preview and posting contract does not yet include freight, add-ons, or deductions. Remove those rows before settlement so the invoice total is not presented as validated.",
+        "error",
+      );
+      return;
+    }
     if (!hasGstProfile) {
       onNotification?.("GST profile pending", "Add a customer GSTIN before opening settlement.", "error");
       return;
     }
-    // Credit ceiling check when billing on credit
-    if (headerState.customer && headerState.transaction === "Credit") {
-      const limit = headerState.customer.creditLimit;
-      const currentOutstanding = headerState.customer.outstanding || 0;
-      const billTotal = summaryTotals.netAmount;
-      if (limit !== undefined && limit > 0 && (currentOutstanding + billTotal > limit)) {
+    if (requiresCreditOverride) {
+      if (!transactionCustomerPolicy?.can_override_credit || !transactionCustomerPolicy.allow_credit_override) {
         onNotification?.(
           "Credit Ceiling Exceeded",
-          `Customer credit ceiling ₹${limit.toFixed(2)} exceeded! Current Outstanding: ₹${currentOutstanding.toFixed(2)}, Current Bill: ₹${billTotal.toFixed(2)} (Total: ₹${(currentOutstanding + billTotal).toFixed(2)}).`,
+          "The invoice exceeds the customer's available credit and no authorized override is available.",
           "error"
         );
+        return;
+      }
+      if (!creditOverrideReason.trim()) {
+        setShowMoreDetails(true);
+        onNotification?.("Credit Override Reason Required", "Enter an authorized business justification in Details before settlement.", "error");
         return;
       }
     }
@@ -813,9 +1087,13 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
       salesChannel: "B2B_WHOLESALE",
       psvPartyId: null
     }));
+    setTransporterRows(DEFAULT_TRANSPORTER_ROWS.map(r => ({ ...r })));
+    setAddonRows(DEFAULT_ADDON_ROWS.map(r => ({ ...r })));
     setSelectedCustomerPO(null);
     setCustomerGstRegistrations([]);
     setCustomerDeliveryLocations([]);
+    void loadBillingTransactionPolicy();
+    setCreditOverrideReason("");
     setDirectEntry({
       barcode: "",
       stockNo: "",
@@ -825,7 +1103,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
       discCode: "",
       discQty: "",
       discPercent: "",
-      staff: currentUser?.name || "Staff A"
+      staff: headerState.salesStaff
     });
     setCustomerSearchInput("");
     setSelectedItemProductMeta(null);
@@ -921,11 +1199,9 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
           outstanding: Number(result.record?.outstanding_balance ?? result.record?.outstanding ?? 0),
           createdDate: (result.record?.created_at as string) || new Date().toISOString().split("T")[0],
         };
-        const custType = String(result.record?.customer_type || result.record?.customerType || "").toUpperCase();
         setHeaderState(prev => ({
           ...prev,
           customer: custObj,
-          salesChannel: custType === "MODERN_TRADE" ? "MODERN_TRADE" : prev.salesChannel,
           billedPartyGstinId: null,
           billedGstin: null,
           deliveryLocationId: null,
@@ -939,10 +1215,13 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
         setCustomerSearchInput(result.displayValue || "");
         if (custObj.id) {
           fetchCustomerB2BData(custObj.id);
+          void loadBillingTransactionPolicy(custObj.id);
         } else {
           setCustomerGstRegistrations([]);
           setCustomerDeliveryLocations([]);
+          void loadBillingTransactionPolicy();
         }
+        setCreditOverrideReason("");
         return;
       }
 
@@ -1098,6 +1377,9 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
           gstPercentage: Number(it.gst_rate || 18),
           taxAmount: Number(it.tax_amount || 0)
         })),
+        transporterRows: inv.rule_snapshots?.transporterRows || inv.transporterRows || [],
+        addonRows: inv.rule_snapshots?.addonRows || inv.addonRows || [],
+        rule_snapshots: inv.rule_snapshots || {},
         date: inv.created_at || inv.date,
         netAmount: Number(inv.grand_total || 0)
       }));
@@ -1120,7 +1402,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
       // F2 handled by F2DispatcherProvider (F2 Universal Lookup Architecture v2).
       // This screen registers via useF2Screen() above. No screen-level F2 handler.
-      if (e.key === "F11" || e.key === "F1") {
+      if (e.key === "F11") {
         e.preventDefault();
         if (activeItemSearchField === "barcode") {
           directBarcodeRef.current?.focus();
@@ -1210,11 +1492,9 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
   }, [items, headerState, lastCompletedInvoice, activeItemSearchField, hasGstProfile, selectedRowIndex, editingLineId]);
 
   const handleSelectCustomer = (c: Customer | null) => {
-    const custType = String((c as any)?.customer_type || (c as any)?.customerType || "").toUpperCase();
     setHeaderState(prev => ({
       ...prev,
       customer: c,
-      salesChannel: custType === "MODERN_TRADE" ? "MODERN_TRADE" : prev.salesChannel,
       billedPartyGstinId: null,
       billedGstin: null,
       deliveryLocationId: null,
@@ -1230,10 +1510,13 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
     if (c) {
       setCustomerSearchInput(c.name);
       fetchCustomerB2BData(c.id);
+      void loadBillingTransactionPolicy(c.id);
     } else {
       setCustomerGstRegistrations([]);
       setCustomerDeliveryLocations([]);
+      void loadBillingTransactionPolicy();
     }
+    setCreditOverrideReason("");
     setShowCustomerDropdown(false);
   };
 
@@ -1252,12 +1535,9 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
       createdDate: (r as any).createdDate || (r as any).created_at || new Date().toISOString().split("T")[0]
     };
 
-    const custType = String((r as any)?.customer_type || (r as any)?.customerType || "").toUpperCase();
     setHeaderState(prev => ({
       ...prev,
       customer: custObj,
-      salesChannel: custType === "MODERN_TRADE" ? "MODERN_TRADE" : prev.salesChannel,
-      transaction: (r as any).allowCreditInvoice !== false ? prev.transaction : "Cash",
       billedPartyGstinId: null,
       billedGstin: null,
       deliveryLocationId: null,
@@ -1273,7 +1553,9 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
     setShowCustomerDropdown(false);
     if (custObj.id) {
       fetchCustomerB2BData(custObj.id);
+      void loadBillingTransactionPolicy(custObj.id);
     }
+    setCreditOverrideReason("");
     onNotification?.("Customer Auto-Populated", `Auto-populated ${r.name} from backend.`, "success");
   };
 
@@ -1297,6 +1579,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
       setCustomerSuggestions([]);
       setCustomerGstRegistrations([]);
       setCustomerDeliveryLocations([]);
+      void loadBillingTransactionPolicy();
       return;
     }
 
@@ -1349,7 +1632,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
   const directLineTotal = Math.max(0, directGrossValue - directDiscAmt);
 
   // Recompute Summary Totals
-  const summaryTotals: BillingSummaryTotals = useMemo(() => {
+  const estimatedSummaryTotals: BillingSummaryTotals = useMemo(() => {
     const transaction: SalesTransaction = {
       docType: "billing",
       docPrefix: headerState.docPrefix || "INV",
@@ -1377,6 +1660,11 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
         discAmt: Number(it.discAmt || 0),
         taxPercent: Number(it.gstPercentage ?? (it.taxAmount ? 18 : 0)),
         taxAmount: Number(it.taxAmount || 0),
+        isTaxInclusive: it.isTaxInclusive
+          ?? headerState.customer?.isTaxInclusive
+          ?? headerState.customer?.is_tax_inclusive
+          ?? headerState.customer?.taxInclusive
+          ?? ((headerState.salesChannel || "").toUpperCase() === "POS_RETAIL"),
         total: Number(it.total || 0),
       })),
       subtotal: 0,
@@ -1388,8 +1676,37 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
     const recomputed = recomputeTransaction(transaction);
     const itemCount = items.length;
     const totalQty = items.reduce((sum, it) => sum + Number(it.qty || 0), 0);
-    const billDiscount = billLevelPromo.discountAmt || ((recomputed.subtotal * billLevelPromo.discountPct) / 100);
-    // Statutory GST Section 15 Addon/Deduction Calculation
+
+    // Fail-Safe Zero-Item Guard: With zero billable items or zero quantity, all monetary totals must strictly evaluate to ₹0.00
+    if (itemCount === 0 || totalQty === 0) {
+      return {
+        itemCount: 0,
+        totalQty: 0,
+        salesValue: 0,
+        itemDiscount: 0,
+        billDiscount: 0,
+        totalTax: 0,
+        totalAddons: 0,
+        totalDeductions: 0,
+        aboveTaxAddons: 0,
+        aboveTaxDeductions: 0,
+        belowTaxAddons: 0,
+        belowTaxDeductions: 0,
+        adjustedTaxableValue: 0,
+        roundOff: 0,
+        netAmount: 0,
+      };
+    }
+
+    const roundCurrency = (amount: number) => Math.round(amount * 100) / 100;
+    const lineDiscountBases = recomputed.items.map((line) =>
+      Math.max(0, roundCurrency(line.value - (line.discAmt || 0)))
+    );
+    const undiscountedBillDiscount = billLevelPromo.discountAmt || ((recomputed.subtotal * billLevelPromo.discountPct) / 100);
+    const billDiscount = roundCurrency(Math.min(
+      Math.max(0, undiscountedBillDiscount),
+      lineDiscountBases.reduce((total, base) => total + base, 0)
+    ));
     let aboveTaxAddons = 0;
     let aboveTaxDeductions = 0;
     let belowTaxAddons = transporterRows.reduce((s, r) => s + (Number(r.amount) || 0), 0);
@@ -1420,19 +1737,11 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
     const rawTaxable = Math.max(0, baseForPerc - billDiscount + aboveTaxAddons - aboveTaxDeductions);
     const adjustedTaxableValue = Math.round(rawTaxable * 100) / 100;
 
-    // Statutorily recalculate GST tax if above-tax adjustments are present
-    let effectiveTax = recomputed.taxTotal;
-    if (aboveTaxAddons > 0 || aboveTaxDeductions > 0) {
-      const baseTaxable = Math.max(0.01, baseForPerc - billDiscount);
-      const taxRatio = effectiveTax / baseTaxable;
-      effectiveTax = Math.round(adjustedTaxableValue * taxRatio * 100) / 100;
-    }
-
     const totalAddons = Math.round((aboveTaxAddons + belowTaxAddons) * 100) / 100;
     const totalDeductions = Math.round((aboveTaxDeductions + belowTaxDeductions) * 100) / 100;
-    const unroundedNet = Math.max(0, adjustedTaxableValue + effectiveTax + belowTaxAddons - belowTaxDeductions);
-    const roundedNet = Math.round(unroundedNet);
-    const roundOff = Math.round((roundedNet - unroundedNet) * 100) / 100;
+    const unroundedNet = Math.max(0, adjustedTaxableValue + belowTaxAddons - belowTaxDeductions);
+    const roundedNet = roundCurrency(unroundedNet);
+    const roundOff = roundCurrency(roundedNet - unroundedNet);
     const netAmount = roundedNet;
 
     return {
@@ -1441,7 +1750,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
       salesValue: recomputed.subtotal,
       itemDiscount: recomputed.discountTotal,
       billDiscount,
-      totalTax: effectiveTax,
+      totalTax: 0,
       totalAddons,
       totalDeductions,
       aboveTaxAddons: Math.round(aboveTaxAddons * 100) / 100,
@@ -1453,6 +1762,119 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
       netAmount
     };
   }, [items, transporterRows, addonRows, headerState, liveTime, billLevelPromo]);
+
+  const postingLines = useMemo(
+    () => prepareBillingPostingLines(items, estimatedSummaryTotals.billDiscount),
+    [items, estimatedSummaryTotals.billDiscount],
+  );
+  const previewRequest = useMemo(() => {
+    const tenant = getTenantCompanyContext();
+    return buildBillingPreviewRequest({
+      items,
+      postingLines,
+      transporterRows,
+      addonRows,
+      companyId: normalizeCompanyId(currentUser?.companyId || tenant.companyId),
+      branchId: normalizeBranchId(currentUser?.branchId || tenant.branchId),
+      salesChannel: headerState.salesChannel || "B2B_WHOLESALE",
+      customer: headerState.customer,
+      billedGstin: headerState.billedGstin,
+      billedPartyGstinId: headerState.billedPartyGstinId,
+      billingLocationId: headerState.billingLocationId,
+      billingAddress: headerState.billingAddress,
+      deliveryLocationId: headerState.deliveryLocationId,
+      deliveryStoreCode: headerState.deliveryStoreCode,
+      deliveryGstin: headerState.deliveryGstin,
+      shippingAddress: headerState.shippingAddress,
+      poReference: headerState.poReference,
+      customerPoId: headerState.customerPoId,
+    });
+  }, [
+    items,
+    postingLines,
+    transporterRows,
+    addonRows,
+    currentUser?.companyId,
+    currentUser?.branchId,
+    headerState.salesChannel,
+    headerState.customer,
+    headerState.billedGstin,
+    headerState.billedPartyGstinId,
+    headerState.billingLocationId,
+    headerState.billingAddress,
+    headerState.deliveryLocationId,
+    headerState.deliveryStoreCode,
+    headerState.deliveryGstin,
+    headerState.shippingAddress,
+    headerState.poReference,
+    headerState.customerPoId,
+  ]);
+  const previewFingerprint = useMemo(() => JSON.stringify(previewRequest), [previewRequest]);
+
+  useEffect(() => {
+    if (items.length === 0) {
+      setBillingPreview(null);
+      return;
+    }
+
+    let isCurrent = true;
+    const timeout = window.setTimeout(() => {
+      setBillingPreview({ fingerprint: previewFingerprint, loading: true });
+      void apiFetchV1<BillingPreviewResult>("/billing/preview", {
+        method: "POST",
+        body: JSON.stringify(previewRequest satisfies BillingPreviewRequest),
+      }).then((result) => {
+        if (isCurrent) setBillingPreview({ fingerprint: previewFingerprint, result, loading: false });
+      }).catch((error: unknown) => {
+        if (!isCurrent) return;
+        setBillingPreview({
+          fingerprint: previewFingerprint,
+          error: error instanceof Error ? error.message : "The billing preview request failed.",
+          loading: false,
+        });
+      });
+    }, 250);
+
+    return () => {
+      isCurrent = false;
+      window.clearTimeout(timeout);
+    };
+  }, [items.length, previewFingerprint, previewRequest, billingPreviewRetry]);
+
+  const previewIsCurrent =
+    billingPreview?.fingerprint === previewFingerprint
+    && Boolean(billingPreview.result);
+  const currentPreviewError =
+    billingPreview?.fingerprint === previewFingerprint
+      ? billingPreview.error
+      : undefined;
+  // All add-on, deduction, and freight charges are authoritatively calculated in backend preview & checkout
+  const hasUnsupportedCharges = false;
+  const summaryTotals: BillingSummaryTotals = useMemo(() => {
+    if (!previewIsCurrent || !billingPreview?.result) {
+      return estimatedSummaryTotals;
+    }
+    const authoritativeDiscount = Number(billingPreview.result.discount_amount);
+    return {
+      ...estimatedSummaryTotals,
+      salesValue: Number(billingPreview.result.gross_amount),
+      itemDiscount: Math.max(0, authoritativeDiscount - estimatedSummaryTotals.billDiscount),
+      totalTax: Number(billingPreview.result.tax_total),
+      totalAddons: Number(billingPreview.result.total_addons ?? estimatedSummaryTotals.totalAddons),
+      totalDeductions: Number(billingPreview.result.total_deductions ?? estimatedSummaryTotals.totalDeductions),
+      adjustedTaxableValue: Number(billingPreview.result.taxable_amount),
+      roundOff: Number(billingPreview.result.round_off),
+      netAmount: Number(billingPreview.result.net_amount),
+    };
+  }, [billingPreview, estimatedSummaryTotals, previewIsCurrent]);
+  const requiresCreditOverride = Boolean(
+    headerState.transaction === "Credit"
+    && transactionCustomerPolicy
+    && !transactionCustomerPolicy.unlimited_credit
+    && transactionCustomerPolicy.available_credit !== null
+    && transactionCustomerPolicy.available_credit !== undefined
+    && summaryTotals.netAmount > transactionCustomerPolicy.available_credit
+  );
 
   // Real-Time Bill-Level Promotion Auto-Select Engine (Cart Threshold / Highest Discount Wins)
   useEffect(() => {
@@ -1642,33 +2064,53 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
   };
 
   // Commit Direct Entry Item to Table
-  const handleCommitDirectEntry = async () => {
-    if (!directEntry.stockNo && !directEntry.barcode && !directEntry.itemDescription) return;
+  const handleCommitDirectEntry = async (
+    entry: typeof directEntry = directEntry,
+    options: {
+      preserveEntry?: boolean;
+      forceAppend?: boolean;
+      suppressSuccessNotice?: boolean;
+      onResolvedLine?: (line: BillingLineItem) => void;
+    } = {}
+  ) => {
+    if (isReadOnlyView) {
+      onNotification?.("Read-Only View", "Items cannot be added while viewing a completed invoice.", "error");
+      return false;
+    }
+
+    const entryRateNum = parseFloat(entry.rate) || 0;
+    const entryQtyNum = parseFloat(entry.qty) || 0;
+    const entryDiscPctNum = parseFloat(entry.discPercent) || 0;
+    const entryDiscAmt = entryDiscPctNum > 0
+      ? ((entryRateNum * entryQtyNum) * entryDiscPctNum) / 100
+      : (parseFloat(entry.discQty) || 0);
+
+    if (!entry.stockNo && !entry.barcode && !entry.itemDescription) return false;
 
     // Strict Quantity Validation
-    if (isNaN(directQtyNum) || directQtyNum <= 0) {
+    if (isNaN(entryQtyNum) || entryQtyNum <= 0) {
       onNotification?.("Validation Error", "Quantity must be a positive number greater than 0.", "error");
-      return;
+      return false;
     }
-    if (directQtyNum > 99999) {
+    if (entryQtyNum > 99999) {
       onNotification?.("Validation Error", "Quantity exceeds maximum limit of 99,999 units.", "error");
-      return;
+      return false;
     }
 
     // Strict Rate Validation
-    if (isNaN(directRateNum) || directRateNum < 0) {
+    if (isNaN(entryRateNum) || entryRateNum < 0) {
       onNotification?.("Validation Error", "Selling rate cannot be negative.", "error");
-      return;
+      return false;
     }
-    if (directRateNum > 9999999.99) {
+    if (entryRateNum > 9999999.99) {
       onNotification?.("Validation Error", "Selling rate exceeds maximum limit of ₹9,999,999.99.", "error");
-      return;
+      return false;
     }
 
-    const rawCode = (directEntry.barcode || directEntry.stockNo || "").trim();
+    const rawCode = (entry.barcode || entry.stockNo || "").trim();
     if (!rawCode) {
       onNotification?.("Product Required", "Please enter or scan a valid Stock No or Barcode.", "error");
-      return;
+      return false;
     }
 
     // Authoritative Central Resolution against Product List / Item Master
@@ -1709,24 +2151,25 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
           })
         });
 
-        if (resolveRes && resolveRes.success) {
+        const errCode = resolveRes?.error_code;
+        if (errCode === "PRODUCT_INACTIVE" || resolveRes?.status === "INACTIVE" || resolveRes?.disposition === "REQUIRES_REVIEW") {
+          setProductInactiveState({
+            isOpen: true,
+            barcode: rawCode,
+            name: resolveRes?.product_name || rawCode,
+            reason: resolveRes?.message || "This product is marked as inactive or under quarantine review and cannot be added to transactions."
+          });
+          return false;
+        }
+        if (resolveRes?.success) {
           resolvedItem = resolveRes;
-          const errCode = resolveRes?.error_code;
-          if (errCode === "PRODUCT_INACTIVE" || resolveRes?.status === "INACTIVE" || resolveRes?.disposition === "REQUIRES_REVIEW") {
-            setProductInactiveState({
-              isOpen: true,
-              barcode: rawCode,
-              name: resolveRes?.product_name || rawCode,
-              reason: resolveRes?.message || "This product is marked as inactive or under quarantine review and cannot be added to transactions."
-            });
-            return;
-          }
+        } else {
           setProductNotFoundState({
             isOpen: true,
             barcode: rawCode,
             message: resolveRes?.message || "This product is not registered in Product List. Please add the product to Product List before continuing."
           });
-          return;
+          return false;
         }
       }
     } catch (err: any) {
@@ -1738,21 +2181,21 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
           name: errDetail?.product_name || rawCode,
           reason: errDetail?.message || "This product is marked as inactive or under quarantine review."
         });
-        return;
+        return false;
       }
       setProductNotFoundState({
         isOpen: true,
         barcode: rawCode,
         message: errDetail?.message || "This product is not registered in Product List. Please add the product to Product List before continuing."
       });
-      return;
+      return false;
     } finally {
       setIsResolvingProduct(false);
     }
 
     const matched = resolvedItem;
-    const rate = directRateNum > 0 ? directRateNum : Number(matched.selling_price || matched.mrp || 0);
-    const qty = directQtyNum;
+    const rate = entryRateNum > 0 ? entryRateNum : Number(matched.selling_price || matched.mrp || 0);
+    const qty = entryQtyNum;
 
     // Statutory MRP Ceiling Check: Selling price cannot exceed declared MRP
     const effectiveMrp = Number(matched.mrp || 0);
@@ -1762,26 +2205,26 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
         `Selling price (₹${rate.toFixed(2)}) cannot exceed statutory MRP (₹${effectiveMrp.toFixed(2)}) for item '${matched.product_name || rawCode}'.`,
         "error"
       );
-      return;
+      return false;
     }
 
     // Discount Bounding Validations
-    if (directDiscPctNum < 0 || directDiscPctNum > 100) {
+    if (entryDiscPctNum < 0 || entryDiscPctNum > 100) {
       onNotification?.("Validation Error", "Discount percentage must be between 0% and 100%.", "error");
-      return;
+      return false;
     }
-    if (directDiscAmt < 0) {
+    if (entryDiscAmt < 0) {
       onNotification?.("Validation Error", "Discount amount cannot be negative.", "error");
-      return;
+      return false;
     }
     const lineGrossValue = rate * qty;
-    if (directDiscAmt > lineGrossValue) {
+    if (entryDiscAmt > lineGrossValue) {
       onNotification?.(
         "Validation Error",
-        `Discount amount (₹${directDiscAmt.toFixed(2)}) cannot exceed line item gross value (₹${lineGrossValue.toFixed(2)}).`,
+        `Discount amount (₹${entryDiscAmt.toFixed(2)}) cannot exceed line item gross value (₹${lineGrossValue.toFixed(2)}).`,
         "error"
       );
-      return;
+      return false;
     }
     // Discrete UoM Check: PCS/NOS/PAIR cannot have fractional decimals
     const itemUom = matched.uom || "PCS";
@@ -1792,7 +2235,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
         `Fractional quantity (${qty}) is not permitted for discrete unit '${itemUom}'. Please enter a whole integer quantity.`,
         "error"
       );
-      return;
+      return false;
     }
 
     const lineItem: SalesLineItem = {
@@ -1800,12 +2243,12 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
       productId: matched.product_id,
       stockNo: matched.sku || matched.barcode || rawCode,
       barcode: matched.barcode || rawCode,
-      itemDescription: matched.product_name || directEntry.itemDescription || "Item " + (items.length + 1),
+      itemDescription: matched.product_name || entry.itemDescription || "Item " + (items.length + 1),
       qty,
       rate,
       value: rate * qty,
-      discPercent: directDiscPctNum,
-      discAmt: directDiscAmt,
+      discPercent: entryDiscPctNum,
+      discAmt: entryDiscAmt,
       taxPercent: Number(matched.tax_rate ?? 18),
       taxAmount: 0,
       total: 0,
@@ -1814,7 +2257,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
     const computedLine = calculateLineTotal(lineItem);
 
     // If currently editing an existing line item (Shoper 9 double-click edit contract)
-    if (editingLineId) {
+    if (editingLineId && !options.forceAppend) {
       const existingIndex = items.findIndex(it => it.id === editingLineId);
       if (existingIndex !== -1) {
         const existing = items[existingIndex];
@@ -1828,13 +2271,13 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
               rate: computedLine.rate,
               qty: computedLine.qty,
               value: computedLine.value,
-              discCode: directEntry.discCode,
-              discQty: parseFloat(directEntry.discQty) || 0,
+              discCode: entry.discCode,
+              discQty: parseFloat(entry.discQty) || 0,
               discPercent: Number(computedLine.discPercent ?? 0),
               discAmt: Number(computedLine.discAmt ?? 0),
               total: computedLine.total,
               taxAmount: Number(computedLine.taxAmount ?? 0),
-              salesStaff: directEntry.staff
+              salesStaff: entry.staff
             };
           }
           return it;
@@ -1842,30 +2285,32 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
 
         onNotification?.("Item Updated", `Line #${existing.sNo} (${existing.stockNo}) updated successfully.`, "success");
         setEditingLineId(null);
-        setDirectEntry({
-          barcode: "",
-          stockNo: "",
-          itemDescription: "",
-          rate: "",
-          qty: "1",
-          discCode: "",
-          discQty: "",
-          discPercent: "",
-          staff: directEntry.staff
-        });
-        setSelectedItemProductMeta(null);
-        setShowProductDropdown(false);
-        if (activeItemSearchField === "barcode") {
-          directBarcodeRef.current?.focus();
-        } else {
-          directStockNoRef.current?.focus();
+        if (!options.preserveEntry) {
+          setDirectEntry({
+            barcode: "",
+            stockNo: "",
+            itemDescription: "",
+            rate: "",
+            qty: "1",
+            discCode: "",
+            discQty: "",
+            discPercent: "",
+            staff: entry.staff
+          });
+          setSelectedItemProductMeta(null);
+          setShowProductDropdown(false);
+          if (activeItemSearchField === "barcode") {
+            directBarcodeRef.current?.focus();
+          } else {
+            directStockNoRef.current?.focus();
+          }
         }
-        return;
+        return true;
       }
     }
 
     // Duplicate scan aggregation: if identical item exists at same rate, increment its quantity and dynamically re-evaluate promotions
-    const existingIndex = items.findIndex(it =>
+    const existingIndex = options.forceAppend ? -1 : items.findIndex(it =>
       ((it.barcode && computedLine.barcode && it.barcode === computedLine.barcode) ||
        (it.stockNo && computedLine.stockNo && it.stockNo === computedLine.stockNo)) &&
       it.rate === computedLine.rate
@@ -1929,44 +2374,123 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
         rate: computedLine.rate,
         qty: computedLine.qty,
         value: computedLine.value,
-        discCode: directEntry.discCode,
-        discQty: parseFloat(directEntry.discQty) || 0,
+        discCode: entry.discCode,
+        discQty: parseFloat(entry.discQty) || 0,
         discPercent: Number(computedLine.discPercent ?? 0),
         discAmt: Number(computedLine.discAmt ?? 0),
         total: computedLine.total,
-        salesStaff: directEntry.staff,
+        salesStaff: entry.staff,
         productId: matched.product_id,
         hsnCode: matched.hsn_code,
         gstPercentage: Number(computedLine.taxPercent ?? matched.tax_rate ?? 18),
         taxAmount: Number(computedLine.taxAmount ?? 0),
+        isTaxInclusive: matched.isTaxInclusive ?? matched.is_tax_inclusive,
+        mrp: Number(matched.mrp),
         brand: matched.brand,
         size: matched.size
       };
 
-      setItems(prev => [...prev, newLine]);
-      onNotification?.("Item Added", `${newLine.itemDescription} added to invoice.`, "success");
+      if (options.onResolvedLine) {
+        options.onResolvedLine(newLine);
+      } else {
+        setItems(prev => [...prev, { ...newLine, sNo: prev.length + 1 }]);
+      }
+      if (!options.suppressSuccessNotice) {
+        onNotification?.("Item Added", `${newLine.itemDescription} added to invoice.`, "success");
+      }
     }
 
     // Reset direct entry row
-    setDirectEntry({
-      barcode: "",
-      stockNo: "",
-      itemDescription: "",
-      rate: "",
-      qty: "1",
-      discCode: "",
-      discQty: "",
-      discPercent: "",
-      staff: directEntry.staff
-    });
-    setSelectedItemProductMeta(null);
-    setShowProductDropdown(false);
+    if (!options.preserveEntry) {
+      setDirectEntry({
+        barcode: "",
+        stockNo: "",
+        itemDescription: "",
+        rate: "",
+        qty: "1",
+        discCode: "",
+        discQty: "",
+        discPercent: "",
+        staff: entry.staff
+      });
+      setSelectedItemProductMeta(null);
+      setShowProductDropdown(false);
 
-    if (activeItemSearchField === "barcode") {
-      directBarcodeRef.current?.focus();
-    } else {
-      directStockNoRef.current?.focus();
+      if (activeItemSearchField === "barcode") {
+        directBarcodeRef.current?.focus();
+      } else {
+        directStockNoRef.current?.focus();
+      }
     }
+    return true;
+  };
+
+  const addImportedEntries = async (entries: { code: string; qty: number }[]) => {
+    const resolvedLines: BillingLineItem[] = [];
+    const failedCodes: string[] = [];
+    for (const importedEntry of entries) {
+      const code = importedEntry.code.trim();
+      if (!code || !Number.isFinite(importedEntry.qty) || importedEntry.qty <= 0) {
+        onNotification?.("Import Row Skipped", "A row was missing a valid item code or positive quantity.", "error");
+        failedCodes.push(code || "missing item code");
+        continue;
+      }
+
+      const added = await handleCommitDirectEntry({
+        ...directEntry,
+        barcode: code,
+        stockNo: "",
+        itemDescription: "",
+        rate: "",
+        qty: String(importedEntry.qty),
+        discCode: "",
+        discQty: "",
+        discPercent: ""
+      }, {
+        preserveEntry: true,
+        forceAppend: true,
+        suppressSuccessNotice: true,
+        onResolvedLine: line => resolvedLines.push(line)
+      });
+      if (!added) {
+        failedCodes.push(code);
+      }
+    }
+
+    if (resolvedLines.length > 0) {
+      setItems(prev => [
+        ...prev,
+        ...resolvedLines.map((line, index) => ({ ...line, sNo: prev.length + index + 1 }))
+      ]);
+      onNotification?.(
+        "Import Processing Complete",
+        `${resolvedLines.length} imported row(s) were added through canonical item resolution. Review the backend billing preview before settlement.`,
+        "info"
+      );
+    }
+    if (failedCodes.length > 0) {
+      const failedSummary = failedCodes.slice(0, 5).join(", ");
+      const remainingCount = failedCodes.length - 5;
+      onNotification?.(
+        "Import Validation",
+        `${failedCodes.length} row(s) could not be added: ${failedSummary}${remainingCount > 0 ? `, and ${remainingCount} more` : ""}.`,
+        "error"
+      );
+    }
+  };
+
+  const handleBarcodeCSVImport = (importedItems: ResolvedCartItem[]) => {
+    void addImportedEntries(importedItems.map(item => ({
+      code: item.barcode || item.resolved_sku || item.resolved_item,
+      qty: item.quantity
+    })));
+  };
+
+  const handleBulkItemsImport = (importedItems: { product: Product; qty: number }[]) => {
+    void addImportedEntries(importedItems.map(({ product, qty }) => ({
+      code: String(product.barcode || product.sku || product.code || product.id || ""),
+      qty
+    })));
   };
 
   // Remove Item
@@ -2057,11 +2581,16 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
         id: saved.id || suspendedNo,
         header: { ...headerState },
         items: [...items],
+        transporterRows: [...transporterRows],
+        addonRows: [...addonRows],
+        rule_snapshots: invoicePayload.rule_snapshots,
         date: new Date().toLocaleTimeString(),
         netAmount: summaryTotals.netAmount
       };
       setSuspendedBills(prev => [suspended, ...prev]);
       setItems([]);
+      setTransporterRows(DEFAULT_TRANSPORTER_ROWS.map(r => ({ ...r })));
+      setAddonRows(DEFAULT_ADDON_ROWS.map(r => ({ ...r })));
       setHeaderState(prev => ({
         ...prev,
         docNo: String((parseInt(prev.docNo) || 1) + 1),
@@ -2075,11 +2604,16 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
         id: suspendedNo,
         header: { ...headerState },
         items: [...items],
+        transporterRows: [...transporterRows],
+        addonRows: [...addonRows],
+        rule_snapshots: invoicePayload.rule_snapshots,
         date: new Date().toLocaleTimeString(),
         netAmount: summaryTotals.netAmount
       };
       setSuspendedBills(prev => [suspended, ...prev]);
       setItems([]);
+      setTransporterRows(DEFAULT_TRANSPORTER_ROWS.map(r => ({ ...r })));
+      setAddonRows(DEFAULT_ADDON_ROWS.map(r => ({ ...r })));
       setHeaderState(prev => ({
         ...prev,
         docNo: String((parseInt(prev.docNo) || 1) + 1),
@@ -2094,6 +2628,24 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
   const handleRecallInvoice = (suspended: any) => {
     setHeaderState(suspended.header);
     setItems(suspended.items);
+    const restoredTransporters = suspended.transporterRows?.length > 0
+      ? suspended.transporterRows
+      : (suspended.rule_snapshots?.transporterRows?.length > 0 ? suspended.rule_snapshots.transporterRows : null);
+    if (restoredTransporters) {
+      setTransporterRows(restoredTransporters);
+    } else {
+      setTransporterRows(DEFAULT_TRANSPORTER_ROWS.map(r => ({ ...r })));
+    }
+
+    const restoredAddons = suspended.addonRows?.length > 0
+      ? suspended.addonRows
+      : (suspended.rule_snapshots?.addonRows?.length > 0 ? suspended.rule_snapshots.addonRows : null);
+    if (restoredAddons) {
+      setAddonRows(restoredAddons);
+    } else {
+      setAddonRows(DEFAULT_ADDON_ROWS.map(r => ({ ...r })));
+    }
+
     if (suspended.header.customer) {
       setCustomerSearchInput(suspended.header.customer.name);
     }
@@ -2233,6 +2785,46 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
     denominations?: any
   ) => {
     const isCreditTx = headerState.transaction === "Credit" || payments.some(p => (p.mode || "").toUpperCase() === "CREDIT");
+    const roundCurrency = (amount: number) => Math.round(amount * 100) / 100;
+    const creditOverrideRequired = Boolean(
+      isCreditTx
+      && transactionCustomerPolicy
+      && !transactionCustomerPolicy.unlimited_credit
+      && transactionCustomerPolicy.available_credit !== null
+      && transactionCustomerPolicy.available_credit !== undefined
+      && summaryTotals.netAmount > transactionCustomerPolicy.available_credit
+    );
+
+    if (billingPolicyLoading || !billingTransactionPolicy || billingPolicyError) {
+      onNotification?.("Billing Policy Unavailable", billingPolicyError || "The current billing policy has not finished loading. Your cart is preserved.", "error");
+      return;
+    }
+    if (transactionCustomerPolicy?.channel_conflict) {
+      onNotification?.("Channel Policy Conflict", "The customer's configured sales channel is not allowed by company or branch policy. Ask an administrator to resolve the configuration.", "error");
+      return;
+    }
+    if (!permittedTransactions.includes(isCreditTx ? "CREDIT" : "CASH")) {
+      onNotification?.("Transaction Type Not Allowed", "The selected cash or credit mode is not permitted for this customer and branch.", "error");
+      return;
+    }
+    if (transactionCustomerPolicy?.require_po_number && !headerState.poReference?.trim() && !headerState.customerPoId) {
+      onNotification?.("PO Reference Required", "Enter the customer purchase-order reference in Details before settlement.", "error");
+      return;
+    }
+    if (creditOverrideRequired && (
+      !transactionCustomerPolicy?.can_override_credit
+      || !transactionCustomerPolicy.allow_credit_override
+      || !creditOverrideReason.trim()
+    )) {
+      onNotification?.(
+        "Credit Override Required",
+        transactionCustomerPolicy?.can_override_credit && transactionCustomerPolicy.allow_credit_override
+          ? "Enter an authorized business justification in Details before settlement."
+          : "The invoice exceeds the customer's available credit and no authorized override is available.",
+        "error",
+      );
+      return;
+    }
 
     // Governed System Parameter Checks
     if (isCreditTx && !smritiSystemParameterService.getBoolean("AllowCreditBilling", true)) {
@@ -2254,11 +2846,39 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
       return;
     }
 
+    const tenderRows = isCreditTx
+      ? []
+      : payments
+        .filter(payment => Number(payment.amount) > 0)
+        .map(payment => ({
+          mode: toCanonicalPaymentMode(payment.mode),
+          refNo: payment.refNo?.trim() || "",
+          amount: roundCurrency(Number(payment.amount)),
+        }));
+    let remainingChange = roundCurrency(Math.max(0, changeDue));
+    if (remainingChange > 0) {
+      for (let index = tenderRows.length - 1; index >= 0 && remainingChange > 0; index -= 1) {
+        if (tenderRows[index].mode !== "CASH") continue;
+        const cashChange = Math.min(tenderRows[index].amount, remainingChange);
+        tenderRows[index].amount = roundCurrency(tenderRows[index].amount - cashChange);
+        remainingChange = roundCurrency(remainingChange - cashChange);
+      }
+      if (remainingChange > 0) {
+        onNotification?.("Settlement Error", "Change due cannot exceed the cash tender received.", "error");
+        return;
+      }
+    }
+    const effectiveTenderRows = tenderRows.filter(payment => payment.amount > 0);
+    const tenderModes = new Set(effectiveTenderRows.map(payment => payment.mode));
+    const resolvedPaymentMode = isCreditTx
+      ? "CREDIT"
+      : tenderModes.size > 1
+        ? "SPLIT"
+        : effectiveTenderRows[0]?.mode || "CASH";
     // Format invoice number from resolved prefix and sequence; omit if empty so backend allocates sequence atomically
     const invNo = (headerState.docPrefix && headerState.docNo)
       ? `${headerState.docPrefix}${headerState.docNo}`
       : undefined;
-
     const invoicePayload = {
       invoice_no: invNo,
       date: new Date().toISOString().split("T")[0],
@@ -2282,9 +2902,10 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
       sales_channel: headerState.salesChannel || "B2B_WHOLESALE",
       psv_party_id: headerState.psvPartyId || null,
       status: "Completed",
-      payment_mode: isCreditTx ? "CREDIT" : toCanonicalPaymentMode(payments[0]?.mode),
-      paid_amount: isCreditTx ? 0 : totalTendered,
-      balance_amount: isCreditTx ? summaryTotals.netAmount : (changeDue > 0 ? 0 : Math.max(0, summaryTotals.netAmount - totalTendered)),
+      payment_mode: resolvedPaymentMode,
+      credit_override_reason: isCreditTx && creditOverrideRequired ? creditOverrideReason.trim() : undefined,
+      paid_amount: isCreditTx ? 0 : roundCurrency(Math.max(0, totalTendered - changeDue)),
+      balance_amount: isCreditTx ? summaryTotals.netAmount : Math.max(0, summaryTotals.netAmount - roundCurrency(Math.max(0, totalTendered - changeDue))),
       discount_amount: summaryTotals.itemDiscount + summaryTotals.billDiscount,
       net_amount: summaryTotals.netAmount,
       taxable_value: summaryTotals.salesValue,
@@ -2292,28 +2913,43 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
       grand_total: summaryTotals.netAmount,
       salesperson_name: headerState.salesStaff,
       remarks: headerState.remarks || (isCreditTx ? "B2B Corporate Credit Invoice" : "B2B Distributor Invoice"),
+      adjustments: previewRequest.adjustments || [],
       items: items.map((it, idx) => ({
         product_id: it.productId || it.stockNo,
         code: it.stockNo,
         name: it.itemDescription,
         quantity: it.qty,
         price: it.rate,
-        disc_pct: it.discPercent,
+        disc_pct: 0,
+        disc_amt: postingLines[idx]?.discountAmount ?? 0,
         gst_rate: it.gstPercentage,
-        line_no: idx + 1
-        ,customer_po_line_id: it.customerPoLineId || null
-        ,source_line_type: it.customerPoLineId ? "CUSTOMER_PO" : null
-        ,source_line_id: it.customerPoLineId || null
+        hsn_code: it.hsnCode,
+        mrp: it.mrp,
+        is_tax_inclusive: it.isTaxInclusive,
+        line_no: idx + 1,
+        salesperson_name: it.salesStaff || null,
+        customer_po_line_id: it.customerPoLineId || null,
+        source_line_type: it.customerPoLineId ? "CUSTOMER_PO" : null,
+        source_line_id: it.customerPoLineId || null
       })),
       rule_snapshots: {
         transaction_type: isCreditTx ? "Credit" : "Cash",
+        billing_policy: {
+          bill_type: headerState.billType,
+          transaction_type: isCreditTx ? "CREDIT" : "CASH",
+          sales_channel: headerState.salesChannel,
+          source_document_type: headerState.billingSource || "DIRECT",
+          credit_override_reason: isCreditTx && creditOverrideRequired ? creditOverrideReason.trim() : undefined,
+        },
         credit_terms: isCreditTx ? {
           credit_days: (headerState.customer as any)?.creditDays ?? (headerState.customer as any)?.credit_days ?? null,
           credit_limit: (headerState.customer as any)?.creditLimit ?? (headerState.customer as any)?.credit_limit ?? null,
           previous_outstanding: (headerState.customer as any)?.outstanding || 0,
           projected_outstanding: ((headerState.customer as any)?.outstanding || 0) + summaryTotals.netAmount
         } : undefined,
-        payments: isCreditTx ? [{ mode: "On Account", amount: summaryTotals.netAmount }] : payments,
+        payments: isCreditTx
+          ? [{ mode: "On Account", amount: summaryTotals.netAmount }]
+          : effectiveTenderRows,
         denominations: isCreditTx ? undefined : denominations,
         transporterRows,
         addonRows
@@ -2327,8 +2963,16 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
       const saveBody = headerState.billingSource === "CUSTOMER_PO" && headerState.customerPoId
         ? { invoice: invoicePayload, lines: items.map(item => ({ customer_po_line_id: item.customerPoLineId, quantity: item.qty })) }
         : invoicePayload;
+      const requestFingerprint = JSON.stringify(saveBody);
+      if (settlementIdempotencyKeyRef.current?.fingerprint !== requestFingerprint) {
+        settlementIdempotencyKeyRef.current = {
+          key: crypto.randomUUID(),
+          fingerprint: requestFingerprint,
+        };
+      }
       const saved = await apiFetchV1(saveUrl, {
         method: "POST",
+        headers: { "Idempotency-Key": settlementIdempotencyKeyRef.current.key },
         body: JSON.stringify(saveBody)
       });
 
@@ -2363,6 +3007,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
 
       // Reset for next invoice
       setItems([]);
+        settlementIdempotencyKeyRef.current = null;
       setHeaderState(prev => ({
         ...prev,
         docNo: String((parseInt(prev.docNo) || 1) + 1),
@@ -2530,7 +3175,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
     >
       
       {/* ── ZONE A: Compact Premium Header ── */}
-      <header className="bg-white dark:bg-[#131b2e] border-b border-slate-200 dark:border-slate-800 px-4 py-2 flex items-center justify-between shrink-0 z-30 shadow-2xs gap-3">
+      <header className="bg-white dark:bg-[#131b2e] border-b border-slate-200 dark:border-slate-800 px-3 py-1.5 flex items-center justify-between shrink-0 z-30 shadow-2xs gap-2">
         {/* Left: Menu, Logo Badge, Title & Sales Channel Pill */}
         <div className="flex items-center gap-2.5 shrink-0">
           <button
@@ -2551,20 +3196,9 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
               Billing Desk
             </span>
 
-            {/* Sales Channel Pill Selector */}
-            <div className="relative">
-              <select
-                aria-label="Sales Channel"
-                data-testid="sales-channel-select"
-                value={headerState.salesChannel || "POS_RETAIL"}
-                onChange={e => setHeaderState(prev => ({ ...prev, salesChannel: e.target.value }))}
-                className="bg-amber-100/90 dark:bg-amber-950/60 hover:bg-amber-200/80 text-amber-900 dark:text-amber-200 border border-amber-300 dark:border-amber-700 font-bold text-xs rounded-full px-3 py-1 cursor-pointer outline-none transition shadow-2xs"
-              >
-                {SALES_CHANNELS.map(ch => (
-                  <option key={ch.value} value={ch.value}>{ch.label}</option>
-                ))}
-              </select>
-            </div>
+            <span className="bg-amber-100/90 dark:bg-amber-950/60 text-amber-900 dark:text-amber-200 border border-amber-300 dark:border-amber-700 font-bold text-[10px] rounded-full px-2 py-0.5">
+              {SALES_CHANNELS.find(ch => ch.value === headerState.salesChannel)?.label || "Billing"}
+            </span>
           </div>
         </div>
 
@@ -2609,33 +3243,12 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
             <span className="hidden md:inline">New</span>
           </button>
 
-          {/* Save / Hold */}
-          <button
-            type="button"
-            onClick={handleSuspendInvoice}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white hover:bg-slate-50 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-semibold transition cursor-pointer shadow-2xs"
-            title="Park / Hold Invoice (F12)"
-          >
-            <Save size={14} className="text-blue-600" />
-            <span className="hidden md:inline">Save</span>
-          </button>
-
-          {/* Print / Preview */}
-          <button
-            type="button"
-            onClick={handleReprintInvoice}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white hover:bg-slate-50 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-semibold transition cursor-pointer shadow-2xs"
-            title="Print Preview / Reprint (Ctrl+P)"
-          >
-            <Printer size={14} className="text-blue-600" />
-            <span className="hidden md:inline">Print</span>
-          </button>
-
           {/* More Actions Dropdown */}
           <div className="relative">
             <button
               type="button"
               onClick={() => setShowMoreMenu(v => !v)}
+              aria-expanded={showMoreMenu}
               className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white hover:bg-slate-50 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-semibold transition cursor-pointer shadow-2xs"
               title="More Options & Supporting Workspaces"
             >
@@ -2647,7 +3260,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
             {showMoreMenu && (
               <>
                 <div className="fixed inset-0 z-40" onClick={() => setShowMoreMenu(false)} />
-                <div className="absolute right-0 top-full mt-1.5 z-50 bg-white dark:bg-[#191c1e] border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl p-1.5 min-w-[220px] flex flex-col gap-0.5 text-xs animate-in fade-in slide-in-from-top-1 font-medium">
+                <div className="absolute right-0 top-full mt-1.5 z-50 bg-white dark:bg-[#191c1e] border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl p-1.5 min-w-[220px] max-h-[70vh] overflow-y-auto flex flex-col gap-0.5 text-xs animate-in fade-in slide-in-from-top-1 font-medium">
                   {onOpenSalesDocuments && (
                     <button
                       type="button"
@@ -2678,6 +3291,77 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
                       <span>Consolidated Billing</span>
                     </button>
                   )}
+                  {onOpenBillingConfiguration && (
+                    <button
+                      type="button"
+                      onClick={() => { onOpenBillingConfiguration(); setShowMoreMenu(false); }}
+                      className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 text-left w-full cursor-pointer"
+                    >
+                      <Settings size={14} className="text-slate-600 dark:text-slate-300" />
+                      <span>Billing Policy Settings</span>
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => { setShowBulkAddItemsModal(true); setShowMoreMenu(false); }}
+                    disabled={isReadOnlyView}
+                    className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 text-left w-full cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    <Plus size={14} className="text-emerald-600" />
+                    <span>Paste Barcodes / Bulk Add</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setShowBarcodeCSVImportModal(true); setShowMoreMenu(false); }}
+                    disabled={isReadOnlyView}
+                    className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 text-left w-full cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    <FileText size={14} className="text-blue-600" />
+                    <span>Validated CSV Import</span>
+                  </button>
+                  <div className="h-px bg-slate-200 dark:bg-slate-700 my-1" />
+                  <button
+                    type="button"
+                    onClick={() => { handleSuspendInvoice(); setShowMoreMenu(false); }}
+                    className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 text-left w-full cursor-pointer"
+                  >
+                    <Save size={14} className="text-blue-600" />
+                    <span>Hold / Park Invoice (F12)</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { handleReprintInvoice(); setShowMoreMenu(false); }}
+                    className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 text-left w-full cursor-pointer"
+                  >
+                    <Printer size={14} className="text-blue-600" />
+                    <span>Print / Preview (Ctrl+P)</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { handleExactCashSettlementRef.current?.(); setShowMoreMenu(false); }}
+                    disabled={isReadOnlyView || items.length === 0}
+                    className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 text-left w-full cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    <Banknote size={14} className="text-emerald-600" />
+                    <span>Exact Cash Settlement (F7)</span>
+                  </button>
+                  <div className="h-px bg-slate-200 dark:bg-slate-700 my-1" />
+                  {([
+                    ["transporter", "Transporter Details", Truck],
+                    ["payment", "Payment Details", CreditCard],
+                    ["addons", "Add-ons & Deductions", Plus],
+                    ["remarks", "Document Remarks", FileText],
+                  ] as const).map(([drawer, label, Icon]) => (
+                    <button
+                      key={drawer}
+                      type="button"
+                      onClick={() => { setActiveFooterDrawer(drawer); setShowMoreMenu(false); }}
+                      className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 text-left w-full cursor-pointer"
+                    >
+                      <Icon size={14} />
+                      <span>{label}</span>
+                    </button>
+                  ))}
                   <div className="h-px bg-slate-200 dark:bg-slate-700 my-1" />
                   <button
                     type="button"
@@ -2746,7 +3430,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
                     className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 text-left w-full cursor-pointer"
                   >
                     <HelpCircle size={14} className="text-blue-600" />
-                    <span>Shortcuts &amp; Help (F1)</span>
+                    <span>Shortcuts &amp; Help</span>
                   </button>
                 </div>
               </>
@@ -2811,19 +3495,19 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
       <main className="flex-1 flex flex-col p-2.5 gap-2.5 overflow-hidden max-w-[1920px] mx-auto w-full min-h-0">
         
         {/* ZONE B: TRANSACTION & CUSTOMER CARD (3-Column Clean Desk Layout) */}
-        <section className="bg-white dark:bg-[#1e293b] border border-slate-200 dark:border-slate-800 rounded-xl p-3 shadow-xs shrink-0">
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 items-start">
+        <section className="bg-white dark:bg-[#1e293b] border border-slate-200 dark:border-slate-800 rounded-xl p-2 shadow-xs shrink-0">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-2 items-start">
             
             {/* Column 1: Customer Identification (4 cols) */}
-            <div className="lg:col-span-4 flex flex-col gap-1.5">
-              <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+            <div className={`flex flex-col gap-1.5 ${showMoreDetails ? "lg:col-span-4" : "lg:col-span-9 lg:flex-row lg:items-center"}`}>
+              <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5 shrink-0">
                 <Users size={14} className="text-blue-600 dark:text-blue-400" />
                 <span>Customer</span>
                 <span className="text-rose-500 font-bold" title="Customer selection is required">*</span>
               </label>
 
               {/* Customer Search Bar with Quick Add Button */}
-              <div className="relative flex items-center gap-1.5">
+              <div className="relative flex items-center gap-1.5 lg:flex-1 lg:min-w-[220px]">
                 <div className="relative flex-1">
                   <input
                     ref={customerInputRef}
@@ -2893,7 +3577,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
 
               {/* Active Customer Display Card */}
               {headerState.customer ? (
-                <div className="flex items-center justify-between bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-2 text-xs">
+                <div className="flex items-center justify-between bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg px-2 py-1 text-xs lg:flex-1 lg:min-w-[220px]">
                   <div className="flex items-center gap-2.5 min-w-0">
                     <div className="w-8 h-8 rounded-full bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-300 flex items-center justify-center shrink-0">
                       <User size={15} />
@@ -2928,7 +3612,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
                   </div>
                 </div>
               ) : (
-                <div className="flex items-center justify-between bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-2 text-xs">
+                <div className="flex items-center justify-between bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg px-2 py-1 text-xs lg:flex-1 lg:min-w-[220px]">
                   <div className="flex items-center gap-2.5 min-w-0">
                     <div className="w-8 h-8 rounded-full bg-slate-200 dark:bg-slate-800 text-slate-500 dark:text-slate-400 flex items-center justify-center shrink-0">
                       <User size={15} />
@@ -2944,25 +3628,57 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
             </div>
 
             {/* Column 2: Transaction Parameters & Settings (5 cols) */}
-            <div className="lg:col-span-5 flex flex-col gap-1.5">
-              <div className="flex items-center justify-between">
+            <div className={`${showMoreDetails ? "lg:col-span-5" : "lg:col-span-3"} flex flex-col gap-1`}>
+              <div className="flex items-center justify-between gap-2">
                 <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                  Transaction Parameters
+                  Billing details
                 </label>
-                <button
-                  type="button"
-                  onClick={() => setShowMoreDetails(v => !v)}
-                  className="text-[11px] font-semibold text-blue-600 dark:text-blue-400 hover:text-blue-800 flex items-center gap-0.5 cursor-pointer"
-                >
-                  <span>{showMoreDetails ? "▴ Less Details" : "▾ More Details"}</span>
-                  {(headerState.billedPartyGstinId || headerState.deliveryLocationId || headerState.poReference) && (
-                    <span className="w-1.5 h-1.5 rounded-full bg-blue-600 ml-0.5" />
-                  )}
-                </button>
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <label htmlFor="billing-salesperson" className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 whitespace-nowrap">
+                    Salesperson
+                  </label>
+                  <select
+                    id="billing-salesperson"
+                    aria-label="Billing salesperson"
+                    data-testid="billing-salesperson-select"
+                    value={headerState.salesStaff}
+                    onChange={event => {
+                      const selectedStaff = event.target.value;
+                      setHeaderState(prev => ({ ...prev, salesStaff: selectedStaff }));
+                      setDirectEntry(prev => ({
+                        ...prev,
+                        staff: prev.staff === headerState.salesStaff ? selectedStaff : prev.staff
+                      }));
+                    }}
+                    className="min-w-0 max-w-[150px] h-7 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-1.5 text-[10px] font-medium text-slate-700 dark:text-slate-200"
+                  >
+                    <option value="">Select staff</option>
+                    {salesStaffOptions.map(option => (
+                      <option key={option.value} value={option.value}>{option.label}</option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    onClick={() => setShowMoreDetails(v => !v)}
+                    className="text-[11px] font-semibold text-blue-600 dark:text-blue-400 hover:text-blue-800 whitespace-nowrap cursor-pointer"
+                    aria-expanded={showMoreDetails}
+                    title={salespeopleError || "Show billing details"}
+                  >
+                    <span>{showMoreDetails ? "Hide" : "Details"}</span>
+                    {(headerState.billedPartyGstinId || headerState.deliveryLocationId || headerState.poReference) && (
+                      <span className="inline-block w-1.5 h-1.5 rounded-full bg-blue-600 ml-1" />
+                    )}
+                  </button>
+                </div>
               </div>
+              {salespeopleError && (
+                <span role="status" className="text-[9px] text-amber-700 dark:text-amber-300" title={salespeopleError}>
+                  Staff directory unavailable; current assignment retained.
+                </span>
+              )}
 
               {/* 2x2 Clean Grid of Select Dropdowns */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              <div className={`${showMoreDetails ? "grid" : "hidden"} grid-cols-2 sm:grid-cols-4 gap-2`}>
                 {/* Billing Source */}
                 <div className="flex flex-col gap-0.5">
                   <span className="text-[10px] font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider">Source</span>
@@ -2973,14 +3689,13 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
                       const source = event.target.value as BillingHeaderState["billingSource"];
                       setHeaderState(prev => ({ ...prev, billingSource: source, customerPoId: null, poReference: "" }));
                       setSelectedCustomerPO(null);
-                      if (source !== "CUSTOMER_PO") setItems([]);
                     }}
+                    disabled={billingPolicyLoading || isReadOnlyView}
                     className="bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg h-8 px-2 text-xs font-medium text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer"
                   >
-                    <option value="DIRECT">Direct Invoice</option>
-                    <option value="CUSTOMER_PO">Customer PO</option>
-                    <option value="SALES_ORDER" disabled>Sales Order</option>
-                    <option value="DELIVERY" disabled>Delivery</option>
+                    {permittedSources.includes("DIRECT") && <option value="DIRECT">Direct Invoice</option>}
+                    {permittedSources.includes("CUSTOMER_PO") && <option value="CUSTOMER_PO">Customer PO</option>}
+                    {permittedSources.includes("SALES_ORDER") && <option value="SALES_ORDER" disabled>Sales Order (use order workflow)</option>}
                   </select>
                 </div>
 
@@ -2992,9 +3707,10 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
                     data-testid="sales-channel-select"
                     value={headerState.salesChannel || "B2B_WHOLESALE"}
                     onChange={e => setHeaderState(prev => ({ ...prev, salesChannel: e.target.value }))}
+                    disabled={billingPolicyLoading || isReadOnlyView || Boolean(transactionCustomerPolicy?.channel_conflict)}
                     className="bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg h-8 px-2 text-xs font-medium text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer"
                   >
-                    {SALES_CHANNELS.map(ch => (
+                    {SALES_CHANNELS.filter(ch => permittedSalesChannels.includes(ch.value)).map(ch => (
                       <option key={ch.value} value={ch.value}>{ch.label}</option>
                     ))}
                   </select>
@@ -3004,35 +3720,98 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
                 <div className="flex flex-col gap-0.5">
                   <span className="text-[10px] font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider">Bill Type</span>
                   <select
+                    aria-label="Bill Type"
                     value={headerState.billType}
                     onChange={e => setHeaderState({ ...headerState, billType: e.target.value as BillType })}
+                    disabled={billingPolicyLoading || isReadOnlyView}
                     className="bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg h-8 px-2 text-xs font-medium text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer"
                   >
-                    <option value="Product">Product</option>
-                    <option value="Service">Service</option>
-                    <option value="Both">Both</option>
+                    {permittedBillTypes.map(type => <option key={type} value={type}>{type}</option>)}
                   </select>
                 </div>
 
                 {/* Transaction Mode */}
                 <div className="flex flex-col gap-0.5">
                   <span className="text-[10px] font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider">Transaction</span>
-                  <select
-                    value={headerState.transaction}
-                    onChange={e => setHeaderState({ ...headerState, transaction: e.target.value as TransactionType })}
-                    className="bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg h-8 px-2 text-xs font-medium text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer"
-                  >
-                    <option value="Credit">Credit</option>
-                    <option value="Cash">Cash</option>
-                    <option value="Retail">Retail</option>
-                  </select>
+                  {canChangeTransactionMode && (
+                    permittedTransactions.length > 1
+                    || !configuredTransactionIsPermitted
+                    || transactionModeConflict
+                  ) ? (
+                    <select
+                      aria-label="Transaction Type"
+                      data-testid="transaction-mode-select"
+                      value={permittedTransactions.includes(permittedTransactionType) ? headerState.transaction : ""}
+                      onChange={event => {
+                        setHeaderState(previous => ({
+                          ...previous,
+                          transaction: event.target.value as TransactionType,
+                        }));
+                        setTransactionModeConfirmed(true);
+                      }}
+                      disabled={billingPolicyLoading || isReadOnlyView || permittedTransactions.length === 0}
+                      className="bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg h-8 px-2 text-xs font-medium text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer"
+                    >
+                      {!configuredTransactionIsPermitted && <option value="">Select permitted mode</option>}
+                      {permittedTransactions.includes("CREDIT") && <option value="Credit">Credit</option>}
+                      {permittedTransactions.includes("CASH") && <option value="Cash">Cash</option>}
+                    </select>
+                  ) : (
+                    <div
+                      aria-label="Transaction Type"
+                      className="flex h-8 items-center rounded-lg border border-slate-200 bg-slate-100 px-2 text-xs font-semibold text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+                    >
+                      {permittedTransactions.includes(permittedTransactionType)
+                        ? (permittedTransactionType === "CREDIT" ? "Credit" : "Cash")
+                        : configuredTransactionType
+                          ? `Configured ${configuredTransactionType.toLowerCase()} unavailable`
+                          : permittedTransactions.length === 0
+                            ? "Billing unavailable"
+                            : "Select required"}
+                    </div>
+                  )}
                 </div>
               </div>
+
+              {(billingPolicyLoading || billingPolicyError || transactionCustomerPolicy?.channel_conflict || transactionCustomerPolicy?.configuration_warning || billingTransactionPolicy?.configuration_warning || transactionModeConflict || (!configuredTransactionIsPermitted && permittedTransactions.length > 0) || permittedTransactions.length === 0 || (transactionCustomerPolicy?.require_po_number && !headerState.poReference?.trim() && !headerState.customerPoId) || requiresCreditOverride) && (
+                <div className="mt-1 rounded-lg border border-amber-300 bg-amber-50 px-2.5 py-2 text-[11px] text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-200" role="status" data-testid="billing-policy-notice">
+                  {billingPolicyLoading && <span>Resolving company, branch, and customer billing defaults…</span>}
+                  {!billingPolicyLoading && billingPolicyError && <span>Billing policy is unavailable. Settlement is paused until it can be loaded.</span>}
+                  {!billingPolicyLoading && !billingPolicyError && transactionCustomerPolicy?.channel_conflict && <span>The customer&apos;s default sales channel is not permitted by company or branch policy. Ask an administrator to resolve this configuration.</span>}
+                  {!billingPolicyLoading && !billingPolicyError && transactionCustomerPolicy?.configuration_warning && <span>{transactionCustomerPolicy.configuration_warning}</span>}
+                  {!billingPolicyLoading && !billingPolicyError && billingTransactionPolicy?.configuration_warning && <span>{billingTransactionPolicy.configuration_warning}</span>}
+                  {!billingPolicyLoading && !billingPolicyError && permittedTransactions.length === 0 && <span>Cash and credit billing are both prohibited by customer or company/branch policy. Settlement is blocked.</span>}
+                  {!billingPolicyLoading && !billingPolicyError && transactionModeConflict && !canChangeTransactionMode && <span>The configured billing mode conflicts with the current eligibility. Only an explicitly authorized user can select another permitted mode.</span>}
+                  {!billingPolicyLoading && !billingPolicyError && transactionModeConflict && canChangeTransactionMode && !transactionModeConfirmed && <span>Select and confirm an eligible mode; the system will not silently switch from the configured customer default.</span>}
+                  {!billingPolicyLoading && !billingPolicyError && !configuredTransactionIsPermitted && permittedTransactions.length > 0 && !transactionCustomerPolicy?.configuration_warning && <span>The configured billing mode is not permitted. An authorized user must explicitly select an eligible mode or correct the configuration.</span>}
+                  {!billingPolicyLoading && !billingPolicyError && transactionCustomerPolicy?.require_po_number && !headerState.poReference?.trim() && !headerState.customerPoId && <span>A customer purchase-order reference is required by the active policy.</span>}
+                  {!billingPolicyLoading && !billingPolicyError && requiresCreditOverride && (
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span>
+                        {transactionCustomerPolicy?.can_override_credit && transactionCustomerPolicy.allow_credit_override
+                          ? "Available credit is exceeded. An authorized override and business justification are required."
+                          : "Available credit is exceeded and an authorized override is not available."}
+                      </span>
+                      {transactionCustomerPolicy?.can_override_credit && transactionCustomerPolicy.allow_credit_override && (
+                        <input
+                          aria-label="Credit override reason"
+                          data-testid="credit-override-reason"
+                          maxLength={100}
+                          value={creditOverrideReason}
+                          onChange={event => setCreditOverrideReason(event.target.value)}
+                          placeholder="Authorized override reason"
+                          className="min-w-[220px] rounded border border-amber-400 bg-white px-2 py-1 text-[11px] text-slate-900 dark:border-amber-700 dark:bg-slate-900 dark:text-white"
+                        />
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Expandable B2B & Supply Details Drawer */}
               {showMoreDetails && (
                 <div className="mt-2 pt-2 border-t border-slate-200 dark:border-slate-700/60 flex flex-wrap gap-2 animate-in fade-in" data-testid="b2b-corporate-strip">
-                  {headerState.billingSource === "CUSTOMER_PO" && (
+                  {(headerState.billingSource === "CUSTOMER_PO" || transactionCustomerPolicy?.require_po_number) && (
                     <div className="flex flex-col gap-0.5 flex-1 min-w-[200px]">
                       <span className="text-[10px] font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider">Customer PO</span>
                       <select
@@ -3157,7 +3936,9 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
 
                   {/* PO Reference */}
                   <div className="flex flex-col gap-0.5 flex-1 min-w-[140px]">
-                    <span className="text-[10px] font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider">PO Reference</span>
+                    <span className="text-[10px] font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider">
+                      PO Reference{transactionCustomerPolicy?.require_po_number ? " *" : ""}
+                    </span>
                     <input
                       type="text"
                       name="poReference"
@@ -3166,6 +3947,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
                       placeholder="PO / Order Ref"
                       value={headerState.poReference || ""}
                       onChange={e => setHeaderState(prev => ({ ...prev, poReference: e.target.value }))}
+                      disabled={isReadOnlyView || (headerState.billingSource === "CUSTOMER_PO" && Boolean(headerState.customerPoId))}
                       className="bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg h-8 px-2 text-xs font-medium text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-blue-500"
                     />
                   </div>
@@ -3173,34 +3955,8 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
               )}
             </div>
 
-            {/* Column 3: Staff & Operations (3 cols) */}
-            <div className="lg:col-span-3 flex flex-col gap-1.5">
-              <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                Sales Staff
-              </label>
-
-              {/* Sales Staff Select with Quick Add Button */}
-              <div className="flex items-center gap-1.5">
-                <select
-                  value={headerState.salesStaff}
-                  onChange={e => setHeaderState({ ...headerState, salesStaff: e.target.value })}
-                  className="bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg h-8 px-2 text-xs font-medium text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer flex-1"
-                >
-                  <option value="">Select Staff...</option>
-                  <option value="EMP001 - John Doe">EMP001 - John Doe</option>
-                  <option value="EMP002 - Jane Smith">EMP002 - Jane Smith</option>
-                  <option value="EMP003 - Rahul Sharma">EMP003 - Rahul Sharma</option>
-                </select>
-                <button
-                  type="button"
-                  onClick={() => onNotification?.("Sales Staff", "Sales staff directory registered in ERP Master.", "info")}
-                  className="h-8 w-8 rounded-lg border border-blue-200 dark:border-blue-800 bg-blue-50 hover:bg-blue-100 dark:bg-blue-950/60 dark:hover:bg-blue-900/60 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0 cursor-pointer shadow-2xs transition"
-                  title="Quick Add / Staff Directory"
-                >
-                  <UserPlus size={14} />
-                </button>
-              </div>
-
+            {/* Optional operator and recall controls remain available in Billing details. */}
+            {showMoreDetails && <div className="lg:col-span-3 flex flex-col gap-1.5">
               {/* Action Buttons: Recall Held Bills & Last Saved Bill */}
               <div className="flex items-center gap-1.5">
                 <button
@@ -3223,7 +3979,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
                   Saved: {lastCompletedInvoice.invoiceNumber}
                 </div>
               )}
-            </div>
+            </div>}
 
           </div>
         </section>
@@ -3266,68 +4022,97 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
 
             {/* Main Line Items Table */}
             <div className="flex-1 overflow-x-auto overflow-y-auto min-h-0">
-              <table className="w-full text-left border-collapse min-w-[980px]">
-                <thead className="sticky top-0 bg-slate-100 dark:bg-slate-800/90 border-b border-slate-200 dark:border-slate-700 z-10 text-[11px] font-bold text-slate-700 dark:text-slate-300">
+              <table className="w-full text-left border-collapse min-w-[920px] tabular-nums">
+                <thead className="sticky top-0 bg-slate-50 dark:bg-slate-800/90 border-b border-slate-200 dark:border-slate-700 z-10 text-[10px] font-semibold text-slate-600 dark:text-slate-300">
                   <tr>
-                    <th className="px-2.5 py-2 w-10 text-center border-r border-slate-200 dark:border-slate-700">#</th>
-                    <th className="px-2.5 py-2 w-[110px] border-r border-slate-200 dark:border-slate-700">Stock No (F11)</th>
-                    <th className="px-3 py-2 border-r border-slate-200 dark:border-slate-700">Item Description</th>
-                    <th className="px-2.5 py-2 w-[85px] text-right border-r border-slate-200 dark:border-slate-700">Rate (₹)</th>
-                    <th className="px-2.5 py-2 w-[70px] text-right border-r border-slate-200 dark:border-slate-700">Qty</th>
-                    <th className="px-2.5 py-2 w-[90px] text-right border-r border-slate-200 dark:border-slate-700">Gross (₹)</th>
-                    <th className="px-2.5 py-2 w-[75px] text-right border-r border-slate-200 dark:border-slate-700">Disc %</th>
-                    <th className="px-2.5 py-2 w-[85px] text-right border-r border-slate-200 dark:border-slate-700">Disc (₹)</th>
-                    <th className="px-3 py-2 w-[100px] text-right border-r border-slate-200 dark:border-slate-700 font-bold text-blue-700 dark:text-blue-300">Total (₹)</th>
-                    <th className="px-2.5 py-2 w-[100px] border-r border-slate-200 dark:border-slate-700">Staff</th>
-                    <th className="px-2 py-2 w-8 text-center"></th>
+                    <th className="px-2 py-1.5 w-9 text-center">#</th>
+                    <th className="px-2 py-1.5 w-[110px]">Stock No (F11)</th>
+                    <th className="px-2.5 py-1.5">Item Description</th>
+                    <th className="px-2 py-1.5 w-[82px] text-right">Rate (₹)</th>
+                    <th className="px-2 py-1.5 w-[62px] text-right">Qty</th>
+                    <th className="px-2 py-1.5 w-[84px] text-right">Gross (₹)</th>
+                    <th className="px-2 py-1.5 w-[68px] text-right">Disc %</th>
+                    <th className="px-2 py-1.5 w-[78px] text-right">Disc (₹)</th>
+                    <th className="px-2 py-1.5 w-[66px] text-right" title="Tax rate resolved from the item's authoritative tax configuration">GST (RO)</th>
+                    <th className="px-2 py-1.5 w-[92px] text-right font-bold text-blue-700 dark:text-blue-300">Total (₹)</th>
+                    <th className="px-2 py-1.5 w-[120px]">Salesperson</th>
+                    <th className="px-1.5 py-1.5 w-8 text-center"></th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-xs">
+                <tbody className="text-[11px]">
                   {items.map((item, idx) => (
                     <tr
                       key={item.id}
                       onClick={() => setSelectedRowIndex(idx)}
                       onDoubleClick={() => handleRowDoubleClick(item, idx)}
-                      className={`h-9 transition-colors cursor-pointer ${
+                      aria-selected={selectedRowIndex === idx}
+                      className={`h-8 border-b border-slate-100 dark:border-slate-700/70 transition-colors cursor-pointer ${
                         editingLineId === item.id
-                          ? "bg-blue-50 dark:bg-blue-950/60 ring-2 ring-blue-500 font-bold"
+                          ? "bg-blue-50 dark:bg-blue-950/60 shadow-[inset_3px_0_0_0_var(--color-primary,#2563eb)] font-semibold"
                           : selectedRowIndex === idx
-                          ? "bg-slate-100 dark:bg-slate-800 font-semibold"
-                          : "hover:bg-slate-50 dark:hover:bg-slate-800/50"
+                          ? "bg-blue-50/70 dark:bg-blue-950/30 shadow-[inset_3px_0_0_0_var(--color-primary,#2563eb)] font-semibold"
+                          : idx % 2 === 0
+                            ? "bg-white dark:bg-[#1e293b] hover:bg-slate-50 dark:hover:bg-slate-800/60"
+                            : "bg-slate-50/70 dark:bg-slate-800/25 hover:bg-slate-100/70 dark:hover:bg-slate-800/60"
                       }`}
                       title="Double-click to edit line in Direct Entry (Ctrl+D to delete)"
                     >
-                      <td className="px-2.5 py-1.5 text-center border-r border-slate-100 dark:border-slate-800 font-mono text-slate-500 text-[11px]">
+                      <td className="px-2 py-1 text-center font-mono text-slate-500 text-[10px]">
                         {item.sNo}
                       </td>
-                      <td className="px-2.5 py-1.5 border-r border-slate-100 dark:border-slate-800 font-mono font-bold text-blue-600 dark:text-blue-400">
+                      <td className="px-2 py-1 font-mono font-semibold text-blue-700 dark:text-blue-300">
                         {item.stockNo}
                       </td>
-                      <td className="px-3 py-1.5 border-r border-slate-100 dark:border-slate-800 truncate max-w-xs font-medium text-slate-800 dark:text-slate-100">
+                      <td className="px-2.5 py-1 truncate max-w-xs font-medium text-slate-800 dark:text-slate-100">
                         {item.itemDescription}
                       </td>
-                      <td className="px-2.5 py-1.5 text-right border-r border-slate-100 dark:border-slate-800 font-mono">
+                      <td className="px-2 py-1 text-right font-mono text-slate-700 dark:text-slate-300">
                         {Number(item.rate).toFixed(2)}
                       </td>
-                      <td className="px-2.5 py-1.5 text-right border-r border-slate-100 dark:border-slate-800 font-mono font-bold text-slate-900 dark:text-slate-100">
+                      <td className="px-2 py-1 text-right font-mono font-semibold text-slate-900 dark:text-slate-100">
                         {item.qty}
                       </td>
-                      <td className="px-2.5 py-1.5 text-right border-r border-slate-100 dark:border-slate-800 font-mono text-slate-600 dark:text-slate-400">
+                      <td className="px-2 py-1 text-right font-mono text-slate-600 dark:text-slate-400">
                         {Number(item.value).toFixed(2)}
                       </td>
-                      <td className="px-2.5 py-1.5 text-right border-r border-slate-100 dark:border-slate-800 font-mono text-slate-600 dark:text-slate-400">
+                      <td className="px-2 py-1 text-right font-mono text-slate-600 dark:text-slate-400">
                         {item.discPercent ? `${item.discPercent}%` : "-"}
                       </td>
-                      <td className="px-2.5 py-1.5 text-right border-r border-slate-100 dark:border-slate-800 font-mono text-rose-600 dark:text-rose-400">
+                      <td className="px-2 py-1 text-right font-mono text-rose-600 dark:text-rose-400">
                         {item.discAmt > 0 ? item.discAmt.toFixed(2) : "-"}
                       </td>
-                      <td className="px-3 py-1.5 text-right border-r border-slate-100 dark:border-slate-800 font-mono font-bold text-blue-700 dark:text-blue-300">
+                      <td
+                        className="px-2 py-1 text-right font-mono text-slate-500 dark:text-slate-400"
+                        aria-label={`GST ${Number(item.gstPercentage ?? 0)} percent, read only`}
+                        title="Read-only tax rate from authoritative item tax configuration"
+                      >
+                        {Number(item.gstPercentage ?? 0)}%
+                      </td>
+                      <td className="px-2 py-1 text-right font-mono font-bold text-blue-700 dark:text-blue-300">
                         {Number(item.total).toFixed(2)}
                       </td>
-                      <td className="px-2.5 py-1.5 border-r border-slate-100 dark:border-slate-800 truncate max-w-[100px] text-slate-500 text-[11px]">
-                        {item.salesStaff}
+                      <td className="px-1.5 py-0.5">
+                        <select
+                          aria-label={`Salesperson for ${item.stockNo}`}
+                          data-testid={`line-salesperson-${item.id}`}
+                          value={item.salesStaff || ""}
+                          disabled={isReadOnlyView}
+                          onClick={event => event.stopPropagation()}
+                          onChange={event => {
+                            const salesperson = event.target.value;
+                            setItems(prev => prev.map(line =>
+                              line.id === item.id ? { ...line, salesStaff: salesperson } : line
+                            ));
+                          }}
+                          className="w-full min-w-0 rounded border border-transparent bg-transparent px-1 py-0.5 text-[10px] text-slate-600 hover:border-slate-200 hover:bg-white focus:border-blue-500 focus:bg-white focus:outline-none dark:text-slate-300 dark:hover:border-slate-700 dark:focus:bg-slate-900 disabled:cursor-default"
+                        >
+                          <option value="">Unassigned</option>
+                          {salesStaffOptions.map(option => (
+                            <option key={option.value} value={option.value}>{option.label}</option>
+                          ))}
+                        </select>
                       </td>
-                      <td className="px-2 py-1.5 text-center">
+                      <td className="px-1.5 py-1 text-center">
                         {!isReadOnlyView && (
                           <button
                             type="button"
@@ -3347,11 +4132,11 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
 
                   {/* Clean empty placeholders if rows < 4 */}
                   {Array.from({ length: Math.max(0, 4 - items.length) }).map((_, i) => (
-                    <tr key={"empty-" + i} className="h-9 border-b border-slate-100 dark:border-slate-800/40">
-                      <td className="px-2.5 py-1.5 text-center border-r border-slate-100 dark:border-slate-800 text-slate-400 text-[11px]">
+                    <tr key={"empty-" + i} className={`h-8 border-b border-slate-100 dark:border-slate-700/70 ${i % 2 === 0 ? "bg-white dark:bg-[#1e293b]" : "bg-slate-50/70 dark:bg-slate-800/25"}`}>
+                      <td className="px-2 py-1 text-center text-slate-400 text-[10px]">
                         {items.length + i + 1}
                       </td>
-                      <td colSpan={10} className="px-3 py-1.5 text-slate-400/60 italic text-xs">
+                      <td colSpan={11} className="px-2.5 py-1 text-slate-400/60 italic text-[11px]">
                         {items.length === 0 && i === 0 ? "Scan barcode or enter Stock No below to add items..." : ""}
                       </td>
                     </tr>
@@ -3420,7 +4205,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
               </div>
             )}
 
-            {/* Direct Entry Row (F11 / F1) at Bottom of Item Card */}
+            {/* Direct Entry Row (F11) at Bottom of Item Card */}
             <div className="bg-slate-50 dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 p-2 flex gap-2 items-center shrink-0">
               <span className="text-[10px] font-mono font-bold text-blue-700 dark:text-blue-300 bg-blue-100 dark:bg-blue-950/80 px-2 py-1 rounded shrink-0">
                 F11
@@ -3542,6 +4327,19 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
                   className="w-[70px] border border-slate-300 dark:border-slate-700 h-8 font-mono text-xs rounded-lg px-2 text-right bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-blue-500 shrink-0"
                 />
 
+                <select
+                  aria-label="Salesperson for new item"
+                  data-testid="item-salesperson-select"
+                  value={directEntry.staff}
+                  onChange={event => setDirectEntry(prev => ({ ...prev, staff: event.target.value }))}
+                  className="w-[130px] border border-slate-300 dark:border-slate-700 h-8 rounded-lg px-1.5 text-[10px] bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 shrink-0"
+                >
+                  <option value="">Unassigned</option>
+                  {salesStaffOptions.map(option => (
+                    <option key={option.value} value={option.value}>{option.label}</option>
+                  ))}
+                </select>
+
                 {/* Total */}
                 <input
                   type="text"
@@ -3567,33 +4365,60 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
           </section>
 
           {/* ZONE D: BILL SUMMARY & NET PAYABLE CARD (~26% width / w-80 to w-96) */}
-          <aside className="w-full lg:w-80 xl:w-96 bg-white dark:bg-[#1e293b] border border-slate-200 dark:border-slate-800 rounded-xl flex flex-col p-3 shadow-xs shrink-0 justify-between gap-3">
+          <aside className="w-full lg:w-[300px] xl:w-[320px] bg-white dark:bg-[#1e293b] border border-slate-200 dark:border-slate-800 rounded-xl flex flex-col p-2.5 shadow-xs shrink-0 justify-between gap-2">
             
             {/* Header & Stats */}
-            <div className="flex flex-col gap-2">
-              <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-700 pb-2">
-                <span className="text-xs font-bold text-slate-800 dark:text-slate-100 uppercase tracking-wider flex items-center gap-1.5">
+            <div className="flex flex-col gap-1.5">
+            <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-700 pb-1.5">
+              <span className="text-[11px] font-bold text-slate-800 dark:text-slate-100 tracking-wide flex items-center gap-1.5">
                   <Receipt size={14} className="text-blue-600" />
                   <span>Bill Summary</span>
                 </span>
-                <span className="text-[11px] font-bold text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/60 px-2 py-0.5 rounded-full border border-blue-200 dark:border-blue-800">
+              <span className="text-[10px] font-semibold text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/60 px-1.5 py-0.5 rounded-full border border-blue-200 dark:border-blue-800">
                   {summaryTotals.itemCount} {summaryTotals.itemCount === 1 ? "item" : "items"} · {summaryTotals.totalQty.toFixed(1)} qty
                 </span>
               </div>
 
               {/* Financial Breakdown Table */}
-              <div className="flex flex-col divide-y divide-slate-100 dark:divide-slate-800 text-xs">
+              <div className="flex flex-col divide-y divide-slate-100 dark:divide-slate-800 text-[11px]">
+                {items.length > 0 && (
+                  <div
+                    role={currentPreviewError ? "alert" : "status"}
+                    className={`py-1.5 text-[10px] ${
+                      previewIsCurrent && !hasUnsupportedCharges
+                        ? "text-emerald-700 dark:text-emerald-300"
+                        : "text-amber-700 dark:text-amber-300"
+                    }`}
+                  >
+                    {currentPreviewError
+                      ? `Backend preview failed: ${currentPreviewError}`
+                      : previewIsCurrent && !hasUnsupportedCharges
+                        ? "Backend-authoritative prices, discounts, GST and rounding validated."
+                        : hasUnsupportedCharges
+                          ? "Backend preview excludes extra charges; this invoice cannot be settled yet."
+                          : "Validating invoice with the backend…"}
+                    {currentPreviewError && (
+                      <button
+                        type="button"
+                        className="ml-2 underline font-bold"
+                        onClick={() => setBillingPreviewRetry((retry) => retry + 1)}
+                      >
+                        Retry
+                      </button>
+                    )}
+                  </div>
+                )}
                 {/* Subtotal / Sales Value */}
-                <div className="flex items-center justify-between py-1.5">
+                <div className="flex items-center justify-between py-1">
                   <span className="text-slate-600 dark:text-slate-400 font-medium">Sales Value (Gross)</span>
-                  <span className="font-mono font-semibold text-slate-800 dark:text-slate-200">
+                  <span className="font-mono font-medium text-slate-800 dark:text-slate-200">
                     ₹{summaryTotals.salesValue.toFixed(2)}
                   </span>
                 </div>
 
                 {/* Line Item Discounts */}
                 {summaryTotals.itemDiscount > 0 && (
-                  <div className="flex items-center justify-between py-1.5">
+                  <div className="flex items-center justify-between py-1">
                     <span className="text-slate-600 dark:text-slate-400 font-medium">Line Discounts</span>
                     <span className="font-mono font-semibold text-emerald-600 dark:text-emerald-400">
                       -₹{summaryTotals.itemDiscount.toFixed(2)}
@@ -3604,7 +4429,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
                 {/* Bill Discount (Promo / F6) */}
                 <div 
                   onClick={() => setShowF6PromoModal(true)}
-                  className="flex items-center justify-between py-1.5 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/60 -mx-1 px-1 rounded transition"
+                  className="flex items-center justify-between py-1 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/60 -mx-1 px-1 rounded transition"
                   title="Manage Bill Discounts & Promotions (F6)"
                 >
                   <span className="text-slate-600 dark:text-slate-400 font-medium flex items-center gap-1">
@@ -3622,7 +4447,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
                 </div>
 
                 {/* GST / Taxes */}
-                <div className="flex items-center justify-between py-1.5">
+                <div className="flex items-center justify-between py-1">
                   <span className="text-slate-600 dark:text-slate-400 font-medium">Sales Tax (GST)</span>
                   <span className="font-mono font-semibold text-slate-800 dark:text-slate-200">
                     +₹{summaryTotals.totalTax.toFixed(2)}
@@ -3631,7 +4456,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
 
                 {/* Add-ons & Freight */}
                 {summaryTotals.totalAddons > 0 && (
-                  <div className="flex items-center justify-between py-1.5">
+                  <div className="flex items-center justify-between py-1">
                     <span className="text-slate-600 dark:text-slate-400 font-medium">Add-ons (Freight/Charges)</span>
                     <span className="font-mono font-semibold text-blue-600 dark:text-blue-400">
                       +₹{summaryTotals.totalAddons.toFixed(2)}
@@ -3641,7 +4466,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
 
                 {/* Deductions */}
                 {summaryTotals.totalDeductions > 0 && (
-                  <div className="flex items-center justify-between py-1.5">
+                  <div className="flex items-center justify-between py-1">
                     <span className="text-slate-600 dark:text-slate-400 font-medium">Deductions</span>
                     <span className="font-mono font-semibold text-rose-600 dark:text-rose-400">
                       -₹{summaryTotals.totalDeductions.toFixed(2)}
@@ -3650,7 +4475,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
                 )}
 
                 {/* Round Off */}
-                <div className="flex items-center justify-between py-1.5">
+                <div className="flex items-center justify-between py-1">
                   <span className="text-slate-500 font-medium text-[11px]">Round Off</span>
                   <span className="font-mono text-slate-500 text-[11px]">
                     ₹{(summaryTotals.netAmount - (summaryTotals.salesValue - summaryTotals.itemDiscount - summaryTotals.billDiscount + summaryTotals.totalTax + summaryTotals.totalAddons - summaryTotals.totalDeductions)).toFixed(2)}
@@ -3660,7 +4485,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
             </div>
 
             {/* Net Payable Banner matching proposed premium UX */}
-            <div className="pt-2 border-t border-slate-200 dark:border-slate-700/80 flex items-center justify-between">
+            <div className="pt-2 px-2 py-1.5 border-t border-slate-200 dark:border-slate-700/80 bg-blue-50 dark:bg-blue-950/30 rounded-lg flex items-center justify-between">
               <div className="flex flex-col">
                 <span className="text-base font-bold text-blue-600 dark:text-blue-400">
                   Net Payable
@@ -3853,90 +4678,40 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
           </section>
         )}
 
-        {/* ZONE E: BOTTOM ACTION BAR (Drawer Tabs on Left, F7 & F8 on Right) */}
-        <div className="bg-white dark:bg-[#131b2e] border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 flex flex-wrap items-center justify-between gap-2 shadow-xs shrink-0">
-          {/* Left: 4 Drawer Buttons */}
-          <div className="flex items-center gap-1.5 flex-wrap">
+        {/* ZONE E: COMPACT BILLING ACTION BAR */}
+        <div className="bg-white dark:bg-[#131b2e] border border-slate-200 dark:border-slate-800 rounded-xl px-2.5 py-1.5 flex items-center justify-between gap-2 shadow-xs shrink-0">
+          <span className="text-[11px] text-slate-500 dark:text-slate-400 hidden sm:block">
+            {summaryTotals.itemCount} {summaryTotals.itemCount === 1 ? "item" : "items"} · Net payable ₹{summaryTotals.netAmount.toFixed(2)}
+          </span>
+          <div className="flex items-center gap-1.5 ml-auto">
             <button
               type="button"
-              onClick={() => setActiveFooterDrawer(prev => prev === "transporter" ? "none" : "transporter")}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition cursor-pointer flex items-center gap-1.5 ${
-                activeFooterDrawer === "transporter"
-                  ? "bg-blue-50 dark:bg-blue-950/60 border-blue-300 dark:border-blue-700 text-blue-700 dark:text-blue-300"
-                  : "bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100"
-              }`}
+              onClick={handleSuspendInvoice}
+              disabled={isReadOnlyView}
+              className="px-3 py-1.5 bg-white hover:bg-slate-50 dark:bg-slate-800 dark:hover:bg-slate-700 border border-slate-300 dark:border-slate-600 text-slate-800 dark:text-slate-100 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed shadow-2xs"
+              title="Hold / Park Invoice (F12)"
             >
-              <span>🚚 Transporter Details</span>
-              {transporterRows.some(r => (r.amount || 0) > 0) && (
-                <span className="w-1.5 h-1.5 rounded-full bg-blue-600" />
-              )}
+              <Save size={14} className="text-blue-600" />
+              <span>Hold <span className="hidden sm:inline">(F12)</span></span>
             </button>
-
             <button
               type="button"
-              onClick={() => setActiveFooterDrawer(prev => prev === "payment" ? "none" : "payment")}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition cursor-pointer flex items-center gap-1.5 ${
-                activeFooterDrawer === "payment"
-                  ? "bg-blue-50 dark:bg-blue-950/60 border-blue-300 dark:border-blue-700 text-blue-700 dark:text-blue-300"
-                  : "bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100"
-              }`}
+              onClick={handleReprintInvoice}
+              className="px-3 py-1.5 bg-white hover:bg-slate-50 dark:bg-slate-800 dark:hover:bg-slate-700 border border-slate-300 dark:border-slate-600 text-slate-800 dark:text-slate-100 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 cursor-pointer shadow-2xs"
+              title="Print Preview / Reprint (Ctrl+P)"
             >
-              <span>💳 Payment Details</span>
+              <Printer size={14} className="text-blue-600" />
+              <span>Print</span>
             </button>
-
-            <button
-              type="button"
-              onClick={() => setActiveFooterDrawer(prev => prev === "addons" ? "none" : "addons")}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition cursor-pointer flex items-center gap-1.5 ${
-                activeFooterDrawer === "addons"
-                  ? "bg-blue-50 dark:bg-blue-950/60 border-blue-300 dark:border-blue-700 text-blue-700 dark:text-blue-300"
-                  : "bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100"
-              }`}
-            >
-              <span>➕ AddOns &amp; Deductions</span>
-              {addonRows.some(a => (a.amount || 0) > 0) && (
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
-              )}
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setActiveFooterDrawer(prev => prev === "remarks" ? "none" : "remarks")}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition cursor-pointer flex items-center gap-1.5 ${
-                activeFooterDrawer === "remarks"
-                  ? "bg-blue-50 dark:bg-blue-950/60 border-blue-300 dark:border-blue-700 text-blue-700 dark:text-blue-300"
-                  : "bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100"
-              }`}
-            >
-              <span>📝 Document Remarks</span>
-              {headerState.remarks && (
-                <span className="w-1.5 h-1.5 rounded-full bg-indigo-600" />
-              )}
-            </button>
-          </div>
-
-          {/* Right: Checkout Buttons (F7 Exact Cash & F8 Settle & Save) */}
-          <div className="flex items-center gap-2 ml-auto">
-            <button
-              type="button"
-              onClick={() => handleExactCashSettlementRef.current?.()}
-              disabled={isReadOnlyView || items.length === 0}
-              className="px-4 py-2 bg-white hover:bg-slate-50 dark:bg-slate-800 dark:hover:bg-slate-700 border border-slate-300 dark:border-slate-600 text-slate-800 dark:text-slate-100 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed shadow-2xs"
-              title="Exact Cash Settlement (F7)"
-            >
-              <Banknote size={15} className="text-slate-600 dark:text-slate-300" />
-              <span>Exact Cash (F7)</span>
-            </button>
-
             <button
               type="button"
               onClick={openSettlement}
               disabled={isReadOnlyView || items.length === 0}
-              className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold transition flex items-center gap-2 cursor-pointer shadow-md hover:shadow-lg disabled:opacity-40 disabled:cursor-not-allowed"
+              className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition flex items-center gap-2 cursor-pointer shadow-md hover:shadow-lg disabled:opacity-40 disabled:cursor-not-allowed"
               title="Settle & Save Invoice (F8)"
             >
               <Check size={16} />
-              <span>Settle &amp; Save (F8)</span>
+              <span>Settle &amp; Save <span className="hidden sm:inline">(F8)</span></span>
             </button>
           </div>
         </div>
@@ -3960,6 +4735,21 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
       )}
 
       {/* MODALS */}
+
+      <BulkAddItemsModal
+        isOpen={showBulkAddItemsModal}
+        onClose={() => setShowBulkAddItemsModal(false)}
+        products={liveProducts}
+        salesperson={directEntry.staff}
+        onCommitItems={handleBulkItemsImport}
+      />
+
+      <BarcodeCSVImportModal
+        isOpen={showBarcodeCSVImportModal}
+        onClose={() => setShowBarcodeCSVImportModal(false)}
+        customer={headerState.customer}
+        onImportConfirmed={handleBarcodeCSVImport}
+      />
 
       {/* 1. Settlement Modal */}
       <SmritiInvoiceSettlementModal

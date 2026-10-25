@@ -207,6 +207,8 @@ export interface RetailCustomerRecord {
   // Additional Details: Payment & Credit Policy
   paymentCategory: "CASH" | "CREDIT" | "CARD" | "UPI" | "NETBANKING" | "CHEQUE" | string;
   paymentTerm: string;
+  defaultSalesChannel?: string | null;
+  requirePoNumber?: boolean | null;
   creditLimit: number;
   creditDays: number;
   creditUsed: number;
@@ -336,5 +338,4 @@ export interface CustomerCreditExposureResponse {
   holdCount: number;
   companyExposures: CompanyCreditExposureItem[];
 }
-
 

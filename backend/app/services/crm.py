@@ -871,7 +871,8 @@ class CrmService:
         if parent_customer_id:
             cust_dict["is_dependant"] = True
         policy_fields = {
-            "payment_category", "payment_term", "transport_mode", "transport_code", "transit_days",
+            "payment_category", "payment_term", "default_sales_channel", "require_po_number",
+            "transport_mode", "transport_code", "transit_days",
             "bank_code", "bank_location", "retail_factor", "dealer_factor", "destination_tax_type",
             "allow_cash_bill", "allow_dc_gen", "allow_credit_invoice", "allow_misc_issue", "allow_misc_receipts",
         }
@@ -1102,7 +1103,8 @@ class CrmService:
                     )
 
         policy_fields = {
-            "payment_category", "payment_term", "transport_mode", "transport_code", "transit_days",
+            "payment_category", "payment_term", "default_sales_channel", "require_po_number",
+            "transport_mode", "transport_code", "transit_days",
             "bank_code", "bank_location", "retail_factor", "dealer_factor", "destination_tax_type",
             "allow_cash_bill", "allow_dc_gen", "allow_credit_invoice", "allow_misc_issue", "allow_misc_receipts",
         }
@@ -3246,7 +3248,6 @@ class CrmService:
             hold_count=hold_count,
             company_exposures=company_exposures,
         )
-
 
 
 

@@ -14,6 +14,7 @@ export interface SalesLineItem {
   discCode?: string;
   taxPercent?: number;
   taxAmount?: number;
+  isTaxInclusive?: boolean;
   total: number;
 }
 

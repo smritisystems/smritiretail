@@ -302,7 +302,15 @@ class CustomerPOService:
         await self.db.commit()
         return await self.get(po_id)
 
-    async def bill(self, po_id: str, request: CustomerPOBillingRequest, idempotency_key: Optional[str] = None):
+    async def bill(
+        self,
+        po_id: str,
+        request: CustomerPOBillingRequest,
+        idempotency_key: Optional[str] = None,
+        authorized_credit_override: bool = False,
+        credit_override_actor: Optional[str] = None,
+        authorized_transaction_mode_change: bool = False,
+    ):
         """Create invoice plus allocations in one transaction, with row locks and idempotency."""
         effective_key = idempotency_key or getattr(request, "idempotency_key", None)
         if effective_key:
@@ -362,7 +370,12 @@ class CustomerPOService:
         try:
             invoice_in = SalesInvoiceCreate.model_validate(invoice_payload)
             invoice = await SalesService(self.db, self.tenant_ctx).create_sales_invoice(
-                invoice_in, idempotency_key=effective_key, commit=False
+                invoice_in,
+                idempotency_key=effective_key,
+                commit=False,
+                authorized_credit_override=authorized_credit_override,
+                credit_override_actor=credit_override_actor,
+                authorized_transaction_mode_change=authorized_transaction_mode_change,
             )
             alloc_check = (await self.db.execute(
                 self._scope(

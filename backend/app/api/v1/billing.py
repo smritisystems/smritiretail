@@ -13,15 +13,20 @@ Classification: Canonical Billing API & Transaction Router (Phase 1)
 """
 
 from decimal import Decimal
-from typing import Optional, List
+from typing import Optional, List, Literal
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
+from sqlalchemy.orm import selectinload
 
 from pydantic import BaseModel, Field
 from typing import Dict, Any
 
-from ...api.deps import get_company_db, get_tenant_context, get_current_user, require_role, TenantContext
+from ...api.deps import get_company_db, get_db, get_tenant_context, get_current_user, require_role, TenantContext
 from ...models.auth import User, UserRole
+from ...models.crm import Customer, CustomerCompanyRelationship
+from ...models.crm import CustomerGroup
+from ...core.security_matrix import evaluate_action_permission
 from ...schemas.canonical_posting import (
     CanonicalPostingRequest,
     CanonicalPostingResult,
@@ -51,6 +56,7 @@ class BillingProfileSwitchRequest(BaseModel):
 
 
 class BillingConfigurationUpdateRequest(BaseModel):
+    policy_scope: Literal["COMPANY", "BRANCH"] = "COMPANY"
     shift_management: Optional[str] = Field(None, description="ENABLED or DISABLED")
     customer_po_reference: Optional[str] = Field(None, description="HIDDEN, OPTIONAL, or REQUIRED")
     bulk_add_enabled: Optional[str] = Field(None, description="ENABLED or DISABLED")
@@ -65,6 +71,14 @@ class BillingConfigurationUpdateRequest(BaseModel):
     allow_partial_packing: Optional[str] = Field(None, description="ENABLED or DISABLED")
     allow_partial_invoicing: Optional[str] = Field(None, description="ENABLED or DISABLED")
     allow_editing_prefilled_qty: Optional[str] = Field(None, description="AUTHORIZED_ONLY, ENABLED, or DISABLED")
+    default_sales_channel: Optional[str] = None
+    allowed_sales_channels: Optional[List[str]] = None
+    allowed_source_types: Optional[List[str]] = None
+    default_source_type: Optional[str] = None
+    allowed_bill_types: Optional[List[str]] = None
+    default_bill_type: Optional[str] = None
+    allowed_transactions: Optional[List[str]] = None
+    default_transaction: Optional[str] = None
 
 
 @router.get(
@@ -188,6 +202,7 @@ async def list_billing_customers(
 async def preview(
     req: CanonicalPostingRequest,
     db: AsyncSession = Depends(get_company_db),
+    control_db: AsyncSession = Depends(get_db),
     tenant: TenantContext = Depends(get_tenant_context),
     current_user: User = Depends(get_current_user),
 ) -> BillingCalculationResult:
@@ -201,10 +216,35 @@ async def preview(
             detail="SMRITI-TENANT-001: Cross-tenant transaction access forbidden. Company ID mismatch.",
         )
 
+    authorized_price_override = await evaluate_action_permission(
+        control_db,
+        current_user,
+        tenant,
+        resource="sales_billing",
+        action="OVERRIDE_PRICE",
+    )
+    authorized_discount_override = await evaluate_action_permission(
+        control_db,
+        current_user,
+        tenant,
+        resource="sales_billing",
+        action="OVERRIDE_DISCOUNT",
+    )
+    authorized_adjustment_override = await evaluate_action_permission(
+        control_db,
+        current_user,
+        tenant,
+        resource="sales_billing",
+        action="MANAGE_ADJUSTMENTS",
+    )
+
     # 2. Execute Headless Billing Core Calculation
     return await HeadlessBillingCore.calculate_billing(
         session=db,
         req=req,
+        authorized_price_override=authorized_price_override,
+        authorized_discount_override=authorized_discount_override,
+        authorized_adjustment_override=authorized_adjustment_override,
     )
 
 
@@ -225,6 +265,7 @@ async def checkout(
     req: CanonicalPostingRequest,
     idempotency_key_header: Optional[str] = Header(None, alias="Idempotency-Key"),
     db: AsyncSession = Depends(get_company_db),
+    control_db: AsyncSession = Depends(get_db),
     tenant: TenantContext = Depends(get_tenant_context),
     current_user: User = Depends(get_current_user),
 ) -> CanonicalPostingResult:
@@ -247,12 +288,66 @@ async def checkout(
             detail="SMRITI-IDEMP-003: Mandatory Idempotency-Key missing from header or context payload.",
         )
 
+    credit_override_requested = bool(req.credit_override_reason or req.context.supervisor_override_code) and (
+        (req.payment_mode or "").strip().upper() in {"CREDIT", "ON_ACCOUNT"}
+        or any(tender.tender_type.strip().upper() == "CREDIT" for tender in req.tenders)
+    )
+    authorized_credit_override = False
+    if credit_override_requested:
+        if not await evaluate_action_permission(
+            control_db,
+            current_user,
+            tenant,
+            resource="sales_billing",
+            action="OVERRIDE_CREDIT",
+        ):
+            raise HTTPException(status_code=403, detail="An explicit credit-override permission is required.")
+        if not await BillingProfileService.credit_limit_override_enabled(control_db):
+            raise HTTPException(status_code=403, detail="Credit-limit overrides are disabled by company policy.")
+        authorized_credit_override = True
+
+    authorized_transaction_mode_change = await evaluate_action_permission(
+        control_db,
+        current_user,
+        tenant,
+        resource="sales_billing",
+        action="CHANGE_TRANSACTION_MODE",
+    )
+
+    authorized_price_override = await evaluate_action_permission(
+        control_db,
+        current_user,
+        tenant,
+        resource="sales_billing",
+        action="OVERRIDE_PRICE",
+    )
+    authorized_discount_override = await evaluate_action_permission(
+        control_db,
+        current_user,
+        tenant,
+        resource="sales_billing",
+        action="OVERRIDE_DISCOUNT",
+    )
+    authorized_adjustment_override = await evaluate_action_permission(
+        control_db,
+        current_user,
+        tenant,
+        resource="sales_billing",
+        action="MANAGE_ADJUSTMENTS",
+    )
+
     # 3. Authoritative Atomic Transaction Execution
     result = await CanonicalSalesPostingWriter.post_sales_transaction(
         session=db,
         req=req,
         idempotency_key=idempotency_key,
         commit=True,
+        authorized_credit_override=authorized_credit_override,
+        credit_override_actor=current_user.id if authorized_credit_override else None,
+        authorized_transaction_mode_change=authorized_transaction_mode_change,
+        authorized_price_override=authorized_price_override,
+        authorized_discount_override=authorized_discount_override,
+        authorized_adjustment_override=authorized_adjustment_override,
     )
 
     return result
@@ -338,7 +433,136 @@ async def get_billing_profile(
     return await BillingProfileService.get_effective_profile(
         session=db,
         company_id=tenant.company_id,
+        branch_id=tenant.branch_id,
     )
+
+
+@router.get(
+    "/transaction-policy",
+    status_code=status.HTTP_200_OK,
+    summary="Resolve effective billing transaction policy",
+    tags=["Unified Billing Engine"],
+)
+async def get_billing_transaction_policy(
+    customer_id: Optional[str] = Query(None),
+    db: AsyncSession = Depends(get_company_db),
+    control_db: AsyncSession = Depends(get_db),
+    tenant: TenantContext = Depends(get_tenant_context),
+    current_user: User = Depends(get_current_user),
+):
+    configuration = await BillingProfileService.resolve_transaction_configuration(
+        db, tenant.company_id, tenant.branch_id
+    )
+    result: Dict[str, Any] = {
+        "configuration": configuration,
+        "branch_id": tenant.branch_id,
+        "can_override_credit": False,
+        "can_change_transaction_mode": False,
+        "customer": None,
+    }
+    if not customer_id:
+        payment_options = BillingProfileService.resolve_customer_payment_options(configuration)
+        result.update(payment_options)
+        return result
+
+    customer_query = (
+        select(Customer)
+        .where(
+            Customer.id == customer_id,
+            Customer.company_id == tenant.company_id,
+            Customer.is_deleted == False,
+        )
+        .options(
+            selectinload(Customer.group),
+            selectinload(Customer.policy),
+            selectinload(Customer.company_relationships),
+        )
+    )
+    customer = (await db.execute(customer_query)).scalars().first()
+    if not customer:
+        raise HTTPException(status_code=404, detail="Customer not found in the active company.")
+
+    group = customer.group
+    policy = customer.policy
+    relation = next(
+        (
+            row for row in customer.company_relationships
+            if row.company_id == tenant.company_id
+            and row.status == "Active"
+            and not row.is_deleted
+        ),
+        None,
+    )
+    if relation and relation.customer_group_id:
+        relation_group_result = await db.execute(
+            select(CustomerGroup).where(
+                CustomerGroup.id == relation.customer_group_id,
+                CustomerGroup.is_deleted == False,
+            )
+        )
+        group = relation_group_result.scalars().first() or group
+    credit_days = int(
+        (relation.credit_days if relation and relation.credit_days > 0 else None)
+        or (group.credit_days if group else 0)
+        or 0
+    )
+    if relation and relation.credit_limit == 0 and group:
+        credit_days = int(group.credit_days or 0)
+
+    default_channel = (
+        getattr(policy, "default_sales_channel", None)
+        or ("MODERN_TRADE" if str(customer.customer_type or "").upper() == "MODERN_TRADE" else None)
+        or configuration.get("default_sales_channel")
+        or "B2B_WHOLESALE"
+    )
+    channel_conflict = default_channel not in configuration["allowed_sales_channels"]
+    required_po = (
+        policy.require_po_number
+        if getattr(policy, "require_po_number", None) is not None
+        else bool(group and group.require_po_number)
+    ) or configuration.get("customer_po_reference") == "REQUIRED"
+    can_override_credit = bool(
+        group
+        and group.allow_override
+        and await BillingProfileService.credit_limit_override_enabled(control_db)
+        and await evaluate_action_permission(
+            control_db,
+            current_user,
+            tenant,
+            resource="sales_billing",
+            action="OVERRIDE_CREDIT",
+        )
+    )
+    can_change_transaction_mode = await evaluate_action_permission(
+        control_db,
+        current_user,
+        tenant,
+        resource="sales_billing",
+        action="CHANGE_TRANSACTION_MODE",
+    )
+    payment_options = BillingProfileService.resolve_customer_payment_options(
+        configuration=configuration,
+        customer=customer,
+        group=group,
+        relationship=relation,
+        can_override_credit=can_override_credit,
+    )
+    result["can_override_credit"] = can_override_credit
+    result["can_change_transaction_mode"] = can_change_transaction_mode
+    default_payment_category = str(getattr(policy, "payment_category", None) or "").strip().upper()
+    result["customer"] = {
+        "id": customer.id,
+        "default_sales_channel": default_channel,
+        "channel_conflict": channel_conflict,
+        **payment_options,
+        "can_change_transaction_mode": can_change_transaction_mode,
+        "payment_category": default_payment_category,
+        "payment_term": getattr(policy, "payment_term", None),
+        "credit_days": credit_days,
+        "require_po_number": bool(required_po),
+        "allow_credit_override": bool(group and group.allow_override),
+    }
+    return result
 
 
 @router.post(
@@ -407,11 +631,12 @@ async def update_billing_configuration(
     PUT /api/v1/billing/configuration
     """
     overrides = {k: v for k, v in req.model_dump().items() if v is not None}
+    policy_scope = overrides.pop("policy_scope", "COMPANY")
     return await BillingProfileService.update_configuration_overrides(
         session=db,
         company_id=tenant.company_id,
         overrides=overrides,
         updated_by=current_user.username or current_user.email or current_user.id,
+        branch_id=tenant.branch_id,
+        policy_scope=policy_scope,
     )
-
-

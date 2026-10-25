@@ -1,8 +1,10 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { ArrowLeft, Ban, Building2, CheckCircle2, CreditCard, Loader2, MapPin, PackageCheck, Pencil, RefreshCw, Save, Store, Users } from "lucide-react";
+import { ArrowLeft, Ban, Building2, CheckCircle2, CreditCard, Loader2, MapPin, PackageCheck, Pencil, RefreshCw, Save, Search, Store, Users } from "lucide-react";
 import { CorporateCustomerTabs } from "./CorporateCustomerTabs.tsx";
 import { CorporateTabKey, CorporateCustomer360Data, PsvDetailedItem, PsvQuantityReconciliationPayload, PsvQuantityReconciliationSummary } from "./types.ts";
 import { apiFetchV1 } from "../../../lib/apiFetchV1.ts";
+import type { CustomerDirectoryItem } from "../types.ts";
+import { SmritiAdvancedCustomerSearchModal } from "../AdvancedCustSearch.tsx";
 
 export interface Customer360DashboardViewProps {
   customerId?: string;
@@ -15,6 +17,7 @@ export interface Customer360DashboardViewProps {
   onSave?: () => void;
   onDeactivate?: () => void;
   onEditCustomer?: (customer: any) => void;
+  onSelectCustomer?: (customer: CustomerDirectoryItem) => void;
   onBack?: () => void;
   isSaving?: boolean;
   isDirty?: boolean;
@@ -63,6 +66,7 @@ export const Customer360DashboardView: React.FC<Customer360DashboardViewProps> =
   onSave,
   onDeactivate,
   onEditCustomer,
+  onSelectCustomer,
   onBack,
   isSaving = false,
   isDirty = false,
@@ -75,6 +79,7 @@ export const Customer360DashboardView: React.FC<Customer360DashboardViewProps> =
   const [psvLoading, setPsvLoading] = useState(false);
   const [psvError, setPsvError] = useState<string | null>(null);
   const [psvStatus, setPsvStatus] = useState("all");
+  const [showCustomerSearch, setShowCustomerSearch] = useState(false);
 
   const loadPsv = useCallback(async () => {
     if (!id || initialPsvItems || corporate360Data?.psv_reconciliation) return;
@@ -154,12 +159,22 @@ export const Customer360DashboardView: React.FC<Customer360DashboardViewProps> =
             <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${isActive ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200" : "bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-200"}`}>{status}</span>
           </div>
           <div className="flex flex-wrap gap-2">
+            {onSelectCustomer && <button type="button" onClick={() => setShowCustomerSearch(true)} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium dark:border-slate-700"><Search size={15} />Search customer</button>}
             {onBack && <button type="button" onClick={onBack} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium dark:border-slate-700"><ArrowLeft size={15} />Back</button>}
             {onEditCustomer && <button type="button" onClick={() => onEditCustomer(customer)} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium dark:border-slate-700"><Pencil size={15} />Edit customer</button>}
             {isDirty && onSave && <button type="button" onClick={onSave} disabled={isSaving} className="inline-flex items-center gap-1.5 rounded-lg bg-sky-700 px-3 py-2 text-sm font-semibold text-white disabled:opacity-60">{isSaving ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />}Save changes</button>}
             {isActive && onDeactivate && <button type="button" onClick={onDeactivate} className="inline-flex items-center gap-1.5 rounded-lg border border-rose-300 px-3 py-2 text-sm font-medium text-rose-700 dark:border-rose-900 dark:text-rose-300"><Ban size={15} />Deactivate</button>}
           </div>
         </header>
+
+        {onSelectCustomer && <SmritiAdvancedCustomerSearchModal
+          isOpen={showCustomerSearch}
+          onClose={() => setShowCustomerSearch(false)}
+          onSelectCustomer={selectedCustomer => {
+            onSelectCustomer(selectedCustomer);
+            setShowCustomerSearch(false);
+          }}
+        />}
 
         <CorporateCustomerTabs activeTab={activeTab} onTabChange={openTab} />
 

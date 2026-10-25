@@ -12,6 +12,20 @@
   Classification: Internal
 -->
 
+## [Unreleased] - 2026-10-25
+
+### Fixed
+- **Billing Desk Empty-Bill ₹150 Charge Elimination**: Fixed defect where an empty Billing Desk evaluated to +₹150.00 add-ons and net payable due to statutory sales factor accumulation (PACK ₹50 + DELV ₹100) on an unpopulated cart:
+  - Added zero-sales-base guard in `calculateBillFactors` (`src/services/smritiSalesFactorService.ts`), strictly skipping ancillary factor accrual when `discountedSaleValue <= 0 && baseSaleAmount <= 0` while preserving configured values for non-empty transactions.
+  - Added fail-safe zero-item and zero-quantity guard to `estimatedSummaryTotals` in `BillingTerm.tsx`, evaluating all monetary figures to strictly ₹0.00 when `itemCount === 0 || totalQty === 0`.
+  - Replaced inline row literals with exported `DEFAULT_TRANSPORTER_ROWS` and `DEFAULT_ADDON_ROWS` constants across state initialization, `handleNewInvoice`, and `handleSuspendInvoice`.
+  - Enforced exact adjustment snapshot restoration from `rule_snapshots` in `handleRecallInvoice`, guaranteeing complete state isolation across successive bills.
+- **Billing Transaction Policy Recovery & Fail-Closed Safeguard**: Recovered live containerized route `/api/v1/billing/transaction-policy` in FastAPI (`smriti-api`), resolving the settlement pause warning while maintaining fail-closed settlement blocking if policy resolution is unavailable.
+
+### In Progress
+- **Billing and Customer UX Convergence**: Connected bulk paste and validated CSV import inside the active Billing Window to the shared canonical item resolver and backend preview; corrected the product-resolution fallback; assigned distinct Billing/Workspace shortcuts; added direct Customer 360 customer search with an unsaved-changes guard; and compacted Billing Desk controls without removing secondary workflows or changing shortcut bindings.
+- **Verification caveats**: Focused tests, TypeScript validation, and the frontend build pass. The full frontend suite retains eight baseline failures. The backend suite did not pass: hard-coded `smriti001` targets are rejected by the isolated-test database safety guard. Visual validation and Customer Business Tab policy remain outstanding.
+
 ## [v6.99.13] - 2026-10-25
 
 ### Added

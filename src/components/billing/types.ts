@@ -34,6 +34,8 @@ export interface BillingLineItem {
   hsnCode?: string;
   gstPercentage?: number;
   taxAmount?: number;
+  isTaxInclusive?: boolean;
+  mrp?: number;
   brand?: string;
   color?: string;
   size?: string;
@@ -256,6 +258,10 @@ export interface TransporterRow {
   rateAmt: number;
   rate: number;
   amount: number;
+  timing?: "PRE_TAX" | "POST_TAX" | "ABOVE_TAX" | "BELOW_TAX";
+  taxTreatment?: "COMPOSITE" | "SPECIFIC_SAC" | "EXEMPT" | "NON_TAXABLE";
+  gstRate?: number;
+  sacCode?: string;
 }
 
 export interface AddonDeductionRow {
@@ -266,7 +272,10 @@ export interface AddonDeductionRow {
   rateType: "Fixed" | "Percentage";
   rate: number;
   amount: number;
-  timing?: "ABOVE_TAX" | "BELOW_TAX";
+  timing?: "ABOVE_TAX" | "BELOW_TAX" | "PRE_TAX" | "POST_TAX";
+  taxTreatment?: "COMPOSITE" | "SPECIFIC_SAC" | "EXEMPT" | "NON_TAXABLE";
+  gstRate?: number;
+  sacCode?: string;
   priceGroupCode?: string;
   isVariable?: boolean;
 }

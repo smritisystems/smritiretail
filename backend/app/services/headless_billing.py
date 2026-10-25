@@ -65,6 +65,9 @@ class HeadlessBillingCore:
         customer_discount_policy: Optional[CustomerDiscountPolicy] = None,
         is_interstate: Optional[bool] = None,
         promotion_result: Optional[Any] = None,
+        authorized_price_override: bool = False,
+        authorized_discount_override: bool = False,
+        authorized_adjustment_override: bool = False,
     ) -> BillingCalculationResult:
         """
         Executes the canonical billing calculation sequence:
@@ -292,7 +295,37 @@ class HeadlessBillingCore:
         else:
             place_of_supply_code = req.place_of_supply[:2] if req.place_of_supply else None
 
-        # 4. Calculation Variables
+        # 4. Calculation Variables & Override Permissions
+        has_supervisor_override = bool(getattr(req.context, "supervisor_override_code", None))
+        price_override_allowed = authorized_price_override or has_supervisor_override
+        discount_override_allowed = authorized_discount_override or has_supervisor_override
+        adjustment_override_allowed = authorized_adjustment_override or has_supervisor_override
+
+        raw_adjustments = list(req.adjustments or [])
+        pre_tax_composite_addons = [
+            a for a in raw_adjustments
+            if a.timing == "PRE_TAX" and a.tax_treatment == "COMPOSITE" and a.adjustment_type == "ADDON"
+        ]
+        pre_tax_composite_deductions = [
+            a for a in raw_adjustments
+            if a.timing == "PRE_TAX" and a.adjustment_type == "DEDUCTION"
+        ]
+        pre_tax_specific_addons = [
+            a for a in raw_adjustments
+            if a.timing == "PRE_TAX" and a.tax_treatment == "SPECIFIC_SAC" and a.adjustment_type == "ADDON"
+        ]
+        post_tax_addons = [
+            a for a in raw_adjustments
+            if a.timing == "POST_TAX" and a.adjustment_type == "ADDON"
+        ]
+        post_tax_deductions = [
+            a for a in raw_adjustments
+            if a.timing == "POST_TAX" and a.adjustment_type == "DEDUCTION"
+        ]
+
+        composite_addon_total = sum(Decimal(str(a.amount)) for a in pre_tax_composite_addons)
+        composite_ded_total = sum(Decimal(str(a.amount)) for a in pre_tax_composite_deductions)
+
         calculated_lines: List[BillingCalculatedLine] = []
         batch_deductions: List[Dict[str, Any]] = []
 
@@ -480,22 +513,20 @@ class HeadlessBillingCore:
                         detail=f"SMRITI-PRICE-001: Selling price (₹{rate:,.2f}) cannot exceed statutory MRP (₹{auth_mrp:,.2f}) for item '{item.name or item.code}'.",
                     )
 
-                # 2. Rate Deviation Check: requires supervisor override if different from authoritative rate
-                if rate != auth_sp:
-                    has_supervisor_override = bool(getattr(req.context, "supervisor_override_code", None))
-                    if not has_supervisor_override:
-                        raise HTTPException(
-                            status_code=400,
-                            detail={
-                                "code": "SMRITI-PRICE-OVERRIDE-REQ",
-                                "title": "Supervisor Price Override Required",
-                                "explanation": f"Line {line_no} ({item.name or item.code}): Unit price ₹{rate:,.2f} deviates from authoritative rate ₹{auth_sp:,.2f}.",
-                                "suggested_action": "Enter supervisor authorization code to apply custom rate, or use standard catalog price.",
-                                "line_no": line_no,
-                                "authoritative_price": float(auth_sp),
-                                "submitted_price": float(rate),
-                            },
-                        )
+                # 2. Rate Deviation Check: requires supervisor override or explicit RBAC permission if different from authoritative rate
+                if rate != auth_sp and not price_override_allowed:
+                    raise HTTPException(
+                        status_code=400,
+                        detail={
+                            "code": "SMRITI-PRICE-OVERRIDE-REQ",
+                            "title": "Supervisor Price Override Required",
+                            "explanation": f"Line {line_no} ({item.name or item.code}): Unit price ₹{rate:,.2f} deviates from authoritative rate ₹{auth_sp:,.2f}.",
+                            "suggested_action": "Enter supervisor authorization code to apply custom rate, or use standard catalog price.",
+                            "line_no": line_no,
+                            "authoritative_price": float(auth_sp),
+                            "submitted_price": float(rate),
+                        },
+                    )
 
             # Determine Tax Inclusivity via 5-tier statutory hierarchy:
             # 1. Line Item Override
@@ -589,19 +620,46 @@ class HeadlessBillingCore:
                     detail=f"SMRITI-TAX-004: Line item '{item.code}' has negative GST tax rate ({gst_rate}). Valid tax classification required.",
                 )
 
-            # Gross base & Line discount
+            # Gross base & Line discount (Contractual Policy + Promo Stacking)
             gross_base = qty * rate
             disc_amount = Decimal("0.00")
+            contractual_pct = customer_discount_policy.contractual_discount_percent if customer_discount_policy else Decimal("0.00")
 
             if promotion_result:
                 promo_total = Decimal(str(promotion_result.total_promotional_discount))
-                disc_amount = round_currency(promo_total * gross_base / cart_gross_total) if cart_gross_total > 0 else Decimal("0.00")
+                promo_line_disc = round_currency(promo_total * gross_base / cart_gross_total) if cart_gross_total > 0 else Decimal("0.00")
+                allow_stacking = getattr(promotion_result, "allow_customer_discount_stacking", False) or getattr(promotion_result, "allow_stacking", False)
+                if allow_stacking and contractual_pct > 0:
+                    contractual_line_disc = round_currency(gross_base * contractual_pct / Decimal("100.00"))
+                    disc_amount = promo_line_disc + contractual_line_disc
+                elif contractual_pct > 0:
+                    contractual_line_disc = round_currency(gross_base * contractual_pct / Decimal("100.00"))
+                    disc_amount = max(promo_line_disc, contractual_line_disc)
+                else:
+                    disc_amount = promo_line_disc
             else:
+                client_disc = Decimal("0.00")
                 if item.disc_pct and item.disc_pct > 0:
-                    disc_amount += round_currency(gross_base * Decimal(str(item.disc_pct)) / Decimal("100.00"))
+                    client_disc += round_currency(gross_base * Decimal(str(item.disc_pct)) / Decimal("100.00"))
                 if item.disc_amt and item.disc_amt > 0:
-                    disc_amount += Decimal(str(item.disc_amt))
+                    client_disc += Decimal(str(item.disc_amt))
+
+                if contractual_pct > 0:
+                    contractual_line_disc = round_currency(gross_base * contractual_pct / Decimal("100.00"))
+                    disc_amount = max(client_disc, contractual_line_disc)
+                else:
+                    disc_amount = client_disc
+
             disc_amount = min(disc_amount, gross_base)
+
+            # Section 8 CGST Composite Adjustment apportionment across product lines by gross base
+            if cart_gross_total > 0:
+                line_comp_addon = round_currency(composite_addon_total * gross_base / cart_gross_total)
+                line_comp_ded = round_currency(composite_ded_total * gross_base / cart_gross_total)
+            else:
+                line_comp_addon = Decimal("0.00")
+                line_comp_ded = Decimal("0.00")
+            line_composite_adjustment = line_comp_addon - line_comp_ded
 
             # Statutory Tax Engine Calculation
             tax_dict = calculate_line_item_tax(
@@ -611,6 +669,7 @@ class HeadlessBillingCore:
                 gst_rate=Decimal(str(gst_rate)),
                 is_tax_inclusive=tax_inc,
                 is_interstate=is_interstate,
+                composite_adjustment=line_composite_adjustment,
             )
 
             # Accumulate Header Totals
@@ -668,21 +727,83 @@ class HeadlessBillingCore:
                     "warehouse_location_id": getattr(item, "warehouse_location_id", None),
                 })
 
+        # 5b. Process Pre-Tax Specific SAC Fee Lines (e.g. Dedicated Transport Service SAC 9965)
+        for s_idx, spec_adj in enumerate(pre_tax_specific_addons):
+            fee_line_no = len(calculated_lines) + 1
+            fee_qty = Decimal("1.0000")
+            fee_rate = Decimal(str(spec_adj.amount))
+            fee_gst_rate = Decimal(str(spec_adj.gst_rate if spec_adj.gst_rate is not None else "18.00"))
+            fee_tax = calculate_line_item_tax(
+                unit_price=fee_rate,
+                quantity=fee_qty,
+                discount_amount=Decimal("0.00"),
+                gst_rate=fee_gst_rate,
+                is_tax_inclusive=False,
+                is_interstate=is_interstate,
+            )
+            total_gross += fee_rate
+            total_taxable += fee_tax["taxable_value"]
+            total_cgst += fee_tax["cgst_amount"]
+            total_sgst += fee_tax["sgst_amount"]
+            total_igst += fee_tax["igst_amount"]
+            total_tax += fee_tax["tax_amount"]
+
+            calculated_lines.append(
+                BillingCalculatedLine(
+                    line_no=fee_line_no,
+                    variant_id=None,
+                    item_id=None,
+                    product_id=None,
+                    code=spec_adj.code,
+                    name=spec_adj.name or "Service Add-on",
+                    quantity=fee_qty,
+                    unit_price=fee_rate,
+                    disc_pct=Decimal("0.00"),
+                    discount_amount=Decimal("0.00"),
+                    taxable_value=fee_tax["taxable_value"],
+                    gst_rate=fee_gst_rate,
+                    cgst_amount=fee_tax["cgst_amount"],
+                    sgst_amount=fee_tax["sgst_amount"],
+                    igst_amount=fee_tax["igst_amount"],
+                    tax_amount=fee_tax["tax_amount"],
+                    total_amount=fee_tax["total_amount"],
+                    is_tax_inclusive=False,
+                    batch_no="SERVICE",
+                    hsn_code=spec_adj.sac_code or "9965",
+                    mrp=None,
+                    customer_po_line_id=None,
+                    source_line_type="SERVICE_ADDON",
+                    source_line_id=None,
+                )
+            )
+
+        post_tax_addon_total = sum(Decimal(str(a.amount)) for a in post_tax_addons)
+        post_tax_ded_total = sum(Decimal(str(a.amount)) for a in post_tax_deductions)
+        total_addons = (
+            composite_addon_total
+            + sum(Decimal(str(a.amount)) for a in pre_tax_specific_addons)
+            + post_tax_addon_total
+        )
+        total_deductions = composite_ded_total + post_tax_ded_total
+
         # 6. Header Aggregation & Round-Off Delta
-        subtotal = sum(l.total_amount for l in calculated_lines)
+        lines_subtotal = sum(l.total_amount for l in calculated_lines)
+        subtotal = lines_subtotal + post_tax_addon_total - post_tax_ded_total
         net_rounded = round_currency(subtotal)
         round_off = net_rounded - subtotal
         discounted_base = total_gross - total_discount
 
         # 7. Customer Discount Policy Validation
-        # Skip when supervisor_override_code is present (bulk import / B2B contracted pricing)
-        has_supervisor_override = bool(getattr(req.context, "supervisor_override_code", None))
-        if not has_supervisor_override:
-            validate_customer_discount_policy(customer_discount_policy, total_discount, total_gross)
+        if not discount_override_allowed:
+            validate_customer_discount_policy(
+                customer_discount_policy,
+                total_discount,
+                total_gross,
+                authorized_discount_override=discount_override_allowed,
+            )
 
         # 7.5 Server-Authoritative Invoice Maximum Discount Ceiling (P0-3)
-        # Skipped when supervisor override is present (bulk import / B2B contracted pricing)
-        if not has_supervisor_override:
+        if not discount_override_allowed:
             from .system_parameter import SystemParameterService
             max_disc_param = await SystemParameterService.resolve_parameter(
                 db=session,
@@ -704,6 +825,23 @@ class HeadlessBillingCore:
                             ),
                         )
 
+        adjustments_result = [
+            {
+                "code": a.code,
+                "name": a.name,
+                "adjustment_type": a.adjustment_type,
+                "timing": a.timing,
+                "tax_treatment": a.tax_treatment,
+                "rate_type": a.rate_type,
+                "rate_value": float(a.rate_value),
+                "amount": float(a.amount),
+                "gst_rate": float(a.gst_rate) if a.gst_rate is not None else None,
+                "sac_code": a.sac_code,
+                "override_reason": a.override_reason,
+            }
+            for a in raw_adjustments
+        ]
+
         return BillingCalculationResult(
             gross_amount=total_gross,
             discount_amount=total_discount,
@@ -724,4 +862,7 @@ class HeadlessBillingCore:
             customer_name=req.customer_name or (db_customer.name if db_customer else "Walk-in Customer"),
             lines=calculated_lines,
             batch_deductions=batch_deductions,
+            total_addons=total_addons,
+            total_deductions=total_deductions,
+            adjustments=adjustments_result,
         )

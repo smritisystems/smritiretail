@@ -138,17 +138,19 @@ def calculate_line_item_tax(
     gst_rate: Decimal,
     is_tax_inclusive: bool,
     is_interstate: bool,
+    composite_adjustment: Decimal = Decimal("0.00"),
 ) -> Dict[str, Decimal]:
     """
     Computes exact line-level taxable value, tax split (CGST+SGST or IGST), and total amount.
+    Supports Section 8 CGST composite adjustments (apportioned freight, packing, or deductions).
     
     Formulas:
     - Tax Inclusive (MRP):
-        Gross Total = (unit_price * quantity) - discount_amount
+        Gross Total = (unit_price * quantity) - discount_amount + composite_adjustment
         Taxable Value = Gross Total / (1 + (gst_rate / 100))
         Tax Total = Gross Total - Taxable Value
     - Tax Exclusive (Base Rate):
-        Taxable Value = (unit_price * quantity) - discount_amount
+        Taxable Value = (unit_price * quantity) - discount_amount + composite_adjustment
         Tax Total = Taxable Value * (gst_rate / 100)
         Gross Total = Taxable Value + Tax Total
     """
@@ -156,9 +158,10 @@ def calculate_line_item_tax(
     quantity = Decimal(str(quantity))
     discount_amount = Decimal(str(discount_amount or "0.00"))
     gst_rate = Decimal(str(gst_rate or "0.00"))
+    composite_adjustment = Decimal(str(composite_adjustment or "0.00"))
 
     if is_tax_inclusive:
-        gross_total = (unit_price * quantity) - discount_amount
+        gross_total = (unit_price * quantity) - discount_amount + composite_adjustment
         if gst_rate > 0:
             divisor = Decimal("1.00") + (gst_rate / Decimal("100.00"))
             taxable_value = gross_total / divisor
@@ -167,7 +170,7 @@ def calculate_line_item_tax(
             taxable_value = gross_total
             tax_total = Decimal("0.00")
     else:
-        taxable_value = (unit_price * quantity) - discount_amount
+        taxable_value = (unit_price * quantity) - discount_amount + composite_adjustment
         if gst_rate > 0:
             tax_total = taxable_value * (gst_rate / Decimal("100.00"))
         else:

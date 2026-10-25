@@ -14,7 +14,7 @@ Classification: Canonical Sales Posting Contract Schema (Phase 2C Step 1)
 
 from decimal import Decimal
 from datetime import date, datetime
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Literal
 from pydantic import BaseModel, Field, ConfigDict
 
 
@@ -35,7 +35,7 @@ class CanonicalPostingContext(BaseModel):
     idempotency_key: Optional[str] = Field(None, min_length=1, max_length=128, description="Mandatory idempotency key for transactions; optional for previews")
     client_invoice_no: Optional[str] = Field(None, description="Offline or client-generated invoice number")
     source_channel: str = Field("POS_RETAIL", description="POS_RETAIL, B2B_WHOLESALE, CUSTOMER_PO, SALES_ORDER, ECOMMERCE")
-    sales_channel: Optional[str] = Field("B2B_WHOLESALE", description="Operational sales channel: MODERN_TRADE, GENERAL_TRADE, B2B_WHOLESALE, POS_RETAIL, ECOMMERCE")
+    sales_channel: Optional[str] = Field(None, description="Operational sales channel: MODERN_TRADE, GENERAL_TRADE, B2B_WHOLESALE, POS_RETAIL, ECOMMERCE")
     allow_negative_stock: bool = Field(
         False,
         description="DEPRECATED / NON-AUTHORITATIVE: Ignored for authorization. Negative stock permission is governed authoritatively by server-side SystemParameterService (SMRITI.STOCK.ALLOW_NEGATIVE_STOCK)."
@@ -96,6 +96,25 @@ class CanonicalTenderItem(BaseModel):
     notes: Optional[str] = Field(None, description="Tender notes or gateway transaction reference")
 
 
+class CanonicalAdjustmentItem(BaseModel):
+    """
+    Statutory and commercial adjustment applied to invoice header (Freight, Packing, Insurance, Deductions).
+    """
+    model_config = ConfigDict(frozen=True, from_attributes=True)
+
+    code: str = Field(..., max_length=50, description="Adjustment code (e.g. FREIGHT, PACKING, ALLOWANCE)")
+    name: str = Field(..., max_length=150, description="Display description")
+    adjustment_type: Literal["ADDON", "DEDUCTION"] = Field(..., description="ADDON or DEDUCTION")
+    rate_type: Literal["FIXED", "PERCENTAGE"] = Field("FIXED", description="FIXED or PERCENTAGE")
+    rate_value: Decimal = Field(Decimal("0.00"), ge=Decimal("0.00"), description="Percentage rate or unit rate")
+    amount: Decimal = Field(..., ge=Decimal("0.00"), description="Nominal adjustment amount")
+    timing: Literal["PRE_TAX", "POST_TAX"] = Field("PRE_TAX", description="PRE_TAX (affects taxable value) or POST_TAX (financial allowance)")
+    tax_treatment: Literal["COMPOSITE", "SPECIFIC_SAC", "EXEMPT"] = Field("COMPOSITE", description="COMPOSITE (adopts line GST rates), SPECIFIC_SAC (uses gst_rate/sac_code), or EXEMPT")
+    gst_rate: Optional[Decimal] = Field(None, ge=Decimal("0.00"), description="Statutory GST rate if SPECIFIC_SAC")
+    sac_code: Optional[str] = Field(None, max_length=20, description="Services Accounting Code (e.g. 9965, 9968)")
+    override_reason: Optional[str] = Field(None, max_length=250, description="Audit reason for manual override")
+
+
 class CanonicalPostingRequest(BaseModel):
     """
     Universal Request Schema for Canonical Sales / Billing Posting.
@@ -105,6 +124,7 @@ class CanonicalPostingRequest(BaseModel):
 
     context: CanonicalPostingContext = Field(..., description="Operational & tenant context")
     items: List[CanonicalPostingLineItem] = Field(..., min_length=1, description="Billable line items")
+    adjustments: List[CanonicalAdjustmentItem] = Field(default_factory=list, description="Header adjustments (freight, packing, deductions)")
     tenders: List[CanonicalTenderItem] = Field(default_factory=list, description="Payment tenders")
     customer_id: Optional[str] = Field(None, description="Customer entity identifier")
     customer_name: Optional[str] = Field("Walk-in Customer", description="Billing customer name")
@@ -127,6 +147,7 @@ class CanonicalPostingRequest(BaseModel):
     customer_po_id: Optional[str] = Field(None, description="Upstream customer_purchase_orders.id")
     so_reference_no: Optional[str] = Field(None, description="Sales Order reference number")
     payment_mode: Optional[str] = Field(None, description="Payment mode override (e.g. CASH, CARD, UPI, CREDIT, SPLIT)")
+    credit_override_reason: Optional[str] = Field(None, max_length=250, description="Business justification for a permissioned credit-limit override")
     promotion_campaign_id: Optional[str] = Field(None, description="Server-evaluated promotion campaign")
     promotion_coupon_code: Optional[str] = Field(None, description="Server-evaluated promotion coupon")
     promotion_coupon_id: Optional[str] = Field(None, description="Server-evaluated promotion coupon ID")
@@ -134,6 +155,10 @@ class CanonicalPostingRequest(BaseModel):
     sales_channel: Optional[str] = Field(None, description="Operational sales channel: MODERN_TRADE, GENERAL_TRADE, B2B_WHOLESALE, POS_RETAIL, ECOMMERCE")
     source_document_type: Optional[str] = Field(None, description="Source document type (e.g. PACKING_SLIP_CONSOLIDATED, CUSTOMER_PO, SALES_ORDER)")
     source_document_id: Optional[str] = Field(None, description="Source document identifier or comma-separated packing slip numbers")
+    billing_configuration_snapshot: Optional[Dict[str, Any]] = Field(
+        None,
+        description="Server-resolved transaction configuration persisted with the invoice",
+    )
     # Explicit invoice date for backdated / bulk-import workflows.
     # When None the canonical writer defaults to date.today() (live POS behaviour).
     invoice_date: Optional[date] = Field(None, description="Explicit invoice date (ISO-8601). Use only for bulk-import / correction workflows.")
@@ -257,9 +282,11 @@ class BillingCalculationResult(BaseModel):
     sgst_amount: Decimal = Field(..., description="Sum of State GST")
     igst_amount: Decimal = Field(..., description="Sum of Integrated GST")
     tax_total: Decimal = Field(..., description="Sum of all GST taxes")
-    subtotal: Decimal = Field(..., description="Unrounded invoice total (taxable + tax_total)")
+    subtotal: Decimal = Field(..., description="Unrounded invoice total (taxable + tax_total + adjustments)")
     round_off: Decimal = Field(Decimal("0.00"), description="Commercial ROUND_HALF_UP round-off delta")
     net_amount: Decimal = Field(..., description="Final net payable amount after round-off")
+    total_addons: Decimal = Field(Decimal("0.00"), description="Total pre-tax and post-tax add-on charges")
+    total_deductions: Decimal = Field(Decimal("0.00"), description="Total pre-tax and post-tax deductions")
     items_count: int = Field(..., description="Total line items count")
     total_quantity: Decimal = Field(..., description="Total units across all lines")
     is_interstate: bool = Field(False, description="Whether transaction is inter-state (IGST applies)")
@@ -267,5 +294,5 @@ class BillingCalculationResult(BaseModel):
     customer_id: Optional[str] = None
     customer_name: Optional[str] = None
     lines: List[BillingCalculatedLine] = Field(default_factory=list)
+    adjustments: List[Dict[str, Any]] = Field(default_factory=list, description="Computed adjustments breakdown")
     batch_deductions: List[Dict[str, Any]] = Field(default_factory=list, description="Batch stock reservation list for physical lines")
-

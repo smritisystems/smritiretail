@@ -15,6 +15,7 @@
 
 import { describe, it, expect } from "vitest";
 import { BillingWorkspaceMode, BillingAuxiliaryView } from "../components/billing/BillingWorkspace.tsx";
+import { LAUNCHPAD_CATALOG } from "../components/launchpad/launchpadCatalog.ts";
 import { Shift } from "../types.ts";
 
 describe("Phase 2C — Billing Workspace Convergence & Ergonomics Tests", () => {
@@ -78,24 +79,26 @@ describe("Phase 2C — Billing Workspace Convergence & Ergonomics Tests", () => 
   // TEST 3 — Hotkey Matrix & Navigation Ergonomics (Blueprint Section 183-195)
   it("TEST 3: should declare complete hotkey mapping matrix with zero conflicts", () => {
     const hotkeyMatrix: Record<string, { action: string; category: string }> = {
-      "Alt+1": { action: "SWITCH_RETAIL_POS", category: "Mode" },
       F1: { action: "WORKSPACE_DEFAULT", category: "Navigation" },
       F2: { action: "ITEM_LOOKUP_SCANNER", category: "Entry" },
-      F3: { action: "CUSTOMER_LOOKUP", category: "Entry" },
-      F4: { action: "DISCOUNT_RATE_EDIT", category: "Entry" },
-      F5: { action: "HOLD_PARK_BILL", category: "Cart" },
-      F6: { action: "RECALL_PARKED_BILL", category: "Cart" },
-      F8: { action: "EOD_Z_REPORT", category: "Shift" },
-      F10: { action: "TENDER_SETTLEMENT", category: "Payment" },
-      F12: { action: "FAST_CASH_CHECKOUT", category: "Payment" },
+      F6: { action: "PROMOTIONAL_DISCOUNTS", category: "Pricing" },
+      F7: { action: "EXACT_CASH_SETTLEMENT", category: "Payment" },
+      F8: { action: "TENDER_SETTLEMENT", category: "Payment" },
+      F11: { action: "DIRECT_ITEM_ENTRY", category: "Entry" },
+      F12: { action: "HOLD_PARK_BILL", category: "Cart" },
       Escape: { action: "CLEAR_DISMISS", category: "Control" },
     };
 
-    expect(Object.keys(hotkeyMatrix)).toHaveLength(11);
-    expect(hotkeyMatrix["Alt+1"].action).toBe("SWITCH_RETAIL_POS");
-    expect(hotkeyMatrix["F5"].action).toBe("HOLD_PARK_BILL");
-    expect(hotkeyMatrix["F6"].action).toBe("RECALL_PARKED_BILL");
-    expect(hotkeyMatrix["F10"].action).toBe("TENDER_SETTLEMENT");
+    const shortcutKeys = Object.keys(hotkeyMatrix);
+    const launchpadShortcuts = LAUNCHPAD_CATALOG
+      .filter(tile => tile.isQuickAction && tile.shortcut)
+      .map(tile => tile.shortcut!.toLowerCase());
+
+    expect(shortcutKeys).toHaveLength(8);
+    expect(new Set(shortcutKeys).size).toBe(shortcutKeys.length);
+    expect(hotkeyMatrix.F6.action).toBe("PROMOTIONAL_DISCOUNTS");
+    expect(hotkeyMatrix.F8.action).toBe("TENDER_SETTLEMENT");
+    expect(new Set(launchpadShortcuts).size).toBe(launchpadShortcuts.length);
   });
 
   // TEST 4 — Mode Tax Semantics (Phase 2B Canonical Financial Policy)

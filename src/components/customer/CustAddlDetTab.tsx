@@ -72,6 +72,39 @@ export const SmritiCustomerAdditionalDetailsTab: React.FC<SmritiCustomerAddition
 
           <div>
             <label className="text-[#515f74] dark:text-[#bec6e0] font-bold text-[10px] uppercase block mb-1">
+              Default Sales Channel
+            </label>
+            <select
+              value={customer.defaultSalesChannel || ""}
+              onChange={e => onChange("defaultSalesChannel", e.target.value || null)}
+              className="w-full p-2 bg-white dark:bg-[#191c1e] border border-[#c6c6cd] dark:border-[#45464d] rounded-lg text-xs"
+            >
+              <option value="">Inherit company / branch default</option>
+              <option value="MODERN_TRADE">Modern Trade</option>
+              <option value="GENERAL_TRADE">General Trade</option>
+              <option value="B2B_WHOLESALE">B2B Wholesale</option>
+              <option value="POS_RETAIL">POS Retail</option>
+              <option value="ECOMMERCE">E-Commerce</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="text-[#515f74] dark:text-[#bec6e0] font-bold text-[10px] uppercase block mb-1">
+              PO Reference
+            </label>
+            <select
+              value={customer.requirePoNumber == null ? "INHERIT" : customer.requirePoNumber ? "REQUIRED" : "OPTIONAL"}
+              onChange={e => onChange("requirePoNumber", e.target.value === "INHERIT" ? null : e.target.value === "REQUIRED")}
+              className="w-full p-2 bg-white dark:bg-[#191c1e] border border-[#c6c6cd] dark:border-[#45464d] rounded-lg text-xs"
+            >
+              <option value="INHERIT">Inherit customer group / company policy</option>
+              <option value="REQUIRED">Required</option>
+              <option value="OPTIONAL">Optional</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="text-[#515f74] dark:text-[#bec6e0] font-bold text-[10px] uppercase block mb-1">
               Credit Limit (INR)
             </label>
             <input
