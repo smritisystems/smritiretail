@@ -4,9 +4,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 5.5.0
+ * Version      : 5.7.1
  * Created      : 2026-08-21
- * Modified     : 2026-08-21
+ * Modified     : 2026-10-25
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
@@ -14,7 +14,7 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { X, Plus, Trash2, Check, MapPin, Phone, Mail, Home, Search, AlertCircle, CheckCircle2, Loader2 } from "lucide-react";
-import { CustomerAddressEntry, CustomerAddressType, CustomerGSTRegistrationOption, getCustomerAddressFingerprint } from "./types.ts";
+import { CustomerAddressEntry, CustomerAddressType, CustomerGSTRegistrationOption, getCustomerAddressFingerprint, findMissingStoreCodeAddress } from "./types.ts";
 import { parseAndValidateGSTIN } from "../../utils/gstEngine.ts";
 import { apiFetchV1 } from "../../lib/apiFetchV1.ts";
 import {
@@ -67,6 +67,7 @@ export const SmritiCustomerMailingModal: React.FC<SmritiCustomerMailingModalProp
   const [referencePincodes, setReferencePincodes] = useState<string[]>([]);
   const [pincodeFeedback, setPincodeFeedback] = useState<Record<number, PincodeFeedback>>({});
   const cityResolutionRequest = useRef(0);
+  const initialAddressesRef = useRef<CustomerAddressEntry[]>([]);
 
   const addressTypeLabel = (type?: CustomerAddressType) => (
     type === "billing" ? "Billing" : type === "shipping" ? "Shipping" : "Mailing"
@@ -81,8 +82,9 @@ export const SmritiCustomerMailingModal: React.FC<SmritiCustomerMailingModalProp
     if (isOpen) {
       if (addresses && addresses.length > 0) {
         setAddressList([...addresses]);
+        initialAddressesRef.current = addresses.map(a => ({ ...a }));
       } else {
-        setAddressList([{
+        const initialDefaultList: CustomerAddressEntry[] = [{
           code: "001",
           contactPerson: customerName || "Primary Contact",
           addressType: "mailing",
@@ -108,7 +110,9 @@ export const SmritiCustomerMailingModal: React.FC<SmritiCustomerMailingModalProp
           email2: "",
           email3: "",
           isDefault: true
-        }]);
+        }];
+        setAddressList(initialDefaultList);
+        initialAddressesRef.current = initialDefaultList.map(a => ({ ...a }));
       }
       setSelectedAddressIndex(0);
     }
@@ -472,11 +476,10 @@ export const SmritiCustomerMailingModal: React.FC<SmritiCustomerMailingModalProp
   };
 
   const handleSaveAndClose = () => {
-    const missingStoreCode = addressList.find(address =>
-      !address.id && (
-        (address.addressType === "billing" && !address.billingStoreCode?.trim()) ||
-        (address.addressType === "shipping" && !address.shippingStoreCode?.trim())
-      )
+    const missingStoreCode = findMissingStoreCodeAddress(
+      addressList,
+      initialAddressesRef.current,
+      customerName
     );
     if (missingStoreCode) {
       const label = missingStoreCode.addressType === "billing" ? "Billing Store Code" : "Shipping Store Code";

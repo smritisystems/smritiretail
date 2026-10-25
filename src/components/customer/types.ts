@@ -4,9 +4,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.99.0
+ * Version      : 6.99.1
  * Created      : 2026-08-21
- * Modified     : 2026-10-24
+ * Modified     : 2026-10-25
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
@@ -103,6 +103,102 @@ export const getCustomerAddressFingerprint = (address: Partial<CustomerAddressEn
   ].map(normalizeAddressPart);
 
   return parts.slice(0, -1).some(Boolean) ? `${addressType}|${parts.join("|")}` : "";
+};
+
+/**
+ * Determines whether an address entry is an untouched default placeholder synthesized
+ * during Customer Master normalization or default state initialization.
+ */
+export const isAddressEntryPlaceholder = (
+  address?: Partial<CustomerAddressEntry>,
+  customerName?: string
+): boolean => {
+  if (!address) return true;
+  if (address.id) return false;
+
+  // Check if any substantive address line, identifier, contact, or store code was entered
+  const hasSubstantiveDetails = [
+    address.address1,
+    address.address2,
+    address.address3,
+    address.address4,
+    address.address5,
+    address.locality,
+    address.postalCode,
+    address.locationName,
+    address.gstin,
+    address.mobilePhone,
+    address.officePhone,
+    address.homePhone,
+    address.email1,
+    address.email2,
+    address.email3,
+    address.billingStoreCode,
+    address.shippingStoreCode,
+    address.storeCode
+  ].some(val => Boolean(val && String(val).trim()));
+
+  if (hasSubstantiveDetails) return false;
+
+  // Check if contact person was changed to an active custom contact
+  const contact = (address.contactPerson || "").trim();
+  const isDefaultContact = !contact ||
+    contact === (customerName || "").trim() ||
+    contact === "Primary Contact" ||
+    contact === "Contact Person";
+  if (!isDefaultContact) return false;
+
+  // Check if city or state was actively customized away from defaults
+  const city = (address.city || "").trim();
+  const isDefaultCity = !city || city.toLowerCase() === "gorakhpur";
+  if (!isDefaultCity) return false;
+
+  const state = (address.state || "").trim();
+  const isDefaultState = !state || state.toLowerCase() === "uttar pradesh";
+  if (!isDefaultState) return false;
+
+  return true;
+};
+
+/**
+ * Finds any actual new or edited Billing or Shipping address in addressList that is missing
+ * its required store code. Untouched default placeholders from normalization are skipped.
+ */
+export const findMissingStoreCodeAddress = (
+  addressList: CustomerAddressEntry[],
+  initialAddresses: CustomerAddressEntry[] = [],
+  customerName?: string
+): CustomerAddressEntry | undefined => {
+  return addressList.find((address, index) => {
+    // Persisted records with an ID are already established
+    if (address.id) return false;
+
+    const isBilling = address.addressType === "billing";
+    const isShipping = address.addressType === "shipping";
+    if (!isBilling && !isShipping) return false;
+
+    // Check if this entry corresponds to an initial placeholder passed into the editor
+    const isInitialPlaceholder = initialAddresses &&
+      index < initialAddresses.length &&
+      isAddressEntryPlaceholder(initialAddresses[index], customerName);
+
+    // If it was an initial placeholder and remains completely devoid of substantive address content,
+    // it is an untouched default placeholder and should not block saving
+    if (isInitialPlaceholder && isAddressEntryPlaceholder(address, customerName)) {
+      return false;
+    }
+
+    // Otherwise, it is an actual new or edited Billing or Shipping address.
+    // Enforce mandatory store code:
+    if (isBilling && !address.billingStoreCode?.trim()) {
+      return true;
+    }
+    if (isShipping && !address.shippingStoreCode?.trim()) {
+      return true;
+    }
+
+    return false;
+  });
 };
 
 export interface CustomerDependantEntry {
