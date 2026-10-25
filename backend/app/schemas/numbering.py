@@ -211,7 +211,7 @@ class BillPrefixBatchSaveItem(BaseModel):
     suffix: Optional[str] = ""
     startNumber: int = Field(1, alias="startNumber", ge=1)
     currentNumber: Optional[int] = Field(0, alias="currentNumber")
-    runningLength: int = Field(4, alias="runningLength", ge=1, le=10)
+    runningLength: int = Field(4, alias="runningLength", ge=0, le=10)
     isActive: bool = Field(True, alias="isActive")
     isVoidUnified: bool = Field(False, alias="isVoidUnified")
     numberFormat: Optional[NumberFormat] = Field("PREFIX_NUM_SUFFIX", alias="numberFormat")
@@ -236,9 +236,9 @@ class BillPrefixBatchSaveItem(BaseModel):
             return ""
         v = str(v).strip().upper()
         # Empty prefix is permitted (some series have no prefix)
-        if v and not re.match(r'^[A-Z0-9\-\/]{1,10}$', v):
+        if v and not re.match(r'^[A-Z0-9\-\/]{1,15}$', v):
             raise ValueError(
-                "Prefix must be 1–10 uppercase alphanumeric characters (A-Z, 0-9, -, /) "
+                "Prefix must be 1–15 uppercase alphanumeric characters (A-Z, 0-9, -, /) "
                 "to comply with GST Rule 46(b)."
             )
         return v

@@ -19,6 +19,7 @@ import { apiFetchV1 } from "../lib/apiFetchV1.ts";
 export type TransactionGroup = "SALES" | "CASH" | "SLIPS";
 
 export type BillingTransactionType =
+  | "SALES_INVOICE"
   | "SALES_CASH"
   | "SALES_CREDIT"
   | "SALES_RETURN"
@@ -210,7 +211,8 @@ export function formatBillPreview(
   fmt: NumberFormat = "PREFIX_NUM_SUFFIX",
   financialYear: string = ""
 ): string {
-  const padded = docNo.toString().padStart(runningLength, "0");
+  const runLen = runningLength !== undefined && runningLength !== null ? runningLength : 4;
+  const padded = docNo.toString().padStart(runLen, "0");
   return assembleBillNo(prefix, padded, suffix, financialYear, fmt);
 }
 
@@ -233,6 +235,22 @@ export class SmritiBillPrefixService {
 
     return [
       // Sales Group
+      {
+        name: "Standard Sales",
+        documentType: "SALES_INVOICE",
+        transactionGroup: "SALES",
+        terminalId,
+        isCommonAcrossTerminals: isCommon,
+        prefix: "TT2026-2027/",
+        suffix: "",
+        startNumber: 18,
+        currentNumber: 0,
+        runningLength: 0,
+        isActive: true,
+        isVoidUnified: false,
+        numberFormat: "PREFIX_NUM_SUFFIX",
+        financialYear: `${fyStart}-${fyStart + 1}`,
+      },
       {
         name: "Cash Sales Invoice",
         documentType: "SALES_CASH",
@@ -522,9 +540,9 @@ export class SmritiBillPrefixService {
           isCommonAcrossTerminals: d.isCommonAcrossTerminals !== false,
           prefix: d.prefix || "",
           suffix: d.suffix || "",
-          startNumber: d.startNumber || 1,
+          startNumber: d.startNumber !== undefined && d.startNumber !== null ? d.startNumber : 1,
           currentNumber: d.currentNumber || 0,
-          runningLength: d.runningLength || 4,
+          runningLength: d.runningLength !== undefined && d.runningLength !== null ? d.runningLength : 4,
           isActive: d.isActive !== false,
           isVoidUnified: Boolean(d.isVoidUnified),
           numberFormat: (d.numberFormat || "PREFIX_NUM_SUFFIX") as NumberFormat,

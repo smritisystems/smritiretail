@@ -109,8 +109,12 @@ export const SmritiDefineBillPrefixModal: React.FC<SmritiDefineBillPrefixModalPr
   const handleSave = async () => {
     // Validate GST Rule 46(b) for all rows
     for (const item of definitions) {
-      const padded = (item.startNumber || 1).toString().padStart(item.runningLength || 4, "0");
-      const gst = validateGstRule46b(item.prefix, padded, item.suffix);
+      const runLen = item.runningLength !== undefined && item.runningLength !== null ? item.runningLength : 4;
+      const padded = (item.startNumber ?? 1).toString().padStart(runLen, "0");
+      const fmt = item.numberFormat || "PREFIX_NUM_SUFFIX";
+      const fy  = item.financialYear || "";
+      const preview = assembleBillNo(item.prefix, padded, item.suffix, fy, fmt);
+      const gst = validateGstRule46b(preview, "", "");
       if (!gst.isValid) {
         setToastMessage({
           text: `Cannot save: ${item.name} violates GST Rule 46(b): ${gst.error}`,
@@ -323,7 +327,8 @@ export const SmritiDefineBillPrefixModal: React.FC<SmritiDefineBillPrefixModalPr
                     new Map(filteredDefinitions.map(r => [r.documentType, r])).values()
                   ).map((row) => {
                     const actualIdx = definitions.findIndex(d => d.documentType === row.documentType);
-                    const padded = (row.startNumber || 1).toString().padStart(row.runningLength || 4, "0");
+                    const runLen = row.runningLength !== undefined && row.runningLength !== null ? row.runningLength : 4;
+                    const padded = (row.startNumber ?? 1).toString().padStart(runLen, "0");
                     const fmt = row.numberFormat || "PREFIX_NUM_SUFFIX";
                     const fy  = row.financialYear || "";
                     const preview = assembleBillNo(row.prefix, padded, row.suffix, fy, fmt);
@@ -342,8 +347,9 @@ export const SmritiDefineBillPrefixModal: React.FC<SmritiDefineBillPrefixModalPr
                             type="text"
                             data-field-key="prefix"
                             value={row.prefix}
+                            maxLength={15}
                             onChange={e => handleRowChange(actualIdx, "prefix", e.target.value.toUpperCase())}
-                            className="w-24 border border-[#c4c5d5] dark:border-[#444653] rounded px-2 py-1 font-mono text-xs bg-white dark:bg-[#1e2022] outline-none focus:border-[#00288e]"
+                            className="w-36 border border-[#c4c5d5] dark:border-[#444653] rounded px-2 py-1 font-mono text-xs bg-white dark:bg-[#1e2022] outline-none focus:border-[#00288e]"
                           />
                         </td>
                         <td className="px-3 py-2">
@@ -371,6 +377,7 @@ export const SmritiDefineBillPrefixModal: React.FC<SmritiDefineBillPrefixModalPr
                             onChange={e => handleRowChange(actualIdx, "runningLength", parseInt(e.target.value))}
                             className="border border-[#c4c5d5] dark:border-[#444653] rounded px-1 py-1 text-xs bg-white dark:bg-[#1e2022]"
                           >
+                            <option value={0}>0 (No padding)</option>
                             <option value={3}>3</option>
                             <option value={4}>4</option>
                             <option value={5}>5</option>

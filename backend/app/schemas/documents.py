@@ -27,7 +27,7 @@ class DocumentSeriesCreateRequest(BaseModel):
     module: Optional[str] = "SALES"
     prefix: str = Field("", max_length=100)
     suffix: str = Field("", max_length=100)
-    running_length: int = Field(4, ge=1, le=10)
+    running_length: int = Field(4, ge=0, le=10)
     reset_rule: str = Field("Financial Year", description="Financial Year, Calendar Year, Monthly, Daily, Never")
     financial_year: Optional[str] = None
     company_code: Optional[str] = None
