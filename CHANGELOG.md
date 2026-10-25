@@ -26,6 +26,24 @@
 - **Billing and Customer UX Convergence**: Connected bulk paste and validated CSV import inside the active Billing Window to the shared canonical item resolver and backend preview; corrected the product-resolution fallback; assigned distinct Billing/Workspace shortcuts; added direct Customer 360 customer search with an unsaved-changes guard; and compacted Billing Desk controls without removing secondary workflows or changing shortcut bindings.
 - **Verification caveats**: Focused tests, TypeScript validation, and the frontend build pass. The full frontend suite retains eight baseline failures. The backend suite did not pass: hard-coded `smriti001` targets are rejected by the isolated-test database safety guard. Visual validation and Customer Business Tab policy remain outstanding.
 
+## [v6.19.0] - 2026-10-25
+
+### Added
+- **Standard Sales Invoice Series & Exact Format TT2026-2027/18**:
+  - Configured and seeded the **Standard Sales** series (`SER-STD-SALES-001`, `document_type: "SALES_INVOICE"`) with prefix `TT2026-2027/`, start number `18`, running length `0`, generating exact invoice number `TT2026-2027/18`.
+  - Added Alembic migration `v1545_document_series_prefix_and_padding_limits.py` updating database check constraints `chk_document_series_prefix_format` to `char_length(prefix) BETWEEN 1 AND 15` and `chk_document_series_running_length` to `running_length BETWEEN 0 AND 10` on `document_series`.
+  - Added option `0 (No padding)` in `SmritiDefineBillPrefixModal.tsx` dropdown.
+
+### Changed
+- **Statutory Prefix Length & Zero-Padding Limits (GST Rule 46(b))**:
+  - Expanded prefix validation limit from 10 to 15 uppercase alphanumeric characters (`^[A-Z0-9\-\/]{1,15}$`) across `backend/app/schemas/numbering.py`, `backend/app/schemas/documents.py`, and `src/components/billing/SmritiDefineBillPrefixModal.tsx` while strictly preserving statutory 16-character total length limit under GST Rule 46(b).
+  - Allowed `runningLength: 0` (unpadded raw sequence) across schemas, `NumberingEngine`, `DocumentsEngine`, `PricingPaymentService`, and frontend formatters.
+  - Fixed JavaScript/Python falsy coalescence bugs (`running_length || 4` / `runningLength || 4` -> `?? 4`) preventing unpadded sequence `0` from falling back to `4`.
+
+### Documentation
+- Created formal walkthrough `docs/walkthrough/billing/Billing_Invoice_Prefix_Statutory_GST46b_Configuration_Walkthrough_v6.19.0.md` and indexed in `docs/walkthrough/README.md`.
+- Created formal implementation plan `docs/implementation/billing/Billing_Invoice_Prefix_Statutory_GST46b_Configuration_Plan_v6.19.0.md` and indexed in `docs/implementation/README.md`.
+
 ## [v6.99.13] - 2026-10-25
 
 ### Added

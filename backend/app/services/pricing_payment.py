@@ -208,7 +208,8 @@ class UnifiedPricingPaymentService:
         series.current_number += 1
         new_num = series.current_number
 
-        formatted_seq = str(new_num).zfill(series.running_length or 4)
+        run_len = series.running_length if series.running_length is not None else 4
+        formatted_seq = str(new_num).zfill(run_len)
         doc_no = f"{series.prefix}/{financial_year}/{formatted_seq}"
 
         # Write audit log

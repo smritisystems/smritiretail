@@ -74,7 +74,7 @@ class NumberingService:
             module=data.module,
             prefix=data.prefix or "",
             suffix=data.suffix or "",
-            running_length=data.runningLength or 6,
+            running_length=data.runningLength if data.runningLength is not None else 6,
             reset_rule=data.resetRule or "Financial Year",
             current_number=data.currentNumber or 0,
             financial_year=data.financialYear,
@@ -227,12 +227,17 @@ class NumberingService:
                 series.last_reset_key = current_key
                 series.current_number = 0
 
-        old_num = series.current_number
-        next_num = old_num + 1
+        start_num = series.start_number or 1
+        old_num = series.current_number or 0
+        if old_num < start_num:
+            next_num = start_num
+        else:
+            next_num = old_num + 1
         series.current_number = next_num
 
         # Zero-pad number sequence
-        formatted_num = str(next_num).zfill(series.running_length or 6)
+        run_len = series.running_length if series.running_length is not None else 6
+        formatted_num = str(next_num).zfill(run_len)
 
         # Token replacement inside prefix
         pfx = series.prefix or ""
@@ -393,6 +398,9 @@ class NumberingService:
             "APPROVAL_DC": ("APPROVAL_DC", "SLIPS", "ADC/"),
             "CASH_RECEIPT": ("CASH_RECEIPT", "CASH", "RCP/"),
             "CASH_PAYOUT": ("CASH_PAYOUT", "CASH", "PAY/"),
+            "SALES_INVOICE": ("SALES_INVOICE", "SALES", "TT2026-2027/"),
+            "STANDARD_SALES": ("SALES_INVOICE", "SALES", "TT2026-2027/"),
+            "STANDARD_SALES_INVOICE": ("SALES_INVOICE", "SALES", "TT2026-2027/"),
         }
 
         canonical_doc_type, tx_group, default_pfx = tx_type_mapping.get(
@@ -480,7 +488,7 @@ class NumberingService:
         start_num = series.start_number or 1
         curr_num = series.current_number or 0
         next_num = max(curr_num + 1, start_num) if curr_num > 0 else start_num
-        run_len = series.running_length or 4
+        run_len = series.running_length if series.running_length is not None else 4
         formatted_seq = str(next_num).zfill(run_len)
 
         full_preview = self._assemble_doc_no(

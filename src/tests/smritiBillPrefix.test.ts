@@ -80,9 +80,10 @@ describe("SMRITI Bill Prefix & Statutory GST Rule 46(b) Suite", () => {
       const defaults = SmritiBillPrefixService.getDefaultDefinitions("COMMON", true);
 
       // Must cover Sales, Cash, and Slips groups
-      expect(defaults.length).toBe(12);
+      expect(defaults.length).toBe(13);
 
       const salesTypes = defaults.filter(d => d.transactionGroup === "SALES").map(d => d.documentType);
+      expect(salesTypes).toContain("SALES_INVOICE");
       expect(salesTypes).toContain("SALES_CASH");
       expect(salesTypes).toContain("SALES_CREDIT");
       expect(salesTypes).toContain("SALES_RETURN");
@@ -177,4 +178,63 @@ describe("SMRITI Bill Prefix & Statutory GST Rule 46(b) Suite", () => {
       expect(formatBillPreview("TT", 251, "", 3, "PREFIX_YEAR_SEP_NUM", "2026-2027")).toBe("TT/2026-2027/251");
     });
   });
+
+  describe("Standard Sales Invoice Series: Exact TT2026-2027/18 Specification", () => {
+    it("should accept prefix 'TT2026-2027/' with 0-padding sequence 18 and produce exact 'TT2026-2027/18'", () => {
+      const prefix = "TT2026-2027/";
+      const startNumber = 18;
+      const runningLength = 0; // No zero-padding
+      const suffix = "";
+
+      // 1. Preview formatting with 0 padding
+      const preview = formatBillPreview(prefix, startNumber, suffix, runningLength);
+      expect(preview).toBe("TT2026-2027/18");
+      expect(preview.length).toBe(14);
+
+      // 2. Assembly with PREFIX_NUM_SUFFIX
+      const assembled = assembleBillNo(prefix, startNumber.toString(), suffix, "", "PREFIX_NUM_SUFFIX");
+      expect(assembled).toBe("TT2026-2027/18");
+
+      // 3. GST Rule 46(b) statutory compliance
+      const gst = validateGstRule46b(prefix, startNumber.toString().padStart(runningLength, "0"), suffix);
+      expect(gst.isValid).toBe(true);
+      expect(gst.length).toBe(14);
+      expect(gst.length).toBeLessThanOrEqual(16);
+      expect(gst.combined).toBe("TT2026-2027/18");
+      expect(gst.error).toBeUndefined();
+    });
+
+    it("should include Standard Sales in default definitions configured for TT2026-2027/18", () => {
+      const defaults = SmritiBillPrefixService.getDefaultDefinitions("COMMON", true);
+      const stdSales = defaults.find(d => d.name === "Standard Sales");
+
+      expect(stdSales).toBeDefined();
+      expect(stdSales?.documentType).toBe("SALES_INVOICE");
+      expect(stdSales?.prefix).toBe("TT2026-2027/");
+      expect(stdSales?.suffix).toBe("");
+      expect(stdSales?.startNumber).toBe(18);
+      expect(stdSales?.runningLength).toBe(0);
+
+      const preview = formatBillPreview(stdSales!.prefix, stdSales!.startNumber, stdSales!.suffix, stdSales!.runningLength);
+      expect(preview).toBe("TT2026-2027/18");
+    });
+
+    it("should resolve fallback prefix for SALES_INVOICE to TT2026-2027/18 when backend is offline", async () => {
+      const res = await SmritiBillPrefixService.resolveActivePrefix({
+        transactionType: "SALES_INVOICE",
+        terminalId: "COMMON"
+      });
+
+      expect(res).toBeDefined();
+      expect(res.prefix).toBe("TT2026-2027/");
+      expect(res.suffix).toBe("");
+      expect(res.nextDocNo).toBe(18);
+      expect(res.formattedDocNo).toBe("18");
+      expect(res.fullPreview).toBe("TT2026-2027/18");
+      expect(res.runningLength).toBe(0);
+      expect(res.gstRule46bValid).toBe(true);
+      expect(res.gstRule46bLength).toBe(14);
+    });
+  });
 });
+

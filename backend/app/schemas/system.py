@@ -272,8 +272,8 @@ class NumberingSeriesConfig(BaseModel):
     @field_validator("runningLength")
     @classmethod
     def validate_running_length(cls, value: int) -> int:
-        if value is None or value <= 0:
-            raise ValueError("runningLength must be a positive integer.")
+        if value is None or value < 0:
+            raise ValueError("runningLength must be zero or a positive integer.")
         return value
 
     @field_validator("currentNumber")

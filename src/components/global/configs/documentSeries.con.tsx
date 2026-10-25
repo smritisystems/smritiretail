@@ -23,7 +23,9 @@ import { DocumentSeries, NumberingEngine } from "../../../services/numberingEngi
 const LiveSeriesPreview: React.FC<{ formState: any }> = ({ formState }) => {
   const prefix = formState.prefix || "";
   const suffix = formState.suffix || "";
-  const runningLength = Number(formState.runningLength) || (formState.documentType === "ARTICLE" ? 5 : 6);
+  const runningLength = formState.runningLength !== undefined && formState.runningLength !== null && formState.runningLength !== ""
+    ? Number(formState.runningLength)
+    : (formState.documentType === "ARTICLE" ? 5 : 6);
   const startNum = Number(formState.startNumber) || 1;
   const currentNum = formState.currentNumber !== undefined && formState.currentNumber !== null && formState.currentNumber !== ""
     ? Number(formState.currentNumber)
@@ -264,7 +266,7 @@ export const documentSeriesConfig: MasterConfig<DocumentSeries> = {
         <div className="font-mono text-xs font-bold text-blue-500 dark:text-blue-400">
           {val || "—"}
           <span className="text-emerald-500 font-normal">
-            {"0".repeat(item.runningLength || (item.documentType === "ARTICLE" ? 5 : 6))}
+            {"0".repeat(item.runningLength !== undefined && item.runningLength !== null ? item.runningLength : (item.documentType === "ARTICLE" ? 5 : 6))}
           </span>
           {item.suffix || ""}
         </div>
@@ -434,7 +436,7 @@ export const documentSeriesConfig: MasterConfig<DocumentSeries> = {
       label: "Padding Digit Length",
       type: "number",
       defaultValue: 5,
-      min: 1,
+      min: 0,
       max: 10,
       colSpan: 1
     },

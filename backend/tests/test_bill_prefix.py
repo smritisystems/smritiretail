@@ -322,3 +322,161 @@ async def test_save_batch_with_null_and_missing_attributes():
         assert serialized[0]["isVoidUnified"] is False
         assert serialized[0]["documentType"] == "SALES_CREDIT"
 
+
+def test_bill_prefix_batch_save_item_prefix_validation():
+    """
+    Validates that BillPrefixBatchSaveItem accepts prefix up to 15 chars (e.g. TT2026-2027/),
+    accepts runningLength=0 (no padding), and rejects prefixes exceeding 15 chars or containing invalid characters.
+    """
+    from pydantic import ValidationError
+
+    # 1. Exact required format: prefix "TT2026-2027/" (len 12) + startNumber 18 + runningLength 0
+    item = BillPrefixBatchSaveItem(
+        name="Standard Sales",
+        documentType="SALES_INVOICE",
+        transactionGroup="SALES",
+        terminalId="COMMON",
+        isCommonAcrossTerminals=True,
+        prefix="TT2026-2027/",
+        suffix="",
+        startNumber=18,
+        runningLength=0,
+        isActive=True,
+        numberFormat="PREFIX_NUM_SUFFIX"
+    )
+    assert item.prefix == "TT2026-2027/"
+    assert item.startNumber == 18
+    assert item.runningLength == 0
+
+    # 2. Maximum permitted prefix length under GST Rule 46(b) is 15
+    item15 = BillPrefixBatchSaveItem(
+        name="Max Length Prefix",
+        documentType="SALES_INVOICE",
+        prefix="ABCDEFGHIJKLMNO",  # 15 chars
+        runningLength=0
+    )
+    assert len(item15.prefix) == 15
+
+    # 3. Exceeding 15 characters must fail validation
+    with pytest.raises(ValidationError) as exc:
+        BillPrefixBatchSaveItem(
+            name="Too Long",
+            documentType="SALES_INVOICE",
+            prefix="1234567890123456"  # 16 chars
+        )
+    assert "Prefix must be 1–15 uppercase alphanumeric characters" in str(exc.value)
+
+    # 4. Invalid character in prefix (e.g. underscore or space)
+    with pytest.raises(ValidationError):
+        BillPrefixBatchSaveItem(
+            name="Invalid Char",
+            documentType="SALES_INVOICE",
+            prefix="TT_2026-2027/"
+        )
+
+    # 5. Negative runningLength must be rejected
+    with pytest.raises(ValidationError):
+        BillPrefixBatchSaveItem(
+            name="Negative Padding",
+            documentType="SALES_INVOICE",
+            runningLength=-1
+        )
+
+
+@pytest.mark.asyncio
+async def test_save_and_generate_tt2026_2027_18_standard_sales():
+    """
+    End-to-end regression test:
+    1. Saves 'Standard Sales' series in Prefix Management with:
+       - prefix: 'TT2026-2027/' (preserves trailing slash)
+       - startNumber: 18
+       - runningLength: 0 (no zero-padding)
+       - suffix: ''
+    2. Resolves active prefix and verifies preview is exactly 'TT2026-2027/18'
+    3. Allocates sequential document numbers and verifies exact generation:
+       - 1st allocation -> 'TT2026-2027/18'
+       - 2nd allocation -> 'TT2026-2027/19'
+    """
+    from app.db.session import async_session as async_session_factory
+    from sqlalchemy import text
+    async with async_session_factory() as db:
+        service = NumberingService(db)
+        comp_res = await db.execute(text("SELECT id FROM companies WHERE is_deleted = false LIMIT 1"))
+        test_company = comp_res.scalar_one_or_none()
+        if not test_company:
+            test_company = f"comp-test-{uuid.uuid4().hex[:6]}"
+            await db.execute(
+                text("INSERT INTO companies (id, name, is_active, is_deleted) VALUES (:id, :name, true, false)"),
+                {"id": test_company, "name": "Test Company"}
+            )
+            await db.commit()
+
+        # Clean up any leftover series from prior runs
+        await db.execute(
+            text("DELETE FROM document_series WHERE company_id = :comp AND name = 'Standard Sales'"),
+            {"comp": test_company}
+        )
+        await db.commit()
+
+        # 1. Save batch with Standard Sales series
+        save_item = BillPrefixBatchSaveItem(
+            name="Standard Sales",
+            documentType="SALES_INVOICE",
+            transactionGroup="SALES",
+            terminalId="COMMON",
+            isCommonAcrossTerminals=True,
+            prefix="TT2026-2027/",
+            suffix="",
+            startNumber=18,
+            currentNumber=0,
+            runningLength=0,
+            isActive=True,
+            numberFormat="PREFIX_NUM_SUFFIX"
+        )
+        batch_req = BillPrefixBatchSaveRequest(
+            terminalId="COMMON",
+            isCommonAcrossTerminals=True,
+            items=[save_item]
+        )
+
+        saved = await service.save_bill_prefixes_batch(test_company, None, batch_req, "TEST_ADMIN")
+        assert len(saved) == 1
+        series_id = saved[0].id
+        assert saved[0].prefix == "TT2026-2027/"
+        assert saved[0].start_number == 18
+        assert saved[0].running_length == 0
+
+        # 2. Resolve bill prefix preview
+        resolved = await service.resolve_bill_prefix(
+            company_id=test_company,
+            branch_id=None,
+            terminal_id="COMMON",
+            transaction_type="SALES_INVOICE"
+        )
+        assert resolved["prefix"] == "TT2026-2027/"
+        assert resolved["suffix"] == ""
+        assert resolved["nextDocNo"] == 18
+        assert resolved["formattedDocNo"] == "18"
+        assert resolved["fullPreview"] == "TT2026-2027/18"
+        assert resolved["runningLength"] == 0
+        assert resolved["gstRule46bValid"] is True
+        assert resolved["gstRule46bLength"] == 14
+
+        # 3. Atomically allocate document numbers
+        first_doc_no = await service.allocate_voucher_number(
+            series_id=series_id,
+            branch="HQ",
+            fy="2026-2027",
+            username="TEST_CASHIER"
+        )
+        assert first_doc_no == "TT2026-2027/18"
+
+        second_doc_no = await service.allocate_voucher_number(
+            series_id=series_id,
+            branch="HQ",
+            fy="2026-2027",
+            username="TEST_CASHIER"
+        )
+        assert second_doc_no == "TT2026-2027/19"
+
+
