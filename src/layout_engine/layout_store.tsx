@@ -14,6 +14,11 @@
 
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from "react";
 import { apiFetchV1 } from "../lib/apiFetch.ts";
+import {
+  buildDocumentContextualSubmenu,
+  ContextualMenuItem,
+  TransactionState,
+} from "../components/shell/navigationResolver.ts";
 
 export type DockPosition = "left" | "right" | "top" | "bottom";
 export type UXMode = "regular" | "classic";
@@ -23,6 +28,15 @@ export interface WorkspaceConfig {
   label: string;
   icon: string;
   category: string;
+}
+
+export interface ActiveDocumentContext {
+  documentId: string;
+  documentType: string;
+  transactionState: TransactionState;
+  activeActionId?: string;
+  parentWorkspaceId?: string;
+  metadata?: Record<string, any>;
 }
 
 export interface LayoutPreferences {
@@ -42,6 +56,8 @@ interface LayoutStoreContextType {
   registeredWorkspaces: WorkspaceConfig[];
   resolvedNavigationIds: string[] | null;
   uxMode: UXMode;
+  activeDocument: ActiveDocumentContext | null;
+  activeSubmenuId: string | null;
 
   setLayout: (position: DockPosition) => void;
   getLayout: () => LayoutPreferences;
@@ -64,6 +80,9 @@ interface LayoutStoreContextType {
   toggleFavorite: (workspaceId: string) => void;
   toggleGroupCollapse: (groupId: string) => void;
   addToRecentlyUsed: (workspaceId: string) => void;
+  setActiveDocument: (doc: ActiveDocumentContext | null) => void;
+  setActiveSubmenuId: (id: string | null) => void;
+  getContextualSubmenu: (workspaceId?: string) => ContextualMenuItem[];
 }
 
 const getInitialUxMode = (): UXMode => {
@@ -120,6 +139,8 @@ export const LayoutEngineProvider: React.FC<ProviderProps> = ({
     "dashboard",
     "pos",
   ]);
+  const [activeDocument, setActiveDocumentState] = useState<ActiveDocumentContext | null>(null);
+  const [activeSubmenuId, setActiveSubmenuId] = useState<string | null>(null);
   const [registeredWorkspaces, setRegisteredWorkspaces] = useState<
     WorkspaceConfig[]
   >([
@@ -493,8 +514,19 @@ export const LayoutEngineProvider: React.FC<ProviderProps> = ({
       reloadResolvedMenus();
     };
 
+    const handleActiveDocSet = (e: any) => {
+      if (e?.detail) {
+        setActiveDocument(e.detail);
+      }
+    };
+    const handleActiveDocCleared = () => {
+      setActiveDocument(null);
+    };
+
     window.addEventListener("smriti_menu_permissions_updated", handlePermissionsUpdated);
     window.addEventListener("smriti_security_config_updated", handlePermissionsUpdated);
+    window.addEventListener("smriti_active_document_set", handleActiveDocSet as EventListener);
+    window.addEventListener("smriti_active_document_cleared", handleActiveDocCleared);
     const clearResolvedMenus = () => {
       menuResolutionGenerationRef.current += 1;
       menuResolutionPromiseRef.current = null;
@@ -505,9 +537,51 @@ export const LayoutEngineProvider: React.FC<ProviderProps> = ({
     return () => {
       window.removeEventListener("smriti_menu_permissions_updated", handlePermissionsUpdated);
       window.removeEventListener("smriti_security_config_updated", handlePermissionsUpdated);
+      window.removeEventListener("smriti_active_document_set", handleActiveDocSet as EventListener);
+      window.removeEventListener("smriti_active_document_cleared", handleActiveDocCleared);
       window.removeEventListener("smriti_auth_session_cleared", clearResolvedMenus);
     };
   }, []);
+
+  const setActiveDocument = useCallback((doc: ActiveDocumentContext | null) => {
+    setActiveDocumentState(doc);
+    if (doc) {
+      setActiveSubmenuId(doc.activeActionId || "doc-overview");
+      // Ensure the category containing the active workspace is expanded
+      const targetWorkspace = doc.parentWorkspaceId || "billing-workspace";
+      setRegisteredWorkspaces((workspaces) => {
+        const wsConfig = workspaces.find((w) => w.id === targetWorkspace);
+        if (wsConfig) {
+          setPreferences((prev) => {
+            if (prev.collapsedGroups.includes(wsConfig.category)) {
+              const nextGroups = prev.collapsedGroups.filter((g) => g !== wsConfig.category);
+              const updated = { ...prev, collapsedGroups: nextGroups };
+              localStorage.setItem("smriti_layout_preferences", JSON.stringify(updated));
+              return updated;
+            }
+            return prev;
+          });
+        }
+        return workspaces;
+      });
+    } else {
+      setActiveSubmenuId(null);
+    }
+  }, []);
+
+  const getContextualSubmenu = useCallback((workspaceId?: string): ContextualMenuItem[] => {
+    if (!activeDocument) return [];
+    const parentWs = activeDocument.parentWorkspaceId || "billing-workspace";
+    if (workspaceId && workspaceId !== parentWs && workspaceId !== "sales" && workspaceId !== "purchase") {
+      return [];
+    }
+    return buildDocumentContextualSubmenu(
+      activeDocument.documentId,
+      activeDocument.transactionState,
+      undefined,
+      activeDocument.documentType,
+    );
+  }, [activeDocument]);
 
   const restorePreferences = async () => {
     const local = localStorage.getItem("smriti_layout_preferences");
@@ -683,6 +757,11 @@ export const LayoutEngineProvider: React.FC<ProviderProps> = ({
         toggleFavorite,
         toggleGroupCollapse,
         addToRecentlyUsed,
+        activeDocument,
+        activeSubmenuId,
+        setActiveDocument,
+        setActiveSubmenuId,
+        getContextualSubmenu,
       }}
     >
       {children}

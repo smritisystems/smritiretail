@@ -4,15 +4,32 @@
   Designation  : Chief Systems Architect & Creator
   Email        : support@smritibooks.com
   Websites     : smritibooks.com | erpnbook.com | aitdl.com
-  Version      : 6.99.12
+  Version      : 6.99.13
   Created      : 2026-10-13
-  Modified     : 2026-10-22
+  Modified     : 2026-10-25
   Copyright    : © SMRITIBooks.com. All Rights Reserved.
   License      : Proprietary Commercial Software
   Classification: Internal
 -->
 
 # SMRITI Retail OS — Release Notes
+
+## Release v6.99.13 (2026-10-25)
+
+### Foundation & UI Architecture — Persistent Global Navigation with Contextual Submenus
+
+#### Overview
+Refactors the Smart Navigation architecture in SMRITI Retail OS so opening an active document or transaction (e.g. Sales Invoice, Credit Bill, Purchase Order) preserves the persistent global sidebar. All authorized primary categories (Dashboard/Launchpad, Sales, Purchase, Inventory, Masters, Reports, System) remain continuously accessible. Transaction-specific contextual actions are cleanly nested as submenus beneath the active workspace row, backed by authoritative backend RBAC and dynamic lifecycle state evaluation.
+
+#### Key Highlights
+- **Persistent Global Navigation Hierarchy**: Decouples the global application catalog (`globalCategories`) from transaction action sets (`contextualSubmenu`). Resolving navigation with an active transaction keeps all 7 core categories accessible simultaneously, preventing workflow disruption and eliminating cart abandonment.
+- **Nested Contextual Document Submenus**: Context-specific actions (`doc-overview`, `doc-items`, `doc-stock`, `doc-verify`, `doc-dispatch`, `doc-print`, `doc-activity`) are nested under the active workspace entry in `NavRail.tsx` and `NavRenderer.tsx` with distinct indentation, hover states, and next-best-action badges.
+- **Dynamic Lifecycle State Enablement**: Contextual actions evaluate transaction state in real time:
+  - In `DRAFT` state: `doc-dispatch` is disabled with human-readable rationale ("Dispatch unavailable. Missing verified invoice & E-Way Bill.").
+  - In `POSTED` state: `doc-verify` is disabled ("Transaction already posted to ledger."), while `doc-dispatch` is enabled.
+- **Authoritative Backend RBAC**: Introduced `GET /api/v1/menus/contextual` in FastAPI, evaluating permissions via `backend/app/core/security_matrix.py`. Strictly isolates roles (e.g. Cashier role excludes `doc-dispatch` per least privilege).
+- **Presentation Stability & Multi-Dock Parity**: Integrated across Regular UX sidebars, Classic UX horizontal menu ribbon and tree directory (`ClassicWorkspaceDirectory.tsx`), top dock action strip, and mobile bottom drawer with zero layout preference resets.
+- **Verification Battery**: 10/10 tests green in `src/tests/persistentGlobalNavigationContextualSubmenus.test.tsx`, 43/43 tests green across affected frontend suites, 7/7 backend Pytest tests green in `backend/tests/t_menu_registry.py`, and clean `npx tsc --noEmit` (0 errors).
 
 ## Release v6.89.0 (2026-10-24)
 
