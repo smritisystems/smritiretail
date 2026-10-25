@@ -13,7 +13,7 @@
  */
 
 import React, { useState, useEffect, useRef } from "react";
-import { X, Plus, Trash2, Check, MapPin, Phone, Mail, Home, Search } from "lucide-react";
+import { X, Plus, Trash2, Check, MapPin, Phone, Mail, Home, Search, AlertCircle, CheckCircle2, Loader2 } from "lucide-react";
 import { CustomerAddressEntry, CustomerAddressType, CustomerGSTRegistrationOption, getCustomerAddressFingerprint } from "./types.ts";
 import { parseAndValidateGSTIN } from "../../utils/gstEngine.ts";
 import { apiFetchV1 } from "../../lib/apiFetchV1.ts";
@@ -24,7 +24,14 @@ import {
   getCitySuggestionsForState,
   getPincodeSuggestionsForCity
 } from "../../constants/indianLocationData.ts";
-import { fetchCanonicalIndianStates } from "../../constants/indianStates.ts";
+import { fetchCanonicalIndianStates, resolveZoneFromState, INDIAN_ZONES } from "../../constants/indianStates.ts";
+
+interface PincodeFeedback {
+  status: "idle" | "validating" | "valid" | "not_found" | "mismatch";
+  message: string;
+  expectedState?: string;
+  expectedZone?: string;
+}
 
 interface SmritiCustomerMailingModalProps {
   isOpen: boolean;
@@ -58,6 +65,7 @@ export const SmritiCustomerMailingModal: React.FC<SmritiCustomerMailingModalProp
   const [referenceStateNamesByCode, setReferenceStateNamesByCode] = useState<Record<string, string>>({});
   const [referenceCities, setReferenceCities] = useState<string[]>([]);
   const [referencePincodes, setReferencePincodes] = useState<string[]>([]);
+  const [pincodeFeedback, setPincodeFeedback] = useState<Record<number, PincodeFeedback>>({});
   const cityResolutionRequest = useRef(0);
 
   const addressTypeLabel = (type?: CustomerAddressType) => (
@@ -127,6 +135,8 @@ export const SmritiCustomerMailingModal: React.FC<SmritiCustomerMailingModalProp
   const currentAddress = addressList[selectedAddressIndex] || addressList[0];
   const currentState = currentAddress?.state || "";
   const currentCity = currentAddress?.city || "";
+  const currentFeedback = pincodeFeedback[selectedAddressIndex] || { status: "idle", message: "" };
+  const expectedZoneForCurrentState = resolveZoneFromState(currentState);
   const filteredAddressEntries = addressList
     .map((address, index) => ({ address, index }))
     .filter(({ address }) => {
@@ -195,7 +205,9 @@ export const SmritiCustomerMailingModal: React.FC<SmritiCustomerMailingModalProp
       if (stateCodes.length !== 1) return;
 
       const selected = matches[0];
-      const resolvedState = referenceStateNamesByCode[stateCodes[0]];
+      const resolvedState = referenceStateNamesByCode[stateCodes[0]] || selected.state_name;
+      const resolvedZone = selected.zone || resolveZoneFromState(resolvedState || stateCodes[0]);
+
       setAddressList(prev => {
         const next = [...prev];
         if (next[selectedAddressIndex]) {
@@ -203,23 +215,54 @@ export const SmritiCustomerMailingModal: React.FC<SmritiCustomerMailingModalProp
             ...next[selectedAddressIndex],
             city: selected.city,
             state: resolvedState || next[selectedAddressIndex].state,
+            zone: resolvedZone || next[selectedAddressIndex].zone,
             locality: selected.locality || next[selectedAddressIndex].locality
           };
         }
         return next;
       });
     } catch {
-      // Static fallback remains available when the reference API is unavailable.
+      // Fallback to static city dictionary
+      const staticEntry = Object.entries(INDIAN_STATE_CITY_PIN_DATA).find(([_, entries]) =>
+        entries.some((entry) => entry.city.toLowerCase() === cleanCity.toLowerCase())
+      );
+      if (staticEntry) {
+        const [matchedState] = staticEntry;
+        const resolvedZone = resolveZoneFromState(matchedState);
+        setAddressList(prev => {
+          const next = [...prev];
+          if (next[selectedAddressIndex]) {
+            next[selectedAddressIndex] = {
+              ...next[selectedAddressIndex],
+              city: cleanCity,
+              state: matchedState,
+              zone: resolvedZone || next[selectedAddressIndex].zone
+            };
+          }
+          return next;
+        });
+      }
     }
   };
 
   const resolvePincodeSelection = async (postalCode: string) => {
     const cleanPin = postalCode.trim();
-    if (!/^\d{6}$/.test(cleanPin)) return;
+    if (!cleanPin) {
+      setPincodeFeedback(prev => ({ ...prev, [selectedAddressIndex]: { status: "idle", message: "" } }));
+      return;
+    }
+    if (!/^\d{6}$/.test(cleanPin)) {
+      setPincodeFeedback(prev => ({ ...prev, [selectedAddressIndex]: { status: "not_found", message: "PIN code must be exactly 6 digits." } }));
+      return;
+    }
+
+    setPincodeFeedback(prev => ({ ...prev, [selectedAddressIndex]: { status: "validating", message: "Verifying PIN code..." } }));
 
     try {
       const record = await apiFetchV1<any>(`/control/reference/postal-codes/${cleanPin}`);
-      const resolvedState = referenceStateNamesByCode[String(record.state_code || "").toUpperCase()];
+      const resolvedState = record.state_name || referenceStateNamesByCode[String(record.state_code || "").toUpperCase()] || "";
+      const resolvedZone = record.zone || resolveZoneFromState(resolvedState || String(record.state_code || ""));
+
       setAddressList(prev => {
         const next = [...prev];
         if (next[selectedAddressIndex]) {
@@ -228,13 +271,66 @@ export const SmritiCustomerMailingModal: React.FC<SmritiCustomerMailingModalProp
             postalCode: cleanPin,
             city: record.city || next[selectedAddressIndex].city,
             state: resolvedState || next[selectedAddressIndex].state,
+            zone: resolvedZone || next[selectedAddressIndex].zone,
             locality: record.locality || next[selectedAddressIndex].locality
           };
         }
         return next;
       });
+
+      setPincodeFeedback(prev => ({
+        ...prev,
+        [selectedAddressIndex]: {
+          status: "valid",
+          message: `Verified: ${resolvedState}${resolvedZone ? ` · ${resolvedZone} Zone` : ""}`,
+          expectedState: resolvedState,
+          expectedZone: resolvedZone || undefined
+        }
+      }));
     } catch {
-      // Keep manually entered PIN when the reference record is unavailable.
+      // Check static fallback dictionary
+      const staticMatch = Object.entries(INDIAN_STATE_CITY_PIN_DATA).find(([_, entries]) =>
+        entries.some((entry) => entry.pincode === cleanPin)
+      );
+
+      if (staticMatch) {
+        const [matchedState, entries] = staticMatch;
+        const matchedCityEntry = entries.find((e) => e.pincode === cleanPin);
+        const resolvedZone = resolveZoneFromState(matchedState);
+
+        setAddressList(prev => {
+          const next = [...prev];
+          if (next[selectedAddressIndex]) {
+            next[selectedAddressIndex] = {
+              ...next[selectedAddressIndex],
+              postalCode: cleanPin,
+              city: matchedCityEntry?.city || next[selectedAddressIndex].city,
+              state: matchedState,
+              zone: resolvedZone || next[selectedAddressIndex].zone
+            };
+          }
+          return next;
+        });
+
+        setPincodeFeedback(prev => ({
+          ...prev,
+          [selectedAddressIndex]: {
+            status: "valid",
+            message: `Verified: ${matchedState}${resolvedZone ? ` · ${resolvedZone} Zone` : ""}`,
+            expectedState: matchedState,
+            expectedZone: resolvedZone || undefined
+          }
+        }));
+      } else {
+        // Unknown PIN (e.g. 400000)
+        setPincodeFeedback(prev => ({
+          ...prev,
+          [selectedAddressIndex]: {
+            status: "not_found",
+            message: `PIN ${cleanPin} not recognized in India Post master. Please verify digits or enter state & zone manually.`
+          }
+        }));
+      }
     }
   };
 
@@ -246,11 +342,49 @@ export const SmritiCustomerMailingModal: React.FC<SmritiCustomerMailingModalProp
 
         if (key === "state" && typeof value === "string") {
           const stateName = value.trim();
+          const autoZone = resolveZoneFromState(stateName);
+          if (autoZone) {
+            next[selectedAddressIndex].zone = autoZone;
+          }
+
           const currentCity = next[selectedAddressIndex].city.trim();
           const stateCities = INDIAN_STATE_CITY_PIN_DATA[stateName] || [];
           if (currentCity && !stateCities.some((entry) => entry.city.toLowerCase() === currentCity.toLowerCase())) {
             next[selectedAddressIndex].city = "";
-            next[selectedAddressIndex].postalCode = "";
+          }
+
+          // Cross-validate PIN code against newly selected state
+          const currentPin = next[selectedAddressIndex].postalCode.trim();
+          if (currentPin && /^\d{6}$/.test(currentPin)) {
+            const currentFb = pincodeFeedback[selectedAddressIndex];
+            if (currentFb?.expectedState && currentFb.expectedState.toLowerCase() !== stateName.toLowerCase()) {
+              setPincodeFeedback(f => ({
+                ...f,
+                [selectedAddressIndex]: {
+                  status: "mismatch",
+                  message: `PIN ${currentPin} belongs to ${currentFb.expectedState}, but state is set to ${stateName}.`,
+                  expectedState: currentFb.expectedState,
+                  expectedZone: currentFb.expectedZone
+                }
+              }));
+            } else if (currentFb?.expectedState && currentFb.expectedState.toLowerCase() === stateName.toLowerCase()) {
+              setPincodeFeedback(f => ({
+                ...f,
+                [selectedAddressIndex]: {
+                  status: "valid",
+                  message: `Verified: ${stateName}${autoZone ? ` · ${autoZone} Zone` : ""}`,
+                  expectedState: currentFb.expectedState,
+                  expectedZone: autoZone
+                }
+              }));
+            }
+          }
+        }
+
+        if (key === "postalCode") {
+          const pinStr = String(value || "").trim();
+          if (!pinStr || pinStr.length < 6) {
+            setPincodeFeedback(f => ({ ...f, [selectedAddressIndex]: { status: "idle", message: "" } }));
           }
         }
 
@@ -700,25 +834,61 @@ export const SmritiCustomerMailingModal: React.FC<SmritiCustomerMailingModalProp
                 </div>
                 <div>
                   <label className="text-[#515f74] dark:text-[#bec6e0] font-bold text-[10px] uppercase block mb-1">Postal Code (PIN)</label>
-                  <input
-                    type="text"
-                    list="india-pincode-list"
-                    value={currentAddress.postalCode}
-                    onChange={e => {
-                      const nextValue = e.target.value;
-                      handleFieldChange("postalCode", nextValue);
-                      if (/^\d{6}$/.test(nextValue.trim())) {
-                        void resolvePincodeSelection(nextValue.trim());
-                      }
-                    }}
-                    onBlur={() => void resolvePincodeSelection(currentAddress.postalCode)}
-                    className="w-full p-2 bg-white dark:bg-[#191c1e] border border-[#c6c6cd] dark:border-[#45464d] rounded font-mono text-xs font-bold"
-                  />
+                  <div className="relative">
+                    <input
+                      type="text"
+                      list="india-pincode-list"
+                      value={currentAddress.postalCode}
+                      onChange={e => {
+                        const nextValue = e.target.value;
+                        handleFieldChange("postalCode", nextValue);
+                        if (/^\d{6}$/.test(nextValue.trim())) {
+                          void resolvePincodeSelection(nextValue.trim());
+                        }
+                      }}
+                      onBlur={() => void resolvePincodeSelection(currentAddress.postalCode)}
+                      className={`w-full p-2 pr-7 bg-white dark:bg-[#191c1e] border rounded font-mono text-xs font-bold transition ${
+                        currentFeedback.status === "valid"
+                          ? "border-emerald-500 focus:border-emerald-600 focus:ring-emerald-500 text-emerald-950 dark:text-emerald-100"
+                          : currentFeedback.status === "mismatch" || currentFeedback.status === "not_found"
+                          ? "border-amber-500 focus:border-amber-600 focus:ring-amber-500"
+                          : "border-[#c6c6cd] dark:border-[#45464d]"
+                      }`}
+                    />
+                    {currentFeedback.status === "validating" && (
+                      <span className="absolute right-2.5 top-2.5 text-blue-500 animate-spin">
+                        <Loader2 size={13} />
+                      </span>
+                    )}
+                    {currentFeedback.status === "valid" && (
+                      <span className="absolute right-2.5 top-2.5 text-emerald-600 dark:text-emerald-400">
+                        <CheckCircle2 size={13} />
+                      </span>
+                    )}
+                    {(currentFeedback.status === "mismatch" || currentFeedback.status === "not_found") && (
+                      <span className="absolute right-2.5 top-2.5 text-amber-500">
+                        <AlertCircle size={13} />
+                      </span>
+                    )}
+                  </div>
                   <datalist id="india-pincode-list">
                     {(referencePincodes.length > 0 ? referencePincodes : (currentAddress.city ? getPincodeSuggestionsForCity(currentAddress.city, currentAddress.state) : ALL_INDIAN_PINCODE_OPTIONS)).map((pincode) => (
                       <option key={pincode} value={pincode} />
                     ))}
                   </datalist>
+                  {currentFeedback.message && (
+                    <span className={`mt-1 block text-[10px] font-medium leading-tight ${
+                      currentFeedback.status === "valid"
+                        ? "text-emerald-600 dark:text-emerald-400"
+                        : currentFeedback.status === "mismatch"
+                        ? "text-rose-600 dark:text-rose-400 font-bold"
+                        : currentFeedback.status === "not_found"
+                        ? "text-amber-600 dark:text-amber-400 font-semibold"
+                        : "text-[#515f74] dark:text-[#bec6e0]"
+                    }`}>
+                      {currentFeedback.message}
+                    </span>
+                  )}
                 </div>
                 <div>
                   <label className="text-[#515f74] dark:text-[#bec6e0] font-bold text-[10px] uppercase block mb-1">State / Province</label>
@@ -739,11 +909,22 @@ export const SmritiCustomerMailingModal: React.FC<SmritiCustomerMailingModalProp
                   <label className="text-[#515f74] dark:text-[#bec6e0] font-bold text-[10px] uppercase block mb-1">Zone</label>
                   <input
                     type="text"
+                    list="india-zone-list"
                     value={currentAddress.zone}
                     onChange={e => handleFieldChange("zone", e.target.value)}
-                    placeholder="e.g. South, North, West"
+                    placeholder="e.g. West, North, South"
                     className="w-full p-2 bg-white dark:bg-[#191c1e] border border-[#c6c6cd] dark:border-[#45464d] rounded text-xs font-semibold"
                   />
+                  <datalist id="india-zone-list">
+                    {INDIAN_ZONES.map((zone) => (
+                      <option key={zone} value={zone} />
+                    ))}
+                  </datalist>
+                  {expectedZoneForCurrentState && currentAddress.zone && currentAddress.zone.trim().toLowerCase() !== expectedZoneForCurrentState.toLowerCase() && (
+                    <span className="mt-1 block text-[10px] text-amber-600 dark:text-amber-400 font-medium">
+                      Notice: {currentAddress.state} standardly belongs to {expectedZoneForCurrentState} Zone.
+                    </span>
+                  )}
                 </div>
                 <div>
                   <label className="text-[#515f74] dark:text-[#bec6e0] font-bold text-[10px] uppercase block mb-1">Country</label>
