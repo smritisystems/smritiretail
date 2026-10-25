@@ -18,6 +18,7 @@ class CustomerDiscountPolicy:
     group: Optional[CustomerGroup]
     max_discount_percent: Decimal
     can_receive_discount: bool
+    contractual_discount_percent: Decimal = Decimal("0.00")
 
 
 async def resolve_customer_discount_policy(
@@ -44,7 +45,7 @@ async def resolve_customer_discount_policy(
 
     clean_cid = str(customer_id).strip().upper() if customer_id else ""
     if not customer_id or clean_cid in (WALK_IN_CUSTOMER_ID.upper(), walkin_code.upper()):
-        return CustomerDiscountPolicy(None, None, Decimal("0.00"), False)
+        return CustomerDiscountPolicy(None, None, Decimal("0.00"), False, Decimal("0.00"))
 
     branch_candidates = {branch_id, "MAIN", "BR-MAIN-001", "BR-001"} if branch_id in ("MAIN", "BR-MAIN-001", "BR-001") else {branch_id}
     stmt = select(Customer).where(
@@ -71,14 +72,42 @@ async def resolve_customer_discount_policy(
             )
         )).scalars().first()
 
+    # Check contractual customer policy factor (dealer_factor, retail_factor, selling_factor)
+    contractual_disc = Decimal("0.00")
+    try:
+        from ..models.crm import CustomerPolicy
+        pol_stmt = select(CustomerPolicy).where(
+            CustomerPolicy.customer_id == customer.id,
+            CustomerPolicy.is_deleted == False,
+        )
+        c_pol = (await session.execute(pol_stmt)).scalars().first()
+        if c_pol and c_pol.dealer_factor is not None:
+            df = Decimal(str(c_pol.dealer_factor))
+            if Decimal("0.00") < df < Decimal("1.00"):
+                contractual_disc = (Decimal("1.00") - df) * Decimal("100.00")
+        elif c_pol and c_pol.retail_factor is not None:
+            rf = Decimal(str(c_pol.retail_factor))
+            if Decimal("0.00") < rf < Decimal("1.00"):
+                contractual_disc = (Decimal("1.00") - rf) * Decimal("100.00")
+        elif customer.selling_factor is not None:
+            sf = Decimal(str(customer.selling_factor))
+            if Decimal("0.00") < sf < Decimal("1.00"):
+                contractual_disc = (Decimal("1.00") - sf) * Decimal("100.00")
+    except Exception:
+        pass
+
     max_disc = Decimal(str(group.max_discount_percent or "0.00")) if group else Decimal("0.00")
     can_disc = bool(group and group.can_receive_discount)
+    if contractual_disc > 0:
+        can_disc = True
+        max_disc = max(max_disc, contractual_disc)
 
     return CustomerDiscountPolicy(
         customer=customer,
         group=group,
         max_discount_percent=max_disc,
         can_receive_discount=can_disc,
+        contractual_discount_percent=contractual_disc,
     )
 
 
@@ -86,8 +115,12 @@ def validate_customer_discount_policy(
     policy: CustomerDiscountPolicy,
     discount_amount: Decimal,
     gross_amount: Decimal,
+    authorized_discount_override: bool = False,
 ) -> None:
-    """Reject discounts not explicitly granted by the customer's group policy."""
+    """Reject discounts not explicitly granted by the customer's group policy or contractual policy."""
+    if authorized_discount_override:
+        return
+
     discount_amount = Decimal(str(discount_amount or "0.00"))
     gross_amount = Decimal(str(gross_amount or "0.00"))
     if discount_amount <= Decimal("0.00"):
@@ -103,11 +136,12 @@ def validate_customer_discount_policy(
         )
 
     requested_percent = (discount_amount / gross_amount * Decimal("100.00")) if gross_amount > 0 else Decimal("100.00")
-    if requested_percent > policy.max_discount_percent:
+    effective_max = max(policy.max_discount_percent, policy.contractual_discount_percent)
+    if requested_percent > effective_max:
         raise HTTPException(
             status_code=400,
             detail=(
-                f"Customer discount exceeds the group limit of "
-                f"{policy.max_discount_percent:.2f}% (requested {requested_percent:.2f}%)."
+                f"Customer discount exceeds the policy limit of "
+                f"{effective_max:.2f}% (requested {requested_percent:.2f}%)."
             ),
         )

@@ -259,11 +259,11 @@ export function mapLocalFactorToBackend(factor: SmritiSalesFactor): BackendSales
 
 export interface FactorCalculationInput {
   baseSaleAmount: number;
-  itemPromotionalDiscount: number;
-  billDiscount: number;
-  taxRatePercent: number;
+  itemPromotionalDiscount?: number;
+  billDiscount?: number;
+  taxRatePercent?: number;
   isTaxInclusive?: boolean;
-  factors: SmritiSalesFactor[];
+  factors?: SmritiSalesFactor[];
 }
 
 export interface FactorCalculationResult {
@@ -479,11 +479,11 @@ export class SmritiSalesFactorService {
   public static calculateBillFactors(input: FactorCalculationInput): FactorCalculationResult {
     const {
       baseSaleAmount,
-      itemPromotionalDiscount,
-      billDiscount,
-      taxRatePercent,
+      itemPromotionalDiscount = 0,
+      billDiscount = 0,
+      taxRatePercent = 0,
       isTaxInclusive = false,
-      factors
+      factors = this.getAllSalesFactors()
     } = input;
 
     // 1. Calculate Base Computation Values
@@ -506,6 +506,11 @@ export class SmritiSalesFactorService {
 
     for (const factor of factors) {
       if (!factor.isActive) continue;
+
+      // Ancillary statutory sales factors only apply when an eligible sales base exists
+      if (discountedSaleValue <= 0 && baseSaleAmount <= 0) {
+        continue;
+      }
 
       // Threshold check
       if (factor.minBillValue && discountedSaleValue < factor.minBillValue) continue;

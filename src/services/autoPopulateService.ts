@@ -57,6 +57,8 @@ export interface AutoPopulateProductResult {
   size?: string;
   color?: string;
   gstPercentage: number;
+  isTaxInclusive?: boolean;
+  is_tax_inclusive?: boolean;
 
   // Additional 5–7 Relevant Item Details
   brand?: string;
@@ -263,6 +265,8 @@ function mapToProductResult(p: any): AutoPopulateProductResult {
     size: p.size || "Standard",
     color: p.color || "Standard",
     gstPercentage: Number(p.gstPercentage || p.gst_percentage || p.tax_rate || p.gstRate || 18),
+    isTaxInclusive: p.isTaxInclusive ?? p.is_tax_inclusive,
+    is_tax_inclusive: p.is_tax_inclusive ?? p.isTaxInclusive,
     brand: p.brand || "SMRITI",
     category: p.category || "General",
     hsnCode: p.hsnCode || p.hsn_code || "6203",

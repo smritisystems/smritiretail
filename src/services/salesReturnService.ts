@@ -15,6 +15,7 @@
 import { apiFetchV1 } from "../lib/apiFetchV1";
 
 export interface SalesReturnContextLine {
+  invoice_item_id: string;
   product_id: string;
   code: string;
   name: string;
@@ -60,6 +61,7 @@ export interface SalesReturnContext {
 }
 
 export interface SalesReturnItemPayload {
+  sales_invoice_item_id?: string;
   product_id: string;
   code: string;
   name: string;

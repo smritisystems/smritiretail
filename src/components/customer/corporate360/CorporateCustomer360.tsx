@@ -20,12 +20,14 @@ import { AlertCircle, RefreshCw } from "lucide-react";
 import { apiFetchV1 } from "../../../lib/apiFetchV1.ts";
 import { CorporateCustomer360Data } from "./types.ts";
 import { Customer360DashboardView } from "./Customer360DashboardView.tsx";
+import type { CustomerDirectoryItem } from "../types.ts";
 
 export interface CorporateCustomer360Props {
   customerId?: string;
   customer?: any;
   onBack?: () => void;
   onEditCustomer?: (customer: any) => void;
+  onSelectCustomer?: (customer: CustomerDirectoryItem) => void;
   onSave?: () => void;
   onDeactivate?: () => void;
   isSaving?: boolean;
@@ -37,6 +39,7 @@ export const CorporateCustomer360: React.FC<CorporateCustomer360Props> = ({
   customer: propCustomer,
   onBack,
   onEditCustomer,
+  onSelectCustomer,
   onSave,
   onDeactivate,
   isSaving = false,
@@ -146,6 +149,7 @@ export const CorporateCustomer360: React.FC<CorporateCustomer360Props> = ({
       customer={data?.customer || propCustomer}
       corporate360Data={data}
       onEditCustomer={onEditCustomer}
+      onSelectCustomer={onSelectCustomer}
       onSave={onSave}
       onDeactivate={onDeactivate}
       onBack={onBack}

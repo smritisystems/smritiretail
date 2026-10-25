@@ -15,7 +15,9 @@ Classification: Internal
 from typing import List, Optional, Dict, Any, Union
 from datetime import datetime, date as datetime_date
 from decimal import Decimal
-from pydantic import BaseModel, ConfigDict, Field, AliasChoices, field_validator
+from pydantic import BaseModel, ConfigDict, Field, AliasChoices, field_validator, model_validator
+
+from .canonical_posting import CanonicalAdjustmentItem
 
 # ─────────────────────────── Sales Invoice ───────────────────────────
 
@@ -34,6 +36,7 @@ class SalesInvoiceItemBase(BaseModel):
     total_amount: Optional[Decimal] = Field(Decimal("0.00"), validation_alias=AliasChoices("total_amount", "totalAmount"))
     mrp: Optional[Decimal] = Field(None, ge=Decimal("0.00"))
     disc_pct: Optional[Decimal] = Field(None, ge=Decimal("0.00"), le=Decimal("100.00"), validation_alias=AliasChoices("disc_pct", "discPct", "discountPct"))
+    disc_amt: Optional[Decimal] = Field(None, ge=Decimal("0.00"), validation_alias=AliasChoices("disc_amt", "discAmt", "discountAmount"))
     taxable_value: Optional[Decimal] = Field(None, validation_alias=AliasChoices("taxable_value", "taxableValue"))
     cgst_amount: Optional[Decimal] = Field(Decimal("0.00"), validation_alias=AliasChoices("cgst_amount", "cgstAmount"))
     sgst_amount: Optional[Decimal] = Field(Decimal("0.00"), validation_alias=AliasChoices("sgst_amount", "sgstAmount"))
@@ -47,11 +50,20 @@ class SalesInvoiceItemBase(BaseModel):
     brand: Optional[str] = Field(None, max_length=100)
 
 class SalesInvoiceItemCreate(SalesInvoiceItemBase):
-    pass
+    disc_amt: Optional[Decimal] = Field(Decimal("0.00"), ge=Decimal("0.00"), validation_alias=AliasChoices("disc_amt", "discAmt", "discountAmount"))
 
 class SalesInvoiceItemResponse(SalesInvoiceItemBase):
     id: int
     invoice_id: str
+    disc_amt: Optional[Decimal] = None
+
+    @model_validator(mode="after")
+    def resolve_discount_amount(self):
+        if self.disc_amt is None and self.disc_pct is not None and self.disc_pct > 0:
+            self.disc_amt = (
+                self.quantity * self.price * self.disc_pct / Decimal("100.00")
+            ).quantize(Decimal("0.01"))
+        return self
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -114,10 +126,11 @@ class SalesInvoiceBase(BaseModel):
     customer_po_id:           Optional[str]  = Field(None, max_length=50, validation_alias=AliasChoices("customer_po_id", "customerPoId"))
     customer_po_number_snapshot: Optional[str] = Field(None, max_length=100, validation_alias=AliasChoices("customer_po_number_snapshot", "customerPoNumberSnapshot"))
     customer_po_date_snapshot: Optional[datetime_date] = Field(None, validation_alias=AliasChoices("customer_po_date_snapshot", "customerPoDateSnapshot"))
-    source_document_type:     Optional[str] = Field("DIRECT", max_length=30, validation_alias=AliasChoices("source_document_type", "sourceDocumentType"))
+    source_document_type:     Optional[str]  = Field(None, max_length=30, validation_alias=AliasChoices("source_document_type", "sourceDocumentType"))
     source_document_id:       Optional[str] = Field(None, max_length=50, validation_alias=AliasChoices("source_document_id", "sourceDocumentId"))
     source_document_line_id:  Optional[str] = Field(None, max_length=50, validation_alias=AliasChoices("source_document_line_id", "sourceDocumentLineId"))
-    sales_channel:            Optional[str] = Field("B2B_WHOLESALE", max_length=50, validation_alias=AliasChoices("sales_channel", "salesChannel", "source_channel", "sourceChannel"))
+    sales_channel:            Optional[str]  = Field(None, max_length=50, validation_alias=AliasChoices("sales_channel", "salesChannel", "source_channel", "sourceChannel"))
+    credit_override_reason:   Optional[str]  = Field(None, max_length=250, validation_alias=AliasChoices("credit_override_reason", "creditOverrideReason"))
     psv_party_id:             Optional[str]  = Field(None, max_length=50,  validation_alias=AliasChoices("psv_party_id", "psvPartyId"))
     psv_store_id:             Optional[str]  = Field(None, max_length=50,  validation_alias=AliasChoices("psv_store_id", "psvStoreId"))
     # Statutory GST Physical Origin / Dispatch From
@@ -134,6 +147,11 @@ class SalesInvoiceBase(BaseModel):
         max_length=100,
         validation_alias=AliasChoices("supervisor_override_code", "supervisorOverrideCode"),
         description="Supervisor authorization code for price/credit override (API bulk import)"
+    )
+    adjustments: Optional[List[CanonicalAdjustmentItem]] = Field(
+        default_factory=list,
+        validation_alias=AliasChoices("adjustments", "adjustmentsList"),
+        description="Optional add-ons (freight, packing) and deductions with configured tax treatment"
     )
 
 class SalesInvoiceCreate(SalesInvoiceBase):
@@ -529,4 +547,3 @@ class EWayBillResponse(BaseModel):
     created_at:         Optional[datetime] = None
 
     model_config = ConfigDict(from_attributes=True)
-

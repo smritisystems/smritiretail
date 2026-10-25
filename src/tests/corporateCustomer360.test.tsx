@@ -25,6 +25,7 @@ import { CorporateRecentOrdersWidget } from "../components/customer/corporate360
 import { CorporateTopCategoriesWidget } from "../components/customer/corporate360/CorporateTopCategoriesWidget";
 import { StoreCodeLookupModal } from "../components/customer/corporate360/StoreCodeLookupModal";
 import { StoreAddressModal } from "../components/customer/corporate360/StoreAddressModal";
+import { Customer360DashboardView } from "../components/customer/corporate360/Customer360DashboardView";
 import type { CorporateCustomer360Data, CorporateStoreItem, StoreAddressItem } from "../components/customer/corporate360/types";
 
 // Canonical Mock Payload matching the reference design and API contract
@@ -232,6 +233,18 @@ const mockPayload: CorporateCustomer360Data = {
 };
 
 describe("Corporate Customer 360 Dashboard Components", () => {
+  it("shows direct customer search when customer navigation is available", () => {
+    const markup = renderToStaticMarkup(
+      <Customer360DashboardView
+        customer={mockPayload.customer}
+        corporate360Data={mockPayload}
+        onSelectCustomer={vi.fn()}
+      />
+    );
+
+    expect(markup).toContain("Search customer");
+  });
+
   it("renders Corporate Account Header with Reliance brand identity and metadata", () => {
     const markup = renderToStaticMarkup(
       <CorporateAccountHeader

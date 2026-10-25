@@ -15,7 +15,7 @@ Classification: Internal
 import uuid
 import logging
 from typing import List, Optional, Dict, Any
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from datetime import datetime, timezone, date
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
@@ -93,7 +93,18 @@ class SalesService:
     # Sales Invoice
     # ??????????????????????????????????????????????????????????????
 
-    async def create_sales_invoice(self, invoice_in: SalesInvoiceCreate, idempotency_key: Optional[str] = None, commit: bool = True) -> SalesInvoice:
+    async def create_sales_invoice(
+        self,
+        invoice_in: SalesInvoiceCreate,
+        idempotency_key: Optional[str] = None,
+        commit: bool = True,
+        authorized_credit_override: bool = False,
+        credit_override_actor: Optional[str] = None,
+        authorized_transaction_mode_change: bool = False,
+        authorized_price_override: bool = False,
+        authorized_discount_override: bool = False,
+        authorized_adjustment_override: bool = False,
+    ) -> SalesInvoice:
         """
         Delegates to CanonicalSalesPostingWriter as the sole authoritative transactional writer.
         This method serves as a canonical ingress adapter for SalesInvoiceCreate payloads.
@@ -127,9 +138,7 @@ class SalesService:
         )
         from .canonical_sales_writer import CanonicalSalesPostingWriter
 
-        effective_idemp_key = idempotency_key or (
-            invoice_in.invoice_no if invoice_in.invoice_no and invoice_in.invoice_no.upper() not in ["AUTO", "D1DS13-1"] else f"TX-SALES-{uuid.uuid4().hex[:16]}"
-        )
+        effective_idemp_key = idempotency_key or f"TX-SALES-{uuid.uuid4().hex[:16]}"
         client_inv_no = invoice_in.invoice_no if invoice_in.invoice_no and invoice_in.invoice_no.upper() not in ["AUTO", "D1DS13-1"] else None
 
         ctx = CanonicalPostingContext(
@@ -143,8 +152,8 @@ class SalesService:
             counter_id=getattr(invoice_in, "counter_id", None),
             idempotency_key=effective_idemp_key,
             client_invoice_no=client_inv_no,
-            source_channel=getattr(invoice_in, "sales_channel", None) or getattr(invoice_in, "source_document_type", None) or ("CUSTOMER_PO" if getattr(invoice_in, "customer_po_id", None) else "B2B_WHOLESALE"),
-            sales_channel=getattr(invoice_in, "sales_channel", None) or "B2B_WHOLESALE",
+            source_channel=getattr(invoice_in, "source_document_type", None) or ("CUSTOMER_PO" if getattr(invoice_in, "customer_po_id", None) else "DIRECT"),
+            sales_channel=getattr(invoice_in, "sales_channel", None),
             allow_negative_stock=False,
             supervisor_override_code=getattr(invoice_in, "supervisor_override_code", None),
         )
@@ -172,7 +181,7 @@ class SalesService:
                     gst_rate=it.gst_rate,
                     hsn_code=it.hsn_code,
                     disc_pct=it.disc_pct or Decimal("0.00"),
-                    disc_amt=Decimal("0.00"),
+                    disc_amt=it.disc_amt or Decimal("0.00"),
                     is_tax_inclusive=it.is_tax_inclusive,
                     mrp=it.mrp,
                     customer_po_line_id=it.customer_po_line_id,
@@ -186,14 +195,95 @@ class SalesService:
             )
 
         tenders = []
-        if getattr(invoice_in, "paid_amount", None) and invoice_in.paid_amount > Decimal("0.00"):
+        paid_amount = Decimal(str(getattr(invoice_in, "paid_amount", None) or "0.00"))
+        payment_mode = (invoice_in.payment_mode or "CASH").strip().upper().replace("-", "_").replace(" ", "_")
+        payment_rows = (invoice_in.rule_snapshots or {}).get("payments", [])
+        if payment_mode != "CREDIT" and isinstance(payment_rows, list) and payment_rows:
+            tender_total = Decimal("0.00")
+            tender_type_aliases = {
+                "CREDIT_CARD": "CARD",
+                "DEBIT_CARD": "CARD",
+                "CHECK": "CHEQUE",
+                "NEFT": "BANK_TRANSFER",
+                "RTGS": "BANK_TRANSFER",
+                "IMPS": "BANK_TRANSFER",
+                "WIRE": "BANK_TRANSFER",
+                "ON_ACCOUNT": "CREDIT",
+            }
+            for row in payment_rows:
+                if not isinstance(row, dict):
+                    raise HTTPException(status_code=422, detail="Each settlement payment must be an object.")
+                try:
+                    amount = Decimal(str(row.get("amount", "0.00")))
+                except (InvalidOperation, TypeError, ValueError):
+                    raise HTTPException(status_code=422, detail="Settlement payment amount must be a valid decimal.")
+                if not amount.is_finite() or amount < Decimal("0.00"):
+                    raise HTTPException(status_code=422, detail="Settlement payment amount must be finite and non-negative.")
+                if amount == Decimal("0.00"):
+                    continue
+                raw_tender_type = str(row.get("mode") or row.get("tender_type") or "").strip().upper().replace("-", "_").replace(" ", "_")
+                tender_type = tender_type_aliases.get(raw_tender_type, raw_tender_type)
+                if not tender_type:
+                    raise HTTPException(status_code=422, detail="Settlement payment mode is required for every positive payment.")
+                tenders.append(CanonicalTenderItem(
+                    tender_type=tender_type,
+                    amount=amount,
+                    reference_no=str(row.get("refNo") or row.get("reference_no") or "").strip() or None,
+                    notes=str(row.get("bankDetails") or row.get("notes") or "").strip() or None,
+                ))
+                tender_total += amount
+            if tenders and tender_total.quantize(Decimal("0.01")) != paid_amount.quantize(Decimal("0.01")):
+                raise HTTPException(
+                    status_code=422,
+                    detail="Settlement payment allocations must equal the invoice paid amount after change is returned.",
+                )
+        elif paid_amount > Decimal("0.00"):
             tenders.append(
                 CanonicalTenderItem(
                     tender_type=(invoice_in.payment_mode or "CASH").upper(),
-                    amount=invoice_in.paid_amount,
+                    amount=paid_amount,
                 )
             )
 
+        parsed_adjustments = list(getattr(invoice_in, "adjustments", None) or [])
+        if not parsed_adjustments and invoice_in.rule_snapshots:
+            from ..schemas.canonical_posting import CanonicalAdjustmentItem
+            for tr in (invoice_in.rule_snapshots.get("transporterRows") or []):
+                amt = Decimal(str(tr.get("amount", 0) or 0))
+                if amt > 0:
+                    parsed_adjustments.append(
+                        CanonicalAdjustmentItem(
+                            code=str(tr.get("code") or "FREIGHT"),
+                            name=str(tr.get("description") or "Transporter Freight"),
+                            adjustment_type="ADDON",
+                            rate_type="FIXED",
+                            rate_value=Decimal(str(tr.get("rateAmt") or tr.get("amount") or 0)),
+                            amount=amt,
+                            timing="POST_TAX" if tr.get("timing") in ("BELOW_TAX", "POST_TAX") else "PRE_TAX",
+                            tax_treatment=tr.get("taxTreatment") or ("SPECIFIC_SAC" if tr.get("gstRate") else "COMPOSITE"),
+                            gst_rate=Decimal(str(tr.get("gstRate"))) if tr.get("gstRate") is not None else None,
+                            sac_code=str(tr.get("sacCode") or "9965"),
+                        )
+                    )
+            for ar in (invoice_in.rule_snapshots.get("addonRows") or []):
+                amt = Decimal(str(ar.get("amount", 0) or 0))
+                if amt > 0:
+                    parsed_adjustments.append(
+                        CanonicalAdjustmentItem(
+                            code=str(ar.get("code") or "ADJ"),
+                            name=str(ar.get("description") or ("Addon" if ar.get("type") == "Addon" else "Deduction")),
+                            adjustment_type="ADDON" if ar.get("type") == "Addon" else "DEDUCTION",
+                            rate_type="PERCENTAGE" if ar.get("rateType") == "Percentage" else "FIXED",
+                            rate_value=Decimal(str(ar.get("rate") or ar.get("amount") or 0)),
+                            amount=amt,
+                            timing="POST_TAX" if ar.get("timing") in ("BELOW_TAX", "POST_TAX") else "PRE_TAX",
+                            tax_treatment=ar.get("taxTreatment") or "COMPOSITE",
+                            gst_rate=Decimal(str(ar.get("gstRate"))) if ar.get("gstRate") is not None else None,
+                            sac_code=str(ar.get("sacCode")) if ar.get("sacCode") else None,
+                        )
+                    )
+
+        incoming_billing_policy = (invoice_in.rule_snapshots or {}).get("billing_policy", {})
         req = CanonicalPostingRequest(
             context=ctx,
             items=canonical_items,
@@ -218,11 +308,19 @@ class SalesService:
             po_reference_no=invoice_in.po_reference,
             customer_po_id=invoice_in.customer_po_id,
             payment_mode=invoice_in.payment_mode,
+            credit_override_reason=invoice_in.credit_override_reason,
+            sales_channel=invoice_in.sales_channel,
+            source_document_type=invoice_in.source_document_type,
+            source_document_id=invoice_in.source_document_id,
+            billing_configuration_snapshot={
+                "bill_type": incoming_billing_policy.get("bill_type")
+            } if isinstance(incoming_billing_policy, dict) else None,
             promotion_campaign_id=getattr(invoice_in, "promotion_campaign_id", None),
             promotion_coupon_code=getattr(invoice_in, "promotion_coupon_code", None),
             promotion_coupon_id=getattr(invoice_in, "promotion_coupon_id", None),
             # Pass explicit invoice date for backdated/bulk-import workflows
             invoice_date=invoice_in.date if invoice_in.date else None,
+            adjustments=parsed_adjustments,
         )
 
         result = await CanonicalSalesPostingWriter.post_sales_transaction(
@@ -230,6 +328,12 @@ class SalesService:
             req=req,
             idempotency_key=effective_idemp_key,
             commit=commit,
+            authorized_credit_override=authorized_credit_override,
+            credit_override_actor=credit_override_actor,
+            authorized_transaction_mode_change=authorized_transaction_mode_change,
+            authorized_price_override=authorized_price_override,
+            authorized_discount_override=authorized_discount_override,
+            authorized_adjustment_override=authorized_adjustment_override,
         )
 
         # Re-fetch with eager items to avoid MissingGreenlet during serialization
@@ -1145,6 +1249,7 @@ class SalesService:
             ret_qty = returned_quantities.get(item.product_id, Decimal("0.0"))
             rem_qty = max(Decimal("0.0"), orig_qty - ret_qty)
             lines.append({
+                "invoice_item_id": str(item.id),
                 "product_id": item.product_id or item.code,
                 "code": item.code,
                 "name": item.name,

@@ -32,6 +32,16 @@ export {
   synthesizeLaunchpadCatalogWithRemoteMenus,
 };
 
+const matchesShortcut = (event: KeyboardEvent, shortcut: string) => {
+  const parts = shortcut.split("+").map(part => part.trim().toLowerCase());
+  const key = parts[parts.length - 1];
+  return event.key.toLowerCase() === key
+    && event.altKey === parts.includes("alt")
+    && event.ctrlKey === (parts.includes("ctrl") || parts.includes("control"))
+    && event.shiftKey === parts.includes("shift")
+    && event.metaKey === (parts.includes("meta") || parts.includes("cmd"));
+};
+
 export interface FioriLaunchpadProps {
   currentUser?: { role: string; name: string } | null;
   onSelectModule: (moduleId: string) => void;
@@ -102,17 +112,22 @@ export const FioriLaunchpad: React.FC<FioriLaunchpadProps> = ({ currentUser, onS
     return Array.from(new Set(filteredTiles.map((t) => t.group)));
   }, [filteredTiles]);
 
-  // Hotkey support for Quick Actions (F1, F3, F4, F5, F6)
+  // Hotkey support for configured Quick Actions
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Ignore if user is typing in an input
-      if (["INPUT", "TEXTAREA", "SELECT"].includes((e.target as HTMLElement)?.tagName)) {
+      const target = e.target instanceof HTMLElement ? e.target : null;
+      if (
+        e.defaultPrevented
+        || target?.isContentEditable
+        || target?.closest("input, textarea, select, [contenteditable='true']")
+      ) {
         return;
       }
-      const matched = quickActions.find((qa) => qa.shortcut === e.key);
-      if (matched) {
+
+      const matchedActions = quickActions.filter(qa => qa.shortcut && matchesShortcut(e, qa.shortcut));
+      if (matchedActions.length === 1) {
         e.preventDefault();
-        onSelectModule(matched.id);
+        onSelectModule(matchedActions[0].id);
       }
     };
     window.addEventListener("keydown", handleKeyDown);

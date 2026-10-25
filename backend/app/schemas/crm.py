@@ -862,6 +862,8 @@ class CustomerBase(BaseModel):
     post_sale_form_name: Optional[str] = Field(None, alias="postSaleFormName")
     payment_category: Optional[str] = Field(None, alias="paymentCategory")
     payment_term: Optional[str] = Field(None, alias="paymentTerm")
+    default_sales_channel: Optional[str] = Field(None, alias="defaultSalesChannel")
+    require_po_number: Optional[bool] = Field(None, alias="requirePoNumber")
     transport_mode: Optional[str] = Field(None, alias="transportMode")
     transport_code: Optional[str] = Field(None, alias="transportCode")
     transit_days: Optional[int] = Field(None, alias="transitDays")
@@ -1240,6 +1242,8 @@ def map_customer_to_response_dict(customer: Any) -> dict:
         "post_sale_form_name": getattr(customer, "post_sale_form_name", None),
         "payment_category": getattr(policy, "payment_category", None) if policy else None,
         "payment_term": getattr(policy, "payment_term", None) if policy else None,
+        "default_sales_channel": getattr(policy, "default_sales_channel", None) if policy else None,
+        "require_po_number": getattr(policy, "require_po_number", None) if policy else None,
         "transport_mode": getattr(policy, "transport_mode", None) if policy else None,
         "transport_code": getattr(policy, "transport_code", None) if policy else None,
         "transit_days": getattr(policy, "transit_days", None) if policy else None,
@@ -1532,4 +1536,3 @@ class EligibleCustomerCodeItem(BaseModel):
     description: Optional[str] = None
 
     model_config = ConfigDict(populate_by_name=True, from_attributes=True)
-

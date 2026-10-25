@@ -39,7 +39,7 @@ from ..core.gst_engine import (
 )
 from ..models.sales import SalesInvoice, SalesInvoiceItem
 from ..models.pos import Shift
-from ..models.crm import Customer, CustomerGroup, CustomerCreditLedgerEntry, CustomerGSTRegistration, CustomerDeliveryLocation, CustomerBillingLocation
+from ..models.crm import Customer, CustomerGroup, CustomerPolicy, CustomerCompanyRelationship, CustomerCreditLedgerEntry, CustomerGSTRegistration, CustomerDeliveryLocation, CustomerBillingLocation
 from ..models.customer_po import CustomerPurchaseOrder, CustomerPurchaseOrderLine, CustomerPOInvoiceAllocation
 from ..models.pricing import CustomerPriceTier
 from ..models.item_master import ItemBarcode
@@ -83,6 +83,12 @@ class CanonicalSalesPostingWriter:
         req: CanonicalPostingRequest,
         idempotency_key: Optional[str] = None,
         commit: bool = False,
+        authorized_credit_override: bool = False,
+        credit_override_actor: Optional[str] = None,
+        authorized_transaction_mode_change: bool = False,
+        authorized_price_override: bool = False,
+        authorized_discount_override: bool = False,
+        authorized_adjustment_override: bool = False,
     ) -> CanonicalPostingResult:
         """
         Executes an atomic sales transaction posting under caller session control.
@@ -92,6 +98,66 @@ class CanonicalSalesPostingWriter:
         warehouse_id = req.context.warehouse_id
         shift_id = req.context.shift_id
         idempotency_key = idempotency_key or req.context.idempotency_key
+
+        from .billing_profile_service import BillingProfileService
+        billing_configuration = await BillingProfileService.resolve_transaction_configuration(
+            session, company_id, branch_id
+        )
+        context_channel = (
+            req.context.source_channel
+            if req.context.source_channel in billing_configuration["allowed_sales_channels"]
+            else None
+        )
+        sales_channel = (
+            req.sales_channel
+            or req.context.sales_channel
+            or billing_configuration.get("default_sales_channel")
+            or context_channel
+        )
+        source_type = (
+            req.source_document_type
+            or ("CUSTOMER_PO" if req.customer_po_id else None)
+            or ("SALES_ORDER" if req.so_reference_no else None)
+            or billing_configuration.get("default_source_type")
+            or "DIRECT"
+        )
+        sales_channel = sales_channel or "B2B_WHOLESALE"
+        incoming_billing_snapshot = req.billing_configuration_snapshot or {}
+        bill_type = (
+            incoming_billing_snapshot.get("bill_type")
+            or billing_configuration.get("default_bill_type")
+        )
+        allowed_bill_types = {
+            str(value).strip().casefold(): str(value).strip()
+            for value in billing_configuration["allowed_bill_types"]
+        }
+        if sales_channel not in billing_configuration["allowed_sales_channels"]:
+            raise HTTPException(status_code=422, detail="The selected sales channel is not permitted by company or branch billing policy.")
+        if source_type not in billing_configuration["allowed_source_types"]:
+            raise HTTPException(status_code=422, detail="The selected billing source is not permitted by company or branch billing policy.")
+        if str(bill_type).strip().casefold() not in allowed_bill_types:
+            raise HTTPException(status_code=422, detail="The selected bill type is not permitted by company or branch billing policy.")
+        bill_type = allowed_bill_types[str(bill_type).strip().casefold()]
+        transaction_type = (
+            "CREDIT"
+            if (req.payment_mode or "").strip().upper() in {"CREDIT", "ON_ACCOUNT"}
+            or any(tender.tender_type.strip().upper() == "CREDIT" for tender in req.tenders)
+            else "CASH"
+        )
+        has_credit_tender = (
+            (req.payment_mode or "").strip().upper() in {"CREDIT", "ON_ACCOUNT"}
+            or any(tender.tender_type.strip().upper() == "CREDIT" for tender in req.tenders)
+        )
+        has_cash_tender = (
+            any(tender.tender_type.strip().upper() != "CREDIT" for tender in req.tenders)
+            if req.tenders
+            else (req.payment_mode or "").strip().upper() not in {"CREDIT", "ON_ACCOUNT"}
+        )
+        required_transactions = {
+            kind for kind, required in (("CREDIT", has_credit_tender), ("CASH", has_cash_tender)) if required
+        }
+        if not required_transactions.issubset(set(billing_configuration["allowed_transactions"])):
+            raise HTTPException(status_code=422, detail="The selected cash or credit transaction type is not permitted by company or branch billing policy.")
 
         # 0. Authoritative Input & Identity Validations
         if not req.items:
@@ -120,7 +186,12 @@ class CanonicalSalesPostingWriter:
         seller_gstin = (branch_obj and getattr(branch_obj, "gst_number", None)) or (comp_obj and comp_obj.gst_number)
         
         # Statutory Tax Invoice vs Retail Receipt / Bill of Supply Determination
-        is_b2b = bool(req.customer_gstin or getattr(req, "billed_party_gstin_id", None) or req.context.source_channel == "B2B_WHOLESALE")
+        is_b2b = bool(
+            req.customer_gstin
+            or getattr(req, "billed_party_gstin_id", None)
+            or req.context.source_channel == "B2B_WHOLESALE"
+            or sales_channel == "B2B_WHOLESALE"
+        )
         req_doc_type = getattr(req, "document_type", None) or getattr(req.context, "document_type", None)
         has_positive_tax = any(
             item.gst_rate is not None and Decimal(str(item.gst_rate)) > Decimal("0.00")
@@ -156,7 +227,7 @@ class CanonicalSalesPostingWriter:
 
         # 0B. Authoritative Company Billing Profile Policy Verification
         from .billing_profile_service import BillingProfileService
-        prof_res = await BillingProfileService.get_effective_profile(session, company_id)
+        prof_res = await BillingProfileService.get_effective_profile(session, company_id, branch_id)
         if prof_res.get("configured"):
             eff_prof = prof_res.get("effective_configuration") or {}
             # B2B Registered Customer Selection Check
@@ -333,16 +404,16 @@ class CanonicalSalesPostingWriter:
             if t.tender_type.upper() == "CREDIT":
                 credit_tender_amount += Decimal(str(t.amount))
 
-        cart_est_credit = credit_tender_amount
-        if (req.payment_mode or "").upper() == "CREDIT" and credit_tender_amount == Decimal("0.00"):
-            cart_est_credit = sum(Decimal(str(i.quantity)) * Decimal(str(i.unit_price)) for i in req.items)
-
         if req.customer_id:
             q_cust = select(Customer).where(
                 Customer.id == req.customer_id,
                 Customer.company_id == company_id,
                 (Customer.branch_id.in_(branch_candidates)) | Customer.branch_id.is_(None),
                 Customer.is_deleted == False,
+            ).options(
+                selectinload(Customer.group),
+                selectinload(Customer.policy),
+                selectinload(Customer.company_relationships).selectinload(CustomerCompanyRelationship.customer_group),
             ).with_for_update()
             res_cust = await session.execute(q_cust)
             db_customer = res_cust.scalars().first()
@@ -351,6 +422,64 @@ class CanonicalSalesPostingWriter:
                     status_code=404,
                     detail=f"SMRITI-CRM-001: Customer '{req.customer_id}' not found for company '{company_id}'.",
                 )
+
+        customer_relation = next(
+            (
+                relation for relation in (db_customer.company_relationships if db_customer else [])
+                if relation.company_id == company_id and relation.status == "Active" and not relation.is_deleted
+            ),
+            None,
+        )
+        customer_group = (
+            customer_relation.customer_group
+            if customer_relation and customer_relation.customer_group
+            else (db_customer.group if db_customer else None)
+        )
+        customer_policy = db_customer.policy if db_customer else None
+        payment_options = BillingProfileService.resolve_customer_payment_options(
+            configuration=billing_configuration,
+            customer=db_customer,
+            group=customer_group,
+            relationship=customer_relation,
+            can_override_credit=bool(
+                authorized_credit_override
+                and customer_group
+                and customer_group.allow_override
+            ),
+        )
+        if not required_transactions.issubset(set(payment_options["allowed_transactions"])):
+            raise HTTPException(
+                status_code=403,
+                detail=payment_options["configuration_warning"]
+                or "The requested cash or credit mode is not permitted for this customer and branch.",
+            )
+        configured_default = payment_options["default_transaction"]
+        transaction_mode_changed = transaction_type != configured_default
+        if configured_default and transaction_type != configured_default and not authorized_transaction_mode_change:
+            raise HTTPException(
+                status_code=403,
+                detail="Changing the customer's configured billing mode requires explicit transaction-mode permission.",
+            )
+        if not configured_default and not authorized_transaction_mode_change:
+            raise HTTPException(
+                status_code=409,
+                detail=payment_options["configuration_warning"]
+                or "No valid customer billing mode is configured; an authorized user must select one.",
+            )
+        configured_po_requirement = (
+            customer_policy.require_po_number
+            if customer_policy and customer_policy.require_po_number is not None
+            else bool(customer_group and customer_group.require_po_number)
+        )
+        require_po_number = (
+            billing_configuration.get("customer_po_reference") == "REQUIRED"
+            or bool(configured_po_requirement)
+        )
+        if require_po_number and not (req.po_reference_no or req.customer_po_id):
+            raise HTTPException(
+                status_code=422,
+                detail="A customer purchase-order reference is required by the active billing policy.",
+            )
 
         customer_discount_policy = await resolve_customer_discount_policy(
             session,
@@ -386,46 +515,6 @@ class CanonicalSalesPostingWriter:
             )
             if not promotion_result.applied_promotions:
                 raise HTTPException(status_code=400, detail="Requested promotion is not eligible for this transaction.")
-
-        if credit_tender_amount > 0 or cart_est_credit > 0 or (req.payment_mode or "").upper() == "CREDIT":
-            if not db_customer or db_customer.id == "CUST-WALKIN":
-                raise HTTPException(
-                    status_code=400,
-                    detail="SMRITI-CREDIT-001: Credit tender cannot be used for unregistered Walk-in customers.",
-                )
-            current_outstanding = Decimal(str(db_customer.outstanding or "0.00"))
-            credit_limit = Decimal("0.00")
-            if db_customer.customer_group_id:
-                q_cg = select(CustomerGroup).where(
-                    CustomerGroup.id == db_customer.customer_group_id,
-                    CustomerGroup.is_deleted == False,
-                )
-                res_cg = await session.execute(q_cg)
-                cg_rec = res_cg.scalars().first()
-                if cg_rec:
-                    if getattr(cg_rec, "credit_hold", False):
-                        raise HTTPException(
-                            status_code=400,
-                            detail="SMRITI-CREDIT-002: Customer account is on Credit Hold. Sales blocked.",
-                        )
-                    if cg_rec.credit_limit:
-                        credit_limit = Decimal(str(cg_rec.credit_limit))
-                        eff_exposure = credit_tender_amount if credit_tender_amount > 0 else cart_est_credit
-                        if credit_limit > 0 and (current_outstanding + eff_exposure) > credit_limit:
-                            if not req.context.supervisor_override_code:
-                                raise HTTPException(
-                                    status_code=400,
-                                    detail=(
-                                        f"SMRITI-CREDIT-003: Customer credit limit exceeded! "
-                                        f"Limit: ₹{credit_limit:,.2f}, Current: ₹{current_outstanding:,.2f}, "
-                                        f"Bill Credit: ₹{eff_exposure:,.2f}. Supervisor override required."
-                                    ),
-                                )
-                            logger.warning(
-                                "Credit limit override authorized by code %s for customer %s",
-                                req.context.supervisor_override_code,
-                                db_customer.id,
-                            )
 
         # 3.5 B2B Customer Registrations & Delivery Locations Validation
         resolved_customer_id = db_customer.id if db_customer else req.customer_id
@@ -738,6 +827,9 @@ class CanonicalSalesPostingWriter:
             customer_discount_policy=customer_discount_policy,
             is_interstate=is_interstate,
             promotion_result=promotion_result,
+            authorized_price_override=authorized_price_override,
+            authorized_discount_override=authorized_discount_override,
+            authorized_adjustment_override=authorized_adjustment_override,
         )
 
         total_gross = calc_result.gross_amount
@@ -752,6 +844,48 @@ class CanonicalSalesPostingWriter:
         round_off = calc_result.round_off
         calculated_lines = calc_result.lines
         batch_deductions = calc_result.batch_deductions
+
+        credit_override_applied = False
+        if "CREDIT" in required_transactions:
+            credit_exposure = (
+                credit_tender_amount
+                if credit_tender_amount > Decimal("0.00")
+                else net_rounded
+            )
+            final_payment_options = BillingProfileService.resolve_customer_payment_options(
+                configuration=billing_configuration,
+                customer=db_customer,
+                group=customer_group,
+                relationship=customer_relation,
+                can_override_credit=bool(
+                    authorized_credit_override
+                    and customer_group
+                    and customer_group.allow_override
+                ),
+                credit_exposure=credit_exposure,
+            )
+            if "CREDIT" not in final_payment_options["allowed_transactions"]:
+                if final_payment_options["credit_override_required"]:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=(
+                            f"SMRITI-CREDIT-003: Credit exposure of ₹{credit_exposure:,.2f} exceeds "
+                            f"available credit of ₹{final_payment_options['available_credit'] or 0:,.2f}."
+                        ),
+                    )
+                raise HTTPException(
+                    status_code=403,
+                    detail=final_payment_options["configuration_warning"]
+                    or "Credit billing is not permitted for this customer and branch.",
+                )
+            if final_payment_options["credit_override_required"]:
+                if not (req.credit_override_reason or "").strip():
+                    raise HTTPException(
+                        status_code=422,
+                        detail="A business justification is required for a credit-limit override.",
+                    )
+                credit_override_applied = True
+                logger.warning("Authorized credit limit override for customer %s", db_customer.id)
 
         # 7. Invoice Numbering Allocation
         invoice_no = req.context.client_invoice_no
@@ -936,24 +1070,41 @@ class CanonicalSalesPostingWriter:
                 or (req.context.source_channel if req.context.source_channel in ["MODERN_TRADE", "GENERAL_TRADE", "B2B_WHOLESALE", "POS_RETAIL", "ECOMMERCE"] else None)
                 or "B2B_WHOLESALE"
             ),
-            source_document_type=(
-                "CUSTOMER_PO" if req.customer_po_id
-                else ("SALES_ORDER" if req.so_reference_no
-                else (req.context.source_channel if req.context.source_channel in ["DIRECT", "CUSTOMER_PO", "SALES_ORDER"] else "DIRECT"))
-            ),
-            source_document_id=req.customer_po_id or req.so_reference_no,
+            source_document_type=source_type,
+            source_document_id=req.source_document_id or req.customer_po_id or req.so_reference_no,
             rule_snapshots={
                 "document_type": ("TAX_INVOICE" if seller_gstin else "RETAIL_RECEIPT"),
                 "idempotency_key": idempotency_key,
                 "request_hash": req_hash,
                 "source_channel": req.context.source_channel,
                 "sales_channel": (
-                    getattr(req, "sales_channel", None)
-                    or getattr(req.context, "sales_channel", None)
-                    or (req.context.source_channel if req.context.source_channel in ["MODERN_TRADE", "GENERAL_TRADE", "B2B_WHOLESALE", "POS_RETAIL", "ECOMMERCE"] else None)
-                    or "B2B_WHOLESALE"
+                    sales_channel
                 ),
-                "supervisor_override": req.context.supervisor_override_code,
+                "billing_policy": {
+                    "bill_type": bill_type,
+                    "transaction_type": transaction_type,
+                    "allowed_transactions": payment_options["allowed_transactions"],
+                    "default_transaction": configured_default,
+                    "transaction_mode_changed": transaction_mode_changed,
+                    "sales_channel": sales_channel,
+                    "source_document_type": source_type,
+                    "require_po_number": require_po_number,
+                    "configuration": billing_configuration,
+                    "credit_override_applied": credit_override_applied,
+                    "credit_override_reason": req.credit_override_reason if credit_override_applied else None,
+                    "credit_override_actor": credit_override_actor if credit_override_applied else None,
+                },
+                "supervisor_override_requested": bool(req.context.supervisor_override_code),
+                "overrides": {
+                    "authorized_credit_override": authorized_credit_override,
+                    "authorized_transaction_mode_change": authorized_transaction_mode_change,
+                    "authorized_price_override": authorized_price_override,
+                    "authorized_discount_override": authorized_discount_override,
+                    "authorized_adjustment_override": authorized_adjustment_override,
+                },
+                "adjustments": calc_result.adjustments,
+                "total_addons": float(calc_result.total_addons),
+                "total_deductions": float(calc_result.total_deductions),
                 "calculated_at": datetime.now(timezone.utc).isoformat(),
                 "promotion_evaluation": promotion_result.model_dump(mode="json") if promotion_result else None,
             },

@@ -144,7 +144,7 @@ export const LAUNCHPAD_CATALOG: TileData[] = [
     group: "Master Data & Stock",
     roles: ["CASHIER", "MANAGER", "SYSADMIN"],
     isQuickAction: true,
-    shortcut: "F4",
+    shortcut: "F3",
     accentColor: "purple",
   },
   {

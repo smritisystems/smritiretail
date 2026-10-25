@@ -153,6 +153,15 @@ async def evaluate_action_permission(
             except Exception:
                 pass
 
+    if resource == "sales_billing" and action in {
+        "OVERRIDE_CREDIT",
+        "CHANGE_TRANSACTION_MODE",
+        "OVERRIDE_PRICE",
+        "OVERRIDE_DISCOUNT",
+        "MANAGE_ADJUSTMENTS",
+    }:
+        return False
+
     # 3. Scoped Role Defaults
     if current_user.role == UserRole.MANAGER:
         # Prevent dangerous destructive operations without explicit permissions

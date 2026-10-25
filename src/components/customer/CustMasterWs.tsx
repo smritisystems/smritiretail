@@ -50,6 +50,7 @@ import { RetailCustomerRecord, CustomerAddressEntry, CustomerAddressType, Custom
 import { SmritiCustomerFormTab } from "./CustFormTab.tsx";
 import { SmritiCustomerRetailDetailsTab } from "./CustRetailDetTab.tsx";
 import { SmritiCustomerAdditionalDetailsTab } from "./CustAddlDetTab.tsx";
+import { getCustomerProfileTabLabels } from "./customerProfileTabs.ts";
 import { SmritiCustomerMailingModal } from "./CustMailingDlg.tsx";
 import { SmritiAdvancedCustomerSearchModal } from "./AdvancedCustSearch.tsx";
 import { ExportButton } from "../export/ExportButton.tsx";
@@ -735,6 +736,8 @@ export function mapBackendCustomerToRecord(bCust: any): RetailCustomerRecord {
     loyaltyPointsBalance: Number(bCust.loyalty_points_balance || 0),
     paymentCategory: bCust.payment_category || bCust.paymentCategory || "CASH",
     paymentTerm: normalizedTerm,
+    defaultSalesChannel: bCust.default_sales_channel ?? bCust.defaultSalesChannel ?? null,
+    requirePoNumber: bCust.require_po_number ?? bCust.requirePoNumber ?? null,
     creditLimit: normalizedLimit,
     creditDays: normalizedDays,
     creditUsed: Number(bCust.outstanding ?? bCust.credit_used ?? bCust.creditUsed ?? 0),
@@ -840,6 +843,7 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
            (currentCustomer.code && currentCustomer.code.startsWith("RRL")) ||
            (currentCustomer.name && currentCustomer.name.toLowerCase().includes("reliance"));
   }, [currentCustomer]);
+  const profileTabLabels = getCustomerProfileTabLabels(currentCustomer);
 
   // Synchronize corporate GST registrations list from backend data or customer record
   useEffect(() => {
@@ -1434,6 +1438,14 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
         email: cleanEmail,
         gst_number: cleanGstin,
         customer_group_id: resolvedCustomerGroupId,
+        payment_category: currentCustomer.paymentCategory || null,
+        payment_term: currentCustomer.paymentTerm && currentCustomer.paymentTerm !== "Policy Not Configured"
+          ? currentCustomer.paymentTerm
+          : null,
+        default_sales_channel: currentCustomer.defaultSalesChannel || null,
+        require_po_number: currentCustomer.requirePoNumber ?? null,
+        allow_cash_bill: Boolean(currentCustomer.allowCashBill),
+        allow_credit_invoice: Boolean(currentCustomer.allowCreditInvoice),
         pricing_basis: currentCustomer.pricingBasis || currentCustomer.pricing_basis || "MRP",
         allow_promotions_on_rate: Boolean(currentCustomer.allowPromotionsOnRate ?? currentCustomer.allow_promotions_on_rate),
         is_tax_inclusive: Boolean(currentCustomer.isTaxInclusive ?? currentCustomer.is_tax_inclusive),
@@ -2070,6 +2082,11 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
               onEditCustomer={() => {
                 setViewMode("catalogue");
                 setActiveTab("form");
+              }}
+              onSelectCustomer={item => {
+                if (item.id === currentCustomer?.id) return;
+                if (isDirty && !window.confirm("Discard unsaved customer changes and open another customer?")) return;
+                void handleOpenDirectoryCustomer(item, "360");
               }}
               isSaving={isSaving}
               isDirty={isDirty}
@@ -2869,7 +2886,7 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
                   }`}
                 >
                   <FileText size={14} />
-                  <span>1. The "Form" Tab</span>
+                  <span>1. {profileTabLabels.form}</span>
                   <kbd className="text-[9px] px-1 bg-black/10 rounded">Alt+1</kbd>
                 </button>
 
@@ -2883,7 +2900,7 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
                   }`}
                 >
                   <Heart size={14} />
-                  <span>2. The "Retail Details" Tab</span>
+                  <span>2. {profileTabLabels.retail}</span>
                   <kbd className="text-[9px] px-1 bg-black/10 rounded">Alt+2</kbd>
                 </button>
 
@@ -2897,7 +2914,7 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
                   }`}
                 >
                   <CreditCard size={14} />
-                  <span>3. The "Additional Details" Tab</span>
+                  <span>3. {profileTabLabels.additional}</span>
                   <kbd className="text-[9px] px-1 bg-black/10 rounded">Alt+3</kbd>
                 </button>
               </div>

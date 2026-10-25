@@ -105,17 +105,16 @@ Currently:
 - Line item amounts and tax amounts are NOT updated.
 - Consequently, `SUM(items.total_amount) != invoice.grand_total`.
 
-### 3.3 Decision Classification: `NEEDS_APPROVAL`
+### 3.3 Decision: Pre-Tax Proportional Allocation
 Under Indian GST Law, there are two distinct legal/accounting interpretations for post-line bill discounts:
 
 | Option | Commercial Mechanism | Tax Liability Impact | Implementation Complexity |
 | :--- | :--- | :--- | :--- |
-| **Option A: Pre-Tax Proportional Allocation** | Allocate bill discount across all taxable lines proportionally based on `(price * qty)`. Recalculate line taxable value, CGST/SGST/IGST, and total per line. | GST liability is reduced on every line. Compliant with Section 15(3) if recorded on the invoice. | Moderate. Requires allocation algorithm + remainder 1-paisa reconciliation. |
+| **Option A: Pre-Tax Proportional Allocation** | Allocate bill discount across taxable line balances proportionally after line-level discounts. Recalculate line taxable value, CGST/SGST/IGST, and total per line. | GST liability is reduced on every line. Compliant with Section 15(3) if recorded on the invoice. | Moderate. Requires allocation algorithm + remainder 1-paisa reconciliation. |
 | **Option B: Post-Tax Financial/Commercial Discount** | Lines retain statutory taxable value and full GST liability. Bill discount is treated as a financial subsidy / settlement deduction recorded on the invoice header (`discount_amount`) without altering line tax. | GST payable to the government is NOT reduced. Merchant absorbs GST on full price. | Simple. Preserves line tax calculations; header records `net_amount = grand_total - discount_amount`. |
 
-> [!IMPORTANT]
-> **GOVERNANCE STATUS: `NEEDS_APPROVAL`**  
-> The repository does not currently contain a proportional bill-discount allocation engine. Silent adoption of Option A or Option B affects merchant tax liability and reconciliation. Phase 2C will implement Option A or Option B upon explicit stakeholder approval. In the interim, line-level discount remains the canonical tax-reduction mechanism.
+> **GOVERNANCE STATUS: `APPROVED`**
+> The selected policy is Option A: allocate the bill discount proportionally across line amounts after line-level discounts and before tax. Allocation uses currency-cent precision, deterministic remainder reconciliation, and a per-line cap; the canonical billing engine recalculates statutory tax from the allocated line discounts.
 
 ---
 
@@ -286,7 +285,7 @@ The Canonical Authority does NOT trust adapter-provided IDs without verification
 | :--- | :--- | :--- |
 | **Tax Engine** | `backend/app/core/gst_engine.py` | **APPROVED (ESTABLISHED)** |
 | **Discount (Line-level)** | `SalesService` & `gst_engine.py` | **APPROVED (ESTABLISHED)** |
-| **Discount (Bill-level)** | Allocation across lines vs Post-tax deduction | **NEEDS_APPROVAL** |
+| **Discount (Bill-level)** | Pre-tax proportional line allocation | **APPROVED (TASK DECISION)** |
 | **Monetary Rounding** | 2-decimal `ROUND_HALF_UP` | **APPROVED (ESTABLISHED)** |
 | **Item/Variant Identity** | `CanonicalTransactionWriter` (Dual-Key) | **APPROVED (ESTABLISHED)** |
 | **Inventory & FEFO** | `InventoryWmsService` | **APPROVED (ESTABLISHED)** |

@@ -74,39 +74,8 @@ export const PackingSlipManagementModal: React.FC<PackingSlipManagementModalProp
 }) => {
   const [viewMode, setViewMode] = useState<"LIST" | "CREATE" | "VIEW">("LIST");
   const [searchQuery, setSearchQuery] = useState<string>("");
-  const [slips, setSlips] = useState<PackingSlipRecord[]>([
-    {
-      id: "ps_demo_001",
-      packingSlipNumber: "PS-20261017-001",
-      salesInvoiceId: "UNBILLED",
-      orderId: "SO-2026-8801",
-      customerId: "cust-ril-01",
-      customerName: "Reliance Retail Ltd (B2B)",
-      status: "PACKED",
-      totalPackages: 2,
-      weightKg: 4.5,
-      createdAt: "2026-10-17 10:15:00",
-      items: [
-        { id: "psi_1", productId: "p-chap-01", sku: "FL-CHP-01", name: "Premium Leather Chappal", quantity: 10, batchNumber: "B26-01" },
-        { id: "psi_2", productId: "p-snk-01", sku: "FL-SNK-01", name: "Urban Street Sneaker", quantity: 8, batchNumber: "B26-02" },
-      ],
-    },
-    {
-      id: "ps_demo_002",
-      packingSlipNumber: "PS-20261017-002",
-      salesInvoiceId: "UNBILLED",
-      orderId: "SO-2026-8802",
-      customerId: "cust-ril-01",
-      customerName: "Reliance Retail Ltd (B2B)",
-      status: "PACKED",
-      totalPackages: 1,
-      weightKg: 2.8,
-      createdAt: "2026-10-17 11:30:00",
-      items: [
-        { id: "psi_3", productId: "p-run-01", sku: "FL-RUN-01", name: "Sprint Pro Running Shoe", quantity: 12, batchNumber: "B26-03" },
-      ],
-    },
-  ]);
+  const [slips, setSlips] = useState<PackingSlipRecord[]>([]);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const [selectedSlip, setSelectedSlip] = useState<PackingSlipRecord | null>(null);
 
@@ -137,35 +106,34 @@ export const PackingSlipManagementModal: React.FC<PackingSlipManagementModalProp
   }, [isOpen]);
 
   const loadPackingSlips = async () => {
+    setLoadError(null);
     try {
       const data = await apiFetchV1<any[]>("/fulfillment/packing-slips");
-      if (Array.isArray(data) && data.length > 0) {
-        setSlips((prev) => {
-          const fetched: PackingSlipRecord[] = data.map((d: any) => ({
-            id: d.id,
-            packingSlipNumber: d.packing_slip_number || d.packingSlipNumber,
-            salesInvoiceId: d.sales_invoice_id || d.salesInvoiceId || "UNBILLED",
-            orderId: d.order_id || d.orderId,
-            customerId: d.customer_id || d.customerId,
-            customerName: d.customer_name || d.customerName || "B2B Customer",
-            status: d.status || "PACKED",
-            totalPackages: d.total_packages || 1,
-            weightKg: Number(d.weight_kg) || 0.5,
-            createdAt: d.created_at || new Date().toISOString(),
-            items: (d.items || []).map((it: any) => ({
-              id: it.id,
-              productId: it.product_id || it.productId,
-              sku: it.sku,
-              name: it.sku,
-              quantity: Number(it.quantity) || 1,
-              batchNumber: it.batch_number,
-            })),
-          }));
-          return fetched;
-        });
-      }
-    } catch {
-      // Offline fallback: keep initialized demo slips
+      setSlips(Array.isArray(data) ? data.map((d: any) => ({
+        id: d.id,
+        packingSlipNumber: d.packing_slip_number || d.packingSlipNumber,
+        salesInvoiceId: d.sales_invoice_id || d.salesInvoiceId || "UNBILLED",
+        orderId: d.order_id || d.orderId,
+        customerId: d.customer_id || d.customerId,
+        customerName: d.customer_name || d.customerName || "B2B Customer",
+        status: d.status || "PACKED",
+        totalPackages: d.total_packages || 1,
+        weightKg: Number(d.weight_kg) || 0.5,
+        createdAt: d.created_at || new Date().toISOString(),
+        items: (d.items || []).map((it: any) => ({
+          id: it.id,
+          productId: it.product_id || it.productId,
+          sku: it.sku,
+          name: it.name || it.sku,
+          quantity: Number(it.quantity) || 0,
+          batchNumber: it.batch_number,
+        })),
+      })) : []);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "The fulfillment service could not be reached.";
+      setSlips([]);
+      setLoadError(message);
+      onNotification?.("Packing Slips Unavailable", message, "error");
     }
   };
 
@@ -341,11 +309,13 @@ export const PackingSlipManagementModal: React.FC<PackingSlipManagementModalProp
             <button
               type="button"
               onClick={initCreateSlip}
-              className="flex items-center gap-1.5 px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold transition cursor-pointer shadow-xs"
+              disabled
+              title="Packing-slip creation is unavailable until order quantities are connected to fulfillment."
+              className="flex items-center gap-1.5 px-3.5 py-1.5 bg-slate-400 text-white rounded-lg text-xs font-bold cursor-not-allowed shadow-xs"
               data-field-key="create-packing-slip-btn"
             >
               <Plus size={14} />
-              <span>Create Packing Slip</span>
+              <span>Create Packing Slip (Unavailable)</span>
             </button>
           )}
         </div>
@@ -354,10 +324,16 @@ export const PackingSlipManagementModal: React.FC<PackingSlipManagementModalProp
         <div className="flex-1 overflow-y-auto p-6">
           {viewMode === "LIST" && (
             <div className="space-y-3">
-              {filteredSlips.length === 0 ? (
+              {loadError ? (
+                <div role="alert" className="p-8 text-center text-red-700 dark:text-red-300">
+                  <Package size={32} className="mx-auto mb-2 opacity-60" />
+                  <p className="text-xs font-semibold">Packing slips could not be loaded.</p>
+                  <p className="mt-1 text-xs">{loadError}</p>
+                </div>
+              ) : filteredSlips.length === 0 ? (
                 <div className="p-8 text-center text-slate-500">
                   <Package size={32} className="mx-auto mb-2 text-slate-400 opacity-60" />
-                  <p className="text-xs font-semibold">No packing slips found matching query.</p>
+                  <p className="text-xs font-semibold">No authoritative packing slips are available.</p>
                 </div>
               ) : (
                 <div className="border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden">

@@ -106,11 +106,44 @@ async def bill_customer_po(
     payload: CustomerPOBillingRequest,
     idempotency_key: Optional[str] = Header(None, alias="Idempotency-Key"),
     db: AsyncSession = Depends(get_company_db),
+    control_db: AsyncSession = Depends(get_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
+    current_user=Depends(get_current_user),
     _user=Depends(require_permission("sales_billing", "NEW")),
 ):
     key = idempotency_key or payload.idempotency_key
-    return await CustomerPOService(db, tenant_ctx).bill(po_id, payload, idempotency_key=key)
+    invoice_payload = payload.invoice
+    authorized_credit_override = False
+    from ...core.security_matrix import evaluate_action_permission
+    authorized_transaction_mode_change = await evaluate_action_permission(
+        control_db,
+        current_user,
+        tenant_ctx,
+        resource="sales_billing",
+        action="CHANGE_TRANSACTION_MODE",
+    )
+    if invoice_payload.get("supervisor_override_code") or invoice_payload.get("credit_override_reason"):
+        from ...services.billing_profile_service import BillingProfileService
+
+        if not await evaluate_action_permission(
+            control_db,
+            current_user,
+            tenant_ctx,
+            resource="sales_billing",
+            action="OVERRIDE_CREDIT",
+        ):
+            raise HTTPException(status_code=403, detail="An explicit credit-override permission is required.")
+        if not await BillingProfileService.credit_limit_override_enabled(control_db):
+            raise HTTPException(status_code=403, detail="Credit-limit overrides are disabled by company policy.")
+        authorized_credit_override = True
+    return await CustomerPOService(db, tenant_ctx).bill(
+        po_id,
+        payload,
+        idempotency_key=key,
+        authorized_credit_override=authorized_credit_override,
+        credit_override_actor=current_user.id if authorized_credit_override else None,
+        authorized_transaction_mode_change=authorized_transaction_mode_change,
+    )
 
 
 @router.post("/customer-pos/{po_id}/close", response_model=CustomerPOResponse, summary="Close Fully Billed Customer PO")
@@ -149,7 +182,9 @@ async def create_sales_invoice_contract(
     invoice_in: SalesInvoiceCreate,
     request: Request,
     db: AsyncSession = Depends(get_company_db),
+    control_db: AsyncSession = Depends(get_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
+    current_user=Depends(get_current_user),
 ):
     """Create a sales invoice — canonical contract URL with Idempotency-Key support."""
     idempotency_key = (
@@ -157,7 +192,60 @@ async def create_sales_invoice_contract(
         or request.headers.get("idempotency-key")
         or request.headers.get("Idempotency-Key")
     )
-    return await SalesService(db, tenant_ctx).create_sales_invoice(invoice_in, idempotency_key=idempotency_key)
+    authorized_credit_override = False
+    from ...core.security_matrix import evaluate_action_permission
+    authorized_transaction_mode_change = await evaluate_action_permission(
+        control_db,
+        current_user,
+        tenant_ctx,
+        resource="sales_billing",
+        action="CHANGE_TRANSACTION_MODE",
+    )
+    authorized_price_override = await evaluate_action_permission(
+        control_db,
+        current_user,
+        tenant_ctx,
+        resource="sales_billing",
+        action="OVERRIDE_PRICE",
+    )
+    authorized_discount_override = await evaluate_action_permission(
+        control_db,
+        current_user,
+        tenant_ctx,
+        resource="sales_billing",
+        action="OVERRIDE_DISCOUNT",
+    )
+    authorized_adjustment_override = await evaluate_action_permission(
+        control_db,
+        current_user,
+        tenant_ctx,
+        resource="sales_billing",
+        action="MANAGE_ADJUSTMENTS",
+    )
+    if invoice_in.supervisor_override_code or invoice_in.credit_override_reason:
+        from ...services.billing_profile_service import BillingProfileService
+
+        if not await evaluate_action_permission(
+            control_db,
+            current_user,
+            tenant_ctx,
+            resource="sales_billing",
+            action="OVERRIDE_CREDIT",
+        ):
+            raise HTTPException(status_code=403, detail="An explicit credit-override permission is required.")
+        if not await BillingProfileService.credit_limit_override_enabled(control_db):
+            raise HTTPException(status_code=403, detail="Credit-limit overrides are disabled by company policy.")
+        authorized_credit_override = True
+    return await SalesService(db, tenant_ctx).create_sales_invoice(
+        invoice_in,
+        idempotency_key=idempotency_key,
+        authorized_credit_override=authorized_credit_override,
+        credit_override_actor=current_user.id if authorized_credit_override else None,
+        authorized_transaction_mode_change=authorized_transaction_mode_change,
+        authorized_price_override=authorized_price_override,
+        authorized_discount_override=authorized_discount_override,
+        authorized_adjustment_override=authorized_adjustment_override,
+    )
 
 
 @router.get("/invoices", response_model=List[SalesInvoiceResponse], summary="List Sales Invoices (Contract URL)")
@@ -1126,6 +1214,3 @@ async def get_sales_channel_capabilities() -> List[dict]:
     """
     from ...core.sales_channels import DEFAULT_CHANNEL_CAPABILITIES, ALL_SALES_CHANNELS
     return [DEFAULT_CHANNEL_CAPABILITIES[ch] for ch in ALL_SALES_CHANNELS]
-
-
-

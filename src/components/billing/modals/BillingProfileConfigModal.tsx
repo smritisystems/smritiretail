@@ -53,6 +53,25 @@ export const BillingProfileConfigModal: React.FC<BillingProfileConfigModalProps>
 }) => {
   const [activeTab, setActiveTab] = useState<"SETTINGS" | "MIGRATION" | "HISTORY">("SETTINGS");
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  const [policyScope, setPolicyScope] = useState<"COMPANY" | "BRANCH">("COMPANY");
+  const [defaultSalesChannel, setDefaultSalesChannel] = useState<string>(
+    effectiveConfig?.default_sales_channel || (activeProfile === "B2C_ONLY" ? "POS_RETAIL" : "B2B_WHOLESALE")
+  );
+  const [allowedSalesChannels, setAllowedSalesChannels] = useState<string[]>(
+    effectiveConfig?.allowed_sales_channels || (activeProfile === "B2C_ONLY" ? ["POS_RETAIL", "ECOMMERCE"] : ["MODERN_TRADE", "GENERAL_TRADE", "B2B_WHOLESALE"])
+  );
+  const [defaultSourceType, setDefaultSourceType] = useState<string>(effectiveConfig?.default_source_type || "DIRECT");
+  const [allowedSourceTypes, setAllowedSourceTypes] = useState<string[]>(
+    effectiveConfig?.allowed_source_types || ["DIRECT", "CUSTOMER_PO", "SALES_ORDER", "PACKING_SLIP_CONSOLIDATED"]
+  );
+  const [defaultBillType, setDefaultBillType] = useState<string>(effectiveConfig?.default_bill_type || "Product");
+  const [allowedBillTypes, setAllowedBillTypes] = useState<string[]>(effectiveConfig?.allowed_bill_types || ["Product", "Service"]);
+  const [allowedTransactions, setAllowedTransactions] = useState<string[]>(
+    effectiveConfig?.allowed_transactions || (activeProfile === "B2C_ONLY" ? ["CASH"] : ["CASH", "CREDIT"])
+  );
+  const [defaultTransaction, setDefaultTransaction] = useState<string>(
+    effectiveConfig?.default_transaction || "CASH"
+  );
 
   // Settings Form State
   const [shiftManagement, setShiftManagement] = useState<string>(
@@ -108,6 +127,15 @@ export const BillingProfileConfigModal: React.FC<BillingProfileConfigModalProps>
     setIsSubmitting(true);
     try {
       const payload = {
+        policy_scope: policyScope,
+        default_sales_channel: defaultSalesChannel,
+        allowed_sales_channels: allowedSalesChannels,
+        default_source_type: defaultSourceType,
+        allowed_source_types: allowedSourceTypes,
+        default_bill_type: defaultBillType,
+        allowed_bill_types: allowedBillTypes,
+        allowed_transactions: allowedTransactions,
+        default_transaction: defaultTransaction,
         shift_management: shiftManagement,
         customer_po_reference: customerPoRef,
         bulk_add_enabled: bulkAddEnabled,
@@ -250,6 +278,124 @@ export const BillingProfileConfigModal: React.FC<BillingProfileConfigModalProps>
             <div className="space-y-4">
               <div className="p-3 bg-slate-100 dark:bg-slate-800/40 rounded-xl text-xs text-slate-600 dark:text-slate-400">
                 <strong>Precedence Hierarchy:</strong> Company Policy &gt; {activeProfile} Defaults &gt; Store Config &gt; User Preferences.
+              </div>
+
+              <div className="p-3 border border-blue-200 dark:border-blue-900 rounded-xl space-y-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <h4 className="text-xs font-bold text-slate-900 dark:text-white">Transaction Defaults &amp; Eligibility</h4>
+                    <p className="text-[11px] text-slate-500">Company policy is inherited by branches; branch values override it.</p>
+                  </div>
+                  <select
+                    aria-label="Billing policy scope"
+                    value={policyScope}
+                    onChange={event => setPolicyScope(event.target.value as "COMPANY" | "BRANCH")}
+                    disabled={!canManage}
+                    className="px-2 py-1.5 border border-slate-300 dark:border-slate-700 rounded-lg text-xs bg-white dark:bg-[#131b2e]"
+                  >
+                    <option value="COMPANY">Company</option>
+                    <option value="BRANCH">Current Branch</option>
+                  </select>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-300">
+                    Default sales channel
+                    <select
+                      value={defaultSalesChannel}
+                      onChange={event => setDefaultSalesChannel(event.target.value)}
+                      disabled={!canManage}
+                      className="mt-1 w-full px-2 py-1.5 border border-slate-300 dark:border-slate-700 rounded-lg text-xs bg-white dark:bg-[#131b2e]"
+                    >
+                      {["MODERN_TRADE", "GENERAL_TRADE", "B2B_WHOLESALE", "POS_RETAIL", "ECOMMERCE"].map(channel => (
+                        <option key={channel} value={channel}>{channel.replaceAll("_", " ")}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-300">
+                    Default source
+                    <select
+                      value={defaultSourceType}
+                      onChange={event => setDefaultSourceType(event.target.value)}
+                      disabled={!canManage}
+                      className="mt-1 w-full px-2 py-1.5 border border-slate-300 dark:border-slate-700 rounded-lg text-xs bg-white dark:bg-[#131b2e]"
+                    >
+                      {["DIRECT", "CUSTOMER_PO", "SALES_ORDER", "PACKING_SLIP_CONSOLIDATED"].map(source => (
+                        <option key={source} value={source}>{source.replaceAll("_", " ")}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-300">
+                    Default bill type
+                    <select
+                      value={defaultBillType}
+                      onChange={event => setDefaultBillType(event.target.value)}
+                      disabled={!canManage}
+                      className="mt-1 w-full px-2 py-1.5 border border-slate-300 dark:border-slate-700 rounded-lg text-xs bg-white dark:bg-[#131b2e]"
+                    >
+                      {["Product", "Service"].map(type => <option key={type} value={type}>{type}</option>)}
+                    </select>
+                  </label>
+                  <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-300">
+                    Default billing mode
+                    <select
+                      value={defaultTransaction}
+                      onChange={event => setDefaultTransaction(event.target.value)}
+                      disabled={!canManage}
+                      className="mt-1 w-full px-2 py-1.5 border border-slate-300 dark:border-slate-700 rounded-lg text-xs bg-white dark:bg-[#131b2e]"
+                    >
+                      <option value="CASH">Cash</option>
+                      <option value="CREDIT">Credit</option>
+                    </select>
+                  </label>
+                </div>
+                {!allowedTransactions.includes(defaultTransaction) && (
+                  <p className="text-[11px] text-amber-700 dark:text-amber-300" role="status">
+                    The configured default is not in the permitted modes. Billing will require an authorized explicit choice.
+                  </p>
+                )}
+                {[
+                  {
+                    label: "Permitted channels",
+                    values: ["MODERN_TRADE", "GENERAL_TRADE", "B2B_WHOLESALE", "POS_RETAIL", "ECOMMERCE"],
+                    selected: allowedSalesChannels,
+                    update: setAllowedSalesChannels,
+                  },
+                  {
+                    label: "Permitted sources",
+                    values: ["DIRECT", "CUSTOMER_PO", "SALES_ORDER", "PACKING_SLIP_CONSOLIDATED"],
+                    selected: allowedSourceTypes,
+                    update: setAllowedSourceTypes,
+                  },
+                  {
+                    label: "Permitted bill types",
+                    values: ["Product", "Service"],
+                    selected: allowedBillTypes,
+                    update: setAllowedBillTypes,
+                  },
+                  {
+                    label: "Permitted transaction modes",
+                    values: ["CASH", "CREDIT"],
+                    selected: allowedTransactions,
+                    update: setAllowedTransactions,
+                  },
+                ].map(group => (
+                  <fieldset key={group.label} className="flex flex-wrap items-center gap-x-4 gap-y-2 text-[11px]">
+                    <legend className="w-full font-semibold text-slate-600 dark:text-slate-300">{group.label}</legend>
+                    {group.values.map(value => (
+                      <label key={value} className="inline-flex items-center gap-1.5 text-slate-700 dark:text-slate-200">
+                        <input
+                          type="checkbox"
+                          checked={group.selected.includes(value)}
+                          disabled={!canManage}
+                          onChange={event => group.update(current => event.target.checked
+                            ? [...current, value]
+                            : current.filter(item => item !== value))}
+                        />
+                        {value.replaceAll("_", " ")}
+                      </label>
+                    ))}
+                  </fieldset>
+                ))}
               </div>
 
               {/* 1. Shift Management Policy */}

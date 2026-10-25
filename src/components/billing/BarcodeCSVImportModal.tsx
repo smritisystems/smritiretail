@@ -569,12 +569,6 @@ export const BarcodeCSVImportModal: React.FC<BarcodeCSVImportModalProps> = ({
     const items: ResolvedCartItem[] = result.rows
       .filter((r) => r.status !== "REJECTED" && Boolean(r.product_id))
       .map((r) => {
-        let effSp = r.effective_selling_price ?? 0;
-        let markdownDisplay = r.mrp_markdown_display;
-        if (isReliance && r.catalog_mrp && r.catalog_mrp > 0) {
-          effSp = Math.round(r.catalog_mrp * (1 - 0.4376) * 100) / 100;
-          markdownDisplay = "43.76% off MRP [REL_RET_4376]";
-        }
         return {
           barcode: r.barcode,
           resolved_item: r.resolved_item ?? r.barcode,
@@ -583,7 +577,7 @@ export const BarcodeCSVImportModal: React.FC<BarcodeCSVImportModalProps> = ({
           hsn_code: r.hsn_code,
           quantity: r.quantity ?? 1,
           catalog_mrp: r.catalog_mrp ?? 0,
-          effective_selling_price: effSp,
+          effective_selling_price: r.effective_selling_price ?? 0,
           is_tax_inclusive: r.is_tax_inclusive ?? true,
           tax_mode_display: r.tax_mode_display,
           batch_no: r.batch_no,
@@ -594,7 +588,7 @@ export const BarcodeCSVImportModal: React.FC<BarcodeCSVImportModalProps> = ({
           sgst_amount: r.sgst_amount ?? 0,
           line_total: r.line_total ?? 0,
           uom: r.uom ?? "PCS",
-          mrp_markdown_display: markdownDisplay,
+          mrp_markdown_display: r.mrp_markdown_display,
         };
       });
 
