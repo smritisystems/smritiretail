@@ -32,6 +32,13 @@ describe("Customer 360 dashboard", () => {
     expect(html).not.toContain("Reliance");
   });
 
+  it("handles draft customer records cleanly without issuing live API requests", () => {
+    const html = renderToStaticMarkup(<CorporateCustomer360 customerId="cust-draft-1792937624940" onBack={vi.fn()} />);
+    expect(html).toContain("Save customer to view 360° dashboard");
+    expect(html).toContain("This customer record is a new draft.");
+    expect(html).toContain("Open Customer Master");
+  });
+
   it("shows customer-specific summary data and omits unsourced prototype values", () => {
     const html = renderToStaticMarkup(<Customer360DashboardView customer={customer} />);
     expect(html).toContain("Northwind Retail");

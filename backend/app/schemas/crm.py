@@ -6,7 +6,7 @@ Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
 Version      : 3.23.0
 Created      : 2026-07-11
-Modified     : 2026-10-24
+Modified     : 2026-10-25
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 """
@@ -1064,6 +1064,8 @@ class CustomerRelationshipResponse(CustomerRelationshipCreate):
     parent_customer_id: str = Field(..., alias="parentCustomerId")
     dependant_customer_name: Optional[str] = Field(None, alias="dependantCustomerName")
     dependant_customer_code: Optional[str] = Field(None, alias="dependantCustomerCode")
+    dependant_customer_status: Optional[str] = Field("Active", alias="dependantCustomerStatus")
+    dependant_customer_is_active: Optional[bool] = Field(True, alias="dependantCustomerIsActive")
 
     model_config = ConfigDict(populate_by_name=True, from_attributes=True)
 
@@ -1174,6 +1176,8 @@ def map_customer_to_response_dict(customer: Any) -> dict:
     loyalty_member = loyalty_members[0] if loyalty_members else None
     dependant_rows = []
     for relationship in get_loaded_relationship(customer, "dependant_relationships"):
+        if getattr(relationship, "is_deleted", False):
+            continue
         dependant = getattr(relationship, "dependant_customer", None)
         dependant_rows.append({
             "id": relationship.id,
@@ -1181,6 +1185,8 @@ def map_customer_to_response_dict(customer: Any) -> dict:
             "dependant_customer_id": relationship.dependant_customer_id,
             "dependant_customer_name": getattr(dependant, "name", None),
             "dependant_customer_code": getattr(dependant, "code", None),
+            "dependant_customer_status": getattr(dependant, "status", "Active"),
+            "dependant_customer_is_active": getattr(dependant, "is_active", True),
             "relation": relationship.relation,
             "apply_same_mailing": relationship.apply_same_mailing,
             "notes": relationship.notes,
@@ -1189,8 +1195,7 @@ def map_customer_to_response_dict(customer: Any) -> dict:
     parent_relationship = next((
         relationship for relationship in parent_relationships
         if not getattr(relationship, "is_deleted", False)
-        and relationship.company_id == customer.company_id
-        and relationship.branch_id == customer.branch_id
+        and (relationship.company_id == customer.company_id or relationship.company_id is None)
     ), None)
     parent_customer = getattr(parent_relationship, "parent_customer", None) if parent_relationship else None
 
@@ -1371,6 +1376,12 @@ class CustomerDirectoryItem(BaseModel):
     parent_customer_id: Optional[str] = None
     primary_account_code: Optional[str] = None
     primary_account_name: Optional[str] = None
+    parent_customer_code: Optional[str] = None
+    parent_customer_name: Optional[str] = None
+    primary_account_status: Optional[str] = None
+    primary_account_is_active: Optional[bool] = None
+    child_count: int = 0
+    relationship_type: Optional[str] = None  # "parent" | "child" | "standalone"
 
     model_config = ConfigDict(from_attributes=True)
 

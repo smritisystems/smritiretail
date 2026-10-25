@@ -6,9 +6,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.99.0
+ * Version      : 6.99.1
  * Created      : 2026-10-18
- * Modified     : 2026-10-20
+ * Modified     : 2026-10-25
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
@@ -46,13 +46,19 @@ export const CorporateCustomer360: React.FC<CorporateCustomer360Props> = ({
   isDirty = false,
 }) => {
   const resolvedCustomerId = customerId || propCustomer?.id || propCustomer?.code;
+  const isDraft = !resolvedCustomerId || resolvedCustomerId.startsWith("cust-draft-");
   const [data, setData] = useState<CorporateCustomer360Data | null>(null);
-  const [isLoading, setIsLoading] = useState<boolean>(Boolean(resolvedCustomerId));
+  const [isLoading, setIsLoading] = useState<boolean>(!isDraft);
   const [error, setError] = useState<string | null>(null);
 
   // Authoritative data fetcher
   const load360Data = useCallback(async () => {
-    if (!resolvedCustomerId) return;
+    if (!resolvedCustomerId || resolvedCustomerId.startsWith("cust-draft-")) {
+      setIsLoading(false);
+      setError(null);
+      setData(null);
+      return;
+    }
     setIsLoading(true);
     setError(null);
     setData(null);
@@ -74,20 +80,26 @@ export const CorporateCustomer360: React.FC<CorporateCustomer360Props> = ({
   }, [resolvedCustomerId]);
 
   useEffect(() => {
-    if (!resolvedCustomerId) {
+    if (!resolvedCustomerId || resolvedCustomerId.startsWith("cust-draft-")) {
       setData(null);
       setError(null);
       setIsLoading(false);
       return;
     }
     load360Data();
-  }, [load360Data]);
+  }, [load360Data, resolvedCustomerId]);
 
-  if (!resolvedCustomerId) {
+  if (isDraft) {
     return (
       <div className="p-6 max-w-xl mx-auto mt-12 bg-white dark:bg-[#1e222d] border border-slate-200 dark:border-slate-800 rounded-2xl text-center space-y-3">
-        <h2 className="text-base font-semibold text-slate-900 dark:text-white">Select a customer to view the dashboard</h2>
-        <p className="text-sm text-slate-600 dark:text-slate-400">Open a customer from Customer Master to see its profile, commercial terms, transactions, and pending PSV reconciliation.</p>
+        <h2 className="text-base font-semibold text-slate-900 dark:text-white">
+          {!resolvedCustomerId ? "Select a customer to view the dashboard" : "Save customer to view 360° dashboard"}
+        </h2>
+        <p className="text-sm text-slate-600 dark:text-slate-400">
+          {!resolvedCustomerId
+            ? "Open a customer from Customer Master to see its profile, commercial terms, transactions, and pending PSV reconciliation."
+            : "This customer record is a new draft. Save the customer record to unlock analytics, commercial terms, transactions, and live PSV ledger views."}
+        </p>
         {onBack && (
           <button type="button" onClick={onBack} className="px-3 py-2 rounded-lg bg-[#0066cc] text-white text-sm font-semibold">
             Open Customer Master
