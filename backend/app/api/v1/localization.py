@@ -129,15 +129,17 @@ async def validate_postal_code(
     postal_code: str,
     city: Optional[str] = Query(default=None, max_length=150),
     state_code: Optional[str] = Query(default=None, max_length=10),
+    zone: Optional[str] = Query(default=None, max_length=50),
     country_code: str = Query(default="IN", min_length=2, max_length=3),
     db: AsyncSession = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
-    """Validate PIN, city, and state against the database reference master."""
+    """Validate PIN, city, state, and zone against the database reference master."""
     return await GlobalReferenceService(db).validate_postal_location(
         postal_code=postal_code,
         city=city,
         state_code=state_code,
+        zone=zone,
         country_code=country_code,
     )
 

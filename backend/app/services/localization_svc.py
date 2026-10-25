@@ -37,6 +37,17 @@ from ..models.localization import (
 )
 
 
+INDIAN_STATE_CODE_TO_ZONE: Dict[str, str] = {
+    "MH": "West", "GJ": "West", "GA": "West", "DN": "West", "DD": "West",
+    "DL": "North", "PB": "North", "HR": "North", "RJ": "North", "UP": "North",
+    "UK": "North", "UA": "North", "HP": "North", "JK": "North", "LA": "North", "CH": "North",
+    "TN": "South", "KA": "South", "KL": "South", "AP": "South", "TS": "South", "TG": "South", "PY": "South", "LD": "South",
+    "WB": "East", "BR": "East", "JH": "East", "OD": "East", "OR": "East", "AN": "East",
+    "MP": "Central", "CG": "Central", "CT": "Central",
+    "AS": "North East", "ML": "North East", "MN": "North East", "MZ": "North East", "NL": "North East", "TR": "North East", "AR": "North East", "SK": "North East",
+}
+
+
 class GlobalReferenceService:
     """
     Control Plane Global Reference Data Registry Service.
@@ -96,6 +107,7 @@ class GlobalReferenceService:
         pin_ref, state_name, gst_state_code = row
         pin_ref.state_name = state_name
         pin_ref.gst_state_code = gst_state_code
+        pin_ref.zone = INDIAN_STATE_CODE_TO_ZONE.get(pin_ref.state_code.upper()) if pin_ref.country_code == "IN" else None
         return pin_ref
 
     async def search_postal_codes(
@@ -139,6 +151,7 @@ class GlobalReferenceService:
         for pin_ref, s_name, gst_code in result.all():
             pin_ref.state_name = s_name
             pin_ref.gst_state_code = gst_code
+            pin_ref.zone = INDIAN_STATE_CODE_TO_ZONE.get(pin_ref.state_code.upper()) if pin_ref.country_code == "IN" else None
             items.append(pin_ref)
         return items
 
@@ -147,6 +160,7 @@ class GlobalReferenceService:
         postal_code: str,
         city: Optional[str] = None,
         state_code: Optional[str] = None,
+        zone: Optional[str] = None,
         country_code: str = "IN",
     ) -> Dict[str, Any]:
         """Validate a postal address against the authoritative postal registry.
@@ -155,30 +169,42 @@ class GlobalReferenceService:
         this prevents an unseeded reference database from silently becoming a
         compliance decision.
         """
+        clean_pin = postal_code.strip()
         records = await self.search_postal_codes(
-            query=postal_code,
-            state_code=state_code,
-            city=city,
+            query=clean_pin,
             country_code=country_code,
             limit=100,
         )
-        exact = [record for record in records if record.postal_code == postal_code.strip()]
+        exact = [record for record in records if record.postal_code == clean_pin]
         if not exact:
             return {
                 "valid": False,
                 "status": "NOT_FOUND",
-                "postal_code": postal_code.strip(),
+                "postal_code": clean_pin,
                 "matches": [],
             }
 
         city_matches = not city or any(record.city.casefold() == city.strip().casefold() for record in exact)
         state_matches = not state_code or any(record.state_code.casefold() == state_code.strip().casefold() for record in exact)
+        expected_state_code = exact[0].state_code
+        expected_state_name = getattr(exact[0], "state_name", None)
+        expected_zone = getattr(exact[0], "zone", None) or (INDIAN_STATE_CODE_TO_ZONE.get(expected_state_code.upper()) if country_code == "IN" else None)
+        zone_matches = not zone or bool(expected_zone and expected_zone.casefold() == zone.strip().casefold())
+
+        is_valid = city_matches and state_matches and zone_matches
         return {
-            "valid": city_matches and state_matches,
-            "status": "VALID" if city_matches and state_matches else "MISMATCH",
-            "postal_code": postal_code.strip(),
+            "valid": is_valid,
+            "status": "VALID" if is_valid else "MISMATCH",
+            "postal_code": clean_pin,
             "city": city,
             "state_code": state_code,
+            "zone": zone,
+            "expected_state": expected_state_name,
+            "expected_state_code": expected_state_code,
+            "expected_zone": expected_zone,
+            "city_matches": city_matches,
+            "state_matches": state_matches,
+            "zone_matches": zone_matches,
             "matches": exact,
         }
 
