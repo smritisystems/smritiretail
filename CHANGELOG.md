@@ -14,6 +14,15 @@
 
 ## [Unreleased] - 2026-10-25
 
+### Added
+- **CRM Customer Hierarchy Directory & Interactive Tree Modal v1.0.0**:
+  - Enriched `GET /api/v1/crm/customers/directory` with canonical hierarchy indicators (`child_count`, `relationship_type` [`parent`, `child`, `standalone`], `parent_customer_code`, `parent_customer_name`, `primary_account_status`, `primary_account_is_active`) and query filters (`relationship`, `parent_id`, `sort_by=child_count`).
+  - Added dual UUID and business Code resolution to `GET /api/v1/crm/customers/{customer_id}/dependants` and `POST` with BFS circular relationship prevention.
+  - Built `CustomerDirectoryRelationshipCell.tsx` rendering distinct visual relationship badges, child account count links, and one-click "Filter directory to children" shortcuts.
+  - Implemented `CustomerHierarchyModal.tsx` providing visual tree graph representations, searchable subordinate outlet lists, and direct navigation affordances to Customer Master and Corporate 360.
+  - Hardened draft customer records in `CorporateCustomer360.tsx`, preventing premature API calls on unsaved `cust-draft-*` records.
+  - Verified with 51/51 Vitest tests green, 4/4 backend tests green in `test_customer_directory_hierarchy.py`, 7/7 live headless API scenario checks passed (100%), 0 `tsc --noEmit` errors, and clean Vite production build.
+
 ### Fixed
 - **Billing Desk Empty-Bill ₹150 Charge Elimination**: Fixed defect where an empty Billing Desk evaluated to +₹150.00 add-ons and net payable due to statutory sales factor accumulation (PACK ₹50 + DELV ₹100) on an unpopulated cart:
   - Added zero-sales-base guard in `calculateBillFactors` (`src/services/smritiSalesFactorService.ts`), strictly skipping ancillary factor accrual when `discountedSaleValue <= 0 && baseSaleAmount <= 0` while preserving configured values for non-empty transactions.

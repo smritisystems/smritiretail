@@ -6,9 +6,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.99.0
+ * Version      : 6.99.1
  * Created      : 2026-10-20
- * Modified     : 2026-10-20
+ * Modified     : 2026-10-25
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
@@ -36,6 +36,7 @@ export interface HierarchyChildNode {
   storeCode?: string;
   location?: string;
   status?: string;
+  isActive?: boolean;
   type?: string;
   stores?: Array<{ code: string; name: string }>;
 }
@@ -146,10 +147,19 @@ export const CustomerHierarchyTree: React.FC<CustomerHierarchyTreeProps> = ({
                       <div className="w-7 h-7 rounded-md bg-emerald-700 text-white flex items-center justify-center mb-1.5 shadow-2xs">
                         <Store size={14} />
                       </div>
-                      <div className="text-[9px] font-bold text-emerald-800 dark:text-emerald-300 uppercase leading-none">
-                        Child Account
+                      <div className="flex items-center justify-between w-full px-1">
+                        <span className="text-[9px] font-bold text-emerald-800 dark:text-emerald-300 uppercase leading-none">
+                          Child Account
+                        </span>
+                        <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider ${
+                          (node.status || "Active").toLowerCase() === "active"
+                            ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-300"
+                            : "bg-amber-100 text-amber-800 dark:bg-amber-900/60 dark:text-amber-300"
+                        }`}>
+                          {node.status || "Active"}
+                        </span>
                       </div>
-                      <div className="font-mono font-bold text-[10px] text-slate-800 dark:text-slate-200 mt-0.5">
+                      <div className="font-mono font-bold text-[10px] text-slate-800 dark:text-slate-200 mt-1">
                         {node.code}
                       </div>
                       <div className="font-bold text-[11px] text-slate-900 dark:text-white truncate w-full" title={node.name}>

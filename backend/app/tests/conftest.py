@@ -178,8 +178,11 @@ def _ensure_schema_compatibility_sync(cur):
             transport_code VARCHAR(50), transit_days INTEGER, bank_code VARCHAR(50), bank_location VARCHAR(150),
             retail_factor NUMERIC(10, 4), dealer_factor NUMERIC(10, 4), destination_tax_type VARCHAR(50),
             allow_cash_bill BOOLEAN, allow_dc_gen BOOLEAN, allow_credit_invoice BOOLEAN,
-            allow_misc_issue BOOLEAN, allow_misc_receipts BOOLEAN
+            allow_misc_issue BOOLEAN, allow_misc_receipts BOOLEAN,
+            default_sales_channel VARCHAR(50), require_po_number BOOLEAN
         );""",
+        "ALTER TABLE IF EXISTS customer_policies ADD COLUMN IF NOT EXISTS default_sales_channel VARCHAR(50);",
+        "ALTER TABLE IF EXISTS customer_policies ADD COLUMN IF NOT EXISTS require_po_number BOOLEAN;",
         """CREATE TABLE IF NOT EXISTS customer_relationships (
             id VARCHAR(50) PRIMARY KEY, uuid VARCHAR(36), company_id VARCHAR(50), branch_id VARCHAR(50),
             created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP, modified_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,

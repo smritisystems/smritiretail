@@ -37,6 +37,12 @@ export interface CustomerDirectoryItem {
   parent_customer_id?: string | null;
   primary_account_code?: string | null;
   primary_account_name?: string | null;
+  parent_customer_code?: string | null;
+  parent_customer_name?: string | null;
+  primary_account_status?: string | null;
+  primary_account_is_active?: boolean | null;
+  child_count?: number;
+  relationship_type?: "parent" | "child" | "standalone" | string;
 }
 
 export interface CustomerDirectoryResponse {

@@ -6,7 +6,7 @@
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
  * Version      : 6.99.1
  * Created      : 2026-08-21
- * Modified     : 2026-10-24
+ * Modified     : 2026-10-25
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
@@ -44,7 +44,13 @@ import {
   Eye,
   XCircle,
   GitMerge,
-  Globe2
+  Globe2,
+  Network,
+  Store,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
+  GitBranch
 } from "lucide-react";
 import { RetailCustomerRecord, CustomerAddressEntry, CustomerAddressType, CustomerGSTRegistrationOption, getCustomerAddressFingerprint, CustomerCompanyRelationship, CustomerCreditExposureResponse, CustomerDirectoryItem, CustomerDirectoryResponse } from "./types.ts";
 import { SmritiCustomerFormTab } from "./CustFormTab.tsx";
@@ -72,6 +78,8 @@ import { CustomerDeleteConfirmationModal } from "./lifecycle/CustomerDeleteConfi
 import { CustomerMergeModal } from "./lifecycle/CustomerMergeModal.tsx";
 import { EnterpriseCustomerSearchModal } from "./lifecycle/EnterpriseCustomerSearchModal.tsx";
 import { CustomerLifecycleMode, CustomerMergeResult } from "./lifecycle/types.ts";
+import { CustomerHierarchyModal } from "./CustomerHierarchyModal.tsx";
+import { CustomerDirectoryRelationshipCell } from "./CustomerDirectoryRelationshipCell.tsx";
 
 const LazyCorporateCustomer360 = React.lazy(() =>
   import("./corporate360/CorporateCustomer360.tsx").then((module) => ({
@@ -794,6 +802,11 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
   const [directoryPage, setDirectoryPage] = useState(0);
   const [directoryQuery, setDirectoryQuery] = useState("");
   const [directoryStatus, setDirectoryStatus] = useState("all");
+  const [directoryRelationship, setDirectoryRelationship] = useState<"all" | "parent" | "child" | "standalone">("all");
+  const [directoryParentFilter, setDirectoryParentFilter] = useState<{ id: string; name: string; code: string | null } | null>(null);
+  const [directorySortBy, setDirectorySortBy] = useState<"name" | "code" | "status" | "customer_group" | "child_count" | "relationship">("name");
+  const [directorySortDir, setDirectorySortDir] = useState<"asc" | "desc">("asc");
+  const [hierarchyModalCustomer, setHierarchyModalCustomer] = useState<CustomerDirectoryItem | null>(null);
   const [isDirectoryLoading, setIsDirectoryLoading] = useState(false);
   const [directoryError, setDirectoryError] = useState("");
   const [directoryRefreshVersion, setDirectoryRefreshVersion] = useState(0);
@@ -1009,9 +1022,13 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
         const params = new URLSearchParams({
           skip: String(directoryPage * directoryPageSize),
           limit: String(directoryPageSize),
-          status: directoryStatus
+          status: directoryStatus,
+          sort_by: directorySortBy,
+          sort_dir: directorySortDir
         });
         if (directoryQuery.trim()) params.set("q", directoryQuery.trim());
+        if (directoryRelationship !== "all") params.set("relationship", directoryRelationship);
+        if (directoryParentFilter?.id) params.set("parent_id", directoryParentFilter.id);
         const result = await apiFetchV1<CustomerDirectoryResponse>(`/crm/customers/directory?${params.toString()}`);
         if (!cancelled) {
           setDirectoryItems(result.items || []);
@@ -1031,7 +1048,17 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
       cancelled = true;
       window.clearTimeout(timer);
     };
-  }, [viewMode, directoryPage, directoryPageSize, directoryQuery, directoryStatus, directoryRefreshVersion]);
+  }, [viewMode, directoryPage, directoryPageSize, directoryQuery, directoryStatus, directoryRelationship, directoryParentFilter, directorySortBy, directorySortDir, directoryRefreshVersion]);
+
+  const handleToggleDirectorySort = (field: "name" | "code" | "status" | "customer_group" | "child_count" | "relationship") => {
+    if (directorySortBy === field) {
+      setDirectorySortDir(prev => prev === "asc" ? "desc" : "asc");
+    } else {
+      setDirectorySortBy(field);
+      setDirectorySortDir("asc");
+    }
+    setDirectoryPage(0);
+  };
 
   const handleOpenDirectoryCustomer = async (item: CustomerDirectoryItem, intent: "view" | "edit" | "360" = "view") => {
     setIsLoading(true);
@@ -1906,10 +1933,27 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
   const directoryExportColumns = useMemo<ExportColumnDefinition[]>(() => [
     { key: "code", label: "Customer Code", datatype: "text", width: 18 },
     { key: "name", label: "Customer Name", datatype: "text", width: 32 },
+    { key: "relationship_display", label: "Relationship", datatype: "text", width: 16 },
+    { key: "parent_customer_display", label: "Parent Account", datatype: "text", width: 28 },
+    { key: "child_count_display", label: "Child Accounts", datatype: "text", width: 14 },
     { key: "mobile", label: "Phone", datatype: "text", width: 16 },
     { key: "customer_group_name", label: "Customer Group", datatype: "text", width: 24 },
     { key: "status", label: "Status", datatype: "text", width: 12 },
   ], []);
+
+  const directoryExportData = useMemo(() => {
+    return directoryItems.map(item => {
+      const parentName = item.parent_customer_name || item.primary_account_name;
+      const parentCode = item.parent_customer_code || item.primary_account_code;
+      const relType = item.relationship_type || ((item.child_count ?? 0) > 0 ? "parent" : (item.is_dependant || item.parent_customer_code || item.primary_account_code) ? "child" : "standalone");
+      return {
+        ...item,
+        relationship_display: relType === "parent" ? "Parent" : relType === "child" ? "Child" : "Standalone",
+        parent_customer_display: parentName ? `${parentName}${parentCode ? ` (${parentCode})` : ""}` : "—",
+        child_count_display: relType === "parent" ? (item.child_count ?? 0) : "—"
+      };
+    });
+  }, [directoryItems]);
 
   // ─── F2 Universal Lookup Architecture v2 — Screen Registration (Phase C Batch 1) ──
   // F2 pressed anywhere on this screen → entity=customer (Tier 3 screen default).
@@ -2341,12 +2385,12 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
                   <ExportButton
                     moduleTitle="Customer Master"
                     columns={viewMode === "directory" ? directoryExportColumns : customerExportColumns}
-                    data={viewMode === "directory" ? directoryItems : customers}
+                    data={viewMode === "directory" ? directoryExportData : customers}
                     selectedRows={viewMode === "directory" ? [] : [currentCustomer]}
                     totalRecordsCount={viewMode === "directory" ? directoryTotal : customers.length}
                     filteredRecordsCount={viewMode === "directory" ? directoryTotal : customers.length}
                     searchTerm={viewMode === "directory" ? directoryQuery : ""}
-                    appliedFilters={viewMode === "directory" ? { status: directoryStatus } : {}}
+                    appliedFilters={viewMode === "directory" ? { status: directoryStatus, relationship: directoryRelationship } : {}}
                     companyName="SMRITI Retail"
                     onNotification={onNotification}
                   />
@@ -2403,21 +2447,57 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
         {viewMode === "directory" ? (
           /* Full Customer Directory Grid Mode */
           <div className="flex-1 bg-white dark:bg-[#191c1e] border border-[#c6c6cd] dark:border-[#45464d] rounded-2xl shadow-xs overflow-hidden flex flex-col">
-            <div className="p-4 bg-[#f2f4f6] dark:bg-[#131b2e] border-b border-[#c6c6cd] dark:border-[#45464d] flex items-center justify-between shrink-0">
-              <span className="font-bold text-xs uppercase tracking-wider text-[#00355f] dark:text-[#8ebdf9]">
-                Customer Directory ({directoryTotal} Accounts)
-              </span>
+            <div className="p-3.5 bg-[#f2f4f6] dark:bg-[#131b2e] border-b border-[#c6c6cd] dark:border-[#45464d] flex flex-wrap items-center justify-between gap-3 shrink-0">
               <div className="flex items-center gap-2">
+                <span className="font-bold text-xs uppercase tracking-wider text-[#00355f] dark:text-[#8ebdf9]">
+                  Customer Directory ({directoryTotal} Accounts)
+                </span>
+                {directoryParentFilter && (
+                  <div className="flex items-center gap-1.5 px-2.5 py-1 bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-200 dark:border-indigo-800 text-indigo-900 dark:text-indigo-200 rounded-lg text-xs font-semibold">
+                    <GitBranch size={13} className="text-indigo-600 dark:text-indigo-400" />
+                    <span>Filtered to children of: <strong>{directoryParentFilter.name}</strong> {directoryParentFilter.code ? `(${directoryParentFilter.code})` : ""}</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setDirectoryParentFilter(null);
+                        setDirectoryPage(0);
+                      }}
+                      className="ml-1 p-0.5 hover:bg-indigo-200 dark:hover:bg-indigo-800 rounded text-indigo-700 dark:text-indigo-300"
+                      title="Clear parent filter"
+                      aria-label="Clear parent filter"
+                    >
+                      <XCircle size={13} />
+                    </button>
+                  </div>
+                )}
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
                 <label className="relative">
                   <span className="sr-only">Search customer directory</span>
                   <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500" />
                   <input
                     value={directoryQuery}
                     onChange={event => { setDirectoryQuery(event.target.value); setDirectoryPage(0); }}
-                    placeholder="Name, code, or phone"
-                    className="pl-8 pr-2 py-1.5 bg-white dark:bg-[#191c1e] border border-[#c6c6cd] dark:border-[#45464d] rounded-lg text-xs w-48"
+                    placeholder="Search name, code, parent or phone"
+                    className="pl-8 pr-2 py-1.5 bg-white dark:bg-[#191c1e] border border-[#c6c6cd] dark:border-[#45464d] rounded-lg text-xs w-56 focus:outline-none focus:ring-1 focus:ring-[#00355f]"
                   />
                 </label>
+                <label className="sr-only" htmlFor="customer-directory-relationship">Filter by relationship</label>
+                <select
+                  id="customer-directory-relationship"
+                  data-testid="customer-directory-relationship-select"
+                  value={directoryRelationship}
+                  onChange={event => {
+                    setDirectoryRelationship(event.target.value as any);
+                    setDirectoryPage(0);
+                  }}
+                  className="px-2 py-1.5 bg-white dark:bg-[#191c1e] border border-[#c6c6cd] dark:border-[#45464d] rounded-lg text-xs font-medium"
+                >
+                  <option value="all">All relationships</option>
+                  <option value="parent">Parent accounts</option>
+                  <option value="child">Child accounts</option>
+                  <option value="standalone">Standalone accounts</option>
+                </select>
                 <label className="sr-only" htmlFor="customer-directory-status">Filter by status</label>
                 <select id="customer-directory-status" value={directoryStatus} onChange={event => { setDirectoryStatus(event.target.value); setDirectoryPage(0); }} className="px-2 py-1.5 bg-white dark:bg-[#191c1e] border border-[#c6c6cd] dark:border-[#45464d] rounded-lg text-xs">
                   <option value="all">All statuses</option><option value="Active">Active</option><option value="Inactive">Inactive</option><option value="Archived">Archived</option><option value="Merged">Merged</option>
@@ -2429,65 +2509,173 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
             </div>
 
             <div className="flex-1 min-h-0 overflow-auto">
-              <table className="w-full text-left text-xs border-collapse min-w-[700px]">
-                <thead className="sticky top-0 bg-[#f7f9fb] dark:bg-[#131b2e] border-b border-[#c6c6cd] dark:border-[#45464d] font-bold text-[10px] uppercase text-[#515f74] dark:text-[#bec6e0]">
+              <table className="w-full text-left text-xs border-collapse min-w-[760px]">
+                <thead className="sticky top-0 bg-[#f7f9fb] dark:bg-[#131b2e] border-b border-[#c6c6cd] dark:border-[#45464d] font-bold text-[10px] uppercase text-[#515f74] dark:text-[#bec6e0] z-10">
                   <tr>
-                    <th className="p-3">Customer Code</th>
-                    <th className="p-3">Customer Name</th>
-                    <th className="p-3">Customer Group</th>
-                    <th className="p-3">Phone</th>
-                    <th className="p-3">Status</th>
+                    <th className="p-3">
+                      <button
+                        type="button"
+                        onClick={() => handleToggleDirectorySort("code")}
+                        className="inline-flex items-center gap-1 font-bold uppercase tracking-wider hover:text-[#00355f] dark:hover:text-[#8ebdf9]"
+                        aria-sort={directorySortBy === "code" ? (directorySortDir === "asc" ? "ascending" : "descending") : "none"}
+                      >
+                        <span>Customer Code</span>
+                        {directorySortBy === "code" ? (
+                          directorySortDir === "asc" ? <ArrowUp size={11} className="text-[#00355f]" /> : <ArrowDown size={11} className="text-[#00355f]" />
+                        ) : (
+                          <ArrowUpDown size={10} className="opacity-40" />
+                        )}
+                      </button>
+                    </th>
+                    <th className="p-3">
+                      <button
+                        type="button"
+                        onClick={() => handleToggleDirectorySort("name")}
+                        className="inline-flex items-center gap-1 font-bold uppercase tracking-wider hover:text-[#00355f] dark:hover:text-[#8ebdf9]"
+                        aria-sort={directorySortBy === "name" ? (directorySortDir === "asc" ? "ascending" : "descending") : "none"}
+                      >
+                        <span>Customer Name</span>
+                        {directorySortBy === "name" ? (
+                          directorySortDir === "asc" ? <ArrowUp size={11} className="text-[#00355f]" /> : <ArrowDown size={11} className="text-[#00355f]" />
+                        ) : (
+                          <ArrowUpDown size={10} className="opacity-40" />
+                        )}
+                      </button>
+                    </th>
+                    <th className="p-3">
+                      <button
+                        type="button"
+                        onClick={() => handleToggleDirectorySort("relationship")}
+                        className="inline-flex items-center gap-1 font-bold uppercase tracking-wider hover:text-[#00355f] dark:hover:text-[#8ebdf9]"
+                        aria-sort={directorySortBy === "relationship" ? (directorySortDir === "asc" ? "ascending" : "descending") : "none"}
+                      >
+                        <span>Relationship & Hierarchy</span>
+                        {directorySortBy === "relationship" ? (
+                          directorySortDir === "asc" ? <ArrowUp size={11} className="text-[#00355f]" /> : <ArrowDown size={11} className="text-[#00355f]" />
+                        ) : (
+                          <ArrowUpDown size={10} className="opacity-40" />
+                        )}
+                      </button>
+                    </th>
+                    <th className="p-3 hidden md:table-cell">
+                      <button
+                        type="button"
+                        onClick={() => handleToggleDirectorySort("customer_group")}
+                        className="inline-flex items-center gap-1 font-bold uppercase tracking-wider hover:text-[#00355f] dark:hover:text-[#8ebdf9]"
+                        aria-sort={directorySortBy === "customer_group" ? (directorySortDir === "asc" ? "ascending" : "descending") : "none"}
+                      >
+                        <span>Customer Group</span>
+                        {directorySortBy === "customer_group" ? (
+                          directorySortDir === "asc" ? <ArrowUp size={11} className="text-[#00355f]" /> : <ArrowDown size={11} className="text-[#00355f]" />
+                        ) : (
+                          <ArrowUpDown size={10} className="opacity-40" />
+                        )}
+                      </button>
+                    </th>
+                    <th className="p-3 hidden lg:table-cell">Phone</th>
+                    <th className="p-3">
+                      <button
+                        type="button"
+                        onClick={() => handleToggleDirectorySort("status")}
+                        className="inline-flex items-center gap-1 font-bold uppercase tracking-wider hover:text-[#00355f] dark:hover:text-[#8ebdf9]"
+                        aria-sort={directorySortBy === "status" ? (directorySortDir === "asc" ? "ascending" : "descending") : "none"}
+                      >
+                        <span>Status</span>
+                        {directorySortBy === "status" ? (
+                          directorySortDir === "asc" ? <ArrowUp size={11} className="text-[#00355f]" /> : <ArrowDown size={11} className="text-[#00355f]" />
+                        ) : (
+                          <ArrowUpDown size={10} className="opacity-40" />
+                        )}
+                      </button>
+                    </th>
                     <th className="p-3 text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#eceef0] dark:divide-[#2d3133]">
                   {isDirectoryLoading ? (
-                    <tr><td colSpan={6} className="p-8 text-center text-slate-500">Loading customers…</td></tr>
+                    <tr><td colSpan={7} className="p-8 text-center text-slate-500">Loading customers…</td></tr>
                   ) : directoryError ? (
-                    <tr><td colSpan={6} role="alert" className="p-8 text-center text-red-700">{directoryError}</td></tr>
+                    <tr><td colSpan={7} role="alert" className="p-8 text-center text-red-700">{directoryError}</td></tr>
                   ) : directoryItems.length === 0 ? (
-                    <tr><td colSpan={6} className="p-8 text-center text-slate-500">No customers match this search.</td></tr>
+                    <tr><td colSpan={7} className="p-8 text-center text-slate-500">No customers match this search or hierarchy filter.</td></tr>
                   ) : directoryItems.map(c => {
                     const active = c.status?.toLowerCase() === "active" && c.is_active;
+                    const isParent = ((c.child_count ?? 0) > 0) || c.relationship_type === "parent";
+                    const isChild = Boolean(c.is_dependant || c.parent_customer_code || c.primary_account_code || c.relationship_type === "child");
+                    const parentName = c.parent_customer_name || c.primary_account_name;
+                    const parentCode = c.parent_customer_code || c.primary_account_code;
+                    const parentActive = c.primary_account_is_active ?? (c.primary_account_status ? c.primary_account_status.toLowerCase() === "active" : true);
+                    const isParentMissing = isChild && !parentName && !parentCode;
+
                     return (
                     <tr
                       key={c.id || c.code}
                       onClick={() => void handleOpenDirectoryCustomer(c)}
                       className="hover:bg-[#f7f9fb] dark:hover:bg-[#2d3133] cursor-pointer transition"
                     >
-                      <td className="p-3 font-mono font-bold text-[#00355f] dark:text-[#8ebdf9]">{c.code || "—"}</td>
-                      <td className="p-3 font-bold">
-                        <button type="button" onClick={event => { event.stopPropagation(); void handleOpenDirectoryCustomer(c); }} className="text-left hover:underline">{c.name}</button>
-                        {c.is_dependant && <div className="mt-0.5 text-[10px] font-normal text-slate-500">Child of {c.primary_account_name || "Parent Account"}{c.primary_account_code ? ` (${c.primary_account_code})` : ""}</div>}
+                      <td className="p-3 font-mono font-bold text-[#00355f] dark:text-[#8ebdf9] align-top">{c.code || "—"}</td>
+                      <td className="p-3 font-bold align-top">
+                        <button type="button" onClick={event => { event.stopPropagation(); void handleOpenDirectoryCustomer(c); }} className="text-left hover:underline block text-[#1b1c1e] dark:text-[#e2e2e6]">
+                          {c.name}
+                        </button>
+                        <div className="md:hidden mt-1 flex flex-wrap items-center gap-1.5 text-[11px] font-normal text-slate-500">
+                          <span className="font-semibold text-slate-700 dark:text-slate-300">
+                            {isParent ? `Parent (${c.child_count ?? 0} children)` : isChild ? `Child of ${parentName || parentCode || 'Unknown'}` : 'Standalone'}
+                          </span>
+                          <span>•</span>
+                          <span>{c.customer_group_name || "General"}</span>
+                        </div>
                       </td>
-                      <td className="p-3 text-[11px]">{c.customer_group_name || "—"}</td>
-                      <td className="p-3 font-mono">{c.mobile || "—"}</td>
-                      <td className="p-3">
+                      <td className="p-3 align-top" onClick={event => event.stopPropagation()}>
+                        <CustomerDirectoryRelationshipCell
+                          customer={c}
+                          onOpenHierarchy={setHierarchyModalCustomer}
+                          onFilterByParent={(p) => {
+                            setDirectoryParentFilter({ id: p.id, name: p.name, code: p.code || null });
+                            setDirectoryRelationship("all");
+                            setDirectoryPage(0);
+                          }}
+                        />
+                      </td>
+                      <td className="p-3 text-[11px] hidden md:table-cell align-top">{c.customer_group_name || "—"}</td>
+                      <td className="p-3 font-mono hidden lg:table-cell align-top">{c.mobile || "—"}</td>
+                      <td className="p-3 align-top">
                         <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${active ? "bg-[#dcfce7] text-[#166534]" : "bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-200"}`}>
                           {c.status || "Unknown"}
                         </span>
                       </td>
-                      <td className="p-3 text-right" onClick={(e) => e.stopPropagation()}>
-                        <button
-                          type="button"
-                          onClick={() => void handleOpenDirectoryCustomer(c, "edit")}
-                          className="px-2.5 py-1 bg-[#00355f] dark:bg-[#8ebdf9] text-white dark:text-[#001c37] hover:bg-[#0f4c81] dark:hover:bg-white rounded-lg font-bold text-[11px] inline-flex items-center gap-1 transition shadow-2xs"
-                          title={`Edit Customer ${c.code}`}
-                        >
-                          <Edit3 size={12} />
-                          <span>Edit</span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            void handleOpenDirectoryCustomer(c, "360");
-                          }}
-                          className="px-2.5 py-1 bg-white dark:bg-[#191c1e] border border-[#00355f] dark:border-[#8ebdf9] text-[#00355f] dark:text-[#8ebdf9] hover:bg-[#e0e8f0] dark:hover:bg-[#2d3133] rounded-lg font-bold text-[11px] inline-flex items-center gap-1 transition shadow-2xs ml-1"
-                          title={`Open Corporate 360 for ${c.name}`}
-                        >
-                          <Building2 size={12} />
-                          <span>360</span>
-                        </button>
+                      <td className="p-3 text-right align-top" onClick={(e) => e.stopPropagation()}>
+                        <div className="inline-flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => setHierarchyModalCustomer(c)}
+                            className="px-2 py-1 bg-white dark:bg-[#191c1e] border border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-950/60 rounded-lg font-bold text-[11px] inline-flex items-center gap-1 transition shadow-2xs"
+                            title={`View hierarchy for ${c.name}`}
+                            data-testid={`customer-hierarchy-btn-${c.code}`}
+                            aria-label={`View hierarchy for ${c.name}`}
+                          >
+                            <Network size={12} />
+                            <span className="hidden sm:inline">Hierarchy</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => void handleOpenDirectoryCustomer(c, "edit")}
+                            className="px-2.5 py-1 bg-[#00355f] dark:bg-[#8ebdf9] text-white dark:text-[#001c37] hover:bg-[#0f4c81] dark:hover:bg-white rounded-lg font-bold text-[11px] inline-flex items-center gap-1 transition shadow-2xs"
+                            title={`Edit Customer ${c.code}`}
+                          >
+                            <Edit3 size={12} />
+                            <span>Edit</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => void handleOpenDirectoryCustomer(c, "360")}
+                            className="px-2.5 py-1 bg-white dark:bg-[#191c1e] border border-[#00355f] dark:border-[#8ebdf9] text-[#00355f] dark:text-[#8ebdf9] hover:bg-[#e0e8f0] dark:hover:bg-[#2d3133] rounded-lg font-bold text-[11px] inline-flex items-center gap-1 transition shadow-2xs"
+                            title={`Open Corporate 360 for ${c.name}`}
+                          >
+                            <Building2 size={12} />
+                            <span>360</span>
+                          </button>
+                        </div>
                       </td>
                     </tr>
                     );
@@ -3037,6 +3225,22 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
         currentUser={currentUser}
         currentCompanyId={(currentCustomer as any).companyId || (currentCustomer as any).company_id || "COMP-001"}
         currentCompanyCode={currentCustomer.companyCode || "001"}
+      />
+
+      <CustomerHierarchyModal
+        isOpen={Boolean(hierarchyModalCustomer)}
+        onClose={() => setHierarchyModalCustomer(null)}
+        customerItem={hierarchyModalCustomer}
+        onSelectCustomer={(item, intent = "view") => {
+          setHierarchyModalCustomer(null);
+          void handleOpenDirectoryCustomer(item, intent);
+        }}
+        onFilterDirectoryByParent={(parent) => {
+          setHierarchyModalCustomer(null);
+          setDirectoryParentFilter({ id: parent.id, name: parent.name, code: parent.code });
+          setDirectoryRelationship("all");
+          setDirectoryPage(0);
+        }}
       />
 
     </div>

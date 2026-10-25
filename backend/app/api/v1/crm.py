@@ -6,7 +6,7 @@ Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
 Version      : 3.10.0
 Created      : 2026-07-11
-Modified     : 2026-10-24
+Modified     : 2026-10-25
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 """
@@ -18,7 +18,7 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
-from sqlalchemy import func, or_, select
+from sqlalchemy import func, or_, and_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from ...api.deps import get_db, get_company_db, get_tenant_context, TenantContext, require_role, get_current_user
 
@@ -247,23 +247,111 @@ async def customer_directory(
     skip: int = Query(0, ge=0),
     limit: int = Query(25, ge=1, le=100),
     status: Optional[str] = Query(None, description="Filter by customer status. Omit or pass all for every status."),
+    relationship: Optional[str] = Query(None, description="Filter by hierarchy relationship: all, parent, child, standalone."),
+    parent_id: Optional[str] = Query(None, description="Filter child accounts linked to a specific parent customer ID."),
+    sort_by: Optional[str] = Query(None, description="Sort field: name, code, status, customer_group, child_count, relationship."),
+    sort_dir: Optional[str] = Query("asc", description="Sort direction: asc or desc."),
     db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
 ):
-    """Return a paginated customer summary without loading sensitive profile data."""
+    """Return a paginated customer summary with canonical hierarchy relationship metadata."""
     repository = CustomerRepository(db, tenant_ctx)
-    filters = [Customer.is_deleted == False]
-    normalized_status = (status or "").strip()
-    if normalized_status and normalized_status.lower() != "all":
-        filters.append(func.lower(Customer.status) == normalized_status.lower())
+    from sqlalchemy.orm import aliased
+    parent_relationship = aliased(CustomerRelationship, name="dir_parent_rel")
+    parent_customer = aliased(Customer, name="dir_parent_cust")
+    child_relationship = aliased(CustomerRelationship, name="dir_child_rel")
+    child_customer = aliased(Customer, name="dir_child_cust")
 
-    clean_query = (q or "").strip()
+    filters = [Customer.is_deleted == False]
+    clean_status = status.strip() if isinstance(status, str) else None
+    if clean_status and clean_status.lower() != "all":
+        filters.append(func.lower(Customer.status) == clean_status.lower())
+
+    # Parent filter (e.g. view all children of a parent)
+    clean_parent_id = parent_id.strip() if isinstance(parent_id, str) and parent_id.strip() else None
+    if clean_parent_id:
+        parent_cust_sub = (
+            select(Customer.id)
+            .where(
+                (Customer.id == clean_parent_id) | (Customer.code == clean_parent_id),
+                (Customer.company_id == tenant_ctx.company_id) | (Customer.company_id.is_(None)),
+                Customer.is_deleted == False,
+            )
+            .scalar_subquery()
+        )
+        filters.append(
+            select(parent_relationship.id)
+            .where(
+                parent_relationship.dependant_customer_id == Customer.id,
+                or_(
+                    parent_relationship.parent_customer_id == clean_parent_id,
+                    parent_relationship.parent_customer_id == parent_cust_sub,
+                ),
+                parent_relationship.company_id == tenant_ctx.company_id,
+                parent_relationship.is_deleted == False,
+            )
+            .exists()
+        )
+
+    # Hierarchy relationship condition definitions: customer relationships are company-scoped
+    has_children_condition = (
+        select(child_relationship.id)
+        .where(
+            child_relationship.parent_customer_id == Customer.id,
+            child_relationship.company_id == tenant_ctx.company_id,
+            child_relationship.is_deleted == False,
+            select(child_customer.id)
+            .where(
+                child_customer.id == child_relationship.dependant_customer_id,
+                child_customer.is_deleted == False,
+            )
+            .exists(),
+        )
+        .exists()
+    )
+    is_child_condition = or_(
+        Customer.is_dependant == True,
+        select(parent_relationship.id)
+        .where(
+            parent_relationship.dependant_customer_id == Customer.id,
+            parent_relationship.company_id == tenant_ctx.company_id,
+            parent_relationship.is_deleted == False,
+        )
+        .exists(),
+    )
+
+    clean_rel = relationship.strip().lower() if isinstance(relationship, str) and relationship.strip() else None
+    if clean_rel == "parent":
+        filters.append(has_children_condition)
+    elif clean_rel == "child":
+        filters.append(is_child_condition)
+    elif clean_rel == "standalone":
+        filters.append(and_(~has_children_condition, ~is_child_condition))
+
+    clean_query = q.strip() if isinstance(q, str) and q.strip() else None
     if clean_query:
         needle = f"%{clean_query}%"
+        # Search customer name, code, phone, or parent account name/code if linked
+        parent_match_condition = (
+            select(parent_relationship.id)
+            .join(parent_customer, parent_relationship.parent_customer_id == parent_customer.id)
+            .where(
+                parent_relationship.dependant_customer_id == Customer.id,
+                parent_relationship.company_id == tenant_ctx.company_id,
+                parent_relationship.is_deleted == False,
+                parent_customer.is_deleted == False,
+                or_(
+                    parent_customer.name.ilike(needle),
+                    parent_customer.code.ilike(needle),
+                ),
+            )
+            .exists()
+        )
         filters.append(or_(
             Customer.name.ilike(needle),
             Customer.code.ilike(needle),
             Customer.mobile.ilike(needle),
+            parent_match_condition,
         ))
 
     count_stmt = repository._apply_tenant_filter(
@@ -271,15 +359,11 @@ async def customer_directory(
     )
     total = int((await db.execute(count_stmt)).scalar_one() or 0)
 
-    from sqlalchemy.orm import aliased
-    parent_relationship = aliased(CustomerRelationship)
-    parent_customer = aliased(Customer)
     parent_customer_id = (
         select(parent_relationship.parent_customer_id)
         .where(
             parent_relationship.dependant_customer_id == Customer.id,
             parent_relationship.company_id == tenant_ctx.company_id,
-            parent_relationship.branch_id == tenant_ctx.branch_id,
             parent_relationship.is_deleted == False,
         )
         .order_by(parent_relationship.created_at.asc(), parent_relationship.id.asc())
@@ -287,6 +371,60 @@ async def customer_directory(
         .correlate(Customer)
         .scalar_subquery()
     )
+
+    child_count = (
+        select(func.count(child_relationship.id))
+        .where(
+            child_relationship.parent_customer_id == Customer.id,
+            child_relationship.company_id == tenant_ctx.company_id,
+            child_relationship.is_deleted == False,
+            select(child_customer.id)
+            .where(
+                child_customer.id == child_relationship.dependant_customer_id,
+                child_customer.is_deleted == False,
+            )
+            .exists(),
+        )
+        .correlate(Customer)
+        .scalar_subquery()
+    )
+
+    parent_name_expr = (
+        select(parent_customer.name)
+        .where(parent_customer.id == parent_customer_id, parent_customer.is_deleted == False)
+        .scalar_subquery()
+    )
+    parent_code_expr = (
+        select(parent_customer.code)
+        .where(parent_customer.id == parent_customer_id, parent_customer.is_deleted == False)
+        .scalar_subquery()
+    )
+    parent_status_expr = (
+        select(parent_customer.status)
+        .where(parent_customer.id == parent_customer_id, parent_customer.is_deleted == False)
+        .scalar_subquery()
+    )
+    parent_active_expr = (
+        select(parent_customer.is_active)
+        .where(parent_customer.id == parent_customer_id, parent_customer.is_deleted == False)
+        .scalar_subquery()
+    )
+
+    sort_column_map = {
+        "name": Customer.name,
+        "code": Customer.code,
+        "status": Customer.status,
+        "customer_group": CustomerGroup.name,
+        "child_count": child_count,
+        "relationship": child_count,
+    }
+    sort_key = sort_by.strip().lower() if isinstance(sort_by, str) and sort_by.strip() else ""
+    sort_target = sort_column_map.get(sort_key, Customer.name)
+    is_desc = (sort_dir.strip().lower() == "desc") if isinstance(sort_dir, str) else False
+    order_clause = [
+        sort_target.desc().nullslast() if is_desc else sort_target.asc().nullsfirst(),
+        Customer.id.asc(),
+    ]
 
     rows_stmt = (
         select(
@@ -300,19 +438,39 @@ async def customer_directory(
             Customer.is_active,
             func.coalesce(Customer.is_dependant, False).label("is_dependant"),
             parent_customer_id.label("parent_customer_id"),
-            select(parent_customer.code).where(parent_customer.id == parent_customer_id).scalar_subquery().label("primary_account_code"),
-            select(parent_customer.name).where(parent_customer.id == parent_customer_id).scalar_subquery().label("primary_account_name"),
+            parent_code_expr.label("primary_account_code"),
+            parent_name_expr.label("primary_account_name"),
+            parent_status_expr.label("primary_account_status"),
+            parent_active_expr.label("primary_account_is_active"),
+            func.coalesce(child_count, 0).label("child_count"),
         )
         .outerjoin(CustomerGroup, CustomerGroup.id == Customer.customer_group_id)
         .where(*filters)
-        .order_by(Customer.name.asc(), Customer.id.asc())
+        .order_by(*order_clause)
         .offset(skip)
         .limit(limit)
     )
     rows_stmt = repository._apply_tenant_filter(rows_stmt)
     rows = (await db.execute(rows_stmt)).mappings().all()
+
+    items = []
+    for row in rows:
+        row_dict = dict(row)
+        cnt = int(row_dict.get("child_count") or 0)
+        row_dict["child_count"] = cnt
+        row_dict["parent_customer_code"] = row_dict.get("primary_account_code")
+        row_dict["parent_customer_name"] = row_dict.get("primary_account_name")
+        is_dep = bool(row_dict.get("is_dependant") or row_dict.get("parent_customer_id"))
+        if cnt > 0:
+            row_dict["relationship_type"] = "parent"
+        elif is_dep:
+            row_dict["relationship_type"] = "child"
+        else:
+            row_dict["relationship_type"] = "standalone"
+        items.append(CustomerDirectoryItem.model_validate(row_dict))
+
     return CustomerDirectoryResponse(
-        items=[CustomerDirectoryItem.model_validate(dict(row)) for row in rows],
+        items=items,
         total=total,
         skip=skip,
         limit=limit,
@@ -1127,10 +1285,19 @@ async def list_customer_dependants(
     db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
 ):
+    # Resolve customer_id: support both primary UUID and business Code (e.g. CUST-68351893)
+    parent_cust = (await db.execute(
+        select(Customer.id).where(
+            (Customer.id == customer_id) | (Customer.code == customer_id),
+            (Customer.company_id == tenant_ctx.company_id) | (Customer.company_id.is_(None)),
+            Customer.is_deleted == False,
+        )
+    )).first()
+    resolved_parent_id = parent_cust[0] if parent_cust else customer_id
+
     stmt = select(CustomerRelationship).where(
-        CustomerRelationship.parent_customer_id == customer_id,
+        CustomerRelationship.parent_customer_id == resolved_parent_id,
         CustomerRelationship.company_id == tenant_ctx.company_id,
-        CustomerRelationship.branch_id == tenant_ctx.branch_id,
         CustomerRelationship.is_deleted == False,
     )
     from sqlalchemy.orm import selectinload
@@ -1142,6 +1309,8 @@ async def list_customer_dependants(
         dependant_customer_id=row.dependant_customer_id,
         dependant_customer_name=row.dependant_customer.name if row.dependant_customer else None,
         dependant_customer_code=row.dependant_customer.code if row.dependant_customer else None,
+        dependant_customer_status=row.dependant_customer.status if row.dependant_customer else "Active",
+        dependant_customer_is_active=row.dependant_customer.is_active if row.dependant_customer else True,
         relation=row.relation,
         apply_same_mailing=row.apply_same_mailing,
         notes=row.notes,
@@ -1160,22 +1329,41 @@ async def create_customer_dependant(
     db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
 ):
+    # Resolve parent customer ID if code was passed
+    p_cust = (await db.execute(
+        select(Customer.id).where(
+            (Customer.id == customer_id) | (Customer.code == customer_id),
+            (Customer.company_id == tenant_ctx.company_id) | (Customer.company_id.is_(None)),
+            Customer.is_deleted == False,
+        )
+    )).first()
+    resolved_parent_id = p_cust[0] if p_cust else customer_id
+
+    # Resolve dependant customer ID if code was passed
+    d_cust = (await db.execute(
+        select(Customer.id).where(
+            (Customer.id == relationship_in.dependant_customer_id) | (Customer.code == relationship_in.dependant_customer_id),
+            (Customer.company_id == tenant_ctx.company_id) | (Customer.company_id.is_(None)),
+            Customer.is_deleted == False,
+        )
+    )).first()
+    resolved_dependant_id = d_cust[0] if d_cust else relationship_in.dependant_customer_id
+
     customer_stmt = select(Customer).where(
-        Customer.id.in_([customer_id, relationship_in.dependant_customer_id]),
+        Customer.id.in_([resolved_parent_id, resolved_dependant_id]),
         Customer.company_id == tenant_ctx.company_id,
-        Customer.branch_id == tenant_ctx.branch_id,
         Customer.is_deleted == False,
     )
     customers = (await db.execute(customer_stmt)).scalars().all()
-    if len(customers) != 2 or customer_id == relationship_in.dependant_customer_id:
+    if len(customers) != 2 or resolved_parent_id == resolved_dependant_id:
         raise HTTPException(status_code=400, detail="Both customers must exist in the same tenant and be distinct")
 
     # Prevent circular parent-child customer relationships (A -> B -> A or multi-level A -> B -> C -> A)
     visited_ancestors = set()
-    queue = [customer_id]
+    queue = [resolved_parent_id]
     while queue:
         curr = queue.pop(0)
-        if curr == relationship_in.dependant_customer_id:
+        if curr == resolved_dependant_id:
             raise HTTPException(
                 status_code=400,
                 detail="Circular customer relationship detected: the specified child customer is already an ancestor of the parent customer.",
@@ -1185,7 +1373,6 @@ async def create_customer_dependant(
             parents_stmt = select(CustomerRelationship.parent_customer_id).where(
                 CustomerRelationship.dependant_customer_id == curr,
                 CustomerRelationship.company_id == tenant_ctx.company_id,
-                CustomerRelationship.branch_id == tenant_ctx.branch_id,
                 CustomerRelationship.is_deleted == False,
             )
             parent_ids = (await db.execute(parents_stmt)).scalars().all()
@@ -1193,10 +1380,12 @@ async def create_customer_dependant(
                 if pid not in visited_ancestors:
                     queue.append(pid)
 
+    rel_dict = relationship_in.model_dump()
+    rel_dict["dependant_customer_id"] = resolved_dependant_id
     row = CustomerRelationship(
         id=f"cr-{uuid.uuid4().hex[:12]}",
-        parent_customer_id=customer_id,
-        **relationship_in.model_dump(),
+        parent_customer_id=resolved_parent_id,
+        **rel_dict,
         company_id=tenant_ctx.company_id,
         branch_id=tenant_ctx.branch_id,
     )
@@ -1209,6 +1398,8 @@ async def create_customer_dependant(
         dependant_customer_id=row.dependant_customer_id,
         dependant_customer_name=row.dependant_customer.name if row.dependant_customer else None,
         dependant_customer_code=row.dependant_customer.code if row.dependant_customer else None,
+        dependant_customer_status=row.dependant_customer.status if row.dependant_customer else "Active",
+        dependant_customer_is_active=row.dependant_customer.is_active if row.dependant_customer else True,
         relation=row.relation,
         apply_same_mailing=row.apply_same_mailing,
         notes=row.notes,
