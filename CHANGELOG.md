@@ -12,9 +12,18 @@
   Classification: Internal
 -->
 
-## [Unreleased] - 2026-10-25
+## [Unreleased] - 2026-10-26
 
 ### Added
+- **CRM N-Tier Recursive Customer Hierarchy & Bulk Subordinate Assignment Wizard v1.0.0**:
+  - Engineered recursive customer hierarchy tree traversal (`GET /api/v1/crm/customers/{customer_id}/hierarchy`) discovering ultimate holding companies uphill and expanding multi-level branch structures downhill.
+  - Implemented transactional bulk child assignment endpoint (`POST /api/v1/crm/customers/{customer_id}/bulk-assign-dependants`) with BFS circular dependency detection, ancestor protection, and relationship attribution.
+  - Added candidate customer resolver (`GET /api/v1/crm/customers/{customer_id}/assignable-children`) filtering out self, ancestors, and already-linked direct children.
+  - Built `CustomerHierarchyTree.tsx` supporting arbitrary recursion depth, depth badges (`Root Holding`, `Zonal / Hub`, `Tier N Outlet`), expand/collapse toggles, ancestry breadcrumbs, and bulk assign triggers.
+  - Built `BulkAssignCustomerModal.tsx` wizard with real-time candidate search, standalone filter, select-all checkboxes, relationship designation dropdown, and error handling.
+  - Mounted bulk assignment and recursive tree explorer inside `CustomerHierarchyModal.tsx`.
+  - Certified with 4/4 Pytest tests green in `test_customer_ntier_hierarchy_and_bulk_assign.py`, 7/7 Vitest tests green in `customerNTierHierarchyAndBulkAssign.test.tsx`, 6/6 live headless API verification gates passed (100%), and 0 `tsc --noEmit` errors.
+
 - **CRM Customer Hierarchy Directory & Interactive Tree Modal v1.0.0**:
   - Enriched `GET /api/v1/crm/customers/directory` with canonical hierarchy indicators (`child_count`, `relationship_type` [`parent`, `child`, `standalone`], `parent_customer_code`, `parent_customer_name`, `primary_account_status`, `primary_account_is_active`) and query filters (`relationship`, `parent_id`, `sort_by=child_count`).
   - Added dual UUID and business Code resolution to `GET /api/v1/crm/customers/{customer_id}/dependants` and `POST` with BFS circular relationship prevention.

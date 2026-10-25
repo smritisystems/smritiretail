@@ -48,6 +48,9 @@ from ...schemas.crm import (
     CompanyCreditExposureItem, CustomerCreditExposureResponse,
     CustomerCodeRecommendationResponse, CustomerCodeValidationRequest,
     CustomerCodeValidationResponse, EligibleCustomerCodeItem,
+    CustomerHierarchyNodeResponse, CustomerHierarchyTreeResponse,
+    BulkAssignDependantsRequest, BulkAssignDependantsResponse,
+    AssignableChildCandidate,
 )
 from ...repositories.customer import CustomerRepository, CustomerGroupRepository
 from ...services.crm import CrmService
@@ -1404,6 +1407,368 @@ async def create_customer_dependant(
         apply_same_mailing=row.apply_same_mailing,
         notes=row.notes,
     )
+
+
+@router.get("/customers/{customer_id}/hierarchy", response_model=CustomerHierarchyTreeResponse)
+async def get_customer_hierarchy_tree(
+    customer_id: str,
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+):
+    """
+    Project full N-tier recursive customer hierarchy tree.
+    Discovers root holding corporation by traversing uphill, then recursively builds the descendant tree.
+    """
+    # 1. Resolve requested customer
+    target_cust = (await db.execute(
+        select(Customer).where(
+            (Customer.id == customer_id) | (Customer.code == customer_id),
+            (Customer.company_id == tenant_ctx.company_id) | (Customer.company_id.is_(None)),
+            Customer.is_deleted == False,
+        )
+    )).scalar_one_or_none()
+
+    if not target_cust:
+        raise HTTPException(status_code=404, detail=f"Customer '{customer_id}' not found")
+
+    # 2. Uphill search: find top-level root ancestor
+    curr_id = target_cust.id
+    visited_uphill = set([curr_id])
+    while True:
+        parent_rel = (await db.execute(
+            select(CustomerRelationship.parent_customer_id).where(
+                CustomerRelationship.dependant_customer_id == curr_id,
+                CustomerRelationship.company_id == tenant_ctx.company_id,
+                CustomerRelationship.is_deleted == False,
+            )
+        )).first()
+        if not parent_rel or not parent_rel[0] or parent_rel[0] in visited_uphill:
+            break
+        curr_id = parent_rel[0]
+        visited_uphill.add(curr_id)
+
+    root_cust = (await db.execute(
+        select(Customer).where(
+            Customer.id == curr_id,
+            (Customer.company_id == tenant_ctx.company_id) | (Customer.company_id.is_(None)),
+            Customer.is_deleted == False,
+        )
+    )).scalar_one_or_none()
+    if not root_cust:
+        root_cust = target_cust
+
+    # 3. Load all active relationships in this company to construct graph in memory
+    from sqlalchemy.orm import selectinload
+    all_rels_stmt = (
+        select(CustomerRelationship)
+        .where(
+            CustomerRelationship.company_id == tenant_ctx.company_id,
+            CustomerRelationship.is_deleted == False,
+        )
+        .options(
+            selectinload(CustomerRelationship.dependant_customer),
+            selectinload(CustomerRelationship.parent_customer),
+        )
+    )
+    all_rels = (await db.execute(all_rels_stmt)).scalars().all()
+
+    # Build parent -> children map
+    children_map = {}
+    for r in all_rels:
+        if r.dependant_customer and not r.dependant_customer.is_deleted:
+            children_map.setdefault(r.parent_customer_id, []).append(r)
+
+    # 4. Recursive downhill tree assembly
+    total_nodes_counter = [0]
+    max_depth_tracker = [0]
+
+    def build_node(cust, depth=0, path=None, parent_node=None) -> CustomerHierarchyNodeResponse:
+        total_nodes_counter[0] += 1
+        if depth > max_depth_tracker[0]:
+            max_depth_tracker[0] = depth
+
+        current_path = (path or []) + [cust.code or cust.id]
+        child_rels = children_map.get(cust.id, [])
+
+        child_nodes = []
+        if depth < 10:
+            for rel in child_rels:
+                dep_c = rel.dependant_customer
+                if dep_c and dep_c.code not in current_path and dep_c.id not in current_path:
+                    child_nodes.append(build_node(dep_c, depth=depth + 1, path=current_path, parent_node=cust))
+
+        child_cnt = len(child_nodes)
+        if depth == 0:
+            rel_type = "root" if child_cnt > 0 else "standalone"
+        else:
+            rel_type = "parent" if child_cnt > 0 else "child"
+
+        return CustomerHierarchyNodeResponse(
+            id=cust.id,
+            code=cust.code or cust.id,
+            name=cust.name or "Unnamed Customer",
+            status=cust.status or "Active",
+            is_active=cust.is_active is not False and (cust.status or "active").lower() == "active",
+            relationship_type=rel_type,
+            depth=depth,
+            path=current_path,
+            child_count=child_cnt,
+            parent_customer_id=parent_node.id if parent_node else None,
+            parent_customer_code=parent_node.code if parent_node else None,
+            parent_customer_name=parent_node.name if parent_node else None,
+            children=child_nodes,
+        )
+
+    root_node = build_node(root_cust, depth=0, path=[], parent_node=None)
+
+    return CustomerHierarchyTreeResponse(
+        target_customer_id=target_cust.id,
+        root=root_node,
+        total_nodes=total_nodes_counter[0],
+        max_depth=max_depth_tracker[0],
+        is_multi_tier=max_depth_tracker[0] >= 2,
+    )
+
+
+@router.post(
+    "/customers/{customer_id}/bulk-assign-dependants",
+    response_model=BulkAssignDependantsResponse,
+    dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN, UserRole.CASHIER))],
+)
+async def bulk_assign_customer_dependants(
+    customer_id: str,
+    payload: BulkAssignDependantsRequest,
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+):
+    """
+    Atomically assign multiple candidate customers as subordinate children under parent customer.
+    Enforces tenant boundaries, cycle prevention, and optional replacement of existing parents.
+    """
+    # 1. Resolve parent customer
+    parent = (await db.execute(
+        select(Customer).where(
+            (Customer.id == customer_id) | (Customer.code == customer_id),
+            (Customer.company_id == tenant_ctx.company_id) | (Customer.company_id.is_(None)),
+            Customer.is_deleted == False,
+        )
+    )).scalar_one_or_none()
+
+    if not parent:
+        raise HTTPException(status_code=404, detail=f"Parent customer '{customer_id}' not found")
+
+    # 2. Gather all existing ancestors of parent to prevent cycles
+    visited_ancestors = set([parent.id])
+    queue = [parent.id]
+    while queue:
+        curr = queue.pop(0)
+        ancestor_ids = (await db.execute(
+            select(CustomerRelationship.parent_customer_id).where(
+                CustomerRelationship.dependant_customer_id == curr,
+                CustomerRelationship.company_id == tenant_ctx.company_id,
+                CustomerRelationship.is_deleted == False,
+            )
+        )).scalars().all()
+        for aid in ancestor_ids:
+            if aid and aid not in visited_ancestors:
+                visited_ancestors.add(aid)
+                queue.append(aid)
+
+    # 3. Process candidate customers
+    assigned_ids = []
+    errors = []
+    skipped_count = 0
+
+    unique_candidate_ids = list(dict.fromkeys(payload.dependant_customer_ids))
+
+    for cand_id in unique_candidate_ids:
+        cand = (await db.execute(
+            select(Customer).where(
+                (Customer.id == cand_id) | (Customer.code == cand_id),
+                (Customer.company_id == tenant_ctx.company_id) | (Customer.company_id.is_(None)),
+                Customer.is_deleted == False,
+            )
+        )).scalar_one_or_none()
+
+        if not cand:
+            errors.append(f"Customer '{cand_id}' not found in this company")
+            skipped_count += 1
+            continue
+
+        if cand.id == parent.id:
+            errors.append(f"Cannot assign parent '{parent.name}' ({parent.code}) to itself")
+            skipped_count += 1
+            continue
+
+        if cand.id in visited_ancestors:
+            errors.append(f"Cycle rejected: '{cand.name}' ({cand.code}) is already an ancestor of '{parent.name}'")
+            skipped_count += 1
+            continue
+
+        # Check existing relationship
+        existing_rel = (await db.execute(
+            select(CustomerRelationship).where(
+                CustomerRelationship.dependant_customer_id == cand.id,
+                CustomerRelationship.company_id == tenant_ctx.company_id,
+                CustomerRelationship.is_deleted == False,
+            )
+        )).scalar_one_or_none()
+
+        if existing_rel:
+            if existing_rel.parent_customer_id == parent.id:
+                skipped_count += 1
+                continue
+            if not payload.replace_existing:
+                errors.append(f"Customer '{cand.name}' already has an active parent and replace_existing=False")
+                skipped_count += 1
+                continue
+            existing_rel.is_deleted = True
+            existing_rel.modified_at = func.now()
+
+        new_rel = CustomerRelationship(
+            id=f"cr-{uuid.uuid4().hex[:12]}",
+            parent_customer_id=parent.id,
+            dependant_customer_id=cand.id,
+            relation=payload.relation or "Child",
+            apply_same_mailing=payload.apply_same_mailing,
+            notes=payload.notes,
+            company_id=tenant_ctx.company_id,
+            branch_id=tenant_ctx.branch_id,
+        )
+        cand.is_dependant = True
+        db.add(new_rel)
+        assigned_ids.append(cand.id)
+
+    await db.commit()
+
+    return BulkAssignDependantsResponse(
+        parent_id=parent.id,
+        parent_code=parent.code or parent.id,
+        parent_name=parent.name,
+        assigned_count=len(assigned_ids),
+        skipped_count=skipped_count,
+        assigned_ids=assigned_ids,
+        errors=errors,
+    )
+
+
+@router.get("/customers/{customer_id}/assignable-children", response_model=List[AssignableChildCandidate])
+async def list_assignable_children(
+    customer_id: str,
+    q: Optional[str] = None,
+    limit: int = 50,
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+):
+    """
+    Search candidate customers eligible for assignment to the specified parent.
+    Excludes the parent itself, all current ancestors (to prevent cycles), and direct children.
+    """
+    # 1. Resolve parent
+    parent = (await db.execute(
+        select(Customer).where(
+            (Customer.id == customer_id) | (Customer.code == customer_id),
+            (Customer.company_id == tenant_ctx.company_id) | (Customer.company_id.is_(None)),
+            Customer.is_deleted == False,
+        )
+    )).scalar_one_or_none()
+
+    if not parent:
+        raise HTTPException(status_code=404, detail=f"Customer '{customer_id}' not found")
+
+    # 2. Excluded IDs: self + ancestors + direct children
+    excluded_ids = set([parent.id])
+
+    # Ancestors
+    queue = [parent.id]
+    while queue:
+        curr = queue.pop(0)
+        ancestor_ids = (await db.execute(
+            select(CustomerRelationship.parent_customer_id).where(
+                CustomerRelationship.dependant_customer_id == curr,
+                CustomerRelationship.company_id == tenant_ctx.company_id,
+                CustomerRelationship.is_deleted == False,
+            )
+        )).scalars().all()
+        for aid in ancestor_ids:
+            if aid and aid not in excluded_ids:
+                excluded_ids.add(aid)
+                queue.append(aid)
+
+    # Direct children
+    direct_child_ids = (await db.execute(
+        select(CustomerRelationship.dependant_customer_id).where(
+            CustomerRelationship.parent_customer_id == parent.id,
+            CustomerRelationship.company_id == tenant_ctx.company_id,
+            CustomerRelationship.is_deleted == False,
+        )
+    )).scalars().all()
+    for cid in direct_child_ids:
+        if cid:
+            excluded_ids.add(cid)
+
+    # 3. Query candidates
+    from sqlalchemy.orm import aliased
+    ParentCustomer = aliased(Customer)
+
+    filters = [
+        (Customer.company_id == tenant_ctx.company_id) | (Customer.company_id.is_(None)),
+        Customer.is_deleted == False,
+        Customer.id.not_in(list(excluded_ids)),
+    ]
+
+    if q and q.strip():
+        term = f"%{q.strip()}%"
+        filters.append(
+            or_(
+                Customer.name.ilike(term),
+                Customer.code.ilike(term),
+                Customer.mobile.ilike(term),
+            )
+        )
+
+    stmt = (
+        select(
+            Customer.id,
+            Customer.code,
+            Customer.name,
+            Customer.mobile,
+            Customer.status,
+            Customer.customer_group_id,
+            CustomerGroup.name.label("customer_group_name"),
+            func.coalesce(Customer.is_dependant, False).label("is_dependant"),
+            CustomerRelationship.parent_customer_id.label("current_parent_id"),
+            ParentCustomer.name.label("current_parent_name"),
+        )
+        .outerjoin(CustomerGroup, CustomerGroup.id == Customer.customer_group_id)
+        .outerjoin(
+            CustomerRelationship,
+            and_(
+                CustomerRelationship.dependant_customer_id == Customer.id,
+                CustomerRelationship.company_id == tenant_ctx.company_id,
+                CustomerRelationship.is_deleted == False,
+            ),
+        )
+        .outerjoin(ParentCustomer, ParentCustomer.id == CustomerRelationship.parent_customer_id)
+        .where(*filters)
+        .order_by(Customer.name.asc(), Customer.code.asc())
+        .limit(min(limit, 100))
+    )
+
+    rows = (await db.execute(stmt)).mappings().all()
+
+    return [AssignableChildCandidate(
+        id=row["id"],
+        code=row["code"] or row["id"],
+        name=row["name"],
+        mobile=row["mobile"],
+        status=row["status"] or "Active",
+        customer_group_id=row["customer_group_id"],
+        customer_group_name=row["customer_group_name"],
+        is_dependant=bool(row["is_dependant"] or row["current_parent_id"]),
+        current_parent_id=row["current_parent_id"],
+        current_parent_name=row["current_parent_name"],
+    ) for row in rows]
 
 
 @router.post(
