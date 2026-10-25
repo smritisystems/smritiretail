@@ -12,6 +12,21 @@
   Classification: Internal
 -->
 
+## [v6.99.13] - 2026-10-25
+
+### Added
+- **Persistent Global Navigation with Contextual Submenus**: Refactored the Smart Navigation behaviour so opening a document or transaction (e.g. Sales Invoice `INV-2026-00125`) never replaces, hides, or destroys the persistent global sidebar:
+  - **Persistent Global Categories**: Preserved all 7 authorized categories (Dashboard/Launchpad, Sales & Billing, Purchase & Procurement, Inventory & Sourcing, Masters, Reports & BI, System & Config) accessible simultaneously across all transaction workflows.
+  - **Nested Contextual Document Submenus**: Context-specific actions (`doc-overview`, `doc-items`, `doc-stock`, `doc-verify`, `doc-dispatch`, `doc-print`, `doc-activity`) appear nested beneath the active workspace row without replacing sibling or parent menu items.
+  - **Dynamic Lifecycle Action Enablement**: Actions evaluate document status in real time (e.g., `doc-dispatch` disabled in `DRAFT`, `doc-verify` disabled in `POSTED`/`FINALIZED`, with explicit human-readable guidance).
+  - **Backend RBAC & Tenant Isolation**: Implemented authoritative `GET /api/v1/menus/contextual` endpoint enforcing security matrix permissions per tenant and role (Cashiers strictly blocked from dispatch actions).
+  - **Presentation Engine Integration**: Integrated seamlessly into both `NavRail.tsx` and multi-dock `NavRenderer.tsx` (sidebar, top dock action strip, bottom mobile drawer).
+- **Comprehensive Verification Suite**: Created `src/tests/persistentGlobalNavigationContextualSubmenus.test.tsx` (10/10 tests green) and backend test `test_contextual_actions_sales_invoice_lifecycle` in `backend/tests/t_menu_registry.py` (7/7 tests green).
+
+### Documentation
+- Created formal walkthrough `docs/walkthrough/foundation/Persistent_Global_Navigation_Contextual_Submenus_Walkthrough_v6.99.13.md` and updated `docs/walkthrough/README.md`.
+- Created formal implementation plan `docs/implementation/foundation/Persistent_Global_Navigation_Contextual_Submenus_Plan_v1.0.0.md` and updated `docs/implementation/README.md`.
+
 ## [v6.89.0] - 2026-10-24
 
 ### Added

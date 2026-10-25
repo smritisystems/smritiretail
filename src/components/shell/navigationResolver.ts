@@ -4,11 +4,12 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.99.1
+ * Version      : 6.99.13
  * Created      : 2026-08-16
- * Modified     : 2026-10-24
+ * Modified     : 2026-10-25
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
+ * Classification: Navigation Resolver (Persistent Global & Contextual Submenu Engine)
  */
 
 export type BusinessContext =
@@ -20,7 +21,14 @@ export type BusinessContext =
   | 'reports'
   | 'system';
 
-export type TransactionState = 'DRAFT' | 'SUBMITTED' | 'FINALIZED' | 'DISPATCHED';
+export type TransactionState =
+  | 'DRAFT'
+  | 'SUBMITTED'
+  | 'FINALIZED'
+  | 'DISPATCHED'
+  | 'POSTED'
+  | 'PAID'
+  | 'CANCELLED';
 
 export interface ContextualMenuItem {
   id: string;
@@ -31,14 +39,20 @@ export interface ContextualMenuItem {
   disabled?: boolean;
   disabledReason?: string;
   group?: string;
+  submenus?: ContextualMenuItem[];
+  isContextualAction?: boolean;
+  resource?: string;
+  action?: string;
 }
 
 export interface NavigationQuery {
   context: BusinessContext;
   workspace?: string;
   documentId?: string;
+  documentType?: string;
   transactionState?: TransactionState;
   userRole?: string;
+  activeActionId?: string;
 }
 
 export interface BreadcrumbAncestor {
@@ -47,22 +61,39 @@ export interface BreadcrumbAncestor {
   icon?: string;
 }
 
+export interface ActiveDocumentSelection {
+  documentId: string;
+  documentType: string;
+  transactionState: TransactionState;
+  activeActionId?: string;
+}
+
+export interface GlobalNavigationCategory {
+  context: BusinessContext;
+  label: string;
+  icon: string;
+  workspaces: ContextualMenuItem[];
+}
+
 export interface ResolvedNavigation {
   context: BusinessContext;
   contextLabel: string;
   contextIcon: string;
   items: ContextualMenuItem[];
+  globalCategories: GlobalNavigationCategory[];
+  contextualSubmenu?: ContextualMenuItem[];
+  activeDocument?: ActiveDocumentSelection;
   nextBestAction?: ContextualMenuItem;
   breadcrumbAncestors?: BreadcrumbAncestor[];
 }
 
-const LAUNCHPAD_ITEM: ContextualMenuItem = {
+export const LAUNCHPAD_ITEM: ContextualMenuItem = {
   id: 'launchpad',
   title: 'SMRITI Launchpad',
   icon: 'grid_view',
 };
 
-function getAncestorsForContext(context: BusinessContext, isDocumentActive: boolean): BreadcrumbAncestor[] {
+export function getAncestorsForContext(context: BusinessContext, isDocumentActive: boolean): BreadcrumbAncestor[] {
   if (context === 'launchpad') return [];
   const home: BreadcrumbAncestor = { id: 'launchpad', label: 'Home', icon: 'home' };
   if (!isDocumentActive) {
@@ -80,201 +111,304 @@ function getAncestorsForContext(context: BusinessContext, isDocumentActive: bool
   return [home, { id: context, label: contextLabels[context] || context }];
 }
 
-export function resolveNavigation(query: NavigationQuery): ResolvedNavigation {
-  const state = query.transactionState || 'DRAFT';
-  const isDocumentActive = Boolean(query.documentId);
+export function buildDocumentContextualSubmenu(
+  documentId: string,
+  state: TransactionState = 'DRAFT',
+  userRole?: string,
+  documentType?: string,
+): ContextualMenuItem[] {
+  const isFinalizedOrPosted = state === 'FINALIZED' || state === 'POSTED';
+  const isCancelled = state === 'CANCELLED';
+  const isDraft = state === 'DRAFT';
+  const isDispatched = state === 'DISPATCHED';
 
-  // Document-level contextual navigation when viewing a specific transaction (e.g. PO-00125, INV-00125)
+  const isCashier = (userRole || '').toUpperCase() === 'CASHIER';
+
+  const allActions: ContextualMenuItem[] = [
+    {
+      id: 'doc-overview',
+      title: 'Document Overview',
+      icon: 'visibility',
+      isNextBestAction: true,
+      isContextualAction: true,
+      resource: 'sales_billing',
+      action: 'VIEW',
+    },
+    {
+      id: 'doc-items',
+      title: 'Items & Totals',
+      icon: 'grid_on',
+      isContextualAction: true,
+      resource: 'sales_billing',
+      action: 'VIEW',
+    },
+    {
+      id: 'doc-stock',
+      title: 'Stock & Ledger Impact',
+      icon: 'warehouse',
+      isContextualAction: true,
+      resource: 'stock_ledger',
+      action: 'VIEW',
+    },
+    {
+      id: 'doc-verify',
+      title: 'Verification & Audit',
+      icon: 'fact_check',
+      isContextualAction: true,
+      resource: 'sales_billing',
+      action: 'VERIFY',
+      disabled: isFinalizedOrPosted || isCancelled,
+      disabledReason: isFinalizedOrPosted
+        ? 'Transaction already posted to ledger.'
+        : isCancelled
+        ? 'Transaction is cancelled.'
+        : undefined,
+    },
+    {
+      id: 'doc-dispatch',
+      title: 'Prepare Dispatch',
+      icon: 'local_shipping',
+      isContextualAction: true,
+      resource: 'b2b_dispatch',
+      action: 'DISPATCH',
+      disabled: isDraft || isDispatched || isCancelled,
+      disabledReason: isDraft
+        ? 'Dispatch unavailable. Missing verified invoice & E-Way Bill.'
+        : isDispatched
+        ? 'Consignment already dispatched.'
+        : isCancelled
+        ? 'Transaction is cancelled.'
+        : undefined,
+    },
+    {
+      id: 'doc-print',
+      title: 'Print / Export PDF',
+      icon: 'print',
+      isContextualAction: true,
+      resource: 'print_studio',
+      action: 'PRINT',
+    },
+    {
+      id: 'doc-activity',
+      title: 'Activity & Log',
+      icon: 'history',
+      isContextualAction: true,
+      resource: 'audit_logs',
+      action: 'VIEW',
+    },
+  ];
+
+  // RBAC Filtering: If Cashier, exclude unauthorized actions (dispatch)
+  if (isCashier) {
+    return allActions.filter((a) => a.id !== 'doc-dispatch');
+  }
+
+  return allActions;
+}
+
+export function isActionPermittedForRole(
+  role: string,
+  resource: string,
+  action: string
+): boolean {
+  const normRole = (role || '').toUpperCase();
+  if (normRole === 'SYSADMIN' || normRole === 'ADMINISTRATOR' || normRole === 'ADMIN') {
+    return true;
+  }
+  if (normRole === 'CASHIER') {
+    if (action === 'DISPATCH' || resource === 'b2b_dispatch' || resource === 'system') {
+      return false;
+    }
+    return true;
+  }
+  return true;
+}
+
+export function getGlobalNavigationCategories(): GlobalNavigationCategory[] {
+  return [
+    {
+      context: 'sales',
+      label: 'Sales & Billing',
+      icon: 'point_of_sale',
+      workspaces: [
+        LAUNCHPAD_ITEM,
+        { id: 'billing-workspace', title: 'Billing Workspace', icon: 'point_of_sale', isNextBestAction: true },
+        { id: 'sales-promotions', title: 'Promotions Studio', icon: 'percent' },
+        { id: 'crm', title: 'Customer 360', icon: 'badge' },
+        { id: 'tax-invoice-print', title: 'Statutory A4 Print', icon: 'print' },
+        { id: 'b2b-dispatch-studio', title: 'B2B Dispatch Studio', icon: 'local_shipping' },
+        { id: 'reports', title: 'Sales Analytics', icon: 'analytics' },
+      ],
+    },
+    {
+      context: 'purchase',
+      label: 'Purchase & Procurement',
+      icon: 'shopping_cart',
+      workspaces: [
+        LAUNCHPAD_ITEM,
+        { id: 'purchase', title: 'Purchase Orders', icon: 'shopping_cart', isNextBestAction: true },
+        { id: 'grn', title: 'Goods Receipt (GRN)', icon: 'local_shipping' },
+        { id: 'supplier-mgmt', title: 'Vendor 360 Workspace', icon: 'local_shipping' },
+        { id: 'approval-matrix', title: 'PO Approval Matrix', icon: 'rule' },
+        { id: 'stock-ledger', title: 'Stock Ledger Impact', icon: 'warehouse' },
+        { id: 'reports', title: 'Procurement BI', icon: 'analytics' },
+      ],
+    },
+    {
+      context: 'inventory',
+      label: 'Stock & Inventory',
+      icon: 'warehouse',
+      workspaces: [
+        LAUNCHPAD_ITEM,
+        { id: 'stock-ledger', title: 'Stock Ledger', icon: 'warehouse', isNextBestAction: true },
+        { id: 'item-master', title: 'Item Master Catalog', icon: 'inventory_2' },
+        { id: 'price-revision', title: 'Price Revision Studio', icon: 'trending_up' },
+        { id: 'barcode', title: 'PRN Label Designer', icon: 'barcode_reader' },
+        { id: 'terms-engine', title: 'Stock Policy Engine', icon: 'gavel' },
+        { id: 'reports', title: 'Valuation & Aging', icon: 'analytics' },
+      ],
+    },
+    {
+      context: 'masters',
+      label: 'Master Data & Catalog',
+      icon: 'inventory_2',
+      workspaces: [
+        LAUNCHPAD_ITEM,
+        { id: 'item-master', title: 'Item Master (Browse)', icon: 'inventory_2' },
+        { id: 'price-revision', title: 'Price Revision Studio', icon: 'trending_up' },
+        { id: 'item-create-grid', title: 'Create Items (Excel Grid)', icon: 'grid_on' },
+        { id: 'databridge', title: 'SMRITI DataBridge', icon: 'dataset', isNextBestAction: true },
+        { id: 'sales-promotions', title: 'Promotions Studio', icon: 'percent' },
+        { id: 'customer-master', title: 'Customer Master', icon: 'person_search' },
+        { id: 'supplier-mgmt', title: 'Vendor 360 Workspace', icon: 'local_shipping' },
+        { id: 'masters', title: 'Master Registry', icon: 'tune' },
+        { id: 'document-series', title: 'Document Series Prefix', icon: 'tag' },
+      ],
+    },
+    {
+      context: 'reports',
+      label: 'BI Reports & Analytics',
+      icon: 'analytics',
+      workspaces: [
+        LAUNCHPAD_ITEM,
+        { id: 'report-designer', title: 'Report Designer Studio', icon: 'analytics', isNextBestAction: true },
+        { id: 'business-ledger', title: 'Business Ledger', icon: 'menu_book' },
+        { id: 'audit-logs', title: 'Audit Trail Logs', icon: 'history' },
+        { id: 'accounting-sync', title: 'Accounting Sync Engine', icon: 'sync' },
+        { id: 'data-exchange', title: 'Data Exchange & Export', icon: 'file_download' },
+      ],
+    },
+    {
+      context: 'system',
+      label: 'System Governance',
+      icon: 'admin_panel_settings',
+      workspaces: [
+        LAUNCHPAD_ITEM,
+        { id: 'system-parameters', title: 'System Parameters Studio', icon: 'tune' },
+        { id: 'database-manager', title: 'Database Manager (DB Studio)', icon: 'storage' },
+        { id: 'masters', title: 'System Master Registry', icon: 'tune' },
+        { id: 'staff-management', title: 'Staff & Role Governance', icon: 'group' },
+        { id: 'store-directory', title: 'Store & Branch Directory', icon: 'storefront' },
+        { id: 'muster-roll', title: 'Muster Roll & Wages', icon: 'view_timeline' },
+        { id: 'dev-tracker', title: 'Dev Intelligence Center', icon: 'bug_report' },
+        { id: 'wiki', title: 'System Documentation Wiki', icon: 'import_contacts' },
+        { id: 'about-smriti', title: 'About SMRITI OS', icon: 'info' },
+      ],
+    },
+    {
+      context: 'launchpad',
+      label: 'Fiori Launchpad',
+      icon: 'grid_view',
+      workspaces: [LAUNCHPAD_ITEM],
+    },
+  ];
+}
+
+export function resolveNavigation(query: NavigationQuery): ResolvedNavigation {
+  const state: TransactionState = query.transactionState || 'DRAFT';
+  const isDocumentActive = Boolean(query.documentId);
+  const normRole = (query.userRole || '').toUpperCase();
+
+  let globalCategories = getGlobalNavigationCategories();
+  if (normRole === 'CASHIER') {
+    globalCategories = globalCategories.filter((c) => c.context !== 'system');
+  }
+
+  // Find the base category for the query context
+  const activeCategory =
+    globalCategories.find((c) => c.context === query.context) ||
+    globalCategories[0];
+
+  // Clone the workspaces for active category
+  let items: ContextualMenuItem[] = activeCategory.workspaces.map((w) => ({ ...w }));
+
+  if (normRole === 'CASHIER') {
+    items = items.filter(
+      (item) => item.id !== 'system' && item.id !== 'database-manager' && item.id !== 'b2b-dispatch-studio'
+    );
+  }
+
+  let contextualSubmenu: ContextualMenuItem[] | undefined = undefined;
+  let activeDocument: ActiveDocumentSelection | undefined = undefined;
+
+  // If a document/transaction is active, compute contextual actions and NEST them beneath active workspace
   if (isDocumentActive && query.documentId) {
     const docPrefix = query.documentId.split('-')[0] || 'DOC';
+    contextualSubmenu = buildDocumentContextualSubmenu(
+      query.documentId,
+      state,
+      query.userRole,
+      query.documentType,
+    );
+
+    activeDocument = {
+      documentId: query.documentId,
+      documentType: query.documentType || (query.context === 'purchase' ? 'PurchaseOrder' : 'SalesInvoice'),
+      transactionState: state,
+      activeActionId: query.activeActionId || 'doc-overview',
+    };
+
+    // Determine target parent workspace
+    const targetWorkspaceId = query.workspace || (query.context === 'purchase' ? 'purchase' : 'billing-workspace');
+
+    // Attach nested submenus to the target parent workspace
+    items = items.map((item) => {
+      if (item.id === targetWorkspaceId) {
+        return {
+          ...item,
+          submenus: contextualSubmenu,
+        };
+      }
+      return item;
+    });
+
+    const nextAction = contextualSubmenu.find((a) => !a.disabled && a.isNextBestAction) || contextualSubmenu[0];
+
     return {
       context: query.context,
       contextLabel: `${docPrefix} ${query.documentId}`,
       contextIcon: 'article',
-      items: [
-        LAUNCHPAD_ITEM,
-        { id: 'doc-overview', title: 'Document Overview', icon: 'visibility', isNextBestAction: true },
-        { id: 'doc-items', title: 'Itemized Grid', icon: 'grid_on' },
-        { id: 'doc-stock', title: 'Stock & Ledger Impact', icon: 'warehouse' },
-        {
-          id: 'doc-verify',
-          title: 'Verification & Audit',
-          icon: 'fact_check',
-          disabled: state === 'FINALIZED',
-          disabledReason: state === 'FINALIZED' ? 'Transaction already posted to ledger.' : undefined,
-        },
-        {
-          id: 'doc-dispatch',
-          title: 'Prepare Dispatch',
-          icon: 'local_shipping',
-          disabled: state === 'DRAFT',
-          disabledReason: state === 'DRAFT' ? 'Dispatch unavailable. Missing verified invoice & E-Way Bill.' : undefined,
-        },
-        { id: 'doc-print', title: 'Print / Export PDF', icon: 'print' },
-        { id: 'doc-activity', title: 'Activity & Log', icon: 'history' },
-      ],
-      nextBestAction: {
-        id: 'doc-overview',
-        title: 'View Stock Impact',
-        icon: 'warehouse',
-      },
+      items,
+      globalCategories,
+      contextualSubmenu,
+      activeDocument,
+      nextBestAction: nextAction,
       breadcrumbAncestors: getAncestorsForContext(query.context, true),
     };
   }
 
-  switch (query.context) {
-    case 'sales':
-      return {
-        context: 'sales',
-        contextLabel: 'Sales & Billing',
-        contextIcon: 'point_of_sale',
-        items: [
-          LAUNCHPAD_ITEM,
-          { id: 'billing-workspace', title: 'Billing Workspace', icon: 'point_of_sale', isNextBestAction: true },
-          { id: 'sales-promotions', title: 'Promotions Studio', icon: 'percent' },
-          { id: 'crm', title: 'Customer 360', icon: 'badge' },
-          { id: 'tax-invoice-print', title: 'Statutory A4 Print', icon: 'print' },
-          { id: 'b2b-dispatch-studio', title: 'B2B Dispatch Studio', icon: 'local_shipping' },
-          { id: 'reports', title: 'Sales Analytics', icon: 'analytics' },
-        ],
-        nextBestAction: {
-          id: 'billing-workspace',
-          title: 'Open Billing Workspace',
-          icon: 'point_of_sale',
-        },
-        breadcrumbAncestors: getAncestorsForContext('sales', false),
-      };
+  // Non-document standard contextual navigation
+  const nextBest = items.find((i) => i.isNextBestAction) || items[0];
 
-    case 'purchase':
-      return {
-        context: 'purchase',
-        contextLabel: 'Purchase & Procurement',
-        contextIcon: 'shopping_cart',
-        items: [
-          LAUNCHPAD_ITEM,
-          { id: 'purchase', title: 'Purchase Orders', icon: 'shopping_cart', isNextBestAction: true },
-          { id: 'grn', title: 'Goods Receipt (GRN)', icon: 'local_shipping' },
-          { id: 'supplier-mgmt', title: 'Vendor 360 Workspace', icon: 'local_shipping' },
-          { id: 'approval-matrix', title: 'PO Approval Matrix', icon: 'rule' },
-          { id: 'stock-ledger', title: 'Stock Ledger Impact', icon: 'warehouse' },
-          { id: 'reports', title: 'Procurement BI', icon: 'analytics' },
-        ],
-        nextBestAction: {
-          id: 'purchase',
-          title: 'Create Purchase Order',
-          icon: 'add_shopping_cart',
-        },
-        breadcrumbAncestors: getAncestorsForContext('purchase', false),
-      };
-
-    case 'inventory':
-      return {
-        context: 'inventory',
-        contextLabel: 'Stock & Inventory',
-        contextIcon: 'warehouse',
-        items: [
-          LAUNCHPAD_ITEM,
-          { id: 'stock-ledger', title: 'Stock Ledger', icon: 'warehouse', isNextBestAction: true },
-          { id: 'item-master', title: 'Item Master Catalog', icon: 'inventory_2' },
-          { id: 'price-revision', title: 'Price Revision Studio', icon: 'trending_up' },
-          { id: 'barcode', title: 'PRN Label Designer', icon: 'barcode_reader' },
-          { id: 'terms-engine', title: 'Stock Policy Engine', icon: 'gavel' },
-          { id: 'reports', title: 'Valuation & Aging', icon: 'analytics' },
-        ],
-        nextBestAction: {
-          id: 'stock-ledger',
-          title: 'View Stock Movement',
-          icon: 'insights',
-        },
-        breadcrumbAncestors: getAncestorsForContext('inventory', false),
-      };
-
-    case 'masters':
-      return {
-        context: 'masters',
-        contextLabel: 'Master Data & Catalog',
-        contextIcon: 'inventory_2',
-        items: [
-          LAUNCHPAD_ITEM,
-          { id: 'item-master', title: 'Item Master (Browse)', icon: 'inventory_2' },
-          { id: 'price-revision', title: 'Price Revision Studio', icon: 'trending_up' },
-          { id: 'item-create-grid', title: 'Create Items (Excel Grid)', icon: 'grid_on' },
-          { id: 'databridge', title: 'SMRITI DataBridge', icon: 'dataset', isNextBestAction: true },
-          { id: 'sales-promotions', title: 'Promotions Studio', icon: 'percent' },
-          { id: 'customer-master', title: 'Customer Master', icon: 'person_search' },
-          { id: 'supplier-mgmt', title: 'Vendor 360 Workspace', icon: 'local_shipping' },
-          { id: 'masters', title: 'Master Registry', icon: 'tune' },
-          { id: 'document-series', title: 'Document Series Prefix', icon: 'tag' },
-        ],
-        nextBestAction: {
-          id: 'item-create-grid',
-          title: 'Open Excel Bulk Grid',
-          icon: 'grid_on',
-        },
-        breadcrumbAncestors: getAncestorsForContext('masters', false),
-      };
-
-    case 'reports':
-      return {
-        context: 'reports',
-        contextLabel: 'BI Reports & Analytics',
-        contextIcon: 'analytics',
-        items: [
-          LAUNCHPAD_ITEM,
-          { id: 'report-designer', title: 'Report Designer Studio', icon: 'analytics', isNextBestAction: true },
-          { id: 'business-ledger', title: 'Business Ledger', icon: 'menu_book' },
-          { id: 'audit-logs', title: 'Audit Trail Logs', icon: 'history' },
-          { id: 'accounting-sync', title: 'Accounting Sync Engine', icon: 'sync' },
-          { id: 'data-exchange', title: 'Data Exchange & Export', icon: 'file_download' },
-        ],
-        nextBestAction: {
-          id: 'report-designer',
-          title: 'Launch BI Studio',
-          icon: 'analytics',
-        },
-        breadcrumbAncestors: getAncestorsForContext('reports', false),
-      };
-
-    case 'system':
-      return {
-        context: 'system',
-        contextLabel: 'System Governance',
-        contextIcon: 'admin_panel_settings',
-        items: [
-          LAUNCHPAD_ITEM,
-          { id: 'system-parameters', title: 'System Parameters Studio', icon: 'tune' },
-          { id: 'database-manager', title: 'Database Manager (DB Studio)', icon: 'storage' },
-          { id: 'masters', title: 'System Master Registry', icon: 'tune' },
-          { id: 'staff-management', title: 'Staff & Role Governance', icon: 'group' },
-          { id: 'store-directory', title: 'Store & Branch Directory', icon: 'storefront' },
-          { id: 'muster-roll', title: 'Muster Roll & Wages', icon: 'view_timeline' },
-          { id: 'dev-tracker', title: 'Dev Intelligence Center', icon: 'bug_report' },
-          { id: 'wiki', title: 'System Documentation Wiki', icon: 'import_contacts' },
-          { id: 'about-smriti', title: 'About SMRITI OS', icon: 'info' },
-        ],
-        nextBestAction: {
-          id: 'dev-tracker',
-          title: 'Check Diagnostics',
-          icon: 'speed',
-        },
-        breadcrumbAncestors: getAncestorsForContext('system', false),
-      };
-
-    case 'launchpad':
-    default:
-      return {
-        context: 'launchpad',
-        contextLabel: 'Fiori Launchpad',
-        contextIcon: 'grid_view',
-        items: [
-          LAUNCHPAD_ITEM,
-        ],
-        nextBestAction: {
-          id: 'launchpad',
-          title: 'Fiori Launchpad',
-          icon: 'grid_view',
-        },
-        breadcrumbAncestors: getAncestorsForContext('launchpad', false),
-      };
-  }
+  return {
+    context: query.context,
+    contextLabel: activeCategory.label,
+    contextIcon: activeCategory.icon,
+    items,
+    globalCategories,
+    contextualSubmenu: undefined,
+    activeDocument: undefined,
+    nextBestAction: nextBest,
+    breadcrumbAncestors: getAncestorsForContext(query.context, false),
+  };
 }

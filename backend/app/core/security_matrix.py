@@ -165,6 +165,8 @@ async def evaluate_action_permission(
             return True
         if action in ("NEW", "RETURN") and resource in ("pos_workspace", "sales_billing"):
             return True
+        if action == "PRINT" and resource in ("sales_billing", "print_studio"):
+            return True
 
     return False
 

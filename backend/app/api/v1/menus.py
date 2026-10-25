@@ -12,7 +12,7 @@
 """
 
 import uuid
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -21,12 +21,188 @@ from sqlalchemy.future import select
 from ...api.deps import get_db, get_current_user, get_tenant_context, require_role, TenantContext
 from ...models.auth import User, UserRole
 from ...models.menu import SmritiMenu
-from ...schemas.menu import SmritiMenuCreate, SmritiMenuUpdate, SmritiMenuResponse, MenuNode
+from ...schemas.menu import (
+    SmritiMenuCreate,
+    SmritiMenuUpdate,
+    SmritiMenuResponse,
+    MenuNode,
+    ContextualActionResponse,
+)
 
 router = APIRouter()
 
 # Restricted admin workspaces requiring elevated privileges
 ADMIN_RESTRICTED_MODULES = {"system-config", "platform-studio", "dev-tracker", "audit", "audit-logs", "security"}
+
+@router.get(
+    "/contextual",
+    response_model=List[ContextualActionResponse],
+)
+async def get_contextual_actions(
+    doc_type: str = Query("SalesInvoice", description="Document domain e.g. SalesInvoice, PurchaseOrder"),
+    doc_id: Optional[str] = Query(None, description="Document ID or transaction number"),
+    state: str = Query("DRAFT", description="Current lifecycle state"),
+    db: AsyncSession = Depends(get_db),
+    tenant: TenantContext = Depends(get_tenant_context),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Evaluates context-specific document actions for active transaction.
+    Applies authoritative RBAC (evaluate_action_permission) and document lifecycle state transitions.
+    Unauthorized actions are excluded (least privilege).
+    Available actions indicate whether they are enabled or disabled by lifecycle rules.
+    """
+    from ...core.security_matrix import evaluate_action_permission
+
+    normalized_type = doc_type.strip().lower()
+    normalized_state = state.strip().upper()
+
+    action_specs: List[Dict[str, Any]] = []
+
+    if normalized_type in ("salesinvoice", "sales_invoice", "invoice", "pos", "billing"):
+        action_specs = [
+            {
+                "id": "doc-overview",
+                "title": "Document Overview",
+                "icon": "visibility",
+                "resource": "sales_billing",
+                "action": "VIEW",
+                "baseline_perm": "SALES.WORKSPACE.ACCESS",
+                "is_next_best_action": True,
+            },
+            {
+                "id": "doc-items",
+                "title": "Items & Totals",
+                "icon": "grid_on",
+                "resource": "sales_billing",
+                "action": "VIEW",
+                "baseline_perm": "SALES.WORKSPACE.ACCESS",
+            },
+            {
+                "id": "doc-stock",
+                "title": "Stock & Ledger Impact",
+                "icon": "warehouse",
+                "resource": "stock_ledger",
+                "action": "VIEW",
+                "baseline_perm": "STOCK.WORKSPACE.ACCESS",
+            },
+            {
+                "id": "doc-verify",
+                "title": "Verification & Audit",
+                "icon": "fact_check",
+                "resource": "sales_billing",
+                "action": "VERIFY",
+                "baseline_perm": "SALES.VERIFY.EXECUTE",
+                "disabled": normalized_state in ("POSTED", "FINALIZED", "CANCELLED"),
+                "disabled_reason": (
+                    "Transaction already posted to ledger."
+                    if normalized_state in ("POSTED", "FINALIZED")
+                    else "Transaction is cancelled."
+                    if normalized_state == "CANCELLED"
+                    else None
+                ),
+            },
+            {
+                "id": "doc-dispatch",
+                "title": "Prepare Dispatch",
+                "icon": "local_shipping",
+                "resource": "b2b_dispatch",
+                "action": "DISPATCH",
+                "baseline_perm": "DISPATCH.EXECUTE",
+                "disabled": normalized_state in ("DRAFT", "DISPATCHED", "CANCELLED"),
+                "disabled_reason": (
+                    "Dispatch unavailable. Missing verified invoice & E-Way Bill."
+                    if normalized_state == "DRAFT"
+                    else "Consignment already dispatched."
+                    if normalized_state == "DISPATCHED"
+                    else "Transaction is cancelled."
+                    if normalized_state == "CANCELLED"
+                    else None
+                ),
+            },
+            {
+                "id": "doc-print",
+                "title": "Print / Export PDF",
+                "icon": "print",
+                "resource": "print_studio",
+                "action": "PRINT",
+                "baseline_perm": "PRINT.EXECUTE",
+            },
+            {
+                "id": "doc-activity",
+                "title": "Activity & Log",
+                "icon": "history",
+                "resource": "audit_logs",
+                "action": "VIEW",
+                "baseline_perm": "AUDIT.WORKSPACE.ACCESS",
+            },
+        ]
+    elif normalized_type in ("purchaseorder", "purchase_order", "po", "purchase"):
+        action_specs = [
+            {
+                "id": "doc-overview",
+                "title": "PO Overview",
+                "icon": "visibility",
+                "resource": "purchase_studio",
+                "action": "VIEW",
+                "baseline_perm": "PURCHASE.WORKSPACE.ACCESS",
+                "is_next_best_action": True,
+            },
+            {
+                "id": "doc-items",
+                "title": "PO Lines",
+                "icon": "grid_on",
+                "resource": "purchase_studio",
+                "action": "VIEW",
+                "baseline_perm": "PURCHASE.WORKSPACE.ACCESS",
+            },
+            {
+                "id": "doc-grn",
+                "title": "Inward GRN Match",
+                "icon": "local_shipping",
+                "resource": "purchase_studio",
+                "action": "VIEW",
+                "baseline_perm": "GRN.WORKSPACE.ACCESS",
+                "disabled": normalized_state == "DRAFT",
+                "disabled_reason": "GRN unavailable while PO is in DRAFT state." if normalized_state == "DRAFT" else None,
+            },
+            {
+                "id": "doc-print",
+                "title": "Print Purchase Order",
+                "icon": "print",
+                "resource": "print_studio",
+                "action": "PRINT",
+                "baseline_perm": "PRINT.EXECUTE",
+            },
+        ]
+
+    results: List[ContextualActionResponse] = []
+    for spec in action_specs:
+        is_allowed = await evaluate_action_permission(
+            db=db,
+            current_user=current_user,
+            tenant=tenant,
+            resource=spec["resource"],
+            action=spec["action"],
+            baseline_perm_code=spec.get("baseline_perm"),
+        )
+        if is_allowed:
+            results.append(
+                ContextualActionResponse(
+                    id=spec["id"],
+                    title=spec["title"],
+                    icon=spec["icon"],
+                    resource=spec["resource"],
+                    action=spec["action"],
+                    is_allowed=True,
+                    disabled=spec.get("disabled", False),
+                    disabled_reason=spec.get("disabled_reason"),
+                    is_next_best_action=spec.get("is_next_best_action", False),
+                    badge_count=spec.get("badge_count"),
+                )
+            )
+
+    return results
 
 @router.get(
     "/resolved",
