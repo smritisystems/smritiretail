@@ -25,10 +25,17 @@ import {
   Loader2,
   Users,
   Filter,
+  PlusCircle,
 } from "lucide-react";
 import { apiFetchV1 } from "../../lib/apiFetchV1.ts";
-import { CustomerDirectoryItem, RetailCustomerRecord } from "./types.ts";
-import { CustomerHierarchyTree, HierarchyChildNode } from "./corporateWorkspace/CustomerHierarchyTree.tsx";
+import {
+  CustomerDirectoryItem,
+  RetailCustomerRecord,
+  CustomerHierarchyTreeResponse,
+} from "./types.ts";
+import { HierarchyChildNode } from "./corporateWorkspace/CustomerHierarchyTree.tsx";
+import { CustomerHierarchyTree } from "./CustomerHierarchyTree.tsx";
+import { BulkAssignCustomerModal } from "./BulkAssignCustomerModal.tsx";
 import { mapBackendCustomerToRecord } from "./CustMasterWs.tsx";
 
 export interface CustomerHierarchyModalProps {
@@ -98,6 +105,9 @@ export const CustomerHierarchyModal: React.FC<CustomerHierarchyModalProps> = ({
   const [error, setError] = useState<string>("");
   const [parentRecord, setParentRecord] = useState<RetailCustomerRecord | null>(null);
   const [childrenNodes, setChildrenNodes] = useState<HierarchyChildNode[]>([]);
+  const [treeResponse, setTreeResponse] = useState<CustomerHierarchyTreeResponse | null>(null);
+  const [isBulkAssignOpen, setIsBulkAssignOpen] = useState<boolean>(false);
+  const [bulkAssignTarget, setBulkAssignTarget] = useState<{ id: string; name: string; code?: string } | null>(null);
   const [isParentMissing, setIsParentMissing] = useState<boolean>(false);
   const [isParentDeactivated, setIsParentDeactivated] = useState<boolean>(false);
   const [parentStatusText, setParentStatusText] = useState<string>("");
@@ -250,6 +260,16 @@ export const CustomerHierarchyModal: React.FC<CustomerHierarchyModalProps> = ({
           setResolvedRole(fallbackCount > 0 ? "parent" : "standalone");
         }
       }
+
+      // Concurrently trace full recursive N-tier tree
+      try {
+        const treeData = await apiFetchV1<CustomerHierarchyTreeResponse>(
+          `/crm/customers/${encodeURIComponent(customerItem.id)}/hierarchy`
+        );
+        setTreeResponse(treeData);
+      } catch {
+        setTreeResponse(null);
+      }
     } catch (err: any) {
       setError(err?.message || "Could not load customer hierarchy details.");
     } finally {
@@ -263,6 +283,7 @@ export const CustomerHierarchyModal: React.FC<CustomerHierarchyModalProps> = ({
     } else {
       setParentRecord(null);
       setChildrenNodes([]);
+      setTreeResponse(null);
       setError("");
     }
   }, [isOpen, loadHierarchyData]);
@@ -356,30 +377,48 @@ export const CustomerHierarchyModal: React.FC<CustomerHierarchyModalProps> = ({
             <>
               {/* Context Notice Banner */}
               {isParent && (
-                <div className="bg-sky-50 dark:bg-sky-950/40 border border-sky-200 dark:border-sky-800/60 rounded-xl p-3 flex items-center justify-between text-xs">
+                <div className="bg-sky-50 dark:bg-sky-950/40 border border-sky-200 dark:border-sky-800/60 rounded-xl p-3 flex flex-wrap items-center justify-between gap-3 text-xs">
                   <div className="flex items-center gap-2 text-sky-900 dark:text-sky-200">
                     <Building2 size={16} className="text-sky-700 dark:text-sky-400 shrink-0" />
                     <span>
                       <strong>Corporate Parent Account:</strong> Controls credit limits and billing visibility for {childrenNodes.length} subordinate {childrenNodes.length === 1 ? "child account" : "child accounts"}.
                     </span>
                   </div>
-                  {onFilterDirectoryByParent && (
+                  <div className="flex items-center gap-2">
                     <button
                       type="button"
                       onClick={() => {
-                        onFilterDirectoryByParent({
+                        setBulkAssignTarget({
                           id: customerItem.id,
                           name: customerItem.name,
-                          code: customerItem.code,
+                          code: customerItem.code || undefined,
                         });
-                        onClose();
+                        setIsBulkAssignOpen(true);
                       }}
-                      className="px-2.5 py-1 bg-sky-700 hover:bg-sky-800 text-white rounded-lg font-bold text-[11px] inline-flex items-center gap-1 transition shadow-2xs shrink-0"
+                      className="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-bold text-[11px] inline-flex items-center gap-1 transition shadow-2xs shrink-0"
+                      data-testid="open-bulk-assign-btn"
                     >
-                      <Filter size={11} />
-                      <span>Filter Directory to Children</span>
+                      <PlusCircle size={12} />
+                      <span>Bulk Assign Subordinates</span>
                     </button>
-                  )}
+                    {onFilterDirectoryByParent && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          onFilterDirectoryByParent({
+                            id: customerItem.id,
+                            name: customerItem.name,
+                            code: customerItem.code,
+                          });
+                          onClose();
+                        }}
+                        className="px-2.5 py-1 bg-sky-700 hover:bg-sky-800 text-white rounded-lg font-bold text-[11px] inline-flex items-center gap-1 transition shadow-2xs shrink-0"
+                      >
+                        <Filter size={11} />
+                        <span>Filter Directory to Children</span>
+                      </button>
+                    )}
+                  </div>
                 </div>
               )}
 
@@ -444,35 +483,78 @@ export const CustomerHierarchyModal: React.FC<CustomerHierarchyModalProps> = ({
               )}
 
               {!isParent && !isChild && (
-                <div className="bg-slate-50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800 rounded-xl p-3 flex items-center gap-2 text-xs text-slate-700 dark:text-slate-300">
-                  <Users size={16} className="text-slate-500 shrink-0" />
-                  <span>
-                    <strong>Standalone Account:</strong> Operates as an independent retail or commercial entity. No corporate parent or linked child accounts.
-                  </span>
+                <div className="bg-slate-50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800 rounded-xl p-3 flex flex-wrap items-center justify-between gap-3 text-xs text-slate-700 dark:text-slate-300">
+                  <div className="flex items-center gap-2">
+                    <Users size={16} className="text-slate-500 shrink-0" />
+                    <span>
+                      <strong>Standalone Account:</strong> Operates as an independent retail or commercial entity. No corporate parent or linked child accounts.
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setBulkAssignTarget({
+                        id: customerItem.id,
+                        name: customerItem.name,
+                        code: customerItem.code || undefined,
+                      });
+                      setIsBulkAssignOpen(true);
+                    }}
+                    className="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-bold text-[11px] inline-flex items-center gap-1 transition shadow-2xs shrink-0"
+                    data-testid="open-bulk-assign-standalone-btn"
+                  >
+                    <PlusCircle size={12} />
+                    <span>Assign Subordinates</span>
+                  </button>
                 </div>
               )}
 
-              {/* Visual Tree Component */}
-              {parentRecord && (
-                <div className="rounded-xl overflow-hidden border border-slate-200 dark:border-slate-800 shadow-2xs">
+              {/* N-Tier Recursive Hierarchy Explorer */}
+              {treeResponse && (
+                <div className="bg-white dark:bg-[#191c1e] border border-slate-200 dark:border-slate-800 rounded-xl p-4 shadow-2xs">
+                  <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800 mb-3">
+                    <div className="flex items-center gap-2">
+                      <Network size={16} className="text-indigo-600 dark:text-indigo-400" />
+                      <h3 className="font-bold text-xs uppercase tracking-wider text-slate-800 dark:text-slate-200">
+                        N-Tier Recursive Hierarchy Explorer
+                      </h3>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setBulkAssignTarget({
+                          id: customerItem.id,
+                          name: customerItem.name,
+                          code: customerItem.code || undefined,
+                        });
+                        setIsBulkAssignOpen(true);
+                      }}
+                      className="px-2.5 py-1 bg-indigo-50 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-900 border border-indigo-200 dark:border-indigo-800 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition"
+                      data-testid="tree-bulk-assign-btn"
+                    >
+                      <PlusCircle size={12} />
+                      <span>Bulk Assign Subordinates</span>
+                    </button>
+                  </div>
                   <CustomerHierarchyTree
-                    customer={parentRecord}
-                    childrenNodes={childrenNodes}
-                    onSelectCustomer={(code) => {
-                      const matched = childrenNodes.find((c) => c.code === code);
-                      if (matched) {
-                        onSelectCustomer({
-                          id: matched.id,
-                          code: matched.code,
-                          name: matched.name,
-                          mobile: null,
-                          customer_group_id: null,
-                          customer_group_name: null,
-                          status: matched.status || "Active",
-                          is_active: true,
-                        }, "view");
-                        onClose();
-                      }
+                    tree={treeResponse}
+                    targetCustomerId={customerItem.id}
+                    onSelectCustomer={(cust) => {
+                      onSelectCustomer({
+                        id: cust.id,
+                        code: cust.code,
+                        name: cust.name,
+                        mobile: null,
+                        customer_group_id: null,
+                        customer_group_name: null,
+                        status: "Active",
+                        is_active: true,
+                      }, "view");
+                      onClose();
+                    }}
+                    onOpenBulkAssign={(cust) => {
+                      setBulkAssignTarget(cust);
+                      setIsBulkAssignOpen(true);
                     }}
                   />
                 </div>
@@ -685,6 +767,20 @@ export const CustomerHierarchyModal: React.FC<CustomerHierarchyModalProps> = ({
           </button>
         </footer>
       </div>
+
+      {bulkAssignTarget && (
+        <BulkAssignCustomerModal
+          isOpen={isBulkAssignOpen}
+          onClose={() => {
+            setIsBulkAssignOpen(false);
+            setBulkAssignTarget(null);
+          }}
+          parentCustomer={bulkAssignTarget}
+          onAssigned={() => {
+            void loadHierarchyData();
+          }}
+        />
+      )}
     </div>
   );
 };

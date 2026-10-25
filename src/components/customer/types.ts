@@ -52,6 +52,61 @@ export interface CustomerDirectoryResponse {
   limit: number;
 }
 
+export interface CustomerHierarchyNode {
+  id: string;
+  code: string;
+  name: string;
+  status: string;
+  is_active: boolean;
+  relationship_type: "root" | "parent" | "child" | "standalone" | string;
+  depth: number;
+  path: string[];
+  child_count: number;
+  parent_customer_id?: string | null;
+  parent_customer_code?: string | null;
+  parent_customer_name?: string | null;
+  children: CustomerHierarchyNode[];
+}
+
+export interface CustomerHierarchyTreeResponse {
+  target_customer_id: string;
+  root: CustomerHierarchyNode;
+  total_nodes: number;
+  max_depth: number;
+  is_multi_tier: boolean;
+}
+
+export interface BulkAssignDependantsRequest {
+  dependant_customer_ids: string[];
+  relation?: string;
+  apply_same_mailing?: boolean;
+  notes?: string | null;
+  replace_existing?: boolean;
+}
+
+export interface BulkAssignDependantsResponse {
+  parent_id: string;
+  parent_code: string;
+  parent_name: string;
+  assigned_count: number;
+  skipped_count: number;
+  assigned_ids: string[];
+  errors: string[];
+}
+
+export interface AssignableChildCandidate {
+  id: string;
+  code: string;
+  name: string;
+  mobile?: string | null;
+  status: string;
+  customer_group_id?: string | null;
+  customer_group_name?: string | null;
+  is_dependant: boolean;
+  current_parent_id?: string | null;
+  current_parent_name?: string | null;
+}
+
 export interface CustomerAddressEntry {
   id?: string;
   code: string;

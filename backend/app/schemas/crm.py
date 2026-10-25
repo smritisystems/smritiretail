@@ -1393,6 +1393,71 @@ class CustomerDirectoryResponse(BaseModel):
     limit: int
 
 
+class CustomerHierarchyNodeResponse(BaseModel):
+    id: str
+    code: str
+    name: str
+    status: str = "Active"
+    is_active: bool = True
+    relationship_type: str = "standalone"  # "root" | "parent" | "child" | "standalone"
+    depth: int = 0
+    path: List[str] = Field(default_factory=list)
+    child_count: int = 0
+    parent_customer_id: Optional[str] = None
+    parent_customer_code: Optional[str] = None
+    parent_customer_name: Optional[str] = None
+    children: List["CustomerHierarchyNodeResponse"] = Field(default_factory=list)
+
+    model_config = ConfigDict(populate_by_name=True, from_attributes=True)
+
+
+class CustomerHierarchyTreeResponse(BaseModel):
+    target_customer_id: str
+    root: CustomerHierarchyNodeResponse
+    total_nodes: int = 1
+    max_depth: int = 0
+    is_multi_tier: bool = False
+
+    model_config = ConfigDict(populate_by_name=True, from_attributes=True)
+
+
+class BulkAssignDependantsRequest(BaseModel):
+    dependant_customer_ids: List[str] = Field(..., min_length=1)
+    relation: str = Field("Child", max_length=50)
+    apply_same_mailing: bool = False
+    notes: Optional[str] = None
+    replace_existing: bool = True
+
+    model_config = ConfigDict(populate_by_name=True, from_attributes=True)
+
+
+class BulkAssignDependantsResponse(BaseModel):
+    parent_id: str
+    parent_code: str
+    parent_name: str
+    assigned_count: int = 0
+    skipped_count: int = 0
+    assigned_ids: List[str] = Field(default_factory=list)
+    errors: List[str] = Field(default_factory=list)
+
+    model_config = ConfigDict(populate_by_name=True, from_attributes=True)
+
+
+class AssignableChildCandidate(BaseModel):
+    id: str
+    code: str
+    name: str
+    mobile: Optional[str] = None
+    status: str = "Active"
+    customer_group_id: Optional[str] = None
+    customer_group_name: Optional[str] = None
+    is_dependant: bool = False
+    current_parent_id: Optional[str] = None
+    current_parent_name: Optional[str] = None
+
+    model_config = ConfigDict(populate_by_name=True, from_attributes=True)
+
+
 class CorporateKpis(BaseModel):
     total_orders: int = 0
     orders_growth_pct: float = 0.0
