@@ -22,19 +22,27 @@ import type { PurchaseOrderHeader, PurchaseOrderSizePivotRow } from "../../compo
 import { SafeRichTermsRenderer } from "../../components/common/SafeRichTermsRenderer";
 import { getTenantCompanyContext } from "../../lib/apiFetchV1";
 
+export interface SizePivotMatrixData {
+  poNumber?: string;
+  poDate?: string;
+  companyName?: string;
+  supplierName?: string;
+  lines?: any[];
+  grandTotal?: number;
+  header?: PurchaseOrderHeader;
+  rows?: PurchaseOrderSizePivotRow[];
+  currencySymbol?: string;
+  vendorName?: string;
+  orientation?: "portrait" | "landscape";
+}
+
 export interface SizePivotMatrixA4Props {
   header?: PurchaseOrderHeader;
   rows?: PurchaseOrderSizePivotRow[];
   currencySymbol?: string;
   vendorName?: string;
   orientation?: "portrait" | "landscape";
-  data?: {
-    header?: PurchaseOrderHeader;
-    rows?: PurchaseOrderSizePivotRow[];
-    currencySymbol?: string;
-    vendorName?: string;
-    orientation?: "portrait" | "landscape";
-  };
+  data?: SizePivotMatrixData;
 }
 
 const SIZES = ["36", "37", "38", "39", "40", "41", "42", "43", "44"];
@@ -103,7 +111,10 @@ export const SizePivotMatrixA4: React.FC<SizePivotMatrixA4Props> = (props) => {
   const poNumberDisplay = `${header.prefix || "PO"}-${header.orderNumber || "1"}`;
 
   const tenantCtx = typeof window !== "undefined" ? getTenantCompanyContext() : null;
-  const companyName = header.billTo || header.buyer || (props.data?.header as any)?.billTo || tenantCtx?.companyName || "TATTLY THREADS";
+  const explicitCompanyName = props.data?.companyName !== undefined ? props.data.companyName : (props.data?.header as any)?.companyName;
+  const companyName = explicitCompanyName !== undefined
+    ? explicitCompanyName
+    : ((header as any)?.companyName || (header.billTo && !["MAIN", "DEFAULT LOCATION"].includes(header.billTo.toUpperCase()) ? header.billTo : "") || tenantCtx?.companyName || "");
   const logoUrl = tenantCtx?.companyLogoUrl || null;
   const isIdentityMissing = !companyName;
 

@@ -177,6 +177,50 @@ class AuthService:
         await self.db.refresh(admin)
         return admin
 
+    async def _resolve_tenant_details(
+        self,
+        company_id: Optional[str] = None,
+        branch_id: Optional[str] = None,
+    ) -> tuple[Optional[str], Optional[str], Optional[str], Optional[str]]:
+        """Resolve company name, company code, branch name, branch code."""
+        from ..models.tenant import Company, Branch
+        comp_name = None
+        comp_code = None
+        br_name = None
+        br_code = None
+
+        if company_id:
+            try:
+                comp_res = await self.db.execute(
+                    select(Company).where(
+                        (Company.id == company_id) | (Company.company_code == company_id),
+                        Company.is_deleted == False,
+                    )
+                )
+                comp = comp_res.scalars().first()
+                if comp:
+                    comp_name = comp.name or comp.legal_name
+                    comp_code = comp.company_code or comp.id
+            except Exception as e:
+                logger.warning(f"Notice: unable to query company details: {e}")
+
+        if branch_id:
+            try:
+                br_res = await self.db.execute(
+                    select(Branch).where(
+                        (Branch.id == branch_id) | (Branch.code == branch_id),
+                        Branch.is_deleted == False,
+                    )
+                )
+                br = br_res.scalars().first()
+                if br:
+                    br_name = br.name
+                    br_code = br.code or br.id
+            except Exception as e:
+                logger.warning(f"Notice: unable to query branch details: {e}")
+
+        return comp_name, comp_code, br_name, br_code
+
     # ------------------------------------------------------------------
     # Login
     # ------------------------------------------------------------------
@@ -288,13 +332,22 @@ class AuthService:
         )
 
         payload = _build_token_payload(user, company_id=resolved_company_id, branch_id=resolved_branch_id)
+        comp_name, comp_code, br_name, br_code = await self._resolve_tenant_details(
+            company_id=resolved_company_id,
+            branch_id=resolved_branch_id,
+        )
+
         return {
             "access_token":  create_access_token(payload, expires_minutes=exp_min),
             "refresh_token": create_refresh_token(payload, expires_days=exp_days),
             "token_type":    "bearer",
             "role":          user.role,
             "company_id":    resolved_company_id,
+            "company_code":  comp_code,
+            "company_name":  comp_name,
             "branch_id":     resolved_branch_id,
+            "branch_code":   br_code,
+            "branch_name":   br_name,
             "password_reset_required": user.status == "PendingPasswordChange",
             "user":          user,
         }
@@ -343,13 +396,22 @@ class AuthService:
         payload = _build_token_payload(user, company_id=req.target_company_id, branch_id=req.target_branch_id)
         user.company_id = req.target_company_id
         user.branch_id = req.target_branch_id
+        comp_name, comp_code, br_name, br_code = await self._resolve_tenant_details(
+            company_id=req.target_company_id,
+            branch_id=req.target_branch_id,
+        )
+
         return {
             "access_token":  create_access_token(payload, expires_minutes=exp_min),
             "refresh_token": create_refresh_token(payload, expires_days=exp_days),
             "token_type":    "bearer",
             "role":          user.role,
             "company_id":    req.target_company_id,
+            "company_code":  comp_code,
+            "company_name":  comp_name,
             "branch_id":     req.target_branch_id,
+            "branch_code":   br_code,
+            "branch_name":   br_name,
             "password_reset_required": user.status == "PendingPasswordChange",
             "user":          user,
         }

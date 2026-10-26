@@ -142,11 +142,11 @@ const AppContent: React.FC = () => {
         if (data.company_id) {
           persistTenantContext({
             companyId: data.company_id,
-            companyCode: data.company_code ?? null,
+            companyCode: data.company_code ?? undefined,
             branchId: data.branch_id ?? localStorage.getItem("smriti_branch_id"),
-            branchCode: data.branch_code ?? null,
-            companyName: data.company_name ?? null,
-            branchName: data.branch_name ?? null,
+            branchCode: data.branch_code ?? undefined,
+            companyName: data.company_name ?? undefined,
+            branchName: data.branch_name ?? undefined,
           });
 
           // Proactively synchronize authoritative corporate profile into tenant context cache

@@ -16,9 +16,9 @@ Founders
 
 * Websites: aitdl.com | erpnbook.com | smritibooks.com
 
-* Version    : 6.47.4
+* Version    : 6.47.5
 * Created    : 2026-10-01
-* Modified   : 2026-10-01
+* Modified   : 2026-10-26
 * Copyright  : © AITDL.com and SMRITIBooks.com. All Rights Reserved.
 * License    : Proprietary Commercial Software
 Classification: Internal
@@ -34,7 +34,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_db, get_tenant_context, TenantContext, get_current_user
+from app.api.deps import get_company_db, get_tenant_context, TenantContext, get_current_user
 from app.models.auth import User
 from app.models.workflow import WorkflowEvent
 from app.services.lifecycle import (
@@ -91,7 +91,7 @@ async def execute_lifecycle_transition(
     action: str,
     body: Optional[LifecycleTransitionRequest] = None,
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
 ):
     req_body = body or LifecycleTransitionRequest()
@@ -133,7 +133,7 @@ async def get_document_lifecycle_state(
     doc_type: str,
     doc_id: str,
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
 ):
     try:
@@ -159,7 +159,7 @@ async def get_document_workflow_events(
     doc_type: str,
     doc_id: str,
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
 ):
     stmt = (

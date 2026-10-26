@@ -254,11 +254,44 @@ async def switch_context(
 @router.get("/me", response_model=UserResponse)
 async def get_me(
     current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
 ):
     """
-    Return the current authenticated user's profile.
+    Return the current authenticated user's profile with authoritative corporate identity.
     """
-    return current_user
+    resp = UserResponse.model_validate(current_user)
+
+    if current_user.company_id:
+        try:
+            comp_res = await db.execute(
+                select(Company).where(
+                    (Company.id == current_user.company_id) | (Company.company_code == current_user.company_id),
+                    Company.is_deleted == False,
+                )
+            )
+            comp = comp_res.scalars().first()
+            if comp:
+                resp.company_name = comp.name or comp.legal_name
+                resp.company_code = comp.company_code or comp.id
+        except Exception:
+            pass
+
+    if current_user.branch_id:
+        try:
+            br_res = await db.execute(
+                select(Branch).where(
+                    (Branch.id == current_user.branch_id) | (Branch.code == current_user.branch_id),
+                    Branch.is_deleted == False,
+                )
+            )
+            br = br_res.scalars().first()
+            if br:
+                resp.branch_name = br.name
+                resp.branch_code = br.code or br.id
+        except Exception:
+            pass
+
+    return resp
 
 
 @router.post("/verify-supervisor-pin", response_model=SupervisorPinVerifyResponse)
