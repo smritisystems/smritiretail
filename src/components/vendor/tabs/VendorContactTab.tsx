@@ -13,14 +13,16 @@
  */
 
 import React, { useState } from "react";
-import { Users, Phone, Mail, Plus, Trash2, Star, Shield, Briefcase, Truck, CreditCard } from "lucide-react";
+import { Users, Phone, Mail, Plus, Trash2, Star, Shield, Briefcase, Truck, CreditCard, Loader2 } from "lucide-react";
 import { VendorDetail, VendorContact, ContactCategory } from "../../../types/vendor";
 import { withCapability } from "../../../types/architecture";
+import { apiFetchV1 } from "../../../lib/apiFetchV1";
 
 interface VendorContactTabProps {
   vendor: VendorDetail;
   onUpdateContacts: (contacts: VendorContact[]) => void;
   isEditing: boolean;
+  onNotification?: (title: string, message: string, type: "success" | "error" | "info" | "warning") => void;
 }
 
 const CATEGORY_BADGES: Record<ContactCategory, { bg: string; text: string; icon: React.ReactNode }> = {
@@ -32,8 +34,10 @@ const CATEGORY_BADGES: Record<ContactCategory, { bg: string; text: string; icon:
   OTHER:      { bg: "bg-slate-100 dark:bg-slate-500/10 border-slate-200 dark:border-slate-500/30",  text: "text-slate-700 dark:text-slate-400",  icon: <Users size={12} /> },
 };
 
-const VendorContactTabBase: React.FC<VendorContactTabProps> = ({ vendor, onUpdateContacts, isEditing }) => {
+const VendorContactTabBase: React.FC<VendorContactTabProps> = ({ vendor, onUpdateContacts, isEditing, onNotification }) => {
   const [showModal, setShowModal] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
   const [newContact, setNewContact] = useState<Partial<VendorContact>>({
     contactName: "",
     contactCategory: "SALES",
@@ -44,37 +48,99 @@ const VendorContactTabBase: React.FC<VendorContactTabProps> = ({ vendor, onUpdat
     isPrimary: false,
   });
 
-  const handleAdd = () => {
+  const handleAdd = async () => {
     if (!newContact.contactName) return;
-    const item: VendorContact = {
-      id: `vc-${Date.now().toString(36)}`,
-      contactName: newContact.contactName,
-      contactCategory: (newContact.contactCategory as ContactCategory) || "GENERAL",
-      designation: newContact.designation,
-      department: newContact.department,
-      mobile: newContact.mobile,
-      phone: newContact.phone,
-      email: newContact.email,
-      isPrimary: Boolean(newContact.isPrimary),
-    };
-    onUpdateContacts([...vendor.contacts, item]);
-    setShowModal(false);
-    setNewContact({
-      contactName: "",
-      contactCategory: "SALES",
-      designation: "",
-      department: "",
-      mobile: "",
-      email: "",
-      isPrimary: false,
-    });
+    setSaving(true);
+    try {
+      const payload = {
+        contactName: newContact.contactName.trim(),
+        contactCategory: (newContact.contactCategory as ContactCategory) || "GENERAL",
+        designation: newContact.designation ? newContact.designation.trim() : null,
+        department: newContact.department ? newContact.department.trim() : null,
+        mobile: newContact.mobile ? newContact.mobile.trim() : null,
+        phone: newContact.phone ? newContact.phone.trim() : null,
+        email: newContact.email ? newContact.email.trim() : null,
+        isPrimary: Boolean(newContact.isPrimary),
+      };
+
+      const persisted: any = await apiFetchV1(`/purchase/vendors/${vendor.id}/contacts`, {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+
+      const canonicalItem: VendorContact = {
+        id: persisted.id || `pc_${Date.now().toString(36)}`,
+        contactName: persisted.contactName || payload.contactName,
+        contactCategory: (persisted.contactCategory || payload.contactCategory) as ContactCategory,
+        designation: persisted.designation || payload.designation,
+        department: persisted.department || payload.department,
+        mobile: persisted.mobile || payload.mobile,
+        phone: persisted.phone || payload.phone,
+        email: persisted.email || payload.email,
+        isPrimary: Boolean(persisted.isPrimary ?? payload.isPrimary),
+      };
+
+      const nextContacts = canonicalItem.isPrimary
+        ? vendor.contacts.map((c) => ({ ...c, isPrimary: false })).concat(canonicalItem)
+        : [...vendor.contacts, canonicalItem];
+
+      onUpdateContacts(nextContacts);
+      onNotification?.("Contact Saved", `Contact person '${canonicalItem.contactName}' saved to database.`, "success");
+      setShowModal(false);
+      setNewContact({
+        contactName: "",
+        contactCategory: "SALES",
+        designation: "",
+        department: "",
+        mobile: "",
+        email: "",
+        isPrimary: false,
+      });
+    } catch (err: any) {
+      onNotification?.("Save Failed", err?.message || "Failed to persist contact person.", "error");
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const handleDelete = (index: number) => {
+  const handleDelete = async (index: number) => {
+    const target = vendor.contacts[index];
+    if (!target) return;
+    if (target.id && !target.id.startsWith("vc-")) {
+      setActionLoadingId(target.id);
+      try {
+        await apiFetchV1(`/purchase/vendors/${vendor.id}/contacts/${target.id}`, {
+          method: "DELETE",
+        });
+        onNotification?.("Contact Removed", `Contact '${target.contactName}' deleted.`, "info");
+      } catch (err: any) {
+        onNotification?.("Delete Failed", err?.message || "Could not delete contact.", "error");
+        setActionLoadingId(null);
+        return;
+      }
+      setActionLoadingId(null);
+    }
     onUpdateContacts(vendor.contacts.filter((_, i) => i !== index));
   };
 
-  const handleSetPrimary = (index: number) => {
+  const handleSetPrimary = async (index: number) => {
+    const target = vendor.contacts[index];
+    if (!target) return;
+    if (target.id && !target.id.startsWith("vc-")) {
+      setActionLoadingId(target.id);
+      try {
+        await apiFetchV1(`/purchase/vendors/${vendor.id}/contacts`, {
+          method: "POST",
+          body: JSON.stringify({ ...target, isPrimary: true }),
+        });
+        onNotification?.("Primary Contact Updated", `'${target.contactName}' is now designated as primary contact.`, "success");
+      } catch (err: any) {
+        onNotification?.("Update Failed", err?.message || "Could not update primary contact.", "error");
+        setActionLoadingId(null);
+        return;
+      }
+      setActionLoadingId(null);
+    }
     onUpdateContacts(vendor.contacts.map((c, i) => ({ ...c, isPrimary: i === index })));
   };
 
@@ -85,15 +151,13 @@ const VendorContactTabBase: React.FC<VendorContactTabProps> = ({ vendor, onUpdat
           <h3 className="text-sm font-bold text-slate-900 dark:text-white">First-Class Contact Directory</h3>
           <p className="text-xs text-slate-500 dark:text-slate-400">Target PO dispatches, payment advice, and delivery coordination to the right personnel</p>
         </div>
-        {isEditing && (
-          <button
-            onClick={() => setShowModal(true)}
-            className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-xs transition"
-          >
-            <Plus size={14} />
-            <span>Add Contact Person</span>
-          </button>
-        )}
+        <button
+          onClick={() => setShowModal(true)}
+          className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-xs transition"
+        >
+          <Plus size={14} />
+          <span>Add Contact Person</span>
+        </button>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -251,9 +315,11 @@ const VendorContactTabBase: React.FC<VendorContactTabProps> = ({ vendor, onUpdat
               </button>
               <button
                 onClick={handleAdd}
-                className="px-4 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs shadow"
+                disabled={!newContact.contactName || saving}
+                className="px-4 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold text-xs shadow flex items-center space-x-1.5"
               >
-                Add Contact
+                {saving && <Loader2 size={13} className="animate-spin" />}
+                <span>{saving ? "Saving..." : "Add Contact"}</span>
               </button>
             </div>
           </div>

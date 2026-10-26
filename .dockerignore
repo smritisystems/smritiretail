@@ -22,3 +22,7 @@ backend/app/__pycache__
 .coverage
 htmlcov
 .env
+backups/
+*.sql
+*.tar
+*.gz

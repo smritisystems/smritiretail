@@ -22,13 +22,16 @@ interface VendorAddressTabProps {
   vendor: VendorDetail;
   onUpdateAddresses: (addresses: VendorAddress[]) => void;
   isEditing: boolean;
+  onNotification?: (title: string, message: string, type: "success" | "error" | "info" | "warning") => void;
 }
 
-const VendorAddressTabBase: React.FC<VendorAddressTabProps> = ({ vendor, onUpdateAddresses, isEditing }) => {
+const VendorAddressTabBase: React.FC<VendorAddressTabProps> = ({ vendor, onUpdateAddresses, isEditing, onNotification }) => {
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [resolvingPin, setResolvingPin] = useState(false);
   const [pinFeedback, setPinFeedback] = useState<{ status: "success" | "error"; text: string } | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
 
   const [newAddr, setNewAddr] = useState<Partial<VendorAddress>>({
     addressType: "BILLING",
@@ -115,61 +118,107 @@ const VendorAddressTabBase: React.FC<VendorAddressTabProps> = ({ vendor, onUpdat
     }
   };
 
-  const handleSaveAddress = () => {
+  const handleSaveAddress = async () => {
     if (!newAddr.addressLine1 || !newAddr.city) return;
-
-    if (editingIndex !== null) {
-      const updated = vendor.addresses.map((a, idx) => {
-        if (idx === editingIndex) {
-          return {
-            ...a,
-            addressType: (newAddr.addressType as any) || "BILLING",
-            addressTitle: newAddr.addressTitle || "Branch",
-            addressLine1: newAddr.addressLine1!,
-            addressLine2: newAddr.addressLine2 || "",
-            city: newAddr.city!,
-            state: newAddr.state || "",
-            stateCode: newAddr.stateCode || "",
-            pincode: newAddr.pincode || "",
-            country: newAddr.country || "India",
-            gstin: newAddr.gstin || "",
-            isPrimary: Boolean(newAddr.isPrimary),
-          };
-        }
-        return newAddr.isPrimary ? { ...a, isPrimary: false } : a;
-      });
-      onUpdateAddresses(updated);
-    } else {
-      const item: VendorAddress = {
-        id: `va-${Date.now().toString(36)}`,
+    setSaving(true);
+    try {
+      const payload = {
+        id: editingIndex !== null ? vendor.addresses[editingIndex]?.id : undefined,
         addressType: (newAddr.addressType as any) || "BILLING",
         addressTitle: newAddr.addressTitle || "Branch",
-        addressLine1: newAddr.addressLine1!,
-        addressLine2: newAddr.addressLine2 || "",
-        city: newAddr.city!,
+        addressLine1: newAddr.addressLine1.trim(),
+        addressLine2: newAddr.addressLine2 ? newAddr.addressLine2.trim() : "",
+        city: newAddr.city.trim(),
         state: newAddr.state || "",
         stateCode: newAddr.stateCode || "",
         pincode: newAddr.pincode || "",
         country: newAddr.country || "India",
-        gstin: newAddr.gstin || "",
+        gstin: newAddr.gstin ? newAddr.gstin.trim().toUpperCase() : "",
         isPrimary: Boolean(newAddr.isPrimary),
       };
-      const nextAddresses = newAddr.isPrimary
-        ? vendor.addresses.map(a => ({ ...a, isPrimary: false })).concat(item)
-        : [...vendor.addresses, item];
-      onUpdateAddresses(nextAddresses);
-    }
 
-    setShowAddModal(false);
-    setEditingIndex(null);
+      const persisted: any = await apiFetchV1(`/purchase/vendors/${vendor.id}/addresses`, {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+
+      const canonicalItem: VendorAddress = {
+        id: persisted.id || (editingIndex !== null ? vendor.addresses[editingIndex]?.id : `pa_${Date.now().toString(36)}`),
+        addressType: (persisted.addressType || payload.addressType) as any,
+        addressTitle: persisted.addressTitle || payload.addressTitle,
+        addressLine1: persisted.addressLine1 || payload.addressLine1,
+        addressLine2: persisted.addressLine2 || payload.addressLine2,
+        city: persisted.city || payload.city,
+        state: persisted.state || payload.state,
+        stateCode: persisted.stateCode || payload.stateCode,
+        pincode: persisted.pincode || payload.pincode,
+        country: persisted.country || payload.country,
+        gstin: persisted.gstin || payload.gstin,
+        isPrimary: Boolean(persisted.isPrimary ?? payload.isPrimary),
+      };
+
+      let nextAddresses: VendorAddress[];
+      if (editingIndex !== null) {
+        nextAddresses = vendor.addresses.map((a, idx) => {
+          if (idx === editingIndex) return canonicalItem;
+          return canonicalItem.isPrimary ? { ...a, isPrimary: false } : a;
+        });
+      } else {
+        nextAddresses = canonicalItem.isPrimary
+          ? vendor.addresses.map((a) => ({ ...a, isPrimary: false })).concat(canonicalItem)
+          : [...vendor.addresses, canonicalItem];
+      }
+
+      onUpdateAddresses(nextAddresses);
+      onNotification?.("Location Persisted", `Address '${canonicalItem.addressTitle}' saved to database.`, "success");
+      setShowAddModal(false);
+      setEditingIndex(null);
+    } catch (err: any) {
+      onNotification?.("Save Failed", err?.message || "Failed to persist address to database.", "error");
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const handleDeleteAddress = (index: number) => {
+  const handleDeleteAddress = async (index: number) => {
+    const target = vendor.addresses[index];
+    if (!target) return;
+    if (target.id && !target.id.startsWith("va-")) {
+      setActionLoadingId(target.id);
+      try {
+        await apiFetchV1(`/purchase/vendors/${vendor.id}/addresses/${target.id}`, {
+          method: "DELETE",
+        });
+        onNotification?.("Location Removed", `Address '${target.addressTitle}' deleted.`, "info");
+      } catch (err: any) {
+        onNotification?.("Delete Failed", err?.message || "Could not delete address.", "error");
+        setActionLoadingId(null);
+        return;
+      }
+      setActionLoadingId(null);
+    }
     const updated = vendor.addresses.filter((_, idx) => idx !== index);
     onUpdateAddresses(updated);
   };
 
-  const handleSetPrimary = (index: number) => {
+  const handleSetPrimary = async (index: number) => {
+    const target = vendor.addresses[index];
+    if (!target) return;
+    if (target.id && !target.id.startsWith("va-")) {
+      setActionLoadingId(target.id);
+      try {
+        await apiFetchV1(`/purchase/vendors/${vendor.id}/addresses`, {
+          method: "POST",
+          body: JSON.stringify({ ...target, isPrimary: true }),
+        });
+        onNotification?.("Primary Address Updated", `'${target.addressTitle}' is now designated as primary.`, "success");
+      } catch (err: any) {
+        onNotification?.("Update Failed", err?.message || "Could not update primary address.", "error");
+        setActionLoadingId(null);
+        return;
+      }
+      setActionLoadingId(null);
+    }
     const updated = vendor.addresses.map((a, idx) => ({
       ...a,
       isPrimary: idx === index,
@@ -429,10 +478,11 @@ const VendorAddressTabBase: React.FC<VendorAddressTabProps> = ({ vendor, onUpdat
               </button>
               <button
                 onClick={handleSaveAddress}
-                disabled={!newAddr.addressLine1 || !newAddr.city}
-                className="px-4 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold text-xs shadow"
+                disabled={!newAddr.addressLine1 || !newAddr.city || saving}
+                className="px-4 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold text-xs shadow flex items-center space-x-1.5"
               >
-                {editingIndex !== null ? "Update Location" : "Add Location"}
+                {saving && <Loader2 size={13} className="animate-spin" />}
+                <span>{saving ? "Saving..." : editingIndex !== null ? "Update Location" : "Add Location"}</span>
               </button>
             </div>
           </div>

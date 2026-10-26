@@ -13,18 +13,22 @@
  */
 
 import React, { useState } from "react";
-import { CreditCard, Plus, Trash2, Star, CheckCircle2, ShieldAlert, Building2 } from "lucide-react";
+import { CreditCard, Plus, Trash2, Star, CheckCircle2, ShieldAlert, Building2, Loader2 } from "lucide-react";
 import { VendorDetail, VendorBankAccount } from "../../../types/vendor";
 import { withCapability } from "../../../types/architecture";
+import { apiFetchV1 } from "../../../lib/apiFetchV1";
 
 interface VendorBankingTabProps {
   vendor: VendorDetail;
   onUpdateBanks: (banks: VendorBankAccount[]) => void;
   isEditing: boolean;
+  onNotification?: (title: string, message: string, type: "success" | "error" | "info" | "warning") => void;
 }
 
-const VendorBankingTabBase: React.FC<VendorBankingTabProps> = ({ vendor, onUpdateBanks, isEditing }) => {
+const VendorBankingTabBase: React.FC<VendorBankingTabProps> = ({ vendor, onUpdateBanks, isEditing, onNotification }) => {
   const [showModal, setShowModal] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
   const [newBank, setNewBank] = useState<Partial<VendorBankAccount>>({
     bankName: "",
     accountHolderName: vendor.legalName,
@@ -36,44 +40,102 @@ const VendorBankingTabBase: React.FC<VendorBankingTabProps> = ({ vendor, onUpdat
     verificationStatus: "VERIFIED",
   });
 
-  const handleAdd = () => {
+  const handleAdd = async () => {
     if (!newBank.bankName || !newBank.accountNumber || !newBank.ifsc) return;
-    const item: VendorBankAccount = {
-      id: `vba-${Date.now().toString(36)}`,
-      bankName: newBank.bankName,
-      accountHolderName: newBank.accountHolderName || vendor.legalName,
-      accountNumber: newBank.accountNumber,
-      ifsc: newBank.ifsc.toUpperCase(),
-      branch: newBank.branch,
-      accountType: newBank.accountType as any || "CURRENT",
-      isPrimary: Boolean(newBank.isPrimary),
-      verificationStatus: newBank.verificationStatus as any || "PENDING",
-      verifiedAt: new Date().toISOString(),
-    };
+    setSaving(true);
+    try {
+      const payload = {
+        bankName: newBank.bankName.trim(),
+        accountHolderName: (newBank.accountHolderName || vendor.legalName).trim(),
+        accountNumber: newBank.accountNumber.trim(),
+        ifsc: newBank.ifsc.trim().toUpperCase(),
+        branch: newBank.branch ? newBank.branch.trim() : null,
+        accountType: (newBank.accountType as any) || "CURRENT",
+        isPrimary: Boolean(newBank.isPrimary),
+        verificationStatus: (newBank.verificationStatus as any) || "VERIFIED",
+        verifiedAt: new Date().toISOString(),
+      };
 
-    let updated = [...vendor.bankAccounts];
-    if (item.isPrimary) {
-      updated = updated.map(b => ({ ...b, isPrimary: false }));
+      const persisted: any = await apiFetchV1(`/purchase/vendors/${vendor.id}/bank-accounts`, {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+
+      const canonicalItem: VendorBankAccount = {
+        id: persisted.id || `pba_${Date.now().toString(36)}`,
+        bankName: persisted.bankName || payload.bankName,
+        accountHolderName: persisted.accountHolderName || payload.accountHolderName,
+        accountNumber: persisted.accountNumber || payload.accountNumber,
+        ifsc: persisted.ifsc || payload.ifsc,
+        branch: persisted.branch || payload.branch,
+        accountType: (persisted.accountType || payload.accountType) as any,
+        isPrimary: Boolean(persisted.isPrimary ?? payload.isPrimary),
+        verificationStatus: (persisted.verificationStatus || payload.verificationStatus) as any,
+        verifiedAt: persisted.verifiedAt || payload.verifiedAt,
+      };
+
+      let updated = [...vendor.bankAccounts];
+      if (canonicalItem.isPrimary) {
+        updated = updated.map((b) => ({ ...b, isPrimary: false }));
+      }
+      onUpdateBanks([...updated, canonicalItem]);
+      onNotification?.("Bank Account Persisted", `Account at ${canonicalItem.bankName} saved to database.`, "success");
+      setShowModal(false);
+      setNewBank({
+        bankName: "",
+        accountHolderName: vendor.legalName,
+        accountNumber: "",
+        ifsc: "",
+        branch: "",
+        accountType: "CURRENT",
+        isPrimary: false,
+        verificationStatus: "VERIFIED",
+      });
+    } catch (err: any) {
+      onNotification?.("Save Failed", err?.message || "Failed to persist bank account.", "error");
+    } finally {
+      setSaving(false);
     }
-    onUpdateBanks([...updated, item]);
-    setShowModal(false);
-    setNewBank({
-      bankName: "",
-      accountHolderName: vendor.legalName,
-      accountNumber: "",
-      ifsc: "",
-      branch: "",
-      accountType: "CURRENT",
-      isPrimary: false,
-      verificationStatus: "PENDING",
-    });
   };
 
-  const handleDelete = (index: number) => {
+  const handleDelete = async (index: number) => {
+    const target = vendor.bankAccounts[index];
+    if (!target) return;
+    if (target.id && !target.id.startsWith("vba-")) {
+      setActionLoadingId(target.id);
+      try {
+        await apiFetchV1(`/purchase/vendors/${vendor.id}/bank-accounts/${target.id}`, {
+          method: "DELETE",
+        });
+        onNotification?.("Bank Account Removed", `Account at ${target.bankName} deleted.`, "info");
+      } catch (err: any) {
+        onNotification?.("Delete Failed", err?.message || "Could not delete bank account.", "error");
+        setActionLoadingId(null);
+        return;
+      }
+      setActionLoadingId(null);
+    }
     onUpdateBanks(vendor.bankAccounts.filter((_, i) => i !== index));
   };
 
-  const handleSetPrimary = (index: number) => {
+  const handleSetPrimary = async (index: number) => {
+    const target = vendor.bankAccounts[index];
+    if (!target) return;
+    if (target.id && !target.id.startsWith("vba-")) {
+      setActionLoadingId(target.id);
+      try {
+        await apiFetchV1(`/purchase/vendors/${vendor.id}/bank-accounts`, {
+          method: "POST",
+          body: JSON.stringify({ ...target, isPrimary: true }),
+        });
+        onNotification?.("Primary Account Updated", `${target.bankName} account designated as primary.`, "success");
+      } catch (err: any) {
+        onNotification?.("Update Failed", err?.message || "Could not designate primary account.", "error");
+        setActionLoadingId(null);
+        return;
+      }
+      setActionLoadingId(null);
+    }
     onUpdateBanks(vendor.bankAccounts.map((b, i) => ({ ...b, isPrimary: i === index })));
   };
 
@@ -84,15 +146,13 @@ const VendorBankingTabBase: React.FC<VendorBankingTabProps> = ({ vendor, onUpdat
           <h3 className="text-sm font-bold text-slate-900 dark:text-white">Controlled Disbursement Bank Accounts</h3>
           <p className="text-xs text-slate-500 dark:text-slate-400">Electronic Fund Transfer (NEFT / RTGS / IMPS) disbursement coordinates</p>
         </div>
-        {isEditing && (
-          <button
-            onClick={() => setShowModal(true)}
-            className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-xs transition"
-          >
-            <Plus size={14} />
-            <span>Add Bank Account</span>
-          </button>
-        )}
+        <button
+          onClick={() => setShowModal(true)}
+          className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-teal-600 hover:bg-teal-500 text-white text-xs font-semibold shadow-xs transition"
+        >
+          <Plus size={14} />
+          <span>Add Bank Account</span>
+        </button>
       </div>
 
       {vendor.bankAccounts.length === 0 ? (
@@ -279,9 +339,11 @@ const VendorBankingTabBase: React.FC<VendorBankingTabProps> = ({ vendor, onUpdat
               </button>
               <button
                 onClick={handleAdd}
-                className="px-4 py-1.5 rounded-lg bg-teal-600 hover:bg-teal-500 text-white font-semibold text-xs shadow"
+                disabled={!newBank.bankName || !newBank.accountNumber || !newBank.ifsc || saving}
+                className="px-4 py-1.5 rounded-lg bg-teal-600 hover:bg-teal-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold text-xs shadow flex items-center space-x-1.5"
               >
-                Save Bank Account
+                {saving && <Loader2 size={13} className="animate-spin" />}
+                <span>{saving ? "Saving..." : "Save Bank Account"}</span>
               </button>
             </div>
           </div>

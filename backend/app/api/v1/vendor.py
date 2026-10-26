@@ -28,6 +28,9 @@ from ...schemas.vendor import (
     VendorUpdateRequest,
     VendorMergeRequest,
     VendorMergeResponse,
+    VendorAddressDTO,
+    VendorContactDTO,
+    VendorBankAccountDTO,
 )
 from ...schemas.vendor_statement import VendorStatementResponse
 from ...schemas.tds import (
@@ -270,4 +273,117 @@ async def get_vendor_tds_summary(
         supplier_id=vendor_id,
         financial_year=financial_year,
     )
+
+
+# =============================================================================
+# Sub-Entity Atomic Persistence Endpoints
+# =============================================================================
+
+@router.post(
+    "/{vendor_id}/addresses",
+    response_model=VendorAddressDTO,
+    dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))],
+    summary="Atomically Persist Vendor Address",
+)
+async def save_vendor_address(
+    vendor_id: str,
+    req: VendorAddressDTO,
+    tenant: TenantContext = Depends(get_tenant_context),
+    db: AsyncSession = Depends(get_company_db),
+):
+    """
+    Atomically saves or updates a dispatch, godown, or registered address for a vendor.
+    Guarantees immediate persistence to PostgreSQL.
+    """
+    service = VendorService(db, tenant)
+    return await service.save_address(vendor_id, req)
+
+
+@router.delete(
+    "/{vendor_id}/addresses/{address_id}",
+    dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))],
+    summary="Delete Vendor Address",
+)
+async def delete_vendor_address(
+    vendor_id: str,
+    address_id: str,
+    tenant: TenantContext = Depends(get_tenant_context),
+    db: AsyncSession = Depends(get_company_db),
+):
+    """Soft-deletes an address record for a vendor."""
+    service = VendorService(db, tenant)
+    await service.delete_address(vendor_id, address_id)
+    return {"status": "deleted", "id": address_id}
+
+
+@router.post(
+    "/{vendor_id}/contacts",
+    response_model=VendorContactDTO,
+    dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))],
+    summary="Atomically Persist Vendor Contact",
+)
+async def save_vendor_contact(
+    vendor_id: str,
+    req: VendorContactDTO,
+    tenant: TenantContext = Depends(get_tenant_context),
+    db: AsyncSession = Depends(get_company_db),
+):
+    """
+    Atomically saves or updates a key contact person for a vendor.
+    """
+    service = VendorService(db, tenant)
+    return await service.save_contact(vendor_id, req)
+
+
+@router.delete(
+    "/{vendor_id}/contacts/{contact_id}",
+    dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))],
+    summary="Delete Vendor Contact",
+)
+async def delete_vendor_contact(
+    vendor_id: str,
+    contact_id: str,
+    tenant: TenantContext = Depends(get_tenant_context),
+    db: AsyncSession = Depends(get_company_db),
+):
+    """Soft-deletes a contact record for a vendor."""
+    service = VendorService(db, tenant)
+    await service.delete_contact(vendor_id, contact_id)
+    return {"status": "deleted", "id": contact_id}
+
+
+@router.post(
+    "/{vendor_id}/bank-accounts",
+    response_model=VendorBankAccountDTO,
+    dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))],
+    summary="Atomically Persist Vendor Bank Account",
+)
+async def save_vendor_bank_account(
+    vendor_id: str,
+    req: VendorBankAccountDTO,
+    tenant: TenantContext = Depends(get_tenant_context),
+    db: AsyncSession = Depends(get_company_db),
+):
+    """
+    Atomically saves or updates bank disbursement coordinates for a vendor.
+    """
+    service = VendorService(db, tenant)
+    return await service.save_bank_account(vendor_id, req)
+
+
+@router.delete(
+    "/{vendor_id}/bank-accounts/{bank_id}",
+    dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))],
+    summary="Delete Vendor Bank Account",
+)
+async def delete_vendor_bank_account(
+    vendor_id: str,
+    bank_id: str,
+    tenant: TenantContext = Depends(get_tenant_context),
+    db: AsyncSession = Depends(get_company_db),
+):
+    """Soft-deletes a bank account record for a vendor."""
+    service = VendorService(db, tenant)
+    await service.delete_bank_account(vendor_id, bank_id)
+    return {"status": "deleted", "id": bank_id}
 
