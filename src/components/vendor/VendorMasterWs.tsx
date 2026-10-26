@@ -700,6 +700,8 @@ const VendorMasterWsBase: React.FC<VendorMasterWsProps> = ({ currentUser, onNoti
   const [vendors, setVendors] = useState<VendorSummary[]>([]);
   const [selectedVendorId, setSelectedVendorId] = useState<string | null>(null);
   const [selectedVendor, setSelectedVendor] = useState<VendorDetail | null>(null);
+  const [pristineVendor, setPristineVendor] = useState<VendorDetail | null>(null);
+  const [confirmDiscardModal, setConfirmDiscardModal] = useState<{ targetVendorId: string } | null>(null);
   const [activeTab, setActiveTab] = useState<TabKey>("overview");
   const [showVendorDirectory, setShowVendorDirectory] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
@@ -733,10 +735,49 @@ const VendorMasterWsBase: React.FC<VendorMasterWsProps> = ({ currentUser, onNoti
   const lastFetchedVendorIdRef = useRef<string | null>(null);
   const failedVendorIdsRef = useRef<Set<string>>(new Set());
 
+  // Dirty State Detection: Compares editable fields against pristine snapshot
+  const isDirty = useMemo(() => {
+    if (!isEditing || !selectedVendor || !pristineVendor) return false;
+    const fields: (keyof VendorDetail)[] = [
+      "legalName", "tradeName", "gstin", "pan", "email", "phone", "mobile",
+      "addressLine1", "city", "state", "pincode", "status"
+    ];
+    for (const f of fields) {
+      if ((selectedVendor[f] ?? "") !== (pristineVendor[f] ?? "")) return true;
+    }
+    const commFields = [
+      "supplierType", "paymentTermsDays", "msmeRegistrationNo", "msmeCategory",
+      "commercialClassification", "tdsSection", "tdsRate", "taxTreatment",
+      "paymentTerms", "freightTerms", "currency", "buyer", "department", "specialInstructions"
+    ];
+    const sComm = selectedVendor.commercial || {};
+    const pComm = pristineVendor.commercial || {};
+    for (const cf of commFields) {
+      if ((sComm as any)[cf] !== (pComm as any)[cf]) return true;
+    }
+    return false;
+  }, [isEditing, selectedVendor, pristineVendor]);
+
+  // Window BeforeUnload Guard
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (isDirty) {
+        e.preventDefault();
+        e.returnValue = "";
+      }
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [isDirty]);
+
   const handleSelectVendor = useCallback((id: string) => {
+    if (isDirty) {
+      setConfirmDiscardModal({ targetVendorId: id });
+      return;
+    }
     failedVendorIdsRef.current.delete(id);
     setSelectedVendorId(id);
-  }, []);
+  }, [isDirty]);
 
   // New Vendor Form State
   const [newForm, setNewForm] = useState({
@@ -855,9 +896,10 @@ const VendorMasterWsBase: React.FC<VendorMasterWsProps> = ({ currentUser, onNoti
       setDetailLoading(true);
       try {
         const detail = await apiFetchV1(`/purchase/vendors/${selectedVendorId}`);
-        if (isCancelled) return;
+        const norm = normalizeVendorDetail(detail);
         lastFetchedVendorIdRef.current = selectedVendorId;
-        setSelectedVendor(normalizeVendorDetail(detail));
+        setSelectedVendor(norm);
+        setPristineVendor(norm);
         setIsEditing(false);
       } catch (err: any) {
         if (isCancelled) return;
@@ -959,6 +1001,7 @@ const VendorMasterWsBase: React.FC<VendorMasterWsProps> = ({ currentUser, onNoti
 
       const normUpdated = normalizeVendorDetail(updated);
       setSelectedVendor(normUpdated);
+      setPristineVendor(normUpdated);
       setIsEditing(false);
       notify("Vendor Updated", `Successfully saved changes for ${normUpdated.legalName}.`, "success");
       failedVendorIdsRef.current.delete(normUpdated.id);
@@ -968,6 +1011,13 @@ const VendorMasterWsBase: React.FC<VendorMasterWsProps> = ({ currentUser, onNoti
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleCancelEdit = () => {
+    if (pristineVendor) {
+      setSelectedVendor(pristineVendor);
+    }
+    setIsEditing(false);
   };
 
   // Rapid Vendor Creation
@@ -1025,6 +1075,31 @@ const VendorMasterWsBase: React.FC<VendorMasterWsProps> = ({ currentUser, onNoti
       setSaving(false);
     }
   };
+
+  const statusCounts = useMemo(() => {
+    return {
+      all: vendors.length,
+      active: vendors.filter((v) => v.status === "ACTIVE").length,
+      archived: vendors.filter((v) => v.status === "ARCHIVED").length,
+      merged: vendors.filter((v) => v.status === "MERGED").length,
+      blocked: vendors.filter((v) => v.status === "BLOCKED").length,
+    };
+  }, [vendors]);
+
+  const matchingArchivedOrMerged = useMemo(() => {
+    const q = searchQuery.toLowerCase().trim();
+    if (!q || statusFilter !== "ACTIVE_ONLY") return [];
+    return vendors.filter((v) => {
+      if (v.status !== "ARCHIVED" && v.status !== "MERGED") return false;
+      return (
+        v.legalName?.toLowerCase().includes(q) ||
+        v.code?.toLowerCase().includes(q) ||
+        v.gstin?.toLowerCase().includes(q) ||
+        v.mobile?.toLowerCase().includes(q) ||
+        v.city?.toLowerCase().includes(q)
+      );
+    });
+  }, [vendors, searchQuery, statusFilter]);
 
   const filteredVendors = vendors.filter((v) => {
     if (statusFilter === "ACTIVE_ONLY" && (v.status === "ARCHIVED" || v.status === "MERGED")) {
@@ -1089,6 +1164,54 @@ const VendorMasterWsBase: React.FC<VendorMasterWsProps> = ({ currentUser, onNoti
             />
           </div>
 
+          {/* Quick Status Filter Pills */}
+          <div className="flex items-center gap-1 overflow-x-auto pb-0.5 text-[10px] no-scrollbar">
+            <button
+              type="button"
+              onClick={() => { setStatusFilter("ACTIVE_ONLY"); loadVendors("ACTIVE_ONLY"); }}
+              className={`px-2 py-0.5 rounded-full font-semibold transition shrink-0 ${
+                statusFilter === "ACTIVE_ONLY"
+                  ? "bg-emerald-600 text-white shadow-xs"
+                  : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700"
+              }`}
+            >
+              Active ({statusCounts.active})
+            </button>
+            <button
+              type="button"
+              onClick={() => { setStatusFilter("ALL"); loadVendors("ALL"); }}
+              className={`px-2 py-0.5 rounded-full font-semibold transition shrink-0 ${
+                statusFilter === "ALL"
+                  ? "bg-indigo-600 text-white shadow-xs"
+                  : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700"
+              }`}
+            >
+              All ({statusCounts.all})
+            </button>
+            <button
+              type="button"
+              onClick={() => { setStatusFilter("ARCHIVED"); loadVendors("ARCHIVED"); }}
+              className={`px-2 py-0.5 rounded-full font-semibold transition shrink-0 ${
+                statusFilter === "ARCHIVED"
+                  ? "bg-slate-700 text-white shadow-xs"
+                  : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700"
+              }`}
+            >
+              Archived ({statusCounts.archived})
+            </button>
+            <button
+              type="button"
+              onClick={() => { setStatusFilter("MERGED"); loadVendors("MERGED"); }}
+              className={`px-2 py-0.5 rounded-full font-semibold transition shrink-0 ${
+                statusFilter === "MERGED"
+                  ? "bg-purple-600 text-white shadow-xs"
+                  : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700"
+              }`}
+            >
+              Merged ({statusCounts.merged})
+            </button>
+          </div>
+
           <div className="flex items-center space-x-1.5">
             <Filter size={12} className="text-slate-400 dark:text-slate-500 shrink-0" />
             <select
@@ -1118,7 +1241,33 @@ const VendorMasterWsBase: React.FC<VendorMasterWsProps> = ({ currentUser, onNoti
           {loading ? (
             <div className="p-6 text-center text-xs text-slate-400 dark:text-slate-500">Loading directory...</div>
           ) : filteredVendors.length === 0 ? (
-            <div className="p-6 text-center text-xs text-slate-400 dark:text-slate-500">No vendors found.</div>
+            <div className="p-4 space-y-3">
+              <div className="text-center text-xs text-slate-400 dark:text-slate-500">
+                {searchQuery ? `No active vendors match "${searchQuery}".` : "No vendors found."}
+              </div>
+              {matchingArchivedOrMerged.length > 0 && (
+                <div className="p-3 rounded-xl border border-amber-300/80 bg-amber-50 dark:border-amber-600/30 dark:bg-amber-950/40 text-xs">
+                  <div className="flex items-center gap-1.5 text-amber-800 dark:text-amber-300 font-bold mb-1">
+                    <AlertCircle size={14} className="shrink-0" />
+                    <span>Archived Records Match</span>
+                  </div>
+                  <p className="text-[11px] text-amber-700 dark:text-amber-400 mb-2.5">
+                    Found <strong>{matchingArchivedOrMerged.length}</strong> vendor(s) matching &quot;{searchQuery}&quot; in Archived or Merged records.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setStatusFilter("ALL");
+                      loadVendors("ALL");
+                    }}
+                    className="w-full py-1.5 px-2.5 rounded-lg bg-amber-600 hover:bg-amber-500 text-white font-semibold text-[11px] transition shadow-xs flex items-center justify-center gap-1.5"
+                  >
+                    <Archive size={12} />
+                    <span>Switch to All Statuses ({statusCounts.all})</span>
+                  </button>
+                </div>
+              )}
+            </div>
           ) : (
             filteredVendors.map((v) => {
               const isSelected = v.id === selectedVendorId;
@@ -1307,7 +1456,7 @@ const VendorMasterWsBase: React.FC<VendorMasterWsProps> = ({ currentUser, onNoti
                 {isEditing ? (
                   <>
                     <button
-                      onClick={() => setIsEditing(false)}
+                      onClick={handleCancelEdit}
                       className="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white text-xs"
                     >
                       Cancel
@@ -1410,15 +1559,23 @@ const VendorMasterWsBase: React.FC<VendorMasterWsProps> = ({ currentUser, onNoti
                   {activeTab === "addresses" && (
                     <VendorAddressTab
                       vendor={selectedVendor}
-                      onUpdateAddresses={(addrs) => setSelectedVendor({ ...selectedVendor, addresses: addrs })}
+                      onUpdateAddresses={(addrs) => {
+                        setSelectedVendor((prev) => prev ? { ...prev, addresses: addrs } : null);
+                        setPristineVendor((prev) => prev ? { ...prev, addresses: addrs } : null);
+                      }}
                       isEditing={isEditing}
+                      onNotification={notify}
                     />
                   )}
                   {activeTab === "contacts" && (
                     <VendorContactTab
                       vendor={selectedVendor}
-                      onUpdateContacts={(cnts) => setSelectedVendor({ ...selectedVendor, contacts: cnts })}
+                      onUpdateContacts={(cnts) => {
+                        setSelectedVendor((prev) => prev ? { ...prev, contacts: cnts } : null);
+                        setPristineVendor((prev) => prev ? { ...prev, contacts: cnts } : null);
+                      }}
                       isEditing={isEditing}
+                      onNotification={notify}
                     />
                   )}
                   {activeTab === "commercial" && (
@@ -1431,8 +1588,12 @@ const VendorMasterWsBase: React.FC<VendorMasterWsProps> = ({ currentUser, onNoti
                   {activeTab === "banking" && (
                     <VendorBankingTab
                       vendor={selectedVendor}
-                      onUpdateBanks={(banks) => setSelectedVendor({ ...selectedVendor, bankAccounts: banks })}
+                      onUpdateBanks={(banks) => {
+                        setSelectedVendor((prev) => prev ? { ...prev, bankAccounts: banks } : null);
+                        setPristineVendor((prev) => prev ? { ...prev, bankAccounts: banks } : null);
+                      }}
                       isEditing={isEditing}
+                      onNotification={notify}
                     />
                   )}
                   {activeTab === "procurement" && (
@@ -1706,6 +1867,91 @@ const VendorMasterWsBase: React.FC<VendorMasterWsProps> = ({ currentUser, onNoti
                 className="px-4 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs shadow"
               >
                 {saving ? "Creating..." : "Create Vendor"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Floating Sticky Unsaved Changes Bar */}
+      {isDirty && (
+        <div className="fixed bottom-6 right-6 z-40 flex items-center gap-3 rounded-xl border border-amber-300/80 bg-amber-50/95 dark:border-amber-600/40 dark:bg-slate-900/95 px-4 py-3 text-xs text-amber-900 dark:text-amber-200 shadow-2xl backdrop-blur-md animate-in fade-in slide-in-from-bottom-2">
+          <AlertTriangle size={18} className="text-amber-600 dark:text-amber-400 shrink-0 animate-pulse" />
+          <div>
+            <div className="font-bold text-slate-900 dark:text-white">Unsaved Changes</div>
+            <div className="text-[11px] text-slate-600 dark:text-slate-300">Pending edits for {selectedVendor?.legalName}</div>
+          </div>
+          <div className="flex items-center gap-2 ml-4">
+            <button
+              type="button"
+              onClick={handleCancelEdit}
+              className="px-2.5 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-[11px] font-semibold text-slate-700 dark:text-slate-300 transition"
+            >
+              Discard
+            </button>
+            <button
+              type="button"
+              onClick={handleSave}
+              disabled={saving}
+              className="px-3.5 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-[11px] font-semibold shadow flex items-center gap-1.5 transition"
+            >
+              <Save size={13} />
+              <span>{saving ? "Saving..." : "Save Changes"}</span>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Unsaved Changes Discard Confirmation Modal */}
+      {confirmDiscardModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
+          <div className="w-full max-w-md rounded-2xl bg-white dark:bg-slate-900 border border-amber-200 dark:border-amber-700/50 p-6 shadow-2xl">
+            <div className="flex items-center space-x-3 mb-4">
+              <div className="w-10 h-10 rounded-xl bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-400 flex items-center justify-center shrink-0">
+                <AlertTriangle size={20} />
+              </div>
+              <div>
+                <h3 className="font-bold text-sm text-slate-900 dark:text-white">Unsaved Changes Warning</h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400">You have unsaved edits on {selectedVendor?.legalName}</p>
+              </div>
+            </div>
+            <p className="text-xs text-slate-600 dark:text-slate-300 mb-6 leading-relaxed">
+              Switching to another vendor right now will permanently discard your pending profile changes. Would you like to save your edits first, or discard them?
+            </p>
+            <div className="flex items-center justify-end space-x-2">
+              <button
+                type="button"
+                onClick={() => setConfirmDiscardModal(null)}
+                className="px-3.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+              >
+                Keep Editing
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const targetId = confirmDiscardModal.targetVendorId;
+                  setConfirmDiscardModal(null);
+                  if (pristineVendor) setSelectedVendor(pristineVendor);
+                  setIsEditing(false);
+                  failedVendorIdsRef.current.delete(targetId);
+                  setSelectedVendorId(targetId);
+                }}
+                className="px-3.5 py-1.5 rounded-lg border border-rose-300 bg-rose-50 hover:bg-rose-100 text-rose-700 dark:border-rose-900/50 dark:bg-rose-950/30 dark:text-rose-300 text-xs font-semibold transition"
+              >
+                Discard & Switch
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  const targetId = confirmDiscardModal.targetVendorId;
+                  await handleSave();
+                  setConfirmDiscardModal(null);
+                  failedVendorIdsRef.current.delete(targetId);
+                  setSelectedVendorId(targetId);
+                }}
+                disabled={saving}
+                className="px-4 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow transition"
+              >
+                {saving ? "Saving..." : "Save & Switch"}
               </button>
             </div>
           </div>

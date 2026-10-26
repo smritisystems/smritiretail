@@ -15,6 +15,16 @@
 ## [Unreleased] - 2026-10-26
 
 ### Added
+- **Procurement & Vendor Master: Vendor Master Data Integrity, Atomic Modal Persistence & Legacy Convergence v1.0.0**:
+  - Eliminated reported vendor data loss across SMRITI Retail OS by replacing client-side in-memory sub-entity buffering with atomic, server-confirmed database persistence for addresses, contact persons, and bank disbursement accounts.
+  - Added 6 atomic REST endpoints in FastAPI (`POST /vendors/{vendor_id}/addresses`, `DELETE /vendors/{vendor_id}/addresses/{address_id}`, `POST /vendors/{vendor_id}/contacts`, `DELETE /vendors/{vendor_id}/contacts/{contact_id}`, `POST /vendors/{vendor_id}/bank-accounts`, `DELETE /vendors/{vendor_id}/bank-accounts/{bank_id}`) with transaction rollback safety.
+  - Upgraded frontend tabs (`VendorAddressTab.tsx`, `VendorContactTab.tsx`, `VendorBankingTab.tsx`) with direct `apiFetchV1` modal persistence, loading states, and live toast notifications.
+  - Hardened `VendorMasterWs.tsx` with pristine snapshot comparison, `isDirty` state tracking, sticky bottom unsaved change warnings, and window `beforeunload` guards preventing accidental discard.
+  - Added directory status filter pills (`Active`, `All`, `Archived`, `Merged`) with live counters and intelligent search fallback banner for archived/merged matches.
+  - Reconciled 218 unlinked legacy suppliers into the Universal Party Master (`parties`, `party_roles`, `supplier_profiles`, `party_addresses`) via idempotent CLI tool `scripts/converge_legacy_suppliers.py` with full audit logging in `vendor_identity_migrations` and deterministic collision disambiguation for codes `'A'` and `'C'`.
+  - Captured full cluster (477.8 MB) and tenant (143.8 MB) database backups prior to execution.
+  - Certified with 7/7 backend Pytest tests green, 0 errors in TypeScript compilation (`tsc --noEmit`), and 100% idempotent convergence.
+
 - **Sales & Billing: Invoice Save As Draft, Submit, and Post Universal Lifecycle v1.0.0**:
   - Validated and certified end-to-end headless invoice lifecycle: saving invoices as Draft, mutating draft customer and line details without ledger side-effects, querying allowed state actions (`['SUBMIT', 'POST', 'CANCEL']`), executing `SUBMIT` to advance state, executing `POST` for double-entry GL vouchers and outward stock ledger decrements, and rejecting post-posting updates with HTTP 409 Conflict.
   - Implemented multi-tenant isolated Pytest regression test `test_invoice_draft_to_submit_lifecycle.py` verifying state machine transitions, `WorkflowEvent` audit logging, `StockMovement(OUTWARD_SALE)`, balancing `JournalVoucher`, and `transaction_cost_snapshots` persistence.

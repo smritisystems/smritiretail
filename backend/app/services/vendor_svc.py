@@ -858,3 +858,234 @@ class VendorService:
             secondary_vendor_id=secondary.id,
             message=f"Successfully converged vendor '{secondary.party_code}' into '{primary.party_code}'.",
         )
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # Sub-Entity Atomic Persistence Handlers
+    # ─────────────────────────────────────────────────────────────────────────
+
+    async def save_address(self, vendor_id: str, req: VendorAddressDTO) -> VendorAddressDTO:
+        """
+        Atomically persists an address for a vendor to PostgreSQL.
+        Guarantees that modal confirmations survive page reloads and cache wipes.
+        """
+        stmt = select(Party).options(selectinload(Party.addresses)).where(
+            Party.id == vendor_id, Party.is_deleted == False
+        )
+        party = (await self.db.execute(stmt)).scalars().first()
+        if not party:
+            raise HTTPException(status_code=404, detail=f"Vendor '{vendor_id}' not found.")
+
+        company_id = getattr(self.tenant, "company_id", None)
+        branch_id = getattr(self.tenant, "branch_id", None)
+        clean_gstin = req.gstin.strip().upper() if req.gstin else None
+
+        # Primary address designation sync
+        if req.is_primary:
+            for existing in (party.addresses or []):
+                existing.is_primary = False
+            party.address_line1 = req.address_line1
+            party.address_line2 = req.address_line2
+            party.city = req.city
+            party.state = req.state
+            party.pincode = req.pincode
+
+        target_addr = None
+        if req.id and not req.id.startswith("va-"):  # Ignore temporary client timestamps
+            target_addr = next((a for a in (party.addresses or []) if a.id == req.id), None)
+
+        if target_addr:
+            target_addr.address_type = req.address_type or "BILLING"
+            target_addr.address_title = req.address_title or "Dispatch Location"
+            target_addr.address_line1 = req.address_line1
+            target_addr.address_line2 = req.address_line2
+            target_addr.city = req.city
+            target_addr.state = req.state
+            target_addr.state_code = req.state_code
+            target_addr.pincode = req.pincode
+            target_addr.country = req.country or "India"
+            target_addr.gstin = clean_gstin
+            target_addr.is_primary = bool(req.is_primary)
+            target_addr.is_deleted = False
+        else:
+            addr_id = f"pa_{uuid.uuid4().hex[:12]}"
+            target_addr = PartyAddress(
+                id=addr_id,
+                company_id=company_id,
+                branch_id=branch_id,
+                party_id=party.id,
+                address_type=req.address_type or "BILLING",
+                address_title=req.address_title or "Dispatch Location",
+                address_line1=req.address_line1,
+                address_line2=req.address_line2,
+                city=req.city,
+                state=req.state,
+                state_code=req.state_code,
+                pincode=req.pincode,
+                country=req.country or "India",
+                gstin=clean_gstin,
+                is_primary=bool(req.is_primary),
+            )
+            self.db.add(target_addr)
+
+        await self.db.commit()
+        await self.db.refresh(target_addr)
+        return VendorAddressDTO.model_validate(target_addr)
+
+    async def delete_address(self, vendor_id: str, address_id: str) -> bool:
+        """Soft-deletes a vendor address record in PostgreSQL."""
+        stmt = select(PartyAddress).where(
+            PartyAddress.id == address_id,
+            PartyAddress.party_id == vendor_id,
+            PartyAddress.is_deleted == False,
+        )
+        addr = (await self.db.execute(stmt)).scalars().first()
+        if not addr:
+            raise HTTPException(status_code=404, detail=f"Address '{address_id}' not found for vendor '{vendor_id}'.")
+        addr.is_deleted = True
+        await self.db.commit()
+        return True
+
+    async def save_contact(self, vendor_id: str, req: VendorContactDTO) -> VendorContactDTO:
+        """
+        Atomically persists a categorized key contact person for a vendor.
+        """
+        stmt = select(Party).options(selectinload(Party.contacts)).where(
+            Party.id == vendor_id, Party.is_deleted == False
+        )
+        party = (await self.db.execute(stmt)).scalars().first()
+        if not party:
+            raise HTTPException(status_code=404, detail=f"Vendor '{vendor_id}' not found.")
+
+        company_id = getattr(self.tenant, "company_id", None)
+        branch_id = getattr(self.tenant, "branch_id", None)
+
+        if req.is_primary:
+            for existing in (party.contacts or []):
+                existing.is_primary = False
+            if req.phone:
+                party.phone = req.phone
+            if req.mobile:
+                party.mobile = req.mobile
+            if req.email:
+                party.email = req.email
+
+        target_contact = None
+        if req.id and not req.id.startswith("vc-"):
+            target_contact = next((c for c in (party.contacts or []) if c.id == req.id), None)
+
+        if target_contact:
+            target_contact.contact_name = req.contact_name
+            target_contact.contact_category = req.contact_category or "GENERAL"
+            target_contact.designation = req.designation
+            target_contact.department = req.department
+            target_contact.phone = req.phone
+            target_contact.mobile = req.mobile
+            target_contact.email = req.email
+            target_contact.is_primary = bool(req.is_primary)
+            target_contact.is_deleted = False
+        else:
+            contact_id = f"pc_{uuid.uuid4().hex[:12]}"
+            target_contact = PartyContact(
+                id=contact_id,
+                company_id=company_id,
+                branch_id=branch_id,
+                party_id=party.id,
+                contact_name=req.contact_name,
+                contact_category=req.contact_category or "GENERAL",
+                designation=req.designation,
+                department=req.department,
+                phone=req.phone,
+                mobile=req.mobile,
+                email=req.email,
+                is_primary=bool(req.is_primary),
+            )
+            self.db.add(target_contact)
+
+        await self.db.commit()
+        await self.db.refresh(target_contact)
+        return VendorContactDTO.model_validate(target_contact)
+
+    async def delete_contact(self, vendor_id: str, contact_id: str) -> bool:
+        """Soft-deletes a vendor contact person."""
+        stmt = select(PartyContact).where(
+            PartyContact.id == contact_id,
+            PartyContact.party_id == vendor_id,
+            PartyContact.is_deleted == False,
+        )
+        contact = (await self.db.execute(stmt)).scalars().first()
+        if not contact:
+            raise HTTPException(status_code=404, detail=f"Contact '{contact_id}' not found for vendor '{vendor_id}'.")
+        contact.is_deleted = True
+        await self.db.commit()
+        return True
+
+    async def save_bank_account(self, vendor_id: str, req: VendorBankAccountDTO) -> VendorBankAccountDTO:
+        """
+        Atomically persists bank disbursement coordinates for a vendor.
+        """
+        stmt = select(Party).options(selectinload(Party.bank_accounts)).where(
+            Party.id == vendor_id, Party.is_deleted == False
+        )
+        party = (await self.db.execute(stmt)).scalars().first()
+        if not party:
+            raise HTTPException(status_code=404, detail=f"Vendor '{vendor_id}' not found.")
+
+        company_id = getattr(self.tenant, "company_id", None)
+        branch_id = getattr(self.tenant, "branch_id", None)
+        clean_ifsc = req.ifsc.strip().upper()
+
+        if req.is_primary:
+            for existing in (party.bank_accounts or []):
+                existing.is_primary = False
+
+        target_bank = None
+        if req.id and not req.id.startswith("vba-"):
+            target_bank = next((b for b in (party.bank_accounts or []) if b.id == req.id), None)
+
+        if target_bank:
+            target_bank.bank_name = req.bank_name
+            target_bank.account_holder_name = req.account_holder_name or party.legal_name
+            target_bank.account_number = req.account_number
+            target_bank.ifsc = clean_ifsc
+            target_bank.branch = req.branch
+            target_bank.account_type = req.account_type or "CURRENT"
+            target_bank.is_primary = bool(req.is_primary)
+            target_bank.verification_status = req.verification_status or "PENDING"
+            target_bank.verified_at = req.verified_at
+            target_bank.is_deleted = False
+        else:
+            bank_id = f"pba_{uuid.uuid4().hex[:12]}"
+            target_bank = SupplierBankAccount(
+                id=bank_id,
+                company_id=company_id,
+                branch_id=branch_id,
+                party_id=party.id,
+                bank_name=req.bank_name,
+                account_holder_name=req.account_holder_name or party.legal_name,
+                account_number=req.account_number,
+                ifsc=clean_ifsc,
+                branch=req.branch,
+                account_type=req.account_type or "CURRENT",
+                is_primary=bool(req.is_primary),
+                verification_status=req.verification_status or "PENDING",
+                verified_at=req.verified_at,
+            )
+            self.db.add(target_bank)
+
+        await self.db.commit()
+        await self.db.refresh(target_bank)
+        return VendorBankAccountDTO.model_validate(target_bank)
+
+    async def delete_bank_account(self, vendor_id: str, bank_id: str) -> bool:
+        """Soft-deletes a vendor bank disbursement account."""
+        stmt = select(SupplierBankAccount).where(
+            SupplierBankAccount.id == bank_id,
+            SupplierBankAccount.party_id == vendor_id,
+            SupplierBankAccount.is_deleted == False,
+        )
+        bank = (await self.db.execute(stmt)).scalars().first()
+        if not bank:
+            raise HTTPException(status_code=404, detail=f"Bank account '{bank_id}' not found for vendor '{vendor_id}'.")
+        bank.is_deleted = True
+        await self.db.commit()
+        return True
