@@ -113,7 +113,9 @@ class CustomerRepository(BaseRepository[Customer]):
                 selectinload(Customer.external_identities),
                 selectinload(Customer.policy),
                 selectinload(Customer.parent_relationships).selectinload(CustomerRelationship.parent_customer),
-                selectinload(Customer.dependant_relationships).selectinload(CustomerRelationship.dependant_customer),
+                selectinload(Customer.dependant_relationships).selectinload(CustomerRelationship.dependant_customer).selectinload(Customer.delivery_locations),
+                selectinload(Customer.dependant_relationships).selectinload(CustomerRelationship.dependant_customer).selectinload(Customer.billing_locations),
+                selectinload(Customer.dependant_relationships).selectinload(CustomerRelationship.dependant_customer).selectinload(Customer.gst_registrations),
                 selectinload(Customer.loyalty_members),
                 selectinload(Customer.company_relationships),
             )
@@ -158,7 +160,9 @@ class CustomerRepository(BaseRepository[Customer]):
                 selectinload(Customer.external_identities),
                 selectinload(Customer.policy),
                 selectinload(Customer.parent_relationships).selectinload(CustomerRelationship.parent_customer),
-                selectinload(Customer.dependant_relationships).selectinload(CustomerRelationship.dependant_customer),
+                selectinload(Customer.dependant_relationships).selectinload(CustomerRelationship.dependant_customer).selectinload(Customer.delivery_locations),
+                selectinload(Customer.dependant_relationships).selectinload(CustomerRelationship.dependant_customer).selectinload(Customer.billing_locations),
+                selectinload(Customer.dependant_relationships).selectinload(CustomerRelationship.dependant_customer).selectinload(Customer.gst_registrations),
                 selectinload(Customer.loyalty_members),
                 selectinload(Customer.company_relationships),
             )
@@ -196,7 +200,9 @@ class CustomerRepository(BaseRepository[Customer]):
                 selectinload(Customer.external_identities),
                 selectinload(Customer.policy),
                 selectinload(Customer.parent_relationships).selectinload(CustomerRelationship.parent_customer),
-                selectinload(Customer.dependant_relationships).selectinload(CustomerRelationship.dependant_customer),
+                selectinload(Customer.dependant_relationships).selectinload(CustomerRelationship.dependant_customer).selectinload(Customer.delivery_locations),
+                selectinload(Customer.dependant_relationships).selectinload(CustomerRelationship.dependant_customer).selectinload(Customer.billing_locations),
+                selectinload(Customer.dependant_relationships).selectinload(CustomerRelationship.dependant_customer).selectinload(Customer.gst_registrations),
                 selectinload(Customer.loyalty_members),
                 selectinload(Customer.company_relationships),
             )
@@ -243,7 +249,9 @@ class CustomerRepository(BaseRepository[Customer]):
                 selectinload(Customer.billing_locations),
                 selectinload(Customer.external_identities),
                 selectinload(Customer.policy),
-                selectinload(Customer.dependant_relationships).selectinload(CustomerRelationship.dependant_customer),
+                selectinload(Customer.dependant_relationships).selectinload(CustomerRelationship.dependant_customer).selectinload(Customer.delivery_locations),
+                selectinload(Customer.dependant_relationships).selectinload(CustomerRelationship.dependant_customer).selectinload(Customer.billing_locations),
+                selectinload(Customer.dependant_relationships).selectinload(CustomerRelationship.dependant_customer).selectinload(Customer.gst_registrations),
                 selectinload(Customer.loyalty_members),
                 selectinload(Customer.company_relationships),
             )

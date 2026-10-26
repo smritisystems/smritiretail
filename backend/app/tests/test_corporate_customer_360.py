@@ -6,7 +6,7 @@ Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
 Version      : 6.99.0
 Created      : 2026-10-18
-Modified     : 2026-10-18
+Modified     : 2026-10-26
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 Classification: Internal
@@ -19,7 +19,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 from fastapi import HTTPException
 from app.api.deps import TenantContext
-from app.api.v1.crm import get_corporate_customer_360
+from app.api.v1.crm import get_corporate_customer_360, _extract_customer_hierarchy_meta
 from app.schemas.crm import (
     CustomerResponse,
     CorporateCustomer360Response,
@@ -38,7 +38,11 @@ from app.schemas.crm import (
     MatchedIdentityType,
     CustomerDuplicateCheckResponse,
     ExistingCustomerSummary,
+    map_customer_to_response_dict,
+    get_loaded_single,
+    get_loaded_relationship,
 )
+from app.models.crm import Customer, CustomerRelationship
 
 
 def test_corporate_kpis_serialization():
@@ -787,3 +791,117 @@ async def test_address_update_concurrency_conflict_protection(db_session):
     types = {a.address_type for a in refreshed_list}
     assert "Delivery" in types
     assert "Billing" in types
+
+
+class _ExplodingLazyDescriptor:
+    """Simulates SQLAlchemy async lazy loading outside greenlet context."""
+    def __init__(self, name: str):
+        self.name = name
+
+    def __get__(self, instance, owner):
+        if instance is None:
+            return self
+        raise RuntimeError(
+            f"MissingGreenlet: greenlet_spawn has not been called; can't call await_only() here. "
+            f"Accessing '{self.name}' outside greenlet context is forbidden."
+        )
+
+
+class _ExplodingChild(Customer):
+    delivery_locations = _ExplodingLazyDescriptor("delivery_locations")
+    billing_locations = _ExplodingLazyDescriptor("billing_locations")
+    gst_registrations = _ExplodingLazyDescriptor("gst_registrations")
+
+
+def test_customer_response_serialization_with_unloaded_relationships_regression():
+    """
+    Regression test for Customer 360 & Hierarchy crash.
+    Verifies that map_customer_to_response_dict and CustomerResponse.from_orm_customer
+    serialize customer objects with dependant relationships safely without triggering
+    lazy attribute loading or raising MissingGreenlet when nested child collections
+    (delivery_locations, billing_locations, gst_registrations) are not loaded in memory.
+    """
+    from app.models.crm import CustomerRelationship
+
+    child = _ExplodingChild(
+        id="c-child-1",
+        name="ShopperStop Demo Branch",
+        code="CUST-68351894",
+        mobile="9876543210",
+        email="child@example.com",
+        gst_number="27AAAAA0000A1Z5",
+        status="Active",
+        is_active=True,
+    )
+    # Verify that raw attribute access blows up with Simulated MissingGreenlet
+    with pytest.raises(RuntimeError) as exc_info:
+        _ = child.delivery_locations
+    assert "MissingGreenlet" in str(exc_info.value)
+
+    parent = Customer(
+        id="c-parent-1",
+        name="ShopperStop",
+        code="CUST-68351893",
+        status="Active",
+        is_active=True,
+    )
+    rel = CustomerRelationship(
+        id="cr-1",
+        parent_customer_id=parent.id,
+        dependant_customer_id=child.id,
+        relation="Branch",
+        apply_same_mailing=False,
+    )
+    rel.dependant_customer = child
+    parent.dependant_relationships = [rel]
+
+    # map_customer_to_response_dict must safely serialize without triggering descriptors
+    resp_dict = map_customer_to_response_dict(parent)
+    assert resp_dict["id"] == "c-parent-1"
+    assert resp_dict["code"] == "CUST-68351893"
+    assert resp_dict["name"] == "ShopperStop"
+    assert len(resp_dict["dependants"]) == 1
+
+    dep_row = resp_dict["dependants"][0]
+    assert dep_row["dependant_customer_id"] == "c-child-1"
+    assert dep_row["dependant_customer_name"] == "ShopperStop Demo Branch"
+    assert dep_row["dependant_customer_code"] == "CUST-68351894"
+    assert dep_row["dependant_customer_mobile"] == "9876543210"
+    assert dep_row["dependant_customer_gstin"] == "27AAAAA0000A1Z5"
+    assert dep_row["dependant_customer_store_code"] is None
+    assert dep_row["dependant_customer_city"] is None
+
+    # CustomerResponse.from_orm_customer must also succeed
+    model = CustomerResponse.from_orm_customer(parent)
+    assert model.id == "c-parent-1"
+    assert model.name == "ShopperStop"
+    assert len(model.dependants) == 1
+    assert model.dependants[0].dependant_customer_code == "CUST-68351894"
+
+
+def test_extract_customer_hierarchy_meta_with_unloaded_relationships_regression():
+    """
+    Regression test for Customer Hierarchy discovery.
+    Verifies that _extract_customer_hierarchy_meta safely inspects customer metadata
+    without triggering exploding lazy loaders when location collections are unloaded.
+    """
+    child = _ExplodingChild(
+        id="c-child-2",
+        name="Titan Store Bandra 959782",
+        code="STR1-959782",
+        mobile="9876543210",
+        email="child@example.com",
+        gst_number="27AAAAA0000A1Z5",
+    )
+
+    meta = _extract_customer_hierarchy_meta(child)
+    assert meta["mobile"] == "9876543210"
+    assert meta["email"] == "child@example.com"
+    assert meta["store_code"] is None
+    assert meta["city"] is None
+    assert meta["state"] is None
+    assert meta["gstin"] == "27AAAAA0000A1Z5"
+    assert meta["credit_limit"] is None
+    assert meta["credit_days"] is None
+
+

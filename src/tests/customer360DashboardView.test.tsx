@@ -1,3 +1,17 @@
+/**
+ * Project      : SMRITI Retail OS
+ * Author       : Jawahar Ramkripal Mallah
+ * Designation  : Chief Systems Architect & Creator
+ * Email        : support@smritibooks.com
+ * Websites     : smritibooks.com | erpnbook.com | aitdl.com
+ * Version      : 6.99.1
+ * Created      : 2026-10-23
+ * Modified     : 2026-10-26
+ * Copyright    : © SMRITIBooks.com. All Rights Reserved.
+ * License      : Proprietary Commercial Software
+ * Classification: Customer 360 Dashboard Test Suite
+ */
+
 import React from "react";
 import { describe, expect, it, vi } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -106,4 +120,104 @@ describe("Customer 360 dashboard", () => {
     expect(html).toContain("Credit invoices are on hold.");
     expect(html).toContain("Review terms");
   });
+
+  it("renders ShopperStop 360° page with identity, linked children, addresses, and store network", () => {
+    const shopperStopCustomer = {
+      id: "01a17307-6fb6-7000-a97d-da721ae573f5",
+      code: "CUST-68351893",
+      name: "ShopperStop",
+      customer_type: "Corporate",
+      status: "Active",
+      is_active: true,
+      credit_limit: 1000000,
+      credit_used: 150000,
+      credit_days: 45,
+      credit_hold: false,
+      show_child_customers_in_billing: true,
+      dependants: [
+        {
+          dependant_customer_id: "01a173ba-a6e5-7000-b172-0812ecf669e7",
+          dependant_customer_code: "CUST-68351894",
+          dependant_customer_name: "ShopperStop Demo Branch",
+          relation: "Child",
+          status: "Active",
+          is_active: true,
+        },
+        {
+          dependant_customer_id: "01a1756f-39fb-7000-b2c4-c5d3b8541867",
+          dependant_customer_code: "CUST-68351895",
+          dependant_customer_name: "abcd",
+          relation: "Child",
+          status: "Active",
+          is_active: true,
+        },
+      ],
+      billing_locations: [
+        {
+          id: "bill-loc-1",
+          billing_store_code: "BIL-GKP-01",
+          location_name: "Gorakhpur Central Hub",
+          city: "Gorakhpur",
+          state: "Uttar Pradesh",
+          is_default: true,
+        },
+      ],
+      delivery_locations: [
+        {
+          id: "del-loc-1",
+          store_code: "SHP-MUM-01",
+          location_name: "ShopperStop Bandra Flagship",
+          city: "Mumbai",
+          state: "Maharashtra",
+          status: "Active",
+        },
+        {
+          id: "del-loc-2",
+          store_code: "SHP-DEL-02",
+          location_name: "ShopperStop Connaught Place",
+          city: "New Delhi",
+          state: "Delhi",
+          status: "Active",
+        },
+      ],
+      gst_registrations: [
+        {
+          id: "gst-shp-1",
+          gstin: "09AAACS1234D1Z8",
+          state_name: "Uttar Pradesh",
+          status: "ACTIVE",
+          is_primary: true,
+        },
+      ],
+      invoices: [],
+    };
+
+    // 1. Overview tab shows identity, child count metric, and stores count metric
+    const overviewHtml = renderToStaticMarkup(<Customer360DashboardView customer={shopperStopCustomer} initialTab="overview" />);
+    expect(overviewHtml).toContain("ShopperStop");
+    expect(overviewHtml).toContain("CUST-68351893");
+    expect(overviewHtml).toContain("Child customers");
+    expect(overviewHtml).toContain("2 / 2");
+
+    // 2. Parent-child tab displays linked children
+    const parentChildHtml = renderToStaticMarkup(<Customer360DashboardView customer={shopperStopCustomer} initialTab="parent_child" />);
+    expect(parentChildHtml).toContain("ShopperStop Demo Branch");
+    expect(parentChildHtml).toContain("CUST-68351894");
+    expect(parentChildHtml).toContain("abcd");
+    expect(parentChildHtml).toContain("CUST-68351895");
+
+    // 3. Addresses tab displays billing & delivery addresses
+    const addressesHtml = renderToStaticMarkup(<Customer360DashboardView customer={shopperStopCustomer} initialTab="addresses" />);
+    expect(addressesHtml).toContain("Gorakhpur Central Hub");
+    expect(addressesHtml).toContain("Gorakhpur");
+    expect(addressesHtml).toContain("SHP-MUM-01");
+
+    // 4. Stores tab displays store network
+    const storesHtml = renderToStaticMarkup(<Customer360DashboardView customer={shopperStopCustomer} initialTab="stores" />);
+    expect(storesHtml).toContain("SHP-MUM-01");
+    expect(storesHtml).toContain("ShopperStop Bandra Flagship");
+    expect(storesHtml).toContain("SHP-DEL-02");
+    expect(storesHtml).toContain("ShopperStop Connaught Place");
+  });
 });
+

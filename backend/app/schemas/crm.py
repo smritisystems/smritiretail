@@ -1146,10 +1146,37 @@ def get_loaded_customer_group(customer: Any) -> Optional[Any]:
     return None
 
 
+def get_loaded_single(instance: Any, attr_name: str) -> Optional[Any]:
+    """
+    Safely retrieve a single scalar/object relationship only if already loaded in-memory.
+    Avoids triggering SQLAlchemy async lazy loader / MissingGreenlet.
+    """
+    if instance is None:
+        return None
+    if isinstance(instance, dict):
+        return instance.get(attr_name)
+
+    insp = inspect(instance, raiseerr=False)
+    if insp is not None and hasattr(insp, "attrs") and attr_name in insp.attrs:
+        loaded = insp.attrs[attr_name].loaded_value
+        if loaded is not NO_VALUE and loaded is not None:
+            return loaded
+        return None
+
+    if hasattr(instance, "__dict__"):
+        val = instance.__dict__.get(attr_name)
+        if val is not NO_VALUE and val is not None:
+            return val
+
+    return None
+
+
 def get_loaded_relationship(customer: Any, attr_name: str) -> list:
     """
     Safely extract relationship collection without triggering SQLAlchemy async lazy loader.
     """
+    if customer is None:
+        return []
     if isinstance(customer, dict):
         return customer.get(attr_name) or []
 
@@ -1186,16 +1213,16 @@ def map_customer_to_response_dict(customer: Any) -> dict:
     for relationship in get_loaded_relationship(customer, "dependant_relationships"):
         if getattr(relationship, "is_deleted", False):
             continue
-        dependant = getattr(relationship, "dependant_customer", None)
-        dep_mobile = getattr(dependant, "mobile", None)
-        dep_email = getattr(dependant, "email", None)
-        dep_gstin = getattr(dependant, "gst_number", None)
+        dependant = get_loaded_single(relationship, "dependant_customer")
+        dep_mobile = getattr(dependant, "mobile", None) if dependant else None
+        dep_email = getattr(dependant, "email", None) if dependant else None
+        dep_gstin = getattr(dependant, "gst_number", None) if dependant else None
         dep_store_code = None
         dep_city = None
         dep_state = None
         if dependant:
-            dlocs = getattr(dependant, "delivery_locations", None) or []
-            blocs = getattr(dependant, "billing_locations", None) or []
+            dlocs = get_loaded_relationship(dependant, "delivery_locations")
+            blocs = get_loaded_relationship(dependant, "billing_locations")
             if dlocs:
                 dep_store_code = getattr(dlocs[0], "store_code", None)
                 dep_city = getattr(dlocs[0], "city", None)
@@ -1204,16 +1231,16 @@ def map_customer_to_response_dict(customer: Any) -> dict:
                 dep_store_code = getattr(blocs[0], "billing_store_code", None)
                 dep_city = getattr(blocs[0], "city", None)
                 dep_state = getattr(blocs[0], "state", None)
-            if dep_store_code and dep_store_code.startswith("DUMMY-"):
+            if dep_store_code and str(dep_store_code).startswith("DUMMY-"):
                 dep_store_code = None
             if not dep_gstin:
-                gregs = getattr(dependant, "gst_registrations", None) or []
+                gregs = get_loaded_relationship(dependant, "gst_registrations")
                 if gregs:
                     dep_gstin = getattr(gregs[0], "gstin", None)
         dependant_rows.append({
-            "id": relationship.id,
-            "parent_customer_id": relationship.parent_customer_id,
-            "dependant_customer_id": relationship.dependant_customer_id,
+            "id": getattr(relationship, "id", None),
+            "parent_customer_id": getattr(relationship, "parent_customer_id", getattr(customer, "id", None)),
+            "dependant_customer_id": getattr(relationship, "dependant_customer_id", getattr(dependant, "id", None)),
             "dependant_customer_name": getattr(dependant, "name", None),
             "dependant_customer_code": getattr(dependant, "code", None),
             "dependant_customer_status": getattr(dependant, "status", "Active"),
@@ -1226,9 +1253,9 @@ def map_customer_to_response_dict(customer: Any) -> dict:
             "dependant_customer_gstin": dep_gstin,
             "dependant_customer_credit_limit": getattr(dependant, "credit_limit", None),
             "dependant_customer_credit_days": getattr(dependant, "credit_days", None),
-            "relation": relationship.relation,
-            "apply_same_mailing": relationship.apply_same_mailing,
-            "notes": relationship.notes,
+            "relation": getattr(relationship, "relation", None),
+            "apply_same_mailing": bool(getattr(relationship, "apply_same_mailing", False) or False),
+            "notes": getattr(relationship, "notes", None),
         })
     parent_relationships = get_loaded_relationship(customer, "parent_relationships")
     parent_relationship = next((
@@ -1236,7 +1263,7 @@ def map_customer_to_response_dict(customer: Any) -> dict:
         if not getattr(relationship, "is_deleted", False)
         and (relationship.company_id == customer.company_id or relationship.company_id is None)
     ), None)
-    parent_customer = getattr(parent_relationship, "parent_customer", None) if parent_relationship else None
+    parent_customer = get_loaded_single(parent_relationship, "parent_customer") if parent_relationship else None
 
     return {
         "id": customer.id,
