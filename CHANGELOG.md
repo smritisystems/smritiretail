@@ -38,6 +38,13 @@
   - Verified with 51/51 Vitest tests green, 4/4 backend tests green in `test_customer_directory_hierarchy.py`, 7/7 live headless API scenario checks passed (100%), 0 `tsc --noEmit` errors, and clean Vite production build.
 
 ### Fixed
+- **Purchase Order Printing: Corporate Identity Resolution & Fail-Closed Protection Unblocking v6.99.2**:
+  - Eliminated `CORPORATE IDENTITY NOT CONFIGURED — PRINTING BLOCKED` condition while strictly preserving statutory fail-closed protection barriers per `v6.92.0`.
+  - Remediated session cache wiping in `src/App.tsx` where omitted `data.company_name` in `/auth/me` checks passed `null` to `persistTenantContext`, actively evicting corporate identity from `localStorage`. Changed fallback from `null` to `undefined`.
+  - Hardened `POPrintPreviewModal.tsx` with proactive asynchronous `/api/v1/company/profile` background fetching when local cache is empty, document payload fallback (`header.companyName` and `header.billTo`), and DOM node guarding for SSR/testing environments.
+  - Eliminated residual hardcoded `"TATTLY THREADS"` fallbacks from `FootwearPurchaseOrderA4.tsx` and `SizePivotMatrixA4.tsx` so unconfigured states cleanly trigger statutory blocking containers per specification. Exported `SizePivotMatrixData`.
+  - Enriched backend `TokenResponse` and `UserResponse` schemas and endpoints (`login`, `switch_context`, `/auth/me`) with `company_name`, `company_code`, `branch_name`, and `branch_code`.
+  - Added dedicated unit verification suite `src/tests/poPrintCorporateIdentityUnblocking.test.tsx` (7/7 passed), resolved 2 previously failing tests in `src/tests/printingFailClosedSafety.test.tsx` (6/6 passed), verified `poPrintBrandingAndTerms.test.tsx` (9/9 passed), and verified backend `backend/app/tests/test_auth.py` (2/2 passed). Zero TypeScript compilation errors (`tsc --noEmit`).
 - **Sales & Lifecycle: Universal Lifecycle Multi-Tenant Database Resolution**:
   - Remediated HTTP 404 Not Found rejections across `/api/v1/lifecycle/{document_type}/{document_id}/*` (`/state`, `/{action}`, `/events`) caused by lifecycle router injecting control-plane database dependency `get_db` (`smritisys`) instead of tenant database dependency `get_company_db` (`smriti001`).
   - Updated all lifecycle route signatures in `backend/app/api/v1/lifecycle.py` to `get_company_db`, dynamically resolving the caller's tenant database context and preserving tenant isolation.
