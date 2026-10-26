@@ -44,6 +44,9 @@ export interface EnterpriseCustomerSearchResult {
   mobile?: string;
   email?: string;
   city?: string;
+  postal_code?: string;
+  pincode?: string;
+  state?: string;
   status?: string;
   customer_type?: string;
   customerType?: string;

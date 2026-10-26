@@ -33,6 +33,13 @@
   - Verified with 51/51 Vitest tests green, 4/4 backend tests green in `test_customer_directory_hierarchy.py`, 7/7 live headless API scenario checks passed (100%), 0 `tsc --noEmit` errors, and clean Vite production build.
 
 ### Fixed
+- **CRM Customer 360° & Hierarchy MissingGreenlet Lazy-Load Remediation**:
+  - Diagnosed and resolved `sqlalchemy.exc.MissingGreenlet` error crashing Customer 360° and Hierarchy views (`HTTP 400 Bad Request: A database operations conflict occurred or referential integrity check failed`) on enterprise customer accounts (ShopperStop `CUST-68351893`, Titan West Hub `HUB-959782`).
+  - Implemented `get_loaded_single` and inspection guards in `backend/app/schemas/crm.py` and `backend/app/api/v1/crm.py`, ensuring attribute accesses never trigger unawaited SQLAlchemy lazy-loading descriptors outside greenlet context during Pydantic serialization.
+  - Added nested `selectinload` for child customer location collections (`delivery_locations`, `billing_locations`, `gst_registrations`) in `CustomerRepository` (`get`, `get_all`, `search`, `enterprise_search`).
+  - Coerced `apply_same_mailing` to strictly typed boolean in `map_customer_to_response_dict`, eliminating Pydantic type validation rejections on nullable legacy database values.
+  - Added optional `postal_code`, `pincode`, and `state` attributes to `EnterpriseCustomerSearchResult` in `src/components/customer/lifecycle/EnterpriseCustomerSearchModal.tsx`, guaranteeing clean TypeScript type checks.
+  - Certified with 2/2 backend regression Pytest tests green (`test_corporate_customer_360.py`), 22/22 frontend Vitest tests green (`customer360DashboardView.test.tsx`, `corporateCustomer360.test.tsx`), zero TypeScript errors in production build, and live headless verification returning HTTP 200 OK.
 - **CRM Corporate 360° Dashboard Reconciliation & Customer Master Parity**:
   - Remediated enterprise parent account ShopperStop (`CUST-68351893`) 360° Dashboard reporting 0 child accounts and 0 active stores, contradicting Customer Master records maintaining linked child branch accounts (`CUST-68351894` ShopperStop Demo Branch and `CUST-68351895` abcd).
   - Enhanced `get_corporate_customer_360` in `backend/app/api/v1/crm.py` to eagerly load `dependant_relationships.dependant_customer`, `parent_relationships.parent_customer`, `external_identities`, and `loyalty_members`.

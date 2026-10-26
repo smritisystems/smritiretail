@@ -52,6 +52,7 @@ from ...schemas.crm import (
     CustomerHierarchyNodeResponse, CustomerHierarchyTreeResponse,
     BulkAssignDependantsRequest, BulkAssignDependantsResponse,
     AssignableChildCandidate,
+    get_loaded_relationship, get_loaded_single,
 )
 from ...repositories.customer import CustomerRepository, CustomerGroupRepository
 from ...services.crm import CrmService
@@ -1328,33 +1329,37 @@ def _extract_customer_hierarchy_meta(cust):
     store_code = None
     city = None
     state = None
-    if getattr(cust, "delivery_locations", None) and len(cust.delivery_locations) > 0:
-        loc = cust.delivery_locations[0]
-        store_code = loc.store_code
-        city = loc.city
-        state = loc.state
-    elif getattr(cust, "billing_locations", None) and len(cust.billing_locations) > 0:
-        loc = cust.billing_locations[0]
-        store_code = loc.billing_store_code
-        city = loc.city
-        state = loc.state
+    dlocs = get_loaded_relationship(cust, "delivery_locations")
+    blocs = get_loaded_relationship(cust, "billing_locations")
+    if dlocs:
+        loc = dlocs[0]
+        store_code = getattr(loc, "store_code", None)
+        city = getattr(loc, "city", None)
+        state = getattr(loc, "state", None)
+    elif blocs:
+        loc = blocs[0]
+        store_code = getattr(loc, "billing_store_code", None)
+        city = getattr(loc, "city", None)
+        state = getattr(loc, "state", None)
 
-    if store_code and store_code.startswith("DUMMY-"):
+    if store_code and str(store_code).startswith("DUMMY-"):
         store_code = None
 
-    gstin = cust.gst_number
-    if not gstin and getattr(cust, "gst_registrations", None) and len(cust.gst_registrations) > 0:
-        gstin = cust.gst_registrations[0].gstin
+    gstin = getattr(cust, "gst_number", None)
+    if not gstin:
+        gregs = get_loaded_relationship(cust, "gst_registrations")
+        if gregs:
+            gstin = getattr(gregs[0], "gstin", None)
 
     return {
-        "mobile": cust.mobile,
-        "email": cust.email,
+        "mobile": getattr(cust, "mobile", None),
+        "email": getattr(cust, "email", None),
         "store_code": store_code,
         "city": city,
         "state": state,
         "gstin": gstin,
-        "credit_limit": cust.credit_limit if hasattr(cust, "credit_limit") else None,
-        "credit_days": cust.credit_days if hasattr(cust, "credit_days") else None,
+        "credit_limit": getattr(cust, "credit_limit", None) if hasattr(cust, "credit_limit") else None,
+        "credit_days": getattr(cust, "credit_days", None) if hasattr(cust, "credit_days") else None,
     }
 
 
