@@ -127,6 +127,23 @@ async def _setup_product(db, suffix: str, comp_id: str, br_id: str, stock: int =
         is_deleted=False,
     )
     db.add(prod)
+    if stock > 0:
+        mov = StockMovement(
+            id=f"sm-open-{suffix}",
+            company_id=comp_id,
+            branch_id=br_id,
+            product_id=prod.id,
+            product_name=prod.name,
+            sku=prod.code,
+            movement_type="OPENING_STOCK",
+            quantity=Decimal(str(stock)),
+            reference_doc_type="OPENING_BALANCE",
+            reference_doc_id=f"OPEN-{suffix}",
+            user="SYSTEM",
+            created_at=datetime.now(timezone.utc),
+            is_deleted=False,
+        )
+        db.add(mov)
     await db.commit()
     return prod
 

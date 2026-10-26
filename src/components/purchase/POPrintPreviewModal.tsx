@@ -35,7 +35,7 @@ import {
 } from "../../print_engine/templates/PurchaseOrderPrintA4";
 import { DEFAULT_BUSINESS_TERMS } from "./CommercialDeliveryDrawer";
 import type { PurchaseOrderHeader, PurchaseOrderLineItem, PurchaseOrderSizePivotRow } from "./types.ts";
-import { getTenantCompanyContext } from "../../lib/apiFetchV1";
+import { getTenantCompanyContext, persistTenantContext, apiFetchV1 } from "../../lib/apiFetchV1";
 import { lookupFootwearStyleMetadata } from "../../lib/footwearStyleCatalog";
 
 export interface POPrintPreviewModalProps {
@@ -256,6 +256,45 @@ export const POPrintPreviewModal: React.FC<POPrintPreviewModalProps> = ({
   const [showPhotos, setShowPhotos] = useState<boolean>(true);
   const [orientation, setOrientation] = useState<"landscape" | "portrait">("portrait");
   const [zoomLevel, setZoomLevel] = useState<number>(100);
+  const [asyncCompanyProfile, setAsyncCompanyProfile] = useState<any>(null);
+
+  // Proactively synchronize authoritative corporate profile if identity cache is empty
+  useEffect(() => {
+    if (!isOpen) return;
+    const tenantCtxSnapshot = getTenantCompanyContext();
+    const existingName =
+      customCompanyProfile?.name ||
+      asyncCompanyProfile?.name ||
+      tenantCtxSnapshot.companyName ||
+      (typeof localStorage !== "undefined" ? localStorage.getItem("smriti_company_name") || "" : "");
+
+    if (!existingName) {
+      apiFetchV1<any>("/company/profile")
+        .then((comp) => {
+          if (comp && (comp.name || comp.legal_name || comp.trade_name)) {
+            setAsyncCompanyProfile(comp);
+            const fullAddress = [
+              comp.address_line1,
+              comp.address_line2,
+              comp.city,
+              comp.state,
+              comp.pincode,
+            ].filter(Boolean).join(", ");
+            persistTenantContext({
+              companyName: comp.name || comp.legal_name || comp.trade_name,
+              companyAddress: fullAddress || comp.address,
+              companyGstin: comp.gst_number || comp.gstin,
+              companyPhone: comp.phone,
+              companyEmail: comp.email,
+              companyLogoUrl: comp.logo_url || comp.print_logo_url,
+            });
+          }
+        })
+        .catch((err) => {
+          console.warn("[POPrintPreviewModal] Notice: Authoritative company profile fetch deferred:", err);
+        });
+    }
+  }, [isOpen, customCompanyProfile?.name]);
 
   // Keyboard shortcut listener: ESC to close, F9/Ctrl+P to trigger window.print
   useEffect(() => {
@@ -414,12 +453,60 @@ export const POPrintPreviewModal: React.FC<POPrintPreviewModalProps> = ({
     DEFAULT_BUSINESS_TERMS;
 
   const tenantCtx = getTenantCompanyContext();
-  const tenantCompanyName = customCompanyProfile?.name || tenantCtx.companyName || (typeof localStorage !== "undefined" ? localStorage.getItem("smriti_company_name") || "" : "");
-  const tenantCompanyAddress = customCompanyProfile?.address || tenantCtx.companyAddress || (typeof localStorage !== "undefined" ? localStorage.getItem("smriti_company_address") || "" : "");
-  const tenantCompanyGstin = customCompanyProfile?.gstin || tenantCtx.companyGstin || (typeof localStorage !== "undefined" ? localStorage.getItem("smriti_company_gstin") || "" : "");
-  const tenantCompanyEmail = customCompanyProfile?.email || tenantCtx.companyEmail || (typeof localStorage !== "undefined" ? localStorage.getItem("smriti_company_email") || "" : "");
-  const tenantCompanyPhone = customCompanyProfile?.phone || tenantCtx.companyPhone || (typeof localStorage !== "undefined" ? localStorage.getItem("smriti_company_phone") || "" : "");
-  const tenantCompanyPan = customCompanyProfile?.pan || (tenantCompanyGstin && tenantCompanyGstin.length >= 12 ? tenantCompanyGstin.slice(2, 12) : "");
+
+  const docPayloadCompanyName =
+    (header as any)?.companyName ||
+    (header as any)?.company_name ||
+    (header.billTo && header.billTo.trim() && !["DEFAULT LOCATION", "MAIN", "DEFAULT"].includes(header.billTo.trim().toUpperCase()) ? header.billTo.trim() : "");
+
+  const asyncAddress = asyncCompanyProfile
+    ? [
+        asyncCompanyProfile.address_line1,
+        asyncCompanyProfile.address_line2,
+        asyncCompanyProfile.city,
+        asyncCompanyProfile.state,
+        asyncCompanyProfile.pincode,
+      ].filter(Boolean).join(", ")
+    : "";
+
+  const tenantCompanyName =
+    customCompanyProfile?.name ||
+    asyncCompanyProfile?.name ||
+    asyncCompanyProfile?.legal_name ||
+    asyncCompanyProfile?.trade_name ||
+    tenantCtx.companyName ||
+    (typeof localStorage !== "undefined" ? localStorage.getItem("smriti_company_name") || "" : "") ||
+    docPayloadCompanyName;
+
+  const tenantCompanyAddress =
+    customCompanyProfile?.address ||
+    asyncAddress ||
+    tenantCtx.companyAddress ||
+    (typeof localStorage !== "undefined" ? localStorage.getItem("smriti_company_address") || "" : "");
+
+  const tenantCompanyGstin =
+    customCompanyProfile?.gstin ||
+    asyncCompanyProfile?.gst_number ||
+    asyncCompanyProfile?.gstin ||
+    tenantCtx.companyGstin ||
+    (typeof localStorage !== "undefined" ? localStorage.getItem("smriti_company_gstin") || "" : "");
+
+  const tenantCompanyEmail =
+    customCompanyProfile?.email ||
+    asyncCompanyProfile?.email ||
+    tenantCtx.companyEmail ||
+    (typeof localStorage !== "undefined" ? localStorage.getItem("smriti_company_email") || "" : "");
+
+  const tenantCompanyPhone =
+    customCompanyProfile?.phone ||
+    asyncCompanyProfile?.phone ||
+    tenantCtx.companyPhone ||
+    (typeof localStorage !== "undefined" ? localStorage.getItem("smriti_company_phone") || "" : "");
+
+  const tenantCompanyPan =
+    customCompanyProfile?.pan ||
+    asyncCompanyProfile?.pan ||
+    (tenantCompanyGstin && tenantCompanyGstin.length >= 12 ? tenantCompanyGstin.slice(2, 12) : "");
 
   // Construct Footwear PO Data payload
   const footwearData: FootwearPurchaseOrderData = {
@@ -1200,7 +1287,7 @@ export const POPrintPreviewModal: React.FC<POPrintPreviewModalProps> = ({
     </div>
   );
 
-  if (typeof document === "undefined") {
+  if (typeof document === "undefined" || !document?.body || typeof (document.body as any).appendChild !== "function") {
     return modalContent;
   }
 

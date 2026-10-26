@@ -207,6 +207,7 @@ def upgrade() -> None:
             "deleted_at": sa.Column("deleted_at", sa.DateTime(timezone=True), nullable=True),
             "deleted_by": sa.Column("deleted_by", sa.String(100), nullable=True),
             "version": sa.Column("version", sa.Integer, nullable=False, server_default=text("1")),
+            "product_id": sa.Column("product_id", sa.String(50), nullable=True, index=True),
             "valuation_method_used": sa.Column(
                 "valuation_method_used", sa.String(30), nullable=True, server_default=text("'WEIGHTED_AVERAGE'")
             ),

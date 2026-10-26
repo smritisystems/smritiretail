@@ -354,6 +354,8 @@ async def test_login_valid_credentials(db_session):
     assert "refresh_token" in data
     assert data["token_type"] == "bearer"
     assert data["role"] == "MANAGER"
+    assert data["company_name"] == f"Auth Company {suffix}"
+    assert data["branch_name"] == f"Auth Branch {suffix}"
 
 
 async def test_login_invalid_password(db_session):
@@ -425,6 +427,8 @@ async def test_get_me_authenticated(db_session):
     data = res.json()
     assert data["username"] == f"user_{suffix}"
     assert data["role"] == "MANAGER"
+    assert data["company_name"] == f"Auth Company {suffix}"
+    assert data["branch_name"] == f"Auth Branch {suffix}"
 
 
 async def test_get_me_no_token(db_session):

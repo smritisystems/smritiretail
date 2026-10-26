@@ -38,6 +38,11 @@ Object.defineProperty(globalThis, "localStorage", {
   writable: true
 });
 
+Object.defineProperty(globalThis, "sessionStorage", {
+  value: mockLocalStorage,
+  writable: true
+});
+
 if (typeof window === "undefined") {
   (globalThis as any).window = globalThis;
   (globalThis as any).window.dispatchEvent = vi.fn();
@@ -60,6 +65,7 @@ const TEST_CUSTOMERS: Customer[] = [
 describe("Universal Backend Auto-Populate & Typeahead Service", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("Mock network offline")));
     clearCustomerSearchCache();
     saveCustomers(TEST_CUSTOMERS);
   });
@@ -73,6 +79,28 @@ describe("Universal Backend Auto-Populate & Typeahead Service", () => {
     expect(reliance?.priceGroupCode).toBeDefined();
     expect(reliance?.creditDays).toBeGreaterThan(0);
     expect(reliance?.creditLimit).toBeGreaterThan(0);
+  });
+
+  it("should prefer backend credit terms over local price-group defaults", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => [{
+        id: "cust-rrl-192b561d",
+        code: "CUST-001",
+        name: "Reliance Retail Limited",
+        customerGroupId: "CG-LargeRetail",
+        creditLimit: 100000,
+        creditDays: 30,
+        outstanding: 155.24,
+        status: "Active"
+      }]
+    }));
+
+    const [reliance] = await searchBackendCustomers("Reliance backend terms");
+
+    expect(reliance.creditLimit).toBe(100000);
+    expect(reliance.creditDays).toBe(30);
   });
 
   it("should match customer by mobile number", async () => {

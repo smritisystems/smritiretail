@@ -44,7 +44,11 @@ class UserResponse(BaseModel):
     is_active: bool
     status: str
     company_id: Optional[str] = None
+    company_code: Optional[str] = None
+    company_name: Optional[str] = None
     branch_id: Optional[str] = None
+    branch_code: Optional[str] = None
+    branch_name: Optional[str] = None
     password_reset_required: bool = False
 
     model_config = {"from_attributes": True}
@@ -56,7 +60,11 @@ class TokenResponse(BaseModel):
     token_type: str = "bearer"
     role: UserRole
     company_id: Optional[str] = None
+    company_code: Optional[str] = None
+    company_name: Optional[str] = None
     branch_id: Optional[str] = None
+    branch_code: Optional[str] = None
+    branch_name: Optional[str] = None
     password_reset_required: bool = False
     user: Optional[UserResponse] = None
 

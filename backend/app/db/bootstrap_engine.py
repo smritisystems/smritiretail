@@ -625,6 +625,10 @@ def apply_tenant_schema_extensions(database_name: str) -> None:
                     IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'variant_templates') THEN
                         ALTER TABLE variant_templates ADD COLUMN IF NOT EXISTS vendor_code VARCHAR(100);
                     END IF;
+                    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'transaction_cost_snapshots') THEN
+                        ALTER TABLE transaction_cost_snapshots ADD COLUMN IF NOT EXISTS product_id VARCHAR(50);
+                        CREATE INDEX IF NOT EXISTS ix_transaction_cost_snapshots_product_id ON transaction_cost_snapshots(product_id);
+                    END IF;
                 END $$;
 
                 -- 4. Master Lookup Reference Guard Hardening (100% Dynamic Queries)

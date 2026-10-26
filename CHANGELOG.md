@@ -15,6 +15,11 @@
 ## [Unreleased] - 2026-10-26
 
 ### Added
+- **Sales & Billing: Invoice Save As Draft, Submit, and Post Universal Lifecycle v1.0.0**:
+  - Validated and certified end-to-end headless invoice lifecycle: saving invoices as Draft, mutating draft customer and line details without ledger side-effects, querying allowed state actions (`['SUBMIT', 'POST', 'CANCEL']`), executing `SUBMIT` to advance state, executing `POST` for double-entry GL vouchers and outward stock ledger decrements, and rejecting post-posting updates with HTTP 409 Conflict.
+  - Implemented multi-tenant isolated Pytest regression test `test_invoice_draft_to_submit_lifecycle.py` verifying state machine transitions, `WorkflowEvent` audit logging, `StockMovement(OUTWARD_SALE)`, balancing `JournalVoucher`, and `transaction_cost_snapshots` persistence.
+  - Certified live with 1/1 Pytest tests green (`test_invoice_save_as_draft_to_submit_and_post_lifecycle`), 1/1 universal sales lifecycle test green (`test_sales_invoice_posting_and_stock_gl`), and 9/9 live headless in-container HTTP lifecycle verification gates passed.
+
 - **CRM N-Tier Recursive Customer Hierarchy & Bulk Subordinate Assignment Wizard v1.0.0**:
   - Engineered recursive customer hierarchy tree traversal (`GET /api/v1/crm/customers/{customer_id}/hierarchy`) discovering ultimate holding companies uphill and expanding multi-level branch structures downhill.
   - Implemented transactional bulk child assignment endpoint (`POST /api/v1/crm/customers/{customer_id}/bulk-assign-dependants`) with BFS circular dependency detection, ancestor protection, and relationship attribution.
@@ -33,6 +38,13 @@
   - Verified with 51/51 Vitest tests green, 4/4 backend tests green in `test_customer_directory_hierarchy.py`, 7/7 live headless API scenario checks passed (100%), 0 `tsc --noEmit` errors, and clean Vite production build.
 
 ### Fixed
+- **Sales & Lifecycle: Universal Lifecycle Multi-Tenant Database Resolution**:
+  - Remediated HTTP 404 Not Found rejections across `/api/v1/lifecycle/{document_type}/{document_id}/*` (`/state`, `/{action}`, `/events`) caused by lifecycle router injecting control-plane database dependency `get_db` (`smritisys`) instead of tenant database dependency `get_company_db` (`smriti001`).
+  - Updated all lifecycle route signatures in `backend/app/api/v1/lifecycle.py` to `get_company_db`, dynamically resolving the caller's tenant database context and preserving tenant isolation.
+- **Cost Management Engine: Database Schema Parity for Transaction Cost Snapshots (Rule 12)**:
+  - Eliminated `UndefinedColumnError: column "product_id" of relation "transaction_cost_snapshots" does not exist` when posting sales invoices and executing cost management snapshots.
+  - Added `product_id VARCHAR(50) NOT NULL` to table definition and fallback column insertion in `backend/alembic/versions/v1532_cost_management_engine_foundations.py`.
+  - Added proactive column schema enforcement in `backend/app/db/bootstrap_engine.py` and migrated tenant databases (`smriti001`–`smriti004`) to full structural parity.
 - **CRM Customer 360° & Hierarchy MissingGreenlet Lazy-Load Remediation**:
   - Diagnosed and resolved `sqlalchemy.exc.MissingGreenlet` error crashing Customer 360° and Hierarchy views (`HTTP 400 Bad Request: A database operations conflict occurred or referential integrity check failed`) on enterprise customer accounts (ShopperStop `CUST-68351893`, Titan West Hub `HUB-959782`).
   - Implemented `get_loaded_single` and inspection guards in `backend/app/schemas/crm.py` and `backend/app/api/v1/crm.py`, ensuring attribute accesses never trigger unawaited SQLAlchemy lazy-loading descriptors outside greenlet context during Pydantic serialization.
