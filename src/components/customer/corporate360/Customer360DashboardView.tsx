@@ -1,3 +1,21 @@
+/**
+ * Project      : SMRITI Retail OS
+ * Repository   : SMRITIRetailNX
+ * Organization : AITDL NETWORKS
+ * Author       : Jawahar Ramkripal Mallah
+ * Designation  : Chief Systems Architect & Creator
+ * Email        : support@smritibooks.com
+ * Websites     : smritibooks.com | erpnbook.com | aitdl.com
+ * Version      : 6.99.1
+ * Created      : 2026-10-25
+ * Modified     : 2026-10-26
+ * Copyright    : © SMRITIBooks.com. All Rights Reserved.
+ * License      : Proprietary Commercial Software
+ * Classification: Internal
+ * Target UI    : Corporate Customer 360 Dashboard View
+ * Capability   : withCapability("customer.crud", "CRM")
+ */
+
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { ArrowLeft, Ban, Building2, CheckCircle2, CreditCard, Loader2, MapPin, PackageCheck, Pencil, RefreshCw, Save, Search, Store, Users } from "lucide-react";
 import { CorporateCustomerTabs } from "./CorporateCustomerTabs.tsx";
@@ -106,8 +124,8 @@ export const Customer360DashboardView: React.FC<Customer360DashboardViewProps> =
   }, [activeTab, loadPsv]);
 
   const stores = useMemo(() => {
-    if (corporate360Data?.store_network) return corporate360Data.store_network;
-    return (customer?.delivery_locations || customer?.deliveryLocations || [])
+    if (corporate360Data?.store_network && corporate360Data.store_network.length > 0) return corporate360Data.store_network;
+    const directLocations = (customer?.delivery_locations || customer?.deliveryLocations || [])
       .filter((location: any) => !isDeleted(location))
       .map((location: any) => ({
         id: location.id,
@@ -115,8 +133,22 @@ export const Customer360DashboardView: React.FC<Customer360DashboardViewProps> =
         store_name: location.location_name || location.locationName || location.name,
         city: location.city,
         state: location.state,
-        store_type: location.location_type || location.locationType,
+        store_type: location.location_type || location.locationType || "Store",
         status: location.status || ((location.is_active ?? location.isActive) === false ? "Inactive" : "Active"),
+      }));
+    if (directLocations.length > 0) return directLocations;
+
+    // Subordinate child branch stores (consistent with Customer Master)
+    return (customer?.dependants || customer?.children || [])
+      .filter((row: any) => !isDeleted(row))
+      .map((dep: any, idx: number) => ({
+        id: dep.dependantCustomerId || dep.dependant_customer_id || dep.id || String(idx + 1),
+        store_code: dep.dependantCustomerCode || dep.dependant_customer_code || dep.code || "—",
+        store_name: dep.dependantCustomerName || dep.dependant_customer_name || dep.name || "Child Store",
+        city: dep.dependantCustomerCity || dep.dependant_customer_city || dep.city || "—",
+        state: dep.dependantCustomerState || dep.dependant_customer_state || dep.state || "—",
+        store_type: "Branch Outlet",
+        status: dep.dependantCustomerStatus || dep.status || "Active",
       }));
   }, [corporate360Data?.store_network, customer]);
 
@@ -204,13 +236,13 @@ export const Customer360DashboardView: React.FC<Customer360DashboardViewProps> =
 
         {activeTab === "basic" && <Section title="Customer details"><dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3"><Field label="Customer code" value={customer.code} /><Field label="Name" value={customer.name} /><Field label="Display name" value={displayName} /><Field label="Customer type" value={customer.customer_type || customer.customerType} /><Field label="Status" value={status} /><Field label="Customer group" value={customer.customer_group_name || customer.customer_group_id || customer.customerGroupId} /><Field label="Mobile" value={customer.mobile || customer.phone} /><Field label="Email" value={customer.email} /><Field label="Company" value={customer.company_name || customer.company_id} /></dl></Section>}
 
-        {activeTab === "corporate_tax" && <div className="space-y-4"><Section title="Legal and tax identity"><dl className="grid gap-4 sm:grid-cols-2"><Field label="Legal name" value={customer.legal_name || customer.name} /><Field label="PAN" value={customer.pan_number || customer.panNumber || customer.pan} /><Field label="Registered address" value={customer.registered_address || customer.address_line1} /><Field label="GSTIN" value={customer.gst_number || customer.gstin} /></dl></Section><Section title="GST registrations" description="Registrations saved against this customer.">{gstRegistrations.length ? <DataTable headers={["GSTIN", "State", "Status", "Primary"]} rows={gstRegistrations.map((row: any) => [row.gstin, row.state_name || row.state, row.status, row.is_primary ? "Yes" : "No"])} /> : <Empty>No GST registrations are recorded.</Empty>}</Section></div>}
+        {activeTab === "corporate_tax" && <div className="space-y-4"><Section title="Legal and tax identity"><dl className="grid gap-4 sm:grid-cols-2"><Field label="Legal name" value={customer.legal_name || customer.legalName || customer.name} /><Field label="PAN" value={customer.pan_number || customer.panNumber || customer.pan} /><Field label="Registered address" value={customer.registered_address || customer.registeredAddress || customer.address_line1 || customer.addressLine1 || (billingLocations.length > 0 ? (billingLocations[0].address_line1 || billingLocations[0].addressLine1 || billingLocations[0].address) : "")} /><Field label="GSTIN" value={customer.gst_number || customer.gstNumber || customer.gstin} /></dl></Section><Section title="GST registrations" description="Registrations saved against this customer.">{gstRegistrations.length ? <DataTable headers={["GSTIN", "State", "Status", "Primary"]} rows={gstRegistrations.map((row: any) => [row.gstin, row.state_name || row.stateName || row.state, row.status, (row.is_primary ?? row.isPrimary) ? "Yes" : "No"])} /> : <Empty>No GST registrations are recorded.</Empty>}</Section></div>}
 
-        {activeTab === "addresses" && <div className="grid gap-4 lg:grid-cols-2"><Section title="Billing locations">{billingLocations.length ? <DataTable headers={["Location", "Address", "City", "Default"]} rows={billingLocations.map((row: any) => [row.location_name || row.name, row.address_line1 || row.address, row.city, row.is_default ? "Yes" : "No"])} /> : <Empty>No billing locations are recorded.</Empty>}</Section><Section title="Delivery locations">{deliveryLocations.length ? <DataTable headers={["Store code", "Location", "City", "Status"]} rows={deliveryLocations.map((row: any) => [row.store_code, row.location_name || row.name, row.city, row.status])} /> : <Empty>No delivery locations are recorded.</Empty>}</Section></div>}
+        {activeTab === "addresses" && <div className="grid gap-4 lg:grid-cols-2"><Section title="Billing locations">{billingLocations.length ? <DataTable headers={["Location", "Address", "City", "Default"]} rows={billingLocations.map((row: any) => [row.location_name || row.locationName || row.name || "Billing Location", row.address_line1 || row.addressLine1 || row.address || "—", row.city || "—", (row.is_default ?? row.isDefault) ? "Yes" : "No"])} /> : <Empty>No billing locations are recorded.</Empty>}</Section><Section title="Delivery locations">{deliveryLocations.length ? <DataTable headers={["Store code", "Location", "City", "Status"]} rows={deliveryLocations.map((row: any) => [row.store_code || row.storeCode || "—", row.location_name || row.locationName || row.name || "Delivery Location", row.city || "—", row.status || "Active"])} /> : <Empty>No delivery locations are recorded.</Empty>}</Section></div>}
 
-        {activeTab === "parent_child" && <Section title="Customer relationships" description="Linked customer accounts are separate records from delivery locations.">{children.length ? <><DataTable headers={["Customer code", "Customer", "Status"]} rows={children.map((row: any) => [row.dependant_customer_code || row.code, row.dependant_customer_name || row.name, row.status || "Active"])} /><p className="mt-4 text-sm text-slate-600 dark:text-slate-300">Child customers appear in billing only when this parent’s “Show Child Customers in Billing” setting is enabled.</p><p className="mt-1 text-sm font-medium">Billing visibility: {customer.show_child_customers_in_billing || customer.showChildCustomersInBilling ? "Enabled" : "Disabled"}</p></> : <Empty>This customer has no linked child accounts.</Empty>}</Section>}
+        {activeTab === "parent_child" && <Section title="Customer relationships" description="Linked customer accounts are separate records from delivery locations.">{children.length ? <><DataTable headers={["Customer code", "Customer", "Status"]} rows={children.map((row: any) => [row.dependant_customer_code || row.dependantCustomerCode || row.customer_code || row.customerCode || row.code || "—", row.dependant_customer_name || row.dependantCustomerName || row.customer_name || row.customerName || row.name || "Child Account", row.dependant_customer_status || row.dependantCustomerStatus || row.status || "Active"])} /><p className="mt-4 text-sm text-slate-600 dark:text-slate-300">Child customers appear in billing only when this parent’s “Show Child Customers in Billing” setting is enabled.</p><p className="mt-1 text-sm font-medium">Billing visibility: {customer.show_child_customers_in_billing || customer.showChildCustomersInBilling ? "Enabled" : "Disabled"}</p></> : <Empty>This customer has no linked child accounts.</Empty>}</Section>}
 
-        {activeTab === "stores" && <Section title="Stores and outlets" description="Non-deleted delivery locations associated with this customer.">{stores.length ? <DataTable headers={["Store code", "Location", "City", "State", "Type", "Status"]} rows={stores.map((row: any) => [row.store_code, row.store_name, row.city, row.state, row.store_type, row.status])} /> : <Empty>No stores or delivery outlets are recorded.</Empty>}</Section>}
+        {activeTab === "stores" && <Section title="Stores and outlets" description="Non-deleted delivery locations associated with this customer.">{stores.length ? <DataTable headers={["Store code", "Location", "City", "State", "Type", "Status"]} rows={stores.map((row: any) => [row.store_code || row.storeCode || "—", row.store_name || row.storeName || row.name || "—", row.city || "—", row.state || "—", row.store_type || row.storeType || "Store", row.status || "Active"])} /> : <Empty>No stores or delivery outlets are recorded.</Empty>}</Section>}
 
         {activeTab === "commercial" && <Section title="Commercial terms" description="Customer credit policy and group information returned for this company."><dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3"><Field label="Customer group" value={customer.customer_group_name || customer.customer_group_id || customer.customerGroupId} /><Field label="Credit limit" value={amountValue(customer.credit_limit ?? customer.creditLimit)} /><Field label="Credit days" value={customer.credit_days ?? customer.creditDays} /><Field label="Credit hold" value={creditHold ? "On hold" : "Not on hold"} /><Field label="Credit ledger balance" value={amountValue(customer.credit_used ?? customer.creditUsed ?? customer.outstanding)} /></dl><p className="mt-4 text-xs text-slate-500">Commercial terms are maintained in the existing Customer Master workflow.</p></Section>}
 

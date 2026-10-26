@@ -6,7 +6,7 @@
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
  * Version      : 6.99.1
  * Created      : 2026-08-21
- * Modified     : 2026-10-25
+ * Modified     : 2026-10-26
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
@@ -65,6 +65,14 @@ export interface CustomerHierarchyNode {
   parent_customer_id?: string | null;
   parent_customer_code?: string | null;
   parent_customer_name?: string | null;
+  mobile?: string | null;
+  email?: string | null;
+  store_code?: string | null;
+  city?: string | null;
+  state?: string | null;
+  gstin?: string | null;
+  credit_limit?: number | null;
+  credit_days?: number | null;
   children: CustomerHierarchyNode[];
 }
 

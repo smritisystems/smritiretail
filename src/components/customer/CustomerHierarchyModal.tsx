@@ -6,7 +6,7 @@
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
  * Version      : 6.99.1
  * Created      : 2026-10-25
- * Modified     : 2026-10-25
+ * Modified     : 2026-10-26
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
@@ -48,14 +48,61 @@ export interface CustomerHierarchyModalProps {
 
 const mapDependantsToNodes = (dependants: any[]): HierarchyChildNode[] => {
   return (dependants || []).map((dep: any, idx: number) => {
-    let storeCode = "";
-    let location = "";
-    if (dep.notes) {
+    let storeCode =
+      dep.dependantCustomerStoreCode ||
+      dep.dependant_customer_store_code ||
+      dep.storeCode ||
+      dep.store_code ||
+      "";
+    if (!storeCode && dep.notes) {
       const matchStore = dep.notes.match(/Store Code:\s*([^|]+)/i);
       if (matchStore) storeCode = matchStore[1].trim();
+    }
+    if (storeCode && (storeCode.startsWith("DUMMY-") || storeCode.startsWith("PLACEHOLDER"))) {
+      storeCode = storeCode.replace(/^(DUMMY-|PLACEHOLDER-?)/i, "").trim();
+    }
+
+    let city =
+      dep.dependantCustomerCity ||
+      dep.dependant_customer_city ||
+      dep.city ||
+      "";
+    let state =
+      dep.dependantCustomerState ||
+      dep.dependant_customer_state ||
+      dep.state ||
+      "";
+    let location = city;
+    if (state) {
+      location = location ? `${location}, ${state}` : state;
+    }
+    if (!location && dep.notes) {
       const matchState = dep.notes.match(/State:\s*([^|]+)/i);
       if (matchState) location = matchState[1].trim();
     }
+
+    const mobile =
+      dep.dependantCustomerMobile ||
+      dep.dependant_customer_mobile ||
+      dep.mobile ||
+      dep.phone ||
+      "";
+    const email =
+      dep.dependantCustomerEmail ||
+      dep.dependant_customer_email ||
+      dep.email ||
+      "";
+    const gstin =
+      dep.dependantCustomerGstin ||
+      dep.dependant_customer_gstin ||
+      dep.gstin ||
+      "";
+    const creditLimit =
+      dep.dependantCustomerCreditLimit ??
+      dep.dependant_customer_credit_limit ??
+      dep.creditLimit ??
+      dep.credit_limit;
+
     const code =
       dep.dependantCustomerCode ||
       dep.dependant_customer_code ||
@@ -87,7 +134,14 @@ const mapDependantsToNodes = (dependants: any[]): HierarchyChildNode[] => {
       code,
       name,
       storeCode: storeCode || undefined,
+      store_code: storeCode || undefined,
       location: location || undefined,
+      city: city || undefined,
+      state: state || undefined,
+      mobile: mobile || undefined,
+      email: email || undefined,
+      gstin: gstin || undefined,
+      creditLimit: creditLimit !== undefined ? Number(creditLimit) : undefined,
       status,
       isActive,
     };
@@ -709,10 +763,24 @@ export const CustomerHierarchyModal: React.FC<CustomerHierarchyModalProps> = ({
                                 {node.code}
                               </td>
                               <td className="p-2.5 font-bold text-slate-800 dark:text-slate-200">
-                                {node.name}
+                                <div>{node.name}</div>
+                                {(node.mobile || node.email || node.gstin) && (
+                                  <div className="flex flex-wrap items-center gap-2 mt-0.5 text-[10px] text-slate-500 font-normal">
+                                    {node.mobile && <span>Ph: {node.mobile}</span>}
+                                    {node.email && <span>{node.email}</span>}
+                                    {node.gstin && <span className="font-mono">GSTIN: {node.gstin}</span>}
+                                  </div>
+                                )}
                               </td>
                               <td className="p-2.5 text-slate-600 dark:text-slate-400">
-                                {node.storeCode ? `Store ${node.storeCode}` : (node.location || "—")}
+                                {node.storeCode ? (
+                                  <div>
+                                    <span className="font-semibold text-slate-800 dark:text-slate-200">Store {node.storeCode}</span>
+                                    {node.location && <div className="text-[10px] text-slate-500">{node.location}</div>}
+                                  </div>
+                                ) : (
+                                  node.location || "Subordinate Branch Outlet"
+                                )}
                               </td>
                               <td className="p-2.5">
                                 <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">
@@ -727,11 +795,16 @@ export const CustomerHierarchyModal: React.FC<CustomerHierarchyModalProps> = ({
                                       id: node.id,
                                       code: node.code,
                                       name: node.name,
-                                      mobile: null,
+                                      mobile: node.mobile || null,
                                       customer_group_id: null,
                                       customer_group_name: null,
+                                      is_dependant: true,
+                                      primary_account_name: parentRecord?.name || null,
+                                      primary_account_code: parentRecord?.code || null,
                                       status: node.status || "Active",
-                                      is_active: true,
+                                      is_active: node.isActive ?? true,
+                                      relationship_type: "child",
+                                      child_count: 0
                                     }, "view");
                                     onClose();
                                   }}
