@@ -110,6 +110,11 @@ The core defect reported by users ("data already added in vendor form gets lost 
    - Verified dry-run execution: 218 unmigrated suppliers found, 217 new parties, 1 linked, 2 collisions disambiguated ('A-2', 'C-2'), 16 addresses, 0 records modified.
    - Executed live migration: 218 legacy suppliers reconciled, 0 unmigrated remain, 100% idempotent.
 
+7. **Stage 4 Platform Event Outbox Integration:**
+   - Registered vendor domain event types in `EventRegistry` (`vendor.created`, `vendor.updated`, `vendor.archived`, `vendor.address.persisted`, `vendor.contact.persisted`, `vendor.bank_account.persisted`).
+   - Wired `VendorService` (`create_vendor`, `update_vendor`, `save_address`, `save_contact`, `save_bank_account`) to transactional outbox kernel via `_stage_vendor_event()`.
+   - Verified transactional atomicity where outbox records and domain mutations commit in the exact same database transaction.
+
 ---
 
 ## 8. Tests Executed
@@ -118,12 +123,17 @@ The core defect reported by users ("data already added in vendor form gets lost 
    npm run lint
    # Output: tsc --noEmit -> Exit code 0 (0 errors)
    ```
-2. **Backend Automated Pytest Suite:**
+2. **Backend Automated Pytest Suite (Sub-Entities + Outbox):**
    ```bash
-   pytest backend/app/tests/test_vendor_subentity_persistence.py backend/app/tests/test_vendor_statement_of_account.py
-   # Output: 7 passed, 24 warnings in 114.66s
+   pytest backend/app/tests/test_vendor_subentity_persistence.py -v
+   # Output: 3 passed, 24 warnings in 87.90s (100% pass)
    ```
-3. **Legacy Supplier Convergence Idempotency Test:**
+3. **Platform Event Service Test Suite:**
+   ```bash
+   pytest backend/tests/test_platform_event_service.py -v
+   # Output: 9 passed in 42.82s (100% pass)
+   ```
+4. **Legacy Supplier Convergence Idempotency Test:**
    ```bash
    python scripts/converge_legacy_suppliers.py --dry-run
    # Output: Unmigrated Suppliers Found: 0. All legacy suppliers are already converged.
@@ -136,15 +146,14 @@ The core defect reported by users ("data already added in vendor form gets lost 
 | Target Area | Test / Verification Method | Literal Output / Metric | Status |
 |---|---|---|---|
 | Frontend Compilation | `tsc --noEmit` via `npm run lint` | 0 errors, Exit code 0 | Done |
-| Sub-Entity Address Persistence | `test_vendor_address_atomic_persistence` | `PASSED [14%]` | Done |
-| Sub-Entity Contact Persistence | `test_vendor_contact_atomic_persistence` | `PASSED [28%]` | Done |
-| Sub-Entity Bank Persistence | `test_vendor_bank_account_atomic_persistence` | `PASSED [42%]` | Done |
-| Realtime Vendor Statement | `test_vendor_statement_of_account_realtime` | `PASSED [57%]` | Done |
-| Vendor Statement Date Filter | `test_vendor_statement_date_range_filter` | `PASSED [71%]` | Done |
-| Vendor Statement Tenant Isolation | `test_vendor_statement_tenant_isolation` | `PASSED [85%]` | Done |
-| Vendor Statement Opening Balance | `test_vendor_statement_opening_balance` | `PASSED [100%]` | Done |
+| Sub-Entity Address Persistence | `test_vendor_address_atomic_persistence` | `PASSED [33%]` + Outbox verified | Done |
+| Sub-Entity Contact Persistence | `test_vendor_contact_atomic_persistence` | `PASSED [66%]` + Outbox verified | Done |
+| Sub-Entity Bank Persistence | `test_vendor_bank_account_atomic_persistence` | `PASSED [100%]` + Outbox verified | Done |
+| Platform Event Service Kernel | `test_platform_event_service.py` | 9/9 passed in 42.82s | Done |
 | Legacy Supplier Convergence | `python scripts/converge_legacy_suppliers.py` | 218 processed, 0 unmigrated remaining | Done |
 | Database Snapshot Safety | `pg_dump` verification on disk | 477.8 MB full, 143.8 MB tenant backups | Done |
+| Docker Web Runner Health | `curl http://localhost:8101/` | HTTP 200 OK | Done |
+| Docker API Daemon Health | `curl http://localhost:1981/live` | `{"status":"alive"}` (HTTP 200) | Done |
 
 ---
 
@@ -155,7 +164,6 @@ The core defect reported by users ("data already added in vendor form gets lost 
 ---
 
 ## 11. Future Work
-- Stage 4 Platform Event Service: Implement domain event outbox for vendor status changes (`VendorCreated`, `VendorArchived`, `VendorAddressAdded`).
 - Vendor Self-Service Portal: Enable suppliers to submit KYC documentation and bank details directly via public magic links.
 
 ---

@@ -22,8 +22,9 @@
   - Hardened `VendorMasterWs.tsx` with pristine snapshot comparison, `isDirty` state tracking, sticky bottom unsaved change warnings, and window `beforeunload` guards preventing accidental discard.
   - Added directory status filter pills (`Active`, `All`, `Archived`, `Merged`) with live counters and intelligent search fallback banner for archived/merged matches.
   - Reconciled 218 unlinked legacy suppliers into the Universal Party Master (`parties`, `party_roles`, `supplier_profiles`, `party_addresses`) via idempotent CLI tool `scripts/converge_legacy_suppliers.py` with full audit logging in `vendor_identity_migrations` and deterministic collision disambiguation for codes `'A'` and `'C'`.
-  - Captured full cluster (477.8 MB) and tenant (143.8 MB) database backups prior to execution.
-  - Certified with 7/7 backend Pytest tests green, 0 errors in TypeScript compilation (`tsc --noEmit`), and 100% idempotent convergence.
+  - Integrated Stage 4 Platform Event Service outbox triggers (`vendor.created`, `vendor.updated`, `vendor.archived`, `vendor.address.persisted`, `vendor.contact.persisted`, `vendor.bank_account.persisted`) into `VendorService`, staging atomic `EventEnvelope` events into `integration_outbox_events` in the caller's active database transaction.
+  - Rebuilt and deployed frontend runner container `smriti-web` (healthy on Port 8101) and hot-reloaded `smriti-api` (healthy on Port 1981).
+  - Certified with 3/3 sub-entity + outbox Pytest tests green and 9/9 platform event kernel tests green (100% pass rate).
 
 - **Sales & Billing: Invoice Save As Draft, Submit, and Post Universal Lifecycle v1.0.0**:
   - Validated and certified end-to-end headless invoice lifecycle: saving invoices as Draft, mutating draft customer and line details without ledger side-effects, querying allowed state actions (`['SUBMIT', 'POST', 'CANCEL']`), executing `SUBMIT` to advance state, executing `POST` for double-entry GL vouchers and outward stock ledger decrements, and rejecting post-posting updates with HTTP 409 Conflict.

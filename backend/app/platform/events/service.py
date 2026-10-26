@@ -6,7 +6,7 @@ Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
 Version      : 6.26.0
 Created      : 2026-09-16
-Modified     : 2026-09-16
+Modified     : 2026-10-26
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 Classification: Platform Kernel Contract — Stage 4
@@ -148,6 +148,20 @@ def get_platform_event_service() -> PlatformEventService:
         registry.register("pos.bill.created", {"1.0"}, "POS Bill Created")
         registry.register("wms.goods.receipt", {"1.0"}, "WMS Goods Receipt Note")
         registry.register("payment.received", {"1.0"}, "Payment Settle Received")
+
+        # Vendor & Procurement Domain Contracts
+        registry.register("vendor.created", {"1.0"}, "Vendor Master Created")
+        registry.register("VENDOR_CREATED", {"1.0"}, "Vendor Master Created (Legacy Alias)")
+        registry.register("vendor.updated", {"1.0"}, "Vendor Master Updated")
+        registry.register("VENDOR_UPDATED", {"1.0"}, "Vendor Master Updated (Legacy Alias)")
+        registry.register("vendor.archived", {"1.0"}, "Vendor Master Archived")
+        registry.register("VENDOR_ARCHIVED", {"1.0"}, "Vendor Master Archived (Legacy Alias)")
+        registry.register("vendor.address.persisted", {"1.0"}, "Vendor Address Persisted")
+        registry.register("VENDOR_ADDRESS_PERSISTED", {"1.0"}, "Vendor Address Persisted (Legacy Alias)")
+        registry.register("vendor.contact.persisted", {"1.0"}, "Vendor Contact Persisted")
+        registry.register("VENDOR_CONTACT_PERSISTED", {"1.0"}, "Vendor Contact Persisted (Legacy Alias)")
+        registry.register("vendor.bank_account.persisted", {"1.0"}, "Vendor Bank Account Persisted")
+        registry.register("VENDOR_BANK_ACCOUNT_PERSISTED", {"1.0"}, "Vendor Bank Account Persisted (Legacy Alias)")
 
         transport_type = os.getenv("EVENT_TRANSPORT", "memory").lower().strip()
         redis_url = os.getenv("REDIS_URL")
