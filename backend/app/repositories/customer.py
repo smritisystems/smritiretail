@@ -6,7 +6,7 @@ Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
 Version      : 3.8.0
 Created      : 2026-07-11
-Modified     : 2026-10-24
+Modified     : 2026-10-26
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 """
@@ -117,11 +117,14 @@ class CustomerRepository(BaseRepository[Customer]):
                 selectinload(Customer.loyalty_members),
                 selectinload(Customer.company_relationships),
             )
-            .filter(Customer.id == id, Customer.is_deleted == False)
+            .filter(or_(Customer.id == id, Customer.code == id), Customer.is_deleted == False)
         )
         stmt = self._apply_tenant_filter(stmt)
         result = await self.db.execute(stmt)
         return result.scalars().first()
+
+    async def get_by_code(self, code: str) -> Optional[Customer]:
+        return await self.get(code)
 
     def _apply_invoice_scope(self, stmt, invoice_series: Optional[str], invoice_from: Optional[int], invoice_to: Optional[int]):
         if not invoice_series:

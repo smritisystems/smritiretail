@@ -8,7 +8,7 @@
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
  * Version      : 6.99.1
  * Created      : 2026-10-20
- * Modified     : 2026-10-24
+ * Modified     : 2026-10-26
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
@@ -138,11 +138,29 @@ export const EnterpriseCustomerMasterView: React.FC<EnterpriseCustomerMasterView
     // 2. Check customer.dependants
     if (customer.dependants && customer.dependants.length > 0) {
       return customer.dependants.map((dep: any, idx: number) => {
-        let storeCode = "";
-        let location = "India";
-        if (dep.notes) {
+        let storeCode =
+          dep.dependantCustomerStoreCode ||
+          dep.dependant_customer_store_code ||
+          dep.storeCode ||
+          dep.store_code ||
+          "";
+        let location =
+          dep.dependantCustomerCity ||
+          dep.dependant_customer_city ||
+          dep.city ||
+          "";
+        if (dep.dependantCustomerState || dep.dependant_customer_state || dep.state) {
+          const st = dep.dependantCustomerState || dep.dependant_customer_state || dep.state;
+          location = location ? `${location}, ${st}` : st;
+        }
+        if (!storeCode && dep.notes) {
           const matchStore = dep.notes.match(/Store Code:\s*([^|]+)/i);
           if (matchStore) storeCode = matchStore[1].trim();
+        }
+        if (storeCode && (storeCode.startsWith("DUMMY-") || storeCode.startsWith("PLACEHOLDER"))) {
+          storeCode = "";
+        }
+        if (!location && dep.notes) {
           const matchState = dep.notes.match(/State:\s*([^|]+)/i);
           if (matchState) location = matchState[1].trim();
         }
@@ -150,7 +168,7 @@ export const EnterpriseCustomerMasterView: React.FC<EnterpriseCustomerMasterView
           id: dep.id || dep.dependantCustomerId || String(idx + 1),
           code: dep.dependantCustomerCode || dep.dependant_customer_code || dep.code || storeCode || "—",
           name: dep.dependantCustomerName || "Unnamed customer",
-          location,
+          location: location || "—",
           type: "Store",
           status: "Active",
         };
@@ -164,11 +182,29 @@ export const EnterpriseCustomerMasterView: React.FC<EnterpriseCustomerMasterView
   const childCustomers: HierarchyChildNode[] = useMemo(() => {
     if (customer.dependants && customer.dependants.length > 0) {
       return customer.dependants.map((dep: any, idx: number) => {
-        let storeCode = "";
-        let location = "";
-        if (dep.notes) {
+        let storeCode =
+          dep.dependantCustomerStoreCode ||
+          dep.dependant_customer_store_code ||
+          dep.storeCode ||
+          dep.store_code ||
+          "";
+        let location =
+          dep.dependantCustomerCity ||
+          dep.dependant_customer_city ||
+          dep.city ||
+          "";
+        if (dep.dependantCustomerState || dep.dependant_customer_state || dep.state) {
+          const st = dep.dependantCustomerState || dep.dependant_customer_state || dep.state;
+          location = location ? `${location}, ${st}` : st;
+        }
+        if (!storeCode && dep.notes) {
           const matchStore = dep.notes.match(/Store Code:\s*([^|]+)/i);
           if (matchStore) storeCode = matchStore[1].trim();
+        }
+        if (storeCode && (storeCode.startsWith("DUMMY-") || storeCode.startsWith("PLACEHOLDER"))) {
+          storeCode = "";
+        }
+        if (!location && dep.notes) {
           const matchState = dep.notes.match(/State:\s*([^|]+)/i);
           if (matchState) location = matchState[1].trim();
         }
@@ -178,7 +214,12 @@ export const EnterpriseCustomerMasterView: React.FC<EnterpriseCustomerMasterView
           );
           if (matched) {
             storeCode = matched.storeCode || matched.shippingStoreCode || "";
-            location = matched.city ? (matched.state ? `${matched.city}, ${matched.state}` : matched.city) : (matched.state || "");
+            if (storeCode && (storeCode.startsWith("DUMMY-") || storeCode.startsWith("PLACEHOLDER"))) {
+              storeCode = "";
+            }
+            if (!location) {
+              location = matched.city ? (matched.state ? `${matched.city}, ${matched.state}` : matched.city) : (matched.state || "");
+            }
           }
         }
         const code = dep.dependantCustomerCode || dep.dependant_customer_code || dep.code || storeCode || "—";
@@ -187,7 +228,7 @@ export const EnterpriseCustomerMasterView: React.FC<EnterpriseCustomerMasterView
           code,
           name: dep.dependantCustomerName || "Unnamed customer",
           storeCode: storeCode || "—",
-          location: location || "India",
+          location: location || "—",
           status: "Active",
         };
       });
@@ -1345,7 +1386,7 @@ export const EnterpriseCustomerMasterView: React.FC<EnterpriseCustomerMasterView
                             {cc.name}
                           </td>
                           <td className="p-2 font-mono">{cc.storeCode || "—"}</td>
-                          <td className="p-2">{cc.location || "Mumbai"}</td>
+                          <td className="p-2">{cc.location || "—"}</td>
                           <td className="p-2">
                             <span className="inline-flex items-center gap-1 text-emerald-700 dark:text-emerald-400 font-bold">
                               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />

@@ -37,7 +37,7 @@ export interface CustomerHierarchyTreeProps {
   onOpenBulkAssign?: (customer: { id: string; code: string; name: string }) => void;
 }
 
-const getDepthBadge = (depth: number) => {
+const getDepthBadge = (depth: number, hasChildren: boolean = false) => {
   if (depth === 0) {
     return {
       label: "Root Holding",
@@ -45,15 +45,15 @@ const getDepthBadge = (depth: number) => {
       icon: <Building2 size={12} className="shrink-0" />,
     };
   }
-  if (depth === 1) {
+  if (hasChildren) {
     return {
-      label: "Zonal / Hub",
+      label: depth === 1 ? "Zonal / Hub" : `Tier ${depth} Hub`,
       className: "bg-sky-100 text-sky-800 dark:bg-sky-950 dark:text-sky-300 border-sky-200 dark:border-sky-800",
       icon: <GitBranch size={12} className="shrink-0" />,
     };
   }
   return {
-    label: `Tier ${depth} Outlet`,
+    label: depth === 1 ? "Child Branch" : `Tier ${depth} Outlet`,
     className: "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800",
     icon: <Store size={12} className="shrink-0" />,
   };
@@ -77,7 +77,7 @@ const TreeNodeItem: React.FC<TreeNodeItemProps> = ({
   const [expanded, setExpanded] = useState<boolean>(true);
   const isTarget = node.id === targetCustomerId || node.code === targetCustomerId;
   const hasChildren = node.children && node.children.length > 0;
-  const badge = getDepthBadge(depth);
+  const badge = getDepthBadge(depth, hasChildren);
 
   return (
     <div className="flex flex-col w-full" data-testid={`tree-node-${node.code || node.id}`}>
@@ -107,7 +107,7 @@ const TreeNodeItem: React.FC<TreeNodeItemProps> = ({
             </div>
           )}
 
-          <div className="flex items-center gap-2 min-w-0">
+          <div className="flex items-center gap-2 min-w-0 flex-wrap">
             <span
               className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold border uppercase tracking-wide ${badge.className}`}
             >
@@ -122,6 +122,24 @@ const TreeNodeItem: React.FC<TreeNodeItemProps> = ({
             <span className="text-xs font-semibold text-slate-700 dark:text-slate-200 truncate">
               {node.name}
             </span>
+
+            {node.store_code && !node.store_code.startsWith("DUMMY") && (
+              <span className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
+                Store {node.store_code}
+              </span>
+            )}
+
+            {node.city && (
+              <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
+                {node.city}{node.state ? `, ${node.state}` : ""}
+              </span>
+            )}
+
+            {node.mobile && (
+              <span className="hidden sm:inline-block font-mono text-[10px] text-slate-500">
+                Ph: {node.mobile}
+              </span>
+            )}
 
             {isTarget && (
               <span className="px-1.5 py-0.2 rounded text-[10px] font-bold bg-indigo-600 text-white shadow-2xs">

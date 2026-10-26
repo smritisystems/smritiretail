@@ -6,7 +6,7 @@ Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
 Version      : 3.10.0
 Created      : 2026-07-11
-Modified     : 2026-10-25
+Modified     : 2026-10-26
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 """
@@ -19,6 +19,7 @@ from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from sqlalchemy import func, or_, and_, select
+from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 from ...api.deps import get_db, get_company_db, get_tenant_context, TenantContext, require_role, get_current_user
 
@@ -614,6 +615,8 @@ async def get_customer(
     repo = CustomerRepository(db, tenant_ctx)
     customer = await repo.get(customer_id)
     if not customer:
+        customer = await repo.get_by_code(customer_id)
+    if not customer:
         raise HTTPException(status_code=404, detail="Customer not found")
     return CustomerResponse.from_orm_customer(customer)
 
@@ -724,6 +727,12 @@ async def get_corporate_customer_360(
             selectinload(Customer.group),
             selectinload(Customer.policy),
             selectinload(Customer.company_relationships),
+            selectinload(Customer.dependant_relationships).selectinload(CustomerRelationship.dependant_customer).selectinload(Customer.delivery_locations),
+            selectinload(Customer.dependant_relationships).selectinload(CustomerRelationship.dependant_customer).selectinload(Customer.billing_locations),
+            selectinload(Customer.dependant_relationships).selectinload(CustomerRelationship.dependant_customer).selectinload(Customer.gst_registrations),
+            selectinload(Customer.parent_relationships).selectinload(CustomerRelationship.parent_customer),
+            selectinload(Customer.external_identities),
+            selectinload(Customer.loyalty_members),
         )
     )
     stmt = customer_repository._apply_tenant_filter(stmt)
@@ -870,7 +879,38 @@ async def get_corporate_customer_360(
                 address_summary=addr_summary or None,
                 addresses=addresses_list,
             ))
-    total_stores_count = len(delivery_locs)
+    elif getattr(customer, "dependant_relationships", None):
+        for rel in customer.dependant_relationships:
+            if getattr(rel, "is_deleted", False):
+                continue
+            dep = rel.dependant_customer
+            if not dep or getattr(dep, "is_deleted", False):
+                continue
+            is_active = (dep.status or "").upper() == "ACTIVE" and bool(getattr(dep, "is_active", True))
+            if is_active:
+                active_stores_count += 1
+            meta = _extract_customer_hierarchy_meta(dep)
+            stype = "Branch Outlet"
+            store_type_counts["Store"] = store_type_counts.get("Store", 0) + 1
+            store_network.append(CorporateStoreItem(
+                id=dep.id,
+                store_code=dep.code or "—",
+                store_name=dep.name,
+                city=meta.get("city") or "",
+                state=meta.get("state") or "",
+                store_type=stype,
+                status="Active" if is_active else "Inactive",
+                psv_value=Decimal("0.00"),
+                psv_status="Not Reporting",
+                psv_value_display="— (Branch Account)",
+                contact=meta.get("mobile") or "",
+                phone=meta.get("mobile"),
+                email=meta.get("email"),
+                gstin=meta.get("gstin"),
+                address_summary=meta.get("city") or "Subordinate Branch Outlet",
+                addresses=[],
+            ))
+    total_stores_count = len(store_network) if store_network else len(delivery_locs)
 
     # 4. Invoices and orders aggregation
     invoices = []
@@ -1282,6 +1322,42 @@ async def get_customer_credit_exposure(
 
 
 
+def _extract_customer_hierarchy_meta(cust):
+    if not cust:
+        return {}
+    store_code = None
+    city = None
+    state = None
+    if getattr(cust, "delivery_locations", None) and len(cust.delivery_locations) > 0:
+        loc = cust.delivery_locations[0]
+        store_code = loc.store_code
+        city = loc.city
+        state = loc.state
+    elif getattr(cust, "billing_locations", None) and len(cust.billing_locations) > 0:
+        loc = cust.billing_locations[0]
+        store_code = loc.billing_store_code
+        city = loc.city
+        state = loc.state
+
+    if store_code and store_code.startswith("DUMMY-"):
+        store_code = None
+
+    gstin = cust.gst_number
+    if not gstin and getattr(cust, "gst_registrations", None) and len(cust.gst_registrations) > 0:
+        gstin = cust.gst_registrations[0].gstin
+
+    return {
+        "mobile": cust.mobile,
+        "email": cust.email,
+        "store_code": store_code,
+        "city": city,
+        "state": state,
+        "gstin": gstin,
+        "credit_limit": cust.credit_limit if hasattr(cust, "credit_limit") else None,
+        "credit_days": cust.credit_days if hasattr(cust, "credit_days") else None,
+    }
+
+
 @router.get("/customers/{customer_id}/dependants", response_model=List[CustomerRelationshipResponse])
 async def list_customer_dependants(
     customer_id: str,
@@ -1303,21 +1379,37 @@ async def list_customer_dependants(
         CustomerRelationship.company_id == tenant_ctx.company_id,
         CustomerRelationship.is_deleted == False,
     )
-    from sqlalchemy.orm import selectinload
-    stmt = stmt.options(selectinload(CustomerRelationship.dependant_customer))
+    stmt = stmt.options(
+        selectinload(CustomerRelationship.dependant_customer).selectinload(Customer.delivery_locations),
+        selectinload(CustomerRelationship.dependant_customer).selectinload(Customer.billing_locations),
+        selectinload(CustomerRelationship.dependant_customer).selectinload(Customer.gst_registrations),
+    )
     rows = (await db.execute(stmt)).scalars().all()
-    return [CustomerRelationshipResponse(
-        id=row.id,
-        parent_customer_id=row.parent_customer_id,
-        dependant_customer_id=row.dependant_customer_id,
-        dependant_customer_name=row.dependant_customer.name if row.dependant_customer else None,
-        dependant_customer_code=row.dependant_customer.code if row.dependant_customer else None,
-        dependant_customer_status=row.dependant_customer.status if row.dependant_customer else "Active",
-        dependant_customer_is_active=row.dependant_customer.is_active if row.dependant_customer else True,
-        relation=row.relation,
-        apply_same_mailing=row.apply_same_mailing,
-        notes=row.notes,
-    ) for row in rows]
+    results = []
+    for row in rows:
+        dep_c = row.dependant_customer
+        meta = _extract_customer_hierarchy_meta(dep_c)
+        results.append(CustomerRelationshipResponse(
+            id=row.id,
+            parent_customer_id=row.parent_customer_id,
+            dependant_customer_id=row.dependant_customer_id,
+            dependant_customer_name=dep_c.name if dep_c else None,
+            dependant_customer_code=dep_c.code if dep_c else None,
+            dependant_customer_status=dep_c.status if dep_c else "Active",
+            dependant_customer_is_active=dep_c.is_active if dep_c else True,
+            dependant_customer_mobile=meta.get("mobile"),
+            dependant_customer_email=meta.get("email"),
+            dependant_customer_store_code=meta.get("store_code"),
+            dependant_customer_city=meta.get("city"),
+            dependant_customer_state=meta.get("state"),
+            dependant_customer_gstin=meta.get("gstin"),
+            dependant_customer_credit_limit=meta.get("credit_limit"),
+            dependant_customer_credit_days=meta.get("credit_days"),
+            relation=row.relation,
+            apply_same_mailing=row.apply_same_mailing,
+            notes=row.notes,
+        ))
+    return results
 
 
 @router.post(
@@ -1425,6 +1517,10 @@ async def get_customer_hierarchy_tree(
             (Customer.id == customer_id) | (Customer.code == customer_id),
             (Customer.company_id == tenant_ctx.company_id) | (Customer.company_id.is_(None)),
             Customer.is_deleted == False,
+        ).options(
+            selectinload(Customer.delivery_locations),
+            selectinload(Customer.billing_locations),
+            selectinload(Customer.gst_registrations),
         )
     )).scalar_one_or_none()
 
@@ -1452,13 +1548,16 @@ async def get_customer_hierarchy_tree(
             Customer.id == curr_id,
             (Customer.company_id == tenant_ctx.company_id) | (Customer.company_id.is_(None)),
             Customer.is_deleted == False,
+        ).options(
+            selectinload(Customer.delivery_locations),
+            selectinload(Customer.billing_locations),
+            selectinload(Customer.gst_registrations),
         )
     )).scalar_one_or_none()
     if not root_cust:
         root_cust = target_cust
 
     # 3. Load all active relationships in this company to construct graph in memory
-    from sqlalchemy.orm import selectinload
     all_rels_stmt = (
         select(CustomerRelationship)
         .where(
@@ -1466,8 +1565,12 @@ async def get_customer_hierarchy_tree(
             CustomerRelationship.is_deleted == False,
         )
         .options(
-            selectinload(CustomerRelationship.dependant_customer),
-            selectinload(CustomerRelationship.parent_customer),
+            selectinload(CustomerRelationship.dependant_customer).selectinload(Customer.delivery_locations),
+            selectinload(CustomerRelationship.dependant_customer).selectinload(Customer.billing_locations),
+            selectinload(CustomerRelationship.dependant_customer).selectinload(Customer.gst_registrations),
+            selectinload(CustomerRelationship.parent_customer).selectinload(Customer.delivery_locations),
+            selectinload(CustomerRelationship.parent_customer).selectinload(Customer.billing_locations),
+            selectinload(CustomerRelationship.parent_customer).selectinload(Customer.gst_registrations),
         )
     )
     all_rels = (await db.execute(all_rels_stmt)).scalars().all()
@@ -1503,6 +1606,8 @@ async def get_customer_hierarchy_tree(
         else:
             rel_type = "parent" if child_cnt > 0 else "child"
 
+        meta = _extract_customer_hierarchy_meta(cust)
+
         return CustomerHierarchyNodeResponse(
             id=cust.id,
             code=cust.code or cust.id,
@@ -1516,6 +1621,14 @@ async def get_customer_hierarchy_tree(
             parent_customer_id=parent_node.id if parent_node else None,
             parent_customer_code=parent_node.code if parent_node else None,
             parent_customer_name=parent_node.name if parent_node else None,
+            mobile=meta.get("mobile"),
+            email=meta.get("email"),
+            store_code=meta.get("store_code"),
+            city=meta.get("city"),
+            state=meta.get("state"),
+            gstin=meta.get("gstin"),
+            credit_limit=meta.get("credit_limit"),
+            credit_days=meta.get("credit_days"),
             children=child_nodes,
         )
 

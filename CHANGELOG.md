@@ -33,6 +33,20 @@
   - Verified with 51/51 Vitest tests green, 4/4 backend tests green in `test_customer_directory_hierarchy.py`, 7/7 live headless API scenario checks passed (100%), 0 `tsc --noEmit` errors, and clean Vite production build.
 
 ### Fixed
+- **CRM Corporate 360° Dashboard Reconciliation & Customer Master Parity**:
+  - Remediated enterprise parent account ShopperStop (`CUST-68351893`) 360° Dashboard reporting 0 child accounts and 0 active stores, contradicting Customer Master records maintaining linked child branch accounts (`CUST-68351894` ShopperStop Demo Branch and `CUST-68351895` abcd).
+  - Enhanced `get_corporate_customer_360` in `backend/app/api/v1/crm.py` to eagerly load `dependant_relationships.dependant_customer`, `parent_relationships.parent_customer`, `external_identities`, and `loyalty_members`.
+  - Added child branch store network fallback in `get_corporate_customer_360` and `Customer360DashboardView.tsx` when direct delivery locations are absent (`store_network` populated with 2 child accounts, `total_stores = 2`, `active_stores = 2`).
+  - Enriched `map_customer_to_response_dict` in `backend/app/schemas/crm.py` to populate all child account metadata on `dependant_rows` (`mobile`, `email`, `store_code`, `city`, `state`, `gstin`, `credit_limit`, `credit_days`).
+  - Corrected DTO alias and property key mapping across `Customer360DashboardView.tsx` (`billingLocations`, `deliveryLocations`, `corporate_tax` registered address fallback, `parent_child` camelCase aliases, and `stores` outlet derivation).
+  - Certified with 43/43 Vitest tests green, live API returning HTTP 200 OK with 2 child accounts and 2 store network items, 0 TypeScript errors in production build (`built in 49.97s`), and successful container deployment to `smriti-api` and `smriti-web`.
+- **CRM Customer Hierarchy Viewer Metadata Resolution & Placeholder Elimination**:
+  - Remediated customer hierarchy viewer displaying placeholder child details when viewing parent accounts (e.g. `ShopperStop` -> `ShopperStop Demo Branch`).
+  - Added code resolution in `CustomerRepository.get` (`(Customer.id == id) | (Customer.code == id)`) and added `get_by_code` in `backend/app/repositories/customer.py` and `backend/app/api/v1/crm.py`, resolving 404/500 errors when querying customer records by business code (`CUST-68351894`).
+  - Added `_extract_customer_hierarchy_meta` in `backend/app/api/v1/crm.py` and eager-loaded delivery locations, billing locations, and GST registrations across `GET /crm/customers/{customer_id}/dependants` and `GET /crm/customers/{customer_id}/hierarchy`, returning real mobile, email, store code, city, state, and GSTIN.
+  - Replaced legacy notes regex matching in `CustomerHierarchyModal.tsx` and `EnterpriseCustomerMasterView.tsx` with direct metadata ingestion from `CustomerRelationshipResponse` and `CustomerHierarchyNodeResponse`, eliminating placeholder dashes `—` and hardcoded `"Mumbai"`/`"India"` fallbacks.
+  - Dynamically configured tree depth badges in `CustomerHierarchyTree.tsx` to display "Child Branch" for depth-1 leaf accounts instead of "Zonal / Hub".
+  - Verified with 23/23 Vitest tests green, 3/3 live backend API endpoints returning 200 OK with real customer metadata, clean Vite build (`built in 49.49s`), and successful container deployment to `smriti-web` and `smriti-api`.
 - **Billing Desk Empty-Bill ₹150 Charge Elimination**: Fixed defect where an empty Billing Desk evaluated to +₹150.00 add-ons and net payable due to statutory sales factor accumulation (PACK ₹50 + DELV ₹100) on an unpopulated cart:
   - Added zero-sales-base guard in `calculateBillFactors` (`src/services/smritiSalesFactorService.ts`), strictly skipping ancillary factor accrual when `discountedSaleValue <= 0 && baseSaleAmount <= 0` while preserving configured values for non-empty transactions.
   - Added fail-safe zero-item and zero-quantity guard to `estimatedSummaryTotals` in `BillingTerm.tsx`, evaluating all monetary figures to strictly ₹0.00 when `itemCount === 0 || totalQty === 0`.

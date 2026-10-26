@@ -8,7 +8,7 @@
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
  * Version      : 6.99.1
  * Created      : 2026-10-20
- * Modified     : 2026-10-25
+ * Modified     : 2026-10-26
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
@@ -34,7 +34,14 @@ export interface HierarchyChildNode {
   code: string;
   name: string;
   storeCode?: string;
+  store_code?: string;
   location?: string;
+  city?: string;
+  state?: string;
+  mobile?: string;
+  email?: string;
+  gstin?: string;
+  creditLimit?: number;
   status?: string;
   isActive?: boolean;
   type?: string;
@@ -62,7 +69,8 @@ export const CustomerHierarchyTree: React.FC<CustomerHierarchyTreeProps> = ({
 
   const storeCodes = (customer.mailingAddresses || [])
     .filter(a => a.storeCode || a.shippingStoreCode)
-    .map(a => a.storeCode || a.shippingStoreCode || "");
+    .map(a => a.storeCode || a.shippingStoreCode || "")
+    .filter(sc => !sc.startsWith("DUMMY-") && !sc.startsWith("PLACEHOLDER"));
 
   return (
     <div className="bg-white dark:bg-[#191c1e] border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden shadow-xs flex flex-col">
@@ -166,8 +174,17 @@ export const CustomerHierarchyTree: React.FC<CustomerHierarchyTreeProps> = ({
                         {node.name}
                       </div>
                       <div className="text-[9px] text-slate-600 dark:text-slate-400 font-mono mt-1 space-y-0.5 text-left w-full border-t border-emerald-200/60 dark:border-emerald-800/60 pt-1">
-                        {node.storeCode && <div>Store: <strong>{node.storeCode}</strong></div>}
-                        {node.location && <div className="truncate">City: <strong>{node.location}</strong></div>}
+                        {(node.storeCode || node.store_code) && !(node.storeCode || node.store_code)?.startsWith("DUMMY") && (
+                          <div>Store: <strong>{node.storeCode || node.store_code}</strong></div>
+                        )}
+                        {(node.location || node.city) && (
+                          <div className="truncate">City: <strong>{node.location || node.city}</strong></div>
+                        )}
+                        {node.mobile && <div>Ph: <strong>{node.mobile}</strong></div>}
+                        {node.gstin && <div>GST: <strong>{node.gstin}</strong></div>}
+                        {!(node.storeCode || node.store_code) && !(node.location || node.city) && !node.mobile && !node.gstin && (
+                          <div className="text-slate-400 italic">Subordinate Branch Account</div>
+                        )}
                       </div>
                     </div>
                   ))}

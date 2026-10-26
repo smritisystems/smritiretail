@@ -6,7 +6,7 @@ Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
 Version      : 3.23.0
 Created      : 2026-07-11
-Modified     : 2026-10-25
+Modified     : 2026-10-26
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 """
@@ -1066,6 +1066,14 @@ class CustomerRelationshipResponse(CustomerRelationshipCreate):
     dependant_customer_code: Optional[str] = Field(None, alias="dependantCustomerCode")
     dependant_customer_status: Optional[str] = Field("Active", alias="dependantCustomerStatus")
     dependant_customer_is_active: Optional[bool] = Field(True, alias="dependantCustomerIsActive")
+    dependant_customer_mobile: Optional[str] = Field(None, alias="dependantCustomerMobile")
+    dependant_customer_email: Optional[str] = Field(None, alias="dependantCustomerEmail")
+    dependant_customer_store_code: Optional[str] = Field(None, alias="dependantCustomerStoreCode")
+    dependant_customer_city: Optional[str] = Field(None, alias="dependantCustomerCity")
+    dependant_customer_state: Optional[str] = Field(None, alias="dependantCustomerState")
+    dependant_customer_gstin: Optional[str] = Field(None, alias="dependantCustomerGstin")
+    dependant_customer_credit_limit: Optional[Decimal] = Field(None, alias="dependantCustomerCreditLimit")
+    dependant_customer_credit_days: Optional[int] = Field(None, alias="dependantCustomerCreditDays")
 
     model_config = ConfigDict(populate_by_name=True, from_attributes=True)
 
@@ -1179,6 +1187,29 @@ def map_customer_to_response_dict(customer: Any) -> dict:
         if getattr(relationship, "is_deleted", False):
             continue
         dependant = getattr(relationship, "dependant_customer", None)
+        dep_mobile = getattr(dependant, "mobile", None)
+        dep_email = getattr(dependant, "email", None)
+        dep_gstin = getattr(dependant, "gst_number", None)
+        dep_store_code = None
+        dep_city = None
+        dep_state = None
+        if dependant:
+            dlocs = getattr(dependant, "delivery_locations", None) or []
+            blocs = getattr(dependant, "billing_locations", None) or []
+            if dlocs:
+                dep_store_code = getattr(dlocs[0], "store_code", None)
+                dep_city = getattr(dlocs[0], "city", None)
+                dep_state = getattr(dlocs[0], "state", None)
+            elif blocs:
+                dep_store_code = getattr(blocs[0], "billing_store_code", None)
+                dep_city = getattr(blocs[0], "city", None)
+                dep_state = getattr(blocs[0], "state", None)
+            if dep_store_code and dep_store_code.startswith("DUMMY-"):
+                dep_store_code = None
+            if not dep_gstin:
+                gregs = getattr(dependant, "gst_registrations", None) or []
+                if gregs:
+                    dep_gstin = getattr(gregs[0], "gstin", None)
         dependant_rows.append({
             "id": relationship.id,
             "parent_customer_id": relationship.parent_customer_id,
@@ -1187,6 +1218,14 @@ def map_customer_to_response_dict(customer: Any) -> dict:
             "dependant_customer_code": getattr(dependant, "code", None),
             "dependant_customer_status": getattr(dependant, "status", "Active"),
             "dependant_customer_is_active": getattr(dependant, "is_active", True),
+            "dependant_customer_mobile": dep_mobile,
+            "dependant_customer_email": dep_email,
+            "dependant_customer_store_code": dep_store_code,
+            "dependant_customer_city": dep_city,
+            "dependant_customer_state": dep_state,
+            "dependant_customer_gstin": dep_gstin,
+            "dependant_customer_credit_limit": getattr(dependant, "credit_limit", None),
+            "dependant_customer_credit_days": getattr(dependant, "credit_days", None),
             "relation": relationship.relation,
             "apply_same_mailing": relationship.apply_same_mailing,
             "notes": relationship.notes,
@@ -1406,6 +1445,14 @@ class CustomerHierarchyNodeResponse(BaseModel):
     parent_customer_id: Optional[str] = None
     parent_customer_code: Optional[str] = None
     parent_customer_name: Optional[str] = None
+    mobile: Optional[str] = None
+    email: Optional[str] = None
+    store_code: Optional[str] = None
+    city: Optional[str] = None
+    state: Optional[str] = None
+    gstin: Optional[str] = None
+    credit_limit: Optional[Decimal] = None
+    credit_days: Optional[int] = None
     children: List["CustomerHierarchyNodeResponse"] = Field(default_factory=list)
 
     model_config = ConfigDict(populate_by_name=True, from_attributes=True)

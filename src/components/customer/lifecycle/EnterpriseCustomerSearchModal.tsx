@@ -6,7 +6,7 @@
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
  * Version      : 6.99.0
  * Created      : 2026-10-19
- * Modified     : 2026-10-19
+ * Modified     : 2026-10-26
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Capability    : withCapability("customer.crud", "CRM")
@@ -249,9 +249,9 @@ export const EnterpriseCustomerSearchModal: React.FC<EnterpriseCustomerSearchMod
           address4: "",
           address5: "",
           locality: "",
-          city: cust.city || "Mumbai",
-          postalCode: "400001",
-          state: "Maharashtra",
+          city: cust.city || "",
+          postalCode: cust.postal_code || cust.pincode || "",
+          state: cust.state || "",
           zone: "West",
           country: "India",
           officePhone: "",
