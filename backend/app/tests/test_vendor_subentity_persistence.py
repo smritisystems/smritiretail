@@ -27,6 +27,7 @@ from sqlalchemy import select
 
 from app.models.tenant import Company, Branch
 from app.models.party import Party, PartyRole, SupplierProfile, PartyAddress, PartyContact, SupplierBankAccount
+from app.models.outbox import IntegrationOutboxEvent
 from app.api.deps import TenantContext
 from app.schemas.vendor import VendorAddressDTO, VendorContactDTO, VendorBankAccountDTO
 from app.services.vendor_svc import VendorService
@@ -140,6 +141,16 @@ async def test_vendor_address_atomic_persistence(db_session):
     assert refreshed_party.city == "Bhiwandi"
     assert refreshed_party.pincode == "421302"
 
+    # Verify Stage 4 Platform Event Outbox integration
+    obx_stmt = select(IntegrationOutboxEvent).where(
+        IntegrationOutboxEvent.aggregate_id == persisted.id,
+        IntegrationOutboxEvent.event_type == "VENDOR_ADDRESS_PERSISTED",
+    )
+    obx = (await db_session.execute(obx_stmt)).scalars().first()
+    assert obx is not None
+    assert obx.payload_json["address_id"] == persisted.id
+    assert obx.status == "PENDING"
+
 
 async def test_vendor_contact_atomic_persistence(db_session):
     """Verifies contact is persisted with categorization and primary designation."""
@@ -180,6 +191,15 @@ async def test_vendor_contact_atomic_persistence(db_session):
     assert row_del is not None
     assert row_del.is_deleted is True
 
+    # Verify Stage 4 Platform Event Outbox integration
+    obx_stmt = select(IntegrationOutboxEvent).where(
+        IntegrationOutboxEvent.aggregate_id == persisted.id,
+        IntegrationOutboxEvent.event_type == "VENDOR_CONTACT_PERSISTED",
+    )
+    obx = (await db_session.execute(obx_stmt)).scalars().first()
+    assert obx is not None
+    assert obx.payload_json["contact_id"] == persisted.id
+
 
 async def test_vendor_bank_account_atomic_persistence(db_session):
     """Verifies bank account coordinates are persisted with uppercase IFSC formatting."""
@@ -215,3 +235,12 @@ async def test_vendor_bank_account_atomic_persistence(db_session):
     assert del_ok is True
     await db_session.refresh(row)
     assert row.is_deleted is True
+
+    # Verify Stage 4 Platform Event Outbox integration
+    obx_stmt = select(IntegrationOutboxEvent).where(
+        IntegrationOutboxEvent.aggregate_id == persisted.id,
+        IntegrationOutboxEvent.event_type == "VENDOR_BANK_ACCOUNT_PERSISTED",
+    )
+    obx = (await db_session.execute(obx_stmt)).scalars().first()
+    assert obx is not None
+    assert obx.payload_json["bank_id"] == persisted.id

@@ -6,7 +6,7 @@ Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
 Version      : 6.16.0
 Created      : 2026-09-11
-Modified     : 2026-09-14
+Modified     : 2026-10-26
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 Classification: Internal
@@ -46,6 +46,7 @@ from ..schemas.vendor import (
     VendorMergeResponse,
     VendorStatus,
 )
+from ..platform.events import get_platform_event_service, EventEnvelope
 
 
 @smriti_capability(
@@ -65,6 +66,46 @@ class VendorService:
     def __init__(self, db: AsyncSession, tenant=None):
         self.db = db
         self.tenant = tenant
+
+    async def _stage_vendor_event(
+        self,
+        event_type: str,
+        aggregate_id: str,
+        payload: Dict[str, Any],
+        correlation_id: Optional[str] = None,
+    ) -> None:
+        """
+        Atomically stages a strongly-typed EventEnvelope into the PostgreSQL outbox
+        within the caller's active database transaction.
+        """
+        try:
+            event_svc = get_platform_event_service()
+            company_id = getattr(self.tenant, "company_id", None) or "COMP-001"
+            branch_id = getattr(self.tenant, "branch_id", None)
+            corr_id = correlation_id or f"corr_vend_{aggregate_id}_{uuid.uuid4().hex[:6]}"
+
+            envelope = EventEnvelope(
+                eventType=event_type,
+                schemaVersion="1.0",
+                source="purchase.vendor_service",
+                tenantId=company_id,
+                payload=payload,
+                correlationId=corr_id,
+                causationId=aggregate_id,
+                metadata={
+                    "aggregate_id": aggregate_id,
+                    "company_id": company_id,
+                    "branch_id": branch_id,
+                    "target_channel": "PLATFORM_EVENTS",
+                    "event_type": event_type.upper().replace(".", "_"),
+                },
+            )
+            await event_svc.stage_event(envelope, self.db)
+        except Exception as ex:
+            import logging
+            logging.getLogger("smriti.vendor.events").warning(
+                f"Platform event staging notice for '{event_type}' ({aggregate_id}): {ex}"
+            )
 
     # ─────────────────────────────────────────────────────────────────────────
     # DTO Mapping Helpers
@@ -575,6 +616,21 @@ class VendorService:
         )
         self.db.add(migration_audit)
 
+        # Stage transactional outbox event
+        await self._stage_vendor_event(
+            event_type="vendor.created",
+            aggregate_id=party.id,
+            payload={
+                "vendor_id": party.id,
+                "party_code": party.party_code,
+                "legal_name": party.legal_name,
+                "trade_name": party.trade_name,
+                "gstin": party.gstin,
+                "pan": party.pan,
+                "status": party.status,
+            },
+        )
+
         await self.db.commit()
         return await self.get_vendor_by_id(party.id)
 
@@ -779,9 +835,22 @@ class VendorService:
             legacy_supplier.address = party.address_line1
             legacy_supplier.city = party.city
             legacy_supplier.state = party.state
-            legacy_supplier.pincode = party.pincode
             if sp:
                 legacy_supplier.outstanding = sp.outstanding_liability
+
+        # Stage transactional outbox event
+        event_name = "vendor.archived" if (req.status and req.status.upper() in {"ARCHIVED", "INACTIVE"}) else "vendor.updated"
+        await self._stage_vendor_event(
+            event_type=event_name,
+            aggregate_id=party.id,
+            payload={
+                "vendor_id": party.id,
+                "party_code": party.party_code,
+                "legal_name": party.legal_name,
+                "status": party.status,
+                "gstin": party.gstin,
+            },
+        )
 
         await self.db.commit()
         return await self.get_vendor_by_id(party.id)
@@ -927,6 +996,21 @@ class VendorService:
             )
             self.db.add(target_addr)
 
+        # Stage transactional outbox event
+        await self._stage_vendor_event(
+            event_type="vendor.address.persisted",
+            aggregate_id=target_addr.id,
+            payload={
+                "vendor_id": vendor_id,
+                "address_id": target_addr.id,
+                "address_type": target_addr.address_type,
+                "city": target_addr.city,
+                "state": target_addr.state,
+                "pincode": target_addr.pincode,
+                "is_primary": target_addr.is_primary,
+            },
+        )
+
         await self.db.commit()
         await self.db.refresh(target_addr)
         return VendorAddressDTO.model_validate(target_addr)
@@ -1001,6 +1085,20 @@ class VendorService:
             )
             self.db.add(target_contact)
 
+        # Stage transactional outbox event
+        await self._stage_vendor_event(
+            event_type="vendor.contact.persisted",
+            aggregate_id=target_contact.id,
+            payload={
+                "vendor_id": vendor_id,
+                "contact_id": target_contact.id,
+                "contact_name": target_contact.contact_name,
+                "contact_category": target_contact.contact_category,
+                "phone": target_contact.phone or target_contact.mobile,
+                "is_primary": target_contact.is_primary,
+            },
+        )
+
         await self.db.commit()
         await self.db.refresh(target_contact)
         return VendorContactDTO.model_validate(target_contact)
@@ -1071,6 +1169,21 @@ class VendorService:
                 verified_at=req.verified_at,
             )
             self.db.add(target_bank)
+
+        # Stage transactional outbox event
+        mask = f"***{target_bank.account_number[-4:]}" if target_bank.account_number and len(target_bank.account_number) >= 4 else "***"
+        await self._stage_vendor_event(
+            event_type="vendor.bank_account.persisted",
+            aggregate_id=target_bank.id,
+            payload={
+                "vendor_id": vendor_id,
+                "bank_id": target_bank.id,
+                "bank_name": target_bank.bank_name,
+                "account_number_masked": mask,
+                "ifsc": target_bank.ifsc,
+                "is_primary": target_bank.is_primary,
+            },
+        )
 
         await self.db.commit()
         await self.db.refresh(target_bank)
