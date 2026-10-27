@@ -16,9 +16,9 @@ Founders
 
 * Websites: aitdl.com | erpnbook.com | smritibooks.com
 
-* Version    : 3.75.0
+* Version    : 3.125.0
 * Created    : 2026-07-11
-* Modified   : 2026-10-14
+* Modified   : 2026-10-27
 * Copyright  : © AITDL.com and SMRITIBooks.com. All Rights Reserved.
 * License    : Proprietary Commercial Software
 Classification: Internal
@@ -955,10 +955,28 @@ class PurchaseService:
         from .inventory_warehouse_resolver import InventoryWarehouseResolver
         wms_service = InventoryWmsService(self.db, self.tenant)
         resolver = InventoryWarehouseResolver(self.db)
-        warehouse_id = req.warehouse_id
-        if not warehouse_id:
-            warehouse = await resolver.resolve(company_id=self.tenant.company_id, branch_id=self.tenant.branch_id)
-            warehouse_id = warehouse.id
+        try:
+            if req.warehouse_id:
+                wh = await resolver.resolve(
+                    company_id=self.tenant.company_id,
+                    warehouse_id=req.warehouse_id,
+                )
+            else:
+                wh = await resolver.resolve(
+                    company_id=self.tenant.company_id,
+                    branch_id=self.tenant.branch_id,
+                )
+            warehouse_id = wh.id
+        except ValueError:
+            raise HTTPException(
+                status_code=422,
+                detail={
+                    "code": "SMRITI-WMS-001",
+                    "title": "Warehouse Not Configured or Inactive",
+                    "explanation": f"Target warehouse '{req.warehouse_id or 'default'}' could not be resolved or is inactive for company '{self.tenant.company_id}'.",
+                    "suggested_action": "Select a valid active warehouse destination or configure a default warehouse.",
+                },
+            )
 
         subtotal = Decimal("0.00")
         tax_total = Decimal("0.00")

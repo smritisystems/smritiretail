@@ -99,6 +99,9 @@ from ..db.base import BaseEntity
 
 class TransferStatus(str, enum.Enum):
     DRAFT = "DRAFT"
+    REQUESTED = "REQUESTED"
+    APPROVED = "APPROVED"
+    REJECTED = "REJECTED"
     DISPATCHED = "DISPATCHED"
     IN_TRANSIT = "IN_TRANSIT"
     RECEIVED = "RECEIVED"

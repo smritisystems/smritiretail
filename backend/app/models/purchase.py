@@ -16,9 +16,9 @@ Founders
 
 * Websites: aitdl.com | erpnbook.com | smritibooks.com
 
-* Version    : 3.19.0
+* Version    : 3.125.0
 * Created    : 2026-07-11
-* Modified   : 2026-10-01
+* Modified   : 2026-10-27
 * Copyright  : © AITDL.com and SMRITIBooks.com. All Rights Reserved.
 * License    : Proprietary Commercial Software
 Classification: Internal
@@ -130,7 +130,7 @@ class PurchaseReceipt(BaseEntity):
     identity_code = Column(String(100), nullable=True, unique=True, index=True)
     supplier_id  = Column(String(50),  ForeignKey("suppliers.id",       ondelete="RESTRICT"), nullable=False)
     order_id     = Column(String(50),  ForeignKey("purchase_orders.id", ondelete="SET NULL"), nullable=True)
-    warehouse_id = Column(String(50),  ForeignKey("warehouses.id",      ondelete="RESTRICT"), nullable=True)
+    warehouse_id = Column(String(50),  ForeignKey("warehouses.id",      ondelete="RESTRICT"), nullable=False)  # R-003: NOT NULL enforced via v1560
     status       = Column(String(20),  nullable=False, default="PENDING")
     notes        = Column(Text,        nullable=True)
     subtotal     = Column(Numeric(15, 2), nullable=False, default=0.00)
