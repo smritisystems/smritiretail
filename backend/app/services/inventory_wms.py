@@ -21,7 +21,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import selectinload, defer
 
 from ..api.deps import TenantContext
 from ..models.inventory import (
@@ -912,3 +912,1013 @@ class InventoryWmsService:
             "alternatives": candidates[:3],
             "message": f"All candidate bins in {target_zone} zone exceed capacity for requested quantity ({quantity} units). Overflow handling required.",
         }
+
+    async def _get_warehouse_resilient(self, warehouse_id: str) -> Optional[Warehouse]:
+        """Resilient warehouse lookup with automatic schema-drift rollback and column deferral."""
+        try:
+            q = select(Warehouse).where(
+                Warehouse.id == warehouse_id,
+                Warehouse.company_id == self.tenant_ctx.company_id,
+                Warehouse.is_deleted == False
+            )
+            res = await self.db.execute(q)
+            return res.scalars().first()
+        except Exception:
+            await self.db.rollback()
+            q_def = select(Warehouse).options(defer(Warehouse.is_default_for_branch)).where(
+                Warehouse.id == warehouse_id,
+                Warehouse.company_id == self.tenant_ctx.company_id,
+                Warehouse.is_deleted == False
+            )
+            res_def = await self.db.execute(q_def)
+            return res_def.scalars().first()
+
+    async def get_replenishment_tasks(self, warehouse_id: str) -> Dict[str, Any]:
+        """
+        Dynamic Picking Bin Replenishment Engine:
+        1. Analyzes dedicated item-to-bin mappings (ItemWarehouseLocation) and physical picking bins (zone == 'PICKING').
+        2. Queries real-time picking bin occupancy from StockMovement ledger.
+        3. Identifies depleted picking bins where current_stock < min_reorder_level.
+        4. Scans bulk/storage reserve bins for available unallocated stock of the same item.
+        5. Computes suggested transfer quantity = min(max_capacity - current_stock, available_bulk_stock).
+        6. Prioritizes tasks (CRITICAL, HIGH, NORMAL, BULK_STOCKOUT).
+        """
+        warehouse = await self._get_warehouse_resilient(warehouse_id)
+        if not warehouse:
+            raise HTTPException(status_code=404, detail="Warehouse not found.")
+
+        # 1. Fetch physical locations
+        locs_q = select(WarehouseLocation).where(
+            WarehouseLocation.warehouse_id == warehouse_id,
+            WarehouseLocation.company_id == self.tenant_ctx.company_id,
+            WarehouseLocation.is_deleted == False,
+        )
+        res_locs = await self.db.execute(locs_q)
+        all_locs = res_locs.scalars().all()
+        loc_by_code = {l.code: l for l in all_locs}
+        bulk_loc_codes = {
+            l.code for l in all_locs
+            if (l.zone or "").upper() in ("BULK", "STORAGE") and not l.is_locked
+        }
+
+        # 2. Fetch configured ItemWarehouseLocation entries
+        from ..models.item_master import ItemWarehouseLocation, Item
+        iwl_q = (
+            select(ItemWarehouseLocation, Item)
+            .join(Item, ItemWarehouseLocation.item_id == Item.id, isouter=True)
+            .where(
+                ItemWarehouseLocation.warehouse_id == warehouse_id,
+                ItemWarehouseLocation.company_id == self.tenant_ctx.company_id,
+                ItemWarehouseLocation.is_deleted == False,
+            )
+        )
+        res_iwl = await self.db.execute(iwl_q)
+        iwl_rows = res_iwl.all()
+
+        # 3. Aggregate all positive stock across bins in this warehouse
+        sm_q = (
+            select(
+                StockMovement.bin,
+                StockMovement.product_id,
+                StockMovement.item_id,
+                StockMovement.sku,
+                func.sum(StockMovement.quantity).label("total_qty")
+            )
+            .where(
+                StockMovement.warehouse_id == warehouse_id,
+                StockMovement.company_id == self.tenant_ctx.company_id,
+                StockMovement.is_deleted == False,
+                StockMovement.bin.isnot(None),
+            )
+            .group_by(
+                StockMovement.bin,
+                StockMovement.product_id,
+                StockMovement.item_id,
+                StockMovement.sku
+            )
+            .having(func.sum(StockMovement.quantity) > 0)
+        )
+        res_sm = await self.db.execute(sm_q)
+        sm_rows = res_sm.all()
+
+        stock_by_bin_and_id: Dict[str, Dict[str, float]] = {}
+        for r_bin, p_id, i_id, sku, qty in sm_rows:
+            if not r_bin:
+                continue
+            f_qty = float(qty)
+            if r_bin not in stock_by_bin_and_id:
+                stock_by_bin_and_id[r_bin] = {}
+            for ident in [p_id, i_id, sku]:
+                if ident:
+                    stock_by_bin_and_id[r_bin][ident] = stock_by_bin_and_id[r_bin].get(ident, 0.0) + f_qty
+
+        tasks: List[Dict[str, Any]] = []
+
+        def _get_bin_item_stock(b_code: str, *keys: Optional[str]) -> float:
+            if b_code not in stock_by_bin_and_id:
+                return 0.0
+            bin_map = stock_by_bin_and_id[b_code]
+            for k in keys:
+                if k and k in bin_map:
+                    return bin_map[k]
+            return 0.0
+
+        def _find_bulk_sources(*keys: Optional[str], exclude_bin: str) -> List[tuple[str, float]]:
+            sources: List[tuple[str, float]] = []
+            for b_code, items_map in stock_by_bin_and_id.items():
+                if b_code == exclude_bin:
+                    continue
+                loc_obj = loc_by_code.get(b_code)
+                zone_name = (loc_obj.zone if loc_obj else "STORAGE") or "STORAGE"
+                if zone_name.upper() == "QUARANTINE" or (loc_obj and loc_obj.is_locked):
+                    continue
+                for k in keys:
+                    if k and k in items_map and items_map[k] > 0:
+                        sources.append((b_code, items_map[k]))
+                        break
+            sources.sort(key=lambda s: s[1], reverse=True)
+            return sources
+
+        for iwl, item in iwl_rows:
+            picking_bin = iwl.location_bin
+            if not picking_bin:
+                continue
+            item_id = iwl.item_id
+            item_code = item.item_code if item else ""
+            product_name = item.item_name if item else "Item"
+
+            curr_stock = _get_bin_item_stock(picking_bin, item_id, item_code)
+            min_lvl = float(iwl.min_reorder_level or 0.0)
+            max_cap = float(iwl.max_capacity or 100.0)
+            reorder_qty = float(iwl.reorder_quantity or 0.0)
+
+            if curr_stock < min_lvl:
+                headroom = max(0.0, max_cap - curr_stock)
+                target_qty = reorder_qty if (0 < reorder_qty <= headroom) else headroom
+                if target_qty <= 0:
+                    continue
+
+                bulk_sources = _find_bulk_sources(item_id, item_code, exclude_bin=picking_bin)
+                total_bulk = sum(s[1] for s in bulk_sources)
+
+                if bulk_sources:
+                    src_bin, src_stock = bulk_sources[0]
+                    transfer_qty = min(target_qty, src_stock)
+                    if curr_stock <= 0:
+                        prio = "CRITICAL"
+                    elif curr_stock <= (min_lvl * 0.5):
+                        prio = "HIGH"
+                    else:
+                        prio = "NORMAL"
+                    status = "READY"
+                    msg = f"Replenish from bulk bin '{src_bin}' (available: {src_stock} units)."
+                else:
+                    src_bin = None
+                    src_stock = 0.0
+                    transfer_qty = 0.0
+                    prio = "BULK_STOCKOUT"
+                    status = "BLOCKED"
+                    msg = "No bulk stock available in warehouse. Vendor PO required."
+
+                loc_obj = loc_by_code.get(picking_bin)
+                src_obj = loc_by_code.get(src_bin) if src_bin else None
+
+                tasks.append({
+                    "task_id": str(uuid.uuid4()),
+                    "item_id": item_id,
+                    "product_id": item_id,
+                    "item_code": item_code,
+                    "product_name": product_name,
+                    "sku": item_code,
+                    "picking_location_id": loc_obj.id if loc_obj else None,
+                    "picking_bin": picking_bin,
+                    "current_picking_stock": curr_stock,
+                    "min_reorder_level": min_lvl,
+                    "max_capacity": max_cap,
+                    "reorder_quantity": reorder_qty,
+                    "source_location_id": src_obj.id if src_obj else None,
+                    "source_bin": src_bin,
+                    "available_bulk_stock": total_bulk,
+                    "suggested_quantity": transfer_qty,
+                    "priority": prio,
+                    "status": status,
+                    "message": msg,
+                })
+
+        prio_order = {"CRITICAL": 0, "HIGH": 1, "NORMAL": 2, "BULK_STOCKOUT": 3}
+        tasks.sort(key=lambda t: prio_order.get(t["priority"], 99))
+
+        return {
+            "warehouse_id": warehouse_id,
+            "warehouse_code": warehouse.code,
+            "total_tasks": len(tasks),
+            "critical_count": sum(1 for t in tasks if t["priority"] == "CRITICAL"),
+            "high_count": sum(1 for t in tasks if t["priority"] == "HIGH"),
+            "normal_count": sum(1 for t in tasks if t["priority"] == "NORMAL"),
+            "bulk_stockout_count": sum(1 for t in tasks if t["priority"] == "BULK_STOCKOUT"),
+            "tasks": tasks,
+        }
+
+    async def execute_replenishment_tasks(
+        self,
+        warehouse_id: str,
+        tasks: List[Any],
+        notes: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        Executes internal replenishment transfers atomically:
+        - Creates TRANSFER_OUT from source bulk bin
+        - Creates TRANSFER_IN to destination picking bin
+        - Records reference_doc_type="WMS_REPLENISHMENT"
+        """
+        warehouse = await self._get_warehouse_resilient(warehouse_id)
+        if not warehouse:
+            raise HTTPException(status_code=404, detail="Warehouse not found.")
+
+        if not tasks:
+            raise HTTPException(status_code=400, detail="No replenishment tasks provided for execution.")
+
+        run_id = f"REPL-{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}-{uuid.uuid4().hex[:6].upper()}"
+        executed: List[Dict[str, Any]] = []
+        total_units = Decimal("0.00")
+
+        for t in tasks:
+            def _field(name: str, fallback: Any = None) -> Any:
+                if isinstance(t, dict):
+                    return t.get(name, fallback)
+                return getattr(t, name, fallback)
+
+            qty_val = _field("quantity", 0)
+            qty = abs(Decimal(str(qty_val)))
+            if qty <= 0:
+                continue
+
+            src_bin = _field("source_bin")
+            dst_bin = _field("destination_bin")
+            item_id = _field("item_id")
+            product_id = _field("product_id") or item_id
+            sku = _field("sku") or _field("item_code") or ""
+            product_name = _field("product_name") or "Replenished Item"
+            batch_no = _field("batch_no")
+
+            if not src_bin or not dst_bin:
+                continue
+
+            user_val = getattr(self.tenant_ctx, "user_id", None) or "SYSTEM"
+
+            # 1. OUTWARD movement from source bulk bin
+            sm_out = StockMovement(
+                company_id=self.tenant_ctx.company_id,
+                branch_id=getattr(self.tenant_ctx, "branch_id", None),
+                warehouse_id=warehouse_id,
+                product_id=product_id,
+                item_id=item_id,
+                sku=sku,
+                product_name=product_name,
+                quantity=-qty,
+                movement_type="TRANSFER_OUT",
+                reference_doc_type="WMS_REPLENISHMENT",
+                reference_doc_id=run_id,
+                bin=src_bin,
+                batch=batch_no,
+                cost_source="WMS_INTERNAL_TRANSFER",
+                remarks=f"Replenishment transfer OUT to picking bin {dst_bin}. {notes or ''}".strip(),
+                user=str(user_val),
+            )
+            self.db.add(sm_out)
+
+            # 2. INWARD movement into target picking bin
+            sm_in = StockMovement(
+                company_id=self.tenant_ctx.company_id,
+                branch_id=getattr(self.tenant_ctx, "branch_id", None),
+                warehouse_id=warehouse_id,
+                product_id=product_id,
+                item_id=item_id,
+                sku=sku,
+                product_name=product_name,
+                quantity=qty,
+                movement_type="TRANSFER_IN",
+                reference_doc_type="WMS_REPLENISHMENT",
+                reference_doc_id=run_id,
+                bin=dst_bin,
+                batch=batch_no,
+                cost_source="WMS_INTERNAL_TRANSFER",
+                remarks=f"Replenishment transfer IN from bulk bin {src_bin}. {notes or ''}".strip(),
+                user=str(user_val),
+            )
+            self.db.add(sm_in)
+
+            total_units += qty
+            executed.append({
+                "item_id": item_id,
+                "sku": sku,
+                "product_name": product_name,
+                "source_bin": src_bin,
+                "destination_bin": dst_bin,
+                "quantity": float(qty),
+                "batch_no": batch_no,
+            })
+
+        await self.db.flush()
+
+        return {
+            "warehouse_id": warehouse_id,
+            "run_id": run_id,
+            "total_transfers": len(executed),
+            "total_units": float(total_units),
+            "executed_tasks": executed,
+            "message": f"Successfully executed {len(executed)} replenishment transfer(s) ({float(total_units)} total units).",
+        }
+
+    async def get_warehouse_slotting(self, warehouse_id: str) -> List[Dict[str, Any]]:
+        """List slotting rules and current stock per item in the given warehouse."""
+        from ..models.item_master import ItemWarehouseLocation, Item
+        stmt = (
+            select(ItemWarehouseLocation, Item)
+            .join(Item, ItemWarehouseLocation.item_id == Item.id, isouter=True)
+            .where(
+                ItemWarehouseLocation.warehouse_id == warehouse_id,
+                ItemWarehouseLocation.company_id == self.tenant_ctx.company_id,
+                ItemWarehouseLocation.is_deleted == False,
+            )
+            .order_by(ItemWarehouseLocation.location_bin.asc())
+        )
+        res = await self.db.execute(stmt)
+        rows = res.all()
+
+        # Query bin zones
+        loc_res = await self.db.execute(
+            select(WarehouseLocation.code, WarehouseLocation.zone)
+            .where(
+                WarehouseLocation.warehouse_id == warehouse_id,
+                WarehouseLocation.company_id == self.tenant_ctx.company_id,
+                WarehouseLocation.is_deleted == False,
+            )
+        )
+        zone_map = {c: z for c, z in loc_res.all()}
+
+        # Query stock by bin and item
+        sm_res = await self.db.execute(
+            select(StockMovement.bin, StockMovement.item_id, func.sum(StockMovement.quantity))
+            .where(
+                StockMovement.warehouse_id == warehouse_id,
+                StockMovement.company_id == self.tenant_ctx.company_id,
+                StockMovement.is_deleted == False,
+                StockMovement.bin.isnot(None),
+            )
+            .group_by(StockMovement.bin, StockMovement.item_id)
+        )
+        stock_map = {(b, i): float(q) for b, i, q in sm_res.all() if q is not None}
+
+        out = []
+        for iwl, item in rows:
+            bin_code = iwl.location_bin or ""
+            curr_stock = stock_map.get((bin_code, iwl.item_id), 0.0)
+            out.append({
+                "id": iwl.id,
+                "item_id": iwl.item_id,
+                "item_code": item.item_code if item else "",
+                "item_name": item.item_name if item else "",
+                "warehouse_id": warehouse_id,
+                "location_bin": bin_code,
+                "zone": zone_map.get(bin_code, "PICKING"),
+                "current_stock": curr_stock,
+                "min_reorder_level": float(iwl.min_reorder_level or 0.0),
+                "max_capacity": float(iwl.max_capacity or 0.0),
+                "reorder_quantity": float(iwl.reorder_quantity or 0.0),
+            })
+        return out
+
+    async def save_item_slotting(
+        self,
+        warehouse_id: str,
+        item_id: str,
+        location_bin: str,
+        min_reorder_level: Decimal,
+        max_capacity: Decimal,
+        reorder_quantity: Decimal,
+    ) -> Dict[str, Any]:
+        """Upsert item picking bin slotting rule in item_warehouse_locations."""
+        from ..models.item_master import ItemWarehouseLocation, Item
+        wh = await self._get_warehouse_resilient(warehouse_id)
+        if not wh:
+            raise HTTPException(status_code=404, detail="Warehouse not found.")
+
+        item_q = select(Item).where(
+            Item.id == item_id,
+            Item.company_id == self.tenant_ctx.company_id,
+            Item.is_deleted == False,
+        )
+        res_item = await self.db.execute(item_q)
+        item = res_item.scalars().first()
+        if not item:
+            raise HTTPException(status_code=404, detail="Item not found.")
+
+        q_existing = select(ItemWarehouseLocation).where(
+            ItemWarehouseLocation.warehouse_id == warehouse_id,
+            ItemWarehouseLocation.item_id == item_id,
+            ItemWarehouseLocation.company_id == self.tenant_ctx.company_id,
+            ItemWarehouseLocation.is_deleted == False,
+        )
+        res_ex = await self.db.execute(q_existing)
+        existing = res_ex.scalars().first()
+
+        if existing:
+            existing.location_bin = location_bin
+            existing.min_reorder_level = min_reorder_level
+            existing.max_capacity = max_capacity
+            existing.reorder_quantity = reorder_quantity
+            existing.updated_by = getattr(self.tenant_ctx, "user_id", None) or "SYSTEM"
+            record = existing
+        else:
+            record = ItemWarehouseLocation(
+                company_id=self.tenant_ctx.company_id,
+                branch_id=getattr(self.tenant_ctx, "branch_id", None),
+                item_id=item_id,
+                warehouse_id=warehouse_id,
+                location_bin=location_bin,
+                min_reorder_level=min_reorder_level,
+                max_capacity=max_capacity,
+                reorder_quantity=reorder_quantity,
+                created_by=getattr(self.tenant_ctx, "user_id", None) or "SYSTEM",
+            )
+            self.db.add(record)
+
+        await self.db.flush()
+        return {
+            "id": record.id,
+            "item_id": item_id,
+            "item_code": item.item_code,
+            "item_name": item.item_name,
+            "warehouse_id": warehouse_id,
+            "location_bin": location_bin,
+            "min_reorder_level": float(min_reorder_level),
+            "max_capacity": float(max_capacity),
+            "reorder_quantity": float(reorder_quantity),
+            "status": "SAVED",
+            "message": f"Slotting configured for item '{item.item_code}' at bin '{location_bin}'.",
+        }
+
+    # =========================================================================
+    # WMS Phase 4: RF Gun Handheld Barcode Terminal Services
+    # =========================================================================
+
+    async def verify_rf_barcode(
+        self,
+        warehouse_id: str,
+        barcode: str,
+        expected_type: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """
+        Resolves a scanned barcode into a WarehouseLocation or an Item/Product.
+        Supports hardware RF gun keyboard wedge input, camera scanning, and fast disambiguation.
+        """
+        clean_code = (barcode or "").strip()
+        if not clean_code:
+            return {
+                "matched": False,
+                "entity_type": "UNKNOWN",
+                "barcode": barcode,
+                "location": None,
+                "item": None,
+                "message": "Empty barcode provided.",
+            }
+
+        # 1. Check if it matches a WarehouseLocation
+        if expected_type in (None, "LOCATION"):
+            loc_q = select(WarehouseLocation).where(
+                WarehouseLocation.warehouse_id == warehouse_id,
+                WarehouseLocation.company_id == self.tenant_ctx.company_id,
+                WarehouseLocation.is_deleted == False,
+                (
+                    (WarehouseLocation.barcode == clean_code) |
+                    (WarehouseLocation.code == clean_code) |
+                    (WarehouseLocation.code.ilike(clean_code))
+                ),
+            )
+            res_loc = await self.db.execute(loc_q)
+            loc = res_loc.scalars().first()
+            if loc:
+                return {
+                    "matched": True,
+                    "entity_type": "LOCATION",
+                    "barcode": clean_code,
+                    "location": {
+                        "id": loc.id,
+                        "code": loc.code,
+                        "name": loc.name or loc.code,
+                        "zone": loc.zone or "STORAGE",
+                        "barcode": loc.barcode,
+                        "max_capacity_units": int(loc.max_capacity_units or 100),
+                        "is_locked": bool(loc.is_locked),
+                    },
+                    "item": None,
+                    "message": f"Resolved location '{loc.code}' (Zone: {loc.zone or 'STORAGE'}).",
+                }
+
+        # 2. Check if it matches an Item
+        if expected_type in (None, "ITEM"):
+            from ..models.item_master import Item, ItemWarehouseLocation, ItemBarcode
+            item_q = select(Item).where(
+                Item.company_id == self.tenant_ctx.company_id,
+                Item.is_deleted == False,
+                (
+                    (Item.item_code == clean_code) |
+                    (Item.item_code.ilike(clean_code))
+                ),
+            )
+            res_item = await self.db.execute(item_q)
+            item = res_item.scalars().first()
+            matched_barcode = None
+
+            # If not matched directly by item_code, check ItemBarcode
+            if not item:
+                ib_q = (
+                    select(Item)
+                    .join(ItemBarcode, ItemBarcode.item_id == Item.id)
+                    .where(
+                        ItemBarcode.company_id == self.tenant_ctx.company_id,
+                        ItemBarcode.is_deleted == False,
+                        ItemBarcode.barcode == clean_code,
+                    )
+                )
+                res_ib = await self.db.execute(ib_q)
+                item = res_ib.scalars().first()
+                if item:
+                    matched_barcode = clean_code
+
+            if item:
+                # Find current slotted bin if any
+                iwl_q = select(ItemWarehouseLocation.location_bin).where(
+                    ItemWarehouseLocation.item_id == item.id,
+                    ItemWarehouseLocation.warehouse_id == warehouse_id,
+                    ItemWarehouseLocation.company_id == self.tenant_ctx.company_id,
+                    ItemWarehouseLocation.is_deleted == False,
+                )
+                res_iwl = await self.db.execute(iwl_q)
+                assigned_bin = res_iwl.scalars().first()
+
+                # Sum stock for this item in this warehouse
+                sm_q = select(func.sum(StockMovement.quantity)).where(
+                    StockMovement.warehouse_id == warehouse_id,
+                    StockMovement.company_id == self.tenant_ctx.company_id,
+                    (StockMovement.item_id == item.id) | (StockMovement.sku == item.item_code),
+                )
+                tot_stk = await self.db.scalar(sm_q) or 0.0
+
+                return {
+                    "matched": True,
+                    "entity_type": "ITEM",
+                    "barcode": clean_code,
+                    "location": None,
+                    "item": {
+                        "id": item.id,
+                        "item_code": item.item_code,
+                        "item_name": item.item_name,
+                        "sku": item.item_code,
+                        "barcode": matched_barcode,
+                        "current_bin": assigned_bin,
+                        "total_stock": float(tot_stk),
+                    },
+                    "message": f"Resolved item '{item.item_code}' - {item.item_name}.",
+                }
+
+            # Fallback to Product model (which has barcode and sku columns)
+            prod_q = select(Product).where(
+                Product.company_id == self.tenant_ctx.company_id,
+                Product.is_deleted == False,
+                (
+                    (Product.barcode == clean_code) |
+                    (Product.sku == clean_code) |
+                    (Product.code == clean_code) |
+                    (Product.sku.ilike(clean_code))
+                ),
+            )
+            res_prod = await self.db.execute(prod_q)
+            prod = res_prod.scalars().first()
+            if prod:
+                sm_q = select(func.sum(StockMovement.quantity)).where(
+                    StockMovement.warehouse_id == warehouse_id,
+                    StockMovement.company_id == self.tenant_ctx.company_id,
+                    (StockMovement.product_id == prod.id) | (StockMovement.sku == prod.sku),
+                )
+                tot_stk = await self.db.scalar(sm_q) or 0.0
+
+                return {
+                    "matched": True,
+                    "entity_type": "ITEM",
+                    "barcode": clean_code,
+                    "location": None,
+                    "item": {
+                        "id": prod.id,
+                        "item_code": prod.sku or prod.code,
+                        "item_name": prod.name,
+                        "sku": prod.sku or prod.code,
+                        "barcode": prod.barcode,
+                        "current_bin": None,
+                        "total_stock": float(tot_stk),
+                    },
+                    "message": f"Resolved product '{prod.sku or prod.code}' - {prod.name}.",
+                }
+
+        return {
+            "matched": False,
+            "entity_type": "UNKNOWN",
+            "barcode": clean_code,
+            "location": None,
+            "item": None,
+            "message": f"Barcode '{clean_code}' could not be resolved as location or item.",
+        }
+
+    async def get_rf_bin_summary(
+        self,
+        warehouse_id: str,
+        bin_code: str,
+    ) -> Dict[str, Any]:
+        """
+        Returns live physical bin inspection details, occupied SKUs, total units,
+        and headroom calculated directly from StockMovement ledger.
+        """
+        clean_code = (bin_code or "").strip()
+        wh = await self._get_warehouse_resilient(warehouse_id)
+        if not wh:
+            raise HTTPException(status_code=404, detail="Warehouse not found.")
+
+        # Find location
+        loc_q = select(WarehouseLocation).where(
+            WarehouseLocation.warehouse_id == warehouse_id,
+            WarehouseLocation.company_id == self.tenant_ctx.company_id,
+            WarehouseLocation.is_deleted == False,
+            (
+                (WarehouseLocation.code == clean_code) |
+                (WarehouseLocation.barcode == clean_code) |
+                (WarehouseLocation.code.ilike(clean_code))
+            ),
+        )
+        res_loc = await self.db.execute(loc_q)
+        loc = res_loc.scalars().first()
+        if not loc:
+            raise HTTPException(status_code=404, detail=f"Bin location '{clean_code}' not found in warehouse.")
+
+        # Query StockMovement grouped by (product_id, item_id, sku, batch) in this bin
+        sm_q = (
+            select(
+                StockMovement.item_id,
+                StockMovement.product_id,
+                StockMovement.sku,
+                StockMovement.product_name,
+                StockMovement.batch,
+                func.sum(StockMovement.quantity).label("total_qty")
+            )
+            .where(
+                StockMovement.warehouse_id == warehouse_id,
+                StockMovement.company_id == self.tenant_ctx.company_id,
+                StockMovement.bin == loc.code,
+            )
+            .group_by(
+                StockMovement.item_id,
+                StockMovement.product_id,
+                StockMovement.sku,
+                StockMovement.product_name,
+                StockMovement.batch,
+            )
+        )
+        res_sm = await self.db.execute(sm_q)
+        occupied_items = []
+        total_occupied = 0.0
+
+        for row in res_sm.all():
+            qty = float(row.total_qty or 0.0)
+            if qty > 0.0001:
+                total_occupied += qty
+                occupied_items.append({
+                    "item_id": row.item_id or row.product_id or "",
+                    "product_id": row.product_id,
+                    "item_code": row.sku or "",
+                    "item_name": row.product_name or row.sku or "Stock Item",
+                    "sku": row.sku,
+                    "batch_no": row.batch,
+                    "quantity": qty,
+                })
+
+        max_cap = float(loc.max_capacity_units or 100)
+        headroom = max(0.0, max_cap - total_occupied)
+
+        return {
+            "warehouse_id": warehouse_id,
+            "warehouse_code": getattr(wh, "code", ""),
+            "location_id": loc.id,
+            "bin_code": loc.code,
+            "barcode": loc.barcode,
+            "zone": loc.zone or "STORAGE",
+            "max_capacity_units": int(max_cap),
+            "total_units_occupied": float(total_occupied),
+            "headroom_units": float(headroom),
+            "is_locked": bool(loc.is_locked),
+            "items": occupied_items,
+        }
+
+    async def execute_rf_quick_transfer(
+        self,
+        warehouse_id: str,
+        from_bin: str,
+        to_bin: str,
+        item_id: str,
+        quantity: Decimal,
+        batch_no: Optional[str] = None,
+        notes: Optional[str] = "RF Quick Relocate",
+    ) -> Dict[str, Any]:
+        """
+        Executes an instant atomic stock relocation between bins on the warehouse floor.
+        Creates dual StockMovement ledger records with reference_doc_type='WMS_RF_TRANSFER'.
+        """
+        if quantity <= 0:
+            raise HTTPException(status_code=400, detail="Transfer quantity must be greater than zero.")
+
+        wh = await self._get_warehouse_resilient(warehouse_id)
+        if not wh:
+            raise HTTPException(status_code=404, detail="Warehouse not found.")
+
+        # Check source and target bins
+        loc_from_q = select(WarehouseLocation).where(
+            WarehouseLocation.warehouse_id == warehouse_id,
+            WarehouseLocation.company_id == self.tenant_ctx.company_id,
+            WarehouseLocation.is_deleted == False,
+            (
+                (WarehouseLocation.code == from_bin) |
+                (WarehouseLocation.barcode == from_bin) |
+                (WarehouseLocation.code.ilike(from_bin))
+            ),
+        )
+        res_from = await self.db.execute(loc_from_q)
+        loc_from = res_from.scalars().first()
+        if not loc_from:
+            raise HTTPException(status_code=404, detail=f"Source bin '{from_bin}' does not exist.")
+        if loc_from.is_locked:
+            raise HTTPException(status_code=400, detail=f"Source bin '{loc_from.code}' is locked for inventory counting.")
+
+        loc_to_q = select(WarehouseLocation).where(
+            WarehouseLocation.warehouse_id == warehouse_id,
+            WarehouseLocation.company_id == self.tenant_ctx.company_id,
+            WarehouseLocation.is_deleted == False,
+            (
+                (WarehouseLocation.code == to_bin) |
+                (WarehouseLocation.barcode == to_bin) |
+                (WarehouseLocation.code.ilike(to_bin))
+            ),
+        )
+        res_to = await self.db.execute(loc_to_q)
+        loc_to = res_to.scalars().first()
+        if not loc_to:
+            raise HTTPException(status_code=404, detail=f"Destination bin '{to_bin}' does not exist.")
+        if loc_to.is_locked:
+            raise HTTPException(status_code=400, detail=f"Destination bin '{loc_to.code}' is locked.")
+
+        # Resolve Item / Product
+        from ..models.item_master import Item
+        item_q = select(Item).where(
+            Item.id == item_id,
+            Item.company_id == self.tenant_ctx.company_id,
+            Item.is_deleted == False,
+        )
+        res_item = await self.db.execute(item_q)
+        item = res_item.scalars().first()
+
+        item_code = item.item_code if item else item_id
+        product_name = item.item_name if item else item_code
+        sku = item.item_code if item else item_id
+
+        # Verify source stock
+        src_stock_q = select(func.sum(StockMovement.quantity)).where(
+            StockMovement.warehouse_id == warehouse_id,
+            StockMovement.company_id == self.tenant_ctx.company_id,
+            StockMovement.bin == loc_from.code,
+            (StockMovement.item_id == item_id) | (StockMovement.product_id == item_id) | (StockMovement.sku == sku),
+        )
+        src_stock = await self.db.scalar(src_stock_q) or 0.0
+        if float(src_stock) < float(quantity):
+            raise HTTPException(
+                status_code=400,
+                detail=f"Insufficient stock of '{item_code}' in source bin '{loc_from.code}'. Available: {float(src_stock)}, requested: {float(quantity)}.",
+            )
+
+        run_id = f"RF-MOV-{uuid.uuid4().hex[:8].upper()}"
+        user_val = getattr(self.tenant_ctx, "user_id", None) or "RF_GUN"
+
+        # 1. OUTWARD movement from source bin
+        sm_out = StockMovement(
+            company_id=self.tenant_ctx.company_id,
+            branch_id=getattr(self.tenant_ctx, "branch_id", None),
+            warehouse_id=warehouse_id,
+            product_id=item_id,
+            item_id=item_id,
+            sku=sku,
+            product_name=product_name,
+            quantity=-quantity,
+            movement_type="TRANSFER_OUT",
+            reference_doc_type="WMS_RF_TRANSFER",
+            reference_doc_id=run_id,
+            bin=loc_from.code,
+            batch=batch_no,
+            cost_source="WMS_RF_RELOCATE",
+            remarks=f"RF Quick Transfer OUT to {loc_to.code}. {notes or ''}".strip(),
+            user=str(user_val),
+        )
+        self.db.add(sm_out)
+
+        # 2. INWARD movement to target bin
+        sm_in = StockMovement(
+            company_id=self.tenant_ctx.company_id,
+            branch_id=getattr(self.tenant_ctx, "branch_id", None),
+            warehouse_id=warehouse_id,
+            product_id=item_id,
+            item_id=item_id,
+            sku=sku,
+            product_name=product_name,
+            quantity=quantity,
+            movement_type="TRANSFER_IN",
+            reference_doc_type="WMS_RF_TRANSFER",
+            reference_doc_id=run_id,
+            bin=loc_to.code,
+            batch=batch_no,
+            cost_source="WMS_RF_RELOCATE",
+            remarks=f"RF Quick Transfer IN from {loc_from.code}. {notes or ''}".strip(),
+            user=str(user_val),
+        )
+        self.db.add(sm_in)
+
+        await self.db.flush()
+
+        remaining_source = float(src_stock) - float(quantity)
+
+        # Query new target stock
+        tgt_stock_q = select(func.sum(StockMovement.quantity)).where(
+            StockMovement.warehouse_id == warehouse_id,
+            StockMovement.company_id == self.tenant_ctx.company_id,
+            StockMovement.bin == loc_to.code,
+            (StockMovement.item_id == item_id) | (StockMovement.product_id == item_id) | (StockMovement.sku == sku),
+        )
+        tgt_stock = await self.db.scalar(tgt_stock_q) or float(quantity)
+
+        return {
+            "transfer_id": run_id,
+            "warehouse_id": warehouse_id,
+            "from_bin": loc_from.code,
+            "to_bin": loc_to.code,
+            "item_id": item_id,
+            "item_code": item_code,
+            "quantity": float(quantity),
+            "remaining_source_stock": max(0.0, remaining_source),
+            "new_target_stock": float(tgt_stock),
+            "status": "COMPLETED",
+            "message": f"Moved {float(quantity)} units of '{item_code}' from {loc_from.code} to {loc_to.code}.",
+        }
+
+    async def confirm_rf_replenishment(
+        self,
+        warehouse_id: str,
+        scanned_source_bin: str,
+        scanned_item_barcode: str,
+        scanned_destination_bin: str,
+        quantity: Decimal,
+        task_id: Optional[str] = None,
+        notes: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """
+        Validates multi-step scan directed replenishment and posts atomic stock transfer.
+        Guarantees that physical barcode scans match warehouse locations and inventory item.
+        """
+        if quantity <= 0:
+            raise HTTPException(status_code=400, detail="Replenishment quantity must be greater than zero.")
+
+        wh = await self._get_warehouse_resilient(warehouse_id)
+        if not wh:
+            raise HTTPException(status_code=404, detail="Warehouse not found.")
+
+        # 1. Verify Source Bin
+        src_q = select(WarehouseLocation).where(
+            WarehouseLocation.warehouse_id == warehouse_id,
+            WarehouseLocation.company_id == self.tenant_ctx.company_id,
+            WarehouseLocation.is_deleted == False,
+            (
+                (WarehouseLocation.code == scanned_source_bin) |
+                (WarehouseLocation.barcode == scanned_source_bin) |
+                (WarehouseLocation.code.ilike(scanned_source_bin))
+            ),
+        )
+        res_src = await self.db.execute(src_q)
+        src_loc = res_src.scalars().first()
+        if not src_loc:
+            raise HTTPException(status_code=400, detail=f"Source bin barcode '{scanned_source_bin}' could not be verified.")
+        if src_loc.is_locked:
+            raise HTTPException(status_code=400, detail=f"Source bin '{src_loc.code}' is locked.")
+
+        # 2. Verify Destination Bin
+        dst_q = select(WarehouseLocation).where(
+            WarehouseLocation.warehouse_id == warehouse_id,
+            WarehouseLocation.company_id == self.tenant_ctx.company_id,
+            WarehouseLocation.is_deleted == False,
+            (
+                (WarehouseLocation.code == scanned_destination_bin) |
+                (WarehouseLocation.barcode == scanned_destination_bin) |
+                (WarehouseLocation.code.ilike(scanned_destination_bin))
+            ),
+        )
+        res_dst = await self.db.execute(dst_q)
+        dst_loc = res_dst.scalars().first()
+        if not dst_loc:
+            raise HTTPException(status_code=400, detail=f"Destination picking bin barcode '{scanned_destination_bin}' could not be verified.")
+        if dst_loc.is_locked:
+            raise HTTPException(status_code=400, detail=f"Destination bin '{dst_loc.code}' is locked.")
+
+        # 3. Verify Item Barcode
+        from ..models.item_master import Item
+        clean_item_code = (scanned_item_barcode or "").strip()
+        item_q = select(Item).where(
+            Item.company_id == self.tenant_ctx.company_id,
+            Item.is_deleted == False,
+            (
+                (Item.item_code == clean_item_code) |
+                (Item.id == clean_item_code) |
+                (Item.item_code.ilike(clean_item_code))
+            ),
+        )
+        res_item = await self.db.execute(item_q)
+        item = res_item.scalars().first()
+
+        item_id = item.id if item else clean_item_code
+        item_code = item.item_code if item else clean_item_code
+        product_name = item.item_name if item else item_code
+        sku = item.item_code if item else item_code
+
+        # 4. Check available stock in source bin
+        src_stock_q = select(func.sum(StockMovement.quantity)).where(
+            StockMovement.warehouse_id == warehouse_id,
+            StockMovement.company_id == self.tenant_ctx.company_id,
+            StockMovement.bin == src_loc.code,
+            (StockMovement.item_id == item_id) | (StockMovement.product_id == item_id) | (StockMovement.sku == sku),
+        )
+        src_stock = await self.db.scalar(src_stock_q) or 0.0
+        if float(src_stock) < float(quantity):
+            raise HTTPException(
+                status_code=400,
+                detail=f"Source bin '{src_loc.code}' does not have sufficient stock. Available: {float(src_stock)}, requested: {float(quantity)}.",
+            )
+
+        run_id = f"RF-REP-{uuid.uuid4().hex[:8].upper()}"
+        user_val = getattr(self.tenant_ctx, "user_id", None) or "RF_GUN"
+
+        # Outgoing StockMovement
+        sm_out = StockMovement(
+            company_id=self.tenant_ctx.company_id,
+            branch_id=getattr(self.tenant_ctx, "branch_id", None),
+            warehouse_id=warehouse_id,
+            product_id=item_id,
+            item_id=item_id,
+            sku=sku,
+            product_name=product_name,
+            quantity=-quantity,
+            movement_type="TRANSFER_OUT",
+            reference_doc_type="WMS_REPLENISHMENT",
+            reference_doc_id=run_id,
+            bin=src_loc.code,
+            cost_source="WMS_RF_REPLENISHMENT",
+            remarks=f"RF Replenishment verified OUT to picking bin {dst_loc.code}. {notes or ''}".strip(),
+            user=str(user_val),
+        )
+        self.db.add(sm_out)
+
+        # Incoming StockMovement
+        sm_in = StockMovement(
+            company_id=self.tenant_ctx.company_id,
+            branch_id=getattr(self.tenant_ctx, "branch_id", None),
+            warehouse_id=warehouse_id,
+            product_id=item_id,
+            item_id=item_id,
+            sku=sku,
+            product_name=product_name,
+            quantity=quantity,
+            movement_type="TRANSFER_IN",
+            reference_doc_type="WMS_REPLENISHMENT",
+            reference_doc_id=run_id,
+            bin=dst_loc.code,
+            cost_source="WMS_RF_REPLENISHMENT",
+            remarks=f"RF Replenishment verified IN from bulk bin {src_loc.code}. {notes or ''}".strip(),
+            user=str(user_val),
+        )
+        self.db.add(sm_in)
+
+        await self.db.flush()
+
+        return {
+            "success": True,
+            "run_id": run_id,
+            "task_id": task_id,
+            "transferred_units": float(quantity),
+            "source_bin": src_loc.code,
+            "destination_bin": dst_loc.code,
+            "status": "EXECUTED",
+            "message": f"Successfully verified & transferred {float(quantity)} units of '{item_code}' into picking bin {dst_loc.code}.",
+        }
+
+

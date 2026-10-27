@@ -1,5 +1,34 @@
 <!--
 
+## [3.129.0] - 2026-10-28 - WMS Phase 4: Barcode RF Gun Handheld Terminal Workflow & Fast Mobile Relocation
+
+### Added
+- src/components/wms/WmsRfScanTerminal.tsx: Mobile handheld RF gun scanning component with 3 operation modes (Directed Replenishment 4-step wizard, Live Bin Occupancy & Headroom Audit, and Quick Stock Relocate). Features zero-asset Web Audio API synthesizer for positive ascending chimes and warning buzzers, Android haptic vibration (
+avigator.vibrate), and hardware laser wedge burst capture.
+- ackend/tests/test_wms_rf_terminal.py: Unit and integration test suite (9/9 green) validating barcode verification, live bin occupancy from StockMovement, quick transfer execution, and 3-scan directed replenishment confirmation.
+- docs/implementation/wms/WMS_Phase4_RF_Gun_Handheld_Terminal_Plan_v3.129.0.md: Formal IPGP implementation plan.
+- docs/walkthrough/wms/WMS_Phase4_RF_Gun_Handheld_Terminal_v3.129.0.md: Formal WGP walkthrough document.
+
+### Changed
+- ackend/app/schemas/wms.py: Added RfBarcodeVerifyRequest, RfBarcodeVerifyResponse, RfLocationMatch, RfItemMatch, RfBinItemSummary, RfBinSummaryResponse, RfQuickTransferRequest, RfQuickTransferResponse, RfReplenishConfirmRequest, and RfReplenishConfirmResponse.
+- ackend/app/services/inventory_wms.py: Implemented erify_rf_barcode, get_rf_bin_summary, execute_rf_quick_transfer, and confirm_rf_replenishment.
+- ackend/app/api/v1/wms.py: Exposed POST /warehouses/{id}/rf/verify-barcode, GET /warehouses/{id}/rf/bin-summary, POST /warehouses/{id}/rf/quick-transfer, and POST /warehouses/{id}/rf/replenish-confirm.
+- src/components/wms/WmsStudioTab.tsx: Integrated RF Terminal subtab into studio header navigation and mounted WmsRfScanTerminal workspace view.
+
+## [3.128.0] - 2026-10-28 - WMS: Dynamic Picking Bin Replenishment Engine & Min/Max Inventory Slotting Tasks
+
+### Added
+- `backend/tests/test_wms_replenishment_and_slotting.py`: Dedicated unit test suite (5/5 green) verifying picking bin depletion detection (`current_stock < min_reorder_level`), candidate reserve bulk bin selection and transfer quantity calculation (`min(headroom, available_bulk)`), bulk stockout handling (`priority=BULK_STOCKOUT`), atomic dual `StockMovement` execution (`TRANSFER_OUT` + `TRANSFER_IN` with `reference_doc_type="WMS_REPLENISHMENT"`), and item slotting persistence.
+- `docs/implementation/wms/WMS_Phase3_Dynamic_Picking_Bin_Replenishment_And_Slotting_Plan_v3.128.0.md`: Formal IPGP implementation plan.
+- `docs/walkthrough/wms/WMS_Phase3_Dynamic_Picking_Bin_Replenishment_And_Slotting_v3.128.0.md`: Formal WGP walkthrough document.
+
+### Changed
+- `backend/app/schemas/wms.py`: Added `ReplenishmentTaskItem`, `ReplenishmentTasksResponse`, `ReplenishmentExecuteItem`, `ReplenishmentExecuteRequest`, `ReplenishmentExecuteResponse`, `ItemSlottingConfigItem`, and `ItemSlottingSaveRequest`.
+- `backend/app/services/inventory_wms.py`: Implemented `_get_warehouse_resilient`, `get_replenishment_tasks`, `execute_replenishment_tasks`, `get_warehouse_slotting`, and `save_item_slotting`.
+- `backend/app/api/v1/wms.py`: Exposed `GET /warehouses/{id}/replenishment-tasks`, `POST /warehouses/{id}/replenishment/execute`, `GET /warehouses/{id}/slotting`, and `POST /warehouses/{id}/slotting`.
+- `src/components/wms/WarehouseLocationManager.tsx`: Added `Replenishment Engine` toolbar button with pulsing critical indicator; added full interactive Replenishment Manager modal with urgency filtering, visual stock headroom bars, quantity overrides, and batch execution; added Min/Max Slotting Master Tab with inline rule configuration.
+- `src/components/wms/WmsStudioTab.tsx`: Updated subtab label to `Locations & Replenish` and integrated location management triggers.
+
 ## [3.127.0] - 2026-10-28 - WMS: Physical Storage Bin Matrix, Aisle/Rack/Shelf Generation & Putaway Rules
 
 ### Added
