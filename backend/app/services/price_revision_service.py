@@ -307,6 +307,9 @@ class PriceRevisionService:
             revised_selling_price=rev_sp,
             previous_cost_price=prev_cp,
             revised_cost_price=rev_cp,
+            # G1: Wholesale price revision audit trail (migration v1548)
+            previous_wholesale_price=prev_dp,
+            revised_wholesale_price=rev_dp,
             effective_from=effective_from,
             effective_to=effective_to,
             status=status,
@@ -420,19 +423,32 @@ class PriceRevisionService:
                 pbe.updated_by = acting_user
 
         # D. Synchronize authoritative ItemPrice record (mrp, selling_price, wholesale_price, cost_price)
-        rev_dp_meta = (revision.metadata_json or {}).get("revised_distributor_price")
+        # G1: prefer the typed columns on the revision entity; fall back to metadata_json for
+        # legacy revision records that pre-date v1548 and have NULL in the typed columns.
+        rev_dp_entity = revision.revised_wholesale_price
+        rev_dp_meta_raw = (revision.metadata_json or {}).get("revised_distributor_price")
+        rev_dp = (
+            rev_dp_entity
+            if rev_dp_entity is not None
+            else (Decimal(str(rev_dp_meta_raw)).quantize(Decimal("0.01")) if rev_dp_meta_raw is not None else None)
+        )
+
         stmt_ip = select(ItemPrice).where(
             ItemPrice.company_id == company_id,
             ItemPrice.item_variant_id == revision.variant_id,
         )
         ip_obj = (await session.execute(stmt_ip)).scalars().first()
         if ip_obj:
+            # G1: capture old wholesale before overwriting, stamp on revision entity
+            if revision.previous_wholesale_price is None and ip_obj.wholesale_price is not None:
+                revision.previous_wholesale_price = ip_obj.wholesale_price
             ip_obj.selling_price = revision.revised_selling_price
             ip_obj.mrp = revision.revised_mrp
             if revision.revised_cost_price is not None:
                 ip_obj.cost_price = revision.revised_cost_price
-            if rev_dp_meta is not None:
-                ip_obj.wholesale_price = Decimal(str(rev_dp_meta)).quantize(Decimal("0.01"))
+            if rev_dp is not None:
+                ip_obj.wholesale_price = rev_dp
+                revision.revised_wholesale_price = rev_dp  # ensure entity is in sync
             ip_obj.modified_at = datetime.now(timezone.utc)
         else:
             cp_val = revision.revised_cost_price
@@ -445,7 +461,7 @@ class PriceRevisionService:
                 cost_price=cp_val or Decimal("0.00"),
                 selling_price=revision.revised_selling_price,
                 mrp=revision.revised_mrp,
-                wholesale_price=Decimal(str(rev_dp_meta)).quantize(Decimal("0.01")) if rev_dp_meta is not None else None,
+                wholesale_price=rev_dp,
                 currency=revision.currency or "INR",
                 is_active=True,
             )

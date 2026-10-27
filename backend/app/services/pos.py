@@ -1121,6 +1121,30 @@ class POSService:
         ).order_by(ShiftCashTransaction.created_at.asc())
         cash_movements = (await self.db.execute(sct_stmt)).scalars().all()
 
+        # Fetch per-invoice price-level breakdown for this shift
+        # _resolved_price_level is written into rule_snapshots by section 0C of canonical_sales_writer.
+        # Invoices created before this feature was added will not have this key — counted as UNKNOWN.
+        from sqlalchemy import text as sa_text
+        pl_rows = await self.db.execute(sa_text("""
+            SELECT
+                COALESCE(
+                    rule_snapshots->>'_resolved_price_level_effective',
+                    'UNKNOWN'
+                ) as price_level,
+                COUNT(*) as invoice_count,
+                COALESCE(SUM(grand_total), 0) as total_value
+            FROM sales_invoices
+            WHERE shift_id = :sid
+              AND company_id = :cid
+              AND is_deleted = false
+            GROUP BY price_level
+            ORDER BY invoice_count DESC
+        """), {"sid": shift.id, "cid": self.tenant.company_id})
+        price_level_breakdown = {
+            row.price_level: {"invoice_count": int(row.invoice_count), "total_value": float(row.total_value)}
+            for row in pl_rows.fetchall()
+        }
+
         return {
             "shift_id": shift.id,
             "register_id": shift.register_id,
@@ -1144,6 +1168,7 @@ class POSService:
             "closing_notes": shift.closing_notes,
             "gl_voucher_id": voucher.id if voucher else None,
             "gl_voucher_no": voucher.voucher_no if voucher else None,
+            "price_level_breakdown": price_level_breakdown,  # Rec 10: line count by effective price level
             "company_id": shift.company_id,
             "branch_id": shift.branch_id,
             "cash_movements": [

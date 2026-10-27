@@ -18,8 +18,16 @@ import {
   buildBillingPreviewRequest,
   prepareBillingPostingLines,
 } from "../components/billing/billingPreview.ts";
-import { SmritiSalesFactorService, SmritiSalesFactor } from "../services/smritiSalesFactorService.ts";
-import { DEFAULT_TRANSPORTER_ROWS, DEFAULT_ADDON_ROWS } from "../components/billing/BillingTerm.tsx";
+import {
+  DEFAULT_SALES_FACTORS,
+  SmritiSalesFactorService,
+  SmritiSalesFactor,
+} from "../services/smritiSalesFactorService.ts";
+import {
+  DEFAULT_TRANSPORTER_ROWS,
+  DEFAULT_ADDON_ROWS,
+  mapSalesFactorsToAdjustmentRows,
+} from "../components/billing/BillingTerm.tsx";
 
 const mockItem = (overrides: Partial<BillingLineItem> = {}): BillingLineItem => ({
   id: "line-1",
@@ -224,6 +232,17 @@ describe("Billing Adjustments & Preview Canonical Convergence", () => {
   });
 
   describe("Empty-Bill Zero-Charge & Sales Factor Safeguards", () => {
+    it("keeps configured add-ons at zero until explicitly entered on the invoice", () => {
+      const addonFactors = DEFAULT_SALES_FACTORS.filter(
+        factor => factor.factorType === "ADD_ON",
+      );
+
+      const rows = mapSalesFactorsToAdjustmentRows(addonFactors);
+
+      expect(rows).toHaveLength(addonFactors.length);
+      expect(rows.every(row => row.type === "Addon" && row.amount === 0 && row.rate === 0)).toBe(true);
+    });
+
     it("guarantees ₹0.00 add-ons and deductions when billable sales base is zero", () => {
       const emptyResult = SmritiSalesFactorService.calculateBillFactors({
         baseSaleAmount: 0,
