@@ -1,4 +1,4 @@
-﻿"""
+"""
  * Project      : SMRITI Retail OS
  * Repository   : SMRITIRetailNX
  * Organization : AITDL NETWORKS
@@ -34,6 +34,7 @@
 """
 
 from alembic import op
+import sqlalchemy as sa
 
 revision = "v1551"
 down_revision = "v1550"
@@ -42,16 +43,31 @@ depends_on = None
 
 
 def upgrade() -> None:
-    # Idempotent DDL -- safe to replay against a DB that already has the column.
-    op.execute(
-        "ALTER TABLE stock_count_lines "
-        "ADD COLUMN IF NOT EXISTS is_reconciled BOOLEAN NOT NULL DEFAULT false"
-    )
-    print("  v1551: added is_reconciled to stock_count_lines (idempotent)")
+    # Wrapped in a DO block that catches undefined_table so tenants without
+    # the WMS module (no stock_count_lines table yet) skip gracefully.
+    # The IF NOT EXISTS guard makes it safe to replay on tables that already
+    # have the column (e.g. smriti001 which was upgraded before this fix).
+    op.execute(sa.text("""
+        DO $$
+        BEGIN
+            ALTER TABLE stock_count_lines
+                ADD COLUMN IF NOT EXISTS is_reconciled BOOLEAN NOT NULL DEFAULT false;
+            RAISE NOTICE 'v1551: added is_reconciled to stock_count_lines';
+        EXCEPTION
+            WHEN undefined_table THEN
+                RAISE NOTICE 'v1551: stock_count_lines not found -- WMS module not provisioned, skipping';
+        END;
+        $$;
+    """))
 
 
 def downgrade() -> None:
-    op.execute(
-        "ALTER TABLE stock_count_lines "
-        "DROP COLUMN IF EXISTS is_reconciled"
-    )
+    op.execute(sa.text("""
+        DO $$
+        BEGIN
+            ALTER TABLE stock_count_lines DROP COLUMN IF EXISTS is_reconciled;
+        EXCEPTION
+            WHEN undefined_table THEN NULL;
+        END;
+        $$;
+    """))
