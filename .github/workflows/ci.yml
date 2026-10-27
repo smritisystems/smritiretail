@@ -142,6 +142,12 @@ jobs:
         # Enforces Change-Time CFOC: Every column in Alembic migrations
         # must carry canonical field registration or declarative classification.
         run: python ../scripts/ci_migration_cfoc_guard.py
+      - name: UMGP Migration Governance Gate (UMGP-v1.0)
+        # Enforces Upgrade & Migration Governance Policy:
+        # G1: Every migration >= v1553 must declare @migration_target
+        # G2: Destructive ops in new migrations need # UMGP:DESTRUCTIVE_APPROVED
+        # G3: No hardcoded tenant DB names (warnings, not failures)
+        run: python ../scripts/check_migration_governance.py
 
       - name: CFOC API DTO Reconciliation Guard (CFOC-v3.46.0 Pillar 4)
         # Verifies Pydantic request/response models have parity with the canonical
