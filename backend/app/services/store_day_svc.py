@@ -378,7 +378,7 @@ class StoreDayService:
                 select(func.count()).select_from(POSOfflineSyncQueue).where(
                     and_(
                         POSOfflineSyncQueue.branch_id == branch_id,
-                        POSOfflineSyncQueue.status == "PENDING",
+                        POSOfflineSyncQueue.sync_status == "PENDING",
                     )
                 )
             )
