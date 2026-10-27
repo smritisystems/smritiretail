@@ -56,7 +56,7 @@ router = APIRouter()
 async def import_style_article_from_po_pdf(
     file: UploadFile = File(...),
     vendorCode: str | None = Form(None),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     current_user: User = Depends(get_current_user),
 ):
     """Upload a PO PDF, parse article/style tokens from text, and persist them as style_article lookup values."""
@@ -160,7 +160,7 @@ async def import_style_article_from_po_pdf(
 )
 async def sync_style_article_from_purchase_orders(
     vendor_code: Optional[str] = Query(None, description="Optional vendor code to filter sync"),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     current_user: User = Depends(get_current_user),
 ):
     """
@@ -296,7 +296,7 @@ async def sync_style_article_from_purchase_orders(
 )
 async def unassign_style_article_vendor(
     id: UUID,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     current_user: User = Depends(get_current_user),
 ):
     """Unassign vendor ownership from a style/article lookup value."""
@@ -516,7 +516,7 @@ def get_validator(master_type_id: str, schema: dict, version: int):
     response_model=List[MasterTypeResponse],
 )
 async def list_lookup_types(
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     current_user: User = Depends(get_current_user),
 ) -> List[MasterType]:
     """
@@ -533,7 +533,7 @@ async def list_lookup_types(
 )
 async def get_lookup_type(
     code: str,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     current_user: User = Depends(get_current_user),
 ) -> MasterType:
     """
@@ -558,7 +558,7 @@ async def get_lookup_type(
 )
 async def create_lookup_type(
     payload: MasterTypeCreate,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     current_user: User = Depends(get_current_user),
 ) -> MasterType:
     """
@@ -598,7 +598,7 @@ async def list_lookup_values(
     activeOnly: bool = False,  # noqa: N803
     vendorCode: str | None = None,  # noqa: N803
     includeUnassigned: bool = False,  # noqa: N803
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     current_user: User = Depends(get_current_user),
 ) -> List[MasterValue]:
     """
@@ -872,7 +872,7 @@ async def delete_size_group(
 async def create_lookup_value(
     type_code: str,
     payload: MasterValueCreate,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     current_user: User = Depends(get_current_user),
 ) -> MasterValue:
     """
@@ -1005,7 +1005,7 @@ async def create_lookup_value(
 async def bulk_create_lookup_values(
     type_code: str,
     payload: MasterValueBulkCreate,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     current_user: User = Depends(get_current_user),
 ) -> MasterValueBulkResponse:
     """
@@ -1141,7 +1141,7 @@ async def update_lookup_value(
     type_code: str,
     id: UUID,
     payload: MasterValueUpdate,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     current_user: User = Depends(get_current_user),
 ) -> MasterValue:
     """
@@ -1289,7 +1289,7 @@ async def update_lookup_value(
 async def delete_lookup_value(
     type_code: str,
     id: UUID,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     current_user: User = Depends(get_current_user),
 ) -> Any:
     """
@@ -1382,7 +1382,7 @@ async def delete_lookup_value(
 async def get_lookup_value_audit(
     type_code: str,
     id: UUID,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     current_user: User = Depends(get_current_user),
 ) -> Any:
     """
@@ -1416,7 +1416,7 @@ async def get_lookup_value_audit(
 async def get_lookup_type_audit(
     type_code: str,
     limit: int = 50,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     current_user: User = Depends(get_current_user),
 ) -> Any:
     """

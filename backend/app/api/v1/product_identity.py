@@ -6,7 +6,7 @@ from typing import List
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ...api.deps import get_db, get_current_user, get_tenant_context, require_role, TenantContext
+from ...api.deps import get_company_db, get_current_user, get_tenant_context, require_role, TenantContext
 from ...models.auth import UserRole, User
 from ...schemas.product_identity import (
     BarcodeProviderCreate, BarcodeProviderResponse, BarcodeProviderUpdate,
@@ -25,7 +25,7 @@ router = APIRouter()
     response_model=List[BarcodeProviderResponse],
 )
 async def list_providers(
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
     current_user: User = Depends(get_current_user),
 ):
@@ -41,7 +41,7 @@ async def list_providers(
 )
 async def create_provider(
     req: BarcodeProviderCreate,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
     current_user: User = Depends(get_current_user),
 ):
@@ -58,7 +58,7 @@ async def create_provider(
 async def update_provider(
     id: str,
     req: BarcodeProviderUpdate,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
     current_user: User = Depends(get_current_user),
 ):
@@ -71,7 +71,7 @@ async def update_provider(
     response_model=List[IdentityRuleResponse],
 )
 async def list_rules(
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
     current_user: User = Depends(get_current_user),
 ):
@@ -87,7 +87,7 @@ async def list_rules(
 )
 async def create_rule(
     req: IdentityRuleCreate,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
     current_user: User = Depends(get_current_user),
 ):
@@ -104,7 +104,7 @@ async def create_rule(
 async def update_rule(
     id: str,
     req: IdentityRuleUpdate,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
     current_user: User = Depends(get_current_user),
 ):
@@ -117,7 +117,7 @@ async def update_rule(
     response_model=List[ProductIdentityResponse],
 )
 async def list_identities(
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
     current_user: User = Depends(get_current_user),
 ):
@@ -133,7 +133,7 @@ async def list_identities(
 )
 async def create_identity(
     req: ProductIdentityCreate,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
     current_user: User = Depends(get_current_user),
 ):
@@ -148,7 +148,7 @@ async def create_identity(
 )
 async def get_identity(
     id: str,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
     current_user: User = Depends(get_current_user),
 ):
@@ -164,7 +164,7 @@ async def get_identity(
 async def update_identity(
     id: str,
     req: ProductIdentityUpdate,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
     current_user: User = Depends(get_current_user),
 ):

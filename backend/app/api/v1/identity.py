@@ -19,7 +19,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ...api.deps import get_db, get_current_user, get_tenant_context, TenantContext, require_role
+from ...api.deps import get_company_db, get_current_user, get_tenant_context, TenantContext, require_role
 from ...models.auth import User, UserRole
 from ...models.identity_registry import SmritiIdentityRegistry, SmritiNumberingRegistry
 from ...schemas.identity import (
@@ -55,7 +55,7 @@ router = APIRouter()
 )
 async def list_registered_entities(
     group: Optional[str] = None,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
     current_user: User = Depends(get_current_user),
 ):
@@ -74,7 +74,7 @@ async def list_registered_entities(
 )
 async def get_entity_registry(
     entity_type: str,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
     current_user: User = Depends(get_current_user),
 ):
@@ -101,7 +101,7 @@ async def get_entity_registry(
 )
 async def allocate_identity(
     req: IdentityAllocateRequest,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
     current_user: User = Depends(get_current_user),
 ):
@@ -146,7 +146,7 @@ async def allocate_identity(
 )
 async def resolve_identifier(
     req: IdentityResolveRequest,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
     current_user: User = Depends(get_current_user),
 ):
@@ -172,7 +172,7 @@ async def resolve_identifier(
 )
 async def validate_identity_code(
     req: IdentityValidateRequest,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     current_user: User = Depends(get_current_user),
 ):
     is_valid = await IdentityEngine.validate_code(db, req.identity_code)
@@ -195,7 +195,7 @@ async def validate_identity_code(
 )
 async def list_numbering_series(
     group: Optional[str] = None,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
     current_user: User = Depends(get_current_user),
 ):
@@ -214,7 +214,7 @@ async def list_numbering_series(
 )
 async def resolve_batch_identifiers(
     req: IdentityBatchResolveRequest,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
     current_user: User = Depends(get_current_user),
 ):
@@ -251,7 +251,7 @@ async def resolve_batch_identifiers(
 )
 async def get_identity_envelope(
     identifier: str,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
     current_user: User = Depends(get_current_user),
 ):
@@ -279,7 +279,7 @@ async def get_identity_envelope(
 )
 async def search_entities(
     req: IdentitySearchRequest,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
     current_user: User = Depends(get_current_user),
 ):
