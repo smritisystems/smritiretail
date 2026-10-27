@@ -19,7 +19,8 @@
   - Executed exhaustive forensic audit verifying 18 frontend components, 14 FastAPI REST endpoints, and 8 PostgreSQL tables (`parties`, `party_roles`, `supplier_profiles`, `party_addresses`, `party_contacts`, `party_bank_accounts`, `suppliers`, `vendor_identity_migrations`).
   - Formally compiled and certified authoritative audit report under `docs/audit/VENDOR_MASTER_END_TO_END_WIRING_AND_UX_INTEGRITY_AUDIT.md`.
   - Remediated route prefix inconsistency in `VendorPayablesTab.tsx` standardizing TDS summary fetches to `/purchase/vendors/{id}/tds-summary`.
-  - Re-verified complete TypeScript compilation (0 errors) and Vite production build (0 errors in 48.75s).
+  - Replaced internal software branding on Vendor A4 KYC printout (`VendorPrintModal.tsx`) with dynamic business entity title ('For & On Behalf of {tenantName || Purchasing Entity / E-Commerce} — Verification & Authorization') and canonical vendor code display.
+  - Re-verified complete TypeScript compilation (0 errors) and Vite production build (0 errors in 51.40s).
 
 - **Procurement & Vendor Master: Vendor Master Edit Mode & Double-Confirmation Deletion Protection v1.0.0**:
   - Enforced strict mode-based access permissions and two-step irreversible deletion protection across all Vendor Master sub-entities (Locations/Godowns, Key Contacts, Disbursement Banks, and Catalog Styles).

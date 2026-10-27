@@ -593,15 +593,15 @@ const VendorPrintModalBase: React.FC<VendorPrintModalProps> = ({
               </div>
             </div>
 
-            {/* SMRITI Internal Verification Box */}
+            {/* Internal Enterprise Verification Box */}
             <div className="border border-slate-400 p-3 h-32 flex flex-col justify-between bg-slate-50/50">
               <span className="font-bold text-[10px] uppercase tracking-wider text-slate-800">
-                SMRITI Universal Master — Verification & Authorization:
+                For & On Behalf of {tenantName || "Purchasing Entity / E-Commerce"} — Verification & Authorization:
               </span>
               <div className="border-t border-slate-300 pt-1 flex items-end justify-between text-[9px] text-slate-500">
                 <div>
                   <div>Procurement Head / Internal Audit</div>
-                  <div>Vendor Master ID: {withData && vendor ? vendor.id : "________________"}</div>
+                  <div>Vendor Master ID: {withData && vendor ? (vendor.code ? `${vendor.code} (${vendor.id})` : vendor.id) : "________________"}</div>
                 </div>
                 <div className="text-right">
                   <div>Authorized Seal</div>
