@@ -16,7 +16,7 @@ from typing import List
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import TenantContext, get_db, get_tenant_context
+from app.api.deps import TenantContext, get_company_db, get_tenant_context
 from app.schemas.scheduled_reports import (
     ReportDispatchLogOut,
     ReportScheduleCreate,
@@ -38,7 +38,7 @@ router = APIRouter(prefix="/reporting/schedules", tags=["Reporting Schedules & A
 )
 async def create_schedule(
     payload: ReportScheduleCreate,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
 ) -> ReportScheduleOut:
     engine = ReportDistributionEngine(db, tenant_ctx)
@@ -52,7 +52,7 @@ async def create_schedule(
     description="Returns all active and inactive report schedules for the authenticated tenant."
 )
 async def list_schedules(
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
 ) -> List[ReportScheduleOut]:
     engine = ReportDistributionEngine(db, tenant_ctx)
@@ -67,7 +67,7 @@ async def list_schedules(
 )
 async def get_schedule(
     schedule_id: str,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
 ) -> ReportScheduleOut:
     engine = ReportDistributionEngine(db, tenant_ctx)
@@ -89,7 +89,7 @@ async def get_schedule(
 async def update_schedule(
     schedule_id: str,
     payload: ReportScheduleUpdate,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
 ) -> ReportScheduleOut:
     engine = ReportDistributionEngine(db, tenant_ctx)
@@ -110,7 +110,7 @@ async def update_schedule(
 )
 async def delete_schedule(
     schedule_id: str,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
 ) -> dict:
     engine = ReportDistributionEngine(db, tenant_ctx)
@@ -131,7 +131,7 @@ async def delete_schedule(
 )
 async def trigger_schedule(
     schedule_id: str,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
 ) -> TriggerScheduleResponse:
     engine = ReportDistributionEngine(db, tenant_ctx)
@@ -151,7 +151,7 @@ async def trigger_schedule(
 )
 async def list_dispatch_logs(
     schedule_id: str,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
 ) -> List[ReportDispatchLogOut]:
     engine = ReportDistributionEngine(db, tenant_ctx)

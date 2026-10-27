@@ -19,7 +19,7 @@ from fastapi import APIRouter, Depends, HTTPException, Body
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
-from ...api.deps import get_db, get_current_user, require_role, get_tenant_context, TenantContext
+from ...api.deps import get_company_db, get_current_user, require_role, get_tenant_context, TenantContext
 from ...models.auth import User, UserRole
 from ...models.exchange import DataExchangeTask, DataExchangeFieldMapping
 from ...models.inventory import Product
@@ -52,7 +52,7 @@ router = APIRouter()
     response_model=List[FieldMappingResponse],
 )
 async def list_mappings(
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     current_user: User = Depends(get_current_user),
 ):
     """
@@ -81,7 +81,7 @@ async def list_mappings(
 )
 async def create_mapping(
     req: FieldMappingCreate,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     current_user: User = Depends(get_current_user),
 ):
     """
@@ -116,7 +116,7 @@ async def create_mapping(
 async def update_mapping(
     id: str,
     req: FieldMappingUpdate,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     current_user: User = Depends(get_current_user),
 ):
     """
@@ -149,7 +149,7 @@ async def update_mapping(
 )
 async def delete_mapping(
     id: str,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     current_user: User = Depends(get_current_user),
 ):
     """
@@ -326,7 +326,7 @@ async def approve_exchange_log(
     response_model=List[DataExchangeTaskResponse],
 )
 async def list_tasks(
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     current_user: User = Depends(get_current_user),
 ):
     """
@@ -360,7 +360,7 @@ async def list_tasks(
 )
 async def create_task(
     req: DataExchangeTaskCreate,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     current_user: User = Depends(get_current_user),
 ):
     """
@@ -403,7 +403,7 @@ async def create_task(
 async def update_task(
     id: str,
     req: DataExchangeTaskUpdate,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     current_user: User = Depends(get_current_user),
 ):
     """
@@ -443,7 +443,7 @@ async def update_task(
 )
 async def delete_task(
     id: str,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     current_user: User = Depends(get_current_user),
 ):
     """
@@ -469,7 +469,7 @@ async def delete_task(
 async def execute_task(
     id: str,
     req: ExecuteTaskRequest,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
     current_user: User = Depends(get_current_user),
 ):

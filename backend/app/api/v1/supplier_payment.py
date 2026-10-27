@@ -20,7 +20,7 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ...api.deps import get_db, get_tenant_context, require_role, TenantContext
+from ...api.deps import get_company_db, get_tenant_context, require_role, TenantContext
 from ...models.auth import UserRole
 from ...schemas.supplier_payment import (
     SupplierPaymentCreate,
@@ -44,7 +44,7 @@ router = APIRouter()
 async def record_payment(
     req: SupplierPaymentCreate,
     tenant: TenantContext = Depends(get_tenant_context),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
 ):
     """
     Record a payment to a supplier.
@@ -64,7 +64,7 @@ async def record_payment(
 async def list_payments(
     supplier_id: Optional[str] = Query(default=None, description="Filter by supplier"),
     tenant: TenantContext = Depends(get_tenant_context),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
 ):
     """List all supplier payments, optionally filtered by supplier."""
     return await SupplierPaymentService(db, tenant).list_payments(supplier_id=supplier_id)
@@ -74,7 +74,7 @@ async def list_payments(
 async def get_payment(
     payment_id: str,
     tenant: TenantContext = Depends(get_tenant_context),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
 ):
     """Get a specific supplier payment by ID."""
     return await SupplierPaymentService(db, tenant).get_payment(payment_id)
@@ -89,7 +89,7 @@ async def cancel_payment(
     payment_id: str,
     reason: Optional[str] = Query(default=None, description="Reason for voiding/cancelling payment"),
     tenant: TenantContext = Depends(get_tenant_context),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
 ):
     """
     Cancel / void a supplier payment.
@@ -109,7 +109,7 @@ async def cancel_payment(
 async def knockoff_advance(
     req: SupplierAdvanceKnockoffRequest,
     tenant: TenantContext = Depends(get_tenant_context),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
 ):
     """
     Knock off an existing supplier advance payment against a confirmed purchase bill.
@@ -132,7 +132,7 @@ async def knockoff_advance(
 async def batch_knockoff_advance(
     req: SupplierAdvanceBatchKnockoffRequest,
     tenant: TenantContext = Depends(get_tenant_context),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
 ):
     """
     Knock off an unallocated supplier advance across multiple purchase bills (or FIFO auto-allocate).

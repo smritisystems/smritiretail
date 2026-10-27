@@ -16,7 +16,7 @@ from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ...api.deps import get_db, get_current_user
+from ...api.deps import get_company_db, get_current_user
 from ...models.auth import User, UserRole
 from ...services.system_parameter import SystemParameterService
 from ...schemas.system_parameter import (
@@ -71,7 +71,7 @@ async def list_system_parameters(
     profile_type: Optional[str] = Query(None, description="Filter by profile (RETAIL, DISTRIBUTOR, COMMON)"),
     search: Optional[str] = Query(None, description="Search term in code or description"),
     company_id: Optional[str] = Header(None, alias="x-company-id"),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
 ):
     """
     List system parameters filtered by category, profile, or search term.
@@ -117,7 +117,7 @@ async def get_parameters_map(
     company_id: Optional[str] = Header(None, alias="x-company-id"),
     terminal_id: str = Header("COMMON", alias="x-terminal-id"),
     branch_id: Optional[str] = Header(None, alias="x-branch-id"),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
 ):
     """
     Returns resolved parameters dictionary map for high-speed 0ms frontend caching.
@@ -135,7 +135,7 @@ async def get_parameters_map(
 async def resolve_single_parameter(
     req: SystemParameterResolveRequest,
     company_id: Optional[str] = Header(None, alias="x-company-id"),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
 ):
     """
     Resolves an individual parameter value following the 4-tier hierarchy.
@@ -172,7 +172,7 @@ async def update_single_parameter(
     req: SystemParameterUpdateRequest,
     company_id: Optional[str] = Header(None, alias="x-company-id"),
     user_id: Optional[str] = Header("system", alias="x-user-id"),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     current_user: User = Depends(get_current_user),
 ):
     """
@@ -221,7 +221,7 @@ async def save_batch_parameters(
     req: SystemParameterBatchSaveRequest,
     company_id: Optional[str] = Header(None, alias="x-company-id"),
     user_id: Optional[str] = Header("system", alias="x-user-id"),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     current_user: User = Depends(get_current_user),
 ):
     """
@@ -242,7 +242,7 @@ async def save_batch_parameters(
 async def seed_system_parameters(
     req: SystemParameterSeedRequest,
     company_id: Optional[str] = Header(None, alias="x-company-id"),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     current_user: User = Depends(get_current_user),
 ):
     """

@@ -765,7 +765,7 @@ async def get_sales_order_fulfillment_variance(
 
 @router.get("/definitions")
 async def list_report_definitions(
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     current_user=Depends(get_current_user),
 ):
     """List all available report definitions."""
@@ -776,7 +776,7 @@ async def list_report_definitions(
 @router.post("/definitions", status_code=status.HTTP_201_CREATED)
 async def create_report_definition(
     payload: Dict[str, Any],
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     current_user=Depends(get_current_user),
 ):
     """Create a new custom report definition via Report Studio."""
@@ -802,7 +802,7 @@ async def create_report_definition(
 
 @router.get("/dashboards")
 async def list_dashboards(
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     current_user=Depends(get_current_user),
 ):
     """List available system and custom dashboards."""
@@ -813,7 +813,7 @@ async def list_dashboards(
 @router.get("/dashboards/{dashboard_id}")
 async def get_dashboard_detail(
     dashboard_id: str,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     current_user=Depends(get_current_user),
 ):
     """Get dashboard detail with composed widgets."""
@@ -833,7 +833,7 @@ async def get_dashboard_detail(
 @router.post("/dashboards", status_code=status.HTTP_201_CREATED)
 async def create_dashboard(
     payload: Dict[str, Any],
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     current_user=Depends(get_current_user),
 ):
     """Create custom Dashboard in Dashboard Manager."""
@@ -858,7 +858,7 @@ async def create_dashboard(
 @router.get("/schedules", response_model=List[ReportScheduleResponse])
 async def list_report_schedules(
     tenant: TenantContext = Depends(get_tenant_context),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     current_user=Depends(get_current_user),
 ):
     if current_user.role not in ("SYSADMIN", "ADMIN", "MANAGER", "Report User"):
@@ -869,7 +869,7 @@ async def list_report_schedules(
 async def create_report_schedule(
     payload: ReportScheduleCreate,
     tenant: TenantContext = Depends(get_tenant_context),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     current_user=Depends(get_current_user),
 ):
     if current_user.role == "Report User":
@@ -885,7 +885,7 @@ async def create_report_schedule(
 async def delete_report_schedule(
     schedule_id: str,
     tenant: TenantContext = Depends(get_tenant_context),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     current_user=Depends(get_current_user),
 ):
     if current_user.role not in ("SYSADMIN", "ADMIN", "MANAGER"):
