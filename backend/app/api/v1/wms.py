@@ -4,9 +4,9 @@ Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
-Version      : 6.16.0
+Version      : 6.17.0
 Created      : 2026-08-22
-Modified     : 2026-08-22
+Modified     : 2026-10-27
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 Classification: Internal
@@ -27,6 +27,7 @@ from ...api.deps import (
     require_role, require_permission
 )
 from ...models.auth import UserRole
+from ...models.tenant import Branch
 from ...models.inventory import Warehouse, WarehouseLocation, ProductBatchStock, StockTransfer, StockTransferItem, StockAudit, StockAuditItem
 from ...schemas.wms import (
     WarehouseCreate, WarehouseUpdate, WarehouseResponse,
@@ -349,6 +350,35 @@ async def list_warehouses(
     return [WarehouseResponse.model_validate(w) for w in res.scalars().all()]
 
 
+@router.get("/branches")
+async def list_branches_wms(
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+):
+    """R-008: List all registered company branches directly for the active company tenant."""
+    q = select(Branch).where(
+        Branch.company_id == tenant_ctx.company_id,
+        Branch.is_deleted == False,
+    ).order_by(Branch.name.asc())
+    res = await db.execute(q)
+    return [
+        {
+            "id": b.id,
+            "code": b.code,
+            "name": b.name,
+            "company_id": b.company_id,
+            "city": getattr(b, "city", None),
+            "state": getattr(b, "state", None),
+            "pincode": getattr(b, "pincode", None),
+            "address": getattr(b, "address", None),
+            "phone": getattr(b, "phone", None),
+            "email": getattr(b, "email", None),
+            "is_active": b.is_active,
+        }
+        for b in res.scalars().all()
+    ]
+
+
 @router.post("/warehouses", response_model=WarehouseResponse, status_code=201)
 async def create_warehouse(
     req: WarehouseCreate,
@@ -609,16 +639,72 @@ async def get_transfer(
     return StockTransferResponse.model_validate(st)
 
 
+@router.post("/transfers/{transfer_id}/request", response_model=StockTransferResponse)
+async def request_transfer(
+    transfer_id: str,
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+    guard: Any = Depends(require_permission("stock_ledger", "ADD")),
+):
+    """R-005: Submit a stock transfer order for approval (DRAFT -> REQUESTED)."""
+    service = InventoryWmsService(db, tenant_ctx)
+    transfer = await service.request_stock_transfer(transfer_id)
+    await db.commit()
+
+    q_re = select(StockTransfer).where(StockTransfer.id == transfer.id).options(selectinload(StockTransfer.items))
+    res_re = await db.execute(q_re)
+    reloaded = res_re.scalars().first()
+    return StockTransferResponse.model_validate(reloaded)
+
+
+@router.post("/transfers/{transfer_id}/approve", response_model=StockTransferResponse)
+async def approve_transfer(
+    transfer_id: str,
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+    guard: Any = Depends(require_permission("stock_ledger", "EDIT")),
+):
+    """R-005: Approve a requested stock transfer order (REQUESTED -> APPROVED)."""
+    service = InventoryWmsService(db, tenant_ctx)
+    transfer = await service.approve_stock_transfer(transfer_id)
+    await db.commit()
+
+    q_re = select(StockTransfer).where(StockTransfer.id == transfer.id).options(selectinload(StockTransfer.items))
+    res_re = await db.execute(q_re)
+    reloaded = res_re.scalars().first()
+    return StockTransferResponse.model_validate(reloaded)
+
+
+@router.post("/transfers/{transfer_id}/reject", response_model=StockTransferResponse)
+async def reject_transfer(
+    transfer_id: str,
+    reason: Optional[str] = Query(default=None),
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+    guard: Any = Depends(require_permission("stock_ledger", "EDIT")),
+):
+    """R-005: Reject a requested stock transfer order (REQUESTED -> REJECTED)."""
+    service = InventoryWmsService(db, tenant_ctx)
+    transfer = await service.reject_stock_transfer(transfer_id, reason=reason)
+    await db.commit()
+
+    q_re = select(StockTransfer).where(StockTransfer.id == transfer.id).options(selectinload(StockTransfer.items))
+    res_re = await db.execute(q_re)
+    reloaded = res_re.scalars().first()
+    return StockTransferResponse.model_validate(reloaded)
+
+
 @router.post("/transfers/{transfer_id}/dispatch", response_model=StockTransferResponse)
 async def dispatch_transfer(
     transfer_id: str,
+    bypass_approval: bool = Query(default=True, description="R-005 configurable approval bypass flag"),
     db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
     guard: Any = Depends(require_permission("stock_ledger", "ADD")),
 ):
     """Dispatch a stock transfer from the source warehouse into IN_TRANSIT."""
     service = InventoryWmsService(db, tenant_ctx)
-    transfer = await service.dispatch_stock_transfer(transfer_id)
+    transfer = await service.dispatch_stock_transfer(transfer_id, bypass_approval=bypass_approval)
     await db.commit()
     
     q_re = select(StockTransfer).where(StockTransfer.id == transfer.id).options(selectinload(StockTransfer.items))

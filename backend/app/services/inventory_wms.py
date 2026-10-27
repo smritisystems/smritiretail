@@ -4,9 +4,9 @@ Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
-Version      : 6.16.0
+Version      : 6.17.0
 Created      : 2026-08-22
-Modified     : 2026-08-22
+Modified     : 2026-10-27
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 Classification: Internal
@@ -427,9 +427,9 @@ class InventoryWmsService:
                     return existing
             raise
 
-    async def dispatch_stock_transfer(self, transfer_id: str) -> StockTransfer:
+    async def request_stock_transfer(self, transfer_id: str) -> StockTransfer:
         """
-        Dispatches a Stock Transfer Order. Deducts stock from source warehouse and sets status to IN_TRANSIT.
+        R-005: Transitions a Stock Transfer Order from DRAFT to REQUESTED.
         """
         q = select(StockTransfer).where(
             StockTransfer.id == transfer_id,
@@ -442,7 +442,81 @@ class InventoryWmsService:
             raise HTTPException(status_code=404, detail="Stock transfer order not found.")
 
         if transfer.status != TransferStatus.DRAFT.value:
-            raise HTTPException(status_code=400, detail=f"Cannot dispatch transfer in status '{transfer.status}'. Must be DRAFT.")
+            raise HTTPException(status_code=400, detail=f"Cannot request approval for transfer in status '{transfer.status}'. Must be DRAFT.")
+
+        transfer.status = TransferStatus.REQUESTED.value
+        await self.db.flush()
+        return transfer
+
+    async def approve_stock_transfer(self, transfer_id: str) -> StockTransfer:
+        """
+        R-005: Transitions a Stock Transfer Order from REQUESTED to APPROVED.
+        """
+        q = select(StockTransfer).where(
+            StockTransfer.id == transfer_id,
+            StockTransfer.company_id == self.tenant_ctx.company_id,
+            StockTransfer.is_deleted == False
+        ).options(selectinload(StockTransfer.items)).with_for_update()
+        res = await self.db.execute(q)
+        transfer = res.scalars().first()
+        if not transfer:
+            raise HTTPException(status_code=404, detail="Stock transfer order not found.")
+
+        if transfer.status != TransferStatus.REQUESTED.value:
+            raise HTTPException(status_code=400, detail=f"Cannot approve transfer in status '{transfer.status}'. Must be REQUESTED.")
+
+        transfer.status = TransferStatus.APPROVED.value
+        await self.db.flush()
+        return transfer
+
+    async def reject_stock_transfer(self, transfer_id: str, reason: Optional[str] = None) -> StockTransfer:
+        """
+        R-005: Transitions a Stock Transfer Order from REQUESTED to REJECTED.
+        """
+        q = select(StockTransfer).where(
+            StockTransfer.id == transfer_id,
+            StockTransfer.company_id == self.tenant_ctx.company_id,
+            StockTransfer.is_deleted == False
+        ).options(selectinload(StockTransfer.items)).with_for_update()
+        res = await self.db.execute(q)
+        transfer = res.scalars().first()
+        if not transfer:
+            raise HTTPException(status_code=404, detail="Stock transfer order not found.")
+
+        if transfer.status != TransferStatus.REQUESTED.value:
+            raise HTTPException(status_code=400, detail=f"Cannot reject transfer in status '{transfer.status}'. Must be REQUESTED.")
+
+        transfer.status = TransferStatus.REJECTED.value
+        if reason:
+            transfer.notes = f"{transfer.notes or ''}\n[REJECTED]: {reason}".strip()
+        await self.db.flush()
+        return transfer
+
+    async def dispatch_stock_transfer(self, transfer_id: str, bypass_approval: bool = True) -> StockTransfer:
+        """
+        Dispatches a Stock Transfer Order. Deducts stock from source warehouse and sets status to IN_TRANSIT.
+        R-005: Minimal approval gate DRAFT -> REQUESTED -> APPROVED -> DISPATCHED.
+        Configurable bypass_approval flag (default True) allows existing deployments to dispatch directly.
+        Transfers explicitly in REQUESTED state require APPROVED before dispatch.
+        """
+        q = select(StockTransfer).where(
+            StockTransfer.id == transfer_id,
+            StockTransfer.company_id == self.tenant_ctx.company_id,
+            StockTransfer.is_deleted == False
+        ).options(selectinload(StockTransfer.items)).with_for_update()
+        res = await self.db.execute(q)
+        transfer = res.scalars().first()
+        if not transfer:
+            raise HTTPException(status_code=404, detail="Stock transfer order not found.")
+
+        if transfer.status == TransferStatus.REQUESTED.value:
+            raise HTTPException(status_code=400, detail="Stock transfer order is pending approval. It must be APPROVED before dispatch.")
+
+        if transfer.status == TransferStatus.DRAFT.value and not bypass_approval:
+            raise HTTPException(status_code=400, detail="Approval required: Stock transfer order in DRAFT must be REQUESTED and APPROVED before dispatch.")
+
+        if transfer.status not in (TransferStatus.DRAFT.value, TransferStatus.APPROVED.value):
+            raise HTTPException(status_code=400, detail=f"Cannot dispatch transfer in status '{transfer.status}'. Must be DRAFT or APPROVED.")
 
         # Deduct items from source warehouse
         for item in transfer.items:

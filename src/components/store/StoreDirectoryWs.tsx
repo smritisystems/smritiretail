@@ -4,9 +4,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 3.17.0
+ * Version      : 3.18.0
  * Created      : 2026-10-18
- * Modified     : 2026-10-18
+ * Modified     : 2026-10-27
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
@@ -47,7 +47,7 @@ export interface StoreDirectoryItem {
   canonical_id: string;
   store_code: string;
   store_name: string;
-  store_type: "INTERNAL_BRANCH" | "CUSTOMER_STORE";
+  store_type: "INTERNAL_BRANCH" | "CUSTOMER_STORE" | "WAREHOUSE";
   host_id: string;
   host_name: string;
   city: string;
@@ -65,6 +65,7 @@ export interface StoreDirectoryItem {
 export interface StoreDirectorySummary {
   total_stores: number;
   total_internal_branches: number;
+  total_warehouses?: number;
   total_partner_stores: number;
   stores_with_manager: number;
   total_assigned_staff: number;
@@ -162,25 +163,119 @@ export const StoreDirectoryWs: React.FC = () => {
   const fetchDirectory = useCallback(async () => {
     setLoading(true);
     try {
-      const params = new URLSearchParams();
-      if (search.trim()) params.set("search", search.trim());
-      if (storeTypeFilter !== "ALL") params.set("store_type", storeTypeFilter);
-      if (statusFilter !== "ALL") params.set("status", statusFilter);
+      // R-008: Directly fetch canonical branches and warehouses so unstaffed locations are visible
+      const [branchRes, warehouseRes, hrRes] = await Promise.allSettled([
+        apiFetchV1("/branches"),
+        apiFetchV1("/wms/warehouses"),
+        apiFetchV1("/staff/stores/directory"),
+      ]);
 
-      const res = await apiFetchV1(`/staff/stores/directory?${params.toString()}`);
-      if (res && res.items) {
-        setItems(res.items);
-        setSummary(
-          res.summary || {
-            total_stores: res.items.length,
-            total_internal_branches: res.items.filter((i: StoreDirectoryItem) => i.store_type === "INTERNAL_BRANCH").length,
-            total_partner_stores: res.items.filter((i: StoreDirectoryItem) => i.store_type === "CUSTOMER_STORE").length,
-            stores_with_manager: res.items.filter((i: StoreDirectoryItem) => Boolean(i.store_manager)).length,
-            total_assigned_staff: res.items.reduce((acc: number, i: StoreDirectoryItem) => acc + (i.assigned_staff_count || 0), 0),
-            total_verified_present_today: res.items.reduce((acc: number, i: StoreDirectoryItem) => acc + (i.verified_present_today_count || 0), 0),
-          }
+      const hrDirectoryItems: StoreDirectoryItem[] =
+        hrRes.status === "fulfilled" && hrRes.value?.items ? hrRes.value.items : [];
+      const hrByCanonicalId = new Map<string, StoreDirectoryItem>();
+      const hrByCode = new Map<string, StoreDirectoryItem>();
+      for (const item of hrDirectoryItems) {
+        if (item.canonical_id) hrByCanonicalId.set(item.canonical_id, item);
+        if (item.store_code) hrByCode.set(item.store_code.toUpperCase(), item);
+      }
+
+      const mergedItems: StoreDirectoryItem[] = [];
+
+      // 1. Process Internal Branches from GET /branches
+      if (branchRes.status === "fulfilled" && Array.isArray(branchRes.value)) {
+        for (const b of branchRes.value) {
+          const hrMatch = hrByCanonicalId.get(b.id) || hrByCode.get((b.code || "").toUpperCase());
+          mergedItems.push({
+            id: `INTERNAL_BRANCH:${b.id}`,
+            canonical_id: b.id,
+            store_code: b.code || "",
+            store_name: b.name || "",
+            store_type: "INTERNAL_BRANCH",
+            host_id: b.company_id || "",
+            host_name: "Company Owned Branch",
+            city: b.city || hrMatch?.city || "",
+            state: b.state || hrMatch?.state || "",
+            pincode: b.pincode || hrMatch?.pincode || "",
+            address: b.address || hrMatch?.address || "",
+            status: b.is_active !== false ? "ACTIVE" : "INACTIVE",
+            store_manager: hrMatch?.store_manager || null,
+            primary_representative: hrMatch?.primary_representative || null,
+            assigned_staff_count: hrMatch?.assigned_staff_count || 0,
+            verified_present_today_count: hrMatch?.verified_present_today_count || 0,
+            psv_active: Boolean(hrMatch?.psv_active),
+          });
+        }
+      }
+
+      // 2. Process Warehouses from GET /wms/warehouses
+      if (warehouseRes.status === "fulfilled" && Array.isArray(warehouseRes.value)) {
+        for (const w of warehouseRes.value) {
+          mergedItems.push({
+            id: `WAREHOUSE:${w.id}`,
+            canonical_id: w.id,
+            store_code: w.code || "",
+            store_name: `${w.name || ""}${w.is_central_godown ? " (Central Godown)" : w.is_transit ? " (Transit)" : ""}`,
+            store_type: "WAREHOUSE",
+            host_id: w.company_id || "",
+            host_name: w.branch_id ? `Branch ${w.branch_id}` : "Company Warehouse",
+            city: w.city || "",
+            state: w.state || "",
+            pincode: w.pincode || "",
+            address: w.address || "",
+            status: w.is_active !== false ? "ACTIVE" : "INACTIVE",
+            store_manager: w.contact_person
+              ? {
+                  id: "",
+                  name: w.contact_person,
+                  username: "",
+                  phone: w.phone || "",
+                  effective_from: "",
+                }
+              : null,
+            primary_representative: null,
+            assigned_staff_count: 0,
+            verified_present_today_count: 0,
+            psv_active: false,
+          });
+        }
+      }
+
+      // 3. Include Partner Customer Stores if present in HR response
+      for (const item of hrDirectoryItems) {
+        if (item.store_type === "CUSTOMER_STORE") {
+          mergedItems.push(item);
+        }
+      }
+
+      // Filter locally based on search, store_type, status
+      let filtered = mergedItems;
+      if (search.trim()) {
+        const q = search.trim().toLowerCase();
+        filtered = filtered.filter(
+          (i) =>
+            i.store_code.toLowerCase().includes(q) ||
+            i.store_name.toLowerCase().includes(q) ||
+            i.city.toLowerCase().includes(q) ||
+            (i.store_manager?.name || "").toLowerCase().includes(q)
         );
       }
+      if (storeTypeFilter !== "ALL") {
+        filtered = filtered.filter((i) => i.store_type === storeTypeFilter);
+      }
+      if (statusFilter !== "ALL") {
+        filtered = filtered.filter((i) => i.status === statusFilter);
+      }
+
+      setItems(filtered);
+      setSummary({
+        total_stores: mergedItems.length,
+        total_internal_branches: mergedItems.filter((i) => i.store_type === "INTERNAL_BRANCH").length,
+        total_warehouses: mergedItems.filter((i) => i.store_type === "WAREHOUSE").length,
+        total_partner_stores: mergedItems.filter((i) => i.store_type === "CUSTOMER_STORE").length,
+        stores_with_manager: mergedItems.filter((i) => Boolean(i.store_manager)).length,
+        total_assigned_staff: mergedItems.reduce((acc, i) => acc + (i.assigned_staff_count || 0), 0),
+        total_verified_present_today: mergedItems.reduce((acc, i) => acc + (i.verified_present_today_count || 0), 0),
+      });
     } catch (err) {
       console.error("Failed to load store directory:", err);
     } finally {
@@ -273,7 +368,12 @@ export const StoreDirectoryWs: React.FC = () => {
     return items.map((i) => ({
       store_code: i.store_code,
       store_name: i.store_name,
-      store_type: i.store_type === "INTERNAL_BRANCH" ? "Company Branch" : "Partner Retail Store",
+      store_type:
+        i.store_type === "INTERNAL_BRANCH"
+          ? "Company Branch"
+          : i.store_type === "WAREHOUSE"
+          ? "Warehouse / Godown"
+          : "Partner Retail Store",
       host_name: i.host_name,
       city: i.city,
       state: i.state,
@@ -407,6 +507,7 @@ export const StoreDirectoryWs: React.FC = () => {
             >
               <option value="ALL">All Store Types</option>
               <option value="INTERNAL_BRANCH">Company Branches</option>
+              <option value="WAREHOUSE">Warehouses & Godowns</option>
               <option value="CUSTOMER_STORE">Partner Retail Stores</option>
             </select>
 
@@ -481,6 +582,10 @@ export const StoreDirectoryWs: React.FC = () => {
                     {store.store_type === "INTERNAL_BRANCH" ? (
                       <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-950 text-blue-300 border border-blue-500/30">
                         Company Branch
+                      </span>
+                    ) : store.store_type === "WAREHOUSE" ? (
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-950 text-amber-300 border border-amber-500/30">
+                        Warehouse
                       </span>
                     ) : (
                       <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-950 text-purple-300 border border-purple-500/30">
