@@ -1,6 +1,42 @@
 <!--
 
-## [3.17.3] - 2026-10-27 — GC-001 Gift Cards & Vouchers Async Migration
+## [3.17.4] - 2026-10-27 - UMGP Upgrade & Migration Governance Policy v1.0.0
+
+### Added
+- `scripts/check_migration_governance.py`: CI gate enforcing UMGP-G1 (migration target
+  declaration for new migrations >= v1553), UMGP-G2 (destructive operation approval
+  marker), UMGP-G3 (hardcoded DB name warnings). Grandfathers all 238 legacy migrations.
+- `backend/app/tests/test_upgrade_migration_governance.py`: 14 integration test cases
+  (TC-UMGP-001..014) covering CI gate, boundary enforcement, preflight backup, docker
+  healthchecks, and migration inventory. 14/14 passed (135s).
+- `docs/governance/UPGRADE_MIGRATION_GOVERNANCE_POLICY.md`: Permanent governance policy
+  document â€” 12 UMGP rules, CI enforcement architecture, rollback procedures, acceptance
+  criteria table, and enforcement file registry.
+- `.github/workflows/ci.yml`: Added `UMGP Migration Governance Gate (UMGP-v1.0)` as a
+  required, non-skippable CI step before pytest.
+
+### Changed
+- `scripts/auto_migrate.py`: Replaced hardcoded head version string with dynamic
+  `_get_alembic_head()` + `_is_at_head()` functions (UMGP-003).
+- `scripts/update.sh`: 5-step â†’ 6-step pipeline; added mandatory preflight backup
+  (Step 2/6, UMGP-001); replaced silent `|| true` migration failures with hard-fail
+  + actionable recovery instructions (UMGP-009).
+- `backend/app/api/v1/einvoice.py` (v3.121.0): Full async body migration â€” all 6
+  endpoints converted from sync `db.query()` to `async def` + `await db.execute(select(...))`.
+  BOM stripped. Removed unused `get_db` and `decimal.Decimal` imports.
+
+### Fixed
+- `backend/app/api/v1/dispatch_invoicing.py`: Added missing `get_company_db` import
+  from `app.api.deps` (NameError blocked entire pytest suite via conftest autouse fixture).
+- `backend/app/api/v1/tds_compliance.py`: Added missing `get_company_db` import.
+- `backend/app/api/v1/einvoice.py`: Added missing `get_company_db` import; stripped BOM.
+- `backend/app/api/v1/crm_reports.py`: Stripped UTF-8 BOM from file header.
+
+### Commits
+- `dd7c8f39` â€” UMGP implementation (CI gate, preflight backup, dynamic head, router fixes)
+- `417fd79b` â€” einvoice.py full async body migration
+
+## [3.17.3] - 2026-10-27 ï¿½ GC-001 Gift Cards & Vouchers Async Migration
 
 ### Changed
 - ackend/app/api/v1/gift_cards.py: all 12 endpoints migrated from sync
@@ -9,11 +45,11 @@
 
 ### Added
 - ackend/alembic/versions/v1552_gift_cards_baseentity_cols.py: migration
-  v1552 — adds missing BaseEntity columns (uuid VARCHAR(36), ersion,
+  v1552 ï¿½ adds missing BaseEntity columns (uuid VARCHAR(36), ersion,
   is_active, deleted_at, deleted_by) to gift_cards, gift_vouchers,
   gift_card_transactions using IF NOT EXISTS DDL.
 - ackend/app/tests/test_gift_cards_async.py: 14-case integration test suite
-  TC-GC001–TC-GC014; 14/14 green (commit 759ad8d5, DB smriti_test_gc001f).
+  TC-GC001ï¿½TC-GC014; 14/14 green (commit 759ad8d5, DB smriti_test_gc001f).
 - ackend/app/tests/conftest.py: _ensure_schema_compatibility_sync extended
   with 36 ALTER TABLE IF NOT EXISTS statements for all 3 gift tables.
   Project      : SMRITI Retail OS
@@ -2322,7 +2358,7 @@ Complete plain-language redesign of the PSV tab so any non-technical user (shop 
 - **Migration v1551**: stock_count_lines.is_reconciled BOOLEAN NOT NULL DEFAULT false
 - **G5 Remediation**: invoice_profitability_ledgers.valuation_method_used VARCHAR(30)
 - **Migration v1550**: invoice_profitability_ledgers.valuation_method_used (idempotent)
-- **Test suite**: 	est_physical_stock_approval.py — 10/10 cases passing
+- **Test suite**: 	est_physical_stock_approval.py ï¿½ 10/10 cases passing
 
 ### Technical
 - Commit: db0d553d
@@ -9849,7 +9885,8 @@ All 21 prior tests continue to pass. 14 new auth tests added.
 - **Rec 7** (BillingTerm.tsx + types.ts): priceLevel and priceLevelSource fields on BillingLineItem. Stamped at scan time. Renders color-coded inline badge (MRP=amber, SP=slate, WS=indigo, PB=emerald) in cart Description cell.
 - **Rec 8** (product_resolution_service.py + product_resolution.py): All 4 canonical SQL blocks (BARCODE, PRODUCT_ID, VARIANT_SKU, ITEM_CODE) now LEFT JOIN item_prices ip and return wholesale_price and price_book_price (pbe.selling_price). ProductResolutionResult extended with both fields.
 - **Rec 10** (pos.py): get_z_report() now returns price_level_breakdown dict mapping effective_price_level â†’ {invoice_count, total_value} via JSONB query on sales_invoices.rule_snapshots.
-- **Rec 10** (canonical_sales_writer.py): _resolved_price_level_effective and _resolved_price_level_source written into ule_snapshots on every invoice for Z-report audit trail.
+- **Rec 10** (canonical_sales_writer.py): _resolved_price_level_effective and _resolved_price_level_source written into 
+ule_snapshots on every invoice for Z-report audit trail.
 
 ### Fixed
 - Price enforcement no longer a placeholder comment â€” actual DB lookup against item_prices per line item.
