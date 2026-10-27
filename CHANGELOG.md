@@ -1,4 +1,33 @@
-<!--
+﻿<!--
+
+## [3.121.0] - 2026-10-27 - EI-001: E-Invoice Async Integration Test Suite & BaseEntity Migration Backfill
+
+### Added
+- `backend/app/tests/test_einvoice_async.py`: 12 integration test cases (TC-EI-001..012) for the
+  async `einvoice.py` router covering IRN generation (64-char SHA-256, ack_no prefix), idempotency,
+  status filter, get by ID 200/404, cancel state transition (GENERATED -> CANCELLED), cancel guards
+  (409 on re-cancel, 400 on invalid reason), batch submission, and batch get 200/404.
+  12/12 passed in 139.76s (commit d60fba76).
+- `backend/alembic/versions/v1553_einvoices_baseentity_cols.py`: Alembic migration v1553 — EI-001
+  BaseEntity column backfill (uuid, company_id, branch_id, modified_at, is_active, deleted_at,
+  deleted_by, version) for `e_invoices` and `e_invoice_batches` via `IF NOT EXISTS` ADD COLUMN.
+  Applied to all 3 tenant databases. (commit 61ffd469)
+
+### Fixed
+- `backend/app/api/v1/einvoice.py`: Added `_new_id()` helper (`str(uuid.uuid4())`) and
+  explicit `id=_new_id()` on `EInvoice` and `EInvoiceBatch` model instantiations.
+  Prevented `NotNullViolationError` on every IRN generation and batch submission call.
+- `backend/alembic/versions/v1551_stock_count_lines_is_reconciled.py`: Wrapped bare
+  `ALTER TABLE stock_count_lines` in a PL/pgSQL `DO  ... EXCEPTION WHEN undefined_table`
+  block. Tenant databases without the WMS module (e.g. smriti002) now skip v1551 gracefully
+  instead of aborting the upgrade chain. (commit ea8446fa)
+- `smriti001 document_series`: Soft-retired 127 duplicate active series rows for
+  `(COMP-001, SALES_INVOICE/ARTICLE, COMMON)` that blocked v1546 partial unique index creation.
+  All rows marked `deleted_by = 'v1546_company_dedup_manual'`. No hard deletes.
+
+### Migration
+- Chain: `v1552` (GC-001) → `v1553` (EI-001, head)
+- All tenants: smriti001 `v1553 (head)`, smriti002 `v1553 (head)`, smriti003 `v1553 (head)`
 
 ## [3.17.4] - 2026-10-27 - UMGP Upgrade & Migration Governance Policy v1.0.0
 
@@ -2317,6 +2346,35 @@ Complete plain-language redesign of the PSV tab so any non-technical user (shop 
 - Commit: 12fa565b
 - Files changed: 12 (1526 insertions / 172 deletions)
 <!--
+
+## [3.121.0] - 2026-10-27 - EI-001: E-Invoice Async Integration Test Suite & BaseEntity Migration Backfill
+
+### Added
+- `backend/app/tests/test_einvoice_async.py`: 12 integration test cases (TC-EI-001..012) for the
+  async `einvoice.py` router covering IRN generation (64-char SHA-256, ack_no prefix), idempotency,
+  status filter, get by ID 200/404, cancel state transition (GENERATED -> CANCELLED), cancel guards
+  (409 on re-cancel, 400 on invalid reason), batch submission, and batch get 200/404.
+  12/12 passed in 139.76s (commit d60fba76).
+- `backend/alembic/versions/v1553_einvoices_baseentity_cols.py`: Alembic migration v1553 — EI-001
+  BaseEntity column backfill (uuid, company_id, branch_id, modified_at, is_active, deleted_at,
+  deleted_by, version) for `e_invoices` and `e_invoice_batches` via `IF NOT EXISTS` ADD COLUMN.
+  Applied to all 3 tenant databases. (commit 61ffd469)
+
+### Fixed
+- `backend/app/api/v1/einvoice.py`: Added `_new_id()` helper (`str(uuid.uuid4())`) and
+  explicit `id=_new_id()` on `EInvoice` and `EInvoiceBatch` model instantiations.
+  Prevented `NotNullViolationError` on every IRN generation and batch submission call.
+- `backend/alembic/versions/v1551_stock_count_lines_is_reconciled.py`: Wrapped bare
+  `ALTER TABLE stock_count_lines` in a PL/pgSQL `DO  ... EXCEPTION WHEN undefined_table`
+  block. Tenant databases without the WMS module (e.g. smriti002) now skip v1551 gracefully
+  instead of aborting the upgrade chain. (commit ea8446fa)
+- `smriti001 document_series`: Soft-retired 127 duplicate active series rows for
+  `(COMP-001, SALES_INVOICE/ARTICLE, COMMON)` that blocked v1546 partial unique index creation.
+  All rows marked `deleted_by = 'v1546_company_dedup_manual'`. No hard deletes.
+
+### Migration
+- Chain: `v1552` (GC-001) → `v1553` (EI-001, head)
+- All tenants: smriti001 `v1553 (head)`, smriti002 `v1553 (head)`, smriti003 `v1553 (head)`
   Project      : SMRITI Retail OS
   Repository   : SMRITIRetailNX
   Organization : AITDL NETWORKS
