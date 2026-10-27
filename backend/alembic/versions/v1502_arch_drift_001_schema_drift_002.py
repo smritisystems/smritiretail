@@ -12,7 +12,7 @@ ARCH-DRIFT-001: smriti_numbering_registry.tenant_id vs companies.id drift
       4 rows: tenant_id = '' (empty) -> system-wide sequences, leave as-is
 
   module_states.tenant_id: CLOSED as intentional.
-    Contains DB-name discriminator ('smriti001') not a companies.id reference.
+    Contains DB-name discriminator ('<tenant_db>') not a companies.id reference.
     module_states is a per-tenant DB health table; tenant_id = DB name is correct design.
     No FK to companies is appropriate or possible for this column.
 
@@ -27,7 +27,7 @@ Gate evidence:
 
 Run as:
   alembic -x target=control -x db=smritisys upgrade v1502   # ARCH-DRIFT-001
-  alembic -x target=tenant  -x db=smriti001 upgrade v1502   # SCHEMA-DRIFT-002
+  alembic -x target=tenant  -x db=<tenant_db> upgrade v1502   # SCHEMA-DRIFT-002
 
 Note: Both changes are in one migration file. The control target runs only
 the ARCH-DRIFT-001 block; tenant target runs only the SCHEMA-DRIFT-002 block.

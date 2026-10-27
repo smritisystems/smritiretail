@@ -22,7 +22,7 @@ Context:
   
   They were only created via Base.metadata.create_all() in test fixtures,
   causing asymmetry:
-    - smriti001 (test DB): table exists (via metadata.create_all)
+    - primary tenant DB (test DB): table exists (via metadata.create_all)
     - smritisys (control DB): table missing (only Alembic migrations applied)
   
   This migration rectifies the schema gap by creating both tables with

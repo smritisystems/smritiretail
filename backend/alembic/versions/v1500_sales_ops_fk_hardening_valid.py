@@ -36,7 +36,7 @@ Group A (0 populated / 0 rows - FK deferred until module activation):
   product_identities.product_id, crm_customer_activities.customer_id
 
 Run as:
-  alembic -x target=tenant -x db=smriti001 upgrade v1500
+  alembic -x target=tenant -x db=<tenant_db> upgrade v1500
 
 Project      : SMRITI Retail OS
 Author       : Jawahar Ramkripal Mallah

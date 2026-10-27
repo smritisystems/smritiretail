@@ -29,7 +29,7 @@ VALIDATE CONSTRAINT results (all 4 succeeded):
   ALTER TABLE packing_slip_items               VALIDATE CONSTRAINT fk_psi_product_id;
   ALTER TABLE dispatch_items                   VALIDATE CONSTRAINT fk_di_product_id;
 
-Final FK audit state (smriti001):
+Final FK audit state (<tenant_db>):
   17/17 audit constraints validated = TRUE (convalidated = t)
 
 Note on ghost rows:
@@ -40,7 +40,7 @@ Note on ghost rows:
   or migrated.
 
 Run as:
-  alembic -x target=tenant -x db=smriti001 upgrade v1504
+  alembic -x target=tenant -x db=<tenant_db> upgrade v1504
 
 Project      : SMRITI Retail OS
 Author       : Jawahar Ramkripal Mallah

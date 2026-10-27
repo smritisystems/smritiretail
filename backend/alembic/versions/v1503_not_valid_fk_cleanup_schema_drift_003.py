@@ -40,7 +40,7 @@ Gate evidence (5-gate, all gates passed before any change):
   po_product_decision_log: product_id matches items (10) + decision codes (15) -> NOT a products FK
 
 Run as:
-  alembic -x target=tenant -x db=smriti001 upgrade v1503
+  alembic -x target=tenant -x db=<tenant_db> upgrade v1503
 
 Project      : SMRITI Retail OS
 Author       : Jawahar Ramkripal Mallah
