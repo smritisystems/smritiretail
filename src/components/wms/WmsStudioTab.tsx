@@ -1975,8 +1975,9 @@ export const WmsStudioTab: React.FC<{
           <WarehouseWavePickingModal
             isOpen={showWavePickingModal}
             onClose={() => setShowWavePickingModal(false)}
-            assignedWarehouse={selectedWarehouseFilter !== "ALL" ? getWarehouseName(selectedWarehouseFilter) : "Central Distribution Hub (WH-01)"}
-            onNotification={(title, msg, type) => onNotification?.(title, msg, type === "info" ? "success" : type)}
+            warehouseId={selectedWarehouseFilter !== "ALL" ? selectedWarehouseFilter : (warehouses[0]?.id || undefined)}
+            assignedWarehouse={selectedWarehouseFilter !== "ALL" ? getWarehouseName(selectedWarehouseFilter) : (warehouses[0]?.name || "Central Distribution Hub (WH-01)")}
+            onNotification={onNotification}
           />
         )}
 

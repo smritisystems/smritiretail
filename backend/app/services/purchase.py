@@ -64,6 +64,36 @@ class PurchaseService:
         self.db = db
         self.tenant = tenant
 
+    async def _validate_receiving_warehouse(self, warehouse_id: Optional[str]) -> str:
+        if not warehouse_id:
+            raise HTTPException(
+                status_code=422,
+                detail={
+                    "code": "PURCHASE_WAREHOUSE_REQUIRED",
+                    "title": "Receiving warehouse required",
+                    "explanation": "A stock purchase must have a receiving warehouse.",
+                    "suggested_action": "Select an active warehouse belonging to this company.",
+                },
+            )
+        from .inventory_warehouse_resolver import InventoryWarehouseResolver
+
+        try:
+            warehouse = await InventoryWarehouseResolver(self.db).resolve(
+                company_id=self.tenant.company_id,
+                warehouse_id=warehouse_id,
+            )
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=422,
+                detail={
+                    "code": "PURCHASE_WAREHOUSE_INVALID",
+                    "title": "Receiving warehouse unavailable",
+                    "explanation": "The selected warehouse is missing, inactive, or belongs to another company.",
+                    "suggested_action": "Refresh the warehouse list and select an active warehouse for this company.",
+                },
+            ) from exc
+        return warehouse.id
+
     def _effective_branch_id(self) -> str:
         if not self.tenant.branch_id or self.tenant.branch_id == "MAIN":
             return "BR-MAIN-001"
@@ -483,6 +513,11 @@ class PurchaseService:
     async def create_purchase_order(self, req: PurchaseOrderCreate) -> PurchaseOrder:
         # Validate supplier belongs to tenant
         supplier = await self._get_supplier(req.supplier_id)
+        warehouse_id = (
+            await self._validate_receiving_warehouse(req.warehouse_id)
+            if req.warehouse_id
+            else None
+        )
 
         if not req.items:
             raise HTTPException(
@@ -701,6 +736,7 @@ class PurchaseService:
             identity_code=identity_code,
             order_no=assigned_order_no,
             supplier_id=supplier.id,
+            warehouse_id=warehouse_id,
             status=po_status,
             notes=req.notes,
             rule_snapshots=rule_snaps,
@@ -956,16 +992,12 @@ class PurchaseService:
         wms_service = InventoryWmsService(self.db, self.tenant)
         resolver = InventoryWarehouseResolver(self.db)
         try:
-            if req.warehouse_id:
-                wh = await resolver.resolve(
-                    company_id=self.tenant.company_id,
-                    warehouse_id=req.warehouse_id,
-                )
-            else:
-                wh = await resolver.resolve(
-                    company_id=self.tenant.company_id,
-                    branch_id=self.tenant.branch_id,
-                )
+            if not req.warehouse_id:
+                raise ValueError("INVENTORY_WAREHOUSE_NOT_CONFIGURED")
+            wh = await resolver.resolve(
+                company_id=self.tenant.company_id,
+                warehouse_id=req.warehouse_id,
+            )
             warehouse_id = wh.id
         except ValueError:
             raise HTTPException(
@@ -2196,6 +2228,7 @@ class PurchaseService:
             id=new_po_id,
             order_no=req.new_order_no,
             supplier_id=original.supplier_id,
+            warehouse_id=original.warehouse_id,
             status="CONFIRMED",
             # Phase D: link chain and set revision counter
             parent_order_id=original.id,
@@ -2310,6 +2343,7 @@ class PurchaseService:
                 status_code=400,
                 detail=f"Only DRAFT orders can be submitted. Current status: {order.status}.",
             )
+        order.warehouse_id = await self._validate_receiving_warehouse(order.warehouse_id)
         now = datetime.now(timezone.utc)
         order.status = "SUBMITTED"
         order.submitted_by = submitted_by
@@ -2401,6 +2435,11 @@ class PurchaseService:
         if req.supplier_id and req.supplier_id != order.supplier_id:
             await self._get_supplier(req.supplier_id)
             order.supplier_id = req.supplier_id
+
+        if req.warehouse_id is not None:
+            order.warehouse_id = await self._validate_receiving_warehouse(req.warehouse_id)
+        elif order.warehouse_id:
+            order.warehouse_id = await self._validate_receiving_warehouse(order.warehouse_id)
 
         if req.notes is not None:
             order.notes = req.notes

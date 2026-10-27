@@ -345,19 +345,29 @@ export const CommercialDeliveryDrawer: React.FC<CommercialDeliveryDrawerProps> =
                 </label>
                 <select
                   disabled={readOnly}
-                  value={data.deliveryLocation || (warehouses[0]?.id || "")}
-                  onChange={(e) => onChange({ deliveryLocation: e.target.value })}
+                  value={data.warehouseId || ""}
+                  onChange={(e) => {
+                    const warehouseId = e.target.value;
+                    const warehouse = warehouses.find((w) => w.id === warehouseId);
+                    onChange({
+                      warehouseId,
+                      deliveryLocation: warehouse ? `${warehouse.code} - ${warehouse.name}` : "",
+                    });
+                  }}
                   className="w-full text-xs font-medium px-2.5 h-8 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100 rounded-lg outline-none focus:border-indigo-500 disabled:opacity-50"
                 >
                   {warehouses.length > 0 ? (
-                    warehouses.map((w) => (
+                    <>
+                    <option value="">Select a receiving warehouse</option>
+                    {warehouses.map((w) => (
                       <option key={w.id} value={w.id} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100">
                         {w.code} - {w.name}
                       </option>
-                    ))
+                    ))}
+                    </>
                   ) : (
                     <option value="" disabled className="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100">
-                      Loading Warehouses...
+                      No active warehouses available
                     </option>
                   )}
                 </select>

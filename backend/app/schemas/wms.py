@@ -14,7 +14,7 @@ Classification: Internal
 
 import re
 from pydantic import BaseModel, ConfigDict, field_validator
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 from datetime import datetime, date
 from decimal import Decimal
 from ..core.gst_engine import GST_STATE_CODES
@@ -569,6 +569,156 @@ class RfReplenishConfirmResponse(BaseModel):
     status: str
     message: str
     model_config = ConfigDict(from_attributes=True)
+
+
+# =============================================================================
+# WMS Phase 5: Automated Wave Picking, Batch Picking & Packing Station Schemas
+# =============================================================================
+
+class WavePickLineCreate(BaseModel):
+    order_id: Optional[str] = None
+    line_no: Optional[int] = 1
+    item_id: str
+    product_id: Optional[str] = None
+    item_code: str
+    product_name: str
+    sku: Optional[str] = None
+    requested_qty: Decimal
+    preferred_bin: Optional[str] = None
+
+
+class WaveCreateRequest(BaseModel):
+    wave_name: Optional[str] = None
+    order_lines: Optional[List[WavePickLineCreate]] = None
+    order_ids: Optional[List[str]] = None
+    zone: Optional[str] = None
+    pickers: Optional[List[str]] = None
+    staging_bay: Optional[str] = "BAY-04"
+
+
+class WaveTaskResponse(BaseModel):
+    task_id: str
+    order_id: Optional[str] = None
+    line_no: Optional[int] = 1
+    item_id: str
+    item_code: str
+    product_name: str
+    sku: Optional[str] = None
+    bin_location: str
+    bin_rfid_tag: Optional[str] = None
+    aisle: Optional[str] = None
+    zone: Optional[str] = None
+    requested_qty: float
+    picked_qty: float = 0.0
+    short_qty: float = 0.0
+    picker_id: Optional[str] = None
+    status: str = "PENDING"  # PENDING, IN_PROGRESS, PICKED, SHORTED, SKIPPED
+    sort_key: int = 0
+    model_config = ConfigDict(from_attributes=True)
+
+
+class WaveResponse(BaseModel):
+    wave_id: str
+    wave_no: int = 1
+    warehouse_id: str
+    warehouse_code: str
+    staging_bay: str = "BAY-04"
+    status: str = "OPEN"  # OPEN, IN_PROGRESS, COMPLETED, CANCELLED
+    total_tasks: int = 0
+    completed_tasks: int = 0
+    shorted_tasks: int = 0
+    total_units_requested: float = 0.0
+    total_units_picked: float = 0.0
+    progress_percent: int = 0
+    created_at: str
+    completed_at: Optional[str] = None
+    tasks: List[WaveTaskResponse] = []
+    model_config = ConfigDict(from_attributes=True)
+
+
+class WaveListResponse(BaseModel):
+    warehouse_id: str
+    warehouse_code: str
+    total_waves: int
+    waves: List[WaveResponse]
+    model_config = ConfigDict(from_attributes=True)
+
+
+class WavePickActionRequest(BaseModel):
+    task_id: str
+    picked_qty: Decimal
+    scanned_code: Optional[str] = None  # Barcode or RFID tag scanned
+    is_shortage: bool = False
+    reason: Optional[str] = None
+
+
+class WavePickActionResponse(BaseModel):
+    wave_id: str
+    task_id: str
+    status: str
+    picked_qty: float
+    progress_percent: int
+    message: str
+    model_config = ConfigDict(from_attributes=True)
+
+
+class WaveCompleteRequest(BaseModel):
+    staging_bay: Optional[str] = None
+    packing_station_id: Optional[str] = "PACKING-STATION-01"
+    notes: Optional[str] = None
+
+
+class WaveCompleteResponse(BaseModel):
+    wave_id: str
+    warehouse_id: str
+    status: str
+    staging_bay: str
+    total_units_transferred: float
+    transfers_count: int
+    message: str
+    model_config = ConfigDict(from_attributes=True)
+
+
+class PackingManifestItem(BaseModel):
+    item_id: str
+    item_code: str
+    product_name: str
+    sku: Optional[str] = None
+    wave_id: str
+    quantity: float
+    packed_quantity: float = 0.0
+    status: str = "STAGED"  # STAGED, PACKED
+    model_config = ConfigDict(from_attributes=True)
+
+
+class PackingStationManifestResponse(BaseModel):
+    warehouse_id: str
+    warehouse_code: str
+    staging_bay: str
+    total_items: int
+    total_units: float
+    items: List[PackingManifestItem]
+    model_config = ConfigDict(from_attributes=True)
+
+
+class CartonPackRequest(BaseModel):
+    wave_id: str
+    carton_no: Optional[str] = None
+    items: List[Dict[str, Any]]
+    gross_weight_kg: Optional[Decimal] = None
+    notes: Optional[str] = None
+
+
+class CartonPackResponse(BaseModel):
+    carton_id: str
+    carton_no: str
+    wave_id: str
+    total_packed_units: float
+    gross_weight_kg: Optional[float] = None
+    status: str = "SEALED"
+    message: str
+    model_config = ConfigDict(from_attributes=True)
+
 
 
 

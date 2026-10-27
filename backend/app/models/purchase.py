@@ -63,6 +63,7 @@ class PurchaseOrder(BaseEntity):
     order_no    = Column(String(100), nullable=False, index=True)  # unique per company via __table_args__
     identity_code = Column(String(100), nullable=True, unique=True, index=True)
     supplier_id = Column(String(50),  ForeignKey("suppliers.id",   ondelete="RESTRICT"), nullable=False)
+    warehouse_id = Column(String(50), ForeignKey("warehouses.id", ondelete="RESTRICT"), nullable=True, index=True)
     party_id    = Column(String(50),  ForeignKey("parties.id",     ondelete="SET NULL"), nullable=True, index=True)
     status      = Column(String(20),  nullable=False, default="DRAFT")
     notes       = Column(Text,        nullable=True)
@@ -419,4 +420,3 @@ class SupplierQuotationItem(BaseEntity):
     freight_allocation        = Column(Numeric(15, 2), nullable=False, default=0.00, server_default="0.00")
     net_landed_cost_per_unit  = Column(Numeric(15, 2), nullable=False, default=0.00, server_default="0.00")
     line_total                = Column(Numeric(15, 2), nullable=False)
-

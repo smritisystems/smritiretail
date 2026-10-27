@@ -153,6 +153,7 @@ class PurchaseOrderCreate(BaseModel):
     id:          Optional[str] = Field(None, max_length=50, description="Persistent technical IDs are governed and generated server-side by IdentityEngine.")
     order_no:    Optional[str] = None
     supplier_id: str
+    warehouse_id: Optional[str] = Field(default=None, description="Canonical receiving warehouse ID for this purchase order.")
     notes:       Optional[str] = None
     # status is normalized server-side; clients may send DRAFT or omit for default DRAFT.
     # CONFIRMED is only set server-side via the confirm endpoint.
@@ -213,6 +214,7 @@ class PurchaseOrderResponse(BaseModel):
     identity_code: Optional[str] = None
     order_no:      str
     supplier_id:   str
+    warehouse_id:  Optional[str] = None
     supplier_name: Optional[str] = None
     created_at:    Optional[datetime] = None
     order_date:    Optional[Union[date, datetime, str]] = None
@@ -426,7 +428,7 @@ class PurchaseReceiptCreate(BaseModel):
     id:                 Optional[str] = None
     receipt_no:         Optional[str] = None
     supplier_id:        str
-    warehouse_id:       Optional[str] = None  # target godown — optional (defaults to Central Godown)
+    warehouse_id:       Optional[str] = None  # target godown — service requires an explicit active warehouse
     order_id:           Optional[str] = None   # link to PO — optional
     notes:              Optional[str] = None
     transporter_name:   Optional[str] = None

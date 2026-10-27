@@ -47,7 +47,11 @@ from ...schemas.wms import (
     ItemSlottingConfigItem, ItemSlottingSaveRequest,
     RfBarcodeVerifyRequest, RfBarcodeVerifyResponse,
     RfBinSummaryResponse, RfQuickTransferRequest, RfQuickTransferResponse,
-    RfReplenishConfirmRequest, RfReplenishConfirmResponse
+    RfReplenishConfirmRequest, RfReplenishConfirmResponse,
+    WaveCreateRequest, WaveResponse, WaveListResponse,
+    WavePickActionRequest, WavePickActionResponse,
+    WaveCompleteRequest, WaveCompleteResponse,
+    PackingStationManifestResponse, CartonPackRequest, CartonPackResponse
 )
 from ...services.inventory_wms import InventoryWmsService
 from ...services.eway_bill_service import EWayBillService
@@ -526,6 +530,148 @@ async def confirm_rf_replenishment(
         notes=req.notes,
     )
     return RfReplenishConfirmResponse.model_validate(res)
+
+
+# =============================================================================
+# WMS Phase 5: Automated Wave Picking, Batch Picking & Packing Station Routes
+# =============================================================================
+
+@router.post("/warehouses/{warehouse_id}/waves", response_model=WaveResponse, status_code=201)
+async def create_pick_wave(
+    warehouse_id: str,
+    req: WaveCreateRequest,
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+    guard: Any = Depends(require_permission("inventory_workspace", "ADD")),
+):
+    """
+    Creates an optimized batch pick wave from sales orders or demand lines.
+    Calculates single-pass serpentine travel path and balances picker tasks.
+    """
+    wms_service = InventoryWmsService(db, tenant_ctx)
+    res = await wms_service.create_pick_wave(
+        warehouse_id=warehouse_id,
+        wave_name=req.wave_name,
+        order_lines=req.order_lines,
+        order_ids=req.order_ids,
+        zone=req.zone,
+        pickers=req.pickers,
+        staging_bay=req.staging_bay,
+    )
+    return WaveResponse.model_validate(res)
+
+
+@router.get("/warehouses/{warehouse_id}/waves", response_model=WaveListResponse)
+async def list_pick_waves(
+    warehouse_id: str,
+    status: Optional[str] = Query(None, description="Filter by wave status (OPEN, IN_PROGRESS, COMPLETED)"),
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+):
+    """Lists all wave pick batches for a warehouse with progress metrics."""
+    wms_service = InventoryWmsService(db, tenant_ctx)
+    res = await wms_service.get_waves(warehouse_id=warehouse_id, status=status)
+    return WaveListResponse.model_validate(res)
+
+
+@router.get("/warehouses/{warehouse_id}/waves/{wave_id}", response_model=WaveResponse)
+async def get_pick_wave_details(
+    warehouse_id: str,
+    wave_id: str,
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+):
+    """Retrieves full pick manifest with serpentine task ordering for a specific wave."""
+    wms_service = InventoryWmsService(db, tenant_ctx)
+    res = await wms_service.get_wave_details(warehouse_id=warehouse_id, wave_id=wave_id)
+    return WaveResponse.model_validate(res)
+
+
+@router.post("/warehouses/{warehouse_id}/waves/{wave_id}/pick", response_model=WavePickActionResponse)
+async def record_wave_item_pick(
+    warehouse_id: str,
+    wave_id: str,
+    req: WavePickActionRequest,
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+    guard: Any = Depends(require_permission("inventory_workspace", "EDIT")),
+):
+    """
+    Records an optical barcode / RFID pick scan against a wave line item.
+    Supports full quantity confirmation, partial shortage, or floor skip.
+    """
+    wms_service = InventoryWmsService(db, tenant_ctx)
+    res = await wms_service.record_wave_pick(
+        warehouse_id=warehouse_id,
+        wave_id=wave_id,
+        task_id=req.task_id,
+        picked_qty=req.picked_qty,
+        scanned_code=req.scanned_code,
+        is_shortage=req.is_shortage,
+        reason=req.reason,
+    )
+    return WavePickActionResponse.model_validate(res)
+
+
+@router.post("/warehouses/{warehouse_id}/waves/{wave_id}/complete", response_model=WaveCompleteResponse)
+async def complete_wave_and_dispatch(
+    warehouse_id: str,
+    wave_id: str,
+    req: WaveCompleteRequest,
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+    guard: Any = Depends(require_permission("inventory_workspace", "EDIT")),
+):
+    """
+    Finalizes wave picking and atomically transfers picked inventory to the Staging Bay / Packing Station.
+    Generates linked dual StockMovements under reference_doc_type='WMS_WAVE_PICK'.
+    """
+    wms_service = InventoryWmsService(db, tenant_ctx)
+    res = await wms_service.complete_wave_and_dispatch(
+        warehouse_id=warehouse_id,
+        wave_id=wave_id,
+        staging_bay=req.staging_bay,
+        packing_station_id=req.packing_station_id,
+        notes=req.notes,
+    )
+    return WaveCompleteResponse.model_validate(res)
+
+
+@router.get("/warehouses/{warehouse_id}/packing-station", response_model=PackingStationManifestResponse)
+async def get_packing_station_manifest(
+    warehouse_id: str,
+    staging_bay: Optional[str] = Query("BAY-04", description="Staging Bay code"),
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+):
+    """Inspects staged wave inventory ready for carton packing and shipping label generation."""
+    wms_service = InventoryWmsService(db, tenant_ctx)
+    res = await wms_service.get_packing_station_manifest(
+        warehouse_id=warehouse_id,
+        staging_bay=staging_bay,
+    )
+    return PackingStationManifestResponse.model_validate(res)
+
+
+@router.post("/warehouses/{warehouse_id}/packing-station/pack", response_model=CartonPackResponse)
+async def pack_wave_carton(
+    warehouse_id: str,
+    req: CartonPackRequest,
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+    guard: Any = Depends(require_permission("inventory_workspace", "ADD")),
+):
+    """Packs staged items into a barcoded shipping carton with gross weight verification."""
+    wms_service = InventoryWmsService(db, tenant_ctx)
+    res = await wms_service.pack_wave_carton(
+        warehouse_id=warehouse_id,
+        wave_id=req.wave_id,
+        carton_no=req.carton_no,
+        items=req.items,
+        gross_weight_kg=req.gross_weight_kg,
+        notes=req.notes,
+    )
+    return CartonPackResponse.model_validate(res)
 
 
 @router.get("/locations/{location_id}/stock")
