@@ -156,6 +156,9 @@ interface ResolvedBillingTransactionPolicy {
     default_source_type?: string;
     default_bill_type?: string;
     customer_selection_required?: boolean;
+    // Billing Price Level Governance
+    default_price_level?: "MRP" | "SELLING_PRICE" | "WHOLESALE_PRICE" | "PRICE_BOOK";
+    cashier_price_override?: "DISABLED" | "ALLOWED" | "AUTHORIZED_ONLY";
   };
   customer?: {
     default_sales_channel?: string;
@@ -181,6 +184,7 @@ interface ResolvedBillingTransactionPolicy {
   configuration_warning?: string | null;
   can_change_transaction_mode?: boolean;
 }
+
 
 export const DEFAULT_TRANSPORTER_ROWS: TransporterRow[] = [
   {
@@ -2198,19 +2202,83 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
     }
 
     const matched = resolvedItem;
-    const rate = entryRateNum > 0 ? entryRateNum : Number(matched.selling_price || matched.mrp || 0);
     const qty = entryQtyNum;
 
-    // Statutory MRP Ceiling Check: Selling price cannot exceed declared MRP
+    // ─── Billing Price Level Resolution (3-tier) ───────────────────────────
+    // Tier 1: Company policy from loaded billing configuration
+    const companyPriceLevel: string = (
+      (billingTransactionPolicy?.configuration as any)?.default_price_level || "MRP"
+    ).toUpperCase();
+    const cashierOverridePolicy: string = (
+      (billingTransactionPolicy?.configuration as any)?.cashier_price_override || "DISABLED"
+    ).toUpperCase();
+
+    // Tier 2: Customer profile override (pricing_basis: "MRP" | "RATE")
+    const customerPricingBasis = (headerState.customer?.pricingBasis || "").toUpperCase();
+    let resolvedLevel = companyPriceLevel;
+    let resolvedSource = "COMPANY_POLICY";
+    if (customerPricingBasis) {
+      const customerMapped = customerPricingBasis === "RATE" ? "SELLING_PRICE" : customerPricingBasis;
+      if (customerMapped !== resolvedLevel && ["MRP", "SELLING_PRICE", "WHOLESALE_PRICE", "PRICE_BOOK"].includes(customerMapped)) {
+        resolvedLevel = customerMapped;
+        resolvedSource = "CUSTOMER_PROFILE";
+      }
+    }
+    // Tier 3: Cashier direct entry — honoured when override is not DISABLED
+    const cashierOverridePermitted = cashierOverridePolicy !== "DISABLED";
+
+    // Resolve base rate from the matched item's price field for the effective level
+    let baseRate: number;
+    if (entryRateNum > 0 && cashierOverridePermitted) {
+      // Cashier entered a rate and override is permitted — use cashier rate (MRP ceiling still applies below)
+      baseRate = entryRateNum;
+      resolvedSource = "CASHIER_OVERRIDE";
+    } else if (entryRateNum > 0 && !cashierOverridePermitted) {
+      // Override disabled — ignore cashier-entered rate; resolve from policy price field
+      baseRate = 0; // will be overridden by level resolution below
+    } else {
+      baseRate = 0;
+    }
+
+    if (baseRate === 0) {
+      switch (resolvedLevel) {
+        case "MRP":
+          baseRate = Number(matched.mrp || 0);
+          break;
+        case "SELLING_PRICE":
+          baseRate = Number(matched.selling_price || matched.mrp || 0);
+          break;
+        case "WHOLESALE_PRICE":
+          // wholesale_price may not always be present; fall back to selling_price
+          baseRate = Number(matched.wholesale_price || matched.selling_price || matched.mrp || 0);
+          break;
+        case "PRICE_BOOK":
+          // Price-book resolution is performed server-side via the barcode resolver.
+          // The matched object carries price_book_price if the resolver populated it.
+          baseRate = Number((matched as any).price_book_price || matched.selling_price || matched.mrp || 0);
+          break;
+        default:
+          baseRate = Number(matched.selling_price || matched.mrp || 0);
+      }
+    }
+
+    const rate = baseRate;
+
+    console.debug(
+      `[PriceLevel] Item=${matched.product_name || rawCode} | Level=${resolvedLevel} | Source=${resolvedSource} | Rate=₹${rate.toFixed(2)}`
+    );
+
+    // Statutory MRP Ceiling: unit rate can never exceed MRP regardless of price level or override policy
     const effectiveMrp = Number(matched.mrp || 0);
     if (effectiveMrp > 0 && rate > effectiveMrp) {
       onNotification?.(
         "Statutory Price Violation",
-        `Selling price (₹${rate.toFixed(2)}) cannot exceed statutory MRP (₹${effectiveMrp.toFixed(2)}) for item '${matched.product_name || rawCode}'.`,
+        `Billing rate (₹${rate.toFixed(2)}) exceeds the statutory MRP (₹${effectiveMrp.toFixed(2)}) for '${matched.product_name || rawCode}'. Billing above MRP is prohibited under the Legal Metrology Act.`,
         "error"
       );
       return false;
     }
+
 
     // Discount Bounding Validations
     if (entryDiscPctNum < 0 || entryDiscPctNum > 100) {

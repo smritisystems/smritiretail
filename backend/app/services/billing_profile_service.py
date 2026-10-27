@@ -50,6 +50,14 @@ B2C_DEFAULTS: Dict[str, Any] = {
     "scan_beep": "ENABLED",
     "default_invoice_format": "RETAIL_RECEIPT",
     "salesperson_attribution": "ENABLED",
+    # Billing Price Level: governs which stored price field is used as the default unit rate.
+    # MRP          → item_prices.mrp / item_sales_settings.mrp (statutory ceiling; also default retail)
+    # SELLING_PRICE → item_prices.selling_price / item_sales_settings.selling_price
+    # WHOLESALE_PRICE → item_prices.wholesale_price / item_sales_settings.wholesale_price
+    # PRICE_BOOK   → CustomerPriceTier → PriceBook → PriceBookEntry.selling_price
+    "default_price_level": "MRP",
+    # Cashier override: DISABLED | ALLOWED | AUTHORIZED_ONLY
+    "cashier_price_override": "DISABLED",
     "b2b_packing_first_workflow": "DISABLED",
     "packing_slip_qty_default": "MANUAL_ZERO",
     "invoice_qty_default": "MANUAL_ZERO",
@@ -81,6 +89,10 @@ B2B_DEFAULTS: Dict[str, Any] = {
     "scan_beep": "ENABLED",
     "default_invoice_format": "B2B_TAX_INVOICE",
     "salesperson_attribution": "OPTIONAL",
+    # B2B default: SELLING_PRICE is the standard trade price.
+    # Cashier override ALLOWED for B2B negotiations (manager approval still available).
+    "default_price_level": "SELLING_PRICE",
+    "cashier_price_override": "ALLOWED",
     "b2b_packing_first_workflow": "ENABLED",
     "packing_slip_qty_default": "REMAINING_UNPACKED_QTY",
     "invoice_qty_default": "PACKED_UNBILLED_QTY",
@@ -382,6 +394,76 @@ class BillingProfileService:
         }
 
     @staticmethod
+    def resolve_effective_price_level(
+        effective_config: Dict[str, Any],
+        customer_pricing_basis: Optional[str] = None,
+        cashier_override_level: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """
+        3-tier price level resolution:
+          Tier 1 — Company policy: effective_config["default_price_level"]
+          Tier 2 — Customer profile: customer.pricing_basis (MRP | RATE → maps to SELLING_PRICE)
+          Tier 3 — Cashier override: only honoured when cashier_price_override != DISABLED
+
+        Returns:
+          {
+            "effective_price_level": str,          # MRP | SELLING_PRICE | WHOLESALE_PRICE | PRICE_BOOK
+            "source": str,                          # COMPANY_POLICY | CUSTOMER_PROFILE | CASHIER_OVERRIDE
+            "cashier_override_permitted": bool,
+            "cashier_override_requires_auth": bool,
+          }
+        """
+        VALID_LEVELS = {"MRP", "SELLING_PRICE", "WHOLESALE_PRICE", "PRICE_BOOK"}
+
+        # Tier 1: Company policy
+        company_level = str(effective_config.get("default_price_level") or "MRP").strip().upper()
+        if company_level not in VALID_LEVELS:
+            company_level = "MRP"
+
+        override_policy = str(effective_config.get("cashier_price_override") or "DISABLED").strip().upper()
+        cashier_override_permitted = override_policy in {"ALLOWED", "AUTHORIZED_ONLY"}
+        cashier_override_requires_auth = override_policy == "AUTHORIZED_ONLY"
+
+        # Tier 2: Customer profile override
+        # Customer.pricing_basis is "MRP" | "RATE" (legacy two-value model).
+        # Map "RATE" → "SELLING_PRICE" (the canonical selling price field).
+        customer_level: Optional[str] = None
+        if customer_pricing_basis:
+            normalized = str(customer_pricing_basis).strip().upper()
+            if normalized == "MRP":
+                customer_level = "MRP"
+            elif normalized == "RATE":
+                customer_level = "SELLING_PRICE"
+            elif normalized in VALID_LEVELS:
+                customer_level = normalized
+
+        if customer_level and customer_level != company_level:
+            return {
+                "effective_price_level": customer_level,
+                "source": "CUSTOMER_PROFILE",
+                "cashier_override_permitted": cashier_override_permitted,
+                "cashier_override_requires_auth": cashier_override_requires_auth,
+            }
+
+        # Tier 3: Cashier override — only applied if explicitly permitted
+        if cashier_override_level and cashier_override_permitted:
+            co = str(cashier_override_level).strip().upper()
+            if co in VALID_LEVELS:
+                return {
+                    "effective_price_level": co,
+                    "source": "CASHIER_OVERRIDE",
+                    "cashier_override_permitted": cashier_override_permitted,
+                    "cashier_override_requires_auth": cashier_override_requires_auth,
+                }
+
+        return {
+            "effective_price_level": company_level,
+            "source": "COMPANY_POLICY",
+            "cashier_override_permitted": cashier_override_permitted,
+            "cashier_override_requires_auth": cashier_override_requires_auth,
+        }
+
+    @staticmethod
     async def credit_limit_override_enabled(control_session: AsyncSession) -> bool:
         result = await control_session.execute(
             select(PolicyDefinition)
@@ -588,6 +670,9 @@ class BillingProfileService:
             "default_source_type": {"DIRECT", "CUSTOMER_PO", "SALES_ORDER"},
             "default_bill_type": {"PRODUCT", "SERVICE"},
             "default_transaction": {"CASH", "CREDIT"},
+            # Price Level governance
+            "default_price_level": {"MRP", "SELLING_PRICE", "WHOLESALE_PRICE", "PRICE_BOOK"},
+            "cashier_price_override": {"DISABLED", "ALLOWED", "AUTHORIZED_ONLY"},
         }
         ALLOWED_LIST_VALUES = {
             "allowed_sales_channels": {

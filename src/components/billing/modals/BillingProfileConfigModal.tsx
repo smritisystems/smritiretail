@@ -120,6 +120,35 @@ export const BillingProfileConfigModal: React.FC<BillingProfileConfigModalProps>
   const targetNewProfile: "B2C_ONLY" | "B2B_ONLY" = activeProfile === "B2C_ONLY" ? "B2B_ONLY" : "B2C_ONLY";
   const [migrationReason, setMigrationReason] = useState<string>("");
 
+  // ── Billing Price Level Policy State ─────────────────────────────────────
+  const [defaultPriceLevel, setDefaultPriceLevel] = useState<string>(
+    effectiveConfig?.default_price_level ||
+      (activeProfile === "B2C_ONLY" ? "MRP" : "SELLING_PRICE")
+  );
+  const [cashierPriceOverride, setCashierPriceOverride] = useState<string>(
+    effectiveConfig?.cashier_price_override ||
+      (activeProfile === "B2C_ONLY" ? "DISABLED" : "ALLOWED")
+  );
+
+  const PRICE_LEVEL_META: Record<string, { label: string; hint: string }> = {
+    MRP: {
+      label: "MRP (Statutory Ceiling)",
+      hint: "Bills at the Maximum Retail Price printed on the product. Cannot exceed MRP regardless of other settings.",
+    },
+    SELLING_PRICE: {
+      label: "Standard Selling Price",
+      hint: "Bills at the configured standard selling price for the item or price-book entry.",
+    },
+    WHOLESALE_PRICE: {
+      label: "Wholesale Price",
+      hint: "Bills at the wholesale price. Falls back to selling price if wholesale price is not configured for the item.",
+    },
+    PRICE_BOOK: {
+      label: "Price Book (Customer Tier)",
+      hint: "Resolves the price from the customer's assigned price tier and price book. Customer must have an active price assignment.",
+    },
+  };
+
   if (!isOpen) return null;
 
   // ── Save Configuration Overrides ─────────────────────────────────────────
@@ -149,6 +178,9 @@ export const BillingProfileConfigModal: React.FC<BillingProfileConfigModalProps>
         allow_partial_packing: allowPartialPacking,
         allow_partial_invoicing: allowPartialInvoicing,
         allow_editing_prefilled_qty: allowEditingPrefilledQty,
+        // Price Level Governance
+        default_price_level: defaultPriceLevel,
+        cashier_price_override: cashierPriceOverride,
       };
       const res = await apiFetchV1("/billing/configuration", {
         method: "PUT",
@@ -632,7 +664,77 @@ export const BillingProfileConfigModal: React.FC<BillingProfileConfigModalProps>
                   </select>
                 </div>
 
-                {/* 12. Quantity Editing Permission */}
+                {/* 12. Billing Price Level Policy */}
+                <div className="p-3 border border-indigo-200 dark:border-indigo-900/60 rounded-xl space-y-3 bg-indigo-50/40 dark:bg-indigo-950/20">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <h4 className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                        <span>💰</span> Billing Price Level Policy
+                      </h4>
+                      <p className="text-[11px] text-slate-500 mt-0.5">
+                        Governs which stored price field is used as the default unit rate when adding items.
+                        Precedence: Company Policy → Customer Profile (pricing_basis) → Cashier Override.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {/* Company Default Price Level */}
+                    <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-300">
+                      Company default price level
+                      <select
+                        id="config-default-price-level-select"
+                        value={defaultPriceLevel}
+                        onChange={(e) => setDefaultPriceLevel(e.target.value)}
+                        disabled={!canManage}
+                        className="mt-1 w-full px-2 py-1.5 border border-slate-300 dark:border-slate-700 rounded-lg text-xs bg-white dark:bg-[#131b2e]"
+                      >
+                        <option value="MRP">MRP — Statutory Ceiling</option>
+                        <option value="SELLING_PRICE">SELLING_PRICE — Standard Rate</option>
+                        <option value="WHOLESALE_PRICE">WHOLESALE_PRICE — Trade Rate</option>
+                        <option value="PRICE_BOOK">PRICE_BOOK — Customer Tier / Price Book</option>
+                      </select>
+                    </label>
+
+                    {/* Cashier Override Permission */}
+                    <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-300">
+                      Cashier price override
+                      <select
+                        id="config-cashier-price-override-select"
+                        value={cashierPriceOverride}
+                        onChange={(e) => setCashierPriceOverride(e.target.value)}
+                        disabled={!canManage}
+                        className="mt-1 w-full px-2 py-1.5 border border-slate-300 dark:border-slate-700 rounded-lg text-xs bg-white dark:bg-[#131b2e]"
+                      >
+                        <option value="DISABLED">DISABLED — Fixed rate, no override</option>
+                        <option value="ALLOWED">ALLOWED — Any operator can change rate</option>
+                        <option value="AUTHORIZED_ONLY">AUTHORIZED_ONLY — Manager approval required</option>
+                      </select>
+                    </label>
+                  </div>
+
+                  {/* Effective level explanation card */}
+                  {PRICE_LEVEL_META[defaultPriceLevel] && (
+                    <div className="mt-1 p-2 rounded-lg bg-white dark:bg-[#131b2e] border border-indigo-200 dark:border-indigo-800/50 text-[11px] text-slate-600 dark:text-slate-400">
+                      <span className="font-bold text-indigo-700 dark:text-indigo-300">{PRICE_LEVEL_META[defaultPriceLevel].label}:</span>{" "}
+                      {PRICE_LEVEL_META[defaultPriceLevel].hint}
+                    </div>
+                  )}
+
+                  {cashierPriceOverride !== "DISABLED" && (
+                    <div className="flex items-start gap-1.5 p-2 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/40 text-[11px] text-amber-700 dark:text-amber-300">
+                      <span className="mt-0.5">⚠</span>
+                      <span>
+                        {cashierPriceOverride === "AUTHORIZED_ONLY"
+                          ? "Rate changes require manager/admin authorization. The cashier must obtain approval before overriding the price level."
+                          : "Operators can freely change the billing rate. Customer price_basis and company policy serve as defaults only."}
+                        {" "}Individual customers can still be assigned a specific pricing basis (MRP / RATE) in Customer Master.
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                {/* 13. Quantity Editing Permission */}
                 <div className="flex items-center justify-between p-3 border border-slate-200 dark:border-slate-800 rounded-xl">
                   <div>
                     <h4 className="text-xs font-bold text-slate-900 dark:text-white">Prefill Quantity Editing</h4>
