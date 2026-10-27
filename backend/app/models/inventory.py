@@ -4,9 +4,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 3.21.0
+ * Version      : 3.22.0
  * Created      : 2026-07-11
- * Modified     : 2026-08-15
+ * Modified     : 2026-10-27
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  """
@@ -176,6 +176,10 @@ class Warehouse(BaseEntity):
     pincode = Column(String(10), nullable=True)
     contact_person = Column(String(100), nullable=True)
     phone = Column(String(20), nullable=True)
+    # R-007 (2026-10-27): Governed default-warehouse-per-branch signal.
+    # At most ONE active warehouse per (company_id, branch_id) may have this True.
+    # The InventoryWarehouseResolver reads this flag during branch-level resolution.
+    is_default_for_branch = Column(Boolean, default=False, server_default=text("false"), nullable=False)
 
     __table_args__ = (
         Index(
@@ -184,6 +188,14 @@ class Warehouse(BaseEntity):
             "code",
             unique=True,
             postgresql_where=text("is_deleted = false"),
+        ),
+        # R-007: Partial unique index — only one warehouse per branch per company can be default.
+        Index(
+            "uq_warehouse_branch_default",
+            "company_id",
+            "branch_id",
+            unique=True,
+            postgresql_where=text("is_default_for_branch = true AND is_deleted = false"),
         ),
     )
 

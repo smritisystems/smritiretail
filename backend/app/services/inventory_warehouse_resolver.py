@@ -1,3 +1,21 @@
+﻿"""
+Project      : SMRITI Retail OS
+Author       : Jawahar Ramkripal Mallah
+Designation  : Chief Systems Architect & Creator
+Email        : support@smritibooks.com
+Websites     : smritibooks.com | erpnbook.com | aitdl.com
+Version      : 3.1.0
+Created      : 2026-08-22
+Modified     : 2026-10-27
+Copyright    : © SMRITIBooks.com. All Rights Reserved.
+License      : Proprietary Commercial Software
+Classification: Internal
+
+Changelog:
+  v3.1.0 (R-001, 2026-10-27): Fix register resolution to prefer warehouse_id FK column
+    over the legacy warehouse text-code field. Removes silent wrong-warehouse fallback.
+    Remove duplicate company-level fallback block (was identical to primary).
+"""
 from __future__ import annotations
 
 from typing import Optional, Any
@@ -25,9 +43,13 @@ class InventoryWarehouseResolver:
     ) -> Warehouse:
         """Return an active Warehouse record for the supplied scope.
 
-        Resolution precedence is intentionally conservative and DB-driven:
-        transaction-specific -> register -> branch -> company -> global
+        Resolution precedence (DB-driven, conservative):
+          1. Explicit warehouse_id supplied by caller
+          2. POS register - warehouse_id FK first, then legacy warehouse code text
+          3. Branch-level default (oldest active warehouse for the branch)
+          4. Company-level fallback (oldest active warehouse for the company)
         """
+        # 1. Explicit warehouse_id passed by caller - highest precedence.
         if warehouse_id:
             stmt = select(Warehouse).where(
                 Warehouse.id == warehouse_id,
@@ -41,6 +63,7 @@ class InventoryWarehouseResolver:
                 return wh
             raise ValueError("INVENTORY_WAREHOUSE_NOT_CONFIGURED")
 
+        # 2. POS register - prefer warehouse_id FK, fall back to legacy warehouse code text.
         if register_id and company_id:
             from ..models.pos import CashRegister
 
@@ -52,19 +75,37 @@ class InventoryWarehouseResolver:
             )
             reg_res = await self.db.execute(reg_stmt)
             register = reg_res.scalars().first()
-            register_warehouse = getattr(register, "warehouse", None)
-            if register_warehouse:
-                wh_stmt = select(Warehouse).where(
-                    Warehouse.company_id == company_id,
-                    Warehouse.is_deleted == False,
-                    Warehouse.is_active == True,
-                    or_(Warehouse.id == register_warehouse, Warehouse.code == register_warehouse),
-                )
-                wh_res = await self.db.execute(wh_stmt)
-                register_wh = wh_res.scalars().first()
-                if register_wh:
-                    return register_wh
 
+            if register:
+                # R-001: Prefer the governed FK column first.
+                reg_wh_id: Optional[str] = getattr(register, "warehouse_id", None)
+                if reg_wh_id:
+                    wh_stmt = select(Warehouse).where(
+                        Warehouse.id == reg_wh_id,
+                        Warehouse.company_id == company_id,
+                        Warehouse.is_deleted == False,
+                        Warehouse.is_active == True,
+                    )
+                    wh_res = await self.db.execute(wh_stmt)
+                    register_wh = wh_res.scalars().first()
+                    if register_wh:
+                        return register_wh
+
+                # Fallback: legacy warehouse code text (backward-compat until fully migrated).
+                reg_wh_code: Optional[str] = getattr(register, "warehouse", None)
+                if reg_wh_code:
+                    wh_stmt = select(Warehouse).where(
+                        Warehouse.company_id == company_id,
+                        Warehouse.is_deleted == False,
+                        Warehouse.is_active == True,
+                        or_(Warehouse.id == reg_wh_code, Warehouse.code == reg_wh_code),
+                    )
+                    wh_res = await self.db.execute(wh_stmt)
+                    register_wh = wh_res.scalars().first()
+                    if register_wh:
+                        return register_wh
+
+        # 3. Branch-level default - pick the oldest active warehouse for the branch.
         if branch_id and company_id:
             stmt = select(Warehouse).where(
                 Warehouse.branch_id == branch_id,
@@ -80,21 +121,7 @@ class InventoryWarehouseResolver:
             if wh:
                 return wh
 
-        if company_id:
-            stmt = select(Warehouse).where(
-                Warehouse.company_id == company_id,
-                Warehouse.is_deleted == False,
-                Warehouse.is_active == True,
-            ).order_by(
-                (Warehouse.pincode.is_not(None) & (Warehouse.pincode != "")).desc(),
-                Warehouse.created_at.asc(),
-            )
-            res = await self.db.execute(stmt)
-            wh = res.scalars().first()
-            if wh:
-                return wh
-
-        # Final fallback remains tenant-scoped to prevent cross-company leakage.
+        # 4. Company-level fallback - oldest active warehouse for the company.
         if company_id:
             stmt = select(Warehouse).where(
                 Warehouse.company_id == company_id,
