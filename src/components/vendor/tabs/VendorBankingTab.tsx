@@ -13,10 +13,11 @@
  */
 
 import React, { useState } from "react";
-import { CreditCard, Plus, Trash2, Star, CheckCircle2, ShieldAlert, Building2, Loader2 } from "lucide-react";
+import { CreditCard, Plus, Trash2, Star, CheckCircle2, ShieldAlert, Building2, Loader2, Lock } from "lucide-react";
 import { VendorDetail, VendorBankAccount } from "../../../types/vendor";
 import { withCapability } from "../../../types/architecture";
 import { apiFetchV1 } from "../../../lib/apiFetchV1";
+import { VendorDeleteConfirmationModal, DeleteItemPayload } from "../VendorDeleteConfirmationModal";
 
 interface VendorBankingTabProps {
   vendor: VendorDetail;
@@ -29,6 +30,7 @@ const VendorBankingTabBase: React.FC<VendorBankingTabProps> = ({ vendor, onUpdat
   const [showModal, setShowModal] = useState(false);
   const [saving, setSaving] = useState(false);
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
+  const [pendingDeleteItem, setPendingDeleteItem] = useState<{ index: number; payload: DeleteItemPayload } | null>(null);
   const [newBank, setNewBank] = useState<Partial<VendorBankAccount>>({
     bankName: "",
     accountHolderName: vendor.legalName,
@@ -41,6 +43,10 @@ const VendorBankingTabBase: React.FC<VendorBankingTabProps> = ({ vendor, onUpdat
   });
 
   const handleAdd = async () => {
+    if (!isEditing) {
+      onNotification?.("View Mode Active", "Click 'Edit Vendor' in the top toolbar to enter Edit Mode before adding bank accounts.", "warning");
+      return;
+    }
     if (!newBank.bankName || !newBank.accountNumber || !newBank.ifsc) return;
     setSaving(true);
     try {
@@ -98,27 +104,57 @@ const VendorBankingTabBase: React.FC<VendorBankingTabProps> = ({ vendor, onUpdat
     }
   };
 
-  const handleDelete = async (index: number) => {
+  const handleRequestDelete = (index: number) => {
+    if (!isEditing) {
+      onNotification?.("View Mode Active", "Click 'Edit Vendor' in the top toolbar to enter Edit Mode before deleting records.", "warning");
+      return;
+    }
     const target = vendor.bankAccounts[index];
     if (!target) return;
+    const mask = target.accountNumber ? `•••• ${target.accountNumber.slice(-4)}` : "••••";
+    setPendingDeleteItem({
+      index,
+      payload: {
+        entityType: "BANK_ACCOUNT",
+        id: target.id || `idx-${index}`,
+        title: `${target.bankName} (${mask})`,
+        details: [
+          { label: "Bank Name", value: target.bankName },
+          { label: "Account Holder", value: target.accountHolderName },
+          { label: "Account Number", value: target.accountNumber },
+          { label: "IFSC Code", value: target.ifsc },
+          { label: "Branch", value: target.branch || "Main Branch" },
+          { label: "Account Type", value: target.accountType },
+          { label: "Primary Payout", value: target.isPrimary },
+          { label: "Verification Status", value: target.verificationStatus },
+        ],
+      },
+    });
+  };
+
+  const handleConfirmDelete = async (item: DeleteItemPayload) => {
+    if (!pendingDeleteItem) return;
+    const targetIndex = pendingDeleteItem.index;
+    const target = vendor.bankAccounts[targetIndex];
+    if (!target) return;
+
     if (target.id && !target.id.startsWith("vba-")) {
-      setActionLoadingId(target.id);
-      try {
-        await apiFetchV1(`/purchase/vendors/${vendor.id}/bank-accounts/${target.id}`, {
-          method: "DELETE",
-        });
-        onNotification?.("Bank Account Removed", `Account at ${target.bankName} deleted.`, "info");
-      } catch (err: any) {
-        onNotification?.("Delete Failed", err?.message || "Could not delete bank account.", "error");
-        setActionLoadingId(null);
-        return;
-      }
-      setActionLoadingId(null);
+      await apiFetchV1(`/purchase/vendors/${vendor.id}/bank-accounts/${target.id}`, {
+        method: "DELETE",
+      });
     }
-    onUpdateBanks(vendor.bankAccounts.filter((_, i) => i !== index));
+
+    const updated = vendor.bankAccounts.filter((_, idx) => idx !== targetIndex);
+    onUpdateBanks(updated);
+    onNotification?.("Bank Account Removed", `Account at '${target.bankName}' deleted permanently. Compliance audit log recorded.`, "success");
+    setPendingDeleteItem(null);
   };
 
   const handleSetPrimary = async (index: number) => {
+    if (!isEditing) {
+      onNotification?.("View Mode Active", "Click 'Edit Vendor' in the top toolbar to enter Edit Mode before designating primary payout account.", "warning");
+      return;
+    }
     const target = vendor.bankAccounts[index];
     if (!target) return;
     if (target.id && !target.id.startsWith("vba-")) {
@@ -146,13 +182,23 @@ const VendorBankingTabBase: React.FC<VendorBankingTabProps> = ({ vendor, onUpdat
           <h3 className="text-sm font-bold text-slate-900 dark:text-white">Controlled Disbursement Bank Accounts</h3>
           <p className="text-xs text-slate-500 dark:text-slate-400">Electronic Fund Transfer (NEFT / RTGS / IMPS) disbursement coordinates</p>
         </div>
-        <button
-          onClick={() => setShowModal(true)}
-          className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-teal-600 hover:bg-teal-500 text-white text-xs font-semibold shadow-xs transition"
-        >
-          <Plus size={14} />
-          <span>Add Bank Account</span>
-        </button>
+        {isEditing ? (
+          <button
+            onClick={() => setShowModal(true)}
+            className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-teal-600 hover:bg-teal-500 text-white text-xs font-semibold shadow-xs transition"
+          >
+            <Plus size={14} />
+            <span>Add Bank Account</span>
+          </button>
+        ) : (
+          <div 
+            className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 text-xs font-semibold cursor-not-allowed border border-slate-200 dark:border-slate-700 select-none"
+            title="Locked in View Mode. Click 'Edit Vendor' in toolbar to add bank accounts."
+          >
+            <Lock size={13} />
+            <span>Add Bank Account (Locked)</span>
+          </div>
+        )}
       </div>
 
       {vendor.bankAccounts.length === 0 ? (
@@ -192,14 +238,20 @@ const VendorBankingTabBase: React.FC<VendorBankingTabProps> = ({ vendor, onUpdat
                       <span>Primary Payout</span>
                     </span>
                   )}
-                  {/* Delete always visible on hover — no edit mode required */}
-                  <button
-                    onClick={() => handleDelete(idx)}
-                    className="opacity-0 group-hover:opacity-100 p-1 rounded text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/20 transition-opacity"
-                    title="Remove bank account"
-                  >
-                    <Trash2 size={14} />
-                  </button>
+                  {/* Delete button strictly gated behind Edit Mode and double confirmation */}
+                  {isEditing ? (
+                    <button
+                      onClick={() => handleRequestDelete(idx)}
+                      className="opacity-0 group-hover:opacity-100 p-1 rounded text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/20 transition-opacity"
+                      title="Remove bank account (Requires Double Confirmation)"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  ) : (
+                    <div className="text-[10px] text-slate-400 flex items-center gap-0.5 opacity-60">
+                      <Lock size={10} />
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -229,7 +281,7 @@ const VendorBankingTabBase: React.FC<VendorBankingTabProps> = ({ vendor, onUpdat
                 </div>
               </div>
 
-              {!bank.isPrimary && (
+              {isEditing && !bank.isPrimary && (
                 <button
                   onClick={() => handleSetPrimary(idx)}
                   className="mt-3 text-xs text-teal-600 dark:text-teal-400 hover:text-teal-800 dark:hover:text-teal-300 font-semibold block opacity-0 group-hover:opacity-100 transition-opacity"
@@ -349,6 +401,16 @@ const VendorBankingTabBase: React.FC<VendorBankingTabProps> = ({ vendor, onUpdat
           </div>
         </div>
       )}
+
+      {/* Sub-Entity Double-Confirmation Deletion Protection Modal */}
+      <VendorDeleteConfirmationModal
+        isOpen={Boolean(pendingDeleteItem)}
+        vendorName={vendor.legalName}
+        vendorCode={vendor.code}
+        item={pendingDeleteItem?.payload || null}
+        onClose={() => setPendingDeleteItem(null)}
+        onConfirmDelete={handleConfirmDelete}
+      />
     </div>
   );
 };

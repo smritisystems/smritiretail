@@ -151,7 +151,7 @@ const VendorPayablesTabBase: React.FC<VendorPayablesTabProps> = ({ vendor, onNot
 
       // 3. Fetch Statutory TDS Summary (Account 2030)
       try {
-        const tdsRes = await apiFetchV1(`/vendors/${encodeURIComponent(vendor.id)}/tds-summary`);
+        const tdsRes = await apiFetchV1(`/purchase/vendors/${encodeURIComponent(vendor.id)}/tds-summary`);
         setTdsSummary(tdsRes);
       } catch {
         setTdsSummary(null);

@@ -162,6 +162,12 @@ def get_platform_event_service() -> PlatformEventService:
         registry.register("VENDOR_CONTACT_PERSISTED", {"1.0"}, "Vendor Contact Persisted (Legacy Alias)")
         registry.register("vendor.bank_account.persisted", {"1.0"}, "Vendor Bank Account Persisted")
         registry.register("VENDOR_BANK_ACCOUNT_PERSISTED", {"1.0"}, "Vendor Bank Account Persisted (Legacy Alias)")
+        registry.register("vendor.address.deleted", {"1.0"}, "Vendor Address Deleted")
+        registry.register("VENDOR_ADDRESS_DELETED", {"1.0"}, "Vendor Address Deleted (Legacy Alias)")
+        registry.register("vendor.contact.deleted", {"1.0"}, "Vendor Contact Deleted")
+        registry.register("VENDOR_CONTACT_DELETED", {"1.0"}, "Vendor Contact Deleted (Legacy Alias)")
+        registry.register("vendor.bank_account.deleted", {"1.0"}, "Vendor Bank Account Deleted")
+        registry.register("VENDOR_BANK_ACCOUNT_DELETED", {"1.0"}, "Vendor Bank Account Deleted (Legacy Alias)")
 
         transport_type = os.getenv("EVENT_TRANSPORT", "memory").lower().strip()
         redis_url = os.getenv("REDIS_URL")
