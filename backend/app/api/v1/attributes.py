@@ -22,7 +22,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Body
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
-from ...api.deps import get_db, get_current_user, require_role
+from ...api.deps import get_company_db, get_current_user, require_role
 from ...models.auth import User, UserRole
 from ...models.attributes import (
     AttributeDefinition, AttributeGroup, VariantTemplate, CategoryAttributeGroupMapping
@@ -57,7 +57,7 @@ def _scope_master_value_query(query, current_user: User):
     response_model=List[AttributeDefinitionResponse],
 )
 async def list_definitions(
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     current_user: User = Depends(get_current_user),
 ):
     """
@@ -98,7 +98,7 @@ async def list_definitions(
 )
 async def create_definition(
     req: AttributeDefinitionCreate,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     current_user: User = Depends(get_current_user),
 ):
     """
@@ -136,7 +136,7 @@ async def create_definition(
 async def update_definition(
     id: str,
     req: AttributeDefinitionUpdate,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     current_user: User = Depends(get_current_user),
 ):
     """
@@ -173,7 +173,7 @@ async def update_definition(
 )
 async def delete_definition(
     id: str,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     current_user: User = Depends(get_current_user),
 ):
     """
@@ -191,7 +191,7 @@ async def delete_definition(
     response_model=List[AttributeGroupResponse],
 )
 async def list_groups(
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     current_user: User = Depends(get_current_user),
 ):
     """
@@ -221,7 +221,7 @@ async def list_groups(
 )
 async def create_group(
     req: AttributeGroupCreate,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     current_user: User = Depends(get_current_user),
 ):
     """
@@ -248,7 +248,7 @@ async def create_group(
 async def update_group(
     id: str,
     req: AttributeGroupUpdate,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     current_user: User = Depends(get_current_user),
 ):
     """
@@ -273,7 +273,7 @@ async def update_group(
 )
 async def delete_group(
     id: str,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     current_user: User = Depends(get_current_user),
 ):
     """
@@ -291,7 +291,7 @@ async def delete_group(
     response_model=List[VariantTemplateResponse],
 )
 async def list_templates(
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     current_user: User = Depends(get_current_user),
 ):
     """
@@ -329,7 +329,7 @@ async def list_templates(
 )
 async def create_template(
     req: VariantTemplateCreate,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     current_user: User = Depends(get_current_user),
 ):
     """
@@ -391,7 +391,7 @@ async def create_template(
 async def update_template(
     id: str,
     req: VariantTemplateUpdate,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     current_user: User = Depends(get_current_user),
 ):
     """
@@ -460,7 +460,7 @@ async def update_template(
 )
 async def delete_template(
     id: str,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     current_user: User = Depends(get_current_user),
 ):
     """
@@ -480,7 +480,7 @@ async def delete_template(
 async def generate_variants(
     id: str,
     body: Dict[str, Any] = Body(...),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     current_user: User = Depends(get_current_user),
 ):
     """
@@ -689,7 +689,7 @@ async def generate_variants(
     response_model=List[CategoryMappingResponse],
 )
 async def list_category_mappings(
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     current_user: User = Depends(get_current_user),
 ):
     """
@@ -713,7 +713,7 @@ async def list_category_mappings(
 )
 async def save_category_mapping(
     req: CategoryMappingCreate,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     current_user: User = Depends(get_current_user),
 ):
     """
@@ -734,7 +734,7 @@ async def save_category_mapping(
 )
 async def import_headers(
     groupId: str,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     current_user: User = Depends(get_current_user),
 ):
     """
@@ -764,7 +764,7 @@ async def import_headers(
 async def import_validate(
     groupId: str = Body(..., embed=True),
     rows: List[Dict[str, Any]] = Body(..., embed=True),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     current_user: User = Depends(get_current_user),
 ):
     """
@@ -831,7 +831,7 @@ async def import_validate(
 async def import_commit(
     groupId: str = Body(..., embed=True),
     rows: List[Dict[str, Any]] = Body(..., embed=True),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     current_user: User = Depends(get_current_user),
 ):
     """
@@ -934,7 +934,7 @@ async def import_commit(
 )
 async def sales_by_attribute(
     attributeName: str = Query(...),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     current_user: User = Depends(get_current_user),
 ):
     """
@@ -956,7 +956,7 @@ async def sales_by_attribute(
 )
 async def stock_by_attribute(
     attributeName: str = Query(...),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     current_user: User = Depends(get_current_user),
 ):
     """
@@ -991,7 +991,7 @@ async def stock_by_attribute(
 )
 async def load_template(
     industry: str = Body(..., embed=True),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     current_user: User = Depends(get_current_user),
 ):
     """
