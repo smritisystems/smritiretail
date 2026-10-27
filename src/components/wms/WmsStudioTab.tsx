@@ -51,7 +51,9 @@ import {
   Send,
   Store,
   Shirt,
-  MapPin
+  MapPin,
+  Zap,
+  Check
 } from "lucide-react";
 
 interface Godown {
@@ -136,7 +138,7 @@ interface StockAudit {
 
 export const WmsStudioTab: React.FC<{
   currentUser?: any;
-  onNotification?: (title: string, message: string, type?: "success" | "error") => void;
+  onNotification?: (title: string, message: string, type?: "success" | "error" | "info" | "warning") => void;
 }> = ({ currentUser, onNotification }) => {
   const [activeSubTab, setActiveSubTab] = useState<"batches" | "transfers" | "inward" | "fefo" | "audit" | "locations">("batches");
   const [warehouses, setWarehouses] = useState<Godown[]>([]);
@@ -165,6 +167,17 @@ export const WmsStudioTab: React.FC<{
   const [grnExpiryDate, setGrnExpiryDate] = useState("");
   const [grnQty, setGrnQty] = useState(0);
   const [grnCostPrice, setGrnCostPrice] = useState(0);
+  const [grnLocationId, setGrnLocationId] = useState("");
+  const [putawayAdviceLoading, setPutawayAdviceLoading] = useState(false);
+  const [putawayAdvice, setPutawayAdvice] = useState<{
+    code: string;
+    location_id: string;
+    name: string;
+    rule: string;
+    reason: string;
+    headroom: number;
+    capacity: number;
+  } | null>(null);
 
   // FEFO Simulator state
   const [fefoProductId, setFefoProductId] = useState("");
@@ -391,6 +404,56 @@ export const WmsStudioTab: React.FC<{
     }
   };
 
+  // Fetch Putaway recommendation for Inward GRN
+  const handleGetPutawayAdvice = async () => {
+    if (!grnWarehouseId) {
+      onNotification?.("Validation Error", "Please select a target receiving Godown first.", "error");
+      return;
+    }
+    if (!grnProductId.trim()) {
+      onNotification?.("Validation Error", "Please provide a Product ID/Code to evaluate putaway rules.", "error");
+      return;
+    }
+
+    setPutawayAdviceLoading(true);
+    try {
+      const res = await apiFetchV1<any>(`/wms/warehouses/${grnWarehouseId}/putaway-recommendation`, {
+        method: "POST",
+        body: JSON.stringify({
+          product_id: grnProductId.trim(),
+          quantity: grnQty > 0 ? grnQty : 1,
+          batch_no: grnBatchNo.trim() || undefined,
+          is_damaged: false,
+        }),
+      });
+
+      if (res && res.recommended_location) {
+        setPutawayAdvice({
+          code: res.recommended_location.code,
+          location_id: res.recommended_location.location_id,
+          name: res.recommended_location.name,
+          rule: res.rule_applied,
+          reason: res.reason,
+          headroom: res.recommended_location.available_headroom_units,
+          capacity: res.recommended_location.max_capacity_units,
+        });
+        setGrnLocationId(res.recommended_location.location_id);
+        onNotification?.(
+          "Putaway Advice",
+          `Optimal Bin: ${res.recommended_location.code} (${res.rule_applied})`,
+          "success"
+        );
+      } else {
+        setPutawayAdvice(null);
+        onNotification?.("Putaway Advice", res?.reason || "No location available.", "info");
+      }
+    } catch (err: any) {
+      onNotification?.("Putaway Error", err.message || "Failed to fetch putaway recommendation.", "error");
+    } finally {
+      setPutawayAdviceLoading(false);
+    }
+  };
+
   // Handle Inward GRN
   const handleCreateGrn = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -427,11 +490,18 @@ export const WmsStudioTab: React.FC<{
               quantity_received: grnQty,
               cost_price: grnCostPrice,
               gst_rate: 18.0,
+              warehouse_location_id: grnLocationId || undefined,
             },
           ],
         }),
       });
-      onNotification?.("GRN Inward Complete", `Received ${grnQty} units into batch ${batchNo}.`, "success");
+      onNotification?.(
+        "GRN Inward Complete",
+        `Received ${grnQty} units into batch ${batchNo}${putawayAdvice ? ` (Putaway Bin: ${putawayAdvice.code})` : ""}.`,
+        "success"
+      );
+      setPutawayAdvice(null);
+      setGrnLocationId("");
       fetchWmsData();
     } catch (err: any) {
       onNotification?.("GRN Error", err.message || "Failed inwarding goods receipt", "error");
@@ -1235,6 +1305,48 @@ export const WmsStudioTab: React.FC<{
                     className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg px-3 py-2 text-xs text-theme-body focus:outline-none focus:border-indigo-500 font-mono"
                   />
                 </div>
+              </div>
+
+              {/* Putaway Recommendation Section */}
+              <div className="bg-theme-surface-2/60 border border-theme-divider rounded-xl p-3.5 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5 text-xs font-semibold text-theme-body">
+                    <Zap className="w-4 h-4 text-amber-400" />
+                    <span>Physical Putaway Bin Allocation</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleGetPutawayAdvice}
+                    disabled={putawayAdviceLoading}
+                    className="px-3 py-1 rounded-lg text-xs font-bold bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 border border-indigo-500/30 transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                  >
+                    <RefreshCw className={`w-3 h-3 ${putawayAdviceLoading ? "animate-spin" : ""}`} />
+                    <span>{putawayAdviceLoading ? "Calculating..." : "⚡ Get Putaway Advice"}</span>
+                  </button>
+                </div>
+
+                {putawayAdvice ? (
+                  <div className="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-between text-xs">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono font-bold text-sm text-emerald-400">{putawayAdvice.code}</span>
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                          {putawayAdvice.rule}
+                        </span>
+                        <span className="text-theme-muted text-[11px]">({putawayAdvice.name})</span>
+                      </div>
+                      <p className="text-[11px] text-theme-muted mt-1">{putawayAdvice.reason}</p>
+                    </div>
+                    <div className="text-right text-[11px] font-mono">
+                      <div className="text-emerald-400 font-bold">Headroom: {putawayAdvice.headroom.toFixed(0)} units</div>
+                      <div className="text-theme-muted text-[10px]">Max Cap: {putawayAdvice.capacity} units</div>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-[11px] text-theme-muted">
+                    Click <strong>Get Putaway Advice</strong> to evaluate the 4-tier engine rule cascade (Quarantine → Dedicated Bin → Co-located Stock → Nearest Empty Bin) for this product inwarding.
+                  </p>
+                )}
               </div>
 
               <button

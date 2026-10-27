@@ -77,6 +77,7 @@ export interface PurchaseOrderHeader {
   deliveryDate: string;
   leadTimeDays: number;
   deliveryLocation: string;
+  warehouseId?: string;
   commonTaxPercent: number;
   pictureUrl?: string;
   // Commercial terms (Other Details tab)

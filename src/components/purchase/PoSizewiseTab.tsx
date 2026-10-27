@@ -119,6 +119,7 @@ export interface SizewisePOHeader {
   leadTimeDays: number;
   // Delivery & Tax
   deliveryLocation: string;
+  warehouseId?: string;
   commonTaxPercent: number;
   freightAmount: number;
   otherCharges: number;
@@ -1055,6 +1056,7 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
     { id: string; name: string; code?: string; gstin?: string; gst_number?: string; address?: string; mobile?: string; phone?: string; email?: string; city?: string; state?: string; pincode?: string; payment_terms?: string; payment_terms_days?: number; freight_terms?: string; currency?: string; buyer?: string; department?: string; special_instructions?: string; business_terms?: string; commercial_terms?: any }[]
   >([]);
   const [suppliersLoading, setSuppliersLoading] = useState(true);
+  const [availableWarehouses, setAvailableWarehouses] = useState<Array<{ id: string; code: string; name: string; is_central_godown?: boolean }>>([]);
   const [saving, setSaving] = useState(false);
   const [showBrowseModal, setShowBrowseModal] = useState(false);
   const [activeRowIndex, setActiveRowIndex] = useState(0);
@@ -1310,6 +1312,29 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
           specialInstructions: firstSup.special_instructions || h.specialInstructions,
           businessTerms: firstSup.business_terms || firstSup.special_instructions || h.businessTerms || DEFAULT_BUSINESS_TERMS,
         }));
+      }
+
+      // Fetch active warehouses for delivery location selection
+      try {
+        const whRes: any = await apiFetchV1("/wms/warehouses");
+        const whList = Array.isArray(whRes) ? whRes : whRes?.items || [];
+        if (whList.length > 0) {
+          const activeWhs = whList.filter((w: any) => w.is_active !== false);
+          setAvailableWarehouses(activeWhs);
+          setHeader(current => {
+            if (!current.warehouseId && activeWhs.length > 0) {
+              const central = activeWhs.find((w: any) => w.is_central_godown) || activeWhs[0];
+              return {
+                ...current,
+                warehouseId: central.id,
+                deliveryLocation: `${central.code} - ${central.name}`,
+              };
+            }
+            return current;
+          });
+        }
+      } catch (err) {
+        console.warn("[PoSizewiseTab] Failed to load warehouses:", err);
       }
 
       // Fetch next PO number
@@ -2881,11 +2906,14 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
         special_instructions: header.specialInstructions,
         supplier_reference: header.supplierReference,
         business_terms: header.businessTerms,
+        delivery_location: header.deliveryLocation,
+        warehouse_id: header.warehouseId,
       };
       const payload = {
         order_no: orderNo,
         order_date: header.orderDate,
         supplier_id: header.supplierId,
+        warehouse_id: header.warehouseId || undefined,
         delivery_date: header.deliveryDate,
         status: mode === "confirm" ? "confirmed" : "draft",
         commercial_terms: commercialTerms,
@@ -4825,13 +4853,35 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
           <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-2xs space-y-3">
             <h3 className="font-bold text-slate-800 dark:text-slate-100 text-sm mb-2">Delivery Details</h3>
             <div>
-              <label className="block font-medium text-slate-500 mb-1">Delivery Location / Store</label>
-              <input
-                type="text"
-                value={header.deliveryLocation}
-                onChange={e => setHeader(h => ({ ...h, deliveryLocation: e.target.value }))}
-                className="w-full border border-slate-300 dark:border-slate-700 rounded-lg px-3 h-8 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 outline-none focus:border-indigo-500"
-              />
+              <label className="block font-medium text-slate-500 mb-1">Delivery Location / Warehouse</label>
+              {availableWarehouses.length > 0 ? (
+                <select
+                  value={header.warehouseId || ""}
+                  onChange={e => {
+                    const selId = e.target.value;
+                    const wh = availableWarehouses.find(w => w.id === selId);
+                    setHeader(h => ({
+                      ...h,
+                      warehouseId: selId,
+                      deliveryLocation: wh ? `${wh.code} - ${wh.name}` : selId,
+                    }));
+                  }}
+                  className="w-full border border-slate-300 dark:border-slate-700 rounded-lg px-3 h-8 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 outline-none focus:border-indigo-500 font-medium"
+                >
+                  {availableWarehouses.map(w => (
+                    <option key={w.id} value={w.id}>
+                      [{w.code}] {w.name} {w.is_central_godown ? "⭐" : ""}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <input
+                  type="text"
+                  value={header.deliveryLocation}
+                  onChange={e => setHeader(h => ({ ...h, deliveryLocation: e.target.value }))}
+                  className="w-full border border-slate-300 dark:border-slate-700 rounded-lg px-3 h-8 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 outline-none focus:border-indigo-500"
+                />
+              )}
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
@@ -5809,6 +5859,7 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
           supplierReference: header.supplierReference,
           deliveryDate: header.deliveryDate,
           deliveryLocation: header.deliveryLocation,
+          warehouseId: header.warehouseId,
           leadTimeDays: header.leadTimeDays,
           otherCharges: header.otherCharges,
           remarks: header.remarks,

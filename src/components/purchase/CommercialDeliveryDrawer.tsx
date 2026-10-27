@@ -16,6 +16,7 @@
 
 import React, { useEffect, useRef, useState } from "react";
 import { SafeRichTermsRenderer } from "../common/SafeRichTermsRenderer";
+import { apiFetchV1 } from "../../lib/apiFetchV1";
 
 export interface CommercialDeliveryData {
   paymentTerms: string;
@@ -29,6 +30,7 @@ export interface CommercialDeliveryData {
   supplierReference: string;
   deliveryDate: string;
   deliveryLocation: string;
+  warehouseId?: string;
   leadTimeDays: number;
   otherCharges?: number;
   remarks?: string;
@@ -94,12 +96,11 @@ const DEPARTMENT_PRESETS = [
   "General Procurement",
 ];
 
-const WAREHOUSE_PRESETS = [
-  "Main Central Godown (CG-01)",
-  "Retail Store Hub (ST-01)",
-  "Distribution Logistics Center (DLC-NORTH)",
-  "Transit Hub (TR-01)",
-];
+interface AvailableGodown {
+  id: string;
+  code: string;
+  name: string;
+}
 
 export const CommercialDeliveryDrawer: React.FC<CommercialDeliveryDrawerProps> = ({
   isOpen,
@@ -115,6 +116,31 @@ export const CommercialDeliveryDrawer: React.FC<CommercialDeliveryDrawerProps> =
   const drawerRef = useRef<HTMLDivElement>(null);
   const firstInputRef = useRef<HTMLSelectElement>(null);
   const [previewTerms, setPreviewTerms] = useState(false);
+  const [warehouses, setWarehouses] = useState<AvailableGodown[]>([]);
+
+  // Load active warehouses from backend
+  useEffect(() => {
+    let isMounted = true;
+    apiFetchV1<any[]>("/wms/warehouses")
+      .then((res) => {
+        if (isMounted && Array.isArray(res) && res.length > 0) {
+          const list = res
+            .filter((w) => w.is_active !== false)
+            .map((w) => ({
+              id: w.id,
+              code: w.code || w.id,
+              name: w.name,
+            }));
+          setWarehouses(list);
+        }
+      })
+      .catch((err) => {
+        console.warn("[CommercialDeliveryDrawer] Failed to fetch warehouses:", err);
+      });
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   // Close on Escape key
   useEffect(() => {
@@ -319,13 +345,21 @@ export const CommercialDeliveryDrawer: React.FC<CommercialDeliveryDrawerProps> =
                 </label>
                 <select
                   disabled={readOnly}
-                  value={data.deliveryLocation || "Main Central Godown (CG-01)"}
+                  value={data.deliveryLocation || (warehouses[0]?.id || "")}
                   onChange={(e) => onChange({ deliveryLocation: e.target.value })}
                   className="w-full text-xs font-medium px-2.5 h-8 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100 rounded-lg outline-none focus:border-indigo-500 disabled:opacity-50"
                 >
-                  {WAREHOUSE_PRESETS.map((w) => (
-                    <option key={w} value={w} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100">{w}</option>
-                  ))}
+                  {warehouses.length > 0 ? (
+                    warehouses.map((w) => (
+                      <option key={w.id} value={w.id} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100">
+                        {w.code} - {w.name}
+                      </option>
+                    ))
+                  ) : (
+                    <option value="" disabled className="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100">
+                      Loading Warehouses...
+                    </option>
+                  )}
                 </select>
               </div>
 

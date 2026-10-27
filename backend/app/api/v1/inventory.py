@@ -132,6 +132,8 @@ async def list_stock_ledger(
     start_date: Optional[date] = Query(None),
     end_date: Optional[date] = Query(None),
     movement_type: Optional[str] = Query(None),
+    warehouse_id: Optional[str] = Query(None),
+    warehouse: Optional[str] = Query(None),
     search: Optional[str] = Query(None),
     q: Optional[str] = Query(None),
     product_id: Optional[str] = Query(None),
@@ -187,6 +189,15 @@ async def list_stock_ledger(
         stmt = stmt.where(StockMovement.product_id == product_id)
     if sku:
         stmt = stmt.where(StockMovement.sku == sku)
+
+    target_wh = warehouse_id or warehouse
+    if target_wh:
+        stmt = stmt.where(
+            or_(
+                StockMovement.warehouse_id == target_wh,
+                StockMovement.warehouse == target_wh,
+            )
+        )
     
     target_ref = reference_doc_id or reference_doc_no
     if target_ref:
@@ -307,6 +318,7 @@ async def list_stock_ledger(
             "reference_doc_id": mv.reference_doc_id,
             "reference_doc_no": doc_no,
             "warehouse": mv.warehouse,
+            "warehouse_id": getattr(mv, "warehouse_id", None),
             "bin": mv.bin,
             "batch": mv.batch,
             "serial": mv.serial,

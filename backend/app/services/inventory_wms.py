@@ -25,7 +25,7 @@ from sqlalchemy.orm import selectinload
 
 from ..api.deps import TenantContext
 from ..models.inventory import (
-    Warehouse, Product, StockMovement,
+    Warehouse, WarehouseLocation, Product, StockMovement,
     ProductBatchStock, StockTransfer, StockTransferItem, TransferStatus
 )
 from .identity.engine import IdentityEngine
@@ -603,3 +603,312 @@ class InventoryWmsService:
         transfer.received_date = datetime.now(timezone.utc)
         await self.db.flush()
         return transfer
+
+    async def recommend_putaway(
+        self,
+        warehouse_id: str,
+        warehouse_code: str,
+        product_id: Optional[str] = None,
+        item_id: Optional[str] = None,
+        sku: Optional[str] = None,
+        quantity: Decimal = Decimal("1.0000"),
+        batch_no: Optional[str] = None,
+        is_damaged: bool = False,
+        preferred_zone: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """
+        Automated WMS Putaway Rule Engine:
+        Priority 1: Quarantine / Damage Isolation (is_damaged=True or preferred_zone='QUARANTINE')
+        Priority 2: Dedicated Item Bin Affinity (ItemWarehouseLocation configured bin)
+        Priority 3: Co-located Stock (matching existing stock of same product/batch)
+        Priority 4: Nearest Available Empty / Capacity Bin in target zone (Aisle->Rack->Shelf->Bin order)
+        """
+        # Fetch active locations for warehouse
+        q_locs = (
+            select(WarehouseLocation)
+            .where(
+                WarehouseLocation.warehouse_id == warehouse_id,
+                WarehouseLocation.company_id == self.tenant_ctx.company_id,
+                WarehouseLocation.is_deleted == False,
+                WarehouseLocation.is_active == True,
+            )
+            .order_by(
+                WarehouseLocation.zone.asc(),
+                WarehouseLocation.aisle.asc().nulls_last(),
+                WarehouseLocation.rack.asc().nulls_last(),
+                WarehouseLocation.shelf.asc().nulls_last(),
+                WarehouseLocation.bin_code.asc().nulls_last(),
+                WarehouseLocation.code.asc(),
+            )
+        )
+        res_locs = await self.db.execute(q_locs)
+        all_locations = res_locs.scalars().all()
+
+        if not all_locations:
+            return {
+                "warehouse_id": warehouse_id,
+                "warehouse_code": warehouse_code,
+                "status": "NO_LOCATIONS_DEFINED",
+                "recommended_location": None,
+                "alternatives": [],
+                "message": f"No physical locations configured for warehouse {warehouse_code}. Please configure bins or generate a location matrix first.",
+            }
+
+        # Calculate current occupancy per bin
+        q_occ = (
+            select(
+                StockMovement.bin,
+                func.coalesce(func.sum(StockMovement.quantity), 0).label("total_qty"),
+            )
+            .where(
+                StockMovement.warehouse_id == warehouse_id,
+                StockMovement.company_id == self.tenant_ctx.company_id,
+                StockMovement.is_deleted == False,
+                StockMovement.bin.isnot(None),
+            )
+            .group_by(StockMovement.bin)
+        )
+        res_occ = await self.db.execute(q_occ)
+        occupancy_by_code: Dict[str, float] = {
+            row[0]: max(0.0, float(row[1])) for row in res_occ.all() if row[0]
+        }
+
+        q_occ_id = (
+            select(
+                StockMovement.location_id,
+                func.coalesce(func.sum(StockMovement.quantity), 0).label("total_qty"),
+            )
+            .where(
+                StockMovement.warehouse_id == warehouse_id,
+                StockMovement.company_id == self.tenant_ctx.company_id,
+                StockMovement.is_deleted == False,
+                StockMovement.location_id.isnot(None),
+            )
+            .group_by(StockMovement.location_id)
+        )
+        res_occ_id = await self.db.execute(q_occ_id)
+        occupancy_by_id: Dict[str, float] = {
+            row[0]: max(0.0, float(row[1])) for row in res_occ_id.all() if row[0]
+        }
+
+        def _to_candidate(loc: WarehouseLocation, rule: str) -> Dict[str, Any]:
+            current_occ = max(
+                occupancy_by_code.get(loc.code, 0.0),
+                occupancy_by_id.get(loc.id, 0.0),
+            )
+            max_cap = float(loc.max_capacity_units or 100)
+            avail_cap = max(0.0, max_cap - current_occ)
+            return {
+                "location_id": loc.id,
+                "code": loc.code,
+                "name": loc.name,
+                "zone": loc.zone or "STORAGE",
+                "aisle": loc.aisle,
+                "rack": loc.rack,
+                "shelf": loc.shelf,
+                "bin_code": loc.bin_code,
+                "barcode": loc.barcode,
+                "max_capacity_units": loc.max_capacity_units,
+                "current_occupancy": current_occ,
+                "available_capacity": avail_cap,
+                "rule_applied": rule,
+            }
+
+        req_qty = float(quantity)
+        effective_item_id = item_id or product_id
+
+        # --- Priority 1: Quarantine / Damage Isolation ---
+        if is_damaged or (preferred_zone and preferred_zone.upper() == "QUARANTINE"):
+            quarantine_locs = [
+                l for l in all_locations
+                if (l.zone or "").upper() == "QUARANTINE" and not l.is_locked
+            ]
+            if not quarantine_locs:
+                return {
+                    "warehouse_id": warehouse_id,
+                    "warehouse_code": warehouse_code,
+                    "status": "OVER_CAPACITY",
+                    "recommended_location": None,
+                    "alternatives": [],
+                    "message": f"No active QUARANTINE bins found in warehouse {warehouse_code}. Quarantine allocation required for damaged goods.",
+                }
+
+            # Check capacity
+            candidates = [_to_candidate(l, "QUARANTINE_ISOLATION") for l in quarantine_locs]
+            viable = [c for c in candidates if c["available_capacity"] >= req_qty]
+            if viable:
+                return {
+                    "warehouse_id": warehouse_id,
+                    "warehouse_code": warehouse_code,
+                    "status": "RECOMMENDED",
+                    "recommended_location": viable[0],
+                    "alternatives": [c for c in candidates if c["location_id"] != viable[0]["location_id"]][:3],
+                    "message": f"Quarantine bin '{viable[0]['code']}' assigned for damaged or quarantine stock.",
+                }
+            else:
+                return {
+                    "warehouse_id": warehouse_id,
+                    "warehouse_code": warehouse_code,
+                    "status": "OVER_CAPACITY",
+                    "recommended_location": None,
+                    "alternatives": candidates[:3],
+                    "message": f"Quarantine bins in warehouse {warehouse_code} lack sufficient capacity for {quantity} units.",
+                }
+
+        # --- Priority 2: Dedicated Item Bin Affinity ---
+        if effective_item_id:
+            try:
+                from ..models.item_master import ItemWarehouseLocation
+                q_iwl = (
+                    select(ItemWarehouseLocation)
+                    .where(
+                        ItemWarehouseLocation.warehouse_id == warehouse_id,
+                        ItemWarehouseLocation.item_id == effective_item_id,
+                        ItemWarehouseLocation.company_id == self.tenant_ctx.company_id,
+                        ItemWarehouseLocation.is_deleted == False,
+                        ItemWarehouseLocation.location_bin.isnot(None),
+                    )
+                )
+                res_iwl = await self.db.execute(q_iwl)
+                iwl = res_iwl.scalars().first()
+                if iwl and iwl.location_bin:
+                    bin_target = str(iwl.location_bin).strip()
+                    matched_loc = next(
+                        (l for l in all_locations if (l.code == bin_target or l.id == bin_target) and not l.is_locked),
+                        None,
+                    )
+                    if matched_loc:
+                        cand = _to_candidate(matched_loc, "DEDICATED_ITEM_BIN")
+                        if cand["available_capacity"] >= req_qty:
+                            other_cands = [
+                                _to_candidate(l, "ZONE_CAPACITY_FALLBACK")
+                                for l in all_locations
+                                if l.id != matched_loc.id and not l.is_locked and l.zone == matched_loc.zone
+                            ]
+                            return {
+                                "warehouse_id": warehouse_id,
+                                "warehouse_code": warehouse_code,
+                                "status": "RECOMMENDED",
+                                "recommended_location": cand,
+                                "alternatives": other_cands[:3],
+                                "message": f"Assigned to dedicated item bin '{cand['code']}' configured for item {effective_item_id}.",
+                            }
+            except Exception:
+                # If table does not exist or lookup fails, gracefully proceed to co-location rule
+                pass
+
+        # --- Priority 3: Co-located Stock ---
+        if effective_item_id or sku:
+            try:
+                co_q = (
+                    select(StockMovement.bin)
+                    .where(
+                        StockMovement.warehouse_id == warehouse_id,
+                        StockMovement.company_id == self.tenant_ctx.company_id,
+                        StockMovement.is_deleted == False,
+                        StockMovement.bin.isnot(None),
+                    )
+                )
+                filters = []
+                if effective_item_id:
+                    filters.append(StockMovement.product_id == effective_item_id)
+                    filters.append(StockMovement.item_id == effective_item_id)
+                if sku:
+                    filters.append(StockMovement.sku == sku)
+                from sqlalchemy import or_
+                co_q = co_q.where(or_(*filters)).group_by(StockMovement.bin).having(func.sum(StockMovement.quantity) > 0)
+
+                res_co = await self.db.execute(co_q)
+                co_bin_codes = set(r[0] for r in res_co.all() if r[0])
+
+                if co_bin_codes:
+                    co_locs = [
+                        l for l in all_locations
+                        if l.code in co_bin_codes and not l.is_locked and (l.zone or "").upper() in ("STORAGE", "PICKING", "BULK")
+                    ]
+                    co_cands = [_to_candidate(l, "CO_LOCATED_STOCK") for l in co_locs]
+                    viable_co = [c for c in co_cands if c["available_capacity"] >= req_qty]
+                    if viable_co:
+                        other_alts = [c for c in co_cands if c["location_id"] != viable_co[0]["location_id"]]
+                        return {
+                            "warehouse_id": warehouse_id,
+                            "warehouse_code": warehouse_code,
+                            "status": "RECOMMENDED",
+                            "recommended_location": viable_co[0],
+                            "alternatives": other_alts[:3],
+                            "message": f"Assigned to co-located bin '{viable_co[0]['code']}' with existing stock of this product.",
+                        }
+            except Exception:
+                pass
+
+        # --- Priority 4: Nearest Available Empty / Capacity Bin in Target Zone ---
+        target_zone = (preferred_zone or "STORAGE").upper()
+        zone_locs = [
+            l for l in all_locations
+            if (l.zone or "").upper() == target_zone and not l.is_locked
+        ]
+        if not zone_locs and target_zone != "STORAGE":
+            zone_locs = [
+                l for l in all_locations
+                if (l.zone or "").upper() in ("STORAGE", "PICKING", "BULK") and not l.is_locked
+            ]
+        if not zone_locs:
+            # fallback to any unlocked non-quarantine locations
+            zone_locs = [
+                l for l in all_locations
+                if (l.zone or "").upper() != "QUARANTINE" and not l.is_locked
+            ]
+
+        if not zone_locs:
+            return {
+                "warehouse_id": warehouse_id,
+                "warehouse_code": warehouse_code,
+                "status": "OVER_CAPACITY",
+                "recommended_location": None,
+                "alternatives": [],
+                "message": f"No available non-quarantine storage locations found in warehouse {warehouse_code}.",
+            }
+
+        candidates = []
+        for l in zone_locs:
+            occ = max(occupancy_by_code.get(l.code, 0.0), occupancy_by_id.get(l.id, 0.0))
+            rule_name = "EMPTY_BIN_ALLOCATION" if occ == 0 else "ZONE_CAPACITY_FALLBACK"
+            candidates.append(_to_candidate(l, rule_name))
+
+        # First pick: empty bins with sufficient capacity
+        empty_viable = [c for c in candidates if c["current_occupancy"] == 0 and c["available_capacity"] >= req_qty]
+        if empty_viable:
+            best = empty_viable[0]
+            alts = [c for c in candidates if c["location_id"] != best["location_id"]][:3]
+            return {
+                "warehouse_id": warehouse_id,
+                "warehouse_code": warehouse_code,
+                "status": "RECOMMENDED",
+                "recommended_location": best,
+                "alternatives": alts,
+                "message": f"Allocated to nearest empty bin '{best['code']}' in {best['zone']} zone.",
+            }
+
+        # Second pick: partially occupied bins with sufficient capacity
+        partial_viable = [c for c in candidates if c["available_capacity"] >= req_qty]
+        if partial_viable:
+            best = partial_viable[0]
+            alts = [c for c in candidates if c["location_id"] != best["location_id"]][:3]
+            return {
+                "warehouse_id": warehouse_id,
+                "warehouse_code": warehouse_code,
+                "status": "RECOMMENDED",
+                "recommended_location": best,
+                "alternatives": alts,
+                "message": f"Allocated to available bin '{best['code']}' in {best['zone']} zone (capacity: {best['available_capacity']} units remaining).",
+            }
+
+        # Over-capacity fallback
+        return {
+            "warehouse_id": warehouse_id,
+            "warehouse_code": warehouse_code,
+            "status": "OVER_CAPACITY",
+            "recommended_location": None,
+            "alternatives": candidates[:3],
+            "message": f"All candidate bins in {target_zone} zone exceed capacity for requested quantity ({quantity} units). Overflow handling required.",
+        }

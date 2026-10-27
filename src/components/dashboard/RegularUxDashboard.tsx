@@ -12,8 +12,9 @@
  * Classification: Regular UX Dashboard (Simple, Clean, Guided, Everyday Retail)
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Product, Formula, PSVParty } from '../../types.ts';
+import { apiFetchV1 } from '../../lib/apiFetchV1.ts';
 
 interface RegularUxDashboardProps {
   products?: Product[];
@@ -24,6 +25,12 @@ interface RegularUxDashboardProps {
   onSelectFormula?: (f: Formula | null) => void;
 }
 
+interface LocationOption {
+  id: string;
+  label: string;
+  type: 'STORE' | 'WAREHOUSE';
+}
+
 export const RegularUxDashboard: React.FC<RegularUxDashboardProps> = ({
   products = [],
   formulas = [],
@@ -31,8 +38,59 @@ export const RegularUxDashboard: React.FC<RegularUxDashboardProps> = ({
   currentUser,
   onNavigateTab,
 }) => {
-  const [selectedStore, setSelectedStore] = useState('This Store');
+  const [locations, setLocations] = useState<LocationOption[]>([
+    { id: 'CURRENT_STORE', label: 'This Store (Current)', type: 'STORE' },
+  ]);
+  const [selectedLocationId, setSelectedLocationId] = useState<string>('CURRENT_STORE');
   const userName = currentUser?.name || 'Jawahar';
+
+  useEffect(() => {
+    let isMounted = true;
+    const fetchLocations = async () => {
+      try {
+        const [branchRes, whRes] = await Promise.allSettled([
+          apiFetchV1<any[]>('/branches'),
+          apiFetchV1<any[]>('/wms/warehouses'),
+        ]);
+
+        const opts: LocationOption[] = [
+          { id: 'CURRENT_STORE', label: 'This Store (Current)', type: 'STORE' },
+        ];
+
+        if (branchRes.status === 'fulfilled' && Array.isArray(branchRes.value)) {
+          for (const b of branchRes.value) {
+            opts.push({
+              id: `BRANCH:${b.id}`,
+              label: `[Branch] ${b.code || b.name} - ${b.name}`,
+              type: 'STORE',
+            });
+          }
+        }
+
+        if (whRes.status === 'fulfilled' && Array.isArray(whRes.value)) {
+          for (const w of whRes.value) {
+            if (w.is_active !== false) {
+              opts.push({
+                id: `WH:${w.id}`,
+                label: `[Godown] ${w.code || w.id} - ${w.name}`,
+                type: 'WAREHOUSE',
+              });
+            }
+          }
+        }
+
+        if (isMounted) {
+          setLocations(opts);
+        }
+      } catch (err) {
+        console.warn('[RegularUxDashboard] Failed to load dynamic locations:', err);
+      }
+    };
+    fetchLocations();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const todayFormatted = new Intl.DateTimeFormat('en-IN', {
     weekday: 'short',
@@ -66,13 +124,15 @@ export const RegularUxDashboard: React.FC<RegularUxDashboardProps> = ({
             <span>{todayFormatted}</span>
           </div>
           <select
-            value={selectedStore}
-            onChange={(e) => setSelectedStore(e.target.value)}
+            value={selectedLocationId}
+            onChange={(e) => setSelectedLocationId(e.target.value)}
             className="text-xs font-semibold text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-1.5 shadow-2xs cursor-pointer focus:outline-hidden focus:ring-2 focus:ring-[#24389c]"
           >
-            <option value="This Store">This Store</option>
-            <option value="Main Warehouse">Main Warehouse</option>
-            <option value="Branch 02">Branch 02 (Downtown)</option>
+            {locations.map((loc) => (
+              <option key={loc.id} value={loc.id}>
+                {loc.label}
+              </option>
+            ))}
           </select>
         </div>
       </div>

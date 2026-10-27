@@ -4,14 +4,15 @@ Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
-Version      : 6.17.0
+Version      : 6.18.0
 Created      : 2026-08-22
-Modified     : 2026-10-27
+Modified     : 2026-10-28
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 Classification: Internal
 """
 
+import re
 import uuid
 from datetime import datetime, timezone
 from typing import List, Optional, Any
@@ -19,8 +20,8 @@ from decimal import Decimal
 from fastapi import APIRouter, Depends, HTTPException, Query, Header
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from sqlalchemy.orm import selectinload
-from sqlalchemy import func
+from sqlalchemy.orm import selectinload, defer
+from sqlalchemy import func, text
 
 from ...api.deps import (
     get_company_db, get_tenant_context, TenantContext,
@@ -28,7 +29,10 @@ from ...api.deps import (
 )
 from ...models.auth import UserRole
 from ...models.tenant import Branch
-from ...models.inventory import Warehouse, WarehouseLocation, ProductBatchStock, StockTransfer, StockTransferItem, StockAudit, StockAuditItem
+from ...models.inventory import (
+    Warehouse, WarehouseLocation, StockMovement, ProductBatchStock,
+    StockTransfer, StockTransferItem, StockAudit, StockAuditItem
+)
 from ...schemas.wms import (
     WarehouseCreate, WarehouseUpdate, WarehouseResponse,
     WarehouseLocationCreate, WarehouseLocationResponse,
@@ -36,13 +40,41 @@ from ...schemas.wms import (
     ProductBatchStockResponse, BatchAllocationRequest, BatchAllocationItem,
     StockTransferCreate, StockTransferResponse, StockTransferReceiptRequest,
     StockAuditCreate, StockAuditResponse, StockAuditItemResponse,
-    StockAuditCountItemRequest, StockAuditBulkCountRequest, StockAuditBarcodeScanRequest
+    StockAuditCountItemRequest, StockAuditBulkCountRequest, StockAuditBarcodeScanRequest,
+    PutawayRecommendationRequest, PutawayCandidateLocation, PutawayRecommendationResponse
 )
 from ...services.inventory_wms import InventoryWmsService
 from ...services.eway_bill_service import EWayBillService
 from ...services.stock_audit_service import StockAuditService
 
 router = APIRouter()
+
+
+async def _get_warehouse_resilient(
+    db: AsyncSession, warehouse_id: str, company_id: str
+) -> Optional[Warehouse]:
+    """Retrieve warehouse by ID with automatic schema-drift fallback (is_default_for_branch)."""
+    try:
+        q = select(Warehouse).where(
+            Warehouse.id == warehouse_id,
+            Warehouse.company_id == company_id,
+            Warehouse.is_deleted == False,
+        )
+        res = await db.execute(q)
+        return res.scalars().first()
+    except Exception:
+        await db.rollback()
+        stmt = (
+            select(Warehouse)
+            .options(defer(Warehouse.is_default_for_branch))
+            .where(
+                Warehouse.id == warehouse_id,
+                Warehouse.company_id == company_id,
+                Warehouse.is_deleted == False,
+            )
+        )
+        res = await db.execute(stmt)
+        return res.scalars().first()
 
 
 # ─────────────────────────── Warehouse Masters ───────────────────────────
@@ -97,11 +129,7 @@ async def create_warehouse_location(
     guard: Any = Depends(require_permission("inventory_workspace", "ADD")),
 ):
     """Create a governed warehouse location; Item Master consumes these values."""
-    warehouse = await db.scalar(select(Warehouse).where(
-        Warehouse.id == warehouse_id,
-        Warehouse.company_id == tenant_ctx.company_id,
-        Warehouse.is_deleted == False,
-    ))
+    warehouse = await _get_warehouse_resilient(db, warehouse_id, tenant_ctx.company_id)
     if not warehouse:
         raise HTTPException(status_code=404, detail="Warehouse not found.")
     duplicate = await db.scalar(select(WarehouseLocation).where(
@@ -179,7 +207,6 @@ async def delete_warehouse_location(
         raise HTTPException(status_code=404, detail="Location not found.")
 
     # R-012: Guard — check for historical stock movement references.
-    from ..models.inventory import StockMovement
     ref_count_q = select(func.count(StockMovement.id)).where(
         StockMovement.location_id == location_id,
         StockMovement.company_id == tenant_ctx.company_id,
@@ -212,11 +239,7 @@ async def generate_warehouse_locations_matrix(
     guard: Any = Depends(require_permission("inventory_workspace", "ADD")),
 ):
     """Generate a batch of locations for a warehouse based on an Aisle-Rack-Shelf matrix."""
-    warehouse = await db.scalar(select(Warehouse).where(
-        Warehouse.id == warehouse_id,
-        Warehouse.company_id == tenant_ctx.company_id,
-        Warehouse.is_deleted == False,
-    ))
+    warehouse = await _get_warehouse_resilient(db, warehouse_id, tenant_ctx.company_id)
     if not warehouse:
         raise HTTPException(status_code=404, detail="Warehouse not found.")
 
@@ -292,6 +315,40 @@ async def generate_warehouse_locations_matrix(
     )
 
 
+@router.post("/warehouses/{warehouse_id}/putaway-recommendation", response_model=PutawayRecommendationResponse)
+async def get_putaway_recommendation(
+    warehouse_id: str,
+    req: PutawayRecommendationRequest,
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+    guard: Any = Depends(require_permission("inventory_workspace", "VIEW")),
+):
+    """
+    Automated Putaway Recommendation Engine:
+    - Analyzes warehouse layout, physical capacity, and active inventory.
+    - Evaluates 4-tier priority rules: Quarantine, Dedicated Bin, Co-located Stock, Nearest Empty Bin.
+    - Generates primary recommended location and ranked alternatives.
+    - Resilient to schema-drift on unmigrated tenant databases.
+    """
+    warehouse = await _get_warehouse_resilient(db, warehouse_id, tenant_ctx.company_id)
+    if not warehouse:
+        raise HTTPException(status_code=404, detail="Warehouse not found.")
+
+    wms_service = InventoryWmsService(db, tenant_ctx)
+    rec = await wms_service.recommend_putaway(
+        warehouse_id=warehouse_id,
+        warehouse_code=warehouse.code,
+        product_id=req.product_id,
+        item_id=req.item_id,
+        sku=req.sku,
+        quantity=req.quantity,
+        batch_no=req.batch_no,
+        is_damaged=req.is_damaged,
+        preferred_zone=req.preferred_zone,
+    )
+    return PutawayRecommendationResponse.model_validate(rec)
+
+
 @router.get("/locations/{location_id}/stock")
 async def get_location_stock(
     location_id: str,
@@ -341,13 +398,45 @@ async def list_warehouses(
     db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
 ):
-    """List all warehouses for the active company tenant."""
-    q = select(Warehouse).where(
-        Warehouse.company_id == tenant_ctx.company_id,
-        Warehouse.is_deleted == False
-    ).order_by(Warehouse.created_at.asc())
-    res = await db.execute(q)
-    return [WarehouseResponse.model_validate(w) for w in res.scalars().all()]
+    """List all warehouses for the active company tenant with schema drift resilience."""
+    try:
+        q = select(Warehouse).where(
+            Warehouse.company_id == tenant_ctx.company_id,
+            Warehouse.is_deleted == False
+        ).order_by(Warehouse.created_at.asc())
+        res = await db.execute(q)
+        return [WarehouseResponse.model_validate(w) for w in res.scalars().all()]
+    except Exception:
+        # Schema-drift fallback: if is_default_for_branch column is absent on an unmigrated tenant DB
+        await db.rollback()
+        stmt = select(Warehouse).options(defer(Warehouse.is_default_for_branch)).where(
+            Warehouse.company_id == tenant_ctx.company_id,
+            Warehouse.is_deleted == False
+        ).order_by(Warehouse.created_at.asc())
+        res = await db.execute(stmt)
+        warehouses = res.scalars().all()
+        out = []
+        for w in warehouses:
+            out.append(WarehouseResponse(
+                id=w.id,
+                company_id=w.company_id,
+                branch_id=w.branch_id,
+                code=w.code,
+                name=w.name,
+                is_transit=w.is_transit or False,
+                is_central_godown=w.is_central_godown or False,
+                is_default_for_branch=False,
+                address=w.address,
+                city=w.city,
+                state=w.state,
+                pincode=w.pincode,
+                contact_person=w.contact_person,
+                phone=w.phone,
+                is_active=w.is_active if w.is_active is not None else True,
+                created_at=w.created_at,
+                modified_at=w.modified_at,
+            ))
+        return out
 
 
 @router.get("/branches")
@@ -386,37 +475,157 @@ async def create_warehouse(
     tenant_ctx: TenantContext = Depends(get_tenant_context),
     guard: Any = Depends(require_permission("inventory_workspace", "ADD")),
 ):
-    """Create a new warehouse / godown under the active company tenant."""
-    # Check scoped code uniqueness
-    q_exist = select(Warehouse).where(
-        Warehouse.company_id == tenant_ctx.company_id,
-        Warehouse.code == req.code,
-        Warehouse.is_deleted == False
-    )
-    res_exist = await db.execute(q_exist)
-    if res_exist.scalars().first():
-        raise HTTPException(status_code=400, detail=f"Warehouse code '{req.code}' already exists in this company.")
+    """Create a new warehouse / godown under the active company tenant.
 
-    wh = Warehouse(
-        id=f"wh-{uuid.uuid4().hex[:12]}",
-        uuid=str(uuid.uuid4()),
-        company_id=tenant_ctx.company_id,
-        branch_id=tenant_ctx.branch_id,
-        code=req.code,
-        name=req.name,
-        is_transit=req.is_transit,
-        is_central_godown=req.is_central_godown,
-        address=req.address,
-        city=req.city,
-        state=req.state,
-        pincode=req.pincode,
-        contact_person=req.contact_person,
-        phone=req.phone,
-    )
-    db.add(wh)
-    await db.commit()
-    await db.refresh(wh)
-    return WarehouseResponse.model_validate(wh)
+    Generates or validates unique warehouse code:
+    - If code provided: validates format [A-Z0-9_-] and verifies uniqueness in company (cannot reuse deactivated codes).
+    - If code omitted: auto-generates readable sequential code WH-{BRANCH}-{SEQ:03d} or WH-{SEQ:03d}.
+    - Assigns stable technical ID wh-{uuid}.
+    - Resilient to schema-drift on unmigrated tenant databases.
+    """
+    target_branch_id = req.branch_id or tenant_ctx.branch_id
+    code = (req.code or "").strip().upper()
+
+    if code:
+        if not re.match(r"^[A-Z0-9_\-\.]{2,50}$", code):
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid warehouse code '{code}'. Must be 2-50 alphanumeric characters (letters, numbers, hyphens, underscores).",
+            )
+        # Check uniqueness across active and deactivated records in company
+        q_exist = select(Warehouse.id).where(
+            Warehouse.company_id == tenant_ctx.company_id,
+            func.upper(Warehouse.code) == code,
+            Warehouse.is_deleted == False,
+        )
+        res_exist = await db.execute(q_exist)
+        if res_exist.scalars().first():
+            raise HTTPException(
+                status_code=400,
+                detail=f"Warehouse code '{code}' already exists or was previously deactivated in this company.",
+            )
+    else:
+        # Auto-generate unique readable code
+        prefix = "WH"
+        if target_branch_id:
+            b_stmt = select(Branch).where(
+                Branch.id == target_branch_id,
+                Branch.company_id == tenant_ctx.company_id,
+                Branch.is_deleted == False,
+            )
+            b_res = await db.execute(b_stmt)
+            branch_obj = b_res.scalars().first()
+            if branch_obj and branch_obj.code:
+                clean_tag = re.sub(r"[^A-Z0-9]", "", branch_obj.code.upper())[:4]
+                if clean_tag:
+                    prefix = f"WH-{clean_tag}"
+
+        pattern = f"{prefix}-%"
+        q_codes = select(Warehouse.code).where(
+            Warehouse.company_id == tenant_ctx.company_id,
+            Warehouse.code.like(pattern),
+            Warehouse.is_deleted == False,
+        )
+        res_codes = await db.execute(q_codes)
+        existing_codes = set(str(c).upper() for c in res_codes.scalars().all())
+
+        max_seq = 0
+        for ec in existing_codes:
+            m = re.search(r"-(\d+)$", ec)
+            if m:
+                val = int(m.group(1))
+                if val > max_seq:
+                    max_seq = val
+
+        seq = max_seq + 1
+        allocated_code = f"{prefix}-{seq:03d}"
+        while allocated_code in existing_codes:
+            seq += 1
+            allocated_code = f"{prefix}-{seq:03d}"
+        code = allocated_code
+
+    wh_id = f"wh-{uuid.uuid4().hex[:12]}"
+    now = datetime.now(timezone.utc)
+
+    try:
+        wh = Warehouse(
+            id=wh_id,
+            uuid=str(uuid.uuid4()),
+            company_id=tenant_ctx.company_id,
+            branch_id=target_branch_id,
+            code=code,
+            name=req.name,
+            is_transit=req.is_transit,
+            is_central_godown=req.is_central_godown,
+            is_default_for_branch=req.is_default_for_branch,
+            address=req.address,
+            city=req.city,
+            state=req.state,
+            pincode=req.pincode,
+            contact_person=req.contact_person,
+            phone=req.phone,
+            is_active=True,
+            is_deleted=False,
+        )
+        db.add(wh)
+        await db.commit()
+        await db.refresh(wh)
+        return WarehouseResponse.model_validate(wh)
+    except Exception:
+        # Schema-drift fallback: if is_default_for_branch column does not exist on unmigrated tenant DB
+        await db.rollback()
+        insert_sql = text("""
+            INSERT INTO warehouses (
+                id, uuid, company_id, branch_id, code, name, is_transit, is_central_godown,
+                address, city, state, pincode, contact_person, phone, is_active, is_deleted,
+                created_at, modified_at, version
+            ) VALUES (
+                :id, :uuid, :company_id, :branch_id, :code, :name, :is_transit, :is_central_godown,
+                :address, :city, :state, :pincode, :contact_person, :phone, :is_active, :is_deleted,
+                :created_at, :modified_at, :version
+            )
+        """)
+        await db.execute(insert_sql, {
+            "id": wh_id,
+            "uuid": str(uuid.uuid4()),
+            "company_id": tenant_ctx.company_id,
+            "branch_id": target_branch_id,
+            "code": code,
+            "name": req.name,
+            "is_transit": req.is_transit,
+            "is_central_godown": req.is_central_godown,
+            "address": req.address,
+            "city": req.city,
+            "state": req.state,
+            "pincode": req.pincode,
+            "contact_person": req.contact_person,
+            "phone": req.phone,
+            "is_active": True,
+            "is_deleted": False,
+            "created_at": now,
+            "modified_at": now,
+            "version": 1,
+        })
+        await db.commit()
+        return WarehouseResponse(
+            id=wh_id,
+            company_id=tenant_ctx.company_id,
+            branch_id=target_branch_id,
+            code=code,
+            name=req.name,
+            is_transit=req.is_transit,
+            is_central_godown=req.is_central_godown,
+            is_default_for_branch=False,
+            address=req.address,
+            city=req.city,
+            state=req.state,
+            pincode=req.pincode,
+            contact_person=req.contact_person,
+            phone=req.phone,
+            is_active=True,
+            created_at=now,
+            modified_at=now,
+        )
 
 
 @router.get("/warehouses/{warehouse_id}", response_model=WarehouseResponse)
@@ -425,17 +634,51 @@ async def get_warehouse(
     db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
 ):
-    """Get warehouse details by ID."""
-    q = select(Warehouse).where(
-        Warehouse.id == warehouse_id,
-        Warehouse.company_id == tenant_ctx.company_id,
-        Warehouse.is_deleted == False
-    )
-    res = await db.execute(q)
-    wh = res.scalars().first()
-    if not wh:
-        raise HTTPException(status_code=404, detail="Warehouse not found.")
-    return WarehouseResponse.model_validate(wh)
+    """Get warehouse details by ID with schema drift resilience."""
+    try:
+        q = select(Warehouse).where(
+            Warehouse.id == warehouse_id,
+            Warehouse.company_id == tenant_ctx.company_id,
+            Warehouse.is_deleted == False
+        )
+        res = await db.execute(q)
+        wh = res.scalars().first()
+        if not wh:
+            raise HTTPException(status_code=404, detail="Warehouse not found.")
+        return WarehouseResponse.model_validate(wh)
+    except HTTPException:
+        raise
+    except Exception:
+        # Schema-drift fallback: if is_default_for_branch column is absent
+        await db.rollback()
+        stmt = select(Warehouse).options(defer(Warehouse.is_default_for_branch)).where(
+            Warehouse.id == warehouse_id,
+            Warehouse.company_id == tenant_ctx.company_id,
+            Warehouse.is_deleted == False
+        )
+        res = await db.execute(stmt)
+        w = res.scalars().first()
+        if not w:
+            raise HTTPException(status_code=404, detail="Warehouse not found.")
+        return WarehouseResponse(
+            id=w.id,
+            company_id=w.company_id,
+            branch_id=w.branch_id,
+            code=w.code,
+            name=w.name,
+            is_transit=w.is_transit or False,
+            is_central_godown=w.is_central_godown or False,
+            is_default_for_branch=False,
+            address=w.address,
+            city=w.city,
+            state=w.state,
+            pincode=w.pincode,
+            contact_person=w.contact_person,
+            phone=w.phone,
+            is_active=w.is_active if w.is_active is not None else True,
+            created_at=w.created_at,
+            modified_at=w.modified_at,
+        )
 
 
 @router.put("/warehouses/{warehouse_id}", response_model=WarehouseResponse)
@@ -446,7 +689,7 @@ async def update_warehouse(
     tenant_ctx: TenantContext = Depends(get_tenant_context),
     guard: Any = Depends(require_permission("inventory_workspace", "EDIT")),
 ):
-    """Update warehouse details."""
+    """Update warehouse details with schema drift resilience."""
     q = select(Warehouse).where(
         Warehouse.id == warehouse_id,
         Warehouse.company_id == tenant_ctx.company_id,
@@ -461,9 +704,41 @@ async def update_warehouse(
     for k, v in update_data.items():
         setattr(wh, k, v)
 
-    await db.commit()
-    await db.refresh(wh)
-    return WarehouseResponse.model_validate(wh)
+    try:
+        await db.commit()
+        await db.refresh(wh)
+        return WarehouseResponse.model_validate(wh)
+    except Exception:
+        await db.rollback()
+        valid_cols = ["name", "is_central_godown", "address", "city", "state", "pincode", "contact_person", "phone", "is_active"]
+        set_clauses = []
+        params = {"wh_id": warehouse_id, "comp_id": tenant_ctx.company_id}
+        for col in valid_cols:
+            if col in update_data:
+                set_clauses.append(f"{col} = :{col}")
+                params[col] = update_data[col]
+        if set_clauses:
+            await db.execute(text(f"UPDATE warehouses SET {', '.join(set_clauses)} WHERE id = :wh_id AND company_id = :comp_id"), params)
+            await db.commit()
+        return WarehouseResponse(
+            id=wh.id,
+            company_id=wh.company_id,
+            branch_id=wh.branch_id,
+            code=wh.code,
+            name=update_data.get("name", wh.name),
+            is_transit=wh.is_transit or False,
+            is_central_godown=update_data.get("is_central_godown", wh.is_central_godown or False),
+            is_default_for_branch=False,
+            address=update_data.get("address", wh.address),
+            city=update_data.get("city", wh.city),
+            state=update_data.get("state", wh.state),
+            pincode=update_data.get("pincode", wh.pincode),
+            contact_person=update_data.get("contact_person", wh.contact_person),
+            phone=update_data.get("phone", wh.phone),
+            is_active=update_data.get("is_active", wh.is_active if wh.is_active is not None else True),
+            created_at=wh.created_at,
+            modified_at=wh.modified_at,
+        )
 
 
 @router.patch("/warehouses/{warehouse_id}/deactivate", response_model=WarehouseResponse)
@@ -490,7 +765,28 @@ async def deactivate_warehouse(
         raise HTTPException(status_code=404, detail="Warehouse not found.")
 
     if not wh.is_active:
-        return WarehouseResponse.model_validate(wh)  # Already inactive — idempotent.
+        try:
+            return WarehouseResponse.model_validate(wh)
+        except Exception:
+            return WarehouseResponse(
+                id=wh.id,
+                company_id=wh.company_id,
+                branch_id=wh.branch_id,
+                code=wh.code,
+                name=wh.name,
+                is_transit=wh.is_transit or False,
+                is_central_godown=wh.is_central_godown or False,
+                is_default_for_branch=False,
+                address=wh.address,
+                city=wh.city,
+                state=wh.state,
+                pincode=wh.pincode,
+                contact_person=wh.contact_person,
+                phone=wh.phone,
+                is_active=False,
+                created_at=wh.created_at,
+                modified_at=wh.modified_at,
+            )
 
     # R-013: Stock-zero gate — count batch stock rows with net positive quantity.
     non_zero_q = select(func.count(ProductBatchStock.id)).where(
@@ -511,12 +807,38 @@ async def deactivate_warehouse(
 
     wh.is_active = False
     # If this was the branch default, clear that flag so the resolver doesn't return an inactive warehouse.
-    if wh.is_default_for_branch:
+    if hasattr(wh, "is_default_for_branch") and getattr(wh, "is_default_for_branch", None):
         wh.is_default_for_branch = False
 
-    await db.commit()
-    await db.refresh(wh)
-    return WarehouseResponse.model_validate(wh)
+    try:
+        await db.commit()
+        await db.refresh(wh)
+        return WarehouseResponse.model_validate(wh)
+    except Exception:
+        await db.rollback()
+        await db.execute(text("UPDATE warehouses SET is_active = false WHERE id = :id AND company_id = :comp_id"), {
+            "id": warehouse_id, "comp_id": tenant_ctx.company_id
+        })
+        await db.commit()
+        return WarehouseResponse(
+            id=wh.id,
+            company_id=wh.company_id,
+            branch_id=wh.branch_id,
+            code=wh.code,
+            name=wh.name,
+            is_transit=wh.is_transit or False,
+            is_central_godown=wh.is_central_godown or False,
+            is_default_for_branch=False,
+            address=wh.address,
+            city=wh.city,
+            state=wh.state,
+            pincode=wh.pincode,
+            contact_person=wh.contact_person,
+            phone=wh.phone,
+            is_active=False,
+            created_at=wh.created_at,
+            modified_at=wh.modified_at,
+        )
 
 
 # ─────────────────────────── Batch Stock & FEFO ───────────────────────────

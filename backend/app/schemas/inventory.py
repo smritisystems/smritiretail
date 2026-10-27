@@ -417,6 +417,7 @@ class StockMovementResponse(BaseModel):
     reference_doc_id: Optional[str] = None
     reference_doc_no: Optional[str] = None
     warehouse: Optional[str] = None
+    warehouse_id: Optional[str] = None
     bin: Optional[str] = None
     batch: Optional[str] = None
     serial: Optional[str] = None

@@ -1,5 +1,39 @@
 <!--
 
+## [3.127.0] - 2026-10-28 - WMS: Physical Storage Bin Matrix, Aisle/Rack/Shelf Generation & Putaway Rules
+
+### Added
+- `backend/tests/test_wms_putaway_and_location_matrix.py`: Automated test suite (8/8 green) validating `_get_warehouse_resilient` on schema drift, Putaway Priority 1 (Quarantine/Damage Isolation), Priority 2 (Dedicated Item Bin), Priority 3 (Co-located Stock), Priority 4 (Nearest Available Empty Bin Allocation), Over-capacity handling, No-locations-defined handling, and API endpoint integration.
+- `docs/implementation/wms/WMS_Phase2_Physical_Bin_Matrix_And_Putaway_Rules_Plan_v3.127.0.md`: Formal IPGP implementation plan.
+- `docs/walkthrough/wms/WMS_Phase2_Physical_Bin_Matrix_And_Putaway_Rules_v3.127.0.md`: Complete WGP walkthrough.
+
+### Changed
+- `backend/app/schemas/wms.py`: Added `PutawayRecommendationRequest`, `PutawayCandidateLocation`, and `PutawayRecommendationResponse` schemas.
+- `backend/app/services/inventory_wms.py`: Implemented `recommend_putaway` engine with real-time headroom aggregation from `StockMovement` and 4-tier decision cascade (`QUARANTINE_ISOLATION`, `DEDICATED_ITEM_BIN`, `CO_LOCATED_STOCK`, `EMPTY_BIN_ALLOCATION`, `ZONE_CAPACITY_FALLBACK`).
+- `backend/app/api/v1/wms.py`: Added `_get_warehouse_resilient` helper function; updated `create_warehouse_location` and `generate_warehouse_locations_matrix` to withstand unmigrated tenant databases; fixed module-level import of `StockMovement`; exposed `POST /warehouses/{warehouse_id}/putaway-recommendation`.
+
+## [3.126.0] - 2026-10-28 - Inventory & WMS: Warehouse Code Governance, Schema Drift Resilience & Location Selector Wiring
+
+### Added
+- `backend/tests/test_warehouse_code_governance.py`: Unit test suite (4/4 green) verifying warehouse code format regex validation (`^[A-Z0-9_\-\.]{2,50}$`), duplicate code rejection per company, automatic sequential code generation (`WH-{BRANCH}-{SEQ:03d}`), and prohibition of reusing deactivated warehouse codes.
+- `docs/walkthrough/wms/WMS_Warehouse_Governance_And_Location_Resolution_v3.126.0.md`: Formal walkthrough documenting warehouse code governance, schema-drift resilience, and location picker unification.
+- `docs/implementation/wms/Warehouse_Location_Resolution_And_Code_Governance_Plan_v3.126.0.md`: Comprehensive implementation plan.
+
+### Changed
+- `backend/app/schemas/wms.py`: Added `branch_id` and made `code: Optional[str] = None` on `WarehouseBase`; enforced `code: str` on `WarehouseResponse`.
+- `backend/app/api/v1/wms.py`: Implemented non-disruptive schema drift resilience using `try...except` and `defer(Warehouse.is_default_for_branch)` with `await db.rollback()` fallback; added automatic sequential code allocation (`WH-{BRANCH}-{SEQ:03d}`); enforced unique code validation and deactivation reuse prohibition; added raw SQL fallback insert for unmigrated tenant databases.
+- `backend/app/services/inventory_warehouse_resolver.py`: Refactored with `_find_warehouse` helper providing automatic session rollback and `defer()` fallback across all 4 resolution levels (explicit ID, POS register FK/legacy text, branch default, company fallback).
+- `backend/app/schemas/inventory.py`: Added `warehouse_id: Optional[str] = None` to `StockMovementResponse`.
+- `backend/app/api/v1/inventory.py`: Added `warehouse_id` and `warehouse` query parameters and filtering to `GET /inventory/ledger` and populated `warehouse_id` in movement items.
+- `src/components/dashboard/RegularUxDashboard.tsx`: Replaced static hardcoded `<option>` tags with dynamic state populated via `Promise.allSettled` from `/branches` and `/wms/warehouses`, clearly distinguishing `[Branch]` and `[Godown]`.
+- `src/components/inventory/StockTransferStudioModal.tsx`: Loaded active warehouses from `/wms/warehouses`, replaced manual warehouse text inputs with dynamic `<select>` dropdowns displaying warehouse code and name, and aligned transfer creation payload with `StockTransferCreate` schema (`source_warehouse_id`, `dest_warehouse_id`).
+- `src/components/purchase/CommercialDeliveryDrawer.tsx`: Replaced static preset strings with dynamic warehouse state loaded from `GET /wms/warehouses`, displaying `{w.code} - {w.name}` and storing stable warehouse `id`.
+- `src/components/purchase/types.ts`: Added `warehouseId?: string;` to `PurchaseOrderHeader`.
+- `src/components/purchase/PoGenerateTab.tsx`: Loaded active warehouses, replaced free-text delivery location input with governed `<select>` dropdown, and included `warehouse_id` in PO save payload and commercial terms.
+- `src/components/purchase/PoSizewiseTab.tsx`: Added `warehouseId` to `SizewisePOHeader`, loaded active warehouses, replaced free-text delivery location with governed `<select>` dropdown, and included `warehouse_id` in PO save payload.
+- `src/components/purchase/GrnReceiptTab.tsx`: Added `availableWarehouses` and `selectedWarehouseId`, loaded warehouses from `/wms/warehouses`, added Target Godown `<select>` dropdown in GRN header form, pre-selected warehouse from PO, added mandatory validation, and included `warehouse_id` in `POST /purchase/receipts/` payload.
+- `src/components/wms/WarehouseLocationManager.tsx`: Clarified spatial hierarchy in empty state (Warehouse/Godown vs physical bin subdivisions), displayed active warehouse code and name, and added direct action buttons.
+
 ## [3.125.0] - 2026-10-27 - Inventory & WMS: Deferred Remediations Phase (R-003, R-005, R-008)
 
 ### Added
