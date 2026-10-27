@@ -294,6 +294,8 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
   const [supplierSearch, setSupplierSearch] = useState("");
   const [isScorecardOpen, setIsScorecardOpen] = useState(false);
   const [availableWarehouses, setAvailableWarehouses] = useState<Array<{ id: string; code: string; name: string; is_central_godown?: boolean }>>([]);
+  const [warehousesLoading, setWarehousesLoading] = useState(true);
+  const [warehousesError, setWarehousesError] = useState<string | null>(null);
 
   // Top Tabs: "general" | "items" | "other" | "attachments" | "history" — Default to "items" per Decision A
   const [activeTab, setActiveTab] = useState<"general" | "items" | "other" | "attachments" | "history">("items");
@@ -365,7 +367,7 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
       billTo: "",
       deliveryDate: defaultDelivery,
       leadTimeDays: 7,
-      deliveryLocation: "Main Store (MAIN)",
+      deliveryLocation: "",
       commonTaxPercent: 5,
       pictureUrl: "",
       paymentTerms: "120 Days",
@@ -521,6 +523,7 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
     try {
       const order = await apiFetchV1(buildPurchaseOrderDetailUrl(cleaned));
       setOpenedOrder(order);
+      const savedWarehouse = availableWarehouses.find((warehouse) => warehouse.id === order.warehouse_id);
       // Restore commercial terms from frozen snapshot or notes
       const commSnap = order.commercial_terms || order.rule_snapshots?.commercial_terms;
       let restoredPayment = commSnap?.payment_terms;
@@ -560,6 +563,8 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
         department: restoredDepartment ?? h.department,
         specialInstructions: restoredInstructions ?? h.specialInstructions,
         supplierReference: restoredRef ?? h.supplierReference,
+        warehouseId: order.warehouse_id || "",
+        deliveryLocation: savedWarehouse ? `${savedWarehouse.code} - ${savedWarehouse.name}` : "",
       }));
 
       setActiveTab("history");
@@ -568,7 +573,7 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
       const msg = err instanceof Error ? err.message : "Unable to load purchase order.";
       if (onNotification) onNotification("Open PO Failed", msg, "error");
     }
-  }, [onNotification]);
+  }, [availableWarehouses, onNotification]);
 
   const loadData = async () => {
     setSuppliersLoading(true);
@@ -653,26 +658,26 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
       }
 
       // Fetch active warehouses for governed delivery location picker
+      setWarehousesLoading(true);
+      setWarehousesError(null);
       try {
         const whRes: any = await apiFetchV1("/wms/warehouses");
         const whList = Array.isArray(whRes) ? whRes : whRes?.items || [];
-        if (whList.length > 0) {
-          const activeWhs = whList.filter((w: any) => w.is_active !== false);
-          setAvailableWarehouses(activeWhs);
-          setHeader(current => {
-            if (!current.warehouseId && activeWhs.length > 0) {
-              const central = activeWhs.find((w: any) => w.is_central_godown) || activeWhs[0];
-              return {
-                ...current,
-                warehouseId: central.id,
-                deliveryLocation: `${central.code} - ${central.name}`,
-              };
-            }
-            return current;
-          });
-        }
+        const activeWhs = whList.filter((w: any) => w.is_active !== false);
+        setAvailableWarehouses(activeWhs);
+        setHeader(current => {
+          const selected = activeWhs.find((w: any) => w.id === current.warehouseId);
+          return {
+            ...current,
+            deliveryLocation: selected ? `${selected.code} - ${selected.name}` : "",
+          };
+        });
       } catch (err) {
         console.warn("[PoGenerateTab] Failed to load warehouses:", err);
+        setAvailableWarehouses([]);
+        setWarehousesError("Warehouse list could not be loaded. Refresh before saving this purchase order.");
+      } finally {
+        setWarehousesLoading(false);
       }
 
       // Fetch next order number sequence
@@ -1583,6 +1588,11 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
       return;
     }
 
+    if (header.documentType === "Purchase Order" && !availableWarehouses.some((warehouse) => warehouse.id === header.warehouseId)) {
+      if (onNotification) onNotification("Warehouse Required", warehousesError || "Select an active receiving warehouse before saving the purchase order.", "error");
+      return;
+    }
+
     if (activeLines.length === 0) {
       if (onNotification) onNotification("Validation Error", "Please enter at least one line item with quantity.", "error");
       return;
@@ -2133,11 +2143,12 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
                         setHeader({
                           ...header,
                           warehouseId: selId,
-                          deliveryLocation: wh ? `${wh.code} - ${wh.name}` : selId,
+                          deliveryLocation: wh ? `${wh.code} - ${wh.name}` : "",
                         });
                       }}
                       className="w-full border border-slate-300 dark:border-slate-600 rounded-lg px-2 h-7 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 font-semibold outline-none focus:border-blue-600 text-xs"
                     >
+                      <option value="">Select a receiving warehouse</option>
                       {availableWarehouses.map((w) => (
                         <option key={w.id} value={w.id}>
                           [{w.code}] {w.name} {w.is_central_godown ? "⭐" : ""}
@@ -2145,12 +2156,9 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
                       ))}
                     </select>
                   ) : (
-                    <input
-                      type="text"
-                      value={header.deliveryLocation}
-                      onChange={(e) => setHeader({ ...header, deliveryLocation: e.target.value })}
-                      className="w-full border border-slate-300 dark:border-slate-600 rounded-lg px-2.5 h-7 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 outline-none focus:border-blue-600 text-xs"
-                    />
+                    <div className="w-full border border-amber-300 dark:border-amber-700 rounded-lg px-2.5 py-1.5 bg-amber-50 dark:bg-amber-950/30 text-amber-800 dark:text-amber-200 text-xs" role="status">
+                      {warehousesLoading ? "Loading available warehouses..." : warehousesError || "No active warehouses are configured. Ask an administrator to configure a warehouse."}
+                    </div>
                   )}
                 </div>
               </div>
@@ -3722,7 +3730,7 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
           specialInstructions: header.specialInstructions || "",
           supplierReference: header.supplierReference || "",
           deliveryDate: header.deliveryDate || "",
-          deliveryLocation: header.deliveryLocation || "Main Store (MAIN)",
+          deliveryLocation: header.deliveryLocation,
           warehouseId: header.warehouseId,
           leadTimeDays: header.leadTimeDays || 7,
           otherCharges: header.otherCharges ?? 0,

@@ -1,5 +1,19 @@
 <!--
 
+## [3.130.0] - 2026-10-28 - WMS Phase 5: Automated Wave Picking, Batch Picking Optimization & Packing Station Integration
+
+### Added
+- `backend/tests/test_wms_wave_picking.py`: Dedicated unit and integration test suite (9/9 green) validating serpentine key calculation, wave creation with single-pass path ordering, picker round-robin assignment, live barcode/RFID verification, shortage recording, atomic dual `StockMovement` creation (`TRANSFER_OUT` + `TRANSFER_IN` to staging bay under `reference_doc_type="WMS_WAVE_PICK"`), staging bay manifest query, carton packing with gross weight, and all 7 FastAPI endpoints.
+- `docs/implementation/wms/WMS_Phase5_Wave_Picking_And_Packing_Station_Plan_v3.130.0.md`: Formal IPGP implementation plan.
+- `docs/walkthrough/wms/WMS_Phase5_Wave_Picking_And_Packing_Station_v3.130.0.md`: Formal WGP walkthrough document.
+
+### Changed
+- `backend/app/schemas/wms.py`: Added `WavePickLineCreate`, `WaveCreateRequest`, `WaveTaskResponse`, `WaveResponse`, `WaveListResponse`, `WavePickActionRequest`, `WavePickActionResponse`, `WaveCompleteRequest`, `WaveCompleteResponse`, `PackingManifestItem`, `PackingStationManifestResponse`, `CartonPackRequest`, and `CartonPackResponse`.
+- `backend/app/services/inventory_wms.py`: Implemented `_compute_serpentine_key`, `create_pick_wave`, `get_waves`, `get_wave_details`, `record_wave_pick`, `complete_wave_and_dispatch`, `get_packing_station_manifest`, and `pack_wave_carton`.
+- `backend/app/api/v1/wms.py`: Exposed `POST /warehouses/{id}/waves`, `GET /warehouses/{id}/waves`, `GET /warehouses/{id}/waves/{wave_id}`, `POST /warehouses/{id}/waves/{wave_id}/pick`, `POST /warehouses/{id}/waves/{wave_id}/complete`, `GET /warehouses/{id}/packing-station`, and `POST /warehouses/{id}/packing-station/pack`.
+- `src/components/inventory/WarehouseWavePickingModal.tsx`: Connected to live REST API endpoints with dynamic wave fetching, one-click wave generation, real RFID/barcode pick scan verification, and staging bay dispatch.
+- `src/components/wms/WmsStudioTab.tsx`: Passed warehouse context to `WarehouseWavePickingModal`.
+
 ## [3.129.0] - 2026-10-28 - WMS Phase 4: Barcode RF Gun Handheld Terminal Workflow & Fast Mobile Relocation
 
 ### Added

@@ -321,6 +321,7 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
   const [supplierId, setSupplierId] = useState("");
   const [availableWarehouses, setAvailableWarehouses] = useState<Array<{ id: string; code: string; name: string; is_central_godown?: boolean }>>([]);
   const [selectedWarehouseId, setSelectedWarehouseId] = useState<string>("");
+  const [warehouseLoadError, setWarehouseLoadError] = useState<string | null>(null);
   const [invoiceNumber, setInvoiceNumber] = useState("");
   const [invoiceDate, setInvoiceDate] = useState(() => new Date().toISOString().split("T")[0]);
   const [referencePo, setReferencePo] = useState("");
@@ -483,20 +484,17 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
   }, []);
 
   const loadWarehouses = useCallback(async () => {
+    setWarehouseLoadError(null);
     try {
       const res: any = await apiFetchV1("/wms/warehouses");
       const list = Array.isArray(res) ? res : res?.items || [];
       const active = list.filter((w: any) => w.is_active !== false);
       setAvailableWarehouses(active);
-      if (active.length > 0) {
-        setSelectedWarehouseId((prev) => {
-          if (prev && active.some((w: any) => w.id === prev)) return prev;
-          const central = active.find((w: any) => w.is_central_godown) || active[0];
-          return central.id;
-        });
-      }
-    } catch {
+      setSelectedWarehouseId((prev) => prev && active.some((w: any) => w.id === prev) ? prev : "");
+    } catch (error) {
       setAvailableWarehouses([]);
+      setSelectedWarehouseId("");
+      setWarehouseLoadError(error instanceof Error ? error.message : "Warehouse list could not be loaded.");
     }
   }, []);
 
@@ -1558,6 +1556,10 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
     }
     if (!selectedWarehouseId) {
       onNotification?.("Warehouse Required", "Please select a target receiving Warehouse / Godown.", "warning");
+      return;
+    }
+    if (!availableWarehouses.some((warehouse) => warehouse.id === selectedWarehouseId)) {
+      onNotification?.("Warehouse Unavailable", "Refresh the warehouse list and select an active receiving warehouse.", "error");
       return;
     }
     setSaving(true);
@@ -3636,8 +3638,11 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
                   className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-2.5 py-1.5 text-slate-800 dark:text-slate-200 outline-none font-semibold text-xs"
                   data-testid="header-target-warehouse"
                 >
+                  <option value="">
+                    {availableWarehouses.length ? "-- Select receiving warehouse --" : "-- No active warehouses --"}
+                  </option>
                   {availableWarehouses.length === 0 ? (
-                    <option value="">-- No Warehouses --</option>
+                    null
                   ) : (
                     availableWarehouses.map((w) => (
                       <option key={w.id} value={w.id}>
@@ -3646,6 +3651,11 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
                     ))
                   )}
                 </select>
+                {warehouseLoadError && (
+                  <p className="mt-1 text-[11px] text-rose-600" role="alert">
+                    Unable to load warehouses: {warehouseLoadError}
+                  </p>
+                )}
               </div>
               <div>
                 <div className="flex items-center justify-between mb-1">

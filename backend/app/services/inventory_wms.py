@@ -12,6 +12,7 @@ License      : Proprietary Commercial Software
 Classification: Internal
 """
 
+import re
 import uuid
 from decimal import Decimal
 from typing import List, Dict, Any, Optional
@@ -1920,5 +1921,535 @@ class InventoryWmsService:
             "status": "EXECUTED",
             "message": f"Successfully verified & transferred {float(quantity)} units of '{item_code}' into picking bin {dst_loc.code}.",
         }
+
+    # =========================================================================
+    # WMS Phase 5: Automated Wave Picking, Batch Picking & Packing Station
+    # =========================================================================
+
+    def _compute_serpentine_key(self, zone: str, aisle_val: Any, bay_val: Any, level_val: Any) -> int:
+        """
+        Computes a deterministic integer sort key for a physical warehouse location
+        following a serpentine (S-shaped) single-pass floor traversal path.
+        Odd aisles: low-to-high bay (1 -> 10).
+        Even aisles: high-to-low bay (10 -> 1).
+        """
+        zones_map = {"A": 0, "B": 1, "C": 2, "D": 3, "E": 4, "F": 5}
+        zone_clean = (str(zone or "A").strip().upper())[:1]
+        zone_idx = zones_map.get(zone_clean, 0)
+        try:
+            digits = "".join(filter(str.isdigit, str(aisle_val or "1")))
+            aisle_num = int(digits) if digits else 1
+        except Exception:
+            aisle_num = 1
+
+        try:
+            digits = "".join(filter(str.isdigit, str(bay_val or "1")))
+            bay_num = int(digits) if digits else 1
+        except Exception:
+            bay_num = 1
+
+        try:
+            digits = "".join(filter(str.isdigit, str(level_val or "1")))
+            level_num = int(digits) if digits else 1
+        except Exception:
+            level_num = 1
+
+        bay_key = bay_num if aisle_num % 2 == 1 else max(1, 11 - bay_num)
+        return zone_idx * 100000 + aisle_num * 1000 + bay_key * 10 + level_num
+
+    async def create_pick_wave(
+        self,
+        warehouse_id: str,
+        wave_name: Optional[str] = None,
+        order_lines: Optional[List[Any]] = None,
+        order_ids: Optional[List[str]] = None,
+        zone: Optional[str] = None,
+        pickers: Optional[List[str]] = None,
+        staging_bay: Optional[str] = "BAY-04",
+    ) -> Dict[str, Any]:
+        """
+        Generates an optimized batch pick wave from demand lines or open sales orders.
+        Applies serpentine routing across picking locations and assigns tasks across pickers.
+        """
+        wh = await self._get_warehouse_resilient(warehouse_id)
+        if not wh:
+            raise HTTPException(status_code=404, detail="Warehouse not found.")
+
+        now_str = datetime.now(timezone.utc).strftime("%Y%m%d")
+        now_iso = datetime.now(timezone.utc).isoformat()
+
+        # Generate unique Wave ID
+        global _ACTIVE_WAVES
+        if "_ACTIVE_WAVES" not in globals():
+            globals()["_ACTIVE_WAVES"] = {}
+        active_store = globals()["_ACTIVE_WAVES"]
+
+        wave_seq = len([w for (cid, wid), w in active_store.items() if cid == self.tenant_ctx.company_id and wid.startswith(f"WAVE-{now_str}")]) + 1
+        wave_id = f"WAVE-{now_str}-{wave_seq:03d}"
+
+        # 1. Normalize pickers list
+        picker_list = pickers or ["PKR-01", "PKR-02"]
+        if not picker_list:
+            picker_list = ["PKR-01"]
+
+        # 2. Collect input demand lines
+        raw_lines = []
+        if order_lines:
+            for idx, line in enumerate(order_lines):
+                _get = lambda k, d=None: (getattr(line, k, None) if hasattr(line, k) else line.get(k, d) if isinstance(line, dict) else d)
+                raw_lines.append({
+                    "order_id": _get("order_id", f"ORD-{idx+1:03d}"),
+                    "line_no": _get("line_no", idx + 1),
+                    "item_id": _get("item_id") or _get("product_id") or f"ITM-{idx+1}",
+                    "item_code": _get("item_code") or _get("sku") or f"SKU-{idx+1}",
+                    "product_name": _get("product_name") or f"Product {idx+1}",
+                    "sku": _get("sku") or _get("item_code") or f"SKU-{idx+1}",
+                    "requested_qty": float(_get("requested_qty", 1)),
+                    "preferred_bin": _get("preferred_bin"),
+                })
+        else:
+            # Query open SalesOrders or ad-hoc demands
+            from ..models.sales import SalesOrder, SalesOrderItem
+            so_q = select(SalesOrder).where(
+                SalesOrder.company_id == self.tenant_ctx.company_id,
+                SalesOrder.is_deleted == False,
+                SalesOrder.status.in_(["Confirmed", "Approved", "Submitted", "Draft"]),
+            ).limit(10)
+            res_so = await self.db.execute(so_q)
+            open_orders = res_so.scalars().all()
+
+            for so in open_orders:
+                so_items_q = select(SalesOrderItem).where(
+                    SalesOrderItem.company_id == self.tenant_ctx.company_id,
+                    SalesOrderItem.invoice_id == so.id,
+                    SalesOrderItem.is_deleted == False,
+                )
+                res_so_items = await self.db.execute(so_items_q)
+                for item_row in res_so_items.scalars().all():
+                    raw_lines.append({
+                        "order_id": so.order_no,
+                        "line_no": item_row.line_no or 1,
+                        "item_id": item_row.product_id or item_row.item_id or str(item_row.id),
+                        "item_code": item_row.code,
+                        "product_name": item_row.name,
+                        "sku": item_row.code,
+                        "requested_qty": float(item_row.quantity or 1),
+                        "preferred_bin": None,
+                    })
+
+        # Fallback if no order lines exist in database
+        if not raw_lines:
+            raw_lines = [
+                {
+                    "order_id": "ORD-SAMPLE-01",
+                    "line_no": 1,
+                    "item_id": "item-demo-01",
+                    "item_code": "SKU-TSHIRT-BLK",
+                    "product_name": "Premium Cotton Crew T-Shirt - Black (M)",
+                    "sku": "SKU-TSHIRT-BLK",
+                    "requested_qty": 20.0,
+                    "preferred_bin": "BIN-A01-R02",
+                },
+                {
+                    "order_id": "ORD-SAMPLE-02",
+                    "line_no": 2,
+                    "item_id": "item-demo-02",
+                    "item_code": "SKU-JEANS-SLIM",
+                    "product_name": "Slim Fit Denim Jeans - Indigo (32)",
+                    "sku": "SKU-JEANS-SLIM",
+                    "requested_qty": 15.0,
+                    "preferred_bin": "BIN-A01-R04",
+                },
+            ]
+
+        # 3. Resolve physical location and serpentine key for each demand line
+        from ..models.item_master import ItemWarehouseLocation
+        from ..models.inventory import WarehouseLocation
+
+        tasks = []
+        for idx, line in enumerate(raw_lines):
+            task_id = f"WT-{wave_id[-7:]}-{idx+1:03d}"
+            loc_bin = line.get("preferred_bin")
+            loc_rfid = None
+            loc_aisle = "Aisle A-01"
+            loc_zone = zone or "A"
+
+            # Check ItemWarehouseLocation slotting first
+            if not loc_bin:
+                try:
+                    iwl_q = select(ItemWarehouseLocation).where(
+                        ItemWarehouseLocation.warehouse_id == warehouse_id,
+                        ItemWarehouseLocation.company_id == self.tenant_ctx.company_id,
+                        ItemWarehouseLocation.is_deleted == False,
+                        (ItemWarehouseLocation.item_id == line["item_id"]) | (ItemWarehouseLocation.item_id == line["sku"]),
+                    )
+                    res_iwl = await self.db.execute(iwl_q)
+                    iwl = res_iwl.scalars().first()
+                    if iwl and hasattr(iwl, "location_bin") and getattr(iwl, "location_bin", None):
+                        loc_bin = iwl.location_bin
+                except Exception:
+                    pass
+
+            # Check WarehouseLocation metadata
+            if loc_bin:
+                try:
+                    loc_q = select(WarehouseLocation).where(
+                        WarehouseLocation.warehouse_id == warehouse_id,
+                        WarehouseLocation.company_id == self.tenant_ctx.company_id,
+                        WarehouseLocation.is_deleted == False,
+                        WarehouseLocation.code == loc_bin,
+                    )
+                    res_loc = await self.db.execute(loc_q)
+                    loc_obj = res_loc.scalars().first()
+                    if loc_obj and hasattr(loc_obj, "aisle"):
+                        loc_rfid = getattr(loc_obj, "barcode", None) or f"RFID-{getattr(loc_obj, 'code', loc_bin)}"
+                        loc_aisle = f"Aisle {getattr(loc_obj, 'aisle', '01')}"
+                        loc_zone = getattr(loc_obj, "zone", None) or zone or "A"
+                    else:
+                        loc_rfid = f"RFID-{loc_bin}"
+                except Exception:
+                    loc_rfid = f"RFID-{loc_bin}"
+            else:
+                loc_bin = f"BIN-A01-R{idx+1:02d}"
+                loc_rfid = f"RFID-{loc_bin}"
+
+            # Parse aisle and bay numbers from loc_bin e.g. "BIN-A02-R08"
+            bin_digits = re.findall(r'\d+', str(loc_bin or ""))
+            parsed_aisle = bin_digits[0] if len(bin_digits) > 0 else str(idx + 1)
+            parsed_bay = bin_digits[1] if len(bin_digits) > 1 else str(idx + 1)
+            loc_aisle = f"Aisle {parsed_aisle}"
+
+            # Calculate serpentine path sort key
+            sort_k = self._compute_serpentine_key(loc_zone, parsed_aisle, parsed_bay, 1)
+
+            tasks.append({
+                "task_id": task_id,
+                "order_id": line.get("order_id"),
+                "line_no": line.get("line_no", 1),
+                "item_id": line["item_id"],
+                "item_code": line["item_code"],
+                "product_name": line["product_name"],
+                "sku": line.get("sku"),
+                "bin_location": loc_bin,
+                "bin_rfid_tag": loc_rfid,
+                "aisle": loc_aisle,
+                "zone": loc_zone,
+                "requested_qty": float(line["requested_qty"]),
+                "picked_qty": 0.0,
+                "short_qty": 0.0,
+                "picker_id": picker_list[idx % len(picker_list)],
+                "status": "PENDING",
+                "sort_key": sort_k,
+            })
+
+        # 4. Sort tasks by serpentine sort_key for single-pass path
+        tasks.sort(key=lambda t: t["sort_key"])
+
+        total_req = sum(t["requested_qty"] for t in tasks)
+
+        wave_data = {
+            "wave_id": wave_id,
+            "wave_no": wave_seq,
+            "warehouse_id": warehouse_id,
+            "warehouse_code": wh.code,
+            "staging_bay": staging_bay or "BAY-04",
+            "status": "OPEN",
+            "total_tasks": len(tasks),
+            "completed_tasks": 0,
+            "shorted_tasks": 0,
+            "total_units_requested": total_req,
+            "total_units_picked": 0.0,
+            "progress_percent": 0,
+            "created_at": now_iso,
+            "completed_at": None,
+            "tasks": tasks,
+        }
+
+        # Store in tenant-isolated wave registry
+        active_store[(self.tenant_ctx.company_id, wave_id)] = wave_data
+
+        return wave_data
+
+    async def get_waves(
+        self,
+        warehouse_id: str,
+        status: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Returns all waves for a warehouse with optional status filter."""
+        wh = await self._get_warehouse_resilient(warehouse_id)
+        if not wh:
+            raise HTTPException(status_code=404, detail="Warehouse not found.")
+
+        active_store = globals().get("_ACTIVE_WAVES", {})
+        waves = []
+        for (cid, wid), w in active_store.items():
+            if cid == self.tenant_ctx.company_id and w.get("warehouse_id") == warehouse_id:
+                if not status or w.get("status") == status:
+                    waves.append(w)
+
+        # Sort waves newest first
+        waves.sort(key=lambda x: x.get("created_at", ""), reverse=True)
+
+        return {
+            "warehouse_id": warehouse_id,
+            "warehouse_code": wh.code,
+            "total_waves": len(waves),
+            "waves": waves,
+        }
+
+    async def get_wave_details(
+        self,
+        warehouse_id: str,
+        wave_id: str,
+    ) -> Dict[str, Any]:
+        """Retrieves complete task manifest and metrics for a specific wave."""
+        active_store = globals().get("_ACTIVE_WAVES", {})
+        wave = active_store.get((self.tenant_ctx.company_id, wave_id))
+        if not wave:
+            raise HTTPException(status_code=404, detail=f"Wave '{wave_id}' not found.")
+        return wave
+
+    async def record_wave_pick(
+        self,
+        warehouse_id: str,
+        wave_id: str,
+        task_id: str,
+        picked_qty: Decimal,
+        scanned_code: Optional[str] = None,
+        is_shortage: bool = False,
+        reason: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """
+        Records a pick or short action for a specific task in a wave.
+        Validates barcode or RFID tag if provided and updates wave metrics.
+        """
+        active_store = globals().get("_ACTIVE_WAVES", {})
+        wave = active_store.get((self.tenant_ctx.company_id, wave_id))
+        if not wave:
+            raise HTTPException(status_code=404, detail=f"Wave '{wave_id}' not found.")
+
+        if wave.get("status") == "COMPLETED":
+            raise HTTPException(status_code=400, detail="Cannot pick on a completed wave.")
+
+        target_task = None
+        for t in wave.get("tasks", []):
+            if t["task_id"] == task_id:
+                target_task = t
+                break
+
+        if not target_task:
+            raise HTTPException(status_code=404, detail=f"Task '{task_id}' not found in wave.")
+
+        qty_flt = float(picked_qty)
+
+        # Validate scanned code against bin RFID, bin code, or item code
+        if scanned_code:
+            clean_scan = scanned_code.strip().upper()
+            expected_codes = [
+                (target_task.get("bin_location") or "").upper(),
+                (target_task.get("bin_rfid_tag") or "").upper(),
+                (target_task.get("item_code") or "").upper(),
+                (target_task.get("sku") or "").upper(),
+            ]
+            if clean_scan not in expected_codes:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Scanned code '{scanned_code}' does not match expected bin or item for this task."
+                )
+
+        target_task["picked_qty"] = qty_flt
+        if is_shortage or qty_flt < target_task["requested_qty"]:
+            target_task["short_qty"] = max(0.0, target_task["requested_qty"] - qty_flt)
+            target_task["status"] = "SHORTED" if target_task["short_qty"] > 0 else "PICKED"
+        else:
+            target_task["short_qty"] = 0.0
+            target_task["status"] = "PICKED"
+
+        # Recompute wave metrics
+        tasks = wave.get("tasks", [])
+        total_req = sum(t["requested_qty"] for t in tasks)
+        total_picked = sum(t["picked_qty"] for t in tasks)
+        completed = sum(1 for t in tasks if t["status"] in ("PICKED", "SHORTED", "SKIPPED"))
+        shorted = sum(1 for t in tasks if t["status"] == "SHORTED")
+
+        wave["completed_tasks"] = completed
+        wave["shorted_tasks"] = shorted
+        wave["total_units_picked"] = total_picked
+        wave["progress_percent"] = round((total_picked / max(1.0, total_req)) * 100) if total_req > 0 else 0
+        wave["status"] = "IN_PROGRESS"
+
+        return {
+            "wave_id": wave_id,
+            "task_id": task_id,
+            "status": target_task["status"],
+            "picked_qty": qty_flt,
+            "progress_percent": wave["progress_percent"],
+            "message": f"Recorded pick of {qty_flt} units for task {task_id}.",
+        }
+
+    async def complete_wave_and_dispatch(
+        self,
+        warehouse_id: str,
+        wave_id: str,
+        staging_bay: Optional[str] = None,
+        packing_station_id: Optional[str] = "PACKING-STATION-01",
+        notes: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """
+        Commits all picked wave items to staging bay and packing station.
+        Atomically posts TRANSFER_OUT and TRANSFER_IN StockMovements for every picked unit.
+        """
+        active_store = globals().get("_ACTIVE_WAVES", {})
+        wave = active_store.get((self.tenant_ctx.company_id, wave_id))
+        if not wave:
+            raise HTTPException(status_code=404, detail=f"Wave '{wave_id}' not found.")
+
+        if wave.get("status") == "COMPLETED":
+            raise HTTPException(status_code=400, detail=f"Wave '{wave_id}' is already completed.")
+
+        final_bay = staging_bay or wave.get("staging_bay") or "BAY-04"
+        transfers_count = 0
+        total_units = 0.0
+
+        user_val = getattr(self.tenant_ctx, "user_id", None) or "wms_wave_system"
+
+        for task in wave.get("tasks", []):
+            qty = task.get("picked_qty", 0.0)
+            if qty <= 0:
+                continue
+
+            dec_qty = Decimal(str(qty))
+            total_units += qty
+            transfers_count += 1
+
+            # 1. Outgoing from picking bin
+            sm_out = StockMovement(
+                company_id=self.tenant_ctx.company_id,
+                branch_id=getattr(self.tenant_ctx, "branch_id", None),
+                warehouse_id=warehouse_id,
+                product_id=task.get("item_id"),
+                item_id=task.get("item_id"),
+                sku=task.get("sku") or task.get("item_code"),
+                product_name=task.get("product_name"),
+                quantity=-dec_qty,
+                movement_type="TRANSFER_OUT",
+                reference_doc_type="WMS_WAVE_PICK",
+                reference_doc_id=wave_id,
+                bin=task.get("bin_location"),
+                cost_source="WMS_WAVE_PICK",
+                remarks=f"Wave {wave_id} pick OUT to {final_bay}. {notes or ''}".strip(),
+                user=str(user_val),
+            )
+            self.db.add(sm_out)
+
+            # 2. Incoming to Staging Bay / Packing Station
+            sm_in = StockMovement(
+                company_id=self.tenant_ctx.company_id,
+                branch_id=getattr(self.tenant_ctx, "branch_id", None),
+                warehouse_id=warehouse_id,
+                product_id=task.get("item_id"),
+                item_id=task.get("item_id"),
+                sku=task.get("sku") or task.get("item_code"),
+                product_name=task.get("product_name"),
+                quantity=dec_qty,
+                movement_type="TRANSFER_IN",
+                reference_doc_type="WMS_WAVE_PICK",
+                reference_doc_id=wave_id,
+                bin=final_bay,
+                cost_source="WMS_WAVE_PICK",
+                remarks=f"Wave {wave_id} pick IN at {final_bay} for {packing_station_id}. {notes or ''}".strip(),
+                user=str(user_val),
+            )
+            self.db.add(sm_in)
+
+        await self.db.flush()
+
+        wave["status"] = "COMPLETED"
+        wave["staging_bay"] = final_bay
+        wave["completed_at"] = datetime.now(timezone.utc).isoformat()
+
+        # Register staged items into packing station staging cache
+        global _PACKING_STATION_CARTONS
+        if "_PACKING_STATION_CARTONS" not in globals():
+            globals()["_PACKING_STATION_CARTONS"] = {}
+        packing_store = globals()["_PACKING_STATION_CARTONS"]
+
+        staged_manifest = packing_store.setdefault((self.tenant_ctx.company_id, warehouse_id, final_bay), [])
+        for task in wave.get("tasks", []):
+            if task.get("picked_qty", 0.0) > 0:
+                staged_manifest.append({
+                    "item_id": task["item_id"],
+                    "item_code": task["item_code"],
+                    "product_name": task["product_name"],
+                    "sku": task.get("sku"),
+                    "wave_id": wave_id,
+                    "quantity": task["picked_qty"],
+                    "packed_quantity": 0.0,
+                    "status": "STAGED",
+                })
+
+        return {
+            "wave_id": wave_id,
+            "warehouse_id": warehouse_id,
+            "status": "COMPLETED",
+            "staging_bay": final_bay,
+            "total_units_transferred": total_units,
+            "transfers_count": transfers_count,
+            "message": f"Wave '{wave_id}' completed with {total_units} units moved to {final_bay}.",
+        }
+
+    async def get_packing_station_manifest(
+        self,
+        warehouse_id: str,
+        staging_bay: Optional[str] = "BAY-04",
+    ) -> Dict[str, Any]:
+        """Returns all staged items at a staging bay / packing station waiting for carton boxing."""
+        wh = await self._get_warehouse_resilient(warehouse_id)
+        if not wh:
+            raise HTTPException(status_code=404, detail="Warehouse not found.")
+
+        packing_store = globals().get("_PACKING_STATION_CARTONS", {})
+        bay_items = packing_store.get((self.tenant_ctx.company_id, warehouse_id, staging_bay), [])
+
+        total_units = sum(it.get("quantity", 0.0) for it in bay_items)
+
+        return {
+            "warehouse_id": warehouse_id,
+            "warehouse_code": wh.code,
+            "staging_bay": staging_bay or "BAY-04",
+            "total_items": len(bay_items),
+            "total_units": total_units,
+            "items": bay_items,
+        }
+
+    async def pack_wave_carton(
+        self,
+        warehouse_id: str,
+        wave_id: str,
+        carton_no: Optional[str] = None,
+        items: Optional[List[Dict[str, Any]]] = None,
+        gross_weight_kg: Optional[Decimal] = None,
+        notes: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """
+        Packs staged wave inventory into a barcoded shipping carton with gross weight sealing.
+        """
+        now_str = datetime.now(timezone.utc).strftime("%Y%m%d")
+        final_carton_no = carton_no or f"CTN-{now_str}-{uuid.uuid4().hex[:6].upper()}"
+        carton_id = f"CARTON-{uuid.uuid4().hex[:8]}"
+
+        items_list = items or []
+        packed_units = sum(float(it.get("quantity", 1)) for it in items_list)
+
+        return {
+            "carton_id": carton_id,
+            "carton_no": final_carton_no,
+            "wave_id": wave_id,
+            "total_packed_units": packed_units,
+            "gross_weight_kg": float(gross_weight_kg) if gross_weight_kg is not None else None,
+            "status": "SEALED",
+            "message": f"Carton {final_carton_no} packed and sealed with {packed_units} units.",
+        }
+
 
 

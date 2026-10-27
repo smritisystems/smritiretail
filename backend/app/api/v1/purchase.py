@@ -250,6 +250,16 @@ async def create_purchase_order_contract(
     tenant_ctx: TenantContext = Depends(get_tenant_context),
 ):
     """Create a purchase order — canonical contract URL."""
+    if not order_in.warehouse_id:
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "code": "PURCHASE_WAREHOUSE_REQUIRED",
+                "title": "Receiving warehouse required",
+                "explanation": "Select where this order should be delivered before saving it.",
+                "suggested_action": "Choose an active warehouse from the Delivery Location / Warehouse list.",
+            },
+        )
     return await PurchaseService(db, tenant_ctx).create_purchase_order(order_in)
 
 
@@ -1871,4 +1881,3 @@ async def commit_three_way_matching(
         reconciliation_status=payload.reconciliation_status or "MATCHED",
         message=f"3-Way match committed successfully against PO {payload.po_no} & GRN {payload.grn_no}.",
     )
-

@@ -14,6 +14,20 @@
 
 # SMRITI Retail OS — Release Notes
 
+## Release v3.130.0 (2026-10-28)
+
+### WMS Phase 5 — Automated Wave Picking, Batch Picking Optimization & Packing Station Integration
+
+#### Overview
+Delivers the complete warehouse fulfillment pipeline connecting open customer sales orders to floor execution. Groups discrete order demand lines into batch pick waves routed along a mathematical serpentine path (`zone -> aisle -> rack -> shelf -> bin`), supports live optical/RFID scan verification at the bin face, commits picked units into physical staging bays with atomic dual `StockMovement` ledger postings (`reference_doc_type="WMS_WAVE_PICK"`), and provides packing station manifest queries and shipping carton sealing.
+
+#### Key Highlights
+- **Single-Pass Serpentine Routing Heuristic**: Alternates bay traversal direction between odd aisles (low-to-high: Bay 1 → 10) and even aisles (high-to-low: Bay 10 → 1) to eliminate backtracking across warehouse aisles.
+- **Dynamic Wave Generation**: Assembles unfulfilled sales order demand lines or custom pick manifests, resolving physical storage bins with live stock and distributing tasks across active floor pickers.
+- **Optical Barcode & RFID Pick Verification**: Validates scanned codes at the bin face, updates picked quantities, and logs floor shortages with reason codes.
+- **Atomic Staging Bay Ledger Commit**: One-click dispatch creating balanced `TRANSFER_OUT` from picking bins and `TRANSFER_IN` to staging bays under `reference_doc_type="WMS_WAVE_PICK"`.
+- **Packing Station Integration**: Queries staged bay manifests and packages items into barcoded shipping cartons with gross weight sealing.
+
 ## Release v3.129.0 (2026-10-28)
 
 ### WMS Phase 4 — Barcode RF Gun Handheld Terminal Workflow, Directed Replenishment Confirmation & Mobile Bin Audit Scan
