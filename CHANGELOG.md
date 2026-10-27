@@ -1,5 +1,24 @@
 ﻿<!--
 
+## [3.121.1] - 2026-10-27 - UMGP-G3 Remediation: Drop Hardcoded DDL Defaults & Legacy Docstring Cleanup
+
+### Changed
+- `backend/alembic/versions/v1554_drop_hardcoded_db_defaults.py`: New forward migration
+  v1554 — drops `canonical_db DEFAULT '<primary_tenant_db>'` from `architecture_entities`
+  (v1394 original DDL). PL/pgSQL DO/IF EXISTS guard makes it safe on all tenant DBs.
+  All 3 tenants upgraded to `v1554 (head)`, exit 0.
+- `backend/alembic/versions/v1553_einvoices_baseentity_cols.py`: Added
+  `# @migration_target('tenant')` annotation (UMGP-G1) and neutralised docstring
+  hardcoded DB name (UMGP-G3).
+- `backend/alembic/versions/v1380_payment_transactions.py` (and 9 other legacy files
+  v1469, v1497a, v1498, v1499, v1500, v1501, v1502, v1503, v1504): Neutralised 13
+  hardcoded `smriti001` references in docstrings/comments (UMGP-G3 housekeeping).
+
+### Governance
+- UMGP gate: `[PASS] 240/240 compliant`. G3 warnings reduced from 15 to 2.
+  Remaining 2 warns (`v1394:L45`, `v1492b:L77`) are historical DDL DEFAULT values
+  in already-executed migrations — grandfathered and non-blocking.
+
 ## [3.121.0] - 2026-10-27 - EI-001: E-Invoice Async Integration Test Suite & BaseEntity Migration Backfill
 
 ### Added
@@ -2346,6 +2365,25 @@ Complete plain-language redesign of the PSV tab so any non-technical user (shop 
 - Commit: 12fa565b
 - Files changed: 12 (1526 insertions / 172 deletions)
 <!--
+
+## [3.121.1] - 2026-10-27 - UMGP-G3 Remediation: Drop Hardcoded DDL Defaults & Legacy Docstring Cleanup
+
+### Changed
+- `backend/alembic/versions/v1554_drop_hardcoded_db_defaults.py`: New forward migration
+  v1554 — drops `canonical_db DEFAULT '<primary_tenant_db>'` from `architecture_entities`
+  (v1394 original DDL). PL/pgSQL DO/IF EXISTS guard makes it safe on all tenant DBs.
+  All 3 tenants upgraded to `v1554 (head)`, exit 0.
+- `backend/alembic/versions/v1553_einvoices_baseentity_cols.py`: Added
+  `# @migration_target('tenant')` annotation (UMGP-G1) and neutralised docstring
+  hardcoded DB name (UMGP-G3).
+- `backend/alembic/versions/v1380_payment_transactions.py` (and 9 other legacy files
+  v1469, v1497a, v1498, v1499, v1500, v1501, v1502, v1503, v1504): Neutralised 13
+  hardcoded `smriti001` references in docstrings/comments (UMGP-G3 housekeeping).
+
+### Governance
+- UMGP gate: `[PASS] 240/240 compliant`. G3 warnings reduced from 15 to 2.
+  Remaining 2 warns (`v1394:L45`, `v1492b:L77`) are historical DDL DEFAULT values
+  in already-executed migrations — grandfathered and non-blocking.
 
 ## [3.121.0] - 2026-10-27 - EI-001: E-Invoice Async Integration Test Suite & BaseEntity Migration Backfill
 
