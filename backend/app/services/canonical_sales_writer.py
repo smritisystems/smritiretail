@@ -22,7 +22,9 @@ from fastapi import HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy import text, func
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import selectinload
+
 
 from ..schemas.canonical_posting import (
     CanonicalPostingRequest,
@@ -888,18 +890,59 @@ class CanonicalSalesPostingWriter:
                 logger.warning("Authorized credit limit override for customer %s", db_customer.id)
 
         # 7. Invoice Numbering Allocation
+        # Policy: the client MUST NOT supply a pre-constructed invoice_no as an
+        # authoritative allocation.  client_invoice_no is reserved ONLY for
+        # true offline/POS transactions where a number was already printed and
+        # committed at the terminal (e.g. thermal receipt already issued).
+        # For all online B2B / credit invoices the backend allocates atomically.
         invoice_no = req.context.client_invoice_no
         if not invoice_no:
             try:
                 num_svc = NumberingService(session)
-                invoice_no = await num_svc.allocate_voucher_number(
-                    series_id=f"SER-{company_id}-INV",
-                    branch=branch_id or "MAIN",
-                    fy=f"{date.today().year}-{date.today().year+1}",
-                    username=req.context.cashier_id or "SYSTEM",
+                # Determine canonical document type from payment mode
+                _pay_mode = (req.payment_mode or "").strip().upper()
+                _has_credit = _pay_mode in {"CREDIT", "ON_ACCOUNT"} or any(
+                    t.tender_type.strip().upper() == "CREDIT" for t in req.tenders
                 )
-            except Exception:
-                # Deterministic fallback format: INV-<YYYYMMDD>-<UUID4_SHORT>
+                _tx_type = "SALES_CREDIT" if _has_credit else "SALES_CASH"
+                # Resolve the live series from Document Series & Numbering Studio
+                _resolved = await num_svc.resolve_bill_prefix(
+                    company_id=company_id,
+                    branch_id=branch_id,
+                    terminal_id=req.context.terminal_id or "COMMON",
+                    transaction_type=_tx_type,
+                )
+                _series_id = _resolved.get("seriesId")
+                if _series_id and not _series_id.startswith("SER-AUTO-"):
+                    # Atomically allocate next number under FOR UPDATE lock
+                    invoice_no = await num_svc.allocate_voucher_number(
+                        series_id=_series_id,
+                        branch=branch_id or "MAIN",
+                        fy=_resolved.get("financialYear") or f"{date.today().year}-{date.today().year + 1}",
+                        username=req.context.cashier_id or "SYSTEM",
+                    )
+                else:
+                    # Auto-instantiated fallback series: use the preview number but
+                    # advance the counter on the auto series too.
+                    _auto_id = _series_id or ""
+                    if _auto_id:
+                        invoice_no = await num_svc.allocate_voucher_number(
+                            series_id=_auto_id,
+                            branch=branch_id or "MAIN",
+                            fy=_resolved.get("financialYear") or f"{date.today().year}-{date.today().year + 1}",
+                            username=req.context.cashier_id or "SYSTEM",
+                        )
+                    else:
+                        # Last-resort deterministic UUID fallback (no series at all)
+                        invoice_no = f"INV-{date.today().strftime('%Y%m%d')}-{uuid.uuid4().hex[:6].upper()}"
+            except HTTPException:
+                raise
+            except Exception as _num_err:
+                logger.warning(
+                    "Numbering service allocation failed for %s; using UUID fallback: %s",
+                    company_id, _num_err,
+                )
+                # Deterministic fallback: INV-<YYYYMMDD>-<UUID4_SHORT>
                 invoice_no = f"INV-{date.today().strftime('%Y%m%d')}-{uuid.uuid4().hex[:6].upper()}"
 
         # 8. Resolve and validate Dispatch From physical origin location
@@ -1150,9 +1193,32 @@ class CanonicalSalesPostingWriter:
             session.add(db_item)
             db_items_list.append(db_item)
 
-        await session.flush()
+        try:
+            await session.flush()
+        except IntegrityError as _flush_err:
+            await session.rollback()
+            _orig = str(getattr(_flush_err, "orig", _flush_err))
+            if "uq_sales_invoices_company_invoice_no" in _orig or "invoice_no" in _orig.lower():
+                raise HTTPException(
+                    status_code=409,
+                    detail={
+                        "code": "SMRITI-INV-DUP-001",
+                        "invoice_no": invoice_no,
+                        "message": (
+                            f"Invoice number '{invoice_no}' is already assigned to another invoice. "
+                            "Your invoice has not been saved. "
+                            "Please select 'Fix and Select Next Number' to obtain a valid number from "
+                            "the Document Series & Numbering Studio, or keep as Draft."
+                        ),
+                    },
+                )
+            raise HTTPException(
+                status_code=409,
+                detail=f"Invoice could not be saved because of a data conflict. {_orig}",
+            )
 
         # 9B. Update Customer PO Balances & Create Allocations Atomically
+
         if po_obj and po_lines_map:
             total_po_allocated_qty = Decimal("0")
             total_po_allocated_val = Decimal("0")

@@ -514,6 +514,7 @@ class NumberingService:
             "gstRule46bLength": gst_validation["length"],
             "validationMessage": gst_validation["error"],
             "numberFormat": getattr(series, "number_format", None) or "PREFIX_NUM_SUFFIX",
+            "financialYear": series.financial_year or "",
         }
 
     async def list_bill_prefixes(
