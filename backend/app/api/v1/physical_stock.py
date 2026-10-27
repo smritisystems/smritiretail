@@ -1,4 +1,4 @@
-﻿"""
+"""
 Project      : SMRITI Retail OS
 Repository   : SMRITIRetailNX
 Organization : AITDL NETWORKS
@@ -23,6 +23,7 @@ stock_takes and stock_count_lines tables now present (v1372 migration).
 from datetime import date, datetime, timezone, timedelta
 from decimal import Decimal
 from typing import Any, Dict, List, Optional
+import uuid, hashlib
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -32,6 +33,8 @@ from sqlalchemy import text
 from ...api.deps import (
     get_company_db, get_tenant_context, get_current_user, TenantContext
 )
+from ...models.inventory import StockMovement
+from ...models.profitability import ProductCostValuation  # WAC cost freeze at approval time
 
 router = APIRouter(prefix="/physical-stock")
 
@@ -439,17 +442,32 @@ async def physical_vs_computed(
 # ---------------------------------------------------------------------------
 # PHY-005: Approve / Close Stock Take Session
 # PATCH /api/v1/physical-stock/sessions/{take_id}/approve
+# WMS Sprint: Now commits StockMovement rows for every non-zero variance
 # ---------------------------------------------------------------------------
 
 @router.patch("/sessions/{take_id}/approve")
 async def approve_stock_take(
     take_id: str,
     db: AsyncSession = Depends(get_company_db),
+    tenant: TenantContext = Depends(get_tenant_context),
     current_user=Depends(get_current_user),
 ):
     """
     PHY-005 -- Approve Stock Take Session.
-    Transitions session from COMPLETED -> APPROVED and records approver.
+    Transitions session from COMPLETED -> APPROVED and commits variance
+    quantities as StockMovement records:
+      - Positive variance (counted > system): INWARD_SURPLUS
+      - Negative variance (counted < system): OUTWARD_SHRINKAGE
+
+    Cost is frozen from product_cost_valuations.weighted_average_cost at
+    approval time -- not at a later read. This satisfies the immutability
+    rule: the financial impact of the count is fixed at the moment the
+    manager approves it.
+
+    Idempotency: each movement carries key='phy_approve_{take_id}_{line_id}'
+    so re-approving a session (e.g. after a network retry) does not double-
+    create movements.
+
     Role guard: ADMIN or MANAGER.
     """
     role = (getattr(current_user, "role", "") or "").upper()
@@ -463,37 +481,169 @@ async def approve_stock_take(
             },
         )
 
+    # ------------------------------------------------------------------ #
+    # 1. Load session
+    # ------------------------------------------------------------------ #
     row = (await db.execute(text("""
-        SELECT id, status FROM stock_takes
+        SELECT id, status, company_id, branch_id, warehouse_id
+        FROM stock_takes
         WHERE id = :id AND is_deleted = false
     """), {"id": take_id})).fetchone()
 
     if not row:
-        raise HTTPException(status_code=404, detail={"code": "SMRITI-DATA-001",
-            "message": f"Stock take session '{take_id}' not found."})
+        raise HTTPException(status_code=404, detail={
+            "code":    "SMRITI-DATA-001",
+            "message": f"Stock take session '{take_id}' not found.",
+        })
 
-    if row[1] not in ("COMPLETED", "IN_PROGRESS"):
+    _take_id, current_status, co_id, br_id, wh_id = row
+
+    if current_status not in ("COMPLETED", "IN_PROGRESS"):
         raise HTTPException(status_code=422, detail={
             "code":    "SMRITI-VAL-001",
-            "message": f"Session is currently '{row[1]}'. Only COMPLETED sessions can be approved.",
+            "message": f"Session is currently '{current_status}'. Only COMPLETED sessions can be approved.",
             "action":  "Complete the count first before approving.",
         })
 
-    approver = getattr(current_user, "full_name", None) or getattr(current_user, "id", "system")
+    # Use tenant company_id as authoritative source (session may be cross-branch)
+    company_id = tenant.company_id or co_id
+    branch_id  = br_id
+    approver   = getattr(current_user, "full_name", None) or getattr(current_user, "id", "system")
+
+    # ------------------------------------------------------------------ #
+    # 2. Load all non-zero, unreconciled variance lines
+    # ------------------------------------------------------------------ #
+    lines = (await db.execute(text("""
+        SELECT id, product_id, product_name, sku,
+               variance_qty, unit_cost, warehouse_id, bin_location, batch_no
+        FROM stock_count_lines
+        WHERE stock_take_id = :take_id
+          AND is_deleted = false
+          AND COALESCE(variance_qty, 0) <> 0
+          AND is_reconciled = false
+    """), {"take_id": take_id})).fetchall()
+
+    # ------------------------------------------------------------------ #
+    # 3. Create StockMovement for each variance line
+    # ------------------------------------------------------------------ #
+    movements_created = 0
+    total_variance_qty = Decimal("0")
+    total_variance_value = Decimal("0")
+
+    for ln in lines:
+        (line_id, product_id, product_name, sku,
+         variance_qty, line_unit_cost, line_wh_id, bin_loc, batch_no) = ln
+
+        variance_qty = Decimal(str(variance_qty or 0))
+        if variance_qty == Decimal("0"):
+            continue
+
+        # Cost: use line-level unit_cost if already stamped (preferred, frozen at count creation).
+        # If NULL (line created without cost), freeze WAC from product_cost_valuations NOW.
+        if line_unit_cost is not None and Decimal(str(line_unit_cost)) > Decimal("0"):
+            unit_cost = Decimal(str(line_unit_cost)).quantize(Decimal("0.01"))
+            cost_src  = "PHYSICAL_COUNT_APPROVED"
+        else:
+            # Freeze WAC at approval time (immutability: cost fixed at this moment)
+            wac_row = (await db.execute(text("""
+                SELECT weighted_average_cost
+                FROM product_cost_valuations
+                WHERE product_id = :pid
+                LIMIT 1
+            """), {"pid": product_id})).fetchone()
+            unit_cost = Decimal(str(wac_row[0] if wac_row and wac_row[0] else 0)).quantize(Decimal("0.01"))
+            cost_src  = "PHYSICAL_COUNT_WAC_FROZEN"
+
+        movement_type   = "INWARD_SURPLUS" if variance_qty > 0 else "OUTWARD_SHRINKAGE"
+        movement_qty    = abs(variance_qty)
+        variance_value  = (movement_qty * unit_cost).quantize(Decimal("0.01"))
+
+        # Idempotency key: deterministic per session + line
+        idem_raw    = f"phy_approve_{take_id}_{line_id}"
+        idem_key    = hashlib.sha256(idem_raw.encode()).hexdigest()[:64]
+        movement_id = f"sm_{uuid.uuid4().hex[:12]}"
+
+        movement = StockMovement(
+            id=movement_id,
+            uuid=movement_id,
+            company_id=company_id,
+            branch_id=branch_id,
+            product_id=product_id,
+            product_name=product_name or "",
+            sku=sku or "",
+            quantity=movement_qty,
+            movement_type=movement_type,
+            reference_doc_type="STOCK_TAKE",
+            reference_doc_id=take_id,
+            warehouse_id=line_wh_id or wh_id,
+            bin=bin_loc,
+            batch=batch_no,
+            unit_cost=unit_cost,
+            cost_source=cost_src,
+            idempotency_key=idem_key,
+            remarks=f"Physical count variance: {movement_type} {movement_qty} units @ {take_id}",
+            source_module="PHYSICAL_STOCK",
+            user=approver,
+            approval=approver,
+        )
+
+        try:
+            async with db.begin_nested():
+                db.add(movement)
+                await db.flush()
+                # Stamp line as reconciled and update its unit_cost if it was missing
+                await db.execute(text("""
+                    UPDATE stock_count_lines
+                    SET is_reconciled = true,
+                        unit_cost     = COALESCE(unit_cost, :uc),
+                        variance_value= :vv,
+                        status        = 'RECONCILED',
+                        modified_at   = NOW()
+                    WHERE id = :lid
+                """), {"uc": float(unit_cost), "vv": float(variance_value), "lid": line_id})
+                movements_created += 1
+                total_variance_qty   += variance_qty
+                total_variance_value += variance_value
+        except Exception:
+            # Idempotency: movement already exists for this line — skip
+            pass
+
+    # ------------------------------------------------------------------ #
+    # 4. Approve session + roll up totals atomically
+    # ------------------------------------------------------------------ #
     await db.execute(text("""
         UPDATE stock_takes
-        SET status = 'APPROVED', approved_by = :approver,
-            approved_at = NOW(), modified_at = NOW()
+        SET status              = 'APPROVED',
+            approved_by         = :approver,
+            approved_at         = NOW(),
+            modified_at         = NOW(),
+            total_variance_qty  = :tvq,
+            total_variance_value= :tvv
         WHERE id = :id
-    """), {"approver": approver, "id": take_id})
+    """), {
+        "approver": approver,
+        "tvq":      float(total_variance_qty),
+        "tvv":      float(total_variance_value),
+        "id":       take_id,
+    })
     await db.commit()
 
     return {
-        "id":          take_id,
-        "status":      "APPROVED",
-        "approved_by": approver,
-        "approved_at": datetime.now(timezone.utc).isoformat(),
+        "id":               take_id,
+        "status":           "APPROVED",
+        "approved_by":      approver,
+        "approved_at":      datetime.now(timezone.utc).isoformat(),
+        "movements_created": movements_created,
+        "total_variance_qty":   float(total_variance_qty),
+        "total_variance_value": float(total_variance_value),
+        "message":          (
+            f"{movements_created} stock adjustment movement(s) committed. "
+            "Inventory balances updated."
+            if movements_created
+            else "Session approved. No non-zero variances to commit."
+        ),
     }
+
 
 # ---------------------------------------------------------------------------
 # PHY-006: Update a single count line (counted_qty, notes)

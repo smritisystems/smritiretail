@@ -709,6 +709,11 @@ class UnifiedAccountingLedgerService:
         )
         existing_ipl = (await session.execute(ipl_stmt)).scalar_one_or_none()
         if not existing_ipl:
+            # G5: Determine dominant valuation method across all snapshot lines for this invoice.
+            # If all lines used the same method, stamp that method. If mixed, stamp 'MIXED'.
+            ipl_methods = {s.valuation_method_used for s in snapshots_to_add if s.valuation_method_used}
+            ipl_valuation_method = ipl_methods.pop() if len(ipl_methods) == 1 else ("MIXED" if ipl_methods else None)
+
             ipl = InvoiceProfitabilityLedger(
                 id=f"ipl_{uuid.uuid4().hex[:12]}",
                 uuid=str(uuid.uuid4()),
@@ -718,11 +723,13 @@ class UnifiedAccountingLedgerService:
                 gross_sales_amount=inv_gross_sales,
                 total_cogs=total_cogs,
                 gross_profit=inv_gross_profit,
+                valuation_method_used=ipl_valuation_method,  # G5: method traceability
                 net_contribution=inv_gross_profit,
                 net_margin_percent=inv_margin_pct,
                 timestamp=datetime.now(timezone.utc).replace(tzinfo=None),
             )
             session.add(ipl)
+
 
         return await cls.post_journal_voucher(
             session=session,
