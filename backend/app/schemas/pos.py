@@ -53,25 +53,29 @@ class CashRegisterResponse(BaseModel):
 
 class POSProfileCreate(BaseModel):
     """Maps the frontend PosProfilesTab create form to CashRegister fields."""
-    name:        str = Field(default="Counter 01 - Express Billing", min_length=2, max_length=100)
-    code:        Optional[str] = Field(default="REG-01", max_length=50)
-    cashier:     Optional[str] = Field(default="EMP001 - John Doe", max_length=100)
-    warehouse:   Optional[str] = Field(default="Main Store", max_length=100)
-    is_locked:   Optional[bool] = False
-    notes:       Optional[str] = Field(default="Default installation POS terminal profile", max_length=500)
+    name:         str = Field(default="Counter 01 - Express Billing", min_length=2, max_length=100)
+    code:         Optional[str] = Field(default="REG-01", max_length=50)
+    cashier:      Optional[str] = Field(default="EMP001 - John Doe", max_length=100)
+    warehouse_id: Optional[str] = Field(default=None, max_length=50,
+                                        description="FK to warehouses.id — preferred over the legacy warehouse text field.")
+    warehouse:    Optional[str] = Field(default=None, max_length=100,
+                                        description="Legacy warehouse code text — kept for backward compat. Prefer warehouse_id.")
+    is_locked:    Optional[bool] = False
+    notes:        Optional[str] = Field(default="Default installation POS terminal profile", max_length=500)
 
 
 class POSProfileResponse(BaseModel):
     """Frontend-facing view of a CashRegister as a POS Profile."""
-    id:          str
-    name:        str
-    code:        str
-    cashier:     Optional[str] = None
-    warehouse:   Optional[str] = None
-    is_locked:   bool = False
-    is_active:   bool = True
-    created_at:  datetime
-    modified_at: datetime
+    id:           str
+    name:         str
+    code:         str
+    cashier:      Optional[str] = None
+    warehouse_id: Optional[str] = None  # R-001: governed FK column
+    warehouse:    Optional[str] = None  # Legacy text — retained for backward compat
+    is_locked:    bool = False
+    is_active:    bool = True
+    created_at:   datetime
+    modified_at:  datetime
     model_config = {"from_attributes": True}
 
     @classmethod
@@ -82,6 +86,7 @@ class POSProfileResponse(BaseModel):
             name=reg.name,
             code=reg.code,
             cashier=getattr(reg, "cashier", None),
+            warehouse_id=getattr(reg, "warehouse_id", None),  # R-001
             warehouse=getattr(reg, "warehouse", None),
             is_locked=getattr(reg, "is_locked", False),
             is_active=reg.is_active,
