@@ -59,7 +59,7 @@ import {
 } from "./SmritiF6PromotionalDiscountsModal.tsx";
 import { SmritiDefineSalesPromotionsModal } from "./SmritiDefineSalesPromotionsModal.tsx";
 import { SmritiDefineSalesFactorsModal } from "../pricing/SmritiDefineSalesFactorsModal.tsx";
-import { SmritiSalesFactorService } from "../../services/smritiSalesFactorService.ts";
+import { SmritiSalesFactor, SmritiSalesFactorService } from "../../services/smritiSalesFactorService.ts";
 import {
   SmritiSalesPromotionService,
   ItemPromoResolutionResult
@@ -206,6 +206,26 @@ export const DEFAULT_ADDON_ROWS: AddonDeductionRow[] = [
     amount: 0
   }
 ];
+
+export function mapSalesFactorsToAdjustmentRows(factors: SmritiSalesFactor[]): AddonDeductionRow[] {
+  return factors
+    .filter(factor => factor.factorType === "ADD_ON" || factor.factorType === "DEDUCTION")
+    .map((factor, index): AddonDeductionRow => {
+      const isAddon = factor.factorType === "ADD_ON";
+      return {
+        sNo: index + 1,
+        type: isAddon ? "Addon" : "Deduction",
+        code: factor.code,
+        description: factor.description,
+        rateType: factor.rateOrAmount === "RATE" ? "Percentage" : "Fixed",
+        rate: !isAddon && factor.rateOrAmount === "RATE" ? factor.value : 0,
+        amount: !isAddon && factor.rateOrAmount === "AMOUNT" ? factor.value : 0,
+        timing: factor.computationTiming,
+        priceGroupCode: factor.priceGroupCode,
+        isVariable: factor.isVariable
+      };
+    });
+}
 
 export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
   products = [],
@@ -812,23 +832,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
       customer?.priceGroupCode,
       customer?.id
     );
-    if (applicable.length > 0) {
-      const mappedRows: AddonDeductionRow[] = applicable
-        .filter(f => f.factorType === "ADD_ON" || f.factorType === "DEDUCTION")
-        .map((f, idx) => ({
-          sNo: idx + 1,
-          type: f.factorType === "ADD_ON" ? "Addon" : "Deduction",
-          code: f.code,
-          description: f.description,
-          rateType: f.rateOrAmount === "RATE" ? "Percentage" : "Fixed",
-          rate: f.rateOrAmount === "RATE" ? f.value : 0,
-          amount: f.rateOrAmount === "AMOUNT" ? f.value : 0,
-          timing: f.computationTiming,
-          priceGroupCode: f.priceGroupCode,
-          isVariable: f.isVariable
-        }));
-      setAddonRows(mappedRows);
-    }
+    setAddonRows(mapSalesFactorsToAdjustmentRows(applicable));
   };
 
   useEffect(() => {
@@ -2875,12 +2879,12 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
       : tenderModes.size > 1
         ? "SPLIT"
         : effectiveTenderRows[0]?.mode || "CASH";
-    // Format invoice number from resolved prefix and sequence; omit if empty so backend allocates sequence atomically
-    const invNo = (headerState.docPrefix && headerState.docNo)
-      ? `${headerState.docPrefix}${headerState.docNo}`
-      : undefined;
+    // IMPORTANT: Do NOT construct or send invoice_no client-side.
+    // The backend allocates the number atomically via Document Series & Numbering Studio.
+    // client_invoice_no is ONLY for true offline POS (number already printed on paper).
+    // We pass series_id so the backend targets the correct series without re-resolving.
     const invoicePayload = {
-      invoice_no: invNo,
+      series_id: resolvedPrefixInfo?.seriesId ?? undefined,
       date: new Date().toISOString().split("T")[0],
       customer_id: headerState.customer?.id || null,
       customer_name: headerState.customer?.name || "Counter Cash Sale",
@@ -2978,7 +2982,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
 
       const completedInvoice = {
         invoiceId: saved.id,
-        invoiceNumber: saved.invoice_no || invNo || "INV-CONFIRMED",
+        invoiceNumber: saved.invoice_no || "INV-CONFIRMED",
         date: saved.date || headerState.billDate,
         customerName: headerState.customer?.name || "Counter Cash Sale",
         customerGstin: headerState.billedGstin || headerState.customer?.gstNumber || "",
@@ -3008,24 +3012,36 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
       // Reset for next invoice
       setItems([]);
         settlementIdempotencyKeyRef.current = null;
-      setHeaderState(prev => ({
-        ...prev,
-        docNo: String((parseInt(prev.docNo) || 1) + 1),
-        customer: null,
-        remarks: "",
-        billedPartyGstinId: null,
-        billedGstin: null,
-        billingLocationId: null,
-        billingStoreCode: null,
-        billingAddress: null,
-        shippingAddress: null,
-        deliveryLocationId: null,
-        deliveryStoreCode: null,
-        deliveryGstin: null,
-        deliveryLocationSnapshot: null,
-        placeOfSupplyCode: null,
-        poReference: ""
-      }));
+      // Re-resolve the next prefix from the server after a successful save —
+      // never client-increment docNo, the server counter is the single source of truth.
+      const _txTypeForReset = isCreditTx ? "SALES_CREDIT" : "SALES_CASH";
+      void SmritiBillPrefixService.resolveActivePrefix({
+        transactionType: _txTypeForReset,
+        terminalId: (currentUser as any)?.terminalId || "COMMON",
+        branchId: headerState.deliveryLocationId || undefined,
+        billType: headerState.billType
+      }).then(res => {
+        setResolvedPrefixInfo(res);
+        setHeaderState(prev => ({
+          ...prev,
+          docPrefix: res.prefix,
+          docNo: res.formattedDocNo,
+          customer: null,
+          remarks: "",
+          billedPartyGstinId: null,
+          billedGstin: null,
+          billingLocationId: null,
+          billingStoreCode: null,
+          billingAddress: null,
+          shippingAddress: null,
+          deliveryLocationId: null,
+          deliveryStoreCode: null,
+          deliveryGstin: null,
+          deliveryLocationSnapshot: null,
+          placeOfSupplyCode: null,
+          poReference: ""
+        }));
+      });
       setCustomerGstRegistrations([]);
       setCustomerDeliveryLocations([]);
       setCustomerBillingLocations([]);
@@ -3033,8 +3049,33 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
       onNotification?.("Settlement Complete", `Invoice ${completedInvoice.invoiceNumber} saved successfully.`, "success");
       onRefreshData?.();
     } catch (err: any) {
-      const message = err?.message || "Failed to commit transaction.";
       console.error("[BillingTerm] Invoice settlement failed:", err);
+      // Detect SMRITI-INV-DUP-001: duplicate invoice number — refresh from backend
+      const errDetail = err?.detail ?? err?.body?.detail;
+      const dupCode = typeof errDetail === "object" ? errDetail?.code : undefined;
+      if (dupCode === "SMRITI-INV-DUP-001" || err?.status === 409 && typeof errDetail === "object" && errDetail?.invoice_no) {
+        const conflictNo = errDetail?.invoice_no || headerState.docPrefix + headerState.docNo;
+        // Refresh the next valid number from the Document Series & Numbering Studio
+        const _txTypeRefresh = isCreditTx ? "SALES_CREDIT" : "SALES_CASH";
+        void SmritiBillPrefixService.resolveActivePrefix({
+          transactionType: _txTypeRefresh,
+          terminalId: (currentUser as any)?.terminalId || "COMMON",
+          branchId: headerState.deliveryLocationId || undefined,
+          billType: headerState.billType
+        }).then(res => {
+          setResolvedPrefixInfo(res);
+          setHeaderState(prev => ({ ...prev, docPrefix: res.prefix, docNo: res.formattedDocNo }));
+        });
+        onNotification?.(
+          "Invoice Number Already Used",
+          `Invoice number '${conflictNo}' was already assigned to another transaction. ` +
+          `The next available number has been automatically loaded from the Document Series & Numbering Studio. ` +
+          `Please review and save again.`,
+          "info"
+        );
+        return; // keep cart items so user can retry without re-entering
+      }
+      const message = err?.message || err?.detail || "Failed to commit transaction.";
       onNotification?.(
         "Settlement Error",
         `Bill could not be saved: ${message}. Your invoice items are preserved in the cart. Correct the indicated data and retry.`,

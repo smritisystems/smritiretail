@@ -1217,10 +1217,15 @@ export const SmritiBillingStudio: React.FC<SmritiBillingStudioProps> = ({
       }
     }
 
+    // Note: invoice_no is intentionally omitted from the canonical payload.
+    // The backend (CanonicalSalesPostingWriter) allocates the number atomically
+    // via the Document Series & Numbering Studio (NumberingService.allocate_voucher_number).
+    // client_invoice_no is reserved ONLY for true offline POS where a receipt was
+    // already printed before connectivity was lost.
     const clientTxUuid = crypto.randomUUID ? crypto.randomUUID() : `tx-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-    const generatedInvoiceNo = `INV-${Date.now().toString().slice(-6)}`;
 
     const backendTenders: POSTenderItem[] = [
+
       {
         tender_type: paymentMode,
         amount: calculations.netPayable,
@@ -1236,7 +1241,7 @@ export const SmritiBillingStudio: React.FC<SmritiBillingStudioProps> = ({
 
     const payload: any = {
       client_tx_uuid: clientTxUuid,
-      invoice_no: generatedInvoiceNo,
+      // invoice_no omitted — backend allocates atomically from Document Series & Numbering Studio
       shift_id: effectiveShiftId,
       payment_mode: paymentMode,
       grand_total: calculations.netPayable,
@@ -1287,7 +1292,7 @@ export const SmritiBillingStudio: React.FC<SmritiBillingStudioProps> = ({
       );
 
       const recorded = {
-        billNo: res.invoice_no || generatedInvoiceNo,
+        billNo: res.invoice_no || "PENDING",
         billDate: new Date().toLocaleString(),
         customer,
         selectedOutlet,
@@ -1338,9 +1343,12 @@ export const SmritiBillingStudio: React.FC<SmritiBillingStudioProps> = ({
     } catch (err: any) {
       // Offline fallback
       try {
-        await ProPosOfflineSyncEngine.queueOfflineSale(payload, registerLabel, generatedInvoiceNo);
+        // Offline fallback: generate a temporary offline reference.
+        // The sync engine will replace this with the real server-allocated number on reconnect.
+        const offlineInvoiceNo = `OFFLINE-${clientTxUuid.slice(0, 8).toUpperCase()}`;
+        await ProPosOfflineSyncEngine.queueOfflineSale(payload, registerLabel, offlineInvoiceNo);
         const offlineRecord = {
-          billNo: `${generatedInvoiceNo} (OFFLINE)`,
+          billNo: `${offlineInvoiceNo} (OFFLINE)`,
           billDate: new Date().toLocaleString(),
           customer,
           selectedOutlet,
