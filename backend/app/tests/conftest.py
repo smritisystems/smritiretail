@@ -299,6 +299,24 @@ def _ensure_schema_compatibility_sync(cur):
         "ALTER TABLE IF EXISTS gift_card_transactions ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;",
         "ALTER TABLE IF EXISTS gift_card_transactions ADD COLUMN IF NOT EXISTS deleted_by VARCHAR(50);",
         "ALTER TABLE IF EXISTS gift_card_transactions ADD COLUMN IF NOT EXISTS version INTEGER NOT NULL DEFAULT 1;",
+        # EI-001: e_invoices / e_invoice_batches BaseEntity column backfill
+        # asyncpg prepares SELECT statements strictly - missing columns raise UndefinedColumnError.
+        "ALTER TABLE IF EXISTS e_invoices ADD COLUMN IF NOT EXISTS uuid VARCHAR(36) DEFAULT gen_random_uuid()::varchar;",
+        "ALTER TABLE IF EXISTS e_invoices ADD COLUMN IF NOT EXISTS company_id VARCHAR(50);",
+        "ALTER TABLE IF EXISTS e_invoices ADD COLUMN IF NOT EXISTS branch_id VARCHAR(50);",
+        "ALTER TABLE IF EXISTS e_invoices ADD COLUMN IF NOT EXISTS modified_at TIMESTAMPTZ DEFAULT NOW();",
+        "ALTER TABLE IF EXISTS e_invoices ADD COLUMN IF NOT EXISTS is_active BOOLEAN NOT NULL DEFAULT TRUE;",
+        "ALTER TABLE IF EXISTS e_invoices ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;",
+        "ALTER TABLE IF EXISTS e_invoices ADD COLUMN IF NOT EXISTS deleted_by VARCHAR(50);",
+        "ALTER TABLE IF EXISTS e_invoices ADD COLUMN IF NOT EXISTS version INTEGER NOT NULL DEFAULT 1;",
+        "ALTER TABLE IF EXISTS e_invoice_batches ADD COLUMN IF NOT EXISTS uuid VARCHAR(36) DEFAULT gen_random_uuid()::varchar;",
+        "ALTER TABLE IF EXISTS e_invoice_batches ADD COLUMN IF NOT EXISTS company_id VARCHAR(50);",
+        "ALTER TABLE IF EXISTS e_invoice_batches ADD COLUMN IF NOT EXISTS branch_id VARCHAR(50);",
+        "ALTER TABLE IF EXISTS e_invoice_batches ADD COLUMN IF NOT EXISTS modified_at TIMESTAMPTZ DEFAULT NOW();",
+        "ALTER TABLE IF EXISTS e_invoice_batches ADD COLUMN IF NOT EXISTS is_active BOOLEAN NOT NULL DEFAULT TRUE;",
+        "ALTER TABLE IF EXISTS e_invoice_batches ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;",
+        "ALTER TABLE IF EXISTS e_invoice_batches ADD COLUMN IF NOT EXISTS deleted_by VARCHAR(50);",
+        "ALTER TABLE IF EXISTS e_invoice_batches ADD COLUMN IF NOT EXISTS version INTEGER NOT NULL DEFAULT 1;",
     ]
     for stmt in schema_fixes:
         try:
