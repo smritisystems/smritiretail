@@ -23,7 +23,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select, desc, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ...api.deps import get_db, get_current_user
+from ...api.deps import get_company_db, get_current_user
 from ...models.auth import User, UserRole
 from ...models.goods_receipt import GoodsReceiptNote, GoodsReceiptLine
 
@@ -213,7 +213,7 @@ async def create_grn(
     req: GRNCreate,
     company_id: Optional[str] = Header(None, alias="x-company-id"),
     branch_id: Optional[str] = Header(None, alias="x-branch-id"),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     current_user: User = Depends(get_current_user),
 ):
     """
@@ -325,7 +325,7 @@ async def list_grns(
     page: int = Query(1, ge=1),
     limit: int = Query(50, ge=1, le=200),
     company_id: Optional[str] = Header(None, alias="x-company-id"),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     current_user: User = Depends(get_current_user),
 ):
     """Returns paginated list of GRNs scoped to the caller's company."""
@@ -349,7 +349,7 @@ async def list_grns(
 @router.get("/{grn_id}", response_model=GRNResponse, summary="Get a single GRN with lines")
 async def get_grn(
     grn_id: str,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     current_user: User = Depends(get_current_user),
 ):
     """Returns a GRN and all its line items."""
@@ -374,7 +374,7 @@ async def get_grn(
 async def post_grn(
     grn_id: str,
     req: GRNPostRequest,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     current_user: User = Depends(get_current_user),
 ):
     """
@@ -411,7 +411,7 @@ async def post_grn(
 async def cancel_grn(
     grn_id: str,
     req: GRNCancelRequest,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     current_user: User = Depends(get_current_user),
 ):
     """

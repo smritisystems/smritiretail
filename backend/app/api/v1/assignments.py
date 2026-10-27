@@ -14,7 +14,7 @@ License      : Proprietary Commercial Software
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ...api.deps import get_db, get_current_user, require_role
+from ...api.deps import get_company_db, get_current_user, require_role
 from ...models.auth import UserRole, User
 from ...schemas.user_assignment import (
     UserAssignmentListResponse,
@@ -37,7 +37,7 @@ router = APIRouter()
 )
 async def list_user_assignments(
     user_id: str,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     current_user: User = Depends(get_current_user),
 ):
     service = UserAssignmentService(db, current_user)
@@ -53,7 +53,7 @@ async def list_user_assignments(
 async def assign_user_company(
     user_id: str,
     req: UserCompanyAssignmentCreate,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     current_user: User = Depends(get_current_user),
 ):
     service = UserAssignmentService(db, current_user)
@@ -69,7 +69,7 @@ async def assign_user_company(
 async def assign_user_branch(
     user_id: str,
     req: UserBranchAssignmentCreate,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     current_user: User = Depends(get_current_user),
 ):
     service = UserAssignmentService(db, current_user)
@@ -85,7 +85,7 @@ async def assign_user_branch(
 async def assign_user_store(
     user_id: str,
     req: UserStoreAssignmentCreate,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     current_user: User = Depends(get_current_user),
 ):
     service = UserAssignmentService(db, current_user)
@@ -99,7 +99,7 @@ async def assign_user_store(
 async def remove_user_company_assignment(
     user_id: str,
     assignment_id: str,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     current_user: User = Depends(get_current_user),
 ):
     service = UserAssignmentService(db, current_user)
@@ -114,7 +114,7 @@ async def remove_user_company_assignment(
 async def remove_user_branch_assignment(
     user_id: str,
     assignment_id: str,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     current_user: User = Depends(get_current_user),
 ):
     service = UserAssignmentService(db, current_user)
@@ -129,7 +129,7 @@ async def remove_user_branch_assignment(
 async def remove_user_store_assignment(
     user_id: str,
     assignment_id: str,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     current_user: User = Depends(get_current_user),
 ):
     service = UserAssignmentService(db, current_user)
