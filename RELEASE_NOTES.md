@@ -14,6 +14,35 @@
 
 # SMRITI Retail OS — Release Notes
 
+## Release v3.129.0 (2026-10-28)
+
+### WMS Phase 4 — Barcode RF Gun Handheld Terminal Workflow, Directed Replenishment Confirmation & Mobile Bin Audit Scan
+
+#### Overview
+Delivers a high-speed, tactile mobile terminal interface designed specifically for warehouse floor associates operating rugged Android/Windows RF guns (Zebra, Honeywell, Chainway, Datalogic) and mobile handheld devices. Provides multi-scan optical validation (Source Bin → Item Barcode → Quantity → Destination Bin), zero-latency Web Audio API synthesizers, Android haptic feedback, live bin occupancy queries directly at the rack face, and 4-second ad-hoc stock relocations.
+
+#### Key Highlights
+- **Hardware Laser Wedge Burst Support**: Automatic keyboard wedge listener captures barcode laser bursts ending with Enter, supporting fast rack-to-rack scanning without manual mouse clicks.
+- **Synthesized Audio-Tactile Feedback**: Browser-native Web Audio API dual-tone chimes (880Hz to 1175Hz sine waves) for valid scans and sawtooth buzzers for mismatches; Android haptic vibration (`navigator.vibrate`) for noisy environments.
+- **Directed Replenishment Wizard (4-Step)**: Step-by-step physical confirmation of Source Bulk Bin → Product SKU → Transfer Quantity → Destination Picking Bin with atomic dual StockMovement posting.
+- **Rack-Face Bin Audit & Headroom Meter**: Live visual occupancy bar and capacity calculation aggregated directly from StockMovement ledger entries.
+- **Ad-Hoc Fast Floor Relocation**: Rapidly transfer stock between bins in under 4 seconds with real-time source stock validation under `reference_doc_type="WMS_RF_TRANSFER"`.
+
+## Release v3.128.0 (2026-10-28)
+
+### WMS Phase 3 — Dynamic Picking Bin Replenishment Engine & Min/Max Inventory Slotting Tasks
+
+#### Overview
+Delivers the automated Dynamic Picking Bin Replenishment Engine and Min/Max Slotting Master to maintain optimal fast-picking bin availability and eliminate stockout stalls across SMRITI retail godowns and store backrooms.
+
+#### Key Highlights
+- **Automated Picking Bin Depletion Detection**: Real-time evaluation of all configured fast-picking bins (`zone == 'PICKING'`) against dedicated `min_reorder_level` thresholds derived from `StockMovement` ledger aggregations.
+- **Reserve Bulk Storage Allocation**: Automatic scanning and ranking of upper rack bulk bins (`zone in ('BULK', 'STORAGE')`) holding positive reserve inventory of depleted items.
+- **Intelligent Transfer Quantity Calculation**: Suggests optimal transfer quantities using `min(headroom, available_bulk)` bounded by standard reorder batch sizes (`reorder_quantity`).
+- **Urgency Priority Classification**: Categorizes tasks into `CRITICAL` (stockout - 0 units), `HIGH` (< 50% min level), `NORMAL` (< min level), and `BULK_STOCKOUT` (reserve depleted, external vendor PO required).
+- **Atomic Internal Transfer Execution**: One-click execution generating linked `StockMovement` dual legs (`TRANSFER_OUT` from bulk bin + `TRANSFER_IN` to picking bin) tagged with audit reference `WMS_REPLENISHMENT`.
+- **Min/Max Slotting Master Tab & UI**: Full frontend interactive studio in `WarehouseLocationManager.tsx` with urgency filtering, visual stock headroom bars, quantity overrides, batch execution, and inline item slotting CRUD.
+
 ## Release v3.127.0 (2026-10-28)
 
 ### WMS Phase 2 — Physical Storage Bin Matrix, Aisle/Rack/Shelf Generation & Automated Putaway Rule Engine

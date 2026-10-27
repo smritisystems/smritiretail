@@ -24,6 +24,7 @@ import { IPOStudioModal } from "../warehouse/IPOStudioModal.tsx";
 import { RFIDFittingRoomStudioModal } from "../inventory/RFIDFittingRoomStudioModal.tsx";
 import { LabelPrintModal } from "../warehouse/LabelPrintModal.tsx";
 import { WarehouseLocationManager } from "./WarehouseLocationManager.tsx";
+import { WmsRfScanTerminal } from "./WmsRfScanTerminal.tsx";
 import { GRID_PROFILES } from "../../services/gridInput/gridProfiles.ts";
 import type { ParsedGridRow, GridImportMode } from "../../services/gridInput/types.ts";
 import { 
@@ -140,7 +141,7 @@ export const WmsStudioTab: React.FC<{
   currentUser?: any;
   onNotification?: (title: string, message: string, type?: "success" | "error" | "info" | "warning") => void;
 }> = ({ currentUser, onNotification }) => {
-  const [activeSubTab, setActiveSubTab] = useState<"batches" | "transfers" | "inward" | "fefo" | "audit" | "locations">("batches");
+  const [activeSubTab, setActiveSubTab] = useState<"batches" | "transfers" | "inward" | "fefo" | "audit" | "locations" | "rf">("batches");
   const [warehouses, setWarehouses] = useState<Godown[]>([]);
   const [batchStocks, setBatchStocks] = useState<BatchStock[]>([]);
   const [transfers, setTransfers] = useState<StockTransfer[]>([]);
@@ -747,7 +748,18 @@ export const WmsStudioTab: React.FC<{
               }`}
             >
               <MapPin className="w-4 h-4" />
-              Locations & Bins
+              Locations & Replenish
+            </button>
+            <button
+              onClick={() => setActiveSubTab("rf")}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
+                activeSubTab === "rf"
+                  ? "bg-indigo-600 text-white shadow-sm"
+                  : "text-theme-muted hover:text-theme-body"
+              }`}
+            >
+              <ScanLine className="w-4 h-4" />
+              RF Terminal
             </button>
           </div>
 
@@ -1745,6 +1757,15 @@ export const WmsStudioTab: React.FC<{
             onSelectWarehouse={(id) => setSelectedWarehouseFilter(id)}
             onNotification={(title, msg, type) => onNotification?.(title, msg, type === "info" ? "success" : type)}
             onOpenLabelPrinter={() => setShowLabelPrintModal(true)}
+          />
+        )}
+
+        {/* SUBTAB 7: RF GUN TERMINAL & MOBILE REPLENISHMENT */}
+        {activeSubTab === "rf" && (
+          <WmsRfScanTerminal
+            warehouses={warehouses}
+            currentUser={currentUser}
+            onNotification={onNotification}
           />
         )}
 

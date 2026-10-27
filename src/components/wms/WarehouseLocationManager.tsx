@@ -38,8 +38,60 @@ import {
   Check,
   ShieldAlert,
   ArrowRight,
-  Activity
+  Activity,
+  ArrowRightLeft,
+  Sliders,
+  CheckSquare,
+  Square,
+  TrendingDown
 } from "lucide-react";
+
+export interface ReplenishmentTaskItem {
+  task_id: string;
+  item_id: string;
+  product_id?: string;
+  item_code: string;
+  product_name: string;
+  sku?: string;
+  picking_location_id?: string;
+  picking_bin: string;
+  current_picking_stock: number;
+  min_reorder_level: number;
+  max_capacity: number;
+  reorder_quantity: number;
+  source_location_id?: string;
+  source_bin?: string | null;
+  available_bulk_stock: number;
+  suggested_quantity: number;
+  priority: "CRITICAL" | "HIGH" | "NORMAL" | "BULK_STOCKOUT";
+  status: "READY" | "BLOCKED" | "EXECUTED";
+  message?: string;
+}
+
+export interface ReplenishmentTasksResponse {
+  warehouse_id: string;
+  warehouse_code: string;
+  total_tasks: number;
+  critical_count: number;
+  high_count: number;
+  normal_count: number;
+  bulk_stockout_count: number;
+  tasks: ReplenishmentTaskItem[];
+}
+
+export interface ItemSlottingConfigItem {
+  id?: string;
+  item_id: string;
+  item_code: string;
+  item_name: string;
+  warehouse_id: string;
+  location_bin: string;
+  zone?: string;
+  current_stock: number;
+  min_reorder_level: number;
+  max_capacity: number;
+  reorder_quantity: number;
+}
 
 export interface PutawayCandidateLocation {
   location_id: string;
@@ -104,7 +156,7 @@ interface WarehouseLocationManagerProps {
   warehouses: GodownSummary[];
   activeWarehouseId: string;
   onSelectWarehouse: (id: string) => void;
-  onNotification?: (title: string, message: string, type?: "success" | "error" | "info") => void;
+  onNotification?: (title: string, message: string, type?: "success" | "error" | "info" | "warning") => void;
   onOpenLabelPrinter?: () => void;
 }
 
@@ -174,6 +226,138 @@ export const WarehouseLocationManager: React.FC<WarehouseLocationManagerProps> =
   const [simEvaluating, setSimEvaluating] = useState(false);
   const [simResult, setSimResult] = useState<PutawayRecommendationResponse | null>(null);
   const [highlightedLocationId, setHighlightedLocationId] = useState<string | null>(null);
+
+  // Replenishment Engine State
+  const [isReplenishmentModalOpen, setIsReplenishmentModalOpen] = useState(false);
+  const [replenishmentTasks, setReplenishmentTasks] = useState<ReplenishmentTaskItem[]>([]);
+  const [replenishmentResponse, setReplenishmentResponse] = useState<ReplenishmentTasksResponse | null>(null);
+  const [replenishmentLoading, setReplenishmentLoading] = useState(false);
+  const [selectedTaskIds, setSelectedTaskIds] = useState<Set<string>>(new Set());
+  const [taskQtyOverrides, setTaskQtyOverrides] = useState<Record<string, number>>({});
+  const [replenishmentExecuting, setReplenishmentExecuting] = useState(false);
+  const [replenishmentFilter, setReplenishmentFilter] = useState<"ALL" | "CRITICAL" | "HIGH" | "NORMAL" | "BULK_STOCKOUT">("ALL");
+  const [replenishmentSearch, setReplenishmentSearch] = useState("");
+
+  // Slotting State
+  const [activeReplenishTab, setActiveReplenishTab] = useState<"TASKS" | "SLOTTING">("TASKS");
+  const [slottingList, setSlottingList] = useState<ItemSlottingConfigItem[]>([]);
+  const [slottingLoading, setSlottingLoading] = useState(false);
+  const [isSlottingFormOpen, setIsSlottingFormOpen] = useState(false);
+  const [slotItemId, setSlotItemId] = useState("");
+  const [slotLocationBin, setSlotLocationBin] = useState("");
+  const [slotMinLevel, setSlotMinLevel] = useState(10);
+  const [slotMaxCapacity, setSlotMaxCapacity] = useState(100);
+  const [slotReorderQty, setSlotReorderQty] = useState(40);
+  const [slotSaving, setSlotSaving] = useState(false);
+
+  // Fetch Replenishment Tasks
+  const fetchReplenishmentTasks = useCallback(async () => {
+    if (!activeWarehouseId) return;
+    setReplenishmentLoading(true);
+    try {
+      const data = await apiFetchV1<ReplenishmentTasksResponse>(`/wms/warehouses/${activeWarehouseId}/replenishment-tasks`);
+      setReplenishmentResponse(data);
+      const tasks = data?.tasks || [];
+      setReplenishmentTasks(tasks);
+      const readyIds = new Set(tasks.filter((t) => t.status === "READY").map((t) => t.task_id));
+      setSelectedTaskIds(readyIds);
+      const initialQtys: Record<string, number> = {};
+      tasks.forEach((t) => {
+        initialQtys[t.task_id] = t.suggested_quantity;
+      });
+      setTaskQtyOverrides(initialQtys);
+    } catch (err: any) {
+      onNotification?.("Replenishment Error", err.message || "Failed to load replenishment tasks.", "error");
+    } finally {
+      setReplenishmentLoading(false);
+    }
+  }, [activeWarehouseId, onNotification]);
+
+  // Execute Replenishments
+  const handleExecuteReplenishment = async (tasksToRun?: ReplenishmentTaskItem[]) => {
+    if (!activeWarehouseId) return;
+    const targetTasks = tasksToRun || replenishmentTasks.filter((t) => selectedTaskIds.has(t.task_id) && t.status === "READY");
+    if (!targetTasks.length) {
+      onNotification?.("Validation Error", "No eligible replenishment tasks selected for execution.", "warning");
+      return;
+    }
+
+    setReplenishmentExecuting(true);
+    try {
+      const payload = {
+        tasks: targetTasks.map((t) => ({
+          task_id: t.task_id,
+          item_id: t.item_id,
+          sku: t.sku || t.item_code,
+          product_name: t.product_name,
+          source_bin: t.source_bin,
+          destination_bin: t.picking_bin,
+          quantity: taskQtyOverrides[t.task_id] ?? t.suggested_quantity,
+        })),
+        notes: "Automated Picking Bin Replenishment Run",
+      };
+
+      const res = await apiFetchV1<any>(`/wms/warehouses/${activeWarehouseId}/replenishment/execute`, {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+
+      onNotification?.("Replenishment Executed", res.message || "Transfers executed successfully.", "success");
+      fetchReplenishmentTasks();
+      fetchLocations();
+    } catch (err: any) {
+      onNotification?.("Execution Failed", err.message || "Failed to execute replenishment transfers.", "error");
+    } finally {
+      setReplenishmentExecuting(false);
+    }
+  };
+
+  // Fetch Slotting Configurations
+  const fetchSlotting = useCallback(async () => {
+    if (!activeWarehouseId) return;
+    setSlottingLoading(true);
+    try {
+      const data = await apiFetchV1<ItemSlottingConfigItem[]>(`/wms/warehouses/${activeWarehouseId}/slotting`);
+      setSlottingList(data || []);
+    } catch (err: any) {
+      onNotification?.("Slotting Error", err.message || "Failed to load slotting configurations.", "error");
+    } finally {
+      setSlottingLoading(false);
+    }
+  }, [activeWarehouseId, onNotification]);
+
+  // Save Item Slotting
+  const handleSaveSlotting = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!activeWarehouseId) return;
+    if (!slotItemId.trim() || !slotLocationBin.trim()) {
+      onNotification?.("Validation Error", "Item ID and Location Bin are required.", "error");
+      return;
+    }
+
+    setSlotSaving(true);
+    try {
+      await apiFetchV1(`/wms/warehouses/${activeWarehouseId}/slotting`, {
+        method: "POST",
+        body: JSON.stringify({
+          item_id: slotItemId.trim(),
+          location_bin: slotLocationBin.trim(),
+          min_reorder_level: slotMinLevel,
+          max_capacity: slotMaxCapacity,
+          reorder_quantity: slotReorderQty,
+        }),
+      });
+      onNotification?.("Slotting Saved", `Dedicated bin ${slotLocationBin} assigned.`, "success");
+      setIsSlottingFormOpen(false);
+      fetchSlotting();
+      fetchReplenishmentTasks();
+    } catch (err: any) {
+      onNotification?.("Save Failed", err.message || "Failed to save slotting rule.", "error");
+    } finally {
+      setSlotSaving(false);
+    }
+  };
+
 
   // Evaluate Putaway Recommendation
   const handleEvaluatePutaway = async () => {
@@ -504,6 +688,26 @@ export const WarehouseLocationManager: React.FC<WarehouseLocationManagerProps> =
             >
               <Zap className="w-3.5 h-3.5 text-amber-300" />
               Putaway Advisor
+            </button>
+            <button
+              onClick={() => {
+                if (!activeWarehouseId) {
+                  onNotification?.("Warning", "Please select a warehouse first.", "warning");
+                  return;
+                }
+                setIsReplenishmentModalOpen(true);
+                fetchReplenishmentTasks();
+              }}
+              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white shadow-sm transition-all cursor-pointer"
+              title="Dynamic Picking Bin Replenishment & Slotting Engine"
+            >
+              <Layers className="w-3.5 h-3.5 text-cyan-300" />
+              Replenishment Engine
+              {replenishmentResponse && replenishmentResponse.critical_count > 0 && (
+                <span className="ml-1 px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-rose-500 text-white animate-pulse">
+                  {replenishmentResponse.critical_count}
+                </span>
+              )}
             </button>
             <button
               onClick={() => setIsAddModalOpen(true)}
@@ -1570,6 +1774,501 @@ export const WarehouseLocationManager: React.FC<WarehouseLocationManagerProps> =
                 Close
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Dynamic Picking Bin Replenishment & Slotting Engine Modal */}
+      {isReplenishmentModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-fadeIn">
+          <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-4xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800 bg-slate-950/70">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400">
+                  <Layers className="w-5 h-5 text-cyan-300" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-slate-100 flex items-center gap-2">
+                    Dynamic Picking Bin Replenishment & Slotting Engine
+                  </h3>
+                  <p className="text-[11px] text-slate-400">
+                    Monitors fast-picking bins below min reorder levels and generates internal transfer tasks from reserve bulk racks.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => {
+                    if (activeReplenishTab === "TASKS") fetchReplenishmentTasks();
+                    else fetchSlotting();
+                  }}
+                  disabled={replenishmentLoading || slottingLoading}
+                  className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors"
+                  title="Refresh"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${replenishmentLoading || slottingLoading ? "animate-spin" : ""}`} />
+                </button>
+                <button
+                  onClick={() => setIsReplenishmentModalOpen(false)}
+                  className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+
+            {/* Tab Navigation */}
+            <div className="flex items-center gap-2 px-6 pt-3 border-b border-slate-800 bg-slate-950/40">
+              <button
+                onClick={() => {
+                  setActiveReplenishTab("TASKS");
+                  fetchReplenishmentTasks();
+                }}
+                className={`pb-2.5 px-3 text-xs font-semibold border-b-2 transition-all flex items-center gap-2 ${
+                  activeReplenishTab === "TASKS"
+                    ? "border-cyan-400 text-cyan-300"
+                    : "border-transparent text-slate-400 hover:text-slate-200"
+                }`}
+              >
+                <Activity className="w-3.5 h-3.5" />
+                Active Replenishment Tasks
+                {replenishmentTasks.length > 0 && (
+                  <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+                    {replenishmentTasks.length}
+                  </span>
+                )}
+              </button>
+              <button
+                onClick={() => {
+                  setActiveReplenishTab("SLOTTING");
+                  fetchSlotting();
+                }}
+                className={`pb-2.5 px-3 text-xs font-semibold border-b-2 transition-all flex items-center gap-2 ${
+                  activeReplenishTab === "SLOTTING"
+                    ? "border-cyan-400 text-cyan-300"
+                    : "border-transparent text-slate-400 hover:text-slate-200"
+                }`}
+              >
+                <Sliders className="w-3.5 h-3.5" />
+                Min/Max Slotting Rules
+                {slottingList.length > 0 && (
+                  <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-slate-800 text-slate-300">
+                    {slottingList.length}
+                  </span>
+                )}
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 space-y-4 overflow-y-auto text-xs flex-1">
+              {activeReplenishTab === "TASKS" ? (
+                <>
+                  {/* Summary Metric Pills */}
+                  {replenishmentResponse && (
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                      <div className="bg-slate-850 p-3 rounded-xl border border-slate-800">
+                        <div className="text-[10px] text-slate-400 uppercase font-semibold">Total Depleted</div>
+                        <div className="text-xl font-mono font-bold text-slate-100">{replenishmentResponse.total_tasks}</div>
+                      </div>
+                      <div className="bg-slate-850 p-3 rounded-xl border border-rose-500/30">
+                        <div className="text-[10px] text-rose-400 uppercase font-semibold flex items-center gap-1">
+                          <AlertCircle className="w-3 h-3" /> Critical (Stockout)
+                        </div>
+                        <div className="text-xl font-mono font-bold text-rose-400">{replenishmentResponse.critical_count}</div>
+                      </div>
+                      <div className="bg-slate-850 p-3 rounded-xl border border-amber-500/30">
+                        <div className="text-[10px] text-amber-400 uppercase font-semibold">High Priority</div>
+                        <div className="text-xl font-mono font-bold text-amber-400">{replenishmentResponse.high_count}</div>
+                      </div>
+                      <div className="bg-slate-850 p-3 rounded-xl border border-slate-700">
+                        <div className="text-[10px] text-slate-400 uppercase font-semibold">Bulk Stockout</div>
+                        <div className="text-xl font-mono font-bold text-slate-300">{replenishmentResponse.bulk_stockout_count}</div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Filter Toolbar */}
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      {(["ALL", "CRITICAL", "HIGH", "NORMAL", "BULK_STOCKOUT"] as const).map((p) => (
+                        <button
+                          key={p}
+                          onClick={() => setReplenishmentFilter(p)}
+                          className={`px-2.5 py-1 rounded-lg text-[11px] font-medium transition-colors ${
+                            replenishmentFilter === p
+                              ? "bg-cyan-600 text-white font-semibold"
+                              : "bg-slate-800 text-slate-400 hover:text-white"
+                          }`}
+                        >
+                          {p}
+                        </button>
+                      ))}
+                    </div>
+
+                    <div className="relative">
+                      <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5" />
+                      <input
+                        type="text"
+                        placeholder="Search item / bin..."
+                        value={replenishmentSearch}
+                        onChange={(e) => setReplenishmentSearch(e.target.value)}
+                        className="bg-slate-800 border border-slate-700 rounded-xl pl-8 pr-3 py-1.5 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-cyan-500 w-48"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Tasks Table */}
+                  {replenishmentLoading ? (
+                    <div className="py-12 text-center text-slate-400">
+                      <RefreshCw className="w-6 h-6 animate-spin mx-auto text-cyan-400 mb-2" />
+                      Scanning picking bin stock and reserve bulk racks...
+                    </div>
+                  ) : replenishmentTasks.length === 0 ? (
+                    <div className="py-12 text-center text-slate-400 bg-slate-850/50 rounded-2xl border border-slate-800">
+                      <CheckCircle2 className="w-8 h-8 mx-auto text-emerald-400 mb-2" />
+                      <p className="font-semibold text-slate-200">All Picking Bins Balanced!</p>
+                      <p className="text-[11px] text-slate-400 mt-1">No bins are currently below their minimum safety threshold.</p>
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto rounded-xl border border-slate-800">
+                      <table className="w-full text-left border-collapse">
+                        <thead>
+                          <tr className="border-b border-slate-800 bg-slate-950/60 text-[10px] text-slate-400 uppercase font-semibold">
+                            <th className="py-2.5 px-3 w-8">
+                              <input
+                                type="checkbox"
+                                checked={
+                                  replenishmentTasks.filter((t) => t.status === "READY").length > 0 &&
+                                  replenishmentTasks
+                                    .filter((t) => t.status === "READY")
+                                    .every((t) => selectedTaskIds.has(t.task_id))
+                                }
+                                onChange={(e) => {
+                                  if (e.target.checked) {
+                                    const readyIds = new Set(
+                                      replenishmentTasks.filter((t) => t.status === "READY").map((t) => t.task_id)
+                                    );
+                                    setSelectedTaskIds(readyIds);
+                                  } else {
+                                    setSelectedTaskIds(new Set());
+                                  }
+                                }}
+                                className="accent-cyan-500 rounded cursor-pointer"
+                              />
+                            </th>
+                            <th className="py-2.5 px-3">Item Details</th>
+                            <th className="py-2.5 px-3">Target Picking Bin</th>
+                            <th className="py-2.5 px-3">Source Bulk Bin</th>
+                            <th className="py-2.5 px-3 text-center">Transfer Qty</th>
+                            <th className="py-2.5 px-3">Urgency</th>
+                            <th className="py-2.5 px-3 text-right">Action</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-850 font-mono text-[11px]">
+                          {replenishmentTasks
+                            .filter((t) => {
+                              if (replenishmentFilter !== "ALL" && t.priority !== replenishmentFilter) return false;
+                              if (replenishmentSearch.trim()) {
+                                const q = replenishmentSearch.toLowerCase();
+                                return (
+                                  t.item_code.toLowerCase().includes(q) ||
+                                  t.product_name.toLowerCase().includes(q) ||
+                                  t.picking_bin.toLowerCase().includes(q) ||
+                                  (t.source_bin || "").toLowerCase().includes(q)
+                                );
+                              }
+                              return true;
+                            })
+                            .map((task) => {
+                              const isSelected = selectedTaskIds.has(task.task_id);
+                              const isReady = task.status === "READY";
+                              const currentOverride = taskQtyOverrides[task.task_id] ?? task.suggested_quantity;
+
+                              return (
+                                <tr
+                                  key={task.task_id}
+                                  className={`hover:bg-slate-800/50 transition-colors ${
+                                    task.priority === "CRITICAL"
+                                      ? "bg-rose-950/20"
+                                      : task.priority === "HIGH"
+                                      ? "bg-amber-950/10"
+                                      : ""
+                                  }`}
+                                >
+                                  <td className="py-2.5 px-3">
+                                    <input
+                                      type="checkbox"
+                                      disabled={!isReady}
+                                      checked={isSelected}
+                                      onChange={(e) => {
+                                        const next = new Set(selectedTaskIds);
+                                        if (e.target.checked) next.add(task.task_id);
+                                        else next.delete(task.task_id);
+                                        setSelectedTaskIds(next);
+                                      }}
+                                      className="accent-cyan-500 rounded cursor-pointer disabled:opacity-30"
+                                    />
+                                  </td>
+                                  <td className="py-2.5 px-3 font-sans">
+                                    <div className="font-bold text-slate-100">{task.product_name}</div>
+                                    <div className="text-[10px] font-mono text-cyan-400">{task.item_code}</div>
+                                  </td>
+                                  <td className="py-2.5 px-3">
+                                    <div className="font-bold text-slate-200">{task.picking_bin}</div>
+                                    <div className="text-[10px] text-slate-400">
+                                      Stock: <span className={task.current_picking_stock === 0 ? "text-rose-400 font-bold" : "text-amber-300 font-bold"}>{task.current_picking_stock}</span> / Min: {task.min_reorder_level}
+                                    </div>
+                                    <div className="w-24 bg-slate-800 rounded-full h-1.5 mt-1 overflow-hidden">
+                                      <div
+                                        className={`h-full ${
+                                          task.current_picking_stock === 0 ? "bg-rose-500" : "bg-amber-400"
+                                        }`}
+                                        style={{
+                                          width: `${Math.min(100, (task.current_picking_stock / Math.max(1, task.max_capacity)) * 100)}%`,
+                                        }}
+                                      />
+                                    </div>
+                                  </td>
+                                  <td className="py-2.5 px-3">
+                                    {task.source_bin ? (
+                                      <div>
+                                        <div className="font-bold text-emerald-400">{task.source_bin}</div>
+                                        <div className="text-[10px] text-slate-400">
+                                          Avail: <strong className="text-slate-200">{task.available_bulk_stock}</strong> units
+                                        </div>
+                                      </div>
+                                    ) : (
+                                      <span className="text-[10px] text-rose-400 italic">No reserve bulk stock</span>
+                                    )}
+                                  </td>
+                                  <td className="py-2.5 px-3 text-center">
+                                    <input
+                                      type="number"
+                                      disabled={!isReady}
+                                      value={currentOverride}
+                                      onChange={(e) => {
+                                        const v = parseFloat(e.target.value) || 0;
+                                        setTaskQtyOverrides((prev) => ({ ...prev, [task.task_id]: v }));
+                                      }}
+                                      className="w-16 bg-slate-800 border border-slate-700 rounded-lg px-2 py-1 text-center text-xs text-white focus:outline-none focus:border-cyan-400 disabled:opacity-40"
+                                    />
+                                  </td>
+                                  <td className="py-2.5 px-3">
+                                    {task.priority === "CRITICAL" ? (
+                                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-500/20 text-rose-300 border border-rose-500/40">
+                                        🔴 CRITICAL
+                                      </span>
+                                    ) : task.priority === "HIGH" ? (
+                                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                                        🟡 HIGH
+                                      </span>
+                                    ) : task.priority === "BULK_STOCKOUT" ? (
+                                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-700 text-slate-300 border border-slate-600">
+                                        🚫 PO REQUIRED
+                                      </span>
+                                    ) : (
+                                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-500/20 text-blue-300 border border-blue-500/40">
+                                        🔵 NORMAL
+                                      </span>
+                                    )}
+                                  </td>
+                                  <td className="py-2.5 px-3 text-right">
+                                    {isReady ? (
+                                      <button
+                                        onClick={() => handleExecuteReplenishment([task])}
+                                        disabled={replenishmentExecuting}
+                                        className="px-2.5 py-1 rounded-lg text-[10px] font-bold bg-indigo-600 hover:bg-indigo-500 text-white transition-colors cursor-pointer"
+                                      >
+                                        Transfer
+                                      </button>
+                                    ) : (
+                                      <span className="text-[10px] text-slate-500">Blocked</span>
+                                    )}
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </>
+              ) : (
+                /* Slotting Configuration Tab */
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="font-semibold text-slate-200">Item Picking Bin Affinities</h4>
+                      <p className="text-[11px] text-slate-400">
+                        Governs dedicated fast-picking bins, safety stock reorder triggers, and bin maximum capacities.
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => setIsSlottingFormOpen(true)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-cyan-600 hover:bg-cyan-500 text-white transition-all cursor-pointer"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      Configure Slotting
+                    </button>
+                  </div>
+
+                  {/* Slotting Form Modal / Drawer */}
+                  {isSlottingFormOpen && (
+                    <form onSubmit={handleSaveSlotting} className="bg-slate-850 p-4 rounded-xl border border-slate-700 space-y-3">
+                      <div className="flex items-center justify-between pb-2 border-b border-slate-800">
+                        <span className="font-bold text-slate-200">New Item Picking Slot Assignment</span>
+                        <button type="button" onClick={() => setIsSlottingFormOpen(false)} className="text-slate-400 hover:text-white">
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-slate-400 text-[10px] font-semibold mb-1">Item ID / Code *</label>
+                          <input
+                            type="text"
+                            required
+                            placeholder="e.g. ITEM-001"
+                            value={slotItemId}
+                            onChange={(e) => setSlotItemId(e.target.value)}
+                            className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-cyan-400"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-slate-400 text-[10px] font-semibold mb-1">Dedicated Picking Bin Code *</label>
+                          <input
+                            type="text"
+                            required
+                            placeholder="e.g. PICK-A01-01"
+                            value={slotLocationBin}
+                            onChange={(e) => setSlotLocationBin(e.target.value)}
+                            className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-cyan-400"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-slate-400 text-[10px] font-semibold mb-1">Min Reorder Level (Units)</label>
+                          <input
+                            type="number"
+                            min="1"
+                            value={slotMinLevel}
+                            onChange={(e) => setSlotMinLevel(parseInt(e.target.value) || 1)}
+                            className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-cyan-400"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-slate-400 text-[10px] font-semibold mb-1">Max Bin Capacity (Units)</label>
+                          <input
+                            type="number"
+                            min="1"
+                            value={slotMaxCapacity}
+                            onChange={(e) => setSlotMaxCapacity(parseInt(e.target.value) || 1)}
+                            className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-cyan-400"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-slate-400 text-[10px] font-semibold mb-1">Standard Reorder Quantity</label>
+                          <input
+                            type="number"
+                            min="1"
+                            value={slotReorderQty}
+                            onChange={(e) => setSlotReorderQty(parseInt(e.target.value) || 1)}
+                            className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-cyan-400"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="flex justify-end gap-2 pt-2">
+                        <button
+                          type="button"
+                          onClick={() => setIsSlottingFormOpen(false)}
+                          className="px-3 py-1.5 rounded-lg text-slate-400 hover:text-white"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="submit"
+                          disabled={slotSaving}
+                          className="px-4 py-1.5 rounded-lg font-bold bg-cyan-600 hover:bg-cyan-500 text-white"
+                        >
+                          {slotSaving ? "Saving..." : "Save Slotting Rule"}
+                        </button>
+                      </div>
+                    </form>
+                  )}
+
+                  {/* Slotting Master Table */}
+                  {slottingLoading ? (
+                    <div className="py-8 text-center text-slate-400">
+                      <RefreshCw className="w-5 h-5 animate-spin mx-auto text-cyan-400 mb-2" />
+                      Loading slotting configurations...
+                    </div>
+                  ) : slottingList.length === 0 ? (
+                    <div className="py-8 text-center text-slate-400 bg-slate-850/50 rounded-xl border border-slate-800">
+                      No item slotting rules configured yet. Click "Configure Slotting" above to map items to fast-picking bins.
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto rounded-xl border border-slate-800">
+                      <table className="w-full text-left border-collapse font-mono text-[11px]">
+                        <thead>
+                          <tr className="border-b border-slate-800 bg-slate-950/60 text-[10px] text-slate-400 uppercase font-semibold">
+                            <th className="py-2.5 px-3">Item Code</th>
+                            <th className="py-2.5 px-3">Item Name</th>
+                            <th className="py-2.5 px-3">Assigned Bin</th>
+                            <th className="py-2.5 px-3 text-right">Current Stock</th>
+                            <th className="py-2.5 px-3 text-right">Min Trigger</th>
+                            <th className="py-2.5 px-3 text-right">Max Capacity</th>
+                            <th className="py-2.5 px-3 text-right">Reorder Qty</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-850">
+                          {slottingList.map((slot) => (
+                            <tr key={slot.id || slot.item_id} className="hover:bg-slate-800/40">
+                              <td className="py-2.5 px-3 font-bold text-cyan-400">{slot.item_code}</td>
+                              <td className="py-2.5 px-3 font-sans text-slate-200">{slot.item_name}</td>
+                              <td className="py-2.5 px-3 text-emerald-400 font-bold">{slot.location_bin}</td>
+                              <td className="py-2.5 px-3 text-right font-bold text-slate-100">{slot.current_stock}</td>
+                              <td className="py-2.5 px-3 text-right text-amber-400">{slot.min_reorder_level}</td>
+                              <td className="py-2.5 px-3 text-right text-slate-300">{slot.max_capacity}</td>
+                              <td className="py-2.5 px-3 text-right text-cyan-300">{slot.reorder_quantity}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer / Batch Action Toolbar */}
+            {activeReplenishTab === "TASKS" && (
+              <div className="px-6 py-3.5 border-t border-slate-800 bg-slate-950/80 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-slate-400 font-mono">
+                    Selected: <strong className="text-cyan-400">{selectedTaskIds.size}</strong> task(s)
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => setIsReplenishmentModalOpen(false)}
+                    className="px-4 py-2 text-xs font-semibold text-slate-300 bg-slate-800 hover:bg-slate-700 rounded-xl"
+                  >
+                    Close
+                  </button>
+                  <button
+                    onClick={() => handleExecuteReplenishment()}
+                    disabled={selectedTaskIds.size === 0 || replenishmentExecuting}
+                    className="flex items-center gap-2 px-5 py-2 rounded-xl text-xs font-bold text-white bg-gradient-to-r from-indigo-600 to-cyan-600 hover:from-indigo-500 hover:to-cyan-500 disabled:opacity-40 transition-all shadow-md cursor-pointer"
+                  >
+                    <ArrowRightLeft className={`w-3.5 h-3.5 ${replenishmentExecuting ? "animate-spin" : ""}`} />
+                    <span>{replenishmentExecuting ? "Executing Transfers..." : `Execute ${selectedTaskIds.size} Replenishment(s)`}</span>
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}

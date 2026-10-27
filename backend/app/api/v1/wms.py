@@ -41,7 +41,13 @@ from ...schemas.wms import (
     StockTransferCreate, StockTransferResponse, StockTransferReceiptRequest,
     StockAuditCreate, StockAuditResponse, StockAuditItemResponse,
     StockAuditCountItemRequest, StockAuditBulkCountRequest, StockAuditBarcodeScanRequest,
-    PutawayRecommendationRequest, PutawayCandidateLocation, PutawayRecommendationResponse
+    PutawayRecommendationRequest, PutawayCandidateLocation, PutawayRecommendationResponse,
+    ReplenishmentTaskItem, ReplenishmentTasksResponse, ReplenishmentExecuteItem,
+    ReplenishmentExecuteRequest, ReplenishmentExecuteResponse,
+    ItemSlottingConfigItem, ItemSlottingSaveRequest,
+    RfBarcodeVerifyRequest, RfBarcodeVerifyResponse,
+    RfBinSummaryResponse, RfQuickTransferRequest, RfQuickTransferResponse,
+    RfReplenishConfirmRequest, RfReplenishConfirmResponse
 )
 from ...services.inventory_wms import InventoryWmsService
 from ...services.eway_bill_service import EWayBillService
@@ -347,6 +353,179 @@ async def get_putaway_recommendation(
         preferred_zone=req.preferred_zone,
     )
     return PutawayRecommendationResponse.model_validate(rec)
+
+
+@router.get("/warehouses/{warehouse_id}/replenishment-tasks", response_model=ReplenishmentTasksResponse)
+async def get_warehouse_replenishment_tasks(
+    warehouse_id: str,
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+    guard: Any = Depends(require_permission("inventory_workspace", "VIEW")),
+):
+    """
+    Dynamic Picking Bin Replenishment Engine:
+    - Scans all configured picking bins and identifies depleted stock levels (< min_reorder_level).
+    - Identifies candidate bulk storage bins with available stock of the same item.
+    - Generates actionable replenishment tasks with suggested transfer quantities.
+    - Sorts by urgency (CRITICAL, HIGH, NORMAL, BULK_STOCKOUT).
+    """
+    wms_service = InventoryWmsService(db, tenant_ctx)
+    res = await wms_service.get_replenishment_tasks(warehouse_id=warehouse_id)
+    return ReplenishmentTasksResponse.model_validate(res)
+
+
+@router.post("/warehouses/{warehouse_id}/replenishment/execute", response_model=ReplenishmentExecuteResponse)
+async def execute_warehouse_replenishment(
+    warehouse_id: str,
+    req: ReplenishmentExecuteRequest,
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+    guard: Any = Depends(require_permission("inventory_workspace", "EDIT")),
+):
+    """
+    Executes internal stock replenishment transfers atomically:
+    - Moves quantity from source bulk storage bin to destination picking bin.
+    - Writes dual StockMovement ledger records (TRANSFER_OUT and TRANSFER_IN).
+    - Preserves audit trails under reference_doc_type="WMS_REPLENISHMENT".
+    """
+    wms_service = InventoryWmsService(db, tenant_ctx)
+    res = await wms_service.execute_replenishment_tasks(
+        warehouse_id=warehouse_id,
+        tasks=req.tasks,
+        notes=req.notes
+    )
+    return ReplenishmentExecuteResponse.model_validate(res)
+
+
+@router.get("/warehouses/{warehouse_id}/slotting", response_model=List[ItemSlottingConfigItem])
+async def get_warehouse_slotting(
+    warehouse_id: str,
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+    guard: Any = Depends(require_permission("inventory_workspace", "VIEW")),
+):
+    """List picking bin slotting configurations and current on-hand levels for a warehouse."""
+    wms_service = InventoryWmsService(db, tenant_ctx)
+    rows = await wms_service.get_warehouse_slotting(warehouse_id=warehouse_id)
+    return [ItemSlottingConfigItem.model_validate(r) for r in rows]
+
+
+@router.post("/warehouses/{warehouse_id}/slotting")
+async def save_warehouse_item_slotting(
+    warehouse_id: str,
+    req: ItemSlottingSaveRequest,
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+    guard: Any = Depends(require_permission("inventory_workspace", "EDIT")),
+):
+    """Create or update dedicated picking bin and min/max thresholds for an item."""
+    wms_service = InventoryWmsService(db, tenant_ctx)
+    return await wms_service.save_item_slotting(
+        warehouse_id=warehouse_id,
+        item_id=req.item_id,
+        location_bin=req.location_bin,
+        min_reorder_level=req.min_reorder_level,
+        max_capacity=req.max_capacity,
+        reorder_quantity=req.reorder_quantity,
+    )
+
+
+# =============================================================================
+# WMS Phase 4: RF Gun Handheld Terminal Endpoints
+# =============================================================================
+
+@router.post("/warehouses/{warehouse_id}/rf/verify-barcode", response_model=RfBarcodeVerifyResponse)
+async def verify_rf_barcode(
+    warehouse_id: str,
+    req: RfBarcodeVerifyRequest,
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+    guard: Any = Depends(require_permission("inventory_workspace", "VIEW")),
+):
+    """
+    Rapid barcode verification for handheld RF scanners:
+    - Auto-disambiguates whether a scanned code is a Location Bin or an Item/Product SKU.
+    - Returns metadata, current stock, and validation status in < 30ms.
+    """
+    wms_service = InventoryWmsService(db, tenant_ctx)
+    res = await wms_service.verify_rf_barcode(
+        warehouse_id=warehouse_id,
+        barcode=req.barcode,
+        expected_type=req.expected_type,
+    )
+    return RfBarcodeVerifyResponse.model_validate(res)
+
+
+@router.get("/warehouses/{warehouse_id}/rf/bin-summary", response_model=RfBinSummaryResponse)
+async def get_rf_bin_summary(
+    warehouse_id: str,
+    bin_code: str = Query(..., description="Bin code or barcode to inspect"),
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+    guard: Any = Depends(require_permission("inventory_workspace", "VIEW")),
+):
+    """
+    Mobile bin inspection & audit query:
+    - Returns real-time physical headroom, total occupied units, and active SKU list from StockMovement.
+    """
+    wms_service = InventoryWmsService(db, tenant_ctx)
+    res = await wms_service.get_rf_bin_summary(
+        warehouse_id=warehouse_id,
+        bin_code=bin_code,
+    )
+    return RfBinSummaryResponse.model_validate(res)
+
+
+@router.post("/warehouses/{warehouse_id}/rf/quick-transfer", response_model=RfQuickTransferResponse)
+async def execute_rf_quick_transfer(
+    warehouse_id: str,
+    req: RfQuickTransferRequest,
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+    guard: Any = Depends(require_permission("inventory_workspace", "EDIT")),
+):
+    """
+    Instant ad-hoc stock relocation from mobile RF gun:
+    - Validates source bin stock, destination bin lock status, and executes atomic dual StockMovements.
+    - Tags records with reference_doc_type='WMS_RF_TRANSFER'.
+    """
+    wms_service = InventoryWmsService(db, tenant_ctx)
+    res = await wms_service.execute_rf_quick_transfer(
+        warehouse_id=warehouse_id,
+        from_bin=req.from_bin,
+        to_bin=req.to_bin,
+        item_id=req.item_id,
+        quantity=req.quantity,
+        batch_no=req.batch_no,
+        notes=req.notes,
+    )
+    return RfQuickTransferResponse.model_validate(res)
+
+
+@router.post("/warehouses/{warehouse_id}/rf/replenish-confirm", response_model=RfReplenishConfirmResponse)
+async def confirm_rf_replenishment(
+    warehouse_id: str,
+    req: RfReplenishConfirmRequest,
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+    guard: Any = Depends(require_permission("inventory_workspace", "EDIT")),
+):
+    """
+    Multi-scan guided replenishment completion from mobile RF gun:
+    - Confirms that operator physically scanned source bin, item barcode, and destination picking bin.
+    - Posts atomic dual StockMovement transfer under reference_doc_type='WMS_REPLENISHMENT'.
+    """
+    wms_service = InventoryWmsService(db, tenant_ctx)
+    res = await wms_service.confirm_rf_replenishment(
+        warehouse_id=warehouse_id,
+        scanned_source_bin=req.scanned_source_bin,
+        scanned_item_barcode=req.scanned_item_barcode,
+        scanned_destination_bin=req.scanned_destination_bin,
+        quantity=req.quantity,
+        task_id=req.task_id,
+        notes=req.notes,
+    )
+    return RfReplenishConfirmResponse.model_validate(res)
 
 
 @router.get("/locations/{location_id}/stock")
