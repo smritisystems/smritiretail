@@ -136,7 +136,13 @@ class POSService:
             reg.notes = req.notes
         if req.cashier is not None:
             reg.cashier = req.cashier
-        if req.warehouse is not None:
+        if getattr(req, "warehouse_id", None) is not None:
+            # R-001: Prefer FK column. Also mirror into legacy text for backward compat.
+            reg.warehouse_id = req.warehouse_id
+            if req.warehouse_id and not getattr(req, "warehouse", None):
+                reg.warehouse = req.warehouse_id  # keep legacy in sync if text not explicitly set
+        if req.warehouse is not None and not getattr(req, "warehouse_id", None):
+            # Legacy path: only write text field when no FK was provided.
             reg.warehouse = req.warehouse
         if req.is_locked is not None:
             reg.is_locked = req.is_locked

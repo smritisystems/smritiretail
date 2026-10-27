@@ -26,6 +26,7 @@ class WarehouseBase(BaseModel):
     name: str
     is_transit: bool = False
     is_central_godown: bool = False
+    is_default_for_branch: bool = False  # R-007: governs branch-level warehouse resolution
     address: Optional[str] = None
     city: Optional[str] = None
     state: Optional[str] = None
@@ -132,6 +133,7 @@ class WarehouseCreate(WarehouseBase):
 class WarehouseUpdate(BaseModel):
     name: Optional[str] = None
     is_central_godown: Optional[bool] = None
+    is_default_for_branch: Optional[bool] = None  # R-007
     address: Optional[str] = None
     city: Optional[str] = None
     state: Optional[str] = None
@@ -172,6 +174,7 @@ class WarehouseResponse(WarehouseBase):
     company_id: Optional[str] = None
     branch_id: Optional[str] = None
     is_active: bool
+    location_count: Optional[int] = None  # optionally populated by list endpoint
     created_at: Optional[datetime] = None
     modified_at: Optional[datetime] = None
 
