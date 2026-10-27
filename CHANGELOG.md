@@ -14,7 +14,35 @@
 
 ## [Unreleased] - 2026-10-27
 
+### Fixed
+- **Invoicing: Invoice Number Collision Fix & Document Series Integration v3.17.0** (commit `a5c428fc`):
+  - **Root cause 1 — hardcoded series ID**: `canonical_sales_writer.py` Step 7 previously called
+    `allocate_voucher_number(series_id=f"SER-{company_id}-INV")` — an ID that never matched any real
+    `DocumentSeries` row, causing silent fallback to UUID-based numbers.
+    Fixed: replaced with `resolve_bill_prefix(company_id, branch_id, terminal_id, tx_type)` followed by
+    `allocate_voucher_number` on the returned real series ID.
+  - **Root cause 2 — client-constructed invoice_no**: `BillingTerm.tsx` assembled and submitted
+    `invoice_no = "${docPrefix}${docNo}"` from a preview-only resolve call (counter not advanced) as
+    `client_invoice_no`, bypassing atomic allocation entirely.
+    Fixed: `invoice_no` removed from the POST payload; only `series_id` hint is sent; post-save
+    `docNo` is re-resolved from the server (no client `+1` arithmetic).
+  - **Root cause 3 — timestamp generator**: `SmritiBillingStudio.tsx` generated
+    `INV-${Date.now().toString().slice(-6)}` as `invoice_no`, colliding under concurrent usage.
+    Fixed: generator removed; `invoice_no` omitted from online payload; offline sync uses
+    `OFFLINE-{uuid8}` placeholder.
+  - **Database — 11 duplicate ghost series**: `document_series` table had 11 active `SALES_CREDIT`
+    rows with `company_id=NULL`, causing the allocator to pick randomly.
+    Fixed via Alembic migration v1546: soft-deleted 10 duplicates (kept most-recent), added partial
+    unique index `uq_document_series_company_type_terminal_active`, created `v_number_allocation_audit`
+    monitoring view.
+  - **Structured error**: `IntegrityError` on `uq_sales_invoices_company_invoice_no` now returns
+    409 `SMRITI-INV-DUP-001` JSON with `{ code, invoice_no, message }` instead of a generic 500.
+    Frontend auto-refreshes the next valid number from the Document Series Studio on receipt.
+  - **Evidence**: 12/12 backend numbering tests green, 29/29 frontend vitest green, 0 `tsc --noEmit`
+    errors, Alembic at `v1546 (head)`, 0 duplicate active series.
+
 ### Added
+
 - **Procurement & Vendor Master: Vendor Master End-to-End Wiring & UX Integrity Audit v1.0.0**:
   - Executed exhaustive forensic audit verifying 18 frontend components, 14 FastAPI REST endpoints, and 8 PostgreSQL tables (`parties`, `party_roles`, `supplier_profiles`, `party_addresses`, `party_contacts`, `party_bank_accounts`, `suppliers`, `vendor_identity_migrations`).
   - Formally compiled and certified authoritative audit report under `docs/audit/VENDOR_MASTER_END_TO_END_WIRING_AND_UX_INTEGRITY_AUDIT.md`.
