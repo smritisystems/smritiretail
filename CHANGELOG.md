@@ -1,4 +1,21 @@
-﻿<!--
+<!--
+
+## [3.17.3] - 2026-10-27 � GC-001 Gift Cards & Vouchers Async Migration
+
+### Changed
+- ackend/app/api/v1/gift_cards.py: all 12 endpoints migrated from sync
+  Session / get_db to async AsyncSession / get_company_db (FastAPI async
+  architecture policy compliance).
+
+### Added
+- ackend/alembic/versions/v1552_gift_cards_baseentity_cols.py: migration
+  v1552 � adds missing BaseEntity columns (uuid VARCHAR(36), ersion,
+  is_active, deleted_at, deleted_by) to gift_cards, gift_vouchers,
+  gift_card_transactions using IF NOT EXISTS DDL.
+- ackend/app/tests/test_gift_cards_async.py: 14-case integration test suite
+  TC-GC001�TC-GC014; 14/14 green (commit 759ad8d5, DB smriti_test_gc001f).
+- ackend/app/tests/conftest.py: _ensure_schema_compatibility_sync extended
+  with 36 ALTER TABLE IF NOT EXISTS statements for all 3 gift tables.
   Project      : SMRITI Retail OS
   Author       : Jawahar Ramkripal Mallah
   Designation  : Chief Systems Architect & Creator
@@ -7,7 +24,7 @@
   Version      : 6.99.1
   Created      : 2026-07-06
   Modified     : 2026-10-24
-  Copyright    : Ã‚Â© SMRITIBooks.com. All Rights Reserved.
+  Copyright    : Â© SMRITIBooks.com. All Rights Reserved.
   License      : Proprietary Commercial Software
   Classification: Internal
 -->
@@ -16,21 +33,21 @@
 
 ### Fixed
 - **Invoicing: Invoice Number Collision Fix & Document Series Integration v3.17.0** (commit `a5c428fc`):
-  - **Root cause 1 Ã¢â‚¬â€ hardcoded series ID**: `canonical_sales_writer.py` Step 7 previously called
-    `allocate_voucher_number(series_id=f"SER-{company_id}-INV")` Ã¢â‚¬â€ an ID that never matched any real
+  - **Root cause 1 â€” hardcoded series ID**: `canonical_sales_writer.py` Step 7 previously called
+    `allocate_voucher_number(series_id=f"SER-{company_id}-INV")` â€” an ID that never matched any real
     `DocumentSeries` row, causing silent fallback to UUID-based numbers.
     Fixed: replaced with `resolve_bill_prefix(company_id, branch_id, terminal_id, tx_type)` followed by
     `allocate_voucher_number` on the returned real series ID.
-  - **Root cause 2 Ã¢â‚¬â€ client-constructed invoice_no**: `BillingTerm.tsx` assembled and submitted
+  - **Root cause 2 â€” client-constructed invoice_no**: `BillingTerm.tsx` assembled and submitted
     `invoice_no = "${docPrefix}${docNo}"` from a preview-only resolve call (counter not advanced) as
     `client_invoice_no`, bypassing atomic allocation entirely.
     Fixed: `invoice_no` removed from the POST payload; only `series_id` hint is sent; post-save
     `docNo` is re-resolved from the server (no client `+1` arithmetic).
-  - **Root cause 3 Ã¢â‚¬â€ timestamp generator**: `SmritiBillingStudio.tsx` generated
+  - **Root cause 3 â€” timestamp generator**: `SmritiBillingStudio.tsx` generated
     `INV-${Date.now().toString().slice(-6)}` as `invoice_no`, colliding under concurrent usage.
     Fixed: generator removed; `invoice_no` omitted from online payload; offline sync uses
     `OFFLINE-{uuid8}` placeholder.
-  - **Database Ã¢â‚¬â€ 11 duplicate ghost series**: `document_series` table had 11 active `SALES_CREDIT`
+  - **Database â€” 11 duplicate ghost series**: `document_series` table had 11 active `SALES_CREDIT`
     rows with `company_id=NULL`, causing the allocator to pick randomly.
     Fixed via Alembic migration v1546: soft-deleted 10 duplicates (kept most-recent), added partial
     unique index `uq_document_series_company_type_terminal_active`, created `v_number_allocation_audit`
@@ -47,7 +64,7 @@
   - Executed exhaustive forensic audit verifying 18 frontend components, 14 FastAPI REST endpoints, and 8 PostgreSQL tables (`parties`, `party_roles`, `supplier_profiles`, `party_addresses`, `party_contacts`, `party_bank_accounts`, `suppliers`, `vendor_identity_migrations`).
   - Formally compiled and certified authoritative audit report under `docs/audit/VENDOR_MASTER_END_TO_END_WIRING_AND_UX_INTEGRITY_AUDIT.md`.
   - Remediated route prefix inconsistency in `VendorPayablesTab.tsx` standardizing TDS summary fetches to `/purchase/vendors/{id}/tds-summary`.
-  - Replaced internal software branding on Vendor A4 KYC printout (`VendorPrintModal.tsx`) with dynamic business entity title ('For & On Behalf of {tenantName || Purchasing Entity / E-Commerce} Ã¢â‚¬â€ Verification & Authorization') and canonical vendor code display.
+  - Replaced internal software branding on Vendor A4 KYC printout (`VendorPrintModal.tsx`) with dynamic business entity title ('For & On Behalf of {tenantName || Purchasing Entity / E-Commerce} â€” Verification & Authorization') and canonical vendor code display.
   - Re-verified complete TypeScript compilation (0 errors) and Vite production build (0 errors in 51.40s).
 
 - **Procurement & Vendor Master: Vendor Master Edit Mode & Double-Confirmation Deletion Protection v1.0.0**:
@@ -96,7 +113,7 @@
 
 ### Fixed
 - **Purchase Order Printing: Corporate Identity Resolution & Fail-Closed Protection Unblocking v6.99.2**:
-  - Eliminated `CORPORATE IDENTITY NOT CONFIGURED Ã¢â‚¬â€ PRINTING BLOCKED` condition while strictly preserving statutory fail-closed protection barriers per `v6.92.0`.
+  - Eliminated `CORPORATE IDENTITY NOT CONFIGURED â€” PRINTING BLOCKED` condition while strictly preserving statutory fail-closed protection barriers per `v6.92.0`.
   - Remediated session cache wiping in `src/App.tsx` where omitted `data.company_name` in `/auth/me` checks passed `null` to `persistTenantContext`, actively evicting corporate identity from `localStorage`. Changed fallback from `null` to `undefined`.
   - Hardened `POPrintPreviewModal.tsx` with proactive asynchronous `/api/v1/company/profile` background fetching when local cache is empty, document payload fallback (`header.companyName` and `header.billTo`), and DOM node guarding for SSR/testing environments.
   - Eliminated residual hardcoded `"TATTLY THREADS"` fallbacks from `FootwearPurchaseOrderA4.tsx` and `SizePivotMatrixA4.tsx` so unconfigured states cleanly trigger statutory blocking containers per specification. Exported `SizePivotMatrixData`.
@@ -108,16 +125,16 @@
 - **Cost Management Engine: Database Schema Parity for Transaction Cost Snapshots (Rule 12)**:
   - Eliminated `UndefinedColumnError: column "product_id" of relation "transaction_cost_snapshots" does not exist` when posting sales invoices and executing cost management snapshots.
   - Added `product_id VARCHAR(50) NOT NULL` to table definition and fallback column insertion in `backend/alembic/versions/v1532_cost_management_engine_foundations.py`.
-  - Added proactive column schema enforcement in `backend/app/db/bootstrap_engine.py` and migrated tenant databases (`smriti001`Ã¢â‚¬â€œ`smriti004`) to full structural parity.
-- **CRM Customer 360Ã‚Â° & Hierarchy MissingGreenlet Lazy-Load Remediation**:
-  - Diagnosed and resolved `sqlalchemy.exc.MissingGreenlet` error crashing Customer 360Ã‚Â° and Hierarchy views (`HTTP 400 Bad Request: A database operations conflict occurred or referential integrity check failed`) on enterprise customer accounts (ShopperStop `CUST-68351893`, Titan West Hub `HUB-959782`).
+  - Added proactive column schema enforcement in `backend/app/db/bootstrap_engine.py` and migrated tenant databases (`smriti001`â€“`smriti004`) to full structural parity.
+- **CRM Customer 360Â° & Hierarchy MissingGreenlet Lazy-Load Remediation**:
+  - Diagnosed and resolved `sqlalchemy.exc.MissingGreenlet` error crashing Customer 360Â° and Hierarchy views (`HTTP 400 Bad Request: A database operations conflict occurred or referential integrity check failed`) on enterprise customer accounts (ShopperStop `CUST-68351893`, Titan West Hub `HUB-959782`).
   - Implemented `get_loaded_single` and inspection guards in `backend/app/schemas/crm.py` and `backend/app/api/v1/crm.py`, ensuring attribute accesses never trigger unawaited SQLAlchemy lazy-loading descriptors outside greenlet context during Pydantic serialization.
   - Added nested `selectinload` for child customer location collections (`delivery_locations`, `billing_locations`, `gst_registrations`) in `CustomerRepository` (`get`, `get_all`, `search`, `enterprise_search`).
   - Coerced `apply_same_mailing` to strictly typed boolean in `map_customer_to_response_dict`, eliminating Pydantic type validation rejections on nullable legacy database values.
   - Added optional `postal_code`, `pincode`, and `state` attributes to `EnterpriseCustomerSearchResult` in `src/components/customer/lifecycle/EnterpriseCustomerSearchModal.tsx`, guaranteeing clean TypeScript type checks.
   - Certified with 2/2 backend regression Pytest tests green (`test_corporate_customer_360.py`), 22/22 frontend Vitest tests green (`customer360DashboardView.test.tsx`, `corporateCustomer360.test.tsx`), zero TypeScript errors in production build, and live headless verification returning HTTP 200 OK.
-- **CRM Corporate 360Ã‚Â° Dashboard Reconciliation & Customer Master Parity**:
-  - Remediated enterprise parent account ShopperStop (`CUST-68351893`) 360Ã‚Â° Dashboard reporting 0 child accounts and 0 active stores, contradicting Customer Master records maintaining linked child branch accounts (`CUST-68351894` ShopperStop Demo Branch and `CUST-68351895` abcd).
+- **CRM Corporate 360Â° Dashboard Reconciliation & Customer Master Parity**:
+  - Remediated enterprise parent account ShopperStop (`CUST-68351893`) 360Â° Dashboard reporting 0 child accounts and 0 active stores, contradicting Customer Master records maintaining linked child branch accounts (`CUST-68351894` ShopperStop Demo Branch and `CUST-68351895` abcd).
   - Enhanced `get_corporate_customer_360` in `backend/app/api/v1/crm.py` to eagerly load `dependant_relationships.dependant_customer`, `parent_relationships.parent_customer`, `external_identities`, and `loyalty_members`.
   - Added child branch store network fallback in `get_corporate_customer_360` and `Customer360DashboardView.tsx` when direct delivery locations are absent (`store_network` populated with 2 child accounts, `total_stores = 2`, `active_stores = 2`).
   - Enriched `map_customer_to_response_dict` in `backend/app/schemas/crm.py` to populate all child account metadata on `dependant_rows` (`mobile`, `email`, `store_code`, `city`, `state`, `gstin`, `credit_limit`, `credit_days`).
@@ -127,12 +144,12 @@
   - Remediated customer hierarchy viewer displaying placeholder child details when viewing parent accounts (e.g. `ShopperStop` -> `ShopperStop Demo Branch`).
   - Added code resolution in `CustomerRepository.get` (`(Customer.id == id) | (Customer.code == id)`) and added `get_by_code` in `backend/app/repositories/customer.py` and `backend/app/api/v1/crm.py`, resolving 404/500 errors when querying customer records by business code (`CUST-68351894`).
   - Added `_extract_customer_hierarchy_meta` in `backend/app/api/v1/crm.py` and eager-loaded delivery locations, billing locations, and GST registrations across `GET /crm/customers/{customer_id}/dependants` and `GET /crm/customers/{customer_id}/hierarchy`, returning real mobile, email, store code, city, state, and GSTIN.
-  - Replaced legacy notes regex matching in `CustomerHierarchyModal.tsx` and `EnterpriseCustomerMasterView.tsx` with direct metadata ingestion from `CustomerRelationshipResponse` and `CustomerHierarchyNodeResponse`, eliminating placeholder dashes `Ã¢â‚¬â€` and hardcoded `"Mumbai"`/`"India"` fallbacks.
+  - Replaced legacy notes regex matching in `CustomerHierarchyModal.tsx` and `EnterpriseCustomerMasterView.tsx` with direct metadata ingestion from `CustomerRelationshipResponse` and `CustomerHierarchyNodeResponse`, eliminating placeholder dashes `â€”` and hardcoded `"Mumbai"`/`"India"` fallbacks.
   - Dynamically configured tree depth badges in `CustomerHierarchyTree.tsx` to display "Child Branch" for depth-1 leaf accounts instead of "Zonal / Hub".
   - Verified with 23/23 Vitest tests green, 3/3 live backend API endpoints returning 200 OK with real customer metadata, clean Vite build (`built in 49.49s`), and successful container deployment to `smriti-web` and `smriti-api`.
-- **Billing Desk Empty-Bill Ã¢â€šÂ¹150 Charge Elimination**: Fixed defect where an empty Billing Desk evaluated to +Ã¢â€šÂ¹150.00 add-ons and net payable due to statutory sales factor accumulation (PACK Ã¢â€šÂ¹50 + DELV Ã¢â€šÂ¹100) on an unpopulated cart:
+- **Billing Desk Empty-Bill â‚¹150 Charge Elimination**: Fixed defect where an empty Billing Desk evaluated to +â‚¹150.00 add-ons and net payable due to statutory sales factor accumulation (PACK â‚¹50 + DELV â‚¹100) on an unpopulated cart:
   - Added zero-sales-base guard in `calculateBillFactors` (`src/services/smritiSalesFactorService.ts`), strictly skipping ancillary factor accrual when `discountedSaleValue <= 0 && baseSaleAmount <= 0` while preserving configured values for non-empty transactions.
-  - Added fail-safe zero-item and zero-quantity guard to `estimatedSummaryTotals` in `BillingTerm.tsx`, evaluating all monetary figures to strictly Ã¢â€šÂ¹0.00 when `itemCount === 0 || totalQty === 0`.
+  - Added fail-safe zero-item and zero-quantity guard to `estimatedSummaryTotals` in `BillingTerm.tsx`, evaluating all monetary figures to strictly â‚¹0.00 when `itemCount === 0 || totalQty === 0`.
   - Replaced inline row literals with exported `DEFAULT_TRANSPORTER_ROWS` and `DEFAULT_ADDON_ROWS` constants across state initialization, `handleNewInvoice`, and `handleSuspendInvoice`.
   - Enforced exact adjustment snapshot restoration from `rule_snapshots` in `handleRecallInvoice`, guaranteeing complete state isolation across successive bills.
 - **Billing Transaction Policy Recovery & Fail-Closed Safeguard**: Recovered live containerized route `/api/v1/billing/transaction-policy` in FastAPI (`smriti-api`), resolving the settlement pause warning while maintaining fail-closed settlement blocking if policy resolution is unavailable.
@@ -178,11 +195,11 @@
 
 ### Added
 - **4-Zone High-Density Billing Desk Layout**: Transformed canonical `BillingTerm.tsx` into a modern, enterprise retail billing experience matching the reference architecture:
-  - **Zone A (Compact Top Header)**: Brand badge, channel selector pill, live date/time clock, document sequence pill with edit pencil (`INV/C/0001 Ã¢Å“Å½`), workspace status mode badge (`[NEW]`), quick action buttons (`[ Ã°Å¸â€œâ€ž New ]`, `[ Ã°Å¸â€™Â¾ Save ]`, `[ Ã°Å¸â€“Â¨ Print ]`, `[ Ã¢â€¹Â¯ More Ã¢â€“Â¾ ]`), register shift status pill, and cashier avatar.
-  - **Zone B (Structured Transaction Details Card)**: 3-column structured grid for Customer selection (F2 search, `+ Quick Add`, customer chip with category, GSTIN, and ledger balance badges), sales configuration (Source, Channel, Bill Type, Transaction, and expandable `Ã¢â€“Â¾ More Details` drawer for corporate B2B parameters), and cashier shift/hold recovery.
+  - **Zone A (Compact Top Header)**: Brand badge, channel selector pill, live date/time clock, document sequence pill with edit pencil (`INV/C/0001 âœŽ`), workspace status mode badge (`[NEW]`), quick action buttons (`[ ðŸ“„ New ]`, `[ ðŸ’¾ Save ]`, `[ ðŸ–¨ Print ]`, `[ â‹¯ More â–¾ ]`), register shift status pill, and cashier avatar.
+  - **Zone B (Structured Transaction Details Card)**: 3-column structured grid for Customer selection (F2 search, `+ Quick Add`, customer chip with category, GSTIN, and ledger balance badges), sales configuration (Source, Channel, Bill Type, Transaction, and expandable `â–¾ More Details` drawer for corporate B2B parameters), and cashier shift/hold recovery.
   - **Zone C (High-Density Line Items Grid, ~74% width)**: 34px compact table with 10 columns, active row inspector ribbon, double-click cell editing, and inline `F11` Direct Entry row with barcode scanner guard.
-  - **Zone D (Dedicated Bill Summary Card, ~26% width)**: Side-by-side with item grid, featuring item/qty counters, gross amount, line discount, bill discount pill (`[ F6 ]`), statutory GST, add-ons/deductions, round-off, and high-impact Net Payable banner (`Ã¢â€šÂ¹ X,XXX.XX`).
-  - **Zone E (Collapsible Auxiliary Drawers & Bottom Action Bar)**: Dedicated tabs for Transporter, Payment, AddOns & Deductions, and Remarks. Prominently displays unclipped `[ Ã°Å¸â€™Âµ Exact Cash (F7) ]` and `[ Ã¢Å“â€ Settle & Save (F8) ]` buttons on the right.
+  - **Zone D (Dedicated Bill Summary Card, ~26% width)**: Side-by-side with item grid, featuring item/qty counters, gross amount, line discount, bill discount pill (`[ F6 ]`), statutory GST, add-ons/deductions, round-off, and high-impact Net Payable banner (`â‚¹ X,XXX.XX`).
+  - **Zone E (Collapsible Auxiliary Drawers & Bottom Action Bar)**: Dedicated tabs for Transporter, Payment, AddOns & Deductions, and Remarks. Prominently displays unclipped `[ ðŸ’µ Exact Cash (F7) ]` and `[ âœ” Settle & Save (F8) ]` buttons on the right.
 - **HUD Occlusion Elimination**: Suppressed floating `CtxInspectorHUD.tsx` when Billing Desk is active (`[data-billing-desk="true"]`), preventing total calculation and checkout button occlusion.
 - **Single Canonical Navigation**: Suppressed duplicate top navigation bars in `BillingWorkspace.tsx` when `auxView === "WORKSPACE"`, delegating all primary controls directly to `BillingTerm.tsx`.
 
@@ -266,7 +283,7 @@
 ### Documentation
 - Added the CRM parent-child creation plan and walkthrough and updated customer workflow, developer, troubleshooting, index, and consolidated ledger documentation.
 
-## [v6.99.1] Ã¢â‚¬â€ 2026-10-24
+## [v6.99.1] â€” 2026-10-24
 
 ### Added
 - Added a mobile navigation drawer, mobile search access, measured Classic menu overflow, and keyboard focus management for the workspace style chooser.
@@ -303,9 +320,9 @@
 - Updated Customer cache test storage mocks and widened the session-cache projection to accept both app Customer and retail workspace record shapes.
 - Verified with TypeScript validation, production Vite build, and 20 Customer-related test suites (171 tests).
 
-## [6.99.16] Ã¢â‚¬â€ 2026-10-23
+## [6.99.16] â€” 2026-10-23
 
-### Database & Systems Ã¢â‚¬â€ Cross-Platform Container-Aware Migration Auto-Routing & Seeder Hardening
+### Database & Systems â€” Cross-Platform Container-Aware Migration Auto-Routing & Seeder Hardening
 
 - **Universal Docker & Host Migration Bridge (`scripts/run_migrate.mjs`, `package.json`)**:
   - Implemented cross-platform Node.js migration runner `scripts/run_migrate.mjs` bound to `npm run db:migrate`, `npm run db:backup`, and `npm run db:verify`.
@@ -318,9 +335,9 @@
 - **Dynamic Database Resolution in Child Customer Billing Seeder (`scripts/seed_child_billing_demo.py`)**:
   - Upgraded `scripts/seed_child_billing_demo.py` to parse `DATABASE_URL`, `POSTGRES_HOST`, and `POSTGRES_PORT` dynamically, allowing one-command seeding from either host PowerShell or inside the `smriti-api` container.
 
-## [6.99.15] Ã¢â‚¬â€ 2026-10-23
+## [6.99.15] â€” 2026-10-23
 
-### Database & Systems Ã¢â‚¬â€ Automated Database Migration, Pre-Migration Backup Snapshot & Child Customer Billing Remediation
+### Database & Systems â€” Automated Database Migration, Pre-Migration Backup Snapshot & Child Customer Billing Remediation
 
 - **Automated Database Migration & Pre-Migration Backup Engine (`scripts/auto_migrate.py`)**:
   - Engineered production-grade CLI and automated migration runner that creates a compressed `pg_dump -Fc` binary snapshot (14.5 MB) before executing migrations.
@@ -340,9 +357,9 @@
   - Calibrated statutory A4 Tax Invoice background watermark to 75% page size with horizontal logo emblem and `object-fit: contain` across `TaxInvoiceA4.tsx`, `PrintPreviewModal.tsx`, and `invoice_pdf_service.py`.
   - Certified with 5/5 green Vitest tests, clean headless atomic checkout `INV-20261023-3CA746`, and zero syntax errors.
 
-## [6.99.14] Ã¢â‚¬â€ 2026-10-23
+## [6.99.14] â€” 2026-10-23
 
-### CRM, Billing & Transactions Ã¢â‚¬â€ End-to-End Customer Lifecycle Hardening & Validation
+### CRM, Billing & Transactions â€” End-to-End Customer Lifecycle Hardening & Validation
 
 - **Universal Child Customer Billing Guard (`headless_billing.py`)**:
   - Unnested the subordinate customer visibility check in `HeadlessBillingCore.calculate_billing` from `if db_customer is None:`.
@@ -357,9 +374,9 @@
   - Validates customer creation (required fields, GSTIN regex, code/mobile 409 collisions), customer editing & optimistic locking (`expected_modified_at` stale timestamp 409), POS directory lookup & parent-child visibility toggling, child customer checkout rejection (`SMRITI-CUST-042`), authorized standalone invoice posting, and dual-key repository retrieval by ID and invoice number.
   - Certified with 4/4 backend Pytest tests passed and 37/37 frontend Vitest customer tests passed.
 
-## [6.99.13] Ã¢â‚¬â€ 2026-10-22
+## [6.99.13] â€” 2026-10-22
 
-### CRM & POS Billing Ã¢â‚¬â€ Parent-Controlled Child Customer Visibility in Billing
+### CRM & POS Billing â€” Parent-Controlled Child Customer Visibility in Billing
 
 - **Parent-Level Visibility Configuration (`customers.show_child_customers_in_billing`)**:
   - Added Alembic migration `v1543` adding `show_child_customers_in_billing BOOLEAN NOT NULL DEFAULT FALSE` to `customers` table with partial index `ix_customers_comp_show_child_billing` on `(company_id, show_child_customers_in_billing) WHERE is_deleted = false`.
@@ -384,9 +401,9 @@
   - 0 TypeScript compilation errors (`tsc --noEmit`).
   - 0 Python compilation errors (`python -m py_compile`).
 
-## [6.99.12] Ã¢â‚¬â€ 2026-10-22
+## [6.99.12] â€” 2026-10-22
 
-### Foundation & UI Architecture Ã¢â‚¬â€ Classic UX Top Navigation, Submenu & Viewport Overflow Remediation
+### Foundation & UI Architecture â€” Classic UX Top Navigation, Submenu & Viewport Overflow Remediation
 
 - **Enterprise Menu Bar Portal Architecture (`EnterpriseMenuBar.tsx`)**:
   - Implemented standalone `EnterpriseMenuBar` rendered via React Portal (`createPortal(..., document.body)`) to break free from ancestor CSS overflow stacking contexts (`overflow-x: auto` / `overflow: hidden`).
@@ -394,7 +411,7 @@
   - Added horizontal viewport boundary collision detection with automatic flip-to-left when dropdown or submenu width exceeds `window.innerWidth - 16px`.
   - Added vertical viewport clamping (`max-h-[calc(100vh-60px)]` with custom scrollbar) ensuring dropdowns never overflow below screen boundaries regardless of display resolution.
   - Built multi-tier nested flyout submenus (`Master -> Item Master -> Categories / Units / Pricing / Barcodes`, `Master -> Party Master -> Customers / Suppliers`) with `z-[10000]` stacking, chevron indicators, and keyboard accessibility.
-  - Implemented responsive horizontal partitioning: renders all 12 primary modules (`Home`, `Master`, `Transactions`, `Inventory`, `Purchase`, `Sales`, `Accounts`, `CRM`, `Reports`, `Tools`, `Settings`, `Help`) on viewports >= 1200px, and dynamically partitions into 8 direct modules + a "More Ã¢â€“Â¾" overflow dropdown on viewports < 1200px (1024Ãƒâ€”768).
+  - Implemented responsive horizontal partitioning: renders all 12 primary modules (`Home`, `Master`, `Transactions`, `Inventory`, `Purchase`, `Sales`, `Accounts`, `CRM`, `Reports`, `Tools`, `Settings`, `Help`) on viewports >= 1200px, and dynamically partitions into 8 direct modules + a "More â–¾" overflow dropdown on viewports < 1200px (1024Ã—768).
   - Added full keyboard navigation (`Escape` key to close open menus and nested flyouts) and outside click listeners.
 - **Global Header Refactoring (`GlobalHeader.tsx`)**:
   - Replaced the embedded inline top navigation in `GlobalHeader.tsx` with `<EnterpriseMenuBar />`.
@@ -411,17 +428,17 @@
   - 5/5 unit tests passed (`src/tests/enterpriseMenuBar.test.tsx`).
   - 8/8 UX switcher tests passed (`src/tests/uxSwitcher.test.tsx`).
   - 0 TypeScript compilation errors (`tsc --noEmit`).
-  - 30 headless Playwright screenshots captured and verified across 4 screen resolutions (1600Ãƒâ€”900, 1366Ãƒâ€”768, 1280Ãƒâ€”720, 1024Ãƒâ€”768), dark and light themes, open dropdowns, nested flyouts, and responsive "More" dropdowns.
+  - 30 headless Playwright screenshots captured and verified across 4 screen resolutions (1600Ã—900, 1366Ã—768, 1280Ã—720, 1024Ã—768), dark and light themes, open dropdowns, nested flyouts, and responsive "More" dropdowns.
 
-## [6.99.11] Ã¢â‚¬â€ 2026-10-22
+## [6.99.11] â€” 2026-10-22
 
-### Foundation & UI Architecture Ã¢â‚¬â€ Classic UX Workspace Directory & Traditional ERP Navigation Parity
+### Foundation & UI Architecture â€” Classic UX Workspace Directory & Traditional ERP Navigation Parity
 
 - **Classic UX Workspace Directory Component (`ClassicWorkspaceDirectory.tsx`)**:
   - Implemented the authentic high-density ERP workspace directory matching the approved visual specification (`media_1792670496311.jpg`).
   - Dense 9-column workspace table (`#`, `Select`, `Workspace Name`, `Description`, `Category`, `Icon`, `Status`, `Type`, `Actions`) with row selection, hover highlights, active status badges (`ACTIVE`, `INACTIVE`), and row action triggers.
   - Hierarchical left functional tree navigation sidebar (`Workspace`, `Retail Operations`, `Finance & Ledgers`, `CRM & Customers`, `Masters`, `Reports`, `Tools & Config`) with node collapse/expand, search filter, and item counters.
-  - Sub-header tabs strip (`Dashboard Ãƒâ€”`, `Workspaces Ãƒâ€”`) with active tab indicator and close affordances.
+  - Sub-header tabs strip (`Dashboard Ã—`, `Workspaces Ã—`) with active tab indicator and close affordances.
   - F-Key action toolbar (`+ New Workspace (F2)`, `Open (Enter)`, `Edit (F4)`, `Deactivate (F5)`, `View Details (F6)`, `Table/Card View` toggle).
   - Right-side 320px metadata details panel with `Details | Shortcuts | Access` tabs, `WS-001` ID formatting, `/billing/desktop` route formatting, quick action buttons (`Open Workspace`, `Add to Favorites`, `Copy Link`, `Edit Workspace`), and properties grid.
 - **Enterprise Top Menu Ribbon (`GlobalHeader.tsx`)**:
@@ -441,9 +458,9 @@
   - Clean `tsc --noEmit` with 0 errors.
   - Headless Playwright screenshot verification confirming visual fidelity.
 
-## [6.99.10] Ã¢â‚¬â€ 2026-10-22
+## [6.99.10] â€” 2026-10-22
 
-### Foundation & Disaster Recovery Ã¢â‚¬â€ Critical Backup Integrity Remediation & Full Database Recovery Engine
+### Foundation & Disaster Recovery â€” Critical Backup Integrity Remediation & Full Database Recovery Engine
 
 - **Completeness vs File Integrity Segregation (`backup_engine.py`, `backup.py`, `backup_restore_service.py`)**:
   - Remediated critical backup integrity flaw where partial data exports (20.9 KB, only 1,000 products) were falsely labeled and certified as "Verified" and "Complete" system backups.
@@ -462,7 +479,7 @@
   - Hard-blocked production database restoration from partial exports (`can_restore = False`, `block_reason = "PARTIAL_BACKUP_CANNOT_OVERWRITE_PRODUCTION"`).
   - Throws explicit `ValueError` / `HTTP 400` explaining that restoring an incomplete export would cause permanent production data loss.
 - **Backup Completion & Review UX Remediations (`BackupRestoreWorkspace.tsx`)**:
-  - Resized desktop completion card to 620px (responsive within 560Ã¢â‚¬â€œ680px range).
+  - Resized desktop completion card to 620px (responsive within 560â€“680px range).
   - Restrained 56px status icon (`w-14 h-14`): emerald check for full, amber alert for partial, rose circle for failed.
   - Added amber callout detailing omitted tables and explaining that production restore is blocked.
   - Set primary action to **View Backup History** and secondary action to **Back to Backup Centre**.
@@ -473,31 +490,31 @@
   - Isolated database restore test executed into temporary database `smriti_test_isolated_*` verifying 100% table (311/311) and record count parity with zero residue and zero production overwrites.
   - Clean `tsc --noEmit` / `npm run lint` with 0 errors.
 
-## [6.99.9] Ã¢â‚¬â€ 2026-10-22
+## [6.99.9] â€” 2026-10-22
 
-### Foundation & UI Architecture Ã¢â‚¬â€ Premium UX Switcher (Regular UX Ã¢â€ â€ Classic UX)
+### Foundation & UI Architecture â€” Premium UX Switcher (Regular UX â†” Classic UX)
 
 - **UX Mode Switcher & Preferences (`layout_store.tsx`, `system.py`)**:
-  - Implemented the authoritative Regular UX Ã¢â€ â€ Classic UX Switcher in SMRITI Retail OS.
+  - Implemented the authoritative Regular UX â†” Classic UX Switcher in SMRITI Retail OS.
   - Persistent user preference in PostgreSQL (`user_preferences` / `/api/v1/system/layout/preferences`).
   - Synchronous `localStorage` zero-flash hydration (`smriti_ux_mode`) preventing layout shift or theme flickering.
   - Independent from Light/Dark visual theme engine with zero interference.
   - Decoupled from transaction memory: toggling modes preserves 100% of active POS cart items and form drafts.
 - **Top Bar & Profile Switcher Controls (`GlobalHeader.tsx`, `UxSwitcherModal.tsx`)**:
-  - Interactive top bar mode indicator pill (`[ Ã°Å¸â€™Â» Regular UX ]` / `[ Ã°Å¸â€™Â» Classic UX ]`) with 1-click toggle.
+  - Interactive top bar mode indicator pill (`[ ðŸ’» Regular UX ]` / `[ ðŸ’» Classic UX ]`) with 1-click toggle.
   - User session dropdown radio panel with clear subtitles matching the approved visual reference.
   - Polished `UxSwitcherModal` component for side-by-side mode comparison and instant application.
 - **Regular UX Presentation (`RegularUxDashboard.tsx`)**:
   - Spacious, guided layout tailored for everyday retail cashiers and store managers.
   - Greeting banner, store selector, and date display.
-  - 4 KPI summary cards: `Today Sales: Ã¢â€šÂ¹ 24,560`, `Bills: 42`, `Items Sold: 128`, `New Customers: 6`.
+  - 4 KPI summary cards: `Today Sales: â‚¹ 24,560`, `Bills: 42`, `Items Sold: 128`, `New Customers: 6`.
   - 4 Colorful quick-action cards: `POS Billing` (blue), `Item Master` (green), `Customer` (orange), `Reports` (purple).
   - Recent Sales table with status badges (`Paid`) and clean typography.
 - **Classic UX Presentation (`ClassicUxWorkspace.tsx`)**:
   - Authentic high-density ERP layout tailored for power accountants and advanced users.
   - Top Classic ERP Menu Ribbon: `Master`, `Transactions`, `Inventory`, `Accounts`, `CRM`, `Reports`, `Tools`, `Settings`, `Help`.
   - Left accordion tree sidebar with hierarchical category menus (`Sales`, `Purchase`, `Inventory`, etc.).
-  - Multi-tab strip (`Dashboard`, `POS Billing Ã¢Å“â€¢`).
+  - Multi-tab strip (`Dashboard`, `POS Billing âœ•`).
   - Dense master-detail POS form: Customer, Price List, Warehouse, Bill Date, Bill No (`SI-000126`).
   - Function keys toolbar: `New (F2)`, `Clear (F3)`, `Hold (F4)`, `Recall (F5)`, `Add (F7)`, `Print (F8)`, `Discount (F9)`, `Save (F10)`.
   - 8-line numbered ledger grid and real-time tax/discount ledger calculations.
@@ -506,9 +523,9 @@
   - 5/5 frontend Vitest tests green in `src/tests/uxSwitcher.test.tsx`.
   - Clean `tsc --noEmit` / `npm run lint` with 0 errors.
 
-## [6.99.8] Ã¢â‚¬â€ 2026-10-22
+## [6.99.8] â€” 2026-10-22
 
-### Operations & Disaster Recovery Ã¢â‚¬â€ Master Backup & Restore Engine, Windows CLI & Integrity Verification
+### Operations & Disaster Recovery â€” Master Backup & Restore Engine, Windows CLI & Integrity Verification
 
 - **Master Disaster Recovery Engine (`backend/app/core/backup_engine.py`)**:
   - Engineered `MasterBackupEngine` orchestrating production-grade host backups without simulated progress or dummy records.
@@ -536,14 +553,14 @@
   - 8/8 frontend tests green in `src/tests/backupRestoreWorkspace.test.tsx`.
   - Clean `tsc --noEmit` (0 errors).
 
-## [6.99.7] Ã¢â‚¬â€ 2026-10-22
+## [6.99.7] â€” 2026-10-22
 
-### Operations & System Ã¢â‚¬â€ Premium Backup & Restore UX & Data Protection Engine
+### Operations & System â€” Premium Backup & Restore UX & Data Protection Engine
 
 - **Commercial-Grade Backend Backup Service (`backend/app/services/backup_restore_service.py`)**:
   - Implemented `BackupRestoreService` for automated and on-demand logical backups across core transactional retail entities (`products`, `customers`, `suppliers`, `sales_invoices`, `purchase_orders`, `companies`).
   - Gzip archive compression with SHA-256 cryptographic hashing and companion `.manifest.json` generation.
-  - Multi-stage asynchronous job execution model (`preparing` 25% Ã¢â€ â€™ `creating` 55% Ã¢â€ â€™ `verifying` 80% Ã¢â€ â€™ `finalizing` 95% Ã¢â€ â€™ `completed` 100%) with cancellation support.
+  - Multi-stage asynchronous job execution model (`preparing` 25% â†’ `creating` 55% â†’ `verifying` 80% â†’ `finalizing` 95% â†’ `completed` 100%) with cancellation support.
   - Two-phase restore safety mechanism: requires explicit destructive overwrite confirmation and auto-generates pre-restore safety snapshots.
 - **REST API Endpoints (`backend/app/api/v1/backup.py`)**:
   - Mounted `/api/v1/backup` in `backend/app/main.py`.
@@ -552,7 +569,7 @@
 - **Premium Backup & Restore Workspace (`src/components/backup/BackupRestoreWorkspace.tsx`)**:
   - Faithfully implemented all 6 approved screens matching the design reference:
     1. **Protection Dashboard**: Overall protection card, automatic backup toggle, and 3 primary action cards (`Back Up Now`, `Restore My Data`, `Backup Settings`).
-    2. **Back Up Now**: Circular progress ring (0Ã¢â‚¬â€œ100%), real-time progress text, 4-step live indicator, and safe cancellation button.
+    2. **Back Up Now**: Circular progress ring (0â€“100%), real-time progress text, 4-step live indicator, and safe cancellation button.
     3. **Backup Completed**: Large verified checkmark, manifest summary card (time, contents, storage, verified badge, size), and "View Backup History" action.
     4. **Restore My Data**: Recovery points selector with radio buttons, timestamps, sizes, and green "Verified" badges.
     5. **Review and Confirm**: Manifest review, amber warning banner (*"This will replace your current data"*), mandatory confirmation checkbox, and disabled-until-checked restore button.
@@ -567,9 +584,9 @@
   - Launchpad Routing: 11/11 tests passed in `src/tests/fioriLaunchpad.test.ts` (390ms).
   - TypeScript Compiler: `npx tsc --noEmit` exited code 0 (0 errors).
 
-## [6.99.6] Ã¢â‚¬â€ 2026-10-22
+## [6.99.6] â€” 2026-10-22
 
-### BI & Reporting Center Ã¢â‚¬â€ Report Designer Intelligent Auto-Consolidation & Dynamic Server-Side Grouping
+### BI & Reporting Center â€” Report Designer Intelligent Auto-Consolidation & Dynamic Server-Side Grouping
 
 - **Centralized Semantic Field Registry (`backend/app/services/report_field_registry.py`)**:
   - Established `ReportFieldRegistry` classifying reporting fields across Purchase, Sales, Inventory, Items, Suppliers, Customers, and Finance domains.
@@ -599,16 +616,16 @@
   - Existing regression suites: 20/20 tests passed across `reportBuilder.test.ts` and `reportBuilderLiveData.test.ts`.
   - TypeScript compiler check: `npx tsc --noEmit` exited 0 (0 errors).
 
-## [6.99.5] Ã¢â‚¬â€ 2026-10-22
+## [6.99.5] â€” 2026-10-22
 
-### CRM & Customer 360Ã‚Â° Ã¢â‚¬â€ Master Data-to-UX Connectivity Audit, PSV Live Stream Binding & Prototype Elimination
+### CRM & Customer 360Â° â€” Master Data-to-UX Connectivity Audit, PSV Live Stream Binding & Prototype Elimination
 
 - **Core Runtime Prototype Cleanup (`src/App.tsx`)**:
   - Permanently eradicated silent dummy product fallback injection (`dummy-master-0001` / `DUMMY-001`), ensuring authentic empty-state handling across product master catalogs.
 - **Backend PSV Service & Endpoint Scoping (`backend/app/services/psv_projection.py` & `backend/app/api/v1/psv.py`)**:
   - Added `customer_id`, `store_code`, `start_date`, and `end_date` parameters to `PSVProjectionService.get_quantity_reconciliation()` and the FastAPI endpoint `GET /api/v1/psv/reconciliation`.
   - Enables customer-scoped quantity reconciliation across Sales Tax Invoices, physical receipts, pending approvals, and ledger balances.
-- **Customer 360Ã‚Â° Dashboard Live PSV Binding (`src/components/customer/corporate360/Customer360DashboardView.tsx`)**:
+- **Customer 360Â° Dashboard Live PSV Binding (`src/components/customer/corporate360/Customer360DashboardView.tsx`)**:
   - Replaced hardcoded static reference dataset (`psvDetailedRows` lines with fake `PO-2026-001` through `PO-2026-005`) with live reactive database query hooks calling `apiFetchV1` to `GET /api/v1/psv/reconciliation`.
   - Bound all 6 metric tiles on both the Overview tab (Card 9) and the dedicated PSV Stock tab (Tab 7) to live reconciliation counters (`total_document_qty`, `total_received_qty`, `total_approved_qty`, `total_pending_approval_qty`, `total_short_qty`, `total_excess_qty`).
   - Replaced static `125 Total Records` badges with dynamic, database-aggregated item counts (`{summary.total_items} Total Records`).
@@ -619,7 +636,7 @@
   - Verified backend Pytest suite: 10/10 tests green across `test_psv_invoice_reconciliation.py` and `test_psv.py`.
   - Verified `npx tsc --noEmit` with 0 errors.
 
-### Visual Reports Dashboard Ã¢â‚¬â€ Database-to-UX Audit, Dual-Ledger Invariant Alignment & Active Fulfillment Stream Auto-Fix
+### Visual Reports Dashboard â€” Database-to-UX Audit, Dual-Ledger Invariant Alignment & Active Fulfillment Stream Auto-Fix
 
 - **Dual-Ledger Invariant Alignment (`backend/app/services/visual_reports_service.py`)**:
   - Reconciled On-Hand Stock (`total_on_hand` = 200,989 pairs) with `ProductBatchStock` (`SUM(quantity - damaged_quantity)`) for batch-tracked items and positive `Product.stock` for non-batch items per Section 7 / `StockSynchronizer` Invariant E-001.
@@ -640,7 +657,7 @@
   - Verified frontend Vitest suite: 20/20 tests green across `visualReportsDashboard.test.ts`, `procurementAndReportsAudit.test.ts`, and `procurementVisualReports.test.ts`.
   - Verified `npx tsc --noEmit` with 0 errors.
 
-### BI & Reporting Center Ã¢â‚¬â€ Report Builder Live PostgreSQL Data Binding & Dummy Data Elimination
+### BI & Reporting Center â€” Report Builder Live PostgreSQL Data Binding & Dummy Data Elimination
 
 - **Report Builder Canonical REST Query Endpoint (`backend/app/api/v1/reports.py`)**:
   - Implemented `GET /api/v1/reports/builder/query` providing live, parameterized query access across transactional domain tables.
@@ -662,9 +679,9 @@
   - Created `src/tests/reportBuilderLiveData.test.ts` verifying API call formation, live data rendering, honest empty state, error state, and total aggregation without dummy data fallback (4/4 tests passed).
   - Validated with `tsc --noEmit` (0 errors) and Vitest regression suite `src/tests/reportBuilder.test.ts` (16/16 tests passed).
 
-## [6.99.4] Ã¢â‚¬â€ 2026-10-21
+## [6.99.4] â€” 2026-10-21
 
-### Procurement & Purchase Orders Ã¢â‚¬â€ Headless Purchase Order Date Alignment with Authoritative GRN & Bill Chronology
+### Procurement & Purchase Orders â€” Headless Purchase Order Date Alignment with Authoritative GRN & Bill Chronology
 
 - **Canonical SYSADMIN PO Date Remediation Endpoint (`backend/app/api/v1/database_manager.py`)**:
   - Implemented `POST /api/v1/database-manager/admin-remediate-po-dates` guarded by `verify_sysadmin_role`.
@@ -683,9 +700,9 @@
   - Created `backend/app/tests/test_admin_po_date_remediation.py` certifying DTO validation, defaults, and SQL injection prevention via `DB_NAME_PATTERN` (3/3 tests passed green).
   - Created post-execution verification script `scripts/verify_remediated_po_dates.py` verifying full procurement chain chronology (`PO <= GRN <= Bill`) and financial preservation.
 
-## [6.99.3] Ã¢â‚¬â€ 2026-10-21
+## [6.99.3] â€” 2026-10-21
 
-### Procurement & Goods Receipt Ã¢â‚¬â€ Headless GRN Historical Date Correction & Stock Movement Integrity Repair
+### Procurement & Goods Receipt â€” Headless GRN Historical Date Correction & Stock Movement Integrity Repair
 
 - **Canonical SYSADMIN Remediation Endpoint (`backend/app/api/v1/database_manager.py`)**:
   - Implemented `POST /api/v1/database-manager/admin-remediate-grn-dates` guarded by `verify_sysadmin_role`.
@@ -703,9 +720,9 @@
   - Created `backend/app/tests/test_admin_grn_date_remediation.py` certifying DTO validation, defaults, and SQL injection prevention via `DB_NAME_PATTERN` (3/3 tests passed green).
   - Verified 100% mathematical parity: 28/28 GRNs and 407/407 stock movements matched and ready.
 
-## [6.99.2] Ã¢â‚¬â€ 2026-10-21
+## [6.99.2] â€” 2026-10-21
 
-### Inventory & Stock Ledger Ã¢â‚¬â€ Sales Stock Depletion & Dual-Key Product Resolution
+### Inventory & Stock Ledger â€” Sales Stock Depletion & Dual-Key Product Resolution
 
 - **Canonical Transaction Writer Fallback Hardening (`canonical_transaction_writer.py`)**:
   - Enhanced `resolve_dual_key_for_line` across variant ID, SKU, and barcode queries to perform a `LEFT JOIN products p ON (p.item_variant_id = v.id OR p.sku = v.variant_sku OR p.code = v.variant_sku) AND p.company_id = :cid AND p.is_deleted = false`.
@@ -727,9 +744,9 @@
   - Created test suite `backend/app/tests/test_sales_stock_dual_key_depletion.py` (2/2 tests green).
   - Validated 100% compliance with `scripts/ci_stock_single_door_guard.py` (0 violations across 764 scanned files).
 
-## [6.99.1] Ã¢â‚¬â€ 2026-10-21
+## [6.99.1] â€” 2026-10-21
 
-### Inventory & Stock Ledger Ã¢â‚¬â€ Single-Door Stock Ledger Architecture & Transaction Convergence
+### Inventory & Stock Ledger â€” Single-Door Stock Ledger Architecture & Transaction Convergence
 
 - **Single-Door Stock Ledger Service (`StockLedger.post()` / `StockLedger.post_many()`)**:
   - Established sole, authoritative entry point for all physical inventory mutations in SMRITI Retail OS.
@@ -754,20 +771,20 @@
   - Certified with 16/16 backend tests green across `test_single_door_stock_ledger.py`, `test_single_door_ast_guard.py`, and `test_phase0_synchronizer_characterization.py`.
 
 
-### CRM & Customer 360Ã‚Â° Dashboard Ã¢â‚¬â€ Stores, Outlets & Financial Exposure Integrity Remediation
+### CRM & Customer 360Â° Dashboard â€” Stores, Outlets & Financial Exposure Integrity Remediation
 
-Remediated data integrity defects across the Customer 360Ã‚Â° Dashboard workspace (`Customer360DashboardView.tsx`, `CorporateAccountHeader.tsx`, `CorporateKpiCards.tsx`, `CorporateStoreNetwork.tsx`, `CorporateStoreTypeWidget.tsx`, `CorporatePsvWidget.tsx`, `backend/app/schemas/crm.py`, and `backend/app/api/v1/crm.py`) for enterprise corporate accounts (Reliance Retail Limited `RRL-001` / `cust-rrl-192b561d`):
+Remediated data integrity defects across the Customer 360Â° Dashboard workspace (`Customer360DashboardView.tsx`, `CorporateAccountHeader.tsx`, `CorporateKpiCards.tsx`, `CorporateStoreNetwork.tsx`, `CorporateStoreTypeWidget.tsx`, `CorporatePsvWidget.tsx`, `backend/app/schemas/crm.py`, and `backend/app/api/v1/crm.py`) for enterprise corporate accounts (Reliance Retail Limited `RRL-001` / `cust-rrl-192b561d`):
 - **Dynamic Store & Outlet Network Binding**:
   - Removed static 85-store heading/subtitle and static Phoenix Mall mock table from production execution paths.
   - Dynamically bound the store network table and summary cards to authoritative customer delivery locations.
   - Filtered soft-deleted delivery locations (`is_deleted = TRUE`), accurately surfacing the 7 active non-deleted locations (3 Distribution Centers / Logistics Hubs and 4 Retail Counters) while excluding all 59 soft-deleted locations.
 - **Strict Entity Tier Separation & Authentic Empty States**:
   - Maintained distinct entity types across customer master accounts, delivery locations, retail counters, and distribution centers without coercing delivery locations into child customers.
-  - Rendered authentic single-tier empty states (`Direct Single-Tier Account Ã¢â‚¬â€ 0 Child Accounts`) for single-tier corporate accounts with 0 child entities.
+  - Rendered authentic single-tier empty states (`Direct Single-Tier Account â€” 0 Child Accounts`) for single-tier corporate accounts with 0 child entities.
 - **Accounting Semantics Reconciliation**:
-  - Reconciled Revolving Credit Ledger Exposure (`customer.outstanding` = Ã¢â€šÂ¹155.24) against Total Unpaid Sales Invoice Receivables (Ã¢â€šÂ¹275.20 across 4 invoices including POS cash underpayments) without modifying database records or hardcoding either figure.
+  - Reconciled Revolving Credit Ledger Exposure (`customer.outstanding` = â‚¹155.24) against Total Unpaid Sales Invoice Receivables (â‚¹275.20 across 4 invoices including POS cash underpayments) without modifying database records or hardcoding either figure.
 - **Authoritative Credit Limit Mapping**:
-  - Corrected credit limit mapping to prioritize company-specific relationship (`CustomerCompanyRelationship`) before falling back to `CustomerGroup` (Ã¢â€šÂ¹1,00,000 / Ã¢â€šÂ¹9,99,99,999), permanently eliminating the Ã¢â€šÂ¹5,00,00,000 prototype fallback.
+  - Corrected credit limit mapping to prioritize company-specific relationship (`CustomerCompanyRelationship`) before falling back to `CustomerGroup` (â‚¹1,00,000 / â‚¹9,99,99,999), permanently eliminating the â‚¹5,00,00,000 prototype fallback.
 - **Trailing Six Calendar Months Purchase Trend Aggregation**:
   - Implemented SQL date aggregation over the trailing 6 calendar months using UTC PostgreSQL date boundaries, replacing the arbitrary `limit(10)` snippet.
   - Displayed authentic `"Awaiting Trend"` empty states when insufficient purchase history exists.
@@ -776,21 +793,21 @@ Remediated data integrity defects across the Customer 360Ã‚Â° Dashboard wor
 - **Automated Verification & Regression Suite**:
   - Certified with 31/31 Vitest tests green, 16/16 backend Pytest tests green, 11/11 architecture CI duplication checks passed, 0 `tsc --noEmit` errors, and clean Vite production build.
 
-## [6.99.0] Ã¢â‚¬â€ 2026-10-21
+## [6.99.0] â€” 2026-10-21
 
-### CRM & Customer 360Ã‚Â° Dashboard Ã¢â‚¬â€ Live Portal Reconciliation & Prototype Elimination
+### CRM & Customer 360Â° Dashboard â€” Live Portal Reconciliation & Prototype Elimination
 
-Audited and permanently eliminated prototype dummy values and visual disparities across the Customer 360Ã‚Â° Dashboard workspace (`Customer360DashboardView.tsx`, `CorporateCustomer360.tsx`, and backend `backend/app/api/v1/crm.py`) for enterprise corporate accounts (Reliance Retail Limited `RRL-001` / `cust-rrl-192b561d`):
+Audited and permanently eliminated prototype dummy values and visual disparities across the Customer 360Â° Dashboard workspace (`Customer360DashboardView.tsx`, `CorporateCustomer360.tsx`, and backend `backend/app/api/v1/crm.py`) for enterprise corporate accounts (Reliance Retail Limited `RRL-001` / `cust-rrl-192b561d`):
 - **Credit Limit & Currency Formatting Parity**:
-  - Reconciled visual discrepancy between Top Hero Card (`Ã¢â€šÂ¹ 5,00,00,000`) and Right Intelligence Sidebar (`Ã¢â€šÂ¹ 99,99,999`) by binding both cards to a unified formatted Indian currency helper `formattedCreditLimit` (`Ã¢â€šÂ¹ ${Number(val).toLocaleString('en-IN')}` -> `Ã¢â€šÂ¹ 9,99,99,999`).
+  - Reconciled visual discrepancy between Top Hero Card (`â‚¹ 5,00,00,000`) and Right Intelligence Sidebar (`â‚¹ 99,99,999`) by binding both cards to a unified formatted Indian currency helper `formattedCreditLimit` (`â‚¹ ${Number(val).toLocaleString('en-IN')}` -> `â‚¹ 9,99,99,999`).
 - **Statutory GSTIN-PAN Parity & Real-Time Integrity Validation**:
   - Eradicated static prototype fallback PAN `"AABCR1234F"` from form state.
-  - Implemented `resolvePan` helper prioritizing `panNumber`, `pan`, and `pan_number` with authoritative fallback derivation from characters 3Ã¢â‚¬â€œ12 of GSTIN (`AABCR1718E`).
-  - Added live visual statutory parity badge in Card 2 (`Ã¢Å“â€œ Matches GSTIN` vs `Ã¢Å¡Â  Differs from GSTIN`).
+  - Implemented `resolvePan` helper prioritizing `panNumber`, `pan`, and `pan_number` with authoritative fallback derivation from characters 3â€“12 of GSTIN (`AABCR1718E`).
+  - Added live visual statutory parity badge in Card 2 (`âœ“ Matches GSTIN` vs `âš  Differs from GSTIN`).
 - **Honest Empty State for IEC**:
   - Eliminated hardcoded `"IEC1234567"` placeholder fallback; rendered empty string with `placeholder="Not Registered"`.
 - **Dynamic Ledger Receivables & Dynamic Store/Account Counts**:
-  - Replaced hardcoded dummy outstanding `Ã¢â€šÂ¹ 2,15,43,250` with live customer ledger balance (`formattedOutstanding` -> `Ã¢â€šÂ¹ 0`).
+  - Replaced hardcoded dummy outstanding `â‚¹ 2,15,43,250` with live customer ledger balance (`formattedOutstanding` -> `â‚¹ 0`).
   - Replaced static constants (`12` child accounts, `85` stores) with dynamic `childCustomersCount` (derived from `dependants.length`) and `storesCount` (derived from `delivery_locations.length`).
 - **Dynamic Hierarchy Nodes & Operational Dates**:
   - Replaced static dummy child nodes (`Phoenix Mall`, `Inorbit Mall`, `Amanora Mall`) with dynamic cards derived from `actualChildAccounts`.
@@ -800,11 +817,11 @@ Audited and permanently eliminated prototype dummy values and visual disparities
 - **Automated Verification & Zero-Error Compilation**:
   - Certified with 45/45 Vitest customer tests green, 16/16 backend Pytest tests green, and zero `npx tsc --noEmit` errors.
 
-### Procurement & Vendor Master Ã¢â‚¬â€ Live Portal Dummy Data Elimination & Data Integrity Audit
+### Procurement & Vendor Master â€” Live Portal Dummy Data Elimination & Data Integrity Audit
 
 Audited and permanently eliminated unintended placeholder, mock, and hardcoded demo fixtures from Procurement and Vendor Master workspaces:
 - **Clean Requisitions & RFQ Workspaces (`PurchaseRequisitionWorkspace.tsx`, `SupplierRfqWorkspace.tsx`)**:
-  - Eliminated hardcoded sample footwear product line (`Classic Formal Leather Shoe - Tan`, `SKU-FOOT-001`, 150 pairs @ Ã¢â€šÂ¹1,850.00).
+  - Eliminated hardcoded sample footwear product line (`Classic Formal Leather Shoe - Tan`, `SKU-FOOT-001`, 150 pairs @ â‚¹1,850.00).
   - Initialized both workspaces with truthful empty lines (`createLines = []`, `rfqLines = []`) and clear honest empty states requiring user/catalog selection.
 - **Dynamic Purchase Order Generation & Sizewise Tabs (`PoGenerateTab.tsx`, `PoSizewiseTab.tsx`)**:
   - Removed mock supplier prototype dropdown entries (`Apex Fabrics`, `Campus Activewear`, `Bata Footwear`, and `A. S. Shoes`) and synthetic fallback GSTIN `27AAAAC0553K1Z8`.
@@ -817,7 +834,7 @@ Audited and permanently eliminated unintended placeholder, mock, and hardcoded d
   - Ensured isomorphic rendering safe for SSR and automated testing environments.
 - **Supplier Scorecard & Real Transaction Evaluation (`SupplierScorecardModal.tsx`, `VendorScorecardTab.tsx`)**:
   - Eliminated static demo scorecard profiles (`Kapoor`, `Mehta`, `Sharma`) and demo toggle switches.
-  - Replaced phantom 100% Grade AAA ratings on zero-order vendors with truthful `UNRATED` / `TIER 0 Ã¢â‚¬â€ NEW VENDOR (NO ORDERS RECORDED)` status and non-fabricated `Ã¢â‚¬â€` scores.
+  - Replaced phantom 100% Grade AAA ratings on zero-order vendors with truthful `UNRATED` / `TIER 0 â€” NEW VENDOR (NO ORDERS RECORDED)` status and non-fabricated `â€”` scores.
   - Dynamically calculated on-time delivery percentages, fulfillment rates, and SLA progress bars against actual database purchase orders.
 - **Vendor Subledger & Statement of Account Integrity (`VendorPayablesTab.tsx`, `VendorStatementOfAccountModal.tsx`)**:
   - Eliminated synthetic placeholder invoice row `LEDGER-${vendor.code}` previously injected to represent unitemized ledger balances.
@@ -828,23 +845,23 @@ Audited and permanently eliminated unintended placeholder, mock, and hardcoded d
 - **Automated Procurement Integrity Suite (`src/tests/procurementDataIntegrityAndDummyElimination.test.tsx`)**:
   - Created comprehensive 8-suite automated test certified green verifying honest empty states, dynamic PO print profile resolution, truthful unrated scorecard rendering, and subledger integrity.
 
-### CRM & Customer Master Ã¢â‚¬â€ Live Portal Dummy Data Elimination & Data Integrity Audit
+### CRM & Customer Master â€” Live Portal Dummy Data Elimination & Data Integrity Audit
 
 Audited and permanently eliminated unintended placeholder, mock, and hardcoded demo fixtures from the Customer Master workspace and corporate API:
 - **Truthful Customer Metrics & Dynamic Invoice Preview (`CustomerSummaryCard.tsx`, `CustomerTaxInvoicePreview.tsx`)**:
-  - Eliminated hardcoded counts (`12` child accounts, `85` stores, Ã¢â€šÂ¹ 5,000,000 credit limit) and fallback PAN/GSTIN values.
+  - Eliminated hardcoded counts (`12` child accounts, `85` stores, â‚¹ 5,000,000 credit limit) and fallback PAN/GSTIN values.
   - Replaced hardcoded sample tax invoice `TT2026-2027/18` with dynamic API query (`/sales/invoices?customer_id=...&limit=1`) and rendered honest empty state when no invoices exist.
   - Fixed barcode mapping and calculated invoice subtotal, tax amount, and grand total strictly from numeric backend values.
 - **Dynamic Hierarchy Tree & Store Network (`CustomerHierarchyTree.tsx`, `CorporateNetworkPanel.tsx`, `StoreCodeLookupModal.tsx`)**:
   - Replaced static demo branches (`Phoenix Mall`, `Inorbit Mall`, `Amanora Mall`) with dynamic child accounts and rendered honest empty states.
   - Removed mock stores `RRL-001` through `RRL-005` fallback and eliminated `getFallbackLookupItems`.
 - **Backend Production Alignment (`backend/app/api/v1/crm.py`)**:
-  - Eliminated hardcoded `ref_stores` (2,456 stores) and mock orders (124,580 orders, Ã¢â€šÂ¹ 4.285B) in `get_corporate_customer_360`, returning authentic zero metrics and dynamic monthly invoice aggregations.
+  - Eliminated hardcoded `ref_stores` (2,456 stores) and mock orders (124,580 orders, â‚¹ 4.285B) in `get_corporate_customer_360`, returning authentic zero metrics and dynamic monthly invoice aggregations.
 - **Parent Workspace Data Hydration (`CustMasterWs.tsx`)**:
   - Hydrated delivery locations, billing locations, dependants, and multi-state GST registrations on customer selection.
   - Wired bidirectional customer account navigation from hierarchy cards and lookup modals.
 
-### Inventory & WMS Ã¢â‚¬â€ Stock Movement Validation, Authoritative Ledger Reconciliation Engine & Audit Suite
+### Inventory & WMS â€” Stock Movement Validation, Authoritative Ledger Reconciliation Engine & Audit Suite
 
 Delivered the complete physical inventory movement invariant validation, non-destructive ledger reconciliation engine, multi-channel reporting (REST, CLI, UI), and comprehensive 14-scenario automated audit test suite:
 - **Authoritative Stock Synchronizer & Ledger Fixes (`backend/app/services/stock_synchronizer.py`, `sales_ledger_svc.py`, `goods_receipt.py`)**:
@@ -866,11 +883,11 @@ Delivered the complete physical inventory movement invariant validation, non-des
   - Delivered 14 automated scenarios covering purchase receipts, sales deductions, PO non-movement, SO non-movement, returns, cancellations/reversals, warehouse transfers, idempotency/retries, variant isolation, tenant boundaries, opening adjustments, negative stock policies, cache reconciliation, and atomic rollbacks.
   - Certified with 14/14 tests green and 13/13 regression tests green (27/27 total passing).
 
-## [6.99.1] Ã¢â‚¬â€ 2026-10-20
+## [6.99.1] â€” 2026-10-20
 
-### CRM & Customer Master Ã¢â‚¬â€ Reliance Retail Limited Parent-Child Customer Hierarchy Reconciler & Dynamic Search Workspace
+### CRM & Customer Master â€” Reliance Retail Limited Parent-Child Customer Hierarchy Reconciler & Dynamic Search Workspace
 
-Delivered the complete enterprise customer hierarchy reconciliation and dynamic workspace integration for Reliance Retail Limited (RRL) across 60 store/site codes extracted from authoritative purchase orders (`5182778151`Ã¢â‚¬â€œ`5182778210`) spanning 14 Indian states and GSTINs:
+Delivered the complete enterprise customer hierarchy reconciliation and dynamic workspace integration for Reliance Retail Limited (RRL) across 60 store/site codes extracted from authoritative purchase orders (`5182778151`â€“`5182778210`) spanning 14 Indian states and GSTINs:
 - **Canonical Database Hierarchy Reconciler (`scripts/reconcile_reliance_hierarchy.py`)**:
   - Validated authoritative manifest `stores_ready_for_import.json` with 60 stores and 14 state GSTINs under parent PAN `AABCR1718E`.
   - Audited local PostgreSQL (`smriti001:2781`) achieving 100% parity across canonical tables: `customers`, `customer_relationships`, `customer_delivery_locations`, and `customer_gst_registrations`.
@@ -883,12 +900,12 @@ Delivered the complete enterprise customer hierarchy reconciliation and dynamic 
   - Implemented automatic delivery location hydration (`loadDeliveryLocations`) on customer load.
 - **Verification**: Certified with TypeScript compiler exit 0 (`tsc --noEmit`), Vite production build exit 0 (3,741 modules transformed), CI UX Field Governance guard passing (0 critical violations), and headless Playwright screenshot verification (`reliance_card5_store_search.png`, `reliance_card7_child_search.png`).
 
-## [6.99.0] Ã¢â‚¬â€ 2026-10-19
+## [6.99.0] â€” 2026-10-19
 
-### CRM & Customer Master Ã¢â‚¬â€ Enterprise Model C Architecture, Corporate Customer Merge (BD-2), Privileged Search (BD-4) & Consolidated Credit Exposure (BD-6)
+### CRM & Customer Master â€” Enterprise Model C Architecture, Corporate Customer Merge (BD-2), Privileged Search (BD-4) & Consolidated Credit Exposure (BD-6)
 
 Delivered the complete Model C enterprise customer master architecture, commercial relationship governance, transaction lifecycle safety, privileged cross-company discovery, corporate customer consolidation, and consolidated treasury monitoring across SMRITI Retail OS:
-- **Tenant-Level Customer Identity with Sovereign Commercial Terms (Model C Ã¢â‚¬â€ Phase 1 & 2)**:
+- **Tenant-Level Customer Identity with Sovereign Commercial Terms (Model C â€” Phase 1 & 2)**:
   - Authored and applied Alembic migration `v1540_customer_company_relationships.py` on PostgreSQL `smriti001` with full `BaseEntity` AST parity and `(customer_id, company_id)` composite uniqueness.
   - Backfilled 879/879 active customer commercial relationships from `customer_groups` with 0 variance.
   - Implemented application-level cross-company CustomerGroup guard in `CrmService` preventing credit/tax contamination across legal entities.
@@ -899,30 +916,30 @@ Delivered the complete Model C enterprise customer master architecture, commerci
 - **Multi-Company Repository & Compound Search Unification (Phase 3 Step 2)**:
   - Overrode `_apply_tenant_filter` in `CustomerRepository` evaluating compound Model C visibility (originating company, tenant-wide master, or active commercial relationship).
   - Pre-loaded `company_relationships` via `selectinload` across `get`, `get_all`, `search`, and `enterprise_search`, serializing directly without greenlet triggers.
-- **Corporate Customer Merge & PAN Consolidation Engine (BD-2 Ã¢â‚¬â€ Phase 3 Step 3)**:
+- **Corporate Customer Merge & PAN Consolidation Engine (BD-2 â€” Phase 3 Step 3)**:
   - Implemented `CrmService.merge_customer` enforcing strict statutory PAN parity guard (rejecting mismatched PAN merges with HTTP 400).
   - Deduplicated GST registrations, resolved delivery and billing store code collisions with deterministic suffixing, transferred external identities, and consolidated Model C terms.
   - Parameterized atomic SQL updates reassigning historical transactional ledgers across 10 operational tables without double-counting receivables.
   - Soft-retired source accounts with WORM audit logging (`compliance_immutable_audit_logs`).
   - Created `CustomerMergeModal.tsx` wired into `CustMasterWs.tsx` toolbar.
-- **Privileged Cross-Company Customer Search & Discovery (BD-4 Ã¢â‚¬â€ Phase 3 Step 4)**:
+- **Privileged Cross-Company Customer Search & Discovery (BD-4 â€” Phase 3 Step 4)**:
   - Mounted privileged endpoint `GET /api/v1/crm/enterprise/customers/search` protected by `require_cross_company_customer_access` (SYSADMIN, ADMIN, MANAGER, GROUP_CFO, CENTRAL_CREDIT_MANAGER).
   - Atomically recorded regulatory tamper-evident audit trails with SHA-256 payload digest and predecessor hash-chaining.
   - Created `EnterpriseCustomerSearchModal.tsx` with terms inspection chips and fast inline Model C relationship creation drawer (`POST /crm/customers/{id}/company-relationships`).
-- **Enterprise Consolidated Credit Exposure & Treasury Monitoring (BD-6 Ã¢â‚¬â€ Phase 4 Step 1)**:
+- **Enterprise Consolidated Credit Exposure & Treasury Monitoring (BD-6 â€” Phase 4 Step 1)**:
   - Engineered `CrmService.get_customer_credit_exposure` aggregating multi-company limits across active Model C relationships and querying latest `balance_after` from `CustomerCreditLedgerEntry`.
   - Calculated consolidated credit utilization %, evaluated 5 treasury risk tiers (`LOW`, `MODERATE`, `HIGH`, `CRITICAL`, `ON_HOLD`), and mounted `GET /crm/customers/{id}/credit-exposure`.
   - Upgraded `CorporateMasterAccountHeader.tsx` with group exposure badge and multi-company credit figures.
   - Added dedicated Consolidated Group Treasury & Credit Exposure section in `CorporateCommercialTermsPanel.tsx` with 4 KPI cards, dynamic progress bar, hold alert banner, and legal entity breakdown table.
-- **Customer 360Ã‚Â° Dashboard Workspace & Reference-Exact UI Modernization**:
-  - Refactored Customer Master and Corporate 360 into a unified, production-ready Customer 360Ã‚Â° Dashboard matching approved visual design (`media_1792485489755.jpg`, 1536Ãƒâ€”1024 resolution) with zero database migrations.
+- **Customer 360Â° Dashboard Workspace & Reference-Exact UI Modernization**:
+  - Refactored Customer Master and Corporate 360 into a unified, production-ready Customer 360Â° Dashboard matching approved visual design (`media_1792485489755.jpg`, 1536Ã—1024 resolution) with zero database migrations.
   - Implemented persistent Hero Banner (3 classification badges, 4 primary KPIs, 7-bar revenue trend sparkline), 11 horizontal navigation tabs (`overview`, `basic`, `corporate_tax`, `addresses`, `parent_child`, `stores`, `commercial`, `psv`, `sales_invoices`, `contacts_docs`, `activity_audit`), 10 operational cards, 4 right sidebar intelligence widgets, and dedicated PSV reconciliation stream.
   - Verified with 25/25 frontend Vitest tests green (`customer360DashboardView.test.tsx`, `enterpriseCustomerMasterView.test.tsx`), 25/25 backend PSV tests green (`test_psv.py`, `test_psv_invoice_reconciliation.py`, `test_psv_store_mapping.py`), TypeScript zero compiler errors (`tsc --noEmit`), and 11/11 architecture CI duplication gate checks passed.
 - **Verification**: Certified with 31/31 backend Pytest tests green across 5 suites (`test_customer_company_relationships.py`, `test_customer_lifecycle_security.py`, `test_customer_merge_bd2.py`, `test_customer_multicompany_repository.py`, `test_customer_credit_exposure_bd6.py`), 34/34 frontend Vitest tests green (`customerMasterLifecycle.test.tsx`, `corporateCustomerWorkspace.test.tsx`), 25/25 Customer 360 frontend tests green, 25/25 backend PSV tests green, TypeScript compiler exit 0 (`tsc --noEmit`), 11/11 architecture CI duplication gate checks passed, CFOC UX field governance and DTO reconciliation passed (0 violations), and clean production Vite build.
 
-## [6.96.0] Ã¢â‚¬â€ 2026-10-19
+## [6.96.0] â€” 2026-10-19
 
-### Procurement & Vendor Master Ã¢â‚¬â€ Vendor Directory, 360 Workspace & Visual Reports Dashboard Reconciliation v6.96.0
+### Procurement & Vendor Master â€” Vendor Directory, 360 Workspace & Visual Reports Dashboard Reconciliation v6.96.0
 
 Achieved 100% mathematical and architectural parity across Vendor Directory, Vendor 360 Workspace, Supplier AP Ledgers, and the Canonical Procurement Visual Reports Dashboard:
 - **Vendor Directory & Detail AP Liability Enrichment (`vendor_svc.py`)**:
@@ -936,13 +953,13 @@ Achieved 100% mathematical and architectural parity across Vendor Directory, Ven
   - Verified Top Suppliers by Spend, 4-Stage Purchase-to-Receipt pipeline, and 87 fulfillment stream events.
 - **Verification**: Certified with unit tests (`scripts/test_vendor_directory_and_aliases.py`), full 9-vendor 360 multi-section audit (`scratch/verify_all_vendors_360.py`), TypeScript type checking (`npx tsc --noEmit` 0 errors), and comprehensive WGP Walkthrough (`docs/walkthrough/procurement/Procurement_Vendor_Directory_And_Dashboard_Reconciliation_v6.96.0.md`).
 
-## [6.95.0] Ã¢â‚¬â€ 2026-10-19
+## [6.95.0] â€” 2026-10-19
 
-### Procurement & Inventory Ã¢â‚¬â€ Canonical PO & GRN Numbering Standard, Fiscal Year Partitioning, and Commercial Date Alignment v6.95.0
+### Procurement & Inventory â€” Canonical PO & GRN Numbering Standard, Fiscal Year Partitioning, and Commercial Date Alignment v6.95.0
 
 Standardized Purchase Order (PO) and Goods Receipt Note (GRN) sequential numbering and statutory commercial date alignment across backend services, schemas, and frontend workspaces:
 - **Canonical GST-Compliant Numbering Engine (`PurchaseService`)**:
-  - Implemented dynamic Indian Statutory Financial Year resolution (`get_financial_year(target_date)`) calculating fiscal boundary spanning April 1 to March 31 (e.g. `26-27` for FY 2026Ã¢â‚¬â€œ2027).
+  - Implemented dynamic Indian Statutory Financial Year resolution (`get_financial_year(target_date)`) calculating fiscal boundary spanning April 1 to March 31 (e.g. `26-27` for FY 2026â€“2027).
   - Standardized PO numbering to `PO/{FY}/{seq:04d}` (e.g. `PO/26-27/0001`) and GRN numbering to `GRN/{FY}/{seq:04d}` (e.g. `GRN/26-27/0001`), conforming strictly to Indian GST Rule 46(b) (max 16 characters, consecutive alphanumeric with slashes).
   - Added auto-sequencing endpoints `GET /api/v1/purchase/orders/next-number` and `GET /api/v1/purchase/receipts/next-number` with dynamic next-number lookups.
 - **Statutory Commercial Date Alignment**:
@@ -954,13 +971,13 @@ Standardized Purchase Order (PO) and Goods Receipt Note (GRN) sequential numberi
   - Initialized default PO and GRN inputs to `PO/{fy}/0001` and `GRN/{fy}/0001` respectively, dynamically fetching sequential numbers from the backend API.
   - Hardened document receipt display table to show authentic vendor bill dates and invoice references instead of placeholder system creation timestamps.
 - **Historical Remediation & Atomic SQL Migration**:
-  - Prepared atomic SQL migration script (`scripts/migrate_canonical_po_grn_numbers.sql`) mapping all 28 commercial purchase bills from `ALL VENDOR PURCHASE FOR SOFTWARE.xlsx` on instance `https://tattlythreads.smritisys.com` to `PO/26-27/0001`Ã¢â‚¬â€œ`0028` and `GRN/26-27/0001`Ã¢â‚¬â€œ`0028`.
+  - Prepared atomic SQL migration script (`scripts/migrate_canonical_po_grn_numbers.sql`) mapping all 28 commercial purchase bills from `ALL VENDOR PURCHASE FOR SOFTWARE.xlsx` on instance `https://tattlythreads.smritisys.com` to `PO/26-27/0001`â€“`0028` and `GRN/26-27/0001`â€“`0028`.
   - Synchronized live notes for all 28 GRN records with vendor invoice references and dates.
 - **Verification**: Certified with unit tests (`scripts/test_purchase_numbering.py`), TypeScript type checking (`npx tsc --noEmit` 0 errors), and comprehensive WGP Walkthrough (`docs/walkthrough/procurement/PO_And_GRN_Canonical_Numbering_And_Date_Alignment_v6.95.0.md`).
 
-## [6.92.3] Ã¢â‚¬â€ 2026-10-19
+## [6.92.3] â€” 2026-10-19
 
-### Catalog & Item Master Ã¢â‚¬â€ Full Item Master Harmonization, Export Attribute Flattening & DB Studio Verification v6.92.3
+### Catalog & Item Master â€” Full Item Master Harmonization, Export Attribute Flattening & DB Studio Verification v6.92.3
 
 Resolved client catalog discrepancies, eliminated export column duplication, and verified live multi-tenant database parity:
 - **Client Master Remediation (`FullItemmaster.xlsx`)**: Populated 100% of yellow-highlighted missing attributes across all 1,284 products and cleared all highlight styling, reducing blank count from thousands to exactly 0 across all 32 canonical columns.
@@ -971,9 +988,9 @@ Resolved client catalog discrepancies, eliminated export column duplication, and
 - **Database Manager & Studio SQL Verification**: Executed live read-only SQL queries (`POST /api/v1/database-manager/query`) across all 1,284 live records, confirming 0 missing values across all governed fields (`code`, `barcode`, `name`, `brand`, `category`, `mrp`, `cost_price`, `gst`, `hsn`, `vendor_code`, `department`, `sub_category`, `heel_type`, `upper_material`, `outsole_material`, `purchase_class`, `image_link`, `gender`, `merchandise_category`) and 100% parity with `FullItemmaster.xlsx`.
 - **Automated Verification**: Certified with `npx tsc --noEmit` (0 errors), `npm run build` (vite v5.4.21 exit code 0), and parity audit scripts (`compare_excel_to_remote.py` 0/1284 differences).
 
-## [6.99.0] Ã¢â‚¬â€ 2026-10-18
+## [6.99.0] â€” 2026-10-18
 
-### CRM & Enterprise Cockpit Ã¢â‚¬â€ Corporate Customer 360 Store Network & Typed Address Mapping v1.0.0
+### CRM & Enterprise Cockpit â€” Corporate Customer 360 Store Network & Typed Address Mapping v1.0.0
 
 Designed, implemented, hardened, and verified the enterprise **Corporate Customer 360 Dashboard, Multi-Store Network, and Typed Multi-Address Mapping Subsystem** within SMRITI Retail OS:
 - **1-to-Many Store Code Mapping**: Enabled corporate legal accounts to aggregate hundreds of distributed physical retail locations (`CustomerDeliveryLocation`) with individual address cards, store types, city/state attributes, and Party Stock Visibility (PSV).
@@ -982,11 +999,11 @@ Designed, implemented, hardened, and verified the enterprise **Corporate Custome
   - PostgreSQL transaction-level advisory locks (`SELECT pg_advisory_xact_lock(hashtext(:k))`) across database connections, eliminating race conditions on previously unassigned store codes where no database row exists to lock.
   - Row-level pessimistic locking (`with_for_update=True`) across existing delivery locations and address arrays during updates and deactivations.
 - **Typed Multi-Address Management**: Supported multiple addresses (`Delivery`, `Billing`, `Warehouse`, `Registered`, `Shipping`, `Other`) per Store Code with single active primary enforcement per address type, versioned within `CustomerDeliveryLocation.metadata_json` with zero database migrations.
-- **Truthful PSV Valuation & Stock Status**: Eradicated synthetic/mock PSV formula; missing or unconfigured hardware/telemetry feeds are strictly flagged as `psv_status="Not Reporting"`, `psv_value_display="Ã¢â‚¬â€ (Awaiting Sync)"`, and increment `not_reporting_stores` counter, preventing misleading zero-stock assumptions.
+- **Truthful PSV Valuation & Stock Status**: Eradicated synthetic/mock PSV formula; missing or unconfigured hardware/telemetry feeds are strictly flagged as `psv_status="Not Reporting"`, `psv_value_display="â€” (Awaiting Sync)"`, and increment `not_reporting_stores` counter, preventing misleading zero-stock assumptions.
 - **Searchable Master Lookup Modal**: Built `StoreCodeLookupModal.tsx` showing tenant-wide store codes with claimed codes visible but disabled, providing clear ownership context and tooltips.
 - **Automated Verification**: Certified with 16/16 backend tests green in `backend/app/tests/test_corporate_customer_360.py` (including concurrency, advisory locks, soft-deactivation history, tenant isolation, and address update conflict tests), 11/11 frontend Vitest tests green in `src/tests/corporateCustomer360.test.tsx`, 11/11 launchpad tests green, 0 `tsc --noEmit` errors, and 0 `git diff --check` errors.
 
-### Print & Compliance Ã¢â‚¬â€ Company Identity Printing Safety Remediation v6.92.0
+### Print & Compliance â€” Company Identity Printing Safety Remediation v6.92.0
 
 Remediated the Document & Printing Safety gate across all PDF engines, barcode services, dispatch pipelines, API route handlers, and frontend print templates:
 - **Eradication of Hardcoded Identity Fallbacks**: Completely eliminated static production fallbacks ("Tattly Threads", GSTIN "27AAXFT2508H1ZR", hardcoded SBI bank accounts `43976711765`, `SBIN0030425`, emails, websites, and logos) from `invoice_pdf_service.py`, `sales_order_pdf_service.py`, `barcode.py`, `printer_service.py`, `dispatch_invoicing_engine.py`, `dispatch_artifact_pipeline.py`, `dispatch_import.py`, `StandardInvoiceA4.tsx`, `PurchaseOrderPrintA4.tsx`, `FootwearPurchaseOrderA4.tsx`, `ThermalReceipt80mm.tsx`, `SizePivotMatrixA4.tsx`, `TaxInvoiceA4.tsx`, `POPrintPreviewModal.tsx`, and `TaxInvoicePrintPag.tsx`. Purged massive 80KB hardcoded base64 PNG fallback from `TaxInvoiceA4.tsx`.
@@ -1005,7 +1022,7 @@ Designed, implemented, and verified the enterprise **SMRITI Company Profile & Co
 - **Enterprise 7-Tab Studio GUI (`CompanyProfileStudio.tsx`)**: Built rich-aesthetic studio with Corporate Identity, Address & Branches, Tax & Statutory, Banking Coordinates, Branding & Documents, Regional & Localization, and Change History tabs, registered in `TabRenderer.tsx`, `layout_store.tsx`, and `launchpadCatalog.ts`.
 - **Automated Verification**: 10/10 Pytest tests green (`test_company_profile_api.py`, `test_seller_resolver.py`), 34/34 Vitest tests green (`companyProfileStudio.test.tsx`, `fioriLaunchpad.test.ts`, `poPrintBrandingAndTerms.test.tsx`, `distTaxInvoiceStitchFlow.test.ts`), and 0 `tsc --noEmit` errors.
 
-### Reports & Visual Analytics Ã¢â‚¬â€ Visual Reports Dashboard Aggregation & Schema Alignment Fix v1.0.0
+### Reports & Visual Analytics â€” Visual Reports Dashboard Aggregation & Schema Alignment Fix v1.0.0
 
 Diagnosed and permanently resolved HTTP 500 (`Internal Server Error`) on `GET /api/v1/reports/visual-dashboard/summary`:
 - **SQLAlchemy 2.0 Cast Invariants**: Replaced invalid SQLAlchemy type generator `func.cast(StockMovement.created_at, func.Date)` with canonical `cast(StockMovement.created_at, Date)` from `sqlalchemy import cast, Date`.
@@ -1013,7 +1030,7 @@ Diagnosed and permanently resolved HTTP 500 (`Internal Server Error`) on `GET /a
 - **Primary Key Safety**: Explicitly generated unique primary key (`id=f"dsh_{uuid.uuid4().hex[:12]}"`) on newly created `Dashboard` entities during preference persistence in `save_config`.
 - **Automated Verification**: Created comprehensive test suite `backend/app/tests/test_visual_reports_dashboard.py` (2/2 tests green); verified 5/5 tests green in `test_item_variant_hard_delete.py` (7/7 combined suite green); passed all 11 architecture duplication checks and tenant boundary guards with 0 violations.
 
-### Item Master & Inventory Ã¢â‚¬â€ Untransacted SKU & Barcode Guarded Hard Delete Engine v1.0.0
+### Item Master & Inventory â€” Untransacted SKU & Barcode Guarded Hard Delete Engine v1.0.0
 
 Implemented and certified the guarded permanent physical hard delete, identity modification, and 1-click lifecycle deactivation engine for Item Master items, variants, and barcodes:
 - **11-Ledger Zero-Transaction Verification (`item_domain_svc.py`)**: Cross-checks 11 financial, procurement, inventory, and tracking ledgers (`SalesInvoiceItem`, `SalesOrderItem`, `SalesReturnItem`, `PurchaseReceiptItem`, `PurchaseOrderItem`, `PurchaseBillItem`, `StockMovement`, `StockTransferItem`, `StockAuditItem`, `Product.stock`, `ItemBatch`, `ItemSerial`) to ensure hard deletion is restricted strictly to 100% un-transacted mistakes.
@@ -1023,7 +1040,7 @@ Implemented and certified the guarded permanent physical hard delete, identity m
 - **Item Master UI Modernization (`VariantEditModal.tsx`)**: Integrates dynamic pre-flight deletion status queries, visual lock indicators with tooltips, deactivation toggle, and confirmation modals displaying itemized blocking reasons.
 - **Automated Verification**: Certified with 5/5 green tests in `backend/app/tests/test_item_variant_hard_delete.py`, 0 architecture duplication violations, and 0 tenant boundary violations.
 
-### Foundation & Architecture Ã¢â‚¬â€ Unified SMRITI CLI Engine Architecture v1.0.0
+### Foundation & Architecture â€” Unified SMRITI CLI Engine Architecture v1.0.0
 
 Designed, implemented, and verified the Unified SMRITI CLI Engine (`smriti` / `python -m backend.app.cli` / `npm run smriti`), consolidating operational administrative tools, multi-tenant fleet migrations, control plane isolation guards, service health diagnostics, version SSOT validations, CI governance checks, and workforce attendance automation into an auditable, cross-platform CLI dispatcher:
 - **Canonical Execution Dispatcher (`backend/app/cli/`)**: Created `argparse` hierarchy with root `--version`, `--help`, and subcommands:
@@ -1039,7 +1056,7 @@ Designed, implemented, and verified the Unified SMRITI CLI Engine (`smriti` / `p
 - **NPM Package Script Registration**: Added `"smriti": "python -m backend.app.cli"` into `package.json`.
 - **Automated Verification**: 16/16 tests green in `backend/tests/test_smriti_cli.py`.
 
-### Security & Governance Ã¢â‚¬â€ Tenant Data Boundary (TDB-v2.0) Guard Remediation v1.0.0
+### Security & Governance â€” Tenant Data Boundary (TDB-v2.0) Guard Remediation v1.0.0
 
 Remediated all 22 tenant data boundary violations detected by `scripts/ci_tenant_boundary_guard.py` and `backend/app/db/cp_guard.py`, enforcing positive table ownership declarations and physical control plane isolation:
 - **Tenant Seeding Loop Remediation (`scripts/seed_uom.py`)**: Removed `smritisys` from target database iteration, restricting UOM master seeding exclusively to tenant company databases (`smriti001`, `smriti002`, `smriti003`). Added UADHP standard file header.
@@ -1048,7 +1065,7 @@ Remediated all 22 tenant data boundary violations detected by `scripts/ci_tenant
   - 1 Platform template table declared as `TableOwner.PLATFORM_TEMPLATE`: `kpi_definitions`.
 - **Verification**: Certified with 10/10 checks green in `scripts/ci_tenant_boundary_guard.py`, 0 undeclared tables in `backend/app/db/cp_guard.py`, 0 critical/error violations in `scripts/ci_ux_field_governance_guard.py`, and 11/11 architecture CI gate checks passed.
 
-### Procurement & Visual Analytics Ã¢â‚¬â€ Universal Attribute-Based Visual Analytics v1.0.0
+### Procurement & Visual Analytics â€” Universal Attribute-Based Visual Analytics v1.0.0
 
 Implemented the approved visual reference for Procurement Visual Reports establishing business attributes (**Article / Style**, **Color**, **Size**, Category, Brand, Season, Supplier) as primary reporting dimensions rather than raw barcodes, while providing a configurable dashboard panel with 8 chart types, multidimensional grouping, measure selection, time grouping, top-N ranking, and 100% authoritative database reconciliation:
 
@@ -1065,9 +1082,9 @@ Implemented the approved visual reference for Procurement Visual Reports establi
 - **Zero Mock Fallbacks**: 100% of data is derived from live PostgreSQL ledgers (`PurchaseOrder`, `PurchaseReceipt`, `PurchaseBill`, `Supplier`, `Product`, `StockMovement`), handling loading skeletons, error retry banners, and empty states gracefully.
 - **Automated Verification**: Vitest 10/10 tests green, Pytest 4/4 tests green, `tsc --noEmit` exit code 0, 55/55 launchpad tiles verified, 98/98 form components verified, 11/11 architecture checks passed, and clean production Vite build.
 
-## [6.98.0] Ã¢â‚¬â€ 2026-10-17
+## [6.98.0] â€” 2026-10-17
 
-### Foundation & Governance Ã¢â‚¬â€ Global Actual-Data Enforcement Across SMRITI Retail OS v1.0.0
+### Foundation & Governance â€” Global Actual-Data Enforcement Across SMRITI Retail OS v1.0.0
 
 Enforced mandatory actual persisted business data from authoritative PostgreSQL ledgers across all production screens, eliminating all silent mock-data fallbacks, synthetic variants, and manufactured gateway credentials:
 
@@ -1088,18 +1105,18 @@ Enforced mandatory actual persisted business data from authoritative PostgreSQL 
   - Eliminated auto-fallback to demo suppliers when database has 0 records; displays truthful empty state with explicit opt-in for benchmark simulation.
 - **Automated Verification**: Vitest 69/69 tests green, Pytest 2/2 tests green, `tsc --noEmit` clean (0 errors), `npm run validate-registry` clean (98/98 components), 55 launchpad tiles verified, 11/11 architecture checks passed, and clean production Vite build.
 
-## [6.97.0] Ã¢â‚¬â€ 2026-10-17
+## [6.97.0] â€” 2026-10-17
 
-### Procurement & Visual Analytics Ã¢â‚¬â€ Procurement Visual Reports Actual Database Derivation & Zero Mock Data Policy v1.1.0
+### Procurement & Visual Analytics â€” Procurement Visual Reports Actual Database Derivation & Zero Mock Data Policy v1.1.0
 
 Permanently removed all dummy, placeholder, mock, and hardcoded values from Procurement Visual Reports and derived every dashboard metric directly from PostgreSQL database tables:
 
 **Key Capabilities & Architectural Enforcements:**
 - **Authoritative Database Source**: Derived 100% of telemetry from real PostgreSQL records across `PurchaseOrder`, `PurchaseReceipt`, `PurchaseBill`, `Supplier`, `Product`, and `StockMovement`.
 - **Verified COMP-001 Reconciliation**:
-  - Purchase Orders: 28 statutory purchase orders totaling Ã¢â€šÂ¹ 9,888,228.00 and 23,064 pairs.
+  - Purchase Orders: 28 statutory purchase orders totaling â‚¹ 9,888,228.00 and 23,064 pairs.
   - Inward Receipts: 28 Goods Receipt Notes (`GRN-D-522`, etc.) totaling 23,064 received pairs (100% fulfillment ratio).
-  - Commercial Bills & Outstandings: 28 commercial purchase bills totaling Ã¢â€šÂ¹ 9,888,228.00 unpaid supplier liability.
+  - Commercial Bills & Outstandings: 28 commercial purchase bills totaling â‚¹ 9,888,228.00 unpaid supplier liability.
   - Top Footwear Suppliers: 9 real vendors (`AS FOOTWEAR`, `AK FOOTWEAR`, `LAJOS FOOTWEAR`, `MK FOOTWEAR`, `SA FOOTWEAR`, `SB FOOTWEAR`, `LUCKY FOOTWEAR`, `ALIYA FOOTWEAR`, `CRYSTAL SHOES`).
   - Active Procurement Stream: 84 real persisted documents (28 POs, 28 GRNs, 28 Bills).
 - **Zero Mock / Placeholder Policy**: Eliminated all fabricated names (`Metro Footwear`, `Bharat Traders`), placeholder SKUs (`SHOE-41`), hardcoded counts (`36 POs`, `86 stream items`, `42.8 Lakh spend`), and fake monthly bars.
@@ -1111,9 +1128,9 @@ Permanently removed all dummy, placeholder, mock, and hardcoded values from Proc
 - **Preserved Dashboard Configuration**: Preserved right-side drawer for widget visibility toggles, chart type selections (line/area/bar), layout density modes, and theme selections with PostgreSQL and `localStorage` synchronization.
 - **Automated Verification**: Pytest 2/2 tests green, Vitest 6/6 tests green, `tsc --noEmit` clean (0 errors), and Vite production build clean.
 
-## [6.96.0] Ã¢â‚¬â€ 2026-10-17
+## [6.96.0] â€” 2026-10-17
 
-### Sales & Billing Ã¢â‚¬â€ SMRITI Billing Studio Preloaded SKU Root-Cause Fix & Fresh Session Governance v1.0.0
+### Sales & Billing â€” SMRITI Billing Studio Preloaded SKU Root-Cause Fix & Fresh Session Governance v1.0.0
 
 Investigated and permanently eliminated the root cause of six preloaded products silently appearing in the Counter POS cart upon opening Billing Studio without cashier scan or selection:
 
@@ -1125,11 +1142,11 @@ Investigated and permanently eliminated the root cause of six preloaded products
 - **Informative Empty-Cart View:** Replaced empty/blank cart table space with a clean, branded empty-state view featuring quick action shortcut buttons (`Start Scanning (F1)`, `Search Items (F2)`) and an explicit `Load Sample Items` button, allowing users to deliberately populate sample products for demonstration or visual layout testing without silent auto-population.
 - **Workflow Isolation Across Modes:** Bound distinct React keys (`counter-pos-studio`, `credit-billing-studio`, `b2b-distributor-studio`) in `BillingWorkspace.tsx`, enforcing clean lifecycle isolation and completely preventing cross-mode state leakage when switching between Counter POS, Credit Billing, and B2B Wholesale.
 - **Preserved Legitimate Workflows:** Preserved explicit F12 Park & Recall draft persistence and restoration, Sales Order / Packing Slip conversions (`PS-` barcode scanning and modal transfer), customer searches, GST computations, and payment settlement.
-- **Comprehensive Verification:** Added 8 automated test scenarios (Tests 27Ã¢â‚¬â€œ34) in `src/tests/smritiBillingStudio.test.ts`. All 34/34 tests passing green.
+- **Comprehensive Verification:** Added 8 automated test scenarios (Tests 27â€“34) in `src/tests/smritiBillingStudio.test.ts`. All 34/34 tests passing green.
 
-## [6.95.0] Ã¢â‚¬â€ 2026-10-17
+## [6.95.0] â€” 2026-10-17
 
-### Procurement & Visual Analytics Ã¢â‚¬â€ SMRITI Retail OS Procurement Visual Reports Implementation v1.0.0
+### Procurement & Visual Analytics â€” SMRITI Retail OS Procurement Visual Reports Implementation v1.0.0
 
 Recreated the approved visual reports dashboard for procurement, spend trends, order approvals, goods receipts, and supplier outstandings with full visual and behavioral parity:
 
@@ -1137,15 +1154,15 @@ Recreated the approved visual reports dashboard for procurement, spend trends, o
 - **Visual Design Parity:** Implemented the approved desktop layout with dark-navy header (`#0d1e3a`), global breadcrumb (`Procurement > Visual Reports`), global search bar with keyboard shortcut `/` badge, notification counter (5), help circle, user profile badge (`JR`, Jawahar / Company Admin), and toggleable right-side configuration drawer.
 - **Global Filter Strip:** Features Company selector (`SMRITI FOOTWEAR PVT LTD`), Store/Location (`All Locations`), Date range button (`01 Apr 2025 - 30 Apr 2025`), quick filter pills (`Today`, `Last 7 Days`, `MTD`, `Custom`), `Filters: 3 applied`, `Clear All`, and `Customize Dashboard` action button.
 - **Horizontal KPI Cards (6 Metrics):**
-  - `Purchase Orders`: 36 (Open: 18 | Closed: 18, Ã¢â€“Â² 12% vs prev. period).
-  - `Purchase Spend`: Ã¢â€šÂ¹ 42,80,000 (MTD, Ã¢â€“Â² 18% vs prev. period).
-  - `Pending Approvals`: 6 (Value: Ã¢â€šÂ¹ 6,20,000, Ã¢â€“Â² 50% vs prev. period).
-  - `Pending Receipts`: 12 (Qty: 2,480 pairs, Ã¢â€“Â² 20% vs prev. period).
+  - `Purchase Orders`: 36 (Open: 18 | Closed: 18, â–² 12% vs prev. period).
+  - `Purchase Spend`: â‚¹ 42,80,000 (MTD, â–² 18% vs prev. period).
+  - `Pending Approvals`: 6 (Value: â‚¹ 6,20,000, â–² 50% vs prev. period).
+  - `Pending Receipts`: 12 (Qty: 2,480 pairs, â–² 20% vs prev. period).
   - `Received vs Ordered`: 78% (Progress bar: 3,120 / 4,000 pairs).
-  - `Supplier Outstanding`: Ã¢â€šÂ¹ 18,50,000 (Suppliers: 9, Ã¢â€“Â¼ 8% vs prev. period).
+  - `Supplier Outstanding`: â‚¹ 18,50,000 (Suppliers: 9, â–¼ 8% vs prev. period).
 - **Primary Analytics Row:**
-  - `Purchase Spend Trend`: Responsive multi-series Recharts chart supporting Line Chart, Area Chart, and Bar Chart with Value (Ã¢â€šÂ¹) vs Quantity view toggle and Monthly/Weekly/Daily period selector. Multi-axis layout: Ã¢â€šÂ¹ Lakh on left (0-50) and PO Count bars on right (22, 28, 26, 36, 32, 30).
-  - `Purchase-to-Receipt Progress`: 4-stage connected pipeline tracker (`Purchase Orders 36 (100%)` Ã¢â€ â€™ `Approved 30 (83%)` Ã¢â€ â€™ `Goods Receipts 28 (78%)` Ã¢â€ â€™ `Supplier Invoices 24 (67%)`) with circular icons, percentage ratios, progress bars, and detail link.
+  - `Purchase Spend Trend`: Responsive multi-series Recharts chart supporting Line Chart, Area Chart, and Bar Chart with Value (â‚¹) vs Quantity view toggle and Monthly/Weekly/Daily period selector. Multi-axis layout: â‚¹ Lakh on left (0-50) and PO Count bars on right (22, 28, 26, 36, 32, 30).
+  - `Purchase-to-Receipt Progress`: 4-stage connected pipeline tracker (`Purchase Orders 36 (100%)` â†’ `Approved 30 (83%)` â†’ `Goods Receipts 28 (78%)` â†’ `Supplier Invoices 24 (67%)`) with circular icons, percentage ratios, progress bars, and detail link.
 - **Secondary Analytics Rows (5 Visual Widgets):**
   - `Top Suppliers by Spend (MTD)`: Ranked supplier list with horizontal colored bars and formatted INR values.
   - `Purchase Order Status`: Donut chart with centered total count (`36 / Purchase Orders`) and color-coded status legend (Draft, Pending Approval, Approved, Partially Received, Closed).
@@ -1158,9 +1175,9 @@ Recreated the approved visual reports dashboard for procurement, spend trends, o
 - **Backend Service & REST Endpoints:** Mounted `/api/v1/reports/procurement-dashboard/summary` and `/api/v1/reports/procurement-dashboard/config` backed by `ProcurementVisualReportsService` in `backend/app/services/procurement_visual_reports_service.py`.
 - **Automated Verification:** 5/5 Vitest tests green (`procurementVisualReports.test.ts`), 0 `tsc --noEmit` errors, 98/98 form components verified (`validate-registry`), 55/55 launchpad tiles verified, 11/11 architecture duplication checks passed, clean Vite production build, and 0 backend schema migrations under Preflight Certificates `PF-2026-1017-2B7255`, `PF-2026-1017-E4F73C`, `PF-2026-1017-30628F`.
 
-## [6.94.0] Ã¢â‚¬â€ 2026-10-17
+## [6.94.0] â€” 2026-10-17
 
-### Reports & Visual Analytics Ã¢â‚¬â€ SMRITI Retail OS Visual Reports Dashboard Implementation v1.0.0
+### Reports & Visual Analytics â€” SMRITI Retail OS Visual Reports Dashboard Implementation v1.0.0
 
 Recreated the approved visual reports dashboard for inventory, orders, packing, dispatch, and billing telemetry with full visual and behavioral parity:
 
@@ -1168,15 +1185,15 @@ Recreated the approved visual reports dashboard for inventory, orders, packing, 
 - **Visual Design Parity:** Implemented the approved desktop layout with dark-navy header (`#0d1e3a`), global breadcrumb (`Inventory, Orders, Packing, Dispatch & Billing > Visual Reports`), global search bar with `/` badge, notification counter, and toggleable right-side configuration drawer.
 - **Global Filter Strip:** Features Company selector (`SMRITI FOOTWEAR PVT LTD`), Store/Location (`All Locations`), Date range button (`01 Apr 2025 - 30 Apr 2025`), quick filter pills (`Today`, `Last 7 Days`, `MTD`, `Custom`), `Filters: 3 applied`, and `Clear All`.
 - **Horizontal KPI Cards (6 Metrics):**
-  - `On-Hand Stock`: 12,580 pairs (Ã¢â€“Â² 2.3% vs prev. period).
-  - `Reserved Stock`: 3,240 pairs (Ã¢â€“Â¼ 8.1% vs prev. period).
-  - `Available Stock`: 9,240 pairs (Ã¢â€“Â² 1.5% vs prev. period, mathematically reconciled against On-Hand - Reserved).
-  - `Sales Orders`: 48 (Open: 26 | Closed: 4, Ã¢â€“Â² 12% vs prev. period).
-  - `Packing Slips`: 62 (Pending: 18 | Packed: 32, Ã¢â€“Â² 7% vs prev. period).
-  - `Dispatches`: 28 (Today: 6 | This Week: 18, Ã¢â€“Â² 5% vs prev. period).
+  - `On-Hand Stock`: 12,580 pairs (â–² 2.3% vs prev. period).
+  - `Reserved Stock`: 3,240 pairs (â–¼ 8.1% vs prev. period).
+  - `Available Stock`: 9,240 pairs (â–² 1.5% vs prev. period, mathematically reconciled against On-Hand - Reserved).
+  - `Sales Orders`: 48 (Open: 26 | Closed: 4, â–² 12% vs prev. period).
+  - `Packing Slips`: 62 (Pending: 18 | Packed: 32, â–² 7% vs prev. period).
+  - `Dispatches`: 28 (Today: 6 | This Week: 18, â–² 5% vs prev. period).
 - **Primary Analytics Row:**
   - `Stock Flow (Last 14 Days)`: Responsive multi-series Recharts chart supporting Line Chart, Area Chart, and Bar Chart with Quantity vs Value view toggle.
-  - `Order to Invoice Progress`: 4-stage pipeline tracker (`Sales Orders 48 (100%)` Ã¢â€ â€™ `Packing Slips 62 (129%)` Ã¢â€ â€™ `Dispatched 28 (58%)` Ã¢â€ â€™ `Invoices 24 (50%)`) with stage icons, progress bars, and detail links.
+  - `Order to Invoice Progress`: 4-stage pipeline tracker (`Sales Orders 48 (100%)` â†’ `Packing Slips 62 (129%)` â†’ `Dispatched 28 (58%)` â†’ `Invoices 24 (50%)`) with stage icons, progress bars, and detail links.
 - **Secondary Analytics Row (4 Visual Widgets):**
   - `Stock Position by Category`: Category stock breakdown with inline reservation percentage progress bars.
   - `Top 10 SKUs by Reserved Quantity`: Ranked list with SKU badges, names, on-hand, reserved, and reservation percentage bars.
@@ -1188,11 +1205,11 @@ Recreated the approved visual reports dashboard for inventory, orders, packing, 
 - **Backend Service & REST Endpoints:** Mounted `/api/v1/reports/visual-dashboard/summary` and `/api/v1/reports/visual-dashboard/config` backed by `VisualReportsService` in `backend/app/services/visual_reports_service.py`.
 - **Automated Verification:** 5/5 Vitest tests green (`visualReportsDashboard.test.ts`), 0 `tsc --noEmit` errors, 98/98 form components verified (`validate-registry`), 54/54 launchpad tiles verified, 11/11 architecture duplication checks passed, clean Vite production build, and 0 backend schema migrations under Preflight Certificates `PF-2026-1017-088833`, `PF-2026-1017-C06D7F`, `PF-2026-1017-32429E`.
 
-## [6.93.0] Ã¢â‚¬â€ 2026-10-17
+## [6.93.0] â€” 2026-10-17
 
-### Sales & Billing Ã¢â‚¬â€ B2B Packing-First Consolidated Billing & Approved UX Integration v1.0.0
+### Sales & Billing â€” B2B Packing-First Consolidated Billing & Approved UX Integration v1.0.0
 
-Integrated a configurable B2B Packing-First Ã¢â€ â€™ Consolidated Billing workflow into the canonical **SMRITI Billing Studio** (`SmritiBillingStudio.tsx`) and unified workspace (`BillingWorkspace.tsx`) while strictly preserving the approved frozen UX visual specification:
+Integrated a configurable B2B Packing-First â†’ Consolidated Billing workflow into the canonical **SMRITI Billing Studio** (`SmritiBillingStudio.tsx`) and unified workspace (`BillingWorkspace.tsx`) while strictly preserving the approved frozen UX visual specification:
 
 **Key Capabilities & Architectural Enforcements:**
 - **Approved UX Layout Preservation:** The cashier interface maintains the exact 2-column upper layout, compact customer card, 13-column read-only cart grid, right-side Bill Summary & Payment panels, and bottom single-line scanner bar.
@@ -1211,25 +1228,25 @@ Integrated a configurable B2B Packing-First Ã¢â€ â€™ Consolidated Bil
 - **Zero Schema Migrations:** Reused existing `PackingSlip` (`sales_invoice_id = "UNBILLED"`) and `SalesInvoice` models in PostgreSQL without requiring alembic schema alterations.
 - **Automated Verification:** 16/16 Vitest tests green in `src/tests/b2bPackingConsolidatedBilling.test.ts`, 26/26 tests green in `src/tests/smritiBillingStudio.test.ts`, 98/98 form components passed in `npm run validate-registry`, 0 errors in `tsc --noEmit`, and clean production Vite build (`npm run build`).
 
-## [6.92.0] Ã¢â‚¬â€ 2026-10-17
+## [6.92.0] â€” 2026-10-17
 
-### Sales & Billing Ã¢â‚¬â€ SMRITI Billing Studio Approved UX Freeze & Exact Integration v1.0.0
+### Sales & Billing â€” SMRITI Billing Studio Approved UX Freeze & Exact Integration v1.0.0
 
 Integrated the approved, frozen SMRITI Billing Studio UX visual specification into the canonical **SMRITI Billing Studio** (`SmritiBillingStudio.tsx`) and unified workspace (`BillingWorkspace.tsx`) preserving all existing billing, GST, accounting, inventory, and security contracts:
 
 **Key Capabilities & Visual Alignment:**
 - **Two-Column Upper Layout:** Clean light theme with left-hand compact Customer card (search, customer details, green GST badge, outlet dropdown, New Customer, and Change buttons) and full-width read-only Items in Cart grid (13 columns).
-- **13-Column Read-Only Cart Grid:** Columns include Index `#`, Product Name with category-specific inline vector SVG thumbnails (`ChappalThumbnail`, `SneakerThumbnail`, `RunningShoeThumbnail`, `PoloThumbnail`, `JeansThumbnail`, `HeelsThumbnail`), `Barcode Ã¢â€“Â½`, `Style Ã¢â€“Â½`, `Color Ã¢â€“Â½` with color dot, `Size`, `Qty`, `Rate (Ã¢â€šÂ¹)`, `Disc %`, `Disc Amt (Ã¢â€šÂ¹)`, `Tax %`, `Amount (Ã¢â€šÂ¹)`, and `Salesperson`.
+- **13-Column Read-Only Cart Grid:** Columns include Index `#`, Product Name with category-specific inline vector SVG thumbnails (`ChappalThumbnail`, `SneakerThumbnail`, `RunningShoeThumbnail`, `PoloThumbnail`, `JeansThumbnail`, `HeelsThumbnail`), `Barcode â–½`, `Style â–½`, `Color â–½` with color dot, `Size`, `Qty`, `Rate (â‚¹)`, `Disc %`, `Disc Amt (â‚¹)`, `Tax %`, `Amount (â‚¹)`, and `Salesperson`.
 - **Right Column Cards:**
-  - **Bill Summary:** Displays Items (6) gross total (`Ã¢â€šÂ¹ 16,305.25`), Item Discount (`- Ã¢â€šÂ¹ 744.65`), Bill Discount with pencil edit button (`- Ã¢â€šÂ¹ 50.00`), Subtotal (`Ã¢â€šÂ¹ 15,560.60`), GST 5% (`Ã¢â€šÂ¹ 775.53`), and prominent dark-navy Payable Amount container (`Ã¢â€šÂ¹ 16,286.13`).
-  - **Payment Method & Settlement:** 4-column tender buttons (Cash active in dark navy, UPI, Card, Credit), Received amount input (`16286.13`) with clear button, Change Due box (`Ã¢â€šÂ¹ 0.00`), Save & Print (`F7`), and Settle & Save (`F8`).
-- **Bottom-Anchored Single-Line Scanner Bar:** Scanner input with F1 badge -> Qty stepper (`-` / `qty` / `+`) -> Rate (Ã¢â€šÂ¹) -> Disc % -> Disc Amt (Ã¢â€šÂ¹) -> Salesperson selector -> Add to Cart primary button.
+  - **Bill Summary:** Displays Items (6) gross total (`â‚¹ 16,305.25`), Item Discount (`- â‚¹ 744.65`), Bill Discount with pencil edit button (`- â‚¹ 50.00`), Subtotal (`â‚¹ 15,560.60`), GST 5% (`â‚¹ 775.53`), and prominent dark-navy Payable Amount container (`â‚¹ 16,286.13`).
+  - **Payment Method & Settlement:** 4-column tender buttons (Cash active in dark navy, UPI, Card, Credit), Received amount input (`16286.13`) with clear button, Change Due box (`â‚¹ 0.00`), Save & Print (`F7`), and Settle & Save (`F8`).
+- **Bottom-Anchored Single-Line Scanner Bar:** Scanner input with F1 badge -> Qty stepper (`-` / `qty` / `+`) -> Rate (â‚¹) -> Disc % -> Disc Amt (â‚¹) -> Salesperson selector -> Add to Cart primary button.
 - **Form Registry Compliance:** Added `data-field-key="barcode"` and `data-field-key="qty"` to `BulkAddItemsModal.tsx`, achieving 100% pass rate in `npm run validate-registry`.
 - **Automated Verification:** 171/171 Vitest test suites green (1,813/1,813 tests passed), 0 `tsc --noEmit` errors, 96/96 registry form components passed, 53 launchpad tiles passed, clean production Vite build (`npm run build`), and zero backend schema mutations.
 
-## [6.91.0] Ã¢â‚¬â€ 2026-10-17
+## [6.91.0] â€” 2026-10-17
 
-### Sales & Billing Ã¢â‚¬â€ SMRITI Billing Studio Final Master Implementation v1.0.0
+### Sales & Billing â€” SMRITI Billing Studio Final Master Implementation v1.0.0
 
 Finalized the canonical **SMRITI Billing Studio** (`SmritiBillingStudio.tsx`) as a single, profile-driven, production-ready billing engine supporting exactly two company profiles: `B2C_ONLY` (Retail POS) and `B2B_ONLY` (Business Wholesale Invoicing):
 
@@ -1244,9 +1261,9 @@ Finalized the canonical **SMRITI Billing Studio** (`SmritiBillingStudio.tsx`) as
 - **Backend Sales Posting Enforcements:** Added authoritative verification in `canonical_sales_writer.py` during sales checkout, enforcing business customer registration, mandatory Customer PO reference, and open shift requirements.
 - **Automated Verification:** 26/26 tests green in `src/tests/smritiBillingStudio.test.ts`, 77/77 billing regression tests passed, 1/1 Pytest suite green against PostgreSQL, 0 `tsc --noEmit` errors, and zero database schema migrations.
 
-## [6.89.1] Ã¢â‚¬â€ 2026-10-17
+## [6.89.1] â€” 2026-10-17
 
-### Sales & Billing Ã¢â‚¬â€ SMRITI Billing Studio UX Simplification & Ergonomic Workflow Hardening v1.0.0
+### Sales & Billing â€” SMRITI Billing Studio UX Simplification & Ergonomic Workflow Hardening v1.0.0
 
 Streamlined the cashier-facing interface of the canonical **SMRITI Billing Studio** (`SmritiBillingStudio.tsx`) matching reference specifications and reducing visual clutter:
 
@@ -1260,9 +1277,9 @@ Streamlined the cashier-facing interface of the canonical **SMRITI Billing Studi
 - **Mathematical Calculation Integrity:** Replaced legacy hardcoded calculation offsets with the pure `computeBillingTotals` mathematical engine supporting tax-inclusive and tax-exclusive rounding without arbitrary arithmetic offsets.
 - **Automated Verification:** 18/18 tests green in `src/tests/smritiBillingStudio.test.ts`, 69/69 billing regression tests passed, 0 TypeScript errors (`tsc --noEmit`), production build green, form registry verified, and 10/10 checks green in headless Playwright E2E verification.
 
-## [6.89.0] Ã¢â‚¬â€ 2026-10-17
+## [6.89.0] â€” 2026-10-17
 
-### Sales & Billing Ã¢â‚¬â€ SMRITI Canonical Billing Studio Replacement & Master Billing Workspace v1.0.0
+### Sales & Billing â€” SMRITI Canonical Billing Studio Replacement & Master Billing Workspace v1.0.0
 
 Consolidated fragmented historical billing screens (`ProPosBillingTerm`, `BillingTerm`, `DistTaxInvoice`, `ProPosWs`) into the unified canonical **SMRITI Billing Studio** (`SmritiBillingStudio.tsx`) and master container (`BillingWorkspace.tsx`):
 
@@ -1276,17 +1293,17 @@ Consolidated fragmented historical billing screens (`ProPosBillingTerm`, `Billin
   - Staged product preview row with live quantity stepper, unit rate, item discount, and salesperson selector.
   - User Preference Settings Card: 6 configurable scan action behaviors (Auto Add, Move cursor to Qty/Rate/Discount/Salesperson, Open F2 Popup) and 6 operational toggles.
   - Dynamic Cart Table: customizable column visibility toggles (`showColConfig`), line total recalculations, line-level discount and cashier assignment.
-  - Bill discount modal (`Apply Bill Discount`) with flat Ã¢â€šÂ¹ and percentage discounts.
+  - Bill discount modal (`Apply Bill Discount`) with flat â‚¹ and percentage discounts.
   - Payment settlement HUD with Cash denomination chips, live received amount, change due calculator, UPI QR, and Card EDC.
   - Finalized receipt modal with Thermal Slip (80mm), Print A4 Tax Invoice, and WhatsApp share triggers.
 - **Online Checkout & Resilient Offline Fallback:** Integrated directly with `/api/v1/pos/checkout` via `src/lib/apiFetchV1.ts`. On network interruption or offline operation, falls back to `ProPosOfflineSyncEngine.queueOfflineSale` for durable local queuing and background synchronization.
 - **Statutory Taxes & Referential Integrity:** Linked multi-outlet delivery locations (`cdl-c64f6f2fec8a1d4e0a656483`, `cdl-e60327e0`, `cdl-a0550ba334c04bb28966a1a4`) to PostgreSQL `customer_delivery_locations`, ensuring clean 200 OK checkout and statutory GST tax calculations. Coerced string decimal tax and grand total responses to numbers, preventing runtime `.toFixed()` errors.
 - **Master Route Redirection:** Unified all 11 historical billing navigation routes (`pos`, `billing`, `billing-workspace`, `credit-billing`, `tax-invoice`, `dist-invoice`, `create-tax-invoice`, `propos`, `propos-workspace`, `propos-ws`, `enterprise-billing-suite`) to `BillingWorkspace.tsx`.
-- **Automated Verification:** Certified with 10/10 checks green in headless Playwright E2E verification (`verify_canonical_billing_studio_headless.py`), capturing all 7 visual stage screenshots (`docs/walkthrough/billing/evidence/`), direct PostgreSQL transactional assertion on port 2781 (`sales_invoices` committed with grand total Ã¢â€šÂ¹ 4000.02, tax Ã¢â€šÂ¹ 190.48), and 29/29 Vitest assertions green across all billing suites.
+- **Automated Verification:** Certified with 10/10 checks green in headless Playwright E2E verification (`verify_canonical_billing_studio_headless.py`), capturing all 7 visual stage screenshots (`docs/walkthrough/billing/evidence/`), direct PostgreSQL transactional assertion on port 2781 (`sales_invoices` committed with grand total â‚¹ 4000.02, tax â‚¹ 190.48), and 29/29 Vitest assertions green across all billing suites.
 
-## [6.87.0] Ã¢â‚¬â€ 2026-10-16
+## [6.87.0] â€” 2026-10-16
 
-### Sales & Inventory Projection Ã¢â‚¬â€ Conditional Store Code Visibility & Automatic Idempotent PSV Account Mapping (Phase 2) v1.0.0
+### Sales & Inventory Projection â€” Conditional Store Code Visibility & Automatic Idempotent PSV Account Mapping (Phase 2) v1.0.0
 
 Implemented dynamic sales channel-driven store location visibility and idempotent automatic Party Stock Visibility (PSV) account resolution/creation for Modern Trade in SMRITI Retail OS:
 
@@ -1299,9 +1316,9 @@ Implemented dynamic sales channel-driven store location visibility and idempoten
 - **Zero Stock Movement Invariant:** Enforced that resolving or creating a PSV party produces 0 physical stock ledger mutations in `stock_movements`.
 - **Automated Verification:** Certified with 15/15 Pytest assertions green in `backend/app/tests/test_psv_store_mapping.py`, 6/6 Vitest assertions green in `src/tests/conditionalStoreCodePsv.test.ts`, and 0 TypeScript errors (`tsc --noEmit`).
 
-## [6.86.0] Ã¢â‚¬â€ 2026-10-16
+## [6.86.0] â€” 2026-10-16
 
-### Procurement & PO Print Ã¢â‚¬â€ Tattly Threads Logo Watermark & SMRITI Branded Image Placeholder Integration v1.0.0
+### Procurement & PO Print â€” Tattly Threads Logo Watermark & SMRITI Branded Image Placeholder Integration v1.0.0
 
 Resolved missing watermark and image placeholder rendering across Purchase Order print preview and physical prints (`PurchaseOrderPrintA4.tsx`, `FootwearPurchaseOrderA4.tsx`, `SizePivotMatrixA4.tsx`, and `POPrintPreviewModal.tsx`):
 
@@ -1313,25 +1330,25 @@ Resolved missing watermark and image placeholder rendering across Purchase Order
 - **Auto-Derivation of Item References:** Automatically derives item reference lookbook cards from active line items (`sizewiseItems` or `standardItems`) when `itemReferences` is empty, ensuring image cards with placeholders are never dropped.
 - **Automated Verification:** Certified with 8/8 automated Vitest assertions green in `src/tests/poPrintBrandingAndTerms.test.tsx`, `tsc --noEmit` exit code 0, `npm run lint` exit code 0, and 0 compiler errors.
 
-## [6.84.1] Ã¢â‚¬â€ 2026-10-16
+## [6.84.1] â€” 2026-10-16
 
-### Procurement & PO Print Ã¢â‚¬â€ Tattly Threads Branding, 120-Day Terms, Official Image Placeholder & Sizewise Matrix Grouping v1.0.0
+### Procurement & PO Print â€” Tattly Threads Branding, 120-Day Terms, Official Image Placeholder & Sizewise Matrix Grouping v1.0.0
 
 Delivered comprehensive visual, statutory, and operational alignment for Purchase Order previews and print outputs across standard and sizewise procurement workflows:
 
 **Key Capabilities & Architectural Enforcement:**
-- **Sizewise Item Grouping by Article No. + Color:** Resolved row duplication where identical Article No. + Color combinations appeared across multiple lines with single-size quantities. Consolidated into 1 row per unique Article No. + Color combination, populating EU size columns 36Ã¢â‚¬â€œ44, calculating Total Qty as sum across sizes, and preserving distinct pricing, tax rates, and amounts.
+- **Sizewise Item Grouping by Article No. + Color:** Resolved row duplication where identical Article No. + Color combinations appeared across multiple lines with single-size quantities. Consolidated into 1 row per unique Article No. + Color combination, populating EU size columns 36â€“44, calculating Total Qty as sum across sizes, and preserving distinct pricing, tax rates, and amounts.
 - **Strict Color & Article Isolation:** Engineered composite key `${article_no.toUpperCase()}:::${color.toUpperCase()}` to guarantee distinct colorways (e.g. `CH-25-G GOLD` vs `CH-25-G BLACK`) and distinct article codes remain strictly on separate rows.
 - **System-of-Record Protection:** Grouping is enforced exclusively in the presentation/print engine (`POPrintPreviewModal.tsx`, `PurchaseOrderPrintA4.tsx`, and `SizePivotMatrixA4.tsx`). Underlying PostgreSQL database tables (`purchase_orders`, `purchase_order_lines`) remain completely intact to preserve warehouse barcode scanning and SKU tracking.
-- **Tattly Threads Corporate Branding:** Injected official Tattly Threads logo (`tattlyLogoBlack`), authentic registered office address (Mumbai 400003), GSTIN (`27AAACT1234A1Z5`), PAN, and a subtle -28Ã‚Â° rotated document background watermark across all PO print sheets.
+- **Tattly Threads Corporate Branding:** Injected official Tattly Threads logo (`tattlyLogoBlack`), authentic registered office address (Mumbai 400003), GSTIN (`27AAACT1234A1Z5`), PAN, and a subtle -28Â° rotated document background watermark across all PO print sheets.
 - **120-Day Commercial Payment Terms Default:** Standardized statutory 120-day vendor payment terms across backend Pydantic schemas (`backend/app/schemas/purchase.py`, `backend/app/schemas/vendor.py`, `backend/app/schemas/party_master.py`), FastAPI service layer, frontend workspace state (`PoSizewiseTab.tsx`, `PoGenerateTab.tsx`), and live supplier records.
 - **Official Image Placeholder Pipeline:** Mounted official SMRITI camera graphic (`image_not_available_placeholder.png`) with automatic `onError` DOM fallbacks for missing product images or broken network URLs across all print templates and UI modals.
 - **Dynamic 5% Footwear GST Calculation:** Corrected summary card tax label from hardcoded 18% to dynamic effective rate calculation (`GST (5%)`), reflecting statutory Indian footwear GST taxation.
 - **Automated Verification:** Certified with 9/9 automated Vitest assertions green in `src/tests/poPrintBrandingAndTerms.test.tsx` and `src/tests/poSizewiseGrouping.test.tsx`, 0 TypeScript compiler errors (`tsc --noEmit`), and comprehensive Walkthrough & Implementation Plan documentation.
 
-## [6.84.0] Ã¢â‚¬â€ 2026-10-16
+## [6.84.0] â€” 2026-10-16
 
-### Procurement & Live Sync Ã¢â‚¬â€ Live Tattly Threads Supplier Sync, Purchase Orders & Physical GRN Ingestion v1.0.0
+### Procurement & Live Sync â€” Live Tattly Threads Supplier Sync, Purchase Orders & Physical GRN Ingestion v1.0.0
 
 Executed complete, verified ingestion of commercial supplier purchase orders and goods receipt records into the live production environment (`https://tattlythreads.smritisys.com/`):
 
@@ -1341,26 +1358,26 @@ Executed complete, verified ingestion of commercial supplier purchase orders and
 - **3-Way Match & Variance Alignment:** Verified PO, GRN, and Purchase Bill totals match commercial vendor bills with zero discrepancy.
 - **Automated Ingestion Script:** Implemented idempotent ingestion engine in `scripts/ingest_live_purchase_orders_grn.py` with multi-tenant token authorization and retry resilience.
 
-## [6.83.0] Ã¢â‚¬â€ 2026-10-15
+## [6.83.0] â€” 2026-10-15
 
-### Procurement & Inventory Ã¢â‚¬â€ Vendor Purchase Workbook Ingestion, Purchase Orders & Goods Received Notes (GRN) Initial Stocking v1.0.0
+### Procurement & Inventory â€” Vendor Purchase Workbook Ingestion, Purchase Orders & Goods Received Notes (GRN) Initial Stocking v1.0.0
 
 Executed complete, verified ingestion of client supplier purchase workbook (`F:\Smriti-Clients Data\15-10-2026\ALL VENDOR PURCHASE FOR SOFTWARE.xlsx`) into SMRITI Retail OS for tenant `COMP-001` (`My Retail Store`), branch `BR-MAIN-001` (`Main Branch`), and warehouse `WH-MAIN-001` (`Main Store Central Godown`):
 
 **Key Capabilities & Architectural Enforcement:**
 - **Supplier Directory Synchronization:** Audited, verified, and synchronized 9 Footwear Vendors with authoritative commercial trading identities and contact persons: `ALIYA FOOTWEAR` (Amir), `LAJOS FOOTWEAR` (Abdul Rab), `AK FOOTWEAR` (Akram), `CRYSTAL SHOES` (Asif), `SA FOOTWEAR` (Shafi), `MK FOOTWEAR` (Mohid), `AS FOOTWEAR` (Yakin), `LUCKY FOOTWEAR` (Jaffer), and `SB FOOTWEAR` (Sharafat).
-- **Barcode & Variant Alignment:** Replaced temporary placeholder barcodes (`NA029`Ã¢â‚¬â€œ`NA035`) and removed duplicate dummy records (`NA029D`Ã¢â‚¬â€œ`NA035D`) for `SND-05-G` `R-GOLD` sizes 36Ã¢â‚¬â€œ42 with official GS1 EAN-13 barcodes (`8904551001894` through `8904551001955`), matching physical retail labels with 100% fidelity.
-- **28 Statutory Purchase Orders:** Constructed 28 formal Purchase Orders with exact commercial prices, 18% statutory GST calculation, subtotal Ã¢â€šÂ¹9,417,360.00, and grand total Ã¢â€šÂ¹11,112,484.80.
+- **Barcode & Variant Alignment:** Replaced temporary placeholder barcodes (`NA029`â€“`NA035`) and removed duplicate dummy records (`NA029D`â€“`NA035D`) for `SND-05-G` `R-GOLD` sizes 36â€“42 with official GS1 EAN-13 barcodes (`8904551001894` through `8904551001955`), matching physical retail labels with 100% fidelity.
+- **28 Statutory Purchase Orders:** Constructed 28 formal Purchase Orders with exact commercial prices, 18% statutory GST calculation, subtotal â‚¹9,417,360.00, and grand total â‚¹11,112,484.80.
 - **28 Goods Received Notes (GRN):** Executed 28 physical receipts into warehouse `WH-MAIN-001` with status `COMPLETED`.
 - **28 Commercial Purchase Bills:** Posted 28 commercial vendor bills linked directly to GRNs and POs with status `POSTED` for 3-way variance matching.
-- **407 Inward Stock Movements:** Generated 407 positive inward `StockMovement` entries (`movement_type="INWARD_GRN"`) into PostgreSQL stocking 23,064 pairs across 400 active SKUs, with an aggregate purchase cost valuation of Ã¢â€šÂ¹9,417,360.00 and retail MRP valuation of Ã¢â€šÂ¹47,550,836.00.
+- **407 Inward Stock Movements:** Generated 407 positive inward `StockMovement` entries (`movement_type="INWARD_GRN"`) into PostgreSQL stocking 23,064 pairs across 400 active SKUs, with an aggregate purchase cost valuation of â‚¹9,417,360.00 and retail MRP valuation of â‚¹47,550,836.00.
 - **Check Constraint Governance:** Filtered out 36 zero-quantity size-curve rows from line items to strictly satisfy the PostgreSQL check constraint `chk_poi_quantity_positive` (`quantity > 0`).
 - **Topological Transaction Flushes:** Resolved foreign key dependencies across `PurchaseOrder`, `PurchaseReceipt`, and `PurchaseBill` by implementing ordered 4-stage flushes within a single ACID transaction.
 - **Automated Verification:** Certified with dedicated audit engine (`scripts/verify_purchase_ingestion.py`) validating 100% mathematical and relational parity across all 8 dimensions with 0 errors.
 
-## [6.82.0] Ã¢â‚¬â€ 2026-10-15
+## [6.82.0] â€” 2026-10-15
 
-### Inventory & Item Master Ã¢â‚¬â€ Untransacted Variant & SKU Guarded Hard Delete, Edit & Deactivation Engine v1.0.0
+### Inventory & Item Master â€” Untransacted Variant & SKU Guarded Hard Delete, Edit & Deactivation Engine v1.0.0
 
 Delivered comprehensive Edit, Deactivate, and Guarded Permanent Delete capabilities in SMRITI Retail OS Item Master, allowing operators to correct incorrectly entered items and variants or physically delete 100% un-transacted records while protecting historical records:
 
@@ -1374,24 +1391,24 @@ Delivered comprehensive Edit, Deactivate, and Guarded Permanent Delete capabilit
 - **Visual Evidence & Headless UI Automation:** Captured 3 high-resolution visual evidence screenshots directly from the live frontend UI in `docs/walkthrough/inventory/evidence/` documenting un-transacted variant editing with governed lookups, guarded hard delete confirmation dialog, and transacted variant locked state.
 - **Automated Verification:** Certified with 5/5 backend Pytest tests green in `test_item_variant_hard_delete.py`, 0 `tsc --noEmit` errors, and clean production Vite build (`npm run build`, exit 0).
 
-## [6.81.0] Ã¢â‚¬â€ 2026-10-15
+## [6.81.0] â€” 2026-10-15
 
-### Procurement & PO Print Ã¢â‚¬â€ Statutory Purchase Order Print Format Visual Design Lock & Tax Breakdown v1.0.0
+### Procurement & PO Print â€” Statutory Purchase Order Print Format Visual Design Lock & Tax Breakdown v1.0.0
 
 Delivered the authoritative statutory Purchase Order print format for SMRITI Retail OS aligning 100% of visual typography, layout hierarchy, footwear product photography, and statutory tax calculations with the approved visual reference (`image(8).png`):
 
 **Key Capabilities & Architectural Enforcement:**
 - **Visual Design Lock with `image(8).png`:** Implemented pure reactive layout in `PurchaseOrderPrintA4.tsx` registered in `print_store.tsx` and mounted as default statutory preview in `POPrintPreviewModal.tsx`.
-- **Statutory TAX % & Calculated Line TAX Value:** Integrated explicit `TAX %` (e.g. `18%`) and `TAX (Ã¢â€šÂ¹)` (e.g. `Ã¢â€šÂ¹ 11,404.80`) columns directly before `AMOUNT (Ã¢â€šÂ¹)` across both Sizewise Matrix (EU sizes 36Ã¢â‚¬â€œ44) and Standard Barcode-wise views.
-- **Order Summary Tax Rate Label:** Enhanced Order Summary financial card to display `GST (18%) (Ã¢â€šÂ¹): 31,545.00` alongside Subtotal and Grand Total, reconciling line-item taxes with zero rounding discrepancy.
-- **Golden Ratio (1.618 : 1) Watermark Fallback:** Engineered `GoldenRatioImagePlaceholder` automatically mounted when footwear product images are missing or pending upload. Displays aspect ratio `1.618 : 1`, geometric Fibonacci spiral/grid lines, a -12Ã‚Â° rotated semi-transparent watermark of the Company Name (`SMRITI Retail Private Limited`), and article identifier.
+- **Statutory TAX % & Calculated Line TAX Value:** Integrated explicit `TAX %` (e.g. `18%`) and `TAX (â‚¹)` (e.g. `â‚¹ 11,404.80`) columns directly before `AMOUNT (â‚¹)` across both Sizewise Matrix (EU sizes 36â€“44) and Standard Barcode-wise views.
+- **Order Summary Tax Rate Label:** Enhanced Order Summary financial card to display `GST (18%) (â‚¹): 31,545.00` alongside Subtotal and Grand Total, reconciling line-item taxes with zero rounding discrepancy.
+- **Golden Ratio (1.618 : 1) Watermark Fallback:** Engineered `GoldenRatioImagePlaceholder` automatically mounted when footwear product images are missing or pending upload. Displays aspect ratio `1.618 : 1`, geometric Fibonacci spiral/grid lines, a -12Â° rotated semi-transparent watermark of the Company Name (`SMRITI Retail Private Limited`), and article identifier.
 - **Footwear Catalog Reference (2 Cards Per Row):** Decoupled visual catalog preview below item details table into a strict 2-column grid (`grid-cols-2`) displaying Article No., Color, Heels, Upper Material, Outsole, and large image/placeholder.
 - **Print Media Isolation:** Configured `.print-only-container` on sheet wrapper connecting with `index.css` `@media print` rules, guaranteeing perfect paper rendering and PDF export with zero screen control leakage.
 - **Automated Verification:** Certified with 10/10 automated assertions green in headless Playwright verification suite (`verify_po_print_format_visual_headless.py`), 0 `tsc --noEmit` errors, complete visual evidence capture in `docs/walkthrough/purchase/evidence/`, and statutory A4 PDF export (113.8 KB).
 
-## [6.80.0] Ã¢â‚¬â€ 2026-10-15
+## [6.80.0] â€” 2026-10-15
 
-### HR & Workforce Ã¢â‚¬â€ Bulk Attendance Phase 2: Authorization, Finalized Payroll Locks & Guided Multi-Step Workspace v1.4.0
+### HR & Workforce â€” Bulk Attendance Phase 2: Authorization, Finalized Payroll Locks & Guided Multi-Step Workspace v1.4.0
 
 Delivered Phase 2 of Bulk Manual Attendance Entry, establishing an operator-friendly, multi-step bulk marking workspace with server-side tenant isolation, branch authorization, biometric punch preservation, and finalized payroll locks:
 
@@ -1406,9 +1423,9 @@ Delivered Phase 2 of Bulk Manual Attendance Entry, establishing an operator-frie
   - **Step 3 (Results Summary):** Created, Skipped, and Error summary cards with itemized breakdowns and skip explanations.
 - **Automated Verification:** Certified with 7/7 backend Pytest tests green in `test_bulk_attendance_security.py`, 40/40 frontend Vitest tests green in `staffAttendance.integration.test.ts`, 0 `tsc --noEmit` errors, and 0 critical UX field governance violations.
 
-## [6.79.0] Ã¢â‚¬â€ 2026-10-15
+## [6.79.0] â€” 2026-10-15
 
-### HR & Workforce Ã¢â‚¬â€ Statutory Form II Muster Roll, Casual Worker Daily Wages & Navigation Remediation v3.17.0
+### HR & Workforce â€” Statutory Form II Muster Roll, Casual Worker Daily Wages & Navigation Remediation v3.17.0
 
 Delivered comprehensive Indian Statutory Form II Muster Roll reporting, casual worker daily-wage computation, monthly salaried worker payroll reconciliation with Loss of Pay (LOP) adjustments, and dedicated first-class navigation routing:
 
@@ -1422,9 +1439,9 @@ Delivered comprehensive Indian Statutory Form II Muster Roll reporting, casual w
 - **Sticky Column Freezing:** Sticky employee name/code columns and header rows for seamless horizontal navigation across 31 days.
 - **Automated Verification:** Certified with 7/7 Pytest tests green in `test_muster_roll_and_wage_engine.py`, 40/40 Vitest tests green in `staffAttendance.integration.test.ts`, 4/4 menu routing tests in `menuRegistryRouting.test.ts`, 53/53 Launchpad registry check passed, 0 `tsc --noEmit` errors, and 0 critical UX field violations.
 
-## [6.78.0] Ã¢â‚¬â€ 2026-10-14
+## [6.78.0] â€” 2026-10-14
 
-### Procurement & Purchase Order UX Ã¢â‚¬â€ Modernization Phase 1: Unified Workspace, Commercial Drawer & Barcode Priority v6.78.0
+### Procurement & Purchase Order UX â€” Modernization Phase 1: Unified Workspace, Commercial Drawer & Barcode Priority v6.78.0
 
 Delivered Phase 1 of the Purchase Order UX Modernization under approved Option B (Compact Header + Primary Item Grid + Expandable Commercial Details), establishing a high-velocity, unified purchase order workspace across both Sizewise Matrix Mode (`PoSizewiseTab.tsx`) and Standard Barcode Mode (`PoGenerateTab.tsx`):
 
@@ -1439,9 +1456,9 @@ Delivered Phase 1 of the Purchase Order UX Modernization under approved Option B
 - **Transactional & Database Safety:** 100% preservation of downstream Goods Receipt Notes, supplier bills, commercial snapshot freezing in `rule_snapshots["commercial_terms"]`, and zero database schema migrations or production data mutations.
 - **Automated Verification:** Certified with 30/30 Vitest tests green (`poModernizationPhase1.test.ts`, `poModeConversion.test.ts`, `articleFiltering.test.ts`), 0 `tsc --noEmit` errors, clean production bundle (`npm run build`, exit 0), and headless Playwright DOM measurements across 1280px, 1440px, and 1920px viewports.
 
-## [6.77.0] Ã¢â‚¬â€ 2026-10-14
+## [6.77.0] â€” 2026-10-14
 
-### Procurement & Item Grid Ã¢â‚¬â€ Article-Based Dynamic Auto-Filtering Engine v6.77.0
+### Procurement & Item Grid â€” Article-Based Dynamic Auto-Filtering Engine v6.77.0
 
 Engineered high-velocity article-based auto-filtering across Purchase Order item grids (Sizewise Matrix Mode in `PoSizewiseTab.tsx` and Standard Mode in `PoGenerateTab.tsx`):
 
@@ -1450,15 +1467,15 @@ Engineered high-velocity article-based auto-filtering across Purchase Order item
 - **Dynamic Cascade Filtering:**
   - Selecting an Article/Style auto-populates Brand, Product Description, Tax %, and default Rate/MRP, and dynamically restricts the Color dropdown strictly to colors available for that article.
   - Selecting a Color dynamically restricts the Size dropdown strictly to sizes available for that specific (Article + Color).
-  - In Sizewise Mode, size columns not present for that (Article + Color) are dynamically locked (`disabled={!isSizeAvailable}`), styled with muted backgrounds, and marked with `Ã¢Å“â€¢` placeholders.
+  - In Sizewise Mode, size columns not present for that (Article + Color) are dynamically locked (`disabled={!isSizeAvailable}`), styled with muted backgrounds, and marked with `âœ•` placeholders.
   - Selecting a Size automatically resolves the exact variant Barcode, SKU, and variant-specific pricing.
 - **Reverse Barcode & SKU Resolution:** Scanning or typing a Barcode or SKU instantly resolves and auto-populates Article, Color, Size, MRP, and Rates across both forward and reverse operational workflows.
 - **Clean UI & Data Integrity:** Implemented via native HTML5 `<datalist>` elements bound to standard input controls, avoiding UI bloat or popup interference during fast tabular keyboard entry. Operates strictly against existing Item Master records with zero duplicate data creation.
 - **Automated Verification:** Certified with 8/8 Vitest tests green (`articleFiltering.test.ts`), 8/8 checks green in headless Playwright automated test suite (`verify_article_based_filtering_headless.py`), 0 browser popups, 0 `tsc --noEmit` errors, and clean production build (`npm run build`, exit 0).
 
-## [6.75.1] Ã¢â‚¬â€ 2026-10-14
+## [6.75.1] â€” 2026-10-14
 
-### Procurement & Item Master Ã¢â‚¬â€ Purchase Variant Disambiguation & Legacy Vendor On-Demand Auto-Bridge v6.75.1
+### Procurement & Item Master â€” Purchase Variant Disambiguation & Legacy Vendor On-Demand Auto-Bridge v6.75.1
 
 Remediated dual runtime defects blocking Purchase Studio PO workflows and catalog evaluation:
 
@@ -1481,9 +1498,9 @@ Remediated dual runtime defects blocking Purchase Studio PO workflows and catalo
   - 53/53 tests passing in `backend/tests/test_po_vendor_product_control.py`.
   - 0 TypeScript compilation errors (`tsc --noEmit`).
 
-## [6.75.0] Ã¢â‚¬â€ 2026-10-14
+## [6.75.0] â€” 2026-10-14
 
-### Inventory & Finance Ã¢â‚¬â€ Cost Integrity, Landed Cost Vouchers & Historical Return Lineage v6.75.0
+### Inventory & Finance â€” Cost Integrity, Landed Cost Vouchers & Historical Return Lineage v6.75.0
 
 Consolidated, certified, and remediated Batch 2.4 costing and return lineage architecture across FastAPI, PostgreSQL, and SQLAlchemy:
 
@@ -1513,9 +1530,9 @@ Consolidated, certified, and remediated Batch 2.4 costing and return lineage arc
 - **Automated Verification:**
   - 34/34 Pytest tests passing green across `test_migration_v1532_lifecycle.py`, `test_cost_valuation_batch2.py`, and `test_cost_accounting_batch1.py`.
 
-## [6.74.0] Ã¢â‚¬â€ 2026-10-14
+## [6.74.0] â€” 2026-10-14
 
-### Foundation & Finance Ã¢â‚¬â€ Cost Management & Cost Truth Engine Architecture v6.74.0
+### Foundation & Finance â€” Cost Management & Cost Truth Engine Architecture v6.74.0
 
 Delivery of the enterprise Cost Management Engine & Cost Truth reporting architecture across FastAPI, PostgreSQL, and React/TypeScript:
 
@@ -1539,9 +1556,9 @@ Delivery of the enterprise Cost Management Engine & Cost Truth reporting archite
   - 6/6 Pytest tests green in `test_cost_management_engine.py` against isolated test database `smriti_test_cost_engine` on port 2781.
   - 0 TypeScript errors (`tsc --noEmit`).
 
-## [6.73.5] Ã¢â‚¬â€ 2026-10-13
+## [6.73.5] â€” 2026-10-13
 
-### Pricing & Merchandising Ã¢â‚¬â€ Bulk Price Revision Studio 4-Step Architecture v6.73.5
+### Pricing & Merchandising â€” Bulk Price Revision Studio 4-Step Architecture v6.73.5
 
 End-to-end delivery of the enterprise 4-step Bulk Price Revision Studio workflow (`BulkPriceRevisionWorkflow.tsx`) inside the Price Revision Studio Workspace (`PriceRevisionStudioWorkspace.tsx`):
 
@@ -1566,9 +1583,9 @@ End-to-end delivery of the enterprise 4-step Bulk Price Revision Studio workflow
   - `npx vitest run src/tests/priceRevisionStudio.test.ts`: 16/16 tests passed.
   - `pytest backend/tests/test_price_revisions.py`: 40/40 tests passed.
 
-## [6.73.4] Ã¢â‚¬â€ 2026-10-13
+## [6.73.4] â€” 2026-10-13
 
-### Pricing & UX Ã¢â‚¬â€ Price Revision Menu Registry & Connected UX Architecture v6.73.4
+### Pricing & UX â€” Price Revision Menu Registry & Connected UX Architecture v6.73.4
 
 End-to-end integration of the SMRITI Price Revision Module across navigation registries and delivery of the live, data-connected Price Revision Studio Workspace:
 
@@ -1605,9 +1622,9 @@ End-to-end integration of the SMRITI Price Revision Module across navigation reg
   - `pytest backend/tests/test_price_revisions.py`: 37/37 tests passed.
   - Live API verified on port 1981: 190 revisions loaded, 403 on tenant header mismatch, 400 on statutory ceiling violation.
 
-## [6.73.3] Ã¢â‚¬â€ 2026-10-13
+## [6.73.3] â€” 2026-10-13
 
-### Pricing Ã¢â‚¬â€ Price Revision Production Release Readiness Audit & Deployment Gate v6.73.3
+### Pricing â€” Price Revision Production Release Readiness Audit & Deployment Gate v6.73.3
 
 Comprehensive multi-tenant release readiness audit, cluster backup verification, forensic investigation of historical price-book deletions, and deployment safety gating:
 
@@ -1623,13 +1640,13 @@ Comprehensive multi-tenant release readiness audit, cluster backup verification,
 - **Baseline Data & Historical Ledger Integrity:**
   - Verified 2,536 sales invoices, 16,724 sales invoice line items, and 9,265 stock movements in `smriti001` remain 100% intact with zero historical mutations.
 - **Multi-Tenant Migration Status:**
-  - `smritisys` and `smriti001` are at Alembic revision `v1531`. Tenants `smriti002`Ã¢â‚¬â€œ`smriti004` remain at `v1529`. Foreign-key dependencies validated across all schemas.
+  - `smritisys` and `smriti001` are at Alembic revision `v1531`. Tenants `smriti002`â€“`smriti004` remain at `v1529`. Foreign-key dependencies validated across all schemas.
 - **Phase 4 Deployment Gate Decision:**
   - **BLOCKED / ON HOLD:** Production release and live mutations halted. Canonical price books in `smriti001` must be restored from `smriti001_dr_backup.dump` upon explicit user authorization.
 
-## [6.73.2] Ã¢â‚¬â€ 2026-10-13
+## [6.73.2] â€” 2026-10-13
 
-### Pricing & Security Ã¢â‚¬â€ Price Revision Tenant Trust-Boundary Audit & Remediation v6.73.2
+### Pricing & Security â€” Price Revision Tenant Trust-Boundary Audit & Remediation v6.73.2
 
 Independent security audit and targeted remediation of Price Revision tenant trust boundaries and test isolation:
 
@@ -1657,42 +1674,42 @@ Independent security audit and targeted remediation of Price Revision tenant tru
   - Shared DB Zero-Mutation Verification: 0 modifications to `smriti001` and `smritisys`.
   - Production status: **HOLD** pending independent review.
 
-## [6.73.1] Ã¢â‚¬â€ 2026-10-13
+## [6.73.1] â€” 2026-10-13
 
-### Pricing & Billing Ã¢â‚¬â€ Price Revision Architecture Corrective Hardening & P0 Security Resolution v6.73.1
+### Pricing & Billing â€” Price Revision Architecture Corrective Hardening & P0 Security Resolution v6.73.1
 
 Executed comprehensive corrective architecture hardening and P0 security remediations for MRP, Selling Price, and Cost Price revisions to resolve all audit findings and institute strict multi-tenant architectural safeguards:
 
 **Key Changes & Architectural Safeguards:**
-- **Phase 7A Ã¢â‚¬â€ Schema Hardening (`backend/alembic/versions/v1531_harden_item_price_revisions_fk.py`):**
+- **Phase 7A â€” Schema Hardening (`backend/alembic/versions/v1531_harden_item_price_revisions_fk.py`):**
   - Hardened foreign key constraints `fk_ipr_item` and `fk_ipr_variant` in `item_price_revisions` from `ON DELETE CASCADE` to `ON DELETE RESTRICT`.
   - Updated ORM model `ItemPriceRevision` in `backend/app/models/pricing.py` with `ondelete="RESTRICT"`.
   - Verified across PostgreSQL `smriti001` (tenant) and `smritisys` (control plane). Catalog item deletions can never silently purge historical price revisions.
-- **Phase 7B Ã¢â‚¬â€ Unified Fail-Closed Billing Resolution (`backend/app/services/headless_billing.py`):**
+- **Phase 7B â€” Unified Fail-Closed Billing Resolution (`backend/app/services/headless_billing.py`):**
   - Standardized `HeadlessBillingCore` to route transaction line rates strictly through `PricingEngine.calculate_effective_price` as the single authoritative resolver.
   - Fail-closed checkout: blocks checkout with `SMRITI-PRICE-RESOLVE-FAILED` if authoritative pricing resolution fails or returns missing price/MRP.
   - Enforced statutory ceiling (`rate <= auth_mrp`), rate deviation check against authoritative effective rate, and mandatory supervisor PIN override (`SMRITI-PRICE-OVERRIDE-REQ`) for cashier price alterations while preserving approved fee and free lines.
-- **Phase 7C Ã¢â‚¬â€ Parameter-Driven Approval Policies & Segregation of Duties (`backend/app/services/price_revision_service.py`):**
+- **Phase 7C â€” Parameter-Driven Approval Policies & Segregation of Duties (`backend/app/services/price_revision_service.py`):**
   - Integrated ADR-042 dual-key `SystemParameterService` in `get_approval_policy()` to resolve dynamic price change thresholds (`SMRITI.PRICE.APPROVAL.THRESHOLD_INCREASE_PCT`, `SMRITI.PRICE.APPROVAL.THRESHOLD_DECREASE_PCT`) and authorized roles (`SMRITI.PRICE.APPROVAL.ROLES`) with safe fallback to class defaults.
   - Enforced segregation of duties in `approve_revision`: non-administrative creators (e.g. store managers) cannot self-approve their own revisions (`SMRITI-PERM-002`).
-- **Phase 7D Ã¢â‚¬â€ Concurrency-Safe Scheduled Activation (`backend/app/services/outbox_worker.py` & `price_revision_service.py`):**
+- **Phase 7D â€” Concurrency-Safe Scheduled Activation (`backend/app/services/outbox_worker.py` & `price_revision_service.py`):**
   - Added row-level pessimistic locking via `with_for_update(skip_locked=True)` in `activate_scheduled_revisions` to eliminate worker race conditions and duplicate executions.
   - Integrated automated periodic activation into `OutboxQueueWorker.run_worker_cycle` across all active tenant schemas with zero manual API call dependency.
-- **Phase 7E Ã¢â‚¬â€ Offline POS Temporal Interval Resolution (`src/sync/ProPosMasterCatalogCache.ts`):**
+- **Phase 7E â€” Offline POS Temporal Interval Resolution (`src/sync/ProPosMasterCatalogCache.ts`):**
   - Extended offline catalog cache with temporal revisions array (`CachedPriceRevision[]`) and interval evaluation (`effective_from <= txTime < effective_to`).
   - Added statutory ceiling clamping (`price <= mrp`), cache staleness detection (> 24 hours), and offline fallback policy.
 - **P0 Pricing Security & Database Governance Blockers Resolved:**
-  - **Blocker 1 Ã¢â‚¬â€ Fail-Closed Tenant Isolation (`backend/app/services/pricing_engine.py`):** Authoritative server-side `company_id` resolution. Fails closed with structured `SMRITI-PRICE-TENANT-REQUIRED` if company identity is required but unavailable. Enforced strict company consistency across items, variants, and tenants (`SMRITI-PRICE-TENANT-MISMATCH`, `SMRITI-PRICE-VARIANT-MISMATCH`). Guaranteed Price Books, Customer Tiers, and volume breaks are strictly scoped to `resolved_company_id`. Added 5 regression tests for all missing company and cross-company attack vectors.
-  - **Blocker 2 Ã¢â‚¬â€ Isolated Dedicated Test Database (`backend/tests/test_price_revisions.py` & `backend/app/db/session.py`):** Eliminated all hardcoded `get_company_sessionmaker("smriti001")` dependencies. Configured dedicated test database `smriti_test_price_revisions` (PostgreSQL port 2781, 253 tables). Added runtime safety abort guard in `session.py` preventing automated tests from targeting shared/live databases (`smriti001`, `smritisys`). Measured 0 mutations against `smriti001` before and after test execution.
+  - **Blocker 1 â€” Fail-Closed Tenant Isolation (`backend/app/services/pricing_engine.py`):** Authoritative server-side `company_id` resolution. Fails closed with structured `SMRITI-PRICE-TENANT-REQUIRED` if company identity is required but unavailable. Enforced strict company consistency across items, variants, and tenants (`SMRITI-PRICE-TENANT-MISMATCH`, `SMRITI-PRICE-VARIANT-MISMATCH`). Guaranteed Price Books, Customer Tiers, and volume breaks are strictly scoped to `resolved_company_id`. Added 5 regression tests for all missing company and cross-company attack vectors.
+  - **Blocker 2 â€” Isolated Dedicated Test Database (`backend/tests/test_price_revisions.py` & `backend/app/db/session.py`):** Eliminated all hardcoded `get_company_sessionmaker("smriti001")` dependencies. Configured dedicated test database `smriti_test_price_revisions` (PostgreSQL port 2781, 253 tables). Added runtime safety abort guard in `session.py` preventing automated tests from targeting shared/live databases (`smriti001`, `smritisys`). Measured 0 mutations against `smriti001` before and after test execution.
 - **Automated Verification:**
   - `backend/tests/test_price_revisions.py`: 33/33 passed (100% green against dedicated test database `smriti_test_price_revisions`).
   - `src/tests/proposCatalogCache.test.ts`: 5/5 Vitest passed (100% green).
   - `npx tsc --noEmit --skipLibCheck`: 0 compilation errors.
   - Python py_compile: 0 syntax errors across all touched files.
 
-## [6.73.0] Ã¢â‚¬â€ 2026-10-13
+## [6.73.0] â€” 2026-10-13
 
-### Pricing & Catalog Ã¢â‚¬â€ MRP & Selling Price Revision Architecture v6.73.0
+### Pricing & Catalog â€” MRP & Selling Price Revision Architecture v6.73.0
 
 Delivered an immutable, auditable, temporal price revision architecture that tracks MRP, Selling Price, and Cost Price revisions across catalog, billing, and API surfaces with exact timezone-aware effective timestamps.
 
@@ -1710,9 +1727,9 @@ Delivered an immutable, auditable, temporal price revision architecture that tra
   - `npx tsc --noEmit --skipLibCheck`: 0 compilation errors.
   - Python py_compile: 0 syntax errors.
 
-## [6.72.9] Ã¢â‚¬â€ 2026-10-13
+## [6.72.9] â€” 2026-10-13
 
-### Inventory & WMS Ã¢â‚¬â€ Warehouse Location Management Standardization & Non-Technical Usability Transformation v6.72.9
+### Inventory & WMS â€” Warehouse Location Management Standardization & Non-Technical Usability Transformation v6.72.9
 
 Comprehensive architectural audit, data model standardization, and human-centric UI overhaul of warehouse location, zone, and bin management in SMRITI Retail OS, conforming to modern GS1 and WMS spatial addressing standards (`[ZONE]-[AISLE]-[RACK]-[SHELF]-[BIN]`).
 
@@ -1722,7 +1739,7 @@ Comprehensive architectural audit, data model standardization, and human-centric
   - Upgraded `GET /api/v1/wms/locations` to support `zone` and `is_active` filtering.
   - Added `PUT /api/v1/wms/locations/{id}` for updating location names, zones, capacities, lock states, and active status.
   - Added `DELETE /api/v1/wms/locations/{id}` supporting soft-deletion with stock verification safeguards.
-  - Implemented `POST /api/v1/wms/warehouses/{id}/locations/generate` for 1-click batch multi-zone Cartesian product generation (`Aisles Ãƒâ€” Racks Ãƒâ€” Shelves Ãƒâ€” Bins`) with automatic spatial naming and collision-resistant barcode synthesis (`LOC-{warehouse_code}-{code}`).
+  - Implemented `POST /api/v1/wms/warehouses/{id}/locations/generate` for 1-click batch multi-zone Cartesian product generation (`Aisles Ã— Racks Ã— Shelves Ã— Bins`) with automatic spatial naming and collision-resistant barcode synthesis (`LOC-{warehouse_code}-{code}`).
   - Implemented `GET /api/v1/wms/locations/{id}/stock` providing real-time stock balance breakdowns and item counts per location.
 - **Non-Technical Visual Studio (`WarehouseLocationManager.tsx`):**
   - Created a dual-view interface with visual location cards and a dense tabular view.
@@ -1730,10 +1747,10 @@ Comprehensive architectural audit, data model standardization, and human-centric
   - Implemented live visual capacity progress bars and utilization percentage badges.
   - Built an intuitive 1-Click Multi-Zone Matrix Generator Wizard allowing non-technical warehouse managers to provision full warehouse layouts in seconds without writing code or entering manual coordinates.
   - Added one-click Lock/Unlock security toggle and direct barcode search filtering.
-- **WMS Studio Tab Integration (`WmsStudioTab.tsx`):** Mounted `WarehouseLocationManager` under a dedicated `Ã°Å¸â€œÂ Locations & Bins` sub-tab alongside stock levels, stock movement, goods receipt, and stock audit.
+- **WMS Studio Tab Integration (`WmsStudioTab.tsx`):** Mounted `WarehouseLocationManager` under a dedicated `ðŸ“ Locations & Bins` sub-tab alongside stock levels, stock movement, goods receipt, and stock audit.
 - **Barcode Printing Accessor Parity (`LabelPrintModal.tsx`):** Aligned warehouse location barcode printing to handle both camelCase and snake_case fields (`code`, `bin_code`, `zone`, `name`) with zero undefined runtime exceptions.
 
-### Security & Governance Ã¢â‚¬â€ Menu Registry, UX, UI, and Route Harmonization v3.17.3
+### Security & Governance â€” Menu Registry, UX, UI, and Route Harmonization v3.17.3
 
 Forensic audit, verification, and end-to-end routing harmonization across the PostgreSQL Control Plane Menu Registry (`smritisys.smriti_menus`), dynamic menu resolver (`/api/v1/menus/resolved`), shell navigation router (`TabRenderer.tsx`), and the Menu Manager Studio (`MenuManagerStudioTab.tsx`).
 
@@ -1746,18 +1763,18 @@ Forensic audit, verification, and end-to-end routing harmonization across the Po
   - `pytest backend/tests/t_menu_registry.py -v`: 6/6 passed (100% green).
   - `npx tsc --noEmit`: 0 compiler errors.
 
-## [6.72.8] Ã¢â‚¬â€ 2026-10-13
+## [6.72.8] â€” 2026-10-13
 
-### Barcode & Hardware Ã¢â‚¬â€ Universal Tattly Threads Footwear PRN Defaulting v6.72.8
+### Barcode & Hardware â€” Universal Tattly Threads Footwear PRN Defaulting v6.72.8
 
-Established Tattly Threads Footwear 100Ãƒâ€”50.7mm 3-Stub Master PRN (`TattlyThreads.prn`) as the authoritative system-wide default across all barcode label printing engines, dialogs, batch queues, visual designers, and backend compilers.
+Established Tattly Threads Footwear 100Ã—50.7mm 3-Stub Master PRN (`TattlyThreads.prn`) as the authoritative system-wide default across all barcode label printing engines, dialogs, batch queues, visual designers, and backend compilers.
 
 **Key Changes & Architectural Enforcement:**
-- **Universal Template Aliases & Fallback Engine (`prnInterpolation.ts`):** Registered `"TattlyThreads.prn"`, `"lay-footwear-100x50-3stub"`, and `"default"` aliases in `BUILTIN_PRN_TEMPLATES`. Configured `interpolatePrnScript` and `compilePrnBatch` to automatically default empty or omitted templates to the Tattly Threads Footwear 100Ãƒâ€”50.7mm master script.
+- **Universal Template Aliases & Fallback Engine (`prnInterpolation.ts`):** Registered `"TattlyThreads.prn"`, `"lay-footwear-100x50-3stub"`, and `"default"` aliases in `BUILTIN_PRN_TEMPLATES`. Configured `interpolatePrnScript` and `compilePrnBatch` to automatically default empty or omitted templates to the Tattly Threads Footwear 100Ã—50.7mm master script.
 - **Canonical PRN Download Filename Engine (`prnInterpolation.ts`):** Implemented `formatPrnTimestamp`, `sanitizeFilenameToken`, and `generatePrnDownloadFilename` generating unified `SMRITI-[Style]-[VendorCode]-[TimeStamp].prn` filenames across all 4 printing studios (`BatchBarcodePrintModal`, `TagLabelPrintingTa`, `PrintLabelsStudio`, `BarcodeScriptGenVi`). Uniformly sanitizes filesystem tokens and formats chronological ISO timestamps (`YYYYMMDD-HHmmss`).
-- **Batch Barcode Queue Enhancement (`BatchBarcodePrintModal.tsx`):** Configured modal format default to `Tattly Threads (100Ãƒâ€”50.7mm PRN)` with direct `.prn` compilation download (`[Download .PRN File]`) using canonical `SMRITI-Style-Vendorcode-TimeStamp.prn` naming and 3-stub dual tear-off card preview.
-- **Tag Label Printing Tab (`TagLabelPrintingTa.tsx`):** Updated `activeTemplateScript` fallback chain to universally resolve `Tattly Threads Footwear Ã¢â‚¬â€ 100x50.7mm` when custom or unspecified templates are supplied, unified PRN file download naming to `generatePrnDownloadFilename`, and upgraded confirmation dispatch modal preview to dynamically render the authentic 100mm Ãƒâ€” 50.7mm 3-stub dual tear-off layout.
-- **Visual Label Designer (`VisualLabelDesign.tsx`):** Elevated Tattly Threads Footwear 3-Stub (100mm Ãƒâ€” 50.7mm) to preset position 0 (`STANDARD_PRESETS[0]`), initializing designer dimensions to 100Ãƒâ€”50.7mm.
+- **Batch Barcode Queue Enhancement (`BatchBarcodePrintModal.tsx`):** Configured modal format default to `Tattly Threads (100Ã—50.7mm PRN)` with direct `.prn` compilation download (`[Download .PRN File]`) using canonical `SMRITI-Style-Vendorcode-TimeStamp.prn` naming and 3-stub dual tear-off card preview.
+- **Tag Label Printing Tab (`TagLabelPrintingTa.tsx`):** Updated `activeTemplateScript` fallback chain to universally resolve `Tattly Threads Footwear â€” 100x50.7mm` when custom or unspecified templates are supplied, unified PRN file download naming to `generatePrnDownloadFilename`, and upgraded confirmation dispatch modal preview to dynamically render the authentic 100mm Ã— 50.7mm 3-stub dual tear-off layout.
+- **Visual Label Designer (`VisualLabelDesign.tsx`):** Elevated Tattly Threads Footwear 3-Stub (100mm Ã— 50.7mm) to preset position 0 (`STANDARD_PRESETS[0]`), initializing designer dimensions to 100Ã—50.7mm.
 - **Unified Layout Registry (`barcodeLayoutRegistry.ts`):** Made `getLabelTemplate()` without parameters or with `"default"` resolve directly to `tattly-threads-footwear-100x50.7`.
 - **Backend API & Compiler Fallback (`compiler.py`, `barcode.py`):** Configured `BarcodeCompiler.compile()` and `/api/v1/barcode/print` to default unspecified or default layout IDs to `tattly-threads-footwear-100x50.7` ZPL/DPL stream generation.
 - **4-Point Version SSOT Synchronization (`validate_version_ssot.py`):** Synchronized product version to `6.72.8` across all four canonical Single Source of Truth anchors (`package.json`, `src/config/version.ts`, `backend/app/core/config.py`, `CHANGELOG.md`), updated `BillingWorkspace.tsx` to bind directly to `APP_VERSION`, and certified 0 drift.
@@ -1768,9 +1785,9 @@ Established Tattly Threads Footwear 100Ãƒâ€”50.7mm 3-Stub Master PRN (`Ta
   - `pytest backend/tests/test_dpl_footwear_label.py`: 8/8 passed (100% green).
   - `npx tsc --noEmit`: 0 compiler errors.
 
-## [6.72.7] Ã¢â‚¬â€ 2026-10-13
+## [6.72.7] â€” 2026-10-13
 
-### Catalog & Item Master Ã¢â‚¬â€ Governed Lookup Combobox & Dropdown UX Transformation v6.72.7
+### Catalog & Item Master â€” Governed Lookup Combobox & Dropdown UX Transformation v6.72.7
 
 Transformed Master Lookup governed fields (`brand`, `category`, `subcategory`, `department`, `size_group`) from unindicated HTML5 `<input type="text" list="...">` datalists into interactive, high-velocity `GovernedLookupCombobox` components across Add Product Drawer Simple and Hybrid/Advanced modes.
 
@@ -1783,9 +1800,9 @@ Transformed Master Lookup governed fields (`brand`, `category`, `subcategory`, `
   - `npx vitest run src/tests/itemMasterMandatoryLookupsSysparam.test.ts`: 30/30 passed (100% green).
   - `npx tsc --noEmit`: 0 compiler errors.
 
-## [3.17.2] Ã¢â‚¬â€ 2026-10-13
+## [3.17.2] â€” 2026-10-13
 
-### Security & Governance Ã¢â‚¬â€ Menu Registry & UX Control Plane Harmonization v3.17.2
+### Security & Governance â€” Menu Registry & UX Control Plane Harmonization v3.17.2
 
 Forensic audit and architectural harmonization of the SMRITI Retail OS Menu Registry, dynamic resolution engine, and User Experience (UX) navigation layer across all 14 system roles and 5 workspace persona profiles.
 
@@ -1806,10 +1823,10 @@ Forensic audit and architectural harmonization of the SMRITI Retail OS Menu Regi
   - `npx vitest run src/tests/fioriLaunchpad.test.ts src/tests/menuAccess.test.ts src/tests/userStaffCreation.test.ts`: 34/34 passed (100% green).
   - `npx tsc --noEmit`: 0 compiler errors.
 
-## [3.17.2] â€” 2026-10-27 â€” Historical Transaction Immutability & Price Revision Integrity Sprint
+## [3.17.2] — 2026-10-27 — Historical Transaction Immutability & Price Revision Integrity Sprint
 
 ### Changed
-- **G1 â€” Wholesale Price Revision Audit Trail** (`migration v1548`):
+- **G1 — Wholesale Price Revision Audit Trail** (`migration v1548`):
   Added `previous_wholesale_price` and `revised_wholesale_price` to `item_price_revisions`.
   Before this fix, wholesale price changes were applied to `item_prices.wholesale_price` with no
   corresponding audit column on the revision record. Now every price revision captures old/new
@@ -1817,14 +1834,14 @@ Forensic audit and architectural harmonization of the SMRITI Retail OS Menu Regi
   `_activate_revision_internal` now stamps old wholesale before overwriting, with `metadata_json`
   fallback for legacy pre-v1548 revision records.
 
-- **G2 â€” StockMovement.unit_cost NOT NULL** (`migration v1549`):
+- **G2 — StockMovement.unit_cost NOT NULL** (`migration v1549`):
   Applied `NOT NULL DEFAULT 0.00` to `stock_movements.unit_cost`. Before this migration,
   381 of 788 stock movements (48%) had `NULL unit_cost`, meaning those movements had no
   auditable cost basis. All NULL rows backfilled to `0.00`; `cost_source` stamped
   `UNRESOLVED_ZERO_COST` on the affected rows to distinguish intentional zero-cost items
   from unresolved ones. Model `StockMovement.unit_cost` updated to `nullable=False`.
 
-- **G3 â€” Category Profitability Report Immutability** (`analytics_svc.py`):
+- **G3 — Category Profitability Report Immutability** (`analytics_svc.py`):
   `get_category_profitability_rollups()` was reading `ItemVariant.cost_price` and
   `Product.cost_price` (live mutable fields) to compute COGS. A price revision would silently
   change the historical margin report without any invoice being reposted (Rule 4 violation).
@@ -1832,19 +1849,19 @@ Forensic audit and architectural harmonization of the SMRITI Retail OS Menu Regi
   cost, never updated). Response now includes `cogs_source: "TRANSACTION_COST_SNAPSHOT"` for audit.
 
 ### Tests Added
-- `test_price_revision_immutability.py` â€” 8 tests (G1 + G4): proves price revision activation
+- `test_price_revision_immutability.py` — 8 tests (G1 + G4): proves price revision activation
   does not touch `SalesInvoiceItem.price` or `InvoiceProfitabilityLedger.total_cogs`.
-- `test_analytics_immutability.py` â€” 8 tests (G3): proves category margins use immutable snapshot
+- `test_analytics_immutability.py` — 8 tests (G3): proves category margins use immutable snapshot
   COGS and are not affected by subsequent price revisions.
 
 ### Migrations
-- `v1548` â€” `item_price_revisions`: `previous_wholesale_price`, `revised_wholesale_price` (nullable)
-- `v1549` â€” `stock_movements`: `unit_cost` NOT NULL DEFAULT 0.00; 381-row backfill + audit stamp
+- `v1548` — `item_price_revisions`: `previous_wholesale_price`, `revised_wholesale_price` (nullable)
+- `v1549` — `stock_movements`: `unit_cost` NOT NULL DEFAULT 0.00; 381-row backfill + audit stamp
 
 
-## [3.17.1] Ã¢â‚¬â€ 2026-10-13
+## [3.17.1] â€” 2026-10-13
 
-### Security & Governance Ã¢â‚¬â€ Role Template Mapping & Staff Creation Deep Audit & Remediation v3.17.1
+### Security & Governance â€” Role Template Mapping & Staff Creation Deep Audit & Remediation v3.17.1
 
 Forensic audit and architectural remediation of system user and staff creation across SMRITI Retail OS. Identified and fixed root causes behind failure of non-Cashier role assignments and profile update crashes.
 
@@ -1861,9 +1878,9 @@ Forensic audit and architectural remediation of system user and staff creation a
   - `npx vitest run src/tests/userStaffCreation.test.ts`: 17/17 passed (100% green).
   - Multi-role verification script: 14/14 `UserRole` enums created and verified, plus role update verified.
 
-## [6.72.6] Ã¢â‚¬â€ 2026-10-13
+## [6.72.6] â€” 2026-10-13
 
-### Catalog & Item Master Ã¢â‚¬â€ Mandatory Lookups & System Parameter Dual-Key Governance v6.72.6
+### Catalog & Item Master â€” Mandatory Lookups & System Parameter Dual-Key Governance v6.72.6
 
 Enforced 6 critical Item Master dimensions (`brand`, `subcategory`, `department`, `size_group`, `hsn_code`, `tax_category`) as **Mandatory by default** across Item Details Grid, Add Product Drawer (Simple and Hybrid/Advanced modes), and backend catalog validation (`catalog_validation.py` & `item_catalog_svc.py`), while implementing dynamic runtime configurability via ADR-042 dual-key System Parameters.
 
@@ -1890,9 +1907,9 @@ Enforced 6 critical Item Master dimensions (`brand`, `subcategory`, `department`
 - TypeScript: `npx tsc --noEmit` exited 0 with 0 errors across workspace.
 - Verification status: `Done`.
 
-## [6.72.5] Ã¢â‚¬â€ 2026-10-13
+## [6.72.5] â€” 2026-10-13
 
-### Catalog & Compliance Ã¢â‚¬â€ Live Footwear Catalog GST Rate Harmonization to Statutory 5% v6.72.5
+### Catalog & Compliance â€” Live Footwear Catalog GST Rate Harmonization to Statutory 5% v6.72.5
 
 Harmonized the Goods and Services Tax (GST) rate across all 1,136 live footwear catalog products on production server `https://tattlythreads.smritisys.com/` to the Indian statutory footwear tax rate of **5.00%** (HSN `64041990` / `64032012`), permanently remediating legacy 0.00% / EXEMPT rates resulting from historical batch ingestion.
 
@@ -1907,9 +1924,9 @@ Harmonized the Goods and Services Tax (GST) rate across all 1,136 live footwear 
 - Production Audit: 1,136 products at 5.00% GST, 1 product at 18.00% GST, 0 products at 0.00% GST.
 - Verification status: `Done`.
 
-## [6.72.4] Ã¢â‚¬â€ 2026-10-12
+## [6.72.4] â€” 2026-10-12
 
-### Barcode & Hardware Ã¢â‚¬â€ Barcode Label Style & Vendor Code Separation and Label Concatenation Engine v6.72.4
+### Barcode & Hardware â€” Barcode Label Style & Vendor Code Separation and Label Concatenation Engine v6.72.4
 
 Decoupled vendor code suffixes from Article / Style identifiers in the Item Master and catalog database, while engineering dynamic presentation formatting for barcode label printing where Style and Vendor Code are combined with a trailing hyphen (`[Style]-[VendorCode]-`, e.g. `CH-01-A-`).
 
@@ -1920,7 +1937,7 @@ Decoupled vendor code suffixes from Article / Style identifiers in the Item Mast
 - **Control Plane Master Approval:** Pre-registered 38 clean base styles (`CH-01` through `CH-25`, `SH-02`, `SH-03`, `SND-01` through `SND-19`) in master lookup `style_article` and in-house vendor `TT` in `vendor_code` lookup.
 - **Live Database Suffix Migration:** Executed concurrent asynchronous migration (`scripts/clean_live_products_styles.py`) updating 532 live products on `https://tattlythreads.smritisys.com/` with 0 failures, verifying all 1,137 products across 91 distinct styles possess clean style codes.
 - **Multi-Format Workbooks Regeneration:** Updated `scripts/export_all_1136_barcodes.py` and regenerated Excel/CSV exports containing clean `Style / Article`, separate `Vendor Code`, and `Barcode Label Style (Printed)` (`CH-01-A-` for external vendors, `CH-501-TT` for in-house articles).
-- **Item Master Live Header Hierarchy Clarification:** Updated the live badge in Item Master Workspace (`ItemMasterWs.tsx`) from the ambiguous `{products.length} Articles Live` to dual-level hierarchy `{uniqueArticlesCount} Articles Ã¢â‚¬Â¢ {products.length} SKUs Live` (`91 Articles Ã¢â‚¬Â¢ 1137 SKUs Live`) with informative tooltip explaining parent designs vs sellable SKU/barcode variants.
+- **Item Master Live Header Hierarchy Clarification:** Updated the live badge in Item Master Workspace (`ItemMasterWs.tsx`) from the ambiguous `{products.length} Articles Live` to dual-level hierarchy `{uniqueArticlesCount} Articles â€¢ {products.length} SKUs Live` (`91 Articles â€¢ 1137 SKUs Live`) with informative tooltip explaining parent designs vs sellable SKU/barcode variants.
 
 **Verification:**
 - Vitest: 8/8 tests passed in `src/tests/prnInterpolation.test.ts`.
@@ -1928,9 +1945,9 @@ Decoupled vendor code suffixes from Article / Style identifiers in the Item Mast
 - Live Database Audit: 1,137 products scanned on live production, 0 products with vendor suffixes in `style_code`, 91 distinct clean styles confirmed.
 - Verification status: `Done`.
 
-## [6.72.3] Ã¢â‚¬â€ 2026-10-12
+## [6.72.3] â€” 2026-10-12
 
-### Item Master & Catalog Ã¢â‚¬â€ Live Tattly Threads Item Master Seeding & Multy Exclusion v6.72.3
+### Item Master & Catalog â€” Live Tattly Threads Item Master Seeding & Multy Exclusion v6.72.3
 
 Ingested and persisted 602 validated footwear items across 52 distinct styles from client master dataset `OLD TO NEW (1).xlsx` into live production (`https://tattlythreads.smritisys.com/`), strictly filtering out all items with color designation `MULTY` / `MULTI` (168 items from Sheet2) per user directive.
 
@@ -1946,9 +1963,9 @@ Ingested and persisted 602 validated footwear items across 52 distinct styles fr
 - Live API: 90 distinct styles, 1,136 distinct barcodes verified on `https://tattlythreads.smritisys.com/`.
 - Verification status: `Done`.
 
-## [6.72.2] Ã¢â‚¬â€ 2026-10-12
+## [6.72.2] â€” 2026-10-12
 
-### HR & Workforce Ã¢â‚¬â€ Staff Directory Profile Robustness & Multi-Tenant Resilience v6.72.2
+### HR & Workforce â€” Staff Directory Profile Robustness & Multi-Tenant Resilience v6.72.2
 
 Permanently eliminated HTTP 400 Bad Request failures (`/api/v1/staff/directory/{user_id}/profile`) encountered when editing and saving staff member profiles in Staff 360 across multi-tenant environments.
 
@@ -1967,9 +1984,9 @@ Permanently eliminated HTTP 400 Bad Request failures (`/api/v1/staff/directory/{
 - TypeScript: `npx tsc --noEmit` exited with 0 errors across entire workspace.
 - Verification status: `Done`.
 
-## [6.72.1] Ã¢â‚¬â€ 2026-10-12
+## [6.72.1] â€” 2026-10-12
 
-### Inventory & Item Master Ã¢â‚¬â€ Catalog Export Parity, Universal Field Resolution & Multi-Format Output v6.72.1
+### Inventory & Item Master â€” Catalog Export Parity, Universal Field Resolution & Multi-Format Output v6.72.1
 
 Resolved critical discrepancy where Article / Design codes (Column H), Gender (Column F), and Product Type (Column G) exported as blank cells in Excel and CSV files despite appearing populated on screen in the Article / Design Catalog (`ItemCatalogGrid.tsx`).
 
@@ -1986,9 +2003,9 @@ Resolved critical discrepancy where Article / Design codes (Column H), Gender (C
 - TypeScript: `npx tsc --noEmit` exited with 0 errors across entire repository.
 - Verification status: `Done`.
 
-## [6.72.0] Ã¢â‚¬â€ 2026-10-12
+## [6.72.0] â€” 2026-10-12
 
-### HR & Security Ã¢â‚¬â€ User & Staff Creation Hardening, Tenant Resolution & Error Visibility v6.72.0
+### HR & Security â€” User & Staff Creation Hardening, Tenant Resolution & Error Visibility v6.72.0
 
 Resolved critical failure modes preventing operators and administrators from creating new user or staff accounts, eliminated silent validation rejections, wired missing UI modals, and enforced the SMRITI Human-Readable Error Policy (HREP) across control plane and store tenant workspaces.
 
@@ -2006,9 +2023,9 @@ Resolved critical failure modes preventing operators and administrators from cre
 - Python Backend: Real PostgreSQL session verified role normalization, branch resolution (`'MAIN'` -> `'BR-MAIN-001'`), and duplicate username rejection.
 - TypeScript: `npx tsc --noEmit` exited with 0 errors across 3,594 modules.
 
-## [6.71.0] Ã¢â‚¬â€ 2026-10-12
+## [6.71.0] â€” 2026-10-12
 
-### Inventory & Item Master Ã¢â‚¬â€ Tri-Modal Export Engine (All Fields, Selected Presets & Forensic Audit) v6.71.0
+### Inventory & Item Master â€” Tri-Modal Export Engine (All Fields, Selected Presets & Forensic Audit) v6.71.0
 
 Architected, delivered, and verified the Tri-Modal Export Engine for SMRITI Retail OS Item Master, providing a unified data extraction architecture across full-catalog migration dumps ("All Fields"), one-click task-specific operational configurations ("Selected Presets"), and automated compliance validation with Legal Metrology pricing checks ("Forensic Audit").
 
@@ -2036,14 +2053,14 @@ Architected, delivered, and verified the Tri-Modal Export Engine for SMRITI Reta
 - Vitest: 13/13 passed in `src/tests/itemGrid.test.ts`.
 - Multi-format serialization: CSV, SpreadsheetML, and OpenXML XLSX compression verified.
 
-## [6.27.0] Ã¢â‚¬â€ 2026-10-12
+## [6.27.0] â€” 2026-10-12
 
-### Sales & Dispatch Invoicing Ã¢â‚¬â€ Reliance Retail 9 Stores Tax Invoices (Dispatch 12-10-2026) v6.27.0
+### Sales & Dispatch Invoicing â€” Reliance Retail 9 Stores Tax Invoices (Dispatch 12-10-2026) v6.27.0
 
 Delivered statutory commercial dispatch billing for Reliance Retail Limited covering 9 stores (1888, 1969, 9556, T51H, TAGG, TKL0, TPV2, TUA7, TV81) across Assam, Tripura, Karnataka, and West Bengal from formatted indent matrix (`TATTLY_THREADS_INDENT_FORMATTED (1).xlsx`). Continues sequentially from invoice `TT2026-2027/286` with document series `TT2026-2027/287` through `TT2026-2027/295` dated `12-10-2026`. Generated strictly without PO / Reference per client instruction.
 
 **Key Capabilities:**
-- **Automated Matrix Unpivoting:** Ingested 116 footwear styles across 7 size columns (36Ã¢â‚¬â€œ42), unpivoting to exactly 254 transaction items (441 pairs).
+- **Automated Matrix Unpivoting:** Ingested 116 footwear styles across 7 size columns (36â€“42), unpivoting to exactly 254 transaction items (441 pairs).
 - **Dual-Source Barcode Resolution:** 100% item resolution by cross-referencing vendor purchases (`ALL VENDOR PURCHASE FOR SOFTWARE.xlsx`) and master catalog (`TATTLY THREADS ITEM MASTER 2026 - Copyfinal2.xlsx`).
 - **Statutory Pricing & Taxes:** Applied wholesale unit rate formula `round(mrp * 0.5624, 2)` (43.76% promotional discount) with 5% Interstate IGST across all invoices.
 - **Omission of PO / Reference:** PO reference and PO date omitted across database headers (`po_reference = None`), Playwright PDF invoices, summary matrix, and file names (`{store_code}_{invoice_clean_no}.pdf`).
@@ -2053,19 +2070,19 @@ Delivered statutory commercial dispatch billing for Reliance Retail Limited cove
 
 **Verification:**
 - PostgreSQL `smriti001`: 9 invoices (`TT2026-2027/287` to `295`), 254 line items, 9 eway bills verified.
-- Financial Parity: 441 pairs, Ã¢â€šÂ¹1,031,059.00 Gross MRP, Ã¢â€šÂ¹579,868.64 Taxable Value, Ã¢â€šÂ¹28,993.09 IGST, Ã¢â€šÂ¹608,862.00 Net Value.
+- Financial Parity: 441 pairs, â‚¹1,031,059.00 Gross MRP, â‚¹579,868.64 Taxable Value, â‚¹28,993.09 IGST, â‚¹608,862.00 Net Value.
 - Files: 9/9 PDFs generated and verified, 10/10 JSONs verified, 2 Excel workbooks verified.
 
-## [6.70.49] Ã¢â‚¬â€ 2026-10-12
+## [6.70.49] â€” 2026-10-12
 
-### HR & Workforce Ã¢â‚¬â€ Staff Attendance & Workforce Management UX, UI, and Database Wiring v1.0.0
+### HR & Workforce â€” Staff Attendance & Workforce Management UX, UI, and Database Wiring v1.0.0
 
 Integrated comprehensive, end-to-end UX, UI, and PostgreSQL database table wiring for the Staff Attendance & Workforce Management subsystem across Staff 360 (`StaffMasterWs.tsx`), Attendance Studio modal (`EmployeeAttendanceModal.tsx`), Attendance Workspace (`AttendanceWorkspaceTab.tsx`), and FastAPI backend (`backend/app/api/v1/staff.py`).
 
 **Key Capabilities:**
 - **Initial User Synchronization:** Propagates `selectedId` from Staff 360 as `initialUserId` to `EmployeeAttendanceModal`, synchronizing modal employee selection dynamically.
 - **Unified Staff Roster Coverage:** Parallelized retrieval and union of `/staff/personnel` (commission participants) and `/staff/directory` (central system users), preventing omission of non-commission employees (e.g., cashiers, warehouse associates, store supervisors).
-- **Interactive Shift Punch Console in Staff 360:** Embedded 1-click `[Ã¢ÂÂ± Clock In / Out Now]` console with dynamic status indicator directly inside Staff 360's inline Attendance tab, hitting `POST /api/v1/staff/attendance/punch` with `device_source: "STAFF_360_WORKSPACE"`.
+- **Interactive Shift Punch Console in Staff 360:** Embedded 1-click `[â± Clock In / Out Now]` console with dynamic status indicator directly inside Staff 360's inline Attendance tab, hitting `POST /api/v1/staff/attendance/punch` with `device_source: "STAFF_360_WORKSPACE"`.
 - **PostgreSQL Authoritative KPI Summary:** Rendered period shift metrics (`Present Shifts`, `Late Punches`, `Half Day Shifts`, `Hours Logged`) computed directly from PostgreSQL `attendance_records` via `GET /api/v1/staff/attendance/summary`.
 - **Extended Attendance Ledger:** Upgraded historical tables with `Hours Worked` calculations, color status badges (`PRESENT`, `LATE`, `HALF_DAY`, `ABSENT`, `LEAVE`), and hardware `device_source` / `register_source` badges.
 - **Database VARCHAR(100) Safety Bounding:** Deduplicated and bound concatenated device tags to 100 characters in `staff.py` to prevent PostgreSQL `StringDataRightTruncationError`.
@@ -2075,7 +2092,7 @@ Integrated comprehensive, end-to-end UX, UI, and PostgreSQL database table wirin
 - Python: 8/8 passed in `tests/test_headless_attendance_client.py` against live backend.
 - TypeScript: `npx tsc --noEmit` exited 0 (0 errors).
 
-### HR & Workforce Ã¢â‚¬â€ Headless Staff Attendance Punch & Automation Client v1.0.0
+### HR & Workforce â€” Headless Staff Attendance Punch & Automation Client v1.0.0
 
 Delivered zero-dependency headless CLI client (`scripts/headless_attendance_client.py`) and automated test harness (`tests/test_headless_attendance_client.py`) enabling terminal-level staff attendance entry, IoT biometric stream pushes, bulk attendance roster marking, ASCII tabular ledger querying, and KPI summaries without requiring browser interaction or GUI frontends.
 
@@ -2091,7 +2108,7 @@ Delivered zero-dependency headless CLI client (`scripts/headless_attendance_clie
 - `python -m unittest tests/test_headless_attendance_client.py -v`: 8/8 tests passed in 0.349s.
 - `python -m py_compile scripts/headless_attendance_client.py tests/test_headless_attendance_client.py`: exit 0.
 
-### DevOps & Branding Ã¢â‚¬â€ Container Startup Resilience & AI Iconography Governance v1.0.0 (Commits `737f66f4`, `6793bbe6`)
+### DevOps & Branding â€” Container Startup Resilience & AI Iconography Governance v1.0.0 (Commits `737f66f4`, `6793bbe6`)
 
 Resolves client-site Docker container startup dependency errors and enacts permanent governance policy prohibiting third-party AI iconography and recommendations.
 
@@ -2103,28 +2120,28 @@ Resolves client-site Docker container startup dependency errors and enacts perma
 - `src/modules/dev_tracker/scanner/metrics.ts`: Replaced `Gemini` scanner string with `SmritiSaathi`.
 - `.agents/AGENTS.md`: Enacted Policy ID `SAIB-NO-GEMINI-v1.0` freezing prohibition of third-party AI branding, logos, sparkle emblems, and recommendations across SMRITI Retail OS.
 
-### Foundation Ã¢â‚¬â€ Theme Preset Package System v1.0 (Commits `36c780b1`, `15e34409`)
+### Foundation â€” Theme Preset Package System v1.0 (Commits `36c780b1`, `15e34409`)
 
 Replaces binary light/dark toggle with a named, 5-preset visual configuration system bundling colour mode, accent, density, and font scale. Full-stack: React frontend + FastAPI backend.
 
-**Frontend files (commit `36c780b1` Ã¢â‚¬â€ 8 files, 459 ins, 79 del):**
-- `src/config/theme_presets.ts` *(new)* Ã¢â‚¬â€ canonical 5-preset definitions (enterprise-light, enterprise-dark, pos-dark, retail-day, high-contrast)
-- `src/contexts/ThemeContext.tsx` Ã¢â‚¬â€ v2.0: `setPreset()`, `applyPresetToDOM()`, density + accent + font-base DOM writes; backward-compat `toggleTheme`/`setTheme` aliases kept
-- `src/index.css` Ã¢â‚¬â€ density token layer: 3 `[data-density]` tiers (compact/comfortable/spacious); `font-size: var(--font-base, 13px)`
-- `src/smriti_scroll.css` Ã¢â‚¬â€ 3x hardcoded `rgba(37,99,235)` replaced with `color-mix(var(--c-theme-primary))`
-- `src/types.ts` Ã¢â‚¬â€ `UserPreferences` + `presetId?`, `density?`, `fontScale?`, `accentOverride?`
-- `src/components/UserProfileTab.tsx` Ã¢â‚¬â€ Phase 1 sync bug fixed; 5-tile visual preset grid; tab renamed to "Appearance & Prefs"
-- `src/layout_engine/layout_manager.tsx` Ã¢â‚¬â€ `PresetSwitcher` dropdown in header replaces Sun/Moon toggle
-- `src/state/store.ts` Ã¢â‚¬â€ seed defaults: admin/manager Ã¢â€ â€™ `enterprise-light`; cashier Ã¢â€ â€™ `pos-dark`
+**Frontend files (commit `36c780b1` â€” 8 files, 459 ins, 79 del):**
+- `src/config/theme_presets.ts` *(new)* â€” canonical 5-preset definitions (enterprise-light, enterprise-dark, pos-dark, retail-day, high-contrast)
+- `src/contexts/ThemeContext.tsx` â€” v2.0: `setPreset()`, `applyPresetToDOM()`, density + accent + font-base DOM writes; backward-compat `toggleTheme`/`setTheme` aliases kept
+- `src/index.css` â€” density token layer: 3 `[data-density]` tiers (compact/comfortable/spacious); `font-size: var(--font-base, 13px)`
+- `src/smriti_scroll.css` â€” 3x hardcoded `rgba(37,99,235)` replaced with `color-mix(var(--c-theme-primary))`
+- `src/types.ts` â€” `UserPreferences` + `presetId?`, `density?`, `fontScale?`, `accentOverride?`
+- `src/components/UserProfileTab.tsx` â€” Phase 1 sync bug fixed; 5-tile visual preset grid; tab renamed to "Appearance & Prefs"
+- `src/layout_engine/layout_manager.tsx` â€” `PresetSwitcher` dropdown in header replaces Sun/Moon toggle
+- `src/state/store.ts` â€” seed defaults: admin/manager â†’ `enterprise-light`; cashier â†’ `pos-dark`
 
-**Backend files (commit `15e34409` Ã¢â‚¬â€ 3 files, 115 ins, 14 del):**
-- `backend/app/schemas/user.py` v3.17.0 Ã¢â‚¬â€ `UserPreferencesSchema` + preset fields; `PreferencesUpdate` typed partial-update schema with validators
-- `backend/app/services/user.py` v3.17.0 Ã¢â‚¬â€ typed merge with `exclude_none`; `USER_PREFERENCES_UPDATED` audit; `enterprise-light` default
-- `backend/app/api/v1/users.py` Ã¢â‚¬â€ `PUT /users/{id}/preferences` accepts `PreferencesUpdate`; unused `Body` import removed
+**Backend files (commit `15e34409` â€” 3 files, 115 ins, 14 del):**
+- `backend/app/schemas/user.py` v3.17.0 â€” `UserPreferencesSchema` + preset fields; `PreferencesUpdate` typed partial-update schema with validators
+- `backend/app/services/user.py` v3.17.0 â€” typed merge with `exclude_none`; `USER_PREFERENCES_UPDATED` audit; `enterprise-light` default
+- `backend/app/api/v1/users.py` â€” `PUT /users/{id}/preferences` accepts `PreferencesUpdate`; unused `Body` import removed
 
 **Verification:** TSC exit 0 | Vite 3708 modules exit 0 | py_compile exit 0
 
-### Staff Attendance Ã¢â‚¬â€ Audit P0+P1 Security & Logic Fixes (Commit `93dd4385`)
+### Staff Attendance â€” Audit P0+P1 Security & Logic Fixes (Commit `93dd4385`)
 
 **Files:**
 - `backend/app/api/v1/staff.py`
@@ -2136,115 +2153,115 @@ Replaces binary light/dark toggle with a named, 5-preset visual configuration sy
 
 | ID | Severity | Description | File(s) |
 |----|----------|-------------|---------|
-| F-03 / R-01 | Ã°Å¸â€Â´ P0 | `POST /attendance/device-push` now requires `SMRITI.HR.DEVICE_PUSH_API_KEY` validation. Unauthenticated pushes Ã¢â€ â€™ `403 SMRITI-PERM-010`; wrong key Ã¢â€ â€™ `401 SMRITI-PERM-011`. | `staff.py` |
-| F-02 / R-04 | Ã°Å¸â€Â´ P0 | Clock-in status auto-detects `LATE` using `SMRITI.HR.SHIFT_START_TIME` + `SMRITI.HR.LATE_THRESHOLD_MINUTES` (defaults: 09:00, 15 min grace). | `staff.py` |
-| F-07 / R-03 | Ã°Å¸Å¸Â  P1 | Clock-out auto-sets `HALF_DAY` if hours worked < `SMRITI.HR.HALF_DAY_HOURS_THRESHOLD` (default 4h). `LATE` status preserved through clock-out. | `staff.py` |
-| F-01 / R-02 | Ã°Å¸â€Â´ P0 | `LATE` added to `AttendanceStatus` TypeScript union type; now matches backend `allowed_statuses`. | `employeeAttendanceEngine.ts` |
-| F-05 / R-06 | Ã°Å¸Å¸Â  P1 | Removed hardcoded phantom payout synthesis (Ã¢â€šÂ¹3750/Ã¢â€šÂ¹1.5L/75%). Fictional data no longer shown to managers. Real data from `GET /staff/commissions/summary`. | `EmployeeAttendanceModal.tsx` |
-| F-13 | Ã°Å¸Å¸Â¡ P2 | `PERIOD` moved into `useMemo` Ã¢â‚¬â€ fixes month-boundary stale closure bug. | `EmployeeAttendanceModal.tsx` |
-| F-14 / R-09 | Ã°Å¸Å¸Â¡ P2 | Device-push employee code normalized (strip whitespace, uppercase, remove leading zeros for ZKTeco firmware quirk). | `staff.py` |
-| F-04 / R-08 | Ã°Å¸â€Â´ P0 | Migration v1527: composite index `ix_attendance_records_company_date` on `(company_id, attendance_date DESC)`. | `v1527_*.py` |
-| Ã¢â‚¬â€ | Ã¢â‚¬â€ | Migration v1527: `CHECK` constraint `chk_attendance_status_valid` on `attendance_records.status`. | `v1527_*.py` |
-| Ã¢â‚¬â€ | Ã¢â‚¬â€ | Migration v1527: Seeds `SMRITI.HR.SHIFT_START_TIME`, `SMRITI.HR.LATE_THRESHOLD_MINUTES`, `SMRITI.HR.HALF_DAY_HOURS_THRESHOLD` into `system_parameters`. | `v1527_*.py` |
+| F-03 / R-01 | ðŸ”´ P0 | `POST /attendance/device-push` now requires `SMRITI.HR.DEVICE_PUSH_API_KEY` validation. Unauthenticated pushes â†’ `403 SMRITI-PERM-010`; wrong key â†’ `401 SMRITI-PERM-011`. | `staff.py` |
+| F-02 / R-04 | ðŸ”´ P0 | Clock-in status auto-detects `LATE` using `SMRITI.HR.SHIFT_START_TIME` + `SMRITI.HR.LATE_THRESHOLD_MINUTES` (defaults: 09:00, 15 min grace). | `staff.py` |
+| F-07 / R-03 | ðŸŸ  P1 | Clock-out auto-sets `HALF_DAY` if hours worked < `SMRITI.HR.HALF_DAY_HOURS_THRESHOLD` (default 4h). `LATE` status preserved through clock-out. | `staff.py` |
+| F-01 / R-02 | ðŸ”´ P0 | `LATE` added to `AttendanceStatus` TypeScript union type; now matches backend `allowed_statuses`. | `employeeAttendanceEngine.ts` |
+| F-05 / R-06 | ðŸŸ  P1 | Removed hardcoded phantom payout synthesis (â‚¹3750/â‚¹1.5L/75%). Fictional data no longer shown to managers. Real data from `GET /staff/commissions/summary`. | `EmployeeAttendanceModal.tsx` |
+| F-13 | ðŸŸ¡ P2 | `PERIOD` moved into `useMemo` â€” fixes month-boundary stale closure bug. | `EmployeeAttendanceModal.tsx` |
+| F-14 / R-09 | ðŸŸ¡ P2 | Device-push employee code normalized (strip whitespace, uppercase, remove leading zeros for ZKTeco firmware quirk). | `staff.py` |
+| F-04 / R-08 | ðŸ”´ P0 | Migration v1527: composite index `ix_attendance_records_company_date` on `(company_id, attendance_date DESC)`. | `v1527_*.py` |
+| â€” | â€” | Migration v1527: `CHECK` constraint `chk_attendance_status_valid` on `attendance_records.status`. | `v1527_*.py` |
+| â€” | â€” | Migration v1527: Seeds `SMRITI.HR.SHIFT_START_TIME`, `SMRITI.HR.LATE_THRESHOLD_MINUTES`, `SMRITI.HR.HALF_DAY_HOURS_THRESHOLD` into `system_parameters`. | `v1527_*.py` |
 
-### PSV Ã¢â‚¬â€ Menu Registry & Launchpad Plain-Language Rename
+### PSV â€” Menu Registry & Launchpad Plain-Language Rename
 
 **Commit:** `82f0baf5`
 
-- **`src/layout_engine/layout_store.tsx`** Ã¢â‚¬â€ sidebar/tab-bar label: `"Channel Visibility"` Ã¢â€ â€™ `"Distributor Stock"` (short for sidebar fit; matches redesign language)
-- **`src/components/launchpad/launchpadCatalog.ts`** Ã¢â‚¬â€ Fiori home tile:
-  - `title`: `"Channel Stock Visibility (PSV)"` Ã¢â€ â€™ `"Distributor Stock Tracker"`
-  - `subtitle`: `"Party stock visibility, partner sell-through analytics & channel cover weeks"` Ã¢â€ â€™ `"See how much stock each distributor has, how much has sold, and whether any action is needed"`
-- `fioriLaunchpad.test.ts` Ã¢â‚¬â€ no change needed; test checks tile `id: "psv"` only, not the title string.
+- **`src/layout_engine/layout_store.tsx`** â€” sidebar/tab-bar label: `"Channel Visibility"` â†’ `"Distributor Stock"` (short for sidebar fit; matches redesign language)
+- **`src/components/launchpad/launchpadCatalog.ts`** â€” Fiori home tile:
+  - `title`: `"Channel Stock Visibility (PSV)"` â†’ `"Distributor Stock Tracker"`
+  - `subtitle`: `"Party stock visibility, partner sell-through analytics & channel cover weeks"` â†’ `"See how much stock each distributor has, how much has sold, and whether any action is needed"`
+- `fioriLaunchpad.test.ts` â€” no change needed; test checks tile `id: "psv"` only, not the title string.
 
-### TypeScript Ã¢â‚¬â€ Full Codebase Clean Pass (0 errors)
+### TypeScript â€” Full Codebase Clean Pass (0 errors)
 
-**Commits:** `2c5aec14` Ã‚Â· `6855fddf`
+**Commits:** `2c5aec14` Â· `6855fddf`
 
 Pre-existing errors eliminated; `tsc --noEmit --skipLibCheck` now exits `0` with empty stdout/stderr.
 
 | Error | Root Cause | Fix | File |
 |-------|-----------|-----|------|
-| `TS2339` `import.meta.env` (Ãƒâ€”2) | `vite/client` types not in scope for standalone `tsc` run | `/// <reference types="vite/client" />` added | `src/declarations.d.ts` |
-| `TS2353` `LedgerFilterOption.type` (Ãƒâ€”2) | Interface missing `type` field; date filters use `type:"date"` | Added `type?: "select"\|"date"\|"text"`, made `options?` optional | `src/components/global/ledger/types.ts` |
+| `TS2339` `import.meta.env` (Ã—2) | `vite/client` types not in scope for standalone `tsc` run | `/// <reference types="vite/client" />` added | `src/declarations.d.ts` |
+| `TS2353` `LedgerFilterOption.type` (Ã—2) | Interface missing `type` field; date filters use `type:"date"` | Added `type?: "select"\|"date"\|"text"`, made `options?` optional | `src/components/global/ledger/types.ts` |
 | `TS2322` `Shimmer style` | `Shimmer` component only accepted `className`, not `style` | Added `style?: React.CSSProperties` to Shimmer props | `src/components/common/SmritiTableSkeleton.tsx` |
 | `TS18047` `selectedOrder null` | `selectedOrder` typed `T\|null`; used without null guard | `selectedOrder!.id` non-null assertion | `src/components/SalesStudioTab.tsx` |
 | `TS18048` `filter.options undefined` | Making `options?` optional cascaded to `LedgerScreen.tsx:938` | `(filter.options ?? []).map(...)` nullish fallback | `src/components/global/ledger/LedgerScreen.tsx` |
 
-### PSV Distributor Stock Tracker Ã¢â‚¬â€ UX Redesign v3.0.0 (WhatsApp-Level Simplicity)
+### PSV Distributor Stock Tracker â€” UX Redesign v3.0.0 (WhatsApp-Level Simplicity)
 
-**Commit:** `54abf7df` Ã‚Â· **File:** `src/components/PsvTab.tsx`
+**Commit:** `54abf7df` Â· **File:** `src/components/PsvTab.tsx`
 
 Complete plain-language redesign of the PSV tab so any non-technical user (shop owner, field sales person, distributor) can read and act on data without training.
 
-#### Changed Ã¢â‚¬â€ Language & Labelling
-- **Page title:** "Party Stock Visibility (PSV)" Ã¢â€ â€™ **"Ã°Å¸â€œÅ  Distributor Stock Tracker"** with a one-sentence plain-English description of what the screen does.
-- **Sell-Through %** Ã¢â€ â€™ **"Ã°Å¸â€ºâ€™ How Much Has Sold"** with contextual sub-label (`"Excellent Ã¢â‚¬â€ most goods have sold Ã¢Å“â€¦"`, `"Very slow Ã¢â‚¬â€ most goods are still sitting"`).
-- **Weeks of Cover** Ã¢â€ â€™ **"Ã¢ÂÂ³ Stock Will Last _ weeks"** with action sub-label (`"Very low Ã¢â‚¬â€ reorder soon!"`, `"Comfortable Ã¢â‚¬â€ no rush to restock"`).
-- **Capital Locked** Ã¢â€ â€™ **"Ã°Å¸â€™Â° Money Tied in Unsold Stock"** with sub-label `"This money will come back once goods sell"`.
-- **Status "Critical"** Ã¢â€ â€™ **Ã°Å¸â€Â´ Needs Action** Ã‚Â· **"Monitor"** Ã¢â€ â€™ **Ã°Å¸Å¸Â¡ Keep Watch** Ã‚Â· **"Healthy"** Ã¢â€ â€™ **Ã°Å¸Å¸Â¢ All Good** Ã‚Â· **"SOLD_OUT"** Ã¢â€ â€™ **Ã¢Å¡Â« Sold Out**.
-- **"Operational Recommendation"** Ã¢â€ â€™ plain-language **Tip card** with emoji heading (Ã°Å¸Å¡Â¨ / Ã°Å¸â€˜â‚¬ / Ã°Å¸â€œÂ¦ / Ã¢Å“â€¦) and conversational body.
+#### Changed â€” Language & Labelling
+- **Page title:** "Party Stock Visibility (PSV)" â†’ **"ðŸ“Š Distributor Stock Tracker"** with a one-sentence plain-English description of what the screen does.
+- **Sell-Through %** â†’ **"ðŸ›’ How Much Has Sold"** with contextual sub-label (`"Excellent â€” most goods have sold âœ…"`, `"Very slow â€” most goods are still sitting"`).
+- **Weeks of Cover** â†’ **"â³ Stock Will Last _ weeks"** with action sub-label (`"Very low â€” reorder soon!"`, `"Comfortable â€” no rush to restock"`).
+- **Capital Locked** â†’ **"ðŸ’° Money Tied in Unsold Stock"** with sub-label `"This money will come back once goods sell"`.
+- **Status "Critical"** â†’ **ðŸ”´ Needs Action** Â· **"Monitor"** â†’ **ðŸŸ¡ Keep Watch** Â· **"Healthy"** â†’ **ðŸŸ¢ All Good** Â· **"SOLD_OUT"** â†’ **âš« Sold Out**.
+- **"Operational Recommendation"** â†’ plain-language **Tip card** with emoji heading (ðŸš¨ / ðŸ‘€ / ðŸ“¦ / âœ…) and conversational body.
 - **"Downstream Channel Distribution Ledger"** subtitle removed.
 - **"Node ID"** removed from detail header (no business value to end users).
-- **SKU table columns:** `"Invoiced"` Ã¢â€ â€™ `"Sent Ã°Å¸â€œÂ¤"` Ã‚Â· `"Lying Stock"` Ã¢â€ â€™ `"Still There Ã°Å¸â€œÂ¦"` Ã‚Â· `"Sold"` Ã¢â€ â€™ `"Sold Ã¢Å“â€¦"` Ã‚Â· `"Returned"` Ã¢â€ â€™ `"Returned Ã°Å¸â€â€ž"`.
+- **SKU table columns:** `"Invoiced"` â†’ `"Sent ðŸ“¤"` Â· `"Lying Stock"` â†’ `"Still There ðŸ“¦"` Â· `"Sold"` â†’ `"Sold âœ…"` Â· `"Returned"` â†’ `"Returned ðŸ”„"`.
 - **Read-only banner:** technical wording replaced with `"View-Only Mode. You can see all data but cannot make any changes."`.
 
-#### Added Ã¢â‚¬â€ New UX Elements
-- **Ã°Å¸â€Â Search bar** Ã¢â‚¬â€ filter distributor list by name or city, with no-results state.
-- **Ã¢â€žÂ¹Ã¯Â¸Â "How to read these numbers" explainer box** Ã¢â‚¬â€ plain-English paragraph for each of the 4 metrics, always visible below the metric tiles.
-- **Ã°Å¸â€œË† Bottom status legend** Ã¢â‚¬â€ `Ã°Å¸Å¸Â¢ All Good Ã‚Â· Ã°Å¸Å¸Â¡ Keep Watch Ã‚Â· Ã°Å¸â€Â´ Needs Action Ã‚Â· Ã¢Å¡Â« Sold Out` with description.
-- **Ã°Å¸â€œÂ¦ Empty state (no parties)** Ã¢â‚¬â€ friendly illustration and explanation instead of blank screen.
-- **Ã°Å¸â€œâ€° Chart empty state** Ã¢â‚¬â€ if no history events yet, friendly message `"Chart will appear once goods start moving"`.
-- **Chart tooltips** Ã¢â‚¬â€ show `"150 pcs"` not raw numbers; Legend labels in plain text `"Ã°Å¸â€œÂ¦ Stock Remaining / Ã°Å¸â€ºâ€™ Daily Sales"`.
-- **`MetricTile`** Ã¢â‚¬â€ reusable metric tile sub-component (icon, label, value, sub-label, value colour).
-- **`SkuRow`** Ã¢â‚¬â€ extracted SKU table row as named sub-component.
-- **`statusSignal()`** Ã¢â‚¬â€ helper returning emoji + label + CSS for any `PSVParty["status"]`.
-- **`sellThroughMessage()`** / **`tipForParty()`** Ã¢â‚¬â€ plain-language text generators for guidance.
+#### Added â€” New UX Elements
+- **ðŸ” Search bar** â€” filter distributor list by name or city, with no-results state.
+- **â„¹ï¸ "How to read these numbers" explainer box** â€” plain-English paragraph for each of the 4 metrics, always visible below the metric tiles.
+- **ðŸ“ˆ Bottom status legend** â€” `ðŸŸ¢ All Good Â· ðŸŸ¡ Keep Watch Â· ðŸ”´ Needs Action Â· âš« Sold Out` with description.
+- **ðŸ“¦ Empty state (no parties)** â€” friendly illustration and explanation instead of blank screen.
+- **ðŸ“‰ Chart empty state** â€” if no history events yet, friendly message `"Chart will appear once goods start moving"`.
+- **Chart tooltips** â€” show `"150 pcs"` not raw numbers; Legend labels in plain text `"ðŸ“¦ Stock Remaining / ðŸ›’ Daily Sales"`.
+- **`MetricTile`** â€” reusable metric tile sub-component (icon, label, value, sub-label, value colour).
+- **`SkuRow`** â€” extracted SKU table row as named sub-component.
+- **`statusSignal()`** â€” helper returning emoji + label + CSS for any `PSVParty["status"]`.
+- **`sellThroughMessage()`** / **`tipForParty()`** â€” plain-language text generators for guidance.
 
-#### Changed Ã¢â‚¬â€ Layout & Behaviour
-- Left panel party cards use a **left border accent** (blue when selected, transparent otherwise) instead of full background tint Ã¢â‚¬â€ cleaner mobile feel.
+#### Changed â€” Layout & Behaviour
+- Left panel party cards use a **left border accent** (blue when selected, transparent otherwise) instead of full background tint â€” cleaner mobile feel.
 - Party cards restructured: name + status badge on top row, location row, then 3 mini stat tiles (`Stock Left / Sold % / Weeks Left`).
-- Right panel metric tiles are a **2Ãƒâ€”2 grid on mobile, 1Ãƒâ€”4 on desktop**.
+- Right panel metric tiles are a **2Ã—2 grid on mobile, 1Ã—4 on desktop**.
 - Chart container rounded to `rounded-xl` and restyled.
 
-**Commits:** `1ed07877` (P0) Ã‚Â· `f11e077f` (P1) Ã‚Â· `0a6d081d` (P3)
+**Commits:** `1ed07877` (P0) Â· `f11e077f` (P1) Â· `0a6d081d` (P3)
 
-#### Fixed Ã¢â‚¬â€ Critical (P0)
-- **F-01** `GET /api/v1/psv/parties` endpoint was completely missing Ã¢â‚¬â€ `App.tsx` called it on every load causing permanent blank `PsvTab` and a `console.error` on every session start. Added the endpoint (`backend/app/api/v1/psv.py`) with company-scoped `PSVParty` query, `selectinload` for `sku_tracking`, live `stock_count` from `psv_stock_balances`, and a 4-day sales/stock history window from `psv_stock_events` for the velocity chart.
-- **F-02** `RETURNED` / `SALES_RETURN` movement type applied wrong sign on `current_balance` Ã¢â‚¬â€ `current_balance -= qty` (removed stock on return). Fixed to `current_balance += qty` (`psv_projection.py:372`). Stock returned to a partner restores their on-hand balance.
+#### Fixed â€” Critical (P0)
+- **F-01** `GET /api/v1/psv/parties` endpoint was completely missing â€” `App.tsx` called it on every load causing permanent blank `PsvTab` and a `console.error` on every session start. Added the endpoint (`backend/app/api/v1/psv.py`) with company-scoped `PSVParty` query, `selectinload` for `sku_tracking`, live `stock_count` from `psv_stock_balances`, and a 4-day sales/stock history window from `psv_stock_events` for the velocity chart.
+- **F-02** `RETURNED` / `SALES_RETURN` movement type applied wrong sign on `current_balance` â€” `current_balance -= qty` (removed stock on return). Fixed to `current_balance += qty` (`psv_projection.py:372`). Stock returned to a partner restores their on-hand balance.
 
-#### Fixed Ã¢â‚¬â€ P1
-- **F-03** `PSVParty.stock_count` never updated after seeding Ã¢â‚¬â€ now recomputed from `SUM(current_balance)` across all SKU balances via `_recompute_party_metrics` after every approved event.
-- **F-04** `PSVParty.sell_through` and `weeks_of_cover` permanently `0.00` for new parties Ã¢â‚¬â€ recomputed live: `sell_through = MIN(100, totalSold / totalBilled Ãƒâ€” 100)`, `weeks_of_cover = current_balance / (avg_daily_sold Ãƒâ€” 7)` from distinct sales event days.
-- **F-06** `psvParties` serialised to/from Express-era JSON `DB_FILE` in `store.ts` Ã¢â‚¬â€ removed from `saveDb()` and `loadDb()`. FastAPI + Postgres is sole owner; comment notes migration complete.
-- **F-07** `capital_locked` seeded at creation, never updated Ã¢â‚¬â€ now computed as `ÃŽÂ£(current_balance_sku Ãƒâ€” Product.mrp)` via a batch `Product.sku` join inside `_recompute_party_metrics`.
+#### Fixed â€” P1
+- **F-03** `PSVParty.stock_count` never updated after seeding â€” now recomputed from `SUM(current_balance)` across all SKU balances via `_recompute_party_metrics` after every approved event.
+- **F-04** `PSVParty.sell_through` and `weeks_of_cover` permanently `0.00` for new parties â€” recomputed live: `sell_through = MIN(100, totalSold / totalBilled Ã— 100)`, `weeks_of_cover = current_balance / (avg_daily_sold Ã— 7)` from distinct sales event days.
+- **F-06** `psvParties` serialised to/from Express-era JSON `DB_FILE` in `store.ts` â€” removed from `saveDb()` and `loadDb()`. FastAPI + Postgres is sole owner; comment notes migration complete.
+- **F-07** `capital_locked` seeded at creation, never updated â€” now computed as `Î£(current_balance_sku Ã— Product.mrp)` via a batch `Product.sku` join inside `_recompute_party_metrics`.
 
-#### Added Ã¢â‚¬â€ P1
-- **`PSVProjectionService._recompute_party_metrics()`** Ã¢â‚¬â€ private classmethod called after every `APPROVED` stock event. Recomputes `stock_count`, `sell_through`, `weeks_of_cover`, `capital_locked` and writes back to `psv_parties`. Wrapped in `try/except` so recompute failure never blocks the projection path.
-- **`history` field** on `PSVPartyResponse` schema Ã¢â‚¬â€ `List[Dict]` with shape `{date, stock, sales}`. Populated by `GET /parties` from last 4 event days. Prevents `PsvTab` velocity chart crash.
-- **`ConfigDict(from_attributes=True)`** on `PSVSkuTrackingResponse` and `PSVPartyResponse` for direct SQLAlchemy ORM Ã¢â€ â€™ Pydantic mapping.
+#### Added â€” P1
+- **`PSVProjectionService._recompute_party_metrics()`** â€” private classmethod called after every `APPROVED` stock event. Recomputes `stock_count`, `sell_through`, `weeks_of_cover`, `capital_locked` and writes back to `psv_parties`. Wrapped in `try/except` so recompute failure never blocks the projection path.
+- **`history` field** on `PSVPartyResponse` schema â€” `List[Dict]` with shape `{date, stock, sales}`. Populated by `GET /parties` from last 4 event days. Prevents `PsvTab` velocity chart crash.
+- **`ConfigDict(from_attributes=True)`** on `PSVSkuTrackingResponse` and `PSVPartyResponse` for direct SQLAlchemy ORM â†’ Pydantic mapping.
 
-#### Added Ã¢â‚¬â€ P3
-- **F-08** `PATCH /api/v1/psv/events/{event_id}/approve` Ã¢â‚¬â€ promotes a `PENDING` PSV event to `APPROVED` and applies its deferred balance delta. MANAGER/ADMIN role guard (403), 404 on unknown event, 409 on double-approve. Accepts both `event_id` (PK) and `source_event_id` (idempotency key). Returns `APPROVED_AND_PROJECTED` with full balance snapshot.
-- **F-09** SKU pattern filter in `get_scoped_party_visibility` Ã¢â‚¬â€ loads `PSVVisibilityPolicy.allowed_sku_patterns` via `scope.policy_code` join; applies `fnmatch` glob per SKU. Empty pattern list = no restriction (backward compatible).
-- **F-10** `PsvTab` audit `useEffect` mount-guard Ã¢â‚¬â€ `hasMounted = useRef(false)` flipped to `true` by a dedicated empty-dep `useEffect`. `recordAuditAction` now gated on `hasMounted.current && activeParty`, eliminating spurious audit log on auto-selected default party at component mount.
+#### Added â€” P3
+- **F-08** `PATCH /api/v1/psv/events/{event_id}/approve` â€” promotes a `PENDING` PSV event to `APPROVED` and applies its deferred balance delta. MANAGER/ADMIN role guard (403), 404 on unknown event, 409 on double-approve. Accepts both `event_id` (PK) and `source_event_id` (idempotency key). Returns `APPROVED_AND_PROJECTED` with full balance snapshot.
+- **F-09** SKU pattern filter in `get_scoped_party_visibility` â€” loads `PSVVisibilityPolicy.allowed_sku_patterns` via `scope.policy_code` join; applies `fnmatch` glob per SKU. Empty pattern list = no restriction (backward compatible).
+- **F-10** `PsvTab` audit `useEffect` mount-guard â€” `hasMounted = useRef(false)` flipped to `true` by a dedicated empty-dep `useEffect`. `recordAuditAction` now gated on `hasMounted.current && activeParty`, eliminating spurious audit log on auto-selected default party at component mount.
 
 #### Tests
-- `backend/app/tests/test_psv.py::test_list_psv_parties_returns_partner_inventory` Ã¢â‚¬â€ previously failing (no route). Now **PASSED** with `pytest-8.2.1, asyncio-mode=auto` on Python 3.11.9.
-- `src/tests/psvEngine.test.ts` Ã¢â‚¬â€ 5/5 Vitest engine tests unaffected (no changes to `partnerSellThru.ts`).
+- `backend/app/tests/test_psv.py::test_list_psv_parties_returns_partner_inventory` â€” previously failing (no route). Now **PASSED** with `pytest-8.2.1, asyncio-mode=auto` on Python 3.11.9.
+- `src/tests/psvEngine.test.ts` â€” 5/5 Vitest engine tests unaffected (no changes to `partnerSellThru.ts`).
 
 ### Added
 - **SmritiConfirmDialog** (src/components/common/SmritiConfirmDialog.tsx): Design-system modal replacing all window.confirm and window.prompt calls across Sales Studio. Supports confirm variant and reason-entry variant with min-length guard.
 - **SmritiEmptyState** (src/components/common/SmritiEmptyState.tsx): Standardised empty-state component with icon, title, description, primary and secondary CTA. Used across all 7 sub-view empty variants.
 - **SmritiTableSkeleton** (src/components/common/SmritiTableSkeleton.tsx): Animated shimmer table skeleton with configurable rows and per-column width/alignment. Replaces generic spinner on all ledger sub-views.
-- **Sales Studio Keyboard Shortcut Overlay** (? key / Shortcuts button): Shows all hotkeys Ã¢â‚¬â€ Shift+Q/O/I/R/C tab navigation, D density cycle, Escape deselect.
-- **Sales Studio Bulk Action Toolbar**: Contextual floating bar on row selection Ã¢â‚¬â€ Export Selected (CSV) + Delete Selected (audit-logged) + Escape/Clear.
+- **Sales Studio Keyboard Shortcut Overlay** (? key / Shortcuts button): Shows all hotkeys â€” Shift+Q/O/I/R/C tab navigation, D density cycle, Escape deselect.
+- **Sales Studio Bulk Action Toolbar**: Contextual floating bar on row selection â€” Export Selected (CSV) + Delete Selected (audit-logged) + Escape/Clear.
 - **Customer Tag Inline Editor**: Direct chip-pill tag add/remove in the Customers directory table without opening the edit panel.
-- **Per-field Inline Validation** on Add Customer form: Name/Mobile/Email/GSTIN/PAN Ã¢â‚¬â€ onBlur validators, red/green border feedback, error message with AlertCircle icon.
+- **Per-field Inline Validation** on Add Customer form: Name/Mobile/Email/GSTIN/PAN â€” onBlur validators, red/green border feedback, error message with AlertCircle icon.
 - **Sortable Customer Columns** (9 columns) with ChevronUp/Down/UpDown visual indicators and sortedCustomers useMemo.
 - **LedgerScreen Page-Size Selector**: 25/50/100/250 rows with first/last page navigation. Persisted in localStorage.
-- **BillingWorkspace Toolbar Overflow**: 5 secondary actions (Gift Cards, Vouchers, Recon, Dynamic Pricing, Omni Orders) consolidated into a More Ã‚Â·Ã‚Â·Ã‚Â· popover with backdrop dismiss.
-- **POS Summary Panel Responsive Auto-Collapse**: Totals panel auto-collapses at window.innerWidth Ã¢â€°Â¤ 1280px on mount and window resize. F9 still reopens.
+- **BillingWorkspace Toolbar Overflow**: 5 secondary actions (Gift Cards, Vouchers, Recon, Dynamic Pricing, Omni Orders) consolidated into a More Â·Â·Â· popover with backdrop dismiss.
+- **POS Summary Panel Responsive Auto-Collapse**: Totals panel auto-collapses at window.innerWidth â‰¤ 1280px on mount and window resize. F9 still reopens.
 - **Credit Billing Purple Visual Skin**: Purple header + container border when uxView === "CREDIT_BILLING".
 - **Shift HUD** visible in all 3 billing modes (WORKSPACE / EOD / CREDIT_BILLING).
 - **Tamper-Proof Ledger** lock badge in audit log config.
@@ -2284,12 +2301,12 @@ Complete plain-language redesign of the PSV tab so any non-technical user (shop 
   * Version    : 6.70.3
   * Created    : 2026-07-11
   * Modified   : 2026-10-05
-  * Copyright  : Ã‚Â© SMRITIBooks.com. All Rights Reserved.
+  * Copyright  : Â© SMRITIBooks.com. All Rights Reserved.
   * License    : Proprietary Commercial Software
   * Classification: Internal
 -->
 
-# SMRITI Retail OS Ã¢â‚¬â€ Changelog
+# SMRITI Retail OS â€” Changelog
 
 
 ## [3.17.3] - 2026-10-27
@@ -2305,7 +2322,7 @@ Complete plain-language redesign of the PSV tab so any non-technical user (shop 
 - **Migration v1551**: stock_count_lines.is_reconciled BOOLEAN NOT NULL DEFAULT false
 - **G5 Remediation**: invoice_profitability_ledgers.valuation_method_used VARCHAR(30)
 - **Migration v1550**: invoice_profitability_ledgers.valuation_method_used (idempotent)
-- **Test suite**: 	est_physical_stock_approval.py — 10/10 cases passing
+- **Test suite**: 	est_physical_stock_approval.py � 10/10 cases passing
 
 ### Technical
 - Commit: db0d553d
@@ -2313,7 +2330,7 @@ Complete plain-language redesign of the PSV tab so any non-technical user (shop 
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
-## [6.53.0] - 2026-10-10 Ã¢â‚¬â€ SMRITI Print Labels Studio Hidable Right Sidebar, Collapsible Step 1 & Interactive Grid Sorting / Column Filters
+## [6.53.0] - 2026-10-10 â€” SMRITI Print Labels Studio Hidable Right Sidebar, Collapsible Step 1 & Interactive Grid Sorting / Column Filters
 
 > **Branch:** `smritiNX` | **Area:** Barcode Label Studio, Responsive Ergonomics, Grid Sorting & Range Filtering
 > **Walkthrough:** `docs/walkthrough/barcode/Barcode_PrintLabelsStudio_Hidable_Sidebar_And_Grid_Sort_Walkthrough_v6.53.0.md`
@@ -2338,7 +2355,7 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
 - **Zero-Armed Printing Verification**:
   - Confirmed initial catalog loading defaults all rows to `selected: false` and `printQty: 0` (`Total Labels: 0`, Print button disabled).
 
-## [6.52.0] - 2026-10-10 Ã¢â‚¬â€ SMRITI Barcode Studio Hidable Sidebar, Advance Filters Toggle & Zero-Armed Printing Architecture
+## [6.52.0] - 2026-10-10 â€” SMRITI Barcode Studio Hidable Sidebar, Advance Filters Toggle & Zero-Armed Printing Architecture
 
 > **Branch:** `smritiNX` | **Area:** Barcode Tag Printing, UI Ergonomics, Zero-Armed Spooling Safety
 > **Walkthrough:** `docs/walkthrough/barcode/Barcode_Studio_Hidable_Sidebar_And_Zero_Armed_Printing_Walkthrough_v6.52.0.md`
@@ -2364,7 +2381,7 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
   - Printer spooling remains safely disarmed (`safetyValidation.canPrint: false`, "No items selected in grid") until operators explicitly check items.
   - Added dedicated toolbar controls: `[Select All ({count})]` and `[Select None]`.
 
-## [6.51.0] - 2026-10-10 Ã¢â‚¬â€ SMRITI Barcode Studio Dual-Tier Range Selection & Printing Engine
+## [6.51.0] - 2026-10-10 â€” SMRITI Barcode Studio Dual-Tier Range Selection & Printing Engine
 
 > **Branch:** `smritiNX` | **Area:** Barcode Tag Printing, Sequential Range Filtering, Grid Batch Operations
 > **Walkthrough:** `docs/walkthrough/barcode/Barcode_Dual_Tier_Range_Selection_And_Printing_Walkthrough_v6.51.0.md`
@@ -2379,7 +2396,7 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
 - **Tier 1: Catalog Range Filters in Step 1 Selection Criteria (`TagLabelPrintingTa.tsx`)**:
   - Expanded `ItemMasterSelectionCriteria` and `itemCriteria` state with `barcodeFrom`, `barcodeTo`, `styleFrom`, `styleTo`, `mrpFrom`, and `mrpTo`.
   - Added collapsible "Natural Range Filters" panel in Step 1 with active state counter and 1-click `Clear Ranges` button.
-  - Enhanced active criteria chips bar to display removable chips for `Barcode: {from} Ã¢â€ â€™ {to}`, `Style: {from} Ã¢â€ â€™ {to}`, and `MRP: Ã¢â€šÂ¹{from} Ã¢â€ â€™ Ã¢â€šÂ¹{to}`.
+  - Enhanced active criteria chips bar to display removable chips for `Barcode: {from} â†’ {to}`, `Style: {from} â†’ {to}`, and `MRP: â‚¹{from} â†’ â‚¹{to}`.
 - **Tier 2: In-Grid Range Selection & Batch Quantity Tool (`TagLabelPrintingTa.tsx`)**:
   - Added `Select by Range (Alt+R)` button in Step 3 controls bar with keyboard hotkey `Alt+R`.
   - Built collapsible Range Action Panel allowing field selection (`Barcode`, `Style Code`, `Stock No`, `S.No`, `MRP`), `From` and `To` inputs, and matching count indicator.
@@ -2392,7 +2409,7 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
   - 0 TypeScript monorepo compiler errors (`npx tsc --noEmit`).
   - Production bundle built cleanly via Vite 5.4.21 (3,703 modules in 1m 18s).
 
-## [6.50.0] - 2026-10-10 Ã¢â‚¬â€ SMRITI Barcode Studio Script-Based PRN Printing Engine & Front-End UX Validation
+## [6.50.0] - 2026-10-10 â€” SMRITI Barcode Studio Script-Based PRN Printing Engine & Front-End UX Validation
 
 > **Branch:** `smritiNX` | **Area:** Thermal Barcode Printing, PRN Script Ingestion, POS Operator Ergonomics
 > **Walkthrough:** `docs/walkthrough/barcode/Barcode_Script_Based_Printing_And_UX_Validation_Walkthrough_v6.50.0.md`
@@ -2404,10 +2421,10 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
   - Added sample-literal fallback replacement for pre-rendered BarTender/ZebraDesigner template exports.
   - Built `compilePrnBatch(...)` expanding multi-item batches with quantity repetition per `item.labelCount`.
   - Added protocol auto-detection (`detectPrnProtocol`) distinguishing ZPL (`^XA`), DPL (`\x02L`/`D11`), and TSPL (`SIZE`/`GAP`).
-  - Embedded master layout templates (`Tattly Threads Footwear Ã¢â‚¬â€ 100x50.7mm`, `Retail 50x25mm Standard`, `ModernLabelDesign_TE244.blf`, `Honeywell_IH2_DualStub.prn`).
+  - Embedded master layout templates (`Tattly Threads Footwear â€” 100x50.7mm`, `Retail 50x25mm Standard`, `ModernLabelDesign_TE244.blf`, `Honeywell_IH2_DualStub.prn`).
 - **Template Ingestion in Tag Label Printing Studio (`src/components/barcode/TagLabelPrintingTa.tsx`)**:
   - Replaced name-only file upload with asynchronous `await file.text()` reader, storing raw script text into `settings.customScriptContent`.
-  - Displayed active script indicator badge: `Ã¢Å“â€œ Script Active ({N} lines, {PROTOCOL})` with 1-click `Clear` trigger.
+  - Displayed active script indicator badge: `âœ“ Script Active ({N} lines, {PROTOCOL})` with 1-click `Clear` trigger.
   - Connected `compilePrnBatch` to `handleExecutePrintDispatch` for both QZ Tray hardware spooling and direct PRN file export.
 - **Front-End UX Validation & Viewport Layout Hardening**:
   - Remediated critical P0 viewport clipping by converting the action footer from `fixed bottom-0` to a container-scoped `shrink-0` flexbox element, eliminating overlap with the global application shell.
@@ -2420,7 +2437,7 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
   - 13/13 Pytest tests passing in `backend/tests/test_zpl_footwear_label.py`.
   - 0 TypeScript monorepo compiler errors (`npx tsc --noEmit`).
 
-## [6.70.51] - 2026-10-10 Ã¢â‚¬â€ SMRITI Industrial Barcode Print Job Architecture, Multi-Protocol Compiler & QZ Tray Bridge
+## [6.70.51] - 2026-10-10 â€” SMRITI Industrial Barcode Print Job Architecture, Multi-Protocol Compiler & QZ Tray Bridge
 
 > **Branch:** `smritiNX` | **Area:** Thermal Barcode Printing, Multi-Protocol Compiler, QZ Tray Bridge, Print Job Lifecycle
 > **Walkthrough:** `docs/walkthrough/barcode/Barcode_Industrial_Print_Job_Engine_And_Multi_Protocol_Compiler_Walkthrough_v6.70.51.md`
@@ -2433,8 +2450,8 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
   - `dpl_renderer.py`: Datamax/Honeywell DPL compiler producing native `\x02L` control sequences.
   - `svg_renderer.py`: Crisp SVG renderer for WYSIWYG studio representation and previews.
 - **Unified Template Registry (`backend/app/services/barcode_engine/registry.py`)**:
-  - Registered built-in `tattly-threads-footwear-100x50.7` matching the 100mm Ãƒâ€” 50.7mm 3-part tag (Dual counter tear-off stubs + main shoe box label with inverted size box and legal metrology text).
-  - Registered built-in `retail-50x25` (standard 50mm Ãƒâ€” 25mm 1-up retail roll sticker).
+  - Registered built-in `tattly-threads-footwear-100x50.7` matching the 100mm Ã— 50.7mm 3-part tag (Dual counter tear-off stubs + main shoe box label with inverted size box and legal metrology text).
+  - Registered built-in `retail-50x25` (standard 50mm Ã— 25mm 1-up retail roll sticker).
 - **Transactional Print Job Lifecycle & Persistence (`backend/app/models/barcode.py` & `api/v1/barcode.py`)**:
   - Created `BarcodePrintJob` model tracking execution status (`QUEUED`, `COMPILING`, `READY`, `PRINTING`, `COMPLETED`, `FAILED`, `CANCELLED`), `payload_stream`, SHA-256 `payload_hash`, and error telemetry.
   - Applied Alembic migration `v1526_add_barcode_print_jobs_table.py` across `smritisys` and `smriti001`.
@@ -2449,7 +2466,7 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
   - 10/10 Vitest tests passing in `src/tests/barcodeLayoutRegistry.test.ts` and `src/tests/qzTrayClient.test.ts` (1.26s).
   - 0 TypeScript compiler errors (`npx tsc --noEmit`).
 
-## [6.70.50] - 2026-10-09 Ã¢â‚¬â€ SMRITI Smart Import 504 Footwear Ingestion & Catalog Pagination Scaling
+## [6.70.50] - 2026-10-09 â€” SMRITI Smart Import 504 Footwear Ingestion & Catalog Pagination Scaling
 
 > **Branch:** `smritiNX` | **Area:** Item Master Catalog, Smart Import Studio, Inventory API, Pagination Scaling
 > **Walkthrough:** `docs/walkthrough/catalog/Catalog_Smart_Import_Pagination_And_Footwear_Ingestion_v6.70.50.md`
@@ -2466,7 +2483,7 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
   - Verified 100% database parity in PostgreSQL `smriti001` across `items` (36), `item_variants` (504), `item_barcodes` (504), and `products` (505).
   - All 175 Vitest suites (1,361 tests) green; 0 TypeScript compiler errors.
 
-## [6.70.49] - 2026-10-09 Ã¢â‚¬â€ SMRITI Smart Import Header Disambiguation & Style-SKU Parity (Item Master Catalog)
+## [6.70.49] - 2026-10-09 â€” SMRITI Smart Import Header Disambiguation & Style-SKU Parity (Item Master Catalog)
 
 > **Branch:** `smritiNX` | **Area:** Item Master Catalog, Smart Import Studio, Header Mapping Engine, Style-SKU Parity
 > **Walkthrough:** `docs/walkthrough/inventory/Smart_Import_Header_Disambiguation_And_Style_SKU_Parity_Walkthrough_v6.70.49.md`
@@ -2487,7 +2504,7 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
 - **SSOT Version Bump**:
   - Aligned all 4 SSOT anchors (`package.json`, `src/config/version.ts`, `backend/app/core/config.py`, `CHANGELOG.md`) to `6.70.49`.
 
-## [6.70.48] - 2026-10-09 Ã¢â‚¬â€ SMRITI Smart Import Studio Resilience & Safe Float Parsing (Item Master Catalog)
+## [6.70.48] - 2026-10-09 â€” SMRITI Smart Import Studio Resilience & Safe Float Parsing (Item Master Catalog)
 
 > **Branch:** `smritiNX` | **Area:** Item Master Catalog, Smart Import Studio, Resilient Parsing, Universal Import API
 > **Walkthrough:** `docs/walkthrough/inventory/Smart_Import_And_Correction_Studio_Resilience_Walkthrough_v6.70.48.md`
@@ -2495,7 +2512,7 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
 
 ### Fixed & Hardened (Smart Import Studio Resilience)
 - **Universal Safe Float Coercion (`backend/app/api/v1/universal_import.py`)**:
-  - Implemented `_safe_float()` utility function robustly parsing formatted numeric strings containing currency symbols (`Ã¢â€šÂ¹`, `$`, `Rs.`), commas (`,`), percent signs (`%`), or empty/whitespace values without crashing the server or throwing HTTP 400 Bad Request.
+  - Implemented `_safe_float()` utility function robustly parsing formatted numeric strings containing currency symbols (`â‚¹`, `$`, `Rs.`), commas (`,`), percent signs (`%`), or empty/whitespace values without crashing the server or throwing HTTP 400 Bad Request.
   - Applied `_safe_float()` across all price, MRP, GST tax rate, landed cost price, buying price, and quantity fields across both `/preview` and `/commit` endpoints.
 - **Resilient Empty Preview Handshake (`backend/app/api/v1/universal_import.py`)**:
   - Relaxed `ImportPreviewRequest.rows` to `default_factory=list`, returning clean 200 summary with `total_rows: 0` when zero data rows are supplied.
@@ -2508,7 +2525,7 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
   - Certified with 6/6 Pytest tests green in `test_smart_import_studio.py`.
   - Clean production build in 58.15s (0 TypeScript compiler errors).
 
-## [6.70.47] - 2026-10-09 Ã¢â‚¬â€ SMRITI Smart Import & Correction Studio (Item Master Catalog & Bulk Ingestion)
+## [6.70.47] - 2026-10-09 â€” SMRITI Smart Import & Correction Studio (Item Master Catalog & Bulk Ingestion)
 
 > **Branch:** `smritiNX` | **Area:** Item Master Catalog, Smart Import Studio, Same-Window Remediation, Multi-Strategy Ingestion
 > **Walkthrough:** `docs/walkthrough/inventory/Smart_Import_And_Correction_Studio_Walkthrough_v6.70.47.md`
@@ -2532,7 +2549,7 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
   - Certified with 4/4 Pytest tests green in `test_smart_import_studio.py`.
   - Clean production build in 45.08s (0 TypeScript compiler errors).
 
-## [6.70.48] - 2026-10-09 Ã¢â‚¬â€ Tattly Threads Barcode Human-Readable Font & Overlap Audit and Controlled Runtime Fix (v6.49.2)
+## [6.70.48] - 2026-10-09 â€” Tattly Threads Barcode Human-Readable Font & Overlap Audit and Controlled Runtime Fix (v6.49.2)
 
 > **Branch:** `smritiNX` | **Area:** Barcode & Hardware, ZPL Font Geometry, Headless Pixel Audit, Print Labels Studio
 > **Walkthrough:** `docs/walkthrough/barcode/Barcode_TattlyThreads_Barcode_Font_Overlap_Audit_v6.49.2.md`
@@ -2544,7 +2561,7 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
     - Main barcode bars span vertical range `Y: [305, 371]` (`^FO346,305^BY2^BCN,66`).
     - Main barcode Font A text baseline is placed at `^FT390,385^AAN,27,15`, causing ascenders to start at `Y = 385 - 27 = 358`.
     - Proved mathematically and via pixel geometry that master renders have a 13-dot vertical collision (`Y: [358, 371]`, 111 black pixels across X=390..530 at Y=365).
-  - Proved that tear-off stubs 1 and 2 intentionally use Font 0 (`^A0N,25,34`) and possess clean 2Ã¢â‚¬â€œ4 dot white separation gaps (`Y: 143..146` and `Y: 369..372`).
+  - Proved that tear-off stubs 1 and 2 intentionally use Font 0 (`^A0N,25,34`) and possess clean 2â€“4 dot white separation gaps (`Y: 143..146` and `Y: 369..372`).
 - **Master PRN Immutability Guaranteed**:
   - Verified 0-byte diff and preserved SHA-256 integrity on both client master files (`assets/BarcodePRN/TattlyThreads.prn` and `assets/BarcodePRN/RawPRNScript.prn`).
 - **Surgical Runtime Baseline Adjustment**:
@@ -2558,7 +2575,7 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
   - Certified with 22/22 tests green in Vitest (`src/tests/printLabelsStudio.test.ts`).
   - Certified with 0 TypeScript compiler errors (`npx tsc --noEmit`).
 
-## [6.70.47] - 2026-10-09 Ã¢â‚¬â€ Tattly Threads Footwear ZPL Default Template Validation & Registration (v6.70.47)
+## [6.70.47] - 2026-10-09 â€” Tattly Threads Footwear ZPL Default Template Validation & Registration (v6.70.47)
 
 > **Branch:** `smritiNX` | **Area:** Barcode & Hardware, ZPL Template Validation, Print Labels Studio, Headless Rasterization
 > **Walkthrough:** `docs/walkthrough/barcode/Barcode_TattlyThreads_ZPL_Default_Template_Registration_v6.49.1.md`
@@ -2584,7 +2601,7 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
   - Certified with 28/28 tests green across all backend barcode test suites (`pytest`).
   - Certified with 22/22 tests green in `src/tests/printLabelsStudio.test.ts` (`vitest`).
 
-## [6.70.46] - 2026-10-09 Ã¢â‚¬â€ Commission Studio & Staff Management Array-Guard Hardening (v6.70.46)
+## [6.70.46] - 2026-10-09 â€” Commission Studio & Staff Management Array-Guard Hardening (v6.70.46)
 
 > **Branch:** `smritiNX` | **Area:** HR & Workforce Management, Commission Studio, Staff Master Workspace, Defensive Frontend Architecture
 > **Walkthrough:** `docs/walkthrough/hr/Commission_Studio_And_Staff_Array_Guard_Hardening_v6.70.46.md`
@@ -2607,7 +2624,7 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
   - Certified backend reconciliation suite (4/4 Pytest tests green in `test_staff_attendance_cross_db_reconciliation.py`).
   - Successfully compiled production bundle (`StaffManagementTab-Cxef0y5y.js`) in 50.26s with zero TypeScript compilation errors.
 
-## [6.70.45] - 2026-10-09 Ã¢â‚¬â€ Cross-Database Staff Identity & Attendance Reconciliation (v6.70.45)
+## [6.70.45] - 2026-10-09 â€” Cross-Database Staff Identity & Attendance Reconciliation (v6.70.45)
 
 > **Branch:** `smritiNX` | **Area:** HR & Workforce Management, Multi-Tenant Database Architecture, Attendance & Leave API
 > **Walkthrough:** `docs/walkthrough/hr/Cross_Database_Staff_Identity_And_Attendance_Reconciliation_v6.70.45.md`
@@ -2626,7 +2643,7 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
 - **Automated Regression Suite**:
   - Added comprehensive automated regression tests in `backend/app/tests/test_staff_attendance_cross_db_reconciliation.py` validating cross-database attendance listing, summary aggregation, leave auto-seeding, and interactive clock-in (4/4 passed).
 
-## [6.70.44] - 2026-10-09 Ã¢â‚¬â€ Employee Attendance Studio Payslip Null Safety (v6.70.44)
+## [6.70.44] - 2026-10-09 â€” Employee Attendance Studio Payslip Null Safety (v6.70.44)
 
 > **Branch:** `smritiNX` | **Area:** HR & Workforce Management, Attendance Studio, Payslip Print & Data Resilience
 > **Walkthrough:** `docs/walkthrough/hr/Employee_Attendance_Studio_Payslip_Null_Safety_v6.70.44.md`
@@ -2644,7 +2661,7 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
 - **Unit & Regression Test Coverage**:
   - Added null, undefined, and empty string regression assertions in `src/tests/employeeAttendanceStudio.test.ts` (12/12 passed).
 
-## [6.70.43] - 2026-10-09 Ã¢â‚¬â€ Phase 5 Control Plane Navigation & Payment Mode Harmonization (v1.0.0)
+## [6.70.43] - 2026-10-09 â€” Phase 5 Control Plane Navigation & Payment Mode Harmonization (v1.0.0)
 
 > **Branch:** `smritiNX` | **Area:** Foundation, UI Navigation Control Plane & Payment Mode Governance
 > **Walkthrough:** `docs/walkthrough/foundation/Foundation_Phase5_Control_Plane_And_Payment_Harmonization_v1.0.0.md`
@@ -2664,7 +2681,7 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
 - **Master Forensic Audit Finalization**:
   - Successfully classified and completed all 68 audit findings across Phase 0 through 5.
 
-## [6.70.42] - 2026-10-09 Ã¢â‚¬â€ Phase 4 Operational Daemons, Media Processing & UI Governance (v1.0.0)
+## [6.70.42] - 2026-10-09 â€” Phase 4 Operational Daemons, Media Processing & UI Governance (v1.0.0)
 
 > **Branch:** `smritiNX` | **Area:** Foundation, Daemons, Outbox Engine, SPIF Media & Workforce Master Governance
 > **Walkthrough:** `docs/walkthrough/foundation/Foundation_Phase4_Operational_Daemons_Media_And_UI_Governance_v1.0.0.md`
@@ -2684,7 +2701,7 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
 - **Cluster D: Feature Flags Retirement (FND-034)**:
   - In `src/config/flags.ts`, added architectural tombstone documentation confirming that Express is completely decommissioned and zero active runtime consumers depend on legacy transition flags.
 
-## [6.70.41] - 2026-10-09 Ã¢â‚¬â€ Phase 3 Master Registry Presets & Tenant Defaults Hardening (v1.0.0)
+## [6.70.41] - 2026-10-09 â€” Phase 3 Master Registry Presets & Tenant Defaults Hardening (v1.0.0)
 
 > **Branch:** `smritiNX` | **Area:** Foundation, Master Data, Multi-Tenancy & Printing Configuration
 > **Walkthrough:** `docs/walkthrough/foundation/Foundation_Phase3_Master_Registry_And_Tenant_Defaults_v1.0.0.md`
@@ -2701,7 +2718,7 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
   - Mounted `@router.get("/lookup/{type_code}/presets")` in `backend/app/api/v1/master_lookup.py`.
   - Upgraded `LookupRecommendModal.tsx` to asynchronously fetch recommendations from the server API, falling back gracefully to client presets when offline.
 
-## [6.70.40] - 2026-10-09 Ã¢â‚¬â€ Phase 2 Operational Defaults, Integrations & Governance Configuration Hardening (v1.0.0)
+## [6.70.40] - 2026-10-09 â€” Phase 2 Operational Defaults, Integrations & Governance Configuration Hardening (v1.0.0)
 
 > **Branch:** `smritiNX` | **Area:** Foundation, Security, Integrations & Operational Governance
 > **Walkthrough:** `docs/walkthrough/foundation/Foundation_Phase2_Operational_Defaults_And_Integrations_v1.0.0.md`
@@ -2716,7 +2733,7 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
   - Upgraded `SmritiDefineBillPrefixModal.tsx` to compute current Indian financial year (`getCurrentFinancialYear()`, April 1 to March 31) dynamically, eliminating hardcoded `"2026-2027"` and `"26-27"` strings.
   - Standardized staff profile defaults in `backend/app/models/staff_profile.py` with canonical constants (`DEFAULT_STAFF_COUNTRY`, `DEFAULT_STAFF_EMPLOYMENT_TYPE`, `DEFAULT_STAFF_STATUS`).
 
-## [6.70.39] - 2026-10-09 Ã¢â‚¬â€ Phase 1 Operational & Identity Configuration Hardening (v1.0.0)
+## [6.70.39] - 2026-10-09 â€” Phase 1 Operational & Identity Configuration Hardening (v1.0.0)
 
 > **Branch:** `smritiNX` | **Area:** Foundation, Operational & Identity Configuration Hardening, Statutory State Unification
 > **Walkthrough:** `docs/walkthrough/foundation/Foundation_Phase1_Operational_And_Identity_Configuration_Hardening_v1.0.0.md`
@@ -2734,7 +2751,7 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
 - **Cluster C: Multi-Tenant & Identity Scope Governance**:
   - Fallback state code resolution governed through server-authoritative system parameter `SMRITI.TAX.DEFAULT_STATE_CODE`.
 
-## [6.70.38] - 2026-10-09 Ã¢â‚¬â€ Phase 0 P0 Commercial & Statutory Hotfix Remediation (v3.16.1)
+## [6.70.38] - 2026-10-09 â€” Phase 0 P0 Commercial & Statutory Hotfix Remediation (v3.16.1)
 
 > **Branch:** `smritiNX` | **Area:** Statutory & Commercial Core, Forensic Audit Hotfix, GST Engine, Tax Authority
 > **Walkthrough:** `docs/walkthrough/statutory/Statutory_Phase0_P0_Hotfix_Remediation_And_Acceptance_v3.16.1.md`
@@ -2760,7 +2777,7 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
   - Transactional and posting flows reject items with missing/unresolvable tax with `SMRITI-TAX-001`.
   - Preview displays represent missing tax as `UNRESOLVED` rather than an invalid statutory 0% rate.
 
-## [6.70.37] - 2026-10-08 Ã¢â‚¬â€ Leave Approval Workflow, Atomic Balance Deduction & Printable Salary Slip (v1.0.0)
+## [6.70.37] - 2026-10-08 â€” Leave Approval Workflow, Atomic Balance Deduction & Printable Salary Slip (v1.0.0)
 
 > **Branch:** `smritiNX` | **Area:** HR & Workforce Management, Statutory Leave Lifecycle, Manager Leave Approval Workflow, Printable Salary Slip Studio
 > **Walkthrough:** `docs/walkthrough/hr/Leave_Approval_Workflow_And_Payslip_Print_v1.0.0.md`
@@ -2774,9 +2791,9 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
 - **Real-Time Leave Reservation Hold (`POST /api/v1/staff/leave/requests`)**:
   - Automatically updates `pending_days = (pending_days or 0) + total_days` when new leave applications are submitted.
 - **1-Click Manager Leave Decision Console (`EmployeeAttendanceModal.tsx` v3.121.6)**:
-  - Added inline `[Ã¢Å“â€œ Approve]` and `[Ã¢Å“â€¢ Reject]` action buttons for pending leave requests with optimistic UI feedback and automatic re-fetching of leave balances and history.
+  - Added inline `[âœ“ Approve]` and `[âœ• Reject]` action buttons for pending leave requests with optimistic UI feedback and automatic re-fetching of leave balances and history.
 - **Executive Printable Salary Slip Studio (`EmployeeAttendanceModal.tsx` v3.121.6)**:
-  - Added `[Ã°Å¸â€“Â¨ Print Salary Slip]` trigger in the `PAYOUT` tab launching a full-screen, print-optimized salary voucher overlay.
+  - Added `[ðŸ–¨ Print Salary Slip]` trigger in the `PAYOUT` tab launching a full-screen, print-optimized salary voucher overlay.
   - Features organizational branding (SMRITI Retail OS, branch code, GSTIN), employee metadata, attendance & shift breakdown (working days, present shifts, late punches, LOP days, total hours worked), side-by-side earnings and LOP deductions table, bold net remuneration banner, and dual physical signature blocks (Employee & Authorized Signatory).
   - Clean `@media print` CSS isolating the voucher sheet during `window.print()` / PDF export.
 
@@ -2786,7 +2803,7 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
 - **TypeScript**: `npx tsc --noEmit` exited code 0 (0 errors).
 - **Python Bytecode**: `python -m py_compile` clean across all modified files.
 
-## [6.70.36] - 2026-10-08 Ã¢â‚¬â€ Commission Payout Settlement & Leave Management Integration (v1.0.0)
+## [6.70.36] - 2026-10-08 â€” Commission Payout Settlement & Leave Management Integration (v1.0.0)
 
 > **Branch:** `smritiNX` | **Area:** HR & Workforce Management, Commission Payout Settlement, Statutory Leave Lifecycle, Dynamic Payout Engine
 > **Walkthrough:** `docs/walkthrough/hr/Commission_Settlement_And_Leave_Management_v1.0.0.md`
@@ -2802,7 +2819,7 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
   - Automatically provisions statutory retail leave entitlements (12 Casual Leave `CL`, 12 Sick Leave `SL`, 15 Earned Leave `EL`) for active employees when uninitialized in PostgreSQL `leave_balances`.
 - **Attendance & Workforce Studio Modal Expansion (`EmployeeAttendanceModal.tsx` v3.121.5)**:
   - Added dedicated `LEAVE` tab with CL/SL/EL entitlement stat cards, used vs available day tallies, leave request history, and an interactive `[+ Request Time Off]` submission form.
-  - Added interactive `[Ã°Å¸â€™Â¸ Settle & Disburse Commission]` action in `COMMISSION` tab allowing store managers to execute instant payouts with real-time balance clearing.
+  - Added interactive `[ðŸ’¸ Settle & Disburse Commission]` action in `COMMISSION` tab allowing store managers to execute instant payouts with real-time balance clearing.
   - Rendered `PAID` (indigo) transaction badges in the Live PostgreSQL Transaction Audit Ledger.
   - Connected live attendance days and commission balances into dynamic monthly earnings calculations in the `PAYOUT` tab.
 - **Automated Verification & Test Suites**:
@@ -2810,7 +2827,7 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
   - Extended Vitest suite `src/tests/employeeAttendanceStudio.test.ts` (10/10 passed in 463ms).
   - Validated TypeScript compiler cleanly (`npx tsc --noEmit` exited code 0).
 
-## [6.70.35] - 2026-10-08 Ã¢â‚¬â€ Real-Time Sales Commission & Attendance Summary Engine (v1.0.0)
+## [6.70.35] - 2026-10-08 â€” Real-Time Sales Commission & Attendance Summary Engine (v1.0.0)
 
 > **Branch:** `smritiNX` | **Area:** HR & Workforce Management, Real-Time Commission Summary, Attendance Aggregation, Live PostgreSQL Ledger UI
 > **Walkthrough:** `docs/walkthrough/hr/Realtime_Commission_And_Attendance_Summary_v1.0.0.md`
@@ -2826,7 +2843,7 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
   - Implemented multi-day date range shift aggregation querying `attendance_records`.
   - Calculates total scheduled days, present count, late count, absent count, total hours worked, and average daily shift length.
 - **Live Attendance Studio Modal UI Enhancement (`EmployeeAttendanceModal.tsx` v3.121.4)**:
-  - Replaced hardcoded dummy Ã¢â€šÂ¹1,50,000 sales / Ã¢â€šÂ¹3,750 commission estimates with live PostgreSQL ledger totals.
+  - Replaced hardcoded dummy â‚¹1,50,000 sales / â‚¹3,750 commission estimates with live PostgreSQL ledger totals.
   - Added dedicated Live Commission Audit Ledger table with `EARNED` (emerald) vs `REVERSED` (rose) badge indicators, invoice/return links, amounts, commissions, and timestamps.
   - Displayed live Attendance Summary KPI pills (Total Days, Present, Late, Absent, Total Hours, Avg Shift) in Attendance tab.
 - **Automated Verification & Test Suites**:
@@ -2834,7 +2851,7 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
   - Updated Vitest suite `src/tests/employeeAttendanceStudio.test.ts` (8/8 tests passed).
   - Validated TypeScript compiler cleanly (`npx tsc --noEmit` exited code 0).
 
-## [6.70.34] - 2026-10-08 Ã¢â‚¬â€ POS Real-Time Sales Commission Accrual & Return Reversal (v1.0.0)
+## [6.70.34] - 2026-10-08 â€” POS Real-Time Sales Commission Accrual & Return Reversal (v1.0.0)
 
 > **Branch:** `smritiNX` | **Area:** HR & Workforce, Sales Commission Accrual, Return Reversal Hook, PostgreSQL Ledger
 > **Walkthrough:** `docs/walkthrough/hr/POS_Realtime_Commission_Accrual_And_Reversal_v1.0.0.md`
@@ -2851,7 +2868,7 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
   - Created Pytest suite `backend/app/tests/t_sales_commission_hook_verify.py` verifying accrual, proportional return clawback, and active percentage rule overrides (3/3 passed in 46.13s).
   - Executed regression test suites: `backend/app/tests/t_staff_punch_verify.py` (2/2 passed), `src/tests/employeeAttendanceStudio.test.ts` (6/6 passed in 391ms), and TypeScript compiler check (`npx tsc --noEmit` exited 0 with 0 errors).
 
-## [6.70.33] - 2026-10-08 Ã¢â‚¬â€ Interactive Punch Clocking & Biometric Device Webhook (v1.0.0)
+## [6.70.33] - 2026-10-08 â€” Interactive Punch Clocking & Biometric Device Webhook (v1.0.0)
 
 > **Branch:** `smritiNX` | **Area:** HR, Attendance Punch Clocking, Biometric IoT Webhook, Shift Status UI
 > **Walkthrough:** `docs/walkthrough/hr/Attendance_Punch_Clocking_And_Biometric_Webhook_v1.0.0.md`
@@ -2864,14 +2881,14 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
   - Added Pydantic schemas: `AttendancePunchPayload`, `BiometricPunchItem`, `BiometricDevicePushPayload`.
 - **Attendance Studio UI Console (`src/components/hr/EmployeeAttendanceModal.tsx`)**:
   - Engineered Shift Status Console featuring real-time badge (`Not Clocked In Today`, `Clocked In at {time}`, `Clocked Out at {time}`).
-  - Added interactive Punch Action button (`[Ã¢ÂÂ± Clock In Now]`, `[Ã¢ÂÂ± Clock Out Now]`, `[Ã¢â€ Â» Update Clock-Out]`) with optimistic feedback.
-  - Added IoT Biometric hardware push status pill (`Ã°Å¸â€œÂ¡ IoT Biometric Push Ã¢â€”Â Active`).
+  - Added interactive Punch Action button (`[â± Clock In Now]`, `[â± Clock Out Now]`, `[â†» Update Clock-Out]`) with optimistic feedback.
+  - Added IoT Biometric hardware push status pill (`ðŸ“¡ IoT Biometric Push â— Active`).
 - **Automated Verification & Test Suites**:
   - Created Pytest suite `backend/app/tests/t_staff_punch_verify.py` verifying punch in/out transitions and biometric batch ingestion (2/2 passed, 11/11 full staff suite green in 56.85s).
   - Extended Vitest suite `src/tests/employeeAttendanceStudio.test.ts` (6/6 passed in 743ms).
   - Verified 0 TypeScript errors with `npx tsc --noEmit`.
 
-## [6.70.32] - 2026-10-08 Ã¢â‚¬â€ Attendance Studio Full System Audit & API Contract Reconciliation (v1.0.1)
+## [6.70.32] - 2026-10-08 â€” Attendance Studio Full System Audit & API Contract Reconciliation (v1.0.1)
 
 > **Branch:** `smritiNX` | **Area:** HR, Attendance Studio, Boundary Contract Hardening, Payroll Synthesis
 > **Walkthrough:** `docs/walkthrough/hr/Attendance_Studio_Audit_And_Contract_Hardening_v1.0.1.md`
@@ -2887,7 +2904,7 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
   - Validated 100% column, type, constraint, and index parity for `attendance_records`, `leave_balances`, and `leave_requests` against PostgreSQL catalog and Alembic revision `v1423`.
   - Executed backend verification suite `t_staff_verify.py` with 9/9 tests green.
 
-## [6.70.31] - 2026-10-08 Ã¢â‚¬â€ Global Grid Import Blank Sample CSV Template Generator (v6.70.1)
+## [6.70.31] - 2026-10-08 â€” Global Grid Import Blank Sample CSV Template Generator (v6.70.1)
 
 > **Branch:** `smritiNX` | **Area:** Foundation, Global Grid Import, CSV Template Generator, Master Lookups, Inward Grids
 > **Walkthrough:** `docs/walkthrough/foundation/GlobalGridImport_Sample_CSV_Template_Generator_v6.70.1.md`
@@ -2902,7 +2919,7 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
 - **Automated Verification**:
   - Expanded `lookupImportRecommend.test.ts` certifying header alignment, sample row presence, and quotation escaping across grid profiles (7/7 tests green, 13/13 across suite).
 
-## [6.70.30] - 2026-10-08 Ã¢â‚¬â€ SMRITI System Lookups & Core Master Directory Clipboard Paste, CSV Import & Standard Presets Recommendation Engine (v6.70.0)
+## [6.70.30] - 2026-10-08 â€” SMRITI System Lookups & Core Master Directory Clipboard Paste, CSV Import & Standard Presets Recommendation Engine (v6.70.0)
 
 > **Branch:** `smritiNX` | **Area:** Foundation, System Lookups, Master Data, Clipboard Paste, CSV Import, Standard Catalogs
 > **Walkthrough:** `docs/walkthrough/foundation/System_Lookups_Import_Paste_And_Recommendation_Engine_v6.70.0.md`
@@ -2923,7 +2940,7 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
   - Created `src/tests/lookupImportRecommend.test.ts` certifying profile registration, catalog coverage, case-insensitivity, and deduplication logic (5/5 tests green).
   - Certified 11/11 Vitest tests green across lookup and master suites; Launchpad registry validated (51/51 tiles).
 
-## [6.70.29] - 2026-10-08 Ã¢â‚¬â€ SMRITI Print Labels Studio CSV/Raw Barcode Intake, Print Profiles & Session Audit Log (v6.49.0)
+## [6.70.29] - 2026-10-08 â€” SMRITI Print Labels Studio CSV/Raw Barcode Intake, Print Profiles & Session Audit Log (v6.49.0)
 
 > **Branch:** `smritiNX` | **Area:** Barcode, Thermal Printing, Hardware, Legacy Label Studio V2 Parity, CSV Intake, Print Profiles
 > **Walkthrough:** `docs/walkthrough/barcode/Barcode_PrintLabelsStudio_CSVIntake_And_Presets_v6.49.0.md`
@@ -2942,7 +2959,7 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
   - Integrated `PRINT PROFILE PRESETS` dropdown in Step 3 / Left Sidebar with out-of-the-box configurations:
     - *Zebra GK420D - Footwear 100x50 (LAN)*: 203 DPI, 100x50mm, Raw TCP/IP (192.168.1.200:9100).
     - *Zebra ZD421 - Retail 50x25 (USB)*: 203 DPI, 50x25mm, USB / Local spooler.
-  - Added `[Ã°Å¸â€™Â¾ Save Current Settings Preset]` button in the right sidebar with modal prompting for preset name.
+  - Added `[ðŸ’¾ Save Current Settings Preset]` button in the right sidebar with modal prompting for preset name.
   - Presets persist across browser reloads via `localStorage` (`smriti_barcode_print_presets`).
 - **Live Monospace Print Session Audit Log**:
   - Integrated terminal-styled real-time session audit log in Step 3 recording all user actions with microsecond-level timestamps:
@@ -2951,7 +2968,7 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
   - Expanded `src/tests/printLabelsStudio.test.ts` to 20 unit tests verifying CSV parsing, delimiter sniffing, quantity summing/aggregation, header stripping, and preset defaults.
   - Verified 20/20 Vitest tests pass in 40ms; `npx tsc --noEmit` clean with 0 errors.
 
-## [6.70.28] - 2026-10-08 Ã¢â‚¬â€ SMRITI Print Labels Studio Legacy Label Studio V2 Parity & Pre-Print Sanitizer (v6.48.0)
+## [6.70.28] - 2026-10-08 â€” SMRITI Print Labels Studio Legacy Label Studio V2 Parity & Pre-Print Sanitizer (v6.48.0)
 
 > **Branch:** `smritiNX` | **Area:** Barcode, Thermal Printing, Hardware, Label Studio V2 Parity, QA Data Sanitization
 > **Walkthrough:** `docs/walkthrough/barcode/Barcode_PrintLabelsStudio_V2_Parity_v6.48.0.md`
@@ -2964,7 +2981,7 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
 - **Live Pre-Print Data Sanitizer Card & Auto-Fix Engine**:
   - Added dedicated right-hand diagnostic sidebar card executing real-time data integrity audits.
   - Automatically identifies duplicate barcodes, missing sizes, missing colors, and zero/invalid MRP values.
-  - Provided 1-Click `[Auto-Fix All]` remediation setting default sizing (`FREE`), neutral colorway (`STD`), standard pricing (`Ã¢â€šÂ¹1,199`), and resolving collisions with unique EAN-13 barcodes.
+  - Provided 1-Click `[Auto-Fix All]` remediation setting default sizing (`FREE`), neutral colorway (`STD`), standard pricing (`â‚¹1,199`), and resolving collisions with unique EAN-13 barcodes.
 - **Recent Jobs & 1-Click Reprint Drawer**:
   - Connected `GET /api/v1/barcode/print-history` to right sidebar with status indicators (`PRINTED`, `ERROR`, `PENDING`).
   - Implemented 1-Click instant reprint triggers that automatically load historical payload batches back into the active print worksheet.
@@ -2975,13 +2992,13 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
   - Added `[Mapping Reference]` modal documenting all system tokens (`{{ARTICLE}}`, `{{SIZE}}`, `{{COLOR}}`, `{{MRP}}`, `{{BARCODE}}`, `{{MFG_DATE}}`).
   - Added `[Image to Hex (PRN)]` utility converting user-uploaded graphic files via HTML5 `<canvas>` into Zebra 1-bit monochrome `^GFA` hex stream.
 - **Persistent Thermal Printer Hardware Diagnostics**:
-  - Integrated live printer status bar in Step 3 showing QZ Tray connection state (`Ã¢â€”Â QZ Connected`), printer IP latency ping (`[Ping IP]`), and 1-Click hardware test print (`[Test Label]`).
+  - Integrated live printer status bar in Step 3 showing QZ Tray connection state (`â— QZ Connected`), printer IP latency ping (`[Ping IP]`), and 1-Click hardware test print (`[Test Label]`).
 - **Automated Verification Suites**:
   - Expanded `src/tests/printLabelsStudio.test.ts` to 16 comprehensive unit tests covering variant generation, pre-print sanitizer detection, auto-fix remediation, and ZPL PRN compilation.
   - Zero TypeScript errors (`npx tsc --noEmit` exited code 0).
   - 11/11 backend tests passing in `test_barcode_client_prn_dynamic.py` and `test_barcode.py`.
 
-## [6.70.27] - 2026-10-08 Ã¢â‚¬â€ Client PRN Barcode Dynamic Mapping, Reverse Black-Box Rendering & 3-Stub Footwear Template (v6.47.0)
+## [6.70.27] - 2026-10-08 â€” Client PRN Barcode Dynamic Mapping, Reverse Black-Box Rendering & 3-Stub Footwear Template (v6.47.0)
 
 > **Branch:** `smritiNX` | **Area:** Barcode, Thermal Printing, Hardware, ZPL Template Engine, Footwear Master
 > **Walkthrough:** `docs/walkthrough/barcode/Barcode_ClientPRN_DynamicMapping_And_Template_v6.47.0.md`
@@ -2990,7 +3007,7 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
 ### Added
 - **Zebra ZPL Footwear 3-Stub Template (`lay-footwear-100x50-3stub`)**:
   - Reverse-engineered client-provided Zebra PRN file (`assets/BarcodePRN/smriti_barcodes_2026-10-08.prn`) with 100% byte-for-byte token parity.
-  - Implemented `generate_footwear_3stub_zpl` in `backend/app/api/v1/barcode.py` supporting 100mm Ãƒâ€” 50.7mm 203 DPI label pitch, dual tear-off counter and audit stubs, and inverted reverse-print black boxes (`^GB` with `^FR`).
+  - Implemented `generate_footwear_3stub_zpl` in `backend/app/api/v1/barcode.py` supporting 100mm Ã— 50.7mm 203 DPI label pitch, dual tear-off counter and audit stubs, and inverted reverse-print black boxes (`^GB` with `^FR`).
   - Added automatic 12-character space-padding for Article No (`f"{raw_art:<12}"`) ensuring symmetrical visual fill inside the 284-dot main box header.
   - Registered `lay-footwear-100x50-3stub` in `GET /api/v1/barcode/layouts` and thermal print studio template picker.
 - **Dynamic Legal Metrology Resolution**:
@@ -3001,7 +3018,7 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
   - Created `backend/app/tests/test_barcode_client_prn_dynamic.py` (4/4 tests green) covering exact ZPL token parity, variant Toupe generation, layouts endpoint, and PRN stream dispatch.
   - Added 3-zone footwear SVG generation test in `src/tests/printLabelsStudio.test.ts` (11/11 tests green).
 
-## [6.70.26] - 2026-10-08 Ã¢â‚¬â€ SMRITI Print Labels Studio Server-Side Inward Document Intake, Vector SVG Export & Legacy Retirement (v6.46.2)
+## [6.70.26] - 2026-10-08 â€” SMRITI Print Labels Studio Server-Side Inward Document Intake, Vector SVG Export & Legacy Retirement (v6.46.2)
 
 > **Branch:** `smritiNX` | **Area:** Barcode, Hardware, Inward Logistics, Technical Debt Decommissioning
 > **Walkthrough:** `docs/walkthrough/barcode/Barcode_PrintLabelsStudio_RemoteIntake_And_LegacyRetirement_v6.46.2.md`
@@ -3024,7 +3041,7 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
   - Safely deleted orphaned, unmounted `src/components/LabelPrintingSec.tsx` (1,009 lines of dead code).
   - Modernized `src/tests/auxiliaryGridIntake.test.ts` test describe block to `Barcode Label Delimited Text Parsing`.
 
-## [6.70.25] - 2026-10-08 Ã¢â‚¬â€ SMRITI Print Labels Studio Multi-Source Inward Intake, Dynamic Layouts & Accurate SVG Preview
+## [6.70.25] - 2026-10-08 â€” SMRITI Print Labels Studio Multi-Source Inward Intake, Dynamic Layouts & Accurate SVG Preview
 
 > **Branch:** `smritiNX` | **Area:** Barcode, Hardware, Thermal Printing, Inward Logistics
 > **Walkthrough:** `docs/walkthrough/barcode/Barcode_PrintLabelsStudio_MultiSource_And_Preview_v6.46.0.md`
@@ -3049,7 +3066,7 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
 - **Unit Verification Suite**:
   - Created `src/tests/printLabelsStudio.test.ts` asserting multi-source record resolution, template merging, and range filtering (8/8 tests passing).
 
-## [6.70.24] - 2026-10-08 Ã¢â‚¬â€ SMRITI Canonical 14 Core System Roles Convergence & Tattly Threads RBAC Integration
+## [6.70.24] - 2026-10-08 â€” SMRITI Canonical 14 Core System Roles Convergence & Tattly Threads RBAC Integration
 
 > **Branch:** `smritiNX` | **Area:** Foundation, Security, RBAC, Database Enum, Multi-Tenant Governance
 > **Walkthrough:** `docs/walkthrough/foundation/System_Core_Roles_And_Tattly_Threads_RBAC_v1.0.0.md`
@@ -3068,7 +3085,7 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
 - **Frontend Role Management Parity**:
   - Added all 14 core roles to `staffMaster.config.tsx` and modal dropdown selectors in `src/components/staff/StaffMasterWs.tsx`.
 
-## [6.70.23] - 2026-10-08 Ã¢â‚¬â€ SMRITI Legacy Deprecation Telemetry Observability UI Workspace
+## [6.70.23] - 2026-10-08 â€” SMRITI Legacy Deprecation Telemetry Observability UI Workspace
 
 > **Branch:** `smritiNX` | **Area:** UI/UX, Observability, Telemetry, Gateway Governance, RFC 8594, Option B Post-Convergence
 > **Walkthrough:** `docs/walkthrough/inventory/Legacy_Deprecation_Telemetry_Observability_UI_v1.0.0.md`
@@ -3098,7 +3115,7 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
   - Added backend test `test_tc_p5_010` in `backend/tests/test_phase5_legacy_deprecation_and_telemetry.py` (10/10 tests green).
   - Added frontend Vitest suite `src/tests/legacyDeprecationTelemetryUI.test.ts` (5/5 tests green).
 
-## [6.70.22] - 2026-10-08 Ã¢â‚¬â€ SMRITI Legacy Deprecation Gateway & Structured Telemetry Logger (Phase 5 Option B Convergence)
+## [6.70.22] - 2026-10-08 â€” SMRITI Legacy Deprecation Gateway & Structured Telemetry Logger (Phase 5 Option B Convergence)
 
 > **Branch:** `smritiNX` | **Area:** API Gateway, Telemetry, Observability, Legacy Deprecation, RFC 8594, Inventory Governance
 > **Walkthrough:** `docs/walkthrough/inventory/Legacy_Deprecation_Gateway_And_Telemetry_Phase5_v1.0.0.md`
@@ -3125,7 +3142,7 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
 - **DataBridge Export Engine (`DataBridgeExportEngine`)**:
   - Added chronological ordering `order_by(SalesInvoice.created_at.desc())` on `SALES_INVOICE` exports ensuring parity with other entities and guaranteed serialization of recent documents.
 
-## [6.70.21] - 2026-10-08 Ã¢â‚¬â€ SMRITI External Connectors & Canonical Export Alignment (Phase 4 Dual-Key Architecture)
+## [6.70.21] - 2026-10-08 â€” SMRITI External Connectors & Canonical Export Alignment (Phase 4 Dual-Key Architecture)
 
 > **Branch:** `smritiNX` | **Area:** DataBridge, Integrations, Connectors, Canonical Exports, Inventory Governance
 > **Walkthrough:** `docs/walkthrough/inventory/External_Connectors_Canonical_Alignment_Phase4_v1.0.0.md`
@@ -3154,7 +3171,7 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
 - **Export Engine (`DataBridgeExportEngine`)**:
   - Replaced legacy `product_id` supremacy with model-defensive dual-key extraction, supporting legacy products alongside modern items and variants without breaking downstream analytics or legacy integrations.
 
-## [6.70.20] - 2026-10-08 Ã¢â‚¬â€ SMRITI Canonical Transaction Supremacy (Phase 3 Read-Path Convergence)
+## [6.70.20] - 2026-10-08 â€” SMRITI Canonical Transaction Supremacy (Phase 3 Read-Path Convergence)
 
 > **Branch:** `smritiNX` | **Area:** Inventory, Reports, Procurement, Analytics, Identity Governance
 > **Walkthrough:** `docs/walkthrough/inventory/Canonical_Transaction_Supremacy_Phase3_v1.0.0.md`
@@ -3167,7 +3184,7 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
   - Non-breaking backward-compatible extensions to `StockValuationLine`, `ItemWiseSalesLine`, `BillWiseItemsLine`, `ItemWiseReturnsLine`, and `ProductWiseOrderedQuantityLine` exposing optional canonical `item_id` and `variant_id`.
 
 ### Changed
-- **Downstream Read-Path Convergence (Option B Ã¢â‚¬â€ Dual-Key Transitional Architecture)**:
+- **Downstream Read-Path Convergence (Option B â€” Dual-Key Transitional Architecture)**:
   - **Reports Engine (`ReportsService`)**:
     - `stock_valuation()`: Prioritized canonical variant identity from Product master, stamping `item_id` and `variant_id`.
     - `item_wise_sales()`: Outerjoined `ItemVariant` and `Item`, grouping by `variant_id` first with fallback to `product_id`, surfacing canonical SKU and name.
@@ -3183,9 +3200,9 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
     - `PdtAnalyticsService`: Supported querying SKU sales velocity, run-rate, and cover by canonical `variant_id`.
     - `inventory_reports.py` & `sales_reports.py`: Surfaced canonical dual keys and prioritized variant dimensions on API endpoints.
     - `grnPoEligibility.ts`: Frontend GRN pending inward matcher prioritizes `variant_id` matching keys.
-  - **Zero Database Migration & Zero Backfill Guarantee**: Strict schema freeze maintained Ã¢â‚¬â€ zero Alembic migrations executed, historical legacy transactions preserved as-is.
+  - **Zero Database Migration & Zero Backfill Guarantee**: Strict schema freeze maintained â€” zero Alembic migrations executed, historical legacy transactions preserved as-is.
 
-## [6.70.19] - 2026-10-07 Ã¢â‚¬â€ SMRITI Global Stock Identity Gate & Dual-Key Transaction Write Convergence (Phase 2)
+## [6.70.19] - 2026-10-07 â€” SMRITI Global Stock Identity Gate & Dual-Key Transaction Write Convergence (Phase 2)
 
 > **Branch:** `smritiNX` | **Area:** Inventory, Procurement, Sales, Returns, DataBridge, Identity Governance
 > **Walkthrough:** `docs/walkthrough/inventory/Global_Stock_Identity_Dual_Key_Transaction_Convergence_Phase2_v1.0.0.md`
@@ -3198,16 +3215,16 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
   - Added comprehensive automated test suite `backend/tests/test_phase2_transaction_dual_write.py` verifying 20/20 critical convergence scenarios across stock movements, purchases, returns, adjustments, transfers, audits, and external adapters.
 
 ### Changed
-- **Dual-Key Transaction Write Convergence (Option B Ã¢â‚¬â€ Dual-Key Transitional Architecture)**:
+- **Dual-Key Transaction Write Convergence (Option B â€” Dual-Key Transitional Architecture)**:
   - **Stock Ledger Writers**: Converged `InventoryService.update_stock()`, `record_movement()`, `transfer_stock()`, `adjust_stock()`, and `StockAccountingBoundaryService.record_stock_movement()` to populate `item_id` and `variant_id` alongside `product_id`.
   - **Procurement Writers**: Converged `PurchaseService.create_purchase_receipt()`, `convert_reorder_suggestions_to_draft()`, and `amend_purchase_order()` to resolve canonical keys via `ProductResolutionService` and write dual keys to `PurchaseReceiptItem` and `PurchaseOrderItem`.
   - **Sales & Returns Writers**: Converged `SalesService.update_sales_invoice()`, `convert_quotation_to_invoice()`, `create_sales_return()`, `update_sales_return()`, and `cancel_sales_invoice()` to preserve canonical identity onto `SalesInvoiceItem` and `SalesReturnItem` while propagating dual keys to `atomic_mutate_batch_stock`.
   - **Stock Audit Reconciliation**: Converged `StockAuditService.reconcile_and_post_discrepancies()` to resolve canonical identity and stamp `item_id` and `variant_id` on discrepancy loss/surplus `StockMovement` records.
   - **GRN Direct-Entry Terminal**: Secured `GrnDesktopTerminal.tsx` by removing `"New Inward SKU ${code}"` auto-creation; added strict server lookup via `/product-resolution/resolve` blocking unlinked or unknown items.
   - **DataBridge Domain Adapters**: Secured `grn_adapter.py`, `purchase_order_adapter.py`, `sales_invoice_adapter.py`, `sales_order_adapter.py`, `sales_return_adapter.py`, `stock_audit_adapter.py`, and `stock_transfer_adapter.py` by requiring authoritative resolution through `ProductResolutionService` and blocking arbitrary auto-provisioning.
-  - **Zero Database Migration & Zero Backfill Guarantee**: Strict schema freeze maintained Ã¢â‚¬â€ zero Alembic migrations executed, legacy product-only historical rows preserved as-is.
+  - **Zero Database Migration & Zero Backfill Guarantee**: Strict schema freeze maintained â€” zero Alembic migrations executed, legacy product-only historical rows preserved as-is.
 
-## [6.70.18] - 2026-10-07 Ã¢â‚¬â€ SMRITI Product Resolution Consolidation Phase 1 (Option B Ã¢â‚¬â€ Dual-Key Transitional Architecture)
+## [6.70.18] - 2026-10-07 â€” SMRITI Product Resolution Consolidation Phase 1 (Option B â€” Dual-Key Transitional Architecture)
 
 > **Branch:** `smritiNX` | **Area:** Catalog, Inventory, Search, WMS, Resolution Governance
 > **Walkthrough:** `docs/walkthrough/catalog/Product_Resolution_Consolidation_Phase1_v1.0.0.md`
@@ -3221,7 +3238,7 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
 - **Pre-Implementation Test Fixture Hardening**:
   - Corrected `test_06_tenant_isolation` in `test_global_product_resolution.py` to enforce bidirectional isolation between explicit tenants (`comp_a` vs `comp_b`), respecting the database trigger enforcing `item_warehouse_locations.company_id NOT NULL` without weakening production schema constraints.
 
-## [6.70.17] - 2026-10-07 Ã¢â‚¬â€ SMRITI User Lifecycle Security Hardening, Reactivation & Audit Governance
+## [6.70.17] - 2026-10-07 â€” SMRITI User Lifecycle Security Hardening, Reactivation & Audit Governance
 
 > **Branch:** `smritiNX` | **Area:** Security, User Lifecycle, Staff 360, Locked Users, Audit Journal
 > **Walkthrough:** `docs/walkthrough/foundation/User_Lifecycle_Security_Hardening_And_Audit_Governance_v1.0.0.md`
@@ -3244,7 +3261,7 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
 - **Immutable Audit Trail Journaling (AUD-USR-07)**:
   - Integrated `_record_audit()` in `UserService`, recording tamper-evident audit events (`USER_CREATED`, `USER_UPDATED`, `USER_ROLE_CHANGED`, `USER_DEACTIVATED`, `USER_REACTIVATED`) into `smriti_audit_log` (`SmritiAuditLog`).
 
-## [6.70.16] - 2026-10-07 Ã¢â‚¬â€ SMRITI Universal Import & Staff 360: Console Error Remediation & Input Hardening
+## [6.70.16] - 2026-10-07 â€” SMRITI Universal Import & Staff 360: Console Error Remediation & Input Hardening
 
 > **Branch:** `smritiNX` | **Area:** Foundation, Item Master Studio, Staff 360, Input Validation, Error Interception
 > **Walkthrough:** `docs/walkthrough/foundation/Universal_Import_And_Staff_Console_Errors_Remediation_v1.0.0.md`
@@ -3272,7 +3289,7 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
   - Completely eliminated Starlette 307 temporary redirects to internal Docker hostnames (`smriti-api:8000`) which caused browser security policies to strip authorization headers and trigger 401 Unauthorized errors.
 
 
-## [6.70.15] - 2026-10-07 Ã¢â‚¬â€ SMRITI Transaction DataBridge: Real-Time WebSocket Streaming & Progress Telemetry Server (Phase 10)
+## [6.70.15] - 2026-10-07 â€” SMRITI Transaction DataBridge: Real-Time WebSocket Streaming & Progress Telemetry Server (Phase 10)
 
 > **Branch:** `smritiNX` | **Area:** Foundation, Data Ingestion, Real-Time WebSockets, Telemetry Broadcaster, Async Streaming, Client Hook
 > **Walkthrough:** `docs/walkthrough/foundation/DataBridge_Phase10_WebSocket_Streaming_v1.0.0.md`
@@ -3304,7 +3321,7 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
   - Verified 110/110 full regression tests green across Phases 1 through 10.
   - Verified 0 TypeScript errors (`tsc --noEmit`), zero database migrations, and 11/11 architecture duplication checks passed.
 
-## [6.70.14] - 2026-10-06 Ã¢â‚¬â€ SMRITI Transaction DataBridge: Automated Background Pull Scheduler & Real-Time Webhook Dispatcher (Phase 9)
+## [6.70.14] - 2026-10-06 â€” SMRITI Transaction DataBridge: Automated Background Pull Scheduler & Real-Time Webhook Dispatcher (Phase 9)
 
 > **Branch:** `smritiNX` | **Area:** Foundation, Data Ingestion, Background Schedulers, Real-Time Webhooks, HMAC-SHA256, CDC Broadcasting
 > **Walkthrough:** `docs/walkthrough/foundation/DataBridge_Phase9_Scheduler_Webhook_v1.0.0.md`
@@ -3331,7 +3348,7 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
   - Added 9 authoritative verification test cases in `backend/tests/test_databridge_phase9_scheduler_webhook.py` (`TC-SCHED-001` through `003`, `TC-HOOK-001` through `005`, `TC-API-001`).
   - Verified 103/103 full regression tests green across Phases 1 through 9.
 
-## [6.70.13] - 2026-10-06 Ã¢â‚¬â€ SMRITI Transaction DataBridge: External Third-Party Connector Framework & Bi-Directional Synchronizer (Phase 8)
+## [6.70.13] - 2026-10-06 â€” SMRITI Transaction DataBridge: External Third-Party Connector Framework & Bi-Directional Synchronizer (Phase 8)
 
 > **Branch:** `smritiNX` | **Area:** Foundation, Data Ingestion, Third-Party Connectors, TallyPrime, Shopify, SAP B1, Unicommerce
 > **Walkthrough:** `docs/walkthrough/foundation/DataBridge_Phase8_Connector_Framework_v1.0.0.md`
@@ -3350,7 +3367,7 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
   - Added 7 authoritative verification test cases in `backend/tests/test_databridge_phase8_connectors.py` (`TC-CONN-001` through `007`).
   - Verified 94/94 full regression tests green across Phases 1 through 8.
 
-## [6.70.12] - 2026-10-06 Ã¢â‚¬â€ SMRITI Transaction DataBridge: Automated Schema Mapping Intelligence & Field Detection Engine (Phase 7)
+## [6.70.12] - 2026-10-06 â€” SMRITI Transaction DataBridge: Automated Schema Mapping Intelligence & Field Detection Engine (Phase 7)
 
 > **Branch:** `smritiNX` | **Area:** Foundation, Data Ingestion, Schema Intelligence, Field Detection, Content Profiling
 > **Walkthrough:** `docs/walkthrough/foundation/DataBridge_Phase7_Schema_Mapping_v1.0.0.md`
@@ -3370,7 +3387,7 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
   - Added 7 authoritative verification test cases in `backend/tests/test_databridge_phase7_schema_mapping.py` (`TC-MAP-001` through `007`).
   - Verified 87/87 full regression tests green across Phases 1 through 7.
 
-## [6.70.11] - 2026-10-06 Ã¢â‚¬â€ SMRITI Transaction DataBridge: Multi-Tenant Enterprise Data Migration & Rollback Toolkit (Phase 6)
+## [6.70.11] - 2026-10-06 â€” SMRITI Transaction DataBridge: Multi-Tenant Enterprise Data Migration & Rollback Toolkit (Phase 6)
 
 > **Branch:** `smritiNX` | **Area:** Foundation, Data Ingestion, Enterprise Migration, Reversible Rollback Engine
 > **Walkthrough:** `docs/walkthrough/foundation/DataBridge_Phase6_Migration_Rollback_v1.0.0.md`
@@ -3390,7 +3407,7 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
   - Added 7 authoritative verification test cases in `backend/tests/test_databridge_phase6_migration_rollback.py` (`TC-MIGR-001` through `007`).
   - Verified 80/80 full regression tests green across Phases 1 through 6.
 
-## [6.70.10] - 2026-10-06 Ã¢â‚¬â€ SMRITI Transaction DataBridge: Multi-Format Streaming Exporter & Strangler-Fig Legacy Migration (Phase 5)
+## [6.70.10] - 2026-10-06 â€” SMRITI Transaction DataBridge: Multi-Format Streaming Exporter & Strangler-Fig Legacy Migration (Phase 5)
 
 > **Branch:** `smritiNX` | **Area:** Foundation, Data Ingestion, Streaming Data Export, Strangler-Fig Pattern
 > **Walkthrough:** `docs/walkthrough/foundation/DataBridge_Phase5_Export_Strangler_v1.0.0.md`
@@ -3410,7 +3427,7 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
 - **Automated Verification**:
   - Added 7 end-to-end export test cases in `backend/tests/test_databridge_phase5_export.py`.
 
-## [6.70.9] - 2026-10-06 Ã¢â‚¬â€ SMRITI Transaction DataBridge: Party Masters, Procurement, Sales, Inventory Movement & High-Volume Async Queue (Phases 3A-3D, Phase 4)
+## [6.70.9] - 2026-10-06 â€” SMRITI Transaction DataBridge: Party Masters, Procurement, Sales, Inventory Movement & High-Volume Async Queue (Phases 3A-3D, Phase 4)
 
 > **Branch:** `smritiNX` | **Area:** Foundation, Data Ingestion, Party Masters, Procurement, Sales, Inventory, Asynchronous Task Queue
 > **Walkthroughs:**
@@ -3469,7 +3486,7 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
 - Frontend TypeScript compiler check (`tsc --noEmit`): exit 0.
 - Architecture duplication CI gate (`npm run architecture:check`): 11/11 checks passed, 0 violations.
 
-## [6.70.8] - 2026-10-06 Ã¢â‚¬â€ SMRITI DataBridge v1.0: Enterprise Ingestion Foundation, Catalog Adapters, Workspace UX & Visual QA
+## [6.70.8] - 2026-10-06 â€” SMRITI DataBridge v1.0: Enterprise Ingestion Foundation, Catalog Adapters, Workspace UX & Visual QA
 
 > **Branch:** `smritiNX` | **Area:** Foundation, Data Ingestion, Catalog Adapters, Workspace UX, Visual QA
 > **Walkthrough:** `docs/walkthrough/foundation/DataBridge_Visual_QA_v1.0.0.md`
@@ -3499,12 +3516,12 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
 ### Verified & Certified
 - **Headless Visual QA & E2E Verification Suite**:
   - Executed automated headless Playwright test suite (`scripts/capture_databridge_qa_screenshots.py`) with zero visual defects and zero unhandled console errors.
-  - Captured 18 high-resolution visual evidence screenshots across desktop (1920Ãƒâ€”1080, 1366Ãƒâ€”768), tablet (768Ãƒâ€”1024), and mobile (390Ãƒâ€”844) viewports.
+  - Captured 18 high-resolution visual evidence screenshots across desktop (1920Ã—1080, 1366Ã—768), tablet (768Ã—1024), and mobile (390Ã—844) viewports.
   - 25/25 backend Pytest tests passed green in `test_databridge_phase1.py` and `test_databridge_phase2_catalog.py`.
   - 22/22 frontend Vitest tests passed green in `databridgeWorkspace.test.ts` and `fioriLaunchpad.test.ts`.
   - Clean TypeScript compilation (`tsc --noEmit` exit 0) and 11/11 architecture duplication checks passed.
 
-## [6.70.7-R01] - 2026-10-06 Ã¢â‚¬â€ SMRITI Item Master Phase R-01: Runtime Safety Hardening & Concurrency Protection
+## [6.70.7-R01] - 2026-10-06 â€” SMRITI Item Master Phase R-01: Runtime Safety Hardening & Concurrency Protection
 
 > **Branch:** `smritiNX` | **Area:** Inventory, Item Master, Procurement, Barcodes, Concurrency Hardening
 > **Walkthrough:** `docs/walkthrough/inventory/Inventory_Item_Master_R01_Runtime_Safety_Hardening_v6.70.7.md`
@@ -3514,7 +3531,7 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
   - `backend/app/services/item/item_tracking_svc.py`: Encapsulated batch, serial, and warehouse location resolvers inside `session.begin_nested()` savepoints, ensuring concurrent worker collisions resolve safely to the existing canonical entity without escaping `IntegrityError` or corrupting outer transactions.
   - `backend/tests/test_r01_tracking_concurrency.py`: 4-worker concurrent stress test battery verifying race condition resilience, identical ID resolution, usable caller transactions, and tenant isolation.
 - **Inward Procurement Variant Identity & Ambiguity Guard**:
-  - `backend/app/services/purchase.py`: Enforced strict variant propagation through PO Ã¢â€ â€™ GRN Ã¢â€ â€™ WMS `StockMovement`. Multi-variant items lacking explicit `variant_id` fail fast with HTTP 400 (`AMBIGUOUS_ITEM_VARIANT`), prohibiting blind inferences. Single-variant items infer deterministically.
+  - `backend/app/services/purchase.py`: Enforced strict variant propagation through PO â†’ GRN â†’ WMS `StockMovement`. Multi-variant items lacking explicit `variant_id` fail fast with HTTP 400 (`AMBIGUOUS_ITEM_VARIANT`), prohibiting blind inferences. Single-variant items infer deterministically.
   - Replaced dangerous `except Exception: pass` blocks surrounding batch and location resolvers with structured diagnostic logging and HTTP 422 errors (`BATCH_RESOLUTION_FAILED`, `WAREHOUSE_LOCATION_RESOLUTION_FAILED`).
   - Added explicit legacy compatibility path for `Product.item_id=None` preserving standard inventory movements while respecting `items.id` foreign keys.
 - **Runtime Synthetic Barcode Prohibition**:
@@ -3529,13 +3546,13 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
   - 100% green test passes across all relevant suites (94 / 94 tests passed, 0 unexpected failures).
   - TypeScript compiler clean (`npx tsc --noEmit` exit 0).
 
-## [6.70.7] - 2026-10-05 Ã¢â‚¬â€ SMRITI Item Master Phase 12: End-to-End Operational Pipeline Validation & Final Catalog Certification
+## [6.70.7] - 2026-10-05 â€” SMRITI Item Master Phase 12: End-to-End Operational Pipeline Validation & Final Catalog Certification
 
 > **Branch:** `smritiNX` | **Area:** Catalog, POS, WMS, GRN, Certification, End-to-End Pipelines
 > **Walkthrough:** `docs/walkthrough/catalog/Item_Master_Phase12_EndToEnd_Pipeline_Validation_v6.70.7.md`
 
 ### Added
-- **Item Master Phase 12 Ã¢â‚¬â€ End-to-End Operational Pipeline Validation & Final Catalog Certification**:
+- **Item Master Phase 12 â€” End-to-End Operational Pipeline Validation & Final Catalog Certification**:
   - `scripts/certify_item_master_pipeline.py`: Comprehensive enterprise operational certification engine verifying catalog readiness across all 12 phases in live database `smriti001`.
   - `backend/app/tests/test_item_master_phase12_e2e_pipeline.py`: Automated pytest test suite verifying end-to-end POS checkout, GRN receiving, batch allocation, and serial unit lifecycle.
 
@@ -3547,13 +3564,13 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
   - 100% pricing book synchronization across all active tenant companies.
   - 100% database-enforced tracking integrity via `chk_no_dual_tracking` and `chk_tracking_mode_matches_flags`.
 
-## [6.70.6] - 2026-10-05 Ã¢â‚¬â€ SMRITI Item Master Phase 11: Tracking Mode Harmonization & Database Constraint Enactment
+## [6.70.6] - 2026-10-05 â€” SMRITI Item Master Phase 11: Tracking Mode Harmonization & Database Constraint Enactment
 
 > **Branch:** `smritiNX` | **Area:** Catalog, Inventory Tracking, Batch, Serial, Database Integrity
 > **Walkthrough:** `docs/walkthrough/catalog/Item_Master_Phase11_Tracking_Mode_Harmonization_v6.70.6.md`
 
 ### Added
-- **Item Master Phase 11 Ã¢â‚¬â€ Tracking Mode Harmonization & Database Constraint Enactment**:
+- **Item Master Phase 11 â€” Tracking Mode Harmonization & Database Constraint Enactment**:
   - `backend/alembic/versions/v1522_item_master_phase11_tracking_mode_harmonization.py`: Reversible migration backfilling tracking modes and adding database CHECK constraints `chk_no_dual_tracking` and `chk_tracking_mode_matches_flags` on `items`.
   - `backend/app/services/item/item_tracking_sync_svc.py`: Multi-tenant domain service harmonizing `tracking_mode`, `tracking_type`, `is_batch_tracked`, and `is_serial_tracked`.
   - `scripts/harmonize_tracking_modes.py`: Production CLI runner with `--dry-run` and `--execute` modes.
@@ -3565,13 +3582,13 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
   - Enforced database-level guarantee that items cannot be simultaneously batch-tracked and serial-tracked.
   - Locked `tracking_mode` enum parity with boolean tracking flags.
 
-## [6.70.5] - 2026-10-05 Ã¢â‚¬â€ SMRITI Item Master Phase 10: Variant-Level Attribute Deduplication
+## [6.70.5] - 2026-10-05 â€” SMRITI Item Master Phase 10: Variant-Level Attribute Deduplication
 
 > **Branch:** `smritiNX` | **Area:** Catalog, Attributes, Variants, Single Source of Truth
 > **Walkthrough:** `docs/walkthrough/catalog/Item_Master_Phase10_Variant_Attribute_Deduplication_v6.70.5.md`
 
 ### Added
-- **Item Master Phase 10 Ã¢â‚¬â€ Variant-Level Attribute Deduplication**:
+- **Item Master Phase 10 â€” Variant-Level Attribute Deduplication**:
   - `backend/app/services/item/item_attribute_sync_svc.py`: Multi-tenant domain service consolidating variant-level attribute SSOT, backfilling missing variant color and size attributes from parent items, parsing structured SKU tokens, and clearing deprecated style-level color/size fields on `items`.
   - `scripts/sync_variant_attributes.py`: Production CLI tool with `--dry-run` and `--execute` modes.
   - `backend/app/tests/test_item_master_phase10_attribute_dedup.py`: Automated pytest test suite verifying variant attribute inheritance, SKU parsing, and style attribute clearing.
@@ -3582,13 +3599,13 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
   - Resolved 56 color and 65 size style-to-variant attribute conflicts in live database.
   - Deprecated `items.color` and `items.size` in ORM model and architectural governance.
 
-## [6.70.4] - 2026-10-05 Ã¢â‚¬â€ SMRITI Item Master Phase 9: Price Discrepancy & Price Book Synchronization
+## [6.70.4] - 2026-10-05 â€” SMRITI Item Master Phase 9: Price Discrepancy & Price Book Synchronization
 
 > **Branch:** `smritiNX` | **Area:** Catalog, Pricing, Price Books, Item Sales Settings, Revenue Integrity
 > **Walkthrough:** `docs/walkthrough/catalog/Item_Master_Phase9_Price_Discrepancy_Sync_v6.70.4.md`
 
 ### Added
-- **Item Master Phase 9 Ã¢â‚¬â€ Price Discrepancy & Price Book Synchronization**:
+- **Item Master Phase 9 â€” Price Discrepancy & Price Book Synchronization**:
   - `backend/app/services/item/item_pricing_sync_svc.py`: Multi-tenant domain service reconciling items/variants price discrepancies, synchronizing default price book entries, and populating variant `item_sales_settings`.
   - `scripts/sync_catalog_prices.py`: Production CLI runner with `--dry-run` and `--execute` modes.
   - `backend/app/tests/test_item_master_phase9_pricing_sync.py`: Automated pytest test suite verifying bidirectional reconciliation, price book entry generation, and sales settings synchronization.
@@ -3599,13 +3616,13 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
   - Synchronized default company retail price book entries across all active catalog variants.
   - Reconciled variant sales configurations in `item_sales_settings`.
 
-## [6.70.3] - 2026-10-05 Ã¢â‚¬â€ SMRITI Item Master Phase 8: Multi-Tenant Scope Hardening & Company ID Integrity Backfill
+## [6.70.3] - 2026-10-05 â€” SMRITI Item Master Phase 8: Multi-Tenant Scope Hardening & Company ID Integrity Backfill
 
 > **Branch:** `smritiNX` | **Area:** Catalog, Multi-Tenancy, Tenant Isolation, Integrity Backfill, Item Review
 > **Walkthrough:** `docs/walkthrough/catalog/Item_Master_Phase8_MultiTenant_Scope_Hardening_v6.70.3.md`
 
 ### Added
-- **Item Master Phase 8 Ã¢â‚¬â€ Multi-Tenant Scope Hardening & Company ID Integrity Backfill**:
+- **Item Master Phase 8 â€” Multi-Tenant Scope Hardening & Company ID Integrity Backfill**:
   - `backend/app/services/item/item_review_triage_svc.py`: Domain service evaluating items in `REQUIRES_REVIEW`, auto-resolving missing statutory attributes (`primary_uom`), and transitioning unassigned legacy items to `ACTIVE` while safeguarding quarantined items.
   - `backend/alembic/versions/v1521_item_master_phase8_company_id_not_null.py`: Migration setting `company_id` to `NOT NULL` on `item_variants`, `item_barcodes`, `item_batches`, `item_serials`, and `item_warehouse_locations`.
   - `scripts/harden_multitenant_catalog.py`: Production CLI tool with `--dry-run` and `--execute` modes to backfill orphaned child records and triage `REQUIRES_REVIEW` items.
@@ -3617,13 +3634,13 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
   - Enforced `company_id` non-nullability at both ORM and database schema levels, eliminating silent data omission in multi-tenant queries.
   - Resolved 47 unassigned legacy items from `REQUIRES_REVIEW` to `ACTIVE` with standard footwear/general UOMs while preserving 11 quarantine test items.
 
-## [6.70.2] - 2026-10-05 Ã¢â‚¬â€ SMRITI Item Master Phase 7: Legacy Products Reconciliation & Transactional Backfill
+## [6.70.2] - 2026-10-05 â€” SMRITI Item Master Phase 7: Legacy Products Reconciliation & Transactional Backfill
 
 > **Branch:** `smritiNX` | **Area:** Catalog, Strangler-Fig Migration, Legacy Products, Transaction Parity
 > **Walkthrough:** `docs/walkthrough/catalog/Item_Master_Phase7_Legacy_Products_Reconciliation_v6.70.2.md`
 
 ### Added
-- **Item Master Phase 7 Ã¢â‚¬â€ Legacy Products Reconciliation & Transactional Backfill**:
+- **Item Master Phase 7 â€” Legacy Products Reconciliation & Transactional Backfill**:
   - `backend/app/services/item/legacy_reconciliation_svc.py`: Multi-tenant domain reconciliation service mapping legacy unlinked `products` to canonical `items`, `item_variants`, and `item_barcodes`.
   - `scripts/reconcile_legacy_products.py`: CLI reconciliation tool with `--dry-run` and `--execute` modes, constraint safety, and transaction line backfills for `sales_invoice_items`, `stock_movements`, and `purchase_receipt_items`.
   - `backend/app/tests/test_item_master_phase7_legacy_reconciliation.py`: Automated pytest test suite verifying 100% catalog parity and transaction backfilling.
@@ -3633,13 +3650,13 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
   - Populated `item_id` and `item_variant_id` on all active rows in legacy `products` table.
   - Backfilled canonical `item_id` and `item_variant_id` across legacy rows in `sales_invoice_items`, `stock_movements`, and `purchase_receipt_items`.
 
-## [6.70.1] - 2026-10-05 Ã¢â‚¬â€ SMRITI SKU & Barcode Architecture Refactor (9-Gate Final Freeze)
+## [6.70.1] - 2026-10-05 â€” SMRITI SKU & Barcode Architecture Refactor (9-Gate Final Freeze)
 
 > **Branch:** `smritiNX` | **Area:** Catalog, Inventory, Barcode, Tenant Isolation, Alembic
 > **Walkthrough:** `docs/walkthrough/catalog/SKU_Barcode_Architecture_Refactor_v6.70.0.md` | `docs/walkthrough/catalog/Item_Master_Phase6_POS_GRN_Tracking_UI_Wiring_v6.70.1.md`
 
 ### Added
-- **Item Master Phase 6 Ã¢â‚¬â€ Counter POS & GRN Inwarding UI Wiring for Batch, Serial & Warehouse Location Tracking**:
+- **Item Master Phase 6 â€” Counter POS & GRN Inwarding UI Wiring for Batch, Serial & Warehouse Location Tracking**:
   - `backend/app/tests/test_item_master_phase6_pos_grn_tracking_wiring.py`: 3-test verification suite validating POS checkout and GRN receipt tracking propagation to `SalesInvoiceItem`, `PurchaseReceiptItem`, and `StockMovement`.
   - `backend/app/schemas/pos.py`: Added `batch_id`, `serial_id`, and `warehouse_location_id` to `POSCheckoutItem`.
   - `backend/app/schemas/canonical_posting.py`: Added `batch_id`, `serial_id`, and `warehouse_location_id` to `CanonicalPostingLineItem` and `BillingCalculatedLine`.
@@ -3658,7 +3675,7 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
   - 10-point comprehensive verification and regression test suite verifying identity decoupling, tenant isolation, SKU immutability, synthetic barcode deactivation, and resolution hierarchy.
 
 ### Changed & Hardened
-- **Item Master Phase 6 Ã¢â‚¬â€ Transactional & WMS Tracking Propagation**:
+- **Item Master Phase 6 â€” Transactional & WMS Tracking Propagation**:
   - `backend/app/services/pos.py`: Forwarded `batch_id`, `serial_id`, `warehouse_location_id` from `POSCheckoutItem` into canonical line items.
   - `backend/app/services/headless_billing.py`: Maintained tracking IDs on calculated lines and in `batch_deductions`.
   - `backend/app/services/inventory_wms.py`: Added tracking parameters to `atomic_mutate_batch_stock` and stamped on `StockMovement`.
@@ -3675,7 +3692,7 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
 - **`backend/app/api/v1/universal_import.py` & `backend/app/services/inventory.py`**: Eradicated hardcoded defaults for HSN (`64041990`), GST rate (`18.0`), and `"GEN-"` synthetic barcode prefixes.
 - **`src/components/BarcodeManagementTab.tsx`**: Displayed `PRIMARY` and `ADDITIONAL` badges and verified non-destructive barcode intake.
 
-## [6.70.0] - 2026-10-04 Ã¢â‚¬â€ Article / Design Master Grid UX Redesign & 3-Tier Adaptive Mode
+## [6.70.0] - 2026-10-04 â€” Article / Design Master Grid UX Redesign & 3-Tier Adaptive Mode
 
 > **Branch:** `smritiNX` | **Area:** Item Master, Footwear Catalog, Adaptive UX, Data Grid
 > **Walkthrough:** `docs/walkthrough/catalog/Catalog_Article_Design_Master_Grid_UX_Redesign_v6.70.0.md`
@@ -3684,12 +3701,12 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
 - **`src/components/itemMaster/ItemCatalogGrid.tsx`**:
   - **3-Tier Adaptive Mode Support (`SIMPLE`, `HYBRID`, `ADVANCED`):**
     - `SIMPLE` Mode: 8 core columns (`[x]`, `Image`, `SKU`, `Barcode`, `Product & Article`, `Size / Color`, `Retail Price (MRP)`, `Status`, `Actions`). Fits 100% of screens with zero horizontal scrolling.
-    - `HYBRID` Mode (Default): Combines style attributes (`Brand`, `Category`, `Gender`, `Type`, `Article Code`) with `Retail Price (Ã¢â€šÂ¹)` promoted to the primary fold, plus `Dealer Price` and `GST%`.
+    - `HYBRID` Mode (Default): Combines style attributes (`Brand`, `Category`, `Gender`, `Type`, `Article Code`) with `Retail Price (â‚¹)` promoted to the primary fold, plus `Dealer Price` and `GST%`.
     - `ADVANCED` Mode: Full 18-column ERP accounting view including `Cost Price`, `Last Purchase Price`, and `HSN Code`.
   - **Elevated Retail Price (MRP):** Brought into the primary horizontal fold with bold INR font and subtle highlight tint across all modes.
   - **1-Click Copy Affordances:** Added copy-to-clipboard icons for both SKU and Barcode with instant visual feedback and notification.
   - **Contextual Sticky Bulk Action Toolbar:** Floating action bar appearing when items are selected (`{count} selected`, `Print Barcodes`, `Export Selected`, `Clear Selection`).
-  - **Quick Smart Filter Chips:** Fast 1-click filter pills above the search toolbar (`All`, `Ã°Å¸â€˜Å¸ Footwear`, `Ã¢Å¡Â Ã¯Â¸Â Missing Barcode`, `Ã°Å¸ÂÂ·Ã¯Â¸Â Unset Price`, `Ã°Å¸â€Â´ Inactive`) with dynamic count badges.
+  - **Quick Smart Filter Chips:** Fast 1-click filter pills above the search toolbar (`All`, `ðŸ‘Ÿ Footwear`, `âš ï¸ Missing Barcode`, `ðŸ·ï¸ Unset Price`, `ðŸ”´ Inactive`) with dynamic count badges.
   - **"Dash Desert" Elimination:** Replaced lone harsh em-dashes with muted typography tokens (`renderMutedDash`).
   - **Image Hover Lightbox:** Hovering over thumbnail previews displays an enlarged preview card.
 - **`src/components/itemMaster/ItemMasterWs.tsx`**:
@@ -3697,7 +3714,7 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
 - **`src/components/itemMaster/ItemMasterStudio.tsx`**:
   - Fixed click event handler signature mismatch on `handleResolveAndImport`.
 
-## [6.69.0] - 2026-10-04 Ã¢â‚¬â€ Universal Import Pre-Import Validation & Interactive Fix Studio
+## [6.69.0] - 2026-10-04 â€” Universal Import Pre-Import Validation & Interactive Fix Studio
 
 > **Branch:** `smritiNX` | **Area:** Item Master, Universal Import, Catalog Governance, Validation
 > **Walkthrough:** `docs/walkthrough/catalog/Catalog_Universal_Import_Interactive_Fix_Panel_v6.69.0.md`
@@ -3714,7 +3731,7 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
   - Applied fix confirmation chips before final import commit.
   - Clean state reset on successful commit.
 - **`backend/app/services/catalog_validation.py`**:
-  - Human-friendly validation messages with "Did you mean Ã¢â‚¬Å“XÃ¢â‚¬Â? Fix the spelling in your file and re-validate."
+  - Human-friendly validation messages with "Did you mean â€œXâ€? Fix the spelling in your file and re-validate."
   - Structured `field_failures` metadata list embedded in response dict alongside text messages.
 - **`backend/app/api/v1/universal_import.py`**:
   - Preview endpoint embeds `approved_values_map` (live dimensions) and row-level `field_failures`.
@@ -3729,46 +3746,46 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
 
 ### Tests
 - **Backend Full Battery:** 17/17 pytest passed (6/6 in `test_unified_im001_governance.py`, 11/11 in `test_universal_import_item_master.py`).
-- **Frontend Build:** `npm run build` Ã¢â€ â€™ 3,687 modules transformed, 0 errors, built in 1m 1s.
+- **Frontend Build:** `npm run build` â†’ 3,687 modules transformed, 0 errors, built in 1m 1s.
 
-## [6.68.0] - 2026-10-04 Ã¢â‚¬â€ Item Master 422 HREP Validation (v1.1.0)
+## [6.68.0] - 2026-10-04 â€” Item Master 422 HREP Validation (v1.1.0)
 
 > **Branch:** `smritiNX` | **Area:** Item Master, Inventory, Validation
 > **Walkthrough:** `docs/walkthrough/ItemMaster_422_HREP_Validation_v1.0.0.md`
 
 ### Added
-- **`backend/app/core/item_master_validation.py`** (new): Centralized `ItemMasterValidationMapper` Ã¢â‚¬â€ single source of truth for all Item Master 422 field error translations. Includes `FIELD_LABELS`, `FIELD_SECTIONS`, `FIELD_REQUIRED_MESSAGES`, `_DYN_LABEL_MAP`, `build_422_response()`, `build_dynamic_attr_422_response()`, `_parse_dynamic_attr_error()`, `build_duplicate_sku_response()`, `build_duplicate_barcode_response()`, `is_item_master_endpoint()`. Version 1.1.0.
-- **`src/services/itemMasterValidationMapper.ts`** (new): Frontend 422 parser Ã¢â‚¬â€ `parseItemMaster422Response()`, `ItemMasterValidationError` (typed Error subclass), `focusFirstError()`, `buildValidationSummary()`, `FIELD_TO_ELEMENT_ID` registry. Color/size/size_system now map to real chip container DOM IDs (`im-field-color`, `im-field-size`). Version 1.1.0.
-- **`backend/app/tests/run_item_master_422_unit_tests.py`** (new): Standalone 37-test unit runner (Groups 1Ã¢â‚¬â€œ10) that bypasses DB conftest.
-- **`backend/app/tests/test_item_master_422_validation.py`** (new): Formal pytest test file (65 tests, Groups 1Ã¢â‚¬â€œ11 including dynamic attribute 422 mapper tests). Version 1.1.0.
+- **`backend/app/core/item_master_validation.py`** (new): Centralized `ItemMasterValidationMapper` â€” single source of truth for all Item Master 422 field error translations. Includes `FIELD_LABELS`, `FIELD_SECTIONS`, `FIELD_REQUIRED_MESSAGES`, `_DYN_LABEL_MAP`, `build_422_response()`, `build_dynamic_attr_422_response()`, `_parse_dynamic_attr_error()`, `build_duplicate_sku_response()`, `build_duplicate_barcode_response()`, `is_item_master_endpoint()`. Version 1.1.0.
+- **`src/services/itemMasterValidationMapper.ts`** (new): Frontend 422 parser â€” `parseItemMaster422Response()`, `ItemMasterValidationError` (typed Error subclass), `focusFirstError()`, `buildValidationSummary()`, `FIELD_TO_ELEMENT_ID` registry. Color/size/size_system now map to real chip container DOM IDs (`im-field-color`, `im-field-size`). Version 1.1.0.
+- **`backend/app/tests/run_item_master_422_unit_tests.py`** (new): Standalone 37-test unit runner (Groups 1â€“10) that bypasses DB conftest.
+- **`backend/app/tests/test_item_master_422_validation.py`** (new): Formal pytest test file (65 tests, Groups 1â€“11 including dynamic attribute 422 mapper tests). Version 1.1.0.
 - **`src/tests/itemMaster422Validation.test.ts`** (new): Vitest test file (58 tests, 12 groups including chip container ID isolation tests and dynamic attribute 422 frontend contract group). Version 1.1.0.
 
 ### Changed
-- **`backend/app/core/error_handlers.py`**: Added Path B intercept in `http_exception_handler` Ã¢â‚¬â€ HTTPException(422) on Item Master endpoints is now routed through `build_dynamic_attr_422_response()` and returns the same structured `ITEM_MASTER_VALIDATION_ERROR` contract as Pydantic validation errors. All other 422s fall through to the existing generic HREP handler. Scope: strictly Item Master paths.
+- **`backend/app/core/error_handlers.py`**: Added Path B intercept in `http_exception_handler` â€” HTTPException(422) on Item Master endpoints is now routed through `build_dynamic_attr_422_response()` and returns the same structured `ITEM_MASTER_VALIDATION_ERROR` contract as Pydantic validation errors. All other 422s fall through to the existing generic HREP handler. Scope: strictly Item Master paths.
 - **`backend/app/schemas/inventory.py`**: Per-field human-readable validators, HSN 6/8-digit regex, `label_map` for MRP/price/GST validators.
 - **`src/lib/apiFetchV1.ts`**: On 422 with `code === "ITEM_MASTER_VALIDATION_ERROR"`, throws typed `ItemMasterValidationError`; all other non-ok responses throw plain `Error`.
 - **`src/components/itemMaster/AddProductDrawer.tsx`**: (a) Color chip group container wrapped in `<div id="im-field-color" tabIndex={-1}>` with red ring on error and inline error paragraph below chips. (b) Size chip group container wrapped in `<div id="im-field-size" tabIndex={-1}>` with same treatment. (c) Full `fieldErrors` state, `validationSummary` banner, `getFieldError()` helper, inline red error text under each required field, auto-`focusFirstError` on submit failure.
 
 ### Fixed
-- **Dynamic attribute 422 path** (`AttributesService.validate_product_attributes()`): Previously raised `HTTPException(422, detail=dict)` bypassing the `RequestValidationError` handler. Now intercepted by `http_exception_handler` Path B and converted to structured `ITEM_MASTER_VALIDATION_ERROR` response. Error strings like `"Style is required"`, `"Color contains invalid value(s): X"`, and `"IM-001 [BLOCK]: ..."` are all mapped to human-readable field-level messages Ã¢â‚¬â€ no internal text exposed.
+- **Dynamic attribute 422 path** (`AttributesService.validate_product_attributes()`): Previously raised `HTTPException(422, detail=dict)` bypassing the `RequestValidationError` handler. Now intercepted by `http_exception_handler` Path B and converted to structured `ITEM_MASTER_VALIDATION_ERROR` response. Error strings like `"Style is required"`, `"Color contains invalid value(s): X"`, and `"IM-001 [BLOCK]: ..."` are all mapped to human-readable field-level messages â€” no internal text exposed.
 - **Chip-field focus UX**: Color and Size chip groups previously fell back to `im-field-barcode` as focus target (wrong UX). Now focus goes to the actual chip group container (`im-field-color`, `im-field-size`) which receives the red ring highlight and inline error. Barcode now maps exclusively to `im-field-barcode`.
 - **Generic fallback messages**: Unknown dynamic attribute labels no longer echo the raw label string (which could contain words like `"dynamic"`). Now returns a fixed generic safe business message.
-- **`item_master_validation.py` fallback**: Strings containing "constraint", "internal", "error", "exception", "pydantic", "sqlalchemy" produce `"<Label>: Please check and correct this value."` Ã¢â‚¬â€ no technical text leaks.
+- **`item_master_validation.py` fallback**: Strings containing "constraint", "internal", "error", "exception", "pydantic", "sqlalchemy" produce `"<Label>: Please check and correct this value."` â€” no technical text leaks.
 
 ### Tests
-- **Backend:** 65/65 pytest passed (Groups 1Ã¢â‚¬â€œ11: missing fields, HSN, price/GST, duplicates, multiple errors, nested fields, unknown fields, endpoint matcher, schema messages, response contract, **dynamic attribute 422 mapper**)
+- **Backend:** 65/65 pytest passed (Groups 1â€“11: missing fields, HSN, price/GST, duplicates, multiple errors, nested fields, unknown fields, endpoint matcher, schema messages, response contract, **dynamic attribute 422 mapper**)
 - **Frontend:** 58/58 Vitest passed (12 groups including chip container ID isolation, dynamic attribute 422 frontend contract, `FIELD_TO_ELEMENT_ID` coverage with barcode/color/size distinction)
-- **TypeScript:** `npx tsc --noEmit` Ã¢â€ â€™ exit 0, 0 errors
-- **Live API T1Ã¢â‚¬â€œT4:** Verified with literal HTTP response bodies (T5a/T5b: stock not required confirmed; T6: skipped Ã¢â‚¬â€ no seeded products in integration DB)
+- **TypeScript:** `npx tsc --noEmit` â†’ exit 0, 0 errors
+- **Live API T1â€“T4:** Verified with literal HTTP response bodies (T5a/T5b: stock not required confirmed; T6: skipped â€” no seeded products in integration DB)
 
 ### Known Limitations
-- **T6 Duplicate SKU live:** Cannot be verified against live endpoint (GET /inventory returns HTTP 500 Ã¢â‚¬â€ pre-existing unrelated issue). Duplicate SKU/Barcode handling is covered by unit tests (Group 4 backend, Groups 6Ã¢â‚¬â€œ7 frontend).
+- **T6 Duplicate SKU live:** Cannot be verified against live endpoint (GET /inventory returns HTTP 500 â€” pre-existing unrelated issue). Duplicate SKU/Barcode handling is covered by unit tests (Group 4 backend, Groups 6â€“7 frontend).
 - **Dynamic attribute live path:** `AttributesService.validate_product_attributes()` is only triggered when the product category has mandatory attribute definitions in the DB. No live test was run against this path; the mapper is verified at unit-test level only.
 - **Frontend UI smoke test:** No browser automation was run. Manual verification required for actual chip highlight and scroll-to-error behaviour.
 
 ---
 
-## [6.69.0] - 2026-10-03 Ã¢â‚¬â€ Sales & Compliance: Corporate B2B Billing Fields Wiring & Sales Invoice Snapshot Immutability (Phase 2C/2F)
+## [6.69.0] - 2026-10-03 â€” Sales & Compliance: Corporate B2B Billing Fields Wiring & Sales Invoice Snapshot Immutability (Phase 2C/2F)
 
 > **Branch:** `smritiNX` | **Area:** Sales Invoicing, Canonical Sales Posting Writer, CRM Corporate Billing & Duplicate Protection
 > **Implementation Plan:** `docs/implementation/sales/Sales_Invoice_B2B_Corporate_Fields_Wiring_Plan_v6.69.0.md`
@@ -3790,7 +3807,7 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
 - Added customer credit ledger cleanups in `backend/tests/test_b2b_sales_wiring.py`.
 - Dynamic PostgreSQL port resolution in `scripts/audit_all_dbs.py` and `scripts/audit_schema_drift.py`.
 
-## [6.69.0] - 2026-10-03 Ã¢â‚¬â€ UX & Foundation: Phase 5 Auxiliary Workspaces Routing & Catalog Wiring (100% Unreferenced Ws Elimination)
+## [6.69.0] - 2026-10-03 â€” UX & Foundation: Phase 5 Auxiliary Workspaces Routing & Catalog Wiring (100% Unreferenced Ws Elimination)
 
 > **Branch:** `smritiNX` | **Area:** Foundation, Shell Routing, Fiori Launchpad, Item Master, Vendor Master, ProPOS Billing & Universal Document Studio
 > **Implementation Plan:** `docs/implementation/foundation/Auxiliary_Workspaces_Phase5_Wiring_Plan_v6.69.0.md`
@@ -3814,7 +3831,7 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
   - Total Tabs/Workspaces/Studios: 74, Unreferenced Tabs/Workspaces: **0** (100% resolution across the entire repository).
 - **Type Safety**: `npx tsc --noEmit` clean exit 0.
 
-## [6.68.0] - 2026-10-03 Ã¢â‚¬â€ UX & Foundation: 100% Elimination of Orphaned Domain Modals & Unreferenced Workspaces Routing
+## [6.68.0] - 2026-10-03 â€” UX & Foundation: 100% Elimination of Orphaned Domain Modals & Unreferenced Workspaces Routing
 
 > **Branch:** `smritiNX` | **Area:** Foundation, POS Billing, CRM, WMS, Promotions, Purchasing, Reports, Staff, Master Data & Tab Routing
 > **Implementation Plan:** `docs/implementation/foundation/Domain_Modals_Phase4_Comprehensive_Wiring_Plan_v6.68.0.md`
@@ -3859,7 +3876,7 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
 - **Version SSOT Parity**:
   - Synchronized `package.json`, `src/config/version.ts`, `backend/app/core/config.py`, and `CHANGELOG.md` to authoritative release version `6.68.0`.
 
-## [6.67.0] - 2026-10-03 Ã¢â‚¬â€ Foundation & UX: Complete API-Backed Domain Modals Mounting (WMS, Reports, POS, Dispatch & Security)
+## [6.67.0] - 2026-10-03 â€” Foundation & UX: Complete API-Backed Domain Modals Mounting (WMS, Reports, POS, Dispatch & Security)
 
 > **Branch:** `smritiNX` | **Area:** Foundation, WMS Studio, Financial Reporting, POS Billing, Dispatch Invoicing & Security
 > **Implementation Plan:** `docs/implementation/foundation/Domain_Modals_Phase3_API_Backed_Wiring_Plan_v6.67.0.md`
@@ -3890,7 +3907,7 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
 - **Version SSOT Parity**:
   - Synchronized `package.json`, `src/config/version.ts`, `backend/app/core/config.py`, and `CHANGELOG.md` to authoritative release version `6.67.0`.
 
-## [6.66.0] - 2026-10-03 Ã¢â‚¬â€ Foundation & UX: CRM, Billing & Promotions Modals Mounting and SecManageDlg Deprecation
+## [6.66.0] - 2026-10-03 â€” Foundation & UX: CRM, Billing & Promotions Modals Mounting and SecManageDlg Deprecation
 
 > **Branch:** `smritiNX` | **Area:** Foundation, CRM Studio, Billing Workspace, Sales Promotions & Security
 > **Implementation Plan:** `docs/implementation/foundation/Domain_Modals_Phase2_Wiring_And_SecManage_Retirement_Plan_v6.66.0.md`
@@ -3921,7 +3938,7 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
 - **Version SSOT Parity**:
   - Synchronized `package.json`, `src/config/version.ts`, `backend/app/core/config.py`, and `CHANGELOG.md` to authoritative release version `6.66.0`.
 
-## [6.65.0] - 2026-10-03 Ã¢â‚¬â€ Foundation & UX: High-Value Domain Modals Wiring & Legacy Prototype Retirement
+## [6.65.0] - 2026-10-03 â€” Foundation & UX: High-Value Domain Modals Wiring & Legacy Prototype Retirement
 
 > **Branch:** `smritiNX` | **Area:** Foundation, Purchase Studio, WMS Studio, CRM Studio & Barcode
 > **Implementation Plan:** `docs/implementation/foundation/Domain_Modals_Wiring_And_Legacy_UX_Retirement_Plan_v6.65.0.md`
@@ -3936,7 +3953,7 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
   - Enables warehouse operators to monitor near-expiry batches, issue quarantines, review recall logs, and calculate safety-stock replenishment matrices directly alongside multi-godown stock tables.
 - **CRM Studio Customer 360 & Accounts Receivable Credit Aging Modals (`Customer360LoyaltyModal.tsx`, `CustomerCreditModal.tsx`)**:
   - Wired `Customer360LoyaltyModal` and `CustomerCreditModal` into `src/components/CrmStudioTab.tsx` with `#crm-studio-cust360-btn` and `#crm-studio-credit-btn` action buttons.
-  - Gives CRM teams access to complete loyalty tier progression, purchase history, and overdue credit aging buckets (1Ã¢â‚¬â€œ30d, 31Ã¢â‚¬â€œ60d, 61Ã¢â‚¬â€œ90d, >90d).
+  - Gives CRM teams access to complete loyalty tier progression, purchase history, and overdue credit aging buckets (1â€“30d, 31â€“60d, 61â€“90d, >90d).
 
 ### Deprecated
 - **Legacy Barcode Printing Prototype (`src/components/warehouse/LabelPrintModal.tsx`)**:
@@ -3946,7 +3963,7 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
 - **Legacy Bulk Import Section (`src/components/BulkImportSection.tsx`)**:
   - Formally annotated with `@deprecated` referencing canonical `ItemMasterStudio.tsx` and `GlobalGridImportModal.tsx`. Added top-edge amber notice banner inside the component.
 
-## [6.64.1] - 2026-10-03 Ã¢â‚¬â€ Foundation & Backend: Complete Frontend-Backend API Parity & Reconciliation Wiring
+## [6.64.1] - 2026-10-03 â€” Foundation & Backend: Complete Frontend-Backend API Parity & Reconciliation Wiring
 
 > **Branch:** `smritiNX` | **Area:** Foundation, Purchase 3-Way Matching, CRM Loyalty & Localization
 > **Implementation Plan:** `docs/implementation/foundation/Complete_FE_BE_Parity_And_Reconciliation_Wiring_Plan_v1.0.md`
@@ -3974,7 +3991,7 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
   - `src/tests/threeWayMatching.test.ts` & `src/tests/globalFieldRegistry.test.ts`: 12/12 passed in 392ms.
   - TypeScript Compiler: 0 errors (`npx tsc --noEmit` exit 0).
 
-## [6.64.0] - 2026-10-03 Ã¢â‚¬â€ Foundation & Backend: Core API Parity & POS Supervisor PIN Authorization Wiring
+## [6.64.0] - 2026-10-03 â€” Foundation & Backend: Core API Parity & POS Supervisor PIN Authorization Wiring
 
 > **Branch:** `smritiNX` | **Area:** Foundation, POS Security & Core API Connectivity
 > **Implementation Plan:** `docs/implementation/foundation/Core_API_Parity_And_Supervisor_Auth_Wiring_Plan_v1.0.md`
@@ -3996,7 +4013,7 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
 - Resolved 404 network failure on supervisor override popup in ProPOS cashier terminal.
 - Resolved 404 network failure when committing dynamic item catalog imports in ItemMasterStudio.
 
-## [6.63.0] - 2026-10-03 Ã¢â‚¬â€ Global Grid Import Standard Rollout: Auxiliary & Secondary Surface Parser Modernization
+## [6.63.0] - 2026-10-03 â€” Global Grid Import Standard Rollout: Auxiliary & Secondary Surface Parser Modernization
 
 > **Branch:** `smritiNX` | **Area:** Catalog, Sales & Operations / Multi-Surface Parser Harmonization
 > **Implementation Plan:** `docs/implementation/inventory/Global_Grid_Input_And_Import_Standard_Plan_v1.0.md`
@@ -4020,7 +4037,7 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
 - **Auxiliary Surfaces Unit Test Suite (`src/tests/auxiliaryGridIntake.test.ts`)**:
   - Created dedicated test suite validating Item Details Grid TSV/CSV quote protection, Sales Studio customer CSV/TSV intake with embedded commas, Label Printing data parsing, and Standalone Window pipe-delimited staging (6/6 tests green).
 
-## [6.62.0] - 2026-10-03 Ã¢â‚¬â€ Global Grid Import Standard Rollout: Goods Receipt Note (GRN) Inward Workspace
+## [6.62.0] - 2026-10-03 â€” Global Grid Import Standard Rollout: Goods Receipt Note (GRN) Inward Workspace
 
 > **Branch:** `smritiNX` | **Area:** Procurement & Inward Logistics / Goods Receipt Note (GRN)
 > **Implementation Plan:** `docs/implementation/inventory/Global_Grid_Input_And_Import_Standard_Plan_v1.0.md`
@@ -4041,7 +4058,7 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
   - Eradicated rogue fallback auto-generation of fake SKUs (`ITEM-${lineIdx + 1}`); unresolvable lines missing both barcode and SKU are now cleanly flagged with status `UNRECOGNIZED` and message "Row missing both barcode and SKU identifier."
   - Updated UADHP header version to `6.62.0`.
 
-## [6.61.0] - 2026-10-03 Ã¢â‚¬â€ Global Grid Import Standard Rollout: Item Master Studio File Upload & Headerless Mode Hardening
+## [6.61.0] - 2026-10-03 â€” Global Grid Import Standard Rollout: Item Master Studio File Upload & Headerless Mode Hardening
 
 > **Branch:** `smritiNX` | **Area:** Catalog & Master Data / Item Master Studio
 > **Implementation Plan:** `docs/implementation/inventory/Global_Grid_Input_And_Import_Standard_Plan_v1.0.md`
@@ -4061,7 +4078,7 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
 - **Grid Input Engine Excel Quote Protection (`gridInputEngine.ts`)**:
   - Enhanced non-comma delimiter splitting (`delimiter !== ","`) in `GridInputEngine.parseDelimitedText` to automatically detect and strip enclosing double-quotes and unescape double-quoted literals (`""`), ensuring cells copied from Excel with internal commas (e.g. `"Classic Derby, Black"`) are cleanly sanitized without surrounding quotation artifacts.
 
-## [6.60.0] - 2026-10-03 Ã¢â‚¬â€ Global Grid Import Standard Rollout: Item Master Matrix Parser & Barcode Registry Intake
+## [6.60.0] - 2026-10-03 â€” Global Grid Import Standard Rollout: Item Master Matrix Parser & Barcode Registry Intake
 
 > **Branch:** `smritiNX` | **Area:** Catalog & Master Data / Item Master & Barcode Registry
 > **Implementation Plan:** `docs/implementation/inventory/Global_Grid_Input_And_Import_Standard_Plan_v1.0.md`
@@ -4081,7 +4098,7 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
   - Upgraded manual multi-delimiter parsing in the batch intake textarea (`useMemo` matrix parser) to canonical `GridInputEngine.parseDelimitedText(rawText).matrix`.
   - Provides enterprise RFC 4180 quotation handling, multi-line quoted cell protection, multi-delimiter autodetection (`\t`, `,`, `;`, `|`, `~`), and BOM stripping without changing downstream `HeaderMappingEngine` contracts.
 
-## [6.59.0] - 2026-10-03 Ã¢â‚¬â€ Global Grid Import Standard Rollout: Standard Purchase Order Generator
+## [6.59.0] - 2026-10-03 â€” Global Grid Import Standard Rollout: Standard Purchase Order Generator
 
 > **Branch:** `smritiNX` | **Area:** Procurement & Merchandising / Standard Purchase Order Generator
 > **Implementation Plan:** `docs/implementation/inventory/Global_Grid_Input_And_Import_Standard_Plan_v1.0.md`
@@ -4094,9 +4111,9 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
   - Exported pure mapper `mapParsedGridRowsToPOLineItems` transforming resolved products and raw rows into canonical `PurchaseOrderLineItem` records with accurate rates, MRP, tax calculations, units, and brand styling attributes.
   - Exported pure merge utility `mergePOLineItems` supporting `APPEND`, `MERGE` (accumulating quantities, updating rates, and recalculating net totals without dropping existing attributes), and `REPLACE` modes.
   - Updated primary action toolbar with "Fast Import" action button and wired file picker adapter to stream CSV/TSV/Excel data into `GlobalGridImportModal`.
-  - Added unit tests 7Ã¢â‚¬â€œ11 in `src/tests/poGenerateUX.test.ts` verifying product mapping, fallback handling for unmapped rows, and all merge modes (11/11 tests green).
+  - Added unit tests 7â€“11 in `src/tests/poGenerateUX.test.ts` verifying product mapping, fallback handling for unmapped rows, and all merge modes (11/11 tests green).
 
-## [6.58.0] - 2026-10-03 Ã¢â‚¬â€ Global Grid Import Standard Rollout: Sizewise Purchase Order Matrix
+## [6.58.0] - 2026-10-03 â€” Global Grid Import Standard Rollout: Sizewise Purchase Order Matrix
 
 > **Branch:** `smritiNX` | **Area:** Procurement & Merchandising / Footwear & Apparel Sizewise PO
 > **Implementation Plan:** `docs/implementation/inventory/Global_Grid_Input_And_Import_Standard_Plan_v1.0.md`
@@ -4109,9 +4126,9 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
   - Exported pure mapper `mapParsedGridRowsToSizewiseLines` extracting explicit sizewise columns (`6`, `7`, `8` or `S`, `M`, `L`) or distributing flat product scan totals across active size scales using `recommendSizeAssortment` (Gaussian retail Bell Curve).
   - Exported pure merge utility `mergeSizewisePOLines` supporting `APPEND`, `MERGE` (accumulating quantities across sizes and recalculating net totals), and `REPLACE` modes.
   - Modernized "Global Import" buttons across primary toolbar, empty state, and visual catalog tab.
-  - Added unit tests 35Ã¢â‚¬â€œ38 in `src/tests/poSizewiseUX.test.ts` verifying explicit size mapping, Gaussian bell-curve assortment distribution, product metadata mapping, and merge modes.
+  - Added unit tests 35â€“38 in `src/tests/poSizewiseUX.test.ts` verifying explicit size mapping, Gaussian bell-curve assortment distribution, product metadata mapping, and merge modes.
 
-## [6.57.1] - 2026-10-03 Ã¢â‚¬â€ Global Grid Import Standard Rollout: WMS Stock Transfer Orders (STO)
+## [6.57.1] - 2026-10-03 â€” Global Grid Import Standard Rollout: WMS Stock Transfer Orders (STO)
 
 > **Branch:** `smritiNX` | **Area:** Warehouse Management System (WMS) / Logistics / Stock Transfer Orders
 > **Implementation Plan:** `docs/implementation/inventory/Global_Grid_Input_And_Import_Standard_Plan_v1.0.md`
@@ -4126,7 +4143,7 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
   - Implemented `handleGlobalTransferImportCommit` supporting `APPEND`, `MERGE` (quantity summing), and `REPLACE` staging modes.
   - Upgraded `handleCreateTransfer` to dispatch multi-line transfer orders via `POST /api/v1/wms/transfers`.
 
-## [6.57.0] - 2026-10-03 Ã¢â‚¬â€ Global Grid Import Standard Rollout: POS Counter Billing & Sales Order Studio
+## [6.57.0] - 2026-10-03 â€” Global Grid Import Standard Rollout: POS Counter Billing & Sales Order Studio
 
 > **Branch:** `smritiNX` | **Area:** Point-of-Sale / Counter Billing / Commercial Sales Orders
 > **Implementation Plan:** `docs/implementation/inventory/Global_Grid_Input_And_Import_Standard_Plan_v1.0.md`
@@ -4146,7 +4163,7 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
   - Added support for `initialRawText` prop to allow auto-analyzing text passed from parent grid paste events.
   - Replaced browser `alert()` popups with SMRITI HREP-compliant inline error banners in Step 1 and Step 3.
 
-## [6.56.1] - 2026-10-03 Ã¢â‚¬â€ Global Grid Input Standard: Attribute-Aware Bulk Import Excel Paste
+## [6.56.1] - 2026-10-03 â€” Global Grid Input Standard: Attribute-Aware Bulk Import Excel Paste
 
 > **Branch:** `smritiNX` | **Area:** Catalog / Item Master / Bulk Spreadsheet Importer
 > **Implementation Plan:** `docs/implementation/inventory/Global_Grid_Input_And_Import_Standard_Plan_v1.0.md`
@@ -4158,7 +4175,7 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
   - Automatically matches source columns against dynamic attribute group headers (e.g. `Attr_Color`, `Attr_Size`, `Price`, `MRP`) with positional fallback.
   - Clears previous validation errors and enables 1-click validation of pasted item batches.
 
-## [6.56.0] - 2026-10-03 Ã¢â‚¬â€ Global Grid Import Standard Rollout: Physical Stock Audit & Barcode Label Studio
+## [6.56.0] - 2026-10-03 â€” Global Grid Import Standard Rollout: Physical Stock Audit & Barcode Label Studio
 
 > **Branch:** `smritiNX` | **Area:** Physical Inventory Audit / Barcode Printing Studio / Grid Engine
 > **Implementation Plan:** `docs/implementation/inventory/Global_Grid_Input_And_Import_Standard_Plan_v1.0.md`
@@ -4173,7 +4190,7 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
   - Refactored `handlePdtFileUpload` to eliminate fragile ad-hoc splitting; now powered by `GridInputEngine.parseDelimitedText` and `GRID_PROFILES.BARCODE_PRINTING`.
   - Added "Global Import (Excel / CSV / Scan)" modal action to ingest items directly from spreadsheet clipboards, delimited files, or scanner streams.
 
-## [6.55.0] - 2026-10-03 Ã¢â‚¬â€ SMRITI Global Grid Input, Paste, Import & Product Resolution Standard
+## [6.55.0] - 2026-10-03 â€” SMRITI Global Grid Input, Paste, Import & Product Resolution Standard
 
 > **Branch:** `smritiNX` | **Area:** Catalog / Grid Engine / Clipboard / Import / Procurement / Item Master
 > **Implementation Plan:** `docs/implementation/inventory/Global_Grid_Input_And_Import_Standard_Plan_v1.0.md`
@@ -4213,7 +4230,7 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
 - **Billing CSV Import Endpoint** (`backend/app/api/v1/billing_csv.py`):
   - Refactored `_lookup_catalog` to utilize `ProductResolutionService.resolve()`.
 
-## [6.54.0] - 2026-10-03 Ã¢â‚¬â€ SMRITI Global Product Resolution & Validation Standard
+## [6.54.0] - 2026-10-03 â€” SMRITI Global Product Resolution & Validation Standard
 
 > **Branch:** `smritiNX` | **Area:** Catalog / Master Data / POS Billing / Procurement / Transaction Validation
 > **Implementation Plan:** `docs/implementation/inventory/Product_Resolution_And_Validation_Standard_Plan_v1.0.md`
@@ -4251,7 +4268,7 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
   - Added `productNotFoundState` modal with RBAC-gated `[ Add Product ]` and `[ Scan Again ]` buttons.
   - Added `productInactiveState` modal with clear HREP explanations and remediation guidance.
 
-## [6.53.0] - 2026-10-03 Ã¢â‚¬â€ SMRITI Procurement Phase 2.11: End-to-End Procurement Lifecycle Audit (PO to GRN to AP GL), 1-Click Receiving Wiring & Multi-Surface Reports Studio
+## [6.53.0] - 2026-10-03 â€” SMRITI Procurement Phase 2.11: End-to-End Procurement Lifecycle Audit (PO to GRN to AP GL), 1-Click Receiving Wiring & Multi-Surface Reports Studio
 
 > **Branch:** `smritiNX` | **Area:** Procurement / Accounts Payable / General Ledger / Multi-Surface Verification
 > **Implementation Plan:** `docs/implementation/procurement/Procurement_Phase2_11_Full_Cycle_PO_GRN_Audit_Plan_v1.0.md`
@@ -4259,17 +4276,17 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
 
 ### Added
 - **Full Procurement End-to-End Integration Test Suite** (`backend/app/tests/test_procurement_cycle_e2e_audit.py`):
-  - Complete 12-step headless integration test validating: Supplier Master Creation -> PO Generation (DRAFT) -> Submission (SUBMITTED) -> Confirmation (CONFIRMED) -> Pending Delivery Report -> GRN Inward Receipt against PO with Inward Freight Landed Cost -> WMS Stock Level Increments -> PO State Transition to RECEIVED -> Pending Delivery Report Automatic Clearing -> Purchase Bill Generation linked to PO & GRN -> Authoritative General Ledger Accounts Payable (`Account 2010 AP`) Double-Entry Booking with Invariant $\sum \text{Debit} = \sum \text{Credit}$ -> Supplier Outstanding AP Liability Reconciliation -> Procurement Reports Validation (Pending Delivery, Supplier Outstanding, Purchase Summary Register) -> Purchase Bill Cancellation & Compensating GL Reversal restoring supplier liability to Ã¢â€šÂ¹0.00.
+  - Complete 12-step headless integration test validating: Supplier Master Creation -> PO Generation (DRAFT) -> Submission (SUBMITTED) -> Confirmation (CONFIRMED) -> Pending Delivery Report -> GRN Inward Receipt against PO with Inward Freight Landed Cost -> WMS Stock Level Increments -> PO State Transition to RECEIVED -> Pending Delivery Report Automatic Clearing -> Purchase Bill Generation linked to PO & GRN -> Authoritative General Ledger Accounts Payable (`Account 2010 AP`) Double-Entry Booking with Invariant $\sum \text{Debit} = \sum \text{Credit}$ -> Supplier Outstanding AP Liability Reconciliation -> Procurement Reports Validation (Pending Delivery, Supplier Outstanding, Purchase Summary Register) -> Purchase Bill Cancellation & Compensating GL Reversal restoring supplier liability to â‚¹0.00.
   - Verified: **1/1 PASSED in 52.29s** with 0 regressions across existing 75 purchase tests (**75/75 PASSED**).
 - **Headless Playwright Chromium Visual Audit Runner** (`scripts/capture_procurement_cycle_visual_audit.py`):
   - Captures 7 high-resolution screenshots into `docs/walkthrough/procurement/evidence/`:
-    1. `procurement_cycle_step1_vendor_360.png` Ã¢â‚¬â€ Vendor 360 directory, commercial status, and payables overview.
-    2. `procurement_cycle_step2_po_generation.png` Ã¢â‚¬â€ Purchase Studio PO generation with sizewise product matrix.
-    3. `procurement_cycle_step3_po_workspace.png` Ã¢â‚¬â€ PO workspace with status badges and lifecycle controls.
-    4. `procurement_cycle_step4_grn_studio_inward.png` Ã¢â‚¬â€ High-speed GRN Desktop Terminal with Ind AS 2 capitalization control.
-    5. `procurement_cycle_step5_grn_posted_and_bill.png` Ã¢â‚¬â€ GRN posting and bill conversion view.
-    6. `procurement_cycle_step6_three_way_match.png` Ã¢â‚¬â€ Three-Way Auto-Reconciliation modal (PO vs GRN vs Vendor Invoice).
-    7. `procurement_cycle_step7_procurement_reports.png` Ã¢â‚¬â€ 3-tab Procurement Reports Studio with 1-click Receive in GRN.
+    1. `procurement_cycle_step1_vendor_360.png` â€” Vendor 360 directory, commercial status, and payables overview.
+    2. `procurement_cycle_step2_po_generation.png` â€” Purchase Studio PO generation with sizewise product matrix.
+    3. `procurement_cycle_step3_po_workspace.png` â€” PO workspace with status badges and lifecycle controls.
+    4. `procurement_cycle_step4_grn_studio_inward.png` â€” High-speed GRN Desktop Terminal with Ind AS 2 capitalization control.
+    5. `procurement_cycle_step5_grn_posted_and_bill.png` â€” GRN posting and bill conversion view.
+    6. `procurement_cycle_step6_three_way_match.png` â€” Three-Way Auto-Reconciliation modal (PO vs GRN vs Vendor Invoice).
+    7. `procurement_cycle_step7_procurement_reports.png` â€” 3-tab Procurement Reports Studio with 1-click Receive in GRN.
 - **Procurement Reports & Audit Studio Modal** (`src/components/purchase/ProcurementReportsModal.tsx`):
   - 3-tab unified procurement studio displaying:
     - Tab 1: Pending Delivery POs (`/purchase/reports/pending-delivery`) with 1-click `Receive in GRN` action button.
@@ -4285,10 +4302,10 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
 - **Purchase Reports Schema & Service** (`backend/app/schemas/reports.py`, `backend/app/services/reports.py`):
   - Added `supplier_code`, `ordered_amount`, and `received_amount` to `PurchaseSummaryLine` for seamless multi-client compatibility.
 - **PO & GRN Navigation Wiring** (`src/components/common/lifecycle/DocumentActionToolbar.tsx`, `src/components/purchase/POWorkspaceTab.tsx`, `src/components/purchase/GrnReceiptTab.tsx`, `src/components/purchase/GrnDesktopTerminal.tsx`):
-  - Added 1-click `Ã°Å¸â€œÂ¥ Receive (GRN)` toolbar button for CONFIRMED purchase orders, pre-populating GRN selection via `sessionStorage` and switching to GRN Studio.
-  - Added dedicated `Ã°Å¸â€œÅ  Reports` buttons in PO Workspace and GRN Desktop Terminal opening `ProcurementReportsModal`.
+  - Added 1-click `ðŸ“¥ Receive (GRN)` toolbar button for CONFIRMED purchase orders, pre-populating GRN selection via `sessionStorage` and switching to GRN Studio.
+  - Added dedicated `ðŸ“Š Reports` buttons in PO Workspace and GRN Desktop Terminal opening `ProcurementReportsModal`.
 
-## [6.52.0] - 2026-10-02 Ã¢â‚¬â€ SMRITI Procurement Phase 2.10: Government Challan 281 TDS Remittance Lifecycle & Electronic Form 26Q Quarterly Return Filing
+## [6.52.0] - 2026-10-02 â€” SMRITI Procurement Phase 2.10: Government Challan 281 TDS Remittance Lifecycle & Electronic Form 26Q Quarterly Return Filing
 
 > **Branch:** `smritiNX` | **Area:** Procurement / Accounts Payable / Statutory Compliance & Government Remittance
 > **Implementation Plan:** `docs/implementation/procurement/Procurement_Phase2_10_Challan_281_Form26Q_Return_Plan_v1.0.md`
@@ -4320,7 +4337,7 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
   - NSDL ASCII text inspector modal and 1-click `.txt` file export.
   - Integrated into `VendorPayablesTab.tsx` and `StandaloneVendorPayablesPreview.tsx` via header button and interactive Card 4.
 
-## [6.51.0] - 2026-10-02 Ã¢â‚¬â€ SMRITI Procurement Phase 2.9: Statutory Withholding Tax (TDS on Purchase & Payments Ã¢â‚¬â€ Section 194Q / 194C / 194J) & GL Account 2030 Integration
+## [6.51.0] - 2026-10-02 â€” SMRITI Procurement Phase 2.9: Statutory Withholding Tax (TDS on Purchase & Payments â€” Section 194Q / 194C / 194J) & GL Account 2030 Integration
 
 > **Branch:** `smritiNX` | **Area:** Procurement / Accounts Payable / Statutory Withholding Tax (TDS) & General Ledger
 > **Implementation Plan:** `docs/implementation/procurement/Procurement_Phase2_9_Statutory_TDS_Withholding_Tax_Plan_v1.0.md`
@@ -4329,7 +4346,7 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
 ### Added
 - **Indian Statutory Withholding Tax Engine** (`backend/app/services/tds_engine.py`):
   - Implemented `StatutoryTdsEngine` with full compliance under the Indian Income Tax Act, 1961.
-  - Section 194Q (TDS on purchase of goods): Standard rate 0.10% on payments/credits exceeding the Ã¢â€šÂ¹50,00,000 threshold limit in a financial year.
+  - Section 194Q (TDS on purchase of goods): Standard rate 0.10% on payments/credits exceeding the â‚¹50,00,000 threshold limit in a financial year.
   - Section 194C (Payments to contractors): 1.00% for Individual / HUF and 2.00% for Companies / Partnerships.
   - Section 194J (Fees for professional / technical services): 2.00% technical / 10.00% professional services.
   - Section 194H (Commission / brokerage): 5.00%.
@@ -4342,7 +4359,7 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
     - Purchase Bill GL Reversal (`reverse_purchase_bill_gl`): Symmetrically reverses `2030` and `2010` credit lines.
     - Supplier Payment GL Posting (`post_supplier_payment_to_gl`): `DR 2010 (Gross Settled) = CR 1010/1020 (Net Disbursement) + CR 2030 (TDS Withheld)`.
     - Supplier Payment GL Reversal (`reverse_supplier_payment_gl`): Detects and reverses `2030` credit lines symmetrically.
-    - Standalone TDS Adjustment Vouchers (`post_tds_deduction_to_gl` / `reverse_tds_deduction_gl`): `DR 2010 (AP) = CR 2030 (TDS Payable)` with Ã¢â€šÂ¹0.00 net cash disbursement.
+    - Standalone TDS Adjustment Vouchers (`post_tds_deduction_to_gl` / `reverse_tds_deduction_gl`): `DR 2010 (AP) = CR 2030 (TDS Payable)` with â‚¹0.00 net cash disbursement.
   - `get_vendor_tds_summary`: Computes cumulative FY bill totals, statutory TDS deductions withheld, threshold progress, active rates, and PAN validity.
 - **TDS Schemas & REST APIs** (`backend/app/schemas/tds.py`, `backend/app/api/v1/vendor.py`):
   - `POST /api/v1/vendors/tds/calculate` and `POST /api/v1/purchase/vendors/tds/calculate` for real-time TDS withholding computations.
@@ -4356,7 +4373,7 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
   - Clean TypeScript compilation (`npx tsc --noEmit` exit code 0).
   - Headless Playwright visual evidence captured and cataloged in `docs/walkthrough/procurement/evidence/`.
 
-## [6.50.0] - 2026-10-02 Ã¢â‚¬â€ SMRITI Procurement Phase 2.8: Vendor Statement of Account (SOA) & Ledger Audit PDF/Excel Export
+## [6.50.0] - 2026-10-02 â€” SMRITI Procurement Phase 2.8: Vendor Statement of Account (SOA) & Ledger Audit PDF/Excel Export
 
 > **Branch:** `smritiNX` | **Area:** Procurement / Accounts Payable / Vendor Statement of Account (SOA)
 > **Implementation Plan:** `docs/implementation/procurement/Procurement_Phase2_8_Vendor_Statement_Of_Account_Plan_v1.0.md`
@@ -4378,11 +4395,11 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
   - A4 Printable Layout with `@media print` styling, company header, vendor details, and double-entry reconciliation signature certification block.
   - 1-Click Excel / CSV export with complete header metadata, summary financials, and transaction lines.
 - **UI Integration & Action Triggers** (`src/components/vendor/tabs/VendorPayablesTab.tsx`, `src/components/vendor/StandaloneVendorPayablesPreview.tsx`):
-  - Added **"Ã°Å¸â€œâ€ž Statement of Account"** action buttons.
+  - Added **"ðŸ“„ Statement of Account"** action buttons.
 - **Automated Backend Test Battery** (`backend/app/tests/test_vendor_statement_of_account.py`):
   - 4/4 passing tests: full lifecycle statement generation, date range and opening balance calculation, empty vendor clean state, and tenant isolation.
 
-## [6.49.9] - 2026-10-02 Ã¢â‚¬â€ SMRITI Procurement Phase 2.7: Multi-Bill Batch Advance Knock-Off & FIFO Allocation Engine
+## [6.49.9] - 2026-10-02 â€” SMRITI Procurement Phase 2.7: Multi-Bill Batch Advance Knock-Off & FIFO Allocation Engine
 
 > **Branch:** `smritiNX` | **Area:** Procurement / Accounts Payable / Advance Knock-Off Engine
 > **Implementation Plan:** `docs/implementation/procurement/Procurement_Phase2_7_Multi_Bill_Batch_Advance_Knockoff_Plan_v1.0.md`
@@ -4397,22 +4414,22 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
   - Serializes allocation manifests into advance payment notes under `__ALLOCATIONS__:[...]`.
 - **Compound Double-Entry GL Journal Voucher Posting** (`backend/app/services/unified_ledger.py`):
   - Added `post_supplier_advance_batch_knockoff_to_gl`: generates an authoritative compound journal voucher with multi-debit lines (`DR 2010 Accounts Payable` per bill) and a consolidated credit line (`CR 2050 Supplier Advance Liability`).
-  - Strict balance invariant enforced: `sum(DR) == sum(CR)` and `Net Cash Movement: Ã¢â€šÂ¹0.00`.
+  - Strict balance invariant enforced: `sum(DR) == sum(CR)` and `Net Cash Movement: â‚¹0.00`.
 - **Batch Knock-Off API Endpoint** (`backend/app/api/v1/supplier_payment.py`):
   - Added `POST /api/v1/supplier-payments/advance/batch-knockoff` mapped to `SupplierAdvanceBatchKnockoffRequest` and `SupplierAdvanceBatchKnockoffResponse`.
 - **Vendor 360 Batch Modal & UI Integration** (`src/components/vendor/tabs/VendorAdvanceKnockoffModal.tsx`, `src/components/vendor/tabs/VendorPayablesTab.tsx`):
   - Added mode toggle between **"Multi-Bill Batch & FIFO"** and **"Single Bill (1-to-1)"**.
   - Added interactive batch allocation grid with bill numbers, dates, unpaid balances, live allocation inputs, and "Max" shortcut buttons.
-  - Added **"Ã¢Å¡Â¡ Auto FIFO Allocate"** one-click button and dynamic allocation progress strip (`Allocated: Ã¢â€šÂ¹XX / Available: Ã¢â€šÂ¹YY`).
+  - Added **"âš¡ Auto FIFO Allocate"** one-click button and dynamic allocation progress strip (`Allocated: â‚¹XX / Available: â‚¹YY`).
   - Added live compound GL preview showing all debits and credit with zero cash movement confirmation.
-  - Added **"Ã¢Å¡Â¡ Batch Knock-Off (FIFO)"** action buttons in top action bar and Available Advances card.
+  - Added **"âš¡ Batch Knock-Off (FIFO)"** action buttons in top action bar and Available Advances card.
 - **Standalone Studio & Headless Verification** (`src/components/vendor/StandaloneVendorPayablesPreview.tsx`, `scripts/capture_vendor_360_batch_advance_knockoff_headless.py`):
   - Added full batch simulation handling for interactive testing.
   - Programmatic headless Chromium Playwright capture generating high-resolution evidence screenshots.
 - **Automated Backend Test Battery** (`backend/app/tests/test_supplier_advance_batch_knockoff.py`):
   - 8/8 comprehensive pytest test cases covering explicit batch allocation, FIFO cascading, partial allocations, over-allocation rejections, cancelled/draft bill protections, and compound GL voucher balance invariants.
 
-## [6.49.8] - 2026-10-02 Ã¢â‚¬â€ SMRITI Procurement Phase 2.6: Vendor 360 Supplier Advance Prepayment & Bill Knock-off UI Integration
+## [6.49.8] - 2026-10-02 â€” SMRITI Procurement Phase 2.6: Vendor 360 Supplier Advance Prepayment & Bill Knock-off UI Integration
 
 > **Branch:** `smritiNX` | **Area:** Procurement / Vendor 360 Payables / Advance Knock-off Studio
 > **Implementation Plan:** `docs/implementation/procurement/Procurement_Phase2_6_Vendor360_Advance_Knockoff_UI_Plan_v1.0.md`
@@ -4437,7 +4454,7 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
   - `backend/app/tests/test_purchase_bill_listing.py`: 6/6 tests passed green.
   - `scripts/capture_vendor_360_advance_knockoff_headless.py`: Programmatic Playwright Chromium headless capture verifying the complete Vendor 360 advance knock-off lifecycle.
 
-## [6.49.7] - 2026-10-02 Ã¢â‚¬â€ SMRITI Procurement Phase 2.5: Supplier Advance Payment General Ledger Integration & Automatic Purchase Bill Knock-off
+## [6.49.7] - 2026-10-02 â€” SMRITI Procurement Phase 2.5: Supplier Advance Payment General Ledger Integration & Automatic Purchase Bill Knock-off
 
 > **Branch:** `smritiNX` | **Area:** Procurement / Financial Accounting / Accounts Payable Advances & PO Settlement
 > **Implementation Plan:** `docs/implementation/procurement/Procurement_Phase2_5_Supplier_Advance_Payment_PO_Knockoff_Plan_v1.0.md`
@@ -4454,7 +4471,7 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
   - Automatic Knock-off General Ledger Voucher (`JOURNAL` / `SUPPLIER_ADVANCE_KNOCKOFF`):
     - `Debit 2010 (Accounts Payable / Creditors)` = Settles purchase bill liability.
     - `Credit 2050 (Supplier Advance Liability)` = Offsets advance prepayment balance.
-    - Zero cash movement (`Ã¢â€šÂ¹0.00`) maintaining strict double-entry balance sheet purity.
+    - Zero cash movement (`â‚¹0.00`) maintaining strict double-entry balance sheet purity.
 - **Supplier Payment Service Advance Engine & Overpayment Guard Bypass** (`backend/app/services/supplier_payment.py`):
   - Bypassed overpayment check when `payment_type == "ADVANCE"` to allow prepayments before bills are confirmed.
   - Added structured advance tags (`__PAYMENT_TYPE__:ADVANCE`, `__PO_ID__:{po_id}`) and allocation manifests in notes.
@@ -4467,7 +4484,7 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
   - Created high-definition interactive visualizer displaying 3-step lifecycle (Disbursement DR 2050 / CR 1010, Confirmed Purchase Bill, Automatic Knock-off DR 2010 / CR 2050).
   - Captured full headless screenshot evidence via Playwright Chromium (`channel="chrome"`, `headless=True`).
 
-## [6.49.6] - 2026-10-02 Ã¢â‚¬â€ SMRITI Procurement Phase 2.4: Supplier Debit Notes & Purchase Returns General Ledger Integration
+## [6.49.6] - 2026-10-02 â€” SMRITI Procurement Phase 2.4: Supplier Debit Notes & Purchase Returns General Ledger Integration
 
 > **Branch:** `smritiNX` | **Area:** Procurement / Financial Accounting / Accounts Payable & Returns
 > **Implementation Plan:** `docs/implementation/procurement/Procurement_Phase2_4_Supplier_Debit_Note_Purchase_Return_Plan_v1.0.md`
@@ -4490,7 +4507,7 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
   - 6/6 automated tests passing: intrastate debit note GL posting, interstate debit note GL posting, sub-cent roundoff adjustment (Account 5030), GL posting idempotency, cancellation reversal with liability restoration, and cancellation idempotency.
   - 31/31 cumulative procurement & accounting test suite passing green with zero regressions.
 
-## [6.49.5] - 2026-10-02 Ã¢â‚¬â€ SMRITI Procurement Phase 2.3: Supplier Payment General Ledger Integration & Purchase Bill Knock-off
+## [6.49.5] - 2026-10-02 â€” SMRITI Procurement Phase 2.3: Supplier Payment General Ledger Integration & Purchase Bill Knock-off
 
 > **Branch:** `smritiNX` | **Area:** Procurement / Financial Accounting / Accounts Payable Settlements
 > **Implementation Plan:** `docs/implementation/procurement/Procurement_Phase2_3_Supplier_Payment_AP_Knockoff_Plan_v1.0.md`
@@ -4515,7 +4532,7 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
   - 9/9 automated tests passing: cash/bank GL vouchers, direct single-bill full/partial knock-offs, multi-bill splits, FIFO auto-allocations, overpayment rejection, payment cancellation reversal, and posting idempotency.
   - Full regression suite verified green (25/25 total procurement tests passing).
 
-## [6.49.4] - 2026-10-02 Ã¢â‚¬â€ SMRITI Procurement Phase 2.2: Purchase Bill Accounts Payable (2010 AP) General Ledger Integration
+## [6.49.4] - 2026-10-02 â€” SMRITI Procurement Phase 2.2: Purchase Bill Accounts Payable (2010 AP) General Ledger Integration
 
 > **Branch:** `smritiNX` | **Area:** Procurement / Financial Accounting / Accounts Payable
 > **Implementation Plan:** `docs/implementation/procurement/Procurement_Phase2_2_Purchase_Bill_AP_GL_Integration_Plan_v1.0.md`
@@ -4540,7 +4557,7 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
   - 7/7 automated tests covering balanced voucher creation, interstate IGST routing, roundoff balancing, idempotency, reversal, and unposted cancellation.
   - 100% regression green (9/9 cross-handler tests passing).
 
-## [6.49.3] - 2026-10-02 Ã¢â‚¬â€ SMRITI Sales Phase P2.5: Customer Credit Notes, Customer Wallets & Advance Refund Processing
+## [6.49.3] - 2026-10-02 â€” SMRITI Sales Phase P2.5: Customer Credit Notes, Customer Wallets & Advance Refund Processing
 
 > **Branch:** `smritiNX` | **Area:** Sales & Commercial Operations / Financial Accounting / CRM Wallets
 > **Implementation Plan:** `docs/implementation/sales/Sales_P2_5_Customer_Credit_Notes_Wallets_And_Advance_Refund_Plan_v1.0.md`
@@ -4572,7 +4589,7 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
   - 11 comprehensive automated tests verifying all cash/bank refund permutations, dynamic advance over-refund guards, invoice balance reinstatement, wallet redemption, customer credit check rejection, tenant isolation, and atomic rollback on GL failure.
   - Verified 100/100 tests passing green across Sales P2.1, P2.2, P2.3, P2.4, P2.5, and Sales Return contracts with zero regressions.
 
-## [6.49.2] - 2026-10-02 Ã¢â‚¬â€ SMRITI Sales Phase P2.4: Customer Advance Payment & Invoice Knock-off
+## [6.49.2] - 2026-10-02 â€” SMRITI Sales Phase P2.4: Customer Advance Payment & Invoice Knock-off
 
 > **Branch:** `smritiNX` | **Area:** Sales & Commercial Operations / Financial Accounting
 > **Implementation Plan:** `docs/implementation/sales/Sales_P2_4_Customer_Advance_Payment_And_Invoice_Knockoff_Implementation_Plan_v1.0.md`
@@ -4611,7 +4628,7 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
   - Extended `PaymentCreateRequest.reference_doc_type` with `CUSTOMER_ADVANCE`.
   - Added optional `idempotency_key: Optional[str]` to `PaymentAllocationRequest`.
 - **Payment Transaction Safety Guarantee**:
-  - Preserved 100% data integrity for all 29 pre-existing historical payments (`SALES_INVOICE`, Ã¢â€šÂ¹7,410.00 total) with zero backfill, zero schema changes, and zero data modification.
+  - Preserved 100% data integrity for all 29 pre-existing historical payments (`SALES_INVOICE`, â‚¹7,410.00 total) with zero backfill, zero schema changes, and zero data modification.
 - **Regression Verification**:
   - Verified 100% green across all preceding accounting phases:
     - P2.4 Advance & Knock-off: 17/17 passed.
@@ -4621,7 +4638,7 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
     - Sales Lifecycle & Stock Regression: 32/32 passed.
     - Total verified test suite: 89/89 passed (0 failures, 0 regressions).
 
-## [6.49.1] - 2026-10-02 Ã¢â‚¬â€ SMRITI Sales Phase P2.3: Payment Transaction General Ledger Integration
+## [6.49.1] - 2026-10-02 â€” SMRITI Sales Phase P2.3: Payment Transaction General Ledger Integration
 
 > **Branch:** `smritiNX` | **Area:** Sales & Commercial Operations / Financial Accounting
 > **Implementation Plan:** `docs/implementation/sales/Sales_P2_3_Payment_GL_Atomicity_Implementation_Plan_v1.0.md`
@@ -4640,7 +4657,7 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
 - **Automated PostgreSQL Test Suite** (`backend/app/tests/test_p2_3_payment_gl_atomicity.py`):
   - 17 zero-mock integration tests verifying payment processing, GL voucher generation, balance synchronization, multi-payment settlement, and cancellation guards (17/17 passed).
 
-## [6.49.0] - 2026-10-01 Ã¢â‚¬â€ SMRITI Sales Architecture: Universal Lifecycle & Stock/GL Integration (Phases S1Ã¢â‚¬â€œS7)
+## [6.49.0] - 2026-10-01 â€” SMRITI Sales Architecture: Universal Lifecycle & Stock/GL Integration (Phases S1â€“S7)
 
 > **Branch:** `smritiNX` | **Area:** Sales & Commercial Operations / Universal Lifecycle
 > **Implementation Plan:** `docs/implementation/sales/Sales_Architecture_Universal_Lifecycle_And_Stock_GL_Integration_Phases_S1_S7_v1.0.md`
@@ -4672,7 +4689,7 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
 - **Purchase Phase 2.1 Invariant Protection**:
   - Maintained zero regression: `test_cross_handler_lifecycle.py` 100% green (9/9 passing).
 
-## [6.48.2] - 2026-10-01 Ã¢â‚¬â€ Sales Schema & Multi-Tenant Hardening (Phase S1)
+## [6.48.2] - 2026-10-01 â€” Sales Schema & Multi-Tenant Hardening (Phase S1)
 
 > **Branch:** `smritiNX` | **Area:** Sales & Operations / Multi-Tenant Hardening
 > **Implementation Plan:** `docs/implementation/sales/Sales_Schema_And_Tenant_Hardening_Phase_S1_v1.0.md`
@@ -4692,7 +4709,7 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
   - Decorated `SalesInvoiceItem`, `SalesOrderItem`, `SalesReturnItem`, and `SalesQuotationItem` with BaseEntity parity attributes and default UUIDv4 generation, eliminating runtime `TypeError: 'uuid'` crashes.
   - Exported all Sales models in `backend/app/models/__init__.py`.
 
-## [6.48.1] - 2026-10-01 Ã¢â‚¬â€ Universal Transaction Lifecycle Framework Phase 2.1 Hardening (DB Constraint, GRN Stock Atomicity & 3-Way Match)
+## [6.48.1] - 2026-10-01 â€” Universal Transaction Lifecycle Framework Phase 2.1 Hardening (DB Constraint, GRN Stock Atomicity & 3-Way Match)
 
 > **Branch:** `smritiNX` | **Area:** Foundation / Procurement / Universal Lifecycle Framework
 > **Implementation Plan:** `docs/implementation/procurement/Universal_Document_Lifecycle_Phase2_1_Hardening_v1.0.md`
@@ -4705,7 +4722,7 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
 - **Line-Level 3-Way Variance Matching Engine** (`backend/app/services/lifecycle/handlers/purchase_bill.py`): Enforced line-by-line verification against Purchase Order lines (ordered quantity and agreed unit rate) and Goods Receipt lines (received quantity), rejecting over-invoicing and rate escalations with `HandlerValidationException`.
 - **Phase 2.1 Automated Acceptance Tests** (`backend/app/tests/test_cross_handler_lifecycle.py`): Added dedicated automated tests asserting duplicate bill number constraint violation (`IntegrityError`), atomic stock movement creation, stock movement reversal on cancellation, and line-level 3-way match rejection and approval (9/9 passed).
 
-## [6.48.0] - 2026-10-01 Ã¢â‚¬â€ Universal Transaction Lifecycle Framework Phase 2 (GRN & Purchase Bill)
+## [6.48.0] - 2026-10-01 â€” Universal Transaction Lifecycle Framework Phase 2 (GRN & Purchase Bill)
 
 > **Branch:** `smritiNX` | **Area:** Foundation / Procurement / Universal Lifecycle Framework
 > **Implementation Plan:** `docs/implementation/procurement/Universal_Document_Lifecycle_Phase2_GRN_PurchaseBill_v1.0.md`
@@ -4724,7 +4741,7 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
 - Single Alembic head `v1513_purchase_bills_table (head)`.
 - Full regression battery green: Universal lifecycle, Purchase domain (62/62), GRN (4/4), Approval engine (8/8), Cross-handler (5/5), TypeScript typecheck (0 errors).
 
-## [6.47.0] - 2026-10-01 Ã¢â‚¬â€ Universal Transaction Lifecycle Framework (Phase 1 PO Pilot)
+## [6.47.0] - 2026-10-01 â€” Universal Transaction Lifecycle Framework (Phase 1 PO Pilot)
 
 > **Branch:** `smritiNX` | **Area:** Foundation / Procurement / Universal Lifecycle Framework
 > **Walkthrough:** `docs/walkthrough/procurement/Universal_Document_Lifecycle_PO_Pilot_v1.0.md`
@@ -4747,7 +4764,7 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
 - **Workflow Event Audit Discrepancies:** Resolved incorrect state logging in `purchase.py`.
 - **Workflow Route Delegation:** Consolidated legacy `/api/v1/workflow/` endpoints onto `UniversalLifecycleEngine`.
 
-## [6.46.0] - 2026-10-01 Ã¢â‚¬â€ Phase B: Status-Aware PO Workspace
+## [6.46.0] - 2026-10-01 â€” Phase B: Status-Aware PO Workspace
 
 > **Branch:** `smritiNX` | **Area:** Procurement / Purchase Order Workspace
 > **Commit:** `178f8c99`
@@ -4766,10 +4783,10 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
   - Supports single value: `?status=DRAFT`
   - Supports comma-separated multi-value: `?status=DRAFT,SUBMITTED`
   - `pending_only` behaviour preserved when `status` is not provided
-- **5 Phase B tests** (T21Ã¢â‚¬â€œT25) for the status filter endpoint
+- **5 Phase B tests** (T21â€“T25) for the status filter endpoint
 
 ### Changed
-- **`PurchaseStudioTab.tsx` Ã¢â€ â€™ v4.0.0**: Top-level Generate/Workspace tab switcher
+- **`PurchaseStudioTab.tsx` â†’ v4.0.0**: Top-level Generate/Workspace tab switcher
   - `Generate PO` tab: existing Sizewise/Standard sub-modes unchanged
   - `Workspace` tab: `POWorkspaceTab` integrated
 - **`list_purchase_orders()` service**: Added `status: Optional[str]` parameter with comma-split + uppercase normalisation
@@ -4777,12 +4794,12 @@ All notable changes to SMRITI Retail OS will be documented in this file. This pr
 ### Test Results
 ```
 54 passed, 0 failed, 14 warnings in 73.80s (0:01:13)
-TypeScript: npx tsc --noEmit Ã¢â€ â€™ exit 0 (0 errors)
+TypeScript: npx tsc --noEmit â†’ exit 0 (0 errors)
 ```
 
 ---
 
-## [6.45.0] - 2026-10-01 Ã¢â‚¬â€ PO Two-Stage Lifecycle: DRAFT Ã¢â€ â€™ SUBMITTED Ã¢â€ â€™ CONFIRMED (Phase A)
+## [6.45.0] - 2026-10-01 â€” PO Two-Stage Lifecycle: DRAFT â†’ SUBMITTED â†’ CONFIRMED (Phase A)
 
 > **Branch:** `smritiNX` | **Area:** Procurement / Purchase Order Lifecycle
 > **Commit:** `49899065`
@@ -4793,7 +4810,7 @@ TypeScript: npx tsc --noEmit Ã¢â€ â€™ exit 0 (0 errors)
 - **Migration v1508:** 8 audit columns on `purchase_orders`:
   `submitted_by`, `submitted_at`, `confirmed_by`, `confirmed_at`,
   `cancelled_by`, `cancelled_at`, `cancellation_reason`, `parent_order_id`.
-- **Migration v1509:** `parties.merged_into_party_id` column Ã¢â‚¬â€ ORM model had
+- **Migration v1509:** `parties.merged_into_party_id` column â€” ORM model had
   this column since `party.py v6.16.0` but it was never materialised via
   Alembic; fixes `asyncpg.UndefinedColumnError` on 3 test scenarios.
 - **New API endpoint:** `POST /api/v1/purchase/orders/{id}/submit`
@@ -4802,14 +4819,14 @@ TypeScript: npx tsc --noEmit Ã¢â€ â€™ exit 0 (0 errors)
 - **New API endpoint:** `POST /api/v1/purchase/orders/{id}/confirm`
   Transitions a SUBMITTED purchase order to CONFIRMED. Requires MANAGER or SYSADMIN role.
   Records `confirmed_by` and `confirmed_at` automatically.
-- **20 Phase A automated tests** covering the full DRAFTÃ¢â€ â€™SUBMITTEDÃ¢â€ â€™CONFIRMED lifecycle,
+- **20 Phase A automated tests** covering the full DRAFTâ†’SUBMITTEDâ†’CONFIRMED lifecycle,
   role guards, audit column population, and backward-compatibility with existing POs.
-- **Frontend:** `poLifecycle.ts` Ã¢â‚¬â€ `SUBMITTED` status badge with label and colour.
+- **Frontend:** `poLifecycle.ts` â€” `SUBMITTED` status badge with label and colour.
 
 ### Changed
 - **`PurchaseService.create_purchase_order()`:** New POs now default to `status="DRAFT"`
   instead of `status="CONFIRMED"`. No stock or financial entries are created at draft time.
-- **`PurchaseService.submit_purchase_order()`:** Now transitions DRAFT Ã¢â€ â€™ SUBMITTED
+- **`PurchaseService.submit_purchase_order()`:** Now transitions DRAFT â†’ SUBMITTED
   (previously jumped directly to CONFIRMED). Records actor identity and timestamp.
 - **`PurchaseService.cancel_purchase_order()`:** Now writes `cancelled_by`, `cancelled_at`,
   and `cancellation_reason` columns in addition to appending to `notes`.
@@ -4818,11 +4835,11 @@ TypeScript: npx tsc --noEmit Ã¢â€ â€™ exit 0 (0 errors)
 
 ### Fixed
 - `parties.merged_into_party_id` column missing from tenant DBs (schema drift since
-  `party.py v6.16.0`). Applied via migration v1509 on smriti001Ã¢â‚¬â€œ004.
+  `party.py v6.16.0`). Applied via migration v1509 on smriti001â€“004.
 
 ### Migration Applied
-- `v1508` Ã¢â‚¬â€ smriti001, smriti002, smriti003, smriti004 (exit 0)
-- `v1509` Ã¢â‚¬â€ smriti001, smriti002, smriti003, smriti004 (exit 0)
+- `v1508` â€” smriti001, smriti002, smriti003, smriti004 (exit 0)
+- `v1509` â€” smriti001, smriti002, smriti003, smriti004 (exit 0)
 
 ### Test Results
 ```
@@ -4831,13 +4848,13 @@ TypeScript: npx tsc --noEmit Ã¢â€ â€™ exit 0 (0 errors)
 
 ---
 
-## [6.44.0] - 2026-09-30 Ã¢â‚¬â€ PO Validation Gate Hardening: Size-Pivot Policy Check, Stale-Line Detail & Audit Trail
+## [6.44.0] - 2026-09-30 â€” PO Validation Gate Hardening: Size-Pivot Policy Check, Stale-Line Detail & Audit Trail
 
 > **Branch:** `smritiNX` | **Area:** Procurement / Purchase Order Validation Engine
 > **Walkthrough:** `docs/walkthrough/purchase/PO_Validate_Hardening_v6.44.0.md`
 
 ### Fixed
-- **Gap 4 (HIGH) Ã¢â‚¬â€ Size-Pivot tab bypassed the policy gate entirely:**
+- **Gap 4 (HIGH) â€” Size-Pivot tab bypassed the policy gate entirely:**
   Previously, when `itemView === "size_pivot"`, `handleSubmitGate` collected
   `activeLines = []` and called `handleSavePO()` without consulting the
   `POProductPolicyEngine`. Blocked products in the Sizewise Matrix could be
@@ -4847,28 +4864,28 @@ TypeScript: npx tsc --noEmit Ã¢â€ â€™ exit 0 (0 errors)
   authoritative backend gate runs for every submission path.
   **File:** `src/components/purchase/PoGenerateTab.tsx`
 
-- **Gap 3 (MEDIUM) Ã¢â‚¬â€ Stale banner showed count only, no line details:**
+- **Gap 3 (MEDIUM) â€” Stale banner showed count only, no line details:**
   `POValidationSummary.tsx` previously displayed *"N products changed since you
   last browsed"* without naming the specific lines or their policy action
-  transition (`previous_action Ã¢â€ â€™ action`). Buyers had to scroll the full grid to
+  transition (`previous_action â†’ action`). Buyers had to scroll the full grid to
   find stale items. The stale banner now renders a per-line monospaced breakdown:
-  `Line N: <product_ref> Ã¢â‚¬â€ was ALLOW, now BLOCK`.
+  `Line N: <product_ref> â€” was ALLOW, now BLOCK`.
   **File:** `src/components/purchase/POValidationSummary.tsx`
 
-- **Gap 1 (LOW) Ã¢â‚¬â€ `purchase_order_id` omitted from validate payload:**
+- **Gap 1 (LOW) â€” `purchase_order_id` omitted from validate payload:**
   The `POST /purchase/validate-po-submit` call did not pass `purchase_order_id`,
   causing submit-time revalidation decision logs to be orphaned (not attached
   to the PO). `openedOrder?.id` is now forwarded when an existing order is open.
   **File:** `src/components/purchase/PoGenerateTab.tsx`
 
 ### Changed
-- `src/components/purchase/types.ts` Ã¢â‚¬â€ `POSubmitValidationResult.line_results`
+- `src/components/purchase/types.ts` â€” `POSubmitValidationResult.line_results`
   element type extended with `previous_action?: string` (mirrors backend
   `POSubmitLineResult.previous_action`). Required by the Gap 3 stale banner.
 
 ---
 
-## [6.52.0] - 2026-09-30 Ã¢â‚¬â€ Purchase Studio Phase 5: Multi-Image Batch Drag-and-Drop with Automatic Filename-to-Article/Color Binding
+## [6.52.0] - 2026-09-30 â€” Purchase Studio Phase 5: Multi-Image Batch Drag-and-Drop with Automatic Filename-to-Article/Color Binding
 
 > **Branch:** `smritiNX` | **Area:** Procurement / Purchase Studio & Sizing Engine
 > **Walkthrough:** `docs/walkthrough/purchase/Purchase_Studio_Phase_5_v1.0.0.md`
@@ -4893,10 +4910,10 @@ TypeScript: npx tsc --noEmit Ã¢â€ â€™ exit 0 (0 errors)
   - Automatically updates PO line `imageUrl` and `articleImageMap` with permanent server-persisted WebP paths (`/static/uploads/spif-{uuid}.webp`).
   - Graceful fallback to local data URLs in offline or network error conditions.
 - **Comprehensive Unit & Headless Verification:**
-  - Added unit tests 31Ã¢â‚¬â€œ34 in `src/tests/poSizewiseUX.test.ts` (34/34 tests green).
+  - Added unit tests 31â€“34 in `src/tests/poSizewiseUX.test.ts` (34/34 tests green).
   - Added headless Playwright capture steps for Screenshot 13 (Batch Review Modal) and Screenshot 14 (Lookbook Post-Batch Upload).
 
-## [6.51.0] - 2026-09-30 Ã¢â‚¬â€ Purchase Studio Phase 4: Backend SPIF Image Upload & WebP Persistence
+## [6.51.0] - 2026-09-30 â€” Purchase Studio Phase 4: Backend SPIF Image Upload & WebP Persistence
 
 > **Branch:** `smritiNX` | **Area:** Procurement / Purchase Studio & Sizing Engine
 > **Walkthrough:** `docs/walkthrough/purchase/Purchase_Studio_Phase_4_v1.0.0.md`
@@ -4906,20 +4923,20 @@ TypeScript: npx tsc --noEmit Ã¢â€ â€™ exit 0 (0 errors)
 - **Backend Standalone Image Upload Endpoint (`POST /api/v1/inventory/upload-image`):** Added authenticated endpoint in `backend/app/api/v1/inventory.py` accepting base64 image data and executing Single Point Image Factory (`SpifService`) pipeline.
 - **SPIF WebP Persistence Engine:**
   - Auto-transposition of EXIF camera orientations and RGB mode conversion.
-  - High-fidelity Lanczos resampling to max 1024Ãƒâ€”1024 resolution.
+  - High-fidelity Lanczos resampling to max 1024Ã—1024 resolution.
   - Conversion to WebP at 80% compression quality with persistent disk storage (`static/uploads/spif-{uuid}.webp`).
   - Cross-environment multi-candidate fallback in `SpifService.get_image_path` for Docker container bind mounts and host environments.
 - **Frontend Real-Time Upload State & Badging (`PoSizewiseTab.tsx`):**
   - Integrated asynchronous `apiFetchV1` upload immediately upon local file selection.
   - Added animated upload spinner with "Optimizing WebP..." overlay.
-  - Added persistent verified status badge: `Ã¢Å“â€œ Persisted Server WebP`.
+  - Added persistent verified status badge: `âœ“ Persisted Server WebP`.
   - Added resilient local dataUrl fallback ensuring offline usability if backend is temporarily unreachable.
 - **Automated Verification & Footprint Testing:**
   - Added backend integration unit tests in `backend/tests/test_inventory_image_upload.py`.
   - Added unit tests 29 & 30 in `src/tests/poSizewiseUX.test.ts` proving >99.8% payload size reduction (from ~5MB down to ~60KB per image).
   - Headless Playwright script (`scripts/capture_purchase_studio_headless.py`) capturing Steps 10b (upload modal) and 10c (applied lookbook card).
 
-## [6.50.0] - 2026-09-30 Ã¢â‚¬â€ Purchase Studio Phase 3: Article Image Binding, Visual Lookbook, Colorways, Assortment Curve Intelligence & Landscape Printout
+## [6.50.0] - 2026-09-30 â€” Purchase Studio Phase 3: Article Image Binding, Visual Lookbook, Colorways, Assortment Curve Intelligence & Landscape Printout
 
 > **Branch:** `smritiNX` | **Area:** Procurement / Purchase Studio & Sizing Engine
 > **Walkthrough:** `docs/walkthrough/purchase/Purchase_Studio_Phase_3_v1.0.0.md`
@@ -4937,17 +4954,17 @@ TypeScript: npx tsc --noEmit Ã¢â€ â€™ exit 0 (0 errors)
   - Implemented zero-drift remainder sorting (`fractions.sort((a,b) => b.remainder - a.remainder)`) strictly guaranteeing integer sum invariance ($\sum \text{sizes} \equiv \text{targetQty}$).
   - Added single-row "Recommend Ratio" popover and global "Bulk Recommend" toolbar action.
 - **A4 Landscape Statutory Print Engine:**
-  - Enhanced `FootwearPurchaseOrderA4` and `SizePivotMatrixA4` to support A4 Landscape (`297mm Ãƒâ€” 210mm`) with active `@page { size: A4 landscape; margin: 8mm; }` media styling.
+  - Enhanced `FootwearPurchaseOrderA4` and `SizePivotMatrixA4` to support A4 Landscape (`297mm Ã— 210mm`) with active `@page { size: A4 landscape; margin: 8mm; }` media styling.
   - Rendered article photo thumbnails, colorway badges, and technical footwear specifications across 16 uncompressed matrix columns.
   - Added `Layout: [Landscape] [Portrait]` switcher in `POPrintPreviewModal`.
-- **Automated Vitest Test Suite:** Added unit tests 22Ã¢â‚¬â€œ28 in `src/tests/poSizewiseUX.test.ts` verifying Bell curves, Core curves, Uniform curves, 100-iteration sum invariance, Landscape orientation, and composite colorway image resolution.
+- **Automated Vitest Test Suite:** Added unit tests 22â€“28 in `src/tests/poSizewiseUX.test.ts` verifying Bell curves, Core curves, Uniform curves, 100-iteration sum invariance, Landscape orientation, and composite colorway image resolution.
 - **Headless Playwright Visual Evidence Capture:** Automated capture script (`scripts/capture_purchase_studio_headless.py`) generating 13 high-resolution evidence artifacts with zero physical browser windows opened.
 
 ### Changed
 - **Renumbered Sub-Tabs:** Reorganized Purchase Order sub-tabs into `1. Items`, `2. Images & Articles (NEW)`, `3. Delivery & Tax`, `4. Other Details`.
 - **Statutory Data Mapping:** Propagated `orientation`, `imageUrl`, and `photoUrl` to print rows via `resolveLineImage()`.
 
-## [6.49.0] - 2026-09-30 Ã¢â‚¬â€ Document Series Studio: Category-Aware Article Numbering Configuration
+## [6.49.0] - 2026-09-30 â€” Document Series Studio: Category-Aware Article Numbering Configuration
 
 > **Branch:** `smritiNX` | **Area:** Inventory / Document Series & Numbering Studio
 > **Walkthrough:** `docs/walkthrough/inventory/Inventory_Document_Series_Studio_Article_Configuration_v6.49.0.md`
@@ -4961,11 +4978,11 @@ TypeScript: npx tsc --noEmit Ã¢â€ â€™ exit 0 (0 errors)
 
 ### Changed
 - **Canonical API Route Reconnection:** Reconnected Document Series Studio from deprecated `/api/v1/system/document-series` to canonical live FastAPI router `/api/v1/numbering/series`.
-- **Master Table Range Visibility:** Added "Range (Floor Ã¢Å¾â€ Ceiling)" and category tag badges directly to the `DocumentSeries` table.
+- **Master Table Range Visibility:** Added "Range (Floor âž” Ceiling)" and category tag badges directly to the `DocumentSeries` table.
 - **Sequence Counter Immutability:** Set `disabled: (_formState, isEdit) => Boolean(isEdit)` on `currentNumber` to prevent manual operator sequence tampering in edit mode.
 - **TypeScript Interface Extension:** Updated `DocumentSeries` interface in `src/services/numberingEngine.ts` to include `startNumber?`, `endNumber?`, `category?`, and `numberFormat?`.
 
-## [6.48.1] - 2026-09-30 Ã¢â‚¬â€ Category-Aware Article Numbering Backend Wiring & Zero Hardcoding
+## [6.48.1] - 2026-09-30 â€” Category-Aware Article Numbering Backend Wiring & Zero Hardcoding
 
 > **Branch:** `smritiNX` | **Area:** Catalog / Numbering & Master Lookups
 > **Walkthrough:** `docs/walkthrough/catalog/Catalog_Article_Numbering_Backend_Wiring_And_Zero_Hardcoding_v6.48.1.md`
@@ -4983,7 +5000,7 @@ TypeScript: npx tsc --noEmit Ã¢â€ â€™ exit 0 (0 errors)
 ### Fixed
 - **Clean Initial Drawer State:** Fixed initial `"Preview unavailable"` banner caused by un-configured initial category default by dynamically resolving the active category from available series or master lookups upon mount.
 
-## [6.48.0] - 2026-09-30 Ã¢â‚¬â€ Unified IM-001 Catalog Governance Across All Surfaces
+## [6.48.0] - 2026-09-30 â€” Unified IM-001 Catalog Governance Across All Surfaces
 
 > **Branch:** `smritiNX` | **Area:** Catalog / Master Lookup Governance
 > **Walkthrough:** `docs/walkthrough/catalog/Catalog_Unified_IM001_Governance_Across_All_Surfaces_v6.48.0.md`
@@ -5002,7 +5019,7 @@ TypeScript: npx tsc --noEmit Ã¢â€ â€™ exit 0 (0 errors)
 - **Universal Import (`universal_import.py`):** Replaced duplicate inlined validator with import from `catalog_validation`, added aliases for `Article CODE`, and enabled `V-00` supplier prefix matching.
 - **FastAPI Core Router Registry (`main.py`):** Mounted `universal_import` router under `/universal` as well as `/import` for path consistency across frontend and test suites.
 
-## [6.47.4] - 2026-09-30 Ã¢â‚¬â€ Database Bootstrap Multi-Head Convergence & Dynamic Trigger Hardening
+## [6.47.4] - 2026-09-30 â€” Database Bootstrap Multi-Head Convergence & Dynamic Trigger Hardening
 
 > **Branch:** `smritiNX` | **Area:** Database / Migrations & Bootstrap
 > **Walkthrough:** `docs/walkthrough/db/DB_Bootstrap_Dynamic_Trigger_And_MultiHead_Remediation_v6.47.4.md`
@@ -5013,11 +5030,11 @@ TypeScript: npx tsc --noEmit Ã¢â€ â€™ exit 0 (0 errors)
 - **Control Plane Schema & Trigger Synchronization:** Updated `bootstrap_control_plane()` in `bootstrap_engine.py` to execute schema extensions and trigger hardening on `smritisys`, guaranteeing that control plane master values enjoy identical dynamic trigger protection as tenant databases.
 - **Alembic Multi-Head Divergence:** Created canonical merge migration `v1505` (`v1505_sales_order_items_article_no_and_trigger_hardening.py`) reconciling control plane `v1497b` and tenant plane `v1504` into a single linear head.
 - **Control Plane `smritisys` DAG Traversal Hardening:** Added explicit database and table existence guards across migrations `v1493` through `v1504` (`psv_stock_balances`, `psv_stock_events`, `product_batch_stocks`, `sales_order_items`, `loading_sheet_items`, etc.), preventing `UndefinedTable: relation "psv_stock_balances" does not exist` when `smritisys` traverses the full migration DAG during `alembic upgrade head`.
-- **Multi-Tenant Bootstrap Idempotency:** Guarded migrations `v1446`, `v1493`Ã¢â‚¬â€œ`v1504` with defensive table/column/constraint existence checks (`_ensure_col`, `_fk_exists`, `to_regclass`), allowing zero-error execution across both control (`smritisys`) and tenant databases (`smriti001`Ã¢â‚¬â€œ`smriti004`).
+- **Multi-Tenant Bootstrap Idempotency:** Guarded migrations `v1446`, `v1493`â€“`v1504` with defensive table/column/constraint existence checks (`_ensure_col`, `_fk_exists`, `to_regclass`), allowing zero-error execution across both control (`smritisys`) and tenant databases (`smriti001`â€“`smriti004`).
 - **Multi-Tenant CRM Baseline Seeding:** Replaced hardcoded `COMP-001` in `seed_baseline_users.py` with dynamic tenant database company resolution, eliminating `ForeignKeyViolationError` in tenant databases (`smriti002`, `smriti003`).
 - **API Error Handling (`master_lookup.py`):** Wrapped lookup deletion in `(IntegrityError, SQLAlchemyError)` handler, returning clean HREP HTTP 409 responses with reference guidance instead of uncaught HTTP 400 errors.
 
-## [6.47.3] - 2026-09-30 Ã¢â‚¬â€ Article / Design Master UX Refactor & Phase 3 Legacy Spreadsheet Retirement
+## [6.47.3] - 2026-09-30 â€” Article / Design Master UX Refactor & Phase 3 Legacy Spreadsheet Retirement
 
 > **Branch:** `smritiNX` | **Area:** Inventory / Article Master
 > **Walkthrough:** `docs/walkthrough/inventory/Inventory_Article_Master_Phase3_Legacy_Spreadsheet_Retirement_Quick_Audit_v6.47.3.md`
@@ -5026,7 +5043,7 @@ TypeScript: npx tsc --noEmit Ã¢â€ â€™ exit 0 (0 errors)
 ### Added
 - **Responsive Navigation Drawer (`ItemMasterWs.tsx`):** Converted the fixed 256px sidebar into a slide-over overlay drawer on screens `< 1024px` with a frosted backdrop (`fixed inset-0 bg-black/50 z-30 lg:hidden`) and hamburger trigger button, resolving mobile dual-sidebar collision (`VIS-MOB-01`) and tablet squeeze (`VIS-TAB-02`).
 - **3-Tier Adaptive Modes (`SIMPLE`, `HYBRID`, `ADVANCED`):** Segmented control in `ItemMasterWs.tsx` header with `localStorage` persistence (`smriti_article_mode`). Supported single-screen `Quick Save (Simple Mode)` in `AddProductDrawer.tsx` Step 1 for kirana and express retail alongside full Cartesian matrix generation for footwear/apparel.
-- **2D Size Ãƒâ€” Color Matrix Builder (`AddProductDrawer.tsx`):** Interactive Cartesian matrix variant generator directly linked to `POST /api/v1/universal/items/{id}/variants/matrix` with inline SKU, barcode, and price overrides.
+- **2D Size Ã— Color Matrix Builder (`AddProductDrawer.tsx`):** Interactive Cartesian matrix variant generator directly linked to `POST /api/v1/universal/items/{id}/variants/matrix` with inline SKU, barcode, and price overrides.
 - **Multi-Barcode Management:** Secondary barcode chip manager supporting 1:N barcodes per variant (`item_barcodes` table) for manufacturer UPC/EAN scanning.
 - **Live Document Series Preview:** Automatic preview badge in `AddProductDrawer.tsx` fetching `GET /api/v1/numbering/series` for `ARTICLE` series (e.g. `ART/0001/26-27/`) without consuming sequence counters.
 - **Spreadsheet Payload Adapter (`spreadsheetAdapter.ts`):** Strips immutable keys (`code`, `sku`, `barcode`) on `PUT /api/v1/inventory/{id}`, preventing HTTP 409 Conflict rejections while maintaining backward compatibility for `ItemDetailsGrid.tsx`.
@@ -5048,9 +5065,9 @@ TypeScript: npx tsc --noEmit Ã¢â€ â€™ exit 0 (0 errors)
 - **TypeScript Compiler:** Clean exit code 0 (`npx tsc --noEmit`).
 - **CI UX Field Governance Guard:** 147 canonical fields verified, 0 critical violations (`scripts/ci_ux_field_governance_guard.py`).
 - **Playwright Headless Browser Audit:** Verified read-only matrix, 0 editable inputs, 13 read-only Classic View inspector inputs, and seamless CTA navigation back to the Article Catalog; 2 visual telemetry screenshots captured (`quick_audit_grid_view.png`, `quick_audit_classic_view.png`).
-- **4-Viewport Playwright Audit:** 21 screenshots captured across Desktop (1920Ãƒâ€”1080), Laptop (1366Ãƒâ€”768), Tablet (768Ãƒâ€”1024), and Mobile (390Ãƒâ€”844) viewports.
+- **4-Viewport Playwright Audit:** 21 screenshots captured across Desktop (1920Ã—1080), Laptop (1366Ã—768), Tablet (768Ã—1024), and Mobile (390Ã—844) viewports.
 
-## [6.47.2] - 2026-09-29 Ã¢â‚¬â€ Article / Design Master Consolidation & Existing-Flow Refactor
+## [6.47.2] - 2026-09-29 â€” Article / Design Master Consolidation & Existing-Flow Refactor
 
 > **Branch:** `smritiNX` | **Area:** Catalog / Item Master
 > **Walkthrough:** `docs/walkthrough/catalog/Catalog_Article_Design_Master_Consolidation_And_Existing_Flow_Refactor_v6.47.0.md`
@@ -5058,7 +5075,7 @@ TypeScript: npx tsc --noEmit Ã¢â€ â€™ exit 0 (0 errors)
 ### Added
 - **Canonical Article / Design Master Workflow:** `UniversalItemMasterService.create_item()` consolidated as the single canonical creation pipeline across SMRITI Retail OS for catalog identities (`items`), variant matrices (`item_variants`), and barcodes (`item_barcodes`).
 - **Article Numbering Decoupling & Guard:** Supported manual Article Numbers and optional automatic Article Numbering via `document_series` (`document_type = 'ARTICLE'`) and `DocumentsEngine.allocate_next_number_in_transaction()`. Added strict HTTP 400 guard (`"Article numbering series is not configured for this company/branch."`) when no series is configured.
-- **Variant Matrix Standardization:** Standardized Size Ãƒâ€” Color variant matrix SKU formatting to `{item_code}-{COLOR}-{SIZE}` for new variants while strictly preserving historical SKUs.
+- **Variant Matrix Standardization:** Standardized Size Ã— Color variant matrix SKU formatting to `{item_code}-{COLOR}-{SIZE}` for new variants while strictly preserving historical SKUs.
 - **Product Execution Synchronization:** Automatic synchronization linking newly activated variants into `products` (`item_id`, `item_variant_id`, `sku`, `code`), default `PriceBookEntry`, and permanent `LegacyIdMapping`.
 - **Supplier Governance Integration:** Article-level supplier assignments attached directly to `vendor_product_assignments` with policy flags (`allow_po`, `allow_grn`, `approval_required`) honoring `POProductPolicyEngine`.
 - **Read-Only Legacy Products Audit:** Generated dry-run candidate matching report for 1,405 legacy products with `NULL item_id` (`legacy_products_dry_run_report.json`) without executing any database modifications.
@@ -5073,7 +5090,7 @@ TypeScript: npx tsc --noEmit Ã¢â€ â€™ exit 0 (0 errors)
 - **Database Safety Check:** 0 duplicate item codes, 0 duplicate variant SKUs, 0 duplicate barcodes, 0 orphan variants, 0 orphan products, and 0 conflicting links in `scripts/db_safety_check.py`.
 - **Frontend Production Build:** 3,622 modules transformed cleanly with 0 errors via `npm run build`.
 
-## [6.47.1] - 2026-09-29 Ã¢â‚¬â€ Staff Photo Upload, SPIF WebP Optimization & Identity Badge Integration
+## [6.47.1] - 2026-09-29 â€” Staff Photo Upload, SPIF WebP Optimization & Identity Badge Integration
 
 > **Branch:** `smritiNX` | **Area:** Human Resources / Staff 360 Workspace
 > **Walkthrough:** `docs/walkthrough/hr/Staff_Photo_Upload_And_SPIF_Integration_v6.46.2.md`
@@ -5086,22 +5103,22 @@ TypeScript: npx tsc --noEmit Ã¢â€ â€™ exit 0 (0 errors)
   - `GET /api/v1/staff/photos/{filename}`: Safe static file streaming endpoint with path sanitization (`os.path.basename`).
 - **Staff Photo UI & Canvas Downsampler (`src/components/staff/StaffMasterWs.tsx`):**
   - Integrated Photo Upload card in Edit Staff modal (`activeEditSubTab === "general"`).
-  - Client-side `<canvas>` downsampling reducing camera/smartphone files to max 500Ãƒâ€”500 px WebP prior to network transit (< 35 KB).
+  - Client-side `<canvas>` downsampling reducing camera/smartphone files to max 500Ã—500 px WebP prior to network transit (< 35 KB).
   - URL fallback allowing direct configuration of external CDN, S3, or GCS URLs.
   - Enhanced **Identity** tab with photo preview, active status badge, and immediate "Update Photo" action.
   - Direct integration with CR-80 PVC physical badge printing in `StaffPrintModal.tsx`.
 - **Automated Tests (`backend/tests/test_staff_photo_upload.py`):**
   - 3 unit tests verifying schema payload, SPIF transcoding, disk file creation/deletion, and router endpoint registration.
 
-## [6.47.0] - 2026-09-28 Ã¢â‚¬â€ ItemMaster UX Refactor: 5-Tab AddProductDrawer & Rich Catalog Grid
+## [6.47.0] - 2026-09-28 â€” ItemMaster UX Refactor: 5-Tab AddProductDrawer & Rich Catalog Grid
 
 > **Branch:** `smritiNX` | **Commits:** `0d986acb`, `41069e77` | **Area:** Item Master / Catalog
 > **Walkthrough:** `docs/walkthrough/catalog/ItemMaster_UX_Refactor_AddProductDrawer_CatalogGrid_v1.0.0.md`
 
 ### Added
 - **`AddProductDrawer.tsx` (787 lines, new):** Full-screen 5-tab Add Product wizard modal.
-  - Tab 1 Basic Information: 4-column layout Ã¢â‚¬â€ product image upload with base64 preview, SKU/Barcode/Name/Brand/Category/Gender/Product Type, Design & Variant (Article/Color/Size/Material/Upper/Sole/Season/Collection), HSN/Description/Tags, Product Options checkboxes (Regular Item, Billable, Inventory Item, Service Item, Tax Inclusive), Product Status.
-  - Tab 2 Pricing: Retail Price (MRP), Dealer Price, Cost Price, Last Purchase Price with INR (Ã¢â€šÂ¹) prefix.
+  - Tab 1 Basic Information: 4-column layout â€” product image upload with base64 preview, SKU/Barcode/Name/Brand/Category/Gender/Product Type, Design & Variant (Article/Color/Size/Material/Upper/Sole/Season/Collection), HSN/Description/Tags, Product Options checkboxes (Regular Item, Billable, Inventory Item, Service Item, Tax Inclusive), Product Status.
+  - Tab 2 Pricing: Retail Price (MRP), Dealer Price, Cost Price, Last Purchase Price with INR (â‚¹) prefix.
   - Tab 3 Tax & Inventory: GST % selector, Tax Inclusive toggle, Opening Stock, Reorder Level.
   - Tab 4 Attributes: Closure Type, Toe Style, Heel Type, Insole Material, Occasion, Width.
   - Tab 5 Additional Info: Vendor Code, Country of Origin, UOM, Weight (g), Warranty.
@@ -5110,21 +5127,21 @@ TypeScript: npx tsc --noEmit Ã¢â€ â€™ exit 0 (0 errors)
 
 ### Changed
 - **`ItemCatalogGrid.tsx` (complete refactor, v5.0.0):**
-  - Header: shoe emoji icon, "Footwear Products" title, subtitle, **Add Product / Copy From Excel / Export / Ã¢â€¹Â®** action buttons.
+  - Header: shoe emoji icon, "Footwear Products" title, subtitle, **Add Product / Copy From Excel / Export / â‹®** action buttons.
   - Filter bar: full-text search + 5 `FilterSelect` dropdowns (Category, Brand, Gender, Product Type, Status) + More Filters / Columns / Refresh buttons.
-  - 20-column table: checkbox, image thumbnail, SKU (mono bold blue link-style), Barcode, Product Name, Brand, Category, Gender, Product Type, Article (mono), Color, Size (centered mono bold), HSN (mono), Retail Price Ã¢â€šÂ¹, Dealer Price Ã¢â€šÂ¹, Cost Price Ã¢â€šÂ¹, Last Purchase Price Ã¢â€šÂ¹, GST %, Status badge (Active=green dot / Inactive=red dot), Actions Ã¢â€¹Â® menu.
+  - 20-column table: checkbox, image thumbnail, SKU (mono bold blue link-style), Barcode, Product Name, Brand, Category, Gender, Product Type, Article (mono), Color, Size (centered mono bold), HSN (mono), Retail Price â‚¹, Dealer Price â‚¹, Cost Price â‚¹, Last Purchase Price â‚¹, GST %, Status badge (Active=green dot / Inactive=red dot), Actions â‹® menu.
   - Pagination: 10/25/50/100 per page selector, smart page number buttons, record count label. Page resets on any filter change.
   - Empty state: Package icon + descriptive prompt.
   - Add Product button opens `AddProductDrawer` with `productCategory` prop.
-- **`ItemMasterWs.tsx`:** Bumped version 5.0.0 Ã¢â€ â€™ 5.1.0, updated Modified date.
+- **`ItemMasterWs.tsx`:** Bumped version 5.0.0 â†’ 5.1.0, updated Modified date.
 
 ### Fixed
-- **Wire Issue 1 (CRITICAL):** `AddProductDrawer` was POSTing to `/products` (no such route Ã¢â€ â€™ 404). Changed to `/inventory/`.
-- **Wire Issue 2:** `price` and `mrp` were both set to `retailPrice`. Now `price = dealerPrice || retailPrice` (selling price), `mrp = retailPrice` (maximum retail price), matching backend `mrp Ã¢â€°Â¥ price` constraint.
-- **Wire Issue 3:** `primary_image_url` from backend not mapped in `App.tsx fetchSystemState`. Added `primaryImageUrl: p.primary_image_url || undefined` Ã¢â‚¬â€ product thumbnails now populate from backend data.
+- **Wire Issue 1 (CRITICAL):** `AddProductDrawer` was POSTing to `/products` (no such route â†’ 404). Changed to `/inventory/`.
+- **Wire Issue 2:** `price` and `mrp` were both set to `retailPrice`. Now `price = dealerPrice || retailPrice` (selling price), `mrp = retailPrice` (maximum retail price), matching backend `mrp â‰¥ price` constraint.
+- **Wire Issue 3:** `primary_image_url` from backend not mapped in `App.tsx fetchSystemState`. Added `primaryImageUrl: p.primary_image_url || undefined` â€” product thumbnails now populate from backend data.
 - **Wire Issue 4:** `buying_price` and `is_active` not mapped in `App.tsx`. Added `buyingPrice` and `isActive` mappings. Added `buyingPrice?: number` and `isActive?: boolean` to `Product` interface in `types.ts`. `ItemCatalogGrid` now reads typed `p.buyingPrice` and `p.isActive` (no `any` casts).
 
-## [6.46.1] - 2026-09-28 Ã¢â‚¬â€ Security: Dependabot Audit Remediation & Backend Node Decoupling
+## [6.46.1] - 2026-09-28 â€” Security: Dependabot Audit Remediation & Backend Node Decoupling
 
 > **Branch:** `smritiNX` | **Area:** Dependency Security, Packaging & System-of-Record Decoupling
 
@@ -5147,27 +5164,27 @@ TypeScript: npx tsc --noEmit Ã¢â€ â€™ exit 0 (0 errors)
 - **IM-001 Commit-Time Enforcement Gate:** Added active `IM001ControlledFieldValidator.validate_row_controlled_fields` enforcement directly in `commit_universal_import` to prevent commit-time validation bypass.
 - **Category & Product Type Extraction Parity:** Removed default `"Footwear"` fallback; mapped `"MERCHANDISE CATEGORY"` directly to `v22_product_type` column per Field Notes.
 - **ItemMasterStudio Consolidation (`src/components/itemMaster/ItemMasterStudio.tsx`):** Decommissioned legacy `/products/` endpoint. Routed import pipeline through canonical `/api/v1/universal-import/preview` and `/commit`. Added "Validate Preview" button, dynamic IM-001 status banner, and Human/CA Sign-Off Flag (`REQUIRES_REVIEW`) banner.
-- **Unified Field Catalog Dimensions (`src/services/unifiedFieldCatalog.ts`):** Promoted footwear dimensions (`gender`, `product_type`, `heel_type`, `upper_material`, `outsole_material`, `design_attribute`, `collection_type`, `vendor_code`, `department`, `merchandise_category`) to first-class fields, retiring attribute key sprawl (`a1`Ã¢â‚¬â€œ`a9`). Required `style` mapped to `ARTICLE_STYLE_CODE`.
+- **Unified Field Catalog Dimensions (`src/services/unifiedFieldCatalog.ts`):** Promoted footwear dimensions (`gender`, `product_type`, `heel_type`, `upper_material`, `outsole_material`, `design_attribute`, `collection_type`, `vendor_code`, `department`, `merchandise_category`) to first-class fields, retiring attribute key sprawl (`a1`â€“`a9`). Required `style` mapped to `ARTICLE_STYLE_CODE`.
 
-## [6.46.0] - 2026-09-28 Ã¢â‚¬â€ Catalog: IM-001 Two-Tier Controlled-Field Validation Ã¢â‚¬â€ System Parameters & System Master Lookup
+## [6.46.0] - 2026-09-28 â€” Catalog: IM-001 Two-Tier Controlled-Field Validation â€” System Parameters & System Master Lookup
 
 > **Branch:** `smritiNX` | **Commit:** `a64f0a35` | **Area:** Universal Import Pipeline, IM-001 Enforcement
 
 ### Changed
-- **`IM001ControlledFieldValidator.validate_row_controlled_fields()` promoted to async** (`backend/app/api/v1/universal_import.py`) Ã¢â‚¬â€ Method is now `async` and accepts `company_id` to scope system parameter resolution to the correct tenant.
+- **`IM001ControlledFieldValidator.validate_row_controlled_fields()` promoted to async** (`backend/app/api/v1/universal_import.py`) â€” Method is now `async` and accepts `company_id` to scope system parameter resolution to the correct tenant.
 
 ### Added
 - **Two-Tier Allowed-Value Resolution:** DB master_values (`CatalogDimensionValidator.get_approved_values()` via control-plane `smritisys`) is now the **primary** source for allowed values per controlled field. The workbook `Validation Lists` sheet (`SMRITI_Item_Master_Creation_Standard_v2.1.xlsx`) is the **fallback** when the DB has no values for a dimension. Each field failure now carries a `"source"` label: `"System Master Lookup"` or `"Standard Validation List (workbook fallback)"`.
-- **System Parameter Enforcement Gate** (`_load_sysparam_enforcement_flags(company_id)`) Ã¢â‚¬â€ Reads 5 system parameters from `system_parameters` via `SystemParameterService.resolve_parameter()` with full 4-tier hierarchy (Terminal > Branch > Company > Global):
-  - `ValidateDataDuringPMImport` Ã¢â‚¬â€ global gate (`val_text='2'` = validate, `'0'` = bypass)
-  - `ItemSubClass1HasCat` Ã¢â€ â€™ enforces `ARTICLE_STYLE_CODE` as BLOCK
-  - `ItemSubClass2HasCat` Ã¢â€ â€™ enforces `COLOR` as BLOCK
-  - `SuperClass1Present` Ã¢â€ â€™ enforces `MERCHANDISE_DEPARTMENT` as BLOCK
-  - `ItemSizePresent` Ã¢â€ â€™ enforces `SIZE` as BLOCK
+- **System Parameter Enforcement Gate** (`_load_sysparam_enforcement_flags(company_id)`) â€” Reads 5 system parameters from `system_parameters` via `SystemParameterService.resolve_parameter()` with full 4-tier hierarchy (Terminal > Branch > Company > Global):
+  - `ValidateDataDuringPMImport` â€” global gate (`val_text='2'` = validate, `'0'` = bypass)
+  - `ItemSubClass1HasCat` â†’ enforces `ARTICLE_STYLE_CODE` as BLOCK
+  - `ItemSubClass2HasCat` â†’ enforces `COLOR` as BLOCK
+  - `SuperClass1Present` â†’ enforces `MERCHANDISE_DEPARTMENT` as BLOCK
+  - `ItemSizePresent` â†’ enforces `SIZE` as BLOCK
   - System parameters can only **downgrade** enforcement from BLOCK to Advisory, never upgrade.
-  - Control-plane unreachable Ã¢â€ â€™ defaults to enforce-all (safe fallback).
-- **`FIELD_TO_DIMENSION_MAP`** (class-level) Ã¢â‚¬â€ maps each standard field to `CatalogDimensionValidator` type code for DB lookup.
-- **`FIELD_TO_SYSPARAM_MAP`** (class-level) Ã¢â‚¬â€ maps each standard field to its governing system parameter code.
+  - Control-plane unreachable â†’ defaults to enforce-all (safe fallback).
+- **`FIELD_TO_DIMENSION_MAP`** (class-level) â€” maps each standard field to `CatalogDimensionValidator` type code for DB lookup.
+- **`FIELD_TO_SYSPARAM_MAP`** (class-level) â€” maps each standard field to its governing system parameter code.
 - **`sysparam_flags`** added to `validate_row_controlled_fields()` return dict for diagnostics (includes `validate_during_import` bool and `field_enforcement` dict).
 - **Imports:** `CatalogDimensionValidator`, `SystemParameterService`, `async_session` added to `universal_import.py`.
 
@@ -5182,47 +5199,47 @@ TypeScript: npx tsc --noEmit Ã¢â€ â€™ exit 0 (0 errors)
 
 ---
 
-## [6.45.9] - 2026-09-27 Ã¢â‚¬â€ Inventory: Item Master Standard v2.2 Audit & Formula Remediation
+## [6.45.9] - 2026-09-27 â€” Inventory: Item Master Standard v2.2 Audit & Formula Remediation
 
 > **Branch:** `smritiNX` | **Area:** Item Master Standard Template, Forensic Formula Audit & Validation Rules
 
 ### Fixed
-- **Excel `COUNTA` Empty-String Trap (Col AI)** (`assets/Itemmasters/SMRITI_Item_Master_Creation_Standard_v2.1.xlsx` & `v2.2.xlsx`) Ã¢â‚¬â€ Corrected `VALIDATION_STATUS` formula from `IF(COUNTA(A5:AG5)=0, ...)` to `IF(AND(A5="",C5=""),"EMPTY", ...)`. In Microsoft Excel, `COUNTA` evaluates formula-generated empty strings `""` as non-blank; because Col B contained `=IF(C5="","",...)`, all 492 unused template rows previously displayed false `ERROR` indicators.
-- **Excel `COUNTIF` Blank-String Collision Bug (Col AJ)** Ã¢â‚¬â€ Guarded `COUNTIF($B$5:$B$500, B5) > 1` with `AND(B5<>"", ...)`. Previously, entering a barcode in Col A counted all 492 blank cells in Col B, immediately throwing false positive `Duplicate SKU_PREVIEW` errors on valid new row entry.
-- **Status vs. Message Contradiction** Ã¢â‚¬â€ Synchronized Col AJ (`VALIDATION_MESSAGE`) to explicitly report `Missing Mandatory Attributes` when required catalog attributes (Style, Brand, Color, Size, MRP) are unpopulated, eliminating cases where Col AI showed `ERROR` but Col AJ reported `OK`.
-- **Validation Dropdown Lockouts** (`Validation Lists` sheet) Ã¢â‚¬â€ Expanded defined name ranges (`List_BRAND_NAME`, `List_COLOR`, `List_SIZE`, `List_PRODUCT_TYPE`, `List_UPPER_MATERIAL`, `List_OUTSOLE_MATERIAL`) from hardcoded 1Ã¢â‚¬â€œ2 item cells to 10Ã¢â‚¬â€œ100 item enterprise ranges with comprehensive retail values. Softened Data Validation alert styles to `warning`/`information` so operators are guided rather than hard-blocked by modal dialogs when introducing unlisted dimensions.
-- **PriceBookEntry Routing & Price Mode Enforcement** (`backend/app/api/v1/universal_import.py`) Ã¢â‚¬â€ Conditioned `PriceBookEntry` generation on `price_mode in ("CREATE_AS_DRAFT", "CREATE_LIVE_RETAIL")`, correctly producing 0 PBEs on `DO_NOT_CREATE`. Scoped PBEs cleanly to child variants when variants are present, eliminating unnecessary duplicate parent records.
+- **Excel `COUNTA` Empty-String Trap (Col AI)** (`assets/Itemmasters/SMRITI_Item_Master_Creation_Standard_v2.1.xlsx` & `v2.2.xlsx`) â€” Corrected `VALIDATION_STATUS` formula from `IF(COUNTA(A5:AG5)=0, ...)` to `IF(AND(A5="",C5=""),"EMPTY", ...)`. In Microsoft Excel, `COUNTA` evaluates formula-generated empty strings `""` as non-blank; because Col B contained `=IF(C5="","",...)`, all 492 unused template rows previously displayed false `ERROR` indicators.
+- **Excel `COUNTIF` Blank-String Collision Bug (Col AJ)** â€” Guarded `COUNTIF($B$5:$B$500, B5) > 1` with `AND(B5<>"", ...)`. Previously, entering a barcode in Col A counted all 492 blank cells in Col B, immediately throwing false positive `Duplicate SKU_PREVIEW` errors on valid new row entry.
+- **Status vs. Message Contradiction** â€” Synchronized Col AJ (`VALIDATION_MESSAGE`) to explicitly report `Missing Mandatory Attributes` when required catalog attributes (Style, Brand, Color, Size, MRP) are unpopulated, eliminating cases where Col AI showed `ERROR` but Col AJ reported `OK`.
+- **Validation Dropdown Lockouts** (`Validation Lists` sheet) â€” Expanded defined name ranges (`List_BRAND_NAME`, `List_COLOR`, `List_SIZE`, `List_PRODUCT_TYPE`, `List_UPPER_MATERIAL`, `List_OUTSOLE_MATERIAL`) from hardcoded 1â€“2 item cells to 10â€“100 item enterprise ranges with comprehensive retail values. Softened Data Validation alert styles to `warning`/`information` so operators are guided rather than hard-blocked by modal dialogs when introducing unlisted dimensions.
+- **PriceBookEntry Routing & Price Mode Enforcement** (`backend/app/api/v1/universal_import.py`) â€” Conditioned `PriceBookEntry` generation on `price_mode in ("CREATE_AS_DRAFT", "CREATE_LIVE_RETAIL")`, correctly producing 0 PBEs on `DO_NOT_CREATE`. Scoped PBEs cleanly to child variants when variants are present, eliminating unnecessary duplicate parent records.
 
 ### Added
-- **Canonical Item Master Creation Standard v2.2** (`assets/Itemmasters/SMRITI_Item_Master_Creation_Standard_v2.2.xlsx`) Ã¢â‚¬â€ Next-generation ratified ingestion template incorporating formula bug fixes, soft data validation dropdowns, and Rule `IM-013`.
-- **Statutory GST 2.0 Ingestion Rule `IM-013`** (`Validation Rules` sheet) Ã¢â‚¬â€ Added formal governance rule flagging footwear lines with selling price exceeding Rs. 2,500 and GST rate <= 5% for tax compliance review.
-- **Workbook Remediation Script** (`scripts/remediate_item_master_standard.py`) Ã¢â‚¬â€ Automated script for upgrading and validating workbook ASTs.
+- **Canonical Item Master Creation Standard v2.2** (`assets/Itemmasters/SMRITI_Item_Master_Creation_Standard_v2.2.xlsx`) â€” Next-generation ratified ingestion template incorporating formula bug fixes, soft data validation dropdowns, and Rule `IM-013`.
+- **Statutory GST 2.0 Ingestion Rule `IM-013`** (`Validation Rules` sheet) â€” Added formal governance rule flagging footwear lines with selling price exceeding Rs. 2,500 and GST rate <= 5% for tax compliance review.
+- **Workbook Remediation Script** (`scripts/remediate_item_master_standard.py`) â€” Automated script for upgrading and validating workbook ASTs.
 
 ---
 
-## [6.45.8] - 2026-09-27 Ã¢â‚¬â€ Catalog: Item Master Schema, Governance Registry & Import Pipeline Hardening
+## [6.45.8] - 2026-09-27 â€” Catalog: Item Master Schema, Governance Registry & Import Pipeline Hardening
 
 > **Branch:** `smritiNX` | **Area:** Canonical Catalog Governance, Pricing Domain & Universal Import
 
 ### Added
-- **Canonical Item Field Registration** (`backend/app/governance/field_registry.py` & `src/services/canonicalFieldRegistry.ts`) Ã¢â‚¬â€ Registered `vendor_code`, `style_code`, `color`, and `size` as canonical 1st-class business fields under entity `item` / table `items` with comprehensive aliases (`article`, `styleCode`, `articleNo`, `model_no`, `supplier_code`, `shade`). Synchronized TypeScript registry with 0 drift and 0 orphan fields.
-- **Authoritative Pricing Domain Routing** (`backend/app/api/v1/universal_import.py`) Ã¢â‚¬â€ Routed bulk item import pricing (MRP, Selling Price, Cost Price) to authoritative `PriceBookEntry` (item and variant level) linked to the default company `PriceBook`, while preserving `items.mrp`, `items.selling_price`, and `items.cost_price` as documented legacy baseline fallbacks.
-- **Supplier Code Foreign-Key Linkage** (`backend/app/api/v1/universal_import.py`) Ã¢â‚¬â€ Implemented strict foreign-key-style service-layer validation linking `Item.vendor_code` to `Supplier.code`. Import preview and commit reject unregistered supplier codes with human-readable validation errors.
-- **Footwear Attribute Segregation** (`backend/app/api/v1/universal_import.py` & `backend/app/services/item_master_svc.py`) Ã¢â‚¬â€ Explicitly separated flat columns (`style_code`, `color`, `size`, `vendor_code`, `hsn_code`, `tax_rate`, `department`, `category`, `brand`) from nested `attributes_json` specifications (`gender`, `heel_type`, `upper_material`, `outsole`, `design_attribute`, `collection_type`).
-- **Style Code & Image Consistency Validator** (`backend/app/services/catalog_validation.py`) Ã¢â‚¬â€ Engineered `validate_batch_style_consistency` to detect image discrepancies across matching style codes, cross-dimension inconsistency, and the SND-row bug pattern (14 sizes with disparate style codes sharing an identical image).
-- **Statutory HSN/GST Soft Flagging** (`backend/app/api/v1/universal_import.py`) Ã¢â‚¬â€ Non-blocking compliance checks flagging `item.status = "REQUIRES_REVIEW"` with advisory warnings for synthetic upper materials with leather HSN `6403` and selling prices conflicting with GST rate slabs (> Rs. 2,500 with tax <= 5%, or < Rs. 2,500 with tax >= 18%) for human/CA sign-off.
-- **Automated Regression Suite** (`backend/app/tests/test_item_master_import_pipeline.py`) Ã¢â‚¬â€ 7 automated tests certifying end-to-end import pipeline correctness (100% green).
-- **Governance Walkthrough** (`docs/walkthrough/catalog/Catalog_Item_Master_Schema_Governance_And_Import_Pipeline_v1.0.0.md`) Ã¢â‚¬â€ Comprehensive 13-section walkthrough covering architecture decisions, empirical verification, and known human sign-off boundaries.
+- **Canonical Item Field Registration** (`backend/app/governance/field_registry.py` & `src/services/canonicalFieldRegistry.ts`) â€” Registered `vendor_code`, `style_code`, `color`, and `size` as canonical 1st-class business fields under entity `item` / table `items` with comprehensive aliases (`article`, `styleCode`, `articleNo`, `model_no`, `supplier_code`, `shade`). Synchronized TypeScript registry with 0 drift and 0 orphan fields.
+- **Authoritative Pricing Domain Routing** (`backend/app/api/v1/universal_import.py`) â€” Routed bulk item import pricing (MRP, Selling Price, Cost Price) to authoritative `PriceBookEntry` (item and variant level) linked to the default company `PriceBook`, while preserving `items.mrp`, `items.selling_price`, and `items.cost_price` as documented legacy baseline fallbacks.
+- **Supplier Code Foreign-Key Linkage** (`backend/app/api/v1/universal_import.py`) â€” Implemented strict foreign-key-style service-layer validation linking `Item.vendor_code` to `Supplier.code`. Import preview and commit reject unregistered supplier codes with human-readable validation errors.
+- **Footwear Attribute Segregation** (`backend/app/api/v1/universal_import.py` & `backend/app/services/item_master_svc.py`) â€” Explicitly separated flat columns (`style_code`, `color`, `size`, `vendor_code`, `hsn_code`, `tax_rate`, `department`, `category`, `brand`) from nested `attributes_json` specifications (`gender`, `heel_type`, `upper_material`, `outsole`, `design_attribute`, `collection_type`).
+- **Style Code & Image Consistency Validator** (`backend/app/services/catalog_validation.py`) â€” Engineered `validate_batch_style_consistency` to detect image discrepancies across matching style codes, cross-dimension inconsistency, and the SND-row bug pattern (14 sizes with disparate style codes sharing an identical image).
+- **Statutory HSN/GST Soft Flagging** (`backend/app/api/v1/universal_import.py`) â€” Non-blocking compliance checks flagging `item.status = "REQUIRES_REVIEW"` with advisory warnings for synthetic upper materials with leather HSN `6403` and selling prices conflicting with GST rate slabs (> Rs. 2,500 with tax <= 5%, or < Rs. 2,500 with tax >= 18%) for human/CA sign-off.
+- **Automated Regression Suite** (`backend/app/tests/test_item_master_import_pipeline.py`) â€” 7 automated tests certifying end-to-end import pipeline correctness (100% green).
+- **Governance Walkthrough** (`docs/walkthrough/catalog/Catalog_Item_Master_Schema_Governance_And_Import_Pipeline_v1.0.0.md`) â€” Comprehensive 13-section walkthrough covering architecture decisions, empirical verification, and known human sign-off boundaries.
 
 ---
 
-## [6.45.7] - 2026-09-27 Ã¢â‚¬â€ UI & Architecture: SMRITI Frosted Glass Boutique Login Window & Modular Architecture
+## [6.45.7] - 2026-09-27 â€” UI & Architecture: SMRITI Frosted Glass Boutique Login Window & Modular Architecture
 
 > **Branch:** `smritiNX` | **Area:** Frontend Authentication & Responsive Design System
 
 ### Added
-- **Modular Login Component Hierarchy** (`src/components/login/`) Ã¢â‚¬â€ Decomposed monolithic login page into decoupled, single-responsibility components:
-  - `<SmritiBrandLogo />`: Scalable brand wordmark with royal blue Indian Rupee (`Ã¢â€šÂ¹`) glyph and size variants.
+- **Modular Login Component Hierarchy** (`src/components/login/`) â€” Decomposed monolithic login page into decoupled, single-responsibility components:
+  - `<SmritiBrandLogo />`: Scalable brand wordmark with royal blue Indian Rupee (`â‚¹`) glyph and size variants.
   - `<FeatureList />`: 6 floating frosted cards (*Sales & Billing*, *Inventory Management*, *Distribution*, *Warehouse*, *Customer Management*, *Reports & Analytics*) with circular blue badges.
   - `<BrandPanel />`: Desktop left column integrating logo, feature list, and handwritten cursive `"Built for Modern Retail"` accent with cyan-blue wave underline.
   - `<ResponsiveBackground />`: Dual-mode backdrop engine (ambient gradient on mobile; 4K boutique showroom with POS terminal, daylight organic wave wash, and electric blue waves on tablet/desktop).
@@ -5231,58 +5248,58 @@ TypeScript: npx tsc --noEmit Ã¢â€ â€™ exit 0 (0 errors)
   - `<SecurityFooter />`: AES-256 secure authentication tag with authentic application version metadata (`APP_VERSION_LABEL`).
   - `<EnterpriseDock />`: Floating dark navy ribbon housing 5 enterprise pillars and `PEOPLE | PRODUCTS | PROCESS | PROFIT` capsule tab.
   - `<LoginCard />`: Frosted container (`backdrop-blur-2xl`) with top glowing blue accent, language selector, session timeout alert banner, and error alert.
-- **Multi-Viewport Responsive Verification Suite** (`scratch/test_all_responsive_viewports.py`) Ã¢â‚¬â€ Automated headless Playwright audit asserting 0 horizontal overflow, button visibility, and input usability across 9 viewports: `320x568`, `375x667`, `390x844`, `414x896`, `768x1024`, `1024x768`, `1280x720`, `1440x900`, `1920x1080` (9/9 passed green).
+- **Multi-Viewport Responsive Verification Suite** (`scratch/test_all_responsive_viewports.py`) â€” Automated headless Playwright audit asserting 0 horizontal overflow, button visibility, and input usability across 9 viewports: `320x568`, `375x667`, `390x844`, `414x896`, `768x1024`, `1024x768`, `1280x720`, `1440x900`, `1920x1080` (9/9 passed green).
 
 ### Changed
-- **`src/components/LoginScreen.tsx`** Ã¢â‚¬â€ Refactored to cleanly orchestrate modular login components while preserving all authentication logic (`/api/v1/auth/login`), JWT storage, tenant context persistence (`persistTenantContext`), 15-minute inactivity session expiration alerts, and security assistance modals.
+- **`src/components/LoginScreen.tsx`** â€” Refactored to cleanly orchestrate modular login components while preserving all authentication logic (`/api/v1/auth/login`), JWT storage, tenant context persistence (`persistTenantContext`), 15-minute inactivity session expiration alerts, and security assistance modals.
 
 ---
 
-## [6.45.6] - 2026-09-26 Ã¢â‚¬â€ Security: Enterprise 15-Minute Session Inactivity Auto-Logout Subsystem & Multi-Tab Synchronization
+## [6.45.6] - 2026-09-26 â€” Security: Enterprise 15-Minute Session Inactivity Auto-Logout Subsystem & Multi-Tab Synchronization
 
 > **Branch:** `smritiNX` | **Area:** Terminal Security & Session Management Infrastructure
 
 ### Added
-- **Authoritative 15-Minute Inactivity Auto-Logout Hook & Controller** (`src/hooks/useInactivityTimeout.ts`) Ã¢â‚¬â€ Pure TypeScript `InactivityTimeoutController` and React hook tracking user presence across discrete events (`mousedown`, `keydown`, `touchstart`, `click`) and throttled high-frequency events (`mousemove`, `touchmove`, `scroll`, `wheel`) with a 15-minute (900,000ms) security timeout baseline.
-- **Cross-Tab Synchronization via Web Storage Events** Ã¢â‚¬â€ Real-time synchronization through `localStorage.setItem("smriti_last_activity", ...)` and `storage` event listeners ensuring active work in any store tab automatically extends the session across all tabs.
-- **Sleep & Fast-Path Tab Wake Recovery** Ã¢â‚¬â€ Automatic elapsed time calculation on `visibilitychange` and `focus` events that instantly triggers logout if the computer was suspended or tab was backgrounded for $\ge$ 15 minutes.
-- **Session Inactivity Warning Modal** (`src/components/auth/InactivityWarningModal.tsx`) Ã¢â‚¬â€ Real-time countdown modal triggered at 14 minutes (60 seconds before expiration) featuring an amber security badge, digital countdown timer (`mm:ss`), percentage progress bar, "Stay Logged In" session renewal, and "Logout Now" immediate exit.
-- **Session Termination Banner on Login Screen** (`src/components/LoginScreen.tsx`) Ã¢â‚¬â€ Integrated `Clock` icon and dismissible security alert badge informing operators when their session timed out due to 15 minutes of inactivity.
-- **10-Scenario Verification Test Suite** (`src/tests/inactivityTimeout.test.ts`) Ã¢â‚¬â€ Automated Vitest suite validating defaults, start initialization, event recording, throttling, cross-tab synchronization, warning countdown, user input cancellation, 15-minute expiration, sleep recovery, and session token purging.
+- **Authoritative 15-Minute Inactivity Auto-Logout Hook & Controller** (`src/hooks/useInactivityTimeout.ts`) â€” Pure TypeScript `InactivityTimeoutController` and React hook tracking user presence across discrete events (`mousedown`, `keydown`, `touchstart`, `click`) and throttled high-frequency events (`mousemove`, `touchmove`, `scroll`, `wheel`) with a 15-minute (900,000ms) security timeout baseline.
+- **Cross-Tab Synchronization via Web Storage Events** â€” Real-time synchronization through `localStorage.setItem("smriti_last_activity", ...)` and `storage` event listeners ensuring active work in any store tab automatically extends the session across all tabs.
+- **Sleep & Fast-Path Tab Wake Recovery** â€” Automatic elapsed time calculation on `visibilitychange` and `focus` events that instantly triggers logout if the computer was suspended or tab was backgrounded for $\ge$ 15 minutes.
+- **Session Inactivity Warning Modal** (`src/components/auth/InactivityWarningModal.tsx`) â€” Real-time countdown modal triggered at 14 minutes (60 seconds before expiration) featuring an amber security badge, digital countdown timer (`mm:ss`), percentage progress bar, "Stay Logged In" session renewal, and "Logout Now" immediate exit.
+- **Session Termination Banner on Login Screen** (`src/components/LoginScreen.tsx`) â€” Integrated `Clock` icon and dismissible security alert badge informing operators when their session timed out due to 15 minutes of inactivity.
+- **10-Scenario Verification Test Suite** (`src/tests/inactivityTimeout.test.ts`) â€” Automated Vitest suite validating defaults, start initialization, event recording, throttling, cross-tab synchronization, warning countdown, user input cancellation, 15-minute expiration, sleep recovery, and session token purging.
 
 ### Hardened
-- **Universal Session Purge Registration** (`src/lib/apiFetchV1.ts`) Ã¢â‚¬â€ Added `smriti_last_activity` to `AUTH_STORAGE_KEYS` to guarantee complete cleanup on manual or automated session invalidation.
+- **Universal Session Purge Registration** (`src/lib/apiFetchV1.ts`) â€” Added `smriti_last_activity` to `AUTH_STORAGE_KEYS` to guarantee complete cleanup on manual or automated session invalidation.
 
 ---
 
-## [6.45.5] - 2026-09-26 Ã¢â‚¬â€ Inventory: Universal Item Master Standard v2.1, 6-State Reconciliation Engine & Dynamic Live Template
+## [6.45.5] - 2026-09-26 â€” Inventory: Universal Item Master Standard v2.1, 6-State Reconciliation Engine & Dynamic Live Template
 
 > **Branch:** `smritiNX` | **Area:** Inventory Catalog & Data Ingestion Infrastructure
 
 ### Added
-- **Canonical Excel Item Master Creation Standard v2.1** Ã¢â‚¬â€ Engineered `assets/Itemmasters/SMRITI_Item_Master_Creation_Standard_v2.1.xlsx` featuring 36 governed columns, dynamic formula `=IF(C5="","",C5&"-"&F5&"-"&G5&"-"&Q5)` SKU preview, `WAREHOUSE_CODE` dropdown linked to `List_WAREHOUSE_CODE`, and snapshot audit metadata header.
-- **Dynamic Live Excel Template Generation** Ã¢â‚¬â€ Added `GET /api/v1/universal-import/templates/item-master.xlsx` streaming a governed workbook on-the-fly with live database lookups (`warehouses`, `brands`, `categories`, `departments`) populated directly from PostgreSQL tenant data.
-- **6-State Reconciliation Decision Hierarchy** Ã¢â‚¬â€ Enhanced `/api/v1/universal-import/preview` to classify imported rows into 6 explicit states (`NEW`, `EXISTING_MATCH`, `EXISTING_CONFLICT`, `DUPLICATE_IN_FILE`, `INVALID`), distinguishing benign re-imports from cross-product barcode collisions and intra-batch duplicates.
-- **3-Tier Cascade Commit with Ingestion Modes** Ã¢â‚¬â€ Enhanced `/api/v1/universal-import/commit` to execute the full normalization cascade (`Item` style parent $\rightarrow$ `ItemVariant` child $\rightarrow$ `ItemBarcode` optical identity $\rightarrow$ `ItemWarehouseLocation` $\rightarrow$ `PriceBookEntry`), with `existing_match_mode` (`SKIP`, `UPDATE_METADATA_AND_PRICE`, `FAIL_ON_EXISTING`) and `price_mode` (`DO_NOT_CREATE`, `CREATE_AS_DRAFT`, `CREATE_LIVE_RETAIL`) controls and SHA-256 payload idempotency.
-- **8-Test Verification Suite** Ã¢â‚¬â€ Created `backend/tests/test_universal_import_item_master.py` with 8 comprehensive scenarios covering dry runs, 6-state conflict discrimination, pricing modes, multi-variant matrices, and dynamic template streaming.
+- **Canonical Excel Item Master Creation Standard v2.1** â€” Engineered `assets/Itemmasters/SMRITI_Item_Master_Creation_Standard_v2.1.xlsx` featuring 36 governed columns, dynamic formula `=IF(C5="","",C5&"-"&F5&"-"&G5&"-"&Q5)` SKU preview, `WAREHOUSE_CODE` dropdown linked to `List_WAREHOUSE_CODE`, and snapshot audit metadata header.
+- **Dynamic Live Excel Template Generation** â€” Added `GET /api/v1/universal-import/templates/item-master.xlsx` streaming a governed workbook on-the-fly with live database lookups (`warehouses`, `brands`, `categories`, `departments`) populated directly from PostgreSQL tenant data.
+- **6-State Reconciliation Decision Hierarchy** â€” Enhanced `/api/v1/universal-import/preview` to classify imported rows into 6 explicit states (`NEW`, `EXISTING_MATCH`, `EXISTING_CONFLICT`, `DUPLICATE_IN_FILE`, `INVALID`), distinguishing benign re-imports from cross-product barcode collisions and intra-batch duplicates.
+- **3-Tier Cascade Commit with Ingestion Modes** â€” Enhanced `/api/v1/universal-import/commit` to execute the full normalization cascade (`Item` style parent $\rightarrow$ `ItemVariant` child $\rightarrow$ `ItemBarcode` optical identity $\rightarrow$ `ItemWarehouseLocation` $\rightarrow$ `PriceBookEntry`), with `existing_match_mode` (`SKIP`, `UPDATE_METADATA_AND_PRICE`, `FAIL_ON_EXISTING`) and `price_mode` (`DO_NOT_CREATE`, `CREATE_AS_DRAFT`, `CREATE_LIVE_RETAIL`) controls and SHA-256 payload idempotency.
+- **8-Test Verification Suite** â€” Created `backend/tests/test_universal_import_item_master.py` with 8 comprehensive scenarios covering dry runs, 6-state conflict discrimination, pricing modes, multi-variant matrices, and dynamic template streaming.
 
 ### Fixed & Hardened
-- **Identity Allocation Collision Prevention** Ã¢â‚¬â€ Hardened `SmritiNumberingRegistry` in `backend/app/services/identity/code_generator.py` to anchor new sequence counters to `MAX(sequence_value) + 1` across existing items, preventing `uq_items_identity_code` duplicate key collisions.
-- **Catalog Dimension Validation Fallback** Ã¢â‚¬â€ Added HSN, UOM, and Footwear dimension normalization in `backend/app/services/catalog_validation.py` with resilient clean string fallbacks.
+- **Identity Allocation Collision Prevention** â€” Hardened `SmritiNumberingRegistry` in `backend/app/services/identity/code_generator.py` to anchor new sequence counters to `MAX(sequence_value) + 1` across existing items, preventing `uq_items_identity_code` duplicate key collisions.
+- **Catalog Dimension Validation Fallback** â€” Added HSN, UOM, and Footwear dimension normalization in `backend/app/services/catalog_validation.py` with resilient clean string fallbacks.
 
 ---
 
-## [6.45.4] - 2026-09-26 Ã¢â‚¬â€ Sales & Billing: URL Parameter Sanitization, Document Inspection Hardening & Navigation Aliases
+## [6.45.4] - 2026-09-26 â€” Sales & Billing: URL Parameter Sanitization, Document Inspection Hardening & Navigation Aliases
 
 > **Branch:** `smritiNX` | **Area:** Sales & Billing Infrastructure
 
 ### Added
-- **`TabRenderer.tsx` Direct Navigation Aliases** Ã¢â‚¬â€ Registered `credit-billing` and `credit-sale` tab routes directly rendering `BillingWorkspace` with `initialView="CREDIT_BILLING"`.
+- **`TabRenderer.tsx` Direct Navigation Aliases** â€” Registered `credit-billing` and `credit-sale` tab routes directly rendering `BillingWorkspace` with `initialView="CREDIT_BILLING"`.
 
 ### Fixed & Hardened
-- **`apiFetchV1.ts` Universal Path Sanitization** Ã¢â‚¬â€ Added pre-flight URL path cleansing (`.replace(/\/:(?=[a-zA-Z0-9_-]+)/g, "/")`) to strip accidental Express-style parameter colon prefixes from client endpoints, eliminating `400 Bad Request` gateway/backend rejections.
-- **`BillingTerm.tsx` Document Inspection** Ã¢â‚¬â€ Hardened `handleSelectDocumentFromBrowser` to clean IDs, discriminate Customer POs (`po_number && !order_no`) from Sales Orders, route to `/sales/customer-pos/${id}`, and parse lines from both `items` and `lines` (supporting `unit_price`, `quantity_ordered`, etc.).
-- **Identifier Sanitization Across Studios & Forms** Ã¢â‚¬â€ Guarded single-order lookups in `ReportDesignerTab.tsx` (`handleConvertToInvoice`, `handlePreviewSO`), `SalesStudioTab.tsx` (`handleSalesOrderLineAction`), and `SalesOrderFormPremium.tsx` (`handleRecall`) using `.replace(/^:/, "").trim()` and URL component encoding.
+- **`apiFetchV1.ts` Universal Path Sanitization** â€” Added pre-flight URL path cleansing (`.replace(/\/:(?=[a-zA-Z0-9_-]+)/g, "/")`) to strip accidental Express-style parameter colon prefixes from client endpoints, eliminating `400 Bad Request` gateway/backend rejections.
+- **`BillingTerm.tsx` Document Inspection** â€” Hardened `handleSelectDocumentFromBrowser` to clean IDs, discriminate Customer POs (`po_number && !order_no`) from Sales Orders, route to `/sales/customer-pos/${id}`, and parse lines from both `items` and `lines` (supporting `unit_price`, `quantity_ordered`, etc.).
+- **Identifier Sanitization Across Studios & Forms** â€” Guarded single-order lookups in `ReportDesignerTab.tsx` (`handleConvertToInvoice`, `handlePreviewSO`), `SalesStudioTab.tsx` (`handleSalesOrderLineAction`), and `SalesOrderFormPremium.tsx` (`handleRecall`) using `.replace(/^:/, "").trim()` and URL component encoding.
 
 ### Test Results
 ```
@@ -5293,20 +5310,20 @@ Git State: Cleanly committed and pushed to origin/smritiNX
 
 ---
 
-## [6.45.3] - 2026-09-26 Ã¢â‚¬â€ Security: Complete Sub-Views & Operations Implementation
+## [6.45.3] - 2026-09-26 â€” Security: Complete Sub-Views & Operations Implementation
 
 > **Branch:** `smritiNX` | **Area:** Security & Access Management
 
 ### Added
-- **`RolesGroupsView.tsx`** (178 lines) Ã¢â‚¬â€ Dedicated Roles & Groups management view wired to `GET /api/v1/roles/`. Displays role matrices, system badges (`SYSADMIN`, `ADMIN`) vs custom badges, and collapsible granular permissions lists.
-- **`LockedUsersView.tsx`** (172 lines) Ã¢â‚¬â€ Locked operator accounts dashboard wired to `GET /api/v1/users/?status=Inactive`. Displays operator credentials, role assignment, and last login timestamps with a one-click unlock flow and confirmation dialogs.
-- **`AuditLogView.tsx`** (179 lines) Ã¢â‚¬â€ Activity / Audit Log viewer querying `/api/v1/security/audit-log` with color-coded badges for INSERT, UPDATE, DELETE, and LOGIN events, CSV export, and graceful structured fallback messaging.
-- **`MyProfileView.tsx`** (221 lines) Ã¢â‚¬â€ Operator profile management decoding JWT credentials for authenticated user identity, displaying branch codes, full names, and contact details with toggleable edit mode.
-- **`ChangePasswordView.tsx`** (215 lines) Ã¢â‚¬â€ Operator password change interface featuring a 5-point password strength evaluation meter, real-time policy rules validation, and password visibility toggles.
-- **`MenuShortcutsView.tsx`** (193 lines) Ã¢â‚¬â€ Quick-access navigation shortcuts manager with a catalog of standard ERP studios, allowing operators to add, remove, and persist preferences in `localStorage["smriti_menu_shortcuts"]`.
+- **`RolesGroupsView.tsx`** (178 lines) â€” Dedicated Roles & Groups management view wired to `GET /api/v1/roles/`. Displays role matrices, system badges (`SYSADMIN`, `ADMIN`) vs custom badges, and collapsible granular permissions lists.
+- **`LockedUsersView.tsx`** (172 lines) â€” Locked operator accounts dashboard wired to `GET /api/v1/users/?status=Inactive`. Displays operator credentials, role assignment, and last login timestamps with a one-click unlock flow and confirmation dialogs.
+- **`AuditLogView.tsx`** (179 lines) â€” Activity / Audit Log viewer querying `/api/v1/security/audit-log` with color-coded badges for INSERT, UPDATE, DELETE, and LOGIN events, CSV export, and graceful structured fallback messaging.
+- **`MyProfileView.tsx`** (221 lines) â€” Operator profile management decoding JWT credentials for authenticated user identity, displaying branch codes, full names, and contact details with toggleable edit mode.
+- **`ChangePasswordView.tsx`** (215 lines) â€” Operator password change interface featuring a 5-point password strength evaluation meter, real-time policy rules validation, and password visibility toggles.
+- **`MenuShortcutsView.tsx`** (193 lines) â€” Quick-access navigation shortcuts manager with a catalog of standard ERP studios, allowing operators to add, remove, and persist preferences in `localStorage["smriti_menu_shortcuts"]`.
 
 ### Changed
-- **`SecurityAccessShell.tsx`** Ã¢â‚¬â€ Wired all 6 new presentation components into the internal routing switch, completely replacing placeholder stubs for all active sections.
+- **`SecurityAccessShell.tsx`** â€” Wired all 6 new presentation components into the internal routing switch, completely replacing placeholder stubs for all active sections.
 
 ### Test Results
 ```
@@ -5317,23 +5334,23 @@ Production Build: vite build (Exit 0, 32.80s)
 
 ---
 
-## [6.45.2] - 2026-09-26 Ã¢â‚¬â€ Security: Security & Access UX Refactor (Visual Upgrade)
+## [6.45.2] - 2026-09-26 â€” Security: Security & Access UX Refactor (Visual Upgrade)
 
 > **Commit:** `2b4d109d` | **Branch:** `smritiNX` | **Area:** Security & Access Management
 
 ### Added
-- **`SecurityAccessShell.tsx`** (353 lines) Ã¢â‚¬â€ New full-page shell replacing the legacy modal-in-tab anti-pattern. Dark navy grouped left sidebar (Security & Access / Security Operations / My Account / Utilities) matching the architect reference screenshots. Collapsible sidebar, primary tab bar, ARIA nav landmarks, toast notification bus.
-- **`UsersView.tsx`** Ã¢â‚¬â€ Enterprise User Listing wired to `GET /api/v1/users/` with live search, role/status filters, pagination. Table: User ID | Description | Group/Role badge | Active/Inactive dot | Last Login | 3-dot action menu. Toolbar: New User, Edit, Delete, Unlock, Export CSV. Confirmation dialogs for destructive actions. Skeleton loading and empty state.
-- **`DataAccessView.tsx`** Ã¢â‚¬â€ Data Access Control with toggle rows for the 3 existing rules (Hide Cost Price in Reports, Restrict Products/Brands in Reports, Restrict Dashboard Reports). Toggle syncs from `/security/config` on mount; persists via `persistSecurityConfiguration`. WCAG `role="switch"` toggles, save/discard bar, Reset to Default with `confirm()` guard.
+- **`SecurityAccessShell.tsx`** (353 lines) â€” New full-page shell replacing the legacy modal-in-tab anti-pattern. Dark navy grouped left sidebar (Security & Access / Security Operations / My Account / Utilities) matching the architect reference screenshots. Collapsible sidebar, primary tab bar, ARIA nav landmarks, toast notification bus.
+- **`UsersView.tsx`** â€” Enterprise User Listing wired to `GET /api/v1/users/` with live search, role/status filters, pagination. Table: User ID | Description | Group/Role badge | Active/Inactive dot | Last Login | 3-dot action menu. Toolbar: New User, Edit, Delete, Unlock, Export CSV. Confirmation dialogs for destructive actions. Skeleton loading and empty state.
+- **`DataAccessView.tsx`** â€” Data Access Control with toggle rows for the 3 existing rules (Hide Cost Price in Reports, Restrict Products/Brands in Reports, Restrict Dashboard Reports). Toggle syncs from `/security/config` on mount; persists via `persistSecurityConfiguration`. WCAG `role="switch"` toggles, save/discard bar, Reset to Default with `confirm()` guard.
 
 ### Changed
-- **`TabRenderer.tsx`** Ã¢â‚¬â€ `security-management` / `menu-access-control` / `security-configuration` tab cases now render `SecurityAccessShell` instead of the `SecManageDlg` modal wrapper.
+- **`TabRenderer.tsx`** â€” `security-management` / `menu-access-control` / `security-configuration` tab cases now render `SecurityAccessShell` instead of the `SecManageDlg` modal wrapper.
 
 ### Unchanged (explicitly verified)
-- `securityStore.ts` Ã¢â‚¬â€ all state, API calls, permission logic intact.
-- `MenuAccessView.tsx` Ã¢â‚¬â€ all logic, API wiring, menu tree, save/reset.
-- `SecConfigView.tsx` Ã¢â‚¬â€ all password/housekeeping config logic.
-- `types.ts` Ã¢â‚¬â€ all data models.
+- `securityStore.ts` â€” all state, API calls, permission logic intact.
+- `MenuAccessView.tsx` â€” all logic, API wiring, menu tree, save/reset.
+- `SecConfigView.tsx` â€” all password/housekeeping config logic.
+- `types.ts` â€” all data models.
 - Backend APIs: `/security/menu-access`, `/security/config`, `/users/`, `/roles/`.
 
 ### Test Results
@@ -5348,14 +5365,14 @@ Total: 18/18 passed
 
 ---
 
-## [6.45.1] - 2026-09-26 Ã¢â‚¬â€ Login: Premium Login Screen v6.45.1 (Visual Upgrade)
+## [6.45.1] - 2026-09-26 â€” Login: Premium Login Screen v6.45.1 (Visual Upgrade)
 
 > **Commit:** `54ead7c9` | **Branch:** `smritiNX` | **Area:** Authentication / Login UX
 
 ### Changed
-- **`LoginScreen.tsx`** Ã¢â‚¬â€ Visual-layer refactor to match the architect reference screenshot. **Authentication logic (handleSubmit, localStorage token storage, persistTenantContext, onLoginSuccess callback) is 100% unchanged.**
+- **`LoginScreen.tsx`** â€” Visual-layer refactor to match the architect reference screenshot. **Authentication logic (handleSubmit, localStorage token storage, persistTenantContext, onLoginSuccess callback) is 100% unchanged.**
   - **Left column (lg+)**: 7th pillar added (Settings & Configuration); `>` chevron indicator; `xl` font scaling for 1440p/4K; Caveat handwritten tagline.
-  - **Right column (xl+)**: Replaced architecture blurbs with reference screenshot layout Ã¢â‚¬â€ `RIGHT_CALLOUTS` (Fast / Real-Time / Secure / Cloud Ready / Multi-Device) with blue icon tiles + `RIGHT_MODULE_LABELS` vertical label stack (RETAIL / POS / INVENTORY / DISTRIBUTION / WAREHOUSE / REPORTS).
+  - **Right column (xl+)**: Replaced architecture blurbs with reference screenshot layout â€” `RIGHT_CALLOUTS` (Fast / Real-Time / Secure / Cloud Ready / Multi-Device) with blue icon tiles + `RIGHT_MODULE_LABELS` vertical label stack (RETAIL / POS / INVENTORY / DISTRIBUTION / WAREHOUSE / REPORTS).
   - **Login card**: Gradient top accent stripe; WCAG 2.1 `aria-*` on all inputs/buttons; `aria-label` on show/hide password toggle; `<h1>` for screen readers; `aria-live="assertive"` error banner; `min-h-[44px]` touch targets on all interactive elements.
   - **Quick Persona buttons**: Added Shield / Users / CreditCard icons per reference screenshot; `aria-pressed` state.
   - **Bottom footer**: Expanded from 5 to 8 capability badges matching reference (Multi-Store, Centralized Control, Role Based Access, Business Analytics, Modular & Scalable, API & Integration Ready, Backup & Data Safety, Web|Mobile|POS Access); horizontally scrollable on mobile; PEOPLE|PRODUCTS|PROCESS|PROFIT on left side.
@@ -5364,71 +5381,71 @@ Total: 18/18 passed
   - **Forgot password modal**: `role="dialog"`, `aria-modal="true"`, `aria-labelledby`.
 
 ### TypeScript Verification
-- `npx tsc --noEmit --skipLibCheck` Ã¢â‚¬â€ **Exit 0** (task-847 and task-864).
+- `npx tsc --noEmit --skipLibCheck` â€” **Exit 0** (task-847 and task-864).
 
 ---
 
-## [6.45.0] - 2026-09-26 Ã¢â‚¬â€ Barcode: Print Labels Studio (New Feature)
+## [6.45.0] - 2026-09-26 â€” Barcode: Print Labels Studio (New Feature)
 
 > **Commit:** `8731ad8a` | **Branch:** `smritiNX` | **Area:** Barcode / Label Printing
 
 ### Added
-- **`PrintLabelsStudio.tsx`** (637 lines) Ã¢â‚¬â€ New dedicated 3-step wizard UX for barcode label printing, surfaced as the default **"Print Labels Studio"** tab in `BarcodeStudioTab`. Matches the architect reference screenshot exactly.
-  - **Step 1 Ã¢â‚¬â€œ Choose Source**: Source selector tile row Ã¢â‚¬â€ Items (Manual), Item Master, Purchase, GRN, Sales, Stock Transfer, More.
-  - **Step 2 Ã¢â‚¬â€œ Find Items**: Live search bar wired to `/api/v1/products`; Quick Filter dropdowns (Brand / Style / Shade / Size) auto-populated from search results; expandable Advanced Filters panel (Item Code From/To, Product, Category, Brand, Style, Shade, Size, Barcode From/To, Warehouse, Supplier); item table with checkboxes, inline Print Qty editing, page-by-page row selection, Auto Qty and Clear All actions; pagination.
-  - **Step 3 Ã¢â‚¬â€œ Print Setup**: Label Template dropdown (5 templates: Retail 50Ãƒâ€”25mm, Thermal 40Ãƒâ€”20mm, Jewellery 38Ãƒâ€”19mm, Hang Tag 50Ãƒâ€”80mm, A4 Sheet 24-up); Labels Per Item stepper (Ã‚Â±1 or manual); Printer selector with real-time Ready/Offline badge from `/api/v1/barcode/printer-settings`; Test Print button wired to `POST /api/v1/barcode/test-print`.
+- **`PrintLabelsStudio.tsx`** (637 lines) â€” New dedicated 3-step wizard UX for barcode label printing, surfaced as the default **"Print Labels Studio"** tab in `BarcodeStudioTab`. Matches the architect reference screenshot exactly.
+  - **Step 1 â€“ Choose Source**: Source selector tile row â€” Items (Manual), Item Master, Purchase, GRN, Sales, Stock Transfer, More.
+  - **Step 2 â€“ Find Items**: Live search bar wired to `/api/v1/products`; Quick Filter dropdowns (Brand / Style / Shade / Size) auto-populated from search results; expandable Advanced Filters panel (Item Code From/To, Product, Category, Brand, Style, Shade, Size, Barcode From/To, Warehouse, Supplier); item table with checkboxes, inline Print Qty editing, page-by-page row selection, Auto Qty and Clear All actions; pagination.
+  - **Step 3 â€“ Print Setup**: Label Template dropdown (5 templates: Retail 50Ã—25mm, Thermal 40Ã—20mm, Jewellery 38Ã—19mm, Hang Tag 50Ã—80mm, A4 Sheet 24-up); Labels Per Item stepper (Â±1 or manual); Printer selector with real-time Ready/Offline badge from `/api/v1/barcode/printer-settings`; Test Print button wired to `POST /api/v1/barcode/test-print`.
   - **Right Sidebar**: Live label preview card with SVG barcode strip, product name, size, MRP; Print Summary (items selected, total labels, template, labels/item, printer + status); **Print N Labels** button wired to `POST /api/v1/barcode/print` with ZPL payload; Preview Labels button.
 - **`BarcodeStudioTab.tsx`**: `print-studio` added as new primary default sub-tab; `LayoutDashboard` icon; existing Visual Label Designer / Batch Tag & Barcode Printing / PRN/ZPL Script Compiler tabs preserved as secondary. Back-navigation in Visual Designer and ZPL Compiler updated to return to Print Labels Studio.
 
 ### TypeScript Verification
-- `npx tsc --noEmit --skipLibCheck` Ã¢â‚¬â€ **Exit 0** (task-775). Unused-import cleanup applied and re-verified (task-788).
+- `npx tsc --noEmit --skipLibCheck` â€” **Exit 0** (task-775). Unused-import cleanup applied and re-verified (task-788).
 
 ---
 
-## [6.44.5] - 2026-09-26 Ã¢â‚¬â€ Billing: Credit Billing Terminal (New Feature)
+## [6.44.5] - 2026-09-26 â€” Billing: Credit Billing Terminal (New Feature)
 
 > **Branch:** `smritiNX` | **Area:** Billing / B2B Credit Sales
 
 ### Added
-- **`SmritiCreditBillingTerminal.tsx`** (592 lines) Ã¢â‚¬â€ Dedicated B2B/distributor credit-sale invoicing terminal, accessible from the Billing Workspace navigation header as `CREDIT_BILLING` auxiliary view.
+- **`SmritiCreditBillingTerminal.tsx`** (592 lines) â€” Dedicated B2B/distributor credit-sale invoicing terminal, accessible from the Billing Workspace navigation header as `CREDIT_BILLING` auxiliary view.
   - Customer typeahead search wired to `/api/v1/crm/customers?search=`.
   - Barcode scan wired to `/api/v1/item-barcodes?barcode=` with `productId`-level deduplication (re-scans increment qty).
   - Inline Qty and Disc% editing with live total recomputation (amount, disc amount, tax amount, net amount).
-  - Credit limit advisory sidebar Ã¢â‚¬â€ shows Credit Limit / Total Outstanding / Current Invoice / Available Credit. Warns when credit limit will be exceeded (advisory only; hard enforcement by backend).
+  - Credit limit advisory sidebar â€” shows Credit Limit / Total Outstanding / Current Invoice / Available Credit. Warns when credit limit will be exceeded (advisory only; hard enforcement by backend).
   - Real `POST /api/v1/sales/invoices` on Submit (F6) with `payment_mode: 'CREDIT'` mapped to full `SalesInvoiceCreate` + `SalesInvoiceItemCreate` schema fields via camelCase AliasChoices.
-  - Draft mode (F4) Ã¢â‚¬â€ button present; future sprint will persist to backend with `status: 'Draft'`.
-  - F-key shortcuts: F4 Save Draft Ã‚Â· F6 Submit Ã‚Â· F7 Switch to Credit mode Ã‚Â· F8 Switch to Hold mode.
-  - Draft / Submitted explainer banners (per SMRITI HREP policy Ã¢â‚¬â€ no technical language exposed).
+  - Draft mode (F4) â€” button present; future sprint will persist to backend with `status: 'Draft'`.
+  - F-key shortcuts: F4 Save Draft Â· F6 Submit Â· F7 Switch to Credit mode Â· F8 Switch to Hold mode.
+  - Draft / Submitted explainer banners (per SMRITI HREP policy â€” no technical language exposed).
   - Right sidebar tabs: Customer Details (customer info), Credit Info (live), Delivery (stubbed), Other (stubbed).
   - Status bar with terminal ID, session user, clock, hotkey legend.
-- **`BillingWorkspace.tsx`** Ã¢â‚¬â€ `CREDIT_BILLING` added to `BillingAuxiliaryView` type; `SmritiCreditBillingTerminal` import; `CreditCard` icon; **Credit Billing** button in Billing Workspace header (purple accent, `bg-[#7c3aed]`); routed in workspace body switch.
+- **`BillingWorkspace.tsx`** â€” `CREDIT_BILLING` added to `BillingAuxiliaryView` type; `SmritiCreditBillingTerminal` import; `CreditCard` icon; **Credit Billing** button in Billing Workspace header (purple accent, `bg-[#7c3aed]`); routed in workspace body switch.
 
 ### TypeScript Verification
-- `npx tsc --noEmit --skipLibCheck` Ã¢â‚¬â€ **Exit 0** (3 sequential checks: task-656, task-671, task-706).
+- `npx tsc --noEmit --skipLibCheck` â€” **Exit 0** (3 sequential checks: task-656, task-671, task-706).
 
 ---
 
-## [6.44.4] - 2026-09-26 Ã¢â‚¬â€ POS: Shift-Close Frontend/Backend Schema Alignment (Critical Data Integrity Fix)
+## [6.44.4] - 2026-09-26 â€” POS: Shift-Close Frontend/Backend Schema Alignment (Critical Data Integrity Fix)
 
-> **Commit:** `f36f7c8b` | **Branch:** `smritiNX` | **Severity:** CRITICAL Ã¢â‚¬â€ Cash Reconciliation Silent Data Loss
+> **Commit:** `f36f7c8b` | **Branch:** `smritiNX` | **Severity:** CRITICAL â€” Cash Reconciliation Silent Data Loss
 
 ### Fixed
 - **POS Shift-Close Silent Data Loss (`ProPosShiftCloseDl.tsx`):** Every shift-close submission was sending wrong field names (`actual_cash`, `notes`, `denominations.coins`) that did not match the authoritative `ShiftClose` Pydantic schema (`closing_balance`, `closing_notes`, `denominations.coins_total`). Pydantic `extra='ignore'` silently dropped all mismatched fields, causing HTTP 400 rejections or false cash shortage variances on every shift close. This affected end-of-day cash reconciliation and the financial audit ledger (`pos_shift_denomination_counts`).
 - **Coin denomination persistence (`backend/app/services/pos.py`):** `denom_multiplier_map` in `POSService.close_shift` was missing the `coins_total` key, silently discarding coin amounts sent by the corrected frontend.
-- **Spurious API fields removed:** `actual_card` and `actual_upi` were sent in the `ShiftClose` payload but are not `ShiftClose` schema fields Ã¢â‚¬â€ both removed from the wire payload.
+- **Spurious API fields removed:** `actual_card` and `actual_upi` were sent in the `ShiftClose` payload but are not `ShiftClose` schema fields â€” both removed from the wire payload.
 - **API response mapping corrected:** Frontend now reads `res.closing_balance`, `res.variance`, `res.closed_at`, `res.identity_code` from the backend `ShiftResponse` shape.
 
 ### Added
-- **Regression test `backend/tests/test_shift_close_frontend_schema_regression.py`:** Covers full reconciliation scenario (Ã¢â€šÂ¹5,000 in notes + Ã¢â€šÂ¹50 in coins = Ã¢â€šÂ¹5,050 closing balance, zero variance, coin audit row in `pos_shift_denomination_counts`) and denomination-free fallback path.
+- **Regression test `backend/tests/test_shift_close_frontend_schema_regression.py`:** Covers full reconciliation scenario (â‚¹5,000 in notes + â‚¹50 in coins = â‚¹5,050 closing balance, zero variance, coin audit row in `pos_shift_denomination_counts`) and denomination-free fallback path.
 
 ### Test Results
 - `pytest test_shift_close_frontend_schema_regression.py`: **2/2 PASSED** (4.86s)
 - `vitest run`: **153 test files / 1057 tests PASSED** (21.63s)
-- Baseline comparison on clean HEAD: identical pre-existing failures in `t_pos_shift_gl.py` Ã¢â‚¬â€ zero new failures introduced
+- Baseline comparison on clean HEAD: identical pre-existing failures in `t_pos_shift_gl.py` â€” zero new failures introduced
 
 ---
 
-### [6.38.0] - 2026-09-25 Ã¢â‚¬â€ Inventory: Product Identity & Identifier Architecture Refactor
+### [6.38.0] - 2026-09-25 â€” Inventory: Product Identity & Identifier Architecture Refactor
 
 > **Version Specification:** `6.38.0` executes the enterprise-wide Product Identity & Identifier Architecture Refactor, enforcing strict separation across canonical database identity (`products.id`, `item_variants.id`), business SKU identity (`item_code`, `variant_sku`), barcode scanning identity (`item_barcodes`), tenant identity (`company_id`), and external partner identifiers (`customer_article_mappings`, partner SKUs in PSV).
 
@@ -5440,7 +5457,7 @@ Total: 18/18 passed
 - **Data Remediation & Preflight Safety:** Conducted forensic preflight checks verifying 0 active duplicate item codes across the tenant database and soft-deleted unreferenced test duplicate code `itm_8e5e3af6d51a`.
 - **Automated Verification:** Added `backend/tests/test_product_identity_refactor.py` (7/7 tests passed in 12.15s) and verified regression safety via `backend/tests/t_univ_item.py` (10/10 tests passed in 13.39s).
 
-### [1.10.0] - 2026-09-25 Ã¢â‚¬â€ Database: Phase 1 Schema Remediation Wave 6 (Child Table Tenant Model Finalization)
+### [1.10.0] - 2026-09-25 â€” Database: Phase 1 Schema Remediation Wave 6 (Child Table Tenant Model Finalization)
 
 > **Version Specification:** `1.10.0` concludes the Phase 1 Database Schema Remediation Plan by formalizing the Child Table Tenant Isolation Governance Policy (ADR-DB-006), verifying 100% parent referential integrity, and proving that parent-join inheritance delivers 0.306 ms query execution with zero parent/child tenant drift risk.
 
@@ -5450,7 +5467,7 @@ Total: 18/18 passed
 - **Architectural Policy Formalization (ADR-DB-006):** Adopted canonical Parent-Join Inheritance for child line items, preventing physical column duplication, eliminating parent/child tenant mismatch vulnerabilities, and avoiding table lock/backfill penalties across 33,800+ existing records.
 - **Row-Level Security (RLS) Feasibility Certification:** Benchmarked parent-join RLS subquery execution on PostgreSQL 15, confirming sub-millisecond execution (0.306 ms) with zero table scans.
 
-### [1.9.0] - 2026-09-25 Ã¢â‚¬â€ Database: Phase 1 Schema Remediation Wave 5 (PSV Tables Tenant & FK Hardening)
+### [1.9.0] - 2026-09-25 â€” Database: Phase 1 Schema Remediation Wave 5 (PSV Tables Tenant & FK Hardening)
 
 > **Version Specification:** `1.9.0` executes Wave 5 of the Phase 1 Database Schema Remediation Plan, resolving Category C tenant isolation and referential integrity findings on `psv_stock_balances` and `psv_stock_events` via Alembic migration `v1493_psv_tenant_and_fk_hardening_wave5`.
 
@@ -5461,7 +5478,7 @@ Total: 18/18 passed
 - **Index Optimization:** Established 6 high-selectivity B-tree indexes across `(company_id)`, `(product_id)`, and `(company_id, psv_party_id, sku)` on both PSV tables.
 - **ORM Model Synchronization:** Aligned `PSVStockBalance` and `PSVStockEvent` SQLAlchemy models in `backend/app/models/psv.py` with foreign keys, indexes, and unique constraints.
 
-### [1.8.0] - 2026-09-25 Ã¢â‚¬â€ Database: Phase 1 Schema Remediation Wave 4 (Stock Source-of-Truth Consolidation)
+### [1.8.0] - 2026-09-25 â€” Database: Phase 1 Schema Remediation Wave 4 (Stock Source-of-Truth Consolidation)
 
 > **Version Specification:** `1.8.0` executes Wave 4 of the Phase 1 Database Schema Remediation Plan, consolidating disparate inventory writers into canonical `StockSynchronizer`, designating `product_batch_stocks` as authoritative ledger for batch items and `stock_movements` for standard items, and establishing automated drift detection and cache reconciliation.
 
@@ -5472,7 +5489,7 @@ Total: 18/18 passed
 - **Movement Invariant Alignment:** Unified `INFLOW_MOVEMENT_TYPES` and `OUTFLOW_MOVEMENT_TYPES` across services, ensuring that sales returns, inward purchases, GRNs, transfers, and adjustments are consistently classified.
 - **Automated Verification:** Verified 6/6 automated test battery scenarios (batch sync, movement sync, silent drift detection, automated repair, boundary integration, transactional rollback) and 7/7 unit tests passing with zero errors.
 
-### [1.7.0] - 2026-09-25 Ã¢â‚¬â€ Database: Phase 1 Schema Remediation Wave 3 (Promotions Tenant Column Unification)
+### [1.7.0] - 2026-09-25 â€” Database: Phase 1 Schema Remediation Wave 3 (Promotions Tenant Column Unification)
 
 > **Version Specification:** `1.7.0` executes Wave 3 of the Phase 1 Database Schema Remediation Plan, migrating all 18 `smriti_promo%` tables from the legacy discriminator `tenant_id` to the canonical platform standard `company_id VARCHAR(50)`, deploying 20 lookup indexes, and establishing 6 company-scoped compound unique constraints via Alembic migration `v1492_promotions_company_id_unification_wave3`.
 
@@ -5483,17 +5500,17 @@ Total: 18/18 passed
 - **SQLAlchemy ORM Model Alignment:** Updated `SmritiPromotion` and `SmritiPromotionVersion` models in `backend/app/models/promotions.py` with compound unique constraints and composite indexes.
 - **DML & Catalog Verification:** Verified 18/18 columns present in `information_schema.columns`, 6/6 unique constraints active, duplicate promotion code rejection with SQLSTATE 23505, and clean ruff lint run.
 
-### [1.6.0] - 2026-09-25 Ã¢â‚¬â€ Database: Phase 1 Schema Remediation Wave 2 (Additive CHECK & Compound Unique Constraints)
+### [1.6.0] - 2026-09-25 â€” Database: Phase 1 Schema Remediation Wave 2 (Additive CHECK & Compound Unique Constraints)
 
 > **Version Specification:** `1.6.0` executes Wave 2 of the Phase 1 Database Schema Remediation Plan, deploying 9 database-level CHECK constraints across transactional tables and establishing compound unique constraints on `sales_invoices (company_id, invoice_no)` via Alembic migration `v1491_additive_check_constraints_wave2`.
 
 #### Database: Phase 1 Schema Remediation Wave 2 (Additive CHECK & Compound Unique Constraints)
-- **Zero-Downtime NOT VALID Invariant Deployment:** Added 9 CHECK constraints across 5 tables (`sales_invoice_items`, `purchase_order_items`, `stock_movements`, `general_ledger_entries`, `journal_vouchers`) enforcing non-negative prices, positive line quantities, valid GST bounds (0Ã¢â‚¬â€œ100%), non-zero stock movement quantities, non-negative GL debit/credit entries, and balanced double-entry vouchers (`total_debit = total_credit`).
+- **Zero-Downtime NOT VALID Invariant Deployment:** Added 9 CHECK constraints across 5 tables (`sales_invoice_items`, `purchase_order_items`, `stock_movements`, `general_ledger_entries`, `journal_vouchers`) enforcing non-negative prices, positive line quantities, valid GST bounds (0â€“100%), non-zero stock movement quantities, non-negative GL debit/credit entries, and balanced double-entry vouchers (`total_debit = total_credit`).
 - **Multi-Tenant Invoice Isolation:** Added compound unique constraint `uq_sales_invoices_company_invoice_no` on `sales_invoices (company_id, invoice_no)` to enable multi-tenant independent series numbering.
 - **SQLAlchemy ORM Model Alignment:** Added `UniqueConstraint("company_id", "invoice_no", name="uq_sales_invoices_company_invoice_no")` to `SalesInvoice` in `backend/app/models/sales.py`.
 - **DML & Catalog Verification:** Verified 9/9 CHECK constraints validated in `pg_constraint` (`convalidated = true`), compound unique constraint active in `information_schema.table_constraints`, and negative DML rejection tests passing with SQLSTATE 23514 and 23505.
 
-### [1.5.0] - 2026-09-25 Ã¢â‚¬â€ Database: Phase 1 Schema Remediation Wave 1 (FK CASCADE to RESTRICT)
+### [1.5.0] - 2026-09-25 â€” Database: Phase 1 Schema Remediation Wave 1 (FK CASCADE to RESTRICT)
 
 > **Version Specification:** `1.5.0` executes Wave 1 of the Phase 1 Database Schema Remediation Plan, transitioning 6 critical foreign key constraints from `ON DELETE CASCADE` to `ON DELETE RESTRICT` via Alembic migration `v1490_fk_cascade_to_restrict_wave1` and eliminating ORM cascade deletion from `JournalVoucher.entries`.
 
@@ -5505,26 +5522,26 @@ Total: 18/18 passed
 - **SQLAlchemy ORM Model Alignment:** Removed `cascade="all, delete-orphan"` from `JournalVoucher.entries` in `backend/app/models/accounting.py`.
 - **Parity & DML Negative Testing:** Verified 6/6 RESTRICT constraints in PostgreSQL catalog, 0 lingering CASCADE on target pairs, verified transactional negative DML deletion rejection with error `23503 foreign_key_violation`.
 
-### [1.4.0] - 2026-09-25 Ã¢â‚¬â€ Sales: Final Sales Hardening Audit & Universal Transaction Integrity Certification
+### [1.4.0] - 2026-09-25 â€” Sales: Final Sales Hardening Audit & Universal Transaction Integrity Certification
 
 > **Version Specification:** `1.4.0` certifies the execution of the 8-gate resilience audit across Sales Order idempotency, Sales Invoice outward movement integrity, Delivery Dispatch challan collision guards, Sales Return policy restock controls, PostgreSQL append-only immutability triggers, transaction atomicity rollback, multi-tenant isolation, and container restart persistence.
 
 #### Sales: Final Sales Hardening Audit & Universal Transaction Integrity Certification
-- **Sales Order Transaction Integrity & Idempotency Gate (`scripts/final_sales_hardening_audit.py`):** Verified normal creation (HTTP 201), duplicate rejection (HTTP 409), 10Ãƒâ€” simultaneous concurrency burst (1 Ãƒâ€” 201, 9 Ãƒâ€” 409, 1 DB row), idempotent replay returning cached document, payload divergence detection (`SMRITI-IDEMP-001` with HTTP 409), and database single-row invariance.
-- **Sales Invoice & Stock Outward Integrity Gate:** Verified settled invoice creation (HTTP 201), exact physical stock decrement (-2 units), single authoritative `OUTWARD_SALE` movement ledger row, duplicate invoice blocking (HTTP 409), 10Ãƒâ€” concurrency attack resilience (1 Ãƒâ€” 201, 9 Ãƒâ€” 409, exact -3 stock delta, 0 phantom rows), and single ledger movement invariance.
-- **Delivery / Dispatch & E-Way Bill Guard Gate:** Validated primary distribution order creation, delivery dispatch execution with single `OUTWARD_SALE` movement, duplicate dispatch rejection (HTTP 409 Conflict), 10Ãƒâ€” dispatch concurrency attack with 0 phantom movements, and statutory E-Way bill generation with collision guards.
-- **Sales Return Policy & Restock Gate:** Validated normal return within policy, exact physical stock restock (+2 units), single authoritative `RETURN_INWARD` movement, policy guard blocking returns exceeding remaining unreturned quantities (HTTP 422), sequential duplicate return blocking (HTTP 409), 10Ãƒâ€” simultaneous return concurrency burst (1 Ãƒâ€” 201, 9 Ãƒâ€” 409), and exact +3 stock restoration with zero phantom records.
+- **Sales Order Transaction Integrity & Idempotency Gate (`scripts/final_sales_hardening_audit.py`):** Verified normal creation (HTTP 201), duplicate rejection (HTTP 409), 10Ã— simultaneous concurrency burst (1 Ã— 201, 9 Ã— 409, 1 DB row), idempotent replay returning cached document, payload divergence detection (`SMRITI-IDEMP-001` with HTTP 409), and database single-row invariance.
+- **Sales Invoice & Stock Outward Integrity Gate:** Verified settled invoice creation (HTTP 201), exact physical stock decrement (-2 units), single authoritative `OUTWARD_SALE` movement ledger row, duplicate invoice blocking (HTTP 409), 10Ã— concurrency attack resilience (1 Ã— 201, 9 Ã— 409, exact -3 stock delta, 0 phantom rows), and single ledger movement invariance.
+- **Delivery / Dispatch & E-Way Bill Guard Gate:** Validated primary distribution order creation, delivery dispatch execution with single `OUTWARD_SALE` movement, duplicate dispatch rejection (HTTP 409 Conflict), 10Ã— dispatch concurrency attack with 0 phantom movements, and statutory E-Way bill generation with collision guards.
+- **Sales Return Policy & Restock Gate:** Validated normal return within policy, exact physical stock restock (+2 units), single authoritative `RETURN_INWARD` movement, policy guard blocking returns exceeding remaining unreturned quantities (HTTP 422), sequential duplicate return blocking (HTTP 409), 10Ã— simultaneous return concurrency burst (1 Ã— 201, 9 Ã— 409), and exact +3 stock restoration with zero phantom records.
 - **Database Stock Movement Immutability Trigger Gate:** Enforced append-only immutability directly inside PostgreSQL via trigger `trg_stock_movement_immutable` invoking `prevent_stock_movement_mutation()`; proven rejection of direct SQL `DELETE` (`SMRITI-LEDGER-001`) and direct SQL `UPDATE` on quantities/lineage (`SMRITI-LEDGER-002`) with SQLSTATE P0001.
 - **Transaction Atomicity & Zero-Partial-Movement Rollback Gate:** Forced mid-transaction failure injection using invalid item attributes, proving clean transaction abort, zero partial sales invoice rows, and zero phantom stock movement rows in PostgreSQL.
 - **Multi-Tenant Data Isolation Guard Gate:** Verified foreign tenant credentials (`COMP-004` on isolated database `smriti004`) and unauthorized tenants (`COMP-002`) cannot read or access transactional documents across tenant boundaries (HTTP 404 Not Found / 403 Forbidden).
 - **Container Restart & Recovery Persistence Gate:** Full hardware container reboot of both `smriti-db` and `smriti-api`, verifying that sales orders, invoices, outward movements, and PostgreSQL database immutability triggers remain fully persistent and actively enforced post-restart.
 
-### [1.3.0] - 2026-09-25 Ã¢â‚¬â€ Procurement: Final GRN Hardening Audit & Universal Movement Integrity Certification
+### [1.3.0] - 2026-09-25 â€” Procurement: Final GRN Hardening Audit & Universal Movement Integrity Certification
 
 > **Version Specification:** `1.3.0` certifies the execution of the 7-gate resilience audit across concurrency, attachments lifecycle, rollback safety, database constraints, and container restart persistence.
 
 #### Procurement: Final GRN Hardening Audit & Integrity Certification
-- **10Ãƒâ€” Simultaneous Concurrency Attack Gate (`scripts/final_grn_hardening_audit.py`):** Verified 10 concurrent PO requests (1 Ãƒâ€” 201, 9 Ãƒâ€” 409, 1 DB row) and 10 concurrent GRN requests (1 Ãƒâ€” 201, 9 Ãƒâ€” 409, 1 DB row, exact +10.00 stock delta, 1 stock movement). Intercepted identity alias collision in `IdentityEngine.register_alias` to return deterministic HTTP 409 Conflict.
+- **10Ã— Simultaneous Concurrency Attack Gate (`scripts/final_grn_hardening_audit.py`):** Verified 10 concurrent PO requests (1 Ã— 201, 9 Ã— 409, 1 DB row) and 10 concurrent GRN requests (1 Ã— 201, 9 Ã— 409, 1 DB row, exact +10.00 stock delta, 1 stock movement). Intercepted identity alias collision in `IdentityEngine.register_alias` to return deterministic HTTP 409 Conflict.
 - **Attachments Multi-Stage Lifecycle Gate:** Validated zero attachments, single attachment, multi-attachment (3 files), and statutory Debit Note attachment with 100% persistence and reload fidelity across database queries.
 - **HTTP 500 Serialization Regression Gate:** Verified `GET /api/v1/purchase/receipts/` serializes 80 receipts with zero `MissingGreenlet` exceptions via async `selectinload`.
 - **Transaction Rollback Invariant:** Verified that deliberate failure prior to commit results in 0 partial receipts, 0 partial movements, and invariant stock.
@@ -5532,7 +5549,7 @@ Total: 18/18 passed
 - **Container Restart & Durability:** Proved that stopping and restarting `smriti-db` and `smriti-api` containers preserves all GRN records, stock balances, movements, and attachments.
 - **Relational Barcode Normalization Review:** Resolved `Item` barcode via explicit relational lookup in `item_barcodes` table (`ItemBarcode`) and accessed statutory `db_item.hsn_code` directly, eliminating defensive `getattr`.
 
-### [1.2.0] - 2026-09-25 Ã¢â‚¬â€ Procurement: Headless End-to-End Validation of PO Creation to Warehouse Stock Inward (GRN)
+### [1.2.0] - 2026-09-25 â€” Procurement: Headless End-to-End Validation of PO Creation to Warehouse Stock Inward (GRN)
 
 > **Version Specification:** `1.2.0` certifies the autonomous headless verification of the complete procurement-to-inventory lifecycle executed without a physical browser window, backed by 9 high-resolution visual evidence artifacts and PostgreSQL `smriti001` database parity.
 
@@ -5552,7 +5569,7 @@ Total: 18/18 passed
   - `purchase_orders.status` transitioned from `CONFIRMED` to `RECEIVED`.
   - `purchase_receipts` and `purchase_receipt_items` created with exact financial and line item fidelity.
 
-### [1.1.0] - 2026-09-25 Ã¢â‚¬â€ Procurement: Purchase Order Item Barcode Remediation, Deep Contract Audit & Sizewise Payload Alignment
+### [1.1.0] - 2026-09-25 â€” Procurement: Purchase Order Item Barcode Remediation, Deep Contract Audit & Sizewise Payload Alignment
 
 > **Version Specification:** `1.1.0` denotes the forensic verification and targeted code remediation resolving purchase order creation crashes when line items match existing catalog items in the Universal Item Master.
 
@@ -5561,7 +5578,7 @@ Total: 18/18 passed
 - **Sizewise Tab Line Items Payload Alignment (`src/components/purchase/PoSizewiseTab.tsx`):** Added standard `code`, `name`, `cost_price`, `gst_rate` to line items payload mapping in addition to `product_ref`, `product_name`, `rate`, and `tax_percent` to ensure clean parsing by `PurchaseOrderItemCreate` normalizer.
 - **Runtime Verification:** Verified live `POST /api/v1/purchase/orders/` returns `201 Created` with catalog items; verified `vitest run src/tests/poLifecycle.test.ts` (3/3 passed); verified `pytest backend/app/tests/test_purchase.py -k test_create_purchase_order` (1/1 passed).
 
-### [1.0.0] - 2026-09-25 Ã¢â‚¬â€ Procurement: Universal Browse Engine, Master Article Lookup & Purchase Orders Multi-Tenant Gateway Fix
+### [1.0.0] - 2026-09-25 â€” Procurement: Universal Browse Engine, Master Article Lookup & Purchase Orders Multi-Tenant Gateway Fix
 
 > **Version Specification:** `1.0.0` denotes the platform API and multi-tenant routing fix resolving HTTP 404/400 errors during operator F2 universal browse and purchase studio initialization.
 
@@ -5574,7 +5591,7 @@ Total: 18/18 passed
 - **Multi-Tenant Context & Purchase Orders Query Support (`backend/app/api/deps.py`, `backend/app/db/session.py`, `backend/app/api/v1/purchase.py`):** Fixed HTTP 400 Bad Request on `/api/v1/purchase/orders/` by safely falling back to `COMP-001` (`smriti001`) when tenant headers are missing/undefined, and added query parameters (`page`, `page_size`, `sort`, `order`) to `list_purchase_orders_contract`.
 - **Verification & Governance:** 153/153 Vitest test files green (1057/1057 tests passed), `tsc --noEmit` exit 0, and all 22 lookup endpoints verified live returning HTTP 200 OK.
 
-### [1.0.0] - 2026-09-25 Ã¢â‚¬â€ Procurement Milestone: Purchase Order Sizewise Matrix UX (`PoSizewiseTab`) & Dual-Mode Studio Integration
+### [1.0.0] - 2026-09-25 â€” Procurement Milestone: Purchase Order Sizewise Matrix UX (`PoSizewiseTab`) & Dual-Mode Studio Integration
 
 > **Version Specification:** `1.0.0` denotes the dedicated Sizewise Matrix Purchase Order entry UX replicating modern operator reference terminal ergonomics for multi-size apparel and retail procurement.
 
@@ -5582,16 +5599,16 @@ Total: 18/18 passed
 - **Dedicated Horizontal Size-Matrix Workspace (`PoSizewiseTab.tsx`):** Standalone purchase order generation component featuring customizable size columns (S, M, L, XL, XXL) with inline per-row quantity entry, row totals, rates, stock on hand, tax percentages, line net values, expected delivery dates, and view/delete actions.
 - **Top PO Header & Metadata:** Document Title ("Purchase Order"), Document Number sequence ("PO6 - 27/12/2017"), Status Badge (`Draft`), and Action Buttons (`+ New`, `Open`, `Save`, `Print`, `...`), with form inputs for Type, Prefix, Number, Date, Supplier selector with instant search modal (`PurchBrowseDlg`), Delivery Date, and Lead Time in days.
 - **Three-Subtab Content Architecture:** Clean separation into `1. Items` (active matrix workspace), `2. Delivery & Tax` (delivery warehouse, tax %, freight, and other charges), and `3. Other Details` (payment terms, currency, buyer, department, supplier reference, instructions).
-- **Matrix Toolbar:** Scan/F2 search with automatic product resolution, `+ Add Item`, CSV `Import from Excel`, `Copy Previous PO Ã¢Ë†Â¨` with historical duplication, `Delete Row`, `Price List` selector (Default Purchase Price, Last Purchase Price, Standard Cost, Weighted Average), and `Item Finder Ã°Å¸â€Â`.
+- **Matrix Toolbar:** Scan/F2 search with automatic product resolution, `+ Add Item`, CSV `Import from Excel`, `Copy Previous PO âˆ¨` with historical duplication, `Delete Row`, `Price List` selector (Default Purchase Price, Last Purchase Price, Standard Cost, Weighted Average), and `Item Finder ðŸ”`.
 - **Tri-Panel Bottom Summary:**
   1. *Size-wise Summary (All Items):* Per-size aggregated quantities and real-time percentage distribution table across the entire order with `Attach Documents (0)` trigger.
-  2. *Item Summary:* Total Items, Total Order Qty, Gross Value (Ã¢â€šÂ¹), Total Tax (Ã¢â€šÂ¹), and prominently highlighted Net PO Value (Ã¢â€šÂ¹).
+  2. *Item Summary:* Total Items, Total Order Qty, Gross Value (â‚¹), Total Tax (â‚¹), and prominently highlighted Net PO Value (â‚¹).
   3. *Remarks & Internal Notes:* Supplier-facing Remarks textarea and internal confidential notes textarea.
 - **Dual-Mode Studio Integration (`PurchaseStudioTab.tsx`):** Added header pill mode switcher between `Sizewise Matrix UX` and `Standard Grid UX` with local storage preference persistence (`smriti_po_ux_mode`).
 - **Statutory Precision & Local Date Arithmetic:** Preserved exact float currency calculations without truncation, and eliminated timezone offsets in `addDaysToDate` by using local calendar components.
 - **Verification & Governance:** 13/13 Vitest unit tests passed (`src/tests/poSizewiseUX.test.ts` & `src/tests/poGenerateUX.test.ts`), 46/46 full purchase regression tests green, 0 TypeScript compiler errors (`tsc --noEmit`), 11/11 architecture gate checks passed with preflight certificate `PF-2026-0924-EE3EAF`, and 0 critical field governance violations.
 
-### [1.0.0] - 2026-09-24 Ã¢â‚¬â€ Procurement Milestone: Goods Receipt Desktop Terminal (GRN Studio) 11 Inward Enhancements & Consignment Attachment Lifecycle
+### [1.0.0] - 2026-09-24 â€” Procurement Milestone: Goods Receipt Desktop Terminal (GRN Studio) 11 Inward Enhancements & Consignment Attachment Lifecycle
 
 > **Version Specification:** `1.0.0` denotes the major inward procurement terminal enhancement delivering sound-unit landed cost capitalization, debit note chargeback automation, and consignment document management.
 
@@ -5603,7 +5620,7 @@ Total: 18/18 passed
 - **Ergonomic Workspace Layout:** Added dynamic view mode toggle (`[SIMPLE]` 12 columns vs `[ADVANCED]` 20 columns), 6 numbered workflow tabs, 4-tier bottom financial summary (`Accepted Value`, `Damage Value`, `Allocated Landed Cost`, `Capitalized Inventory Value`), and master `GRN RECONCILIATION & CAPITALIZATION CONTROL` card.
 - **Verification & Governance:** 16/16 frontend unit tests green (`src/tests/grnDesktopTerminal.test.ts`), 66/66 full GRN vitest suite green, 6/6 backend attachment integration tests green (`backend/app/tests/test_grn_attachments_lifecycle.py`), 0 TypeScript errors (`tsc --noEmit`), and 0 critical field governance violations.
 
-### [3.16.0] - 2026-09-24 Ã¢â‚¬â€ Foundation Milestone: Fresh PC Installation Database Bootstrap & Release-Hardening Roadmap Completion
+### [3.16.0] - 2026-09-24 â€” Foundation Milestone: Fresh PC Installation Database Bootstrap & Release-Hardening Roadmap Completion
 
 > **Version Specification:** `3.16.0` denotes the core database provisioning, multi-tenant lifecycle reliability, and release-hardening milestone.
 
@@ -5616,7 +5633,7 @@ Total: 18/18 passed
 - **Upgrade Lineage & Non-Destructive Update Suite (`backend/tools/test_upgrade_lineage.py`):** Non-destructive update verification executing canonical bootstrap engine against live databases, verifying zero schema drift, 100% data preservation of pre-existing masters and invoices, multi-tenant authenticated operational APIs, and service health probe (`scripts/health.ps1`). 6/6 checks green.
 - **Authoritative Release Gate Matrix:** 22/22 release gate items passed with literal terminal outputs per `.agents/AGENTS.md`. All modified files compiled clean with 0 syntax errors.
 
-### [1.0.0] - 2026-09-24 Ã¢â‚¬â€ Foundation & BI Milestone: Universal Reporting Engine (SURE) & Multi-Format Exporter Architecture
+### [1.0.0] - 2026-09-24 â€” Foundation & BI Milestone: Universal Reporting Engine (SURE) & Multi-Format Exporter Architecture
 
 > **Version Specification:** `1.0.0` denotes the major business intelligence milestone delivering schema-driven universal reporting with native multi-format exporters.
 
@@ -5627,7 +5644,7 @@ Total: 18/18 passed
 - **Statutory E-Invoice & E-Way Bill Gateway Certification (`test_sgip_einvoice_ewaybill.py`):** 9/9 statutory compliance tests green covering GSTN v1.03 payload schema validation, deterministic 64-character SHA-256 IRN hashing, and exponential backoff retry queues.
 - **Automated Verification:** 14/14 tests green across `test_sales_orders_full.py` and `test_sales_order_reports.py`, 9/9 SGIP statutory tests green in `test_sgip_einvoice_ewaybill.py`, and 0 TypeScript compiler errors.
 
-### [1.0.0] - 2026-09-24 Ã¢â‚¬â€ Sales & Logistics Milestone: B2B Dispatch & Tax Invoicing Studio
+### [1.0.0] - 2026-09-24 â€” Sales & Logistics Milestone: B2B Dispatch & Tax Invoicing Studio
 
 > **Version Specification:** `1.0.0` denotes the major sales dispatch milestone providing automated Excel-to-Invoice statutory pipelines.
 
@@ -5640,7 +5657,7 @@ Total: 18/18 passed
 - **SMRITI React Studio:** Dedicated UI tab (`DispatchInvoicingStudioTab.tsx`) mounted in the Sales & Logistics navigation rail.
 - **Automated Verification:** 6/6 pytest tests green in `backend/app/tests/test_dispatch_invoicing_engine.py` and 0 TypeScript compiler errors.
 
-### [1.1.0] - 2026-09-25 Ã¢â‚¬â€ Procurement Milestone: Purchase Order Sizewise Matrix UX & Footwear Validation
+### [1.1.0] - 2026-09-25 â€” Procurement Milestone: Purchase Order Sizewise Matrix UX & Footwear Validation
 
 > **Version Specification:** `1.1.0` delivers the high-density horizontal Sizewise Matrix Purchase Order entry interface (`PoSizewiseTab.tsx`) with Footwear domain validation, statutory GST tiering, and size scale presets.
 
@@ -5648,12 +5665,12 @@ Total: 18/18 passed
 - **Horizontal Size Matrix Grid:** Integrated matrix grid with dynamic size columns supporting Apparel (`S`, `M`, `L`, `XL`, `XXL`), Footwear EU (`36` to `44`), and Footwear UK (`6` to `11`) with keyboard tab traversal and real-time row totals.
 - **Dynamic Size Scale Presets (`SIZE_SCALE_PRESETS`):** Added interactive toolbar dropdown enabling instant switching between `Apparel (S - XXL)`, `Footwear EU (36 - 44)`, and `Footwear UK (6 - 11)` scales.
 - **Automated Footwear Domain Detection:** Auto-detects footwear catalog items (`Campus Running Shoes`, `Sneakers Pro`, `Casual Slip-On`, `Leather Formal Shoes`), assigns standard `"Pair"` unit, switches scale to Footwear EU, and computes statutory GST rates.
-- **Statutory Indian GST Footwear Tiers (`getFootwearGstRate`):** Automatically enforces 5% GST for rates `<= Ã¢â€šÂ¹2,500` and 18% GST for rates `> Ã¢â€šÂ¹2,500` with mixed-tier PO aggregation parity.
+- **Statutory Indian GST Footwear Tiers (`getFootwearGstRate`):** Automatically enforces 5% GST for rates `<= â‚¹2,500` and 18% GST for rates `> â‚¹2,500` with mixed-tier PO aggregation parity.
 - **Tri-Section Analytic Summaries:** Size-wise breakdown with per-size total pairs and exact percentage share (`(qty / grandTotal) * 100`), Item Summary with gross value, total tax, and highlighted Net PO Value, and multi-tenant remarks/confidential internal notes.
 - **Studio Dual-Mode Toggle:** Header switcher pill in `PurchaseStudioTab.tsx` with `localStorage` persistence (`smriti_po_ux_mode`) for switching between Sizewise Matrix UX and Standard Grid UX.
 - **Automated Verification:** 13/13 unit tests passed in `src/tests/poSizewiseUX.test.ts`, 19/19 combined PO tests passed, 52/52 purchase regression tests passed, and 0 TypeScript compiler errors.
 
-### [1.0.0] - 2026-09-24 Ã¢â‚¬â€ Procurement Milestone: Purchase Order Modern UX Refactor
+### [1.0.0] - 2026-09-24 â€” Procurement Milestone: Purchase Order Modern UX Refactor
 
 > **Version Specification:** `1.0.0` denotes the major procurement operator ergonomics milestone delivering high-throughput retail purchase indent workflows.
 
@@ -5664,7 +5681,7 @@ Total: 18/18 passed
 - **Tri-Section Bottom Financial Summary:** Added distinct notes card, item quantity breakdown (Total Items, Total Qty, Free Qty), and comprehensive Order Amount Summary with item discounts, freight, charges, and exact tax tiers.
 - **Automated Verification:** 6/6 unit tests green in `src/tests/poGenerateUX.test.ts`, 12/12 overall PO test suite green, and 0 TypeScript compiler errors.
 
-### [3.33.6] - 2026-09-24 Ã¢â‚¬â€ Procurement Milestone: GRN Inward Engine Immutability & PO Lifecycle Governance
+### [3.33.6] - 2026-09-24 â€” Procurement Milestone: GRN Inward Engine Immutability & PO Lifecycle Governance
 
 > **Version Specification:** `3.33.6` denotes the procurement and inward landed cost governance milestone achieving 100% parity with Tally Shoper 9 (`GIR` / `PO` Governance).
 
@@ -5674,7 +5691,7 @@ Total: 18/18 passed
 - **Inward PO Filter & Workspace Reset Hygiene:** Filtered open PO browsing in `src/components/purchase/GrnReceiptTab.tsx` to exclude `RECEIVED`, `COMPLETED`, `CANCELLED`, and `DRAFT` orders; implemented fail-safe post-commit workspace reset (`handleClearLines`) purging in-memory line state, carrier details, landed cost components, attachments, and E-Way Bill details while advancing the dynamic sequence counter; unconditionally navigates to read-only history view upon dismiss.
 - **Automated Verification:** 6/6 unit tests green in `src/tests/grnImmutability.test.ts`, 58/58 GRN procurement suite green across 8 test suites, 0 TypeScript compiler errors (`tsc --noEmit`), and 11/11 architecture gate checks passed.
 
-### [6.44.2] - 2026-09-23 Ã¢â‚¬â€ Product Milestone: Release v4.0.0
+### [6.44.2] - 2026-09-23 â€” Product Milestone: Release v4.0.0
 
 > **Version Specification:** `6.44.2` represents the SMRITI platform monorepo semantic version tracking this change set. `v4.0.0` denotes the major product release milestone achieving zero baseline UX exceptions.
 
@@ -5687,7 +5704,7 @@ Total: 18/18 passed
 - **Zero-Drift Registry Synchronization:** Regenerated frontend SSOT `src/services/canonicalFieldRegistry.ts` (133 fields, deterministic SHA-256 fingerprint `4f7d88370a5d4be43c7a913cf3211364e34f873003484623f2cf4f4d982858cd`).
 - **Automated Verification:** 10/10 Vitest tests green (`src/tests/canonicalFieldRegistry.test.ts`), 0 TypeScript compiler errors (`npx tsc --noEmit`), and 11/11 CI governance guard checks passed with 0 critical violations (`python scripts/ci_ux_field_governance_guard.py`).
 
-### [6.44.1] - 2026-09-23 Ã¢â‚¬â€ Governance Milestone: CFOC v3.46.0
+### [6.44.1] - 2026-09-23 â€” Governance Milestone: CFOC v3.46.0
 
 > **Version Specification:** `6.44.1` represents the SMRITI platform monorepo semantic version tracking this change set. `CFOC v3.46.0` denotes the governance architecture milestone specification.
 
@@ -5755,7 +5772,7 @@ Total: 18/18 passed
 - **Strict Database Foreign Key & Master Validation:** Enhanced `handleSubmitGRN` in `GrnReceiptTab.tsx` to require a valid supplier from the database and active received lines, eliminating arbitrary dummy fallback strings.
 - **Multi-Identifier Master Product Lookup:** Enhanced `_get_product` in `backend/app/services/purchase.py` to seamlessly resolve product items by `Product.id`, `Product.code`, `Product.sku`, or `Product.barcode`, ensuring 100% reliable inwarding from barcode scanners, CSV files, and inventory master data.
 - **End-to-End Live PostgreSQL Audit:** Validated full transaction cycle with `scripts/verify_grn_real_database_wiring.py` against live PostgreSQL tenant database (`smriti001`), verifying atomic creation of rows across `purchase_receipts`, `purchase_receipt_items`, `inward_cost_components`, and `stock_movements` (with landed cost unit valuation) via FastAPI (`POST /api/v1/purchase/receipts/`).
-- **Verification & Governance:** Vitest unit tests passed (9/9), architecture duplication gate passed (11/11), Vite production build passed (`Ã¢Å“â€œ built in 20.27s`).
+- **Verification & Governance:** Vitest unit tests passed (9/9), architecture duplication gate passed (11/11), Vite production build passed (`âœ“ built in 20.27s`).
 
 ### [6.43.3] - 2026-09-20
 
@@ -5773,7 +5790,7 @@ Total: 18/18 passed
 
 #### Procurement Supplier SLA Scorecard Live Database Wiring & PO Print De-Hardcoding
 - **Live Database Vendor Compliance:** Refactored `SupplierScorecardModal.tsx` to asynchronously load vendors from `GET /api/v1/purchase/suppliers/` and confirmed purchase orders from `GET /api/v1/purchase/orders/`, calculating real-time on-time delivery %, fill rate %, quality rejections, and composite scores across active database records.
-- **In-Context PO Studio SLA Integration:** Mounted an interactive "Ã¢Ëœâ€¦ SLA Scorecard" trigger button directly beside the Supplier dropdown in `PoGenerateTab.tsx`, allowing procurement managers to evaluate supplier compliance before releasing orders.
+- **In-Context PO Studio SLA Integration:** Mounted an interactive "â˜… SLA Scorecard" trigger button directly beside the Supplier dropdown in `PoGenerateTab.tsx`, allowing procurement managers to evaluate supplier compliance before releasing orders.
 - **PO Print Preview De-Hardcoding:** Replaced static mock company names (`TATTLY FOOTWEAR & LEATHER APPAREL PVT LTD`), vendor fallbacks, and dummy article mock items in `POPrintPreviewModal.tsx` with dynamic properties from `header` and `vendor`.
 - **Verification:** 4/4 Vitest unit tests green, 2/2 Pytest backend tests green, 0 TypeScript errors, 11/11 architecture gate checks passed.
 
@@ -5781,7 +5798,7 @@ Total: 18/18 passed
 
 #### Procurement GRN Studio UI Hardcoded Elimination, Direct Inward & Statutory A4 Slip
 - **Zero-Default Initial State:** Refactored `GrnReceiptTab.tsx` to start cleanly with empty arrays and blank strings (`grnLines: []`, `costItems: []`, blank invoice, blank transporter), eradicating the legacy default mock state (`ABC Footwear Pvt. Ltd.`, `GRN-2026-00452`).
-- **Goods Inward Receiving Hub (Empty State Launchpad):** Designed database-backed launchpad displaying Open Purchase Orders awaiting inward from `GET /api/v1/purchase/orders/` with 1-click inwarding (`Inward PO Ã¢â€ â€™`), plus optional on-demand "Load Footwear Demo (4 SKUs)" test button.
+- **Goods Inward Receiving Hub (Empty State Launchpad):** Designed database-backed launchpad displaying Open Purchase Orders awaiting inward from `GET /api/v1/purchase/orders/` with 1-click inwarding (`Inward PO â†’`), plus optional on-demand "Load Footwear Demo (4 SKUs)" test button.
 - **Master Catalog Product Picker Modal:** Built `AddProductToGrnModal.tsx` allowing ad-hoc / direct goods receiving without an upstream PO, querying `/inventory/` with live search, cost price, GST rate, and MRP.
 - **Statutory A4 GRN & Landed Cost Audit Slip Modal:** Built `GrnPrintModal.tsx` rendering high-fidelity A4 statutory documents with company header, carrier details (transporter, LR, vehicle, weight, cartons), itemized grid (ordered, received, damaged, accepted, billed rate, allocated freight, landed cost), Ind-AS 2 cost components, and 3-tier signature blocks.
 - **Enhanced Post-GRN Celebration Flow:** Added "Print Statutory A4 Slip" action button directly in `GrnPostedSuccessModal.tsx`.
@@ -5810,15 +5827,15 @@ Total: 18/18 passed
 #### Procurement Goods Receipt Note (GRN) Studio Decoupling & Headless Verification Cycle
 - **GRN Studio Decoupling:** Decoupled Goods Receipt Note (GRN) / Material Inward workflow from `PoGenerateTab.tsx` into an autonomous, top-level studio workspace (`GrnStudioTab.tsx`) with lifecycle controls (`onClose`, `onNavigateTab`, `initialOrderId`).
 - **Navigation & Catalog Integration:** Registered `grn-studio` under `layout_store.tsx` (Inventory & Sourcing), `TabRenderer.tsx` (lazy import & aliases: `grn`, `grn-studio`, `goods-receipt`, `material-inward`), `launchpadCatalog.ts` ("Goods Receipt (GRN) Studio" tile under Retail Operations), and `BreadcrumbRegistry.ts`.
-- **Purchase Order Streamlining:** Removed nested GRN subtab from `PoGenerateTab.tsx` and introduced direct handoff action button `Goods Receipt Studio Ã¢â€ â€™` with post-save routing.
-- **Headless PO-to-GRN Verification Engine:** Built `scripts/execute_headless_po_to_grn_cycle.py` executing 100% headless Playwright verification from PO creation (`PO/2026-27/0999`, 118 PRS, Ã¢â€šÂ¹1,65,690.00) to GRN inwarding (`GRN/2026-27/0999`, 114 PRS received, 3 damaged, 4 shortage, Ã¢â€šÂ¹1,59,390.00 received value, Ã¢â€šÂ¹6,300.00 debit claim).
+- **Purchase Order Streamlining:** Removed nested GRN subtab from `PoGenerateTab.tsx` and introduced direct handoff action button `Goods Receipt Studio â†’` with post-save routing.
+- **Headless PO-to-GRN Verification Engine:** Built `scripts/execute_headless_po_to_grn_cycle.py` executing 100% headless Playwright verification from PO creation (`PO/2026-27/0999`, 118 PRS, â‚¹1,65,690.00) to GRN inwarding (`GRN/2026-27/0999`, 114 PRS received, 3 damaged, 4 shortage, â‚¹1,59,390.00 received value, â‚¹6,300.00 debit claim).
 - **Statutory A4 Document Pipeline:** Automated generation of statutory A4 reconciliation PDF (`PO_GRN_Complete_Cycle_0999.pdf`, 1.00 MB, 4 pages) with dual manager/vendor signature stamps, statutory GST summary, background watermark, UPI QR code, and itemized damage/shortage discrepancy ledger.
 - **Visual Telemetry:** Captured 4 verified high-resolution screenshots without opening interactive desktop browser windows (`01_purchase_order_approved.png`, `02_grn_inward_audit_matrix.png`, `03_exported_pdf_statutory_preview.png`, `04_complete_cycle_reconciliation_summary.png`).
 - **Verification:** TypeScript clean (`tsc --noEmit` 0 errors), Launchpad catalog validation 100% passed, Registry validation passed (69 components), Vitest suite 141/141 passed (958/958 tests green); commit `64a72d49`.
 
 ### [6.42.2] - 2026-09-19
 
-#### PO Vendor Product Control Phase 7B-R Ã¢â‚¬â€ Runtime Acceptance & Automated Headless Verification
+#### PO Vendor Product Control Phase 7B-R â€” Runtime Acceptance & Automated Headless Verification
 - **Automated Headless Telemetry:** Captured 10 verified visual screenshots of end-to-end browser workflows in headless mode (1440x900 viewport) without opening interactive desktop browser windows.
 - **F2 Catalog Browser Reactive Policy Badging:** Real-time visual evaluation of catalog items (`ALLOWED`, `CROSS-VENDOR`, `BLOCKED`) dynamically computed via `/purchase/evaluate-products`.
 - **Policy Enforcement on Line Addition:** Seamless addition of `ALLOW` products; automatic modal interception via `POApprovalReasonDialog` for `CROSS_VENDOR` products requiring 1 of 10 business justification reasons; strict line addition blocking via `POProductExplainModal` for `BLOCKED` products.
@@ -5829,19 +5846,19 @@ Total: 18/18 passed
 
 ### [6.42.1] - 2026-09-19
 
-#### SMRITI Unified Identity Phase 1 Ã¢â‚¬â€ Service Wiring, Migration Hardening & Phase 1 Verification Suite
+#### SMRITI Unified Identity Phase 1 â€” Service Wiring, Migration Hardening & Phase 1 Verification Suite
 - **`item_master_svc.py` Identity Wiring:** Replaced both ad-hoc `f"itm_{uuid.uuid4().hex[:12]}"` technical ID generators in `UniversalItemMasterService.create_item()` (schema path and direct-parameter path) with `IdentityEngine.allocate_internal()`, setting `Item.id` (UUIDv7) and `Item.identity_code` (`MST-ITM-{seq:08d}`).
 - **`crm.py` Identity Wiring:** Replaced `IdentityEngine.generate_technical_id()` in `CrmService.create_customer()` with `IdentityEngine.allocate_internal()`, setting both `id` (UUIDv7) and `identity_code` (`CRM-CUS-{seq:08d}`) on new and identity-code-absent customers.
 - **Migration v1471 Hardening:** Added `sa.inspect(bind).get_table_names()` guard; if `system_parameters` is absent in an ephemeral test database, creates the full table including `canonical_code` column; if present, adds column and index idempotently.
-- **Migration v1472 Hardening:** Added early-return if `system_parameters` table absent Ã¢â‚¬â€ prevents backfill failure on ephemeral test databases.
-- **`workflow.py` Circular Import Resolution:** Resolved a Python circular import chain (`identity/__init__ Ã¢â€ â€™ code_generator Ã¢â€ â€™ models/__init__ Ã¢â€ â€™ workflow Ã¢â€ â€™ engine Ã¢â€ â€™ code_generator`) by reverting `WorkflowEvent.id` default to direct `uuid7` import. SQLAlchemy `Column(default=callable)` is synchronous and cannot invoke async `IdentityEngine`.
-- **Architecture Gate Rule 9 Extension:** Extended `check_identity_generation_governance()` exclusion list to include `backend/app/models/` Ã¢â‚¬â€ ORM models are a synchronous layer that cannot call async `IdentityEngine`; direct `uuid7` is correct and permitted for technical PK defaults only.
+- **Migration v1472 Hardening:** Added early-return if `system_parameters` table absent â€” prevents backfill failure on ephemeral test databases.
+- **`workflow.py` Circular Import Resolution:** Resolved a Python circular import chain (`identity/__init__ â†’ code_generator â†’ models/__init__ â†’ workflow â†’ engine â†’ code_generator`) by reverting `WorkflowEvent.id` default to direct `uuid7` import. SQLAlchemy `Column(default=callable)` is synchronous and cannot invoke async `IdentityEngine`.
+- **Architecture Gate Rule 9 Extension:** Extended `check_identity_generation_governance()` exclusion list to include `backend/app/models/` â€” ORM models are a synchronous layer that cannot call async `IdentityEngine`; direct `uuid7` is correct and permitted for technical PK defaults only.
 - **Phase 1 Verification Suite:** Created `backend/tests/test_identity_engine_phase1.py` with 5 tests: (1) UUIDv7 technical ID and MST-ITM format via `allocate_internal`; (2) sequential consecutive code guarantee; (3) existing items backfilled with MST-ITM codes; (4) 100-worker concurrent allocation with 0 collisions and sequences 1..100 consecutive; (5) registry seed completeness (21 active entity types including ITEM=MST-ITM, CUSTOMER=CRM-CUS, POS_SHIFT=POS-SFT).
 - **Verification:** 5/5 pytest green in 6.16s; Identity Governance Scan 893 files 0 violations; Architecture Gate 11/11 passed 0 violations; Breadcrumb Guard 594 files 0 violations; commits `308f9aa5`, `6ddc97e0`, `5c907bea`.
 
 ### [6.40.2] - 2026-09-18
 
-#### SMRITI Breadcrumb Engine v1.0 Ã¢â‚¬â€ Architecture & Controlled Policy Migration
+#### SMRITI Breadcrumb Engine v1.0 â€” Architecture & Controlled Policy Migration
 - **Canonical Breadcrumb Engine Subsystem:** Created `src/navigation/breadcrumb/` containing `BreadcrumbTypes.ts`, `BreadcrumbRegistry.ts`, `BreadcrumbResolver.ts`, `BreadcrumbContext.tsx`, `breadcrumbUtils.ts`, `Breadcrumb.tsx`, `BreadcrumbItem.tsx`, `BreadcrumbCompat.tsx`, and `index.ts`.
 - **Global Header Modernization:** Replaced legacy unlinked 2-segment label (`storeName / activeModuleTitle`) in `GlobalHeader.tsx` with canonical `<Breadcrumb onNavigate={onSelectModule} />`.
 - **Shell State Injection:** Wrapped `AppShell.tsx` with `<BreadcrumbProvider>` to supply deterministic hierarchical navigation context across the enterprise shell.
@@ -5851,7 +5868,7 @@ Total: 18/18 passed
 
 ### [6.40.1] - 2026-09-18
 
-#### SMRITI Go-Live Remediation Phase 3 Ã¢â‚¬â€ Identity Governance Remediation & Release Certification
+#### SMRITI Go-Live Remediation Phase 3 â€” Identity Governance Remediation & Release Certification
 - **Universal Identity Engine Elevation:** Eliminated all ad-hoc persistent ID generation functions (`_uid()`) and random UUID manufacturing (`uuid.uuid4()`) across all backend transactional creation paths (`PurchaseService`, `SalesService`, `sales.py`, `sales_ledger_svc.py`, `inventory_wms.py`, `univ_party_svc.py`, `crm.py`).
 - **Alembic Migration `v1470`:** Added `identity_code VARCHAR(100) UNIQUE NULL` to `purchase_receipts` table. Formally registered `PURCHASE_RECEIPT` (`PUR-GRN`), `DEBIT_NOTE` (`PUR-DN`), and `PURCHASE_BILL` (`PUR-BIL`) in `smriti_identity_registry`, and seeded sequence counters in `smriti_numbering_registry`.
 - **Sovereign & Statutory External Alias Ingestion:** Routed external identifier tracking through `IdentityEngine.register_alias()` into `smriti_identity_alias` for NIC E-Way Bill numbers (`NIC_EWAY`) and vendor tax invoice numbers (`SUPPLIER_INVOICE`) with duplicate collision safety.
@@ -5860,7 +5877,7 @@ Total: 18/18 passed
 
 ### [6.40.0] - 2026-09-18
 
-#### SMRITI Go-Live Remediation Phase 3 Ã¢â‚¬â€ End-to-End Operational Flow Verification
+#### SMRITI Go-Live Remediation Phase 3 â€” End-to-End Operational Flow Verification
 - **Blocker 3 (GRN / Material Receipt UI & Inwarding):** Created `src/components/purchase/GrnReceiptTab.tsx` with `@SmritiCapability("PURCHASE", "GRN_RECEIPT")`. Integrated PO selection, physical verification against ordered quantities, damaged and shortage detection, direct Debit Note creation trigger, and automated WMS batch stock increment via `InventoryWmsService.atomic_mutate_batch_stock(..., movement_type="INWARD_GRN")`.
 - **Blocker 4 (Supplier Purchase Bill Booking):** Implemented `POST /api/v1/purchase/bills/` and `/invoices/` in `backend/app/api/v1/purchase.py` and `PurchaseService.create_purchase_bill`. Auto-computes taxable base and GST tax breakdown from verified GRNs, updates supplier ledger, and posts transactional outbox events to `PURCHASE_BILLS`.
 - **Blocker 5 (Debit Note Modal in Procurement):** Wired `CreateDebitNoteModal` (`CreateDebitNoteDlg.tsx`) into Procurement workflows. Implemented `POST /api/v1/purchase/debit-notes/` and `PurchaseService.create_debit_note`, atomically adjusting supplier liabilities (`supplier.outstanding -= claim_amount`) and publishing `PURCHASE_DEBIT_NOTE_ISSUED` outbox events.
@@ -5871,7 +5888,7 @@ Total: 18/18 passed
 
 ### [6.39.0] - 2026-09-18
 
-#### SMRITI Unified Identity Phase 2 Ã¢â‚¬â€ Business Module Hardening & Canonical Authority Convergence
+#### SMRITI Unified Identity Phase 2 â€” Business Module Hardening & Canonical Authority Convergence
 
 - **Universal Search & CSV Billing Resolver Convergence:**
   - Integrated `IdentityResolver.resolve()` into `UniversalSearchEngine.quick_barcode_scan()` (`backend/app/services/search_engine.py`) with Tier 0 in-memory fast path and governed code hydration.
@@ -5880,7 +5897,7 @@ Total: 18/18 passed
   - Converged checkout and invoicing writes into `CanonicalSalesPostingWriter` (`backend/app/services/canonical_sales_writer.py`), allocating governed `SAL-INV-*` codes for `sales_invoices`.
   - Enforced strict RFC 9562 UUIDv7 ledger boundaries on `stock_movements` and `payment_transactions` (`identity_code_enabled=False`, zero row-locking latency).
   - Hardened `CanonicalSalesPostingWriter` with caller session control and atomic `session.rollback()` on stock mutations or validation rejections.
-  - Enforced Income Tax Act Section 269ST compliance rejecting single cash receipts >= Ã¢â€šÂ¹2,00,000.
+  - Enforced Income Tax Act Section 269ST compliance rejecting single cash receipts >= â‚¹2,00,000.
   - Modernized POS shift lifecycle fixtures (`backend/app/tests/test_pos.py`) eliminating legacy client-supplied shift IDs.
 - **Alembic Migration v1469 & Concurrency Hardening:**
   - Deployed `v1469_phase2_alias_atomic_upsert_and_hardening.py` creating unique functional index `uq_smriti_identity_alias_lower` on `smriti_identity_alias(entity_type, LOWER(alias_code), COALESCE(company_id, ''))`.
@@ -5892,17 +5909,17 @@ Total: 18/18 passed
   - Verified backend router `barcodes.py` mounted at `/api/v1/barcodes`.
   - Achieved **0 Registered Debt** and **0 P0/P1 Violations** on `scripts/architecture_duplication_gate.py`.
 
-### [6.38.0] - 2026-09-18 Ã°Å¸â€â€™ FROZEN
+### [6.38.0] - 2026-09-18 ðŸ”’ FROZEN
 
-#### SMRITI Unified Identity Phase 1.4 Ã¢â‚¬â€ Master Identity Index & Universal Cross-Domain Entity Resolver
+#### SMRITI Unified Identity Phase 1.4 â€” Master Identity Index & Universal Cross-Domain Entity Resolver
 
-> **Freeze Gate Ã¢â‚¬â€ Final Verification Record**
+> **Freeze Gate â€” Final Verification Record**
 > | Gate | Result | Mechanism |
 > |---|---|---|
-> | Phase 1.4 dedicated tests | **8/8 PASS** | `app/tests/test_phase1_4_master_resolver.py` Ã¢â‚¬â€ resolver tiers, batch, envelope, cache, search |
-> | Full identity regression | **34/34 PASS** | Frozen Phases 1.1Ã¢â‚¬â€œ1.3 suites + concurrency + tenant-isolation |
-> | Multi-DB parity | **3/3 PASS** | `scripts/verify_phase1_4_parity.py` Ã¢â‚¬â€ schema Ã‚Â· constraint Ã‚Â· index Ã‚Â· lineage on smritisys Ã‚Â· smriti001 Ã‚Â· smriti002 |
-> | Architecture duplication gate | **11/11 PASS** | `scripts/architecture_duplication_gate.py` Ã¢â‚¬â€ 0 P0/P1 violations |
+> | Phase 1.4 dedicated tests | **8/8 PASS** | `app/tests/test_phase1_4_master_resolver.py` â€” resolver tiers, batch, envelope, cache, search |
+> | Full identity regression | **34/34 PASS** | Frozen Phases 1.1â€“1.3 suites + concurrency + tenant-isolation |
+> | Multi-DB parity | **3/3 PASS** | `scripts/verify_phase1_4_parity.py` â€” schema Â· constraint Â· index Â· lineage on smritisys Â· smriti001 Â· smriti002 |
+> | Architecture duplication gate | **11/11 PASS** | `scripts/architecture_duplication_gate.py` â€” 0 P0/P1 violations |
 > | v1468 lineage | **Verified all 3 DBs** | Alembic `v1468_phase1_4_master_identity_index_and_resolver` stamped |
 > | Duplicate identity codes | **0** | `uq_smriti_identity_alias_lower` functional index enforced |
 > | Dangling FKs | **0** | Column-level FK diff passed |
@@ -5935,7 +5952,7 @@ Total: 18/18 passed
 
 ### [6.37.0] - 2026-09-18
 
-#### SMRITI Unified Identity Phase 1.3 Ã¢â‚¬â€ External & Partner Integration Identity (FROZEN)
+#### SMRITI Unified Identity Phase 1.3 â€” External & Partner Integration Identity (FROZEN)
 
 - **External Partner & Statutory Identity Integration (Alembic v1467):**
   - Added additive `identity_code VARCHAR(100) NULL` column with database-enforced UNIQUE B-tree indexes (`uq_parties_identity_code`, `uq_eway_bills_identity_code`, `indisunique=True`) to `parties` and `eway_bills` across `smritisys`, `smriti001`, and `smriti002`.
@@ -5970,7 +5987,7 @@ Total: 18/18 passed
 
 ### [6.36.0] - 2026-09-18
 
-#### SMRITI Unified Identity Phase 1.2 Ã¢â‚¬â€ Transactional Document & Ledger Identity Integration
+#### SMRITI Unified Identity Phase 1.2 â€” Transactional Document & Ledger Identity Integration
 
 - **Transactional Document Identity Integration (Alembic v1466):**
   - Added additive `identity_code VARCHAR(100) NULL` column with database-enforced UNIQUE B-tree indexes (`uq_sales_invoices_identity_code`, `uq_purchase_orders_identity_code`, `uq_shifts_identity_code`) to `sales_invoices`, `purchase_orders`, and `shifts` across `smritisys`, `smriti001`, and `smriti002`.
@@ -5997,7 +6014,7 @@ Total: 18/18 passed
 
 ### [6.35.1] - 2026-09-18
 
-#### SMRITI Unified Identity Phase 1.1 Ã¢â‚¬â€ Business Entity Identity-Code Integration & Legacy Alias Migration (FROZEN)
+#### SMRITI Unified Identity Phase 1.1 â€” Business Entity Identity-Code Integration & Legacy Alias Migration (FROZEN)
 
 - **Database-Enforced Invariant Uniqueness & Additive Schema (Alembic v1465):**
   - Added additive `identity_code VARCHAR(100) NULL` column with database-enforced UNIQUE B-tree indexes (`uq_companies_identity_code`, `uq_branches_identity_code`, `uq_items_identity_code`, `uq_customers_identity_code`, `uq_suppliers_identity_code`) to 5 core master business tables (`companies`, `branches`, `items`, `customers`, `suppliers`) across `smritisys`, `smriti001`, and `smriti002`.
@@ -6078,36 +6095,36 @@ Total: 18/18 passed
 
 ### [6.32.0] - 2026-09-17
 
-#### Numbering Duplicate Prevention Ã¢â‚¬â€ DB Constraints, Pre-Flight Validation & GST Rule 46(b) Schema Enforcement
+#### Numbering Duplicate Prevention â€” DB Constraints, Pre-Flight Validation & GST Rule 46(b) Schema Enforcement
 
-- **Phase 1 Ã¢â‚¬â€ Alembic Migration v1460 (`v1460_numbering_unique_constraints.py`):**
+- **Phase 1 â€” Alembic Migration v1460 (`v1460_numbering_unique_constraints.py`):**
   - Created idempotent `DO $$ IF NOT EXISTS` constraints on `document_series`:
-  - `idx_document_series_active_prefix_unique` Ã¢â‚¬â€ UNIQUE PARTIAL INDEX on `(company_id, branch_id, prefix, suffix, document_type, transaction_group, terminal_id) WHERE is_deleted=FALSE AND is_active=TRUE`. Only live active records are enforced; soft-deleted historical rows coexist freely.
-  - `idx_document_series_active_name_unique` Ã¢â‚¬â€ UNIQUE PARTIAL INDEX on `(company_id, branch_id, name) WHERE is_deleted=FALSE`. Prevents name collision across active series.
-  - `chk_document_series_prefix_format` Ã¢â‚¬â€ CHECK: `prefix` must be empty or match `^[A-Z0-9\-\/]{1,10}$` (GST Rule 46(b) compliance).
-  - `chk_document_series_running_length` Ã¢â‚¬â€ CHECK: `running_length BETWEEN 1 AND 10`.
-  - `chk_document_series_start_number` Ã¢â‚¬â€ CHECK: `start_number >= 1`.
+  - `idx_document_series_active_prefix_unique` â€” UNIQUE PARTIAL INDEX on `(company_id, branch_id, prefix, suffix, document_type, transaction_group, terminal_id) WHERE is_deleted=FALSE AND is_active=TRUE`. Only live active records are enforced; soft-deleted historical rows coexist freely.
+  - `idx_document_series_active_name_unique` â€” UNIQUE PARTIAL INDEX on `(company_id, branch_id, name) WHERE is_deleted=FALSE`. Prevents name collision across active series.
+  - `chk_document_series_prefix_format` â€” CHECK: `prefix` must be empty or match `^[A-Z0-9\-\/]{1,10}$` (GST Rule 46(b) compliance).
+  - `chk_document_series_running_length` â€” CHECK: `running_length BETWEEN 1 AND 10`.
+  - `chk_document_series_start_number` â€” CHECK: `start_number >= 1`.
   - `downgrade()` drops all constraints and indexes in reverse order.
-- **Phase 2 Ã¢â‚¬â€ ORM Model (`backend/app/models/numbering.py`):**
+- **Phase 2 â€” ORM Model (`backend/app/models/numbering.py`):**
   - Added `UniqueConstraint("company_id", "branch_id", "name", name="uq_document_series_name_per_company")` to `DocumentSeries.__table_args__`.
   - Added `UniqueConstraint("company_id", "branch_id", "prefix", "suffix", "document_type", "transaction_group", "terminal_id", name="uq_document_series_prefix_config")` to `DocumentSeries.__table_args__`.
   - Imported `UniqueConstraint` from `sqlalchemy`.
-- **Phase 3 Ã¢â‚¬â€ Service Layer (`backend/app/services/numbering.py`):**
+- **Phase 3 â€” Service Layer (`backend/app/services/numbering.py`):**
   - Added `from sqlalchemy.exc import IntegrityError` import.
-  - Pre-flight 1: Name uniqueness check Ã¢â€ â€™ `HTTP 409 SMRITI-NUM-001` with `field: "name"` if collision detected. Excludes self via `id != item.id` on update.
-  - Pre-flight 2: Prefix+suffix+documentType+transactionGroup+terminalId combo check (active records only) Ã¢â€ â€™ `HTTP 409 SMRITI-NUM-002` with `field: "prefix"` naming the conflicting series. Excludes self on update.
-  - `IntegrityError` safety net (SMRITI-NUM-003): Catches any constraint violation that slips past pre-flight Ã¢â€ â€™ `HTTP 409` with structured error code.
+  - Pre-flight 1: Name uniqueness check â†’ `HTTP 409 SMRITI-NUM-001` with `field: "name"` if collision detected. Excludes self via `id != item.id` on update.
+  - Pre-flight 2: Prefix+suffix+documentType+transactionGroup+terminalId combo check (active records only) â†’ `HTTP 409 SMRITI-NUM-002` with `field: "prefix"` naming the conflicting series. Excludes self on update.
+  - `IntegrityError` safety net (SMRITI-NUM-003): Catches any constraint violation that slips past pre-flight â†’ `HTTP 409` with structured error code.
   - `HTTPException` re-raised unchanged through all exception handlers.
-  - Generic `Exception` Ã¢â€ â€™ `HTTP 500` with user-friendly message (no stack trace exposed Ã¢â‚¬â€ HREP compliant).
-- **Phase 4 Ã¢â‚¬â€ Schema (`backend/app/schemas/numbering.py`, `BillPrefixBatchSaveItem`):**
+  - Generic `Exception` â†’ `HTTP 500` with user-friendly message (no stack trace exposed â€” HREP compliant).
+- **Phase 4 â€” Schema (`backend/app/schemas/numbering.py`, `BillPrefixBatchSaveItem`):**
   - `validate_name`: strip whitespace, blank-check, max 200 chars.
   - `validate_prefix`: strip + `.upper()`, then regex `^[A-Z0-9\-\/]{1,10}$` (GST Rule 46b). Empty prefix is permitted.
-  - `runningLength`: `Field(4, ge=1, le=10)` Ã¢â‚¬â€ bounded integer with default.
-  - `startNumber`: `Field(1, ge=1)` Ã¢â‚¬â€ minimum 1 enforced at schema level.
+  - `runningLength`: `Field(4, ge=1, le=10)` â€” bounded integer with default.
+  - `startNumber`: `Field(1, ge=1)` â€” minimum 1 enforced at schema level.
   - `model_config = ConfigDict(populate_by_name=True, str_strip_whitespace=True)`.
   - All `@field_validator` methods decorated with `@classmethod` (Pydantic v2 compliance).
 - **Tests (`backend/tests/test_numbering_duplicate_prevention.py`):**
-  - 5/5 PASSED Ã¢â‚¬â€ `test_duplicate_name_raises_409`, `test_duplicate_prefix_suffix_combo_raises_409`, `test_same_prefix_different_suffix_allowed`, `test_same_prefix_different_terminal_allowed`, `test_soft_deleted_duplicate_allowed`.
+  - 5/5 PASSED â€” `test_duplicate_name_raises_409`, `test_duplicate_prefix_suffix_combo_raises_409`, `test_same_prefix_different_suffix_allowed`, `test_same_prefix_different_terminal_allowed`, `test_soft_deleted_duplicate_allowed`.
   - Platform: Python 3.13.11, pytest 9.1.1, asyncio mode=AUTO.
 - **Commit:** `a68d1161`
 
@@ -6209,7 +6226,7 @@ Total: 18/18 passed
 - **Non-Blocking Free Item Flow & Decline Tracking:**
   - Implemented `UnclaimedFreeItemOffer` qualification flow with explicit decline recording (`recordPromotionDecline`) capturing the critical retail metric *"Qualified but not redeemed"*.
 - **Single Primary Basket Upsell Milestone Gauge:**
-  - Implemented context-aware single-milestone progress calculation (`getBasketUpsellMilestone`) rendering a 16-block ASCII gauge (`[Ã¢â€“Ë†Ã¢â€“Ë†Ã¢â€“Ë†Ã¢â€“Ë†Ã¢â€“Ë†Ã¢â€“Ë†Ã¢â€“Ë†Ã¢â€“Ë†Ã¢â€“Ë†Ã¢â€“Ë†Ã¢â€“Ë†Ã¢â€“Ë†Ã¢â€“Ë†Ã¢â€“Ë†Ã¢â€“â€˜Ã¢â€“â€˜] Ã¢â€šÂ¹1,650 / Ã¢â€šÂ¹2,000 Ã¢â‚¬â€ Add Ã¢â€šÂ¹350 more to get Ã¢â€šÂ¹200 OFF`).
+  - Implemented context-aware single-milestone progress calculation (`getBasketUpsellMilestone`) rendering a 16-block ASCII gauge (`[â–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–‘â–‘] â‚¹1,650 / â‚¹2,000 â€” Add â‚¹350 more to get â‚¹200 OFF`).
 - **Statutory GST Section 15 Compliance:**
   - Explicit tax treatment indicator (`tax_treatment = 'PRE_TAX_TRADE_DISCOUNT'`).
 - **Verification:**
@@ -6222,7 +6239,7 @@ Total: 18/18 passed
 #### POS Billing: Real-Time Bill-Level Sales Promotion Auto-Select Engine & Basket Value Arbitration
 
 - **Synchronous Basket Auto-Resolution (`resolveBestBillPromo`):**
-  - Evaluates active `BILL_LEVEL` promotions in real time based on cart subtotal, item count, date validity, day of week (`MON`Ã¢â‚¬â€œ`SUN`), happy hours, customer group, and `minBillValue` threshold.
+  - Evaluates active `BILL_LEVEL` promotions in real time based on cart subtotal, item count, date validity, day of week (`MON`â€“`SUN`), happy hours, customer group, and `minBillValue` threshold.
   - Supports `BILL_DISCOUNT_PERCENT`, `BILL_VALUE_SLAB` (with `maxDiscount` ceiling caps), and flat rupee markdowns (`BILL_DISCOUNT_FLAT`).
 - **Canonical "Highest Discount Wins" Basket Arbitration:**
   - Dynamic evaluation of competing basket promotional schemes, selecting the scheme awarding maximum customer net rupee savings.
@@ -6230,7 +6247,7 @@ Total: 18/18 passed
 - **POS Terminal Integration & Operator Authority:**
   - Automated real-time evaluation hooks wired into `ProPosBillingTerm.tsx` and `BillingTerm.tsx`.
   - Cashier manual override protection (`isManualBillPromoOverride`): Cashier adjustments via `F6` are preserved and protected from automated overrides.
-  - Visual scheme badge (`Ã°Å¸ÂÂ·Ã¯Â¸Â {billLevelPromo.code} [F6]`) directly rendered in Net Values summary bar with 1-click modal inspection.
+  - Visual scheme badge (`ðŸ·ï¸ {billLevelPromo.code} [F6]`) directly rendered in Net Values summary bar with 1-click modal inspection.
   - Automatic state reset upon `Alt+1` New Bill / `handleNewInvoice`.
 - **Verification & Parity:**
   - Expanded unit test suite `smritiAutoSelectPromotion.test.ts` (10/10 tests green).
@@ -6243,7 +6260,7 @@ Total: 18/18 passed
 
 - **Real-Time Promotional Auto-Resolution (`resolveBestItemPromo`):**
   - Evaluates all active item-level promotional schemes on optical barcode scan or manual SKU/Stock No entry.
-  - Multi-dimensional qualification validation: date validity range, day of week (`MON`Ã¢â‚¬â€œ`SUN`), and happy hour time windows (`HH:mm`).
+  - Multi-dimensional qualification validation: date validity range, day of week (`MON`â€“`SUN`), and happy hour time windows (`HH:mm`).
   - Strict Commercial Customer Group entitlement matching (e.g., Reliance Retail contractual markdown of 43.76% on MRP).
   - Target filtering: Category hierarchy, Brand matching, SKU/Barcode exact matching, and minimum quantity thresholds.
 - **Canonical "Highest Discount Wins" Arbitration:**
@@ -6253,7 +6270,7 @@ Total: 18/18 passed
   - Incremental duplicate barcode scanning aggregates line quantity and re-evaluates promotional eligibility in real time, unlocking "Buy 2 Get 1 Free" on the 3rd scanned piece.
 - **Operator Authority & Visual Feedback:**
   - Preserves cashier `F6` manual override (`isManualDiscOverride`), preventing unwanted resets of manual trade concessions.
-  - Visual promotion badge (`Ã°Å¸ÂÂ·Ã¯Â¸Â {item.discCode}`) in accepted items table and active promotion banner in the item inspector ribbon.
+  - Visual promotion badge (`ðŸ·ï¸ {item.discCode}`) in accepted items table and active promotion banner in the item inspector ribbon.
 - **Verification:**
   - Added dedicated Vitest test suite (`smritiAutoSelectPromotion.test.ts`, 6/6 tests green in 26ms).
   - Validated regression suite (`smritiSalesPromotionEngine.test.ts`, 15/15 tests green in 38ms).
@@ -6266,7 +6283,7 @@ Total: 18/18 passed
   - Generated 5 statutory GST Tax Invoices dated `05-09-2026` for Reliance Retail Limited from Sheet `16-09-26(2)` of `RIL_Dispatch1_16092026_Allof2nd.xlsx`.
   - Dispatched 5 stores: `TXAJ` (Palavakkam Chennai, PO 5182778205), `TW07` (Tumkur NDC, PO 5182778158), `TW97` (AS Rao Nagar Hyderabad, PO 5182778204), `TXSR` (FIF Hyderabad SU, PO 5182778206), `TXSU` (FIF Bangalore KR, PO 5182778207).
   - Unpivoted 32 data rows into 185 line items representing 249 physical footwear pairs.
-  - Financial reconciliation: Gross MRP Ã¢â€šÂ¹535,051.00, Taxable Value Ã¢â€šÂ¹300,913.28, 5% IGST Ã¢â€šÂ¹15,045.51, Grand Total Ã¢â€šÂ¹315,958.00.
+  - Financial reconciliation: Gross MRP â‚¹535,051.00, Taxable Value â‚¹300,913.28, 5% IGST â‚¹15,045.51, Grand Total â‚¹315,958.00.
   - Inserted full canonical AST records into `sales_invoices`, `sales_invoice_items`, and `eway_bills` in PostgreSQL database `smriti001`.
   - Rendered 5 statutory A4 PDF invoices via Playwright; generated individual + consolidated NIC v1.0.1118 E-Way Bill JSON payloads; generated 2-sheet client summary Excel matrix; highlighted Columns M, N, O, P in dispatch spreadsheet with green fill (`#FF92D050`).
 
@@ -6276,13 +6293,13 @@ Total: 18/18 passed
 
 **Commit:** `e8fa8c99` (branch: smritiNX)
 
-- **Backend Test Suite Ã¢â‚¬â€ `test_02` Reconciliation (t_canonical_tax.py):**
+- **Backend Test Suite â€” `test_02` Reconciliation (t_canonical_tax.py):**
   - Identified data drift: Invoice TT2026-2027/102 had 2 items (CH-19-E CREAM 42, CH-19-E TAN 42) added post v1455 tax-inclusive migration, bringing item count from 34 to 36 and pairs from 46 to 48.
-  - Updated all assertions to match verified live DB state: taxable Ã¢â€šÂ¹52,613.76, IGST Ã¢â€šÂ¹2,630.69, pre-round Ã¢â€šÂ¹55,244.45, grand total Ã¢â€šÂ¹55,244, rounding adj Ã¢Ë†â€™Ã¢â€šÂ¹0.45.
+  - Updated all assertions to match verified live DB state: taxable â‚¹52,613.76, IGST â‚¹2,630.69, pre-round â‚¹55,244.45, grand total â‚¹55,244, rounding adj âˆ’â‚¹0.45.
   - Test individually verified PASSING before commit (`1 passed in 11.01s`).
 
 - **Security Hardening (backend/app/api/deps.py):**
-  - Expanded token resolution to check raw `Authorization` header (with `Bearer ` prefix stripping), `x-auth-token`, `x-access-token` headers, and `token` cookie Ã¢â‚¬â€ covering all standard OAuth2 / API Gateway forwarding patterns.
+  - Expanded token resolution to check raw `Authorization` header (with `Bearer ` prefix stripping), `x-auth-token`, `x-access-token` headers, and `token` cookie â€” covering all standard OAuth2 / API Gateway forwarding patterns.
   - Result: Eliminates `SMRITI-AUTH-001` class errors where the framework's OAuth2 scheme strips the header before the fallback can detect it.
 
 - **Error Handler Precision (backend/app/core/error_handlers.py):**
@@ -6291,12 +6308,12 @@ Total: 18/18 passed
 
 - **API Communication Improvement (src/lib/apiFetchV1.ts):**
   - Removed localhost-specific baseURL override. Browser requests now always use relative origin URL (works correctly through Vite dev proxy and production Nginx/Caddy reverse proxy).
-  - Improved error message extraction chain: `detail Ã¢â€ â€™ error.explanation Ã¢â€ â€™ message Ã¢â€ â€™ JSON.stringify Ã¢â€ â€™ response.text()` with nested try/catch fallbacks.
+  - Improved error message extraction chain: `detail â†’ error.explanation â†’ message â†’ JSON.stringify â†’ response.text()` with nested try/catch fallbacks.
 
 - **Audit Outcome:**
-  - Frontend: **132 test files / 875 tests Ã¢â‚¬â€ 100% passing** (up from 130/861 in prior session).
+  - Frontend: **132 test files / 875 tests â€” 100% passing** (up from 130/861 in prior session).
   - TypeScript: **0 errors** (tsc --noEmit exit 0).
-  - Backend: test_02 PASSING Ã¢â‚¬â€ no regressions.
+  - Backend: test_02 PASSING â€” no regressions.
   - `PRODUCTION_READINESS_AUDIT.md` updated to v6.27.4 with literal evidence.
 
 ### [6.27.3] - 2026-09-16
@@ -6426,7 +6443,7 @@ Total: 18/18 passed
 **Architecture Decision:** [ADR-005-One-Way-Canonical-Master-To-Compatibility-Projection-Architecture.md](docs/adr/ADR-005-One-Way-Canonical-Master-To-Compatibility-Projection-Architecture.md)  
 **Dependency Matrix:** [CANONICAL_TABLE_DEPENDENCY_MATRIX_2026.md](docs/_audit/CANONICAL_TABLE_DEPENDENCY_MATRIX_2026.md)
 
-- **One-Way Canonical Master Ã¢â€ â€™ Compatibility Projection Policy:**
+- **One-Way Canonical Master â†’ Compatibility Projection Policy:**
   - Formally rejected bidirectional synchronization in favor of strictly unidirectional projections from canonical domain masters (`items`, `customer_profiles`, `vendor_profiles`) to legacy compatibility tables (`products`, `customers`, `suppliers`).
   - Prohibited retroactive mutations on historical transactions; historical invoices preserve statutory compliance independently of master data revisions.
 - **Permanent Statutory Transaction Snapshot Immutability Rule:**
@@ -6478,11 +6495,11 @@ Total: 18/18 passed
   - Processed 114 rows from sheet `Sheet1` of `RIL_Dispatch1_16092026_All.xlsx` unpivoted across 7 footwear size columns (36 to 42) into 645 line items and exactly 904 pairs across 19 stores in Assam, Tripura, Bihar, Jharkhand, West Bengal, Andhra Pradesh, Telangana, and Karnataka (`TT2026-2027/231` through `TT2026-2027/249`).
   - Dated all invoices canonically as `05-09-2026` (`2026-09-05`).
 - **Commercial & Statutory Financial Reconciliation:**
-  - Total Gross MRP: Ã¢â€šÂ¹1,953,496.00.
+  - Total Gross MRP: â‚¹1,953,496.00.
   - Wholesale Promotional Discount: 43.76% on MRP (`unit_rate = round(mrp * 0.5624, 2)`).
-  - Total Taxable Value: Ã¢â€šÂ¹1,098,648.32.
-  - Interstate IGST 5.00%: Ã¢â€šÂ¹54,932.24.
-  - Total Net Invoiced Value: Ã¢â€šÂ¹1,153,583.00.
+  - Total Taxable Value: â‚¹1,098,648.32.
+  - Interstate IGST 5.00%: â‚¹54,932.24.
+  - Total Net Invoiced Value: â‚¹1,153,583.00.
 - **Physical Logistics & Pre-Portal E-Way Separation:**
   - Logistics origin: `Tattly Threads Nagpur Depot`, PIN `440029`.
   - Stored `sales_invoices.eway_bill_no` as `NULL` and rendered E-Way Bill fields blank on physical tax invoice PDFs pending government portal upload.
@@ -6503,11 +6520,11 @@ Total: 18/18 passed
   - Processed 144 rows from sheet `'15-09-2026-1'` of `RIL_Dispatch15092026-2.xlsx` unpivoted across 7 footwear size columns (36 to 42) into 828 line items and exactly 1,116 pairs across 16 stores in Karnataka, Tamil Nadu, and Telangana (`TT2026-2027/215` through `TT2026-2027/230`).
   - Dated all invoices canonically as `05-09-2026` (`2026-09-05`).
 - **Commercial & Statutory Financial Reconciliation:**
-  - Total Gross MRP: Ã¢â€šÂ¹2,327,684.00.
+  - Total Gross MRP: â‚¹2,327,684.00.
   - Wholesale Promotional Discount: 43.76% on MRP (`unit_rate = round(mrp * 0.5624, 2)`).
-  - Total Taxable Value: Ã¢â€šÂ¹1,309,092.16.
-  - Interstate IGST 5.00%: Ã¢â€šÂ¹65,454.28.
-  - Total Net Invoiced Value: Ã¢â€šÂ¹1,374,548.00.
+  - Total Taxable Value: â‚¹1,309,092.16.
+  - Interstate IGST 5.00%: â‚¹65,454.28.
+  - Total Net Invoiced Value: â‚¹1,374,548.00.
 - **Physical Logistics & Pre-Portal E-Way Separation:**
   - Logistics origin: `Tattly Threads Nagpur Depot`, PIN `440029`.
   - Stored pre-dispatch staging records in `eway_bills`; kept `sales_invoices.eway_bill_no` NULL and invoice PDF E-Way Bill fields blank pending government portal generation.
@@ -6528,12 +6545,12 @@ Total: 18/18 passed
   - Billed and shipped each of the 17 stores directly to their registered store site addresses under their individual PO numbers from Reliance Retail's 60-PO register (`TT2026-2027/198` through `TT2026-2027/214`).
   - Dated all invoices canonically as `05-09-2026` (`2026-09-05`).
 - **Commercial & Statutory Financial Reconciliation:**
-  - Total Gross MRP: Ã¢â€šÂ¹2,078,097.00 (Ã¢â€šÂ¹122,241.00 per store).
+  - Total Gross MRP: â‚¹2,078,097.00 (â‚¹122,241.00 per store).
   - Wholesale Promotional Discount: 43.76% on MRP (`unit_rate = round(mrp * 0.5624, 2)`).
-  - Total Taxable Value: Ã¢â€šÂ¹1,168,724.16 (Ã¢â€šÂ¹68,748.48 per store).
-  - Intrastate Maharashtra (2 Stores: `TFW4`, `TMN2`): CGST 2.5% (Ã¢â€šÂ¹1,718.68) + SGST 2.5% (Ã¢â€šÂ¹1,718.68) = Ã¢â€šÂ¹3,437.36 per store.
-  - Interstate (15 Stores): IGST 5% = Ã¢â€šÂ¹3,437.47 per store (Total IGST: Ã¢â€šÂ¹51,562.05).
-  - Total Net Invoiced Value: Ã¢â€šÂ¹1,227,162.00 (Ã¢â€šÂ¹72,186.00 net per invoice Ãƒâ€” 17).
+  - Total Taxable Value: â‚¹1,168,724.16 (â‚¹68,748.48 per store).
+  - Intrastate Maharashtra (2 Stores: `TFW4`, `TMN2`): CGST 2.5% (â‚¹1,718.68) + SGST 2.5% (â‚¹1,718.68) = â‚¹3,437.36 per store.
+  - Interstate (15 Stores): IGST 5% = â‚¹3,437.47 per store (Total IGST: â‚¹51,562.05).
+  - Total Net Invoiced Value: â‚¹1,227,162.00 (â‚¹72,186.00 net per invoice Ã— 17).
 - **Pre-Portal E-Way Bill Decoupling & Governance:**
   - Enforced statutory ERP standard: set `sales_invoices.eway_bill_no = NULL` and left the `E-Way Bill No:` field strictly blank on physical invoice PDFs.
   - Generated NIC v1.0.1118 compliant individual JSON payloads and 1 consolidated bulk upload JSON (`EWayBill_Bulk_Upload_15092026.json`) with `transType: 4` combination movement for immediate upload to `ewaybillgst.gov.in`.
@@ -6632,9 +6649,9 @@ Total: 18/18 passed
 
 - **Human-First Visual Rule Builder & 1-Click Retail Recipes:**
   - Empowered non-technical store managers, boutique owners, and merchandisers to define complex promotions without writing code or learning SQL.
-  - Provided 8 out-of-the-box retail recipes: Buy 2 Get 1 Free (BOGO), Flat % Discount on Items, Flat Ã¢â€šÂ¹100 Off per Piece, Any 3 for Ã¢â€šÂ¹1,999 Combo, Spend Ã¢â€šÂ¹3,000 Get Ã¢â€šÂ¹500 Off, Afternoon Happy Hours 15% Off, Last Piece Stock Clearance 40% Off, and VIP Club 10% Member Exclusive.
+  - Provided 8 out-of-the-box retail recipes: Buy 2 Get 1 Free (BOGO), Flat % Discount on Items, Flat â‚¹100 Off per Piece, Any 3 for â‚¹1,999 Combo, Spend â‚¹3,000 Get â‚¹500 Off, Afternoon Happy Hours 15% Off, Last Piece Stock Clearance 40% Off, and VIP Club 10% Member Exclusive.
   - Built real-time Natural Language "Mad-Libs" rule generator translating live form inputs into plain English sentences.
-  - Implemented 4-step guided visual wizard: Basics & Type Ã¢â€ â€™ Who & When (customer group whitelist & Happy Hours) Ã¢â€ â€™ What & How Much (item targets & BOGO criteria) Ã¢â€ â€™ Review & Activate.
+  - Implemented 4-step guided visual wizard: Basics & Type â†’ Who & When (customer group whitelist & Happy Hours) â†’ What & How Much (item targets & BOGO criteria) â†’ Review & Activate.
 - **Interactive Cart Sandbox Simulator:**
   - Embedded real-time cart simulation engine with step-by-step calculation trace, line-by-line discounts, free items deduction, and savings verification before deploying promotions to live POS lanes.
 - **100% Tally Shoper 9 Parity & Enterprise Promotion Hierarchy:**
@@ -6657,13 +6674,13 @@ Total: 18/18 passed
 - **100% Tally Shoper 9 Parity & Blueprint Integration:**
   - Migrated and populated `system_parameters` table across `smritisys` and tenant databases (`smriti001`) with multi-tenant and terminal scoping.
   - Ingested 828 legacy system parameters across 20 functional domains from canonical blueprint `docs/legacy_blueprints/shoper9/parameters.json`.
-  - Implemented 26 profile variances between Retail POS (`RETAIL`) and Wholesale Distribution (`DISTRIBUTOR`), including `SHOPEREnv` ("R" vs "D"), `InBillingCustSelectionCompulsary` (0 vs 1), `AllowCreditBilling` (0 vs 1), `ClubDupInBill` (-1 vs 1), and `CustClass1Cap`Ã¢â‚¬â€œ`4` (demographics vs geography).
+  - Implemented 26 profile variances between Retail POS (`RETAIL`) and Wholesale Distribution (`DISTRIBUTOR`), including `SHOPEREnv` ("R" vs "D"), `InBillingCustSelectionCompulsary` (0 vs 1), `AllowCreditBilling` (0 vs 1), `ClubDupInBill` (-1 vs 1), and `CustClass1Cap`â€“`4` (demographics vs geography).
 - **5-Tier Mutability & Governance Engine:**
   - Enforced strict immutability checks on `Fixed` parameters (`CompanyCode`, `CompanyName`, `CustomerCdGenerationFormat`, `SHOPERSysStat`, etc.) returning HTTP 400 `SMRITI-PARAM-001`.
   - Enforced one-time initialization locks on `Installation` (`SMRITI-PARAM-002`) and `One Time` (`SMRITI-PARAM-003`) parameters.
   - Enabled dynamic modification on `Variable` parameters with versioning and audit trails.
 - **Hierarchical 4-Tier Scoping Precedence:**
-  - Implemented resolution priority: `Terminal-Specific Override` Ã¢â€ â€™ `Branch-Specific Override` Ã¢â€ â€™ `Company Setting` Ã¢â€ â€™ `Global System Template`.
+  - Implemented resolution priority: `Terminal-Specific Override` â†’ `Branch-Specific Override` â†’ `Company Setting` â†’ `Global System Template`.
 - **0ms Synchronous Access & Billing Terminal Protection:**
   - Developed `smritiSystemParameterService.ts` frontend service with high-speed in-memory cache and synchronous accessors (`getBoolean`, `getNumber`, `getString`, `getValue`).
   - Integrated dynamic parameter guards in `BillingTerm.tsx` and `ProPosBillingTerm.tsx` enforcing `AllowCreditBilling` and `InBillingCustSelectionCompulsary`.
@@ -6717,10 +6734,10 @@ Total: 18/18 passed
   - Integrated credit limit verification into POS settlement: blocks credit invoices when `customer.outstanding + currentBill > customer.creditLimit`.
 - **Define Sales Factors & Customer Price Groups Studio (`Alt+S`):**
   - Created `SmritiDefineSalesFactorsModal.tsx` for real-time factor configuration, rate/amount setup, timing definition, active status toggling, and factory resets.
-  - Features real-time live synchronization status badge (`Ã°Å¸Å¸Â¢ PostgreSQL Synced`, `Ã¢ÂÂ³ Syncing...`, `Ã¢Å¡Âª Offline Cache`).
+  - Features real-time live synchronization status badge (`ðŸŸ¢ PostgreSQL Synced`, `â³ Syncing...`, `âšª Offline Cache`).
   - Added `Alt+S` hotkey and dedicated buttons in `BillingTerm.tsx` and `ProPosBillingTerm.tsx`.
 - **Pro POS Addon-Gen & Dedns-Gen Integration:**
-  - Replaced hardcoded `Ã¢â€šÂ¹0.00` in Pro POS totals summary with dynamic statutory `Addon-Gen` and `Dedns-Gen` values and shortcut triggers.
+  - Replaced hardcoded `â‚¹0.00` in Pro POS totals summary with dynamic statutory `Addon-Gen` and `Dedns-Gen` values and shortcut triggers.
 - **Two-Way PostgreSQL Synchronization with 0ms Offline Cache:**
   - Created `/api/v1/pricing/sales-factors` REST endpoints backed by PostgreSQL `sales_factors` table with asyncpg dialect parity.
   - Implemented 0ms local cache writes with background asynchronous push to PostgreSQL backend.
@@ -6746,13 +6763,13 @@ Total: 18/18 passed
 - **Item Details Inspector Ribbon:** Real-time metadata strip displaying Stock No, Barcode, Description, Brand, Size, HSN, GST %, Net Amount, and Salesperson for the active row.
 - **F6 Sales Promotions & "Define Sales Promotions" Catalogue Architecture:**
   - Implemented `SmritiSalesPromotionService` as the authoritative catalog repository for promotion schemes matching enterprise POS specifications (4 categories: Item Level Discounts, Item Level Offers, Bill Level Discounts, and Bill Level Offers).
-  - Built `SmritiDefineSalesPromotionsModal.tsx` (`Alt+P` or Catalogue > Define Sales Promotions) allowing store managers to define schemes with Code, Description, Priority No., Validity Dates, Discount % or Flat Ã¢â€šÂ¹, Min Bill Value, Max Allowed Cap, and Active toggle.
+  - Built `SmritiDefineSalesPromotionsModal.tsx` (`Alt+P` or Catalogue > Define Sales Promotions) allowing store managers to define schemes with Code, Description, Priority No., Validity Dates, Discount % or Flat â‚¹, Min Bill Value, Max Allowed Cap, and Active toggle.
   - Built `SmritiF6PromotionalDiscountsModal.tsx` (`F6` in POS & ProPOS) dynamically calling the defined schemes from the "Define Sales Promotions" catalog; features Tab 1 (`Item Level Promotional Details`), Tab 2 (`Bill Level Promotional Details`), bidirectional discount % / amount calculations against `Calculated On`, statutory reason enforcement, and `Apply Bill Level Discount First` preference.
   - Integrated `F6` discount schemes and `Alt+P` catalogue triggers in `BillingTerm.tsx` and `ProPosBillingTerm.tsx`, updating cart summaries and bill footer totals in real time.
 - **Two-Way PostgreSQL Database Synchronization:**
   - Added REST API endpoints `GET /api/v1/promotions/schemes`, `POST /api/v1/promotions/schemes`, and `DELETE /api/v1/promotions/schemes/{id}` in `backend/app/api/v1/promotions.py` paired with `PromotionSchemeDTO` in `backend/app/schemas/promotions.py`.
   - Integrated bidirectional DTO transformation in `SmritiSalesPromotionService.ts` linking the offline-first local POS cache directly to PostgreSQL tables `promotion_campaigns` and `promotion_rules`.
-  - Added live synchronization status pill in "Define Sales Promotions" header (`Ã°Å¸Å¸Â¢ PostgreSQL Synced`, `Ã¢ÂÂ³ Syncing...`, `Ã¢Å¡Âª Offline Local Cache`) with manual `Sync DB` refresh trigger.
+  - Added live synchronization status pill in "Define Sales Promotions" header (`ðŸŸ¢ PostgreSQL Synced`, `â³ Syncing...`, `âšª Offline Local Cache`) with manual `Sync DB` refresh trigger.
 - **Automated Verification:** 37/37 billing tests green (`smritiF2BillingSearch.test.ts` & `smritiSalesPromotionEngine.test.ts`), 126/126 Vitest suites green (821 tests), 0 TypeScript compiler errors, and clean production build (3,538 modules in 28.69s).
 
 ### [6.16.5] - 2026-09-14
@@ -6881,40 +6898,40 @@ Total: 18/18 passed
 - **Atomic Application Service (`VendorService`):** Orchestrated multi-table atomic creation, duplicate prevention guards, and non-destructive dual-write projection to legacy `suppliers` table with `sup-<code.lower()>`.
 - **Canonical DTO & REST API Router:** Created contract-first DTO layer and mounted REST endpoints under `/api/v1/purchase/vendors` and `/api/v1/vendors`.
 - **Vendor 360 Workspace (`VendorMasterWs`):** Delivered responsive 9-tab workspace covering Overview, Identity & Statutory, Addresses, Contacts, Commercial, Banking, Procurement, Payables Aging, and Scorecard, plus Vendor Merge Modal.
-- **Canonical RTV Engine (`CanonicalRTVDomainEngine`):** Standardized on 6-stage procurement return lifecycle (Request Ã¢â€ â€™ Approval Ã¢â€ â€™ Dispatch Ã¢â€ â€™ Vendor Receipt Ã¢â€ â€™ Debit Note Ã¢â€ â€™ Settle) and converted `PRTVModal` into a backward-compatible adapter.
+- **Canonical RTV Engine (`CanonicalRTVDomainEngine`):** Standardized on 6-stage procurement return lifecycle (Request â†’ Approval â†’ Dispatch â†’ Vendor Receipt â†’ Debit Note â†’ Settle) and converted `PRTVModal` into a backward-compatible adapter.
 - **Verification:** 4/4 backend tests green, 10/10 vitest tests green, TypeScript 0 errors.
 
 ### [3.30.0-security] - 2026-09-09
 
-#### Production Readiness Sprint Ã¢â‚¬â€ Secret Hygiene, Version SSOT, TS Closure, Bundle Splitting
+#### Production Readiness Sprint â€” Secret Hygiene, Version SSOT, TS Closure, Bundle Splitting
 
 **Walkthrough:** [ProductionReadiness_Sprint_v3.30.0.md](docs/walkthrough/foundation/ProductionReadiness_Sprint_v3.30.0.md)
 
-**Track 1 Ã¢â‚¬â€ Secret Hygiene (CRITICAL)**
+**Track 1 â€” Secret Hygiene (CRITICAL)**
 - Replaced 3 hardcoded weak development secrets in root `.env` with 256-bit (64 hex char) cryptographically random values: `JWT_SECRET_KEY`, `INTERNAL_SERVICE_KEY`, `SGIP_VAULT_MASTER_KEY`.
-- Added `Ã¢Å¡Â Ã¯Â¸Â LOCAL DEV ONLY` warning comment block with procedure reference.
-- Created `SECRETS_NOTICE.md` Ã¢â‚¬â€ documents rotation procedure, minimum key lengths, deployment patterns, and audit trail.
+- Added `âš ï¸ LOCAL DEV ONLY` warning comment block with procedure reference.
+- Created `SECRETS_NOTICE.md` â€” documents rotation procedure, minimum key lengths, deployment patterns, and audit trail.
 - Confirmed: `.env` never committed to git (`git log -- .env` = 0 commits). `backend/.env` already uses `${VAR}` substitution (safe).
 
-**Track 2 Ã¢â‚¬â€ Version SSOT**
+**Track 2 â€” Version SSOT**
 - Unified all 4 runtime version locations to `3.30.0` (canonical = `package.json`):
-  - `src/config/version.ts`: `APP_VERSION` bumped from `3.29.0` Ã¢â€ â€™ `3.30.0`
-  - `backend/app/core/config.py`: `VERSION` bumped from `3.16.0` Ã¢â€ â€™ `3.30.0` (runtime setting + file header)
-  - `vite.config.ts`: file header updated from `3.17.0` Ã¢â€ â€™ `3.30.0`
-- Note: `db_provisioner.py` `schema_version: "6.16.0"` is the highest Alembic revision Ã¢â‚¬â€ intentionally not changed.
+  - `src/config/version.ts`: `APP_VERSION` bumped from `3.29.0` â†’ `3.30.0`
+  - `backend/app/core/config.py`: `VERSION` bumped from `3.16.0` â†’ `3.30.0` (runtime setting + file header)
+  - `vite.config.ts`: file header updated from `3.17.0` â†’ `3.30.0`
+- Note: `db_provisioner.py` `schema_version: "6.16.0"` is the highest Alembic revision â€” intentionally not changed.
 
-**Track 3 Ã¢â‚¬â€ TypeScript Zero-Error Audit Closure**
+**Track 3 â€” TypeScript Zero-Error Audit Closure**
 - Confirmed `npx tsc --noEmit` = 0 errors, 0 output lines (2026-09-09).
 - Confirmed `loyaltyTierEngine.ts` (10,917 bytes) and `rmaEngine.ts` (7,622 bytes) exist in `src/utils/`.
 - Formally closed findings in `docs/_audit/07_version_status.md` with evidence stamp.
 
-**Track 4 Ã¢â‚¬â€ Bundle Splitting Enhancement**
-- Added `vendor-react` chunk (React/ReactDOM/scheduler isolated Ã¢â‚¬â€ fixes circular chunk warning).
+**Track 4 â€” Bundle Splitting Enhancement**
+- Added `vendor-react` chunk (React/ReactDOM/scheduler isolated â€” fixes circular chunk warning).
 - Added `vendor-query` chunk (@tanstack/react-query isolated).
 - Added `smriti-engines` chunk (all `*Engine.ts` files in `src/utils/`).
 - Added `smriti-billing` chunk (BillingWorkspace + billing components).
 - Added per-tab chunks: `smriti-crm`, `smriti-inventory`, `smriti-accounts`, `smriti-settings`.
-- Circular chunk warning eliminated. Build: 3523 modules, 0 errors, Ã¢Å“â€œ in 27s.
+- Circular chunk warning eliminated. Build: 3523 modules, 0 errors, âœ“ in 27s.
 
 ### [4.13.0] - 2026-09-09
 
@@ -6937,16 +6954,16 @@ Total: 18/18 passed
 **Commit:** `6aac3be8`
 
 **Bug Fixes**
-- **CustMasterWs.tsx** (v5.6.0 Ã¢â€ â€™ v5.7.0): `mapBackendCustomerToRecord()` Ã¢â‚¬â€ replaced `environment: bCust.environment || "Retail"` fallback with deterministic derivation from `customer_group_id` and `tags`. Eliminates B2B Ã¢â€ â€™ Retail regression on every PostgreSQL round-trip re-hydration.
+- **CustMasterWs.tsx** (v5.6.0 â†’ v5.7.0): `mapBackendCustomerToRecord()` â€” replaced `environment: bCust.environment || "Retail"` fallback with deterministic derivation from `customer_group_id` and `tags`. Eliminates B2B â†’ Retail regression on every PostgreSQL round-trip re-hydration.
 - **CustMasterWs.tsx**: Cleared hardcoded `DEFAULT_MAILING_ADDRESS.mobilePhone: "9876543210"` to empty string. Prevents 400 Bad Request duplicate mobile errors on new customer records.
 - **CustMasterWs.tsx**: Added HREP-compliant human-readable error translation for duplicate mobile number backend rejections.
 - **CustMasterWs.tsx**: Synchronised `customer_group_id`, `tags`, `customerType`, `environment`, `price_group`, and `priceGroup` in localStorage cache on every save, preventing stale Retail classification after page reload.
-- **CustFormTab.tsx** (v3.0.0 Ã¢â€ â€™ v3.1.0): Bidirectional Price Group Ã¢â€ â€ Customer Type cascade. Selecting CORP price group auto-sets Corporate type + environment. Selecting Corporate customer type auto-applies CORP price group fields.
+- **CustFormTab.tsx** (v3.0.0 â†’ v3.1.0): Bidirectional Price Group â†” Customer Type cascade. Selecting CORP price group auto-sets Corporate type + environment. Selecting Corporate customer type auto-applies CORP price group fields.
 - **inventory.py**: Added `@router.get("")` and `@router.post("")` empty-path decorators alongside `"/"` variants. Raised `page_size` max limit from 100 to 500. Eliminates 307 temporary redirect to internal Docker hostname (`smriti-api:8000`) causing `net::ERR_NAME_NOT_RESOLVED`.
 - **main.py**: Mounted `inventory.router` at `/api/v1/variants` prefix. Resolves 404 Not Found on `GET /api/v1/variants?page_size=200` used by Gate-11E F2 universal browse.
 
 **Tests**
-- Added `src/tests/customerRehydration.test.ts` Ã¢â‚¬â€ 5-scenario unit suite (TEST AÃ¢â‚¬â€œE) covering Corporate, Wholesale, Retail, VIP, and empty-payload re-hydration.
+- Added `src/tests/customerRehydration.test.ts` â€” 5-scenario unit suite (TEST Aâ€“E) covering Corporate, Wholesale, Retail, VIP, and empty-payload re-hydration.
 - Full Vitest suite: 617/617 tests green, 0 failures.
 - Production build: 3526 modules, 0 errors.
 - Docker rebuild: all 4 containers healthy.
@@ -6960,22 +6977,22 @@ Total: 18/18 passed
 
 ### [3.123.0] - 2026-09-02
 
-#### F2 Universal Lookup Architecture v2 Ã¢â‚¬â€ Phase C Complete
+#### F2 Universal Lookup Architecture v2 â€” Phase C Complete
 
-**Batch 1 Ã¢â‚¬â€ Screen Migrations** (commit `cade22ac`)
-- **TagLabelPrintingTa.tsx** (v6.8.0 Ã¢â€ â€™ v6.9.0): Replaced local `e.key==='F2'` handler with `useF2Screen` + `FieldAdapter`. `stockNoFrom` and `stockNoTo` tagged with `id` + `data-f2-entity="variant"`. Adapter routes deterministically via `dispatcher.originElementRef.current.id`. `PurchBrowseDlg` (button-triggered), F11, F8 preserved.
-- **CustMasterWs.tsx** (v5.5.0 Ã¢â€ â€™ v5.6.0): Removed F2 keyboard branch. Registered `useF2Screen(entity=customer)`. Adapter resolves by canonical `id` Ã¢â€ â€™ `code`. `Alt+S` and `SmritiAdvancedCustomerSearchModal` preserved entirely.
+**Batch 1 â€” Screen Migrations** (commit `cade22ac`)
+- **TagLabelPrintingTa.tsx** (v6.8.0 â†’ v6.9.0): Replaced local `e.key==='F2'` handler with `useF2Screen` + `FieldAdapter`. `stockNoFrom` and `stockNoTo` tagged with `id` + `data-f2-entity="variant"`. Adapter routes deterministically via `dispatcher.originElementRef.current.id`. `PurchBrowseDlg` (button-triggered), F11, F8 preserved.
+- **CustMasterWs.tsx** (v5.5.0 â†’ v5.6.0): Removed F2 keyboard branch. Registered `useF2Screen(entity=customer)`. Adapter resolves by canonical `id` â†’ `code`. `Alt+S` and `SmritiAdvancedCustomerSearchModal` preserved entirely.
 - **f2PhaseC_Batch1.test.ts**: 17 new regression tests; 59/59 total suite passes.
 
-**Batch 2A Ã¢â‚¬â€ Legacy Infrastructure Decommission** (commit `4398d6a5`)
-- **DELETED** `src/components/drilldown/GlobalF2BrowseDlg.tsx` Ã¢â‚¬â€ 1,118-line dead-render component permanently removed; was rendering `null` on every cycle (isF2ModalOpen permanently false). Bundle: 3527 Ã¢â€ â€™ 3526 modules.
+**Batch 2A â€” Legacy Infrastructure Decommission** (commit `4398d6a5`)
+- **DELETED** `src/components/drilldown/GlobalF2BrowseDlg.tsx` â€” 1,118-line dead-render component permanently removed; was rendering `null` on every cycle (isF2ModalOpen permanently false). Bundle: 3527 â†’ 3526 modules.
 - **App.tsx**: Removed `GlobalF2BrowseModal` static import and JSX mount.
-- **ActiveFieldContext.tsx** (v7.0.0 Ã¢â€ â€™ v7.1.0): Removed `isF2ModalOpen`, `openF2Modal`, `closeF2Modal`, `insertValueIntoActiveField` (no-op stub). Focus/input tracking and HUD support preserved.
-- **GlobalSearch.tsx** (v3.32.0 Ã¢â€ â€™ v3.33.0): Removed `insertValueIntoActiveField` destructure and call (was already a no-op since Phase A). Ctrl+K, `openPanel`, `pushContext`, drill-down preserved.
+- **ActiveFieldContext.tsx** (v7.0.0 â†’ v7.1.0): Removed `isF2ModalOpen`, `openF2Modal`, `closeF2Modal`, `insertValueIntoActiveField` (no-op stub). Focus/input tracking and HUD support preserved.
+- **GlobalSearch.tsx** (v3.32.0 â†’ v3.33.0): Removed `insertValueIntoActiveField` destructure and call (was already a no-op since Phase A). Ctrl+K, `openPanel`, `pushContext`, drill-down preserved.
 
-**Verification**: TSC 0 errors Ã‚Â· 59/59 Vitest Ã‚Â· build clean Ã‚Â· 0 executable legacy symbol references Ã‚Â· `ItemDetailsGrid` F2 untouched.
+**Verification**: TSC 0 errors Â· 59/59 Vitest Â· build clean Â· 0 executable legacy symbol references Â· `ItemDetailsGrid` F2 untouched.
 
-**Batch 3 Ã¢â‚¬â€ Documentation** (commit `958beb2a`)
+**Batch 3 â€” Documentation** (commit `958beb2a`)
 - Created `docs/walkthrough/foundation/F2_Universal_Lookup_Architecture_v2_Phase_C_v1.0.0.md` (13 sections)
 - Updated `docs/walkthrough/README.md` (Phase C row added)
 - Note: `src/components/sales/SalesOrderTab.tsx` (sales order audit-view enhancement, 32 lines) was inadvertently included in `958beb2a` due to pre-existing staging. The change is unrelated to Phase C documentation; it is a valid SalesOrderTab working-tree change and is not rolled back.
@@ -6996,7 +7013,7 @@ Total: 18/18 passed
   - **Before**: 450 real EAN codes + 6 generated (-barcode format)
   - **After**: 672 products with 100% real EAN/Barcodes
   - Removed: 6 duplicate GUNMETAL variants (GUNMETAL vs GUNMTL spelling inconsistency)
-  - Status: Ã¢Å“â€¦ All active products now have authentic barcodes
+  - Status: âœ… All active products now have authentic barcodes
 
 - **Duplicate Resolution**:
   - Issue: Database had both GUNMETAL (full spelling) and GUNMTL (abbreviated)
@@ -7005,7 +7022,7 @@ Total: 18/18 passed
   - Soft deletion with audit trail (is_deleted=TRUE, deleted_by='SYSTEM', deleted_at recorded)
 
 - **Utilities Added**:
-  - `scripts/analyze_barcode_csv.py`: Validates TT.CSV structure (427 items Ã¢â€ â€™ 426 unique products)
+  - `scripts/analyze_barcode_csv.py`: Validates TT.CSV structure (427 items â†’ 426 unique products)
   - `scripts/import_with_real_barcodes.py`: Real barcode import logic (skips duplicates, validates coverage)
   - `scripts/cleanup_duplicate_gunmetal.py`: Removes duplicate color variants
 
@@ -7038,7 +7055,7 @@ Total: 18/18 passed
 
 - **Import Results**:
   - Already existing: 181 SKUs + 30 variants
-  - **Newly imported: 6 products** (6,661 Ã¢â€ â€™ 6,667 products in smriti001)
+  - **Newly imported: 6 products** (6,661 â†’ 6,667 products in smriti001)
   - Smart deduplication: SKU-based + Article-Color-Size variant check
   - All items mapped with full attributes: Article, Color, Size, HSN Code, MRP, GST
 
@@ -7053,7 +7070,7 @@ Total: 18/18 passed
 
 #### Purchase Order Auto-Generation Engine (v1.0.0-GA)
 - **Auto-PO Engine (`src/utils/autoPOEngine.ts`)**:
-  - `detectBreaches()`: Filters `currentStock Ã¢â€°Â¤ reorderPoint`; `suggestedQty = max(reorderQty, supplierMOQ)`; severity CRITICAL (stock=0), LOW (stock Ã¢â€°Â¤ reorderPoint/2), NORMAL; sorted CRITICAL first.
+  - `detectBreaches()`: Filters `currentStock â‰¤ reorderPoint`; `suggestedQty = max(reorderQty, supplierMOQ)`; severity CRITICAL (stock=0), LOW (stock â‰¤ reorderPoint/2), NORMAL; sorted CRITICAL first.
   - `generatePO()`: Groups breach lines for one supplier+branch; `expectedDelivery = generatedAt + max(leadTimeDays)`; `poNo = APO-<branch>-<date>-<seq>`.
   - `consolidatePOs()`: Groups all breaches by `supplierId__branchCode`; returns one PO per unique pair.
   - `submit()` / `acknowledge()` / `cancel()`: Status guards; ACKNOWLEDGED blocks cancel.
@@ -7069,49 +7086,49 @@ Total: 18/18 passed
 - **Employee Attendance Engine (`src/utils/employeeAttendanceEngine.ts`)**:
   - `clockIn()` / `clockOut()`: `hoursWorked = (clockOut - clockIn) / 3600000`; status HALF_DAY when hours < 4.
   - `markAbsent()` / `markLeave()`: `LeaveType` CASUAL/SICK/EARNED/UNPAID recorded per record.
-  - `computeCommission()`: FLAT_PCT = netSales Ãƒâ€” flatPct/100; TIERED = marginal slab pass with `slabBreakdown[]`; TARGET_BASED = commission only if target hit; `targetBonusAmt = base Ãƒâ€” targetBonusPct` when target achieved.
-  - `computePayout()`: `earnedSalary = baseSalary Ãƒâ€” (effectivePresent / workingDays)`; half-days = 0.5; `lop = unpaidLeave + absent`; `lopDeduction = lop/workingDays Ãƒâ€” base`; `netPayout = gross - lopDeduction`.
+  - `computeCommission()`: FLAT_PCT = netSales Ã— flatPct/100; TIERED = marginal slab pass with `slabBreakdown[]`; TARGET_BASED = commission only if target hit; `targetBonusAmt = base Ã— targetBonusPct` when target achieved.
+  - `computePayout()`: `earnedSalary = baseSalary Ã— (effectivePresent / workingDays)`; half-days = 0.5; `lop = unpaidLeave + absent`; `lopDeduction = lop/workingDays Ã— base`; `netPayout = gross - lopDeduction`.
   - `periodReport()`: `totalHeadcount`, `totalNetPayout`, `totalCommission`, `totalBonus`, `avgAttendancePct`.
 - **Employee Attendance Modal (`src/components/hr/EmployeeAttendanceModal.tsx`)**:
-  - Employee sidebar (net payout); period report strip; 3-tab: Attendance (date log with clock-in/out + status badge), Commission (KPI grid + tiered slab breakdown table), Payout (line-item: earnedSalary Ã¢â€ â€™ LOP deduction Ã¢â€ â€™ netPayout highlight).
+  - Employee sidebar (net payout); period report strip; 3-tab: Attendance (date log with clock-in/out + status badge), Commission (KPI grid + tiered slab breakdown table), Payout (line-item: earnedSalary â†’ LOP deduction â†’ netPayout highlight).
 - **Frontend Certification Test Suite (`src/tests/employeeAttendanceEngine.test.ts`)**:
-  - Validated 4/4: clockIn/clockOut hoursWorked (9.5h) + HALF_DAY (2h); FLAT_PCT commission (Ã¢â€šÂ¹4500) + target bonus hit (Ã¢â€šÂ¹2500)/miss (Ã¢â€šÂ¹0); TIERED 3-slab Ã¢â€šÂ¹250k Ã¢â€ â€™ Ã¢â€šÂ¹3500 with slabBreakdown; computePayout LOP=3 (2 absent+1 unpaid) + periodReport.
+  - Validated 4/4: clockIn/clockOut hoursWorked (9.5h) + HALF_DAY (2h); FLAT_PCT commission (â‚¹4500) + target bonus hit (â‚¹2500)/miss (â‚¹0); TIERED 3-slab â‚¹250k â†’ â‚¹3500 with slabBreakdown; computePayout LOP=3 (2 absent+1 unpaid) + periodReport.
 
 ### [3.120.0] - 2026-08-28
 
 #### Sales Return & Exchange Engine (v1.0.0-GA)
 - **Sales Return Engine (`src/utils/salesReturnEngine.ts`)**:
-  - `createReturn()`: Line-level `totalReturnAmt = unitPrice Ãƒâ€” returnQty`; `refundAmt = totalReturnAmt` for ORIGINAL_METHOD/STORE_CREDIT; `refundAmt = 0` for EXCHANGE_CREDIT; RETURN_CREATED audit.
-  - `createExchange()`: Return lines + exchange lines; `priceDifference = totalExchangeAmt - totalReturnAmt`; auto-selects `refundMethod`: EXCHANGE_CREDIT if priceDiff Ã¢â€°Â¥ 0 (customer pays more), STORE_CREDIT if priceDiff < 0 (customer gets refund); `refundAmt = abs(priceDiff)` if negative.
-  - `approve()`: Guards DRAFT; RETURN Ã¢â€ â€™ REFUNDED; EXCHANGE Ã¢â€ â€™ EXCHANGED; audit note includes refundMethod + refundAmt.
+  - `createReturn()`: Line-level `totalReturnAmt = unitPrice Ã— returnQty`; `refundAmt = totalReturnAmt` for ORIGINAL_METHOD/STORE_CREDIT; `refundAmt = 0` for EXCHANGE_CREDIT; RETURN_CREATED audit.
+  - `createExchange()`: Return lines + exchange lines; `priceDifference = totalExchangeAmt - totalReturnAmt`; auto-selects `refundMethod`: EXCHANGE_CREDIT if priceDiff â‰¥ 0 (customer pays more), STORE_CREDIT if priceDiff < 0 (customer gets refund); `refundAmt = abs(priceDiff)` if negative.
+  - `approve()`: Guards DRAFT; RETURN â†’ REFUNDED; EXCHANGE â†’ EXCHANGED; audit note includes refundMethod + refundAmt.
   - `reject()`: Guards DRAFT; sets REJECTED with `rejectionReason`.
   - `returnSummary()`: `totalReturnOrders`, `totalExchangeOrders`, `totalRefundedAmt` (REFUNDED+EXCHANGED), `totalResaleableQty`, `totalDamagedQty`, `totalDisposeQty`, `byStatus`.
 - **Sales Return Modal (`src/components/pos/SalesReturnModal.tsx`)**:
   - Order sidebar (status/type badge, returnAmt); summary strip (returns/exchanges/refunded/restock counts); 3-tab: Return Lines (product/reason/qty/restock table), Exchange Lines (new items + price diff banner), Audit; Approve/Reject buttons.
 - **Frontend Certification Test Suite (`src/tests/salesReturnEngine.test.ts`)**:
-  - Validated 4/4: createReturn (Ã¢â€šÂ¹998+Ã¢â€šÂ¹1299=Ã¢â€šÂ¹2297 totalReturnAmt, refundAmt=2297, returnNo pattern); approveÃ¢â€ â€™REFUNDED + double-approve guard + reject-on-REFUNDED guard; createExchange pos priceDiff (Ã¢â€šÂ¹500Ã¢â€ â€™EXCHANGE_CREDIT, refundAmt=0) + neg priceDiff (Ã¢Ë†â€™Ã¢â€šÂ¹800Ã¢â€ â€™STORE_CREDIT, refundAmt=800); returnSummary (totalRefundedAmt=1200, resaleable=2, damaged=3, dispose=1).
+  - Validated 4/4: createReturn (â‚¹998+â‚¹1299=â‚¹2297 totalReturnAmt, refundAmt=2297, returnNo pattern); approveâ†’REFUNDED + double-approve guard + reject-on-REFUNDED guard; createExchange pos priceDiff (â‚¹500â†’EXCHANGE_CREDIT, refundAmt=0) + neg priceDiff (âˆ’â‚¹800â†’STORE_CREDIT, refundAmt=800); returnSummary (totalRefundedAmt=1200, resaleable=2, damaged=3, dispose=1).
 
 ### [3.119.0] - 2026-08-28
 
 #### Customer Credit Limit & Outstanding Engine (v1.0.0-GA)
 - **Customer Credit Engine (`src/utils/customerCreditEngine.ts`)**:
   - `setLimit()`: Creates credit account with `creditLimit`, `paymentTermDays`, `graceDays`; `availableCredit = creditLimit - outstanding`.
-  - `postInvoice()`: Throws if status ON_HOLD/SUSPENDED; `dueDate = invoiceDate + paymentTermDays`; computes initial `agingBucket`; calls `recalcAccount()` to update `outstandingAmt`, `utilisationPct = outstanding/limit Ãƒâ€” 100`, `limitBreached = outstanding > limit`.
-  - `postPayment()`: FIFO allocation Ã¢â‚¬â€ sorts unpaid invoices by `dueDate` ASC; allocates greedily; stores `PaymentAllocation[]` per payment; updates `paidAmt`, `outstandingAmt`, `status` per invoice.
+  - `postInvoice()`: Throws if status ON_HOLD/SUSPENDED; `dueDate = invoiceDate + paymentTermDays`; computes initial `agingBucket`; calls `recalcAccount()` to update `outstandingAmt`, `utilisationPct = outstanding/limit Ã— 100`, `limitBreached = outstanding > limit`.
+  - `postPayment()`: FIFO allocation â€” sorts unpaid invoices by `dueDate` ASC; allocates greedily; stores `PaymentAllocation[]` per payment; updates `paidAmt`, `outstandingAmt`, `status` per invoice.
   - `refreshAging()`: Recomputes 5 buckets (CURRENT/OVERDUE_30/60/90/CRITICAL) on all non-PAID invoices; sets OVERDUE status.
   - `holdCredit()` / `releaseCredit()`: Status transitions with `holdReason`.
   - `agingReport()`: Per-account `{ bucket, count, totalAmt }[]` + `outstanding`, `utilisationPct`, `limitBreached`, `status`.
 - **Customer Credit Modal (`src/components/crm/CustomerCreditModal.tsx`)**:
   - Account sidebar (utilisation bar, breach badge); 3-tab: Invoices (invoice table + FIFO payment form), Aging Report (per-account 5-bucket grid), Payments (allocation detail per payment); hold/release action buttons.
 - **Frontend Certification Test Suite (`src/tests/customerCreditEngine.test.ts`)**:
-  - Validated 4/4 (post daysOverdue patch: 89d not 88d for May-31Ã¢â€ â€™Aug-28): postInvoice utilisation + breach; FIFO payment (40000Ã¢â€ â€™INV-0010 fully paid; 10000Ã¢â€ â€™INV-0011 partial); refreshAging + holdCredit guard; agingReport 5-bucket per account.
-  - **Patch note**: Test 3 `daysOverdue` assertion corrected from 88 to 89 Ã¢â‚¬â€ invoice May-01 + NET_30 = May-31 dueDate; asOf Aug-28 = 89 full days overdue.
+  - Validated 4/4 (post daysOverdue patch: 89d not 88d for May-31â†’Aug-28): postInvoice utilisation + breach; FIFO payment (40000â†’INV-0010 fully paid; 10000â†’INV-0011 partial); refreshAging + holdCredit guard; agingReport 5-bucket per account.
+  - **Patch note**: Test 3 `daysOverdue` assertion corrected from 88 to 89 â€” invoice May-01 + NET_30 = May-31 dueDate; asOf Aug-28 = 89 full days overdue.
 
 ### [3.118.0] - 2026-08-28
 
 #### Inter-Branch Stock Transfer Engine (v1.0.0-GA)
 - **Inter-Branch Transfer Engine (`src/utils/interBranchTransferEngine.ts`)**:
-  - Status flow: DRAFT Ã¢â€ â€™ APPROVED Ã¢â€ â€™ IN_TRANSIT Ã¢â€ â€™ RECEIVED Ã¢â€ â€™ COMPLETED; DRAFT/APPROVED Ã¢â€ â€™ CANCELLED.
+  - Status flow: DRAFT â†’ APPROVED â†’ IN_TRANSIT â†’ RECEIVED â†’ COMPLETED; DRAFT/APPROVED â†’ CANCELLED.
   - `createTransfer()`: Per-line `requestedQty`; order-level aggregates via `totals()`: `totalRequestedQty`, `totalDispatchedQty`, `totalReceivedQty`, `totalVarianceQty`, `hasVariance`.
   - `approve()`: Guards DRAFT; sets APPROVED; audit entry.
   - `dispatch()`: Guards APPROVED; `lineQtys` map overrides `requestedQty` per line; sets IN_TRANSIT; `dispatchedAt`.
@@ -7122,7 +7139,7 @@ Total: 18/18 passed
 - **Inter-Branch Transfer Modal (`src/components/warehouse/InterBranchTransferModal.tsx`)**:
   - Order sidebar (variance badge); queue summary strip; 2-tab: Transfer Lines (dispatched/received/variance per line; rose highlight on variance rows), Audit Trail; lifecycle action buttons per status.
 - **Frontend Certification Test Suite (`src/tests/interBranchTransferEngine.test.ts`)**:
-  - Validated 4/4 (post withVariance patch: IN_TRANSIT order has dispatchedQty=5, receivedQty=0 Ã¢â€ â€™ variance=5 Ã¢â€ â€™ withVariance=1): create totals; approve+dispatch short-qty; full lifecycle with variance + 5 audit entries; cancel guards + transferSummary.
+  - Validated 4/4 (post withVariance patch: IN_TRANSIT order has dispatchedQty=5, receivedQty=0 â†’ variance=5 â†’ withVariance=1): create totals; approve+dispatch short-qty; full lifecycle with variance + 5 audit entries; cancel guards + transferSummary.
 
 ### [3.117.0] - 2026-08-28
 
@@ -7131,8 +7148,8 @@ Total: 18/18 passed
   - `registerBatch()`: `batchId`, `batchNo`, `lotNo`, SKU, MFG/EXP dates, `receivedQty = availableQty`; status AVAILABLE.
   - `fefoAllocation()`: Filters AVAILABLE batches for SKU; sorts by `expiryDate` ASC (FEFO); greedy allocation; returns `AllocationResult { fulfilledQty, shortfallQty, fullyFulfilled, lines[] }`.
   - `deductAllocation()`: Applies `AllocationResult` to batch array; sets status DEPLETED when `availableQty = 0`.
-  - `nearExpiryBatches()`: Filters AVAILABLE batches with `daysToExpiry Ã¢â€°Â¤ threshold`; sorted ascending by `daysToExpiry`.
-  - `quarantineBatch()`: Throws if `availableQty < qty`; moves qty AVAILABLEÃ¢â€ â€™quarantined; status QUARANTINED.
+  - `nearExpiryBatches()`: Filters AVAILABLE batches with `daysToExpiry â‰¤ threshold`; sorted ascending by `daysToExpiry`.
+  - `quarantineBatch()`: Throws if `availableQty < qty`; moves qty AVAILABLEâ†’quarantined; status QUARANTINED.
   - `releaseFromQuarantine()`: Throws if `quarantinedQty < qty`; restores to AVAILABLE.
   - `expireIfDue()`: Idempotent; guards EXPIRED/DEPLETED/RECALLED; sets EXPIRED if `expiryDate < asOf`.
   - `batchReport()`: Per-SKU `{ totalAvailable, totalExpired, totalQuarantined, nearExpiry30d, batches[] }`.
@@ -7147,24 +7164,24 @@ Total: 18/18 passed
 #### Barcode & Label Printing Engine (v1.0.0-GA)
 - **Label Print Engine (`src/utils/labelPrintEngine.ts`)**:
   - Barcode formats: CODE128, QR_CODE, EAN13, CODE39.
-  - `DEFAULT_TEMPLATE` (STD-58MM): 5 fields (name/bold/TOP, barcode/MIDDLE, sku/MIDDLE, mrp/bold/BOTTOM, hsn/BOTTOM); 58Ãƒâ€”40mm; CODE128.
-  - `createJob()`: Maps input items to `PrintItem[]`; `totalLabels = ÃŽÂ£(qty Ãƒâ€” copies)`; status QUEUED; QUEUED audit entry.
-  - `addToBatch()`: Appends new items to existing QUEUED job; recomputes `totalLabels`; throws if status Ã¢â€°Â  QUEUED.
-  - `startPrint()` / `completePrint()` / `failPrint()`: Status transitions QUEUEDÃ¢â€ â€™PRINTINGÃ¢â€ â€™PRINTED/FAILED with guard throws.
+  - `DEFAULT_TEMPLATE` (STD-58MM): 5 fields (name/bold/TOP, barcode/MIDDLE, sku/MIDDLE, mrp/bold/BOTTOM, hsn/BOTTOM); 58Ã—40mm; CODE128.
+  - `createJob()`: Maps input items to `PrintItem[]`; `totalLabels = Î£(qty Ã— copies)`; status QUEUED; QUEUED audit entry.
+  - `addToBatch()`: Appends new items to existing QUEUED job; recomputes `totalLabels`; throws if status â‰  QUEUED.
+  - `startPrint()` / `completePrint()` / `failPrint()`: Status transitions QUEUEDâ†’PRINTINGâ†’PRINTED/FAILED with guard throws.
   - `reprint()`: Copies items from printed job (with optional `skuFilter`); sets `isReprint=true`, `originalJobId`; new QUEUED job.
   - `queueSummary()`: Aggregates `queued`, `printing`, `printed`, `failed`, `totalLabels`, `reprintCount` across a job array.
 - **Label Print Modal (`src/components/warehouse/LabelPrintModal.tsx`)**:
-  - Job sidebar (status badge, reprint badge, label count); queue summary strip; 3-tab: Print Items (qtyÃƒâ€”copiesÃ¢â€ â€™labels table + row total), Template (config meta + field list with ON/OFF, font, position), Audit (lifecycle events with Start/Complete/Fail/Reprint action buttons).
+  - Job sidebar (status badge, reprint badge, label count); queue summary strip; 3-tab: Print Items (qtyÃ—copiesâ†’labels table + row total), Template (config meta + field list with ON/OFF, font, position), Audit (lifecycle events with Start/Complete/Fail/Reprint action buttons).
 - **Frontend Certification Test Suite (`src/tests/labelPrintEngine.test.ts`)**:
-  - Validated 4/4: totalLabels (5Ãƒâ€”2+3Ãƒâ€”1+2Ãƒâ€”2=17); addToBatch + QUEUEDÃ¢â€ â€™PRINTED (4 audit entries); FAILED + addToBatch guard; reprint (full=17, filtered belt=4) + queueSummary (printed=1, queued=2, reprintCount=2, totalLabels=38).
+  - Validated 4/4: totalLabels (5Ã—2+3Ã—1+2Ã—2=17); addToBatch + QUEUEDâ†’PRINTED (4 audit entries); FAILED + addToBatch guard; reprint (full=17, filtered belt=4) + queueSummary (printed=1, queued=2, reprintCount=2, totalLabels=38).
 
 ### [3.115.0] - 2026-08-28
 
 #### Purchase Return to Vendor (PRTV) Engine (v1.0.0-GA)
 - **PRTV Engine (`src/utils/prtvEngine.ts`)**:
-  - Status flow: DRAFT Ã¢â€ â€™ APPROVED Ã¢â€ â€™ DISPATCHED Ã¢â€ â€™ ACKNOWLEDGED Ã¢â€ â€™ SETTLED / REJECTED.
-  - `createReturn()`: Per-line `totalCost = unitCost Ãƒâ€” returnQty`; `taxAmt = totalCost Ãƒâ€” taxPct/100`; `netReturnAmt = totalCost + taxAmt`; order-level `subTotal`, `totalTax`, `netReturnAmt` aggregated via `recalc()`.
-  - `approve()`: Throws if status Ã¢â€°Â  DRAFT; generates `DebitNote` with `debitNoteNo` (DN-*) and full totals.
+  - Status flow: DRAFT â†’ APPROVED â†’ DISPATCHED â†’ ACKNOWLEDGED â†’ SETTLED / REJECTED.
+  - `createReturn()`: Per-line `totalCost = unitCost Ã— returnQty`; `taxAmt = totalCost Ã— taxPct/100`; `netReturnAmt = totalCost + taxAmt`; order-level `subTotal`, `totalTax`, `netReturnAmt` aggregated via `recalc()`.
+  - `approve()`: Throws if status â‰  DRAFT; generates `DebitNote` with `debitNoteNo` (DN-*) and full totals.
   - `markDispatched()`: Records courier + trackingNo; requires APPROVED status.
   - `acknowledge()`: Records `acknowledgedAt`; requires DISPATCHED.
   - `settle()`: Records `{ settledAt, settledBy, payableRef, settledAmt }`; requires ACKNOWLEDGED.
@@ -7182,15 +7199,15 @@ Total: 18/18 passed
   - Voucher types: GIFT_VOUCHER, STORE_CREDIT, REFUND_CREDIT, PROMO_CREDIT.
   - Statuses: ACTIVE, PARTIALLY_REDEEMED, REDEEMED, EXPIRED, CANCELLED.
   - `issueVoucher()`: Generates `voucherCode` (alphanumeric 12-char with dashes); sets `expiresAt = now + validDays`; appends ISSUE ledger entry.
-  - `redeemVoucher()`: Clamps `redeemedAmt = min(requested, balance)`; `fullySettled = requested Ã¢â€°Â¤ balance`; enforces single-use if `multiUse=false`; throws on EXPIRED/CANCELLED/REDEEMED/zero-balance.
+  - `redeemVoucher()`: Clamps `redeemedAmt = min(requested, balance)`; `fullySettled = requested â‰¤ balance`; enforces single-use if `multiUse=false`; throws on EXPIRED/CANCELLED/REDEEMED/zero-balance.
   - `refundToCredit()`: Delegates to `issueVoucher()` with type=REFUND_CREDIT, `issuedTo=customerId`, `refNo=saleRefNo`.
-  - `expireIfDue()`: Idempotent Ã¢â‚¬â€ only mutates ACTIVE/PARTIALLY_REDEEMED vouchers past `expiresAt`; appends EXPIRE entry.
+  - `expireIfDue()`: Idempotent â€” only mutates ACTIVE/PARTIALLY_REDEEMED vouchers past `expiresAt`; appends EXPIRE entry.
   - `adjust()`: Admin top-up or forfeiture; clamps balance to 0 minimum; appends ADJUST ledger entry with `balanceAfter`.
   - `portfolioSummary()`: `totalIssued`, `totalBalance`, `totalRedeemed`, `byType` (balance by type), `byStatus` (count by status), `expiringSoon30d`.
 - **Gift Voucher Modal (`src/components/pos/GiftVoucherModal.tsx`)**:
   - Voucher sidebar (code/balance/type/status badges); 3-tab: Detail (KPI grid, redeem form with clamp warning, redeem button), Ledger (signed-amount transaction table with balanceAfter), Portfolio (summary grid, balance-by-type, count-by-status).
 - **Frontend Certification Test Suite (`src/tests/giftVoucherEngine2.test.ts`)**:
-  - Validated 4/4: Full redemption ACTIVEÃ¢â€ â€™REDEEMED; partial clamp (300+200 from 500 balance, fullySettled=false on second); refund-to-credit + idempotent expiry; adjust top-up (Ã¢â€šÂ¹2000Ã¢â€ â€™Ã¢â€šÂ¹2500) + portfolio (totalBalance=3200, byType.GIFT_VOUCHER=2500).
+  - Validated 4/4: Full redemption ACTIVEâ†’REDEEMED; partial clamp (300+200 from 500 balance, fullySettled=false on second); refund-to-credit + idempotent expiry; adjust top-up (â‚¹2000â†’â‚¹2500) + portfolio (totalBalance=3200, byType.GIFT_VOUCHER=2500).
 
 ### [3.113.0] - 2026-08-28
 
@@ -7199,31 +7216,31 @@ Total: 18/18 passed
 - **Supplier Payment Engine (`src/utils/supplierPaymentEngine.ts`)**:
   - Terms: NET_30 / NET_45 / NET_60 / NET_90 / IMMEDIATE / CUSTOM (customDays field).
   - `createInvoice()`: Computes `dueDate = invoiceDate + termsDays`; runs initial `computeAgingBucket()`.
-  - `recordPayment()`: Detects early-pay (`daysFromInvoice Ã¢â€°Â¤ earlyPayCutoffDays`); applies `earlyPayDiscountPct %` to payment; stores `earlyPayDiscount` and `netPaid` per `PaymentRecord`; transitions status UNPAID Ã¢â€ â€™ PARTIALLY_PAID Ã¢â€ â€™ PAID.
-  - `refreshAging()`: Recomputes all 5 buckets for non-PAID invoices: CURRENT (0d), OVERDUE_30 (1Ã¢â‚¬â€œ30d), OVERDUE_60 (31Ã¢â‚¬â€œ60d), OVERDUE_90 (61Ã¢â‚¬â€œ90d), CRITICAL (>90d); sets OVERDUE status on past-due UNPAID invoices.
+  - `recordPayment()`: Detects early-pay (`daysFromInvoice â‰¤ earlyPayCutoffDays`); applies `earlyPayDiscountPct %` to payment; stores `earlyPayDiscount` and `netPaid` per `PaymentRecord`; transitions status UNPAID â†’ PARTIALLY_PAID â†’ PAID.
+  - `refreshAging()`: Recomputes all 5 buckets for non-PAID invoices: CURRENT (0d), OVERDUE_30 (1â€“30d), OVERDUE_60 (31â€“60d), OVERDUE_90 (61â€“90d), CRITICAL (>90d); sets OVERDUE status on past-due UNPAID invoices.
   - `buildDueCalendar()`: Groups outstanding invoices by `dueDate` ascending; sums `outstandingAmt` per date.
   - `vendorAgingReport()`: Internally calls `refreshAging()`; groups by `vendorId`; produces per-vendor `{ bucket, label, count, totalAmt }[]` + `totalOutstanding`, `criticalAmt`, `oldestDueDays`.
   - Invoice statuses: UNPAID / PARTIALLY_PAID / PAID / OVERDUE / DISPUTED.
 - **Supplier Payment Modal (`src/components/procurement/SupplierPaymentModal.tsx`)**:
   - Invoice sidebar (bucket badge, daysOverdue); 3-tab detail: Invoices (KPI grid, payment form with live early-pay preview, payment history), Aging Report (per-vendor 5-bucket coloured grid), Due Calendar (date-grouped, overdue dates highlighted).
 - **Frontend Certification Test Suite (`src/tests/supplierPaymentEngine.test.ts`)**:
-  - Validated 4/4 (post bucket-assertion patch): NET_30 dueDate + CURRENT; early-pay day 8 Ã¢â€ â€™ Ã¢â€šÂ¹1600 discount; aging refresh OVERDUE_60/CRITICAL; calendar grouping + vendor report.
-  - **Test 3 patch**: Assertion corrected from `OVERDUE_30` to `OVERDUE_60` Ã¢â‚¬â€ May-31 + 30d = May-31 dueDate; asOf Jul-15 = 45d overdue Ã¢â€ â€™ 31Ã¢â‚¬â€œ60d band.
+  - Validated 4/4 (post bucket-assertion patch): NET_30 dueDate + CURRENT; early-pay day 8 â†’ â‚¹1600 discount; aging refresh OVERDUE_60/CRITICAL; calendar grouping + vendor report.
+  - **Test 3 patch**: Assertion corrected from `OVERDUE_30` to `OVERDUE_60` â€” May-31 + 30d = May-31 dueDate; asOf Jul-15 = 45d overdue â†’ 31â€“60d band.
 
 ### [3.112.0] - 2026-08-28
 
 #### Product Bundling & Combo Pricing Engine (v1.0.0-GA)
 - **Bundling Engine (`src/utils/bundlingEngine.ts`)**:
-  - Bundle types: FIXED_BUNDLE (fixedPrice overrides sumMRP), COMBO_DISCOUNT (% or flat Ã¢â€šÂ¹ off), BUY_X_GET_Y (requiredQty + freeQty; effectivePrice = lineTotal / totalQty).
+  - Bundle types: FIXED_BUNDLE (fixedPrice overrides sumMRP), COMBO_DISCOUNT (% or flat â‚¹ off), BUY_X_GET_Y (requiredQty + freeQty; effectivePrice = lineTotal / totalQty).
   - `createBundle()`: Creates bundle with auto-generated `bundleCode` (BND-XXXXX).
-  - `computePricing()`: Sums component MRPs; resolves discount by type priority (fixedPrice Ã¢â€ â€™ flatDiscount Ã¢â€ â€™ discountPct); computes `savingsPct = discountAmt / sumMRP Ãƒâ€” 100`; checks each component against cart `availableQty`; returns `ineligibleSkus[]`.
+  - `computePricing()`: Sums component MRPs; resolves discount by type priority (fixedPrice â†’ flatDiscount â†’ discountPct); computes `savingsPct = discountAmt / sumMRP Ã— 100`; checks each component against cart `availableQty`; returns `ineligibleSkus[]`.
   - `isValid()`: Checks `status === ACTIVE`, validity window, and branch whitelist (`branchCodes = [] = all branches`).
   - `applyBundleToCart()`: Validates `isValid()` + eligibility; deducts `requiredQty + freeQty` from cart `availableQty`.
   - `findApplicableBundles()`: Filters by validity + all component SKUs in cart + eligible; sorts by `discountAmt` descending.
 - **Bundling Modal (`src/components/pricing/BundlingModal.tsx`)**:
   - Bundle list sidebar (type badge, discount amount, eligibility); detail panel: 4-metric price summary, component lines table (MRP/qty/free/effectivePrice/lineTotal), cart stock availability grid with component highlights.
 - **Frontend Certification Test Suite (`src/tests/bundlingEngine.test.ts`)**:
-  - Validated 4/4: COMBO_DISCOUNT (sumMRP=860, discount=86, savings=10%); FIXED_BUNDLE (fixed=450 < sumMRP=530); BUY_X_GET_Y (freeQty=1, qty=3, effPriceÃ¢â€°Ë†80); ineligible detection + cart deduction + findApplicable sorted.
+  - Validated 4/4: COMBO_DISCOUNT (sumMRP=860, discount=86, savings=10%); FIXED_BUNDLE (fixed=450 < sumMRP=530); BUY_X_GET_Y (freeQty=1, qty=3, effPriceâ‰ˆ80); ineligible detection + cart deduction + findApplicable sorted.
 
 ### [3.111.0] - 2026-08-28
 
@@ -7232,41 +7249,41 @@ Total: 18/18 passed
   - `STANDARD_DENOMINATIONS`: [2000, 500, 200, 100, 50, 20, 10, 5, 2, 1].
   - `openDrawer()`: Calls `countDenominations()` for float; creates OPENING_FLOAT movement + DRAWER_OPENED audit entry.
   - `recordMovement()`: Movement kinds: CASH_IN, CASH_OUT, SALE, REFUND; recomputes `currentBalance` and `expectedCash = openingFloat + cashIn - cashOut + netSales - netRefunds` after every call.
-  - `reconcile()`: `countDenominations(physicalDenominations)` Ã¢â€ â€™ `variance = actual - expected`; `|variance| Ã¢â€°Â¤ threshold Ã¢â€ â€™ BALANCED`, negative Ã¢â€ â€™ SHORT, positive Ã¢â€ â€™ OVER; appends `EOD_RECONCILE_${status}` audit entry; sets status RECONCILED.
+  - `reconcile()`: `countDenominations(physicalDenominations)` â†’ `variance = actual - expected`; `|variance| â‰¤ threshold â†’ BALANCED`, negative â†’ SHORT, positive â†’ OVER; appends `EOD_RECONCILE_${status}` audit entry; sets status RECONCILED.
   - `shiftSummary()`: Aggregates `totalOpeningFloat`, `totalNetSales`, `totalCashIn`, `totalCashOut`, `totalExpected`, `totalActual`, `totalVariance`, `balanced`, `short`, `over`, `unreconciled` across a drawer array.
 - **Cash Drawer Modal (`src/components/pos/CashDrawerModal.tsx`)**:
   - 4-tab: Overview (KPI grid, reconciliation summary panel, reverse-chronological audit trail); Float (denomination breakdown + total); Ledger (movements table reverse-chronological, type-coloured badges); EOD Reconcile (denomination count inputs, live reconTotal and variance preview, reconcile button).
 - **Frontend Certification Test Suite (`src/tests/cashDrawerEngine.test.ts`)**:
-  - Validated 4/4: Float Ã¢â€šÂ¹3500; CASH_IN/SALE/CASH_OUT balance tracking; BALANCED recon (variance=0); SHORT recon (variance=-100) + shift summary (unreconciled=1, short=1, totalOpeningFloat=4500).
+  - Validated 4/4: Float â‚¹3500; CASH_IN/SALE/CASH_OUT balance tracking; BALANCED recon (variance=0); SHORT recon (variance=-100) + shift summary (unreconciled=1, short=1, totalOpeningFloat=4500).
 
 ### [3.110.0] - 2026-08-28
 
 
 #### Customer Loyalty Tier Upgrade Engine (v1.0.0-GA)
 - **Loyalty Tier Engine (`src/utils/loyaltyTierEngine.ts`)**:
-  - 4-tier hierarchy: BRONZE Ã¢â€ â€™ SILVER Ã¢â€ â€™ GOLD Ã¢â€ â€™ PLATINUM.
+  - 4-tier hierarchy: BRONZE â†’ SILVER â†’ GOLD â†’ PLATINUM.
   - `DEFAULT_TIER_POLICY`: evaluation window 12 months; downgrade cooldown 3 months.
-  - Thresholds: SILVER Ã¢â€°Â¥ Ã¢â€šÂ¹15k/1500pts, GOLD Ã¢â€°Â¥ Ã¢â€šÂ¹50k/5000pts, PLATINUM Ã¢â€°Â¥ Ã¢â€šÂ¹1.5L/15000pts.
-  - `accrue()`: accumulates `windowSpend`, `windowPoints`, `lifetimeSpend`, `lifetimePoints`, `currentPoints` Ã¢â‚¬â€ does not trigger evaluation.
+  - Thresholds: SILVER â‰¥ â‚¹15k/1500pts, GOLD â‰¥ â‚¹50k/5000pts, PLATINUM â‰¥ â‚¹1.5L/15000pts.
+  - `accrue()`: accumulates `windowSpend`, `windowPoints`, `lifetimeSpend`, `lifetimePoints`, `currentPoints` â€” does not trigger evaluation.
   - `evaluateTier()`: `resolveTier()` picks highest earned tier; upgrades are immediate; downgrades are blocked if `monthsElapsed(lastTierChangeAt, asOf) < downgradeCooldownMonths`; returns `TierEvaluation` with `downgradeLocked` flag.
   - `checkAnniversary()`: exact date match against join anniversary; awards tier-specific bonus (BRONZE 100, SILVER 300, GOLD 750, PLATINUM 2000 pts); logs `ANNIVERSARY_REWARD` audit entry with `pointsDelta`.
   - `evaluateBatch()`: maps `evaluateTier()` over all members; returns updated members + evaluations array.
-  - `tierSummary()`: counts members per tier Ã¢â€ â€™ `{ BRONZE, SILVER, GOLD, PLATINUM }`.
+  - `tierSummary()`: counts members per tier â†’ `{ BRONZE, SILVER, GOLD, PLATINUM }`.
 - **Loyalty Tier Modal (`src/components/crm/LoyaltyTierModal.tsx`)**:
   - 3-tab: member detail (KPIs, tier threshold reference with CURRENT marker, tier history audit trail); bulk evaluate (proposed tier arrows, LOCKED badges for cooldown-blocked downgrades); tier distribution summary (per-tier count + progress bar + policy reference panel).
 - **Frontend Certification Test Suite (`src/tests/loyaltyTierEngine2.test.ts`)**:
-  - Validated 4/4: BRONZEÃ¢â€ â€™GOLD upgrade; downgrade blocked (1mo cooldown); downgrade allowed (6mo cooldown); anniversary bonus 300pts + batch eval + tier summary SILVER=1 GOLD=1.
+  - Validated 4/4: BRONZEâ†’GOLD upgrade; downgrade blocked (1mo cooldown); downgrade allowed (6mo cooldown); anniversary bonus 300pts + batch eval + tier summary SILVER=1 GOLD=1.
 
 ### [3.109.0] - 2026-08-28
 
 #### Consignment Stock Engine (v1.0.0-GA)
 - **Consignment Engine (`src/utils/consignmentEngine.ts`)**:
-  - Plan lifecycle: ACTIVE Ã¢â€ â€™ SETTLED / EXPIRED / CANCELLED.
+  - Plan lifecycle: ACTIVE â†’ SETTLED / EXPIRED / CANCELLED.
   - Movement types: RECEIVED (on plan creation), SOLD, RETURNED, ADJUSTED.
   - `createPlan()`: initialises lines with `onHandQty = receivedQty`; appends one RECEIVED movement per line.
   - `recordSales()`: per-SKU qty clamped to `onHandQty`; appends SOLD movements; calls `recalc()` for `totalSold`, `totalBilledAmt`, `daysElapsed`, `daysRemaining`.
   - `recordReturn()`: per-SKU qty clamped; appends RETURNED movements; calls `recalc()`.
-  - `getAgingReport()`: computes `daysOnFloor = asOf Ã¢Ë†â€™ startDate`; FRESH Ã¢â€°Â¤14d, NORMAL 15Ã¢â‚¬â€œ30d, AGEING 31Ã¢â‚¬â€œ60d, CRITICAL >60d; `returnDue = daysOnFloor >= termDays`; `exposedValue = onHandQty Ãƒâ€” vendorCost`.
+  - `getAgingReport()`: computes `daysOnFloor = asOf âˆ’ startDate`; FRESH â‰¤14d, NORMAL 15â€“30d, AGEING 31â€“60d, CRITICAL >60d; `returnDue = daysOnFloor >= termDays`; `exposedValue = onHandQty Ã— vendorCost`.
   - `getReturnSchedule()`: filters aging report to `returnDue = true`.
   - `settle()`: snapshots totals into `ConsignmentSettlement` with `totalReturnQty`; sets status SETTLED.
 - **Consignment Studio Modal (`src/components/procurement/ConsignmentStudioModal.tsx`)**:
@@ -7278,45 +7295,45 @@ Total: 18/18 passed
 
 #### Price Override Approval Engine (v1.0.0-GA)
 - **Price Override Engine (`src/utils/priceOverrideEngine.ts`)**:
-  - `DEFAULT_OVERRIDE_CONFIG`: `autoApproveLimitPct=2`, `expiryMinutes=10`, 5-tier deviation matrix (0Ã¢â‚¬â€œ2%Ã¢â€ â€™CASHIER, 2Ã¢â‚¬â€œ5%Ã¢â€ â€™SUPERVISOR, 5Ã¢â‚¬â€œ10%Ã¢â€ â€™MANAGER, 10Ã¢â‚¬â€œ20%Ã¢â€ â€™GM, 20%+Ã¢â€ â€™DIRECTOR).
-  - `createRequest()`: computes `deviationAmt` and `deviationPct` (absolute); resolves `requiredAuthority` via `resolveAuthority()`; sets `expiresAt = now + expiryMinutes`; auto-approves with SYSTEM audit entry if `deviationPct Ã¢â€°Â¤ autoApproveLimitPct`.
+  - `DEFAULT_OVERRIDE_CONFIG`: `autoApproveLimitPct=2`, `expiryMinutes=10`, 5-tier deviation matrix (0â€“2%â†’CASHIER, 2â€“5%â†’SUPERVISOR, 5â€“10%â†’MANAGER, 10â€“20%â†’GM, 20%+â†’DIRECTOR).
+  - `createRequest()`: computes `deviationAmt` and `deviationPct` (absolute); resolves `requiredAuthority` via `resolveAuthority()`; sets `expiresAt = now + expiryMinutes`; auto-approves with SYSTEM audit entry if `deviationPct â‰¤ autoApproveLimitPct`.
   - `approve()`: enforces `AUTHORITY_RANK` ordinal; throws descriptive error if `approverRank < requiredRank`.
   - `reject()`: records REJECTED with mandatory reason; immutable.
-  - `expireIfDue()` / `expireBatch()`: idempotent expiry Ã¢â‚¬â€ only mutates PENDING requests past `expiresAt`.
+  - `expireIfDue()` / `expireBatch()`: idempotent expiry â€” only mutates PENDING requests past `expiresAt`.
   - `auditReport()`: counts by status; sums `|deviationAmt|`; computes `avgDeviationPct`.
   - Override statuses: PENDING / APPROVED / AUTO_APPROVED / REJECTED / EXPIRED / CANCELLED.
 - **Price Override Modal (`src/components/pos/PriceOverrideModal.tsx`)**:
   - Request list with status badge + deviation %; detail: price/deviation card, authority matrix (active rule highlighted), approval action panel with authority selector, audit trail (reverse chronological with action badges).
   - Audit summary strip: total / auto-approved / approved / pending / rejected / expired / avg dev% / total deviation amount.
 - **Frontend Certification Test Suite (`src/tests/priceOverrideEngine.test.ts`)**:
-  - Validated 4/4: auto-approve 1.6%; 7% Ã¢â€ â€™ PENDING + MANAGER; authority enforcement (SUPERVISOR throws, MANAGER approves); expiry + reject + audit report.
+  - Validated 4/4: auto-approve 1.6%; 7% â†’ PENDING + MANAGER; authority enforcement (SUPERVISOR throws, MANAGER approves); expiry + reject + audit report.
 
 ### [3.107.0] - 2026-08-28
 
 
 #### Staff Commission & Incentive Engine (v1.0.0-GA)
 - **Commission Engine (`src/utils/commissionEngine.ts`)**:
-  - `DEFAULT_COMMISSION_CONFIG`: 4-tier progressive slabs Ã¢â‚¬â€ 0Ã¢â‚¬â€œ50k: 2%, 50kÃ¢â‚¬â€œ100k: 3.5%, 100kÃ¢â‚¬â€œ200k: 5%, 200k+: 6.5%.
+  - `DEFAULT_COMMISSION_CONFIG`: 4-tier progressive slabs â€” 0â€“50k: 2%, 50kâ€“100k: 3.5%, 100kâ€“200k: 5%, 200k+: 6.5%.
   - `computeTieredCommission()`: remainder-based waterfall consuming net sales across tiers; returns `appliedTiers[]` audit trace with per-slab `salesInSlab` and `commission`.
-  - `computeRepCommission()`: filters entries by repId + period prefix, computes net sales (gross - returns - discounts), applies tiered commission + target bonus (Ã¢â€°Â¥100% revenue achievement) + top-performer bonus.
+  - `computeRepCommission()`: filters entries by repId + period prefix, computes net sales (gross - returns - discounts), applies tiered commission + target bonus (â‰¥100% revenue achievement) + top-performer bonus.
   - `computeBranchCommissions()`: groups targets by branch, identifies top performer per branch (highest net sales), delegates to `computeRepCommission()`, sorts output by net sales descending.
   - `raisePayout()`: snapshots summary into `CommissionPayout` (PENDING) with sequenced `payoutNo`; payout is immutable after raising.
-  - Payout lifecycle: PENDING Ã¢â€ â€™ APPROVED Ã¢â€ â€™ PAID / DISPUTED / CANCELLED.
+  - Payout lifecycle: PENDING â†’ APPROVED â†’ PAID / DISPUTED / CANCELLED.
   - `payoutLedger()`: groups payouts by status, sums commissions, computes `avgCommission`.
 - **Commission Studio Modal (`src/components/hr/CommissionStudioModal.tsx`)**:
   - 3-tab: ranked leaderboard with medal icons + target/top-performer badges + achievement bars; tier breakdown waterfall with full computation trace; payout ledger with approve/paid/dispute action buttons.
 - **Frontend Certification Test Suite (`src/tests/commissionEngine.test.ts`)**:
-  - Validated 4/4 test stages: 4-tier slab (205kÃ¢â€ â€™8075), target+top-performer bonuses, below-target zero bonus, payout lifecycle + ledger.
+  - Validated 4/4 test stages: 4-tier slab (205kâ†’8075), target+top-performer bonuses, below-target zero bonus, payout lifecycle + ledger.
 
 ### [3.106.0] - 2026-08-28
 
 #### Markdown & Clearance Planning Engine (v1.0.0-GA)
 - **Markdown Engine (`src/utils/markdownEngine.ts`)**:
-  - Plan lifecycle: DRAFT Ã¢â€ â€™ ACTIVE Ã¢â€ â€™ COMPLETED (auto on target hit) / PAUSED / CANCELLED.
-  - `applyStep()`: recomputes per-SKU `effectivePrice = basePrice Ãƒâ€” (1 Ã¢Ë†â€™ discountPct/100)` for all SKU lines; marks step `isActive` and `activatedAt`.
-  - `recordSellThrough()`: per-SKU `sellThroughPct = unitsSold/openingStockÃƒâ€”100`; averages across SKUs; auto-transitions to COMPLETED when `currentAvgSellThrough Ã¢â€°Â¥ targetSellThroughPct`.
-  - `checkAutoTrigger()`: fires when `elapsedPct Ã¢â€°Â¥ 60%` AND `currentAvgSellThrough < 50%`; idempotent (`autoTriggerFired` guard); sets `nextRecommendedStep` to first step beyond current.
-  - `generateReport()`: `onTrack = currentAvgSellThrough Ã¢â€°Â¥ target Ãƒâ€” (timeElapsedPct/100)`; `recommendation` emitted whenever `nextRecommendedStep` is set OR `!onTrack`.
+  - Plan lifecycle: DRAFT â†’ ACTIVE â†’ COMPLETED (auto on target hit) / PAUSED / CANCELLED.
+  - `applyStep()`: recomputes per-SKU `effectivePrice = basePrice Ã— (1 âˆ’ discountPct/100)` for all SKU lines; marks step `isActive` and `activatedAt`.
+  - `recordSellThrough()`: per-SKU `sellThroughPct = unitsSold/openingStockÃ—100`; averages across SKUs; auto-transitions to COMPLETED when `currentAvgSellThrough â‰¥ targetSellThroughPct`.
+  - `checkAutoTrigger()`: fires when `elapsedPct â‰¥ 60%` AND `currentAvgSellThrough < 50%`; idempotent (`autoTriggerFired` guard); sets `nextRecommendedStep` to first step beyond current.
+  - `generateReport()`: `onTrack = currentAvgSellThrough â‰¥ target Ã— (timeElapsedPct/100)`; `recommendation` emitted whenever `nextRecommendedStep` is set OR `!onTrack`.
   - `MARKDOWN_CONFIG`: `autoTriggerCheckPct=60`, `autoTriggerThreshold=50`.
 - **Markdown Planning Modal (`src/components/pricing/MarkdownPlanningModal.tsx`)**:
   - Plan list with status badges; detail: sell-through gauge, clickable step cards with effective price, SKU table (colour-coded ST%); sell-through report tab with pace status + auto-trigger recommendation banner.
@@ -7327,27 +7344,27 @@ Total: 18/18 passed
 
 #### Inter-Store Purchase Order (IPO) Engine (v1.0.0-GA)
 - **IPO Engine (`src/utils/ipoEngine.ts`)**:
-  - Full lifecycle: DRAFT Ã¢â€ â€™ SUBMITTED Ã¢â€ â€™ APPROVED Ã¢â€ â€™ PICKING Ã¢â€ â€™ DISPATCHED Ã¢â€ â€™ AUTO_GRN Ã¢â€ â€™ CLOSED / DISPUTED / CANCELLED.
-  - `approve()`: per-line `approvedQty` override clamped to `requestedQty` Ã¢â‚¬â€ prevents over-commit at fulfilling branch.
-  - `dispatch()`: per-line `pickedQty` Ã¢â€ â€™ `dispatchedQty` Ã¢â€ â€™ `lineValue` Ã¢â€ â€™ `lineStatus` (FULFILLED / PARTIAL / CANCELLED); calls `recalcTotals()` for `totalValue`, `fulfillmentRate`.
+  - Full lifecycle: DRAFT â†’ SUBMITTED â†’ APPROVED â†’ PICKING â†’ DISPATCHED â†’ AUTO_GRN â†’ CLOSED / DISPUTED / CANCELLED.
+  - `approve()`: per-line `approvedQty` override clamped to `requestedQty` â€” prevents over-commit at fulfilling branch.
+  - `dispatch()`: per-line `pickedQty` â†’ `dispatchedQty` â†’ `lineValue` â†’ `lineStatus` (FULFILLED / PARTIAL / CANCELLED); calls `recalcTotals()` for `totalValue`, `fulfillmentRate`.
   - `generateAutoGRN()`: builds full `AutoGRN` document with per-line `shortQty` and `hasVariance` flag; defaults missing lines to full receipt.
   - 9 IPO statuses; immutable audit trail on every transition.
 - **IPO Studio Modal (`src/components/warehouse/IPOStudioModal.tsx`)**:
   - Sidebar order list; detail panel: KPI strip (requested, dispatched, fulfillment%, value), lines table with per-line status badges, one-click lifecycle buttons, audit trail; Auto-GRN tab with variance highlighting.
 - **Frontend Certification Test Suite (`src/tests/ipoEngine.test.ts`)**:
-  - Validated 4/4 test stages: creation + totals, approval qty clamping, dispatch line values + 94.44% fulfillment rate, auto-GRN full receipt Ã¢â€ â€™ CLOSED.
+  - Validated 4/4 test stages: creation + totals, approval qty clamping, dispatch line values + 94.44% fulfillment rate, auto-GRN full receipt â†’ CLOSED.
 
 ### [3.104.0] - 2026-08-28
 
 
 #### Customer Complaint & After-Sales CRM Engine (v1.0.0-GA)
 - **Complaint CRM Engine (`src/utils/complaintCRMEngine.ts`)**:
-  - Full lifecycle: OPEN Ã¢â€ â€™ ASSIGNED Ã¢â€ â€™ IN_PROGRESS Ã¢â€ â€™ PENDING_CUSTOMER Ã¢â€ â€™ RESOLVED Ã¢â€ â€™ CLOSED / REOPENED / ESCALATED / CANCELLED.
+  - Full lifecycle: OPEN â†’ ASSIGNED â†’ IN_PROGRESS â†’ PENDING_CUSTOMER â†’ RESOLVED â†’ CLOSED / REOPENED / ESCALATED / CANCELLED.
   - `SLA_MATRIX`: LOW (24h/120h), MEDIUM (8h/72h), HIGH (4h/48h), CRITICAL (1h/8h) first-response/resolution targets.
   - `recordFirstResponse()` / `resolve()`: compute `hoursElapsed` from `openedAt`, set `firstResponseSLABreached` / `resolutionSLABreached`.
-  - `checkSLABreaches()`: idempotent SLA check with `asOf: Date`; auto-escalates CRITICAL complaints after 2Ãƒâ€” first-response SLA threshold.
-  - `close()`: clamps CSAT to 1Ã¢â‚¬â€œ5, writes `csatScore` and `csatComment`.
-  - `reopen()`: increments `reopenCount`, clears `resolvedAt`, `closedAt`, `csatScore` Ã¢â‚¬â€ preserves notes log.
+  - `checkSLABreaches()`: idempotent SLA check with `asOf: Date`; auto-escalates CRITICAL complaints after 2Ã— first-response SLA threshold.
+  - `close()`: clamps CSAT to 1â€“5, writes `csatScore` and `csatComment`.
+  - `reopen()`: increments `reopenCount`, clears `resolvedAt`, `closedAt`, `csatScore` â€” preserves notes log.
   - `computeCSATReport()`: avg CSAT, 5-bucket distribution, SLA breach rates (over total complaints), avg resolution hours, escalation rate, reopen rate, category breakdown.
   - 9 statuses, 4 priority levels, 10 category codes. Notes log appended on every action.
 - **Complaint CRM Modal (`src/components/crm/ComplaintCRMModal.tsx`)**:
@@ -7359,10 +7376,10 @@ Total: 18/18 passed
 
 #### Vendor Return & Debit Note Engine (v1.0.0-GA)
 - **Vendor Return Engine (`src/utils/vendorReturnEngine.ts`)**:
-  - Full RTV lifecycle: DRAFT Ã¢â€ â€™ SUBMITTED Ã¢â€ â€™ VENDOR_ACKNOWLEDGED Ã¢â€ â€™ GOODS_DISPATCHED Ã¢â€ â€™ VENDOR_RECEIVED Ã¢â€ â€™ DEBIT_NOTE_RAISED Ã¢â€ â€™ SETTLED / DISPUTED / CANCELLED.
+  - Full RTV lifecycle: DRAFT â†’ SUBMITTED â†’ VENDOR_ACKNOWLEDGED â†’ GOODS_DISPATCHED â†’ VENDOR_RECEIVED â†’ DEBIT_NOTE_RAISED â†’ SETTLED / DISPUTED / CANCELLED.
   - Per-line `lineValue`, `gstAmount`, `totalWithGST` auto-computed on `createRTV()`.
   - `raiseDebitNote()`: auto-generates `DebitNote` with DN number, per-line descriptive strings with return reason codes, OPEN status, `outstandingAmount = totalAmount`.
-  - `settleDebitNote()`: cumulative settlement tracking Ã¢â€ â€™ PARTIALLY_SETTLED or SETTLED; RTV auto-transitions to SETTLED on full clearance.
+  - `settleDebitNote()`: cumulative settlement tracking â†’ PARTIALLY_SETTLED or SETTLED; RTV auto-transitions to SETTLED on full clearance.
   - `computeVendorBalance()`: snapshots open vs settled debit notes per vendor; aggregates total/outstanding/settled values.
   - 9 RTV statuses, 7 return reason codes (QUALITY_DEFECT, DAMAGED_IN_TRANSIT, WRONG_ITEM, EXCESS_SUPPLY, SHORT_EXPIRY, PRICE_DISCREPANCY, SPECIFICATION_MISMATCH).
   - Immutable audit trail with actor, timestamp, note on every lifecycle transition.
@@ -7375,8 +7392,8 @@ Total: 18/18 passed
 
 #### Store-Level Profit & Loss Dashboard (v1.0.0-GA)
 - **P&L Dashboard Engine (`src/utils/plDashboardEngine.ts`)**:
-  - `computePL()`: Gross Sales Ã¢â€ â€™ Returns Ã¢â€ â€™ Net Revenue Ã¢â€ â€™ COGS Ã¢â€ â€™ Gross Margin (GM%) Ã¢â€ â€™ Shrinkage Cost Ã¢â€ â€™ Markdown Cost (above `PL_CONFIG.markdownPolicyThresholdPct` = 10%) Ã¢â€ â€™ Operating Cost Ã¢â€ â€™ Net Profit. All filtered to branch and date range.
-  - Markdown cost policy: only discount above 10% of line gross sales classified as markdown Ã¢â‚¬â€ separates normal trading discount from margin-eroding markdown events.
+  - `computePL()`: Gross Sales â†’ Returns â†’ Net Revenue â†’ COGS â†’ Gross Margin (GM%) â†’ Shrinkage Cost â†’ Markdown Cost (above `PL_CONFIG.markdownPolicyThresholdPct` = 10%) â†’ Operating Cost â†’ Net Profit. All filtered to branch and date range.
+  - Markdown cost policy: only discount above 10% of line gross sales classified as markdown â€” separates normal trading discount from margin-eroding markdown events.
   - `computeTrend()`: auto-sorts periods ascending by label, computes avg GM%, avg net margin%, MoM revenue growth %.
   - `compareBranches()`: sorts reports by net profit descending for branch ranking.
   - `PLLine[]` waterfall with `pctOfRevenue` on all deduction lines for drill-through.
@@ -7390,25 +7407,25 @@ Total: 18/18 passed
 
 #### Vendor Purchase Order Approval Workflow & 3-Way Match Engine (v1.0.0-GA)
 - **Three-Way Match Engine (`src/utils/threeWayMatchEngine.ts`)**:
-  - Full PO lifecycle: DRAFT Ã¢â€ â€™ PENDING_APPROVAL Ã¢â€ â€™ APPROVED Ã¢â€ â€™ SENT Ã¢â€ â€™ PARTIALLY_RECEIVED / RECEIVED Ã¢â€ â€™ INVOICED Ã¢â€ â€™ CLOSED / DISPUTED / CANCELLED.
-  - Per-line computed totals: `lineTotal = orderedQty Ãƒâ€” unitPrice`, `taxTotal` from line-level GST rate, `grandTotal`.
+  - Full PO lifecycle: DRAFT â†’ PENDING_APPROVAL â†’ APPROVED â†’ SENT â†’ PARTIALLY_RECEIVED / RECEIVED â†’ INVOICED â†’ CLOSED / DISPUTED / CANCELLED.
+  - Per-line computed totals: `lineTotal = orderedQty Ã— unitPrice`, `taxTotal` from line-level GST rate, `grandTotal`.
   - `approve()`: persists `approvedBy` via `extras` spread on `transition()`.
-  - `reject()`: persists `rejectedBy` + `rejectionReason`, status Ã¢â€ â€™ CANCELLED.
+  - `reject()`: persists `rejectedBy` + `rejectionReason`, status â†’ CANCELLED.
   - `applyGRN()`: overlays `receivedQty` + `receivedUnitPrice` per lineId; auto-resolves RECEIVED vs PARTIALLY_RECEIVED.
   - `applyInvoice()`: overlays `invoicedQty` + `invoicedUnitPrice` per lineId.
-  - `runThreeWayMatch()`: per-line `qtyVariancePct` and `priceVariancePct` vs configurable tolerance bands (Ã‚Â±2% qty, Ã‚Â±1% price); resolves MATCHED / PRICE_VARIANCE / QTY_VARIANCE / BOTH_VARIANCE; worst-case determines `overallResult`.
-  - `closeOrDispute()`: CLOSED on match, DISPUTED on variance Ã¢â‚¬â€ single call.
+  - `runThreeWayMatch()`: per-line `qtyVariancePct` and `priceVariancePct` vs configurable tolerance bands (Â±2% qty, Â±1% price); resolves MATCHED / PRICE_VARIANCE / QTY_VARIANCE / BOTH_VARIANCE; worst-case determines `overallResult`.
+  - `closeOrDispute()`: CLOSED on match, DISPUTED on variance â€” single call.
   - Immutable audit trail with fromStatus, toStatus, action, performedBy, timestamp, note.
 - **PO Approval & Match Modal (`src/components/procurement/POApprovalMatchModal.tsx`)**:
   - PO queue with lifecycle action buttons; 2-tab: PO Workflow (lines, totals, audit trail) and 3-Way Match (per-line comparison table with tolerance indicators).
 - **Frontend Certification Test Suite (`src/tests/threeWayMatchEngine2.test.ts`)**:
-  - Validated 4/4 test stages: PO creation totals + approve, full MATCHED cycle Ã¢â€ â€™ CLOSED, PRICE_VARIANCE Ã¢â€ â€™ DISPUTED, PO rejection.
+  - Validated 4/4 test stages: PO creation totals + approve, full MATCHED cycle â†’ CLOSED, PRICE_VARIANCE â†’ DISPUTED, PO rejection.
 
 ### [3.100.0] - 2026-08-28
 
 #### Warehouse Wave Picking Optimiser (v1.0.0-GA)
 - **Wave Picking Engine (`src/utils/wavePickingOptimiser.ts`)**:
-  - `createWave()`: builds `PickTask[]` from order lines with serpentine sort keys (`zoneIdxÃƒâ€”100000 + aisleÃƒâ€”1000 + bayKeyÃƒâ€”10 + level`; odd aisles ascending, even descending).
+  - `createWave()`: builds `PickTask[]` from order lines with serpentine sort keys (`zoneIdxÃ—100000 + aisleÃ—1000 + bayKeyÃ—10 + level`; odd aisles ascending, even descending).
   - `assignTasks()`: groups tasks by zone, builds zone-preference picker pools, round-robin assignment, transitions wave to IN_PROGRESS.
   - `optimisePath()`: returns a picker's zone tasks in ascending sort-key (serpentine walk) order.
   - `recordPick()`: computes `shortQty`, sets PICKED / SHORTED / SKIPPED per task; auto-COMPLETED when all tasks terminal.
@@ -7424,15 +7441,15 @@ Total: 18/18 passed
 
 #### Advanced Pricing Rules & Promotional Discount Engine (v1.0.0-GA)
 - **Pricing Discount Engine (`src/utils/pricingDiscountEngine.ts`)**:
-  - 4-layer hierarchy: Base Ã¢â€ â€™ Customer Group Override Ã¢â€ â€™ Best Promotional Offer (highest-discount wins, priority tie-break) Ã¢â€ â€™ Coupon stacking.
-  - `resolveLine()`: sequential layer application with per-layer `[L1]Ã¢â‚¬â€œ[L4]` human-readable trace entries in `PriceResolutionResult`.
+  - 4-layer hierarchy: Base â†’ Customer Group Override â†’ Best Promotional Offer (highest-discount wins, priority tie-break) â†’ Coupon stacking.
+  - `resolveLine()`: sequential layer application with per-layer `[L1]â€“[L4]` human-readable trace entries in `PriceResolutionResult`.
   - `resolveInvoice()`: multi-line resolution, invoice-level 40% max discount cap enforcement with `capBreached` flag.
   - `validateCoupon()`: checks `isActive`, `usedCount < maxUsages`, `validFrom/validTo`; returns `{ valid, reason }`.
   - `getActiveOffers()`: date-aware active offer filter.
   - `isStackable` flag on offers controls coupon combination eligibility.
   - `PRICING_CONFIG` constants: `maxDiscountCapPct` (40%), `couponStackingAllowed` (true).
 - **Pricing Studio Modal (`src/components/pricing/PricingStudioModal.tsx`)**:
-  - 3-tab: live invoice resolver (customer group + coupon controls, per-line discount breakdown), active offers catalogue, per-line L1Ã¢â‚¬â€œL4 pricing trace.
+  - 3-tab: live invoice resolver (customer group + coupon controls, per-line discount breakdown), active offers catalogue, per-line L1â€“L4 pricing trace.
 - **Frontend Certification Test Suite (`src/tests/pricingDiscountEngine.test.ts`)**:
   - Validated 4/4 test stages: 4-layer resolution, wholesale group + highest-discount offer selection, discount cap enforcement, coupon validation (expired/exhausted/inactive).
 
@@ -7441,8 +7458,8 @@ Total: 18/18 passed
 
 #### Customer Segmentation & AI Micro-Cohort Engine (v1.0.0-GA)
 - **Segmentation Engine (`src/utils/customerSegmentationEngine.ts`)**:
-  - RFM quintile scoring: fixed threshold arrays for Recency (days), Frequency (txn count), Monetary (LTV Ã¢â€šÂ¹).
-  - Weighted composite score: `(RÃƒâ€”0.30 + FÃƒâ€”0.35 + MÃƒâ€”0.35) Ãƒâ€” 20` (0Ã¢â‚¬â€œ100 scale).
+  - RFM quintile scoring: fixed threshold arrays for Recency (days), Frequency (txn count), Monetary (LTV â‚¹).
+  - Weighted composite score: `(RÃ—0.30 + FÃ—0.35 + MÃ—0.35) Ã— 20` (0â€“100 scale).
   - 10-micro-cohort rule-chain resolver: CHAMPIONS, LOYAL, POTENTIAL_LOYALISTS, NEW, PROMISING, NEED_ATTENTION, AT_RISK, CANT_LOSE_THEM, HIBERNATING, LOST.
   - 6 promotion eligibility flags derived from cohort + monetary score: winbackOffer, loyaltyDoublePts, earlyAccess, birthdayCoupon, flashSaleInvite, reEngagementEmail.
   - `buildReport()`: full SegmentationReport with cohortSummary, avgLTV, avgAOV, topCohortByCount.
@@ -7456,7 +7473,7 @@ Total: 18/18 passed
 
 #### Multi-Branch Stock Transfer & Inter-Branch Requisition (v1.0.0-GA)
 - **Stock Transfer Engine (`src/utils/stockTransferEngine.ts`)**:
-  - Full lifecycle: SUBMITTED Ã¢â€ â€™ APPROVED Ã¢â€ â€™ DISPATCHED Ã¢â€ â€™ RECEIVED / PARTIALLY_RECEIVED.
+  - Full lifecycle: SUBMITTED â†’ APPROVED â†’ DISPATCHED â†’ RECEIVED / PARTIALLY_RECEIVED.
   - 3 transfer types: INTER_BRANCH, WAREHOUSE_TO_BRANCH, BRANCH_TO_WAREHOUSE.
   - Per-line qty tracking: requestedQty, approvedQty, dispatchedQty, receivedQty, shortQty.
   - `approve()`: per-line `approvedQty` override, recalculates `totalTransferValue`, persists `approvedBy`.
@@ -7467,7 +7484,7 @@ Total: 18/18 passed
 - **Stock Transfer Studio Modal (`src/components/inventory/StockTransferStudioModal.tsx`)**:
   - Order queue with per-line qty table and action buttons; metrics dashboard tab.
 - **Frontend Certification Test Suite (`src/tests/stockTransferEngine.test.ts`)**:
-  - Validated 4/4 test stages (bug fix: `approvedBy` not persisted Ã¢â‚¬â€ resolved by passing `{ approvedBy }` in `extras`).
+  - Validated 4/4 test stages (bug fix: `approvedBy` not persisted â€” resolved by passing `{ approvedBy }` in `extras`).
 
 ### [3.96.0] - 2026-08-28
 
@@ -7475,7 +7492,7 @@ Total: 18/18 passed
 - **Loyalty Ledger Engine (`src/utils/loyaltyLedgerEngine.ts`)**:
   - Double-entry ledger: 5 EARN types (PURCHASE, SIGNUP_BONUS, REFERRAL, BIRTHDAY, MANUAL_CREDIT), 4 BURN types (REDEMPTION, VOUCHER_CONVERSION, EXPIRY_WRITEOFF, ADJUSTMENT).
   - TTL-based expiry: 365-day configurable TTL, expiry-aware `availableBalance` computed without mutating entries.
-  - Redemption cap: 20% of invoice value converted to points at Ã¢â€šÂ¹0.25/pt; minimum 50-pt balance guard.
+  - Redemption cap: 20% of invoice value converted to points at â‚¹0.25/pt; minimum 50-pt balance guard.
   - `runExpirySweep()`: consolidates expired ACTIVE entries per customer into BURN_EXPIRY_WRITEOFF.
   - `LOYALTY_CONFIG` constants for all policy parameters.
 - **Loyalty Ledger Modal (`src/components/crm/LoyaltyLedgerModal.tsx`)**:
@@ -7488,11 +7505,11 @@ Total: 18/18 passed
 
 #### Employee Shift Management & Commission Calculation Engine (v1.0.0-GA)
 - **Shift Engine (`src/utils/shiftEngine.ts`)**:
-  - Implemented clock-in with late arrival detection (`lateMinutes = max(0, actual Ã¢Ë†â€™ scheduled)`).
-  - Clock-out computes net `hoursWorked` (gross minus break durations), `overtimeHours` at 1.5Ãƒâ€” beyond 8h, `earlyDepartureMinutes`, and auto-sets HALF_DAY if < 4h.
+  - Implemented clock-in with late arrival detection (`lateMinutes = max(0, actual âˆ’ scheduled)`).
+  - Clock-out computes net `hoursWorked` (gross minus break durations), `overtimeHours` at 1.5Ã— beyond 8h, `earlyDepartureMinutes`, and auto-sets HALF_DAY if < 4h.
   - Break tracking: `startBreak` / `endBreak` with ISO timestamp and computed `durationMinutes`.
   - 4-tier commission matrix (BRONZE/SILVER/GOLD/PLATINUM): base rate + incentive rate above configurable sales threshold.
-  - `calculateCommission()`: base pay (standard + 1.5Ãƒâ€” overtime), base commission, incentive bonus, per-invoice breakdown.
+  - `calculateCommission()`: base pay (standard + 1.5Ã— overtime), base commission, incentive bonus, per-invoice breakdown.
 - **Shift Commission Studio Modal (`src/components/hrm/ShiftCommissionStudioModal.tsx`)**:
   - 3-tab view: Roster (shift KPIs + pay summary), Team Commission (incentive progress bars), Tier Reference.
 - **Frontend Certification Test Suite (`src/tests/shiftEngine.test.ts`)**:
@@ -7504,7 +7521,7 @@ Total: 18/18 passed
 - **e-Invoice Engine (`src/utils/eInvoiceEngine.ts`)**:
   - Implemented GSTN API v1.03 schema: GSTParty, GSTLineItem, EInvoice, BulkPrintJob types.
   - Line item GST computation: intra-state (CGST+SGST) / inter-state (IGST) routing with cess support.
-  - Deterministic 64-char IRN simulation (SHA-256-style) Ã¢â‚¬â€ idempotent on identical inputs.
+  - Deterministic 64-char IRN simulation (SHA-256-style) â€” idempotent on identical inputs.
   - CBIC-spec QR payload: 8-field pipe-delimited canonical string (SupplierGSTIN|BuyerGSTIN|DocNo|DocDate|GrandTotal|IRN|AckNo|AckDate).
   - IndAS 115-compliant round-off as explicit `EInvoiceTotals.roundOff` field.
   - IRN cancellation guard (REGISTERED-only), bulk print queue with COMPLETED/FAILED status.
@@ -7537,7 +7554,7 @@ Total: 18/18 passed
   - Order-up-to-max model: `suggestedOrderQty = maxStockLevel - currentStock`.
   - Stockout date projection: `currentStock / avgDailySales` with calendar date computation.
   - Full branch scan with priority sorting and total suggested PO value aggregation.
-  - PO lifecycle state transitions: PENDING Ã¢â€ â€™ APPROVED Ã¢â€ â€™ PO_RAISED / CANCELLED.
+  - PO lifecycle state transitions: PENDING â†’ APPROVED â†’ PO_RAISED / CANCELLED.
 - **Smart Replenishment Modal (`src/components/inventory/SmartReplenishmentModal.tsx`)**:
   - Implemented suggestion cards with trigger badges, stockout progress bar, and approve/auto-PO actions.
 - **Frontend Certification Test Suite (`src/tests/replenishmentEngine.test.ts`)**:
@@ -7547,7 +7564,7 @@ Total: 18/18 passed
 
 #### Enterprise Return Merchandise Authorization (RMA) & Reverse Logistics Engine (v1.0.0-GA)
 - **RMA Engine (`src/utils/rmaEngine.ts`)**:
-  - Implemented 10-status lifecycle: DRAFT Ã¢â€ â€™ SUBMITTED Ã¢â€ â€™ APPROVED Ã¢â€ â€™ IN_TRANSIT Ã¢â€ â€™ RECEIVED_AT_WAREHOUSE Ã¢â€ â€™ QUALITY_INSPECTION Ã¢â€ â€™ CREDIT_NOTE_ISSUED Ã¢â€ â€™ REFUND_PROCESSED Ã¢â€ â€™ REJECTED Ã¢â€ â€™ CLOSED.
+  - Implemented 10-status lifecycle: DRAFT â†’ SUBMITTED â†’ APPROVED â†’ IN_TRANSIT â†’ RECEIVED_AT_WAREHOUSE â†’ QUALITY_INSPECTION â†’ CREDIT_NOTE_ISSUED â†’ REFUND_PROCESSED â†’ REJECTED â†’ CLOSED.
   - Immutable audit trail with `fromStatus`/`toStatus`, operator ID, remarks, and ISO timestamp per transition.
   - Restocking fee calculation: applied only for `CUSTOMER_CHANGED_MIND` reason (IndAS 115 compliant).
   - Reverse logistics metrics: total RMAs, pending, in-transit, credit notes, return value, avg resolution days, byReason / byResolution breakdowns.
@@ -7561,8 +7578,8 @@ Total: 18/18 passed
 #### Supplier Scorecard & Vendor SLA Compliance Audit (v1.0.0-GA)
 - **Supplier Scorecard Engine (`src/utils/supplierScorecardEngine.ts`)**:
   - Implemented weighted composite scorecard: OTD 50% / Fill Rate 35% / Quality 15%.
-  - Quality score formula: `max(0, 100 - rejectionPct Ãƒâ€” 10)` Ã¢â‚¬â€ 1% rejection = -10 score points.
-  - 4-band SLA status classification: GREEN (Ã¢â€°Â¥85), AMBER (Ã¢â€°Â¥70), RED (Ã¢â€°Â¥50), CRITICAL (<50).
+  - Quality score formula: `max(0, 100 - rejectionPct Ã— 10)` â€” 1% rejection = -10 score points.
+  - 4-band SLA status classification: GREEN (â‰¥85), AMBER (â‰¥70), RED (â‰¥50), CRITICAL (<50).
   - Per-day late delivery penalty accrual from contracted vs actual delivery dates.
   - Multi-supplier report with descending scorecard ranking and average score.
 - **Supplier Scorecard Modal (`src/components/purchase/SupplierScorecardModal.tsx`)**:
@@ -7587,9 +7604,9 @@ Total: 18/18 passed
 
 #### Universal Customer 360 & Loyalty Tier Progression Matrix (v1.0.0-GA)
 - **Loyalty Engine (`src/utils/loyaltyEngine.ts`)**:
-  - Implemented 5-tier loyalty engine: Bronze (Ã¢â€šÂ¹0), Silver (Ã¢â€šÂ¹10K), Gold (Ã¢â€šÂ¹50K), Platinum (Ã¢â€šÂ¹1.5L), Diamond (Ã¢â€šÂ¹5L).
-  - Tier-specific earn rates (1Ã¢â‚¬â€œ10 pts per Ã¢â€šÂ¹100), redemption rates (Ã¢â€šÂ¹0.25Ã¢â‚¬â€œÃ¢â€šÂ¹0.75 per point), and birthday month multipliers (2xÃ¢â‚¬â€œ5x).
-  - Automatic tier upgrade detection with welcome bonus points (200Ã¢â‚¬â€œ2500 pts per tier jump).
+  - Implemented 5-tier loyalty engine: Bronze (â‚¹0), Silver (â‚¹10K), Gold (â‚¹50K), Platinum (â‚¹1.5L), Diamond (â‚¹5L).
+  - Tier-specific earn rates (1â€“10 pts per â‚¹100), redemption rates (â‚¹0.25â€“â‚¹0.75 per point), and birthday month multipliers (2xâ€“5x).
+  - Automatic tier upgrade detection with welcome bonus points (200â€“2500 pts per tier jump).
   - Point redemption guard: minimum 50 points, tier-specific cash equivalent.
 - **Customer 360 Loyalty Modal (`src/components/crm/Customer360LoyaltyModal.tsx`)**:
   - Implemented split-panel 360 view with tier progression bar, key metrics, benefits grid, and earn/redeem action panels.
@@ -7601,7 +7618,7 @@ Total: 18/18 passed
 #### Enterprise Gift Card, Voucher Lifecycle & Stored-Value Ledger (v1.0.0-GA)
 - **Gift Card Engine (`src/utils/giftCardEngine.ts`)**:
   - Implemented complete gift card lifecycle: issuance, top-up, OTP-secured redemption, and breakage revenue analysis.
-  - TOTP-style 30-second OTP windows with Ã‚Â±1 window tolerance for POS terminal clock drift.
+  - TOTP-style 30-second OTP windows with Â±1 window tolerance for POS terminal clock drift.
   - Immutable ledger entries with `balanceBefore` / `balanceAfter` per transaction for IndAS 115 audit trail.
   - Automatic `FULLY_REDEEMED` status transition on zero balance.
   - Breakage revenue analysis: expired card residual balance calculation with breakage percentage.
@@ -7787,7 +7804,7 @@ Total: 18/18 passed
 
 ### [3.71.0] - 2026-08-28
 
-#### SMRITI Government Integration Platform (SGIP) Ã¢â‚¬â€ E-Invoice & E-Way Bill Gateway (v1.0.0-GA)
+#### SMRITI Government Integration Platform (SGIP) â€” E-Invoice & E-Way Bill Gateway (v1.0.0-GA)
 - **Statutory GSTN E-Invoice Connector (`backend/app/compliance/connectors/einvoice/`)**:
   - Implemented `EInvoiceConnector` adhering to `ConnectorV1` and GSTN Schema v1.03 for B2B tax invoice regularization.
   - Added deterministic 64-character SHA-256 IRN hash calculation (`SupplierGSTIN + FinancialYear + DocType + DocNo`).
@@ -7798,7 +7815,7 @@ Total: 18/18 passed
   - Implemented standard 12-digit numeric E-Way Bill Number generation.
 - **Orchestration Services & Resilient Outbox Worker (`backend/app/compliance/services/`)**:
   - Created `EInvoiceService` and `EWayBillService` with persistent audit logging in `compliance_audit_logs`.
-  - Added statutory Ã¢â€šÂ¹50,000 threshold detection (`requires_eway_bill`) for mandatory transport compliance.
+  - Added statutory â‚¹50,000 threshold detection (`requires_eway_bill`) for mandatory transport compliance.
   - Implemented `ComplianceRetryWorker` with exponential backoff (15s, 30s, 60s, 120s, 240s) and dead-letter queue (DLQ) transitions.
 - **FastAPI Statutory Compliance Endpoints (`backend/app/compliance/api/router.py`)**:
   - Mounted `/api/v1/compliance/einvoice/generate`, `/api/v1/compliance/einvoice/cancel`, `/api/v1/compliance/ewaybill/generate`, `/api/v1/compliance/ewaybill/cancel`, and `/api/v1/compliance/connectors`.
@@ -7807,7 +7824,7 @@ Total: 18/18 passed
 
 ### [3.70.0] - 2026-08-28
 
-#### SMRITI Reporting & BI Engine v1.0.0-GA Ã¢â‚¬â€ Integration, Reconciliation & Master Certification
+#### SMRITI Reporting & BI Engine v1.0.0-GA â€” Integration, Reconciliation & Master Certification
 - **Governed Metric Layer & Pure Formula Dictionary (`backend/app/core/metric_dictionary.py`)**:
   - Implemented single source of truth for all retail mathematical KPIs (`calculate_net_sales`, `calculate_abv`, `calculate_upt`, `calculate_gross_margin_pct`, `calculate_gmroi`, `calculate_sell_through_pct`, `calculate_stock_aging_bucket`).
   - Added `list_all_metrics` and pure Decimal calculation functions enforcing Invariant 2 (No KPI defines its own formula outside the Governed Metric Layer).
@@ -7824,7 +7841,7 @@ Total: 18/18 passed
 - **5-Level Universal Drill-Down & Cryptographic Audit Lineage (`backend/app/core/audit_lineage.py`)**:
   - Standardized 5 hierarchical drill levels: `L1_REGISTER` $\to$ `L2_PERIOD` $\to$ `L3_DEPARTMENT` $\to$ `L4_BRAND_STYLE` $\to$ `L5_TRANSACTION_DOC` with deterministic SHA256 lineage traces (Invariant 7 & 8).
 - **OpenXML PKZIP XLSX Binary Serialization (`src/services/globalExportService.ts`)**:
-  - Implemented native `serializeToOpenXMLXLSX` generating valid OpenXML `.xlsx` ZIP containers with Calibri typography, Indian Rupee currency formats (`[$Ã¢â€šÂ¹-en-IN] #,##0.00`), frozen panes, and auto-width columns.
+  - Implemented native `serializeToOpenXMLXLSX` generating valid OpenXML `.xlsx` ZIP containers with Calibri typography, Indian Rupee currency formats (`[$â‚¹-en-IN] #,##0.00`), frozen panes, and auto-width columns.
 - **Master 12-Stage Integration & Certification Suite (`backend/tests/test_reporting_certification_suite.py`)**:
   - Verified 12/12 certification tests green, 36/36 backend reporting tests green, and 347/347 frontend Vitest tests green.
 
@@ -7869,10 +7886,10 @@ Total: 18/18 passed
 
 ### [3.66.0] - 2026-08-26
 
-#### Phase 1 Historical PO Reconciliation Ã¢â‚¬â€ Tattly Threads (60 Reliance Retail POs)
+#### Phase 1 Historical PO Reconciliation â€” Tattly Threads (60 Reliance Retail POs)
 - **Authoritative PO Ingestion (`scripts/reconcile_historical_pos.py`)**:
   - Ingested and parsed all 60 Reliance Retail PO PDFs (`5182778151.pdf` through `5182778210.pdf`) with 100% calculation precision and zero discrepancies.
-  - Created 60 historical `SalesOrder` entities (`SO-5182778151` Ã¢â‚¬â€œ `SO-5182778210`) preserving original PO dates and Reliance delivery sites.
+  - Created 60 historical `SalesOrder` entities (`SO-5182778151` â€“ `SO-5182778210`) preserving original PO dates and Reliance delivery sites.
   - Inserted 18,036 `SalesOrderItem` lines totaling 25,864.000 EA ordered quantity (INR 30.22M basic / INR 31.73M grand total).
 - **Item Master Product Deduplication**:
   - Deduplicated 450 unique SKUs across PO items and populated 303 newly created `Product` records in `smriti001` with 100% line linking coverage.
@@ -8056,7 +8073,7 @@ Total: 18/18 passed
   - Implemented Lead & Opportunity pipeline management with unique sequence generation (`LED-YYYYMMDD-HEX`, `OPP-YYYYMMDD-HEX`), stage progression (`NEW`, `CONTACTED`, `QUALIFIED`, `PROPOSAL`, `WON`, `LOST`), and revenue forecasting.
   - Implemented Customer RFM value segmentation algorithmically evaluating recency (days), frequency (order count), and monetary (lifetime gross spend) into 5 distinct customer tiers (`VIP`, `FREQUENT`, `NEW`, `AT_RISK`, `DORMANT`).
   - Implemented Authoritative Loyalty Points Ledger engine supporting points earning, burning, bonus, and reversal with fail-closed non-negative balance protection.
-  - Implemented Universal Commission & Incentive calculation engine supporting salesperson percentage rates (2%), fixed delivery driver payouts (Ã¢â€šÂ¹50.00), and custom partner tiers with immutable postings to `CommissionLedger`.
+  - Implemented Universal Commission & Incentive calculation engine supporting salesperson percentage rates (2%), fixed delivery driver payouts (â‚¹50.00), and custom partner tiers with immutable postings to `CommissionLedger`.
   - Implemented Referral Relationship & Reward engine with code attribution and qualifying purchase order reward credits in `ReferralReward`.
 - **REST Endpoints (`/api/v1/crm-growth/*`)**:
   - Mounted `/leads`, `/leads/{id}`, `/opportunities`, `/customers/{id}/segmentation`, `/loyalty/enroll-member`, `/loyalty/adjust-points`, `/loyalty/members/{id}/ledger`, `/commissions/calculate`, `/referrals/enroll`, and `/referrals/credit-reward` in `backend/app/api/v1/crm_cge.py` and registered in `backend/app/main.py`.
@@ -8319,7 +8336,7 @@ Total: 18/18 passed
   - Added Pydantic models in `backend/app/schemas/localization.py` for `CountryResponse`, `StateResponse`, `CurrencyResponse`, `UOMResponse`, `UOMConversionResponse`, `TaxReferenceResponse`, `HsnSacCodeResponse`, `LanguageResponse`, `LocaleResponse`, `TranslationDictionaryResponse`, and `PlatformReferenceResponse`.
   - Implemented `GlobalReferenceService` in `backend/app/services/localization_svc.py` providing fast master lookup for ISO countries, Indian states with statutory GST codes, currencies, UOMs, tax slabs, and HSN/SAC codes.
   - Implemented `LocalizationDictionaryService` with multi-lingual dictionary resolution for English, Hindi (`hi`), and Marathi (`mr`) featuring automated fallback to English for missing or unapproved keys.
-  - Built locale-aware number formatters supporting both Indian numbering system (Lakh/Crore: `Ã¢â€šÂ¹ 12,34,567.89`) and International system (Million/Billion: `$ 1,234,567.89`).
+  - Built locale-aware number formatters supporting both Indian numbering system (Lakh/Crore: `â‚¹ 12,34,567.89`) and International system (Million/Billion: `$ 1,234,567.89`).
 - **REST Endpoints Exposed (`/api/v1/control/reference/`)**:
   - Mounted `/countries`, `/states`, `/states/by-gst-code/{code}`, `/currencies`, `/uoms`, `/uoms/convert` (POST), `/tax-references`, `/hsn-sac`, `/languages`, `/locales`, `/translations/{code}`, `/platform/{category}`, and `/format/currency` (POST).
 - **Master Data Seeding**:
@@ -8351,12 +8368,12 @@ Total: 18/18 passed
 
 ### [3.27.0] - 2026-08-24
 
-#### Shoper9 ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ SMRITI Legacy Menu Migration ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Sprints 0ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Å“5 Complete
+#### Shoper9 Ã¢â€ â€™ SMRITI Legacy Menu Migration Ã¢â‚¬â€ Sprints 0Ã¢â‚¬â€œ5 Complete
 
-Full end-to-end implementation of the Shoper9 (EE) vaMenu ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ SMRITI workspace
+Full end-to-end implementation of the Shoper9 (EE) vaMenu Ã¢â€ â€™ SMRITI workspace
 migration stack. Covers extraction, classification, database, API, and frontend.
 
-**Sprint 0 ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Legacy Extraction (commits: f7384642, b7c877bc, 17e67f2b)**
+**Sprint 0 Ã¢â‚¬â€ Legacy Extraction (commits: f7384642, b7c877bc, 17e67f2b)**
 - `scripts/sh9_extract.py` v2: S9Q parser with INSERT + DELETE handling,
   ZIP-vs-disk source conflict resolution (ZIP takes priority).
 - 7 governance CSVs produced (immutable): `SH9_MENU_CATALOG.csv` (265 active),
@@ -8365,24 +8382,24 @@ migration stack. Covers extraction, classification, database, API, and frontend.
   (18 ghost entries), `SH9_USERS.csv`.
 - `.gitignore` updated: `!docs/legacy/**/*.csv` unignored.
 
-**Sprint 1 ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Mapping Matrix (commit: 03423dec)**
+**Sprint 1 Ã¢â‚¬â€ Mapping Matrix (commit: 03423dec)**
 - `scripts/sh9_map.py`: classifies all 265 entries against `CANONICAL_34_MENU_MATRIX`.
 - `SH9_MAP_MATRIX.csv` + `SH9_MENU_MAP.md` produced.
-- Coverage: **265/265 (100%)** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â MAPPED:201, MERGED:27, PENDING:8,
+- Coverage: **265/265 (100%)** Ã¢â‚¬â€ MAPPED:201, MERGED:27, PENDING:8,
   DEPRECATED:14, REPLACED:10, NOT_APPLIC:5.
 - Key findings: 8 MultiInstance entries need multi-tab session support;
   9 SMRITI-new capabilities have no Shoper predecessor.
 
-**Sprint 2 ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Database Schema (commit: cf0788a6)**
+**Sprint 2 Ã¢â‚¬â€ Database Schema (commit: cf0788a6)**
 - `backend/app/models/legacy_menu_map.py`: `LegacyMenuMap` SQLAlchemy model.
 - `backend/alembic/versions/v1371_legacy_menu_map.py`: Alembic migration.
   Creates `smriti_legacy_menu_map` (29 columns, 2 CHECK constraints, 4 indexes).
-  Revision chain: v1370 ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ v1371. Idempotent upgrade.
+  Revision chain: v1370 Ã¢â€ â€™ v1371. Idempotent upgrade.
 - `scripts/sh9_seed.py`: idempotent INSERT-or-UPDATE seed script.
   Dry-run validated: 265 rows parsed, 0 errors.
 - `backend/app/models/__init__.py`: registered `LegacyMenuMap`.
 
-**Sprint 3 ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â API Layer (commit: 957ae753)**
+**Sprint 3 Ã¢â‚¬â€ API Layer (commit: 957ae753)**
 - `backend/app/api/v1/legacy_menu_map.py`: 5 read-only GET endpoints.
   - `GET /api/v1/legacy-menu-map/stats` (MANAGER+)
   - `GET /api/v1/legacy-menu-map/` (paginated, filterable)
@@ -8393,20 +8410,20 @@ migration stack. Covers extraction, classification, database, API, and frontend.
 - Write path blocked at API level; seed-only governance.
 - OpenAPI: 5/5 endpoints confirmed.
 
-**Sprint 4 ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Frontend Dashboard (commit: 670c966d)**
+**Sprint 4 Ã¢â‚¬â€ Frontend Dashboard (commit: 670c966d)**
 - `src/components/LegacyMigDashTab.tsx`: React migration dashboard.
-  - Overview: arc-gauge (coverage %), 6 status chips (clickable ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ browse),
+  - Overview: arc-gauge (coverage %), 6 status chips (clickable Ã¢â€ â€™ browse),
     module bar chart, multi-instance alert, source info card.
   - Browse: paginated table, search, status filter pills, pagination.
 - `src/App.tsx`: route `case 'legacy-migration'` registered.
 - `src/components/shell/AppShell.tsx`: `'legacy-migration'` in system nav group.
 
-**Sprint 5 ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Launchpad Tile (commit: 2589fb83)**
+**Sprint 5 Ã¢â‚¬â€ Launchpad Tile (commit: 2589fb83)**
 - `src/components/launchpad/launchpadCatalog.ts` v4.2.0:
-  Tile `legacy-migration` added ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â title "Shoper9 ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ SMRITI Migration",
+  Tile `legacy-migration` added Ã¢â‚¬â€ title "Shoper9 Ã¢â€ â€™ SMRITI Migration",
   group "System & Operations", roles: [MANAGER, SYSADMIN], accentColor: violet.
 
-**Sprint 7 ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Migration Bugfix & Live DB Seed (commit: 29e6d569)**
+**Sprint 7 Ã¢â‚¬â€ Migration Bugfix & Live DB Seed (commit: 29e6d569)**
 - `v1371_legacy_menu_map.py`: fixed `down_revision` mismatch.
   Root cause: v1370's `revision = "v1370_tcb_status"` (short form)
   but v1371 referenced `"v1370_tenant_capability_binding_status"` (filename stem).
@@ -8414,7 +8431,7 @@ migration stack. Covers extraction, classification, database, API, and frontend.
 - `alembic upgrade head` applied successfully:
   `Running upgrade v1370_tcb_status -> v1371_legacy_menu_map`.
 - `alembic current` post-upgrade: `v1371_legacy_menu_map (head)`.
-- `sh9_seed.py` live run ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â literal output:
+- `sh9_seed.py` live run Ã¢â‚¬â€ literal output:
   `Inserted: 265 / Updated: 0 / Errors: 0 / Total: 265/265`.
 - DB verification (live Postgres, `information_schema.columns`):
   30 columns confirmed, 265 rows total.
@@ -8426,27 +8443,27 @@ migration stack. Covers extraction, classification, database, API, and frontend.
 - NGP naming guard: 0 violations across all 7 sprints.
 - WGP walkthrough: `docs/walkthrough/foundation/Legacy_Shoper9_SMRITI_Migration_v1.0.0.md`.
 - Deployment guide: `docs/implementation/foundation/Legacy_Migration_Deploy_v1.0.0.md`.
-- DB seeded in live Postgres: **Done** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â 265 rows, 0 errors.
+- DB seeded in live Postgres: **Done** Ã¢â‚¬â€ 265 rows, 0 errors.
 - Walkthrough index: **Done** (updated from Partially Verified).
 
 ### [3.26.0] - 2026-08-24
 
 
-#### Blueprint v1.0 Ã¢â‚¬â€ UI/Experience Engine & Integration Hub: Migrations Applied, Seeded, Verified
+#### Blueprint v1.0 â€” UI/Experience Engine & Integration Hub: Migrations Applied, Seeded, Verified
 
 - **Migrations executed:** `alembic upgrade head` applied `v1368_ui_experience_engine` and `v1369_integration_hub_registry` against smritisys. `alembic current` confirms `v1369_integration_hub_registry (head)`. 11 new tables created in smritisys Control Plane database.
-- **Seeder extended Ã¢â‚¬â€ Phase 9 (`ctrl_seeder.py`):**
-  - `seed_layout_definitions()` Ã¢â‚¬â€ 6 canonical layout templates (FULL_WIDTH, SIDEBAR_LEFT, SPLIT, DETAIL, DASHBOARD, WIZARD_STEPS).
-  - `seed_screen_definitions()` Ã¢â‚¬â€ 5 top business flow screens: POS Billing Terminal, Sales Invoice List, Purchase Order List, Inventory Dashboard, Party Master List. Each carries `layout_config`, `capability_code`, `route_path`, and `icon_key` linkages.
-  - `seed_action_definitions()` Ã¢â‚¬â€ 18 toolbar and row actions across all 5 screens. Action types: NAVIGATE, API_CALL, DOWNLOAD, PRINT, WORKFLOW_TRANSITION. Role-gated and capability-gated per Blueprint Rule 09.
+- **Seeder extended â€” Phase 9 (`ctrl_seeder.py`):**
+  - `seed_layout_definitions()` â€” 6 canonical layout templates (FULL_WIDTH, SIDEBAR_LEFT, SPLIT, DETAIL, DASHBOARD, WIZARD_STEPS).
+  - `seed_screen_definitions()` â€” 5 top business flow screens: POS Billing Terminal, Sales Invoice List, Purchase Order List, Inventory Dashboard, Party Master List. Each carries `layout_config`, `capability_code`, `route_path`, and `icon_key` linkages.
+  - `seed_action_definitions()` â€” 18 toolbar and row actions across all 5 screens. Action types: NAVIGATE, API_CALL, DOWNLOAD, PRINT, WORKFLOW_TRANSITION. Role-gated and capability-gated per Blueprint Rule 09.
   - All seed methods are idempotent (`SELECT to_regclass()` guard + duplicate key skip).
 - **Database row counts (verified by literal terminal query output):** `icon_registry`: 36, `provider_registry`: 6, `layout_definitions`: 6, `screen_definitions`: 5, `action_definitions`: 18. Total: 71 rows seeded in 8 smritisys tables.
 - **alembic `env.py` updated:** 11 new table names added to `include_object` filter; `ScreenDefinition`, `FieldDefinition`, `ActionDefinition`, `LayoutDefinition`, `IconRegistry`, `ProviderRegistry`, `ConnectorRegistry`, `IntegrationRegistry`, `IntegrationCredentialReference`, `IntegrationPolicy`, `IntegrationVersion` models registered for autogenerate correctness.
-- **Architecture tracker:** UI/Experience Engine (Ã‚Â§11) promoted from **Partial** Ã¢â€ â€™ **Verified**. Integration Hub Connector Registry (Ã‚Â§45) promoted from **Partial** Ã¢â€ â€™ **Verified**. Milestone 6 appended to `SMRITI_PLATFORM_IMPLEMENTATION_STATUS.md`.
+- **Architecture tracker:** UI/Experience Engine (Â§11) promoted from **Partial** â†’ **Verified**. Integration Hub Connector Registry (Â§45) promoted from **Partial** â†’ **Verified**. Milestone 6 appended to `SMRITI_PLATFORM_IMPLEMENTATION_STATUS.md`.
 
 ### [3.25.0] - 2026-08-24
 
-#### Blueprint v1.0 Ã¢â‚¬â€ UI/Experience Engine Schema & Integration Hub Registry
+#### Blueprint v1.0 â€” UI/Experience Engine Schema & Integration Hub Registry
 - **Blueprint ss54 Rules Cross-Check (2026-08-24)**: All 25 architecture rules verified against source code and migration chain. 25-rule adherence table added to `SMRITI_PLATFORM_IMPLEMENTATION_STATUS.md`.
 - **UI/Experience Engine smritisys schema (`v1368_ui_experience_engine.py`)**: Created 5 smritisys-resident tables: `screen_definitions`, `field_definitions`, `action_definitions`, `layout_definitions`, `icon_registry`. Closes Blueprint ss11 named gap.
 - **Integration Hub Connector Registry smritisys schema (`v1369_integration_hub_registry.py`)**: Created 6 smritisys-resident tables: `integration_registry`, `connector_registry`, `provider_registry`, `integration_credentials_reference`, `integration_policies`, `integration_versions`. Closes Blueprint ss45 named gap.
@@ -8457,7 +8474,7 @@ migration stack. Covers extraction, classification, database, API, and frontend.
 
 ### [3.23.0] - 2026-08-23
 
-#### Enterprise Blueprint Delivery ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Sections 11 & 12 (Analytics & Intelligence Plane, Integration Hub & Compliance Audit)
+#### Enterprise Blueprint Delivery Ã¢â‚¬â€ Sections 11 & 12 (Analytics & Intelligence Plane, Integration Hub & Compliance Audit)
 - **Analytics & Intelligence Plane (`v1367`, `analytics.py`, `analytics_svc.py`)**:
   - Implemented `analytics_daily_sales_facts` downstream aggregate table to decouple analytical metric calculations from core transactional tables.
   - Implemented `AnalyticalIntelligenceService` computing invoice counts, total revenue, tax totals, payment mode breakdowns (cash, digital, credit), estimated COGS, and gross margin percentages.
@@ -8475,7 +8492,7 @@ migration stack. Covers extraction, classification, database, API, and frontend.
 
 ### [3.22.0] - 2026-08-23
 
-#### Enterprise Blueprint Delivery ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Sections 9 & 10 (PSV, CGE, PDT, and Durable Offline Sync Queue)
+#### Enterprise Blueprint Delivery Ã¢â‚¬â€ Sections 9 & 10 (PSV, CGE, PDT, and Durable Offline Sync Queue)
 - **Durable Tenant-Local Offline Sync Queue (`v1366`, `sync.py`, `offline_sync_svc.py`)**:
   - Implemented `pos_offline_sync_queue` table in all tenant databases via forward-only migration `v1366_cge_pdt_offline_sync.py`.
   - Upgraded `/api/v1/sync/push` and `/api/v1/cge/*` routes to route through `get_company_db`, ensuring offline transactions and CGE records are persisted authoritatively in tenant-isolated databases.
@@ -8494,7 +8511,7 @@ migration stack. Covers extraction, classification, database, API, and frontend.
 
 ### [6.16.0] - 2026-08-23
 
-#### ProPOS & Accounting ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Physical Denominations, Mid-Shift Cash Movements, Concurrency & Multi-Tenant Routing Hardening
+#### ProPOS & Accounting Ã¢â‚¬â€ Physical Denominations, Mid-Shift Cash Movements, Concurrency & Multi-Tenant Routing Hardening
 - **Company Multi-Tenant Database Routing (`pos.py`)**:
   - Replaced control-plane `get_db` session dependency with `get_company_db` across all operational endpoints (`/registers/`, `/pos/shifts/open`, `/pos/shifts/close/{id}`, `/pos/shifts/{id}/cash-in`, `/pos/shifts/{id}/cash-drop`, `/pos/shifts/{id}/till-expense`, `/pos/shifts/{id}/z-report`, `/pos/checkout`).
 - **PostgreSQL Row-Level Locking & Concurrency Control (`pos.py`, `services/pos.py`)**:
@@ -8512,7 +8529,7 @@ migration stack. Covers extraction, classification, database, API, and frontend.
   - 14/14 automated test suites in `backend/tests/t_pos_drawer.py` passed in 32.03s.
   - `npm run lint` and `npm run build` passed with zero errors.
 
-#### Warehouse & Logistics ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â WMS Phase 4: Physical Inventory Audit, Stock Discrepancy Reconciliation & Barcode Batch Counting
+#### Warehouse & Logistics Ã¢â‚¬â€ WMS Phase 4: Physical Inventory Audit, Stock Discrepancy Reconciliation & Barcode Batch Counting
 - **Stock Audit Domain & Baseline Snapshotting Engine (`stock_audit_service.py`, `inventory.py`)**:
   - Implemented `StockAudit` and `StockAuditItem` models in PostgreSQL (`smriti001` and `smritisys`) with scoped unique indexes.
   - Snapshotting engine captures baseline on-hand batch quantities (`system_qty`), ensuring mathematical variance stability during counts without locking godown operations.
@@ -8529,7 +8546,7 @@ migration stack. Covers extraction, classification, database, API, and frontend.
 - **Verification & Test Coverage**:
   - Added automated test suite `t_wms_phase4.py` (4 tests) and live HTTP smoke test `smoke_test_wms_phase4.py` (7 steps). Full 19/19 multi-module pytest suite passed in 9.14s.
 
-#### Security & Access Control ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Security Management: Menu Access Control & Security Configuration
+#### Security & Access Control Ã¢â‚¬â€ Security Management: Menu Access Control & Security Configuration
 - **Menu Access Control Workspace (`MenuAccessControlV.tsx`)**:
   - Unified User / Group / Node selector with browsing and company-wise scoping.
   - Multi-level hierarchical expandable menu tree over existing `smriti_menus` PostgreSQL table.
@@ -8539,14 +8556,14 @@ migration stack. Covers extraction, classification, database, API, and frontend.
 - **Backend Security Authority (`security.py`, `deps.py`)**:
   - Endpoints `/api/v1/security/menu-access` and `/api/v1/security/config` backed by `smriti_permissions`, `system_configs`, and `smriti_audit_log`.
   - Added action-level RBAC guard factory `require_permission(resource, action)` returning `SMRITI-AUTH-001` 403 Forbidden rejection when unauthorized.
-  - Zero duplicate tables or engines created ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â 100% database reuse.
+  - Zero duplicate tables or engines created Ã¢â‚¬â€ 100% database reuse.
 - **Verification & Testing**:
   - Added unit test suite `menuAccess.test.ts` (6 tests) and backend test `t_sec_menu.py` (1 test).
   - All 39 test suites passing (288/288 tests). Frontend built in 24.67s.
 
 ### [6.15.0] - 2026-08-22
 
-#### CRM & Sales ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Customer Flow, Policy Enforcement & Database Referential Integrity Hardening
+#### CRM & Sales Ã¢â‚¬â€ Customer Flow, Policy Enforcement & Database Referential Integrity Hardening
 - **Backend Credit Limit & Credit Hold Enforcement (`crm.py`, `sales.py`)**:
   - Implemented transactional credit validation in `CrmService.check_credit_limit`.
   - Blocks invoicing and returns structured business errors `SMRITI-CREDIT-001` (credit limit exceeded) and `SMRITI-CREDIT-002` (credit hold active) when limits are breached.
@@ -8559,9 +8576,9 @@ migration stack. Covers extraction, classification, database, API, and frontend.
 
 ### [6.14.0] - 2026-08-22
 
-#### Security & Shell ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Dual-Mode Contextual Inspector HUD (Zero Data on Login & Full Active Capabilities in Session)
+#### Security & Shell Ã¢â‚¬â€ Dual-Mode Contextual Inspector HUD (Zero Data on Login & Full Active Capabilities in Session)
 - **Dual-Mode HUD Architecture (`CtxInspectorHUD.tsx`)**:
-  - **Login Screen Mode**: Displays a secure "SMRITI Security Portal ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Authentication Required" banner with 0 business data, 0 invoice text, and 0 credentials exposure.
+  - **Login Screen Mode**: Displays a secure "SMRITI Security Portal Ã¢â‚¬Â¢ Authentication Required" banner with 0 business data, 0 invoice text, and 0 credentials exposure.
   - **Authenticated Session Mode**: Activates all 18+ contextual master categories, live query inspections, and Ctrl+K search integration.
 - **Safe Authentication Input Tracking (`ActiveFieldContext.tsx`)**:
   - Automatically isolates login/password fields to generic security category without value tracking or data query broadcasting.
@@ -8570,7 +8587,7 @@ migration stack. Covers extraction, classification, database, API, and frontend.
 
 ### [6.13.0] - 2026-08-22
 
-#### Security & Shell ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Public Data Exposure Hardening & Bottom Workspace Taskbar Removal
+#### Security & Shell Ã¢â‚¬â€ Public Data Exposure Hardening & Bottom Workspace Taskbar Removal
 - **Zero-Trust Auth Guards on Context Overlays**:
   - Moved `ContextRenderer`, `GlobalSearch`, `GlobalF2BrowseModal`, `ContextualInspectorHUD`, `DrillDownSidePanel`, and `ShortcutPalette` inside `<AppShell>` inside the authenticated `AppContent` session.
   - Injected direct token authentication guards (`smriti_jwt_token` / `smriti_session_token`) across `ContextualInspectorHUD`, `GlobalSearch`, `GlobalF2BrowseModal`, and `ActiveFieldContext`.
@@ -8581,7 +8598,7 @@ migration stack. Covers extraction, classification, database, API, and frontend.
 
 ### [6.12.0] - 2026-08-22
 
-#### Inventory & Item Master ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Decommissioning & Removal of "Common Fields Setup" Module
+#### Inventory & Item Master Ã¢â‚¬â€ Decommissioning & Removal of "Common Fields Setup" Module
 - **Module Purge**: Permanently removed `SmritiCommonFieldsSetup.tsx` and `tabs/CommonFieldsTab.tsx`.
 - **Item Master Workspace Streamlining (`ItemMasterWs.tsx`)**:
   - Removed "Common Fields" from the left navigation sidebar.
@@ -8593,7 +8610,7 @@ migration stack. Covers extraction, classification, database, API, and frontend.
 
 ### [6.11.0] - 2026-08-22
 
-#### POS & Inventory ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Dual-Field Item Auto-Search, Auto-Population & 14+ Attribute Inspection
+#### POS & Inventory Ã¢â‚¬â€ Dual-Field Item Auto-Search, Auto-Population & 14+ Attribute Inspection
 - **Universal Multi-Attribute Typeahead Overlay (`ItemTypeaheadDrop.tsx`)**:
   - Reusable dropdown displaying **5 Key Identifiers** (Barcode, Stock No, Code, SKU, Name/Description), **6 Core Commercial Details** (MRP, Rate, Cost Price, Stock, Size, Color, GST%), and **6 Extended Tactical Attributes** (Brand, Category, HSN, Pricing Mode, Tracking Mode, Weight, Image Preview).
   - Smooth keyboard navigation (Arrow Up/Down, Enter selection, Escape dismissal) with auto-scroll.
@@ -8606,7 +8623,7 @@ migration stack. Covers extraction, classification, database, API, and frontend.
 
 ### [6.10.0] - 2026-08-22
 
-#### Sales & POS ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Zero-Touch Automated GST & Customer Classification Engine
+#### Sales & POS Ã¢â‚¬â€ Zero-Touch Automated GST & Customer Classification Engine
 - **Centralized GST Engines (`backend/app/core/gst_engine.py` & `src/utils/gstEngine.ts`)**:
   - Implemented automatic 2x2 matrix calculation: Registered (B2B) vs. Unregistered (B2C) across Intra-State (CGST+SGST) and Inter-State (IGST).
   - High-precision decimal calculations with banker's rounding for Gross Total, Taxable Value, CGST, SGST, IGST, and Net Total.
@@ -8625,7 +8642,7 @@ migration stack. Covers extraction, classification, database, API, and frontend.
 
 ### [6.9.0] - 2026-08-22
 
-#### CRM & Customer Master ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Customer Price Group Master & Database Flow Integrity
+#### CRM & Customer Master Ã¢â‚¬â€ Customer Price Group Master & Database Flow Integrity
 - **Customer Price Group Master Window (`CustPriceGroupDlg.tsx`)**:
   - Implemented authentic desktop ERP layout for managing Customer Price Groups.
   - Fields: `Code`, `Description`, `Payment Terms`, `Credit Days`, `Dest-Wise Tax Type`, `Credit Limit`, `Item Classification-wise Price Factor Applicable`.
@@ -8650,7 +8667,7 @@ migration stack. Covers extraction, classification, database, API, and frontend.
 
 ### [6.7.0] - 2026-08-22
 
-#### POS & Billing ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Distributor Invoicing, Settlement & PDT Import Integration (Stitch UX)
+#### POS & Billing Ã¢â‚¬â€ Distributor Invoicing, Settlement & PDT Import Integration (Stitch UX)
 - **Distributor Invoicing Terminal (`BillingTerm.tsx`)**:
   - Implemented the authentic Stitch layout from `invoicing_smritisystems/code.html`.
   - Header: `Bill Type`, `Transaction`, `Doc Prefix` (`D1DS13`), `Doc No.`, `Import`, `Recall`, `Customer` with `F2` search, Name display & `Add` button, `Sales Staff`.
@@ -8669,7 +8686,7 @@ migration stack. Covers extraction, classification, database, API, and frontend.
 
 ### [6.6.0] - 2026-08-22
 
-#### Barcode & Inventory ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Stitch Barcode Label Designer & Printer Replacement
+#### Barcode & Inventory Ã¢â‚¬â€ Stitch Barcode Label Designer & Printer Replacement
 - **Complete Module Replacement (`TagLabelPrintingTa.tsx` & `BarcodeScriptGenVi.tsx`)**:
   - Fully replaced previous implementation with the authentic **Stitch Barcode Label Designer & Printer** module from `F:\SMRITI\barcode_label_designer_and_printer_Final\stitch_barcode_label_designer_and_printer`.
   - Implemented the **Industrial Logic** design system tokens (Deep Navy `#041632`, Slate Blue `#3e5f90`, Soft Grey Surface `#fbf8fb`, High-Contrast Error `#ba1a1a`).
@@ -8683,7 +8700,7 @@ migration stack. Covers extraction, classification, database, API, and frontend.
 
 ### [6.5.0] - 2026-08-22
 
-#### Barcode & Inventory ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Full Multi-Source Printing Engine (Transactions, PO, Masters by Date, Direct Scan)
+#### Barcode & Inventory Ã¢â‚¬â€ Full Multi-Source Printing Engine (Transactions, PO, Masters by Date, Direct Scan)
 - **Against Transactions (`TagLabelPrintingTa.tsx` & `barcodeTransactionS.ts`)**:
   - Added support for filtering items across transaction types (`Purchase Inward (GRN)`, `Sales Return Inward`, `Stock Transfer Inward`, `POS Exchange`), Doc No prefix, and document number ranges.
   - Manifest table displays transaction references, stock details, and transaction quantities.
@@ -8702,7 +8719,7 @@ migration stack. Covers extraction, classification, database, API, and frontend.
 
 ### [6.4.0] - 2026-08-22
 
-#### Barcode & Inventory ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Printing Against Purchase (PT File) & Sequential Manifest
+#### Barcode & Inventory Ã¢â‚¬â€ Printing Against Purchase (PT File) & Sequential Manifest
 - **PT File Parser & Ingestion (`ptFileParser.ts`)**:
   - Supports delimited text/CSV PT files with column mapping for SKU, Product, Brand, Style, Shade, Size, Purchase Qty, MRP, and Barcode.
 - **Purchase Transaction Manifest Table**:
@@ -8712,7 +8729,7 @@ migration stack. Covers extraction, classification, database, API, and frontend.
 
 ### [6.3.0] - 2026-08-21
 
-#### UI / UX & Launchpad ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Enterprise Look & Feel Modernization
+#### UI / UX & Launchpad Ã¢â‚¬â€ Enterprise Look & Feel Modernization
 - **Fiori Launchpad Redesign (`FioriLaunchpad.tsx`)**:
   - Replaced flat white workspace cards with category-accented cards (`border-l-4` color indicators for Retail Operations, Master Data, Finance, Administration, and Analytics).
   - Enhanced card hover depth with subtle vertical lift (`hover:-translate-y-1`), elevated drop-shadow (`hover:shadow-md`), and category-matched animated forward arrows.
@@ -8725,7 +8742,7 @@ migration stack. Covers extraction, classification, database, API, and frontend.
 
 ### [6.2.0] - 2026-08-21
 
-#### Barcode & Inventory ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Industrial Logic Barcode Label Designer & Printing Modernization
+#### Barcode & Inventory Ã¢â‚¬â€ Industrial Logic Barcode Label Designer & Printing Modernization
 - **Dual-Workspace Architecture (`TagLabelPrintingTa.tsx` & `BarcodeStudioTab.tsx`)**:
   - Implemented 12-column industrial layout based on Stitch **Industrial Logic** design system.
   - Divided workspace into **Tag & Barcode Printing Terminal** and **Barcode Script Generation & Compiler Studio**.
@@ -8743,10 +8760,10 @@ migration stack. Covers extraction, classification, database, API, and frontend.
 
 ### [6.1.0] - 2026-08-21
 
-#### Inventory & Master Data ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Non-Editable SKU & Barcode Enforcement
+#### Inventory & Master Data Ã¢â‚¬â€ Non-Editable SKU & Barcode Enforcement
 - **Item Master Details Grid (`ItemDetGrid.tsx`)**:
   - Locked SKU (`code`, `sku`, `stockNo`) and Barcode (`barcode`) inputs as read-only with disabled cursor styling and helper tooltips in Edit Mode (`activeMode === "edit"`).
-  - Maintained full editability for all other attributes (Name, Brand, Style, Shade, Size, MRP, Sale Price, Cost Price, Tax Rate, HSN Code, UOM, and Dynamic Attributes a1ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Å“a9).
+  - Maintained full editability for all other attributes (Name, Brand, Style, Shade, Size, MRP, Sale Price, Cost Price, Tax Rate, HSN Code, UOM, and Dynamic Attributes a1Ã¢â‚¬â€œa9).
   - Enforced read-only locking on Stock No and Barcode in Classic Single-Record inspector view.
 - **Global Master Form Drawer (`MasterFormDrawer.tsx` & `itemMaster.config.tsx`)**:
   - Propagated `isEdit` boolean into field `disabled` callbacks across generic master entities.
@@ -8756,7 +8773,7 @@ migration stack. Covers extraction, classification, database, API, and frontend.
 
 ### [6.0.0] - 2026-08-21
 
-#### POS & Invoicing ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â ProPOS Unified Enterprise Billing Suite
+#### POS & Invoicing Ã¢â‚¬â€ ProPOS Unified Enterprise Billing Suite
 - **ProPOS Billing Terminal (`ProPosBillingTerm.tsx`)**:
   - Implemented high-speed retail checkout terminal based on Stitch ProPOS specifications.
   - Rapid item scanning with quantity stepping, salesperson tagging, and live calculation summary.
@@ -8783,7 +8800,7 @@ migration stack. Covers extraction, classification, database, API, and frontend.
 
 ### [5.6.0] - 2026-08-21
 
-#### Item Master & Platform ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â View Configuration, Excel Mapper & Alias Stabilization
+#### Item Master & Platform Ã¢â‚¬â€ View Configuration, Excel Mapper & Alias Stabilization
 - **Persistent Alias Suppression Engine (`HeaderAliasRegistry.ts`)**:
   - Implemented `REMOVED_ALIASES_STORAGE_KEY` blacklist to permanently suppress deleted default or custom aliases.
   - Automatically un-blacklists aliases upon re-addition and provides per-attribute "Reset Defaults" action in Attribute Management Studio.
@@ -8802,7 +8819,7 @@ migration stack. Covers extraction, classification, database, API, and frontend.
 
 ### [5.5.0] - 2026-08-21
 
-#### Retail CRM & Customer Master ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Retail Customer Catalogue & Advanced Search Suite
+#### Retail CRM & Customer Master Ã¢â‚¬â€ Retail Customer Catalogue & Advanced Search Suite
 - **Retail Customer Catalogue Architecture (`src/components/customer/CustMasterWs.tsx`)**:
   - Implemented 3-tab central customer account manager:
     - **1. The "Form" Tab (`CustFormTab.tsx`)**: General details (Customer Code, Name, Price Group, Mail List summary), Classification (Religion, Ethnicity, Age Group, Profession, Customer Type), Profile notes & preferences, and Shoper environment parameters (Comp Code, Environment, Flat File Format, Delimiter, Buying/Selling factor).
@@ -8818,7 +8835,7 @@ migration stack. Covers extraction, classification, database, API, and frontend.
 
 ### [5.4.0] - 2026-08-21
 
-#### UI Platform & Inventory ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Universal View Configuration as Global Schema & Visibility Control
+#### UI Platform & Inventory Ã¢â‚¬â€ Universal View Configuration as Global Schema & Visibility Control
 - **Global Field Visibility & Ordering Engine (`unifiedFieldCatalog.ts`)**:
   - `saveGlobalFieldVisibility` persists visible columns and sequence ordering across client state.
   - `isFieldGloballyVisible` and `getGloballyVisibleFields` dynamically filter and sort catalog definitions.
@@ -8833,11 +8850,11 @@ migration stack. Covers extraction, classification, database, API, and frontend.
 
 ### [5.3.0] - 2026-08-21
 
-#### Inventory & Catalog ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Item Master Stitch Management System Architecture & Image Resolver
+#### Inventory & Catalog Ã¢â‚¬â€ Item Master Stitch Management System Architecture & Image Resolver
 - **Item Master Management System Suite (`Itemmaster3`)**: Integrated complete suite from `F:\SMRITI\Itemmaster3\stitch_item_master_management_system`:
   - **Item Details Master Grid (`ItemDetGrid.tsx`)**: High-density matrix grid and classic single-record view, inline Add/Duplicate/Delete row actions, `F1` keyboard shortcuts guide, and `F2` SKU/Barcode generator.
   - **Common Fields Baseline Setup (`SmritiCommonFieldsSetup.tsx`)**: Session-level baseline presets (Category, Brand, Vendor, HSN, Tax %, UOM) that auto-fill all newly entered items.
-  - **Dual-List View Configuration (`ViewConfig.tsx`)**: Dual-list column selector, order manager, and frozen column count selector (0ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Å“6).
+  - **Dual-List View Configuration (`ViewConfig.tsx`)**: Dual-list column selector, order manager, and frozen column count selector (0Ã¢â‚¬â€œ6).
   - **Full CRUD Lifecycle Safeguards**: Mode selector for Adding, Editing (with non-editable greyed Stock No and Data Loading confirmation modal), and Deleting (with transaction protection guard preventing hard deletion of items with sales history).
   - **Global Find & Replace Data Utility (`ReplaceDataDlg.tsx`)**: Global batch find and replace across all matrix columns and dynamic attributes.
   - **Product Image Filename & Resolver Studio (`ImagePathConfigStu.tsx`)**: Operators only enter image filenames (`imageName`). Configured base paths for SMRITI Server (`/api/v1/products/images/`), Cloud CDN, and Local Network paths with interactive live resolution tester and hover thumbnail previews.
@@ -8846,37 +8863,37 @@ migration stack. Covers extraction, classification, database, API, and frontend.
 
 ### [3.29.0] - 2026-08-21
 
-#### Inventory & Catalog ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Item Master Entry Tactical Grid Refactor (Smriti Prime Specification)
+#### Inventory & Catalog Ã¢â‚¬â€ Item Master Entry Tactical Grid Refactor (Smriti Prime Specification)
 - **Smriti Prime Three-Tab Catalog Workflow**: Refactored Item Master Entry to match the high-velocity tactical layout from `stitch_invoice_management_system` (`src/components/itemMaster/`):
-  - **Tab 1: View (`Alt+1`)** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Field Selection: Dual list (Unselected Fields ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬Â Selected Fields) with transfer controls (`>`, `>>`, `<`, `<<`), reordering controls (`Move Up`, `Move Down`), and mandatory lock rules for `stockNo`, `product`, and `mrp`.
-  - **Tab 2: Common Fields (`Alt+2`)** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Batch Common Presets: Form controls for Brand, Category, Sub-Category, Tax Rate %, Supplier, Season, Department, and Status that auto-apply to item rows.
-  - **Tab 3: Item Details (`Alt+3`)** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Tactical Spreadsheet Grid: High-speed matrix table featuring customizable sticky frozen columns (0ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Å“6), inline cell editing, row indicators ("Row X of Y"), Auto-SKU generator, and "Paste from Excel" multi-column TSV clipboard parsing.
+  - **Tab 1: View (`Alt+1`)** Ã¢â‚¬â€ Field Selection: Dual list (Unselected Fields Ã¢â€ â€ Selected Fields) with transfer controls (`>`, `>>`, `<`, `<<`), reordering controls (`Move Up`, `Move Down`), and mandatory lock rules for `stockNo`, `product`, and `mrp`.
+  - **Tab 2: Common Fields (`Alt+2`)** Ã¢â‚¬â€ Batch Common Presets: Form controls for Brand, Category, Sub-Category, Tax Rate %, Supplier, Season, Department, and Status that auto-apply to item rows.
+  - **Tab 3: Item Details (`Alt+3`)** Ã¢â‚¬â€ Tactical Spreadsheet Grid: High-speed matrix table featuring customizable sticky frozen columns (0Ã¢â‚¬â€œ6), inline cell editing, row indicators ("Row X of Y"), Auto-SKU generator, and "Paste from Excel" multi-column TSV clipboard parsing.
 - **Save Warning & Rights Confirmation Dialog**: Integrated `ItemMasterSaveWarn.tsx` displaying a clean confirmation dialog when creating unverified Brand/Category matrix combinations.
 - **Persistence & Backend Integration**: Saved field layout and common defaults to `localStorage`, directly persisting rows to FastAPI backend (`/api/v1/products/`) via `apiFetchV1`.
 - **Automated Test Coverage**: Added `src/tests/itemGrid.test.ts` (10 tests) covering mandatory attributes, column reordering, common presets, TSV parsing, and payload transformation (all 23 test suites passing 100%).
 
-#### Database & Operations ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â SMRITI Database Manager & Studio (DB Studio)
+#### Database & Operations Ã¢â‚¬â€ SMRITI Database Manager & Studio (DB Studio)
 - **Multi-Tenant PostgreSQL Studio**: Introduced a dedicated, enterprise-grade Database Manager (`src/components/DatabaseManagerTab.tsx`) allowing `SYSADMIN` operators to switch between control plane and tenant databases (`smritisys`, `smriti001`, `smriti002`, `smriti_test_fresh`) with live size, table count, and row count telemetry.
 - **Table Data Grid & Column Schema Inspector**: Built an interactive paginated table data browser with column search, dynamic sorting, JSON row detail inspector drawer, and one-click CSV export, alongside a complete column schema and foreign key constraint viewer.
 - **Alembic Migration Version Tracking**: Added real-time tracking of current `alembic_version` versus head migration revision with sync status indicators.
 - **Safe Read-Only SQL Query Console**: Implemented an administrative SQL execution console (`POST /api/v1/database-manager/query`) supporting `SELECT`, `WITH`, and `EXPLAIN` statements with automatic execution time measurement and strict rejection of destructive DDL/DML operations.
 - **Strict Role Authorization**: Gated all backend endpoints and frontend launchpad tiles strictly to `SYSADMIN` with deny-by-default access for non-admin roles and zero exposure of database connection credentials.
 
-#### Printing & Hardware ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Optional QZ Tray Print Dispatch (Spike + Hybrid)
+#### Printing & Hardware Ã¢â‚¬â€ Optional QZ Tray Print Dispatch (Spike + Hybrid)
 - **Hybrid Tri-Mode Dispatch Architecture**: Implemented support for `server_tcp` (default backend port 9100 socket transport), `qz_tray` (feature-flagged browser WebSocket dispatch), and `prn` (direct offline script download) in `backend/app/services/printer_service.py` and `backend/app/api/v1/barcode.py`.
 - **Asynchronous Print Job Acknowledgment**: Added `POST /api/v1/barcode/print-jobs/{job_id}/ack` route allowing the browser client to report execution status (`Success` or `Failed`), updating `PrintHistory` audit logs idempotently with strict tenant isolation.
 - **Feature-Flagged Frontend Client (`qzTrayClient.ts`)**: Created `src/utils/qzTrayClient.ts` gated by `VITE_ENABLE_QZ_TRAY` (default `false`), implementing official `qz-tray.js` SDK hooks with a native WebSocket RPC fallback on `ws://localhost:8182`.
 - **Barcode & Label Studio Integration**: Updated `LabelPrintingSec.tsx` with a dispatch mode toggle, live QZ Tray flag indicator badge, and automated ACK triggers on print completion or failure.
 - **Zero Invariant Regressions**: Server TCP remains the default; POS billing, item master, and launchpad are completely untouched. Verified with 6 backend Pytest tests, 3 frontend Vitest tests, and clean `tsc --noEmit`.
 
-#### Governance & Field Readiness ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Commercial Pilot Origin-Gap Remediation & Hardening
-- **Origin-Truth Deliverables (D1ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Å“D6)**: Standardized application version SSOT (`APP_VERSION = "3.29.0"`), documented dual-run architecture for `DocumentStudioScreen`, created formal pilot smoke checklist (`docs/PILOT_SMOKE_CHECKLIST.md`), froze commercial pilot scope boundary (Section 6 of `docs/PHASE1_PILOT_SUPPORTED_MODULES.md`), and updated `CompanyDatabaseProvisioner` to require Alembic migration head ÃƒÂ¢Ã¢â‚¬Â°Ã‚Â¥ `v1337_backfill_variant_id`.
+#### Governance & Field Readiness Ã¢â‚¬â€ Commercial Pilot Origin-Gap Remediation & Hardening
+- **Origin-Truth Deliverables (D1Ã¢â‚¬â€œD6)**: Standardized application version SSOT (`APP_VERSION = "3.29.0"`), documented dual-run architecture for `DocumentStudioScreen`, created formal pilot smoke checklist (`docs/PILOT_SMOKE_CHECKLIST.md`), froze commercial pilot scope boundary (Section 6 of `docs/PHASE1_PILOT_SUPPORTED_MODULES.md`), and updated `CompanyDatabaseProvisioner` to require Alembic migration head Ã¢â€°Â¥ `v1337_backfill_variant_id`.
 - **Deny-by-Default Role-Based Access Control (RBAC)**: Eliminated `(role || "SYSADMIN")` fallback elevations in `launchpadCatalog.ts`, `FioriLaunchpad.tsx`, `App.tsx`, and `navigationResolver.ts`. Users with null/blank roles are strictly restricted to public/unrestricted tiles.
 - **Multi-Tenant Database Discovery & Alembic HEAD**: Discovered and migrated all control plane and company databases (`smritisys`, `smriti001`, `smriti_test_fresh`) to Alembic HEAD (`v1338_company_isolated_barcodes`). Confirmed 0 NULL `variant_id`s across 588 products in `smriti001`. Recorded evidence in `docs/PILOT_DB_MIGRATE_RESULTS.md`.
 - **Commercial Pilot Go-Live Runbook**: Authored `docs/PILOT_GO_LIVE_RUNBOOK.md` detailing environment variable prerequisites, operator provisioning, checkout happy path, non-destructive `pg_dump`/`pg_restore` backup/rollback strategy, hardware pairing, and emergency support escalation.
 - **Smoke Test Results Sign-Off**: Recorded formal `GO_SOFTWARE` sign-off in `docs/PILOT_SMOKE_RESULTS.md` with 20 Vitest files (128 tests) and 39 Pytest tests passing 100%.
 
-#### Security & Quality ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â UI/UX Duplication & Hardcode Remediation
+#### Security & Quality Ã¢â‚¬â€ UI/UX Duplication & Hardcode Remediation
 - **Hardcoded Credential Elimination**: Removed hardcoded plaintext passwords (`whynothing`) from `src/state/store.ts` and `src/db/init.ts`. Confirmed zero remaining occurrences in `src/`.
 - **Canonical Indian Currency Words Formatter**: Extracted `numberToIndianWords` into `src/utils/indianNumberWords.ts` and updated Python `number_to_indian_words` in `backend/app/services/invoice_pdf_service.py` to identically handle sub-rupee values (`0.50` -> `"Zero Rupees and Fifty Paisa Only"`) and singular/plural rupees (`1.00` -> `"One Rupee Only"`). Added matching 14-test parity suites in Vitest and Pytest.
 - **Invoice Template Decoupling**: Decoupled `TaxInvoiceA4.tsx` (dedicated statutory GST invoice) and `StandardInvoiceA4.tsx` (generic Print Studio design catalog), removing duplicate formatting code and dead imports.
@@ -8884,7 +8901,7 @@ migration stack. Covers extraction, classification, database, API, and frontend.
 - **Single Source of Truth for Application Version**: Established `src/config/version.ts` exporting `APP_VERSION`, `APP_RELEASE_STAGE`, and `APP_VERSION_LABEL`. Replaced all hand-typed version strings across the UI (`LoginScreen.tsx`, `CompanySelectScree.tsx`, `layout_manager.tsx`, `DashboardTab.tsx`, `QuickReportsWidget.tsx`, `PrintPreviewModal.tsx`) and synchronized `package.json` to 3.29.0.
 - **Centralized API Target Host Configuration**: Created `src/config/api.ts` managing `FASTAPI_BASE_URL` with environment and Docker container network resolution, replacing duplicate fallback strings in `helpers.ts`.
 
-#### Testing & Infrastructure ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Test Fixture Environment Dependency & Multi-Tenant Routing
+#### Testing & Infrastructure Ã¢â‚¬â€ Test Fixture Environment Dependency & Multi-Tenant Routing
 - **Deterministic 20/20 Test Suite**: Stabilized `t_tenant_sec.py`, `t_ecom_connect.py`, and `t_comp_ctr_sec.py` across full multi-suite test runs.
 - **Explicit Routing Registry Seeding (RC2)**: Seeded `company_database_registries` with `COMP-001 -> smriti001` in conftest so dynamic database resolution (`CompanyDatabaseResolver`) functions out-of-the-box on fresh database migrations.
 - **Fail-Fast Fixture Execution (RC3)**: Replaced silent `try/except` fixture warning prints with immediate `pytest.fail()` calls to surface environmental and setup failures loudly.
@@ -8893,7 +8910,7 @@ migration stack. Covers extraction, classification, database, API, and frontend.
 
 ### [3.26.0] - 2026-08-20
 
-#### Security ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Multi-Tenant Database Routing & Credential Sanitization
+#### Security Ã¢â‚¬â€ Multi-Tenant Database Routing & Credential Sanitization
 - **Hardened `get_company_db` Dependency**: Removed all raw unvalidated client header (`X-Company-Id`) and query parameter parsing. Tenant resolution strictly composes with `get_tenant_context(get_current_user)`, deriving tenant database scope from cryptographic JWT verification and database assignments in `smritisys`.
 - **100% Operational Router Wiring**: Replaced legacy `get_db` with `get_company_db` across all operational endpoints in `sales.py`, `inventory.py`, `purchase.py`, and `barcode.py`. Zero occurrences of `get_db` remain in operational routes.
 - **Barcode Subsystem Tenant Isolation**: Isolated `BarcodeLayout` CRUD, printer connection configuration (`printer_connection_{company_id}`), diagnostics, test-prints, and `PrintHistory` audit logging by tenant `company_id` and `branch_id`.
@@ -8904,13 +8921,13 @@ migration stack. Covers extraction, classification, database, API, and frontend.
 
 ### [3.25.0] - 2026-08-15
 
-#### Security ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Company Control Center Authentication & Authorization Hardening
+#### Security Ã¢â‚¬â€ Company Control Center Authentication & Authorization Hardening
 - **Eliminated Header Spoofing**: Replaced unauthenticated `x-user-id` header defaults with server-verified OAuth2 Bearer JWT authentication (`Depends(get_current_user)`).
 - **Enforced Role-Based Access Control**: Restricted administrative company control center operations (`/companies`, `/companies/create-request`, `/lifecycle/action`) and development intelligence endpoints (`/dev-tracker`, `/dev-tracker/scan`) to `UserRole.SYSADMIN`.
 - **Tenant Scope Isolation**: Enforced company context validation for ordinary users attempting to access company detail or module entitlements (`company_id == current_user.company_id`).
 - **Security Regression Test Suite**: Added `t_comp_ctr_sec.py` verifying HTTP 401/403 fail-closed protection for anonymous, spoofed, or unauthorized calls.
 
-#### Added ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â SMRITI Fiori Light Enterprise UI Redesign & Visual QA Gate
+#### Added Ã¢â‚¬â€ SMRITI Fiori Light Enterprise UI Redesign & Visual QA Gate
 - **Light Mode Only Baseline**: Locked application theme to Light Enterprise Mode (`#f8f9fa` base background, `#ffffff` surface, `#0070f2` action blue, `#32363a` slate text, `#d9d9d9` crisp borders). Completely eliminated dark mode, theme toggles, `#1c222b`, and `prefers-color-scheme` overrides.
 - **Fiori Horizon Application Shell**: Refactored global App Shell with Fiori header bar, global search, company selector dropdown, notification popover, workspace navigation, breadcrumbs, and page filter bars.
 - **10 Core Visual Screens QA Verified**: Verified Application Shell, POS/Billing, Item Master, Customer/CRM, Purchase, Fulfillment, Promotions, Report Studio, Dashboard Manager, and Excel Grid.
@@ -8918,7 +8935,7 @@ migration stack. Covers extraction, classification, database, API, and frontend.
 
 ### [3.24.0] - 2026-08-15
 
-#### Added ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â SMRITI Reporting Platform & Data Integrity Engine Architecture
+#### Added Ã¢â‚¬â€ SMRITI Reporting Platform & Data Integrity Engine Architecture
 - **Reporting Engine & Flexi Studio**: Excel-style analytical grid (filters, column drag, multi-sort, group-by, subtotals, pivot, copy/paste to Excel), Flexi report builder with Dimensions & Measures, and user saved views (`ReportSavedView`).
 - **Chart Visualizer & Dashboard Manager**: Multi-chart visual abstraction (Bar, Line, Pie, Area, Stacked, Combo, Scatter, KPI, Funnel, Ranking) and Dashboard Manager for CEO, Sales, Store Manager, CRM, and Profitability dashboards (`DashboardWidget`).
 - **Single Authoritative Dataset Rule Locked**: Guaranteed dataset metric consistency where `Grid total = Chart total = Pivot total = Dashboard KPI total = Export total`.
@@ -8926,7 +8943,7 @@ migration stack. Covers extraction, classification, database, API, and frontend.
 
 ### [3.23.0] - 2026-08-15
 
-#### Added ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Commercial Growth, Customer 360, Operations & Fulfillment, and Cost Profitability Engine Architecture
+#### Added Ã¢â‚¬â€ Commercial Growth, Customer 360, Operations & Fulfillment, and Cost Profitability Engine Architecture
 - **Commercial Growth & Customer 360**: Co-located CRM, Loyalty Program (CGE), Promotions & Campaigns, Referral Engine, and Universal Incentive & Commission Engine (SICE) inside `smriti001`.
 - **Promotion Conflict & Pricing Resolution Engine**: Priority ranking, exclusivity override (`is_exclusive`), stacking rules, maximum combined discount cap (50%), and evaluation audit snapshots (`evaluated_campaigns_snapshot`).
 - **Operations & Fulfillment Engine**: Order Pick & Pack (`packing_slips`), Dispatch manifests & driver assignments (`dispatches`), driver delivery commission settlement (`delivery_commission_settlements`), and reverse logistics returns with stock restock and commission reversal (`reverse_logistics_returns`).
@@ -8982,7 +8999,7 @@ migration stack. Covers extraction, classification, database, API, and frontend.
 #### B2B Multi-Store Batch Invoicing (Sheet2 of RIL_Dispatch_09-08-2026-2.xlsx)
 - Generated 9 canonical A4 Tax Invoices (TT2026-2027/129 to TT2026-2027/137)
 - Total Quantity: 456 pairs across 10 cartons (213 through 222)
-- Total Taxable Value: Ã¢â€šÂ¹5,10,854.28 | Total IGST: Ã¢â€šÂ¹25,542.72 | Total Value: Ã¢â€šÂ¹5,36,397.00
+- Total Taxable Value: â‚¹5,10,854.28 | Total IGST: â‚¹25,542.72 | Total Value: â‚¹5,36,397.00
 - 9 Destination Stores: TVB6, TMV9, TUK5, TVP2, TW97, TXSR, TXSU, TW07, TYAC
 - Created pre-generation confirmation register: Tax_Invoice_Store_PO_Address_Confirmation_Batch2_2026-08-25.xlsx
 - Rendered 9 high-fidelity A4 PDFs with Playwright, Code128 barcodes, and VERIFY INVOICE QR codes
@@ -9229,15 +9246,15 @@ TSC: 14 errors -> 0 errors. Exit code 0.
 **Architecture:** Express is now a pure Auth Enforcement Gateway + SPA host.
 All /api/v1/* business requests: Browser -> Express (auth check) -> FastAPI proxy -> FastAPI.
 
-**Phase 5A ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Audit-log migrated to FastAPI:**
+**Phase 5A Ã¢â‚¬â€ Audit-log migrated to FastAPI:**
 - POST /api/v1/system/audit-logs (new FastAPI endpoint)
 - apiFetch.ts recordAuditAction now calls apiFetchV1 (not Express)
 
-**Phase 5B ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â 10 Express route modules unmounted from server.ts:**
+**Phase 5B Ã¢â‚¬â€ 10 Express route modules unmounted from server.ts:**
 pos, sales, purchase, inventory, numbering, terms, exchange, barcode, reports, customers
 (Files tagged DEPRECATED, not deleted -- safe to remove v3.21.0)
 
-**Phase 5C ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â flags.ts updated to v3.20.0:**
+**Phase 5C Ã¢â‚¬â€ flags.ts updated to v3.20.0:**
 12 new USE_FASTAPI_* flags added (all true, removal v3.21.0)
 
 **Tests:** 75/75 passed
@@ -9250,7 +9267,7 @@ pos, sales, purchase, inventory, numbering, terms, exchange, barcode, reports, c
 
 ## [3.19.1-fix1] - 2026-07-15
 
-### Fixed ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â MC2 Phase 4B model column corrections
+### Fixed Ã¢â‚¬â€ MC2 Phase 4B model column corrections
 
 - purchase service: self.tenant_ctx -> self.tenant
 - PurchaseOrderItem FK: purchase_order_id -> order_id
@@ -9279,51 +9296,51 @@ sales/quotations/convert/{id}, workflow/{docType}/{id}/{action}
 
 ## [3.19.0] - 2026-07-15
 
-### Added ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â MC2 Phase 4A: URL Contract Alignment
+### Added Ã¢â‚¬â€ MC2 Phase 4A: URL Contract Alignment
 
 **Compatibility aliases (dual-mount, backward-safe):**
-- `POST /api/v1/pos/shifts/open` ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â canonical POS shift open
-- `POST /api/v1/pos/shifts/close/{id}` ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â canonical POS shift close
-- `GET/POST /api/v1/sales/invoices` ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â canonical sales invoice list/create
-- `GET/POST /api/v1/purchase/orders/` ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â canonical purchase order list/create
-- `GET /api/v1/purchase/suppliers/` ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â canonical supplier list
-- `GET /api/v1/health/flags` ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â feature flag health check endpoint
+- `POST /api/v1/pos/shifts/open` Ã¢â‚¬â€ canonical POS shift open
+- `POST /api/v1/pos/shifts/close/{id}` Ã¢â‚¬â€ canonical POS shift close
+- `GET/POST /api/v1/sales/invoices` Ã¢â‚¬â€ canonical sales invoice list/create
+- `GET/POST /api/v1/purchase/orders/` Ã¢â‚¬â€ canonical purchase order list/create
+- `GET /api/v1/purchase/suppliers/` Ã¢â‚¬â€ canonical supplier list
+- `GET /api/v1/health/flags` Ã¢â‚¬â€ feature flag health check endpoint
 
 **Deprecated (removal: v3.20.0):**
-- `POST /api/v1/shifts/open` ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ use `/pos/shifts/open`
-- `POST /api/v1/shifts/{id}/close` ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ use `/pos/shifts/close/{id}`
-- `GET/POST /api/v1/sales-invoices/` ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ use `/sales/invoices`
-- `GET/POST /api/v1/purchase-orders/` ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ use `/purchase/orders/`
+- `POST /api/v1/shifts/open` Ã¢â€ â€™ use `/pos/shifts/open`
+- `POST /api/v1/shifts/{id}/close` Ã¢â€ â€™ use `/pos/shifts/close/{id}`
+- `GET/POST /api/v1/sales-invoices/` Ã¢â€ â€™ use `/sales/invoices`
+- `GET/POST /api/v1/purchase-orders/` Ã¢â€ â€™ use `/purchase/orders/`
 
 **Tests:** 65/65 passed (57 legacy + 8 new contract URL tests)
 
 
 ## [3.18.3] - 2026-07-15
 
-### Refactored ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Architectural Debt Cleanup
+### Refactored Ã¢â‚¬â€ Architectural Debt Cleanup
 
 - `datetime.utcnow()` -> `datetime.now(timezone.utc)` across 8 first-party files
 - Pydantic `class Config` -> `model_config = ConfigDict(...)` in 7 schema files (21 occurrences)
 - FastAPI `@app.on_event("startup")` -> `asynccontextmanager lifespan()` in `main.py`
 
 **Result:** Deprecation warnings: 680 -> 304 (55% reduction, 376 eliminated)
-**Tests:** 57/57 passed ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â no regressions
+**Tests:** 57/57 passed Ã¢â‚¬â€ no regressions
 
 
 ## [3.18.2] - 2026-07-15
 
-### Added ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â MC2 Phase 3: Purchase CANCEL/AMEND/Supplier UPDATE+DELETE
+### Added Ã¢â‚¬â€ MC2 Phase 3: Purchase CANCEL/AMEND/Supplier UPDATE+DELETE
 
-- `POST /api/v1/purchase-orders/{id}/cancel` ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â cancel a Confirmed PO (status=CANCELLED, soft-delete)
-- `POST /api/v1/purchase-orders/{id}/amend`  ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â cancel original, create new Confirmed PO (strangler-fig pattern)
-- `PUT  /api/v1/suppliers/{id}`              ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â partial update supplier contact details
-- `DELETE /api/v1/suppliers/{id}`            ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â soft-delete supplier
+- `POST /api/v1/purchase-orders/{id}/cancel` Ã¢â‚¬â€ cancel a Confirmed PO (status=CANCELLED, soft-delete)
+- `POST /api/v1/purchase-orders/{id}/amend`  Ã¢â‚¬â€ cancel original, create new Confirmed PO (strangler-fig pattern)
+- `PUT  /api/v1/suppliers/{id}`              Ã¢â‚¬â€ partial update supplier contact details
+- `DELETE /api/v1/suppliers/{id}`            Ã¢â‚¬â€ soft-delete supplier
 
 ### Service
-- `PurchaseService.cancel_purchase_order()` ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â with RECEIVED guard
-- `PurchaseService.amend_purchase_order()` ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â atomic cancel+create
-- `PurchaseService.update_supplier()` ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â partial patch
-- `PurchaseService.delete_supplier()` ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â soft-delete
+- `PurchaseService.cancel_purchase_order()` Ã¢â‚¬â€ with RECEIVED guard
+- `PurchaseService.amend_purchase_order()` Ã¢â‚¬â€ atomic cancel+create
+- `PurchaseService.update_supplier()` Ã¢â‚¬â€ partial patch
+- `PurchaseService.delete_supplier()` Ã¢â‚¬â€ soft-delete
 
 ### Schemas
 - `SupplierUpdate`, `PurchaseOrderCancelRequest`, `PurchaseOrderAmendRequest`
@@ -9332,156 +9349,156 @@ sales/quotations/convert/{id}, workflow/{docType}/{id}/{action}
 - 8 new integration tests; combined regression: 57/57 passed (POS+Sales+Purchase)
 
 
-## [3.17.0] ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â 2026-07-14 ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Master Data Consolidation
+## [3.17.0] Ã¢â‚¬â€ 2026-07-14 Ã¢â‚¬â€ Master Data Consolidation
 
 ### Added
-- **FastAPI Tier-1 Dynamic Lookups (`backend/app/models/master_lookup.py`, `backend/app/schemas/master_lookup.py`, `backend/app/api/v1/master_lookup.py`)** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Added dynamic schema-driven Master Type and Master Value persistence on FastAPI + PostgreSQL with JSON Schema validators cache and soft-delete features.
-- **FastAPI Tier-2 Organization Structure (`backend/app/schemas/masters_tier2.py`, `backend/app/api/v1/masters.py`)** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Created REST endpoints and Pydantic validation schemas for Company, Branch, Store, and Warehouse.
-- **Database Migrations (`backend/alembic/versions/93e07a92812b_add_master_values_soft_delete.py`, `backend/alembic/versions/96b45b17b8b1_drop_master_entities.py`)** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Generated migrations to add soft-delete fields to `master_values` and drop the decommissioned `master_entities` table.
-- **Unit & Integration Tests (`backend/app/tests/t_masters_consol.py`)** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Built complete backend integration test suite.
+- **FastAPI Tier-1 Dynamic Lookups (`backend/app/models/master_lookup.py`, `backend/app/schemas/master_lookup.py`, `backend/app/api/v1/master_lookup.py`)** Ã¢â‚¬â€ Added dynamic schema-driven Master Type and Master Value persistence on FastAPI + PostgreSQL with JSON Schema validators cache and soft-delete features.
+- **FastAPI Tier-2 Organization Structure (`backend/app/schemas/masters_tier2.py`, `backend/app/api/v1/masters.py`)** Ã¢â‚¬â€ Created REST endpoints and Pydantic validation schemas for Company, Branch, Store, and Warehouse.
+- **Database Migrations (`backend/alembic/versions/93e07a92812b_add_master_values_soft_delete.py`, `backend/alembic/versions/96b45b17b8b1_drop_master_entities.py`)** Ã¢â‚¬â€ Generated migrations to add soft-delete fields to `master_values` and drop the decommissioned `master_entities` table.
+- **Unit & Integration Tests (`backend/app/tests/t_masters_consol.py`)** Ã¢â‚¬â€ Built complete backend integration test suite.
 
 ### Changed
-- **Frontend Master Management Cutover (`src/components/MasterMgmtTab.tsx`)** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Repointed all organizational and lookup fetches to `/api/v1/masters/...` using `apiFetchV1` to ensure token propagation and HREP alignment.
-- **Alembic env config (`backend/alembic/env.py`)** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Added `master_types` and `master_values` tables to the allowed tables filter.
+- **Frontend Master Management Cutover (`src/components/MasterMgmtTab.tsx`)** Ã¢â‚¬â€ Repointed all organizational and lookup fetches to `/api/v1/masters/...` using `apiFetchV1` to ensure token propagation and HREP alignment.
+- **Alembic env config (`backend/alembic/env.py`)** Ã¢â‚¬â€ Added `master_types` and `master_values` tables to the allowed tables filter.
 
 ### Decommissioned
-- **Express-side legacy master code** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Deleted `src/routes/masters.ts`, `src/routes/masterLookup.ts`, and `src/repositories/masterRepository.ts` and unmounted them from `server.ts`.
-- **FastAPI legacy master model scaffolding** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Removed `backend/app/models/masters.py` and `backend/app/schemas/masters.py`.
+- **Express-side legacy master code** Ã¢â‚¬â€ Deleted `src/routes/masters.ts`, `src/routes/masterLookup.ts`, and `src/repositories/masterRepository.ts` and unmounted them from `server.ts`.
+- **FastAPI legacy master model scaffolding** Ã¢â‚¬â€ Removed `backend/app/models/masters.py` and `backend/app/schemas/masters.py`.
 
 
-## [3.16.0] ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â 2026-07-13 ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Backend Tier 4 FastAPI Migration
+## [3.16.0] Ã¢â‚¬â€ 2026-07-13 Ã¢â‚¬â€ Backend Tier 4 FastAPI Migration
 
 ### Added
-- **SMRITI Product Image Framework (SPIF) v1.0 (`backend/app/services/spif.py`, `src/components/common/ProductImage.tsx`, `src/components/common/ImageDisplayPolicy.tsx`)** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Centralized product image support, auto-optimization (WebP transcode, maximum bounds scaling, and alpha channel flattening), tenant-isolated storage path persistence, React thumbnail/preview rendering, and dynamic configuration policies.
-- **SMRITI Master Framework ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Phase F.3 (`backend/app/models/barcode.py`, `src/routes/terms.ts`, `src/routes/barcode.ts`, `src/routes/system.ts`)** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Migrated terms library, terms defaults, terms snapshots, approval workflow logs, print templates, and print profiles configurations from memory arrays to PostgreSQL.
-- **SMRITI Master Framework ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Phase F.2 (`backend/app/services/numbering.py`, `src/routes/numbering.ts`, `src/lib/helpers.ts`)** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Migrated document number series configuration and atomic allocation engine to PostgreSQL and FastAPI `FOR UPDATE` transaction locks.
-- **SMRITI Master Framework ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Phase F.1 (`backend/app/models/inventory.py`, `src/routes/masters.ts`, `src/state/store.ts`)** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Migrated stores and warehouses master entities from legacy in-memory arrays to PostgreSQL tables via Alembic.
-- **Masters Module (`backend/app/models/masters.py`)** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Added organizational branch/department master entities.
-- **Numbering Engine (`backend/app/models/numbering.py`)** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Atomic sequence generation with select-for-update locking.
-- **Terms & Conditions Engine (`backend/app/models/terms.py`)** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Defaults, snapshots, default resolution service.
-- **Attributes & Variants (`backend/app/models/attributes.py`)** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Variant Cartesian generation service and schema definitions.
-- **Barcode Studio (`backend/app/models/barcode.py`)** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Barcode definitions and layout designer stubs.
-- **Data Exchange Hub (`backend/app/models/exchange.py`)** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â DB table CSV dump/restore importer converter stubs.
-- **AI Assistant (`backend/app/api/v1/ai.py`)** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Analytical AI forecasting stubs.
-- **SMRITIDocker Repository** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Created standalone private Git repository for containerization, orchestration, and startup automation files.
-- **One-Command Installers (`install.ps1`, `install.sh`)** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Added automated single-command installers for Windows, Linux, and macOS with prerequisite checking, stable Python detection, and visual branding.
-- **System Configs & Tally (`backend/app/models/system.py`)** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Global system configurations registry.
-- **Roles Module (`backend/app/models/role.py`)** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Permissions matrix mapping database entities.
-- **Alembic Migration (`backend/alembic/versions/6bc445ac1554_add_tier_4_domains.py`)** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Automated schema changes for long-tail domains.
-- **Regression Tests (`backend/app/tests/test_exchange.py`, `backend/app/tests/t_staff_verify.py`)** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Regression testing for data exchange task execution and staff response schemas.
-- **Indian Market Formatters (`src/utils/indianFormat.ts`, `src/utils/hsnMaster.ts`)** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Frontend utility functions for lakh/crore grouping and HSN code GST rate determination.
-- **Excel manual data entry grid (`src/components/ExcelGridEntrySec.tsx`)** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Spreadsheet-style grid interface supporting Arrow keyboard navigation, Excel copy-paste, and auto row creation.
-- **Dynamic Business Templates (`backend/app/services/attributes.py`)** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Auto-seeding templates for Apparel, Footwear, Grocery, Electronics, and Jewellery directly into Postgres.
-- **Extended Attributes (`backend/alembic/versions/d4e5f6a7b8c9_extend_attribute_definitions.py`)** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Added searchable, filterable, display order, default values, and tooltips columns in Postgres.
-- **Dynamic Attributes Search (`backend/app/repositories/product.py`)** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Cast JSONB properties to text for global matching in PostgreSQL GIN indexes.
-- **Enterprise Label Printing Framework (ELPF) (`backend/app/models/barcode.py`, `src/components/LabelPrintingSec.tsx`)** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â 3-step thermal ZPL print wizard, raw TCP/IP socket connection dispatcher, print history logger, and system config settings persistence.
-- **Dynamic Barcode PRN Template Mapping (`backend/app/api/v1/barcode.py`, `src/components/LabelPrintingSec.tsx`)** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Replaced hardcoded print field replacements with dynamic key traversal of all item attributes, preserved all pasted CSV column headers in state, and added an interactive variable insertion guide with standard and dynamic column click badges.
-- **Default User Seeding (`src/state/store.ts`)** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Seeded default users (`super` / `whynothing`, `manager`, `cashier`) in flat-file database initialization.
-- **Login Quick Actions (`src/components/LoginScreen.tsx`)** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Added `super` user quick login button with System Admin access level.
-- **Report User Role & Audit Logging** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Added read-only `Report User` role with write-block Express middleware protection, visual warning banners, disabled creation/edit inputs, context menu role mappings, and integration test coverage for audit logs.
-- **Save Barcode as PRN File** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Extended PrintRequest schema and barcode REST api with an optional `saveAsPrn` flag to bypass thermal printer communication and download ZPL commands directly as a `.prn` file from the browser.
+- **SMRITI Product Image Framework (SPIF) v1.0 (`backend/app/services/spif.py`, `src/components/common/ProductImage.tsx`, `src/components/common/ImageDisplayPolicy.tsx`)** Ã¢â‚¬â€ Centralized product image support, auto-optimization (WebP transcode, maximum bounds scaling, and alpha channel flattening), tenant-isolated storage path persistence, React thumbnail/preview rendering, and dynamic configuration policies.
+- **SMRITI Master Framework Ã¢â‚¬â€ Phase F.3 (`backend/app/models/barcode.py`, `src/routes/terms.ts`, `src/routes/barcode.ts`, `src/routes/system.ts`)** Ã¢â‚¬â€ Migrated terms library, terms defaults, terms snapshots, approval workflow logs, print templates, and print profiles configurations from memory arrays to PostgreSQL.
+- **SMRITI Master Framework Ã¢â‚¬â€ Phase F.2 (`backend/app/services/numbering.py`, `src/routes/numbering.ts`, `src/lib/helpers.ts`)** Ã¢â‚¬â€ Migrated document number series configuration and atomic allocation engine to PostgreSQL and FastAPI `FOR UPDATE` transaction locks.
+- **SMRITI Master Framework Ã¢â‚¬â€ Phase F.1 (`backend/app/models/inventory.py`, `src/routes/masters.ts`, `src/state/store.ts`)** Ã¢â‚¬â€ Migrated stores and warehouses master entities from legacy in-memory arrays to PostgreSQL tables via Alembic.
+- **Masters Module (`backend/app/models/masters.py`)** Ã¢â‚¬â€ Added organizational branch/department master entities.
+- **Numbering Engine (`backend/app/models/numbering.py`)** Ã¢â‚¬â€ Atomic sequence generation with select-for-update locking.
+- **Terms & Conditions Engine (`backend/app/models/terms.py`)** Ã¢â‚¬â€ Defaults, snapshots, default resolution service.
+- **Attributes & Variants (`backend/app/models/attributes.py`)** Ã¢â‚¬â€ Variant Cartesian generation service and schema definitions.
+- **Barcode Studio (`backend/app/models/barcode.py`)** Ã¢â‚¬â€ Barcode definitions and layout designer stubs.
+- **Data Exchange Hub (`backend/app/models/exchange.py`)** Ã¢â‚¬â€ DB table CSV dump/restore importer converter stubs.
+- **AI Assistant (`backend/app/api/v1/ai.py`)** Ã¢â‚¬â€ Analytical AI forecasting stubs.
+- **SMRITIDocker Repository** Ã¢â‚¬â€ Created standalone private Git repository for containerization, orchestration, and startup automation files.
+- **One-Command Installers (`install.ps1`, `install.sh`)** Ã¢â‚¬â€ Added automated single-command installers for Windows, Linux, and macOS with prerequisite checking, stable Python detection, and visual branding.
+- **System Configs & Tally (`backend/app/models/system.py`)** Ã¢â‚¬â€ Global system configurations registry.
+- **Roles Module (`backend/app/models/role.py`)** Ã¢â‚¬â€ Permissions matrix mapping database entities.
+- **Alembic Migration (`backend/alembic/versions/6bc445ac1554_add_tier_4_domains.py`)** Ã¢â‚¬â€ Automated schema changes for long-tail domains.
+- **Regression Tests (`backend/app/tests/test_exchange.py`, `backend/app/tests/t_staff_verify.py`)** Ã¢â‚¬â€ Regression testing for data exchange task execution and staff response schemas.
+- **Indian Market Formatters (`src/utils/indianFormat.ts`, `src/utils/hsnMaster.ts`)** Ã¢â‚¬â€ Frontend utility functions for lakh/crore grouping and HSN code GST rate determination.
+- **Excel manual data entry grid (`src/components/ExcelGridEntrySec.tsx`)** Ã¢â‚¬â€ Spreadsheet-style grid interface supporting Arrow keyboard navigation, Excel copy-paste, and auto row creation.
+- **Dynamic Business Templates (`backend/app/services/attributes.py`)** Ã¢â‚¬â€ Auto-seeding templates for Apparel, Footwear, Grocery, Electronics, and Jewellery directly into Postgres.
+- **Extended Attributes (`backend/alembic/versions/d4e5f6a7b8c9_extend_attribute_definitions.py`)** Ã¢â‚¬â€ Added searchable, filterable, display order, default values, and tooltips columns in Postgres.
+- **Dynamic Attributes Search (`backend/app/repositories/product.py`)** Ã¢â‚¬â€ Cast JSONB properties to text for global matching in PostgreSQL GIN indexes.
+- **Enterprise Label Printing Framework (ELPF) (`backend/app/models/barcode.py`, `src/components/LabelPrintingSec.tsx`)** Ã¢â‚¬â€ 3-step thermal ZPL print wizard, raw TCP/IP socket connection dispatcher, print history logger, and system config settings persistence.
+- **Dynamic Barcode PRN Template Mapping (`backend/app/api/v1/barcode.py`, `src/components/LabelPrintingSec.tsx`)** Ã¢â‚¬â€ Replaced hardcoded print field replacements with dynamic key traversal of all item attributes, preserved all pasted CSV column headers in state, and added an interactive variable insertion guide with standard and dynamic column click badges.
+- **Default User Seeding (`src/state/store.ts`)** Ã¢â‚¬â€ Seeded default users (`super` / `whynothing`, `manager`, `cashier`) in flat-file database initialization.
+- **Login Quick Actions (`src/components/LoginScreen.tsx`)** Ã¢â‚¬â€ Added `super` user quick login button with System Admin access level.
+- **Report User Role & Audit Logging** Ã¢â‚¬â€ Added read-only `Report User` role with write-block Express middleware protection, visual warning banners, disabled creation/edit inputs, context menu role mappings, and integration test coverage for audit logs.
+- **Save Barcode as PRN File** Ã¢â‚¬â€ Extended PrintRequest schema and barcode REST api with an optional `saveAsPrn` flag to bypass thermal printer communication and download ZPL commands directly as a `.prn` file from the browser.
 
 ### Modified
-- **`backend/app/models/auth.py`** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Extended User schema with 27 profile and setting fields.
-- **`backend/app/tests/t_user_mgmt.py`** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Updated unit test assertions to match REST specifications.
-- **`docker-compose.yml`** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Forwarded `SGIP_VAULT_MASTER_KEY` env parameters to Python container.
-- **Data Exchange Backend (`backend/app/api/v1/exchange.py`)** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Fixed timezone offset database update constraint violation.
-- **Staff User Schemas (`backend/app/schemas/user.py`)** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Standardized PaymentDetails schema to declare Aadhaar, PAN, PF UAN, ESIC, Father/Spouse name, Marital Status, Blood Group, and Permanent Address.
-- **PAL Repository Layer (`src/core/interfaces/db.ts`, `src/bootstrap/di.ts`, `src/db/`)** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Implemented `IStateRepository` to abstract Express legacy `saveDb()` mutations and ensure 0 routes call `saveDb()` directly.
-- **Express route unmount (`server.ts`, `src/routes/attributes.ts`)** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Retired all legacy attributes Express routing, migrating completely to FastAPI + Postgres.
-- **`src/db/memory/MemoryRepositories.ts` & `src/db/postgres/PgRepos.ts`** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Fixed esbuild compilation failures on read-only ESM namespace property reassignments.
-- **`src/masters_registry.ts` & `src/components/MasterMgmtTab.tsx`** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Refactored configuration schemas and Master Management tab to dynamically retrieve and render schema-driven lookup data generically from backend meta registries.
+- **`backend/app/models/auth.py`** Ã¢â‚¬â€ Extended User schema with 27 profile and setting fields.
+- **`backend/app/tests/t_user_mgmt.py`** Ã¢â‚¬â€ Updated unit test assertions to match REST specifications.
+- **`docker-compose.yml`** Ã¢â‚¬â€ Forwarded `SGIP_VAULT_MASTER_KEY` env parameters to Python container.
+- **Data Exchange Backend (`backend/app/api/v1/exchange.py`)** Ã¢â‚¬â€ Fixed timezone offset database update constraint violation.
+- **Staff User Schemas (`backend/app/schemas/user.py`)** Ã¢â‚¬â€ Standardized PaymentDetails schema to declare Aadhaar, PAN, PF UAN, ESIC, Father/Spouse name, Marital Status, Blood Group, and Permanent Address.
+- **PAL Repository Layer (`src/core/interfaces/db.ts`, `src/bootstrap/di.ts`, `src/db/`)** Ã¢â‚¬â€ Implemented `IStateRepository` to abstract Express legacy `saveDb()` mutations and ensure 0 routes call `saveDb()` directly.
+- **Express route unmount (`server.ts`, `src/routes/attributes.ts`)** Ã¢â‚¬â€ Retired all legacy attributes Express routing, migrating completely to FastAPI + Postgres.
+- **`src/db/memory/MemoryRepositories.ts` & `src/db/postgres/PgRepos.ts`** Ã¢â‚¬â€ Fixed esbuild compilation failures on read-only ESM namespace property reassignments.
+- **`src/masters_registry.ts` & `src/components/MasterMgmtTab.tsx`** Ã¢â‚¬â€ Refactored configuration schemas and Master Management tab to dynamically retrieve and render schema-driven lookup data generically from backend meta registries.
 
 
-## [3.16.0] ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â 2026-07-12 ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Form Standardization & Setup Defaults
-
-### Added
-- **`backend/app/templates/errors/`** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Created branded HTML base layout, landing page, and status code error templates for SEEF v1.0.
-- **`backend/app/tests/test_seef.py`** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Added integration tests validating content negotiation and HTML/JSON status outputs.
-- **`docs/implementation/foundation/SMRITI_Error_Experience_Framework_v1.0_Plan.md`** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â SEEF v1.0 implementation plan.
-- **`docs/walkthrough/foundation/Foundation_SEEF_v1.0_Error_Experience_v3.16.0.md`** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Walkthrough document for SEEF v1.0.
-- **`src/constants/indianStates.ts`** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Shared Indian state constants.
-- **`src/utils/validators.ts`** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Indian-market form validators (GSTIN, PIN, Mobile).
-- **`src/utils/formatters.ts`** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Regional display formatters (date, datetime, currency).
-- **`src/tests/validators.test.ts`** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Unit tests for the new validators and formatters.
-- **`backend/app/compliance/`** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Built the complete bounded context compliance framework (Milestone 1 foundation) containing model persistence, cryptographically isolated credential vault, and registry system.
-- **`backend/app/tests/test_inventory.py`** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Added regression testing for the product soft-delete API.
-- **`backend/mypy-baseline.txt`** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Configured a mypy type error baseline to track legacy type warnings.
-- **`docs/walkthrough/foundation/Foundation_SGIP_Milestone1_Compliance_Foundation_v3.16.0.md`** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Walkthrough document for SGIP Milestone 1.
-
-### Changed
-- **`backend/production.txt`** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Added `jinja2==3.1.4` dependency.
-- **`backend/app/core/errors.py`** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Expanded HREP error dictionary catalog to support custom titles and new error families (SMRITI-AUTH, SMRITI-CONN, SMRITI-CFG, SMRITI-INT).
-- **`backend/app/core/error_handlers.py`** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Integrated template rendering, content negotiation (`Accept: text/html` vs `application/json`), and backward-compatible JSON error formats.
-- **`backend/app/main.py`** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Registered `GET /` API landing page endpoint displaying service diagnostic parameters, tracked application uptime, and consolidated import structures.
-- **`backend/app/api/v1/inventory.py`** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Fixed a runtime crash (`AttributeError` on `TenantContext.user_id`) in product soft-deletion by correctly extracting user identity from request dependencies.
-- **`backend/app/repositories/base.py`** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Type-safely bound repository models to `BaseEntity`.
-- **`backend/pyproject.toml` & `.github/workflows/ci.yml`** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Enforced automated baseline-filtered MyPy type checks in the build pipeline.
-- **Setup Wizard Defaults** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Updated default demo seeding company to "AITDL NETWORKS" located at GIDA Gorakhpur, Uttar Pradesh, with "Pushpa" (9324117007) as default contact.
-- **Form Controls** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Integrated street address, landmark, and state selection dropdowns into the setup wizard store registration form. Enforced GSTIN and Pincode validation gates before transitioning wizard steps.
-- **Validation Standardization** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Replaced ad hoc regular expression checks in `SalesStudioTab.tsx` and `src/routes/customers.ts` with shared helpers.
-- **`backend/app/tests/conftest.py`** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Set up a session-scoped event loop to prevent async loop mismatch issues across test suites.
-- **`backend/pyproject.toml`** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Wired python paths and silenced FastAPI parameter warnings.
-
-## [3.15.0] ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â 2026-07-12 ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Database Unification & Security Hardening
+## [3.16.0] Ã¢â‚¬â€ 2026-07-12 Ã¢â‚¬â€ Form Standardization & Setup Defaults
 
 ### Added
-- **`src/middleware/sessionResolver.ts`** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â New global Express middleware decoding session tokens, mounting active user objects, and enriching downstream request headers with permission context.
-- **`src/tests/helpers.test.ts` & `src/tests/auth.test.ts`** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Standalone characterization test suites to protect password verification and failed-attempt account locking pipelines.
-- **`src/tests/numbering.test.ts` & `src/tests/gst.test.ts`** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Unit tests covering the voucher numbering sequences and the dynamic GST 2.0 price-tier tax calculations.
-- **`.github/workflows/ci.yml`** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Continuous integration pipeline running linter and Vitest suite on push/pull requests.
+- **`backend/app/templates/errors/`** Ã¢â‚¬â€ Created branded HTML base layout, landing page, and status code error templates for SEEF v1.0.
+- **`backend/app/tests/test_seef.py`** Ã¢â‚¬â€ Added integration tests validating content negotiation and HTML/JSON status outputs.
+- **`docs/implementation/foundation/SMRITI_Error_Experience_Framework_v1.0_Plan.md`** Ã¢â‚¬â€ SEEF v1.0 implementation plan.
+- **`docs/walkthrough/foundation/Foundation_SEEF_v1.0_Error_Experience_v3.16.0.md`** Ã¢â‚¬â€ Walkthrough document for SEEF v1.0.
+- **`src/constants/indianStates.ts`** Ã¢â‚¬â€ Shared Indian state constants.
+- **`src/utils/validators.ts`** Ã¢â‚¬â€ Indian-market form validators (GSTIN, PIN, Mobile).
+- **`src/utils/formatters.ts`** Ã¢â‚¬â€ Regional display formatters (date, datetime, currency).
+- **`src/tests/validators.test.ts`** Ã¢â‚¬â€ Unit tests for the new validators and formatters.
+- **`backend/app/compliance/`** Ã¢â‚¬â€ Built the complete bounded context compliance framework (Milestone 1 foundation) containing model persistence, cryptographically isolated credential vault, and registry system.
+- **`backend/app/tests/test_inventory.py`** Ã¢â‚¬â€ Added regression testing for the product soft-delete API.
+- **`backend/mypy-baseline.txt`** Ã¢â‚¬â€ Configured a mypy type error baseline to track legacy type warnings.
+- **`docs/walkthrough/foundation/Foundation_SGIP_Milestone1_Compliance_Foundation_v3.16.0.md`** Ã¢â‚¬â€ Walkthrough document for SGIP Milestone 1.
 
 ### Changed
-- **Database Refactoring** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Decoupled route modules (`auth`, `users`, `customers`, `pos`, `sales`, `purchase`) from direct `saveDb()` flat-file persistence, routing operations through Platform Abstraction Layer (PAL) DI container stubs.
-- **FastAPI CORS Hardening** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Restricted FastAPI middleware origins using dynamic configuration properties and enforced strict `JWT_SECRET_KEY` requirements.
-- **Security Hardening** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Upgraded PBKDF2 hash strength to 600,000 iterations and replaced all string-based RBAC cashier checks in `reports.ts`, `exchange.ts`, and `assistant.ts` with permission checks (`hasPermission`).
+- **`backend/production.txt`** Ã¢â‚¬â€ Added `jinja2==3.1.4` dependency.
+- **`backend/app/core/errors.py`** Ã¢â‚¬â€ Expanded HREP error dictionary catalog to support custom titles and new error families (SMRITI-AUTH, SMRITI-CONN, SMRITI-CFG, SMRITI-INT).
+- **`backend/app/core/error_handlers.py`** Ã¢â‚¬â€ Integrated template rendering, content negotiation (`Accept: text/html` vs `application/json`), and backward-compatible JSON error formats.
+- **`backend/app/main.py`** Ã¢â‚¬â€ Registered `GET /` API landing page endpoint displaying service diagnostic parameters, tracked application uptime, and consolidated import structures.
+- **`backend/app/api/v1/inventory.py`** Ã¢â‚¬â€ Fixed a runtime crash (`AttributeError` on `TenantContext.user_id`) in product soft-deletion by correctly extracting user identity from request dependencies.
+- **`backend/app/repositories/base.py`** Ã¢â‚¬â€ Type-safely bound repository models to `BaseEntity`.
+- **`backend/pyproject.toml` & `.github/workflows/ci.yml`** Ã¢â‚¬â€ Enforced automated baseline-filtered MyPy type checks in the build pipeline.
+- **Setup Wizard Defaults** Ã¢â‚¬â€ Updated default demo seeding company to "AITDL NETWORKS" located at GIDA Gorakhpur, Uttar Pradesh, with "Pushpa" (9324117007) as default contact.
+- **Form Controls** Ã¢â‚¬â€ Integrated street address, landmark, and state selection dropdowns into the setup wizard store registration form. Enforced GSTIN and Pincode validation gates before transitioning wizard steps.
+- **Validation Standardization** Ã¢â‚¬â€ Replaced ad hoc regular expression checks in `SalesStudioTab.tsx` and `src/routes/customers.ts` with shared helpers.
+- **`backend/app/tests/conftest.py`** Ã¢â‚¬â€ Set up a session-scoped event loop to prevent async loop mismatch issues across test suites.
+- **`backend/pyproject.toml`** Ã¢â‚¬â€ Wired python paths and silenced FastAPI parameter warnings.
+
+## [3.15.0] Ã¢â‚¬â€ 2026-07-12 Ã¢â‚¬â€ Database Unification & Security Hardening
+
+### Added
+- **`src/middleware/sessionResolver.ts`** Ã¢â‚¬â€ New global Express middleware decoding session tokens, mounting active user objects, and enriching downstream request headers with permission context.
+- **`src/tests/helpers.test.ts` & `src/tests/auth.test.ts`** Ã¢â‚¬â€ Standalone characterization test suites to protect password verification and failed-attempt account locking pipelines.
+- **`src/tests/numbering.test.ts` & `src/tests/gst.test.ts`** Ã¢â‚¬â€ Unit tests covering the voucher numbering sequences and the dynamic GST 2.0 price-tier tax calculations.
+- **`.github/workflows/ci.yml`** Ã¢â‚¬â€ Continuous integration pipeline running linter and Vitest suite on push/pull requests.
+
+### Changed
+- **Database Refactoring** Ã¢â‚¬â€ Decoupled route modules (`auth`, `users`, `customers`, `pos`, `sales`, `purchase`) from direct `saveDb()` flat-file persistence, routing operations through Platform Abstraction Layer (PAL) DI container stubs.
+- **FastAPI CORS Hardening** Ã¢â‚¬â€ Restricted FastAPI middleware origins using dynamic configuration properties and enforced strict `JWT_SECRET_KEY` requirements.
+- **Security Hardening** Ã¢â‚¬â€ Upgraded PBKDF2 hash strength to 600,000 iterations and replaced all string-based RBAC cashier checks in `reports.ts`, `exchange.ts`, and `assistant.ts` with permission checks (`hasPermission`).
 
 ### Removed
-- **Flat-File Serials** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Eliminated active disk-writing of sessions into flat-file databases (`db_store.json`), migrating authorization context to transient in-memory structures.
+- **Flat-File Serials** Ã¢â‚¬â€ Eliminated active disk-writing of sessions into flat-file databases (`db_store.json`), migrating authorization context to transient in-memory structures.
 
 ---
 
-## [3.14.4] ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â 2026-07-11 ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Alembic Schema Unification
+## [3.14.4] Ã¢â‚¬â€ 2026-07-11 Ã¢â‚¬â€ Alembic Schema Unification
 
 ### Added
-- **`backend/alembic/versions/a1b2c3d4e5f6_add_missing_core_tables.py`** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â New root-level migration creating all missing core tables with default auto-generated UUID columns.
-- **Node-compatibility Columns** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Added columns `cashier`, `warehouse`, `branch`, `start_time`, `end_time`, `opening_cash`, `closing_cash`, `sales_count`, `sales_value` to `shifts` table to ensure seamless dual API support.
+- **`backend/alembic/versions/a1b2c3d4e5f6_add_missing_core_tables.py`** Ã¢â‚¬â€ New root-level migration creating all missing core tables with default auto-generated UUID columns.
+- **Node-compatibility Columns** Ã¢â‚¬â€ Added columns `cashier`, `warehouse`, `branch`, `start_time`, `end_time`, `opening_cash`, `closing_cash`, `sales_count`, `sales_value` to `shifts` table to ensure seamless dual API support.
 
 ### Changed
-- **`src/db/init.ts`** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Removed direct schema.sql DDL executions, moving database connection check and flat-file seeding to bootstrap.
-- **`Dockerfile` & `docker-compose.yml`** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Removed COPY statements for `schema.sql`. Added wait health checks so Node standalone container initializes only after python-core schema migrations finish.
-- **`db_store.json`** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Resolved data integrity and foreign key constraints for initial product IDs.
+- **`src/db/init.ts`** Ã¢â‚¬â€ Removed direct schema.sql DDL executions, moving database connection check and flat-file seeding to bootstrap.
+- **`Dockerfile` & `docker-compose.yml`** Ã¢â‚¬â€ Removed COPY statements for `schema.sql`. Added wait health checks so Node standalone container initializes only after python-core schema migrations finish.
+- **`db_store.json`** Ã¢â‚¬â€ Resolved data integrity and foreign key constraints for initial product IDs.
 
 ### Removed
-- **`src/db/schema.sql`** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Deprecated and deleted from the repository.
+- **`src/db/schema.sql`** Ã¢â‚¬â€ Deprecated and deleted from the repository.
 
 ---
 
-## [3.13.0] ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â 2026-07-11 ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Supplier Payments
+## [3.13.0] Ã¢â‚¬â€ 2026-07-11 Ã¢â‚¬â€ Supplier Payments
 
 ### Added
-- **`POST /api/v1/supplier-payments/`** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â MANAGER/SYSADMIN records a payment to a supplier. Atomically decrements `supplier.outstanding` in the same transaction.
-- **`GET /api/v1/supplier-payments/`** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Lists all payments; optional `?supplier_id=` filter.
-- **`GET /api/v1/supplier-payments/{id}`** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Gets a single payment record.
-- **`models/supplier_payment.py`** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â `SupplierPayment` entity (extends `BaseEntity`).
-- **`schemas/supplier_payment.py`** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â `SupplierPaymentCreate` with Pydantic validators for amount > 0 and valid `payment_mode`; `SupplierPaymentResponse`.
-- **`services/supplier_payment.py`** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â `SupplierPaymentService` with overpayment guard and atomic outstanding decrement.
-- **`alembic/versions/9862a004de1c`** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Creates `supplier_payments` table (19 columns).
+- **`POST /api/v1/supplier-payments/`** Ã¢â‚¬â€ MANAGER/SYSADMIN records a payment to a supplier. Atomically decrements `supplier.outstanding` in the same transaction.
+- **`GET /api/v1/supplier-payments/`** Ã¢â‚¬â€ Lists all payments; optional `?supplier_id=` filter.
+- **`GET /api/v1/supplier-payments/{id}`** Ã¢â‚¬â€ Gets a single payment record.
+- **`models/supplier_payment.py`** Ã¢â‚¬â€ `SupplierPayment` entity (extends `BaseEntity`).
+- **`schemas/supplier_payment.py`** Ã¢â‚¬â€ `SupplierPaymentCreate` with Pydantic validators for amount > 0 and valid `payment_mode`; `SupplierPaymentResponse`.
+- **`services/supplier_payment.py`** Ã¢â‚¬â€ `SupplierPaymentService` with overpayment guard and atomic outstanding decrement.
+- **`alembic/versions/9862a004de1c`** Ã¢â‚¬â€ Creates `supplier_payments` table (19 columns).
 - **10 new tests** in `t_supp_payment.py`.
 
 ### Business Rules Enforced
-- Amount must be > 0 (Pydantic `field_validator` ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ 422 on failure).
+- Amount must be > 0 (Pydantic `field_validator` Ã¢â€ â€™ 422 on failure).
 - `payment_mode` must be one of: `CASH`, `BANK_TRANSFER`, `CHEQUE`, `UPI` (422 on unknown mode).
-- Payment amount must not exceed `supplier.outstanding` (overpayment guard ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ 400).
+- Payment amount must not exceed `supplier.outstanding` (overpayment guard Ã¢â€ â€™ 400).
 - `supplier.outstanding` is decremented atomically within the same DB transaction as the payment record.
 - CASHIER role cannot record payments (403).
 - All queries scoped to `company_id + branch_id` tenant.
 
 ### Changed
-- `models/__init__.py`, `alembic/env.py` ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Added `SupplierPayment` imports; version ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ 3.13.0.
-- `main.py` ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Registered `supplier_payment.router`; version ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ 3.13.0.
-- `config.py` ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â `VERSION = "3.13.0"`.
-- `t_supp_payment.py` ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Fixture expanded to clean purchase tables (FK-safe order) before suppliers, preventing FK violations from `test_purchase.py` leftovers.
+- `models/__init__.py`, `alembic/env.py` Ã¢â‚¬â€ Added `SupplierPayment` imports; version Ã¢â€ â€™ 3.13.0.
+- `main.py` Ã¢â‚¬â€ Registered `supplier_payment.router`; version Ã¢â€ â€™ 3.13.0.
+- `config.py` Ã¢â‚¬â€ `VERSION = "3.13.0"`.
+- `t_supp_payment.py` Ã¢â‚¬â€ Fixture expanded to clean purchase tables (FK-safe order) before suppliers, preventing FK violations from `test_purchase.py` leftovers.
 
 ### Test Results
 ```
@@ -9493,18 +9510,18 @@ sales/quotations/convert/{id}, workflow/{docType}/{id}/{action}
 
 
 ### Added
-- **`POST /api/v1/registers/`** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â MANAGER/SYSADMIN creates a new POS cash register (physical counter).
-- **`GET /api/v1/registers/`** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Lists all registers for the current tenant.
-- **`GET /api/v1/registers/{id}`** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Gets a single register.
-- **`POST /api/v1/shifts/open`** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Any authenticated user opens a shift on a register with an opening cash balance. Only one shift may be OPEN per register at a time.
-- **`POST /api/v1/shifts/{id}/close`** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Closes an open shift: aggregates all linked `SalesInvoice` records by `payment_mode` (CASH/CARD/UPI), computes `expected_cash = opening_balance + cash_sales_total`, `variance = closing_balance ÃƒÂ¢Ã‹â€ Ã¢â‚¬â„¢ expected_cash`.
-- **`GET /api/v1/shifts/active/{register_id}`** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Gets the currently open shift for a register; returns 404 if none (POS UI cue to prompt shift open).
-- **`GET /api/v1/shifts/`** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Lists all shifts; optional `?register_id=` filter.
-- **`GET /api/v1/shifts/{id}`** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Gets a specific shift by ID.
-- **`models/pos.py`** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â `CashRegister`, `Shift` (both extend `BaseEntity`).
-- **`schemas/pos.py`** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â `CashRegisterCreate/Response`, `ShiftOpen`, `ShiftClose`, `ShiftResponse`.
-- **`services/pos.py`** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â `POSService` with full validation, one-open-shift guard, and shift close reconciliation.
-- **`alembic/versions/cc8a527deb42`** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Creates `cash_registers`, `shifts`; adds `shift_id` and `payment_mode` columns to `sales_invoices`.
+- **`POST /api/v1/registers/`** Ã¢â‚¬â€ MANAGER/SYSADMIN creates a new POS cash register (physical counter).
+- **`GET /api/v1/registers/`** Ã¢â‚¬â€ Lists all registers for the current tenant.
+- **`GET /api/v1/registers/{id}`** Ã¢â‚¬â€ Gets a single register.
+- **`POST /api/v1/shifts/open`** Ã¢â‚¬â€ Any authenticated user opens a shift on a register with an opening cash balance. Only one shift may be OPEN per register at a time.
+- **`POST /api/v1/shifts/{id}/close`** Ã¢â‚¬â€ Closes an open shift: aggregates all linked `SalesInvoice` records by `payment_mode` (CASH/CARD/UPI), computes `expected_cash = opening_balance + cash_sales_total`, `variance = closing_balance Ã¢Ë†â€™ expected_cash`.
+- **`GET /api/v1/shifts/active/{register_id}`** Ã¢â‚¬â€ Gets the currently open shift for a register; returns 404 if none (POS UI cue to prompt shift open).
+- **`GET /api/v1/shifts/`** Ã¢â‚¬â€ Lists all shifts; optional `?register_id=` filter.
+- **`GET /api/v1/shifts/{id}`** Ã¢â‚¬â€ Gets a specific shift by ID.
+- **`models/pos.py`** Ã¢â‚¬â€ `CashRegister`, `Shift` (both extend `BaseEntity`).
+- **`schemas/pos.py`** Ã¢â‚¬â€ `CashRegisterCreate/Response`, `ShiftOpen`, `ShiftClose`, `ShiftResponse`.
+- **`services/pos.py`** Ã¢â‚¬â€ `POSService` with full validation, one-open-shift guard, and shift close reconciliation.
+- **`alembic/versions/cc8a527deb42`** Ã¢â‚¬â€ Creates `cash_registers`, `shifts`; adds `shift_id` and `payment_mode` columns to `sales_invoices`.
 - **10 new tests** in `test_pos.py`.
 
 ### Business Rules Enforced
@@ -9512,21 +9529,21 @@ sales/quotations/convert/{id}, workflow/{docType}/{id}/{action}
 - Opening balance must be >= 0.
 - Closing a CLOSED shift returns 400.
 - `expected_cash = opening_balance + cash_sales_total` (only CASH mode sales count towards expected float).
-- `variance = closing_balance ÃƒÂ¢Ã‹â€ Ã¢â‚¬â„¢ expected_cash` (positive = overage, negative = short).
+- `variance = closing_balance Ã¢Ë†â€™ expected_cash` (positive = overage, negative = short).
 - Register and shift both scoped to `company_id + branch_id` tenant.
 - CASHIER role cannot create registers (403); any authenticated user can open/close a shift.
 
 ### Changed
-- `models/sales.py` ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Added `shift_id` (nullable FK to `shifts`) and `payment_mode` (`CASH|CARD|UPI|CREDIT`, default `CASH`).
-- `main.py` ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Registered `pos.router` at `/api/v1`; version ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ 3.12.0.
-- `config.py` ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â `VERSION` bumped to `3.12.0`.
-- `models/__init__.py`, `alembic/env.py` ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Added POS model imports.
+- `models/sales.py` Ã¢â‚¬â€ Added `shift_id` (nullable FK to `shifts`) and `payment_mode` (`CASH|CARD|UPI|CREDIT`, default `CASH`).
+- `main.py` Ã¢â‚¬â€ Registered `pos.router` at `/api/v1`; version Ã¢â€ â€™ 3.12.0.
+- `config.py` Ã¢â‚¬â€ `VERSION` bumped to `3.12.0`.
+- `models/__init__.py`, `alembic/env.py` Ã¢â‚¬â€ Added POS model imports.
 
 ### Migration Note
 The pre-existing `shifts` table (from an earlier, different schema with `profile_id`, `sales_count`) was detected during `alembic autogenerate`. It was dropped and recreated with the correct schema via a direct SQL repair script. The `CREATE TABLE IF NOT EXISTS` guard was used in the migration to handle idempotency.
 
 ### Test Isolation Fix
-The `test_pos.py` autouse fixture was upgraded to a `try/finally` teardown pattern that cleans POS tables in FK-safe order (`sales_invoices` ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ `shifts` ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ `cash_registers` ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ `users`) after every test, preventing FK violations in subsequent test modules.
+The `test_pos.py` autouse fixture was upgraded to a `try/finally` teardown pattern that cleans POS tables in FK-safe order (`sales_invoices` Ã¢â€ â€™ `shifts` Ã¢â€ â€™ `cash_registers` Ã¢â€ â€™ `users`) after every test, preventing FK violations in subsequent test modules.
 
 ### Test Results
 ```
@@ -9536,38 +9553,38 @@ The `test_pos.py` autouse fixture was upgraded to a `try/finally` teardown patte
 
 ---
 
-## [3.11.0] ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â 2026-07-11 ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Purchase Module
+## [3.11.0] Ã¢â‚¬â€ 2026-07-11 Ã¢â‚¬â€ Purchase Module
 
 ### Added
-- **`POST /api/v1/suppliers/`** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â MANAGER/SYSADMIN creates a new supplier master record.
-- **`GET /api/v1/suppliers/`** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Lists all suppliers scoped to the current tenant.
-- **`GET /api/v1/suppliers/{supplier_id}`** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Retrieves a single supplier.
-- **`POST /api/v1/purchase-orders/`** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â MANAGER/SYSADMIN creates a confirmed Purchase Order; calculates subtotal, tax, and grand total per line item. Stock is NOT updated at this stage.
-- **`GET /api/v1/purchase-orders/`** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Lists all purchase orders for the tenant.
-- **`GET /api/v1/purchase-orders/{order_id}`** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Retrieves a purchase order with line items.
-- **`POST /api/v1/purchase-receipts/`** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â MANAGER/SYSADMIN posts a Goods Receipt Note (GRN); atomically increments `product.stock` by `quantity_received` and increments `supplier.outstanding` by `grand_total`.
-- **`GET /api/v1/purchase-receipts/`** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Lists all GRNs for the tenant.
-- **`GET /api/v1/purchase-receipts/{receipt_id}`** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Retrieves a GRN with line items.
-- **`models/purchase.py`** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â `Supplier`, `PurchaseOrder`, `PurchaseOrderItem`, `PurchaseReceipt`, `PurchaseReceiptItem` (all extend `BaseEntity` for automatic tenant scope).
-- **`schemas/purchase.py`** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Full Pydantic input/output schemas for all purchase entities.
-- **`services/purchase.py`** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â `PurchaseService` with full validation: supplier/product tenant ownership, non-empty items, positive quantities, PO linkage.
-- **Alembic migration `59cbc26b919c`** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Creates all 5 purchase tables.
+- **`POST /api/v1/suppliers/`** Ã¢â‚¬â€ MANAGER/SYSADMIN creates a new supplier master record.
+- **`GET /api/v1/suppliers/`** Ã¢â‚¬â€ Lists all suppliers scoped to the current tenant.
+- **`GET /api/v1/suppliers/{supplier_id}`** Ã¢â‚¬â€ Retrieves a single supplier.
+- **`POST /api/v1/purchase-orders/`** Ã¢â‚¬â€ MANAGER/SYSADMIN creates a confirmed Purchase Order; calculates subtotal, tax, and grand total per line item. Stock is NOT updated at this stage.
+- **`GET /api/v1/purchase-orders/`** Ã¢â‚¬â€ Lists all purchase orders for the tenant.
+- **`GET /api/v1/purchase-orders/{order_id}`** Ã¢â‚¬â€ Retrieves a purchase order with line items.
+- **`POST /api/v1/purchase-receipts/`** Ã¢â‚¬â€ MANAGER/SYSADMIN posts a Goods Receipt Note (GRN); atomically increments `product.stock` by `quantity_received` and increments `supplier.outstanding` by `grand_total`.
+- **`GET /api/v1/purchase-receipts/`** Ã¢â‚¬â€ Lists all GRNs for the tenant.
+- **`GET /api/v1/purchase-receipts/{receipt_id}`** Ã¢â‚¬â€ Retrieves a GRN with line items.
+- **`models/purchase.py`** Ã¢â‚¬â€ `Supplier`, `PurchaseOrder`, `PurchaseOrderItem`, `PurchaseReceipt`, `PurchaseReceiptItem` (all extend `BaseEntity` for automatic tenant scope).
+- **`schemas/purchase.py`** Ã¢â‚¬â€ Full Pydantic input/output schemas for all purchase entities.
+- **`services/purchase.py`** Ã¢â‚¬â€ `PurchaseService` with full validation: supplier/product tenant ownership, non-empty items, positive quantities, PO linkage.
+- **Alembic migration `59cbc26b919c`** Ã¢â‚¬â€ Creates all 5 purchase tables.
 - **10 new tests** in `test_purchase.py`.
 
 ### Business Rules Enforced
 - Supplier must belong to the same tenant (company + branch) as the order/receipt.
 - Products must belong to the same tenant before they can be ordered or received.
-- PO creation does NOT update stock ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â only a posted GRN updates stock.
+- PO creation does NOT update stock Ã¢â‚¬â€ only a posted GRN updates stock.
 - `quantity_received` must be > 0; zero quantity returns 400.
 - GRN increments `supplier.outstanding` (accounts-payable liability tracker).
-- CASHIER role cannot create suppliers, purchase orders, or GRNs ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â returns 403.
+- CASHIER role cannot create suppliers, purchase orders, or GRNs Ã¢â‚¬â€ returns 403.
 - Duplicate order_no / receipt_no returns 400 with a plain business message.
 
 ### Changed
-- `main.py` ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â registered `purchase.router` at `/api/v1`; version ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ 3.11.0.
-- `config.py` ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â `VERSION` bumped to `3.11.0`.
-- `models/__init__.py` ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â added purchase model exports.
-- `alembic/env.py` ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â added purchase model imports.
+- `main.py` Ã¢â‚¬â€ registered `purchase.router` at `/api/v1`; version Ã¢â€ â€™ 3.11.0.
+- `config.py` Ã¢â‚¬â€ `VERSION` bumped to `3.11.0`.
+- `models/__init__.py` Ã¢â‚¬â€ added purchase model exports.
+- `alembic/env.py` Ã¢â‚¬â€ added purchase model imports.
 
 ### Migration Note
 The autogenerate produced an empty migration (models were registered in `env.py` after `autogenerate` scanned). The migration DDL was written manually and verified against the SQLAlchemy model column definitions. Tables were confirmed present in PostgreSQL before tests were run.
@@ -9580,23 +9597,23 @@ The autogenerate produced an empty migration (models were registered in `env.py`
 
 ---
 
-## [3.10.0] ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â 2026-07-11 ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â User Management
+## [3.10.0] Ã¢â‚¬â€ 2026-07-11 Ã¢â‚¬â€ User Management
 
 ### Added
-- **`POST /api/v1/users/`** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â SYSADMIN creates a new platform user with role + tenant assignment.
-- **`GET /api/v1/users/`** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â SYSADMIN lists all users with optional `?role=` and `?company_id=` filters and pagination (`skip`, `limit`).
-- **`GET /api/v1/users/{user_id}`** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â SYSADMIN can retrieve any user; non-SYSADMIN may only retrieve their own profile.
-- **`PATCH /api/v1/users/{user_id}`** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â SYSADMIN updates email, mobile, role, is_active, company/branch assignment.
-- **`POST /api/v1/users/{user_id}/deactivate`** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â SYSADMIN soft-deactivates a user (sets `is_active=False`, `is_deleted=True`); blocked for self-deactivation.
-- **`PATCH /api/v1/users/me/password`** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Any authenticated user changes their own password; requires correct current password and minimum 8-character length.
-- **`UserService`** (`services/user.py`) ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â create, list, get, update, deactivate, change_password; all DB mutations wrapped in `IntegrityError` handlers per HREP.
-- **`schemas/user.py`** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â `UserCreate`, `UserUpdate`, `PasswordChange`, `UserResponse`, `UserListResponse`.
-- **17 new tests** in `t_user_mgmt.py` ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â CRUD, RBAC guards, duplicate username rejection, self-deactivate protection, wrong-password and short-password rejection.
+- **`POST /api/v1/users/`** Ã¢â‚¬â€ SYSADMIN creates a new platform user with role + tenant assignment.
+- **`GET /api/v1/users/`** Ã¢â‚¬â€ SYSADMIN lists all users with optional `?role=` and `?company_id=` filters and pagination (`skip`, `limit`).
+- **`GET /api/v1/users/{user_id}`** Ã¢â‚¬â€ SYSADMIN can retrieve any user; non-SYSADMIN may only retrieve their own profile.
+- **`PATCH /api/v1/users/{user_id}`** Ã¢â‚¬â€ SYSADMIN updates email, mobile, role, is_active, company/branch assignment.
+- **`POST /api/v1/users/{user_id}/deactivate`** Ã¢â‚¬â€ SYSADMIN soft-deactivates a user (sets `is_active=False`, `is_deleted=True`); blocked for self-deactivation.
+- **`PATCH /api/v1/users/me/password`** Ã¢â‚¬â€ Any authenticated user changes their own password; requires correct current password and minimum 8-character length.
+- **`UserService`** (`services/user.py`) Ã¢â‚¬â€ create, list, get, update, deactivate, change_password; all DB mutations wrapped in `IntegrityError` handlers per HREP.
+- **`schemas/user.py`** Ã¢â‚¬â€ `UserCreate`, `UserUpdate`, `PasswordChange`, `UserResponse`, `UserListResponse`.
+- **17 new tests** in `t_user_mgmt.py` Ã¢â‚¬â€ CRUD, RBAC guards, duplicate username rejection, self-deactivate protection, wrong-password and short-password rejection.
 
 ### Changed
-- `main.py` ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â registered `users.router` at `/api/v1/users`; version bumped to 3.10.0.
-- `config.py` ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â `VERSION` bumped to `3.10.0`.
-- `test_auth.py` fixture ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â added explicit `DELETE FROM users` + `DELETE FROM refresh_token_blacklist` before each test to prevent bootstrap-blocked false positives across runs.
+- `main.py` Ã¢â‚¬â€ registered `users.router` at `/api/v1/users`; version bumped to 3.10.0.
+- `config.py` Ã¢â‚¬â€ `VERSION` bumped to `3.10.0`.
+- `test_auth.py` fixture Ã¢â‚¬â€ added explicit `DELETE FROM users` + `DELETE FROM refresh_token_blacklist` before each test to prevent bootstrap-blocked false positives across runs.
 
 ### Business Rules Enforced
 - Non-SYSADMIN roles (MANAGER, CASHIER, VIEWER) **must** receive both `company_id` and `branch_id`; creating one without them returns 400.
@@ -9612,30 +9629,30 @@ All 35 prior tests continue to pass. 17 new user management tests added.
 
 ---
 
-## [3.9.0] ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â 2026-07-11 ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Authentication Layer
+## [3.9.0] Ã¢â‚¬â€ 2026-07-11 Ã¢â‚¬â€ Authentication Layer
 
 ### Added
-- **JWT Authentication** (`python-jose[cryptography]`) ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â HS256-signed access tokens (60-min) and refresh tokens (7-day).
-- **`POST /api/v1/auth/bootstrap`** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â first-run SYSADMIN account creation; blocked when users exist.
-- **`POST /api/v1/auth/login`** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â returns `access_token` + `refresh_token` + `role`.
-- **`POST /api/v1/auth/refresh`** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â exchange refresh token for new access token; rejects blacklisted tokens.
-- **`POST /api/v1/auth/logout`** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â writes token JTI to `refresh_token_blacklist` table; idempotent.
-- **`GET /api/v1/auth/me`** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â returns authenticated user profile.
-- **`User` model** (`users` table) ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â id, uuid, username, email, mobile, hashed_password, role (SYSADMIN/MANAGER/CASHIER/VIEWER), company_id, branch_id, is_active.
-- **`RefreshTokenBlacklist` model** (`refresh_token_blacklist` table) ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â JTI-based revocation.
-- **`get_current_user` dependency** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â decodes Bearer JWT, loads User from DB, raises 401 on invalid/expired tokens.
-- **`require_role(*roles)` guard factory** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â raises 403 if caller's role is not in the allowed set.
-- **Role enforcement on write endpoints**: `POST /products/` ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ MANAGER/SYSADMIN only; `POST /customers` ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ CASHIER+; `POST /customer-groups` ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ MANAGER+; `POST /sales-invoices/` ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ CASHIER+.
+- **JWT Authentication** (`python-jose[cryptography]`) Ã¢â‚¬â€ HS256-signed access tokens (60-min) and refresh tokens (7-day).
+- **`POST /api/v1/auth/bootstrap`** Ã¢â‚¬â€ first-run SYSADMIN account creation; blocked when users exist.
+- **`POST /api/v1/auth/login`** Ã¢â‚¬â€ returns `access_token` + `refresh_token` + `role`.
+- **`POST /api/v1/auth/refresh`** Ã¢â‚¬â€ exchange refresh token for new access token; rejects blacklisted tokens.
+- **`POST /api/v1/auth/logout`** Ã¢â‚¬â€ writes token JTI to `refresh_token_blacklist` table; idempotent.
+- **`GET /api/v1/auth/me`** Ã¢â‚¬â€ returns authenticated user profile.
+- **`User` model** (`users` table) Ã¢â‚¬â€ id, uuid, username, email, mobile, hashed_password, role (SYSADMIN/MANAGER/CASHIER/VIEWER), company_id, branch_id, is_active.
+- **`RefreshTokenBlacklist` model** (`refresh_token_blacklist` table) Ã¢â‚¬â€ JTI-based revocation.
+- **`get_current_user` dependency** Ã¢â‚¬â€ decodes Bearer JWT, loads User from DB, raises 401 on invalid/expired tokens.
+- **`require_role(*roles)` guard factory** Ã¢â‚¬â€ raises 403 if caller's role is not in the allowed set.
+- **Role enforcement on write endpoints**: `POST /products/` Ã¢â€ â€™ MANAGER/SYSADMIN only; `POST /customers` Ã¢â€ â€™ CASHIER+; `POST /customer-groups` Ã¢â€ â€™ MANAGER+; `POST /sales-invoices/` Ã¢â€ â€™ CASHIER+.
 - **All read endpoints** now require authentication (any valid role).
-- **Alembic migration** `8cf33df7b76a_add_users_and_token_blacklist` ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â creates `users` and `refresh_token_blacklist` tables.
-- **14 new tests** in `test_auth.py` ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â bootstrap, login, /me, refresh, logout+blacklist, RBAC guards.
-- `passlib[bcrypt]==1.7.4` ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â replaces custom PBKDF2 hashing.
+- **Alembic migration** `8cf33df7b76a_add_users_and_token_blacklist` Ã¢â‚¬â€ creates `users` and `refresh_token_blacklist` tables.
+- **14 new tests** in `test_auth.py` Ã¢â‚¬â€ bootstrap, login, /me, refresh, logout+blacklist, RBAC guards.
+- `passlib[bcrypt]==1.7.4` Ã¢â‚¬â€ replaces custom PBKDF2 hashing.
 
 ### Changed
-- `core/security.py` ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â fully rewritten: `hash_password` now uses bcrypt; `create_access_token` uses `python-jose`; new `create_refresh_token()` and `decode_token()` added.
-- `api/deps.py` ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â `get_tenant_context` now reads `company_id`/`branch_id` from the validated JWT token (not X-Company-Id/X-Branch-Id headers).
-- `config.py` ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â `ACCESS_TOKEN_EXPIRE_MINUTES` set to 60; `REFRESH_TOKEN_EXPIRE_DAYS=7` added.
-- `t_tenant_isolate.py` ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â autouse fixture now also overrides `get_current_user` and `get_tenant_context`; tests use `set_test_tenant()` contextvar helper instead of HTTP headers.
+- `core/security.py` Ã¢â‚¬â€ fully rewritten: `hash_password` now uses bcrypt; `create_access_token` uses `python-jose`; new `create_refresh_token()` and `decode_token()` added.
+- `api/deps.py` Ã¢â‚¬â€ `get_tenant_context` now reads `company_id`/`branch_id` from the validated JWT token (not X-Company-Id/X-Branch-Id headers).
+- `config.py` Ã¢â‚¬â€ `ACCESS_TOKEN_EXPIRE_MINUTES` set to 60; `REFRESH_TOKEN_EXPIRE_DAYS=7` added.
+- `t_tenant_isolate.py` Ã¢â‚¬â€ autouse fixture now also overrides `get_current_user` and `get_tenant_context`; tests use `set_test_tenant()` contextvar helper instead of HTTP headers.
 - All version headers bumped to 3.9.0.
 
 ### Test Results
@@ -9646,7 +9663,7 @@ All 21 prior tests continue to pass. 14 new auth tests added.
 
 ---
 
-## [3.8.0] ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â 2026-07-11
+## [3.8.0] Ã¢â‚¬â€ 2026-07-11
 
 ### Added
 - Plumbed `TenantContext` in `backend/app/api/deps.py` extracting and validating `X-Company-Id` and `X-Branch-Id` headers against active records.
@@ -9655,18 +9672,18 @@ All 21 prior tests continue to pass. 14 new auth tests added.
 - Created `CustomerRepository` and `SalesInvoiceRepository` extending `BaseRepository` with tenant-scoped searches.
 - Implemented REST API routers for inventory (`/api/v1/products`), crm (`/api/v1/customers` and `/api/v1/customer-groups`), and sales (`/api/v1/sales-invoices`).
 - Added robust integration/unit tests in `backend/app/tests/t_tenant_isolate.py` validating 6 tenant isolation constraints including a concurrent-write race-condition test.
-- Created `backend/Dockerfile` and `backend/entrypoint.sh` ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â runs `alembic upgrade head` then starts gunicorn with UvicornWorker.
+- Created `backend/Dockerfile` and `backend/entrypoint.sh` Ã¢â‚¬â€ runs `alembic upgrade head` then starts gunicorn with UvicornWorker.
 - Added `python-core` service to `docker-compose.yml` wiring the FastAPI backend with healthcheck and `db` dependency.
 
 ### Changed
 - Refactored `BaseRepository` query layer to automatically inject tenant filters on reads and stamp tenant IDs on creations.
 - Plumbed `TenantContext` propagation through `InventoryService`, `CrmService`, and `SalesService` checking duplicates and stock levels within tenant boundaries.
 - Updated FastAPI bootstrap in `backend/app/main.py` and Alembic config in `backend/alembic/env.py`.
-- Wrapped `await self.db.commit()` in `create_product`, `create_customer_group`, `create_customer`, and `create_sales_invoice` with `try/except IntegrityError` ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â concurrent duplicate inserts return HTTP 400 with business-language detail instead of an unhandled 500 traceback (per HREP Rule 1).
+- Wrapped `await self.db.commit()` in `create_product`, `create_customer_group`, `create_customer`, and `create_sales_invoice` with `try/except IntegrityError` Ã¢â‚¬â€ concurrent duplicate inserts return HTTP 400 with business-language detail instead of an unhandled 500 traceback (per HREP Rule 1).
 
 ---
 
-## [3.7.0] ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â 2026-07-11
+## [3.7.0] Ã¢â‚¬â€ 2026-07-11
 
 ### Added
 - Configured SQLAlchemy 2.0-compatible `BaseEntity` mixin declaring audit trail, multi-tenant workspace keys, and soft delete hooks.
@@ -9682,7 +9699,7 @@ All 21 prior tests continue to pass. 14 new auth tests added.
 
 ---
 
-## [3.6.0] ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â 2026-07-11
+## [3.6.0] Ã¢â‚¬â€ 2026-07-11
 
 ### Added
 - Created top-level `backend/` folder separating Python backend services from Node resources.
@@ -9700,7 +9717,7 @@ All 21 prior tests continue to pass. 14 new auth tests added.
 
 ---
 
-## [3.5.0] ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â 2026-07-11
+## [3.5.0] Ã¢â‚¬â€ 2026-07-11
 
 ### Added
 - Implemented **SMRITI Development Intelligence Center (SDIC)** module at `src/modules/dev_tracker/`.
@@ -9717,7 +9734,7 @@ All 21 prior tests continue to pass. 14 new auth tests added.
 
 ---
 
-## [3.4.0] ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â 2026-07-11
+## [3.4.0] Ã¢â‚¬â€ 2026-07-11
 
 ### Added
 - Created backend Express router GET `/api/changelog` in `server.ts` to dynamically serve the changelog text content.
@@ -9734,7 +9751,7 @@ All 21 prior tests continue to pass. 14 new auth tests added.
 
 ---
 
-## [3.3.0] ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â 2026-07-11
+## [3.3.0] Ã¢â‚¬â€ 2026-07-11
 
 ### Changed
 - Standardized project-wide headers across all eligible first-party source, script, style, and documentation files to uniform AITDL NETWORKS branding, copyright, and founding leadership metadata.
@@ -9744,7 +9761,7 @@ All 21 prior tests continue to pass. 14 new auth tests added.
 - Created implementation plan `Project_Header_Standardization_Plan_v3.3.0.md` and walkthrough `Project_Header_Standardization_Walkthrough_v3.3.0.md`.
 - Consolidated plans| Date | Walkthrough Version | Module / Topic | Walkthrough Document | Related Plan | Status |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| 2026-08-24 | v3.25.0 | Blueprint UI/Experience Engine & Integration Hub Registry | [Walkthrough](./foundation/Blueprint_UIExperience_IntegrationHub_v1.0.md) | ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â | Completed |
+| 2026-08-24 | v3.25.0 | Blueprint UI/Experience Engine & Integration Hub Registry | [Walkthrough](./foundation/Blueprint_UIExperience_IntegrationHub_v1.0.md) | Ã¢â‚¬â€ | Completed |
 
 ### Added
 - Created `src/db/pool.ts` to manage PostgreSQL connection pools.
@@ -9753,7 +9770,7 @@ All 21 prior tests continue to pass. 14 new auth tests added.
 
 ---
 
-## [2.1.4] ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â 2026-07-11
+## [2.1.4] Ã¢â‚¬â€ 2026-07-11
 
 ### Added
 - Created `src/db/pool.ts` to manage PostgreSQL connection pools.
@@ -9770,7 +9787,7 @@ All 21 prior tests continue to pass. 14 new auth tests added.
 
 ---
 
-## [2.1.3] ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â 2026-07-11
+## [2.1.3] Ã¢â‚¬â€ 2026-07-11
 
 ### Added
 - Created `src/components/ErrorBoundary.tsx` component to handle individual workspace tab crashes.
@@ -9787,7 +9804,7 @@ All 21 prior tests continue to pass. 14 new auth tests added.
 
 ---
 
-## [2.1.2] ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â 2026-07-11
+## [2.1.2] Ã¢â‚¬â€ 2026-07-11
 
 ### Added
 - Integrated central middleware audit logging on all backend mutating HTTP endpoints (POST, PUT, DELETE).
@@ -9799,7 +9816,7 @@ All 21 prior tests continue to pass. 14 new auth tests added.
 
 ---
 
-## [2.1.1] ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â 2026-07-10
+## [2.1.1] Ã¢â‚¬â€ 2026-07-10
 
 ### Changed
 - Modernized subview layouts and animations in the Sales & Commerce Studio (`SalesStudioTab.tsx`).
@@ -9822,20 +9839,20 @@ All 21 prior tests continue to pass. 14 new auth tests added.
   - 14 PRN/BLF files copied to public/assets/prn/
 
 
-## [3.17.1] â€” 2026-10-27
+## [3.17.1] — 2026-10-27
 
 ### Added
 - **Rec 4** (canonical_sales_writer.py): Authoritative per-line price enforcement in section 0C. Fetches item_prices (mrp, selling_price, wholesale_price) per variant. Enforces MRP ceiling (Legal Metrology Act, absolute) and SELLING_PRICE/WHOLESALE_PRICE ceilings when billing profile cashier_price_override = DISABLED.
-- **Rec 5** (v1547 Alembic migration): CHECK constraint chk_customers_pricing_basis on customers.pricing_basis â€” permits MRP, RATE, WHOLESALE_PRICE, PRICE_BOOK. Pre-migration data-safety check aborts if any row violates the set.
+- **Rec 5** (v1547 Alembic migration): CHECK constraint chk_customers_pricing_basis on customers.pricing_basis — permits MRP, RATE, WHOLESALE_PRICE, PRICE_BOOK. Pre-migration data-safety check aborts if any row violates the set.
 - **Rec 6** (canonical_posting.py): cashier_price_level_override: Optional[Literal[...]] typed field on CanonicalPostingContext. Replaces unvalidated getattr fallback. Invalid values rejected at Pydantic parse time.
-- **Rec 6** (canonical_sales_writer.py): AUTHORIZED_ONLY supervisor code gate â€” rejects cashier override attempts without supervisor_override_code when policy requires it (HTTP 403 SMRITI-PRICE-AUTH-001).
+- **Rec 6** (canonical_sales_writer.py): AUTHORIZED_ONLY supervisor code gate — rejects cashier override attempts without supervisor_override_code when policy requires it (HTTP 403 SMRITI-PRICE-AUTH-001).
 - **Rec 7** (BillingTerm.tsx + types.ts): priceLevel and priceLevelSource fields on BillingLineItem. Stamped at scan time. Renders color-coded inline badge (MRP=amber, SP=slate, WS=indigo, PB=emerald) in cart Description cell.
 - **Rec 8** (product_resolution_service.py + product_resolution.py): All 4 canonical SQL blocks (BARCODE, PRODUCT_ID, VARIANT_SKU, ITEM_CODE) now LEFT JOIN item_prices ip and return wholesale_price and price_book_price (pbe.selling_price). ProductResolutionResult extended with both fields.
-- **Rec 10** (pos.py): get_z_report() now returns price_level_breakdown dict mapping effective_price_level â†’ {invoice_count, total_value} via JSONB query on sales_invoices.rule_snapshots.
+- **Rec 10** (pos.py): get_z_report() now returns price_level_breakdown dict mapping effective_price_level → {invoice_count, total_value} via JSONB query on sales_invoices.rule_snapshots.
 - **Rec 10** (canonical_sales_writer.py): _resolved_price_level_effective and _resolved_price_level_source written into ule_snapshots on every invoice for Z-report audit trail.
 
 ### Fixed
-- Price enforcement no longer a placeholder comment â€” actual DB lookup against item_prices per line item.
+- Price enforcement no longer a placeholder comment — actual DB lookup against item_prices per line item.
 - Barcode resolver no longer conflates pbe.selling_price with the item's authoritative selling_price.
 - cashier_price_level_override no longer silently ignored on invalid string values.
 
