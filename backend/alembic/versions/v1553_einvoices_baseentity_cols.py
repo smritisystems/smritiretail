@@ -21,7 +21,7 @@ standardised. The async SQLAlchemy asyncpg driver prepares statements
 strictly at execution time and raises UndefinedColumnError for any
 column the ORM model declares that the table does not physically have.
 
-The smriti001 tenant database received a manual backfill (2026-10-27)
+The primary tenant database received a manual backfill (2026-10-27)
 as part of the TC-EI-001..012 integration test suite work (commit
 d60fba76). This migration makes the same change idempotent and repeatable
 for all current and future tenant databases.
@@ -47,7 +47,7 @@ depends_on = None
 _TABLES = ["e_invoices", "e_invoice_batches"]
 
 # Columns from BaseEntity missing from both tables (confirmed by column audit
-# run against smriti001 on 2026-10-27; updated_at already present as legacy).
+# run against the primary tenant DB on 2026-10-27; updated_at already present as legacy).
 _MISSING_COLS = [
     ("uuid",        "ALTER TABLE {t} ADD COLUMN IF NOT EXISTS uuid VARCHAR(36) DEFAULT gen_random_uuid()::varchar"),
     ("company_id",  "ALTER TABLE {t} ADD COLUMN IF NOT EXISTS company_id VARCHAR(50)"),
@@ -60,6 +60,7 @@ _MISSING_COLS = [
 ]
 
 
+# @migration_target('tenant')  -- UMGP-G1: applies to tenant databases only
 def upgrade() -> None:
     conn = op.get_bind()
     for table in _TABLES:
