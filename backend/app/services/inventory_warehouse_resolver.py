@@ -1,4 +1,4 @@
-﻿"""
+"""
 Project      : SMRITI Retail OS
 Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
@@ -105,7 +105,8 @@ class InventoryWarehouseResolver:
                     if register_wh:
                         return register_wh
 
-        # 3. Branch-level default - pick the oldest active warehouse for the branch.
+        # 3. Branch-level default — prefer is_default_for_branch flag (R-007),
+        #    then fall back to oldest by created_at for backward compatibility.
         if branch_id and company_id:
             stmt = select(Warehouse).where(
                 Warehouse.branch_id == branch_id,
@@ -113,6 +114,7 @@ class InventoryWarehouseResolver:
                 Warehouse.is_deleted == False,
                 Warehouse.is_active == True,
             ).order_by(
+                Warehouse.is_default_for_branch.desc(),  # R-007: governed default first
                 (Warehouse.pincode.is_not(None) & (Warehouse.pincode != "")).desc(),
                 Warehouse.created_at.asc(),
             )
@@ -120,6 +122,7 @@ class InventoryWarehouseResolver:
             wh = res.scalars().first()
             if wh:
                 return wh
+
 
         # 4. Company-level fallback - oldest active warehouse for the company.
         if company_id:
