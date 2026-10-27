@@ -15,7 +15,7 @@ from typing import Optional, List
 from fastapi import APIRouter, Depends, Query, HTTPException, Body
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ...api.deps import get_db, get_current_user, get_tenant_context, require_permission, TenantContext
+from ...api.deps import get_company_db, get_current_user, get_tenant_context, require_permission, TenantContext
 from ...models.auth import User, UserRole
 from ...schemas.user import (
     UserCreate, UserUpdate, UserResponse, UserListResponse, PasswordChange,
@@ -47,7 +47,7 @@ router = APIRouter()
 async def create_staff_user(
     req: StaffUserCreate,
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     tenant: TenantContext = Depends(get_tenant_context),
 ):
     """
@@ -74,7 +74,7 @@ async def list_staff_users(
     role: Optional[str] = Query(None),
     status: Optional[str] = Query(None),
     search: Optional[str] = Query(None),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     tenant: TenantContext = Depends(get_tenant_context),
 ):
     """
@@ -95,7 +95,7 @@ async def list_staff_users(
 async def get_staff_user(
     user_id: str,
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     tenant: TenantContext = Depends(get_tenant_context),
 ):
     """
@@ -120,7 +120,7 @@ async def update_staff_user(
     user_id: str,
     req: StaffUserUpdate,
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     tenant: TenantContext = Depends(get_tenant_context),
 ):
     """
@@ -139,7 +139,7 @@ async def update_staff_user(
 async def deactivate_staff_user(
     user_id: str,
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     tenant: TenantContext = Depends(get_tenant_context),
 ):
     """
@@ -158,7 +158,7 @@ async def deactivate_staff_user(
 async def reactivate_staff_user(
     user_id: str,
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     tenant: TenantContext = Depends(get_tenant_context),
 ):
     """
@@ -178,7 +178,7 @@ async def update_preferences(
     user_id: str,
     preferences: PreferencesUpdate,
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
 ):
     """
     Update operator workspace visual preset (theme, density, font scale, accent)
@@ -199,7 +199,7 @@ async def update_notifications(
     user_id: str,
     notificationSettings: dict = Body(...),
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
 ):
     """
     Update operator self notifications alert preferences.
@@ -218,7 +218,7 @@ async def update_photo(
     user_id: str,
     photo: str = Body(..., embed=True),
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
 ):
     """
     Update operator profile picture.
@@ -240,7 +240,7 @@ async def update_photo(
 async def change_password(
     req: PasswordChange,
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
 ):
     """
     Change your own password.

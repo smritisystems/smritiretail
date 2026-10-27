@@ -23,7 +23,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
 
-from ...api.deps import get_db, get_current_user, require_role
+from ...api.deps import get_company_db, get_current_user, require_role
 from ...core.security import hash_password
 from ...models.auth import User, UserRole
 from ...models.system import TallyConfig, SystemConfig
@@ -118,7 +118,7 @@ async def set_system_config(
     response_model=List[TallyConfigResponse],
 )
 async def get_tally_config(
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     current_user: User = Depends(get_current_user),
 ):
     """
@@ -147,7 +147,7 @@ async def get_tally_config(
 )
 async def save_tally_config(
     req: TallyConfigCreate,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     current_user: User = Depends(get_current_user),
 ):
     """
@@ -195,7 +195,7 @@ async def save_tally_config(
     "/tally/sync",
 )
 async def sync_tally(
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     current_user: User = Depends(get_current_user),
 ):
     """
@@ -224,7 +224,7 @@ async def sync_tally(
     response_model=List[SystemConfigResponse],
 )
 async def list_system_configs(
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     current_user: User = Depends(get_current_user),
 ):
     """
@@ -242,7 +242,7 @@ async def list_system_configs(
 )
 async def create_system_config(
     req: SystemConfigCreate,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     current_user: User = Depends(get_current_user),
 ):
     """
@@ -277,7 +277,7 @@ async def create_system_config(
 async def update_system_config(
     key: str,
     req: SystemConfigUpdate,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     current_user: User = Depends(get_current_user),
 ):
     """
@@ -303,7 +303,7 @@ async def update_system_config(
     "/health",
 )
 async def health_check(
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
 ):
     """
     Perform deep check testing database connection and returns health report.
@@ -345,7 +345,7 @@ class AuditLogCreate(BaseModel):
 )
 async def create_audit_log(
     payload: AuditLogCreate,
-    db:      AsyncSession = Depends(get_db),
+    db:      AsyncSession = Depends(get_company_db),
     user:    User         = Depends(get_current_user),
 ):
     """
@@ -392,7 +392,7 @@ async def list_audit_logs(
     entity_name: Optional[str] = None,
     entity_id: Optional[str] = None,
     event_type: Optional[str] = None,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     user: User = Depends(get_current_user),
 ):
     from ...services.compliance_audit import ComplianceAuditService
@@ -418,7 +418,7 @@ async def list_audit_logs(
 async def verify_audit_hash_chain(
     company_id: Optional[str] = None,
     limit: int = 500,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     user: User = Depends(get_current_user),
 ):
     from ...services.compliance_audit import ComplianceAuditService
@@ -437,7 +437,7 @@ async def verify_audit_hash_chain(
 )
 async def get_layout_preferences(
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
 ):
     """
     Return frontend layout preferences saved by the current authenticated user.
@@ -461,7 +461,7 @@ async def get_layout_preferences(
 async def save_layout_preferences(
     payload: Dict[str, Any] = Body(...),
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
 ):
     """
     Store UI layout preferences for the current authenticated user.
@@ -515,7 +515,7 @@ async def save_layout_preferences(
 @router.get("/layout/item-master-profile")
 async def get_item_master_profile(
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
 ):
     """Return the shared ItemMaster field profile for the active company and role."""
     company_id = getattr(current_user, "company_id", None) or "GLOBAL"
@@ -543,7 +543,7 @@ async def get_item_master_profile(
 async def save_item_master_profile(
     payload: Dict[str, Any] = Body(...),
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
 ):
     """Save a shared ItemMaster field profile for the active company and role."""
     visible_fields = payload.get("visibleFields")
@@ -569,7 +569,7 @@ async def save_item_master_profile(
     "/system/setup-status",
 )
 async def get_setup_status(
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     current_user: User = Depends(get_current_user),
 ):
     """
@@ -603,7 +603,7 @@ def normalize_branch_code(code: str | None, idx: int) -> str:
 )
 async def company_setup(
     payload: CompanySetupRequest = Body(...),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     current_user: User = Depends(get_current_user),
 ):
     """
