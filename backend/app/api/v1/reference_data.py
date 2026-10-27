@@ -19,7 +19,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ...api.deps import get_db, get_current_user
+from ...api.deps import get_company_db, get_current_user
 from ...services.localization_svc import LocalizationService, GlobalReferenceService
 
 router = APIRouter(prefix="/reference", tags=["Global Reference Data & Localization"])
@@ -36,7 +36,7 @@ class FormatPreviewResponse(BaseModel):
 
 @router.get("/countries")
 async def get_countries(
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     current_user=Depends(get_current_user),
 ):
     """
@@ -58,7 +58,7 @@ async def get_countries(
 
 @router.get("/gst-states")
 async def get_gst_states(
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     current_user=Depends(get_current_user),
 ):
     """

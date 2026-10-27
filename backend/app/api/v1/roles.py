@@ -45,7 +45,7 @@ from sqlalchemy import or_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
-from ...api.deps import get_db, get_current_user, require_role
+from ...api.deps import get_company_db, get_current_user, require_role
 from ...models.auth import User, UserRole
 from ...models.role import Role
 from ...schemas.role import RoleCreate, RoleUpdate, RoleResponse
@@ -66,7 +66,7 @@ def _is_sysadmin(user: User) -> bool:
     response_model=List[RoleResponse],
 )
 async def list_roles(
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     current_user: User = Depends(get_current_user),
 ):
     """
@@ -116,7 +116,7 @@ async def list_roles(
 )
 async def create_role(
     req: RoleCreate,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     current_user: User = Depends(get_current_user),
 ):
     """
@@ -191,7 +191,7 @@ async def create_role(
 async def update_role(
     id: str,
     req: RoleUpdate,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     current_user: User = Depends(get_current_user),
 ):
     """
@@ -258,7 +258,7 @@ async def update_role(
 )
 async def delete_role(
     id: str,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     current_user: User = Depends(get_current_user),
 ):
     """

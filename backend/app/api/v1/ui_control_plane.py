@@ -18,7 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
 
-from app.api.deps import get_db, get_current_user
+from app.api.deps import get_company_db, get_current_user
 from app.models.auth import User, UserRole
 from app.models.ui_control_plane import (
     SmritiTheme, SmritiThemeVariant, SmritiWorkspaceProfile,
@@ -32,7 +32,7 @@ router = APIRouter()
 @router.get("/themes", response_model=List[ThemeResponse])
 async def get_active_themes(
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
 ):
     """Fetch all active system themes and visual variants from smriti_themes."""
     stmt = (
@@ -47,7 +47,7 @@ async def get_active_themes(
 @router.get("/workspace-profiles", response_model=List[WorkspaceProfileResponse])
 async def get_workspace_profiles(
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
 ):
     """Fetch available AWE workspace profiles from smriti_workspace_profiles."""
     stmt = select(SmritiWorkspaceProfile).where(
@@ -61,7 +61,7 @@ async def get_workspace_profiles(
 @router.get("/workspace-profiles/my-profile", response_model=WorkspaceProfileResponse)
 async def get_my_workspace_profile(
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_company_db)
 ):
     """Resolve active AWE workspace profile for the current user persona."""
     role_str = (
@@ -103,7 +103,7 @@ async def get_screen_definitions(
     module_code: str = None,
     capability_code: str = None,
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
 ):
     """
     Returns screen layout definitions from smritisys.screen_definitions.
@@ -143,7 +143,7 @@ async def get_field_definitions(
     field_type: str = None,
     entity_key: str = None,
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
 ):
     """
     Returns field metadata definitions from smritisys.field_definitions.
@@ -186,7 +186,7 @@ async def get_field_definitions(
 async def get_action_definitions(
     screen_code: str = None,
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
 ):
     """
     Returns action (button/link) definitions from smritisys.action_definitions.
@@ -226,7 +226,7 @@ async def get_icon_registry(
     module_scope: str = None,
     icon_category: str = None,
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
 ):
     """
     Returns platform icon catalogue from smritisys.icon_registry.

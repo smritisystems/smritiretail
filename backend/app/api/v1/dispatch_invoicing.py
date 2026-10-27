@@ -61,7 +61,7 @@ async def preflight_audit(
     sheet_name: Optional[str] = Form(None),
     discount_pct: Decimal = Form(Decimal("43.76")),
     gst_rate: Decimal = Form(Decimal("5.00")),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     current_user: Any = Depends(get_current_user),
 ):
     """
@@ -104,7 +104,7 @@ async def preflight_audit(
 )
 async def generate_batch(
     req: DispatchBatchGenerateRequest,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     current_user: Any = Depends(get_current_user),
 ):
     """
@@ -239,7 +239,7 @@ async def generate_batch(
 )
 async def download_batch_zip(
     batch_id: str,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     current_user: Any = Depends(get_current_user),
 ):
     """Streams the generated ZIP package. Reads path from DB record, falls back to temp dir scan."""
@@ -280,7 +280,7 @@ async def download_batch_zip(
     summary="List recent dispatch batches"
 )
 async def list_recent_batches(
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     current_user: Any = Depends(get_current_user),
 ):
     """Returns metadata for recent batches from the database, ordered by creation time."""

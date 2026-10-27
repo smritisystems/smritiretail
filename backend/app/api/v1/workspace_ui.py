@@ -16,7 +16,7 @@ from typing import List, Optional, Dict, Any
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ...api.deps import get_db, get_company_db, get_current_user
+from ...api.deps import get_company_db, get_current_user
 from ...models.auth import User
 from ...schemas.ui_registry import (
     WorkspaceTemplateResponse,
@@ -32,7 +32,7 @@ router = APIRouter(prefix="/ui", tags=["Workspace, Menu & UI Experience Registry
 
 @router.get("/templates", response_model=List[WorkspaceTemplateResponse])
 async def list_workspace_templates(
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     current_user: User = Depends(get_current_user),
 ):
     """
@@ -44,7 +44,7 @@ async def list_workspace_templates(
 @router.get("/workspaces/resolve", response_model=WorkspaceResolutionResponse)
 async def resolve_workspace_layout(
     template_code: Optional[str] = Query(None, description="Optional workspace template code"),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     company_db: AsyncSession = Depends(get_company_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -61,7 +61,7 @@ async def resolve_workspace_layout(
 
 @router.get("/navigation/resolved", response_model=List[ResolvedNavNode])
 async def get_resolved_navigation(
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     company_db: AsyncSession = Depends(get_company_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -80,7 +80,7 @@ async def get_resolved_navigation(
 async def get_theme_design_tokens(
     theme_id: Optional[str] = Query(None, description="Theme ID"),
     variant: str = Query("dark", description="Variant name: light, dark, high_contrast"),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     current_user: User = Depends(get_current_user),
 ):
     """
@@ -96,7 +96,7 @@ async def get_theme_design_tokens(
 @router.get("/screens/{screen_code}/complete", response_model=CompleteScreenPackageResponse)
 async def get_complete_screen_package(
     screen_code: str,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     current_user: User = Depends(get_current_user),
 ):
     """

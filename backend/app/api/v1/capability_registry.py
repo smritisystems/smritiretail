@@ -16,7 +16,7 @@ from typing import Dict, Any, List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, status, Header
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ...api.deps import get_db, get_company_db, get_current_user
+from ...api.deps import get_company_db, get_current_user
 from ...schemas.capabilities import (
     PlatformCapabilityResponse,
     CapabilityValidationRequest,
@@ -37,7 +37,7 @@ router = APIRouter(prefix="/capabilities", tags=["Capability & Module Registry"]
 
 @router.get("/catalog", response_model=Dict[str, Any])
 async def get_capability_catalog(
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     current_user=Depends(get_current_user),
 ):
     """
@@ -151,7 +151,7 @@ async def toggle_tenant_capability(
 
 @router.get("/feature-flags", response_model=List[FeatureFlagResponse])
 async def get_feature_flags(
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     x_company_id: Optional[str] = Header(None, alias="X-Company-ID"),
     current_user=Depends(get_current_user),
 ):
@@ -165,7 +165,7 @@ async def get_feature_flags(
 async def toggle_feature_flag(
     flag_key: str,
     req: FeatureFlagToggleRequest,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     x_company_id: Optional[str] = Header(None, alias="X-Company-ID"),
     current_user=Depends(get_current_user),
 ):
@@ -188,7 +188,7 @@ async def toggle_feature_flag(
 @router.get("/modules", response_model=List[ModuleStateResponse])
 async def get_modules(
     tenant_id: Optional[str] = Query(None, description="Optional tenant ID filter"),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     current_user=Depends(get_current_user),
 ):
     """

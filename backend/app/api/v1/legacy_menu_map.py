@@ -38,7 +38,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy import func
 
-from ...api.deps import get_db, get_current_user, require_role
+from ...api.deps import get_company_db, get_current_user, require_role
 from ...models.auth import User, UserRole
 from ...models.legacy_menu_map import LegacyMenuMap
 from ...schemas.legacy_menu_map import (
@@ -68,7 +68,7 @@ VALID_MODULES  = {"SALES","INVENTORY","PURCHASE","FINANCE","REPORTS","CONFIG",
     ),
 )
 async def get_legacy_stats(
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     current_user: User = Depends(require_role(UserRole.MANAGER)),
 ):
     # Status counts
@@ -137,7 +137,7 @@ async def list_legacy_entries(
     multi_inst: Optional[bool]= Query(None, description="Filter entries with MultiInstance=1"),
     page: int  = Query(1, ge=1, description="Page number (1-indexed)"),
     size: int  = Query(50, ge=1, le=200, description="Items per page"),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     current_user: User = Depends(get_current_user),
 ):
     if status and status not in VALID_STATUSES:
@@ -201,7 +201,7 @@ async def list_legacy_entries(
 )
 async def get_legacy_entry(
     entry_id: str,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     current_user: User = Depends(get_current_user),
 ):
     q = select(LegacyMenuMap).where(
@@ -232,7 +232,7 @@ async def get_legacy_entry(
 async def get_by_sh9_key(
     mnu_no:   int,
     menu_opt: int,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     current_user: User = Depends(get_current_user),
 ):
     q = select(LegacyMenuMap).where(
@@ -272,7 +272,7 @@ async def get_by_workspace(
     include_deprecated: bool = Query(
         False, description="Include DEPRECATED and NOT_APPLIC entries"
     ),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     current_user: User = Depends(get_current_user),
 ):
     q = select(LegacyMenuMap).where(

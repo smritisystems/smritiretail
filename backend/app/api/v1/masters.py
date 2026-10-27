@@ -19,7 +19,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
-from ...api.deps import get_db, get_current_user, require_role
+from ...api.deps import get_company_db, get_current_user, require_role
 from ...models.auth import User, UserRole
 from ...models.tenant import Company, Branch
 from ...models.inventory import Warehouse
@@ -93,7 +93,7 @@ def normalize_type(et: str) -> str:
 )
 async def list_masters(
     entity_type: str,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     current_user: User = Depends(get_current_user),
 ) -> List[Any]:
     """
@@ -130,7 +130,7 @@ async def list_masters(
 async def create_master(
     entity_type: str,
     payload: dict,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     current_user: User = Depends(get_current_user),
 ) -> Any:
     """
@@ -232,7 +232,7 @@ async def update_master(
     entity_type: str,
     id: str,
     payload: dict,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     current_user: User = Depends(get_current_user),
 ) -> Any:
     """
@@ -339,7 +339,7 @@ async def update_master(
 async def delete_master(
     entity_type: str,
     id: str,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     current_user: User = Depends(get_current_user),
 ) -> Any:
     """
