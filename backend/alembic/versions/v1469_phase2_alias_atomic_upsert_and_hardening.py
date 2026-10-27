@@ -15,7 +15,7 @@ Scope of Migration:
    (entity_type, LOWER(alias_code), COALESCE(company_id, '')) to enforce case-insensitive uniqueness
    and support PostgreSQL native ON CONFLICT atomic upserts.
 2. Ensure full column and AST parity for items and item_variants across Control Plane (smritisys)
-   and Tenant Data Planes (smriti001, smriti002), satisfying AGENTS.md Rule 12.
+   and Tenant Data Planes (primary tenant DBs), satisfying AGENTS.md Rule 12.
 """
 
 from alembic import op

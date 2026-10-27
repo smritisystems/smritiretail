@@ -50,7 +50,7 @@ ARCH-DRIFT-003 (tracked, no FK added - all orphans, no parent table match):
     Resolution: ARCH-DRIFT-003 — needs PSV architecture review.
 
 Run as:
-  alembic -x target=tenant -x db=smriti001 upgrade v1501
+  alembic -x target=tenant -x db=<tenant_db> upgrade v1501
 
 Project      : SMRITI Retail OS
 Author       : Jawahar Ramkripal Mallah

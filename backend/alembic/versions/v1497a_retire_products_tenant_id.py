@@ -1,6 +1,6 @@
 """v1497a: retire products.tenant_id (I-001) — tenant-plane migration
 
-Table: smriti001.products.tenant_id
+Table: <tenant_db>.products.tenant_id
 
 5-Gate retirement evidence (all gates passed before commit):
   Gate 1 — Row-level data: 1899 rows, 0 populated. Confirmed 2026-09-29.
@@ -10,7 +10,7 @@ Table: smriti001.products.tenant_id
   Gate 4 — DDL archived: character varying, nullable, no default.
   Gate 5 — Test suite green before and after.
 
-Run as: alembic -x target=tenant -x db=smriti001 upgrade v1497a
+Run as: alembic -x target=tenant -x db=<tenant_db> upgrade v1497a
 
 Project      : SMRITI Retail OS
 Author       : Jawahar Ramkripal Mallah
