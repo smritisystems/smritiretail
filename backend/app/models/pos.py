@@ -13,7 +13,7 @@ Classification: Internal
 """
 
 from datetime import datetime, timezone
-from sqlalchemy import Boolean, Column, String, Numeric, ForeignKey, Text, DateTime, Integer
+from sqlalchemy import Boolean, Column, String, Numeric, ForeignKey, Text, DateTime, Integer, Date
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship
 from ..db.base import BaseEntity, Base
@@ -161,3 +161,68 @@ class POSShiftDenominationCount(Base):
     updated_at         = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc))
     is_active          = Column(Boolean, nullable=False, default=True)
     is_deleted         = Column(Boolean, nullable=False, default=False)
+
+
+class StoreBusinessDay(BaseEntity):
+    """
+    Tracks one logical business day per store branch.
+
+    Lifecycle:  OPEN -> CLOSED -> LOCKED
+
+    Business rules:
+    - Only one StoreBusinessDay can be OPEN per branch at a time
+      (enforced by partial unique index ix_store_business_days_branch_open).
+    - Closing is blocked at API layer if any ApprovalRequest for the branch
+      is PENDING.
+    - exception_summary_json is a read-only snapshot captured at close time;
+      it is not a live query target.
+    """
+    __tablename__ = "store_business_days"
+
+    business_date = Column(Date(), nullable=False, index=True)
+    status        = Column(String(20), nullable=False, default="OPEN")
+    # OPEN | CLOSED | LOCKED
+
+    opened_at  = Column(DateTime(timezone=True), nullable=False)
+    closed_at  = Column(DateTime(timezone=True), nullable=True)
+    locked_at  = Column(DateTime(timezone=True), nullable=True)
+
+    opened_by  = Column(String(100), nullable=True)
+    closed_by  = Column(String(100), nullable=True)
+    locked_by  = Column(String(100), nullable=True)
+
+    sign_off_notes       = Column(Text, nullable=True)
+    exception_summary_json = Column(JSONB, nullable=True)
+
+    shift_assignments = relationship(
+        "StoreDayShiftAssignment",
+        back_populates="store_day",
+        cascade="all, delete-orphan",
+    )
+
+
+class StoreDayShiftAssignment(BaseEntity):
+    """
+    Links one or more Shifts to a StoreBusinessDay.
+    A shift can belong to exactly one business day (uq_shift_day_assignment).
+    """
+    __tablename__ = "store_day_shift_assignments"
+
+    store_day_id = Column(
+        String(50),
+        ForeignKey("store_business_days.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    shift_id = Column(
+        String(50),
+        ForeignKey("shifts.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+        unique=True,   # mirrors uq_shift_day_assignment
+    )
+    assigned_at = Column(DateTime(timezone=True), nullable=False)
+    assigned_by = Column(String(100), nullable=True)
+
+    store_day = relationship("StoreBusinessDay", back_populates="shift_assignments")
+    shift     = relationship("Shift")

@@ -68,5 +68,6 @@ from . import (
     tds_compliance,
     gift_cards,
     einvoice,
+    store_day,
 )
 
