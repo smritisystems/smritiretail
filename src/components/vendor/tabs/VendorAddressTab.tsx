@@ -13,10 +13,11 @@
  */
 
 import React, { useState } from "react";
-import { MapPin, Plus, Trash2, CheckCircle2, Star, Edit2, Loader2, AlertCircle } from "lucide-react";
+import { MapPin, Plus, Trash2, CheckCircle2, Star, Edit2, Loader2, AlertCircle, Lock } from "lucide-react";
 import { VendorDetail, VendorAddress } from "../../../types/vendor";
 import { withCapability } from "../../../types/architecture";
 import { apiFetchV1 } from "../../../lib/apiFetchV1";
+import { VendorDeleteConfirmationModal, DeleteItemPayload } from "../VendorDeleteConfirmationModal";
 
 interface VendorAddressTabProps {
   vendor: VendorDetail;
@@ -33,6 +34,8 @@ const VendorAddressTabBase: React.FC<VendorAddressTabProps> = ({ vendor, onUpdat
   const [saving, setSaving] = useState(false);
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
 
+  const [pendingDeleteItem, setPendingDeleteItem] = useState<{ index: number; payload: DeleteItemPayload } | null>(null);
+
   const [newAddr, setNewAddr] = useState<Partial<VendorAddress>>({
     addressType: "BILLING",
     addressTitle: "Dispatch Warehouse",
@@ -48,6 +51,10 @@ const VendorAddressTabBase: React.FC<VendorAddressTabProps> = ({ vendor, onUpdat
   });
 
   const handleOpenAdd = () => {
+    if (!isEditing) {
+      onNotification?.("View Mode Active", "Click 'Edit Vendor' in the top toolbar to enter Edit Mode before adding locations.", "warning");
+      return;
+    }
     setEditingIndex(null);
     setPinFeedback(null);
     setNewAddr({
@@ -67,6 +74,10 @@ const VendorAddressTabBase: React.FC<VendorAddressTabProps> = ({ vendor, onUpdat
   };
 
   const handleOpenEdit = (index: number) => {
+    if (!isEditing) {
+      onNotification?.("View Mode Active", "Click 'Edit Vendor' in the top toolbar to enter Edit Mode before editing addresses.", "warning");
+      return;
+    }
     setEditingIndex(index);
     setPinFeedback(null);
     const target = vendor.addresses[index];
@@ -180,28 +191,56 @@ const VendorAddressTabBase: React.FC<VendorAddressTabProps> = ({ vendor, onUpdat
     }
   };
 
-  const handleDeleteAddress = async (index: number) => {
+  const handleRequestDelete = (index: number) => {
+    if (!isEditing) {
+      onNotification?.("View Mode Active", "Click 'Edit Vendor' in the top toolbar to enter Edit Mode before deleting records.", "warning");
+      return;
+    }
     const target = vendor.addresses[index];
     if (!target) return;
+    setPendingDeleteItem({
+      index,
+      payload: {
+        entityType: "ADDRESS",
+        id: target.id || `idx-${index}`,
+        title: target.addressTitle || "Warehouse / Godown Location",
+        details: [
+          { label: "Address Type", value: target.addressType },
+          { label: "Address Line 1", value: target.addressLine1 },
+          { label: "Address Line 2", value: target.addressLine2 },
+          { label: "City & State", value: `${target.city}, ${target.state}` },
+          { label: "Postal PIN Code", value: target.pincode },
+          { label: "State Code", value: target.stateCode },
+          { label: "GSTIN", value: target.gstin },
+          { label: "Primary Status", value: target.isPrimary },
+        ],
+      },
+    });
+  };
+
+  const handleConfirmDelete = async (item: DeleteItemPayload) => {
+    if (!pendingDeleteItem) return;
+    const targetIndex = pendingDeleteItem.index;
+    const target = vendor.addresses[targetIndex];
+    if (!target) return;
+
     if (target.id && !target.id.startsWith("va-")) {
-      setActionLoadingId(target.id);
-      try {
-        await apiFetchV1(`/purchase/vendors/${vendor.id}/addresses/${target.id}`, {
-          method: "DELETE",
-        });
-        onNotification?.("Location Removed", `Address '${target.addressTitle}' deleted.`, "info");
-      } catch (err: any) {
-        onNotification?.("Delete Failed", err?.message || "Could not delete address.", "error");
-        setActionLoadingId(null);
-        return;
-      }
-      setActionLoadingId(null);
+      await apiFetchV1(`/purchase/vendors/${vendor.id}/addresses/${target.id}`, {
+        method: "DELETE",
+      });
     }
-    const updated = vendor.addresses.filter((_, idx) => idx !== index);
+
+    const updated = vendor.addresses.filter((_, idx) => idx !== targetIndex);
     onUpdateAddresses(updated);
+    onNotification?.("Location Removed", `Address '${target.addressTitle}' deleted permanently. Compliance audit log recorded.`, "success");
+    setPendingDeleteItem(null);
   };
 
   const handleSetPrimary = async (index: number) => {
+    if (!isEditing) {
+      onNotification?.("View Mode Active", "Click 'Edit Vendor' in the top toolbar to enter Edit Mode before updating primary status.", "warning");
+      return;
+    }
     const target = vendor.addresses[index];
     if (!target) return;
     if (target.id && !target.id.startsWith("va-")) {
@@ -233,13 +272,23 @@ const VendorAddressTabBase: React.FC<VendorAddressTabProps> = ({ vendor, onUpdat
           <h3 className="text-sm font-bold text-slate-900 dark:text-white">Registered Offices, Warehouses & Godown Coordinates</h3>
           <p className="text-xs text-slate-500 dark:text-slate-400">Dispatch locations for purchase orders, e-Way bills, and multi-state GSTIN deliveries</p>
         </div>
-        <button
-          onClick={handleOpenAdd}
-          className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-xs transition"
-        >
-          <Plus size={14} />
-          <span>Add Location</span>
-        </button>
+        {isEditing ? (
+          <button
+            onClick={handleOpenAdd}
+            className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-xs transition"
+          >
+            <Plus size={14} />
+            <span>Add Location</span>
+          </button>
+        ) : (
+          <div 
+            className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 text-xs font-semibold cursor-not-allowed border border-slate-200 dark:border-slate-700 select-none"
+            title="Locked in View Mode. Click 'Edit Vendor' in toolbar to add new locations."
+          >
+            <Lock size={13} />
+            <span>Add Location (Locked)</span>
+          </div>
+        )}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -265,33 +314,41 @@ const VendorAddressTabBase: React.FC<VendorAddressTabProps> = ({ vendor, onUpdat
                   </span>
                 )}
               </div>
-              {/* Inline actions — always accessible on hover, no global edit mode required */}
-              <div className="flex items-center space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                <button
-                  onClick={() => handleOpenEdit(idx)}
-                  title="Edit address"
-                  className="p-1 rounded text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-950/20"
-                >
-                  <Edit2 size={14} />
-                </button>
-                {!addr.isPrimary && (
+              {/* Inline actions — strictly locked in View Mode, available in Edit Mode with double-confirmation deletion */}
+              {isEditing ? (
+                <div className="flex items-center space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
                   <button
-                    onClick={() => handleSetPrimary(idx)}
-                    title="Set as primary address"
+                    onClick={() => handleOpenEdit(idx)}
+                    title="Edit address"
                     className="p-1 rounded text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-950/20"
                   >
-                    <Star size={14} />
+                    <Edit2 size={14} />
                   </button>
-                )}
-                <button
-                  onClick={() => handleDeleteAddress(idx)}
-                  title="Remove address"
-                  className="p-1 rounded text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/20"
-                >
-                  <Trash2 size={14} />
-                </button>
-              </div>
+                  {!addr.isPrimary && (
+                    <button
+                      onClick={() => handleSetPrimary(idx)}
+                      title="Set as primary address"
+                      className="p-1 rounded text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-950/20"
+                    >
+                      <Star size={14} />
+                    </button>
+                  )}
+                  <button
+                    onClick={() => handleRequestDelete(idx)}
+                    title="Remove address (Requires Double Confirmation)"
+                    className="p-1 rounded text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/20"
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+              ) : (
+                <div className="text-[10px] text-slate-400 flex items-center gap-1 opacity-60">
+                  <Lock size={11} />
+                  <span>Read-Only</span>
+                </div>
+              )}
             </div>
+
 
             <div className="text-xs text-slate-700 dark:text-slate-300 space-y-1">
               <div>{addr.addressLine1}</div>
@@ -488,6 +545,16 @@ const VendorAddressTabBase: React.FC<VendorAddressTabProps> = ({ vendor, onUpdat
           </div>
         </div>
       )}
+
+      {/* Sub-Entity Double-Confirmation Deletion Protection Modal */}
+      <VendorDeleteConfirmationModal
+        isOpen={Boolean(pendingDeleteItem)}
+        vendorName={vendor.legalName}
+        vendorCode={vendor.code}
+        item={pendingDeleteItem?.payload || null}
+        onClose={() => setPendingDeleteItem(null)}
+        onConfirmDelete={handleConfirmDelete}
+      />
     </div>
   );
 };

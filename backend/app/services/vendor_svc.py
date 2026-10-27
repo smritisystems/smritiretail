@@ -47,6 +47,7 @@ from ..schemas.vendor import (
     VendorStatus,
 )
 from ..platform.events import get_platform_event_service, EventEnvelope
+from .compliance_audit import ComplianceAuditService
 
 
 @smriti_capability(
@@ -943,6 +944,8 @@ class VendorService:
         party = (await self.db.execute(stmt)).scalars().first()
         if not party:
             raise HTTPException(status_code=404, detail=f"Vendor '{vendor_id}' not found.")
+        if party.status == "MERGED":
+            raise HTTPException(status_code=400, detail=f"Vendor '{vendor_id}' is merged and cannot be modified.")
 
         company_id = getattr(self.tenant, "company_id", None)
         branch_id = getattr(self.tenant, "branch_id", None)
@@ -1016,7 +1019,13 @@ class VendorService:
         return VendorAddressDTO.model_validate(target_addr)
 
     async def delete_address(self, vendor_id: str, address_id: str) -> bool:
-        """Soft-deletes a vendor address record in PostgreSQL."""
+        """Soft-deletes a vendor address record in PostgreSQL with tamper-evident audit logging and outbox staging."""
+        party = await self.db.scalar(select(Party).where(Party.id == vendor_id, Party.is_deleted == False))
+        if not party:
+            raise HTTPException(status_code=404, detail=f"Vendor '{vendor_id}' not found.")
+        if party.status == "MERGED":
+            raise HTTPException(status_code=400, detail=f"Vendor '{vendor_id}' is merged and cannot be modified.")
+
         stmt = select(PartyAddress).where(
             PartyAddress.id == address_id,
             PartyAddress.party_id == vendor_id,
@@ -1025,7 +1034,57 @@ class VendorService:
         addr = (await self.db.execute(stmt)).scalars().first()
         if not addr:
             raise HTTPException(status_code=404, detail=f"Address '{address_id}' not found for vendor '{vendor_id}'.")
+
+        before_state = {
+            "id": addr.id,
+            "party_id": addr.party_id,
+            "address_type": addr.address_type,
+            "address_title": addr.address_title,
+            "address_line1": addr.address_line1,
+            "city": addr.city,
+            "state": addr.state,
+            "pincode": addr.pincode,
+            "is_primary": addr.is_primary,
+            "gstin": addr.gstin,
+        }
+
         addr.is_deleted = True
+
+        company_id = getattr(self.tenant, "company_id", None) or "COMP-001"
+        branch_id = getattr(self.tenant, "branch_id", None) or "BR-001"
+        actor_id = getattr(self.tenant, "user_id", "SYSTEM")
+        actor_role = getattr(self.tenant, "role", "MANAGER")
+
+        # Append to compliance immutable audit trail
+        await ComplianceAuditService.append_audit_log(
+            session=self.db,
+            company_id=company_id,
+            branch_id=branch_id,
+            event_type="VENDOR_ADDRESS_DELETED",
+            entity_name="PartyAddress",
+            entity_id=addr.id,
+            action_summary=f"Deleted address '{addr.address_title}' ({addr.city}, {addr.state} - {addr.pincode}) for vendor {party.legal_name} ({party.party_code})",
+            actor_user_id=actor_id,
+            actor_role=actor_role,
+            before_state=before_state,
+            after_state={"is_deleted": True},
+        )
+
+        # Stage transactional outbox event
+        await self._stage_vendor_event(
+            event_type="vendor.address.deleted",
+            aggregate_id=addr.id,
+            payload={
+                "vendor_id": vendor_id,
+                "address_id": addr.id,
+                "address_title": addr.address_title,
+                "city": addr.city,
+                "state": addr.state,
+                "pincode": addr.pincode,
+                "deleted_by": actor_id,
+            },
+        )
+
         await self.db.commit()
         return True
 
@@ -1039,6 +1098,8 @@ class VendorService:
         party = (await self.db.execute(stmt)).scalars().first()
         if not party:
             raise HTTPException(status_code=404, detail=f"Vendor '{vendor_id}' not found.")
+        if party.status == "MERGED":
+            raise HTTPException(status_code=400, detail=f"Vendor '{vendor_id}' is merged and cannot be modified.")
 
         company_id = getattr(self.tenant, "company_id", None)
         branch_id = getattr(self.tenant, "branch_id", None)
@@ -1104,7 +1165,13 @@ class VendorService:
         return VendorContactDTO.model_validate(target_contact)
 
     async def delete_contact(self, vendor_id: str, contact_id: str) -> bool:
-        """Soft-deletes a vendor contact person."""
+        """Soft-deletes a vendor contact person with tamper-evident audit logging and outbox staging."""
+        party = await self.db.scalar(select(Party).where(Party.id == vendor_id, Party.is_deleted == False))
+        if not party:
+            raise HTTPException(status_code=404, detail=f"Vendor '{vendor_id}' not found.")
+        if party.status == "MERGED":
+            raise HTTPException(status_code=400, detail=f"Vendor '{vendor_id}' is merged and cannot be modified.")
+
         stmt = select(PartyContact).where(
             PartyContact.id == contact_id,
             PartyContact.party_id == vendor_id,
@@ -1113,7 +1180,54 @@ class VendorService:
         contact = (await self.db.execute(stmt)).scalars().first()
         if not contact:
             raise HTTPException(status_code=404, detail=f"Contact '{contact_id}' not found for vendor '{vendor_id}'.")
+
+        before_state = {
+            "id": contact.id,
+            "party_id": contact.party_id,
+            "contact_name": contact.contact_name,
+            "contact_category": contact.contact_category,
+            "designation": contact.designation,
+            "phone": contact.phone,
+            "mobile": contact.mobile,
+            "email": contact.email,
+            "is_primary": contact.is_primary,
+        }
+
         contact.is_deleted = True
+
+        company_id = getattr(self.tenant, "company_id", None) or "COMP-001"
+        branch_id = getattr(self.tenant, "branch_id", None) or "BR-001"
+        actor_id = getattr(self.tenant, "user_id", "SYSTEM")
+        actor_role = getattr(self.tenant, "role", "MANAGER")
+
+        # Append to compliance immutable audit trail
+        await ComplianceAuditService.append_audit_log(
+            session=self.db,
+            company_id=company_id,
+            branch_id=branch_id,
+            event_type="VENDOR_CONTACT_DELETED",
+            entity_name="PartyContact",
+            entity_id=contact.id,
+            action_summary=f"Deleted contact '{contact.contact_name}' ({contact.contact_category} - {contact.designation}) for vendor {party.legal_name} ({party.party_code})",
+            actor_user_id=actor_id,
+            actor_role=actor_role,
+            before_state=before_state,
+            after_state={"is_deleted": True},
+        )
+
+        # Stage transactional outbox event
+        await self._stage_vendor_event(
+            event_type="vendor.contact.deleted",
+            aggregate_id=contact.id,
+            payload={
+                "vendor_id": vendor_id,
+                "contact_id": contact.id,
+                "contact_name": contact.contact_name,
+                "contact_category": contact.contact_category,
+                "deleted_by": actor_id,
+            },
+        )
+
         await self.db.commit()
         return True
 
@@ -1127,6 +1241,8 @@ class VendorService:
         party = (await self.db.execute(stmt)).scalars().first()
         if not party:
             raise HTTPException(status_code=404, detail=f"Vendor '{vendor_id}' not found.")
+        if party.status == "MERGED":
+            raise HTTPException(status_code=400, detail=f"Vendor '{vendor_id}' is merged and cannot be modified.")
 
         company_id = getattr(self.tenant, "company_id", None)
         branch_id = getattr(self.tenant, "branch_id", None)
@@ -1190,7 +1306,13 @@ class VendorService:
         return VendorBankAccountDTO.model_validate(target_bank)
 
     async def delete_bank_account(self, vendor_id: str, bank_id: str) -> bool:
-        """Soft-deletes a vendor bank disbursement account."""
+        """Soft-deletes a vendor bank disbursement account with tamper-evident audit logging and outbox staging."""
+        party = await self.db.scalar(select(Party).where(Party.id == vendor_id, Party.is_deleted == False))
+        if not party:
+            raise HTTPException(status_code=404, detail=f"Vendor '{vendor_id}' not found.")
+        if party.status == "MERGED":
+            raise HTTPException(status_code=400, detail=f"Vendor '{vendor_id}' is merged and cannot be modified.")
+
         stmt = select(SupplierBankAccount).where(
             SupplierBankAccount.id == bank_id,
             SupplierBankAccount.party_id == vendor_id,
@@ -1199,6 +1321,56 @@ class VendorService:
         bank = (await self.db.execute(stmt)).scalars().first()
         if not bank:
             raise HTTPException(status_code=404, detail=f"Bank account '{bank_id}' not found for vendor '{vendor_id}'.")
+
+        mask = f"***{bank.account_number[-4:]}" if bank.account_number and len(bank.account_number) >= 4 else "***"
+        before_state = {
+            "id": bank.id,
+            "party_id": bank.party_id,
+            "bank_name": bank.bank_name,
+            "account_holder_name": bank.account_holder_name,
+            "account_number_masked": mask,
+            "ifsc": bank.ifsc,
+            "branch": bank.branch,
+            "account_type": bank.account_type,
+            "is_primary": bank.is_primary,
+        }
+
         bank.is_deleted = True
+
+        company_id = getattr(self.tenant, "company_id", None) or "COMP-001"
+        branch_id = getattr(self.tenant, "branch_id", None) or "BR-001"
+        actor_id = getattr(self.tenant, "user_id", "SYSTEM")
+        actor_role = getattr(self.tenant, "role", "MANAGER")
+
+        # Append to compliance immutable audit trail
+        await ComplianceAuditService.append_audit_log(
+            session=self.db,
+            company_id=company_id,
+            branch_id=branch_id,
+            event_type="VENDOR_BANK_ACCOUNT_DELETED",
+            entity_name="SupplierBankAccount",
+            entity_id=bank.id,
+            action_summary=f"Deleted bank account '{bank.bank_name}' ({mask}, IFSC: {bank.ifsc}) for vendor {party.legal_name} ({party.party_code})",
+            actor_user_id=actor_id,
+            actor_role=actor_role,
+            before_state=before_state,
+            after_state={"is_deleted": True},
+        )
+
+        # Stage transactional outbox event
+        await self._stage_vendor_event(
+            event_type="vendor.bank_account.deleted",
+            aggregate_id=bank.id,
+            payload={
+                "vendor_id": vendor_id,
+                "bank_id": bank.id,
+                "bank_name": bank.bank_name,
+                "account_number_masked": mask,
+                "ifsc": bank.ifsc,
+                "deleted_by": actor_id,
+            },
+        )
+
         await self.db.commit()
         return True
+

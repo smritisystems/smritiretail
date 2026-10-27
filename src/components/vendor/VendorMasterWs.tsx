@@ -45,7 +45,8 @@ import {
   RefreshCw,
   PackagePlus,
   X,
-  Tag
+  Tag,
+  Lock
 } from "lucide-react";
 import { 
   VendorSummary, 
@@ -244,8 +245,9 @@ function normalizeVendorArticle(value: any): VendorArticleRegistryValue {
 
 const VendorArticleStyleTab: React.FC<{
   vendor: VendorDetail | null;
+  isEditing?: boolean;
   onNotification?: (title: string, message: string, type: "success" | "error" | "info" | "warning") => void;
-}> = ({ vendor, onNotification }) => {
+}> = ({ vendor, isEditing = false, onNotification }) => {
   const [articles, setArticles] = useState<VendorArticleRegistryValue[]>([]);
   const [loadingArticles, setLoadingArticles] = useState(false);
   const [actionArticleId, setActionArticleId] = useState<string | null>(null);
@@ -277,6 +279,10 @@ const VendorArticleStyleTab: React.FC<{
 
   const syncFromPurchaseOrders = async () => {
     if (!vendor || syncingPOs) return;
+    if (!isEditing) {
+      onNotification?.("Read-Only Mode", "Cannot sync or assign styles in View Mode. Please enter Edit Mode first.", "warning");
+      return;
+    }
     setSyncingPOs(true);
     try {
       const res = await apiFetchV1<any>(
@@ -299,6 +305,10 @@ const VendorArticleStyleTab: React.FC<{
 
   const assignArticle = async (article: VendorArticleRegistryValue) => {
     if (!vendor || article.vendorCode) return;
+    if (!isEditing) {
+      onNotification?.("Read-Only Mode", "Cannot assign styles in View Mode. Please enter Edit Mode first.", "warning");
+      return;
+    }
     setActionArticleId(article.id);
     try {
       const updated = await apiFetchV1(`/masters/lookup/style_article/values/${article.id}`, {
@@ -316,6 +326,10 @@ const VendorArticleStyleTab: React.FC<{
 
   const unassignArticle = async (article: VendorArticleRegistryValue) => {
     if (!vendor) return;
+    if (!isEditing) {
+      onNotification?.("Read-Only Mode", "Cannot unassign styles in View Mode. Please enter Edit Mode first.", "warning");
+      return;
+    }
     setActionArticleId(article.id);
     try {
       const updated = await apiFetchV1(`/masters/lookup/style_article/values/${article.id}/unassign`, {
@@ -342,6 +356,10 @@ const VendorArticleStyleTab: React.FC<{
   const handleCreateAndAssign = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!vendor || !newCode.trim()) return;
+    if (!isEditing) {
+      onNotification?.("Read-Only Mode", "Cannot create or assign styles in View Mode. Please enter Edit Mode first.", "warning");
+      return;
+    }
     setSavingNewArticle(true);
     try {
       const created = await apiFetchV1<any>(`/masters/lookup/style_article/values`, {
@@ -402,33 +420,42 @@ const VendorArticleStyleTab: React.FC<{
           </span>
         </div>
         <div className="flex items-center gap-2 self-end sm:self-auto shrink-0">
-          <button
-            type="button"
-            onClick={syncFromPurchaseOrders}
-            disabled={syncingPOs || loadingArticles}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-indigo-300 bg-white px-3 py-1.5 text-[11px] font-semibold text-indigo-700 shadow-sm transition-all hover:bg-indigo-50 active:scale-95 disabled:opacity-50 dark:border-indigo-500/40 dark:bg-slate-800 dark:text-indigo-300 dark:hover:bg-slate-700"
-            title="Scan Purchase Orders to discover styles ordered from this vendor and automatically assign them"
-          >
-            <RefreshCw className={`h-3.5 w-3.5 ${syncingPOs ? "animate-spin text-indigo-600" : ""}`} />
-            {syncingPOs ? "Syncing POs..." : "Assign from Purchase Orders"}
-          </button>
-          <button
-            type="button"
-            onClick={() => setShowNewArticleForm((prev) => !prev)}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-[11px] font-semibold text-white shadow-sm transition-all hover:bg-indigo-500 active:scale-95"
-          >
-            {showNewArticleForm ? (
-              <>
-                <X className="h-3.5 w-3.5" />
-                Cancel
-              </>
-            ) : (
-              <>
-                <Plus className="h-3.5 w-3.5" />
-                + New Article
-              </>
-            )}
-          </button>
+          {!isEditing ? (
+            <span className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-100 px-3 py-1.5 text-[11px] font-semibold text-slate-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400">
+              <Lock className="h-3.5 w-3.5" />
+              Read-Only
+            </span>
+          ) : (
+            <>
+              <button
+                type="button"
+                onClick={syncFromPurchaseOrders}
+                disabled={syncingPOs || loadingArticles}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-indigo-300 bg-white px-3 py-1.5 text-[11px] font-semibold text-indigo-700 shadow-sm transition-all hover:bg-indigo-50 active:scale-95 disabled:opacity-50 dark:border-indigo-500/40 dark:bg-slate-800 dark:text-indigo-300 dark:hover:bg-slate-700"
+                title="Scan Purchase Orders to discover styles ordered from this vendor and automatically assign them"
+              >
+                <RefreshCw className={`h-3.5 w-3.5 ${syncingPOs ? "animate-spin text-indigo-600" : ""}`} />
+                {syncingPOs ? "Syncing POs..." : "Assign from Purchase Orders"}
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowNewArticleForm((prev) => !prev)}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-[11px] font-semibold text-white shadow-sm transition-all hover:bg-indigo-500 active:scale-95"
+              >
+                {showNewArticleForm ? (
+                  <>
+                    <X className="h-3.5 w-3.5" />
+                    Cancel
+                  </>
+                ) : (
+                  <>
+                    <Plus className="h-3.5 w-3.5" />
+                    + New Article
+                  </>
+                )}
+              </button>
+            </>
+          )}
         </div>
       </div>
 
@@ -607,20 +634,27 @@ const VendorArticleStyleTab: React.FC<{
                           <span className="rounded-md border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-300">
                             Assigned
                           </span>
-                          <button
-                            type="button"
-                            onClick={() => unassignArticle(article)}
-                            disabled={isBusy}
-                            className="inline-flex items-center gap-1 rounded-md border border-rose-200 bg-rose-50/50 px-2 py-1 text-[10px] font-medium text-rose-700 transition-colors hover:bg-rose-100 hover:border-rose-300 active:scale-95 disabled:opacity-50 dark:border-rose-900/50 dark:bg-rose-950/30 dark:text-rose-300 dark:hover:bg-rose-900/50"
-                            title={`Unassign ${article.code} from ${vendor.code} (makes it unassigned)`}
-                          >
-                            {isBusy ? (
-                              <Loader2 className="h-3 w-3 animate-spin" />
-                            ) : (
-                              <X className="h-3 w-3" />
-                            )}
-                            {isBusy ? "Unassigning..." : "Unassign"}
-                          </button>
+                          {!isEditing ? (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-medium text-slate-400">
+                              <Lock className="h-3 w-3" />
+                              Locked
+                            </span>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => unassignArticle(article)}
+                              disabled={isBusy}
+                              className="inline-flex items-center gap-1 rounded-md border border-rose-200 bg-rose-50/50 px-2 py-1 text-[10px] font-medium text-rose-700 transition-colors hover:bg-rose-100 hover:border-rose-300 active:scale-95 disabled:opacity-50 dark:border-rose-900/50 dark:bg-rose-950/30 dark:text-rose-300 dark:hover:bg-rose-900/50"
+                              title={`Unassign ${article.code} from ${vendor.code} (makes it unassigned)`}
+                            >
+                              {isBusy ? (
+                                <Loader2 className="h-3 w-3 animate-spin" />
+                              ) : (
+                                <X className="h-3 w-3" />
+                              )}
+                              {isBusy ? "Unassigning..." : "Unassign"}
+                            </button>
+                          )}
                         </div>
                       </div>
                     );
@@ -659,19 +693,26 @@ const VendorArticleStyleTab: React.FC<{
                           </div>
                         </div>
 
-                        <button
-                          type="button"
-                          onClick={() => assignArticle(article)}
-                          disabled={isBusy}
-                          className="inline-flex items-center gap-1 shrink-0 rounded-md bg-indigo-600 px-2.5 py-1 text-[10px] font-semibold text-white shadow-sm transition-all hover:bg-indigo-500 active:scale-95 disabled:opacity-50"
-                        >
-                          {isBusy ? (
-                            <Loader2 className="h-3 w-3 animate-spin" />
-                          ) : (
-                            <Plus className="h-3 w-3" />
-                          )}
-                          {isBusy ? "Assigning..." : `Assign to ${vendor.code}`}
-                        </button>
+                        {!isEditing ? (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-medium text-slate-400 shrink-0">
+                            <Lock className="h-3 w-3" />
+                            Read-Only
+                          </span>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => assignArticle(article)}
+                            disabled={isBusy}
+                            className="inline-flex items-center gap-1 shrink-0 rounded-md bg-indigo-600 px-2.5 py-1 text-[10px] font-semibold text-white shadow-sm transition-all hover:bg-indigo-500 active:scale-95 disabled:opacity-50"
+                          >
+                            {isBusy ? (
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                            ) : (
+                              <Plus className="h-3 w-3" />
+                            )}
+                            {isBusy ? "Assigning..." : `Assign to ${vendor.code}`}
+                          </button>
+                        )}
                       </div>
                     );
                   })}
@@ -1455,6 +1496,10 @@ const VendorMasterWsBase: React.FC<VendorMasterWsProps> = ({ currentUser, onNoti
 
                 {isEditing ? (
                   <>
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/30">
+                      <span className="h-2 w-2 rounded-full bg-amber-500 animate-ping" />
+                      Edit Mode Active
+                    </span>
                     <button
                       onClick={handleCancelEdit}
                       className="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white text-xs"
@@ -1471,12 +1516,18 @@ const VendorMasterWsBase: React.FC<VendorMasterWsProps> = ({ currentUser, onNoti
                     </button>
                   </>
                 ) : (
-                  <button
-                    onClick={() => setIsEditing(true)}
-                    className="px-4 py-1.5 rounded-lg bg-indigo-50 dark:bg-indigo-600/20 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-500/30 hover:bg-indigo-100 dark:hover:bg-indigo-600/30 text-xs font-semibold"
-                  >
-                    Edit Vendor
-                  </button>
+                  <>
+                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
+                      <Lock size={12} className="text-slate-500" />
+                      View Mode (Read-Only)
+                    </span>
+                    <button
+                      onClick={() => setIsEditing(true)}
+                      className="px-4 py-1.5 rounded-lg bg-indigo-50 dark:bg-indigo-600/20 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-500/30 hover:bg-indigo-100 dark:hover:bg-indigo-600/30 text-xs font-semibold"
+                    >
+                      Edit Vendor
+                    </button>
+                  </>
                 )}
               </div>
             </div>
@@ -1546,6 +1597,7 @@ const VendorMasterWsBase: React.FC<VendorMasterWsProps> = ({ currentUser, onNoti
                   {activeTab === "articles" && (
                     <VendorArticleStyleTab
                       vendor={selectedVendor}
+                      isEditing={isEditing}
                       onNotification={notify}
                     />
                   )}

@@ -12,9 +12,26 @@
   Classification: Internal
 -->
 
-## [Unreleased] - 2026-10-26
+## [Unreleased] - 2026-10-27
 
 ### Added
+- **Procurement & Vendor Master: Vendor Master End-to-End Wiring & UX Integrity Audit v1.0.0**:
+  - Executed exhaustive forensic audit verifying 18 frontend components, 14 FastAPI REST endpoints, and 8 PostgreSQL tables (`parties`, `party_roles`, `supplier_profiles`, `party_addresses`, `party_contacts`, `party_bank_accounts`, `suppliers`, `vendor_identity_migrations`).
+  - Formally compiled and certified authoritative audit report under `docs/audit/VENDOR_MASTER_END_TO_END_WIRING_AND_UX_INTEGRITY_AUDIT.md`.
+  - Remediated route prefix inconsistency in `VendorPayablesTab.tsx` standardizing TDS summary fetches to `/purchase/vendors/{id}/tds-summary`.
+  - Re-verified complete TypeScript compilation (0 errors) and Vite production build (0 errors in 48.75s).
+
+- **Procurement & Vendor Master: Vendor Master Edit Mode & Double-Confirmation Deletion Protection v1.0.0**:
+  - Enforced strict mode-based access permissions and two-step irreversible deletion protection across all Vendor Master sub-entities (Locations/Godowns, Key Contacts, Disbursement Banks, and Catalog Styles).
+  - Implemented distinct `View Mode (Read-Only)` state locking all mutation actions, and an explicit `Edit Mode Active` state with full double-confirmation safety.
+  - Built universal reusable `VendorDeleteConfirmationModal.tsx` requiring two discrete confirmation steps (Step 1 entity attribute inspection and Step 2 irreversible statutory WORM audit acknowledgment) before dispatching deletions.
+  - Eliminated single-click destructive operations and premature client-side state wipes across all vendor sub-entity tabs.
+  - Added backend status guards blocking mutations and deletions on `MERGED` vendors (`HTTP 400 Bad Request`).
+  - Integrated immutable SHA-256 chained WORM compliance audit logging (`ComplianceImmutableAuditLog` via `ComplianceAuditService.record_audit_event`) on sub-entity deletions with masked sensitive bank account numbers (`XXXX-XXXX`).
+  - Registered Stage 4 Domain Event Outbox types (`vendor.address.deleted`, `vendor.contact.deleted`, `vendor.bank_account.deleted`) staged atomically in the active database transaction.
+  - Verified PIN code auto-population against `smritisys.postal_codes_ref` via `GET /api/v1/control/reference/postal-codes/{clean}`.
+  - Certified with 6/6 automated backend Pytest tests green in `test_vendor_subentity_persistence.py`.
+
 - **Procurement & Vendor Master: Vendor Master Data Integrity, Atomic Modal Persistence & Legacy Convergence v1.0.0**:
   - Eliminated reported vendor data loss across SMRITI Retail OS by replacing client-side in-memory sub-entity buffering with atomic, server-confirmed database persistence for addresses, contact persons, and bank disbursement accounts.
   - Added 6 atomic REST endpoints in FastAPI (`POST /vendors/{vendor_id}/addresses`, `DELETE /vendors/{vendor_id}/addresses/{address_id}`, `POST /vendors/{vendor_id}/contacts`, `DELETE /vendors/{vendor_id}/contacts/{contact_id}`, `POST /vendors/{vendor_id}/bank-accounts`, `DELETE /vendors/{vendor_id}/bank-accounts/{bank_id}`) with transaction rollback safety.

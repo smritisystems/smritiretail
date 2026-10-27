@@ -325,3 +325,7 @@ class ComplianceAuditService:
                 pass
 
         return [cls.serialize_audit_log(log, user_map.get(log.actor_user_id)) for log in logs]
+
+    # Backward-compatible alias
+    append_audit_log = record_audit_event
+

@@ -23,11 +23,13 @@ Verifies:
 
 import uuid
 import pytest
+from fastapi import HTTPException
 from sqlalchemy import select
 
 from app.models.tenant import Company, Branch
 from app.models.party import Party, PartyRole, SupplierProfile, PartyAddress, PartyContact, SupplierBankAccount
 from app.models.outbox import IntegrationOutboxEvent
+from app.models.audit import ComplianceImmutableAuditLog
 from app.api.deps import TenantContext
 from app.schemas.vendor import VendorAddressDTO, VendorContactDTO, VendorBankAccountDTO
 from app.services.vendor_svc import VendorService
@@ -244,3 +246,166 @@ async def test_vendor_bank_account_atomic_persistence(db_session):
     obx = (await db_session.execute(obx_stmt)).scalars().first()
     assert obx is not None
     assert obx.payload_json["bank_id"] == persisted.id
+
+
+async def test_vendor_deletion_compliance_audit_and_outbox_event(db_session):
+    """Verifies that deleting sub-entities creates immutable audit log entries and outbox events."""
+    tenant, party = await setup_test_vendor(db_session)
+    service = VendorService(db_session, tenant)
+
+    # 1. Address deletion audit & outbox
+    addr_dto = VendorAddressDTO(
+        address_type="DISPATCH",
+        address_title="Deletable Hub",
+        address_line1="Plot 45",
+        city="Pune",
+        state="Maharashtra",
+        pincode="411001",
+        country="India",
+        is_primary=False,
+    )
+    persisted_addr = await service.save_address(party.id, addr_dto)
+    await service.delete_address(party.id, persisted_addr.id)
+
+    # Verify audit log for address deletion
+    audit_addr_stmt = select(ComplianceImmutableAuditLog).where(
+        ComplianceImmutableAuditLog.entity_id == persisted_addr.id,
+        ComplianceImmutableAuditLog.event_type == "VENDOR_ADDRESS_DELETED",
+    )
+    audit_addr = (await db_session.execute(audit_addr_stmt)).scalars().first()
+    assert audit_addr is not None
+    assert audit_addr.payload_hash is not None
+    assert audit_addr.worm_locked is True
+    assert "Deleted address" in audit_addr.action_summary
+
+    # Verify outbox event for address deletion
+    obx_addr_stmt = select(IntegrationOutboxEvent).where(
+        IntegrationOutboxEvent.aggregate_id == persisted_addr.id,
+        IntegrationOutboxEvent.event_type == "VENDOR_ADDRESS_DELETED",
+    )
+    obx_addr = (await db_session.execute(obx_addr_stmt)).scalars().first()
+    assert obx_addr is not None
+    assert obx_addr.status == "PENDING"
+
+    # 2. Contact deletion audit & outbox
+    contact_dto = VendorContactDTO(
+        contact_name="Temporary Contact",
+        contact_category="OPERATIONS",
+        mobile="9811122233",
+        is_primary=False,
+    )
+    persisted_contact = await service.save_contact(party.id, contact_dto)
+    await service.delete_contact(party.id, persisted_contact.id)
+
+    audit_contact_stmt = select(ComplianceImmutableAuditLog).where(
+        ComplianceImmutableAuditLog.entity_id == persisted_contact.id,
+        ComplianceImmutableAuditLog.event_type == "VENDOR_CONTACT_DELETED",
+    )
+    audit_contact = (await db_session.execute(audit_contact_stmt)).scalars().first()
+    assert audit_contact is not None
+    assert audit_contact.payload_hash is not None
+    assert "Deleted contact" in audit_contact.action_summary
+
+    obx_contact_stmt = select(IntegrationOutboxEvent).where(
+        IntegrationOutboxEvent.aggregate_id == persisted_contact.id,
+        IntegrationOutboxEvent.event_type == "VENDOR_CONTACT_DELETED",
+    )
+    obx_contact = (await db_session.execute(obx_contact_stmt)).scalars().first()
+    assert obx_contact is not None
+    assert obx_contact.status == "PENDING"
+
+    # 3. Bank account deletion audit & outbox (with masked account number)
+    bank_dto = VendorBankAccountDTO(
+        bank_name="Axis Bank",
+        account_holder_name="Apex Traders",
+        account_number="912010045678901",
+        ifsc="UTIB0000004",
+        is_primary=False,
+    )
+    persisted_bank = await service.save_bank_account(party.id, bank_dto)
+    await service.delete_bank_account(party.id, persisted_bank.id)
+
+    audit_bank_stmt = select(ComplianceImmutableAuditLog).where(
+        ComplianceImmutableAuditLog.entity_id == persisted_bank.id,
+        ComplianceImmutableAuditLog.event_type == "VENDOR_BANK_ACCOUNT_DELETED",
+    )
+    audit_bank = (await db_session.execute(audit_bank_stmt)).scalars().first()
+    assert audit_bank is not None
+    assert "***8901" in audit_bank.action_summary
+
+    obx_bank_stmt = select(IntegrationOutboxEvent).where(
+        IntegrationOutboxEvent.aggregate_id == persisted_bank.id,
+        IntegrationOutboxEvent.event_type == "VENDOR_BANK_ACCOUNT_DELETED",
+    )
+    obx_bank = (await db_session.execute(obx_bank_stmt)).scalars().first()
+    assert obx_bank is not None
+    assert obx_bank.status == "PENDING"
+    assert obx_bank.payload_json["account_number_masked"] == "***8901"
+
+
+async def test_merged_vendor_blocks_mutations_and_deletions(db_session):
+    """Verifies that a vendor with status 'MERGED' is locked against mutations and deletions."""
+    tenant, party = await setup_test_vendor(db_session)
+    service = VendorService(db_session, tenant)
+
+    # First add a valid address while ACTIVE
+    addr_dto = VendorAddressDTO(
+        address_type="BILLING",
+        address_title="HQ",
+        address_line1="MG Road",
+        city="Mumbai",
+        state="Maharashtra",
+        pincode="400001",
+        country="India",
+        is_primary=True,
+    )
+    persisted_addr = await service.save_address(party.id, addr_dto)
+
+    # Now lock vendor status to MERGED
+    party.status = "MERGED"
+    party.merged_into_party_id = "pty_surviving_target"
+    await db_session.commit()
+    await db_session.refresh(party)
+
+    # Mutation attempt must fail with 400 Bad Request
+    with pytest.raises(HTTPException) as exc_info_save:
+        await service.save_address(party.id, addr_dto)
+    assert exc_info_save.value.status_code == 400
+    assert "merged" in exc_info_save.value.detail.lower()
+
+    # Deletion attempt must fail with 400 Bad Request
+    with pytest.raises(HTTPException) as exc_info_del:
+        await service.delete_address(party.id, persisted_addr.id)
+    assert exc_info_del.value.status_code == 400
+    assert "merged" in exc_info_del.value.detail.lower()
+
+
+async def test_failed_deletion_preserves_data(db_session):
+    """Verifies that failed deletion (e.g. non-existent entity) raises 404 and preserves existing data."""
+    tenant, party = await setup_test_vendor(db_session)
+    service = VendorService(db_session, tenant)
+
+    addr_dto = VendorAddressDTO(
+        address_type="DISPATCH",
+        address_title="Preserved Hub",
+        address_line1="Godown 4",
+        city="Thane",
+        state="Maharashtra",
+        pincode="400601",
+        country="India",
+        is_primary=True,
+    )
+    persisted = await service.save_address(party.id, addr_dto)
+
+    # Attempt delete with non-existent ID
+    with pytest.raises(HTTPException) as exc_info:
+        await service.delete_address(party.id, "pa_non_existent_id_9999")
+    assert exc_info.value.status_code == 404
+
+    # Verify existing address is completely preserved
+    stmt = select(PartyAddress).where(PartyAddress.id == persisted.id)
+    row = (await db_session.execute(stmt)).scalars().first()
+    assert row is not None
+    assert row.is_deleted is False
+    assert row.city == "Thane"
+

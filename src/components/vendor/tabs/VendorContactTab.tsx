@@ -13,10 +13,11 @@
  */
 
 import React, { useState } from "react";
-import { Users, Phone, Mail, Plus, Trash2, Star, Shield, Briefcase, Truck, CreditCard, Loader2 } from "lucide-react";
+import { Users, Phone, Mail, Plus, Trash2, Star, Shield, Briefcase, Truck, CreditCard, Loader2, Lock } from "lucide-react";
 import { VendorDetail, VendorContact, ContactCategory } from "../../../types/vendor";
 import { withCapability } from "../../../types/architecture";
 import { apiFetchV1 } from "../../../lib/apiFetchV1";
+import { VendorDeleteConfirmationModal, DeleteItemPayload } from "../VendorDeleteConfirmationModal";
 
 interface VendorContactTabProps {
   vendor: VendorDetail;
@@ -38,6 +39,7 @@ const VendorContactTabBase: React.FC<VendorContactTabProps> = ({ vendor, onUpdat
   const [showModal, setShowModal] = useState(false);
   const [saving, setSaving] = useState(false);
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
+  const [pendingDeleteItem, setPendingDeleteItem] = useState<{ index: number; payload: DeleteItemPayload } | null>(null);
   const [newContact, setNewContact] = useState<Partial<VendorContact>>({
     contactName: "",
     contactCategory: "SALES",
@@ -49,6 +51,10 @@ const VendorContactTabBase: React.FC<VendorContactTabProps> = ({ vendor, onUpdat
   });
 
   const handleAdd = async () => {
+    if (!isEditing) {
+      onNotification?.("View Mode Active", "Click 'Edit Vendor' in the top toolbar to enter Edit Mode before adding contacts.", "warning");
+      return;
+    }
     if (!newContact.contactName) return;
     setSaving(true);
     try {
@@ -103,27 +109,55 @@ const VendorContactTabBase: React.FC<VendorContactTabProps> = ({ vendor, onUpdat
     }
   };
 
-  const handleDelete = async (index: number) => {
+  const handleRequestDelete = (index: number) => {
+    if (!isEditing) {
+      onNotification?.("View Mode Active", "Click 'Edit Vendor' in the top toolbar to enter Edit Mode before deleting contacts.", "warning");
+      return;
+    }
     const target = vendor.contacts[index];
     if (!target) return;
+    setPendingDeleteItem({
+      index,
+      payload: {
+        entityType: "CONTACT",
+        id: target.id || `idx-${index}`,
+        title: target.contactName || "Contact Representative",
+        details: [
+          { label: "Category", value: target.contactCategory },
+          { label: "Designation", value: target.designation },
+          { label: "Department", value: target.department },
+          { label: "Mobile Phone", value: target.mobile },
+          { label: "Landline Phone", value: target.phone },
+          { label: "Email Address", value: target.email },
+          { label: "Primary Status", value: target.isPrimary },
+        ],
+      },
+    });
+  };
+
+  const handleConfirmDelete = async (item: DeleteItemPayload) => {
+    if (!pendingDeleteItem) return;
+    const targetIndex = pendingDeleteItem.index;
+    const target = vendor.contacts[targetIndex];
+    if (!target) return;
+
     if (target.id && !target.id.startsWith("vc-")) {
-      setActionLoadingId(target.id);
-      try {
-        await apiFetchV1(`/purchase/vendors/${vendor.id}/contacts/${target.id}`, {
-          method: "DELETE",
-        });
-        onNotification?.("Contact Removed", `Contact '${target.contactName}' deleted.`, "info");
-      } catch (err: any) {
-        onNotification?.("Delete Failed", err?.message || "Could not delete contact.", "error");
-        setActionLoadingId(null);
-        return;
-      }
-      setActionLoadingId(null);
+      await apiFetchV1(`/purchase/vendors/${vendor.id}/contacts/${target.id}`, {
+        method: "DELETE",
+      });
     }
-    onUpdateContacts(vendor.contacts.filter((_, i) => i !== index));
+
+    const updated = vendor.contacts.filter((_, idx) => idx !== targetIndex);
+    onUpdateContacts(updated);
+    onNotification?.("Contact Removed", `Contact person '${target.contactName}' deleted permanently. Compliance audit log recorded.`, "success");
+    setPendingDeleteItem(null);
   };
 
   const handleSetPrimary = async (index: number) => {
+    if (!isEditing) {
+      onNotification?.("View Mode Active", "Click 'Edit Vendor' in the top toolbar to enter Edit Mode before setting primary contact.", "warning");
+      return;
+    }
     const target = vendor.contacts[index];
     if (!target) return;
     if (target.id && !target.id.startsWith("vc-")) {
@@ -151,13 +185,23 @@ const VendorContactTabBase: React.FC<VendorContactTabProps> = ({ vendor, onUpdat
           <h3 className="text-sm font-bold text-slate-900 dark:text-white">First-Class Contact Directory</h3>
           <p className="text-xs text-slate-500 dark:text-slate-400">Target PO dispatches, payment advice, and delivery coordination to the right personnel</p>
         </div>
-        <button
-          onClick={() => setShowModal(true)}
-          className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-xs transition"
-        >
-          <Plus size={14} />
-          <span>Add Contact Person</span>
-        </button>
+        {isEditing ? (
+          <button
+            onClick={() => setShowModal(true)}
+            className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-xs transition"
+          >
+            <Plus size={14} />
+            <span>Add Contact Person</span>
+          </button>
+        ) : (
+          <div 
+            className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 text-xs font-semibold cursor-not-allowed border border-slate-200 dark:border-slate-700 select-none"
+            title="Locked in View Mode. Click 'Edit Vendor' in toolbar to add new contacts."
+          >
+            <Lock size={13} />
+            <span>Add Contact Person (Locked)</span>
+          </div>
+        )}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -189,14 +233,20 @@ const VendorContactTabBase: React.FC<VendorContactTabProps> = ({ vendor, onUpdat
                     {badge.icon}
                     <span>{c.contactCategory}</span>
                   </span>
-                  {/* Delete always visible on hover — no global edit mode required */}
-                  <button
-                    onClick={() => handleDelete(idx)}
-                    className="opacity-0 group-hover:opacity-100 p-1 rounded text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/20 transition-opacity"
-                    title="Remove contact"
-                  >
-                    <Trash2 size={13} />
-                  </button>
+                  {/* Delete button strictly gated behind Edit Mode and double confirmation */}
+                  {isEditing ? (
+                    <button
+                      onClick={() => handleRequestDelete(idx)}
+                      className="opacity-0 group-hover:opacity-100 p-1 rounded text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/20 transition-opacity"
+                      title="Remove contact (Requires Double Confirmation)"
+                    >
+                      <Trash2 size={13} />
+                    </button>
+                  ) : (
+                    <div className="text-[10px] text-slate-400 flex items-center gap-0.5 opacity-60">
+                      <Lock size={10} />
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -215,7 +265,7 @@ const VendorContactTabBase: React.FC<VendorContactTabProps> = ({ vendor, onUpdat
                 )}
               </div>
 
-              {!c.isPrimary && (
+              {isEditing && !c.isPrimary && (
                 <button
                   onClick={() => handleSetPrimary(idx)}
                   className="mt-3 text-[11px] text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 font-semibold block opacity-0 group-hover:opacity-100 transition-opacity"
@@ -325,6 +375,16 @@ const VendorContactTabBase: React.FC<VendorContactTabProps> = ({ vendor, onUpdat
           </div>
         </div>
       )}
+
+      {/* Sub-Entity Double-Confirmation Deletion Protection Modal */}
+      <VendorDeleteConfirmationModal
+        isOpen={Boolean(pendingDeleteItem)}
+        vendorName={vendor.legalName}
+        vendorCode={vendor.code}
+        item={pendingDeleteItem?.payload || null}
+        onClose={() => setPendingDeleteItem(null)}
+        onConfirmDelete={handleConfirmDelete}
+      />
     </div>
   );
 };
