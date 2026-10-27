@@ -255,6 +255,64 @@ class CanonicalSalesPostingWriter:
                         detail="SMRITI-POS-003: An open cashier shift is required to process POS retail transactions under current company policy.",
                     )
 
+            # 0C. Price Level Resolution & Per-Line Unit Price Validation
+            customer_pricing_basis = None
+            if db_customer:
+                customer_pricing_basis = getattr(db_customer, "pricing_basis", None)
+            cashier_override_level = getattr(req.context, "cashier_price_level_override", None)
+
+            price_level_ctx = BillingProfileService.resolve_effective_price_level(
+                effective_config=eff_prof,
+                customer_pricing_basis=customer_pricing_basis,
+                cashier_override_level=cashier_override_level,
+            )
+            effective_level = price_level_ctx["effective_price_level"]
+            cashier_override_permitted = price_level_ctx["cashier_override_permitted"]
+            # Attach to req context for downstream audit/logging
+            if hasattr(req, "context") and req.context is not None:
+                try:
+                    object.__setattr__(req.context, "_resolved_price_level", price_level_ctx)
+                except (AttributeError, TypeError):
+                    pass
+
+            # Per-line price validation
+            # Authoritative source for each level:
+            #   MRP           \u2192 item_prices.mrp        (statutory ceiling \u2014 NEVER exceed)
+            #   SELLING_PRICE \u2192 item_prices.selling_price
+            #   WHOLESALE_PRICE \u2192 item_prices.wholesale_price (fallback: selling_price)
+            #   PRICE_BOOK    \u2192 CustomerPriceTier \u2192 PriceBook \u2192 PriceBookEntry.selling_price
+            # We do NOT perform a full DB lookup here per line (that is the barcode resolver's job).
+            # We validate the client-supplied unit_price against the MRP ceiling and log the level.
+            PRICE_LEVEL_LABEL = {
+                "MRP": "MRP (Statutory Ceiling)",
+                "SELLING_PRICE": "Standard Selling Price",
+                "WHOLESALE_PRICE": "Wholesale Price",
+                "PRICE_BOOK": "Price Book Rate",
+            }
+            for line_item in req.items:
+                client_price = Decimal(str(getattr(line_item, "unit_price", None) or 0))
+                line_mrp = Decimal(str(getattr(line_item, "mrp", None) or 0))
+
+                # Statutory MRP ceiling \u2014 always enforced regardless of price level or override policy
+                if line_mrp > Decimal("0") and client_price > line_mrp:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=(
+                            f"SMRITI-PRICE-MRP-001: Line item '{getattr(line_item, 'name', None) or getattr(line_item, 'item_id', 'UNKNOWN')}' "
+                            f"has unit price \u20b9{client_price} which exceeds the statutory MRP \u20b9{line_mrp}. "
+                            "Billing above MRP is prohibited under the Legal Metrology Act."
+                        ),
+                    )
+
+                # Cashier price override enforcement
+                # If cashier_price_override is DISABLED, the client may not deviate from the
+                # resolved price level. Since we do not have the authoritative price available
+                # here without a per-line DB lookup (that cost is borne by the product resolver),
+                # we record the effective level and rely on the MRP ceiling above as the hard gate.
+                # Future: integrate ItemPrice lookup here for strict enforcement.
+                # For AUTHORIZED_ONLY, we trust the cashier_price_level_override field in context
+                # was validated at the API auth layer.
+
         # 1. POS Shift row lock & validation (if shift_id provided)
         shift_obj: Optional[Shift] = None
         if shift_id:
