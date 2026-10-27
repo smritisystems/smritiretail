@@ -17,7 +17,7 @@ from fastapi import APIRouter, Depends, Query, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from decimal import Decimal
 
-from ...api.deps import get_db, get_current_user
+from ...api.deps import get_company_db, get_current_user
 from ...schemas.localization import (
     CountryResponse,
     StateResponse,
@@ -45,7 +45,7 @@ router = APIRouter(prefix="/control/reference", tags=["Control Plane Reference D
 @router.get("/countries", response_model=List[CountryResponse])
 async def list_countries(
     active_only: bool = Query(default=True, description="Filter active countries"),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     current_user=Depends(get_current_user),
 ):
     """List ISO 3166 global countries reference data."""
@@ -56,7 +56,7 @@ async def list_countries(
 async def list_states(
     country_code: str = Query(default="IN", description="ISO 2-letter country code"),
     active_only: bool = Query(default=True, description="Filter active states"),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     current_user=Depends(get_current_user),
 ):
     """List states / provinces with statutory GST state codes."""
@@ -67,7 +67,7 @@ async def list_states(
 async def get_state_by_gst_code(
     gst_code: str,
     country_code: str = Query(default="IN", description="ISO 2-letter country code"),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     current_user=Depends(get_current_user),
 ):
     """Resolve state and tax jurisdiction by statutory 2-digit GST state code (01..38, 97)."""
@@ -83,7 +83,7 @@ async def get_state_by_gst_code(
 @router.get("/districts", response_model=List[DistrictResponse])
 async def list_districts(
     state_id: Optional[str] = Query(default=None),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     current_user=Depends(get_current_user),
 ):
     """List active districts, optionally limited to one state."""
@@ -97,7 +97,7 @@ async def search_postal_codes(
     city: Optional[str] = Query(default=None, min_length=1, max_length=150),
     country_code: str = Query(default="IN", min_length=2, max_length=3),
     limit: int = Query(default=25, ge=1, le=100),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     current_user=Depends(get_current_user),
 ):
     """Search active postal records for address autocomplete and validation."""
@@ -114,7 +114,7 @@ async def search_postal_codes(
 async def get_postal_code(
     postal_code: str,
     country_code: str = Query(default="IN", min_length=2, max_length=3),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     current_user=Depends(get_current_user),
 ):
     """Resolve one active postal code for address validation."""
@@ -131,7 +131,7 @@ async def validate_postal_code(
     state_code: Optional[str] = Query(default=None, max_length=10),
     zone: Optional[str] = Query(default=None, max_length=50),
     country_code: str = Query(default="IN", min_length=2, max_length=3),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     current_user=Depends(get_current_user),
 ):
     """Validate PIN, city, state, and zone against the database reference master."""
@@ -147,7 +147,7 @@ async def validate_postal_code(
 @router.get("/currencies", response_model=List[CurrencyResponse])
 async def list_currencies(
     active_only: bool = Query(default=True, description="Filter active currencies"),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     current_user=Depends(get_current_user),
 ):
     """List ISO 4217 global currency registry."""
@@ -157,7 +157,7 @@ async def list_currencies(
 @router.get("/uoms", response_model=List[UOMResponse])
 async def list_uoms(
     active_only: bool = Query(default=True, description="Filter active units"),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     current_user=Depends(get_current_user),
 ):
     """List standard Units of Measurement with GST Unique Quantity Code (UQC) mappings."""
@@ -167,7 +167,7 @@ async def list_uoms(
 @router.post("/uoms/convert", response_model=UOMConvertResult)
 async def convert_uom(
     req: UOMConvertRequest,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     current_user=Depends(get_current_user),
 ):
     """Convert quantity between compatible Units of Measurement."""
@@ -187,7 +187,7 @@ async def convert_uom(
 @router.get("/tax-references", response_model=List[TaxReferenceResponse])
 async def list_tax_references(
     active_only: bool = Query(default=True, description="Filter active tax references"),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     current_user=Depends(get_current_user),
 ):
     """List statutory GST / tax reference slabs."""
@@ -198,7 +198,7 @@ async def list_tax_references(
 async def list_hsn_sac(
     query: Optional[str] = Query(default=None, description="Search by code or description"),
     limit: int = Query(default=50, ge=1, le=200, description="Max results"),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     current_user=Depends(get_current_user),
 ):
     """Search Harmonized System of Nomenclature (HSN) and Service Accounting Codes (SAC)."""
@@ -208,7 +208,7 @@ async def list_hsn_sac(
 @router.get("/languages", response_model=List[LanguageResponse])
 async def list_languages(
     active_only: bool = Query(default=True, description="Filter active languages"),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     current_user=Depends(get_current_user),
 ):
     """List supported multi-lingual UI and printing languages."""
@@ -218,7 +218,7 @@ async def list_languages(
 @router.get("/locales", response_model=List[LocaleResponse])
 async def list_locales(
     active_only: bool = Query(default=True, description="Filter active locales"),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     current_user=Depends(get_current_user),
 ):
     """List supported global locales with date, time, and numbering format rules."""
@@ -228,7 +228,7 @@ async def list_locales(
 @router.get("/translations/{language_code}", response_model=TranslationDictionaryResponse)
 async def get_translation_dictionary(
     language_code: str,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     current_user=Depends(get_current_user),
 ):
     """
@@ -242,7 +242,7 @@ async def get_translation_dictionary(
 async def list_platform_references(
     category: str,
     active_only: bool = Query(default=True, description="Filter active entries"),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     current_user=Depends(get_current_user),
 ):
     """List platform constants and extensible reference lookups by category."""
@@ -252,7 +252,7 @@ async def list_platform_references(
 @router.post("/format/currency", response_model=FormattedCurrencyResponse)
 async def format_currency(
     req: FormatCurrencyRequest,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     current_user=Depends(get_current_user),
 ):
     """Format currency values according to locale rules and symbol placement."""
@@ -268,7 +268,7 @@ localization_core_router = APIRouter(prefix="/localization", tags=["Localization
 @localization_core_router.get("/uoms", response_model=List[UOMResponse])
 async def list_localization_uoms(
     active_only: bool = Query(default=True, description="Filter active units"),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     current_user=Depends(get_current_user),
 ):
     """List standard Units of Measurement with GST Unique Quantity Code (UQC) mappings."""
@@ -278,7 +278,7 @@ async def list_localization_uoms(
 @localization_core_router.post("/uoms/convert", response_model=UOMConvertResult)
 async def convert_localization_uom(
     req: UOMConvertRequest,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     current_user=Depends(get_current_user),
 ):
     """Convert quantity between compatible Units of Measurement."""
