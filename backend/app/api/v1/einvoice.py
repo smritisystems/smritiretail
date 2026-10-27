@@ -28,6 +28,7 @@ Change (3.121.0): Full async migration (UMGP follow-up).
 from __future__ import annotations
 import hashlib
 import secrets
+import uuid
 from datetime import datetime, timezone
 from typing import List, Optional
 
@@ -49,6 +50,11 @@ _CANCEL_REASONS = {"1", "2", "3", "4"}
 
 def _now() -> datetime:
     return datetime.now(timezone.utc).replace(tzinfo=None)
+
+
+def _new_id() -> str:
+    """Generate a new UUID string for BaseEntity.id (no DB-side default)."""
+    return str(uuid.uuid4())
 
 
 def _simulate_irn(invoice_no: str, gstin: str = "") -> str:
@@ -106,6 +112,7 @@ async def generate_einvoice(
     now = _now()
 
     rec = EInvoice(
+        id=_new_id(),
         invoice_id=payload.invoice_id,
         invoice_no=payload.invoice_no,
         gstin_supplier=payload.gstin_supplier,
@@ -196,6 +203,7 @@ async def submit_einvoice_batch(
 ):
     batch_no = "EIB-" + secrets.token_hex(5).upper()
     batch = EInvoiceBatch(
+        id=_new_id(),
         batch_no=batch_no,
         status="QUEUED",
         total_invoices=len(payload.invoice_ids),
