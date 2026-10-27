@@ -14,6 +14,20 @@
 
 # SMRITI Retail OS — Release Notes
 
+## Release v3.125.0 (2026-10-27)
+
+### Inventory & WMS — Warehouse, Location & Stock Transfer Integrity Hardening
+
+#### Overview
+Resolves 14 architectural integrity vulnerabilities across Warehouse, Outlet, Store, Branch, and Location Management in SMRITI Retail OS. Closes dual-column foreign key drift, enforces mandatory goods receipt warehouse attribution, introduces multi-tier stock transfer approval gates, restores independent branch and warehouse directory discovery for unstaffed locations, and delivers automated database backfill scripts.
+
+#### Key Highlights
+- **Mandatory GRN Warehouse Attribution (R-003)**: Delivered Alembic migration `v1560` backfilling existing NULL `purchase_receipts.warehouse_id` records using the company's oldest active warehouse and constraining column to `NOT NULL`. Wrapped receipt creation with `InventoryWarehouseResolver` guard and human-friendly `SMRITI-WMS-001` error handling.
+- **Stock Transfer Multi-Tier Approval Gate (R-005)**: Added `REQUESTED`, `APPROVED`, and `REJECTED` states to `TransferStatus` enum. Implemented `request_stock_transfer`, `approve_stock_transfer`, and `reject_stock_transfer` services and endpoints. Added configurable approval bypass flag (`bypass_approval=True` default) ensuring backward compatibility for existing deployments.
+- **Direct Physical Location Discovery (R-008)**: Refactored `StoreDirectoryWs.tsx` to list branches and godowns directly via `GET /branches` and `GET /wms/warehouses`, decoupling directory rendering from HR placement attendance and ensuring 100% visibility for unstaffed facilities and central godowns.
+- **Governed Precedence & Register Reconciliation (R-001/R-007)**: Hardened `InventoryWarehouseResolver` to prioritize `warehouse_id` foreign keys over legacy text codes, prefer branch default warehouses (`is_default_for_branch`), and created `scripts/backfill_register_warehouse_id.py` for automated POS terminal reconciliation.
+- **Verification Battery**: 13/13 backend Pytest unit tests green (`test_wms_integrity_deferred.py`, `test_inventory_warehouse_resolver.py`), 0 TypeScript compiler errors (`npx tsc --noEmit`), and 0 Python syntax errors across all migrations, models, services, and schemas.
+
 ## Release v6.99.13 (2026-10-25)
 
 ### Foundation & UI Architecture — Persistent Global Navigation with Contextual Submenus

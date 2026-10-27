@@ -1,4 +1,37 @@
-﻿<!--
+<!--
+
+## [3.125.0] - 2026-10-27 - Inventory & WMS: Deferred Remediations Phase (R-003, R-005, R-008)
+
+### Added
+- `backend/alembic/versions/v1560_purchase_receipt_warehouse_not_null.py`: Migration v1560 safely backfilling NULL `purchase_receipts.warehouse_id` rows using the company's oldest active warehouse and constraining to `NOT NULL`.
+- `backend/tests/test_wms_integrity_deferred.py`: Unit test suite (6/6 green) covering R-003 NOT NULL column constraints, R-005 transfer status approval gates and configurable bypass flag, and R-008 direct WMS `/branches` lookup.
+- `backend/tests/test_inventory_warehouse_resolver.py`: 7 unit tests (7/7 green) testing all 4 tiers of `InventoryWarehouseResolver` (explicit warehouse, POS register FK/legacy text fallback, branch default `is_default_for_branch`, company fallback, and fail-closed error mode).
+- `scripts/backfill_register_warehouse_id.py`: Idempotent backfill script reconciling legacy `CashRegister.warehouse` text codes to `warehouse_id` foreign keys.
+- `docs/walkthrough/wms/WMS_DeferredRemediations_v3.125.0.md`: Comprehensive walkthrough documenting deferred remediations.
+
+### Changed
+- `backend/app/models/purchase.py`: Enforced `warehouse_id` as `nullable=False` on `PurchaseReceipt` model.
+- `backend/app/services/purchase.py`: Wrapped `create_purchase_receipt` warehouse resolution in `InventoryWarehouseResolver` guard with human-readable `SMRITI-WMS-001` error handling (HTTP 422).
+- `backend/app/models/inventory.py`: Extended `TransferStatus` enum with `REQUESTED`, `APPROVED`, and `REJECTED` states.
+- `backend/app/services/inventory_wms.py`: Added `request_stock_transfer`, `approve_stock_transfer`, and `reject_stock_transfer`; updated `dispatch_stock_transfer` to reject `REQUESTED` transfers until `APPROVED`, with configurable `bypass_approval` (default `True`).
+- `backend/app/api/v1/wms.py`: Exposed `/transfers/{id}/request`, `/transfers/{id}/approve`, `/transfers/{id}/reject` endpoints; added `bypass_approval` query parameter to dispatch; exposed direct `GET /branches` endpoint.
+- `src/components/store/StoreDirectoryWs.tsx`: Replaced HR placement API call with direct parallel `apiFetchV1('/branches')` and `apiFetchV1('/wms/warehouses')` calls, ensuring unstaffed locations and godowns are visible; added `WAREHOUSE` store type badge, filter, and KPI counter.
+
+## [3.124.0] - 2026-10-27 - Inventory & WMS: Warehouse & Location Integrity Hardening (R-001..R-014)
+
+### Added
+- `backend/alembic/versions/v1557_item_warehouse_location_integrity.py`: FK from `item_warehouse_locations.warehouse_id` to `warehouses.id` (RESTRICT) and company-scoped unique constraint `uq_item_warehouse_per_company(company_id, item_id, warehouse_id)`.
+- `backend/alembic/versions/v1558_warehouse_default_for_branch.py`: Added `is_default_for_branch` column and partial unique index to `warehouses`.
+- `backend/alembic/versions/v1559_pos_parked_cart_branch_fk.py`: Added FK from `pos_parked_carts.branch_id` to `branches.id` (RESTRICT).
+- `docs/walkthrough/wms/WMS_WarehouseLocationIntegrity_v3.124.0.md`: Walkthrough documenting initial 8 P1/P2 fixes.
+
+### Changed
+- `backend/app/services/inventory_warehouse_resolver.py`: Precedence updated to prefer `warehouse_id` FK over legacy text; removed duplicate company fallback block.
+- `backend/app/models/pos.py`: Added `ForeignKey("branches.id", ondelete="RESTRICT")` to `POSParkedCart.branch_id`.
+- `backend/app/schemas/pos.py`: Added `warehouse_id` field to `POSProfileCreate` and `POSProfileResponse`.
+- `backend/app/services/pos.py`: Updated `update_profile` to write `warehouse_id` FK when supplied.
+- `backend/app/api/v1/wms.py`: Added stock movement reference guard on location delete (HTTP 409) and added `PATCH /warehouses/{id}/deactivate` endpoint with stock-zero gate.
+- `src/components/wms/WmsStudioTab.tsx`: Removed hardcoded test defaults from GRN form and added supplier+warehouse validation.
 
 ## [3.121.1] - 2026-10-27 - UMGP-G3 Remediation: Drop Hardcoded DDL Defaults & Legacy Docstring Cleanup
 
