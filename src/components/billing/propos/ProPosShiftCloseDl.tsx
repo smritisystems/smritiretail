@@ -4,9 +4,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.16.0
+ * Version      : 6.17.0
  * Created      : 2026-08-23
- * Modified     : 2026-08-23
+ * Modified     : 2026-10-27
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
@@ -149,6 +149,23 @@ export const SmritiProPosShiftCloseModal: React.FC<SmritiProPosShiftCloseModalPr
         method: "POST",
         body: JSON.stringify(payload),
       });
+
+      // Auto-assign the closed shift to the open store business day (non-blocking)
+      try {
+        const today = new Date().toISOString().slice(0, 10);
+        const dayList = await apiFetchV1<any[]>(
+          `/pos/store-days?branch_id=${zReportData?.branch_id || ""}&business_date=${today}`
+        );
+        const openDay = (dayList || []).find((d: any) => d.status === "OPEN");
+        if (openDay) {
+          await apiFetchV1(`/pos/store-days/${openDay.id}/assign-shift`, {
+            method: "POST",
+            body: JSON.stringify({ shift_id: shiftId }),
+          });
+        }
+      } catch {
+        // Auto-assign failure is non-blocking — shift is already closed
+      }
 
       const updatedZReport: POSZReportData = {
         ...(zReportData || ({} as any)),
