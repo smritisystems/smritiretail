@@ -44,7 +44,7 @@ from ..models.pos import Shift
 from ..models.crm import Customer, CustomerGroup, CustomerPolicy, CustomerCompanyRelationship, CustomerCreditLedgerEntry, CustomerGSTRegistration, CustomerDeliveryLocation, CustomerBillingLocation
 from ..models.customer_po import CustomerPurchaseOrder, CustomerPurchaseOrderLine, CustomerPOInvoiceAllocation
 from ..models.pricing import CustomerPriceTier
-from ..models.item_master import ItemBarcode
+from ..models.item_master import ItemBarcode, ItemPrice
 from ..models.inventory import Product, Warehouse
 from ..models.tenant import Company, Branch
 from ..core.sales_channels import channel_requires_store_location
@@ -255,11 +255,27 @@ class CanonicalSalesPostingWriter:
                         detail="SMRITI-POS-003: An open cashier shift is required to process POS retail transactions under current company policy.",
                     )
 
-            # 0C. Price Level Resolution & Per-Line Unit Price Validation
+            # 0C. Price Level Resolution & Authoritative Per-Line Price Enforcement
+            # ── Tier resolution ────────────────────────────────────────────────
             customer_pricing_basis = None
             if db_customer:
                 customer_pricing_basis = getattr(db_customer, "pricing_basis", None)
-            cashier_override_level = getattr(req.context, "cashier_price_level_override", None)
+            # Rec 6: cashier_price_level_override is now a typed Literal on CanonicalPostingContext
+            cashier_override_level = req.context.cashier_price_level_override  # None | MRP | SELLING_PRICE | WHOLESALE_PRICE | PRICE_BOOK
+
+            # AUTHORIZED_ONLY gate: cashier override requires a supervisor_override_code
+            if (cashier_override_level and
+                    str(eff_prof.get("cashier_price_override", "DISABLED")).upper() == "AUTHORIZED_ONLY" and
+                    not req.context.supervisor_override_code):
+                raise HTTPException(
+                    status_code=403,
+                    detail=(
+                        "SMRITI-PRICE-AUTH-001: Changing the billing price level to "
+                        f"'{cashier_override_level}' requires a supervisor authorization code "
+                        "under current company policy (cashier_price_override = AUTHORIZED_ONLY). "
+                        "Please obtain a supervisor code and retry."
+                    ),
+                )
 
             price_level_ctx = BillingProfileService.resolve_effective_price_level(
                 effective_config=eff_prof,
@@ -268,50 +284,87 @@ class CanonicalSalesPostingWriter:
             )
             effective_level = price_level_ctx["effective_price_level"]
             cashier_override_permitted = price_level_ctx["cashier_override_permitted"]
-            # Attach to req context for downstream audit/logging
+
+            # Attach resolved context for downstream audit
             if hasattr(req, "context") and req.context is not None:
                 try:
                     object.__setattr__(req.context, "_resolved_price_level", price_level_ctx)
                 except (AttributeError, TypeError):
                     pass
 
-            # Per-line price validation
-            # Authoritative source for each level:
-            #   MRP           \u2192 item_prices.mrp        (statutory ceiling \u2014 NEVER exceed)
-            #   SELLING_PRICE \u2192 item_prices.selling_price
-            #   WHOLESALE_PRICE \u2192 item_prices.wholesale_price (fallback: selling_price)
-            #   PRICE_BOOK    \u2192 CustomerPriceTier \u2192 PriceBook \u2192 PriceBookEntry.selling_price
-            # We do NOT perform a full DB lookup here per line (that is the barcode resolver's job).
-            # We validate the client-supplied unit_price against the MRP ceiling and log the level.
-            PRICE_LEVEL_LABEL = {
-                "MRP": "MRP (Statutory Ceiling)",
-                "SELLING_PRICE": "Standard Selling Price",
-                "WHOLESALE_PRICE": "Wholesale Price",
-                "PRICE_BOOK": "Price Book Rate",
-            }
+            # ── Authoritative per-line price enforcement ────────────────────
+            # For each non-fee line, fetch authoritative price from item_prices.
+            # Enforce:
+            #   1. Statutory MRP ceiling: unit_price MUST NOT exceed item_prices.mrp — always.
+            #   2. DISABLED override: unit_price must not exceed the authoritative price
+            #      for the effective_level (SELLING_PRICE.selling_price, WHOLESALE_PRICE.wholesale_price).
+            #   MRP level needs no further check beyond ceiling (billing at MRP is the ceiling itself).
+            #   PRICE_BOOK level: server-side resolution via PriceBookEntry; skip field enforcement here.
             for line_item in req.items:
-                client_price = Decimal(str(getattr(line_item, "unit_price", None) or 0))
-                line_mrp = Decimal(str(getattr(line_item, "mrp", None) or 0))
+                if getattr(line_item, "is_fee_line", False) or getattr(line_item, "is_free_item", False):
+                    continue  # Fee/free lines are exempt from price level enforcement
 
-                # Statutory MRP ceiling \u2014 always enforced regardless of price level or override policy
-                if line_mrp > Decimal("0") and client_price > line_mrp:
+                client_price = Decimal(str(getattr(line_item, "unit_price", None) or 0))
+
+                # Determine variant_id: prefer explicit variant_id, fall back to product_id
+                vid = (getattr(line_item, "variant_id", None) or
+                       getattr(line_item, "product_id", None))
+
+                # Fetch authoritative price row (single index lookup on primary key + company)
+                auth_price: Optional[ItemPrice] = None
+                if vid:
+                    ip_stmt = select(ItemPrice).where(
+                        ItemPrice.item_variant_id == vid,
+                        ItemPrice.company_id == company_id,
+                    )
+                    auth_price = (await session.execute(ip_stmt)).scalar_one_or_none()
+
+                # Fall back to client-supplied mrp if no authoritative row found
+                auth_mrp = Decimal(str(auth_price.mrp or 0)) if auth_price and auth_price.mrp else \
+                           Decimal(str(getattr(line_item, "mrp", None) or 0))
+
+                # ── Gate 1: Statutory MRP ceiling (absolute — Legal Metrology Act) ──
+                if auth_mrp > Decimal("0") and client_price > auth_mrp:
+                    item_label = getattr(line_item, "name", None) or vid or "UNKNOWN"
                     raise HTTPException(
                         status_code=400,
                         detail=(
-                            f"SMRITI-PRICE-MRP-001: Line item '{getattr(line_item, 'name', None) or getattr(line_item, 'item_id', 'UNKNOWN')}' "
-                            f"has unit price \u20b9{client_price} which exceeds the statutory MRP \u20b9{line_mrp}. "
-                            "Billing above MRP is prohibited under the Legal Metrology Act."
+                            f"SMRITI-PRICE-MRP-001: Item '{item_label}' has unit price "
+                            f"\u20b9{client_price} which exceeds the statutory MRP \u20b9{auth_mrp}. "
+                            "Billing above MRP is prohibited under the Legal Metrology Act. "
+                            "Please correct the price and retry."
                         ),
                     )
 
-                # Cashier price override enforcement
-                # If cashier_price_override is DISABLED, the client may not deviate from the
-                # resolved price level. Since we do not have the authoritative price available
-                # here without a per-line DB lookup (that cost is borne by the product resolver),
-                # we record the effective level and rely on the MRP ceiling above as the hard gate.
-                # Future: integrate ItemPrice lookup here for strict enforcement.
-                # For AUTHORIZED_ONLY, we trust the cashier_price_level_override field in context
-                # was validated at the API auth layer.
+                # ── Gate 2: Price level ceiling (only when override is DISABLED) ──
+                if not cashier_override_permitted and auth_price is not None:
+                    if effective_level == "SELLING_PRICE":
+                        auth_ceil = Decimal(str(auth_price.selling_price or 0))
+                        level_label = "standard selling price"
+                        code = "SMRITI-PRICE-SELL-001"
+                    elif effective_level == "WHOLESALE_PRICE":
+                        auth_ceil = Decimal(
+                            str(auth_price.wholesale_price or auth_price.selling_price or 0)
+                        )
+                        level_label = "wholesale price"
+                        code = "SMRITI-PRICE-WHSL-001"
+                    else:
+                        auth_ceil = Decimal("0")  # MRP handled above; PRICE_BOOK skipped
+                        code = ""
+                        level_label = ""
+
+                    if code and auth_ceil > Decimal("0") and client_price > auth_ceil:
+                        item_label = getattr(line_item, "name", None) or vid or "UNKNOWN"
+                        raise HTTPException(
+                            status_code=400,
+                            detail=(
+                                f"{code}: Item '{item_label}' has unit price \u20b9{client_price} "
+                                f"which exceeds the authoritative {level_label} \u20b9{auth_ceil}. "
+                                "Price overrides are not permitted under current billing policy "
+                                "(cashier_price_override = DISABLED). "
+                                "Contact a supervisor to authorise a price override."
+                            ),
+                        )
 
         # 1. POS Shift row lock & validation (if shift_id provided)
         shift_obj: Optional[Shift] = None
@@ -1208,6 +1261,13 @@ class CanonicalSalesPostingWriter:
                 "total_deductions": float(calc_result.total_deductions),
                 "calculated_at": datetime.now(timezone.utc).isoformat(),
                 "promotion_evaluation": promotion_result.model_dump(mode="json") if promotion_result else None,
+                # Rec 10 — price level audit trail for Z-report breakdown
+                "_resolved_price_level_effective": (
+                    price_level_ctx["effective_price_level"] if "price_level_ctx" in dir() else None
+                ),
+                "_resolved_price_level_source": (
+                    price_level_ctx["source"] if "price_level_ctx" in dir() else None
+                ),
             },
         )
         session.add(db_invoice)

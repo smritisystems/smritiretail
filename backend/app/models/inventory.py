@@ -123,7 +123,7 @@ class StockMovement(BaseEntity):
     bin = Column(String(50), nullable=True)
     batch = Column(String(50), nullable=True)
     serial = Column(String(50), nullable=True)
-    unit_cost = Column(Numeric(15, 2), nullable=True)
+    unit_cost = Column(Numeric(15, 2), nullable=False, server_default="0.00")  # G2: NOT NULL v1549; 0.00 = UNRESOLVED_ZERO_COST
     batch_id = Column(String(50), ForeignKey("item_batches.id", ondelete="SET NULL"), nullable=True, index=True)
     serial_id = Column(String(50), ForeignKey("item_serials.id", ondelete="SET NULL"), nullable=True, index=True)
     location_id = Column(String(50), ForeignKey("item_warehouse_locations.id", ondelete="SET NULL"), nullable=True, index=True)

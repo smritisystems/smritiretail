@@ -417,6 +417,8 @@ class ProductResolutionService:
                         tax_rate=Decimal(str(canonical_row["tax_rate"])) if canonical_row.get("tax_rate") is not None else None,
                         mrp=Decimal(str(canonical_row.get("mrp") or "0.00")),
                         selling_price=Decimal(str(canonical_row.get("selling_price") or "0.00")),
+                        wholesale_price=Decimal(str(canonical_row.get("wholesale_price") or "0.00")),
+                        price_book_price=Decimal(str(canonical_row["price_book_price"])) if canonical_row.get("price_book_price") is not None else None,
                         cost_price=Decimal(str(canonical_row.get("cost_price") or "0.00")),
                         is_active=is_active,
                         is_quarantined=False,
@@ -456,6 +458,8 @@ class ProductResolutionService:
                         tax_rate=Decimal(str(legacy_row["gst_percentage"])) if legacy_row.get("gst_percentage") is not None else None,
                         mrp=Decimal(str(legacy_row.get("mrp") or "0.00")),
                         selling_price=Decimal(str(legacy_row.get("price") or "0.00")),
+                        wholesale_price=Decimal("0.00"),  # Legacy catalog has no wholesale_price
+                        price_book_price=None,
                         cost_price=Decimal(str(legacy_row.get("cost_price") or "0.00")),
                         is_active=is_active,
                         is_quarantined=False,
@@ -517,14 +521,17 @@ class ProductResolutionService:
                     COALESCE(v.hsn_code, i.hsn_code) as hsn_code,
                     COALESCE(v.tax_rate, i.tax_rate) as tax_rate,
                     ib.barcode,
-                    COALESCE(pbe.selling_price, v.selling_price, i.selling_price, 0.00) as selling_price,
-                    COALESCE(pbe.mrp, v.mrp, i.mrp, 0.00) as mrp,
-                    COALESCE(pbe.cost_price, v.cost_price, i.cost_price, 0.00) as cost_price,
+                    COALESCE(ip.selling_price, v.selling_price, i.selling_price, 0.00) as selling_price,
+                    COALESCE(ip.mrp, v.mrp, i.mrp, 0.00) as mrp,
+                    COALESCE(ip.wholesale_price, 0.00) as wholesale_price,
+                    pbe.selling_price as price_book_price,
+                    COALESCE(ip.cost_price, v.cost_price, i.cost_price, 0.00) as cost_price,
                     COALESCE(lim.legacy_id, p.id) as legacy_product_id,
                     lim.disposition
                 FROM item_barcodes ib
                 JOIN item_variants v ON ib.variant_id = v.id
                 JOIN items i ON v.item_id = i.id
+                LEFT JOIN item_prices ip ON ip.item_variant_id = v.id AND ip.company_id = :cid
                 LEFT JOIN legacy_id_mappings lim 
                   ON lim.canonical_id = v.id AND lim.legacy_table = 'products'
                 LEFT JOIN products p
@@ -563,13 +570,16 @@ class ProductResolutionService:
                     COALESCE(v.hsn_code, i.hsn_code) as hsn_code,
                     COALESCE(v.tax_rate, i.tax_rate) as tax_rate,
                     ib.barcode,
-                    COALESCE(pbe.selling_price, v.selling_price, i.selling_price, 0.00) as selling_price,
-                    COALESCE(pbe.mrp, v.mrp, i.mrp, 0.00) as mrp,
-                    COALESCE(pbe.cost_price, v.cost_price, i.cost_price, 0.00) as cost_price,
+                    COALESCE(ip.selling_price, v.selling_price, i.selling_price, 0.00) as selling_price,
+                    COALESCE(ip.mrp, v.mrp, i.mrp, 0.00) as mrp,
+                    COALESCE(ip.wholesale_price, 0.00) as wholesale_price,
+                    pbe.selling_price as price_book_price,
+                    COALESCE(ip.cost_price, v.cost_price, i.cost_price, 0.00) as cost_price,
                     COALESCE(lim.legacy_id, p.id) as legacy_product_id,
                     lim.disposition
                 FROM item_variants v
                 JOIN items i ON v.item_id = i.id
+                LEFT JOIN item_prices ip ON ip.item_variant_id = v.id AND ip.company_id = :cid
                 LEFT JOIN item_barcodes ib ON ib.variant_id = v.id AND ib.is_primary = true AND ib.is_deleted = false
                 LEFT JOIN legacy_id_mappings lim 
                   ON (lim.canonical_id = v.id OR lim.canonical_id = i.id OR lim.legacy_id = :q) AND lim.legacy_table = 'products'
@@ -609,13 +619,16 @@ class ProductResolutionService:
                     COALESCE(v.hsn_code, i.hsn_code) as hsn_code,
                     COALESCE(v.tax_rate, i.tax_rate) as tax_rate,
                     ib.barcode,
-                    COALESCE(pbe.selling_price, v.selling_price, i.selling_price, 0.00) as selling_price,
-                    COALESCE(pbe.mrp, v.mrp, i.mrp, 0.00) as mrp,
-                    COALESCE(pbe.cost_price, v.cost_price, i.cost_price, 0.00) as cost_price,
+                    COALESCE(ip.selling_price, v.selling_price, i.selling_price, 0.00) as selling_price,
+                    COALESCE(ip.mrp, v.mrp, i.mrp, 0.00) as mrp,
+                    COALESCE(ip.wholesale_price, 0.00) as wholesale_price,
+                    pbe.selling_price as price_book_price,
+                    COALESCE(ip.cost_price, v.cost_price, i.cost_price, 0.00) as cost_price,
                     COALESCE(lim.legacy_id, p.id) as legacy_product_id,
                     lim.disposition
                 FROM item_variants v
                 JOIN items i ON v.item_id = i.id
+                LEFT JOIN item_prices ip ON ip.item_variant_id = v.id AND ip.company_id = :cid
                 LEFT JOIN item_barcodes ib ON ib.variant_id = v.id AND ib.is_primary = true AND ib.is_deleted = false
                 LEFT JOIN legacy_id_mappings lim 
                   ON lim.canonical_id = v.id AND lim.legacy_table = 'products'
@@ -655,13 +668,16 @@ class ProductResolutionService:
                     COALESCE(v.hsn_code, i.hsn_code) as hsn_code,
                     COALESCE(v.tax_rate, i.tax_rate) as tax_rate,
                     ib.barcode,
-                    COALESCE(v.selling_price, i.selling_price, 0.00) as selling_price,
-                    COALESCE(v.mrp, i.mrp, 0.00) as mrp,
-                    COALESCE(v.cost_price, i.cost_price, 0.00) as cost_price,
+                    COALESCE(ip.selling_price, v.selling_price, i.selling_price, 0.00) as selling_price,
+                    COALESCE(ip.mrp, v.mrp, i.mrp, 0.00) as mrp,
+                    COALESCE(ip.wholesale_price, 0.00) as wholesale_price,
+                    NULL::numeric as price_book_price,
+                    COALESCE(ip.cost_price, v.cost_price, i.cost_price, 0.00) as cost_price,
                     lim.legacy_id as legacy_product_id,
                     lim.disposition
                 FROM items i
                 LEFT JOIN item_variants v ON v.item_id = i.id AND v.is_deleted = false
+                LEFT JOIN item_prices ip ON ip.item_variant_id = v.id AND ip.company_id = :cid
                 LEFT JOIN item_barcodes ib ON ib.variant_id = v.id AND ib.is_primary = true AND ib.is_deleted = false
                 LEFT JOIN legacy_id_mappings lim 
                   ON (lim.canonical_id = v.id OR lim.canonical_id = i.id) AND lim.legacy_table = 'products'

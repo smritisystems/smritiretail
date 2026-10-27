@@ -2459,7 +2459,10 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
         isTaxInclusive: matched.isTaxInclusive ?? matched.is_tax_inclusive,
         mrp: Number(matched.mrp),
         brand: matched.brand,
-        size: matched.size
+        size: matched.size,
+        // Rec 7 — Price Level Badge: stamp the resolved level + source at scan time
+        priceLevel: resolvedLevel as BillingLineItem["priceLevel"],
+        priceLevelSource: resolvedSource as BillingLineItem["priceLevelSource"],
       };
 
       if (options.onResolvedLine) {
@@ -4173,7 +4176,23 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
                         {item.stockNo}
                       </td>
                       <td className="px-2.5 py-1 truncate max-w-xs font-medium text-slate-800 dark:text-slate-100">
-                        {item.itemDescription}
+                        <span>{item.itemDescription}</span>
+                        {item.priceLevel && (
+                          <span
+                            title={`Price Level: ${item.priceLevel} • Source: ${item.priceLevelSource ?? "COMPANY_POLICY"}`}
+                            className={`ml-1.5 inline-flex items-center rounded px-1 py-px text-[9px] font-bold uppercase tracking-wide leading-none ${
+                              item.priceLevel === "MRP"
+                                ? "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300"
+                                : item.priceLevel === "WHOLESALE_PRICE"
+                                ? "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300"
+                                : item.priceLevel === "PRICE_BOOK"
+                                ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300"
+                                : "bg-slate-100 text-slate-500 dark:bg-slate-700 dark:text-slate-300"
+                            }`}
+                          >
+                            {item.priceLevel === "SELLING_PRICE" ? "SP" : item.priceLevel === "WHOLESALE_PRICE" ? "WS" : item.priceLevel === "PRICE_BOOK" ? "PB" : "MRP"}
+                          </span>
+                        )}
                       </td>
                       <td className="px-2 py-1 text-right font-mono text-slate-700 dark:text-slate-300">
                         {Number(item.rate).toFixed(2)}

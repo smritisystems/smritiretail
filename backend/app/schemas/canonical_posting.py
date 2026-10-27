@@ -43,6 +43,18 @@ class CanonicalPostingContext(BaseModel):
     supervisor_override_code: Optional[str] = Field(None, description="Supervisor authorization code for price/credit override")
     price_book_code: Optional[str] = Field(None, description="Optional Price Book code applied to transaction")
     customer_tier_code: Optional[str] = Field(None, description="Optional Customer tier code applied to transaction")
+    # ── Billing Price Level Override ────────────────────────────────────────
+    # Requested by cashier to override the company's default price level.
+    # Accepted values: MRP | SELLING_PRICE | WHOLESALE_PRICE | PRICE_BOOK
+    # Honoured ONLY when billing configuration cashier_price_override != DISABLED.
+    # For AUTHORIZED_ONLY: a valid supervisor_override_code must also be present.
+    # Omitting this field (None) falls back silently to company/customer policy.
+    cashier_price_level_override: Optional[Literal[
+        "MRP", "SELLING_PRICE", "WHOLESALE_PRICE", "PRICE_BOOK"
+    ]] = Field(
+        None,
+        description="Cashier-requested price level override. Governed by billing profile cashier_price_override policy."
+    )
     posting_date: Optional[datetime] = Field(
         None,
         description="Authoritative transaction timestamp for temporal pricing, price book validity, and offline/backdated billing. Defaults to server UTC now if omitted."

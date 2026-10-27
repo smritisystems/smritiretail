@@ -160,6 +160,9 @@ class ItemPriceRevision(BaseEntity):
     revised_selling_price = Column(Numeric(15, 2), nullable=False)
     previous_cost_price = Column(Numeric(15, 2), nullable=True)
     revised_cost_price = Column(Numeric(15, 2), nullable=True)
+    # G1 — Wholesale price revision audit trail (migration v1548)
+    previous_wholesale_price = Column(Numeric(15, 2), nullable=True)
+    revised_wholesale_price = Column(Numeric(15, 2), nullable=True)
 
     # Temporal Bounds
     effective_from = Column(DateTime(timezone=True), nullable=False, index=True)

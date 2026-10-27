@@ -41,6 +41,9 @@ export interface BillingLineItem {
   size?: string;
   attributes?: Record<string, any>;
   customerPoLineId?: string;
+  /** Rec 7 — Price Level Badge: stamped at scan time from the 3-tier resolver */
+  priceLevel?: "MRP" | "SELLING_PRICE" | "WHOLESALE_PRICE" | "PRICE_BOOK";
+  priceLevelSource?: "COMPANY_POLICY" | "CUSTOMER_PROFILE" | "CASHIER_OVERRIDE";
 }
 export type BillType = "Product" | "Service";
 export type TransactionType = "Credit" | "Cash" | "Retail";

@@ -53,6 +53,8 @@ class ProductResolutionResult(BaseModel):
     tax_rate: Optional[Decimal] = None
     mrp: Decimal = Decimal("0.00")
     selling_price: Decimal = Decimal("0.00")
+    wholesale_price: Decimal = Decimal("0.00")     # item_prices.wholesale_price (0.00 if not configured)
+    price_book_price: Optional[Decimal] = None     # PriceBookEntry.selling_price for customer tier (None if not resolved)
     cost_price: Decimal = Decimal("0.00")
 
     # State & Governance
