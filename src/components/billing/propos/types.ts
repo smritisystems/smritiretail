@@ -295,3 +295,92 @@ export interface POSZReportData {
   shift_close_voucher_id?: string;
 }
 
+
+// --- Store Business Day (EOD Phase 4) ----------------------------------------
+
+export interface StoreBusinessDay {
+  id: string;
+  branch_id: string;
+  business_date: string;
+  status: "OPEN" | "CLOSED" | "LOCKED";
+  opened_at: string | null;
+  closed_at: string | null;
+  locked_at?: string | null;
+  opened_by: string | null;
+  closed_by: string | null;
+  locked_by?: string | null;
+  sign_off_notes?: string | null;
+  exception_summary?: {
+    snapshotted_at: string;
+    pending_approvals_at_close: number;
+    pending_offline_sync_at_close: number;
+  } | null;
+}
+
+export interface StoreDayShiftSummary {
+  shift_id: string;
+  cashier_id: string;
+  status: string;
+  opened_at: string | null;
+  closed_at: string | null;
+  opening_balance: string;
+  closing_balance: string | null;
+  expected_cash: string;
+  cash_variance: string | null;
+  cash_sales: string;
+  card_sales: string;
+  upi_sales: string;
+  total_sales: string;
+  total_invoices: number;
+}
+
+export interface StoreDayStoreTotals {
+  total_sales: string;
+  cash_sales: string;
+  card_sales: string;
+  upi_sales: string;
+  total_invoices: number;
+  cash_variance: string;
+  opening_balance_total: string;
+  closing_balance_total: string;
+}
+
+export interface StoreDayEodReport {
+  store_day_id: string;
+  branch_id: string;
+  business_date: string;
+  status: "OPEN" | "CLOSED" | "LOCKED";
+  opened_at: string | null;
+  closed_at: string | null;
+  opened_by: string | null;
+  closed_by: string | null;
+  sign_off_notes: string | null;
+  store_totals: StoreDayStoreTotals;
+  shifts: StoreDayShiftSummary[];
+  pending_approvals: number;
+  pending_offline_sync: number;
+  exception_summary: StoreBusinessDay["exception_summary"];
+}
+
+export interface EmployeeActivityEvent {
+  id: string;
+  branch_id: string;
+  actor_user_id: string | null;
+  actor_username: string;
+  action: string;
+  entity_type: string;
+  entity_id: string | null;
+  timestamp: string;
+  detail_json?: Record<string, unknown> | null;
+  risk_level?: string | null;
+  is_anomaly?: boolean;
+}
+
+export interface EmployeeActivityPage {
+  branch_id: string;
+  business_date: string;
+  total: number;
+  limit: number;
+  offset: number;
+  events: EmployeeActivityEvent[];
+}

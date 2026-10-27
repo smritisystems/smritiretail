@@ -4,9 +4,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.16.0
+ * Version      : 6.17.0
  * Created      : 2026-08-21
- * Modified     : 2026-08-23
+ * Modified     : 2026-10-27
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
@@ -15,6 +15,7 @@
 import React, { useState, useEffect } from "react";
 import { EodRegisterCloseout, POSZReportData, CashDenominations, ShiftCashMovementRecord } from "./types.ts";
 import ProPosDenomination, { calculateDenominationTotal } from "./ProPosDenomination.tsx";
+import { ProPosStoreDayPanel } from "./ProPosStoreDayPanel.tsx";
 import { apiFetchV1 } from "../../../lib/apiFetchV1.ts";
 import { 
   FileSpreadsheet, 
@@ -39,7 +40,7 @@ import {
 interface SmritiProPosEodReportProps {
   initialEod?: EodRegisterCloseout;
   onCommitCloseout: (eod: EodRegisterCloseout) => void;
-  onNotification?: (title: string, msg: string, type: "success" | "error") => void;
+  onNotification?: (title: string, msg: string, type: "success" | "error" | "info") => void;
 }
 
 export const SmritiProPosEodReport: React.FC<SmritiProPosEodReportProps> = ({
@@ -204,10 +205,23 @@ export const SmritiProPosEodReport: React.FC<SmritiProPosEodReportProps> = ({
     window.print();
   };
 
+  // Derive branchId and today's date for the Store Day Panel
+  const todayDate = new Date().toISOString().slice(0, 10);
+  const panelBranchId = zReport?.branch_id || "";
+
   return (
     <div className="h-full flex flex-col bg-[#f8f9fa] dark:bg-[#191c1e] text-[#191c1e] dark:text-[#eff1f3] overflow-y-auto p-6 font-sans">
       <div className="max-w-5xl mx-auto w-full space-y-6">
-        
+
+        {/* Store Business Day Control Panel */}
+        {panelBranchId && (
+          <ProPosStoreDayPanel
+            branchId={panelBranchId}
+            businessDate={todayDate}
+            onNotification={onNotification}
+          />
+        )}
+
         {/* Header Bar */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-[#c4c5d5] dark:border-[#444653]">
           <div>
