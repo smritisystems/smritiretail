@@ -134,7 +134,7 @@ async def get_integration_providers(
     category: Optional[str] = None,
     provider_type: Optional[str] = None,
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
 ):
     """
     Returns the canonical integration provider catalogue from smritisys.provider_registry.
@@ -170,7 +170,7 @@ async def get_connector_registry(
     provider_code: Optional[str] = None,
     connector_type: Optional[str] = None,
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
 ):
     """
     Returns connector type definitions from smritisys.connector_registry.
@@ -203,7 +203,7 @@ async def get_integration_registry(
     integration_category: Optional[str] = None,
     provider_code: Optional[str] = None,
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
 ):
     """
     Returns named integration definitions from smritisys.integration_registry.

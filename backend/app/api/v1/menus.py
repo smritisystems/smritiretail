@@ -18,7 +18,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
-from ...api.deps import get_db, get_current_user, get_tenant_context, require_role, TenantContext
+from ...api.deps import get_company_db, get_current_user, get_tenant_context, require_role, TenantContext
 from ...models.auth import User, UserRole
 from ...models.menu import SmritiMenu
 from ...schemas.menu import (
@@ -42,7 +42,7 @@ async def get_contextual_actions(
     doc_type: str = Query("SalesInvoice", description="Document domain e.g. SalesInvoice, PurchaseOrder"),
     doc_id: Optional[str] = Query(None, description="Document ID or transaction number"),
     state: str = Query("DRAFT", description="Current lifecycle state"),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     tenant: TenantContext = Depends(get_tenant_context),
     current_user: User = Depends(get_current_user),
 ):
@@ -209,7 +209,7 @@ async def get_contextual_actions(
     response_model=List[SmritiMenuResponse],
 )
 async def get_resolved_menus(
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     tenant: TenantContext = Depends(get_tenant_context),
     current_user: User = Depends(get_current_user),
 ):
@@ -280,7 +280,7 @@ async def get_resolved_menus(
     response_model=List[SmritiMenuResponse],
 )
 async def list_all_menus(
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     current_user: User = Depends(get_current_user),
 ):
     """
@@ -298,7 +298,7 @@ async def list_all_menus(
 async def update_menu_item(
     menu_id: str,
     req: SmritiMenuUpdate,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     tenant: TenantContext = Depends(get_tenant_context),
     current_user: User = Depends(require_role(UserRole.SYSADMIN, UserRole.MANAGER)),
 ):
@@ -381,7 +381,7 @@ async def update_menu_item(
 
 @router.get("/audit")
 async def get_menu_audit_logs(
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     current_user: User = Depends(require_role(UserRole.SYSADMIN, UserRole.MANAGER)),
 ):
     """

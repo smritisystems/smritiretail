@@ -21,7 +21,7 @@ from pydantic import BaseModel
 from sqlalchemy import func, or_, and_, select
 from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
-from ...api.deps import get_db, get_company_db, get_tenant_context, TenantContext, require_role, get_current_user
+from ...api.deps import get_company_db, get_tenant_context, TenantContext, require_role, get_current_user
 
 from ...models.auth import UserRole, User
 from ...models.audit import ComplianceImmutableAuditLog
@@ -3344,7 +3344,7 @@ async def grant_loyalty_bonus(
     member_id: str,
     body:      LoyaltyAdjIn,
     tenant:    TenantContext    = Depends(get_tenant_context),
-    db:        AsyncSession     = Depends(get_db),
+    db:        AsyncSession     = Depends(get_company_db),
     current_user=Depends(get_current_user),
 ):
     """
@@ -3395,7 +3395,7 @@ async def expire_loyalty_points(
     member_id: str,
     body:      LoyaltyAdjIn,
     tenant:    TenantContext    = Depends(get_tenant_context),
-    db:        AsyncSession     = Depends(get_db),
+    db:        AsyncSession     = Depends(get_company_db),
     current_user=Depends(get_current_user),
 ):
     """

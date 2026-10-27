@@ -38,7 +38,7 @@ router = APIRouter()
 @router.post("/challan281", response_model=Challan281Response)
 async def record_challan_281(
     payload: Challan281Create,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     tenant: TenantContext = Depends(get_tenant_context),
     current_user = Depends(get_current_user),
 ):
@@ -75,7 +75,7 @@ async def list_challan_281(
     quarter: Optional[str] = Query(None, description="Quarter filter (Q1, Q2, Q3, Q4)"),
     financial_year: Optional[str] = Query(None, description="Financial year (e.g. 2026-27)"),
     tds_section: Optional[str] = Query(None, description="TDS section filter (194Q, 194C, etc.)"),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     tenant: TenantContext = Depends(get_tenant_context),
 ):
     """
@@ -99,7 +99,7 @@ async def list_challan_281(
 async def cancel_challan_281(
     challan_id: str,
     reason: Optional[str] = Query(None, description="Reason for cancellation"),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     tenant: TenantContext = Depends(get_tenant_context),
     current_user = Depends(get_current_user),
 ):
@@ -132,7 +132,7 @@ async def cancel_challan_281(
 async def get_form26q_summary(
     quarter: str = Query("Q2", description="Quarter: Q1 | Q2 | Q3 | Q4"),
     financial_year: str = Query("2026-27", description="Financial year (e.g. 2026-27)"),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     tenant: TenantContext = Depends(get_tenant_context),
 ):
     """
@@ -156,7 +156,7 @@ async def get_form26q_summary(
 async def export_form26q_text(
     quarter: str = Query("Q2", description="Quarter: Q1 | Q2 | Q3 | Q4"),
     financial_year: str = Query("2026-27", description="Financial year (e.g. 2026-27)"),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     tenant: TenantContext = Depends(get_tenant_context),
 ):
     """

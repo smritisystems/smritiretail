@@ -28,7 +28,7 @@ from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
-from app.api.deps import get_db, get_tenant_context, TenantContext, get_current_user, require_role
+from app.api.deps import get_company_db, get_tenant_context, TenantContext, get_current_user, require_role
 from app.models.auth import User, UserRole
 from app.models.workflow import WorkflowEvent
 from app.services.purchase import PurchaseService
@@ -106,7 +106,7 @@ async def workflow_action(
     doc_id:   str,
     action:   str,
     current_user: User         = Depends(get_current_user),
-    db:           AsyncSession = Depends(get_db),
+    db:           AsyncSession = Depends(get_company_db),
     tenant_ctx:   TenantContext = Depends(get_tenant_context),
 ):
     """
@@ -238,7 +238,7 @@ async def workflow_action(
 async def list_workflow_events(
     doc_type:     str,
     doc_id:       str,
-    db:           AsyncSession = Depends(get_db),
+    db:           AsyncSession = Depends(get_company_db),
     tenant_ctx:   TenantContext = Depends(get_tenant_context),
     current_user: User          = Depends(get_current_user),
 ):

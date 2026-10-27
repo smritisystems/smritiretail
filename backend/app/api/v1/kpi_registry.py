@@ -23,7 +23,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select, desc, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ...api.deps import get_db, get_current_user, get_tenant_context, TenantContext
+from ...api.deps import get_company_db, get_current_user, get_tenant_context, TenantContext
 from ...models.auth import User, UserRole
 from ...models.kpi_definition import KPIDefinition
 
@@ -132,7 +132,7 @@ async def list_kpi_definitions(
     include_inactive: bool = Query(False, description="Include inactive/deprecated KPIs"),
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=500),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
     current_user: User = Depends(get_current_user),
 ) -> List[KPIDefinitionOut]:
@@ -168,7 +168,7 @@ async def list_kpi_definitions(
 @router.get("/{kpi_id}", response_model=KPIDefinitionOut, summary="Get KPI definition by ID")
 async def get_kpi_definition(
     kpi_id: str,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
     current_user: User = Depends(get_current_user),
 ) -> KPIDefinitionOut:
@@ -196,7 +196,7 @@ async def get_kpi_definition(
              summary="Create a new KPI definition")
 async def create_kpi_definition(
     payload: KPIDefinitionCreate,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
     current_user: User = Depends(get_current_user),
 ) -> KPIDefinitionOut:
@@ -258,7 +258,7 @@ async def create_kpi_definition(
 async def update_kpi_definition(
     kpi_id: str,
     payload: KPIDefinitionUpdate,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
     current_user: User = Depends(get_current_user),
 ) -> KPIDefinitionOut:
@@ -299,7 +299,7 @@ async def update_kpi_definition(
 @router.delete("/{kpi_id}", status_code=status.HTTP_204_NO_CONTENT, summary="Delete a KPI definition")
 async def delete_kpi_definition(
     kpi_id: str,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
     current_user: User = Depends(get_current_user),
 ) -> None:
