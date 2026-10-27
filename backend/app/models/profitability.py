@@ -58,6 +58,10 @@ class InvoiceProfitabilityLedger(BaseEntity):
     gross_sales_amount = Column(Numeric(15, 2), nullable=False)
     total_cogs = Column(Numeric(15, 2), nullable=False)
     gross_profit = Column(Numeric(15, 2), nullable=False)  # Gross Sales - COGS
+    # G5: Valuation method used to derive total_cogs (migration v1550).
+    # Values: WEIGHTED_AVERAGE | FIFO | LANDED_COST | LAST_PURCHASE | COST_PRICE_FALLBACK | MIXED
+    # NULL on pre-v1550 rows; MIXED when an invoice spans multiple methods across its lines.
+    valuation_method_used = Column(String(30), nullable=True)
     salesperson_commission = Column(Numeric(15, 2), default=0.00)
     driver_commission = Column(Numeric(15, 2), default=0.00)
     promotion_discount = Column(Numeric(15, 2), default=0.00)
@@ -67,3 +71,4 @@ class InvoiceProfitabilityLedger(BaseEntity):
     net_contribution = Column(Numeric(15, 2), nullable=False)  # Gross Profit - Commissions - Discounts - Loyalty - Referral - Delivery
     net_margin_percent = Column(Numeric(5, 2), default=0.00)
     timestamp = Column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
+
