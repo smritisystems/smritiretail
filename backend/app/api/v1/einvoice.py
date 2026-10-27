@@ -1,4 +1,4 @@
-﻿"""
+"""
 Project      : SMRITI Retail OS
 Author       : Jawahar Ramkripal Mallah
 Version      : 3.120.0
@@ -29,9 +29,10 @@ from decimal import Decimal
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...db.session import get_db
+from ...api.deps import get_company_db
 from ...models.einvoice import EInvoice, EInvoiceBatch
 from ...schemas.einvoice import (
     EInvoiceRead, EInvoiceGenerate, EInvoiceCancel,
@@ -59,7 +60,7 @@ def _simulate_irn(invoice_no: str, gstin: str = "") -> str:
 def list_einvoices(
     status: Optional[str] = Query(None),
     limit: int = Query(100, le=500),
-    db: Session = Depends(get_company_db),
+    db: AsyncSession = Depends(get_company_db),
 ):
     q = db.query(EInvoice).filter(EInvoice.is_deleted == False)
     if status:
@@ -70,7 +71,7 @@ def list_einvoices(
 # --- Generate IRN ------------------------------------------------------------
 
 @router.post("/einvoice/generate", response_model=EInvoiceRead, status_code=status.HTTP_201_CREATED, tags=["E-Invoice Studio"])
-def generate_einvoice(payload: EInvoiceGenerate, db: Session = Depends(get_company_db)):
+def generate_einvoice(payload: EInvoiceGenerate, db: AsyncSession = Depends(get_company_db)):
     # Idempotency: if IRN already generated for this invoice, return existing
     existing = db.query(EInvoice).filter(
         EInvoice.invoice_id == payload.invoice_id,
@@ -106,7 +107,7 @@ def generate_einvoice(payload: EInvoiceGenerate, db: Session = Depends(get_compa
 # --- Cancel IRN --------------------------------------------------------------
 
 @router.post("/einvoice/cancel", response_model=EInvoiceRead, tags=["E-Invoice Studio"])
-def cancel_einvoice(payload: EInvoiceCancel, db: Session = Depends(get_company_db)):
+def cancel_einvoice(payload: EInvoiceCancel, db: AsyncSession = Depends(get_company_db)):
     if payload.cancel_reason not in _CANCEL_REASONS:
         raise HTTPException(status_code=400, detail="cancel_reason must be 1–4 (NIC standard).")
     rec = db.query(EInvoice).filter(EInvoice.irn == payload.irn, EInvoice.is_deleted == False).first()
@@ -128,7 +129,7 @@ def cancel_einvoice(payload: EInvoiceCancel, db: Session = Depends(get_company_d
 # --- Detail ------------------------------------------------------------------
 
 @router.get("/einvoice/{einvoice_id}", response_model=EInvoiceRead, tags=["E-Invoice Studio"])
-def get_einvoice(einvoice_id: str, db: Session = Depends(get_company_db)):
+def get_einvoice(einvoice_id: str, db: AsyncSession = Depends(get_company_db)):
     rec = db.query(EInvoice).filter(EInvoice.id == einvoice_id, EInvoice.is_deleted == False).first()
     if not rec:
         raise HTTPException(status_code=404, detail="E-Invoice not found.")
@@ -138,7 +139,7 @@ def get_einvoice(einvoice_id: str, db: Session = Depends(get_company_db)):
 # --- Batch Submit -------------------------------------------------------------
 
 @router.post("/einvoice/batch", response_model=EInvoiceBatchRead, status_code=status.HTTP_201_CREATED, tags=["E-Invoice Studio"])
-def submit_einvoice_batch(payload: EInvoiceBatchCreate, db: Session = Depends(get_company_db)):
+def submit_einvoice_batch(payload: EInvoiceBatchCreate, db: AsyncSession = Depends(get_company_db)):
     batch_no = "EIB-" + secrets.token_hex(5).upper()
     batch = EInvoiceBatch(
         batch_no=batch_no,
@@ -153,7 +154,7 @@ def submit_einvoice_batch(payload: EInvoiceBatchCreate, db: Session = Depends(ge
 
 
 @router.get("/einvoice/batch/{batch_id}", response_model=EInvoiceBatchRead, tags=["E-Invoice Studio"])
-def get_einvoice_batch(batch_id: str, db: Session = Depends(get_company_db)):
+def get_einvoice_batch(batch_id: str, db: AsyncSession = Depends(get_company_db)):
     b = db.query(EInvoiceBatch).filter(EInvoiceBatch.id == batch_id, EInvoiceBatch.is_deleted == False).first()
     if not b:
         raise HTTPException(status_code=404, detail="Batch not found.")

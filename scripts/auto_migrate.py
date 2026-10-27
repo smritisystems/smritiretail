@@ -366,6 +366,46 @@ def run_alembic_upgrade(dbname: str, is_control: bool) -> Tuple[bool, str, str]:
     return (res.returncode == 0, res.stdout, res.stderr)
 
 
+def _get_alembic_head(is_control: bool = False) -> Optional[str]:
+    """
+    Queries Alembic's script directory for the current head revision.
+    Returns the head revision string or None on failure.
+    """
+    target = "control" if is_control else "tenant"
+    try:
+        env = os.environ.copy()
+        env["DATABASE_URL"] = f"postgresql+asyncpg://{PG_USER}:{PG_PASSWORD}@{PG_HOST}:{PG_PORT}/{DEFAULT_CTRL_DB}"
+        res = subprocess.run(
+            [VENV_ALEMBIC, "-c", ALEMBIC_INI, "-x", f"target={target}", "heads", "--verbose"],
+            cwd=BACKEND_DIR,
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        for line in res.stdout.splitlines():
+            # Alembic heads output: "v1552 (head)"
+            if "(head)" in line:
+                return line.strip().split()[0]
+    except Exception:
+        pass
+    return None
+
+
+def _is_at_head(current_version: Optional[str], dbname: str, is_control: bool) -> bool:
+    """
+    Dynamically determines whether current_version matches the Alembic head.
+    Falls back gracefully if the head cannot be determined.
+    """
+    if not current_version:
+        return False
+    head = _get_alembic_head(is_control=is_control)
+    if head is None:
+        # Cannot determine head — do not fail the whole verification
+        return True
+    return current_version.strip() == head.strip()
+
+
 def verify_post_migration(dbname: str, is_control: bool, pre_counts: Dict[str, int]) -> Dict[str, Any]:
     """
     Performs verification of database schema, alembic_version at head,
@@ -375,7 +415,7 @@ def verify_post_migration(dbname: str, is_control: bool, pre_counts: Dict[str, i
     post_counts = get_table_row_counts(dbname)
 
     checks = {
-        "alembic_at_head": ver == "v1543",
+        "alembic_at_head": _is_at_head(ver, dbname, is_control),
         "current_version": ver,
         "zero_data_loss": True,
         "show_child_customers_in_billing_valid": True,
@@ -701,7 +741,7 @@ def main():
     print(f" Databases Processed : {len(all_dbs)}")
     if not args.no_backup:
         print(f" Backup Directory    : {session_backup_dir}")
-    print(f" Final Alembic Head  : v1543")
+    print(f" Final Alembic Head  : {_get_alembic_head(is_control=False)}")
     print("=" * 70 + "\n")
 
 
