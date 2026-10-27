@@ -15,7 +15,7 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ...api.deps import get_db, get_company_db, get_current_user, require_role
+from ...api.deps import get_company_db, get_current_user, require_role
 from ...models.auth import User, UserRole
 from ...schemas.numbering import (
     DocumentSeriesCreate, DocumentSeriesUpdate, DocumentSeriesResponse,
@@ -80,7 +80,7 @@ async def list_series(
 )
 async def create_series(
     req: DocumentSeriesCreate,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     current_user: User = Depends(get_current_user),
 ):
     """
@@ -98,7 +98,7 @@ async def create_series(
 async def update_series(
     id: str,
     req: DocumentSeriesUpdate,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     current_user: User = Depends(get_current_user),
 ):
     """
@@ -114,7 +114,7 @@ async def update_series(
 )
 async def delete_series(
     id: str,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     current_user: User = Depends(get_current_user),
 ):
     """
@@ -131,7 +131,7 @@ async def delete_series(
     dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))],
 )
 async def list_logs(
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     current_user: User = Depends(get_current_user),
 ):
     """
@@ -150,7 +150,7 @@ from fastapi import Header
 async def allocate_number(
     id: str,
     req: AllocationRequest,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     x_internal_service_key: Optional[str] = Header(None, alias="X-Internal-Service-Key"),
     authorization: Optional[str] = Header(None),
 ):
@@ -205,7 +205,7 @@ async def list_bill_prefixes(
     transaction_group: Optional[str] = None,
     terminal_id: Optional[str] = None,
     branch_id: Optional[str] = None,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     current_user: User = Depends(get_current_user),
 ):
     """
@@ -226,7 +226,7 @@ async def list_bill_prefixes(
 )
 async def resolve_bill_prefix(
     req: BillPrefixResolveRequest,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     current_user: User = Depends(get_current_user),
 ):
     """
@@ -250,7 +250,7 @@ async def resolve_bill_prefix(
 )
 async def save_bill_prefixes_batch(
     req: BillPrefixBatchSaveRequest,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     current_user: User = Depends(get_current_user),
 ):
     """
@@ -273,7 +273,7 @@ async def save_bill_prefixes_batch(
 )
 async def execute_year_end_rollover(
     req: YearEndRolloverRequest,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     current_user: User = Depends(get_current_user),
 ):
     """
@@ -296,7 +296,7 @@ async def execute_year_end_rollover(
 async def get_terminal_prefixes_report(
     terminal_id: Optional[str] = None,
     branch_id: Optional[str] = None,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     current_user: User = Depends(get_current_user),
 ):
     """
