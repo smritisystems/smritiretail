@@ -117,6 +117,7 @@ from .api.v1 import (
     staff,
     supplier_payment,
     sync,
+    store_day,
     system,
     system_parameters,
     tds_compliance,
@@ -454,6 +455,7 @@ _ROUTER_REGISTRY = [
     (sync,                  "/sync",                 ["Offline-First Synchronization"]),
     (integration,           "/integration",          ["Integration Hub & Audit"]),
     (einvoice,              "/einvoice-studio",      ["E-Invoice & IRN Studio"]),
+    (store_day,             "",                      ["EOD & Store Day Closing"]),
     (ecom,                  "",                      ["eCommerce / Omnichannel Engine"]),
 
     # --- Platform Infrastructure ---
