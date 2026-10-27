@@ -33,8 +33,49 @@ import {
   RefreshCw,
   X,
   Boxes,
-  Compass
+  Compass,
+  Zap,
+  Check,
+  ShieldAlert,
+  ArrowRight,
+  Activity
 } from "lucide-react";
+
+export interface PutawayCandidateLocation {
+  location_id: string;
+  code: string;
+  name: string;
+  zone?: string;
+  aisle?: string;
+  rack?: string;
+  shelf?: string;
+  bin_code?: string;
+  barcode?: string;
+  max_capacity_units?: number;
+  current_occupancy?: number;
+  available_capacity?: number;
+  current_occupancy_units?: number;
+  available_headroom_units?: number;
+  score?: number;
+  rule_applied?: string;
+  matched_rule?: string;
+  notes?: string;
+}
+
+export interface PutawayRecommendationResponse {
+  warehouse_id: string;
+  warehouse_code?: string;
+  status?: string;
+  product_id?: string;
+  requested_quantity?: number;
+  recommended_location?: PutawayCandidateLocation | null;
+  rule_applied?: string;
+  reason?: string;
+  message?: string;
+  alternatives?: PutawayCandidateLocation[];
+  candidate_locations?: PutawayCandidateLocation[];
+  is_over_capacity_fallback?: boolean;
+}
 
 export interface WarehouseLocationItem {
   id: string;
@@ -123,6 +164,73 @@ export const WarehouseLocationManager: React.FC<WarehouseLocationManagerProps> =
   const [editIsLocked, setEditIsLocked] = useState(false);
   const [editSaving, setEditSaving] = useState(false);
 
+  // Putaway Advisor Simulator State
+  const [isPutawayAdvisorOpen, setIsPutawayAdvisorOpen] = useState(false);
+  const [simProductId, setSimProductId] = useState("");
+  const [simBatchNo, setSimBatchNo] = useState("");
+  const [simQty, setSimQty] = useState(10);
+  const [simIsDamaged, setSimIsDamaged] = useState(false);
+  const [simZone, setSimZone] = useState("");
+  const [simEvaluating, setSimEvaluating] = useState(false);
+  const [simResult, setSimResult] = useState<PutawayRecommendationResponse | null>(null);
+  const [highlightedLocationId, setHighlightedLocationId] = useState<string | null>(null);
+
+  // Evaluate Putaway Recommendation
+  const handleEvaluatePutaway = async () => {
+    if (!activeWarehouseId) {
+      onNotification?.("Error", "Please select a warehouse first.", "error");
+      return;
+    }
+    if (!simProductId.trim()) {
+      onNotification?.("Validation Error", "Please provide a Product ID or SKU.", "error");
+      return;
+    }
+    if (simQty <= 0) {
+      onNotification?.("Validation Error", "Requested quantity must be greater than zero.", "error");
+      return;
+    }
+
+    setSimEvaluating(true);
+    try {
+      const payload: any = {
+        product_id: simProductId.trim(),
+        quantity: simQty,
+        is_damaged: simIsDamaged,
+      };
+      if (simBatchNo.trim()) payload.batch_no = simBatchNo.trim();
+      if (simZone.trim()) payload.preferred_zone = simZone.trim();
+
+      const res = await apiFetchV1<PutawayRecommendationResponse>(
+        `/wms/warehouses/${activeWarehouseId}/putaway-recommendation`,
+        {
+          method: "POST",
+          body: JSON.stringify(payload),
+        }
+      );
+      setSimResult(res);
+      if (res.recommended_location) {
+        const ruleName = res.recommended_location.rule_applied || res.rule_applied || "RECOMMENDED";
+        onNotification?.(
+          "Putaway Advice",
+          `Recommended: ${res.recommended_location.code} (${ruleName})`,
+          "success"
+        );
+      } else {
+        onNotification?.("Putaway Advice", res.message || res.reason || "No suitable storage location found.", "info");
+      }
+    } catch (err: any) {
+      onNotification?.("Advisor Error", err.message || "Failed to evaluate putaway rules.", "error");
+    } finally {
+      setSimEvaluating(false);
+    }
+  };
+
+  const handleHighlightLocation = (locationId: string, locationCode: string) => {
+    setHighlightedLocationId(locationId);
+    setIsPutawayAdvisorOpen(false);
+    onNotification?.("Location Highlighted", `Highlighted bin ${locationCode} in grid.`, "info");
+  };
+
   const fetchLocations = useCallback(async () => {
     if (!activeWarehouseId) return;
     setLoading(true);
@@ -174,6 +282,12 @@ export const WarehouseLocationManager: React.FC<WarehouseLocationManagerProps> =
       return matchZone && matchQuery;
     });
   }, [locations, selectedZone, searchQuery]);
+
+  // Active warehouse reference
+  const activeWarehouse = useMemo(
+    () => warehouses.find((w) => w.id === activeWarehouseId),
+    [warehouses, activeWarehouseId]
+  );
 
   // Calculated matrix preview count
   const calculatedMatrixCount = useMemo(() => {
@@ -379,6 +493,19 @@ export const WarehouseLocationManager: React.FC<WarehouseLocationManagerProps> =
               1-Click Matrix Wizard
             </button>
             <button
+              onClick={() => {
+                setIsPutawayAdvisorOpen(true);
+                if (!simProductId && locations.length > 0) {
+                  setSimProductId("PROD-001");
+                }
+              }}
+              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white shadow-sm transition-all cursor-pointer"
+              title="Automated Putaway Rule Advisor Simulator"
+            >
+              <Zap className="w-3.5 h-3.5 text-amber-300" />
+              Putaway Advisor
+            </button>
+            <button
               onClick={() => setIsAddModalOpen(true)}
               className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold bg-theme-bg border border-theme-border text-theme-text-primary hover:bg-theme-hover transition-colors"
             >
@@ -491,17 +618,26 @@ export const WarehouseLocationManager: React.FC<WarehouseLocationManagerProps> =
           <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 flex items-center justify-center mx-auto">
             <MapPin className="w-6 h-6" />
           </div>
-          <h3 className="text-sm font-bold text-theme-text-primary">No Locations Configured</h3>
-          <p className="text-xs text-theme-muted max-w-md mx-auto">
-            This godown doesn't have any physical storage bins defined yet. Use the 1-Click Matrix Wizard to generate standard aisles, racks, and shelves instantly.
+          <h3 className="text-sm font-bold text-theme-text-primary">No Physical Storage Bins Configured</h3>
+          <p className="text-xs text-theme-muted max-w-lg mx-auto leading-relaxed">
+            Godown {activeWarehouse ? <span className="font-semibold text-theme-text-primary">[{activeWarehouse.code}] {activeWarehouse.name}</span> : "selected"} is an active stock-holding warehouse, but has no physical sub-locations (aisles, racks, shelves, bins) configured yet. Storage bins are physical subdivisions within a godown for precise bin-level tracking.
           </p>
-          <button
-            onClick={() => setIsMatrixWizardOpen(true)}
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white transition-all shadow-sm"
-          >
-            <Sparkles className="w-3.5 h-3.5" />
-            Launch 1-Click Matrix Wizard
-          </button>
+          <div className="flex items-center justify-center gap-2.5 pt-2">
+            <button
+              onClick={() => setIsMatrixWizardOpen(true)}
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white transition-all shadow-sm"
+            >
+              <Sparkles className="w-3.5 h-3.5" />
+              Launch 1-Click Matrix Wizard
+            </button>
+            <button
+              onClick={() => setIsAddModalOpen(true)}
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold bg-theme-bg border border-theme-border text-theme-text-primary hover:bg-theme-hover transition-colors"
+            >
+              <Plus className="w-3.5 h-3.5 text-indigo-400" />
+              Add Single Bin
+            </button>
+          </div>
         </div>
       ) : viewMode === "grid" ? (
         /* Visual Cards Grid */
@@ -510,10 +646,32 @@ export const WarehouseLocationManager: React.FC<WarehouseLocationManagerProps> =
             <div
               key={loc.id}
               className={`bg-theme-card border rounded-2xl p-4 shadow-sm hover:border-indigo-500/50 transition-all flex flex-col justify-between ${
-                loc.is_locked ? "border-rose-500/40 bg-rose-950/10" : "border-theme-border"
+                loc.is_locked
+                  ? "border-rose-500/40 bg-rose-950/10"
+                  : loc.id === highlightedLocationId
+                  ? "border-emerald-500 ring-2 ring-emerald-500/70 bg-emerald-950/20 shadow-lg shadow-emerald-500/20"
+                  : "border-theme-border"
               }`}
             >
               <div>
+                {loc.id === highlightedLocationId && (
+                  <div className="mb-2.5 px-2.5 py-1 rounded-lg bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-[10px] font-bold flex items-center justify-between animate-pulse">
+                    <span className="flex items-center gap-1">
+                      <Zap className="w-3 h-3 text-amber-300" />
+                      Recommended Putaway Bin
+                    </span>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setHighlightedLocationId(null);
+                      }}
+                      className="text-emerald-400 hover:text-white"
+                      title="Clear highlight"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </div>
+                )}
                 <div className="flex items-center justify-between gap-2 mb-2">
                   <span className="font-mono font-bold text-xs text-indigo-400 bg-indigo-500/10 border border-indigo-500/20 px-2 py-0.5 rounded-lg">
                     {loc.code}
@@ -592,9 +750,21 @@ export const WarehouseLocationManager: React.FC<WarehouseLocationManagerProps> =
                 </tr>
               </thead>
               <tbody className="divide-y divide-theme-border/50 text-theme-text-primary">
-                {filteredLocations.map((loc) => (
-                  <tr key={loc.id} className="hover:bg-theme-hover/50 transition-colors">
-                    <td className="py-3 px-4 font-mono font-bold text-indigo-400">{loc.code}</td>
+                {filteredLocations.map((loc) => {
+                  const isHighlighted = loc.id === highlightedLocationId;
+                  return (
+                    <tr
+                      key={loc.id}
+                      className={`transition-colors ${
+                        isHighlighted
+                          ? "bg-emerald-500/15 border-l-4 border-emerald-500 font-semibold"
+                          : "hover:bg-theme-hover/50"
+                      }`}
+                    >
+                      <td className="py-3 px-4 font-mono font-bold text-indigo-400 flex items-center gap-1.5">
+                        {isHighlighted && <Zap className="w-3.5 h-3.5 text-amber-300 animate-bounce" />}
+                        {loc.code}
+                      </td>
                     <td className="py-3 px-4 font-medium">{loc.name}</td>
                     <td className="py-3 px-4">{getZoneBadge(loc.zone)}</td>
                     <td className="py-3 px-4 text-theme-muted">{loc.aisle || "—"}</td>
@@ -626,7 +796,8 @@ export const WarehouseLocationManager: React.FC<WarehouseLocationManagerProps> =
                       </button>
                     </td>
                   </tr>
-                ))}
+                );
+              })}
               </tbody>
             </table>
           </div>
@@ -1045,6 +1216,356 @@ export const WarehouseLocationManager: React.FC<WarehouseLocationManagerProps> =
               <button
                 onClick={() => setStockInspectLocation(null)}
                 className="px-4 py-2 text-xs font-semibold text-white bg-slate-800 hover:bg-slate-700 rounded-xl"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Putaway Advisor Simulator Modal */}
+      {isPutawayAdvisorOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-fadeIn">
+          <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800 bg-slate-950/70">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
+                  <Zap className="w-5 h-5 text-amber-300" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-slate-100 flex items-center gap-2">
+                    Automated Putaway Rule Advisor
+                  </h3>
+                  <p className="text-[11px] text-slate-400">
+                    4-Tier Decision Cascade: Quarantine → Dedicated Bin → Co-located Stock → Nearest Empty Bin
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsPutawayAdvisorOpen(false)}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 space-y-5 overflow-y-auto text-xs">
+              {/* Simulation Input Parameters */}
+              <div className="bg-slate-850/80 border border-slate-800 rounded-xl p-4 space-y-3">
+                <h4 className="font-semibold text-slate-200 uppercase tracking-wider text-[11px] flex items-center gap-1.5">
+                  <Activity className="w-3.5 h-3.5 text-indigo-400" />
+                  Inwarding Simulation Parameters
+                </h4>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-slate-400 font-medium mb-1">Product ID / SKU Code *</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. PROD-001 or SHIRT-BLK-L"
+                      value={simProductId}
+                      onChange={(e) => setSimProductId(e.target.value)}
+                      className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-slate-200 focus:outline-none focus:border-indigo-500 font-mono"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-slate-400 font-medium mb-1">Batch Number (Optional)</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. BATCH-2026-OCT-01"
+                      value={simBatchNo}
+                      onChange={(e) => setSimBatchNo(e.target.value)}
+                      className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-slate-200 focus:outline-none focus:border-indigo-500 font-mono"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-slate-400 font-medium mb-1">Quantity Units *</label>
+                    <input
+                      type="number"
+                      min="1"
+                      value={simQty}
+                      onChange={(e) => setSimQty(Math.max(1, parseInt(e.target.value) || 1))}
+                      className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-slate-200 focus:outline-none focus:border-indigo-500 font-mono"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-slate-400 font-medium mb-1">Preferred Zone Override</label>
+                    <select
+                      value={simZone}
+                      onChange={(e) => setSimZone(e.target.value)}
+                      className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-slate-200 focus:outline-none focus:border-indigo-500"
+                    >
+                      <option value="">Auto (Any Zone based on rules)</option>
+                      <option value="STORAGE">STORAGE (Standard Storage)</option>
+                      <option value="PICKING">PICKING (Fast Picking)</option>
+                      <option value="BULK">BULK (Bulk Overstock)</option>
+                      <option value="RECEIVING">RECEIVING (Receiving Staging)</option>
+                      <option value="QUARANTINE">QUARANTINE (Quarantine / Defect)</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Damaged / Quarantine Flag */}
+                <div className="pt-1 flex items-center justify-between p-2.5 rounded-lg bg-rose-950/20 border border-rose-900/30">
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      id="simDamaged"
+                      checked={simIsDamaged}
+                      onChange={(e) => setSimIsDamaged(e.target.checked)}
+                      className="accent-rose-500 w-4 h-4 rounded cursor-pointer"
+                    />
+                    <label htmlFor="simDamaged" className="text-rose-300 font-medium cursor-pointer">
+                      Damaged / Defective Stock
+                    </label>
+                  </div>
+                  <span className="text-[10px] text-rose-400 font-mono bg-rose-950/60 px-2 py-0.5 rounded border border-rose-800/40">
+                    Priority 1: Quarantine Isolation
+                  </span>
+                </div>
+
+                <div className="pt-2 flex justify-end">
+                  <button
+                    onClick={handleEvaluatePutaway}
+                    disabled={simEvaluating}
+                    className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-white bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 disabled:opacity-50 shadow-md transition-all cursor-pointer"
+                  >
+                    <Zap className={`w-4 h-4 text-amber-300 ${simEvaluating ? "animate-spin" : ""}`} />
+                    <span>{simEvaluating ? "Evaluating Engine Rules..." : "Run Putaway Engine"}</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Engine Recommendation Result */}
+              {simResult ? (
+                <div className="space-y-4">
+                  {simResult.recommended_location ? (
+                    <div className="bg-gradient-to-br from-slate-850 to-slate-900 border border-emerald-500/40 rounded-2xl p-5 shadow-lg space-y-3">
+                      {/* Top Badges */}
+                      <div className="flex items-center justify-between flex-wrap gap-2">
+                        <div className="flex items-center gap-2">
+                          <span className="px-2.5 py-0.5 rounded-md text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                            ★ RECOMMENDED LOCATION
+                          </span>
+                          {(() => {
+                            const r = simResult.recommended_location?.rule_applied || simResult.rule_applied || "RECOMMENDED";
+                            return (
+                              <span
+                                className={`px-2.5 py-0.5 rounded-md text-[10px] font-bold border ${
+                                  r === "QUARANTINE_ISOLATION"
+                                    ? "bg-rose-500/20 text-rose-300 border-rose-500/40"
+                                    : r === "DEDICATED_ITEM_BIN"
+                                    ? "bg-purple-500/20 text-purple-300 border-purple-500/40"
+                                    : r === "CO_LOCATED_STOCK"
+                                    ? "bg-blue-500/20 text-blue-300 border-blue-500/40"
+                                    : "bg-emerald-500/20 text-emerald-300 border-emerald-500/40"
+                                }`}
+                              >
+                                Rule: {r}
+                              </span>
+                            );
+                          })()}
+                        </div>
+                        {getZoneBadge(simResult.recommended_location.zone)}
+                      </div>
+
+                      {/* Fallback alert if over capacity */}
+                      {(simResult.status === "OVER_CAPACITY" || simResult.is_over_capacity_fallback) && (
+                        <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-[11px] flex items-center gap-2">
+                          <AlertCircle className="w-4 h-4 shrink-0 text-amber-400" />
+                          <span>Warehouse is near capacity. Falling back to least-occupied active bin.</span>
+                        </div>
+                      )}
+
+                      {/* Location Details */}
+                      <div className="flex items-center justify-between flex-wrap gap-3 pt-1">
+                        <div>
+                          <div className="font-mono text-xl font-extrabold text-emerald-400">
+                            {simResult.recommended_location.code}
+                          </div>
+                          <div className="text-slate-200 font-medium text-xs">
+                            {simResult.recommended_location.name}
+                          </div>
+                        </div>
+
+                        <button
+                          onClick={() =>
+                            handleHighlightLocation(
+                              simResult.recommended_location!.location_id,
+                              simResult.recommended_location!.code
+                            )
+                          }
+                          className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white transition-all shadow-md cursor-pointer"
+                        >
+                          <Eye className="w-3.5 h-3.5" />
+                          <span>Highlight in Grid</span>
+                        </button>
+                      </div>
+
+                      {/* Breadcrumbs */}
+                      <div className="grid grid-cols-4 gap-2 bg-slate-950/60 p-2.5 rounded-xl border border-slate-800 text-[11px]">
+                        <div>
+                          <span className="text-slate-400">Aisle:</span>{" "}
+                          <strong className="text-slate-200">{simResult.recommended_location.aisle || "—"}</strong>
+                        </div>
+                        <div>
+                          <span className="text-slate-400">Rack:</span>{" "}
+                          <strong className="text-slate-200">{simResult.recommended_location.rack || "—"}</strong>
+                        </div>
+                        <div>
+                          <span className="text-slate-400">Shelf:</span>{" "}
+                          <strong className="text-slate-200">{simResult.recommended_location.shelf || "—"}</strong>
+                        </div>
+                        <div>
+                          <span className="text-slate-400">Bin:</span>{" "}
+                          <strong className="text-slate-200">{simResult.recommended_location.bin_code || "—"}</strong>
+                        </div>
+                      </div>
+
+                      {/* Headroom / Capacity Progress Bar */}
+                      {(() => {
+                        const max = simResult.recommended_location.max_capacity_units || 100;
+                        const occ = Number(
+                          simResult.recommended_location.current_occupancy_units ??
+                          simResult.recommended_location.current_occupancy ??
+                          0
+                        );
+                        const avail = Number(
+                          simResult.recommended_location.available_headroom_units ??
+                          simResult.recommended_location.available_capacity ??
+                          (max - occ)
+                        );
+                        const pct = Math.min(100, Math.round((occ / max) * 100));
+
+                        return (
+                          <div className="space-y-1.5 pt-1">
+                            <div className="flex justify-between text-[11px] text-slate-300">
+                              <span>
+                                Current Occupancy:{" "}
+                                <strong className="text-white font-mono">
+                                  {occ.toFixed(1)}
+                                </strong>{" "}
+                                / {max} units
+                              </span>
+                              <span>
+                                Available Headroom:{" "}
+                                <strong className="text-emerald-400 font-mono">
+                                  {avail.toFixed(1)} units
+                                </strong>
+                              </span>
+                            </div>
+                            <div className="w-full bg-slate-800 rounded-full h-2 overflow-hidden">
+                              <div
+                                className={`h-full rounded-full transition-all duration-500 ${
+                                  pct > 90 ? "bg-rose-500" : pct > 70 ? "bg-amber-400" : "bg-emerald-500"
+                                }`}
+                                style={{ width: `${pct}%` }}
+                              />
+                            </div>
+                          </div>
+                        );
+                      })()}
+
+                      {/* Engine Rationale Callout */}
+                      <div className="p-2.5 rounded-xl bg-slate-950/80 border border-slate-800 text-[11px] text-slate-300 flex items-start gap-2">
+                        <Check className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                        <div>
+                          <strong className="text-emerald-400">Engine Rationale:</strong>{" "}
+                          {simResult.message || simResult.reason}
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="bg-rose-950/20 border border-rose-900/40 rounded-2xl p-5 text-center space-y-2">
+                      <AlertCircle className="w-6 h-6 text-rose-400 mx-auto" />
+                      <h4 className="font-bold text-slate-200">No Suitable Storage Location Found</h4>
+                      <p className="text-xs text-slate-400">{simResult.message || simResult.reason}</p>
+                    </div>
+                  )}
+
+                  {/* Ranked Alternative Candidates */}
+                  {(() => {
+                    const alts = (simResult.alternatives && simResult.alternatives.length > 0)
+                      ? simResult.alternatives
+                      : (simResult.candidate_locations && simResult.candidate_locations.length > 1)
+                      ? simResult.candidate_locations.slice(1)
+                      : [];
+
+                    if (alts.length === 0) return null;
+
+                    return (
+                      <div className="space-y-2">
+                        <h4 className="font-semibold text-slate-300 uppercase tracking-wider text-[11px]">
+                          Ranked Alternative Candidates ({alts.length})
+                        </h4>
+                        <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                          {alts.map((cand, idx) => {
+                            const candAvail = Number(cand.available_headroom_units ?? cand.available_capacity ?? 0);
+                            return (
+                              <div
+                                key={cand.location_id || idx}
+                                className="p-2.5 rounded-xl bg-slate-800/60 border border-slate-700/60 flex items-center justify-between text-xs hover:border-slate-600 transition-colors"
+                              >
+                                <div className="flex items-center gap-2">
+                                  <span className="font-mono font-bold text-slate-200">{cand.code}</span>
+                                  <span className="text-[10px] text-slate-400 font-mono">[{cand.zone || "STORAGE"}]</span>
+                                  <span className="text-[10px] text-slate-400">{cand.name}</span>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                  <span className="text-[11px] text-emerald-400 font-mono">
+                                    Headroom: {candAvail.toFixed(0)} units
+                                  </span>
+                                  <button
+                                    onClick={() => handleHighlightLocation(cand.location_id, cand.code)}
+                                    className="px-2.5 py-1 rounded-lg text-[10px] font-bold bg-slate-700 hover:bg-slate-600 text-slate-200 transition-colors"
+                                  >
+                                    Highlight
+                                  </button>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </div>
+              ) : (
+                /* Information Guide when not evaluated yet */
+                <div className="p-4 rounded-xl bg-slate-850 border border-slate-800 text-[11px] text-slate-400 space-y-2">
+                  <div className="font-semibold text-slate-300">How the Putaway Rule Engine works:</div>
+                  <ul className="list-disc pl-4 space-y-1 text-slate-400">
+                    <li>
+                      <strong className="text-rose-400">Priority 1 (Quarantine Isolation):</strong> Damaged goods are automatically routed to the QUARANTINE zone to prevent mixing with sound inventory.
+                    </li>
+                    <li>
+                      <strong className="text-purple-400">Priority 2 (Dedicated Item Bin):</strong> Products with configured bin affinities are assigned directly to their dedicated shelf/bin.
+                    </li>
+                    <li>
+                      <strong className="text-blue-400">Priority 3 (Co-located Stock):</strong> Bins currently holding the same product and batch with available headroom are matched to consolidate lots.
+                    </li>
+                    <li>
+                      <strong className="text-emerald-400">Priority 4 (Nearest Empty Bin):</strong> Bins are evaluated in sequence (<code className="text-slate-300">Aisle → Rack → Shelf → Bin</code>) to minimize traversal distance.
+                    </li>
+                  </ul>
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="px-6 py-3 border-t border-slate-800 bg-slate-950/80 flex items-center justify-between">
+              <span className="text-[11px] text-slate-500 font-mono">
+                Engine: SMRITI-PUTAWAY-v3.127.0
+              </span>
+              <button
+                onClick={() => setIsPutawayAdvisorOpen(false)}
+                className="px-4 py-2 text-xs font-semibold text-slate-300 bg-slate-800 hover:bg-slate-700 rounded-xl"
               >
                 Close
               </button>

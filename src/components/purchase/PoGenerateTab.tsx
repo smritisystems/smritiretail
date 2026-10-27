@@ -293,6 +293,7 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
   const [suppliersError, setSuppliersError] = useState<string | null>(null);
   const [supplierSearch, setSupplierSearch] = useState("");
   const [isScorecardOpen, setIsScorecardOpen] = useState(false);
+  const [availableWarehouses, setAvailableWarehouses] = useState<Array<{ id: string; code: string; name: string; is_central_godown?: boolean }>>([]);
 
   // Top Tabs: "general" | "items" | "other" | "attachments" | "history" — Default to "items" per Decision A
   const [activeTab, setActiveTab] = useState<"general" | "items" | "other" | "attachments" | "history">("items");
@@ -649,6 +650,29 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
         });
       } else {
         setSuppliersList([]);
+      }
+
+      // Fetch active warehouses for governed delivery location picker
+      try {
+        const whRes: any = await apiFetchV1("/wms/warehouses");
+        const whList = Array.isArray(whRes) ? whRes : whRes?.items || [];
+        if (whList.length > 0) {
+          const activeWhs = whList.filter((w: any) => w.is_active !== false);
+          setAvailableWarehouses(activeWhs);
+          setHeader(current => {
+            if (!current.warehouseId && activeWhs.length > 0) {
+              const central = activeWhs.find((w: any) => w.is_central_godown) || activeWhs[0];
+              return {
+                ...current,
+                warehouseId: central.id,
+                deliveryLocation: `${central.code} - ${central.name}`,
+              };
+            }
+            return current;
+          });
+        }
+      } catch (err) {
+        console.warn("[PoGenerateTab] Failed to load warehouses:", err);
       }
 
       // Fetch next order number sequence
@@ -1588,6 +1612,8 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
         special_instructions: header.specialInstructions,
         supplier_reference: header.supplierReference,
         business_terms: header.businessTerms,
+        delivery_location: header.deliveryLocation,
+        warehouse_id: header.warehouseId,
       };
 
       const payload = {
@@ -1595,6 +1621,7 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
         order_date: header.orderDate || new Date().toISOString().split("T")[0],
         supplier_id: header.supplierId,
         supplier_name: header.supplierName,
+        warehouse_id: header.warehouseId || undefined,
         delivery_date: header.deliveryDate || new Date(Date.now() + header.leadTimeDays * 86400000).toISOString().split("T")[0],
         commercial_terms: commercialTerms,
         rule_snapshots: {
@@ -2096,13 +2123,35 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
                 </div>
 
                 <div>
-                  <label className="block font-medium text-slate-500 dark:text-slate-400 mb-0.5 text-[11px]">Delivery Location</label>
-                  <input
-                    type="text"
-                    value={header.deliveryLocation}
-                    onChange={(e) => setHeader({ ...header, deliveryLocation: e.target.value })}
-                    className="w-full border border-slate-300 dark:border-slate-600 rounded-lg px-2.5 h-7 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 outline-none focus:border-blue-600 text-xs"
-                  />
+                  <label className="block font-medium text-slate-500 dark:text-slate-400 mb-0.5 text-[11px]">Delivery Location / Warehouse</label>
+                  {availableWarehouses.length > 0 ? (
+                    <select
+                      value={header.warehouseId || ""}
+                      onChange={(e) => {
+                        const selId = e.target.value;
+                        const wh = availableWarehouses.find((w) => w.id === selId);
+                        setHeader({
+                          ...header,
+                          warehouseId: selId,
+                          deliveryLocation: wh ? `${wh.code} - ${wh.name}` : selId,
+                        });
+                      }}
+                      className="w-full border border-slate-300 dark:border-slate-600 rounded-lg px-2 h-7 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 font-semibold outline-none focus:border-blue-600 text-xs"
+                    >
+                      {availableWarehouses.map((w) => (
+                        <option key={w.id} value={w.id}>
+                          [{w.code}] {w.name} {w.is_central_godown ? "⭐" : ""}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <input
+                      type="text"
+                      value={header.deliveryLocation}
+                      onChange={(e) => setHeader({ ...header, deliveryLocation: e.target.value })}
+                      className="w-full border border-slate-300 dark:border-slate-600 rounded-lg px-2.5 h-7 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 outline-none focus:border-blue-600 text-xs"
+                    />
+                  )}
                 </div>
               </div>
             </div>
@@ -3674,6 +3723,7 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
           supplierReference: header.supplierReference || "",
           deliveryDate: header.deliveryDate || "",
           deliveryLocation: header.deliveryLocation || "Main Store (MAIN)",
+          warehouseId: header.warehouseId,
           leadTimeDays: header.leadTimeDays || 7,
           otherCharges: header.otherCharges ?? 0,
           businessTerms: header.businessTerms ?? DEFAULT_BUSINESS_TERMS,

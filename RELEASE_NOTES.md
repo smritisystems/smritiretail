@@ -4,15 +4,48 @@
   Designation  : Chief Systems Architect & Creator
   Email        : support@smritibooks.com
   Websites     : smritibooks.com | erpnbook.com | aitdl.com
-  Version      : 6.99.13
+  Version      : 3.126.0
   Created      : 2026-10-13
-  Modified     : 2026-10-25
+  Modified     : 2026-10-28
   Copyright    : © SMRITIBooks.com. All Rights Reserved.
   License      : Proprietary Commercial Software
   Classification: Internal
 -->
 
 # SMRITI Retail OS — Release Notes
+
+## Release v3.127.0 (2026-10-28)
+
+### WMS Phase 2 — Physical Storage Bin Matrix, Aisle/Rack/Shelf Generation & Automated Putaway Rule Engine
+
+#### Overview
+Delivers the automated Putaway Rule Engine and hardens physical bin creation and matrix generation against tenant schema drift (`is_default_for_branch` column absence) across SMRITI Retail OS. Inwarded products are systematically evaluated against a 4-tier decision cascade to determine the optimal physical storage bin with real-time headroom and capacity calculation.
+
+#### Key Highlights
+- **Schema-Drift Resilient Storage Bin Creation**: Hardened `create_warehouse_location` and `generate_warehouse_locations_matrix` in `backend/app/api/v1/wms.py` with centralized `_get_warehouse_resilient` helper function, executing automatic session rollback and `defer()` column fallback when operating against unmigrated tenant databases.
+- **Automated 4-Tier Putaway Rule Engine**: Implemented `InventoryWmsService.recommend_putaway` enforcing:
+  1. *Priority 1 (Quarantine Isolation)*: Damaged goods or quarantine requests are routed directly to active `QUARANTINE` zone bins.
+  2. *Priority 2 (Dedicated Item Bin)*: Items with configured `ItemWarehouseLocation` bin affinities are directed to their assigned location.
+  3. *Priority 3 (Co-located Stock)*: Consolidated placement matching existing stock of the same product or batch within `STORAGE` / `PICKING` / `BULK` zones.
+  4. *Priority 4 (Nearest Available Empty Bin)*: Sequential spatial traversal (`aisle -> rack -> shelf -> bin`) to assign clean, empty bins or partially occupied bins with sufficient headroom.
+- **Headroom & Over-Capacity Protection**: Calculates real-time occupancy by aggregating physical `StockMovement` ledger rows, providing explicit `OVER_CAPACITY` or `NO_LOCATIONS_DEFINED` statuses with ranked alternative candidate bins.
+- **REST API Endpoint**: Exposed `POST /api/v1/wms/warehouses/{warehouse_id}/putaway-recommendation` returning primary recommendation, ranked alternatives, and headroom metrics.
+- **Test Certification**: 25/25 automated backend tests green (121.76s) and 0 TypeScript compilation errors.
+
+## Release v3.126.0 (2026-10-28)
+
+### Inventory & WMS — Warehouse Code Governance, Schema Drift Resilience & Location Selector Wiring
+
+#### Overview
+Eliminates schema-drift crashes (`UndefinedColumnError: column warehouses.is_default_for_branch does not exist`), delivers automated readable warehouse code generation (`WH-{BRANCH}-{SEQ:03d}` / `WH-{SEQ:03d}`) and regex format validation, guarantees deactivation code freeze (preventing code reuse), dynamically wires governed warehouse pickers with stable technical IDs across POS Dashboard, Purchase Orders, Delivery Terms, GRN receipts, and Inter-Godown Stock Transfers, and eliminates empty-state confusion in WMS Bin Location Management.
+
+#### Key Highlights
+- **Automated Sequential Code Generation & Deactivation Freeze (R-WCG-01)**: Implemented regex format validation (`^[A-Z0-9_\-\.]{2,50}$`) and automatic sequence assignment (`WH-BR01-001`, `WH-001`). Enforced tenant-wide unique code constraints spanning both active and deactivated warehouses, preventing historical transaction cross-talk.
+- **Non-Disruptive Schema Drift Resilience (R-WCG-02)**: Decorated all warehouse ORM queries with automatic session rollback and `defer(Warehouse.is_default_for_branch)` fallback, alongside raw SQL insert fallback for unmigrated tenant databases (e.g. `smriti001` at `v1556`).
+- **Dynamic Warehouse Pickers & Stable ID Binding (R-WCG-03)**: Replaced hardcoded HTML strings (`"Main Warehouse"`, `"Branch 02"`, `"WH-01"`) with dynamic API-backed pickers in `RegularUxDashboard.tsx`, `PoGenerateTab.tsx`, `PoSizewiseTab.tsx`, `GrnReceiptTab.tsx`, `CommercialDeliveryDrawer.tsx`, and `StockTransferStudioModal.tsx`.
+- **Mandatory GRN Receiving Attribution (R-WCG-04)**: Bound `warehouse_id` as a required parameter in `GrnReceiptTab.tsx` header, auto-prefilling from purchase order or central godown, with blocking UI validation preventing untracked inventory receipts.
+- **WMS Spatial Hierarchy Guidance (R-WCG-05)**: Clarified in `WarehouseLocationManager.tsx` that the empty state refers to physical storage subdivisions (aisles, racks, shelves, bins) inside an active warehouse, providing 1-Click Matrix Wizard shortcuts.
+- **Verification Battery**: 17/17 backend Pytest tests green (`test_warehouse_code_governance.py`, `test_inventory_warehouse_resolver.py`, `test_wms_integrity_deferred.py`), 0 TypeScript compiler errors (`npx tsc --noEmit`), and live read-only verification on `smriti001` confirming resolution across all 106 active warehouses.
 
 ## Release v3.125.0 (2026-10-27)
 

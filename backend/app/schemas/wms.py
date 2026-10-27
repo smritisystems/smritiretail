@@ -22,8 +22,9 @@ from ..core.gst_engine import GST_STATE_CODES
 
 # --- Warehouse Schemas ---
 class WarehouseBase(BaseModel):
-    code: str
+    code: Optional[str] = None
     name: str
+    branch_id: Optional[str] = None
     is_transit: bool = False
     is_central_godown: bool = False
     is_default_for_branch: bool = False  # R-007: governs branch-level warehouse resolution
@@ -171,6 +172,7 @@ class WarehouseUpdate(BaseModel):
 
 class WarehouseResponse(WarehouseBase):
     id: str
+    code: str
     company_id: Optional[str] = None
     branch_id: Optional[str] = None
     is_active: bool
@@ -333,4 +335,41 @@ class StockAuditResponse(BaseModel):
     created_at: Optional[datetime] = None
 
     model_config = ConfigDict(from_attributes=True)
+
+
+# --- Putaway Engine Schemas ---
+class PutawayRecommendationRequest(BaseModel):
+    product_id: Optional[str] = None
+    item_id: Optional[str] = None
+    sku: Optional[str] = None
+    quantity: Decimal = Decimal("1.0000")
+    batch_no: Optional[str] = None
+    is_damaged: bool = False
+    preferred_zone: Optional[str] = None
+
+
+class PutawayCandidateLocation(BaseModel):
+    location_id: str
+    code: str
+    name: str
+    zone: str
+    aisle: Optional[str] = None
+    rack: Optional[str] = None
+    shelf: Optional[str] = None
+    bin_code: Optional[str] = None
+    barcode: Optional[str] = None
+    max_capacity_units: Optional[int] = 100
+    current_occupancy: float = 0.0
+    available_capacity: float = 100.0
+    rule_applied: str  # QUARANTINE_ISOLATION, DEDICATED_ITEM_BIN, CO_LOCATED_STOCK, EMPTY_BIN_ALLOCATION, ZONE_CAPACITY_FALLBACK
+    model_config = ConfigDict(from_attributes=True)
+
+
+class PutawayRecommendationResponse(BaseModel):
+    warehouse_id: str
+    warehouse_code: str
+    status: str  # RECOMMENDED, OVER_CAPACITY, NO_LOCATIONS_DEFINED, FALLBACK
+    recommended_location: Optional[PutawayCandidateLocation] = None
+    alternatives: List[PutawayCandidateLocation] = []
+    message: str
 

@@ -48,6 +48,7 @@ import {
   Upload,
   Download,
   X,
+  MapPin,
 } from "lucide-react";
 import { CreateDebitNoteModal } from "../CreateDebitNoteDlg.tsx";
 import { AddCostComponentModal } from "./AddCostComponentModal.tsx";
@@ -318,6 +319,8 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
   const [grnDate, setGrnDate] = useState(() => new Date().toISOString().split("T")[0]);
   const [supplierName, setSupplierName] = useState("");
   const [supplierId, setSupplierId] = useState("");
+  const [availableWarehouses, setAvailableWarehouses] = useState<Array<{ id: string; code: string; name: string; is_central_godown?: boolean }>>([]);
+  const [selectedWarehouseId, setSelectedWarehouseId] = useState<string>("");
   const [invoiceNumber, setInvoiceNumber] = useState("");
   const [invoiceDate, setInvoiceDate] = useState(() => new Date().toISOString().split("T")[0]);
   const [referencePo, setReferencePo] = useState("");
@@ -479,12 +482,31 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
     }
   }, []);
 
+  const loadWarehouses = useCallback(async () => {
+    try {
+      const res: any = await apiFetchV1("/wms/warehouses");
+      const list = Array.isArray(res) ? res : res?.items || [];
+      const active = list.filter((w: any) => w.is_active !== false);
+      setAvailableWarehouses(active);
+      if (active.length > 0) {
+        setSelectedWarehouseId((prev) => {
+          if (prev && active.some((w: any) => w.id === prev)) return prev;
+          const central = active.find((w: any) => w.is_central_godown) || active[0];
+          return central.id;
+        });
+      }
+    } catch {
+      setAvailableWarehouses([]);
+    }
+  }, []);
+
   useEffect(() => {
     loadCostTypes();
     loadOrders();
     loadReceipts();
     loadSuppliers();
-  }, [loadCostTypes, loadOrders, loadReceipts, loadSuppliers]);
+    loadWarehouses();
+  }, [loadCostTypes, loadOrders, loadReceipts, loadSuppliers, loadWarehouses]);
 
   useEffect(() => {
     if (initialOrderId && orders.length > 0 && selectedOrderId !== initialOrderId) {
@@ -538,6 +560,9 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
       setSupplierId(order.supplier_id);
       setSupplierName(order.supplier_name || order.supplier_id);
       setReferencePo(order.order_no || order.order_number || order.id);
+      if ((order as any)?.warehouse_id) {
+        setSelectedWarehouseId((order as any).warehouse_id);
+      }
 
       // Aggregate previously received quantities from savedReceipts for this order
       const priorInwardMap = new Map<string, number>();
@@ -726,6 +751,61 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
     };
     setGrnLines((prev) => [...prev, newLine]);
     onNotification?.("Product Added", `${prod.name} added to inward list.`, "success");
+  };
+
+  const [isAutoAssigningPutaway, setIsAutoAssigningPutaway] = useState(false);
+
+  const handleAutoAssignPutawayBins = async () => {
+    if (!selectedWarehouseId) {
+      onNotification?.("Warehouse Required", "Please select a target receiving Warehouse in Step 1 first.", "warning");
+      return;
+    }
+    const linesWithQty = grnLines.filter((l) => l.quantity_received > 0);
+    if (linesWithQty.length === 0) {
+      onNotification?.("No Inward Items", "Please enter received quantities before evaluating putaway bins.", "warning");
+      return;
+    }
+
+    setIsAutoAssigningPutaway(true);
+    let assignedCount = 0;
+    try {
+      const updatedLines = [...grnLines];
+      for (let i = 0; i < updatedLines.length; i++) {
+        const line = updatedLines[i];
+        if (line.quantity_received <= 0) continue;
+        const prodId = line.product_id || line.code;
+        try {
+          const res = await apiFetchV1<any>(`/wms/warehouses/${selectedWarehouseId}/putaway-recommendation`, {
+            method: "POST",
+            body: JSON.stringify({
+              product_id: prodId,
+              quantity: line.quantity_received,
+              batch_no: line.batch_no || undefined,
+              is_damaged: line.quantity_damaged > 0 && line.quantity_damaged === line.quantity_received,
+            }),
+          });
+          if (res?.recommended_location?.location_id) {
+            updatedLines[i] = {
+              ...line,
+              warehouse_location_id: res.recommended_location.location_id,
+            };
+            assignedCount++;
+          }
+        } catch {
+          // ignore individual line failures
+        }
+      }
+      setGrnLines(updatedLines);
+      onNotification?.(
+        "Putaway Bins Allocated",
+        `Successfully allocated optimal storage bins for ${assignedCount} inward line(s).`,
+        "success"
+      );
+    } catch (err: any) {
+      onNotification?.("Putaway Error", err.message || "Failed to auto-assign putaway bins.", "error");
+    } finally {
+      setIsAutoAssigningPutaway(false);
+    }
   };
 
   // Synthetic scanner chime
@@ -1476,11 +1556,16 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
       onNotification?.("Supplier Required", "Please select a valid supplier from the database before posting GRN.", "warning");
       return;
     }
+    if (!selectedWarehouseId) {
+      onNotification?.("Warehouse Required", "Please select a target receiving Warehouse / Godown.", "warning");
+      return;
+    }
     setSaving(true);
     try {
       const payload = {
         supplier_id: effSupplier,
         order_id: selectedOrderId || undefined,
+        warehouse_id: selectedWarehouseId,
         receipt_no: grnNumber.trim() ? grnNumber.trim() : undefined,
         notes: notes || undefined,
         transporter_name: transporterName || undefined,
@@ -1982,6 +2067,12 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
                         <td className="py-2.5 px-3">
                           <span className="font-semibold text-slate-900 dark:text-white block">{row.name}</span>
                           <span className="text-[10px] text-slate-400 block">Size: {row.size} • Color: {row.color}</span>
+                          {row.warehouse_location_id && (
+                            <span className="mt-1 inline-flex items-center gap-1 text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                              <MapPin className="w-2.5 h-2.5" />
+                              Bin Allocated
+                            </span>
+                          )}
                         </td>
                         <td className="py-2.5 px-2 text-right font-mono text-slate-600 dark:text-slate-400">{row.quantity_ordered}</td>
                         <td className="py-2.5 px-2 text-right font-mono">
@@ -2160,6 +2251,16 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
           >
             <Download className="w-3.5 h-3.5 text-slate-500" />
             <span>Download Template</span>
+          </button>
+          <button
+            type="button"
+            onClick={handleAutoAssignPutawayBins}
+            disabled={isAutoAssigningPutaway || grnLines.length === 0}
+            className="px-3 py-1.5 rounded-lg border border-emerald-300 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 text-xs font-semibold text-emerald-700 dark:text-emerald-300 transition flex items-center gap-1.5 shadow-xs cursor-pointer disabled:opacity-50"
+            title="Evaluate 4-tier Putaway Rule Engine for all inward lines"
+          >
+            <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+            <span>{isAutoAssigningPutaway ? "Allocating Bins..." : "Auto-Assign Putaway Bins"}</span>
           </button>
         </div>
       </div>
@@ -3525,9 +3626,30 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
                   compact={true}
                 />
               </div>
-              <div className="md:col-span-2">
+              <div>
+                <label className="block text-slate-500 font-medium mb-1">
+                  Target Godown <span className="text-rose-500">*</span>
+                </label>
+                <select
+                  value={selectedWarehouseId}
+                  onChange={(e) => setSelectedWarehouseId(e.target.value)}
+                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-2.5 py-1.5 text-slate-800 dark:text-slate-200 outline-none font-semibold text-xs"
+                  data-testid="header-target-warehouse"
+                >
+                  {availableWarehouses.length === 0 ? (
+                    <option value="">-- No Warehouses --</option>
+                  ) : (
+                    availableWarehouses.map((w) => (
+                      <option key={w.id} value={w.id}>
+                        [{w.code}] {w.name} {w.is_central_godown ? "⭐" : ""}
+                      </option>
+                    ))
+                  )}
+                </select>
+              </div>
+              <div>
                 <div className="flex items-center justify-between mb-1">
-                  <label className="block text-slate-500 font-medium">Purchase Order Source</label>
+                  <label className="block text-slate-500 font-medium">PO Source</label>
                   {supplierId && (
                     <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
                       {eligibleOrders.length} {eligibleOrders.length === 1 ? "Order" : "Orders"}
