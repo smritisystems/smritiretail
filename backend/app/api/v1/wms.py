@@ -20,6 +20,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Header
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
+from sqlalchemy import func
 
 from ...api.deps import (
     get_company_db, get_tenant_context, TenantContext,
@@ -161,7 +162,13 @@ async def delete_warehouse_location(
     tenant_ctx: TenantContext = Depends(get_tenant_context),
     guard: Any = Depends(require_permission("inventory_workspace", "DELETE")),
 ):
-    """Soft-delete an existing warehouse location."""
+    """Soft-delete an existing warehouse location.
+
+    R-012: Blocks deletion if any stock movement ledger rows reference this location.
+    Historical stock movements must remain navigable even after a location is decommissioned.
+    If references exist, use is_active=False (PUT /locations/{id}) to deactivate without
+    breaking the audit trail.
+    """
     loc = await db.scalar(select(WarehouseLocation).where(
         WarehouseLocation.id == location_id,
         WarehouseLocation.company_id == tenant_ctx.company_id,
@@ -170,11 +177,29 @@ async def delete_warehouse_location(
     if not loc:
         raise HTTPException(status_code=404, detail="Location not found.")
 
+    # R-012: Guard — check for historical stock movement references.
+    from ..models.inventory import StockMovement
+    ref_count_q = select(func.count(StockMovement.id)).where(
+        StockMovement.location_id == location_id,
+        StockMovement.company_id == tenant_ctx.company_id,
+    )
+    ref_count = await db.scalar(ref_count_q)
+    if ref_count and ref_count > 0:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                f"This location has {ref_count} stock movement record(s) referencing it. "
+                "Deleting it would make those records unnavigable in reports. "
+                "To decommission this location, set is_active=false via PUT /locations/{id} instead."
+            ),
+        )
+
     loc.is_deleted = True
     loc.is_active = False
     loc.deleted_at = datetime.now(timezone.utc)
     await db.commit()
     return {"success": True, "message": f"Location '{loc.code}' deleted successfully."}
+
 
 
 @router.post("/warehouses/{warehouse_id}/locations/generate", response_model=WarehouseLocationMatrixGenerateResponse, status_code=201)
@@ -411,7 +436,61 @@ async def update_warehouse(
     return WarehouseResponse.model_validate(wh)
 
 
+@router.patch("/warehouses/{warehouse_id}/deactivate", response_model=WarehouseResponse)
+async def deactivate_warehouse(
+    warehouse_id: str,
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+    guard: Any = Depends(require_permission("inventory_workspace", "DELETE")),
+):
+    """Deactivate a warehouse (set is_active=False) after verifying zero live stock.
+
+    R-013: Blocks deactivation if any ProductBatchStock row for this warehouse holds
+    a positive net quantity (quantity - reserved - damaged > 0). Transfer all stock out
+    first, then deactivate.
+    """
+    q = select(Warehouse).where(
+        Warehouse.id == warehouse_id,
+        Warehouse.company_id == tenant_ctx.company_id,
+        Warehouse.is_deleted == False,
+    )
+    res = await db.execute(q)
+    wh = res.scalars().first()
+    if not wh:
+        raise HTTPException(status_code=404, detail="Warehouse not found.")
+
+    if not wh.is_active:
+        return WarehouseResponse.model_validate(wh)  # Already inactive — idempotent.
+
+    # R-013: Stock-zero gate — count batch stock rows with net positive quantity.
+    non_zero_q = select(func.count(ProductBatchStock.id)).where(
+        ProductBatchStock.warehouse_id == warehouse_id,
+        ProductBatchStock.company_id == tenant_ctx.company_id,
+        ProductBatchStock.is_deleted == False,
+        (ProductBatchStock.quantity - ProductBatchStock.reserved_quantity - ProductBatchStock.damaged_quantity) > 0,
+    )
+    non_zero_count = await db.scalar(non_zero_q)
+    if non_zero_count and non_zero_count > 0:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                f"This warehouse has {non_zero_count} batch(es) with positive stock on hand. "
+                "Transfer all stock to another warehouse before deactivating."
+            ),
+        )
+
+    wh.is_active = False
+    # If this was the branch default, clear that flag so the resolver doesn't return an inactive warehouse.
+    if wh.is_default_for_branch:
+        wh.is_default_for_branch = False
+
+    await db.commit()
+    await db.refresh(wh)
+    return WarehouseResponse.model_validate(wh)
+
+
 # ─────────────────────────── Batch Stock & FEFO ───────────────────────────
+
 
 @router.get("/batch-stocks", response_model=List[ProductBatchStockResponse])
 async def list_batch_stocks(

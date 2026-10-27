@@ -158,13 +158,13 @@ export const WmsStudioTab: React.FC<{
   const [vehicleNo, setVehicleNo] = useState("");
 
   // Inward GRN form state
-  const [grnSupplierId, setGrnSupplierId] = useState("sup-test-01");
+  const [grnSupplierId, setGrnSupplierId] = useState(""); // R-011: removed hardcoded test value
   const [grnWarehouseId, setGrnWarehouseId] = useState("");
   const [grnProductId, setGrnProductId] = useState("");
   const [grnBatchNo, setGrnBatchNo] = useState("");
   const [grnExpiryDate, setGrnExpiryDate] = useState("");
-  const [grnQty, setGrnQty] = useState(50);
-  const [grnCostPrice, setGrnCostPrice] = useState(120);
+  const [grnQty, setGrnQty] = useState(0);
+  const [grnCostPrice, setGrnCostPrice] = useState(0);
 
   // FEFO Simulator state
   const [fefoProductId, setFefoProductId] = useState("");
@@ -394,6 +394,14 @@ export const WmsStudioTab: React.FC<{
   // Handle Inward GRN
   const handleCreateGrn = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!grnSupplierId.trim()) {
+      onNotification?.("Validation Error", "Please provide a Supplier ID.", "error");
+      return;
+    }
+    if (!grnWarehouseId) {
+      onNotification?.("Validation Error", "Please select a target Warehouse.", "error");
+      return;
+    }
     if (!grnProductId || grnQty <= 0) {
       onNotification?.("Validation Error", "Please provide product and received quantity.", "error");
       return;

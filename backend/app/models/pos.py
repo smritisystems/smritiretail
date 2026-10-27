@@ -4,9 +4,9 @@ Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
-Version      : 6.16.0
+Version      : 6.17.0
 Created      : 2026-07-11
-Modified     : 2026-08-23
+Modified     : 2026-10-27
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 Classification: Internal
@@ -119,7 +119,8 @@ class POSParkedCart(BaseEntity):
     """
     __tablename__ = "pos_parked_carts"
 
-    branch_id        = Column(String(50), nullable=False, index=True)
+    # R-014 (2026-10-27): Added ForeignKey to branches.id. Previously an unguarded String.
+    branch_id        = Column(String(50), ForeignKey("branches.id", ondelete="RESTRICT"), nullable=False, index=True)
     session_id       = Column(String(100), nullable=False, index=True)
     cashier_id       = Column(String(50), nullable=False, index=True)
     hold_slip_number = Column(String(50), nullable=False, unique=True, index=True)
