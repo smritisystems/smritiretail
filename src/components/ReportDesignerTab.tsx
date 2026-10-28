@@ -126,6 +126,8 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
   // Standard Daily Retail Reports In-Report Filters & Views
   const [reportSearchQuery, setReportSearchQuery] = useState<string>("");
   const [salesViewMode, setSalesViewMode] = useState<"detailed" | "bill_summary">("detailed");
+  const [grnViewMode, setGrnViewMode] = useState<"detailed" | "grn_summary">("detailed");
+  const [purchaseInwardData, setPurchaseInwardData] = useState<any>(null);
   const [activeDatePreset, setActiveDatePreset] = useState<"today" | "yesterday" | "week" | "month" | "all" | "custom">("all");
 
   // Single Store Default & Progressive Location Management
@@ -449,6 +451,63 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
     return { totalArticles, totalQty, totalValuation, lowStockCount };
   }, [filteredStockLines]);
 
+  // Purchase Inward Lines for RPT-PUR-001
+  const filteredGrnLines = useMemo(() => {
+    if (!purchaseInwardData || !Array.isArray(purchaseInwardData.lines)) return [];
+    if (!reportSearchQuery.trim()) return purchaseInwardData.lines;
+    const q = reportSearchQuery.toLowerCase().trim();
+    return purchaseInwardData.lines.filter((l: any) =>
+      (l.receipt_no && l.receipt_no.toLowerCase().includes(q)) ||
+      (l.supplier_name && l.supplier_name.toLowerCase().includes(q)) ||
+      (l.product_code && l.product_code.toLowerCase().includes(q)) ||
+      (l.product_name && l.product_name.toLowerCase().includes(q)) ||
+      (l.order_no && l.order_no.toLowerCase().includes(q))
+    );
+  }, [purchaseInwardData, reportSearchQuery]);
+
+  const grnSummaryList = useMemo(() => {
+    if (!filteredGrnLines.length) return [];
+    const grnMap = new Map<string, any>();
+    for (const line of filteredGrnLines) {
+      if (!grnMap.has(line.receipt_no)) {
+        grnMap.set(line.receipt_no, {
+          receipt_no: line.receipt_no,
+          receipt_date: line.receipt_date,
+          supplier_name: line.supplier_name,
+          order_no: line.order_no,
+          status: line.status,
+          itemCount: 0,
+          totalQty: 0,
+          totalTax: 0,
+          totalLanded: 0,
+        });
+      }
+      const g = grnMap.get(line.receipt_no);
+      g.itemCount += 1;
+      g.totalQty += Number(line.quantity_received) || 0;
+      g.totalTax += Number(line.tax_amount) || 0;
+      g.totalLanded += Number(line.line_total) || 0;
+    }
+    return Array.from(grnMap.values());
+  }, [filteredGrnLines]);
+
+  const grnTotals = useMemo(() => {
+    let totalQty = 0;
+    let totalTax = 0;
+    let totalLanded = 0;
+    for (const l of filteredGrnLines) {
+      totalQty += Number(l.quantity_received) || 0;
+      totalTax += Number(l.tax_amount) || 0;
+      totalLanded += Number(l.line_total) || 0;
+    }
+    return {
+      grnCount: new Set(filteredGrnLines.map((l: any) => l.receipt_no)).size,
+      totalQty,
+      totalTax,
+      totalLanded,
+    };
+  }, [filteredGrnLines]);
+
   useEffect(() => {
     async function loadReportsData() {
       if (!selectedReport) return;
@@ -463,7 +522,10 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
 
           const valData = await apiFetchV1("/reports/stock-valuation");
           setStockValuationData(valData);
-        } else if (selectedReport.id === "RPT-PUR-001" || selectedReport.id === "RPT-PUR-002") {
+        } else if (selectedReport.id === "RPT-PUR-001") {
+          const data = await apiFetchV1(`/reports/purchase-inward-register${params}`);
+          setPurchaseInwardData(data);
+        } else if (selectedReport.id === "RPT-PUR-002") {
           const data = await apiFetchV1(`/reports/purchase-summary${params}`);
           setPurchaseReportData(data);
 
@@ -1930,6 +1992,8 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
             initialTitle="Report Builder"
             onReturnToCatalog={() => setActiveView("bi_center")}
             onNotification={(type, msg) => showNotification(type, msg)}
+            isLocationsManagementEnabled={isLocationsManagementEnabled}
+            activeStoreName={activeStoreName}
           />
         </div>
       )}
@@ -2302,8 +2366,256 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
               </div>
             )}
 
+            {/* Standard Purchase Inward Register (GRN) View */}
+            {selectedReport.id === "RPT-PUR-001" && (
+              <div className="space-y-4">
+                {/* Header Controls */}
+                <div className="flex flex-wrap items-center justify-between gap-3 p-4 rounded-xl bg-theme-surface-2 border border-theme-border">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-500">
+                      <Truck className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h2 className="text-base font-bold text-theme-heading">Purchase Inward Register (GRN)</h2>
+                        <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-emerald-500/10 text-emerald-600 border border-emerald-500/20">
+                          {activeStoreName} · Single Store
+                        </span>
+                      </div>
+                      <p className="text-xs text-theme-muted">
+                        Verified Goods Receipt Notes (GRN) with supplier, article code, received quantities, landed cost, and GST.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <div className="flex items-center bg-theme-surface-3 p-0.5 rounded-lg border border-theme-border text-xs">
+                      <button
+                        onClick={() => setGrnViewMode("detailed")}
+                        className={`px-3 py-1.5 rounded-md font-medium transition-all ${
+                          grnViewMode === "detailed"
+                            ? "bg-theme-surface text-theme-heading shadow-sm"
+                            : "text-theme-muted hover:text-theme-body"
+                        }`}
+                      >
+                        Detailed Line Items View
+                      </button>
+                      <button
+                        onClick={() => setGrnViewMode("grn_summary")}
+                        className={`px-3 py-1.5 rounded-md font-medium transition-all ${
+                          grnViewMode === "grn_summary"
+                            ? "bg-theme-surface text-theme-heading shadow-sm"
+                            : "text-theme-muted hover:text-theme-body"
+                        }`}
+                      >
+                        GRN Summary View
+                      </button>
+                    </div>
+                    <button
+                      onClick={() => setSelectedReport(null)}
+                      className="px-3 py-1.5 rounded-lg border border-theme-border hover:bg-theme-surface-hover text-theme-body text-xs font-medium transition-colors"
+                      title="Return to BI Hub"
+                    >
+                      Return to BI Hub
+                    </button>
+                  </div>
+                </div>
+
+                {/* 4 Standard Inward KPI Cards */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  <div className="p-3.5 rounded-xl bg-theme-surface border border-theme-border">
+                    <span className="text-[10px] font-mono text-theme-muted uppercase tracking-wider block">Total GRNs Inwarded</span>
+                    <span className="text-lg font-bold font-mono text-theme-heading mt-1 block">
+                      {grnTotals.grnCount.toLocaleString("en-IN")} GRNs
+                    </span>
+                  </div>
+                  <div className="p-3.5 rounded-xl bg-theme-surface border border-theme-border">
+                    <span className="text-[10px] font-mono text-theme-muted uppercase tracking-wider block">Total Received Qty</span>
+                    <span className="text-lg font-bold font-mono text-blue-500 mt-1 block">
+                      {grnTotals.totalQty.toLocaleString("en-IN", { minimumFractionDigits: 0 })} Pcs
+                    </span>
+                  </div>
+                  <div className="p-3.5 rounded-xl bg-theme-surface border border-theme-border">
+                    <span className="text-[10px] font-mono text-theme-muted uppercase tracking-wider block">Total Inward GST</span>
+                    <span className="text-lg font-bold font-mono text-purple-500 mt-1 block">
+                      ₹{grnTotals.totalTax.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </span>
+                  </div>
+                  <div className="p-3.5 rounded-xl bg-theme-surface border border-theme-border">
+                    <span className="text-[10px] font-mono text-theme-muted uppercase tracking-wider block">Total Landed Value</span>
+                    <span className="text-lg font-bold font-mono text-emerald-500 mt-1 block">
+                      ₹{grnTotals.totalLanded.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Live Search */}
+                <div className="relative">
+                  <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-theme-muted" />
+                  <input
+                    type="text"
+                    placeholder="Filter GRN #, Supplier Name, PO #, Article Code..."
+                    value={reportSearchQuery}
+                    onChange={(e) => setReportSearchQuery(e.target.value)}
+                    className="w-full pl-9 pr-4 py-2 rounded-lg bg-theme-surface-2 border border-theme-border text-xs text-theme-heading placeholder:text-theme-muted focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                  />
+                </div>
+
+                {/* Data Table */}
+                <div className="overflow-x-auto rounded-xl border border-theme-border bg-theme-surface">
+                  {grnViewMode === "detailed" ? (
+                    <table className="w-full text-left text-xs">
+                      <thead>
+                        <tr className="bg-theme-surface-2 text-theme-muted uppercase font-mono border-b border-theme-divider">
+                          <th className="p-3">GRN #</th>
+                          <th className="p-3">Date</th>
+                          <th className="p-3">Supplier</th>
+                          <th className="p-3">PO #</th>
+                          <th className="p-3">Article / SKU</th>
+                          <th className="p-3">Item Description</th>
+                          <th className="p-3 text-right">Qty Received</th>
+                          <th className="p-3 text-right">Cost Rate (₹)</th>
+                          <th className="p-3 text-right">GST %</th>
+                          <th className="p-3 text-right">Tax (₹)</th>
+                          <th className="p-3 text-right">Line Total (₹)</th>
+                          <th className="p-3 text-center">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-theme-divider/40">
+                        {filteredGrnLines.length === 0 ? (
+                          <tr>
+                            <td colSpan={12} className="p-8 text-center text-theme-muted">
+                              No purchase inward records found for the selected date range.
+                            </td>
+                          </tr>
+                        ) : (
+                          filteredGrnLines.map((l: any, idx: number) => (
+                            <tr key={`${l.receipt_no}-${l.product_code}-${idx}`} className="hover:bg-theme-surface-hover transition-colors">
+                              <td className="p-3 font-mono font-bold text-emerald-500 whitespace-nowrap">{l.receipt_no}</td>
+                              <td className="p-3 font-mono text-theme-muted whitespace-nowrap">{l.receipt_date}</td>
+                              <td className="p-3 font-semibold text-theme-body">{l.supplier_name}</td>
+                              <td className="p-3 font-mono text-theme-muted">{l.order_no || "—"}</td>
+                              <td className="p-3 font-mono text-purple-400 font-bold whitespace-nowrap">{l.product_code}</td>
+                              <td className="p-3 text-theme-body">{l.product_name}</td>
+                              <td className="p-3 text-right font-mono font-bold text-blue-500">
+                                {Number(l.quantity_received).toLocaleString("en-IN", { minimumFractionDigits: 0 })}
+                              </td>
+                              <td className="p-3 text-right font-mono">
+                                {Number(l.cost_price).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              </td>
+                              <td className="p-3 text-right font-mono text-theme-muted">{l.gst_rate}%</td>
+                              <td className="p-3 text-right font-mono text-purple-400">
+                                {Number(l.tax_amount).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              </td>
+                              <td className="p-3 text-right font-mono font-bold text-emerald-500">
+                                ₹{Number(l.line_total).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              </td>
+                              <td className="p-3 text-center whitespace-nowrap">
+                                <span className="px-2 py-0.5 rounded text-[9px] uppercase font-bold tracking-wider font-mono bg-emerald-500/10 text-emerald-600 border border-emerald-500/20">
+                                  {l.status}
+                                </span>
+                              </td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                      {filteredGrnLines.length > 0 && (
+                        <tfoot className="bg-theme-surface-2 font-bold border-t border-theme-divider">
+                          <tr>
+                            <td colSpan={6} className="p-3 font-mono text-xs uppercase tracking-wider text-theme-body">
+                              Total Inward Valuation ({filteredGrnLines.length} Items across {grnTotals.grnCount} GRNs)
+                            </td>
+                            <td className="p-3 text-right font-mono text-blue-500 text-xs">
+                              {grnTotals.totalQty.toLocaleString("en-IN", { minimumFractionDigits: 0 })} Pcs
+                            </td>
+                            <td colSpan={2} className="p-3"></td>
+                            <td className="p-3 text-right font-mono text-purple-400 text-xs">
+                              ₹{grnTotals.totalTax.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </td>
+                            <td className="p-3 text-right font-mono text-emerald-500 text-xs">
+                              ₹{grnTotals.totalLanded.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </td>
+                            <td className="p-3"></td>
+                          </tr>
+                        </tfoot>
+                      )}
+                    </table>
+                  ) : (
+                    <table className="w-full text-left text-xs">
+                      <thead>
+                        <tr className="bg-theme-surface-2 text-theme-muted uppercase font-mono border-b border-theme-divider">
+                          <th className="p-3">GRN #</th>
+                          <th className="p-3">Date</th>
+                          <th className="p-3">Supplier</th>
+                          <th className="p-3">PO #</th>
+                          <th className="p-3 text-right">Items Count</th>
+                          <th className="p-3 text-right">Total Qty (Pcs)</th>
+                          <th className="p-3 text-right">Tax (₹)</th>
+                          <th className="p-3 text-right">Landed Total (₹)</th>
+                          <th className="p-3 text-center">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-theme-divider/40">
+                        {grnSummaryList.length === 0 ? (
+                          <tr>
+                            <td colSpan={9} className="p-8 text-center text-theme-muted">
+                              No purchase receipts found.
+                            </td>
+                          </tr>
+                        ) : (
+                          grnSummaryList.map((g: any) => (
+                            <tr key={g.receipt_no} className="hover:bg-theme-surface-hover transition-colors">
+                              <td className="p-3 font-mono font-bold text-emerald-500 whitespace-nowrap">{g.receipt_no}</td>
+                              <td className="p-3 font-mono text-theme-muted whitespace-nowrap">{g.receipt_date}</td>
+                              <td className="p-3 font-semibold text-theme-body">{g.supplier_name}</td>
+                              <td className="p-3 font-mono text-theme-muted">{g.order_no || "—"}</td>
+                              <td className="p-3 text-right font-mono">{g.itemCount} Items</td>
+                              <td className="p-3 text-right font-mono font-bold text-blue-500">
+                                {g.totalQty.toLocaleString("en-IN", { minimumFractionDigits: 0 })}
+                              </td>
+                              <td className="p-3 text-right font-mono text-purple-400">
+                                ₹{g.totalTax.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              </td>
+                              <td className="p-3 text-right font-mono font-bold text-emerald-500">
+                                ₹{g.totalLanded.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              </td>
+                              <td className="p-3 text-center whitespace-nowrap">
+                                <span className="px-2 py-0.5 rounded text-[9px] uppercase font-bold tracking-wider font-mono bg-emerald-500/10 text-emerald-600 border border-emerald-500/20">
+                                  {g.status}
+                                </span>
+                              </td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                      {grnSummaryList.length > 0 && (
+                        <tfoot className="bg-theme-surface-2 font-bold border-t border-theme-divider">
+                          <tr>
+                            <td colSpan={4} className="p-3 font-mono text-xs uppercase tracking-wider text-theme-body">
+                              Total Summary ({grnSummaryList.length} GRNs)
+                            </td>
+                            <td className="p-3 text-right font-mono">{filteredGrnLines.length} Items</td>
+                            <td className="p-3 text-right font-mono text-blue-500 text-xs">
+                              {grnTotals.totalQty.toLocaleString("en-IN", { minimumFractionDigits: 0 })} Pcs
+                            </td>
+                            <td className="p-3 text-right font-mono text-purple-400 text-xs">
+                              ₹{grnTotals.totalTax.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </td>
+                            <td className="p-3 text-right font-mono text-emerald-500 text-xs">
+                              ₹{grnTotals.totalLanded.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </td>
+                            <td className="p-3"></td>
+                          </tr>
+                        </tfoot>
+                      )}
+                    </table>
+                  )}
+                </div>
+              </div>
+            )}
+
             {/* Purchase Studio Outstanding Drilldown */}
-            {(selectedReport.id === "RPT-PUR-001" || selectedReport.id === "RPT-PUR-002") && (
+            {selectedReport.id === "RPT-PUR-002" && (
               <>
                 {drillLevel === 0 && (
                   <div className="overflow-x-auto text-xs">
@@ -4544,6 +4856,7 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
               "RPT-SAL-001",
               "RPT-SAL-013",
               "RPT-INV-001",
+              "RPT-PUR-001",
               "RPT-PUR-002",
               "RPT-TAX-001",
               "RPT-TAX-002",

@@ -77,7 +77,7 @@ class SupplierLedger(BaseModel):
     entries:         List[SupplierLedgerEntry]
 
 
-# ── Purchase Summary ──────────────────────────────────────────────────────────
+# ── Purchase Summary & Inward Register ──────────────────────────────────────────
 
 class PurchaseSummaryLine(BaseModel):
     supplier_id:     str
@@ -90,6 +90,43 @@ class PurchaseSummaryLine(BaseModel):
     ordered_amount:  Optional[Decimal] = None
     received_amount: Optional[Decimal] = None
     outstanding:     Decimal
+
+
+class PurchaseInwardItemLine(BaseModel):
+    receipt_id:        str
+    receipt_no:        str
+    receipt_date:      str
+    supplier_id:       str
+    supplier_name:     str
+    supplier_code:     Optional[str] = ""
+    order_no:          Optional[str] = ""
+    product_id:        str
+    product_code:      str
+    product_name:      str
+    barcode:           Optional[str] = ""
+    batch_no:          Optional[str] = ""
+    quantity_received: Decimal
+    cost_price:        Decimal
+    gst_rate:          Decimal
+    tax_amount:        Decimal
+    line_total:        Decimal
+    status:            str
+    warehouse_id:      Optional[str] = None
+    branch_id:         Optional[str] = None
+    model_config = {"from_attributes": True}
+
+
+class PurchaseInwardRegisterReport(BaseModel):
+    """RPT-PUR-001 -- Purchase Inward Register (GRN Detailed Line Items)."""
+    generated_at:  str
+    from_date:     Optional[str] = None
+    to_date:       Optional[str] = None
+    total_grns:    int
+    total_qty:     Decimal
+    total_taxable: Decimal
+    total_tax:     Decimal
+    total_landed:  Decimal
+    lines:         List[PurchaseInwardItemLine]
 
 # ---------------------------------------------------------------------------
 # Sprint 8a P1 Schemas -- Tax & Compliance (Shoper9 parity)

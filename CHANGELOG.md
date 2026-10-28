@@ -1,5 +1,30 @@
 <!--
 
+## [6.99.1] - 2026-10-28 - Visual Report Designer Drag-and-Drop Matrix & DB Bootstrap Engine v1544 Hotfix
+
+### Fixed
+- `backend/alembic/versions/v1544_customer_billing_defaults.py`: Added control plane database routing guard (`current_db in ("smritisys", "postgres", "template0", "template1")`) and idempotent table and column existence checks on `customer_policies`. Fixes `psycopg2.errors.UndefinedTable: relation "customer_policies" does not exist` during Phase 1 (`smritisys`) control plane migration in `update.bat` and `bootstrap_engine.py`.
+
+### Added
+- `src/components/reports/reportLayoutEngine.ts`: Centralized report layout engine defining 5 standardized retail logical roles (`Identifiers`, `Classifications`, `Attributes`, `Dimensions`, `Measures`), a catalog of 28 canonical retail fields with semantic typing, HTML5 drag-and-drop area eligibility validation (`canFieldDropInArea`), and the `transformToPivotMatrix` engine calculating hierarchical row groups, dynamic attribute pivot columns, group subtotals, and authoritative grand totals.
+- `docs/implementation/reports/Report_Designer_Dynamic_Classification_And_Drag_Drop_Plan_v1.0.0.md`: Mandatory 19-section IPGP implementation plan.
+- `docs/walkthrough/reports/Report_Designer_Dynamic_Classification_And_Drag_Drop_Walkthrough_v1.0.0.md`: Formal 13-section WGP walkthrough document.
+- `scratch/verify_drag_drop_report_designer.py`: Automated Playwright headless browser verification test suite (10/10 gates green).
+
+### Changed
+- `src/components/reports/ReportBuilder.tsx`: Comprehensive UX upgrade implementing the 6-callout visual report designer:
+  1. Left-hand catalog grouped into 5 logical categories with search and click-to-add.
+  2. Four interactive HTML5 drag-and-drop layout containers (`Rows / Group by`, `Columns / Pivot by`, `Values / Show as`, `Filters / Optional`) with active drop-target highlighting, chip reordering, and accessible `+ Add` dropdown menus.
+  3. Live hierarchical matrix pivot table preview with dynamic database attribute column discovery (e.g. Size matrix headers `Size 38`, `Size 39`), group subtotals (e.g., `Shoppers Stop Ltd Total`), and grand total footer.
+  4. Interactive Field Configuration Inspector for editing label, aggregation function, format, show in totals toggle, and sort direction.
+  5. View mode switcher (`Pivot Matrix` vs `Flat Table`), `Show Totals` toggle, and `Compact View` toggle.
+  6. Single Store default posture governance (`[ 📍 Main Store · Single Store ]` badge, concealing multi-branch filters unless locations management is enabled).
+- `src/components/ReportDesignerTab.tsx`: Wired `isLocationsManagementEnabled` and `activeStoreName` props to `<ReportBuilder />`.
+- `backend/app/services/reports.py`: Added `brand` and `item_category` dimensions to `sales_dim_map`, detailed SQL query projections, and active grouping dimensions.
+- `backend/app/services/report_field_registry.py`: Registered `brand` and `item_category` metadata under canonical `Sales` domain.
+- `docs/implementation/README.md`: Appended Implementation Plan to the master index table.
+- `docs/walkthrough/README.md`: Appended Walkthrough to the master index table.
+
 ## [3.133.0] - 2026-10-28 - Standard Daily Retail Reports & Single Store Default UX Refactoring
 
 ### Added

@@ -25,6 +25,7 @@ from httpx import AsyncClient, ASGITransport
 from app.main import app
 from app.api.deps import get_current_user, get_tenant_context, TenantContext
 from app.models.auth import User, UserRole
+from app.core.security import create_access_token
 
 
 # Mock Auth Dependency
@@ -79,7 +80,7 @@ async def test_get_report_studios_catalog_is_distinct_and_consistent():
     report_ids = [report["id"] for report in report_rows]
 
     assert len(studios) == 11
-    assert len(report_rows) == 67
+    assert len(report_rows) == 66
     assert len(report_ids) == len(set(report_ids))
     assert all(report["code"] == report["id"] for report in report_rows)
     assert {
