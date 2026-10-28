@@ -197,3 +197,18 @@ async def test_attribute_size_sales_report_endpoint():
         assert "total_net" in data
         assert "lines" in data
         assert isinstance(data["lines"], list)
+
+
+@pytest.mark.asyncio
+async def test_purchase_inward_register_report_endpoint():
+    """RPT-PUR-001 / Purchase Inward Register (GRN Detailed Line Items) verification."""
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        res = await client.get("/api/v1/reports/purchase-inward-register", headers=_get_auth_headers())
+        assert res.status_code == 200, f"Expected 200, got {res.status_code}: {res.text}"
+        data = res.json()
+        assert "total_grns" in data
+        assert "total_qty" in data
+        assert "total_landed" in data
+        assert "lines" in data
+        assert isinstance(data["lines"], list)

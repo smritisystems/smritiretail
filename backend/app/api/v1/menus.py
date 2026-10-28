@@ -18,7 +18,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
-from ...api.deps import get_company_db, get_current_user, get_tenant_context, require_role, TenantContext
+from ...api.deps import get_company_db, get_current_user, get_db, get_tenant_context, require_role, TenantContext
 from ...models.auth import User, UserRole
 from ...models.menu import SmritiMenu
 from ...schemas.menu import (
@@ -210,6 +210,7 @@ async def get_contextual_actions(
 )
 async def get_resolved_menus(
     db: AsyncSession = Depends(get_company_db),
+    control_db: AsyncSession = Depends(get_db),
     tenant: TenantContext = Depends(get_tenant_context),
     current_user: User = Depends(get_current_user),
 ):
@@ -230,7 +231,7 @@ async def get_resolved_menus(
         SmritiMenu.is_deleted == False,
     ).order_by(SmritiMenu.sequence.asc())
 
-    res = await db.execute(q)
+    res = await control_db.execute(q)
     all_menus = res.scalars().all()
 
     # Step 1: Filter menus matching company/branch tenant boundaries

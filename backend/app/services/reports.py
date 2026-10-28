@@ -21,7 +21,7 @@ from datetime import date, datetime, timezone, timedelta
 from typing import List, Dict, Any, Optional, Union
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from sqlalchemy import func, or_, case, literal, distinct
+from sqlalchemy import func, or_, case, literal, distinct, cast, Date
 from fastapi import HTTPException
 from .report_field_registry import ReportFieldRegistry, FieldSemanticType, AggregationFunction
 
@@ -291,6 +291,101 @@ class ReportsService:
                 outstanding=Decimal(str(sup.outstanding or "0.00")),
             ))
         return result
+
+    async def purchase_inward_register(
+        self,
+        from_date: Optional[date] = None,
+        to_date: Optional[date] = None,
+        supplier_id: Optional[str] = None,
+        branch_id: Optional[str] = None,
+    ):
+        """RPT-PUR-001 -- Purchase Inward Register (GRN Detailed Line Items)."""
+        from ..schemas.reports import PurchaseInwardItemLine, PurchaseInwardRegisterReport
+
+        stmt = (
+            select(PurchaseReceipt, PurchaseReceiptItem, Supplier)
+            .join(PurchaseReceiptItem, PurchaseReceiptItem.receipt_id == PurchaseReceipt.id)
+            .outerjoin(Supplier, Supplier.id == PurchaseReceipt.supplier_id)
+            .where(
+                PurchaseReceipt.is_deleted == False,
+                PurchaseReceiptItem.is_deleted == False,
+            )
+        )
+        stmt = self._tenant_filter(stmt, PurchaseReceipt)
+        if from_date:
+            stmt = stmt.where(cast(PurchaseReceipt.created_at, Date) >= from_date)
+        if to_date:
+            stmt = stmt.where(cast(PurchaseReceipt.created_at, Date) <= to_date)
+        if supplier_id:
+            stmt = stmt.where(PurchaseReceipt.supplier_id == supplier_id)
+        if branch_id and branch_id not in ("ALL_STORES", "ALL"):
+            stmt = stmt.where(PurchaseReceipt.branch_id == branch_id)
+
+        stmt = stmt.order_by(PurchaseReceipt.created_at.desc(), PurchaseReceipt.id, PurchaseReceiptItem.id)
+
+        res = await self.db.execute(stmt)
+        rows = res.all()
+
+        lines: List[PurchaseInwardItemLine] = []
+        unique_grns = set()
+        total_qty = Decimal("0.00")
+        total_taxable = Decimal("0.00")
+        total_tax = Decimal("0.00")
+        total_landed = Decimal("0.00")
+
+        for pr, pri, sup in rows:
+            unique_grns.add(pr.id)
+            qty = Decimal(str(getattr(pri, "quantity_received", 0) or 0))
+            cost = Decimal(str(getattr(pri, "cost_price", 0) or 0))
+            gst = Decimal(str(getattr(pri, "gst_rate", 5.00) or 5.00))
+            tax = Decimal(str(getattr(pri, "tax_amount", 0) or 0))
+            line_tot = Decimal(str(getattr(pri, "line_total", 0) or (qty * cost + tax)))
+            taxable = qty * cost
+
+            total_qty += qty
+            total_taxable += taxable
+            total_tax += tax
+            total_landed += line_tot
+
+            sup_name = (sup.name if sup else None) or "Direct Vendor"
+            sup_code = (sup.code if sup else None) or ""
+
+            lines.append(
+                PurchaseInwardItemLine(
+                    receipt_id=pr.id,
+                    receipt_no=pr.receipt_no,
+                    receipt_date=pr.created_at.strftime("%Y-%m-%d") if pr.created_at else "",
+                    supplier_id=pr.supplier_id or "",
+                    supplier_name=sup_name,
+                    supplier_code=sup_code,
+                    order_no=getattr(pri, "purchase_order_no", None) or pr.order_id or "",
+                    product_id=pri.product_id,
+                    product_code=pri.code or "",
+                    product_name=pri.name or "",
+                    barcode=getattr(pri, "barcode", None) or getattr(pri, "batch_no", "") or "",
+                    batch_no=getattr(pri, "batch_no", "") or "",
+                    quantity_received=qty,
+                    cost_price=cost,
+                    gst_rate=gst,
+                    tax_amount=tax,
+                    line_total=line_tot,
+                    status=pr.status or "RECEIVED",
+                    warehouse_id=pr.warehouse_id,
+                    branch_id=pr.branch_id,
+                )
+            )
+
+        return PurchaseInwardRegisterReport(
+            generated_at=datetime.now(timezone.utc).isoformat(),
+            from_date=str(from_date) if from_date else None,
+            to_date=str(to_date) if to_date else None,
+            total_grns=len(unique_grns),
+            total_qty=total_qty,
+            total_taxable=total_taxable,
+            total_tax=total_tax,
+            total_landed=total_landed,
+            lines=lines,
+        )
 
 
     # ──────────────────────────────────────────────────────────────
@@ -3863,6 +3958,8 @@ class ReportsService:
                 "article_sku": SalesInvoiceItem.code,
                 "color": func.coalesce(Product.color, "-"),
                 "size": func.coalesce(Product.size, "-"),
+                "brand": func.coalesce(Product.brand, Customer.name),
+                "item_category": func.coalesce(Product.category, "Footwear"),
                 "payment_mode": SalesInvoice.payment_mode,
             }
 
@@ -3898,7 +3995,7 @@ class ReportsService:
                 if selected_cols:
                     active_dims = [c for c in selected_cols if ReportFieldRegistry.is_dimension("Sales", c) and c in sales_dim_map]
                 else:
-                    active_dims = ["customer_name", "sale_invoice_no", "article_sku", "color", "size"]
+                    active_dims = ["customer_name", "sale_invoice_no", "article_sku", "color", "size", "brand", "item_category"]
 
             # Grand totals
             tot_stmt = (
@@ -3929,6 +4026,8 @@ class ReportsService:
                         SalesInvoiceItem.code.label("article_sku"),
                         func.coalesce(Product.color, "-").label("color"),
                         func.coalesce(Product.size, "-").label("size"),
+                        func.coalesce(Product.brand, Customer.name).label("brand"),
+                        func.coalesce(Product.category, "Footwear").label("item_category"),
                         SalesInvoice.payment_mode.label("payment_mode"),
                         SalesInvoiceItem.quantity.label("quantity"),
                         func.coalesce(SalesInvoiceItem.taxable_value, SalesInvoiceItem.price * SalesInvoiceItem.quantity, 0).label("gross_total"),
@@ -3992,6 +4091,8 @@ class ReportsService:
                     "article_sku": r.get("article_sku") or "-",
                     "color": r.get("color") or "-",
                     "size": r.get("size") or "-",
+                    "brand": r.get("brand") or "-",
+                    "item_category": r.get("item_category") or "-",
                     "payment_mode": r.get("payment_mode") or "Cash",
                     "quantity": float(r.get("quantity") or 0),
                     "gross_total": float(r.get("gross_total") or 0),

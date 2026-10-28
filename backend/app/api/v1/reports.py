@@ -28,6 +28,7 @@ from ...schemas.reports import (
     DailySalesSummary,
     SupplierLedger,
     PurchaseSummaryLine,
+    PurchaseInwardRegisterReport,
     BillWiseSalesReport,
     ItemWiseSalesReport,
     TaxRegisterReport,
@@ -81,9 +82,6 @@ SMRITI_STUDIOS = {
         "icon": "bar_chart",
         "reports": [
             {"id": "RPT-SAL-001", "code": "RPT-SAL-001", "title": "Daily Sales Summary Register",     "description": "All completed cash, card, and UPI invoice records with aggregate revenue and average tickets.", "category": "Sales Summary",    "format": "Matrix", "owner": "System", "drillDownEnabled": True},
-            {"id": "RPT-TAX-005", "code": "RPT-TAX-005", "title": "Daily Sales Register (Bill & Item Detail)", "description": "Complete item-level sales register with Invoice No, Article No, Barcode, Size, Qty, Rate, Discount, GST & Net Total.", "category": "Sales Detail", "format": "Grid", "owner": "System", "drillDownEnabled": True},
-            {"id": "RPT-TAX-002", "code": "RPT-TAX-002", "title": "Bill-wise Sales Summary",          "description": "Every invoice with customer, items count, gross amount, discount, taxes, and net receivable.", "category": "Sales Detail",   "format": "Grid",   "owner": "System", "drillDownEnabled": True},
-            {"id": "RPT-TAX-003", "code": "RPT-TAX-003", "title": "Item-wise Sales Summary",          "description": "Consolidated sales quantity and value per item across all invoices in the period.",             "category": "Product Analysis", "format": "Pivot",  "owner": "System", "drillDownEnabled": True},
             {"id": "RPT-SAL-007", "code": "RPT-SAL-007", "title": "Day-wise Sales Register",          "description": "Day-by-day breakdown of invoices, quantities, amounts, and discount totals.",                "category": "Sales Summary",   "format": "Grid",   "owner": "System", "drillDownEnabled": True},
             {"id": "RPT-SAL-003", "code": "RPT-SAL-003", "title": "Top Selling Products Ledger",      "description": "Top performing items ranked by volume, revenue contributions, and margins.",                  "category": "Product Analysis","format": "Pivot",  "owner": "System", "drillDownEnabled": True},
             {"id": "RPT-SAL-002", "code": "RPT-SAL-002", "title": "Sales Returns & Credit Notes Log",  "description": "Detailed log of product returns, reason analyses, and credit notes issued.",                 "category": "Returns",         "format": "Grid",   "owner": "System", "drillDownEnabled": True},
@@ -278,6 +276,23 @@ async def purchase_summary(
     db: AsyncSession = Depends(get_company_db),
 ):
     return await ReportsService(db, tenant).purchase_summary(from_date, to_date)
+
+@router.get("/purchase-inward-register", response_model=PurchaseInwardRegisterReport)
+async def purchase_inward_register(
+    from_date: Optional[date] = Query(default=None, description="Start date (YYYY-MM-DD)"),
+    to_date:   Optional[date] = Query(default=None, description="End date (YYYY-MM-DD)"),
+    supplier_id: Optional[str] = Query(default=None, description="Filter by Supplier ID"),
+    branch_id: Optional[str] = Query(default=None, description="Filter by Branch ID"),
+    tenant: TenantContext = Depends(get_tenant_context),
+    db: AsyncSession = Depends(get_company_db),
+):
+    """RPT-PUR-001: Itemized Purchase Inward Register (GRN Detailed Line Items)."""
+    return await ReportsService(db, tenant).purchase_inward_register(
+        from_date=from_date,
+        to_date=to_date,
+        supplier_id=supplier_id,
+        branch_id=branch_id,
+    )
 
 @router.get("/pending-delivery")
 async def pending_delivery_report(

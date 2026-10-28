@@ -90,14 +90,13 @@ async def create_vendor(
     req: VendorCreateRequest,
     tenant: TenantContext = Depends(get_tenant_context),
     db: AsyncSession = Depends(get_company_db),
-    control_db: AsyncSession = Depends(get_db),
 ):
     """
     Atomically creates a Vendor with Universal Party identity, SUPPLIER role,
     statutory compliance, addresses, categorized contacts, and bank accounts.
     Maintains backward-compatible non-destructive projection into legacy suppliers.
     """
-    lookup_type = await control_db.scalar(
+    lookup_type = await db.scalar(
         select(MasterType).where(MasterType.code == "vendor_code")
     )
     if not lookup_type:
@@ -105,14 +104,14 @@ async def create_vendor(
 
     vendor_code = (req.code or "").strip().upper()
     if not vendor_code:
-        existing_codes = await control_db.scalars(
+        existing_codes = await db.scalars(
             select(MasterValue.code).where(
                 MasterValue.master_type_id == lookup_type.id,
                 MasterValue.is_deleted.is_(False),
             )
         )
         vendor_code = allocate_next_vendor_code(existing_codes.all())
-        control_db.add(
+        db.add(
             MasterValue(
                 master_type_id=lookup_type.id,
                 company_id=getattr(tenant, "company_id", None),
@@ -125,10 +124,10 @@ async def create_vendor(
                 is_deleted=False,
             )
         )
-        await control_db.commit()
+        await db.commit()
 
     governed_code = None
-    governed_code = await control_db.scalar(
+    governed_code = await db.scalar(
         select(MasterValue).where(
             MasterValue.master_type_id == lookup_type.id,
             MasterValue.code == vendor_code,

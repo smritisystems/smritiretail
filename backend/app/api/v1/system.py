@@ -23,7 +23,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
 
-from ...api.deps import get_company_db, get_current_user, require_role
+from ...api.deps import get_db, get_company_db, get_current_user, require_role
 from ...core.security import hash_password
 from ...models.auth import User, UserRole
 from ...models.system import TallyConfig, SystemConfig
@@ -461,7 +461,7 @@ async def get_layout_preferences(
 async def save_layout_preferences(
     payload: Dict[str, Any] = Body(...),
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_company_db),
+    db: AsyncSession = Depends(get_db),
 ):
     """
     Store UI layout preferences for the current authenticated user.
@@ -505,7 +505,6 @@ async def save_layout_preferences(
 
     existing_prefs["layout"] = new_layout
     current_user.preferences_json = json.dumps(existing_prefs)
-    db.add(current_user)
     await db.commit()
     await db.refresh(current_user)
 
