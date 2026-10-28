@@ -1050,5 +1050,39 @@ All icons, avatars, and visual assets MUST be self-contained:
 
 ---
 
-*DAGPMP Rule 16 | UADHP-v1.0 | STIF-IMMUTABLE-v1.0 | SAIB-NO-GEMINI-v1.0 | Effective 2026-10-11 | Jawahar Ramkripal Mallah | support@smritibooks.com*
+# SMRITI 1-Click Auto-Update & Safe Defaults Governance Policy
+
+**Policy ID:** AUGP-v1.0  
+**Status:** MANDATORY — PERMANENT — FROZEN (Effective 2026-10-28)
+
+## 1. Zero-Friction Client Updates via `update.bat` / `update.ps1`
+Every client and retail store must be able to update their system completely and reliably simply by executing `update.bat` (or `.\update.ps1`).
+- The update routine must execute non-destructively: it pulls code, rebuilds containers, runs database migrations, enforces default parameters, and checks health without losing any transaction, customer, or inventory data.
+- Updates must never require end users to run manual `psql` queries, Docker commands, terminal migrations, or environment variable modifications.
+
+## 2. Mandatory Non-Destructive Database Migrations
+Any change that introduces new database columns, tables, foreign keys, or constraints MUST include a tracked, forward-only Alembic migration.
+- Manual schema edits without a corresponding Alembic migration are strictly prohibited.
+- All migrations must be idempotent and non-destructive.
+- New foreign keys and check constraints on existing populated tables must use PostgreSQL's `NOT VALID` strategy to prevent downtime and migration crashes on legacy dirty rows.
+- All migrations must be automatically executed across control-plane (`smritisys`) and all tenant databases (`smriti001`, `smriti002`, etc.) via `app.db.bootstrap_engine`.
+
+## 3. Safe Defaults: Single-Location Mode by Default
+New features, complex modules, and advanced capabilities (such as multi-location, bin/rack management, and multi-warehouse routing) MUST be disabled by default for all users and tenants:
+- `BIN_LOCATION_MANAGEMENT` must evaluate to `False` by default in code, database seed scripts, and migration files.
+- The system must default to **Single-Location Auto-Tallying Mode**: all purchase orders, goods receipt notes (GRN), POS billings, and stock adjustments must automatically resolve to the store's canonical primary warehouse without requiring cashiers or purchase clerks to pick a location.
+- Multi-location/bin management remains an optional opt-in toggle in Settings -> Capabilities for advanced users.
+
+## 4. Transient Runtime Artifacts Isolation
+Runtime log files (such as `backend/app/logs/*.jsonl`, `*.log`, and temporary cache directories) must never block or abort Git pulls during `update.bat` execution:
+- `scripts/update.ps1` must automatically discard transient changes to tracked log files before running `git pull origin smritiNX`.
+- New runtime logs and generated artifacts must be added to `.gitignore`.
+
+## 5. Developer Pre-Push Verification Requirement
+Before pushing any code, migration, or schema change to the canonical branch (`smritiNX`), developers and coding assistant agents MUST execute `.\update.bat` (or `scripts/update.ps1`) locally and verify that the complete end-to-end update passes with 0 errors and all containers report healthy.
+
+---
+
+*DAGPMP Rule 16 | UADHP-v1.0 | STIF-IMMUTABLE-v1.0 | SAIB-NO-GEMINI-v1.0 | AUGP-v1.0 | Effective 2026-10-28 | Jawahar Ramkripal Mallah | support@smritibooks.com*
+
 
