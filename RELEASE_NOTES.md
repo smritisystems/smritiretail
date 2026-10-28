@@ -14,6 +14,39 @@
 
 # SMRITI Retail OS — Release Notes
 
+## Release v3.132.0 (2026-10-28)
+
+### WMS Phase 7 — Outbound Shipping Dock Management, Dispatch Manifest & Carrier Vehicle Loading
+
+#### Overview
+Delivers the enterprise outbound logistics execution engine for SMRITI Retail OS, connecting warehouse staging bays directly to carrier freight vehicles. Features physical Dock Door and Bay management (`DOCK-01` through `DOCK-04`), staging pipeline routing Phase 5 packed cartons to specific loading bays, multi-carton Dispatch Manifest assembly, truck tail optical barcode scan verification, strict departures safety gates with supervisor override logging, and atomic outbound dual-polarity stock movement postings (`movement_type="DISPATCH_OUT"`, `bin=dock_code`, `quantity=-cartons`, `reference_doc_type="WMS_DISPATCH"`) with official Gate Pass issuance (`GP-YYYYMMDD-XXXX`).
+
+#### Key Highlights
+- **Physical Dock Door Management**: Visual bay matrix tracking live bay occupancy, assigned vehicle numbers, transporter names, staged carton counts, and loading statuses (`AVAILABLE`, `STAGING`, `LOADING`, `DISPATCHED`).
+- **Carton Dock Staging**: Seamlessly directs sealed cartons from Phase 5 packing stations (`_PACKED_CARTONS`) to designated dock bay doors (`assign_cartons_to_dock`).
+- **Multi-Carton Dispatch Manifest**: Assembles outbound shipments capturing Transporter Name, Carrier Vehicle Number, Driver Contact, Destination Hub/Branch, LR/Docket Note, and statutory E-Way Bill Number.
+- **Truck Tail Optical Barcode Scan Verification**: Validates each scanned carton barcode at vehicle loading, updating live progress meters, and instantly rejecting unauthorized or mismatched cartons (HTTP 400).
+- **Departure Gate & Supervisor Override**: Enforces 100% scan verification before departure. Provides a supervisor override option with mandatory audit trail justification notes for emergency departures or missing cartons, safeguarding carrier dispatch SLAs.
+- **Atomic Outbound Ledger Commit & Gate Pass Issuance**: Automatically posts dual-polarity `StockMovement` entries (`movement_type="DISPATCH_OUT"`, `bin=dock_code`, `quantity=-count`, `reference_doc_type="WMS_DISPATCH"`) and generates official numbered Gate Passes (`GP-YYYYMMDD-XXXX`).
+- **High-Density Frontend Studio Workspace**: New 8th subtab "Dock & Dispatch" in `WmsStudioTab.tsx` providing real-time dock occupancy cards, 2-column manifest manager, interactive loading station, and manifest generation wizard.
+
+## Release v3.131.0 (2026-10-28)
+
+### WMS Phase 6 — Warehouse Physical Bin Cycle Counting, Blind Audits, Variance Approvals & Discrepancy Reconciliation Ledger Integration
+
+#### Overview
+Delivers the enterprise warehouse physical inventory auditing and discrepancy reconciliation engine for SMRITI Retail OS. Allows floor auditors to conduct scheduled or perpetual cycle counts scoped by physical warehouse Zone (`PICKING`, `BULK`, `STORAGE`, `QUARANTINE`), Aisle code, or explicit Bin location list. Features statutory Blind Audit Mode, optical barcode scan verification with discrepancy reason tracking, automated variance threshold classification, multi-round recount workflows, supervisor approval gates, and atomic bin-level ledger reconciliation posting to `stock_movements`.
+
+#### Key Highlights
+- **Physical Bin-Level Scoping**: Queries `WarehouseLocation` spatial geometry to focus audits on specific zones (e.g., active pick faces) or specific aisles without shutting down full-warehouse fulfillment operations.
+- **Statutory Blind Audit Masking**: Suppresses expected system stock quantities (`system_qty`), variance quantities, and valuations from floor counters until initial counts are submitted or an authorized supervisor triggers an explicit unmask.
+- **Optical Scan Verification & Discrepancy Reasons**: Validates item barcodes/SKUs at the bin face, logging standardized discrepancy reasons (`MATCHED`, `DAMAGED`, `EXPIRED`, `THEFT_LOSS`, `SURPLUS_FOUND`, `COUNTING_ERROR`).
+- **Automated Variance Threshold Classification**: Evaluates relative variance (default 5%) and absolute discrepancy value (default ₹1,000.00). Compliant lines are auto-approved; non-compliant lines escalate to `APPROVAL_REQUIRED` and transition plan to `PENDING_APPROVAL`.
+- **Secondary Recount Workflows**: Counters can flag ambiguous items for recount (`RECOUNT_REQUESTED`), resetting counted quantities for secondary verification.
+- **Supervisor Approval Gate & Audit Notes**: High-variance discrepancies require manager review with mandatory justification notes before ledger postings can proceed.
+- **Atomic Bin-Attributed Ledger Reconciliation**: Automatically posts dual-polarity `StockMovement` entries (`INWARD_SURPLUS` for positive variances, `OUTWARD_LOSS` for negative variances) stamped with `reference_doc_type="WMS_CYCLE_COUNT"` and exact physical `bin` location attribution.
+- **Frontend Mode Switcher in WmsStudioTab**: Adds an intuitive toggle between "Physical Bin Cycle Count" and "Legacy Batch Stocktake", featuring plan creation, optical scan inputs, unmasking toggles, supervisor approval modals, and instant ledger reconciliation.
+
 ## Release v3.130.0 (2026-10-28)
 
 ### WMS Phase 5 — Automated Wave Picking, Batch Picking Optimization & Packing Station Integration

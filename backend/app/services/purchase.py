@@ -991,12 +991,13 @@ class PurchaseService:
         from .inventory_warehouse_resolver import InventoryWarehouseResolver
         wms_service = InventoryWmsService(self.db, self.tenant)
         resolver = InventoryWarehouseResolver(self.db)
+        target_warehouse_id = req.warehouse_id or (linked_po.warehouse_id if linked_po else None)
         try:
-            if not req.warehouse_id:
+            if not target_warehouse_id:
                 raise ValueError("INVENTORY_WAREHOUSE_NOT_CONFIGURED")
             wh = await resolver.resolve(
                 company_id=self.tenant.company_id,
-                warehouse_id=req.warehouse_id,
+                warehouse_id=target_warehouse_id,
             )
             warehouse_id = wh.id
         except ValueError:
@@ -1004,9 +1005,9 @@ class PurchaseService:
                 status_code=422,
                 detail={
                     "code": "SMRITI-WMS-001",
-                    "title": "Warehouse Not Configured or Inactive",
-                    "explanation": f"Target warehouse '{req.warehouse_id or 'default'}' could not be resolved or is inactive for company '{self.tenant.company_id}'.",
-                    "suggested_action": "Select a valid active warehouse destination or configure a default warehouse.",
+                    "title": "Receiving warehouse required or unavailable",
+                    "explanation": f"Target warehouse '{target_warehouse_id or 'not selected'}' could not be resolved or is inactive for company '{self.tenant.company_id}'.",
+                    "suggested_action": "Select an active receiving warehouse, or link a purchase order with a valid warehouse.",
                 },
             )
 
@@ -2136,6 +2137,7 @@ class PurchaseService:
                 status_code=400,
                 detail="Only Confirmed purchase orders can be amended.",
             )
+        warehouse_id = await self._validate_receiving_warehouse(original.warehouse_id)
 
         now = datetime.now(timezone.utc)
         acting_user = self.tenant.user_id if hasattr(self.tenant, "user_id") else None
@@ -2228,7 +2230,7 @@ class PurchaseService:
             id=new_po_id,
             order_no=req.new_order_no,
             supplier_id=original.supplier_id,
-            warehouse_id=original.warehouse_id,
+            warehouse_id=warehouse_id,
             status="CONFIRMED",
             # Phase D: link chain and set revision counter
             parent_order_id=original.id,
@@ -2440,6 +2442,8 @@ class PurchaseService:
             order.warehouse_id = await self._validate_receiving_warehouse(req.warehouse_id)
         elif order.warehouse_id:
             order.warehouse_id = await self._validate_receiving_warehouse(order.warehouse_id)
+        else:
+            await self._validate_receiving_warehouse(None)
 
         if req.notes is not None:
             order.notes = req.notes

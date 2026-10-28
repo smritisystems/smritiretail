@@ -51,7 +51,16 @@ from ...schemas.wms import (
     WaveCreateRequest, WaveResponse, WaveListResponse,
     WavePickActionRequest, WavePickActionResponse,
     WaveCompleteRequest, WaveCompleteResponse,
-    PackingStationManifestResponse, CartonPackRequest, CartonPackResponse
+    PackingStationManifestResponse, CartonPackRequest, CartonPackResponse,
+    CycleCountPlanCreate, CycleCountPlanResponse, CycleCountPlanListResponse,
+    CycleCountRecordCountRequest, CycleCountRecordCountResponse,
+    CycleCountRecountRequest, CycleCountRecountResponse,
+    CycleCountApproveRequest, CycleCountApproveResponse,
+    CycleCountReconcileResponse,
+    DockDoorResponse, CartonDockStageRequest, CartonDockStageResponse,
+    DispatchManifestCreate, DispatchManifestResponse, DispatchManifestListResponse,
+    GateScanItemRequest, GateScanItemResponse,
+    ManifestDispatchConfirmRequest, ManifestDispatchConfirmResponse
 )
 from ...services.inventory_wms import InventoryWmsService
 from ...services.eway_bill_service import EWayBillService
@@ -672,6 +681,279 @@ async def pack_wave_carton(
         notes=req.notes,
     )
     return CartonPackResponse.model_validate(res)
+
+
+# =============================================================================
+# WMS Phase 6: Warehouse Physical Bin Cycle Counting & Blind Audits Routes
+# =============================================================================
+
+@router.post("/warehouses/{warehouse_id}/cycle-counts", response_model=CycleCountPlanResponse, status_code=201)
+async def create_cycle_count_plan(
+    warehouse_id: str,
+    req: CycleCountPlanCreate,
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+    guard: Any = Depends(require_permission("stock_ledger", "EDIT")),
+):
+    """
+    Creates a physical bin cycle count plan scoped by Zone, Aisle, or Bin List.
+    Enforces blind audit mode and variance threshold gates.
+    """
+    wms_service = InventoryWmsService(db, tenant_ctx)
+    res = await wms_service.create_cycle_count_plan(
+        warehouse_id=warehouse_id,
+        plan_name=req.plan_name,
+        zone=req.zone,
+        aisle=req.aisle,
+        bins=req.bins,
+        is_blind=req.is_blind,
+        variance_threshold_value=req.variance_threshold_value,
+        variance_threshold_pct=req.variance_threshold_pct,
+        notes=req.notes,
+    )
+    return CycleCountPlanResponse.model_validate(res)
+
+
+@router.get("/warehouses/{warehouse_id}/cycle-counts", response_model=CycleCountPlanListResponse)
+async def list_cycle_count_plans(
+    warehouse_id: str,
+    status: Optional[str] = Query(None, description="Filter by status (IN_PROGRESS, PENDING_APPROVAL, APPROVED, RECONCILED)"),
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+    guard: Any = Depends(require_permission("stock_ledger", "VIEW")),
+):
+    """Lists all cycle count plans for a warehouse."""
+    wms_service = InventoryWmsService(db, tenant_ctx)
+    res = await wms_service.get_cycle_count_plans(warehouse_id=warehouse_id, status=status)
+    return CycleCountPlanListResponse.model_validate(res)
+
+
+@router.get("/warehouses/{warehouse_id}/cycle-counts/{plan_id}", response_model=CycleCountPlanResponse)
+async def get_cycle_count_plan_details(
+    warehouse_id: str,
+    plan_id: str,
+    reveal_blind: bool = Query(False, description="Reveal system balances if authorized supervisor"),
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+    guard: Any = Depends(require_permission("stock_ledger", "VIEW")),
+):
+    """Retrieves full item list for a cycle count plan with blind masking rules applied."""
+    wms_service = InventoryWmsService(db, tenant_ctx)
+    res = await wms_service.get_cycle_count_details(
+        warehouse_id=warehouse_id,
+        plan_id=plan_id,
+        reveal_blind=reveal_blind,
+    )
+    return CycleCountPlanResponse.model_validate(res)
+
+
+@router.post("/warehouses/{warehouse_id}/cycle-counts/{plan_id}/count", response_model=CycleCountRecordCountResponse)
+async def record_cycle_count_item(
+    warehouse_id: str,
+    plan_id: str,
+    req: CycleCountRecordCountRequest,
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+    guard: Any = Depends(require_permission("stock_ledger", "EDIT")),
+):
+    """Records an item physical count with optional barcode verification and threshold checking."""
+    wms_service = InventoryWmsService(db, tenant_ctx)
+    res = await wms_service.record_cycle_count_item(
+        warehouse_id=warehouse_id,
+        plan_id=plan_id,
+        item_id=req.item_id,
+        counted_qty=req.counted_qty,
+        scanned_barcode=req.scanned_barcode,
+        discrepancy_reason=req.discrepancy_reason,
+        notes=req.notes,
+    )
+    return CycleCountRecordCountResponse.model_validate(res)
+
+
+@router.post("/warehouses/{warehouse_id}/cycle-counts/{plan_id}/recount", response_model=CycleCountRecountResponse)
+async def request_cycle_count_recount(
+    warehouse_id: str,
+    plan_id: str,
+    req: CycleCountRecountRequest,
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+    guard: Any = Depends(require_permission("stock_ledger", "EDIT")),
+):
+    """Flags a high-variance bin item for a secondary independent recount."""
+    wms_service = InventoryWmsService(db, tenant_ctx)
+    res = await wms_service.request_cycle_count_recount(
+        warehouse_id=warehouse_id,
+        plan_id=plan_id,
+        item_id=req.item_id,
+        reason=req.reason,
+        assigned_counter=req.assigned_counter,
+    )
+    return CycleCountRecountResponse.model_validate(res)
+
+
+@router.post("/warehouses/{warehouse_id}/cycle-counts/{plan_id}/approve", response_model=CycleCountApproveResponse)
+async def approve_cycle_count(
+    warehouse_id: str,
+    plan_id: str,
+    req: CycleCountApproveRequest,
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+    guard: Any = Depends(require_permission("stock_ledger", "EDIT")),
+):
+    """Supervisor gate: Approves threshold-exceeding variances in a cycle count plan."""
+    wms_service = InventoryWmsService(db, tenant_ctx)
+    res = await wms_service.approve_cycle_count(
+        warehouse_id=warehouse_id,
+        plan_id=plan_id,
+        supervisor_notes=req.supervisor_notes,
+    )
+    return CycleCountApproveResponse.model_validate(res)
+
+
+@router.post("/warehouses/{warehouse_id}/cycle-counts/{plan_id}/reconcile", response_model=CycleCountReconcileResponse)
+async def reconcile_cycle_count(
+    warehouse_id: str,
+    plan_id: str,
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+    guard: Any = Depends(require_permission("stock_ledger", "EDIT")),
+):
+    """Atomically commits bin-attributed StockMovement ledger adjustments and finalizes the audit."""
+    wms_service = InventoryWmsService(db, tenant_ctx)
+    res = await wms_service.reconcile_cycle_count(
+        warehouse_id=warehouse_id,
+        plan_id=plan_id,
+    )
+    return CycleCountReconcileResponse.model_validate(res)
+
+
+# =============================================================================
+# WMS Phase 7: Outbound Shipping Dock & Dispatch Manifest Routes
+# =============================================================================
+
+@router.get("/warehouses/{warehouse_id}/docks", response_model=List[DockDoorResponse])
+async def list_warehouse_dock_doors(
+    warehouse_id: str,
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+    guard: Any = Depends(require_permission("stock_ledger", "VIEW")),
+):
+    """Retrieves all outbound shipping dock doors and their live staging statuses."""
+    wms_service = InventoryWmsService(db, tenant_ctx)
+    res = await wms_service.get_dock_doors(warehouse_id=warehouse_id)
+    return [DockDoorResponse.model_validate(d) for d in res]
+
+
+@router.post("/warehouses/{warehouse_id}/docks/stage", response_model=CartonDockStageResponse)
+async def stage_cartons_at_dock(
+    warehouse_id: str,
+    req: CartonDockStageRequest,
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+    guard: Any = Depends(require_permission("stock_ledger", "EDIT")),
+):
+    """Stages packed cartons at a designated shipping dock door."""
+    wms_service = InventoryWmsService(db, tenant_ctx)
+    res = await wms_service.stage_cartons_at_dock(
+        warehouse_id=warehouse_id,
+        dock_door_code=req.dock_door_code,
+        carton_barcodes=req.carton_barcodes,
+    )
+    return CartonDockStageResponse.model_validate(res)
+
+
+@router.post("/warehouses/{warehouse_id}/dispatch-manifests", response_model=DispatchManifestResponse, status_code=201)
+async def create_dispatch_manifest(
+    warehouse_id: str,
+    req: DispatchManifestCreate,
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+    guard: Any = Depends(require_permission("stock_ledger", "EDIT")),
+):
+    """Creates a carrier dispatch manifest assembling sealed cartons for outbound shipment."""
+    wms_service = InventoryWmsService(db, tenant_ctx)
+    res = await wms_service.create_dispatch_manifest(
+        warehouse_id=warehouse_id,
+        dock_door_code=req.dock_door_code,
+        carton_barcodes=req.carton_barcodes,
+        transporter_name=req.transporter_name,
+        vehicle_no=req.vehicle_no,
+        driver_name=req.driver_name,
+        driver_phone=req.driver_phone,
+        lr_docket_no=req.lr_docket_no,
+        eway_bill_no=req.eway_bill_no,
+        destination=req.destination,
+        notes=req.notes,
+    )
+    return DispatchManifestResponse.model_validate(res)
+
+
+@router.get("/warehouses/{warehouse_id}/dispatch-manifests", response_model=DispatchManifestListResponse)
+async def list_dispatch_manifests(
+    warehouse_id: str,
+    status: Optional[str] = Query(None, description="Filter by manifest status (STAGED, LOADING, GATE_VERIFIED, DISPATCHED)"),
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+    guard: Any = Depends(require_permission("stock_ledger", "VIEW")),
+):
+    """Lists dispatch manifests for a warehouse with optional status filtering."""
+    wms_service = InventoryWmsService(db, tenant_ctx)
+    res = await wms_service.get_dispatch_manifests(warehouse_id=warehouse_id, status=status)
+    return DispatchManifestListResponse.model_validate(res)
+
+
+@router.get("/warehouses/{warehouse_id}/dispatch-manifests/{manifest_id}", response_model=DispatchManifestResponse)
+async def get_dispatch_manifest_details(
+    warehouse_id: str,
+    manifest_id: str,
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+    guard: Any = Depends(require_permission("stock_ledger", "VIEW")),
+):
+    """Retrieves full details of an outbound dispatch manifest including carton lines."""
+    wms_service = InventoryWmsService(db, tenant_ctx)
+    res = await wms_service.get_manifest_details(warehouse_id=warehouse_id, manifest_id=manifest_id)
+    return DispatchManifestResponse.model_validate(res)
+
+
+@router.post("/warehouses/{warehouse_id}/dispatch-manifests/{manifest_id}/gate-scan", response_model=GateScanItemResponse)
+async def scan_carton_at_gate(
+    warehouse_id: str,
+    manifest_id: str,
+    req: GateScanItemRequest,
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+    guard: Any = Depends(require_permission("stock_ledger", "EDIT")),
+):
+    """Scans and verifies a shipping carton at the dock gate during truck loading."""
+    wms_service = InventoryWmsService(db, tenant_ctx)
+    res = await wms_service.scan_carton_at_gate(
+        warehouse_id=warehouse_id,
+        manifest_id=manifest_id,
+        carton_barcode=req.carton_barcode,
+    )
+    return GateScanItemResponse.model_validate(res)
+
+
+@router.post("/warehouses/{warehouse_id}/dispatch-manifests/{manifest_id}/dispatch", response_model=ManifestDispatchConfirmResponse)
+async def confirm_manifest_dispatch(
+    warehouse_id: str,
+    manifest_id: str,
+    req: ManifestDispatchConfirmRequest,
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+    guard: Any = Depends(require_permission("stock_ledger", "EDIT")),
+):
+    """Authorizes truck departure, generates Gate Pass, and posts atomic DISPATCH_OUT ledger entries."""
+    wms_service = InventoryWmsService(db, tenant_ctx)
+    res = await wms_service.confirm_manifest_dispatch(
+        warehouse_id=warehouse_id,
+        manifest_id=manifest_id,
+        supervisor_override=req.supervisor_override,
+        override_reason=req.override_reason,
+    )
+    return ManifestDispatchConfirmResponse.model_validate(res)
+
 
 
 @router.get("/locations/{location_id}/stock")

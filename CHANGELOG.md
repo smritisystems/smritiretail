@@ -1,5 +1,31 @@
 <!--
 
+## [3.132.0] - 2026-10-28 - WMS Phase 7: Outbound Shipping Dock Management, Dispatch Manifest & Carrier Vehicle Loading
+
+### Added
+- `backend/tests/test_wms_dispatch_and_dock.py`: Dedicated unit and integration test suite (10/10 green in 61.16s) validating dock bay listing and occupancy, carton dock staging (`assign_cartons_to_dock`), dispatch manifest creation with carrier vehicle and e-way bill metadata, optical barcode scanning at gate with live progress tracking, unauthorized carton rejection, gate verification state transitions, unscanned departure blocking, atomic outbound stock movement posting (`movement_type="DISPATCH_OUT"`, `bin=dock_code`, `quantity=-cartons`, `reference_doc_type="WMS_DISPATCH"`), official Gate Pass issuance (`GP-YYYYMMDD-XXXX`), supervisor partial departure overrides, and all 7 FastAPI endpoints.
+- `docs/implementation/wms/WMS_Phase7_Outbound_Shipping_Dock_And_Dispatch_Plan_v3.132.0.md`: Formal 19-section IPGP implementation plan.
+- `docs/walkthrough/wms/WMS_Phase7_Outbound_Shipping_Dock_And_Dispatch_v3.132.0.md`: Formal 13-section WGP walkthrough document.
+
+### Changed
+- `backend/app/schemas/wms.py`: Added `DockDoorResponse`, `CartonDockStageRequest`, `CartonDockStageResponse`, `ManifestCartonItem`, `DispatchManifestCreate`, `DispatchManifestResponse`, `DispatchManifestListResponse`, `GateScanItemRequest`, `GateScanItemResponse`, `ManifestDispatchConfirmRequest`, and `ManifestDispatchConfirmResponse`.
+- `backend/app/services/inventory_wms.py`: Implemented `get_dock_doors`, `stage_cartons_at_dock`, `create_dispatch_manifest`, `get_dispatch_manifests`, `get_manifest_details`, `scan_carton_at_gate`, and `confirm_manifest_dispatch` in `InventoryWmsService` with tenant-isolated memory stores `_DISPATCH_MANIFESTS` and `_DOCK_STAGED_CARTONS`.
+- `backend/app/api/v1/wms.py`: Exposed `GET /warehouses/{id}/docks`, `POST /warehouses/{id}/docks/stage`, `POST /warehouses/{id}/dispatch-manifests`, `GET /warehouses/{id}/dispatch-manifests`, `GET /warehouses/{id}/dispatch-manifests/{id}`, `POST /warehouses/{id}/dispatch-manifests/{id}/gate-scan`, and `POST /warehouses/{id}/dispatch-manifests/{id}/dispatch`.
+- `src/components/wms/WmsStudioTab.tsx`: Added 8th subtab "Dock & Dispatch" with Outbound Dock Door visual matrix, 2-column Manifest Manager, interactive Truck Loading Gate Scanner with progress bar, detailed carton manifest table, supervisor departure override modal, and manifest creation wizard.
+
+## [3.131.0] - 2026-10-28 - WMS Phase 6: Warehouse Physical Bin Cycle Counting, Blind Audits, Variance Approvals & Discrepancy Reconciliation Ledger Integration
+
+### Added
+- `backend/tests/test_wms_cycle_counting.py`: Dedicated unit and integration test suite (9/9 green) validating zone-filtered bin resolution, blind audit quantity masking, optical barcode scan verification, threshold escalation (`is_approval_required`), multi-round recount workflows (`RECOUNT_REQUESTED`), approval blocking safety gates, supervisor sign-offs, atomic dual-polarity ledger reconciliation (`INWARD_SURPLUS` / `OUTWARD_LOSS` with `reference_doc_type="WMS_CYCLE_COUNT"` and explicit `bin` attribution), and all 7 FastAPI endpoints.
+- `docs/implementation/wms/WMS_Phase6_Cycle_Counting_Blind_Audits_And_Reconciliation_Plan_v3.131.0.md`: Formal 19-section IPGP implementation plan.
+- `docs/walkthrough/wms/WMS_Phase6_Cycle_Counting_Blind_Audits_And_Reconciliation_v3.131.0.md`: Formal 13-section WGP walkthrough document.
+
+### Changed
+- `backend/app/schemas/wms.py`: Added `CycleCountPlanCreate`, `CycleCountItemResponse`, `CycleCountPlanResponse`, `CycleCountPlanListResponse`, `CycleCountRecordCountRequest`, `CycleCountRecordCountResponse`, `CycleCountRecountRequest`, `CycleCountRecountResponse`, `CycleCountApproveRequest`, `CycleCountApproveResponse`, and `CycleCountReconcileResponse`.
+- `backend/app/services/inventory_wms.py`: Implemented `create_cycle_count_plan`, `_mask_plan_for_response`, `get_cycle_count_plans`, `get_cycle_count_details`, `record_cycle_count_item`, `request_cycle_count_recount`, `approve_cycle_count`, and `reconcile_cycle_count`.
+- `backend/app/api/v1/wms.py`: Exposed `POST /warehouses/{id}/cycle-counts`, `GET /warehouses/{id}/cycle-counts`, `GET /warehouses/{id}/cycle-counts/{plan_id}`, `POST /warehouses/{id}/cycle-counts/{plan_id}/count`, `POST /warehouses/{id}/cycle-counts/{plan_id}/recount`, `POST /warehouses/{id}/cycle-counts/{plan_id}/approve`, and `POST /warehouses/{id}/cycle-counts/{plan_id}/reconcile`.
+- `src/components/wms/WmsStudioTab.tsx`: Added Physical Bin Cycle Count mode switcher, plan creation modal, line scan inputs with optical verification, recount requests, supervisor approval dialogues, blind unmasking toggles, and atomic ledger reconciliation buttons.
+
 ## [3.130.0] - 2026-10-28 - WMS Phase 5: Automated Wave Picking, Batch Picking Optimization & Packing Station Integration
 
 ### Added
