@@ -22,6 +22,7 @@ export interface CommercialDeliveryData {
   paymentTerms: string;
   paymentTermsDays?: number;
   freightCharges: string;
+  deliveryTerms?: string;
   freightAmount?: number;
   currency: string;
   buyer: string;
@@ -78,6 +79,14 @@ const FREIGHT_TERMS_PRESETS = [
   "CIF (Cost, Insurance and Freight)",
   "Door Delivery Included",
   "Shared 50/50",
+];
+
+const DELIVERY_TERMS_PRESETS = [
+  "Door Delivery",
+  "Ex-Factory",
+  "F.O.R. Destination",
+  "Ex-Godown",
+  "FOB Origin",
 ];
 
 const CURRENCY_PRESETS = [
@@ -169,6 +178,7 @@ export const CommercialDeliveryDrawer: React.FC<CommercialDeliveryDrawerProps> =
     supplierCommercialDefaults && (
       (supplierCommercialDefaults.paymentTerms && data.paymentTerms !== supplierCommercialDefaults.paymentTerms) ||
       (supplierCommercialDefaults.freightCharges && data.freightCharges !== supplierCommercialDefaults.freightCharges) ||
+      (supplierCommercialDefaults.deliveryTerms && data.deliveryTerms !== supplierCommercialDefaults.deliveryTerms) ||
       (supplierCommercialDefaults.currency && data.currency !== supplierCommercialDefaults.currency) ||
       (supplierCommercialDefaults.buyer && data.buyer !== supplierCommercialDefaults.buyer) ||
       (supplierCommercialDefaults.department && data.department !== supplierCommercialDefaults.department) ||
@@ -293,7 +303,15 @@ export const CommercialDeliveryDrawer: React.FC<CommercialDeliveryDrawerProps> =
                 <select
                   disabled={readOnly}
                   value={data.freightCharges || "Paid by Supplier"}
-                  onChange={(e) => onChange({ freightCharges: e.target.value })}
+                  onChange={(e) => {
+                    const fc = e.target.value;
+                    const isToPay = fc.toLowerCase().includes("buyer") || fc.toLowerCase().includes("to-pay");
+                    const smartDelivery = isToPay ? "Ex-Factory" : "Door Delivery";
+                    onChange({
+                      freightCharges: fc,
+                      ...(!data.deliveryTerms || data.deliveryTerms === "Ex-Factory" || data.deliveryTerms === "Door Delivery" ? { deliveryTerms: smartDelivery } : {})
+                    });
+                  }}
                   className="w-full text-xs font-medium px-2.5 h-8 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100 rounded-lg outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 disabled:opacity-50"
                 >
                   {FREIGHT_TERMS_PRESETS.map((ft) => (
@@ -343,6 +361,23 @@ export const CommercialDeliveryDrawer: React.FC<CommercialDeliveryDrawerProps> =
                 <span className="material-symbols-outlined text-indigo-600 dark:text-indigo-400 text-[14px]">local_shipping</span>
                 Delivery & Warehouse Destination
               </h3>
+
+              {/* Delivery Terms */}
+              <div>
+                <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                  Delivery Terms (Handover / Dispatch)
+                </label>
+                <select
+                  disabled={readOnly}
+                  value={data.deliveryTerms || (data.freightCharges?.toLowerCase().includes("buyer") || data.freightCharges?.toLowerCase().includes("to-pay") ? "Ex-Factory" : "Door Delivery")}
+                  onChange={(e) => onChange({ deliveryTerms: e.target.value })}
+                  className="w-full text-xs font-medium px-2.5 h-8 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100 rounded-lg outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 disabled:opacity-50"
+                >
+                  {DELIVERY_TERMS_PRESETS.map((dt) => (
+                    <option key={dt} value={dt} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100">{dt}</option>
+                  ))}
+                </select>
+              </div>
 
               {/* Delivery Location / Warehouse */}
               <div>

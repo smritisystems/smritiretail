@@ -105,9 +105,10 @@ export interface PurchaseOrderPrintData {
     amount: number;
   }[];
 
-  // Item Reference Cards (2 large preview images per row)
+  // Item Reference Cards (2 large preview images per row or 4 compact per row)
   itemReferences?: FootwearArticleReference[];
   itemReferenceFields?: ItemReferenceFieldVisibility;
+  imageColumns?: 2 | 4;
 
   // Commercial Terms
   paymentTerms?: string;
@@ -303,6 +304,7 @@ export const PurchaseOrderPrintA4: React.FC<{ data: PurchaseOrderPrintData }> = 
   const displaySubtotal = data.subtotal ?? (data.grandTotal ? data.grandTotal - (data.gstAmount || 0) : calculatedTotalAmount);
   const displayGst = data.gstAmount !== undefined ? data.gstAmount : calculatedTotalTaxAmount;
   const displayGrandTotal = data.grandTotal ?? (displaySubtotal + displayGst);
+  const imageCols = data.imageColumns ?? 2;
 
   // Item References deduplication / formatting with automatic line items fallback
   const references = React.useMemo(() => {
@@ -769,14 +771,14 @@ export const PurchaseOrderPrintA4: React.FC<{ data: PurchaseOrderPrintData }> = 
         )}
       </section>
 
-      {/* ── 4. ITEM REFERENCE (IMAGES) — 2 LARGE CARDS PER ROW ─────────── */}
+      {/* ── 4. ITEM REFERENCE (IMAGES) ─────────── */}
       <section className="mb-1.5">
         <div className="flex justify-between items-center mb-1">
           <h3 className="text-xs font-black text-[#1e3a8a] uppercase tracking-wide">
             ITEM REFERENCE (IMAGES)
           </h3>
           <span className="text-[10px] text-slate-500 font-medium">
-            2 images per row • Large preview
+            {imageCols === 4 ? "4 images per row • Compact preview" : "2 images per row • Large preview"}
           </span>
         </div>
 
@@ -785,7 +787,7 @@ export const PurchaseOrderPrintA4: React.FC<{ data: PurchaseOrderPrintData }> = 
             No item reference imagery available for this purchase order.
           </div>
         ) : (
-          <div className="grid grid-cols-2 gap-2">
+          <div className={`grid ${imageCols === 4 ? "grid-cols-4 gap-1.5" : "grid-cols-2 gap-2"}`}>
             {references.map((ref, idx) => {
               const referenceFields = [
                 { key: "color" as const, label: "Color", value: ref.color },
@@ -800,14 +802,14 @@ export const PurchaseOrderPrintA4: React.FC<{ data: PurchaseOrderPrintData }> = 
                 className="page-break-avoid border border-[#cbd5e1] rounded-lg p-1.5 bg-white shadow-2xs flex flex-col justify-between"
               >
                 {/* Card Title: Article No */}
-                <div className="text-[12px] font-extrabold text-[#0f172a] mb-1 break-words">
+                <div className={`${imageCols === 4 ? "text-[10.5px]" : "text-[12px]"} font-extrabold text-[#0f172a] mb-0.5 break-words`}>
                   {ref.articleNo}
                 </div>
 
-                {/* Card Content: Wrapping attributes above the large reference image */}
-                <div className="flex flex-col gap-1.5">
+                {/* Card Content: Wrapping attributes above the reference image */}
+                <div className="flex flex-col gap-1">
                   {referenceFields.length > 0 && (
-                    <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-[9.5px]">
+                    <div className={`grid ${imageCols === 4 ? "grid-cols-1 gap-y-0.5 text-[8px]" : "grid-cols-2 gap-x-3 gap-y-1 text-[9.5px]"}`}>
                       {referenceFields.map((field) => (
                         <div className="grid grid-cols-[max-content_minmax(0,1fr)] items-start gap-x-1" key={field.key}>
                           <span className="text-slate-500 whitespace-nowrap">{field.label}:</span>
@@ -819,12 +821,12 @@ export const PurchaseOrderPrintA4: React.FC<{ data: PurchaseOrderPrintData }> = 
                     </div>
                   )}
 
-                  {/* Right Column: Rectangular 5:3 Preview Image (No border/decorations around placeholder) */}
+                  {/* Rectangular 5:3 Preview Image (No border/decorations around placeholder) */}
                   <div
                     className="w-full flex items-center justify-center overflow-hidden relative"
                     style={{
                       aspectRatio: "5 / 3",
-                      maxHeight: "92px",
+                      maxHeight: imageCols === 4 ? "78px" : "118px",
                     }}
                   >
                     {Boolean(ref.imageUrl && ref.imageUrl.trim() && ref.imageUrl.trim().toLowerCase() !== "null" && ref.imageUrl.trim().toLowerCase() !== "undefined") ? (
@@ -883,7 +885,9 @@ export const PurchaseOrderPrintA4: React.FC<{ data: PurchaseOrderPrintData }> = 
             <div className="flex items-start">
               <span className="text-slate-500 w-28 shrink-0">Delivery Terms</span>
               <span className="text-slate-400 mr-1.5">:</span>
-              <span className="font-semibold text-slate-900">{data.deliveryTerms || "Ex-Factory"}</span>
+              <span className="font-semibold text-slate-900">
+                {data.deliveryTerms || ((data.freightTerms || "").toLowerCase().includes("buyer") || (data.freightTerms || "").toLowerCase().includes("to-pay") ? "Ex-Factory" : "Door Delivery")}
+              </span>
             </div>
             <div className="flex items-start">
               <span className="text-slate-500 w-28 shrink-0">Supplier Reference</span>

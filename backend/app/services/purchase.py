@@ -395,6 +395,7 @@ class PurchaseService:
             pt_days = getattr(sp, "payment_terms_days", 120) if sp else 120
             payment_terms = meta_comm.get("payment_terms") or (f"{pt_days} Days" if pt_days else "120 Days")
             freight_terms = meta_comm.get("freight_terms") or "Paid by Supplier"
+            delivery_terms = meta_comm.get("delivery_terms") or ("Ex-Factory" if any(w in (freight_terms or "").lower() for w in ["buyer", "to-pay", "to pay"]) else "Door Delivery")
             currency = meta_comm.get("currency") or "INR - Indian Rupee"
             buyer = meta_comm.get("buyer") or None
             department = meta_comm.get("department") or None
@@ -405,6 +406,7 @@ class PurchaseService:
                 "payment_terms_days": pt_days,
                 "payment_terms": payment_terms,
                 "freight_terms": freight_terms,
+                "delivery_terms": delivery_terms,
                 "currency": currency,
                 "buyer": buyer,
                 "department": department,
@@ -430,6 +432,7 @@ class PurchaseService:
                 payment_terms_days=pt_days,
                 payment_terms=payment_terms,
                 freight_terms=freight_terms,
+                delivery_terms=delivery_terms,
                 currency=currency,
                 buyer=buyer,
                 department=department,
@@ -463,6 +466,7 @@ class PurchaseService:
         pt_days = getattr(sp, "payment_terms_days", 120) if sp else 120
         payment_terms = meta_comm.get("payment_terms") or (f"{pt_days} Days" if pt_days else "120 Days")
         freight_terms = meta_comm.get("freight_terms") or "Paid by Supplier"
+        delivery_terms = meta_comm.get("delivery_terms") or ("Ex-Factory" if any(w in (freight_terms or "").lower() for w in ["buyer", "to-pay", "to pay"]) else "Door Delivery")
         currency = meta_comm.get("currency") or "INR - Indian Rupee"
         buyer = meta_comm.get("buyer") or None
         department = meta_comm.get("department") or None
@@ -473,6 +477,7 @@ class PurchaseService:
             "payment_terms_days": pt_days,
             "payment_terms": payment_terms,
             "freight_terms": freight_terms,
+            "delivery_terms": delivery_terms,
             "currency": currency,
             "buyer": buyer,
             "department": department,
@@ -498,6 +503,7 @@ class PurchaseService:
             payment_terms_days=pt_days,
             payment_terms=payment_terms,
             freight_terms=freight_terms,
+            delivery_terms=delivery_terms,
             currency=currency,
             buyer=buyer,
             department=department,

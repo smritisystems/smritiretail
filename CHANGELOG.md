@@ -1,5 +1,43 @@
 <!--
 
+## [6.99.5] - 2026-10-29 - Purchase Order Print Image Density & Interactive Article Selector v1.0.0
+
+### Added
+- `src/print_engine/templates/PurchaseOrderPrintA4.tsx`:
+  - Added `imageColumns?: 2 | 4` support to `PurchaseOrderPrintData`.
+  - Increased 2-column card image container height from `92px` to `118px` (+28% larger) for clear detail inspection while preserving 1-page fit for 1-2 articles.
+  - Added 4-column compact layout (`grid-cols-4`, `78px` image height, micro typography) enabling 4 article images to fit side-by-side on a single horizontal row on 1 page.
+  - Added dynamic layout badges: `2 images per row • Large preview` vs `4 images per row • Compact preview`.
+- `src/components/purchase/POPrintPreviewModal.tsx`:
+  - Added **Grid Density Selector** (`Auto`, `2 / Row (Large 118px)`, `4 / Row (Fit 1 Page)`) to modal header toolbar.
+  - Added **Article Selector Popover** with quick action buttons (`All`, `Top 2`, `Top 4`, `None`) and individual article checkboxes.
+  - Added intelligent auto-calculation: automatically defaults to 2 columns for <= 2 items and 4 columns for 3+ items, with instant user manual override.
+  - Filtered `mappedItemReferences` based on user selection, allowing targeted photo printing without modifying the comprehensive statutory line items.
+  - Added browser `localStorage` persistence for operator preferences (`smriti_po_image_grid_setting` and `smriti_po_item_reference_fields`).
+- `src/tests/poPrintBrandingAndTerms.test.tsx`:
+  - Added test case validating dynamic image columns (2 per row large 118px vs 4 per row compact 78px).
+- `docs/walkthrough/purchase/Purchase_Order_Print_Image_Grid_Selection_Walkthrough_v1.0.0.md`:
+  - Created formal 13-section Walkthrough Governance Policy (WGP) document.
+
+## [6.99.4] - 2026-10-29 - Vendor Master Delivery Terms Configuration & Purchase Order Alignment v1.0.0
+
+### Added
+- `backend/app/schemas/vendor.py`: Added `delivery_terms: Optional[str] = "Door Delivery"` to `VendorCommercialProfileDTO`.
+- `backend/app/schemas/purchase.py`: Added `delivery_terms: Optional[str] = "Door Delivery"` to `SupplierResponse`.
+- `src/types/vendor.ts`: Added `deliveryTerms?: string` to `VendorCommercialProfile`.
+- `src/components/vendor/tabs/VendorCommercialTab.tsx`: Added `Default Delivery Terms` selector beside `Default Freight Terms` with auto-sync and options (`Door Delivery`, `Ex-Factory`, `F.O.R. Destination`, `Ex-Godown`).
+- `src/components/purchase/CommercialDeliveryDrawer.tsx`: Added `deliveryTerms` field and `DELIVERY_TERMS_PRESETS` in Section 2, smart syncing with Freight Terms and triggering PO Override badges.
+- `docs/walkthrough/purchase/Purchase_Order_Vendor_Delivery_Terms_Inheritance_Walkthrough_v1.0.0.md`: Formal 13-section WGP walkthrough document.
+
+### Fixed
+- `backend/app/services/vendor_svc.py`: Persisted and retrieved `delivery_terms` in `party.metadata_json["commercial_terms"]` across `create_vendor`, `update_vendor`, and `_to_vendor_detail`.
+- `backend/app/services/purchase.py`: Enriched `list_suppliers` and `get_supplier` with vendor `delivery_terms`, applying intelligent fallback (`buyer`/`to-pay` -> `"Ex-Factory"`, otherwise `"Door Delivery"`).
+- `backend/app/schemas/purchase.py`: Updated `PurchaseOrderResponse` validation to eliminate hardcoded `"Ex-Factory"` when commercial terms are empty, defaulting to `"Door Delivery"` for `"Paid by Supplier"` freight terms.
+- `src/components/vendor/VendorMasterWs.tsx`: Normalized `deliveryTerms` from API and added it to `commFields` dirty checking to enable Save on delivery terms changes.
+- `src/components/purchase/PoSizewiseTab.tsx` & `PoGenerateTab.tsx`: Dynamically inherited vendor `delivery_terms` upon supplier selection, wired into commercial terms snapshots and notes.
+- `src/components/purchase/POPrintPreviewModal.tsx`: Eliminated hardcoded `"Ex-Factory"`, cascading resolution from order header -> vendor profile -> smart freight inference.
+- `src/print_engine/templates/PurchaseOrderPrintA4.tsx`: Replaced static fallback with intelligent deduction so "Paid by Supplier" never prints contradictory "Ex-Factory".
+
 ## [6.99.3] - 2026-10-29 - Purchase Order Smart Sequential Numbering & Collision Recovery v1.0.0
 
 ### Fixed

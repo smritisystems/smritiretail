@@ -101,6 +101,7 @@ export interface VendorCommercialProfile {
   outstandingLiability: number;
   paymentTerms?: string;
   freightTerms?: string;
+  deliveryTerms?: string;
   currency?: string;
   buyer?: string;
   department?: string;

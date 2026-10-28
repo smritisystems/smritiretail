@@ -136,6 +136,7 @@ class VendorService:
             outstanding_liability=sp_out,
             payment_terms=meta_comm.get("payment_terms") or (f"{pt_days} Days" if pt_days else "30 Days"),
             freight_terms=meta_comm.get("freight_terms") or "Paid by Supplier",
+            delivery_terms=meta_comm.get("delivery_terms") or ("Ex-Factory" if any(w in (meta_comm.get("freight_terms") or "").lower() for w in ["buyer", "to-pay", "to pay"]) else "Door Delivery"),
             currency=meta_comm.get("currency") or "INR - Indian Rupee",
             buyer=meta_comm.get("buyer"),
             department=meta_comm.get("department"),
@@ -430,6 +431,7 @@ class VendorService:
             comm_terms = {
                 "payment_terms": getattr(comm, "payment_terms", None) or f"{comm.payment_terms_days} Days",
                 "freight_terms": getattr(comm, "freight_terms", "Paid by Supplier"),
+                "delivery_terms": getattr(comm, "delivery_terms", None) or ("Ex-Factory" if any(w in (getattr(comm, "freight_terms", "") or "").lower() for w in ["buyer", "to-pay", "to pay"]) else "Door Delivery"),
                 "currency": getattr(comm, "currency", "INR - Indian Rupee"),
                 "buyer": getattr(comm, "buyer", None),
                 "department": getattr(comm, "department", None),
@@ -711,6 +713,8 @@ class VendorService:
                 comm_terms["payment_terms"] = f"{c.payment_terms_days} Days"
             if getattr(c, "freight_terms", None) is not None:
                 comm_terms["freight_terms"] = c.freight_terms
+            if getattr(c, "delivery_terms", None) is not None:
+                comm_terms["delivery_terms"] = c.delivery_terms
             if getattr(c, "currency", None) is not None:
                 comm_terms["currency"] = c.currency
             if getattr(c, "buyer", None) is not None:
