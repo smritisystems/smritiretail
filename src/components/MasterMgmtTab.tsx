@@ -50,6 +50,9 @@ export const MasterManagementTab: React.FC<MasterManagementTabProps> = ({
         const types = await apiFetchV1("/masters/lookup-types");
         if (Array.isArray(types)) {
           const configuredTypes = types.map((t: any) => ({ code: t.code, label: t.label || t.name }));
+          if (!configuredTypes.some((type) => type.code === "warehouse")) {
+            configuredTypes.push({ code: "warehouse", label: "Warehouse" });
+          }
           if (!configuredTypes.some((type) => type.code === "size_group")) {
             configuredTypes.push({ code: "size_group", label: "Size Group" });
           }
@@ -94,7 +97,16 @@ export const MasterManagementTab: React.FC<MasterManagementTabProps> = ({
   }, [lookupTypes, selectedType]);
 
   const responseTransform = useCallback(
-    (items: any) => mapLookupResponse(items, selectedType),
+    (items: any) => selectedType === "warehouse"
+      ? Array.isArray(items)
+        ? items.map((item) => ({
+            ...item,
+            type_code: "warehouse",
+            description: item.name || "",
+            is_active: item.is_active !== false,
+          }))
+        : []
+      : mapLookupResponse(items, selectedType),
     [selectedType]
   );
 
@@ -349,9 +361,21 @@ export const MasterManagementTab: React.FC<MasterManagementTabProps> = ({
 
     return {
       ...masterLookupConfig,
-      apiEndpoint: `/masters/lookup/${selectedType}/values`,
+      entityName: selectedType === "warehouse" ? "Warehouse" : masterLookupConfig.entityName,
+      entityNamePlural: selectedType === "warehouse" ? "Warehouses" : masterLookupConfig.entityNamePlural,
+      title: selectedType === "warehouse" ? "Warehouse Master" : masterLookupConfig.title,
+      subtitle: selectedType === "warehouse"
+        ? "Manage the warehouse code and description used by purchasing and warehouse operations."
+        : masterLookupConfig.subtitle,
+      apiEndpoint: selectedType === "warehouse" ? "/wms/warehouses" : `/masters/lookup/${selectedType}/values`,
       responseTransform,
-      payloadTransform: (formData: any) => {
+      payloadTransform: (formData: any, mode: "create" | "update") => {
+        if (selectedType === "warehouse") {
+          return {
+            ...(mode === "create" ? { code: String(formData.code || "").trim().toUpperCase() } : {}),
+            name: String(formData.name || "").trim(),
+          };
+        }
         const payload: Record<string, any> = {
           code: String(formData.code || "").trim(),
           name: String(formData.name || "").trim(),
@@ -372,12 +396,55 @@ export const MasterManagementTab: React.FC<MasterManagementTabProps> = ({
         }
         return payload;
       },
-      fields: baseFields.concat(extraFields),
-      filters: [], // Subtabs already select the type; eliminate hardcoded 5-type filter that blocked other types
-      slots: {
-        ...masterLookupConfig.slots,
-        extraHeaderActions,
-      },
+      columns: selectedType === "warehouse"
+        ? [
+            { key: "code", label: "Warehouse Code", sortable: true },
+            { key: "name", label: "Description", sortable: true },
+            {
+              key: "is_active",
+              label: "Status",
+              width: "100px",
+              render: (val: boolean) => (
+                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold font-mono border ${
+                  val !== false
+                    ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+                    : "bg-rose-500/10 text-rose-400 border-rose-500/20"
+                }`}>
+                  {val !== false ? "Active" : "Inactive"}
+                </span>
+              ),
+            },
+          ]
+        : masterLookupConfig.columns,
+      fields: selectedType === "warehouse"
+        ? [
+            {
+              name: "code",
+              label: "Warehouse Code",
+              type: "text",
+              required: true,
+              placeholder: "e.g. WH-MAIN",
+              description: "Codes stay fixed after creation so existing stock and documents keep their references.",
+              colSpan: 1,
+            },
+            {
+              name: "name",
+              label: "Description",
+              type: "text",
+              required: true,
+              placeholder: "e.g. Main Store Depot",
+              colSpan: 1,
+            },
+          ]
+        : baseFields.concat(extraFields),
+      filters: [],
+      permissions: selectedType === "warehouse" ? { deleteRole: [] } : masterLookupConfig.permissions,
+      slots: selectedType === "warehouse"
+        ? {}
+        : {
+            ...masterLookupConfig.slots,
+            extraHeaderActions,
+          },
       subTabs: lookupTypes.length > 0 ? lookupTypes.map((t) => ({
         id: t.code,
         label: t.code === "size_group" ? "Size Management" : t.code === "color_group" ? "Color Management" : t.label
@@ -396,10 +463,12 @@ export const MasterManagementTab: React.FC<MasterManagementTabProps> = ({
     }
     return {
       ...base,
-      slots: {
-        ...base.slots,
-        extraHeaderActions,
-      },
+      slots: selectedType === "warehouse"
+        ? {}
+        : {
+            ...base.slots,
+            extraHeaderActions,
+          },
     };
   }, [selectedType, dynamicConfig, extraHeaderActions]);
 
@@ -433,7 +502,7 @@ export const MasterManagementTab: React.FC<MasterManagementTabProps> = ({
         currentUser={currentUser}
         initialSubTab={selectedType}
         onSubTabChange={handleSubTabChange}
-        detailDrawer={renderDetailDrawer}
+        detailDrawer={selectedType === "warehouse" ? undefined : renderDetailDrawer}
         onNotification={handleNotification}
       />
       {showTypeAudit && (

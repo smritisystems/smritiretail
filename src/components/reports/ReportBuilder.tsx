@@ -48,6 +48,18 @@ import {
 export type SidebarState = "expanded" | "collapsed" | "hidden";
 export type FiltersState = "expanded" | "compact" | "hidden";
 
+export interface ReportBuilderField {
+  id: string;
+  category: "Purchase" | "Sales" | "Inventory" | "Items" | "Customers" | "Suppliers" | "Finance";
+  label: string;
+  key: string;
+  datatype: "text" | "number" | "currency" | "date" | "badge";
+  iconType: "text" | "number" | "date" | "doc";
+  isSummary?: boolean;
+  align?: "left" | "right" | "center";
+  defaultSelected?: boolean;
+}
+
 export interface ReportBuilderRow {
   id: string;
   [key: string]: any;
@@ -61,6 +73,82 @@ export interface ReportBuilderProps {
   isLocationsManagementEnabled?: boolean;
   activeStoreName?: string;
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Canonical Retail Fields Catalog for Report Builder (30+ Fields Across 7 Domains)
+// ─────────────────────────────────────────────────────────────────────────────
+export const REPORT_BUILDER_CATALOG_FIELDS: ReportBuilderField[] = [
+  // 1. Purchase
+  { id: "pur_supplier", category: "Purchase", label: "Supplier", key: "supplier", datatype: "text", iconType: "text", defaultSelected: true },
+  { id: "pur_po_no", category: "Purchase", label: "PO No", key: "po_no", datatype: "text", iconType: "text", defaultSelected: false },
+  { id: "pur_po_date", category: "Purchase", label: "PO Date", key: "po_date", datatype: "date", iconType: "date", defaultSelected: true },
+  { id: "pur_invoice_no", category: "Purchase", label: "Invoice No", key: "invoice_no", datatype: "text", iconType: "doc", defaultSelected: false },
+  { id: "pur_article_sku", category: "Purchase", label: "Article / SKU", key: "article_sku", datatype: "text", iconType: "number", defaultSelected: true },
+  { id: "pur_color", category: "Purchase", label: "Color", key: "color", datatype: "text", iconType: "text", defaultSelected: true },
+  { id: "pur_size", category: "Purchase", label: "Size", key: "size", datatype: "number", iconType: "number", align: "right", defaultSelected: true },
+  { id: "pur_quantity", category: "Purchase", label: "Quantity", key: "quantity", datatype: "number", iconType: "number", isSummary: true, align: "right", defaultSelected: true },
+  { id: "pur_net_amount", category: "Purchase", label: "Net Amount", key: "net_amount", datatype: "currency", iconType: "number", isSummary: true, align: "right", defaultSelected: true },
+
+  // 2. Sales
+  { id: "sal_invoice_no", category: "Sales", label: "Invoice No", key: "sale_invoice_no", datatype: "text", iconType: "doc" },
+  { id: "sal_invoice_date", category: "Sales", label: "Invoice Date", key: "sale_date", datatype: "date", iconType: "date" },
+  { id: "sal_customer", category: "Sales", label: "Customer", key: "customer_name", datatype: "text", iconType: "text" },
+  { id: "sal_staff", category: "Sales", label: "Sales Staff", key: "staff_name", datatype: "text", iconType: "text" },
+  { id: "sal_gross_total", category: "Sales", label: "Gross Total", key: "gross_total", datatype: "currency", iconType: "number", isSummary: true, align: "right" },
+  { id: "sal_tax_amount", category: "Sales", label: "Tax Amount", key: "tax_amount", datatype: "currency", iconType: "number", isSummary: true, align: "right" },
+  { id: "sal_net_total", category: "Sales", label: "Net Total", key: "net_total", datatype: "currency", iconType: "number", isSummary: true, align: "right" },
+  { id: "sal_payment_mode", category: "Sales", label: "Payment Mode", key: "payment_mode", datatype: "badge", iconType: "text" },
+
+  // 3. Inventory
+  { id: "inv_warehouse", category: "Inventory", label: "Warehouse", key: "warehouse", datatype: "text", iconType: "text" },
+  { id: "inv_item_code", category: "Inventory", label: "Item Code", key: "item_code", datatype: "text", iconType: "text" },
+  { id: "inv_item_name", category: "Inventory", label: "Item Name", key: "item_name", datatype: "text", iconType: "text" },
+  { id: "inv_category", category: "Inventory", label: "Category", key: "item_category", datatype: "text", iconType: "text" },
+  { id: "inv_brand", category: "Inventory", label: "Brand", key: "brand", datatype: "text", iconType: "text" },
+  { id: "inv_stock_on_hand", category: "Inventory", label: "Stock On Hand", key: "stock_on_hand", datatype: "number", iconType: "number", isSummary: true, align: "right" },
+  { id: "inv_reserved_qty", category: "Inventory", label: "Reserved Qty", key: "reserved_qty", datatype: "number", iconType: "number", isSummary: true, align: "right" },
+  { id: "inv_available_qty", category: "Inventory", label: "Available Qty", key: "available_qty", datatype: "number", iconType: "number", isSummary: true, align: "right" },
+  { id: "inv_reorder_level", category: "Inventory", label: "Reorder Level", key: "reorder_level", datatype: "number", iconType: "number", align: "right" },
+  { id: "inv_valuation_cost", category: "Inventory", label: "Valuation Cost", key: "valuation_cost", datatype: "currency", iconType: "number", isSummary: true, align: "right" },
+
+  // 4. Items
+  { id: "itm_code", category: "Items", label: "Item Code", key: "item_code", datatype: "text", iconType: "text" },
+  { id: "itm_name", category: "Items", label: "Item Name", key: "item_name", datatype: "text", iconType: "text" },
+  { id: "itm_category", category: "Items", label: "Category", key: "item_category", datatype: "text", iconType: "text" },
+  { id: "itm_brand", category: "Items", label: "Brand", key: "brand", datatype: "text", iconType: "text" },
+  { id: "itm_mrp", category: "Items", label: "MRP", key: "mrp", datatype: "currency", iconType: "number", align: "right" },
+  { id: "itm_standard_cost", category: "Items", label: "Standard Cost", key: "standard_cost", datatype: "currency", iconType: "number", align: "right" },
+  { id: "itm_selling_price", category: "Items", label: "Selling Price", key: "selling_price", datatype: "currency", iconType: "number", align: "right" },
+
+  // 5. Customers
+  { id: "crm_customer_code", category: "Customers", label: "Customer Code", key: "customer_code", datatype: "text", iconType: "text" },
+  { id: "crm_customer_name", category: "Customers", label: "Customer Name", key: "crm_name", datatype: "text", iconType: "text" },
+  { id: "crm_phone", category: "Customers", label: "Phone", key: "phone", datatype: "text", iconType: "text" },
+  { id: "crm_city", category: "Customers", label: "City", key: "city", datatype: "text", iconType: "text" },
+  { id: "crm_outstanding", category: "Customers", label: "Outstanding Balance", key: "outstanding_balance", datatype: "currency", iconType: "number", isSummary: true, align: "right" },
+
+  // 6. Suppliers
+  { id: "sup_code", category: "Suppliers", label: "Supplier Code", key: "supplier_code", datatype: "text", iconType: "text" },
+  { id: "sup_name", category: "Suppliers", label: "Supplier Name", key: "sup_full_name", datatype: "text", iconType: "text" },
+  { id: "sup_gstin", category: "Suppliers", label: "GSTIN", key: "supplier_gstin", datatype: "text", iconType: "doc" },
+  { id: "sup_city", category: "Suppliers", label: "City", key: "supplier_city", datatype: "text", iconType: "text" },
+  { id: "sup_balance", category: "Suppliers", label: "Current Balance", key: "supplier_balance", datatype: "currency", iconType: "number", isSummary: true, align: "right" },
+
+  // 7. Finance
+  { id: "fin_account_code", category: "Finance", label: "Account Code", key: "account_code", datatype: "text", iconType: "doc" },
+  { id: "fin_account_name", category: "Finance", label: "Account Name", key: "account_name", datatype: "text", iconType: "text" },
+  { id: "fin_debit_total", category: "Finance", label: "Debit Total", key: "debit_total", datatype: "currency", iconType: "number", isSummary: true, align: "right" },
+  { id: "fin_credit_total", category: "Finance", label: "Credit Total", key: "credit_total", datatype: "currency", iconType: "number", isSummary: true, align: "right" },
+];
+
+export const DEFAULT_REPORT_BUILDER_ROWS: ReportBuilderRow[] = [
+  { id: "row-1", supplier: "ABC Footwear", po_no: "PO-2025-001", po_date: "2025-04-02", invoice_no: "INV-8801", article_sku: "CH-01", color: "Black", size: 7, quantity: 24, net_amount: 12000 },
+  { id: "row-2", supplier: "ABC Footwear", po_no: "PO-2025-001", po_date: "2025-04-02", invoice_no: "INV-8801", article_sku: "CH-01", color: "Black", size: 8, quantity: 18, net_amount: 9000 },
+  { id: "row-3", supplier: "XYZ Traders",  po_no: "PO-2025-002", po_date: "2025-04-10", invoice_no: "INV-8802", article_sku: "SN-02", color: "Brown", size: 7, quantity: 30, net_amount: 15000 },
+  { id: "row-4", supplier: "XYZ Traders",  po_no: "PO-2025-002", po_date: "2025-04-10", invoice_no: "INV-8802", article_sku: "SN-02", color: "Brown", size: 8, quantity: 20, net_amount: 10000 },
+  { id: "row-5", supplier: "LMN Suppliers", po_no: "PO-2025-003", po_date: "2025-04-18", invoice_no: "INV-8803", article_sku: "SP-03", color: "Blue", size: 9, quantity: 25, net_amount: 12500 },
+  { id: "row-6", supplier: "LMN Suppliers", po_no: "PO-2025-003", po_date: "2025-04-18", invoice_no: "INV-8803", article_sku: "SP-03", color: "Blue", size: 10, quantity: 15, net_amount: 8000 },
+];
 
 const STORAGE_KEY_LAYOUT = "smriti_report_designer_layout_v2";
 
@@ -148,6 +236,11 @@ export const ReportBuilderBase: React.FC<ReportBuilderProps> = ({
   const exportMenuRef = useRef<HTMLDivElement>(null);
   const quickAddRef = useRef<HTMLDivElement>(null);
 
+  const layoutSignature = useMemo(
+    () => [...layout.rows, ...layout.columns, ...layout.values].map((f) => f.key).join(","),
+    [layout.rows, layout.columns, layout.values]
+  );
+
   // ───────────────────────────────────────────────────────────────────────────
   // 2. Fetch Live Data from Backend /api/v1/reports/builder/query
   // ───────────────────────────────────────────────────────────────────────────
@@ -157,13 +250,22 @@ export const ReportBuilderBase: React.FC<ReportBuilderProps> = ({
     try {
       const params = new URLSearchParams();
       params.set("category", activeDataSource);
+      params.set("consolidation_mode", "auto");
+      const activeKeys = Array.from(new Set([
+        ...layout.rows.map((f) => f.key),
+        ...layout.columns.map((f) => f.key),
+        ...layout.values.map((f) => f.key),
+      ]));
+      if (activeKeys.length > 0) {
+        params.set("selected_columns", activeKeys.join(","));
+      }
       if (dateRange.start) params.set("start_date", dateRange.start);
       if (dateRange.end) params.set("end_date", dateRange.end);
       if (isLocationsManagementEnabled && branchFilter && branchFilter !== "All Branches") {
         params.set("branch_id", branchFilter);
       }
       if (fieldSearchTerm.trim()) params.set("search", fieldSearchTerm.trim());
-      params.set("limit", "200");
+      params.set("limit", "500");
 
       const res = await apiFetchV1<{
         category: string;
@@ -189,7 +291,7 @@ export const ReportBuilderBase: React.FC<ReportBuilderProps> = ({
 
   useEffect(() => {
     fetchReportData();
-  }, [activeDataSource, dateRange.start, dateRange.end, branchFilter]);
+  }, [activeDataSource, dateRange.start, dateRange.end, branchFilter, layoutSignature]);
 
   // Click outside listener for menus
   useEffect(() => {
@@ -369,15 +471,16 @@ export const ReportBuilderBase: React.FC<ReportBuilderProps> = ({
       onNotification?.("success", "Dispatching report print spool...");
       return;
     }
+    const exportColumns = layout.rows.concat(layout.columns).concat(layout.values).map((c) => ({
+      key: c.key,
+      label: c.customLabel || c.label,
+      datatype: c.format === "Currency" ? ("currency" as const) : c.format === "Number" ? ("number" as const) : ("text" as const),
+    }));
     GlobalExportService.exportDataset({
       moduleName: "Visual_Report_Designer",
       format: format === "xlsx" ? "xlsx" : "csv",
       scope: "all",
-      columns: layout.rows.concat(layout.values).map((c) => ({
-        key: c.key,
-        label: c.customLabel || c.label,
-        datatype: c.format === "Currency" ? "currency" : "text",
-      })),
+      columns: exportColumns,
       data,
       metadata: {
         moduleTitle: initialTitle,
@@ -1418,7 +1521,11 @@ export const ReportBuilderBase: React.FC<ReportBuilderProps> = ({
 };
 
 export const ReportBuilder = withCapability(ReportBuilderBase, {
-  entity: "ReportBuilder",
-  capability: "VISUAL_REPORT_DESIGNER",
-  role: "SPECIALIZED_UI",
+  entity: "reports",
+  capability: "report_builder",
+  role: "CANONICAL",
+  canonicalOwner: "src/components/reports/ReportBuilder.tsx",
+  description: "SMRITI Report Builder with Collapsible Panels, Auto-Adaptive Layout, and Focus Mode",
 });
+
+export default ReportBuilder;

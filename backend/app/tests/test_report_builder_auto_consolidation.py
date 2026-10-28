@@ -46,8 +46,14 @@ async def test_report_field_registry_classification():
     assert ReportFieldRegistry.is_dimension("Purchase", "article_sku") is True
     assert ReportFieldRegistry.is_dimension("Purchase", "color") is True
     assert ReportFieldRegistry.is_dimension("Purchase", "size") is True
+    assert ReportFieldRegistry.is_dimension("Purchase", "style_code") is True
+    assert ReportFieldRegistry.is_dimension("Purchase", "article_no") is True
+    assert ReportFieldRegistry.is_dimension("Purchase", "item_code") is True
     assert ReportFieldRegistry.is_dimension("Sales", "customer_name") is True
     assert ReportFieldRegistry.is_dimension("Sales", "size") is True
+    assert ReportFieldRegistry.is_dimension("Sales", "style_code") is True
+    assert ReportFieldRegistry.is_dimension("Sales", "article_no") is True
+    assert ReportFieldRegistry.is_dimension("Sales", "item_code") is True
 
     # Measures
     assert ReportFieldRegistry.is_dimension("Purchase", "quantity") is False
