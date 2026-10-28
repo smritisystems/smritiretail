@@ -13,12 +13,13 @@
  */
 
 import React, { useState, useEffect } from "react";
-import { FileText, Package, Printer } from "lucide-react";
+import { AlertCircle, FileText, Package, Printer, RefreshCw } from "lucide-react";
 import { VendorDetail } from "../../../types/vendor";
 import { apiFetchV1 } from "../../../lib/apiFetchV1";
 import { withCapability } from "../../../types/architecture";
 import { POPrintPreviewModal } from "../../purchase/POPrintPreviewModal";
 import type { PurchaseOrderHeader, PurchaseOrderLineItem, PurchaseOrderSizePivotRow } from "../../purchase/types";
+import { fetchVendorPurchaseOrders } from "./vendorPurchaseOrders";
 
 /**
  * Robust footwear SKU and barcode attribute parser.
@@ -64,6 +65,9 @@ interface VendorProcurementTabProps {
 const VendorProcurementTabBase: React.FC<VendorProcurementTabProps> = ({ vendor }) => {
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  const [loadError, setLoadError] = useState("");
+  const [lookupWarning, setLookupWarning] = useState("");
+  const [reloadKey, setReloadKey] = useState(0);
   const [reprintOrder, setReprintOrder] = useState<any | null>(null);
   const [reprintLoadingId, setReprintLoadingId] = useState<string | null>(null);
 
@@ -190,31 +194,35 @@ const VendorProcurementTabBase: React.FC<VendorProcurementTabProps> = ({ vendor 
   };
 
   useEffect(() => {
-    // Fetch POs filtered server-side by the Universal Party ID.
-    // The backend /purchase/orders/?supplier_id= accepts both party UUID and legacy supplier ID.
+    let cancelled = false;
     const fetchPOs = async () => {
       setLoading(true);
+      setLoadError("");
+      setLookupWarning("");
       try {
-        // Primary lookup: Universal Party UUID
-        const res = await apiFetchV1(`/purchase/orders/?supplier_id=${encodeURIComponent(vendor.id)}`);
-        let list = Array.isArray(res) ? res : res?.items || [];
-
-        // Fallback: if no POs found by UUID, try the legacy ID format used before Universal Party migration
-        if (list.length === 0) {
-          const legacyId = `sup-${vendor.code.toLowerCase()}`;
-          const res2 = await apiFetchV1(`/purchase/orders/?supplier_id=${encodeURIComponent(legacyId)}`);
-          list = Array.isArray(res2) ? res2 : res2?.items || [];
+        const result = await fetchVendorPurchaseOrders(vendor, (supplierId) =>
+          apiFetchV1(`/purchase/orders/?supplier_id=${encodeURIComponent(supplierId)}`),
+        );
+        if (cancelled) return;
+        setOrders(result.orders);
+        if (result.failedIdentifiers.length === result.identifierCount) {
+          setLoadError("Purchase orders could not be loaded. Check your connection and try again.");
+        } else if (result.failedIdentifiers.length > 0) {
+          setLookupWarning("Some vendor ID lookups failed. The list may not include every purchase order.");
         }
-
-        setOrders(list);
-      } catch (err) {
+      } catch {
+        if (cancelled) return;
         setOrders([]);
+        setLoadError("Purchase orders could not be loaded. Check your connection and try again.");
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     };
-    fetchPOs();
-  }, [vendor.id, vendor.code]);
+    void fetchPOs();
+    return () => {
+      cancelled = true;
+    };
+  }, [vendor.id, vendor.code, vendor.legacySupplierId, reloadKey]);
 
   return (
     <div className="space-y-6">
@@ -227,15 +235,45 @@ const VendorProcurementTabBase: React.FC<VendorProcurementTabProps> = ({ vendor 
 
       {loading ? (
         <div className="p-8 text-center text-xs text-slate-400 dark:text-slate-500">Loading procurement records...</div>
-      ) : orders.length === 0 ? (
-        <div className="p-8 rounded-xl bg-white dark:bg-slate-900/40 border border-dashed border-slate-300 dark:border-slate-800 text-center space-y-2">
-          <Package size={32} className="mx-auto text-slate-400 dark:text-slate-600" />
-          <div className="text-sm font-semibold text-slate-700 dark:text-slate-300">No Purchase Orders Issued Yet</div>
-          <p className="text-xs text-slate-400 dark:text-slate-500 max-w-sm mx-auto">
-            Once a purchase order is generated via the PO Generator tab for this vendor, order metrics and goods receipts will appear here.
-          </p>
+      ) : loadError ? (
+        <div role="alert" className="p-6 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 text-center space-y-3">
+          <AlertCircle size={24} className="mx-auto text-amber-600 dark:text-amber-400" />
+          <div className="text-sm font-semibold text-amber-900 dark:text-amber-200">{loadError}</div>
+          <button
+            type="button"
+            onClick={() => setReloadKey((key) => key + 1)}
+            className="inline-flex items-center gap-2 rounded-lg bg-amber-700 px-3 py-1.5 text-xs font-bold text-white hover:bg-amber-800"
+          >
+            <RefreshCw size={13} />
+            Retry
+          </button>
         </div>
+      ) : orders.length === 0 ? (
+        <>
+          {lookupWarning ? (
+            <div role="alert" className="p-4 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 text-xs text-amber-900 dark:text-amber-200">
+              <div className="flex items-center justify-between gap-3">
+                <span>{lookupWarning}</span>
+                <button type="button" onClick={() => setReloadKey((key) => key + 1)} className="font-bold underline">Retry</button>
+              </div>
+            </div>
+          ) : (
+            <div className="p-8 rounded-xl bg-white dark:bg-slate-900/40 border border-dashed border-slate-300 dark:border-slate-800 text-center space-y-2">
+              <Package size={32} className="mx-auto text-slate-400 dark:text-slate-600" />
+              <div className="text-sm font-semibold text-slate-700 dark:text-slate-300">No Purchase Orders Issued Yet</div>
+              <p className="text-xs text-slate-400 dark:text-slate-500 max-w-sm mx-auto">
+                No purchase orders were found for this vendor across its known supplier IDs.
+              </p>
+            </div>
+          )}
+        </>
       ) : (
+        <>
+        {lookupWarning && (
+          <div role="status" className="mb-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-200">
+            {lookupWarning}
+          </div>
+        )}
         <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/60 shadow-xs">
           <table className="w-full text-left text-xs text-slate-700 dark:text-slate-300">
             <thead className="bg-slate-100/80 dark:bg-slate-800/80 text-slate-600 dark:text-slate-400 uppercase text-[10px] tracking-wider border-b border-slate-200 dark:border-slate-800 font-bold">
@@ -288,6 +326,7 @@ const VendorProcurementTabBase: React.FC<VendorProcurementTabProps> = ({ vendor 
             </tbody>
           </table>
         </div>
+        </>
       )}
 
       {reprintOrder && (() => {
@@ -327,4 +366,3 @@ export const VendorProcurementTab = withCapability(VendorProcurementTabBase, {
 });
 
 export default VendorProcurementTab;
-
