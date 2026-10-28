@@ -22,7 +22,7 @@ from __future__ import annotations
 
 from typing import Optional, Any, Callable
 
-from sqlalchemy import select, or_
+from sqlalchemy import case, func, or_, select
 from sqlalchemy.orm import defer
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -34,6 +34,19 @@ class InventoryWarehouseResolver:
 
     def __init__(self, db: AsyncSession):
         self.db = db
+
+    @staticmethod
+    def _system_default_order():
+        return case(
+            (
+                or_(
+                    func.upper(Warehouse.id) == "WH-001",
+                    func.upper(Warehouse.code) == "WH-001",
+                ),
+                0,
+            ),
+            else_=1,
+        )
 
     async def _find_warehouse(self, build_query_fn: Callable[[bool], Any]) -> Optional[Warehouse]:
         """Execute a warehouse query with automatic schema-drift resilience for unmigrated tenant DBs."""
@@ -136,8 +149,8 @@ class InventoryWarehouseResolver:
                     if register_wh:
                         return register_wh
 
-        # 3. Branch-level default — prefer is_default_for_branch flag (R-007),
-        #    then fall back to oldest by created_at for backward compatibility.
+        # 3. Branch-level default — user configuration wins, then WH-001, then
+        #    the oldest active warehouse for backward compatibility.
         if branch_id and company_id:
             def q_branch(has_col: bool):
                 s = select(Warehouse)
@@ -149,6 +162,7 @@ class InventoryWarehouseResolver:
                         Warehouse.is_deleted == False,
                         Warehouse.is_active == True,
                     ).order_by(
+                        self._system_default_order(),
                         (Warehouse.pincode.is_not(None) & (Warehouse.pincode != "")).desc(),
                         Warehouse.created_at.asc(),
                     )
@@ -159,6 +173,7 @@ class InventoryWarehouseResolver:
                     Warehouse.is_active == True,
                 ).order_by(
                     Warehouse.is_default_for_branch.desc(),
+                    self._system_default_order(),
                     (Warehouse.pincode.is_not(None) & (Warehouse.pincode != "")).desc(),
                     Warehouse.created_at.asc(),
                 )
@@ -166,7 +181,7 @@ class InventoryWarehouseResolver:
             if wh:
                 return wh
 
-        # 4. Company-level fallback - oldest active warehouse for the company.
+        # 4. Company-level fallback — user configuration, WH-001, then oldest.
         if company_id:
             def q_comp(has_col: bool):
                 s = select(Warehouse)
@@ -177,6 +192,7 @@ class InventoryWarehouseResolver:
                     Warehouse.is_deleted == False,
                     Warehouse.is_active == True,
                 ).order_by(
+                    self._system_default_order(),
                     (Warehouse.pincode.is_not(None) & (Warehouse.pincode != "")).desc(),
                     Warehouse.created_at.asc(),
                 )
