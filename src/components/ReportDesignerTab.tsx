@@ -41,6 +41,10 @@ import { ReportBuilder } from "./reports/ReportBuilder.tsx";
 import { ConsolidatedBalanceSheetModal } from "./reports/ConsolidatedBalanceSheetModal.tsx";
 import { ScheduleReportModal } from "./reports/ScheduleReportModal.tsx";
 import { PLDashboardModal } from "./finance/PLDashboardModal.tsx";
+import {
+  REPORT_BUSINESS_AREAS,
+  resolveReportBusinessArea,
+} from "./reports/reportBusinessAreas.ts";
 
 // Types for drill down context
 interface DrilldownBreadcrumb {
@@ -72,7 +76,7 @@ interface ReportDesignerTabProps {
 export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUser, onNavigateTab }) => {
   // Navigation states
   const [activeView, setActiveView] = useState<"bi_center" | "designer" | "viewer">("bi_center");
-  const [activeStudio, setActiveStudio] = useState<string>("sales_studio");
+  const [activeStudio, setActiveStudio] = useState<string>("all_reports");
 
   // Active Report being viewed/run
   const [selectedReport, setSelectedReport] = useState<any | null>(null);
@@ -368,7 +372,9 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
     const handleStudioSelect = (event: Event) => {
       const studioId = (event as CustomEvent<{ studioId?: string }>).detail?.studioId;
       if (!studioId) return;
-      setActiveStudio(studioId);
+      const area = resolveReportBusinessArea(studioId);
+      if (!area) return;
+      setActiveStudio(area.id);
       setActiveView("bi_center");
       setSelectedReport(null);
     };
@@ -834,8 +840,18 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
     }
   };
 
-  // Get current studio reports list
-  const currentStudioReports = studios[activeStudio]?.reports || [];
+  // Collect reports from every source catalog assigned to the selected business area.
+  const activeBusinessArea = resolveReportBusinessArea(activeStudio);
+  const currentStudioReports = activeBusinessArea
+    ? activeBusinessArea.studioIds.flatMap((studioId) => studios[studioId]?.reports || [])
+    : [];
+  const totalReportCount = Object.values(studios).reduce(
+    (total, studio: any) => total + (studio.reports?.length || 0),
+    0,
+  );
+  const activeSubcategoryCount = new Set(
+    currentStudioReports.map((report: any) => report.category),
+  ).size;
   const filteredReports = currentStudioReports.filter((r: any) =>
     r.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
     r.id.toLowerCase().includes(searchQuery.toLowerCase())
@@ -1048,14 +1064,14 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
                 <div className="bg-theme-surface-1 border border-theme-border rounded-xl p-5 shadow-xs relative">
                   <div className="flex items-center gap-2.5 mb-1">
                     <span className="material-symbols-outlined text-[24px] text-theme-primary">
-                      {studios[activeStudio]?.icon}
+                      {activeBusinessArea?.icon}
                     </span>
                     <h3 className="text-base font-bold text-theme-body tracking-tight">
-                      {studios[activeStudio]?.name} Reports
+                      {activeBusinessArea?.label} Reports
                     </h3>
                   </div>
                   <p className="text-xs text-theme-muted font-mono">
-                    {studios[activeStudio]?.description} Access checked under SMRITI RBAC guidelines.
+                    Browse {currentStudioReports.length} reports. Access is checked under SMRITI RBAC guidelines.
                   </p>
                 </div>
 
@@ -1108,19 +1124,19 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
                   {activeStudio !== "sales_studio" && activeStudio !== "purchase_studio" && (
                     <>
                       <div className="bg-theme-surface-1 border border-theme-border rounded-xl p-4 shadow-xs space-y-1">
-                        <div className="text-[10px] font-bold font-mono tracking-wider text-theme-muted uppercase">ACTIVE SKUS COMPILATION</div>
-                        <div className="text-xl font-bold text-theme-body font-mono">4,850 SKUs</div>
-                        <div className="text-[10px] text-theme-muted font-mono">Monitored live</div>
+                        <div className="text-[10px] font-bold font-mono tracking-wider text-theme-muted uppercase">REPORTS IN CATEGORY</div>
+                        <div className="text-xl font-bold text-theme-body font-mono">{currentStudioReports.length}</div>
+                        <div className="text-[10px] text-theme-muted font-mono">Available in this business area</div>
                       </div>
                       <div className="bg-theme-surface-1 border border-theme-border rounded-xl p-4 shadow-xs space-y-1">
-                        <div className="text-[10px] font-bold font-mono tracking-wider text-theme-muted uppercase">COMPLIANCE RATIO</div>
-                        <div className="text-xl font-bold text-emerald-700 font-mono">99.8%</div>
-                        <div className="text-[10px] text-emerald-600 font-mono font-bold">Immutable logs</div>
+                        <div className="text-[10px] font-bold font-mono tracking-wider text-theme-muted uppercase">SUB-CATEGORIES</div>
+                        <div className="text-xl font-bold text-theme-body font-mono">{activeSubcategoryCount}</div>
+                        <div className="text-[10px] text-theme-muted font-mono">Report types in this area</div>
                       </div>
                       <div className="bg-theme-surface-1 border border-theme-border rounded-xl p-4 shadow-xs space-y-1">
-                        <div className="text-[10px] font-bold font-mono tracking-wider text-theme-muted uppercase">AUDITED TRANSACTION SLOTS</div>
-                        <div className="text-xl font-bold text-theme-primary font-mono">12,460</div>
-                        <div className="text-[10px] text-theme-muted font-mono">Rule 10 certified</div>
+                        <div className="text-[10px] font-bold font-mono tracking-wider text-theme-muted uppercase">TOTAL REPORTS</div>
+                        <div className="text-xl font-bold text-theme-primary font-mono">{totalReportCount}</div>
+                        <div className="text-[10px] text-theme-muted font-mono">Across the full report catalog</div>
                       </div>
                     </>
                   )}
