@@ -3670,6 +3670,24 @@ class ReportsService:
             "net_position":      float(net_position),
         }
 
+    @staticmethod
+    def _parse_sku_tokens(sku_str: Optional[str]):
+        """
+        Deterministic parser for fashion & footwear SKUs formatted as <STYLE>-<COLOR>-<SIZE>.
+        Extracts (style_code, color, size).
+        """
+        if not sku_str or sku_str in ("-", "Consolidated SKUs", "Multiple SKUs"):
+            return None, None, None
+        parts = [p.strip() for p in str(sku_str).split("-") if p.strip()]
+        if len(parts) >= 3:
+            size = parts[-1]
+            color = parts[-2]
+            style = "-".join(parts[:-2])
+            return style, color, size
+        elif len(parts) == 2:
+            return parts[0], None, parts[1]
+        return sku_str, None, None
+
     async def query_report_builder(
         self,
         category: str = "Purchase",
@@ -3733,8 +3751,13 @@ class ReportsService:
                 "po_date": func.to_char(PurchaseOrder.created_at, "YYYY-MM-DD"),
                 "invoice_no": bill_subquery,
                 "article_sku": PurchaseOrderItem.code,
-                "color": func.coalesce(Product.color, "-"),
-                "size": func.coalesce(Product.size, "-"),
+                "item_code": func.coalesce(Item.item_code, Product.code, PurchaseOrderItem.code, "-"),
+                "style_code": func.coalesce(Item.style_code, Product.style_code, "-"),
+                "article_no": func.coalesce(Item.item_code, Product.code, PurchaseOrderItem.code, "-"),
+                "item_name": func.coalesce(Item.item_name, Product.name, PurchaseOrderItem.name, "-"),
+                "item_category": func.coalesce(Item.category, Product.category, "Footwear"),
+                "color": func.coalesce(ItemVariant.color, Product.color, "-"),
+                "size": func.coalesce(ItemVariant.size, Product.size, "-"),
             }
 
             # Filter conditions
@@ -3804,8 +3827,13 @@ class ReportsService:
                         func.to_char(PurchaseOrder.created_at, "YYYY-MM-DD").label("po_date"),
                         bill_subquery.label("invoice_no"),
                         PurchaseOrderItem.code.label("article_sku"),
-                        func.coalesce(Product.color, "-").label("color"),
-                        func.coalesce(Product.size, "-").label("size"),
+                        func.coalesce(Item.item_code, Product.code, PurchaseOrderItem.code, "-").label("item_code"),
+                        func.coalesce(Item.style_code, Product.style_code, "-").label("style_code"),
+                        func.coalesce(Item.item_code, Product.code, PurchaseOrderItem.code, "-").label("article_no"),
+                        func.coalesce(Item.item_name, Product.name, PurchaseOrderItem.name, "-").label("item_name"),
+                        func.coalesce(Item.category, Product.category, "Footwear").label("item_category"),
+                        func.coalesce(ItemVariant.color, Product.color, "-").label("color"),
+                        func.coalesce(ItemVariant.size, Product.size, "-").label("size"),
                         PurchaseOrderItem.quantity.label("quantity"),
                         PurchaseOrderItem.line_total.label("net_amount"),
                         literal(1).label("_record_count"),
@@ -3815,6 +3843,8 @@ class ReportsService:
                     .join(PurchaseOrder, PurchaseOrderItem.order_id == PurchaseOrder.id)
                     .join(Supplier, PurchaseOrder.supplier_id == Supplier.id)
                     .outerjoin(Product, PurchaseOrderItem.product_id == Product.id)
+                    .outerjoin(ItemVariant, PurchaseOrderItem.code == ItemVariant.sku)
+                    .outerjoin(Item, Item.id == func.coalesce(Product.item_id, None))
                     .where(*base_filters)
                 )
 
@@ -3858,7 +3888,7 @@ class ReportsService:
                 seen_exprs = set()
                 for d in active_dims:
                     expr = dim_expr_map[d]
-                    select_items.append(expr.label(d))
+                    select_items.append(func.max(expr).label(d))
                     expr_key = str(expr)
                     if expr_key not in seen_exprs:
                         group_by_exprs.append(expr)
@@ -3870,6 +3900,8 @@ class ReportsService:
                     .join(PurchaseOrder, PurchaseOrderItem.order_id == PurchaseOrder.id)
                     .join(Supplier, PurchaseOrder.supplier_id == Supplier.id)
                     .outerjoin(Product, PurchaseOrderItem.product_id == Product.id)
+                    .outerjoin(ItemVariant, PurchaseOrderItem.code == ItemVariant.sku)
+                    .outerjoin(Item, Item.id == func.coalesce(Product.item_id, None))
                     .where(*base_filters)
                 )
 
@@ -3914,6 +3946,30 @@ class ReportsService:
                     except Exception:
                         pass
 
+                art_sku = r.get("article_sku") or "-"
+                p_style, p_color, p_size = self._parse_sku_tokens(art_sku)
+                col_val = r.get("color")
+                sz_val = r.get("size")
+                st_val = r.get("style_code")
+                it_code = r.get("item_code")
+                art_no = r.get("article_no")
+
+                if it_code and str(it_code).startswith("TOMBSTONE"):
+                    it_code = None
+                if art_no and str(art_no).startswith("TOMBSTONE"):
+                    art_no = None
+                if st_val and str(st_val).startswith("TOMBSTONE"):
+                    st_val = None
+
+                final_color = col_val if col_val and col_val != "-" else (p_color or ("All Colors" if "color" not in active_dims and mode != "detailed" else "-"))
+                final_size = str(sz_val) if sz_val is not None and str(sz_val) != "-" else (p_size or ("All Sizes" if "size" not in active_dims and mode != "detailed" else "-"))
+                final_style = st_val if st_val and st_val != "-" else (p_style or "-")
+                final_item_code = it_code if it_code and it_code != "-" else (final_style if final_style != "-" else art_sku)
+                final_art_no = art_no if art_no and art_no != "-" else (final_style if final_style != "-" else art_sku)
+
+                cat_val = r.get("item_category")
+                final_cat = "Footwear" if (not cat_val or str(cat_val).upper().startswith("TOMBSTONE")) else cat_val
+
                 row_dict = {
                     "id": f"row-{r.get('raw_id') or abs(hash(str(r.items())))}",
                     "supplier": r.get("supplier") or ("All Suppliers" if "supplier" not in active_dims and mode != "detailed" else "-"),
@@ -3923,9 +3979,14 @@ class ReportsService:
                     "po_no": r.get("po_no") or ("Multiple POs" if "po_no" not in active_dims and mode != "detailed" else "-"),
                     "po_date": po_date_str,
                     "invoice_no": r.get("invoice_no") or "-",
-                    "article_sku": r.get("article_sku") or ("Consolidated SKUs" if "article_sku" not in active_dims and mode != "detailed" else "-"),
-                    "color": r.get("color") or ("All Colors" if "color" not in active_dims and mode != "detailed" else "-"),
-                    "size": r.get("size") or ("All Sizes" if "size" not in active_dims and mode != "detailed" else "-"),
+                    "article_sku": art_sku if "article_sku" in active_dims or mode == "detailed" else "Consolidated SKUs",
+                    "item_code": final_item_code,
+                    "style_code": final_style,
+                    "article_no": final_art_no,
+                    "item_name": r.get("item_name") or art_sku,
+                    "color": final_color,
+                    "size": final_size,
+                    "item_category": final_cat,
                     "quantity": float(r.get("quantity") or 0),
                     "net_amount": float(r.get("net_amount") or 0),
                     "_record_count": int(r.get("_record_count") or 1),
@@ -3956,10 +4017,14 @@ class ReportsService:
                 "customer_name": Customer.name,
                 "staff_name": func.coalesce(SalesInvoiceItem.salesperson_name, "Store Staff"),
                 "article_sku": SalesInvoiceItem.code,
-                "color": func.coalesce(Product.color, "-"),
-                "size": func.coalesce(Product.size, "-"),
-                "brand": func.coalesce(Product.brand, Customer.name),
-                "item_category": func.coalesce(Product.category, "Footwear"),
+                "item_code": func.coalesce(Item.item_code, Product.code, SalesInvoiceItem.code, "-"),
+                "style_code": func.coalesce(Item.style_code, Product.style_code, "-"),
+                "article_no": func.coalesce(Item.item_code, Product.code, SalesInvoiceItem.code, "-"),
+                "item_name": func.coalesce(Item.item_name, Product.name, SalesInvoiceItem.name, "-"),
+                "color": func.coalesce(ItemVariant.color, Product.color, "-"),
+                "size": func.coalesce(ItemVariant.size, Product.size, "-"),
+                "brand": func.coalesce(Item.brand, Product.brand, Customer.name),
+                "item_category": func.coalesce(Item.category, Product.category, "Footwear"),
                 "payment_mode": SalesInvoice.payment_mode,
             }
 
@@ -4008,6 +4073,8 @@ class ReportsService:
                 .join(SalesInvoice, SalesInvoiceItem.invoice_id == SalesInvoice.id)
                 .join(Customer, SalesInvoice.customer_id == Customer.id)
                 .outerjoin(Product, SalesInvoiceItem.product_id == Product.id)
+                .outerjoin(ItemVariant, SalesInvoiceItem.variant_id == ItemVariant.id)
+                .outerjoin(Item, Item.id == func.coalesce(SalesInvoiceItem.item_id, Product.item_id))
                 .where(*sales_filters)
             )
             tot_res = (await self.db.execute(tot_stmt)).one_or_none()
@@ -4024,10 +4091,14 @@ class ReportsService:
                         Customer.name.label("customer_name"),
                         func.coalesce(SalesInvoiceItem.salesperson_name, "Store Staff").label("staff_name"),
                         SalesInvoiceItem.code.label("article_sku"),
-                        func.coalesce(Product.color, "-").label("color"),
-                        func.coalesce(Product.size, "-").label("size"),
-                        func.coalesce(Product.brand, Customer.name).label("brand"),
-                        func.coalesce(Product.category, "Footwear").label("item_category"),
+                        func.coalesce(Item.item_code, Product.code, SalesInvoiceItem.code, "-").label("item_code"),
+                        func.coalesce(Item.style_code, Product.style_code, so_style_subquery, "-").label("style_code"),
+                        func.coalesce(so_art_subquery, Item.item_code, Product.code, SalesInvoiceItem.code, "-").label("article_no"),
+                        func.coalesce(Item.item_name, Product.name, SalesInvoiceItem.name, "-").label("item_name"),
+                        func.coalesce(ItemVariant.color, Product.color, "-").label("color"),
+                        func.coalesce(ItemVariant.size, Product.size, "-").label("size"),
+                        func.coalesce(Item.brand, Product.brand, Customer.name).label("brand"),
+                        func.coalesce(Item.category, Product.category, "Footwear").label("item_category"),
                         SalesInvoice.payment_mode.label("payment_mode"),
                         SalesInvoiceItem.quantity.label("quantity"),
                         func.coalesce(SalesInvoiceItem.taxable_value, SalesInvoiceItem.price * SalesInvoiceItem.quantity, 0).label("gross_total"),
@@ -4040,6 +4111,8 @@ class ReportsService:
                     .join(SalesInvoice, SalesInvoiceItem.invoice_id == SalesInvoice.id)
                     .join(Customer, SalesInvoice.customer_id == Customer.id)
                     .outerjoin(Product, SalesInvoiceItem.product_id == Product.id)
+                    .outerjoin(ItemVariant, SalesInvoiceItem.variant_id == ItemVariant.id)
+                    .outerjoin(Item, Item.id == func.coalesce(SalesInvoiceItem.item_id, Product.item_id))
                     .where(*sales_filters)
                     .order_by(SalesInvoice.created_at.desc(), SalesInvoiceItem.id.desc())
                 )
@@ -4057,7 +4130,7 @@ class ReportsService:
                 seen_exprs = set()
                 for d in active_dims:
                     expr = sales_dim_map[d]
-                    select_items.append(expr.label(d))
+                    select_items.append(func.max(expr).label(d))
                     expr_key = str(expr)
                     if expr_key not in seen_exprs:
                         group_by_exprs.append(expr)
@@ -4069,6 +4142,8 @@ class ReportsService:
                     .join(SalesInvoice, SalesInvoiceItem.invoice_id == SalesInvoice.id)
                     .join(Customer, SalesInvoice.customer_id == Customer.id)
                     .outerjoin(Product, SalesInvoiceItem.product_id == Product.id)
+                    .outerjoin(ItemVariant, SalesInvoiceItem.variant_id == ItemVariant.id)
+                    .outerjoin(Item, Item.id == func.coalesce(SalesInvoiceItem.item_id, Product.item_id))
                     .where(*sales_filters)
                 )
                 if group_by_exprs:
@@ -4079,20 +4154,71 @@ class ReportsService:
             total_count = (await self.db.execute(count_stmt)).scalar_one_or_none() or 0
 
             mappings = (await self.db.execute(stmt.offset(offset).limit(limit))).mappings().all()
+
+            # Fast batch resolution for SAP Article No & Vendor Style from SalesOrderItem
+            distinct_skus = list({r.get("article_sku") for r in mappings if r.get("article_sku") and r.get("article_sku") != "-"})
+            so_lookup: Dict[str, Any] = {}
+            if distinct_skus:
+                so_q = select(
+                    SalesOrderItem.code,
+                    SalesOrderItem.article_no,
+                    SalesOrderItem.vendor_style
+                ).where(
+                    SalesOrderItem.code.in_(distinct_skus),
+                    SalesOrderItem.is_deleted == False
+                )
+                so_res = (await self.db.execute(so_q)).mappings().all()
+                for s in so_res:
+                    c = s.get("code")
+                    if c and c not in so_lookup:
+                        so_lookup[c] = s
+
             rows = []
             for r in mappings:
                 s_dt = r.get("sale_date")
+                art_sku = r.get("article_sku") or "-"
+                so_info = so_lookup.get(art_sku, {})
+                so_art_no = so_info.get("article_no")
+                so_style = so_info.get("vendor_style")
+
+                p_style, p_color, p_size = self._parse_sku_tokens(art_sku)
+                col_val = r.get("color")
+                sz_val = r.get("size")
+                st_val = r.get("style_code")
+                it_code = r.get("item_code")
+                art_no = r.get("article_no")
+
+                if it_code and str(it_code).startswith("TOMBSTONE"):
+                    it_code = None
+                if art_no and str(art_no).startswith("TOMBSTONE"):
+                    art_no = None
+                if st_val and str(st_val).startswith("TOMBSTONE"):
+                    st_val = None
+
+                final_color = col_val if col_val and col_val != "-" else (p_color or ("All Colors" if "color" not in active_dims and mode != "detailed" else "-"))
+                final_size = str(sz_val) if sz_val is not None and str(sz_val) != "-" else (p_size or ("All Sizes" if "size" not in active_dims and mode != "detailed" else "-"))
+                final_style = st_val if st_val and st_val != "-" else (so_style or p_style or "-")
+                final_art_no = so_art_no or (art_no if art_no and art_no != "-" else (final_style if final_style != "-" else art_sku))
+                final_item_code = it_code if it_code and it_code != "-" else (final_style if final_style != "-" else art_sku)
+
+                cat_val = r.get("item_category")
+                final_cat = "Footwear" if (not cat_val or str(cat_val).upper().startswith("TOMBSTONE")) else cat_val
+
                 rows.append({
                     "id": f"sale-{r.get('raw_id') or abs(hash(str(r.items())))}",
-                    "sale_invoice_no": r.get("sale_invoice_no") or "-",
+                    "sale_invoice_no": r.get("sale_invoice_no") or ("Multiple Invoices" if "sale_invoice_no" not in active_dims and mode != "detailed" else "-"),
                     "sale_date": str(s_dt) if s_dt else "-",
-                    "customer_name": r.get("customer_name") or "-",
+                    "customer_name": r.get("customer_name") or ("All Customers" if "customer_name" not in active_dims and mode != "detailed" else "-"),
                     "staff_name": r.get("staff_name") or "-",
-                    "article_sku": r.get("article_sku") or "-",
-                    "color": r.get("color") or "-",
-                    "size": r.get("size") or "-",
+                    "article_sku": art_sku if "article_sku" in active_dims or mode == "detailed" else "Consolidated SKUs",
+                    "item_code": final_item_code,
+                    "style_code": final_style,
+                    "article_no": final_art_no,
+                    "item_name": r.get("item_name") or art_sku,
+                    "color": final_color,
+                    "size": final_size,
                     "brand": r.get("brand") or "-",
-                    "item_category": r.get("item_category") or "-",
+                    "item_category": final_cat,
                     "payment_mode": r.get("payment_mode") or "Cash",
                     "quantity": float(r.get("quantity") or 0),
                     "gross_total": float(r.get("gross_total") or 0),

@@ -1,5 +1,23 @@
 <!--
 
+## [6.99.2] - 2026-10-29 - Report Builder Field Resolution & Intelligent Auto-Consolidation Patch v1.1.0
+
+### Fixed
+- `src/components/reports/reportLayoutEngine.ts`: Disambiguated `id_article_no` from `key: "article_sku"` to `key: "article_no"` to prevent variant SKU collision with true buyer / SAP Article Numbers. Added `id_item_name` (`key: "item_name"`) for item descriptions.
+- `backend/app/services/reports.py`:
+  - Resolved missing and hyphenated (`-`) `Color` and `Size` fields across footwear/fashion rows by adding outer joins to `ItemVariant` (`variant_id`) and `Item` (`item_id`), paired with deterministic SKU token extraction (`_parse_sku_tokens`).
+  - Resolved missing `Article No` and `Style Code` by linking `sales_order_items.article_no` and `vendor_style` via high-performance post-query batch lookups (`code IN (distinct_skus)`).
+  - Sanitized placeholder and tombstone leakage in `item_category` (`TOMBSTONE` -> `"Footwear"`).
+  - Eliminated PostgreSQL `GroupingError` by projecting non-grouping dimension expressions via `func.max(...)` in auto-consolidated mode.
+- `src/components/reports/ReportBuilder.tsx`:
+  - Fixed client-side query execution in `fetchReportData()` to pass `consolidation_mode="auto"` and `selected_columns` derived from `layout.rows`, `layout.columns`, and `layout.values`.
+  - Added `layoutSignature` reactive state dependency to trigger automatic live re-aggregation when users drag and drop layout fields.
+  - Restored backward-compatible `REPORT_BUILDER_CATALOG_FIELDS` and `DEFAULT_REPORT_BUILDER_ROWS` exports for test suite parity.
+  - Reinstated canonical `withCapability` metadata (`entity: "reports"`, `capability: "report_builder"`, `role: "CANONICAL"`).
+
+### Added
+- `docs/walkthrough/reports/Report_Builder_Field_Resolution_And_Auto_Consolidation_v1.1.0.md`: Formal 13-section WGP walkthrough document certifying end-to-end fix.
+
 ## [6.99.1] - 2026-10-28 - Visual Report Designer Drag-and-Drop Matrix & DB Bootstrap Engine v1544 Hotfix
 
 ### Fixed
@@ -16,6 +34,7 @@
 - `scratch/verify_drag_drop_report_designer.py`: Automated Playwright headless browser verification test suite (10/10 gates green).
 
 ### Changed
+- `src/components/MasterMgmtTab.tsx`: Added a Warehouse tab backed by the canonical WMS warehouse API, so warehouse codes and descriptions can be created and maintained in Master Registry without creating duplicate lookup records. Existing codes remain immutable during edits; Purchase Order destinations continue to use the same warehouse records.
 - `src/components/reports/ReportBuilder.tsx`: Comprehensive UX upgrade implementing the 6-callout visual report designer:
   1. Left-hand catalog grouped into 5 logical categories with search and click-to-add.
   2. Four interactive HTML5 drag-and-drop layout containers (`Rows / Group by`, `Columns / Pivot by`, `Values / Show as`, `Filters / Optional`) with active drop-target highlighting, chip reordering, and accessible `+ Add` dropdown menus.
