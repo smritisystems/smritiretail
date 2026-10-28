@@ -22,6 +22,7 @@ from app.main import app
 from app.models.tenant import Company, Branch
 from app.models.inventory import Warehouse, WarehouseLocation
 from app.models.auth import User, UserRole
+from app.models.capability_template import FeatureFlag
 from app.core.security import create_access_token
 from app.api.deps import get_db, get_company_db
 
@@ -40,7 +41,7 @@ async def setup_test_context(db_session):
     app.dependency_overrides.clear()
 
 
-async def _create_test_tenant(db_session, suffix: str):
+async def _create_test_tenant(db_session, suffix: str, enable_bin_locations: bool = True):
     """Create test company, branch, warehouse, and sysadmin user."""
     uid = uuid.uuid4().hex[:6]
     co_id = f"comp-loc-{suffix}-{uid}"
@@ -87,6 +88,25 @@ async def _create_test_tenant(db_session, suffix: str):
     db_session.add(warehouse)
     await db_session.flush()
     db_session.add(user)
+    feature_flag = await db_session.scalar(
+        select(FeatureFlag).where(FeatureFlag.key == "BIN_LOCATION_MANAGEMENT")
+    )
+    if not feature_flag:
+        feature_flag = FeatureFlag(
+            id="ff_bin_location_management_test",
+            key="BIN_LOCATION_MANAGEMENT",
+            name="Bin and Rack Location Management",
+            category="INVENTORY",
+            is_global_enabled=False,
+            company_overrides={},
+            is_active=True,
+            is_deleted=False,
+        )
+        db_session.add(feature_flag)
+        await db_session.flush()
+    overrides = dict(feature_flag.company_overrides or {})
+    overrides[co_id] = enable_bin_locations
+    feature_flag.company_overrides = overrides
     await db_session.commit()
 
     token = create_access_token(data={
@@ -236,3 +256,21 @@ async def test_inspect_location_stock(db_session):
         assert stock_data["location"]["id"] == loc_id
         assert stock_data["assigned_items_count"] == 0
         assert stock_data["items"] == []
+
+
+async def test_location_management_is_disabled_without_company_override(db_session):
+    company, branch, warehouse, user, headers = await _create_test_tenant(
+        db_session, "disabled", enable_bin_locations=False
+    )
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as ac:
+        resp = await ac.post(f"/api/v1/wms/warehouses/{warehouse.id}/locations", json={
+            "warehouse_id": warehouse.id,
+            "code": "ST-A01-R01-S01-B01",
+            "name": "Main Test Bin",
+            "zone": "STORAGE",
+        }, headers=headers)
+
+    assert resp.status_code == 403
+    assert "disabled" in resp.json()["detail"]

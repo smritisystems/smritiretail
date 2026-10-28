@@ -115,6 +115,8 @@ export const CommercialDeliveryDrawer: React.FC<CommercialDeliveryDrawerProps> =
 }) => {
   const drawerRef = useRef<HTMLDivElement>(null);
   const firstInputRef = useRef<HTMLSelectElement>(null);
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
   const [previewTerms, setPreviewTerms] = useState(false);
   const [warehouses, setWarehouses] = useState<AvailableGodown[]>([]);
 
@@ -146,15 +148,19 @@ export const CommercialDeliveryDrawer: React.FC<CommercialDeliveryDrawerProps> =
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape" && isOpen) {
-        onClose();
+        onCloseRef.current();
       }
     };
+    let focusTimer: number | undefined;
     if (isOpen) {
       window.addEventListener("keydown", handleKeyDown);
-      setTimeout(() => firstInputRef.current?.focus(), 100);
+      focusTimer = window.setTimeout(() => firstInputRef.current?.focus(), 100);
     }
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isOpen, onClose]);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      if (focusTimer !== undefined) window.clearTimeout(focusTimer);
+    };
+  }, [isOpen]);
 
   if (!isOpen) return null;
 

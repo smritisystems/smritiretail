@@ -15,12 +15,12 @@ Business decision applied: warehouse attribution on a GRN is mandatory.
 A goods receipt without a warehouse destination is logistically meaningless
 — stock cannot be received without knowing where it is stored.
 
-Migration strategy (safe two-step):
+Migration strategy:
   Step 1 — Backfill: for each company that has NULL warehouse_id GRNs,
             assign the oldest active warehouse for that company.
-            If no warehouse exists for a company, that company's NULLs
-            remain (they will block the NOT NULL constraint; see note below).
-  Step 2 — Alter column to NOT NULL.
+            If no warehouse exists for a company, preserve its NULLs.
+  Step 2 — Add a NOT VALID check so new/updated rows require a warehouse while
+            legacy NULL rows remain untouched.
 
 BEFORE APPLYING: Run this diagnostic to confirm zero unresolvable NULLs:
 
@@ -34,9 +34,11 @@ BEFORE APPLYING: Run this diagnostic to confirm zero unresolvable NULLs:
   ) w ON w.company_id = pr.company_id
   WHERE pr.warehouse_id IS NULL AND w.id IS NULL;
 
-If this returns rows, create a warehouse for those companies first.
+If this returns rows, they are preserved for explicit business resolution. The
+NOT VALID check protects new and updated rows without rewriting historical receipts.
 
-Downgrade: reverts the column back to nullable; does NOT restore NULL values.
+Legacy NULL receipt rows remain readable, but updating one requires assigning its
+warehouse first. Downgrade drops the check and does not restore prior values.
 """
 from typing import Union
 import sqlalchemy as sa
@@ -68,22 +70,19 @@ def upgrade() -> None:
         WHERE pr.warehouse_id IS NULL
     """))
 
-    # Step 2: Alter column to NOT NULL.
-    # If any NULLs remain after the backfill (companies with no warehouses),
-    # this will raise an error — which is intentional. Resolve the warehouse
-    # configuration for those companies and re-run.
-    op.alter_column(
-        "purchase_receipts",
-        "warehouse_id",
-        nullable=False,
-        existing_type=sa.String(50),
+    # Existing receipts without a safe company warehouse remain unchanged.
+    # PostgreSQL enforces this check for new/updated rows while not scanning
+    # legacy rows until an operator validates it after resolving them.
+    op.execute(
+        "ALTER TABLE purchase_receipts "
+        "ADD CONSTRAINT ck_purchase_receipts_warehouse_id_present "
+        "CHECK (warehouse_id IS NOT NULL) NOT VALID"
     )
 
 
 def downgrade() -> None:
-    op.alter_column(
+    op.drop_constraint(
+        "ck_purchase_receipts_warehouse_id_present",
         "purchase_receipts",
-        "warehouse_id",
-        nullable=True,
-        existing_type=sa.String(50),
+        type_="check",
     )
