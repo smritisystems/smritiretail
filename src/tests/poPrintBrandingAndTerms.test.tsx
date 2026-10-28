@@ -317,4 +317,59 @@ describe("Purchase Order Print Branding, Watermark & Payment Terms Verification"
     expect(html).toContain("CORPORATE IDENTITY NOT CONFIGURED — PRINTING BLOCKED");
     expect(html).not.toContain("rotate-[-28deg]");
   });
+
+  it("10. renders explicit deliveryTerms when provided (e.g. Door Delivery)", () => {
+    const dataWithDoorDelivery: PurchaseOrderPrintData = {
+      ...sampleFootwearPOData,
+      freightTerms: "Paid by Supplier",
+      deliveryTerms: "Door Delivery",
+    };
+    const html = renderToStaticMarkup(<PurchaseOrderPrintA4 data={dataWithDoorDelivery} />);
+    expect(html).toContain("Delivery Terms");
+    expect(html).toContain("Door Delivery");
+  });
+
+  it("11. smart-derives Door Delivery when freight is Paid by Supplier, and Ex-Factory when freight is Paid by Buyer", () => {
+    const dataPaidBySupplier: PurchaseOrderPrintData = {
+      ...sampleFootwearPOData,
+      freightTerms: "Paid by Supplier",
+      deliveryTerms: undefined,
+    };
+    const htmlSupplier = renderToStaticMarkup(<PurchaseOrderPrintA4 data={dataPaidBySupplier} />);
+    expect(htmlSupplier).toContain("Door Delivery");
+
+    const dataPaidByBuyer: PurchaseOrderPrintData = {
+      ...sampleFootwearPOData,
+      freightTerms: "Paid by Buyer (To Pay)",
+      deliveryTerms: undefined,
+    };
+    const htmlBuyer = renderToStaticMarkup(<PurchaseOrderPrintA4 data={dataPaidByBuyer} />);
+    expect(htmlBuyer).toContain("Ex-Factory");
+  });
+
+  it("12. supports dynamic image columns: 2 per row (large 118px) and 4 per row (compact 78px)", () => {
+    const html2Cols = renderToStaticMarkup(
+      <PurchaseOrderPrintA4
+        data={{
+          ...sampleFootwearPOData,
+          imageColumns: 2,
+        }}
+      />
+    );
+    expect(html2Cols).toContain("2 images per row • Large preview");
+    expect(html2Cols).toContain("grid-cols-2");
+    expect(html2Cols).toContain("118px");
+
+    const html4Cols = renderToStaticMarkup(
+      <PurchaseOrderPrintA4
+        data={{
+          ...sampleFootwearPOData,
+          imageColumns: 4,
+        }}
+      />
+    );
+    expect(html4Cols).toContain("4 images per row • Compact preview");
+    expect(html4Cols).toContain("grid-cols-4");
+    expect(html4Cols).toContain("78px");
+  });
 });

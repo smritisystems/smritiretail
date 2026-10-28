@@ -146,15 +146,32 @@ const VendorCommercialTabBase: React.FC<VendorCommercialTabProps> = ({ vendor, o
           <span>Default Purchase Order Commercial Terms</span>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <div>
             <label className="block text-xs font-semibold text-slate-700 dark:text-slate-400 mb-1">Default Freight Terms</label>
             <input
               type="text"
               value={comm?.freightTerms ?? "Paid by Supplier"}
               disabled={!isEditing}
-              onChange={(e) => onChangeCommercial("freightTerms", e.target.value)}
+              onChange={(e) => {
+                const val = e.target.value;
+                onChangeCommercial("freightTerms", val);
+                const isToPay = val.toLowerCase().includes("buyer") || val.toLowerCase().includes("to-pay") || val.toLowerCase().includes("to pay");
+                onChangeCommercial("deliveryTerms", isToPay ? "Ex-Factory" : "Door Delivery");
+              }}
               placeholder="e.g. Paid by Supplier, To Pay"
+              className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500 focus:bg-white dark:focus:bg-slate-800 disabled:opacity-60"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-400 mb-1">Default Delivery Terms</label>
+            <input
+              type="text"
+              value={comm?.deliveryTerms ?? (comm?.freightTerms?.toLowerCase().includes("buyer") || comm?.freightTerms?.toLowerCase().includes("to-pay") ? "Ex-Factory" : "Door Delivery")}
+              disabled={!isEditing}
+              onChange={(e) => onChangeCommercial("deliveryTerms", e.target.value)}
+              placeholder="e.g. Door Delivery, Ex-Factory"
               className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500 focus:bg-white dark:focus:bg-slate-800 disabled:opacity-60"
             />
           </div>

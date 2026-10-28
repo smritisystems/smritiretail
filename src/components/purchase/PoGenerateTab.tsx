@@ -373,6 +373,7 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
       paymentTerms: "120 Days",
       businessTerms: DEFAULT_BUSINESS_TERMS,
       freightCharges: "Paid by Supplier",
+      deliveryTerms: "Door Delivery",
       specialInstructions: "",
       supplierReference: "",
       currency: "INR - Indian Rupee",
@@ -528,6 +529,7 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
       const commSnap = order.commercial_terms || order.rule_snapshots?.commercial_terms;
       let restoredPayment = commSnap?.payment_terms;
       let restoredFreight = commSnap?.freight_terms;
+      let restoredDelivery = commSnap?.delivery_terms;
       let restoredCurrency = commSnap?.currency;
       let restoredBuyer = commSnap?.buyer;
       let restoredDepartment = commSnap?.department;
@@ -543,6 +545,7 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
             const v = part.substring(idx + 1).trim();
             if (k.includes("payment")) restoredPayment = v;
             else if (k.includes("freight")) restoredFreight = v;
+            else if (k.includes("delivery")) restoredDelivery = v;
             else if (k.includes("currency")) restoredCurrency = v;
             else if (k.includes("buyer")) restoredBuyer = v;
             else if (k.includes("dept") || k.includes("department")) restoredDepartment = v;
@@ -558,6 +561,7 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
         supplierName: order.supplier_name || order.supplier || h.supplierName,
         paymentTerms: restoredPayment ?? h.paymentTerms,
         freightCharges: restoredFreight ?? h.freightCharges,
+        deliveryTerms: restoredDelivery ?? h.deliveryTerms,
         currency: restoredCurrency ?? h.currency,
         buyer: restoredBuyer ?? h.buyer,
         department: restoredDepartment ?? h.department,
@@ -630,6 +634,7 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
           payment_terms: s.payment_terms || (s.payment_terms_days ? `${s.payment_terms_days} Days` : "120 Days"),
           payment_terms_days: s.payment_terms_days ?? 120,
           freight_terms: s.freight_terms || "Paid by Supplier",
+          delivery_terms: s.delivery_terms || ((s.freight_terms || "").toLowerCase().includes("buyer") || (s.freight_terms || "").toLowerCase().includes("to-pay") ? "Ex-Factory" : "Door Delivery"),
           currency: s.currency || "INR - Indian Rupee",
           buyer: s.buyer || undefined,
           department: s.department || undefined,
@@ -646,6 +651,7 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
             supplierName: selected.name,
             paymentTerms: current.paymentTerms || selected.payment_terms || "120 Days",
             freightCharges: current.freightCharges || selected.freight_terms || "Paid by Supplier",
+            deliveryTerms: current.deliveryTerms || selected.delivery_terms || "Door Delivery",
             currency: current.currency || selected.currency || "INR - Indian Rupee",
             buyer: selected.buyer || current.buyer,
             department: selected.department || current.department,
@@ -1503,6 +1509,7 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
     const defaults: Partial<CommercialDeliveryData> = {
       paymentTerms: matchedSupplier?.payment_terms || (matchedSupplier?.payment_terms_days ? `${matchedSupplier.payment_terms_days} Days` : undefined),
       freightCharges: matchedSupplier?.freight_terms,
+      deliveryTerms: matchedSupplier?.delivery_terms || (matchedSupplier?.freight_terms ? ((matchedSupplier.freight_terms.toLowerCase().includes("buyer") || matchedSupplier.freight_terms.toLowerCase().includes("to-pay")) ? "Ex-Factory" : "Door Delivery") : undefined),
       currency: matchedSupplier?.currency,
       buyer: matchedSupplier?.buyer,
       department: matchedSupplier?.department,
@@ -1516,6 +1523,7 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
         ...prevHeader,
         paymentTerms: s.payment_terms || (s.payment_terms_days ? `${s.payment_terms_days} Days` : prevHeader.paymentTerms),
         freightCharges: s.freight_terms || prevHeader.freightCharges,
+        deliveryTerms: s.delivery_terms || (s.freight_terms ? ((s.freight_terms.toLowerCase().includes("buyer") || s.freight_terms.toLowerCase().includes("to-pay")) ? "Ex-Factory" : "Door Delivery") : prevHeader.deliveryTerms),
         currency: s.currency || prevHeader.currency,
         buyer: s.buyer || prevHeader.buyer,
         department: s.department || prevHeader.department,
@@ -1607,18 +1615,11 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
       const orderNo = (rawNum.includes("/") || rawNum.startsWith(rawPrefix))
         ? rawNum
         : `${rawPrefix}-${rawNum}`;
-      const notesArr: string[] = [];
-      if (header.specialInstructions) notesArr.push(`Instructions: ${header.specialInstructions}`);
-      if (header.paymentTerms) notesArr.push(`Payment: ${header.paymentTerms}`);
-      if (header.freightCharges) notesArr.push(`Freight: ${header.freightCharges}`);
-      if (header.currency) notesArr.push(`Currency: ${header.currency}`);
-      if (header.buyer) notesArr.push(`Buyer: ${header.buyer}`);
-      if (header.department) notesArr.push(`Department: ${header.department}`);
-      if (header.supplierReference) notesArr.push(`Ref: ${header.supplierReference}`);
 
       const commercialTerms = {
         payment_terms: header.paymentTerms,
         freight_terms: header.freightCharges,
+        delivery_terms: header.deliveryTerms || ((header.freightCharges || "").toLowerCase().includes("buyer") || (header.freightCharges || "").toLowerCase().includes("to-pay") ? "Ex-Factory" : "Door Delivery"),
         currency: header.currency,
         buyer: header.buyer,
         department: header.department,
@@ -1628,6 +1629,16 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
         delivery_location: header.deliveryLocation,
         warehouse_id: header.warehouseId,
       };
+
+      const notesArr: string[] = [];
+      if (header.specialInstructions) notesArr.push(`Instructions: ${header.specialInstructions}`);
+      if (header.paymentTerms) notesArr.push(`Payment: ${header.paymentTerms}`);
+      if (header.freightCharges) notesArr.push(`Freight: ${header.freightCharges}`);
+      if (header.deliveryTerms || commercialTerms.delivery_terms) notesArr.push(`Delivery: ${header.deliveryTerms || commercialTerms.delivery_terms}`);
+      if (header.currency) notesArr.push(`Currency: ${header.currency}`);
+      if (header.buyer) notesArr.push(`Buyer: ${header.buyer}`);
+      if (header.department) notesArr.push(`Department: ${header.department}`);
+      if (header.supplierReference) notesArr.push(`Ref: ${header.supplierReference}`);
 
       const payload = {
         order_no: orderNo,
@@ -3746,6 +3757,7 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
         data={{
           paymentTerms: header.paymentTerms || "120 Days",
           freightCharges: header.freightCharges || "Paid by Supplier",
+          deliveryTerms: header.deliveryTerms || ((header.freightCharges || "").toLowerCase().includes("buyer") || (header.freightCharges || "").toLowerCase().includes("to-pay") ? "Ex-Factory" : "Door Delivery"),
           freightAmount: header.freightAmount ?? 0,
           currency: header.currency || "INR",
           buyer: header.buyer || "",
@@ -3769,6 +3781,7 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
               ...h,
               paymentTerms: supplierCommercialDefaults.paymentTerms || h.paymentTerms,
               freightCharges: supplierCommercialDefaults.freightCharges || h.freightCharges,
+              deliveryTerms: supplierCommercialDefaults.deliveryTerms || h.deliveryTerms,
               currency: supplierCommercialDefaults.currency || h.currency,
               buyer: supplierCommercialDefaults.buyer || h.buyer,
               department: supplierCommercialDefaults.department || h.department,

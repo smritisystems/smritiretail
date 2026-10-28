@@ -261,11 +261,36 @@ export const POPrintPreviewModal: React.FC<POPrintPreviewModalProps> = ({
     return "INR";
   });
   const [showPhotos, setShowPhotos] = useState<boolean>(true);
-  const [itemReferenceFields, setItemReferenceFields] = useState({
-    color: false,
-    heels: true,
-    upperMaterial: true,
-    outsole: true,
+  const [imageGridSetting, setImageGridSetting] = useState<"auto" | "2" | "4">(() => {
+    if (typeof localStorage !== "undefined") {
+      const saved = localStorage.getItem("smriti_po_image_grid_setting");
+      if (saved === "2" || saved === "4" || saved === "auto") return saved;
+    }
+    return "auto";
+  });
+  const [selectedArticleCodes, setSelectedArticleCodes] = useState<string[] | null>(null);
+  const [itemReferenceFields, setItemReferenceFields] = useState<{
+    color: boolean;
+    heels: boolean;
+    upperMaterial: boolean;
+    outsole: boolean;
+  }>(() => {
+    if (typeof localStorage !== "undefined") {
+      const saved = localStorage.getItem("smriti_po_item_reference_fields");
+      if (saved) {
+        try {
+          return JSON.parse(saved);
+        } catch {
+          // ignore corrupted JSON
+        }
+      }
+    }
+    return {
+      color: false,
+      heels: true,
+      upperMaterial: true,
+      outsole: true,
+    };
   });
   const [orientation, setOrientation] = useState<"landscape" | "portrait">("portrait");
   const [zoomLevel, setZoomLevel] = useState<number>(100);
@@ -833,9 +858,8 @@ export const POPrintPreviewModal: React.FC<POPrintPreviewModalProps> = ({
     });
   }, [lineItems, header.commonTaxPercent]);
 
-  // Item Reference Cards (2 large product cards per row)
-  const mappedItemReferences: FootwearArticleReference[] = useMemo(() => {
-    if (!showPhotos) return [];
+  // All discovered unique item references from PO lines
+  const allAvailableArticleReferences: FootwearArticleReference[] = useMemo(() => {
     const refMap = new Map<string, FootwearArticleReference>();
 
     sizePivotRows.forEach((r) => {
@@ -877,7 +901,26 @@ export const POPrintPreviewModal: React.FC<POPrintPreviewModalProps> = ({
     });
 
     return Array.from(refMap.values());
-  }, [sizePivotRows, lineItems, showPhotos]);
+  }, [sizePivotRows, lineItems]);
+
+  // Filtered item references based on user selection
+  const mappedItemReferences: FootwearArticleReference[] = useMemo(() => {
+    if (!showPhotos) return [];
+    if (!selectedArticleCodes || selectedArticleCodes.length === 0) {
+      return allAvailableArticleReferences;
+    }
+    return allAvailableArticleReferences.filter((ref) =>
+      selectedArticleCodes.includes(ref.articleNo)
+    );
+  }, [allAvailableArticleReferences, showPhotos, selectedArticleCodes]);
+
+  // Determine effective image columns (2 or 4)
+  const effectiveImageColumns: 2 | 4 = useMemo(() => {
+    if (imageGridSetting === "2") return 2;
+    if (imageGridSetting === "4") return 4;
+    // auto: if 1 or 2 items -> 2 cols; if 3 or more -> 4 cols to fit single page
+    return mappedItemReferences.length <= 2 ? 2 : 4;
+  }, [imageGridSetting, mappedItemReferences.length]);
 
   // Order financial summary calculated directly from live lines
   const totalItemsCount =
@@ -980,11 +1023,18 @@ export const POPrintPreviewModal: React.FC<POPrintPreviewModalProps> = ({
     standardItems: mappedStandardLines,
     itemReferences: mappedItemReferences,
     itemReferenceFields,
+    imageColumns: effectiveImageColumns,
 
     paymentTerms: vendorPaymentTerms,
     freightTerms: header.freightCharges || vendor?.freight_terms || "Paid by Supplier",
     currency: currency === "INR" ? `INR (${currencySymbol})` : currency,
-    deliveryTerms: "Ex-Factory",
+    deliveryTerms:
+      (header as any).deliveryTerms ||
+      (header as any).commercialTerms?.delivery_terms ||
+      (header as any)?.commercial_terms?.delivery_terms ||
+      (vendor as any)?.delivery_terms ||
+      (vendor as any)?.commercial?.deliveryTerms ||
+      ((header.freightCharges || vendor?.freight_terms || "").toLowerCase().includes("buyer") || (header.freightCharges || vendor?.freight_terms || "").toLowerCase().includes("to-pay") ? "Ex-Factory" : "Door Delivery"),
     supplierReference: extractedBillNo || "—",
     specialInstructions:
       header.specialInstructions ||
@@ -1135,27 +1185,137 @@ export const POPrintPreviewModal: React.FC<POPrintPreviewModalProps> = ({
                 <span>Shoe Photos</span>
               </label>
               {(template === "smriti-sizewise" || template === "smriti-standard") && (
-                <details className="relative bg-indigo-900/60 rounded px-2 py-1 border border-indigo-700 text-[11px]">
-                  <summary className="cursor-pointer text-indigo-100">Item fields</summary>
-                  <div className="absolute right-0 top-full z-20 mt-1 min-w-40 rounded border border-indigo-600 bg-slate-900 p-2 shadow-xl">
-                    {ITEM_REFERENCE_FIELD_OPTIONS.map((field) => (
-                      <label key={field.key} className="flex items-center gap-2 whitespace-nowrap py-1 text-indigo-100 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={itemReferenceFields[field.key]}
-                          onChange={(event) =>
-                            setItemReferenceFields((current) => ({
-                              ...current,
-                              [field.key]: event.target.checked,
-                            }))
-                          }
-                          className="rounded text-amber-400 focus:ring-0"
-                        />
-                        <span>{field.label}</span>
-                      </label>
-                    ))}
-                  </div>
-                </details>
+                <>
+                  <details className="relative bg-indigo-900/60 rounded px-2 py-1 border border-indigo-700 text-[11px]">
+                    <summary className="cursor-pointer text-indigo-100">Item fields</summary>
+                    <div className="absolute right-0 top-full z-20 mt-1 min-w-40 rounded border border-indigo-600 bg-slate-900 p-2 shadow-xl">
+                      {ITEM_REFERENCE_FIELD_OPTIONS.map((field) => (
+                        <label key={field.key} className="flex items-center gap-2 whitespace-nowrap py-1 text-indigo-100 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={itemReferenceFields[field.key]}
+                            onChange={(event) =>
+                              setItemReferenceFields((current) => {
+                                const next = {
+                                  ...current,
+                                  [field.key]: event.target.checked,
+                                };
+                                if (typeof localStorage !== "undefined") {
+                                  localStorage.setItem("smriti_po_item_reference_fields", JSON.stringify(next));
+                                }
+                                return next;
+                              })
+                            }
+                            className="rounded text-amber-400 focus:ring-0"
+                          />
+                          <span>{field.label}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </details>
+
+                  {showPhotos && (
+                    <>
+                      {/* Grid Density Selector: 2 vs 4 per row */}
+                      <div className="flex items-center gap-1 bg-indigo-900/60 rounded px-2 py-1 border border-indigo-700 text-[11px]">
+                        <span className="text-[10px] text-indigo-300">Grid:</span>
+                        <select
+                          id="po-preview-grid-density-select"
+                          value={imageGridSetting}
+                          onChange={(e) => {
+                            const next = e.target.value as "auto" | "2" | "4";
+                            setImageGridSetting(next);
+                            if (typeof localStorage !== "undefined") {
+                              localStorage.setItem("smriti_po_image_grid_setting", next);
+                            }
+                          }}
+                          className="bg-transparent text-white text-xs font-bold outline-none cursor-pointer"
+                        >
+                          <option value="auto" className="bg-slate-900 text-white">Auto ({effectiveImageColumns} / row)</option>
+                          <option value="2" className="bg-slate-900 text-white">2 / Row (Large 118px)</option>
+                          <option value="4" className="bg-slate-900 text-white">4 / Row (Fit 1 Page)</option>
+                        </select>
+                      </div>
+
+                      {/* Article Image Selector */}
+                      {allAvailableArticleReferences.length > 0 && (
+                        <details className="relative bg-indigo-900/60 rounded px-2 py-1 border border-indigo-700 text-[11px]">
+                          <summary className="cursor-pointer text-indigo-100 flex items-center gap-1">
+                            <span>Photos ({mappedItemReferences.length}/{allAvailableArticleReferences.length})</span>
+                          </summary>
+                          <div className="absolute right-0 top-full z-30 mt-1 min-w-56 max-h-72 overflow-y-auto rounded-lg border border-indigo-600 bg-slate-900 p-2.5 shadow-2xl space-y-2">
+                            <div className="flex items-center justify-between border-b border-indigo-800/80 pb-1.5 text-[10px]">
+                              <span className="font-bold text-indigo-200">Select To Print</span>
+                              <div className="flex items-center gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => setSelectedArticleCodes(allAvailableArticleReferences.map(r => r.articleNo))}
+                                  className="text-amber-400 hover:text-amber-300 font-bold cursor-pointer"
+                                >
+                                  All
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setSelectedArticleCodes(allAvailableArticleReferences.slice(0, 2).map(r => r.articleNo))}
+                                  className="text-amber-400 hover:text-amber-300 font-bold cursor-pointer"
+                                  title="Select first 2 for large single-page view"
+                                >
+                                  Top 2
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setSelectedArticleCodes(allAvailableArticleReferences.slice(0, 4).map(r => r.articleNo))}
+                                  className="text-amber-400 hover:text-amber-300 font-bold cursor-pointer"
+                                  title="Select first 4 for 4-in-a-row single-page view"
+                                >
+                                  Top 4
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setSelectedArticleCodes([])}
+                                  className="text-rose-400 hover:text-rose-300 font-bold cursor-pointer"
+                                >
+                                  None
+                                </button>
+                              </div>
+                            </div>
+                            <div className="space-y-1">
+                              {allAvailableArticleReferences.map((ref) => {
+                                const isSelected = selectedArticleCodes === null
+                                  ? true
+                                  : selectedArticleCodes.includes(ref.articleNo);
+                                return (
+                                  <label key={ref.articleNo} className="flex items-center gap-2 py-1 px-1.5 rounded hover:bg-indigo-950/80 text-indigo-100 cursor-pointer text-xs">
+                                    <input
+                                      type="checkbox"
+                                      checked={isSelected}
+                                      onChange={(e) => {
+                                        let currentList = selectedArticleCodes === null
+                                          ? allAvailableArticleReferences.map(r => r.articleNo)
+                                          : [...selectedArticleCodes];
+                                        if (e.target.checked) {
+                                          if (!currentList.includes(ref.articleNo)) currentList.push(ref.articleNo);
+                                        } else {
+                                          currentList = currentList.filter(c => c !== ref.articleNo);
+                                        }
+                                        setSelectedArticleCodes(currentList);
+                                      }}
+                                      className="rounded text-amber-400 focus:ring-0"
+                                    />
+                                    <span className="font-bold truncate text-slate-200">{ref.articleNo}</span>
+                                    {ref.color && ref.color !== "—" && (
+                                      <span className="text-[10.5px] text-indigo-300 truncate font-mono">({ref.color})</span>
+                                    )}
+                                  </label>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        </details>
+                      )}
+                    </>
+                  )}
+                </>
               )}
             </>
           )}

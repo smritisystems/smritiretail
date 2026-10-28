@@ -134,7 +134,7 @@ describe("Purchase Order Sizewise Grouping (Article No. + Color) Verification", 
     const html = renderToStaticMarkup(
       <SizePivotMatrixA4
         data={{
-          header: { orderNumber: "101", prefix: "PO" },
+          header: { orderNumber: "101", prefix: "PO", companyName: "TATTLY THREADS" },
           rows: pivotRows,
         }}
       />
@@ -308,6 +308,7 @@ describe("Purchase Order Sizewise Grouping (Article No. + Color) Verification", 
     const htmlFootwear = renderToStaticMarkup(
       <FootwearPurchaseOrderA4
         data={{
+          companyName: "TATTLY THREADS",
           poNumber: "FWPO-2026-084",
           businessTerms: DEFAULT_BUSINESS_TERMS,
           paymentTerms: "120 Days",
@@ -324,6 +325,7 @@ describe("Purchase Order Sizewise Grouping (Article No. + Color) Verification", 
       <SizePivotMatrixA4
         data={{
           header: {
+            companyName: "TATTLY THREADS",
             orderNumber: "PO-2026-00451",
             prefix: "PO",
             businessTerms: DEFAULT_BUSINESS_TERMS,

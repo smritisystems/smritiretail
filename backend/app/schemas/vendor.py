@@ -133,6 +133,7 @@ class VendorCommercialProfileDTO(SMRITICamelModel):
     outstanding_liability: float = 0.0
     payment_terms: Optional[str] = "120 Days"
     freight_terms: Optional[str] = "Paid by Supplier"
+    delivery_terms: Optional[str] = "Door Delivery"
     currency: Optional[str] = "INR - Indian Rupee"
     buyer: Optional[str] = None
     department: Optional[str] = None

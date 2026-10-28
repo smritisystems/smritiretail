@@ -126,6 +126,7 @@ export interface SizewisePOHeader {
   // Other Details
   paymentTerms: string;
   freightCharges: string;
+  deliveryTerms?: string;
   currency: string;
   buyer: string;
   department: string;
@@ -1096,6 +1097,7 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
       paymentTerms: "120 Days",
       businessTerms: DEFAULT_BUSINESS_TERMS,
       freightCharges: "Paid by Supplier",
+      deliveryTerms: "Door Delivery",
       currency: "INR - Indian Rupee",
       buyer: currentUser?.name ? `${currentUser.name} (${currentUser.role || "MANAGER"})` : "manager (MANAGER)",
       department: "General Purchase",
@@ -1288,6 +1290,7 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
             payment_terms: s.payment_terms || (s.payment_terms_days ? `${s.payment_terms_days} Days` : "120 Days"),
             payment_terms_days: s.payment_terms_days ?? 120,
             freight_terms: s.freight_terms || "Paid by Supplier",
+            delivery_terms: s.delivery_terms || ((s.freight_terms || "").toLowerCase().includes("buyer") || (s.freight_terms || "").toLowerCase().includes("to-pay") ? "Ex-Factory" : "Door Delivery"),
             currency: s.currency || "INR - Indian Rupee",
             buyer: s.buyer || undefined,
             department: s.department || undefined,
@@ -1306,6 +1309,7 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
           supplierName: firstSup.name,
           paymentTerms: firstSup.payment_terms || "120 Days",
           freightCharges: firstSup.freight_terms || h.freightCharges,
+          deliveryTerms: firstSup.delivery_terms || h.deliveryTerms,
           currency: firstSup.currency || h.currency,
           buyer: firstSup.buyer || h.buyer,
           department: firstSup.department || h.department,
@@ -2924,6 +2928,7 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
       const commercialTerms = {
         payment_terms: header.paymentTerms,
         freight_terms: header.freightCharges,
+        delivery_terms: header.deliveryTerms || ((header.freightCharges || "").toLowerCase().includes("buyer") || (header.freightCharges || "").toLowerCase().includes("to-pay") ? "Ex-Factory" : "Door Delivery"),
         currency: header.currency,
         buyer: header.buyer,
         department: header.department,
@@ -2948,6 +2953,7 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
           header.specialInstructions && `Instructions: ${header.specialInstructions}`,
           header.paymentTerms && `Payment: ${header.paymentTerms}`,
           header.freightCharges && `Freight: ${header.freightCharges}`,
+          (header.deliveryTerms || commercialTerms.delivery_terms) && `Delivery: ${header.deliveryTerms || commercialTerms.delivery_terms}`,
           header.currency && `Currency: ${header.currency}`,
           header.buyer && `Buyer: ${header.buyer}`,
           header.department && `Department: ${header.department}`,
@@ -3243,6 +3249,7 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
                 const defaults: Partial<CommercialDeliveryData> = {
                   paymentTerms: sel?.payment_terms || (sel?.payment_terms_days ? `${sel.payment_terms_days} Days` : undefined),
                   freightCharges: sel?.freight_terms,
+                  deliveryTerms: sel?.delivery_terms || (sel?.freight_terms ? ((sel.freight_terms.toLowerCase().includes("buyer") || sel.freight_terms.toLowerCase().includes("to-pay")) ? "Ex-Factory" : "Door Delivery") : undefined),
                   currency: sel?.currency,
                   buyer: sel?.buyer,
                   department: sel?.department,
@@ -3256,6 +3263,7 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
                   supplierName: sel?.name || sel?.company_name || "",
                   paymentTerms: defaults.paymentTerms || h.paymentTerms,
                   freightCharges: defaults.freightCharges || h.freightCharges,
+                  deliveryTerms: defaults.deliveryTerms || h.deliveryTerms,
                   currency: defaults.currency || h.currency,
                   buyer: defaults.buyer || h.buyer,
                   department: defaults.department || h.department,
@@ -5905,6 +5913,7 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
         data={{
           paymentTerms: header.paymentTerms || "120 Days",
           freightCharges: header.freightCharges,
+          deliveryTerms: header.deliveryTerms || ((header.freightCharges || "").toLowerCase().includes("buyer") || (header.freightCharges || "").toLowerCase().includes("to-pay") ? "Ex-Factory" : "Door Delivery"),
           freightAmount: header.freightAmount,
           currency: header.currency,
           buyer: header.buyer,
@@ -5931,6 +5940,7 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
               ...h,
               paymentTerms: supplierCommercialDefaults.paymentTerms || h.paymentTerms,
               freightCharges: supplierCommercialDefaults.freightCharges || h.freightCharges,
+              deliveryTerms: supplierCommercialDefaults.deliveryTerms || h.deliveryTerms,
               currency: supplierCommercialDefaults.currency || h.currency,
               buyer: supplierCommercialDefaults.buyer || h.buyer,
               department: supplierCommercialDefaults.department || h.department,

@@ -65,6 +65,7 @@ class SupplierResponse(BaseModel):
     payment_terms_days: Optional[int] = 120
     payment_terms:      Optional[str] = "120 Days"
     freight_terms:      Optional[str] = "Paid by Supplier"
+    delivery_terms:     Optional[str] = "Door Delivery"
     currency:           Optional[str] = "INR - Indian Rupee"
     buyer:              Optional[str] = None
     department:         Optional[str] = None
@@ -308,6 +309,8 @@ class PurchaseOrderResponse(BaseModel):
                         parsed["payment_terms"] = v_str
                     elif "freight" in k_str:
                         parsed["freight_terms"] = v_str
+                    elif "delivery" in k_str:
+                        parsed["delivery_terms"] = v_str
                     elif "ref" in k_str:
                         parsed["supplier_reference"] = v_str
                     elif "instruction" in k_str:
@@ -326,12 +329,15 @@ class PurchaseOrderResponse(BaseModel):
                 "payment_terms": "120 Days",
                 "freight_terms": "Paid by Supplier",
                 "currency": "INR",
-                "delivery_terms": "Ex-Factory",
+                "delivery_terms": "Door Delivery",
             }
         elif isinstance(self.commercial_terms, dict):
             pterms = self.commercial_terms.get("payment_terms")
             if not pterms or str(pterms).strip() in ["30 Days", "30 days", "30"]:
                 self.commercial_terms["payment_terms"] = "120 Days"
+            if not self.commercial_terms.get("delivery_terms"):
+                freight = (self.commercial_terms.get("freight_terms") or "").lower()
+                self.commercial_terms["delivery_terms"] = "Ex-Factory" if any(w in freight for w in ["buyer", "to-pay", "to pay"]) else "Door Delivery"
         return self
 
     model_config = {"from_attributes": True}

@@ -160,6 +160,7 @@ function normalizeVendorDetail(v: any): VendorDetail {
       outstandingLiability: comm.outstandingLiability ?? comm.outstanding_liability ?? v.outstanding ?? 0,
       paymentTerms: comm.paymentTerms || comm.payment_terms || "120 Days",
       freightTerms: comm.freightTerms || comm.freight_terms || "Paid by Supplier",
+      deliveryTerms: comm.deliveryTerms || comm.delivery_terms || ((comm.freightTerms || comm.freight_terms || "").toLowerCase().includes("buyer") || (comm.freightTerms || comm.freight_terms || "").toLowerCase().includes("to-pay") ? "Ex-Factory" : "Door Delivery"),
       currency: comm.currency || "INR - Indian Rupee",
       buyer: comm.buyer || "",
       department: comm.department || "",
@@ -789,7 +790,7 @@ const VendorMasterWsBase: React.FC<VendorMasterWsProps> = ({ currentUser, onNoti
     const commFields = [
       "supplierType", "paymentTermsDays", "msmeRegistrationNo", "msmeCategory",
       "commercialClassification", "tdsSection", "tdsRate", "taxTreatment",
-      "paymentTerms", "freightTerms", "currency", "buyer", "department", "specialInstructions"
+      "paymentTerms", "freightTerms", "deliveryTerms", "currency", "buyer", "department", "specialInstructions"
     ];
     const sComm = selectedVendor.commercial || {};
     const pComm = pristineVendor.commercial || {};
