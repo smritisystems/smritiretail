@@ -39,6 +39,13 @@ export interface FootwearArticleReference {
   imageUrl?: string;
 }
 
+export interface ItemReferenceFieldVisibility {
+  color: boolean;
+  heels: boolean;
+  upperMaterial: boolean;
+  outsole: boolean;
+}
+
 export interface PurchaseOrderPrintData {
   // Mode: "sizewise" (default) or "standard"
   mode?: "sizewise" | "standard";
@@ -100,6 +107,7 @@ export interface PurchaseOrderPrintData {
 
   // Item Reference Cards (2 large preview images per row)
   itemReferences?: FootwearArticleReference[];
+  itemReferenceFields?: ItemReferenceFieldVisibility;
 
   // Commercial Terms
   paymentTerms?: string;
@@ -335,6 +343,12 @@ export const PurchaseOrderPrintA4: React.FC<{ data: PurchaseOrderPrintData }> = 
     }
     return Array.from(derivedMap.values());
   }, [data.itemReferences, data.sizewiseItems, data.standardItems]);
+  const itemReferenceFields = data.itemReferenceFields ?? {
+    color: true,
+    heels: true,
+    upperMaterial: true,
+    outsole: true,
+  };
 
   const tenantCtx = typeof window !== "undefined" ? getTenantCompanyContext() : null;
   const companyName = data.companyName || tenantCtx?.companyName || "";
@@ -772,41 +786,38 @@ export const PurchaseOrderPrintA4: React.FC<{ data: PurchaseOrderPrintData }> = 
           </div>
         ) : (
           <div className="grid grid-cols-2 gap-2">
-            {references.map((ref, idx) => (
+            {references.map((ref, idx) => {
+              const referenceFields = [
+                { key: "color" as const, label: "Color", value: ref.color },
+                { key: "heels" as const, label: "Heels", value: ref.heels },
+                { key: "upperMaterial" as const, label: "Upper Material", value: ref.upperMaterial },
+                { key: "outsole" as const, label: "Outsole", value: ref.outsole },
+              ].filter((field) => itemReferenceFields[field.key]);
+
+              return (
               <div
                 key={idx}
                 className="page-break-avoid border border-[#cbd5e1] rounded-lg p-1.5 bg-white shadow-2xs flex flex-col justify-between"
               >
                 {/* Card Title: Article No */}
-                <div className="text-[12px] font-extrabold text-[#0f172a] mb-1">
+                <div className="text-[12px] font-extrabold text-[#0f172a] mb-1 break-words">
                   {ref.articleNo}
                 </div>
 
-                {/* Card Content: Sub-details (Left) + Large Image (Right) */}
-                <div className="grid grid-cols-[115px_1fr] gap-2 items-center">
-                  {/* Left Column: Footwear Sub-Details */}
-                  <div className="text-[9.5px] space-y-1">
-                    <div className="flex items-start">
-                      <span className="text-slate-500 w-18 shrink-0">Color</span>
-                      <span className="text-slate-400 mr-1">:</span>
-                      <span className="font-semibold text-slate-900 truncate">{displayAttr(ref.color)}</span>
+                {/* Card Content: Wrapping attributes above the large reference image */}
+                <div className="flex flex-col gap-1.5">
+                  {referenceFields.length > 0 && (
+                    <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-[9.5px]">
+                      {referenceFields.map((field) => (
+                        <div className="grid grid-cols-[max-content_minmax(0,1fr)] items-start gap-x-1" key={field.key}>
+                          <span className="text-slate-500 whitespace-nowrap">{field.label}:</span>
+                          <span className="font-medium text-slate-800 min-w-0 whitespace-normal break-words leading-tight">
+                            {displayAttr(field.value)}
+                          </span>
+                        </div>
+                      ))}
                     </div>
-                    <div className="flex items-start">
-                      <span className="text-slate-500 w-18 shrink-0">Heels</span>
-                      <span className="text-slate-400 mr-1">:</span>
-                      <span className="font-medium text-slate-800 truncate">{displayAttr(ref.heels)}</span>
-                    </div>
-                    <div className="flex items-start">
-                      <span className="text-slate-500 w-18 shrink-0">Upper Material</span>
-                      <span className="text-slate-400 mr-1">:</span>
-                      <span className="font-medium text-slate-800 truncate">{displayAttr(ref.upperMaterial)}</span>
-                    </div>
-                    <div className="flex items-start">
-                      <span className="text-slate-500 w-18 shrink-0">Outsole</span>
-                      <span className="text-slate-400 mr-1">:</span>
-                      <span className="font-medium text-slate-800 truncate">{displayAttr(ref.outsole)}</span>
-                    </div>
-                  </div>
+                  )}
 
                   {/* Right Column: Rectangular 5:3 Preview Image (No border/decorations around placeholder) */}
                   <div
@@ -840,7 +851,8 @@ export const PurchaseOrderPrintA4: React.FC<{ data: PurchaseOrderPrintData }> = 
                   </div>
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </section>

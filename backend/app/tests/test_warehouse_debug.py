@@ -84,3 +84,58 @@ async def test_warehouse_missing_debug(db_session, override_db_and_tenant):
     except ValueError as e:
         print(f"\n[DEBUG] Resolver raised ValueError as expected: {e}")
         assert str(e) == "INVENTORY_WAREHOUSE_NOT_CONFIGURED"
+
+
+async def test_system_warehouse_is_used_when_no_branch_default_is_configured(db_session):
+    company, branch = await _make_tenant_local(db_session, "whsystemdefault")
+    db_session.add(
+        Warehouse(
+            id="WH-001",
+            company_id=company.id,
+            branch_id=branch.id,
+            code="WH-001",
+            name="System Default Warehouse",
+            is_active=True,
+            is_deleted=False,
+        )
+    )
+    await db_session.commit()
+
+    resolved = await InventoryWarehouseResolver(db_session).resolve(
+        company_id=company.id,
+        branch_id=branch.id,
+    )
+
+    assert resolved.id == "WH-001"
+
+
+async def test_configured_branch_default_takes_precedence_over_system_warehouse(db_session):
+    company, branch = await _make_tenant_local(db_session, "whconfigureddefault")
+    branch_warehouse = (
+        await db_session.execute(
+            select(Warehouse).where(
+                Warehouse.company_id == company.id,
+                Warehouse.branch_id == branch.id,
+            )
+        )
+    ).scalars().one()
+    branch_warehouse.is_default_for_branch = True
+    db_session.add(
+        Warehouse(
+            id="WH-001",
+            company_id=company.id,
+            branch_id=branch.id,
+            code="WH-001",
+            name="System Default Warehouse",
+            is_active=True,
+            is_deleted=False,
+        )
+    )
+    await db_session.commit()
+
+    resolved = await InventoryWarehouseResolver(db_session).resolve(
+        company_id=company.id,
+        branch_id=branch.id,
+    )
+
+    assert resolved.id == branch_warehouse.id

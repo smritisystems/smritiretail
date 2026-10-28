@@ -38,6 +38,13 @@ import type { PurchaseOrderHeader, PurchaseOrderLineItem, PurchaseOrderSizePivot
 import { getTenantCompanyContext, persistTenantContext, apiFetchV1 } from "../../lib/apiFetchV1";
 import { lookupFootwearStyleMetadata } from "../../lib/footwearStyleCatalog";
 
+const ITEM_REFERENCE_FIELD_OPTIONS = [
+  { key: "color", label: "Color" },
+  { key: "heels", label: "Heels" },
+  { key: "upperMaterial", label: "Upper Material" },
+  { key: "outsole", label: "Outsole" },
+] as const;
+
 export interface POPrintPreviewModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -254,6 +261,12 @@ export const POPrintPreviewModal: React.FC<POPrintPreviewModalProps> = ({
     return "INR";
   });
   const [showPhotos, setShowPhotos] = useState<boolean>(true);
+  const [itemReferenceFields, setItemReferenceFields] = useState({
+    color: false,
+    heels: true,
+    upperMaterial: true,
+    outsole: true,
+  });
   const [orientation, setOrientation] = useState<"landscape" | "portrait">("portrait");
   const [zoomLevel, setZoomLevel] = useState<number>(100);
   const [asyncCompanyProfile, setAsyncCompanyProfile] = useState<any>(null);
@@ -966,6 +979,7 @@ export const POPrintPreviewModal: React.FC<POPrintPreviewModalProps> = ({
     sizewiseItems: mappedSizewiseRows,
     standardItems: mappedStandardLines,
     itemReferences: mappedItemReferences,
+    itemReferenceFields,
 
     paymentTerms: vendorPaymentTerms,
     freightTerms: header.freightCharges || vendor?.freight_terms || "Paid by Supplier",
@@ -1120,6 +1134,29 @@ export const POPrintPreviewModal: React.FC<POPrintPreviewModalProps> = ({
                 />
                 <span>Shoe Photos</span>
               </label>
+              {(template === "smriti-sizewise" || template === "smriti-standard") && (
+                <details className="relative bg-indigo-900/60 rounded px-2 py-1 border border-indigo-700 text-[11px]">
+                  <summary className="cursor-pointer text-indigo-100">Item fields</summary>
+                  <div className="absolute right-0 top-full z-20 mt-1 min-w-40 rounded border border-indigo-600 bg-slate-900 p-2 shadow-xl">
+                    {ITEM_REFERENCE_FIELD_OPTIONS.map((field) => (
+                      <label key={field.key} className="flex items-center gap-2 whitespace-nowrap py-1 text-indigo-100 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={itemReferenceFields[field.key]}
+                          onChange={(event) =>
+                            setItemReferenceFields((current) => ({
+                              ...current,
+                              [field.key]: event.target.checked,
+                            }))
+                          }
+                          className="rounded text-amber-400 focus:ring-0"
+                        />
+                        <span>{field.label}</span>
+                      </label>
+                    ))}
+                  </div>
+                </details>
+              )}
             </>
           )}
 

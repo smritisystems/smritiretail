@@ -216,6 +216,79 @@ describe("Purchase Order Print Branding, Watermark & Payment Terms Verification"
     expect(matches?.length).toBe(2);
   });
 
+  it("allows item-reference attributes to be selected independently", () => {
+    const colorHiddenHtml = renderToStaticMarkup(
+      <PurchaseOrderPrintA4
+        data={{
+          ...sampleFootwearPOData,
+          itemReferenceFields: {
+            color: false,
+            heels: true,
+            upperMaterial: true,
+            outsole: true,
+          },
+        }}
+      />
+    );
+    const colorHiddenSection = colorHiddenHtml
+      .split("ITEM REFERENCE (IMAGES)")[1]
+      ?.split("COMMERCIAL TERMS")[0] ?? "";
+
+    expect(colorHiddenSection).not.toContain(">Color</span>");
+    expect(colorHiddenSection).toContain(">Heels:</span>");
+    expect(colorHiddenSection).toContain(">Upper Material:</span>");
+    expect(colorHiddenSection).toContain(">Outsole:</span>");
+
+    const colorVisibleHtml = renderToStaticMarkup(
+      <PurchaseOrderPrintA4
+        data={{
+          ...sampleFootwearPOData,
+          itemReferenceFields: {
+            color: true,
+            heels: false,
+            upperMaterial: false,
+            outsole: false,
+          },
+        }}
+      />
+    );
+    const colorVisibleSection = colorVisibleHtml
+      .split("ITEM REFERENCE (IMAGES)")[1]
+      ?.split("COMMERCIAL TERMS")[0] ?? "";
+
+    expect(colorVisibleSection).toContain(">Color:</span>");
+    expect(colorVisibleSection).not.toContain(">Heels:</span>");
+    expect(colorVisibleSection).not.toContain(">Upper Material:</span>");
+    expect(colorVisibleSection).not.toContain(">Outsole:</span>");
+  });
+
+  it("wraps long item-reference attributes instead of clipping them", () => {
+    const html = renderToStaticMarkup(
+      <PurchaseOrderPrintA4
+        data={{
+          ...sampleFootwearPOData,
+          itemReferences: [
+            {
+              articleNo: "ARTICLE-WITH-A-LONG-REFERENCE",
+              color: "DARK BLUE WITH CONTRAST STITCHING",
+              heels: "HIGH PLATFORM WITH REINFORCED SUPPORT",
+              upperMaterial: "GENUINE LEATHER WITH BREATHABLE MESH LINING",
+              outsole: "NON-MARKING RUBBER WITH HIGH GRIP PATTERN",
+            },
+          ],
+        }}
+      />
+    );
+    const referenceSection = html.split("ITEM REFERENCE (IMAGES)")[1]?.split("COMMERCIAL TERMS")[0] ?? "";
+
+    expect(referenceSection).toContain("DARK BLUE WITH CONTRAST STITCHING");
+    expect(referenceSection).toContain("HIGH PLATFORM WITH REINFORCED SUPPORT");
+    expect(referenceSection).toContain("GENUINE LEATHER WITH BREATHABLE MESH LINING");
+    expect(referenceSection).toContain("NON-MARKING RUBBER WITH HIGH GRIP PATTERN");
+    expect(referenceSection).toContain("break-words");
+    expect(referenceSection).not.toContain("truncate");
+  });
+
   it("8. auto-derives item references from sizewise or standard items when itemReferences is empty so placeholders are never missing", () => {
     const poWithoutExplicitReferences: PurchaseOrderPrintData = {
       ...sampleFootwearPOData,
@@ -245,4 +318,3 @@ describe("Purchase Order Print Branding, Watermark & Payment Terms Verification"
     expect(html).not.toContain("rotate-[-28deg]");
   });
 });
-
