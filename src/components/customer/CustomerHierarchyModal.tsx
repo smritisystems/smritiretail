@@ -30,13 +30,12 @@ import {
 import { apiFetchV1 } from "../../lib/apiFetchV1.ts";
 import {
   CustomerDirectoryItem,
-  RetailCustomerRecord,
+  CustomerHierarchyNode,
   CustomerHierarchyTreeResponse,
 } from "./types.ts";
 import { HierarchyChildNode } from "./corporateWorkspace/CustomerHierarchyTree.tsx";
 import { CustomerHierarchyTree } from "./CustomerHierarchyTree.tsx";
 import { BulkAssignCustomerModal } from "./BulkAssignCustomerModal.tsx";
-import { mapBackendCustomerToRecord } from "./CustMasterWs.tsx";
 
 export interface CustomerHierarchyModalProps {
   isOpen: boolean;
@@ -46,106 +45,45 @@ export interface CustomerHierarchyModalProps {
   onFilterDirectoryByParent?: (parentCustomer: { id: string; name: string; code: string | null }) => void;
 }
 
-const mapDependantsToNodes = (dependants: any[]): HierarchyChildNode[] => {
-  return (dependants || []).map((dep: any, idx: number) => {
-    let storeCode =
-      dep.dependantCustomerStoreCode ||
-      dep.dependant_customer_store_code ||
-      dep.storeCode ||
-      dep.store_code ||
-      "";
-    if (!storeCode && dep.notes) {
-      const matchStore = dep.notes.match(/Store Code:\s*([^|]+)/i);
-      if (matchStore) storeCode = matchStore[1].trim();
-    }
-    if (storeCode && (storeCode.startsWith("DUMMY-") || storeCode.startsWith("PLACEHOLDER"))) {
-      storeCode = storeCode.replace(/^(DUMMY-|PLACEHOLDER-?)/i, "").trim();
-    }
+type HierarchyAccountSummary = {
+  id: string;
+  code: string;
+  name: string;
+  phone: string;
+  email: string;
+  status: string;
+  gstin?: string | null;
+  customerGroupId?: string | null;
+};
 
-    let city =
-      dep.dependantCustomerCity ||
-      dep.dependant_customer_city ||
-      dep.city ||
-      "";
-    let state =
-      dep.dependantCustomerState ||
-      dep.dependant_customer_state ||
-      dep.state ||
-      "";
-    let location = city;
-    if (state) {
-      location = location ? `${location}, ${state}` : state;
-    }
-    if (!location && dep.notes) {
-      const matchState = dep.notes.match(/State:\s*([^|]+)/i);
-      if (matchState) location = matchState[1].trim();
-    }
+const mapHierarchyNodeToAccount = (node: CustomerHierarchyNode): HierarchyAccountSummary => ({
+  id: node.id,
+  code: node.code,
+  name: node.name,
+  phone: node.mobile || "",
+  email: node.email || "",
+  status: node.status,
+  gstin: node.gstin,
+});
 
-    const mobile =
-      dep.dependantCustomerMobile ||
-      dep.dependant_customer_mobile ||
-      dep.mobile ||
-      dep.phone ||
-      "";
-    const email =
-      dep.dependantCustomerEmail ||
-      dep.dependant_customer_email ||
-      dep.email ||
-      "";
-    const gstin =
-      dep.dependantCustomerGstin ||
-      dep.dependant_customer_gstin ||
-      dep.gstin ||
-      "";
-    const creditLimit =
-      dep.dependantCustomerCreditLimit ??
-      dep.dependant_customer_credit_limit ??
-      dep.creditLimit ??
-      dep.credit_limit;
-
-    const code =
-      dep.dependantCustomerCode ||
-      dep.dependant_customer_code ||
-      dep.code ||
-      storeCode ||
-      "—";
-    const name =
-      dep.dependantCustomerName ||
-      dep.dependant_customer_name ||
-      dep.name ||
-      "Child Account";
-    const id =
-      dep.dependantCustomerId ||
-      dep.dependant_customer_id ||
-      dep.id ||
-      String(idx + 1);
-    const status =
-      dep.dependantCustomerStatus ||
-      dep.dependant_customer_status ||
-      dep.status ||
-      "Active";
-    const isActive =
-      dep.dependantCustomerIsActive ??
-      dep.dependant_customer_is_active ??
-      (status.toLowerCase() === "active");
-
-    return {
-      id,
-      code,
-      name,
-      storeCode: storeCode || undefined,
-      store_code: storeCode || undefined,
-      location: location || undefined,
-      city: city || undefined,
-      state: state || undefined,
-      mobile: mobile || undefined,
-      email: email || undefined,
-      gstin: gstin || undefined,
-      creditLimit: creditLimit !== undefined ? Number(creditLimit) : undefined,
-      status,
-      isActive,
-    };
-  });
+const mapHierarchyNodeToChild = (node: CustomerHierarchyNode): HierarchyChildNode => {
+  const location = [node.city, node.state].filter(Boolean).join(", ");
+  return {
+    id: node.id,
+    code: node.code,
+    name: node.name,
+    storeCode: node.store_code || undefined,
+    store_code: node.store_code || undefined,
+    location: location || undefined,
+    city: node.city || undefined,
+    state: node.state || undefined,
+    mobile: node.mobile || undefined,
+    email: node.email || undefined,
+    gstin: node.gstin || undefined,
+    creditLimit: node.credit_limit != null ? Number(node.credit_limit) : undefined,
+    status: node.status,
+    isActive: node.is_active,
+  };
 };
 
 export const CustomerHierarchyModal: React.FC<CustomerHierarchyModalProps> = ({
@@ -157,7 +95,7 @@ export const CustomerHierarchyModal: React.FC<CustomerHierarchyModalProps> = ({
 }) => {
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string>("");
-  const [parentRecord, setParentRecord] = useState<RetailCustomerRecord | null>(null);
+  const [parentRecord, setParentRecord] = useState<HierarchyAccountSummary | null>(null);
   const [childrenNodes, setChildrenNodes] = useState<HierarchyChildNode[]>([]);
   const [treeResponse, setTreeResponse] = useState<CustomerHierarchyTreeResponse | null>(null);
   const [isBulkAssignOpen, setIsBulkAssignOpen] = useState<boolean>(false);
@@ -226,105 +164,39 @@ export const CustomerHierarchyModal: React.FC<CustomerHierarchyModalProps> = ({
     );
 
     try {
-      if (initialIsChild) {
-        // Child customer: resolve parent identity first
-        const parentId =
-          customerItem.parent_customer_id ||
-          customerItem.parent_customer_code ||
-          customerItem.primary_account_code;
-        if (!parentId) {
-          // Child marked as dependant but parent_customer_id is null
-          setIsParentMissing(true);
-          setResolvedRole("child");
-          const childBackend = await apiFetchV1<any>(`/crm/customers/${encodeURIComponent(customerItem.id)}`);
-          setParentRecord(mapBackendCustomerToRecord(childBackend));
-          setChildrenNodes([]);
-          return;
-        }
+      const treeData = await apiFetchV1<CustomerHierarchyTreeResponse>(
+        `/crm/customers/${encodeURIComponent(customerItem.id)}/hierarchy`
+      );
+      const hierarchyNodes: Array<{ node: CustomerHierarchyNode; parent: CustomerHierarchyNode | null }> = [];
+      const collectNodes = (node: CustomerHierarchyNode, parent: CustomerHierarchyNode | null = null) => {
+        hierarchyNodes.push({ node, parent });
+        node.children.forEach((child) => collectNodes(child, node));
+      };
+      collectNodes(treeData.root);
+      const target = hierarchyNodes.find(({ node }) => node.id === treeData.target_customer_id)?.node;
+      if (!target) {
+        throw new Error("The customer hierarchy response did not include the selected account.");
+      }
 
-        try {
-          // Fetch parent customer record
-          const parentBackend = await apiFetchV1<any>(`/crm/customers/${encodeURIComponent(parentId)}`);
-          const mappedParent = mapBackendCustomerToRecord(parentBackend);
-          setParentRecord(mappedParent);
-          setResolvedRole("child");
-
-          // Check if parent is active or deactivated
-          const status = String(parentBackend.status || "Active");
-          const isActive = parentBackend.is_active !== false && status.toLowerCase() === "active";
-          if (!isActive) {
-            setIsParentDeactivated(true);
-            setParentStatusText(status);
-          }
-
-          // Fetch dependants of the parent
-          try {
-            const dependants = await apiFetchV1<any[]>(`/crm/customers/${encodeURIComponent(mappedParent.id || parentId)}/dependants`);
-            const mappedNodes = mapDependantsToNodes(dependants);
-            if (mappedNodes.length > 0) {
-              setChildrenNodes(mappedNodes);
-            } else {
-              setChildrenNodes([{
-                id: customerItem.id,
-                code: customerItem.code || "—",
-                name: customerItem.name,
-                status: customerItem.status || "Active",
-                isActive: customerItem.is_active !== false,
-              }]);
-            }
-          } catch {
-            // Dependants call fallback
-            setChildrenNodes([{
-              id: customerItem.id,
-              code: customerItem.code || "—",
-              name: customerItem.name,
-              status: customerItem.status || "Active",
-              isActive: customerItem.is_active !== false,
-            }]);
-          }
-        } catch {
-          // Parent account could not be found or was deleted (Missing parent case)
-          setIsParentMissing(true);
-          setResolvedRole("child");
-          const childBackend = await apiFetchV1<any>(`/crm/customers/${encodeURIComponent(customerItem.id)}`);
-          setParentRecord(mapBackendCustomerToRecord(childBackend));
-          setChildrenNodes([]);
+      setTreeResponse(treeData);
+      if (initialIsChild || target.parent_customer_id) {
+        const parent = hierarchyNodes.find(({ node }) => node.id === target.parent_customer_id)?.node;
+        setResolvedRole("child");
+        setIsParentMissing(!parent);
+        setParentRecord(parent ? mapHierarchyNodeToAccount(parent) : null);
+        setChildrenNodes(parent ? parent.children.map(mapHierarchyNodeToChild) : []);
+        if (parent && (!parent.is_active || parent.status.toLowerCase() !== "active")) {
+          setIsParentDeactivated(true);
+          setParentStatusText(parent.status);
         }
       } else {
-        // Customer is root (either parent or standalone): fetch self first
-        const selfBackend = await apiFetchV1<any>(`/crm/customers/${encodeURIComponent(customerItem.id)}`);
-        const mappedSelf = mapBackendCustomerToRecord(selfBackend);
-        setParentRecord(mappedSelf);
-
-        try {
-          // Dynamically check canonical dependants table
-          const targetId = mappedSelf.id || customerItem.id;
-          const dependants = await apiFetchV1<any[]>(`/crm/customers/${encodeURIComponent(targetId)}/dependants`);
-          const mappedNodes = mapDependantsToNodes(dependants);
-          if (mappedNodes.length > 0) {
-            setChildrenNodes(mappedNodes);
-            setResolvedRole("parent");
-          } else {
-            setChildrenNodes([]);
-            setResolvedRole("standalone");
-          }
-        } catch {
-          const fallbackCount = customerItem.child_count ?? 0;
-          setChildrenNodes([]);
-          setResolvedRole(fallbackCount > 0 ? "parent" : "standalone");
-        }
-      }
-
-      // Concurrently trace full recursive N-tier tree
-      try {
-        const treeData = await apiFetchV1<CustomerHierarchyTreeResponse>(
-          `/crm/customers/${encodeURIComponent(customerItem.id)}/hierarchy`
-        );
-        setTreeResponse(treeData);
-      } catch {
-        setTreeResponse(null);
+        const children = target.children.map(mapHierarchyNodeToChild);
+        setParentRecord(mapHierarchyNodeToAccount(target));
+        setChildrenNodes(children);
+        setResolvedRole(children.length > 0 ? "parent" : "standalone");
       }
     } catch (err: any) {
+      setTreeResponse(null);
       setError(err?.message || "Could not load customer hierarchy details.");
     } finally {
       setLoading(false);
@@ -383,7 +255,7 @@ export const CustomerHierarchyModal: React.FC<CustomerHierarchyModalProps> = ({
               <div className="text-xs text-slate-500 flex items-center gap-2 mt-0.5">
                 <span>Account: <strong className="text-slate-800 dark:text-slate-200">{customerItem.name}</strong></span>
                 <span className="font-mono text-[11px] text-slate-600 dark:text-slate-400">({customerItem.code || "—"})</span>
-                {isParent && (
+                {isParent && treeResponse && (
                   <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-sky-100 text-sky-800 dark:bg-sky-950/60 dark:text-sky-300">
                     Parent Account ({childrenNodes.length} {childrenNodes.length === 1 ? "child" : "children"})
                   </span>
@@ -500,14 +372,14 @@ export const CustomerHierarchyModal: React.FC<CustomerHierarchyModalProps> = ({
                           id: parentRecord.id,
                           code: parentRecord.code,
                           name: parentRecord.name,
-                          mobile: parentRecord.phone || "",
+                          mobile: parentRecord.phone,
                           customer_group_id: parentRecord.customerGroupId || null,
                           customer_group_name: null,
                           is_dependant: false,
                           primary_account_name: null,
                           primary_account_code: null,
                           status: parentRecord.status || "Active",
-                          is_active: parentRecord.status?.toLowerCase() === "active",
+                          is_active: parentRecord.status.toLowerCase() === "active",
                           relationship_type: "parent",
                           child_count: childrenNodes.length
                         }, "view");
@@ -669,14 +541,14 @@ export const CustomerHierarchyModal: React.FC<CustomerHierarchyModalProps> = ({
                                   id: parentRecord.id,
                                   code: parentRecord.code,
                                   name: parentRecord.name,
-                                  mobile: parentRecord.phone || "",
+                                  mobile: parentRecord.phone,
                                   customer_group_id: parentRecord.customerGroupId || null,
                                   customer_group_name: null,
                                   is_dependant: false,
                                   primary_account_name: null,
                                   primary_account_code: null,
                                   status: parentRecord.status || "Active",
-                                  is_active: parentRecord.status?.toLowerCase() === "active",
+                                  is_active: parentRecord.status.toLowerCase() === "active",
                                   relationship_type: "parent",
                                   child_count: childrenNodes.length
                                 }, "view");

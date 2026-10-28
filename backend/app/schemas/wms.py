@@ -720,5 +720,254 @@ class CartonPackResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+# =============================================================================
+# WMS Phase 6: Warehouse Physical Bin Cycle Counting & Blind Audits Schemas
+# =============================================================================
+
+class CycleCountPlanCreate(BaseModel):
+    warehouse_id: str
+    plan_name: Optional[str] = None
+    zone: Optional[str] = None  # PICKING, BULK, STORAGE, QUARANTINE, or None
+    aisle: Optional[str] = None  # e.g., A-01 or None
+    bins: Optional[List[str]] = None  # Explicit list of bin codes (e.g., ["A-01-01"])
+    is_blind: bool = True  # Blind audit mode (hides system_qty from floor counters)
+    variance_threshold_value: Decimal = Decimal("1000.00")  # Monetary limit requiring approval
+    variance_threshold_pct: Decimal = Decimal("5.00")  # Percentage limit requiring approval
+    notes: Optional[str] = None
+
+
+class CycleCountItemResponse(BaseModel):
+    item_id: str
+    product_id: str
+    item_code: str
+    product_name: str
+    sku: Optional[str] = None
+    bin_location: str
+    zone: Optional[str] = None
+    aisle: Optional[str] = None
+    batch_no: Optional[str] = None
+    system_qty: Optional[float] = None  # None/hidden when is_blind is active and not revealed
+    counted_qty: float = 0.0
+    variance_qty: Optional[float] = None
+    variance_value: Optional[float] = None
+    unit_cost: float = 0.0
+    discrepancy_reason: Optional[str] = None  # MATCHED, DAMAGED, EXPIRED, THEFT_LOSS, SURPLUS_FOUND, COUNTING_ERROR
+    status: str = "PENDING"  # PENDING, COUNTED, RECOUNT_REQUESTED, AUTO_APPROVED, APPROVAL_REQUIRED, APPROVED, RECONCILED
+    recount_count: int = 0
+    model_config = ConfigDict(from_attributes=True)
+
+
+class CycleCountPlanResponse(BaseModel):
+    plan_id: str
+    plan_no: str
+    warehouse_id: str
+    warehouse_code: str
+    plan_name: str
+    zone: Optional[str] = None
+    aisle: Optional[str] = None
+    is_blind: bool = True
+    status: str = "IN_PROGRESS"  # IN_PROGRESS, PENDING_APPROVAL, APPROVED, RECONCILED, CANCELLED
+    variance_threshold_value: float = 1000.00
+    variance_threshold_pct: float = 5.00
+    total_bins: int = 0
+    total_items: int = 0
+    counted_items: int = 0
+    matched_items: int = 0
+    variance_items: int = 0
+    requires_approval: bool = False
+    created_at: str
+    completed_at: Optional[str] = None
+    items: List[CycleCountItemResponse] = []
+    notes: Optional[str] = None
+    model_config = ConfigDict(from_attributes=True)
+
+
+class CycleCountPlanListResponse(BaseModel):
+    warehouse_id: str
+    warehouse_code: str
+    total_plans: int
+    plans: List[CycleCountPlanResponse]
+    model_config = ConfigDict(from_attributes=True)
+
+
+class CycleCountRecordCountRequest(BaseModel):
+    item_id: str
+    counted_qty: Decimal
+    scanned_barcode: Optional[str] = None
+    discrepancy_reason: Optional[str] = None
+    notes: Optional[str] = None
+
+
+class CycleCountRecordCountResponse(BaseModel):
+    plan_id: str
+    item_id: str
+    bin_location: str
+    counted_qty: float
+    status: str  # COUNTED, AUTO_APPROVED, APPROVAL_REQUIRED
+    variance_qty: Optional[float] = None
+    variance_value: Optional[float] = None
+    requires_approval: bool
+    message: str
+    model_config = ConfigDict(from_attributes=True)
+
+
+class CycleCountRecountRequest(BaseModel):
+    item_id: str
+    reason: str
+    assigned_counter: Optional[str] = None
+
+
+class CycleCountRecountResponse(BaseModel):
+    plan_id: str
+    item_id: str
+    status: str = "RECOUNT_REQUESTED"
+    message: str
+    model_config = ConfigDict(from_attributes=True)
+
+
+class CycleCountApproveRequest(BaseModel):
+    supervisor_notes: Optional[str] = None
+
+
+class CycleCountApproveResponse(BaseModel):
+    plan_id: str
+    status: str = "APPROVED"
+    approved_by: str
+    message: str
+    model_config = ConfigDict(from_attributes=True)
+
+
+class CycleCountReconcileResponse(BaseModel):
+    plan_id: str
+    warehouse_id: str
+    status: str = "RECONCILED"
+    adjustments_posted: int
+    net_variance_value: float
+    reconciled_at: str
+    message: str
+    model_config = ConfigDict(from_attributes=True)
+
+
+# =============================================================================
+# WMS Phase 7: Outbound Shipping Dock Management & Dispatch Manifest Schemas
+# =============================================================================
+
+class DockDoorResponse(BaseModel):
+    id: str
+    code: str
+    name: str
+    zone: str = "DOCK"
+    status: str = "AVAILABLE"  # AVAILABLE, OCCUPIED, LOADING, MAINTENANCE
+    assigned_vehicle: Optional[str] = None
+    staged_cartons_count: int = 0
+    active_manifest_id: Optional[str] = None
+    model_config = ConfigDict(from_attributes=True)
+
+
+class CartonDockStageRequest(BaseModel):
+    carton_barcodes: List[str]
+    dock_door_code: str
+
+
+class CartonDockStageResponse(BaseModel):
+    dock_door_code: str
+    staged_cartons_count: int
+    message: str
+    model_config = ConfigDict(from_attributes=True)
+
+
+class ManifestCartonItem(BaseModel):
+    carton_barcode: str
+    wave_id: Optional[str] = None
+    gross_weight_kg: float = 0.0
+    items_count: int = 0
+    destination_branch: Optional[str] = None
+    destination_customer: Optional[str] = None
+    is_gate_scanned: bool = False
+    scanned_at: Optional[str] = None
+    model_config = ConfigDict(from_attributes=True)
+
+
+class DispatchManifestCreate(BaseModel):
+    warehouse_id: str
+    dock_door_code: str
+    carton_barcodes: List[str]
+    transporter_name: str
+    vehicle_no: str
+    driver_name: Optional[str] = None
+    driver_phone: Optional[str] = None
+    lr_docket_no: Optional[str] = None
+    eway_bill_no: Optional[str] = None
+    destination: Optional[str] = None
+    notes: Optional[str] = None
+
+
+class DispatchManifestResponse(BaseModel):
+    manifest_id: str
+    manifest_no: str
+    warehouse_id: str
+    dock_door_code: str
+    transporter_name: str
+    vehicle_no: str
+    driver_name: Optional[str] = None
+    driver_phone: Optional[str] = None
+    lr_docket_no: Optional[str] = None
+    eway_bill_no: Optional[str] = None
+    destination: Optional[str] = None
+    status: str = "STAGED"  # STAGED, LOADING, GATE_VERIFIED, DISPATCHED, CANCELLED
+    total_cartons: int = 0
+    scanned_cartons: int = 0
+    total_weight_kg: float = 0.0
+    is_fully_scanned: bool = False
+    created_at: str
+    dispatched_at: Optional[str] = None
+    gate_pass_no: Optional[str] = None
+    cartons: List[ManifestCartonItem] = []
+    notes: Optional[str] = None
+    model_config = ConfigDict(from_attributes=True)
+
+
+class DispatchManifestListResponse(BaseModel):
+    warehouse_id: str
+    total_manifests: int
+    manifests: List[DispatchManifestResponse]
+    model_config = ConfigDict(from_attributes=True)
+
+
+class GateScanItemRequest(BaseModel):
+    carton_barcode: str
+
+
+class GateScanItemResponse(BaseModel):
+    manifest_id: str
+    carton_barcode: str
+    scanned_cartons: int
+    total_cartons: int
+    is_fully_scanned: bool
+    status: str
+    message: str
+    model_config = ConfigDict(from_attributes=True)
+
+
+class ManifestDispatchConfirmRequest(BaseModel):
+    supervisor_override: bool = False
+    override_reason: Optional[str] = None
+
+
+class ManifestDispatchConfirmResponse(BaseModel):
+    manifest_id: str
+    manifest_no: str
+    warehouse_id: str
+    status: str = "DISPATCHED"
+    vehicle_no: str
+    transporter_name: str
+    dispatched_cartons_count: int
+    gate_pass_no: str
+    dispatched_at: str
+    message: str
+    model_config = ConfigDict(from_attributes=True)
+
+
+
 
 
