@@ -20,6 +20,8 @@ Write-Host "  Working Directory: $repoRoot" -ForegroundColor Gray
 
 # 1. Pull Git Repository Updates
 Write-Host "`n[1/5] Pulling latest repository updates..." -ForegroundColor Yellow
+# Discard transient runtime log changes so git pull is never blocked
+git checkout -- backend/app/logs/*.jsonl 2>$null
 git pull origin smritiNX
 if ($LASTEXITCODE -ne 0) {
     Write-Host "  [WARNING] 'git pull origin smritiNX' returned status $LASTEXITCODE. Trying default 'git pull'..." -ForegroundColor Yellow
@@ -56,6 +58,22 @@ if ($LASTEXITCODE -eq 0) {
     Write-Host "  [FAIL] Database bootstrap failed." -ForegroundColor Red
     Write-Host ($bootstrapOutput | Out-String) -ForegroundColor Red
     exit 1
+}
+
+# 4b. Enforce Single-Location Default Mode across all tenant databases
+Write-Host "  Setting single-location mode as default across all databases..." -ForegroundColor Gray
+$tenantDbs = docker compose exec -T smriti-db psql -U postgres -d postgres -At -c "SELECT datname FROM pg_database WHERE datname LIKE 'smriti%' AND datistemplate=false;" 2>$null
+if ($tenantDbs) {
+    $dbList = $tenantDbs -split "`r?`n" | Where-Object { $_ -and $_.Trim() -ne "" }
+    foreach ($tdb in $dbList) {
+        $tdb = $tdb.Trim()
+        docker compose exec -T smriti-db psql -U postgres -d $tdb -c "
+            INSERT INTO feature_flags (id, uuid, key, name, category, description, is_global_enabled, company_overrides, is_active, is_deleted, version)
+            VALUES ('ff_bin_loc_mgr','ff_bin_loc_mgr','BIN_LOCATION_MANAGEMENT','Bin Location Management','INVENTORY','Manage bins and locations',false,'{}'::jsonb,true,false,1)
+            ON CONFLICT (key) DO UPDATE SET is_global_enabled=false, company_overrides='{}'::jsonb;
+            UPDATE system_parameters SET val_boolean=false WHERE param_code='MultiLocationsPresent';
+        " 2>$null | Out-Null
+    }
 }
 
 # 5. Service Health Probe
