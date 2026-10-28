@@ -21,6 +21,7 @@ import {
 } from './navigationResolver';
 import { useLayoutEngine } from '../../layout_engine/layout_store';
 import { filterContextualNavigation } from './navigationAccess';
+import { REPORT_BUSINESS_AREAS } from '../reports/reportBusinessAreas';
 
 export type NavRailState = 'EXPANDED' | 'COMPACT' | 'HIDDEN';
 
@@ -73,20 +74,6 @@ export const NavRail: React.FC<NavRailProps> = ({
     activeModuleId,
     resolvedNavigationIds,
   );
-
-  const reportStudios = [
-    { id: 'sales_studio', label: 'Sales' },
-    { id: 'inventory_studio', label: 'Inventory & Stock' },
-    { id: 'purchase_studio', label: 'Purchase' },
-    { id: 'finance_studio', label: 'Finance & P&L' },
-    { id: 'profitability_studio', label: 'Profitability & Cost' },
-    { id: 'tax_studio', label: 'Tax & Compliance' },
-    { id: 'crm_studio', label: 'Customers' },
-    { id: 'mis_studio', label: 'Management & Analytics' },
-    { id: 'operations_studio', label: 'Operations' },
-    { id: 'merchandise_studio', label: 'Merchandise & Size Analysis' },
-    { id: 'accounting_studio', label: 'Accounts Summary' },
-  ];
 
   // Other persistent global categories (excluding current context)
   const otherCategories = (navData.globalCategories || []).filter(
@@ -252,7 +239,7 @@ export const NavRail: React.FC<NavRailProps> = ({
                   <div className="px-2 py-1 text-[9px] font-bold uppercase tracking-wider text-[#757684] dark:text-slate-400">
                     Reports by Business Area
                   </div>
-                  {reportStudios.map((studio) => (
+                  {REPORT_BUSINESS_AREAS.map((studio) => (
                     <button
                       key={studio.id}
                       type="button"

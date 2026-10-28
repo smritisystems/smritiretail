@@ -39,6 +39,7 @@ import {
   ActiveDocumentContext,
 } from "../layout_engine/layout_store.tsx";
 import { NavRail } from "../components/shell/NavRail.tsx";
+import { REPORT_BUSINESS_AREAS } from "../components/reports/reportBusinessAreas.ts";
 
 // Mock apiFetch
 vi.mock("../lib/apiFetch.ts", () => ({
@@ -345,20 +346,30 @@ describe("SMRITI Retail OS — Persistent Global Navigation with Contextual Subm
 
     expect(html).toContain("Reports by Business Area");
     for (const area of [
+      "All Reports",
       "Sales",
       "Inventory &amp; Stock",
       "Purchase",
-      "Finance &amp; P&amp;L",
-      "Profitability &amp; Cost",
+      "Finance &amp; Accounts",
       "Tax &amp; Compliance",
       "Customers",
-      "Management &amp; Analytics",
       "Operations",
-      "Merchandise &amp; Size Analysis",
-      "Accounts Summary",
+      "Management &amp; Analytics",
     ]) {
       expect(html).toContain(area);
     }
+  });
+
+  it("maps each report catalog studio exactly once across standard ERP areas", () => {
+    const sourceStudios = REPORT_BUSINESS_AREAS
+      .filter((area) => area.id !== "all_reports")
+      .flatMap((area) => area.studioIds);
+    const allReportsArea = REPORT_BUSINESS_AREAS.find((area) => area.id === "all_reports");
+
+    expect(sourceStudios).toHaveLength(11);
+    expect(new Set(sourceStudios).size).toBe(sourceStudios.length);
+    expect(allReportsArea?.studioIds).toHaveLength(11);
+    expect(allReportsArea?.studioIds).toEqual(expect.arrayContaining(sourceStudios));
   });
 
   // TEST 10 — Contextual Action Event Contract
