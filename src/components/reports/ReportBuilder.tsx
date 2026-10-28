@@ -29,6 +29,10 @@ import { withCapability } from "../../types/architecture.ts";
 import { formatCurrency, formatNumber, formatDate } from "../../utils/formatters.ts";
 import { GlobalExportService } from "../../services/globalExportService.ts";
 import { apiFetchV1 } from "../../lib/apiFetchV1.ts";
+import {
+  isReportBuilderCategoryLive,
+  resolveReportBuilderFieldSelection,
+} from "./reportBuilderDomain.ts";
 
 export type SidebarState = "expanded" | "collapsed" | "hidden";
 export type FiltersState = "expanded" | "compact" | "hidden";
@@ -78,6 +82,10 @@ export const REPORT_BUILDER_CATALOG_FIELDS: ReportBuilderField[] = [
 
   // 3. Inventory
   { id: "inv_warehouse", category: "Inventory", label: "Warehouse", key: "warehouse", datatype: "text", iconType: "text" },
+  { id: "inv_item_code", category: "Inventory", label: "Item Code", key: "item_code", datatype: "text", iconType: "text" },
+  { id: "inv_item_name", category: "Inventory", label: "Item Name", key: "item_name", datatype: "text", iconType: "text" },
+  { id: "inv_category", category: "Inventory", label: "Category", key: "item_category", datatype: "text", iconType: "text" },
+  { id: "inv_brand", category: "Inventory", label: "Brand", key: "brand", datatype: "text", iconType: "text" },
   { id: "inv_stock_on_hand", category: "Inventory", label: "Stock On Hand", key: "stock_on_hand", datatype: "number", iconType: "number", isSummary: true, align: "right" },
   { id: "inv_reserved_qty", category: "Inventory", label: "Reserved Qty", key: "reserved_qty", datatype: "number", iconType: "number", isSummary: true, align: "right" },
   { id: "inv_available_qty", category: "Inventory", label: "Available Qty", key: "available_qty", datatype: "number", iconType: "number", isSummary: true, align: "right" },
@@ -264,6 +272,7 @@ const ReportBuilderBase: React.FC<ReportBuilderProps> = ({
   const [selectedFieldKeys, setSelectedFieldKeys] = useState<string[]>([
     "supplier", "po_date", "article_sku", "color", "size", "quantity", "net_amount"
   ]);
+  const [activeCategory, setActiveCategory] = useState<string>("Purchase");
   const [fieldSearchTerm, setFieldSearchTerm] = useState<string>("");
   const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({
     Purchase: true,
@@ -328,13 +337,16 @@ const ReportBuilderBase: React.FC<ReportBuilderProps> = ({
   const consolidationMenuRef = useRef<HTMLDivElement>(null);
 
   // Live Query Fetcher connecting directly to FastAPI backend
-  const fetchReportData = async (options?: { category?: string; search?: string }) => {
+  const fetchReportData = async (options?: { category?: string; search?: string }): Promise<boolean> => {
     setIsLoading(true);
     setError(null);
     try {
-      const activeCategory = options?.category || "Purchase";
+      const queryCategory = options?.category || activeCategory;
+      if (!isReportBuilderCategoryLive(queryCategory)) {
+        throw new Error(`Live report queries are not available for ${queryCategory} fields yet.`);
+      }
       const params = new URLSearchParams();
-      params.set("category", activeCategory);
+      params.set("category", queryCategory);
       if (appliedDateRange.start) params.set("start_date", appliedDateRange.start);
       if (appliedDateRange.end) params.set("end_date", appliedDateRange.end);
       if (appliedBranch && appliedBranch !== "All Branches" && appliedBranch !== "ALL") {
@@ -363,19 +375,22 @@ const ReportBuilderBase: React.FC<ReportBuilderProps> = ({
       if (res && Array.isArray(res.rows)) {
         setData(res.rows);
         setTotalRecords(res.total_count ?? res.rows.length);
-        if (res.totals) {
-          setServerTotals(res.totals);
-        }
+        setServerTotals(res.totals || {});
       } else {
         setData([]);
         setTotalRecords(0);
+        setServerTotals({});
       }
+      return true;
     } catch (err: any) {
       console.error("[ReportBuilder] Failed to fetch live report data:", err);
       const errMsg = err?.message || "Failed to load report records from database.";
       setError(errMsg);
       setData([]); // CRITICAL: NEVER silently fall back to dummy data!
+      setTotalRecords(0);
+      setServerTotals({});
       onNotification?.("error", errMsg);
+      return false;
     } finally {
       setIsLoading(false);
     }
@@ -384,7 +399,7 @@ const ReportBuilderBase: React.FC<ReportBuilderProps> = ({
   // Fetch live records on mount and when query parameters change
   useEffect(() => {
     fetchReportData();
-  }, [appliedDateRange.start, appliedDateRange.end, appliedBranch, currentPage, pageSize, sortField, sortDirection, consolidationMode, selectedFieldKeys, customGroupByKeys]);
+  }, [activeCategory, appliedDateRange.start, appliedDateRange.end, appliedBranch, currentPage, pageSize, sortField, sortDirection, consolidationMode, selectedFieldKeys, customGroupByKeys]);
 
   const handleOpenDrillDown = async (row: ReportBuilderRow) => {
     setDrillDownRow(row);
@@ -418,8 +433,9 @@ const ReportBuilderBase: React.FC<ReportBuilderProps> = ({
 
   const handleRunQuery = async () => {
     onNotification?.("info", "Executing live report query against database...");
-    await fetchReportData();
-    onNotification?.("success", "Report query executed with current filters and columns.");
+    if (await fetchReportData()) {
+      onNotification?.("success", "Report query executed with current filters and columns.");
+    }
   };
 
   // Close menus when clicking outside
@@ -531,18 +547,38 @@ const ReportBuilderBase: React.FC<ReportBuilderProps> = ({
   }, [serverTotals, activeColumns, displayRows]);
 
   // Toggle field selection
-  const handleToggleField = (key: string) => {
-    setSelectedFieldKeys((prev) => {
-      if (prev.includes(key)) {
-        if (prev.length <= 1) {
-          onNotification?.("info", "At least one column must remain in the report grid.");
-          return prev;
-        }
-        return prev.filter((k) => k !== key);
-      } else {
-        return [...prev, key];
-      }
-    });
+  const handleToggleField = (field: ReportBuilderField) => {
+    const selection = resolveReportBuilderFieldSelection(
+      activeCategory,
+      selectedFieldKeys,
+      field,
+    );
+    if (!selection) {
+      onNotification?.(
+        "info",
+        `Live report queries are not available for ${field.category} fields yet.`,
+      );
+      return;
+    }
+    if (
+      selection.category === activeCategory &&
+      selection.selectedKeys.length === selectedFieldKeys.length
+    ) {
+      onNotification?.("info", "At least one column must remain in the report grid.");
+      return;
+    }
+    setActiveCategory(selection.category);
+    setSelectedFieldKeys(selection.selectedKeys);
+    if (selection.category !== activeCategory) {
+      const defaultSortField: Record<string, string> = {
+        Purchase: "supplier",
+        Sales: "sale_date",
+        Customers: "customer_name",
+        Suppliers: "supplier",
+      };
+      setSortField(defaultSortField[selection.category] || field.key);
+      setCurrentPage(1);
+    }
   };
 
   // Remove field chip
@@ -1282,6 +1318,7 @@ const ReportBuilderBase: React.FC<ReportBuilderProps> = ({
               {Object.entries(categoriesList).map(([category, catFields]) => {
                 if (catFields.length === 0) return null;
                 const isCatOpen = expandedCategories[category] !== false;
+                const isLiveCategory = isReportBuilderCategoryLive(category);
 
                 return (
                   <div key={category} className="rounded-lg overflow-hidden">
@@ -1300,8 +1337,15 @@ const ReportBuilderBase: React.FC<ReportBuilderProps> = ({
                         {isCatOpen ? <ChevronDown size={14} className="text-slate-400" /> : <ChevronRight size={14} className="text-slate-400" />}
                         <span>{category}</span>
                       </div>
-                      <span className="text-[10px] font-mono text-slate-400 bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded">
-                        {catFields.length}
+                      <span className="flex items-center gap-1.5">
+                        {!isLiveCategory && (
+                          <span className="text-[9px] font-semibold text-amber-600 dark:text-amber-400">
+                            NOT LIVE
+                          </span>
+                        )}
+                        <span className="text-[10px] font-mono text-slate-400 bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded">
+                          {catFields.length}
+                        </span>
                       </span>
                     </button>
 
@@ -1309,13 +1353,26 @@ const ReportBuilderBase: React.FC<ReportBuilderProps> = ({
                     {isCatOpen && (
                       <div className="pl-6 pr-1 py-0.5 space-y-0.5">
                         {catFields.map((field) => {
-                          const isSelected = selectedFieldKeys.includes(field.key);
+                          const isSelected =
+                            activeCategory === field.category &&
+                            selectedFieldKeys.includes(field.key);
+                          const isFieldCategoryLive = isReportBuilderCategoryLive(field.category);
 
                           return (
                             <div
                               key={field.id}
-                              onClick={() => handleToggleField(field.key)}
-                              className={`group px-2 py-1.5 rounded-md flex items-center justify-between text-xs cursor-pointer transition-colors ${
+                              onClick={() => isFieldCategoryLive && handleToggleField(field)}
+                              title={
+                                isFieldCategoryLive
+                                  ? `Query ${field.category} data using this field`
+                                  : `Live queries for ${field.category} fields are not available yet`
+                              }
+                              aria-disabled={!isFieldCategoryLive}
+                              className={`group px-2 py-1.5 rounded-md flex items-center justify-between text-xs transition-colors ${
+                                isFieldCategoryLive
+                                  ? "cursor-pointer"
+                                  : "cursor-not-allowed opacity-50"
+                              } ${
                                 isSelected
                                   ? "bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 font-medium"
                                   : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-200"
@@ -1338,6 +1395,8 @@ const ReportBuilderBase: React.FC<ReportBuilderProps> = ({
                               <div className="flex items-center gap-1 opacity-60 group-hover:opacity-100">
                                 {isSelected ? (
                                   <Check size={13} className="text-blue-600 dark:text-blue-400" />
+                                ) : !isFieldCategoryLive ? (
+                                  <span className="text-[9px] font-semibold text-amber-600 dark:text-amber-400">NOT LIVE</span>
                                 ) : (
                                   <GripVertical size={13} className="text-slate-300 dark:text-slate-600" />
                                 )}
@@ -1404,6 +1463,9 @@ const ReportBuilderBase: React.FC<ReportBuilderProps> = ({
           {toolbarVisible ? (
             <div className="bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 px-4 py-2 flex items-center justify-between gap-3 shrink-0 overflow-x-auto">
               <div className="flex items-center gap-1.5 flex-wrap flex-1 min-w-0">
+                <span className="text-[9px] font-semibold uppercase tracking-wide text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 rounded px-2 py-1 shrink-0">
+                  {activeCategory} Data
+                </span>
                 {activeColumns.map((col, idx) => (
                   <div
                     key={col.key}

@@ -13,12 +13,13 @@ Classification: Canonical Stock Ledger Query & Movement Expression Service
 """
 
 import logging
+from datetime import date
 from typing import Optional, Dict
 from decimal import Decimal
 from sqlalchemy import func, case, select, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..models.inventory import StockMovement
+from ..models.inventory import Product, ProductBatchStock, StockMovement, Warehouse
 from .stock_movement_types import (
     INFLOW_MOVEMENT_TYPES,
     OUTFLOW_MOVEMENT_TYPES,
@@ -52,6 +53,18 @@ def get_signed_movement_quantity_expr(
     )
 
 
+def compute_signed_movement_quantity(quantity: Decimal, movement_type: Optional[str]) -> Decimal:
+    """Apply the same sign rules as the SQL expression to an in-memory movement."""
+    movement_type = (movement_type or "").upper()
+    if movement_type in INFLOW_MOVEMENT_TYPES:
+        return abs(quantity)
+    if movement_type in OUTFLOW_MOVEMENT_TYPES:
+        return -abs(quantity)
+    if movement_type in SIGNED_MOVEMENT_TYPES:
+        return quantity
+    raise ValueError(f"Unclassified stock movement type: {movement_type or 'NULL'}")
+
+
 def get_unclassified_movement_count_expr(type_col=StockMovement.movement_type):
     """
     SQL expression counting movements whose movement_type is not in the canonical ALL_MOVEMENT_TYPES.
@@ -61,6 +74,121 @@ def get_unclassified_movement_count_expr(type_col=StockMovement.movement_type):
         (upper_type.notin_(tuple(ALL_MOVEMENT_TYPES)), 1),
         else_=0,
     )
+
+
+async def get_authoritative_stock_by_product(
+    session: AsyncSession,
+    company_id: str,
+    branch_id: Optional[str] = None,
+    warehouse: Optional[str] = None,
+    as_of_date: Optional[date] = None,
+) -> Dict[str, Decimal]:
+    """Return current stock using batch balances where present, movement ledger otherwise."""
+    balances: Dict[str, Decimal] = {}
+    if as_of_date is None or as_of_date >= date.today():
+        batch_stmt = (
+            select(
+                ProductBatchStock.product_id,
+                func.sum(
+                    ProductBatchStock.quantity
+                    - func.coalesce(ProductBatchStock.damaged_quantity, 0)
+                ).label("on_hand"),
+            )
+            .where(
+                ProductBatchStock.company_id == company_id,
+                ProductBatchStock.is_deleted.is_(False),
+            )
+        )
+        if branch_id:
+            batch_stmt = batch_stmt.where(
+                or_(ProductBatchStock.branch_id == branch_id, ProductBatchStock.branch_id.is_(None))
+            )
+        if warehouse:
+            batch_stmt = batch_stmt.join(Warehouse, ProductBatchStock.warehouse_id == Warehouse.id).where(
+                or_(
+                    ProductBatchStock.warehouse_id == warehouse,
+                    ProductBatchStock.branch_id == warehouse,
+                    Warehouse.name.ilike(f"%{warehouse}%"),
+                )
+            )
+        batch_rows = (await session.execute(batch_stmt.group_by(ProductBatchStock.product_id))).all()
+        balances = {
+            row.product_id: Decimal(str(row.on_hand or 0))
+            for row in batch_rows
+        }
+
+    product_stmt = select(Product.id, Product.item_variant_id, Product.variant_id).where(
+        Product.company_id == company_id,
+        Product.is_deleted.is_(False),
+    )
+    if branch_id:
+        product_stmt = product_stmt.where(or_(Product.branch_id == branch_id, Product.branch_id.is_(None)))
+    product_rows = (await session.execute(product_stmt)).all()
+    product_ids = {row.id for row in product_rows}
+    variant_to_product = {
+        str(variant_id): row.id
+        for row in product_rows
+        for variant_id in (row.item_variant_id, row.variant_id)
+        if variant_id is not None
+    }
+
+    signed_quantity = get_signed_movement_quantity_expr()
+    movement_filters = [
+        StockMovement.company_id == company_id,
+        StockMovement.is_deleted.is_(False),
+    ]
+    if branch_id:
+        movement_filters.append(
+            or_(StockMovement.branch_id == branch_id, StockMovement.branch_id.is_(None))
+        )
+    if warehouse:
+        movement_filters.append(
+            or_(
+                StockMovement.warehouse_id == warehouse,
+                StockMovement.location_id == warehouse,
+                StockMovement.branch_id == warehouse,
+                StockMovement.warehouse.ilike(f"%{warehouse}%"),
+            )
+        )
+    if as_of_date is not None and as_of_date < date.today():
+        movement_business_date = func.date(func.timezone("Asia/Kolkata", StockMovement.created_at))
+        movement_filters.append(movement_business_date <= as_of_date)
+    unknown_type_expr = func.upper(func.coalesce(StockMovement.movement_type, ""))
+    unknown_count = int(
+        (
+            await session.execute(
+                select(func.count(StockMovement.id)).where(
+                    *movement_filters,
+                    unknown_type_expr.notin_(tuple(ALL_MOVEMENT_TYPES)),
+                )
+            )
+        ).scalar()
+        or 0
+    )
+    if unknown_count:
+        message = (
+            f"Cannot calculate stock balances: {unknown_count} movements for company "
+            f"'{company_id}' have unclassified movement types."
+        )
+        logger.error(message)
+        raise ValueError(message)
+
+    movement_stmt = select(
+        StockMovement.product_id,
+        StockMovement.variant_id,
+        func.sum(signed_quantity).label("on_hand"),
+    ).where(*movement_filters)
+    movement_rows = (
+        await session.execute(
+            movement_stmt.group_by(StockMovement.product_id, StockMovement.variant_id)
+        )
+    ).all()
+    for row in movement_rows:
+        product_id = row.product_id if row.product_id in product_ids else variant_to_product.get(str(row.variant_id))
+        if product_id is not None and product_id not in balances:
+            balances[product_id] = balances.get(product_id, Decimal(0)) + Decimal(str(row.on_hand or 0))
+
+    return balances
 
 
 async def audit_unclassified_movements(

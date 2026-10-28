@@ -330,6 +330,16 @@ REPORT_FIELD_REGISTRY: Dict[str, Dict[str, ReportFieldMeta]] = {
             is_grouping_key=True,
             description="Master item code",
         ),
+        "item_name": ReportFieldMeta(
+            key="item_name",
+            label="Item Name",
+            category="Inventory",
+            semantic_type=FieldSemanticType.DIMENSION,
+            default_aggregation=AggregationFunction.NONE,
+            datatype="text",
+            is_grouping_key=True,
+            description="Product or variant display name",
+        ),
         "item_category": ReportFieldMeta(
             key="item_category",
             label="Category",

@@ -20,16 +20,20 @@ import pytest
 from sqlalchemy import select
 
 from app.models.tenant import Company, Branch
-from app.models.inventory import Product, StockMovement
+from app.models.inventory import Product, ProductBatchStock, StockMovement, Warehouse
 from app.models.sales import SalesInvoice, SalesOrder, SalesOrderItem, SalesOrderReservation
 from app.services.stock_synchronizer import StockSynchronizer
 from app.services.visual_reports_service import VisualReportsService
 from app.api.v1.inventory_reports import (
     stock_balance,
+    stock_movement_report,
     stock_availability,
     stock_aging,
+    goods_register,
+    goods_register_item,
 )
 from app.api.deps import TenantContext
+from app.services.reports import ReportsService
 
 
 async def _create_tenant(session, s: str):
@@ -64,10 +68,11 @@ async def test_inventory_reports_signed_quantities_positive_sale_negative_ecom(d
     Test that inventory_reports.py (RPT-INV-001, RPT-INV-003, RPT-INV-004) correctly
     derives on-hand stock and value using signed movement quantities for:
     - INWARD_GRN: +100 @ unit_cost 50.00
+    - PURCHASE_RECEIPT: +5 @ unit_cost 50.00
     - OUTWARD_SALE: positive stored quantity +20.00
     - OUTWARD_ECOM: negative stored quantity -10.00
-    On-hand must be 70 across all reports (100 - 20 - 10 = 70).
-    RPT-INV-001 total stock value must be 70 * 50 = 3500.00.
+    On-hand must be 75 across all reports (100 + 5 - 20 - 10 = 75).
+    RPT-INV-001 total stock value must be 75 * 50 = 3750.00.
     """
     s = uuid.uuid4().hex[:6]
     comp, br1, _ = await _create_tenant(db_session, s)
@@ -130,7 +135,22 @@ async def test_inventory_reports_signed_quantities_positive_sale_negative_ecom(d
         reference_doc_type="ECOM",
         reference_doc_id=f"ECOM-01-{s}",
     )
-    db_session.add_all([m1, m2, m3])
+    m4 = StockMovement(
+        id=f"mov-rep-4-{s}",
+        company_id=comp.id,
+        branch_id=br1.id,
+        product_id=prod.id,
+        product_name=prod.name,
+        sku=prod.sku,
+        movement_type="PURCHASE_RECEIPT",
+        quantity=Decimal("5.00"),
+        unit_cost=Decimal("50.00"),
+        reference_doc_type="GRN",
+        reference_doc_id=f"GRN-02-{s}",
+    )
+    db_session.add_all([m1, m2, m3, m4])
+    await db_session.commit()
+    prod.stock = 999
     await db_session.commit()
 
     tenant = TenantContext(
@@ -149,8 +169,12 @@ async def test_inventory_reports_signed_quantities_positive_sale_negative_ecom(d
     )
     item1 = next((i for i in rpt1["lines"] if i["product_id"] == prod.id), None)
     assert item1 is not None, "Product should be present in RPT-INV-001"
-    assert item1["on_hand"] == 70.0, f"Expected RPT-INV-001 on_hand 70.0, got {item1['on_hand']}"
-    assert item1["stock_value"] == 3500.0, f"Expected stock_value 3500.0, got {item1['stock_value']}"
+    assert item1["on_hand"] == 75.0, f"Expected RPT-INV-001 on_hand 75.0, got {item1['on_hand']}"
+    assert item1["stock_value"] == 3750.0, f"Expected stock_value 3750.0, got {item1['stock_value']}"
+
+    valuation = await ReportsService(db_session, tenant).stock_valuation()
+    valuation_line = next(line for line in valuation.lines if line.product_id == prod.id)
+    assert valuation_line.stock == Decimal("75.00")
 
     # 2. Test RPT-INV-003 (Stock Availability)
     rpt3 = await stock_availability(
@@ -163,7 +187,7 @@ async def test_inventory_reports_signed_quantities_positive_sale_negative_ecom(d
     )
     item3 = next((i for i in rpt3["lines"] if i["product_id"] == prod.id), None)
     assert item3 is not None, "Product should be present in RPT-INV-003"
-    assert item3["on_hand"] == 70.0, f"Expected RPT-INV-003 on_hand 70.0, got {item3['on_hand']}"
+    assert item3["on_hand"] == 75.0, f"Expected RPT-INV-003 on_hand 75.0, got {item3['on_hand']}"
 
     # 3. Test RPT-INV-004 (Inventory Aging Summary)
     rpt4 = await stock_aging(
@@ -176,7 +200,119 @@ async def test_inventory_reports_signed_quantities_positive_sale_negative_ecom(d
     )
     item4 = next((i for i in rpt4["lines"] if i["product_id"] == prod.id), None)
     assert item4 is not None, "Product should be present in RPT-INV-004"
-    assert item4["on_hand"] == 70.0, f"Expected RPT-INV-004 on_hand 70.0, got {item4['on_hand']}"
+    assert item4["on_hand"] == 75.0, f"Expected RPT-INV-004 on_hand 75.0, got {item4['on_hand']}"
+
+    # Movement summaries must apply the canonical ledger sign rules.
+    rpt2 = await stock_movement_report(
+        from_date=None,
+        to_date=None,
+        movement_type=None,
+        product_id=prod.id,
+        warehouse=None,
+        tenant=tenant,
+        db=db_session,
+        current_user={"id": "usr-test"},
+    )
+    sale_summary = rpt2["summary_by_type"]["OUTWARD_SALE"]
+    assert sale_summary["qty"] == -20.0
+    assert sale_summary["qty_out"] == 20.0
+    assert rpt2["summary_by_type"]["PURCHASE_RECEIPT"]["qty"] == 5.0
+    assert rpt2["total_records"] == 4
+    assert rpt2["returned_records"] == 4
+
+    rpt5 = await goods_register(
+        from_date=None,
+        to_date=None,
+        movement_type=None,
+        tenant=tenant,
+        db=db_session,
+        current_user={"id": "usr-test"},
+    )
+    invoice_doc = next(doc for doc in rpt5["documents"] if doc["reference_id"] == f"INV-01-{s}")
+    assert invoice_doc["total_qty"] == -20.0
+    assert invoice_doc["qty_out"] == 20.0
+    receipt_doc = next(doc for doc in rpt5["documents"] if doc["reference_id"] == f"GRN-02-{s}")
+    assert receipt_doc["total_qty"] == 5.0
+    assert receipt_doc["qty_in"] == 5.0
+
+    rpt6 = await goods_register_item(
+        from_date=None,
+        to_date=None,
+        product_id=prod.id,
+        tenant=tenant,
+        db=db_session,
+        current_user={"id": "usr-test"},
+    )
+    item6 = next(line for line in rpt6["lines"] if line["product_id"] == prod.id)
+    assert item6["total_in"] == 105.0
+    assert item6["total_out"] == 30.0
+    assert item6["net_movement"] == 75.0
+
+
+@pytest.mark.asyncio
+async def test_batch_stock_reports_use_batch_ledger_instead_of_movement_or_cache(db_session):
+    s = uuid.uuid4().hex[:6]
+    comp, br1, _ = await _create_tenant(db_session, s)
+    warehouse = Warehouse(
+        id=f"wh-rep-{s}",
+        company_id=comp.id,
+        branch_id=br1.id,
+        code=f"WH-{s}",
+        name=f"Warehouse {s}",
+        is_active=True,
+    )
+    prod = Product(
+        id=f"prod-batch-rep-{s}",
+        company_id=comp.id,
+        branch_id=br1.id,
+        sku=f"SKU-BATCH-{s.upper()}",
+        code=f"PRD-BATCH-{s.upper()}",
+        barcode=f"BC-BATCH-{s.upper()}",
+        name=f"Batch Report Product {s}",
+        category="Footwear",
+        stock=999,
+        is_active=True,
+    )
+    db_session.add_all([warehouse, prod])
+    await db_session.flush()
+    db_session.add(
+        ProductBatchStock(
+            id=f"batch-stock-{s}",
+            company_id=comp.id,
+            branch_id=br1.id,
+            product_id=prod.id,
+            warehouse_id=warehouse.id,
+            batch_no=f"BATCH-{s}",
+            quantity=Decimal("10.0000"),
+            damaged_quantity=Decimal("2.0000"),
+            purchase_rate=Decimal("25.00"),
+        )
+    )
+    await db_session.commit()
+
+    tenant = TenantContext(company_id=comp.id, branch_id=br1.id)
+    balance = await stock_balance(
+        category=None,
+        warehouse=None,
+        zero_stock=True,
+        tenant=tenant,
+        db=db_session,
+        current_user={"id": "usr-test"},
+    )
+    availability = await stock_availability(
+        category=None,
+        below_minimum=False,
+        below_reorder=False,
+        tenant=tenant,
+        db=db_session,
+        current_user={"id": "usr-test"},
+    )
+
+    balance_line = next(line for line in balance["lines"] if line["product_id"] == prod.id)
+    availability_line = next(line for line in availability["lines"] if line["product_id"] == prod.id)
+    assert balance_line["on_hand"] == 8.0
+    assert balance_line["stock_value"] == 200.0
+    assert availability_line["on_hand"] == 8.0
 
 
 @pytest.mark.asyncio

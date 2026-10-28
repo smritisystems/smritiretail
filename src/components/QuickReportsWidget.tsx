@@ -121,6 +121,8 @@ export const QuickReportsWidget: React.FC<QuickReportsWidgetProps> = ({
 
   const [fastApiDailySales, setFastApiDailySales] = useState<any>(null);
   const [fastApiStockValuation, setFastApiStockValuation] = useState<any>(null);
+  const [fastApiInventoryLines, setFastApiInventoryLines] = useState<any[]>([]);
+  const [inventoryDataError, setInventoryDataError] = useState<string | null>(null);
 
   useEffect(() => {
     async function loadReportData() {
@@ -141,6 +143,38 @@ export const QuickReportsWidget: React.FC<QuickReportsWidgetProps> = ({
     loadReportData();
   }, []);
 
+  useEffect(() => {
+    let active = true;
+    async function loadInventoryReports() {
+      try {
+        const [availability, balance] = await Promise.all([
+          apiFetchV1("/inventory-reports/availability"),
+          apiFetchV1("/inventory-reports/balance?zero_stock=true"),
+        ]);
+        if (!active) return;
+        const balanceByProduct = new Map(
+          (balance?.lines ?? []).map((line: any) => [line.product_id, line])
+        );
+        setFastApiInventoryLines(
+          (availability?.lines ?? []).map((line: any) => ({
+            ...line,
+            ...(balanceByProduct.get(line.product_id) ?? {}),
+          }))
+        );
+        setInventoryDataError(null);
+      } catch (error) {
+        if (!active) return;
+        console.error("Failed to load authoritative inventory reports:", error);
+        setFastApiInventoryLines([]);
+        setInventoryDataError("Live stock balances could not be loaded. Please retry before printing or exporting.");
+      }
+    }
+    loadInventoryReports();
+    return () => {
+      active = false;
+    };
+  }, []);
+
   // Derive day's summary stats
   const totalInvoices = fastApiDailySales ? fastApiDailySales.total_invoices : auditLogs.filter(log => log.action === "Invoice Created").length;
   
@@ -155,10 +189,10 @@ export const QuickReportsWidget: React.FC<QuickReportsWidgetProps> = ({
   const dailyRevenue = fastApiDailySales ? Math.round(parseFloat(fastApiDailySales.total_sales)) : totalLiveSales;
   const avgOrderValue = totalInvoices > 0 ? Math.round(dailyRevenue / totalInvoices) : 0;
 
-  // Low stock products (stock < 15)
-  const lowStockItems = products
-    .filter(p => p.stock < 15)
-    .sort((a, b) => a.stock - b.stock)
+  // Use ledger-derived availability and configured reorder levels.
+  const lowStockItems = fastApiInventoryLines
+    .filter((item) => item.availability !== "OK")
+    .sort((a, b) => a.on_hand - b.on_hand)
     .slice(0, 5);
 
   // Capital Locked in partners
@@ -204,8 +238,19 @@ export const QuickReportsWidget: React.FC<QuickReportsWidgetProps> = ({
     if (selectedReport === "day-summary") {
       rows.push(["Metric", "Value"], ["Report Date", startDate], ["Total Invoices", String(totalInvoices)], ["Revenue", String(dailyRevenue)], ["UPI", String(upiSales)], ["Card", String(cardSales)], ["Cash", String(cashSales)]);
     } else if (selectedReport === "inventory-status") {
-      rows.push(["Code", "Name", "Category", "Stock", "Price"]);
-      products.forEach(product => rows.push([product.code, product.name, product.category, String(product.stock), String(product.price)]));
+      if (inventoryDataError) {
+        rows.push(["Error", inventoryDataError]);
+      } else {
+        rows.push(["Code", "Name", "Category", "On Hand", "Availability", "Average Cost"]);
+        fastApiInventoryLines.forEach((item) => rows.push([
+          item.product_code,
+          item.product_name,
+          item.category,
+          String(item.on_hand),
+          item.availability,
+          String(item.avg_cost ?? ""),
+        ]));
+      }
     } else if (selectedReport === "compliance-audit") {
       rows.push(["Timestamp", "User", "Action", "Details", "Before", "After"]);
       auditLogs.forEach(log => rows.push([log.timestamp, log.user, log.action, log.details, log.before, log.after]));
@@ -634,24 +679,26 @@ export const QuickReportsWidget: React.FC<QuickReportsWidgetProps> = ({
                               </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100 font-mono">
-                              {products.length > 0 ? (
-                                products.slice(0, 8).map((p, index) => (
-                                  <tr key={p.id}>
-                                    <td className="py-1.5 font-bold text-slate-800">{p.code}</td>
-                                    <td className="py-1.5 font-sans text-slate-900">{p.name}</td>
-                                    <td className="py-1.5 font-sans text-slate-600">{p.category}</td>
+                              {inventoryDataError ? (
+                                <tr><td colSpan={6} className="py-4 text-center text-rose-700 font-sans">{inventoryDataError}</td></tr>
+                              ) : fastApiInventoryLines.length > 0 ? (
+                                fastApiInventoryLines.slice(0, 8).map((item) => (
+                                  <tr key={item.product_id}>
+                                    <td className="py-1.5 font-bold text-slate-800">{item.product_code}</td>
+                                    <td className="py-1.5 font-sans text-slate-900">{item.product_name}</td>
+                                    <td className="py-1.5 font-sans text-slate-600">{item.category}</td>
                                     <td className="py-1.5 text-center">
-                                      <span className={`px-1.5 py-0.5 rounded font-bold ${p.stock < 15 ? "bg-rose-100 text-rose-800" : "bg-slate-100"}`}>
-                                        {p.stock} Units
+                                      <span className={`px-1.5 py-0.5 rounded font-bold ${item.availability === "OK" ? "bg-slate-100" : "bg-rose-100 text-rose-800"}`}>
+                                        {item.on_hand} Units
                                       </span>
                                     </td>
-                                    <td className="py-1.5 text-center text-slate-500">15 Units</td>
-                                    <td className="py-1.5 text-right font-sans text-slate-900">{formatCurrency(p.price)}</td>
+                                    <td className="py-1.5 text-center text-slate-500">{item.min_level} Units</td>
+                                    <td className="py-1.5 text-right font-sans text-slate-900">{formatCurrency(item.avg_cost ?? 0)}</td>
                                   </tr>
                                 ))
                               ) : (
                                 <tr>
-                                  <td colSpan={6} className="py-4 text-center text-slate-500 font-sans">No products catalogued in active workspace.</td>
+                                  <td colSpan={6} className="py-4 text-center text-slate-500 font-sans">No live inventory rows are available.</td>
                                 </tr>
                               )}
                             </tbody>
@@ -895,10 +942,12 @@ export const QuickReportsWidget: React.FC<QuickReportsWidgetProps> = ({
                       <div className="space-y-3">
                         <div className="font-bold text-[9px]">LOW INVENTORY ALERTS:</div>
                         <div className="space-y-1">
-                          {products.slice(0, 5).map((p, i) => (
-                            <div key={p.id} className="flex justify-between text-[9px]">
-                              <span>{p.code} - {p.name.substring(0, 14)}</span>
-                              <span className={p.stock < 15 ? "font-bold" : ""}>{p.stock} Units</span>
+                          {inventoryDataError ? (
+                            <div className="text-rose-700 text-[9px]">{inventoryDataError}</div>
+                          ) : fastApiInventoryLines.slice(0, 5).map((item) => (
+                            <div key={item.product_id} className="flex justify-between text-[9px]">
+                              <span>{item.product_code} - {item.product_name.substring(0, 14)}</span>
+                              <span className={item.availability === "OK" ? "" : "font-bold"}>{item.on_hand} Units</span>
                             </div>
                           ))}
                         </div>
@@ -1142,6 +1191,7 @@ export const QuickReportsWidget: React.FC<QuickReportsWidgetProps> = ({
             {selectedReport === "inventory-status" && (
               <div>
                 <h3 style={{ fontSize: '12px', fontWeight: 'bold', borderBottom: '1px solid black', paddingBottom: '3px', marginBottom: '10px', textTransform: 'uppercase' }}>Warehouse Safety Stock Audit</h3>
+                {inventoryDataError && <p style={{ color: '#b91c1c', marginBottom: '8px' }}>{inventoryDataError}</p>}
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px', marginBottom: '30px' }}>
                   <thead>
                     <tr style={{ borderBottom: '1px solid #aaa', textAlign: 'left', fontWeight: 'bold' }}>
@@ -1153,13 +1203,13 @@ export const QuickReportsWidget: React.FC<QuickReportsWidgetProps> = ({
                     </tr>
                   </thead>
                   <tbody>
-                    {products.slice(0, 10).map((p, index) => (
-                      <tr key={index} style={{ borderBottom: '1px solid #eee' }}>
-                        <td style={{ padding: '6px 0', fontWeight: 'bold' }}>{p.code}</td>
-                        <td style={{ padding: '6px 0' }}>{p.name}</td>
-                        <td style={{ padding: '6px 0' }}>{p.category}</td>
-                        <td style={{ padding: '6px 0', textAlign: 'center', fontWeight: 'bold', color: p.stock < 15 ? 'red' : 'black' }}>{p.stock} Units</td>
-                        <td style={{ padding: '6px 0', textAlign: 'right' }}>{formatCurrency(p.price)}</td>
+                    {fastApiInventoryLines.slice(0, 10).map((item) => (
+                      <tr key={item.product_id} style={{ borderBottom: '1px solid #eee' }}>
+                        <td style={{ padding: '6px 0', fontWeight: 'bold' }}>{item.product_code}</td>
+                        <td style={{ padding: '6px 0' }}>{item.product_name}</td>
+                        <td style={{ padding: '6px 0' }}>{item.category}</td>
+                        <td style={{ padding: '6px 0', textAlign: 'center', fontWeight: 'bold', color: item.availability === "OK" ? 'black' : 'red' }}>{item.on_hand} Units</td>
+                        <td style={{ padding: '6px 0', textAlign: 'right' }}>{formatCurrency(item.avg_cost ?? 0)}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -1350,10 +1400,11 @@ export const QuickReportsWidget: React.FC<QuickReportsWidgetProps> = ({
             {selectedReport === "inventory-status" && (
               <div style={{ fontSize: '8px' }}>
                 <div style={{ fontWeight: 'bold', marginBottom: '5px' }}>CRITICAL STOCK LEVELS:</div>
-                {products.slice(0, 12).map((p, i) => (
-                  <div key={i} style={{ display: 'flex', justifyContent: 'space-between', margin: '2px 0' }}>
-                    <span>{p.code} {p.name.substring(0, 15)}</span>
-                    <span style={{ fontWeight: p.stock < 15 ? 'bold' : 'normal' }}>{p.stock} UN</span>
+                {inventoryDataError && <div style={{ color: 'red' }}>{inventoryDataError}</div>}
+                {fastApiInventoryLines.slice(0, 12).map((item) => (
+                  <div key={item.product_id} style={{ display: 'flex', justifyContent: 'space-between', margin: '2px 0' }}>
+                    <span>{item.product_code} {item.product_name.substring(0, 15)}</span>
+                    <span style={{ fontWeight: item.availability === "OK" ? 'normal' : 'bold' }}>{item.on_hand} UN</span>
                   </div>
                 ))}
               </div>

@@ -24,7 +24,8 @@ from decimal import Decimal
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.tenant import Company, Branch
-from app.models.inventory import Product
+from app.models.inventory import Product, StockMovement
+from app.models.item_master import Item
 from app.models.purchase import Supplier, PurchaseOrder, PurchaseOrderItem, PurchaseBill
 from app.services.reports import ReportsService
 from app.services.report_field_registry import ReportFieldRegistry, FieldSemanticType, AggregationFunction
@@ -59,6 +60,110 @@ async def test_report_field_registry_classification():
     parts = ReportFieldRegistry.partition_columns("Purchase", ["supplier", "po_no", "color", "size", "quantity", "net_amount"])
     assert parts["dimensions"] == ["supplier", "po_no", "color", "size"]
     assert parts["additive_measures"] == ["quantity", "net_amount"]
+
+
+async def test_item_master_and_inventory_builder_use_live_sources(db_session: AsyncSession):
+    company_id = "comp-report-builder-live"
+    company = Company(
+        id=company_id,
+        company_code="RBLIVE01",
+        name="Report Builder Live Test",
+        is_active=True,
+    )
+    db_session.add(company)
+    await db_session.flush()
+
+    item = Item(
+        id="item-live-001",
+        company_id=company_id,
+        item_code="LIVE-001",
+        item_name="Ledger Test Item",
+        item_type="FINISHED_GOOD",
+        category="Footwear",
+        brand="Test Brand",
+        primary_uom="EA",
+        uom="EA",
+        mrp=Decimal("100.00"),
+        cost_price=Decimal("5.00"),
+        selling_price=Decimal("80.00"),
+        status="ACTIVE",
+        is_active=True,
+        is_deleted=False,
+    )
+    product = Product(
+        id="product-live-001",
+        company_id=company_id,
+        code="LIVE-001-RED-7",
+        name="Ledger Test Item Red 7",
+        barcode="LIVE-BARCODE-001",
+        category="Footwear",
+        brand="Test Brand",
+        color="Red",
+        size="7",
+        stock=999,
+        reserved_stock=Decimal("1.00"),
+        price=Decimal("80.00"),
+        cost_price=Decimal("5.00"),
+        is_active=True,
+        is_deleted=False,
+    )
+    db_session.add_all([item, product])
+    await db_session.flush()
+    db_session.add_all(
+        [
+            StockMovement(
+                id="movement-live-in",
+                company_id=company_id,
+                product_id=product.id,
+                product_name=product.name,
+                sku=product.code,
+                quantity=Decimal("10.00"),
+                movement_type="IN",
+                unit_cost=Decimal("5.00"),
+                is_active=True,
+                is_deleted=False,
+            ),
+            StockMovement(
+                id="movement-live-out",
+                company_id=company_id,
+                product_id=product.id,
+                product_name=product.name,
+                sku=product.code,
+                quantity=Decimal("2.00"),
+                movement_type="OUT",
+                unit_cost=Decimal("5.00"),
+                is_active=True,
+                is_deleted=False,
+            ),
+        ]
+    )
+    await db_session.commit()
+
+    service = ReportsService(db_session, MockTenant(company_id))
+    item_result = await service.query_report_builder(
+        category="Items",
+        search="LIVE-001",
+    )
+    assert item_result["total_count"] == 1
+    assert item_result["rows"][0]["item_code"] == "LIVE-001"
+    assert item_result["rows"][0]["item_name"] == "Ledger Test Item"
+    assert item_result["rows"][0]["mrp"] == 100.0
+    assert item_result["rows"][0]["standard_cost"] == 5.0
+    assert item_result["rows"][0]["selling_price"] == 80.0
+
+    inventory_result = await service.query_report_builder(
+        category="Inventory",
+        selected_columns="item_code,item_name,stock_on_hand,reserved_qty,available_qty,valuation_cost",
+        search="LIVE-001",
+    )
+    assert inventory_result["total_count"] == 1
+    inventory_row = inventory_result["rows"][0]
+    assert inventory_row["item_code"] == "LIVE-001-RED-7"
+    assert inventory_row["item_name"] == "Ledger Test Item Red 7"
+    assert inventory_row["stock_on_hand"] == 8.0
+    assert inventory_row["reserved_qty"] == 1.0
+    assert inventory_row["available_qty"] == 7.0
+    assert inventory_row["valuation_cost"] == 40.0
 
 
 async def test_purchase_auto_consolidation_and_dimension_split(db_session: AsyncSession):

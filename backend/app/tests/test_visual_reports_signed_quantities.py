@@ -271,6 +271,67 @@ async def test_visual_reports_signed_quantities_and_timeline_reconciliation(db_s
 
 
 @pytest.mark.asyncio
+async def test_visual_reports_current_stock_ignores_stale_product_stock_cache(db_session):
+    s = uuid.uuid4().hex[:6]
+    comp, br = await _create_tenant(db_session, s)
+    today = datetime.now(timezone.utc).date()
+    product = Product(
+        id=f"prod-cache-drift-{s}",
+        company_id=comp.id,
+        branch_id=br.id,
+        sku=f"SKU-CACHE-{s.upper()}",
+        code=f"PRD-CACHE-{s.upper()}",
+        barcode=f"BC-CACHE-{s.upper()}",
+        name=f"Cache Drift Product {s}",
+        category="Footwear",
+        stock=999,
+        is_active=True,
+    )
+    db_session.add(product)
+    await db_session.flush()
+    db_session.add_all(
+        [
+            StockMovement(
+                id=f"cache-in-{s}",
+                company_id=comp.id,
+                branch_id=br.id,
+                product_id=product.id,
+                product_name=product.name,
+                sku=product.sku,
+                movement_type="INWARD_GRN",
+                quantity=Decimal("100"),
+                created_at=datetime.combine(today, datetime.min.time(), tzinfo=timezone.utc),
+            ),
+            StockMovement(
+                id=f"cache-out-{s}",
+                company_id=comp.id,
+                branch_id=br.id,
+                product_id=product.id,
+                product_name=product.name,
+                sku=product.sku,
+                movement_type="OUTWARD_SALE",
+                quantity=Decimal("20"),
+                created_at=datetime.combine(today, datetime.min.time(), tzinfo=timezone.utc) + timedelta(hours=1),
+            ),
+        ]
+    )
+    await db_session.commit()
+
+    summary = await VisualReportsService.get_dashboard_summary(
+        session=db_session,
+        company_id=comp.id,
+        start_date=today,
+        end_date=today,
+    )
+
+    on_hand = next(kpi for kpi in summary.kpis if kpi.id == "on_hand")
+    category = next(item for item in summary.category_positions if item.category == "Footwear")
+    assert on_hand.numeric_value == 80.0
+    assert category.on_hand == 80
+    assert summary.is_reconciled is False
+
+
+@pytest.mark.asyncio
 async def test_visual_reports_pos_flow_no_zero_division(db_session):
     """
     Test POS direct invoicing workflow where sales_orders = 0, but invoices > 0.

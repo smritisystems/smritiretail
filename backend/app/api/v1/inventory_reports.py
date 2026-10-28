@@ -29,8 +29,14 @@ from sqlalchemy.future import select
 from sqlalchemy import func, and_, or_, text, case, cast, Date
 
 from ...api.deps import get_company_db, get_tenant_context, get_current_user, TenantContext
-from ...models.inventory import Product, StockMovement
-from ...services.stock_ledger_query import get_signed_movement_quantity_expr
+from ...models.inventory import Product, ProductBatchStock, StockMovement, Warehouse
+from ...services.stock_ledger_query import (
+    compute_signed_movement_quantity,
+    get_authoritative_stock_by_product,
+    get_signed_movement_quantity_expr,
+    get_unclassified_movement_count_expr,
+)
+from ...services.stock_movement_types import INFLOW_MOVEMENT_TYPES
 
 router = APIRouter(prefix="/inventory-reports")
 
@@ -40,10 +46,7 @@ router = APIRouter(prefix="/inventory-reports")
 
 def _tenant_inv(stmt, model, tenant):
     if tenant and tenant.company_id:
-        stmt = stmt.where(
-            (model.company_id == tenant.company_id) |
-            (model.company_id.is_(None))
-        )
+        stmt = stmt.where(model.company_id == tenant.company_id)
     if tenant and tenant.branch_id:
         stmt = stmt.where(
             (model.branch_id == tenant.branch_id) | (model.branch_id.is_(None))
@@ -77,51 +80,90 @@ async def stock_balance(
     RPT-INV-001 -- Stock Balance Summary (Shoper9: SR202500.EXE MnuNo 430/431).
     Current stock-on-hand per product derived from StockMovement aggregation.
     """
-    # Aggregate IN vs OUT movements per product
     p_stmt = select(Product).where(Product.is_deleted == False, Product.is_active == True)
     p_stmt = _tenant_inv(p_stmt, Product, tenant)
     if category:
         p_stmt = p_stmt.where(Product.category.ilike(f"%{category}%"))
     products = (await db.execute(p_stmt)).scalars().all()
 
-    # Batch-load movements aggregated by product using signed quantities
+    balances = await get_authoritative_stock_by_product(
+        db,
+        tenant.company_id,
+        branch_id=tenant.branch_id,
+        warehouse=warehouse,
+    ) if tenant and tenant.company_id else {}
+
     signed_qty = get_signed_movement_quantity_expr()
     in_qty_expr = case((signed_qty > 0, signed_qty), else_=Decimal(0))
-    out_qty_expr = case((signed_qty < 0, -signed_qty), else_=Decimal(0))
     in_val_expr = case((signed_qty > 0, signed_qty * func.coalesce(StockMovement.unit_cost, Decimal(0))), else_=Decimal(0))
 
     mv_stmt = select(
         StockMovement.product_id,
         func.sum(in_qty_expr).label("total_in"),
-        func.sum(out_qty_expr).label("total_out"),
         func.sum(in_val_expr).label("total_value_in"),
     ).where(StockMovement.is_deleted == False)
     mv_stmt = _tenant_inv(mv_stmt, StockMovement, tenant)
     if warehouse:
-        mv_stmt = mv_stmt.where(StockMovement.warehouse.ilike(f"%{warehouse}%"))
+        mv_stmt = mv_stmt.where(
+            or_(
+                StockMovement.warehouse_id == warehouse,
+                StockMovement.location_id == warehouse,
+                StockMovement.warehouse.ilike(f"%{warehouse}%"),
+            )
+        )
     mv_stmt = mv_stmt.group_by(StockMovement.product_id)
     mv_rows = (await db.execute(mv_stmt)).fetchall()
 
-    # Build product balance map
-    bal: Dict[str, Dict] = {
+    movement_costs: Dict[str, Dict[str, Decimal]] = {
         row.product_id: {
             "in": Decimal(str(row.total_in or 0)),
-            "out": Decimal(str(row.total_out or 0)),
             "value_in": Decimal(str(row.total_value_in or 0)),
         }
         for row in mv_rows
+    }
+
+    batch_value_stmt = select(
+        ProductBatchStock.product_id,
+        func.sum(
+            (ProductBatchStock.quantity - func.coalesce(ProductBatchStock.damaged_quantity, 0))
+            * func.coalesce(ProductBatchStock.purchase_rate, Decimal(0))
+        ).label("stock_value"),
+    ).where(
+        ProductBatchStock.is_deleted.is_(False),
+    )
+    batch_value_stmt = _tenant_inv(batch_value_stmt, ProductBatchStock, tenant)
+    if tenant and tenant.branch_id:
+        batch_value_stmt = batch_value_stmt.where(
+            or_(ProductBatchStock.branch_id == tenant.branch_id, ProductBatchStock.branch_id.is_(None))
+        )
+    if warehouse:
+        batch_value_stmt = batch_value_stmt.join(
+            Warehouse, ProductBatchStock.warehouse_id == Warehouse.id
+        ).where(
+            or_(
+                ProductBatchStock.warehouse_id == warehouse,
+                Warehouse.name.ilike(f"%{warehouse}%"),
+            )
+        )
+    batch_values = {
+        row.product_id: Decimal(str(row.stock_value or 0))
+        for row in (await db.execute(batch_value_stmt.group_by(ProductBatchStock.product_id))).all()
     }
 
     lines = []
     total_items = 0
     total_value = Decimal(0)
     for prod in products:
-        b = bal.get(prod.id, {"in": Decimal(0), "out": Decimal(0), "value_in": Decimal(0)})
-        on_hand = b["in"] - b["out"]
+        on_hand = balances.get(prod.id, Decimal(0))
         if not zero_stock and on_hand <= 0:
             continue
-        avg_cost = b["value_in"] / b["in"] if b["in"] > 0 else Decimal(0)
-        value = on_hand * avg_cost
+        if prod.id in batch_values:
+            value = batch_values[prod.id]
+            avg_cost = value / on_hand if on_hand > 0 else Decimal(0)
+        else:
+            costs = movement_costs.get(prod.id, {"in": Decimal(0), "value_in": Decimal(0)})
+            avg_cost = costs["value_in"] / costs["in"] if costs["in"] > 0 else Decimal(0)
+            value = on_hand * avg_cost
         total_value += value
         total_items += 1
         lines.append({
@@ -172,13 +214,23 @@ async def stock_movement_report(
     RPT-INV-002 -- Stock Movement Report (Shoper9: SR203000.EXE MnuNo 430/432).
     Detailed movement register with aggregation summary by type.
     """
-    stmt = select(StockMovement).where(StockMovement.is_deleted == False)
-    stmt = _tenant_inv(stmt, StockMovement, tenant)
-    stmt = _date_inv(stmt, StockMovement, from_date, to_date)
+    movement_filters = [StockMovement.is_deleted.is_(False)]
+    if tenant and tenant.company_id:
+        movement_filters.append(StockMovement.company_id == tenant.company_id)
+    if tenant and tenant.branch_id:
+        movement_filters.append(
+            or_(StockMovement.branch_id == tenant.branch_id, StockMovement.branch_id.is_(None))
+        )
+    if from_date:
+        movement_filters.append(StockMovement.created_at >= from_date)
+    if to_date:
+        movement_filters.append(
+            StockMovement.created_at < datetime.combine(to_date + timedelta(days=1), datetime.min.time())
+        )
     if movement_type:
-        stmt = stmt.where(StockMovement.movement_type.ilike(f"%{movement_type}%"))
+        movement_filters.append(StockMovement.movement_type.ilike(f"%{movement_type}%"))
     if product_id:
-        stmt = stmt.where(
+        movement_filters.append(
             or_(
                 StockMovement.product_id == product_id,
                 StockMovement.variant_id == product_id,
@@ -186,22 +238,64 @@ async def stock_movement_report(
             )
         )
     if warehouse:
-        stmt = stmt.where(StockMovement.warehouse.ilike(f"%{warehouse}%"))
-    stmt = stmt.order_by(StockMovement.created_at.desc()).limit(500)
-    movements = (await db.execute(stmt)).scalars().all()
+        movement_filters.append(or_(
+            StockMovement.warehouse_id == warehouse,
+            StockMovement.location_id == warehouse,
+            StockMovement.branch_id == warehouse,
+            StockMovement.warehouse.ilike(f"%{warehouse}%"),
+        ))
 
-    by_type: Dict[str, Dict] = {}
+    unknown_count = int(
+        (
+            await db.execute(
+                select(func.coalesce(func.sum(get_unclassified_movement_count_expr()), 0)).where(*movement_filters)
+            )
+        ).scalar()
+        or 0
+    )
+    if unknown_count:
+        raise HTTPException(
+            status_code=409,
+            detail=f"Stock movement report blocked: {unknown_count} movements have unclassified movement types.",
+        )
+
+    total_records = int(
+        (await db.execute(select(func.count(StockMovement.id)).where(*movement_filters))).scalar() or 0
+    )
+    signed_expr = get_signed_movement_quantity_expr()
+    summary_rows = (
+        await db.execute(
+            select(
+                StockMovement.movement_type,
+                func.count(StockMovement.id).label("count"),
+                func.coalesce(func.sum(signed_expr), 0).label("qty"),
+                func.coalesce(func.sum(case((signed_expr > 0, signed_expr), else_=0)), 0).label("qty_in"),
+                func.coalesce(func.sum(case((signed_expr < 0, -signed_expr), else_=0)), 0).label("qty_out"),
+                func.coalesce(
+                    func.sum(func.abs(StockMovement.quantity) * func.coalesce(StockMovement.unit_cost, 0)),
+                    0,
+                ).label("value"),
+            )
+            .where(*movement_filters)
+            .group_by(StockMovement.movement_type)
+        )
+    ).all()
+    movements = (
+        await db.execute(
+            select(StockMovement)
+            .where(*movement_filters)
+            .order_by(StockMovement.created_at.desc())
+            .limit(500)
+        )
+    ).scalars().all()
+
     lines = []
     for mv in movements:
         mt = (mv.movement_type or "UNKNOWN").upper()
         qty = Decimal(str(mv.quantity or 0))
+        signed_value = compute_signed_movement_quantity(qty, mt)
         cost = Decimal(str(mv.unit_cost or 0))
-        value = qty * cost
-        if mt not in by_type:
-            by_type[mt] = {"count": 0, "qty": Decimal(0), "value": Decimal(0)}
-        by_type[mt]["count"] += 1
-        by_type[mt]["qty"] += qty
-        by_type[mt]["value"] += value
+        value = abs(qty) * cost
         lines.append({
             "movement_id":     mv.id,
             "movement_type":   mt,
@@ -211,6 +305,7 @@ async def stock_movement_report(
             "product_name":    getattr(mv, "product_name", None) or "",
             "sku":             getattr(mv, "sku", None) or "",
             "quantity":        float(qty),
+            "signed_quantity": float(signed_value),
             "unit_cost":       float(cost),
             "value":           float(value),
             "warehouse":       getattr(mv, "warehouse", None) or "",
@@ -225,10 +320,20 @@ async def stock_movement_report(
         "from_date":    str(from_date or ""),
         "to_date":      str(to_date or ""),
         "generated_at": datetime.now(timezone.utc).isoformat(),
-        "total_records": len(lines),
+        "total_records": total_records,
+        "returned_records": len(lines),
         "summary_by_type": {
-            k: {"count": v["count"], "qty": float(v["qty"]), "value": float(v["value"])}
-            for k, v in sorted(by_type.items())
+            k: {
+                "count": int(row.count),
+                "qty": float(row.qty),
+                "qty_in": float(row.qty_in),
+                "qty_out": float(row.qty_out),
+                "value": float(row.value),
+            }
+            for k, row in sorted(
+                ((str(row.movement_type or "UNKNOWN").upper(), row) for row in summary_rows),
+                key=lambda entry: entry[0],
+            )
         },
         "lines": lines,
     }
@@ -258,22 +363,11 @@ async def stock_availability(
         p_stmt = p_stmt.where(Product.category.ilike(f"%{category}%"))
     products = (await db.execute(p_stmt)).scalars().all()
 
-    # Aggregate on-hand per product using signed quantities
-    signed_qty = get_signed_movement_quantity_expr()
-    mv_stmt = (
-        select(
-            StockMovement.product_id,
-            func.sum(signed_qty).label("on_hand"),
-        )
-        .where(StockMovement.is_deleted == False)
-    )
-    mv_stmt = _tenant_inv(mv_stmt, StockMovement, tenant)
-    mv_agg = (await db.execute(mv_stmt.group_by(StockMovement.product_id))).fetchall()
-
-    bal: Dict[str, Decimal] = {
-        row.product_id: Decimal(str(row.on_hand or 0))
-        for row in mv_agg
-    }
+    bal = await get_authoritative_stock_by_product(
+        db,
+        tenant.company_id,
+        branch_id=tenant.branch_id,
+    ) if tenant and tenant.company_id else {}
 
     lines = []
     for prod in products:
@@ -338,7 +432,8 @@ async def stock_aging(
     RPT-INV-004 -- Stock Aging (Shoper9: SR233600.EXE MnuNo 430/441).
     Stock on-hand bucketed by days-since-last-receipt into configurable aging slots.
     """
-    pivot = datetime.combine(as_on_date or date.today(), datetime.min.time()).replace(tzinfo=timezone.utc)
+    pivot_date = as_on_date or date.today()
+    pivot = datetime.combine(pivot_date, datetime.min.time()).replace(tzinfo=timezone.utc)
 
     # Parse buckets
     try:
@@ -354,16 +449,19 @@ async def stock_aging(
     bucket_labels.append(f"{bucket_days[-1]}+ days")
 
     # Get last inward movement date per product
-    last_in = (await db.execute(
-        select(
+    last_in_stmt = select(
             StockMovement.product_id,
             func.max(StockMovement.created_at).label("last_in_date"),
         ).where(
-            StockMovement.is_deleted == False,
-            StockMovement.movement_type.in_(["IN", "INWARD_GRN", "RETURN"]),
+            StockMovement.is_deleted.is_(False),
+            func.upper(StockMovement.movement_type).in_(tuple(INFLOW_MOVEMENT_TYPES)),
         )
-        .group_by(StockMovement.product_id)
-    )).fetchall()
+    last_in_stmt = _tenant_inv(last_in_stmt, StockMovement, tenant)
+    if as_on_date:
+        last_in_stmt = last_in_stmt.where(
+            cast(func.timezone("Asia/Kolkata", StockMovement.created_at), Date) <= as_on_date
+        )
+    last_in = (await db.execute(last_in_stmt.group_by(StockMovement.product_id))).fetchall()
     last_in_map = {r.product_id: r.last_in_date for r in last_in}
 
     # Get products with stock
@@ -373,25 +471,12 @@ async def stock_aging(
         p_stmt = p_stmt.where(Product.category.ilike(f"%{category}%"))
     products = (await db.execute(p_stmt)).scalars().all()
 
-    # Get on-hand balance using signed quantities
-    signed_qty = get_signed_movement_quantity_expr()
-    mv_stmt = (
-        select(
-            StockMovement.product_id,
-            func.sum(signed_qty).label("on_hand"),
-        )
-        .where(StockMovement.is_deleted == False)
-    )
-    mv_stmt = _tenant_inv(mv_stmt, StockMovement, tenant)
-    if as_on_date:
-        mv_stmt = mv_stmt.where(
-            cast(func.timezone("Asia/Kolkata", StockMovement.created_at), Date) <= as_on_date
-        )
-    mv_agg = (await db.execute(mv_stmt.group_by(StockMovement.product_id))).fetchall()
-    bal: Dict[str, Decimal] = {
-        row.product_id: Decimal(str(row.on_hand or 0))
-        for row in mv_agg
-    }
+    bal = await get_authoritative_stock_by_product(
+        db,
+        tenant.company_id,
+        branch_id=tenant.branch_id,
+        as_of_date=pivot_date,
+    ) if tenant and tenant.company_id else {}
 
     # Build aged summary
     bucket_totals = {lbl: 0 for lbl in bucket_labels}
@@ -431,7 +516,7 @@ async def stock_aging(
     return {
         "report_id":    "RPT-INV-004",
         "sh9_exe":      "SR233600",
-        "as_on_date":   str(as_on_date or date.today()),
+        "as_on_date":   str(pivot_date),
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "bucket_summary": bucket_totals,
         "total_products": len(lines),
@@ -478,23 +563,35 @@ async def goods_register(
                 "movement_type":  mv.movement_type or "",
                 "lines":          [],
                 "total_qty":      Decimal(0),
+                "qty_in":         Decimal(0),
+                "qty_out":        Decimal(0),
                 "total_value":    Decimal(0),
             }
         qty = Decimal(str(mv.quantity or 0))
+        signed_qty = compute_signed_movement_quantity(qty, mv.movement_type)
         cost = Decimal(str(mv.unit_cost or 0))
-        by_doc[ref]["total_qty"] += qty
-        by_doc[ref]["total_value"] += qty * cost
+        by_doc[ref]["total_qty"] += signed_qty
+        by_doc[ref]["qty_in"] += max(signed_qty, Decimal(0))
+        by_doc[ref]["qty_out"] += abs(min(signed_qty, Decimal(0)))
+        by_doc[ref]["total_value"] += abs(qty) * cost
         by_doc[ref]["lines"].append({
             "product_id":   mv.product_id,
             "product_name": getattr(mv, "product_name", None) or "",
             "sku":          getattr(mv, "sku", None) or "",
             "qty":          float(qty),
+            "signed_qty":   float(signed_qty),
             "unit_cost":    float(cost),
             "warehouse":    getattr(mv, "warehouse", None) or "",
         })
 
     docs = [
-        {**v, "total_qty": float(v["total_qty"]), "total_value": float(v["total_value"])}
+        {
+            **v,
+            "total_qty": float(v["total_qty"]),
+            "qty_in": float(v["qty_in"]),
+            "qty_out": float(v["qty_out"]),
+            "total_value": float(v["total_value"]),
+        }
         for v in sorted(by_doc.values(), key=lambda x: x["date"], reverse=True)
     ]
     return {
@@ -538,7 +635,7 @@ async def goods_register_item(
         pid  = mv.product_id
         qty  = Decimal(str(mv.quantity or 0))
         cost = Decimal(str(mv.unit_cost or 0))
-        mt   = (mv.movement_type or "").upper()
+        signed_qty = compute_signed_movement_quantity(qty, mv.movement_type)
         if pid not in agg:
             agg[pid] = {
                 "product_id":   pid,
@@ -551,12 +648,12 @@ async def goods_register_item(
                 "tx_count":     0,
             }
         agg[pid]["tx_count"] += 1
-        if mt in ("IN", "INWARD_GRN", "RETURN", "ADJUSTMENT_IN", "TRANSFER_IN"):
-            agg[pid]["total_in"]  += qty
-            agg[pid]["value_in"]  += qty * cost
+        if signed_qty > 0:
+            agg[pid]["total_in"]  += signed_qty
+            agg[pid]["value_in"]  += abs(signed_qty) * cost
         else:
-            agg[pid]["total_out"] += qty
-            agg[pid]["value_out"] += qty * cost
+            agg[pid]["total_out"] += abs(signed_qty)
+            agg[pid]["value_out"] += abs(signed_qty) * cost
 
     lines = [
         {
