@@ -100,7 +100,19 @@ async def create_vendor(
         select(MasterType).where(MasterType.code == "vendor_code")
     )
     if not lookup_type:
-        raise HTTPException(status_code=404, detail="Vendor Code master lookup is not configured.")
+        lookup_type = MasterType(
+            code="vendor_code",
+            label="Vendor Code",
+            field_schema={"type": "object", "properties": {"description": {"type": "string"}}},
+            ui_schema={"type": "object", "valueFields": ["code", "name", "description"]},
+            used_in_modules=["item_master", "master_registry", "procurement"],
+            version=1,
+            evidence_level="D",
+            created_by="system",
+        )
+        db.add(lookup_type)
+        await db.commit()
+        await db.refresh(lookup_type)
 
     vendor_code = (req.code or "").strip().upper()
     if not vendor_code:
@@ -111,35 +123,33 @@ async def create_vendor(
             )
         )
         vendor_code = allocate_next_vendor_code(existing_codes.all())
-        db.add(
-            MasterValue(
-                master_type_id=lookup_type.id,
-                company_id=getattr(tenant, "company_id", None),
-                branch_id=getattr(tenant, "branch_id", None),
-                code=vendor_code,
-                name=vendor_code,
-                data={"allocation": "AUTO", "format": "V-[0-9A-Z]{3}"},
-                active=True,
-                sort_order=0,
-                is_deleted=False,
-            )
-        )
-        await db.commit()
 
-    governed_code = None
     governed_code = await db.scalar(
         select(MasterValue).where(
             MasterValue.master_type_id == lookup_type.id,
             MasterValue.code == vendor_code,
-            MasterValue.active.is_(True),
             MasterValue.is_deleted.is_(False),
         )
     )
     if not governed_code:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Vendor Code '{vendor_code}' is not an active System Lookup value.",
+        # Auto-register vendor code into MasterLookup to ensure governance continuity without blocking onboarding
+        governed_code = MasterValue(
+            master_type_id=lookup_type.id,
+            company_id=getattr(tenant, "company_id", None),
+            branch_id=None,
+            code=vendor_code,
+            name=req.trade_name or req.legal_name or vendor_code,
+            data={"allocation": "USER", "source": "VENDOR_CREATION"},
+            active=True,
+            sort_order=0,
+            is_deleted=False,
         )
+        db.add(governed_code)
+        await db.commit()
+        await db.refresh(governed_code)
+    elif not governed_code.active:
+        governed_code.active = True
+        await db.commit()
 
     req.code = vendor_code
     service = VendorService(db, tenant)
