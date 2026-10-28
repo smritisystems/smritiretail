@@ -13,7 +13,7 @@ Classification: Internal
 
 SMRITI Reporting & BI Engine — Canonical Governance & Registry API Router.
 Exposes:
-- GET /api/v1/reporting/catalog (All 22 reports across 5 studios)
+- GET /api/v1/reporting/catalog (All 23 canonical report contracts across 5 studios)
 - GET /api/v1/reporting/catalog/{report_id}
 - GET /api/v1/reporting/alias-lookup (Decoupled Shoper 9 jump code resolver)
 - GET /api/v1/reporting/metrics (Governed Metric Dictionary definitions)

@@ -70,7 +70,8 @@ router = APIRouter(prefix="/reports")
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Studios Catalog — System metadata; stored as Python dict per approved design.
+# Presentation catalog for report studios. This includes operational report modules
+# beyond the governed contracts exposed by /api/v1/reporting/catalog.
 # ─────────────────────────────────────────────────────────────────────────────
 
 SMRITI_STUDIOS = {
@@ -234,7 +235,7 @@ SMRITI_STUDIOS = {
 async def get_report_studios(
     current_user=Depends(get_current_user),
 ):
-    """List all report studios with their registered report catalog."""
+    """List presentation studios and report modules for the BI Center."""
     return {"studios": SMRITI_STUDIOS}
 
 @router.get("/stock-valuation", response_model=StockValuationReport)
@@ -1167,5 +1168,4 @@ async def query_report_builder(
         limit=limit or 100,
         offset=offset or 0,
     )
-
 

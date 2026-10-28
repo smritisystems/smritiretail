@@ -1051,7 +1051,7 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
                       {studios[activeStudio]?.icon}
                     </span>
                     <h3 className="text-base font-bold text-theme-body tracking-tight">
-                      {studios[activeStudio]?.name} Workspace
+                      {studios[activeStudio]?.name} Reports
                     </h3>
                   </div>
                   <p className="text-xs text-theme-muted font-mono">
@@ -1212,7 +1212,7 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
                   <div className="p-3 border-b border-theme-divider bg-theme-surface-2 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
                     <h4 className="text-xs font-bold text-theme-body flex items-center gap-2 uppercase font-mono tracking-wider">
                       <Database size={14} className="text-theme-primary" />
-                      Studio Reports Ledger
+                      Reports in this Category
                     </h4>
 
                     {/* Report Search Bar */}
@@ -1222,7 +1222,7 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
                         type="text"
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
-                        placeholder="Search studio reports..."
+                        placeholder="Search reports..."
                         className="w-full bg-theme-surface-1 border border-theme-border rounded-lg pl-9 pr-3 py-1.5 text-xs text-theme-body placeholder-theme-muted focus:outline-none focus:border-theme-primary font-medium"
                       />
                     </div>
@@ -3914,4 +3914,3 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
     </div>
   );
 };
-
