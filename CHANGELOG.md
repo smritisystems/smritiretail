@@ -1,5 +1,22 @@
 <!--
 
+## [6.99.3] - 2026-10-29 - Purchase Order Smart Sequential Numbering & Collision Recovery v1.0.0
+
+### Fixed
+- `backend/app/services/purchase.py`:
+  - Resolved `PO-1 already exists` collision errors by implementing `_get_next_available_order_no(base_no, existing_set)` which incrementally calculates the nearest free sequential number (e.g. `PO-1` -> `PO-2`).
+  - Enhanced `get_next_order_number` and `get_next_receipt_number` to scan both simple sequential patterns (`val < 1000`) and canonical fiscal-year patterns (`PO/26-27/0001`), ensuring initial form loads receive the correct non-colliding sequence (`PO-15`).
+  - Hardened pre-save duplicate order checks and database `IntegrityError` handlers to return structured HTTP 409 payloads with `code: "DUPLICATE_ORDER_NO"`, `duplicate_order_no`, and `suggested_number`.
+- `src/lib/apiFetchV1.ts`:
+  - Attached `response.status`, `errorBody`, and `errorDetail` directly to thrown `Error` objects so frontend consumers can access HTTP 409 conflict metadata.
+- `src/components/purchase/PoSizewiseTab.tsx` and `src/components/purchase/PoGenerateTab.tsx`:
+  - Updated workspace initialization and `handleNewPO` to use `suggested_order_no` rather than resetting to `1`.
+  - Prevented double prefix concatenation (`PO-PO-1`).
+  - Added 1-click **Use {suggestedOrderNo}** recovery action on 409 duplicate warning banners, allowing instant resolution.
+
+### Added
+- `docs/walkthrough/purchase/Purchase_Order_Smart_Numbering_And_Collision_Recovery_Walkthrough_v1.0.0.md`: Formal 13-section WGP walkthrough document.
+
 ## [6.99.2] - 2026-10-29 - Report Builder Field Resolution & Intelligent Auto-Consolidation Patch v1.1.0
 
 ### Fixed

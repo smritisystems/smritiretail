@@ -423,7 +423,11 @@ export async function apiFetchV1<T = any>(endpoint: string, options: ApiRequestO
         (b.message as string | undefined) ||
         JSON.stringify(errorBody);
     }
-    throw new Error(errorDetail);
+    const apiErr: any = new Error(errorDetail);
+    apiErr.status = response.status;
+    apiErr.body = errorBody;
+    apiErr.detail = typeof (errorBody as any)?.detail === "object" ? (errorBody as any)?.detail : null;
+    throw apiErr;
   }
 
   if (response.status === 204 || response.headers?.get?.("content-length") === "0") {
