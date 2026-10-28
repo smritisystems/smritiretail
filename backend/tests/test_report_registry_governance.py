@@ -46,8 +46,8 @@ from app.services.report_registry_svc import ReportRegistryService
 # ---------------------------------------------------------------------------
 
 def test_canonical_registry_completeness():
-    """Verify that all 22 canonical reports exist with valid metadata."""
-    assert len(CANONICAL_REPORT_REGISTRY) == 22, f"Expected 22 canonical reports, found {len(CANONICAL_REPORT_REGISTRY)}"
+    """Verify that all 23 canonical reports exist with valid metadata."""
+    assert len(CANONICAL_REPORT_REGISTRY) == 23, f"Expected 23 canonical reports, found {len(CANONICAL_REPORT_REGISTRY)}"
 
     studios_found = set(r.studio for r in CANONICAL_REPORT_REGISTRY.values())
     expected_studios = {

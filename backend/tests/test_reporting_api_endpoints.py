@@ -64,6 +64,27 @@ async def test_get_reporting_catalog():
 
 
 @pytest.mark.asyncio
+async def test_get_report_studios_catalog_is_distinct_and_consistent():
+    """The BI Center presentation catalog is separate from governed contracts."""
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        res = await ac.get("/api/v1/reports/studios")
+        assert res.status_code == 200
+        studios = res.json()["studios"]
+
+    report_rows = [
+        report
+        for studio in studios.values()
+        for report in studio.get("reports", [])
+    ]
+    report_ids = [report["id"] for report in report_rows]
+
+    assert len(studios) == 11
+    assert len(report_rows) == 60
+    assert len(report_ids) == len(set(report_ids))
+    assert all(report["code"] == report["id"] for report in report_rows)
+
+
+@pytest.mark.asyncio
 async def test_get_reporting_catalog_filtered_by_studio():
     """Verify studio filtering on catalog."""
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:

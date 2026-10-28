@@ -12,7 +12,7 @@ License      : Proprietary Commercial Software
 Classification: Internal
 
 SMRITI Reporting & BI Engine — Master Canonical Report Registry Seed Catalog.
-Enforces Invariant 1: Single Source of Truth for all 21 Canonical Reports.
+Enforces Invariant 1: Single Source of Truth for all 23 Canonical Reports.
 Enforces Invariant 3: Shoper 9 aliases isolated to metadata adapter.
 """
 

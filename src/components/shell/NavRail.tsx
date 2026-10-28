@@ -76,13 +76,16 @@ export const NavRail: React.FC<NavRailProps> = ({
 
   const reportStudios = [
     { id: 'sales_studio', label: 'Sales' },
+    { id: 'inventory_studio', label: 'Inventory & Stock' },
     { id: 'purchase_studio', label: 'Purchase' },
-    { id: 'inventory_studio', label: 'Inventory' },
+    { id: 'finance_studio', label: 'Finance & P&L' },
+    { id: 'profitability_studio', label: 'Profitability & Cost' },
     { id: 'tax_studio', label: 'Tax & Compliance' },
-    { id: 'mis_studio', label: 'MIS & Analytics' },
-    { id: 'customer_studio', label: 'Customer' },
-    { id: 'merchandise_studio', label: 'Merchandise' },
+    { id: 'crm_studio', label: 'Customers' },
+    { id: 'mis_studio', label: 'Management & Analytics' },
     { id: 'operations_studio', label: 'Operations' },
+    { id: 'merchandise_studio', label: 'Merchandise & Size Analysis' },
+    { id: 'accounting_studio', label: 'Accounts Summary' },
   ];
 
   // Other persistent global categories (excluding current context)
@@ -247,7 +250,7 @@ export const NavRail: React.FC<NavRailProps> = ({
               {item.id === 'report-designer' && isActive && isExpanded && isReportsExpanded && (
                 <div className="ml-8 mt-1 mb-2 pl-3 border-l border-[#c5c5d4] dark:border-slate-700 space-y-0.5">
                   <div className="px-2 py-1 text-[9px] font-bold uppercase tracking-wider text-[#757684] dark:text-slate-400">
-                    Report Studios
+                    Reports by Business Area
                   </div>
                   {reportStudios.map((studio) => (
                     <button

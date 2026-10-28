@@ -330,6 +330,37 @@ describe("SMRITI Retail OS — Persistent Global Navigation with Contextual Subm
     expect(html).toContain("Other Global Modules");
   });
 
+  it("renders all report business areas in the Reports navigation", () => {
+    const html = renderToStaticMarkup(
+      <LayoutEngineProvider>
+        <NavRail
+          activeContext="reports"
+          activeModuleId="report-designer"
+          railState="EXPANDED"
+          onSelectModule={vi.fn()}
+          onToggleRailState={vi.fn()}
+        />
+      </LayoutEngineProvider>
+    );
+
+    expect(html).toContain("Reports by Business Area");
+    for (const area of [
+      "Sales",
+      "Inventory &amp; Stock",
+      "Purchase",
+      "Finance &amp; P&amp;L",
+      "Profitability &amp; Cost",
+      "Tax &amp; Compliance",
+      "Customers",
+      "Management &amp; Analytics",
+      "Operations",
+      "Merchandise &amp; Size Analysis",
+      "Accounts Summary",
+    ]) {
+      expect(html).toContain(area);
+    }
+  });
+
   // TEST 10 — Contextual Action Event Contract
   it("TEST 10: smriti_contextual_action_selected event contract is properly structured", () => {
     let firedEventDetail: any = null;

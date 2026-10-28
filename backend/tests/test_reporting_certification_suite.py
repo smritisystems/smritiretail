@@ -96,12 +96,12 @@ def override_cert_auth():
 # ============================================================================
 @pytest.mark.asyncio
 async def test_01_registry_api_reconciliation():
-    """Verify all 22 registered reports are exposed without mismatch via REST API."""
+    """Verify all 23 registered reports are exposed without mismatch via REST API."""
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
         res = await ac.get("/api/v1/reporting/catalog")
         assert res.status_code == 200
         catalog = res.json()
-        assert catalog["total_reports"] == 22
+        assert catalog["total_reports"] == 23
         assert len(catalog["studios"]) == 5
         assert set(catalog["studios"]) == {
             "sales_studio",
@@ -457,8 +457,8 @@ async def test_11_tenant_isolation_and_envelope_certification():
 # ============================================================================
 def test_12_release_candidate_readiness_gate():
     """Final Certification Gate: Asserts 100% compliance with Frozen v1.0.0-GA Architecture."""
-    # Check 1: Exactly 22 Canonical Reports
-    assert len(CANONICAL_REPORT_REGISTRY) == 22
+    # Check 1: Exactly 23 Canonical Reports
+    assert len(CANONICAL_REPORT_REGISTRY) == 23
 
     # Check 2: Exactly 5 Studios
     studios = {r.studio for r in CANONICAL_REPORT_REGISTRY.values()}
