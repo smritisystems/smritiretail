@@ -18,7 +18,7 @@ from datetime import datetime, timezone
 import jsonschema  # type: ignore
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, Query
 
-from sqlalchemy import or_
+from sqlalchemy import or_, text
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
@@ -608,10 +608,82 @@ async def list_lookup_values(
     res_type = await db.execute(q_type)
     master_type = res_type.scalar_one_or_none()
     if not master_type:
-        raise HTTPException(
-            status_code=404,
-            detail=f"Master type with code '{type_code}' not found."
-        )
+        if type_code == "vendor_code":
+            master_type = MasterType(
+                code="vendor_code",
+                label="Vendor Code",
+                field_schema={"type": "object", "properties": {"description": {"type": "string"}}},
+                ui_schema={"type": "object", "valueFields": ["code", "name", "description"]},
+                used_in_modules=["item_master", "master_registry", "procurement"],
+                version=1,
+                evidence_level="D",
+                created_by="system",
+            )
+            db.add(master_type)
+            await db.commit()
+            await db.refresh(master_type)
+        else:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Master type with code '{type_code}' not found."
+            )
+
+    if type_code == "vendor_code" and master_type:
+        try:
+            await db.execute(
+                text("""
+                    INSERT INTO master_values (
+                        id, master_type_id, company_id, branch_id, code, name, data, active, sort_order, updated_at, is_deleted
+                    )
+                    SELECT 
+                        gen_random_uuid(),
+                        :mt_id,
+                        p.company_id,
+                        p.branch_id,
+                        UPPER(p.party_code),
+                        COALESCE(NULLIF(p.trade_name, ''), NULLIF(p.legal_name, ''), p.party_code),
+                        '{"allocation": "SYNCED", "source": "PARTIES"}'::jsonb,
+                        COALESCE(p.is_active, true),
+                        0,
+                        NOW(),
+                        false
+                    FROM parties p
+                    JOIN party_roles pr ON pr.party_id = p.id AND pr.role_type = 'SUPPLIER'
+                    WHERE (p.is_deleted IS FALSE OR p.is_deleted IS NULL)
+                      AND UPPER(p.party_code) NOT IN (
+                          SELECT UPPER(mv.code) FROM master_values mv WHERE mv.master_type_id = :mt_id AND (mv.is_deleted IS FALSE OR mv.is_deleted IS NULL)
+                      )
+                """),
+                {"mt_id": master_type.id}
+            )
+            await db.execute(
+                text("""
+                    INSERT INTO master_values (
+                        id, master_type_id, company_id, branch_id, code, name, data, active, sort_order, updated_at, is_deleted
+                    )
+                    SELECT 
+                        gen_random_uuid(),
+                        :mt_id,
+                        s.company_id,
+                        s.branch_id,
+                        UPPER(s.code),
+                        COALESCE(NULLIF(s.name, ''), s.code),
+                        '{"allocation": "SYNCED", "source": "SUPPLIERS"}'::jsonb,
+                        COALESCE(s.is_active, true),
+                        0,
+                        NOW(),
+                        false
+                    FROM suppliers s
+                    WHERE (s.is_deleted IS FALSE OR s.is_deleted IS NULL)
+                      AND UPPER(s.code) NOT IN (
+                          SELECT UPPER(mv.code) FROM master_values mv WHERE mv.master_type_id = :mt_id AND (mv.is_deleted IS FALSE OR mv.is_deleted IS NULL)
+                      )
+                """),
+                {"mt_id": master_type.id}
+            )
+            await db.commit()
+        except Exception:
+            await db.rollback()
 
     q = select(MasterValue).where(
         MasterValue.master_type_id == master_type.id,
@@ -621,7 +693,7 @@ async def list_lookup_values(
     branch_id = getattr(current_user, "branch_id", None)
     if company_id:
         q = q.where((MasterValue.company_id == company_id) | MasterValue.company_id.is_(None))
-    if branch_id:
+    if branch_id and type_code != "vendor_code":
         q = q.where((MasterValue.branch_id == branch_id) | MasterValue.branch_id.is_(None))
     if activeOnly:
         q = q.where(MasterValue.active.is_(True))

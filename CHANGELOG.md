@@ -3,6 +3,10 @@
 ## [6.99.1] - 2026-10-28 - Visual Report Designer Drag-and-Drop Matrix & DB Bootstrap Engine v1544 Hotfix
 
 ### Fixed
+- `backend/app/api/v1/vendor.py`: Resolved blocking HTTP 400 (`Vendor Code '...' is not an active System Lookup value`) by automatically provisioning the `vendor_code` MasterType and registering custom/auto vendor codes in `master_values` upon onboarding.
+- `backend/app/api/v1/master_lookup.py`: Updated `list_lookup_values` for `type_code == "vendor_code"` to auto-provision the `vendor_code` MasterType, backfill any missing supplier/party codes from `parties` and `suppliers`, and remove branch-level restrictions so company-wide vendor codes remain visible across all branches.
+- `backend/alembic/versions/v1563_sync_vendor_codes_to_master_values.py`: Created idempotent migration to ensure `vendor_code` exists in `master_types` and backfills all active vendor codes from `parties` (role `SUPPLIER`) and `suppliers` into `master_values`.
+- `src/components/vendor/VendorMasterWs.tsx`: Upgraded Rapid Vendor Onboarding modal with freeform code input, 1-click `Auto-Generate` code helper, unassigned code quick picker, and removed `availableVendorCodeOptions.length === 0` button lock.
 - `backend/alembic/versions/v1544_customer_billing_defaults.py`: Added control plane database routing guard (`current_db in ("smritisys", "postgres", "template0", "template1")`) and idempotent table and column existence checks on `customer_policies`. Fixes `psycopg2.errors.UndefinedTable: relation "customer_policies" does not exist` during Phase 1 (`smritisys`) control plane migration in `update.bat` and `bootstrap_engine.py`.
 
 ### Added

@@ -876,6 +876,26 @@ const VendorMasterWsBase: React.FC<VendorMasterWsProps> = ({ currentUser, onNoti
     return vendorCodeOptions.filter((option) => !assignedCodes.has(option.code.toUpperCase()));
   }, [vendorCodeOptions, vendors]);
 
+  const handleAutoGenerateCode = useCallback(() => {
+    const existing = new Set(vendors.map((v) => v.code.trim().toUpperCase()));
+    if (availableVendorCodeOptions.length > 0) {
+      setNewForm((prev) => ({ ...prev, code: availableVendorCodeOptions[0].code }));
+      return;
+    }
+    const chars = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+    for (const c1 of chars) {
+      for (const c2 of chars) {
+        for (const c3 of chars) {
+          const candidate = `V-${c1}${c2}${c3}`;
+          if (!existing.has(candidate)) {
+            setNewForm((prev) => ({ ...prev, code: candidate }));
+            return;
+          }
+        }
+      }
+    }
+  }, [availableVendorCodeOptions, vendors]);
+
   useEffect(() => {
     let isMounted = true;
     apiFetchV1("/masters/lookup/vendor_code/values?activeOnly=true")
@@ -1768,18 +1788,46 @@ const VendorMasterWsBase: React.FC<VendorMasterWsProps> = ({ currentUser, onNoti
 
             <div className="space-y-3 text-xs">
               <div>
-                <label className="block text-slate-700 dark:text-slate-400 mb-1">Vendor Code *</label>
-                <select
-                  value={newForm.code}
-                  onChange={(e) => setNewForm({ ...newForm, code: e.target.value.toUpperCase() })}
-                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-slate-900 dark:text-white font-mono uppercase focus:outline-none focus:border-indigo-500 focus:bg-white dark:focus:bg-slate-800"
-                >
-                  <option value="">Select an active Master Registry code</option>
-                  {availableVendorCodeOptions.map((option) => (
-                    <option key={option.code} value={option.code}>{option.code} - {option.name}</option>
-                  ))}
-                </select>
-                <p className="mt-1 text-[10px] text-slate-500">Selected from System Lookups; immutable after creation.</p>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-slate-700 dark:text-slate-400">Vendor Code *</label>
+                  <button
+                    type="button"
+                    onClick={handleAutoGenerateCode}
+                    className="text-[11px] font-semibold text-indigo-600 dark:text-indigo-400 hover:text-indigo-500 underline"
+                  >
+                    Auto-Generate
+                  </button>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="text"
+                    placeholder="e.g. V-001 or V-TATTLY"
+                    value={newForm.code}
+                    onChange={(e) => setNewForm({ ...newForm, code: e.target.value.toUpperCase() })}
+                    className="flex-1 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-slate-900 dark:text-white font-mono uppercase focus:outline-none focus:border-indigo-500 focus:bg-white dark:focus:bg-slate-800"
+                  />
+                  {availableVendorCodeOptions.length > 0 && (
+                    <select
+                      value=""
+                      onChange={(e) => {
+                        if (e.target.value) {
+                          setNewForm({ ...newForm, code: e.target.value });
+                        }
+                      }}
+                      className="w-36 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-2 text-slate-700 dark:text-slate-300 text-xs focus:outline-none"
+                    >
+                      <option value="">Available ({availableVendorCodeOptions.length})</option>
+                      {availableVendorCodeOptions.map((option) => (
+                        <option key={option.code} value={option.code}>
+                          {option.code}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                </div>
+                <p className="mt-1 text-[10px] text-slate-500">
+                  Custom code, auto-generated, or selected from Master Registry. Auto-synchronized into System Lookups.
+                </p>
               </div>
               <div>
                 <label className="block text-slate-700 dark:text-slate-400 mb-1">Legal Company Name *</label>
@@ -1915,8 +1963,8 @@ const VendorMasterWsBase: React.FC<VendorMasterWsProps> = ({ currentUser, onNoti
               </button>
               <button
                 onClick={handleCreateVendor}
-                disabled={saving || availableVendorCodeOptions.length === 0 || !newForm.code}
-                className="px-4 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs shadow"
+                disabled={saving || !newForm.code.trim() || !newForm.legalName.trim()}
+                className="px-4 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs shadow disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {saving ? "Creating..." : "Create Vendor"}
               </button>
