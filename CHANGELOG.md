@@ -1,5 +1,15 @@
 <!--
 
+## [3.133.0] - 2026-10-28 - Standard Daily Retail Reports & Single Store Default UX Refactoring
+
+### Added
+- `scratch/verify_standard_retail_reports.py`: Dedicated Playwright browser verification suite (10/10 green) validating Single Store default mode badge, absence of multi-store dropdown clutter, Standard Daily Retail Reports hero section, 1-click date presets, 4 core ERP register cards, Daily Sales Register line items view, bill summary view, live in-report keyword search, Cashier Tender Summary KPI cards, and Current Stock on Hand & Valuation table.
+- `docs/walkthrough/reports/Reports_Standard_Daily_Retail_Registers_v1.0.0.md`: Formal 13-section WGP walkthrough document updated with Architecture Decision `AD-RPT-003: Single Store Operational Default with Progressive Location Management`.
+
+### Changed
+- `src/components/ReportDesignerTab.tsx`: Established Single Store Mode as default operational posture across Reporting Period bar, Standard Reports Hero Dashboard, and Daily Sales Register viewer (`[ 📍 Main Store · Single Store ]` badge, zero empty dropdowns). Progressive multi-outlet selection (`All Stores Consolidated` / branch switcher) is revealed conditionally only when `locations_management_enabled === true` or multiple active branches exist. Introduced prominent "Standard Daily Retail Reports" dashboard with 4 core 1-click ERP register cards (Daily Sales Register, Cashier & Tender Summary, Purchase Inward Register, Current Stock on Hand). Added instant 1-click date presets (`Today`, `Yesterday`, `This Week`, `This Month`, `FY 2026-27`). Implemented dual-contract `normalizedSalesLines` mapping flat `BillWiseItemsResponse.lines` and nested `LiveBillItemsResponse.bills[].lines[]` into unified `StandardSalesLine` records with full item clarity (Invoice #, Date, Customer, Article / SKU, Item Description, Barcode, Size, Qty, Rate, Disc, GST, Net Total, Tender). Added live in-report keyword filtering, detailed item vs bill summary toggles, real cashier drawer cards (`CASH IN HAND`, `UPI / QR ONLINE`, `CARD (DEBIT / CREDIT)`, `CUSTOMER CREDIT / DUE`), and live inventory stock valuation.
+- `backend/app/api/v1/reports.py`: Reordered `sales_studio` reports catalog to place retail POS registers (`RPT-SAL-001`, `RPT-TAX-005`, `RPT-TAX-002`, `RPT-TAX-003`, `RPT-SAL-007`) at the top, and segregated wholesale order indents (`RPT-SO-001` to `RPT-SO-009`) under explicit category "Wholesale Orders (B2B Indents)".
+
 ## [3.132.0] - 2026-10-28 - WMS Phase 7: Outbound Shipping Dock Management, Dispatch Manifest & Carrier Vehicle Loading
 
 ### Added

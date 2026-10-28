@@ -22,7 +22,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, and_, or_, desc, text, cast, Date, case
 
 from ..models.fulfillment import PackingSlip, PackingSlipItem, Dispatch, DispatchItem
-from ..models.inventory import Product, StockMovement, ProductBatchStock
+from ..models.inventory import Product, StockMovement
 from ..models.sales import SalesInvoice, SalesInvoiceItem, SalesOrder, SalesOrderItem, SalesOrderReservation
 from ..models.reporting import Dashboard
 from ..schemas.visual_reports import (
@@ -45,6 +45,7 @@ from .stock_movement_types import (
 from .stock_ledger_query import (
     get_signed_movement_quantity_expr,
     audit_unclassified_movements,
+    get_authoritative_stock_by_product,
 )
 from .stock_synchronizer import StockSynchronizer
 
@@ -112,50 +113,18 @@ class VisualReportsService:
         location_name = store_location_id if store_location_id and store_location_id != "All Locations" else "All Locations"
         date_range_label = f"{s_date.strftime('%d %b %Y')} - {e_date.strftime('%d %b %Y')}"
 
-        # 2. Authoritative On-Hand Stock from Dual-Ledger Architecture (StockSynchronizer Invariant)
+        # 2. Authoritative on-hand from the canonical batch/movement ledgers
         signed_qty_expr = get_signed_movement_quantity_expr()
-        stmt_batch_stock = (
-            select(func.coalesce(func.sum(ProductBatchStock.quantity - func.coalesce(ProductBatchStock.damaged_quantity, 0)), 0))
-            .where(
-                ProductBatchStock.company_id == company_id,
-                ProductBatchStock.is_deleted == False,
-            )
+        stock_balances = await get_authoritative_stock_by_product(
+            session,
+            company_id,
+            warehouse=(
+                store_location_id
+                if store_location_id and store_location_id != "All Locations"
+                else None
+            ),
         )
-        if store_location_id and store_location_id != "All Locations":
-            stmt_batch_stock = stmt_batch_stock.where(
-                or_(ProductBatchStock.warehouse_id == store_location_id, ProductBatchStock.branch_id == store_location_id)
-            )
-        batch_on_hand = float((await session.execute(stmt_batch_stock)).scalar() or 0)
-
-        # Non-batch product stock (products without active batch rows)
-        stmt_non_batch = (
-            select(func.coalesce(func.sum(case((Product.stock > 0, Product.stock), else_=0)), 0))
-            .where(
-                Product.company_id == company_id,
-                Product.is_deleted == False,
-                ~Product.id.in_(
-                    select(ProductBatchStock.product_id).where(
-                        ProductBatchStock.company_id == company_id,
-                        ProductBatchStock.is_deleted == False,
-                    )
-                ),
-            )
-        )
-        if store_location_id and store_location_id != "All Locations":
-            stmt_non_batch = stmt_non_batch.where(Product.branch_id == store_location_id)
-        non_batch_on_hand = float((await session.execute(stmt_non_batch)).scalar() or 0)
-
-        total_on_hand = batch_on_hand + non_batch_on_hand
-        if total_on_hand <= 0:
-            signed_qty_expr = get_signed_movement_quantity_expr()
-            stmt_on_hand_mv = select(func.coalesce(func.sum(signed_qty_expr), 0)).where(
-                StockMovement.company_id == company_id, StockMovement.is_deleted == False
-            )
-            if store_location_id and store_location_id != "All Locations":
-                stmt_on_hand_mv = stmt_on_hand_mv.where(
-                    or_(StockMovement.warehouse_id == store_location_id, StockMovement.location_id == store_location_id)
-                )
-            total_on_hand = max(0.0, float((await session.execute(stmt_on_hand_mv)).scalar() or 0))
+        total_on_hand = float(sum(stock_balances.values(), Decimal(0)))
 
         # 3. Reserved Stock from SalesOrderReservation Ledger, falling back to open SalesOrderItem pending_quantity
         stmt_reserved = (
@@ -551,52 +520,25 @@ class VisualReportsService:
         ]
 
         # 8. Category Stock Position with Dual-Ledger Invariant
-        cat_batch_stmt = (
-            select(
-                Product.category,
-                func.coalesce(func.sum(ProductBatchStock.quantity - func.coalesce(ProductBatchStock.damaged_quantity, 0)), 0).label("qty"),
+        product_category_rows = (
+            await session.execute(
+                select(Product.id, Product.category).where(
+                    Product.company_id == company_id,
+                    Product.is_deleted.is_(False),
+                )
             )
-            .join(Product, ProductBatchStock.product_id == Product.id)
-            .where(
-                ProductBatchStock.company_id == company_id,
-                ProductBatchStock.is_deleted == False,
-                Product.is_deleted == False,
-            )
-            .group_by(Product.category)
-        )
-        if store_location_id and store_location_id != "All Locations":
-            cat_batch_stmt = cat_batch_stmt.where(
-                or_(ProductBatchStock.warehouse_id == store_location_id, ProductBatchStock.branch_id == store_location_id)
-            )
-        cat_batch_map = {r[0]: float(r[1]) for r in (await session.execute(cat_batch_stmt)).all() if r[0]}
-
-        cat_nb_stmt = (
-            select(
-                Product.category,
-                func.coalesce(func.sum(case((Product.stock > 0, Product.stock), else_=0)), 0).label("qty"),
-            )
-            .where(
-                Product.company_id == company_id,
-                Product.is_deleted == False,
-                ~Product.id.in_(
-                    select(ProductBatchStock.product_id).where(
-                        ProductBatchStock.company_id == company_id,
-                        ProductBatchStock.is_deleted == False,
-                    )
-                ),
-            )
-            .group_by(Product.category)
-        )
-        if store_location_id and store_location_id != "All Locations":
-            cat_nb_stmt = cat_nb_stmt.where(Product.branch_id == store_location_id)
-        cat_nb_map = {r[0]: float(r[1]) for r in (await session.execute(cat_nb_stmt)).all() if r[0]}
-
-        all_categories = sorted(set(list(cat_batch_map.keys()) + list(cat_nb_map.keys())))
-        cat_totals = []
-        for cat in all_categories:
-            tot = int(round(cat_batch_map.get(cat, 0.0) + cat_nb_map.get(cat, 0.0)))
-            if tot > 0:
-                cat_totals.append((cat, tot))
+        ).all()
+        category_totals: Dict[str, Decimal] = {}
+        for product_id, category in product_category_rows:
+            if category and product_id in stock_balances:
+                category_totals[category] = (
+                    category_totals.get(category, Decimal(0)) + stock_balances[product_id]
+                )
+        cat_totals = [
+            (category, int(round(float(quantity))))
+            for category, quantity in category_totals.items()
+            if quantity != 0
+        ]
         cat_totals.sort(key=lambda x: x[1], reverse=True)
 
         category_positions = [
@@ -633,9 +575,9 @@ class VisualReportsService:
 
         stmt_top_res = (
             select(
+                Product.id,
                 Product.sku,
                 Product.name,
-                func.coalesce(Product.stock, 0).label("on_hand"),
                 res_sub.c.reserved.label("reserved"),
             )
             .join(res_sub, res_sub.c.product_id == Product.id)
@@ -648,9 +590,9 @@ class VisualReportsService:
         if not top_res_rows:
             stmt_top_so = (
                 select(
+                    Product.id,
                     SalesOrderItem.code,
                     SalesOrderItem.name,
-                    func.coalesce(Product.stock, 0).label("on_hand"),
                     func.coalesce(func.sum(SalesOrderItem.pending_quantity), 0).label("reserved"),
                 )
                 .outerjoin(Product, SalesOrderItem.product_id == Product.id)
@@ -659,7 +601,7 @@ class VisualReportsService:
                     SalesOrderItem.is_deleted == False,
                     SalesOrderItem.pending_quantity > 0,
                 )
-                .group_by(SalesOrderItem.code, SalesOrderItem.name, Product.stock)
+                .group_by(Product.id, SalesOrderItem.code, SalesOrderItem.name)
                 .order_by(func.coalesce(func.sum(SalesOrderItem.pending_quantity), 0).desc())
                 .limit(10)
             )
@@ -668,11 +610,14 @@ class VisualReportsService:
         top_skus = [
             TopReservedSku(
                 rank=i + 1,
-                sku=r[0] or f"SKU-{i+1}",
-                product_name=r[1] or "Product",
-                on_hand=max(0, int(r[2])),
+                sku=r[1] or f"SKU-{i+1}",
+                product_name=r[2] or "Product",
+                on_hand=int(stock_balances.get(r[0], Decimal(0))),
                 reserved=int(r[3]),
-                reserved_pct=round((float(r[3]) / max(float(r[2]), float(r[3]), 1.0)) * 100, 1),
+                reserved_pct=round(
+                    (float(r[3]) / max(float(stock_balances.get(r[0], Decimal(0))), float(r[3]), 1.0)) * 100,
+                    1,
+                ),
             )
             for i, r in enumerate(top_res_rows)
         ]

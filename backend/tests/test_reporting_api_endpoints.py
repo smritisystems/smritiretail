@@ -79,9 +79,12 @@ async def test_get_report_studios_catalog_is_distinct_and_consistent():
     report_ids = [report["id"] for report in report_rows]
 
     assert len(studios) == 11
-    assert len(report_rows) == 60
+    assert len(report_rows) == 67
     assert len(report_ids) == len(set(report_ids))
     assert all(report["code"] == report["id"] for report in report_rows)
+    assert {
+        f"RPT-INV-{index:03d}" for index in range(1, 9)
+    }.issubset(set(report_ids))
 
 
 @pytest.mark.asyncio

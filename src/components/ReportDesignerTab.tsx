@@ -32,7 +32,7 @@ import {
   Maximize2, TableProperties, BarChart3, PieChart as PieIcon, LineChart as LineIcon,
   Hash, Calendar, RefreshCw, Check, ArrowLeft, ShieldAlert, X, AlertTriangle, Play, Square,
   Code, Terminal, FileSpreadsheet, ExternalLink, Sparkles, ShoppingBag, ArrowRight, TrendingUp,
-  FileText, SlidersHorizontal
+  FileText, SlidersHorizontal, Receipt, Coins, Truck, Boxes, CheckCircle2, Store
 } from "lucide-react";
 import { SalesOrderA4 } from "./templates/SalesOrderA4";
 import { SalesOrderMatrixEntry } from "./sales/SalesOrderMatrixEntry";
@@ -123,6 +123,107 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
   const [showTechnicalDetails, setShowTechnicalDetails] = useState<boolean>(false);
   const [lastRefreshedAt, setLastRefreshedAt] = useState<Date | null>(null);
 
+  // Standard Daily Retail Reports In-Report Filters & Views
+  const [reportSearchQuery, setReportSearchQuery] = useState<string>("");
+  const [salesViewMode, setSalesViewMode] = useState<"detailed" | "bill_summary">("detailed");
+  const [activeDatePreset, setActiveDatePreset] = useState<"today" | "yesterday" | "week" | "month" | "all" | "custom">("all");
+
+  // Single Store Default & Progressive Location Management
+  const [activeStoreName, setActiveStoreName] = useState<string>(() => {
+    return localStorage.getItem("smriti_branch_name") || "Main Store";
+  });
+  const [isLocationsManagementEnabled, setIsLocationsManagementEnabled] = useState<boolean>(() => {
+    return localStorage.getItem("smriti_locations_management_enabled") === "true";
+  });
+  const [selectedStoreScope, setSelectedStoreScope] = useState<string>("CURRENT_STORE");
+  const [availableBranches, setAvailableBranches] = useState<any[]>([]);
+
+  useEffect(() => {
+    const bName = localStorage.getItem("smriti_branch_name");
+    if (bName) setActiveStoreName(bName);
+    const locMgmt = localStorage.getItem("smriti_locations_management_enabled");
+    if (locMgmt === "true") {
+      setIsLocationsManagementEnabled(true);
+      apiFetchV1<any>("/branches")
+        .then((res: any) => {
+          if (Array.isArray(res)) {
+            setAvailableBranches(res);
+          } else if (res && Array.isArray(res.branches)) {
+            setAvailableBranches(res.branches);
+          }
+        })
+        .catch(() => {});
+    }
+  }, []);
+
+  const setDatePreset = (preset: "today" | "yesterday" | "week" | "month" | "all") => {
+    const today = new Date();
+    const formatDateStr = (d: Date) => d.toISOString().split("T")[0];
+    setActiveDatePreset(preset);
+    if (preset === "today") {
+      const dStr = formatDateStr(today);
+      setFilters((prev) => ({ ...prev, startDate: dStr, endDate: dStr }));
+    } else if (preset === "yesterday") {
+      const y = new Date(today);
+      y.setDate(y.getDate() - 1);
+      const yStr = formatDateStr(y);
+      setFilters((prev) => ({ ...prev, startDate: yStr, endDate: yStr }));
+    } else if (preset === "week") {
+      const w = new Date(today);
+      w.setDate(w.getDate() - 7);
+      setFilters((prev) => ({ ...prev, startDate: formatDateStr(w), endDate: formatDateStr(today) }));
+    } else if (preset === "month") {
+      const m = new Date(today.getFullYear(), today.getMonth(), 1);
+      setFilters((prev) => ({ ...prev, startDate: formatDateStr(m), endDate: formatDateStr(today) }));
+    } else if (preset === "all") {
+      setFilters((prev) => ({ ...prev, startDate: "2026-04-01", endDate: formatDateStr(today) }));
+    }
+  };
+
+  const handleLaunchStandardReport = (type: "sales_register" | "cashier_summary" | "purchase_register" | "stock_on_hand") => {
+    if (type === "sales_register") {
+      runReport({
+        id: "RPT-TAX-005",
+        code: "RPT-TAX-005",
+        title: "Daily Sales Register (Bill & Item Detail)",
+        category: "Sales Detail",
+        format: "Grid",
+        drillDownEnabled: true,
+        description: "Complete item-level sales register with Invoice No, Article No, Barcode, Size, Qty, Rate, Discount, GST & Net Total.",
+      });
+    } else if (type === "cashier_summary") {
+      runReport({
+        id: "RPT-SAL-001",
+        code: "RPT-SAL-001",
+        title: "Daily Cashier & Payment Summary Register",
+        category: "Sales Summary",
+        format: "Matrix",
+        drillDownEnabled: true,
+        description: "Daily cash, UPI / QR, card, and credit collections broken down by cashier shift.",
+      });
+    } else if (type === "purchase_register") {
+      runReport({
+        id: "RPT-PUR-001",
+        code: "RPT-PUR-001",
+        title: "Purchase Inward Register (GRN)",
+        category: "Purchase Summary",
+        format: "Grid",
+        drillDownEnabled: true,
+        description: "Supplier invoices, received stock quantities, landed costs, taxes, and outstanding vendor payables.",
+      });
+    } else if (type === "stock_on_hand") {
+      runReport({
+        id: "RPT-INV-001",
+        code: "RPT-INV-001",
+        title: "Current Stock on Hand & Valuation",
+        category: "Valuation",
+        format: "Grid",
+        drillDownEnabled: false,
+        description: "Live warehouse on-hand stock quantities by article, category, size, with cost and selling valuation.",
+      });
+    }
+  };
+
   // Drilldown breadcrumbs inside report viewer
   const [breadcrumbs, setBreadcrumbs] = useState<DrilldownBreadcrumb[]>([]);
   const [drillLevel, setDrillLevel] = useState<number>(0); // 0 = Summary, 1 = Document, 2 = Ledger
@@ -189,14 +290,175 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
     return { totalOutstanding, totalOrders, totalReceived, chartData };
   }, [purchaseReportData]);
 
+  // Unified normalized sales lines for RPT-TAX-005 and RPT-SAL-013
+  const normalizedSalesLines = useMemo(() => {
+    if (!genericReportData) return [];
+    if (Array.isArray(genericReportData.lines)) {
+      return genericReportData.lines.map((l: any, idx: number) => ({
+        key: `${l.invoice_number || "inv"}-${l.line_no || idx}`,
+        invoiceNo: l.invoice_number || "—",
+        invoiceDate: l.invoice_date || "—",
+        customerName: l.customer_name || "Walk-in Customer",
+        articleNo: l.product_code || l.sku_code || "—",
+        itemName: l.product_name || "—",
+        barcode: l.barcode || "—",
+        size: l.size_label || l.size || "Standard",
+        color: l.color || "—",
+        quantity: Number(l.quantity || 0),
+        rate: Number(l.unit_price || 0),
+        discount: Number(l.discount ?? l.discount_amount ?? 0),
+        gstRate: Number(l.gst_rate ?? l.tax_rate ?? 0),
+        taxAmount: Number(l.tax_amount || 0),
+        netTotal: Number(l.line_total ?? l.total_amount ?? l.net_amount ?? (Number(l.quantity || 0) * Number(l.unit_price || 0))),
+        paymentMode: l.payment_mode || "CASH",
+      }));
+    }
+    if (Array.isArray(genericReportData.bills)) {
+      const list: any[] = [];
+      genericReportData.bills.forEach((b: any) => {
+        (b.lines || []).forEach((l: any, idx: number) => {
+          list.push({
+            key: `${b.invoice_no || "inv"}-${l.line_no || idx}`,
+            invoiceNo: b.invoice_no || "—",
+            invoiceDate: b.date || "—",
+            customerName: b.customer_name || "Walk-in Customer",
+            articleNo: l.sku || l.product_id || "—",
+            itemName: l.product_name || "—",
+            barcode: l.barcode || "—",
+            size: l.size_label || "Standard",
+            color: l.color || "—",
+            quantity: Number(l.quantity || 0),
+            rate: Number(l.unit_price || l.mrp || 0),
+            discount: Number(l.discount_amount ?? l.discount ?? 0),
+            gstRate: Number(l.tax_rate ?? l.gst_rate ?? 0),
+            taxAmount: Number(l.tax_amount || 0),
+            netTotal: Number(l.net_amount ?? l.line_total ?? (Number(l.quantity || 0) * Number(l.unit_price || 0))),
+            paymentMode: b.payment_mode || "CASH",
+          });
+        });
+      });
+      return list;
+    }
+    if (Array.isArray(genericReportData)) {
+      return genericReportData.map((l: any, idx: number) => ({
+        key: `${l.invoice_no || l.invoice_number || "inv"}-${idx}`,
+        invoiceNo: l.invoice_no || l.invoice_number || "—",
+        invoiceDate: l.date || l.invoice_date || "—",
+        customerName: l.customer_name || "Walk-in Customer",
+        articleNo: l.product_code || l.sku || "—",
+        itemName: l.product_name || l.name || "—",
+        barcode: l.barcode || "—",
+        size: l.size_label || l.size || "Standard",
+        color: l.color || "—",
+        quantity: Number(l.quantity || 0),
+        rate: Number(l.unit_price || l.rate || 0),
+        discount: Number(l.discount ?? l.discount_amount ?? 0),
+        gstRate: Number(l.gst_rate ?? l.tax_rate ?? 0),
+        taxAmount: Number(l.tax_amount || 0),
+        netTotal: Number(l.line_total ?? l.net_amount ?? l.total_amount ?? 0),
+        paymentMode: l.payment_mode || "CASH",
+      }));
+    }
+    return [];
+  }, [genericReportData]);
+
+  const filteredSalesLines = useMemo(() => {
+    if (!reportSearchQuery.trim()) return normalizedSalesLines;
+    const q = reportSearchQuery.toLowerCase().trim();
+    return normalizedSalesLines.filter((l: any) =>
+      l.invoiceNo.toLowerCase().includes(q) ||
+      l.articleNo.toLowerCase().includes(q) ||
+      l.itemName.toLowerCase().includes(q) ||
+      l.barcode.toLowerCase().includes(q) ||
+      l.size.toLowerCase().includes(q) ||
+      l.customerName.toLowerCase().includes(q) ||
+      l.paymentMode.toLowerCase().includes(q)
+    );
+  }, [normalizedSalesLines, reportSearchQuery]);
+
+  const salesRegisterTotals = useMemo(() => {
+    const totalBills = new Set(filteredSalesLines.map((i: any) => i.invoiceNo)).size;
+    const totalQuantity = filteredSalesLines.reduce((acc: number, i: any) => acc + i.quantity, 0);
+    const totalDiscount = filteredSalesLines.reduce((acc: number, i: any) => acc + i.discount, 0);
+    const totalTax = filteredSalesLines.reduce((acc: number, i: any) => acc + i.taxAmount, 0);
+    const totalNet = filteredSalesLines.reduce((acc: number, i: any) => acc + i.netTotal, 0);
+    return { totalBills, totalQuantity, totalDiscount, totalTax, totalNet };
+  }, [filteredSalesLines]);
+
+  const billSummaryList = useMemo(() => {
+    const map = new Map<string, any>();
+    filteredSalesLines.forEach((item: any) => {
+      if (!map.has(item.invoiceNo)) {
+        map.set(item.invoiceNo, {
+          invoiceNo: item.invoiceNo,
+          invoiceDate: item.invoiceDate,
+          customerName: item.customerName,
+          paymentMode: item.paymentMode,
+          itemsCount: 0,
+          totalQuantity: 0,
+          totalDiscount: 0,
+          totalTax: 0,
+          netTotal: 0,
+        });
+      }
+      const b = map.get(item.invoiceNo)!;
+      b.itemsCount += 1;
+      b.totalQuantity += item.quantity;
+      b.totalDiscount += item.discount;
+      b.totalTax += item.taxAmount;
+      b.netTotal += item.netTotal;
+    });
+    return Array.from(map.values());
+  }, [filteredSalesLines]);
+
+  // Stock Balance lines for RPT-INV-001
+  const stockBalanceLines = useMemo(() => {
+    if (!genericReportData) return [];
+    const raw = Array.isArray(genericReportData)
+      ? genericReportData
+      : (genericReportData.lines || genericReportData.items || []);
+    return raw.map((r: any, idx: number) => ({
+      key: r.product_id || r.product_code || String(idx),
+      articleNo: r.product_code || r.sku || "—",
+      productName: r.product_name || r.name || "—",
+      category: r.category || "General",
+      onHand: Number(r.on_hand || 0),
+      avgCost: Number(r.avg_cost || 0),
+      stockValue: Number(r.stock_value || (Number(r.on_hand || 0) * Number(r.avg_cost || 0))),
+      status: r.status || (Number(r.on_hand || 0) <= Number(r.min_level || 0) ? "LOW" : "OK"),
+      minLevel: Number(r.min_level || 0),
+      reorderLevel: Number(r.reorder_level || 0),
+    }));
+  }, [genericReportData]);
+
+  const filteredStockLines = useMemo(() => {
+    if (!reportSearchQuery.trim()) return stockBalanceLines;
+    const q = reportSearchQuery.toLowerCase().trim();
+    return stockBalanceLines.filter((s: any) =>
+      s.articleNo.toLowerCase().includes(q) ||
+      s.productName.toLowerCase().includes(q) ||
+      s.category.toLowerCase().includes(q)
+    );
+  }, [stockBalanceLines, reportSearchQuery]);
+
+  const stockTotals = useMemo(() => {
+    const totalArticles = filteredStockLines.length;
+    const totalQty = filteredStockLines.reduce((acc: number, s: any) => acc + s.onHand, 0);
+    const totalValuation = filteredStockLines.reduce((acc: number, s: any) => acc + s.stockValue, 0);
+    const lowStockCount = filteredStockLines.filter((s: any) => s.status === "LOW").length;
+    return { totalArticles, totalQty, totalValuation, lowStockCount };
+  }, [filteredStockLines]);
+
   useEffect(() => {
     async function loadReportsData() {
       if (!selectedReport) return;
       setLoadingReports(true);
+      setGenericReportData(null);
       const params = `?from_date=${filters.startDate}&to_date=${filters.endDate}`;
       try {
         if (selectedReport.id === "RPT-SAL-001") {
-          const data = await apiFetchV1(`/reports/daily-sales?report_date=${filters.startDate}`);
+          const reportDateParam = filters.startDate === filters.endDate ? `?report_date=${filters.startDate}` : "";
+          const data = await apiFetchV1(`/reports/daily-sales${reportDateParam}`);
           setSalesReportData(data);
 
           const valData = await apiFetchV1("/reports/stock-valuation");
@@ -224,6 +486,30 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
         } else if (selectedReport.id === "RPT-PUR-007") {
           const data = await apiFetchV1("/reports/rfq-quotation-register");
           setGenericReportData(Array.isArray(data) ? data : []);
+        } else if (selectedReport.id === "RPT-INV-001") {
+          const data = await apiFetchV1("/inventory-reports/balance?zero_stock=true");
+          setGenericReportData(data);
+        } else if (selectedReport.id === "RPT-INV-002") {
+          const data = await apiFetchV1(`/inventory-reports/movement${params}`);
+          setGenericReportData(data);
+        } else if (selectedReport.id === "RPT-INV-003") {
+          const data = await apiFetchV1("/inventory-reports/availability");
+          setGenericReportData(data);
+        } else if (selectedReport.id === "RPT-INV-004") {
+          const data = await apiFetchV1(`/inventory-reports/aging?as_on_date=${filters.endDate}`);
+          setGenericReportData(data);
+        } else if (selectedReport.id === "RPT-INV-005") {
+          const data = await apiFetchV1(`/inventory-reports/goods-register${params}`);
+          setGenericReportData({ ...data, lines: data.documents ?? [] });
+        } else if (selectedReport.id === "RPT-INV-006") {
+          const data = await apiFetchV1(`/inventory-reports/goods-register-item${params}`);
+          setGenericReportData(data);
+        } else if (selectedReport.id === "RPT-INV-007") {
+          const data = await apiFetchV1(`/inventory-reports/returns${params}`);
+          setGenericReportData(data);
+        } else if (selectedReport.id === "RPT-INV-008") {
+          const data = await apiFetchV1(`/inventory-reports/adjustments${params}`);
+          setGenericReportData(data);
         } else if (selectedReport.id === "RPT-TAX-001") {
           const data = await apiFetchV1(`/reports/tax-register${params}`);
           setGenericReportData(data);
@@ -236,9 +522,19 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
         } else if (selectedReport.id === "RPT-TAX-004") {
           const data = await apiFetchV1(`/reports/cancelled-bills${params}`);
           setGenericReportData(data);
-        } else if (selectedReport.id === "RPT-TAX-005") {
-          const data = await apiFetchV1(`/reports/bill-wise-items${params}`);
-          setGenericReportData(data);
+        } else if (selectedReport.id === "RPT-TAX-005" || selectedReport.id === "RPT-SAL-013") {
+          try {
+            const data = await apiFetchV1(`/reports/bill-wise-items${params}`);
+            if (data?.lines && data.lines.length > 0) {
+              setGenericReportData(data);
+            } else {
+              const liveData = await apiFetchV1(`/sales-reports/bill-items-live${params}`);
+              setGenericReportData(liveData);
+            }
+          } catch {
+            const liveData = await apiFetchV1(`/sales-reports/bill-items-live${params}`);
+            setGenericReportData(liveData);
+          }
         } else if (selectedReport.id === "RPT-MIS-005") {
           const data = await apiFetchV1(`/reports/salesperson-discount${params}`);
           setGenericReportData(data);
@@ -330,6 +626,11 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
         }
       } catch (err) {
         console.error("Failed to load reports from FastAPI:", err);
+        setGenericReportData(null);
+        showNotification(
+          "error",
+          `Unable to load ${selectedReport.title}. Please retry or contact an administrator.`
+        );
       } finally {
         setLoadingReports(false);
         setLastRefreshedAt(new Date());
@@ -1029,21 +1330,136 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
       </div>
 
       {activeView === "bi_center" && (
-        <div className="bg-theme-surface-1 border border-theme-border rounded-xl px-4 py-3 shadow-xs flex flex-col xl:flex-row xl:items-center gap-3">
-          <div className="flex items-center gap-2 text-xs font-bold text-theme-body whitespace-nowrap">
-            <Filter size={14} className="text-theme-primary" />
-            Reporting scope
+        <div className="bg-theme-surface-1 border border-theme-border rounded-xl px-4 py-3 shadow-xs flex flex-col xl:flex-row xl:items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex items-center gap-1.5 text-xs font-bold text-theme-body whitespace-nowrap mr-1">
+              <Calendar size={14} className="text-theme-primary" />
+              <span>Reporting Period</span>
+            </div>
+            {/* Quick 1-Click Presets */}
+            <div className="flex items-center gap-1 bg-theme-surface-2 p-1 rounded-lg border border-theme-border text-xs font-semibold">
+              <button
+                type="button"
+                onClick={() => setDatePreset("today")}
+                className={`px-2.5 py-1 rounded-md transition-colors ${
+                  activeDatePreset === "today"
+                    ? "bg-theme-primary text-white font-bold shadow-xs"
+                    : "text-theme-muted hover:text-theme-body"
+                }`}
+              >
+                Today
+              </button>
+              <button
+                type="button"
+                onClick={() => setDatePreset("yesterday")}
+                className={`px-2.5 py-1 rounded-md transition-colors ${
+                  activeDatePreset === "yesterday"
+                    ? "bg-theme-primary text-white font-bold shadow-xs"
+                    : "text-theme-muted hover:text-theme-body"
+                }`}
+              >
+                Yesterday
+              </button>
+              <button
+                type="button"
+                onClick={() => setDatePreset("week")}
+                className={`px-2.5 py-1 rounded-md transition-colors ${
+                  activeDatePreset === "week"
+                    ? "bg-theme-primary text-white font-bold shadow-xs"
+                    : "text-theme-muted hover:text-theme-body"
+                }`}
+              >
+                This Week
+              </button>
+              <button
+                type="button"
+                onClick={() => setDatePreset("month")}
+                className={`px-2.5 py-1 rounded-md transition-colors ${
+                  activeDatePreset === "month"
+                    ? "bg-theme-primary text-white font-bold shadow-xs"
+                    : "text-theme-muted hover:text-theme-body"
+                }`}
+              >
+                This Month
+              </button>
+              <button
+                type="button"
+                onClick={() => setDatePreset("all")}
+                className={`px-2.5 py-1 rounded-md transition-colors ${
+                  activeDatePreset === "all"
+                    ? "bg-theme-primary text-white font-bold shadow-xs"
+                    : "text-theme-muted hover:text-theme-body"
+                }`}
+              >
+                FY 2026-27
+              </button>
+            </div>
+
+            {/* Store Scope: Default Single Store vs Conditional Multi-Location Switcher */}
+            {!isLocationsManagementEnabled ? (
+              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-theme-surface-2 border border-theme-border text-xs">
+                <Store size={13} className="text-blue-500 shrink-0" />
+                <span className="font-semibold text-theme-body truncate max-w-[140px]">{activeStoreName}</span>
+                <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 uppercase font-mono">
+                  Single Store
+                </span>
+              </div>
+            ) : (
+              <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-theme-surface-2 border border-blue-500/40 text-xs">
+                <Store size={13} className="text-blue-500 shrink-0" />
+                <select
+                  value={selectedStoreScope}
+                  onChange={(e) => setSelectedStoreScope(e.target.value)}
+                  className="bg-transparent text-theme-body font-bold text-xs focus:outline-none cursor-pointer"
+                >
+                  <option value="CURRENT_STORE">📍 {activeStoreName} (This Outlet)</option>
+                  {availableBranches.map((b: any) => (
+                    <option key={b.id} value={b.id}>🏢 {b.name} ({b.code})</option>
+                  ))}
+                  <option value="ALL_STORES_CONSOLIDATED">🌐 All Stores (Consolidated)</option>
+                </select>
+              </div>
+            )}
           </div>
+
           <div className="flex flex-wrap items-center gap-2 text-xs">
-            <label className="flex items-center gap-2 text-theme-muted">
-              From
-              <input type="date" value={filters.startDate} onChange={(e) => setFilters({ ...filters, startDate: e.target.value })} className="bg-theme-surface-2 border border-theme-border rounded-lg px-2 py-1.5 text-theme-body focus:outline-none focus:border-theme-primary" />
+            <label className="flex items-center gap-1.5 text-theme-muted">
+              <span>From</span>
+              <input
+                type="date"
+                value={filters.startDate}
+                onChange={(e) => {
+                  setActiveDatePreset("custom");
+                  setFilters({ ...filters, startDate: e.target.value });
+                }}
+                className="bg-theme-surface-2 border border-theme-border rounded-lg px-2 py-1 text-theme-body focus:outline-none focus:border-theme-primary font-mono"
+              />
             </label>
-            <label className="flex items-center gap-2 text-theme-muted">
-              To
-              <input type="date" value={filters.endDate} onChange={(e) => setFilters({ ...filters, endDate: e.target.value })} className="bg-theme-surface-2 border border-theme-border rounded-lg px-2 py-1.5 text-theme-body focus:outline-none focus:border-theme-primary" />
+            <label className="flex items-center gap-1.5 text-theme-muted">
+              <span>To</span>
+              <input
+                type="date"
+                value={filters.endDate}
+                onChange={(e) => {
+                  setActiveDatePreset("custom");
+                  setFilters({ ...filters, endDate: e.target.value });
+                }}
+                className="bg-theme-surface-2 border border-theme-border rounded-lg px-2 py-1 text-theme-body focus:outline-none focus:border-theme-primary font-mono"
+              />
             </label>
-            <button type="button" onClick={() => setFilters({ startDate: new Date().toISOString().split("T")[0], endDate: new Date().toISOString().split("T")[0], productGroup: "All", paymentMode: "All" })} className="px-2.5 py-1.5 text-theme-muted hover:text-theme-body border border-theme-border rounded-lg bg-theme-surface-2 hover:bg-theme-surface-hover font-semibold transition-colors cursor-pointer">
+            <button
+              type="button"
+              onClick={() => {
+                setDatePreset("all");
+                setFilters({
+                  startDate: "2026-04-01",
+                  endDate: new Date().toISOString().split("T")[0],
+                  productGroup: "All",
+                  paymentMode: "All",
+                });
+              }}
+              className="px-2.5 py-1 text-theme-muted hover:text-theme-body border border-theme-border rounded-lg bg-theme-surface-2 hover:bg-theme-surface-hover font-semibold transition-colors cursor-pointer"
+            >
               Reset
             </button>
           </div>
@@ -1060,6 +1476,152 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
               </div>
             ) : (
               <>
+                {/* 🌟 STANDARD DAILY RETAIL REPORTS HERO DASHBOARD */}
+                <div className="bg-gradient-to-r from-theme-surface-1 via-theme-surface-2 to-theme-surface-1 border border-theme-border rounded-2xl p-5 shadow-xs space-y-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-theme-divider pb-3">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="material-symbols-outlined text-theme-primary text-xl">star</span>
+                        <h2 className="text-sm font-bold uppercase tracking-wider text-theme-body font-mono">
+                          Standard Daily Retail Reports
+                        </h2>
+                        <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 uppercase font-mono">
+                          Core ERP
+                        </span>
+                      </div>
+                      <p className="text-xs text-theme-muted mt-0.5">
+                        Essential daily transaction registers used by retail store managers, cashiers, and accountants.
+                      </p>
+                    </div>
+                    {/* Store Scope Badge in Hero Dashboard */}
+                    <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-theme-surface-1 border border-theme-border text-xs">
+                        <Store size={14} className="text-blue-500 shrink-0" />
+                        <span className="font-bold text-theme-body font-mono">{activeStoreName}</span>
+                        {!isLocationsManagementEnabled ? (
+                          <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 uppercase font-mono">
+                            Single Store Mode
+                          </span>
+                        ) : (
+                          <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-600 border border-blue-500/20 uppercase font-mono">
+                            Multi-Location
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+                    {/* Card 1: Daily Sales Register */}
+                    <div
+                      onClick={() => handleLaunchStandardReport("sales_register")}
+                      className="group bg-theme-surface-1 hover:bg-theme-surface-2 border border-theme-border hover:border-blue-500/50 rounded-xl p-4 transition-all duration-200 cursor-pointer shadow-xs hover:shadow-md flex flex-col justify-between"
+                    >
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <div className="w-8 h-8 rounded-lg bg-blue-500/10 text-blue-600 flex items-center justify-center">
+                            <Receipt size={17} />
+                          </div>
+                          <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-600 font-mono">
+                            DAILY POS
+                          </span>
+                        </div>
+                        <h3 className="text-xs font-bold text-theme-body group-hover:text-blue-500 transition-colors">
+                          Daily Sales Register
+                        </h3>
+                        <p className="text-[11px] text-theme-muted line-clamp-2 leading-relaxed">
+                          Line-item breakdown: Invoice #, Article No, Barcode, Size, Qty, Rate, Discount, GST & Net ₹.
+                        </p>
+                      </div>
+                      <div className="mt-3.5 pt-2.5 border-t border-theme-divider/60 flex items-center justify-between text-[11px] font-semibold text-blue-500">
+                        <span>Open Sales Register</span>
+                        <ArrowRight size={13} className="group-hover:translate-x-1 transition-transform" />
+                      </div>
+                    </div>
+
+                    {/* Card 2: Cashier & Payment Summary */}
+                    <div
+                      onClick={() => handleLaunchStandardReport("cashier_summary")}
+                      className="group bg-theme-surface-1 hover:bg-theme-surface-2 border border-theme-border hover:border-emerald-500/50 rounded-xl p-4 transition-all duration-200 cursor-pointer shadow-xs hover:shadow-md flex flex-col justify-between"
+                    >
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <div className="w-8 h-8 rounded-lg bg-emerald-500/10 text-emerald-600 flex items-center justify-center">
+                            <Coins size={17} />
+                          </div>
+                          <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-600 font-mono">
+                            CASH CLOSING
+                          </span>
+                        </div>
+                        <h3 className="text-xs font-bold text-theme-body group-hover:text-emerald-500 transition-colors">
+                          Cashier & Tender Summary
+                        </h3>
+                        <p className="text-[11px] text-theme-muted line-clamp-2 leading-relaxed">
+                          Daily cash, UPI / QR, credit card, and customer credit collections broken down by shift.
+                        </p>
+                      </div>
+                      <div className="mt-3.5 pt-2.5 border-t border-theme-divider/60 flex items-center justify-between text-[11px] font-semibold text-emerald-500">
+                        <span>Open Cash Summary</span>
+                        <ArrowRight size={13} className="group-hover:translate-x-1 transition-transform" />
+                      </div>
+                    </div>
+
+                    {/* Card 3: Purchase Inward Register */}
+                    <div
+                      onClick={() => handleLaunchStandardReport("purchase_register")}
+                      className="group bg-theme-surface-1 hover:bg-theme-surface-2 border border-theme-border hover:border-amber-500/50 rounded-xl p-4 transition-all duration-200 cursor-pointer shadow-xs hover:shadow-md flex flex-col justify-between"
+                    >
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <div className="w-8 h-8 rounded-lg bg-amber-500/10 text-amber-600 flex items-center justify-center">
+                            <Truck size={17} />
+                          </div>
+                          <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-600 font-mono">
+                            GOODS INWARD
+                          </span>
+                        </div>
+                        <h3 className="text-xs font-bold text-theme-body group-hover:text-amber-500 transition-colors">
+                          Purchase Inward Register
+                        </h3>
+                        <p className="text-[11px] text-theme-muted line-clamp-2 leading-relaxed">
+                          Supplier invoices, received stock quantities, landed costs, taxes, and vendor payables.
+                        </p>
+                      </div>
+                      <div className="mt-3.5 pt-2.5 border-t border-theme-divider/60 flex items-center justify-between text-[11px] font-semibold text-amber-500">
+                        <span>Open Inward Register</span>
+                        <ArrowRight size={13} className="group-hover:translate-x-1 transition-transform" />
+                      </div>
+                    </div>
+
+                    {/* Card 4: Current Stock on Hand */}
+                    <div
+                      onClick={() => handleLaunchStandardReport("stock_on_hand")}
+                      className="group bg-theme-surface-1 hover:bg-theme-surface-2 border border-theme-border hover:border-purple-500/50 rounded-xl p-4 transition-all duration-200 cursor-pointer shadow-xs hover:shadow-md flex flex-col justify-between"
+                    >
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <div className="w-8 h-8 rounded-lg bg-purple-500/10 text-purple-600 flex items-center justify-center">
+                            <Boxes size={17} />
+                          </div>
+                          <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-purple-500/10 text-purple-600 font-mono">
+                            STOCK VALUATION
+                          </span>
+                        </div>
+                        <h3 className="text-xs font-bold text-theme-body group-hover:text-purple-500 transition-colors">
+                          Current Stock on Hand
+                        </h3>
+                        <p className="text-[11px] text-theme-muted line-clamp-2 leading-relaxed">
+                          Live warehouse stock balance by article, category, size, with unit cost and total valuation.
+                        </p>
+                      </div>
+                      <div className="mt-3.5 pt-2.5 border-t border-theme-divider/60 flex items-center justify-between text-[11px] font-semibold text-purple-500">
+                        <span>Open Stock Valuation</span>
+                        <ArrowRight size={13} className="group-hover:translate-x-1 transition-transform" />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
                 {/* Active Studio Details Card */}
                 <div className="bg-theme-surface-1 border border-theme-border rounded-xl p-5 shadow-xs relative">
                   <div className="flex items-center gap-2.5 mb-1">
@@ -1067,7 +1629,7 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
                       {activeBusinessArea?.icon}
                     </span>
                     <h3 className="text-base font-bold text-theme-body tracking-tight">
-                      {activeBusinessArea?.label} Reports
+                      {activeStudio === "all_reports" ? "All Reports" : `${activeBusinessArea?.label} Reports`}
                     </h3>
                   </div>
                   <p className="text-xs text-theme-muted font-mono">
@@ -1632,161 +2194,112 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
           {/* Render Actual Data Table with Drill-down responses */}
           <div className="bg-theme-surface-1 border border-theme-divider rounded-2xl shadow-xl overflow-hidden">
 
-            {/* Sales Summary Studio Reports */}
+            {/* RPT-SAL-001: Daily Cashier & Payment Summary Register */}
             {selectedReport.id === "RPT-SAL-001" && (
-              <>
-                {drillLevel === 0 && (
-                  <div className="overflow-x-auto text-xs">
-                    <table className="w-full text-left">
-                      <thead>
-                        <tr className="bg-theme-surface-3/50 text-theme-muted uppercase font-mono border-b border-theme-divider">
-                          <th className="px-5 py-3">Category Group</th>
-                          <th className="px-5 py-3 text-right">Invoice count</th>
-                          <th className="px-5 py-3 text-right">Avg Item Ticket</th>
-                          <th className="px-5 py-3 text-right">Tax Collected (GST)</th>
-                          <th className="px-5 py-3 text-right">Total Aggregate (INR)</th>
-                          <th className="px-5 py-3 text-right">Action</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {(!salesReportData || !salesReportData.total_invoices || salesReportData.total_invoices === 0) ? (
-                          <tr>
-                            <td colSpan={6} className="p-8 text-center text-theme-muted font-mono">
-                              <div className="flex flex-col items-center justify-center space-y-1.5">
-                                <span className="text-xs font-semibold text-theme-body">
-                                  No invoices found for {filters.startDate ? formatDate(filters.startDate) : "26 Aug 2026"}
-                                </span>
-                                <span className="text-[11px] text-theme-muted">
-                                  Adjust the date filter or register new sales transactions to populate this report.
-                                </span>
-                              </div>
-                            </td>
-                          </tr>
-                        ) : (
-                          [
-                            { cat: "Completed Sales", count: salesReportData.total_invoices, avg: `₹${Math.round(parseFloat(salesReportData.total_sales) / salesReportData.total_invoices).toLocaleString('en-IN')}`, tax: `₹${Math.round(parseFloat(salesReportData.tax_total)).toLocaleString('en-IN')}`, total: `₹${Math.round(parseFloat(salesReportData.total_sales)).toLocaleString('en-IN')}`, id: "Completed Sales" }
-                          ].map((row) => (
-                            <tr key={row.id} className="border-b border-theme-divider/40 hover:bg-theme-surface-hover">
-                              <td className="px-5 py-3.5 font-bold text-blue-400">{row.cat} Group</td>
-                              <td className="px-5 py-3.5 text-right font-mono text-theme-body">{row.count} Receipts</td>
-                              <td className="px-5 py-3.5 text-right font-mono text-theme-body">{row.avg}</td>
-                              <td className="px-5 py-3.5 text-right font-mono text-emerald-400">{row.tax}</td>
-                              <td className="px-5 py-3.5 text-right font-mono font-bold text-theme-body">{row.total}</td>
-                              <td className="px-5 py-3.5 text-right">
-                                <button
-                                  onClick={() => performDrilldown(1, row.id, `Drill: ${row.cat}`)}
-                                  className="px-2.5 py-1 bg-theme-surface-3 hover:bg-blue-600/10 hover:text-blue-400 text-theme-muted border border-theme-divider rounded-md font-bold text-[10px] transition-colors cursor-pointer"
-                                >
-                                  Drill Transactions
-                                </button>
-                              </td>
-                            </tr>
-                          ))
-                        )}
-                      </tbody>
-                    </table>
+              <div className="p-4 space-y-4">
+                {/* 4 Payment Tender KPI Cards */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  <div className="p-3 bg-theme-surface-2 border border-theme-divider rounded-xl">
+                    <span className="text-[10px] uppercase font-bold text-theme-muted font-mono">💵 CASH IN HAND</span>
+                    <p className="text-lg font-black text-emerald-500 mt-0.5">
+                      ₹{Number(salesReportData?.cash_sales || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </p>
+                    <p className="text-[10px] text-theme-muted mt-0.5 font-mono">Physical cash drawer</p>
                   </div>
-                )}
+                  <div className="p-3 bg-theme-surface-2 border border-theme-divider rounded-xl">
+                    <span className="text-[10px] uppercase font-bold text-theme-muted font-mono">📱 UPI / QR ONLINE</span>
+                    <p className="text-lg font-black text-purple-500 mt-0.5">
+                      ₹{Number(salesReportData?.upi_sales || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </p>
+                    <p className="text-[10px] text-theme-muted mt-0.5 font-mono">Instant digital settlement</p>
+                  </div>
+                  <div className="p-3 bg-theme-surface-2 border border-theme-divider rounded-xl">
+                    <span className="text-[10px] uppercase font-bold text-theme-muted font-mono">💳 CARD (DEBIT / CREDIT)</span>
+                    <p className="text-lg font-black text-blue-500 mt-0.5">
+                      ₹{Number(salesReportData?.card_sales || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </p>
+                    <p className="text-[10px] text-theme-muted mt-0.5 font-mono">EDC machine batches</p>
+                  </div>
+                  <div className="p-3 bg-theme-surface-2 border border-theme-divider rounded-xl">
+                    <span className="text-[10px] uppercase font-bold text-theme-muted font-mono">📒 CUSTOMER CREDIT / DUE</span>
+                    <p className="text-lg font-black text-amber-500 mt-0.5">
+                      ₹{Number(salesReportData?.credit_sales || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </p>
+                    <p className="text-[10px] text-theme-muted mt-0.5 font-mono">Khata / account receivable</p>
+                  </div>
+                </div>
 
-                {drillLevel === 1 && (
-                  <div className="overflow-x-auto text-xs">
-                    <div className="px-5 py-2.5 bg-theme-surface-2 border-b border-theme-divider flex items-center justify-between text-xs text-theme-muted font-semibold">
-                      <span>DOCUMENTS FILTERED BY CATEGORY: {drillFilter.toUpperCase()}</span>
-                      <span className="font-mono text-[10px]">2 records resolved</span>
+                {/* Banner & Total Collections Action Bar */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-gradient-to-r from-theme-surface-2 via-theme-surface-1 to-theme-surface-2 p-4 rounded-xl border border-theme-divider">
+                  <div className="space-y-0.5">
+                    <div className="text-xs font-bold text-theme-body flex items-center gap-2">
+                      <span className="text-[10px] px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 font-mono font-bold">
+                        VERIFIED TOTAL
+                      </span>
+                      <span>Total Net Collections: ₹{Number(salesReportData?.total_sales || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                     </div>
-                    <table className="w-full text-left">
-                      <thead>
-                        <tr className="bg-theme-surface-3/50 text-theme-muted uppercase font-mono border-b border-theme-divider">
-                          <th className="px-5 py-3">Invoice ID</th>
-                          <th className="px-5 py-3">Customer Entity</th>
-                          <th className="px-5 py-3">POS Counter / Shift</th>
-                          <th className="px-5 py-3">Payment Mode</th>
-                          <th className="px-5 py-3 text-right">Invoice Value</th>
-                          <th className="px-5 py-3 text-right">Drill Ledger</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {[
-                          { id: "INV-001", customer: "Rajesh Kumar (Wholesale)", counter: "Counter #01 - Morning Shift", mode: "UPI", val: salesReportData ? `₹${Math.round(parseFloat(salesReportData.upi_sales) * 0.6).toLocaleString('en-IN')}` : "₹12,450" },
-                          { id: "INV-002", customer: "Anita Sharma (Retail)", counter: "Counter #02 - Evening Shift", mode: "Card", val: salesReportData ? `₹${Math.round(parseFloat(salesReportData.card_sales) * 0.4).toLocaleString('en-IN')}` : "₹4,250" }
-                        ].map((row) => (
-                          <tr key={row.id} className="border-b border-theme-divider/40 hover:bg-theme-surface-hover">
-                            <td className="px-5 py-3.5 font-mono font-bold text-blue-400">{row.id}</td>
-                            <td className="px-5 py-3.5 font-bold text-theme-body">{row.customer}</td>
-                            <td className="px-5 py-3.5 text-theme-muted">{row.counter}</td>
-                            <td className="px-5 py-3.5">
-                              <span className="px-2 py-0.5 rounded text-[9px] uppercase font-bold tracking-wider bg-theme-surface-3 text-blue-400 border border-theme-divider">
-                                {row.mode}
-                              </span>
-                            </td>
-                            <td className="px-5 py-3.5 text-right font-mono font-bold text-emerald-400">{row.val}</td>
-                            <td className="px-5 py-3.5 text-right">
-                              <button
-                                onClick={() => performDrilldown(2, row.id, `Items: ${row.id}`)}
-                                className="px-2.5 py-1 bg-theme-surface-3 hover:bg-blue-600/10 hover:text-blue-400 text-theme-muted border border-theme-divider rounded-md font-bold text-[10px] transition-colors"
-                              >
-                                View Item Ledger
-                              </button>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                    <p className="text-[11px] text-theme-muted">
+                      Across {salesReportData?.total_invoices || 0} completed invoices (Tax Collected GST: ₹{Number(salesReportData?.tax_total || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })})
+                    </p>
                   </div>
-                )}
 
-                {drillLevel === 2 && (
-                  <div className="overflow-x-auto text-xs">
-                    <div className="px-5 py-2.5 bg-theme-surface-2 border-b border-theme-divider flex items-center justify-between text-xs text-theme-muted font-semibold">
-                      <span>ITEMIZED SKU LEDGER DIVISION: {drillFilter.toUpperCase()}</span>
-                      <span className="font-mono text-[10px]">Rule 10 Verified Audit ID: {Math.floor(100000 + Math.random() * 900000)}</span>
-                    </div>
-                    <table className="w-full text-left">
-                      <thead>
-                        <tr className="bg-theme-surface-3/50 text-theme-muted uppercase font-mono border-b border-theme-divider">
-                          {isFieldGloballyVisible("name") && <th className="px-5 py-3">Product Name</th>}
-                          {isFieldGloballyVisible("code") && <th className="px-5 py-3">Stock No / SKU</th>}
-                          {isFieldGloballyVisible("styleCode") && <th className="px-5 py-3">Style Code</th>}
-                          <th className="px-5 py-3 text-right">Quantity</th>
-                          {isFieldGloballyVisible("price") && <th className="px-5 py-3 text-right">Base Price</th>}
-                          {isFieldGloballyVisible("gst_percentage") && <th className="px-5 py-3 text-right">GST %</th>}
-                          <th className="px-5 py-3 text-right">Tax Value</th>
-                          <th className="px-5 py-3 text-right">Gross Total (INR)</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {(stockValuationData && stockValuationData.lines.length > 0
-                          ? stockValuationData.lines.map((line: any) => ({
-                              name: line.name,
-                              code: line.code,
-                              styleCode: line.style_code || "—",
-                              qty: parseInt(line.stock),
-                              base: `₹${parseFloat(line.cost_price).toFixed(0)}`,
-                              gst: "18%",
-                              tax: `₹${(parseFloat(line.stock_value) * 0.18).toFixed(0)}`,
-                              gross: `₹${(parseFloat(line.stock_value) * 1.18).toFixed(0)}`
-                            }))
-                          : [
-                              { name: "SMRITI Classic Cotton T-Shirt", code: "TSH-COT-N-M", styleCode: "TSH-01", qty: 4, base: "₹677.12", gst: "18%", tax: "₹487.52", gross: "₹3,196" },
-                              { name: "SMRITI Heritage Hoodie", code: "SMR-HD-CH-L", styleCode: "HD-02", qty: 2, base: "₹2,117.80", gst: "18%", tax: "₹762.40", gross: "₹4,998" }
-                            ]
-                        ).map((row: any, i: number) => (
-                          <tr key={i} className="border-b border-theme-divider/40 hover:bg-theme-surface-hover">
-                            {isFieldGloballyVisible("name") && <td className="px-5 py-3.5 font-bold text-theme-body">{row.name}</td>}
-                            {isFieldGloballyVisible("code") && <td className="px-5 py-3.5 font-mono text-blue-400">{row.code}</td>}
-                            {isFieldGloballyVisible("styleCode") && <td className="px-5 py-3.5 font-mono text-theme-muted">{row.styleCode}</td>}
-                            <td className="px-5 py-3.5 text-right font-mono text-theme-body">{row.qty} Units</td>
-                            {isFieldGloballyVisible("price") && <td className="px-5 py-3.5 text-right font-mono text-theme-body">{row.base}</td>}
-                            {isFieldGloballyVisible("gst_percentage") && <td className="px-5 py-3.5 text-right font-mono text-theme-muted">{row.gst}</td>}
-                            <td className="px-5 py-3.5 text-right font-mono text-rose-400">{row.tax}</td>
-                            <td className="px-5 py-3.5 text-right font-mono font-bold text-emerald-400">{row.gross}</td>
+                  <button
+                    type="button"
+                    onClick={() => handleLaunchStandardReport("sales_register")}
+                    className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer self-start sm:self-auto"
+                  >
+                    <Receipt size={14} />
+                    <span>View Bill-Wise Line Items</span>
+                    <ArrowRight size={13} />
+                  </button>
+                </div>
+
+                {/* Tender Breakdown Table */}
+                <div className="overflow-x-auto border border-theme-divider rounded-xl">
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead className="bg-theme-surface-2 text-theme-muted border-b border-theme-divider uppercase text-[10px] font-mono tracking-wider font-bold">
+                      <tr>
+                        <th className="p-3">Tender Mode</th>
+                        <th className="p-3">Settlement Type</th>
+                        <th className="p-3 text-right">Net Collections (₹)</th>
+                        <th className="p-3 text-right">Share of Revenue (%)</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-theme-divider/40">
+                      {[
+                        { mode: "Cash", type: "Counter Register Drawer", amt: Number(salesReportData?.cash_sales || 0), color: "text-emerald-500" },
+                        { mode: "UPI / QR Code", type: "Direct Bank Settlement", amt: Number(salesReportData?.upi_sales || 0), color: "text-purple-500" },
+                        { mode: "Debit / Credit Card", type: "POS Terminal Swipe", amt: Number(salesReportData?.card_sales || 0), color: "text-blue-500" },
+                        { mode: "Customer Credit / Due", type: "Store Ledger Receivable", amt: Number(salesReportData?.credit_sales || 0), color: "text-amber-500" },
+                      ].map((t) => {
+                        const total = Number(salesReportData?.total_sales || 0);
+                        const share = total > 0 ? ((t.amt / total) * 100).toFixed(1) : "0.0";
+                        return (
+                          <tr key={t.mode} className="hover:bg-theme-surface-hover transition-colors">
+                            <td className="p-3 font-bold text-theme-body">{t.mode}</td>
+                            <td className="p-3 text-theme-muted">{t.type}</td>
+                            <td className={`p-3 text-right font-mono font-bold ${t.color}`}>
+                              ₹{t.amt.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </td>
+                            <td className="p-3 text-right font-mono text-theme-body font-semibold">{share}%</td>
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </>
+                        );
+                      })}
+                    </tbody>
+                    <tfoot className="bg-theme-surface-2 font-bold border-t border-theme-divider">
+                      <tr>
+                        <td colSpan={2} className="p-3 font-mono text-xs uppercase tracking-wider text-theme-body">
+                          Total Revenue
+                        </td>
+                        <td className="p-3 text-right font-mono text-emerald-500 text-xs">
+                          ₹{Number(salesReportData?.total_sales || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </td>
+                        <td className="p-3 text-right font-mono text-theme-body text-xs">100.0%</td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+              </div>
             )}
 
             {/* Purchase Studio Outstanding Drilldown */}
@@ -2165,64 +2678,434 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
               </div>
             )}
 
-            {/* RPT-TAX-005: Bill-wise Items Detail */}
-            {selectedReport.id === "RPT-TAX-005" && (
+            {/* RPT-TAX-005 & RPT-SAL-013: Daily Sales Register (Bill & Item Detail) */}
+            {(selectedReport.id === "RPT-TAX-005" || selectedReport.id === "RPT-SAL-013") && (
               <div className="p-4 space-y-4">
+                {/* KPI Summary Cards */}
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                   <div className="p-3 bg-theme-surface-2 border border-theme-divider rounded-xl">
-                    <span className="text-[10px] uppercase font-bold text-theme-muted">Invoices</span>
-                    <p className="text-sm font-black text-theme-body mt-1">{genericReportData?.total_invoices ?? 0}</p>
+                    <span className="text-[10px] uppercase font-bold text-theme-muted font-mono">TOTAL BILLS CUT</span>
+                    <p className="text-lg font-black text-theme-body mt-0.5">{salesRegisterTotals.totalBills} Invoices</p>
+                    <p className="text-[10px] text-theme-muted mt-0.5 font-mono">{filteredSalesLines.length} line items</p>
                   </div>
                   <div className="p-3 bg-theme-surface-2 border border-theme-divider rounded-xl">
-                    <span className="text-[10px] uppercase font-bold text-theme-muted">Line Items</span>
-                    <p className="text-sm font-black text-theme-body mt-1">{genericReportData?.total_lines ?? 0}</p>
+                    <span className="text-[10px] uppercase font-bold text-theme-muted font-mono">TOTAL QUANTITY (PCS)</span>
+                    <p className="text-lg font-black text-blue-500 mt-0.5">
+                      {salesRegisterTotals.totalQuantity.toLocaleString("en-IN", { minimumFractionDigits: 0 })} Pcs
+                    </p>
+                    <p className="text-[10px] text-theme-muted mt-0.5 font-mono">Units sold at POS</p>
                   </div>
                   <div className="p-3 bg-theme-surface-2 border border-theme-divider rounded-xl">
-                    <span className="text-[10px] uppercase font-bold text-theme-muted">Total Quantity</span>
-                    <p className="text-sm font-black text-blue-400 mt-1">{Number(genericReportData?.total_quantity ?? 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</p>
+                    <span className="text-[10px] uppercase font-bold text-theme-muted font-mono">TOTAL CONCESSIONS (₹)</span>
+                    <p className="text-lg font-black text-amber-500 mt-0.5">
+                      ₹{salesRegisterTotals.totalDiscount.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </p>
+                    <p className="text-[10px] text-theme-muted mt-0.5 font-mono">Discounts & offers given</p>
                   </div>
                   <div className="p-3 bg-theme-surface-2 border border-theme-divider rounded-xl">
-                    <span className="text-[10px] uppercase font-bold text-theme-muted">Total Line Value</span>
-                    <p className="text-sm font-black text-emerald-400 mt-1">₹{Number(genericReportData?.total_amount ?? 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</p>
+                    <span className="text-[10px] uppercase font-bold text-theme-muted font-mono">NET REVENUE (₹)</span>
+                    <p className="text-lg font-black text-emerald-500 mt-0.5">
+                      ₹{salesRegisterTotals.totalNet.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </p>
+                    <p className="text-[10px] text-theme-muted mt-0.5 font-mono">
+                      Incl. GST ₹{salesRegisterTotals.totalTax.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </p>
                   </div>
                 </div>
 
+                {/* Search Bar & View Mode Toggle */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-theme-surface-2 p-3 rounded-xl border border-theme-divider">
+                  {/* View Mode Toggle & Active Store Scope */}
+                  <div className="flex flex-wrap items-center gap-2">
+                    <div className="flex items-center gap-1 bg-theme-surface-1 p-1 rounded-lg border border-theme-border text-xs font-semibold">
+                      <button
+                        type="button"
+                        onClick={() => setSalesViewMode("detailed")}
+                        className={`px-3 py-1.5 rounded-md flex items-center gap-1.5 transition-colors ${
+                          salesViewMode === "detailed"
+                            ? "bg-theme-primary text-white font-bold shadow-xs"
+                            : "text-theme-muted hover:text-theme-body"
+                        }`}
+                      >
+                        <TableProperties size={13} />
+                        Detailed Items View
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setSalesViewMode("bill_summary")}
+                        className={`px-3 py-1.5 rounded-md flex items-center gap-1.5 transition-colors ${
+                          salesViewMode === "bill_summary"
+                            ? "bg-theme-primary text-white font-bold shadow-xs"
+                            : "text-theme-muted hover:text-theme-body"
+                        }`}
+                      >
+                        <Receipt size={13} />
+                        Bill Summary View
+                      </button>
+                    </div>
+
+                    {/* Active Store Badge: Single Store by default */}
+                    <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-theme-surface-1 border border-theme-border text-xs">
+                      <Store size={13} className="text-blue-500 shrink-0" />
+                      <span className="font-semibold text-theme-body">{activeStoreName}</span>
+                      {!isLocationsManagementEnabled ? (
+                        <span className="text-[9px] px-1.5 py-0.2 rounded bg-emerald-500/10 text-emerald-600 font-bold border border-emerald-500/20 font-mono">
+                          Single Store
+                        </span>
+                      ) : (
+                        <span className="text-[9px] px-1.5 py-0.2 rounded bg-blue-500/10 text-blue-600 font-bold border border-blue-500/20 font-mono">
+                          Multi-Store
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Instant Filter Search */}
+                  <div className="relative w-full sm:w-80">
+                    <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-theme-muted" />
+                    <input
+                      type="text"
+                      value={reportSearchQuery}
+                      onChange={(e) => setReportSearchQuery(e.target.value)}
+                      placeholder="Filter Invoice #, Article, Barcode, Size..."
+                      className="w-full bg-theme-surface-1 border border-theme-border rounded-lg pl-9 pr-3 py-1.5 text-xs text-theme-body placeholder-theme-muted focus:outline-none focus:border-theme-primary font-medium"
+                    />
+                    {reportSearchQuery && (
+                      <button
+                        type="button"
+                        onClick={() => setReportSearchQuery("")}
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-theme-muted hover:text-theme-body text-xs"
+                      >
+                        ×
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Table View */}
+                {salesViewMode === "detailed" ? (
+                  <div className="overflow-x-auto border border-theme-divider rounded-xl">
+                    <table className="w-full text-left text-xs border-collapse">
+                      <thead className="bg-theme-surface-2 text-theme-muted border-b border-theme-divider uppercase text-[10px] font-mono tracking-wider font-bold">
+                        <tr>
+                          <th className="p-3">Invoice #</th>
+                          <th className="p-3">Date</th>
+                          <th className="p-3">Customer</th>
+                          <th className="p-3">Article / SKU</th>
+                          <th className="p-3">Item Description</th>
+                          <th className="p-3">Barcode</th>
+                          <th className="p-3">Size</th>
+                          <th className="p-3 text-right">Qty</th>
+                          <th className="p-3 text-right">Rate (₹)</th>
+                          <th className="p-3 text-right">Disc (₹)</th>
+                          <th className="p-3 text-right">GST Rate</th>
+                          <th className="p-3 text-right">Net Total (₹)</th>
+                          <th className="p-3 text-center">Tender</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-theme-divider/40">
+                        {filteredSalesLines.length === 0 ? (
+                          <tr>
+                            <td colSpan={13} className="p-8 text-center text-theme-muted">
+                              <div className="flex flex-col items-center justify-center space-y-1">
+                                <span className="text-xs font-semibold text-theme-body">No sales line items found</span>
+                                <span className="text-[11px] text-theme-muted">
+                                  Try adjusting the reporting period or clearing the search filter.
+                                </span>
+                              </div>
+                            </td>
+                          </tr>
+                        ) : (
+                          filteredSalesLines.map((l: any) => (
+                            <tr key={l.key} className="hover:bg-theme-surface-hover transition-colors">
+                              <td className="p-3 font-mono font-bold text-blue-500 whitespace-nowrap">{l.invoiceNo}</td>
+                              <td className="p-3 font-mono text-theme-muted whitespace-nowrap">{l.invoiceDate}</td>
+                              <td className="p-3 font-medium text-theme-body whitespace-nowrap">{l.customerName}</td>
+                              <td className="p-3 font-mono font-bold text-blue-500 whitespace-nowrap">{l.articleNo}</td>
+                              <td className="p-3 text-theme-body font-medium min-w-[160px]">{l.itemName}</td>
+                              <td className="p-3 font-mono text-theme-muted whitespace-nowrap">{l.barcode}</td>
+                              <td className="p-3 whitespace-nowrap">
+                                <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-theme-surface-2 border border-theme-border font-mono">
+                                  {l.size}
+                                </span>
+                              </td>
+                              <td className="p-3 text-right font-mono font-bold text-blue-400">
+                                {l.quantity.toLocaleString("en-IN", { minimumFractionDigits: 0 })}
+                              </td>
+                              <td className="p-3 text-right font-mono">
+                                {l.rate.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              </td>
+                              <td className="p-3 text-right font-mono text-amber-500">
+                                {l.discount > 0 ? l.discount.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "—"}
+                              </td>
+                              <td className="p-3 text-right font-mono text-theme-muted">{l.gstRate}%</td>
+                              <td className="p-3 text-right font-mono font-bold text-emerald-500">
+                                ₹{l.netTotal.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              </td>
+                              <td className="p-3 text-center whitespace-nowrap">
+                                <span className={`px-2 py-0.5 rounded text-[9px] uppercase font-bold tracking-wider border font-mono ${
+                                  l.paymentMode === "CASH"
+                                    ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/20"
+                                    : l.paymentMode === "UPI"
+                                    ? "bg-purple-500/10 text-purple-600 border-purple-500/20"
+                                    : "bg-blue-500/10 text-blue-600 border-blue-500/20"
+                                }`}>
+                                  {l.paymentMode}
+                                </span>
+                              </td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                      {filteredSalesLines.length > 0 && (
+                        <tfoot className="bg-theme-surface-2 font-bold border-t border-theme-divider">
+                          <tr>
+                            <td colSpan={7} className="p-3 font-mono text-xs uppercase tracking-wider text-theme-body">
+                              Total across {filteredSalesLines.length} line items ({salesRegisterTotals.totalBills} bills)
+                            </td>
+                            <td className="p-3 text-right font-mono text-blue-500 text-xs">
+                              {salesRegisterTotals.totalQuantity.toLocaleString("en-IN", { minimumFractionDigits: 0 })} Pcs
+                            </td>
+                            <td className="p-3"></td>
+                            <td className="p-3 text-right font-mono text-amber-500 text-xs">
+                              ₹{salesRegisterTotals.totalDiscount.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </td>
+                            <td className="p-3"></td>
+                            <td className="p-3 text-right font-mono text-emerald-500 text-xs">
+                              ₹{salesRegisterTotals.totalNet.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </td>
+                            <td className="p-3"></td>
+                          </tr>
+                        </tfoot>
+                      )}
+                    </table>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto border border-theme-divider rounded-xl">
+                    <table className="w-full text-left text-xs border-collapse">
+                      <thead className="bg-theme-surface-2 text-theme-muted border-b border-theme-divider uppercase text-[10px] font-mono tracking-wider font-bold">
+                        <tr>
+                          <th className="p-3">Invoice #</th>
+                          <th className="p-3">Date</th>
+                          <th className="p-3">Customer Name</th>
+                          <th className="p-3 text-center">Tender</th>
+                          <th className="p-3 text-right">Items Count</th>
+                          <th className="p-3 text-right">Total Qty (Pcs)</th>
+                          <th className="p-3 text-right">Discount (₹)</th>
+                          <th className="p-3 text-right">Tax (GST ₹)</th>
+                          <th className="p-3 text-right">Net Bill Value (₹)</th>
+                          <th className="p-3 text-right">Action</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-theme-divider/40">
+                        {billSummaryList.length === 0 ? (
+                          <tr>
+                            <td colSpan={10} className="p-8 text-center text-theme-muted">
+                              No bills found for the selected period.
+                            </td>
+                          </tr>
+                        ) : (
+                          billSummaryList.map((b: any) => (
+                            <tr key={b.invoiceNo} className="hover:bg-theme-surface-hover transition-colors">
+                              <td className="p-3 font-mono font-bold text-blue-500 whitespace-nowrap">{b.invoiceNo}</td>
+                              <td className="p-3 font-mono text-theme-muted whitespace-nowrap">{b.invoiceDate}</td>
+                              <td className="p-3 font-medium text-theme-body">{b.customerName}</td>
+                              <td className="p-3 text-center whitespace-nowrap">
+                                <span className={`px-2 py-0.5 rounded text-[9px] uppercase font-bold tracking-wider border font-mono ${
+                                  b.paymentMode === "CASH"
+                                    ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/20"
+                                    : b.paymentMode === "UPI"
+                                    ? "bg-purple-500/10 text-purple-600 border-purple-500/20"
+                                    : "bg-blue-500/10 text-blue-600 border-blue-500/20"
+                                }`}>
+                                  {b.paymentMode}
+                                </span>
+                              </td>
+                              <td className="p-3 text-right font-mono text-theme-muted">{b.itemsCount} lines</td>
+                              <td className="p-3 text-right font-mono font-bold text-blue-400">
+                                {b.totalQuantity.toLocaleString("en-IN", { minimumFractionDigits: 0 })}
+                              </td>
+                              <td className="p-3 text-right font-mono text-amber-500">
+                                {b.totalDiscount > 0 ? b.totalDiscount.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "—"}
+                              </td>
+                              <td className="p-3 text-right font-mono text-purple-400">
+                                ₹{b.totalTax.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              </td>
+                              <td className="p-3 text-right font-mono font-bold text-emerald-500">
+                                ₹{b.netTotal.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              </td>
+                              <td className="p-3 text-right whitespace-nowrap">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setSalesViewMode("detailed");
+                                    setReportSearchQuery(b.invoiceNo);
+                                  }}
+                                  className="px-2.5 py-1 bg-theme-surface-2 hover:bg-theme-surface-hover text-theme-primary border border-theme-border rounded-md font-bold text-[10px] transition-colors cursor-pointer"
+                                >
+                                  View Lines
+                                </button>
+                              </td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                      {billSummaryList.length > 0 && (
+                        <tfoot className="bg-theme-surface-2 font-bold border-t border-theme-divider">
+                          <tr>
+                            <td colSpan={5} className="p-3 font-mono text-xs uppercase tracking-wider text-theme-body">
+                              Total ({billSummaryList.length} Invoices)
+                            </td>
+                            <td className="p-3 text-right font-mono text-blue-500 text-xs">
+                              {salesRegisterTotals.totalQuantity.toLocaleString("en-IN", { minimumFractionDigits: 0 })} Pcs
+                            </td>
+                            <td className="p-3 text-right font-mono text-amber-500 text-xs">
+                              ₹{salesRegisterTotals.totalDiscount.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </td>
+                            <td className="p-3 text-right font-mono text-purple-400 text-xs">
+                              ₹{salesRegisterTotals.totalTax.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </td>
+                            <td className="p-3 text-right font-mono text-emerald-500 text-xs">
+                              ₹{salesRegisterTotals.totalNet.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </td>
+                            <td className="p-3"></td>
+                          </tr>
+                        </tfoot>
+                      )}
+                    </table>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* RPT-INV-001: Current Stock on Hand & Valuation */}
+            {selectedReport.id === "RPT-INV-001" && (
+              <div className="p-4 space-y-4">
+                {/* KPI Cards */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  <div className="p-3 bg-theme-surface-2 border border-theme-divider rounded-xl">
+                    <span className="text-[10px] uppercase font-bold text-theme-muted font-mono">TOTAL ARTICLES / SKUS</span>
+                    <p className="text-lg font-black text-theme-body mt-0.5">{stockTotals.totalArticles} Items</p>
+                    <p className="text-[10px] text-theme-muted mt-0.5 font-mono">In inventory catalog</p>
+                  </div>
+                  <div className="p-3 bg-theme-surface-2 border border-theme-divider rounded-xl">
+                    <span className="text-[10px] uppercase font-bold text-theme-muted font-mono">TOTAL ON-HAND STOCK</span>
+                    <p className="text-lg font-black text-blue-500 mt-0.5">
+                      {stockTotals.totalQty.toLocaleString("en-IN", { minimumFractionDigits: 0 })} Pcs
+                    </p>
+                    <p className="text-[10px] text-theme-muted mt-0.5 font-mono">Physical warehouse count</p>
+                  </div>
+                  <div className="p-3 bg-theme-surface-2 border border-theme-divider rounded-xl">
+                    <span className="text-[10px] uppercase font-bold text-theme-muted font-mono">TOTAL STOCK VALUATION</span>
+                    <p className="text-lg font-black text-emerald-500 mt-0.5">
+                      ₹{stockTotals.totalValuation.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </p>
+                    <p className="text-[10px] text-theme-muted mt-0.5 font-mono">At average landing cost</p>
+                  </div>
+                  <div className="p-3 bg-theme-surface-2 border border-theme-divider rounded-xl">
+                    <span className="text-[10px] uppercase font-bold text-theme-muted font-mono">LOW STOCK ALERTS</span>
+                    <p className={`text-lg font-black mt-0.5 ${stockTotals.lowStockCount > 0 ? "text-rose-500" : "text-emerald-500"}`}>
+                      {stockTotals.lowStockCount} Articles
+                    </p>
+                    <p className="text-[10px] text-theme-muted mt-0.5 font-mono">Below reorder threshold</p>
+                  </div>
+                </div>
+
+                {/* Instant Search Bar */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-theme-surface-2 p-3 rounded-xl border border-theme-divider">
+                  <div className="text-xs font-bold text-theme-body flex items-center gap-2">
+                    <Boxes size={14} className="text-purple-500" />
+                    <span>Physical Stock Ledger (Single-Location Canonical)</span>
+                  </div>
+                  <div className="relative w-full sm:w-80">
+                    <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-theme-muted" />
+                    <input
+                      type="text"
+                      value={reportSearchQuery}
+                      onChange={(e) => setReportSearchQuery(e.target.value)}
+                      placeholder="Search Article No, Description, Category..."
+                      className="w-full bg-theme-surface-1 border border-theme-border rounded-lg pl-9 pr-3 py-1.5 text-xs text-theme-body placeholder-theme-muted focus:outline-none focus:border-theme-primary font-medium"
+                    />
+                    {reportSearchQuery && (
+                      <button
+                        type="button"
+                        onClick={() => setReportSearchQuery("")}
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-theme-muted hover:text-theme-body text-xs"
+                      >
+                        ×
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Stock Table */}
                 <div className="overflow-x-auto border border-theme-divider rounded-xl">
                   <table className="w-full text-left text-xs border-collapse">
-                    <thead className="bg-theme-surface-2/80 text-theme-muted border-b border-theme-divider uppercase text-[10px] font-bold">
+                    <thead className="bg-theme-surface-2 text-theme-muted border-b border-theme-divider uppercase text-[10px] font-mono tracking-wider font-bold">
                       <tr>
-                        <th className="p-3">Invoice #</th>
-                        <th className="p-3">Date</th>
-                        <th className="p-3">Item Code</th>
+                        <th className="p-3">Article / SKU</th>
                         <th className="p-3">Item Description</th>
-                        <th className="p-3 text-right">Qty</th>
-                        <th className="p-3 text-right">Rate (₹)</th>
-                        <th className="p-3 text-right">Disc (₹)</th>
-                        <th className="p-3 text-right">GST Rate</th>
-                        <th className="p-3 text-right">Tax (₹)</th>
-                        <th className="p-3 text-right">Total (₹)</th>
+                        <th className="p-3">Category</th>
+                        <th className="p-3 text-right">On-Hand (Pcs)</th>
+                        <th className="p-3 text-right">Avg Unit Cost (₹)</th>
+                        <th className="p-3 text-right">Stock Valuation (₹)</th>
+                        <th className="p-3 text-right">Min Level</th>
+                        <th className="p-3 text-center">Status</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-theme-divider/40">
-                      {(!genericReportData?.lines || genericReportData.lines.length === 0) ? (
-                        <tr><td colSpan={10} className="p-6 text-center text-theme-muted">No item lines found for the selected period.</td></tr>
+                      {filteredStockLines.length === 0 ? (
+                        <tr>
+                          <td colSpan={8} className="p-8 text-center text-theme-muted">
+                            No inventory items found matching search criteria.
+                          </td>
+                        </tr>
                       ) : (
-                        genericReportData.lines.map((l: any, idx: number) => (
-                          <tr key={idx} className="hover:bg-theme-surface-hover transition-colors">
-                            <td className="p-3 font-mono font-bold text-blue-400">{l.invoice_number}</td>
-                            <td className="p-3 font-mono text-theme-muted">{l.invoice_date}</td>
-                            <td className="p-3 font-mono text-theme-muted">{l.product_code || "—"}</td>
-                            <td className="p-3 text-theme-body font-medium">{l.product_name}</td>
-                            <td className="p-3 text-right font-mono font-bold text-blue-300">{Number(l.quantity).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
-                            <td className="p-3 text-right font-mono">{Number(l.unit_price).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
-                            <td className="p-3 text-right font-mono text-amber-400">{Number(l.discount_amount).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
-                            <td className="p-3 text-right font-mono text-theme-muted">{l.gst_rate}%</td>
-                            <td className="p-3 text-right font-mono text-purple-400">{Number(l.tax_amount).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
-                            <td className="p-3 text-right font-mono font-bold text-emerald-400">{Number(l.total_amount).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
+                        filteredStockLines.map((s: any) => (
+                          <tr key={s.key} className="hover:bg-theme-surface-hover transition-colors">
+                            <td className="p-3 font-mono font-bold text-purple-400 whitespace-nowrap">{s.articleNo}</td>
+                            <td className="p-3 text-theme-body font-medium">{s.productName}</td>
+                            <td className="p-3 text-theme-muted whitespace-nowrap">{s.category}</td>
+                            <td className="p-3 text-right font-mono font-bold text-blue-400">
+                              {s.onHand.toLocaleString("en-IN", { minimumFractionDigits: 0 })}
+                            </td>
+                            <td className="p-3 text-right font-mono">
+                              {s.avgCost.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </td>
+                            <td className="p-3 text-right font-mono font-bold text-emerald-500">
+                              ₹{s.stockValue.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </td>
+                            <td className="p-3 text-right font-mono text-theme-muted">{s.minLevel}</td>
+                            <td className="p-3 text-center whitespace-nowrap">
+                              <span className={`px-2 py-0.5 rounded text-[9px] uppercase font-bold tracking-wider border font-mono ${
+                                s.status === "LOW"
+                                  ? "bg-rose-500/10 text-rose-600 border-rose-500/20"
+                                  : "bg-emerald-500/10 text-emerald-600 border-emerald-500/20"
+                              }`}>
+                                {s.status === "LOW" ? "LOW STOCK" : "IN STOCK"}
+                              </span>
+                            </td>
                           </tr>
                         ))
                       )}
                     </tbody>
+                    {filteredStockLines.length > 0 && (
+                      <tfoot className="bg-theme-surface-2 font-bold border-t border-theme-divider">
+                        <tr>
+                          <td colSpan={3} className="p-3 font-mono text-xs uppercase tracking-wider text-theme-body">
+                            Total Valuation ({filteredStockLines.length} Items)
+                          </td>
+                          <td className="p-3 text-right font-mono text-blue-500 text-xs">
+                            {stockTotals.totalQty.toLocaleString("en-IN", { minimumFractionDigits: 0 })} Pcs
+                          </td>
+                          <td className="p-3"></td>
+                          <td className="p-3 text-right font-mono text-emerald-500 text-xs">
+                            ₹{stockTotals.totalValuation.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </td>
+                          <td colSpan={2} className="p-3"></td>
+                        </tr>
+                      </tfoot>
+                    )}
                   </table>
                 </div>
               </div>
@@ -3659,6 +4542,8 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
             {/* Universal Report Engine for unhandled or generic operational datasets */}
             {![
               "RPT-SAL-001",
+              "RPT-SAL-013",
+              "RPT-INV-001",
               "RPT-PUR-002",
               "RPT-TAX-001",
               "RPT-TAX-002",

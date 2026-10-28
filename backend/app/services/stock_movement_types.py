@@ -19,6 +19,7 @@ INFLOW_MOVEMENT_TYPES: Set[str] = {
     "INWARD",
     "INWARD_PURCHASE",
     "INWARD_GRN",
+    "PURCHASE_RECEIPT",
     "GRN",
     "RETURN_INWARD",
     "SALES_RETURN",

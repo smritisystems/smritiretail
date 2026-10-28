@@ -25,8 +25,9 @@ from sqlalchemy import func, or_, case, literal, distinct
 from fastapi import HTTPException
 from .report_field_registry import ReportFieldRegistry, FieldSemanticType, AggregationFunction
 
-from ..models.inventory import Product
-from ..models.item_master import Item, ItemVariant
+from ..models.inventory import Product, ProductBatchStock, StockMovement
+from .stock_ledger_query import get_authoritative_stock_by_product, get_signed_movement_quantity_expr
+from ..models.item_master import Item, ItemInventoryPolicy, ItemVariant
 from ..models.sales import (
     SalesInvoice, SalesInvoiceItem, SalesReturn, SalesReturnItem,
     SalesOrder, SalesOrderItem, SalesOrderInvoiceAllocation
@@ -76,11 +77,20 @@ class ReportsService:
         stmt = stmt.order_by(Product.name)
         res = await self.db.execute(stmt)
         products = res.scalars().all()
+        stock_balances = (
+            await get_authoritative_stock_by_product(
+                self.db,
+                self.tenant.company_id,
+                branch_id=self.tenant.branch_id,
+            )
+            if self.tenant and self.tenant.company_id
+            else {}
+        )
 
         lines = []
         total_value = Decimal("0.00")
         for p in products:
-            stock      = Decimal(str(p.stock or "0"))
+            stock      = stock_balances.get(p.id, Decimal("0"))
             cost_price = Decimal(str(p.cost_price or "0"))
             value      = (stock * cost_price).quantize(Decimal("0.01"))
             total_value += value
@@ -4007,138 +4017,301 @@ class ReportsService:
             }
 
         # ─────────────────────────────────────────────────────────────────────
-        # 3. ITEMS / INVENTORY DOMAIN
+        # 3. ITEMS DOMAIN
         # ─────────────────────────────────────────────────────────────────────
-        elif category_normalized in ["Items", "Inventory"]:
-            inv_dim_map = {
-                "item_code": Product.code,
-                "item_name": Product.name,
-                "item_category": Product.category,
-                "brand": Product.brand,
-                "color": func.coalesce(Product.color, "-"),
-                "size": func.coalesce(Product.size, "-"),
-                "warehouse": literal("Main Godown"),
-            }
-
-            prod_filters = [Product.is_deleted == False]
+        elif category_normalized == "Items":
+            item_filters = [Item.is_deleted.is_(False), Item.is_active.is_(True)]
             if company_id:
-                prod_filters.append(Product.company_id == company_id)
+                item_filters.append(Item.company_id == company_id)
+            item_branch_id = getattr(self.tenant, "branch_id", None)
+            if item_branch_id:
+                item_filters.append(or_(Item.branch_id == item_branch_id, Item.branch_id.is_(None)))
             if search and search.strip():
                 patt = f"%{search.strip()}%"
-                prod_filters.append(or_(Product.name.ilike(patt), Product.code.ilike(patt)))
-
-            # Active dims
-            if mode == "detailed":
-                active_dims = []
-            elif mode == "groupby" and custom_group_cols:
-                active_dims = [c for c in custom_group_cols if c in inv_dim_map]
-            else:
-                if selected_cols:
-                    active_dims = [c for c in selected_cols if ReportFieldRegistry.is_dimension("Inventory", c) and c in inv_dim_map]
-                else:
-                    active_dims = ["item_code", "item_name", "item_category", "brand", "color", "size"]
-
-            # Grand totals
-            tot_stmt = (
-                select(
-                    func.coalesce(func.sum(Product.stock), 0).label("tot_stk"),
-                    func.coalesce(func.sum(Product.stock * func.coalesce(Product.cost_price, 0)), 0).label("tot_val"),
-                )
-                .where(*prod_filters)
-            )
-            tot_res = (await self.db.execute(tot_stmt)).one_or_none()
-            tot_stk = float(tot_res[0]) if tot_res else 0.0
-            tot_val = float(tot_res[1]) if tot_res else 0.0
-
-            if mode == "detailed":
-                stmt = (
-                    select(
-                        Product.id.label("raw_id"),
-                        Product.code.label("item_code"),
-                        Product.name.label("item_name"),
-                        Product.category.label("item_category"),
-                        Product.brand.label("brand"),
-                        func.coalesce(Product.color, "-").label("color"),
-                        func.coalesce(Product.size, "-").label("size"),
-                        literal("Main Godown").label("warehouse"),
-                        func.coalesce(Product.stock, 0).label("stock_on_hand"),
-                        func.coalesce(Product.reserved_stock, 0).label("reserved_qty"),
-                        (func.coalesce(Product.stock, 0) - func.coalesce(Product.reserved_stock, 0)).label("available_qty"),
-                        (func.coalesce(Product.stock, 0) * func.coalesce(Product.cost_price, 0)).label("valuation_cost"),
-                        func.coalesce(Product.cost_price, 0).label("standard_cost"),
-                        func.coalesce(Product.buying_price, 0).label("selling_price"),
-                        func.coalesce(Product.mrp, 0).label("mrp"),
-                        func.coalesce(Product.reorder_level, 0).label("reorder_level"),
-                        literal(1).label("_record_count"),
-                        literal(False).label("_is_consolidated"),
+                item_filters.append(
+                    or_(
+                        Item.item_code.ilike(patt),
+                        Item.item_name.ilike(patt),
+                        Item.category.ilike(patt),
+                        Item.brand.ilike(patt),
                     )
-                    .where(*prod_filters)
-                    .order_by(Product.name.asc())
                 )
-            else:
-                select_items = [
-                    func.min(Product.id).label("raw_id"),
-                    func.coalesce(func.sum(Product.stock), 0).label("stock_on_hand"),
-                    func.coalesce(func.sum(Product.reserved_stock), 0).label("reserved_qty"),
-                    func.coalesce(func.sum(Product.stock - func.coalesce(Product.reserved_stock, 0)), 0).label("available_qty"),
-                    func.coalesce(func.sum(Product.stock * func.coalesce(Product.cost_price, 0)), 0).label("valuation_cost"),
-                    func.round(func.avg(Product.cost_price), 2).label("standard_cost"),
-                    func.round(func.avg(Product.buying_price), 2).label("selling_price"),
-                    func.round(func.avg(Product.mrp), 2).label("mrp"),
-                    func.max(Product.reorder_level).label("reorder_level"),
-                    func.count(distinct(Product.id)).label("_record_count"),
-                    case((func.count(distinct(Product.id)) > 1, True), else_=False).label("_is_consolidated"),
-                ]
-                group_by_exprs = []
-                seen_exprs = set()
-                for d in active_dims:
-                    expr = inv_dim_map[d]
-                    select_items.append(expr.label(d))
-                    expr_key = str(expr)
-                    if expr_key not in seen_exprs:
-                        group_by_exprs.append(expr)
-                        seen_exprs.add(expr_key)
 
-                stmt = select(*select_items).where(*prod_filters)
-                if group_by_exprs:
-                    stmt = stmt.group_by(*group_by_exprs)
-                stmt = stmt.order_by(func.sum(Product.stock).desc())
-
-            count_stmt = select(func.count()).select_from(stmt.subquery())
-            total_count = (await self.db.execute(count_stmt)).scalar_one_or_none() or 0
-
-            mappings = (await self.db.execute(stmt.offset(offset).limit(limit))).mappings().all()
-            rows = []
-            for r in mappings:
-                rows.append({
-                    "id": f"prod-{r.get('raw_id') or abs(hash(str(r.items())))}",
-                    "item_code": r.get("item_code") or "-",
-                    "item_name": r.get("item_name") or "-",
-                    "item_category": r.get("item_category") or "-",
-                    "brand": r.get("brand") or "-",
-                    "color": r.get("color") or "-",
-                    "size": r.get("size") or "-",
-                    "warehouse": r.get("warehouse") or "Main Godown",
-                    "stock_on_hand": float(r.get("stock_on_hand") or 0),
-                    "reserved_qty": float(r.get("reserved_qty") or 0),
-                    "available_qty": float(r.get("available_qty") or 0),
-                    "valuation_cost": float(r.get("valuation_cost") or 0),
-                    "standard_cost": float(r.get("standard_cost") or 0),
-                    "selling_price": float(r.get("selling_price") or 0),
-                    "mrp": float(r.get("mrp") or 0),
-                    "reorder_level": float(r.get("reorder_level") or 0),
-                    "_record_count": int(r.get("_record_count") or 1),
-                    "_is_consolidated": bool(r.get("_is_consolidated", False)),
-                })
+            count_stmt = select(func.count(Item.id)).where(*item_filters)
+            total_count = int((await self.db.execute(count_stmt)).scalar_one_or_none() or 0)
+            stmt = (
+                select(Item)
+                .where(*item_filters)
+                .order_by(Item.item_name.asc(), Item.item_code.asc())
+                .offset(offset)
+                .limit(limit)
+            )
+            items = (await self.db.execute(stmt)).scalars().all()
+            rows = [
+                {
+                    "id": f"item-{item.id}",
+                    "item_code": item.item_code or "-",
+                    "item_name": item.item_name or "-",
+                    "item_category": item.category or "-",
+                    "brand": item.brand or "-",
+                    "mrp": float(item.mrp or 0),
+                    "standard_cost": float(item.cost_price or 0),
+                    "selling_price": float(item.selling_price or 0),
+                    "_record_count": 1,
+                    "_is_consolidated": False,
+                }
+                for item in items
+            ]
 
             return {
                 "category": category_normalized,
                 "total_count": total_count,
                 "rows": rows,
-                "totals": {
-                    "stock_on_hand": tot_stk,
-                    "valuation_cost": tot_val,
-                },
+                "totals": {},
+                "consolidation_mode": mode,
+                "group_by_dimensions": [],
+                "generated_at": datetime.now(timezone.utc).isoformat(),
+            }
+
+        # ─────────────────────────────────────────────────────────────────────
+        # 4. INVENTORY DOMAIN — quantities come from the authoritative ledger.
+        # ─────────────────────────────────────────────────────────────────────
+        elif category_normalized == "Inventory":
+            inventory_dimensions = {
+                "warehouse",
+                "item_code",
+                "item_name",
+                "item_category",
+                "brand",
+                "color",
+                "size",
+            }
+            if mode == "detailed":
+                active_dims: List[str] = []
+            elif mode == "groupby" and custom_group_cols:
+                active_dims = [key for key in custom_group_cols if key in inventory_dimensions]
+            elif selected_cols:
+                active_dims = [
+                    key
+                    for key in selected_cols
+                    if key in inventory_dimensions and ReportFieldRegistry.is_dimension("Inventory", key)
+                ]
+            else:
+                active_dims = ["item_code", "item_name", "item_category", "brand", "color", "size"]
+
+            effective_branch_id = (
+                getattr(self.tenant, "branch_id", None) or branch_id
+            )
+            product_filters = [Product.is_deleted.is_(False), Product.is_active.is_(True)]
+            if company_id:
+                product_filters.append(Product.company_id == company_id)
+            if effective_branch_id:
+                product_filters.append(
+                    or_(Product.branch_id == effective_branch_id, Product.branch_id.is_(None))
+                )
+            if search and search.strip():
+                pattern = f"%{search.strip()}%"
+                product_filters.append(
+                    or_(
+                        Product.code.ilike(pattern),
+                        Product.sku.ilike(pattern),
+                        Product.name.ilike(pattern),
+                        Product.category.ilike(pattern),
+                        Product.brand.ilike(pattern),
+                        Product.color.ilike(pattern),
+                    )
+                )
+
+            products = (
+                await self.db.execute(
+                    select(Product).where(*product_filters).order_by(Product.name.asc(), Product.code.asc())
+                )
+            ).scalars().all()
+            if not products:
+                return {
+                    "category": category_normalized,
+                    "total_count": 0,
+                    "rows": [],
+                    "totals": {"stock_on_hand": 0, "reserved_qty": 0, "available_qty": 0, "valuation_cost": 0},
+                    "consolidation_mode": mode,
+                    "group_by_dimensions": active_dims,
+                    "generated_at": datetime.now(timezone.utc).isoformat(),
+                }
+
+            as_of_date = end_date
+            stock_by_product = await get_authoritative_stock_by_product(
+                self.db,
+                company_id,
+                branch_id=effective_branch_id,
+                as_of_date=as_of_date,
+            )
+            product_ids = [product.id for product in products]
+
+            # Use batch cost layers when present; otherwise derive weighted inbound
+            # cost from classified stock movements, matching the stock balance report.
+            batch_values: Dict[str, Decimal] = {}
+            if as_of_date is None or as_of_date >= date.today():
+                batch_stmt = (
+                    select(
+                        ProductBatchStock.product_id,
+                        func.sum(
+                            (ProductBatchStock.quantity - func.coalesce(ProductBatchStock.damaged_quantity, 0))
+                            * func.coalesce(ProductBatchStock.purchase_rate, 0)
+                        ).label("stock_value"),
+                    )
+                    .where(
+                        ProductBatchStock.company_id == company_id,
+                        ProductBatchStock.is_deleted.is_(False),
+                        ProductBatchStock.product_id.in_(product_ids),
+                    )
+                )
+                if effective_branch_id:
+                    batch_stmt = batch_stmt.where(
+                        or_(
+                            ProductBatchStock.branch_id == effective_branch_id,
+                            ProductBatchStock.branch_id.is_(None),
+                        )
+                    )
+                batch_values = {
+                    row.product_id: Decimal(str(row.stock_value or 0))
+                    for row in (await self.db.execute(batch_stmt.group_by(ProductBatchStock.product_id))).all()
+                }
+
+            signed_movement = get_signed_movement_quantity_expr()
+            inbound_quantity = case((signed_movement > 0, signed_movement), else_=Decimal(0))
+            inbound_value = case(
+                (
+                    signed_movement > 0,
+                    signed_movement * func.coalesce(StockMovement.unit_cost, 0),
+                ),
+                else_=Decimal(0),
+            )
+            movement_stmt = (
+                select(
+                    StockMovement.product_id,
+                    func.sum(inbound_quantity).label("in_qty"),
+                    func.sum(inbound_value).label("in_value"),
+                )
+                .where(
+                    StockMovement.company_id == company_id,
+                    StockMovement.is_deleted.is_(False),
+                    StockMovement.product_id.in_(product_ids),
+                )
+            )
+            if effective_branch_id:
+                movement_stmt = movement_stmt.where(
+                    or_(
+                        StockMovement.branch_id == effective_branch_id,
+                        StockMovement.branch_id.is_(None),
+                    )
+                )
+            if as_of_date and as_of_date < date.today():
+                movement_stmt = movement_stmt.where(
+                    func.date(func.timezone("Asia/Kolkata", StockMovement.created_at)) <= as_of_date
+                )
+            movement_costs = {
+                row.product_id: (
+                    Decimal(str(row.in_qty or 0)),
+                    Decimal(str(row.in_value or 0)),
+                )
+                for row in (await self.db.execute(movement_stmt.group_by(StockMovement.product_id))).all()
+            }
+
+            reorder_levels: Dict[str, Decimal] = {}
+            variant_ids = [product.item_variant_id for product in products if product.item_variant_id]
+            if variant_ids and company_id:
+                policy_stmt = select(ItemInventoryPolicy).where(
+                    ItemInventoryPolicy.company_id == company_id,
+                    ItemInventoryPolicy.item_variant_id.in_(variant_ids),
+                )
+                if effective_branch_id:
+                    policy_stmt = policy_stmt.where(
+                        or_(
+                            ItemInventoryPolicy.branch_id == effective_branch_id,
+                            ItemInventoryPolicy.branch_id.is_(None),
+                        )
+                    )
+                for policy in (await self.db.execute(policy_stmt)).scalars().all():
+                    existing = reorder_levels.get(policy.item_variant_id)
+                    if existing is None or policy.branch_id == effective_branch_id:
+                        reorder_levels[policy.item_variant_id] = Decimal(str(policy.reorder_level or 0))
+
+            product_rows = []
+            for product in products:
+                stock_on_hand = stock_by_product.get(product.id, Decimal(0))
+                reserved_qty = Decimal(str(product.reserved_stock or 0))
+                if product.id in batch_values:
+                    valuation_cost = batch_values[product.id]
+                else:
+                    inbound_qty, inbound_value = movement_costs.get(
+                        product.id, (Decimal(0), Decimal(0))
+                    )
+                    average_cost = inbound_value / inbound_qty if inbound_qty > 0 else Decimal(0)
+                    valuation_cost = stock_on_hand * average_cost
+                product_rows.append(
+                    {
+                        "id": f"prod-{product.id}",
+                        "item_code": product.code or "-",
+                        "item_name": product.name or "-",
+                        "item_category": product.category or "-",
+                        "brand": product.brand or "-",
+                        "color": product.color or "-",
+                        "size": product.size or "-",
+                        "warehouse": "All Warehouses",
+                        "stock_on_hand": float(stock_on_hand),
+                        "reserved_qty": float(reserved_qty),
+                        "available_qty": float(stock_on_hand - reserved_qty),
+                        "reorder_level": float(reorder_levels.get(product.item_variant_id, Decimal(0))),
+                        "valuation_cost": float(valuation_cost),
+                        "_record_count": 1,
+                        "_is_consolidated": False,
+                    }
+                )
+
+            totals = {
+                key: sum(Decimal(str(row[key])) for row in product_rows)
+                for key in ("stock_on_hand", "reserved_qty", "available_qty", "valuation_cost")
+            }
+
+            if mode == "detailed":
+                report_rows = product_rows
+            else:
+                grouped: Dict[tuple, Dict[str, Any]] = {}
+                for row in product_rows:
+                    group_key = tuple(row.get(key) for key in active_dims)
+                    group = grouped.get(group_key)
+                    if group is None:
+                        group = {key: row.get(key) for key in active_dims}
+                        group.update(
+                            {
+                                "id": row["id"],
+                                "stock_on_hand": 0.0,
+                                "reserved_qty": 0.0,
+                                "available_qty": 0.0,
+                                "reorder_level": 0.0,
+                                "valuation_cost": 0.0,
+                                "_record_count": 0,
+                            }
+                        )
+                        grouped[group_key] = group
+                    for key in ("stock_on_hand", "reserved_qty", "available_qty", "valuation_cost"):
+                        group[key] += row[key]
+                    group["reorder_level"] = max(group["reorder_level"], row["reorder_level"])
+                    group["_record_count"] += 1
+                report_rows = list(grouped.values())
+                for row in report_rows:
+                    row["_is_consolidated"] = row["_record_count"] > 1
+
+            sort_key = sort_field if sort_field and sort_field in product_rows[0] else "stock_on_hand"
+            report_rows.sort(key=lambda row: (row.get(sort_key) is None, row.get(sort_key)), reverse=sort_direction == "desc")
+            total_count = len(report_rows)
+            rows = report_rows[offset : offset + limit]
+
+            return {
+                "category": category_normalized,
+                "total_count": total_count,
+                "rows": rows,
+                "totals": {key: float(value) for key, value in totals.items()},
                 "consolidation_mode": mode,
                 "group_by_dimensions": active_dims,
                 "generated_at": datetime.now(timezone.utc).isoformat(),
@@ -4244,4 +4417,3 @@ class ReportsService:
             "group_by_dimensions": [],
             "generated_at": datetime.now(timezone.utc).isoformat(),
         }
-

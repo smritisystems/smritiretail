@@ -26,7 +26,7 @@ from sqlalchemy import delete as sa_delete
 from app.main import app
 from app.models.auth import User, RefreshTokenBlacklist, UserRole
 from app.models.tenant import Company, Branch
-from app.models.inventory import Product, StockMovement
+from app.models.inventory import Product, StockMovement, Warehouse
 from app.models.sales import SalesInvoice, SalesInvoiceItem, SalesReturn, SalesReturnItem, SalesQuotation, SalesQuotationItem, SalesOrder, SalesOrderItem
 from app.models.purchase import (
     Supplier, PurchaseOrder, PurchaseOrderItem,
@@ -147,15 +147,25 @@ async def _make_supplier(db_session, suffix, comp_id, br_id, outstanding="0.00")
 
 async def _make_grn(db_session, suffix, supplier_id, comp_id, br_id, amount, grn_date=None):
     # PurchaseReceipt has no receipt_date column; created_at is used for chronology
+    warehouse = Warehouse(
+        id=f"wh-grn-{suffix}",
+        code=f"WH-{suffix}",
+        name=f"GRN Warehouse {suffix}",
+        is_active=True,
+        is_deleted=False,
+        company_id=comp_id,
+        branch_id=br_id,
+    )
     grn = PurchaseReceipt(
         id=f"grn-{suffix}", receipt_no=f"GRN-{suffix}",
         supplier_id=supplier_id,
+        warehouse_id=warehouse.id,
         grand_total=Decimal(amount),
         status="Draft",
         is_active=True, is_deleted=False,
         company_id=comp_id, branch_id=br_id,
     )
-    db_session.add(grn)
+    db_session.add_all([warehouse, grn])
     await db_session.commit()
     return grn
 
@@ -177,12 +187,39 @@ async def _make_payment(db_session, suffix, supplier_id, comp_id, br_id, amount,
 # ─────────────────────────── Tests ───────────────────────────
 
 async def test_stock_valuation_report(db_session):
-    """Stock valuation = sum of (stock × cost_price) for all products."""
+    """Stock valuation uses ledger on-hand quantities times product cost."""
     s = uuid.uuid4().hex[:6]
     comp, br = await _make_tenant(db_session, s)
     mgr = await _make_manager(db_session, s, comp.id, br.id)
-    await _make_product(db_session, s + "a", comp.id, br.id, stock="10", cost_price="50.00")
-    await _make_product(db_session, s + "b", comp.id, br.id, stock="5",  cost_price="100.00")
+    product_a = await _make_product(db_session, s + "a", comp.id, br.id, stock="10", cost_price="50.00")
+    product_b = await _make_product(db_session, s + "b", comp.id, br.id, stock="5",  cost_price="100.00")
+    db_session.add_all([
+        StockMovement(
+            id=f"mov-rpt-{s}a",
+            company_id=comp.id,
+            branch_id=br.id,
+            product_id=product_a.id,
+            product_name=product_a.name,
+            sku=product_a.code,
+            movement_type="OPENING_STOCK",
+            quantity=Decimal("10"),
+            reference_doc_type="OPENING",
+            reference_doc_id=f"OPEN-{s}a",
+        ),
+        StockMovement(
+            id=f"mov-rpt-{s}b",
+            company_id=comp.id,
+            branch_id=br.id,
+            product_id=product_b.id,
+            product_name=product_b.name,
+            sku=product_b.code,
+            movement_type="OPENING_STOCK",
+            quantity=Decimal("5"),
+            reference_doc_type="OPENING",
+            reference_doc_id=f"OPEN-{s}b",
+        ),
+    ])
+    await db_session.commit()
     _set_tenant(db_session, comp.id, br.id)
 
     # 10×50 + 5×100 = 500 + 500 = 1000
@@ -582,4 +619,3 @@ async def test_export_tax_invoices_excel(db_session):
     assert res.status_code == 200
     assert "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" in res.headers["content-type"]
     assert len(res.content) > 1000
-

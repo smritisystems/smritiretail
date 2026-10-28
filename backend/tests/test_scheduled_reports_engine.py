@@ -19,7 +19,7 @@ import uuid
 from datetime import datetime, timezone, timedelta
 from httpx import AsyncClient, ASGITransport
 
-from app.api.deps import TenantContext, get_current_user, get_tenant_context, get_db
+from app.api.deps import TenantContext, get_current_user, get_tenant_context, get_db, get_company_db
 from app.main import app
 from app.models.auth import User, UserRole
 from app.models.report_schedule import ReportDispatchLog, ReportSchedule
@@ -123,9 +123,13 @@ async def mock_tenant():
 
 @pytest.fixture(autouse=True)
 def override_test_dependencies(mock_session):
+    async def _mock_get_company_db():
+        yield mock_session
+
     app.dependency_overrides[get_current_user] = mock_admin_user
     app.dependency_overrides[get_tenant_context] = mock_tenant
     app.dependency_overrides[get_db] = lambda: mock_session
+    app.dependency_overrides[get_company_db] = _mock_get_company_db
     yield
     app.dependency_overrides.clear()
 
@@ -193,22 +197,27 @@ async def test_02_schedule_crud_lifecycle(mock_session):
 async def test_03_multi_format_payload_rendering(mock_session):
     """Certifies multi-format report serialization (XLSX, PDF, CSV, JSON)."""
     engine = ReportDistributionEngine(mock_session)
+    sample_filters = {
+        "_dataset": [
+            {"invoice_no": "INV-2026-001", "customer": "Tattly Threads", "net_amount": 10500.00}
+        ]
+    }
     
     # CSV
-    csv_bytes = engine._render_report_payload("RPT-SAL-001", "CSV", {})
+    csv_bytes = engine._render_report_payload("RPT-SAL-001", "CSV", sample_filters)
     assert b"INV-2026-001" in csv_bytes
     assert b"Tattly Threads" in csv_bytes
     
     # JSON
-    json_bytes = engine._render_report_payload("RPT-SAL-001", "JSON", {})
+    json_bytes = engine._render_report_payload("RPT-SAL-001", "JSON", sample_filters)
     assert b"report_code" in json_bytes
     
     # PDF
-    pdf_bytes = engine._render_report_payload("RPT-SAL-001", "PDF", {})
+    pdf_bytes = engine._render_report_payload("RPT-SAL-001", "PDF", sample_filters)
     assert pdf_bytes.startswith(b"%PDF-1.4")
     
     # XLSX
-    xlsx_bytes = engine._render_report_payload("RPT-SAL-001", "XLSX", {})
+    xlsx_bytes = engine._render_report_payload("RPT-SAL-001", "XLSX", sample_filters)
     assert xlsx_bytes.startswith(b"PK\x03\x04")
 
 
