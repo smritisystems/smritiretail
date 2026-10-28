@@ -59,6 +59,7 @@ FLAGS = [
     ("ff_enhanced_audit", "ENHANCED_AUDIT_TRAIL", "Enhanced Audit Trail", "SECURITY", "SHA-256 tamper-evident payload verification", True, '{"COMP-001": true}'),
     ("ff_ocr_scan", "OCR_INVOICE_SCAN", "OCR Supplier Invoice Ingestion", "AI", "AI OCR extraction for purchase invoices", False, '{}'),
     ("ff_demand_forecast", "AI_DEMAND_FORECAST", "AI Demand Forecasting", "AI", "Predictive replenishment reorder triggers", False, '{}'),
+    ("ff_bin_location_management", "BIN_LOCATION_MANAGEMENT", "Bin and Rack Location Management", "INVENTORY", "Manage warehouse bin and rack locations", False, '{}'),
 ]
 
 MODULE_STATES = [

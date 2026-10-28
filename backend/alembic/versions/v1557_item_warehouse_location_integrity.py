@@ -29,8 +29,9 @@ query below BEFORE applying if you have production data:
   LEFT JOIN warehouses w ON w.id = iwl.warehouse_id
   WHERE w.id IS NULL AND iwl.warehouse_id IS NOT NULL;
 
-If this returns rows, resolve the orphans first (assign a valid warehouse_id or delete
-the orphaned item_warehouse_location rows).
+The FK is added NOT VALID so existing legacy orphans are preserved while all new or
+updated rows must reference a real warehouse. Validate it after historical references
+have been repaired.
 """
 from typing import Union
 import sqlalchemy as sa
@@ -61,13 +62,11 @@ def upgrade() -> None:
     # ------------------------------------------------------------------
     # R-002: Add FK warehouse_id -> warehouses.id with RESTRICT.
     # ------------------------------------------------------------------
-    op.create_foreign_key(
-        "fk_item_wh_loc_warehouse_id",
-        "item_warehouse_locations",   # source table
-        "warehouses",                 # referent table
-        ["warehouse_id"],             # local columns
-        ["id"],                       # remote columns
-        ondelete="RESTRICT",
+    op.execute(
+        "ALTER TABLE item_warehouse_locations "
+        "ADD CONSTRAINT fk_item_wh_loc_warehouse_id "
+        "FOREIGN KEY (warehouse_id) REFERENCES warehouses(id) "
+        "ON DELETE RESTRICT NOT VALID"
     )
 
 

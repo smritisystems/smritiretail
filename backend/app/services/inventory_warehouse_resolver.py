@@ -187,15 +187,20 @@ class InventoryWarehouseResolver:
                 s = select(Warehouse)
                 if not has_col:
                     s = s.options(defer(Warehouse.is_default_for_branch))
-                return s.where(
+                stmt = s.where(
                     Warehouse.company_id == company_id,
                     Warehouse.is_deleted == False,
                     Warehouse.is_active == True,
-                ).order_by(
+                )
+                order_by = []
+                if has_col:
+                    order_by.append(Warehouse.is_default_for_branch.desc())
+                order_by.extend([
                     self._system_default_order(),
                     (Warehouse.pincode.is_not(None) & (Warehouse.pincode != "")).desc(),
                     Warehouse.created_at.asc(),
-                )
+                ])
+                return stmt.order_by(*order_by)
             wh = await self._find_warehouse(q_comp)
             if wh:
                 return wh

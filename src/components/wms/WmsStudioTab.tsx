@@ -237,6 +237,7 @@ export const WmsStudioTab: React.FC<{
 }> = ({ currentUser, onNotification }) => {
   const [activeSubTab, setActiveSubTab] = useState<"batches" | "transfers" | "inward" | "fefo" | "audit" | "locations" | "rf" | "dispatch">("batches");
   const [warehouses, setWarehouses] = useState<Godown[]>([]);
+  const [binLocationManagementEnabled, setBinLocationManagementEnabled] = useState(false);
   const [batchStocks, setBatchStocks] = useState<BatchStock[]>([]);
   const [transfers, setTransfers] = useState<StockTransfer[]>([]);
   const [audits, setAudits] = useState<StockAudit[]>([]);
@@ -330,12 +331,15 @@ export const WmsStudioTab: React.FC<{
   const fetchWmsData = async () => {
     setLoading(true);
     try {
-      const [whRes, batchRes, transferRes, auditRes] = await Promise.all([
+      const [whRes, batchRes, transferRes, auditRes, featureFlags] = await Promise.all([
         apiFetchV1<Godown[]>("/wms/warehouses"),
         apiFetchV1<BatchStock[]>("/wms/batch-stocks"),
         apiFetchV1<StockTransfer[]>("/wms/transfers"),
         apiFetchV1<StockAudit[]>("/wms/audits").catch(() => []),
+        apiFetchV1<Array<{ key: string; is_enabled_for_company: boolean }>>("/capabilities/feature-flags"),
       ]);
+      const binLocationFlag = featureFlags.find((flag) => flag.key === "BIN_LOCATION_MANAGEMENT");
+      setBinLocationManagementEnabled(binLocationFlag?.is_enabled_for_company ?? false);
       setWarehouses(whRes || []);
       setBatchStocks(batchRes || []);
       setTransfers(transferRes || []);
@@ -359,6 +363,12 @@ export const WmsStudioTab: React.FC<{
   useEffect(() => {
     fetchWmsData();
   }, []);
+
+  useEffect(() => {
+    if (!binLocationManagementEnabled && activeSubTab === "locations") {
+      setActiveSubTab("batches");
+    }
+  }, [activeSubTab, binLocationManagementEnabled]);
 
   // Filtered batches
   const filteredBatches = useMemo(() => {
@@ -1137,17 +1147,19 @@ export const WmsStudioTab: React.FC<{
               <ClipboardCheck className="w-4 h-4" />
               Stock Audit & Recon
             </button>
-            <button
-              onClick={() => setActiveSubTab("locations")}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
-                activeSubTab === "locations"
-                  ? "bg-indigo-600 text-white shadow-sm"
-                  : "text-theme-muted hover:text-theme-body"
-              }`}
-            >
-              <MapPin className="w-4 h-4" />
-              Locations & Replenish
-            </button>
+            {binLocationManagementEnabled && (
+              <button
+                onClick={() => setActiveSubTab("locations")}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
+                  activeSubTab === "locations"
+                    ? "bg-indigo-600 text-white shadow-sm"
+                    : "text-theme-muted hover:text-theme-body"
+                }`}
+              >
+                <MapPin className="w-4 h-4" />
+                Locations & Replenish
+              </button>
+            )}
             <button
               onClick={() => setActiveSubTab("rf")}
               className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
@@ -2589,7 +2601,7 @@ export const WmsStudioTab: React.FC<{
         )}
 
         {/* SUBTAB 6: PHYSICAL LOCATIONS & BINS */}
-        {activeSubTab === "locations" && (
+        {binLocationManagementEnabled && activeSubTab === "locations" && (
           <WarehouseLocationManager
             warehouses={warehouses}
             activeWarehouseId={selectedWarehouseFilter !== "ALL" ? selectedWarehouseFilter : (warehouses[0]?.id || "")}

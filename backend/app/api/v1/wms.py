@@ -28,6 +28,7 @@ from ...api.deps import (
     require_role, require_permission
 )
 from ...models.auth import UserRole
+from ...models.capability_template import FeatureFlag
 from ...models.tenant import Branch
 from ...models.inventory import (
     Warehouse, WarehouseLocation, StockMovement, ProductBatchStock,
@@ -67,6 +68,20 @@ from ...services.eway_bill_service import EWayBillService
 from ...services.stock_audit_service import StockAuditService
 
 router = APIRouter()
+
+
+async def _require_bin_location_management(db: AsyncSession, company_id: str) -> None:
+    flag = await db.scalar(select(FeatureFlag).where(
+        FeatureFlag.key == "BIN_LOCATION_MANAGEMENT",
+        FeatureFlag.is_active == True,
+        FeatureFlag.is_deleted == False,
+    ))
+    overrides = flag.company_overrides or {} if flag else {}
+    if not flag or not overrides.get(company_id, flag.is_global_enabled):
+        raise HTTPException(
+            status_code=403,
+            detail="Bin and rack location management is disabled for this company.",
+        )
 
 
 async def _get_warehouse_resilient(
@@ -148,6 +163,7 @@ async def create_warehouse_location(
     guard: Any = Depends(require_permission("inventory_workspace", "ADD")),
 ):
     """Create a governed warehouse location; Item Master consumes these values."""
+    await _require_bin_location_management(db, tenant_ctx.company_id)
     warehouse = await _get_warehouse_resilient(db, warehouse_id, tenant_ctx.company_id)
     if not warehouse:
         raise HTTPException(status_code=404, detail="Warehouse not found.")
@@ -186,6 +202,7 @@ async def update_warehouse_location(
     guard: Any = Depends(require_permission("inventory_workspace", "EDIT")),
 ):
     """Update an existing warehouse location."""
+    await _require_bin_location_management(db, tenant_ctx.company_id)
     loc = await db.scalar(select(WarehouseLocation).where(
         WarehouseLocation.id == location_id,
         WarehouseLocation.company_id == tenant_ctx.company_id,
@@ -217,6 +234,7 @@ async def delete_warehouse_location(
     If references exist, use is_active=False (PUT /locations/{id}) to deactivate without
     breaking the audit trail.
     """
+    await _require_bin_location_management(db, tenant_ctx.company_id)
     loc = await db.scalar(select(WarehouseLocation).where(
         WarehouseLocation.id == location_id,
         WarehouseLocation.company_id == tenant_ctx.company_id,
@@ -258,6 +276,7 @@ async def generate_warehouse_locations_matrix(
     guard: Any = Depends(require_permission("inventory_workspace", "ADD")),
 ):
     """Generate a batch of locations for a warehouse based on an Aisle-Rack-Shelf matrix."""
+    await _require_bin_location_management(db, tenant_ctx.company_id)
     warehouse = await _get_warehouse_resilient(db, warehouse_id, tenant_ctx.company_id)
     if not warehouse:
         raise HTTPException(status_code=404, detail="Warehouse not found.")
@@ -1862,5 +1881,4 @@ async def reconcile_stock_audit(
     service = StockAuditService(db, tenant_ctx)
     audit = await service.reconcile_and_post_discrepancies(audit_id=audit_id)
     return StockAuditResponse.model_validate(audit)
-
 

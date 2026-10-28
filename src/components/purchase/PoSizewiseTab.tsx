@@ -2965,21 +2965,33 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
           method: "PUT",
           body: JSON.stringify(payload),
         });
-        if (mode === "confirm") {
-          try {
-            await apiFetchV1(`/purchase/orders/${editingOrderId}/confirm`, {
-              method: "POST",
-              body: JSON.stringify({ notes: "Confirmed from Sizewise Matrix Studio" }),
-            });
-          } catch {
-            // Confirmation error caught in catch block
-          }
-        }
       } else {
         res = await apiFetchV1("/purchase/orders/", {
           method: "POST",
           body: JSON.stringify(payload),
         });
+      }
+
+      if (mode === "confirm") {
+        const orderId = editingOrderId || res?.id;
+        if (!orderId) {
+          throw new Error("PO was saved, but the server did not return an ID for submission.");
+        }
+        try {
+          await apiFetchV1(`/purchase/orders/${orderId}/submit`, { method: "POST" });
+          await apiFetchV1(`/purchase/orders/${orderId}/confirm`, {
+            method: "POST",
+            body: JSON.stringify({ notes: "Confirmed from Sizewise Matrix Studio" }),
+          });
+        } catch (confirmError: unknown) {
+          const message = confirmError instanceof Error ? confirmError.message : "Submission or confirmation failed.";
+          onNotification?.(
+            "Confirmation Failed",
+            `PO ${res?.order_no || orderNo} was saved, but the submit/confirm workflow did not complete: ${message}`,
+            "error"
+          );
+          return;
+        }
       }
 
       if (res?.id || res?.order_no) {
