@@ -683,9 +683,11 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
       // Fetch next order number sequence
       try {
         const nextRes: any = await apiFetchV1(`/purchase/orders/next-number?prefix=${encodeURIComponent(header.prefix || "PO")}`);
-        if (nextRes && nextRes.next_order_no) {
+        if (nextRes?.suggested_order_no) {
+          setHeader(h => ({ ...h, orderNumber: nextRes.suggested_order_no }));
+        } else if (nextRes?.next_order_no) {
           setHeader(h => ({ ...h, orderNumber: nextRes.next_order_no }));
-        } else if (nextRes && nextRes.next_number) {
+        } else if (nextRes?.next_number) {
           setHeader(h => ({ ...h, orderNumber: String(nextRes.next_number) }));
         }
       } catch {
@@ -1600,10 +1602,11 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
 
     setSaving(true);
     try {
+      const rawPrefix = (header.prefix || "PO").trim();
       const rawNum = header.orderNumber.trim();
-      const orderNo = (rawNum.includes("/") || rawNum.startsWith("PO"))
+      const orderNo = (rawNum.includes("/") || rawNum.startsWith(rawPrefix))
         ? rawNum
-        : `${header.prefix.trim()}/${rawNum}`;
+        : `${rawPrefix}-${rawNum}`;
       const notesArr: string[] = [];
       if (header.specialInstructions) notesArr.push(`Instructions: ${header.specialInstructions}`);
       if (header.paymentTerms) notesArr.push(`Payment: ${header.paymentTerms}`);
@@ -1690,14 +1693,28 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
           setHeader(h => ({ ...h, orderNumber: `PO/${fy}/${String(cur + 1).padStart(4, "0")}` }));
         }
       }
-    } catch (err) {
+    } catch (err: any) {
       const msg = err instanceof Error ? err.message : "Failed to commit Purchase Order to backend.";
-      if (msg.includes("already exists") || (err as any)?.status === 409) {
-        const orderNo = `${header.prefix.trim()}-${header.orderNumber.trim()}`;
-        setDuplicateOrderNo(orderNo);
-        apiFetchV1(`/purchase/orders/next-number?prefix=${encodeURIComponent(header.prefix.trim())}`).
-          then((r: any) => { if (r?.next_order_no) setSuggestedOrderNo(r.next_order_no); }).
-          catch(() => {});
+      if (msg.includes("already exists") || err?.status === 409) {
+        const rawPrefix = (header.prefix || "PO").trim();
+        const rawNum = header.orderNumber.trim();
+        const attemptedNo = (rawNum.includes("/") || rawNum.startsWith(rawPrefix))
+          ? rawNum
+          : `${rawPrefix}-${rawNum}`;
+        setDuplicateOrderNo(attemptedNo);
+        const sug =
+          err?.detail?.suggested_number ||
+          err?.body?.detail?.suggested_number ||
+          err?.body?.suggested_number ||
+          err?.detail?.suggested_order_no ||
+          err?.body?.suggested_order_no;
+        if (sug) {
+          setSuggestedOrderNo(sug);
+        } else {
+          apiFetchV1(`/purchase/orders/next-number?prefix=${encodeURIComponent(header.prefix.trim())}`).
+            then((r: any) => { if (r?.suggested_order_no || r?.next_order_no) setSuggestedOrderNo(r.suggested_order_no || r.next_order_no); }).
+            catch(() => {});
+        }
       } else {
         if (onNotification) onNotification("PO Save Error", msg, "error");
       }
@@ -3472,10 +3489,16 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
             <button
               type="button"
               onClick={() => {
-                const parts = suggestedOrderNo.split("-");
-                const num = parts.pop() || "";
-                const pfx = parts.join("-");
-                setHeader(h => ({ ...h, prefix: pfx || h.prefix, orderNumber: num }));
+                if (suggestedOrderNo.includes("/")) {
+                  setHeader(h => ({ ...h, orderNumber: suggestedOrderNo }));
+                } else if (suggestedOrderNo.includes("-")) {
+                  const lastDash = suggestedOrderNo.lastIndexOf("-");
+                  const pfx = suggestedOrderNo.slice(0, lastDash);
+                  const num = suggestedOrderNo.slice(lastDash + 1);
+                  setHeader(h => ({ ...h, prefix: pfx || h.prefix, orderNumber: num }));
+                } else {
+                  setHeader(h => ({ ...h, orderNumber: suggestedOrderNo }));
+                }
                 setDuplicateOrderNo(null);
                 setSuggestedOrderNo(null);
               }}

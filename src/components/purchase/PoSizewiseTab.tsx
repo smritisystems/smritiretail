@@ -1342,7 +1342,17 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
         const nextRes: any = await apiFetchV1(
           `/purchase/orders/next-number?prefix=${encodeURIComponent(header.prefix || "PO")}`
         );
-        if (nextRes?.next_number) {
+        if (nextRes?.suggested_order_no) {
+          const sug = String(nextRes.suggested_order_no);
+          if (sug.includes("-")) {
+            const lastDash = sug.lastIndexOf("-");
+            const pfx = sug.slice(0, lastDash);
+            const num = sug.slice(lastDash + 1);
+            setHeader(h => ({ ...h, prefix: pfx || h.prefix, orderNumber: num }));
+          } else {
+            setHeader(h => ({ ...h, orderNumber: sug }));
+          }
+        } else if (nextRes?.next_number) {
           setHeader(h => ({ ...h, orderNumber: String(nextRes.next_number) }));
         }
       } catch {
@@ -1631,7 +1641,17 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
       const nextRes: any = await apiFetchV1(
         `/purchase/orders/next-number?prefix=${encodeURIComponent(header.prefix || "PO")}`
       );
-      if (nextRes?.next_number) {
+      if (nextRes?.suggested_order_no) {
+        const sug = String(nextRes.suggested_order_no);
+        if (sug.includes("-")) {
+          const lastDash = sug.lastIndexOf("-");
+          const pfx = sug.slice(0, lastDash);
+          const num = sug.slice(lastDash + 1);
+          setHeader(h => ({ ...h, prefix: pfx || h.prefix, orderNumber: num }));
+        } else {
+          setHeader(h => ({ ...h, orderNumber: sug }));
+        }
+      } else if (nextRes?.next_number) {
         setHeader(h => ({ ...h, orderNumber: String(nextRes.next_number) }));
       }
     } catch {
@@ -2896,7 +2916,11 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
 
     setSaving(true);
     try {
-      const orderNo = `${header.prefix.trim()}-${header.orderNumber.trim()}`;
+      const rawPrefix = (header.prefix || "PO").trim();
+      const rawNum = (header.orderNumber || "1").trim();
+      const orderNo = (rawNum.startsWith(rawPrefix) || rawNum.includes("/"))
+        ? rawNum
+        : `${rawPrefix}-${rawNum}`;
       const commercialTerms = {
         payment_terms: header.paymentTerms,
         freight_terms: header.freightCharges,
@@ -3003,10 +3027,22 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
         );
       }
     } catch (err: any) {
-      if (err?.status === 409) {
-        setDuplicateOrderNo(`${header.prefix.trim()}-${header.orderNumber.trim()}`);
-        setSuggestedOrderNo(err?.body?.suggested_number || null);
-        onNotification?.("Duplicate PO Number", "This PO number already exists. Please use the suggested number.", "error");
+      if (err?.status === 409 || err?.message?.includes("already exists")) {
+        const rawPrefix = (header.prefix || "PO").trim();
+        const rawNum = (header.orderNumber || "1").trim();
+        const attemptedNo = (rawNum.startsWith(rawPrefix) || rawNum.includes("/"))
+          ? rawNum
+          : `${rawPrefix}-${rawNum}`;
+        setDuplicateOrderNo(attemptedNo);
+        const sug =
+          err?.detail?.suggested_number ||
+          err?.body?.detail?.suggested_number ||
+          err?.body?.suggested_number ||
+          err?.detail?.suggested_order_no ||
+          err?.body?.suggested_order_no ||
+          null;
+        setSuggestedOrderNo(sug);
+        onNotification?.("Duplicate PO Number", `PO ${attemptedNo} already exists.${sug ? ` Suggested: ${sug}` : ""}`, "error");
       } else {
         onNotification?.("Save Failed", err?.message || "Failed to save purchase order.", "error");
       }
@@ -5040,10 +5076,16 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
             <button
               type="button"
               onClick={() => {
-                const parts = suggestedOrderNo.split("-");
-                const num = parts.pop() || "";
-                const pfx = parts.join("-");
-                setHeader(h => ({ ...h, prefix: pfx || h.prefix, orderNumber: num }));
+                if (suggestedOrderNo.includes("/")) {
+                  setHeader(h => ({ ...h, orderNumber: suggestedOrderNo }));
+                } else if (suggestedOrderNo.includes("-")) {
+                  const lastDash = suggestedOrderNo.lastIndexOf("-");
+                  const pfx = suggestedOrderNo.slice(0, lastDash);
+                  const num = suggestedOrderNo.slice(lastDash + 1);
+                  setHeader(h => ({ ...h, prefix: pfx || h.prefix, orderNumber: num }));
+                } else {
+                  setHeader(h => ({ ...h, orderNumber: suggestedOrderNo }));
+                }
                 setDuplicateOrderNo(null);
                 setSuggestedOrderNo(null);
               }}

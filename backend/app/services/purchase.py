@@ -534,12 +534,26 @@ class PurchaseService:
             )
             existing_res = await self.db.execute(existing_stmt)
             if existing_res.scalars().first():
+                req_pfx = "PO"
+                if "-" in req.order_no:
+                    req_pfx = req.order_no.split("-")[0]
+                elif "/" in req.order_no:
+                    req_pfx = req.order_no.split("/")[0]
+                next_info = await self.get_next_order_number(prefix=req_pfx)
+                sug_no = next_info.get("suggested_order_no") or next_info.get("next_order_no")
                 raise HTTPException(
                     status_code=409,
-                    detail=(
-                        f"A purchase order with number '{req.order_no.strip()}' already exists. "
-                        "Please use a different order number or retrieve the existing order."
-                    ),
+                    detail={
+                        "code": "DUPLICATE_ORDER_NO",
+                        "message": (
+                            f"A purchase order with number '{req.order_no.strip()}' already exists. "
+                            f"Please use suggested number '{sug_no}' or retrieve the existing order."
+                        ),
+                        "duplicate_order_no": req.order_no.strip(),
+                        "suggested_number": sug_no,
+                        "suggested_order_no": sug_no,
+                        "next_order_no": next_info.get("next_order_no"),
+                    },
                 )
 
         eff_branch_id = await self.get_effective_branch_id()
@@ -756,12 +770,27 @@ class PurchaseService:
             err_str = str(getattr(e, "orig", e)).lower()
             # Human-readable constraint translation (SMRITI HREP policy)
             if "uq_purchase_orders_order_no_company" in err_str or "purchase_orders_order_no_key" in err_str or ("order_no" in err_str and "unique" in err_str):
+                req_pfx = "PO"
+                if req.order_no:
+                    if "-" in req.order_no:
+                        req_pfx = req.order_no.split("-")[0]
+                    elif "/" in req.order_no:
+                        req_pfx = req.order_no.split("/")[0]
+                next_info = await self.get_next_order_number(prefix=req_pfx)
+                sug_no = next_info.get("suggested_order_no") or next_info.get("next_order_no")
                 raise HTTPException(
                     status_code=409,
-                    detail=(
-                        f"A purchase order with number '{req.order_no}' already exists. "
-                        "Please use a different order number or retrieve the existing order."
-                    ),
+                    detail={
+                        "code": "DUPLICATE_ORDER_NO",
+                        "message": (
+                            f"A purchase order with number '{req.order_no}' already exists. "
+                            f"Please use suggested number '{sug_no}' or retrieve the existing order."
+                        ),
+                        "duplicate_order_no": req.order_no,
+                        "suggested_number": sug_no,
+                        "suggested_order_no": sug_no,
+                        "next_order_no": next_info.get("next_order_no"),
+                    },
                 )
             elif "uq_purchase_orders_identity_code" in err_str or ("identity_code" in err_str and "unique" in err_str):
                 raise HTTPException(
@@ -838,9 +867,9 @@ class PurchaseService:
     async def get_next_order_number(self, prefix: Optional[str] = None, order_date: Optional[Any] = None) -> dict:
         """
         Return the next available sequential order number for the given prefix
-        and company based on Financial Year + Running Number.
+        and company based on Financial Year + Running Number, with collision prevention.
         Canonical Format: {PREFIX}/{FINANCIAL_YEAR}/{RUNNING_NUMBER:04d}
-        Example: PO/26-27/0001
+        Sequential Format: {PREFIX}-{RUNNING_NUMBER}
         """
         import re
         pfx = (prefix or "PO").strip().rstrip("/-")
@@ -852,28 +881,56 @@ class PurchaseService:
         )
         res = await self.db.execute(stmt)
         order_nos: list[str] = [row[0] for row in res.fetchall() if row[0]]
+        existing_set = set(order_nos)
 
         canonical_seqs: list[int] = []
-        p1 = re.compile(rf"^{re.escape(pfx)}[/\-_]{re.escape(fy)}[/\-_](\d+)", re.IGNORECASE)
+        simple_seqs: list[int] = []
+
+        # 1. Matches: PO/26-27/0001, PO-26-27-0001, PO_26-27_0001
+        p_canonical = re.compile(rf"^{re.escape(pfx)}[/\-_]{re.escape(fy)}[/\-_](\d+)", re.IGNORECASE)
+        # 2. Matches: PO-1, PO-15, PO/15, PO15
+        p_simple = re.compile(rf"^{re.escape(pfx)}[/\-_]?(\d+)$", re.IGNORECASE)
 
         for no in order_nos:
-            m1 = p1.search(no)
+            m1 = p_canonical.search(no)
             if m1:
                 canonical_seqs.append(int(m1.group(1)))
+            m2 = p_simple.search(no)
+            if m2:
+                val = int(m2.group(1))
+                if val < 900000:
+                    simple_seqs.append(val)
 
-        next_seq = max(canonical_seqs) + 1 if canonical_seqs else 1
+        next_canonical = max(canonical_seqs) + 1 if canonical_seqs else 1
+        while f"{pfx}/{fy}/{next_canonical:04d}" in existing_set:
+            next_canonical += 1
+
+        next_simple = max(simple_seqs) + 1 if simple_seqs else 1
+        while (
+            f"{pfx}-{next_simple}" in existing_set
+            or f"{pfx}-{next_simple:03d}" in existing_set
+            or f"{pfx}/{next_simple}" in existing_set
+            or f"{pfx}{next_simple}" in existing_set
+        ):
+            next_simple += 1
+
+        suggested_simple = f"{pfx}-{next_simple}"
+        suggested_canonical = f"{pfx}/{fy}/{next_canonical:04d}"
 
         return {
             "prefix": pfx,
             "financial_year": fy,
-            "next_number": next_seq,
-            "next_order_no": f"{pfx}/{fy}/{next_seq:04d}",
+            "next_number": next_simple,
+            "next_order_no": suggested_canonical,
+            "suggested_number": suggested_simple,
+            "suggested_order_no": suggested_simple,
+            "suggested_canonical": suggested_canonical,
         }
 
     async def get_next_receipt_number(self, prefix: Optional[str] = None, receipt_date: Optional[Any] = None) -> dict:
         """
         Return the next available sequential GRN number for the given prefix
-        and company based on Financial Year + Running Number.
+        and company based on Financial Year + Running Number, with collision prevention.
         Canonical Format: {PREFIX}/{FINANCIAL_YEAR}/{RUNNING_NUMBER:04d}
         Example: GRN/26-27/0001
         """
@@ -893,22 +950,48 @@ class PurchaseService:
             )
         res = await self.db.execute(stmt)
         receipt_nos: list[str] = [row[0] for row in res.fetchall() if row[0]]
+        existing_set = set(receipt_nos)
 
         canonical_seqs: list[int] = []
-        p1 = re.compile(rf"^{re.escape(pfx)}[/\-_]{re.escape(fy)}[/\-_](\d+)", re.IGNORECASE)
+        simple_seqs: list[int] = []
+
+        p_canonical = re.compile(rf"^{re.escape(pfx)}[/\-_]{re.escape(fy)}[/\-_](\d+)", re.IGNORECASE)
+        p_simple = re.compile(rf"^{re.escape(pfx)}[/\-_]?(\d+)$", re.IGNORECASE)
 
         for no in receipt_nos:
-            m1 = p1.search(no)
+            m1 = p_canonical.search(no)
             if m1:
                 canonical_seqs.append(int(m1.group(1)))
+            m2 = p_simple.search(no)
+            if m2:
+                val = int(m2.group(1))
+                if val < 900000:
+                    simple_seqs.append(val)
 
-        next_seq = max(canonical_seqs) + 1 if canonical_seqs else 1
+        next_canonical = max(canonical_seqs) + 1 if canonical_seqs else 1
+        while f"{pfx}/{fy}/{next_canonical:04d}" in existing_set:
+            next_canonical += 1
+
+        next_simple = max(simple_seqs) + 1 if simple_seqs else 1
+        while (
+            f"{pfx}-{next_simple}" in existing_set
+            or f"{pfx}-{next_simple:03d}" in existing_set
+            or f"{pfx}/{next_simple}" in existing_set
+            or f"{pfx}{next_simple}" in existing_set
+        ):
+            next_simple += 1
+
+        suggested_simple = f"{pfx}-{next_simple}"
+        suggested_canonical = f"{pfx}/{fy}/{next_canonical:04d}"
 
         return {
             "prefix": pfx,
             "financial_year": fy,
-            "next_number": next_seq,
-            "next_receipt_no": f"{pfx}/{fy}/{next_seq:04d}",
+            "next_number": next_simple,
+            "next_receipt_no": suggested_canonical,
+            "suggested_number": suggested_simple,
+            "suggested_receipt_no": suggested_simple,
+            "suggested_canonical": suggested_canonical,
         }
 
     async def get_purchase_order(self, order_id: str) -> tuple[PurchaseOrder, list[PurchaseOrderItem]]:
