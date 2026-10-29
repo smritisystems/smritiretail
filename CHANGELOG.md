@@ -1,5 +1,22 @@
 <!--
 
+## [6.99.24] - 2026-10-29 - Print Engine: CI/CD Pipeline Integration & API DTO Governance Reconciliation (Phase 13) v1.0.0
+
+### Fixed
+- `scripts/ci_api_dto_reconciliation.py`:
+  - Added `"delivery_terms"` to `EXEMPT_DTO_FIELDS` in CFOC API DTO Reconciliation Guard alongside commercial terms (`"freight_terms"`, `"payment_terms"`, `"business_terms"`, `"commercial_terms"`).
+  - Restored 100% green status across 35 Pydantic DTO classes with 0 violations.
+
+### Added
+- `scripts/architecture_duplication_gate.py`:
+  - Added Check 11: `check_print_portal_architecture_governance()` invoking `scripts/verify_platform_print_architecture.py`.
+  - Permanently bound single-tree body portal print architecture compliance into continuous integration and pre-commit checks (`npm run architecture:check`).
+- `package.json`:
+  - Added `"governance:print": "python scripts/verify_platform_print_architecture.py"`.
+  - Integrated print architecture verification into `"governance:all"` compound check (`npm run governance:all`).
+- `docs/walkthrough/print/Print_Engine_Modal_Unification_Phase13_CI_CD_Governance_Reconciliation_v1.0.0.md`:
+  - Formal 13-section WGP walkthrough document certifying Phase 13 pipeline integration and DTO reconciliation.
+
 ## [6.99.23] - 2026-10-29 - Print Engine: Platform-Wide Architecture Certification & Automated Governance Enforcement (Phase 12) v1.0.0
 
 ### Added

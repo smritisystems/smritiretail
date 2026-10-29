@@ -194,7 +194,7 @@ EXEMPT_DTO_FIELDS: Set[str] = {
     "collection_type", "design_attribute", "heel_type", "is_billable_yn", "is_inventory_yn", "is_service_yn",
     "outsole_material", "product_type", "purchase_class", "upper_material",
     # Purchase Order and Supplier commercial terms, audit revisions, and projection responses
-    "business_terms", "buyer", "commercial_terms", "currency", "freight_terms", "payment_terms", "special_instructions",
+    "business_terms", "buyer", "commercial_terms", "currency", "delivery_terms", "freight_terms", "payment_terms", "special_instructions",
     "rule_snapshots", "amend_revision", "cancellation_reason", "delivery_date", "order_date", "supplier_name", "total_amount",
     "received_date", "vendor_bill_date", "vendor_bill_no",
     # CustomerProfileData sub-schema fields (nested profile, maps to customer_profile table)

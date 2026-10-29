@@ -4,9 +4,9 @@ Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
-Version      : 3.30.0
+Version      : 3.31.0
 Created      : 2026-09-03
-Modified     : 2026-09-03
+Modified     : 2026-10-29
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 Classification: Architecture CI Duplication Gate
@@ -30,7 +30,7 @@ DB_CONN = os.getenv("DATABASE_URL") or f"postgresql://postgres:postgres@localhos
 sys.path.insert(0, os.path.join(REPO_ROOT, "scripts"))
 from lib.certificate_manager import PreflightCertificateManager
 
-TOTAL_CHECKS = 9
+TOTAL_CHECKS = 11
 VIOLATIONS = []
 WARNINGS = []
 
@@ -339,6 +339,26 @@ def check_identity_generation_governance():
 
 
 # ==============================================================================
+# CHECK 11: Single-Tree Body Portal Print Architecture Governance
+# ==============================================================================
+def check_print_portal_architecture_governance():
+    """
+    Rule 11 (Print Portal Architecture Governance Gate):
+    Enforces that all print-enabled components adhere to the Single-Tree Body Portal Architecture
+    and that zero unisolated bare window.print() calls exist in src/.
+    """
+    script_path = os.path.join(REPO_ROOT, "scripts", "verify_platform_print_architecture.py")
+    if not os.path.exists(script_path):
+        return
+    res = subprocess.run([sys.executable, script_path], cwd=REPO_ROOT, capture_output=True, text=True)
+    if res.returncode != 0:
+        log_violation(
+            "Rule 11 (Print Portal Architecture Violation)",
+            f"Platform print architecture validation failed:\n{res.stdout}\n{res.stderr}"
+        )
+
+
+# ==============================================================================
 # MAIN RUNNER
 # ==============================================================================
 def main():
@@ -356,6 +376,7 @@ def main():
     check_new_database_models()
     check_capability_ownership()
     check_identity_generation_governance()
+    check_print_portal_architecture_governance()
 
     TOTAL_CHECKS = 11
     print(f" Checks Executed:    {TOTAL_CHECKS}")
