@@ -891,24 +891,43 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
         ];
         rows = stockValuationData.lines;
       } else if (purchaseInwardData?.lines && purchaseInwardData.lines.length > 0) {
-        columns = [
-          { key: "receipt_no", label: "GRN #", datatype: "text" },
-          { key: "receipt_date", label: "Date", datatype: "date" },
-          { key: "supplier_name", label: "Supplier", datatype: "text" },
-          { key: "order_no", label: "PO #", datatype: "text" },
-          { key: "delivery_terms", label: "Delivery Terms", datatype: "text" },
-          { key: "transporter_name", label: "Transporter", datatype: "text" },
-          { key: "lr_number", label: "LR #", datatype: "text" },
-          { key: "product_code", label: "Article / SKU", datatype: "text" },
-          { key: "product_name", label: "Description", datatype: "text" },
-          { key: "quantity_received", label: "Qty Received", datatype: "number", isSummary: true },
-          { key: "cost_price", label: "Cost Rate", datatype: "currency" },
-          { key: "gst_rate", label: "GST %", datatype: "percentage" },
-          { key: "tax_amount", label: "Tax (INR)", datatype: "currency", isSummary: true },
-          { key: "line_total", label: "Line Total (INR)", datatype: "currency", isSummary: true },
-          { key: "status", label: "Status", datatype: "text" },
-        ];
-        rows = purchaseInwardData.lines;
+        if (grnViewMode === "grn_summary") {
+          columns = [
+            { key: "receipt_no", label: "GRN #", datatype: "text" },
+            { key: "receipt_date", label: "Date", datatype: "date" },
+            { key: "supplier_name", label: "Supplier", datatype: "text" },
+            { key: "order_no", label: "PO #", datatype: "text" },
+            { key: "delivery_terms", label: "Delivery Terms", datatype: "text" },
+            { key: "transporter_name", label: "Transporter", datatype: "text" },
+            { key: "lr_number", label: "LR #", datatype: "text" },
+            { key: "itemCount", label: "Items Count", datatype: "number", isSummary: true },
+            { key: "totalQty", label: "Total Qty (Pcs)", datatype: "number", isSummary: true },
+            { key: "totalTax", label: "Tax (INR)", datatype: "currency", isSummary: true },
+            { key: "totalLanded", label: "Landed Total (INR)", datatype: "currency", isSummary: true },
+            { key: "status", label: "Status", datatype: "text" },
+          ];
+          rows = grnSummaryList;
+        } else {
+          columns = [
+            { key: "receipt_no", label: "GRN #", datatype: "text" },
+            { key: "receipt_date", label: "Date", datatype: "date" },
+            { key: "supplier_name", label: "Supplier", datatype: "text" },
+            { key: "order_no", label: "PO #", datatype: "text" },
+            { key: "delivery_terms", label: "Delivery Terms", datatype: "text" },
+            { key: "transporter_name", label: "Transporter", datatype: "text" },
+            { key: "lr_number", label: "LR #", datatype: "text" },
+            { key: "collection_type", label: "Collection", datatype: "text" },
+            { key: "product_code", label: "Article / SKU", datatype: "text" },
+            { key: "product_name", label: "Description", datatype: "text" },
+            { key: "quantity_received", label: "Qty Received", datatype: "number", isSummary: true },
+            { key: "cost_price", label: "Cost Rate", datatype: "currency" },
+            { key: "gst_rate", label: "GST %", datatype: "percentage" },
+            { key: "tax_amount", label: "Tax (INR)", datatype: "currency", isSummary: true },
+            { key: "line_total", label: "Line Total (INR)", datatype: "currency", isSummary: true },
+            { key: "status", label: "Status", datatype: "text" },
+          ];
+          rows = filteredGrnLines;
+        }
       } else if (genericReportData?.lines || genericReportData?.rows) {
         const rawList = genericReportData.lines || genericReportData.rows || [];
         if (rawList.length > 0) {
@@ -1117,7 +1136,9 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
         activeData = [stockValuationData];
       }
     } else if (purchaseInwardData) {
-      if (Array.isArray(purchaseInwardData)) {
+      if (selectedReport?.id === "RPT-PUR-001") {
+        activeData = grnViewMode === "grn_summary" ? grnSummaryList : filteredGrnLines;
+      } else if (Array.isArray(purchaseInwardData)) {
         activeData = purchaseInwardData;
       } else if (Array.isArray(purchaseInwardData.lines)) {
         activeData = purchaseInwardData.lines;
@@ -2660,6 +2681,21 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
                           <span>Reset Filters</span>
                         </button>
                       )}
+
+                      {/* 1-Click Export Sub-ledger (WYSIWYE) */}
+                      <button
+                        type="button"
+                        onClick={() => handleTriggerExport("XLSX")}
+                        className="px-2.5 py-1 rounded-lg bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 hover:bg-emerald-500/20 text-xs font-medium flex items-center gap-1 transition-all cursor-pointer"
+                        title={
+                          grnViewMode === "grn_summary"
+                            ? `Export ${grnSummaryList.length} receipt summaries to Excel (XLSX)`
+                            : `Export ${filteredGrnLines.length} filtered inward lines to Excel (XLSX)`
+                        }
+                      >
+                        <Download className="w-3 h-3 text-emerald-600" />
+                        <span>Export (XLSX)</span>
+                      </button>
                     </div>
                   </div>
 
