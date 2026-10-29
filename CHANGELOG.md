@@ -1,5 +1,29 @@
 <!--
 
+## [6.99.13] - 2026-10-29 - Print Engine: Platform-Wide Modal Unification & Layout Safety v1.0.0
+
+### Fixed
+- `src/components/purchase/GrnPrintModal.tsx`:
+  - Migrated Goods Receipt Note (GRN) and landed cost statutory audit slip modal to the unified single-tree body portal architecture (`createPortal(modalContent, document.body)`).
+  - Eliminated redundant dual-portal rendering at `document.body`.
+  - Added embedded `@media print` style sheet declaring `#root { display: none !important; }`, preventing full-viewport height displacement from pushing receiving slips onto secondary pages.
+  - Reset modal root, canvas wrapper, and sheet to static block layout with 0 overflow and 0 margin offsets.
+- `src/components/staff/StaffPrintModal.tsx`:
+  - Migrated Staff Print Center (A4 Registration & Remittance Form + CR-80 Physical ID Card) to single-tree body portal standard (`createPortal(modalContent, document.body)`).
+  - Injected `@media print` rules suppressing `#root` layout box.
+  - Dynamically switches `@page` styling between `A4 portrait` (registration form) and `85.6mm 53.98mm` margin 0 (CR-80 badge).
+  - Added `Escape` (close preview) and `F9` / `Ctrl+P` (instant print) keyboard shortcuts.
+  - Added `customCompanyName?: string` property for testing and tenant overrides.
+  - Rendered company legal name in the registration document header subtitle.
+
+### Added
+- `src/tests/staffPrintModal.test.tsx`:
+  - Automated Vitest verification suite with 6 tests covering statutory identity fail-closed protection, employee form rendering, CR-80 ID mode, print CSS rules, and print trigger state.
+- `docs/walkthrough/print/Print_Engine_Modal_Unification_Walkthrough_v1.0.0.md`:
+  - Formal 13-section WGP walkthrough document.
+- `docs/walkthrough/README.md`:
+  - Appended entry `v3.144.0` to master walkthrough index.
+
 ## [6.99.12] - 2026-10-29 - Procurement: Vendor Form Print & Export Studio Blank Print Fix & Unified Print Architecture v1.0.0
 
 ### Fixed

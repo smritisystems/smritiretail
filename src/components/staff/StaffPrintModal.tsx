@@ -1,20 +1,20 @@
 /**
  * Project      : SMRITI Retail OS
+ * Repository   : SMRITIRetailNX
  * Author       : Jawahar Ramkripal Mallah
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.33.3
+ * Version      : 6.99.13
  * Created      : 2026-07-10
- * Modified     : 2026-09-17
+ * Modified     : 2026-10-29
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
- * Classification: Internal
- * Source Module: Staff Print Center (A4 Registration & Remittance Form + CR-80 Physical ID Card)
+ * Classification: Staff Print Center (A4 Registration & Remittance Form + CR-80 Physical ID Card)
  */
 
 import React, { useEffect, useState } from "react";
-import ReactDOM from "react-dom";
+import { createPortal } from "react-dom";
 import { CreditCard, FileText, Printer, X } from "lucide-react";
 import { User } from "../../types.ts";
 import { getTenantCompanyContext } from "../../lib/apiFetchV1.ts";
@@ -23,6 +23,7 @@ interface StaffPrintModalProps {
   isOpen: boolean;
   onClose: () => void;
   staff: User;
+  customCompanyName?: string;
 }
 
 type PrintMode = "form" | "id";
@@ -91,10 +92,10 @@ function StaffBarcode({ value }: { value: string }) {
   );
 }
 
-const StaffPrintModal: React.FC<StaffPrintModalProps> = ({ isOpen, onClose, staff }) => {
+const StaffPrintModal: React.FC<StaffPrintModalProps> = ({ isOpen, onClose, staff, customCompanyName }) => {
   const [mode, setMode] = useState<PrintMode>("form");
   const [withData, setWithData] = useState(true);
-  const [companyName, setCompanyName] = useState("");
+  const [companyName, setCompanyName] = useState(() => customCompanyName || "");
   const [companyAddress, setCompanyAddress] = useState("");
   const [logoUrl, setLogoUrl] = useState(fallbackLogo);
   const [idBorderColor, setIdBorderColor] = useState("#1f2937");
@@ -103,6 +104,25 @@ const StaffPrintModal: React.FC<StaffPrintModalProps> = ({ isOpen, onClose, staf
   const [idLogoPosition, setIdLogoPosition] = useState<LogoPosition>("left");
 
   useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        onClose();
+      } else if (e.key === "F9" || ((e.ctrlKey || e.metaKey) && e.key === "p")) {
+        e.preventDefault();
+        window.print();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen, onClose]);
+
+  useEffect(() => {
+    if (customCompanyName !== undefined) {
+      setCompanyName(customCompanyName);
+      return;
+    }
     if (typeof window !== "undefined") {
       const tenantCtx = getTenantCompanyContext();
       const companyId = localStorage.getItem("smriti_company_id") || localStorage.getItem("smriti_company_code") || "";
@@ -125,7 +145,7 @@ const StaffPrintModal: React.FC<StaffPrintModalProps> = ({ isOpen, onClose, staf
         setLogoUrl(fallbackLogo);
       }
     }
-  }, []);
+  }, [customCompanyName]);
 
   useEffect(() => {
     if (isOpen) {
@@ -182,7 +202,9 @@ const StaffPrintModal: React.FC<StaffPrintModalProps> = ({ isOpen, onClose, staf
             <div>
               <div className="text-[9px] font-bold uppercase tracking-[0.24em] text-slate-500">Official Personnel &amp; Remittance Register</div>
               <h1 className="mt-0.5 text-lg font-black uppercase tracking-tight">Staff Registration &amp; Remittance Form</h1>
-              <p className="text-[10px] text-slate-500">Identity, Statutory KYC, Employment, and Bank Remittance Record</p>
+              <p className="text-[10px] text-slate-500">
+                {companyName ? `${companyName} • Statutory KYC, Employment & Remittance Record` : "Identity, Statutory KYC, Employment, and Bank Remittance Record"}
+              </p>
             </div>
           </div>
           <div className="text-right font-mono text-[9px] text-slate-500">
@@ -529,141 +551,201 @@ const StaffPrintModal: React.FC<StaffPrintModalProps> = ({ isOpen, onClose, staf
     formDocument
   );
 
-  return (
-    <>
-      <div className="fixed inset-0 z-50 flex flex-col bg-slate-950/70 backdrop-blur-sm print:hidden">
-        <div className="flex min-h-16 items-center justify-between gap-4 border-b border-slate-200 bg-white px-5 dark:border-slate-800 dark:bg-slate-900">
-          <div className="flex items-center gap-3">
-            <Printer size={19} className="text-indigo-600" />
-            <div>
-              <h2 className="text-sm font-black">Staff Print Center</h2>
-              <p className="text-xs text-slate-500">Statutory A4 Registration &amp; Remittance Form + Physical CR-80 ID Card</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-1 rounded-lg border border-slate-200 p-1 dark:border-slate-700">
-            <button
-              id="btn-print-mode-form"
-              onClick={() => setMode("form")}
-              className={`rounded-md px-3 py-1.5 text-xs font-bold transition-colors ${
-                mode === "form" ? "bg-indigo-600 text-white" : "text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800"
-              }`}
-            >
-              <FileText size={13} className="mr-1 inline" />
-              Staff Form (A4)
-            </button>
-            <button
-              id="btn-print-mode-id"
-              onClick={() => setMode("id")}
-              className={`rounded-md px-3 py-1.5 text-xs font-bold transition-colors ${
-                mode === "id" ? "bg-indigo-600 text-white" : "text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800"
-              }`}
-            >
-              <CreditCard size={13} className="mr-1 inline" />
-              Physical ID Card
-            </button>
-          </div>
-          <div className="flex items-center gap-2">
-            {mode === "id" && (
-              <div className="flex items-center gap-2 rounded-lg border border-slate-200 px-2 py-1 dark:border-slate-700">
-                <span className="text-[10px] font-bold text-slate-500">Logo</span>
-                {(["left", "center", "right"] as LogoPosition[]).map((position) => (
-                  <button
-                    key={position}
-                    onClick={() => setIdLogoPosition(position)}
-                    className={`rounded-md px-2 py-1 text-[10px] font-bold capitalize ${
-                      idLogoPosition === position ? "bg-slate-800 text-white" : "bg-slate-100 text-slate-500"
-                    }`}
-                  >
-                    {position}
-                  </button>
-                ))}
-                <span className="text-[10px] font-bold text-slate-500">Border</span>
-                {["#1f2937", "#64748b", "#cbd5e1"].map((color) => (
-                  <button
-                    key={color}
-                    title={`Border ${color}`}
-                    aria-label={`Border ${color}`}
-                    onClick={() => setIdBorderColor(color)}
-                    className={`h-4 w-4 rounded-full border-2 ${
-                      idBorderColor === color ? "border-slate-950 ring-1 ring-slate-400" : "border-white"
-                    }`}
-                    style={{ backgroundColor: color }}
-                  />
-                ))}
-                <button
-                  onClick={() => setIdBorderEnabled((enabled) => !enabled)}
-                  className={`rounded-md px-2 py-1 text-[10px] font-bold ${
-                    idBorderEnabled ? "bg-slate-800 text-white" : "bg-slate-100 text-slate-500"
-                  }`}
-                >
-                  {idBorderEnabled ? "Border On" : "Border Off"}
-                </button>
-                <button
-                  onClick={() => setIdBottomBorderEnabled((enabled) => !enabled)}
-                  className={`rounded-md px-2 py-1 text-[10px] font-bold ${
-                    idBottomBorderEnabled ? "bg-slate-800 text-white" : "bg-slate-100 text-slate-500"
-                  }`}
-                >
-                  Bottom {idBottomBorderEnabled ? "On" : "Off"}
-                </button>
-              </div>
-            )}
-            <div className="flex rounded-lg border border-slate-200 p-1 dark:border-slate-700">
-              <button
-                id="btn-print-with-data"
-                disabled={!staff.id}
-                onClick={() => setWithData(true)}
-                className={`rounded-md px-3 py-1.5 text-xs font-bold ${
-                  withData ? "bg-indigo-600 text-white" : "text-slate-500"
-                }`}
-              >
-                With Data
-              </button>
-              <button
-                id="btn-print-without-data"
-                onClick={() => setWithData(false)}
-                className={`rounded-md px-3 py-1.5 text-xs font-bold ${
-                  !withData ? "bg-indigo-600 text-white" : "text-slate-500"
-                }`}
-              >
-                Without Data (Blank)
-              </button>
-            </div>
-            <button
-              id="btn-trigger-print"
-              disabled={!isIdentityConfigured}
-              onClick={() => window.print()}
-              className="rounded-lg bg-indigo-600 px-3 py-2 text-xs font-bold text-white hover:bg-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-            >
-              <Printer size={14} className="mr-1 inline" />
-              Print
-            </button>
-            <button
-              title="Close"
-              aria-label="Close"
-              onClick={onClose}
-              className="rounded-lg border border-slate-200 p-2 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-            >
-              <X size={16} />
-            </button>
+  const modalContent = (
+    <div
+      className="staff-print-modal-root print-preview-visible fixed inset-0 z-50 flex flex-col bg-slate-950/70 backdrop-blur-sm overflow-y-auto print:static print:inset-auto print:h-auto print:w-full print:p-0 print:m-0 print:bg-white print:overflow-visible"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Staff Print Preview"
+    >
+      <style>{`
+        @media print {
+          @page {
+            size: ${mode === "id" ? "85.6mm 53.98mm" : "A4 portrait"};
+            margin: ${mode === "id" ? "0mm" : "8mm 10mm 10mm 10mm"};
+          }
+          #root {
+            display: none !important;
+          }
+          html, body {
+            height: auto !important;
+            min-height: 0 !important;
+            overflow: visible !important;
+            overflow-x: visible !important;
+            overflow-y: visible !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            background: white !important;
+          }
+          .staff-print-modal-root {
+            position: static !important;
+            display: block !important;
+            width: 100% !important;
+            height: auto !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            overflow: visible !important;
+            background: white !important;
+          }
+          .staff-print-toolbar,
+          .no-print {
+            display: none !important;
+          }
+          .staff-print-canvas-wrapper {
+            display: block !important;
+            width: 100% !important;
+            height: auto !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            overflow: visible !important;
+            background: white !important;
+          }
+          .staff-print-sheet-wrapper {
+            display: block !important;
+            width: 100% !important;
+            max-width: 100% !important;
+            margin: 0 auto !important;
+            padding: 0 !important;
+            box-shadow: none !important;
+            border: none !important;
+            overflow: visible !important;
+            background: white !important;
+          }
+        }
+      `}</style>
+
+      {/* Top Floating Command Bar */}
+      <div className="staff-print-toolbar flex min-h-16 items-center justify-between gap-4 border-b border-slate-200 bg-white px-5 dark:border-slate-800 dark:bg-slate-900 shadow-sm shrink-0 print:hidden">
+        <div className="flex items-center gap-3">
+          <Printer size={19} className="text-indigo-600" />
+          <div>
+            <h2 className="text-sm font-black">Staff Print Center</h2>
+            <p className="text-xs text-slate-500">Statutory A4 Registration &amp; Remittance Form + Physical CR-80 ID Card</p>
           </div>
         </div>
-        <div className="flex-1 overflow-auto bg-slate-100 p-6 dark:bg-slate-950">
-          <div className={mode === "id" ? "flex min-h-full items-start justify-center py-4" : "mx-auto max-w-[840px]"}>
-            {printable}
+        <div className="flex items-center gap-1 rounded-lg border border-slate-200 p-1 dark:border-slate-700">
+          <button
+            id="btn-print-mode-form"
+            onClick={() => setMode("form")}
+            className={`rounded-md px-3 py-1.5 text-xs font-bold transition-colors ${
+              mode === "form" ? "bg-indigo-600 text-white" : "text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800"
+            }`}
+          >
+            <FileText size={13} className="mr-1 inline" />
+            Staff Form (A4)
+          </button>
+          <button
+            id="btn-print-mode-id"
+            onClick={() => setMode("id")}
+            className={`rounded-md px-3 py-1.5 text-xs font-bold transition-colors ${
+              mode === "id" ? "bg-indigo-600 text-white" : "text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800"
+            }`}
+          >
+            <CreditCard size={13} className="mr-1 inline" />
+            Physical ID Card
+          </button>
+        </div>
+        <div className="flex items-center gap-2">
+          {mode === "id" && (
+            <div className="flex items-center gap-2 rounded-lg border border-slate-200 px-2 py-1 dark:border-slate-700">
+              <span className="text-[10px] font-bold text-slate-500">Logo</span>
+              {(["left", "center", "right"] as LogoPosition[]).map((position) => (
+                <button
+                  key={position}
+                  onClick={() => setIdLogoPosition(position)}
+                  className={`rounded-md px-2 py-1 text-[10px] font-bold capitalize ${
+                    idLogoPosition === position ? "bg-slate-800 text-white" : "bg-slate-100 text-slate-500"
+                  }`}
+                >
+                  {position}
+                </button>
+              ))}
+              <span className="text-[10px] font-bold text-slate-500">Border</span>
+              {["#1f2937", "#64748b", "#cbd5e1"].map((color) => (
+                <button
+                  key={color}
+                  title={`Border ${color}`}
+                  aria-label={`Border ${color}`}
+                  onClick={() => setIdBorderColor(color)}
+                  className={`h-4 w-4 rounded-full border-2 ${
+                    idBorderColor === color ? "border-slate-950 ring-1 ring-slate-400" : "border-white"
+                  }`}
+                  style={{ backgroundColor: color }}
+                />
+              ))}
+              <button
+                onClick={() => setIdBorderEnabled((enabled) => !enabled)}
+                className={`rounded-md px-2 py-1 text-[10px] font-bold ${
+                  idBorderEnabled ? "bg-slate-800 text-white" : "bg-slate-100 text-slate-500"
+                }`}
+              >
+                {idBorderEnabled ? "Border On" : "Border Off"}
+              </button>
+              <button
+                onClick={() => setIdBottomBorderEnabled((enabled) => !enabled)}
+                className={`rounded-md px-2 py-1 text-[10px] font-bold ${
+                  idBottomBorderEnabled ? "bg-slate-800 text-white" : "bg-slate-100 text-slate-500"
+                }`}
+              >
+                Bottom {idBottomBorderEnabled ? "On" : "Off"}
+              </button>
+            </div>
+          )}
+          <div className="flex rounded-lg border border-slate-200 p-1 dark:border-slate-700">
+            <button
+              id="btn-print-with-data"
+              disabled={!staff.id}
+              onClick={() => setWithData(true)}
+              className={`rounded-md px-3 py-1.5 text-xs font-bold ${
+                withData ? "bg-indigo-600 text-white" : "text-slate-500"
+              }`}
+            >
+              With Data
+            </button>
+            <button
+              id="btn-print-without-data"
+              onClick={() => setWithData(false)}
+              className={`rounded-md px-3 py-1.5 text-xs font-bold ${
+                !withData ? "bg-indigo-600 text-white" : "text-slate-500"
+              }`}
+            >
+              Without Data (Blank)
+            </button>
           </div>
+          <button
+            id="btn-trigger-print"
+            disabled={!isIdentityConfigured}
+            onClick={() => window.print()}
+            className="rounded-lg bg-indigo-600 px-3 py-2 text-xs font-bold text-white hover:bg-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          >
+            <Printer size={14} className="mr-1 inline" />
+            Print
+          </button>
+          <button
+            title="Close (Esc)"
+            aria-label="Close"
+            onClick={onClose}
+            className="rounded-lg border border-slate-200 p-2 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+          >
+            <X size={16} />
+          </button>
         </div>
       </div>
-      {typeof document !== "undefined" &&
-        ReactDOM.createPortal(
-          <div className="print-only-container" id="smriti-staff-print-root">
-            <style>{"@page { size: A4 portrait; margin: 0; }"}</style>
-            {printable}
-          </div>,
-          document.body
-        )}
-    </>
+
+      {/* Scrollable Document Canvas Viewport */}
+      <div className="staff-print-canvas-wrapper flex-1 overflow-auto bg-slate-100 p-6 dark:bg-slate-950 print:p-0 print:m-0 print:block print:bg-white print:overflow-visible">
+        <div className={`staff-print-sheet-wrapper ${mode === "id" ? "flex min-h-full items-start justify-center py-4 print:p-0 print:m-0 print:block" : "mx-auto max-w-[840px] print:max-w-none print:w-full"}`}>
+          {printable}
+        </div>
+      </div>
+    </div>
   );
+
+  if (typeof document === "undefined" || !document?.body || typeof (document.body as any).appendChild !== "function") {
+    return modalContent;
+  }
+
+  return createPortal(modalContent, document.body);
 };
 
 export default StaffPrintModal;
