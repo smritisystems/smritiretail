@@ -4,9 +4,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.52.0
+ * Version      : 6.99.16
  * Created      : 2026-08-21
- * Modified     : 2026-10-10
+ * Modified     : 2026-10-29 (v6.99.16 — Thermal roll single-tree portal & #root suppression)
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
@@ -14,6 +14,7 @@
  */
 
 import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { useF2Screen, useF2Dispatcher } from "../../context/F2DispatcherContext.tsx";
 import type { LookupResult } from "../../context/F2DispatcherContext.tsx";
 import { Product } from "../../types.ts";
@@ -1421,84 +1422,101 @@ export const TagLabelPrintingTab: React.FC<TagLabelPrintingTabProps> = ({
     );
   }
 
+  const printableArea = (
+    <div id="smriti-barcode-printable-area" className="hidden print:block bg-white text-black font-sans">
+      <style dangerouslySetInnerHTML={{ __html: `
+        @media print {
+          @page {
+            size: 50mm 25mm;
+            margin: 0;
+          }
+          #root {
+            display: none !important;
+          }
+          html, body {
+            height: auto !important;
+            min-height: 0 !important;
+            overflow: visible !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            background: #ffffff !important;
+          }
+          #smriti-barcode-printable-area {
+            position: static !important;
+            display: block !important;
+            width: 50mm !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            background: #ffffff !important;
+          }
+          .thermal-label-page {
+            width: 50mm !important;
+            height: 25mm !important;
+            max-height: 25mm !important;
+            box-sizing: border-box !important;
+            page-break-after: always !important;
+            break-after: page !important;
+            padding: 1.5mm 2mm !important;
+            display: flex !important;
+            flex-direction: column !important;
+            justify-content: space-between !important;
+            overflow: hidden !important;
+            border: none !important;
+            background: #ffffff !important;
+            color: #000000 !important;
+          }
+        }
+      `}} />
+      
+      {activePrintItems.map(item => {
+        const copies = Array.from({ length: Math.max(1, item.labelCount) });
+        return copies.map((_, copyIdx) => (
+          <div key={`${item.id}-copy-${copyIdx}`} className="thermal-label-page text-black bg-white">
+            <div className="flex justify-between items-center border-b border-black/30 pb-0.5 leading-none">
+              <span className="font-extrabold text-[9px] uppercase tracking-wide truncate max-w-[28mm]">
+                {item.brand || "SMRITI RETAIL"}
+              </span>
+              <span className="font-mono font-bold text-[10px]">
+                ₹{item.sellingPrice || item.mrp}
+              </span>
+            </div>
+
+            <div className="text-[8px] font-semibold truncate leading-tight my-0.5">
+              <span>{item.product}</span>
+              <span className="text-[7.5px] text-gray-700 ml-1">({formatStyleForBarcodeLabel(item.style, item.vendorCode)})</span>
+            </div>
+
+            <div className="w-full flex justify-center py-0.5">
+              <ThermalBarcodeSvg
+                value={item.barcode || item.stockNo}
+                widthMm={44}
+                heightMm={10}
+                showText={true}
+              />
+            </div>
+
+            <div className="flex justify-between items-center text-[7.5px] font-mono leading-none border-t border-black/30 pt-0.5">
+              <span>{item.colour} / S:{item.size}</span>
+              <span className="font-semibold text-[7px] text-gray-600">MRP: ₹{item.mrp}</span>
+            </div>
+          </div>
+        ));
+      })}
+    </div>
+  );
+
+  const mountedPrintable = typeof document !== "undefined" && document?.body && typeof (document.body as any).appendChild === "function"
+    ? createPortal(printableArea, document.body)
+    : printableArea;
+
   return (
     <div className="bg-surface text-on-surface font-sans h-full flex flex-col antialiased select-none overflow-hidden">
       
       {/* 
-        Thermal Label Printable Container (Visible ONLY during window.print())
+        Thermal Label Printable Container (Mounted to body portal for seamless zero-offset printing)
         Exact 50mm x 25mm thermal roll stickers
       */}
-      <div id="smriti-barcode-printable-area" className="hidden print:block bg-white text-black font-sans">
-        <style dangerouslySetInnerHTML={{ __html: `
-          @media print {
-            body * { visibility: hidden !important; }
-            #smriti-barcode-printable-area, #smriti-barcode-printable-area * { visibility: visible !important; }
-            #smriti-barcode-printable-area {
-              display: block !important;
-              position: fixed !important;
-              left: 0 !important;
-              top: 0 !important;
-              width: 50mm !important;
-              margin: 0 !important;
-              padding: 0 !important;
-              background: #ffffff !important;
-            }
-            .thermal-label-page {
-              width: 50mm !important;
-              height: 25mm !important;
-              max-height: 25mm !important;
-              box-sizing: border-box !important;
-              page-break-after: always !important;
-              break-after: page !important;
-              padding: 1.5mm 2mm !important;
-              display: flex !important;
-              flex-direction: column !important;
-              justify-content: space-between !important;
-              overflow: hidden !important;
-              border: none !important;
-            }
-            @page {
-              size: 50mm 25mm;
-              margin: 0;
-            }
-          }
-        `}} />
-        
-        {activePrintItems.map(item => {
-          const copies = Array.from({ length: Math.max(1, item.labelCount) });
-          return copies.map((_, copyIdx) => (
-            <div key={`${item.id}-copy-${copyIdx}`} className="thermal-label-page text-black bg-white">
-              <div className="flex justify-between items-center border-b border-black/30 pb-0.5 leading-none">
-                <span className="font-extrabold text-[9px] uppercase tracking-wide truncate max-w-[28mm]">
-                  {item.brand || "SMRITI RETAIL"}
-                </span>
-                <span className="font-mono font-bold text-[10px]">
-                  ₹{item.sellingPrice || item.mrp}
-                </span>
-              </div>
-
-              <div className="text-[8px] font-semibold truncate leading-tight my-0.5">
-                <span>{item.product}</span>
-                <span className="text-[7.5px] text-gray-700 ml-1">({formatStyleForBarcodeLabel(item.style, item.vendorCode)})</span>
-              </div>
-
-              <div className="w-full flex justify-center py-0.5">
-                <ThermalBarcodeSvg
-                  value={item.barcode || item.stockNo}
-                  widthMm={44}
-                  heightMm={10}
-                  showText={true}
-                />
-              </div>
-
-              <div className="flex justify-between items-center text-[7.5px] font-mono leading-none border-t border-black/30 pt-0.5">
-                <span>{item.colour} / S:{item.size}</span>
-                <span className="font-semibold text-[7px] text-gray-600">MRP: ₹{item.mrp}</span>
-              </div>
-            </div>
-          ));
-        })}
-      </div>
+      {mountedPrintable}
 
       {/* 5-Step Workflow Header Banner */}
       <header className="h-14 border-b border-outline-variant bg-surface-container flex justify-between items-center px-4 shrink-0 shadow-xs z-20 print:hidden">

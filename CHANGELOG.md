@@ -1,5 +1,35 @@
 <!--
 
+## [6.99.16] - 2026-10-29 - Print Engine: Platform-Wide Modal Unification & Layout Safety (Phase 5: WMS Challans, Thermal Barcode Rolls & Label Sheet Previews) v1.0.0
+
+### Fixed
+- `src/components/wms/WmsStudioTab.tsx`:
+  - Migrated WMS Delivery Challan (Rule 55 CGST Rules, 2017) modal to the unified single-tree body portal standard (`createPortal(challanModal, document.body)`).
+  - Injected embedded `@media print` style sheet enforcing `#root { display: none !important; }` and `@page { size: A4 portrait; margin: 10mm 12mm 12mm 12mm; }`.
+  - Excluded modal action header and close button (`wms-challan-toolbar`) from print output via `display: none !important;`.
+  - Added `Escape` (close preview) and `F9` / `Ctrl+P` (instant print) keyboard shortcuts.
+- `src/components/barcode/TagLabelPrintingTa.tsx`:
+  - Migrated Thermal Label Printing Area (`#smriti-barcode-printable-area`) to single-tree body portal mounting (`createPortal(printableArea, document.body)`).
+  - Eliminated flawed legacy `body * { visibility: hidden !important; }` and `position: fixed` rules that caused blank page generation and clipping in Chromium.
+  - Enforced exact `@page { size: 50mm 25mm; margin: 0; }` with `page-break-after: always !important;` per thermal sticker.
+- `src/components/barcode/PrintLabelsStudio.tsx`:
+  - Migrated Labels Print Sheet Preview modal to single-tree body portal architecture (`createPortal(labelPreviewModal, document.body)`).
+  - Injected embedded `@media print` style sheet enforcing `#root { display: none !important; }` and dynamic template `@page` dimensions (`${selectedTemplate.widthMm}mm ${selectedTemplate.heightMm}mm`).
+  - Excluded preview header and action buttons (`label-preview-toolbar`) from print output.
+  - Added `Escape` (close) and `F9` / `Ctrl+P` (instant print) keyboard shortcuts.
+
+### Added
+- `src/tests/wmsDeliveryChallanModal.test.tsx`:
+  - Automated Vitest verification suite with 2 tests verifying WMS Studio rendering and Delivery Challan print contract.
+- `src/tests/tagLabelPrintThermalPortal.test.tsx`:
+  - Automated Vitest verification suite with 2 tests certifying 50x25mm thermal roll page sizing, `#root` suppression, and static block unrolling.
+- `src/tests/printLabelsStudioPreviewModal.test.tsx`:
+  - Automated Vitest verification suite with 2 tests verifying Print Labels Studio rendering and preview modal print contract.
+- `docs/walkthrough/print/Print_Engine_Modal_Unification_Phase5_Walkthrough_v1.0.0.md`:
+  - Formal 13-section WGP walkthrough document.
+- `docs/walkthrough/README.md`:
+  - Appended entry `v3.147.0` to master walkthrough index.
+
 ## [6.99.15] - 2026-10-29 - Print Engine: Platform-Wide Modal Unification & Layout Safety (Phase 4: POS Invoices, Shift Closeout & Payslips) v1.0.0
 
 ### Fixed
