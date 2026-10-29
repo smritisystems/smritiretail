@@ -40,6 +40,7 @@ import { lookupFootwearStyleMetadata } from "../../lib/footwearStyleCatalog";
 
 const ITEM_REFERENCE_FIELD_OPTIONS = [
   { key: "color", label: "Color" },
+  { key: "collectionType", label: "Collection" },
   { key: "heels", label: "Heels" },
   { key: "upperMaterial", label: "Upper Material" },
   { key: "outsole", label: "Outsole" },
@@ -93,8 +94,9 @@ export function resolveFootwearAttributes(item: any): {
   heels: string;
   upperMaterial: string;
   outsole: string;
+  collectionType: string;
 } {
-  if (!item) return { heels: "—", upperMaterial: "—", outsole: "—" };
+  if (!item) return { heels: "—", upperMaterial: "—", outsole: "—", collectionType: "—" };
 
   const attrs =
     item.attributes ||
@@ -179,8 +181,22 @@ export function resolveFootwearAttributes(item: any): {
       "sole_material",
     ]) || "—";
 
+  let collectionType =
+    findVal([
+      "collectionType",
+      "collection_type",
+      "COLLECTION_TYPE",
+      "Collection Type",
+      "collection",
+      "Collection",
+      "COLLECTION",
+      "season",
+      "Season",
+      "SEASON",
+    ]) || "—";
+
   // Catalog fallback lookup if any attribute is missing / blank
-  if (heels === "—" || upperMaterial === "—" || outsole === "—") {
+  if (heels === "—" || upperMaterial === "—" || outsole === "—" || collectionType === "—") {
     const candidateKeys = [
       item.barcode,
       item.stockNo,
@@ -201,12 +217,13 @@ export function resolveFootwearAttributes(item: any): {
         if (heels === "—" && meta.heelType) heels = meta.heelType;
         if (upperMaterial === "—" && meta.upperMaterial) upperMaterial = meta.upperMaterial;
         if (outsole === "—" && meta.outsole) outsole = meta.outsole;
-        if (heels !== "—" && upperMaterial !== "—" && outsole !== "—") break;
+        if (collectionType === "—" && (meta as any).collectionType) collectionType = (meta as any).collectionType;
+        if (heels !== "—" && upperMaterial !== "—" && outsole !== "—" && collectionType !== "—") break;
       }
     }
   }
 
-  return { heels, upperMaterial, outsole };
+  return { heels, upperMaterial, outsole, collectionType };
 }
 
 export const POPrintPreviewModal: React.FC<POPrintPreviewModalProps> = ({
@@ -271,6 +288,7 @@ export const POPrintPreviewModal: React.FC<POPrintPreviewModalProps> = ({
   const [selectedArticleCodes, setSelectedArticleCodes] = useState<string[] | null>(null);
   const [itemReferenceFields, setItemReferenceFields] = useState<{
     color: boolean;
+    collectionType: boolean;
     heels: boolean;
     upperMaterial: boolean;
     outsole: boolean;
@@ -279,7 +297,15 @@ export const POPrintPreviewModal: React.FC<POPrintPreviewModalProps> = ({
       const saved = localStorage.getItem("smriti_po_item_reference_fields");
       if (saved) {
         try {
-          return JSON.parse(saved);
+          const parsed = JSON.parse(saved);
+          return {
+            color: false,
+            collectionType: true,
+            heels: true,
+            upperMaterial: true,
+            outsole: true,
+            ...parsed,
+          };
         } catch {
           // ignore corrupted JSON
         }
@@ -287,6 +313,7 @@ export const POPrintPreviewModal: React.FC<POPrintPreviewModalProps> = ({
     }
     return {
       color: false,
+      collectionType: true,
       heels: true,
       upperMaterial: true,
       outsole: true,
@@ -872,6 +899,7 @@ export const POPrintPreviewModal: React.FC<POPrintPreviewModalProps> = ({
           heels: fw.heels,
           upperMaterial: fw.upperMaterial,
           outsole: fw.outsole,
+          collectionType: fw.collectionType !== "—" ? fw.collectionType : (header as any).collectionType || (header as any).collection_type || undefined,
           imageUrl:
             r.imageUrl ||
             r.photoUrl ||
@@ -891,6 +919,7 @@ export const POPrintPreviewModal: React.FC<POPrintPreviewModalProps> = ({
           heels: fw.heels,
           upperMaterial: fw.upperMaterial,
           outsole: fw.outsole,
+          collectionType: fw.collectionType !== "—" ? fw.collectionType : (header as any).collectionType || (header as any).collection_type || undefined,
           imageUrl:
             l.imageUrl ||
             l.photoUrl ||
@@ -901,7 +930,7 @@ export const POPrintPreviewModal: React.FC<POPrintPreviewModalProps> = ({
     });
 
     return Array.from(refMap.values());
-  }, [sizePivotRows, lineItems]);
+  }, [sizePivotRows, lineItems, header]);
 
   // Filtered item references based on user selection
   const mappedItemReferences: FootwearArticleReference[] = useMemo(() => {
@@ -1035,6 +1064,14 @@ export const POPrintPreviewModal: React.FC<POPrintPreviewModalProps> = ({
       (vendor as any)?.delivery_terms ||
       (vendor as any)?.commercial?.deliveryTerms ||
       ((header.freightCharges || vendor?.freight_terms || "").toLowerCase().includes("buyer") || (header.freightCharges || vendor?.freight_terms || "").toLowerCase().includes("to-pay") ? "Ex-Factory" : "Door Delivery"),
+    collectionType:
+      (header as any).collectionType ||
+      (header as any).collection_type ||
+      (header as any).commercialTerms?.collection_type ||
+      (header as any).commercial_terms?.collection_type ||
+      (header as any).commercialTerms?.collectionType ||
+      (header as any).commercial_terms?.collectionType ||
+      (header as any).season,
     supplierReference: extractedBillNo || "—",
     specialInstructions:
       header.specialInstructions ||

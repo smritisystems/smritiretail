@@ -84,6 +84,8 @@ export interface PurchaseOrderHeader {
   paymentTerms: string;
   freightCharges: string;
   deliveryTerms?: string;
+  collectionType?: string;
+  collection_type?: string;
   specialInstructions: string;
   // Extended commercial & reference attributes
   supplierReference?: string;

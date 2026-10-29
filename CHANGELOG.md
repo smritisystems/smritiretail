@@ -1,5 +1,31 @@
 <!--
 
+## [6.99.6] - 2026-10-29 - Purchase Order Print Collection Type & Season Resolution v1.0.0
+
+### Added
+- `src/components/purchase/types.ts`:
+  - Added `collectionType?: string;` and `collection_type?: string;` to `PurchaseOrderHeader`.
+- `src/components/purchase/CommercialDeliveryDrawer.tsx`:
+  - Added `collectionType?: string;` to `CommercialDeliveryData`.
+  - Added `COLLECTION_PRESETS` list with standard retail merchandise collections (`Core Essentials (All-Year)`, `Spring / Summer (SS)`, `Autumn / Winter (AW)`, `Festive & Wedding`, `Active Athletics`, `Bridal Special`, `Casual & Daily`, `Formal & Office`).
+  - Added `Collection / Season` datalist input in Section 3 ("Department & Quotation Reference") with instant autocomplete.
+- `src/print_engine/templates/PurchaseOrderPrintA4.tsx`:
+  - Extended `PurchaseOrderPrintData` with `collectionType?: string`.
+  - Rendered `Collection Type : {data.collectionType}` entry in statutory `COMMERCIAL TERMS` box when provided.
+  - Extended `FootwearArticleReference` and `ItemReferenceFieldVisibility` with `collectionType`.
+  - Added `{ key: "collectionType", label: "Collection", value: ref.collectionType }` into dynamic Item Reference cards.
+  - Added fallback in `derivedMap` to pull `collectionType` from line item attributes or order-level header.
+- `src/components/purchase/POPrintPreviewModal.tsx`:
+  - Added `{ key: "collectionType", label: "Collection" }` to `ITEM_REFERENCE_FIELD_OPTIONS` and initialized in `itemReferenceFields` (default: `true`).
+  - Extended `resolveFootwearAttributes` to extract collection type across aliases (`collectionType`, `collection_type`, `COLLECTION_TYPE`, `collection`, `season`, etc.) and fall back to catalog and order header.
+  - Passed `collectionType` into `allAvailableArticleReferences` and `approvedPrintData`.
+- `src/tests/poPrintBrandingAndTerms.test.tsx`:
+  - Added Test 13 validating `Collection Type` rendering in Commercial Terms and `Collection:` in Item Reference cards.
+- `src/tests/poSizewiseGrouping.test.tsx`:
+  - Updated Test 7 verifying `resolveFootwearAttributes` extracts collection attributes across camelCase, snake_case, uppercase with spaces, and nested structures.
+- `docs/walkthrough/purchase/Purchase_Order_Print_Collection_Type_Walkthrough_v1.0.0.md`:
+  - Formal 13-section Walkthrough Governance Policy (WGP) document.
+
 ## [6.99.5] - 2026-10-29 - Purchase Order Print Image Density & Interactive Article Selector v1.0.0
 
 ### Added
