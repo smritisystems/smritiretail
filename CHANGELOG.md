@@ -1,5 +1,29 @@
 <!--
 
+## [6.99.22] - 2026-10-29 - Print Engine: Platform-Wide Modal Unification & Layout Safety (Phase 11: Standalone Cashier Window View & SDIC Development Intelligence Tracker) v1.0.0
+
+### Fixed
+- `src/components/standalone/StandaloneWindowView.tsx`:
+  - Replaced bare `window.print()` trigger with dedicated `setShowPrintOrderModal(true)` preview state.
+  - Mounted official Standalone Sales Order / Voucher (`#standalone-order-printable`) to `document.body` via `createPortal`.
+  - Injected dedicated `@media print` style sheet enforcing `@page { size: A4 portrait; margin: 8mm 10mm 10mm 10mm; }`, `#root { display: none !important; }`, and static block unrolling on `.standalone-order-modal-root`.
+  - Excluded preview command toolbar (`.component-toolbar { display: none !important; }`) from printed output.
+  - Added universal `Escape` (dismiss preview) and `F9` / `Ctrl+P` (instant print) keyboard shortcuts.
+- `src/modules/dev_tracker/ui/DevTrackerTab.tsx`:
+  - Replaced bare `window.print()` call with dedicated `setShowPrintReportModal(true)` preview state.
+  - Mounted official SDIC Diagnostics & Release Health Audit Sheet (`#dev-tracker-printable-sheet`) to `document.body` via `createPortal`.
+  - Injected dedicated `@media print` style sheet enforcing `@page { size: A4 portrait; margin: 8mm 10mm 10mm 10mm; }`, `#root { display: none !important; }`, and static block unrolling on `.dev-tracker-modal-root`.
+  - Excluded preview command toolbar (`.component-toolbar`) from printed output.
+  - Added universal `Escape` and `F9` / `Ctrl+P` keyboard shortcuts.
+
+### Added
+- `src/tests/standaloneWindowPrint.test.tsx`:
+  - Automated Vitest verification suite with 3 tests certifying Standalone Window View sales order portal architecture.
+- `src/tests/devTrackerPrint.test.tsx`:
+  - Automated Vitest verification suite with 3 tests certifying SDIC Development Intelligence Tracker diagnostics portal architecture.
+- `docs/walkthrough/print/Print_Engine_Modal_Unification_Phase11_Walkthrough_v1.0.0.md`:
+  - Formal 13-section WGP walkthrough document.
+
 ## [6.99.21] - 2026-10-29 - Print Engine: Platform-Wide Modal Unification & Layout Safety (Phase 10: Promotions Schemes, Visual Report Designer, Desk Reference & Global Print Store Engine) v1.0.0
 
 ### Fixed

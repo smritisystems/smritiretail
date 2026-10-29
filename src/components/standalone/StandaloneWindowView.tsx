@@ -4,15 +4,16 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.63.1
+ * Version      : 6.99.22
  * Created      : 2026-09-16
- * Modified     : 2026-10-14
+ * Modified     : 2026-10-29
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  */
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
+import { createPortal } from "react-dom";
 import { apiFetchV1 } from "../../lib/apiFetch.ts";
-import { clearAuthSession } from "../../lib/apiFetchV1.ts";
+import { clearAuthSession, getTenantCompanyContext } from "../../lib/apiFetchV1.ts";
 import {
   ReceiptText,
   Boxes,
@@ -28,6 +29,7 @@ import {
   Plus,
   LogOut,
   UserRoundSearch,
+  Printer,
 } from "lucide-react";
 import {
   normalizeUniversalImport,
@@ -63,6 +65,24 @@ export const StandaloneWindowView: React.FC<StandaloneWindowViewProps> = ({
   const [standaloneCustomerQuery, setStandaloneCustomerQuery] = useState("Walk-in Customer");
   const [standaloneCustomerOptions, setStandaloneCustomerOptions] = useState<Array<{ id: string; name: string; code?: string; phone?: string }>>([]);
   const [standaloneSaving, setStandaloneSaving] = useState(false);
+  const [showPrintOrderModal, setShowPrintOrderModal] = useState(false);
+  const tenantContext = useMemo(() => getTenantCompanyContext(), []);
+
+  useEffect(() => {
+    if (!showPrintOrderModal) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        setShowPrintOrderModal(false);
+      } else if (e.key === "F9" || ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "p")) {
+        e.preventDefault();
+        window.print();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [showPrintOrderModal]);
+
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [importHeaders, setImportHeaders] = useState<string[]>([]);
@@ -737,7 +757,8 @@ export const StandaloneWindowView: React.FC<StandaloneWindowViewProps> = ({
 
               <button
                 type="button"
-                onClick={() => window.print()}
+                data-testid="standalone-order-print-btn"
+                onClick={() => setShowPrintOrderModal(true)}
                 className="rounded-lg border border-[#c3c5d9] bg-white px-2.5 py-1 text-[12px] font-semibold text-[#0d1c2e] transition hover:bg-[#eff4ff]"
               >
                 Print
@@ -1255,6 +1276,203 @@ export const StandaloneWindowView: React.FC<StandaloneWindowViewProps> = ({
                 </div>
               </div>
             </div>
+          )}
+
+          {showPrintOrderModal && typeof document !== "undefined" && createPortal(
+            <div className="fixed inset-0 z-[99999] bg-black/60 backdrop-blur-xs flex flex-col items-center justify-start overflow-y-auto p-4 standalone-order-modal-root" data-testid="standalone-order-print-portal">
+              <style>{`
+                @media print {
+                  @page { size: A4 portrait; margin: 8mm 10mm 10mm 10mm; }
+                  #root { display: none !important; }
+                  .component-toolbar { display: none !important; }
+                  .standalone-order-modal-root {
+                    position: static !important;
+                    display: block !important;
+                    overflow: visible !important;
+                    width: 100% !important;
+                    margin: 0 !important;
+                    padding: 0 !important;
+                    background: white !important;
+                  }
+                  #standalone-order-printable {
+                    position: static !important;
+                    display: block !important;
+                    overflow: visible !important;
+                    width: 100% !important;
+                    margin: 0 !important;
+                    padding: 0 !important;
+                    background: white !important;
+                    box-shadow: none !important;
+                    border: none !important;
+                  }
+                }
+              `}</style>
+
+              {/* Screen Preview Toolbar */}
+              <div className="component-toolbar w-full max-w-[210mm] bg-[#1e293b] text-white px-4 py-2.5 rounded-t-lg flex items-center justify-between shadow-lg mb-0 border-b border-slate-700">
+                <div className="flex items-center gap-2">
+                  <Printer className="w-5 h-5 text-blue-400" />
+                  <span className="font-semibold text-sm">Standalone Sales Order / Voucher Print Preview (A4 Portrait)</span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    data-testid="standalone-order-modal-print-btn"
+                    onClick={() => window.print()}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded text-xs font-semibold shadow transition cursor-pointer"
+                  >
+                    <Printer className="w-3.5 h-3.5" />
+                    Print Order (F9 / Ctrl+P)
+                  </button>
+                  <button
+                    type="button"
+                    data-testid="standalone-order-modal-close-btn"
+                    onClick={() => setShowPrintOrderModal(false)}
+                    className="flex items-center gap-1 px-2.5 py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-200 rounded text-xs font-semibold transition cursor-pointer"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                    Close (Esc)
+                  </button>
+                </div>
+              </div>
+
+              {/* Printable Sheet */}
+              <div
+                id="standalone-order-printable"
+                data-testid="standalone-order-printable"
+                className="w-full max-w-[210mm] bg-white text-slate-900 p-8 shadow-2xl rounded-b-lg font-sans border border-slate-200 text-xs"
+              >
+                {/* Header */}
+                <div className="flex justify-between items-start border-b border-slate-300 pb-4 mb-4">
+                  <div>
+                    <h2 className="text-xl font-bold tracking-tight text-blue-900 uppercase">
+                      {tenantContext.companyName || "SMRITI ENTERPRISE RETAIL"}
+                    </h2>
+                    <p className="text-[11px] text-slate-600 mt-0.5">
+                      {tenantContext.companyAddress || "Main Market, Commercial Center"}
+                    </p>
+                    <div className="flex gap-4 mt-1 font-mono text-[10px] text-slate-700">
+                      <span>GSTIN: <strong className="text-slate-900">{tenantContext.companyGstin || "27AABCS1429B1Z1"}</strong></span>
+                      <span>Branch: <strong className="text-slate-900">{tenantContext.branchName || "Main Retail Outlet"}</strong></span>
+                      <span>State Code: <strong className="text-slate-900">27</strong></span>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <span className="inline-block px-2.5 py-1 rounded bg-blue-50 border border-blue-200 text-blue-800 font-bold uppercase tracking-wider text-[11px] mb-1">
+                      Sales Order / Estimate
+                    </span>
+                    <p className="font-mono text-[11px] text-slate-700">
+                      Voucher No: <strong className="text-slate-900">SO-2026-COUNTER</strong>
+                    </p>
+                    <p className="text-[10px] text-slate-500 font-mono mt-0.5">
+                      Date: 10/27/2023 14:32
+                    </p>
+                    <p className="text-[10px] text-slate-500 font-mono">
+                      Counter: Retail Cashier 01
+                    </p>
+                  </div>
+                </div>
+
+                {/* Customer Information Strip */}
+                <div className="grid grid-cols-2 gap-4 bg-slate-50 border border-slate-200 rounded p-3 mb-4 text-[11px]">
+                  <div>
+                    <span className="text-[9px] uppercase font-bold text-slate-500 tracking-wider block">Customer Details</span>
+                    <p className="font-bold text-slate-900 mt-0.5">{standaloneCustomerName || "Walk-in Customer"}</p>
+                    <p className="text-slate-600 text-[10px] mt-0.5">Payment Terms: Immediate / Counter Delivery</p>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-[9px] uppercase font-bold text-slate-500 tracking-wider block">Billing Mode</span>
+                    <p className="font-semibold text-slate-800 mt-0.5">Counter Retail Order</p>
+                    <p className="text-slate-600 text-[10px] mt-0.5">Currency: INR (₹)</p>
+                  </div>
+                </div>
+
+                {/* Items Table */}
+                <table className="w-full border-collapse text-left mb-4">
+                  <thead>
+                    <tr className="border-y border-slate-300 bg-slate-100 text-[10px] uppercase font-bold text-slate-700 tracking-wider">
+                      <th className="py-2 px-2 text-center w-10">#</th>
+                      <th className="py-2 px-2 w-32">Stock No</th>
+                      <th className="py-2 px-2">Description</th>
+                      <th className="py-2 px-2 text-right w-20">Rate (₹)</th>
+                      <th className="py-2 px-2 text-right w-14">Qty</th>
+                      <th className="py-2 px-2 text-right w-24">Total (₹)</th>
+                      <th className="py-2 px-2 text-center w-16">Staff</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-200 text-[11px]">
+                    {standaloneRows.length > 0 ? (
+                      standaloneRows.map((row, idx) => (
+                        <tr key={row.no || idx}>
+                          <td className="py-1.5 px-2 text-center text-slate-500 font-mono">{idx + 1}</td>
+                          <td className="py-1.5 px-2 font-mono text-slate-700">{row.stockNo || "—"}</td>
+                          <td className="py-1.5 px-2 font-medium text-slate-900">{row.description}</td>
+                          <td className="py-1.5 px-2 text-right font-mono text-slate-800">{Number(row.rate || 0).toFixed(2)}</td>
+                          <td className="py-1.5 px-2 text-right font-mono font-bold text-slate-900">{row.qty || "1"}</td>
+                          <td className="py-1.5 px-2 text-right font-mono font-bold text-slate-900">
+                            {Number(row.total || row.value || 0).toFixed(2)}
+                          </td>
+                          <td className="py-1.5 px-2 text-center font-mono text-[10px] text-slate-600">{row.staff || "SM"}</td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan={7} className="py-6 text-center text-slate-400 italic">
+                          No items added to standalone order voucher.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+
+                {/* Summary Strip */}
+                <div className="flex justify-between items-start border-t border-slate-300 pt-3 mb-6">
+                  <div className="text-[10px] text-slate-600 space-y-1">
+                    <p>Total Line Items: <strong className="text-slate-800">{standaloneRows.length}</strong></p>
+                    <p>Total Quantity: <strong className="text-slate-800">{standaloneRows.reduce((sum, r) => sum + Number(r.qty || 1), 0)}</strong></p>
+                  </div>
+                  <div className="w-56 space-y-1 text-right text-[11px]">
+                    <div className="flex justify-between text-slate-600">
+                      <span>Subtotal:</span>
+                      <span className="font-mono">
+                        ₹{standaloneRows.reduce((sum, r) => sum + Number(r.value || r.rate || 0), 0).toFixed(2)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between text-slate-600">
+                      <span>Estimated Tax:</span>
+                      <span className="font-mono">
+                        ₹{(standaloneRows.reduce((sum, r) => sum + Number(r.total || r.value || 0), 0) * 0.05).toFixed(2)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between text-slate-900 font-bold border-t border-slate-300 pt-1 text-xs">
+                      <span>Net Payable:</span>
+                      <span className="font-mono text-sm text-blue-900">
+                        ₹{standaloneRows.reduce((sum, r) => sum + Number(r.total || r.value || 0), 0).toFixed(2)}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Statutory Terms & Conditions */}
+                <div className="border-t border-dashed border-slate-300 pt-3 grid grid-cols-2 gap-4 text-[9px] text-slate-500">
+                  <div>
+                    <p className="font-bold uppercase tracking-wider text-slate-700 mb-1">Terms &amp; Conditions</p>
+                    <ol className="list-decimal pl-3 space-y-0.5">
+                      <li>Estimate / Sales Order is valid for delivery and billing within standard retail store hours.</li>
+                      <li>Goods once sold will only be exchanged within 7 days against original physical voucher.</li>
+                      <li>Subject to Nagpur Jurisdiction. This is a computer-generated voucher.</li>
+                    </ol>
+                  </div>
+                  <div className="flex flex-col justify-end items-end">
+                    <div className="text-center font-mono w-44 border-t border-slate-400 pt-1 mt-6">
+                      <p className="text-[8px] uppercase text-slate-500">For {tenantContext.companyName || "SMRITI ENTERPRISE RETAIL"}</p>
+                      <p className="font-bold text-slate-800 text-[10px] mt-0.5">Authorised Signatory</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>,
+            document.body
           )}
         </div>
       </div>
