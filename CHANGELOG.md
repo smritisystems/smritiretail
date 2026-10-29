@@ -1,5 +1,39 @@
 <!--
 
+## [6.99.17] - 2026-10-29 - Print Engine: Platform-Wide Modal Unification & Layout Safety (Phase 6: WYSIWYG Barcode Labels, Z-Report EOD, Shift Handover & Daily Reports) v1.0.0
+
+### Fixed
+- `src/components/barcode/VisualLabelDesign.tsx`:
+  - Migrated WYSIWYG Barcode Label Designer test print sticker to unified single-tree body portal architecture (`createPortal(printableLabelSticker, document.body)`).
+  - Enforced dynamic `@page { size: ${labelWidthMm}mm ${labelHeightMm}mm; margin: 0; }` with `#root { display: none !important; }` to prevent multi-page displacement on thermal rolls.
+  - Styled `.visual-label-print-sticker` with static positioning, high-precision pt fonts, and SVG barcode embedding.
+- `src/components/billing/propos/ProPosEodReportVie.tsx`:
+  - Bound universal `F9` / `Ctrl+P` instant print keyboard listeners.
+  - Migrated daily register closeout statement to an authoritative printable Z-Report statement mounted directly to `document.body` via `createPortal`.
+  - Injected dedicated `@media print` style sheet enforcing `#root { display: none !important; }` and `@page { size: A4 portrait; margin: 10mm 12mm 12mm 12mm; }`.
+  - Structured executive KPI summaries, transaction breakdown, tender reconciliation, and cashier/manager dual signature blocks.
+- `src/components/billing/propos/ProPosShiftHandoverSlip.tsx`:
+  - Migrated 80mm thermal shift handover slip to single-tree body portal mounting (`createPortal(printableThermalSlip, document.body)`).
+  - Enforced `@page { size: 80mm auto; margin: 0; }` and `#root { display: none !important; }` to eliminate duplicate modal chrome printing and empty page gaps.
+  - Added `Escape` (close) and `F9` / `Ctrl+P` (instant print) keyboard listeners.
+- `src/components/billing/propos/ProPosDailyReports.tsx`:
+  - Bound universal `F9` / `Ctrl+P` instant print keyboard listeners.
+  - Built comprehensive printable Daily Sales & Shift Analytics statement mounted to `document.body` via `createPortal`.
+  - Injected dedicated `@media print` style sheet enforcing `#root { display: none !important; }` and `@page { size: A4 portrait; margin: 10mm 12mm 12mm 12mm; }`.
+  - Rendered intraday sales KPI summary cards, hourly rush footfall matrix, cashier shift audit table, and managerial audit sign-off blocks.
+
+### Added
+- `src/tests/visualLabelDesignPrint.test.tsx`:
+  - Automated Vitest verification suite with 2 tests certifying WYSIWYG thermal test label portal mounting, dynamic `@page` sizing, and static flow.
+- `src/tests/proposEodZReportPrint.test.tsx`:
+  - Automated Vitest verification suite with 2 tests certifying Z-Report EOD closeout portal mounting, `#root` suppression, and financial reconciliation sections.
+- `src/tests/proposShiftHandoverDailyReportsPrint.test.tsx`:
+  - Automated Vitest verification suite with 2 tests certifying 80mm thermal handover slip and A4 daily analytics statement print contracts.
+- `docs/walkthrough/print/Print_Engine_Modal_Unification_Phase6_Walkthrough_v1.0.0.md`:
+  - Formal 13-section WGP walkthrough document.
+- `docs/walkthrough/README.md`:
+  - Appended entry `v3.148.0` to master walkthrough index.
+
 ## [6.99.16] - 2026-10-29 - Print Engine: Platform-Wide Modal Unification & Layout Safety (Phase 5: WMS Challans, Thermal Barcode Rolls & Label Sheet Previews) v1.0.0
 
 ### Fixed

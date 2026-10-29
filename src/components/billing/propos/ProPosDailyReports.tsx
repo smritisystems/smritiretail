@@ -4,15 +4,16 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.0.0
+ * Version      : 6.99.17
  * Created      : 2026-08-21
- * Modified     : 2026-08-21
+ * Modified     : 2026-10-29 (v6.99.17 — Daily Sales & Shift Analytics body portal & #root suppression)
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
  */
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { 
   TrendingUp, 
   Users, 
@@ -48,8 +49,188 @@ export const SmritiDailyReportsDashboard: React.FC = () => {
     { name: "Suresh Kumar (T-03)", bills: 19, totalSales: 39200, avgTicket: 2063, returns: 1 }
   ];
 
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "F9" || ((e.ctrlKey || e.metaKey) && (e.key === "p" || e.key === "P"))) {
+        e.preventDefault();
+        window.print();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
+
+  const totalHourlySales = HOURLY_SALES.reduce((sum, h) => sum + h.sales, 0);
+  const totalHourlyBills = HOURLY_SALES.reduce((sum, h) => sum + h.bills, 0);
+  const totalCashierBills = CASHIER_STATS.reduce((sum, c) => sum + c.bills, 0);
+  const totalCashierSales = CASHIER_STATS.reduce((sum, c) => sum + c.totalSales, 0);
+  const totalCashierReturns = CASHIER_STATS.reduce((sum, c) => sum + c.returns, 0);
+
+  const printableDailyReport = (
+    <div id="propos-daily-report-printable" className="hidden print:block bg-white text-black font-sans p-8">
+      <style dangerouslySetInnerHTML={{ __html: `
+        @media print {
+          @page {
+            size: A4 portrait;
+            margin: 10mm 12mm 12mm 12mm;
+          }
+          #root {
+            display: none !important;
+          }
+          html, body {
+            height: auto !important;
+            min-height: 0 !important;
+            overflow: visible !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            background: #ffffff !important;
+          }
+          #propos-daily-report-printable {
+            position: static !important;
+            display: block !important;
+            width: 100% !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            background: #ffffff !important;
+            color: #000000 !important;
+          }
+        }
+      `}} />
+      <div className="space-y-6 text-black">
+        {/* Document Header */}
+        <div className="flex justify-between items-start border-b-2 border-black pb-4">
+          <div>
+            <h1 className="text-xl font-black uppercase tracking-tight text-black">SMRITI Retail OS</h1>
+            <p className="text-xs text-gray-700 font-semibold">ProPOS Daily Sales &amp; Shift Analytics Statement</p>
+            <p className="text-[11px] text-gray-600 font-mono mt-0.5">Business Date: {selectedDate}</p>
+          </div>
+          <div className="text-right">
+            <span className="inline-block px-3 py-1 bg-black text-white text-xs font-mono font-bold uppercase rounded">
+              DAILY AUDIT SUMMARY
+            </span>
+            <p className="text-[11px] font-mono text-gray-700 mt-1">Generated: {new Date().toLocaleString("en-IN")}</p>
+            <p className="text-[10px] font-mono text-gray-500">Intraday Settlement Sheet</p>
+          </div>
+        </div>
+
+        {/* Executive KPI Summary Cards */}
+        <div className="grid grid-cols-4 gap-4 p-3 bg-gray-100 rounded-lg border border-gray-300 text-xs font-mono">
+          <div>
+            <span className="text-gray-500 text-[10px] uppercase font-bold block">Gross Shift Revenue</span>
+            <span className="font-extrabold text-black text-sm">₹{totalHourlySales.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
+          </div>
+          <div>
+            <span className="text-gray-500 text-[10px] uppercase font-bold block">Total Invoices Tendered</span>
+            <span className="font-extrabold text-black text-sm">{totalHourlyBills}</span>
+          </div>
+          <div>
+            <span className="text-gray-500 text-[10px] uppercase font-bold block">Average Basket Value</span>
+            <span className="font-extrabold text-black text-sm">₹{(totalHourlySales / (totalHourlyBills || 1)).toFixed(2)}</span>
+          </div>
+          <div>
+            <span className="text-gray-500 text-[10px] uppercase font-bold block">Peak Rush Window</span>
+            <span className="font-extrabold text-black text-sm">06:00 PM - 07:00 PM</span>
+          </div>
+        </div>
+
+        {/* Hourly Turn & Footfall Table */}
+        <div className="border border-gray-300 rounded-lg overflow-hidden text-xs">
+          <div className="bg-gray-200 px-3 py-1.5 font-bold uppercase tracking-wider text-[10px] text-gray-800">
+            Hourly Rush &amp; Footfall Breakdown
+          </div>
+          <table className="w-full text-xs">
+            <thead className="bg-gray-100 border-b border-gray-300 text-[10px] font-bold uppercase text-gray-700">
+              <tr>
+                <th className="px-3 py-2 text-left">Time Interval</th>
+                <th className="px-3 py-2 text-center">Bills Tendered</th>
+                <th className="px-3 py-2 text-right">Gross Sales Turnover (₹)</th>
+                <th className="px-3 py-2 text-right">Avg Ticket Size (₹)</th>
+                <th className="px-3 py-2 text-right">% of Day Revenue</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-200 font-mono">
+              {HOURLY_SALES.map((h) => {
+                const pct = totalHourlySales > 0 ? ((h.sales / totalHourlySales) * 100).toFixed(1) : "0.0";
+                const avgTicket = h.bills > 0 ? (h.sales / h.bills).toFixed(2) : "0.00";
+                return (
+                  <tr key={h.hour}>
+                    <td className="px-3 py-1.5 text-black font-semibold">{h.hour}</td>
+                    <td className="px-3 py-1.5 text-center">{h.bills}</td>
+                    <td className="px-3 py-1.5 text-right font-bold">₹{h.sales.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
+                    <td className="px-3 py-1.5 text-right">₹{avgTicket}</td>
+                    <td className="px-3 py-1.5 text-right font-semibold">{pct}%</td>
+                  </tr>
+                );
+              })}
+              <tr className="bg-gray-100 font-bold border-t-2 border-gray-400">
+                <td className="px-3 py-2 text-black">Total Intraday Cumulative</td>
+                <td className="px-3 py-2 text-center text-black">{totalHourlyBills}</td>
+                <td className="px-3 py-2 text-right text-black font-extrabold">₹{totalHourlySales.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
+                <td className="px-3 py-2 text-right text-black">₹{(totalHourlySales / (totalHourlyBills || 1)).toFixed(2)}</td>
+                <td className="px-3 py-2 text-right text-black">100.0%</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        {/* Cashier Shift Audit Breakdown */}
+        <div className="border border-gray-300 rounded-lg overflow-hidden text-xs">
+          <div className="bg-gray-200 px-3 py-1.5 font-bold uppercase tracking-wider text-[10px] text-gray-800">
+            Cashier Shift Reconciliation &amp; Basket Analysis
+          </div>
+          <table className="w-full text-xs">
+            <thead className="bg-gray-100 border-b border-gray-300 text-[10px] font-bold uppercase text-gray-700">
+              <tr>
+                <th className="px-3 py-2 text-left">Cashier / Terminal</th>
+                <th className="px-3 py-2 text-center">Bills Count</th>
+                <th className="px-3 py-2 text-right">Gross Turn (₹)</th>
+                <th className="px-3 py-2 text-right">Avg Ticket Size (₹)</th>
+                <th className="px-3 py-2 text-center">Returns / Voids</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-200 font-mono">
+              {CASHIER_STATS.map((c) => (
+                <tr key={c.name}>
+                  <td className="px-3 py-2 font-bold text-black">{c.name}</td>
+                  <td className="px-3 py-2 text-center">{c.bills}</td>
+                  <td className="px-3 py-2 text-right font-bold">₹{c.totalSales.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
+                  <td className="px-3 py-2 text-right">₹{c.avgTicket.toFixed(2)}</td>
+                  <td className="px-3 py-2 text-center">{c.returns}</td>
+                </tr>
+              ))}
+              <tr className="bg-gray-100 font-bold border-t-2 border-gray-400">
+                <td className="px-3 py-2 text-black">Total Cashier Summary</td>
+                <td className="px-3 py-2 text-center text-black">{totalCashierBills}</td>
+                <td className="px-3 py-2 text-right text-black font-extrabold">₹{totalCashierSales.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
+                <td className="px-3 py-2 text-right text-black">₹{(totalCashierSales / (totalCashierBills || 1)).toFixed(2)}</td>
+                <td className="px-3 py-2 text-center text-black">{totalCashierReturns}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        {/* Dual Sign-off Block */}
+        <div className="pt-8 border-t border-gray-400 grid grid-cols-2 gap-8 text-xs">
+          <div className="text-center space-y-3">
+            <div className="h-10 border-b border-dashed border-gray-400"></div>
+            <p className="font-bold text-gray-800">Store Manager Sign &amp; Stamp</p>
+          </div>
+          <div className="text-center space-y-3">
+            <div className="h-10 border-b border-dashed border-gray-400"></div>
+            <p className="font-bold text-gray-800">Internal Audit &amp; Reconciliation Officer</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  const mountedPrintable = typeof document !== "undefined" && document?.body && typeof (document.body as any).appendChild === "function"
+    ? createPortal(printableDailyReport, document.body)
+    : printableDailyReport;
+
   return (
     <div className="h-full flex flex-col bg-[#f8f9fa] dark:bg-[#191c1e] text-[#191c1e] dark:text-[#eff1f3] overflow-y-auto p-6 font-sans">
+      {mountedPrintable}
       <div className="max-w-6xl mx-auto w-full space-y-6">
         
         {/* Header */}
