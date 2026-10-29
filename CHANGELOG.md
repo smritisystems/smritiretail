@@ -1,5 +1,26 @@
 <!--
 
+## [6.99.12] - 2026-10-29 - Procurement: Vendor Form Print & Export Studio Blank Print Fix & Unified Print Architecture v1.0.0
+
+### Fixed
+- `src/components/vendor/VendorPrintModal.tsx`:
+  - Resolved blank print preview bug in browser native print dialog (`window.print()`).
+  - Eliminated displaced dual-portal structure by portaling the entire modal to `document.body` via `createPortal(modalContent, document.body)`.
+  - Added embedded `@media print` style block enforcing `#root { display: none !important; }`, suppressing the 100vh invisible app root that displaced content onto blank pages.
+  - Reset modal, canvas wrapper, and sheet to static block layout with 0 overflow and 0 margin offsets.
+  - Added `Escape` key (close preview) and `F9` / `Ctrl+P` (instant print) keyboard shortcuts.
+  - Added optional `customCompanyName?: string` property for deterministic testing and tenant overrides.
+- `src/index.css`:
+  - Added `display: block !important;` to `.print-only-container` in `@media print` to guarantee print visibility when `@media screen { display: none !important; }` is active.
+
+### Added
+- `src/tests/vendorPrintModal.test.tsx`:
+  - Comprehensive automated Vitest verification suite with 7 tests covering statutory identity gating, fail-closed blocking, filled dossier rendering, blank onboarding KYC rendering, print CSS rules, and print button state.
+- `docs/walkthrough/vendor/Vendor_Print_Modal_Blank_Page_Fix_Walkthrough_v1.0.0.md`:
+  - Formal 13-section WGP walkthrough document.
+- `docs/walkthrough/README.md`:
+  - Appended entry `v3.143.0` to master walkthrough index.
+
 ## [6.99.11] - 2026-10-29 - Reports & BI: Harmonize Purchase Inward Register (GRN) Catalog Definitions & Hero Card Metadata v1.0.0
 
 ### Added

@@ -1,19 +1,20 @@
 /**
  * Project      : SMRITI Retail OS
+ * Repository   : SMRITIRetailNX
  * Author       : Jawahar Ramkripal Mallah
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 3.30.0
+ * Version      : 6.99.12
  * Created      : 2026-09-11
- * Modified     : 2026-09-11
- * Copyright    : (c) SMRITIBooks.com. All Rights Reserved.
+ * Modified     : 2026-10-29
+ * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
- * Classification: Internal
+ * Classification: Vendor Form Print & Export Studio Modal (Multi-Format, Live Scaled)
  */
 
 import React, { useState, useEffect } from "react";
-import ReactDOM from "react-dom";
+import { createPortal } from "react-dom";
 import { 
   X, Printer, FileText, FileSpreadsheet, Check, 
   Building2, ShieldCheck, MapPin, Users, CreditCard, 
@@ -28,6 +29,7 @@ interface VendorPrintModalProps {
   onClose: () => void;
   vendor: VendorDetail | null;
   initialWithData?: boolean;
+  customCompanyName?: string;
 }
 
 const VendorPrintModalBase: React.FC<VendorPrintModalProps> = ({
@@ -35,11 +37,13 @@ const VendorPrintModalBase: React.FC<VendorPrintModalProps> = ({
   onClose,
   vendor,
   initialWithData = true,
+  customCompanyName,
 }) => {
   const [withData, setWithData] = useState<boolean>(initialWithData && Boolean(vendor));
   const [includeBanking, setIncludeBanking] = useState<boolean>(true);
   const [includeDeclaration, setIncludeDeclaration] = useState<boolean>(true);
   const [tenantName, setTenantName] = useState<string>(() => {
+    if (customCompanyName !== undefined) return customCompanyName;
     if (typeof window !== "undefined") {
       return getTenantCompanyContext().companyName || "";
     }
@@ -53,13 +57,17 @@ const VendorPrintModalBase: React.FC<VendorPrintModalProps> = ({
   });
 
   useEffect(() => {
+    if (customCompanyName !== undefined) {
+      setTenantName(customCompanyName);
+      return;
+    }
     if (typeof window !== "undefined") {
       const ctx = getTenantCompanyContext();
       if (ctx.companyName) setTenantName(ctx.companyName);
       const bName = localStorage.getItem("smriti_branch_name");
       if (bName) setBranchName(bName);
     }
-  }, []);
+  }, [customCompanyName]);
 
   useEffect(() => {
     if (vendor && initialWithData) {
@@ -68,6 +76,23 @@ const VendorPrintModalBase: React.FC<VendorPrintModalProps> = ({
       setWithData(false);
     }
   }, [vendor, initialWithData]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        onClose();
+      } else if (e.key === "F9" || ((e.ctrlKey || e.metaKey) && e.key === "p")) {
+        e.preventDefault();
+        window.print();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen, onClose]);
 
   if (!isOpen) return null;
 
@@ -620,123 +645,190 @@ const VendorPrintModalBase: React.FC<VendorPrintModalProps> = ({
     </div>
   );
 
-  return (
-    <>
-      {/* ─────────────────── SCREEN PREVIEW MODAL ─────────────────── */}
-      <div className="fixed inset-0 z-50 flex flex-col bg-slate-900/40 dark:bg-slate-950/80 backdrop-blur-md no-print">
-        {/* Top Floating Command Bar */}
-        <div className="h-16 px-6 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between shadow-sm shrink-0">
-          <div className="flex items-center space-x-3">
-            <div className="p-2 rounded-lg bg-indigo-50 dark:bg-indigo-600/20 border border-indigo-200 dark:border-indigo-500/30 text-indigo-600 dark:text-indigo-400">
-              <Printer size={20} />
-            </div>
-            <div>
-              <h2 className="text-sm font-bold text-slate-900 dark:text-white flex items-center space-x-2">
-                <span>Vendor Form Print & Export Studio</span>
-                <span className="font-mono text-[10px] bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300">
-                  A4 FORMAT
-                </span>
-              </h2>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
-                {withData && vendor
-                  ? `Active Dossier: ${vendor.legalName} (${vendor.code})`
-                  : "Blank Vendor Onboarding & KYC Application Form (Offline Registration)"}
-              </p>
-            </div>
+  const modalContent = (
+    <div
+      className="vendor-print-modal-root print-preview-visible fixed inset-0 z-50 flex flex-col bg-slate-900/60 dark:bg-slate-950/80 backdrop-blur-xs overflow-y-auto print:static print:inset-auto print:h-auto print:w-full print:p-0 print:m-0 print:bg-white print:overflow-visible"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Vendor Form Print Preview"
+    >
+      <style>{`
+        @media print {
+          @page {
+            size: A4 portrait;
+            margin: 8mm 10mm 10mm 10mm;
+          }
+          #root {
+            display: none !important;
+          }
+          html, body {
+            height: auto !important;
+            min-height: 0 !important;
+            overflow: visible !important;
+            overflow-x: visible !important;
+            overflow-y: visible !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            background: white !important;
+          }
+          .vendor-print-modal-root {
+            position: static !important;
+            display: block !important;
+            width: 100% !important;
+            height: auto !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            overflow: visible !important;
+            overflow-x: visible !important;
+            overflow-y: visible !important;
+            background: white !important;
+          }
+          .vendor-print-toolbar,
+          .no-print {
+            display: none !important;
+          }
+          .vendor-print-canvas-wrapper {
+            display: block !important;
+            width: 100% !important;
+            height: auto !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            overflow: visible !important;
+            background: white !important;
+          }
+          .vendor-print-sheet-wrapper {
+            display: block !important;
+            width: 100% !important;
+            max-width: 100% !important;
+            margin: 0 auto !important;
+            padding: 0 !important;
+            box-shadow: none !important;
+            border: none !important;
+            overflow: visible !important;
+            background: white !important;
+          }
+          .vendor-printable-sheet {
+            box-shadow: none !important;
+            border: none !important;
+            margin: 0 auto !important;
+            padding: 0 !important;
+            max-width: 100% !important;
+            min-height: auto !important;
+            visibility: visible !important;
+            background: white !important;
+          }
+        }
+      `}</style>
+
+      {/* ─────────────────── TOP FLOATING COMMAND BAR ─────────────────── */}
+      <div className="vendor-print-toolbar h-16 px-6 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between shadow-sm shrink-0 print:hidden">
+        <div className="flex items-center space-x-3">
+          <div className="p-2 rounded-lg bg-indigo-50 dark:bg-indigo-600/20 border border-indigo-200 dark:border-indigo-500/30 text-indigo-600 dark:text-indigo-400">
+            <Printer size={20} />
           </div>
-
-          {/* Mode Switcher Pills */}
-          <div className="flex items-center bg-slate-100 dark:bg-slate-800/80 p-1 rounded-xl border border-slate-200 dark:border-slate-700/80 space-x-1">
-            <button
-              onClick={() => setWithData(true)}
-              disabled={!vendor}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center space-x-1.5 transition ${
-                withData
-                  ? "bg-indigo-600 text-white shadow-sm"
-                  : !vendor
-                  ? "opacity-40 cursor-not-allowed text-slate-400 dark:text-slate-600"
-                  : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
-              }`}
-              title={!vendor ? "Select a vendor in the directory to print with data" : "Print form with current vendor data"}
-            >
-              <FileText size={14} />
-              <span>With Data (Filled Dossier)</span>
-            </button>
-
-            <button
-              onClick={() => setWithData(false)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center space-x-1.5 transition ${
-                !withData
-                  ? "bg-indigo-600 text-white shadow-sm"
-                  : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
-              }`}
-              title="Print blank form for manual onboarding and KYC submission"
-            >
-              <FileSpreadsheet size={14} />
-              <span>Without Data (Blank Form)</span>
-            </button>
-          </div>
-
-          {/* Options & Action Controls */}
-          <div className="flex items-center space-x-3">
-            <label className="flex items-center space-x-1.5 text-xs text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white cursor-pointer font-medium">
-              <input
-                type="checkbox"
-                checked={includeBanking}
-                onChange={(e) => setIncludeBanking(e.target.checked)}
-                className="rounded border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-indigo-600 focus:ring-0"
-              />
-              <span>Banking</span>
-            </label>
-
-            <label className="flex items-center space-x-1.5 text-xs text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white cursor-pointer font-medium">
-              <input
-                type="checkbox"
-                checked={includeDeclaration}
-                onChange={(e) => setIncludeDeclaration(e.target.checked)}
-                className="rounded border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-indigo-600 focus:ring-0"
-              />
-              <span>Declaration</span>
-            </label>
-
-            <button
-              onClick={handlePrint}
-              disabled={!isIdentityConfigured}
-              data-testid="vendor-print-btn"
-              className="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-bold shadow-md shadow-indigo-600/20 flex items-center space-x-2 transition"
-            >
-              <Printer size={15} />
-              <span>Print Document</span>
-            </button>
-
-            <button
-              onClick={onClose}
-              className="p-2 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white transition"
-              title="Close Preview"
-            >
-              <X size={18} />
-            </button>
+          <div>
+            <h2 className="text-sm font-bold text-slate-900 dark:text-white flex items-center space-x-2">
+              <span>Vendor Form Print & Export Studio</span>
+              <span className="font-mono text-[10px] bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300">
+                A4 FORMAT
+              </span>
+            </h2>
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              {withData && vendor
+                ? `Active Dossier: ${vendor.legalName} (${vendor.code})`
+                : "Blank Vendor Onboarding & KYC Application Form (Offline Registration)"}
+            </p>
           </div>
         </div>
 
-        {/* Scrollable Document Canvas Viewport */}
-        <div className="flex-1 overflow-y-auto p-8 bg-slate-100/90 dark:bg-slate-950 flex justify-center">
-          <div className="w-full max-w-[820px] shadow-xl rounded border border-slate-200 dark:border-slate-800">
-            {printableDocument}
-          </div>
+        {/* Mode Switcher Pills */}
+        <div className="flex items-center bg-slate-100 dark:bg-slate-800/80 p-1 rounded-xl border border-slate-200 dark:border-slate-700/80 space-x-1">
+          <button
+            onClick={() => setWithData(true)}
+            disabled={!vendor}
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center space-x-1.5 transition ${
+              withData
+                ? "bg-indigo-600 text-white shadow-sm"
+                : !vendor
+                ? "opacity-40 cursor-not-allowed text-slate-400 dark:text-slate-600"
+                : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+            }`}
+            title={!vendor ? "Select a vendor in the directory to print with data" : "Print form with current vendor data"}
+          >
+            <FileText size={14} />
+            <span>With Data (Filled Dossier)</span>
+          </button>
+
+          <button
+            onClick={() => setWithData(false)}
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center space-x-1.5 transition ${
+              !withData
+                ? "bg-indigo-600 text-white shadow-sm"
+                : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+            }`}
+            title="Print blank form for manual onboarding and KYC submission"
+          >
+            <FileSpreadsheet size={14} />
+            <span>Without Data (Blank Form)</span>
+          </button>
+        </div>
+
+        {/* Options & Action Controls */}
+        <div className="flex items-center space-x-3">
+          <label className="flex items-center space-x-1.5 text-xs text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white cursor-pointer font-medium">
+            <input
+              type="checkbox"
+              checked={includeBanking}
+              onChange={(e) => setIncludeBanking(e.target.checked)}
+              className="rounded border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-indigo-600 focus:ring-0"
+            />
+            <span>Banking</span>
+          </label>
+
+          <label className="flex items-center space-x-1.5 text-xs text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white cursor-pointer font-medium">
+            <input
+              type="checkbox"
+              checked={includeDeclaration}
+              onChange={(e) => setIncludeDeclaration(e.target.checked)}
+              className="rounded border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-indigo-600 focus:ring-0"
+            />
+            <span>Declaration</span>
+          </label>
+
+          <button
+            onClick={handlePrint}
+            disabled={!isIdentityConfigured}
+            data-testid="vendor-print-btn"
+            className="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-bold shadow-md shadow-indigo-600/20 flex items-center space-x-2 transition"
+          >
+            <Printer size={15} />
+            <span>Print Document</span>
+          </button>
+
+          <button
+            onClick={onClose}
+            className="p-2 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white transition"
+            title="Close Preview (Esc)"
+          >
+            <X size={18} />
+          </button>
         </div>
       </div>
 
-      {/* ─────────────────── NATIVE @MEDIA PRINT CONTAINER ─────────────────── */}
-      {typeof document !== "undefined" &&
-        ReactDOM.createPortal(
-          <div className="print-only-container" id="smriti-vendor-print-root">
-            {printableDocument}
-          </div>,
-          document.body
-        )}
-    </>
+      {/* Scrollable Document Canvas Viewport */}
+      <div className="vendor-print-canvas-wrapper flex-1 overflow-y-auto p-8 bg-slate-100/90 dark:bg-slate-950 flex justify-center print:p-0 print:m-0 print:block print:bg-white print:overflow-visible">
+        <div className="vendor-print-sheet-wrapper w-full max-w-[820px] shadow-xl rounded border border-slate-200 dark:border-slate-800 print:shadow-none print:border-none print:max-w-none print:w-full">
+          {printableDocument}
+        </div>
+      </div>
+    </div>
   );
+
+  if (typeof document === "undefined" || !document?.body || typeof (document.body as any).appendChild !== "function") {
+    return modalContent;
+  }
+
+  return createPortal(modalContent, document.body);
 };
 
 export const VendorPrintModal = withCapability(VendorPrintModalBase, {
