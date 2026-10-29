@@ -150,3 +150,4 @@ This document details the end-to-end alignment and enhancement of the **Purchase
 ## 13. Related RFCs
 - `RFC-2026-PUR-004`: Purchase Order to GRN Commercial Logistics Inheritance.
 - `RFC-2026-RPT-008`: Operational Retail Register Standardization & Multi-Format Export.
+

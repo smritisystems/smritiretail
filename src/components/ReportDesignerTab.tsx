@@ -32,7 +32,7 @@ import {
   Maximize2, TableProperties, BarChart3, PieChart as PieIcon, LineChart as LineIcon,
   Hash, Calendar, RefreshCw, Check, ArrowLeft, ShieldAlert, X, AlertTriangle, Play, Square,
   Code, Terminal, FileSpreadsheet, ExternalLink, Sparkles, ShoppingBag, ArrowRight, TrendingUp,
-  FileText, SlidersHorizontal, Receipt, Coins, Truck, Boxes, CheckCircle2, Store
+  FileText, SlidersHorizontal, Receipt, Coins, Truck, Boxes, CheckCircle2, Store, RotateCcw
 } from "lucide-react";
 import { SalesOrderA4 } from "./templates/SalesOrderA4";
 import { SalesOrderMatrixEntry } from "./sales/SalesOrderMatrixEntry";
@@ -127,6 +127,9 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
   const [reportSearchQuery, setReportSearchQuery] = useState<string>("");
   const [salesViewMode, setSalesViewMode] = useState<"detailed" | "bill_summary">("detailed");
   const [grnViewMode, setGrnViewMode] = useState<"detailed" | "grn_summary">("detailed");
+  const [grnDeliveryTermFilter, setGrnDeliveryTermFilter] = useState<"all" | "door_delivery" | "ex_factory">("all");
+  const [grnTransporterFilter, setGrnTransporterFilter] = useState<string>("all");
+  const [grnCollectionFilter, setGrnCollectionFilter] = useState<string>("all");
   const [purchaseInwardData, setPurchaseInwardData] = useState<any>(null);
   const [activeDatePreset, setActiveDatePreset] = useState<"today" | "yesterday" | "week" | "month" | "all" | "custom">("all");
 
@@ -451,23 +454,83 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
     return { totalArticles, totalQty, totalValuation, lowStockCount };
   }, [filteredStockLines]);
 
-  // Purchase Inward Lines for RPT-PUR-001
+  // Discovered facet options and counts for RPT-PUR-001
+  const availableTransporters = useMemo(() => {
+    if (!purchaseInwardData || !Array.isArray(purchaseInwardData.lines)) return [];
+    const set = new Set<string>();
+    for (const l of purchaseInwardData.lines) {
+      if (l.transporter_name && l.transporter_name.trim()) {
+        set.add(l.transporter_name.trim());
+      }
+    }
+    return Array.from(set).sort();
+  }, [purchaseInwardData]);
+
+  const availableCollections = useMemo(() => {
+    if (!purchaseInwardData || !Array.isArray(purchaseInwardData.lines)) return [];
+    const set = new Set<string>();
+    for (const l of purchaseInwardData.lines) {
+      if (l.collection_type && l.collection_type.trim()) {
+        set.add(l.collection_type.trim());
+      }
+    }
+    return Array.from(set).sort();
+  }, [purchaseInwardData]);
+
+  const grnFacetCounts = useMemo(() => {
+    if (!purchaseInwardData || !Array.isArray(purchaseInwardData.lines)) {
+      return { totalLines: 0, doorDeliveryCount: 0, exFactoryCount: 0 };
+    }
+    const all = purchaseInwardData.lines;
+    const door = all.filter((l: any) => l.delivery_terms && l.delivery_terms.toLowerCase().includes("door delivery")).length;
+    const ex = all.filter((l: any) => l.delivery_terms && l.delivery_terms.toLowerCase().includes("ex-factory")).length;
+    return {
+      totalLines: all.length,
+      doorDeliveryCount: door,
+      exFactoryCount: ex,
+    };
+  }, [purchaseInwardData]);
+
+  // Purchase Inward Lines for RPT-PUR-001 with multi-dimensional logistics facets
   const filteredGrnLines = useMemo(() => {
     if (!purchaseInwardData || !Array.isArray(purchaseInwardData.lines)) return [];
-    if (!reportSearchQuery.trim()) return purchaseInwardData.lines;
-    const q = reportSearchQuery.toLowerCase().trim();
-    return purchaseInwardData.lines.filter((l: any) =>
-      (l.receipt_no && l.receipt_no.toLowerCase().includes(q)) ||
-      (l.supplier_name && l.supplier_name.toLowerCase().includes(q)) ||
-      (l.product_code && l.product_code.toLowerCase().includes(q)) ||
-      (l.product_name && l.product_name.toLowerCase().includes(q)) ||
-      (l.order_no && l.order_no.toLowerCase().includes(q)) ||
-      (l.delivery_terms && l.delivery_terms.toLowerCase().includes(q)) ||
-      (l.transporter_name && l.transporter_name.toLowerCase().includes(q)) ||
-      (l.lr_number && l.lr_number.toLowerCase().includes(q)) ||
-      (l.collection_type && l.collection_type.toLowerCase().includes(q))
-    );
-  }, [purchaseInwardData, reportSearchQuery]);
+    let list = purchaseInwardData.lines;
+
+    // Delivery Terms Facet
+    if (grnDeliveryTermFilter === "door_delivery") {
+      list = list.filter((l: any) => l.delivery_terms && l.delivery_terms.toLowerCase().includes("door delivery"));
+    } else if (grnDeliveryTermFilter === "ex_factory") {
+      list = list.filter((l: any) => l.delivery_terms && l.delivery_terms.toLowerCase().includes("ex-factory"));
+    }
+
+    // Transporter Carrier Facet
+    if (grnTransporterFilter !== "all") {
+      list = list.filter((l: any) => l.transporter_name === grnTransporterFilter);
+    }
+
+    // Merchandise Collection Facet
+    if (grnCollectionFilter !== "all") {
+      list = list.filter((l: any) => l.collection_type === grnCollectionFilter);
+    }
+
+    // Free-text Search
+    if (reportSearchQuery.trim()) {
+      const q = reportSearchQuery.toLowerCase().trim();
+      list = list.filter((l: any) =>
+        (l.receipt_no && l.receipt_no.toLowerCase().includes(q)) ||
+        (l.supplier_name && l.supplier_name.toLowerCase().includes(q)) ||
+        (l.product_code && l.product_code.toLowerCase().includes(q)) ||
+        (l.product_name && l.product_name.toLowerCase().includes(q)) ||
+        (l.order_no && l.order_no.toLowerCase().includes(q)) ||
+        (l.delivery_terms && l.delivery_terms.toLowerCase().includes(q)) ||
+        (l.transporter_name && l.transporter_name.toLowerCase().includes(q)) ||
+        (l.lr_number && l.lr_number.toLowerCase().includes(q)) ||
+        (l.collection_type && l.collection_type.toLowerCase().includes(q))
+      );
+    }
+
+    return list;
+  }, [purchaseInwardData, grnDeliveryTermFilter, grnTransporterFilter, grnCollectionFilter, reportSearchQuery]);
 
   const grnSummaryList = useMemo(() => {
     if (!filteredGrnLines.length) return [];
@@ -2485,16 +2548,142 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
                   </div>
                 </div>
 
-                {/* Live Search */}
-                <div className="relative">
-                  <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-theme-muted" />
-                  <input
-                    type="text"
-                    placeholder="Filter GRN #, Supplier Name, PO #, Article Code..."
-                    value={reportSearchQuery}
-                    onChange={(e) => setReportSearchQuery(e.target.value)}
-                    className="w-full pl-9 pr-4 py-2 rounded-lg bg-theme-surface-2 border border-theme-border text-xs text-theme-heading placeholder:text-theme-muted focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                  />
+                {/* Logistics Facet Filter Bar & Search */}
+                <div className="space-y-2.5">
+                  <div className="flex flex-wrap items-center justify-between gap-2.5 p-2.5 rounded-xl bg-theme-surface-2 border border-theme-border text-xs">
+                    {/* Delivery Terms Segmented Pills */}
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="text-[11px] font-mono text-theme-muted uppercase tracking-wider font-semibold mr-1 flex items-center gap-1">
+                        <Filter className="w-3.5 h-3.5 text-theme-muted" /> Terms:
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setGrnDeliveryTermFilter("all")}
+                        className={`px-2.5 py-1 rounded-lg text-xs font-mono font-medium transition-all flex items-center gap-1.5 cursor-pointer ${
+                          grnDeliveryTermFilter === "all"
+                            ? "bg-theme-surface text-theme-heading shadow-sm border border-theme-border font-bold"
+                            : "text-theme-muted hover:text-theme-body border border-transparent hover:border-theme-border/40"
+                        }`}
+                      >
+                        All Terms
+                        <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-theme-surface-3 text-theme-muted">
+                          {grnFacetCounts.totalLines}
+                        </span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setGrnDeliveryTermFilter("door_delivery")}
+                        className={`px-2.5 py-1 rounded-lg text-xs font-mono font-medium transition-all flex items-center gap-1.5 cursor-pointer ${
+                          grnDeliveryTermFilter === "door_delivery"
+                            ? "bg-emerald-500/15 text-emerald-600 border border-emerald-500/30 font-bold shadow-sm"
+                            : "text-theme-muted hover:text-emerald-500 border border-transparent hover:border-emerald-500/20"
+                        }`}
+                      >
+                        Door Delivery
+                        <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-emerald-500/10 text-emerald-600 font-bold">
+                          {grnFacetCounts.doorDeliveryCount}
+                        </span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setGrnDeliveryTermFilter("ex_factory")}
+                        className={`px-2.5 py-1 rounded-lg text-xs font-mono font-medium transition-all flex items-center gap-1.5 cursor-pointer ${
+                          grnDeliveryTermFilter === "ex_factory"
+                            ? "bg-amber-500/15 text-amber-600 border border-amber-500/30 font-bold shadow-sm"
+                            : "text-theme-muted hover:text-amber-500 border border-transparent hover:border-amber-500/20"
+                        }`}
+                      >
+                        Ex-Factory
+                        <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-amber-500/10 text-amber-600 font-bold">
+                          {grnFacetCounts.exFactoryCount}
+                        </span>
+                      </button>
+                    </div>
+
+                    {/* Carrier & Collection Dropdowns + Clear Action */}
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {/* Carrier Select */}
+                      <div className="flex items-center gap-1 bg-theme-surface rounded-lg border border-theme-border px-2 py-1">
+                        <Truck className="w-3.5 h-3.5 text-theme-muted" />
+                        <select
+                          value={grnTransporterFilter}
+                          onChange={(e) => setGrnTransporterFilter(e.target.value)}
+                          className="bg-transparent text-xs text-theme-heading focus:outline-none cursor-pointer pr-1"
+                        >
+                          <option value="all" className="bg-theme-surface text-theme-heading">
+                            All Carriers ({availableTransporters.length})
+                          </option>
+                          {availableTransporters.map((t) => (
+                            <option key={t} value={t} className="bg-theme-surface text-theme-heading">
+                              {t}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      {/* Collection Select */}
+                      <div className="flex items-center gap-1 bg-theme-surface rounded-lg border border-theme-border px-2 py-1">
+                        <span className="text-[10px] font-mono text-theme-muted">🏷️</span>
+                        <select
+                          value={grnCollectionFilter}
+                          onChange={(e) => setGrnCollectionFilter(e.target.value)}
+                          className="bg-transparent text-xs text-theme-heading focus:outline-none cursor-pointer pr-1"
+                        >
+                          <option value="all" className="bg-theme-surface text-theme-heading">
+                            All Collections ({availableCollections.length})
+                          </option>
+                          {availableCollections.map((c) => (
+                            <option key={c} value={c} className="bg-theme-surface text-theme-heading">
+                              {c}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      {/* Reset All Filters Button */}
+                      {(grnDeliveryTermFilter !== "all" ||
+                        grnTransporterFilter !== "all" ||
+                        grnCollectionFilter !== "all" ||
+                        Boolean(reportSearchQuery.trim())) && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setGrnDeliveryTermFilter("all");
+                            setGrnTransporterFilter("all");
+                            setGrnCollectionFilter("all");
+                            setReportSearchQuery("");
+                          }}
+                          className="px-2.5 py-1 rounded-lg bg-rose-500/10 text-rose-600 border border-rose-500/20 hover:bg-rose-500/20 text-xs font-medium flex items-center gap-1 transition-all cursor-pointer"
+                          title="Reset all active filters"
+                        >
+                          <RotateCcw className="w-3 h-3" />
+                          <span>Reset Filters</span>
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Free-Text Search Input */}
+                  <div className="relative">
+                    <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-theme-muted" />
+                    <input
+                      type="text"
+                      placeholder="Filter GRN #, Supplier, PO #, Carrier, LR #, Delivery Terms, Collection, SKU, Article Code..."
+                      value={reportSearchQuery}
+                      onChange={(e) => setReportSearchQuery(e.target.value)}
+                      className="w-full pl-9 pr-8 py-2 rounded-lg bg-theme-surface-2 border border-theme-border text-xs text-theme-heading placeholder:text-theme-muted focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                    />
+                    {reportSearchQuery.trim() && (
+                      <button
+                        type="button"
+                        onClick={() => setReportSearchQuery("")}
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-theme-muted hover:text-theme-body cursor-pointer"
+                        title="Clear search"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
                 </div>
 
                 {/* Data Table */}

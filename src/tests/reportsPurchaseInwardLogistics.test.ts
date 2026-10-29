@@ -211,3 +211,4 @@ describe("Purchase Inward Register (GRN) Logistics & Delivery Terms Alignment", 
     expect(directSummary.transporter_name).toBeUndefined();
   });
 });
+

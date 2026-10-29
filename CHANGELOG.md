@@ -1,5 +1,22 @@
 <!--
 
+## [6.99.9] - 2026-10-29 - Reports & BI: Purchase Inward Register (GRN) Interactive Logistics Facet Filter Chips & Dynamic KPI Drilldown v1.0.0
+
+### Added
+- `src/components/ReportDesignerTab.tsx`:
+  - Added interactive logistics facet filter command bar above Purchase Inward Register (`RPT-PUR-001`).
+  - Added segmented Delivery Terms filter pill buttons (`All Terms`, `Door Delivery`, `Ex-Factory`) with active status styles and real-time count badges.
+  - Added dynamic carrier (`availableTransporters`) and merchandise collection (`availableCollections`) dropdown selectors discovered directly from live receipt lines.
+  - Added compound multi-facet filtering in `filteredGrnLines` (Delivery Terms + Carrier + Collection + Text Query).
+  - Added 1-click `Reset Filters` action button and individual `Clear Search` action.
+  - Reactive recalculation of 4 operational KPI summary cards (Total GRNs, Received Qty, Inward GST, Landed Value) and table totals footer based on active facets.
+- `src/tests/reportsPurchaseInwardLogisticsFacets.test.ts`:
+  - Created automated Vitest test suite with 8 tests covering facet discovery, badge counters, single-facet filtering, carrier dropdown selection, and compound queries.
+- `docs/implementation/reports/Reports_Purchase_Inward_Register_Logistics_Facets_Plan_v1.0.0.md`:
+  - Authored formal 19-section IPGP implementation plan.
+- `docs/walkthrough/reports/Reports_Purchase_Inward_Register_Logistics_Facets_Walkthrough_v1.0.0.md`:
+  - Authored formal 13-section WGP walkthrough document.
+
 ## [6.99.8] - 2026-10-29 - Reports & BI: Purchase Inward Register (GRN) Logistics, Delivery Terms & Transporter Alignment v1.0.0
 
 ### Added
