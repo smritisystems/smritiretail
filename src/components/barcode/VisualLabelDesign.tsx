@@ -4,9 +4,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.9.0
+ * Version      : 6.99.17
  * Created      : 2026-08-25
- * Modified     : 2026-08-25
+ * Modified     : 2026-10-29 (v6.99.17 — WYSIWYG thermal test label body portal & #root suppression)
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
@@ -14,6 +14,7 @@
  */
 
 import React, { useState, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { Product } from "../../types.ts";
 import { apiFetchV1 } from "../../lib/apiFetchV1.ts";
 import { ThermalBarcodeSvg } from "./ThermalBarcodeSvg.tsx";
@@ -410,8 +411,92 @@ export const VisualLabelDesigner: React.FC<VisualLabelDesignerProps> = ({
     }
   };
 
+  const printableLabelSticker = (
+    <div id="visual-label-designer-print-area" className="hidden print:block bg-white text-black font-sans">
+      <style dangerouslySetInnerHTML={{ __html: `
+        @media print {
+          @page {
+            size: ${labelWidthMm}mm ${labelHeightMm}mm;
+            margin: 0;
+          }
+          #root {
+            display: none !important;
+          }
+          html, body {
+            height: auto !important;
+            min-height: 0 !important;
+            overflow: visible !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            background: #ffffff !important;
+          }
+          #visual-label-designer-print-area {
+            position: static !important;
+            display: block !important;
+            width: ${labelWidthMm}mm !important;
+            height: ${labelHeightMm}mm !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            background: #ffffff !important;
+            overflow: hidden !important;
+          }
+          .visual-label-print-sticker {
+            position: relative !important;
+            width: ${labelWidthMm}mm !important;
+            height: ${labelHeightMm}mm !important;
+            margin: 0 !important;
+            padding: 1.5mm !important;
+            box-sizing: border-box !important;
+            overflow: hidden !important;
+            background: #ffffff !important;
+            color: #000000 !important;
+          }
+        }
+      `}} />
+      <div className="visual-label-print-sticker">
+        {elements
+          .filter(el => el.isVisible)
+          .map(el => {
+            const leftMm = el.xMm;
+            const topMm = el.yMm;
+            return (
+              <div
+                key={el.id}
+                style={{
+                  position: "absolute",
+                  left: `${leftMm}mm`,
+                  top: `${topMm}mm`,
+                  fontSize: `${el.fontSizePt}pt`,
+                  fontWeight: el.fontWeight === "extrabold" ? 900 : el.fontWeight === "bold" ? 700 : 400,
+                  textAlign: el.textAlign,
+                  lineHeight: 1.1,
+                  color: "#000000",
+                }}
+              >
+                {el.type === "barcode" ? (
+                  <ThermalBarcodeSvg
+                    value={activeProduct.barcode || activeProduct.code}
+                    widthMm={el.widthMm || 44}
+                    heightMm={el.heightMm || 9}
+                    showText={true}
+                  />
+                ) : (
+                  <span>{getElementValue(el)}</span>
+                )}
+              </div>
+            );
+          })}
+      </div>
+    </div>
+  );
+
+  const mountedPrintable = typeof document !== "undefined" && document?.body && typeof (document.body as any).appendChild === "function"
+    ? createPortal(printableLabelSticker, document.body)
+    : printableLabelSticker;
+
   return (
     <div className="h-full flex flex-col bg-theme-base text-theme-body select-none overflow-hidden font-sans">
+      {mountedPrintable}
       {/* Top Application Bar */}
       <header className="h-14 border-b border-theme-divider bg-theme-surface-1 flex justify-between items-center px-4 shrink-0 shadow-xs z-20">
         <div className="flex items-center gap-3">
