@@ -4,12 +4,17 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 1.4.0
+ * Version      : 6.99.18
  * Created      : 2026-10-11
- * Modified     : 2026-10-15
+ * Modified     : 2026-10-29 (v6.99.18 — Muster Roll & Wage Statement body portal & #root suppression)
  * Copyright    : (c) SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
+ *
+ * Changelog v6.99.18 (2026-10-29):
+ *   - Unified body portal & #root suppression print standard for Form II Muster Roll and Wage Statement.
+ *   - Dynamic @page orientation (A4 landscape for Muster Roll, A4 portrait for Wage Statement).
+ *   - Universal F9 / Ctrl+P instant print listener.
  *
  * Changelog v1.4.0 (2026-10-15):
  *   - Phase 2 Bulk Manual Attendance Entry Workspace:
@@ -31,6 +36,7 @@
  */
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   AlertCircle, BadgeCheck, CalendarDays, CheckCircle2,
   ChevronLeft, ChevronRight, Clock, Loader2, Pencil, RefreshCw,
@@ -252,6 +258,17 @@ export const AttendanceWorkspaceTab: React.FC<AttendanceWorkspaceTabProps> = ({
 
   useEffect(() => { loadPersonnel(); loadBranches(); }, [loadPersonnel, loadBranches]);
   useEffect(() => { loadAttendance(); }, [loadAttendance]);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "F9" || ((e.ctrlKey || e.metaKey) && (e.key === "p" || e.key === "P"))) {
+        e.preventDefault();
+        window.print();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
 
   const handlePunch = async () => {
     if (!punchUserId) { notify("Punch Error", "Select a staff member first.", "warning"); return; }
@@ -512,8 +529,245 @@ export const AttendanceWorkspaceTab: React.FC<AttendanceWorkspaceTabProps> = ({
 
   const isManager = ["SYSADMIN", "ADMIN", "MANAGER", "STORE_MANAGER", "BRANCH_ADMIN", "HR_EXECUTIVE"].includes((currentUser?.role || "").toUpperCase());
 
+  const printableMusterRoll = section === "muster_roll" && (
+    <div id="att-muster-printable-sheet" className="hidden print:block bg-white text-black font-sans p-4">
+      <style dangerouslySetInnerHTML={{ __html: `
+        @media print {
+          @page {
+            size: A4 landscape;
+            margin: 8mm;
+          }
+          #root {
+            display: none !important;
+          }
+          html, body {
+            height: auto !important;
+            min-height: 0 !important;
+            overflow: visible !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            background: #ffffff !important;
+          }
+          #att-muster-printable-sheet {
+            position: static !important;
+            display: block !important;
+            width: 100% !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            background: #ffffff !important;
+            color: #000000 !important;
+          }
+        }
+      `}} />
+      <div className="space-y-4 text-black">
+        <div className="flex justify-between items-start border-b-2 border-black pb-3">
+          <div>
+            <h1 className="text-lg font-black uppercase tracking-tight text-black">SMRITI Retail OS — Human Resources</h1>
+            <p className="text-xs text-gray-700 font-semibold">Form II Statutory Muster Roll Matrix (Rule 27(1))</p>
+            <p className="text-[11px] text-gray-600 font-mono mt-0.5">Period: {musterPeriod} | Employees Recorded: {musterData?.total_employees || 0}</p>
+          </div>
+          <div className="text-right">
+            <span className="inline-block px-3 py-1 bg-black text-white text-xs font-mono font-bold uppercase rounded">
+              STATUTORY REGISTER
+            </span>
+            <p className="text-[10px] font-mono text-gray-600 mt-1">Generated: {new Date().toLocaleString("en-IN")}</p>
+          </div>
+        </div>
+
+        {/* Form II Printable Table */}
+        <div className="border border-black overflow-hidden text-[10px]">
+          <table className="w-full border-collapse text-center">
+            <thead>
+              <tr className="bg-gray-200 border-b border-black font-bold text-[9px] uppercase">
+                <th className="border-r border-black px-2 py-1 text-left">Employee</th>
+                <th className="border-r border-black px-1 py-1 text-left">Dept</th>
+                {Array.from({ length: musterData?.days_in_month || 31 }, (_, i) => i + 1).map(d => (
+                  <th key={d} className="border-r border-black px-0.5 py-1 text-[8px]">{d}</th>
+                ))}
+                <th className="border-r border-black px-1 py-1 text-emerald-800">P</th>
+                <th className="border-r border-black px-1 py-1 text-violet-800">HD</th>
+                <th className="border-r border-black px-1 py-1 text-red-800">A</th>
+                <th className="border-r border-black px-1 py-1 text-blue-800">LV</th>
+                <th className="border-r border-black px-1 py-1 text-teal-800">WO</th>
+                <th className="border-r border-black px-1 py-1">OT</th>
+                <th className="bg-gray-300 px-1 py-1 font-black">Payable</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-300 font-mono text-[9px]">
+              {(!musterData?.rows || musterData.rows.length === 0) ? (
+                <tr><td colSpan={42} className="py-6 text-center text-gray-500">No muster roll records found.</td></tr>
+              ) : (
+                musterData.rows.map((row: any) => {
+                  const s = row.summary || {};
+                  return (
+                    <tr key={row.user_id}>
+                      <td className="border-r border-black px-2 py-1 text-left font-bold truncate max-w-[120px]">
+                        {row.full_name} ({row.employee_code})
+                      </td>
+                      <td className="border-r border-black px-1 py-1 text-left truncate max-w-[60px]">
+                        {row.department}
+                      </td>
+                      {Array.from({ length: musterData.days_in_month || 31 }, (_, i) => i + 1).map(d => {
+                        const dayInfo = row.days?.[String(d)] || { code: "-" };
+                        return (
+                          <td key={d} className="border-r border-gray-300 p-0.5 text-[8px] font-bold">
+                            {dayInfo.code}
+                          </td>
+                        );
+                      })}
+                      <td className="border-r border-black px-1 py-1 font-bold text-emerald-800">{s.present_days || 0}</td>
+                      <td className="border-r border-black px-1 py-1 font-bold text-violet-800">{s.half_days || 0}</td>
+                      <td className="border-r border-black px-1 py-1 font-bold text-red-800">{s.absent_days || 0}</td>
+                      <td className="border-r border-black px-1 py-1 font-bold text-blue-800">{s.paid_leave_days || 0}</td>
+                      <td className="border-r border-black px-1 py-1 font-bold text-teal-800">{s.weekly_off_days || 0}</td>
+                      <td className="border-r border-black px-1 py-1 font-bold">{s.total_overtime_hours || 0}</td>
+                      <td className="bg-gray-100 px-1 py-1 font-black text-black">{s.effective_payable_days || 0}</td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Dual Signatures */}
+        <div className="pt-6 border-t border-gray-400 grid grid-cols-2 gap-8 text-xs">
+          <div className="text-center space-y-2">
+            <div className="h-8 border-b border-dashed border-gray-400"></div>
+            <p className="font-bold text-gray-800">HR Manager / Timekeeper Signature</p>
+          </div>
+          <div className="text-center space-y-2">
+            <div className="h-8 border-b border-dashed border-gray-400"></div>
+            <p className="font-bold text-gray-800">Factory / Store Manager Authorized Signatory</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  const printableWages = section === "wages" && (
+    <div id="att-wages-printable-sheet" className="hidden print:block bg-white text-black font-sans p-6">
+      <style dangerouslySetInnerHTML={{ __html: `
+        @media print {
+          @page {
+            size: A4 portrait;
+            margin: 10mm 12mm 12mm 12mm;
+          }
+          #root {
+            display: none !important;
+          }
+          html, body {
+            height: auto !important;
+            min-height: 0 !important;
+            overflow: visible !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            background: #ffffff !important;
+          }
+          #att-wages-printable-sheet {
+            position: static !important;
+            display: block !important;
+            width: 100% !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            background: #ffffff !important;
+            color: #000000 !important;
+          }
+        }
+      `}} />
+      <div className="space-y-4 text-black">
+        <div className="flex justify-between items-start border-b-2 border-black pb-3">
+          <div>
+            <h1 className="text-lg font-black uppercase tracking-tight text-black">SMRITI Retail OS — Human Resources</h1>
+            <p className="text-xs text-gray-700 font-semibold">Monthly Payroll &amp; Wage Statement</p>
+            <p className="text-[11px] text-gray-600 font-mono mt-0.5">Payroll Period: {wagePeriod}</p>
+          </div>
+          <div className="text-right">
+            <span className="inline-block px-3 py-1 bg-black text-white text-xs font-mono font-bold uppercase rounded">
+              WAGE RECONCILIATION
+            </span>
+            <p className="text-[10px] font-mono text-gray-600 mt-1">Generated: {new Date().toLocaleString("en-IN")}</p>
+          </div>
+        </div>
+
+        {/* Wage Table */}
+        <div className="border border-black overflow-hidden text-xs">
+          <table className="w-full border-collapse text-left text-xs">
+            <thead>
+              <tr className="bg-gray-200 border-b border-black font-bold text-[10px] uppercase text-gray-800">
+                <th className="border-r border-black px-3 py-2">Employee</th>
+                <th className="border-r border-black px-2 py-2">Type</th>
+                <th className="border-r border-black px-2 py-2 text-right">Base Rate</th>
+                <th className="border-r border-black px-2 py-2 text-center">Working/Present</th>
+                <th className="border-r border-black px-2 py-2 text-right">LOP Deduct</th>
+                <th className="border-r border-black px-2 py-2 text-right">Overtime</th>
+                <th className="border-r border-black px-2 py-2 text-right">Allowances</th>
+                <th className="border-r border-black px-2 py-2 text-right">Commissions</th>
+                <th className="bg-gray-300 px-3 py-2 font-bold text-right">Net Payable</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-300 font-mono text-xs">
+              {wagesList.length === 0 ? (
+                <tr><td colSpan={9} className="py-8 text-center text-gray-500">No wage statements calculated.</td></tr>
+              ) : (
+                wagesList.map((w: any) => (
+                  <tr key={w.user_id}>
+                    <td className="border-r border-black px-3 py-2 font-bold text-black">
+                      {w.employee_name} ({w.employee_code})
+                    </td>
+                    <td className="border-r border-black px-2 py-2 text-[10px] font-bold">
+                      {w.wage_type}
+                    </td>
+                    <td className="border-r border-black px-2 py-2 text-right">
+                      ₹{w.base_rate.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                    </td>
+                    <td className="border-r border-black px-2 py-2 text-center">
+                      {w.present_days + 0.5 * w.half_days} / {w.working_days} d
+                    </td>
+                    <td className="border-r border-black px-2 py-2 text-right text-red-700 font-semibold">
+                      {w.lop_deduction > 0 ? `-₹${w.lop_deduction.toFixed(2)}` : "--"}
+                    </td>
+                    <td className="border-r border-black px-2 py-2 text-right">
+                      {w.overtime_earnings > 0 ? `+₹${w.overtime_earnings.toFixed(2)}` : "--"}
+                    </td>
+                    <td className="border-r border-black px-2 py-2 text-right">
+                      {w.allowances_amount > 0 ? `₹${w.allowances_amount.toFixed(2)}` : "--"}
+                    </td>
+                    <td className="border-r border-black px-2 py-2 text-right">
+                      {w.commissions_amount > 0 ? `₹${w.commissions_amount.toFixed(2)}` : "--"}
+                    </td>
+                    <td className="bg-gray-100 px-3 py-2 text-right font-extrabold text-black">
+                      ₹{w.net_payable.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Dual Signatures */}
+        <div className="pt-6 border-t border-gray-400 grid grid-cols-2 gap-8 text-xs">
+          <div className="text-center space-y-2">
+            <div className="h-8 border-b border-dashed border-gray-400"></div>
+            <p className="font-bold text-gray-800">Prepared by (Payroll Executive)</p>
+          </div>
+          <div className="text-center space-y-2">
+            <div className="h-8 border-b border-dashed border-gray-400"></div>
+            <p className="font-bold text-gray-800">Approved by (Finance / Director)</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  const mountedPrintable = typeof document !== "undefined" && document?.body && typeof (document.body as any).appendChild === "function"
+    ? createPortal(<>{printableMusterRoll}{printableWages}</>, document.body)
+    : <>{printableMusterRoll}{printableWages}</>;
+
   return (
     <div className="flex h-full flex-col bg-slate-50 dark:bg-slate-900">
+      {mountedPrintable}
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 bg-white px-6 py-4 dark:border-slate-800 dark:bg-slate-950">
         <div>
@@ -777,7 +1031,7 @@ export const AttendanceWorkspaceTab: React.FC<AttendanceWorkspaceTabProps> = ({
                     <RefreshCw size={12} className={musterLoading ? "animate-spin" : ""} /> Refresh
                   </button>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 print:hidden">
                   <button
                     id="att-muster-export-csv"
                     onClick={handleExportMusterCsv}
@@ -897,7 +1151,7 @@ export const AttendanceWorkspaceTab: React.FC<AttendanceWorkspaceTabProps> = ({
                     <RefreshCw size={12} className={wagesLoading ? "animate-spin" : ""} /> Recalculate
                   </button>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 print:hidden">
                   <button
                     onClick={() => window.print()}
                     className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800"

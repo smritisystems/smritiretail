@@ -6,15 +6,16 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 3.28.0
+ * Version      : 6.99.18
  * Created      : 2026-07-10
- * Modified     : 2026-08-16
+ * Modified     : 2026-10-29 (v6.99.18 — Unified body portal & #root suppression print standard)
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Target UI    : Quick Reports Widget (Fiori Horizon Inspired Light Theme)
  */
 
 import React, { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { apiFetchV1, recordAuditAction } from "../lib/apiFetchV1";
 import { APP_VERSION } from "../config/version.ts";
 import { 
@@ -34,12 +35,12 @@ import {
 import { Product, PSVParty } from "../types";
 
 interface QuickReportsWidgetProps {
-  products: Product[];
-  psvParties: PSVParty[];
-  auditLogs: any[];
-  startDate: string;
-  endDate: string;
-  scaleFactor: number;
+  products?: Product[];
+  psvParties?: PSVParty[];
+  auditLogs?: any[];
+  startDate?: string;
+  endDate?: string;
+  scaleFactor?: number;
 }
 
 type ReportType = "day-summary" | "sales-billing" | "inventory-status" | "compliance-audit";
@@ -85,12 +86,12 @@ const PREDEFINED_REPORTS = [
 ];
 
 export const QuickReportsWidget: React.FC<QuickReportsWidgetProps> = ({
-  products,
-  psvParties,
-  auditLogs,
-  startDate,
-  endDate,
-  scaleFactor
+  products = [],
+  psvParties = [],
+  auditLogs = [],
+  startDate = new Date().toISOString().slice(0, 10),
+  endDate = new Date().toISOString().slice(0, 10),
+  scaleFactor = 1
 }) => {
   const [selectedReport, setSelectedReport] = useState<ReportType>("day-summary");
   const [layoutMode, setLayoutMode] = useState<LayoutMode>("a4");
@@ -106,18 +107,18 @@ export const QuickReportsWidget: React.FC<QuickReportsWidgetProps> = ({
   const [isExporting, setIsExporting] = useState<string | null>(null);
 
   useEffect(() => {
-    const style = document.createElement("style");
-    style.id = "quick-reports-print-style";
-    style.textContent = `
-      @media print {
-        body * { visibility: hidden !important; }
-        #quick-report-print-sheet, #quick-report-print-sheet * { visibility: visible !important; }
-        #quick-report-print-sheet { position: absolute; inset: 0; margin: 0; box-shadow: none !important; }
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && isPreviewOpen) {
+        e.preventDefault();
+        setIsPreviewOpen(false);
+      } else if (e.key === "F9" || ((e.ctrlKey || e.metaKey) && (e.key === "p" || e.key === "P"))) {
+        e.preventDefault();
+        window.print();
       }
-    `;
-    document.head.appendChild(style);
-    return () => style.remove();
-  }, []);
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isPreviewOpen]);
 
   const [fastApiDailySales, setFastApiDailySales] = useState<any>(null);
   const [fastApiStockValuation, setFastApiStockValuation] = useState<any>(null);
@@ -467,11 +468,67 @@ export const QuickReportsWidget: React.FC<QuickReportsWidgetProps> = ({
       </div>
 
       {/* DYNAMIC INTERACTIVE LIVE PREVIEW OVERLAY MODAL */}
-      {isPreviewOpen && (
-        <div className="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center bg-slate-950/80 backdrop-blur-md p-4 animate-fadeIn">
-          <div className="bg-theme-surface-1 border border-[#2a3a5c] rounded-2xl w-full max-w-4xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">
+      {isPreviewOpen && typeof document !== "undefined" && document?.body && createPortal(
+        <div className="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center bg-slate-950/80 backdrop-blur-md p-4 animate-fadeIn quick-report-modal-root">
+          <style dangerouslySetInnerHTML={{ __html: `
+            @media print {
+              @page {
+                size: ${layoutMode === "a4" ? "A4 portrait" : "80mm auto"};
+                margin: ${layoutMode === "a4" ? "10mm 12mm 12mm 12mm" : "0"};
+              }
+              #root {
+                display: none !important;
+              }
+              html, body {
+                height: auto !important;
+                min-height: 0 !important;
+                overflow: visible !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                background: #ffffff !important;
+              }
+              .quick-report-modal-root {
+                position: static !important;
+                display: block !important;
+                width: 100% !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                background: #ffffff !important;
+                overflow: visible !important;
+              }
+              .quick-report-modal-dialog {
+                position: static !important;
+                display: block !important;
+                width: 100% !important;
+                max-width: none !important;
+                max-height: none !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                background: #ffffff !important;
+                box-shadow: none !important;
+                border: none !important;
+                overflow: visible !important;
+              }
+              .quick-report-toolbar {
+                display: none !important;
+              }
+              #quick-report-print-sheet {
+                position: static !important;
+                display: block !important;
+                margin: 0 auto !important;
+                box-shadow: none !important;
+                border: none !important;
+                width: ${layoutMode === "a4" ? "100%" : "80mm"} !important;
+                min-height: auto !important;
+                padding: ${layoutMode === "a4" ? "0" : "2mm"} !important;
+                background: #ffffff !important;
+                color: #000000 !important;
+              }
+            }
+          `}} />
+          <div className="bg-theme-surface-1 border border-[#2a3a5c] rounded-2xl w-full max-w-4xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden quick-report-modal-dialog">
             {/* Modal Header */}
-            <div className="px-6 py-4 border-b border-theme-divider bg-theme-surface-3 flex items-center justify-between">
+            <div className="px-6 py-4 border-b border-theme-divider bg-theme-surface-3 flex items-center justify-between quick-report-toolbar">
               <div className="flex items-center space-x-2.5">
                 <FileBarChart className="text-blue-500" size={18} />
                 <div>
@@ -1027,7 +1084,7 @@ export const QuickReportsWidget: React.FC<QuickReportsWidgetProps> = ({
             </div>
 
             {/* Modal Footer */}
-            <div className="px-6 py-4 bg-theme-surface-2 border-t border-theme-divider flex items-center justify-between">
+            <div className="px-6 py-4 bg-theme-surface-2 border-t border-theme-divider flex items-center justify-between quick-report-toolbar">
               <span className="text-xs text-theme-muted font-sans flex items-center gap-1.5">
                 <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse inline-block"></span>
                 <span>Active Print Engine connected to MH-POS-PRINTER-01 (Ready)</span>
@@ -1049,11 +1106,25 @@ export const QuickReportsWidget: React.FC<QuickReportsWidgetProps> = ({
               </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* FIXED DOMELEMENT WITH print-only-container CLASSNAME TO PROVIDE HIGH FIDELITY SYSTEM PRINT */}
-      <div className="print-only-container text-black bg-white">
+      <div className={`print-only-container text-black bg-white ${isPreviewOpen ? "print:hidden" : ""}`}>
+        <style dangerouslySetInnerHTML={{ __html: `
+          @media print {
+            .print-only-container {
+              position: static !important;
+              display: block !important;
+              width: 100% !important;
+              margin: 0 !important;
+              padding: 0 !important;
+              background: #ffffff !important;
+              color: #000000 !important;
+            }
+          }
+        `}} />
         {/* Render a replica of the selected preview layout specifically formatted for printer engines */}
         {layoutMode === "a4" ? (
           /* High Fidelity A4 Print layout */

@@ -1,5 +1,37 @@
 <!--
 
+## [6.99.18] - 2026-10-29 - Print Engine: Platform-Wide Modal Unification & Layout Safety (Phase 7: Quick Reports, Sales Order Proforma & HR Muster/Wages) v1.0.0
+
+### Fixed
+- `src/components/QuickReportsWidget.tsx`:
+  - Eliminated flawed legacy `style.textContent = @media print { body * { visibility: hidden !important; } ... }` DOM injection that caused blank first-page Chromium rendering bugs.
+  - Migrated dynamic interactive document print preview modal to unified single-tree body portal architecture (`createPortal(previewModal, document.body)`).
+  - Injected dedicated `@media print` style sheet enforcing dynamic `@page` sizing (A4 portrait vs 80mm roll), `#root { display: none !important; }`, and static block unrolling on `.quick-report-modal-dialog` and `#quick-report-print-sheet`.
+  - Excluded preview header and action buttons (`.quick-report-toolbar`) from print output.
+  - Bound universal `Escape` (dismiss preview) and `F9` / `Ctrl+P` (instant print) keyboard shortcuts.
+- `src/components/ReportDesignerTab.tsx`:
+  - Migrated Sales Order Confirmation & Proforma Document A4 preview modal (`showSoPrintModal`) to single-tree body portal standard (`createPortal(soModal, document.body)`).
+  - Injected dedicated `@media print` style sheet enforcing `#root { display: none !important; }` and `@page { size: A4 portrait; margin: 10mm 12mm 12mm 12mm; }`.
+  - Excluded modal action toolbar (`.so-print-toolbar`) from print output.
+  - Added universal `Escape` and `F9` / `Ctrl+P` keyboard listeners.
+- `src/components/hr/AttendanceWorkspaceTab.tsx`:
+  - Standardized Form II Statutory Muster Roll Matrix (Rule 27(1)) printing via dedicated printable sheet (`att-muster-printable-sheet`) mounted to `document.body` with `@page { size: A4 landscape; margin: 8mm; }` and `#root { display: none !important; }`.
+  - Standardized Monthly Wage & Salary Statement printing via dedicated printable sheet (`att-wages-printable-sheet`) mounted to `document.body` with `@page { size: A4 portrait; margin: 10mm 12mm 12mm 12mm; }` and `#root { display: none !important; }`.
+  - Excluded on-screen action toolbars from print output (`print:hidden`).
+  - Added universal `F9` / `Ctrl+P` keyboard listeners.
+
+### Added
+- `src/tests/quickReportsPrintModal.test.tsx`:
+  - Automated Vitest verification suite with 2 tests certifying QuickReportsWidget body portal architecture, static styling, and `#root` suppression.
+- `src/tests/reportDesignerSalesOrderPrint.test.tsx`:
+  - Automated Vitest verification suite with 1 test certifying Sales Order print modal portal mounting, `@page` sizing, and toolbar exclusion.
+- `src/tests/attendanceMusterAndWagesPrint.test.tsx`:
+  - Automated Vitest verification suite with 2 tests certifying Form II Statutory Muster Roll (landscape) and Wage Statement (portrait) print contracts.
+- `docs/walkthrough/print/Print_Engine_Modal_Unification_Phase7_Walkthrough_v1.0.0.md`:
+  - Formal 13-section WGP walkthrough document.
+- `docs/walkthrough/README.md`:
+  - Appended entry `v3.149.0` to master walkthrough index.
+
 ## [6.99.17] - 2026-10-29 - Print Engine: Platform-Wide Modal Unification & Layout Safety (Phase 6: WYSIWYG Barcode Labels, Z-Report EOD, Shift Handover & Daily Reports) v1.0.0
 
 ### Fixed
