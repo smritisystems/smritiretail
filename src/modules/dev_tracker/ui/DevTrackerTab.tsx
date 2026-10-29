@@ -16,22 +16,23 @@
  *
  * * Websites: aitdl.com | erpnbook.com | smritibooks.com
  *
- * * Version    : 1.0.0
+ * * Version    : 6.99.22
  * * Created    : 2026-07-11
- * * Modified   : 2026-07-11
+ * * Modified   : 2026-10-29
  * * Copyright  : © AITDL.com and SMRITIBooks.com. All Rights Reserved.
  * * License    : Proprietary Commercial Software
  */
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
+import { createPortal } from "react-dom";
 import { 
   ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as ChartTooltip, Legend 
 } from "recharts";
-import { apiFetchV1 } from "../../../lib/apiFetchV1.ts";
+import { apiFetchV1, getTenantCompanyContext } from "../../../lib/apiFetchV1.ts";
 import { 
   Activity, Play, FileText, Download, ShieldCheck, AlertTriangle, 
   Settings, Loader2, GitBranch, Terminal, Calendar, User, RefreshCw, 
-  CheckCircle2, HelpCircle, Layers, Cpu, Database, Server, Info, Search, X, Sparkles
+  CheckCircle2, HelpCircle, Layers, Cpu, Database, Server, Info, Search, X, Sparkles, Printer
 } from "lucide-react";
 import { ScanResult, ModuleStatus } from "../models/interfaces.ts";
 import { SmritiScrollArea } from "../../../components/SmritiScrollArea.tsx";
@@ -42,6 +43,23 @@ export const DevTrackerTab: React.FC = () => {
   const [scanning, setScanning] = useState(false);
   const [activeTab, setActiveTab] = useState("overview");
   const [moduleFilter, setModuleFilter] = useState("");
+  const [showPrintReportModal, setShowPrintReportModal] = useState(false);
+  const tenantContext = useMemo(() => getTenantCompanyContext(), []);
+
+  useEffect(() => {
+    if (!showPrintReportModal) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        setShowPrintReportModal(false);
+      } else if (e.key === "F9" || ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "p")) {
+        e.preventDefault();
+        window.print();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [showPrintReportModal]);
 
   const fetchResults = async () => {
     try {
@@ -154,7 +172,8 @@ export const DevTrackerTab: React.FC = () => {
           </button>
 
           <button
-            onClick={() => window.print()}
+            data-testid="dev-tracker-print-btn"
+            onClick={() => setShowPrintReportModal(true)}
             className="flex items-center gap-2 px-3 py-2 bg-theme-surface-3 hover:bg-theme-surface-hover border border-theme-divider text-theme-body rounded-lg text-xs font-semibold cursor-pointer transition-all"
           >
             <FileText size={14} />
@@ -576,6 +595,214 @@ export const DevTrackerTab: React.FC = () => {
           </SmritiScrollArea>
         </div>
       </div>
+
+      {showPrintReportModal && typeof document !== "undefined" && createPortal(
+        <div className="fixed inset-0 z-[99999] bg-black/60 backdrop-blur-xs flex flex-col items-center justify-start overflow-y-auto p-4 dev-tracker-modal-root" data-testid="dev-tracker-print-portal">
+          <style>{`
+            @media print {
+              @page { size: A4 portrait; margin: 8mm 10mm 10mm 10mm; }
+              #root { display: none !important; }
+              .component-toolbar { display: none !important; }
+              .dev-tracker-modal-root {
+                position: static !important;
+                display: block !important;
+                overflow: visible !important;
+                width: 100% !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                background: white !important;
+              }
+              #dev-tracker-printable-sheet {
+                position: static !important;
+                display: block !important;
+                overflow: visible !important;
+                width: 100% !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                background: white !important;
+                box-shadow: none !important;
+                border: none !important;
+              }
+            }
+          `}</style>
+
+          {/* Screen Preview Toolbar */}
+          <div className="component-toolbar w-full max-w-[210mm] bg-[#1e293b] text-white px-4 py-2.5 rounded-t-lg flex items-center justify-between shadow-lg mb-0 border-b border-slate-700">
+            <div className="flex items-center gap-2">
+              <Printer className="w-5 h-5 text-blue-400" />
+              <span className="font-semibold text-sm">SDIC Codebase Diagnostics &amp; Health Report (A4 Portrait)</span>
+            </div>
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                data-testid="dev-tracker-modal-print-btn"
+                onClick={() => window.print()}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded text-xs font-semibold shadow transition cursor-pointer"
+              >
+                <Printer className="w-3.5 h-3.5" />
+                Print Report (F9 / Ctrl+P)
+              </button>
+              <button
+                type="button"
+                data-testid="dev-tracker-modal-close-btn"
+                onClick={() => setShowPrintReportModal(false)}
+                className="flex items-center gap-1 px-2.5 py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-200 rounded text-xs font-semibold transition cursor-pointer"
+              >
+                <X className="w-3.5 h-3.5" />
+                Close (Esc)
+              </button>
+            </div>
+          </div>
+
+          {/* Printable Sheet */}
+          <div
+            id="dev-tracker-printable-sheet"
+            data-testid="dev-tracker-printable"
+            className="w-full max-w-[210mm] bg-white text-slate-900 p-8 shadow-2xl rounded-b-lg font-sans border border-slate-200 text-xs"
+          >
+            {/* Header */}
+            <div className="flex justify-between items-start border-b border-slate-300 pb-4 mb-4">
+              <div>
+                <h2 className="text-xl font-bold tracking-tight text-blue-900 uppercase">
+                  SMRITI DEVELOPMENT INTELLIGENCE CENTER (SDIC)
+                </h2>
+                <p className="text-[11px] text-slate-600 mt-0.5">
+                  Codebase Diagnostics, Release Health &amp; Architectural Governance Audit
+                </p>
+                <p className="font-mono text-[10px] text-slate-500 mt-1">
+                  Tenant: <strong className="text-slate-800">{tenantContext.companyName || "SMRITI ENTERPRISE RETAIL"}</strong> | Organization: AITDL NETWORKS
+                </p>
+              </div>
+              <div className="text-right">
+                <span className="inline-block px-2.5 py-1 rounded bg-blue-50 border border-blue-200 text-blue-800 font-bold uppercase tracking-wider text-[11px] mb-1">
+                  Diagnostics Dossier
+                </span>
+                <p className="font-mono text-[11px] text-slate-700">
+                  Release: <strong className="text-slate-900">v{data.gitInfo?.releaseVersion || "6.99.22"}</strong>
+                </p>
+                <p className="text-[10px] text-slate-500 font-mono mt-0.5">
+                  Branch: {data.gitInfo?.branch || "smritiNX"}
+                </p>
+                <p className="text-[10px] text-slate-500 font-mono">
+                  Timestamp: {data.timestamp || new Date().toISOString().split("T")[0]}
+                </p>
+              </div>
+            </div>
+
+            {/* Key Metrics Ribbon (5 cards) */}
+            <div className="grid grid-cols-5 gap-2 bg-slate-50 border border-slate-200 rounded p-3 mb-4 text-center">
+              <div className="border-r border-slate-200 pr-2">
+                <span className="text-[9px] uppercase font-bold text-slate-500 block">DHI Score</span>
+                <span className="font-mono text-lg font-black text-blue-700">{data.releaseScores?.dhi ?? 0}%</span>
+                <span className="text-[9px] text-slate-500 block">Grade {data.releaseScores?.grade || "A"}</span>
+              </div>
+              <div className="border-r border-slate-200 pr-2">
+                <span className="text-[9px] uppercase font-bold text-slate-500 block">Development</span>
+                <span className="font-mono text-lg font-black text-emerald-700">{data.releaseScores?.developmentScore ?? 0}%</span>
+                <span className="text-[9px] text-slate-500 block">Completeness</span>
+              </div>
+              <div className="border-r border-slate-200 pr-2">
+                <span className="text-[9px] uppercase font-bold text-slate-500 block">Readiness</span>
+                <span className="font-mono text-lg font-black text-indigo-700">{data.releaseScores?.releaseScore ?? 0}%</span>
+                <span className="text-[9px] text-slate-500 block">Release Score</span>
+              </div>
+              <div className="border-r border-slate-200 pr-2">
+                <span className="text-[9px] uppercase font-bold text-slate-500 block">Tests</span>
+                <span className="font-mono text-lg font-black text-violet-700">{data.releaseScores?.testCoverage ?? 0}%</span>
+                <span className="text-[9px] text-slate-500 block">Coverage</span>
+              </div>
+              <div>
+                <span className="text-[9px] uppercase font-bold text-slate-500 block">Quality</span>
+                <span className="font-mono text-lg font-black text-amber-700">{data.releaseScores?.qualityScore ?? 0}%</span>
+                <span className="text-[9px] text-slate-500 block">Cleanliness</span>
+              </div>
+            </div>
+
+            {/* Risk & Health Overview */}
+            <div className="flex justify-between items-center bg-slate-100 rounded px-3 py-1.5 mb-4 text-[10px] text-slate-700 font-mono">
+              <span>Critical Risks: <strong>{data.riskAnalysis?.critical ?? 0}</strong></span>
+              <span>High Risks: <strong>{data.riskAnalysis?.high ?? 0}</strong></span>
+              <span>Medium Risks: <strong>{data.riskAnalysis?.medium ?? 0}</strong></span>
+              <span>Low Risks: <strong>{data.riskAnalysis?.low ?? 0}</strong></span>
+              <span>Pending Changes: <strong>{data.gitInfo?.pendingChangesCount ?? 0}</strong></span>
+              <span>Total Commits: <strong>{data.gitInfo?.commitCount ?? 0}</strong></span>
+            </div>
+
+            {/* Modules Matrix Table */}
+            <h3 className="font-bold text-xs text-slate-800 uppercase tracking-wider mb-2">
+              Registered Architecture Modules ({data.modules?.length ?? 0})
+            </h3>
+            <table className="w-full border-collapse text-left mb-4">
+              <thead>
+                <tr className="border-y border-slate-300 bg-slate-100 text-[10px] uppercase font-bold text-slate-700 tracking-wider">
+                  <th className="py-2 px-2 text-center w-10">#</th>
+                  <th className="py-2 px-2">Module Name</th>
+                  <th className="py-2 px-2 w-36">Category</th>
+                  <th className="py-2 px-2 text-right w-24">Completeness</th>
+                  <th className="py-2 px-2 text-center w-24">Risk Rating</th>
+                  <th className="py-2 px-2 text-center w-24">Production</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-200 text-[11px]">
+                {data.modules && data.modules.length > 0 ? (
+                  data.modules.map((mod, idx) => (
+                    <tr key={mod.id || mod.name || idx}>
+                      <td className="py-1.5 px-2 text-center text-slate-500 font-mono">{idx + 1}</td>
+                      <td className="py-1.5 px-2 font-medium text-slate-900">{mod.name}</td>
+                      <td className="py-1.5 px-2 text-slate-600 text-[10px] uppercase">{mod.category}</td>
+                      <td className="py-1.5 px-2 text-right font-mono font-bold text-slate-800">
+                        {mod.overallPercentage}%
+                      </td>
+                      <td className="py-1.5 px-2 text-center font-semibold text-[10px]">
+                        <span className={`px-1.5 py-0.5 rounded ${
+                          mod.riskRating === "Critical" ? "bg-rose-100 text-rose-800" :
+                          mod.riskRating === "High" ? "bg-amber-100 text-amber-800" :
+                          mod.riskRating === "Medium" ? "bg-yellow-100 text-yellow-800" :
+                          "bg-emerald-100 text-emerald-800"
+                        }`}>
+                          {mod.riskRating}
+                        </span>
+                      </td>
+                      <td className="py-1.5 px-2 text-center font-mono text-[10px]">
+                        {mod.productionReady ? (
+                          <span className="text-emerald-700 font-bold">Ready</span>
+                        ) : (
+                          <span className="text-slate-500">In Progress</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan={6} className="py-6 text-center text-slate-400 italic">
+                      No module scan records available.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+
+            {/* Architecture Governance Sign-off */}
+            <div className="border-t border-dashed border-slate-300 pt-3 grid grid-cols-2 gap-4 text-[9px] text-slate-500 mt-6">
+              <div>
+                <p className="font-bold uppercase tracking-wider text-slate-700 mb-1">Architecture Certification</p>
+                <p className="leading-relaxed">
+                  This Development Health Index (DHI) assessment is generated automatically by SMRITI Development Intelligence Center (SDIC). 
+                  All metrics reflect static codebase analysis, test suite coverage ratios, and architectural governance benchmarks.
+                </p>
+                <p className="font-bold uppercase tracking-wider text-slate-700 mt-1">Subject to Nagpur Jurisdiction.</p>
+              </div>
+              <div className="flex flex-col justify-end items-end">
+                <div className="text-center font-mono w-48 border-t border-slate-400 pt-1 mt-6">
+                  <p className="text-[8px] uppercase text-slate-500">AITDL NETWORKS &amp; SMRITI OS</p>
+                  <p className="font-bold text-slate-800 text-[10px] mt-0.5">Lead Systems Architect</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
     </div>
   );
 };
