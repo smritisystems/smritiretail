@@ -461,7 +461,11 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
       (l.supplier_name && l.supplier_name.toLowerCase().includes(q)) ||
       (l.product_code && l.product_code.toLowerCase().includes(q)) ||
       (l.product_name && l.product_name.toLowerCase().includes(q)) ||
-      (l.order_no && l.order_no.toLowerCase().includes(q))
+      (l.order_no && l.order_no.toLowerCase().includes(q)) ||
+      (l.delivery_terms && l.delivery_terms.toLowerCase().includes(q)) ||
+      (l.transporter_name && l.transporter_name.toLowerCase().includes(q)) ||
+      (l.lr_number && l.lr_number.toLowerCase().includes(q)) ||
+      (l.collection_type && l.collection_type.toLowerCase().includes(q))
     );
   }, [purchaseInwardData, reportSearchQuery]);
 
@@ -476,6 +480,11 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
           supplier_name: line.supplier_name,
           order_no: line.order_no,
           status: line.status,
+          delivery_terms: line.delivery_terms,
+          freight_terms: line.freight_terms,
+          transporter_name: line.transporter_name,
+          lr_number: line.lr_number,
+          collection_type: line.collection_type,
           itemCount: 0,
           totalQty: 0,
           totalTax: 0,
@@ -818,6 +827,25 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
           { key: "stock_value", label: "Stock Valuation", datatype: "currency", isSummary: true },
         ];
         rows = stockValuationData.lines;
+      } else if (purchaseInwardData?.lines && purchaseInwardData.lines.length > 0) {
+        columns = [
+          { key: "receipt_no", label: "GRN #", datatype: "text" },
+          { key: "receipt_date", label: "Date", datatype: "date" },
+          { key: "supplier_name", label: "Supplier", datatype: "text" },
+          { key: "order_no", label: "PO #", datatype: "text" },
+          { key: "delivery_terms", label: "Delivery Terms", datatype: "text" },
+          { key: "transporter_name", label: "Transporter", datatype: "text" },
+          { key: "lr_number", label: "LR #", datatype: "text" },
+          { key: "product_code", label: "Article / SKU", datatype: "text" },
+          { key: "product_name", label: "Description", datatype: "text" },
+          { key: "quantity_received", label: "Qty Received", datatype: "number", isSummary: true },
+          { key: "cost_price", label: "Cost Rate", datatype: "currency" },
+          { key: "gst_rate", label: "GST %", datatype: "percentage" },
+          { key: "tax_amount", label: "Tax (INR)", datatype: "currency", isSummary: true },
+          { key: "line_total", label: "Line Total (INR)", datatype: "currency", isSummary: true },
+          { key: "status", label: "Status", datatype: "text" },
+        ];
+        rows = purchaseInwardData.lines;
       } else if (genericReportData?.lines || genericReportData?.rows) {
         const rawList = genericReportData.lines || genericReportData.rows || [];
         if (rawList.length > 0) {
@@ -1024,6 +1052,14 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
         activeData = stockValuationData.items;
       } else {
         activeData = [stockValuationData];
+      }
+    } else if (purchaseInwardData) {
+      if (Array.isArray(purchaseInwardData)) {
+        activeData = purchaseInwardData;
+      } else if (Array.isArray(purchaseInwardData.lines)) {
+        activeData = purchaseInwardData.lines;
+      } else {
+        activeData = [purchaseInwardData];
       }
     }
 
@@ -2471,6 +2507,8 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
                           <th className="p-3">Date</th>
                           <th className="p-3">Supplier</th>
                           <th className="p-3">PO #</th>
+                          <th className="p-3">Delivery Terms</th>
+                          <th className="p-3">Transporter / LR</th>
                           <th className="p-3">Article / SKU</th>
                           <th className="p-3">Item Description</th>
                           <th className="p-3 text-right">Qty Received</th>
@@ -2484,7 +2522,7 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
                       <tbody className="divide-y divide-theme-divider/40">
                         {filteredGrnLines.length === 0 ? (
                           <tr>
-                            <td colSpan={12} className="p-8 text-center text-theme-muted">
+                            <td colSpan={14} className="p-8 text-center text-theme-muted">
                               No purchase inward records found for the selected date range.
                             </td>
                           </tr>
@@ -2495,6 +2533,29 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
                               <td className="p-3 font-mono text-theme-muted whitespace-nowrap">{l.receipt_date}</td>
                               <td className="p-3 font-semibold text-theme-body">{l.supplier_name}</td>
                               <td className="p-3 font-mono text-theme-muted">{l.order_no || "—"}</td>
+                              <td className="p-3 whitespace-nowrap">
+                                {l.delivery_terms ? (
+                                  <span className={`px-2 py-0.5 rounded text-[9px] font-mono font-bold uppercase tracking-wider ${
+                                    l.delivery_terms.toLowerCase().includes("ex-factory")
+                                      ? "bg-amber-500/10 text-amber-600 border border-amber-500/20"
+                                      : "bg-emerald-500/10 text-emerald-600 border border-emerald-500/20"
+                                  }`}>
+                                    {l.delivery_terms}
+                                  </span>
+                                ) : (
+                                  <span className="text-theme-muted font-mono text-[11px]">—</span>
+                                )}
+                              </td>
+                              <td className="p-3 whitespace-nowrap text-theme-body text-xs font-mono">
+                                {l.transporter_name ? (
+                                  <span>
+                                    {l.transporter_name}
+                                    {l.lr_number ? <span className="text-theme-muted text-[10px] block">LR: {l.lr_number}</span> : null}
+                                  </span>
+                                ) : (
+                                  <span className="text-theme-muted">—</span>
+                                )}
+                              </td>
                               <td className="p-3 font-mono text-purple-400 font-bold whitespace-nowrap">{l.product_code}</td>
                               <td className="p-3 text-theme-body">{l.product_name}</td>
                               <td className="p-3 text-right font-mono font-bold text-blue-500">
@@ -2522,7 +2583,7 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
                       {filteredGrnLines.length > 0 && (
                         <tfoot className="bg-theme-surface-2 font-bold border-t border-theme-divider">
                           <tr>
-                            <td colSpan={6} className="p-3 font-mono text-xs uppercase tracking-wider text-theme-body">
+                            <td colSpan={8} className="p-3 font-mono text-xs uppercase tracking-wider text-theme-body">
                               Total Inward Valuation ({filteredGrnLines.length} Items across {grnTotals.grnCount} GRNs)
                             </td>
                             <td className="p-3 text-right font-mono text-blue-500 text-xs">
@@ -2548,6 +2609,8 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
                           <th className="p-3">Date</th>
                           <th className="p-3">Supplier</th>
                           <th className="p-3">PO #</th>
+                          <th className="p-3">Delivery Terms</th>
+                          <th className="p-3">Transporter</th>
                           <th className="p-3 text-right">Items Count</th>
                           <th className="p-3 text-right">Total Qty (Pcs)</th>
                           <th className="p-3 text-right">Tax (₹)</th>
@@ -2558,7 +2621,7 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
                       <tbody className="divide-y divide-theme-divider/40">
                         {grnSummaryList.length === 0 ? (
                           <tr>
-                            <td colSpan={9} className="p-8 text-center text-theme-muted">
+                            <td colSpan={11} className="p-8 text-center text-theme-muted">
                               No purchase receipts found.
                             </td>
                           </tr>
@@ -2569,6 +2632,29 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
                               <td className="p-3 font-mono text-theme-muted whitespace-nowrap">{g.receipt_date}</td>
                               <td className="p-3 font-semibold text-theme-body">{g.supplier_name}</td>
                               <td className="p-3 font-mono text-theme-muted">{g.order_no || "—"}</td>
+                              <td className="p-3 whitespace-nowrap">
+                                {g.delivery_terms ? (
+                                  <span className={`px-2 py-0.5 rounded text-[9px] font-mono font-bold uppercase tracking-wider ${
+                                    g.delivery_terms.toLowerCase().includes("ex-factory")
+                                      ? "bg-amber-500/10 text-amber-600 border border-amber-500/20"
+                                      : "bg-emerald-500/10 text-emerald-600 border border-emerald-500/20"
+                                  }`}>
+                                    {g.delivery_terms}
+                                  </span>
+                                ) : (
+                                  <span className="text-theme-muted font-mono text-[11px]">—</span>
+                                )}
+                              </td>
+                              <td className="p-3 whitespace-nowrap text-theme-body text-xs font-mono">
+                                {g.transporter_name ? (
+                                  <span>
+                                    {g.transporter_name}
+                                    {g.lr_number ? <span className="text-theme-muted text-[10px] block">LR: {g.lr_number}</span> : null}
+                                  </span>
+                                ) : (
+                                  <span className="text-theme-muted">—</span>
+                                )}
+                              </td>
                               <td className="p-3 text-right font-mono">{g.itemCount} Items</td>
                               <td className="p-3 text-right font-mono font-bold text-blue-500">
                                 {g.totalQty.toLocaleString("en-IN", { minimumFractionDigits: 0 })}
@@ -2591,7 +2677,7 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
                       {grnSummaryList.length > 0 && (
                         <tfoot className="bg-theme-surface-2 font-bold border-t border-theme-divider">
                           <tr>
-                            <td colSpan={4} className="p-3 font-mono text-xs uppercase tracking-wider text-theme-body">
+                            <td colSpan={6} className="p-3 font-mono text-xs uppercase tracking-wider text-theme-body">
                               Total Summary ({grnSummaryList.length} GRNs)
                             </td>
                             <td className="p-3 text-right font-mono">{filteredGrnLines.length} Items</td>
