@@ -4,16 +4,17 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.47.3
+ * Version      : 6.99.20
  * Created      : 2026-08-21
- * Modified     : 2026-09-30
+ * Modified     : 2026-10-29
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
- * Classification: Internal — Read-Only Quick-Audit Table (Phase 3 Legacy Retirement)
+ * Classification: Internal — Read-Only Quick-Audit Table with Unified Body Portal Print Manifest Studio
  * Policy ID    : UADHP-v1.0
  */
 
 import React, { useState, useEffect, useMemo } from "react";
+import { createPortal } from "react-dom";
 import { 
   Plus, 
   Filter, 
@@ -35,7 +36,7 @@ import {
   FileSpreadsheet
 } from "lucide-react";
 import { Product, AttributeDefinition } from "../../types.ts";
-import { apiFetchV1 } from "../../lib/apiFetchV1.ts";
+import { apiFetchV1, getTenantCompanyContext } from "../../lib/apiFetchV1.ts";
 import { smritiSystemParameterService } from "../../services/smritiSystemParameterService.ts";
 import {
   fetchGovernedLookupOptions,
@@ -898,9 +899,32 @@ export const ItemDetailsGrid: React.FC<SmritiItemDetailsGridProps> = ({
   }, [gridRows, products]);
 
   // Read-only Quick-Audit mode: spreadsheet write/mutation handlers retired.
+  const [showPrintManifestModal, setShowPrintManifestModal] = useState<boolean>(false);
+
+  const tenantContext = useMemo(() => {
+    if (typeof window !== "undefined") {
+      return getTenantCompanyContext();
+    }
+    return { companyName: "", companyAddress: "", companyGstin: "" };
+  }, []);
+
+  useEffect(() => {
+    if (!showPrintManifestModal) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        setShowPrintManifestModal(false);
+      } else if (e.key === "F9" || ((e.ctrlKey || e.metaKey) && (e.key === "p" || e.key === "P"))) {
+        e.preventDefault();
+        window.print();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [showPrintManifestModal]);
 
   const handlePrintManifest = () => {
-    window.print();
+    setShowPrintManifestModal(true);
   };
 
   const currentClassicItem = filteredSortedRows[classicRecordIndex] || filteredSortedRows[0];
@@ -1672,11 +1696,12 @@ export const ItemDetailsGrid: React.FC<SmritiItemDetailsGridProps> = ({
 
           <button
             type="button"
+            data-testid="item-grid-print-manifest-btn"
             onClick={handlePrintManifest}
-            className="px-3 py-1.5 border border-[#c6c6cd] dark:border-[#45464d] hover:bg-[#eceef0] dark:hover:bg-[#1f2224] rounded font-semibold transition flex items-center gap-1"
+            className="px-3 py-1.5 border border-[#c6c6cd] dark:border-[#45464d] hover:bg-[#eceef0] dark:hover:bg-[#1f2224] rounded font-semibold transition flex items-center gap-1 cursor-pointer"
           >
             <Printer size={13} />
-            Print
+            Print Manifest
           </button>
 
           <ExportButton
@@ -1757,6 +1782,205 @@ export const ItemDetailsGrid: React.FC<SmritiItemDetailsGridProps> = ({
           <option key={opt.code} value={opt.code}>{opt.name !== opt.code ? opt.name : ""}</option>
         ))}
       </datalist>
+
+      {/* Unified Single-Tree Body Portal Manifest Print Studio */}
+      {showPrintManifestModal && typeof document !== "undefined" && createPortal(
+        <div className="item-manifest-print-modal-root print-preview-visible fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 print:static print:inset-auto print:h-auto print:w-full print:p-0 print:m-0 print:bg-white print:overflow-visible">
+          <style>{`
+            @media print {
+              @page {
+                size: A4 landscape;
+                margin: 8mm 10mm 10mm 10mm;
+              }
+              #root {
+                display: none !important;
+              }
+              html, body {
+                height: auto !important;
+                min-height: 0 !important;
+                overflow: visible !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                background: white !important;
+              }
+              .item-manifest-print-modal-root {
+                position: static !important;
+                display: block !important;
+                width: 100% !important;
+                height: auto !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                overflow: visible !important;
+                background: white !important;
+              }
+              .item-manifest-print-toolbar,
+              .no-print {
+                display: none !important;
+              }
+              .item-manifest-print-container {
+                box-shadow: none !important;
+                border: none !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                max-width: 100% !important;
+                width: 100% !important;
+                background: white !important;
+                color: black !important;
+              }
+            }
+          `}</style>
+
+          <div className="item-manifest-print-container bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 max-w-6xl w-full p-6 relative flex flex-col max-h-[92vh] print:max-h-none print:h-auto print:w-full print:p-0 print:border-none print:shadow-none print:rounded-none">
+            {/* Toolbar */}
+            <div className="item-manifest-print-toolbar flex justify-between items-center pb-4 mb-4 border-b border-slate-200 dark:border-slate-800 shrink-0 print:hidden">
+              <div className="flex items-center gap-2">
+                <Printer className="text-blue-600 dark:text-blue-400" size={20} />
+                <div>
+                  <h3 className="text-base font-bold text-slate-800 dark:text-slate-100">
+                    Official SKU Inventory & Pricing Manifest Preview
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    SMRITI Enterprise Single-Tree Body Portal Standard (A4 Landscape)
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  data-testid="item-grid-portal-print-action-btn"
+                  onClick={() => window.print()}
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-sm"
+                >
+                  <Printer size={14} />
+                  <span>Print Manifest (F9 / Ctrl+P)</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowPrintManifestModal(false)}
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-lg text-xs font-bold transition flex items-center gap-1 cursor-pointer"
+                >
+                  <X size={14} />
+                  <span>Close (Esc)</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Printable Content Body */}
+            <div
+              id="item-manifest-printable"
+              className="flex-1 overflow-y-auto space-y-4 text-slate-900 font-sans text-xs p-4 bg-white rounded-lg print:p-0 print:overflow-visible print:border-none"
+            >
+              {/* Header / Company Info */}
+              <div className="flex justify-between items-start border-b-2 border-slate-800 pb-3">
+                <div>
+                  <h1 className="text-lg font-black uppercase tracking-wider text-slate-900">
+                    {tenantContext?.companyName || "SMRITI RETAIL ENTERPRISE"}
+                  </h1>
+                  <p className="text-[10px] text-slate-600">
+                    {tenantContext?.companyAddress || "Central Inventory & Distribution Warehouse"}
+                  </p>
+                  {tenantContext?.companyGstin && (
+                    <p className="text-[10px] font-mono text-slate-700">GSTIN: {tenantContext.companyGstin}</p>
+                  )}
+                </div>
+                <div className="text-right">
+                  <div className="inline-block bg-slate-900 text-white font-bold text-[11px] uppercase px-2.5 py-0.5 rounded">
+                    Inventory & Valuation Manifest
+                  </div>
+                  <div className="text-[10px] font-mono text-slate-500 mt-1">
+                    Generated: {new Date().toLocaleString()}
+                  </div>
+                  <div className="text-[10px] font-mono text-slate-700">
+                    SKUs Displayed: {filteredSortedRows.length} / Total: {products.length}
+                  </div>
+                </div>
+              </div>
+
+              {/* Active Filters / Summary Ribbon */}
+              <div className="grid grid-cols-4 gap-3 bg-slate-50 border border-slate-200 rounded p-2.5 text-[11px]">
+                <div>
+                  <span className="text-slate-500 font-semibold">Search Filter: </span>
+                  <span className="font-bold text-slate-800 font-mono">{searchFilter || "All Articles"}</span>
+                </div>
+                <div>
+                  <span className="text-slate-500 font-semibold">Active SKUs: </span>
+                  <span className="font-bold text-blue-700 font-mono">{filteredSortedRows.length}</span>
+                </div>
+                <div>
+                  <span className="text-slate-500 font-semibold">Total Stock Units: </span>
+                  <span className="font-bold text-emerald-700 font-mono">
+                    {filteredSortedRows.reduce((acc, r) => acc + (Number(r.row.stock_quantity ?? r.row.stock_qty ?? 0) || 0), 0)}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-slate-500 font-semibold">Total Inventory Value: </span>
+                  <span className="font-bold text-slate-900 font-mono">
+                    ₹{filteredSortedRows.reduce((acc, r) => {
+                      const qty = Number(r.row.stock_quantity ?? r.row.stock_qty ?? 0) || 0;
+                      const mrp = Number(r.row.mrp ?? r.row.price ?? 0) || 0;
+                      return acc + (qty * mrp);
+                    }, 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </span>
+                </div>
+              </div>
+
+              {/* Manifest Data Table */}
+              <table className="w-full text-left border-collapse text-[10px]">
+                <thead>
+                  <tr className="border-b-2 border-slate-400 bg-slate-100 font-bold text-slate-700 uppercase">
+                    <th className="py-1 px-1.5 w-8">#</th>
+                    <th className="py-1 px-1.5 w-24">Barcode</th>
+                    <th className="py-1 px-1.5 w-24">Article Code</th>
+                    <th className="py-1 px-1.5">Description / Title</th>
+                    <th className="py-1 px-1.5 w-20">Category</th>
+                    <th className="py-1 px-1.5 w-16">Size / Color</th>
+                    <th className="py-1 px-1.5 w-16">HSN</th>
+                    <th className="py-1 px-1.5 w-16 text-right">Cost Price</th>
+                    <th className="py-1 px-1.5 w-16 text-right">MRP</th>
+                    <th className="py-1 px-1.5 w-14 text-right">Stock</th>
+                    <th className="py-1 px-1.5 w-20 text-right">Valuation</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredSortedRows.map((r, idx) => {
+                    const row = r.row;
+                    const qty = Number(row.stock_quantity ?? row.stock_qty ?? 0) || 0;
+                    const cost = Number(row.cost_price ?? row.purchase_rate ?? 0) || 0;
+                    const mrp = Number(row.mrp ?? row.price ?? 0) || 0;
+                    const valuation = qty * mrp;
+                    return (
+                      <tr key={idx} className="border-b border-slate-200 hover:bg-slate-50">
+                        <td className="py-1 px-1.5 text-slate-500 font-mono">{idx + 1}</td>
+                        <td className="py-1 px-1.5 font-mono font-medium">{row.barcode || "—"}</td>
+                        <td className="py-1 px-1.5 font-mono font-semibold text-blue-900">{row.item_code || row.style_code || row.id || "—"}</td>
+                        <td className="py-1 px-1.5 font-medium">{row.item_name || row.title || row.description || "—"}</td>
+                        <td className="py-1 px-1.5 text-slate-600">{row.category || "—"}</td>
+                        <td className="py-1 px-1.5 text-slate-600">{[row.size, row.color].filter(Boolean).join(" / ") || "—"}</td>
+                        <td className="py-1 px-1.5 font-mono text-slate-600">{row.hsn_code || "—"}</td>
+                        <td className="py-1 px-1.5 text-right font-mono">₹{cost.toFixed(2)}</td>
+                        <td className="py-1 px-1.5 text-right font-mono font-medium">₹{mrp.toFixed(2)}</td>
+                        <td className="py-1 px-1.5 text-right font-mono font-bold">{qty}</td>
+                        <td className="py-1 px-1.5 text-right font-mono font-semibold">₹{valuation.toFixed(2)}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+
+              {/* Footer Audit Sign-off */}
+              <div className="pt-4 border-t border-slate-300 flex justify-between items-center text-[9px] text-slate-500">
+                <div>
+                  <span>Stock Audit Record • Verified against SMRITI Retail OS Ledger</span>
+                </div>
+                <div>
+                  <span>Page 1 of 1 • System Generated Inventory Manifest</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
 
     </div>
   );

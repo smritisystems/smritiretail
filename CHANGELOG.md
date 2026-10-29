@@ -1,5 +1,38 @@
 <!--
 
+## [6.99.20] - 2026-10-29 - Print Engine: Platform-Wide Modal Unification & Layout Safety (Phase 9: Billing Studio Receipts, Entity Dossiers & Inventory Manifests) v1.0.0
+
+### Fixed
+- `src/components/billing/SmritiBillingStudio.tsx`:
+  - Mounted POS Cash Receipt modal (`showReceiptModal`) outside `#root` directly to `document.body` via `createPortal`.
+  - Injected dedicated `@media print` style sheet enforcing dynamic `@page` sizing (`80mm auto` for thermal roll vs `A4 portrait` for standard tax receipts), `#root { display: none !important; }`, and static block unrolling on `.pos-billing-receipt-modal-root`.
+  - Excluded preview command toolbar (`.pos-billing-receipt-toolbar` with `print:hidden`) from printed output.
+  - Added universal `Escape` (dismiss preview) and `F9` / `Ctrl+P` (instant print) keyboard shortcuts.
+- `src/components/drilldown/DrillDownSidePanel.tsx`:
+  - Replaced inline `window.print()` triggers across drawer actions with dedicated `setShowPrintProfileModal(true)` preview state.
+  - Mounted official Customer/Entity dossier sheet (`#drilldown-profile-printable`) to `document.body` via `createPortal`.
+  - Injected dedicated `@media print` style sheet enforcing `@page { size: A4 portrait; margin: 8mm 10mm 10mm 10mm; }`, `#root { display: none !important; }`, and static block unrolling on `.drilldown-print-modal-root`.
+  - Excluded preview command toolbar (`.drilldown-print-toolbar`) from printed output.
+  - Added universal `Escape` and `F9` / `Ctrl+P` keyboard shortcuts.
+- `src/components/itemMaster/ItemDetailsGrid.tsx`:
+  - Replaced bare `window.print()` in `handlePrintManifest` with dedicated `setShowPrintManifestModal(true)` preview state.
+  - Mounted SKU Inventory & Price Valuation Manifest (`#item-manifest-printable`) to `document.body` via `createPortal`.
+  - Injected dedicated `@media print` style sheet enforcing `@page { size: A4 landscape; margin: 8mm 10mm 10mm 10mm; }`, `#root { display: none !important; }`, and static block unrolling on `.item-manifest-print-modal-root`.
+  - Excluded preview command toolbar (`.item-manifest-print-toolbar`) from printed output.
+  - Added universal `Escape` and `F9` / `Ctrl+P` keyboard shortcuts.
+
+### Added
+- `src/tests/smritiBillingReceiptPrint.test.tsx`:
+  - Automated Vitest verification suite with 3 tests certifying POS Billing Studio thermal and A4 receipt portal architecture.
+- `src/tests/drillDownProfilePrint.test.tsx`:
+  - Automated Vitest verification suite with 3 tests certifying DrillDown entity dossier portal architecture and print routing.
+- `src/tests/itemDetailsGridPrint.test.tsx`:
+  - Automated Vitest verification suite with 3 tests certifying Item Details Grid inventory manifest A4 landscape portal architecture.
+- `docs/walkthrough/print/Print_Engine_Modal_Unification_Phase9_Walkthrough_v1.0.0.md`:
+  - Formal 13-section WGP walkthrough document.
+- `docs/walkthrough/README.md`:
+  - Appended entry `v3.152.0`.
+
 ## [6.99.19] - 2026-10-29 - Print Engine: Platform-Wide Modal Unification & Layout Safety (Phase 8: Distributor Tax Invoice, Sales Studio Quotation & Report Engine Ledger) v1.0.0
 
 ### Fixed
