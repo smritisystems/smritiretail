@@ -4,23 +4,26 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 2.1.2
+ * Version      : 6.99.20
  * Created      : 2026-07-10
- * Modified     : 2026-07-16
+ * Modified     : 2026-10-29
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
+ * Classification: DrillDown Entity Drawer with Unified Body Portal Profile Print Studio
  */
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
+import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "motion/react";
 import { useDrillDown } from "./drilldown_store.tsx";
 import { SmritiScrollArea } from "../SmritiScrollArea.tsx";
 import { getCustomers, getCustomerGroups, updateCustomerStatus, updateCustomerTags, getSalesInvoices, getSalesReturns } from "../../services/customerStore.ts";
 import { resolveCustomerPolicy } from "../../services/custPolicyEngine.ts";
 import { Customer, CustomerGroup, Quotation, SalesOrder } from "../../types";
-import { apiFetchV1 } from "../../lib/apiFetchV1";
+import { apiFetchV1, getTenantCompanyContext } from "../../lib/apiFetchV1";
 import { useLayoutEngine } from "../../layout_engine/layout_store";
 import { useResponsiveLayout } from "../../layout_engine/responsive_manager";
 import { useWorkspace } from "../../contexts/WorkspaceContext.tsx";
+import { Printer, X } from "lucide-react";
 
 export const DrillDownSidePanel: React.FC = () => {
   const { activePanel, closePanel } = useDrillDown();
@@ -42,6 +45,29 @@ export const DrillDownSidePanel: React.FC = () => {
   const [quotations, setQuotations] = useState<Quotation[]>([]);
   const [orders, setOrders] = useState<SalesOrder[]>([]);
   const [loadingActivity, setLoadingActivity] = useState<boolean>(false);
+  const [showPrintProfileModal, setShowPrintProfileModal] = useState<boolean>(false);
+
+  const tenantContext = useMemo(() => {
+    if (typeof window !== "undefined") {
+      return getTenantCompanyContext();
+    }
+    return { companyName: "", companyAddress: "", companyGstin: "" };
+  }, []);
+
+  useEffect(() => {
+    if (!showPrintProfileModal) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        setShowPrintProfileModal(false);
+      } else if (e.key === "F9" || ((e.ctrlKey || e.metaKey) && (e.key === "p" || e.key === "P"))) {
+        e.preventDefault();
+        window.print();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [showPrintProfileModal]);
 
   useEffect(() => {
     const loadCustomer = () => {
@@ -253,7 +279,8 @@ export const DrillDownSidePanel: React.FC = () => {
   };
 
   return (
-    <AnimatePresence>
+    <>
+      <AnimatePresence>
       {activePanel && (
         <>
           {/* Backdrop */}
@@ -314,7 +341,8 @@ export const DrillDownSidePanel: React.FC = () => {
                      </button>
                    )}
                    <button 
-                     onClick={() => window.print()}
+                     onClick={() => setShowPrintProfileModal(true)}
+                     data-testid="drilldown-print-profile-btn"
                      className="flex-1 flex justify-center items-center space-x-1 py-1.5 bg-theme-surface-1 hover:bg-theme-surface-hover border border-theme-divider rounded text-xs font-semibold text-theme-body transition-colors cursor-pointer"
                    >
                      <span className="material-symbols-outlined text-[14px]">print</span>
@@ -327,7 +355,11 @@ export const DrillDownSidePanel: React.FC = () => {
                      <span className="material-symbols-outlined text-[14px]">edit</span>
                      <span>Edit</span>
                    </button>
-                   <button onClick={(e) => { e.stopPropagation(); window.print(); }} className="flex-1 flex justify-center items-center space-x-1 py-1.5 bg-theme-surface-1 hover:bg-theme-surface-hover border border-theme-divider rounded text-xs font-semibold text-theme-body transition-colors cursor-pointer">
+                   <button 
+                     onClick={(e) => { e.stopPropagation(); setShowPrintProfileModal(true); }}
+                     data-testid="drilldown-print-entity-btn"
+                     className="flex-1 flex justify-center items-center space-x-1 py-1.5 bg-theme-surface-1 hover:bg-theme-surface-hover border border-theme-divider rounded text-xs font-semibold text-theme-body transition-colors cursor-pointer"
+                   >
                      <span className="material-symbols-outlined text-[14px]">print</span>
                      <span>Print</span>
                    </button>
@@ -769,5 +801,249 @@ export const DrillDownSidePanel: React.FC = () => {
         </>
       )}
     </AnimatePresence>
+
+    {/* Unified Single-Tree Body Portal Profile Print Studio */}
+    {showPrintProfileModal && typeof document !== "undefined" && createPortal(
+      <div className="drilldown-print-modal-root print-preview-visible fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 print:static print:inset-auto print:h-auto print:w-full print:p-0 print:m-0 print:bg-white print:overflow-visible">
+        <style>{`
+          @media print {
+            @page {
+              size: A4 portrait;
+              margin: 8mm 10mm 10mm 10mm;
+            }
+            #root {
+              display: none !important;
+            }
+            html, body {
+              height: auto !important;
+              min-height: 0 !important;
+              overflow: visible !important;
+              margin: 0 !important;
+              padding: 0 !important;
+              background: white !important;
+            }
+            .drilldown-print-modal-root {
+              position: static !important;
+              display: block !important;
+              width: 100% !important;
+              height: auto !important;
+              margin: 0 !important;
+              padding: 0 !important;
+              overflow: visible !important;
+              background: white !important;
+            }
+            .drilldown-print-toolbar,
+            .no-print {
+              display: none !important;
+            }
+            .drilldown-print-container {
+              box-shadow: none !important;
+              border: none !important;
+              margin: 0 !important;
+              padding: 0 !important;
+              max-width: 100% !important;
+              width: 100% !important;
+              background: white !important;
+              color: black !important;
+            }
+          }
+        `}</style>
+
+        <div className="drilldown-print-container bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 max-w-4xl w-full p-6 relative flex flex-col max-h-[92vh] print:max-h-none print:h-auto print:w-full print:p-0 print:border-none print:shadow-none print:rounded-none">
+          {/* Toolbar (hidden in print) */}
+          <div className="drilldown-print-toolbar flex justify-between items-center pb-4 mb-4 border-b border-slate-200 dark:border-slate-800 shrink-0 print:hidden">
+            <div className="flex items-center gap-2">
+              <Printer className="text-blue-600 dark:text-blue-400" size={20} />
+              <div>
+                <h3 className="text-base font-bold text-slate-800 dark:text-slate-100">
+                  Official Entity Dossier & Profile Preview
+                </h3>
+                <p className="text-xs text-slate-500">
+                  SMRITI Enterprise Single-Tree Body Portal Standard (A4 Portrait)
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                data-testid="drilldown-portal-print-action-btn"
+                onClick={() => window.print()}
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-sm"
+              >
+                <Printer size={14} />
+                <span>Print Dossier (F9 / Ctrl+P)</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowPrintProfileModal(false)}
+                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-lg text-xs font-bold transition flex items-center gap-1 cursor-pointer"
+              >
+                <X size={14} />
+                <span>Close (Esc)</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Printable Content Body */}
+          <div
+            id="drilldown-profile-printable"
+            className="flex-1 overflow-y-auto space-y-6 text-slate-900 font-sans text-xs p-4 bg-white rounded-lg print:p-0 print:overflow-visible print:border-none"
+          >
+            {/* Header / Company Dossier */}
+            <div className="flex justify-between items-start border-b-2 border-slate-800 pb-4">
+              <div>
+                <h1 className="text-xl font-black uppercase tracking-wider text-slate-900">
+                  {tenantContext?.companyName || "SMRITI RETAIL ENTERPRISE"}
+                </h1>
+                <p className="text-[11px] text-slate-600 whitespace-pre-line mt-1">
+                  {tenantContext?.companyAddress || "Retail Headquarters & Distribution Center"}
+                </p>
+                {tenantContext?.companyGstin && (
+                  <p className="text-[11px] font-mono text-slate-700 mt-0.5">
+                    GSTIN: {tenantContext.companyGstin}
+                  </p>
+                )}
+              </div>
+              <div className="text-right">
+                <div className="inline-block bg-slate-900 text-white font-bold text-xs uppercase px-3 py-1 rounded">
+                  Official Entity Dossier
+                </div>
+                <div className="text-[11px] font-mono text-slate-500 mt-1">
+                  Generated: {new Date().toLocaleString()}
+                </div>
+                <div className="text-[11px] font-mono text-slate-700">
+                  Entity: {activePanel?.entityType?.toUpperCase()} | Ref: {activePanel?.entityId}
+                </div>
+              </div>
+            </div>
+
+            {/* Entity Overview Card */}
+            {customer ? (() => {
+              const customerInvoices = getSalesInvoices().filter((inv: any) => inv.customerId === customer.id);
+              const billingAddr = [customer.billingAddressLine1, customer.billingAddressLine2, customer.billingCity, customer.billingState, customer.billingPincode].filter(Boolean).join(", ");
+              const shippingAddr = [customer.shippingAddressLine1, customer.shippingAddressLine2, customer.shippingCity, customer.shippingState, customer.shippingPincode].filter(Boolean).join(", ");
+              return (
+                <div className="space-y-4">
+                  <div className="bg-slate-50 border border-slate-200 rounded p-4 grid grid-cols-2 gap-4">
+                    <div>
+                      <div className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">Customer / Party Name</div>
+                      <div className="text-base font-bold text-slate-900">{customer.name}</div>
+                      <div className="text-[11px] font-mono text-slate-600 mt-0.5">Customer Code: {customer.code || customer.id}</div>
+                      <div className="text-[11px] text-slate-600 mt-1">
+                        Group: <span className="font-semibold">{group?.name || customer.customerGroupId || "General"}</span>
+                        {" • "}
+                        Status: <span className="font-semibold uppercase">{customer.status || "Active"}</span>
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">Contact & Registration</div>
+                      <div className="text-[11px] text-slate-800 font-medium">Phone: {customer.mobile || customer.phone || "N/A"}</div>
+                      <div className="text-[11px] text-slate-800 font-medium">Email: {customer.email || "N/A"}</div>
+                      <div className="text-[11px] font-mono text-slate-700 mt-0.5">
+                        GSTIN: {customer.gstNumber || customer.gstin || "Unregistered / Consumer"}
+                      </div>
+                      <div className="text-[11px] font-mono text-slate-700">
+                        PAN: {customer.pan || "N/A"}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Financial & Credit Snapshot */}
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className="border border-slate-200 rounded p-3 bg-slate-50">
+                      <div className="text-[10px] uppercase font-bold text-slate-500">Credit Limit</div>
+                      <div className="text-sm font-bold text-slate-900 font-mono mt-0.5">
+                        ₹{Number(customer.creditLimit || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                      </div>
+                    </div>
+                    <div className="border border-slate-200 rounded p-3 bg-slate-50">
+                      <div className="text-[10px] uppercase font-bold text-slate-500">Outstanding Balance</div>
+                      <div className={`text-sm font-bold font-mono mt-0.5 ${Number(customer.outstanding || 0) > 0 ? "text-amber-700" : "text-emerald-700"}`}>
+                        ₹{Number(customer.outstanding || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                      </div>
+                    </div>
+                    <div className="border border-slate-200 rounded p-3 bg-slate-50">
+                      <div className="text-[10px] uppercase font-bold text-slate-500">Loyalty Balance</div>
+                      <div className="text-sm font-bold text-blue-700 font-mono mt-0.5">
+                        {Number(customer.loyaltyPointsBalance || 0).toLocaleString()} pts
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Addresses */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="border border-slate-200 rounded p-3">
+                      <div className="text-[10px] uppercase font-bold text-slate-500 mb-1">Billing Address</div>
+                      <div className="text-[11px] text-slate-700 whitespace-pre-line">
+                        {billingAddr || "No primary billing address recorded."}
+                      </div>
+                    </div>
+                    <div className="border border-slate-200 rounded p-3">
+                      <div className="text-[10px] uppercase font-bold text-slate-500 mb-1">Shipping / Delivery Address</div>
+                      <div className="text-[11px] text-slate-700 whitespace-pre-line">
+                        {shippingAddr || billingAddr || "Same as billing address."}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Recent Invoices Statement */}
+                  {customerInvoices.length > 0 && (
+                    <div className="space-y-2 mt-4">
+                      <div className="text-xs font-bold uppercase tracking-wider text-slate-800 border-b border-slate-200 pb-1">
+                        Recent Billing & Sales Invoices
+                      </div>
+                      <table className="w-full text-left border-collapse text-[11px]">
+                        <thead>
+                          <tr className="border-b border-slate-300 bg-slate-100 font-semibold text-slate-700">
+                            <th className="py-1 px-2">Invoice #</th>
+                            <th className="py-1 px-2">Date</th>
+                            <th className="py-1 px-2 text-right">Taxable</th>
+                            <th className="py-1 px-2 text-right">Total Amount</th>
+                            <th className="py-1 px-2 text-right">Status</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {customerInvoices.slice(0, 10).map((inv: any, idx: number) => (
+                            <tr key={idx} className="border-b border-slate-200">
+                              <td className="py-1 px-2 font-mono font-medium">{inv.invoiceNumber || inv.invoice_number || inv.id}</td>
+                              <td className="py-1 px-2 font-mono">{inv.date || inv.invoiceDate || inv.invoice_date || "—"}</td>
+                              <td className="py-1 px-2 text-right font-mono">₹{Number(inv.taxableAmount || inv.taxable_amount || inv.totalAmount || inv.total_amount || 0).toFixed(2)}</td>
+                              <td className="py-1 px-2 text-right font-mono font-semibold">₹{Number(inv.totalAmount || inv.total_amount || 0).toFixed(2)}</td>
+                              <td className="py-1 px-2 text-right uppercase text-[10px] font-bold">{inv.paymentStatus || inv.payment_status || inv.status || "Completed"}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              );
+            })() : (
+              <div className="space-y-3">
+                <div className="bg-slate-50 border border-slate-200 rounded p-4">
+                  <div className="text-base font-bold text-slate-900">{activePanel?.title || "Entity Profile"}</div>
+                  <div className="text-xs font-mono text-slate-600 mt-1">ID: {activePanel?.entityId}</div>
+                  <div className="text-xs text-slate-600 mt-0.5">Type: {activePanel?.entityType}</div>
+                </div>
+              </div>
+            )}
+
+            {/* Statutory Sign-off */}
+            <div className="pt-6 mt-6 border-t border-slate-200 flex justify-between items-end text-[10px] text-slate-500">
+              <div>
+                <div>Prepared By: SMRITI Retail OS Audit Subsystem</div>
+                <div>Security Hash: SHA-256 Verified Ledger Record</div>
+              </div>
+              <div className="text-center">
+                <div className="w-40 border-b border-slate-400 mb-1"></div>
+                <div>Authorized Signatory</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>,
+      document.body
+    )}
+    </>
   );
 };

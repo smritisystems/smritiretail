@@ -4,17 +4,16 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.90.0
+ * Version      : 6.99.20
  * Created      : 2026-10-17
- * Modified     : 2026-10-23
+ * Modified     : 2026-10-29
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
- * Classification: Legacy SMRITI Billing Studio Component
- * @deprecated Legacy standalone UI. The active billing routes now use `BillingWorkspace` with the shared `BillingTerm` editor.
- * Unified Billing UX migration completed 2026-10-24. Retained temporarily for backward compatibility.
+ * Classification: SMRITI Retail Billing Studio with Unified Thermal & A4 Body Portal Print Engine
  */
 
 import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { Product, POSProfile, Shift, Customer } from "../../types.ts";
 import {
   ProPosCartItem,
@@ -1434,6 +1433,22 @@ export const SmritiBillingStudio: React.FC<SmritiBillingStudioProps> = ({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [cartItems, isSubmitting, handlePostTransaction, parkedBills, handleParkCurrentCart, onNotification]);
 
+  // Receipt Modal Keyboard Shortcuts (Escape to dismiss, F9 / Ctrl+P to print)
+  useEffect(() => {
+    if (!showReceiptModal) return;
+    const handleReceiptKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        setShowReceiptModal(false);
+      } else if (e.key === "F9" || ((e.ctrlKey || e.metaKey) && (e.key === "p" || e.key === "P"))) {
+        e.preventDefault();
+        window.print();
+      }
+    };
+    window.addEventListener("keydown", handleReceiptKeyDown);
+    return () => window.removeEventListener("keydown", handleReceiptKeyDown);
+  }, [showReceiptModal]);
+
   // ── Inline SVG Footwear Icons ─────────────────────────────────────────────
   // ── Inline SVG Footwear & Apparel Icons matching Frozen Specification ────
   const ChappalThumbnail = () => (
@@ -2777,18 +2792,71 @@ export const SmritiBillingStudio: React.FC<SmritiBillingStudioProps> = ({
       )}
 
       {/* ── RECEIPT / PRINT MODAL (THERMAL & A4) ── */}
-      {showReceiptModal && lastBillRecord && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 max-w-md w-full p-6 relative flex flex-col max-h-[90vh]">
+      {showReceiptModal && lastBillRecord && typeof document !== "undefined" && createPortal(
+        <div className="pos-billing-receipt-modal-root print-preview-visible fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 print:static print:inset-auto print:h-auto print:w-full print:p-0 print:m-0 print:bg-white print:overflow-visible">
+          <style>{`
+            @media print {
+              @page {
+                size: ${receiptPrintView === "THERMAL_80MM" ? "80mm auto" : "A4 portrait"};
+                margin: 0;
+              }
+              #root {
+                display: none !important;
+              }
+              html, body {
+                height: auto !important;
+                min-height: 0 !important;
+                overflow: visible !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                background: white !important;
+              }
+              .pos-billing-receipt-modal-root {
+                position: static !important;
+                display: block !important;
+                width: 100% !important;
+                height: auto !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                overflow: visible !important;
+                background: white !important;
+              }
+              .pos-billing-receipt-toolbar,
+              .no-print {
+                display: none !important;
+              }
+              .pos-billing-receipt-container {
+                box-shadow: none !important;
+                border: none !important;
+                margin: 0 auto !important;
+                padding: 0 !important;
+                max-width: ${receiptPrintView === "THERMAL_80MM" ? "80mm" : "100%"} !important;
+                width: 100% !important;
+                height: auto !important;
+                overflow: visible !important;
+                background: white !important;
+              }
+              .pos-billing-receipt-sheet {
+                box-shadow: none !important;
+                border: none !important;
+                margin: 0 auto !important;
+                padding: 2mm !important;
+                max-width: ${receiptPrintView === "THERMAL_80MM" ? "80mm" : "100%"} !important;
+                visibility: visible !important;
+                background: white !important;
+              }
+            }
+          `}</style>
+          <div className="pos-billing-receipt-container bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 max-w-md w-full p-6 relative flex flex-col max-h-[90vh] print:shadow-none print:border-none print:max-w-none print:w-full print:p-0 print:m-0 print:bg-white print:max-h-none">
             <button
               type="button"
               onClick={() => setShowReceiptModal(false)}
-              className="absolute right-4 top-4 text-slate-400 hover:text-slate-600"
+              className="pos-billing-receipt-toolbar absolute right-4 top-4 text-slate-400 hover:text-slate-600 print:hidden cursor-pointer"
             >
               <X size={18} />
             </button>
 
-            <div className="flex items-center gap-3 mb-4 pb-3 border-b border-slate-100">
+            <div className="pos-billing-receipt-toolbar flex items-center gap-3 mb-4 pb-3 border-b border-slate-100 dark:border-slate-800 print:hidden">
               <div className="w-10 h-10 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center shrink-0">
                 <Check size={20} />
               </div>
@@ -2803,7 +2871,7 @@ export const SmritiBillingStudio: React.FC<SmritiBillingStudioProps> = ({
             </div>
 
             {/* Dual Format Switcher */}
-            <div className="flex items-center gap-1 p-1 bg-slate-100 dark:bg-slate-800 rounded-xl mb-3 text-xs font-bold">
+            <div className="pos-billing-receipt-toolbar flex items-center gap-1 p-1 bg-slate-100 dark:bg-slate-800 rounded-xl mb-3 text-xs font-bold print:hidden">
               <button
                 type="button"
                 onClick={() => setReceiptPrintView("THERMAL_80MM")}
@@ -2861,7 +2929,7 @@ export const SmritiBillingStudio: React.FC<SmritiBillingStudioProps> = ({
               }
 
               return receiptPrintView === "THERMAL_80MM" ? (
-                <div className="flex-1 overflow-y-auto bg-slate-50 dark:bg-slate-950 p-4 rounded-xl border border-slate-200 font-mono text-xs space-y-2">
+                <div className="pos-billing-receipt-sheet flex-1 overflow-y-auto bg-slate-50 dark:bg-slate-950 p-4 rounded-xl border border-slate-200 dark:border-slate-800 font-mono text-xs space-y-2 print:border-none print:shadow-none print:bg-white print:overflow-visible">
                   <div className="text-center pb-2 border-b border-dashed border-slate-300">
                     <div className="font-bold text-sm uppercase">{storeName}</div>
                     <div className="text-[10px] text-slate-500">
@@ -2914,7 +2982,7 @@ export const SmritiBillingStudio: React.FC<SmritiBillingStudioProps> = ({
                   </div>
                 </div>
               ) : (
-                <div className="flex-1 overflow-y-auto bg-white dark:bg-slate-950 p-4 rounded-xl border border-slate-300 font-sans text-xs space-y-3">
+                <div className="pos-billing-receipt-sheet flex-1 overflow-y-auto bg-white dark:bg-slate-950 p-4 rounded-xl border border-slate-300 dark:border-slate-800 font-sans text-xs space-y-3 print:border-none print:shadow-none print:bg-white print:overflow-visible">
                   <div className="flex justify-between items-start pb-2 border-b border-slate-200">
                     <div>
                       <h4 className="font-extrabold text-sm text-blue-900 dark:text-blue-300 uppercase">{storeName}</h4>
@@ -2981,21 +3049,22 @@ export const SmritiBillingStudio: React.FC<SmritiBillingStudioProps> = ({
               const tenantCtx = typeof window !== "undefined" ? getTenantCompanyContext() : null;
               const isIdentityMissing = !tenantCtx?.companyName && !lastBillRecord.sellerName;
               return (
-                <div className="grid grid-cols-3 gap-2 mt-4 pt-3 border-t">
+                <div className="pos-billing-receipt-toolbar grid grid-cols-3 gap-2 mt-4 pt-3 border-t dark:border-slate-800 print:hidden">
                   <button
                     type="button"
                     disabled={isIdentityMissing}
+                    data-testid="pos-billing-receipt-print-btn"
                     onClick={() => {
                       if (!isIdentityMissing) window.print();
                     }}
-                    className={`py-2 text-white rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5 ${
+                    className={`py-2 text-white rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer ${
                       isIdentityMissing
                         ? "bg-slate-400 dark:bg-slate-700 cursor-not-allowed opacity-60"
                         : "bg-blue-600 hover:bg-blue-700"
                     }`}
                   >
                     <Printer size={13} />
-                    <span>Thermal Slip</span>
+                    <span>Print Slip (F9)</span>
                   </button>
 
                   <button
@@ -3004,7 +3073,7 @@ export const SmritiBillingStudio: React.FC<SmritiBillingStudioProps> = ({
                       const shareText = `Invoice: ${lastBillRecord.billNo}%0AAmount: Rs.${lastBillRecord.netPayable}%0AThank you!`;
                       window.open(`https://wa.me/?text=${shareText}`, "_blank");
                     }}
-                    className="py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5"
+                    className="py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer"
                   >
                     <Share2 size={13} />
                     <span>WhatsApp</span>
@@ -3013,15 +3082,16 @@ export const SmritiBillingStudio: React.FC<SmritiBillingStudioProps> = ({
                   <button
                     type="button"
                     onClick={() => setShowReceiptModal(false)}
-                    className="py-2 bg-slate-800 text-white rounded-lg text-xs font-bold"
+                    className="py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-lg text-xs font-bold cursor-pointer transition"
                   >
-                    <span>Close</span>
+                    <span>Close (Esc)</span>
                   </button>
                 </div>
               );
             })()}
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* ── NEW CUSTOMER MODAL ── */}
