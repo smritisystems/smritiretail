@@ -347,7 +347,7 @@ describe("Purchase Order Print Branding, Watermark & Payment Terms Verification"
     expect(htmlBuyer).toContain("Ex-Factory");
   });
 
-  it("12. supports dynamic image columns: 2 per row (large 118px) and 4 per row (compact 78px)", () => {
+  it("12. supports dynamic image columns: 2 per row (large 138px full-width canvas) and 4 per row (compact 82px)", () => {
     const html2Cols = renderToStaticMarkup(
       <PurchaseOrderPrintA4
         data={{
@@ -358,7 +358,7 @@ describe("Purchase Order Print Branding, Watermark & Payment Terms Verification"
     );
     expect(html2Cols).toContain("2 images per row • Large preview");
     expect(html2Cols).toContain("grid-cols-2");
-    expect(html2Cols).toContain("118px");
+    expect(html2Cols).toContain("138px");
 
     const html4Cols = renderToStaticMarkup(
       <PurchaseOrderPrintA4
@@ -370,6 +370,6 @@ describe("Purchase Order Print Branding, Watermark & Payment Terms Verification"
     );
     expect(html4Cols).toContain("4 images per row • Compact preview");
     expect(html4Cols).toContain("grid-cols-4");
-    expect(html4Cols).toContain("78px");
+    expect(html4Cols).toContain("82px");
   });
 });

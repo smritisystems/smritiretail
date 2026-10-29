@@ -1232,8 +1232,8 @@ export const POPrintPreviewModal: React.FC<POPrintPreviewModalProps> = ({
                           className="bg-transparent text-white text-xs font-bold outline-none cursor-pointer"
                         >
                           <option value="auto" className="bg-slate-900 text-white">Auto ({effectiveImageColumns} / row)</option>
-                          <option value="2" className="bg-slate-900 text-white">2 / Row (Large 118px)</option>
-                          <option value="4" className="bg-slate-900 text-white">4 / Row (Fit 1 Page)</option>
+                          <option value="2" className="bg-slate-900 text-white">2 / Row (Large 138px)</option>
+                          <option value="4" className="bg-slate-900 text-white">4 / Row (Fit 1 Page • 82px)</option>
                         </select>
                       </div>
 
