@@ -300,6 +300,7 @@ class ReportsService:
         branch_id: Optional[str] = None,
     ):
         """RPT-PUR-001 -- Purchase Inward Register (GRN Detailed Line Items)."""
+        import re
         from ..schemas.reports import PurchaseInwardItemLine, PurchaseInwardRegisterReport
 
         stmt = (
@@ -350,6 +351,19 @@ class ReportsService:
             sup_name = (sup.name if sup else None) or "Direct Vendor"
             sup_code = (sup.code if sup else None) or ""
 
+            pr_notes = pr.notes or ""
+            del_m = re.search(r"Delivery:\s*([^,|\]]+)", pr_notes, re.IGNORECASE)
+            fr_m = re.search(r"Freight Terms:\s*([^,|\]]+)", pr_notes, re.IGNORECASE)
+            transp_m = re.search(r"Transporter:\s*([^,|\]]+)", pr_notes, re.IGNORECASE)
+            lr_m = re.search(r"LR:\s*([^,|\]]+)", pr_notes, re.IGNORECASE)
+            coll_m = re.search(r"Collection:\s*([^,|\]]+)", pr_notes, re.IGNORECASE)
+
+            delivery_terms = del_m.group(1).strip() if del_m else None
+            freight_terms = fr_m.group(1).strip() if fr_m else None
+            transporter_name = transp_m.group(1).strip() if transp_m else None
+            lr_number = lr_m.group(1).strip() if lr_m else None
+            collection_type = coll_m.group(1).strip() if coll_m else None
+
             lines.append(
                 PurchaseInwardItemLine(
                     receipt_id=pr.id,
@@ -372,6 +386,11 @@ class ReportsService:
                     status=pr.status or "RECEIVED",
                     warehouse_id=pr.warehouse_id,
                     branch_id=pr.branch_id,
+                    delivery_terms=delivery_terms,
+                    freight_terms=freight_terms,
+                    transporter_name=transporter_name,
+                    lr_number=lr_number,
+                    collection_type=collection_type,
                 )
             )
 

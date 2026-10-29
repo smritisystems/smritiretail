@@ -1,5 +1,26 @@
 <!--
 
+## [6.99.8] - 2026-10-29 - Reports & BI: Purchase Inward Register (GRN) Logistics, Delivery Terms & Transporter Alignment v1.0.0
+
+### Added
+- `backend/app/schemas/reports.py`:
+  - Added `delivery_terms`, `freight_terms`, `transporter_name`, `lr_number`, and `collection_type` to `PurchaseInwardItemLine`.
+- `backend/app/services/reports.py`:
+  - Updated `ReportsService.purchase_inward_register` with regex parsing of `[LOGISTICS & LANDED COST: ...]` notes from `PurchaseReceipt`, mapping carrier, LR number, delivery terms, and freight terms into individual line items.
+- `src/components/ReportDesignerTab.tsx`:
+  - Extended `filteredGrnLines` live search to match `delivery_terms`, `transporter_name`, `lr_number`, and `collection_type`.
+  - Added `delivery_terms`, `freight_terms`, `transporter_name`, and `lr_number` to `grnSummaryList` aggregation.
+  - Added `Delivery Terms` (with color-coded amber/emerald badges) and `Transporter / LR` columns in Detailed Line Items View.
+  - Added `Delivery Terms` and `Transporter` columns in GRN Summary View.
+  - Added `purchaseInwardData` branch to `handleTriggerExport` enabling native CSV/Excel export for `RPT-PUR-001`.
+  - Added comprehensive logistics column mapping in `handleOpenInGoogleSheets`.
+- `src/tests/reportsPurchaseInwardLogistics.test.ts`:
+  - Created automated Vitest test suite certifying delivery terms filtering, carrier/LR search, collection filtering, and GRN summary aggregation.
+- `docs/implementation/reports/Reports_Purchase_Inward_Register_Logistics_Alignment_Plan_v1.0.0.md`:
+  - Authored formal 19-section IPGP implementation plan.
+- `docs/walkthrough/reports/Reports_Purchase_Inward_Register_Logistics_Alignment_Walkthrough_v1.0.0.md`:
+  - Authored formal 13-section WGP walkthrough document.
+
 ## [6.99.7] - 2026-10-29 - Goods Receipt Note (GRN) Logistics, PO Delivery Terms Inheritance & Carrier Audit Trail v1.0.0
 
 ### Added

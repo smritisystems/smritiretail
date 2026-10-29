@@ -113,6 +113,11 @@ class PurchaseInwardItemLine(BaseModel):
     status:            str
     warehouse_id:      Optional[str] = None
     branch_id:         Optional[str] = None
+    delivery_terms:    Optional[str] = None
+    freight_terms:     Optional[str] = None
+    transporter_name:  Optional[str] = None
+    lr_number:         Optional[str] = None
+    collection_type:   Optional[str] = None
     model_config = {"from_attributes": True}
 
 
