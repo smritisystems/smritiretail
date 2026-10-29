@@ -4,13 +4,15 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.63.1
+ * Version      : 6.99.19
  * Created      : 2026-07-10
- * Modified     : 2026-10-14
+ * Modified     : 2026-10-29
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
+ * Classification: Sales Studio Tab with Unified Quotation Body Portal Print Studio
  */
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
+import { createPortal } from "react-dom";
 import { Printer, MessageCircle, Mail, AlignJustify,
   FileText, Plus, Search, Grid, Trash2, Edit3,
   RefreshCw, User, Calendar, DollarSign, Percent,
@@ -26,7 +28,7 @@ import { motion } from "motion/react";
 import { SmritiScrollArea } from "./SmritiScrollArea.tsx";
 import { Product, Quotation, SalesOrder, SalesItemLine, SalesInvoice, SalesReturn, Customer, CustomerGroup } from "../types.js";
 import { SmartFilter, FilterDefinition } from "./SmartFilter.tsx";
-import { apiFetchV1, openAuthenticatedDocument } from "../lib/apiFetchV1.ts";
+import { apiFetchV1, openAuthenticatedDocument, getTenantCompanyContext } from "../lib/apiFetchV1.ts";
 import { getCustomers, getCustomerGroups, saveCustomers } from "../services/customerStore.ts";
 import { recordAuditAction } from "../lib/apiFetch.ts";
 import { ProductImage } from "./common/ProductImage.tsx";
@@ -256,6 +258,13 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
 
   // Selection states for detail view
   const [selectedQuotation, setSelectedQuotation] = useState<Quotation | null>(null);
+  const [printQuotationModal, setPrintQuotationModal] = useState<Quotation | null>(null);
+  const tenantContext = useMemo(() => {
+    if (typeof window !== "undefined") {
+      return getTenantCompanyContext();
+    }
+    return { companyName: "", companyAddress: "", companyGstin: "" };
+  }, []);
   const [selectedOrder, setSelectedOrder] = useState<SalesOrder | null>(null);
   const [selectedInvoice, setSelectedInvoice] = useState<SalesInvoice | null>(null);
   const [selectedReturn, setSelectedReturn] = useState<SalesReturn | null>(null);
@@ -586,6 +595,21 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
       recordAuditAction("TRANSACTION_VIEW", "quotations", selectedQuotation.id, `Viewed quotation details: ${selectedQuotation.quotationNo}`);
     }
   }, [selectedQuotation]);
+
+  useEffect(() => {
+    if (!printQuotationModal) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        setPrintQuotationModal(null);
+      } else if (e.key === "F9" || ((e.ctrlKey || e.metaKey) && (e.key === "p" || e.key === "P"))) {
+        e.preventDefault();
+        window.print();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [printQuotationModal]);
 
   useEffect(() => {
     if (selectedOrder) {
@@ -2926,7 +2950,16 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
                                 >
                                   <Eye size={14} />
                                 </button>
-                                <button onClick={(e) => { e.stopPropagation(); onNotification("Print", "Printing Quotation " + q.quotationNo, "success"); window.print(); }} className="p-1 rounded hover:bg-theme-surface-3 text-slate-400" title="Print"><Printer size={14} /></button>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setPrintQuotationModal(q);
+                                  }}
+                                  className="p-1 rounded hover:bg-theme-surface-3 text-slate-400"
+                                  title="Print Official Quotation"
+                                >
+                                  <Printer size={14} />
+                                </button>
                                 <button onClick={(e) => { e.stopPropagation(); onNotification("WhatsApp", "Generating PDF for WhatsApp", "success"); window.open('https://wa.me/?text=Quotation%20' + q.quotationNo); }} className="p-1 rounded hover:bg-theme-surface-3 text-emerald-400" title="WhatsApp"><MessageCircle size={14} /></button>
                                 <button onClick={(e) => { e.stopPropagation(); onNotification("Email", "Drafting Email with PDF", "success"); window.open('mailto:?subject=Quotation%20' + q.quotationNo); }} className="p-1 rounded hover:bg-theme-surface-3 text-blue-400" title="Email"><Mail size={14} /></button>
 
@@ -3652,6 +3685,16 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
                   <span className="text-emerald-400 font-mono text-sm">{formatCurrency(selectedQuotation.grandTotal)}</span>
                 </div>
               </div>
+
+              {/* Official Document Print Trigger */}
+              <button
+                onClick={() => setPrintQuotationModal(selectedQuotation)}
+                data-testid="print-quotation-details-btn"
+                className="w-full py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-semibold text-xs rounded-xl flex items-center justify-center space-x-2 transition cursor-pointer"
+              >
+                <Printer size={15} />
+                <span>Print Official Quotation (A4)</span>
+              </button>
 
               {/* Conversion Controls */}
               {selectedQuotation.status === "Approved" && (
@@ -4452,6 +4495,245 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
             </div>
           </div>
         </div>
+      )}
+
+      {/* ── Quotation Official Commercial Print Preview (Body Portal) ── */}
+      {printQuotationModal && typeof document !== "undefined" && createPortal(
+        <div
+          className="quotation-print-modal-root print-preview-visible fixed inset-0 z-50 flex flex-col bg-slate-900/60 dark:bg-slate-950/80 backdrop-blur-xs overflow-y-auto print:static print:inset-auto print:h-auto print:w-full print:p-0 print:m-0 print:bg-white print:overflow-visible"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Commercial Quotation Print Preview"
+        >
+          <style>{`
+            @media print {
+              @page {
+                size: A4 portrait;
+                margin: 8mm 10mm 10mm 10mm;
+              }
+              #root {
+                display: none !important;
+              }
+              html, body {
+                height: auto !important;
+                min-height: 0 !important;
+                overflow: visible !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                background: white !important;
+              }
+              .quotation-print-modal-root {
+                position: static !important;
+                display: block !important;
+                width: 100% !important;
+                height: auto !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                overflow: visible !important;
+                background: white !important;
+              }
+              .quotation-print-toolbar,
+              .no-print {
+                display: none !important;
+              }
+              .quotation-print-canvas-wrapper {
+                display: block !important;
+                width: 100% !important;
+                height: auto !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                overflow: visible !important;
+                background: white !important;
+              }
+              .quotation-printable-sheet {
+                box-shadow: none !important;
+                border: none !important;
+                margin: 0 auto !important;
+                padding: 0 !important;
+                max-width: 100% !important;
+                visibility: visible !important;
+                background: white !important;
+              }
+            }
+          `}</style>
+
+          {/* Floating Toolbar */}
+          <div className="quotation-print-toolbar h-16 px-6 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between shadow-sm shrink-0 print:hidden">
+            <div className="flex items-center space-x-3">
+              <div className="p-2 rounded-lg bg-indigo-50 dark:bg-indigo-600/20 border border-indigo-200 dark:border-indigo-500/30 text-indigo-600 dark:text-indigo-400">
+                <Printer size={20} />
+              </div>
+              <div>
+                <h2 className="text-sm font-bold text-slate-900 dark:text-white flex items-center space-x-2">
+                  <span>Commercial Quotation Print Studio</span>
+                  <span className="font-mono text-[10px] bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300">
+                    A4 PORTRAIT
+                  </span>
+                </h2>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  Quotation #{printQuotationModal.quotationNo} • Customer: {printQuotationModal.customerName}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center space-x-3">
+              <button
+                onClick={() => window.print()}
+                data-testid="quotation-print-btn"
+                className="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-md shadow-indigo-600/20 flex items-center space-x-2 transition cursor-pointer"
+              >
+                <Printer size={15} />
+                <span>Print Document (F9 / Ctrl+P)</span>
+              </button>
+              <button
+                onClick={() => setPrintQuotationModal(null)}
+                className="p-2 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white transition cursor-pointer"
+                title="Close Preview (Esc)"
+              >
+                <X size={18} />
+              </button>
+            </div>
+          </div>
+
+          {/* Viewport Canvas */}
+          <div className="quotation-print-canvas-wrapper flex-1 overflow-y-auto p-8 bg-slate-100/90 dark:bg-slate-950 flex justify-center print:p-0 print:m-0 print:block print:bg-white print:overflow-visible">
+            <div className="quotation-printable-sheet bg-white text-slate-900 p-8 max-w-[820px] w-full min-h-[1120px] text-[11px] font-sans leading-relaxed shadow-xl rounded border border-slate-200 print:shadow-none print:border-none print:max-w-none print:w-full print:rounded-none">
+              {/* Header */}
+              <div className="border-b-2 border-slate-900 pb-3 mb-4">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <h1 className="text-xl font-black uppercase tracking-tight text-slate-950">
+                      {tenantContext.companyName || "SMRITI ENTERPRISES LTD"}
+                    </h1>
+                    <p className="text-xs text-slate-600 font-medium mt-0.5">
+                      {tenantContext.companyAddress || "101, Corporate Hub, Nariman Point, Mumbai - 400021"}
+                    </p>
+                    <div className="flex items-center space-x-3 mt-1 text-[10px] text-slate-700 font-mono">
+                      <span>GSTIN: <strong>{tenantContext.companyGstin || "27AABCS1429B1Z8"}</strong></span>
+                      <span>•</span>
+                      <span>State: <strong>Maharashtra (27)</strong></span>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className="inline-block bg-slate-900 text-white font-bold px-3 py-1 rounded text-xs tracking-wider uppercase">
+                      COMMERCIAL QUOTATION
+                    </div>
+                    <p className="text-[9px] text-slate-500 mt-1 italic">
+                      Estimate / Proforma Reference
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Meta & Addresses */}
+              <div className="grid grid-cols-2 gap-4 border border-slate-300 rounded p-3 mb-4 text-[10px]">
+                <div>
+                  <div className="font-bold text-slate-900 border-b border-slate-200 pb-1 mb-1.5 uppercase tracking-wide">
+                    Quotation Overview
+                  </div>
+                  <div className="space-y-1">
+                    <div className="flex justify-between"><span className="text-slate-500">Quotation No:</span> <strong className="font-mono text-slate-900">{printQuotationModal.quotationNo}</strong></div>
+                    <div className="flex justify-between"><span className="text-slate-500">Quotation Date:</span> <span className="font-mono">{formatDate(printQuotationModal.date)}</span></div>
+                    <div className="flex justify-between"><span className="text-slate-500">Valid Until:</span> <span className="font-mono font-medium">30 Days from Issue</span></div>
+                    <div className="flex justify-between"><span className="text-slate-500">Document Status:</span> <strong className="uppercase text-indigo-700">{printQuotationModal.status}</strong></div>
+                  </div>
+                </div>
+                <div>
+                  <div className="font-bold text-slate-900 border-b border-slate-200 pb-1 mb-1.5 uppercase tracking-wide">
+                    Quotation Prepared For
+                  </div>
+                  <div className="space-y-1">
+                    <div className="font-bold text-slate-900 text-xs">{printQuotationModal.customerName}</div>
+                    <div className="text-slate-600 text-[9.5px]">Institutional B2B Client</div>
+                    <div className="flex justify-between pt-0.5"><span className="text-slate-500">Commercial Currency:</span> <strong className="font-mono">INR (₹)</strong></div>
+                    {printQuotationModal.salesOrderId && (
+                      <div className="flex justify-between"><span className="text-slate-500">Linked Order No:</span> <span className="font-mono">{printQuotationModal.salesOrderId}</span></div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Itemized Table */}
+              <table className="w-full border-collapse border border-slate-300 mb-4 text-[10px]">
+                <thead>
+                  <tr className="bg-slate-100 text-slate-800 font-bold border-b border-slate-300">
+                    <th className="border border-slate-300 p-1.5 text-center w-8">#</th>
+                    <th className="border border-slate-300 p-1.5 text-left">Item Description</th>
+                    <th className="border border-slate-300 p-1.5 text-center w-24">Color / Size</th>
+                    <th className="border border-slate-300 p-1.5 text-right w-12">Qty</th>
+                    <th className="border border-slate-300 p-1.5 text-right w-18">Unit Price</th>
+                    <th className="border border-slate-300 p-1.5 text-center w-14">GST %</th>
+                    <th className="border border-slate-300 p-1.5 text-right w-22">Total Amount</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(!printQuotationModal.items || printQuotationModal.items.length === 0) ? (
+                    <tr>
+                      <td colSpan={7} className="border border-slate-300 p-4 text-center text-slate-400 italic">
+                        No product lines included in quotation.
+                      </td>
+                    </tr>
+                  ) : (
+                    printQuotationModal.items.map((it, idx) => (
+                      <tr key={idx} className="border-b border-slate-200 hover:bg-slate-50/50">
+                        <td className="border border-slate-300 p-1.5 text-center font-mono">{idx + 1}</td>
+                        <td className="border border-slate-300 p-1.5 font-medium text-slate-900">{it.name}</td>
+                        <td className="border border-slate-300 p-1.5 text-center font-mono text-slate-600">
+                          {it.color || "-"} / {it.size || "-"}
+                        </td>
+                        <td className="border border-slate-300 p-1.5 text-right font-mono font-bold">{it.quantity}</td>
+                        <td className="border border-slate-300 p-1.5 text-right font-mono">{formatCurrency(it.price)}</td>
+                        <td className="border border-slate-300 p-1.5 text-center font-mono">{it.taxRate || it.gstRate || 0}%</td>
+                        <td className="border border-slate-300 p-1.5 text-right font-mono font-bold text-slate-900">
+                          {formatCurrency(it.totalAmount)}
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+
+              {/* Totals & Financial Summary */}
+              <div className="grid grid-cols-2 gap-4 border border-slate-300 rounded p-3 mb-4 text-[10px]">
+                <div>
+                  <div className="font-bold text-slate-900 mb-1">Standard Commercial Terms:</div>
+                  <ol className="list-decimal pl-3 space-y-0.5 text-slate-600 text-[9px]">
+                    <li>Prices are valid for 30 calendar days from the date of quotation.</li>
+                    <li>Delivery timeline: 7 to 10 working days from purchase order confirmation.</li>
+                    <li>Payment terms: 50% advance against PO, balance prior to dispatch.</li>
+                    <li>GST rates are subject to government notifications at time of delivery.</li>
+                  </ol>
+                </div>
+                <div className="space-y-1.5 text-right">
+                  <div className="flex justify-between"><span className="text-slate-500">Item Subtotal:</span> <span className="font-mono">{formatCurrency(Math.max(0, printQuotationModal.grandTotal - printQuotationModal.taxTotal))}</span></div>
+                  <div className="flex justify-between"><span className="text-slate-500">Applicable Taxes (GST):</span> <span className="font-mono">{formatCurrency(printQuotationModal.taxTotal)}</span></div>
+                  <div className="flex justify-between border-t-2 border-slate-900 pt-1 text-xs font-black text-slate-950">
+                    <span>QUOTATION GRAND TOTAL:</span> <span className="font-mono text-emerald-700">{formatCurrency(printQuotationModal.grandTotal)}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Acceptance and Signatory */}
+              <div className="border border-slate-300 rounded p-3 text-[9.5px] flex justify-between items-end">
+                <div className="text-center w-48 border-t border-slate-400 pt-1">
+                  <div className="font-bold text-slate-800">Customer Acceptance & Signature</div>
+                  <div className="h-10"></div>
+                  <div className="text-[9px] text-slate-500">Authorized Signatory / Date</div>
+                </div>
+                <div className="text-center w-48 border-t border-slate-400 pt-1">
+                  <div className="font-bold text-slate-800">For {tenantContext.companyName || "SMRITI ENTERPRISES LTD"}</div>
+                  <div className="h-10"></div>
+                  <div className="text-[9px] text-slate-500">Sales Representative / Director</div>
+                </div>
+              </div>
+
+              <div className="text-center text-[8.5px] text-slate-400 mt-4">
+                This is an official computer-generated quotation issued by SMRITI Retail OS • Page 1 of 1
+              </div>
+            </div>
+          </div>
+        </div>,
+        document.body
       )}
     </div>
   );

@@ -4,26 +4,25 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 4.12.0
+ * Version      : 6.99.19
  * Created      : 2026-08-24
- * Modified     : 2026-09-07
+ * Modified     : 2026-10-29
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
- * Classification: Internal (Legacy Standalone View)
- * @deprecated The standalone billing UI is retired; active invoice routes use `BillingWorkspace` with `BillingTerm`.
- * Retained for utility calculation exports and historical regression test suites.
+ * Classification: Distributor Tax Invoice Workspace with Unified Body Portal Print Studio
  */
 
 import React, { useState, useEffect, useMemo, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { TaxHeaderBar } from "./components/TaxHeaderBar.tsx";
 import { TaxInvoiceDoc } from "./components/TaxInvoiceDoc.tsx";
 import { TaxInvoiceItemGrid } from "./components/TaxInvoiceItemGrid.tsx";
 import { TaxFooterTabs } from "./components/TaxFooterTabs.tsx";
 import { TaxStatusBar } from "./components/TaxStatusBar.tsx";
 import { TaxInvoiceDocumentState, TaxInvoiceItemRow } from "./types.ts";
-import { apiFetchV1 } from "../../lib/apiFetchV1.ts";
+import { apiFetchV1, getTenantCompanyContext } from "../../lib/apiFetchV1.ts";
 import { getCustomers, refreshCustomerCache } from "../../services/customerStore.ts";
 import { ExportColumnDefinition } from "../export/types.ts";
-import { X, Search, Zap, CheckCircle2, AlertCircle } from "lucide-react";
+import { X, Search, Zap, CheckCircle2, AlertCircle, Printer, FileText } from "lucide-react";
 import { useF2Screen } from "../../context/F2DispatcherContext.tsx";
 import type { LookupResult } from "../../context/F2DispatcherContext.tsx";
 
@@ -186,6 +185,14 @@ export const DistTaxInvoice: React.FC<SmritiDistributorTaxInvoiceWorkspaceProps>
 }) => {
   const [docState, setDocState] = useState<TaxInvoiceDocumentState>(DEFAULT_DOC_STATE);
   const [isSaving, setIsSaving] = useState(false);
+  const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
+
+  const tenantContext = useMemo(() => {
+    if (typeof window !== "undefined") {
+      return getTenantCompanyContext();
+    }
+    return { companyName: "", companyAddress: "", companyGstin: "" };
+  }, []);
 
   // Modals & Auxiliary View states
   const [isCustomerModalOpen, setIsCustomerModalOpen] = useState(false);
@@ -589,6 +596,10 @@ export const DistTaxInvoice: React.FC<SmritiDistributorTaxInvoiceWorkspaceProps>
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
+        if (isPrintModalOpen) {
+          setIsPrintModalOpen(false);
+          return;
+        }
         if (isSkuModalOpen) setIsSkuModalOpen(false);
         else if (isSettlementModalOpen) setIsSettlementModalOpen(false);
         else if (isCustomerModalOpen) setIsCustomerModalOpen(false);
@@ -602,9 +613,13 @@ export const DistTaxInvoice: React.FC<SmritiDistributorTaxInvoiceWorkspaceProps>
       } else if (e.ctrlKey && (e.key === "s" || e.key === "S")) {
         e.preventDefault();
         handleSaveInvoice();
-      } else if (e.ctrlKey && (e.key === "p" || e.key === "P")) {
+      } else if (e.key === "F9" || ((e.ctrlKey || e.metaKey) && (e.key === "p" || e.key === "P"))) {
         e.preventDefault();
-        window.print();
+        if (isPrintModalOpen) {
+          window.print();
+        } else {
+          setIsPrintModalOpen(true);
+        }
       } else if (e.ctrlKey && (e.key === "n" || e.key === "N")) {
         e.preventDefault();
         setDocState((prev) => ({
@@ -616,7 +631,7 @@ export const DistTaxInvoice: React.FC<SmritiDistributorTaxInvoiceWorkspaceProps>
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isCustomerModalOpen, isSkuModalOpen, isSettlementModalOpen, onExit, handleSaveInvoice]);
+  }, [isPrintModalOpen, isCustomerModalOpen, isSkuModalOpen, isSettlementModalOpen, onExit, handleSaveInvoice]);
 
   // ─── F2 Universal Lookup Architecture v2 — Screen Registration ──
   useF2Screen({
@@ -719,7 +734,7 @@ export const DistTaxInvoice: React.FC<SmritiDistributorTaxInvoiceWorkspaceProps>
           setDocState((prev) => ({ ...prev, items: [] }));
           onNotification?.("Draft Cleared", "Cleared all invoice item lines.", "info");
         }}
-        onPrint={() => window.print()}
+        onPrint={() => setIsPrintModalOpen(true)}
         onFind={() => setIsCustomerModalOpen(true)}
         onExit={onExit || (() => {})}
         isSaving={isSaving}
@@ -749,7 +764,7 @@ export const DistTaxInvoice: React.FC<SmritiDistributorTaxInvoiceWorkspaceProps>
             docNo: String(Number(prev.docNo) + 1),
           }));
         }}
-        onPrintClick={() => window.print()}
+        onPrintClick={() => setIsPrintModalOpen(true)}
         netAmount={metrics.netAmount}
         customerGstRegistrations={customerGstRegistrations}
         customerDeliveryLocations={customerDeliveryLocations}
@@ -932,7 +947,7 @@ export const DistTaxInvoice: React.FC<SmritiDistributorTaxInvoiceWorkspaceProps>
 
           {/* Ctrl+P Print */}
           <div
-            onClick={() => window.print()}
+            onClick={() => setIsPrintModalOpen(true)}
             className="hidden md:flex items-center space-x-1.5 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 p-1 rounded transition"
           >
             <kbd className="px-2 py-0.5 font-bold font-mono bg-blue-100 text-blue-700 rounded border border-blue-300 text-[11px] shadow-2xs">
@@ -1292,6 +1307,261 @@ export const DistTaxInvoice: React.FC<SmritiDistributorTaxInvoiceWorkspaceProps>
             </div>
           </div>
         </div>
+      )}
+
+      {/* ── MODAL 5: Unified B2B Distribution Tax Invoice Print Preview (Body Portal) ── */}
+      {isPrintModalOpen && typeof document !== "undefined" && createPortal(
+        <div
+          className="dist-tax-invoice-modal-root print-preview-visible fixed inset-0 z-50 flex flex-col bg-slate-900/60 dark:bg-slate-950/80 backdrop-blur-xs overflow-y-auto print:static print:inset-auto print:h-auto print:w-full print:p-0 print:m-0 print:bg-white print:overflow-visible"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Distributor Tax Invoice Print Preview"
+        >
+          <style>{`
+            @media print {
+              @page {
+                size: A4 portrait;
+                margin: 8mm 10mm 10mm 10mm;
+              }
+              #root {
+                display: none !important;
+              }
+              html, body {
+                height: auto !important;
+                min-height: 0 !important;
+                overflow: visible !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                background: white !important;
+              }
+              .dist-tax-invoice-modal-root {
+                position: static !important;
+                display: block !important;
+                width: 100% !important;
+                height: auto !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                overflow: visible !important;
+                background: white !important;
+              }
+              .dist-tax-invoice-toolbar,
+              .no-print {
+                display: none !important;
+              }
+              .dist-tax-invoice-canvas-wrapper {
+                display: block !important;
+                width: 100% !important;
+                height: auto !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                overflow: visible !important;
+                background: white !important;
+              }
+              .dist-tax-invoice-sheet {
+                box-shadow: none !important;
+                border: none !important;
+                margin: 0 auto !important;
+                padding: 0 !important;
+                max-width: 100% !important;
+                visibility: visible !important;
+                background: white !important;
+              }
+            }
+          `}</style>
+
+          {/* Floating Toolbar */}
+          <div className="dist-tax-invoice-toolbar h-16 px-6 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between shadow-sm shrink-0 print:hidden">
+            <div className="flex items-center space-x-3">
+              <div className="p-2 rounded-lg bg-indigo-50 dark:bg-indigo-600/20 border border-indigo-200 dark:border-indigo-500/30 text-indigo-600 dark:text-indigo-400">
+                <Printer size={20} />
+              </div>
+              <div>
+                <h2 className="text-sm font-bold text-slate-900 dark:text-white flex items-center space-x-2">
+                  <span>B2B Tax Invoice Print Studio</span>
+                  <span className="font-mono text-[10px] bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300">
+                    A4 PORTRAIT
+                  </span>
+                </h2>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  Invoice #{docState.docPrefix}-{docState.docNo} • Customer: {docState.customerName || "B2B Trade Counter"}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center space-x-3">
+              <button
+                onClick={() => window.print()}
+                data-testid="dist-tax-invoice-print-btn"
+                className="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-md shadow-indigo-600/20 flex items-center space-x-2 transition cursor-pointer"
+              >
+                <Printer size={15} />
+                <span>Print Document (F9 / Ctrl+P)</span>
+              </button>
+              <button
+                onClick={() => setIsPrintModalOpen(false)}
+                className="p-2 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white transition cursor-pointer"
+                title="Close Preview (Esc)"
+              >
+                <X size={18} />
+              </button>
+            </div>
+          </div>
+
+          {/* Viewport Canvas */}
+          <div className="dist-tax-invoice-canvas-wrapper flex-1 overflow-y-auto p-8 bg-slate-100/90 dark:bg-slate-950 flex justify-center print:p-0 print:m-0 print:block print:bg-white print:overflow-visible">
+            <div className="dist-tax-invoice-sheet bg-white text-slate-900 p-8 max-w-[820px] w-full min-h-[1120px] text-[11px] font-sans leading-relaxed shadow-xl rounded border border-slate-200 print:shadow-none print:border-none print:max-w-none print:w-full print:rounded-none">
+              {/* Header */}
+              <div className="border-b-2 border-slate-900 pb-3 mb-4">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <h1 className="text-xl font-black uppercase tracking-tight text-slate-950">
+                      {tenantContext.companyName || "SMRITI ENTERPRISES LTD"}
+                    </h1>
+                    <p className="text-xs text-slate-600 font-medium mt-0.5">
+                      {tenantContext.companyAddress || "101, Corporate Hub, Nariman Point, Mumbai - 400021"}
+                    </p>
+                    <div className="flex items-center space-x-3 mt-1 text-[10px] text-slate-700 font-mono">
+                      <span>GSTIN: <strong>{tenantContext.companyGstin || "27AABCS1429B1Z8"}</strong></span>
+                      <span>•</span>
+                      <span>State: <strong>Maharashtra (27)</strong></span>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className="inline-block bg-slate-900 text-white font-bold px-3 py-1 rounded text-xs tracking-wider uppercase">
+                      TAX INVOICE
+                    </div>
+                    <p className="text-[9px] text-slate-500 mt-1 italic">
+                      Rule 46, CGST Rules 2017
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Meta & Addresses */}
+              <div className="grid grid-cols-2 gap-4 border border-slate-300 rounded p-3 mb-4 text-[10px]">
+                <div>
+                  <div className="font-bold text-slate-900 border-b border-slate-200 pb-1 mb-1.5 uppercase tracking-wide">
+                    Invoice Details
+                  </div>
+                  <div className="space-y-1">
+                    <div className="flex justify-between"><span className="text-slate-500">Invoice No:</span> <strong className="font-mono text-slate-900">{docState.docPrefix}-{docState.docNo}</strong></div>
+                    <div className="flex justify-between"><span className="text-slate-500">Invoice Date:</span> <span className="font-mono">{docState.docDate}</span></div>
+                    <div className="flex justify-between"><span className="text-slate-500">Place of Supply:</span> <span>{docState.placeOfSupplyCode || "27 - Maharashtra"}</span></div>
+                    <div className="flex justify-between"><span className="text-slate-500">Reverse Charge:</span> <span>NO</span></div>
+                  </div>
+                </div>
+                <div>
+                  <div className="font-bold text-slate-900 border-b border-slate-200 pb-1 mb-1.5 uppercase tracking-wide">
+                    Billed To (Buyer)
+                  </div>
+                  <div className="space-y-1">
+                    <div className="font-bold text-slate-900">{docState.customerName || "Cash Customer / Over the Counter"}</div>
+                    {docState.customerAddress && <div className="text-slate-600 text-[9.5px]">{docState.customerAddress}</div>}
+                    <div className="flex justify-between pt-0.5"><span className="text-slate-500">Customer GSTIN:</span> <strong className="font-mono">{docState.customerGstin || "UNREGISTERED"}</strong></div>
+                    {docState.customerMobile && <div className="flex justify-between"><span className="text-slate-500">Mobile:</span> <span>{docState.customerMobile}</span></div>}
+                  </div>
+                </div>
+              </div>
+
+              {/* Itemized Table */}
+              <table className="w-full border-collapse border border-slate-300 mb-4 text-[10px]">
+                <thead>
+                  <tr className="bg-slate-100 text-slate-800 font-bold border-b border-slate-300">
+                    <th className="border border-slate-300 p-1.5 text-center w-8">#</th>
+                    <th className="border border-slate-300 p-1.5 text-left">Item Description</th>
+                    <th className="border border-slate-300 p-1.5 text-center w-16">HSN/SAC</th>
+                    <th className="border border-slate-300 p-1.5 text-right w-12">Qty</th>
+                    <th className="border border-slate-300 p-1.5 text-right w-16">Rate (₹)</th>
+                    <th className="border border-slate-300 p-1.5 text-right w-14">Disc (₹)</th>
+                    <th className="border border-slate-300 p-1.5 text-right w-18">Taxable (₹)</th>
+                    <th className="border border-slate-300 p-1.5 text-center w-12">GST %</th>
+                    <th className="border border-slate-300 p-1.5 text-right w-20">Amount (₹)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {docState.items.length === 0 ? (
+                    <tr>
+                      <td colSpan={9} className="border border-slate-300 p-4 text-center text-slate-400 italic">
+                        No line items added to draft invoice.
+                      </td>
+                    </tr>
+                  ) : (
+                    docState.items.map((it, idx) => {
+                      const qty = Number(it.qty) || 0;
+                      const rate = Number(it.rate) || 0;
+                      const lineVal = qty * rate;
+                      const disc = Number(it.discAmt) || (lineVal * (Number(it.discPercent) || 0)) / 100;
+                      const taxable = Math.max(0, lineVal - disc);
+                      const gstRate = Number(it.gstRate) || 18;
+                      const taxAmt = (taxable * gstRate) / 100;
+                      const total = taxable + taxAmt;
+                      return (
+                        <tr key={idx} className="border-b border-slate-200 hover:bg-slate-50/50">
+                          <td className="border border-slate-300 p-1.5 text-center font-mono">{idx + 1}</td>
+                          <td className="border border-slate-300 p-1.5 font-medium text-slate-900">
+                            {it.itemDescription || it.stockNo || "Standard Merchandise SKU"}
+                          </td>
+                          <td className="border border-slate-300 p-1.5 text-center font-mono text-slate-600">{it.hsnCode || "6203"}</td>
+                          <td className="border border-slate-300 p-1.5 text-right font-mono font-bold">{qty}</td>
+                          <td className="border border-slate-300 p-1.5 text-right font-mono">{rate.toFixed(2)}</td>
+                          <td className="border border-slate-300 p-1.5 text-right font-mono text-slate-500">{disc.toFixed(2)}</td>
+                          <td className="border border-slate-300 p-1.5 text-right font-mono font-medium">{taxable.toFixed(2)}</td>
+                          <td className="border border-slate-300 p-1.5 text-center font-mono">{gstRate}%</td>
+                          <td className="border border-slate-300 p-1.5 text-right font-mono font-bold text-slate-900">{total.toFixed(2)}</td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+
+              {/* Totals & Financial Summary */}
+              <div className="grid grid-cols-2 gap-4 border border-slate-300 rounded p-3 mb-4 text-[10px]">
+                <div>
+                  <div className="font-bold text-slate-900 mb-1">Bank Payment Coordinates:</div>
+                  <div className="text-[9.5px] space-y-0.5 text-slate-600">
+                    <div>Bank: <strong>HDFC Bank Ltd</strong></div>
+                    <div>A/C Name: <strong>{tenantContext.companyName || "SMRITI ENTERPRISES LTD"}</strong></div>
+                    <div>A/C No: <strong className="font-mono">50200088991122</strong></div>
+                    <div>IFSC: <strong className="font-mono">HDFC0000123</strong></div>
+                    <div>Branch: <strong>Corporate Banking Branch, Mumbai</strong></div>
+                  </div>
+                </div>
+                <div className="space-y-1.5 text-right">
+                  <div className="flex justify-between"><span className="text-slate-500">Gross Sales Value:</span> <span className="font-mono">₹{metrics.salesValue.toFixed(2)}</span></div>
+                  <div className="flex justify-between"><span className="text-slate-500">Item Discount:</span> <span className="font-mono text-slate-600">-₹{metrics.itemDiscount.toFixed(2)}</span></div>
+                  <div className="flex justify-between border-t border-slate-200 pt-1 font-bold text-slate-800">
+                    <span>Taxable Value:</span> <span className="font-mono">₹{(metrics.salesValue - metrics.itemDiscount).toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between"><span className="text-slate-500">Total GST:</span> <span className="font-mono">₹{metrics.totalTax.toFixed(2)}</span></div>
+                  <div className="flex justify-between border-t-2 border-slate-900 pt-1 text-xs font-black text-slate-950">
+                    <span>NET INVOICE TOTAL:</span> <span className="font-mono">₹{metrics.netAmount.toFixed(2)}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Declaration and Signatory */}
+              <div className="border border-slate-300 rounded p-3 text-[9.5px] flex justify-between items-end">
+                <div className="max-w-[420px] text-slate-500 space-y-1">
+                  <div className="font-bold text-slate-700">Declaration:</div>
+                  <p>
+                    We declare that this invoice shows the actual price of the goods described and that all particulars are true and correct. Goods once sold will not be accepted back without prior written authorization.
+                  </p>
+                </div>
+                <div className="text-center w-48 border-t border-slate-400 pt-1">
+                  <div className="font-bold text-slate-800">For {tenantContext.companyName || "SMRITI ENTERPRISES LTD"}</div>
+                  <div className="h-10"></div>
+                  <div className="text-[9px] text-slate-500">Authorized Signatory</div>
+                </div>
+              </div>
+
+              <div className="text-center text-[8.5px] text-slate-400 mt-4">
+                This is an authentic computer-generated statutory GST Tax Invoice issued by SMRITI Retail OS • Page 1 of 1
+              </div>
+            </div>
+          </div>
+        </div>,
+        document.body
       )}
     </div>
   );
