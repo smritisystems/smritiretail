@@ -6,16 +6,17 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 2.0.0
+ * Version      : 6.99.21
  * Created      : 2026-10-16
- * Modified     : 2026-10-28
+ * Modified     : 2026-10-29
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
- * Target UI    : SMRITI Visual Report Designer (Dynamic Classification, Drag-and-Drop Layout & Matrix Pivot)
+ * Target UI    : SMRITI Visual Report Designer with Unified Single-Tree Body Portal Print Engine
  * Classification: Internal
  */
 
 import React, { useState, useEffect, useMemo, useRef } from "react";
+import { createPortal } from "react-dom";
 import {
   Search, Play, Save, Download, SlidersHorizontal, Filter,
   Maximize2, Minimize2, ChevronDown, ChevronRight, ChevronLeft,
@@ -29,7 +30,7 @@ import {
 import { withCapability } from "../../types/architecture.ts";
 import { formatCurrency, formatNumber, formatDate } from "../../utils/formatters.ts";
 import { GlobalExportService } from "../../services/globalExportService.ts";
-import { apiFetchV1 } from "../../lib/apiFetchV1.ts";
+import { apiFetchV1, getTenantCompanyContext } from "../../lib/apiFetchV1.ts";
 import {
   LOGICAL_CATALOG_FIELDS,
   DEFAULT_REPORT_LAYOUT,
@@ -233,8 +234,31 @@ export const ReportBuilderBase: React.FC<ReportBuilderProps> = ({
 
   // Export menu
   const [showExportMenu, setShowExportMenu] = useState<boolean>(false);
+  const [showPrintReportModal, setShowPrintReportModal] = useState<boolean>(false);
   const exportMenuRef = useRef<HTMLDivElement>(null);
   const quickAddRef = useRef<HTMLDivElement>(null);
+
+  const tenantContext = useMemo(() => {
+    if (typeof window !== "undefined") {
+      return getTenantCompanyContext();
+    }
+    return { companyName: "", companyAddress: "", companyGstin: "" };
+  }, []);
+
+  useEffect(() => {
+    if (!showPrintReportModal) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        setShowPrintReportModal(false);
+      } else if (e.key === "F9" || ((e.ctrlKey || e.metaKey) && (e.key === "p" || e.key === "P"))) {
+        e.preventDefault();
+        window.print();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [showPrintReportModal]);
 
   const layoutSignature = useMemo(
     () => [...layout.rows, ...layout.columns, ...layout.values].map((f) => f.key).join(","),
@@ -467,8 +491,8 @@ export const ReportBuilderBase: React.FC<ReportBuilderProps> = ({
   const handleExport = (format: "csv" | "xlsx" | "pdf" | "print") => {
     setShowExportMenu(false);
     if (format === "print" || format === "pdf") {
-      window.print();
-      onNotification?.("success", "Dispatching report print spool...");
+      setShowPrintReportModal(true);
+      onNotification?.("info", "Opening Report Print Preview Portal...");
       return;
     }
     const exportColumns = layout.rows.concat(layout.columns).concat(layout.values).map((c) => ({
@@ -1516,6 +1540,195 @@ export const ReportBuilderBase: React.FC<ReportBuilderProps> = ({
 
         </div>
       </div>
+
+      {/* Unified Single-Tree Body Portal Report Print Studio */}
+      {showPrintReportModal && typeof document !== "undefined" && createPortal(
+        <div className="report-builder-print-modal-root print-preview-visible fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 print:static print:inset-auto print:h-auto print:w-full print:p-0 print:m-0 print:bg-white print:overflow-visible">
+          <style>{`
+            @media print {
+              @page {
+                size: A4 landscape;
+                margin: 8mm 10mm 10mm 10mm;
+              }
+              #root {
+                display: none !important;
+              }
+              html, body {
+                height: auto !important;
+                min-height: 0 !important;
+                overflow: visible !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                background: white !important;
+              }
+              .report-builder-print-modal-root {
+                position: static !important;
+                display: block !important;
+                width: 100% !important;
+                height: auto !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                overflow: visible !important;
+                background: white !important;
+              }
+              .report-builder-print-toolbar,
+              .no-print {
+                display: none !important;
+              }
+              .report-builder-print-container {
+                box-shadow: none !important;
+                border: none !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                max-width: 100% !important;
+                width: 100% !important;
+                background: white !important;
+                color: black !important;
+              }
+            }
+          `}</style>
+
+          <div className="report-builder-print-container bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 max-w-6xl w-full p-6 relative flex flex-col max-h-[92vh] print:max-h-none print:h-auto print:w-full print:p-0 print:border-none print:shadow-none print:rounded-none">
+            {/* Toolbar */}
+            <div className="report-builder-print-toolbar flex justify-between items-center pb-4 mb-4 border-b border-slate-200 dark:border-slate-800 shrink-0 print:hidden">
+              <div className="flex items-center gap-2">
+                <Printer className="text-blue-600 dark:text-blue-400" size={20} />
+                <div>
+                  <h3 className="text-base font-bold text-slate-800 dark:text-slate-100">
+                    Official Report Print Preview ({initialTitle || "Visual Report Designer"})
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    SMRITI Enterprise Single-Tree Body Portal Standard (A4 Landscape)
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  data-testid="report-builder-portal-print-action-btn"
+                  onClick={() => window.print()}
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-sm"
+                >
+                  <Printer size={14} />
+                  <span>Print Report (F9 / Ctrl+P)</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowPrintReportModal(false)}
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-lg text-xs font-bold transition flex items-center gap-1 cursor-pointer"
+                >
+                  <X size={14} />
+                  <span>Close (Esc)</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Printable Content Body */}
+            <div
+              id="report-builder-printable-sheet"
+              className="flex-1 overflow-y-auto space-y-4 text-slate-900 font-sans text-xs p-4 bg-white rounded-lg print:p-0 print:overflow-visible print:border-none"
+            >
+              {/* Header / Company Info */}
+              <div className="flex justify-between items-start border-b-2 border-slate-800 pb-3">
+                <div>
+                  <h1 className="text-lg font-black uppercase tracking-wider text-slate-900">
+                    {tenantContext?.companyName || "SMRITI RETAIL ENTERPRISE"}
+                  </h1>
+                  <p className="text-[10px] text-slate-600">
+                    {tenantContext?.companyAddress || "Retail Business Intelligence & Reporting Centre"}
+                  </p>
+                  {tenantContext?.companyGstin && (
+                    <p className="text-[10px] font-mono text-slate-700">GSTIN: {tenantContext.companyGstin}</p>
+                  )}
+                </div>
+                <div className="text-right">
+                  <div className="inline-block bg-slate-900 text-white font-bold text-[11px] uppercase px-2.5 py-0.5 rounded">
+                    {initialTitle || "Visual Analysis Report"}
+                  </div>
+                  <div className="text-[10px] font-mono text-slate-500 mt-1">
+                    Generated: {new Date().toLocaleString()}
+                  </div>
+                  <div className="text-[10px] font-mono text-slate-700">
+                    Branch: {branchFilter} | Period: {dateRange.start} to {dateRange.end}
+                  </div>
+                </div>
+              </div>
+
+              {/* Layout Config Ribbon */}
+              <div className="grid grid-cols-4 gap-3 bg-slate-50 border border-slate-200 rounded p-2.5 text-[11px]">
+                <div>
+                  <span className="text-slate-500 font-semibold">Row Dimensions: </span>
+                  <span className="font-bold text-slate-800 font-mono">
+                    {layout.rows.map(r => r.customLabel || r.label).join(" › ") || "None"}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-slate-500 font-semibold">Column Dimensions: </span>
+                  <span className="font-bold text-blue-700 font-mono">
+                    {layout.columns.map(c => c.customLabel || c.label).join(" › ") || "None"}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-slate-500 font-semibold">Measures / Aggregations: </span>
+                  <span className="font-bold text-emerald-700 font-mono">
+                    {layout.values.map(v => `${v.customLabel || v.label} (${v.aggregation || "SUM"})`).join(", ") || "None"}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-slate-500 font-semibold">Dataset Records: </span>
+                  <span className="font-bold text-slate-900 font-mono">{data.length}</span>
+                </div>
+              </div>
+
+              {/* Table Data Preview */}
+              <table className="w-full text-left border-collapse text-[10px]">
+                <thead>
+                  <tr className="border-b-2 border-slate-400 bg-slate-100 font-bold text-slate-700 uppercase">
+                    <th className="py-1 px-1.5 w-8">#</th>
+                    {layout.rows.concat(layout.columns).map((col, idx) => (
+                      <th key={idx} className="py-1 px-1.5">{col.customLabel || col.label}</th>
+                    ))}
+                    {layout.values.map((val, idx) => (
+                      <th key={idx} className="py-1 px-1.5 text-right">{val.customLabel || val.label}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.slice(0, 40).map((row, idx) => (
+                    <tr key={idx} className="border-b border-slate-200 hover:bg-slate-50">
+                      <td className="py-1 px-1.5 text-slate-500 font-mono">{idx + 1}</td>
+                      {layout.rows.concat(layout.columns).map((col, cIdx) => (
+                        <td key={cIdx} className="py-1 px-1.5 font-medium text-slate-800">
+                          {String(row[col.key] ?? "—")}
+                        </td>
+                      ))}
+                      {layout.values.map((val, vIdx) => {
+                        const numVal = Number(row[val.key] ?? 0);
+                        return (
+                          <td key={vIdx} className="py-1 px-1.5 text-right font-mono font-medium">
+                            {val.format === "Currency" ? `₹${numVal.toFixed(2)}` : numVal.toLocaleString()}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+
+              {/* Sign-off */}
+              <div className="pt-4 border-t border-slate-300 flex justify-between items-center text-[9px] text-slate-500">
+                <div>
+                  <span>SMRITI Business Intelligence Engine • Verified Ledger Record</span>
+                </div>
+                <div>
+                  <span>Page 1 of 1 • System Generated Analysis</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
     </div>
   );
 };

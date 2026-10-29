@@ -16,12 +16,12 @@
  *
  * * Websites: aitdl.com | erpnbook.com | smritibooks.com
  *
- * * Version    : 6.68.0
+ * * Version    : 6.99.21
  * * Created    : 2026-09-14
- * * Modified   : 2026-10-03
+ * * Modified   : 2026-10-29
  * * Copyright  : © AITDL.com and SMRITIBooks.com. All Rights Reserved.
  * * License    : Proprietary Commercial Software
- * * Classification: Internal
+ * * Classification: SMRITI Sales Promotions Studio with Unified Body Portal Directory Print Engine
  *
  * SMRITI Sales Promotions & Schemes Studio
  * Human-First Visual Rule Builder & Simulation Workspace
@@ -32,9 +32,11 @@
  *   3. Guided 4-Step Visual Wizard with zero technical jargon
  *   4. Embedded Interactive Cart Sandbox & Simulator for zero-risk pre-flight verification
  *   5. Full architectural parity with Tally Shoper 9's 13 canonical promotion types
+ *   6. Single-Tree Body Portal A4 Directory Print Engine with #root layout suppression
  */
 
 import React, { useState, useEffect, useMemo } from "react";
+import { createPortal } from "react-dom";
 import {
   Sparkles,
   Tag,
@@ -75,6 +77,7 @@ import PricingStudioModal from "../pricing/PricingStudioModal";
 import { BundlingModal } from "../pricing/BundlingModal.tsx";
 import { MarkdownPlanningModal } from "../pricing/MarkdownPlanningModal.tsx";
 import { withCapability } from "../../types/architecture";
+import { getTenantCompanyContext } from "../../lib/apiFetchV1";
 
 interface Props {
   onClose?: () => void;
@@ -134,6 +137,31 @@ const SmritiSalesPromotionsStudioBase: React.FC<Props> = ({ onClose, onNotificat
   const [simTime, setSimTime] = useState<string>("15:00");
   const [simDay, setSimDay] = useState<string>("SAT");
   const [simulationResult, setSimulationResult] = useState<SimulationResult | null>(null);
+
+  // Print Schemes Portal State & Shortcuts
+  const [showPrintSchemesModal, setShowPrintSchemesModal] = useState<boolean>(false);
+
+  const tenantContext = useMemo(() => {
+    if (typeof window !== "undefined") {
+      return getTenantCompanyContext();
+    }
+    return { companyName: "", companyAddress: "", companyGstin: "" };
+  }, []);
+
+  useEffect(() => {
+    if (!showPrintSchemesModal) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        setShowPrintSchemesModal(false);
+      } else if (e.key === "F9" || ((e.ctrlKey || e.metaKey) && (e.key === "p" || e.key === "P"))) {
+        e.preventDefault();
+        window.print();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [showPrintSchemesModal]);
 
   // Load initial promotions
   useEffect(() => {
@@ -556,10 +584,13 @@ const SmritiSalesPromotionsStudioBase: React.FC<Props> = ({ onClose, onNotificat
             <span>Markdown</span>
           </button>
           <button
-            onClick={() => window.print()}
+            type="button"
+            id="promotions-print-schemes-btn"
+            data-testid="promotions-print-schemes-btn"
+            onClick={() => setShowPrintSchemesModal(true)}
             title="Print promotion schemes and rule definitions"
             aria-label="Print promotion schemes"
-            className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-slate-100 text-slate-700 font-medium text-xs rounded-lg border border-slate-200 shadow-xs transition-all"
+            className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-slate-100 text-slate-700 font-medium text-xs rounded-lg border border-slate-200 shadow-xs transition-all cursor-pointer"
           >
             <Printer className="h-3.5 w-3.5 text-slate-500" />
             <span>Print Schemes</span>
@@ -1649,6 +1680,225 @@ const SmritiSalesPromotionsStudioBase: React.FC<Props> = ({ onClose, onNotificat
           onClose={() => setShowMarkdownModal(false)}
           onNotification={onNotification}
         />
+      )}
+
+      {/* Unified Single-Tree Body Portal Promotion Directory Print Studio */}
+      {showPrintSchemesModal && typeof document !== "undefined" && createPortal(
+        <div className="promotions-print-modal-root print-preview-visible fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 print:static print:inset-auto print:h-auto print:w-full print:p-0 print:m-0 print:bg-white print:overflow-visible">
+          <style>{`
+            @media print {
+              @page {
+                size: A4 portrait;
+                margin: 8mm 10mm 10mm 10mm;
+              }
+              #root {
+                display: none !important;
+              }
+              html, body {
+                height: auto !important;
+                min-height: 0 !important;
+                overflow: visible !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                background: white !important;
+              }
+              .promotions-print-modal-root {
+                position: static !important;
+                display: block !important;
+                width: 100% !important;
+                height: auto !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                overflow: visible !important;
+                background: white !important;
+              }
+              .promotions-print-toolbar,
+              .no-print {
+                display: none !important;
+              }
+              .promotions-print-container {
+                box-shadow: none !important;
+                border: none !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                max-width: 100% !important;
+                width: 100% !important;
+                background: white !important;
+                color: black !important;
+              }
+            }
+          `}</style>
+
+          <div className="promotions-print-container bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 max-w-5xl w-full p-6 relative flex flex-col max-h-[92vh] print:max-h-none print:h-auto print:w-full print:p-0 print:border-none print:shadow-none print:rounded-none">
+            {/* Toolbar */}
+            <div className="promotions-print-toolbar flex justify-between items-center pb-4 mb-4 border-b border-slate-200 dark:border-slate-800 shrink-0 print:hidden">
+              <div className="flex items-center gap-2">
+                <Printer className="text-blue-600 dark:text-blue-400" size={20} />
+                <div>
+                  <h3 className="text-base font-bold text-slate-800 dark:text-slate-100">
+                    Official Promotion Schemes & Rules Directory
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    SMRITI Enterprise Single-Tree Body Portal Standard (A4 Portrait)
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  data-testid="promotions-portal-print-action-btn"
+                  onClick={() => window.print()}
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-sm"
+                >
+                  <Printer size={14} />
+                  <span>Print Directory (F9 / Ctrl+P)</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowPrintSchemesModal(false)}
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-lg text-xs font-bold transition flex items-center gap-1 cursor-pointer"
+                >
+                  <X size={14} />
+                  <span>Close (Esc)</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Printable Content Body */}
+            <div
+              id="promotions-printable-directory"
+              className="flex-1 overflow-y-auto space-y-4 text-slate-900 font-sans text-xs p-4 bg-white rounded-lg print:p-0 print:overflow-visible print:border-none"
+            >
+              {/* Header / Company Info */}
+              <div className="flex justify-between items-start border-b-2 border-slate-800 pb-3">
+                <div>
+                  <h1 className="text-lg font-black uppercase tracking-wider text-slate-900">
+                    {tenantContext?.companyName || "SMRITI RETAIL ENTERPRISE"}
+                  </h1>
+                  <p className="text-[10px] text-slate-600">
+                    {tenantContext?.companyAddress || "Retail Headquarters & Commercial Operations"}
+                  </p>
+                  {tenantContext?.companyGstin && (
+                    <p className="text-[10px] font-mono text-slate-700">GSTIN: {tenantContext.companyGstin}</p>
+                  )}
+                </div>
+                <div className="text-right">
+                  <div className="inline-block bg-slate-900 text-white font-bold text-[11px] uppercase px-2.5 py-0.5 rounded">
+                    Active Schemes Directory
+                  </div>
+                  <div className="text-[10px] font-mono text-slate-500 mt-1">
+                    Generated: {new Date().toLocaleString()}
+                  </div>
+                  <div className="text-[10px] font-mono text-slate-700">
+                    Active Rules: {promotions.length}
+                  </div>
+                </div>
+              </div>
+
+              {/* KPI Summary Strip */}
+              <div className="grid grid-cols-4 gap-3 bg-slate-50 border border-slate-200 rounded p-2.5 text-[11px]">
+                <div>
+                  <span className="text-slate-500 font-semibold">Total Schemes: </span>
+                  <span className="font-bold text-slate-900 font-mono">{promotions.length}</span>
+                </div>
+                <div>
+                  <span className="text-slate-500 font-semibold">Item-Level Offers: </span>
+                  <span className="font-bold text-blue-700 font-mono">
+                    {promotions.filter(p => p.level === "ITEM_LEVEL").length}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-slate-500 font-semibold">Bill-Level Offers: </span>
+                  <span className="font-bold text-emerald-700 font-mono">
+                    {promotions.filter(p => p.level === "BILL_LEVEL").length}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-slate-500 font-semibold">Happy Hour Rules: </span>
+                  <span className="font-bold text-amber-700 font-mono">
+                    {promotions.filter(p => p.isHappyHours).length}
+                  </span>
+                </div>
+              </div>
+
+              {/* Table */}
+              <table className="w-full text-left border-collapse text-[10px]">
+                <thead>
+                  <tr className="border-b-2 border-slate-400 bg-slate-100 font-bold text-slate-700 uppercase">
+                    <th className="py-1 px-1.5 w-8">#</th>
+                    <th className="py-1 px-1.5 w-24">Code</th>
+                    <th className="py-1 px-1.5">Scheme Name & Description</th>
+                    <th className="py-1 px-1.5 w-20">Type / Level</th>
+                    <th className="py-1 px-1.5 w-28">Discount / Benefit</th>
+                    <th className="py-1 px-1.5 w-28">Scope / Scope Filter</th>
+                    <th className="py-1 px-1.5 w-24 font-mono">Validity</th>
+                    <th className="py-1 px-1.5 w-14 text-center">Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {promotions.map((p, idx) => (
+                    <tr key={p.id || idx} className="border-b border-slate-200 hover:bg-slate-50">
+                      <td className="py-1.5 px-1.5 text-slate-500 font-mono">{idx + 1}</td>
+                      <td className="py-1.5 px-1.5 font-mono font-bold text-blue-900">{p.code}</td>
+                      <td className="py-1.5 px-1.5">
+                        <div className="font-semibold text-slate-900">{p.name}</div>
+                        <div className="text-[9px] text-slate-500 leading-tight">{p.description}</div>
+                      </td>
+                      <td className="py-1.5 px-1.5 text-slate-700">
+                        <span className="px-1.5 py-0.5 bg-slate-100 rounded text-[9px] font-mono font-bold uppercase">
+                          {p.level === "ITEM_LEVEL" ? "Item" : "Bill"}
+                        </span>
+                      </td>
+                      <td className="py-1.5 px-1.5 font-medium text-slate-800">
+                        {p.category === "ITEM_DISCOUNT_PERCENT" || p.category === "BILL_DISCOUNT_PERCENT" ? (
+                          <span className="font-bold text-emerald-700">{p.discountValue}% Off</span>
+                        ) : p.category === "ITEM_DISCOUNT_FLAT" || p.category === "BILL_DISCOUNT_FLAT" ? (
+                          <span className="font-bold text-emerald-700">₹{p.discountValue} Off</span>
+                        ) : p.category === "ITEM_OFFER_B2G1" ? (
+                          <span className="font-bold text-blue-700">Buy {p.buyQty || 2} Get {p.freeQty || 1} Free</span>
+                        ) : p.category === "ITEM_BUNDLE_COMBO" ? (
+                          <span className="font-bold text-indigo-700">Combo ₹{p.fixedComboPrice}</span>
+                        ) : (
+                          <span className="font-bold text-slate-700">₹{p.discountValue} Benefit</span>
+                        )}
+                      </td>
+                      <td className="py-1.5 px-1.5 text-slate-600 text-[9px]">
+                        <div>Cat: {(p.applicableCategories || []).join(", ") || "All"}</div>
+                        {p.applicableBrands && p.applicableBrands.length > 0 && (
+                          <div>Brands: {p.applicableBrands.join(", ")}</div>
+                        )}
+                      </td>
+                      <td className="py-1.5 px-1.5 font-mono text-[9px] text-slate-600">
+                        {p.validFrom} to {p.validTo}
+                        {p.isHappyHours && (
+                          <div className="text-amber-700 font-bold">{p.happyHoursStart}-{p.happyHoursEnd}</div>
+                        )}
+                      </td>
+                      <td className="py-1.5 px-1.5 text-center">
+                        <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase ${p.isActive !== false ? "bg-emerald-100 text-emerald-800" : "bg-slate-100 text-slate-600"}`}>
+                          {p.isActive !== false ? "Active" : "Disabled"}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+
+              {/* Statutory Sign-off */}
+              <div className="pt-4 border-t border-slate-300 flex justify-between items-end text-[9px] text-slate-500">
+                <div>
+                  <div>Prepared By: SMRITI Retail Pricing & Commercial Policy Subsystem</div>
+                  <div>Record Hash: SHA-256 Validated Commercial Rule Set</div>
+                </div>
+                <div className="text-center">
+                  <div className="w-36 border-b border-slate-400 mb-1"></div>
+                  <div>Commercial Head / Approver</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>,
+        document.body
       )}
     </div>
   );

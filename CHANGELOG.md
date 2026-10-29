@@ -1,5 +1,41 @@
 <!--
 
+## [6.99.21] - 2026-10-29 - Print Engine: Platform-Wide Modal Unification & Layout Safety (Phase 10: Promotions Schemes, Visual Report Designer, Desk Reference & Global Print Store Engine) v1.0.0
+
+### Fixed
+- `src/print_engine/print_store.tsx`:
+  - Enhanced central `PrintPortal` component with active `@media print { #root { display: none !important; } }` and static block unrolling styles to guarantee layout isolation for all jobs dispatched through the global print store engine.
+- `src/components/promotions/SmritiSalesPromotionsStudio.tsx`:
+  - Replaced bare `window.print()` trigger with dedicated `setShowPrintSchemesModal(true)` preview state.
+  - Mounted official Promotions & Discount Schemes Directory (`#promotions-printable-directory`) to `document.body` via `createPortal`.
+  - Injected dedicated `@media print` style sheet enforcing `@page { size: A4 portrait; margin: 8mm 10mm 10mm 10mm; }`, `#root { display: none !important; }`, and static block unrolling on `.promotions-print-modal-root`.
+  - Excluded preview command toolbar (`.promotions-print-toolbar` with `print:hidden`) from printed output.
+  - Added universal `Escape` (dismiss preview) and `F9` / `Ctrl+P` (instant print) keyboard shortcuts.
+- `src/components/reports/ReportBuilder.tsx`:
+  - Replaced bare `window.print()` call in `handleExport` with dedicated `setShowPrintReportModal(true)` preview state.
+  - Mounted Visual Report Designer Matrix Sheet (`#report-builder-printable-sheet`) to `document.body` via `createPortal`.
+  - Injected dedicated `@media print` style sheet enforcing `@page { size: A4 landscape; margin: 8mm 10mm 10mm 10mm; }`, `#root { display: none !important; }`, and static block unrolling on `.report-builder-print-modal-root`.
+  - Excluded preview command toolbar (`.report-builder-print-toolbar`) from printed output.
+  - Added universal `Escape` and `F9` / `Ctrl+P` keyboard shortcuts.
+- `src/components/AboutSmritiTab.tsx`:
+  - Replaced bare `window.print()` in breadcrumb bar with dedicated `setShowPrintDeskModal(true)` preview state.
+  - Mounted Platform Reference Desk Dossier (`#about-desk-printable-dossier`) to `document.body` via `createPortal`.
+  - Injected dedicated `@media print` style sheet enforcing `@page { size: A4 portrait; margin: 8mm 10mm 10mm 10mm; }`, `#root { display: none !important; }`, and static block unrolling on `.about-desk-print-modal-root`.
+  - Excluded preview command toolbar (`.about-desk-print-toolbar`) from printed output.
+  - Added universal `Escape` and `F9` / `Ctrl+P` keyboard shortcuts.
+
+### Added
+- `src/tests/smritiSalesPromotionsPrint.test.tsx`:
+  - Automated Vitest verification suite with 3 tests certifying Sales Promotions Studio schemes directory portal architecture.
+- `src/tests/reportBuilderPrint.test.tsx`:
+  - Automated Vitest verification suite with 3 tests certifying Visual Report Designer A4 landscape portal architecture.
+- `src/tests/aboutSmritiTabPrint.test.tsx`:
+  - Automated Vitest verification suite with 3 tests certifying Reference Desk dossier portal architecture.
+- `docs/walkthrough/print/Print_Engine_Modal_Unification_Phase10_Walkthrough_v1.0.0.md`:
+  - Formal 13-section WGP walkthrough document.
+- `docs/walkthrough/README.md`:
+  - Appended entry `v3.153.0`.
+
 ## [6.99.20] - 2026-10-29 - Print Engine: Platform-Wide Modal Unification & Layout Safety (Phase 9: Billing Studio Receipts, Entity Dossiers & Inventory Manifests) v1.0.0
 
 ### Fixed

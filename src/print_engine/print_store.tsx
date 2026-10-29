@@ -16,11 +16,12 @@
  *
  * * Websites: aitdl.com | erpnbook.com | smritibooks.com
  *
- * * Version    : 6.82.0
+ * * Version    : 6.99.21
  * * Created    : 2026-07-10
- * * Modified   : 2026-10-15
+ * * Modified   : 2026-10-29
  * * Copyright  : © AITDL.com and SMRITIBooks.com. All Rights Reserved.
  * * License    : Proprietary Commercial Software
+ * * Classification: SMRITI Print Engine Store with Single-Tree Body Portal Architecture
  */
 
 import React, { createContext, useContext, useState, ReactNode, useCallback } from "react";
@@ -422,9 +423,34 @@ const PrintPortal: React.FC<{ request: PrintRequest; templates: PrintTemplate[] 
   if (!template) return null;
   const Component = template.component;
 
-  // We append to document.body so it is a direct child and easier to manage with @media print
+  // We append to document.body so it is a direct child and strictly suppresses #root in print
   return createPortal(
-    <div className="print-only-container">
+    <div className="print-only-container print-preview-visible print:static print:inset-auto print:h-auto print:w-full print:p-0 print:m-0 print:bg-white print:overflow-visible">
+      <style>{`
+        @media print {
+          #root {
+            display: none !important;
+          }
+          html, body {
+            height: auto !important;
+            min-height: 0 !important;
+            overflow: visible !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            background: white !important;
+          }
+          .print-only-container {
+            display: block !important;
+            position: static !important;
+            width: 100% !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            overflow: visible !important;
+            background: white !important;
+            color: black !important;
+          }
+        }
+      `}</style>
       <Component data={request.data} />
     </div>,
     document.body
