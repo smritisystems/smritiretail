@@ -5,17 +5,18 @@
 ### Added
 - `src/print_engine/templates/PurchaseOrderPrintA4.tsx`:
   - Added `imageColumns?: 2 | 4` support to `PurchaseOrderPrintData`.
-  - Increased 2-column card image container height from `92px` to `118px` (+28% larger) for clear detail inspection while preserving 1-page fit for 1-2 articles.
-  - Added 4-column compact layout (`grid-cols-4`, `78px` image height, micro typography) enabling 4 article images to fit side-by-side on a single horizontal row on 1 page.
+  - Upgraded 2-column card image layout to a **Full-Width Framed Catalogue Canvas** (`w-full bg-[#f8fafc] border border-slate-200/80 rounded-md p-1`) with height increased from `92px` to `138px` (+50% height increase, +125% area) for maximum visual fidelity and edge-to-edge card fit on Page 1.
+  - Eliminated hardcoded `92px` ceiling in `GoldenRatioImagePlaceholder`, enabling seamless responsive expansion up to 230px x 138px while preserving intrinsic 5:3 proportions.
+  - Added 4-column compact layout (`grid-cols-4`, `82px` image height, micro typography) enabling 4 article images to fit side-by-side on a single horizontal row on 1 page.
   - Added dynamic layout badges: `2 images per row • Large preview` vs `4 images per row • Compact preview`.
 - `src/components/purchase/POPrintPreviewModal.tsx`:
-  - Added **Grid Density Selector** (`Auto`, `2 / Row (Large 118px)`, `4 / Row (Fit 1 Page)`) to modal header toolbar.
+  - Added **Grid Density Selector** (`Auto`, `2 / Row (Large 138px)`, `4 / Row (Fit 1 Page • 82px)`) to modal header toolbar.
   - Added **Article Selector Popover** with quick action buttons (`All`, `Top 2`, `Top 4`, `None`) and individual article checkboxes.
   - Added intelligent auto-calculation: automatically defaults to 2 columns for <= 2 items and 4 columns for 3+ items, with instant user manual override.
   - Filtered `mappedItemReferences` based on user selection, allowing targeted photo printing without modifying the comprehensive statutory line items.
   - Added browser `localStorage` persistence for operator preferences (`smriti_po_image_grid_setting` and `smriti_po_item_reference_fields`).
 - `src/tests/poPrintBrandingAndTerms.test.tsx`:
-  - Added test case validating dynamic image columns (2 per row large 118px vs 4 per row compact 78px).
+  - Added test case validating dynamic image columns (2 per row large 138px full-width canvas vs 4 per row compact 82px).
 - `docs/walkthrough/purchase/Purchase_Order_Print_Image_Grid_Selection_Walkthrough_v1.0.0.md`:
   - Created formal 13-section Walkthrough Governance Policy (WGP) document.
 

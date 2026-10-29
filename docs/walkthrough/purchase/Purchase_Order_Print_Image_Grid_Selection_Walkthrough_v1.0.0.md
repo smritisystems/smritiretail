@@ -1,32 +1,34 @@
 # SMRITI Retail OS Walkthrough: Purchase Order Print Image Grid & Selective Item Imagery v1.0.0
 
 ## 1. Purpose
-This walkthrough documents the design, implementation, and verification of dynamic image density controls and selective product photography printing in the Purchase Order Print Engine (`PurchaseOrderPrintA4.tsx`) and Print Preview Workspace (`POPrintPreviewModal.tsx`). It provides procurement operators with complete flexibility to print either large high-detail images (2 per row at 118px height) or compact single-page layouts (4 per row at 78px height), alongside fine-grained article selection checkboxes with quick presets (`All`, `Top 2`, `Top 4`, `None`).
+This walkthrough documents the design, implementation, and verification of dynamic image density controls, full-width framed catalogue canvas, and selective product photography printing in the Purchase Order Print Engine (`PurchaseOrderPrintA4.tsx`) and Print Preview Workspace (`POPrintPreviewModal.tsx`). It provides procurement operators with complete flexibility to print either large high-detail images (2 per row on a 138px full-width framed canvas, +50% height increase) or compact single-page layouts (4 per row at 82px height), alongside fine-grained article selection checkboxes with quick presets (`All`, `Top 2`, `Top 4`, `None`).
 
 ## 2. Scope
 - **Print Engine Template (`PurchaseOrderPrintA4.tsx`)**:
   - Extended `PurchaseOrderPrintData` with `imageColumns?: 2 | 4`.
-  - Implemented responsive image container height: `118px` for 2-column mode (+28% larger visual preview) and `78px` for 4-column mode (compact single-page fit).
+  - Implemented responsive full-width framed catalogue canvas (`bg-[#f8fafc] border border-slate-200/80 rounded-md p-1`): `138px` for 2-column mode (+50% larger visual preview, eliminating excess side margins) and `82px` for 4-column mode (compact single-page fit).
+  - Unlocked `GoldenRatioImagePlaceholder` from hardcoded `92px` ceiling, allowing responsive expansion up to 230px x 138px while maintaining intrinsic 5:3 proportions.
   - Dynamically styled card headers, attribute typography, and grid containers (`grid-cols-2` vs `grid-cols-4`).
 - **Preview Modal Controls (`POPrintPreviewModal.tsx`)**:
-  - Added `Grid Density` selector dropdown (`Auto`, `2 / Row (Large 118px)`, `4 / Row (Fit 1 Page)`).
+  - Added `Grid Density` selector dropdown (`Auto`, `2 / Row (Large 138px)`, `4 / Row (Fit 1 Page • 82px)`).
   - Added interactive `Select Photos` popover checklist with fast filtering presets (`All`, `Top 2`, `Top 4`, `None`) and per-article toggle checkboxes.
+  - Added browser `localStorage` persistence for operator preferences (`smriti_po_image_grid_setting`, `smriti_po_item_reference_fields`).
   - Automatically derived non-selected items to remain purely in the tabular item details, keeping physical printouts strictly bounded to Page 1 of 1 when desired.
 - **Automated Verification**:
-  - Added unit test coverage in `src/tests/poPrintBrandingAndTerms.test.tsx` verifying both 2-column and 4-column rendering, container height styles, and layout badges.
+  - Added unit test coverage in `src/tests/poPrintBrandingAndTerms.test.tsx` verifying both 2-column (138px full-width canvas) and 4-column (82px) rendering, container styles, and layout badges.
 
 ## 3. Files Created
 - `docs/walkthrough/purchase/Purchase_Order_Print_Image_Grid_Selection_Walkthrough_v1.0.0.md`: This 13-section WGP walkthrough document.
 
 ## 4. Files Modified
-- `src/print_engine/templates/PurchaseOrderPrintA4.tsx`: Added `imageColumns?: 2 | 4`, dynamic `118px`/`78px` container heights, and 4-column grid support.
+- `src/print_engine/templates/PurchaseOrderPrintA4.tsx`: Added `imageColumns?: 2 | 4`, full-width framed canvas, dynamic `138px`/`82px` container heights, unlocked placeholder ceiling, and 4-column grid support.
 - `src/components/purchase/POPrintPreviewModal.tsx`: Added `imageGridSetting` state, `selectedArticleCodes` state, Grid density selector, Photos selection checklist popover, and `localStorage` preference persistence (`smriti_po_image_grid_setting`, `smriti_po_item_reference_fields`).
-- `src/tests/poPrintBrandingAndTerms.test.tsx`: Added test case 12 verifying dynamic image columns.
+- `src/tests/poPrintBrandingAndTerms.test.tsx`: Added test case 12 verifying dynamic image columns (138px vs 82px).
 - `CHANGELOG.md`: Appended version `[6.99.5]`.
 - `docs/walkthrough/README.md`: Appended index entry for `v3.137.0`.
 
 ## 5. Architecture Decisions
-- **Decision 1: Dual-Density Physical Layout (2 vs 4)**: Rather than an arbitrary slider that might cause unpredictable page breaks across different printer drivers, two calibrated physical grid presets are provided: 2-per-row at 118px (optimized for visual clarity on 1-2 styles) and 4-per-row at 78px (optimized for single-page containment on 3-4 styles).
+- **Decision 1: Full-Width Framed Catalogue Canvas (2 vs 4)**: Rather than an arbitrary slider that might cause unpredictable page breaks across different printer drivers, two calibrated physical grid presets are provided: 2-per-row at 138px on a full-width framed canvas (optimized for visual clarity and edge-to-edge card balance on 1-2 styles) and 4-per-row at 82px (optimized for single-page containment on 3-4 styles).
 - **Decision 2: Non-Destructive Article Imagery Filtering**: Selecting which articles to print images for only filters the visual card gallery in the `ITEM REFERENCE (IMAGES)` section; the statutory tabular line items remain 100% complete and intact in the main order grid.
 
 ## 6. Design Rationale

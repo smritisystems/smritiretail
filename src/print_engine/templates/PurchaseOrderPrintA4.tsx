@@ -154,17 +154,16 @@ export const GoldenRatioImagePlaceholder: React.FC<{
 }> = ({ articleNo, className = "" }) => {
   return (
     <div
-      className={`relative w-full flex items-center justify-center overflow-hidden select-none ${className}`}
+      className={`relative w-full h-full flex items-center justify-center overflow-hidden select-none ${className}`}
       style={{
         aspectRatio: "5 / 3",
-        maxHeight: "92px",
       }}
       title={`Image placeholder for ${articleNo || "article"}`}
     >
       <img
         src={smritiImagePlaceholder || "/smriti-image-placeholder.png"}
         alt="Image Not Available"
-        className="max-h-full max-w-full object-contain"
+        className="max-h-full max-w-full w-auto h-auto object-contain"
         onError={(e) => {
           const img = e.currentTarget;
           if (img.src !== window.location.origin + "/smriti-image-placeholder.png") {
@@ -821,19 +820,19 @@ export const PurchaseOrderPrintA4: React.FC<{ data: PurchaseOrderPrintData }> = 
                     </div>
                   )}
 
-                  {/* Rectangular 5:3 Preview Image (No border/decorations around placeholder) */}
+                  {/* Full-Width Framed Preview Image Canvas */}
                   <div
-                    className="w-full flex items-center justify-center overflow-hidden relative"
+                    className="w-full flex items-center justify-center overflow-hidden relative bg-[#f8fafc] border border-slate-200/80 rounded-md p-1"
                     style={{
-                      aspectRatio: "5 / 3",
-                      maxHeight: imageCols === 4 ? "78px" : "118px",
+                      height: imageCols === 4 ? "82px" : "138px",
+                      maxHeight: imageCols === 4 ? "82px" : "138px",
                     }}
                   >
                     {Boolean(ref.imageUrl && ref.imageUrl.trim() && ref.imageUrl.trim().toLowerCase() !== "null" && ref.imageUrl.trim().toLowerCase() !== "undefined") ? (
                       <img
                         src={ref.imageUrl}
                         alt={ref.articleNo}
-                        className="max-h-full max-w-full object-contain"
+                        className="max-h-full max-w-full w-auto h-auto object-contain"
                         onError={(e) => {
                           const imgElem = e.currentTarget;
                           imgElem.src = smritiImagePlaceholder || "/smriti-image-placeholder.png";
