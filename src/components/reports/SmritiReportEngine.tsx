@@ -4,15 +4,16 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 3.30.0
+ * Version      : 6.99.19
  * Created      : 2026-08-27
- * Modified     : 2026-08-27
+ * Modified     : 2026-10-29
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
- * Classification: Internal
+ * Classification: Multi-Dimensional Report Engine with Unified A4 Landscape Body Portal Print Studio
  */
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
+import { createPortal } from "react-dom";
 import {
   Calendar,
   Download,
@@ -40,7 +41,8 @@ import {
   PanelRight,
   Clock,
   CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  X
 } from "lucide-react";
 import { formatCurrency, formatNumber, formatDate } from "../../utils/formatters";
 import { GlobalExportService } from "../../services/globalExportService";
@@ -130,6 +132,30 @@ export const SmritiReportEngine: React.FC<SmritiReportEngineProps> = ({
   const [preparedStatus, setPreparedStatus] = useState<string | null>(null);
   const [preparedProgress, setPreparedProgress] = useState<number>(0);
   const [isPreparing, setIsPreparing] = useState<boolean>(false);
+
+  // Print Preview Modal State
+  const [isPrintModalOpen, setIsPrintModalOpen] = useState<boolean>(false);
+  const tenantContext = useMemo(() => {
+    if (typeof window !== "undefined") {
+      return getTenantCompanyContext();
+    }
+    return { companyName: "", companyAddress: "", companyGstin: "" };
+  }, []);
+
+  useEffect(() => {
+    if (!isPrintModalOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        setIsPrintModalOpen(false);
+      } else if (e.key === "F9" || ((e.ctrlKey || e.metaKey) && (e.key === "p" || e.key === "P"))) {
+        e.preventDefault();
+        window.print();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isPrintModalOpen]);
 
 
   // Auto-detect columns if not provided
@@ -357,7 +383,7 @@ export const SmritiReportEngine: React.FC<SmritiReportEngineProps> = ({
     }
 
     if (format === "pdf") {
-      window.print();
+      setIsPrintModalOpen(true);
       return;
     }
 
@@ -1230,6 +1256,270 @@ export const SmritiReportEngine: React.FC<SmritiReportEngineProps> = ({
             </button>
           </div>
         </aside>
+      )}
+
+      {/* ── Official Report Ledger Print Preview (Body Portal) ── */}
+      {isPrintModalOpen && typeof document !== "undefined" && createPortal(
+        <div
+          className="smriti-report-modal-root print-preview-visible fixed inset-0 z-50 flex flex-col bg-slate-900/60 dark:bg-slate-950/80 backdrop-blur-xs overflow-y-auto print:static print:inset-auto print:h-auto print:w-full print:p-0 print:m-0 print:bg-white print:overflow-visible"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Report Ledger Print Preview"
+        >
+          <style>{`
+            @media print {
+              @page {
+                size: A4 landscape;
+                margin: 8mm 10mm 10mm 10mm;
+              }
+              #root {
+                display: none !important;
+              }
+              html, body {
+                height: auto !important;
+                min-height: 0 !important;
+                overflow: visible !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                background: white !important;
+              }
+              .smriti-report-modal-root {
+                position: static !important;
+                display: block !important;
+                width: 100% !important;
+                height: auto !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                overflow: visible !important;
+                background: white !important;
+              }
+              .smriti-report-toolbar,
+              .no-print {
+                display: none !important;
+              }
+              .smriti-report-canvas-wrapper {
+                display: block !important;
+                width: 100% !important;
+                height: auto !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                overflow: visible !important;
+                background: white !important;
+              }
+              .smriti-report-printable-sheet {
+                box-shadow: none !important;
+                border: none !important;
+                margin: 0 auto !important;
+                padding: 0 !important;
+                max-width: 100% !important;
+                visibility: visible !important;
+                background: white !important;
+              }
+            }
+          `}</style>
+
+          {/* Floating Toolbar */}
+          <div className="smriti-report-toolbar h-16 px-6 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between shadow-sm shrink-0 print:hidden">
+            <div className="flex items-center space-x-3">
+              <div className="p-2 rounded-lg bg-indigo-50 dark:bg-indigo-600/20 border border-indigo-200 dark:border-indigo-500/30 text-indigo-600 dark:text-indigo-400">
+                <Printer size={20} />
+              </div>
+              <div>
+                <h2 className="text-sm font-bold text-slate-900 dark:text-white flex items-center space-x-2">
+                  <span>Report Ledger Print Studio</span>
+                  <span className="font-mono text-[10px] bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300">
+                    A4 LANDSCAPE
+                  </span>
+                </h2>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  {reportTitle} ({reportId}) • {filteredData.length} records in active scope
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center space-x-3">
+              <button
+                onClick={() => window.print()}
+                data-testid="smriti-report-print-btn"
+                className="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-md shadow-indigo-600/20 flex items-center space-x-2 transition cursor-pointer"
+              >
+                <Printer size={15} />
+                <span>Print Ledger (F9 / Ctrl+P)</span>
+              </button>
+              <button
+                onClick={() => setIsPrintModalOpen(false)}
+                className="p-2 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white transition cursor-pointer"
+                title="Close Preview (Esc)"
+              >
+                <X size={18} />
+              </button>
+            </div>
+          </div>
+
+          {/* Viewport Canvas */}
+          <div className="smriti-report-canvas-wrapper flex-1 overflow-y-auto p-8 bg-slate-100/90 dark:bg-slate-950 flex justify-center print:p-0 print:m-0 print:block print:bg-white print:overflow-visible">
+            <div className="smriti-report-printable-sheet bg-white text-slate-900 p-8 max-w-[1100px] w-full min-h-[750px] text-[10px] font-sans leading-relaxed shadow-xl rounded border border-slate-200 print:shadow-none print:border-none print:max-w-none print:w-full print:rounded-none">
+              {/* Header */}
+              <div className="border-b-2 border-slate-900 pb-3 mb-4">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <h1 className="text-lg font-black uppercase tracking-tight text-slate-950">
+                      {tenantContext.companyName || "SMRITI ENTERPRISES LTD"}
+                    </h1>
+                    <p className="text-xs text-slate-600 font-medium mt-0.5">
+                      {tenantContext.companyAddress || "101, Corporate Hub, Nariman Point, Mumbai - 400021"}
+                    </p>
+                    <div className="flex items-center space-x-3 mt-1 text-[9.5px] text-slate-700 font-mono">
+                      <span>GSTIN: <strong>{tenantContext.companyGstin || "27AABCS1429B1Z8"}</strong></span>
+                      <span>•</span>
+                      <span>Branch: <strong>Main Corporate Central</strong></span>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className="inline-block bg-slate-900 text-white font-bold px-3 py-1 rounded text-xs tracking-wider uppercase">
+                      {reportTitle}
+                    </div>
+                    <p className="text-[9px] text-slate-500 mt-1 font-mono">
+                      Report ID: {reportId} • {reportCategory}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Filter Parameters Ribbon */}
+              <div className="grid grid-cols-4 gap-3 bg-slate-50 border border-slate-200 rounded p-2.5 mb-4 text-[9.5px]">
+                <div>
+                  <span className="text-slate-400 block font-medium">Reporting Period</span>
+                  <strong className="text-slate-800 font-mono">{startDate} to {endDate}</strong>
+                </div>
+                <div>
+                  <span className="text-slate-400 block font-medium">Location Scope</span>
+                  <strong className="text-slate-800">{selectedStore}</strong>
+                </div>
+                <div>
+                  <span className="text-slate-400 block font-medium">Status Scope</span>
+                  <strong className="text-slate-800">{selectedStatus}</strong>
+                </div>
+                <div>
+                  <span className="text-slate-400 block font-medium">Generated Timestamp</span>
+                  <strong className="text-slate-800 font-mono">
+                    {new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })} {new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}
+                  </strong>
+                </div>
+              </div>
+
+              {/* KPI Summary Strip */}
+              {kpis && (
+                <div className="flex gap-4 mb-4 text-[10px]">
+                  {Object.entries(kpis)
+                    .filter(([_, v]) => v !== null && v !== undefined)
+                    .map(([label, value]) => (
+                      <div key={label} className="flex-1 bg-slate-50 border border-slate-200 rounded p-2">
+                        <span className="text-slate-500 text-[9px] block">{label}</span>
+                        <span className="font-bold font-mono text-slate-900 text-xs">{String(value)}</span>
+                      </div>
+                    ))}
+                </div>
+              )}
+
+              {/* Table Grid */}
+              <table className="w-full border-collapse border border-slate-300 mb-4 text-[9.5px]">
+                <thead>
+                  <tr className="bg-slate-100 text-slate-800 font-bold border-b border-slate-300">
+                    <th className="border border-slate-300 p-1.5 text-center w-8">#</th>
+                    {activeColumns.map((col) => (
+                      <th
+                        key={col.key}
+                        className={`border border-slate-300 p-1.5 ${
+                          col.align === "right" ? "text-right" : col.align === "center" ? "text-center" : "text-left"
+                        }`}
+                      >
+                        {col.label}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredData.length === 0 ? (
+                    <tr>
+                      <td colSpan={activeColumns.length + 1} className="border border-slate-300 p-6 text-center text-slate-400 italic">
+                        No records found matching the active reporting criteria.
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredData.map((row, idx) => (
+                      <tr key={idx} className="border-b border-slate-200 hover:bg-slate-50/50">
+                        <td className="border border-slate-300 p-1.5 text-center font-mono text-slate-500">{idx + 1}</td>
+                        {activeColumns.map((col) => {
+                          const val = row[col.key];
+                          let formattedVal: any = val;
+                          if (val === null || val === undefined) formattedVal = "-";
+                          else if (col.datatype === "currency" && typeof val === "number") formattedVal = formatCurrency(val);
+                          else if (col.datatype === "number" && typeof val === "number") formattedVal = formatNumber(val);
+                          else if (col.datatype === "date" && typeof val === "string") formattedVal = formatDate(val);
+                          else if (typeof val === "boolean") formattedVal = val ? "YES" : "NO";
+                          else if (typeof val === "object") formattedVal = JSON.stringify(val);
+
+                          return (
+                            <td
+                              key={col.key}
+                              className={`border border-slate-300 p-1.5 ${
+                                col.align === "right" ? "text-right font-mono font-medium" : col.align === "center" ? "text-center font-mono" : "text-left"
+                              }`}
+                            >
+                              {String(formattedVal)}
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+                {showGrandTotal && filteredData.length > 0 && (
+                  <tfoot>
+                    <tr className="bg-slate-100 font-bold border-t-2 border-slate-800 text-slate-900">
+                      <td className="border border-slate-300 p-2 text-center font-mono font-black">TOTAL</td>
+                      {activeColumns.map((col, cIdx) => (
+                        <td
+                          key={col.key}
+                          className={`border border-slate-300 p-2 font-mono ${
+                            col.align === "right" ? "text-right font-black" : "text-left"
+                          }`}
+                        >
+                          {calculateSummaryCell(filteredData, col, cIdx === 0, "GRAND TOTAL")}
+                        </td>
+                      ))}
+                    </tr>
+                  </tfoot>
+                )}
+              </table>
+
+              {/* Signatory & Audit Block */}
+              <div className="border border-slate-300 rounded p-3 text-[9px] flex justify-between items-end mt-4">
+                <div className="text-center w-48 border-t border-slate-400 pt-1">
+                  <div className="font-bold text-slate-800">Generated & Prepared By</div>
+                  <div className="h-8"></div>
+                  <div className="text-slate-500">{activeRole}</div>
+                </div>
+                <div className="text-center w-48 border-t border-slate-400 pt-1">
+                  <div className="font-bold text-slate-800">Branch Accountant / Auditor</div>
+                  <div className="h-8"></div>
+                  <div className="text-slate-500">Internal Audit Verification</div>
+                </div>
+                <div className="text-center w-48 border-t border-slate-400 pt-1">
+                  <div className="font-bold text-slate-800">For {tenantContext.companyName || "SMRITI ENTERPRISES LTD"}</div>
+                  <div className="h-8"></div>
+                  <div className="text-slate-500">Authorized Financial Signatory</div>
+                </div>
+              </div>
+
+              <div className="text-center text-[8px] text-slate-400 mt-4">
+                Official Business Intelligence & Ledger Record • Generated by SMRITI Report Engine • Confidential • Page 1 of Official Register
+              </div>
+            </div>
+          </div>
+        </div>,
+        document.body
       )}
       </div>
     </div>

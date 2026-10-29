@@ -1,5 +1,40 @@
 <!--
 
+## [6.99.19] - 2026-10-29 - Print Engine: Platform-Wide Modal Unification & Layout Safety (Phase 8: Distributor Tax Invoice, Sales Studio Quotation & Report Engine Ledger) v1.0.0
+
+### Fixed
+- `src/components/sales/DistTaxInvoice.tsx`:
+  - Replaced bare `window.print()` triggers across header, document ribbon, keyboard listeners, and footer actions with dedicated `isPrintModalOpen` preview state.
+  - Mounted comprehensive B2B Tax Invoice (Rule 46 CGST Rules) print studio to `document.body` via `createPortal`.
+  - Injected dedicated `@media print` style sheet enforcing `@page { size: A4 portrait; margin: 8mm 10mm 10mm 10mm; }`, `#root { display: none !important; }`, and static block unrolling on `.dist-tax-invoice-modal-root` and `.dist-tax-invoice-sheet`.
+  - Excluded preview command toolbar (`.dist-tax-invoice-toolbar`) from print output.
+  - Added universal `Escape` (dismiss preview) and `F9` / `Ctrl+P` (instant print) keyboard shortcuts.
+- `src/components/SalesStudioTab.tsx`:
+  - Replaced bare `window.print()` call on quotation table rows with dedicated `setPrintQuotationModal(q)` preview state.
+  - Mounted Commercial Quotation / Proforma Estimate preview modal to `document.body` via `createPortal`.
+  - Injected dedicated `@media print` style sheet enforcing `@page { size: A4 portrait; margin: 8mm 10mm 10mm 10mm; }`, `#root { display: none !important; }`, and static block unrolling on `.quotation-print-modal-root` and `.quotation-printable-sheet`.
+  - Excluded preview command toolbar (`.quotation-print-toolbar`) from print output.
+  - Added 1-click "Print Official Quotation (A4)" button directly to the Quotation details sidebar.
+  - Added universal `Escape` and `F9` / `Ctrl+P` keyboard shortcuts.
+- `src/components/reports/SmritiReportEngine.tsx`:
+  - Modernized "Print / PDF" export from bare `window.print()` to dedicated `isPrintModalOpen` preview state.
+  - Mounted Multi-Dimensional Report Engine Ledger to `document.body` via `createPortal`.
+  - Injected dedicated `@media print` style sheet enforcing `@page { size: A4 landscape; margin: 8mm 10mm 10mm 10mm; }`, `#root { display: none !important; }`, and static block unrolling on `.smriti-report-modal-root` and `.smriti-report-printable-sheet`.
+  - Excluded preview command toolbar (`.smriti-report-toolbar`) from print output.
+  - Added universal `Escape` and `F9` / `Ctrl+P` keyboard shortcuts.
+
+### Added
+- `src/tests/distTaxInvoicePrint.test.tsx`:
+  - Automated Vitest verification suite with 3 tests certifying DistTaxInvoice body portal architecture, GST metrics calculation, and `#root` suppression.
+- `src/tests/salesStudioQuotationPrint.test.tsx`:
+  - Automated Vitest verification suite with 3 tests certifying SalesStudioTab quotation portal architecture, row print routing, and `#root` suppression.
+- `src/tests/smritiReportEnginePrint.test.tsx`:
+  - Automated Vitest verification suite with 3 tests certifying SmritiReportEngine A4 landscape portal architecture, PDF export routing, and `#root` suppression.
+- `docs/walkthrough/print/Print_Engine_Modal_Unification_Phase8_Walkthrough_v1.0.0.md`:
+  - Formal 13-section WGP walkthrough document.
+- `docs/walkthrough/README.md`:
+  - Appended entry `v3.151.0` to master walkthrough index.
+
 ## [6.99.18] - 2026-10-29 - Print Engine: Platform-Wide Modal Unification & Layout Safety (Phase 7: Quick Reports, Sales Order Proforma & HR Muster/Wages) v1.0.0
 
 ### Fixed
