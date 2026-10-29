@@ -456,6 +456,10 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
       } else {
         onNotification?.("Order Selected", `Selected PO ${poNum}. No line items found in order.`, "info");
       }
+      const specInst = (targetPo as any)?.specialInstructions || (targetPo as any)?.special_instructions || (targetPo as any)?.commercial_terms?.special_instructions;
+      if (specInst && typeof specInst === "string" && specInst.trim()) {
+        setDeliveryInstructions(specInst.trim());
+      }
 
       // 5. Telemetry update and focus direct entry
       stockInputRef.current?.focus();

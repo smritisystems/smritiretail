@@ -67,6 +67,10 @@ export interface GrnPrintReceiptData {
   vehicle_number?: string;
   weight_cbm?: string;
   cartons?: number;
+  delivery_terms?: string;
+  freight_terms?: string;
+  payment_terms?: string;
+  collection_type?: string;
   notes?: string;
   subtotal?: number;
   tax_total?: number;
@@ -175,6 +179,11 @@ export const GrnPrintModal: React.FC<GrnPrintModalProps> = ({
                 PO Reference: <strong>{receiptData.po_number}</strong>
               </div>
             )}
+            {receiptData.payment_terms && (
+              <div className="text-[10px] text-slate-600 font-mono">
+                Payment Terms: <strong>{receiptData.payment_terms}</strong>
+              </div>
+            )}
           </div>
 
           <div className="space-y-1 text-right">
@@ -184,6 +193,17 @@ export const GrnPrintModal: React.FC<GrnPrintModalProps> = ({
             <div className="font-bold text-xs text-slate-900">
               {receiptData.transporter_name || "Direct / Hand Delivery"}
             </div>
+            {receiptData.delivery_terms && (
+              <div className="text-[10px] text-slate-700 font-mono">
+                Delivery Terms: <strong className="text-slate-900">{receiptData.delivery_terms}</strong>
+                {receiptData.freight_terms ? ` (${receiptData.freight_terms})` : ""}
+              </div>
+            )}
+            {receiptData.collection_type && (
+              <div className="text-[10px] text-indigo-700 font-mono">
+                Collection: <strong>{receiptData.collection_type}</strong>
+              </div>
+            )}
             {receiptData.lr_number && (
               <div className="text-[10px] text-slate-600 font-mono">
                 LR / Bilty No: <strong>{receiptData.lr_number}</strong>

@@ -1,5 +1,31 @@
 <!--
 
+## [6.99.7] - 2026-10-29 - Goods Receipt Note (GRN) Logistics, PO Delivery Terms Inheritance & Carrier Audit Trail v1.0.0
+
+### Added
+- `backend/app/schemas/purchase.py`:
+  - Added `delivery_terms: Optional[str] = None` and `freight_terms: Optional[str] = None` to `PurchaseReceiptCreate`.
+  - Added `transporter_name`, `lr_number`, `vehicle_number`, `freight_amount`, `delivery_terms`, `freight_terms`, `payment_terms`, and `collection_type` to `PurchaseReceiptResponse`.
+  - Added regex extraction in `PurchaseReceiptResponse.populate_receipt_dates` to automatically parse embedded logistics attributes (`Delivery:`, `Freight Terms:`, `Payment:`, `Collection:`, `Transporter:`, `LR:`, `Vehicle:`) from `notes`.
+- `backend/app/services/purchase.py`:
+  - Updated `create_purchase_receipt` to resolve `delivery_terms` and `freight_terms` from the linked Purchase Order contract and serialize them into `[LOGISTICS & LANDED COST: ...]` notes.
+- `src/components/purchase/GrnPrintModal.tsx`:
+  - Extended `GrnPrintReceiptData` with `delivery_terms?: string`, `freight_terms?: string`, `payment_terms?: string`, and `collection_type?: string`.
+  - Rendered `Delivery Terms`, `Freight Terms`, `Payment Terms`, and `Collection` in the statutory **Logistics & Carrier Audit Trail** receiving slip header.
+- `src/components/purchase/GrnReceiptTab.tsx`:
+  - Extended `PurchaseOrderOption` with delivery and commercial fields.
+  - Added state for `deliveryTerms`, `freightTerms`, `paymentTerms`, `collectionType`, and `specialInstructions`.
+  - Updated `handleSelectOrder` to dynamically inherit commercial terms and delivery instructions from selected PO.
+  - Upgraded Step 3 ("COMMERCIALS") overview with a 4th **Logistics & Terms** card featuring color-coded contract badges (`Ex-Factory` vs `Door Delivery`).
+  - Added smart commercial guidance banners in Step 4 ("COSTS & FREIGHT") alerting operators to capitalize freight on `Ex-Factory` shipments or noting supplier prepaid freight on `Door Delivery`.
+  - Wired `delivery_terms` and `freight_terms` into post payloads and print slip payloads.
+- `src/components/purchase/GrnDesktopTerminal.tsx`:
+  - Inherited PO special instructions into `deliveryInstructions` staging notes in `handleSelectPurchaseOrder`.
+- `src/tests/grnLogisticsAndTerms.test.tsx`:
+  - Created automated test suite verifying statutory slip terms rendering, supplier prepaid vs buyer to-pay fallback logic, and notes regex extraction.
+- `docs/walkthrough/purchase/Purchase_GRN_Logistics_And_Delivery_Terms_Inheritance_Walkthrough_v1.0.0.md`:
+  - Authored formal 13-section Walkthrough Governance Policy (WGP) document.
+
 ## [6.99.6] - 2026-10-29 - Purchase Order Print Collection Type & Season Resolution v1.0.0
 
 ### Added
