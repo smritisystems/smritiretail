@@ -1,5 +1,20 @@
 <!--
 
+## [6.99.10] - 2026-10-29 - Reports & BI: Purchase Inward Register (GRN) WYSIWYE Export Parity & 1-Click Sub-Ledger Download v1.0.0
+
+### Added
+- `src/components/ReportDesignerTab.tsx`:
+  - Upgraded `handleOpenInGoogleSheets` and `handleTriggerExport` to achieve complete What-You-See-Is-What-You-Export (WYSIWYE) parity for the Purchase Inward Register (`RPT-PUR-001`).
+  - Dynamically switches export schema between `grnSummaryList` (when in GRN Summary View) and `filteredGrnLines` (when in Detailed Line Items View).
+  - Preserves all active logistics facet constraints (Door Delivery vs Ex-Factory, carrier, collection, search text) in exported datasets.
+  - Added a dedicated 1-click **Export (XLSX)** button directly in the logistics facet command bar for fast sub-ledger extraction.
+- `src/tests/reportsPurchaseInwardWysiwyeExport.test.ts`:
+  - Created automated Vitest test suite with 5 tests verifying detailed vs summary export resolution, filtered subset export parity, and aggregate sum consistency.
+- `docs/implementation/reports/Reports_Purchase_Inward_Register_WYSIWYE_Export_Plan_v1.0.0.md`:
+  - Authored formal 19-section IPGP implementation plan.
+- `docs/walkthrough/reports/Reports_Purchase_Inward_Register_WYSIWYE_Export_Walkthrough_v1.0.0.md`:
+  - Authored formal 13-section WGP walkthrough document.
+
 ## [6.99.9] - 2026-10-29 - Reports & BI: Purchase Inward Register (GRN) Interactive Logistics Facet Filter Chips & Dynamic KPI Drilldown v1.0.0
 
 ### Added

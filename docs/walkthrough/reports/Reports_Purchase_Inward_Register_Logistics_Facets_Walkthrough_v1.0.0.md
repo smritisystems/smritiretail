@@ -137,3 +137,4 @@ This document details the design and implementation of the interactive, multi-di
 ## 13. Related RFCs
 - `RFC-2026-RPT-008`: Operational Retail Register Standardization & Multi-Format Export.
 - `RFC-2026-PUR-004`: Purchase Order to GRN Commercial Logistics Inheritance.
+
