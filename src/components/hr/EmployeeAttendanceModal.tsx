@@ -4,12 +4,16 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.70.54
+ * Version      : 6.99.15
  * Created      : 2026-08-28
- * Modified     : 2026-10-14
+ * Modified     : 2026-10-29 (v6.99.15 — Payslip studio single-tree body portal & #root suppression)
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
+ *
+ * Changelog v6.99.15 (2026-10-29):
+ *   - Migrated Salary Voucher & Payslip Studio modal to single-tree body portal via createPortal.
+ *   - Injected #root { display: none !important; } and eliminated fixed-height viewport clipping.
  *
  * Changelog v6.70.54 (2026-10-14):
  *   - Fixed incentive unwrapping bug where raw lines envelope was discarded, restoring Payout tab.
@@ -55,6 +59,7 @@
  */
 
 import React, { useState, useEffect, useCallback, useMemo } from "react";
+import { createPortal } from "react-dom";
 import { apiFetchV1 } from "../../lib/apiFetchV1";
 
 // ── Types (aligned to backend PersonnelOut / AttendanceRecord / IncentiveOut) ─
@@ -225,6 +230,21 @@ export const EmployeeAttendanceModal: React.FC<EmployeeAttendanceModalProps> = (
     const d = new Date();
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
   }, []);
+
+  useEffect(() => {
+    if (!showPayslipModal) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        setShowPayslipModal(false);
+      } else if (e.key === "F9" || ((e.ctrlKey || e.metaKey) && (e.key === "p" || e.key === "P"))) {
+        e.preventDefault();
+        window.print();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [showPayslipModal]);
 
   useEffect(() => {
     if (initialUserId) {
@@ -1174,40 +1194,75 @@ export const EmployeeAttendanceModal: React.FC<EmployeeAttendanceModalProps> = (
         const grossPayout = earnedSalary + commAmt + bonusAmt;
         const netPayout = grossPayout;
 
-        return (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm overflow-y-auto">
+        const payslipModal = (
+          <div
+            className="salary-slip-modal-root fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm overflow-y-auto print:static print:inset-auto print:h-auto print:w-full print:p-0 print:m-0 print:bg-white print:overflow-visible print:block"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Salary Voucher & Payslip Studio"
+          >
             {/* Embedded Print Styling */}
             <style>{`
               @media print {
-                body * {
-                  visibility: hidden !important;
+                @page {
+                  size: A4 portrait;
+                  margin: 10mm 12mm 12mm 12mm;
                 }
-                #printable-salary-slip, #printable-salary-slip * {
-                  visibility: visible !important;
+                #root {
+                  display: none !important;
                 }
-                #printable-salary-slip {
-                  position: fixed !important;
-                  left: 0 !important;
-                  top: 0 !important;
-                  width: 100% !important;
-                  height: 100% !important;
+                html, body {
+                  height: auto !important;
+                  min-height: 0 !important;
+                  overflow: visible !important;
+                  overflow-x: visible !important;
+                  overflow-y: visible !important;
                   margin: 0 !important;
-                  padding: 32px !important;
+                  padding: 0 !important;
                   background: white !important;
-                  color: black !important;
-                  box-shadow: none !important;
-                  border: none !important;
-                  z-index: 999999 !important;
                 }
+                .salary-slip-modal-root {
+                  position: static !important;
+                  display: block !important;
+                  width: 100% !important;
+                  height: auto !important;
+                  margin: 0 !important;
+                  padding: 0 !important;
+                  overflow: visible !important;
+                  background: white !important;
+                }
+                .salary-slip-toolbar,
                 .no-print {
                   display: none !important;
+                }
+                .salary-slip-sheet-wrapper {
+                  display: block !important;
+                  width: 100% !important;
+                  max-width: 100% !important;
+                  margin: 0 !important;
+                  padding: 0 !important;
+                  box-shadow: none !important;
+                  border: none !important;
+                  overflow: visible !important;
+                  background: white !important;
+                }
+                #printable-salary-slip,
+                .salary-slip-printable-content {
+                  display: block !important;
+                  box-shadow: none !important;
+                  border: none !important;
+                  margin: 0 !important;
+                  padding: 0 !important;
+                  visibility: visible !important;
+                  background: white !important;
+                  width: 100% !important;
                 }
               }
             `}</style>
 
-            <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-2xl overflow-hidden shadow-2xl space-y-0 my-auto text-slate-100">
+            <div className="salary-slip-sheet-wrapper bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-2xl overflow-hidden shadow-2xl space-y-0 my-auto text-slate-100 print:my-0 print:max-w-none print:w-full print:shadow-none print:border-none print:bg-white print:text-black print:block">
               {/* Action Toolbar Header (hidden when printed) */}
-              <div className="no-print flex items-center justify-between px-6 py-3 bg-slate-950 border-b border-slate-800">
+              <div className="salary-slip-toolbar no-print flex items-center justify-between px-6 py-3 bg-slate-950 border-b border-slate-800 print:hidden">
                 <div className="flex items-center gap-2">
                   <span className="text-base">📄</span>
                   <span className="text-xs font-bold uppercase tracking-wider text-slate-300">
@@ -1231,7 +1286,7 @@ export const EmployeeAttendanceModal: React.FC<EmployeeAttendanceModalProps> = (
               </div>
 
               {/* Printable Voucher Paper */}
-              <div id="printable-salary-slip" className="p-8 bg-white text-slate-900 space-y-6">
+              <div id="printable-salary-slip" className="salary-slip-printable-content p-8 bg-white text-slate-900 space-y-6 print:p-0 print:space-y-6">
                 {/* Organization Header */}
                 <div className="flex items-start justify-between border-b-2 border-slate-900 pb-4">
                   <div>
@@ -1406,6 +1461,12 @@ export const EmployeeAttendanceModal: React.FC<EmployeeAttendanceModalProps> = (
             </div>
           </div>
         );
+
+        if (typeof document === "undefined" || !document?.body || typeof (document.body as any).appendChild !== "function") {
+          return payslipModal;
+        }
+
+        return createPortal(payslipModal, document.body);
       })()}
     </div>
   );
