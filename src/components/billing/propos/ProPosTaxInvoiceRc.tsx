@@ -4,15 +4,16 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.27.4
+ * Version      : 6.99.15
  * Created      : 2026-08-21
- * Modified     : 2026-10-11
+ * Modified     : 2026-10-29 (v6.99.15 — Unified body portal & #root suppression print standard)
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
  */
 
 import React, { useState, useEffect, useMemo } from "react";
+import { createPortal } from "react-dom";
 import { ProPosCartItem, ProPosCustomer, ProPosTenderSplit } from "./types.ts";
 import { TaxInvoiceA4 } from "../../templates/TaxInvoiceA4.tsx";
 import { Printer, X, FileText, Receipt, ZoomIn, ZoomOut, RotateCcw } from "lucide-react";
@@ -175,12 +176,75 @@ export const SmritiProPosTaxInvoiceReceipt: React.FC<SmritiProPosTaxInvoiceRecei
     };
   }, [hasIgst, customer, storeProfile, billNo, billDate, items]);
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-xs p-2 md:p-4 print:p-0 print:bg-white print:static">
-      <div className="bg-white dark:bg-[#1a1f2c] text-black dark:text-white w-full max-w-5xl rounded-2xl shadow-2xl overflow-hidden flex flex-col border border-gray-300 dark:border-gray-700 h-[95vh] print:h-auto print:max-h-none print:shadow-none print:border-none print:w-full print:max-w-none">
+  const pageSizeCss = printFormat === "thermal" ? "80mm auto" : "A4 portrait";
+  const pageMarginCss = printFormat === "thermal" ? "0" : "8mm 6mm 10mm 12mm";
+
+  const modalContent = (
+    <div
+      className="propos-receipt-modal-root fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-xs p-2 md:p-4 print:p-0 print:bg-white print:static print:inset-auto print:h-auto print:w-full print:m-0 print:overflow-visible print:block"
+      role="dialog"
+      aria-modal="true"
+      aria-label="POS Tax Invoice Receipt"
+    >
+      <style>{`
+        @media print {
+          @page {
+            size: ${pageSizeCss};
+            margin: ${pageMarginCss};
+          }
+          #root {
+            display: none !important;
+          }
+          html, body {
+            height: auto !important;
+            min-height: 0 !important;
+            overflow: visible !important;
+            overflow-x: visible !important;
+            overflow-y: visible !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            background: white !important;
+          }
+          .propos-receipt-modal-root {
+            position: static !important;
+            display: block !important;
+            width: 100% !important;
+            height: auto !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            overflow: visible !important;
+            background: white !important;
+          }
+          .propos-receipt-toolbar,
+          .no-print {
+            display: none !important;
+          }
+          .propos-receipt-sheet-wrapper {
+            display: block !important;
+            width: 100% !important;
+            max-width: 100% !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            box-shadow: none !important;
+            border: none !important;
+            overflow: visible !important;
+            background: white !important;
+          }
+          .propos-receipt-printable-content {
+            display: block !important;
+            box-shadow: none !important;
+            border: none !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            visibility: visible !important;
+            background: white !important;
+          }
+        }
+      `}</style>
+      <div className="propos-receipt-sheet-wrapper bg-white dark:bg-[#1a1f2c] text-black dark:text-white w-full max-w-5xl rounded-2xl shadow-2xl overflow-hidden flex flex-col border border-gray-300 dark:border-gray-700 h-[95vh] print:h-auto print:max-h-none print:shadow-none print:border-none print:w-full print:max-w-none print:block">
         
         {/* Screen Action & Preview Control Bar (Hidden when printing) */}
-        <div className="px-4 py-2.5 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-[#131b2e] flex flex-wrap justify-between items-center gap-3 print:hidden shrink-0">
+        <div className="propos-receipt-toolbar px-4 py-2.5 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-[#131b2e] flex flex-wrap justify-between items-center gap-3 print:hidden shrink-0">
           
           {/* Left: Invoice Title & Format Switcher */}
           <div className="flex items-center gap-2">
@@ -278,20 +342,20 @@ export const SmritiProPosTaxInvoiceReceipt: React.FC<SmritiProPosTaxInvoiceRecei
 
         {/* Modal Body: A4 Standard Tax Invoice Layout (Default) */}
         {printFormat === "a4" ? (
-          <div className="flex-1 overflow-y-auto p-4 md:p-6 flex justify-center bg-gray-200/80 dark:bg-[#0c1017] print:bg-white print:p-0 print:overflow-visible">
+          <div className="propos-receipt-canvas-wrapper propos-receipt-printable-content flex-1 overflow-y-auto p-4 md:p-6 flex justify-center bg-gray-200/80 dark:bg-[#0c1017] print:bg-white print:p-0 print:overflow-visible print:block">
             <div
               style={{
                 transform: zoom !== 1.0 ? `scale(${zoom})` : undefined,
                 transformOrigin: "top center",
               }}
-              className="bg-white shadow-2xl rounded-sm print:shadow-none print:rounded-none w-full max-w-[210mm] transition-transform duration-150"
+              className="bg-white shadow-2xl rounded-sm print:shadow-none print:rounded-none w-full max-w-[210mm] transition-transform duration-150 print:transform-none"
             >
               <TaxInvoiceA4 data={a4InvoiceData} />
             </div>
           </div>
         ) : (
           /* Alternative: Compact Thermal Slip Layout */
-          <div className="flex-1 overflow-y-auto p-6 flex justify-center bg-gray-100 dark:bg-[#0f141d] print:bg-white print:p-0 print:overflow-visible">
+          <div className="propos-receipt-canvas-wrapper propos-receipt-printable-content flex-1 overflow-y-auto p-6 flex justify-center bg-gray-100 dark:bg-[#0f141d] print:bg-white print:p-0 print:overflow-visible print:block">
             <div className="bg-white text-black w-full max-w-sm rounded-lg shadow-lg border border-gray-300 p-5 font-mono text-xs text-gray-900 leading-tight space-y-4 print:shadow-none print:border-none print:p-0 print:max-w-none">
               
               {/* Header Store Branding */}
@@ -415,6 +479,12 @@ export const SmritiProPosTaxInvoiceReceipt: React.FC<SmritiProPosTaxInvoiceRecei
       </div>
     </div>
   );
+
+  if (typeof document === "undefined" || !document?.body || typeof (document.body as any).appendChild !== "function") {
+    return modalContent;
+  }
+
+  return createPortal(modalContent, document.body);
 };
 
 export default SmritiProPosTaxInvoiceReceipt;

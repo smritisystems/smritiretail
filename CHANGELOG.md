@@ -1,5 +1,38 @@
 <!--
 
+## [6.99.15] - 2026-10-29 - Print Engine: Platform-Wide Modal Unification & Layout Safety (Phase 4: POS Invoices, Shift Closeout & Payslips) v1.0.0
+
+### Fixed
+- `src/components/billing/propos/ProPosTaxInvoiceRc.tsx`:
+  - Migrated POS Tax Invoice Receipt (both A4 standard and 80mm thermal roll formats) to the unified single-tree body portal architecture (`createPortal(modalContent, document.body)`).
+  - Injected embedded `@media print` style sheet enforcing `#root { display: none !important; }`, preventing full-viewport height displacement and blank print previews in Chromium.
+  - Dynamically switches `@page` styling between `80mm auto` margin 0 (thermal roll) and `A4 portrait` margin `8mm 6mm 10mm 12mm` (A4 standard tax invoice).
+  - Reset modal root, canvas wrapper, and sheet to static block layout with 0 overflow and 0 margin offsets.
+  - Excluded format toggle, zoom controls, and action buttons (`propos-receipt-toolbar`) from print output via `display: none !important;`.
+- `src/components/billing/propos/ProPosShiftCloseDl.tsx`:
+  - Migrated Shift Closeout & Z-Report reconciliation modal to single-tree body portal architecture (`createPortal(modalContent, document.body)`).
+  - Injected embedded `@media print` style sheet declaring `#root { display: none !important; }` and `@page { size: 80mm auto; margin: 0; }`.
+  - Added `Escape` (dismiss closeout dialog) and `F9` / `Ctrl+P` (instant print handover slip) keyboard shortcuts.
+  - Isolated modal header, denomination counters, discrepancy alerts, and action buttons (`propos-shift-close-toolbar`) from print preview, targeting `#thermal-handover-slip` cleanly.
+- `src/components/hr/EmployeeAttendanceModal.tsx`:
+  - Migrated Salary Voucher & Payslip Studio modal to single-tree body portal architecture (`createPortal(payslipModal, document.body)`).
+  - Injected embedded `@media print` style sheet declaring `#root { display: none !important; }` and `@page { size: A4 portrait; margin: 10mm 12mm 12mm 12mm; }`.
+  - Replaced legacy `body * { visibility: hidden !important; }` and `position: fixed !important;` rules that caused Chromium viewport clipping with static block unrolling.
+  - Excluded studio header and action toolbar (`salary-slip-toolbar`) from print preview.
+  - Added `Escape` (dismiss payslip) and `F9` / `Ctrl+P` (instant print payslip) keyboard shortcuts.
+
+### Added
+- `src/tests/proposTaxInvoiceReceipt.test.tsx`:
+  - Automated Vitest verification suite with 3 tests covering default A4 mode, 80mm thermal format, `#root` suppression, static unrolling, and toolbar exclusion.
+- `src/tests/proposShiftCloseModal.test.tsx`:
+  - Automated Vitest verification suite with 2 tests covering shift closeout shell, `#root` suppression, 80mm handover slip format, and toolbar exclusion.
+- `src/tests/employeeAttendancePayslipModal.test.tsx`:
+  - Automated Vitest verification suite with 2 tests covering modal open/closed states and tab shell rendering.
+- `docs/walkthrough/print/Print_Engine_Modal_Unification_Phase4_Walkthrough_v1.0.0.md`:
+  - Formal 13-section WGP walkthrough document.
+- `docs/walkthrough/README.md`:
+  - Appended entry `v3.146.0` to master walkthrough index.
+
 ## [6.99.14] - 2026-10-29 - Print Engine: Platform-Wide Modal Unification & Layout Safety (Phase 3: SOA, Barcode & Packing Slips) v1.0.0
 
 ### Fixed
