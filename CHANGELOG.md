@@ -1,5 +1,13 @@
 <!--
 
+## [6.99.11] - 2026-10-29 - Reports & BI: Harmonize Purchase Inward Register (GRN) Catalog Definitions & Hero Card Metadata v1.0.0
+
+### Added
+- `backend/app/api/v1/reports.py`:
+  - Aligned `RPT-PUR-001` entry in `SMRITI_STUDIOS["purchase_studio"]` to canonically read `"title": "Purchase Inward Register (GRN)"` and updated description to highlight delivery terms, carrier LR tracking, landed cost, and GST.
+- `src/components/ReportDesignerTab.tsx`:
+  - Updated `handleLaunchStandardReport("purchase_register")` metadata and Hero Dashboard Card 3 description to reflect delivery terms (Door vs Ex-Factory), transporter LR, landed costs & GST.
+
 ## [6.99.10] - 2026-10-29 - Reports & BI: Purchase Inward Register (GRN) WYSIWYE Export Parity & 1-Click Sub-Ledger Download v1.0.0
 
 ### Added

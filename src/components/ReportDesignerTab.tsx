@@ -211,10 +211,10 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
         id: "RPT-PUR-001",
         code: "RPT-PUR-001",
         title: "Purchase Inward Register (GRN)",
-        category: "Purchase Summary",
+        category: "Purchase Register",
         format: "Grid",
         drillDownEnabled: true,
-        description: "Supplier invoices, received stock quantities, landed costs, taxes, and outstanding vendor payables.",
+        description: "Supplier inward receipts, delivery terms (Door vs Ex-Factory), transporter LR, landed costs, taxes, and collections.",
       });
     } else if (type === "stock_on_hand") {
       runReport({
@@ -1766,7 +1766,7 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
                           Purchase Inward Register
                         </h3>
                         <p className="text-[11px] text-theme-muted line-clamp-2 leading-relaxed">
-                          Supplier invoices, received stock quantities, landed costs, taxes, and vendor payables.
+                          Supplier receipts, delivery terms (Door vs Ex-Factory), transporter LR, landed costs & GST.
                         </p>
                       </div>
                       <div className="mt-3.5 pt-2.5 border-t border-theme-divider/60 flex items-center justify-between text-[11px] font-semibold text-amber-500">

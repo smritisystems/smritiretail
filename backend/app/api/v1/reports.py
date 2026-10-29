@@ -117,7 +117,7 @@ SMRITI_STUDIOS = {
         "description": "Supplier ledger, GRN register, PO outstanding, and payment tracking.",
         "icon": "inventory_2",
         "reports": [
-            {"id": "RPT-PUR-001", "code": "RPT-PUR-001", "title": "Purchase Summary Register",         "description": "Per-supplier breakdown of PO count, GRN count, ordered and received amounts.",             "category": "Purchase Summary","format": "Grid",   "owner": "System", "drillDownEnabled": True},
+            {"id": "RPT-PUR-001", "code": "RPT-PUR-001", "title": "Purchase Inward Register (GRN)",   "description": "Supplier inward receipts, delivery terms (Door vs Ex-Factory), transporter LR, landed cost, and GST.", "category": "Purchase Register", "format": "Grid", "owner": "System", "drillDownEnabled": True},
             {"id": "RPT-PUR-002", "code": "RPT-PUR-002", "title": "Supplier Ledger",                  "description": "Chronological debit/credit ledger for a supplier with running balance.",                    "category": "Supplier",        "format": "Grid",   "owner": "System", "drillDownEnabled": True},
             {"id": "RPT-PUR-003", "code": "RPT-PUR-003", "title": "Pending Delivery (Open PO) Register", "description": "Confirmed purchase orders awaiting inward receiving (GRN) with order dates and supplier details.", "category": "Procurement Tracking", "format": "Grid", "owner": "System", "drillDownEnabled": True},
             {"id": "RPT-PUR-004", "code": "RPT-PUR-004", "title": "Supplier Outstanding & Exposure Report", "description": "Supplier-wise pending commitments, booked liabilities, and open order exposure.", "category": "Supplier Exposure", "format": "Grid", "owner": "System", "drillDownEnabled": True},
