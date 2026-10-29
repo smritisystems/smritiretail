@@ -4,9 +4,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.53.0
+ * Version      : 6.99.16
  * Created      : 2026-09-26
- * Modified     : 2026-10-10
+ * Modified     : 2026-10-29 (v6.99.16 — Label sheet preview body portal & #root suppression)
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
@@ -16,6 +16,7 @@
 import React, {
   useState, useEffect, useRef, useCallback, useMemo,
 } from 'react';
+import { createPortal } from 'react-dom';
 import {
   Printer, Settings, HelpCircle, Search, Filter, ChevronDown, ChevronUp,
   CheckSquare, Square, Trash2, RefreshCcw, Eye, Package, ShoppingCart,
@@ -862,6 +863,21 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({
   // Label Preview Sheet Modal & Settings Modal
   const [previewModalOpen, setPreviewModalOpen] = useState(false);
   const [settingsOpen, setSettingsOpen]         = useState(false);
+
+  useEffect(() => {
+    if (!previewModalOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        setPreviewModalOpen(false);
+      } else if (e.key === 'F9' || ((e.ctrlKey || e.metaKey) && (e.key === 'p' || e.key === 'P'))) {
+        e.preventDefault();
+        window.print();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [previewModalOpen]);
   // Modals & Panels for Label Studio V2 Parity
   const [rawPrnModalOpen, setRawPrnModalOpen]           = useState(false);
   const [rawPrnText, setRawPrnText]                     = useState('');
@@ -2799,93 +2815,162 @@ export const PrintLabelsStudio: React.FC<PrintLabelsStudioProps> = ({
       </div>
 
       {/* ── BROWSER LABEL PRINT SHEET PREVIEW MODAL ── */}
-      {previewModalOpen && (
-        <div className='fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4'>
-          <div className='bg-white dark:bg-[#1e232a] w-full max-w-4xl max-h-[90vh] rounded-2xl shadow-2xl border border-[#e2e8f0] dark:border-[#334155] flex flex-col overflow-hidden'>
-            <div className='px-6 py-4 border-b border-[#e2e8f0] dark:border-[#334155] flex items-center justify-between bg-[#f8fafc] dark:bg-[#131b2e]'>
-              <div className='flex items-center gap-3'>
-                <div className='p-2 bg-[#dde1ff] dark:bg-[#1e40af]/30 rounded-xl'>
-                  <Eye size={20} className='text-[#00288e] dark:text-[#a8b8ff]' />
-                </div>
-                <div>
-                  <h2 className='text-sm font-bold text-[#0f172a] dark:text-[#f8fafc]'>Labels Print Sheet Preview</h2>
-                  <p className='text-xs text-[#64748b]'>
-                    Template: {selectedTemplate.name} ({selectedTemplate.widthMm}mm × {selectedTemplate.heightMm}mm) • {totalLabels > 0 ? totalLabels : (rows.length > 0 ? 1 : 0)} Labels
-                  </p>
-                </div>
-              </div>
-              <button
-                type='button'
-                onClick={() => setPreviewModalOpen(false)}
-                className='text-[#64748b] hover:text-[#0f172a] dark:hover:text-[#f8fafc] p-1.5 rounded-lg hover:bg-[#e2e8f0] transition'
-              >
-                <X size={18} />
-              </button>
-            </div>
-
-            <div className='p-6 overflow-y-auto flex-1 bg-[#f1f5f9] dark:bg-[#0f172a]/60'>
-              <div className='grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4'>
-                {(selectedRows.length > 0 ? selectedRows : (previewRow ? [previewRow] : rows.slice(0, 6))).map((r, i) => (
-                  <div
-                    key={`${r.id}-${i}`}
-                    className='bg-white text-black p-3.5 rounded-xl border border-gray-300 shadow-sm flex flex-col items-center text-center justify-between'
-                    style={{ minHeight: '140px' }}
-                  >
-                    <div className='w-full'>
-                      <div className='font-extrabold text-[12px] tracking-wide'>SMRITI RETAIL</div>
-                      <div className='font-bold text-[11px] mt-0.5 truncate'>{r.product}</div>
-                      <div className='text-[10px] text-gray-600 mt-0.5'>
-                        {[r.brand, r.style, r.size, r.shade].filter(Boolean).join(' • ')}
-                      </div>
-                    </div>
-                    <div className='my-2 w-full flex justify-center'>
-                      <ThermalBarcodeSvg
-                        value={r.barcode || r.itemCode || '890100000001'}
-                        widthMm={38}
-                        heightMm={12}
-                        showText={true}
-                      />
-                    </div>
-                    <div className='w-full flex items-center justify-between text-[11px] pt-1 border-t border-gray-200'>
-                      <span className='font-mono text-gray-500'>SKU: {r.itemCode}</span>
-                      <span className='font-extrabold text-[12px] text-black'>{fmtINR(r.mrp)}</span>
-                    </div>
+      {previewModalOpen && (() => {
+        const labelPreviewModal = (
+          <div
+            className='label-preview-modal-root fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 print:static print:inset-auto print:h-auto print:w-full print:p-0 print:m-0 print:bg-white print:overflow-visible print:block'
+            role='dialog'
+            aria-modal='true'
+            aria-label='Labels Print Sheet Preview'
+          >
+            <style>{`
+              @media print {
+                @page {
+                  size: ${selectedTemplate.widthMm}mm ${selectedTemplate.heightMm}mm;
+                  margin: 0;
+                }
+                #root {
+                  display: none !important;
+                }
+                html, body {
+                  height: auto !important;
+                  min-height: 0 !important;
+                  overflow: visible !important;
+                  overflow-x: visible !important;
+                  overflow-y: visible !important;
+                  margin: 0 !important;
+                  padding: 0 !important;
+                  background: white !important;
+                }
+                .label-preview-modal-root {
+                  position: static !important;
+                  display: block !important;
+                  width: 100% !important;
+                  height: auto !important;
+                  margin: 0 !important;
+                  padding: 0 !important;
+                  overflow: visible !important;
+                  background: white !important;
+                }
+                .label-preview-toolbar,
+                .no-print {
+                  display: none !important;
+                }
+                .label-preview-sheet-wrapper {
+                  display: block !important;
+                  width: 100% !important;
+                  max-width: 100% !important;
+                  margin: 0 !important;
+                  padding: 0 !important;
+                  box-shadow: none !important;
+                  border: none !important;
+                  overflow: visible !important;
+                  background: white !important;
+                }
+                .label-preview-printable-content {
+                  display: block !important;
+                  box-shadow: none !important;
+                  border: none !important;
+                  margin: 0 !important;
+                  padding: 0 !important;
+                  visibility: visible !important;
+                  background: white !important;
+                  width: 100% !important;
+                }
+              }
+            `}</style>
+            <div className='label-preview-sheet-wrapper bg-white dark:bg-[#1e232a] w-full max-w-4xl max-h-[90vh] rounded-2xl shadow-2xl border border-[#e2e8f0] dark:border-[#334155] flex flex-col overflow-hidden print:max-h-none print:shadow-none print:border-none print:w-full print:m-0 print:p-0 print:bg-white print:text-black print:block'>
+              <div className='label-preview-toolbar px-6 py-4 border-b border-[#e2e8f0] dark:border-[#334155] flex items-center justify-between bg-[#f8fafc] dark:bg-[#131b2e] print:hidden'>
+                <div className='flex items-center gap-3'>
+                  <div className='p-2 bg-[#dde1ff] dark:bg-[#1e40af]/30 rounded-xl'>
+                    <Eye size={20} className='text-[#00288e] dark:text-[#a8b8ff]' />
                   </div>
-                ))}
-              </div>
-            </div>
-
-            <div className='px-6 py-3.5 border-t border-[#e2e8f0] dark:border-[#334155] flex items-center justify-between bg-white dark:bg-[#1e232a]'>
-              <div className='text-xs text-[#64748b]'>
-                Target: <span className='font-bold text-[#0f172a] dark:text-[#f8fafc]'>{printerName}</span>
-              </div>
-              <div className='flex items-center gap-2'>
+                  <div>
+                    <h2 className='text-sm font-bold text-[#0f172a] dark:text-[#f8fafc]'>Labels Print Sheet Preview</h2>
+                    <p className='text-xs text-[#64748b]'>
+                      Template: {selectedTemplate.name} ({selectedTemplate.widthMm}mm × {selectedTemplate.heightMm}mm) • {totalLabels > 0 ? totalLabels : (rows.length > 0 ? 1 : 0)} Labels
+                    </p>
+                  </div>
+                </div>
                 <button
                   type='button'
                   onClick={() => setPreviewModalOpen(false)}
-                  className='px-4 py-2 text-xs font-bold border border-[#c4c5d5] dark:border-[#444653] rounded-xl hover:bg-[#f1f5f9] dark:hover:bg-[#334155] transition'
+                  className='text-[#64748b] hover:text-[#0f172a] dark:hover:text-[#f8fafc] p-1.5 rounded-lg hover:bg-[#e2e8f0] transition'
                 >
-                  Close
+                  <X size={18} />
                 </button>
-                <button
-                  type='button'
-                  onClick={handleExportSheetSvg}
-                  className='flex items-center gap-1.5 px-4 py-2 text-xs font-bold border border-[#00288e] dark:border-[#3b82f6] text-[#00288e] dark:text-[#60a5fa] hover:bg-[#dde1ff]/30 rounded-xl transition'
-                >
-                  <Download size={14} /> Export Vector SVG
-                </button>
-                <button
-                  type='button'
-                  onClick={() => { window.print(); }}
-                  className='flex items-center gap-1.5 px-4 py-2 text-xs font-bold bg-[#00288e] hover:bg-[#002070] text-white rounded-xl shadow transition'
-                >
-                  <Printer size={14} /> Browser Print
-                </button>
+              </div>
+
+              <div className='label-preview-printable-content p-6 overflow-y-auto flex-1 bg-[#f1f5f9] dark:bg-[#0f172a]/60 print:p-0 print:bg-white'>
+                <div className='grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 print:grid-cols-1 print:gap-0'>
+                  {(selectedRows.length > 0 ? selectedRows : (previewRow ? [previewRow] : rows.slice(0, 6))).map((r, i) => (
+                    <div
+                      key={`${r.id}-${i}`}
+                      className='bg-white text-black p-3.5 rounded-xl border border-gray-300 shadow-sm flex flex-col items-center text-center justify-between print:rounded-none print:border-none print:shadow-none print:p-2'
+                      style={{ minHeight: '140px' }}
+                    >
+                      <div className='w-full'>
+                        <div className='font-extrabold text-[12px] tracking-wide'>SMRITI RETAIL</div>
+                        <div className='font-bold text-[11px] mt-0.5 truncate'>{r.product}</div>
+                        <div className='text-[10px] text-gray-600 mt-0.5'>
+                          {[r.brand, r.style, r.size, r.shade].filter(Boolean).join(' • ')}
+                        </div>
+                      </div>
+                      <div className='my-2 w-full flex justify-center'>
+                        <ThermalBarcodeSvg
+                          value={r.barcode || r.itemCode || '890100000001'}
+                          widthMm={38}
+                          heightMm={12}
+                          showText={true}
+                        />
+                      </div>
+                      <div className='w-full flex items-center justify-between text-[11px] pt-1 border-t border-gray-200'>
+                        <span className='font-mono text-gray-500'>SKU: {r.itemCode}</span>
+                        <span className='font-extrabold text-[12px] text-black'>{fmtINR(r.mrp)}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className='label-preview-toolbar px-6 py-3.5 border-t border-[#e2e8f0] dark:border-[#334155] flex items-center justify-between bg-white dark:bg-[#1e232a] print:hidden'>
+                <div className='text-xs text-[#64748b]'>
+                  Target: <span className='font-bold text-[#0f172a] dark:text-[#f8fafc]'>{printerName}</span>
+                </div>
+                <div className='flex items-center gap-2'>
+                  <button
+                    type='button'
+                    onClick={() => setPreviewModalOpen(false)}
+                    className='px-4 py-2 text-xs font-bold border border-[#c4c5d5] dark:border-[#444653] rounded-xl hover:bg-[#f1f5f9] dark:hover:bg-[#334155] transition'
+                  >
+                    Close
+                  </button>
+                  <button
+                    type='button'
+                    onClick={handleExportSheetSvg}
+                    className='flex items-center gap-1.5 px-4 py-2 text-xs font-bold border border-[#00288e] dark:border-[#3b82f6] text-[#00288e] dark:text-[#60a5fa] hover:bg-[#dde1ff]/30 rounded-xl transition'
+                  >
+                    <Download size={14} /> Export Vector SVG
+                  </button>
+                  <button
+                    type='button'
+                    onClick={() => { window.print(); }}
+                    className='flex items-center gap-1.5 px-4 py-2 text-xs font-bold bg-[#00288e] hover:bg-[#002070] text-white rounded-xl shadow transition'
+                  >
+                    <Printer size={14} /> Browser Print
+                  </button>
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+
+        if (typeof document === 'undefined' || !document?.body || typeof (document.body as any).appendChild !== 'function') {
+          return labelPreviewModal;
+        }
+
+        return createPortal(labelPreviewModal, document.body);
+      })()}
 
       {/* ── PRINTER SETTINGS MODAL ── */}
       {settingsOpen && (

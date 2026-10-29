@@ -4,15 +4,16 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.68.0
+ * Version      : 6.99.16
  * Created      : 2026-08-22
- * Modified     : 2026-10-03
+ * Modified     : 2026-10-29 (v6.99.16 — WMS Delivery Challan body portal & #root suppression print standard)
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
  */
 
 import React, { useState, useEffect, useMemo } from "react";
+import { createPortal } from "react-dom";
 import { ENTERPRISE_BILLING_SUITE_VERSION_LABEL } from "../../config/version.ts";
 import { apiFetchV1 } from "../../lib/apiFetch.ts";
 import { GlobalGridImportModal } from "../gridInput/GlobalGridImportModal.tsx";
@@ -317,6 +318,21 @@ export const WmsStudioTab: React.FC<{
 
   // E-Way Bill & Delivery Challan Modal State
   const [viewingChallan, setViewingChallan] = useState<any | null>(null);
+
+  useEffect(() => {
+    if (!viewingChallan) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        setViewingChallan(null);
+      } else if (e.key === "F9" || ((e.ctrlKey || e.metaKey) && (e.key === "p" || e.key === "P"))) {
+        e.preventDefault();
+        window.print();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [viewingChallan]);
   const [viewingEwayBill, setViewingEwayBill] = useState<any | null>(null);
   const [transferStagingItems, setTransferStagingItems] = useState<StockTransferItem[]>([]);
   const [isGlobalTransferImportOpen, setIsGlobalTransferImportOpen] = useState(false);
@@ -3099,131 +3115,202 @@ export const WmsStudioTab: React.FC<{
         )}
 
         {/* Delivery Challan Modal (Rule 55 CGST Rules) */}
-        {viewingChallan && (
-          <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-            <div className="bg-theme-surface-1 border border-theme-divider rounded-2xl w-full max-w-3xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-              <div className="p-4 border-b border-theme-divider flex items-center justify-between bg-theme-surface-2/50">
-                <div className="flex items-center gap-2">
-                  <div className="p-1.5 rounded-lg bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
-                    <FileText className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-bold text-theme-text-primary">
-                      {viewingChallan.challan_title || "DELIVERY CHALLAN"}
-                    </h3>
-                    <p className="text-[10px] text-theme-muted">{viewingChallan.statutory_subtitle}</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => window.print()}
-                    className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-sm"
-                  >
-                    <Printer className="w-3.5 h-3.5" />
-                    Print Challan
-                  </button>
-                  <button
-                    onClick={() => setViewingChallan(null)}
-                    className="p-1.5 rounded-lg hover:bg-theme-surface-hover text-theme-muted hover:text-theme-body transition-all cursor-pointer"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
-
-              <div className="p-6 overflow-y-auto space-y-6 text-xs font-sans">
-                {/* Header info */}
-                <div className="grid grid-cols-2 gap-6 bg-theme-surface-2/40 p-4 rounded-xl border border-theme-divider">
-                  <div>
-                    <div className="text-[10px] font-bold uppercase tracking-wider text-theme-muted">Consignor (Dispatch From)</div>
-                    <div className="text-sm font-bold text-theme-text-primary mt-1">{viewingChallan.company?.name}</div>
-                    <div className="text-theme-muted text-[11px] mt-0.5">{viewingChallan.dispatch_from?.name} ({viewingChallan.dispatch_from?.code})</div>
-                    <div className="text-theme-muted text-[11px]">{viewingChallan.dispatch_from?.address}</div>
-                    <div className="mt-2 text-indigo-400 font-mono text-[11px] font-semibold">GSTIN: {viewingChallan.company?.gstin}</div>
-                  </div>
-                  <div>
-                    <div className="text-[10px] font-bold uppercase tracking-wider text-theme-muted">Consignee (Dispatch To)</div>
-                    <div className="text-sm font-bold text-theme-text-primary mt-1">{viewingChallan.dispatch_to?.name} ({viewingChallan.dispatch_to?.code})</div>
-                    <div className="text-theme-muted text-[11px] mt-0.5">{viewingChallan.dispatch_to?.address}</div>
-                    <div className="mt-2 text-theme-muted text-[11px]">
-                      Challan No: <strong className="text-theme-body font-mono">{viewingChallan.challan_no}</strong>
+        {viewingChallan && (() => {
+          const challanModal = (
+            <div
+              className="wms-challan-modal-root fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 print:static print:inset-auto print:h-auto print:w-full print:p-0 print:m-0 print:bg-white print:overflow-visible print:block"
+              role="dialog"
+              aria-modal="true"
+              aria-label="Delivery Challan"
+            >
+              <style>{`
+                @media print {
+                  @page {
+                    size: A4 portrait;
+                    margin: 10mm 12mm 12mm 12mm;
+                  }
+                  #root {
+                    display: none !important;
+                  }
+                  html, body {
+                    height: auto !important;
+                    min-height: 0 !important;
+                    overflow: visible !important;
+                    overflow-x: visible !important;
+                    overflow-y: visible !important;
+                    margin: 0 !important;
+                    padding: 0 !important;
+                    background: white !important;
+                  }
+                  .wms-challan-modal-root {
+                    position: static !important;
+                    display: block !important;
+                    width: 100% !important;
+                    height: auto !important;
+                    margin: 0 !important;
+                    padding: 0 !important;
+                    overflow: visible !important;
+                    background: white !important;
+                  }
+                  .wms-challan-toolbar,
+                  .no-print {
+                    display: none !important;
+                  }
+                  .wms-challan-sheet-wrapper {
+                    display: block !important;
+                    width: 100% !important;
+                    max-width: 100% !important;
+                    margin: 0 !important;
+                    padding: 0 !important;
+                    box-shadow: none !important;
+                    border: none !important;
+                    overflow: visible !important;
+                    background: white !important;
+                    color: black !important;
+                  }
+                  .wms-challan-printable-content {
+                    display: block !important;
+                    box-shadow: none !important;
+                    border: none !important;
+                    margin: 0 !important;
+                    padding: 0 !important;
+                    visibility: visible !important;
+                    background: white !important;
+                    color: black !important;
+                    width: 100% !important;
+                  }
+                }
+              `}</style>
+              <div className="wms-challan-sheet-wrapper bg-theme-surface-1 border border-theme-divider rounded-2xl w-full max-w-3xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200 print:max-h-none print:shadow-none print:border-none print:w-full print:m-0 print:p-0 print:bg-white print:text-black print:block">
+                <div className="wms-challan-toolbar p-4 border-b border-theme-divider flex items-center justify-between bg-theme-surface-2/50 print:hidden">
+                  <div className="flex items-center gap-2">
+                    <div className="p-1.5 rounded-lg bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+                      <FileText className="w-5 h-5" />
                     </div>
-                    <div className="text-theme-muted text-[11px]">
-                      Date: <span className="text-theme-body font-mono">{viewingChallan.date}</span>
+                    <div>
+                      <h3 className="text-sm font-bold text-theme-text-primary">
+                        {viewingChallan.challan_title || "DELIVERY CHALLAN"}
+                      </h3>
+                      <p className="text-[10px] text-theme-muted">{viewingChallan.statutory_subtitle}</p>
                     </div>
                   </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => window.print()}
+                      className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-sm"
+                    >
+                      <Printer className="w-3.5 h-3.5" />
+                      Print Challan
+                    </button>
+                    <button
+                      onClick={() => setViewingChallan(null)}
+                      className="p-1.5 rounded-lg hover:bg-theme-surface-hover text-theme-muted hover:text-theme-body transition-all cursor-pointer"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
 
-                {/* Transport Info */}
-                <div className="bg-theme-surface-2/20 p-3 rounded-lg border border-theme-divider grid grid-cols-3 gap-3 font-mono text-[11px]">
-                  <div>
-                    <span className="text-theme-muted text-[10px] block">Transporter:</span>
-                    <span className="font-semibold text-theme-body">{viewingChallan.transport?.transporter_name || "N/A"}</span>
+                <div className="wms-challan-printable-content p-6 overflow-y-auto space-y-6 text-xs font-sans print:p-0 print:space-y-6">
+                  {/* Header info */}
+                  <div className="grid grid-cols-2 gap-6 bg-theme-surface-2/40 p-4 rounded-xl border border-theme-divider print:bg-white print:border-slate-300">
+                    <div>
+                      <div className="text-[10px] font-bold uppercase tracking-wider text-theme-muted">Consignor (Dispatch From)</div>
+                      <div className="text-sm font-bold text-theme-text-primary mt-1">{viewingChallan.company?.name}</div>
+                      <div className="text-theme-muted text-[11px] mt-0.5">{viewingChallan.dispatch_from?.name} ({viewingChallan.dispatch_from?.code})</div>
+                      <div className="text-theme-muted text-[11px]">{viewingChallan.dispatch_from?.address}</div>
+                      <div className="mt-2 text-indigo-400 font-mono text-[11px] font-semibold print:text-indigo-700">GSTIN: {viewingChallan.company?.gstin}</div>
+                    </div>
+                    <div>
+                      <div className="text-[10px] font-bold uppercase tracking-wider text-theme-muted">Consignee (Dispatch To)</div>
+                      <div className="text-sm font-bold text-theme-text-primary mt-1">{viewingChallan.dispatch_to?.name} ({viewingChallan.dispatch_to?.code})</div>
+                      <div className="text-theme-muted text-[11px] mt-0.5">{viewingChallan.dispatch_to?.address}</div>
+                      <div className="mt-2 text-theme-muted text-[11px]">
+                        Challan No: <strong className="text-theme-body font-mono">{viewingChallan.challan_no}</strong>
+                      </div>
+                      <div className="text-theme-muted text-[11px]">
+                        Date: <span className="text-theme-body font-mono">{viewingChallan.date}</span>
+                      </div>
+                    </div>
                   </div>
-                  <div>
-                    <span className="text-theme-muted text-[10px] block">Vehicle No:</span>
-                    <span className="font-semibold text-amber-400">{viewingChallan.transport?.vehicle_number || "N/A"}</span>
-                  </div>
-                  <div>
-                    <span className="text-theme-muted text-[10px] block">LR / Docket No:</span>
-                    <span className="font-semibold text-theme-body">{viewingChallan.transport?.lr_number || "N/A"}</span>
-                  </div>
-                </div>
 
-                {/* Items Table */}
-                <table className="w-full text-left border-collapse">
-                  <thead>
-                    <tr className="border-b border-theme-divider text-[10px] uppercase font-bold text-theme-muted tracking-wider">
-                      <th className="py-2 px-2">#</th>
-                      <th className="py-2 px-2">Item Description</th>
-                      <th className="py-2 px-2 font-mono">HSN</th>
-                      <th className="py-2 px-2 font-mono">Batch No</th>
-                      <th className="py-2 px-2 text-right">Qty Dispatched</th>
-                      <th className="py-2 px-2 text-right">Unit Rate (₹)</th>
-                      <th className="py-2 px-2 text-right">Taxable Value (₹)</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-theme-divider text-xs">
-                    {viewingChallan.items?.map((it: any, idx: number) => (
-                      <tr key={idx} className="hover:bg-theme-surface-2/30">
-                        <td className="py-2.5 px-2 text-theme-muted">{idx + 1}</td>
-                        <td className="py-2.5 px-2 font-semibold text-theme-body">{it.product_name}</td>
-                        <td className="py-2.5 px-2 font-mono text-theme-muted">{it.hsn}</td>
-                        <td className="py-2.5 px-2 font-mono text-indigo-400 font-bold">{it.batch_no}</td>
-                        <td className="py-2.5 px-2 text-right font-mono font-bold text-emerald-400">{it.quantity}</td>
-                        <td className="py-2.5 px-2 text-right font-mono">{it.rate.toFixed(2)}</td>
-                        <td className="py-2.5 px-2 text-right font-mono font-bold">{it.amount.toFixed(2)}</td>
+                  {/* Transport Info */}
+                  <div className="bg-theme-surface-2/20 p-3 rounded-lg border border-theme-divider grid grid-cols-3 gap-3 font-mono text-[11px] print:bg-slate-50 print:border-slate-300">
+                    <div>
+                      <span className="text-theme-muted text-[10px] block">Transporter:</span>
+                      <span className="font-semibold text-theme-body">{viewingChallan.transport?.transporter_name || "N/A"}</span>
+                    </div>
+                    <div>
+                      <span className="text-theme-muted text-[10px] block">Vehicle No:</span>
+                      <span className="font-semibold text-amber-400 print:text-amber-700">{viewingChallan.transport?.vehicle_number || "N/A"}</span>
+                    </div>
+                    <div>
+                      <span className="text-theme-muted text-[10px] block">LR / Docket No:</span>
+                      <span className="font-semibold text-theme-body">{viewingChallan.transport?.lr_number || "N/A"}</span>
+                    </div>
+                  </div>
+
+                  {/* Items Table */}
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="border-b border-theme-divider text-[10px] uppercase font-bold text-theme-muted tracking-wider print:border-slate-400">
+                        <th className="py-2 px-2">#</th>
+                        <th className="py-2 px-2">Item Description</th>
+                        <th className="py-2 px-2 font-mono">HSN</th>
+                        <th className="py-2 px-2 font-mono">Batch No</th>
+                        <th className="py-2 px-2 text-right">Qty Dispatched</th>
+                        <th className="py-2 px-2 text-right">Unit Rate (₹)</th>
+                        <th className="py-2 px-2 text-right">Taxable Value (₹)</th>
                       </tr>
-                    ))}
-                  </tbody>
-                  <tfoot>
-                    <tr className="border-t-2 border-theme-divider font-bold text-xs">
-                      <td colSpan={4} className="py-3 px-2 text-theme-muted uppercase tracking-wider text-[10px]">
-                        Total Consignment Summary
-                      </td>
-                      <td className="py-3 px-2 text-right font-mono text-emerald-400">
-                        {viewingChallan.summary?.total_quantity}
-                      </td>
-                      <td></td>
-                      <td className="py-3 px-2 text-right font-mono text-indigo-400 text-sm">
-                        ₹{viewingChallan.summary?.total_value.toFixed(2)}
-                      </td>
-                    </tr>
-                  </tfoot>
-                </table>
+                    </thead>
+                    <tbody className="divide-y divide-theme-divider text-xs print:divide-slate-200">
+                      {viewingChallan.items?.map((it: any, idx: number) => (
+                        <tr key={idx} className="hover:bg-theme-surface-2/30">
+                          <td className="py-2.5 px-2 text-theme-muted">{idx + 1}</td>
+                          <td className="py-2.5 px-2 font-semibold text-theme-body">{it.product_name}</td>
+                          <td className="py-2.5 px-2 font-mono text-theme-muted">{it.hsn}</td>
+                          <td className="py-2.5 px-2 font-mono text-indigo-400 font-bold print:text-indigo-700">{it.batch_no}</td>
+                          <td className="py-2.5 px-2 text-right font-mono font-bold text-emerald-400 print:text-emerald-700">{it.quantity}</td>
+                          <td className="py-2.5 px-2 text-right font-mono">{it.rate.toFixed(2)}</td>
+                          <td className="py-2.5 px-2 text-right font-mono font-bold">{it.amount.toFixed(2)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                    <tfoot>
+                      <tr className="border-t-2 border-theme-divider font-bold text-xs print:border-slate-400">
+                        <td colSpan={4} className="py-3 px-2 text-theme-muted uppercase tracking-wider text-[10px]">
+                          Total Consignment Summary
+                        </td>
+                        <td className="py-3 px-2 text-right font-mono text-emerald-400 print:text-emerald-700">
+                          {viewingChallan.summary?.total_quantity}
+                        </td>
+                        <td></td>
+                        <td className="py-3 px-2 text-right font-mono text-indigo-400 text-sm print:text-indigo-700">
+                          ₹{viewingChallan.summary?.total_value.toFixed(2)}
+                        </td>
+                      </tr>
+                    </tfoot>
+                  </table>
 
-                {/* Statutory Non-Supply Declaration */}
-                <div className="p-3 bg-indigo-500/5 rounded-xl border border-indigo-500/20 text-[11px] text-theme-muted space-y-1">
-                  <div className="font-bold text-indigo-400 flex items-center gap-1.5">
-                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-                    Statutory Rule 55 Declaration
+                  {/* Statutory Non-Supply Declaration */}
+                  <div className="p-3 bg-indigo-500/5 rounded-xl border border-indigo-500/20 text-[11px] text-theme-muted space-y-1 print:bg-slate-50 print:border-slate-300">
+                    <div className="font-bold text-indigo-400 flex items-center gap-1.5 print:text-indigo-700">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 print:text-emerald-600" />
+                      Statutory Rule 55 Declaration
+                    </div>
+                    <p>{viewingChallan.declaration}</p>
                   </div>
-                  <p>{viewingChallan.declaration}</p>
                 </div>
               </div>
             </div>
-          </div>
-        )}
+          );
+
+          if (typeof document === "undefined" || !document?.body || typeof (document.body as any).appendChild !== "function") {
+            return challanModal;
+          }
+
+          return createPortal(challanModal, document.body);
+        })()}
 
         {/* E-Way Bill JSON Modal */}
         {viewingEwayBill && (
