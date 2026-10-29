@@ -6,9 +6,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 3.33.1
+ * Version      : 6.99.13
  * Created      : 2026-09-20
- * Modified     : 2026-09-20
+ * Modified     : 2026-10-29
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
@@ -379,84 +379,155 @@ export const GrnPrintModal: React.FC<GrnPrintModalProps> = ({
     </div>
   );
 
-  return (
-    <>
-      <div className="fixed inset-0 z-50 flex flex-col bg-slate-900/80 backdrop-blur-sm animate-in fade-in duration-150">
-        <div className="print:hidden bg-slate-900 border-b border-slate-800 px-6 py-3 flex items-center justify-between text-white shrink-0 shadow-lg">
-          <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-indigo-600 text-white">
-              <Truck className="w-4 h-4" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h2 className="font-bold text-sm">Statutory A4 GRN &amp; Landed Cost Audit Slip</h2>
-                <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-emerald-950 text-emerald-300 border border-emerald-800">
-                  {receiptData.receipt_no}
-                </span>
-              </div>
-              <p className="text-xs text-slate-400">
-                Statutory verification sheet with line-item landed cost allocations &amp; carrier audit trail
-              </p>
-            </div>
+  const modalContent = (
+    <div
+      className="grn-print-modal-root print-preview-visible fixed inset-0 z-50 flex flex-col bg-slate-900/80 backdrop-blur-sm overflow-y-auto print:static print:inset-auto print:h-auto print:w-full print:p-0 print:m-0 print:bg-white print:overflow-visible"
+      role="dialog"
+      aria-modal="true"
+      aria-label="GRN Receiving Slip Print Preview"
+    >
+      <style>{`
+        @media print {
+          @page {
+            size: A4 portrait;
+            margin: 8mm 10mm 10mm 10mm;
+          }
+          #root {
+            display: none !important;
+          }
+          html, body {
+            height: auto !important;
+            min-height: 0 !important;
+            overflow: visible !important;
+            overflow-x: visible !important;
+            overflow-y: visible !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            background: white !important;
+          }
+          .grn-print-modal-root {
+            position: static !important;
+            display: block !important;
+            width: 100% !important;
+            height: auto !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            overflow: visible !important;
+            background: white !important;
+          }
+          .grn-print-toolbar,
+          .no-print {
+            display: none !important;
+          }
+          .grn-print-canvas-wrapper {
+            display: block !important;
+            width: 100% !important;
+            height: auto !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            overflow: visible !important;
+            background: white !important;
+          }
+          .grn-print-sheet-wrapper {
+            display: block !important;
+            width: 100% !important;
+            max-width: 100% !important;
+            margin: 0 auto !important;
+            padding: 0 !important;
+            box-shadow: none !important;
+            border: none !important;
+            overflow: visible !important;
+            transform: none !important;
+            background: white !important;
+          }
+          .grn-printable-sheet {
+            box-shadow: none !important;
+            border: none !important;
+            margin: 0 auto !important;
+            padding: 0 !important;
+            max-width: 100% !important;
+            min-height: auto !important;
+            visibility: visible !important;
+            background: white !important;
+          }
+        }
+      `}</style>
+
+      {/* Top Floating Command Bar */}
+      <div className="grn-print-toolbar print:hidden bg-slate-900 border-b border-slate-800 px-6 py-3 flex items-center justify-between text-white shrink-0 shadow-lg">
+        <div className="flex items-center gap-3">
+          <div className="p-2 rounded-lg bg-indigo-600 text-white">
+            <Truck className="w-4 h-4" />
           </div>
-
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-1 bg-slate-800 rounded-lg p-1 border border-slate-700 text-xs">
-              <button
-                type="button"
-                onClick={() => setZoomLevel((prev) => Math.max(60, prev - 10))}
-                className="p-1 rounded hover:bg-slate-700 text-slate-300 transition"
-                title="Zoom out"
-              >
-                <ZoomOut className="w-4 h-4" />
-              </button>
-              <span className="px-2 font-mono text-slate-200">{zoomLevel}%</span>
-              <button
-                type="button"
-                onClick={() => setZoomLevel((prev) => Math.min(140, prev + 10))}
-                className="p-1 rounded hover:bg-slate-700 text-slate-300 transition"
-                title="Zoom in"
-              >
-                <ZoomIn className="w-4 h-4" />
-              </button>
+          <div>
+            <div className="flex items-center gap-2">
+              <h2 className="font-bold text-sm">Statutory A4 GRN &amp; Landed Cost Audit Slip</h2>
+              <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-emerald-950 text-emerald-300 border border-emerald-800">
+                {receiptData.receipt_no}
+              </span>
             </div>
-
-            <button
-              type="button"
-              onClick={() => window.print()}
-              className="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 font-bold text-xs shadow-md transition flex items-center gap-2"
-            >
-              <Printer className="w-4 h-4" />
-              <span>Print Slip (Ctrl+P)</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={onClose}
-              className="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition"
-              title="Close"
-            >
-              <X className="w-5 h-5" />
-            </button>
+            <p className="text-xs text-slate-400">
+              Statutory verification sheet with line-item landed cost allocations &amp; carrier audit trail
+            </p>
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-6 flex justify-center bg-slate-800/40">
-          <div
-            style={{ transform: `scale(${zoomLevel / 100})`, transformOrigin: "top center" }}
-            className="transition-transform duration-100 ease-out"
-          >
-            {renderPrintableSlip()}
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1 bg-slate-800 rounded-lg p-1 border border-slate-700 text-xs">
+            <button
+              type="button"
+              onClick={() => setZoomLevel((prev) => Math.max(60, prev - 10))}
+              className="p-1 rounded hover:bg-slate-700 text-slate-300 transition"
+              title="Zoom out"
+            >
+              <ZoomOut className="w-4 h-4" />
+            </button>
+            <span className="px-2 font-mono text-slate-200">{zoomLevel}%</span>
+            <button
+              type="button"
+              onClick={() => setZoomLevel((prev) => Math.min(140, prev + 10))}
+              className="p-1 rounded hover:bg-slate-700 text-slate-300 transition"
+              title="Zoom in"
+            >
+              <ZoomIn className="w-4 h-4" />
+            </button>
           </div>
+
+          <button
+            type="button"
+            onClick={() => window.print()}
+            className="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 font-bold text-xs shadow-md transition flex items-center gap-2"
+          >
+            <Printer className="w-4 h-4" />
+            <span>Print Slip (Ctrl+P)</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={onClose}
+            className="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition"
+            title="Close (Esc)"
+          >
+            <X className="w-5 h-5" />
+          </button>
         </div>
       </div>
 
-      {typeof document !== "undefined" && createPortal(
-        <div className="print-only-container bg-white text-slate-900" id="smriti-grn-print-root">
+      {/* Scrollable Document Canvas Viewport */}
+      <div className="grn-print-canvas-wrapper flex-1 overflow-y-auto p-6 flex justify-center bg-slate-800/40 print:p-0 print:m-0 print:block print:bg-white print:overflow-visible">
+        <div
+          style={{ transform: `scale(${zoomLevel / 100})`, transformOrigin: "top center" }}
+          className="grn-print-sheet-wrapper transition-transform duration-100 ease-out print:transform-none print:w-full print:max-w-none"
+        >
           {renderPrintableSlip()}
-        </div>,
-        document.body
-      )}
-    </>
+        </div>
+      </div>
+    </div>
   );
+
+  if (typeof document === "undefined" || !document?.body || typeof (document.body as any).appendChild !== "function") {
+    return modalContent;
+  }
+
+  return createPortal(modalContent, document.body);
 };
