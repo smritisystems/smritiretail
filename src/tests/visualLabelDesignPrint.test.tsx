@@ -13,7 +13,34 @@
  */
 
 import React from "react";
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
+
+vi.mock("qz-tray", () => ({
+  default: {
+    websocket: {
+      connect: vi.fn(),
+      disconnect: vi.fn(),
+      isActive: vi.fn().mockReturnValue(false),
+    },
+    printers: {
+      find: vi.fn().mockResolvedValue([]),
+      getDefault: vi.fn().mockResolvedValue(null),
+    },
+    print: vi.fn(),
+    configs: {
+      create: vi.fn(),
+    },
+    security: {
+      setCertificatePromise: vi.fn(),
+      setSignatureAlgorithm: vi.fn(),
+      setSignaturePromise: vi.fn(),
+    },
+    api: {
+      getVersion: vi.fn().mockResolvedValue("2.2.6"),
+    },
+  },
+}));
+
 import { renderToStaticMarkup } from "react-dom/server";
 import { VisualLabelDesigner } from "../components/barcode/VisualLabelDesign";
 
