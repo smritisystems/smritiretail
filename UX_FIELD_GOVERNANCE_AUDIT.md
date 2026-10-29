@@ -25,8 +25,8 @@ All business fields in SMRITI are declared authoritatively in `backend/app/gover
 | :--- | :--- | :--- | :--- |
 | **CFOC Registry Version** | 3.46.0 | v3.45.0 | PASS |
 | **Deterministic Fingerprint** | `2ac971144155d554...` | SHA-256 stable across runs | PASS |
-| **Physical DB Tables** | 624 tables | 295 tables across `smriti001` & `smritisys` | PASS |
-| **Physical DB Columns** | 13308 columns | Live information_schema catalog | PASS |
+| **Physical DB Tables** | 629 tables | 295 tables across `smriti001` & `smritisys` | PASS |
+| **Physical DB Columns** | 13462 columns | Live information_schema catalog | PASS |
 | **Canonical Field Definitions** | 147 fields | Declared in `CANONICAL_FIELDS` SSOT | PASS |
 | **UX Field References (Configured)** | 91 references | Master Form Fields & Grid Columns | PASS |
 | **Master Screen Mappings** | 9 screens | Master Configs in `src/components/global/` | PASS |
@@ -47,7 +47,7 @@ All business fields in SMRITI are declared authoritatively in `backend/app/gover
 | :--- | :--- | :--- |
 | **Canonical Business Columns** | 147 | Registered in `CANONICAL_FIELDS` |
 | **Audit & Temporal Columns** | 113 | `id`, `created_at`, `updated_at`, `modified_at`, `deleted_at`, `created_by`, `updated_by`, `deleted_by`, `version`, `is_deleted` |
-| **Technical & Foreign Key Columns** | 67 | Foreign keys (`*_id`), technical tokens, passwords, nonces |
+| **Technical & Foreign Key Columns** | 68 | Foreign keys (`*_id`), technical tokens, passwords, nonces |
 | **Framework & Internal Columns** | 42 | `identity_code`, `*_json`, `metadata`, `attributes`, `extra_data`, media attachments |
 | **Migration & Support Columns** | 45 | Legacy Shoper 9 migration columns and flat file import buffers |
 | **Unregistered Business Columns** | 159 | Unmapped business columns on governed tables |
@@ -56,7 +56,7 @@ All business fields in SMRITI are declared authoritatively in `backend/app/gover
 
 ## 4. Passed Governance Checks
 - [x] **Registry Invariants & Fingerprint (147 fields, SHA-256: 2ac971144155d554...)**
-- [x] **Bi-Directional DB Reconciliation (132/132 mapped to live schema, 0 broken mappings, 147 canonical cols, 113 audit cols, 67 FK cols, 42 framework cols, 45 migration cols)**
+- [x] **Bi-Directional DB Reconciliation (132/132 mapped to live schema, 0 broken mappings, 147 canonical cols, 113 audit cols, 68 FK cols, 42 framework cols, 45 migration cols)**
 - [x] **Tenant Boundary Alignment (100% boundary parity with TABLE_OWNERSHIP)**
 - [x] **UX Master Configs (91 field references mapped to SSOT)**
 - [x] **Hardcoding Guard (0 unauthorized hardcoded business fields, 0 governed legacy baseline entries)**
