@@ -4,15 +4,16 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.92.0
+ * Version      : 6.99.14
  * Created      : 2026-10-17
- * Modified     : 2026-10-17
+ * Modified     : 2026-10-29 (v6.99.14 — Unified body portal & #root suppression print standard)
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: B2B Packing Slip Management Modal Component
  */
 
 import React, { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import {
   Package,
   Plus,
@@ -247,13 +248,90 @@ export const PackingSlipManagementModal: React.FC<PackingSlipManagementModalProp
       (s.orderId && s.orderId.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        onClose();
+      } else if (e.key === "F9" || ((e.ctrlKey || e.metaKey) && (e.key === "p" || e.key === "P"))) {
+        e.preventDefault();
+        window.print();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen, onClose]);
+
   if (!isOpen) return null;
 
-  return (
-    <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-150">
-      <div className="bg-white dark:bg-[#191c1e] text-[#191c1e] dark:text-[#eff1f3] rounded-2xl shadow-2xl border border-[#c4c5d5] dark:border-[#444653] max-w-4xl w-full flex flex-col overflow-hidden max-h-[92vh]">
+  const modalContent = (
+    <div
+      className="packing-slip-modal-root fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-150 print:static print:inset-auto print:h-auto print:w-full print:p-0 print:m-0 print:bg-white print:overflow-visible print:block"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Packing Slip Management Modal"
+    >
+      <style>{`
+        @media print {
+          @page {
+            size: A4 portrait;
+            margin: 10mm;
+          }
+          #root {
+            display: none !important;
+          }
+          html, body {
+            height: auto !important;
+            min-height: 0 !important;
+            overflow: visible !important;
+            overflow-x: visible !important;
+            overflow-y: visible !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            background: white !important;
+          }
+          .packing-slip-modal-root {
+            position: static !important;
+            display: block !important;
+            width: 100% !important;
+            height: auto !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            overflow: visible !important;
+            background: white !important;
+          }
+          .packing-slip-toolbar,
+          .no-print {
+            display: none !important;
+          }
+          .packing-slip-sheet-wrapper {
+            display: block !important;
+            width: 100% !important;
+            max-width: 100% !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            box-shadow: none !important;
+            border: none !important;
+            overflow: visible !important;
+            background: white !important;
+          }
+          .packing-slip-printable-content {
+            display: block !important;
+            box-shadow: none !important;
+            border: none !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            visibility: visible !important;
+            background: white !important;
+          }
+        }
+      `}</style>
+      <div className="packing-slip-sheet-wrapper bg-white dark:bg-[#191c1e] text-[#191c1e] dark:text-[#eff1f3] rounded-2xl shadow-2xl border border-[#c4c5d5] dark:border-[#444653] max-w-4xl w-full flex flex-col overflow-hidden max-h-[92vh] print:max-h-none print:shadow-none print:border-none print:w-full print:m-0 print:p-0 print:block">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-[#c4c5d5] dark:border-[#444653] bg-slate-50 dark:bg-[#131b2e]">
+        <div className="packing-slip-toolbar flex items-center justify-between px-6 py-4 border-b border-[#c4c5d5] dark:border-[#444653] bg-slate-50 dark:bg-[#131b2e] print:hidden">
           <div className="flex items-center gap-2.5">
             <div className="p-2 bg-blue-100 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 rounded-xl">
               <Package size={18} />
@@ -280,7 +358,7 @@ export const PackingSlipManagementModal: React.FC<PackingSlipManagementModalProp
         </div>
 
         {/* Action Bar */}
-        <div className="flex items-center justify-between px-6 py-3 border-b border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-[#171f30]">
+        <div className="packing-slip-toolbar flex items-center justify-between px-6 py-3 border-b border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-[#171f30] print:hidden">
           <div className="flex items-center gap-3">
             {viewMode !== "LIST" ? (
               <button
@@ -552,7 +630,7 @@ export const PackingSlipManagementModal: React.FC<PackingSlipManagementModalProp
           )}
 
           {viewMode === "VIEW" && selectedSlip && (
-            <div className="space-y-4">
+            <div className="packing-slip-printable-content space-y-4">
               <div className="p-4 bg-slate-50 dark:bg-slate-800/40 rounded-xl border border-slate-200 dark:border-slate-800 grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
                 <div>
                   <span className="text-slate-500 font-semibold">Slip Number:</span>
@@ -601,7 +679,7 @@ export const PackingSlipManagementModal: React.FC<PackingSlipManagementModalProp
                 </table>
               </div>
 
-              <div className="flex justify-end gap-2 pt-2">
+              <div className="packing-slip-toolbar flex justify-end gap-2 pt-2 print:hidden">
                 <button
                   type="button"
                   onClick={() => window.print()}
@@ -629,4 +707,10 @@ export const PackingSlipManagementModal: React.FC<PackingSlipManagementModalProp
       </div>
     </div>
   );
+
+  if (typeof document === "undefined" || !document?.body || typeof (document.body as any).appendChild !== "function") {
+    return modalContent;
+  }
+
+  return createPortal(modalContent, document.body);
 };

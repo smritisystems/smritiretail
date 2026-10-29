@@ -4,15 +4,16 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.99.0
+ * Version      : 6.99.14
  * Created      : 2026-10-02
- * Modified     : 2026-10-21
+ * Modified     : 2026-10-29
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
  */
 
 import React, { useState, useEffect, useMemo, useCallback } from "react";
+import { createPortal } from "react-dom";
 import {
   X,
   Printer,
@@ -265,14 +266,103 @@ export const VendorStatementOfAccountModal: React.FC<VendorStatementOfAccountMod
     window.print();
   };
 
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        onClose();
+      } else if (e.key === "F9" || ((e.ctrlKey || e.metaKey) && (e.key === "p" || e.key === "P"))) {
+        e.preventDefault();
+        window.print();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen, onClose]);
+
   if (!isOpen) return null;
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-sm p-4 sm:p-6 overflow-y-auto animate-in fade-in duration-200">
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl w-full max-w-5xl max-h-[92vh] flex flex-col overflow-hidden text-slate-800 dark:text-slate-100 print:max-h-none print:shadow-none print:border-none print:w-full print:m-0 print:p-0">
+  const modalContent = (
+    <div
+      className="vendor-soa-modal-root fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-sm p-4 sm:p-6 overflow-y-auto animate-in fade-in duration-200 print:static print:inset-auto print:h-auto print:w-full print:p-0 print:m-0 print:bg-white print:overflow-visible print:block"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Vendor Statement of Account"
+    >
+      <style>{`
+        @media print {
+          @page {
+            size: A4 portrait;
+            margin: 8mm 10mm 10mm 10mm;
+          }
+          #root {
+            display: none !important;
+          }
+          html, body {
+            height: auto !important;
+            min-height: 0 !important;
+            overflow: visible !important;
+            overflow-x: visible !important;
+            overflow-y: visible !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            background: white !important;
+          }
+          .vendor-soa-modal-root {
+            position: static !important;
+            display: block !important;
+            width: 100% !important;
+            height: auto !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            overflow: visible !important;
+            overflow-x: visible !important;
+            overflow-y: visible !important;
+            background: white !important;
+          }
+          .vendor-soa-toolbar,
+          .no-print {
+            display: none !important;
+          }
+          .vendor-soa-canvas-wrapper {
+            display: block !important;
+            width: 100% !important;
+            height: auto !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            overflow: visible !important;
+            background: white !important;
+          }
+          .vendor-soa-sheet-wrapper {
+            display: block !important;
+            width: 100% !important;
+            max-width: 100% !important;
+            margin: 0 auto !important;
+            padding: 0 !important;
+            box-shadow: none !important;
+            border: none !important;
+            overflow: visible !important;
+            background: white !important;
+          }
+          .vendor-soa-printable-content {
+            box-shadow: none !important;
+            border: none !important;
+            margin: 0 auto !important;
+            padding: 0 !important;
+            max-width: 100% !important;
+            min-height: auto !important;
+            visibility: visible !important;
+            background: white !important;
+          }
+        }
+      `}</style>
+      <div className="vendor-soa-sheet-wrapper bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl w-full max-w-5xl max-h-[92vh] flex flex-col overflow-hidden text-slate-800 dark:text-slate-100 print:max-h-none print:shadow-none print:border-none print:w-full print:m-0 print:p-0 print:block">
         
         {/* MODAL HEADER */}
-        <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-800/40 print:hidden">
+        <div className="vendor-soa-toolbar px-6 py-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-800/40 print:hidden">
           <div className="flex items-center gap-3">
             <div className="p-2.5 rounded-xl bg-indigo-600/10 text-indigo-600 dark:bg-indigo-500/20 dark:text-indigo-400">
               <FileText className="w-5 h-5" />
@@ -333,7 +423,7 @@ export const VendorStatementOfAccountModal: React.FC<VendorStatementOfAccountMod
         </div>
 
         {/* FILTER BAR (PRINT HIDDEN) */}
-        <div className="px-6 py-3 border-b border-slate-200 dark:border-slate-800 bg-slate-100/60 dark:bg-slate-900/60 flex flex-wrap items-center justify-between gap-3 text-xs print:hidden">
+        <div className="vendor-soa-toolbar px-6 py-3 border-b border-slate-200 dark:border-slate-800 bg-slate-100/60 dark:bg-slate-900/60 flex flex-wrap items-center justify-between gap-3 text-xs print:hidden">
           <div className="flex items-center gap-2">
             <span className="font-semibold text-slate-600 dark:text-slate-400 flex items-center gap-1">
               <Filter className="w-3.5 h-3.5" /> Period:
@@ -402,7 +492,7 @@ export const VendorStatementOfAccountModal: React.FC<VendorStatementOfAccountMod
         </div>
 
         {/* PRINTABLE STATEMENT BODY */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-6 print:p-0 print:overflow-visible">
+        <div className="vendor-soa-canvas-wrapper vendor-soa-printable-content flex-1 overflow-y-auto p-6 space-y-6 print:p-0 print:overflow-visible print:block">
           {error && (
             <div className="p-4 rounded-xl border border-rose-200 bg-rose-50 dark:border-rose-800/40 dark:bg-rose-950/30 text-rose-700 dark:text-rose-300 flex items-start gap-3">
               <AlertCircle className="w-5 h-5 shrink-0 mt-0.5 text-rose-600 dark:text-rose-400" />
@@ -722,4 +812,10 @@ export const VendorStatementOfAccountModal: React.FC<VendorStatementOfAccountMod
       </div>
     </div>
   );
+
+  if (typeof document === "undefined" || !document?.body || typeof (document.body as any).appendChild !== "function") {
+    return modalContent;
+  }
+
+  return createPortal(modalContent, document.body);
 };

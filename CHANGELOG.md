@@ -1,5 +1,37 @@
 <!--
 
+## [6.99.14] - 2026-10-29 - Print Engine: Platform-Wide Modal Unification & Layout Safety (Phase 3: SOA, Barcode & Packing Slips) v1.0.0
+
+### Fixed
+- `src/components/vendor/tabs/VendorStatementOfAccountModal.tsx`:
+  - Migrated Vendor Statement of Account (SOA) and double-entry ledger audit modal to the unified single-tree body portal architecture (`createPortal(modalContent, document.body)`).
+  - Injected embedded `@media print` style sheet declaring `#root { display: none !important; }`, preventing application tree displacement from hiding ledger data behind blank white sheets.
+  - Reset modal root, canvas wrapper, and sheet to static block layout with 0 overflow and 0 margin offsets.
+  - Isolated control toolbars and filter chips (`vendor-soa-toolbar`) from print preview via `display: none !important;`.
+  - Added `Escape` (close preview) and `F9` / `Ctrl+P` (instant print) keyboard shortcuts.
+- `src/components/itemMaster/modals/BatchBarcodePrintModal.tsx`:
+  - Migrated Batch Barcode Label Queue modal to the unified single-tree body portal standard (`createPortal(modalContent, document.body)`).
+  - Injected embedded `@media print` style sheet with `#root { display: none !important; }` and dynamic `@page` sizing (`100mm 50.7mm` for Tattly Threads PRN, `50mm 25mm` for Thermal, `A4 portrait` for Sheet).
+  - Excluded configuration and action toolbars (`barcode-batch-toolbar`) from print preview.
+  - Added `Escape` (close preview) and `F9` / `Ctrl+P` (instant print) keyboard shortcuts.
+- `src/components/billing/modals/PackingSlipManagementModal.tsx`:
+  - Migrated B2B Packing Slip modal to the unified single-tree body portal standard (`createPortal(modalContent, document.body)`).
+  - Injected embedded `@media print` style sheet with `#root { display: none !important; }` and static block unrolling.
+  - Excluded mode tabs, search bar, and action toolbars (`packing-slip-toolbar`) from print output.
+  - Added `Escape` (close preview) and `F9` / `Ctrl+P` (instant print) keyboard shortcuts.
+
+### Added
+- `src/tests/vendorStatementOfAccountModal.test.tsx`:
+  - Vitest test suite with 5 tests covering empty markup when closed, shell rendering, `#root` suppression, toolbar exclusion, and reconciliation audit footer.
+- `src/tests/batchBarcodePrintModal.test.tsx`:
+  - Vitest test suite with 4 tests covering empty markup when closed, barcode queue rendering, dynamic `@page` sizing, and toolbar exclusion.
+- `src/tests/packingSlipManagementModal.test.tsx`:
+  - Vitest test suite with 4 tests covering empty markup when closed, shell rendering, `#root` suppression, and toolbar exclusion.
+- `docs/walkthrough/print/Print_Engine_Modal_Unification_Phase3_Walkthrough_v1.0.0.md`:
+  - Formal 13-section WGP walkthrough document.
+- `docs/walkthrough/README.md`:
+  - Appended entry `v3.145.0` to master walkthrough index.
+
 ## [6.99.13] - 2026-10-29 - Print Engine: Platform-Wide Modal Unification & Layout Safety v1.0.0
 
 ### Fixed

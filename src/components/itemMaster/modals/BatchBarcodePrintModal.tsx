@@ -4,15 +4,16 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.70.50
+ * Version      : 6.99.14
  * Created      : 2026-10-09
- * Modified     : 2026-10-09 (v6.70.50 — Batch barcode label preview and thermal/sheet print modal)
+ * Modified     : 2026-10-29 (v6.99.14 — Unified body portal & #root suppression print standard)
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
  */
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { X, Printer, Download, Copy, Check, Tag, Eye, FileCode } from "lucide-react";
 import { Product } from "../../../types.ts";
 import { compilePrnBatch, BUILTIN_PRN_TEMPLATES, generatePrnDownloadFilename } from "../../barcode/prnInterpolation.ts";
@@ -108,15 +109,94 @@ export const BatchBarcodePrintModal: React.FC<BatchBarcodePrintModalProps> = ({
     onNotification?.("Exported", `Downloaded CSV for ${validProducts.length} barcodes.`, "success");
   };
 
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        onClose();
+      } else if (e.key === "F9" || ((e.ctrlKey || e.metaKey) && (e.key === "p" || e.key === "P"))) {
+        e.preventDefault();
+        window.print();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen, onClose]);
+
   const handleBrowserPrint = () => {
     window.print();
   };
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 animate-in fade-in duration-150">
-      <div className="bg-white dark:bg-[#1e222b] rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 w-full max-w-3xl flex flex-col max-h-[90vh] overflow-hidden">
+  const pageSizeCss = printLayout === "thermal" ? "50mm 25mm" : printLayout === "tattly-prn" ? "100mm 50.7mm" : "A4 portrait";
+
+  const modalContent = (
+    <div
+      className="barcode-batch-modal-root fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 animate-in fade-in duration-150 print:static print:inset-auto print:h-auto print:w-full print:p-0 print:m-0 print:bg-white print:overflow-visible print:block"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Batch Barcode Print Modal"
+    >
+      <style>{`
+        @media print {
+          @page {
+            size: ${pageSizeCss};
+            margin: 0;
+          }
+          #root {
+            display: none !important;
+          }
+          html, body {
+            height: auto !important;
+            min-height: 0 !important;
+            overflow: visible !important;
+            overflow-x: visible !important;
+            overflow-y: visible !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            background: white !important;
+          }
+          .barcode-batch-modal-root {
+            position: static !important;
+            display: block !important;
+            width: 100% !important;
+            height: auto !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            overflow: visible !important;
+            background: white !important;
+          }
+          .barcode-batch-toolbar,
+          .no-print {
+            display: none !important;
+          }
+          .barcode-batch-sheet-wrapper {
+            display: block !important;
+            width: 100% !important;
+            max-width: 100% !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            box-shadow: none !important;
+            border: none !important;
+            overflow: visible !important;
+            background: white !important;
+          }
+          .barcode-batch-grid {
+            display: grid !important;
+            box-shadow: none !important;
+            border: none !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            visibility: visible !important;
+            background: white !important;
+          }
+        }
+      `}</style>
+      <div className="barcode-batch-sheet-wrapper bg-white dark:bg-[#1e222b] rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 w-full max-w-3xl flex flex-col max-h-[90vh] overflow-hidden print:max-h-none print:shadow-none print:border-none print:w-full print:m-0 print:p-0 print:block">
         {/* Header */}
-        <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between shrink-0 bg-slate-50/50 dark:bg-slate-900/50">
+        <div className="barcode-batch-toolbar px-6 py-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between shrink-0 bg-slate-50/50 dark:bg-slate-900/50 print:hidden">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-xl bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 flex items-center justify-center">
               <Tag size={20} />
@@ -143,7 +223,7 @@ export const BatchBarcodePrintModal: React.FC<BatchBarcodePrintModalProps> = ({
         </div>
 
         {/* Toolbar Controls */}
-        <div className="px-6 py-3 bg-slate-100/60 dark:bg-[#171a21] border-b border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-between gap-3 text-xs">
+        <div className="barcode-batch-toolbar px-6 py-3 bg-slate-100/60 dark:bg-[#171a21] border-b border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-between gap-3 text-xs print:hidden">
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-2">
               <span className="font-semibold text-slate-600 dark:text-slate-300">Format:</span>
@@ -229,14 +309,14 @@ export const BatchBarcodePrintModal: React.FC<BatchBarcodePrintModalProps> = ({
         </div>
 
         {/* Item Preview List */}
-        <div className="flex-1 min-h-0 overflow-auto p-6">
+        <div className="barcode-batch-canvas-wrapper flex-1 min-h-0 overflow-auto p-6 print:p-0 print:overflow-visible print:block">
           {validProducts.length === 0 ? (
             <div className="py-12 text-center text-slate-400">
               <Tag size={36} className="mx-auto mb-2 opacity-30" />
               <p className="font-semibold text-sm">No barcodes available in this batch</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+            <div className="barcode-batch-grid grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 print:grid">
               {validProducts.map((p, idx) => (
                 <div
                   key={p.id || `bc-${idx}`}
@@ -288,7 +368,7 @@ export const BatchBarcodePrintModal: React.FC<BatchBarcodePrintModalProps> = ({
         </div>
 
         {/* Footer Actions */}
-        <div className="px-6 py-4 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between shrink-0 bg-slate-50 dark:bg-slate-900/50">
+        <div className="barcode-batch-toolbar px-6 py-4 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between shrink-0 bg-slate-50 dark:bg-slate-900/50 print:hidden">
           <div className="text-xs text-slate-500 dark:text-slate-400">
             Total Labels to Print: <strong className="text-slate-800 dark:text-slate-200">{validProducts.length * copiesPerItem}</strong>
           </div>
@@ -321,4 +401,10 @@ export const BatchBarcodePrintModal: React.FC<BatchBarcodePrintModalProps> = ({
       </div>
     </div>
   );
+
+  if (typeof document === "undefined" || !document?.body || typeof (document.body as any).appendChild !== "function") {
+    return modalContent;
+  }
+
+  return createPortal(modalContent, document.body);
 };
