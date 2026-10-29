@@ -1435,6 +1435,30 @@ class PurchaseService:
             transport_parts.append(f"Date: {req.lr_date}")
         if req.vehicle_number:
             transport_parts.append(f"Vehicle: {req.vehicle_number}")
+
+        eff_delivery_terms = req.delivery_terms
+        eff_freight_terms = req.freight_terms
+        if linked_po:
+            comm = getattr(linked_po, "commercial_terms", None)
+            if isinstance(comm, dict):
+                if not eff_delivery_terms:
+                    eff_delivery_terms = comm.get("delivery_terms")
+                if not eff_freight_terms:
+                    eff_freight_terms = comm.get("freight_terms")
+            if not eff_delivery_terms and linked_po.notes:
+                del_m = re.search(r"delivery:\s*([^,|\]]+)", linked_po.notes, re.IGNORECASE)
+                if del_m:
+                    eff_delivery_terms = del_m.group(1).strip()
+            if not eff_freight_terms and linked_po.notes:
+                fr_m = re.search(r"freight:\s*([^,|\]]+)", linked_po.notes, re.IGNORECASE)
+                if fr_m:
+                    eff_freight_terms = fr_m.group(1).strip()
+
+        if eff_delivery_terms:
+            transport_parts.append(f"Delivery: {eff_delivery_terms}")
+        if eff_freight_terms:
+            transport_parts.append(f"Freight Terms: {eff_freight_terms}")
+
         if req.freight_amount and req.freight_amount > Decimal("0.00"):
             transport_parts.append(f"Freight: Rs. {req.freight_amount}")
         if req.handling_amount and req.handling_amount > Decimal("0.00"):

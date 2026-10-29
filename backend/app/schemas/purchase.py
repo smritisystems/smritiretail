@@ -441,6 +441,8 @@ class PurchaseReceiptCreate(BaseModel):
     lr_number:          Optional[str] = None
     lr_date:            Optional[date] = None
     vehicle_number:     Optional[str] = None
+    delivery_terms:     Optional[str] = None
+    freight_terms:      Optional[str] = None
     freight_amount:     Optional[Decimal] = Decimal("0.00")
     handling_amount:    Optional[Decimal] = Decimal("0.00")
     insurance_amount:   Optional[Decimal] = Decimal("0.00")
@@ -546,6 +548,15 @@ class PurchaseReceiptResponse(BaseModel):
     vendor_bill_date: Optional[Union[date, datetime, str]] = None
     vendor_bill_no: Optional[str] = None
     lr_date:      Optional[Union[date, datetime, str]] = None
+    transporter_name: Optional[str] = None
+    lr_number:    Optional[str] = None
+    vehicle_number: Optional[str] = None
+    freight_amount: Optional[Decimal] = None
+    delivery_terms: Optional[str] = None
+    freight_terms: Optional[str] = None
+    payment_terms: Optional[str] = None
+    collection_type: Optional[str] = None
+    commercial_terms: Optional[Dict[str, Any]] = None
     subtotal:     Decimal
     tax_total:    Decimal
     grand_total:  Decimal
@@ -578,6 +589,35 @@ class PurchaseReceiptResponse(BaseModel):
             eff_match = re.search(r"Effective.*Date:\s*([0-9]{4}-[0-9]{2}-[0-9]{2})", self.notes)
             if eff_match and not self.receipt_date:
                 self.receipt_date = eff_match.group(1)
+
+            # Extract embedded logistics and commercial metadata
+            del_match = re.search(r"Delivery:\s*([^,|\]]+)", self.notes, re.IGNORECASE)
+            if del_match and not self.delivery_terms:
+                self.delivery_terms = del_match.group(1).strip()
+
+            fr_match = re.search(r"Freight Terms:\s*([^,|\]]+)", self.notes, re.IGNORECASE)
+            if fr_match and not self.freight_terms:
+                self.freight_terms = fr_match.group(1).strip()
+
+            pay_match = re.search(r"Payment:\s*([^,|\]]+)", self.notes, re.IGNORECASE)
+            if pay_match and not self.payment_terms:
+                self.payment_terms = pay_match.group(1).strip()
+
+            coll_match = re.search(r"Collection:\s*([^,|\]]+)", self.notes, re.IGNORECASE)
+            if coll_match and not self.collection_type:
+                self.collection_type = coll_match.group(1).strip()
+
+            transp_match = re.search(r"Transporter:\s*([^,|\]]+)", self.notes, re.IGNORECASE)
+            if transp_match and not self.transporter_name:
+                self.transporter_name = transp_match.group(1).strip()
+
+            lr_match = re.search(r"LR:\s*([^,|\]]+)", self.notes, re.IGNORECASE)
+            if lr_match and not self.lr_number:
+                self.lr_number = lr_match.group(1).strip()
+
+            veh_match = re.search(r"Vehicle:\s*([^,|\]]+)", self.notes, re.IGNORECASE)
+            if veh_match and not self.vehicle_number:
+                self.vehicle_number = veh_match.group(1).strip()
 
         if not self.receipt_date and self.created_at:
             self.receipt_date = self.created_at

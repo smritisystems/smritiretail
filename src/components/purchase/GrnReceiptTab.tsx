@@ -104,6 +104,19 @@ interface PurchaseOrderOption {
   subtotal?: number;
   grand_total?: number;
   total_amount?: number;
+  delivery_terms?: string;
+  deliveryTerms?: string;
+  freight_terms?: string;
+  freightCharges?: string;
+  payment_terms?: string;
+  paymentTerms?: string;
+  collection_type?: string;
+  collectionType?: string;
+  season?: string;
+  special_instructions?: string;
+  specialInstructions?: string;
+  commercial_terms?: any;
+  notes?: string;
   items?: PurchaseOrderItemOption[];
 }
 
@@ -340,6 +353,13 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
   const [ewayBillNumber, setEwayBillNumber] = useState("");
   const [ewayBillDate, setEwayBillDate] = useState(() => new Date().toISOString().split("T")[0]);
 
+  // Commercial & Delivery Terms State (Inherited from PO with Override Support)
+  const [deliveryTerms, setDeliveryTerms] = useState<string>("Door Delivery");
+  const [freightTerms, setFreightTerms] = useState<string>("Paid by Supplier");
+  const [paymentTerms, setPaymentTerms] = useState<string>("120 Days");
+  const [collectionType, setCollectionType] = useState<string>("");
+  const [specialInstructions, setSpecialInstructions] = useState<string>("");
+
   // Inward Landed Cost Engine State
   const [costTypes, setCostTypes] = useState<InwardCostTypeOption[]>([]);
   const [costItems, setCostItems] = useState<InwardCostItem[]>([]);
@@ -561,6 +581,57 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
       if ((order as any)?.warehouse_id) {
         setSelectedWarehouseId((order as any).warehouse_id);
       }
+
+      // Inherit commercial & logistics terms from PO
+      const comm = (order as any).commercial_terms || (order as any).commercialTerms || {};
+      const orderNotes = (order as any).notes || "";
+
+      const inheritedDelivery =
+        order.delivery_terms ||
+        order.deliveryTerms ||
+        comm.delivery_terms ||
+        comm.deliveryTerms ||
+        (orderNotes.match(/delivery:\s*([^,|\]]+)/i)?.[1]?.trim()) ||
+        (((order as any).freightCharges || comm.freight_terms || "").toLowerCase().includes("buyer") || ((order as any).freightCharges || comm.freight_terms || "").toLowerCase().includes("to-pay") ? "Ex-Factory" : "Door Delivery");
+      setDeliveryTerms(inheritedDelivery);
+
+      const inheritedFreight =
+        (order as any).freightCharges ||
+        order.freight_terms ||
+        order.freightCharges ||
+        comm.freight_terms ||
+        comm.freightTerms ||
+        (orderNotes.match(/freight:\s*([^,|\]]+)/i)?.[1]?.trim()) ||
+        "Paid by Supplier";
+      setFreightTerms(inheritedFreight);
+
+      const inheritedPayment =
+        (order as any).paymentTerms ||
+        order.payment_terms ||
+        order.paymentTerms ||
+        comm.payment_terms ||
+        comm.paymentTerms ||
+        (orderNotes.match(/payment:\s*([^,|\]]+)/i)?.[1]?.trim()) ||
+        "120 Days";
+      setPaymentTerms(inheritedPayment);
+
+      const inheritedCollection =
+        order.collection_type ||
+        order.collectionType ||
+        comm.collection_type ||
+        comm.collectionType ||
+        (order as any).season ||
+        (orderNotes.match(/collection:\s*([^,|\]]+)/i)?.[1]?.trim()) ||
+        "";
+      setCollectionType(inheritedCollection);
+
+      const inheritedInstructions =
+        order.special_instructions ||
+        order.specialInstructions ||
+        comm.special_instructions ||
+        comm.specialInstructions ||
+        "";
+      setSpecialInstructions(inheritedInstructions);
 
       // Aggregate previously received quantities from savedReceipts for this order
       const priorInwardMap = new Map<string, number>();
@@ -1142,6 +1213,10 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
       lr_number: fullReceipt.lr_number,
       lr_date: fullReceipt.lr_date,
       vehicle_number: fullReceipt.vehicle_number,
+      delivery_terms: fullReceipt.delivery_terms || fullReceipt.notes?.match(/delivery:\s*([^,|\]]+)/i)?.[1]?.trim(),
+      freight_terms: fullReceipt.freight_terms || fullReceipt.notes?.match(/freight terms:\s*([^,|\]]+)/i)?.[1]?.trim() || fullReceipt.notes?.match(/freight:\s*([^,|\]]+)/i)?.[1]?.trim(),
+      payment_terms: fullReceipt.payment_terms || fullReceipt.notes?.match(/payment:\s*([^,|\]]+)/i)?.[1]?.trim(),
+      collection_type: fullReceipt.collection_type || fullReceipt.notes?.match(/collection:\s*([^,|\]]+)/i)?.[1]?.trim(),
       notes: fullReceipt.notes,
       items: (fullReceipt.items || []).map((i: any) => ({
         code: i.code || i.product_id,
@@ -1574,6 +1649,8 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
         lr_number: lrNumber || undefined,
         lr_date: lrDate || undefined,
         vehicle_number: vehicleNumber || undefined,
+        delivery_terms: deliveryTerms || undefined,
+        freight_terms: freightTerms || undefined,
         freight_amount: totalAddons > 0 ? totalAddons : 0,
         allocation_method: allocationMethod,
         cost_components: costItems.map((c) => ({
@@ -1635,6 +1712,10 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
         vehicle_number: vehicleNumber,
         weight_cbm: weightCbm,
         cartons: cartons,
+        delivery_terms: deliveryTerms || undefined,
+        freight_terms: freightTerms || undefined,
+        payment_terms: paymentTerms || undefined,
+        collection_type: collectionType || undefined,
         notes: notes,
         items: validLines.map((r, idx) => {
           const { landedCost, allocatedAmount } = lineAllocations[idx];
@@ -2394,7 +2475,7 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 text-xs">
           <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/60 p-3">
             <div className="text-[10px] uppercase tracking-wide text-slate-500 font-bold">Supplier</div>
             <div className="mt-1 font-bold text-slate-900 dark:text-white text-sm">{supplierName || "-- Select Supplier in Header --"}</div>
@@ -2411,6 +2492,19 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
             <div className="text-[10px] uppercase tracking-wide text-slate-500 font-bold">Vendor Invoice</div>
             <div className="mt-1 font-bold text-slate-900 dark:text-white text-sm font-mono">{invoiceNumber || "-- Not Specified --"}</div>
             <div className="mt-0.5 text-[11px] text-slate-500">Date: {invoiceDate || grnDate}</div>
+          </div>
+          <div className="rounded-xl border border-indigo-200 dark:border-indigo-900/60 bg-indigo-50/50 dark:bg-indigo-950/30 p-3">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] uppercase tracking-wide text-indigo-700 dark:text-indigo-400 font-bold">Logistics &amp; Terms</span>
+              <span className={`px-1.5 py-0.5 rounded text-[9px] font-extrabold ${deliveryTerms.toLowerCase().includes("ex-factory") ? "bg-amber-100 text-amber-800 border border-amber-300 dark:bg-amber-950 dark:text-amber-300" : "bg-emerald-100 text-emerald-800 border border-emerald-300 dark:bg-emerald-950 dark:text-emerald-300"}`}>
+                {deliveryTerms}
+              </span>
+            </div>
+            <div className="mt-1 font-bold text-slate-900 dark:text-white text-sm">{freightTerms}</div>
+            <div className="mt-0.5 text-[11px] text-slate-500 flex items-center justify-between">
+              <span>Pay: {paymentTerms}</span>
+              {collectionType && <span className="font-semibold text-indigo-600 dark:text-indigo-400">Coll: {collectionType}</span>}
+            </div>
           </div>
         </div>
 
@@ -2617,6 +2711,39 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
             </div>
           </div>
         </div>
+
+        {/* Contextual PO Terms Advisory Banner */}
+        {deliveryTerms.toLowerCase().includes("ex-factory") || freightTerms.toLowerCase().includes("buyer") || freightTerms.toLowerCase().includes("to-pay") ? (
+          <div className="flex items-start gap-2.5 p-3 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-amber-900 dark:text-amber-200 text-xs">
+            <span className="text-base">🚚</span>
+            <div>
+              <div className="font-bold flex items-center gap-1.5">
+                <span>Commercial Term: {deliveryTerms} ({freightTerms})</span>
+                <span className="px-1.5 py-0.2 rounded text-[9px] font-extrabold bg-amber-200 text-amber-900 dark:bg-amber-800 dark:text-amber-100">
+                  ACTION REQUIRED
+                </span>
+              </div>
+              <p className="text-[11px] text-amber-800 dark:text-amber-300 mt-0.5 leading-snug">
+                This shipment was ordered under <strong>Ex-Factory / Paid by Buyer</strong> terms. Inward freight, LR charges, and local handling should be entered below in Cost Components to ensure accurate landed cost valuation of received stock.
+              </p>
+            </div>
+          </div>
+        ) : (
+          <div className="flex items-start gap-2.5 p-3 rounded-xl bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 text-blue-900 dark:text-blue-200 text-xs">
+            <span className="text-base">📦</span>
+            <div>
+              <div className="font-bold flex items-center gap-1.5">
+                <span>Commercial Term: {deliveryTerms} ({freightTerms})</span>
+                <span className="px-1.5 py-0.2 rounded text-[9px] font-extrabold bg-blue-200 text-blue-900 dark:bg-blue-800 dark:text-blue-100">
+                  PREPAID BY SUPPLIER
+                </span>
+              </div>
+              <p className="text-[11px] text-blue-800 dark:text-blue-300 mt-0.5 leading-snug">
+                Freight is prepaid by supplier under the <strong>Door Delivery</strong> contract. Only incidental destination expenses (e.g., local unloading, transit insurance) should be added below.
+              </p>
+            </div>
+          </div>
+        )}
 
         <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-xs">
           <div>
