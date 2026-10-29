@@ -420,6 +420,7 @@
     visibility: visible;
   }
   .print-only-container {
+    display: block !important;
     position: relative;
     left: 0;
     top: 0;
