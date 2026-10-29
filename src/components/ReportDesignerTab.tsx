@@ -6,15 +6,16 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.68.0
+ * Version      : 6.99.18
  * Created      : 2026-07-10
- * Modified     : 2026-10-03
+ * Modified     : 2026-10-29 (v6.99.18 — Sales Order print modal body portal & #root suppression)
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Target UI    : BI & Reporting Center (Fiori Horizon Inspired Light Theme)
  */
 
 import React, { useState, useEffect, useMemo } from "react";
+import { createPortal } from "react-dom";
 import { apiFetchV1, recordAuditAction } from "../lib/apiFetchV1";
 import { isFieldGloballyVisible } from "../services/unifiedFieldCatalog.ts";
 import { GlobalExportService } from "../services/globalExportService.ts";
@@ -248,6 +249,21 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
   const [soPreviewData, setSoPreviewData] = useState<any | null>(null);
   const [showSoPrintModal, setShowSoPrintModal] = useState<boolean>(false);
   const [convertingOrderId, setConvertingOrderId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!showSoPrintModal) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        setShowSoPrintModal(false);
+      } else if (e.key === "F9" || ((e.ctrlKey || e.metaKey) && (e.key === "p" || e.key === "P"))) {
+        e.preventDefault();
+        window.print();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [showSoPrintModal]);
  
   // Dynamically load purchase summary data when purchase studio is active
   useEffect(() => {
@@ -5383,10 +5399,54 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
 
       {/* SALES ORDER CONFIRMATION / PROFORMA PRINT PREVIEW MODAL */}
       <AnimatePresence>
-        {showSoPrintModal && soPreviewData && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm overflow-y-auto">
-            <div className="bg-slate-900 border border-slate-700 rounded-2xl max-w-4xl w-full p-6 shadow-2xl relative max-h-[92vh] flex flex-col">
-              <div className="flex justify-between items-center pb-4 mb-4 border-b border-slate-800 shrink-0">
+        {showSoPrintModal && soPreviewData && typeof document !== "undefined" && document?.body && createPortal(
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm overflow-y-auto so-print-modal-root">
+            <style dangerouslySetInnerHTML={{ __html: `
+              @media print {
+                @page {
+                  size: A4 portrait;
+                  margin: 10mm 12mm 12mm 12mm;
+                }
+                #root {
+                  display: none !important;
+                }
+                html, body {
+                  height: auto !important;
+                  min-height: 0 !important;
+                  overflow: visible !important;
+                  margin: 0 !important;
+                  padding: 0 !important;
+                  background: #ffffff !important;
+                }
+                .so-print-modal-root {
+                  position: static !important;
+                  display: block !important;
+                  width: 100% !important;
+                  margin: 0 !important;
+                  padding: 0 !important;
+                  background: #ffffff !important;
+                  overflow: visible !important;
+                }
+                .so-print-modal-dialog {
+                  position: static !important;
+                  display: block !important;
+                  width: 100% !important;
+                  max-width: none !important;
+                  max-height: none !important;
+                  margin: 0 !important;
+                  padding: 0 !important;
+                  background: #ffffff !important;
+                  box-shadow: none !important;
+                  border: none !important;
+                  overflow: visible !important;
+                }
+                .so-print-toolbar {
+                  display: none !important;
+                }
+              }
+            `}} />
+            <div className="bg-slate-900 border border-slate-700 rounded-2xl max-w-4xl w-full p-6 shadow-2xl relative max-h-[92vh] flex flex-col so-print-modal-dialog">
+              <div className="flex justify-between items-center pb-4 mb-4 border-b border-slate-800 shrink-0 so-print-toolbar">
                 <div className="flex items-center gap-2.5">
                   <div className="p-2 bg-indigo-600/20 text-indigo-400 rounded-lg border border-indigo-500/30">
                     <Printer size={16} />
@@ -5432,7 +5492,8 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
                 <SalesOrderA4 data={soPreviewData} />
               </div>
             </div>
-          </div>
+          </div>,
+          document.body
         )}
       </AnimatePresence>
 
