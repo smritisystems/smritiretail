@@ -341,19 +341,21 @@ describe("Purchase Order Sizewise Grouping (Article No. + Color) Verification", 
     expect(htmlPivot).toContain("120 Days");
   });
 
-  it("7. resolveFootwearAttributes extracts Heels, Upper Material, and Outsole from diverse key aliases and casing structures", () => {
+  it("7. resolveFootwearAttributes extracts Heels, Upper Material, Outsole, and Collection from diverse key aliases and casing structures", () => {
     // 7.1 snake_case in attributes
     const itemSnake = {
       attributes: {
         heel_type: "BLOCK",
         upper_material: "SYNTHETIC LEATHER",
         outsole_material: "AIRMIX",
+        collection_type: "AUTUMN / WINTER",
       },
     };
     expect(resolveFootwearAttributes(itemSnake)).toEqual({
       heels: "BLOCK",
       upperMaterial: "SYNTHETIC LEATHER",
       outsole: "AIRMIX",
+      collectionType: "AUTUMN / WINTER",
     });
 
     // 7.2 Uppercase with spaces (Excel imports)
@@ -362,12 +364,14 @@ describe("Purchase Order Sizewise Grouping (Article No. + Color) Verification", 
         "HEEL TYPE": "FLAT",
         "UPPER MATERIAL": "CANVAS",
         "OUTSOLE": "TPR",
+        "COLLECTION TYPE": "CORE ESSENTIALS",
       },
     };
     expect(resolveFootwearAttributes(itemUpper)).toEqual({
       heels: "FLAT",
       upperMaterial: "CANVAS",
       outsole: "TPR",
+      collectionType: "CORE ESSENTIALS",
     });
 
     // 7.3 Direct camelCase and snake_case properties
@@ -375,11 +379,13 @@ describe("Purchase Order Sizewise Grouping (Article No. + Color) Verification", 
       heelType: "WEDGE",
       upperMaterial: "MESH",
       outsoleMaterial: "EVA SHEET",
+      collectionType: "SPRING / SUMMER",
     };
     expect(resolveFootwearAttributes(itemDirect)).toEqual({
       heels: "WEDGE",
       upperMaterial: "MESH",
       outsole: "EVA SHEET",
+      collectionType: "SPRING / SUMMER",
     });
 
     // 7.4 Nested inside originalProduct
@@ -389,6 +395,7 @@ describe("Purchase Order Sizewise Grouping (Article No. + Color) Verification", 
           "Heel Type": "KITTEN",
           "Upper": "PATENT LEATHER",
           "Sole": "RUBBER",
+          "Season": "FESTIVE",
         },
       },
     };
@@ -396,6 +403,7 @@ describe("Purchase Order Sizewise Grouping (Article No. + Color) Verification", 
       heels: "KITTEN",
       upperMaterial: "PATENT LEATHER",
       outsole: "RUBBER",
+      collectionType: "FESTIVE",
     });
 
     // 7.5 Missing returns em dash fallback
@@ -403,6 +411,7 @@ describe("Purchase Order Sizewise Grouping (Article No. + Color) Verification", 
       heels: "—",
       upperMaterial: "—",
       outsole: "—",
+      collectionType: "—",
     });
   });
 

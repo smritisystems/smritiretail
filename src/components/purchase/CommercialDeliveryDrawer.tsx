@@ -23,6 +23,8 @@ export interface CommercialDeliveryData {
   paymentTermsDays?: number;
   freightCharges: string;
   deliveryTerms?: string;
+  collectionType?: string;
+  collection_type?: string;
   freightAmount?: number;
   currency: string;
   buyer: string;
@@ -103,6 +105,17 @@ const DEPARTMENT_PRESETS = [
   "Accessories & Leather",
   "FMCG / Retail Goods",
   "General Procurement",
+];
+
+const COLLECTION_PRESETS = [
+  "Core Essentials (All-Year)",
+  "Spring / Summer (SS)",
+  "Autumn / Winter (AW)",
+  "Festive & Wedding",
+  "Active Athletics",
+  "Bridal Collection",
+  "Casual & Daily",
+  "Formal & Office",
 ];
 
 interface AvailableGodown {
@@ -484,6 +497,26 @@ export const CommercialDeliveryDrawer: React.FC<CommercialDeliveryDrawerProps> =
                     ))}
                   </datalist>
                 </div>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                  Collection / Season
+                </label>
+                <input
+                  type="text"
+                  disabled={readOnly}
+                  value={data.collectionType || data.collection_type || ""}
+                  list="comm-collection-list"
+                  placeholder="e.g. Spring / Summer (SS) or Core Essentials"
+                  onChange={(e) => onChange({ collectionType: e.target.value, collection_type: e.target.value })}
+                  className="w-full text-xs px-2.5 h-8 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100 rounded-lg outline-none focus:border-indigo-500 disabled:opacity-50"
+                />
+                <datalist id="comm-collection-list">
+                  {COLLECTION_PRESETS.map((c) => (
+                    <option key={c} value={c} />
+                  ))}
+                </datalist>
               </div>
 
               <div>

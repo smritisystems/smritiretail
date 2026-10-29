@@ -372,4 +372,38 @@ describe("Purchase Order Print Branding, Watermark & Payment Terms Verification"
     expect(html4Cols).toContain("grid-cols-4");
     expect(html4Cols).toContain("82px");
   });
+
+  it("13. renders Collection Type in commercial terms and footwear reference cards when provided", () => {
+    const dataWithCollection: PurchaseOrderPrintData = {
+      ...sampleFootwearPOData,
+      collectionType: "Core Essentials (All-Year)",
+      itemReferences: [
+        {
+          articleNo: "CH-34",
+          color: "GUNMETAL",
+          heels: "WEDGES",
+          upperMaterial: "FABRIC",
+          outsole: "TPR",
+          collectionType: "Spring / Summer 2026",
+          imageUrl: undefined,
+        },
+      ],
+      itemReferenceFields: {
+        color: false,
+        collectionType: true,
+        heels: true,
+        upperMaterial: true,
+        outsole: true,
+      },
+    };
+
+    const html = renderToStaticMarkup(<PurchaseOrderPrintA4 data={dataWithCollection} />);
+    // Header level commercial terms
+    expect(html).toContain("Collection Type");
+    expect(html).toContain("Core Essentials (All-Year)");
+
+    // Item reference card level
+    expect(html).toContain("Collection:");
+    expect(html).toContain("Spring / Summer 2026");
+  });
 });

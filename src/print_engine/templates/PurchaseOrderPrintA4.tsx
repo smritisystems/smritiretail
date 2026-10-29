@@ -36,11 +36,13 @@ export interface FootwearArticleReference {
   heels?: string;
   upperMaterial?: string;
   outsole?: string;
+  collectionType?: string;
   imageUrl?: string;
 }
 
 export interface ItemReferenceFieldVisibility {
   color: boolean;
+  collectionType?: boolean;
   heels: boolean;
   upperMaterial: boolean;
   outsole: boolean;
@@ -115,6 +117,7 @@ export interface PurchaseOrderPrintData {
   freightTerms?: string;
   currency?: string;
   deliveryTerms?: string;
+  collectionType?: string;
   supplierReference?: string;
   specialInstructions?: string;
   businessTerms?: string;
@@ -322,6 +325,7 @@ export const PurchaseOrderPrintA4: React.FC<{ data: PurchaseOrderPrintData }> = 
             heels: (it as any).heels || (it as any).heelType || (it as any).heel_type || "—",
             upperMaterial: (it as any).upperMaterial || (it as any).upper_material || "—",
             outsole: (it as any).outsole || (it as any).outsoleMaterial || (it as any).outsole_material || "—",
+            collectionType: (it as any).collectionType || (it as any).collection_type || data.collectionType || "—",
             imageUrl: (it as any).imageUrl || (it as any).photoUrl,
           });
         }
@@ -337,6 +341,7 @@ export const PurchaseOrderPrintA4: React.FC<{ data: PurchaseOrderPrintData }> = 
             heels: (it as any).heels || (it as any).heelType || (it as any).heel_type || "—",
             upperMaterial: (it as any).upperMaterial || (it as any).upper_material || "—",
             outsole: (it as any).outsole || (it as any).outsoleMaterial || (it as any).outsole_material || "—",
+            collectionType: (it as any).collectionType || (it as any).collection_type || data.collectionType || "—",
             imageUrl: (it as any).imageUrl || (it as any).photoUrl,
           });
         }
@@ -346,6 +351,7 @@ export const PurchaseOrderPrintA4: React.FC<{ data: PurchaseOrderPrintData }> = 
   }, [data.itemReferences, data.sizewiseItems, data.standardItems]);
   const itemReferenceFields = data.itemReferenceFields ?? {
     color: true,
+    collectionType: true,
     heels: true,
     upperMaterial: true,
     outsole: true,
@@ -790,10 +796,11 @@ export const PurchaseOrderPrintA4: React.FC<{ data: PurchaseOrderPrintData }> = 
             {references.map((ref, idx) => {
               const referenceFields = [
                 { key: "color" as const, label: "Color", value: ref.color },
+                { key: "collectionType" as const, label: "Collection", value: ref.collectionType },
                 { key: "heels" as const, label: "Heels", value: ref.heels },
                 { key: "upperMaterial" as const, label: "Upper Material", value: ref.upperMaterial },
                 { key: "outsole" as const, label: "Outsole", value: ref.outsole },
-              ].filter((field) => itemReferenceFields[field.key]);
+              ].filter((field) => (itemReferenceFields as any)[field.key]);
 
               return (
               <div
@@ -888,6 +895,13 @@ export const PurchaseOrderPrintA4: React.FC<{ data: PurchaseOrderPrintData }> = 
                 {data.deliveryTerms || ((data.freightTerms || "").toLowerCase().includes("buyer") || (data.freightTerms || "").toLowerCase().includes("to-pay") ? "Ex-Factory" : "Door Delivery")}
               </span>
             </div>
+            {data.collectionType && (
+              <div className="flex items-start">
+                <span className="text-slate-500 w-28 shrink-0">Collection Type</span>
+                <span className="text-slate-400 mr-1.5">:</span>
+                <span className="font-semibold text-slate-900">{data.collectionType}</span>
+              </div>
+            )}
             <div className="flex items-start">
               <span className="text-slate-500 w-28 shrink-0">Supplier Reference</span>
               <span className="text-slate-400 mr-1.5">:</span>
