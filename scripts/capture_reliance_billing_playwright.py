@@ -44,24 +44,24 @@ async def main():
         page.on("console", lambda msg: print(f"[CONSOLE {msg.type.upper()}] {msg.text}") if msg.type in ("error", "warning") else None)
 
         async def on_preview_request(request):
-            if "billing/preview" in request.url:
-                print(f"\n>>> [BILLING PREVIEW REQUEST] Method: {request.method}")
+            if "billing/preview" in request.url or "sales/invoices" in request.url:
+                print(f"\n>>> [API REQUEST] Method: {request.method} {request.url}")
                 try:
                     post_data = request.post_data
-                    print(f">>> [BILLING PREVIEW POST_DATA] {post_data}\n")
+                    print(f">>> [API POST_DATA] {post_data}\n")
                 except Exception as e:
-                    print(f">>> [BILLING PREVIEW POST_DATA ERR] {e}\n")
+                    print(f">>> [API POST_DATA ERR] {e}\n")
 
         page.on("request", on_preview_request)
 
         async def on_preview_response(response):
-            if "billing/preview" in response.url:
-                print(f"\n>>> [BILLING PREVIEW RESPONSE] Status: {response.status}")
+            if "billing/preview" in response.url or "sales/invoices" in response.url or response.status >= 400:
+                print(f"\n>>> [API RESPONSE] Status: {response.status} {response.url}")
                 try:
                     body = await response.text()
-                    print(f">>> [BILLING PREVIEW BODY] {body}\n")
+                    print(f">>> [API BODY] {body[:1000]}\n")
                 except Exception as e:
-                    print(f">>> [BILLING PREVIEW BODY ERR] {e}\n")
+                    print(f">>> [API BODY ERR] {e}\n")
 
         page.on("response", on_preview_response)
 
@@ -237,10 +237,51 @@ async def main():
         await page.screenshot(path=ss_06)
         print(f"  ✓ [Screenshot 6] Saved: {ss_06} ({os.path.getsize(ss_06):,} bytes)")
 
+        # -------------------------------------------------------------
+        # STEP 9: Complete Settlement & Capture Tax Invoice Print Preview
+        # -------------------------------------------------------------
+        print("\n[Step 9] Completing settlement & Capturing Tax Invoice Print Preview...")
+        
+        # Dump buttons and inputs in modal
+        buttons = await page.locator('.fixed.inset-0.z-50 button').all_inner_texts()
+        print(f"  Modal buttons: {buttons}")
+
+        complete_btn = page.locator('button:has-text("Complete Settlement")').first
+        if await complete_btn.count() > 0 and await complete_btn.is_visible():
+            btn_txt = await complete_btn.inner_text()
+            print(f"  Clicking Complete Settlement button: '{btn_txt}'")
+            await complete_btn.click()
+        else:
+            await page.keyboard.press("F8")
+            print("  Pressed F8 key for settlement.")
+        
+        await page.wait_for_timeout(3000)
+
+        # Print all text content inside the settlement modal or toast
+        modal_text = await page.locator('.fixed.inset-0.z-50').all_inner_texts()
+        print(f"  Modal inner text after click: {modal_text}")
+
+        # Wait for Print Preview Modal
+        try:
+            await page.wait_for_selector('text="SMRITI Interactive Print & Preview Engine"', timeout=10000)
+            print("  ✓ SMRITI Interactive Print & Preview Engine displayed.")
+        except Exception as e:
+            print(f"  Note waiting for print modal: {e}")
+            # Check what modals are open
+            all_h2 = await page.locator('h2').all_inner_texts()
+            print(f"  All h2 on page: {all_h2}")
+
+        await page.wait_for_timeout(2000)
+
+        # Screenshot 7: Tax Invoice Print Preview
+        ss_07 = os.path.join(ARTIFACT_DIR, "07_tax_invoice_print_preview.png")
+        await page.screenshot(path=ss_07)
+        print(f"  ✓ [Screenshot 7] Saved: {ss_07} ({os.path.getsize(ss_07):,} bytes)")
+
         await browser.close()
 
     print("\n" + "=" * 80)
-    print("ALL 6 PLAYWRIGHT SCREENSHOTS SUCCESSFULLY CAPTURED AND RECORDED")
+    print("ALL 7 PLAYWRIGHT SCREENSHOTS SUCCESSFULLY CAPTURED AND RECORDED")
     print("=" * 80)
 
 

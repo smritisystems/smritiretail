@@ -15,7 +15,7 @@ Classification: Internal
 from typing import List, Optional, Dict, Any
 from decimal import Decimal
 from datetime import datetime
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, Field, ConfigDict, field_validator
 
 
 class PSVSkuTrackingResponse(BaseModel):
@@ -155,6 +155,7 @@ class PSVQuantityReconciliationItem(BaseModel):
     delivery_location_id: Optional[str] = None
     invoice_line_id: str
     sku: str
+    barcodes: List[str] = Field(default_factory=list)
     product_name: str
     style_code: Optional[str] = None
     vendor_code: Optional[str] = None
@@ -207,6 +208,14 @@ class PSVReceiveInvoiceLineReq(BaseModel):
     received_qty: Decimal = Field(default=Decimal("0.0000"), ge=Decimal("0.0000"))
     rejected_qty: Decimal = Field(default=Decimal("0.0000"), ge=Decimal("0.0000"))
     rejection_reason: Optional[str] = None
+    scanned_barcode_counts: Dict[str, int] = Field(default_factory=dict)
+
+    @field_validator("scanned_barcode_counts")
+    @classmethod
+    def validate_scanned_barcode_counts(cls, value: Dict[str, int]) -> Dict[str, int]:
+        if any(not barcode.strip() or count < 1 for barcode, count in value.items()):
+            raise ValueError("Scanned barcodes must be non-empty and have a positive scan count.")
+        return value
 
 
 class PSVReceiveInvoiceReq(BaseModel):
@@ -214,6 +223,7 @@ class PSVReceiveInvoiceReq(BaseModel):
     party_id: Optional[str] = None
     receipt_reference: Optional[str] = None
     receipt_date: Optional[datetime] = None
+    remarks: Optional[str] = Field(None, max_length=1000)
     auto_approve: bool = False
     items: List[PSVReceiveInvoiceLineReq]
 
@@ -226,5 +236,3 @@ class PSVReceiveInvoiceResp(BaseModel):
     approved_count: int
     pending_count: int
     event_ids: List[str] = Field(default_factory=list)
-
-

@@ -29,23 +29,31 @@ export type CorporateTabKey =
   | "sales_invoices";
 
 export interface PsvDetailedItem {
-  id: string;
-  doc_no: string;
-  date: string;
-  customer_code: string;
-  customer_name?: string;
-  store_code: string;
-  article_style: string;
-  color: string;
-  size: string;
-  barcode: string;
+  invoice_id: string;
+  invoice_no: string;
+  invoice_date?: string | null;
+  party_id: string;
+  party_name: string;
+  store_code?: string | null;
+  delivery_location_id?: string | null;
+  invoice_line_id: string;
+  sku: string;
+  barcodes: string[];
+  product_name: string;
+  style_code?: string | null;
+  color?: string | null;
+  size?: string | null;
+  reconciliation_status: string;
+  workflow_status: string;
+  rejected_qty: number;
+  events_count: number;
+  pending_event_ids: string[];
   document_qty: number;
   received_qty: number;
   pending_approval_qty: number;
   approved_qty: number;
-  shortage_qty: number;
+  short_qty: number;
   excess_qty: number;
-  status: "Approved" | "Pending" | "Excess" | "Shortage" | "Rejected" | string;
 }
 
 export interface PsvQuantityReconciliationSummary {

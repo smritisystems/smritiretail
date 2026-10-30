@@ -26,7 +26,7 @@ from app.models.tenant import Company, Branch
 from app.models.crm import Customer, CustomerDeliveryLocation
 from app.models.psv import PSVParty, PSVStockEvent, PSVStockBalance
 from app.models.inventory import Product, Warehouse
-from app.models.item_master import Item, ItemVariant
+from app.models.item_master import Item, ItemBarcode, ItemVariant
 from app.models.sales import SalesInvoice, SalesInvoiceItem
 from app.core.security import create_access_token, hash_password
 from app.api.deps import TenantContext, get_db, get_company_db, get_tenant_context, get_current_user
@@ -276,6 +276,90 @@ async def test_reconciliation_unreceived_invoice_projection(db_session):
     assert item.short_qty == Decimal("100.0000")
     assert item.reconciliation_status in ("READY_FOR_RECEIVING", "UNRECEIVED")
     assert item.workflow_status == "Ready for Receiving"
+    assert item.barcodes == [env["prod"].barcode]
+
+
+@pytest.mark.asyncio
+async def test_barcode_receipt_verification_and_evidence(db_session):
+    env = await _setup_reconciliation_env(db_session)
+    comp = env["company"]
+    inv = env["invoice"]
+    inv_item = env["inv_item"]
+    canonical_barcode = ItemBarcode(
+        id=f"barcode-{uuid.uuid4().hex[:8]}",
+        company_id=comp.id,
+        item_id=env["item"].id,
+        variant_id=env["variant"].id,
+        barcode=f"CANON-{uuid.uuid4().hex[:8]}",
+        barcode_type="CUSTOM",
+    )
+    db_session.add(canonical_barcode)
+    await db_session.commit()
+
+    reconciliation = await PSVProjectionService.get_quantity_reconciliation(
+        session=db_session,
+        company_id=comp.id,
+        invoice_id=inv.id,
+    )
+    assert set(reconciliation.items[0].barcodes) == {
+        env["prod"].barcode,
+        canonical_barcode.barcode,
+    }
+
+    scanned_barcode = canonical_barcode.barcode
+    result = await PSVProjectionService.record_invoice_receipt(
+        session=db_session,
+        company_id=comp.id,
+        user_id=env["staff"].id,
+        user_role="SALES_EXECUTIVE",
+        req=PSVReceiveInvoiceReq(
+            invoice_id=inv.id,
+            receipt_reference="DOCK-RECEIPT-01",
+            remarks="Counted at receiving dock",
+            items=[
+                PSVReceiveInvoiceLineReq(
+                    invoice_line_id=str(inv_item.id),
+                    received_qty=Decimal("2"),
+                    scanned_barcode_counts={scanned_barcode.lower(): 2},
+                )
+            ],
+        ),
+        commit=True,
+    )
+    assert result.pending_count == 1
+    receipt_event = (await db_session.execute(
+        select(PSVStockEvent).where(PSVStockEvent.event_id == result.event_ids[0])
+    )).scalar_one()
+    assert "CANON-" in receipt_event.approval_reason
+    assert "DOCK-RECEIPT-01" in receipt_event.approval_reason
+    assert "Counted at receiving dock" in receipt_event.approval_reason
+
+
+@pytest.mark.asyncio
+async def test_barcode_receipt_rejects_unregistered_barcode(db_session):
+    from fastapi import HTTPException
+
+    env = await _setup_reconciliation_env(db_session)
+    with pytest.raises(HTTPException) as exc_info:
+        await PSVProjectionService.record_invoice_receipt(
+            session=db_session,
+            company_id=env["company"].id,
+            user_id=env["staff"].id,
+            user_role="SALES_EXECUTIVE",
+            req=PSVReceiveInvoiceReq(
+                invoice_id=env["invoice"].id,
+                items=[
+                    PSVReceiveInvoiceLineReq(
+                        invoice_line_id=str(env["inv_item"].id),
+                        received_qty=Decimal("1"),
+                        scanned_barcode_counts={"NOT-A-REAL-BARCODE": 1},
+                    )
+                ],
+            ),
+            commit=False,
+        )
+    assert exc_info.value.status_code == 400
+    assert "does not match invoice item" in exc_info.value.detail
 
 
 @pytest.mark.asyncio

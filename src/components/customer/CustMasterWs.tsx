@@ -72,7 +72,6 @@ import { CorporateActivityAuditPanel } from "./corporateWorkspace/CorporateActiv
 import { GstRegistrationEntry } from "./corporateWorkspace/AddEditGstModal.tsx";
 import { SmritiCustomerPriceGroupModal } from "./CustPriceGroupDlg.tsx";
 import { StoreCodeLookupItem } from "./corporate360/types.ts";
-import { CreateCustomerModal } from "./lifecycle/CreateCustomerModal.tsx";
 import { CustomerDeactivateModal } from "./lifecycle/CustomerDeactivateModal.tsx";
 import { CustomerDeleteConfirmationModal } from "./lifecycle/CustomerDeleteConfirmationModal.tsx";
 import { CustomerMergeModal } from "./lifecycle/CustomerMergeModal.tsx";
@@ -340,10 +339,8 @@ const syncCanonicalCustomerLocations = async (
         stateCode,
         pincode: address.postalCode.trim(),
         country: address.country || "India",
-        ...(address.id ? {} : {
-          gstRegistrationId: address.gstRegistrationId || undefined,
-          gstin: address.gstin?.trim().toUpperCase() || undefined
-        }),
+        gstRegistrationId: address.gstRegistrationId || undefined,
+        gstin: address.gstin?.trim().toUpperCase() || undefined,
         contactPerson: address.contactPerson || undefined,
         phone: address.mobilePhone || address.officePhone || undefined,
         email: address.email1 || undefined,
@@ -368,10 +365,8 @@ const syncCanonicalCustomerLocations = async (
         stateCode,
         pincode: address.postalCode.trim(),
         country: address.country || "India",
-        ...(address.id ? {} : {
-          gstRegistrationId: address.gstRegistrationId || undefined,
-          gstin: address.gstin?.trim().toUpperCase() || undefined
-        }),
+        gstRegistrationId: address.gstRegistrationId || undefined,
+        gstin: address.gstin?.trim().toUpperCase() || undefined,
         contactPerson: address.contactPerson || undefined,
         phone: address.mobilePhone || address.officePhone || undefined,
         email: address.email1 || undefined,
@@ -788,7 +783,7 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
   const [activeTab, setActiveTab] = useState<"form" | "retail" | "additional">("form");
   const [activeCorporateTab, setActiveCorporateTab] = useState<"identity" | "network" | "addresses" | "commercial" | "integrations" | "audit">("identity");
   const [corporateWorkspaceMode, setCorporateWorkspaceMode] = useState<"tabbed" | "overview">("overview");
-  const [viewMode, setViewMode] = useState<"directory" | "360">("directory");
+  const [viewMode, setViewMode] = useState<"directory" | "360">("360");
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [isSaving, setIsSaving] = useState<boolean>(false);
   const [directoryItems, setDirectoryItems] = useState<CustomerDirectoryItem[]>([]);
@@ -834,8 +829,6 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
   const originalCustomerRef = useRef<RetailCustomerRecord | null>(null);
 
   // Lifecycle Modals
-  const [isCreateCustomerModalOpen, setIsCreateCustomerModalOpen] = useState<boolean>(false);
-  const [createCustomerParent, setCreateCustomerParent] = useState<Pick<RetailCustomerRecord, "id" | "code" | "name"> | null>(null);
   const [isDeactivateModalOpen, setIsDeactivateModalOpen] = useState<boolean>(false);
   const [isDeleteConfirmationModalOpen, setIsDeleteConfirmationModalOpen] = useState<boolean>(false);
   const [isMergeModalOpen, setIsMergeModalOpen] = useState<boolean>(false);
@@ -1425,6 +1418,100 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
     }
   };
 
+  const handleSave360CompanyRelationship = async (
+    relationshipId: string,
+    updates: Partial<CustomerCompanyRelationship>,
+  ): Promise<boolean> => {
+    if (!currentCustomer.id || currentCustomer.id.startsWith("cust-draft-") || relationshipId.startsWith("rel-COMP-")) {
+      onNotification?.("Save customer first", "Company-specific credit terms require a saved customer and company relationship.", "warning");
+      return false;
+    }
+    try {
+      const saved = await apiFetchV1<CustomerCompanyRelationship>(
+        `/crm/customers/${encodeURIComponent(currentCustomer.id)}/company-relationships/${encodeURIComponent(relationshipId)}`,
+        {
+          method: "PUT",
+          body: JSON.stringify({
+            customer_group_id: updates.customer_group_id ?? updates.customerGroupId,
+            credit_limit: Number(updates.credit_limit ?? updates.creditLimit ?? 0),
+            credit_days: Number(updates.credit_days ?? updates.creditDays ?? 0),
+            credit_hold: Boolean(updates.credit_hold ?? updates.creditHold),
+            status: updates.status,
+          }),
+        },
+      );
+      setCompanyRelationships(previous => previous.map(relationship => relationship.id === relationshipId ? saved : relationship));
+      await loadCreditExposure(currentCustomer.id);
+      onNotification?.("Commercial terms saved", "The company-specific credit policy has been updated.", "success");
+      return true;
+    } catch (error: any) {
+      onNotification?.("Commercial terms not saved", error?.message || "The company-specific credit policy could not be updated.", "error");
+      return false;
+    }
+  };
+
+  const handleCreate360CompanyRelationship = async (
+    relationship: Partial<CustomerCompanyRelationship>,
+  ): Promise<boolean> => {
+    const companyId = String(relationship.company_id || relationship.companyId || "").trim();
+    if (!companyId || !currentCustomer.id || currentCustomer.id.startsWith("cust-draft-")) {
+      onNotification?.("Company required", "Save the customer and enter a valid operating company ID before adding terms.", "warning");
+      return false;
+    }
+    try {
+      const created = await apiFetchV1<CustomerCompanyRelationship>(
+        `/crm/customers/${encodeURIComponent(currentCustomer.id)}/company-relationships`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            company_id: companyId,
+            customer_id: currentCustomer.id,
+            customer_group_id: relationship.customer_group_id ?? relationship.customerGroupId ?? "CG-Corporate",
+            credit_limit: Number(relationship.credit_limit ?? relationship.creditLimit ?? 0),
+            credit_days: Number(relationship.credit_days ?? relationship.creditDays ?? 0),
+            credit_hold: Boolean(relationship.credit_hold ?? relationship.creditHold),
+            status: relationship.status || "Active",
+          }),
+        },
+      );
+      setCompanyRelationships(previous => [...previous, created]);
+      setSelectedRelId(created.id);
+      await loadCreditExposure(currentCustomer.id);
+      onNotification?.("Commercial terms added", `Company terms were added for ${companyId}.`, "success");
+      return true;
+    } catch (error: any) {
+      onNotification?.("Commercial terms not added", error?.message || "The company-specific credit policy could not be created.", "error");
+      return false;
+    }
+  };
+
+  const handleStoreAssignedFrom360 = async (store: StoreCodeLookupItem) => {
+    const customerId = currentCustomerRef.current.id;
+    await loadDeliveryLocations(customerId);
+    window.dispatchEvent(new CustomEvent("smriti_customer_updated"));
+    onNotification?.("Store location saved", `${store.store_name} (${store.store_code}) is now linked to this customer.`, "success");
+  };
+
+  const handleManageCustomerHierarchy = () => {
+    if (!currentCustomer.id || currentCustomer.id.startsWith("cust-draft-")) {
+      onNotification?.("Save customer first", "Customer hierarchy can be managed after this customer has been saved.", "warning");
+      return;
+    }
+    setHierarchyModalCustomer({
+      id: currentCustomer.id,
+      code: currentCustomer.code || null,
+      name: currentCustomer.name,
+      mobile: currentCustomer.phone || null,
+      customer_group_id: currentCustomer.customerGroupId || currentCustomer.customer_group_id || null,
+      customer_group_name: null,
+      status: currentCustomer.status || "Active",
+      is_active: String(currentCustomer.status || "Active").toLowerCase() === "active",
+      is_dependant: Boolean(currentCustomer.isDependant),
+      parent_customer_id: currentCustomer.parentCustomerId || null,
+      relationship_type: currentCustomer.isDependant ? "child" : "parent",
+    });
+  };
+
   const handleSave = async () => {
     if (!currentCustomer.name.trim()) {
       onNotification?.("Validation Error", "Customer Name is mandatory.", "error");
@@ -1433,9 +1520,10 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
 
     setIsSaving(true);
     try {
-      const primaryMobile = currentCustomer.phone?.trim() || currentCustomer.mailingAddresses?.[0]?.mobilePhone?.trim();
+      const primaryAddress = currentCustomer.mailingAddresses?.find(address => address.isDefault) || currentCustomer.mailingAddresses?.[0];
+      const primaryMobile = currentCustomer.phone?.trim() || primaryAddress?.mobilePhone?.trim();
       const cleanMobile = primaryMobile ? primaryMobile.replace(/\s+/g, "").replace(/-/g, "") : undefined;
-      const cleanEmail = currentCustomer.email?.trim() || currentCustomer.mailingAddresses?.[0]?.email1?.trim() || undefined;
+      const cleanEmail = currentCustomer.email?.trim() || primaryAddress?.email1?.trim() || undefined;
       const cleanGstin = currentCustomer.gstin?.trim() || undefined;
       const cleanName = currentCustomer.name.trim();
       const cleanCode = currentCustomer.code?.trim() || undefined;
@@ -1476,6 +1564,37 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
         customer_type: currentCustomer.customerType || "Retail",
         environment: currentCustomer.environment || "Retail",
         pan_number: currentCustomer.panNumber?.trim().toUpperCase() || undefined,
+        company_code: currentCustomer.companyCode || undefined,
+        profile_notes: currentCustomer.profileNotes || undefined,
+        religion: currentCustomer.religion || undefined,
+        ethnicity: currentCustomer.ethnicity || undefined,
+        age_group: currentCustomer.ageGroup || undefined,
+        profession: currentCustomer.profession || undefined,
+        flat_file_format: currentCustomer.flatFileFormat || undefined,
+        delimiter: currentCustomer.delimiter || undefined,
+        buying_factor: Number(currentCustomer.buyingFactor ?? 1),
+        selling_factor: Number(currentCustomer.sellingFactor ?? 1),
+        lst_number: currentCustomer.lstNumber || undefined,
+        lst_date: currentCustomer.lstDate || undefined,
+        cst_number: currentCustomer.cstNumber || undefined,
+        cst_date: currentCustomer.cstDate || undefined,
+        is_pre_sale_form_applicable: Boolean(currentCustomer.isPreSaleFormApplicable),
+        pre_sale_form_name: currentCustomer.preSaleFormName || undefined,
+        is_post_sale_form_applicable: Boolean(currentCustomer.isPostSaleFormApplicable),
+        post_sale_form_name: currentCustomer.postSaleFormName || undefined,
+        transport_mode: currentCustomer.transportMode || undefined,
+        transport_code: currentCustomer.transportCode || undefined,
+        transit_days: Number(currentCustomer.transitDays ?? 0),
+        bank_code: currentCustomer.bankCode || undefined,
+        bank_location: currentCustomer.bankLocation || undefined,
+        retail_factor: Number(currentCustomer.retailFactor ?? 0),
+        dealer_factor: Number(currentCustomer.dealerFactor ?? 0),
+        destination_tax_type: currentCustomer.destinationTaxType || undefined,
+        allow_dc_gen: Boolean(currentCustomer.allowDcGen),
+        allow_misc_issue: Boolean(currentCustomer.allowMiscIssue),
+        allow_misc_receipts: Boolean(currentCustomer.allowMiscReceipts),
+        is_dependant: Boolean(currentCustomer.isDependant),
+        parent_customer_id: currentCustomer.parentCustomerId || undefined,
         expected_modified_at: currentCustomer.updatedAt || undefined
       };
 
@@ -1539,7 +1658,7 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
       const savedCode = recordToSave.code;
 
       const updated = [...customers];
-      const existingIndex = updated.findIndex(c => c.id === currentCustomer.id || c.code === currentCustomer.code || c.id === savedId || c.code === savedCode);
+      const existingIndex = updated.findIndex(c => c.id === currentCustomer.id || (Boolean(currentCustomer.code) && c.code === currentCustomer.code) || c.id === savedId || c.code === savedCode);
 
       let savedIndex: number;
       if (existingIndex >= 0) {
@@ -1630,66 +1749,36 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
     onNotification?.("Modifications Discarded", "Customer record returned to view mode.", "info");
   };
 
-  const handleNew = () => {
-    if (isDirty) {
-      if (!window.confirm("Discard unsaved customer changes and create a new customer?")) return;
-      if (originalCustomerRef.current) {
-        const original = JSON.parse(JSON.stringify(originalCustomerRef.current));
-        setCurrentCustomer(original);
-        currentCustomerRef.current = original;
-      }
-      setIsDirty(false);
-      isDirtyRef.current = false;
-      setLifecycleMode("view");
-    }
-    setCreateCustomerParent(null);
-    setIsCreateCustomerModalOpen(true);
+  const startCustomerDraft = (parent?: RetailCustomerRecord) => {
+    if (isDirty && !window.confirm("Discard unsaved customer changes and create a new customer?")) return;
+    const draft: RetailCustomerRecord = {
+      ...createEmptyCustomer(1),
+      id: `cust-draft-${Date.now()}`,
+      code: "",
+      isDependant: Boolean(parent),
+      primaryAccountCode: parent?.code || "",
+      primaryAccountName: parent?.name || "",
+      parentCustomerId: parent?.id || "",
+    };
+    setCurrentCustomer(draft);
+    currentCustomerRef.current = draft;
+    originalCustomerRef.current = null;
+    setActiveCustomerId(draft.id);
+    activeCustomerIdRef.current = draft.id;
+    setIsDirty(false);
+    isDirtyRef.current = false;
+    setLifecycleMode("edit");
+    setViewMode("360");
   };
 
-  const handleBackToDirectory = () => {
-    if (isDirty && !window.confirm("Discard unsaved customer changes and return to the directory?")) return;
-    if (lifecycleMode === "edit" && originalCustomerRef.current) {
-      const original = JSON.parse(JSON.stringify(originalCustomerRef.current));
-      setCurrentCustomer(original);
-      currentCustomerRef.current = original;
-      setIsDirty(false);
-      isDirtyRef.current = false;
-      setLifecycleMode("view");
-    }
-    setViewMode("directory");
-  };
+  const handleNew = () => startCustomerDraft();
 
   const handleOpenAddChildCustomer = () => {
     if (!currentCustomer.id || currentCustomer.id.startsWith("cust-draft-")) {
       onNotification?.("Parent Account Required", "Save or select an existing customer account before adding a child account.", "warning");
       return;
     }
-
-    setCreateCustomerParent({
-      id: currentCustomer.id,
-      code: currentCustomer.code,
-      name: currentCustomer.name,
-    });
-    setIsCreateCustomerModalOpen(true);
-  };
-
-  const handleCustomerCreated = (newRecord: RetailCustomerRecord) => {
-    const updated = [newRecord, ...customers];
-    setCustomers(updated);
-    setCurrentIndex(0);
-    setActiveCustomerId(newRecord.id);
-    activeCustomerIdRef.current = newRecord.id;
-    setCurrentCustomer(newRecord);
-    currentCustomerRef.current = newRecord;
-    originalCustomerRef.current = JSON.parse(JSON.stringify(newRecord));
-    setIsDirty(false);
-    isDirtyRef.current = false;
-    setLifecycleMode("view");
-    setViewMode("360");
-
-    cacheCustomersSession(updated);
-
-    window.dispatchEvent(new CustomEvent("smriti_customer_updated"));
+    startCustomerDraft(currentCustomer);
   };
 
   const handleOpenDeactivate = () => {
@@ -2136,9 +2225,14 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
               customer={currentCustomer}
               onSave={handleSave}
               onDeactivate={handleOpenDeactivate}
-              onBack={handleBackToDirectory}
               onEditCustomer={handleEdit}
               onCreateCustomer={handleNew}
+              onCreateChildCustomer={handleOpenAddChildCustomer}
+              onManageHierarchy={handleManageCustomerHierarchy}
+              onStoreAssigned={handleStoreAssignedFrom360}
+              companyRelationships={companyRelationships}
+              onSaveCompanyRelationship={handleSave360CompanyRelationship}
+              onCreateCompanyRelationship={handleCreate360CompanyRelationship}
               onCustomerChange={(field, value) => handleFieldChange(field, value)}
               onCancelEdit={handleCancelEdit}
               onSelectCustomer={item => {
@@ -3113,18 +3207,6 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
           handleFieldChange("priceGroup", `${group.code}#${group.description}`);
           setIsPriceGroupModalOpen(false);
         }}
-      />
-
-      {/* ── Lifecycle Modals ─────────────────────────────────────────────────── */}
-      <CreateCustomerModal
-        isOpen={isCreateCustomerModalOpen}
-        parentCustomer={createCustomerParent}
-        onClose={() => {
-          setIsCreateCustomerModalOpen(false);
-          setCreateCustomerParent(null);
-        }}
-        onCreated={handleCustomerCreated}
-        onNotification={onNotification}
       />
 
       <CustomerDeactivateModal

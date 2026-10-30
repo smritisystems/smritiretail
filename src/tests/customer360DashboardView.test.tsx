@@ -40,17 +40,44 @@ const customer = {
 
 describe("Customer 360 dashboard", () => {
   it("does not select a customer implicitly when the dashboard opens without context", () => {
-    const html = renderToStaticMarkup(<CorporateCustomer360 onBack={vi.fn()} />);
-    expect(html).toContain("Select a customer to view the dashboard");
-    expect(html).toContain("Open Customer Master");
+    const html = renderToStaticMarkup(<CorporateCustomer360 onCreateCustomer={vi.fn()} onSelectCustomer={vi.fn()} />);
+    expect(html).toContain("Customer Master");
+    expect(html).toContain("New customer");
+    expect(html).toContain("Search customers");
     expect(html).not.toContain("Reliance");
   });
 
-  it("handles draft customer records cleanly without issuing live API requests", () => {
-    const html = renderToStaticMarkup(<CorporateCustomer360 customerId="cust-draft-1792937624940" onBack={vi.fn()} />);
-    expect(html).toContain("Save customer to view 360° dashboard");
-    expect(html).toContain("This customer record is a new draft.");
-    expect(html).toContain("Open Customer Master");
+  it("keeps new-customer creation and search on the Customer 360 workspace", () => {
+    const html = renderToStaticMarkup(
+      <CorporateCustomer360
+        customerId="cust-draft-1792937624940"
+        onCreateCustomer={vi.fn()}
+        onSelectCustomer={vi.fn()}
+      />,
+    );
+    expect(html).toContain("New customer");
+    expect(html).toContain("Search customers");
+    expect(html).not.toContain("Open Customer Master");
+  });
+
+  it("renders the unified Customer 360 editor for a new draft", () => {
+    const html = renderToStaticMarkup(
+      <CorporateCustomer360
+        customerId="cust-draft-1792937624940"
+        customer={{ id: "cust-draft-1792937624940", code: "", name: "", customerType: "Retail" }}
+        isEditing
+        onCustomerChange={vi.fn()}
+        onCancelEdit={vi.fn()}
+        onSave={vi.fn()}
+      />,
+    );
+    expect(html).toContain("New customer");
+    expect(html).toContain("New customer");
+    expect(html).toContain("Customer name");
+    expect(html).toContain("Basic Details");
+    expect(html).toContain("Save changes");
+    expect(html).toContain("Draft");
+    expect(html).not.toContain(">Active</span>");
   });
 
   it("shows customer-specific summary data and omits unsourced prototype values", () => {
@@ -130,19 +157,102 @@ describe("Customer 360 dashboard", () => {
       <Customer360DashboardView
         customer={customer}
         isEditing
+        initialTab="basic"
         onCustomerChange={vi.fn()}
         onCancelEdit={vi.fn()}
         onSave={vi.fn()}
       />,
     );
-    expect(editHtml).toContain("Edit customer profile");
+    expect(editHtml).toContain("Basic customer details");
     expect(editHtml).toContain("Customer name");
     expect(editHtml).toContain("Mobile number");
-    expect(editHtml).toContain("GSTIN");
-    expect(editHtml).toContain("Payment terms");
     expect(editHtml).toContain("Save changes");
     expect(editHtml).toContain("Cancel");
-    expect(editHtml).not.toContain("Basic Details");
+    expect(editHtml).toContain("Basic Details");
+    expect(editHtml).toContain("Editing is enabled across customer master tabs.");
+  });
+
+  it("keeps the profile tabs available and exposes editable customer data per section", () => {
+    const taxHtml = renderToStaticMarkup(
+      <Customer360DashboardView customer={customer} isEditing initialTab="corporate_tax" onSave={vi.fn()} />,
+    );
+    expect(taxHtml).toContain("Primary GSTIN");
+    expect(taxHtml).toContain("Add GST registration");
+    expect(taxHtml).toContain("Basic Details");
+
+    const addressHtml = renderToStaticMarkup(
+      <Customer360DashboardView
+        customer={{
+          ...customer,
+          mailingAddresses: [{
+            code: "001",
+            contactPerson: "Northwind",
+            address1: "1 Market Road",
+            address2: "",
+            address3: "Building A",
+            address4: "",
+            address5: "",
+            locality: "Central",
+            city: "Pune",
+            postalCode: "411001",
+            state: "Maharashtra",
+            zone: "West",
+            country: "India",
+            officePhone: "",
+            homePhone: "",
+            mobilePhone: "9999999999",
+            faxNumber: "",
+            email1: "accounts@example.com",
+            email2: "",
+            email3: "",
+            gstin: "27ABCDE1234F1Z5",
+            gstRegistrationId: "gst-1",
+            isDefault: true,
+          }],
+        }}
+        isEditing
+        initialTab="addresses"
+      />,
+    );
+    expect(addressHtml).toContain("Customer addresses");
+    expect(addressHtml).toContain("Add address");
+    expect(addressHtml).toContain("Address line 3");
+    expect(addressHtml).toContain("GST registration ID");
+
+    const commercialHtml = renderToStaticMarkup(
+      <Customer360DashboardView
+        customer={customer}
+        isEditing
+        initialTab="commercial"
+        companyRelationships={[{
+          id: "rel-1",
+          company_id: "COMP-001",
+          customer_group_id: "CG-Corporate",
+          credit_limit: 10000,
+          credit_days: 30,
+          credit_hold: false,
+          status: "Active",
+        }]}
+        onSaveCompanyRelationship={vi.fn().mockResolvedValue(true)}
+      />,
+    );
+    expect(commercialHtml).toContain("Payment category");
+    expect(commercialHtml).toContain("Save company terms");
+    expect(commercialHtml).toContain("Credit ledger balance");
+  });
+
+  it("keeps invoices and PSV reconciliation read-only during profile editing", () => {
+    const invoiceHtml = renderToStaticMarkup(
+      <Customer360DashboardView customer={customer} isEditing initialTab="sales_invoices" />,
+    );
+    expect(invoiceHtml).toContain("accounting records");
+    expect(invoiceHtml).toContain("Recent orders and invoices");
+
+    const psvHtml = renderToStaticMarkup(
+      <Customer360DashboardView customer={customer} isEditing initialTab="psv" />,
+    );
+    expect(psvHtml).toContain("inventory-control evidence");
+    expect(psvHtml).toContain("PSV quantity reconciliation");
   });
 
   it("explains the business consequence when the customer is inactive", () => {
@@ -193,6 +303,19 @@ describe("Customer 360 dashboard", () => {
     expect(labels.join(" ")).toContain("PSV Reconciliation");
     expect(labels.join(" ")).not.toContain("Contacts &amp; Documents");
     expect(labels.join(" ")).not.toContain("Activity &amp; Audit");
+  });
+
+  it("offers child customer creation from the relationship section", () => {
+    const html = renderToStaticMarkup(
+      <Customer360DashboardView
+        customer={customer}
+        isEditing
+        initialTab="parent_child"
+        onCreateChildCustomer={vi.fn()}
+      />,
+    );
+    expect(html).toContain("Add child customer");
+    expect(html).toContain("Northwind Outlet");
   });
 
   it("keeps credit holds visible as a billing decision and points to commercial terms", () => {

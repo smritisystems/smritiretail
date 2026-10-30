@@ -582,7 +582,7 @@ class ProductResolutionService:
                 LEFT JOIN item_prices ip ON ip.item_variant_id = v.id AND ip.company_id = :cid
                 LEFT JOIN item_barcodes ib ON ib.variant_id = v.id AND ib.is_primary = true AND ib.is_deleted = false
                 LEFT JOIN legacy_id_mappings lim 
-                  ON (lim.canonical_id = v.id OR lim.canonical_id = i.id OR lim.legacy_id = :q) AND lim.legacy_table = 'products'
+                  ON (lim.canonical_id = v.id OR lim.canonical_id = i.id) AND lim.legacy_table = 'products'
                 LEFT JOIN products p
                   ON (p.item_variant_id = v.id OR p.sku = v.variant_sku OR p.code = v.variant_sku)
                      AND p.company_id = :cid AND p.is_deleted = false

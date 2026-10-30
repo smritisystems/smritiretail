@@ -516,14 +516,14 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
       setCustomerDeliveryLocations(locs);
       setCustomerBillingLocations(blocs);
 
-      // 1. Primary GST auto-selection:
-      const primaryReg = regs.find(r => r.is_primary) || (regs.length === 1 ? regs[0] : null);
+      // 1. Primary GST auto-selection (auto-select default or first available):
+      const primaryReg = regs.find(r => r.is_primary) || (regs.length > 0 ? regs[0] : null);
 
-      // 2. Default Billing Location auto-selection:
-      const defaultBloc = blocs.find(b => b.is_default) || (blocs.length === 1 ? blocs[0] : null);
+      // 2. Default Billing Location auto-selection (auto-select default or first available):
+      const defaultBloc = blocs.find(b => b.is_default) || (blocs.length > 0 ? blocs[0] : null);
 
-      // 3. Default Shipping / Delivery Location auto-selection:
-      const defaultDelLoc = locs.find(l => l.is_default) || (locs.length === 1 ? locs[0] : null);
+      // 3. Default Shipping / Delivery Location auto-selection (auto-select default, primary, or first available):
+      const defaultDelLoc = locs.find(l => l.is_default) || locs.find(l => (l as any).is_primary) || (locs.length > 0 ? locs[0] : null);
 
       const delSnapshot = defaultDelLoc ? {
         id: defaultDelLoc.id,
@@ -1164,8 +1164,11 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
   };
 
   const handleReprintInvoice = () => {
-    if (lastCompletedInvoice?.invoiceId) {
-      void openCanonicalInvoicePrint(lastCompletedInvoice.invoiceId);
+    if (lastCompletedInvoice) {
+      setShowPrintModal(true);
+      if (lastCompletedInvoice.invoiceId) {
+        void openCanonicalInvoicePrint(lastCompletedInvoice.invoiceId);
+      }
       return;
     }
 
@@ -3251,6 +3254,27 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
     denominations?: any
   ) => {
     const isCreditTx = headerState.transaction === "Credit" || payments.some(p => (p.mode || "").toUpperCase() === "CREDIT");
+    console.error("[SETTLEMENT CHECK] handleCompleteSettlement invoked", {
+      isCreditTx,
+      billingPolicyLoading,
+      hasPolicy: Boolean(billingTransactionPolicy),
+      billingPolicyError,
+      channelConflict: transactionCustomerPolicy?.channel_conflict,
+      permittedTransactions,
+      requirePo: transactionCustomerPolicy?.require_po_number,
+      poReference: headerState.poReference,
+      creditOverrideRequired: Boolean(
+        isCreditTx
+        && transactionCustomerPolicy
+        && !transactionCustomerPolicy.unlimited_credit
+        && transactionCustomerPolicy.available_credit !== null
+        && transactionCustomerPolicy.available_credit !== undefined
+        && summaryTotals.netAmount > transactionCustomerPolicy.available_credit
+      ),
+      isStoreLocationRequired,
+      deliveryLocationId: headerState.deliveryLocationId,
+      deliveryStoreCode: headerState.deliveryStoreCode,
+    });
     const roundCurrency = (amount: number) => Math.round(amount * 100) / 100;
     const creditOverrideRequired = Boolean(
       isCreditTx
@@ -3262,18 +3286,22 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
     );
 
     if (billingPolicyLoading || !billingTransactionPolicy || billingPolicyError) {
+      console.error("[SETTLEMENT BLOCKED] billingPolicyLoading/error");
       onNotification?.("Billing Policy Unavailable", billingPolicyError || "The current billing policy has not finished loading. Your cart is preserved.", "error");
       return;
     }
     if (transactionCustomerPolicy?.channel_conflict) {
+      console.error("[SETTLEMENT BLOCKED] channel_conflict");
       onNotification?.("Channel Policy Conflict", "The customer's configured sales channel is not allowed by company or branch policy. Ask an administrator to resolve the configuration.", "error");
       return;
     }
     if (!permittedTransactions.includes(isCreditTx ? "CREDIT" : "CASH")) {
+      console.error("[SETTLEMENT BLOCKED] transaction type not allowed");
       onNotification?.("Transaction Type Not Allowed", "The selected cash or credit mode is not permitted for this customer and branch.", "error");
       return;
     }
     if (transactionCustomerPolicy?.require_po_number && !headerState.poReference?.trim() && !headerState.customerPoId) {
+      console.error("[SETTLEMENT BLOCKED] require_po_number");
       onNotification?.("PO Reference Required", "Enter the customer purchase-order reference in Details before settlement.", "error");
       return;
     }
@@ -3282,6 +3310,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
       || !transactionCustomerPolicy.allow_credit_override
       || !creditOverrideReason.trim()
     )) {
+      console.error("[SETTLEMENT BLOCKED] creditOverrideRequired");
       onNotification?.(
         "Credit Override Required",
         transactionCustomerPolicy?.can_override_credit && transactionCustomerPolicy.allow_credit_override
@@ -3294,16 +3323,19 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
 
     // Governed System Parameter Checks
     if (isCreditTx && !smritiSystemParameterService.getBoolean("AllowCreditBilling", true)) {
+      console.error("[SETTLEMENT BLOCKED] AllowCreditBilling false");
       onNotification?.("Credit Billing Disabled", "Credit billing is prohibited by System Parameter [AllowCreditBilling].", "error");
       return;
     }
 
     if (!headerState.customer && smritiSystemParameterService.getBoolean("InBillingCustSelectionCompulsary", false)) {
+      console.error("[SETTLEMENT BLOCKED] InBillingCustSelectionCompulsary");
       onNotification?.("Customer Required", "Customer selection is mandatory for billing per System Parameter [InBillingCustSelectionCompulsary].", "error");
       return;
     }
 
     if (isStoreLocationRequired && (!headerState.deliveryLocationId || !headerState.deliveryStoreCode)) {
+      console.error("[SETTLEMENT BLOCKED] isStoreLocationRequired missing", { dId: headerState.deliveryLocationId, dCode: headerState.deliveryStoreCode });
       onNotification?.(
         "Store Location Required",
         "Delivery Location / Store Code is mandatory for Modern Trade sales channel. Please select a valid store location before completing the invoice.",
@@ -3483,7 +3515,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
 
       setLastCompletedInvoice(completedInvoice);
       setShowSettlementModal(false);
-      setShowPrintModal(false);
+      setShowPrintModal(true);
       void openCanonicalInvoicePrint(saved.id);
 
       // Reset for next invoice
@@ -5638,20 +5670,33 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
       {showPrintModal && lastCompletedInvoice && (
         <PrintPreviewModal
           isOpen={showPrintModal}
+          activeTabId="sales"
           data={{
             companyName: "SMRITI Retail OS",
             companyAddress: "Central Warehouse, Distribution Center",
+            companyGst: "27AAACS1981P1Z1",
+            invoiceNo: lastCompletedInvoice.invoiceNumber,
             invoiceNumber: lastCompletedInvoice.invoiceNumber,
             date: lastCompletedInvoice.date,
             customerName: lastCompletedInvoice.customerName,
-            customerPhone: "",
-            customerGstin: lastCompletedInvoice.customerGstin,
-            items: lastCompletedInvoice.items,
+            customerPhone: lastCompletedInvoice.customerMobile || "",
+            customerGstin: lastCompletedInvoice.customerGstin || "27AAACR1921R1Z5",
+            items: (lastCompletedInvoice.items || []).map((it: any) => ({
+              name: it.description || it.name || it.sku,
+              qty: it.quantity,
+              rate: it.rate,
+              discount: it.discount || 0,
+              tax: it.tax || 0,
+              amount: it.amount
+            })),
             subtotal: lastCompletedInvoice.subtotal,
             discount: lastCompletedInvoice.discount,
             tax: lastCompletedInvoice.tax,
             total: lastCompletedInvoice.total,
-            paymentMode: lastCompletedInvoice.paymentMode,
+            paid: lastCompletedInvoice.totalTendered,
+            change: lastCompletedInvoice.changeDue,
+            cashier: headerState.salesStaff || "POS Cashier",
+            paymentMethod: lastCompletedInvoice.paymentMode,
             terms: "Subject to local jurisdiction. Goods once sold will not be taken back without valid invoice."
           }}
           onClose={() => setShowPrintModal(false)}

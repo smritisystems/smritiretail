@@ -549,6 +549,7 @@ describe("Corporate Customer 360 Dashboard Components", () => {
         customerId="cust-ril-001"
         customerName="Reliance Retail Ltd."
         totalStoresCount={2456}
+        isEditing
       />
     );
 

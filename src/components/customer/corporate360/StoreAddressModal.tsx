@@ -26,6 +26,7 @@ interface StoreAddressModalProps {
   customerId?: string;
   store: CorporateStoreItem | null;
   onAddressesUpdated?: (updatedAddresses: StoreAddressItem[]) => void;
+  readOnly?: boolean;
 }
 
 const ADDRESS_TYPES = ["Delivery", "Billing", "Warehouse", "Registered", "Shipping", "Other"];
@@ -36,6 +37,7 @@ export const StoreAddressModal: React.FC<StoreAddressModalProps> = ({
   customerId,
   store,
   onAddressesUpdated,
+  readOnly = false,
 }) => {
   const [addresses, setAddresses] = useState<StoreAddressItem[]>(() => store?.addresses || []);
   const [loading, setLoading] = useState(false);
@@ -298,14 +300,14 @@ export const StoreAddressModal: React.FC<StoreAddressModalProps> = ({
                 <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">
                   Configured Addresses ({addresses.filter((a) => a.is_active).length} Active)
                 </span>
-                <button
+                {!readOnly && <button
                   type="button"
                   onClick={handleStartCreate}
                   className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#0284c7] hover:bg-[#0369a1] text-white flex items-center gap-1.5 shadow-xs transition"
                 >
                   <Plus size={14} />
                   <span>Add Typed Address</span>
-                </button>
+                </button>}
               </div>
 
               {/* Addresses Grid */}
@@ -373,7 +375,7 @@ export const StoreAddressModal: React.FC<StoreAddressModalProps> = ({
                       </div>
 
                       {/* Card Actions */}
-                      <div className="flex items-center justify-end gap-2 pt-3 mt-2 border-t border-slate-200/40 dark:border-slate-800/40">
+                      {!readOnly && <div className="flex items-center justify-end gap-2 pt-3 mt-2 border-t border-slate-200/40 dark:border-slate-800/40">
                         {isActive && (
                           <>
                             <button
@@ -392,7 +394,7 @@ export const StoreAddressModal: React.FC<StoreAddressModalProps> = ({
                             </button>
                           </>
                         )}
-                      </div>
+                      </div>}
                     </div>
                   );
                 })}

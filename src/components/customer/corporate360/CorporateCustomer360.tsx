@@ -16,11 +16,14 @@
  */
 
 import React, { useState, useEffect, useCallback } from "react";
-import { AlertCircle, RefreshCw } from "lucide-react";
+import { AlertCircle, Plus, RefreshCw, Search } from "lucide-react";
 import { apiFetchV1 } from "../../../lib/apiFetchV1.ts";
 import { CorporateCustomer360Data } from "./types.ts";
 import { Customer360DashboardView } from "./Customer360DashboardView.tsx";
-import type { CustomerDirectoryItem } from "../types.ts";
+import { SmritiAdvancedCustomerSearchModal } from "../AdvancedCustSearch.tsx";
+import type { CustomerDirectoryItem, RetailCustomerRecord } from "../types.ts";
+import type { CustomerCompanyRelationship } from "../types.ts";
+import type { StoreCodeLookupItem } from "./types.ts";
 
 export interface CorporateCustomer360Props {
   customerId?: string;
@@ -28,7 +31,13 @@ export interface CorporateCustomer360Props {
   onBack?: () => void;
   onEditCustomer?: (customer: any) => void;
   onCreateCustomer?: () => void;
-  onCustomerChange?: (field: keyof import("../types.ts").RetailCustomerRecord, value: string) => void;
+  onCreateChildCustomer?: () => void;
+  onManageHierarchy?: () => void;
+  onStoreAssigned?: (store: StoreCodeLookupItem) => Promise<void> | void;
+  companyRelationships?: CustomerCompanyRelationship[];
+  onSaveCompanyRelationship?: (relationshipId: string, updates: Partial<CustomerCompanyRelationship>) => Promise<boolean>;
+  onCreateCompanyRelationship?: (relationship: Partial<CustomerCompanyRelationship>) => Promise<boolean>;
+  onCustomerChange?: <K extends keyof RetailCustomerRecord>(field: K, value: RetailCustomerRecord[K]) => void;
   onCancelEdit?: () => void;
   onSelectCustomer?: (customer: CustomerDirectoryItem) => void;
   onSave?: () => void;
@@ -44,6 +53,12 @@ export const CorporateCustomer360: React.FC<CorporateCustomer360Props> = ({
   onBack,
   onEditCustomer,
   onCreateCustomer,
+  onCreateChildCustomer,
+  onManageHierarchy,
+  onStoreAssigned,
+  companyRelationships,
+  onSaveCompanyRelationship,
+  onCreateCompanyRelationship,
   onCustomerChange,
   onCancelEdit,
   onSelectCustomer,
@@ -58,6 +73,7 @@ export const CorporateCustomer360: React.FC<CorporateCustomer360Props> = ({
   const [data, setData] = useState<CorporateCustomer360Data | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(!isDraft);
   const [error, setError] = useState<string | null>(null);
+  const [showCustomerSearch, setShowCustomerSearch] = useState(false);
 
   // Authoritative data fetcher
   const load360Data = useCallback(async () => {
@@ -97,22 +113,27 @@ export const CorporateCustomer360: React.FC<CorporateCustomer360Props> = ({
     load360Data();
   }, [load360Data, resolvedCustomerId]);
 
-  if (isDraft) {
+  if (isDraft && !isEditing) {
     return (
       <div className="p-6 max-w-xl mx-auto mt-12 bg-white dark:bg-[#1e222d] border border-slate-200 dark:border-slate-800 rounded-2xl text-center space-y-3">
         <h2 className="text-base font-semibold text-slate-900 dark:text-white">
-          {!resolvedCustomerId ? "Select a customer to view the dashboard" : "Save customer to view 360° dashboard"}
+          {!resolvedCustomerId ? "Customer Master" : "Customer 360"}
         </h2>
         <p className="text-sm text-slate-600 dark:text-slate-400">
-          {!resolvedCustomerId
-            ? "Open a customer from Customer Master to see its profile, commercial terms, transactions, and pending PSV reconciliation."
-            : "This customer record is a new draft. Save the customer record to unlock analytics, commercial terms, transactions, and live PSV ledger views."}
+          Select an existing customer to review its profile, or create a new customer in this workspace.
         </p>
-        {onBack && (
-          <button type="button" onClick={onBack} className="px-3 py-2 rounded-lg bg-[#0066cc] text-white text-sm font-semibold">
-            Open Customer Master
-          </button>
-        )}
+        <div className="flex flex-wrap justify-center gap-2">
+          {onCreateCustomer && <button type="button" onClick={onCreateCustomer} className="inline-flex items-center gap-2 rounded-lg bg-sky-700 px-4 py-2 text-sm font-semibold text-white"><Plus size={15} />New customer</button>}
+          {onSelectCustomer && <button type="button" onClick={() => setShowCustomerSearch(true)} className="inline-flex items-center gap-2 rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold dark:border-slate-700"><Search size={15} />Search customers</button>}
+        </div>
+        {onSelectCustomer && <SmritiAdvancedCustomerSearchModal
+          isOpen={showCustomerSearch}
+          onClose={() => setShowCustomerSearch(false)}
+          onSelectCustomer={selected => {
+            onSelectCustomer(selected);
+            setShowCustomerSearch(false);
+          }}
+        />}
       </div>
     );
   }
@@ -166,10 +187,18 @@ export const CorporateCustomer360: React.FC<CorporateCustomer360Props> = ({
   return (
     <Customer360DashboardView
       customerId={customerId}
-      customer={propCustomer || data?.customer}
+      customer={propCustomer ? (isEditing ? { ...data?.customer, ...propCustomer } : { ...propCustomer, ...data?.customer }) : data?.customer}
       corporate360Data={data}
+      initialTab={isEditing && isDraft ? "basic" : "overview"}
       onEditCustomer={onEditCustomer}
       onCreateCustomer={onCreateCustomer}
+      onCreateChildCustomer={onCreateChildCustomer}
+      onManageHierarchy={onManageHierarchy}
+      onStoreAssigned={onStoreAssigned}
+      onRefresh={load360Data}
+      companyRelationships={companyRelationships}
+      onSaveCompanyRelationship={onSaveCompanyRelationship}
+      onCreateCompanyRelationship={onCreateCompanyRelationship}
       onCustomerChange={onCustomerChange}
       onCancelEdit={onCancelEdit}
       onSelectCustomer={onSelectCustomer}

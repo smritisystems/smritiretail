@@ -32,7 +32,7 @@ from ..models.sales import SalesInvoice, SalesInvoiceItem
 from ..models.crm import Customer, CustomerDeliveryLocation
 from ..models.tenant import Company
 from ..models.inventory import Product
-from ..models.item_master import Item, ItemVariant
+from ..models.item_master import Item, ItemBarcode, ItemVariant
 from ..models.control.control_models import ControlPSVConfig
 from .partner_resolver import PartnerIdentifierResolver
 from .product_code_parser import ProductCodeParser
@@ -1089,9 +1089,40 @@ class PSVProjectionService:
         products_map = {}
         if prod_ids:
             p_rows = (await session.execute(
-                select(Product).where(Product.id.in_(prod_ids))
+                select(Product).where(
+                    Product.id.in_(prod_ids),
+                    Product.company_id == company_id,
+                    Product.is_deleted == False,
+                )
             )).scalars().all()
             products_map = {p.id: p for p in p_rows}
+
+        item_ids = {line.item_id for line in invoice.items if line.item_id}
+        item_ids.update(product.item_id for product in products_map.values() if product.item_id)
+        variant_ids = {line.variant_id for line in invoice.items if line.variant_id}
+        variant_ids.update(product.item_variant_id for product in products_map.values() if product.item_variant_id)
+        barcode_rows = []
+        if item_ids or variant_ids:
+            barcode_match = []
+            if item_ids:
+                barcode_match.append(ItemBarcode.item_id.in_(item_ids))
+            if variant_ids:
+                barcode_match.append(ItemBarcode.variant_id.in_(variant_ids))
+            barcode_rows = (await session.execute(
+                select(ItemBarcode).where(
+                    ItemBarcode.company_id == company_id,
+                    ItemBarcode.is_deleted == False,
+                    ItemBarcode.retired_at.is_(None),
+                    or_(*barcode_match),
+                )
+            )).scalars().all()
+        barcodes_by_item: Dict[str, List[str]] = {}
+        barcodes_by_variant: Dict[str, List[str]] = {}
+        for barcode_row in barcode_rows:
+            if barcode_row.item_id:
+                barcodes_by_item.setdefault(barcode_row.item_id, []).append(barcode_row.barcode)
+            if barcode_row.variant_id:
+                barcodes_by_variant.setdefault(barcode_row.variant_id, []).append(barcode_row.barcode)
 
         event_ids_created: List[str] = []
         approved_count = 0
@@ -1130,6 +1161,66 @@ class PSVProjectionService:
             line_id_str = str(matched_item.id) if matched_item else (r_line.invoice_line_id or "LINE-GEN")
             line_sku = matched_item.code if matched_item else (r_line.sku or "SKU-UNKNOWN")
             prod_id = matched_item.product_id if matched_item else None
+            matched_product = products_map.get(prod_id)
+
+            if r_line.scanned_barcode_counts:
+                allowed_barcodes = set()
+                if matched_product:
+                    allowed_barcodes.add((matched_product.barcode or "").strip().upper())
+                    allowed_barcodes.update(
+                        str(value).strip().upper()
+                        for value in (matched_product.secondary_barcodes or [])
+                        if value
+                    )
+                    if matched_product.item_id:
+                        allowed_barcodes.update(
+                            value.strip().upper()
+                            for value in barcodes_by_item.get(matched_product.item_id, [])
+                        )
+                    if matched_product.item_variant_id:
+                        allowed_barcodes.update(
+                            value.strip().upper()
+                            for value in barcodes_by_variant.get(matched_product.item_variant_id, [])
+                        )
+                if matched_item and matched_item.item_id:
+                    allowed_barcodes.update(
+                        value.strip().upper()
+                        for value in barcodes_by_item.get(matched_item.item_id, [])
+                    )
+                if matched_item and matched_item.variant_id:
+                    allowed_barcodes.update(
+                        value.strip().upper()
+                        for value in barcodes_by_variant.get(matched_item.variant_id, [])
+                    )
+                allowed_barcodes.discard("")
+                supplied_barcodes: Dict[str, int] = {}
+                for barcode, count in r_line.scanned_barcode_counts.items():
+                    normalized = barcode.strip().upper()
+                    supplied_barcodes[normalized] = supplied_barcodes.get(normalized, 0) + count
+                unknown_barcodes = sorted(set(supplied_barcodes) - allowed_barcodes)
+                if unknown_barcodes:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"Scanned barcode does not match invoice item '{line_sku}'.",
+                    )
+                scanned_qty = Decimal(sum(supplied_barcodes.values()))
+                entered_qty = r_line.received_qty + r_line.rejected_qty
+                if scanned_qty != entered_qty:
+                    raise HTTPException(
+                        status_code=400,
+                        detail="Scanned barcode count must equal accepted quantity plus rejected quantity.",
+                    )
+
+            scan_summary = ""
+            if r_line.scanned_barcode_counts:
+                scan_summary = "; barcode scans: " + ", ".join(
+                    f"{barcode} x {count}"
+                    for barcode, count in sorted(supplied_barcodes.items())
+                )
+            receipt_note = f"Receipt {receipt_ref}"
+            if req.remarks:
+                receipt_note += f"; remarks: {req.remarks.strip()}"
+            receipt_note += scan_summary
 
             # Handle Received Qty
             if r_line.received_qty > Decimal("0"):
@@ -1158,7 +1249,7 @@ class PSVProjectionService:
                         "event_date": receipt_dt,
                         "approval_status": effective_approval_status,
                         "reported_by": user_id,
-                        "approval_reason": receipt_ref,
+                        "approval_reason": receipt_note,
                     },
                     commit=False,
                 )
@@ -1172,6 +1263,11 @@ class PSVProjectionService:
             # Handle Rejected Qty
             if r_line.rejected_qty > Decimal("0"):
                 rej_sec_id = f"REJ-{invoice.id}-{line_id_str}-{uuid.uuid4().hex[:8]}"
+                rejection_note = r_line.rejection_reason or "Rejected during receiving inspection"
+                if req.receipt_reference:
+                    rejection_note = f"{rejection_note}; receipt: {req.receipt_reference.strip()}"
+                if req.remarks:
+                    rejection_note = f"{rejection_note}; remarks: {req.remarks.strip()}"
                 res_rej = await cls.project_psv_stock_event(
                     psv_session=session,
                     event_payload={
@@ -1196,7 +1292,7 @@ class PSVProjectionService:
                         "event_date": receipt_dt,
                         "approval_status": "APPROVED",
                         "reported_by": user_id,
-                        "approval_reason": r_line.rejection_reason or "Rejected during receiving inspection",
+                        "approval_reason": f"{rejection_note}{scan_summary}",
                     },
                     commit=False,
                 )
@@ -1387,7 +1483,13 @@ class PSVProjectionService:
 
         products_map: Dict[str, Product] = {}
         if prod_ids:
-            p_rows = (await session.execute(select(Product).where(Product.id.in_(prod_ids)))).scalars().all()
+            p_rows = (await session.execute(
+                select(Product).where(
+                    Product.id.in_(prod_ids),
+                    Product.company_id == company_id,
+                    Product.is_deleted == False,
+                )
+            )).scalars().all()
             products_map = {p.id: p for p in p_rows}
 
         items_map: Dict[str, Item] = {}
@@ -1399,6 +1501,33 @@ class PSVProjectionService:
         if var_ids:
             v_rows = (await session.execute(select(ItemVariant).where(ItemVariant.id.in_(var_ids)))).scalars().all()
             variants_map = {v.id: v for v in v_rows}
+
+        catalog_item_ids = {line.item_id for line in all_items if line.item_id}
+        catalog_item_ids.update(product.item_id for product in products_map.values() if product.item_id)
+        catalog_variant_ids = {line.variant_id for line in all_items if line.variant_id}
+        catalog_variant_ids.update(product.item_variant_id for product in products_map.values() if product.item_variant_id)
+        barcode_rows = []
+        if catalog_item_ids or catalog_variant_ids:
+            barcode_match = []
+            if catalog_item_ids:
+                barcode_match.append(ItemBarcode.item_id.in_(catalog_item_ids))
+            if catalog_variant_ids:
+                barcode_match.append(ItemBarcode.variant_id.in_(catalog_variant_ids))
+            barcode_rows = (await session.execute(
+                select(ItemBarcode).where(
+                    ItemBarcode.company_id == company_id,
+                    ItemBarcode.is_deleted == False,
+                    ItemBarcode.retired_at.is_(None),
+                    or_(*barcode_match),
+                )
+            )).scalars().all()
+        barcodes_by_item: Dict[str, List[str]] = {}
+        barcodes_by_variant: Dict[str, List[str]] = {}
+        for barcode_row in barcode_rows:
+            if barcode_row.item_id:
+                barcodes_by_item.setdefault(barcode_row.item_id, []).append(barcode_row.barcode)
+            if barcode_row.variant_id:
+                barcodes_by_variant.setdefault(barcode_row.variant_id, []).append(barcode_row.barcode)
 
         # 5. Process each invoice item and compute quantity reconciliation
         all_reconciled_items: List[PSVQuantityReconciliationItem] = []
@@ -1450,6 +1579,25 @@ class PSVProjectionService:
                 i_size = prod.size if prod and prod.size else (var.size if var and var.size else (parsed_code.size_normalized or parsed_code.size if parsed_code else None))
                 i_mrp = prod.mrp if prod and prod.mrp is not None else getattr(line, "mrp", None)
                 i_price = Decimal(str(line.price or 0)) if line.price is not None else None
+                item_id = line.item_id or (prod.item_id if prod else None)
+                variant_id = line.variant_id or (prod.item_variant_id if prod else None)
+                line_barcodes = set()
+                if prod:
+                    if prod.barcode:
+                        line_barcodes.add(prod.barcode.strip())
+                    line_barcodes.update(
+                        str(value).strip()
+                        for value in (prod.secondary_barcodes or [])
+                        if value
+                    )
+                if item_id:
+                    line_barcodes.update(
+                        value.strip() for value in barcodes_by_item.get(item_id, []) if value
+                    )
+                if variant_id:
+                    line_barcodes.update(
+                        value.strip() for value in barcodes_by_variant.get(variant_id, []) if value
+                    )
 
                 # Match receiving and rejection events
                 matched_events: List[PSVStockEvent] = []
@@ -1577,6 +1725,7 @@ class PSVProjectionService:
                     delivery_location_id=d_loc_id,
                     invoice_line_id=line_str_id,
                     sku=line.code,
+                    barcodes=sorted(line_barcodes),
                     product_name=line.name or (prod.name if prod else line.code),
                     style_code=i_style,
                     vendor_code=i_vendor,
@@ -1618,4 +1767,3 @@ class PSVProjectionService:
             summary=summary,
             items=paged_items,
         )
-

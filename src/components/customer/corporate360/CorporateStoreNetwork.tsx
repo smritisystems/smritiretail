@@ -16,12 +16,13 @@
  */
 
 import React, { useState, useMemo } from "react";
-import { Search, ChevronDown, ArrowRight, ExternalLink, Plus, MapPin } from "lucide-react";
+import { Search, ChevronDown, ArrowRight, ExternalLink, Plus, MapPin, Pencil, Save, X } from "lucide-react";
 import { CorporateStoreItem, StoreAddressItem, StoreCodeLookupItem } from "./types.ts";
 import { StoreCodeLookupModal } from "./StoreCodeLookupModal.tsx";
 import { StoreAddressModal } from "./StoreAddressModal.tsx";
+import { apiFetchV1 } from "../../../lib/apiFetchV1.ts";
 
-interface CorporateStoreNetworkProps {
+export interface CorporateStoreNetworkProps {
   stores: CorporateStoreItem[];
   customerId?: string;
   customerName?: string;
@@ -30,6 +31,8 @@ interface CorporateStoreNetworkProps {
   onViewAllStores?: () => void;
   onSelectStore?: (store: CorporateStoreItem) => void;
   onStoreAssigned?: (store: StoreCodeLookupItem) => Promise<void> | void;
+  onStoreUpdated?: () => Promise<void> | void;
+  isEditing?: boolean;
 }
 
 export const CorporateStoreNetwork: React.FC<CorporateStoreNetworkProps> = ({
@@ -41,6 +44,8 @@ export const CorporateStoreNetwork: React.FC<CorporateStoreNetworkProps> = ({
   onViewAllStores,
   onSelectStore,
   onStoreAssigned,
+  onStoreUpdated,
+  isEditing = false,
 }) => {
   const [stores, setStores] = useState<CorporateStoreItem[]>(initialStores);
   const [searchTerm, setSearchTerm] = useState("");
@@ -53,6 +58,10 @@ export const CorporateStoreNetwork: React.FC<CorporateStoreNetworkProps> = ({
   // Modals state
   const [isLookupOpen, setIsLookupOpen] = useState(false);
   const [selectedAddressStore, setSelectedAddressStore] = useState<CorporateStoreItem | null>(null);
+  const [editingStore, setEditingStore] = useState<CorporateStoreItem | null>(null);
+  const [storeDraft, setStoreDraft] = useState<Partial<CorporateStoreItem>>({});
+  const [storeSaveError, setStoreSaveError] = useState<string | null>(null);
+  const [isSavingStore, setIsSavingStore] = useState(false);
 
   // Sync with initialStores prop if it changes
   React.useEffect(() => {
@@ -158,6 +167,50 @@ export const CorporateStoreNetwork: React.FC<CorporateStoreNetworkProps> = ({
           : s
       )
     );
+    void onStoreUpdated?.();
+  };
+
+  const handleSaveStore = async () => {
+    if (!customerId || !editingStore || !editingStore.id || !storeDraft.store_name?.trim()) {
+      setStoreSaveError("Store name and a saved customer location are required.");
+      return;
+    }
+    setIsSavingStore(true);
+    setStoreSaveError(null);
+    try {
+      const saved = await apiFetchV1<any>(
+        `/crm/customers/${encodeURIComponent(customerId)}/delivery-locations/${encodeURIComponent(editingStore.id)}`,
+        {
+          method: "PUT",
+          body: {
+            locationName: storeDraft.store_name.trim(),
+            city: storeDraft.city?.trim() || "",
+            state: storeDraft.state?.trim() || "",
+            contactPerson: storeDraft.contact_person?.trim() || undefined,
+            phone: storeDraft.phone?.trim() || undefined,
+            email: storeDraft.email?.trim() || undefined,
+            status: String(storeDraft.status || editingStore.status).toUpperCase(),
+          },
+        }
+      );
+      const updatedStore: CorporateStoreItem = {
+        ...editingStore,
+        store_name: saved.location_name || saved.locationName || storeDraft.store_name.trim(),
+        city: saved.city || storeDraft.city || "",
+        state: saved.state || storeDraft.state || "",
+        contact_person: saved.contact_person || saved.contactPerson || storeDraft.contact_person,
+        phone: saved.phone || storeDraft.phone,
+        email: saved.email || storeDraft.email,
+        status: String(saved.status || storeDraft.status || editingStore.status).toLowerCase() === "inactive" ? "Inactive" : "Active",
+      };
+      setStores(previous => previous.map(store => store.id === updatedStore.id ? updatedStore : store));
+      setEditingStore(null);
+      await onStoreUpdated?.();
+    } catch (error: any) {
+      setStoreSaveError(error?.message || "Store details could not be saved.");
+    } finally {
+      setIsSavingStore(false);
+    }
   };
 
   return (
@@ -169,7 +222,7 @@ export const CorporateStoreNetwork: React.FC<CorporateStoreNetworkProps> = ({
             <h2 className="text-sm font-bold text-slate-900 dark:text-white">
               Store Network ({totalStores.toLocaleString("en-IN")} Stores)
             </h2>
-            <button
+            {isEditing && customerId && !customerId.startsWith("cust-draft-") && <button
               type="button"
               onClick={() => setIsLookupOpen(true)}
               className="ml-2 px-2.5 py-1 rounded-lg text-xs font-semibold bg-[#0284c7] hover:bg-[#0369a1] text-white flex items-center gap-1 shadow-xs transition"
@@ -177,7 +230,7 @@ export const CorporateStoreNetwork: React.FC<CorporateStoreNetworkProps> = ({
             >
               <Plus size={13} />
               <span>Map Store Code</span>
-            </button>
+            </button>}
           </div>
 
           <div className="flex flex-wrap items-center gap-1.5 text-xs w-full sm:w-auto">
@@ -292,6 +345,17 @@ export const CorporateStoreNetwork: React.FC<CorporateStoreNetworkProps> = ({
                       )}
                     </td>
                     <td className="py-2 px-3 text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                      {isEditing && customerId && !store.id.startsWith("loc-ref-") && <button
+                        type="button"
+                        onClick={() => {
+                          setEditingStore(store);
+                          setStoreDraft({ ...store });
+                          setStoreSaveError(null);
+                        }}
+                        className="mr-2 inline-flex items-center gap-1 rounded-md border border-slate-300 px-2 py-1 text-[11px] font-medium dark:border-slate-700"
+                      >
+                        <Pencil size={11} />Edit details
+                      </button>}
                       <button
                         type="button"
                         onClick={() => setSelectedAddressStore(store)}
@@ -349,7 +413,35 @@ export const CorporateStoreNetwork: React.FC<CorporateStoreNetworkProps> = ({
         customerId={customerId}
         store={selectedAddressStore}
         onAddressesUpdated={handleAddressesUpdated}
+        readOnly={!isEditing || Boolean(selectedAddressStore?.id.startsWith("loc-ref-"))}
       />
+
+      {editingStore && <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4">
+        <section role="dialog" aria-modal="true" aria-labelledby="edit-store-title" className="w-full max-w-xl rounded-xl bg-white p-5 shadow-2xl dark:bg-[#1e222d]">
+          <div className="mb-4 flex items-center justify-between">
+            <div>
+              <h3 id="edit-store-title" className="text-base font-semibold">Edit store details</h3>
+              <p className="mt-1 text-xs text-slate-500">The canonical store code cannot be changed here.</p>
+            </div>
+            <button type="button" onClick={() => setEditingStore(null)} aria-label="Close store editor"><X size={18} /></button>
+          </div>
+          {storeSaveError && <p role="alert" className="mb-3 text-sm text-rose-700">{storeSaveError}</p>}
+          <div className="grid gap-3 sm:grid-cols-2">
+            <label className="text-xs">Store code<input readOnly value={editingStore.store_code} className="mt-1 w-full rounded-lg border px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900" /></label>
+            <label className="text-xs">Store name<input value={storeDraft.store_name || ""} onChange={event => setStoreDraft(previous => ({ ...previous, store_name: event.target.value }))} className="mt-1 w-full rounded-lg border px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900" /></label>
+            <label className="text-xs">City<input value={storeDraft.city || ""} onChange={event => setStoreDraft(previous => ({ ...previous, city: event.target.value }))} className="mt-1 w-full rounded-lg border px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900" /></label>
+            <label className="text-xs">State<input value={storeDraft.state || ""} onChange={event => setStoreDraft(previous => ({ ...previous, state: event.target.value }))} className="mt-1 w-full rounded-lg border px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900" /></label>
+            <label className="text-xs">Contact person<input value={storeDraft.contact_person || ""} onChange={event => setStoreDraft(previous => ({ ...previous, contact_person: event.target.value }))} className="mt-1 w-full rounded-lg border px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900" /></label>
+            <label className="text-xs">Phone<input value={storeDraft.phone || ""} onChange={event => setStoreDraft(previous => ({ ...previous, phone: event.target.value }))} className="mt-1 w-full rounded-lg border px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900" /></label>
+            <label className="text-xs">Email<input type="email" value={storeDraft.email || ""} onChange={event => setStoreDraft(previous => ({ ...previous, email: event.target.value }))} className="mt-1 w-full rounded-lg border px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900" /></label>
+            <label className="text-xs">Status<select value={storeDraft.status || "Active"} onChange={event => setStoreDraft(previous => ({ ...previous, status: event.target.value }))} className="mt-1 w-full rounded-lg border px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900"><option>Active</option><option>Inactive</option></select></label>
+          </div>
+          <div className="mt-5 flex justify-end gap-2">
+            <button type="button" onClick={() => setEditingStore(null)} disabled={isSavingStore} className="rounded-lg border px-3 py-2 text-sm dark:border-slate-700">Cancel</button>
+            <button type="button" onClick={() => void handleSaveStore()} disabled={isSavingStore} className="inline-flex items-center gap-1.5 rounded-lg bg-sky-700 px-3 py-2 text-sm font-semibold text-white disabled:opacity-60"><Save size={14} />{isSavingStore ? "Saving…" : "Save store"}</button>
+          </div>
+        </section>
+      </div>}
     </div>
   );
 };
