@@ -151,7 +151,7 @@ Target URL   : http://localhost:8101
 Backend API  : http://127.0.0.1:1981
 Output Dir   : F:\SMRITRretailNX\docs\walkthrough\purchase\evidence
 --------------------------------------------------------------------------------
-[AUTH OK] Admin token [REDACTED_EXAMPLE_TOKEN] (redacted documentation example)
+[AUTH OK] Admin token acquired:[REDACTED_EXAMPLE_TOKEN]
 
 [STEP 1] Pre-seeding authenticated local storage on domain...
 [NAVIGATING] http://localhost:8101/?tab=purchase...
