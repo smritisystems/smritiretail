@@ -33,7 +33,23 @@ const LiveSeriesPreview: React.FC<{ formState: any }> = ({ formState }) => {
   
   const nextNum = currentNum + 1;
   const paddedNext = String(nextNum).padStart(runningLength, "0");
-  const previewCode = `${prefix}${paddedNext}${suffix}`;
+  
+  const numFmt = formState.numberFormat || "PREFIX_NUM_SUFFIX";
+  let previewCode = `${prefix}${paddedNext}${suffix}`;
+  if (numFmt === "PREFIX_YEAR_SEP_NUM") {
+    const rawFy = formState.financialYear || "2026-2027";
+    const fy = rawFy ? `/${rawFy}` : "";
+    previewCode = `${prefix}${fy}/${paddedNext}`;
+  } else if (numFmt === "PREFIX_SEP_NUM") {
+    const sep = prefix ? "/" : "";
+    previewCode = `${prefix}${sep}${paddedNext}`;
+  } else if (numFmt === "NUM_ONLY") {
+    previewCode = `${paddedNext}`;
+  }
+
+  const isInvoiceDoc = ["Retail Invoice", "Tax Invoice", "Sales Return", "Debit Note", "SALES_INVOICE", "SALES_CASH", "SALES_CREDIT"].includes(formState.documentType);
+  const gstLength = previewCode.length;
+  const isGstExceeded = isInvoiceDoc && gstLength > 16;
 
   const endNum = formState.endNumber ? Number(formState.endNumber) : null;
   const isArticle = formState.documentType === "ARTICLE";
@@ -60,6 +76,14 @@ const LiveSeriesPreview: React.FC<{ formState: any }> = ({ formState }) => {
               {category}
             </span>
           )}
+          <span className={`inline-flex items-center gap-1 text-[11px] font-mono px-2 py-0.5 rounded border ${
+            isGstExceeded
+              ? "bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/30 font-bold"
+              : "bg-white/80 dark:bg-slate-900/80 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-800"
+          }`}>
+            {isGstExceeded && <AlertTriangle size={10} className="text-rose-500" />}
+            {gstLength}/16 GST Chars
+          </span>
           <span className="inline-flex items-center gap-1 text-[11px] font-mono text-slate-500 dark:text-slate-400 bg-white/80 dark:bg-slate-900/80 px-2 py-0.5 rounded border border-slate-200 dark:border-slate-800">
             <Lock size={10} /> Auto-Generated
           </span>
@@ -87,6 +111,15 @@ const LiveSeriesPreview: React.FC<{ formState: any }> = ({ formState }) => {
           )}
         </div>
       </div>
+
+      {isGstExceeded && (
+        <div className="flex items-center gap-2 p-2.5 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-400 text-[11px]">
+          <AlertTriangle size={14} className="shrink-0" />
+          <span>
+            <strong>Statutory GST Rule 46(b) Warning:</strong> Generated serial '{previewCode}' ({gstLength} chars) exceeds maximum 16 characters for tax invoices.
+          </span>
+        </div>
+      )}
 
       <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
         {isArticle ? (
@@ -169,7 +202,7 @@ const AdvancedOptionsAccordion: React.FC<{
             </div>
           </div>
 
-          <div className="flex items-center justify-between pt-1">
+          <div className="flex flex-col gap-2 pt-1">
             <label className="flex items-center space-x-2.5 cursor-pointer py-1">
               <input
                 type="checkbox"
@@ -181,6 +214,21 @@ const AdvancedOptionsAccordion: React.FC<{
                 Common Across All POS Terminals (Single Unified Sequence Pool)
               </span>
             </label>
+
+            {formState.isCommonAcrossTerminals === false && (
+              <div className="space-y-1.5 pt-1 pl-6">
+                <label className="block text-[11px] font-bold uppercase tracking-wider text-theme-muted font-mono">
+                  Target POS Terminal ID
+                </label>
+                <input
+                  type="text"
+                  value={formState.terminalId || ""}
+                  onChange={(e) => onChange("terminalId", e.target.value.toUpperCase())}
+                  placeholder="e.g. POS-01, BILLING-COUNTER-2"
+                  className="w-full px-3 py-2 bg-theme-surface-2 border border-theme-divider rounded-lg text-xs text-theme-primary focus:outline-none focus:ring-1 focus:ring-blue-500 font-mono"
+                />
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -226,6 +274,7 @@ export const documentSeriesConfig: MasterConfig<DocumentSeries> = {
       isActive: formData.isActive !== false,
       numberFormat: formData.numberFormat || "PREFIX_NUM_SUFFIX",
       isCommonAcrossTerminals: formData.isCommonAcrossTerminals !== false,
+      terminalId: formData.isCommonAcrossTerminals === false ? (formData.terminalId || "COMMON") : "COMMON",
       financialYear: formData.financialYear || "2026-2027",
       companyCode: formData.companyCode || "SMRITI_IND"
     };
@@ -476,6 +525,15 @@ export const documentSeriesConfig: MasterConfig<DocumentSeries> = {
 
     if (isNaN(startNum) || startNum < 1) {
       errors.push("Start Number must be a positive integer greater than or equal to 1.");
+    }
+
+    const isInvoiceDoc = ["Retail Invoice", "Tax Invoice", "Sales Return", "Debit Note", "SALES_INVOICE", "SALES_CASH", "SALES_CREDIT"].includes(formData.documentType);
+    const pfx = formData.prefix || "";
+    const sfx = formData.suffix || "";
+    const runL = Number(formData.runningLength) || 4;
+    const sampleFull = `${pfx}${"1".padStart(runL, "0")}${sfx}`;
+    if (isInvoiceDoc && sampleFull.length > 16) {
+      errors.push(`Statutory GST Rule 46(b) violation: Serial number '${sampleFull}' (${sampleFull.length} chars) exceeds maximum 16 characters for invoice series.`);
     }
 
     if (endNum !== null) {

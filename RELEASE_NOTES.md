@@ -14,6 +14,22 @@
 
 # SMRITI Retail OS — Release Notes
 
+## Release v6.50.0 (2026-10-30)
+
+### Inventory & Foundation: Document Series & Numbering Studio Hardening & Unified Serialization Engine
+
+#### Overview
+Hardens and consolidates the **Document Series & Numbering Studio** across backend services, database migrations, and frontend components. Resolves database index collisions for multi-category Article series, ensures strict alignment with statutory GST Rule 46(b) 16-character serialization limits, guarantees identical number segment assembly across frontend previews and backend allocations, provides non-committing transactional sequence allocations, and connects Purchase Order and GRN workflows to active Studio series definitions.
+
+#### Key Highlights
+- **Category-Aware Article Series Partitioning**: Migration `v1564` updates `document_series` partial unique index to include `COALESCE(category, '')`, allowing categories like `SANDAL` and `SHOES` to maintain independent, active Article numbering sequences under the same branch and tenant.
+- **Canonical Sequence Assembly**: Unified `DocumentsEngine.allocate_next_number_in_transaction` and `preview_next_number` with `NumberingService._assemble_doc_no` to strictly enforce `number_format` (`PREFIX_NUM_SUFFIX`, `PREFIX_YEAR_SEP_NUM`, `PREFIX_SEP_NUM`, `NUM_ONLY`).
+- **Non-Committing Transactional Allocation**: Enhanced `NumberingService.allocate_voucher_number` with `commit: bool = True` allowing atomic sequence allocations inside larger composite transaction units.
+- **Purchase Order & GRN Series Alignment**: `PurchaseService` now inspects active `DocumentSeries` configurations before defaulting to legacy regex scans.
+- **Studio Statutory GST Rule 46(b) Guard**: Real-time 16-character length badge and warning alert banner in `LiveSeriesPreview` plus form validation preventing creation of non-compliant invoice series.
+- **Dynamic Terminal Targeting**: Added `Target POS Terminal ID` input when `Common Across All POS Terminals` is unchecked.
+- **Safe Non-Browser Storage**: Implemented `safeGetItem` in `src/lib/apiFetchV1.ts` to prevent test and SSR crashes.
+
 ## Release v3.132.0 (2026-10-28)
 
 ### WMS Phase 7 — Outbound Shipping Dock Management, Dispatch Manifest & Carrier Vehicle Loading

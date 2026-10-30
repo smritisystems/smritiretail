@@ -184,6 +184,35 @@ describe("Document Series & Numbering Studio Configuration", () => {
       );
       expect(resultDiffCategory.valid).toBe(true);
     });
+
+    it("should reject invoice series violating statutory GST Rule 46(b) 16-character limit", () => {
+      const longPrefixInvoice = validate(
+        {
+          documentType: "Retail Invoice",
+          prefix: "SUPERSTORE-MUMBAI-INV/",
+          runningLength: 6,
+          startNumber: 1,
+          currentNumber: 0,
+          isActive: true
+        },
+        []
+      );
+      expect(longPrefixInvoice.valid).toBe(false);
+      expect(longPrefixInvoice.errors.some((e: string) => e.includes("GST Rule 46(b) violation"))).toBe(true);
+
+      const validInvoice = validate(
+        {
+          documentType: "Retail Invoice",
+          prefix: "INV/26-27/",
+          runningLength: 4,
+          startNumber: 1,
+          currentNumber: 0,
+          isActive: true
+        },
+        []
+      );
+      expect(validInvoice.valid).toBe(true);
+    });
   });
 
   describe("Payload Transform Logic", () => {
@@ -226,6 +255,31 @@ describe("Document Series & Numbering Studio Configuration", () => {
       expect(payload.category).toBeNull();
       expect(payload.currentNumber).toBe(0);
       expect(payload.runningLength).toBe(6);
+    });
+
+    it("should handle terminalId correctly based on isCommonAcrossTerminals", () => {
+      const commonSeries = documentSeriesConfig.payloadTransform!(
+        {
+          name: "Common Series",
+          documentType: "Retail Invoice",
+          isCommonAcrossTerminals: true,
+          terminalId: "POS-02"
+        },
+        "create"
+      );
+      expect(commonSeries.terminalId).toBe("COMMON");
+
+      const terminalSpecificSeries = documentSeriesConfig.payloadTransform!(
+        {
+          name: "Terminal 1 Series",
+          documentType: "Retail Invoice",
+          isCommonAcrossTerminals: false,
+          terminalId: "POS-01"
+        },
+        "create"
+      );
+      expect(terminalSpecificSeries.terminalId).toBe("POS-01");
+      expect(terminalSpecificSeries.isCommonAcrossTerminals).toBe(false);
     });
   });
 });

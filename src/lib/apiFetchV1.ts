@@ -52,6 +52,18 @@ export function normalizeBranchId(raw: string | null | undefined): string {
   return upper;
 }
 
+
+function safeGetItem(key: string): string | null {
+  if (typeof window !== "undefined" && typeof window.localStorage !== "undefined") {
+    try {
+      return window.localStorage.getItem(key);
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}
+
 export function persistTenantContext(params: {
   companyId?: string | null;
   companyCode?: string | null;
@@ -177,7 +189,7 @@ async function _attemptSilentRefresh(): Promise<string | null> {
   }
 
   _refreshingToken = true;
-  const refreshToken = localStorage.getItem("smriti_refresh_token");
+  const refreshToken = safeGetItem("smriti_refresh_token");
   if (!refreshToken) {
     _refreshingToken = false;
     _refreshWaiters.forEach(r => r(null));
@@ -222,7 +234,7 @@ function _buildHeaders(token: string | null, companyCode: string, companyId: str
   if (token) headers.set("Authorization", `Bearer ${token}`);
   if (companyCode && !headers.has("X-Company-Code")) headers.set("X-Company-Code", companyCode);
   if (companyId && !headers.has("X-Company-ID")) headers.set("X-Company-ID", companyId);
-  const branchId = localStorage.getItem("smriti_branch_id") || "MAIN";
+  const branchId = safeGetItem("smriti_branch_id") || "MAIN";
   if (branchId && !headers.has("X-Branch-ID")) headers.set("X-Branch-ID", branchId);
   if (branchId && !headers.has("X-Branch-Code")) headers.set("X-Branch-Code", branchId);
   if (!headers.has("Content-Type") && options.body !== undefined && options.body !== null && !(options.body instanceof FormData)) {
@@ -260,9 +272,9 @@ function applyQueryParams(url: string, params?: Record<string, unknown> | URLSea
 }
 
 export async function apiFetchV1<T = any>(endpoint: string, options: ApiRequestOptions = {}): Promise<T> {
-  const token = localStorage.getItem("smriti_jwt_token") || localStorage.getItem("smriti_session_token");
-  const companyCode = localStorage.getItem("smriti_company_code") || "001";
-  const companyId = localStorage.getItem("smriti_company_id") || "COMP-001";
+  const token = safeGetItem("smriti_jwt_token") || safeGetItem("smriti_session_token");
+  const companyCode = safeGetItem("smriti_company_code") || "001";
+  const companyId = safeGetItem("smriti_company_id") || "COMP-001";
 
   const requestInit: RequestInit = {
     ...options,
@@ -449,7 +461,7 @@ export async function apiFetchV1<T = any>(endpoint: string, options: ApiRequestO
 }
 
 export function isLocalMockToken(): boolean {
-  const token = localStorage.getItem("smriti_jwt_token") || localStorage.getItem("smriti_session_token");
+  const token = safeGetItem("smriti_jwt_token") || safeGetItem("smriti_session_token");
   return !token || token.startsWith("MOCK_");
 }
 

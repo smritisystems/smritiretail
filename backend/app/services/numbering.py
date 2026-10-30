@@ -191,7 +191,7 @@ class NumberingService:
         res = await self.db.execute(q)
         return list(res.scalars().all())
 
-    async def allocate_voucher_number(self, series_id: str, branch: str, fy: str, username: str) -> str:
+    async def allocate_voucher_number(self, series_id: str, branch: str, fy: str, username: str, commit: bool = True) -> str:
         """
         Allocate next voucher sequence number atomically using FOR UPDATE lock on DocumentSeries.
         """
@@ -281,7 +281,10 @@ class NumberingService:
         )
         self.db.add(log)
         
-        await self.db.commit()
+        if commit:
+            await self.db.commit()
+        else:
+            await self.db.flush()
         return allocated_no
 
     # =========================================================================
