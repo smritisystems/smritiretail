@@ -6,7 +6,7 @@
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
  * Version      : 6.89.0
  * Created      : 2026-08-21
- * Modified     : 2026-10-24
+ * Modified     : 2026-10-30
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Canonical Billing Engine
@@ -1163,11 +1163,23 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
   const handleReprintInvoice = () => {
     if (lastCompletedInvoice?.invoiceId) {
       void openCanonicalInvoicePrint(lastCompletedInvoice.invoiceId);
-    } else if (items.length > 0) {
-      setShowPrintModal(true);
-    } else {
-      onNotification?.("Reprint", "No recent invoice to reprint.", "error");
+      return;
     }
+
+    if (items.length > 0) {
+      onNotification?.(
+        "Print blocked",
+        "This bill is not finalized. Settle & Save the invoice before opening print preview.",
+        "error"
+      );
+      return;
+    }
+
+    onNotification?.(
+      "Reprint",
+      "No finalized invoice is available to print. Held or local-suspended bills cannot be printed until saved.",
+      "error"
+    );
   };
 
   // References
@@ -4825,8 +4837,9 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
             <button
               type="button"
               onClick={handleReprintInvoice}
-              className="px-3 py-1.5 bg-white hover:bg-slate-50 dark:bg-slate-800 dark:hover:bg-slate-700 border border-slate-300 dark:border-slate-600 text-slate-800 dark:text-slate-100 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 cursor-pointer shadow-2xs"
-              title="Print Preview / Reprint (Ctrl+P)"
+              disabled={!lastCompletedInvoice?.invoiceId && items.length === 0}
+              className="px-3 py-1.5 bg-white hover:bg-slate-50 dark:bg-slate-800 dark:hover:bg-slate-700 border border-slate-300 dark:border-slate-600 text-slate-800 dark:text-slate-100 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 cursor-pointer shadow-2xs disabled:opacity-40 disabled:cursor-not-allowed"
+              title={lastCompletedInvoice?.invoiceId ? "Print Preview / Reprint (Ctrl+P)" : "Print is unavailable until the bill is finalized and saved"}
             >
               <Printer size={14} className="text-blue-600" />
               <span>Print</span>

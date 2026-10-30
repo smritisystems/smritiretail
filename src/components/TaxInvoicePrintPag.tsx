@@ -4,7 +4,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritisys.com | smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 4.0.0 (SEEF & UCR-001 Compliant Tax Invoice Workspace)
+ * Version      : 6.99.1
+ * Created      : 2026-08-19
+ * Modified     : 2026-10-30
  * License      : Proprietary Commercial Software
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  *
@@ -157,7 +159,7 @@ export const TaxInvoicePrintPage: React.FC = () => {
       localStorage.setItem("smriti_active_company", companyCodeUrl);
     } catch { }
   }
-  const initialInvoiceId = queryParams.get("id") || "inv-60a109a6ab4c";
+  const initialInvoiceId = queryParams.get("id") || "";
   const [activeInvoiceId, setActiveInvoiceId] = useState<string>(initialInvoiceId);
 
   // Sync header config with SPK.configuration.branding (UCR-001) and localStorage
@@ -283,6 +285,12 @@ export const TaxInvoicePrintPage: React.FC = () => {
       setLoading(true);
       setError(null);
       await ensureAuthenticated();
+
+      if (!targetId || !targetId.trim()) {
+        setInvoice(null);
+        setError("SMRITI-DATA-002: No finalized invoice reference is available for printing. Save or settle the bill before opening print preview.");
+        return;
+      }
       
       const cleanId = encodeURIComponent(targetId.trim());
       let data: any = null;
