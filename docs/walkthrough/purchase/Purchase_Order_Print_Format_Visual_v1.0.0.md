@@ -152,7 +152,7 @@ Target App URL : http://localhost:3001
 Backend API    : http://127.0.0.1:1981
 Output Evidence: F:\SMRITRretailNX\docs\walkthrough\purchase\evidence
 --------------------------------------------------------------------------------
-[AUTH OK] Admin token acquired:[REDACTED_EXAMPLE_TOKEN]
+[AUTH OK] Admin token acquired:[REDACTED_EXAMPLE_TOKEN] (redacted documentation example)
 
 [Step 0] Seeding authenticated local storage on domain: http://localhost:3001/?tab=purchase...
    [BROWSER CONSOLE debug] [vite] connecting...
