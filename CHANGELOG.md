@@ -1,6 +1,19 @@
 <!--
 
-## [6.99.30] - 2026-10-30 - Catalog: Master Delete Guard Expansion & Schema Parity Governance v6.99.3
+## [6.99.31] - 2026-10-31 - Billing: Reliance Parent & Child Store Billing, Auto-Defaults, Settlement & Tax Invoice Print Preview v1.0.0
+
+### Fixed
+- `src/components/billing/BillingTerm.tsx`:
+  - Added intelligent auto-fallback to the first available GST registration (`primaryReg`), default billing location (`defaultBloc`), and default shipping location (`defaultDelLoc`) when no record is explicitly marked `is_default`, unblocking Modern Trade billing without manual cashier intervention.
+  - Relaxed credit billing check `isB2BCreditAllowed` to allow B2B on-account transactions when the customer has an active credit limit or `CREDIT` in `permittedTransactions`.
+  - Wired in-app `PrintPreviewModal` invocation upon successful invoice settlement and reprint events.
+
+### Added
+- `scripts/capture_reliance_billing_playwright.py`:
+  - Added full Playwright automation across 7 verification checkpoints for Reliance parent/child accounts, barcode CSV import, 43.76% trade concession exclusivity, corporate credit settlement, and in-app A4 Tax Invoice Print Preview.
+- `docs/walkthrough/billing/Billing_Reliance_Parent_Child_Settlement_And_Print_Preview_v1.0.0.md`:
+  - Formal 13-section WGP walkthrough document with full verification results and architecture decisions.
+
 
 ### Fixed
 - `backend/app/services/master_delete_guard.py`:

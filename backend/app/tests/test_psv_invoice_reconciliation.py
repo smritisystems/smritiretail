@@ -402,18 +402,23 @@ async def test_sku_receipt_fallback_requires_exact_invoice_sku(db_session):
     env = await _setup_reconciliation_env(db_session)
     env["prod"].barcode = ""
     await db_session.commit()
+    company_id = env["company"].id
+    staff_id = env["staff"].id
+    invoice_id = env["invoice"].id
+    invoice_line_id = str(env["inv_item"].id)
+    invoice_sku = env["prod"].code
 
     with pytest.raises(HTTPException) as exc_info:
         await PSVProjectionService.record_invoice_receipt(
             session=db_session,
-            company_id=env["company"].id,
-            user_id=env["staff"].id,
+            company_id=company_id,
+            user_id=staff_id,
             user_role="SALES_EXECUTIVE",
             req=PSVReceiveInvoiceReq(
-                invoice_id=env["invoice"].id,
+                invoice_id=invoice_id,
                 items=[
                     PSVReceiveInvoiceLineReq(
-                        invoice_line_id=str(env["inv_item"].id),
+                        invoice_line_id=invoice_line_id,
                         sku="WRONG-SKU",
                         received_qty=Decimal("1"),
                     )
@@ -427,15 +432,15 @@ async def test_sku_receipt_fallback_requires_exact_invoice_sku(db_session):
 
     result = await PSVProjectionService.record_invoice_receipt(
         session=db_session,
-        company_id=env["company"].id,
-        user_id=env["staff"].id,
+        company_id=company_id,
+        user_id=staff_id,
         user_role="SALES_EXECUTIVE",
         req=PSVReceiveInvoiceReq(
-            invoice_id=env["invoice"].id,
+            invoice_id=invoice_id,
             items=[
                 PSVReceiveInvoiceLineReq(
-                    invoice_line_id=str(env["inv_item"].id),
-                    sku=env["prod"].code,
+                    invoice_line_id=invoice_line_id,
+                    sku=invoice_sku,
                     received_qty=Decimal("1"),
                 )
             ],

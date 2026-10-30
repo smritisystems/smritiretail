@@ -62,6 +62,75 @@ interface PsvTabProps {
   currentUser?: { role: string; name: string } | null;
 }
 
+type PSVReceiptScan = { barcode: string; disposition: "accepted" | "rejected" };
+
+interface PSVReceiptLineDraft {
+  received_qty: number;
+  rejected_qty: number;
+  rejection_reason: string;
+  sku_confirmation: string;
+  scans: PSVReceiptScan[];
+  hasScanCorrection: boolean;
+  scanCorrectionReason: string;
+}
+
+function emptyReceiptDraft(): PSVReceiptLineDraft {
+  return {
+    received_qty: 0,
+    rejected_qty: 0,
+    rejection_reason: "",
+    sku_confirmation: "",
+    scans: [],
+    hasScanCorrection: false,
+    scanCorrectionReason: "",
+  };
+}
+
+type PSVReceiptMode = "prefill" | "csv" | "scan";
+
+function parseCsv(text: string): string[][] {
+  const rows: string[][] = [];
+  let row: string[] = [];
+  let cell = "";
+  let quoted = false;
+  const input = text.replace(/^\uFEFF/, "");
+  for (let index = 0; index < input.length; index += 1) {
+    const character = input[index];
+    if (quoted) {
+      if (character === '"' && input[index + 1] === '"') {
+        cell += '"';
+        index += 1;
+      } else if (character === '"') {
+        quoted = false;
+      } else {
+        cell += character;
+      }
+    } else if (character === '"' && cell.length === 0) {
+      quoted = true;
+    } else if (character === ",") {
+      row.push(cell.trim());
+      cell = "";
+    } else if (character === "\n" || character === "\r") {
+      if (character === "\r" && input[index + 1] === "\n") index += 1;
+      row.push(cell.trim());
+      if (row.some((value) => value !== "")) rows.push(row);
+      row = [];
+      cell = "";
+    } else {
+      cell += character;
+    }
+  }
+  row.push(cell.trim());
+  if (row.some((value) => value !== "")) rows.push(row);
+  if (quoted) throw new Error("CSV contains an unclosed quoted field.");
+  return rows;
+}
+
+function csvCell(value: string | number): string {
+  const text = String(value);
+  return /[",\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+}
+
 /* ─────────────────────────────────────────────────────────
    HELPERS — Plain-language signals
 ───────────────────────────────────────────────────────── */
@@ -283,6 +352,8 @@ export const PsvTab: React.FC<PsvTabProps> = ({ psvParties, currentUser }) => {
 
   // Receive Modal State
   const [receiveModalOpen, setReceiveModalOpen] = useState<boolean>(false);
+  const [receiveInvoiceItems, setReceiveInvoiceItems] = useState<PSVQuantityReconciliationItem[]>([]);
+  const [isLoadingReceiveInvoice, setIsLoadingReceiveInvoice] = useState(false);
   const [selectedItemForReceive, setSelectedItemForReceive] = useState<PSVQuantityReconciliationItem | null>(null);
   const [isSubmittingReceipt, setIsSubmittingReceipt] = useState<boolean>(false);
   const [approvingEventId, setApprovingEventId] = useState<string | null>(null);
@@ -293,6 +364,13 @@ export const PsvTab: React.FC<PsvTabProps> = ({ psvParties, currentUser }) => {
   const [scanCorrectionReason, setScanCorrectionReason] = useState("");
   const [useBarcodeScanning, setUseBarcodeScanning] = useState(false);
   const [skuConfirmation, setSkuConfirmation] = useState("");
+  const [receiptLineDrafts, setReceiptLineDrafts] = useState<Record<string, PSVReceiptLineDraft>>({});
+  const [receiveMode, setReceiveMode] = useState<PSVReceiptMode>("prefill");
+  const [scanDisposition, setScanDisposition] = useState<"accepted" | "rejected">("accepted");
+  const [csvImportError, setCsvImportError] = useState<string | null>(null);
+  const [csvImportSummary, setCsvImportSummary] = useState<string | null>(null);
+  const [receiveValidationError, setReceiveValidationError] = useState<string | null>(null);
+  const csvInputRef = useRef<HTMLInputElement>(null);
   const barcodeInputRef = useRef<HTMLInputElement>(null);
 
   // Form Fields for Receive Modal
@@ -322,15 +400,45 @@ export const PsvTab: React.FC<PsvTabProps> = ({ psvParties, currentUser }) => {
   }, [psvParties, selectedPartyId]);
 
   const activeParty = psvParties.find((p) => p.id === selectedPartyId);
+  const getReceiptDraft = (item: PSVQuantityReconciliationItem) =>
+    receiptLineDrafts[item.invoice_line_id] ?? emptyReceiptDraft();
+  const getScannedCounts = (draft: PSVReceiptLineDraft) =>
+    draft.scans.reduce<Record<string, number>>((counts, scan) => {
+      counts[scan.barcode] = (counts[scan.barcode] ?? 0) + 1;
+      return counts;
+    }, {});
+  const getLineQuantity = (draft: PSVReceiptLineDraft, disposition: "accepted" | "rejected") =>
+    draft.scans.length > 0
+      ? draft.scans.filter((scan) => scan.disposition === disposition).length
+      : disposition === "accepted" ? draft.received_qty : draft.rejected_qty;
+  const updateReceiptDraft = (
+    lineId: string,
+    update: (draft: PSVReceiptLineDraft) => PSVReceiptLineDraft
+  ) => {
+    setReceiptLineDrafts((drafts) => {
+      const current = drafts[lineId] ?? emptyReceiptDraft();
+      return { ...drafts, [lineId]: update(current) };
+    });
+  };
+  const getRemainingQty = (item: PSVQuantityReconciliationItem) =>
+    Math.max(0, item.document_qty - item.received_qty);
   const selectedItemBarcodes = selectedItemForReceive?.barcodes ?? [];
   const totalScannedBarcodeQty = Object.values(scannedBarcodeCounts).reduce((total, count) => total + count, 0);
-  const remainingInvoiceQty = selectedItemForReceive
-    ? Math.max(0, selectedItemForReceive.document_qty - selectedItemForReceive.received_qty)
-    : 0;
+  const remainingInvoiceQty = selectedItemForReceive ? getRemainingQty(selectedItemForReceive) : 0;
+  const hasReceiptQtyDiscrepancy = Boolean(
+    selectedItemForReceive &&
+    receiveForm.received_qty + receiveForm.rejected_qty > 0 &&
+    receiveForm.received_qty + receiveForm.rejected_qty !== remainingInvoiceQty
+  );
   const manualSkuConfirmed = Boolean(
     selectedItemForReceive &&
     skuConfirmation.trim().toUpperCase() === selectedItemForReceive.sku.trim().toUpperCase()
   );
+  const receiveHasDiscrepancy = receiveInvoiceItems.some((item) => {
+    const draft = getReceiptDraft(item);
+    const enteredQty = getLineQuantity(draft, "accepted") + getLineQuantity(draft, "rejected");
+    return enteredQty > 0 && enteredQty !== getRemainingQty(item);
+  });
 
   // F-10: audit only on explicit user selection after mount
   useEffect(() => {
@@ -398,10 +506,8 @@ export const PsvTab: React.FC<PsvTabProps> = ({ psvParties, currentUser }) => {
     }
   };
 
-  // Open Receive Modal for a line item
-  const openReceiveModal = (item: PSVQuantityReconciliationItem) => {
-    const itemBarcodes = item.barcodes ?? [];
-    setSelectedItemForReceive(item);
+  // Open receiving for the entire invoice so all lines can be reconciled in one transaction.
+  const openReceiveModal = async (item: PSVQuantityReconciliationItem) => {
     setReceiveForm({
       invoice_id: item.invoice_id,
       invoice_no: item.invoice_no,
@@ -414,148 +520,366 @@ export const PsvTab: React.FC<PsvTabProps> = ({ psvParties, currentUser }) => {
       remarks: "",
       auto_approve: false,
     });
-    setScannedBarcodeCounts({});
-    setHasBarcodeScanCorrection(false);
-    setScanCorrectionReason("");
+    setReceiveInvoiceItems([]);
+    setReceiptLineDrafts({});
+    setReceiveMode("prefill");
+    setScanDisposition("accepted");
     setBarcodeInput("");
     setBarcodeScanError(null);
-    setSkuConfirmation("");
-    setUseBarcodeScanning(itemBarcodes.length > 0);
+    setCsvImportError(null);
+    setCsvImportSummary(null);
+    setReceiveValidationError(null);
     setReceiveModalOpen(true);
+    setIsLoadingReceiveInvoice(true);
+    try {
+      const response = await apiFetchV1<PSVQuantityReconciliationResponse>("/psv/reconciliation", {
+        params: { invoice_id: item.invoice_id, limit: 1000 },
+      });
+      const invoiceItems = response.items.filter((line) => line.invoice_id === item.invoice_id);
+      if (response.summary.total_items > invoiceItems.length) {
+        throw new Error("This invoice has more than 1,000 lines. Receiving was stopped to avoid a partial invoice.");
+      }
+      if (!invoiceItems.length) {
+        throw new Error("No invoice lines were returned for receiving.");
+      }
+      setReceiveInvoiceItems(invoiceItems);
+      setReceiptLineDrafts(Object.fromEntries(
+        invoiceItems.map((line) => [line.invoice_line_id, emptyReceiptDraft()])
+      ));
+    } catch (error: any) {
+      console.error("[PSV] Failed to load invoice lines for bulk receiving:", error);
+      setReceiveValidationError(error.message || "Failed to load all invoice items.");
+    } finally {
+      setIsLoadingReceiveInvoice(false);
+    }
   };
 
   const handleBarcodeScan = (event: React.KeyboardEvent<HTMLInputElement>) => {
     if (event.key !== "Enter") return;
     event.preventDefault();
     const barcode = barcodeInput.trim().toUpperCase();
-    if (!barcode || !selectedItemForReceive) return;
-    const matchesInvoiceItem = (selectedItemForReceive.barcodes ?? []).some(
-      (knownBarcode) => knownBarcode.trim().toUpperCase() === barcode
+    if (!barcode) return;
+    const matches = receiveInvoiceItems.filter((item) =>
+      (item.barcodes ?? []).some((knownBarcode) => knownBarcode.trim().toUpperCase() === barcode)
     );
-    if (!matchesInvoiceItem) {
-      setBarcodeScanError("This barcode does not match the invoice item. Check the product and try again.");
+    const distinctSkus = new Set(matches.map((item) => item.sku.trim().toUpperCase()));
+    if (matches.length === 0 || distinctSkus.size > 1) {
+      setBarcodeScanError(
+        distinctSkus.size > 1
+          ? "This barcode matches multiple invoice lines. Ask a manager to resolve the duplicate barcode."
+          : "This barcode does not match an item on this invoice."
+      );
       setBarcodeInput("");
       return;
     }
-
-    const updated = { ...scannedBarcodeCounts, [barcode]: (scannedBarcodeCounts[barcode] || 0) + 1 };
-    const scannedQty = Object.values(updated).reduce((total, count) => total + count, 0);
-    setScannedBarcodeCounts(updated);
-    setReceiveForm((form) => ({
-      ...form,
-      received_qty: Math.max(0, scannedQty - form.rejected_qty),
+    const matchedItem = matches.find((item) => {
+      const currentScans = receiptLineDrafts[item.invoice_line_id]?.scans.length ?? 0;
+      return currentScans < getRemainingQty(item);
+    }) ?? matches[0];
+    updateReceiptDraft(matchedItem.invoice_line_id, (draft) => ({
+      ...draft,
+      scans: [...draft.scans, { barcode, disposition: scanDisposition }],
     }));
     setBarcodeScanError(null);
+    setReceiveValidationError(null);
     setBarcodeInput("");
   };
 
-  const undoBarcodeScan = (barcode: string) => {
-    const updated = { ...scannedBarcodeCounts };
-    if (updated[barcode] <= 1) {
-      delete updated[barcode];
-    } else {
-      updated[barcode] -= 1;
-    }
-    const scannedQty = Object.values(updated).reduce((total, count) => total + count, 0);
-    setScannedBarcodeCounts(updated);
-    setReceiveForm((form) => {
-      const rejectedQty = Math.min(form.rejected_qty, scannedQty);
+  const undoInvoiceBarcodeScan = (item: PSVQuantityReconciliationItem, barcode: string) => {
+    updateReceiptDraft(item.invoice_line_id, (draft) => {
+      let scanIndex = -1;
+      for (let index = draft.scans.length - 1; index >= 0; index -= 1) {
+        if (draft.scans[index].barcode === barcode) {
+          scanIndex = index;
+          break;
+        }
+      }
+      if (scanIndex < 0) return draft;
       return {
-        ...form,
-        rejected_qty: rejectedQty,
-        received_qty: Math.max(0, scannedQty - rejectedQty),
+        ...draft,
+        scans: draft.scans.filter((_, index) => index !== scanIndex),
+        hasScanCorrection: true,
       };
+    });
+  };
+
+  const undoBarcodeScan = (barcode: string) => {
+    if (!scannedBarcodeCounts[barcode]) return;
+    setScannedBarcodeCounts((counts) => {
+      const updated = { ...counts };
+      if (updated[barcode] <= 1) delete updated[barcode];
+      else updated[barcode] -= 1;
+      return updated;
     });
     setHasBarcodeScanCorrection(true);
   };
 
   const setRejectedQty = (rejectedQty: number) => {
-    const scannedQty = Object.values(scannedBarcodeCounts).reduce((total, count) => total + count, 0);
     setReceiveForm((form) => ({
       ...form,
       rejected_qty: rejectedQty,
       received_qty: useBarcodeScanning
-        ? Math.max(0, scannedQty - rejectedQty)
+        ? Math.max(0, totalScannedBarcodeQty - rejectedQty)
         : form.received_qty,
     }));
   };
 
-  // Submit Goods Receipt to Backend
-  const handleReceiveSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!receiveForm.invoice_id) {
-      alert("Invoice ID is missing");
-      return;
-    }
-    if (selectedItemBarcodes.length > 0 && Object.keys(scannedBarcodeCounts).length === 0) {
-      alert("Scan the registered barcode for each received or rejected unit.");
-      return;
-    }
-    if (selectedItemBarcodes.length === 0 && !manualSkuConfirmed) {
-      alert("Enter the exact invoice SKU to verify this item before recording.");
-      return;
-    }
-    if (receiveForm.received_qty <= 0 && receiveForm.rejected_qty <= 0) {
-      alert("Please enter a valid Received Quantity or Rejected Quantity");
-      return;
-    }
-    const totalScanned = Object.values(scannedBarcodeCounts).reduce((total, count) => total + count, 0);
-    if (useBarcodeScanning && totalScanned !== receiveForm.received_qty + receiveForm.rejected_qty) {
-      alert("Scanned barcode count must equal accepted quantity plus rejected quantity.");
-      return;
-    }
-    if (hasBarcodeScanCorrection && !scanCorrectionReason.trim()) {
-      alert("Enter why a barcode scan count was corrected.");
-      return;
-    }
+  const prefillRemainingQuantities = () => {
+    setReceiptLineDrafts((drafts) => Object.fromEntries(receiveInvoiceItems.map((item) => {
+      const draft = drafts[item.invoice_line_id] ?? emptyReceiptDraft();
+      return [item.invoice_line_id, (item.barcodes ?? []).length > 0
+        ? draft
+        : { ...draft, received_qty: getRemainingQty(item) }];
+    })));
+    setReceiveValidationError(null);
+  };
 
-    setIsSubmittingReceipt(true);
+  const downloadReceiptCsvTemplate = () => {
+    const headers = [
+      "invoice_line_id",
+      "sku",
+      "sku_confirmation",
+      "barcode",
+      "disposition",
+      "received_qty",
+      "rejected_qty",
+      "rejection_reason",
+    ];
+    const rows = receiveInvoiceItems.map((item) => [
+      item.invoice_line_id,
+      item.sku,
+      "",
+      "",
+      "",
+      (item.barcodes ?? []).length > 0 ? "" : getRemainingQty(item),
+      "",
+      "",
+    ]);
+    const csv = [headers, ...rows].map((row) => row.map(csvCell).join(",")).join("\r\n");
+    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8;" }));
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = `${receiveForm.invoice_no || "PSV-invoice"}-receiving-template.csv`;
+    anchor.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const importReceiptCsv = async (file: File) => {
+    setCsvImportError(null);
+    setCsvImportSummary(null);
     try {
-      const payload = {
-        invoice_id: receiveForm.invoice_id,
-        party_id: receiveForm.party_id || undefined,
-        receipt_reference: receiveForm.receipt_reference || undefined,
-        remarks: [
-          receiveForm.remarks,
-          scanCorrectionReason.trim()
-            ? `Barcode scan correction: ${scanCorrectionReason.trim()}`
-            : "",
-        ].filter(Boolean).join("; ") || undefined,
-        auto_approve: receiveForm.auto_approve,
-        items: [
-          {
-            invoice_line_id: selectedItemForReceive?.invoice_line_id || undefined,
-            sku: selectedItemForReceive?.sku || undefined,
-            style_code: selectedItemForReceive?.style_code || undefined,
-            color: selectedItemForReceive?.color || undefined,
-            size: selectedItemForReceive?.size || undefined,
-            received_qty: Number(receiveForm.received_qty) || 0,
-            rejected_qty: Number(receiveForm.rejected_qty) || 0,
-            rejection_reason: receiveForm.rejection_reason || undefined,
-            scanned_barcode_counts: selectedItemBarcodes.length > 0 ? scannedBarcodeCounts : {},
-          },
-        ],
+      const rows = parseCsv(await file.text());
+      if (rows.length < 2) throw new Error("CSV has no receipt rows.");
+      const headers = rows[0].map((header) => header.trim().toLowerCase());
+      if (new Set(headers).size !== headers.length) {
+        throw new Error("CSV contains duplicate column names.");
+      }
+      const requiredHeaders = [
+        "invoice_line_id", "sku", "sku_confirmation", "barcode", "disposition",
+        "received_qty", "rejected_qty", "rejection_reason",
+      ];
+      const missingHeaders = requiredHeaders.filter((header) => !headers.includes(header));
+      if (missingHeaders.length) {
+        throw new Error(`Missing CSV columns: ${missingHeaders.join(", ")}.`);
+      }
+      const column = Object.fromEntries(headers.map((header, index) => [header, index]));
+      const byLineId = new Map(receiveInvoiceItems.map((item) => [item.invoice_line_id, item]));
+      const importedDrafts = Object.fromEntries(receiveInvoiceItems.map((item) => [
+        item.invoice_line_id,
+        emptyReceiptDraft(),
+      ])) as Record<string, PSVReceiptLineDraft>;
+      const seenManualLines = new Set<string>();
+      const errors: string[] = [];
+      let acceptedRows = 0;
+      const valueAt = (row: string[], key: string) => row[column[key]]?.trim() ?? "";
+      const parseQuantity = (value: string, label: string) => {
+        if (!value) return 0;
+        const quantity = Number(value);
+        if (!Number.isSafeInteger(quantity) || quantity < 0) {
+          throw new Error(`${label} must be a whole number greater than or equal to zero.`);
+        }
+        return quantity;
       };
 
-      await apiFetchV1("/psv/receive-invoice", {
-        method: "POST",
-        body: payload,
+      rows.slice(1).forEach((row, index) => {
+        const rowNumber = index + 2;
+        try {
+          const lineId = valueAt(row, "invoice_line_id");
+          const item = byLineId.get(lineId);
+          if (!item) throw new Error(`Row ${rowNumber}: unknown invoice line ID.`);
+          if (valueAt(row, "sku").toUpperCase() !== item.sku.trim().toUpperCase()) {
+            throw new Error(`Row ${rowNumber}: SKU does not match invoice line ${item.sku}.`);
+          }
+          const barcode = valueAt(row, "barcode").toUpperCase();
+          const disposition = valueAt(row, "disposition").toLowerCase();
+          const draft = importedDrafts[lineId];
+          if ((item.barcodes ?? []).length > 0) {
+            if (!barcode) {
+              if (valueAt(row, "received_qty") || valueAt(row, "rejected_qty")) {
+                throw new Error(`Row ${rowNumber}: barcode-enabled items require one registered barcode per unit, not typed quantities.`);
+              }
+              return;
+            }
+            if (!(item.barcodes ?? []).some((known) => known.trim().toUpperCase() === barcode)) {
+              throw new Error(`Row ${rowNumber}: barcode does not belong to invoice SKU ${item.sku}.`);
+            }
+            if (disposition !== "accepted" && disposition !== "rejected") {
+              throw new Error(`Row ${rowNumber}: disposition must be "accepted" or "rejected".`);
+            }
+            draft.scans.push({ barcode, disposition });
+          } else {
+            if (barcode || disposition) {
+              throw new Error(`Row ${rowNumber}: this SKU-only item has no registered barcode; enter its exact SKU confirmation and quantities.`);
+            }
+            if (seenManualLines.has(lineId)) {
+              throw new Error(`Row ${rowNumber}: SKU-only invoice lines must appear once in the CSV.`);
+            }
+            seenManualLines.add(lineId);
+            if (valueAt(row, "sku_confirmation").toUpperCase() !== item.sku.trim().toUpperCase()) {
+              throw new Error(`Row ${rowNumber}: enter the exact invoice SKU in sku_confirmation.`);
+            }
+            draft.sku_confirmation = valueAt(row, "sku_confirmation");
+            draft.received_qty = parseQuantity(valueAt(row, "received_qty"), `Row ${rowNumber} received_qty`);
+            draft.rejected_qty = parseQuantity(valueAt(row, "rejected_qty"), `Row ${rowNumber} rejected_qty`);
+            draft.rejection_reason = valueAt(row, "rejection_reason");
+            if (draft.rejected_qty > 0 && !draft.rejection_reason) {
+              throw new Error(`Row ${rowNumber}: rejection_reason is required when rejected_qty is above zero.`);
+            }
+          }
+          acceptedRows += 1;
+        } catch (error: any) {
+          errors.push(error.message || `Row ${rowNumber}: invalid data.`);
+        }
       });
 
+      if (errors.length) throw new Error(errors.slice(0, 8).join("\n"));
+      setReceiptLineDrafts(importedDrafts);
+      setCsvImportSummary(`Imported ${acceptedRows} CSV row${acceptedRows === 1 ? "" : "s"}. Review quantities and scanned barcodes before saving.`);
+      setReceiveValidationError(null);
+    } catch (error: any) {
+      console.error("[PSV] Receipt CSV import failed:", error);
+      setCsvImportError(error.message || "Could not read the receiving CSV.");
+    } finally {
+      if (csvInputRef.current) csvInputRef.current.value = "";
+    }
+  };
+
+  // Submit every entered line in one invoice receipt request.
+  const handleReceiveSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    const payloadItems: Record<string, any>[] = [];
+    const validationErrors: string[] = [];
+    const correctionNotes: string[] = [];
+    let hasQuantityDiscrepancy = false;
+    let receivedTotal = 0;
+    let rejectedTotal = 0;
+
+    receiveInvoiceItems.forEach((item) => {
+      const draft = getReceiptDraft(item);
+      const registeredBarcodes = item.barcodes ?? [];
+      const receivedQty = getLineQuantity(draft, "accepted");
+      const rejectedQty = getLineQuantity(draft, "rejected");
+      const totalQty = receivedQty + rejectedQty;
+      if (totalQty <= 0) return;
+      if (registeredBarcodes.length > 0) {
+        if (!draft.scans.length) {
+          validationErrors.push(`${item.sku}: scan each received/rejected unit using its registered barcode.`);
+          return;
+        }
+        const invalidBarcode = draft.scans.find((scan) =>
+          !registeredBarcodes.some((known) => known.trim().toUpperCase() === scan.barcode)
+        );
+        if (invalidBarcode) {
+          validationErrors.push(`${item.sku}: a scanned barcode is not registered to this invoice item.`);
+          return;
+        }
+        if (draft.scans.length !== totalQty) {
+          validationErrors.push(`${item.sku}: scan total must equal accepted plus rejected quantity.`);
+          return;
+        }
+      } else if (draft.sku_confirmation.trim().toUpperCase() !== item.sku.trim().toUpperCase()) {
+        validationErrors.push(`${item.sku}: confirm the exact invoice SKU before recording quantities.`);
+        return;
+      }
+      if (draft.hasScanCorrection && !draft.scanCorrectionReason.trim()) {
+        validationErrors.push(`${item.sku}: explain why a barcode scan was undone.`);
+        return;
+      }
+      if (rejectedQty > 0 && !draft.rejection_reason.trim()) {
+        validationErrors.push(`${item.sku}: select a rejection reason.`);
+        return;
+      }
+      if (totalQty !== getRemainingQty(item)) hasQuantityDiscrepancy = true;
+      const barcodeCounts = getScannedCounts(draft);
+      if (draft.scanCorrectionReason.trim()) {
+        correctionNotes.push(`${item.sku}: ${draft.scanCorrectionReason.trim()}`);
+      }
+      payloadItems.push({
+        invoice_line_id: item.invoice_line_id,
+        sku: item.sku,
+        style_code: item.style_code || undefined,
+        color: item.color || undefined,
+        size: item.size || undefined,
+        received_qty: receivedQty,
+        rejected_qty: rejectedQty,
+        rejection_reason: draft.rejection_reason || undefined,
+        scanned_barcode_counts: barcodeCounts,
+      });
+      receivedTotal += receivedQty;
+      rejectedTotal += rejectedQty;
+    });
+
+    if (validationErrors.length) {
+      setReceiveValidationError(validationErrors.slice(0, 8).join("\n"));
+      return;
+    }
+    if (!payloadItems.length) {
+      setReceiveValidationError("Enter quantities or scan barcodes for at least one invoice item.");
+      return;
+    }
+    if (hasQuantityDiscrepancy && !receiveForm.remarks.trim()) {
+      setReceiveValidationError("Add a receiving remark explaining the difference from the invoice balance.");
+      return;
+    }
+    if ([receiveForm.remarks, ...correctionNotes].join("; ").length > 1000) {
+      setReceiveValidationError("Receipt remarks and barcode correction notes must fit within 1,000 characters.");
+      return;
+    }
+    if (!receiveForm.invoice_id) {
+      setReceiveValidationError("Invoice ID is missing.");
+      return;
+    }
+
+    setReceiveValidationError(null);
+    setIsSubmittingReceipt(true);
+    try {
+      await apiFetchV1("/psv/receive-invoice", {
+        method: "POST",
+        body: {
+          invoice_id: receiveForm.invoice_id,
+          party_id: receiveForm.party_id || undefined,
+          receipt_reference: receiveForm.receipt_reference || undefined,
+          remarks: [
+            receiveForm.remarks,
+            correctionNotes.length ? `Barcode scan corrections: ${correctionNotes.join("; ")}` : "",
+          ].filter(Boolean).join("; ") || undefined,
+          auto_approve: receiveForm.auto_approve,
+          items: payloadItems,
+        },
+      });
       recordAuditAction(
         "TRANSACTION_CREATE",
         "psv_stock_events",
         receiveForm.invoice_id,
-        `Recorded inward physical receipt for invoice ${receiveForm.invoice_no}: rec=${receiveForm.received_qty}, rej=${receiveForm.rejected_qty}`
+        `Recorded bulk inward receipt for invoice ${receiveForm.invoice_no}: ${payloadItems.length} lines, accepted=${receivedTotal}, rejected=${rejectedTotal}`
       );
-
       setReceiveModalOpen(false);
-      setSelectedItemForReceive(null);
-      setScannedBarcodeCounts({});
+      setReceiveInvoiceItems([]);
+      setReceiptLineDrafts({});
       await fetchReconciliation();
-    } catch (err: any) {
-      console.error("[PSV] Inward receipt submission failed:", err);
-      alert("Failed to record inward goods receipt: " + (err.message || "Unknown error"));
+    } catch (error: any) {
+      console.error("[PSV] Inward receipt submission failed:", error);
+      setReceiveValidationError(`Failed to record receipt: ${error.message || "Unknown error"}`);
     } finally {
       setIsSubmittingReceipt(false);
     }
@@ -675,6 +999,418 @@ export const PsvTab: React.FC<PsvTabProps> = ({ psvParties, currentUser }) => {
           </button>
         </div>
       </div>
+
+      {receiveModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-3 sm:p-5">
+          <div className="bg-theme-surface-1 border border-theme-divider rounded-2xl w-full max-w-7xl max-h-[94vh] shadow-2xl overflow-hidden flex flex-col">
+            <div className="p-4 border-b border-theme-divider flex items-center justify-between bg-theme-surface-2">
+              <div>
+                <h4 className="font-bold text-base text-theme-body flex items-center gap-2">
+                  <span>📥</span> Bulk Invoice Item Receiving
+                </h4>
+                <p className="text-[11px] text-theme-muted mt-0.5">
+                  Invoice <span className="font-mono text-blue-400 font-semibold">{receiveForm.invoice_no}</span>
+                  {" · "}{receiveInvoiceItems.length} items
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setReceiveModalOpen(false)}
+                className="text-theme-muted hover:text-theme-body p-1 rounded-lg hover:bg-theme-surface-3 text-sm"
+                aria-label="Close bulk receiving"
+              >
+                ✕
+              </button>
+            </div>
+
+            {isLoadingReceiveInvoice ? (
+              <div className="p-12 text-center text-sm text-theme-muted animate-pulse">Loading all invoice items…</div>
+            ) : (
+              <form onSubmit={handleReceiveSubmit} className="p-4 sm:p-5 space-y-4 overflow-y-auto">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center">
+                  <div className="rounded-lg border border-theme-divider bg-theme-surface-2 p-2">
+                    <span className="block text-[9px] uppercase text-theme-muted">Invoice Lines</span>
+                    <strong className="text-sm text-theme-body">{receiveInvoiceItems.length}</strong>
+                  </div>
+                  <div className="rounded-lg border border-theme-divider bg-theme-surface-2 p-2">
+                    <span className="block text-[9px] uppercase text-theme-muted">Barcode Required</span>
+                    <strong className="text-sm text-blue-300">
+                      {receiveInvoiceItems.filter((item) => (item.barcodes ?? []).length > 0).length}
+                    </strong>
+                  </div>
+                  <div className="rounded-lg border border-theme-divider bg-theme-surface-2 p-2">
+                    <span className="block text-[9px] uppercase text-theme-muted">SKU Confirmation</span>
+                    <strong className="text-sm text-amber-300">
+                      {receiveInvoiceItems.filter((item) => (item.barcodes ?? []).length === 0).length}
+                    </strong>
+                  </div>
+                  <div className="rounded-lg border border-theme-divider bg-theme-surface-2 p-2">
+                    <span className="block text-[9px] uppercase text-theme-muted">Lines Entered</span>
+                    <strong className="text-sm text-emerald-300">
+                      {receiveInvoiceItems.filter((item) => {
+                        const draft = getReceiptDraft(item);
+                        return getLineQuantity(draft, "accepted") + getLineQuantity(draft, "rejected") > 0;
+                      }).length}
+                    </strong>
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap gap-2 border-b border-theme-divider pb-3">
+                  {([
+                    ["prefill", "1. Prefill & Edit"],
+                    ["csv", "2. CSV Upload"],
+                    ["scan", "3. Scan All Barcodes"],
+                  ] as const).map(([mode, label]) => (
+                    <button
+                      key={mode}
+                      type="button"
+                      onClick={() => {
+                        setReceiveMode(mode);
+                        setReceiveValidationError(null);
+                      }}
+                      className={`rounded-lg px-3 py-2 text-xs font-semibold transition-colors ${
+                        receiveMode === mode
+                          ? "bg-blue-600 text-white"
+                          : "border border-theme-divider bg-theme-surface-2 text-theme-muted hover:text-theme-body"
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+
+                {receiveMode === "prefill" && (
+                  <section className="rounded-xl border border-blue-500/30 bg-blue-950/10 p-3 space-y-2">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div>
+                        <h5 className="text-xs font-semibold text-theme-body">Prefill remaining invoice quantities</h5>
+                        <p className="text-[10px] text-theme-muted mt-1">
+                          Prefill works for SKU-only items. Barcode items must be scanned; their quantities stay scan-derived.
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={prefillRemainingQuantities}
+                        className="rounded-lg bg-blue-600 px-3 py-2 text-[10px] font-semibold text-white hover:bg-blue-500"
+                      >
+                        Prefill all SKU-only lines
+                      </button>
+                    </div>
+                  </section>
+                )}
+
+                {receiveMode === "csv" && (
+                  <section className="rounded-xl border border-violet-500/30 bg-violet-950/10 p-3 space-y-3">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div>
+                        <h5 className="text-xs font-semibold text-theme-body">Import receiving CSV</h5>
+                        <p className="text-[10px] text-theme-muted mt-1">
+                          SKU-only lines need exact SKU confirmation and quantities. Barcode lines need one row per scanned unit with its barcode and accepted/rejected disposition.
+                        </p>
+                      </div>
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={downloadReceiptCsvTemplate}
+                          className="rounded-lg border border-theme-divider bg-theme-surface-2 px-3 py-2 text-[10px] font-semibold text-theme-body hover:bg-theme-surface-3"
+                        >
+                          Download CSV Template
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => csvInputRef.current?.click()}
+                          className="rounded-lg bg-violet-600 px-3 py-2 text-[10px] font-semibold text-white hover:bg-violet-500"
+                        >
+                          Choose CSV
+                        </button>
+                        <input
+                          ref={csvInputRef}
+                          type="file"
+                          accept=".csv,text/csv"
+                          className="hidden"
+                          onChange={(event) => {
+                            const file = event.target.files?.[0];
+                            if (file) void importReceiptCsv(file);
+                          }}
+                        />
+                      </div>
+                    </div>
+                    <p className="text-[10px] text-theme-muted">
+                      CSV import replaces the current draft. The template includes all invoice lines; leave barcode quantities blank and repeat a line once per physical barcode scanned.
+                    </p>
+                    {csvImportSummary && <p role="status" className="text-[11px] text-emerald-300">{csvImportSummary}</p>}
+                    {csvImportError && <pre role="alert" className="whitespace-pre-wrap text-[11px] text-rose-300">{csvImportError}</pre>}
+                  </section>
+                )}
+
+                {receiveMode === "scan" && (
+                  <section className="rounded-xl border border-emerald-500/30 bg-emerald-950/10 p-3 space-y-3">
+                    <div className="flex flex-wrap items-end gap-3">
+                      <label className="flex-1 min-w-[220px]">
+                        <span className="mb-1 block text-[10px] font-semibold text-theme-body">Scan any barcode on this invoice</span>
+                        <input
+                          ref={barcodeInputRef}
+                          type="text"
+                          autoFocus
+                          inputMode="none"
+                          autoComplete="off"
+                          aria-label="Scan invoice barcode"
+                          placeholder="Scan barcode and press Enter"
+                          value={barcodeInput}
+                          onChange={(event) => setBarcodeInput(event.target.value)}
+                          onKeyDown={handleBarcodeScan}
+                          className="w-full rounded-lg border border-theme-divider bg-theme-surface-2 px-3 py-2 text-sm font-mono text-theme-body focus:border-emerald-500 focus:outline-none"
+                        />
+                      </label>
+                      <label>
+                        <span className="mb-1 block text-[10px] font-semibold text-theme-body">Scanned unit is</span>
+                        <select
+                          value={scanDisposition}
+                          onChange={(event) => setScanDisposition(event.target.value as "accepted" | "rejected")}
+                          className="rounded-lg border border-theme-divider bg-theme-surface-2 px-3 py-2 text-xs text-theme-body"
+                        >
+                          <option value="accepted">Accepted</option>
+                          <option value="rejected">Damaged / Rejected</option>
+                        </select>
+                      </label>
+                    </div>
+                    {barcodeScanError && <p role="alert" className="text-[11px] text-rose-400">{barcodeScanError}</p>}
+                    <p className="text-[10px] text-theme-muted">
+                      Every scan is matched to exactly one line on this invoice. Use the accepted/rejected selector before scanning; rejected units need a reason below.
+                    </p>
+                  </section>
+                )}
+
+                <div className="overflow-x-auto rounded-xl border border-theme-divider">
+                  <table className="w-full min-w-[980px] text-left text-xs">
+                    <thead className="bg-theme-surface-2">
+                      <tr>
+                        <th className="px-3 py-2 text-[10px] uppercase text-theme-muted">Invoice Item</th>
+                        <th className="px-3 py-2 text-right text-[10px] uppercase text-theme-muted">Due</th>
+                        <th className="px-3 py-2 text-[10px] uppercase text-theme-muted">Verification</th>
+                        <th className="px-3 py-2 text-right text-[10px] uppercase text-theme-muted">Accepted</th>
+                        <th className="px-3 py-2 text-right text-[10px] uppercase text-theme-muted">Rejected</th>
+                        <th className="px-3 py-2 text-[10px] uppercase text-theme-muted">Rejection reason</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-theme-divider/50">
+                      {receiveInvoiceItems.map((item) => {
+                        const draft = getReceiptDraft(item);
+                        const barcodes = item.barcodes ?? [];
+                        const acceptedQty = getLineQuantity(draft, "accepted");
+                        const rejectedQty = getLineQuantity(draft, "rejected");
+                        const barcodeCounts = getScannedCounts(draft);
+                        return (
+                          <tr key={item.invoice_line_id} className="align-top">
+                            <td className="px-3 py-3">
+                              <div className="font-semibold text-theme-body">{item.product_name}</div>
+                              <div className="mt-1 text-[10px] text-theme-muted">
+                                SKU <span className="font-mono">{item.sku}</span>
+                                {item.color ? ` · ${item.color}` : ""}
+                                {item.size ? ` · ${item.size}` : ""}
+                              </div>
+                            </td>
+                            <td className="px-3 py-3 text-right font-mono">
+                              <div className="text-theme-body">{getRemainingQty(item)}</div>
+                              <div className="text-[9px] text-theme-muted">of {item.document_qty}</div>
+                            </td>
+                            <td className="px-3 py-3">
+                              {barcodes.length > 0 ? (
+                                <div className="space-y-1">
+                                  <span className="text-[10px] font-semibold text-blue-300">Barcode required</span>
+                                  {draft.scans.length > 0 ? (
+                                    <div className="max-w-[360px] space-y-1">
+                                      {Object.entries(barcodeCounts).map(([barcode, count]) => (
+                                        <div key={barcode} className="flex items-center justify-between gap-2">
+                                          <span className="font-mono text-[10px] text-theme-body">{barcode} × {count}</span>
+                                          <button
+                                            type="button"
+                                            onClick={() => undoInvoiceBarcodeScan(item, barcode)}
+                                            className="rounded border border-rose-500/30 px-2 py-1 text-[9px] text-rose-300 hover:bg-rose-500/10"
+                                          >
+                                            Undo one
+                                          </button>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  ) : (
+                                    <span className="block text-[10px] text-theme-muted">No units scanned yet</span>
+                                  )}
+                                  {draft.hasScanCorrection && (
+                                    <input
+                                      type="text"
+                                      value={draft.scanCorrectionReason}
+                                      onChange={(event) => updateReceiptDraft(item.invoice_line_id, (current) => ({
+                                        ...current,
+                                        scanCorrectionReason: event.target.value,
+                                      }))}
+                                      placeholder="Reason for undoing a scan (required)"
+                                      maxLength={250}
+                                      className="mt-1 w-full rounded border border-amber-500/30 bg-theme-surface-2 px-2 py-1 text-[10px] text-theme-body"
+                                    />
+                                  )}
+                                </div>
+                              ) : (
+                                <div className="space-y-1">
+                                  <span className="text-[10px] font-semibold text-amber-300">No barcode registered · SKU check</span>
+                                  <input
+                                    type="text"
+                                    value={draft.sku_confirmation}
+                                    onChange={(event) => updateReceiptDraft(item.invoice_line_id, (current) => ({
+                                      ...current,
+                                      sku_confirmation: event.target.value,
+                                    }))}
+                                    placeholder={`Confirm ${item.sku}`}
+                                    aria-label={`Confirm invoice SKU ${item.sku}`}
+                                    className="w-full rounded border border-theme-divider bg-theme-surface-2 px-2 py-1.5 font-mono text-[10px] text-theme-body"
+                                  />
+                                  {draft.sku_confirmation && (
+                                    <span className={`text-[9px] ${
+                                      draft.sku_confirmation.trim().toUpperCase() === item.sku.trim().toUpperCase()
+                                        ? "text-emerald-300" : "text-rose-300"
+                                    }`}>
+                                      {draft.sku_confirmation.trim().toUpperCase() === item.sku.trim().toUpperCase()
+                                        ? "SKU confirmed" : "SKU does not match"}
+                                    </span>
+                                  )}
+                                </div>
+                              )}
+                            </td>
+                            <td className="px-3 py-3 text-right">
+                              {barcodes.length > 0 ? (
+                                <span className="font-mono font-semibold text-emerald-300">{acceptedQty}</span>
+                              ) : (
+                                <input
+                                  type="number"
+                                  min="0"
+                                  step="1"
+                                  value={draft.received_qty}
+                                  onChange={(event) => updateReceiptDraft(item.invoice_line_id, (current) => ({
+                                    ...current,
+                                    received_qty: Math.max(0, Number(event.target.value) || 0),
+                                  }))}
+                                  className="w-24 rounded border border-theme-divider bg-theme-surface-2 px-2 py-1.5 text-right font-mono text-emerald-300"
+                                  aria-label={`Accepted quantity for ${item.sku}`}
+                                />
+                              )}
+                            </td>
+                            <td className="px-3 py-3 text-right">
+                              {barcodes.length > 0 ? (
+                                <span className="font-mono font-semibold text-rose-300">{rejectedQty}</span>
+                              ) : (
+                                <input
+                                  type="number"
+                                  min="0"
+                                  step="1"
+                                  value={draft.rejected_qty}
+                                  onChange={(event) => updateReceiptDraft(item.invoice_line_id, (current) => ({
+                                    ...current,
+                                    rejected_qty: Math.max(0, Number(event.target.value) || 0),
+                                  }))}
+                                  className="w-24 rounded border border-theme-divider bg-theme-surface-2 px-2 py-1.5 text-right font-mono text-rose-300"
+                                  aria-label={`Rejected quantity for ${item.sku}`}
+                                />
+                              )}
+                            </td>
+                            <td className="px-3 py-3">
+                              {rejectedQty > 0 ? (
+                                <select
+                                  value={draft.rejection_reason}
+                                  onChange={(event) => updateReceiptDraft(item.invoice_line_id, (current) => ({
+                                    ...current,
+                                    rejection_reason: event.target.value,
+                                  }))}
+                                  className="w-52 rounded border border-theme-divider bg-theme-surface-2 px-2 py-1.5 text-[10px] text-theme-body"
+                                  required
+                                >
+                                  <option value="">Select reason…</option>
+                                  <option value="Packaging Torn / Crushed">Transit damage</option>
+                                  <option value="Fabric Stained / Soiled">Fabric stained / soiled</option>
+                                  <option value="Stitching / Button Defect">Manufacturing defect</option>
+                                  <option value="Barcode Label Missing / Unreadable">Barcode label issue</option>
+                                  <option value="Wrong Size / Color Variant Delivered">Wrong size / color</option>
+                                  <option value="Other / Audit Hold">Other / audit hold</option>
+                                </select>
+                              ) : <span className="text-theme-muted">—</span>}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <label>
+                    <span className="mb-1 block text-[10px] font-semibold text-theme-body">Receipt / challan reference</span>
+                    <input
+                      type="text"
+                      value={receiveForm.receipt_reference}
+                      onChange={(event) => setReceiveForm({ ...receiveForm, receipt_reference: event.target.value })}
+                      placeholder="Optional delivery reference"
+                      className="w-full rounded-lg border border-theme-divider bg-theme-surface-2 px-3 py-2 text-xs text-theme-body"
+                    />
+                  </label>
+                  <label>
+                    <span className="mb-1 block text-[10px] font-semibold text-theme-body">
+                      Receiving remarks {receiveHasDiscrepancy && <span className="text-rose-400">*</span>}
+                    </span>
+                    <input
+                      type="text"
+                      value={receiveForm.remarks}
+                      onChange={(event) => setReceiveForm({ ...receiveForm, remarks: event.target.value })}
+                      placeholder={receiveHasDiscrepancy ? "Required: explain invoice quantity difference" : "Optional receiving notes"}
+                      maxLength={1000}
+                      required={receiveHasDiscrepancy}
+                      className="w-full rounded-lg border border-theme-divider bg-theme-surface-2 px-3 py-2 text-xs text-theme-body"
+                    />
+                  </label>
+                </div>
+
+                {isManagerOrAdmin && (
+                  <label className="flex items-center gap-2 rounded-xl border border-amber-500/30 bg-amber-950/20 p-3 text-xs text-amber-200">
+                    <input
+                      type="checkbox"
+                      checked={receiveForm.auto_approve}
+                      onChange={(event) => setReceiveForm({ ...receiveForm, auto_approve: event.target.checked })}
+                      className="rounded border-theme-divider text-amber-500"
+                    />
+                    Manager sign-off — approve this receipt immediately
+                  </label>
+                )}
+
+                {receiveValidationError && (
+                  <pre role="alert" className="whitespace-pre-wrap rounded-lg border border-rose-500/30 bg-rose-950/20 p-3 text-[11px] text-rose-300">
+                    {receiveValidationError}
+                  </pre>
+                )}
+
+                <div className="flex items-center justify-between gap-2 border-t border-theme-divider pt-3">
+                  <p className="text-[10px] text-theme-muted">
+                    Barcode lines cannot be submitted as typed quantities. SKU-only lines require exact SKU confirmation.
+                  </p>
+                  <div className="flex shrink-0 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setReceiveModalOpen(false)}
+                      className="rounded-xl px-4 py-2 text-xs font-medium text-theme-muted hover:bg-theme-surface-2"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={isLoadingReceiveInvoice || isSubmittingReceipt || receiveInvoiceItems.length === 0}
+                      className="rounded-xl bg-emerald-600 px-4 py-2 text-xs font-semibold text-white hover:bg-emerald-500 disabled:opacity-50"
+                    >
+                      {isSubmittingReceipt ? "Recording…" : "Review & Record All Inward"}
+                    </button>
+                  </div>
+                </div>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* ══════════════════════════════════════════════════════════════════════
           VIEW 1: OVERVIEW — DISTRIBUTOR STOCK TRACKER (ORIGINAL UX)
@@ -1109,7 +1845,7 @@ export const PsvTab: React.FC<PsvTabProps> = ({ psvParties, currentUser }) => {
                   }}
                   className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold px-3.5 py-1.5 rounded-lg shadow-sm shadow-emerald-600/30 transition-colors flex items-center gap-1.5"
                 >
-                  <span>📥</span> Record Inward Receipt
+                  <span>📥</span> Bulk Receive Invoice
                 </button>
               )}
             </div>
@@ -1425,9 +2161,9 @@ export const PsvTab: React.FC<PsvTabProps> = ({ psvParties, currentUser }) => {
                                   type="button"
                                   onClick={() => openReceiveModal(item)}
                                   className="px-2 py-1 rounded bg-blue-600/20 hover:bg-blue-600/30 border border-blue-500/40 text-blue-300 font-semibold text-[10px] transition-colors flex items-center gap-1"
-                                  title="Log inward goods receipt for this line"
+                                  title="Receive all items from this invoice"
                                 >
-                                  <span>📥 Receive</span>
+                                  <span>📥 Bulk Receive</span>
                                 </button>
                               )}
                             </div>
@@ -1447,7 +2183,7 @@ export const PsvTab: React.FC<PsvTabProps> = ({ psvParties, currentUser }) => {
       {/* ══════════════════════════════════════════════════════════════════════
           MODAL: RECORD INWARD PHYSICAL GOODS RECEIPT
       ══════════════════════════════════════════════════════════════════════ */}
-      {receiveModalOpen && (
+      {selectedItemForReceive && receiveModalOpen && false && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 overflow-y-auto">
           <div className="bg-theme-surface-1 border border-theme-divider rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden flex flex-col my-8 animate-in fade-in duration-200">
             {/* Modal Header */}
@@ -1475,36 +2211,36 @@ export const PsvTab: React.FC<PsvTabProps> = ({ psvParties, currentUser }) => {
               {selectedItemForReceive && (
                 <div className="bg-theme-surface-3/50 border border-theme-divider rounded-xl p-3 text-xs space-y-1.5">
                   <div className="font-semibold text-theme-body text-sm">
-                    {selectedItemForReceive.product_name}
+                    {selectedItemForReceive?.product_name}
                   </div>
                   <div className="flex flex-wrap gap-2 text-[11px]">
-                    {selectedItemForReceive.style_code && (
-                      <span className="text-indigo-300">ART: {selectedItemForReceive.style_code}</span>
+                    {selectedItemForReceive?.style_code && (
+                      <span className="text-indigo-300">ART: {selectedItemForReceive?.style_code}</span>
                     )}
-                    {selectedItemForReceive.color && (
-                      <span className="text-amber-300">Color: {selectedItemForReceive.color}</span>
+                    {selectedItemForReceive?.color && (
+                      <span className="text-amber-300">Color: {selectedItemForReceive?.color}</span>
                     )}
-                    {selectedItemForReceive.size && (
-                      <span className="text-emerald-300">Size: {selectedItemForReceive.size}</span>
+                    {selectedItemForReceive?.size && (
+                      <span className="text-emerald-300">Size: {selectedItemForReceive?.size}</span>
                     )}
-                    <span className="text-theme-muted font-mono">SKU: {selectedItemForReceive.sku}</span>
+                    <span className="text-theme-muted font-mono">SKU: {selectedItemForReceive?.sku}</span>
                   </div>
                   <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 pt-1 border-t border-theme-divider/50 text-center font-mono text-[11px]">
                     <div>
                       <span className="text-theme-muted block text-[9px] uppercase">Invoice Qty</span>
-                      <span className="font-bold text-blue-400">{selectedItemForReceive.document_qty} pcs</span>
+                      <span className="font-bold text-blue-400">{selectedItemForReceive?.document_qty} pcs</span>
                     </div>
                     <div>
                       <span className="text-theme-muted block text-[9px] uppercase">Received</span>
-                      <span className="font-bold text-emerald-400">{selectedItemForReceive.received_qty} pcs</span>
+                      <span className="font-bold text-emerald-400">{selectedItemForReceive?.received_qty} pcs</span>
                     </div>
                     <div>
                       <span className="text-theme-muted block text-[9px] uppercase">Pending Approval</span>
-                      <span className="font-bold text-amber-300">{selectedItemForReceive.pending_approval_qty} pcs</span>
+                      <span className="font-bold text-amber-300">{selectedItemForReceive?.pending_approval_qty} pcs</span>
                     </div>
                     <div>
                       <span className="text-theme-muted block text-[9px] uppercase">Approved</span>
-                      <span className="font-bold text-emerald-300">{selectedItemForReceive.approved_qty} pcs</span>
+                      <span className="font-bold text-emerald-300">{selectedItemForReceive?.approved_qty} pcs</span>
                     </div>
                     <div>
                       <span className="text-theme-muted block text-[9px] uppercase">Remaining Due</span>
@@ -1547,10 +2283,18 @@ export const PsvTab: React.FC<PsvTabProps> = ({ psvParties, currentUser }) => {
                       {" "}· Accepted: <strong className="text-emerald-300">{receiveForm.received_qty}</strong>
                       {" "}· Rejected: <strong className="text-rose-300">{receiveForm.rejected_qty}</strong>
                     </span>
-                    <span className={totalScannedBarcodeQty === remainingInvoiceQty ? "text-emerald-300" : "text-amber-300"}>
-                      {totalScannedBarcodeQty === remainingInvoiceQty
+                    <span className={
+                      totalScannedBarcodeQty === remainingInvoiceQty && totalScannedBarcodeQty > 0
+                        ? "text-emerald-300"
+                        : totalScannedBarcodeQty === 0 && remainingInvoiceQty === 0
+                          ? "text-theme-muted"
+                          : "text-amber-300"
+                    }>
+                      {totalScannedBarcodeQty === remainingInvoiceQty && totalScannedBarcodeQty > 0
                         ? "Matches remaining invoice qty"
-                        : `Invoice balance: ${remainingInvoiceQty} pcs — verify any difference`}
+                        : totalScannedBarcodeQty === 0 && remainingInvoiceQty === 0
+                          ? "No invoice balance due"
+                          : `Invoice balance: ${remainingInvoiceQty} pcs — note any difference below`}
                     </span>
                   </div>
                   {Object.entries(scannedBarcodeCounts).length > 0 && (
@@ -1593,7 +2337,7 @@ export const PsvTab: React.FC<PsvTabProps> = ({ psvParties, currentUser }) => {
                   </p>
                   <label className="block">
                     <span className="mb-1 block text-[10px] font-semibold text-theme-body">
-                      Confirm SKU: <span className="font-mono text-blue-300">{selectedItemForReceive.sku}</span>
+                      Confirm SKU: <span className="font-mono text-blue-300">{selectedItemForReceive?.sku}</span>
                     </span>
                     <input
                       type="text"
@@ -1709,13 +2453,18 @@ export const PsvTab: React.FC<PsvTabProps> = ({ psvParties, currentUser }) => {
               {/* Receiving Remarks */}
               <div>
                 <label className="block text-[11px] font-semibold text-theme-body mb-1">
-                  Delivery / Inspection Remarks
+                  Delivery / Inspection Remarks {hasReceiptQtyDiscrepancy && <span className="text-rose-400">*</span>}
                 </label>
                 <textarea
                   rows={2}
-                  placeholder="Notes from delivery gate or carton inspection…"
+                  placeholder={
+                    hasReceiptQtyDiscrepancy
+                      ? "Required: explain the difference from the invoice balance…"
+                      : "Notes from delivery gate or carton inspection…"
+                  }
                   value={receiveForm.remarks}
                   onChange={(e) => setReceiveForm({ ...receiveForm, remarks: e.target.value })}
+                  required={hasReceiptQtyDiscrepancy}
                   className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg px-3 py-1.5 text-xs text-theme-body focus:outline-none focus:border-blue-500"
                 />
               </div>
