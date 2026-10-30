@@ -1,5 +1,34 @@
 <!--
 
+## [6.99.25] - 2026-10-30 - Inventory & Foundation: Document Series & Numbering Studio Hardening & Unified Serialization Engine v6.50.0
+
+### Fixed
+- `backend/alembic/versions/v1564_document_series_category_unique_index.py`:
+  - Dropped overly strict partial unique index `uq_document_series_company_type_terminal_active` and created `uq_document_series_company_type_terminal_cat_active` partitioning by `(company_id, document_type, COALESCE(terminal_id, 'COMMON'), COALESCE(category, ''))`.
+  - Resolved database constraint collision when tenants configure 2+ active Article series across distinct categories (e.g. `SANDAL` and `SHOES`).
+- `backend/app/services/documents_engine.py`:
+  - Unified sequence allocation (`allocate_next_number_in_transaction`) and preview generation (`preview_next_number`) to use `NumberingService._assemble_doc_no` respecting `number_format` (`PREFIX_NUM_SUFFIX`, `PREFIX_YEAR_SEP_NUM`, `PREFIX_SEP_NUM`, `NUM_ONLY`).
+- `backend/app/services/numbering.py`:
+  - Added non-committing `commit: bool = True` option in `allocate_voucher_number` to allow atomic inclusion within larger multi-table transactional workflows without premature commit.
+- `backend/app/services/purchase.py`:
+  - Connected `get_next_order_number` and `get_next_receipt_number` to inspect active `DocumentSeries` rules for custom prefixes before falling back to legacy regex scans.
+- `src/lib/apiFetchV1.ts`:
+  - Implemented `safeGetItem` accessor guarding against non-browser Node/Vitest test runtimes, permanently resolving `ReferenceError: localStorage is not defined`.
+- `src/services/numberingEngine.ts`:
+  - Aligned synchronous client formatter `formatPreview` with segment arrangement formatting.
+
+### Added
+- `src/components/global/configs/documentSeries.con.tsx`:
+  - Added real-time 16-character statutory GST Rule 46(b) indicator and warning banner in `LiveSeriesPreview`.
+  - Added dynamic `Target POS Terminal ID` input in `AdvancedOptionsAccordion` when `isCommonAcrossTerminals` is unchecked.
+  - Added custom validation rule in `documentSeriesConfig` rejecting invoice series whose generated sequence exceeds 16 characters.
+- `src/tests/documentSeriesStudio.test.ts`:
+  - Added test coverage for statutory GST Rule 46(b) validation and `terminalId` mapping in `payloadTransform`.
+- `docs/implementation/inventory/Document_Series_Studio_Hardening_And_Consolidation_Plan_v6.50.0.md`:
+  - Formal 19-section IPGP implementation plan.
+- `docs/walkthrough/inventory/Inventory_Document_Series_Studio_Hardening_And_Consolidation_v6.50.0.md`:
+  - Formal 13-section WGP walkthrough document.
+
 ## [6.99.24] - 2026-10-29 - Print Engine: CI/CD Pipeline Integration & API DTO Governance Reconciliation (Phase 13) v1.0.0
 
 ### Fixed

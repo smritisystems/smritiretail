@@ -326,7 +326,14 @@ class DocumentsEngine:
         series.current_number = new_num
         run_len = series.running_length if series.running_length is not None else 4
         padded_seq = str(new_num).zfill(run_len)
-        doc_no = f"{series.prefix or ''}{padded_seq}{series.suffix or ''}"
+        from .numbering import NumberingService
+        doc_no = NumberingService._assemble_doc_no(
+            series.prefix or "",
+            padded_seq,
+            series.suffix or "",
+            series.financial_year,
+            getattr(series, "number_format", None)
+        )
 
         session.add(NumberingAuditLog(
             id=f"nal_{uuid.uuid4().hex[:12]}",
@@ -461,18 +468,15 @@ class DocumentsEngine:
 
         if is_exhausted:
             formatted = f"EXHAUSTED (Range {start_num}-{series.end_number})"
-        elif num_format == "PREFIX_NUM_SUFFIX":
-            formatted = f"{prefix}{padded}{suffix}"
-        elif num_format == "PREFIX_YEAR_SEP_NUM":
-            raw_fy = series.financial_year or "26-27"
-            fy = f"{raw_fy[2:4]}-{raw_fy[7:9]}" if "-" in raw_fy and len(raw_fy) == 9 else raw_fy
-            formatted = f"{prefix}{fy}/{padded}"
-        elif num_format == "PREFIX_SEP_NUM":
-            formatted = f"{prefix}/{padded}"
-        elif num_format == "NUM_ONLY":
-            formatted = f"{padded}"
         else:
-            formatted = f"{prefix}{padded}{suffix}"
+            from .numbering import NumberingService
+            formatted = NumberingService._assemble_doc_no(
+                prefix,
+                padded,
+                suffix,
+                series.financial_year,
+                num_format,
+            )
 
         return {
             "success": True,

@@ -881,6 +881,25 @@ class PurchaseService:
         pfx = (prefix or "PO").strip().rstrip("/-")
         fy = self.get_financial_year(order_date)
 
+        # Align with DocumentSeries Studio configuration if active
+        if not prefix or prefix == "PO":
+            try:
+                from ..models.numbering import DocumentSeries
+                from sqlalchemy import or_
+                ds_stmt = select(DocumentSeries).where(
+                    DocumentSeries.document_type.in_(["PURCHASE_ORDER", "Purchase Order"]),
+                    DocumentSeries.is_deleted == False,
+                    DocumentSeries.is_active == True,
+                )
+                if self.tenant.company_id:
+                    ds_stmt = ds_stmt.where(or_(DocumentSeries.company_id == self.tenant.company_id, DocumentSeries.company_id.is_(None)))
+                ds_res = await self.db.execute(ds_stmt)
+                active_ds = ds_res.scalars().first()
+                if active_ds and active_ds.prefix:
+                    pfx = active_ds.prefix.strip().rstrip("/-")
+            except Exception:
+                pass
+
         stmt = select(PurchaseOrder.order_no).where(
             PurchaseOrder.company_id == self.tenant.company_id,
             PurchaseOrder.is_deleted == False,
@@ -943,6 +962,24 @@ class PurchaseService:
         import re
         pfx = (prefix or "GRN").strip().rstrip("/-")
         fy = self.get_financial_year(receipt_date)
+
+        # Align with DocumentSeries Studio configuration if active
+        if not prefix or prefix == "GRN":
+            try:
+                from ..models.numbering import DocumentSeries
+                ds_stmt = select(DocumentSeries).where(
+                    DocumentSeries.document_type.in_(["GOODS_RECEIPT_NOTE", "Goods Receipt", "PURCHASE_RECEIPT"]),
+                    DocumentSeries.is_deleted == False,
+                    DocumentSeries.is_active == True,
+                )
+                if self.tenant.company_id:
+                    ds_stmt = ds_stmt.where(or_(DocumentSeries.company_id == self.tenant.company_id, DocumentSeries.company_id.is_(None)))
+                ds_res = await self.db.execute(ds_stmt)
+                active_ds = ds_res.scalars().first()
+                if active_ds and active_ds.prefix:
+                    pfx = active_ds.prefix.strip().rstrip("/-")
+            except Exception:
+                pass
 
         stmt = select(PurchaseReceipt.receipt_no).where(
             PurchaseReceipt.is_deleted == False,
