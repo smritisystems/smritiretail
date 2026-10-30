@@ -26,6 +26,7 @@
 
 import { describe, it, expect } from "vitest";
 import { FIELD_TO_ELEMENT_ID } from "../services/itemMasterValidationMapper.ts";
+import { resolveLookupValue } from "../components/itemMaster/GovernedLookupCombobox.tsx";
 
 describe("GovernedLookupCombobox DOM Contract & Field Mapping", () => {
   it("preserves exact canonical element ID for Brand lookup input", () => {
@@ -51,6 +52,16 @@ describe("GovernedLookupCombobox DOM Contract & Field Mapping", () => {
     expect(FIELD_TO_ELEMENT_ID["size_group"]).toBe("im-field-size_group");
     expect(FIELD_TO_ELEMENT_ID["sizeGroup"]).toBe("im-field-size_group");
     expect(FIELD_TO_ELEMENT_ID["size_group_id"]).toBe("im-field-size_group");
+  });
+
+  it("maps Style/Article validation errors to the governed lookup input", () => {
+    expect(FIELD_TO_ELEMENT_ID["style_code"]).toBe("im-field-style_code");
+    expect(FIELD_TO_ELEMENT_ID["article_no"]).toBe("im-field-style_code");
+  });
+
+  it("uses the canonical lookup code when configured for a governed identifier", () => {
+    expect(resolveLookupValue({ code: "ART-501", name: "Classic Shoe" }, "code")).toBe("ART-501");
+    expect(resolveLookupValue({ code: "ART-501", name: "Classic Shoe" })).toBe("Classic Shoe");
   });
 
   it("filters lookup options case-insensitively and returns matching items", () => {

@@ -4,7 +4,7 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.50.2
+ * Version      : 6.50.3
  * Created      : 2026-08-19
  * Modified     : 2026-10-30
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
@@ -125,6 +125,11 @@ const LiveSeriesPreview: React.FC<{ formState: any }> = ({ formState }) => {
           {category && (
             <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">
               {category}
+            </span>
+          )}
+          {formState.isCommonAcrossTerminals === false && formState.terminalId && formState.terminalId !== "COMMON" && (
+            <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
+              Counter: {formState.terminalId}
             </span>
           )}
           <span className={`inline-flex items-center gap-1 text-[11px] font-mono px-2 py-0.5 rounded border ${
@@ -348,8 +353,8 @@ export const documentSeriesConfig: MasterConfig<DocumentSeries> = {
     };
   },
 
-  searchPlaceholder: "Search by series name, document type, category, or prefix...",
-  searchFields: ["name", "documentType", "category", "prefix", "suffix", "module"],
+  searchPlaceholder: "Search by series name, document type, category, counter, or prefix...",
+  searchFields: ["name", "documentType", "category", "prefix", "suffix", "module", "terminalId"],
 
   columns: [
     {
@@ -365,6 +370,11 @@ export const documentSeriesConfig: MasterConfig<DocumentSeries> = {
             {item.category && (
               <span className="px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-blue-500/10 text-blue-500 dark:text-blue-400 border border-blue-500/20">
                 {item.category}
+              </span>
+            )}
+            {item.isCommonAcrossTerminals === false && item.terminalId && item.terminalId !== "COMMON" && (
+              <span className="px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-amber-500/10 text-amber-500 dark:text-amber-400 border border-amber-500/20">
+                Counter: {item.terminalId}
               </span>
             )}
           </div>
@@ -689,6 +699,12 @@ export const documentSeriesConfig: MasterConfig<DocumentSeries> = {
         return dt === "ARTICLE" || CANONICAL_DOC_TYPE_MAP[dt] === "ARTICLE";
       }).length,
       color: "indigo"
+    },
+    {
+      id: "terminal_series",
+      label: "Counter Series (POS)",
+      compute: (items) => items.filter((s) => s.isCommonAcrossTerminals === false && s.terminalId && s.terminalId !== "COMMON").length,
+      color: "amber"
     }
   ]
 };

@@ -4,7 +4,7 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.50.2
+ * Version      : 6.50.3
  * Created      : 2026-09-30
  * Modified     : 2026-10-30
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
@@ -354,6 +354,27 @@ describe("Document Series & Numbering Studio Configuration", () => {
       expect(DOC_TYPE_DISPLAY_MAP["PURCHASE_ORDER"]).toBe("Purchase Order");
       expect(DOC_TYPE_DISPLAY_MAP["GOODS_RECEIPT_NOTE"]).toBe("Goods Receipt (GRN)");
       expect(DOC_TYPE_DISPLAY_MAP["ARTICLE"]).toBe("Article / Design (Master)");
+    });
+  });
+
+  describe("Terminal Scoping & Search Metadata", () => {
+    it("should include terminalId in searchFields and searchPlaceholder", () => {
+      expect(documentSeriesConfig.searchFields).toContain("terminalId");
+      expect(documentSeriesConfig.searchPlaceholder.toLowerCase()).toContain("counter");
+    });
+
+    it("should compute counter series KPI accurately", () => {
+      const kpi = documentSeriesConfig.kpis.find((k) => k.id === "terminal_series");
+      expect(kpi).toBeDefined();
+
+      const sampleSeries = [
+        { id: "S1", isCommonAcrossTerminals: true, terminalId: "COMMON" },
+        { id: "S2", isCommonAcrossTerminals: false, terminalId: "POS-01" },
+        { id: "S3", isCommonAcrossTerminals: false, terminalId: "POS-02" },
+        { id: "S4", isCommonAcrossTerminals: false, terminalId: "COMMON" }
+      ];
+
+      expect(kpi?.compute(sampleSeries as any)).toBe(2);
     });
   });
 });

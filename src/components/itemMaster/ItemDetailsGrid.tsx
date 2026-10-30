@@ -110,6 +110,9 @@ export const REQUIRED_ITEM_KEYS = new Set([
 ]);
 
 export function isItemFieldRequired(key: string): boolean {
+  if (["style", "style_code", "styleCode", "stylecode", "style_article", "styleArticle", "article", "article_no", "articleNo"].includes(key)) {
+    return isFieldMandatoryBySystemParam("style_article");
+  }
   if (key === "brand") {
     return isFieldMandatoryBySystemParam("brand");
   }

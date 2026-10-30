@@ -142,9 +142,14 @@ const OPTIONAL_LOOKUP_TYPES = new Set<LookupType>([
  * Canonical dual-key resolution with default fallback to true (Mandatory by default).
  */
 export function isFieldMandatoryBySystemParam(
-  field: "brand" | "subcategory" | "department" | "size_group" | "hsn_code" | "tax_category"
+  field: "brand" | "subcategory" | "department" | "size_group" | "hsn_code" | "tax_category" | "style_article"
 ): boolean {
   switch (field) {
+    case "style_article":
+      return smritiSystemParameterService.getBoolean(
+        "SMRITI.CATALOG.ITEM.MANDATORY_STYLE_ARTICLE",
+        true
+      );
     case "brand":
       return smritiSystemParameterService.getBoolean(
         "SMRITI.CATALOG.ITEM.MANDATORY_BRAND",

@@ -59,6 +59,10 @@ describe("Item Master Mandatory Lookups & System Parameter Governance", () => {
     it("tax_category is mandatory by default when system parameter is unset", () => {
       expect(isFieldMandatoryBySystemParam("tax_category")).toBe(true);
     });
+
+    it("style/article is mandatory by default when system parameter is unset", () => {
+      expect(isFieldMandatoryBySystemParam("style_article")).toBe(true);
+    });
   });
 
   describe("2. System Parameter Dual-Key Override (ADR-042)", () => {
@@ -120,6 +124,11 @@ describe("Item Master Mandatory Lookups & System Parameter Governance", () => {
     it("tax_category can be made optional via legacy key ItemTaxCategoryMandatory", () => {
       (smritiSystemParameterService as any).cache.set("ItemTaxCategoryMandatory", "0");
       expect(isFieldMandatoryBySystemParam("tax_category")).toBe(false);
+    });
+
+    it("style/article can be made optional via its dedicated canonical parameter", () => {
+      (smritiSystemParameterService as any).cache.set("SMRITI.CATALOG.ITEM.MANDATORY_STYLE_ARTICLE", false);
+      expect(isFieldMandatoryBySystemParam("style_article")).toBe(false);
     });
   });
 

@@ -661,7 +661,7 @@ class IM001ControlledFieldValidator:
     }
 
     FIELD_TO_SYSPARAM_MAP: Dict[str, str] = {
-        "ARTICLE_STYLE_CODE": "ItemSubClass1HasCat",
+        "ARTICLE_STYLE_CODE": "SMRITI.CATALOG.ITEM.MANDATORY_STYLE_ARTICLE",
         "COLOR": "ItemSubClass2HasCat",
         "SIZE": "ItemSizePresent",
         "BRAND_NAME": "ItemBrandMandatory",
@@ -761,7 +761,7 @@ class IM001ControlledFieldValidator:
         company_id: Optional[str],
     ) -> Dict[str, Any]:
         field_to_param_keys: Dict[str, List[str]] = {
-            "ARTICLE_STYLE_CODE": ["ItemSubClass1HasCat"],
+            "ARTICLE_STYLE_CODE": ["SMRITI.CATALOG.ITEM.MANDATORY_STYLE_ARTICLE"],
             "COLOR": ["ItemSubClass2HasCat"],
             "SIZE": ["ItemSizePresent"],
             "BRAND_NAME": ["SMRITI.CATALOG.ITEM.MANDATORY_BRAND", "ItemBrandMandatory"],
@@ -1094,5 +1094,3 @@ class IM001ControlledFieldValidator:
                 }
             )
         return res
-
-

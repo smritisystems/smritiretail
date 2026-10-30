@@ -27,15 +27,16 @@
 # Walkthrough: Item Master Mandatory Fields & System Parameter Dual-Key Governance v6.72.6
 
 ## 1. Purpose
-This walkthrough documents the full-stack architecture, implementation, and verification for enforcing six core Item Master fields as **Mandatory by default** while making them **dynamically configurable via System Parameters**:
+This walkthrough documents the full-stack architecture, implementation, and verification for enforcing core Item Master fields as **Mandatory by default** while making them **dynamically configurable via System Parameters**:
 1. `brand`
 2. `subcategory` (`subCategory`)
 3. `department` (`dept`)
 4. `size_group`
 5. `hsn_code`
 6. `tax_category`
+7. `style_code` (Style / Article)
 
-When system parameters for these fields are absent or unset, the system defaults strictly to `True` (Mandatory). When explicitly toggled off by a systems administrator (e.g. setting the parameter to `false`, `"false"`, or `"0"`), the fields seamlessly relax to optional without requiring code redeployment.
+When system parameters for these fields are absent or unset, the system defaults strictly to `True` (Mandatory). When explicitly toggled off by a systems administrator (e.g. setting the parameter to `false`, `"false"`, or `"0"`), the fields seamlessly relax to optional without requiring code redeployment. Style / Article uses the dedicated `SMRITI.CATALOG.ITEM.MANDATORY_STYLE_ARTICLE` parameter, not the legacy `ItemSubClass1HasCat` lookup-maintenance switch.
 
 ---
 
@@ -46,6 +47,7 @@ When system parameters for these fields are absent or unset, the system defaults
 - **Frontend Lookup Gate & Parameter Resolution**: `itemMasterLookupGate.ts`.
 - **Frontend Navigation & Error Focus**: `itemMasterValidationMapper.ts` (`FIELD_TO_ELEMENT_ID`).
 - **Backend Import & Catalog Validation**: `catalog_validation.py` (`IM001ControlledFieldValidator`).
+- **System Parameter Availability**: Alembic migration `v1565` seeds the global default for Style / Article requiredness.
 - **Backend Item Catalog Domain Services**: `item_catalog_svc.py`.
 - **Live Control Plane Master Lookups**: Seeding active values for `brand` (`TATTLY THREADS`) and system type `tax_category` (`GOODS`, `SERVICES`) on `https://tattlythreads.smritisys.com/`.
 
@@ -101,6 +103,7 @@ When system parameters for these fields are absent or unset, the system defaults
   - `size_group`: `SMRITI.CATALOG.ITEM.MANDATORY_SIZE_GROUP` → `ItemSizeGroupMandatory` / `SizeGroupsPresent` (default: `True`)
   - `hsn_code`: `SMRITI.CATALOG.ITEM.MANDATORY_HSN_CODE` → `ItemHsnCodeMandatory` (default: `True`)
   - `tax_category`: `SMRITI.CATALOG.ITEM.MANDATORY_TAX_CATEGORY` → `ItemTaxCategoryMandatory` / `ProdTaxTypePresent` (default: `True`)
+  - `style_article`: `SMRITI.CATALOG.ITEM.MANDATORY_STYLE_ARTICLE` (default: `True`; independent of legacy `ItemSubClass1HasCat`)
 - **Fail-Closed Defaulting**:
   If the control plane database or client parameter store contains no value for these parameters, the system defaults unconditionally to `True`, preventing unverified or incomplete catalog items from entering the database.
 - **Unified Element ID Contract**:
@@ -170,11 +173,12 @@ Evidence Level: [A]
 
 ## 10. Known Limitations
 - When creating custom lookup values on the fly, operators must ensure the lookup code is unique within the tenant's control plane.
+- Style / Article requiredness uses the dedicated `SMRITI.CATALOG.ITEM.MANDATORY_STYLE_ARTICLE` parameter (default `true`). The v1565 migration seeds it globally, and admins can override it at company or narrower scope without relying on the ambiguous legacy `ItemSubClass1HasCat` setting.
 
 ---
 
 ## 11. Future Work
-- Expose the 6 mandatory toggle switches in the Settings UI (System Parameters Admin Studio) under a dedicated "Catalog Governance" card for store managers without direct DB access.
+- Expose the existing mandatory toggle switches in the Settings UI (System Parameters Admin Studio) under a dedicated "Catalog Governance" card for store managers without direct DB access.
 
 ---
 
