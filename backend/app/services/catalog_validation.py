@@ -571,12 +571,13 @@ class IM001ControlledFieldValidator:
             "PRODUCT STYLE CODE", "PRODUCT_STYLE_CODE"
         ),
         "BRAND_NAME": ("brand", "Brand", "BRAND_NAME", "brand_name", "brandName"),
+        "CATEGORY": ("category", "Category", "CATEGORY", "product_category"),
         "COLOR": ("color", "colour", "Color", "Colour", "COLOR", "shade"),
         "SIZE": ("size", "Size", "SIZE"),
         "SIZE_GROUP": ("size_group", "sizeGroup", "size_group_id", "sizeGroupId", "SIZE_GROUP", "sizegroup"),
         "GENDER": ("gender", "Gender", "GENDER", "Gndr"),
         "MERCHANDISE_DEPARTMENT": ("department", "Department", "MERCHANDISE_DEPARTMENT", "dept", "division"),
-        "MERCHANDISE_CATEGORY": ("category", "Category", "MERCHANDISE_CATEGORY", "merchandiseCategory", "product_category"),
+        "MERCHANDISE_CATEGORY": ("MERCHANDISE_CATEGORY", "merchandiseCategory", "merchandise_category", "product_category"),
         "PRODUCT_TYPE": (
             "product_type", "productType", "PRODUCT_TYPE", "Product_Type", "Product Type",
             "merchandise_category", "MERCHANDISE CATEGORY", "MERCHANDISE_CATEGORY"
@@ -613,6 +614,7 @@ class IM001ControlledFieldValidator:
 
     FIELD_TO_DIMENSION_MAP: Dict[str, str] = {
         "BRAND_NAME": "brand",
+        "CATEGORY": "category",
         "COLOR": "color",
         "SIZE": "size",
         "SIZE_GROUP": "size_group",

@@ -207,6 +207,37 @@ class ItemUpdateRequest(BaseModel):
         return data
 
 
+class ItemTaxonomyUpdateRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    category: Optional[str] = None
+    product_type: Optional[str] = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def normalize_values(cls, data: Any) -> Any:
+        if not isinstance(data, dict):
+            return data
+
+        normalized = dict(data)
+        for field in ("category", "product_type"):
+            if field not in normalized:
+                continue
+            value = normalized[field]
+            if value is None:
+                raise ValueError(f"{field} cannot be null.")
+            if not isinstance(value, str) or not value.strip():
+                raise ValueError(f"{field} cannot be blank.")
+            normalized[field] = value.strip()
+        return normalized
+
+    @model_validator(mode="after")
+    def require_taxonomy_field(self) -> "ItemTaxonomyUpdateRequest":
+        if not self.model_fields_set:
+            raise ValueError("At least one taxonomy field must be provided.")
+        return self
+
+
 class ItemResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -599,4 +630,3 @@ class ItemBarcodeResponse(BaseModel):
 
 class ItemLookupsResponse(BaseModel):
     dimensions: Dict[str, List[Dict[str, Any]]]
-

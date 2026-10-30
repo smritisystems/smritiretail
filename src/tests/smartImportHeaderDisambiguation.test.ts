@@ -71,7 +71,11 @@ describe("Smart Import Header Disambiguation & Style-SKU Parity (v6.70.49)", () 
     expect(mappingMap.get("VENDOR CODE")).toBe("vendor_code");
     expect(mappingMap.get("PURCHASE CLASS")).toBe("purchase_class");
     expect(mappingMap.get("DEPARTMENT")).toBe("department");
-    expect(mappingMap.get("MERCHANDISE CATEGORY")).toBe("MERCHANDISE_CATEGORY");
+    const merchandiseCategory = res.columns.find(c => c.sourceHeader === "MERCHANDISE CATEGORY");
+    expect(merchandiseCategory?.mappedFieldKey).toBeNull();
+    expect(merchandiseCategory?.isAmbiguous).toBe(true);
+    expect(merchandiseCategory?.ambiguousCandidates?.map(candidate => candidate.key))
+      .toEqual(["category", "product_type"]);
     expect(mappingMap.get("Sub category")).toBe("subCategory");
     expect(mappingMap.get("HEELS")).toBe("heel_type");
     expect(mappingMap.get("UPPER MATERIAL")).toBe("upper_material");

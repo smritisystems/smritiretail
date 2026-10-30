@@ -16,10 +16,20 @@ from typing import Dict, Any, List, Optional
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
-from ...api.deps import get_company_db, get_current_user, get_db, require_role
-from ...models.auth import UserRole
+from ...api.deps import (
+    TenantContext,
+    get_company_db,
+    get_current_user,
+    get_db,
+    get_tenant_context,
+    require_role,
+)
+from ...models.auth import User, UserRole
+from ...models.item_master import Item, ItemVariant
 from ...models.master_lookup import MasterType, MasterValue
+from ...services.compliance_audit import ComplianceAuditService
 from ...services.univ_party_svc import UniversalPartyService
 from ...services.party_master_svc import UniversalPartyMasterService
 from ...services.item_master_svc import UniversalItemMasterService
@@ -37,7 +47,7 @@ from ...schemas.party_master import (
 )
 from ...schemas.item_master import (
     ItemCreateRequest,
-    ItemUpdateRequest,
+    ItemTaxonomyUpdateRequest,
     ItemResponse,
     ItemVariantItem,
     ItemBatchItem,
@@ -439,6 +449,79 @@ async def get_item_details(
     item = await UniversalItemMasterService.get_item_by_id(db, item_id)
     if not item:
         raise HTTPException(status_code=404, detail=f"Item '{item_id}' not found.")
+    return item
+
+
+@router.put(
+    "/items/{item_id}",
+    response_model=ItemResponse,
+    summary="Update Universal Item taxonomy",
+    dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))],
+)
+async def update_item_taxonomy(
+    item_id: str,
+    req: ItemTaxonomyUpdateRequest,
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+    current_user: User = Depends(get_current_user),
+):
+    """Update approved top-level taxonomy fields without replacing unrelated item data."""
+    stmt = (
+        select(Item)
+        .options(
+            selectinload(Item.variants).selectinload(ItemVariant.barcodes),
+            selectinload(Item.barcodes),
+            selectinload(Item.batches),
+            selectinload(Item.serials),
+            selectinload(Item.locations),
+        )
+        .where(
+            Item.id == item_id,
+            Item.company_id == tenant_ctx.company_id,
+            Item.is_deleted.is_(False),
+        )
+        .with_for_update()
+    )
+    item = (await db.execute(stmt)).scalars().first()
+    if not item:
+        raise HTTPException(status_code=404, detail=f"Item '{item_id}' not found.")
+
+    updates = req.model_dump(exclude_unset=True)
+    before = {field: getattr(item, field) for field in updates}
+    for field, value in updates.items():
+        updates[field] = await CatalogDimensionValidator.validate_and_normalize_dimension(
+            dimension_field=field,
+            value=value,
+            strict=True,
+            control_db=db,
+        )
+
+    changed = {
+        field: value
+        for field, value in updates.items()
+        if before[field] != value
+    }
+    if not changed:
+        return item
+
+    for field, value in changed.items():
+        setattr(item, field, value)
+
+    actor_role = getattr(current_user, "role", None)
+    await ComplianceAuditService.record_audit_event(
+        session=db,
+        company_id=tenant_ctx.company_id,
+        branch_id=tenant_ctx.branch_id,
+        event_type="ITEM_TAXONOMY_UPDATED",
+        entity_name="items",
+        entity_id=item.id,
+        actor_user_id=str(getattr(current_user, "id", "")) or None,
+        actor_role=actor_role.value if hasattr(actor_role, "value") else str(actor_role or ""),
+        action_summary=f"Updated taxonomy for Item '{item.item_code}'.",
+        before_state={field: before[field] for field in changed},
+        after_state=changed,
+    )
+    await db.commit()
     return item
 
 
