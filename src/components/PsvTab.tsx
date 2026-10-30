@@ -389,13 +389,14 @@ export const PsvTab: React.FC<PsvTabProps> = ({ psvParties, currentUser }) => {
   // Open Receive Modal for a line item
   const openReceiveModal = (item: PSVQuantityReconciliationItem) => {
     const remainingToReceive = Math.max(0, item.document_qty - item.received_qty);
+    const itemBarcodes = item.barcodes ?? [];
     setSelectedItemForReceive(item);
     setReceiveForm({
       invoice_id: item.invoice_id,
       invoice_no: item.invoice_no,
       party_id: item.party_id,
       party_name: item.party_name,
-      received_qty: item.barcodes.length > 0 ? 0 : remainingToReceive,
+      received_qty: itemBarcodes.length > 0 ? 0 : remainingToReceive,
       rejected_qty: 0,
       rejection_reason: "",
       receipt_reference: "",
@@ -405,7 +406,7 @@ export const PsvTab: React.FC<PsvTabProps> = ({ psvParties, currentUser }) => {
     setScannedBarcodeCounts({});
     setBarcodeInput("");
     setBarcodeScanError(null);
-    setUseBarcodeScanning(item.barcodes.length > 0);
+    setUseBarcodeScanning(itemBarcodes.length > 0);
     setReceiveModalOpen(true);
   };
 
@@ -414,7 +415,7 @@ export const PsvTab: React.FC<PsvTabProps> = ({ psvParties, currentUser }) => {
     event.preventDefault();
     const barcode = barcodeInput.trim().toUpperCase();
     if (!barcode || !selectedItemForReceive) return;
-    const matchesInvoiceItem = selectedItemForReceive.barcodes.some(
+    const matchesInvoiceItem = (selectedItemForReceive.barcodes ?? []).some(
       (knownBarcode) => knownBarcode.trim().toUpperCase() === barcode
     );
     if (!matchesInvoiceItem) {
@@ -1454,7 +1455,7 @@ export const PsvTab: React.FC<PsvTabProps> = ({ psvParties, currentUser }) => {
                 </div>
               )}
 
-              {selectedItemForReceive?.barcodes.length ? (
+              {selectedItemForReceive && (selectedItemForReceive.barcodes ?? []).length > 0 ? (
                 <section className="rounded-xl border border-blue-500/30 bg-blue-950/15 p-3 space-y-3">
                   <div className="flex items-start justify-between gap-3">
                     <div>
@@ -1505,7 +1506,7 @@ export const PsvTab: React.FC<PsvTabProps> = ({ psvParties, currentUser }) => {
                           {" "}· Accepted: <strong className="text-emerald-300">{receiveForm.received_qty}</strong>
                           {" "}· Rejected: <strong className="text-rose-300">{receiveForm.rejected_qty}</strong>
                         </span>
-                        <span className="text-theme-muted">Known: {selectedItemForReceive.barcodes.join(", ")}</span>
+                        <span className="text-theme-muted">Known: {(selectedItemForReceive.barcodes ?? []).join(", ")}</span>
                       </div>
                     </>
                   ) : (

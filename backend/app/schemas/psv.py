@@ -208,7 +208,10 @@ class PSVReceiveInvoiceLineReq(BaseModel):
     received_qty: Decimal = Field(default=Decimal("0.0000"), ge=Decimal("0.0000"))
     rejected_qty: Decimal = Field(default=Decimal("0.0000"), ge=Decimal("0.0000"))
     rejection_reason: Optional[str] = None
-    scanned_barcode_counts: Dict[str, int] = Field(default_factory=dict)
+    scanned_barcode_counts: Dict[str, int] = Field(
+        default_factory=dict,
+        description="Barcode-to-scan-count evidence; when provided, counts must match received plus rejected quantity.",
+    )
 
     @field_validator("scanned_barcode_counts")
     @classmethod
@@ -223,7 +226,7 @@ class PSVReceiveInvoiceReq(BaseModel):
     party_id: Optional[str] = None
     receipt_reference: Optional[str] = None
     receipt_date: Optional[datetime] = None
-    remarks: Optional[str] = Field(None, max_length=1000)
+    remarks: Optional[str] = Field(None, max_length=1000, description="Receiving notes retained in the receipt event audit reason.")
     auto_approve: bool = False
     items: List[PSVReceiveInvoiceLineReq]
 

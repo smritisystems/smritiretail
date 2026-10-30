@@ -38,7 +38,7 @@ export interface PsvDetailedItem {
   delivery_location_id?: string | null;
   invoice_line_id: string;
   sku: string;
-  barcodes: string[];
+  barcodes?: string[];
   product_name: string;
   style_code?: string | null;
   color?: string | null;
