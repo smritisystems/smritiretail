@@ -565,6 +565,7 @@ export const EnterpriseCustomerSearchModal: React.FC<EnterpriseCustomerSearchMod
                               </label>
                               <input
                                 type="number"
+                                data-field-key="credit_limit"
                                 min="0"
                                 value={linkCreditLimit}
                                 onChange={(e) => setLinkCreditLimit(e.target.value)}
@@ -577,6 +578,7 @@ export const EnterpriseCustomerSearchModal: React.FC<EnterpriseCustomerSearchMod
                               </label>
                               <input
                                 type="number"
+                                data-field-key="payment_terms"
                                 min="0"
                                 value={linkCreditDays}
                                 onChange={(e) => setLinkCreditDays(e.target.value)}
@@ -589,6 +591,7 @@ export const EnterpriseCustomerSearchModal: React.FC<EnterpriseCustomerSearchMod
                               </label>
                               <input
                                 type="text"
+                                data-field-key="customer_group_id"
                                 value={linkCustomerGroup}
                                 onChange={(e) => setLinkCustomerGroup(e.target.value)}
                                 className="w-full px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-semibold"

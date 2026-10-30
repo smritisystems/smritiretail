@@ -174,10 +174,10 @@ export const StoreCodeLookupModal: React.FC<StoreCodeLookupModalProps> = ({
             <div className="mb-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">Save the customer before adding store locations.</div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mb-3">
-              <input aria-label="Store code" placeholder="Store code (required)" value={newStoreCode} onChange={e => setNewStoreCode(e.target.value)} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-xs" />
-              <input aria-label="Store or site name" placeholder="Store / site name (required)" value={newStoreName} onChange={e => setNewStoreName(e.target.value)} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-xs" />
-              <input aria-label="City" placeholder="City" value={newCity} onChange={e => setNewCity(e.target.value)} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-xs" />
-              <input aria-label="Address" placeholder="Address" value={newAddress} onChange={e => setNewAddress(e.target.value)} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-xs" />
+              <input aria-label="Store code" data-field-key="store_code" placeholder="Store code (required)" value={newStoreCode} onChange={e => setNewStoreCode(e.target.value)} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-xs" />
+              <input aria-label="Store or site name" data-field-key="store_name" placeholder="Store / site name (required)" value={newStoreName} onChange={e => setNewStoreName(e.target.value)} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-xs" />
+              <input aria-label="City" data-field-key="city" placeholder="City" value={newCity} onChange={e => setNewCity(e.target.value)} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-xs" />
+              <input aria-label="Address" data-field-key="address_line1" placeholder="Address" value={newAddress} onChange={e => setNewAddress(e.target.value)} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-xs" />
             </div>
           )}
           <div className="relative">

@@ -220,6 +220,7 @@ export const StockTransferStudioModal: React.FC<StockTransferStudioModalProps> =
                 <label className="text-[10px] text-slate-500 uppercase tracking-wide block mb-1">Product ID / SKU</label>
                 <input
                   type="text"
+                  data-field-key="item_code"
                   value={form.sku}
                   onChange={(e) => setForm((p) => ({ ...p, sku: e.target.value }))}
                   placeholder="e.g. PROD-001 or SKU"
@@ -231,6 +232,7 @@ export const StockTransferStudioModal: React.FC<StockTransferStudioModalProps> =
                 <label className="text-[10px] text-slate-500 uppercase tracking-wide block mb-1">Transfer Quantity</label>
                 <input
                   type="number"
+                  data-field-key="quantity"
                   value={form.qty}
                   min="1"
                   onChange={(e) => setForm((p) => ({ ...p, qty: e.target.value }))}
@@ -243,6 +245,7 @@ export const StockTransferStudioModal: React.FC<StockTransferStudioModalProps> =
                 <label className="text-[10px] text-slate-500 uppercase tracking-wide block mb-1">Notes / Reason</label>
                 <input
                   type="text"
+                  data-field-key="remarks"
                   value={form.notes}
                   onChange={(e) => setForm((p) => ({ ...p, notes: e.target.value }))}
                   placeholder="Inter-godown transfer requisition..."
