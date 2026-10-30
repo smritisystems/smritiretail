@@ -230,6 +230,7 @@ export const AddProductDrawer: React.FC<AddProductDrawerProps> = ({
   // Governed lookups state
   const [brandOptions, setBrandOptions] = useState<LookupOption[]>([]);
   const [categoryOptions, setCategoryOptions] = useState<LookupOption[]>([]);
+  const [styleArticleOptions, setStyleArticleOptions] = useState<LookupOption[]>([]);
   const [subCategoryOptions, setSubCategoryOptions] = useState<LookupOption[]>([]);
   const [departmentOptions, setDepartmentOptions] = useState<LookupOption[]>([]);
   const [sizeGroupOptions, setSizeGroupOptions] = useState<LookupOption[]>([]);
@@ -247,6 +248,7 @@ export const AddProductDrawer: React.FC<AddProductDrawerProps> = ({
   const isSizeGroupMandatory = isFieldMandatoryBySystemParam("size_group");
   const isHsnCodeMandatory = isFieldMandatoryBySystemParam("hsn_code");
   const isTaxCategoryMandatory = isFieldMandatoryBySystemParam("tax_category");
+  const isStyleArticleMandatory = isFieldMandatoryBySystemParam("style_article");
 
   // ── Unified Prefill for Add / Edit / Duplicate ───────────────────────────────
   useEffect(() => {
@@ -493,6 +495,7 @@ export const AddProductDrawer: React.FC<AddProductDrawerProps> = ({
 
       setBrandOptions(lookups.brand || []);
       setCategoryOptions(lookups.category || []);
+      setStyleArticleOptions(lookups.style_article || []);
       setSubCategoryOptions(lookups.subcategory || []);
       setDepartmentOptions(lookups.department || []);
       setSizeGroupOptions(lookups.size_group || []);
@@ -671,6 +674,10 @@ export const AddProductDrawer: React.FC<AddProductDrawerProps> = ({
       setFormError("SKU / Article Number is required when manual entry is selected.");
       return;
     }
+    if (isStyleArticleMandatory && !articleCode.trim()) {
+      setFormError("Style / Article Code is required.");
+      return;
+    }
     if (isBrandMandatory && !brand.trim()) {
       setFormError("Brand is required.");
       return;
@@ -732,6 +739,11 @@ export const AddProductDrawer: React.FC<AddProductDrawerProps> = ({
       }
       if (!category.trim()) {
         setFormError("Category is required.");
+        setIsSaving(false);
+        return;
+      }
+      if (isStyleArticleMandatory && !articleCode.trim()) {
+        setFormError("Style / Article Code is required.");
         setIsSaving(false);
         return;
       }
@@ -1411,16 +1423,23 @@ export const AddProductDrawer: React.FC<AddProductDrawerProps> = ({
                 {/* Article / Design / Style / Model */}
                 <div className="col-span-3 sm:col-span-1">
                   <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 block mb-1">
-                    Article / Style Code
+                    Article / Style Code {isStyleArticleMandatory && <span className="text-red-500">*</span>}
                   </label>
-                  <input
-                    id="im-field-code"
-                    type="text"
+                  <GovernedLookupCombobox
+                    id="im-field-style_code"
                     value={articleCode}
-                    onChange={(e) => setArticleCode(e.target.value.toUpperCase())}
-                    placeholder="e.g. ART-501"
-                    className="w-full text-xs font-mono px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-[#1a2234] text-slate-900 dark:text-white outline-hidden focus:ring-2 focus:ring-blue-500 uppercase"
+                    onChange={(value) => setArticleCode(value.toUpperCase())}
+                    options={styleArticleOptions}
+                    valueProperty="code"
+                    placeholder="Select Style / Article Code"
+                    required={isStyleArticleMandatory}
+                    hasError={Boolean(fieldErrors["style_code"] || fieldErrors["article"])}
                   />
+                  {(fieldErrors["style_code"] || fieldErrors["article"]) && (
+                    <p className="text-[10px] text-red-500 mt-1">
+                      {fieldErrors["style_code"] || fieldErrors["article"]}
+                    </p>
+                  )}
                 </div>
 
                 {/* Size Group */}

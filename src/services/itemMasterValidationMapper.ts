@@ -99,8 +99,11 @@ export const FIELD_TO_ELEMENT_ID: Record<string, string> = {
   "code":                    "im-field-code",
   "sku":                     "im-field-code",
   "item_code":               "im-field-code",
-  "style_code":              "im-field-code",  // Article/Design/Style maps to SKU input
-  "article":                 "im-field-code",
+  "style_code":              "im-field-style_code",
+  "styleCode":               "im-field-style_code",
+  "article":                 "im-field-style_code",
+  "article_no":              "im-field-style_code",
+  "style":                   "im-field-style_code",
   "name":                    "im-field-name",
   "item_name":               "im-field-name",
   "style_name":              "im-field-name",

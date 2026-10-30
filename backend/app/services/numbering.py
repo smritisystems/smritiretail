@@ -4,7 +4,7 @@ Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
-Version      : 6.50.2
+Version      : 6.50.3
 Created      : 2026-07-12
 Modified     : 2026-10-30
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
@@ -251,6 +251,19 @@ class NumberingService:
             next_num = start_num
         else:
             next_num = old_num + 1
+
+        # Strict statutory ceiling check (zero spillover enforcement)
+        if series.end_number is not None and next_num > series.end_number:
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    f"Document numbering range exhausted for series '{series.name}'. "
+                    f"Configured range: {start_num}-{series.end_number}. "
+                    f"Next requested number: {next_num}. "
+                    f"Please configure a new document series or extend the ceiling."
+                )
+            )
+
         series.current_number = next_num
 
         # Zero-pad number sequence
@@ -526,6 +539,17 @@ class NumberingService:
         )
         gst_validation = self.validate_gst_rule_46b(series.prefix, formatted_seq, series.suffix)
 
+        # Statutory & range ceiling warning
+        is_range_exhausted = series.end_number is not None and next_num > series.end_number
+        if is_range_exhausted:
+            range_msg = f"Document numbering range exhausted ({start_num}-{series.end_number}). Next number {next_num} exceeds ceiling."
+            if gst_validation.get("error"):
+                validation_msg = f"{gst_validation['error']} | {range_msg}"
+            else:
+                validation_msg = range_msg
+        else:
+            validation_msg = gst_validation.get("error")
+
         return {
             "seriesId": series.id,
             "prefix": series.prefix or "",
@@ -538,7 +562,7 @@ class NumberingService:
             "isCommonAcrossTerminals": series.is_common_across_terminals if series.is_common_across_terminals is not None else True,
             "gstRule46bValid": gst_validation["isValid"],
             "gstRule46bLength": gst_validation["length"],
-            "validationMessage": gst_validation["error"],
+            "validationMessage": validation_msg,
             "numberFormat": getattr(series, "number_format", None) or "PREFIX_NUM_SUFFIX",
             "financialYear": series.financial_year or "",
         }

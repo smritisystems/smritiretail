@@ -32,6 +32,11 @@ export interface LookupItem {
   name: string;
 }
 
+export const resolveLookupValue = (
+  item: LookupItem,
+  valueProperty: "code" | "name" = "name"
+): string => item[valueProperty];
+
 export interface GovernedLookupComboboxProps {
   id: string;
   value: string;
@@ -39,12 +44,14 @@ export interface GovernedLookupComboboxProps {
   options: LookupItem[] | string[];
   placeholder?: string;
   hasError?: boolean;
+  required?: boolean;
   disabled?: boolean;
   className?: string;
   autoFocus?: boolean;
   onCreateNew?: () => void;
   createActionLabel?: string;
   loading?: boolean;
+  valueProperty?: "code" | "name";
 }
 
 /**
@@ -63,12 +70,14 @@ export const GovernedLookupCombobox: React.FC<GovernedLookupComboboxProps> = ({
   options,
   placeholder,
   hasError = false,
+  required = false,
   disabled = false,
   className = "",
   autoFocus = false,
   onCreateNew,
   createActionLabel,
   loading = false,
+  valueProperty = "name",
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
@@ -124,7 +133,7 @@ export const GovernedLookupCombobox: React.FC<GovernedLookupComboboxProps> = ({
   }, [highlightedIndex, isOpen]);
 
   const handleSelectOption = (item: LookupItem) => {
-    onChange(item.name);
+    onChange(resolveLookupValue(item, valueProperty));
     setIsOpen(false);
     setHighlightedIndex(-1);
     inputRef.current?.focus();
@@ -199,6 +208,7 @@ export const GovernedLookupCombobox: React.FC<GovernedLookupComboboxProps> = ({
           }}
           onKeyDown={handleKeyDown}
           autoComplete="off"
+          aria-required={required}
           className={`w-full text-xs pr-14 pl-3 py-2 rounded-lg border bg-white dark:bg-[#1a2234] text-slate-900 dark:text-white outline-hidden transition ${
             hasError
               ? "border-red-500 ring-1 ring-red-500"
@@ -250,7 +260,9 @@ export const GovernedLookupCombobox: React.FC<GovernedLookupComboboxProps> = ({
             <ul ref={listRef} className="divide-y divide-slate-100 dark:divide-slate-800/40">
               {filteredOptions.map((opt, idx) => {
                 const isSelected =
-                  opt.name.trim().toLowerCase() === (value || "").trim().toLowerCase();
+                  [opt.code, opt.name].some(
+                    (optionValue) => optionValue.trim().toLowerCase() === (value || "").trim().toLowerCase()
+                  );
                 const isHighlighted = idx === highlightedIndex;
 
                 return (
@@ -266,7 +278,11 @@ export const GovernedLookupCombobox: React.FC<GovernedLookupComboboxProps> = ({
                         : "text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/40"
                     }`}
                   >
-                    <span className="truncate">{opt.name}</span>
+                    <span className="truncate">
+                      {valueProperty === "code" && opt.name !== opt.code
+                        ? `${opt.code} — ${opt.name}`
+                        : opt.name}
+                    </span>
                     {isSelected && (
                       <Check size={13} className="text-blue-600 dark:text-blue-400 shrink-0 ml-2" />
                     )}

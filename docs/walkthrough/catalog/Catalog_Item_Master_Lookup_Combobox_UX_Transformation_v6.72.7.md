@@ -34,14 +34,14 @@
 ---
 
 ## 1. Purpose
-Remediate the user-reported usability issue where fields mapped to Master Lookups (**Brand**, **Category**, **Sub-Category**, **Department**, and **Size Group**) did not display as dropdown selectors in the Add Product / Item dialog. Replace standard HTML5 `<input type="text" list="...">` datalists with an enterprise Searchable Combobox component featuring an interactive dropdown chevron, real-time keyboard filtering, outside-click dismissal, and full keyboard navigation while preserving exact element IDs for automated validation focus.
+Remediate the user-reported usability issue where fields mapped to Master Lookups (**Brand**, **Category**, **Sub-Category**, **Department**, **Size Group**, and **Style / Article**) did not display as dropdown selectors in the Add Product / Item dialog. Replace standard HTML5 `<input type="text" list="...">` datalists with an enterprise Searchable Combobox component featuring an interactive dropdown chevron, real-time keyboard filtering, outside-click dismissal, and full keyboard navigation while preserving exact element IDs for automated validation focus.
 
 ---
 
 ## 2. Scope
 - Add Product Drawer ([AddProductDrawer.tsx](file:///f:/SMRITRretailNX/src/components/itemMaster/AddProductDrawer.tsx)):
-  - **Simple Mode**: Brand, Category, Sub-Category, Department, and Size Group.
-  - **Hybrid / Advanced Mode (Step 1)**: Brand, Category, Sub-Category, Department, and Size Group.
+  - **Simple Mode**: Brand, Category, Sub-Category, Department, Size Group, and Style / Article.
+  - **Hybrid / Advanced Mode (Step 1)**: Brand, Category, Sub-Category, Department, Size Group, and Style / Article.
 - New Reusable Component: [GovernedLookupCombobox.tsx](file:///f:/SMRITRretailNX/src/components/itemMaster/GovernedLookupCombobox.tsx).
 - Test Suite: [governedLookupCombobox.test.ts](file:///f:/SMRITRretailNX/src/tests/governedLookupCombobox.test.ts) and regression verification against [itemMasterMandatoryLookupsSysparam.test.ts](file:///f:/SMRITRretailNX/src/tests/itemMasterMandatoryLookupsSysparam.test.ts).
 
@@ -87,8 +87,8 @@ Remediate the user-reported usability issue where fields mapped to Master Lookup
    - Clear button (`<X size={12} />`) and toggle button (`<ChevronDown size={13} />` with 180° rotation on open).
 2. Refactored `AddProductDrawer.tsx`:
    - Imported `GovernedLookupCombobox`.
-   - Replaced Brand, Category, Sub-Category, Department, and Size Group in Simple Mode.
-   - Replaced Brand, Category, Sub-Category, Department, and Size Group in Hybrid/Advanced Mode.
+   - Replaced Brand, Category, Sub-Category, Department, and Size Group in Simple Mode; wired Style / Article to its governed `style_article` lookup using the canonical lookup code.
+   - Replaced Brand, Category, Sub-Category, Department, and Size Group in Hybrid/Advanced Mode; wired Style / Article to its governed `style_article` lookup using the canonical lookup code.
    - Maintained error border highlighting and validation messages from `fieldErrors`.
 
 ---

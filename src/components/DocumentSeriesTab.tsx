@@ -6,7 +6,7 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.50.2
+ * Version      : 6.50.3
  * Created      : 2026-07-10
  * Modified     : 2026-10-30
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
