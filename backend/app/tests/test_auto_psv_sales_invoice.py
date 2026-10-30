@@ -316,6 +316,7 @@ async def test_auto_psv_receiving_reconciliation_workflow(db_session, sales_psv_
                 PSVReceiveInvoiceLineReq(
                     invoice_line_id=str(inv_item.id),
                     received_qty=Decimal("96.0000"),
+                    scanned_barcode_counts={prod.barcode: 96},
                 )
             ],
         ),

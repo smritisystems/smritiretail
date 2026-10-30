@@ -352,8 +352,8 @@ async def record_psv_invoice_receipt(
       - Received quantities default to PENDING approval unless auto_approve=True is requested by a MANAGER/ADMIN.
       - Pending quantities do not inflate available stock.
       - Identifies items using canonical Article/Style Code, Color, Size, or SKU.
-      - Optional scanned barcode counts are validated against the invoice item and retained as event audit evidence.
-      - Barcode counts must equal accepted received quantity plus rejected quantity; manual counts remain supported.
+      - A registered barcode is mandatory when available; without one, the exact invoice SKU must be confirmed.
+      - Barcode counts are validated against the invoice item, retained as audit evidence, and must equal accepted plus rejected quantity.
     """
     user_role_str = getattr(current_user, "role", "STAFF")
     if hasattr(user_role_str, "value"):

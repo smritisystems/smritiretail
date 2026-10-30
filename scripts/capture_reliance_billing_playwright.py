@@ -251,30 +251,23 @@ async def main():
             btn_txt = await complete_btn.inner_text()
             print(f"  Clicking Complete Settlement button: '{btn_txt}'")
             try:
-                async with page.expect_response(lambda res: "sales/invoices" in res.url and res.status in (200, 201), timeout=20000):
+                async with page.expect_response(lambda res: "sales/invoices" in res.url and res.status in (200, 201), timeout=25000):
                     await complete_btn.click()
                 print("  ✓ Sales Invoice created and posted server-side.")
             except Exception as e:
                 print(f"  Note waiting for invoice response: {e}")
-                if await complete_btn.is_visible():
-                    await complete_btn.click()
         else:
             await page.keyboard.press("F8")
             print("  Pressed F8 key for settlement.")
         
         await page.wait_for_timeout(3000)
 
-        # Print all text content inside the settlement modal or toast
-        modal_text = await page.locator('.fixed.inset-0.z-50').all_inner_texts()
-        print(f"  Modal inner text after click: {modal_text}")
-
         # Wait for Print Preview Modal
         try:
-            await page.wait_for_selector('text="SMRITI Interactive Print & Preview Engine"', timeout=10000)
+            await page.wait_for_selector('text="SMRITI Interactive Print & Preview Engine"', timeout=15000)
             print("  ✓ SMRITI Interactive Print & Preview Engine displayed.")
         except Exception as e:
             print(f"  Note waiting for print modal: {e}")
-            # Check what modals are open
             all_h2 = await page.locator('h2').all_inner_texts()
             print(f"  All h2 on page: {all_h2}")
 

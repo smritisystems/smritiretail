@@ -201,7 +201,10 @@ class PSVQuantityReconciliationResponse(BaseModel):
 
 class PSVReceiveInvoiceLineReq(BaseModel):
     invoice_line_id: Optional[str] = None
-    sku: Optional[str] = None
+    sku: Optional[str] = Field(
+        None,
+        description="Must exactly match the invoice item SKU when no registered barcode is available.",
+    )
     style_code: Optional[str] = None
     color: Optional[str] = None
     size: Optional[str] = None

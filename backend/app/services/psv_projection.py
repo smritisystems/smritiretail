@@ -1163,40 +1163,46 @@ class PSVProjectionService:
             prod_id = matched_item.product_id if matched_item else None
             matched_product = products_map.get(prod_id)
 
-            if r_line.scanned_barcode_counts:
-                allowed_barcodes = set()
-                if matched_product:
-                    allowed_barcodes.add((matched_product.barcode or "").strip().upper())
-                    allowed_barcodes.update(
-                        str(value).strip().upper()
-                        for value in (matched_product.secondary_barcodes or [])
-                        if value
-                    )
-                    if matched_product.item_id:
-                        allowed_barcodes.update(
-                            value.strip().upper()
-                            for value in barcodes_by_item.get(matched_product.item_id, [])
-                        )
-                    if matched_product.item_variant_id:
-                        allowed_barcodes.update(
-                            value.strip().upper()
-                            for value in barcodes_by_variant.get(matched_product.item_variant_id, [])
-                        )
-                if matched_item and matched_item.item_id:
+            allowed_barcodes = set()
+            if matched_product:
+                allowed_barcodes.add((matched_product.barcode or "").strip().upper())
+                allowed_barcodes.update(
+                    str(value).strip().upper()
+                    for value in (matched_product.secondary_barcodes or [])
+                    if value
+                )
+                if matched_product.item_id:
                     allowed_barcodes.update(
                         value.strip().upper()
-                        for value in barcodes_by_item.get(matched_item.item_id, [])
+                        for value in barcodes_by_item.get(matched_product.item_id, [])
                     )
-                if matched_item and matched_item.variant_id:
+                if matched_product.item_variant_id:
                     allowed_barcodes.update(
                         value.strip().upper()
-                        for value in barcodes_by_variant.get(matched_item.variant_id, [])
+                        for value in barcodes_by_variant.get(matched_product.item_variant_id, [])
                     )
-                allowed_barcodes.discard("")
-                supplied_barcodes: Dict[str, int] = {}
-                for barcode, count in r_line.scanned_barcode_counts.items():
-                    normalized = barcode.strip().upper()
-                    supplied_barcodes[normalized] = supplied_barcodes.get(normalized, 0) + count
+            if matched_item and matched_item.item_id:
+                allowed_barcodes.update(
+                    value.strip().upper()
+                    for value in barcodes_by_item.get(matched_item.item_id, [])
+                )
+            if matched_item and matched_item.variant_id:
+                allowed_barcodes.update(
+                    value.strip().upper()
+                    for value in barcodes_by_variant.get(matched_item.variant_id, [])
+                )
+            allowed_barcodes.discard("")
+            supplied_barcodes: Dict[str, int] = {}
+            for barcode, count in r_line.scanned_barcode_counts.items():
+                normalized = barcode.strip().upper()
+                supplied_barcodes[normalized] = supplied_barcodes.get(normalized, 0) + count
+
+            if allowed_barcodes:
+                if not supplied_barcodes:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"Scan a registered barcode for invoice item '{line_sku}' before recording receipt.",
+                    )
                 unknown_barcodes = sorted(set(supplied_barcodes) - allowed_barcodes)
                 if unknown_barcodes:
                     raise HTTPException(
@@ -1210,6 +1216,20 @@ class PSVProjectionService:
                         status_code=400,
                         detail="Scanned barcode count must equal accepted quantity plus rejected quantity.",
                     )
+            elif supplied_barcodes:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"No registered barcode is available for invoice item '{line_sku}'; verify it by SKU.",
+                )
+            elif (
+                not matched_item
+                or not r_line.sku
+                or r_line.sku.strip().upper() != line_sku.strip().upper()
+            ):
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Confirm the exact invoice SKU '{line_sku}' when no registered barcode is available.",
+                )
 
             scan_summary = ""
             if r_line.scanned_barcode_counts:

@@ -289,7 +289,10 @@ export const PsvTab: React.FC<PsvTabProps> = ({ psvParties, currentUser }) => {
   const [barcodeInput, setBarcodeInput] = useState("");
   const [barcodeScanError, setBarcodeScanError] = useState<string | null>(null);
   const [scannedBarcodeCounts, setScannedBarcodeCounts] = useState<Record<string, number>>({});
+  const [hasBarcodeScanCorrection, setHasBarcodeScanCorrection] = useState(false);
+  const [scanCorrectionReason, setScanCorrectionReason] = useState("");
   const [useBarcodeScanning, setUseBarcodeScanning] = useState(false);
+  const [skuConfirmation, setSkuConfirmation] = useState("");
   const barcodeInputRef = useRef<HTMLInputElement>(null);
 
   // Form Fields for Receive Modal
@@ -319,6 +322,15 @@ export const PsvTab: React.FC<PsvTabProps> = ({ psvParties, currentUser }) => {
   }, [psvParties, selectedPartyId]);
 
   const activeParty = psvParties.find((p) => p.id === selectedPartyId);
+  const selectedItemBarcodes = selectedItemForReceive?.barcodes ?? [];
+  const totalScannedBarcodeQty = Object.values(scannedBarcodeCounts).reduce((total, count) => total + count, 0);
+  const remainingInvoiceQty = selectedItemForReceive
+    ? Math.max(0, selectedItemForReceive.document_qty - selectedItemForReceive.received_qty)
+    : 0;
+  const manualSkuConfirmed = Boolean(
+    selectedItemForReceive &&
+    skuConfirmation.trim().toUpperCase() === selectedItemForReceive.sku.trim().toUpperCase()
+  );
 
   // F-10: audit only on explicit user selection after mount
   useEffect(() => {
@@ -388,7 +400,6 @@ export const PsvTab: React.FC<PsvTabProps> = ({ psvParties, currentUser }) => {
 
   // Open Receive Modal for a line item
   const openReceiveModal = (item: PSVQuantityReconciliationItem) => {
-    const remainingToReceive = Math.max(0, item.document_qty - item.received_qty);
     const itemBarcodes = item.barcodes ?? [];
     setSelectedItemForReceive(item);
     setReceiveForm({
@@ -396,7 +407,7 @@ export const PsvTab: React.FC<PsvTabProps> = ({ psvParties, currentUser }) => {
       invoice_no: item.invoice_no,
       party_id: item.party_id,
       party_name: item.party_name,
-      received_qty: itemBarcodes.length > 0 ? 0 : remainingToReceive,
+      received_qty: 0,
       rejected_qty: 0,
       rejection_reason: "",
       receipt_reference: "",
@@ -404,8 +415,11 @@ export const PsvTab: React.FC<PsvTabProps> = ({ psvParties, currentUser }) => {
       auto_approve: false,
     });
     setScannedBarcodeCounts({});
+    setHasBarcodeScanCorrection(false);
+    setScanCorrectionReason("");
     setBarcodeInput("");
     setBarcodeScanError(null);
+    setSkuConfirmation("");
     setUseBarcodeScanning(itemBarcodes.length > 0);
     setReceiveModalOpen(true);
   };
@@ -435,6 +449,26 @@ export const PsvTab: React.FC<PsvTabProps> = ({ psvParties, currentUser }) => {
     setBarcodeInput("");
   };
 
+  const undoBarcodeScan = (barcode: string) => {
+    const updated = { ...scannedBarcodeCounts };
+    if (updated[barcode] <= 1) {
+      delete updated[barcode];
+    } else {
+      updated[barcode] -= 1;
+    }
+    const scannedQty = Object.values(updated).reduce((total, count) => total + count, 0);
+    setScannedBarcodeCounts(updated);
+    setReceiveForm((form) => {
+      const rejectedQty = Math.min(form.rejected_qty, scannedQty);
+      return {
+        ...form,
+        rejected_qty: rejectedQty,
+        received_qty: Math.max(0, scannedQty - rejectedQty),
+      };
+    });
+    setHasBarcodeScanCorrection(true);
+  };
+
   const setRejectedQty = (rejectedQty: number) => {
     const scannedQty = Object.values(scannedBarcodeCounts).reduce((total, count) => total + count, 0);
     setReceiveForm((form) => ({
@@ -453,6 +487,14 @@ export const PsvTab: React.FC<PsvTabProps> = ({ psvParties, currentUser }) => {
       alert("Invoice ID is missing");
       return;
     }
+    if (selectedItemBarcodes.length > 0 && Object.keys(scannedBarcodeCounts).length === 0) {
+      alert("Scan the registered barcode for each received or rejected unit.");
+      return;
+    }
+    if (selectedItemBarcodes.length === 0 && !manualSkuConfirmed) {
+      alert("Enter the exact invoice SKU to verify this item before recording.");
+      return;
+    }
     if (receiveForm.received_qty <= 0 && receiveForm.rejected_qty <= 0) {
       alert("Please enter a valid Received Quantity or Rejected Quantity");
       return;
@@ -462,6 +504,10 @@ export const PsvTab: React.FC<PsvTabProps> = ({ psvParties, currentUser }) => {
       alert("Scanned barcode count must equal accepted quantity plus rejected quantity.");
       return;
     }
+    if (hasBarcodeScanCorrection && !scanCorrectionReason.trim()) {
+      alert("Enter why a barcode scan count was corrected.");
+      return;
+    }
 
     setIsSubmittingReceipt(true);
     try {
@@ -469,7 +515,12 @@ export const PsvTab: React.FC<PsvTabProps> = ({ psvParties, currentUser }) => {
         invoice_id: receiveForm.invoice_id,
         party_id: receiveForm.party_id || undefined,
         receipt_reference: receiveForm.receipt_reference || undefined,
-        remarks: receiveForm.remarks || undefined,
+        remarks: [
+          receiveForm.remarks,
+          scanCorrectionReason.trim()
+            ? `Barcode scan correction: ${scanCorrectionReason.trim()}`
+            : "",
+        ].filter(Boolean).join("; ") || undefined,
         auto_approve: receiveForm.auto_approve,
         items: [
           {
@@ -481,7 +532,7 @@ export const PsvTab: React.FC<PsvTabProps> = ({ psvParties, currentUser }) => {
             received_qty: Number(receiveForm.received_qty) || 0,
             rejected_qty: Number(receiveForm.rejected_qty) || 0,
             rejection_reason: receiveForm.rejection_reason || undefined,
-            scanned_barcode_counts: useBarcodeScanning ? scannedBarcodeCounts : {},
+            scanned_barcode_counts: selectedItemBarcodes.length > 0 ? scannedBarcodeCounts : {},
           },
         ],
       };
@@ -1438,88 +1489,143 @@ export const PsvTab: React.FC<PsvTabProps> = ({ psvParties, currentUser }) => {
                     )}
                     <span className="text-theme-muted font-mono">SKU: {selectedItemForReceive.sku}</span>
                   </div>
-                  <div className="grid grid-cols-3 gap-2 pt-1 border-t border-theme-divider/50 text-center font-mono text-[11px]">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 pt-1 border-t border-theme-divider/50 text-center font-mono text-[11px]">
                     <div>
-                      <span className="text-theme-muted block text-[9px] uppercase">Documented</span>
+                      <span className="text-theme-muted block text-[9px] uppercase">Invoice Qty</span>
                       <span className="font-bold text-blue-400">{selectedItemForReceive.document_qty} pcs</span>
                     </div>
                     <div>
-                      <span className="text-theme-muted block text-[9px] uppercase">Already Received</span>
+                      <span className="text-theme-muted block text-[9px] uppercase">Received</span>
                       <span className="font-bold text-emerald-400">{selectedItemForReceive.received_qty} pcs</span>
                     </div>
                     <div>
-                      <span className="text-theme-muted block text-[9px] uppercase">Short / Missing</span>
-                      <span className="font-bold text-rose-400">{selectedItemForReceive.short_qty} pcs</span>
+                      <span className="text-theme-muted block text-[9px] uppercase">Pending Approval</span>
+                      <span className="font-bold text-amber-300">{selectedItemForReceive.pending_approval_qty} pcs</span>
+                    </div>
+                    <div>
+                      <span className="text-theme-muted block text-[9px] uppercase">Approved</span>
+                      <span className="font-bold text-emerald-300">{selectedItemForReceive.approved_qty} pcs</span>
+                    </div>
+                    <div>
+                      <span className="text-theme-muted block text-[9px] uppercase">Remaining Due</span>
+                      <span className="font-bold text-rose-300">{remainingInvoiceQty} pcs</span>
                     </div>
                   </div>
+                  <p className="text-[10px] text-theme-muted">
+                    Pending and approved are previous receipt statuses; they are shown for reference, not added to this receipt.
+                  </p>
                 </div>
               )}
 
-              {selectedItemForReceive && (selectedItemForReceive.barcodes ?? []).length > 0 ? (
+              {selectedItemForReceive && selectedItemBarcodes.length > 0 ? (
                 <section className="rounded-xl border border-blue-500/30 bg-blue-950/15 p-3 space-y-3">
-                  <div className="flex items-start justify-between gap-3">
+                  <div>
                     <div>
                       <h5 className="text-xs font-semibold text-theme-body">Verify items by barcode</h5>
                       <p className="mt-1 text-[10px] text-theme-muted">
-                        Scan each physical unit. The count includes accepted and rejected pieces.
+                        Barcode scanning is required for this item. Scan each physical unit, including rejected pieces.
                       </p>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const nextUseBarcodeScanning = !useBarcodeScanning;
-                        setUseBarcodeScanning(nextUseBarcodeScanning);
-                        setScannedBarcodeCounts({});
-                        setBarcodeInput("");
-                        setBarcodeScanError(null);
-                        setReceiveForm((form) => ({
-                          ...form,
-                          received_qty: nextUseBarcodeScanning
-                            ? 0
-                            : Math.max(0, (selectedItemForReceive?.document_qty || 0) - (selectedItemForReceive?.received_qty || 0)),
-                          rejected_qty: 0,
-                        }));
-                      }}
-                      className="shrink-0 text-[10px] font-medium text-blue-300 underline underline-offset-2"
-                    >
-                      {useBarcodeScanning ? "Use manual count" : "Switch to barcode scan"}
-                    </button>
                   </div>
-                  {useBarcodeScanning ? (
-                    <>
+                  <input
+                    ref={barcodeInputRef}
+                    type="text"
+                    autoFocus
+                    inputMode="none"
+                    autoComplete="off"
+                    aria-label="Scan item barcode"
+                    placeholder="Scan barcode and press Enter"
+                    value={barcodeInput}
+                    onChange={(event) => setBarcodeInput(event.target.value)}
+                    onKeyDown={handleBarcodeScan}
+                    className="w-full rounded-lg border border-theme-divider bg-theme-surface-2 px-3 py-2 text-sm font-mono text-theme-body focus:border-blue-500 focus:outline-none"
+                  />
+                  {barcodeScanError && <p role="alert" className="text-[11px] text-rose-400">{barcodeScanError}</p>}
+                  <div className="flex flex-wrap items-center justify-between gap-2 text-[10px]">
+                    <span className="text-theme-muted">
+                      Scanned: <strong className="text-blue-300">{totalScannedBarcodeQty}</strong>
+                      {" "}· Accepted: <strong className="text-emerald-300">{receiveForm.received_qty}</strong>
+                      {" "}· Rejected: <strong className="text-rose-300">{receiveForm.rejected_qty}</strong>
+                    </span>
+                    <span className={totalScannedBarcodeQty === remainingInvoiceQty ? "text-emerald-300" : "text-amber-300"}>
+                      {totalScannedBarcodeQty === remainingInvoiceQty
+                        ? "Matches remaining invoice qty"
+                        : `Invoice balance: ${remainingInvoiceQty} pcs — verify any difference`}
+                    </span>
+                  </div>
+                  {Object.entries(scannedBarcodeCounts).length > 0 && (
+                    <div className="space-y-1 border-t border-theme-divider/50 pt-2">
+                      {Object.entries(scannedBarcodeCounts).map(([barcode, count]) => (
+                        <div key={barcode} className="flex items-center justify-between gap-2 text-[10px]">
+                          <span className="font-mono text-theme-body">{barcode} × {count}</span>
+                          <button
+                            type="button"
+                            onClick={() => undoBarcodeScan(barcode)}
+                            className="rounded border border-rose-500/30 px-2 py-1 text-rose-300 hover:bg-rose-500/10"
+                            aria-label={`Undo one scan for barcode ${barcode}`}
+                          >
+                            Undo one
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {hasBarcodeScanCorrection && (
+                    <label className="block">
+                      <span className="mb-1 block text-[10px] font-semibold text-amber-200">
+                        Why was a scan undone? <span className="text-rose-300">*</span>
+                      </span>
                       <input
-                        ref={barcodeInputRef}
                         type="text"
-                        inputMode="none"
-                        autoComplete="off"
-                        aria-label="Scan item barcode"
-                        placeholder="Scan barcode and press Enter"
-                        value={barcodeInput}
-                        onChange={(event) => setBarcodeInput(event.target.value)}
-                        onKeyDown={handleBarcodeScan}
-                        className="w-full rounded-lg border border-theme-divider bg-theme-surface-2 px-3 py-2 text-sm font-mono text-theme-body focus:border-blue-500 focus:outline-none"
+                        value={scanCorrectionReason}
+                        onChange={(event) => setScanCorrectionReason(event.target.value)}
+                        placeholder="For example: duplicate scan or wrong label scanned"
+                        className="w-full rounded-lg border border-amber-500/30 bg-theme-surface-2 px-3 py-2 text-xs text-theme-body focus:border-amber-500 focus:outline-none"
+                        required
                       />
-                      {barcodeScanError && <p role="alert" className="text-[11px] text-rose-400">{barcodeScanError}</p>}
-                      <div className="flex flex-wrap items-center justify-between gap-2 text-[10px]">
-                        <span className="text-theme-muted">
-                          Scanned: <strong className="text-blue-300">{Object.values(scannedBarcodeCounts).reduce((total, count) => total + count, 0)}</strong>
-                          {" "}· Accepted: <strong className="text-emerald-300">{receiveForm.received_qty}</strong>
-                          {" "}· Rejected: <strong className="text-rose-300">{receiveForm.rejected_qty}</strong>
-                        </span>
-                        <span className="text-theme-muted">Known: {(selectedItemForReceive.barcodes ?? []).join(", ")}</span>
-                      </div>
-                    </>
-                  ) : (
-                    <p className="text-[10px] text-amber-300">
-                      Manual count selected. Verify the product and quantity against the invoice before recording.
-                    </p>
+                    </label>
                   )}
                 </section>
-              ) : (
-                <p className="rounded-lg border border-amber-500/30 bg-amber-950/15 p-3 text-[11px] text-amber-200">
-                  No barcode is registered for this invoice item. Use manual quantity entry and verify the SKU.
-                </p>
-              )}
+              ) : selectedItemForReceive ? (
+                <section className="rounded-xl border border-amber-500/30 bg-amber-950/15 p-3 space-y-2">
+                  <p className="text-[11px] text-amber-200">
+                    No barcode is registered. Verify the product label by entering the exact invoice SKU before quantity entry.
+                  </p>
+                  <label className="block">
+                    <span className="mb-1 block text-[10px] font-semibold text-theme-body">
+                      Confirm SKU: <span className="font-mono text-blue-300">{selectedItemForReceive.sku}</span>
+                    </span>
+                    <input
+                      type="text"
+                      autoComplete="off"
+                      aria-label="Confirm invoice SKU"
+                      placeholder="Scan or enter the SKU from the product label"
+                      value={skuConfirmation}
+                      onChange={(event) => setSkuConfirmation(event.target.value)}
+                      className="w-full rounded-lg border border-theme-divider bg-theme-surface-2 px-3 py-2 text-sm font-mono text-theme-body focus:border-amber-500 focus:outline-none"
+                    />
+                  </label>
+                  {skuConfirmation && (
+                    <p role={manualSkuConfirmed ? "status" : "alert"} className={`text-[10px] ${manualSkuConfirmed ? "text-emerald-300" : "text-rose-300"}`}>
+                      {manualSkuConfirmed ? "SKU verified. Enter the manually counted quantities." : "SKU does not match the invoice item."}
+                    </p>
+                  )}
+                  {manualSkuConfirmed && (
+                    <div className="flex flex-wrap items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setReceiveForm((form) => ({ ...form, received_qty: remainingInvoiceQty }))}
+                        className="rounded-lg border border-blue-500/30 px-3 py-1.5 text-[10px] font-semibold text-blue-300 hover:bg-blue-500/10"
+                      >
+                        Prefill remaining due ({remainingInvoiceQty})
+                      </button>
+                      <span className="text-[10px] text-theme-muted">
+                        Prefill is editable. Enter the physical count if it differs.
+                      </span>
+                    </div>
+                  )}
+                </section>
+              ) : null}
 
               {/* Quantities Grid */}
               <div className="grid grid-cols-2 gap-3">
@@ -1533,6 +1639,7 @@ export const PsvTab: React.FC<PsvTabProps> = ({ psvParties, currentUser }) => {
                     step="1"
                     value={receiveForm.received_qty}
                     readOnly={useBarcodeScanning}
+                    disabled={!useBarcodeScanning && !manualSkuConfirmed}
                     onChange={(e) => setReceiveForm({ ...receiveForm, received_qty: Number(e.target.value) })}
                     className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg px-3 py-2 text-sm font-mono text-emerald-400 font-bold focus:outline-none focus:border-emerald-500"
                   />
@@ -1549,11 +1656,12 @@ export const PsvTab: React.FC<PsvTabProps> = ({ psvParties, currentUser }) => {
                     type="number"
                     min="0"
                     step="1"
-                    max={useBarcodeScanning ? Object.values(scannedBarcodeCounts).reduce((total, count) => total + count, 0) : undefined}
+                    max={useBarcodeScanning ? totalScannedBarcodeQty : undefined}
                     value={receiveForm.rejected_qty}
+                    disabled={!useBarcodeScanning && !manualSkuConfirmed}
                     onChange={(e) => {
                       const value = Number(e.target.value);
-                      const scannedQty = Object.values(scannedBarcodeCounts).reduce((total, count) => total + count, 0);
+                      const scannedQty = totalScannedBarcodeQty;
                       setRejectedQty(useBarcodeScanning ? Math.min(value, scannedQty) : value);
                     }}
                     className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg px-3 py-2 text-sm font-mono text-rose-400 font-bold focus:outline-none focus:border-rose-500"
@@ -1644,7 +1752,12 @@ export const PsvTab: React.FC<PsvTabProps> = ({ psvParties, currentUser }) => {
                 </button>
                 <button
                   type="submit"
-                  disabled={isSubmittingReceipt}
+                  disabled={
+                    isSubmittingReceipt ||
+                    (selectedItemBarcodes.length > 0
+                      ? Object.keys(scannedBarcodeCounts).length === 0
+                      : !manualSkuConfirmed)
+                  }
                   className="px-4 py-2 rounded-xl text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white shadow-md shadow-emerald-600/30 transition-all flex items-center gap-1.5"
                 >
                   {isSubmittingReceipt ? (

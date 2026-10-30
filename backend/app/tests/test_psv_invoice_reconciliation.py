@@ -214,6 +214,12 @@ async def _setup_reconciliation_env(db_session):
     }
 
 
+def _verified_barcode_counts(env, received_qty, rejected_qty=Decimal("0")):
+    total_scanned = Decimal(str(received_qty)) + Decimal(str(rejected_qty))
+    assert total_scanned == total_scanned.to_integral_value()
+    return {env["prod"].barcode: int(total_scanned)} if total_scanned > 0 else {}
+
+
 def _auth_header(user: User):
     token = create_access_token({
         "sub": user.id,
@@ -363,6 +369,83 @@ async def test_barcode_receipt_rejects_unregistered_barcode(db_session):
 
 
 @pytest.mark.asyncio
+async def test_registered_barcode_is_required_for_receipt(db_session):
+    from fastapi import HTTPException
+
+    env = await _setup_reconciliation_env(db_session)
+    with pytest.raises(HTTPException) as exc_info:
+        await PSVProjectionService.record_invoice_receipt(
+            session=db_session,
+            company_id=env["company"].id,
+            user_id=env["staff"].id,
+            user_role="SALES_EXECUTIVE",
+            req=PSVReceiveInvoiceReq(
+                invoice_id=env["invoice"].id,
+                items=[
+                    PSVReceiveInvoiceLineReq(
+                        invoice_line_id=str(env["inv_item"].id),
+                        sku=env["prod"].code,
+                        received_qty=Decimal("1"),
+                    )
+                ],
+            ),
+            commit=False,
+        )
+    assert exc_info.value.status_code == 400
+    assert "Scan a registered barcode" in exc_info.value.detail
+
+
+@pytest.mark.asyncio
+async def test_sku_receipt_fallback_requires_exact_invoice_sku(db_session):
+    from fastapi import HTTPException
+
+    env = await _setup_reconciliation_env(db_session)
+    env["prod"].barcode = ""
+    await db_session.commit()
+
+    with pytest.raises(HTTPException) as exc_info:
+        await PSVProjectionService.record_invoice_receipt(
+            session=db_session,
+            company_id=env["company"].id,
+            user_id=env["staff"].id,
+            user_role="SALES_EXECUTIVE",
+            req=PSVReceiveInvoiceReq(
+                invoice_id=env["invoice"].id,
+                items=[
+                    PSVReceiveInvoiceLineReq(
+                        invoice_line_id=str(env["inv_item"].id),
+                        sku="WRONG-SKU",
+                        received_qty=Decimal("1"),
+                    )
+                ],
+            ),
+            commit=False,
+        )
+    assert exc_info.value.status_code == 400
+    assert "Confirm the exact invoice SKU" in exc_info.value.detail
+    await db_session.rollback()
+
+    result = await PSVProjectionService.record_invoice_receipt(
+        session=db_session,
+        company_id=env["company"].id,
+        user_id=env["staff"].id,
+        user_role="SALES_EXECUTIVE",
+        req=PSVReceiveInvoiceReq(
+            invoice_id=env["invoice"].id,
+            items=[
+                PSVReceiveInvoiceLineReq(
+                    invoice_line_id=str(env["inv_item"].id),
+                    sku=env["prod"].code,
+                    received_qty=Decimal("1"),
+                )
+            ],
+        ),
+        commit=True,
+    )
+    assert result.pending_count == 1
+
+
+@pytest.mark.asyncio
 async def test_reconciliation_exact_receipt_reconciled(db_session):
     """
     Verify receiving exact quantity (100 pcs) marked auto_approve by Manager
@@ -388,6 +471,7 @@ async def test_reconciliation_exact_receipt_reconciled(db_session):
                 PSVReceiveInvoiceLineReq(
                     invoice_line_id=str(inv_item.id),
                     received_qty=Decimal("100.0000"),
+                    scanned_barcode_counts=_verified_barcode_counts(env, 100),
                 )
             ],
         ),
@@ -444,6 +528,7 @@ async def test_reconciliation_partial_receipt_shortage(db_session):
                 PSVReceiveInvoiceLineReq(
                     invoice_line_id=str(inv_item.id),
                     received_qty=Decimal("60.0000"),
+                    scanned_barcode_counts=_verified_barcode_counts(env, 60),
                 )
             ],
         ),
@@ -489,6 +574,7 @@ async def test_reconciliation_excess_receipt(db_session):
                 PSVReceiveInvoiceLineReq(
                     invoice_line_id=str(inv_item.id),
                     received_qty=Decimal("120.0000"),
+                    scanned_barcode_counts=_verified_barcode_counts(env, 120),
                 )
             ],
         ),
@@ -538,6 +624,7 @@ async def test_reconciliation_pending_approval_and_promotion(db_session):
                 PSVReceiveInvoiceLineReq(
                     invoice_line_id=str(inv_item.id),
                     received_qty=Decimal("50.0000"),
+                    scanned_barcode_counts=_verified_barcode_counts(env, 50),
                 )
             ],
         ),
@@ -625,6 +712,7 @@ async def test_reconciliation_multiple_receipt_deliveries(db_session):
                 PSVReceiveInvoiceLineReq(
                     invoice_line_id=str(inv_item.id),
                     received_qty=Decimal("40.0000"),
+                    scanned_barcode_counts=_verified_barcode_counts(env, 40),
                 )
             ],
         ),
@@ -645,6 +733,7 @@ async def test_reconciliation_multiple_receipt_deliveries(db_session):
                 PSVReceiveInvoiceLineReq(
                     invoice_line_id=str(inv_item.id),
                     received_qty=Decimal("30.0000"),
+                    scanned_barcode_counts=_verified_barcode_counts(env, 30),
                 )
             ],
         ),
@@ -690,6 +779,7 @@ async def test_reconciliation_rejections_tracking(db_session):
                     received_qty=Decimal("90.0000"),
                     rejected_qty=Decimal("10.0000"),
                     rejection_reason="Damaged footwear soles in transit",
+                    scanned_barcode_counts=_verified_barcode_counts(env, 90, 10),
                 )
             ],
         ),
@@ -734,6 +824,7 @@ async def test_reconciliation_variant_matching(db_session):
                     color="Black",
                     size="08",
                     received_qty=Decimal("100.0000"),
+                    scanned_barcode_counts=_verified_barcode_counts(env, 100),
                 )
             ],
         ),
