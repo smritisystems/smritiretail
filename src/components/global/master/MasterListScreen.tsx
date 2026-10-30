@@ -43,6 +43,54 @@ import { SmritiScrollArea } from "../../SmritiScrollArea.tsx";
 import { useWorkspace } from "../../../contexts/WorkspaceContext.tsx";
 import { getCanonicalField } from "../../../services/canonicalFieldRegistry.ts";
 
+export interface BlockedDeleteRecord {
+  entity_type: string;
+  identifier: string;
+  name?: string;
+  field: string;
+  matched_value?: string;
+  company_id?: string;
+}
+
+export interface BlockedDeleteErrorState {
+  message: string;
+  code?: string;
+  total?: number;
+  linkedRecords?: BlockedDeleteRecord[];
+  suggestedAction?: string;
+}
+
+export function parseDeleteGuardError(err: any): BlockedDeleteErrorState | null {
+  const guardData =
+    (err?.detail && typeof err.detail === "object" && Array.isArray(err.detail.linked_records) ? err.detail : null) ||
+    (err?.body && typeof err.body === "object" && Array.isArray(err.body.linked_records) ? err.body : null) ||
+    (err?.body?.detail && typeof err.body.detail === "object" && Array.isArray(err.body.detail.linked_records) ? err.body.detail : null) ||
+    (err?.detail && typeof err.detail === "object" ? err.detail : null) ||
+    (err?.body && typeof err.body === "object" ? err.body : null);
+
+  if (guardData && Array.isArray(guardData.linked_records) && guardData.linked_records.length > 0) {
+    return {
+      message: guardData.message || err.message || "Cannot delete master value: active references exist.",
+      code: guardData.code || "SMRITI-VAL-003",
+      total: guardData.total_references || guardData.linked_records.length,
+      linkedRecords: guardData.linked_records,
+      suggestedAction: guardData.suggested_action || "Remove or retire the linked records before deleting this master value."
+    };
+  }
+
+  if (err?.status === 409 || (err?.message && String(err.message).toLowerCase().includes("cannot delete"))) {
+    return {
+      message: err.message || err.body?.message || err.body?.error?.explanation || "Cannot delete master value: active references exist.",
+      code: err.body?.error_code || err.body?.error?.error_code || "SMRITI-VAL-003",
+      total: 1,
+      linkedRecords: [],
+      suggestedAction: err.body?.suggested_action || err.body?.error?.suggested_action || "Remove or retire the linked records before deleting this master value."
+    };
+  }
+
+  return null;
+}
+
 export interface MasterListScreenProps<T = any> {
   config: MasterConfig<T>;
   currentUser?: { role: string; name: string } | null;
@@ -116,20 +164,7 @@ export function MasterListScreen<T extends Record<string, any>>({
   // Delete Confirmation State
   const [itemToDelete, setItemToDelete] = useState<T | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [blockedDeleteError, setBlockedDeleteError] = useState<{
-    message: string;
-    code?: string;
-    total?: number;
-    linkedRecords?: Array<{
-      entity_type: string;
-      identifier: string;
-      name?: string;
-      field: string;
-      matched_value?: string;
-      company_id?: string;
-    }>;
-    suggestedAction?: string;
-  } | null>(null);
+  const [blockedDeleteError, setBlockedDeleteError] = useState<BlockedDeleteErrorState | null>(null);
 
   // Request ID sequence for stale response cancellation in server mode
   const latestRequestId = useRef(0);
@@ -433,28 +468,9 @@ export function MasterListScreen<T extends Record<string, any>>({
       await fetchItems();
     } catch (err: any) {
       console.error(`[MasterListScreen] Delete failed:`, err);
-      const guardData =
-        (err.detail && typeof err.detail === "object" && Array.isArray(err.detail.linked_records) ? err.detail : null) ||
-        (err.body && typeof err.body === "object" && Array.isArray(err.body.linked_records) ? err.body : null) ||
-        (err.body?.detail && typeof err.body.detail === "object" && Array.isArray(err.body.detail.linked_records) ? err.body.detail : null) ||
-        (err.detail || (err.body && (err.body.detail || err.body.error)));
-
-      if (guardData && Array.isArray(guardData.linked_records) && guardData.linked_records.length > 0) {
-        setBlockedDeleteError({
-          message: guardData.message || err.message || "Cannot delete master value: active references exist.",
-          code: guardData.code || "SMRITI-VAL-003",
-          total: guardData.total_references || guardData.linked_records.length,
-          linkedRecords: guardData.linked_records,
-          suggestedAction: guardData.suggested_action || "Remove or retire the linked records before deleting this master value."
-        });
-      } else if (err.status === 409 || (err.message && err.message.toLowerCase().includes("cannot delete"))) {
-        setBlockedDeleteError({
-          message: err.message || err.body?.message || err.body?.error?.explanation || "Cannot delete master value: active references exist.",
-          code: err.body?.error_code || err.body?.error?.error_code || "SMRITI-VAL-003",
-          total: 1,
-          linkedRecords: [],
-          suggestedAction: err.body?.suggested_action || err.body?.error?.suggested_action || "Remove or retire the linked records before deleting this master value."
-        });
+      const conflictState = parseDeleteGuardError(err);
+      if (conflictState) {
+        setBlockedDeleteError(conflictState);
       } else if (onNotification) {
         onNotification("Delete Failed", err.message || "Failed to delete record.", "error");
       }
