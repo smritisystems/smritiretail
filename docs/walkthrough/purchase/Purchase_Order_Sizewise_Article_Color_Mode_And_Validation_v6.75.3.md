@@ -135,7 +135,7 @@ SMRITI RETAIL OS — ARTICLE & COLOR SIZEWISE GRID HEADLESS VERIFICATION
 Target URL   : http://localhost:8101
 Backend API  : http://127.0.0.1:1981
 --------------------------------------------------------------------------------
-[AUTH OK] Admin token acquired:[REDACTED_EXAMPLE_TOKEN]
+[AUTH OK] Admin token acquired:[REDACTED_EXAMPLE_TOKEN] (redacted documentation example)
 [STEP 2] Recalling PO PO-978758 into Sizewise Matrix...
 [STEP 3] Verifying Article & Color (Default / Recommended) Mode...
 [GRID CHECK] 'Article / Style' header present: True
