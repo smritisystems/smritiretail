@@ -50,6 +50,21 @@ describe("HeaderMappingEngine Core Pipeline", () => {
     expect(result.columns[3].mappedFieldKey).toBe("category");
   });
 
+  it("keeps category and subcategory distinct while flagging merchandise category for disambiguation", () => {
+    const result = engine.mapHeaders([
+      "Category",
+      "Sub Category",
+      "Merchandise Category",
+      "Department"
+    ]);
+
+    expect(result.columns[0].mappedFieldKey).toBe("category");
+    expect(result.columns[1].mappedFieldKey).toBe("subCategory");
+    expect(result.columns[2].mappedFieldKey).toBeNull();
+    expect(result.columns[2].isAmbiguous).toBe(true);
+    expect(result.columns[3].mappedFieldKey).toBe("department");
+  });
+
   it("should map acceptance example 1 headers", () => {
     const headers = ["Item Code", "Description", "UPC", "MRP", "Tax"];
     const result = engine.mapHeaders(headers);

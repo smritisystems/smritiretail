@@ -20,7 +20,8 @@ import {
   validateProductAttributes,
   DEFAULT_MANDATORY_FIELDS,
   ItemMasterFieldDefinition,
-  ItemMasterGridRow
+  ItemMasterGridRow,
+  ALL_AVAILABLE_ITEM_FIELDS
 } from "../components/itemMaster/types.ts";
 import { 
   resolveItemMasterCatalog, 
@@ -33,6 +34,22 @@ import { getSmritiItemMasterFields } from "../lib/headerMapping/HeaderAliasRegis
 import { HeaderMappingEngine } from "../lib/headerMapping/HeaderMappingEngine.ts";
 
 describe("Item Master Attribute Unification — Authoritative Single Source of Truth", () => {
+
+  it("maps category, subcategory, and department independently while guarding ambiguous merchandise category", () => {
+    const engine = new HeaderMappingEngine(ALL_AVAILABLE_ITEM_FIELDS);
+    const result = engine.mapHeaders([
+      "Category",
+      "Sub-Category",
+      "Department",
+      "Merchandise Category"
+    ]);
+
+    expect(result.columns[0].mappedFieldKey).toBe("category");
+    expect(result.columns[1].mappedFieldKey).toBe("subCategory");
+    expect(result.columns[2].mappedFieldKey).toBe("department");
+    expect(result.columns[3].isAmbiguous).toBe(true);
+    expect(result.columns[3].mappedFieldKey).toBeNull();
+  });
 
   const dynamicDefinitions: AttributeDefinition[] = [
     {
