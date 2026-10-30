@@ -313,6 +313,12 @@ export const ItemMasterStudio: React.FC<SmritiItemMasterStudioProps> = ({
         // Use canonical serializeProductAttributes to construct PostgreSQL attributes JSONB
         const attributesPayload = serializeProductAttributes(rawRowObj, dynamicDefinitions);
 
+        if (!rawRowObj.category) {
+          failCount++;
+          errorDetails.push(`Row #${row.rowIndex}: Category is required; no default was applied.`);
+          continue;
+        }
+
         // Standard relational product payload
         const productPayload = {
           code: rawRowObj.code || rawRowObj.stockNo || generateSkuCode({
@@ -324,7 +330,8 @@ export const ItemMasterStudio: React.FC<SmritiItemMasterStudioProps> = ({
           name: rawRowObj.name || rawRowObj.product || `Item ${rawRowObj.code || row.rowIndex}`,
           barcode: rawRowObj.barcode || rawRowObj.code || `BAR-${Date.now()}-${row.rowIndex}`,
           brand: rawRowObj.brand || "SMRITI",
-          category: rawRowObj.category || "Footwear",
+          category: rawRowObj.category,
+          product_type: rawRowObj.productType || undefined,
           cost_price: parseFloat(String(rawRowObj.costPrice || rawRowObj.cost_price || "0").replace(/,/g, "")) || 0,
           price: parseFloat(String(rawRowObj.price || rawRowObj.sellingPrice || "0").replace(/,/g, "")) || 0,
           mrp: parseFloat(String(rawRowObj.mrp || rawRowObj.price || "0").replace(/,/g, "")) || 0,

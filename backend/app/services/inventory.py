@@ -19,6 +19,7 @@ from fastapi import HTTPException
 from ..models.inventory import Product, StockMovement
 from ..schemas.inventory import ProductCreate
 from ..api.deps import TenantContext
+from .compliance_audit import ComplianceAuditService
 
 class InventoryService:
     def __init__(self, db: AsyncSession, tenant_ctx: TenantContext):
@@ -76,7 +77,12 @@ class InventoryService:
         )
         self.db.add(movement)
 
-    async def create_product(self, product_in: ProductCreate) -> Product:
+    async def create_product(
+        self,
+        product_in: ProductCreate,
+        audit_actor_user_id: Optional[str] = None,
+        audit_actor_role: Optional[str] = None,
+    ) -> Product:
 
         # Check for duplicate code
         existing_code = await self.db.execute(
@@ -116,6 +122,22 @@ class InventoryService:
         )
         self.db.add(db_product)
         try:
+            if audit_actor_user_id:
+                await ComplianceAuditService.record_audit_event(
+                    session=self.db,
+                    company_id=self.tenant_ctx.company_id,
+                    branch_id=self.tenant_ctx.branch_id,
+                    event_type="ITEM_TAXONOMY_ASSIGNED",
+                    entity_name="Product",
+                    entity_id=db_product.id,
+                    actor_user_id=audit_actor_user_id,
+                    actor_role=audit_actor_role,
+                    action_summary="Assigned controlled taxonomy on product creation",
+                    after_state={
+                        "category": db_product.category,
+                        "product_type": db_product.product_type,
+                    },
+                )
             await self.db.commit()
         except IntegrityError:
             await self.db.rollback()
@@ -279,5 +301,4 @@ class InventoryService:
         await self.db.commit()
         await self.db.refresh(movement)
         return movement
-
 

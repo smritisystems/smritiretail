@@ -20,7 +20,8 @@ import {
   validateProductAttributes,
   DEFAULT_MANDATORY_FIELDS,
   ItemMasterFieldDefinition,
-  ItemMasterGridRow
+  ItemMasterGridRow,
+  ALL_AVAILABLE_ITEM_FIELDS
 } from "../components/itemMaster/types.ts";
 import { 
   resolveItemMasterCatalog, 
@@ -33,6 +34,23 @@ import { getSmritiItemMasterFields } from "../lib/headerMapping/HeaderAliasRegis
 import { HeaderMappingEngine } from "../lib/headerMapping/HeaderMappingEngine.ts";
 
 describe("Item Master Attribute Unification — Authoritative Single Source of Truth", () => {
+
+  it("maps category, subcategory, department, and merchandise category independently", () => {
+    const engine = new HeaderMappingEngine(ALL_AVAILABLE_ITEM_FIELDS);
+    const result = engine.mapHeaders([
+      "Category",
+      "Sub-Category",
+      "Department",
+      "Merchandise Category"
+    ]);
+
+    expect(result.columns.map(column => column.mappedFieldKey)).toEqual([
+      "category",
+      "subCategory",
+      "department",
+      "merchandiseCategory"
+    ]);
+  });
 
   const dynamicDefinitions: AttributeDefinition[] = [
     {
@@ -185,6 +203,7 @@ describe("Item Master Attribute Unification — Authoritative Single Source of T
       brand: "SMRITI",
       category: "Apparel",
       subCategory: "Shirts",
+      merchandiseCategory: "Casual",
       size: "40",
       colour: "Blue",
       price: "1499.00",
@@ -202,6 +221,7 @@ describe("Item Master Attribute Unification — Authoritative Single Source of T
 
     const attributesPayload = serializeProductAttributes(excelRow, dynamicDefinitions);
     expect(attributesPayload.fabric_type).toBe("Cotton");
+    expect(attributesPayload.merchandise_category).toBe("Casual");
     expect(attributesPayload.brand).toBe("SMRITI");
   });
 

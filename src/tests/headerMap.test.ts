@@ -50,6 +50,24 @@ describe("HeaderMappingEngine Core Pipeline", () => {
     expect(result.columns[3].mappedFieldKey).toBe("category");
   });
 
+  it("keeps category, product type, subcategory, and merchandise category distinct", () => {
+    const result = engine.mapHeaders([
+      "Category",
+      "Product Type",
+      "Sub Category",
+      "Merchandise Category",
+      "Department"
+    ]);
+
+    expect(result.columns.map(column => column.mappedFieldKey)).toEqual([
+      "category",
+      "productType",
+      "subCategory",
+      "merchandiseCategory",
+      "a7"
+    ]);
+  });
+
   it("should map acceptance example 1 headers", () => {
     const headers = ["Item Code", "Description", "UPC", "MRP", "Tax"];
     const result = engine.mapHeaders(headers);

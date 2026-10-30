@@ -25,6 +25,7 @@ class Product(BaseEntity):
     price = Column(Numeric(15, 2), nullable=False, default=0.00)
     stock = Column(Integer, nullable=False, default=0)
     category = Column(String(100), nullable=False, index=True)
+    product_type = Column(String(100), nullable=True, index=True)
     is_favorite = Column(Boolean, default=False)
     barcode = Column(String(100), nullable=False, index=True)
     secondary_barcodes = Column(ARRAY(String), server_default="{}")
@@ -297,5 +298,4 @@ class StockAuditItem(BaseEntity):
 
     audit = relationship("StockAudit", back_populates="items")
     product = relationship("Product")
-
 
