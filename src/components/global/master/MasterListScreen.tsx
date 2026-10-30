@@ -116,6 +116,20 @@ export function MasterListScreen<T extends Record<string, any>>({
   // Delete Confirmation State
   const [itemToDelete, setItemToDelete] = useState<T | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [blockedDeleteError, setBlockedDeleteError] = useState<{
+    message: string;
+    code?: string;
+    total?: number;
+    linkedRecords?: Array<{
+      entity_type: string;
+      identifier: string;
+      name?: string;
+      field: string;
+      matched_value?: string;
+      company_id?: string;
+    }>;
+    suggestedAction?: string;
+  } | null>(null);
 
   // Request ID sequence for stale response cancellation in server mode
   const latestRequestId = useRef(0);
@@ -419,11 +433,21 @@ export function MasterListScreen<T extends Record<string, any>>({
       await fetchItems();
     } catch (err: any) {
       console.error(`[MasterListScreen] Delete failed:`, err);
-      if (onNotification) {
+      const detail = err.detail || (err.body && (err.body.detail || err.body.error));
+      if (detail && Array.isArray(detail.linked_records) && detail.linked_records.length > 0) {
+        setBlockedDeleteError({
+          message: detail.message || err.message || "Cannot delete master value: active references exist.",
+          code: detail.code || "SMRITI-VAL-003",
+          total: detail.total_references || detail.linked_records.length,
+          linkedRecords: detail.linked_records,
+          suggestedAction: detail.suggested_action || "Remove or retire the linked records before deleting this master value."
+        });
+      } else if (onNotification) {
         onNotification("Delete Failed", err.message || "Failed to delete record.", "error");
       }
     } finally {
       setIsDeleting(false);
+      setItemToDelete(null);
     }
   };
 
@@ -998,6 +1022,95 @@ export function MasterListScreen<T extends Record<string, any>>({
                 className="px-4 py-2 rounded-lg text-xs font-bold text-white bg-rose-600 hover:bg-rose-500 border border-rose-500 shadow-md transition-all cursor-pointer"
               >
                 {isDeleting ? "Deleting..." : "Confirm Delete"}
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
+
+      {/* Blocked Delete References Modal */}
+      {blockedDeleteError && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
+          <motion.div
+            initial={{ scale: 0.95, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            className="w-full max-w-2xl bg-theme-surface-1 border border-rose-500/30 rounded-xl shadow-2xl p-6 space-y-4"
+          >
+            <div className="flex items-start justify-between">
+              <div className="flex items-start space-x-3">
+                <div className="w-10 h-10 rounded-full bg-rose-500/10 text-rose-400 border border-rose-500/20 flex items-center justify-center shrink-0">
+                  <AlertCircle size={20} />
+                </div>
+                <div className="space-y-1">
+                  <div className="flex items-center space-x-2">
+                    <h3 className="text-sm font-bold text-theme-primary font-display">
+                      Deletion Blocked: Active References Detected
+                    </h3>
+                    <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-rose-500/20 text-rose-400 border border-rose-500/30">
+                      {blockedDeleteError.code || "SMRITI-VAL-003"}
+                    </span>
+                  </div>
+                  <p className="text-xs text-rose-400 font-medium leading-relaxed">
+                    {blockedDeleteError.message}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Linked Records List */}
+            {blockedDeleteError.linkedRecords && blockedDeleteError.linkedRecords.length > 0 && (
+              <div className="space-y-2 pt-1">
+                <div className="flex items-center justify-between text-xs text-theme-muted font-mono">
+                  <span>Linked Operational Records ({blockedDeleteError.total ?? blockedDeleteError.linkedRecords.length})</span>
+                  <span className="text-[11px] text-theme-muted">Showing up to 25 linked records</span>
+                </div>
+                <div className="max-h-60 overflow-y-auto rounded-lg border border-theme-divider bg-theme-surface-2 divide-y divide-theme-divider text-xs">
+                  {blockedDeleteError.linkedRecords.map((rec, idx) => (
+                    <div key={idx} className="p-3 flex items-center justify-between gap-3 hover:bg-theme-surface-1/50">
+                      <div className="space-y-0.5 min-w-0">
+                        <div className="flex items-center space-x-2">
+                          <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-theme-surface-3 text-theme-primary border border-theme-divider">
+                            {rec.entity_type}
+                          </span>
+                          <span className="font-mono font-semibold text-theme-primary truncate">
+                            {rec.identifier}
+                          </span>
+                        </div>
+                        {rec.name && (
+                          <div className="text-[11px] text-theme-muted truncate">
+                            {rec.name}
+                          </div>
+                        )}
+                      </div>
+                      <div className="text-right shrink-0">
+                        <span className="text-[11px] font-mono text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">
+                          {rec.field}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Suggested Action Callout */}
+            {blockedDeleteError.suggestedAction && (
+              <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg p-3 text-xs text-amber-300 flex items-start space-x-2">
+                <AlertTriangle size={15} className="shrink-0 mt-0.5" />
+                <div className="leading-relaxed">
+                  <span className="font-bold">Suggested Action: </span>
+                  {blockedDeleteError.suggestedAction}
+                </div>
+              </div>
+            )}
+
+            <div className="flex items-center justify-end pt-2">
+              <button
+                type="button"
+                onClick={() => setBlockedDeleteError(null)}
+                className="px-4 py-2 rounded-lg text-xs font-bold text-theme-primary bg-theme-surface-2 hover:bg-theme-surface-3 border border-theme-divider transition-all cursor-pointer"
+              >
+                Close & Review Links
               </button>
             </div>
           </motion.div>

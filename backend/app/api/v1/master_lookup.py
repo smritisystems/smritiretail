@@ -44,6 +44,7 @@ from ...services.master_lookup_import_service import (
     extract_vendor_article_codes_from_po_pdf_bytes,
 )
 from ...services.product_code_parser import ProductCodeParser
+from ...services.master_delete_guard import MasterValueDeleteGuard
 
 router = APIRouter()
 
@@ -369,79 +370,9 @@ async def _master_value_reference_reason(
     type_code: str,
 ) -> str | None:
     """Return a deletion blocker when a lookup value is referenced by live data."""
-    child = await db.scalar(
-        select(MasterValue.id).where(
-            MasterValue.parent_value_id == item.id,
-            MasterValue.is_deleted.is_(False),
-        ).limit(1)
-    )
-    if child:
-        return "child lookup values"
-
-    if type_code == "style_article":
-        template = await db.scalar(
-            select(VariantTemplate.id).where(
-                VariantTemplate.master_value_id == item.id,
-                VariantTemplate.is_deleted.is_(False),
-            ).limit(1)
-        )
-        if template:
-            return "variant templates"
-
-        product = await db.scalar(
-            select(Product.id).where(
-                Product.style_code == item.code,
-                Product.is_deleted.is_(False),
-            ).limit(1)
-        )
-        if product:
-            return "products"
-
-        sales_item = await db.scalar(
-            select(SalesOrderItem.id).where(
-                or_(
-                    SalesOrderItem.article_no == item.code,
-                    SalesOrderItem.vendor_style == item.code,
-                )
-            ).limit(1)
-        )
-        if sales_item:
-            return "sales order items"
-
-    if type_code == "vendor_code":
-        template = await db.scalar(
-            select(VariantTemplate.id).where(
-                VariantTemplate.vendor_code == item.code,
-                VariantTemplate.is_deleted.is_(False),
-            ).limit(1)
-        )
-        if template:
-            return "variant templates"
-
-        product = await db.scalar(
-            select(Product.id).where(
-                Product.vendor_code == item.code,
-                Product.is_deleted.is_(False),
-            ).limit(1)
-        )
-        if product:
-            return "products"
-
-        article = await db.scalar(
-            select(MasterValue.id).where(
-                MasterValue.vendor_code == item.code,
-                MasterValue.is_deleted.is_(False),
-            ).limit(1)
-        )
-        if article:
-            return "style/article values"
-
-        sales_order = await db.scalar(
-            select(SalesOrder.id).where(SalesOrder.vendor_code == item.code).limit(1)
-        )
-        if sales_order:
-            return "sales orders"
-
+    blocker = await MasterValueDeleteGuard.check_references(db, item, type_code)
+    if blocker:
+        return blocker.get("message")
     return None
 
 
@@ -923,6 +854,18 @@ async def delete_size_group(
     if not group:
         raise HTTPException(status_code=404, detail="Size group not found.")
 
+    group_values = [v.value for v in (group.values or []) if not getattr(v, "is_deleted", False)]
+    blocker = await MasterValueDeleteGuard.check_size_group_references(
+        db,
+        group_id=group.id,
+        group_code=getattr(group, "code", group.id),
+        group_name=getattr(group, "name", group.id),
+        group_values=group_values,
+        company_id=getattr(current_user, "company_id", None),
+    )
+    if blocker:
+        raise HTTPException(status_code=409, detail=blocker)
+
     group.is_deleted = True
     group.is_active = False
     group.deleted_by = current_user.username
@@ -1399,14 +1342,16 @@ async def delete_lookup_value(
         "data": item.data,
     }
 
-    reference_reason = await _master_value_reference_reason(db, item, type_code)
-    if reference_reason:
+    blocker = await MasterValueDeleteGuard.check_references(
+        db,
+        item=item,
+        type_code=type_code,
+        company_id=getattr(current_user, "company_id", None),
+    )
+    if blocker:
         raise HTTPException(
             status_code=409,
-            detail=(
-                f"Cannot delete {type_code} '{item.code}': it is linked to live "
-                f"{reference_reason}. Remove or retire those links first."
-            ),
+            detail=blocker,
         )
 
     setattr(item, "is_deleted", True)

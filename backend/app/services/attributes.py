@@ -220,6 +220,33 @@ class AttributesService:
                 detail=f"Attribute '{defn.label}' has stored product values. Deactivate it only after a data-retention review.",
             )
 
+        from ..models.item_master import Item, ItemVariant
+        from sqlalchemy import cast, String
+
+        item_ref = await self.db.scalar(
+            select(Item.id).where(
+                Item.is_deleted == False,
+                cast(Item.attributes_json, String).ilike(f'%"{defn.name}"%'),
+            ).limit(1)
+        )
+        if item_ref:
+            raise HTTPException(
+                status_code=409,
+                detail=f"Cannot delete attribute '{defn.label}': this attribute is still in use by Item Master records.",
+            )
+
+        variant_ref = await self.db.scalar(
+            select(ItemVariant.id).where(
+                ItemVariant.is_deleted == False,
+                cast(ItemVariant.attributes_json, String).ilike(f'%"{defn.name}"%'),
+            ).limit(1)
+        )
+        if variant_ref:
+            raise HTTPException(
+                status_code=409,
+                detail=f"Cannot delete attribute '{defn.label}': this attribute is still in use by Item Variant (SKU) records.",
+            )
+
         defn.is_deleted = True
         defn.is_active = False
         defn.deleted_at = datetime.now(timezone.utc)
@@ -280,6 +307,19 @@ class AttributesService:
         group = await self.db.get(AttributeGroup, id)
         if not group or group.is_deleted:
             raise HTTPException(status_code=404, detail="Attribute group not found")
+
+        template = await self.db.scalar(
+            select(VariantTemplate.id).where(
+                VariantTemplate.attribute_group_id == id,
+                VariantTemplate.is_deleted == False,
+            ).limit(1)
+        )
+        if template:
+            raise HTTPException(
+                status_code=409,
+                detail=f"Cannot delete attribute group '{group.name}': this group is still linked to active Variant Templates.",
+            )
+
         group.is_deleted = True
         group.is_active = False
         group.deleted_at = datetime.now(timezone.utc)

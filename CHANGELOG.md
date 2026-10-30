@@ -1,5 +1,30 @@
 <!--
 
+## [6.99.28] - 2026-10-30 - Catalog: Master Registry Hard Delete Guard & Active Reference Governance v6.99.1
+
+### Fixed
+- `backend/app/api/v1/master_lookup.py`:
+  - Replaced narrow `_master_value_reference_reason()` check with comprehensive `MasterValueDeleteGuard.check_references()`.
+  - Added reference safety guard to `delete_size_group` checking active SKUs, Items, and Attribute Groups.
+  - Enforced HTTP 409 Conflict with structured `SMRITI-VAL-003` payload including `linked_records` and `suggested_action`.
+- `backend/app/services/attributes.py`:
+  - Added active reference checks on `Item.attributes_json` and `ItemVariant.attributes_json` before deleting attribute definitions.
+  - Added active `VariantTemplate` reference guard before deleting attribute groups.
+
+### Added
+- `backend/app/services/master_delete_guard.py`:
+  - Implemented `MasterValueDeleteGuard` scanning across Universal Item Master (`items`), Universal Item Variants (`item_variants`), Universal Barcodes (`item_barcodes`), Legacy Catalog (`products`), Variant Templates (`variant_templates`), Size Groups (`size_groups`), Child Lookup Values, and Sales Orders.
+- `src/components/global/master/MasterListScreen.tsx`:
+  - Added interactive "Deletion Blocked: Active References Detected" modal rendering linked records, field associations, and suggested actions.
+- `backend/tests/test_master_lookup_delete_guard.py`:
+  - Comprehensive 9-test pytest suite covering all guard trigger points and API 409 response contracts.
+- `src/tests/masterLookupDeleteGuardUI.test.ts`:
+  - 5-test Vitest contract suite for UI modal states, reference enumeration, and action advice.
+- `docs/implementation/catalog/Master_Registry_Hard_Delete_Guard_Plan_v6.99.1.md`:
+  - Formal 19-section IPGP plan.
+- `docs/walkthrough/catalog/Master_Registry_Hard_Delete_Guard_v6.99.1.md`:
+  - Formal 13-section WGP walkthrough.
+
 ## [6.99.27] - 2026-10-30 - Foundation: Document Series & Studio Canonical Reconciliation & Numbering Audit Ledger v6.50.2
 
 ### Fixed
