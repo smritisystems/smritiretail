@@ -16,7 +16,7 @@ from typing import List, Dict, Any
 from fastapi import APIRouter, Depends, HTTPException, Body
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ...api.deps import get_db, get_current_user, require_role
+from ...api.deps import get_company_db, get_current_user, require_role
 from ...models.auth import User, UserRole
 from ...schemas.terms import (
     TermsClauseCreate, TermsClauseUpdate, TermsClauseResponse,
@@ -33,7 +33,7 @@ router = APIRouter()
     response_model=List[TermsClauseResponse],
 )
 async def list_clauses(
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     current_user: User = Depends(get_current_user),
 ):
     """
@@ -67,7 +67,7 @@ async def list_clauses(
 )
 async def create_clause(
     req: TermsClauseCreate,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     current_user: User = Depends(get_current_user),
 ):
     """
@@ -97,7 +97,7 @@ async def create_clause(
 async def update_clause(
     id: str,
     req: TermsClauseUpdate,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     current_user: User = Depends(get_current_user),
 ):
     """
@@ -132,7 +132,7 @@ async def update_clause(
 )
 async def delete_clause(
     id: str,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     current_user: User = Depends(get_current_user),
 ):
     """
@@ -150,7 +150,7 @@ async def delete_clause(
 async def approve_clause(
     id: str,
     comments: dict = Body({"comments": ""}),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     current_user: User = Depends(get_current_user),
 ):
     """
@@ -184,7 +184,7 @@ async def approve_clause(
 async def reject_clause(
     id: str,
     comments: dict = Body({"comments": ""}),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     current_user: User = Depends(get_current_user),
 ):
     """
@@ -216,7 +216,7 @@ async def reject_clause(
     response_model=List[TermsDefaultResponse],
 )
 async def list_defaults(
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     current_user: User = Depends(get_current_user),
 ):
     """
@@ -245,7 +245,7 @@ async def list_defaults(
 )
 async def save_default(
     req: TermsDefaultCreate,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     current_user: User = Depends(get_current_user),
 ):
     """
@@ -270,7 +270,7 @@ async def save_default(
 )
 async def resolve_terms(
     req: TermsResolveRequest,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     current_user: User = Depends(get_current_user),
 ):
     """
@@ -286,7 +286,7 @@ async def resolve_terms(
     dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))],
 )
 async def list_snapshots(
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     current_user: User = Depends(get_current_user),
 ):
     """
@@ -313,7 +313,7 @@ async def list_snapshots(
 async def get_snapshot(
     doc_type: str,
     doc_no: str,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     current_user: User = Depends(get_current_user),
 ):
     """
@@ -337,7 +337,7 @@ async def get_snapshot(
 )
 async def save_snapshot(
     req: TermsSnapshotCreate,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     current_user: User = Depends(get_current_user),
 ):
     """
@@ -360,7 +360,7 @@ async def save_snapshot(
     dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))],
 )
 async def list_logs(
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     current_user: User = Depends(get_current_user),
 ):
     """

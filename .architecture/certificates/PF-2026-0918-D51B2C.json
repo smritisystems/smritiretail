@@ -1,0 +1,15 @@
+{
+  "certificate_id": "PF-2026-0918-D51B2C",
+  "entity": "SALES",
+  "capability": "B2B_DISPATCH_INVOICING_STUDIO",
+  "asset_type": "REACT_COMPONENT",
+  "proposed_name": "DispatchInvoicingStudioTab.tsx",
+  "target_file_path": "src/components/sales/DispatchInvoicingStudioTab.tsx",
+  "decision": "APPROVED",
+  "canonical_owner": "src/components/sales/DispatchInvoicingStudioTab.tsx",
+  "content_hash": "89dc70657c35f4214c4bb9092f78b8931d7a7a04cb94a4e51269ca644a373e60",
+  "git_commit": "b247be0c03f3b1420c9bfa533db6a572345ea17a",
+  "issued_at": "2026-09-18T14:36:46.265191+00:00",
+  "expires_at": "2027-09-18T14:36:46.265191+00:00",
+  "status": "ISSUED"
+}

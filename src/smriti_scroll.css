@@ -43,7 +43,7 @@
 
 .custom-scrollbar:hover {
   scrollbar-width: thin; /* Show thin in Firefox on hover */
-  scrollbar-color: rgba(37, 99, 235, 0.4) transparent;
+  scrollbar-color: color-mix(in srgb, var(--c-theme-primary) 40%, transparent) transparent;
 }
 
 /* Scrollbar layout configuration */
@@ -66,12 +66,12 @@
 
 /* Fade-in scrollbar thumb on container hover */
 .custom-scrollbar:hover::-webkit-scrollbar-thumb {
-  background: rgba(37, 99, 235, 0.4);
+  background: color-mix(in srgb, var(--c-theme-primary) 40%, transparent);
 }
 
 /* Brighter thumb highlight when user hovers directly over the scrollbar itself */
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: rgba(37, 99, 235, 0.75) !important;
+  background: color-mix(in srgb, var(--c-theme-primary) 75%, transparent) !important;
 }
 
 /* Smooth, responsive animations for custom scrollbar overlay elements */

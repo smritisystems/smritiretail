@@ -12,14 +12,33 @@
  * Classification: Internal
  */
 
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { ProPosOfflineSyncEngine } from "../sync/ProPosOfflineSyncEngine";
 import * as apiFetchModule from "../lib/apiFetchV1";
 
+// Lightweight localStorage stub — satisfies ProPosOfflineSyncEngine.persistStorage()
+// which guards against `typeof localStorage === "undefined"`.
+function makeLocalStorageStub() {
+  const store: Record<string, string> = {};
+  return {
+    getItem:    (k: string) => store[k] ?? null,
+    setItem:    (k: string, v: string) => { store[k] = v; },
+    removeItem: (k: string) => { delete store[k]; },
+    clear:      () => { Object.keys(store).forEach((k) => delete store[k]); },
+    get length() { return Object.keys(store).length; },
+    key:        (i: number) => Object.keys(store)[i] ?? null,
+  };
+}
+
 describe("ProPOS Offline-First Sync Engine & Edge Resiliency", () => {
   beforeEach(() => {
+    vi.stubGlobal("localStorage", makeLocalStorageStub());
     ProPosOfflineSyncEngine.clearQueue();
     vi.restoreAllMocks();
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
   });
 
   it("STEP 1: should generate deterministic client transaction UUIDs", () => {

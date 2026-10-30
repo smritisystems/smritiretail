@@ -18,7 +18,7 @@ Founders
 
 from datetime import date
 from typing import List, Optional, Dict, Any
-from fastapi import APIRouter, Depends, Query, HTTPException, status, Response
+from fastapi import APIRouter, Depends, Query, HTTPException, status, Response, BackgroundTasks
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, insert, update
 
@@ -28,6 +28,7 @@ from ...schemas.reports import (
     DailySalesSummary,
     SupplierLedger,
     PurchaseSummaryLine,
+    PurchaseInwardRegisterReport,
     BillWiseSalesReport,
     ItemWiseSalesReport,
     TaxRegisterReport,
@@ -48,15 +49,30 @@ from ...schemas.reports import (
     OrderFulfillmentStatusReport,
     InvoiceAllocationReportModel,
     SalesOrderDetailReport,
+    InvoiceReconciliationReport,
+    UniversalReportEnvelope,
+    PreparedReportEnqueueRequest,
+    PreparedReportStatusResponse,
+    ReportBuilderResponse,
 )
 from ...schemas.report_schedule import ReportScheduleCreate, ReportScheduleResponse
+from ...schemas.visual_reports import VisualReportsSummaryResponse, DashboardConfigPayload
+from ...schemas.procurement_visual_reports import (
+    ProcurementReportsSummaryResponse,
+    ProcurementDashboardConfigPayload,
+)
 from ...services.reports import ReportsService
-from ...models.reporting import ReportDefinition, ReportSavedView, Dashboard, DashboardWidget
+from ...services.prepared_report_service import PreparedReportService
+from ...services.visual_reports_service import VisualReportsService
+from ...services.procurement_visual_reports_service import ProcurementVisualReportsService
+from ...models.reporting import ReportDefinition, ReportSavedView, Dashboard, DashboardWidget, PreparedReport
 
 router = APIRouter(prefix="/reports")
 
+
 # ─────────────────────────────────────────────────────────────────────────────
-# Studios Catalog — System metadata; stored as Python dict per approved design.
+# Presentation catalog for report studios. This includes operational report modules
+# beyond the governed contracts exposed by /api/v1/reporting/catalog.
 # ─────────────────────────────────────────────────────────────────────────────
 
 SMRITI_STUDIOS = {
@@ -65,19 +81,35 @@ SMRITI_STUDIOS = {
         "description": "Gross revenue, ticket size, payment modes, sales returns & salesperson indices.",
         "icon": "bar_chart",
         "reports": [
-            {"id": "RPT-SO-001", "code": "RPT-SO-001", "title": "Sales Order Summary",                 "description": "Consolidated order counts, total order values, and fulfillment overview across all sales orders.", "category": "Sales Orders",   "format": "Grid",   "owner": "System", "drillDownEnabled": True},
-            {"id": "RPT-SO-008", "code": "RPT-SO-008", "title": "Detailed Sales Orders Register",       "description": "Complete line-item breakdown with article, size, quantities, rates, discounts, GST, billed balance & multi-sheet Excel export.", "category": "Sales Orders", "format": "Matrix", "owner": "System", "drillDownEnabled": True},
-            {"id": "RPT-SO-009", "code": "RPT-SO-009", "title": "Fulfillment Variance & Backorder Tracker", "description": "Automated SLA aging buckets (0-7d, 8-14d, 15-30d, >30d), store shortages, and 1-click invoice conversion queue.", "category": "Sales Orders", "format": "Matrix", "owner": "System", "drillDownEnabled": True},
-            {"id": "RPT-SO-002", "code": "RPT-SO-002", "title": "Pending Orders",                     "description": "Active unfulfilled and partially fulfilled sales orders awaiting billing or shipment.", "category": "Sales Orders",   "format": "Grid",   "owner": "System", "drillDownEnabled": True},
-            {"id": "RPT-SO-003", "code": "RPT-SO-003", "title": "Billed vs Pending Orders",           "description": "Comparison breakdown of booked order value versus invoiced value and outstanding balances.", "category": "Sales Orders",   "format": "Matrix", "owner": "System", "drillDownEnabled": True},
-            {"id": "RPT-SO-004", "code": "RPT-SO-004", "title": "Customer-wise Orders",               "description": "Customer order aggregates, average order size, and fulfillment distribution by customer.", "category": "Sales Orders",   "format": "Pivot",  "owner": "System", "drillDownEnabled": True},
-            {"id": "RPT-SO-005", "code": "RPT-SO-005", "title": "Product-wise Ordered Quantity",       "description": "Ordered quantity, billed quantity, and pending quantity aggregated per product style and article.", "category": "Sales Orders", "format": "Grid", "owner": "System", "drillDownEnabled": True},
-            {"id": "RPT-SO-006", "code": "RPT-SO-006", "title": "Order Fulfillment Status",           "description": "Detailed fulfillment status tracking: Fully Billed, Partially Billed, and Unfulfilled orders.", "category": "Sales Orders", "format": "Grid", "owner": "System", "drillDownEnabled": True},
-            {"id": "RPT-SO-007", "code": "RPT-SO-007", "title": "Invoice Allocation Report",           "description": "Traceability link map between Sales Orders (Reliance POs) and Tax Invoices with billed vs pending quantities.", "category": "Sales Orders", "format": "Grid", "owner": "System", "drillDownEnabled": True},
             {"id": "RPT-SAL-001", "code": "RPT-SAL-001", "title": "Daily Sales Summary Register",     "description": "All completed cash, card, and UPI invoice records with aggregate revenue and average tickets.", "category": "Sales Summary",    "format": "Matrix", "owner": "System", "drillDownEnabled": True},
-            {"id": "RPT-SAL-002", "code": "RPT-SAL-002", "title": "Sales Returns & Credit Notes Log",  "description": "Detailed log of product returns, reason analyses, and credit notes issued.",                 "category": "Returns",         "format": "Grid",   "owner": "System", "drillDownEnabled": True},
+            {"id": "RPT-SAL-007", "code": "RPT-SAL-007", "title": "Day-wise Sales Register",          "description": "Day-by-day breakdown of invoices, quantities, amounts, and discount totals.",                "category": "Sales Summary",   "format": "Grid",   "owner": "System", "drillDownEnabled": True},
             {"id": "RPT-SAL-003", "code": "RPT-SAL-003", "title": "Top Selling Products Ledger",      "description": "Top performing items ranked by volume, revenue contributions, and margins.",                  "category": "Product Analysis","format": "Pivot",  "owner": "System", "drillDownEnabled": True},
+            {"id": "RPT-SAL-002", "code": "RPT-SAL-002", "title": "Sales Returns & Credit Notes Log",  "description": "Detailed log of product returns, reason analyses, and credit notes issued.",                 "category": "Returns",         "format": "Grid",   "owner": "System", "drillDownEnabled": True},
+            {"id": "RPT-SAL-014", "code": "RPT-SAL-014", "title": "Size-wise Sales Matrix",           "description": "Size-band pivot showing quantity sold and revenue per size across all products.",              "category": "Product Analysis","format": "Matrix", "owner": "System", "drillDownEnabled": True},
             {"id": "RPT-SAL-004", "code": "RPT-SAL-004", "title": "Salesperson Performance Index",    "description": "Individual sales staff conversions, target tracking, and commission calculations.",           "category": "Staff Analysis",  "format": "Grid",   "owner": "Admin",  "drillDownEnabled": False},
+            {"id": "RPT-SAL-008", "code": "RPT-SAL-008", "title": "Salesperson Sales Ledger",         "description": "Per-salesperson invoice register with individual amounts, discounts, and commissions.",       "category": "Staff Analysis",  "format": "Grid",   "owner": "Admin",  "drillDownEnabled": True},
+            {"id": "RPT-SAL-009", "code": "RPT-SAL-009", "title": "Salesperson Summary",              "description": "Aggregated totals per salesperson: invoice count, gross sales, net sales, discount given.",   "category": "Staff Analysis",  "format": "Grid",   "owner": "Admin",  "drillDownEnabled": False},
+            {"id": "RPT-SAL-010", "code": "RPT-SAL-010", "title": "Returned Bills Register",          "description": "All sales returns and credit notes with original invoice reference and return reason.",       "category": "Returns",         "format": "Grid",   "owner": "System", "drillDownEnabled": True},
+            {"id": "RPT-SAL-011", "code": "RPT-SAL-011", "title": "Node-wise (Store-wise) Sales",     "description": "Branch or POS node breakdown of invoices, quantities, and net revenue.",                     "category": "Store Analysis",  "format": "Grid",   "owner": "System", "drillDownEnabled": True},
+            {"id": "RPT-SAL-013", "code": "RPT-SAL-013", "title": "Bill-wise Items Detail (Live)",    "description": "Real-time expanded view of each invoice line with barcode, HSN, qty, rate, and net.",         "category": "Sales Detail",    "format": "Grid",   "owner": "System", "drillDownEnabled": False},
+            {"id": "RPT-SAL-015", "code": "RPT-SAL-015", "title": "Item-wise Returns (Live)",         "description": "Product-level return register: quantity, value, and reason codes for all return transactions.","category": "Returns",         "format": "Grid",   "owner": "System", "drillDownEnabled": True},
+            {"id": "RPT-SO-001", "code": "RPT-SO-001", "title": "Sales Order Summary (Wholesale)",     "description": "Consolidated order counts, total order values, and fulfillment overview across wholesale orders.", "category": "Wholesale Orders (B2B)", "format": "Grid", "owner": "System", "drillDownEnabled": True},
+            {"id": "RPT-SO-008", "code": "RPT-SO-008", "title": "Detailed Sales Orders Register (B2B)","description": "Complete line-item breakdown with article, size, quantities, rates, discounts, GST, billed balance.", "category": "Wholesale Orders (B2B)", "format": "Matrix", "owner": "System", "drillDownEnabled": True},
+            {"id": "RPT-SO-009", "code": "RPT-SO-009", "title": "Fulfillment Variance & Backorder Tracker", "description": "Automated SLA aging buckets, store shortages, and 1-click invoice conversion queue.", "category": "Wholesale Orders (B2B)", "format": "Matrix", "owner": "System", "drillDownEnabled": True},
+            {"id": "RPT-SO-002", "code": "RPT-SO-002", "title": "Pending Wholesale Orders",          "description": "Active unfulfilled and partially fulfilled sales orders awaiting billing or shipment.", "category": "Wholesale Orders (B2B)", "format": "Grid", "owner": "System", "drillDownEnabled": True},
+            {"id": "RPT-SO-003", "code": "RPT-SO-003", "title": "Billed vs Pending Orders",           "description": "Comparison breakdown of booked order value versus invoiced value and outstanding balances.", "category": "Wholesale Orders (B2B)", "format": "Matrix", "owner": "System", "drillDownEnabled": True},
+            {"id": "RPT-SO-004", "code": "RPT-SO-004", "title": "Customer-wise Wholesale Orders",     "description": "Customer order aggregates, average order size, and fulfillment distribution by customer.", "category": "Wholesale Orders (B2B)", "format": "Pivot", "owner": "System", "drillDownEnabled": True},
+            {"id": "RPT-SO-005", "code": "RPT-SO-005", "title": "Product-wise Ordered Quantity",       "description": "Ordered quantity, billed quantity, and pending quantity aggregated per product style and article.", "category": "Wholesale Orders (B2B)", "format": "Grid", "owner": "System", "drillDownEnabled": True},
+            {"id": "RPT-SO-006", "code": "RPT-SO-006", "title": "Order Fulfillment Status",           "description": "Detailed fulfillment status tracking: Fully Billed, Partially Billed, and Unfulfilled orders.", "category": "Wholesale Orders (B2B)", "format": "Grid", "owner": "System", "drillDownEnabled": True},
+            {"id": "RPT-SO-007", "code": "RPT-SO-007", "title": "Invoice Allocation Report",           "description": "Traceability link map between Sales Orders (Reliance POs) and Tax Invoices with billed vs pending quantities.", "category": "Wholesale Orders (B2B)", "format": "Grid", "owner": "System", "drillDownEnabled": True},
+        ],
+    },
+    "finance_studio": {
+        "name": "Finance & P&L Studio",
+        "description": "Daily P&L dashboard, gross margin tracking, discount analysis, and tax collection summary.",
+        "icon": "analytics",
+        "reports": [
+            {"id": "RPT-FIN-003", "code": "RPT-FIN-003", "title": "P&L Dashboard",                   "description": "Daily sales P&L: total revenue, gross margin, discount given, tax collected, average basket.", "category": "Profitability",   "format": "Grid",   "owner": "Admin",  "drillDownEnabled": False},
         ],
     },
     "purchase_studio": {
@@ -85,8 +117,13 @@ SMRITI_STUDIOS = {
         "description": "Supplier ledger, GRN register, PO outstanding, and payment tracking.",
         "icon": "inventory_2",
         "reports": [
-            {"id": "RPT-PUR-001", "code": "RPT-PUR-001", "title": "Purchase Summary Register",         "description": "Per-supplier breakdown of PO count, GRN count, ordered and received amounts.",             "category": "Purchase Summary","format": "Grid",   "owner": "System", "drillDownEnabled": True},
+            {"id": "RPT-PUR-001", "code": "RPT-PUR-001", "title": "Purchase Inward Register (GRN)",   "description": "Supplier inward receipts, delivery terms (Door vs Ex-Factory), transporter LR, landed cost, and GST.", "category": "Purchase Register", "format": "Grid", "owner": "System", "drillDownEnabled": True},
             {"id": "RPT-PUR-002", "code": "RPT-PUR-002", "title": "Supplier Ledger",                  "description": "Chronological debit/credit ledger for a supplier with running balance.",                    "category": "Supplier",        "format": "Grid",   "owner": "System", "drillDownEnabled": True},
+            {"id": "RPT-PUR-003", "code": "RPT-PUR-003", "title": "Pending Delivery (Open PO) Register", "description": "Confirmed purchase orders awaiting inward receiving (GRN) with order dates and supplier details.", "category": "Procurement Tracking", "format": "Grid", "owner": "System", "drillDownEnabled": True},
+            {"id": "RPT-PUR-004", "code": "RPT-PUR-004", "title": "Supplier Outstanding & Exposure Report", "description": "Supplier-wise pending commitments, booked liabilities, and open order exposure.", "category": "Supplier Exposure", "format": "Grid", "owner": "System", "drillDownEnabled": True},
+            {"id": "RPT-PUR-005", "code": "RPT-PUR-005", "title": "Pending Purchase Requisitions Register", "description": "Store and department purchase indents pending review and management approval.", "category": "Requisition", "format": "Grid", "owner": "System", "drillDownEnabled": True},
+            {"id": "RPT-PUR-006", "code": "RPT-PUR-006", "title": "Requisition-to-PO Conversion & Tracking", "description": "Audit traceability of approved requisitions through to purchase order creation and fulfillment.", "category": "Requisition Tracking", "format": "Grid", "owner": "System", "drillDownEnabled": True},
+            {"id": "RPT-PUR-007", "code": "RPT-PUR-007", "title": "Supplier RFQ & Quotation Comparison Register", "description": "Comparative analysis of multi-supplier quotations, landed costs, and awarded bids.", "category": "Quotation Comparison", "format": "Grid", "owner": "System", "drillDownEnabled": True},
         ],
     },
     "inventory_studio": {
@@ -94,7 +131,14 @@ SMRITI_STUDIOS = {
         "description": "Stock valuation, movement register, low-stock alerts, and expiry tracking.",
         "icon": "warehouse",
         "reports": [
-            {"id": "RPT-INV-001", "code": "RPT-INV-001", "title": "Stock Valuation Report",            "description": "Current stock × cost price for every active product — inventory asset valuation.",        "category": "Valuation",       "format": "Grid",   "owner": "System", "drillDownEnabled": False},
+            {"id": "RPT-INV-001", "code": "RPT-INV-001", "title": "Stock Balance & Valuation",          "description": "Authoritative on-hand from batch and movement ledgers with inventory valuation.",             "category": "Valuation",       "format": "Grid",   "owner": "System", "drillDownEnabled": False},
+            {"id": "RPT-INV-002", "code": "RPT-INV-002", "title": "Stock Movement Register",            "description": "Signed, transaction-level stock inflows and outflows with totals by movement type.",           "category": "Stock Movement",  "format": "Grid",   "owner": "System", "drillDownEnabled": True},
+            {"id": "RPT-INV-003", "code": "RPT-INV-003", "title": "Stock Availability & Reorder",       "description": "Current authoritative on-hand stock, reorder levels, and low-stock status.",                  "category": "Availability",    "format": "Grid",   "owner": "System", "drillDownEnabled": False},
+            {"id": "RPT-INV-004", "code": "RPT-INV-004", "title": "Stock Aging Summary",                "description": "Current or as-of stock quantities aged from their latest inward movement.",                     "category": "Stock Aging",     "format": "Grid",   "owner": "System", "drillDownEnabled": False},
+            {"id": "RPT-INV-005", "code": "RPT-INV-005", "title": "Goods Register by Document",         "description": "Inward and outward goods transactions grouped by source document.",                             "category": "Goods Register",  "format": "Grid",   "owner": "System", "drillDownEnabled": True},
+            {"id": "RPT-INV-006", "code": "RPT-INV-006", "title": "Goods Register by Item",             "description": "Signed stock inflows, outflows, and net movement summarized by product.",                        "category": "Goods Register",  "format": "Grid",   "owner": "System", "drillDownEnabled": True},
+            {"id": "RPT-INV-007", "code": "RPT-INV-007", "title": "Sales Returns & Voids Register",     "description": "Sales returns, credit notes, and void transaction records for the selected period.",            "category": "Returns",         "format": "Grid",   "owner": "System", "drillDownEnabled": True},
+            {"id": "RPT-INV-008", "code": "RPT-INV-008", "title": "Stock Adjustments & Discrepancies", "description": "Approved and pending adjustment quantities and value impact.",                                  "category": "Adjustments",     "format": "Grid",   "owner": "System", "drillDownEnabled": True},
         ],
     },
     "profitability_studio": {
@@ -117,6 +161,7 @@ SMRITI_STUDIOS = {
             {"id": "RPT-TAX-004", "code": "RPT-TAX-004", "title": "Cancelled Bills",          "description": "All voided/cancelled invoices with cancellation reason and operator.",                         "category": "Audit",          "format": "Grid",   "owner": "Admin",  "drillDownEnabled": False, "sh9_exe": "SR210200"},
             {"id": "RPT-TAX-005", "code": "RPT-TAX-005", "title": "Bill-wise Items Detail",   "description": "Each invoice line expanded: product, barcode, HSN, qty, rate, discount, net.",                "category": "Sales Detail",   "format": "Grid",   "owner": "System", "drillDownEnabled": False, "sh9_exe": "SR202000"},
             {"id": "RPT-TAX-006", "code": "RPT-TAX-006", "title": "Statutory GST Tax Invoices Master Register", "description": "Complete statutory audit ledger of all tax invoices with buyer & seller GSTINs, Place of Supply, RCM, E-Way Bill, full billing/shipping addresses, round-off, and amount in words.", "category": "Tax & Compliance", "format": "Grid", "owner": "System", "drillDownEnabled": True},
+            {"id": "RPT-TAX-007", "code": "RPT-TAX-007", "title": "Historical Invoice GST Reconciliation", "description": "Read-only review of bills 18–137 for GST, store, PO, and historical snapshot gaps. Never changes posted invoice stock or values.", "category": "Tax & Compliance", "format": "Grid", "owner": "Admin", "drillDownEnabled": False},
         ],
     },
     # ── P2 Sprint 8a: MIS & Analytics ── SR203700/SR203900/SR215600/SR216000/SR238400
@@ -171,13 +216,33 @@ SMRITI_STUDIOS = {
             {"id": "RPT-OPS-006", "code": "RPT-OPS-006", "title": "Store-Wise SIS Tax Register", "description": "Consolidated store-by-store sales, units, and GST distribution across all SIS store locations.", "category": "Operations", "format": "Grid", "owner": "System", "drillDownEnabled": True},
         ],
     },
+    # ── Phase 1D / 1D.1: MIS Accounts Summary ── RPT-ACCT-001
+    "accounting_studio": {
+        "name": "Accounts Summary Studio",
+        "description": "Monthly financial position — sales revenue, purchase value, returns, net position, and quantity movement (units sold, returned, purchased).",
+        "icon": "account_balance",
+        "reports": [
+            {
+                "id":               "RPT-ACCT-001",
+                "code":             "RPT-ACCT-001",
+                "title":            "Monthly Accounts Summary",
+                "description":      "Period-wise (monthly) consolidated view of sales revenue, sales returns, net sales, purchase value, purchase bills payable, net position, and quantity metrics (sold, returned, purchased). Defaults to the previous calendar month; select any year/month to query historical periods.",
+                "category":         "Accounts Summary",
+                "format":           "Matrix",
+                "owner":            "System",
+                "drillDownEnabled": False,
+                "phase":            "1D.1",
+                "schema_version":   "2.0",
+            },
+        ],
+    },
 }
 
 @router.get("/studios")
 async def get_report_studios(
     current_user=Depends(get_current_user),
 ):
-    """List all report studios with their registered report catalog."""
+    """List presentation studios and report modules for the BI Center."""
     return {"studios": SMRITI_STUDIOS}
 
 @router.get("/stock-valuation", response_model=StockValuationReport)
@@ -212,16 +277,121 @@ async def purchase_summary(
 ):
     return await ReportsService(db, tenant).purchase_summary(from_date, to_date)
 
-@router.get("/studios")
-async def list_studios(
-    current_user=Depends(get_current_user),
+@router.get("/purchase-inward-register", response_model=PurchaseInwardRegisterReport)
+async def purchase_inward_register(
+    from_date: Optional[date] = Query(default=None, description="Start date (YYYY-MM-DD)"),
+    to_date:   Optional[date] = Query(default=None, description="End date (YYYY-MM-DD)"),
+    supplier_id: Optional[str] = Query(default=None, description="Filter by Supplier ID"),
+    branch_id: Optional[str] = Query(default=None, description="Filter by Branch ID"),
+    tenant: TenantContext = Depends(get_tenant_context),
+    db: AsyncSession = Depends(get_company_db),
 ):
-    return {
-        "studios": SMRITI_STUDIOS,
-        "total_studios": len(SMRITI_STUDIOS),
-        "total_reports": sum(len(s["reports"]) for s in SMRITI_STUDIOS.values()),
-        "policyEnforcement": "SMRITI Rule 10 Non-Repudiation Schema Active",
-    }
+    """RPT-PUR-001: Itemized Purchase Inward Register (GRN Detailed Line Items)."""
+    return await ReportsService(db, tenant).purchase_inward_register(
+        from_date=from_date,
+        to_date=to_date,
+        supplier_id=supplier_id,
+        branch_id=branch_id,
+    )
+
+@router.get("/pending-delivery")
+async def pending_delivery_report(
+    tenant: TenantContext = Depends(get_tenant_context),
+    db: AsyncSession = Depends(get_company_db),
+):
+    """Confirmed purchase orders awaiting inward receiving (GRN)."""
+    from ...services.purchase import PurchaseService
+    return await PurchaseService(db, tenant).get_pending_delivery_pos()
+
+@router.get("/supplier-outstanding")
+async def supplier_outstanding_report(
+    tenant: TenantContext = Depends(get_tenant_context),
+    db: AsyncSession = Depends(get_company_db),
+):
+    """Supplier-wise pending commitments, booked liabilities, and open order exposure."""
+    from ...services.purchase import PurchaseService
+    return await PurchaseService(db, tenant).get_outstanding_suppliers()
+
+@router.get("/pending-requisitions")
+async def pending_requisitions_report(
+    tenant: TenantContext = Depends(get_tenant_context),
+    db: AsyncSession = Depends(get_company_db),
+):
+    """Store and department purchase indents pending review and management approval."""
+    from ...services.procurement_phase2 import ProcurementPhase2Service
+    reqs = await ProcurementPhase2Service(db, tenant).list_requisitions()
+    return [
+        {
+            "id": r.id,
+            "requisition_no": r.requisition_no,
+            "requisition_date": str(r.requisition_date),
+            "required_by_date": str(r.required_by_date),
+            "department": r.department or "General",
+            "priority": r.priority,
+            "status": r.status,
+            "estimated_total": float(r.estimated_total),
+            "approved_total": float(r.approved_total),
+            "items_count": len(r.items),
+            "justification": r.justification,
+        }
+        for r in reqs
+        if r.status in ("DRAFT", "SUBMITTED", "APPROVED")
+    ]
+
+@router.get("/requisition-conversion-tracking")
+async def requisition_conversion_tracking_report(
+    tenant: TenantContext = Depends(get_tenant_context),
+    db: AsyncSession = Depends(get_company_db),
+):
+    """Audit traceability of approved requisitions through to purchase order creation."""
+    from ...services.procurement_phase2 import ProcurementPhase2Service
+    reqs = await ProcurementPhase2Service(db, tenant).list_requisitions()
+    rows = []
+    for r in reqs:
+        for it in r.items:
+            rows.append({
+                "requisition_no": r.requisition_no,
+                "department": r.department or "General",
+                "status": r.status,
+                "po_no": r.po_no or "—",
+                "item_code": it.code,
+                "item_name": it.name,
+                "quantity_requested": float(it.quantity_requested),
+                "quantity_approved": float(it.quantity_approved),
+                "quantity_ordered": float(it.quantity_ordered),
+                "fulfillment_percent": round((float(it.quantity_ordered) / float(it.quantity_approved) * 100), 1) if it.quantity_approved > 0 else 0.0,
+            })
+    return rows
+
+@router.get("/rfq-quotation-register")
+async def rfq_quotation_register_report(
+    tenant: TenantContext = Depends(get_tenant_context),
+    db: AsyncSession = Depends(get_company_db),
+):
+    """Comparative analysis of multi-supplier quotations and awarded bids."""
+    from ...services.procurement_phase2 import ProcurementPhase2Service
+    service = ProcurementPhase2Service(db, tenant)
+    quotes = await service.list_quotations()
+    return [
+        {
+            "quotation_no": q.quotation_no,
+            "rfq_id": q.rfq_id or "Direct",
+            "supplier_name": q.supplier.name if q.supplier else q.supplier_id,
+            "quotation_date": str(q.quotation_date),
+            "valid_until": str(q.valid_until),
+            "status": q.status,
+            "payment_terms": q.payment_terms or "Standard",
+            "delivery_timeline": q.delivery_timeline or "Standard",
+            "subtotal": float(q.subtotal),
+            "tax_total": float(q.tax_total),
+            "freight_charges": float(q.freight_charges),
+            "total_landed_cost": float(q.total_landed_cost),
+            "po_no": q.po_no or "—",
+            "selection_justification": q.selection_justification or "—",
+        }
+        for q in quotes
+    ]
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Sprint 8a P1 Endpoints — Tax & Compliance (Shoper9 parity: SR202300/202400/202200/210200/202000)
@@ -334,13 +504,30 @@ async def tax_invoices_master_register(
     bill_from: Optional[int] = Query(default=None, description="Starting Bill Number"),
     bill_to:   Optional[int] = Query(default=None, description="Ending Bill Number"),
     status:    Optional[str] = Query(default=None, description="Status filter (COMPLETED/CANCELLED)"),
+    include_archived: bool = Query(default=True, description="Include archived invoice history"),
     tenant: TenantContext = Depends(get_tenant_context),
     db: AsyncSession = Depends(get_company_db),
     current_user=Depends(get_current_user),
 ):
     """RPT-TAX-006 — Statutory GST Tax Invoices Master Register."""
     return await ReportsService(db, tenant).tax_invoices_master_register(
-        from_date=from_date, to_date=to_date, bill_from=bill_from, bill_to=bill_to, status_filter=status
+        from_date=from_date, to_date=to_date, bill_from=bill_from, bill_to=bill_to, status_filter=status,
+        include_archived=include_archived,
+    )
+
+
+@router.get("/invoice-reconciliation", response_model=InvoiceReconciliationReport)
+async def invoice_reconciliation(
+    bill_from: int = Query(18, ge=0, description="Starting TT2026-2027 bill number"),
+    bill_to: int = Query(137, ge=0, description="Ending TT2026-2027 bill number"),
+    include_archived: bool = Query(True, description="Include cancelled/archived invoice history"),
+    tenant: TenantContext = Depends(get_tenant_context),
+    db: AsyncSession = Depends(get_company_db),
+    current_user=Depends(get_current_user),
+):
+    """Read-only historical GST/location reconciliation; posted invoices are never mutated."""
+    return await ReportsService(db, tenant).invoice_reconciliation(
+        bill_from=bill_from, bill_to=bill_to, include_archived=include_archived
     )
 
 
@@ -379,13 +566,15 @@ async def export_tax_invoices_excel(
     bill_from: Optional[int] = Query(default=None, description="Starting Bill Number"),
     bill_to:   Optional[int] = Query(default=None, description="Ending Bill Number"),
     status:    Optional[str] = Query(default=None, description="Status filter"),
+    include_archived: bool = Query(default=True, description="Include archived invoice history"),
     tenant: TenantContext = Depends(get_tenant_context),
     db: AsyncSession = Depends(get_company_db),
     current_user=Depends(get_current_user),
 ):
     """Direct Excel export of Statutory GST Tax Invoices Master Workbook."""
     excel_bytes = await ReportsService(db, tenant).export_tax_invoices_master_excel(
-        from_date=from_date, to_date=to_date, bill_from=bill_from, bill_to=bill_to, status=status
+        from_date=from_date, to_date=to_date, bill_from=bill_from, bill_to=bill_to, status=status,
+        include_archived=include_archived,
     )
     filename = f"Tax_Invoices_Master_Report_{date.today().strftime('%Y%m%d')}.xlsx"
     return Response(
@@ -601,7 +790,7 @@ async def get_sales_order_fulfillment_variance(
 
 @router.get("/definitions")
 async def list_report_definitions(
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     current_user=Depends(get_current_user),
 ):
     """List all available report definitions."""
@@ -612,7 +801,7 @@ async def list_report_definitions(
 @router.post("/definitions", status_code=status.HTTP_201_CREATED)
 async def create_report_definition(
     payload: Dict[str, Any],
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     current_user=Depends(get_current_user),
 ):
     """Create a new custom report definition via Report Studio."""
@@ -638,7 +827,7 @@ async def create_report_definition(
 
 @router.get("/dashboards")
 async def list_dashboards(
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     current_user=Depends(get_current_user),
 ):
     """List available system and custom dashboards."""
@@ -649,7 +838,7 @@ async def list_dashboards(
 @router.get("/dashboards/{dashboard_id}")
 async def get_dashboard_detail(
     dashboard_id: str,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     current_user=Depends(get_current_user),
 ):
     """Get dashboard detail with composed widgets."""
@@ -669,7 +858,7 @@ async def get_dashboard_detail(
 @router.post("/dashboards", status_code=status.HTTP_201_CREATED)
 async def create_dashboard(
     payload: Dict[str, Any],
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     current_user=Depends(get_current_user),
 ):
     """Create custom Dashboard in Dashboard Manager."""
@@ -694,7 +883,7 @@ async def create_dashboard(
 @router.get("/schedules", response_model=List[ReportScheduleResponse])
 async def list_report_schedules(
     tenant: TenantContext = Depends(get_tenant_context),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     current_user=Depends(get_current_user),
 ):
     if current_user.role not in ("SYSADMIN", "ADMIN", "MANAGER", "Report User"):
@@ -705,7 +894,7 @@ async def list_report_schedules(
 async def create_report_schedule(
     payload: ReportScheduleCreate,
     tenant: TenantContext = Depends(get_tenant_context),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     current_user=Depends(get_current_user),
 ):
     if current_user.role == "Report User":
@@ -721,9 +910,285 @@ async def create_report_schedule(
 async def delete_report_schedule(
     schedule_id: str,
     tenant: TenantContext = Depends(get_tenant_context),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     current_user=Depends(get_current_user),
 ):
     if current_user.role not in ("SYSADMIN", "ADMIN", "MANAGER"):
         raise HTTPException(status_code=403, detail="Access Denied: MANAGER role or above required.")
     await ReportsService(db, tenant).delete_schedule(schedule_id)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Universal Standard 5-Tuple Report Endpoint
+# ─────────────────────────────────────────────────────────────────────────────
+
+@router.get("/universal/{report_id}", response_model=UniversalReportEnvelope)
+async def get_universal_report(
+    report_id: str,
+    from_date: Optional[date] = Query(default=None, description="Start date YYYY-MM-DD"),
+    to_date: Optional[date] = Query(default=None, description="End date YYYY-MM-DD"),
+    branch_id: Optional[str] = Query(default=None, description="Branch/Store filter"),
+    year: Optional[int] = Query(default=None, ge=2000, le=2100, description="Period year (RPT-ACCT-001)"),
+    month: Optional[int] = Query(default=None, ge=1, le=12, description="Period month 1-12 (RPT-ACCT-001)"),
+    tenant: TenantContext = Depends(get_tenant_context),
+    db: AsyncSession = Depends(get_company_db),
+    current_user=Depends(get_current_user),
+):
+    """
+    Standardized 5-tuple report contract:
+    Returns (columns, rows, summary_cards, chart_config, system_message)
+    Bridging CANONICAL_REPORT_REGISTRY and ReportsService.
+    """
+    if (year is None) != (month is None):
+        raise HTTPException(
+            status_code=422,
+            detail="Please select both a year and a month for the report period, or leave both empty to use the previous month.",
+        )
+    period_kwargs = {"year": year, "month": month} if year is not None else {}
+    return await ReportsService(db, tenant).get_universal_report_envelope(
+        report_id=report_id,
+        from_date=from_date,
+        to_date=to_date,
+        branch_id=branch_id,
+        **period_kwargs,
+    )
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Asynchronous Prepared Reports Engine (Frappe/ERPNext Pattern)
+# ─────────────────────────────────────────────────────────────────────────────
+
+@router.post("/prepared/enqueue", response_model=PreparedReportStatusResponse)
+async def enqueue_prepared_report(
+    payload: PreparedReportEnqueueRequest,
+    background_tasks: BackgroundTasks,
+    tenant: TenantContext = Depends(get_tenant_context),
+    db: AsyncSession = Depends(get_company_db),
+    current_user=Depends(get_current_user),
+):
+    """
+    Enqueues heavy report for asynchronous execution in background worker pool.
+    Returns immediately with task_id or cached hit if identical parameters were run within TTL.
+    """
+    user_id = current_user.id if hasattr(current_user, "id") else None
+    task, is_cached = await PreparedReportService.enqueue_prepared_report(
+        db=db,
+        tenant_ctx=tenant,
+        payload=payload,
+        requested_by_id=user_id,
+    )
+
+    if not is_cached:
+        # Enqueue background execution task
+        background_tasks.add_task(PreparedReportService.execute_task_background, task.id, db, tenant)
+
+    status_res = await PreparedReportService.get_task_status(db, task.id)
+    if not status_res:
+        raise HTTPException(status_code=500, detail="Failed to retrieve task status.")
+    status_res.is_cached_hit = is_cached
+    return status_res
+
+
+@router.get("/prepared/{task_id}/status", response_model=PreparedReportStatusResponse)
+async def get_prepared_report_status(
+    task_id: str,
+    db: AsyncSession = Depends(get_company_db),
+    current_user=Depends(get_current_user),
+):
+    """Polls status, progress, row counts, and forensic SHA-256 hash for a prepared report task."""
+    res = await PreparedReportService.get_task_status(db, task_id)
+    if not res:
+        raise HTTPException(status_code=404, detail=f"Prepared report task '{task_id}' not found.")
+    return res
+
+
+@router.get("/prepared/{task_id}/download")
+async def download_prepared_report(
+    task_id: str,
+    db: AsyncSession = Depends(get_company_db),
+    current_user=Depends(get_current_user),
+):
+    """Streams the completed binary artifact (.xlsx, .csv, .pdf) sealed in the Statutory Vault."""
+    try:
+        content, filename, media_type = await PreparedReportService.get_artifact_stream(db, task_id)
+        return Response(
+            content=content,
+            media_type=media_type,
+            headers={"Content-Disposition": f"attachment; filename={filename}"}
+        )
+    except ValueError as ve:
+        raise HTTPException(status_code=400, detail=str(ve))
+    except FileNotFoundError as fe:
+        raise HTTPException(status_code=404, detail=str(fe))
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Visual Reports Dashboard Endpoints
+# ─────────────────────────────────────────────────────────────────────────────
+
+@router.get("/visual-dashboard/summary", response_model=VisualReportsSummaryResponse, summary="Get Visual Reports Dashboard Data")
+async def get_visual_dashboard_summary(
+    start_date: Optional[date] = Query(None, description="Start date (YYYY-MM-DD)"),
+    end_date: Optional[date] = Query(None, description="End date (YYYY-MM-DD)"),
+    store_location_id: Optional[str] = Query(None, description="Store or Location ID"),
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+    current_user=Depends(get_current_user),
+):
+    """
+    Returns consolidated visual reporting metrics including 6 KPI cards,
+    14-day stock flow timeline, 4-stage workflow progress, stock positions by category,
+    top 10 reserved SKUs, packing slip donut breakdown, dispatch & invoice summary,
+    and the active fulfillment stream feed.
+    """
+    return await VisualReportsService.get_dashboard_summary(
+        session=db,
+        company_id=tenant_ctx.company_id,
+        start_date=start_date,
+        end_date=end_date,
+        store_location_id=store_location_id,
+    )
+
+
+@router.get("/visual-dashboard/config", response_model=DashboardConfigPayload, summary="Get Visual Dashboard Configuration")
+async def get_visual_dashboard_config(
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+    current_user=Depends(get_current_user),
+):
+    """Returns saved dashboard view configuration preferences."""
+    return await VisualReportsService.get_saved_config(session=db, company_id=tenant_ctx.company_id)
+
+
+@router.post("/visual-dashboard/config", response_model=DashboardConfigPayload, summary="Save Visual Dashboard Configuration")
+async def save_visual_dashboard_config(
+    payload: DashboardConfigPayload,
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+    current_user=Depends(get_current_user),
+):
+    """Persists visual dashboard view configuration preferences."""
+    user_id = getattr(current_user, "id", None) or (current_user.get("sub") if isinstance(current_user, dict) else "usr-system")
+    return await VisualReportsService.save_config(
+        session=db,
+        company_id=tenant_ctx.company_id,
+        user_id=user_id,
+        config=payload,
+    )
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Procurement Visual Reports Dashboard Endpoints
+# ─────────────────────────────────────────────────────────────────────────────
+
+@router.get("/procurement-dashboard/summary", response_model=ProcurementReportsSummaryResponse, summary="Get Procurement Visual Dashboard Data")
+async def get_procurement_dashboard_summary(
+    company_id: Optional[str] = Query(None, description="Company ID override"),
+    start_date: Optional[date] = Query(None, description="Start date (YYYY-MM-DD)"),
+    end_date: Optional[date] = Query(None, description="End date (YYYY-MM-DD)"),
+    store_location_id: Optional[str] = Query(None, description="Store or Location ID"),
+    articles: Optional[List[str]] = Query(None, description="Filter by Article / Style"),
+    colors: Optional[List[str]] = Query(None, description="Filter by Color"),
+    sizes: Optional[List[str]] = Query(None, description="Filter by Size"),
+    supplier_id: Optional[str] = Query(None, description="Filter by Supplier ID"),
+    category: Optional[str] = Query(None, description="Filter by Category"),
+    brand: Optional[str] = Query(None, description="Filter by Brand"),
+    season: Optional[str] = Query(None, description="Filter by Season"),
+    top_n: Optional[int] = Query(10, description="Top N limit for ranking"),
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+    current_user=Depends(get_current_user),
+):
+    """
+    Returns consolidated visual procurement reporting metrics including 6 KPI cards,
+    Purchase Spend Trend by Article, Purchase-to-Receipt Progress, Top Suppliers by Spend,
+    Purchase Order Status donut, Low Stock Reorder Alerts by Article/Color/Size, Supplier Performance,
+    Spend by Color, Order vs Receipt by Size, Article-Color Heatmap, Lead Time vs Value Scatter,
+    Open POs & Pending Receipts, and Active Procurement Stream.
+    """
+    target_company_id = company_id or tenant_ctx.company_id
+    return await ProcurementVisualReportsService.get_dashboard_summary(
+        session=db,
+        company_id=target_company_id,
+        start_date=start_date,
+        end_date=end_date,
+        store_location_id=store_location_id,
+        articles=articles,
+        colors=colors,
+        sizes=sizes,
+        supplier_id=supplier_id,
+        category=category,
+        brand=brand,
+        season=season,
+        top_n=top_n or 10,
+    )
+
+
+@router.get("/procurement-dashboard/config", response_model=ProcurementDashboardConfigPayload, summary="Get Procurement Dashboard Configuration")
+async def get_procurement_dashboard_config(
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+    current_user=Depends(get_current_user),
+):
+    """Returns saved procurement dashboard view configuration preferences."""
+    return await ProcurementVisualReportsService.get_saved_config(session=db, company_id=tenant_ctx.company_id)
+
+
+@router.post("/procurement-dashboard/config", response_model=ProcurementDashboardConfigPayload, summary="Save Procurement Dashboard Configuration")
+async def save_procurement_dashboard_config(
+    payload: ProcurementDashboardConfigPayload,
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+    current_user=Depends(get_current_user),
+):
+    """Persists procurement dashboard view configuration preferences."""
+    user_id = getattr(current_user, "id", None) or (current_user.get("sub") if isinstance(current_user, dict) else "usr-system")
+    return await ProcurementVisualReportsService.save_config(
+        session=db,
+        company_id=tenant_ctx.company_id,
+        user_id=user_id,
+        config=payload,
+    )
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Dynamic Report Builder Live Query Endpoint
+# ─────────────────────────────────────────────────────────────────────────────
+
+@router.get("/builder/query", response_model=ReportBuilderResponse, summary="Query Live Data for SMRITI Report Builder")
+async def query_report_builder(
+    category: Optional[str] = Query("Purchase", description="Domain category (Purchase, Sales, Items, Inventory, Suppliers, Customers, Finance)"),
+    consolidation_mode: Optional[str] = Query("auto", description="Consolidation mode: auto, detailed, or groupby"),
+    selected_columns: Optional[str] = Query(None, description="Comma-separated column keys to drive dynamic consolidation"),
+    group_by_columns: Optional[str] = Query(None, description="Comma-separated explicit grouping dimension keys"),
+    start_date: Optional[date] = Query(None, description="Filter by start date (YYYY-MM-DD)"),
+    end_date: Optional[date] = Query(None, description="Filter by end date (YYYY-MM-DD)"),
+    branch_id: Optional[str] = Query(None, description="Filter by branch"),
+    search: Optional[str] = Query(None, description="Search term across entities"),
+    sort_field: Optional[str] = Query("supplier", description="Field to sort by"),
+    sort_direction: Optional[str] = Query("asc", description="Sort direction (asc/desc)"),
+    limit: Optional[int] = Query(100, ge=1, le=1000, description="Max rows to return"),
+    offset: Optional[int] = Query(0, ge=0, description="Pagination offset"),
+    tenant: TenantContext = Depends(get_tenant_context),
+    db: AsyncSession = Depends(get_company_db),
+    current_user=Depends(get_current_user),
+):
+    """
+    Executes a production-governed database query across transactional tables
+    for the SMRITI Report Builder with intelligent auto-consolidation.
+    """
+    service = ReportsService(db, tenant)
+    return await service.query_report_builder(
+        category=category or "Purchase",
+        consolidation_mode=consolidation_mode or "auto",
+        selected_columns=selected_columns,
+        group_by_columns=group_by_columns,
+        start_date=start_date,
+        end_date=end_date,
+        branch_id=branch_id,
+        search=search,
+        sort_field=sort_field,
+        sort_direction=sort_direction,
+        limit=limit or 100,
+        offset=offset or 0,
+    )

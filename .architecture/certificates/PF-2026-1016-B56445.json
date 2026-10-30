@@ -1,0 +1,15 @@
+{
+  "certificate_id": "PF-2026-1016-B56445",
+  "entity": "purchase",
+  "capability": "purchase.procurement_phase2_svc",
+  "asset_type": "service",
+  "proposed_name": "backend/app/services/procurement_phase2.py",
+  "target_file_path": "backend/app/services/procurement_phase2.py",
+  "decision": "CREATE_APPROVED",
+  "canonical_owner": "backend/app/services/procurement_phase2.py",
+  "content_hash": "a0c2a4f4a07fefa3a3e7dfe9dbafebc83492886f0ebd11cb357edd90b3c582a2",
+  "git_commit": "d31f67424fa8d2d51e3dfa79fff72d71e08210e1",
+  "issued_at": "2026-10-16T08:45:31.821427+00:00",
+  "expires_at": "2026-10-23T08:45:31.821427+00:00",
+  "status": "ISSUED"
+}

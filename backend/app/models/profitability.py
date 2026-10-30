@@ -11,7 +11,7 @@
  * Classification: Internal
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy import Column, String, Numeric, Boolean, Integer, ForeignKey, DateTime, Text, text
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import JSONB
@@ -32,7 +32,7 @@ class ProductCostValuation(BaseEntity):
     selling_price = Column(Numeric(15, 2), default=0.00)
     transfer_cost = Column(Numeric(15, 2), default=0.00)
     replacement_cost = Column(Numeric(15, 2), default=0.00)
-    updated_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
 
 class TransactionCostSnapshot(BaseEntity):
     """Immutable COGS & Cost Valuation Snapshot per Invoice Item Line."""
@@ -48,7 +48,7 @@ class TransactionCostSnapshot(BaseEntity):
     selling_price_per_unit = Column(Numeric(15, 2), nullable=False)
     total_gross_sales = Column(Numeric(15, 2), nullable=False)
     gross_profit = Column(Numeric(15, 2), nullable=False)  # Gross Sales - COGS
-    timestamp = Column(DateTime, default=datetime.utcnow)
+    timestamp = Column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
 
 class InvoiceProfitabilityLedger(BaseEntity):
     """True Transaction-Level Net Contribution & Profitability Ledger."""
@@ -58,6 +58,10 @@ class InvoiceProfitabilityLedger(BaseEntity):
     gross_sales_amount = Column(Numeric(15, 2), nullable=False)
     total_cogs = Column(Numeric(15, 2), nullable=False)
     gross_profit = Column(Numeric(15, 2), nullable=False)  # Gross Sales - COGS
+    # G5: Valuation method used to derive total_cogs (migration v1550).
+    # Values: WEIGHTED_AVERAGE | FIFO | LANDED_COST | LAST_PURCHASE | COST_PRICE_FALLBACK | MIXED
+    # NULL on pre-v1550 rows; MIXED when an invoice spans multiple methods across its lines.
+    valuation_method_used = Column(String(30), nullable=True)
     salesperson_commission = Column(Numeric(15, 2), default=0.00)
     driver_commission = Column(Numeric(15, 2), default=0.00)
     promotion_discount = Column(Numeric(15, 2), default=0.00)
@@ -66,4 +70,5 @@ class InvoiceProfitabilityLedger(BaseEntity):
     delivery_cost = Column(Numeric(15, 2), default=0.00)
     net_contribution = Column(Numeric(15, 2), nullable=False)  # Gross Profit - Commissions - Discounts - Loyalty - Referral - Delivery
     net_margin_percent = Column(Numeric(5, 2), default=0.00)
-    timestamp = Column(DateTime, default=datetime.utcnow)
+    timestamp = Column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
+

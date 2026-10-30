@@ -4,17 +4,19 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.16.0
+ * Version      : 6.99.17
  * Created      : 2026-08-21
- * Modified     : 2026-08-23
+ * Modified     : 2026-10-29 (v6.99.17 — Z-Report EOD closeout body portal & #root suppression)
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
  */
 
 import React, { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { EodRegisterCloseout, POSZReportData, CashDenominations, ShiftCashMovementRecord } from "./types.ts";
 import ProPosDenomination, { calculateDenominationTotal } from "./ProPosDenomination.tsx";
+import { ProPosStoreDayPanel } from "./ProPosStoreDayPanel.tsx";
 import { apiFetchV1 } from "../../../lib/apiFetchV1.ts";
 import { 
   FileSpreadsheet, 
@@ -36,13 +38,13 @@ import {
   RefreshCw
 } from "lucide-react";
 
-interface SmritiProPosEodReportwProps {
+interface SmritiProPosEodReportProps {
   initialEod?: EodRegisterCloseout;
   onCommitCloseout: (eod: EodRegisterCloseout) => void;
-  onNotification?: (title: string, msg: string, type: "success" | "error") => void;
+  onNotification?: (title: string, msg: string, type: "success" | "error" | "info") => void;
 }
 
-export const SmritiProPosEodReportw: React.FC<SmritiProPosEodReportwProps> = ({
+export const SmritiProPosEodReport: React.FC<SmritiProPosEodReportProps> = ({
   initialEod,
   onCommitCloseout,
   onNotification
@@ -72,11 +74,13 @@ export const SmritiProPosEodReportw: React.FC<SmritiProPosEodReportwProps> = ({
   const [remarks, setRemarks] = useState<string>("");
   const [isLocked, setIsLocked] = useState<boolean>(false);
   const [closingGLVoucher, setClosingGLVoucher] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   // Load shifts list and active shift
   const loadShiftsAndActive = async () => {
     try {
       setLoading(true);
+      setLoadError(null);
       const shifts = await apiFetchV1<any[]>("/pos/shifts/");
       setShiftsList(shifts || []);
       
@@ -84,9 +88,16 @@ export const SmritiProPosEodReportw: React.FC<SmritiProPosEodReportwProps> = ({
       if (currentShift) {
         setSelectedShiftId(currentShift.id);
         await loadZReportForShift(currentShift.id);
+      } else {
+        setSelectedShiftId("");
+        setZReport(null);
+        setLoadError("No live open shift is available for Day Close.");
       }
     } catch (err) {
-      console.warn("Could not fetch remote shifts list, using default view:", err);
+      console.error("Could not fetch live shifts list:", err);
+      setSelectedShiftId("");
+      setZReport(null);
+      setLoadError("Live shift data could not be loaded. Day Close is unavailable.");
     } finally {
       setLoading(false);
     }
@@ -95,6 +106,7 @@ export const SmritiProPosEodReportw: React.FC<SmritiProPosEodReportwProps> = ({
   const loadZReportForShift = async (shiftId: string) => {
     try {
       setLoading(true);
+      setLoadError(null);
       const data = await apiFetchV1<POSZReportData>(`/pos/shifts/${shiftId}/z-report`);
       setZReport(data);
       if (data.denominations) {
@@ -111,6 +123,8 @@ export const SmritiProPosEodReportw: React.FC<SmritiProPosEodReportwProps> = ({
       setActualUpiInput(data.upi_sales ? data.upi_sales.toFixed(2) : "0.00");
     } catch (err: any) {
       console.error("Failed to load shift Z-Report:", err);
+      setZReport(null);
+      setLoadError("Live Z-Report could not be loaded. Day Close is unavailable.");
     } finally {
       setLoading(false);
     }
@@ -120,12 +134,12 @@ export const SmritiProPosEodReportw: React.FC<SmritiProPosEodReportwProps> = ({
     loadShiftsAndActive();
   }, []);
 
-  const systemCash = zReport ? zReport.net_expected_cash : 48250.00;
-  const systemCard = zReport ? zReport.card_sales : 34200.00;
-  const systemUpi = zReport ? zReport.upi_sales : 21540.00;
-  const grossSales = zReport ? zReport.total_sales : 104590.00;
-  const discountsTotal = zReport ? zReport.discount_total : 5400.00;
-  const returnsTotal = 2499.00;
+  const systemCash = zReport?.net_expected_cash ?? 0;
+  const systemCard = zReport?.card_sales ?? 0;
+  const systemUpi = zReport?.upi_sales ?? 0;
+  const grossSales = zReport?.total_sales ?? 0;
+  const discountsTotal = zReport?.discount_total ?? 0;
+  const returnsTotal = 0;
   const netSales = grossSales - discountsTotal;
 
   const actualCashCounted = calculateDenominationTotal(denominations);
@@ -184,19 +198,197 @@ export const SmritiProPosEodReportw: React.FC<SmritiProPosEodReportwProps> = ({
         setLoading(false);
       }
     } else {
-      setIsLocked(true);
-      onNotification?.("Z-Report Finalized", "Day-end register closeout and audit logs generated successfully.", "success");
+      onNotification?.("Closeout unavailable", "No live shift is selected. Day Close was not posted.", "error");
     }
   };
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "F9" || ((e.ctrlKey || e.metaKey) && (e.key === "p" || e.key === "P"))) {
+        e.preventDefault();
+        window.print();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
 
   const handlePrint = () => {
     window.print();
   };
 
+  // Derive branchId and today's date for the Store Day Panel
+  const todayDate = new Date().toISOString().slice(0, 10);
+  const panelBranchId = zReport?.branch_id || "";
+
+  const printableZReport = (
+    <div id="propos-eod-printable-statement" className="hidden print:block bg-white text-black font-sans p-8">
+      <style dangerouslySetInnerHTML={{ __html: `
+        @media print {
+          @page {
+            size: A4 portrait;
+            margin: 10mm 12mm 12mm 12mm;
+          }
+          #root {
+            display: none !important;
+          }
+          html, body {
+            height: auto !important;
+            min-height: 0 !important;
+            overflow: visible !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            background: #ffffff !important;
+          }
+          #propos-eod-printable-statement {
+            position: static !important;
+            display: block !important;
+            width: 100% !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            background: #ffffff !important;
+            color: #000000 !important;
+          }
+          .no-print {
+            display: none !important;
+          }
+        }
+      `}} />
+      <div className="space-y-6 text-black">
+        {/* Document Header */}
+        <div className="flex justify-between items-start border-b-2 border-black pb-4">
+          <div>
+            <h1 className="text-xl font-black uppercase tracking-tight text-black">SMRITI Retail OS</h1>
+            <p className="text-xs text-gray-700 font-semibold">Point of Sale (ProPOS) Daily Register Closeout &amp; Z-Report</p>
+            <p className="text-[11px] text-gray-600 font-mono mt-0.5">Branch: {(zReport as any)?.branch_name || panelBranchId || "Store HQ"} | Business Date: {todayDate}</p>
+          </div>
+          <div className="text-right">
+            <span className="inline-block px-3 py-1 bg-black text-white text-xs font-mono font-bold uppercase rounded">
+              Z-REPORT #{zReport?.shift_code || "EOD-CLOSEOUT"}
+            </span>
+            <p className="text-[11px] font-mono text-gray-700 mt-1">Generated: {new Date().toLocaleString("en-IN")}</p>
+            <p className="text-[10px] font-mono text-gray-500">Status: {isLocked ? "FINALIZED & LOCKED" : "PROVISIONAL RECONCILIATION"}</p>
+          </div>
+        </div>
+
+        {/* Shift Operational Summary Strip */}
+        <div className="grid grid-cols-4 gap-4 p-3 bg-gray-100 rounded-lg border border-gray-300 text-xs font-mono">
+          <div>
+            <span className="text-gray-500 text-[10px] uppercase font-bold block">Cashier</span>
+            <span className="font-bold text-black">{zReport?.cashier_name || "Active Cashier"}</span>
+          </div>
+          <div>
+            <span className="text-gray-500 text-[10px] uppercase font-bold block">Register ID</span>
+            <span className="font-bold text-black">{zReport?.register_id || "REG-01"}</span>
+          </div>
+          <div>
+            <span className="text-gray-500 text-[10px] uppercase font-bold block">Opening Time</span>
+            <span className="text-black">{zReport?.start_time ? new Date(zReport.start_time).toLocaleTimeString("en-IN") : "09:00 AM"}</span>
+          </div>
+          <div>
+            <span className="text-gray-500 text-[10px] uppercase font-bold block">Closing Time</span>
+            <span className="text-black">{new Date().toLocaleTimeString("en-IN")}</span>
+          </div>
+        </div>
+
+        {/* Revenue & Tax Summary */}
+        <div className="grid grid-cols-2 gap-6">
+          <div className="border border-gray-300 rounded-lg overflow-hidden text-xs">
+            <div className="bg-gray-200 px-3 py-1.5 font-bold uppercase tracking-wider text-[10px] text-gray-800">
+              Transaction Breakdown
+            </div>
+            <table className="w-full text-xs">
+              <tbody className="divide-y divide-gray-200 font-mono">
+                <tr>
+                  <td className="px-3 py-2 text-gray-700">Gross Sales Value</td>
+                  <td className="px-3 py-2 text-right font-bold">₹{grossSales.toFixed(2)}</td>
+                </tr>
+                <tr>
+                  <td className="px-3 py-2 text-gray-700">Returns &amp; Refunds</td>
+                  <td className="px-3 py-2 text-right text-red-600 font-bold">-₹{returnsTotal.toFixed(2)}</td>
+                </tr>
+                <tr>
+                  <td className="px-3 py-2 text-gray-700">Discounts Allowed</td>
+                  <td className="px-3 py-2 text-right text-red-600 font-bold">-₹{discountsTotal.toFixed(2)}</td>
+                </tr>
+                <tr>
+                  <td className="px-3 py-2 text-gray-700">Output GST Tax Total</td>
+                  <td className="px-3 py-2 text-right font-bold">₹{(zReport?.tax_total ?? 0).toFixed(2)}</td>
+                </tr>
+                <tr className="bg-gray-100 font-bold border-t-2 border-gray-400">
+                  <td className="px-3 py-2 text-black">Net Settled Revenue</td>
+                  <td className="px-3 py-2 text-right text-black font-extrabold text-sm">₹{netSales.toFixed(2)}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div className="border border-gray-300 rounded-lg overflow-hidden text-xs">
+            <div className="bg-gray-200 px-3 py-1.5 font-bold uppercase tracking-wider text-[10px] text-gray-800">
+              Tender Reconciliation
+            </div>
+            <table className="w-full text-xs">
+              <tbody className="divide-y divide-gray-200 font-mono">
+                <tr>
+                  <td className="px-3 py-2 text-gray-700">Cash Tendered</td>
+                  <td className="px-3 py-2 text-right font-bold">₹{actualCashCounted.toFixed(2)}</td>
+                </tr>
+                <tr>
+                  <td className="px-3 py-2 text-gray-700">Credit / Debit Cards</td>
+                  <td className="px-3 py-2 text-right font-bold">₹{(Number(actualCardInput) || systemCard).toFixed(2)}</td>
+                </tr>
+                <tr>
+                  <td className="px-3 py-2 text-gray-700">UPI / Dynamic QR</td>
+                  <td className="px-3 py-2 text-right font-bold">₹{(Number(actualUpiInput) || systemUpi).toFixed(2)}</td>
+                </tr>
+                <tr>
+                  <td className="px-3 py-2 text-gray-700">Cash Variance</td>
+                  <td className={`px-3 py-2 text-right font-bold ${cashVariance === 0 ? "text-emerald-700" : "text-red-600"}`}>
+                    {cashVariance >= 0 ? `+₹${cashVariance.toFixed(2)}` : `-₹${Math.abs(cashVariance).toFixed(2)}`}
+                  </td>
+                </tr>
+                <tr className="bg-gray-100 font-bold border-t-2 border-gray-400">
+                  <td className="px-3 py-2 text-black">Total Shift Inflow</td>
+                  <td className="px-3 py-2 text-right text-black font-extrabold text-sm">₹{(actualCashCounted + (Number(actualCardInput) || systemCard) + (Number(actualUpiInput) || systemUpi)).toFixed(2)}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* Signatures */}
+        <div className="pt-8 border-t border-gray-400 grid grid-cols-2 gap-8 text-xs">
+          <div className="text-center space-y-3">
+            <div className="h-10 border-b border-dashed border-gray-400"></div>
+            <p className="font-bold text-gray-800">Cashier / Operator Signature</p>
+          </div>
+          <div className="text-center space-y-3">
+            <div className="h-10 border-b border-dashed border-gray-400"></div>
+            <p className="font-bold text-gray-800">Store Manager / Auditor Signature</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  const mountedPrintable = typeof document !== "undefined" && document?.body && typeof (document.body as any).appendChild === "function"
+    ? createPortal(printableZReport, document.body)
+    : printableZReport;
+
   return (
     <div className="h-full flex flex-col bg-[#f8f9fa] dark:bg-[#191c1e] text-[#191c1e] dark:text-[#eff1f3] overflow-y-auto p-6 font-sans">
+      {mountedPrintable}
       <div className="max-w-5xl mx-auto w-full space-y-6">
-        
+
+        {/* Store Business Day Control Panel */}
+        {panelBranchId && (
+          <ProPosStoreDayPanel
+            branchId={panelBranchId}
+            businessDate={todayDate}
+            onNotification={onNotification}
+          />
+        )}
+
         {/* Header Bar */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-[#c4c5d5] dark:border-[#444653]">
           <div>
@@ -246,6 +438,16 @@ export const SmritiProPosEodReportw: React.FC<SmritiProPosEodReportwProps> = ({
           </div>
         </div>
 
+        {loadError && (
+          <div className="p-4 rounded-2xl bg-[#fff7ed] dark:bg-[#431407] border border-[#fed7aa] text-[#9a3412] dark:text-[#fdba74] flex items-center gap-3">
+            <AlertTriangle size={20} />
+            <div>
+              <div className="text-xs font-bold">Day Close unavailable</div>
+              <div className="text-[11px] mt-0.5">{loadError} No sample totals or local closeout will be used.</div>
+            </div>
+          </div>
+        )}
+
         {/* GL Balancing Confirmation Banner */}
         {closingGLVoucher && (
           <div className="p-4 rounded-2xl bg-[#dcfce7] dark:bg-[#14532d]/40 border border-[#86efac] text-[#166534] dark:text-[#86efac] flex items-center justify-between shadow-xs">
@@ -267,7 +469,7 @@ export const SmritiProPosEodReportw: React.FC<SmritiProPosEodReportwProps> = ({
           <div className="bg-white dark:bg-[#2d3133] p-4 rounded-xl border border-[#c4c5d5] dark:border-[#444653] shadow-xs">
             <span className="text-[10px] font-bold uppercase tracking-wider text-[#565e74] dark:text-[#bec6e0]">Gross Turnover</span>
             <div className="text-xl font-bold font-mono text-[#00288e] dark:text-[#a8b8ff] mt-1">₹{grossSales.toFixed(2)}</div>
-            <span className="text-[10px] text-[#565e74]">{zReport?.total_bills || 48} Invoices</span>
+            <span className="text-[10px] text-[#565e74]">{zReport?.total_bills ?? 0} Invoices</span>
           </div>
 
           <div className="bg-white dark:bg-[#2d3133] p-4 rounded-xl border border-[#c4c5d5] dark:border-[#444653] shadow-xs">
@@ -471,4 +673,4 @@ export const SmritiProPosEodReportw: React.FC<SmritiProPosEodReportwProps> = ({
   );
 };
 
-export default SmritiProPosEodReportw;
+export default SmritiProPosEodReport;

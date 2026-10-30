@@ -18,7 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
 
-from app.api.deps import get_db, get_current_user
+from app.api.deps import get_company_db, get_current_user
 from app.models.auth import User, UserRole
 from app.models.ui_control_plane import (
     SmritiTheme, SmritiThemeVariant, SmritiWorkspaceProfile,
@@ -32,7 +32,7 @@ router = APIRouter()
 @router.get("/themes", response_model=List[ThemeResponse])
 async def get_active_themes(
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
 ):
     """Fetch all active system themes and visual variants from smriti_themes."""
     stmt = (
@@ -47,7 +47,7 @@ async def get_active_themes(
 @router.get("/workspace-profiles", response_model=List[WorkspaceProfileResponse])
 async def get_workspace_profiles(
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
 ):
     """Fetch available AWE workspace profiles from smriti_workspace_profiles."""
     stmt = select(SmritiWorkspaceProfile).where(
@@ -61,7 +61,7 @@ async def get_workspace_profiles(
 @router.get("/workspace-profiles/my-profile", response_model=WorkspaceProfileResponse)
 async def get_my_workspace_profile(
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_company_db)
 ):
     """Resolve active AWE workspace profile for the current user persona."""
     role_str = (
@@ -73,10 +73,11 @@ async def get_my_workspace_profile(
         "STORE_MANAGER": "PROF_STORE_MANAGER",
         "MANAGER": "PROF_STORE_MANAGER",
         "ACCOUNTANT": "PROF_ACCOUNTANT",
-        "SYSADMIN": "PROF_SYSADMIN"
+        "SYSADMIN": "PROF_SYSADMIN",
+        "ADMIN": "PROF_SYSADMIN",
     }
 
-    target_code = role_to_code.get(role_str, "PROF_SYSADMIN")
+    target_code = role_to_code.get(role_str, "PROF_DEFAULT")
 
     stmt = select(SmritiWorkspaceProfile).where(
         SmritiWorkspaceProfile.code == target_code,
@@ -102,7 +103,7 @@ async def get_screen_definitions(
     module_code: str = None,
     capability_code: str = None,
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
 ):
     """
     Returns screen layout definitions from smritisys.screen_definitions.
@@ -140,12 +141,13 @@ async def get_screen_definitions(
 @router.get("/fields", summary="Field Definitions")
 async def get_field_definitions(
     field_type: str = None,
+    entity_key: str = None,
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
 ):
     """
     Returns field metadata definitions from smritisys.field_definitions.
-    Optional filter: field_type.
+    Optional filters: field_type, entity_key.
     """
     stmt = select(FieldDefinition).where(
         FieldDefinition.is_active == True,
@@ -153,6 +155,8 @@ async def get_field_definitions(
     )
     if field_type:
         stmt = stmt.where(FieldDefinition.field_type == field_type.upper())
+    if entity_key:
+        stmt = stmt.where(FieldDefinition.entity_key == entity_key.lower())
     result = await db.execute(stmt)
     fields = result.scalars().all()
     return {
@@ -166,7 +170,12 @@ async def get_field_definitions(
                 "is_filterable": f.is_filterable, "is_exportable": f.is_exportable,
                 "is_hidden": f.is_hidden, "validation_rules": f.validation_rules,
                 "options_source": f.options_source, "options_static": f.options_static,
-                "max_length": f.max_length, "status": f.status,
+                "placeholder_key": f.placeholder_key, "help_text_key": f.help_text_key,
+                "max_length": f.max_length, "min_value": float(f.min_value) if f.min_value is not None else None,
+                "max_value": float(f.max_value) if f.max_value is not None else None,
+                "status": f.status, "entity_key": f.entity_key,
+                "canonical_table": f.canonical_table, "canonical_column": f.canonical_column,
+                "api_alias": f.api_alias, "ui_aliases": f.ui_aliases,
             }
             for f in fields
         ],
@@ -177,7 +186,7 @@ async def get_field_definitions(
 async def get_action_definitions(
     screen_code: str = None,
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
 ):
     """
     Returns action (button/link) definitions from smritisys.action_definitions.
@@ -217,7 +226,7 @@ async def get_icon_registry(
     module_scope: str = None,
     icon_category: str = None,
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
 ):
     """
     Returns platform icon catalogue from smritisys.icon_registry.

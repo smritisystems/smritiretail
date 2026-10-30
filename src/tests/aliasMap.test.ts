@@ -36,12 +36,29 @@ describe("Phase 3 Refactor: Config-Driven One-to-Many Alias Registry", () => {
 
     // Style code mapping
     const styleCol = result.columns[1];
-    expect(styleCol.mappedFieldKey).toBe("code");
-    expect(styleCol.confidence).toBe("HIGH");
+    expect(styleCol.mappedFieldKey).toBe("style_code");
+    expect(["EXACT", "HIGH"]).toContain(styleCol.confidence);
 
     // MRP mapping
     const mrpCol = result.columns[2];
     expect(mrpCol.mappedFieldKey).toBe("mrp");
+  });
+
+  it("keeps Category, Product Type, and Department separate and flags Merchandise Category", () => {
+    const result = engine.mapHeaders([
+      "Category",
+      "Product Type",
+      "Department",
+      "Merchandise Category",
+    ]);
+
+    expect(result.columns[0].mappedFieldKey).toBe("category");
+    expect(result.columns[1].mappedFieldKey).toBe("product_type");
+    expect(result.columns[2].mappedFieldKey).toBe("department");
+    expect(result.columns[3].mappedFieldKey).toBeNull();
+    expect(result.columns[3].isAmbiguous).toBe(true);
+    expect(result.columns[3].ambiguousCandidates?.map((candidate) => candidate.key))
+      .toEqual(["category", "product_type"]);
   });
 
   it("should fuzzy match near-miss typos with medium/high confidence", () => {

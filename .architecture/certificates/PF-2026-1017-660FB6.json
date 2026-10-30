@@ -1,0 +1,15 @@
+{
+  "certificate_id": "PF-2026-1017-660FB6",
+  "entity": "company",
+  "capability": "company.profile_studio",
+  "asset_type": "component",
+  "proposed_name": "CompanyProfileStudio.tsx",
+  "target_file_path": "src/components/setup/CompanyProfileStudio.tsx",
+  "decision": "CREATE_NEW",
+  "canonical_owner": "src/components/setup/CompanyProfileStudio.tsx",
+  "content_hash": "c3b89f3ba69cebb9e2b5c1403508fdf11240582ebfc96d29d8c89d69376aff3c",
+  "git_commit": "bbfdfaa65d73c70d6d9b2340a854c4bb23f8ed42",
+  "issued_at": "2026-10-17T20:34:19.349567+00:00",
+  "expires_at": "2026-10-24T20:34:19.349567+00:00",
+  "status": "ISSUED"
+}

@@ -4,9 +4,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.9.0
+ * Version      : 6.99.17
  * Created      : 2026-08-25
- * Modified     : 2026-08-25
+ * Modified     : 2026-10-29 (v6.99.17 — WYSIWYG thermal test label body portal & #root suppression)
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
@@ -14,6 +14,7 @@
  */
 
 import React, { useState, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { Product } from "../../types.ts";
 import { apiFetchV1 } from "../../lib/apiFetchV1.ts";
 import { ThermalBarcodeSvg } from "./ThermalBarcodeSvg.tsx";
@@ -76,6 +77,7 @@ export interface LabelSizePreset {
 }
 
 const STANDARD_PRESETS: LabelSizePreset[] = [
+  { id: "100x50-3stub", name: "100mm × 50.7mm (Tattly Threads Footwear 3-Stub)", widthMm: 100, heightMm: 50.7, columns: 1, description: "Tattly Threads Footwear Box Tag with Dual Tear-Off Stubs" },
   { id: "50x25", name: "50mm × 25mm (Standard 1-Up)", widthMm: 50, heightMm: 25, columns: 1, description: "Standard Apparel & Retail Barcode Tag" },
   { id: "38x25", name: "38mm × 25mm (Compact 2-Up)", widthMm: 38, heightMm: 25, columns: 2, description: "Supermarket & Grocery Shelf Sticker" },
   { id: "100x50", name: "100mm × 50mm (Shipping Dispatch)", widthMm: 100, heightMm: 50, columns: 1, description: "Master Carton & Logistics Label" },
@@ -230,13 +232,13 @@ export const VisualLabelDesigner: React.FC<VisualLabelDesignerProps> = ({
   onNotification
 }) => {
   const [selectedPreset, setSelectedPreset] = useState<LabelSizePreset>(STANDARD_PRESETS[0]);
-  const [labelWidthMm, setLabelWidthMm] = useState<number>(50);
-  const [labelHeightMm, setLabelHeightMm] = useState<number>(25);
+  const [labelWidthMm, setLabelWidthMm] = useState<number>(100);
+  const [labelHeightMm, setLabelHeightMm] = useState<number>(50.7);
   const [elements, setElements] = useState<VisualLabelElement[]>(DEFAULT_ELEMENTS);
   const [selectedElementId, setSelectedElementId] = useState<string>("el_brand");
   const [selectedSampleIndex, setSelectedSampleIndex] = useState<number>(0);
   const [saving, setSaving] = useState<boolean>(false);
-  const [layoutName, setLayoutName] = useState<string>("Standard Retail Tag 50x25");
+  const [layoutName, setLayoutName] = useState<string>("Tattly Threads Footwear 100x50.7mm");
   const [showZplCode, setShowZplCode] = useState<boolean>(false);
 
   // Cipher map for Cost Mask preview (0->A, 1->B... 9->J)
@@ -268,6 +270,11 @@ export const VisualLabelDesigner: React.FC<VisualLabelDesignerProps> = ({
     setSelectedPreset(preset);
     setLabelWidthMm(preset.widthMm);
     setLabelHeightMm(preset.heightMm);
+    if (preset.id === "100x50-3stub") {
+      setLayoutName("Tattly Threads Footwear 100x50.7mm");
+    } else {
+      setLayoutName(`Standard Tag ${preset.widthMm}x${preset.heightMm}`);
+    }
   };
 
   const handleUpdateSelectedElement = (updates: Partial<VisualLabelElement>) => {
@@ -299,7 +306,7 @@ export const VisualLabelDesigner: React.FC<VisualLabelDesignerProps> = ({
         val = activeProduct.name || "Item Description";
         break;
       case "style_code":
-        val = activeProduct.styleCode || activeProduct.code || "";
+        val = (activeProduct as any).style_code || activeProduct.styleCode || activeProduct.code || "";
         break;
       case "barcode":
         val = activeProduct.barcode || activeProduct.code || "8901234567890";
@@ -404,8 +411,92 @@ export const VisualLabelDesigner: React.FC<VisualLabelDesignerProps> = ({
     }
   };
 
+  const printableLabelSticker = (
+    <div id="visual-label-designer-print-area" className="hidden print:block bg-white text-black font-sans">
+      <style dangerouslySetInnerHTML={{ __html: `
+        @media print {
+          @page {
+            size: ${labelWidthMm}mm ${labelHeightMm}mm;
+            margin: 0;
+          }
+          #root {
+            display: none !important;
+          }
+          html, body {
+            height: auto !important;
+            min-height: 0 !important;
+            overflow: visible !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            background: #ffffff !important;
+          }
+          #visual-label-designer-print-area {
+            position: static !important;
+            display: block !important;
+            width: ${labelWidthMm}mm !important;
+            height: ${labelHeightMm}mm !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            background: #ffffff !important;
+            overflow: hidden !important;
+          }
+          .visual-label-print-sticker {
+            position: relative !important;
+            width: ${labelWidthMm}mm !important;
+            height: ${labelHeightMm}mm !important;
+            margin: 0 !important;
+            padding: 1.5mm !important;
+            box-sizing: border-box !important;
+            overflow: hidden !important;
+            background: #ffffff !important;
+            color: #000000 !important;
+          }
+        }
+      `}} />
+      <div className="visual-label-print-sticker">
+        {elements
+          .filter(el => el.isVisible)
+          .map(el => {
+            const leftMm = el.xMm;
+            const topMm = el.yMm;
+            return (
+              <div
+                key={el.id}
+                style={{
+                  position: "absolute",
+                  left: `${leftMm}mm`,
+                  top: `${topMm}mm`,
+                  fontSize: `${el.fontSizePt}pt`,
+                  fontWeight: el.fontWeight === "extrabold" ? 900 : el.fontWeight === "bold" ? 700 : 400,
+                  textAlign: el.textAlign,
+                  lineHeight: 1.1,
+                  color: "#000000",
+                }}
+              >
+                {el.type === "barcode" ? (
+                  <ThermalBarcodeSvg
+                    value={activeProduct.barcode || activeProduct.code}
+                    widthMm={el.widthMm || 44}
+                    heightMm={el.heightMm || 9}
+                    showText={true}
+                  />
+                ) : (
+                  <span>{getElementValue(el)}</span>
+                )}
+              </div>
+            );
+          })}
+      </div>
+    </div>
+  );
+
+  const mountedPrintable = typeof document !== "undefined" && document?.body && typeof (document.body as any).appendChild === "function"
+    ? createPortal(printableLabelSticker, document.body)
+    : printableLabelSticker;
+
   return (
     <div className="h-full flex flex-col bg-theme-base text-theme-body select-none overflow-hidden font-sans">
+      {mountedPrintable}
       {/* Top Application Bar */}
       <header className="h-14 border-b border-theme-divider bg-theme-surface-1 flex justify-between items-center px-4 shrink-0 shadow-xs z-20">
         <div className="flex items-center gap-3">

@@ -1,0 +1,15 @@
+{
+  "certificate_id": "PF-2026-1006-C4A707",
+  "entity": "databridge",
+  "capability": "databridge.procurement_adapters",
+  "asset_type": "SOURCE_CODE",
+  "proposed_name": "purchase_order_adapter.py",
+  "target_file_path": "backend/app/services/databridge/adapters/purchase_order_adapter.py",
+  "decision": "CANONICAL",
+  "canonical_owner": "backend/app/services/databridge/adapters/purchase_order_adapter.py",
+  "content_hash": "76d197d4918ef651d4ac906ef2418090caa86901d9d4a664d361ee8a4c08d42c",
+  "git_commit": "65ba48ba13efe49859c65719d2ab9e32edf17fe4",
+  "issued_at": "2026-10-06T11:39:09.333084+00:00",
+  "expires_at": "2026-10-13T11:39:09.333084+00:00",
+  "status": "ISSUED"
+}

@@ -4,9 +4,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.16.0
+ * Version      : 6.70.1
  * Created      : 2026-08-21
- * Modified     : 2026-08-23
+ * Modified     : 2026-10-17
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
@@ -14,6 +14,7 @@
 
 export interface ProPosCartItem {
   id: string;
+  productId?: string;
   itemNo: number;
   sku: string;
   barcode: string;
@@ -25,10 +26,13 @@ export interface ProPosCartItem {
   qty: number;
   mrp: number;
   unitPrice: number;
+  basePrice?: number;
   discCode?: string;
   discQty?: number;
   discountPct: number;
   discountAmt: number;
+  promoDescription?: string;
+  promoBadge?: string;
   taxPct: number;
   taxAmt: number;
   taxableValue?: number;
@@ -38,6 +42,9 @@ export interface ProPosCartItem {
   isTaxInclusive?: boolean;
   hsnCode?: string;
   lineTotal: number;
+  batchId?: string;
+  serialId?: string;
+  warehouseLocationId?: string;
 }
 
 export interface ProPosCustomer {
@@ -51,10 +58,53 @@ export interface ProPosCustomer {
   creditLimit?: number;
   currentBalance?: number;
   address?: string;
+  city?: string;
+  pincode?: string;
+  stateName?: string;
   gstin?: string;
   state?: string;
   stateCode?: string;
+  customerGroup?: string;
+  customerGroupId?: string;
+  priceGroupCode?: string;
+  itemClassificationPriceFactorApplicable?: boolean;
   registrationType?: "REGISTERED" | "UNREGISTERED";
+  pricingBasis?: "MRP" | "RATE";
+  allowPromotionsOnRate?: boolean;
+  availableWalletBalance?: number;
+  availableLoyaltyValue?: number;
+  loyaltyRedemptionRatio?: number;
+  isLoyaltyEnrolled?: boolean;
+}
+
+export interface POSTenderItem {
+  tender_type: "CASH" | "CARD" | "UPI" | "CREDIT" | "WALLET" | "STORE_CREDIT" | "CREDIT_NOTE" | "LOYALTY" | "LOYALTY_POINTS";
+  amount: number;
+  reference_no?: string;
+  notes?: string;
+}
+
+export interface CustomerWalletBalanceResponse {
+  customer_id: string;
+  customer_name?: string;
+  available_wallet_balance: number;
+  total_credit_issued: number;
+  total_wallet_redeemed: number;
+  credit_limit?: number;
+  current_outstanding?: number;
+}
+
+export interface CustomerLoyaltyBalanceResponse {
+  customer_id: string;
+  customer_name?: string;
+  is_enrolled: boolean;
+  member_id?: string;
+  card_number?: string;
+  current_points_balance: number;
+  redemption_ratio: number;
+  available_monetary_value: number;
+  total_points_earned?: number;
+  total_points_redeemed?: number;
 }
 
 export interface ProPosTenderSplit {
@@ -64,12 +114,15 @@ export interface ProPosTenderSplit {
   cardAuthCode?: string;
   upi: number;
   upiRef?: string;
+  credit: number;
   creditNote: number;
   creditNoteNo?: string;
   giftVoucher: number;
   voucherCode?: string;
   loyaltyPointsRedeemed: number;
   loyaltyAmount: number;
+  wallet?: number;
+  walletRef?: string;
 }
 
 export interface SuspendedBill {
@@ -242,3 +295,92 @@ export interface POSZReportData {
   shift_close_voucher_id?: string;
 }
 
+
+// --- Store Business Day (EOD Phase 4) ----------------------------------------
+
+export interface StoreBusinessDay {
+  id: string;
+  branch_id: string;
+  business_date: string;
+  status: "OPEN" | "CLOSED" | "LOCKED";
+  opened_at: string | null;
+  closed_at: string | null;
+  locked_at?: string | null;
+  opened_by: string | null;
+  closed_by: string | null;
+  locked_by?: string | null;
+  sign_off_notes?: string | null;
+  exception_summary?: {
+    snapshotted_at: string;
+    pending_approvals_at_close: number;
+    pending_offline_sync_at_close: number;
+  } | null;
+}
+
+export interface StoreDayShiftSummary {
+  shift_id: string;
+  cashier_id: string;
+  status: string;
+  opened_at: string | null;
+  closed_at: string | null;
+  opening_balance: string;
+  closing_balance: string | null;
+  expected_cash: string;
+  cash_variance: string | null;
+  cash_sales: string;
+  card_sales: string;
+  upi_sales: string;
+  total_sales: string;
+  total_invoices: number;
+}
+
+export interface StoreDayStoreTotals {
+  total_sales: string;
+  cash_sales: string;
+  card_sales: string;
+  upi_sales: string;
+  total_invoices: number;
+  cash_variance: string;
+  opening_balance_total: string;
+  closing_balance_total: string;
+}
+
+export interface StoreDayEodReport {
+  store_day_id: string;
+  branch_id: string;
+  business_date: string;
+  status: "OPEN" | "CLOSED" | "LOCKED";
+  opened_at: string | null;
+  closed_at: string | null;
+  opened_by: string | null;
+  closed_by: string | null;
+  sign_off_notes: string | null;
+  store_totals: StoreDayStoreTotals;
+  shifts: StoreDayShiftSummary[];
+  pending_approvals: number;
+  pending_offline_sync: number;
+  exception_summary: StoreBusinessDay["exception_summary"];
+}
+
+export interface EmployeeActivityEvent {
+  id: string;
+  branch_id: string;
+  actor_user_id: string | null;
+  actor_username: string;
+  action: string;
+  entity_type: string;
+  entity_id: string | null;
+  timestamp: string;
+  detail_json?: Record<string, unknown> | null;
+  risk_level?: string | null;
+  is_anomaly?: boolean;
+}
+
+export interface EmployeeActivityPage {
+  branch_id: string;
+  business_date: string;
+  total: number;
+  limit: number;
+  offset: number;
+  events: EmployeeActivityEvent[];
+}

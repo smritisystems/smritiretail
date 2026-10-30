@@ -548,7 +548,7 @@ export const MenuManagerStudioTab: React.FC<MenuManagerStudioTabProps> = ({
           {/* Bottom Explorer Stats */}
           <div className="p-3 border-t border-[#e2e8f0] bg-[#f8fafc] flex items-center justify-between text-[11px] font-mono text-[#64748b]">
             <span>Active: {menus.filter((m) => m.is_active).length} / {menus.length}</span>
-            <span className="text-emerald-700 font-bold">100% Postgres Sync</span>
+            <span className="text-emerald-700 font-bold">100% Synchronized</span>
           </div>
         </aside>
 
@@ -586,6 +586,17 @@ export const MenuManagerStudioTab: React.FC<MenuManagerStudioTabProps> = ({
             </div>
 
             <div className="flex items-center gap-2">
+              {onNavigateTab && (
+                <button
+                  type="button"
+                  onClick={() => onNavigateTab(formState.route ? formState.route.replace(/^\//, "") : formState.id)}
+                  title="Test launch this module workspace in a new tab"
+                  className="px-3 py-2 bg-white hover:bg-[#f1f5f9] text-[#1e40af] border border-[#bfdbfe] font-bold rounded-lg text-xs flex items-center gap-1.5 transition-all shadow-xs cursor-pointer"
+                >
+                  <ExternalLink className="w-4 h-4" />
+                  Test Launch
+                </button>
+              )}
               <button
                 type="button"
                 onClick={handleSaveNode}

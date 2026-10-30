@@ -1,0 +1,15 @@
+{
+  "certificate_id": "PF-2026-1014-80EAEB",
+  "entity": "purchase",
+  "capability": "purchase.commercial_drawer",
+  "asset_type": "component",
+  "proposed_name": "CommercialDeliveryDrawer.tsx",
+  "target_file_path": "src/components/purchase/CommercialDeliveryDrawer.tsx",
+  "decision": "CREATE_APPROVED",
+  "canonical_owner": "CommercialDeliveryDrawer.tsx",
+  "content_hash": "26d22644e10d5811bdad6fe7c7b69f6d923365aa5d226be48075da97b06ab543",
+  "git_commit": "92a82fb0e1af87feeb329530cde191d3e3d7c1aa",
+  "issued_at": "2026-10-14T15:44:04.064082+00:00",
+  "expires_at": "2026-10-21T15:44:04.064082+00:00",
+  "status": "ISSUED"
+}

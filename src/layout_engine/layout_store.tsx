@@ -4,23 +4,39 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 3.16.1
+ * Version      : 6.99.10
  * Created      : 2026-07-10
- * Modified     : 2026-08-16
+ * Modified     : 2026-10-24
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
+ * Classification: Layout Engine Store Layer (Dynamic Mode Initialization)
  */
 
-import React, { createContext, useContext, useState, useEffect } from "react";
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from "react";
 import { apiFetchV1 } from "../lib/apiFetch.ts";
+import {
+  buildDocumentContextualSubmenu,
+  ContextualMenuItem,
+  TransactionState,
+} from "../components/shell/navigationResolver.ts";
 
 export type DockPosition = "left" | "right" | "top" | "bottom";
+export type UXMode = "regular" | "classic";
 
 export interface WorkspaceConfig {
   id: string;
   label: string;
   icon: string;
   category: string;
+}
+
+export interface ActiveDocumentContext {
+  documentId: string;
+  documentType: string;
+  transactionState: TransactionState;
+  activeActionId?: string;
+  parentWorkspaceId?: string;
+  metadata?: Record<string, any>;
 }
 
 export interface LayoutPreferences {
@@ -31,12 +47,17 @@ export interface LayoutPreferences {
   lastWorkspace: string;
   collapsedGroups: string[];
   favorites: string[];
+  uxMode: UXMode;
 }
 
 interface LayoutStoreContextType {
   preferences: LayoutPreferences;
   recentlyUsed: string[];
   registeredWorkspaces: WorkspaceConfig[];
+  resolvedNavigationIds: string[] | null;
+  uxMode: UXMode;
+  activeDocument: ActiveDocumentContext | null;
+  activeSubmenuId: string | null;
 
   setLayout: (position: DockPosition) => void;
   getLayout: () => LayoutPreferences;
@@ -44,6 +65,8 @@ interface LayoutStoreContextType {
   setCollapsed: (state: boolean) => void;
   setIconOnly: (state: boolean) => void;
   setSidebarWidth: (width: number) => void;
+  setUxMode: (mode: UXMode) => void;
+  toggleUxMode: () => void;
   savePreferences: (customPrefs?: Partial<LayoutPreferences>) => Promise<void>;
   restorePreferences: () => Promise<void>;
   registerWorkspace: (
@@ -57,7 +80,18 @@ interface LayoutStoreContextType {
   toggleFavorite: (workspaceId: string) => void;
   toggleGroupCollapse: (groupId: string) => void;
   addToRecentlyUsed: (workspaceId: string) => void;
+  setActiveDocument: (doc: ActiveDocumentContext | null) => void;
+  setActiveSubmenuId: (id: string | null) => void;
+  getContextualSubmenu: (workspaceId?: string) => ContextualMenuItem[];
 }
+
+const getInitialUxMode = (): UXMode => {
+  if (typeof window !== "undefined") {
+    const saved = localStorage.getItem("smriti_ux_mode");
+    if (saved === "classic" || saved === "regular") return saved;
+  }
+  return "regular";
+};
 
 const DEFAULT_PREFERENCES: LayoutPreferences = {
   position: "left",
@@ -67,6 +101,7 @@ const DEFAULT_PREFERENCES: LayoutPreferences = {
   lastWorkspace: "dashboard",
   collapsedGroups: [],
   favorites: ["pos", "sales"],
+  uxMode: getInitialUxMode(),
 };
 
 const LayoutStoreContext = createContext<LayoutStoreContextType | undefined>(
@@ -87,19 +122,25 @@ interface ProviderProps {
   children: React.ReactNode;
   initialActiveTab?: string;
   onTabChange?: (tab: string) => void;
+  initialUxMode?: UXMode;
 }
 
 export const LayoutEngineProvider: React.FC<ProviderProps> = ({
   children,
   initialActiveTab = "dashboard",
   onTabChange,
+  initialUxMode,
 }) => {
-  const [preferences, setPreferences] =
-    useState<LayoutPreferences>(DEFAULT_PREFERENCES);
+  const [preferences, setPreferences] = useState<LayoutPreferences>(() => {
+    const mode = initialUxMode || getInitialUxMode();
+    return { ...DEFAULT_PREFERENCES, uxMode: mode };
+  });
   const [recentlyUsed, setRecentlyUsed] = useState<string[]>([
     "dashboard",
     "pos",
   ]);
+  const [activeDocument, setActiveDocumentState] = useState<ActiveDocumentContext | null>(null);
+  const [activeSubmenuId, setActiveSubmenuId] = useState<string | null>(null);
   const [registeredWorkspaces, setRegisteredWorkspaces] = useState<
     WorkspaceConfig[]
   >([
@@ -116,9 +157,9 @@ export const LayoutEngineProvider: React.FC<ProviderProps> = ({
       category: "Operations",
     },
     {
-      id: "pos",
-      label: "Billing Desk",
-      icon: "point_of_sale",
+      id: "billing-workspace",
+      label: "Billing Workspace",
+      icon: "receipt_long",
       category: "Sales & POS",
     },
     {
@@ -128,15 +169,15 @@ export const LayoutEngineProvider: React.FC<ProviderProps> = ({
       category: "Sales & POS",
     },
     {
-      id: "create-tax-invoice",
-      label: "Create Tax Invoice (B2B)",
-      icon: "post_add",
-      category: "Sales & POS",
-    },
-    {
       id: "customer-master",
       label: "Customer Master",
       icon: "contacts",
+      category: "Sales & POS",
+    },
+    {
+      id: "customer-profile",
+      label: "Customer Profile",
+      icon: "account_circle",
       category: "Sales & POS",
     },
     {
@@ -149,6 +190,18 @@ export const LayoutEngineProvider: React.FC<ProviderProps> = ({
       id: "loyalty",
       label: "Loyalty Studio",
       icon: "stars",
+      category: "Sales & POS",
+    },
+    {
+      id: "sales-promotions",
+      label: "Promotions Studio",
+      icon: "percent",
+      category: "Sales & POS",
+    },
+    {
+      id: "dispatch-studio",
+      label: "B2B Dispatch Studio",
+      icon: "local_shipping",
       category: "Sales & POS",
     },
 
@@ -165,8 +218,14 @@ export const LayoutEngineProvider: React.FC<ProviderProps> = ({
       category: "Inventory & Sourcing",
     },
     {
-      id: "supplier-mgmt",
-      label: "Supplier Dashboard",
+      id: "grn-studio",
+      label: "Goods Receipt (GRN)",
+      icon: "fact_check",
+      category: "Inventory & Sourcing",
+    },
+    {
+      id: "vendor-360",
+      label: "Vendor 360 Workspace",
       icon: "local_shipping",
       category: "Inventory & Sourcing",
     },
@@ -190,8 +249,14 @@ export const LayoutEngineProvider: React.FC<ProviderProps> = ({
     },
     {
       id: "item-master",
-      label: "Item Master",
+      label: "Article / Design Master",
       icon: "inventory_2",
+      category: "Inventory & Sourcing",
+    },
+    {
+      id: "price-revision",
+      label: "Price Revision Studio",
+      icon: "trending_up",
       category: "Inventory & Sourcing",
     },
     {
@@ -238,7 +303,7 @@ export const LayoutEngineProvider: React.FC<ProviderProps> = ({
     },
     {
       id: "psv",
-      label: "Channel Visibility",
+      label: "Distributor Stock",
       icon: "hub",
       category: "Data & Config",
     },
@@ -258,6 +323,36 @@ export const LayoutEngineProvider: React.FC<ProviderProps> = ({
       id: "staff-management",
       label: "Staff Management",
       icon: "badge",
+      category: "Operations",
+    },
+    {
+      id: "store-directory",
+      label: "Store & Branch Directory",
+      icon: "storefront",
+      category: "Operations",
+    },
+    {
+      id: "attendance-workspace",
+      label: "Attendance Workspace",
+      icon: "calendar_month",
+      category: "Operations",
+    },
+    {
+      id: "muster-roll",
+      label: "Muster Roll & Wages",
+      icon: "view_timeline",
+      category: "Operations",
+    },
+    {
+      id: "leave-management",
+      label: "Leave Management",
+      icon: "beach_access",
+      category: "Operations",
+    },
+    {
+      id: "commission-workspace",
+      label: "Commission Workspace",
+      icon: "payments",
       category: "Operations",
     },
     {
@@ -291,6 +386,12 @@ export const LayoutEngineProvider: React.FC<ProviderProps> = ({
       category: "Data & Config",
     },
     {
+      id: "company-profile",
+      label: "Company Profile & Settings",
+      icon: "apartment",
+      category: "Data & Config",
+    },
+    {
       id: "company-setup",
       label: "Company Setup Wizard",
       icon: "magic_button",
@@ -314,10 +415,96 @@ export const LayoutEngineProvider: React.FC<ProviderProps> = ({
       icon: "policy",
       category: "System",
     },
+    {
+      id: "system-parameters",
+      label: "System Parameters Studio",
+      icon: "tune",
+      category: "System",
+    },
+    {
+      id: "backup-restore",
+      label: "Backup & Restore",
+      icon: "cloud_upload",
+      category: "System",
+    },
+    {
+      id: "database-manager",
+      label: "Database Manager (DB Studio)",
+      icon: "storage",
+      category: "System",
+    },
   ]);
 
   // Force-render trigger
   const [, setTick] = useState(0);
+  const [resolvedNavigationIds, setResolvedNavigationIds] = useState<string[] | null>(null);
+  const menuResolutionPromiseRef = useRef<Promise<void> | null>(null);
+  const menuResolutionGenerationRef = useRef(0);
+
+  const reloadResolvedMenus = useCallback(async () => {
+    if (menuResolutionPromiseRef.current) return menuResolutionPromiseRef.current;
+
+    const token = localStorage.getItem("smriti_jwt_token") || localStorage.getItem("smriti_session_token");
+    if (!token) {
+      menuResolutionGenerationRef.current += 1;
+      menuResolutionPromiseRef.current = null;
+      setResolvedNavigationIds(null);
+      return;
+    }
+
+    const requestGeneration = ++menuResolutionGenerationRef.current;
+    setResolvedNavigationIds(null);
+    const loadMenus = (async () => {
+      try {
+        const response = await apiFetchV1<any>("/menus/resolved");
+        const resolvedMenus = Array.isArray(response)
+          ? response
+          : Array.isArray(response?.data)
+            ? response.data
+            : Array.isArray(response?.items)
+              ? response.items
+              : null;
+
+        if (!resolvedMenus) return;
+        if (requestGeneration !== menuResolutionGenerationRef.current) return;
+
+        const allowedIds = new Set<string>();
+        const dynamicWorkspaces: WorkspaceConfig[] = resolvedMenus.flatMap((menu: any) => {
+          const route = String(menu?.route || "").replace(/^\/+/, "").trim();
+          const menuId = String(menu?.id || "").replace(/^menu-/i, "").trim();
+          const id = route || menuId;
+          if (!id) return [];
+
+          allowedIds.add(id);
+          if (menuId) allowedIds.add(menuId);
+          return [{
+            id,
+            label: String(menu?.title || menu?.label || id),
+            icon: String(menu?.icon || "grid_view"),
+            category: String(menu?.module || "Operations"),
+          }];
+        });
+
+        setRegisteredWorkspaces(dynamicWorkspaces);
+        setResolvedNavigationIds(Array.from(allowedIds));
+        setTick((tick) => tick + 1);
+        if (typeof window !== "undefined") window.dispatchEvent(new Event("resize"));
+      } catch (err) {
+        if (requestGeneration === menuResolutionGenerationRef.current) {
+          console.warn("[MenuResolver] Failed to reload resolved menus", err);
+        }
+      }
+    })();
+
+    menuResolutionPromiseRef.current = loadMenus;
+    try {
+      await loadMenus;
+    } finally {
+      if (requestGeneration === menuResolutionGenerationRef.current) {
+        menuResolutionPromiseRef.current = null;
+      }
+    }
+  }, []);
 
   // Load preferences on startup & subscribe to live security / menu events
   useEffect(() => {
@@ -327,43 +514,105 @@ export const LayoutEngineProvider: React.FC<ProviderProps> = ({
       reloadResolvedMenus();
     };
 
+    const handleActiveDocSet = (e: any) => {
+      if (e?.detail) {
+        setActiveDocument(e.detail);
+      }
+    };
+    const handleActiveDocCleared = () => {
+      setActiveDocument(null);
+    };
+
     window.addEventListener("smriti_menu_permissions_updated", handlePermissionsUpdated);
     window.addEventListener("smriti_security_config_updated", handlePermissionsUpdated);
+    window.addEventListener("smriti_active_document_set", handleActiveDocSet as EventListener);
+    window.addEventListener("smriti_active_document_cleared", handleActiveDocCleared);
+    const clearResolvedMenus = () => {
+      menuResolutionGenerationRef.current += 1;
+      menuResolutionPromiseRef.current = null;
+      setResolvedNavigationIds(null);
+    };
+    window.addEventListener("smriti_auth_session_cleared", clearResolvedMenus);
 
     return () => {
       window.removeEventListener("smriti_menu_permissions_updated", handlePermissionsUpdated);
       window.removeEventListener("smriti_security_config_updated", handlePermissionsUpdated);
+      window.removeEventListener("smriti_active_document_set", handleActiveDocSet as EventListener);
+      window.removeEventListener("smriti_active_document_cleared", handleActiveDocCleared);
+      window.removeEventListener("smriti_auth_session_cleared", clearResolvedMenus);
     };
   }, []);
 
-  const reloadResolvedMenus = async () => {
-    const token = localStorage.getItem("smriti_jwt_token") || localStorage.getItem("smriti_session_token");
-    if (token) {
-      try {
-        const res = await apiFetchV1("/menus/resolved");
-        if (Array.isArray(res)) {
-          const dynamicWorkspaces: WorkspaceConfig[] = res.map((m: any) => ({
-            id: (m.route || "").replace(/^\//, "") || m.id.replace(/^menu-/, ""),
-            label: m.title || m.label,
-            icon: m.icon || "grid_view",
-            category: m.module || "Operations",
-          }));
-          setRegisteredWorkspaces(dynamicWorkspaces);
-          refreshLayout();
+  const setActiveDocument = useCallback((doc: ActiveDocumentContext | null) => {
+    setActiveDocumentState(doc);
+    if (doc) {
+      setActiveSubmenuId(doc.activeActionId || "doc-overview");
+      // Ensure the category containing the active workspace is expanded
+      const targetWorkspace = doc.parentWorkspaceId || "billing-workspace";
+      setRegisteredWorkspaces((workspaces) => {
+        const wsConfig = workspaces.find((w) => w.id === targetWorkspace);
+        if (wsConfig) {
+          setPreferences((prev) => {
+            if (prev.collapsedGroups.includes(wsConfig.category)) {
+              const nextGroups = prev.collapsedGroups.filter((g) => g !== wsConfig.category);
+              const updated = { ...prev, collapsedGroups: nextGroups };
+              localStorage.setItem("smriti_layout_preferences", JSON.stringify(updated));
+              return updated;
+            }
+            return prev;
+          });
         }
-      } catch (err) {
-        console.warn("[MenuResolver] Failed to reload resolved menus", err);
-      }
+        return workspaces;
+      });
+    } else {
+      setActiveSubmenuId(null);
     }
-  };
+  }, []);
+
+  const getContextualSubmenu = useCallback((workspaceId?: string): ContextualMenuItem[] => {
+    if (!activeDocument) return [];
+    const parentWs = activeDocument.parentWorkspaceId || "billing-workspace";
+    if (workspaceId && workspaceId !== parentWs && workspaceId !== "sales" && workspaceId !== "purchase") {
+      return [];
+    }
+    return buildDocumentContextualSubmenu(
+      activeDocument.documentId,
+      activeDocument.transactionState,
+      undefined,
+      activeDocument.documentType,
+    );
+  }, [activeDocument]);
 
   const restorePreferences = async () => {
     const local = localStorage.getItem("smriti_layout_preferences");
-    const loadedPrefs = local ? JSON.parse(local) : DEFAULT_PREFERENCES;
+    const localUxMode = (localStorage.getItem("smriti_ux_mode") as UXMode) || "regular";
+    const loadedPrefs = local
+      ? { ...DEFAULT_PREFERENCES, ...JSON.parse(local), uxMode: localUxMode }
+      : { ...DEFAULT_PREFERENCES, uxMode: localUxMode };
 
     setPreferences(loadedPrefs);
     if (loadedPrefs.lastWorkspace && onTabChange) {
       onTabChange(loadedPrefs.lastWorkspace);
+    }
+
+    // Attempt to hydrate layout preferences from backend
+    try {
+      const serverPrefs = await apiFetchV1<any>("/layout/preferences");
+      if (serverPrefs && typeof serverPrefs === "object") {
+        const serverUxMode = (serverPrefs.uxMode || serverPrefs.ux_mode) as UXMode;
+        const merged: LayoutPreferences = {
+          ...loadedPrefs,
+          ...serverPrefs,
+          ...(serverUxMode ? { uxMode: serverUxMode } : {}),
+        };
+        setPreferences(merged);
+        localStorage.setItem("smriti_layout_preferences", JSON.stringify(merged));
+        if (merged.uxMode) {
+          localStorage.setItem("smriti_ux_mode", merged.uxMode);
+        }
+      }
+    } catch {
+      // Offline fallback: retain local preferences
     }
 
     // Centralized Menu Resolver: Fetch resolved navigation tree from backend (only if authenticated)
@@ -376,6 +625,9 @@ export const LayoutEngineProvider: React.FC<ProviderProps> = ({
 
     // Save to local storage
     localStorage.setItem("smriti_layout_preferences", JSON.stringify(updated));
+    if (updated.uxMode) {
+      localStorage.setItem("smriti_ux_mode", updated.uxMode);
+    }
 
     // Map to backend structure (both camelCase and snake_case for maximum compatibility)
     const payload = {
@@ -390,6 +642,8 @@ export const LayoutEngineProvider: React.FC<ProviderProps> = ({
       collapsed_groups: updated.collapsedGroups,
       collapsedGroups: updated.collapsedGroups,
       favorites: updated.favorites,
+      uxMode: updated.uxMode,
+      ux_mode: updated.uxMode,
     };
 
     try {
@@ -400,6 +654,16 @@ export const LayoutEngineProvider: React.FC<ProviderProps> = ({
     } catch (e) {
       console.warn("Failed to sync preferences to server:", e);
     }
+  };
+
+  const setUxMode = (mode: UXMode) => {
+    localStorage.setItem("smriti_ux_mode", mode);
+    savePreferences({ uxMode: mode });
+  };
+
+  const toggleUxMode = () => {
+    const nextMode: UXMode = preferences.uxMode === "classic" ? "regular" : "classic";
+    setUxMode(nextMode);
   };
 
   const setLayout = (position: DockPosition) => {
@@ -475,12 +739,16 @@ export const LayoutEngineProvider: React.FC<ProviderProps> = ({
         preferences,
         recentlyUsed,
         registeredWorkspaces,
+        resolvedNavigationIds,
+        uxMode: preferences.uxMode || "regular",
         setLayout,
         getLayout,
         toggleSidebar,
         setCollapsed,
         setIconOnly,
         setSidebarWidth,
+        setUxMode,
+        toggleUxMode,
         savePreferences,
         restorePreferences,
         registerWorkspace,
@@ -489,6 +757,11 @@ export const LayoutEngineProvider: React.FC<ProviderProps> = ({
         toggleFavorite,
         toggleGroupCollapse,
         addToRecentlyUsed,
+        activeDocument,
+        activeSubmenuId,
+        setActiveDocument,
+        setActiveSubmenuId,
+        getContextualSubmenu,
       }}
     >
       {children}

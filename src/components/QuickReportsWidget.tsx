@@ -6,17 +6,17 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 3.28.0
+ * Version      : 6.99.18
  * Created      : 2026-07-10
- * Modified     : 2026-08-16
+ * Modified     : 2026-10-29 (v6.99.18 — Unified body portal & #root suppression print standard)
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Target UI    : Quick Reports Widget (Fiori Horizon Inspired Light Theme)
  */
 
 import React, { useState, useEffect } from "react";
-import { apiFetchV1 } from "../lib/apiFetchV1";
-import { recordAuditAction } from "../lib/apiFetch";
+import { createPortal } from "react-dom";
+import { apiFetchV1, recordAuditAction } from "../lib/apiFetchV1";
 import { APP_VERSION } from "../config/version.ts";
 import { 
   Printer, 
@@ -35,12 +35,12 @@ import {
 import { Product, PSVParty } from "../types";
 
 interface QuickReportsWidgetProps {
-  products: Product[];
-  psvParties: PSVParty[];
-  auditLogs: any[];
-  startDate: string;
-  endDate: string;
-  scaleFactor: number;
+  products?: Product[];
+  psvParties?: PSVParty[];
+  auditLogs?: any[];
+  startDate?: string;
+  endDate?: string;
+  scaleFactor?: number;
 }
 
 type ReportType = "day-summary" | "sales-billing" | "inventory-status" | "compliance-audit";
@@ -86,12 +86,12 @@ const PREDEFINED_REPORTS = [
 ];
 
 export const QuickReportsWidget: React.FC<QuickReportsWidgetProps> = ({
-  products,
-  psvParties,
-  auditLogs,
-  startDate,
-  endDate,
-  scaleFactor
+  products = [],
+  psvParties = [],
+  auditLogs = [],
+  startDate = new Date().toISOString().slice(0, 10),
+  endDate = new Date().toISOString().slice(0, 10),
+  scaleFactor = 1
 }) => {
   const [selectedReport, setSelectedReport] = useState<ReportType>("day-summary");
   const [layoutMode, setLayoutMode] = useState<LayoutMode>("a4");
@@ -106,8 +106,24 @@ export const QuickReportsWidget: React.FC<QuickReportsWidgetProps> = ({
   const [includeStockWarnings, setIncludeStockWarnings] = useState(true);
   const [isExporting, setIsExporting] = useState<string | null>(null);
 
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && isPreviewOpen) {
+        e.preventDefault();
+        setIsPreviewOpen(false);
+      } else if (e.key === "F9" || ((e.ctrlKey || e.metaKey) && (e.key === "p" || e.key === "P"))) {
+        e.preventDefault();
+        window.print();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isPreviewOpen]);
+
   const [fastApiDailySales, setFastApiDailySales] = useState<any>(null);
   const [fastApiStockValuation, setFastApiStockValuation] = useState<any>(null);
+  const [fastApiInventoryLines, setFastApiInventoryLines] = useState<any[]>([]);
+  const [inventoryDataError, setInventoryDataError] = useState<string | null>(null);
 
   useEffect(() => {
     async function loadReportData() {
@@ -128,6 +144,38 @@ export const QuickReportsWidget: React.FC<QuickReportsWidgetProps> = ({
     loadReportData();
   }, []);
 
+  useEffect(() => {
+    let active = true;
+    async function loadInventoryReports() {
+      try {
+        const [availability, balance] = await Promise.all([
+          apiFetchV1("/inventory-reports/availability"),
+          apiFetchV1("/inventory-reports/balance?zero_stock=true"),
+        ]);
+        if (!active) return;
+        const balanceByProduct = new Map(
+          (balance?.lines ?? []).map((line: any) => [line.product_id, line])
+        );
+        setFastApiInventoryLines(
+          (availability?.lines ?? []).map((line: any) => ({
+            ...line,
+            ...(balanceByProduct.get(line.product_id) ?? {}),
+          }))
+        );
+        setInventoryDataError(null);
+      } catch (error) {
+        if (!active) return;
+        console.error("Failed to load authoritative inventory reports:", error);
+        setFastApiInventoryLines([]);
+        setInventoryDataError("Live stock balances could not be loaded. Please retry before printing or exporting.");
+      }
+    }
+    loadInventoryReports();
+    return () => {
+      active = false;
+    };
+  }, []);
+
   // Derive day's summary stats
   const totalInvoices = fastApiDailySales ? fastApiDailySales.total_invoices : auditLogs.filter(log => log.action === "Invoice Created").length;
   
@@ -137,24 +185,28 @@ export const QuickReportsWidget: React.FC<QuickReportsWidgetProps> = ({
     .reduce((sum, log) => {
       const match = log.after.match(/Total Sales: (\d+) INR/);
       return match ? parseInt(match[1]) : sum;
-    }, Math.round(9895 * scaleFactor));
+    }, 0);
 
-  const dailyRevenue = fastApiDailySales ? Math.round(parseFloat(fastApiDailySales.total_sales)) : (totalLiveSales + Math.round(125000 * scaleFactor));
-  const avgOrderValue = totalInvoices > 0 ? Math.round(dailyRevenue / totalInvoices) : Math.round(4850 * scaleFactor);
+  const dailyRevenue = fastApiDailySales ? Math.round(parseFloat(fastApiDailySales.total_sales)) : totalLiveSales;
+  const avgOrderValue = totalInvoices > 0 ? Math.round(dailyRevenue / totalInvoices) : 0;
 
-  // Low stock products (stock < 15)
-  const lowStockItems = products
-    .filter(p => p.stock < 15)
-    .sort((a, b) => a.stock - b.stock)
+  // Use ledger-derived availability and configured reorder levels.
+  const lowStockItems = fastApiInventoryLines
+    .filter((item) => item.availability !== "OK")
+    .sort((a, b) => a.on_hand - b.on_hand)
     .slice(0, 5);
 
   // Capital Locked in partners
-  const totalCapitalLocked = fastApiStockValuation ? Math.round(parseFloat(fastApiStockValuation.total_value)) : psvParties.reduce((sum, p) => sum + p.capitalLocked, 0);
+  const totalCapitalLocked = psvParties.reduce(
+    (sum, party) => sum + Number(party.capitalLocked || 0),
+    0
+  );
 
   // Payment Breakdown Estimate
-  const upiSales = fastApiDailySales ? Math.round(parseFloat(fastApiDailySales.upi_sales)) : Math.round(dailyRevenue * 0.45);
-  const cardSales = fastApiDailySales ? Math.round(parseFloat(fastApiDailySales.card_sales)) : Math.round(dailyRevenue * 0.35);
-  const cashSales = fastApiDailySales ? Math.round(parseFloat(fastApiDailySales.cash_sales)) : Math.round(dailyRevenue * 0.20);
+  const upiSales = fastApiDailySales ? Math.round(parseFloat(fastApiDailySales.upi_sales)) : 0;
+  const cardSales = fastApiDailySales ? Math.round(parseFloat(fastApiDailySales.card_sales)) : 0;
+  const cashSales = fastApiDailySales ? Math.round(parseFloat(fastApiDailySales.cash_sales)) : 0;
+  const paymentShare = (amount: number) => dailyRevenue > 0 ? `${Math.round((amount / dailyRevenue) * 100)}%` : "0%";
 
   // Format INR Currencies
   const formatCurrency = (val: number) => {
@@ -178,13 +230,44 @@ export const QuickReportsWidget: React.FC<QuickReportsWidgetProps> = ({
     }, 150);
   };
 
+  const escapeCsv = (value: unknown) => `"${String(value ?? "").replace(/"/g, '""')}"`;
+
   const handleExport = (format: string) => {
     setIsExporting(format);
     recordAuditAction("EXPORT", "reports", selectedReport || "RPT-GEN", `Exported report ${selectedReport} (Format: ${format.toUpperCase()})`);
-    setTimeout(() => {
-      setIsExporting(null);
-      alert(`Successfully generated and downloaded ${selectedReport}_report.${format === "csv" ? "csv" : "xlsx"}.`);
-    }, 1200);
+    const rows: string[][] = [];
+    if (selectedReport === "day-summary") {
+      rows.push(["Metric", "Value"], ["Report Date", startDate], ["Total Invoices", String(totalInvoices)], ["Revenue", String(dailyRevenue)], ["UPI", String(upiSales)], ["Card", String(cardSales)], ["Cash", String(cashSales)]);
+    } else if (selectedReport === "inventory-status") {
+      if (inventoryDataError) {
+        rows.push(["Error", inventoryDataError]);
+      } else {
+        rows.push(["Code", "Name", "Category", "On Hand", "Availability", "Average Cost"]);
+        fastApiInventoryLines.forEach((item) => rows.push([
+          item.product_code,
+          item.product_name,
+          item.category,
+          String(item.on_hand),
+          item.availability,
+          String(item.avg_cost ?? ""),
+        ]));
+      }
+    } else if (selectedReport === "compliance-audit") {
+      rows.push(["Timestamp", "User", "Action", "Details", "Before", "After"]);
+      auditLogs.forEach(log => rows.push([log.timestamp, log.user, log.action, log.details, log.before, log.after]));
+    } else {
+      rows.push(["Timestamp", "User", "Action", "Details"]);
+      auditLogs.filter(log => log.action === "Invoice Created").forEach(log => rows.push([log.timestamp, log.user, log.action, log.details || log.after]));
+    }
+    const csv = rows.map(row => row.map(escapeCsv).join(",")).join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `${selectedReport}_report_${new Date().toISOString().slice(0, 10)}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+    setIsExporting(null);
   };
 
   // Get Report Metadata based on selection
@@ -385,11 +468,67 @@ export const QuickReportsWidget: React.FC<QuickReportsWidgetProps> = ({
       </div>
 
       {/* DYNAMIC INTERACTIVE LIVE PREVIEW OVERLAY MODAL */}
-      {isPreviewOpen && (
-        <div className="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center bg-slate-950/80 backdrop-blur-md p-4 animate-fadeIn">
-          <div className="bg-theme-surface-1 border border-[#2a3a5c] rounded-2xl w-full max-w-4xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">
+      {isPreviewOpen && typeof document !== "undefined" && document?.body && createPortal(
+        <div className="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center bg-slate-950/80 backdrop-blur-md p-4 animate-fadeIn quick-report-modal-root">
+          <style dangerouslySetInnerHTML={{ __html: `
+            @media print {
+              @page {
+                size: ${layoutMode === "a4" ? "A4 portrait" : "80mm auto"};
+                margin: ${layoutMode === "a4" ? "10mm 12mm 12mm 12mm" : "0"};
+              }
+              #root {
+                display: none !important;
+              }
+              html, body {
+                height: auto !important;
+                min-height: 0 !important;
+                overflow: visible !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                background: #ffffff !important;
+              }
+              .quick-report-modal-root {
+                position: static !important;
+                display: block !important;
+                width: 100% !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                background: #ffffff !important;
+                overflow: visible !important;
+              }
+              .quick-report-modal-dialog {
+                position: static !important;
+                display: block !important;
+                width: 100% !important;
+                max-width: none !important;
+                max-height: none !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                background: #ffffff !important;
+                box-shadow: none !important;
+                border: none !important;
+                overflow: visible !important;
+              }
+              .quick-report-toolbar {
+                display: none !important;
+              }
+              #quick-report-print-sheet {
+                position: static !important;
+                display: block !important;
+                margin: 0 auto !important;
+                box-shadow: none !important;
+                border: none !important;
+                width: ${layoutMode === "a4" ? "100%" : "80mm"} !important;
+                min-height: auto !important;
+                padding: ${layoutMode === "a4" ? "0" : "2mm"} !important;
+                background: #ffffff !important;
+                color: #000000 !important;
+              }
+            }
+          `}} />
+          <div className="bg-theme-surface-1 border border-[#2a3a5c] rounded-2xl w-full max-w-4xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden quick-report-modal-dialog">
             {/* Modal Header */}
-            <div className="px-6 py-4 border-b border-theme-divider bg-theme-surface-3 flex items-center justify-between">
+            <div className="px-6 py-4 border-b border-theme-divider bg-theme-surface-3 flex items-center justify-between quick-report-toolbar">
               <div className="flex items-center space-x-2.5">
                 <FileBarChart className="text-blue-500" size={18} />
                 <div>
@@ -422,7 +561,7 @@ export const QuickReportsWidget: React.FC<QuickReportsWidgetProps> = ({
             <div className="flex-1 overflow-y-auto bg-slate-900/50 p-6 flex justify-center custom-scrollbar">
               {layoutMode === "a4" ? (
                 /* A4 PAGE CONTAINER */
-                <div id="virtual-a4-sheet" className="bg-white text-slate-900 w-[210mm] min-h-[297mm] p-10 shadow-2xl rounded-sm border border-slate-300 font-sans relative flex flex-col justify-between text-xs leading-normal">
+                <div id="quick-report-print-sheet" className="bg-white text-slate-900 w-[210mm] min-h-[297mm] p-10 shadow-2xl rounded-sm border border-slate-300 font-sans relative flex flex-col justify-between text-xs leading-normal">
                   <div>
                     {/* Header Stamp/Logo */}
                     <div className="flex justify-between items-start border-b-2 border-slate-800 pb-5 mb-5">
@@ -465,7 +604,7 @@ export const QuickReportsWidget: React.FC<QuickReportsWidgetProps> = ({
                           </div>
                           <div className="border border-slate-200 bg-slate-50 p-3 rounded">
                             <span className="text-[9px] text-slate-500 uppercase font-bold font-mono">Completed Invoices</span>
-                            <div className="text-sm font-bold text-slate-950 mt-1">{totalInvoices > 0 ? totalInvoices : Math.round(15 * scaleFactor)} bills</div>
+                            <div className="text-sm font-bold text-slate-950 mt-1">{totalInvoices} bills</div>
                             <span className="text-[8px] text-slate-500 font-mono">Checkout desks active</span>
                           </div>
                           <div className="border border-slate-200 bg-slate-50 p-3 rounded">
@@ -474,7 +613,7 @@ export const QuickReportsWidget: React.FC<QuickReportsWidgetProps> = ({
                             <span className="text-[8px] text-slate-500 font-mono">Per billing session</span>
                           </div>
                           <div className="border border-slate-200 bg-slate-50 p-3 rounded">
-                            <span className="text-[9px] text-slate-500 uppercase font-bold font-mono">Channel Capital</span>
+                            <span className="text-[9px] text-slate-500 uppercase font-bold font-mono">Channel Capital (PSV)</span>
                             <div className="text-sm font-bold text-slate-950 mt-1">{formatCurrency(totalCapitalLocked)}</div>
                             <span className="text-[8px] text-amber-700 font-mono">Locked in partner supply</span>
                           </div>
@@ -498,7 +637,8 @@ export const QuickReportsWidget: React.FC<QuickReportsWidgetProps> = ({
                                   <span className="w-2 h-2 rounded-full bg-emerald-600"></span>
                                   UPI (PhonePe, GPay, Paytm)
                                 </td>
-                                <td className="py-1.5 text-center font-mono">45%</td>
+                                <td className="py-1.5 text-center font-mono">{paymentShare(upiSales)}</td>
+                                                                <td className="py-1.5 text-center font-mono">{paymentShare(upiSales)}</td>
                                 <td className="py-1.5 text-right font-mono font-semibold">{formatCurrency(upiSales)}</td>
                                 <td className="py-1.5 text-right text-emerald-700 font-mono font-bold">Auto-Matched Bank Feed</td>
                               </tr>
@@ -507,7 +647,8 @@ export const QuickReportsWidget: React.FC<QuickReportsWidgetProps> = ({
                                   <span className="w-2 h-2 rounded-full bg-blue-600"></span>
                                   Card Swipe / POS Terminal
                                 </td>
-                                <td className="py-1.5 text-center font-mono">35%</td>
+                                <td className="py-1.5 text-center font-mono">{paymentShare(cardSales)}</td>
+                                                                <td className="py-1.5 text-center font-mono">{paymentShare(cardSales)}</td>
                                 <td className="py-1.5 text-right font-mono font-semibold">{formatCurrency(cardSales)}</td>
                                 <td className="py-1.5 text-right text-emerald-700 font-mono font-bold">Terminal Settlement Logged</td>
                               </tr>
@@ -516,7 +657,8 @@ export const QuickReportsWidget: React.FC<QuickReportsWidgetProps> = ({
                                   <span className="w-2 h-2 rounded-full bg-amber-600"></span>
                                   Hard Cash Register
                                 </td>
-                                <td className="py-1.5 text-center font-mono">20%</td>
+                                <td className="py-1.5 text-center font-mono">{paymentShare(cashSales)}</td>
+                                                                <td className="py-1.5 text-center font-mono">{paymentShare(cashSales)}</td>
                                 <td className="py-1.5 text-right font-mono font-semibold">{formatCurrency(cashSales)}</td>
                                 <td className="py-1.5 text-right text-blue-700 font-mono font-bold">Physical Audit Count Pending</td>
                               </tr>
@@ -563,22 +705,9 @@ export const QuickReportsWidget: React.FC<QuickReportsWidgetProps> = ({
                                   );
                                 })
                               ) : (
-                                // Realistic Fallback Items if no audit logs exist
-                                [
-                                  { time: "11:24 AM", inv: "INV-2026-104", cashier: "Amit Sharma", branch: "Andheri West, Mumbai", amt: 14200 },
-                                  { time: "01:15 PM", inv: "INV-2026-105", cashier: "Riya Patel", branch: "Andheri West, Mumbai", amt: 29500 },
-                                  { time: "03:40 PM", inv: "INV-2026-106", cashier: "Amit Sharma", branch: "Andheri West, Mumbai", amt: 54000 },
-                                  { time: "05:10 PM", inv: "INV-2026-107", cashier: "Riya Patel", branch: "Andheri West, Mumbai", amt: 39000 },
-                                  { time: "07:35 PM", inv: "INV-2026-108", cashier: "Karan Johar", branch: "Andheri West, Mumbai", amt: 82000 }
-                                ].map((row, index) => (
-                                  <tr key={index}>
-                                    <td className="py-1.5 text-slate-600">{row.time}</td>
-                                    <td className="py-1.5 font-bold text-blue-800">{row.inv}</td>
-                                    <td className="py-1.5 text-slate-800 font-sans">{row.cashier}</td>
-                                    <td className="py-1.5 text-slate-600 font-sans">{row.branch}</td>
-                                    <td className="py-1.5 text-right font-bold text-slate-950">{formatCurrency(row.amt * scaleFactor)}</td>
-                                  </tr>
-                                ))
+                                <tr>
+                                  <td colSpan={5} className="py-4 text-center text-slate-500 font-sans">No invoice records for the selected period.</td>
+                                </tr>
                               )}
                               <tr className="border-t border-slate-200 font-bold bg-slate-50 font-sans">
                                 <td colSpan={4} className="py-2 text-slate-900 uppercase font-bold text-right pr-4">Aggregated Total</td>
@@ -607,24 +736,26 @@ export const QuickReportsWidget: React.FC<QuickReportsWidgetProps> = ({
                               </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100 font-mono">
-                              {products.length > 0 ? (
-                                products.slice(0, 8).map((p, index) => (
-                                  <tr key={p.id}>
-                                    <td className="py-1.5 font-bold text-slate-800">{p.code}</td>
-                                    <td className="py-1.5 font-sans text-slate-900">{p.name}</td>
-                                    <td className="py-1.5 font-sans text-slate-600">{p.category}</td>
+                              {inventoryDataError ? (
+                                <tr><td colSpan={6} className="py-4 text-center text-rose-700 font-sans">{inventoryDataError}</td></tr>
+                              ) : fastApiInventoryLines.length > 0 ? (
+                                fastApiInventoryLines.slice(0, 8).map((item) => (
+                                  <tr key={item.product_id}>
+                                    <td className="py-1.5 font-bold text-slate-800">{item.product_code}</td>
+                                    <td className="py-1.5 font-sans text-slate-900">{item.product_name}</td>
+                                    <td className="py-1.5 font-sans text-slate-600">{item.category}</td>
                                     <td className="py-1.5 text-center">
-                                      <span className={`px-1.5 py-0.5 rounded font-bold ${p.stock < 15 ? "bg-rose-100 text-rose-800" : "bg-slate-100"}`}>
-                                        {p.stock} Units
+                                      <span className={`px-1.5 py-0.5 rounded font-bold ${item.availability === "OK" ? "bg-slate-100" : "bg-rose-100 text-rose-800"}`}>
+                                        {item.on_hand} Units
                                       </span>
                                     </td>
-                                    <td className="py-1.5 text-center text-slate-500">15 Units</td>
-                                    <td className="py-1.5 text-right font-sans text-slate-900">{formatCurrency(p.price)}</td>
+                                    <td className="py-1.5 text-center text-slate-500">{item.min_level} Units</td>
+                                    <td className="py-1.5 text-right font-sans text-slate-900">{formatCurrency(item.avg_cost ?? 0)}</td>
                                   </tr>
                                 ))
                               ) : (
                                 <tr>
-                                  <td colSpan={6} className="py-4 text-center text-slate-500 font-sans">No products catalogued in active workspace.</td>
+                                  <td colSpan={6} className="py-4 text-center text-slate-500 font-sans">No live inventory rows are available.</td>
                                 </tr>
                               )}
                             </tbody>
@@ -774,7 +905,7 @@ export const QuickReportsWidget: React.FC<QuickReportsWidgetProps> = ({
                 </div>
               ) : (
                 /* THERMAL SLIP CONTAINER (80mm) */
-                <div id="virtual-thermal-slip" className="bg-white text-slate-900 w-[80mm] p-4 shadow-2xl rounded-sm border border-slate-300 font-mono text-[10px] flex flex-col justify-between relative">
+                <div id="quick-report-print-sheet" className="bg-white text-slate-900 w-[80mm] p-4 shadow-2xl rounded-sm border border-slate-300 font-mono text-[10px] flex flex-col justify-between relative">
                   <div>
                     {/* Thermal Header */}
                     <div className="text-center border-b border-dashed border-slate-400 pb-3 mb-3">
@@ -803,7 +934,7 @@ export const QuickReportsWidget: React.FC<QuickReportsWidgetProps> = ({
                           </div>
                           <div className="flex justify-between">
                             <span>TOTAL INVOICES:</span>
-                            <span>{totalInvoices > 0 ? totalInvoices : Math.round(15 * scaleFactor)} Bills</span>
+                            <span>{totalInvoices} Bills</span>
                           </div>
                           <div className="flex justify-between">
                             <span>AVG ORDER VALUE:</span>
@@ -820,15 +951,19 @@ export const QuickReportsWidget: React.FC<QuickReportsWidgetProps> = ({
                           <div className="font-bold text-[9px] mb-1">PAYMENT MODES:</div>
                           <div className="flex justify-between pl-1">
                             <span>- UPI:</span>
-                            <span>{formatCurrency(upiSales)} (45%)</span>
+                            <span>{formatCurrency(upiSales)} ({paymentShare(upiSales)})</span>
+                                                      <span>{formatCurrency(upiSales)} ({paymentShare(upiSales)})</span>
                           </div>
                           <div className="flex justify-between pl-1">
                             <span>- CARD swipe:</span>
-                            <span>{formatCurrency(cardSales)} (35%)</span>
+                            <span>{formatCurrency(cardSales)} ({paymentShare(cardSales)})</span>
+                                                      <span>{formatCurrency(cardSales)} ({paymentShare(cardSales)})</span>
                           </div>
                           <div className="flex justify-between pl-1">
                             <span>- Hard CASH:</span>
-                            <span>{formatCurrency(cashSales)} (20%)</span>
+                            <span>{formatCurrency(cashSales)} ({paymentShare(cashSales)})</span>
+                                                      <span>{formatCurrency(cashSales)} ({paymentShare(cashSales)})</span>
+                                              <div className="text-sm font-bold text-slate-950 mt-1">{totalInvoices} bills</div>
                           </div>
                         </div>
                       </div>
@@ -839,16 +974,7 @@ export const QuickReportsWidget: React.FC<QuickReportsWidgetProps> = ({
                       <div className="space-y-2">
                         <div className="font-bold text-[9px] mb-1">INVOICES COMPILATION:</div>
                         <div className="divide-y divide-dashed divide-slate-300">
-                          {(auditLogs.filter(log => log.action === "Invoice Created").length > 0 
-                            ? auditLogs.filter(log => log.action === "Invoice Created").slice(0, 5)
-                            : [
-                              { time: "11:24 AM", inv: "INV-104", amt: 14200 },
-                              { time: "01:15 PM", inv: "INV-105", amt: 29500 },
-                              { time: "03:40 PM", inv: "INV-106", amt: 54000 },
-                              { time: "05:10 PM", inv: "INV-107", amt: 39000 },
-                              { time: "07:35 PM", inv: "INV-108", amt: 82000 }
-                            ]
-                          ).map((item: any, i) => {
+                          {auditLogs.filter(log => log.action === "Invoice Created").slice(0, 5).map((item: any, i) => {
                             const timeStr = item.time || new Date(item.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
                             const invStr = item.inv || `INV-2026-${i+101}`;
                             const amtValue = item.amt || (item.after.match(/Total Sales: (\d+) INR/) ? parseInt(item.after.match(/Total Sales: (\d+) INR/)[1]) : 12450);
@@ -859,6 +985,7 @@ export const QuickReportsWidget: React.FC<QuickReportsWidgetProps> = ({
                               </div>
                             );
                           })}
+                          {auditLogs.filter(log => log.action === "Invoice Created").length === 0 && <div className="py-3 text-center text-slate-500">NO INVOICE RECORDS</div>}
                         </div>
                         <div className="border-t border-dashed border-slate-400 pt-1.5 flex justify-between font-bold text-[10px]">
                           <span>TOTAL REVENUE</span>
@@ -872,10 +999,12 @@ export const QuickReportsWidget: React.FC<QuickReportsWidgetProps> = ({
                       <div className="space-y-3">
                         <div className="font-bold text-[9px]">LOW INVENTORY ALERTS:</div>
                         <div className="space-y-1">
-                          {products.slice(0, 5).map((p, i) => (
-                            <div key={p.id} className="flex justify-between text-[9px]">
-                              <span>{p.code} - {p.name.substring(0, 14)}</span>
-                              <span className={p.stock < 15 ? "font-bold" : ""}>{p.stock} Units</span>
+                          {inventoryDataError ? (
+                            <div className="text-rose-700 text-[9px]">{inventoryDataError}</div>
+                          ) : fastApiInventoryLines.slice(0, 5).map((item) => (
+                            <div key={item.product_id} className="flex justify-between text-[9px]">
+                              <span>{item.product_code} - {item.product_name.substring(0, 14)}</span>
+                              <span className={item.availability === "OK" ? "" : "font-bold"}>{item.on_hand} Units</span>
                             </div>
                           ))}
                         </div>
@@ -955,7 +1084,7 @@ export const QuickReportsWidget: React.FC<QuickReportsWidgetProps> = ({
             </div>
 
             {/* Modal Footer */}
-            <div className="px-6 py-4 bg-theme-surface-2 border-t border-theme-divider flex items-center justify-between">
+            <div className="px-6 py-4 bg-theme-surface-2 border-t border-theme-divider flex items-center justify-between quick-report-toolbar">
               <span className="text-xs text-theme-muted font-sans flex items-center gap-1.5">
                 <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse inline-block"></span>
                 <span>Active Print Engine connected to MH-POS-PRINTER-01 (Ready)</span>
@@ -977,11 +1106,25 @@ export const QuickReportsWidget: React.FC<QuickReportsWidgetProps> = ({
               </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* FIXED DOMELEMENT WITH print-only-container CLASSNAME TO PROVIDE HIGH FIDELITY SYSTEM PRINT */}
-      <div className="print-only-container text-black bg-white">
+      <div className={`print-only-container text-black bg-white ${isPreviewOpen ? "print:hidden" : ""}`}>
+        <style dangerouslySetInnerHTML={{ __html: `
+          @media print {
+            .print-only-container {
+              position: static !important;
+              display: block !important;
+              width: 100% !important;
+              margin: 0 !important;
+              padding: 0 !important;
+              background: #ffffff !important;
+              color: #000000 !important;
+            }
+          }
+        `}} />
         {/* Render a replica of the selected preview layout specifically formatted for printer engines */}
         {layoutMode === "a4" ? (
           /* High Fidelity A4 Print layout */
@@ -1021,7 +1164,7 @@ export const QuickReportsWidget: React.FC<QuickReportsWidgetProps> = ({
                   </div>
                   <div style={{ border: '1px solid #ccc', padding: '12px', background: '#fafafa' }}>
                     <div style={{ fontSize: '9px', textTransform: 'uppercase', color: '#666', fontWeight: 'bold' }}>Invoices Compiled</div>
-                    <div style={{ fontSize: '16px', fontWeight: 'bold', marginTop: '4px' }}>{totalInvoices > 0 ? totalInvoices : Math.round(15 * scaleFactor)} bills</div>
+                    <div style={{ fontSize: '16px', fontWeight: 'bold', marginTop: '4px' }}>{totalInvoices} bills</div>
                     <div style={{ fontSize: '8px', color: '#666', marginTop: '2px' }}>Checkout desk active</div>
                   </div>
                   <div style={{ border: '1px solid #ccc', padding: '12px', background: '#fafafa' }}>
@@ -1049,19 +1192,19 @@ export const QuickReportsWidget: React.FC<QuickReportsWidgetProps> = ({
                   <tbody>
                     <tr style={{ borderBottom: '1px solid #eee' }}>
                       <td style={{ padding: '6px 0' }}>UPI Digital Wallet</td>
-                      <td style={{ padding: '6px 0', textAlign: 'center' }}>45%</td>
+                      <td style={{ padding: '6px 0', textAlign: 'center' }}>{paymentShare(upiSales)}</td>
                       <td style={{ padding: '6px 0', textAlign: 'right', fontWeight: 'bold' }}>{formatCurrency(upiSales)}</td>
                       <td style={{ padding: '6px 0', textAlign: 'right', color: 'green' }}>Matched Bank Feed</td>
                     </tr>
                     <tr style={{ borderBottom: '1px solid #eee' }}>
                       <td style={{ padding: '6px 0' }}>Card Terminal Settlement</td>
-                      <td style={{ padding: '6px 0', textAlign: 'center' }}>35%</td>
+                      <td style={{ padding: '6px 0', textAlign: 'center' }}>{paymentShare(cardSales)}</td>
                       <td style={{ padding: '6px 0', textAlign: 'right', fontWeight: 'bold' }}>{formatCurrency(cardSales)}</td>
                       <td style={{ padding: '6px 0', textAlign: 'right', color: 'green' }}>Auto-Settled POS</td>
                     </tr>
                     <tr style={{ borderBottom: '1px solid #eee' }}>
                       <td style={{ padding: '6px 0' }}>Hard Currency Drawer</td>
-                      <td style={{ padding: '6px 0', textAlign: 'center' }}>20%</td>
+                      <td style={{ padding: '6px 0', textAlign: 'center' }}>{paymentShare(cashSales)}</td>
                       <td style={{ padding: '6px 0', textAlign: 'right', fontWeight: 'bold' }}>{formatCurrency(cashSales)}</td>
                       <td style={{ padding: '6px 0', textAlign: 'right', color: 'blue' }}>Physical Audit Pending</td>
                     </tr>
@@ -1104,20 +1247,7 @@ export const QuickReportsWidget: React.FC<QuickReportsWidgetProps> = ({
                         );
                       })
                     ) : (
-                      [
-                        { time: "11:24 AM", inv: "INV-2026-104", cashier: "Amit Sharma", amt: 14200 },
-                        { time: "01:15 PM", inv: "INV-2026-105", cashier: "Riya Patel", amt: 29500 },
-                        { time: "03:40 PM", inv: "INV-2026-106", cashier: "Amit Sharma", amt: 54000 },
-                        { time: "05:10 PM", inv: "INV-2026-107", cashier: "Riya Patel", amt: 39000 },
-                        { time: "07:35 PM", inv: "INV-2026-108", cashier: "Karan Johar", amt: 82000 }
-                      ].map((row, index) => (
-                        <tr key={index} style={{ borderBottom: '1px solid #eee' }}>
-                          <td style={{ padding: '6px 0' }}>{row.time}</td>
-                          <td style={{ padding: '6px 0', fontWeight: 'bold' }}>{row.inv}</td>
-                          <td style={{ padding: '6px 0' }}>{row.cashier}</td>
-                          <td style={{ padding: '6px 0', textAlign: 'right', fontWeight: 'bold' }}>{formatCurrency(row.amt * scaleFactor)}</td>
-                        </tr>
-                      ))
+                      <tr><td colSpan={4} style={{ padding: '12px 0', textAlign: 'center', color: '#666' }}>No invoice records for the selected period.</td></tr>
                     ))}
                     <tr style={{ borderTop: '2px solid black', fontWeight: 'bold', background: '#f5f5f5' }}>
                       <td colSpan={3} style={{ padding: '8px 0', textAlign: 'right', paddingRight: '15px' }}>AGGREGATED TOTAL SALES REVENUE</td>
@@ -1132,6 +1262,7 @@ export const QuickReportsWidget: React.FC<QuickReportsWidgetProps> = ({
             {selectedReport === "inventory-status" && (
               <div>
                 <h3 style={{ fontSize: '12px', fontWeight: 'bold', borderBottom: '1px solid black', paddingBottom: '3px', marginBottom: '10px', textTransform: 'uppercase' }}>Warehouse Safety Stock Audit</h3>
+                {inventoryDataError && <p style={{ color: '#b91c1c', marginBottom: '8px' }}>{inventoryDataError}</p>}
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px', marginBottom: '30px' }}>
                   <thead>
                     <tr style={{ borderBottom: '1px solid #aaa', textAlign: 'left', fontWeight: 'bold' }}>
@@ -1143,13 +1274,13 @@ export const QuickReportsWidget: React.FC<QuickReportsWidgetProps> = ({
                     </tr>
                   </thead>
                   <tbody>
-                    {products.slice(0, 10).map((p, index) => (
-                      <tr key={index} style={{ borderBottom: '1px solid #eee' }}>
-                        <td style={{ padding: '6px 0', fontWeight: 'bold' }}>{p.code}</td>
-                        <td style={{ padding: '6px 0' }}>{p.name}</td>
-                        <td style={{ padding: '6px 0' }}>{p.category}</td>
-                        <td style={{ padding: '6px 0', textAlign: 'center', fontWeight: 'bold', color: p.stock < 15 ? 'red' : 'black' }}>{p.stock} Units</td>
-                        <td style={{ padding: '6px 0', textAlign: 'right' }}>{formatCurrency(p.price)}</td>
+                    {fastApiInventoryLines.slice(0, 10).map((item) => (
+                      <tr key={item.product_id} style={{ borderBottom: '1px solid #eee' }}>
+                        <td style={{ padding: '6px 0', fontWeight: 'bold' }}>{item.product_code}</td>
+                        <td style={{ padding: '6px 0' }}>{item.product_name}</td>
+                        <td style={{ padding: '6px 0' }}>{item.category}</td>
+                        <td style={{ padding: '6px 0', textAlign: 'center', fontWeight: 'bold', color: item.availability === "OK" ? 'black' : 'red' }}>{item.on_hand} Units</td>
+                        <td style={{ padding: '6px 0', textAlign: 'right' }}>{formatCurrency(item.avg_cost ?? 0)}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -1284,7 +1415,7 @@ export const QuickReportsWidget: React.FC<QuickReportsWidgetProps> = ({
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', margin: '3px 0' }}>
                   <span>TOTAL BILLS:</span>
-                  <span>{totalInvoices > 0 ? totalInvoices : Math.round(15 * scaleFactor)} Invoices</span>
+                  <span>{totalInvoices} Invoices</span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', margin: '3px 0' }}>
                   <span>AVG ORDER VAL:</span>
@@ -1317,16 +1448,7 @@ export const QuickReportsWidget: React.FC<QuickReportsWidgetProps> = ({
               <div style={{ fontSize: '8px' }}>
                 <div style={{ fontWeight: 'bold', marginBottom: '5px' }}>COMPILING INVOICES:</div>
                 <div style={{ borderBottom: '1px dashed #ccc', paddingBottom: '3px', marginBottom: '3px' }}>
-                  {(auditLogs.filter(log => log.action === "Invoice Created").length > 0 
-                    ? auditLogs.filter(log => log.action === "Invoice Created").slice(0, 10)
-                    : [
-                      { time: "11:24 AM", inv: "INV-104", amt: 14200 },
-                      { time: "01:15 PM", inv: "INV-105", amt: 29500 },
-                      { time: "03:40 PM", inv: "INV-106", amt: 54000 },
-                      { time: "05:10 PM", inv: "INV-107", amt: 39000 },
-                      { time: "07:35 PM", inv: "INV-108", amt: 82000 }
-                    ]
-                  ).map((item: any, i) => {
+                  {auditLogs.filter(log => log.action === "Invoice Created").slice(0, 10).map((item: any, i) => {
                     const timeStr = item.time || new Date(item.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
                     const invStr = item.inv || `INV-2026-${i+101}`;
                     const amtValue = item.amt || (item.after.match(/Total Sales: (\d+) INR/) ? parseInt(item.after.match(/Total Sales: (\d+) INR/)[1]) : 12450);
@@ -1337,6 +1459,7 @@ export const QuickReportsWidget: React.FC<QuickReportsWidgetProps> = ({
                       </div>
                     );
                   })}
+                  {auditLogs.filter(log => log.action === "Invoice Created").length === 0 && <div style={{ padding: '8px 0', textAlign: 'center', color: '#666' }}>NO INVOICE RECORDS</div>}
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 'bold', fontSize: '10px', paddingTop: '4px' }}>
                   <span>TOTAL SHIFT SALES</span>
@@ -1348,10 +1471,11 @@ export const QuickReportsWidget: React.FC<QuickReportsWidgetProps> = ({
             {selectedReport === "inventory-status" && (
               <div style={{ fontSize: '8px' }}>
                 <div style={{ fontWeight: 'bold', marginBottom: '5px' }}>CRITICAL STOCK LEVELS:</div>
-                {products.slice(0, 12).map((p, i) => (
-                  <div key={i} style={{ display: 'flex', justifyContent: 'space-between', margin: '2px 0' }}>
-                    <span>{p.code} {p.name.substring(0, 15)}</span>
-                    <span style={{ fontWeight: p.stock < 15 ? 'bold' : 'normal' }}>{p.stock} UN</span>
+                {inventoryDataError && <div style={{ color: 'red' }}>{inventoryDataError}</div>}
+                {fastApiInventoryLines.slice(0, 12).map((item) => (
+                  <div key={item.product_id} style={{ display: 'flex', justifyContent: 'space-between', margin: '2px 0' }}>
+                    <span>{item.product_code} {item.product_name.substring(0, 15)}</span>
+                    <span style={{ fontWeight: item.availability === "OK" ? 'normal' : 'bold' }}>{item.on_hand} UN</span>
                   </div>
                 ))}
               </div>

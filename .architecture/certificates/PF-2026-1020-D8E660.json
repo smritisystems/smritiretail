@@ -1,0 +1,15 @@
+{
+  "certificate_id": "PF-2026-1020-D8E660",
+  "entity": "customer",
+  "capability": "customer.crud",
+  "asset_type": "component",
+  "proposed_name": "CustomerTaxInvoicePreview.tsx",
+  "target_file_path": "src/components/customer/corporateWorkspace/CustomerTaxInvoicePreview.tsx",
+  "decision": "CREATE_NEW",
+  "canonical_owner": "src/components/customer/corporateWorkspace/CustomerTaxInvoicePreview.tsx",
+  "content_hash": "dfafdcca11bc9e8771dde91201365bbf255077428ec47ff0251dbf84cba128dd",
+  "git_commit": "8deafb6f0dd3aaf72cb6ba1f4740e67add547e5a",
+  "issued_at": "2026-10-20T08:00:58.703567+00:00",
+  "expires_at": "2026-10-27T08:00:58.703567+00:00",
+  "status": "ISSUED"
+}

@@ -4,9 +4,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 4.2.0
+ * Version      : 6.69.0
  * Created      : 2026-08-20
- * Modified     : 2026-08-24
+ * Modified     : 2026-09-20
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
@@ -31,22 +31,22 @@ export interface TileData {
 export const LAUNCHPAD_CATALOG: TileData[] = [
   // 1. Retail Operations
   {
-    id: "pos",
-    title: "Billing Desk (POS)",
-    subtitle: "High-speed retail billing, cashier shift tracking & cash drawer reconciliation",
-    icon: "point_of_sale",
-    tag: "Core POS",
-    badgeType: "primary",
+    id: "billing-workspace",
+    title: "Billing Workspace",
+    subtitle: "POS checkout, tax invoices, credit notes, returns and sales orders",
+    icon: "receipt_long",
+    tag: "Billing",
+    badgeType: "success",
     group: "Retail Operations",
     roles: ["CASHIER", "MANAGER", "SYSADMIN"],
     isQuickAction: true,
     shortcut: "F1",
-    accentColor: "emerald",
+    accentColor: "blue",
   },
   {
     id: "sales",
-    title: "Sales Studio",
-    subtitle: "B2C retail billing, multi-tender transactions & invoice history register",
+    title: "Sales Documents",
+    subtitle: "Review and manage quotations, orders, invoices, returns and customer records",
     icon: "receipt_long",
     tag: "Sales",
     badgeType: "success",
@@ -54,27 +54,49 @@ export const LAUNCHPAD_CATALOG: TileData[] = [
     roles: ["CASHIER", "MANAGER", "SYSADMIN"],
   },
   {
-    id: "create-tax-invoice",
-    title: "Create Tax Invoice (B2B)",
-    subtitle: "Advanced B2B tax invoice generator with statutory reverse charge & GST rules",
-    icon: "post_add",
-    tag: "GST A4",
-    badgeType: "primary",
-    group: "Retail Operations",
-    roles: ["CASHIER", "MANAGER", "SYSADMIN"],
-    isQuickAction: true,
-    shortcut: "F3",
-    accentColor: "indigo",
+    id: "ewaybill-management",
+    title: "E-Way Bill Management",
+    subtitle: "Review invoice sets, prepare NIC v1.03 JSON & generate selected or ranged bills",
+    icon: "local_shipping",
+    tag: "GST Compliance",
+    badgeType: "warning",
+    group: "Finance & Ledgers",
+    roles: ["MANAGER", "SYSADMIN"],
   },
   {
     id: "purchase",
     title: "Purchase Studio",
-    subtitle: "Vendor purchase orders, goods receipt notes (GRN) & matrix grid paste",
+    subtitle: "Vendor purchase orders, sizing curve matrix, and procurement pricing control",
     icon: "shopping_cart",
     tag: "Procurement",
     badgeType: "info",
     group: "Retail Operations",
     roles: ["MANAGER", "SYSADMIN"],
+  },
+  {
+    id: "procurement-visual-reports",
+    title: "Procurement Visual Reports",
+    subtitle: "Real-time visual reports for Purchase Orders, Spend, Approvals, Receipts, Suppliers & Fulfillment stream",
+    icon: "analytics",
+    tag: "Procurement",
+    badgeType: "success",
+    group: "Retail Operations",
+    roles: ["MANAGER", "SYSADMIN"],
+    isQuickAction: true,
+    accentColor: "blue",
+  },
+  {
+    id: "grn-studio",
+    title: "Goods Receipt (GRN) Terminal",
+    subtitle: "Inward material verification, direct entry dock, received vs damaged inspection & landed cost entry",
+    icon: "fact_check",
+    tag: "Inward Dock",
+    badgeType: "primary",
+    group: "Retail Operations",
+    roles: ["MANAGER", "SYSADMIN"],
+    isQuickAction: true,
+    shortcut: "F4",
+    accentColor: "indigo",
   },
   {
     id: "profiles",
@@ -99,20 +121,44 @@ export const LAUNCHPAD_CATALOG: TileData[] = [
     shortcut: "F8",
     accentColor: "amber",
   },
+  {
+    id: "store-directory",
+    title: "Store & Branch Directory",
+    subtitle: "Internal branches, partner stores, staff assignments, store managers & primary reps",
+    icon: "storefront",
+    tag: "Stores",
+    badgeType: "primary",
+    group: "Retail Operations",
+    roles: ["MANAGER", "SYSADMIN"],
+    accentColor: "indigo",
+  },
 
   // 2. Master Data & Stock
   {
     id: "item-master",
-    title: "Item Master & Catalog",
-    subtitle: "Dynamic product catalogue, server pagination, HSN codes & GST tax slabs",
+    title: "Article / Design Master",
+    subtitle: "Canonical Article & Design catalogue, variant matrix, HSN codes & GST tax slabs",
     icon: "inventory_2",
     tag: "Catalog",
     badgeType: "primary",
     group: "Master Data & Stock",
     roles: ["CASHIER", "MANAGER", "SYSADMIN"],
     isQuickAction: true,
-    shortcut: "F4",
+    shortcut: "F3",
     accentColor: "purple",
+  },
+  {
+    id: "price-revision",
+    title: "Price Revision Studio",
+    subtitle: "Temporal MRP, Selling Price & Cost Price revisions with statutory ceiling guard",
+    icon: "trending_up",
+    tag: "Pricing",
+    badgeType: "primary",
+    group: "Master Data & Stock",
+    roles: ["CASHIER", "MANAGER", "SYSADMIN"],
+    isQuickAction: true,
+    shortcut: "F7",
+    accentColor: "blue",
   },
   {
     id: "barcode",
@@ -128,6 +174,16 @@ export const LAUNCHPAD_CATALOG: TileData[] = [
     accentColor: "amber",
   },
   {
+    id: "barcode-management",
+    title: "Barcode Management",
+    subtitle: "GS1 intake, bulk barcode import, permanent stock assignment & registry audit",
+    icon: "fact_check",
+    tag: "Registry",
+    badgeType: "warning",
+    group: "Master Data & Stock",
+    roles: ["MANAGER", "SYSADMIN"],
+  },
+  {
     id: "stock-ledger",
     title: "Stock Movement Ledger",
     subtitle: "Real-time stock ledger movements, inward/outward logs & batch valuations",
@@ -141,11 +197,21 @@ export const LAUNCHPAD_CATALOG: TileData[] = [
     accentColor: "blue",
   },
   {
+    id: "wms-dashboard",
+    title: "Warehouse & Batch Hub",
+    subtitle: "Warehouse operations, stock transfers, batch controls & fulfillment workflows",
+    icon: "warehouse",
+    tag: "Warehouse",
+    badgeType: "primary",
+    group: "Master Data & Stock",
+    roles: ["MANAGER", "SYSADMIN"],
+  },
+  {
     id: "supplier-mgmt",
-    title: "Supplier Directory",
-    subtitle: "Vendor master profiles, GSTIN validation, commercial terms & payable balances",
+    title: "Vendor 360 Workspace",
+    subtitle: "Universal Party vendor master, statutory GSTIN/MSME, banking, contacts, procurement & payables",
     icon: "local_shipping",
-    tag: "Vendors",
+    tag: "Vendor 360",
     badgeType: "info",
     group: "Master Data & Stock",
     roles: ["MANAGER", "SYSADMIN"],
@@ -180,6 +246,19 @@ export const LAUNCHPAD_CATALOG: TileData[] = [
     group: "Master Data & Stock",
     roles: ["CASHIER", "MANAGER", "SYSADMIN"],
   },
+  {
+    id: "sales-promotions",
+    title: "Sales Promotions Studio",
+    subtitle: "Define retail schemes, BOGO, combo offers, happy hours & customer group targeting",
+    icon: "percent",
+    tag: "Promotions",
+    badgeType: "success",
+    group: "Master Data & Stock",
+    roles: ["MANAGER", "SYSADMIN"],
+    isQuickAction: true,
+    shortcut: "Alt+P",
+    accentColor: "rose",
+  },
 
   // 3. Finance & Ledgers
   {
@@ -211,6 +290,18 @@ export const LAUNCHPAD_CATALOG: TileData[] = [
     badgeType: "primary",
     group: "Finance & Ledgers",
     roles: ["MANAGER", "SYSADMIN"],
+  },
+  {
+    id: "visual-reports",
+    title: "Visual Reports (Orders, Packing & Stock Flow)",
+    subtitle: "Real-time visual reports for order-to-invoice progress, packing status, SKU reservations & fulfillment stream",
+    icon: "analytics",
+    tag: "Visual Reports",
+    badgeType: "success",
+    group: "Finance & Ledgers",
+    roles: ["MANAGER", "SYSADMIN", "CASHIER"],
+    isQuickAction: true,
+    accentColor: "blue",
   },
 
   // 4. Documents & Print
@@ -277,6 +368,19 @@ export const LAUNCHPAD_CATALOG: TileData[] = [
     roles: ["MANAGER", "SYSADMIN"],
   },
   {
+    id: "databridge",
+    title: "SMRITI DataBridge",
+    subtitle: "Enterprise data bridge: import & export catalog, items, variants, barcodes & price books with WhatsApp simplicity & preview safety",
+    icon: "dataset",
+    tag: "DataBridge",
+    badgeType: "primary",
+    group: "Data & Config",
+    roles: ["MANAGER", "SYSADMIN"],
+    isQuickAction: true,
+    shortcut: "F11",
+    accentColor: "indigo",
+  },
+  {
     id: "data-exchange",
     title: "Data Exchange & Migration",
     subtitle: "Universal CSV bulk migration, data validation pipeline & export engine",
@@ -285,6 +389,17 @@ export const LAUNCHPAD_CATALOG: TileData[] = [
     badgeType: "info",
     group: "Data & Config",
     roles: ["MANAGER", "SYSADMIN"],
+  },
+  {
+    id: "company-profile",
+    title: "Company Profile & Settings",
+    subtitle: "Enterprise corporate identity, multi-branch, banking & statutory branding studio",
+    icon: "apartment",
+    tag: "Profile / Core",
+    badgeType: "primary",
+    group: "Data & Config",
+    roles: ["MANAGER", "SYSADMIN"],
+    accentColor: "blue",
   },
   {
     id: "company-setup",
@@ -318,8 +433,8 @@ export const LAUNCHPAD_CATALOG: TileData[] = [
   },
   {
     id: "psv",
-    title: "Channel Stock Visibility (PSV)",
-    subtitle: "Party stock visibility, partner sell-through analytics & channel cover weeks",
+    title: "Distributor Stock Tracker",
+    subtitle: "See how much stock each distributor has, how much has sold, and whether any action is needed",
     icon: "hub",
     tag: "Distribution",
     badgeType: "primary",
@@ -348,6 +463,17 @@ export const LAUNCHPAD_CATALOG: TileData[] = [
     badgeType: "info",
     group: "System & Operations",
     roles: ["MANAGER", "SYSADMIN"],
+  },
+  {
+    id: "muster-roll",
+    title: "Muster Roll & Workforce Wages",
+    subtitle: "Statutory Form II monthly attendance matrix, casual daily wages & monthly payroll reconciliation",
+    icon: "view_timeline",
+    tag: "Muster Roll",
+    badgeType: "primary",
+    group: "System & Operations",
+    roles: ["MANAGER", "SYSADMIN"],
+    accentColor: "indigo",
   },
   {
     id: "user-profile",
@@ -391,9 +517,33 @@ export const LAUNCHPAD_CATALOG: TileData[] = [
     roles: ["MANAGER", "SYSADMIN", "AUDITOR"],
   },
   {
+    id: "system-parameters",
+    title: "System Parameters Studio",
+    subtitle: "828 governed architectural switches, Tally Shoper 9 parity & profile blueprint templates",
+    icon: "tune",
+    tag: "Parameters",
+    badgeType: "primary",
+    group: "System & Operations",
+    roles: ["SYSADMIN", "MANAGER"],
+    shortcut: "Alt+Y",
+    accentColor: "indigo",
+  },
+  {
+    id: "backup-restore",
+    title: "Backup & Restore",
+    subtitle: "Protect business data with automated backups, verified recovery points & guided restore",
+    icon: "cloud_upload",
+    tag: "Recovery",
+    badgeType: "success",
+    group: "System & Operations",
+    roles: ["MANAGER", "SYSADMIN"],
+    isQuickAction: true,
+    accentColor: "blue",
+  },
+  {
     id: "database-manager",
     title: "Database Manager (DB Studio)",
-    subtitle: "Multi-tenant PostgreSQL schema browser, table data explorer, live telemetry & SQL console",
+    subtitle: "Multi-tenant database schema browser, table data explorer, live telemetry & SQL console",
     icon: "database",
     tag: "DB Studio",
     badgeType: "primary",
@@ -449,6 +599,17 @@ export const LAUNCHPAD_CATALOG: TileData[] = [
     accentColor: "violet",
   },
   {
+    id: "legacy-telemetry",
+    title: "RFC 8594 API Telemetry",
+    subtitle: "Option B Dual-Key Observability: real-time monitoring of legacy route access, runtime fallbacks & 2028 Sunset tracking",
+    icon: "sensors",
+    tag: "Telemetry",
+    badgeType: "warning",
+    group: "System & Operations",
+    roles: ["MANAGER", "SYSADMIN"],
+    accentColor: "amber",
+  },
+  {
     // Sprint 17 -- Shoper9 SR323400 MnuNo 350/351 parity
     id: "physical-stock",
     title: "Physical Stock Count",
@@ -460,6 +621,46 @@ export const LAUNCHPAD_CATALOG: TileData[] = [
     roles: ["MANAGER", "SYSADMIN"],
     accentColor: "emerald",
   },
+  {
+    id: "supplier-dashboard",
+    title: "Supplier 360 Dashboard",
+    subtitle: "Consolidated vendor overview, party master records, open PO ledger & supplier turnaround metrics",
+    icon: "storefront",
+    tag: "Suppliers",
+    badgeType: "primary",
+    group: "Retail Operations",
+    roles: ["MANAGER", "SYSADMIN"],
+  },
+  {
+    id: "propos-workspace",
+    title: "Enterprise Billing Suite (ProPOS)",
+    subtitle: "Classic modular POS billing, daily reports register, EOD Z-reports & commission builder",
+    icon: "point_of_sale",
+    tag: "ProPOS",
+    badgeType: "info",
+    group: "Retail Operations",
+    roles: ["CASHIER", "MANAGER", "SYSADMIN"],
+  },
+  {
+    id: "document-studio",
+    title: "Universal Document Studio",
+    subtitle: "Interactive document designer, tax invoice, delivery challan & purchase order layout compiler",
+    icon: "description",
+    tag: "Doc Studio",
+    badgeType: "primary",
+    group: "Master Data & Stock",
+    roles: ["MANAGER", "SYSADMIN"],
+  },
+  {
+    id: "bulk-import-sheet",
+    title: "Attribute Bulk Sheet Importer",
+    subtitle: "Attribute-aware spreadsheet intake, bespoke header mapping & validated catalog ingestion",
+    icon: "file_spreadsheet",
+    tag: "Import",
+    badgeType: "warning",
+    group: "Master Data & Stock",
+    roles: ["MANAGER", "SYSADMIN"],
+  },
 ];
 /**
  * Filter catalog by user role with strict deny-by-default semantics.
@@ -467,17 +668,20 @@ export const LAUNCHPAD_CATALOG: TileData[] = [
  * - SYSADMIN / ADMIN -> sees all tiles
  * - Specific role -> sees tiles explicitly allowing that role
  */
-export function getVisibleLaunchpadTiles(userRoleRaw?: string | null): TileData[] {
+export function getVisibleLaunchpadTiles(
+  userRoleRaw?: string | null,
+  catalog: TileData[] = LAUNCHPAD_CATALOG
+): TileData[] {
   if (!userRoleRaw || typeof userRoleRaw !== "string" || !userRoleRaw.trim()) {
     // Deny-by-default: anonymous / unassigned users only see unrestricted tiles (if any)
-    return LAUNCHPAD_CATALOG.filter((tile) => !tile.roles || tile.roles.length === 0);
+    return catalog.filter((tile) => !tile.roles || tile.roles.length === 0);
   }
 
   const userRole = userRoleRaw.toUpperCase().trim();
   const isSysAdmin = userRole === "SYSADMIN" || userRole === "SYSTEM ADMIN" || userRole === "ADMIN";
   const isManager = userRole === "MANAGER" || userRole === "STORE MANAGER" || isSysAdmin;
 
-  return LAUNCHPAD_CATALOG.filter((tile) => {
+  return catalog.filter((tile) => {
     if (!tile.roles || tile.roles.length === 0 || isSysAdmin) return true;
     return tile.roles.some((r) => r.toUpperCase() === userRole || (r === "MANAGER" && isManager));
   });
@@ -486,6 +690,120 @@ export function getVisibleLaunchpadTiles(userRoleRaw?: string | null): TileData[
 /**
  * Get primary quick action tiles.
  */
-export function getQuickActionTiles(userRoleRaw?: string | null): TileData[] {
-  return getVisibleLaunchpadTiles(userRoleRaw).filter((t) => t.isQuickAction);
+export function getQuickActionTiles(
+  userRoleRaw?: string | null,
+  catalog: TileData[] = LAUNCHPAD_CATALOG
+): TileData[] {
+  return getVisibleLaunchpadTiles(userRoleRaw, catalog).filter((t) => t.isQuickAction);
+}
+
+/**
+ * Maps raw backend module strings to canonical Launchpad tile group names.
+ */
+export function mapModuleToGroup(moduleStr: string): string {
+  const mod = (moduleStr || "").toLowerCase();
+  if (mod.includes("retail") || mod.includes("sale") || mod.includes("pos") || mod.includes("bill")) {
+    return "Retail Operations";
+  }
+  if (mod.includes("stock") || mod.includes("item") || mod.includes("invent") || mod.includes("master")) {
+    return "Master Data & Stock";
+  }
+  if (mod.includes("financ") || mod.includes("tax") || mod.includes("gst") || mod.includes("audit") || mod.includes("complian")) {
+    return "Finance & Compliance";
+  }
+  if (mod.includes("report") || mod.includes("analy") || mod.includes("bi")) {
+    return "Analytics & Reporting";
+  }
+  return "Administration & Control";
+}
+
+/**
+ * Synthesizes local launchpad catalog with remote menus resolved from PostgreSQL control plane (smriti_menus).
+ * - Matches remote menus by id or route.
+ * - Enriches matched tiles with title/icon/tag overrides from remote menu.
+ * - Appends novel menu entries into appropriate catalog groups.
+ * - Retains offline local catalog tiles if remote menus are empty or unavailable.
+ */
+export function synthesizeLaunchpadCatalogWithRemoteMenus(
+  remoteMenus: Array<{
+    id: string;
+    title: string;
+    route?: string | null;
+    icon?: string | null;
+    module?: string | null;
+    badge?: string | null;
+  }>,
+  baseCatalog: TileData[] = LAUNCHPAD_CATALOG
+): TileData[] {
+  if (!remoteMenus || !Array.isArray(remoteMenus) || remoteMenus.length === 0) {
+    return baseCatalog;
+  }
+
+  const catalogCopy = [...baseCatalog];
+  const seenIds = new Set<string>();
+  const billingMenuAliases = new Set([
+    "billing",
+    "billing-workspace",
+    "desktop",
+    "desktop-billing",
+    "pos",
+    "tax-invoice",
+    "create-tax-invoice",
+    "dist-invoice",
+    "credit-billing",
+    "credit-sale",
+    "credit-tax-invoice",
+    "credit-note",
+    "sales-return",
+  ]);
+
+  const normalizeMenuId = (value: string) =>
+    value
+      .replace(/^\/+|\/+$/g, "")
+      .replace(/^menu-/i, "")
+      .trim()
+      .toLowerCase()
+      .replace(/_/g, "-");
+
+  for (const m of remoteMenus) {
+    const rawRoute = (m.route || "").trim();
+    const cleanId = normalizeMenuId(m.id);
+    const routeId = normalizeMenuId(rawRoute);
+    const routeLeaf = routeId.split("/").pop() || "";
+    const billingAlias = [cleanId, routeId, routeLeaf].some((id) => billingMenuAliases.has(id));
+    const canonicalId = billingAlias ? "billing-workspace" : cleanId;
+
+    const matchedIdx = catalogCopy.findIndex(
+      (t) => t.id === canonicalId || (routeId && t.id === routeId)
+    );
+
+    if (matchedIdx >= 0) {
+      const existing = catalogCopy[matchedIdx];
+      seenIds.add(existing.id);
+      catalogCopy[matchedIdx] = {
+        ...existing,
+        title: billingAlias || existing.id === "sales" ? existing.title : m.title || existing.title,
+        icon: billingAlias ? existing.icon : m.icon || existing.icon,
+        tag: billingAlias ? existing.tag : m.badge || existing.tag,
+        roles: billingAlias ? undefined : existing.roles,
+      };
+    } else {
+      const tileId = billingAlias ? "billing-workspace" : routeId || canonicalId || m.id;
+      if (!seenIds.has(tileId)) {
+        seenIds.add(tileId);
+        catalogCopy.push({
+          id: tileId,
+          title: billingAlias ? "Billing Workspace" : m.title,
+          subtitle: `Dynamic Control Plane Module (${m.module || "General"})`,
+          icon: m.icon || "widgets",
+          tag: m.badge || m.module || undefined,
+          badgeType: "info",
+          group: mapModuleToGroup(m.module || ""),
+          roles: undefined, // Backend resolved endpoint already filtered by role & permissions
+        });
+      }
+    }
+  }
+
+  return catalogCopy;
 }

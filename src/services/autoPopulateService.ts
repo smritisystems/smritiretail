@@ -57,6 +57,8 @@ export interface AutoPopulateProductResult {
   size?: string;
   color?: string;
   gstPercentage: number;
+  isTaxInclusive?: boolean;
+  is_tax_inclusive?: boolean;
 
   // Additional 5–7 Relevant Item Details
   brand?: string;
@@ -80,24 +82,44 @@ export interface AutoPopulateHsnResult {
 const searchCache = new Map<string, { timestamp: number; data: any }>();
 const CACHE_TTL_MS = 15000;
 
+export function clearCustomerSearchCache(): void {
+  searchCache.clear();
+}
+
+if (typeof window !== "undefined") {
+  window.addEventListener("smriti_customer_updated", () => {
+    clearCustomerSearchCache();
+  });
+}
+
 /**
  * Searches customers from backend in real-time as user types in any customer-related field.
  */
-export async function searchBackendCustomers(query: string): Promise<AutoPopulateCustomerResult[]> {
+export async function searchBackendCustomers(
+  query: string,
+  invoiceScope?: { series: string; from: number; to: number }
+): Promise<AutoPopulateCustomerResult[]> {
   const cleanQ = query.trim();
   if (!cleanQ) {
     const local = getCustomers();
     return enrichCustomersWithPriceGroups(local.slice(0, 10));
   }
 
-  const cacheKey = `cust:${cleanQ.toLowerCase()}`;
+  const scopeKey = invoiceScope ? `:${invoiceScope.series}:${invoiceScope.from}-${invoiceScope.to}` : "";
+  const cacheKey = `cust:${cleanQ.toLowerCase()}${scopeKey}`;
   const cached = searchCache.get(cacheKey);
   if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
     return cached.data;
   }
 
   try {
-    const res = await apiFetchV1(`/crm/customers/search?q=${encodeURIComponent(cleanQ)}&limit=15`);
+    const params = new URLSearchParams({ q: cleanQ, limit: "15" });
+    if (invoiceScope) {
+      params.set("invoice_series", invoiceScope.series);
+      params.set("invoice_from", String(invoiceScope.from));
+      params.set("invoice_to", String(invoiceScope.to));
+    }
+    const res = await apiFetchV1(`/crm/customers/search?${params.toString()}`);
     const rawList = Array.isArray(res) ? res : (res?.items || []);
     if (rawList.length > 0) {
       const enriched = enrichCustomersWithPriceGroups(rawList);
@@ -153,8 +175,8 @@ function enrichCustomersWithPriceGroups(customers: any[]): AutoPopulateCustomerR
       priceGroupCode: matchedPg?.code,
       priceGroupDescription: matchedPg?.description,
       paymentTerms: matchedPg?.paymentTerms || "PT",
-      creditDays: matchedPg?.creditDays ?? 30,
-      creditLimit: matchedPg?.creditLimit ?? 100000,
+      creditDays: c.creditDays ?? c.credit_days ?? c.groupCreditDays ?? c.group_credit_days ?? matchedPg?.creditDays ?? 30,
+      creditLimit: c.creditLimit ?? c.credit_limit ?? c.groupCreditLimit ?? c.group_credit_limit ?? matchedPg?.creditLimit ?? 100000,
       destTaxType: matchedPg?.destTaxType || "Local",
       allowCreditInvoice: matchedPg?.allowCreditInvoice ?? true,
       allowCashInvoice: matchedPg?.allowCashInvoice ?? true,
@@ -195,9 +217,9 @@ export async function searchBackendProducts(query: string, localProducts: Produc
     return results;
   }
 
-  // 2. Query backend inventory products endpoint
+  // 2. Query canonical universal items catalog endpoint
   try {
-    const res = await apiFetchV1(`/products/search?q=${encodeURIComponent(cleanQ)}&limit=15`);
+    const res = await apiFetchV1(`/universal/items?query=${encodeURIComponent(cleanQ)}&limit=15`);
     const rawList = Array.isArray(res) ? res : (res?.items || []);
     if (rawList.length > 0) {
       const results = rawList.map(mapToProductResult);
@@ -206,12 +228,11 @@ export async function searchBackendProducts(query: string, localProducts: Produc
     }
   } catch {
     try {
-      const res2 = await apiFetchV1(`/products?q=${encodeURIComponent(cleanQ)}&page_size=15`);
-      const rawList2 = Array.isArray(res2) ? res2 : (res2?.items || []);
-      if (rawList2.length > 0) {
-        const results2 = rawList2.map(mapToProductResult);
-        searchCache.set(cacheKey, { timestamp: Date.now(), data: results2 });
-        return results2;
+      const resolved = await apiFetchV1<any>(`/universal/items/resolve?query=${encodeURIComponent(cleanQ)}`);
+      if (resolved && (resolved.item_id || resolved.variant_id)) {
+        const results = [mapToProductResult(resolved)];
+        searchCache.set(cacheKey, { timestamp: Date.now(), data: results });
+        return results;
       }
     } catch {
       // Backend offline fallback
@@ -222,28 +243,30 @@ export async function searchBackendProducts(query: string, localProducts: Produc
 }
 
 function mapToProductResult(p: any): AutoPopulateProductResult {
-  const stockNo = p.stockNo || p.styleCode || p.style_code || p.code || "";
+  const stockNo = p.stockNo || p.styleCode || p.style_code || p.item_code || p.code || "";
   const barcode = p.barcode || p.code || "";
-  const sku = p.sku || p.code || barcode;
-  const code = p.code || sku;
-  const name = p.name || p.itemDescription || p.description || "Product Item";
-  const desc = p.description || p.name || name;
+  const sku = p.variant_sku || p.sku || p.code || barcode;
+  const code = p.item_code || p.code || sku;
+  const name = p.item_name || p.name || p.itemDescription || p.description || "Product Item";
+  const desc = p.description || p.item_name || p.name || name;
 
   return {
-    id: p.id || p.code,
+    id: p.id || p.item_id || p.code,
     barcode,
     stockNo,
     code,
     sku,
     name,
     description: desc,
-    sellingPrice: Number(p.sellingPrice || p.price || p.rate || p.mrp || 0),
-    mrp: Number(p.mrp || p.sellingPrice || p.price || 0),
+    sellingPrice: Number(p.sellingPrice || p.selling_price || p.price || p.rate || p.mrp || 0),
+    mrp: Number(p.mrp || p.sellingPrice || p.selling_price || p.price || 0),
     costPrice: Number(p.costPrice || p.cost_price || p.buying_price || p.purchasePrice || 0),
-    stockQty: Number(p.stockQty || p.stock || p.availableStock || 0),
+    stockQty: Number(p.stockQty || p.stock_quantity || p.physical_on_hand || p.stock || p.availableStock || 0),
     size: p.size || "Standard",
     color: p.color || "Standard",
-    gstPercentage: Number(p.gstPercentage || p.gst_percentage || p.gstRate || 18),
+    gstPercentage: Number(p.gstPercentage || p.gst_percentage || p.tax_rate || p.gstRate || 18),
+    isTaxInclusive: p.isTaxInclusive ?? p.is_tax_inclusive,
+    is_tax_inclusive: p.is_tax_inclusive ?? p.isTaxInclusive,
     brand: p.brand || "SMRITI",
     category: p.category || "General",
     hsnCode: p.hsnCode || p.hsn_code || "6203",
@@ -252,7 +275,7 @@ function mapToProductResult(p: any): AutoPopulateProductResult {
     weightGrams: Number(p.weightGrams || p.weight_grams || 0),
     primaryImageUrl: p.primaryImageUrl || p.primary_image_url || p.imageUrl || undefined,
     secondaryBarcodes: p.secondaryBarcodes || p.secondary_barcodes || [],
-    uom: p.uom || "Pcs"
+    uom: p.uom || p.primary_uom || "Pcs"
   };
 }
 

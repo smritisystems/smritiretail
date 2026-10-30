@@ -1,0 +1,340 @@
+<!doctype HTML public "-//W3C//DTD HTML 4.0 Frameset//EN">
+
+<html>
+
+<head>
+<title>Creating a Tally Interface Mapping</title>
+<meta http-equiv="content-type" content="text/html; charset=windows-1252">
+<meta name="generator" content="RoboHelp by eHelp Corporation www.ehelp.com">
+<link rel="StyleSheet" href="../Shoper.css"><style title="hcp" type="text/css">
+<!--
+span.hcp1 { font-weight:bold; }
+img.hcp2 { border:none; float:none; border-style:none; }
+span.hcp3 { font-weight:bold; x-text-underline:normal; text-decoration:underline; }
+span.hcp4 { background-color:Transparent; }
+-->
+</style>
+</head>
+<body>
+<h1>Creating a Tally Interface Mapping</h1>
+
+<p class=Body-Text>On clicking <span class="hcp1">Add</span> 
+ button in the Tally Synchronisation Manager window, you get a new field 
+ to accept the map name.</p>
+
+<p class=Body-Text><img src="creating%20a%20tally%20interface%20mapping1.gif" x-maintain-ratio="TRUE" style="width:425px; height:29px;" width="425" height="29" border="0" class="hcp2"></p>
+
+<p class=Body-Text><span class="hcp1">Map Name</span>: Enter 
+ the map name.</p>
+
+<p class=Navigation><span class="hcp3">O</span><span class="hcp1">k</span>: To proceed with the configuration 
+ process.</p>
+
+<p class=Navigation><span class="hcp3">C</span><span class="hcp1">ancel</span>: To abort the configuration process.</p>
+
+<p class=Body-Text>The <span class="hcp1">Tally Interface 
+ - Mapping</span> window is displayed.</p>
+
+<p class=Body-Text><img src="creating%20a%20tally%20interface%20mapping2.gif" x-maintain-ratio="TRUE" style="width:550px; height:273px;" width="550" height="273" border="0" class="hcp2"></p>
+
+<p class=Body-Text><span class="hcp1">Map Name</span>: The 
+ name entered for the mapping is displayed.</p>
+
+<p class=Note><span class="hcp1">Note:</span> Tally 9 needs 
+ to be open on the server, while you are adding a Mapping.</p>
+
+<p class=Body-Text><span class="hcp1">Tally</span>:</p>
+
+<p class=Body-Text
+	style="margin-left: 47px;"><span class="hcp1">Server 
+ IP</span>: Enter the IP address or name of the server where Tally 9 is 
+ installed.</p>
+
+<p class=Body-Text
+	style="margin-left: 47px;"><span class="hcp1">Port No.</span>: 
+ Enter the port number where Tally 9 is configured.</p>
+
+<p class=Body-Text
+	style="margin-left: 47px;"><span class="hcp1">Company</span>: 
+ Select the Tally Company Name to which Shoper 9 data has to be posted.</p>
+
+<p class=Note><span class="hcp1">Note:</span> In case you 
+ are using a firewall or proxy, please contact your network administrator 
+ for necessary configuration changes.</p>
+
+<p class=Body-Text><span class="hcp1">Sales Ledgers with 
+ Shop Name</span>: Select if you want to post all Shoper 9 sales ledgers 
+ with shop name to Tally 9.</p>
+
+<p class=Body-Text><span class="hcp1">Post Paymodes Individually</span>: 
+ Select if you want to post all Shoper 9 pay modes individually to Tally 
+ 9.</p>
+
+<p class=Body-Text><span class="hcp1">Post Deductions Individually</span>: 
+ Select if you want to post all deduction recorded in Shoper 9 individually 
+ to Tally 9.</p>
+
+<p class=Body-Text><span class="hcp1">Post Add-Ons Individually</span>: 
+ Select if you want to post all add-ons recorded in Shoper 9 individually 
+ to Tally 9.</p>
+
+<p class=Note><span class="hcp1">Note:</span> All the deductions 
+ and add-ons before tax will be factored in to the sale value or purchase 
+ value. All the deductions and add-ons after tax are displayed individually, 
+ if selected.</p>
+
+<p class=Body-Text
+	style="background-color: Transparent;"><span class="hcp1">Post 
+ Inventory</span>: Select if your statutory reporting requires HSN based 
+ report. This enables posting the complete inventory information from Shoper 
+ 9 to Tally 9. This option is available only if the Tally company chosen 
+ is VAT enabled. Note that HSN codes will be used only for inventory posting. 
+ For more information on HSN, click <a href="HSN_Mapping_in_Tally_Interface.htm">here</a>.</p>
+
+<p class=Body-Text
+	style="background-color: Transparent;"><span class="hcp1">Post 
+ Transfers</span>: Select if your statutory reporting requires details 
+ of transfer-in and transfer-out.</p>
+
+<p class=Body-Text
+	style="background-color: Transparent; color: #000000;"><span class="hcp1">Use 
+ Billing Remarks for Narration</span>: Select this option to post billing 
+ remarks as narration in Tally vouchers.</p>
+
+<p class=Body-Text
+	style="background-color: Transparent; color: #000000;"><span class="hcp1">Post 
+ Before Tax Add-Ons and Deduction Details</span>: Select if you want to 
+ post pre tax calculation values of Add-ons and Deductions</p>
+
+<p class=Body-Text><span class="hcp1">Use Map Name in Voucher 
+ Number</span>: Select to prefix Map Name to the voucher numbers posted 
+ to Tally 9.</p>
+
+<p class=Body-Text><span class="hcp1">Use Map Name in Bill 
+ References</span>: Select to prefix Map Name to Bill References posted 
+ to Tally 9.</p>
+
+<p class=Body-Text><span class="hcp1">Do not Create Customer 
+ Ledgers</span>: Select to disallow creating Customer ledgers in Tally 
+ 9.</p>
+
+<p class=Body-Text
+	style="color: #000000;"><span class="hcp1">Create non 
+ Transacted Party Ledgers</span>: Select to post party ledgers that are 
+ created but not used in any transaction in Shoper 9.</p>
+
+<p class=Body-Text><span class="hcp1">Use Store Code as Cost 
+ Center</span>: Select to use showroom code of shoper 9 company as cost 
+ centres in Tally 9.</p>
+
+<p class=Body-Text>The option <span class="hcp1">Use Store 
+ Code as Cost Centre</span> was controlled through system parameters in 
+ older versions of Shoper. This has been included to the mapping screen 
+ to provide single access point to options related Tally Interface Mapping.</p>
+
+<p class=Body-Text><span class="hcp1">Send Closing Stock</span>: 
+ Select this option to post closing stock from Shoper.</p>
+
+<p class=Body-Text><span class="hcp1">Advanced Settings</span>:</p>
+
+<p class=Body-Text
+	style="margin-left: 47px; color: #000000;"><span class="hcp1">Offline 
+ Posting</span>: Select if you want to post transaction into Tally 9 offline, 
+ i.e., when Tally 9 is not on the same network.</p>
+
+<p class=Body-Text
+	style="margin-left: 47px;"><span class="hcp1">Deactivate</span>: 
+ Select if you want to deactivate the selected mapping, when you are editing 
+ an existing mapping. Once deactivated, the mapping cannot be used for 
+ posting. you have to reactivate when posting is required. On reactivation 
+ the posting will happen from the last posted date.</p>
+
+<p class=Body-Text
+	style="margin-left: 47px;"><span class="hcp1">Automatic 
+ Posting</span>: Select to enable data posting as part of scheduled activity/ 
+ day-end.</p>
+
+<p class=Body-Text><span class="hcp1">Transactions to be 
+ sent</span>:</p>
+
+<p class=Body-Text
+	style="margin-left: 47px;"><span class="hcp1">Sales</span>: 
+ Select <span class="hcp1">No Posting</span>, <span class="hcp1">Cumulative</span> 
+ or <span class="hcp1">Bill by Bill</span> to specify how 
+ sales transactions in Shoper 9 have to be posted to Tally 9. Whatever 
+ be your choice, credit sales are posted bill by bill.</p>
+
+<p class=Body-Text
+	style="margin-left: 47px; background-color: Transparent;"><span class="hcp1">Sales 
+ Returns</span>: Select <span class="hcp1">No Posting </span>or 
+ <span class="hcp1">Bill by Bill</span> to specify how sales 
+ returns recorded in Shoper 9 have to be posted to Tally 9.</p>
+
+<p class=Body-Text
+	style="margin-left: 47px;"><span class="hcp1">Purchase</span>: 
+ Select <span class="hcp1">No Posting</span> or <span class="hcp1">Bill 
+ by Bill</span> to specify how purchase transactions in Shoper 9 have to 
+ be posted to Tally 9.</p>
+
+<p class=Body-Text
+	style="margin-left: 47px;"><span class="hcp1">Purchase 
+ Returns</span>: Select <span class="hcp1">No Posting</span> 
+ or <span class="hcp1">Bill by Bill</span> to specify how 
+ purchase returns recorded in Shoper 9 have to be posted to Tally 9.</p>
+
+<p class=Body-Text
+	style="margin-left: 47px;"><span class="hcp1">Receipts</span>: 
+ Select <span class="hcp1">No Posting</span>, <span class="hcp1">Cumulative</span> 
+ or <span class="hcp1">Bill by Bill</span> to specify how 
+ receipts in Shoper 9 have to be posted to Tally 9.</p>
+
+<p class=Body-Text
+	style="margin-left: 47px;"><span class="hcp1">Payments</span>: 
+ Select <span class="hcp1">No Posting</span>, <span class="hcp1">Cumulative</span> 
+ or <span class="hcp1">Bill by Bill</span> to specify how 
+ payments in Shoper 9 have to be posted to Tally 9.</p>
+
+<p class=Note
+	style="margin-left: 59px;"><span class="hcp1">Note:</span> 
+ Cumulative postings will remove bill references when posting to Tally 
+ 9 - setting these to <span class="hcp1">On Account</span>. 
+ You might consider using <span class="hcp1">Bill-by-Bill</span> 
+ instead to ensure that bill references are posted to Tally 9.</p>
+
+<p class=Body-Text
+	style="margin-left: 47px;"><span class="hcp1">Post Tax</span>: 
+ Select the tax type to be applied as <span class="hcp1">No 
+ Tax</span>, <span class="hcp1">Simple Tax</span>, <span class="hcp1">VAT Composition</span> or <span class="hcp1">VAT 
+ Regular</span>.</p>
+
+<p class=Caution
+	style="margin-left: 59px;"><span class="hcp1">Caution:</span> 
+ <span class="hcp4">It is advised that you do 
+ not change these tax settings. If the configuration done in Tally 9 is 
+ incorrect, cancel the mapping process, make the necessary changes in Tally 
+ 9 and redo the mapping process. Statutory reporting will be compromised 
+ if this warning is ignored.</span></p>
+
+<p class=BlankLine>&nbsp;</p>
+
+<p class=Note
+	style="margin-left: 59px;"><span class="hcp1">Note:</span> 
+ <span class="hcp4">A trader coming under composite 
+ tax will not charge tax from his customers, and will set VAT to 0.00%. 
+ To ensure that Tally 9 processes composite VAT returns correctly, the 
+ appropriate tax classification has to be selected from the list for the 
+ sales ledger at the time of defining the mapping rules for the particular 
+ company.</span></p>
+
+<p class=BlankLine>&nbsp;</p>
+
+<p class=Caution
+	style="margin-left: 59px;"><span class="hcp1">Caution:</span><span class="hcp4"> Once mapped the tax classification 
+ cannot be changed in this mapping.</span></p>
+
+<p class=Body-Text
+	style="margin-left: 47px;">&nbsp;</p>
+
+<p class=Body-Text
+	style="margin-left: 47px;"><span class="hcp1">Post From</span>: 
+ Select the date from when Shoper 9 data needs to be posted to Tally 9, 
+ as per the specified mapping. This date cannot be one later than the current 
+ date of Shoper 9.</p>
+
+<p class=Body-Text><span class="hcp1">Account Names in Tally</span>:</p>
+
+<p class=Body-Text
+	style="margin-left: 47px;"><span class="hcp1">Ledger 
+ Format</span>: Select the ledger format to be used as <span class="hcp1">MasterName_MasterCode</span>, 
+ <span class="hcp1">MasterCode_MasterName</span> or <span class="hcp1">MasterName</span> while creating account names 
+ in Tally 9.</p>
+
+<p class=Body-Text
+	style="margin-left: 47px;">Select <span class="hcp1">Prefix</span> 
+ or <span class="hcp1">Suffix</span> to specify the string 
+ to be attached to account names posted to Tally 9 from Shoper 9. Select 
+ the string to be attached as <span class="hcp1">Shoper</span>, 
+ <span class="hcp1">Shoper_CompanyCode</span> (the company 
+ code prefixed with the string Shoper), <span class="hcp1">CompanyCode</span> 
+ (the company code) or <span class="hcp1">&lt;&lt;Custom&gt;&gt;</span>. 
+ If you choose <span class="hcp1">&lt;&lt;Custom&gt;&gt;</span>, 
+ a window is displayed to accept the text to be used in master name. The 
+ entered string is displayed next to the drop down.</p>
+
+<p class=Body-Text
+	style="margin-left: 47px; color: #000000;"><span class="hcp1">Apply 
+ to Masters</span>: Select if you want to apply the prefix or suffix to 
+ all masters posted from Shoper 9.</p>
+
+<p class=Body-Text
+	style="margin-left: 47px; color: #000000;"><span class="hcp1">Apply 
+ to Voucher Types</span>: Select if you want to apply the prefix or suffix 
+ to all voucher types posted from Shoper 9.</p>
+
+<p class=Body-Text
+	style="margin-left: 47px;"><span class="hcp1">Auto Create 
+ Masters when Posting</span>: Select if you want the masters unavailable 
+ in Tally 9 to be created automatically during posting. If you deselect 
+ this option, you would need to visit this setup again and post any new 
+ masters created in Shoper 9 to Tally 9.</p>
+
+<p class=Note><span class="hcp1">Note:</span> Each showroom 
+ can be mapped as a cost centre in Tally. Cost centres can be enabled or 
+ disabled in Shoper 9 POS using the parameter <span class="hcp1">PostCCToTally</span> 
+ under the category <span class="hcp1">House Keeping</span>. 
+ Once enabled, all postings are done using these cost centres.</p>
+
+<p class=BlankLine>&nbsp;</p>
+
+<p class=Caution
+	style="margin-left: 59px;"><span class="hcp1">Caution:</span> 
+ Before posting data to Tally, cost centres need to be enabled in Tally. 
+ Subsequently, cost category and cost centres need to be created. Click 
+ <a href="Configuration_of_Tally_for_Using_Cost_Centres.htm">here</a> for 
+ more information.</p>
+
+<p class=BlankLine>&nbsp;</p>
+
+<p class=Navigation><span class="hcp3">P</span><span class="hcp1">urchase Tax Breakup</span>: To define the breakup 
+ of purchase tax when posting the values to Tally 9. Click <a href="Defining_a_Purchase_Tax_Breakup.htm">here</a> 
+ to learn more.</p>
+
+<p class=BlankLine>&nbsp;</p>
+
+<p class=Note
+	style="margin-left: 59px;"><span class="hcp1">Note:</span> 
+ <span class="hcp4">Multiple tax components are 
+ enforced in certain states. Shoper 9 supports these multiple rates in 
+ Billing (Sales). However, multiple tax components are not supported in 
+ Purchase transactions and hence it is required that you use one single 
+ VAT% that combines the effect of all these components. You have to define 
+ the multiple tax components to ensure that the statutory reports in Tally 
+ 9 reflect the breakup correctly.</span></p>
+
+<p class=BlankLine>&nbsp;</p>
+
+<p class=Navigation><span class="hcp1">Pre</span><span class="hcp3">v</span><span class="hcp1">iew Mapping</span>: This option will display 
+ the list of masters that are going to be created in Tally 9. You will 
+ be able to change the ledger name, tax classification and first alias.</p>
+
+<p class=Navigation><span class="hcp3">S</span><span class="hcp1">ave Settings</span>: To save the configurations. 
+ An activities log will be displayed in case you are configuring a mapping 
+ for a group. On successful completion a message is displayed indicating 
+ that the mapping is successful.</p>
+
+<p class=Navigation><span class="hcp1">E</span><span class="hcp3">x</span><span class="hcp1">it</span>: To quit the mapping configuration 
+ option.</p>
+
+<p class=BlankLine>&nbsp;</p>
+
+<p class=Note><span class="hcp1">Note:</span><span class="hcp4"> 
+ Where a customer does not provide a 'C' form, an additional tax (equal 
+ to the regular VAT%) may be applicable for certain states in India. The 
+ additional tax needs to be a part of the VAT return (on a Rs 0.00 assessable 
+ value). This is currently not supported. The user is advised to make the 
+ necessary changes in such vouchers once they are posted into Tally 9.</span></p>
+
+<p class=Body-Text>&nbsp;</p>
+
+</body>
+</html>

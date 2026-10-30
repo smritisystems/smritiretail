@@ -1,0 +1,15 @@
+{
+  "certificate_id": "PF-2026-1019-EB958A",
+  "entity": "customer",
+  "capability": "customer.crud",
+  "asset_type": "component",
+  "proposed_name": "AddEditContactModal.tsx",
+  "target_file_path": "src/components/customer/corporateWorkspace/AddEditContactModal.tsx",
+  "decision": "CREATE_APPROVED",
+  "canonical_owner": "src/components/customer/CustMasterWs.tsx",
+  "content_hash": "46301de6b75201b377d223befd1b673715cd3c9227758003d5879b50a21767a4",
+  "git_commit": "bcdcd4ff56b88e0dcc5a28515496bde4b9b95f3a",
+  "issued_at": "2026-10-19T11:10:25.459737+00:00",
+  "expires_at": "2026-10-26T11:10:25.459737+00:00",
+  "status": "ISSUED"
+}

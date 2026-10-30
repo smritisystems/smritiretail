@@ -28,6 +28,7 @@ import {
   ArrowUp,
   ArrowDown,
   AlertTriangle,
+  AlertCircle,
   FileSpreadsheet,
   CheckCircle2,
   XCircle,
@@ -40,12 +41,14 @@ import { apiFetchV1 } from "../../../lib/apiFetchV1.ts";
 import { recordAuditAction } from "../../../lib/apiFetch.ts";
 import { SmritiScrollArea } from "../../SmritiScrollArea.tsx";
 import { useWorkspace } from "../../../contexts/WorkspaceContext.tsx";
+import { getCanonicalField } from "../../../services/canonicalFieldRegistry.ts";
 
 export interface MasterListScreenProps<T = any> {
   config: MasterConfig<T>;
   currentUser?: { role: string; name: string } | null;
   onNotification?: (title: string, message: string, type: "success" | "error" | "info" | "warning") => void;
   initialSubTab?: string;
+  onSubTabChange?: (subTabId: string) => void;
   // Optional slot overrides provided directly at screen instantiation
   extraColumns?: (item: T) => React.ReactNode;
   extraFields?: (formState: any, setFormField: (name: string, val: any) => void) => React.ReactNode;
@@ -58,6 +61,7 @@ export function MasterListScreen<T extends Record<string, any>>({
   currentUser,
   onNotification,
   initialSubTab,
+  onSubTabChange,
   extraColumns,
   extraFields,
   customActions,
@@ -72,6 +76,13 @@ export function MasterListScreen<T extends Record<string, any>>({
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [activeSubTab, setActiveSubTab] = useState<string>(initialSubTab || config.subTabs?.[0]?.id || "list");
+
+  // Keep activeSubTab synced with initialSubTab prop updates
+  useEffect(() => {
+    if (initialSubTab && initialSubTab !== activeSubTab) {
+      setActiveSubTab(initialSubTab);
+    }
+  }, [initialSubTab]);
   
   // Filter States
   const [filterValues, setFilterValues] = useState<Record<string, any>>(() => {
@@ -109,6 +120,20 @@ export function MasterListScreen<T extends Record<string, any>>({
   // Request ID sequence for stale response cancellation in server mode
   const latestRequestId = useRef(0);
 
+  // Store callbacks and transforms in refs so identity changes never re-trigger data fetches
+  const onNotificationRef = useRef(onNotification);
+  onNotificationRef.current = onNotification;
+
+  const responseTransformRef = useRef(config.responseTransform);
+  responseTransformRef.current = config.responseTransform;
+
+  const lastNotifiedErrorRef = useRef<string | null>(null);
+  const rateLimitCooldownUntilRef = useRef<number>(0);
+
+  // Error & Rate Limiting States
+  const [fetchError, setFetchError] = useState<string | null>(null);
+  const [isRateLimited, setIsRateLimited] = useState<boolean>(false);
+
   // Search Debounce (350ms)
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -122,8 +147,18 @@ export function MasterListScreen<T extends Record<string, any>>({
     setPage(1);
   }, [debouncedSearch, filterValues, sortState.key, sortState.direction, pageSize]);
 
+  // Filter serialized key for stable dependency checking
+  const filterKey = useMemo(() => JSON.stringify(filterValues), [filterValues]);
+
   // Fetch Items from Backend
-  const fetchItems = useCallback(async () => {
+  const fetchItems = useCallback(async (isManualRetry = false) => {
+    const now = Date.now();
+    if (!isManualRetry && rateLimitCooldownUntilRef.current > now) {
+      const waitSeconds = Math.ceil((rateLimitCooldownUntilRef.current - now) / 1000);
+      console.warn(`[MasterListScreen] Cooldown active. Throttling auto-fetch for ${waitSeconds}s to honor rate limits.`);
+      return;
+    }
+
     const requestId = ++latestRequestId.current;
     setLoading(true);
 
@@ -157,8 +192,8 @@ export function MasterListScreen<T extends Record<string, any>>({
 
         if (data && typeof data === "object" && "items" in data) {
           let list = data.items;
-          if (config.responseTransform) {
-            list = config.responseTransform(data);
+          if (responseTransformRef.current) {
+            list = responseTransformRef.current(data);
           }
           setItems(Array.isArray(list) ? list : []);
           setServerTotal(data.total ?? 0);
@@ -179,8 +214,8 @@ export function MasterListScreen<T extends Record<string, any>>({
         if (requestId !== latestRequestId.current) return;
 
         let list: T[] = [];
-        if (config.responseTransform) {
-          list = config.responseTransform(data);
+        if (responseTransformRef.current) {
+          list = responseTransformRef.current(data);
         } else if (Array.isArray(data)) {
           list = data;
         } else if (data && Array.isArray(data.items)) {
@@ -192,18 +227,48 @@ export function MasterListScreen<T extends Record<string, any>>({
         }
         setItems(list);
       }
+
+      // Successful fetch — clear error states
+      setFetchError(null);
+      setIsRateLimited(false);
+      lastNotifiedErrorRef.current = null;
+      rateLimitCooldownUntilRef.current = 0;
     } catch (err: any) {
       if (requestId !== latestRequestId.current) return;
+      const rawMsg = String(err?.message || err || "Unknown fetch error");
+      const is429 = rawMsg.includes("429") || rawMsg.toLowerCase().includes("rate limit") || rawMsg.toLowerCase().includes("too many requests");
+
       console.error(`[MasterListScreen] Failed to fetch ${config.entityName}:`, err);
-      if (onNotification) {
-        onNotification("Fetch Error", `Failed to load ${config.entityNamePlural || config.entityName}: ${err.message}`, "error");
+
+      let userFacingMsg = rawMsg;
+      if (is429) {
+        // Enforce 15-second cooldown on 429
+        rateLimitCooldownUntilRef.current = Date.now() + 15000;
+        setIsRateLimited(true);
+        userFacingMsg = "Request frequency limit reached (300 req/min). Auto-refresh paused to protect system resources. Please wait a few seconds before retrying.";
+      }
+
+      setFetchError(userFacingMsg);
+
+      // Deduplicate toast notification — only notify once per unique error to prevent feedback loops
+      if (lastNotifiedErrorRef.current !== rawMsg) {
+        lastNotifiedErrorRef.current = rawMsg;
+        if (onNotificationRef.current) {
+          onNotificationRef.current(
+            is429 ? "Rate Limit Active" : "Fetch Notice",
+            is429
+              ? "System is throttling requests to avoid server overload. Auto-refresh paused."
+              : `Failed to load ${config.entityNamePlural || config.entityName}: ${userFacingMsg}`,
+            is429 ? "warning" : "error"
+          );
+        }
       }
     } finally {
       if (requestId === latestRequestId.current) {
         setLoading(false);
       }
     }
-  }, [config, isServerPagination, page, pageSize, debouncedSearch, filterValues, sortState, onNotification]);
+  }, [config.apiEndpoint, config.entityName, config.entityNamePlural, isServerPagination, page, pageSize, debouncedSearch, filterKey, sortState.key, sortState.direction]);
 
   useEffect(() => {
     fetchItems();
@@ -437,7 +502,7 @@ export function MasterListScreen<T extends Record<string, any>>({
           {/* Refresh Button */}
           <button
             type="button"
-            onClick={() => fetchItems()}
+            onClick={() => fetchItems(true)}
             disabled={loading}
             title="Refresh Table"
             className="p-2.5 rounded-xl bg-theme-surface-2 hover:bg-theme-surface-hover text-theme-muted hover:text-theme-primary border border-theme-divider transition-all cursor-pointer disabled:opacity-50"
@@ -510,20 +575,23 @@ export function MasterListScreen<T extends Record<string, any>>({
 
       {/* Sub Tabs Bar (if defined) */}
       {config.subTabs && config.subTabs.length > 0 && (
-        <div className="flex items-center space-x-1 border-b border-theme-divider pb-2 overflow-x-auto">
-          {config.subTabs.map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveSubTab(tab.id)}
-              className={`px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer shrink-0 ${
-                activeSubTab === tab.id
-                  ? "bg-blue-600 text-white shadow-xs"
-                  : "text-theme-muted hover:text-theme-primary hover:bg-theme-surface-2"
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
+        <div className="flex items-center gap-3 border-b border-theme-divider pb-3">
+          <label htmlFor="master-lookup-type" className="text-xs font-bold text-theme-muted whitespace-nowrap">
+            Lookup Type
+          </label>
+          <select
+            id="master-lookup-type"
+            value={config.subTabs.some((tab) => tab.id === activeSubTab) ? activeSubTab : config.subTabs[0].id}
+            onChange={(event) => {
+              setActiveSubTab(event.target.value);
+              onSubTabChange?.(event.target.value);
+            }}
+            className="min-w-64 max-w-full rounded-lg border border-theme-divider bg-theme-surface-1 px-3 py-2 text-xs font-bold text-theme-primary outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+          >
+            {config.subTabs.map((tab) => (
+              <option key={tab.id} value={tab.id}>{tab.label}</option>
+            ))}
+          </select>
         </div>
       )}
 
@@ -610,7 +678,7 @@ export function MasterListScreen<T extends Record<string, any>>({
                       <div className={`flex items-center space-x-1.5 ${
                         col.align === "right" ? "justify-end" : col.align === "center" ? "justify-center" : "justify-start"
                       }`}>
-                        <span>{col.label}</span>
+                        <span>{col.label || (col.fieldId ? getCanonicalField(col.fieldId)?.label : undefined) || col.key}</span>
                         {col.sortable && (
                           <span className="text-theme-muted">
                             {sortState.key === col.key ? (
@@ -644,6 +712,31 @@ export function MasterListScreen<T extends Record<string, any>>({
                     >
                       <RefreshCw size={24} className="animate-spin mx-auto text-blue-400 mb-2" />
                       <span>Loading {config.entityNamePlural || config.entityName}...</span>
+                    </td>
+                  </tr>
+                ) : fetchError ? (
+                  <tr>
+                    <td
+                      colSpan={config.columns.length + 2}
+                      className="py-12 text-center text-theme-muted font-sans"
+                    >
+                      <div className="w-12 h-12 rounded-full bg-rose-500/10 border border-rose-500/20 flex items-center justify-center mx-auto mb-3 text-rose-400">
+                        <AlertCircle size={22} />
+                      </div>
+                      <p className="font-bold text-sm text-theme-primary">
+                        {isRateLimited ? "Request Throttled (Rate Limit 429)" : `Failed to load ${config.entityNamePlural || config.entityName}`}
+                      </p>
+                      <p className="text-xs text-theme-muted max-w-md mx-auto mt-1 mb-4 font-mono">
+                        {fetchError}
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => fetchItems(true)}
+                        className="inline-flex items-center px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs transition-all shadow-sm cursor-pointer space-x-1.5"
+                      >
+                        <RefreshCw size={13} />
+                        <span>Retry Loading</span>
+                      </button>
                     </td>
                   </tr>
                 ) : displayItems.length === 0 ? (
@@ -884,7 +977,7 @@ export function MasterListScreen<T extends Record<string, any>>({
                   Confirm Deletion
                 </h3>
                 <p className="text-xs text-theme-muted leading-relaxed">
-                  Are you sure you want to permanently delete this {config.entityName.toLowerCase()} record? This action cannot be undone.
+                  Delete this {config.entityName.toLowerCase()} only if it has no live references. The server will validate linked templates, products, orders, and child values before retiring it.
                 </p>
               </div>
             </div>

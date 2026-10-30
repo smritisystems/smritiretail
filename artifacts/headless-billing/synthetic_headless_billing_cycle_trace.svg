@@ -1,0 +1,137 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 800" width="1200" height="800">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0b1329"/>
+      <stop offset="100%" stop-color="#162040"/>
+    </linearGradient>
+    <linearGradient id="cardGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1e293b"/>
+      <stop offset="100%" stop-color="#0f172a"/>
+    </linearGradient>
+    <filter id="shadow" x="-5%" y="-5%" width="110%" height="110%">
+      <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#000" flood-opacity="0.5"/>
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1200" height="800" fill="url(#bgGrad)"/>
+
+  <!-- Watermark / Distinction Banner per Priority 4 -->
+  <rect x="30" y="25" width="1140" height="45" rx="8" fill="#3b82f6" fill-opacity="0.15" stroke="#60a5fa" stroke-width="1.5"/>
+  <text x="50" y="53" fill="#93c5fd" font-family="sans-serif" font-size="16" font-weight="bold">
+    SYNTHETIC TEST SEQUENCE &amp; DATA FLOW TRACE — P0.3 HEADLESS BILLING CYCLE (NOT A REACT UI RENDER)
+  </text>
+  <text x="1000" y="53" fill="#60a5fa" font-family="monospace" font-size="12">SMRITI-P0.3-TRACE</text>
+
+  <!-- Step 1: Client Ingress -->
+  <g transform="translate(50, 100)" filter="url(#shadow)">
+    <rect width="240" height="180" rx="12" fill="url(#cardGrad)" stroke="#38bdf8" stroke-width="2"/>
+    <rect x="0" y="0" width="240" height="35" rx="12" fill="#0284c7"/>
+    <text x="15" y="24" fill="#ffffff" font-family="sans-serif" font-size="13" font-weight="bold">1. Ingress &amp; Barcode Input</text>
+    
+    <text x="15" y="65" fill="#94a3b8" font-family="sans-serif" font-size="11">Input: <tspan fill="#f8fafc" font-family="monospace">UNKNOWN-BARCODE-999</tspan></text>
+    <text x="15" y="90" fill="#94a3b8" font-family="sans-serif" font-size="11">Dual Key: <tspan fill="#38bdf8">barcode + SKU probe</tspan></text>
+    <text x="15" y="115" fill="#94a3b8" font-family="sans-serif" font-size="11">Offline Queue: <tspan fill="#f59e0b">Durable IDB write</tspan></text>
+    <text x="15" y="140" fill="#94a3b8" font-family="sans-serif" font-size="11">Idempotency: <tspan fill="#e2e8f0" font-family="monospace">idemp-p03-719</tspan></text>
+    <text x="15" y="165" fill="#10b981" font-family="sans-serif" font-size="11" font-weight="bold">✓ Stable retry key retained</text>
+  </g>
+
+  <!-- Step 2: Product Resolution & Validation Gate -->
+  <g transform="translate(340, 100)" filter="url(#shadow)">
+    <rect width="250" height="180" rx="12" fill="url(#cardGrad)" stroke="#f43f5e" stroke-width="2"/>
+    <rect x="0" y="0" width="250" height="35" rx="12" fill="#e11d48"/>
+    <text x="15" y="24" fill="#ffffff" font-family="sans-serif" font-size="13" font-weight="bold">2. Master Resolution Gate</text>
+    
+    <text x="15" y="65" fill="#fca5a5" font-family="sans-serif" font-size="11" font-weight="bold">AUTHORITATIVE VALIDATION:</text>
+    <text x="15" y="90" fill="#f87171" font-family="sans-serif" font-size="11">✗ Unknown Barcode: <tspan fill="#fecaca">SMRITI-VAL-001</tspan></text>
+    <text x="15" y="115" fill="#f87171" font-family="sans-serif" font-size="11">✗ Missing Price: <tspan fill="#fecaca">SMRITI-PRICE-002</tspan></text>
+    <text x="15" y="140" fill="#f87171" font-family="sans-serif" font-size="11">✗ Missing Tax: <tspan fill="#fecaca">SMRITI-TAX-001</tspan></text>
+    <text x="15" y="165" fill="#4ade80" font-family="sans-serif" font-size="11" font-weight="bold">✓ ZERO MUTATIONS ON REJECTION</text>
+  </g>
+
+  <!-- Step 3: Headless Statutory Calculation Engine -->
+  <g transform="translate(640, 100)" filter="url(#shadow)">
+    <rect width="240" height="180" rx="12" fill="url(#cardGrad)" stroke="#a855f7" stroke-width="2"/>
+    <rect x="0" y="0" width="240" height="35" rx="12" fill="#9333ea"/>
+    <text x="15" y="24" fill="#ffffff" font-family="sans-serif" font-size="13" font-weight="bold">3. Statutory GST Engine</text>
+    
+    <text x="15" y="65" fill="#cbd5e1" font-family="sans-serif" font-size="11">Jurisdiction: <tspan fill="#e2e8f0">27 (Maharashtra)</tspan></text>
+    <text x="15" y="90" fill="#cbd5e1" font-family="sans-serif" font-size="11">Gross Base: <tspan fill="#c084fc">₹2,499.00 (Tax-Inc)</tspan></text>
+    <text x="15" y="115" fill="#cbd5e1" font-family="sans-serif" font-size="11">Taxable: <tspan fill="#e2e8f0">₹2,117.80</tspan></text>
+    <text x="15" y="140" fill="#cbd5e1" font-family="sans-serif" font-size="11">CGST (9%): <tspan fill="#e2e8f0">₹190.60</tspan> | SGST: <tspan fill="#e2e8f0">₹190.60</tspan></text>
+    <text x="15" y="165" fill="#10b981" font-family="sans-serif" font-size="11" font-weight="bold">✓ Round Half-Up Parity Enforced</text>
+  </g>
+
+  <!-- Step 4: Tender Settlement & Attestation -->
+  <g transform="translate(930, 100)" filter="url(#shadow)">
+    <rect width="220" height="180" rx="12" fill="url(#cardGrad)" stroke="#eab308" stroke-width="2"/>
+    <rect x="0" y="0" width="220" height="35" rx="12" fill="#ca8a04"/>
+    <text x="15" y="24" fill="#ffffff" font-family="sans-serif" font-size="13" font-weight="bold">4. Tender &amp; Attestation</text>
+    
+    <text x="15" y="65" fill="#fde047" font-family="sans-serif" font-size="11" font-weight="bold">Tender: UPI ₹2,499.00</text>
+    <text x="15" y="90" fill="#fef08a" font-family="sans-serif" font-size="11">Soundbox Audio: <tspan fill="#4ade80">Confirmed</tspan></text>
+    <text x="15" y="115" fill="#fef08a" font-family="sans-serif" font-size="11">Label: <tspan fill="#ffffff">Manual Attestation</tspan></text>
+    <text x="15" y="140" fill="#f87171" font-family="sans-serif" font-size="10">No fake automated bank proof</text>
+    <text x="15" y="165" fill="#4ade80" font-family="sans-serif" font-size="11" font-weight="bold">✓ [MANUAL_ATTESTED] tag</text>
+  </g>
+
+  <!-- Step 5: Canonical Sales Writer Transaction Boundary -->
+  <g transform="translate(180, 340)" filter="url(#shadow)">
+    <rect width="840" height="200" rx="12" fill="url(#cardGrad)" stroke="#10b981" stroke-width="2.5"/>
+    <rect x="0" y="0" width="840" height="38" rx="12" fill="#059669"/>
+    <text x="25" y="26" fill="#ffffff" font-family="sans-serif" font-size="14" font-weight="bold">5. Canonical Sales Posting Writer — Atomic Database Boundary</text>
+    
+    <g transform="translate(25, 60)">
+      <rect width="180" height="110" rx="8" fill="#0f172a" stroke="#334155"/>
+      <text x="15" y="25" fill="#38bdf8" font-family="sans-serif" font-size="12" font-weight="bold">sales_invoices</text>
+      <text x="15" y="50" fill="#94a3b8" font-family="sans-serif" font-size="10">INV-2026-0042</text>
+      <text x="15" y="70" fill="#94a3b8" font-family="sans-serif" font-size="10">Total: ₹2,499.00</text>
+      <text x="15" y="90" fill="#4ade80" font-family="sans-serif" font-size="10">Dual Key Parity ✓</text>
+    </g>
+
+    <g transform="translate(225, 60)">
+      <rect width="180" height="110" rx="8" fill="#0f172a" stroke="#334155"/>
+      <text x="15" y="25" fill="#f59e0b" font-family="sans-serif" font-size="12" font-weight="bold">stock_movements</text>
+      <text x="15" y="50" fill="#94a3b8" font-family="sans-serif" font-size="10">Movement: OUT (-1)</text>
+      <text x="15" y="70" fill="#94a3b8" font-family="sans-serif" font-size="10">Batch: BATCH-P03-01</text>
+      <text x="15" y="90" fill="#4ade80" font-family="sans-serif" font-size="10">Warehouse Lock ✓</text>
+    </g>
+
+    <g transform="translate(425, 60)">
+      <rect width="180" height="110" rx="8" fill="#0f172a" stroke="#334155"/>
+      <text x="15" y="25" fill="#a855f7" font-family="sans-serif" font-size="12" font-weight="bold">general_ledger</text>
+      <text x="15" y="50" fill="#94a3b8" font-family="sans-serif" font-size="10">DR Bank/UPI: ₹2499</text>
+      <text x="15" y="70" fill="#94a3b8" font-family="sans-serif" font-size="10">CR Sales: ₹2117.80</text>
+      <text x="15" y="90" fill="#4ade80" font-family="sans-serif" font-size="10">CR CGST/SGST: ₹381.20</text>
+    </g>
+
+    <g transform="translate(625, 60)">
+      <rect width="185" height="110" rx="8" fill="#0f172a" stroke="#334155"/>
+      <text x="15" y="25" fill="#ec4899" font-family="sans-serif" font-size="12" font-weight="bold">outbox_events</text>
+      <text x="15" y="50" fill="#94a3b8" font-family="sans-serif" font-size="10">SALES_COMMITTED</text>
+      <text x="15" y="70" fill="#94a3b8" font-family="sans-serif" font-size="10">Idemp: Fingerprinted</text>
+      <text x="15" y="90" fill="#4ade80" font-family="sans-serif" font-size="10">Transactional ACK ✓</text>
+    </g>
+  </g>
+
+  <!-- Step 6 & 7: Idempotent Replay & Offline Sync Durability -->
+  <g transform="translate(180, 580)" filter="url(#shadow)">
+    <rect width="400" height="160" rx="12" fill="url(#cardGrad)" stroke="#06b6d4" stroke-width="2"/>
+    <rect x="0" y="0" width="400" height="35" rx="12" fill="#0891b2"/>
+    <text x="15" y="24" fill="#ffffff" font-family="sans-serif" font-size="13" font-weight="bold">6. Idempotency &amp; Reconciliation Engine</text>
+    <text x="15" y="65" fill="#a5f3fc" font-family="sans-serif" font-size="11">Same Key + Matching Payload → <tspan fill="#4ade80">Idempotent Replay</tspan></text>
+    <text x="15" y="90" fill="#a5f3fc" font-family="sans-serif" font-size="11">Same Key + Altered Payload → <tspan fill="#f87171">HTTP 409 Conflict</tspan></text>
+    <text x="15" y="115" fill="#a5f3fc" font-family="sans-serif" font-size="11">Absent Record Reconciliation: <tspan fill="#fde047">NOT_FOUND</tspan></text>
+    <text x="15" y="140" fill="#cbd5e1" font-family="sans-serif" font-size="10" font-style="italic">Absent record never treated as guarantee that in-flight request cannot arrive.</text>
+  </g>
+
+  <g transform="translate(620, 580)" filter="url(#shadow)">
+    <rect width="400" height="160" rx="12" fill="url(#cardGrad)" stroke="#f97316" stroke-width="2"/>
+    <rect x="0" y="0" width="400" height="35" rx="12" fill="#ea580c"/>
+    <text x="15" y="24" fill="#ffffff" font-family="sans-serif" font-size="13" font-weight="bold">7. Offline Queue Durability &amp; Rollback</text>
+    <text x="15" y="65" fill="#fed7aa" font-family="sans-serif" font-size="11">IndexedDB Persistence: <tspan fill="#4ade80">Atomic pre-enqueue write</tspan></text>
+    <text x="15" y="90" fill="#fed7aa" font-family="sans-serif" font-size="11">Storage Failure: <tspan fill="#f87171">In-memory state rolled back</tspan></text>
+    <text x="15" y="115" fill="#fed7aa" font-family="sans-serif" font-size="11">Network Reconnection: <tspan fill="#38bdf8">FIFO Sequential Spool Drain</tspan></text>
+    <text x="15" y="140" fill="#4ade80" font-family="sans-serif" font-size="11" font-weight="bold">✓ 0 duplicate invoices across online/offline transits</text>
+  </g>
+</svg>

@@ -1,0 +1,15 @@
+{
+  "certificate_id": "PF-2026-0917-186B82",
+  "entity": "IDENTITY",
+  "capability": "UNIFIED_IDENTITY_CONTROL_PLANE",
+  "asset_type": "SOURCE_CODE",
+  "proposed_name": "__init__.py",
+  "target_file_path": "backend/app/services/identity/__init__.py",
+  "decision": "APPROVED",
+  "canonical_owner": "backend/app/services/identity/__init__.py",
+  "content_hash": "0d93fcc6a2ae4c6657df72fcc47a0f92939a79fc46e6e9431d30eeb3266ca39f",
+  "git_commit": "20cd1171feb8d386664e0b84808c0b5b39919327",
+  "issued_at": "2026-09-17T21:40:36.527792+00:00",
+  "expires_at": "2026-09-24T21:40:36.527792+00:00",
+  "status": "ISSUED"
+}

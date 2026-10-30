@@ -56,6 +56,7 @@ export const AttrMgmtStudio: React.FC<SmritiAttributeManagementStudioProps> = ({
   const [newAliasInput, setNewAliasInput] = useState<string>("");
   const [customLabelInput, setCustomLabelInput] = useState<string>("");
   const [isSaving, setIsSaving] = useState<boolean>(false);
+  const [isEditingDefinition, setIsEditingDefinition] = useState<boolean>(false);
   const [aliasRefreshTrigger, setAliasRefreshTrigger] = useState<number>(0);
 
   // Form state for creating/editing attribute
@@ -136,13 +137,109 @@ export const AttrMgmtStudio: React.FC<SmritiAttributeManagementStudioProps> = ({
     return unifiedFields.find(f => f.id === selectedAttrId || f.key === selectedAttrId);
   }, [selectedAttrId, unifiedFields]);
 
+  const selectedDefinition = useMemo(
+    () => attributes.find(attribute => attribute.id === selectedAttrId),
+    [attributes, selectedAttrId]
+  );
+
   const handleSelectField = (id: string) => {
     setSelectedAttrId(id);
+    setIsEditingDefinition(false);
     const field = unifiedFields.find(f => f.id === id || f.key === id);
     if (field) {
       setCustomLabelInput(field.label);
     }
     setIsDrawerOpen(true);
+  };
+
+  const beginDefinitionEdit = () => {
+    if (!selectedDefinition) return;
+    setFormState({
+      name: selectedDefinition.name,
+      label: selectedDefinition.label,
+      dataType: selectedDefinition.dataType,
+      isMandatory: Boolean(selectedDefinition.isMandatory),
+      isVariantDimension: Boolean(selectedDefinition.isVariantDimension),
+      validValues: (selectedDefinition.validValues || []).join(", "),
+      groupId: selectedDefinition.groupId || "",
+    });
+    setIsEditingDefinition(true);
+  };
+
+  const handleUpdateAttribute = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!selectedDefinition || !formState.label.trim()) {
+      onNotification?.("Validation Error", "Business label is required.", "error");
+      return;
+    }
+    setIsSaving(true);
+    try {
+      await apiFetchV1(`/attributes/definitions/${selectedDefinition.id}`, {
+        method: "PUT",
+        body: JSON.stringify({
+          label: formState.label.trim(),
+          dataType: formState.dataType,
+          isMandatory: formState.isMandatory,
+          isVariantDimension: formState.isVariantDimension,
+          validValues: formState.validValues.split(",").map(value => value.trim()).filter(Boolean),
+          groupId: formState.groupId || null,
+        }),
+      });
+      onNotification?.("Attribute Updated", `${selectedDefinition.label} was updated globally.`, "success");
+      await loadData();
+      setIsEditingDefinition(false);
+    } catch (error: any) {
+      onNotification?.("Update Error", error.message || "Could not update attribute definition.", "error");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleDeactivateAttribute = async () => {
+    if (!selectedDefinition || !window.confirm(`Deactivate attribute '${selectedDefinition.label}'? Existing historical values will be preserved.`)) return;
+    setIsSaving(true);
+    try {
+      await apiFetchV1(`/attributes/definitions/${selectedDefinition.id}`, { method: "DELETE" });
+      onNotification?.("Attribute Deactivated", `${selectedDefinition.label} is no longer available for new entry.`, "success");
+      await loadData();
+      setSelectedAttrId(null);
+      setIsDrawerOpen(false);
+    } catch (error: any) {
+      onNotification?.("Deactivate Error", error.message || "Could not deactivate attribute definition.", "error");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleMoveAttribute = async (attributeId: string, direction: -1 | 1) => {
+    const ordered = [...attributes].sort((left, right) =>
+      (left.displayOrder ?? 0) - (right.displayOrder ?? 0) || left.id.localeCompare(right.id)
+    );
+    const index = ordered.findIndex(attribute => attribute.id === attributeId);
+    const targetIndex = index + direction;
+    if (index < 0 || targetIndex < 0 || targetIndex >= ordered.length) return;
+
+    const current = ordered[index];
+    const target = ordered[targetIndex];
+    setIsSaving(true);
+    try {
+      await Promise.all([
+        apiFetchV1(`/attributes/definitions/${current.id}`, {
+          method: "PUT",
+          body: JSON.stringify({ displayOrder: target.displayOrder ?? targetIndex }),
+        }),
+        apiFetchV1(`/attributes/definitions/${target.id}`, {
+          method: "PUT",
+          body: JSON.stringify({ displayOrder: current.displayOrder ?? index }),
+        }),
+      ]);
+      await loadData();
+      onNotification?.("Attribute Order Updated", "The attribute order was updated globally.", "success");
+    } catch (error: any) {
+      onNotification?.("Order Update Error", error.message || "Could not update attribute order.", "error");
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleSaveCustomLabel = (fieldKey: string) => {
@@ -178,12 +275,27 @@ export const AttrMgmtStudio: React.FC<SmritiAttributeManagementStudioProps> = ({
       const payload = {
         name: formState.name.trim().toUpperCase().replace(/[^A-Z0-9_]/g, "_"),
         label: formState.label.trim(),
-        data_type: formState.dataType,
-        is_mandatory: formState.isMandatory,
-        is_variant_dimension: formState.isVariantDimension,
-        valid_values: formState.validValues ? formState.validValues.split(",").map(v => v.trim()).filter(Boolean) : [],
-        group_id: formState.groupId || null
+        dataType: formState.dataType,
+        isMandatory: formState.isMandatory,
+        isVariantDimension: formState.isVariantDimension,
+        validValues: formState.validValues ? formState.validValues.split(",").map(v => v.trim()).filter(Boolean) : [],
+        groupId: formState.groupId || null
       };
+
+      const governedAttributes = await apiFetchV1(
+        "/masters/lookup/item_attribute/values?activeOnly=true"
+      );
+      const governedAttribute = Array.isArray(governedAttributes)
+        ? governedAttributes.find((item: any) =>
+            String(item.code || "").trim().toLowerCase() === payload.name.toLowerCase() &&
+            String(item.name || "").trim().toLowerCase() === payload.label.toLowerCase()
+          )
+        : undefined;
+      if (!governedAttribute) {
+        throw new Error(
+          `Create the attribute "${payload.label}" in System Lookups & Core Master Directory first.`
+        );
+      }
 
       await apiFetchV1("/attributes/definitions", {
         method: "POST",
@@ -278,6 +390,7 @@ export const AttrMgmtStudio: React.FC<SmritiAttributeManagementStudioProps> = ({
                   <th className="py-2.5 px-4 font-bold text-[#515f74] dark:text-[#bec6e0] uppercase text-[10px]">Type</th>
                   <th className="py-2.5 px-4 font-bold text-[#515f74] dark:text-[#bec6e0] uppercase text-[10px]">Recognized Aliases</th>
                   <th className="py-2.5 px-4 font-bold text-[#515f74] dark:text-[#bec6e0] uppercase text-[10px]">Source</th>
+                  <th className="py-2.5 px-4 font-bold text-[#515f74] dark:text-[#bec6e0] uppercase text-[10px]">Order</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#eceef0] dark:divide-[#2d3133]">
@@ -324,6 +437,14 @@ export const AttrMgmtStudio: React.FC<SmritiAttributeManagementStudioProps> = ({
                           {f.isDynamic ? "Dynamic" : "Standard Core"}
                         </span>
                       </td>
+                      <td className="py-2.5 px-4">
+                        {f.isDynamic && (
+                          <div className="flex items-center gap-1">
+                            <button type="button" onClick={event => { event.stopPropagation(); void handleMoveAttribute(f.id, -1); }} disabled={isSaving} className="px-1.5 py-0.5 border rounded text-[10px] disabled:opacity-40" title="Move attribute up">↑</button>
+                            <button type="button" onClick={event => { event.stopPropagation(); void handleMoveAttribute(f.id, 1); }} disabled={isSaving} className="px-1.5 py-0.5 border rounded text-[10px] disabled:opacity-40" title="Move attribute down">↓</button>
+                          </div>
+                        )}
+                      </td>
                     </tr>
                   );
                 })}
@@ -356,6 +477,57 @@ export const AttrMgmtStudio: React.FC<SmritiAttributeManagementStudioProps> = ({
                     <label className="text-[#515f74] dark:text-[#bec6e0] font-bold uppercase text-[10px] block mb-1">Internal Database Key</label>
                     <input readOnly value={selectedField.key} className="w-full p-2 bg-[#f2f4f6] dark:bg-[#191c1e] border border-[#c6c6cd] dark:border-[#45464d] rounded font-mono font-bold text-xs" />
                   </div>
+
+                  {selectedDefinition && selectedField?.isDynamic && !isEditingDefinition && (
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={beginDefinitionEdit}
+                        className="flex-1 px-3 py-2 bg-[#000000] dark:bg-[#dae2fd] text-white dark:text-[#131b2e] rounded font-bold text-xs"
+                      >
+                        Edit Definition
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void handleDeactivateAttribute()}
+                        disabled={isSaving}
+                        className="px-3 py-2 border border-[#ba1a1a] text-[#ba1a1a] rounded font-bold text-xs disabled:opacity-40"
+                      >
+                        Deactivate
+                      </button>
+                    </div>
+                  )}
+
+                  {selectedDefinition && selectedField?.isDynamic && isEditingDefinition && (
+                    <form onSubmit={handleUpdateAttribute} className="space-y-3 p-3 bg-[#f2f4f6] dark:bg-[#191c1e] border border-[#c6c6cd] dark:border-[#45464d] rounded">
+                      <div>
+                        <label className="text-[#515f74] dark:text-[#bec6e0] font-bold uppercase text-[10px] block mb-1">Business Label*</label>
+                        <input
+                          required
+                          value={formState.label}
+                          onChange={event => setFormState(previous => ({ ...previous, label: event.target.value }))}
+                          className="w-full p-2 bg-white dark:bg-[#2d3133] border border-[#c6c6cd] rounded text-xs"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[#515f74] dark:text-[#bec6e0] font-bold uppercase text-[10px] block mb-1">Allowed Values</label>
+                        <input
+                          value={formState.validValues}
+                          onChange={event => setFormState(previous => ({ ...previous, validValues: event.target.value }))}
+                          placeholder="Comma-separated values"
+                          className="w-full p-2 bg-white dark:bg-[#2d3133] border border-[#c6c6cd] rounded text-xs"
+                        />
+                      </div>
+                      <div className="flex items-center gap-4">
+                        <label className="flex items-center gap-1.5 font-semibold"><input type="checkbox" checked={formState.isMandatory} onChange={event => setFormState(previous => ({ ...previous, isMandatory: event.target.checked }))} /> Mandatory</label>
+                        <label className="flex items-center gap-1.5 font-semibold"><input type="checkbox" checked={formState.isVariantDimension} onChange={event => setFormState(previous => ({ ...previous, isVariantDimension: event.target.checked }))} /> Variant</label>
+                      </div>
+                      <div className="flex justify-end gap-2">
+                        <button type="button" onClick={() => setIsEditingDefinition(false)} className="px-3 py-1.5 border border-[#76777d] rounded font-semibold text-xs">Cancel</button>
+                        <button type="submit" disabled={isSaving} className="px-3 py-1.5 bg-[#000000] text-white rounded font-bold text-xs disabled:opacity-40">Save Changes</button>
+                      </div>
+                    </form>
+                  )}
 
                   <div>
                     <label className="text-[#515f74] dark:text-[#bec6e0] font-bold uppercase text-[10px] block mb-1">Business Display Label</label>

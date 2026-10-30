@@ -46,6 +46,11 @@ from app.core.config import settings
 
 
 # 01 — Schema Integrity Test
+import os
+from urllib.parse import urlparse
+from app.core.config import settings
+_PG_PORT = urlparse(str(settings.DATABASE_URL)).port or int(os.getenv("POSTGRES_PORT", 5432))
+
 @pytest.mark.asyncio
 async def test_01_schema_integrity():
     tables = sorted(Base.metadata.tables.keys())
@@ -71,10 +76,10 @@ async def test_02_database_provisioning_sanitization():
 async def test_03_registry_resolution():
     dummy = CompanyDatabaseRegistry(
         company_id="c1", database_id="db_tattly",
-        database_name="Smritibus_TATTLY", host_reference="localhost", port_reference=5432
+        database_name="Smritibus_TATTLY", host_reference="localhost", port_reference=_PG_PORT
     )
     url = ControlDatabaseRegistryService.build_connection_url(dummy)
-    assert url == "postgresql+asyncpg://postgres:postgres@localhost:5432/Smritibus_TATTLY"
+    assert url == f"postgresql+asyncpg://postgres:postgres@localhost:{_PG_PORT}/Smritibus_TATTLY"
 
 
 # 04 — Tenant Isolation Authorization Test
@@ -99,10 +104,10 @@ async def test_05_unauthorized_access_blocked_403():
 @pytest.mark.asyncio
 async def test_06_lru_eviction_and_recovery():
     mgr = LRUConnectionPoolManager(max_pools=2, pool_size=1, max_overflow=1)
-    await mgr.get_session_factory("COMP_A", "postgresql+asyncpg://postgres:postgres@localhost:5432/Smritibus_A")
-    await mgr.get_session_factory("COMP_B", "postgresql+asyncpg://postgres:postgres@localhost:5432/Smritibus_B")
+    await mgr.get_session_factory("COMP_A", f"postgresql+asyncpg://postgres:postgres@localhost:{_PG_PORT}/Smritibus_A")
+    await mgr.get_session_factory("COMP_B", f"postgresql+asyncpg://postgres:postgres@localhost:{_PG_PORT}/Smritibus_B")
     assert mgr.active_pool_count == 2
-    await mgr.get_session_factory("COMP_C", "postgresql+asyncpg://postgres:postgres@localhost:5432/Smritibus_C")
+    await mgr.get_session_factory("COMP_C", f"postgresql+asyncpg://postgres:postgres@localhost:{_PG_PORT}/Smritibus_C")
     assert mgr.active_pool_count == 2
     await mgr.dispose_all()
     assert mgr.active_pool_count == 0

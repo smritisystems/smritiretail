@@ -72,6 +72,39 @@ export const SmritiCustomerAdditionalDetailsTab: React.FC<SmritiCustomerAddition
 
           <div>
             <label className="text-[#515f74] dark:text-[#bec6e0] font-bold text-[10px] uppercase block mb-1">
+              Default Sales Channel
+            </label>
+            <select
+              value={customer.defaultSalesChannel || ""}
+              onChange={e => onChange("defaultSalesChannel", e.target.value || null)}
+              className="w-full p-2 bg-white dark:bg-[#191c1e] border border-[#c6c6cd] dark:border-[#45464d] rounded-lg text-xs"
+            >
+              <option value="">Inherit company / branch default</option>
+              <option value="MODERN_TRADE">Modern Trade</option>
+              <option value="GENERAL_TRADE">General Trade</option>
+              <option value="B2B_WHOLESALE">B2B Wholesale</option>
+              <option value="POS_RETAIL">POS Retail</option>
+              <option value="ECOMMERCE">E-Commerce</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="text-[#515f74] dark:text-[#bec6e0] font-bold text-[10px] uppercase block mb-1">
+              PO Reference
+            </label>
+            <select
+              value={customer.requirePoNumber == null ? "INHERIT" : customer.requirePoNumber ? "REQUIRED" : "OPTIONAL"}
+              onChange={e => onChange("requirePoNumber", e.target.value === "INHERIT" ? null : e.target.value === "REQUIRED")}
+              className="w-full p-2 bg-white dark:bg-[#191c1e] border border-[#c6c6cd] dark:border-[#45464d] rounded-lg text-xs"
+            >
+              <option value="INHERIT">Inherit customer group / company policy</option>
+              <option value="REQUIRED">Required</option>
+              <option value="OPTIONAL">Optional</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="text-[#515f74] dark:text-[#bec6e0] font-bold text-[10px] uppercase block mb-1">
               Credit Limit (INR)
             </label>
             <input
@@ -202,7 +235,7 @@ export const SmritiCustomerAdditionalDetailsTab: React.FC<SmritiCustomerAddition
             <Percent size={15} /> Price &amp; Tax Factors
           </h3>
 
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             <div>
               <label className="text-[#515f74] dark:text-[#bec6e0] font-bold text-[10px] uppercase block mb-1">
                 Retail Factor
@@ -242,6 +275,24 @@ export const SmritiCustomerAdditionalDetailsTab: React.FC<SmritiCustomerAddition
                 <option value="318#STAPLES">318#STAPLES</option>
                 <option value="000#EXEMPTED">000#EXEMPTED</option>
                 <option value="999#SEZ_ZERO_RATED">999#SEZ_ZERO_RATED</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="text-[#515f74] dark:text-[#bec6e0] font-bold text-[10px] uppercase block mb-1">
+                Bill On Price
+              </label>
+              <select
+                value={customer.pricingBasis || customer.pricing_basis || "MRP"}
+                onChange={e => {
+                  const val = e.target.value as "MRP" | "RATE";
+                  onChange("pricingBasis", val);
+                  onChange("pricing_basis", val);
+                }}
+                className="w-full p-2 bg-white dark:bg-[#191c1e] border border-[#00355f] dark:border-[#8ebdf9] rounded-lg text-xs font-bold text-[#00355f] dark:text-[#8ebdf9]"
+              >
+                <option value="MRP">MRP (Retail)</option>
+                <option value="RATE">RATE (Wholesale)</option>
               </select>
             </div>
           </div>

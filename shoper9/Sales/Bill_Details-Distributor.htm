@@ -1,0 +1,215 @@
+<!doctype HTML public "-//W3C//DTD HTML 4.0 Frameset//EN">
+
+<html>
+
+<head>
+<title>Bill Details</title>
+<meta http-equiv="content-type" content="text/html; charset=windows-1252">
+<meta name="generator" content="RoboHelp by eHelp Corporation www.ehelp.com">
+<link rel="StyleSheet" href="../Shoper.css"><style title="hcp" type="text/css">
+<!--
+img.hcp1 { border:none; float:none; border-style:none; }
+span.hcp2 { font-weight:bold; }
+-->
+</style>
+</head>
+<body><script type="text/javascript" language="JavaScript1.2" src="../ehlpdhtm.js" x-save-method="compute-relative"></script>
+<script type="text/javascript"
+		language=JavaScript1.2>
+<!-- 
+if( typeof( kadovInitEffects ) != 'function' ) kadovInitEffects = new Function();if( typeof( kadovInitTrigger ) != 'function' ) kadovInitTrigger = new Function();if( typeof( kadovFilePopupInit ) != 'function' ) kadovFilePopupInit = new Function();if( typeof( kadovTextPopupInit ) != 'function' ) kadovTextPopupInit = new Function();
+ //-->
+</script>
+
+<h1>Invoice Details</h1>
+
+<p class=Body-Text>The detail part of an invoice is displayed.</p>
+
+<p class=body-text><img src="bill%20details-distributor_1.gif" x-maintain-ratio="TRUE" style="width:550px; height:138px;" width="550" height="138" border="0" class="hcp1"></p>
+
+<p class=Body-Text>Each item with its required details for invoicing can 
+ be entered in the Item Details grid from the Direct Entry grid. Press 
+ <span class="hcp2">F11</span> to enter the items in the 
+ Direct Entry grid.</p>
+
+<p class=Body-Text
+	style="text-align: left;"
+	align=left>The Direct Entry grid is displayed.</p>
+
+<p class=Body-Text
+	style="text-align: left;"
+	align=left><img src="bill%20details-distributor_2.gif" x-maintain-ratio="TRUE" style="width:550px; height:23px;" width="550" height="23" border="0" class="hcp1"></p>
+
+<p class=Body-Text><span class="hcp2">S No.</span>: The serial 
+ number is displayed by default.</p>
+
+<p class=Body-Text><span class="hcp2">Stock No</span>: Enter 
+ the stock number of the item or press <span class="hcp2">F2</span> 
+ to activate <a href="Advanced_Item_Search-Distributor.htm">Item Search</a> 
+ window and select the required item. If the stock number of the item is 
+ entered by scanning the barcode, then the scanning of the barcode is to 
+ be done when the cursor is in this field.</p>
+
+<p class=Body-Text><span class="hcp2">Item Description</span>: 
+ The description of the selected item is displayed in this field.</p>
+
+<p class=Body-Text><span class="hcp2">Rate</span>: The rate 
+ (dealer price) of the item is displayed. You may alter the rate if <a 
+ href="Invoicing_Configuration.htm#ItemEntryConfiguration">configured</a>. 
+ </p>
+
+<p class=Body-Text
+	style="margin-left: 7px;">The rate is computed by applying price factors, 
+ if any, defined in the Sales Factor catalogue. Click <a href="../catalogue/Sales_Factors.htm">here</a> 
+ to know how to define price factors. </p>
+
+<p class=Body-Text><span class="hcp2">Qty</span>: Enter the 
+ quantity of the item being sold. Shoper can be <a href="Invoicing_Configuration.htm#ItemEntryConfiguration">configured</a> 
+ to display the Least Saleable Quantity of the item. </p>
+
+<p class=Body-Text><span class="hcp2">Value</span>: The Item<span class="hcp2"> Rate * </span>Item<span class="hcp2"> 
+ Qty</span> is displayed in this field.</p>
+
+<p class=Body-Text><span class="hcp2">Disc Code</span>: Selection 
+ of discount/ <a href="..\Sales_Promotion.htm">sales promotion schemes</a> 
+ depend on various settings. Click <a href="javascript:BSSCPopup('../Selection_of_discount_schemes-Distributor.htm');"
+										id=a1>here</a><script 
+ type="text/javascript"
+	language=JavaScript1.2><!--
+kadovFilePopupInit('a1');
+//--></script> 
+ to learn about some of the invoicing configurations. In manual mode, selection 
+ of a discount code from the list is needed. If auto selection of discount 
+ code during item entry is configured and you want to change the promo 
+ or avoid selecting one while scanning items, use arrow keys to select 
+ another/ none.</p>
+
+<p class=Body-Text><span class="hcp2">Disc Qty</span>: Enter 
+ the quantity of the item being considered for discount. This is applicable 
+ only if you have selected <a href="..\pos-sp_item_level_variable_last_piece_discount.htm">Last 
+ Piece Discount</a> code in the <span class="hcp2">Disc Code</span> 
+ field.</p>
+
+<p class=Body-Text>The quantity entered should be:</p>
+
+<ul>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>in multiples of LSQ defined 
+ for the item</p></li>
+	
+	<li class=kadov-p-Cbullet><p class=bullet>less than the quantity of 
+ the item being sold, i.e., it should be less than the value entered in 
+ the <span class="hcp2">Qty</span> field</p></li>
+</ul>
+
+<p class=Body-Text>The Direct Entry grid, where an item with last piece 
+ discount code applied is shown.</p>
+
+<p class=Body-Text><img src="lastpiecediscount-gridsmall.gif" x-maintain-ratio="TRUE" style="width:550px; height:24px;" width="550" height="24" border="0" class="hcp1"></p>
+
+<p class=Body-Text>The discount percentage and discount amount of the discount 
+ quantity entered will be calculated internally and displayed in the <span class="hcp2">Disc. %</span> and <span class="hcp2">Disc.Amt</span> 
+ fields respectively.</p>
+
+<p class=Note><span class="hcp2">Note:</span> The details 
+ of Last Piece Discount will not be displayed in the <span class="hcp2">Item 
+ Level Promotional Details</span> displayed on <a href="F6_window-Manual-Distributor.htm">pressing 
+ <span class="hcp2">F6</span></a>.</p>
+
+<p class=Body-Text
+	style="color: #000000;"><span class="hcp2">Disc. %</span>: 
+ Displays the percentage of discount applicable as per the selected discount 
+ code/ scheme, subjected to the maximum allowed (if defined). If the item 
+ level discount selected is a fixed one you cannot edit it. On the other 
+ hand, in the case of a variable discount, if it is defined as: </p>
+
+<ul>
+	
+	<li style="/*begin!kadov{{*/ color: #000000; /*}}end!kadov*/ "
+		class=kadov-p-Cbullet><p class=bullet
+								style="color: #000000;"><span class="hcp2">Percentage</span>: 
+ You may change the percentage of discount for the selected item </p></li>
+	
+	<li style="/*begin!kadov{{*/ color: #000000; /*}}end!kadov*/ "
+		class=kadov-p-Cbullet><p class=bullet
+								style="color: #000000;"><span class="hcp2">Amount</span>: 
+ The computed percentage based on the discount amount is displayed</p></li>
+</ul>
+
+<p class=Body-Text
+	style="color: #000000;"><span class="hcp2">Disc.Amt</span>: 
+ Displays the discount amount applicable as per the selected discount code/ 
+ scheme, subjected to the maximum allowed (if defined). If the item level 
+ discount selected is a fixed one you cannot edit it. On the other hand, 
+ in the case of a variable discount, if it is defined as: </p>
+
+<ul>
+	
+	<li style="/*begin!kadov{{*/ color: #000000; /*}}end!kadov*/ "
+		class=kadov-p-Cbullet><p class=bullet
+								style="color: #000000;"><span class="hcp2">Amount</span>: 
+ You may change the amount of discount for the selected item </p></li>
+	
+	<li style="/*begin!kadov{{*/ color: #000000; /*}}end!kadov*/ "
+		class=kadov-p-Cbullet><p class=bullet
+								style="color: #000000;"><span class="hcp2">Percentage</span>: 
+ The computed amount based on the discount percentage is displayed</p></li>
+</ul>
+
+<p class=Body-Text
+	style="color: #000000;">Additionally, if you have defined the variable 
+ discount as <span class="hcp2">Both</span>, you may enter 
+ either percentage or amount. If you enter percentage, the corresponding 
+ amount will be displayed and vice versa.</p>
+
+<p class=Note><span class="hcp2">Note:</span> In the case 
+ of manual selection of discount as well as auto selection of discount, 
+ changing variable discount percentage/ amount at item level are similar.</p>
+
+<p class=BlankLine>&nbsp;</p>
+
+<p class=FunctionKey><span class="hcp2">F6</span>: To display 
+ various active discounts/ offers in the system and/ or enter invoice level 
+ remarks. Behaviour of this window depends on the mode of sales promo selection 
+ in invoicing.</p>
+
+<p class=FunctionKey>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<font
+face="Symbol">&#183;</font>&nbsp;<a 
+ href="F6_window-Auto-Distributor.htm">Auto 
+ mode</a></p>
+
+<p class=FunctionKey>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<font
+face="Symbol">&#183;</font>&nbsp;<a 
+ href="F6_window-Manual-Distributor.htm">Manual 
+ mode</a></p>
+
+<p class=BlankLine>&nbsp;</p>
+
+<p class=Note><span class="hcp2">Note:</span> Invoice level 
+ discount value is appropriated against all the items selected for invoicing.</p>
+
+<p class=Body-Text><span class="hcp2">Total</span>: The calculated 
+ total value/ amount of the selected/ scanned item after discount is displayed 
+ in this field.</p>
+
+<p class=Body-Text><span class="hcp2">Sales Staff</span>: 
+ This option can be <a href="Invoicing_Configuration.htm#SalespersonSelection">enabled</a> 
+ in the invoice, if different items to be invoiced are handled by more 
+ than one sales person. If enabled, select the sales staff Id from the 
+ list. For each item in the invoice the respective sales staff can be selected.</p>
+
+<p class=Note><span class="hcp2">Note:</span> By double clicking 
+ on any of the items present in the Item Details grid, the item is brought 
+ to the Direct Entry grid where it can be edited as required. To delete 
+ any item from the Item details grid, you have to select the item by clicking 
+ and then press <span class="hcp2">Ctrl+D</span> when it 
+ is high lighted.</p>
+
+<p class=BlankLine>&nbsp;</p>
+
+<p class=FunctionKey><span class="hcp2">Ctrl+4</span>: To 
+ make <span style="color: #0000ff;"><a href="Addons_and_Deductions-Distributor.htm">AddOns 
+ And Deductions</a></span></p>
+
+</body>
+</html>

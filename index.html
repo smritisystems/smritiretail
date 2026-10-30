@@ -34,9 +34,37 @@
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet" />
+    <script>
+      (function() {
+        try {
+          var p = localStorage.getItem('smriti-preset');
+          var t = localStorage.getItem('smriti-theme');
+          var darkPresets = ['enterprise-dark', 'pos-dark', 'high-contrast'];
+          var isDark = false;
+          if (p) {
+            isDark = darkPresets.indexOf(p) !== -1;
+          } else if (t) {
+            isDark = (t === 'dark');
+          }
+          var mode = isDark ? 'dark' : 'light';
+          document.documentElement.setAttribute('data-theme', mode);
+          if (isDark) {
+            document.documentElement.classList.add('dark');
+          } else {
+            document.documentElement.classList.remove('dark');
+          }
+        } catch (e) {}
+      })();
+    </script>
   </head>
-  <body class="bg-[#f8f9ff] text-[#0b1c30] antialiased selection:bg-[#3f51b5] selection:text-white">
+  <body class="bg-[#f8f9ff] dark:bg-[#121721] text-[#0b1c30] dark:text-[#f8fafc] antialiased selection:bg-[#3f51b5] selection:text-white">
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

@@ -16,9 +16,9 @@
  *
  * * Websites: aitdl.com | erpnbook.com | smritibooks.com
  *
- * * Version    : 3.25.0
+ * * Version    : 6.99.13
  * * Created    : 2026-07-10
- * * Modified   : 2026-08-16
+ * * Modified   : 2026-10-25
  * * Copyright  : © AITDL.com and SMRITIBooks.com. All Rights Reserved.
  * * License    : Proprietary Commercial Software
  */
@@ -31,6 +31,7 @@ import {
   ExternalLink, Maximize, Play
 } from "lucide-react";
 import { useLayoutEngine, WorkspaceConfig, DockPosition } from "./layout_store.js";
+import { ContextualMenuItem } from "../components/shell/navigationResolver.ts";
 import { SmritiScrollArea } from "../components/SmritiScrollArea.tsx";
 import { useWorkspace } from "../contexts/WorkspaceContext.tsx";
 
@@ -55,7 +56,11 @@ export const NavigationRenderer: React.FC<NavigationRendererProps> = ({
     toggleGroupCollapse,
     setLayout,
     toggleSidebar,
-    addToRecentlyUsed
+    addToRecentlyUsed,
+    activeDocument,
+    activeSubmenuId,
+    setActiveSubmenuId,
+    getContextualSubmenu,
   } = useLayoutEngine();
 
   const { popOutTab, popOutExternalWindow } = useWorkspace();
@@ -111,6 +116,22 @@ export const NavigationRenderer: React.FC<NavigationRendererProps> = ({
     addToRecentlyUsed(id);
     setShowMoreBottomMenu(false);
     setActiveDropdownGroup(null);
+  };
+
+  const handleSubmenuActionClick = (actionId: string) => {
+    setActiveSubmenuId(actionId);
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(
+        new CustomEvent("smriti_contextual_action_selected", {
+          detail: {
+            actionId,
+            documentId: activeDocument?.documentId,
+            documentType: activeDocument?.documentType,
+            transactionState: activeDocument?.transactionState,
+          },
+        })
+      );
+    }
   };
 
   // Group workspaces by category
@@ -240,42 +261,110 @@ export const NavigationRenderer: React.FC<NavigationRendererProps> = ({
                     <div className="space-y-0.5 animate-in fade-in duration-200">
                       {catWorkspaces.map(w => {
                         const isSel = activeTab === w.id;
+                        const isDocWorkspace =
+                          activeDocument &&
+                          (w.id === (activeDocument.parentWorkspaceId || "billing-workspace") ||
+                            (isSel && (w.id === "billing-workspace" || w.id === "sales")));
+                        const contextualActions: ContextualMenuItem[] = isDocWorkspace
+                          ? getContextualSubmenu(w.id)
+                          : (((w as any).submenus as ContextualMenuItem[]) || []);
+
                         return (
-                          <div
-                            key={w.id}
-                            onClick={() => handleItemClick(w.id)}
-                            onContextMenu={(e) => handleContextMenu(e, w.id, w.label, w.icon)}
-                            title={isCollapsed ? w.label : undefined}
-                            className={`w-full text-left px-3 py-2 rounded-lg flex items-center justify-between group transition-all border cursor-pointer ${
-                              isSel
-                                ? "bg-theme-selection border-theme-primary/30 text-theme-primary font-semibold shadow-xs"
-                                : "text-theme-body hover:bg-theme-surface-2 hover:text-theme-primary border-transparent"
-                            }`}
-                          >
-                            <div className="flex items-center space-x-2.5">
-                              {renderIcon(w.icon, `text-lg ${isSel ? "text-theme-primary" : "text-theme-muted group-hover:text-theme-primary"}`)}
-                              {!isCollapsed && <span className="text-xs font-display">{w.label}</span>}
+                          <div key={w.id} className="space-y-0.5">
+                            <div
+                              onClick={() => handleItemClick(w.id)}
+                              onContextMenu={(e) => handleContextMenu(e, w.id, w.label, w.icon)}
+                              title={isCollapsed ? w.label : undefined}
+                              className={`w-full text-left px-3 py-2 rounded-lg flex items-center justify-between group transition-all border cursor-pointer ${
+                                isSel
+                                  ? "bg-theme-selection border-theme-primary/30 text-theme-primary font-semibold shadow-xs"
+                                  : "text-theme-body hover:bg-theme-surface-2 hover:text-theme-primary border-transparent"
+                              }`}
+                            >
+                              <div className="flex items-center space-x-2.5">
+                                {renderIcon(w.icon, `text-lg ${isSel ? "text-theme-primary" : "text-theme-muted group-hover:text-theme-primary"}`)}
+                                {!isCollapsed && <span className="text-xs font-display">{w.label}</span>}
+                              </div>
+                              
+                              {!isCollapsed && (
+                                <div className="flex items-center space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                  <button 
+                                    onClick={(e) => { e.stopPropagation(); handlePopOut(w.id, w.label, w.icon); }}
+                                    className={`p-1 rounded transition-all ${isSel ? "text-theme-primary hover:bg-theme-surface-hover" : "text-theme-muted hover:text-theme-primary hover:bg-theme-surface-2"}`}
+                                    title="Pop-out Workspace"
+                                  >
+                                    <ExternalLink size={11} />
+                                  </button>
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      toggleFavorite(w.id);
+                                    }}
+                                    className={`p-1 transition-all ${isFavorited(w.id) ? "text-amber-400" : "text-theme-muted hover:text-amber-400"}`}
+                                    title={isFavorited(w.id) ? "Unpin Favorite" : "Pin to Favorites"}
+                                  >
+                                    <Star size={11} className={isFavorited(w.id) ? "fill-amber-400 text-amber-400" : ""} />
+                                  </button>
+                                </div>
+                              )}
                             </div>
-                            
-                            {!isCollapsed && (
-                              <div className="flex items-center space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                <button 
-                                  onClick={(e) => { e.stopPropagation(); handlePopOut(w.id, w.label, w.icon); }}
-                                  className={`p-1 rounded transition-all ${isSel ? "text-theme-primary hover:bg-theme-surface-hover" : "text-theme-muted hover:text-theme-primary hover:bg-theme-surface-2"}`}
-                                  title="Pop-out Workspace"
-                                >
-                                  <ExternalLink size={11} />
-                                </button>
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    toggleFavorite(w.id);
-                                  }}
-                                  className={`p-1 transition-all ${isFavorited(w.id) ? "text-amber-400" : "text-theme-muted hover:text-amber-400"}`}
-                                  title={isFavorited(w.id) ? "Unpin Favorite" : "Pin to Favorites"}
-                                >
-                                  <Star size={11} className={isFavorited(w.id) ? "fill-amber-400 text-amber-400" : ""} />
-                                </button>
+
+                            {/* Nested Contextual Submenu for Active Document Actions */}
+                            {!isCollapsed && contextualActions.length > 0 && (
+                              <div className="ml-5 pl-2 border-l-2 border-theme-primary/30 space-y-0.5 my-1 animate-in fade-in slide-in-from-top-1 duration-150">
+                                <div className="px-2 py-0.5 text-[9px] font-mono text-theme-muted font-bold uppercase tracking-wider flex items-center justify-between">
+                                  <span>Document Actions</span>
+                                  {activeDocument?.documentId && (
+                                    <span className="text-[8px] text-theme-primary truncate max-w-[90px] font-semibold">
+                                      {activeDocument.documentId}
+                                    </span>
+                                  )}
+                                </div>
+                                {contextualActions.map((subAction) => {
+                                  const isSubDisabled = Boolean(subAction.disabled);
+                                  const isSubActive = activeSubmenuId === subAction.id;
+
+                                  return (
+                                    <button
+                                      key={subAction.id}
+                                      type="button"
+                                      disabled={isSubDisabled}
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        if (isSubDisabled) return;
+                                        handleSubmenuActionClick(subAction.id);
+                                      }}
+                                      title={
+                                        isSubDisabled
+                                          ? `${subAction.title} (${subAction.disabledReason || "Action unavailable"})`
+                                          : subAction.title
+                                      }
+                                      className={`w-full flex items-center justify-between px-2 py-1.5 rounded-md text-xs transition-colors text-left ${
+                                        isSubDisabled
+                                          ? "opacity-40 cursor-not-allowed text-theme-muted"
+                                          : isSubActive
+                                          ? "bg-theme-primary text-white font-semibold shadow-xs"
+                                          : subAction.isNextBestAction
+                                          ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-semibold border border-emerald-500/30 hover:bg-emerald-500/20"
+                                          : "text-theme-body hover:bg-theme-surface-hover hover:text-theme-primary"
+                                      }`}
+                                    >
+                                      <div className="flex items-center gap-1.5 min-w-0">
+                                        <span className={`material-symbols-outlined text-[15px] shrink-0 ${
+                                          isSubActive ? "text-white" : isSubDisabled ? "text-theme-muted" : "text-theme-muted group-hover:text-theme-primary"
+                                        }`}>
+                                          {subAction.icon}
+                                        </span>
+                                        <span className="truncate">{subAction.title}</span>
+                                      </div>
+                                      {subAction.isNextBestAction && !isSubActive && (
+                                        <span className="text-[8px] font-mono uppercase px-1 py-0.2 rounded bg-emerald-500/20 text-emerald-600 font-bold">
+                                          Next
+                                        </span>
+                                      )}
+                                    </button>
+                                  );
+                                })}
                               </div>
                             )}
                           </div>
@@ -466,6 +555,41 @@ export const NavigationRenderer: React.FC<NavigationRendererProps> = ({
           </div>
         </div>
 
+        {/* Active Document Submenu Bar in Top Nav */}
+        {activeDocument && (
+          <div className="hidden lg:flex items-center space-x-1 border-l border-theme-divider pl-3 ml-2">
+            <span className="text-[10px] font-mono text-theme-muted font-bold uppercase truncate max-w-[110px]" title={activeDocument.documentId}>
+              {activeDocument.documentId}:
+            </span>
+            {getContextualSubmenu().map((subAction) => {
+              const isSubDisabled = Boolean(subAction.disabled);
+              const isSubActive = activeSubmenuId === subAction.id;
+
+              return (
+                <button
+                  key={subAction.id}
+                  disabled={isSubDisabled}
+                  onClick={() => {
+                    if (isSubDisabled) return;
+                    handleSubmenuActionClick(subAction.id);
+                  }}
+                  title={isSubDisabled ? subAction.disabledReason : subAction.title}
+                  className={`px-2 py-0.5 text-xs rounded transition-colors flex items-center space-x-1 cursor-pointer ${
+                    isSubActive
+                      ? "bg-blue-600 text-white font-medium"
+                      : isSubDisabled
+                      ? "opacity-40 text-theme-muted cursor-not-allowed"
+                      : "text-theme-body hover:bg-theme-surface-hover hover:text-blue-600"
+                  }`}
+                >
+                  <span className="material-symbols-outlined text-[13px]">{subAction.icon}</span>
+                  <span>{subAction.title}</span>
+                </button>
+              );
+            })}
+          </div>
+        )}
+
         {/* Pin shortcuts & Layout position buttons */}
         <div className="flex items-center space-x-4">
           {/* Pinned shortcuts */}
@@ -518,7 +642,6 @@ export const NavigationRenderer: React.FC<NavigationRendererProps> = ({
     // Show 4 core items + a More button
     const coreItems = [
       { id: "dashboard", label: "Dashboard", icon: "dashboard" },
-      { id: "pos", label: "POS Billing", icon: "point_of_sale" },
       { id: "sales", label: "Sales", icon: "receipt_long" },
       { id: "item-master", label: "Items", icon: "inventory_2" }
     ];

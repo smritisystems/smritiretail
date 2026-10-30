@@ -28,7 +28,7 @@ from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
-from app.api.deps import get_db, get_tenant_context, TenantContext, get_current_user, require_role
+from app.api.deps import get_company_db, get_tenant_context, TenantContext, get_current_user, require_role
 from app.models.auth import User, UserRole
 from app.models.workflow import WorkflowEvent
 from app.services.purchase import PurchaseService
@@ -36,9 +36,11 @@ from app.services.sales import SalesService
 
 router = APIRouter()
 
+from app.services.lifecycle import UniversalLifecycleEngine, LifecycleTransitionContext
+
 # Supported document types and their allowed workflow actions
 _SUPPORTED = {
-    "PurchaseOrder":  {"submit", "cancel"},
+    "PurchaseOrder":  {"submit", "confirm", "approve", "cancel"},
     "SalesInvoice":   {"approve", "cancel"},
     "SalesQuotation": {"approve", "cancel"},
 }
@@ -104,7 +106,7 @@ async def workflow_action(
     doc_id:   str,
     action:   str,
     current_user: User         = Depends(get_current_user),
-    db:           AsyncSession = Depends(get_db),
+    db:           AsyncSession = Depends(get_company_db),
     tenant_ctx:   TenantContext = Depends(get_tenant_context),
 ):
     """
@@ -140,20 +142,23 @@ async def workflow_action(
     sales_svc    = SalesService(db, tenant_ctx)
 
     if doc_type == "PurchaseOrder":
-        if action == "submit":
-            result = await purchase_svc.submit_purchase_order(doc_id)
-            await _log_event(db, doc_type, doc_id, action,
-                             from_status="DRAFT", to_status="CONFIRMED",
-                             user=current_user, tenant_ctx=tenant_ctx)
-            await db.commit()
-            return result
-        if action == "cancel":
-            result = await purchase_svc.cancel_purchase_order(doc_id)
-            await _log_event(db, doc_type, doc_id, action,
-                             from_status=None, to_status="CANCELLED",
-                             user=current_user, tenant_ctx=tenant_ctx)
-            await db.commit()
-            return result
+        ctx = LifecycleTransitionContext(
+            doc_type=doc_type,
+            doc_id=doc_id,
+            action=action.upper(),
+        )
+        res = await UniversalLifecycleEngine.execute_transition(
+            db=db,
+            tenant_ctx=tenant_ctx,
+            user=current_user,
+            ctx=ctx,
+        )
+        return {
+            "success": True,
+            "order_id": doc_id,
+            "status": res.to_status,
+            "message": res.message,
+        }
 
     if doc_type == "SalesInvoice":
         if action == "approve":
@@ -233,7 +238,7 @@ async def workflow_action(
 async def list_workflow_events(
     doc_type:     str,
     doc_id:       str,
-    db:           AsyncSession = Depends(get_db),
+    db:           AsyncSession = Depends(get_company_db),
     tenant_ctx:   TenantContext = Depends(get_tenant_context),
     current_user: User          = Depends(get_current_user),
 ):

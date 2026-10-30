@@ -1,0 +1,15 @@
+{
+  "certificate_id": "PF-2026-1007-906DF1",
+  "entity": "databridge",
+  "capability": "databridge.connector_framework",
+  "asset_type": "SOURCE_CODE",
+  "proposed_name": "orchestrator.py",
+  "target_file_path": "backend/app/services/databridge/connectors/orchestrator.py",
+  "decision": "CANONICAL",
+  "canonical_owner": "backend/app/services/databridge/connectors/orchestrator.py",
+  "content_hash": "c77b0dc6a6e0058d7cbe8ac36d3ac37ce9fa79327ca356fc23382219a80ce485",
+  "git_commit": "32119847fbdfe7d0360d615d29b2d8851d525799",
+  "issued_at": "2026-10-07T09:33:46.076234+00:00",
+  "expires_at": "2026-10-14T09:33:46.076234+00:00",
+  "status": "ISSUED"
+}

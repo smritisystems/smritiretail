@@ -1,0 +1,15 @@
+{
+  "certificate_id": "PF-2026-1019-C44553",
+  "entity": "customer",
+  "capability": "customer.crud",
+  "asset_type": "component",
+  "proposed_name": "CorporateIntegrationsPanel.tsx",
+  "target_file_path": "src/components/customer/corporateWorkspace/CorporateIntegrationsPanel.tsx",
+  "decision": "CREATE_APPROVED",
+  "canonical_owner": "src/components/customer/CustMasterWs.tsx",
+  "content_hash": "d2ce2aa159a3ce1986cdbd87e0b97bb3be7edbe6298458b2b2247cb3f09cc32e",
+  "git_commit": "bcdcd4ff56b88e0dcc5a28515496bde4b9b95f3a",
+  "issued_at": "2026-10-19T11:10:27.325011+00:00",
+  "expires_at": "2026-10-26T11:10:27.325011+00:00",
+  "status": "ISSUED"
+}

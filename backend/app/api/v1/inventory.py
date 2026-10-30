@@ -4,20 +4,20 @@ Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
-Version      : 3.25.0
+Version      : 6.99.0
 Created      : 2026-07-11
-Modified     : 2026-08-20
+Modified     : 2026-10-20
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 """
 
 import os
 from decimal import Decimal
-from datetime import datetime, date, timedelta
+from datetime import datetime, date, timedelta, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Body
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy import or_, cast, String
@@ -27,8 +27,14 @@ from ...api.deps import (
     get_current_user, require_role, require_permission, verify_internal_service_key
 )
 from ...models.auth import User, UserRole
-from ...models.inventory import Product, StockMovement
+from ...models.inventory import Product, StockMovement, ProductBatchStock, Warehouse
 from ...models.sales import SalesInvoice
+from ...services.stock_movement_types import (
+    ALL_MOVEMENT_TYPES, INFLOW_MOVEMENT_TYPES, OUTFLOW_MOVEMENT_TYPES, SIGNED_MOVEMENT_TYPES
+)
+from ...services.stock_synchronizer import StockSynchronizer
+from ...services.stock_ledger import StockLedger, MovementRequest
+from ...services.identity.engine import IdentityEngine
 from ...repositories.product import ProductRepository
 from ...schemas.pagination import PaginatedResponse
 from ...schemas.inventory import (
@@ -37,13 +43,22 @@ from ...schemas.inventory import (
     ProductUpdate,
     StockMovementCreate,
     StockMovementResponse,
+    StockLedgerPageResponse,
 )
 from ...services.inventory import InventoryService
+from ...services.attributes import AttributesService
 from ...services.spif import SpifService
 
 router = APIRouter()
 
 
+@router.post(
+    "",
+    response_model=ProductResponse,
+    status_code=201,
+    dependencies=[Depends(require_permission("item_master", "ADD"))],
+    include_in_schema=False,
+)
 @router.post(
     "/",
     response_model=ProductResponse,
@@ -60,10 +75,11 @@ async def create_product(
     return await service.create_product(product_in)
 
 
+@router.get("", response_model=PaginatedResponse[ProductResponse], include_in_schema=False)
 @router.get("/", response_model=PaginatedResponse[ProductResponse])
 async def list_products(
     page: int = Query(1, ge=1),
-    page_size: int = Query(25, ge=1, le=100),
+    page_size: int = Query(25, ge=1, le=5000),
     q: str | None = Query(None),
     category: str | None = Query(None),
     sort: str = Query("name"),
@@ -106,8 +122,8 @@ async def search_products(
     return await repo.search(q=q, category=category, skip=skip, limit=limit)
 
 
-@router.get("/ledger", response_model=list[StockMovementResponse])
-@router.get("/stock-movements", response_model=list[StockMovementResponse])
+@router.get("/ledger", response_model=StockLedgerPageResponse)
+@router.get("/stock-movements", response_model=StockLedgerPageResponse)
 async def list_stock_ledger(
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=500),
@@ -116,6 +132,8 @@ async def list_stock_ledger(
     start_date: Optional[date] = Query(None),
     end_date: Optional[date] = Query(None),
     movement_type: Optional[str] = Query(None),
+    warehouse_id: Optional[str] = Query(None),
+    warehouse: Optional[str] = Query(None),
     search: Optional[str] = Query(None),
     q: Optional[str] = Query(None),
     product_id: Optional[str] = Query(None),
@@ -171,6 +189,15 @@ async def list_stock_ledger(
         stmt = stmt.where(StockMovement.product_id == product_id)
     if sku:
         stmt = stmt.where(StockMovement.sku == sku)
+
+    target_wh = warehouse_id or warehouse
+    if target_wh:
+        stmt = stmt.where(
+            or_(
+                StockMovement.warehouse_id == target_wh,
+                StockMovement.warehouse == target_wh,
+            )
+        )
     
     target_ref = reference_doc_id or reference_doc_no
     if target_ref:
@@ -204,31 +231,80 @@ async def list_stock_ledger(
             )
         )
 
-    stmt = stmt.order_by(StockMovement.created_at.desc()).offset(skip).limit(limit)
+    # Load the complete filtered stream first so running balances are correct
+    # even when the response is paginated.
+    stmt = stmt.order_by(StockMovement.created_at.asc(), StockMovement.id.asc())
 
     res = await db.execute(stmt)
-    rows = res.all()
-    items = []
-    for row in rows:
-        mv = row[0]
-        cost_val = mv.unit_cost or row.prod_cost_price or row.prod_buying_price or row.prod_price or Decimal("0.00")
-        raw_qty = mv.quantity if mv.quantity is not None else Decimal("0.00")
-        qty_abs = abs(raw_qty)
-        tot_val = qty_abs * cost_val
-        doc_no = row.inv_invoice_no or mv.reference_doc_id or "—"
+    all_rows = res.all()
 
-        m_type = (mv.movement_type or "").upper()
+    def split_quantity(movement: StockMovement):
+        raw_qty = movement.quantity if movement.quantity is not None else Decimal("0.00")
+        qty_abs = abs(raw_qty)
+        m_type = (movement.movement_type or "").upper()
         if m_type in ("OUTWARD_SALE", "SALE", "ADJUSTMENT_OUT", "TRANSFER_OUT", "DAMAGE", "WRITE_OFF", "OUT"):
             is_inward = False
         elif m_type in ("IN", "RETURN", "RETURN_INWARD", "INWARD_GRN", "ADJUSTMENT_IN", "TRANSFER_IN", "PURCHASE"):
             is_inward = True
         else:
             is_inward = raw_qty > 0
+        return raw_qty, (qty_abs if is_inward else Decimal("0.00")), (qty_abs if not is_inward else Decimal("0.00"))
 
-        in_qty = qty_abs if is_inward else Decimal("0.00")
-        out_qty = qty_abs if not is_inward else Decimal("0.00")
-        in_val = in_qty * cost_val
-        out_val = out_qty * cost_val
+    running_by_sku = {}
+    ledger_values = {}
+
+    def movement_cost(row):
+        movement = row[0]
+        if movement.unit_cost is not None:
+            return movement.unit_cost
+        return row.prod_cost_price if row.prod_cost_price is not None else (
+            row.prod_buying_price if row.prod_buying_price is not None else (row.prod_price or Decimal("0.00"))
+        )
+
+    for row in all_rows:
+        mv = row[0]
+        sku_key = mv.sku or mv.product_id
+        raw_qty, in_qty, out_qty = split_quantity(mv)
+        cost_val = movement_cost(row)
+        opening_qty = running_by_sku.get(sku_key, Decimal("0.00"))
+        closing_qty = opening_qty + in_qty - out_qty
+        running_by_sku[sku_key] = closing_qty
+        ledger_values[mv.id] = {
+            "in_qty": in_qty,
+            "out_qty": out_qty,
+            "opening_qty": opening_qty,
+            "closing_qty": closing_qty,
+            "in_value": in_qty * cost_val,
+            "out_value": out_qty * cost_val,
+            "closing_value": closing_qty * cost_val,
+        }
+
+    totals = {
+        "total_in_qty": sum((v["in_qty"] for v in ledger_values.values()), Decimal("0.00")),
+        "total_out_qty": sum((v["out_qty"] for v in ledger_values.values()), Decimal("0.00")),
+        "total_in_value": sum((v["in_value"] for v in ledger_values.values()), Decimal("0.00")),
+        "total_out_value": sum((v["out_value"] for v in ledger_values.values()), Decimal("0.00")),
+        "total_movement_value": sum(
+            (
+                abs(row[0].quantity or Decimal("0.00")) * movement_cost(row)
+                for row in all_rows
+            ),
+            Decimal("0.00"),
+        ),
+    }
+    totals["total_moved_qty"] = totals["total_in_qty"] + totals["total_out_qty"]
+    totals["net_qty"] = totals["total_in_qty"] - totals["total_out_qty"]
+
+    rows = list(reversed(all_rows))[skip:skip + limit]
+    items = []
+    for row in rows:
+        mv = row[0]
+        cost_val = movement_cost(row)
+        raw_qty = mv.quantity if mv.quantity is not None else Decimal("0.00")
+        qty_abs = abs(raw_qty)
+        tot_val = qty_abs * cost_val
+        doc_no = row.inv_invoice_no or mv.reference_doc_id or "—"
+        ledger_value = ledger_values[mv.id]
 
         item_dict = {
             "id": mv.id,
@@ -242,6 +318,7 @@ async def list_stock_ledger(
             "reference_doc_id": mv.reference_doc_id,
             "reference_doc_no": doc_no,
             "warehouse": mv.warehouse,
+            "warehouse_id": getattr(mv, "warehouse_id", None),
             "bin": mv.bin,
             "batch": mv.batch,
             "serial": mv.serial,
@@ -266,13 +343,22 @@ async def list_stock_ledger(
             "buying_price": row.prod_buying_price or Decimal("0.00"),
             "cost_price": cost_val,
             "total_value": tot_val,
-            "in_qty": in_qty,
-            "out_qty": out_qty,
-            "in_value": in_val,
-            "out_value": out_val,
+            "in_qty": ledger_value["in_qty"],
+            "out_qty": ledger_value["out_qty"],
+            "opening_qty": ledger_value["opening_qty"],
+            "closing_qty": ledger_value["closing_qty"],
+            "in_value": ledger_value["in_value"],
+            "out_value": ledger_value["out_value"],
+            "closing_value": ledger_value["closing_value"],
         }
         items.append(StockMovementResponse(**item_dict))
-    return items
+    return {
+        "items": items,
+        "total": len(all_rows),
+        "skip": skip,
+        "limit": limit,
+        "totals": totals,
+    }
 
 
 @router.post(
@@ -281,6 +367,13 @@ async def list_stock_ledger(
     status_code=201,
     dependencies=[Depends(verify_internal_service_key)],
 )
+@router.post(
+    "/movements",
+    response_model=StockMovementResponse,
+    status_code=201,
+    dependencies=[Depends(verify_internal_service_key)],
+    include_in_schema=False,
+)
 async def create_stock_movement(
     movement_in: StockMovementCreate,
     db: AsyncSession = Depends(get_company_db),
@@ -288,48 +381,79 @@ async def create_stock_movement(
     """
     Record an inventory stock movement.
     Trusted first-party call — secured by X-Internal-Service-Key.
+    Validates movement_type against canonical allow-list, enforces reference docs,
+    applies idempotency, updates ProductBatchStock, and synchronizes product stock cache.
     """
     import uuid
-    
-    # Check if product exists
+
+    # 1. Validate movement_type against single shared allow-list
+    m_type = (movement_in.movement_type or "").upper()
+    if m_type not in ALL_MOVEMENT_TYPES:
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "code": "INVALID_MOVEMENT_TYPE",
+                "message": f"Unknown movement_type '{movement_in.movement_type}'. Allowed types: {sorted(list(ALL_MOVEMENT_TYPES))}"
+            }
+        )
+
+    # 2. Require reference_doc_type and reference_doc_id
+    ref_doc_type = str(movement_in.reference_doc_type or "").strip()
+    if not ref_doc_type:
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "code": "MISSING_REFERENCE_DOC_TYPE",
+                "message": "reference_doc_type is required."
+            }
+        )
+    ref_doc_id = str(movement_in.reference_doc_id or "").strip()
+    if not ref_doc_id:
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "code": "MISSING_REFERENCE_DOC_ID",
+                "message": "reference_doc_id is required."
+            }
+        )
+
+    # 3. Check if product exists
     product_res = await db.execute(
         select(Product).filter(Product.id == movement_in.product_id, Product.is_deleted == False)
     )
     product = product_res.scalars().first()
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
-        
-    movement_id = movement_in.id or f"SM-{int(datetime.utcnow().timestamp())}-{uuid.uuid4().hex[:6]}"
-    
-    db_movement = StockMovement(
-        id=movement_id,
-        uuid=str(uuid.uuid4()),
-        product_id=movement_in.product_id,
-        product_name=movement_in.product_name,
-        sku=movement_in.sku,
-        quantity=movement_in.quantity,
-        movement_type=movement_in.movement_type,
-        reference_doc_type=movement_in.reference_doc_type,
-        reference_doc_id=movement_in.reference_doc_id,
-        warehouse=movement_in.warehouse,
-        bin=movement_in.bin,
-        batch=movement_in.batch,
-        serial=movement_in.serial,
-        unit_cost=movement_in.unit_cost,
+
+    # 4. Resolve warehouse_id
+    wh_id = None
+    if movement_in.warehouse:
+        wh_res = await db.execute(select(Warehouse.id).where(
+            Warehouse.company_id == product.company_id,
+            or_(Warehouse.id == movement_in.warehouse, Warehouse.code == movement_in.warehouse),
+            Warehouse.is_deleted == False
+        ))
+        wh_id = wh_res.scalar_one_or_none()
+
+    # 5. Delegate mutation exclusively through Canonical Single Door
+    post_req = MovementRequest(
+        company_id=product.company_id,
+        product_id=product.id,
+        movement_type=m_type,
+        quantity=Decimal(str(movement_in.quantity)),
+        reference_doc_type=ref_doc_type,
+        reference_doc_id=ref_doc_id,
+        branch_id=movement_in.branch_id or product.branch_id,
+        warehouse_id=wh_id,
+        batch_no=movement_in.batch,
         remarks=movement_in.remarks,
         user=movement_in.user,
-        device=movement_in.device,
-        branch=movement_in.branch,
-        source_module=movement_in.source_module,
-        approval=movement_in.approval,
-        company_id=product.company_id,
-        branch_id=product.branch_id,
+        source_module=movement_in.source_module or "Inventory",
+        allow_negative_stock=False,
     )
-    
-    db.add(db_movement)
+    result = await StockLedger.post(db, post_req)
     await db.commit()
-    await db.refresh(db_movement)
-    return db_movement
+    return result.movement
 
 
 
@@ -365,33 +489,29 @@ async def update_product(
     
     update_data = product_in.model_dump(exclude_unset=True)
 
-    # Enforce Stock No / Code uniqueness across other products
-    if update_data.get("code") and update_data["code"] != product.code:
-        existing_code = await db.execute(
-            select(Product).filter(
-                Product.code == update_data["code"],
-                Product.id != product_id,
-                Product.is_deleted == False,
-                Product.company_id == tenant_ctx.company_id,
-                Product.branch_id == tenant_ctx.branch_id
-            )
+    if "attributes" in update_data:
+        await AttributesService(db).validate_product_attributes(
+            update_data.get("attributes"),
+            tenant_ctx.company_id,
         )
-        if existing_code.scalars().first():
-            raise HTTPException(status_code=400, detail=f"Stock No / SKU '{update_data['code']}' is already in use by another product")
 
-    # Enforce Barcode uniqueness across other products
-    if update_data.get("barcode") and update_data["barcode"] != product.barcode:
-        existing_barcode = await db.execute(
-            select(Product).filter(
-                Product.barcode == update_data["barcode"],
-                Product.id != product_id,
-                Product.is_deleted == False,
-                Product.company_id == tenant_ctx.company_id,
-                Product.branch_id == tenant_ctx.branch_id
+    from ...services.catalog_validation import CatalogDimensionValidator
+    governed_dims = ["brand", "category", "color", "size", "style_code", "vendor_code"]
+    for dim_key in governed_dims:
+        if dim_key in update_data and update_data[dim_key] and str(update_data[dim_key]).strip():
+            update_data[dim_key] = await CatalogDimensionValidator.validate_and_normalize_dimension(
+                dimension_field=dim_key,
+                value=update_data[dim_key],
+                strict=True,
             )
+
+    immutable_fields = {"code", "sku", "barcode"}.intersection(update_data)
+    if immutable_fields:
+        fields = ", ".join(sorted(immutable_fields))
+        raise HTTPException(
+            status_code=409,
+            detail=f"Immutable product identity cannot be changed after creation: {fields}",
         )
-        if existing_barcode.scalars().first():
-            raise HTTPException(status_code=400, detail=f"Barcode '{update_data['barcode']}' is already in use by another product")
 
     return await repo.update(product, update_data)
 
@@ -437,10 +557,16 @@ async def add_secondary_barcode(
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
         
-    # Check if duplicate barcode exists globally
-    existing = await repo.get_by_barcode(value)
+    # A barcode is a permanent identity once attached, including secondary aliases.
+    existing = await db.execute(
+        select(Product).where(
+            Product.is_deleted == False,
+            or_(Product.barcode == value, Product.secondary_barcodes.any(value)),
+        )
+    )
+    existing = existing.scalars().first()
     if existing:
-        raise HTTPException(status_code=400, detail="Barcode already exists globally")
+        raise HTTPException(status_code=409, detail="Barcode is already attached to an SKU and cannot be reused")
         
     current_secondary = list(product.secondary_barcodes or [])
     if value not in current_secondary:
@@ -460,17 +586,11 @@ async def delete_secondary_barcode(
     db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
 ):
-    """Delete a secondary barcode from a product."""
-    repo = ProductRepository(db, tenant_ctx)
-    product = await repo.get(product_id)
-    if not product:
-        raise HTTPException(status_code=404, detail="Product not found")
-        
-    current_secondary = list(product.secondary_barcodes or [])
-    if value in current_secondary:
-        current_secondary.remove(value)
-        
-    return await repo.update(product, {"secondary_barcodes": current_secondary})
+    """Deprecated: attached barcodes are permanent identity records."""
+    raise HTTPException(
+        status_code=409,
+        detail="Attached barcodes are immutable and cannot be deleted or reassigned",
+    )
 
 
 @router.post(
@@ -590,10 +710,133 @@ async def delete_gallery_image(
     return await repo.update(product, {"gallery_images": current_gallery})
 
 
+@router.post(
+    "/upload-image",
+    dependencies=[Depends(get_current_user)],
+    status_code=200,
+    summary="Upload standalone image",
+    description="Upload a base64 encoded image, process and optimize it via SPIF into WebP format, and return its permanent URL.",
+)
+async def upload_standalone_image(
+    payload: dict = Body(..., example={"image_data": "data:image/png;base64,..."}),
+):
+    """
+    Process and save a standalone base64 image (used by Purchase Studio, PO creation, etc.)
+    Returns the saved WebP filename and accessible URLs.
+    """
+    image_data = payload.get("image_data")
+    if not image_data:
+        raise HTTPException(status_code=400, detail="Base64 image_data is required")
+
+    try:
+        filename = SpifService.process_and_save_base64_image(image_data)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Failed to process image: {str(e)}")
+
+    url = f"/api/v1/inventory/images/{filename}"
+    return {
+        "success": True,
+        "filename": filename,
+        "url": url,
+        "relative_url": f"/products/images/{filename}",
+    }
+
+
+DEFAULT_PRODUCT_PLACEHOLDER_SVG = (
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">'
+    '<rect width="128" height="128" rx="16" fill="#1e293b"/>'
+    '<path d="M40 44h48v40H40z" fill="none" stroke="#64748b" stroke-width="4"/>'
+    '<circle cx="52" cy="56" r="6" fill="#64748b"/>'
+    '<path d="M44 80l14-16 10 10 12-14 8 10" fill="none" stroke="#64748b" stroke-width="4"/>'
+    '</svg>'
+)
+
+
 @router.get("/images/{filename}", include_in_schema=False)
 async def get_product_image(filename: str):
-    """Serve product image from the local SPIF static uploads folder."""
-    filepath = SpifService.get_image_path(filename)
+    """Serve product image from the local SPIF static uploads folder, falling back to a clean placeholder."""
+    clean_filename = os.path.basename(filename)
+    filepath = SpifService.get_image_path(clean_filename)
     if not os.path.exists(filepath):
-        raise HTTPException(status_code=404, detail="Image not found")
+        return Response(content=DEFAULT_PRODUCT_PLACEHOLDER_SVG, media_type="image/svg+xml")
     return FileResponse(filepath, media_type="image/webp")
+
+
+@router.get(
+    "/reconciliation",
+    summary="Run Read-Only Stock Movement Reconciliation Audit",
+    description="Audits all inventory transactions against physical stock invariants across 9 discrepancy taxonomies."
+)
+async def get_stock_reconciliation_audit(
+    branch_id: Optional[str] = Query(None, description="Optional branch filter"),
+    warehouse_id: Optional[str] = Query(None, description="Optional warehouse filter"),
+    start_date: Optional[date] = Query(None, description="Start date filter"),
+    end_date: Optional[date] = Query(None, description="End date filter"),
+    product_id: Optional[str] = Query(None, description="Specific product ID"),
+    sku: Optional[str] = Query(None, description="SKU or product code search"),
+    limit: int = Query(500, ge=1, le=5000, description="Product batch audit limit"),
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Executes a comprehensive, non-destructive stock movement invariant audit.
+    Evaluates:
+      Expected on-hand = Opening + Receipts + Sales Returns + Transfer In + Pos Adjustments
+                         - Sales Dispatches - Purchase Returns - Transfer Out - Neg Adjustments - Damage
+    Identifies drifts against actual ledger and cached values.
+    """
+    from ...services.stock_reconciliation_engine import StockReconciliationEngine
+    return await StockReconciliationEngine.run_reconciliation_audit(
+        session=db,
+        company_id=tenant_ctx.company_id,
+        branch_id=branch_id or tenant_ctx.branch_id,
+        warehouse_id=warehouse_id,
+        start_date=start_date,
+        end_date=end_date,
+        product_id=product_id,
+        sku=sku,
+        limit=limit,
+    )
+
+
+@router.get(
+    "/reconciliation/correction-proposal",
+    summary="Generate Read-Only Historical Correction Proposal",
+    description="Generates non-destructive historical correction proposals with before/after quantities and audit justifications."
+)
+async def get_historical_correction_proposal(
+    branch_id: Optional[str] = Query(None, description="Optional branch filter"),
+    warehouse_id: Optional[str] = Query(None, description="Optional warehouse filter"),
+    start_date: Optional[date] = Query(None, description="Start date filter"),
+    end_date: Optional[date] = Query(None, description="End date filter"),
+    product_id: Optional[str] = Query(None, description="Specific product ID"),
+    sku: Optional[str] = Query(None, description="SKU or product code search"),
+    limit: int = Query(500, ge=1, le=5000, description="Product batch audit limit"),
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Generates a structured, non-destructive historical correction proposal.
+    Strictly read-only; requires explicit administrator authorization to execute.
+    """
+    from ...services.stock_reconciliation_engine import StockReconciliationEngine
+    audit_report = await StockReconciliationEngine.run_reconciliation_audit(
+        session=db,
+        company_id=tenant_ctx.company_id,
+        branch_id=branch_id or tenant_ctx.branch_id,
+        warehouse_id=warehouse_id,
+        start_date=start_date,
+        end_date=end_date,
+        product_id=product_id,
+        sku=sku,
+        limit=limit,
+    )
+    return await StockReconciliationEngine.generate_correction_proposal(
+        session=db,
+        company_id=tenant_ctx.company_id,
+        audit_report=audit_report,
+    )
+
+

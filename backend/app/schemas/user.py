@@ -4,15 +4,15 @@ Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
-Version      : 3.16.0
+Version      : 3.17.0
 Created      : 2026-07-11
-Modified     : 2026-07-13
+Modified     : 2026-10-14
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 """
 
 from typing import Optional, List, Dict, Any
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from ..models.auth import UserRole
 
 
@@ -36,17 +36,64 @@ class OtherAllowancesStructure(BaseModel):
 
 class SalaryStructure(BaseModel):
     fixedMonthly: float = 25000.0
+    wageType: str = "MONTHLY"  # "MONTHLY" or "DAILY"
+    dailyRate: float = 0.0
+    overtimeRatePerHour: float = 0.0
     commission: CommissionStructure = Field(default_factory=CommissionStructure)
     travelAllowance: TravelAllowanceStructure = Field(default_factory=TravelAllowanceStructure)
     otherAllowances: OtherAllowancesStructure = Field(default_factory=OtherAllowancesStructure)
 
+    @field_validator("fixedMonthly", mode="before")
+    @classmethod
+    def sanitize_fixed_monthly(cls, v):
+        if v is None or v == "":
+            return 25000.0
+        try:
+            return float(v)
+        except (ValueError, TypeError):
+            return 25000.0
+
+    @field_validator("dailyRate", mode="before")
+    @classmethod
+    def sanitize_daily_rate(cls, v):
+        if v is None or v == "":
+            return 0.0
+        try:
+            return float(v)
+        except (ValueError, TypeError):
+            return 0.0
+
+    @field_validator("overtimeRatePerHour", mode="before")
+    @classmethod
+    def sanitize_overtime_rate(cls, v):
+        if v is None or v == "":
+            return 0.0
+        try:
+            return float(v)
+        except (ValueError, TypeError):
+            return 0.0
+
+    @field_validator("wageType", mode="before")
+    @classmethod
+    def sanitize_wage_type(cls, v):
+        if not v or str(v).strip().upper() not in ("MONTHLY", "DAILY"):
+            return "MONTHLY"
+        return str(v).strip().upper()
+
 
 class PaymentDetails(BaseModel):
-    frequency: str = "Monthly"
-    bankDetails: str = ""
-    upi: str = ""
-    salaryEffectiveFrom: str = ""
-    commissionEffectiveFrom: str = ""
+    frequency: Optional[str] = "Monthly"
+    paymentMode: Optional[str] = "Bank Transfer"
+    bankName: Optional[str] = ""
+    accountNumber: Optional[str] = ""
+    ifscCode: Optional[str] = ""
+    branchName: Optional[str] = ""
+    accountType: Optional[str] = "Savings"
+    nameAsPerBank: Optional[str] = ""
+    bankDetails: Optional[str] = ""
+    upi: Optional[str] = ""
+    salaryEffectiveFrom: Optional[str] = ""
+    commissionEffectiveFrom: Optional[str] = ""
     aadhaarNumber: Optional[str] = ""
     panNumber: Optional[str] = ""
     providentFundUan: Optional[str] = ""
@@ -54,7 +101,32 @@ class PaymentDetails(BaseModel):
     fatherSpouseName: Optional[str] = ""
     bloodGroup: Optional[str] = ""
     maritalStatus: Optional[str] = ""
+    emergencyContactRelation: Optional[str] = ""
     permanentAddress: Optional[str] = ""
+
+    @field_validator("*", mode="before")
+    @classmethod
+    def sanitize_strings(cls, v):
+        if v is None:
+            return ""
+        if isinstance(v, str):
+            return v.strip()
+        return str(v)
+
+    @field_validator("frequency", mode="after")
+    @classmethod
+    def default_frequency(cls, v):
+        return v or "Monthly"
+
+    @field_validator("paymentMode", mode="after")
+    @classmethod
+    def default_payment_mode(cls, v):
+        return v or "Bank Transfer"
+
+    @field_validator("accountType", mode="after")
+    @classmethod
+    def default_account_type(cls, v):
+        return v or "Savings"
 
 
 class PerformanceMetrics(BaseModel):
@@ -66,10 +138,58 @@ class PerformanceMetrics(BaseModel):
     travelClaimStatus: str = "None"
 
 
+# ---------------------------------------------------------------------------
+# Theme Preset — canonical IDs must match frontend src/config/theme_presets.ts
+# Density and fontScale are kept as plain strings to avoid tight coupling.
+# ---------------------------------------------------------------------------
+VALID_PRESET_IDS = {
+    "enterprise-light", "enterprise-dark",
+    "pos-dark", "retail-day", "high-contrast",
+}
+VALID_DENSITIES  = {"compact", "comfortable", "spacious"}
+VALID_FONT_SCALES = {"sm", "md", "lg"}
+
+
 class UserPreferencesSchema(BaseModel):
-    theme: str = "dark"
+    """User workspace visual and regional preferences."""
+    # ── Base mode (legacy field — kept for backward compat) ──
+    theme: str = "light"
+    # ── Preset system (Phase 6 — 2026-10-11) ────────────────
+    presetId: Optional[str] = "enterprise-light"
+    density: Optional[str] = "comfortable"
+    fontScale: Optional[str] = "md"
+    accentOverride: Optional[str] = None
+    # ── Regional ─────────────────────────────────────────────
     language: str = "English"
     timeZone: str = "Asia/Kolkata"
+
+    @field_validator("presetId", mode="before")
+    @classmethod
+    def validate_preset_id(cls, v):
+        if v is None:
+            return v
+        if v not in VALID_PRESET_IDS:
+            # Accept unknown presets gracefully (future-proof)
+            return v
+        return v
+
+    @field_validator("density", mode="before")
+    @classmethod
+    def validate_density(cls, v):
+        if v is None:
+            return v
+        if v not in VALID_DENSITIES:
+            return "comfortable"  # safe fallback
+        return v
+
+    @field_validator("fontScale", mode="before")
+    @classmethod
+    def validate_font_scale(cls, v):
+        if v is None:
+            return v
+        if v not in VALID_FONT_SCALES:
+            return "md"  # safe fallback
+        return v
 
 
 class NotificationSettings(BaseModel):
@@ -84,6 +204,43 @@ class NotificationSettings(BaseModel):
     policyAnnouncements: bool = True
 
 
+class PreferencesUpdate(BaseModel):
+    """
+    Typed request body for PUT /api/v1/users/{id}/preferences.
+    All fields are optional — only provided fields are merged into the stored JSON.
+    """
+    theme: Optional[str] = None
+    presetId: Optional[str] = None
+    density: Optional[str] = None
+    fontScale: Optional[str] = None
+    accentOverride: Optional[str] = None
+    language: Optional[str] = None
+    timeZone: Optional[str] = None
+
+    @field_validator("presetId", mode="before")
+    @classmethod
+    def validate_preset_id(cls, v):
+        if v is None:
+            return v
+        if v not in VALID_PRESET_IDS:
+            return v  # accept unknown — future-proof
+        return v
+
+    @field_validator("density", mode="before")
+    @classmethod
+    def validate_density(cls, v):
+        if v is None:
+            return v
+        return v if v in VALID_DENSITIES else "comfortable"
+
+    @field_validator("fontScale", mode="before")
+    @classmethod
+    def validate_font_scale(cls, v):
+        if v is None:
+            return v
+        return v if v in VALID_FONT_SCALES else "md"
+
+
 # System Schemas
 class UserCreate(BaseModel):
     """SYSADMIN creates a new user and assigns them to a company + branch."""
@@ -95,6 +252,18 @@ class UserCreate(BaseModel):
     company_id: Optional[str] = None
     branch_id: Optional[str] = None
 
+    @field_validator("role", mode="before")
+    def normalize_role(cls, v):
+        if v is None:
+            return v
+        if isinstance(v, str):
+            cleaned = v.strip().upper()
+            if cleaned in ("ADMIN", "SYS_ADMIN", "SYSTEM_ADMIN"):
+                return UserRole.SYSADMIN
+            if cleaned in UserRole.__members__:
+                return UserRole[cleaned]
+        return v
+
 
 class UserUpdate(BaseModel):
     """SYSADMIN updates an existing user's profile or tenant assignment."""
@@ -104,6 +273,18 @@ class UserUpdate(BaseModel):
     company_id: Optional[str] = None
     branch_id: Optional[str] = None
     is_active: Optional[bool] = None
+
+    @field_validator("role", mode="before")
+    def normalize_role(cls, v):
+        if v is None:
+            return v
+        if isinstance(v, str):
+            cleaned = v.strip().upper()
+            if cleaned in ("ADMIN", "SYS_ADMIN", "SYSTEM_ADMIN"):
+                return UserRole.SYSADMIN
+            if cleaned in UserRole.__members__:
+                return UserRole[cleaned]
+        return v
 
 
 class PasswordChange(BaseModel):
@@ -118,6 +299,8 @@ class StaffUserCreate(BaseModel):
     fullName: str
     role: UserRole
     passwordHash: Optional[str] = None
+    # Compatibility input for legacy callers; the service validates either field.
+    password: Optional[str] = None
     status: Optional[str] = "Active"
     employeeId: Optional[str] = None
     employeeCode: Optional[str] = None
@@ -126,7 +309,7 @@ class StaffUserCreate(BaseModel):
     dateOfBirth: Optional[str] = "1990-01-01"
     mobile: Optional[str] = "0000000000"
     alternateMobile: Optional[str] = ""
-    email: Optional[str] = ""
+    email: Optional[str] = None
     emergencyContact: Optional[str] = ""
     address: Optional[str] = ""
     city: Optional[str] = ""
@@ -150,14 +333,65 @@ class StaffUserCreate(BaseModel):
     preferences: Optional[UserPreferencesSchema] = None
     notificationSettings: Optional[NotificationSettings] = None
 
+    roleId: Optional[str] = None
+    role_id: Optional[str] = None
+
+    @field_validator("email", mode="before")
+    def sanitize_email(cls, v):
+        if not v or not isinstance(v, str) or not v.strip():
+            return None
+        return v.strip().lower()
+
+    @field_validator("role", mode="before")
+    def normalize_role(cls, v):
+        if v is None:
+            return v
+        if isinstance(v, str):
+            cleaned = v.strip().upper().replace(" ", "_").replace("-", "_")
+            if cleaned in ("ADMIN", "SYS_ADMIN", "SYSTEM_ADMIN", "SUPERADMIN", "SUPER_ADMIN"):
+                return UserRole.SYSADMIN
+            if cleaned in ("STORE", "STORE_MGR"):
+                return UserRole.STORE_MANAGER
+            if cleaned in ("PURCHASE", "PURCHASE_EXEC"):
+                return UserRole.PURCHASE_EXECUTIVE
+            if cleaned in ("SALES", "SALES_EXEC"):
+                return UserRole.SALES_EXECUTIVE
+            if cleaned in ("ACCOUNT", "ACCOUNTS"):
+                return UserRole.ACCOUNTANT
+            if cleaned in ("HR", "HR_EXEC"):
+                return UserRole.HR_EXECUTIVE
+            if cleaned in UserRole.__members__:
+                return UserRole[cleaned]
+        return v
+
 
 class StaffUserUpdate(BaseModel):
     fullName: Optional[str] = None
     role: Optional[UserRole] = None
+    roleId: Optional[str] = None
+    role_id: Optional[str] = None
     passwordHash: Optional[str] = None
     status: Optional[str] = None
     employeeId: Optional[str] = None
     employeeCode: Optional[str] = None
+
+    @field_validator("role", mode="before")
+    def normalize_role(cls, v):
+        if v is None:
+            return v
+        if isinstance(v, str):
+            cleaned = v.strip().upper().replace(" ", "_").replace("-", "_")
+            if cleaned in ("SYS_ADMIN", "SYSTEM_ADMIN", "SUPERADMIN", "SUPER_ADMIN"):
+                return UserRole.SYSADMIN
+            if cleaned in UserRole.__members__:
+                return UserRole[cleaned]
+        return v
+
+    @field_validator("email", mode="before")
+    def sanitize_email(cls, v):
+        if not v or not isinstance(v, str) or not v.strip():
+            return None
+        return v.strip().lower()
     displayName: Optional[str] = None
     gender: Optional[str] = None
     dateOfBirth: Optional[str] = None
@@ -239,6 +473,8 @@ class StaffUserResponse(BaseModel):
     performance: PerformanceMetrics
     preferences: UserPreferencesSchema
     notificationSettings: NotificationSettings
+    roleId: Optional[str] = None
+    role_id: Optional[str] = None
 
     model_config = {"from_attributes": True}
 

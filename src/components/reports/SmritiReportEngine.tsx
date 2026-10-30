@@ -4,15 +4,16 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 3.30.0
+ * Version      : 6.99.19
  * Created      : 2026-08-27
- * Modified     : 2026-08-27
+ * Modified     : 2026-10-29
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
- * Classification: Internal
+ * Classification: Multi-Dimensional Report Engine with Unified A4 Landscape Body Portal Print Studio
  */
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
+import { createPortal } from "react-dom";
 import {
   Calendar,
   Download,
@@ -37,18 +38,24 @@ import {
   Calculator,
   Sigma,
   Save,
-  PanelRight
+  PanelRight,
+  Clock,
+  CheckCircle2,
+  AlertCircle,
+  X
 } from "lucide-react";
 import { formatCurrency, formatNumber, formatDate } from "../../utils/formatters";
 import { GlobalExportService } from "../../services/globalExportService";
+import { apiFetchV1, getTenantCompanyContext } from "../../lib/apiFetchV1";
 
 export interface ReportColumnDef {
   key: string;
   label: string;
-  datatype: "currency" | "number" | "date" | "badge" | "text";
+  datatype: "currency" | "number" | "date" | "badge" | "text" | "link";
   isSummary?: boolean;
   width?: number;
   align?: "left" | "right" | "center";
+  entityLink?: "invoice" | "sales_order" | "item" | "customer" | string;
 }
 
 export interface SmritiReportEngineProps {
@@ -56,13 +63,16 @@ export interface SmritiReportEngineProps {
   reportTitle: string;
   reportCategory?: string;
   description?: string;
-  data: any[];
+  data?: any[];
   columns?: ReportColumnDef[];
   summaryMetrics?: Record<string, any>;
+  chartConfig?: any;
+  systemMessage?: string;
   onRefresh?: () => void;
   isLoading?: boolean;
   activeRole?: string;
   onNotification?: (type: "success" | "error" | "info", message: string) => void;
+  onEntityClick?: (entityType: string, entityId: string) => void;
 }
 
 type DatePreset = "today" | "yesterday" | "this_week" | "mtd" | "qtd" | "fytd" | "custom";
@@ -76,11 +86,15 @@ export const SmritiReportEngine: React.FC<SmritiReportEngineProps> = ({
   data = [],
   columns: propColumns,
   summaryMetrics,
+  chartConfig,
+  systemMessage,
   onRefresh,
   isLoading = false,
   activeRole = "Store Manager",
   onNotification,
+  onEntityClick,
 }) => {
+
   // Date Preset & Range State
   const [activePreset, setActivePreset] = useState<DatePreset>("mtd");
   const [startDate, setStartDate] = useState<string>(() => {
@@ -112,6 +126,37 @@ export const SmritiReportEngine: React.FC<SmritiReportEngineProps> = ({
   const [visibleColumnKeys, setVisibleColumnKeys] = useState<Record<string, boolean>>({});
   const [showInspector, setShowInspector] = useState<boolean>(true);
   const [isViewSaved, setIsViewSaved] = useState<boolean>(false);
+
+  // Asynchronous Prepared Report State (Frappe / ERPNext Pattern)
+  const [preparedTaskId, setPreparedTaskId] = useState<string | null>(null);
+  const [preparedStatus, setPreparedStatus] = useState<string | null>(null);
+  const [preparedProgress, setPreparedProgress] = useState<number>(0);
+  const [isPreparing, setIsPreparing] = useState<boolean>(false);
+
+  // Print Preview Modal State
+  const [isPrintModalOpen, setIsPrintModalOpen] = useState<boolean>(false);
+  const tenantContext = useMemo(() => {
+    if (typeof window !== "undefined") {
+      return getTenantCompanyContext();
+    }
+    return { companyName: "", companyAddress: "", companyGstin: "" };
+  }, []);
+
+  useEffect(() => {
+    if (!isPrintModalOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        setIsPrintModalOpen(false);
+      } else if (e.key === "F9" || ((e.ctrlKey || e.metaKey) && (e.key === "p" || e.key === "P"))) {
+        e.preventDefault();
+        window.print();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isPrintModalOpen]);
+
 
   // Auto-detect columns if not provided
   const columns: ReportColumnDef[] = useMemo(() => {
@@ -338,7 +383,7 @@ export const SmritiReportEngine: React.FC<SmritiReportEngineProps> = ({
     }
 
     if (format === "pdf") {
-      window.print();
+      setIsPrintModalOpen(true);
       return;
     }
 
@@ -385,11 +430,18 @@ export const SmritiReportEngine: React.FC<SmritiReportEngineProps> = ({
       moduleName: reportTitle.replace(/[^a-zA-Z0-9_-]/g, "_"),
       format,
       scope: "all",
-      columns: activeColumns,
+      columns: activeColumns.map(({ key, label, datatype, isSummary, width, align }) => ({
+        key,
+        label,
+        datatype,
+        isSummary,
+        width,
+        align,
+      })),
       data: exportRows,
       metadata: {
         moduleTitle: reportTitle,
-        companyName: "Tattly Threads / SMRITI Retail OS",
+        companyName: (typeof window !== "undefined" ? getTenantCompanyContext().companyName : "") || "SMRITI Retail OS",
         exportTimestamp: new Date().toLocaleString(),
         searchTerm: searchTerm || undefined,
       },
@@ -401,6 +453,112 @@ export const SmritiReportEngine: React.FC<SmritiReportEngineProps> = ({
       onNotification?.("error", result.errorMessage || "Failed to generate report file.");
     }
   };
+
+  const handlePreparedExport = async (format: "XLSX" | "CSV" = "XLSX") => {
+    setIsPreparing(true);
+    onNotification?.("info", `Enqueuing prepared report #${reportId} for background execution...`);
+    try {
+      const res: any = await apiFetchV1("/reports/prepared/enqueue", {
+        method: "POST",
+        body: JSON.stringify({
+          report_code: reportId,
+          parameters: {
+            from_date: startDate,
+            to_date: endDate,
+            store: selectedStore,
+            status: selectedStatus,
+            search: searchTerm || undefined,
+          },
+          export_format: format,
+        }),
+      });
+
+      if (res?.is_cached_hit && res?.download_url) {
+        onNotification?.("success", `Snapshot Cache Hit! Downloading sealed report artifact...`);
+        window.location.href = res.download_url;
+        setIsPreparing(false);
+        return;
+      }
+
+      setPreparedTaskId(res.task_id);
+      setPreparedStatus(res.status);
+      setPreparedProgress(res.progress_percent || 10);
+      onNotification?.("success", `Prepared report enqueued as Task ${res.task_id}. Background worker running.`);
+
+      // Poll status every 2 seconds
+      const interval = setInterval(async () => {
+        try {
+          const pollRes: any = await apiFetchV1(`/reports/prepared/${res.task_id}/status`);
+          setPreparedStatus(pollRes.status);
+          setPreparedProgress(pollRes.progress_percent);
+          if (pollRes.status === "COMPLETED") {
+            clearInterval(interval);
+            setIsPreparing(false);
+            onNotification?.("success", `Prepared Report completed! Sealed hash: ${pollRes.forensic_hash?.substring(0, 16)}...`);
+            if (pollRes.download_url) {
+              window.location.href = pollRes.download_url;
+            }
+          } else if (pollRes.status === "FAILED") {
+            clearInterval(interval);
+            setIsPreparing(false);
+            onNotification?.("error", `Prepared Report failed: ${pollRes.error_message || "Unknown error"}`);
+          }
+        } catch (pollErr) {
+          clearInterval(interval);
+          setIsPreparing(false);
+        }
+      }, 2000);
+    } catch (err: any) {
+      setIsPreparing(false);
+      onNotification?.("error", err?.message || "Failed to enqueue prepared report.");
+    }
+  };
+
+  const renderCellContent = (col: ReportColumnDef, val: any, _row: any) => {
+    if (val === null || val === undefined) return <span className="text-slate-500">—</span>;
+
+    const isLink = col.datatype === "link" || col.entityLink || ["invoice_no", "order_no", "item_code", "doc_no", "bill_no"].includes(col.key);
+    if (isLink) {
+      const entityType = col.entityLink || (col.key.includes("invoice") || col.key.includes("bill") ? "invoice" : col.key.includes("order") ? "sales_order" : "item");
+      return (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            if (onEntityClick) {
+              onEntityClick(entityType, String(val));
+            } else {
+              onNotification?.("info", `Document ${val} clicked (${entityType})`);
+            }
+          }}
+          className="inline-flex items-center gap-1 font-mono font-bold text-indigo-400 hover:text-indigo-300 hover:underline cursor-pointer group"
+          title={`Click to preview ${entityType}: ${val}`}
+        >
+          <span>{String(val)}</span>
+          <ExternalLink size={10} className="opacity-60 group-hover:opacity-100" />
+        </button>
+      );
+    }
+
+    if (col.datatype === "currency") {
+      return <span className="font-semibold text-emerald-400">{formatCurrency(val)}</span>;
+    }
+    if (col.datatype === "number") {
+      return <span className="font-semibold text-slate-200">{formatNumber(val)}</span>;
+    }
+    if (col.datatype === "date") {
+      return <span className="text-slate-400 font-mono">{formatDate(val)}</span>;
+    }
+    if (col.datatype === "badge") {
+      return (
+        <span className="px-2 py-0.5 rounded text-[9px] font-mono font-bold uppercase bg-indigo-950 text-indigo-300 border border-indigo-800">
+          {String(val || "ACTIVE")}
+        </span>
+      );
+    }
+    return <span className="text-slate-300">{String(val)}</span>;
+  };
+
 
   const toggleSort = (key: string) => {
     if (sortColumn === key) {
@@ -436,6 +594,15 @@ export const SmritiReportEngine: React.FC<SmritiReportEngineProps> = ({
               <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase bg-theme-selection text-theme-primary border border-theme-primary/30">
                 {reportCategory}
               </span>
+              <span className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase border ${
+                isLoading
+                  ? "text-amber-300 border-amber-500/30 bg-amber-950/30"
+                  : data.length > 0
+                    ? "text-emerald-300 border-emerald-500/30 bg-emerald-950/30"
+                    : "text-slate-300 border-slate-600 bg-slate-800"
+              }`}>
+                {isLoading ? "LOADING" : data.length > 0 ? "LIVE DATA" : "NO LIVE DATA"}
+              </span>
               <span className="text-xs font-mono text-theme-muted">#{reportId}</span>
             </div>
             <h3 className="text-lg font-bold text-theme-body mt-1 flex items-center gap-2">
@@ -470,6 +637,19 @@ export const SmritiReportEngine: React.FC<SmritiReportEngineProps> = ({
             >
               <TableProperties size={13} /> Excel (.xlsx)
             </button>
+
+            {/* Frappe-Inspired Asynchronous Prepared Report Exporter */}
+            <button
+              type="button"
+              onClick={() => handlePreparedExport("XLSX")}
+              disabled={isPreparing}
+              className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer disabled:opacity-50"
+              title="Asynchronous background report generation with deterministic caching and statutory sealing"
+            >
+              <Clock size={13} className={isPreparing ? "animate-spin" : ""} />
+              <span>{isPreparing ? `Preparing (${preparedProgress}%)` : "Prepared Export"}</span>
+            </button>
+
 
             {/* PDF / Print */}
             <button
@@ -544,7 +724,56 @@ export const SmritiReportEngine: React.FC<SmritiReportEngineProps> = ({
         </div>
       </div>
 
+      {/* System Message / Audit Guidance Banner */}
+      {systemMessage && (
+        <div className="px-4 py-2 bg-theme-surface-1 border border-theme-border rounded-xl text-xs font-mono text-theme-muted flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Sparkles size={13} className="text-indigo-400" />
+            <span>{systemMessage}</span>
+          </div>
+          <span className="text-[10px] uppercase font-bold text-emerald-400 bg-emerald-950/40 px-2 py-0.5 rounded border border-emerald-800/40">
+            Governed Contract
+          </span>
+        </div>
+      )}
+
+      {/* Asynchronous Prepared Report Notification & Download Banner */}
+      {preparedTaskId && (
+        <div className="p-3 bg-indigo-950/40 border border-indigo-800/60 rounded-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-3 text-xs font-mono">
+          <div className="flex items-center gap-2">
+            {preparedStatus === "COMPLETED" ? (
+              <CheckCircle2 size={16} className="text-emerald-400" />
+            ) : preparedStatus === "FAILED" ? (
+              <AlertCircle size={16} className="text-rose-400" />
+            ) : (
+              <Clock size={16} className="animate-spin text-indigo-400" />
+            )}
+            <div>
+              <span className="text-indigo-200">
+                Prepared Task <strong>{preparedTaskId}</strong>: Status is{" "}
+                <span className={preparedStatus === "COMPLETED" ? "text-emerald-400 font-bold" : "text-amber-300"}>
+                  {preparedStatus}
+                </span>{" "}
+                ({preparedProgress}%)
+              </span>
+              <p className="text-[10px] text-slate-400 mt-0.5">
+                Background execution generated in Statutory Vault with deterministic caching and SHA-256 seal.
+              </p>
+            </div>
+          </div>
+          {preparedStatus === "COMPLETED" && (
+            <a
+              href={`/api/v1/reports/prepared/${preparedTaskId}/download`}
+              className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-bold inline-flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
+            >
+              <Download size={13} /> Download Sealed Artifact (.xlsx)
+            </a>
+          )}
+        </div>
+      )}
+
       {/* 2. UNIVERSAL FILTER & SUMMARY CONFIGURATION BAR */}
+
       <div className="bg-theme-surface-1 border border-theme-border p-4 rounded-xl shadow-xs space-y-3">
         {/* Preset Date Buttons Bar */}
         <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-theme-divider">
@@ -834,19 +1063,7 @@ export const SmritiReportEngine: React.FC<SmritiReportEngineProps> = ({
                                   const val = row[col.key];
                                   return (
                                     <td key={col.key} className={`p-2.5 ${col.align === "right" ? "text-right font-mono" : ""}`}>
-                                      {col.datatype === "currency" ? (
-                                        <span className="font-semibold text-emerald-400">{formatCurrency(val)}</span>
-                                      ) : col.datatype === "number" ? (
-                                        <span className="font-semibold text-slate-200">{formatNumber(val)}</span>
-                                      ) : col.datatype === "date" ? (
-                                        <span className="text-slate-400 font-mono">{formatDate(val)}</span>
-                                      ) : col.datatype === "badge" ? (
-                                        <span className="px-2 py-0.5 rounded text-[9px] font-mono font-bold uppercase bg-indigo-950 text-indigo-300 border border-indigo-800">
-                                          {String(val || "ACTIVE")}
-                                        </span>
-                                      ) : (
-                                        <span className="text-slate-300">{val !== null && val !== undefined ? String(val) : "—"}</span>
-                                      )}
+                                      {renderCellContent(col, val, row)}
                                     </td>
                                   );
                                 })}
@@ -913,7 +1130,14 @@ export const SmritiReportEngine: React.FC<SmritiReportEngineProps> = ({
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800/60">
-                {filteredData.length === 0 ? (
+                {data.length === 0 ? (
+                  <tr>
+                    <td colSpan={activeColumns.length} className="p-8 text-center font-sans">
+                      <div className="text-sm font-semibold text-theme-body">No live data returned</div>
+                      <div className="mt-1 text-xs text-theme-muted">This report has no records for the selected period.</div>
+                    </td>
+                  </tr>
+                ) : filteredData.length === 0 ? (
                   <tr>
                     <td colSpan={activeColumns.length} className="p-8 text-center text-slate-500 font-mono text-xs">
                       No matching records found for the selected range and filters.
@@ -926,19 +1150,7 @@ export const SmritiReportEngine: React.FC<SmritiReportEngineProps> = ({
                         const val = row[col.key];
                         return (
                           <td key={col.key} className={`p-3 ${col.align === "right" ? "text-right font-mono" : ""}`}>
-                            {col.datatype === "currency" ? (
-                              <span className="font-semibold text-emerald-400">{formatCurrency(val)}</span>
-                            ) : col.datatype === "number" ? (
-                              <span className="font-semibold text-slate-200">{formatNumber(val)}</span>
-                            ) : col.datatype === "date" ? (
-                              <span className="text-slate-400 font-mono">{formatDate(val)}</span>
-                            ) : col.datatype === "badge" ? (
-                              <span className="px-2 py-0.5 rounded text-[9px] font-mono font-bold uppercase bg-indigo-950 text-indigo-300 border border-indigo-800">
-                                {String(val || "ACTIVE")}
-                              </span>
-                            ) : (
-                              <span className="text-slate-300">{val !== null && val !== undefined ? String(val) : "—"}</span>
-                            )}
+                            {renderCellContent(col, val, row)}
                           </td>
                         );
                       })}
@@ -1044,6 +1256,270 @@ export const SmritiReportEngine: React.FC<SmritiReportEngineProps> = ({
             </button>
           </div>
         </aside>
+      )}
+
+      {/* ── Official Report Ledger Print Preview (Body Portal) ── */}
+      {isPrintModalOpen && typeof document !== "undefined" && createPortal(
+        <div
+          className="smriti-report-modal-root print-preview-visible fixed inset-0 z-50 flex flex-col bg-slate-900/60 dark:bg-slate-950/80 backdrop-blur-xs overflow-y-auto print:static print:inset-auto print:h-auto print:w-full print:p-0 print:m-0 print:bg-white print:overflow-visible"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Report Ledger Print Preview"
+        >
+          <style>{`
+            @media print {
+              @page {
+                size: A4 landscape;
+                margin: 8mm 10mm 10mm 10mm;
+              }
+              #root {
+                display: none !important;
+              }
+              html, body {
+                height: auto !important;
+                min-height: 0 !important;
+                overflow: visible !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                background: white !important;
+              }
+              .smriti-report-modal-root {
+                position: static !important;
+                display: block !important;
+                width: 100% !important;
+                height: auto !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                overflow: visible !important;
+                background: white !important;
+              }
+              .smriti-report-toolbar,
+              .no-print {
+                display: none !important;
+              }
+              .smriti-report-canvas-wrapper {
+                display: block !important;
+                width: 100% !important;
+                height: auto !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                overflow: visible !important;
+                background: white !important;
+              }
+              .smriti-report-printable-sheet {
+                box-shadow: none !important;
+                border: none !important;
+                margin: 0 auto !important;
+                padding: 0 !important;
+                max-width: 100% !important;
+                visibility: visible !important;
+                background: white !important;
+              }
+            }
+          `}</style>
+
+          {/* Floating Toolbar */}
+          <div className="smriti-report-toolbar h-16 px-6 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between shadow-sm shrink-0 print:hidden">
+            <div className="flex items-center space-x-3">
+              <div className="p-2 rounded-lg bg-indigo-50 dark:bg-indigo-600/20 border border-indigo-200 dark:border-indigo-500/30 text-indigo-600 dark:text-indigo-400">
+                <Printer size={20} />
+              </div>
+              <div>
+                <h2 className="text-sm font-bold text-slate-900 dark:text-white flex items-center space-x-2">
+                  <span>Report Ledger Print Studio</span>
+                  <span className="font-mono text-[10px] bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300">
+                    A4 LANDSCAPE
+                  </span>
+                </h2>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  {reportTitle} ({reportId}) • {filteredData.length} records in active scope
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center space-x-3">
+              <button
+                onClick={() => window.print()}
+                data-testid="smriti-report-print-btn"
+                className="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-md shadow-indigo-600/20 flex items-center space-x-2 transition cursor-pointer"
+              >
+                <Printer size={15} />
+                <span>Print Ledger (F9 / Ctrl+P)</span>
+              </button>
+              <button
+                onClick={() => setIsPrintModalOpen(false)}
+                className="p-2 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white transition cursor-pointer"
+                title="Close Preview (Esc)"
+              >
+                <X size={18} />
+              </button>
+            </div>
+          </div>
+
+          {/* Viewport Canvas */}
+          <div className="smriti-report-canvas-wrapper flex-1 overflow-y-auto p-8 bg-slate-100/90 dark:bg-slate-950 flex justify-center print:p-0 print:m-0 print:block print:bg-white print:overflow-visible">
+            <div className="smriti-report-printable-sheet bg-white text-slate-900 p-8 max-w-[1100px] w-full min-h-[750px] text-[10px] font-sans leading-relaxed shadow-xl rounded border border-slate-200 print:shadow-none print:border-none print:max-w-none print:w-full print:rounded-none">
+              {/* Header */}
+              <div className="border-b-2 border-slate-900 pb-3 mb-4">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <h1 className="text-lg font-black uppercase tracking-tight text-slate-950">
+                      {tenantContext.companyName || "SMRITI ENTERPRISES LTD"}
+                    </h1>
+                    <p className="text-xs text-slate-600 font-medium mt-0.5">
+                      {tenantContext.companyAddress || "101, Corporate Hub, Nariman Point, Mumbai - 400021"}
+                    </p>
+                    <div className="flex items-center space-x-3 mt-1 text-[9.5px] text-slate-700 font-mono">
+                      <span>GSTIN: <strong>{tenantContext.companyGstin || "27AABCS1429B1Z8"}</strong></span>
+                      <span>•</span>
+                      <span>Branch: <strong>Main Corporate Central</strong></span>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className="inline-block bg-slate-900 text-white font-bold px-3 py-1 rounded text-xs tracking-wider uppercase">
+                      {reportTitle}
+                    </div>
+                    <p className="text-[9px] text-slate-500 mt-1 font-mono">
+                      Report ID: {reportId} • {reportCategory}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Filter Parameters Ribbon */}
+              <div className="grid grid-cols-4 gap-3 bg-slate-50 border border-slate-200 rounded p-2.5 mb-4 text-[9.5px]">
+                <div>
+                  <span className="text-slate-400 block font-medium">Reporting Period</span>
+                  <strong className="text-slate-800 font-mono">{startDate} to {endDate}</strong>
+                </div>
+                <div>
+                  <span className="text-slate-400 block font-medium">Location Scope</span>
+                  <strong className="text-slate-800">{selectedStore}</strong>
+                </div>
+                <div>
+                  <span className="text-slate-400 block font-medium">Status Scope</span>
+                  <strong className="text-slate-800">{selectedStatus}</strong>
+                </div>
+                <div>
+                  <span className="text-slate-400 block font-medium">Generated Timestamp</span>
+                  <strong className="text-slate-800 font-mono">
+                    {new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })} {new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}
+                  </strong>
+                </div>
+              </div>
+
+              {/* KPI Summary Strip */}
+              {kpis && (
+                <div className="flex gap-4 mb-4 text-[10px]">
+                  {Object.entries(kpis)
+                    .filter(([_, v]) => v !== null && v !== undefined)
+                    .map(([label, value]) => (
+                      <div key={label} className="flex-1 bg-slate-50 border border-slate-200 rounded p-2">
+                        <span className="text-slate-500 text-[9px] block">{label}</span>
+                        <span className="font-bold font-mono text-slate-900 text-xs">{String(value)}</span>
+                      </div>
+                    ))}
+                </div>
+              )}
+
+              {/* Table Grid */}
+              <table className="w-full border-collapse border border-slate-300 mb-4 text-[9.5px]">
+                <thead>
+                  <tr className="bg-slate-100 text-slate-800 font-bold border-b border-slate-300">
+                    <th className="border border-slate-300 p-1.5 text-center w-8">#</th>
+                    {activeColumns.map((col) => (
+                      <th
+                        key={col.key}
+                        className={`border border-slate-300 p-1.5 ${
+                          col.align === "right" ? "text-right" : col.align === "center" ? "text-center" : "text-left"
+                        }`}
+                      >
+                        {col.label}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredData.length === 0 ? (
+                    <tr>
+                      <td colSpan={activeColumns.length + 1} className="border border-slate-300 p-6 text-center text-slate-400 italic">
+                        No records found matching the active reporting criteria.
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredData.map((row, idx) => (
+                      <tr key={idx} className="border-b border-slate-200 hover:bg-slate-50/50">
+                        <td className="border border-slate-300 p-1.5 text-center font-mono text-slate-500">{idx + 1}</td>
+                        {activeColumns.map((col) => {
+                          const val = row[col.key];
+                          let formattedVal: any = val;
+                          if (val === null || val === undefined) formattedVal = "-";
+                          else if (col.datatype === "currency" && typeof val === "number") formattedVal = formatCurrency(val);
+                          else if (col.datatype === "number" && typeof val === "number") formattedVal = formatNumber(val);
+                          else if (col.datatype === "date" && typeof val === "string") formattedVal = formatDate(val);
+                          else if (typeof val === "boolean") formattedVal = val ? "YES" : "NO";
+                          else if (typeof val === "object") formattedVal = JSON.stringify(val);
+
+                          return (
+                            <td
+                              key={col.key}
+                              className={`border border-slate-300 p-1.5 ${
+                                col.align === "right" ? "text-right font-mono font-medium" : col.align === "center" ? "text-center font-mono" : "text-left"
+                              }`}
+                            >
+                              {String(formattedVal)}
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+                {showGrandTotal && filteredData.length > 0 && (
+                  <tfoot>
+                    <tr className="bg-slate-100 font-bold border-t-2 border-slate-800 text-slate-900">
+                      <td className="border border-slate-300 p-2 text-center font-mono font-black">TOTAL</td>
+                      {activeColumns.map((col, cIdx) => (
+                        <td
+                          key={col.key}
+                          className={`border border-slate-300 p-2 font-mono ${
+                            col.align === "right" ? "text-right font-black" : "text-left"
+                          }`}
+                        >
+                          {calculateSummaryCell(filteredData, col, cIdx === 0, "GRAND TOTAL")}
+                        </td>
+                      ))}
+                    </tr>
+                  </tfoot>
+                )}
+              </table>
+
+              {/* Signatory & Audit Block */}
+              <div className="border border-slate-300 rounded p-3 text-[9px] flex justify-between items-end mt-4">
+                <div className="text-center w-48 border-t border-slate-400 pt-1">
+                  <div className="font-bold text-slate-800">Generated & Prepared By</div>
+                  <div className="h-8"></div>
+                  <div className="text-slate-500">{activeRole}</div>
+                </div>
+                <div className="text-center w-48 border-t border-slate-400 pt-1">
+                  <div className="font-bold text-slate-800">Branch Accountant / Auditor</div>
+                  <div className="h-8"></div>
+                  <div className="text-slate-500">Internal Audit Verification</div>
+                </div>
+                <div className="text-center w-48 border-t border-slate-400 pt-1">
+                  <div className="font-bold text-slate-800">For {tenantContext.companyName || "SMRITI ENTERPRISES LTD"}</div>
+                  <div className="h-8"></div>
+                  <div className="text-slate-500">Authorized Financial Signatory</div>
+                </div>
+              </div>
+
+              <div className="text-center text-[8px] text-slate-400 mt-4">
+                Official Business Intelligence & Ledger Record • Generated by SMRITI Report Engine • Confidential • Page 1 of Official Register
+              </div>
+            </div>
+          </div>
+        </div>,
+        document.body
       )}
       </div>
     </div>

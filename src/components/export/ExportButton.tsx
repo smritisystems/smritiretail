@@ -26,6 +26,7 @@ import {
 import {
   ExportColumnDefinition,
   ExportFormat,
+  ExportPreset,
   ExportScope,
 } from "./types.ts";
 import { ExportCenterModal } from "./ExportCenterModal.tsx";
@@ -44,6 +45,9 @@ export interface ExportButtonProps {
   dateRange?: { start?: string; end?: string };
   companyName?: string;
   branchName?: string;
+  presets?: ExportPreset[];
+  defaultPresetId?: string;
+  onEnrichData?: (rows: any[], preset?: ExportPreset) => any[];
   variant?: "primary" | "secondary" | "outline" | "ghost";
   size?: "sm" | "md" | "lg";
   className?: string;
@@ -64,6 +68,9 @@ export const ExportButton: React.FC<ExportButtonProps> = ({
   dateRange,
   companyName,
   branchName,
+  presets,
+  defaultPresetId,
+  onEnrichData,
   variant = "outline",
   size = "sm",
   className = "",
@@ -289,6 +296,9 @@ export const ExportButton: React.FC<ExportButtonProps> = ({
         dateRange={dateRange}
         companyName={companyName}
         branchName={branchName}
+        presets={presets}
+        defaultPresetId={defaultPresetId}
+        onEnrichData={onEnrichData}
         onNotification={onNotification}
       />
     </div>

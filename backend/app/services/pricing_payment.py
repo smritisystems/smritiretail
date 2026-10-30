@@ -20,7 +20,7 @@ from sqlalchemy import select, and_, or_, desc
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from ..models.pricing import PriceBook, PriceBookEntry, CustomerPriceTier
+from ..models.pricing import PriceBook, PriceBookEntry, CustomerPriceTier, CustomerPriceAssignment
 from ..models.payment_ledger import PaymentTransaction, PaymentAllocation
 from ..models.numbering import DocumentSeries, NumberingAuditLog
 from ..models.item_master import Item, ItemVariant
@@ -64,12 +64,15 @@ class UnifiedPricingPaymentService:
 
         # 1. Check Customer Tier if no explicit price book is requested
         if not resolved_pb_id and customer_id:
-            cust_stmt = select(Customer).where(Customer.id == customer_id)
-            cust = (await session.execute(cust_stmt)).scalar_one_or_none()
-            if cust and getattr(cust, "price_group_id", None):
-                # Map price group to tier
+            assignment_stmt = select(CustomerPriceAssignment).where(
+                CustomerPriceAssignment.customer_id == customer_id,
+                CustomerPriceAssignment.status == "ACTIVE",
+                CustomerPriceAssignment.is_deleted == False,
+            )
+            assignment = (await session.execute(assignment_stmt)).scalar_one_or_none()
+            if assignment:
                 tier_stmt = select(CustomerPriceTier).where(
-                    CustomerPriceTier.id == cust.price_group_id,
+                    CustomerPriceTier.id == assignment.price_tier_id,
                     CustomerPriceTier.is_active == True,
                     CustomerPriceTier.is_deleted == False
                 )
@@ -84,7 +87,7 @@ class UnifiedPricingPaymentService:
                 PriceBook.status == "ACTIVE",
                 PriceBook.is_deleted == False
             )
-            def_pb = (await session.execute(def_pb_stmt)).scalar_one_or_none()
+            def_pb = (await session.execute(def_pb_stmt)).scalars().first()
             if def_pb:
                 resolved_pb_id = def_pb.id
 
@@ -205,7 +208,8 @@ class UnifiedPricingPaymentService:
         series.current_number += 1
         new_num = series.current_number
 
-        formatted_seq = str(new_num).zfill(series.running_length or 4)
+        run_len = series.running_length if series.running_length is not None else 4
+        formatted_seq = str(new_num).zfill(run_len)
         doc_no = f"{series.prefix}/{financial_year}/{formatted_seq}"
 
         # Write audit log

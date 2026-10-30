@@ -52,3 +52,15 @@ class MenuNode(SmritiMenuResponse):
     children: List["MenuNode"] = Field(default_factory=list)
 
 MenuNode.model_rebuild()
+
+class ContextualActionResponse(BaseModel):
+    id: str
+    title: str
+    icon: str
+    resource: str
+    action: str
+    is_allowed: bool
+    disabled: bool = False
+    disabled_reason: Optional[str] = None
+    is_next_best_action: bool = False
+    badge_count: Optional[int] = None

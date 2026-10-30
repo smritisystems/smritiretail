@@ -11,7 +11,6 @@ const files = [
   'src/components/sales/components/ComplianceDispatchModal.tsx',
   'src/components/sales/components/TaxEntryBar.tsx',
   'src/components/sales/components/TaxInvoiceItemGrid.tsx',
-  'src/components/sales/SalesOrderForm.tsx',
   'src/components/sales/SalesOrderMatrixEntry.tsx',
 ];
 

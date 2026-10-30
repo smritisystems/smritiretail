@@ -16,6 +16,33 @@ import pytest
 from httpx import AsyncClient, ASGITransport
 from app.main import app
 from app.core.security import create_access_token
+from app.api.deps import get_company_db
+from app.db.session import get_company_sessionmaker
+
+TEST_DB_NAME = "smriti_test_phase2c"
+
+
+@pytest.fixture(autouse=True)
+def override_db_dependency():
+    session_factory = get_company_sessionmaker(TEST_DB_NAME)
+
+    async def _override_get_company_db():
+        async with session_factory() as session:
+            session.info.update({
+                "tenant_id": TEST_DB_NAME,
+                "company_id": "COMP-001",
+                "branch_id": "BR-001",
+                "resolved_database_name": TEST_DB_NAME,
+                "control_plane_database": "smritisys",
+                "transactional_scope_validated": True,
+            })
+            yield session
+
+    app.dependency_overrides[get_company_db] = _override_get_company_db
+    try:
+        yield
+    finally:
+        app.dependency_overrides.pop(get_company_db, None)
 
 
 def _get_auth_headers():
@@ -24,8 +51,8 @@ def _get_auth_headers():
         "role": "SYSADMIN",
         "company_id": "COMP-001",
         "branch_id": "BR-001",
-        "tenant_id": "smriti001",
-        "db_name": "smriti001",
+        "tenant_id": "smriti_test_phase2c",
+        "db_name": "smriti_test_phase2c",
         "is_active": True,
     })
     return {
@@ -168,5 +195,20 @@ async def test_attribute_size_sales_report_endpoint():
         assert "total_groups" in data
         assert "total_qty" in data
         assert "total_net" in data
+        assert "lines" in data
+        assert isinstance(data["lines"], list)
+
+
+@pytest.mark.asyncio
+async def test_purchase_inward_register_report_endpoint():
+    """RPT-PUR-001 / Purchase Inward Register (GRN Detailed Line Items) verification."""
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        res = await client.get("/api/v1/reports/purchase-inward-register", headers=_get_auth_headers())
+        assert res.status_code == 200, f"Expected 200, got {res.status_code}: {res.text}"
+        data = res.json()
+        assert "total_grns" in data
+        assert "total_qty" in data
+        assert "total_landed" in data
         assert "lines" in data
         assert isinstance(data["lines"], list)

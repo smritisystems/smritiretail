@@ -63,6 +63,9 @@ class PostalCodeResponse(BaseModel):
     locality: Optional[str] = None
     city: str
     is_active: bool
+    state_name: Optional[str] = None
+    gst_state_code: Optional[str] = None
+    zone: Optional[str] = None
 
 
 class LanguageResponse(BaseModel):

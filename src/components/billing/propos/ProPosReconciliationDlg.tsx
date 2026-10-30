@@ -6,7 +6,7 @@
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
  * Version      : 3.76.0
  * Created      : 2026-08-28
- * Modified     : 2026-08-28
+ * Modified     : 2026-10-17
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
@@ -46,47 +46,27 @@ export const ProPosReconciliationDlg: React.FC<ProPosReconciliationDlgProps> = (
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [selectedItem, setSelectedItem] = useState<ReconciliationQueueItem | null>(null);
   const [actionInProgress, setActionInProgress] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const fetchQueue = async () => {
     setLoading(true);
+    setError(null);
     try {
       const res = await apiFetchV1(`/sync/reconciliation-queue${activeFilter !== "ALL" ? `?status=${activeFilter}` : ""}`);
       const fetchedItems = Array.isArray(res?.items) ? res.items : [];
       setItems(fetchedItems);
-      if (fetchedItems.length > 0 && !selectedItem) {
-        setSelectedItem(fetchedItems[0]);
+      if (fetchedItems.length > 0) {
+        setSelectedItem((prev) => prev ? (fetchedItems.find((i: ReconciliationQueueItem) => i.id === prev.id) || fetchedItems[0]) : fetchedItems[0]);
+      } else {
+        setSelectedItem(null);
       }
     } catch (err: any) {
       console.warn("[ProPosReconciliation] Fetch error:", err);
-      // Fallback sample mock records if offline
-      const mockItems: ReconciliationQueueItem[] = [
-        {
-          id: "posq_mock_01",
-          batch_id: "batch_20260828_01",
-          client_tx_uuid: "tx-pos-01-ks8912-ab71",
-          terminal_id: "POS-01",
-          txn_type: "SALES_INVOICE",
-          document_number: "POS1-INV-2026-0045",
-          sync_status: "NEEDS_REVIEW",
-          error_message: "Inventory stock deficit: SKU-LAST-01 stock balance depleted during offline period.",
-          retry_count: 2,
-          submitted_at: new Date().toISOString(),
-        },
-        {
-          id: "posq_mock_02",
-          batch_id: "batch_20260828_02",
-          client_tx_uuid: "tx-pos-02-ks8999-cc90",
-          terminal_id: "POS-02",
-          txn_type: "SALES_INVOICE",
-          document_number: "POS2-INV-2026-0089",
-          sync_status: "FAILED",
-          error_message: "Customer credit limit exceeded: ₹52,400.00 exceeds limit of ₹50,000.00.",
-          retry_count: 4,
-          submitted_at: new Date(Date.now() - 3600000).toISOString(),
-        },
-      ];
-      setItems(mockItems);
-      if (!selectedItem) setSelectedItem(mockItems[0]);
+      setItems([]);
+      setSelectedItem(null);
+      const errMsg = err?.message || "Failed to load reconciliation queue from server.";
+      setError(errMsg);
+      onNotification?.("Sync Queue Error", errMsg, "error");
     } finally {
       setLoading(false);
     }
@@ -220,7 +200,18 @@ export const ProPosReconciliationDlg: React.FC<ProPosReconciliationDlgProps> = (
         <div className="flex flex-1 overflow-hidden">
           {/* Left Column: Transaction List */}
           <div className="w-1/2 border-r border-slate-800 overflow-y-auto divide-y divide-slate-800/60">
-            {loading && items.length === 0 ? (
+            {error ? (
+              <div className="flex flex-col items-center justify-center h-48 text-rose-400 text-xs gap-2 p-4 text-center">
+                <span className="material-symbols-outlined text-3xl">error</span>
+                <span>{error}</span>
+                <button
+                  onClick={fetchQueue}
+                  className="mt-2 px-3 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded text-xs border border-slate-700"
+                >
+                  Retry
+                </button>
+              </div>
+            ) : loading && items.length === 0 ? (
               <div className="flex items-center justify-center h-48 text-slate-500 text-xs">
                 Loading reconciliation queue...
               </div>

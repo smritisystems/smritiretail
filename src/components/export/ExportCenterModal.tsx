@@ -31,11 +31,14 @@ import {
   Calendar,
   Search,
   ExternalLink,
+  Bookmark,
+  ShieldAlert,
 } from "lucide-react";
 import {
   ExportColumnDefinition,
   ExportFormat,
   ExportMetadata,
+  ExportPreset,
   ExportProgressState,
   ExportResult,
   ExportScope,
@@ -57,6 +60,9 @@ export interface ExportCenterModalProps {
   dateRange?: { start?: string; end?: string };
   companyName?: string;
   branchName?: string;
+  presets?: ExportPreset[];
+  defaultPresetId?: string;
+  onEnrichData?: (rows: any[], preset?: ExportPreset) => any[];
   onNotification?: (title: string, message: string, type?: "success" | "error" | "info" | "warning") => void;
 }
 
@@ -75,6 +81,9 @@ export const ExportCenterModal: React.FC<ExportCenterModalProps> = ({
   dateRange,
   companyName = "SMRITI Enterprise",
   branchName = "Main Branch",
+  presets,
+  defaultPresetId,
+  onEnrichData,
   onNotification,
 }) => {
   const [format, setFormat] = useState<ExportFormat>("xlsx");
@@ -84,7 +93,20 @@ export const ExportCenterModal: React.FC<ExportCenterModalProps> = ({
     return "currentPage";
   });
 
+  const [activePresetId, setActivePresetId] = useState<string | null>(() => {
+    if (defaultPresetId) return defaultPresetId;
+    if (presets && presets.length > 0) return presets[0].id;
+    return null;
+  });
+
   const [selectedColumnKeys, setSelectedColumnKeys] = useState<Set<string>>(() => {
+    if (presets && presets.length > 0) {
+      const initialPreset = presets.find((p) => p.id === defaultPresetId) || presets[0];
+      if (initialPreset && initialPreset.columnKeys && initialPreset.columnKeys.length > 0) {
+        const valid = initialPreset.columnKeys.filter((k) => columns.some((c) => c.key === k));
+        if (valid.length > 0) return new Set(valid);
+      }
+    }
     return new Set(columns.filter((c) => c.isVisible !== false).map((c) => c.key));
   });
 
@@ -107,7 +129,19 @@ export const ExportCenterModal: React.FC<ExportCenterModalProps> = ({
   const totalColCount = columns.length;
   const activeColCount = selectedColumnKeys.size;
 
+  const handleApplyPreset = (preset: ExportPreset) => {
+    setActivePresetId(preset.id);
+    if (!preset.columnKeys || preset.columnKeys.length === 0) {
+      // Select all columns
+      setSelectedColumnKeys(new Set(columns.map((c) => c.key)));
+    } else {
+      const validKeys = new Set(preset.columnKeys.filter((k) => columns.some((c) => c.key === k)));
+      setSelectedColumnKeys(validKeys.size > 0 ? validKeys : new Set(columns.map((c) => c.key)));
+    }
+  };
+
   const toggleColumn = (key: string) => {
+    setActivePresetId(null);
     setSelectedColumnKeys((prev) => {
       const next = new Set(prev);
       if (next.has(key)) {
@@ -120,10 +154,13 @@ export const ExportCenterModal: React.FC<ExportCenterModalProps> = ({
   };
 
   const handleSelectAllColumns = () => {
+    const allPreset = presets?.find((p) => p.id === "all" || !p.columnKeys || p.columnKeys.length === 0);
+    setActivePresetId(allPreset ? allPreset.id : null);
     setSelectedColumnKeys(new Set(columns.map((c) => c.key)));
   };
 
   const handleDeselectAllColumns = () => {
+    setActivePresetId(null);
     if (columns.length > 0) {
       setSelectedColumnKeys(new Set([columns[0].key]));
     }
@@ -182,6 +219,13 @@ export const ExportCenterModal: React.FC<ExportCenterModalProps> = ({
     try {
       let result: ExportResult;
 
+      const activePreset = presets?.find((p) => p.id === activePresetId);
+      const effectiveFilename = customFilename.trim()
+        ? customFilename.trim()
+        : activePreset?.isAudit
+        ? `SMRITI_${moduleTitle}_Audit_${new Date().toISOString().split("T")[0]}`
+        : undefined;
+
       if ((scope === "all" || scope === "filtered") && apiEndpoint) {
         // Multi-page streaming from backend
         const queryParams: Record<string, any> = { ...appliedFilters };
@@ -198,8 +242,9 @@ export const ExportCenterModal: React.FC<ExportCenterModalProps> = ({
           queryParams,
           metadata,
           selectedRows,
+          onEnrichData: onEnrichData ? (rows) => onEnrichData(rows, activePreset) : undefined,
           abortSignal: abortControllerRef.current.signal,
-          customFilename: customFilename.trim() || undefined,
+          customFilename: effectiveFilename,
           onProgress: (p) => setProgressState(p),
         });
       } else {
@@ -207,6 +252,10 @@ export const ExportCenterModal: React.FC<ExportCenterModalProps> = ({
         let exportData = currentPageData;
         if (scope === "selected") {
           exportData = selectedRows.length > 0 ? selectedRows : currentPageData;
+        }
+
+        if (onEnrichData) {
+          exportData = onEnrichData(exportData, activePreset);
         }
 
         result = await GlobalExportService.exportDataset({
@@ -217,7 +266,7 @@ export const ExportCenterModal: React.FC<ExportCenterModalProps> = ({
           data: exportData,
           selectedRows,
           metadata,
-          customFilename: customFilename.trim() || undefined,
+          customFilename: effectiveFilename,
         });
       }
 
@@ -515,12 +564,66 @@ export const ExportCenterModal: React.FC<ExportCenterModalProps> = ({
             </div>
           )}
 
+          {/* 3b. Quick Field Presets (Role & Task Views) */}
+          {presets && presets.length > 0 && (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-bold uppercase tracking-wider text-[#515f74] dark:text-[#bec6e0] flex items-center gap-1.5">
+                  <Bookmark className="w-4 h-4 text-[#003d9b] dark:text-[#b2c5ff]" />
+                  3. Field &amp; Role Presets
+                </label>
+                {activePresetId && (
+                  <span className="text-[11px] text-[#003d9b] dark:text-[#b2c5ff] font-bold">
+                    Active: {presets.find((p) => p.id === activePresetId)?.label}
+                  </span>
+                )}
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {presets.map((preset) => {
+                  const isActive = activePresetId === preset.id;
+                  return (
+                    <button
+                      key={preset.id}
+                      type="button"
+                      onClick={() => handleApplyPreset(preset)}
+                      disabled={progressState.isExporting}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium border transition-all ${
+                        isActive
+                          ? preset.isAudit
+                            ? "bg-amber-500/15 dark:bg-amber-500/25 text-amber-900 dark:text-amber-200 border-amber-500 shadow-2xs font-bold ring-1 ring-amber-500/30"
+                            : "bg-[#003d9b]/10 dark:bg-[#003d9b]/25 text-[#003d9b] dark:text-[#b2c5ff] border-[#003d9b] shadow-2xs font-bold ring-1 ring-[#003d9b]/30"
+                          : "bg-white dark:bg-[#1a1e24] text-[#515f74] dark:text-[#bec6e0] border-[#c6c6cd] dark:border-[#45464d] hover:bg-[#f7f9fc] dark:hover:bg-[#282d34]"
+                      }`}
+                      title={preset.description}
+                    >
+                      {preset.isAudit && <ShieldAlert className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />}
+                      <span>{preset.label}</span>
+                      {preset.badge && (
+                        <span
+                          className={`text-[9px] px-1.5 py-0.2 rounded font-bold uppercase tracking-wider ${
+                            isActive
+                              ? preset.isAudit
+                                ? "bg-amber-500/20 text-amber-800 dark:text-amber-300"
+                                : "bg-[#003d9b]/20 text-[#003d9b] dark:text-[#b2c5ff]"
+                              : "bg-[#e1e2e5] dark:bg-[#35393e] text-[#515f74] dark:text-[#bec6e0]"
+                          }`}
+                        >
+                          {preset.badge}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           {/* 4. Column Selection Checklist */}
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <label className="text-xs font-bold uppercase tracking-wider text-[#515f74] dark:text-[#bec6e0] flex items-center gap-1.5">
                 <SlidersHorizontal className="w-4 h-4 text-[#003d9b] dark:text-[#b2c5ff]" />
-                3. Choose Columns ({activeColCount}/{totalColCount})
+                4. Choose Columns ({activeColCount}/{totalColCount})
               </label>
               <div className="flex items-center gap-3 text-xs">
                 <button

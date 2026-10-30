@@ -16,10 +16,13 @@
 
   * Websites: aitdl.com | erpnbook.com | smritibooks.com
 
-  * Version    : 2.1.2
+  * Author     : Jawahar Ramkripal Mallah
+  * Designation: Chief Systems Architect & Creator
+  * Email      : support@smritibooks.com
+  * Version    : 6.99.1
   * Created    : 2026-07-11
-  * Modified   : 2026-07-11
-  * Copyright  : © AITDL.com and SMRITIBooks.com. All Rights Reserved.
+  * Modified   : 2026-10-24
+  * Copyright  : © SMRITIBooks.com. All Rights Reserved. (also © AITDL.com)
   * License    : Proprietary Commercial Software
 -->
 
@@ -474,7 +477,7 @@ Branding, ownership, and copyright attributions must be uniform across all sourc
   * Version    : {Version}
   * Created    : {Created}
   * Modified   : {Modified}
-  * Copyright    : {Copyright}
+  * Copyright    : © SMRITIBooks.com. All Rights Reserved. (also © AITDL.com)
   * License    : {License}
 -->
 ```
@@ -831,4 +834,508 @@ None.
 ### 8. Related Walkthroughs
 - [Fdn_FastAPI_Core.md](../walkthrough/foundation/Fdn_FastAPI_Core.md)
 
+---
 
+## [2026-10-16] v1.0.0 — Conditional Store Code & Automatic PSV Account Mapping (Phase 2)
+
+*Area: `sales` | Version: `v1.0.0` | Status: Completed*  
+*Original File: [Conditional_Store_Code_And_PSV_Mapping_v1.0.md](./sales/Conditional_Store_Code_And_PSV_Mapping_v1.0.md)*
+
+---
+
+### 1. Objective
+Implement conditional Store Code visibility and idempotent automatic Party Stock Visibility (PSV) account resolution/creation for Modern Trade in SMRITI Retail OS. The system reuses the existing canonical Store Master (`customer_delivery_locations`), backend multi-tenant architecture, inventory ledger, and SMRITI UI Configuration Engine without duplicate sources of truth or premature ledger mutations.
+
+### 2. Business Motivation
+In Modern Trade and Large Format Retail (LFR) commerce (e.g. Reliance Retail, Shoppers Stop, Lifestyle, Trent), suppliers ship goods directly to specific store locations, each identified by a unique Store Code (e.g. `1888`, `T97D`, `TYAC`). Tracking inventory sell-through, consignment stocks, and out-of-stock risk at each store requires:
+1. Ensuring operators select a valid, active store location whenever billing through Modern Trade channels.
+2. Automatically and idempotently mapping that store to a corresponding Party Stock Visibility (PSV) account without manual account creation or double-entry mistakes.
+3. Preventing Store Code clutter for General Trade and Counter Cash billing where individual store-level tracking is unnecessary.
+
+### 3. Scope
+- **Channel Capability Configuration**: Define authoritative Sales Channel capability layer (`requires_store_location`) supporting `MODERN_TRADE` (true) and extensible to other channels (`GENERAL_TRADE`, `B2B_WHOLESALE`, `POS_RETAIL`, `ECOMMERCE`) with override support via SMRITI System Parameter Governance (`smritiSystemParameterService`).
+- **Database Hardening**: Add partial unique indexes on `psv_parties` for `(company_id, delivery_location_id)` and `(company_id, host_customer_id, store_code)` via Alembic migration `v1535`.
+- **Backend Service & API**: Implement `resolve_or_create_store_psv_party` in `PSVProjectionService` with strict tenancy, active status, customer ownership validation, concurrency safety, and zero stock movement side-effects. Expose `POST /api/v1/psv/resolve-store-party`.
+- **Frontend Billing Terminal Integration**: Update `BillingTerm.tsx` and `types.ts` to conditionally display and mandate Delivery Location / Store Code when the active sales channel requires store-level tracking, while preserving historical associations and persisting `psv_party_id`.
+- **Automated Verification**: Complete Pytest and Vitest test suites verifying channel rules, account creation/reuse, race condition resilience, error rejections, and zero stock movements.
+
+### 4. Current State
+- `customer_delivery_locations` acts as the canonical store master with unique constraint on `(customer_id, store_code)` for active locations.
+- `psv_parties` exists but has only a non-unique index `ix_psv_parties_company_store`, creating duplicate account risks during concurrent operations.
+- `PSVProjectionService.project_posted_invoice` only created a `PSVParty` lazily upon invoice posting if one was missing.
+- In `BillingTerm.tsx`, Delivery Location and Store Code badge rendered unconditionally in the B2B corporate strip without checking sales channel requirements.
+- Transaction channel was conflated with `billingSource` (order ingress like `CUSTOMER_PO` vs `DIRECT`) rather than operational sales channel (`MODERN_TRADE`, `B2B_WHOLESALE`, etc.).
+
+### 5. Gap Analysis
+1. **Missing Schema Uniqueness**: No database-level unique constraint on `psv_parties` for `(company_id, delivery_location_id)` or `(company_id, host_customer_id, store_code)`.
+2. **Missing Pre-Invoice Resolution API**: No authorized endpoint exists to resolve or provision a PSV account at the moment an operator selects a store during invoice drafting.
+3. **Missing Channel Governance**: No explicit sales channel capability registry defining `requires_store_location` or integrating with `smritiSystemParameterService`.
+4. **Static UI Presentation**: Store Code rendered statically without validation preventing invoice checkout when Modern Trade is selected without a store.
+
+### 6. Architecture Impact
+- **Database**: Additive schema migration adding 2 partial unique indexes on `psv_parties`. Zero data loss, zero destructive changes.
+- **Backend**: New endpoint `POST /api/v1/psv/resolve-store-party` and new service method in `PSVProjectionService`.
+- **Domain Independence**: PSV remains strictly a shadow projection and visibility layer. Resolving or creating an account produces zero entries in `stock_movements`, `psv_stock_events`, or financial ledgers.
+- **Frontend**: Responsive UI adaptation based on channel capabilities, reusing SMRITI design tokens (`surface-container-low`, `border-outline-variant`, `primary`, `error`).
+
+### 7. Proposed Design
+```text
+Sales Channel Selection (e.g. MODERN_TRADE)
+    ↓
+Channel Capability Check: requires_store_location = true
+    ↓
+Show & Mandate Delivery Location / Store Code in B2B Strip
+    ↓
+Operator Selects Delivery Location
+    ↓
+POST /api/v1/psv/resolve-store-party
+    ↓
+PSVProjectionService.resolve_or_create_store_psv_party()
+    ├─ Validate Location (active, not deleted, company_id match, customer_id match)
+    ├─ Check Existing PSVParty by (company_id, delivery_location_id)
+    ├─ Check Existing PSVParty by (company_id, host_customer_id, store_code)
+    ├─ Concurrency Guard (Advisory lock / Savepoint fallback)
+    └─ Create PSVParty (if not found; 0 stock movements)
+    ↓
+Returns { psv_party_id, store_code, delivery_location_id, is_newly_created }
+    ↓
+Binds psvPartyId & deliveryStoreCode into BillingHeaderState
+```
+
+### 8. Files Created
+- `backend/alembic/versions/v1535_psv_parties_store_uniqueness.py`
+- `backend/alembic/versions/v1536_sales_invoice_sales_channel.py`
+- `backend/app/core/sales_channels.py`
+- `backend/app/tests/test_psv_store_mapping.py`
+- `src/tests/conditionalStoreCodePsv.test.ts`
+- `docs/implementation/sales/Conditional_Store_Code_And_PSV_Mapping_v1.0.md`
+- `docs/walkthrough/sales/Conditional_Store_Code_And_PSV_Mapping_v1.0.md`
+
+### 9. Files Modified
+- `backend/app/models/psv.py`
+- `backend/app/models/sales.py`
+- `backend/app/schemas/canonical_posting.py`
+- `backend/app/schemas/psv.py`
+- `backend/app/schemas/sales.py`
+- `backend/app/services/canonical_sales_writer.py`
+- `backend/app/services/psv_projection.py`
+- `backend/app/services/sales.py`
+- `backend/app/tests/conftest.py`
+- `src/components/billing/types.ts`
+- `src/components/billing/BillingTerm.tsx`
+- `docs/implementation/README.md`
+- `docs/walkthrough/README.md`
+
+### 10. Dependencies
+- PostgreSQL 14+ with support for partial unique indexes (`CREATE UNIQUE INDEX ... WHERE ...`).
+- SMRITI System Parameter Service (`smritiSystemParameterService.ts`) for tenant overrides.
+- Existing `customer_delivery_locations` and `customers` master data.
+
+### 11. Risks
+- **Race Condition on Concurrent Store Account Creation**: Addressed via database unique constraint and atomic advisory locking / savepoint retry.
+- **Historical Invoices Mutation**: Addressed by ensuring conditional visibility does not clear or mutate persisted invoice records.
+- **Premature Ledger Entries**: Addressed by strictly prohibiting stock movement writes during account resolution.
+
+### 12. Rollback Strategy
+- Alembic downgrade script drops the partial unique indexes.
+- Code changes in API and UI are non-destructive and backward compatible with optional fallback defaults.
+
+### 13. Verification Plan
+- Column and index verification using live PostgreSQL catalog queries.
+- Pytest suite covering all resolution branches, error cases, and concurrency.
+- Vitest suite covering UI state transitions and validation rules.
+- TypeScript compilation verification (`npx tsc --noEmit`).
+
+### 14. Test Plan
+- `backend/app/tests/test_psv_store_mapping.py` (15 Integration Tests):
+  1. `test_sales_channel_capabilities_logic`
+  2. `test_get_channel_capabilities_api_endpoint`
+  3. `test_resolve_or_create_store_psv_party_creates_new_with_zero_stock_ledger`
+  4. `test_resolve_or_create_store_psv_party_idempotent_reuse`
+  5. `test_resolve_or_create_store_psv_party_links_legacy_unlinked_party`
+  6. `test_resolve_or_create_store_psv_party_rejects_inactive_or_deleted_location`
+  7. `test_resolve_or_create_store_psv_party_rejects_customer_mismatch`
+  8. `test_resolve_or_create_store_psv_party_rejects_cross_tenant_access`
+  9. `test_api_resolve_store_party_endpoint`
+  10. `test_api_resolve_store_party_handles_validation_error`
+  11. `test_psv_party_db_partial_unique_index_enforcement`
+  12. `test_api_resolve_store_party_rejects_header_tampering`
+  13. `test_resolve_store_party_guarantees_zero_stock_mutations`
+  14. `test_canonical_sales_posting_persists_sales_channel`
+  15. `test_canonical_sales_posting_defaults_sales_channel_to_b2b_wholesale`
+- `src/tests/conditionalStoreCodePsv.test.ts` (6 Unit & Contract Tests):
+  1. Defines canonical sales channels with correct display labels.
+  2. Identifies `MODERN_TRADE` as requiring store location tracking by default.
+  3. Identifies non-modern-trade channels as not requiring store location tracking.
+  4. Enforces validation rule: `MODERN_TRADE` requires a delivery location before settlement.
+  5. Validates non-modern-trade channels allow settlement without store location.
+  6. Preserves store selection in state when channel toggles without destroying values.
+
+### 15. Documentation Impact
+- Update `docs/implementation/README.md`.
+- Create `docs/walkthrough/sales/Conditional_Store_Code_And_PSV_Mapping_v1.0.md`.
+- Update `docs/walkthrough/README.md`.
+
+### 16. Deployment Plan
+- Apply Alembic migration `v1535`.
+- Deploy backend service and API updates.
+- Deploy frontend build.
+
+### 17. Status
+Completed
+
+### 18. Related ADRs
+- ADR-042: SMRITI Canonical Parameter Namespace and Dual-Key Governance.
+- ADR-028: PSV Shadow Projection & Non-Authoritative Visibility Engine.
+
+### 19. Related Walkthroughs
+- `docs/walkthrough/sales/Conditional_Store_Code_And_PSV_Mapping_v1.0.md`
+
+---
+
+## [2026-10-20] v6.99.0 — Inventory: Stock Movement Validation & Reconciliation Audit
+
+*Area: `inventory` | Version: `v6.99.0` | Status: Approved*  
+*Original File: [Inventory_Stock_Movement_Validation_And_Reconciliation_Audit_Plan_v6.99.0.md](./inventory/Inventory_Stock_Movement_Validation_And_Reconciliation_Audit_Plan_v6.99.0.md)*
+
+---
+
+### 1. Objective
+Perform a comprehensive, fail-closed audit of inventory movements across every transaction lifecycle in SMRITI Retail OS (Purchase Orders, Goods Receipts / GRN, Sales Invoices, Sales Returns, Purchase Returns / Reversals, Warehouse Transfers, Stock Adjustments, Physical Count Audits, and POS Offline Synchronization). Establish immutable stock invariants, identify and rectify verified discrepancies and movement classification gaps, and build a high-performance read-only reconciliation reporting subsystem (API, CLI, and interactive UI) without corrupting existing historical stock data.
+
+### 2. Business Motivation
+In enterprise retail environments, discrepancy between physical stock, batch ledgers, immutable movement logs, and cached on-hand quantities leads to phantom stockouts, duplicate fulfillments, procurement over-ordering, and inaccurate financial valuations. SMRITI requires an authoritative, mathematical source of truth where the ledger (`stock_movements` and `product_batch_stocks`) governs all downstream read caches (`products.stock`), and any drift is immediately detectable, classifiable, and auditable.
+
+### 3. Scope
+- **Inspection & Analysis:** Complete review of database tables (`stock_movements`, `product_batch_stocks`, `products`, `warehouses`, `purchase_receipts`, `sales_invoices`, `sales_returns`, `stock_transfers`, `stock_audits`), schemas, and services.
+- **Stock Invariant Definition:** Mathematical on-hand formulas and strict multi-tenant boundaries.
+- **Defect Remediation:**
+  - Movement classification harmonization in `StockSynchronizer` (`stock_synchronizer.py`) and `StockAccountingBoundaryService` (`stock_acct_svc.py`) to encompass `SALES_CANCEL`, `INWARD_INITIAL`, `OUTWARD_ECOM`, `ADJUSTMENT`, `TRANSFER`.
+  - Column name correction in `UnifiedSalesLedgerService` (`sales_ledger_svc.py`) from legacy attributes (`batch_number`, `current_stock_qty`) to canonical (`batch_no`, `quantity`).
+  - Automatic cache resynchronization and batch-stock awareness in Goods Receipt handler (`goods_receipt.py`).
+  - Handling of initial catalog unledgered stock without double-deduction.
+- **Read-Only Reconciliation Subsystem:**
+  - Reconciliation audit service: `backend/app/services/stock_reconciliation_engine.py`.
+  - Fast REST API endpoints in `backend/app/api/v1/inventory.py` (`/api/v1/inventory/reconciliation` and `/api/v1/inventory/reconciliation/correction-proposal`).
+  - CLI subcommand: `smriti stock reconcile` via `backend/app/cli/commands/stock_cmd.py`.
+  - Interactive UI modal: `src/components/inventory/StockReconciliationAuditModal.tsx` connected to `StockLedgerTab.tsx`.
+- **Automated Test Suite:** Comprehensive pytest suite `backend/app/tests/test_stock_movement_reconciliation_audit.py` covering all 14 mandatory operational scenarios.
+
+### 4. Current State
+- The codebase relies on a dual-layer ledger: `product_batch_stocks` for batch-tracked items and `stock_movements` for general items, with `products.stock` as a materialized cache.
+- In `StockSynchronizer`, `INFLOW_MOVEMENT_TYPES` omitted `SALES_CANCEL` (present 25 times in live DB), `INWARD_INITIAL`, and generic `ADJUSTMENT`/`TRANSFER`, causing cancelled sales to be excluded when computing balance from movements.
+- In `sales_ledger_svc.py`, `ProductBatchStock` updates attempted to read `batch_number` and `current_stock_qty`, which do not exist on the SQLAlchemy model (`batch_no` and `quantity`).
+- In `goods_receipt.py`, after recording `StockMovement` on GRN receipt and cancellation, cache resynchronization (`StockSynchronizer.sync_product_stock_cache`) was not called.
+- In production, 139 non-batch products have non-zero cached stock without corresponding `OPENING_STOCK` movement logs.
+
+### 5. Gap Analysis
+| Component | Existing Behavior | Canonical Required Behavior |
+|:---|:---|:---|
+| `StockSynchronizer` | Ignores `SALES_CANCEL`, `INWARD_INITIAL`, `OUTWARD_ECOM`, generic `ADJUSTMENT` | Recognizes all canonical inflows and outflows, including signed adjustments |
+| `goods_receipt.py` | Inserts `StockMovement` without calling `sync_product_stock_cache` | Calls cache synchronizer and updates batch stock |
+| `sales_ledger_svc.py` | Queries non-existent `batch_number` & `current_stock_qty` | Uses canonical `batch_no` and `quantity` with positive movement quantities |
+| Reconciliation Tooling | No multi-filter audit API or UI report | Full API, CLI, and UI reconciliation tool with 9-state discrepancy classification |
+| Test Coverage | Fragmented tests across modules | Unified 14-scenario automated test suite proving all stock invariants |
+
+### 6. Architecture Impact
+- **No Schema Mutations:** Uses existing tables (`stock_movements`, `product_batch_stocks`, `products`, `warehouses`). No table drops or breaking DDL required.
+- **Fail-Safe Read-Only Reporting:** The reconciliation report is strictly non-destructive.
+- **Strict Tenant & Warehouse Isolation:** Queries are strictly bounded by `company_id` and optionally `warehouse_id`.
+
+### 7. Proposed Design
+1. **Canonical Movement Classifier (`StockSynchronizer`):**
+   - Inflow: `IN`, `INWARD_PURCHASE`, `INWARD_GRN`, `GRN`, `PURCHASE`, `RETURN_INWARD`, `RETURN`, `ADJUSTMENT_IN`, `TRANSFER_IN`, `INWARD_SURPLUS`, `OPENING_STOCK`, `INWARD_INITIAL`, `SALES_CANCEL`, `INWARD`.
+   - Outflow: `OUT`, `OUTWARD_SALE`, `SALE`, `POS_SALE`, `ADJUSTMENT_OUT`, `TRANSFER_OUT`, `RETURN_OUTWARD`, `OUTWARD_LOSS`, `OUTWARD_DISPATCH`, `DISPATCH`, `OUTWARD_ECOM`, `DAMAGE`, `WRITE_OFF`, `OUTWARD`.
+   - Signed: `ADJUSTMENT` (+ for inflow, - for outflow).
+2. **Reconciliation Engine (`StockReconciliationEngine`):**
+   - Aggregates movements per item/warehouse.
+   - Computes expected on-hand vs actual ledger stock vs materialized cached stock.
+   - Detects and categorizes discrepancies into 9 discrete categories with severity and remediation suggestions.
+   - Prepares non-destructive historical correction proposals.
+3. **API & CLI Layer:**
+   - Exposes `/api/v1/inventory/reconciliation` and `/api/v1/inventory/reconciliation/correction-proposal`.
+   - Exposes `smriti stock reconcile` CLI command.
+4. **Interactive UI Component:**
+   - Exposes `StockReconciliationAuditModal` with KPI summary cards, filter bar, variance badges, and expandable audit trail.
+
+### 8. Files Created
+- `backend/app/services/stock_reconciliation_engine.py`: Core reconciliation auditing engine.
+- `backend/app/cli/commands/stock_cmd.py`: CLI subcommand dispatcher for `smriti stock`.
+- `backend/app/tests/test_stock_movement_reconciliation_audit.py`: 14-scenario automated test suite.
+- `src/components/inventory/StockReconciliationAuditModal.tsx`: Interactive reconciliation UI report.
+- `docs/implementation/inventory/Inventory_Stock_Movement_Validation_And_Reconciliation_Audit_Plan_v6.99.0.md`: This implementation plan.
+- `docs/walkthrough/inventory/Inventory_Stock_Movement_Validation_And_Reconciliation_Audit_Walkthrough_v6.99.0.md`: Mandatory walkthrough.
+
+### 9. Files Modified
+- `backend/app/services/stock_synchronizer.py`: Movement classification expansion and opening balance safety.
+- `backend/app/services/stock_acct_svc.py`: Movement classification alignment.
+- `backend/app/services/sales_ledger_svc.py`: Fix batch stock column access and positive movement quantity.
+- `backend/app/services/lifecycle/handlers/goods_receipt.py`: Add cache sync and batch stock mutation.
+- `backend/app/api/v1/inventory.py`: Register reconciliation endpoints.
+- `backend/app/cli/main.py`: Register `stock_cmd`.
+- `src/components/StockLedgerTab.tsx`: Add "Reconciliation Audit" trigger button.
+- `src/components/shell/TabRenderer.tsx`: Register `stock-reconciliation` route.
+- `docs/implementation/README.md`: Update master index.
+- `docs/implementation/CONSOLIDATED_PLANS.md`: Append plan ledger.
+- `docs/walkthrough/README.md`: Update master index.
+- `docs/walkthrough/CONSOLIDATED_WALKTHROUGHS.md`: Append walkthrough ledger.
+- `CHANGELOG.md`: Record new version additions.
+
+### 10. Dependencies
+- FastAPI, SQLAlchemy AsyncSession, Pydantic v2.
+- React 18, Vite, Lucide icons, Tailwind CSS / Vanilla tokens.
+- PostgreSQL 15+.
+
+### 11. Risks
+- **Data corruption risk:** Solved by making reconciliation strictly read-only; no automatic adjustments to historical records without explicit administrative confirmation.
+- **Lock contention:** Row-level locks (`SELECT FOR UPDATE`) are scoped to individual product IDs during live sync operations.
+
+### 12. Rollback Strategy
+If any defect occurs, changes are localized to Python service helpers and do not modify database schemas. Reverting modified files restores previous behavior without data loss.
+
+### 13. Verification Plan
+1. Run pytest suite `test_stock_movement_reconciliation_audit.py` covering all 14 scenarios.
+2. Run pytest suite `test_sales_stock_authority.py` for regression verification.
+3. Execute CLI command `python -m backend.app.cli stock reconcile` and verify literal terminal output.
+4. Execute `npm run lint` / `tsc --noEmit` to verify frontend TypeScript compilation.
+
+### 14. Test Plan
+- Scenario 1: Purchase receipt increases stock once.
+- Scenario 2: Completed inventory-affecting sale decreases stock once.
+- Scenario 3: Purchase Order without a receipt does not increase physical stock.
+- Scenario 4: Sales Order without dispatch does not decrease physical stock.
+- Scenario 5: Sales return and purchase return have correct directional effects.
+- Scenario 6: Cancelled transactions and reversals restore correct balance without double posting.
+- Scenario 7: Warehouse transfers balance across source and destination locations.
+- Scenario 8: Duplicate API requests, concurrent posting and offline-sync retries do not duplicate movements.
+- Scenario 9: Article/color/size variants cannot affect the wrong item.
+- Scenario 10: Cross-company and cross-warehouse isolation is enforced.
+- Scenario 11: Opening stock and adjustments reconcile correctly.
+- Scenario 12: Negative stock follows configured business policy.
+- Scenario 13: Ledger, cached balance and stock reports reconcile.
+- Scenario 14: Failed transactions roll back atomically without partial stock updates.
+
+### 15. Documentation Impact
+- `docs/implementation/inventory/Inventory_Stock_Movement_Validation_And_Reconciliation_Audit_Plan_v6.99.0.md` created.
+- `docs/walkthrough/inventory/Inventory_Stock_Movement_Validation_And_Reconciliation_Audit_Walkthrough_v6.99.0.md` created.
+- `docs/developer_guide/DEVELOPER_GUIDE.md` updated with stock movement classification and reconciliation API.
+- `docs/troubleshooting/TROUBLESHOOTING.md` updated with resolution for unledgered opening balances and cancelled sales movements.
+- `CHANGELOG.md` updated.
+
+### 16. Deployment Plan
+- Deploy backend service updates with zero downtime (no DB migrations needed).
+- Frontend build.
+
+### 17. Status
+Approved
+
+### 18. Related ADRs
+- `ADR-0012`: Ledger Sole Source of Truth.
+- `ADR-0021`: Item Variant SKU Resolution.
+
+### 19. Related Walkthroughs
+- `docs/walkthrough/inventory/Inventory_Stock_Movement_Validation_And_Reconciliation_Audit_Walkthrough_v6.99.0.md`
+
+
+
+
+## Customer Store and Branch Relation Audit - v6.99.18
+
+Plan: [Customer Store and Branch Relation Audit](./crm/Customer_Store_Branch_Relation_Audit_Plan_v6.99.18.md). Implemented CRM location persistence, tenant-scoped branch lookup, actual-data hierarchy display, unambiguous GRN mapping, and fail-closed store-code locks. No migration applied. Follow-up: reconcile database uniqueness with service ownership scope and add store-level sales report dimensions.
+
+
+---
+
+<a id="shell-premium-context-responsive-navigation-workspace-style"></a>
+## [2026-10-24] v6.99.1 - Premium Shell Context, Responsive Navigation, and Workspace Style Accessibility
+
+*Area: ui | Version: v6.99.1 | Status: Partially Verified*
+*Original File: [SMRITI_Shell_Consistency_and_Accessibility_Plan_v6.99.1.md](./ui/SMRITI_Shell_Consistency_and_Accessibility_Plan_v6.99.1.md)*
+
+---
+
+# SMRITI Shell Consistency and Accessibility Implementation Plan
+
+### 1. Objective
+
+Make the shared shell calmer and more predictable across Regular and Classic workspace styles while removing sample values and improving responsive and keyboard behavior.
+
+### 2. Business Motivation
+
+The shell showed duplicate style controls, sample notifications and shift details, inconsistent company context, and header actions that disappeared or competed for space on narrow screens. These behaviors can obscure active context and reduce trust in the displayed information.
+
+### 3. Scope
+
+Update the global header, tenant selector, contextual rail, Classic menu, mobile navigation, style chooser, notifications, and status bar. Preserve the existing module routing and backend contracts.
+
+### 4. Current State
+
+The shell separates global and contextual navigation, but Classic and Regular navigation definitions are separate. The header had fabricated identity and notification fallbacks, company selection differed by style, and Classic menu visibility used viewport assumptions.
+
+### 5. Gap Analysis
+
+- Sample identity, shift, notification, and context values need to be removed or backed by real session data.
+- Company and branch context needs consistent availability across styles.
+- Small screens need a search affordance and a mobile navigation drawer.
+- Classic menu overflow needs to use the available header container width.
+- Workspace style selection needs keyboard focus management and a truthful state-preservation claim.
+- Browser network state must not be described as application connectivity.
+
+### 6. Architecture Impact
+
+The shell reuses the authenticated `/menus/resolved` response as the allowed-module source for both navigation styles and `/auth/me` to confirm application/session connectivity. No API, database schema, authentication flow, or routing contract is changed. `AppShell` owns viewport and drawer state; `GlobalHeader` owns shared actions; `EnterpriseMenuBar` measures its own available width.
+
+### 7. Proposed Design
+
+Use one workspace style dialog entry point, keep company and branch selection in both styles, label session-scoped notifications accurately, remove fabricated identity and tenant fallbacks, use a measured Classic overflow menu, and expose mobile search plus a drawer. Filter Regular and Classic navigation using the same backend-resolved allowed-module IDs. Keep the selected module in the existing app tree while changing presentation style.
+
+### 8. Files Created
+
+- `docs/implementation/ui/SMRITI_Shell_Consistency_and_Accessibility_Plan_v6.99.1.md`
+- `docs/walkthrough/ui/SMRITI_Shell_Consistency_and_Accessibility_Walkthrough_v6.99.1.md`
+- `docs/walkthrough/CONSOLIDATED_WALKTHROUGHS.md`
+
+### 9. Files Modified
+
+- `src/App.tsx`
+- `src/components/layout/CompanySelector.tsx`
+- `src/components/shell/AppShell.tsx`
+- `src/components/shell/EnterpriseMenuBar.tsx`
+- `src/components/shell/GlobalHeader.tsx`
+- `src/components/shell/NavRail.tsx`
+- `src/components/shell/UxSwitcherModal.tsx`
+- `src/components/shell/WorkspaceStatusBar.tsx`
+- `src/components/shell/navigationResolver.ts`
+- `src/components/shell/navigationAccess.ts`
+- `src/notifications/notification_store.tsx`
+- `src/layout_engine/layout_store.tsx`
+- `src/lib/apiFetchV1.ts`
+- `CHANGELOG.md`
+- `docs/HOME.md`
+- `docs/user_guide/USER_GUIDE.md`
+- `docs/developer_guide/DEVELOPER_GUIDE.md`
+- `docs/troubleshooting/TROUBLESHOOTING.md`
+- Walkthrough and implementation indexes and consolidated ledgers.
+
+### 10. Dependencies
+
+No package or service dependency is added. The responsive Classic menu uses the browser `ResizeObserver` API with a window-resize fallback.
+
+### 11. Risks
+
+- The menu labels and grouping remain separate presentation definitions, while both modes now use the same backend-resolved allowed-module IDs.
+- Notification state remains in-memory and session-scoped.
+- The application connection indicator reflects the last authenticated `/auth/me` request and does not claim that every service is healthy.
+- Browser interaction behavior has not been exercised in this environment.
+
+### 12. Rollback Strategy
+
+Revert the listed source changes and corresponding documentation changes in one reviewed change. No database migration or server-side rollback is required.
+
+### 13. Verification Plan
+
+Run the repository TypeScript linter. Then review the shell in both styles, check keyboard focus and Escape dismissal, and inspect narrow, medium, and wide viewport behavior in a browser.
+
+### 14. Test Plan
+
+No automated tests were requested or run for this task. If testing is later requested, cover company selector availability in both styles, empty notification state, Classic overflow measurement, mobile search and drawer, and style-dialog focus behavior.
+
+### 15. Documentation Impact
+
+The repository's `docs/documentation_registry.yml` is absent. Based on the repository governance rules, update the user guide, developer guide, troubleshooting guide, knowledge-base home, changelog, implementation index/ledger, and walkthrough index/ledger.
+
+### 16. Deployment Plan
+
+No deployment is performed. Apply through the normal reviewed repository workflow after code and documentation review.
+
+### 17. Status
+
+Partially Verified
+
+The implementation is applied and TypeScript lint passed with exit code 0. Browser interaction and automated test results remain unverified.
+
+### 18. Related ADRs
+
+No related ADR was identified for this shell update.
+
+### 19. Related Walkthroughs
+
+- [SMRITI Shell Consistency and Accessibility Walkthrough](../../walkthrough/ui/SMRITI_Shell_Consistency_and_Accessibility_Walkthrough_v6.99.1.md)
+
+
+---
+## [2026-10-24] v1.0.1 - CRM Parent-Child Customer Creation Link
+
+*Area: crm | Status: Partially verified; automated checks passed; remote production unverified*
+*Original File: [CRM_Parent_Child_Customer_Creation_Link_Plan_v1.0.1.md](./crm/CRM_Parent_Child_Customer_Creation_Link_Plan_v1.0.1.md)*
+
+# CRM Parent–Child Customer Creation Link Plan v1.0.1
+
+## 1. Objective
+Ensure the Customer Master **Add Child Customer** action creates a child linked to the selected parent through the canonical customer relationship table.
+
+## 2. Business Motivation
+Operators expect child accounts created from a parent account to remain in that parent’s hierarchy. Standalone accounts break billing visibility, navigation, and account ownership workflows.
+
+## 3. Scope
+Carry the parent’s internal customer ID from the workspace into create-customer, validate tenant ownership, persist a `CustomerRelationship`, and expose the relationship in customer responses, the Parent–Child section, and the paginated Customer Directory after reload.
+
+## 4. Current State
+The Add Child action opened the generic create dialog without parent context. Generic creation produced an independent account. The relationship table and relationship endpoints already existed.
+
+## 5. Gap Analysis
+The dialog did not provide `parent_customer_id`; the create service did not create a relationship; child response data omitted parent identity and child code; the child banner used a hardcoded parent name fallback.
+
+## 6. Architecture Impact
+No new tables or migrations. The change uses `customers`, `customer_relationships`, the existing CRM create endpoint, repository relationship loading, and the current Customer Master modal.
+
+## 7. Proposed Design
+Pass `{id, code, name}` from the selected persisted parent. Send the internal ID as `parent_customer_id`. Validate the parent is active, undeleted, and within the active company and branch. Create the customer and Child relationship in one transaction. Return parent metadata and child code for the existing UI.
+
+## 8. Files Created
+- `docs/implementation/crm/CRM_Parent_Child_Customer_Creation_Link_Plan_v1.0.1.md`
+- `docs/walkthrough/crm/CRM_Parent_Child_Customer_Creation_Link_Walkthrough_v1.0.1.md`
+
+## 9. Files Modified
+- `src/components/customer/CustMasterWs.tsx`
+- `src/components/customer/types.ts`
+- `src/components/customer/lifecycle/CreateCustomerModal.tsx`
+- `src/components/customer/corporateWorkspace/EnterpriseCustomerMasterView.tsx`
+- `backend/app/schemas/crm.py`
+- `backend/app/services/crm.py`
+- `backend/app/repositories/customer.py`
+- `backend/app/api/v1/crm.py`
+- `backend/tests/test_customer_lifecycle_e2e.py`
+- `src/tests/customerMasterLifecycle.test.tsx`
+- `src/tests/enterpriseCustomerMasterView.test.tsx`
+- Documentation indexes, ledgers, user guide, developer guide, troubleshooting guide, and changelog.
+
+## 10. Dependencies
+Existing SQLAlchemy `CustomerRelationship` model/table, tenant context, and customer internal identity allocation.
+
+## 11. Risks
+Parent IDs from a different company or branch must be rejected. Child creation must remain atomic so an error cannot leave a child without its relationship or vice versa. API response aliasing must remain compatible with camelCase and snake_case consumers.
+
+## 12. Rollback Strategy
+Revert the source changes. No schema rollback is needed. Existing customer and relationship rows remain untouched by code rollback.
+
+## 13. Verification Plan
+Run focused frontend Customer Master tests, TypeScript validation, backend CRM schema/security tests, and a database-backed creation test asserting the stored relationship and reloaded Parent–Child and Directory responses. Production remote data must not be modified during verification.
+
+## 14. Security and Tenant Isolation
+Resolve the parent by internal ID and require matching company and branch, active status, and non-deleted state before creating anything.
+
+## 15. Data Integrity
+Use the existing relationship table and canonical customer primary key. Persist the customer and relationship in the same transaction; rely on existing constraints for referential integrity.
+
+## 16. API and Compatibility
+Extend customer create input with optional `parentCustomerId`, customer responses with parent identity, relationship responses with dependant customer code, and directory responses with parent identity. Standalone create remains supported when no parent is supplied. Keep the existing creation role gate and apply it to the standalone dependant-link route.
+
+## 17. Status
+Implemented and partially verified: 35 focused frontend tests, 10 backend contract/security tests, and 1 database-backed integration test passed. `npm run lint` passed. The integration test verified `customer_relationships` persistence and retrieved the parent link and directory fields from the configured isolated test database. The remote production customer record was not inspected or modified.
+
+## 18. Related ADRs
+Existing customer parent-child hierarchy architecture and `CustomerRelationship` data model; no new ADR introduced.
+
+## 19. Related Walkthroughs
+- [Customer parent-child creation link walkthrough](../../walkthrough/crm/CRM_Parent_Child_Customer_Creation_Link_Walkthrough_v1.0.1.md)

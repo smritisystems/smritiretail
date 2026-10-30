@@ -6,13 +6,13 @@
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
  * Version      : 3.78.0
  * Created      : 2026-08-28
- * Modified     : 2026-08-28
+ * Modified     : 2026-10-17
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
  */
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { apiFetchV1 } from "../../../lib/apiFetchV1";
 
 export interface InvoiceComplianceData {
@@ -84,6 +84,50 @@ export const ComplianceDispatchModal: React.FC<ComplianceDispatchModalProps> = (
   const [transporterId, setTransporterId] = useState<string>(invoice.transporter_id || "");
   const [ewayBillNo, setEwayBillNo] = useState<string | undefined>(invoice.eway_bill_no);
   const [ewayValidUntil, setEwayValidUntil] = useState<string | undefined>(invoice.eway_bill_valid_until);
+  const [canonicalEwb, setCanonicalEwb] = useState<{
+    trans_type?: number;
+    dispatch_from?: {
+      trade_name?: string;
+      place?: string;
+      pincode?: string;
+      state_code?: number;
+    };
+    ship_to?: {
+      trade_name?: string;
+      place?: string;
+      pincode?: string;
+      state_code?: number;
+    };
+  } | null>(null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const docQuery = invoice.eway_bill_no || invoice.doc_no || invoice.invoice_id;
+    if (!docQuery) return;
+
+    let mounted = true;
+    apiFetchV1(`/compliance/ewaybill/${encodeURIComponent(docQuery)}`)
+      .then((data: any) => {
+        if (!mounted || !data) return;
+        if (data.eway_bill_no) setEwayBillNo(data.eway_bill_no);
+        if (data.valid_until) setEwayValidUntil(data.valid_until);
+        if (data.vehicle_no) setVehicleNo(data.vehicle_no);
+        if (data.distance_km) setDistanceKm(data.distance_km);
+        if (data.transporter_id) setTransporterId(data.transporter_id);
+        setCanonicalEwb({
+          trans_type: data.trans_type,
+          dispatch_from: data.dispatch_from,
+          ship_to: data.ship_to,
+        });
+      })
+      .catch(() => {
+        // Fall back gracefully to initial props if not yet generated or found
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, [isOpen, invoice.eway_bill_no, invoice.doc_no, invoice.invoice_id]);
 
   const handleGenerateEInvoice = async () => {
     setLoadingEinv(true);
@@ -136,18 +180,20 @@ export const ComplianceDispatchModal: React.FC<ComplianceDispatchModalProps> = (
           `IRN generated successfully for ${invoice.doc_no}.`,
           "success"
         );
+      } else {
+        const errorMsg = res?.message || res?.detail || "NIC Portal rejected E-Invoice request.";
+        onNotification?.(
+          "E-Invoice Generation Failed",
+          errorMsg,
+          "error"
+        );
       }
     } catch (err: any) {
-      // Mock optimistic fallback for demo / test resilience
-      const mockIrn = "7f8b9c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b";
-      const mockAck = "112610998877665";
-      setIrn(mockIrn);
-      setAckNo(mockAck);
-      setSignedQr("SMRITI_SIGNED_QR_MOCK_PAYLOAD_v1.03");
+      const errorMsg = err?.message || "E-Invoice Generation failed. Please verify statutory credentials and network.";
       onNotification?.(
-        "E-Invoice Generated",
-        `IRN generated successfully for ${invoice.doc_no}.`,
-        "success"
+        "E-Invoice Generation Failed",
+        errorMsg,
+        "error"
       );
     } finally {
       setLoadingEinv(false);
@@ -189,16 +235,20 @@ export const ComplianceDispatchModal: React.FC<ComplianceDispatchModalProps> = (
           `E-Way Bill #${res.eway_bill_no} generated successfully.`,
           "success"
         );
+      } else {
+        const errorMsg = res?.message || res?.detail || "NIC Portal rejected E-Way Bill request.";
+        onNotification?.(
+          "E-Way Bill Generation Failed",
+          errorMsg,
+          "error"
+        );
       }
     } catch (err: any) {
-      const mockEwb = "271098877665";
-      const mockValid = new Date(Date.now() + 86400000 * 2).toISOString();
-      setEwayBillNo(mockEwb);
-      setEwayValidUntil(mockValid);
+      const errorMsg = err?.message || "E-Way Bill generation failed. Please verify vehicle and distance details.";
       onNotification?.(
-        "E-Way Bill Generated",
-        `E-Way Bill #${mockEwb} generated successfully.`,
-        "success"
+        "E-Way Bill Generation Failed",
+        errorMsg,
+        "error"
       );
     } finally {
       setLoadingEwb(false);
@@ -221,10 +271,7 @@ export const ComplianceDispatchModal: React.FC<ComplianceDispatchModalProps> = (
       setSignedQr(undefined);
       onNotification?.("E-Invoice Cancelled", "IRN cancelled with GSTN portal.", "success");
     } catch (err: any) {
-      setIrn(undefined);
-      setAckNo(undefined);
-      setSignedQr(undefined);
-      onNotification?.("E-Invoice Cancelled", "IRN cancelled with GSTN portal.", "success");
+      onNotification?.("E-Invoice Cancellation Failed", err?.message || "Failed to cancel IRN on GSTN portal.", "error");
     }
   };
 
@@ -243,9 +290,7 @@ export const ComplianceDispatchModal: React.FC<ComplianceDispatchModalProps> = (
       setEwayValidUntil(undefined);
       onNotification?.("E-Way Bill Cancelled", "E-Way Bill cancelled on NIC portal.", "success");
     } catch (err: any) {
-      setEwayBillNo(undefined);
-      setEwayValidUntil(undefined);
-      onNotification?.("E-Way Bill Cancelled", "E-Way Bill cancelled on NIC portal.", "success");
+      onNotification?.("E-Way Bill Cancellation Failed", err?.message || "Failed to cancel E-Way Bill on NIC portal.", "error");
     }
   };
 
@@ -438,6 +483,37 @@ export const ComplianceDispatchModal: React.FC<ComplianceDispatchModalProps> = (
                       </span>
                     </div>
                   </div>
+
+                  {canonicalEwb && (canonicalEwb.dispatch_from?.pincode || canonicalEwb.ship_to?.pincode) && (
+                    <div className="p-3 rounded-lg bg-slate-900 border border-slate-800 text-[11px] space-y-2">
+                      <div className="flex items-center justify-between text-slate-400 font-semibold border-b border-slate-800 pb-1.5">
+                        <span>4-Party Movement Logistics</span>
+                        <span className="text-cyan-400 font-mono">
+                          {canonicalEwb.trans_type === 4 ? "Combination (Bill To/Ship To + Bill From/Dispatch From)" : `Trans Type ${canonicalEwb.trans_type || 1}`}
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3 pt-1">
+                        <div>
+                          <span className="text-slate-500 block">Dispatch Origin (Physical)</span>
+                          <span className="text-slate-300 font-medium block">
+                            {canonicalEwb.dispatch_from?.trade_name || "Nagpur Depot"}
+                          </span>
+                          <span className="text-slate-400 font-mono text-[10px]">
+                            PIN: {canonicalEwb.dispatch_from?.pincode || "440029"} (State: {canonicalEwb.dispatch_from?.state_code || 27})
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-slate-500 block">Ship To Delivery Site (Physical)</span>
+                          <span className="text-slate-300 font-medium block truncate" title={canonicalEwb.ship_to?.trade_name}>
+                            {canonicalEwb.ship_to?.trade_name || "RRL DC"}
+                          </span>
+                          <span className="text-slate-400 font-mono text-[10px]">
+                            PIN: {canonicalEwb.ship_to?.pincode || "711310"} (State: {canonicalEwb.ship_to?.state_code || 19})
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
 
                   <div className="flex justify-end pt-2">
                     <button

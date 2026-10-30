@@ -31,6 +31,8 @@ class StockValuationLine(BaseModel):
     stock:        Decimal
     cost_price:   Decimal
     stock_value:  Decimal   # stock × cost_price
+    item_id:      Optional[str] = None
+    variant_id:   Optional[str] = None
     model_config = {"from_attributes": True}
 
 
@@ -75,16 +77,61 @@ class SupplierLedger(BaseModel):
     entries:         List[SupplierLedgerEntry]
 
 
-# ── Purchase Summary ──────────────────────────────────────────────────────────
+# ── Purchase Summary & Inward Register ──────────────────────────────────────────
 
 class PurchaseSummaryLine(BaseModel):
-    supplier_id:   str
-    supplier_name: str
-    po_count:      int
-    grn_count:     int
-    total_ordered: Decimal
-    total_received: Decimal
-    outstanding:   Decimal
+    supplier_id:     str
+    supplier_name:   str
+    supplier_code:   Optional[str] = ""
+    po_count:        int
+    grn_count:       int
+    total_ordered:   Decimal
+    total_received:  Decimal
+    ordered_amount:  Optional[Decimal] = None
+    received_amount: Optional[Decimal] = None
+    outstanding:     Decimal
+
+
+class PurchaseInwardItemLine(BaseModel):
+    receipt_id:        str
+    receipt_no:        str
+    receipt_date:      str
+    supplier_id:       str
+    supplier_name:     str
+    supplier_code:     Optional[str] = ""
+    order_no:          Optional[str] = ""
+    product_id:        str
+    product_code:      str
+    product_name:      str
+    barcode:           Optional[str] = ""
+    batch_no:          Optional[str] = ""
+    quantity_received: Decimal
+    cost_price:        Decimal
+    gst_rate:          Decimal
+    tax_amount:        Decimal
+    line_total:        Decimal
+    status:            str
+    warehouse_id:      Optional[str] = None
+    branch_id:         Optional[str] = None
+    delivery_terms:    Optional[str] = None
+    freight_terms:     Optional[str] = None
+    transporter_name:  Optional[str] = None
+    lr_number:         Optional[str] = None
+    collection_type:   Optional[str] = None
+    model_config = {"from_attributes": True}
+
+
+class PurchaseInwardRegisterReport(BaseModel):
+    """RPT-PUR-001 -- Purchase Inward Register (GRN Detailed Line Items)."""
+    generated_at:  str
+    from_date:     Optional[str] = None
+    to_date:       Optional[str] = None
+    total_grns:    int
+    total_qty:     Decimal
+    total_taxable: Decimal
+    total_tax:     Decimal
+    total_landed:  Decimal
+    lines:         List[PurchaseInwardItemLine]
 
 # ---------------------------------------------------------------------------
 # Sprint 8a P1 Schemas -- Tax & Compliance (Shoper9 parity)
@@ -118,6 +165,8 @@ class BillWiseSalesReport(BaseModel):
 class ItemWiseSalesLine(BaseModel):
     product_id:   str
     product_code: str
+    sku_code:     str
+    barcode:      Optional[str] = None
     product_name: str
     hsn_code:     Optional[str] = None
     qty_sold:     Decimal
@@ -126,6 +175,8 @@ class ItemWiseSalesLine(BaseModel):
     net_amount:   Decimal
     tax_amount:   Decimal
     return_qty:   Decimal = Decimal("0")
+    item_id:      Optional[str] = None
+    variant_id:   Optional[str] = None
 
 class ItemWiseSalesReport(BaseModel):
     """RPT-TAX-003 -- Shoper9 SR202200 Item-wise Sales."""
@@ -210,6 +261,8 @@ class BillWiseItemsLine(BaseModel):
     customer_name:  Optional[str] = None
     line_no:        int = 1
     product_code:   str
+    sku_code:       str
+    barcode:        Optional[str] = None
     product_name:   str
     hsn_code:       Optional[str] = None
     quantity:       Decimal
@@ -218,6 +271,8 @@ class BillWiseItemsLine(BaseModel):
     gst_rate:       Decimal = Decimal("18.00")
     tax_amount:     Decimal = Decimal("0.00")
     line_total:     Decimal
+    item_id:        Optional[str] = None
+    variant_id:     Optional[str] = None
 
 
 class BillWiseItemsReport(BaseModel):
@@ -268,6 +323,8 @@ class ItemWiseReturnsLine(BaseModel):
     tax_amount:      Decimal = Decimal("0.00")
     total_amount:    Decimal
     reason:          Optional[str] = None
+    item_id:         Optional[str] = None
+    variant_id:      Optional[str] = None
 
 
 class ItemWiseReturnsReport(BaseModel):
@@ -319,9 +376,9 @@ class TaxInvoiceMasterRegisterLine(BaseModel):
     status:             str
     document_type:      str = "TAX INVOICE"
     sis_code:           Optional[str] = None
-    supplier_name:      str = "Tattly Threads"
-    supplier_gstin:     str = "27AAXFT2508H1ZR"
-    supplier_state:     str = "Maharashtra (27)"
+    supplier_name:      Optional[str] = None
+    supplier_gstin:     Optional[str] = None
+    supplier_state:     Optional[str] = None
     customer_name:      Optional[str] = None
     customer_gstin:     Optional[str] = None
     place_of_supply:    str
@@ -362,6 +419,39 @@ class TaxInvoiceMasterRegisterReport(BaseModel):
     total_tax:          Decimal
     total_grand_total:  Decimal
     lines:              List[TaxInvoiceMasterRegisterLine]
+
+
+class InvoiceReconciliationLine(BaseModel):
+    invoice_id: str
+    bill_no: Optional[int] = None
+    invoice_number: str
+    invoice_date: str
+    invoice_status: str
+    customer_id: Optional[str] = None
+    customer_name: Optional[str] = None
+    classification: str
+    issues: List[str]
+    recommended_action: str
+    historical_gstin: Optional[str] = None
+    historical_pos_code: Optional[str] = None
+    historical_billing_store_code: Optional[str] = None
+    historical_delivery_store_code: Optional[str] = None
+    current_gstin: Optional[str] = None
+    current_billing_store_code: Optional[str] = None
+    current_delivery_store_code: Optional[str] = None
+
+
+class InvoiceReconciliationReport(BaseModel):
+    invoice_prefix: str
+    bill_from: int
+    bill_to: int
+    generated_at: str
+    total_invoices: int
+    no_action_count: int
+    master_data_drift_count: int
+    historical_data_gap_count: int
+    mutation_performed: bool = False
+    lines: List[InvoiceReconciliationLine]
 
 
 class ArticleColorSizeMatrixRow(BaseModel):
@@ -556,6 +646,8 @@ class CustomerWiseOrdersReport(BaseModel):
 
 class ProductWiseOrderedQuantityLine(BaseModel):
     product_id:         Optional[str] = None
+    item_id:            Optional[str] = None
+    variant_id:         Optional[str] = None
     article_no:         Optional[str] = None
     vendor_style:       Optional[str] = None
     name:               str
@@ -714,5 +806,80 @@ class SalesOrderDetailReport(BaseModel):
     rows:               List[SalesOrderDetailLine] = []
 
 
+# ── Frappe-Inspired Universal 5-Tuple Report Contract ────────────────────────
+
+class ReportColumnSchema(BaseModel):
+    key: str
+    label: str
+    datatype: str = "text"  # currency, number, date, badge, link, text
+    width: Optional[int] = None
+    align: str = "left"      # left, right, center
+    entity_link: Optional[str] = None  # invoice, sales_order, item, customer
 
 
+class ReportSummaryCardSchema(BaseModel):
+    label: str
+    value: Any
+    indicator: str = "neutral"  # green, blue, amber, red, neutral
+    datatype: str = "currency"   # currency, number, text
+
+
+class ReportChartConfigSchema(BaseModel):
+    chart_type: str = "bar"     # bar, line, pie
+    labels: List[str] = []
+    datasets: List[Dict[str, Any]] = []
+
+
+class UniversalReportEnvelope(BaseModel):
+    """
+    Standardized 5-Tuple Report Response Contract:
+    (columns, rows, summary_cards, chart_config, system_message)
+    """
+    report_id: str
+    report_name: str
+    category: str = "General"
+    studio: Optional[str] = None
+    generated_at: str
+    parameters: Dict[str, Any] = {}
+    columns: List[ReportColumnSchema]
+    rows: List[Dict[str, Any]]
+    summary_cards: List[ReportSummaryCardSchema] = []
+    chart_config: Optional[ReportChartConfigSchema] = None
+    system_message: Optional[str] = None
+    execution_identity: Optional[Dict[str, Any]] = None
+    total_records: int = 0
+
+
+# ── Asynchronous Prepared Report Queue & Status Schemas ─────────────────────
+
+class PreparedReportEnqueueRequest(BaseModel):
+    report_code: str
+    parameters: Dict[str, Any] = {}
+    export_format: str = "XLSX"  # XLSX, CSV, JSON, PDF
+
+
+class PreparedReportStatusResponse(BaseModel):
+    task_id: str
+    report_code: str
+    report_name: str
+    status: str  # QUEUED, PROCESSING, COMPLETED, FAILED
+    progress_percent: int = 0
+    row_count: int = 0
+    file_size_bytes: int = 0
+    execution_time_ms: int = 0
+    download_url: Optional[str] = None
+    error_message: Optional[str] = None
+    forensic_hash: Optional[str] = None
+    is_cached_hit: bool = False
+
+
+# ── Dynamic Report Builder Schemas ──────────────────────────────────────────
+
+class ReportBuilderResponse(BaseModel):
+    category: str
+    total_count: int
+    rows: List[Dict[str, Any]]
+    totals: Dict[str, float] = {}
+    consolidation_mode: Optional[str] = "auto"
+    group_by_dimensions: Optional[List[str]] = []
+    generated_at: str

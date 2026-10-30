@@ -18,6 +18,11 @@ from typing import Dict, Any, List
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+try:
+    from app.db.seed_contract import seed_contract
+except ImportError:
+    from backend.app.db.seed_contract import seed_contract
+
 from ..models.capability_template import PlatformCapability, WorkspaceTemplate, FeatureFlag
 from ..models.tenant import Company
 from ..models.governed_logic import (
@@ -169,6 +174,8 @@ class ControlPlaneSeeder:
             {"id": "uom_box", "code": "BOX", "name": "Box", "category": "COUNT", "uqc_code": "BOX", "decimal_allowed": False},
             {"id": "uom_pac", "code": "PAC", "name": "Packets", "category": "COUNT", "uqc_code": "PAC", "decimal_allowed": False},
             {"id": "uom_doz", "code": "DOZ", "name": "Dozens", "category": "COUNT", "uqc_code": "DOZ", "decimal_allowed": False},
+            {"id": "uom_prs", "code": "PRS", "name": "Pairs", "category": "COUNT", "uqc_code": "PRS", "decimal_allowed": False},
+            {"id": "uom_pair", "code": "PAIR", "name": "Pair (Legacy Alias)", "category": "COUNT", "uqc_code": "PRS", "decimal_allowed": False},
         ]
         uom_count = 0
         for u in uoms:
@@ -691,6 +698,28 @@ class ControlPlaneSeeder:
                         {"from": "PENDING_APPROVAL", "to": "DRAFT", "action": "REJECT", "required_roles": ["MANAGER", "SYSADMIN"]},
                     ],
                     "status": "ACTIVE"
+                },
+                {
+                    "id": "wf_purch_order_v1",
+                    "code": "WF_PURCHASE_ORDER",
+                    "version": 1,
+                    "doc_type": "PurchaseOrder",
+                    "name": "Standard Purchase Order Approval & Lifecycle Workflow",
+                    "initial_state": "DRAFT",
+                    "states": ["DRAFT", "SUBMITTED", "CONFIRMED", "RECEIVED", "COMPLETED", "CANCELLED"],
+                    "transitions": [
+                        {"from": "DRAFT", "to": "SUBMITTED", "action": "SUBMIT", "required_roles": ["STORE_MANAGER", "MANAGER", "SYSADMIN"]},
+                        {"from": "DRAFT", "to": "CANCELLED", "action": "CANCEL", "required_roles": ["STORE_MANAGER", "MANAGER", "SYSADMIN"]},
+                        {"from": "SUBMITTED", "to": "CONFIRMED", "action": "CONFIRM", "required_roles": ["MANAGER", "SYSADMIN"]},
+                        {"from": "SUBMITTED", "to": "CONFIRMED", "action": "APPROVE", "required_roles": ["MANAGER", "SYSADMIN"]},
+                        {"from": "SUBMITTED", "to": "DRAFT", "action": "REJECT", "required_roles": ["MANAGER", "SYSADMIN"]},
+                        {"from": "SUBMITTED", "to": "CANCELLED", "action": "CANCEL", "required_roles": ["MANAGER", "SYSADMIN"]},
+                        {"from": "CONFIRMED", "to": "CANCELLED", "action": "CANCEL", "required_roles": ["MANAGER", "SYSADMIN"]},
+                        {"from": "CONFIRMED", "to": "CONFIRMED", "action": "AMEND", "required_roles": ["MANAGER", "SYSADMIN"]},
+                        {"from": "CONFIRMED", "to": "RECEIVED", "action": "RECEIVE", "required_roles": ["STORE_MANAGER", "SYSADMIN"]},
+                        {"from": "RECEIVED", "to": "COMPLETED", "action": "COMPLETE", "required_roles": ["ACCOUNTANT", "MANAGER", "SYSADMIN"]},
+                    ],
+                    "status": "ACTIVE"
                 }
             ]
             for w in workflows:
@@ -1211,3 +1240,14 @@ class ControlPlaneSeeder:
             "screens_seeded": screen_count,
             "actions_seeded": action_count,
         }
+
+
+@seed_contract(target="control")
+async def seed_control_plane_database(database_name: str = "smritisys") -> Dict[str, Any]:
+    """
+    Top-level entry point to seed all Control Plane metadata into smritisys.
+    Enforces target='control' via @seed_contract.
+    """
+    from .session import async_session
+    async with async_session() as session:
+        return await ControlPlaneSeeder.seed_all(session)

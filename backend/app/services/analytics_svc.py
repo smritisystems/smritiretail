@@ -16,13 +16,15 @@ import uuid
 from decimal import Decimal, ROUND_HALF_UP
 from datetime import date, datetime, timezone, timedelta
 from typing import List, Dict, Any, Optional
-from sqlalchemy import select, func, and_, or_, desc
+from sqlalchemy import select, func, and_, or_, desc, cast as sa_cast, String as sa_String
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..models.analytics import AnalyticsDailySalesFact
 from ..models.sales import SalesInvoice, SalesInvoiceItem
 from ..models.inventory import Product, StockMovement
+from ..models.item_master import Item, ItemVariant
 from ..models.payment_ledger import PaymentTransaction
+from ..models.profitability import TransactionCostSnapshot  # G3: immutable COGS source
 
 
 def _quantize_currency(val: float | Decimal) -> Decimal:
@@ -33,7 +35,7 @@ class AnalyticalIntelligenceService:
     """
     SMRITI Downstream Analytical Intelligence & Aggregation Engine (Section 11).
     Computes materialized daily sales facts, profit margins, and trend rollups
-    without mutating or locking operational transactional tables.
+    using Canonical Item/Variant authority with legacy fallback.
     """
 
     @classmethod
@@ -99,11 +101,18 @@ class AnalyticalIntelligenceService:
         if cash_rev == 0 and digital_rev == 0 and credit_rev == 0 and total_rev > 0:
             cash_rev = total_rev
 
-        # 3. Estimated Cost of Goods Sold (COGS) & Gross Margin
+        # 3. Estimated Cost of Goods Sold (COGS) & Gross Margin (Canonical Variant First)
         cogs_stmt = select(
-            func.coalesce(func.sum(SalesInvoiceItem.quantity * func.coalesce(Product.cost_price, 0.0)), 0.0)
+            func.coalesce(
+                func.sum(
+                    SalesInvoiceItem.quantity * func.coalesce(ItemVariant.cost_price, Product.cost_price, 0.0)
+                ),
+                0.0
+            )
         ).select_from(SalesInvoiceItem).join(
             SalesInvoice, SalesInvoiceItem.invoice_id == SalesInvoice.id
+        ).outerjoin(
+            ItemVariant, SalesInvoiceItem.variant_id == ItemVariant.id
         ).outerjoin(
             Product, SalesInvoiceItem.product_id == Product.id
         ).where(
@@ -215,23 +224,48 @@ class AnalyticalIntelligenceService:
         company_id: str,
         lookback_days: int = 30
     ) -> List[Dict[str, Any]]:
-        """Rolls up category sales revenue, estimated costs, and gross profit margins."""
+        """
+        G3 Fix: Rolls up category sales revenue, actual COGS, and gross profit margins
+        using TransactionCostSnapshot — the immutable per-line cost record written at
+        GL posting time.
+
+        IMPORTANT: This method intentionally does NOT join ItemVariant.cost_price or
+        Product.cost_price. Those are live mutable fields that change with every price
+        revision. Using them here would silently recalculate historical margins whenever
+        a price is updated (Rule 4 violation — Historical Transaction Immutability).
+
+        TransactionCostSnapshot.cost_per_unit is written once at invoice posting using the
+        company's configured valuation method (WAC/Landed/Purchase) and is never updated.
+        """
         cutoff_date = datetime.now(timezone.utc) - timedelta(days=lookback_days)
 
+        # Category dimension: resolved from canonical Item, fallback to Product.category
+        category_expr = func.coalesce(Item.category, Product.category, "GENERAL")
+
+        # G3: aggregate COGS from the immutable TransactionCostSnapshot, not from
+        # current ItemVariant.cost_price / Product.cost_price.
         stmt = select(
-            Product.category.label("category"),
-            func.coalesce(func.sum(SalesInvoiceItem.quantity), 0.0).label("units_sold"),
-            func.coalesce(func.sum(SalesInvoiceItem.total_amount), 0.0).label("taxable_sales"),
-            func.coalesce(func.sum(SalesInvoiceItem.quantity * func.coalesce(Product.cost_price, 0.0)), 0.0).label("total_cogs")
-        ).select_from(SalesInvoiceItem).join(
+            category_expr.label("category"),
+            func.coalesce(func.sum(TransactionCostSnapshot.quantity), 0.0).label("units_sold"),
+            func.coalesce(func.sum(TransactionCostSnapshot.total_gross_sales), 0.0).label("taxable_sales"),
+            func.coalesce(func.sum(TransactionCostSnapshot.total_cogs), 0.0).label("total_cogs"),
+        ).select_from(TransactionCostSnapshot).join(
+            SalesInvoiceItem,
+            TransactionCostSnapshot.sales_invoice_item_id == sa_cast(SalesInvoiceItem.id, sa_String)
+        ).join(
             SalesInvoice, SalesInvoiceItem.invoice_id == SalesInvoice.id
+        ).outerjoin(
+            ItemVariant, SalesInvoiceItem.variant_id == ItemVariant.id
+        ).outerjoin(
+            Item, ItemVariant.item_id == Item.id
         ).outerjoin(
             Product, SalesInvoiceItem.product_id == Product.id
         ).where(
-            SalesInvoice.company_id == company_id,
+            TransactionCostSnapshot.company_id == company_id,
             SalesInvoice.created_at >= cutoff_date,
-            SalesInvoice.is_deleted == False
-        ).group_by(Product.category)
+            SalesInvoice.is_deleted == False,
+            TransactionCostSnapshot.is_deleted == False,
+        ).group_by(category_expr)
 
         rows = (await session.execute(stmt)).all()
         results = []
@@ -240,14 +274,19 @@ class AnalyticalIntelligenceService:
             sales_dec = _quantize_currency(sales)
             cogs_dec = _quantize_currency(cogs)
             margin_dec = _quantize_currency(sales_dec - cogs_dec)
-            margin_pct = _quantize_currency((margin_dec / sales_dec) * Decimal("100.00")) if sales_dec > Decimal("0.00") else Decimal("0.00")
+            margin_pct = (
+                _quantize_currency((margin_dec / sales_dec) * Decimal("100.00"))
+                if sales_dec > Decimal("0.00")
+                else Decimal("0.00")
+            )
             results.append({
                 "category": cat_name,
                 "units_sold": float(units),
                 "taxable_sales": float(sales_dec),
                 "total_cogs": float(cogs_dec),
                 "gross_margin_amount": float(margin_dec),
-                "gross_margin_percent": float(margin_pct)
+                "gross_margin_percent": float(margin_pct),
+                "cogs_source": "TRANSACTION_COST_SNAPSHOT",  # audit field
             })
 
         return sorted(results, key=lambda x: x["taxable_sales"], reverse=True)

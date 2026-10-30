@@ -24,15 +24,46 @@
  */
 
 import React from "react";
+import { getTenantCompanyContext } from "../../lib/apiFetchV1";
 
-export const ThermalReceipt80mm: React.FC<{ data: any }> = ({ data }) => {
+export const ThermalReceipt80mm: React.FC<{ data?: any }> = ({ data = {} }) => {
+  const fmt = (v: any) => (typeof v === "number" ? v.toFixed(2) : Number(v || 0).toFixed(2));
+  const tenantCtx = typeof window !== "undefined" ? getTenantCompanyContext() : null;
+  const storeName = data.storeName || tenantCtx?.companyName || "";
+  const storeAddress = data.storeAddress || tenantCtx?.companyAddress || "";
+  const gstin = data.gstin || tenantCtx?.companyGstin || "";
+  const phone = data.phone || tenantCtx?.companyPhone || "";
+
+  const isIdentityMissing = !storeName;
+
+  if (isIdentityMissing) {
+    return (
+      <div 
+        data-testid="print-blocked-container"
+        className="w-[80mm] bg-white text-black font-mono text-xs mx-auto p-[4mm] border-2 border-red-600 text-center"
+      >
+        <div className="text-xl font-bold mb-2">✕</div>
+        <div className="font-bold uppercase tracking-wider text-[11px] mb-2 text-red-700">
+          STORE IDENTITY NOT CONFIGURED
+        </div>
+        <p className="text-[10px] leading-tight text-slate-700 mb-2">
+          Receipt printing is prohibited without configured store name.
+        </p>
+        <div className="text-[9px] uppercase font-bold border border-black p-1">
+          PRINTING BLOCKED
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="w-[80mm] bg-white text-black font-mono text-xs mx-auto p-[4mm]">
+
       <div className="text-center mb-4 border-b border-dashed border-black pb-4">
-        <h1 className="text-lg font-bold uppercase">{data.storeName || "SMRITI RETAIL"}</h1>
-        <p>{data.storeAddress || "Main Street, City"}</p>
-        <p>GSTIN: {data.gstin || "29XXXXX0000X1Z5"}</p>
-        <p>Tel: {data.phone || "1800-000-0000"}</p>
+        {storeName && <h1 className="text-lg font-bold uppercase">{storeName}</h1>}
+        {storeAddress && <p>{storeAddress}</p>}
+        {gstin && <p>GSTIN: {gstin}</p>}
+        {phone && <p>Tel: {phone}</p>}
       </div>
 
       <div className="mb-4">
@@ -50,13 +81,17 @@ export const ThermalReceipt80mm: React.FC<{ data: any }> = ({ data }) => {
           </tr>
         </thead>
         <tbody className="block w-full">
-          {(data.items || []).map((item: any, idx: number) => (
-            <tr key={idx} className="flex w-full mb-1">
-              <td className="w-1/2 truncate">{item.name}</td>
-              <td className="w-1/6 text-right">{item.qty}</td>
-              <td className="w-1/3 text-right">{(item.qty * item.rate).toFixed(2)}</td>
-            </tr>
-          ))}
+          {(data.items || []).map((item: any, idx: number) => {
+            const qty = Number(item.qty ?? item.quantity ?? 1);
+            const rate = Number(item.rate ?? item.price ?? 0);
+            return (
+              <tr key={idx} className="flex w-full mb-1">
+                <td className="w-1/2 truncate">{item.name || item.productName || "Item"}</td>
+                <td className="w-1/6 text-right">{qty}</td>
+                <td className="w-1/3 text-right">{fmt(qty * rate)}</td>
+              </tr>
+            );
+          })}
           {(!data.items || data.items.length === 0) && (
             <tr className="flex w-full"><td className="w-full text-center py-2">No Items</td></tr>
           )}
@@ -64,8 +99,8 @@ export const ThermalReceipt80mm: React.FC<{ data: any }> = ({ data }) => {
       </table>
 
       <div className="mb-4">
-        <div className="flex justify-between font-bold"><span>TOTAL:</span><span>{data.total?.toFixed(2) || "0.00"}</span></div>
-        <div className="flex justify-between"><span>PAID ({data.paymentMethod || "CASH"}):</span><span>{data.paid?.toFixed(2) || data.total?.toFixed(2) || "0.00"}</span></div>
+        <div className="flex justify-between font-bold"><span>TOTAL:</span><span>{fmt(data.total)}</span></div>
+        <div className="flex justify-between"><span>PAID ({data.paymentMethod || "CASH"}):</span><span>{fmt(data.paid ?? data.total)}</span></div>
       </div>
 
       <div className="text-center mt-6 border-t border-dashed border-black pt-4">
@@ -78,6 +113,12 @@ export const ThermalReceipt80mm: React.FC<{ data: any }> = ({ data }) => {
         <div className="w-3/4 h-8 bg-black"></div>
       </div>
       <p className="text-center mt-1 text-[10px]">{data.receiptNo || "RCT-001"}</p>
+
+      {/* SMRITI RETAIL OS MANDATORY FOOTER BRANDING */}
+      <div className="text-center mt-3 pt-2 border-t border-dashed border-gray-400 text-[9px] font-mono text-gray-600">
+        <p className="font-bold tracking-wider">POWERED BY SMRITI RETAIL OS</p>
+        <p>smritibooks.com</p>
+      </div>
     </div>
   );
 };

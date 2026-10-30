@@ -1,0 +1,15 @@
+{
+  "certificate_id": "PF-2026-1019-4318C6",
+  "entity": "customer",
+  "capability": "customer.crud",
+  "asset_type": "component",
+  "proposed_name": "CorporateMasterAccountHeader.tsx",
+  "target_file_path": "src/components/customer/corporateWorkspace/CorporateMasterAccountHeader.tsx",
+  "decision": "CREATE_APPROVED",
+  "canonical_owner": "src/components/customer/CustMasterWs.tsx",
+  "content_hash": "d1f8288d4ac6d29cbe5bcb8f4d4371986493f18c266a5458c54ef700558f3b2c",
+  "git_commit": "bcdcd4ff56b88e0dcc5a28515496bde4b9b95f3a",
+  "issued_at": "2026-10-19T11:10:27.622113+00:00",
+  "expires_at": "2026-10-26T11:10:27.622113+00:00",
+  "status": "ISSUED"
+}

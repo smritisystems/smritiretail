@@ -18,6 +18,8 @@ from pydantic import BaseModel, ConfigDict, Field
 
 class StockMovementRecordRequest(BaseModel):
     product_id: str
+    item_id: Optional[str] = None
+    variant_id: Optional[str] = None
     product_name: Optional[str] = None
     sku: Optional[str] = None
     quantity: float = Field(..., description="Positive quantity value")

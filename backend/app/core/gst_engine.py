@@ -91,6 +91,41 @@ def extract_state_code_from_gstin(gstin: Optional[str]) -> Optional[str]:
     return None
 
 
+async def resolve_gst_state_name_from_db(
+    db,
+    state_code: str,
+    country_code: str = "IN",
+) -> Optional[str]:
+    """
+    Authoritatively resolve state name from canonical states_ref table.
+    DB states_ref is the sole statutory source of truth.
+    Returns None if state is not registered in states_ref (no static fallback).
+    """
+    if db is None:
+        raise ValueError("SMRITI-REF-002: Active database session required for authoritative state resolution from states_ref")
+    from ..services.localization_svc import GlobalReferenceService
+    ref = await GlobalReferenceService(db).get_state_by_gst_code(state_code, country_code)
+    if ref:
+        return ref.name
+    return None
+
+
+async def load_canonical_gst_state_codes_from_db(
+    db,
+    country_code: str = "IN",
+) -> Dict[str, str]:
+    """
+    Loads all active GST state codes authoritatively from PostgreSQL states_ref table.
+    """
+    if db is None:
+        raise ValueError("SMRITI-REF-002: Active database session required for authoritative state resolution from states_ref")
+    from ..services.localization_svc import GlobalReferenceService
+    states = await GlobalReferenceService(db).get_states(country_code=country_code, active_only=True)
+    return {str(s.gst_state_code).zfill(2): s.name for s in states if s.gst_state_code}
+
+
+
+
 def round_currency(val: Decimal) -> Decimal:
     """Rounds to 2 decimal places using standard financial round-half-up."""
     return val.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
@@ -103,17 +138,19 @@ def calculate_line_item_tax(
     gst_rate: Decimal,
     is_tax_inclusive: bool,
     is_interstate: bool,
+    composite_adjustment: Decimal = Decimal("0.00"),
 ) -> Dict[str, Decimal]:
     """
     Computes exact line-level taxable value, tax split (CGST+SGST or IGST), and total amount.
+    Supports Section 8 CGST composite adjustments (apportioned freight, packing, or deductions).
     
     Formulas:
     - Tax Inclusive (MRP):
-        Gross Total = (unit_price * quantity) - discount_amount
+        Gross Total = (unit_price * quantity) - discount_amount + composite_adjustment
         Taxable Value = Gross Total / (1 + (gst_rate / 100))
         Tax Total = Gross Total - Taxable Value
     - Tax Exclusive (Base Rate):
-        Taxable Value = (unit_price * quantity) - discount_amount
+        Taxable Value = (unit_price * quantity) - discount_amount + composite_adjustment
         Tax Total = Taxable Value * (gst_rate / 100)
         Gross Total = Taxable Value + Tax Total
     """
@@ -121,9 +158,10 @@ def calculate_line_item_tax(
     quantity = Decimal(str(quantity))
     discount_amount = Decimal(str(discount_amount or "0.00"))
     gst_rate = Decimal(str(gst_rate or "0.00"))
+    composite_adjustment = Decimal(str(composite_adjustment or "0.00"))
 
     if is_tax_inclusive:
-        gross_total = (unit_price * quantity) - discount_amount
+        gross_total = (unit_price * quantity) - discount_amount + composite_adjustment
         if gst_rate > 0:
             divisor = Decimal("1.00") + (gst_rate / Decimal("100.00"))
             taxable_value = gross_total / divisor
@@ -132,7 +170,7 @@ def calculate_line_item_tax(
             taxable_value = gross_total
             tax_total = Decimal("0.00")
     else:
-        taxable_value = (unit_price * quantity) - discount_amount
+        taxable_value = (unit_price * quantity) - discount_amount + composite_adjustment
         if gst_rate > 0:
             tax_total = taxable_value * (gst_rate / Decimal("100.00"))
         else:

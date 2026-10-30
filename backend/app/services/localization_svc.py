@@ -37,6 +37,17 @@ from ..models.localization import (
 )
 
 
+INDIAN_STATE_CODE_TO_ZONE: Dict[str, str] = {
+    "MH": "West", "GJ": "West", "GA": "West", "DN": "West", "DD": "West",
+    "DL": "North", "PB": "North", "HR": "North", "RJ": "North", "UP": "North",
+    "UK": "North", "UA": "North", "HP": "North", "JK": "North", "LA": "North", "CH": "North",
+    "TN": "South", "KA": "South", "KL": "South", "AP": "South", "TS": "South", "TG": "South", "PY": "South", "LD": "South",
+    "WB": "East", "BR": "East", "JH": "East", "OD": "East", "OR": "East", "AN": "East",
+    "MP": "Central", "CG": "Central", "CT": "Central",
+    "AS": "North East", "ML": "North East", "MN": "North East", "MZ": "North East", "NL": "North East", "TR": "North East", "AR": "North East", "SK": "North East",
+}
+
+
 class GlobalReferenceService:
     """
     Control Plane Global Reference Data Registry Service.
@@ -77,13 +88,125 @@ class GlobalReferenceService:
         return list(result.scalars().all())
 
     async def get_postal_code(self, postal_code: str, country_code: str = "IN") -> Optional[PostalCodeRef]:
-        stmt = select(PostalCodeRef).where(
-            PostalCodeRef.country_code == country_code.upper(),
-            PostalCodeRef.postal_code == postal_code.strip(),
-            PostalCodeRef.is_active == True,
+        stmt = (
+            select(PostalCodeRef, StateRef.name.label("state_name"), StateRef.gst_state_code)
+            .outerjoin(
+                StateRef,
+                (StateRef.state_code == PostalCodeRef.state_code)
+                & (StateRef.country_code == PostalCodeRef.country_code),
+            )
+            .where(
+                PostalCodeRef.country_code == country_code.upper(),
+                PostalCodeRef.postal_code == postal_code.strip(),
+                PostalCodeRef.is_active == True,
+            )
         )
-        result = await self.db.execute(stmt)
-        return result.scalars().first()
+        row = (await self.db.execute(stmt)).first()
+        if not row:
+            return None
+        pin_ref, state_name, gst_state_code = row
+        pin_ref.state_name = state_name
+        pin_ref.gst_state_code = gst_state_code
+        pin_ref.zone = INDIAN_STATE_CODE_TO_ZONE.get(pin_ref.state_code.upper()) if pin_ref.country_code == "IN" else None
+        return pin_ref
+
+    async def search_postal_codes(
+        self,
+        query: Optional[str] = None,
+        state_code: Optional[str] = None,
+        city: Optional[str] = None,
+        country_code: str = "IN",
+        limit: int = 25,
+    ) -> List[PostalCodeRef]:
+        stmt = (
+            select(PostalCodeRef, StateRef.name.label("state_name"), StateRef.gst_state_code)
+            .outerjoin(
+                StateRef,
+                (StateRef.state_code == PostalCodeRef.state_code)
+                & (StateRef.country_code == PostalCodeRef.country_code),
+            )
+            .where(
+                PostalCodeRef.country_code == country_code.upper(),
+                PostalCodeRef.is_active == True,
+            )
+        )
+        if state_code:
+            stmt = stmt.where(PostalCodeRef.state_code == state_code.strip().upper())
+        if city:
+            stmt = stmt.where(PostalCodeRef.city.ilike(f"%{city.strip()}%"))
+        if query:
+            search = query.strip()
+            pattern = f"%{search}%"
+            stmt = stmt.where(
+                or_(
+                    PostalCodeRef.postal_code.ilike(pattern),
+                    PostalCodeRef.city.ilike(pattern),
+                    PostalCodeRef.locality.ilike(pattern),
+                )
+            )
+        result = await self.db.execute(
+            stmt.order_by(PostalCodeRef.city, PostalCodeRef.postal_code).limit(limit)
+        )
+        items = []
+        for pin_ref, s_name, gst_code in result.all():
+            pin_ref.state_name = s_name
+            pin_ref.gst_state_code = gst_code
+            pin_ref.zone = INDIAN_STATE_CODE_TO_ZONE.get(pin_ref.state_code.upper()) if pin_ref.country_code == "IN" else None
+            items.append(pin_ref)
+        return items
+
+    async def validate_postal_location(
+        self,
+        postal_code: str,
+        city: Optional[str] = None,
+        state_code: Optional[str] = None,
+        zone: Optional[str] = None,
+        country_code: str = "IN",
+    ) -> Dict[str, Any]:
+        """Validate a postal address against the authoritative postal registry.
+
+        An empty registry is reported as incomplete rather than treated as valid;
+        this prevents an unseeded reference database from silently becoming a
+        compliance decision.
+        """
+        clean_pin = postal_code.strip()
+        records = await self.search_postal_codes(
+            query=clean_pin,
+            country_code=country_code,
+            limit=100,
+        )
+        exact = [record for record in records if record.postal_code == clean_pin]
+        if not exact:
+            return {
+                "valid": False,
+                "status": "NOT_FOUND",
+                "postal_code": clean_pin,
+                "matches": [],
+            }
+
+        city_matches = not city or any(record.city.casefold() == city.strip().casefold() for record in exact)
+        state_matches = not state_code or any(record.state_code.casefold() == state_code.strip().casefold() for record in exact)
+        expected_state_code = exact[0].state_code
+        expected_state_name = getattr(exact[0], "state_name", None)
+        expected_zone = getattr(exact[0], "zone", None) or (INDIAN_STATE_CODE_TO_ZONE.get(expected_state_code.upper()) if country_code == "IN" else None)
+        zone_matches = not zone or bool(expected_zone and expected_zone.casefold() == zone.strip().casefold())
+
+        is_valid = city_matches and state_matches and zone_matches
+        return {
+            "valid": is_valid,
+            "status": "VALID" if is_valid else "MISMATCH",
+            "postal_code": clean_pin,
+            "city": city,
+            "state_code": state_code,
+            "zone": zone,
+            "expected_state": expected_state_name,
+            "expected_state_code": expected_state_code,
+            "expected_zone": expected_zone,
+            "city_matches": city_matches,
+            "state_matches": state_matches,
+            "zone_matches": zone_matches,
+            "matches": exact,
+        }
 
     async def get_currencies(self, active_only: bool = True) -> List[CurrencyRef]:
         stmt = select(CurrencyRef)
@@ -290,13 +413,44 @@ class LocalizationService:
     Static helper and compatibility wrapper for fast in-memory localization & conversions.
     """
     _BASELINE_TRANSLATIONS: Dict[str, Dict[str, str]] = {
-        "common.save": {"en-IN": "Save", "hi-IN": "सहेजें", "mr-IN": "जतन करा", "gu-IN": "સાચવો"},
-        "common.cancel": {"en-IN": "Cancel", "hi-IN": "रद्द करें", "mr-IN": "रद्द करा", "gu-IN": "રદ કરો"},
-        "common.delete": {"en-IN": "Delete", "hi-IN": "हटाएं", "mr-IN": "हटवा", "gu-IN": "કાઢી નાખો"},
-        "common.success": {"en-IN": "Success", "hi-IN": "सफल", "mr-IN": "यशस्वी", "gu-IN": "સફળ"},
-        "pos.shift.open": {"en-IN": "Open POS Shift", "hi-IN": "पीओएस शिफ्ट खोलें", "mr-IN": "पीओएस शिफ्ट उघडा"},
-        "pos.shift.close": {"en-IN": "Close POS Shift", "hi-IN": "पीओएस शिफ्ट बंद करें", "mr-IN": "पीओएस शिफ्ट बंद करा"},
-        "billing.tax_invoice": {"en-IN": "Tax Invoice", "hi-IN": "टैक्स इनवॉयस", "mr-IN": "कर बीजक"},
+        # Common actions
+        "common.save":    {"en-IN": "Save",    "hi-IN": "सहेजें",  "mr-IN": "जतन करा", "gu-IN": "સાચવો"},
+        "common.cancel":  {"en-IN": "Cancel",  "hi-IN": "रद्द करें", "mr-IN": "रद्द करा", "gu-IN": "રદ કરો"},
+        "common.delete":  {"en-IN": "Delete",  "hi-IN": "हटाएं",   "mr-IN": "हटवा",    "gu-IN": "કાઢી નાખો"},
+        "common.success": {"en-IN": "Success", "hi-IN": "सफल",    "mr-IN": "यशस्वी",  "gu-IN": "સફળ"},
+        # POS Shift
+        "pos.shift.open":  {
+            "en-IN": "Open POS Shift",
+            "hi-IN": "शिफ्ट खोलें",
+            "mr-IN": "शिफ्ट सुरू करा",
+            "gu-IN": "શિફ્ટ શરૂ કરો",
+        },
+        "pos.shift.close": {
+            "en-IN": "Close POS Shift",
+            "hi-IN": "शिफ्ट बंद करें",
+            "mr-IN": "शिफ्ट बंद करा",
+            "gu-IN": "શિફ્ટ બંધ કરો",
+        },
+        # POS misc
+        "pos.cash_drop": {
+            "en-IN": "Cash Drop",
+            "hi-IN": "तिजोरी में रकम",
+            "mr-IN": "तिजोरी जमा",
+            "gu-IN": "તિજોરી જમા",
+        },
+        # Billing
+        "billing.tax_invoice": {
+            "en-IN": "Tax Invoice",
+            "hi-IN": "टैक्स चालान",
+            "mr-IN": "कर बीजक",
+            "gu-IN": "ટેક્સ ઇનવૉઇસ",
+        },
+        "billing.grand_total": {
+            "en-IN": "Grand Total",
+            "hi-IN": "कुल योग",
+            "mr-IN": "एकूण रक्कम",
+            "gu-IN": "કુલ રકમ",
+        },
     }
 
     @classmethod
@@ -327,6 +481,10 @@ class LocalizationService:
     @classmethod
     def format_indian_number(cls, num: Decimal) -> str:
         s = f"{num:.2f}"
+        # Handle negative numbers — strip sign before grouping, reattach after
+        negative = s.startswith("-")
+        if negative:
+            s = s[1:]
         parts = s.split(".")
         integer_part = parts[0]
         dec_part = parts[1] if len(parts) > 1 else "00"
@@ -343,16 +501,39 @@ class LocalizationService:
                 chunks.insert(0, rest)
             chunks.append(last3)
             res = ",".join(chunks)
-        return f"{res}.{dec_part}"
+        formatted = f"{res}.{dec_part}"
+        return f"-{formatted}" if negative else formatted
 
     @classmethod
     def format_international_number(cls, num: Decimal) -> str:
         return f"{num:,.2f}"
 
+    # Currency symbol registry — symbol, placement ('pre' or 'post')
+    _CURRENCY_SYMBOLS: dict = {
+        "INR": ("₹", "pre"),
+        "USD": ("$", "pre"),
+        "EUR": ("€", "pre"),
+        "GBP": ("£", "pre"),
+        "AED": ("د.إ", "post"),
+        "SAR": ("﷼", "post"),
+        "JPY": ("¥", "pre"),
+        "CNY": ("¥", "pre"),
+    }
+
     @classmethod
     def format_currency(cls, amount: Decimal, currency_code: str = "INR", locale_code: str = "en-IN") -> str:
-        symbol = "₹" if currency_code == "INR" else "$" if currency_code == "USD" else currency_code
-        num_str = cls.format_indian_number(amount) if "IN" in locale_code.upper() else cls.format_international_number(amount)
+        symbol_info = cls._CURRENCY_SYMBOLS.get(currency_code.upper())
+        if symbol_info:
+            symbol, placement = symbol_info
+        else:
+            symbol, placement = currency_code, "pre"
+        num_str = (
+            cls.format_indian_number(amount)
+            if "IN" in locale_code.upper()
+            else cls.format_international_number(amount)
+        )
+        if placement == "post":
+            return f"{num_str} {symbol}"
         return f"{symbol} {num_str}"
 
     @classmethod
@@ -360,3 +541,33 @@ class LocalizationService:
         if date_format == "MM/DD/YYYY":
             return dt.strftime("%m/%d/%Y")
         return dt.strftime("%d/%m/%Y")
+
+    @classmethod
+    def determine_gst_type(cls, supplier_state_code: str, buyer_state_code: str) -> dict:
+        """
+        Determine statutory Indian GST supply type based on state codes.
+
+        Under CGST Act Section 8:
+        - Intrastate supply: supplier and buyer in the same state → CGST + SGST
+        - Interstate supply: different states → IGST
+
+        Args:
+            supplier_state_code: 2-digit state code of supplier (e.g. '27' = Maharashtra)
+            buyer_state_code:    2-digit state code of buyer (e.g. '29' = Karnataka)
+
+        Returns:
+            dict with keys: is_intrastate, supply_type, tax_components
+        """
+        is_intrastate = supplier_state_code.strip() == buyer_state_code.strip()
+        if is_intrastate:
+            return {
+                "is_intrastate": True,
+                "supply_type": "INTRASTATE",
+                "tax_components": ["CGST", "SGST"],
+            }
+        return {
+            "is_intrastate": False,
+            "supply_type": "INTERSTATE",
+            "tax_components": ["IGST"],
+        }
+

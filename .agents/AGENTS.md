@@ -4,9 +4,9 @@
   Designation  : Chief Systems Architect & Creator
   Email        : support@smritibooks.com
   Websites     : smritibooks.com | erpnbook.com | aitdl.com
-  Version      : 3.16.0
+  Version      : 3.17.0
   Created      : 2026-07-06
-  Modified     : 2026-07-12
+  Modified     : 2026-10-11
   Copyright    : © SMRITIBooks.com. All Rights Reserved.
   License      : Proprietary Commercial Software
   Classification: Internal
@@ -1026,4 +1026,63 @@ Any modification attempting to alter `backend/app/services/tax_invoice_spec.py` 
 
 ---
 
-*DAGPMP Rule 16 | UADHP-v1.0 | STIF-IMMUTABLE-v1.0 | Effective 2026-08-17 | Jawahar Ramkripal Mallah | support@smritibooks.com*
+# SMRITI AI Iconography & Third-Party Branding Governance Policy
+
+**Policy ID:** SAIB-NO-GEMINI-v1.0  
+**Status:** MANDATORY — PERMANENT — FROZEN (Effective 2026-10-11)
+
+## 1. Absolute Prohibition of Google Gemini Icons & Branding
+No coding assistant agent, developer, or automated pipeline may introduce, display, render, or embed Google Gemini AI icons, logos, badges, sparkle emblems, avatar placeholders, or third-party AI branding anywhere in SMRITI Retail OS.
+- **Prohibited:** Google Gemini star/sparkle branding icons, Google "aida-public" CDN URLs, `lh3.googleusercontent.com` URLs, and any external CDN image links.
+- **Prohibited:** Introducing Google Gemini visual marks as representations of AI or assistant capabilities in the UI.
+
+## 2. Prohibition on Recommending Gemini Icons & Assets
+Coding assistants and agents MUST NEVER recommend, suggest, propose, or generate designs featuring Google Gemini icons, logos, or brand marks.
+- When an AI, intelligence, assistant, or automated action icon is required in the UI:
+  - Exclusively use SMRITI Retail OS native branding (e.g. SMRITI Saathi assets under `public/assets/SmritiSathi/`).
+  - Or use standard, neutral, theme-aware UI icons (e.g. `Bot`, standard Lucide icons styled with SMRITI design tokens).
+  - Never label, recommend, or present generic sparkle/star icons as "Gemini" icons.
+
+## 3. Self-Contained Local Asset Rule
+All icons, avatars, and visual assets MUST be self-contained:
+- Inline SVG or local SVG/PNG files in `/public/assets/` or `/src/assets/`.
+- No external CDN image dependencies for core UI elements, avatar chips, or system status indicators.
+
+---
+
+# SMRITI 1-Click Auto-Update & Safe Defaults Governance Policy
+
+**Policy ID:** AUGP-v1.0  
+**Status:** MANDATORY — PERMANENT — FROZEN (Effective 2026-10-28)
+
+## 1. Zero-Friction Client Updates via `update.bat` / `update.ps1`
+Every client and retail store must be able to update their system completely and reliably simply by executing `update.bat` (or `.\update.ps1`).
+- The update routine must execute non-destructively: it pulls code, rebuilds containers, runs database migrations, enforces default parameters, and checks health without losing any transaction, customer, or inventory data.
+- Updates must never require end users to run manual `psql` queries, Docker commands, terminal migrations, or environment variable modifications.
+
+## 2. Mandatory Non-Destructive Database Migrations
+Any change that introduces new database columns, tables, foreign keys, or constraints MUST include a tracked, forward-only Alembic migration.
+- Manual schema edits without a corresponding Alembic migration are strictly prohibited.
+- All migrations must be idempotent and non-destructive.
+- New foreign keys and check constraints on existing populated tables must use PostgreSQL's `NOT VALID` strategy to prevent downtime and migration crashes on legacy dirty rows.
+- All migrations must be automatically executed across control-plane (`smritisys`) and all tenant databases (`smriti001`, `smriti002`, etc.) via `app.db.bootstrap_engine`.
+
+## 3. Safe Defaults: Single-Location Mode by Default
+New features, complex modules, and advanced capabilities (such as multi-location, bin/rack management, and multi-warehouse routing) MUST be disabled by default for all users and tenants:
+- `BIN_LOCATION_MANAGEMENT` must evaluate to `False` by default in code, database seed scripts, and migration files.
+- The system must default to **Single-Location Auto-Tallying Mode**: all purchase orders, goods receipt notes (GRN), POS billings, and stock adjustments must automatically resolve to the store's canonical primary warehouse without requiring cashiers or purchase clerks to pick a location.
+- Multi-location/bin management remains an optional opt-in toggle in Settings -> Capabilities for advanced users.
+
+## 4. Transient Runtime Artifacts Isolation
+Runtime log files (such as `backend/app/logs/*.jsonl`, `*.log`, and temporary cache directories) must never block or abort Git pulls during `update.bat` execution:
+- `scripts/update.ps1` must automatically discard transient changes to tracked log files before running `git pull origin smritiNX`.
+- New runtime logs and generated artifacts must be added to `.gitignore`.
+
+## 5. Developer Pre-Push Verification Requirement
+Before pushing any code, migration, or schema change to the canonical branch (`smritiNX`), developers and coding assistant agents MUST execute `.\update.bat` (or `scripts/update.ps1`) locally and verify that the complete end-to-end update passes with 0 errors and all containers report healthy.
+
+---
+
+*DAGPMP Rule 16 | UADHP-v1.0 | STIF-IMMUTABLE-v1.0 | SAIB-NO-GEMINI-v1.0 | AUGP-v1.0 | Effective 2026-10-28 | Jawahar Ramkripal Mallah | support@smritibooks.com*
+
+

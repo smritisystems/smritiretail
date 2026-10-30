@@ -4,9 +4,9 @@ Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
-Version      : 3.35.0
+Version      : 6.98.0
 Created      : 2026-08-28
-Modified     : 2026-08-28
+Modified     : 2026-10-17
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 Classification: Internal
@@ -25,6 +25,7 @@ from httpx import AsyncClient, ASGITransport
 from app.main import app
 from app.api.deps import get_current_user, get_tenant_context, TenantContext
 from app.models.auth import User, UserRole
+from app.core.security import create_access_token
 
 
 # Mock Auth Dependency
@@ -53,14 +54,38 @@ def override_auth():
 
 @pytest.mark.asyncio
 async def test_get_reporting_catalog():
-    """Verify GET /api/v1/reporting/catalog returns all 22 canonical reports."""
+    """Verify GET /api/v1/reporting/catalog returns all 23 canonical reports."""
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
         res = await ac.get("/api/v1/reporting/catalog")
         assert res.status_code == 200
         data = res.json()
-        assert data["total_reports"] == 22
+        assert data["total_reports"] == 23
         assert len(data["studios"]) == 5
-        assert len(data["reports"]) == 22
+        assert len(data["reports"]) == 23
+
+
+@pytest.mark.asyncio
+async def test_get_report_studios_catalog_is_distinct_and_consistent():
+    """The BI Center presentation catalog is separate from governed contracts."""
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        res = await ac.get("/api/v1/reports/studios")
+        assert res.status_code == 200
+        studios = res.json()["studios"]
+
+    report_rows = [
+        report
+        for studio in studios.values()
+        for report in studio.get("reports", [])
+    ]
+    report_ids = [report["id"] for report in report_rows]
+
+    assert len(studios) == 11
+    assert len(report_rows) == 66
+    assert len(report_ids) == len(set(report_ids))
+    assert all(report["code"] == report["id"] for report in report_rows)
+    assert {
+        f"RPT-INV-{index:03d}" for index in range(1, 9)
+    }.issubset(set(report_ids))
 
 
 @pytest.mark.asyncio

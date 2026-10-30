@@ -18,7 +18,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
-from app.api.deps import get_db, get_current_user
+from app.api.deps import get_company_db, get_current_user
 from app.models.auth import User
 from app.models.governed_logic import (
     FormulaDefinition,
@@ -63,7 +63,7 @@ router = APIRouter()
 @router.get("/formulas", response_model=List[FormulaDefinitionResponse])
 async def list_formula_definitions(
     category: Optional[str] = Query(None, description="Optional formula category filter"),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     current_user: User = Depends(get_current_user),
 ):
     """List active formula definitions registered in smritisys."""
@@ -98,7 +98,7 @@ async def evaluate_formula(
 @router.get("/rules", response_model=List[BusinessRuleResponse])
 async def list_business_rules(
     rule_type: Optional[str] = Query(None, description="Optional rule type filter"),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     current_user: User = Depends(get_current_user),
 ):
     """List active declarative business rules in smritisys."""
@@ -133,7 +133,7 @@ async def evaluate_rule(
 @router.get("/policies", response_model=List[PolicyDefinitionResponse])
 async def list_policy_definitions(
     policy_type: Optional[str] = Query(None, description="Optional policy type filter"),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     current_user: User = Depends(get_current_user),
 ):
     """List active statutory and compliance policies in smritisys."""
@@ -151,7 +151,7 @@ async def list_policy_definitions(
 @router.get("/policies/{policy_code}", response_model=PolicyDefinitionResponse)
 async def get_policy_definition(
     policy_code: str,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     current_user: User = Depends(get_current_user),
 ):
     """Retrieve single policy definition by code."""
@@ -169,7 +169,7 @@ async def get_policy_definition(
 async def update_policy_definition(
     policy_code: str,
     req: PolicyUpdateRequest,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     current_user: User = Depends(get_current_user),
 ):
     """Update active policy parameters in Control Plane."""
@@ -237,7 +237,7 @@ async def evaluate_gst_tax(
 @router.get("/workflows", response_model=List[WorkflowDefinitionResponse])
 async def list_workflow_definitions(
     doc_type: Optional[str] = Query(None, description="Optional document type filter"),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     current_user: User = Depends(get_current_user),
 ):
     """List versioned document and entity workflows."""
@@ -255,7 +255,7 @@ async def list_workflow_definitions(
 @router.post("/workflows/transition", response_model=WorkflowTransitionResponse)
 async def evaluate_workflow_transition(
     req: WorkflowTransitionRequest,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     current_user: User = Depends(get_current_user),
 ):
     """Validates state machine transitions against versioned workflow definitions."""

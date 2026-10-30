@@ -19,7 +19,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import pytest
 from sqlalchemy import select, delete
 from app.db.session import get_company_sessionmaker
-from app.services.party_service import UniversalPartyService
+from app.services.univ_party_svc import UniversalPartyService
 from app.models.party import Party, PartyRole, CustomerProfile, SupplierProfile
 
 

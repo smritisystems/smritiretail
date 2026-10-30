@@ -17,13 +17,57 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import {
   searchBackendCustomers,
   searchBackendProducts,
-  searchHsnCodes
+  searchHsnCodes,
+  clearCustomerSearchCache
 } from "../services/autoPopulateService.ts";
-import { Product } from "../types.ts";
+import { saveCustomers } from "../services/customerStore.ts";
+import { Product, Customer } from "../types.ts";
+
+const mockStorage: Record<string, string> = {};
+const mockLocalStorage = {
+  getItem: vi.fn((key: string) => mockStorage[key] || null),
+  setItem: vi.fn((key: string, val: string) => { mockStorage[key] = String(val); }),
+  removeItem: vi.fn((key: string) => { delete mockStorage[key]; }),
+  clear: vi.fn(() => { Object.keys(mockStorage).forEach(k => delete mockStorage[k]); }),
+  get length() { return Object.keys(mockStorage).length; },
+  key: vi.fn((idx: number) => Object.keys(mockStorage)[idx] || null)
+};
+
+Object.defineProperty(globalThis, "localStorage", {
+  value: mockLocalStorage,
+  writable: true
+});
+
+Object.defineProperty(globalThis, "sessionStorage", {
+  value: mockLocalStorage,
+  writable: true
+});
+
+if (typeof window === "undefined") {
+  (globalThis as any).window = globalThis;
+  (globalThis as any).window.dispatchEvent = vi.fn();
+  (globalThis as any).CustomEvent = class CustomEvent {
+    type: string;
+    detail: any;
+    constructor(type: string, params?: { detail?: any }) {
+      this.type = type;
+      this.detail = params?.detail;
+    }
+  };
+}
+
+const TEST_CUSTOMERS: Customer[] = [
+  { id: "cust-rrl-192b561d", code: "CUST-001", name: "Reliance Retail Limited", customerGroupId: "CG-LargeRetail", mobile: "9822334455", gstNumber: "29AABCR1718E1ZL", outstanding: 0, status: "Active" },
+  { id: "cust-rs-98765", code: "CUST-003", name: "Rahul Sharma", customerGroupId: "CG-Retail", mobile: "9876543210", outstanding: 0, status: "Active" },
+  { id: "CUST-002", code: "CUST-002", name: "Super Textiles Ltd", customerGroupId: "CG-Corporate", mobile: "9833445566", outstanding: 0, status: "Active" },
+];
 
 describe("Universal Backend Auto-Populate & Typeahead Service", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("Mock network offline")));
+    clearCustomerSearchCache();
+    saveCustomers(TEST_CUSTOMERS);
   });
 
   it("should return auto-populated customer records matching query string with commercial policy attributes", async () => {
@@ -35,6 +79,28 @@ describe("Universal Backend Auto-Populate & Typeahead Service", () => {
     expect(reliance?.priceGroupCode).toBeDefined();
     expect(reliance?.creditDays).toBeGreaterThan(0);
     expect(reliance?.creditLimit).toBeGreaterThan(0);
+  });
+
+  it("should prefer backend credit terms over local price-group defaults", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => [{
+        id: "cust-rrl-192b561d",
+        code: "CUST-001",
+        name: "Reliance Retail Limited",
+        customerGroupId: "CG-LargeRetail",
+        creditLimit: 100000,
+        creditDays: 30,
+        outstanding: 155.24,
+        status: "Active"
+      }]
+    }));
+
+    const [reliance] = await searchBackendCustomers("Reliance backend terms");
+
+    expect(reliance.creditLimit).toBe(100000);
+    expect(reliance.creditDays).toBe(30);
   });
 
   it("should match customer by mobile number", async () => {

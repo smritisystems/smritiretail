@@ -16,11 +16,12 @@
  *
  * * Websites: aitdl.com | erpnbook.com | smritibooks.com
  *
- * * Version    : 2.1.2
+ * * Version    : 6.99.21
  * * Created    : 2026-07-10
- * * Modified   : 2026-07-11
+ * * Modified   : 2026-10-29
  * * Copyright  : © AITDL.com and SMRITIBooks.com. All Rights Reserved.
  * * License    : Proprietary Commercial Software
+ * * Classification: SMRITI Print Engine Store with Single-Tree Body Portal Architecture
  */
 
 import React, { createContext, useContext, useState, ReactNode, useCallback } from "react";
@@ -29,6 +30,9 @@ import { StandardInvoiceA4 } from "./templates/StandardInvoiceA4.tsx";
 import { GoodsReceiptNoteA4 } from "./templates/GoodsReceiptNoteA4.tsx";
 import { ThermalReceipt80mm } from "./templates/ThermalReceipt80mm.tsx";
 import { BarcodeLabel } from "./templates/BarcodeLabel.tsx";
+import { FootwearPurchaseOrderA4 } from "./templates/FootwearPurchaseOrderA4.tsx";
+import { SizePivotMatrixA4 } from "./templates/SizePivotMatrixA4.tsx";
+import { PurchaseOrderPrintA4 } from "./templates/PurchaseOrderPrintA4.tsx";
 
 export type PrintFormat = "A4" | "Thermal80mm" | "Label";
 
@@ -120,6 +124,24 @@ export const PrintProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       name: "Product Barcode Label (50x25mm)",
       format: "Label",
       component: BarcodeLabel
+    },
+    {
+      id: "purchase-order-print-a4",
+      name: "SMRITI Purchase Order Standard & Sizewise (Approved A4) [Default]",
+      format: "A4",
+      component: PurchaseOrderPrintA4 as any
+    },
+    {
+      id: "footwear-po-a4",
+      name: "Footwear Purchase Order (Euro Scale & Sizing Run)",
+      format: "A4",
+      component: FootwearPurchaseOrderA4 as any
+    },
+    {
+      id: "size-pivot-matrix-a4",
+      name: "Size Pivot Matrix Procurement (A4)",
+      format: "A4",
+      component: SizePivotMatrixA4 as any
     }
   ]);
   const [printRequest, setPrintRequest] = useState<PrintRequest | null>(null);
@@ -334,7 +356,9 @@ export const PrintProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
     // Give React time to render the portal, then trigger print
     setTimeout(() => {
-      window.print();
+      if (typeof window !== "undefined" && typeof window.print === "function") {
+        window.print();
+      }
       
       // Revert status to online or appropriate state after spooling
       setTimeout(() => {
@@ -399,9 +423,34 @@ const PrintPortal: React.FC<{ request: PrintRequest; templates: PrintTemplate[] 
   if (!template) return null;
   const Component = template.component;
 
-  // We append to document.body so it is a direct child and easier to manage with @media print
+  // We append to document.body so it is a direct child and strictly suppresses #root in print
   return createPortal(
-    <div className="print-only-container">
+    <div className="print-only-container print-preview-visible print:static print:inset-auto print:h-auto print:w-full print:p-0 print:m-0 print:bg-white print:overflow-visible">
+      <style>{`
+        @media print {
+          #root {
+            display: none !important;
+          }
+          html, body {
+            height: auto !important;
+            min-height: 0 !important;
+            overflow: visible !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            background: white !important;
+          }
+          .print-only-container {
+            display: block !important;
+            position: static !important;
+            width: 100% !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            overflow: visible !important;
+            background: white !important;
+            color: black !important;
+          }
+        }
+      `}</style>
       <Component data={request.data} />
     </div>,
     document.body

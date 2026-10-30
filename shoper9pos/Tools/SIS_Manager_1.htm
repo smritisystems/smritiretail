@@ -1,0 +1,109 @@
+<!doctype HTML public "-//W3C//DTD HTML 4.0 Frameset//EN">
+
+<html>
+
+<head>
+<title>SIS Manager</title>
+<meta http-equiv="content-type" content="text/html; charset=windows-1252">
+<meta name="generator" content="RoboHelp by eHelp Corporation www.ehelp.com">
+<link rel="StyleSheet" href="../Shoper.css"><style title="hcp" type="text/css">
+<!--
+span.hcp1 { font-weight:bold; }
+img.hcp2 { border:none; float:none; border-style:none; }
+-->
+</style>
+</head>
+<body>
+<h1>SIS Manager</h1>
+
+<p class=Body-Text>This tool helps in managing the Shoper Integration Server 
+ (SIS). You may start, stop or restart the service using this tool, either 
+ on your local computer or on any remote computer on which you have access 
+ rights.</p>
+
+<p class=Body-Text>This tool comes handy as you need not use Windows system 
+ services to manage SIS service. </p>
+
+<p class=InvocationSequence>How to reach: <span class="hcp1">Double 
+ click SISMngr.EXE in the Shoper 9 application folder</span></p>
+
+<p class=Body-Text>The <span class="hcp1">SIS Manager</span> 
+ window is as shown. This window has two tabs—Service Control and Connectivity.</p>
+
+<h2>Service Control</h2>
+
+<p class=Body-Text>&nbsp;<img src="SIS_Manager_11.gif" x-maintain-ratio="TRUE" style="width:225px; height:209px;" width="225" height="209" border="0" class="hcp2"></p>
+
+<p class=Body-Text><span class="hcp1">Server</span>: Enter 
+ the name or IP address of the computer on which SIS is installed. Alternatively, 
+ you may select one from the list, if it is your local computer or a remote 
+ computer you have accessed earlier.</p>
+
+<p class=Body-Text
+	style="margin-left: 47px;"><span class="hcp1">Refresh</span>: 
+ Click to update the current status of SIS services running on the selected 
+ system. The Restart, Start and Stop buttons reflect the current status.</p>
+
+<p class=Body-Text
+	style="margin-left: 47px;">If you have selected a remote system, you 
+ may see the <a href="SIS_Manager_2.htm">Remote Login Credentials</a> window 
+ to accept Windows login details to access the remote server.</p>
+
+<p class=Body-Text><span class="hcp1">Services</span>: Select 
+ the service name. All SIS services installed on the selected computer 
+ are listed. You may click <span class="hcp1">Refresh</span> 
+ to get the current status of the services running on the system.</p>
+
+<p class=Body-Text><span class="hcp1">Allow login to remote 
+ machines</span>: Select to allow logging in to remote servers. This enables 
+ you to manage SIS on the remote server and allow exporting, extraction, 
+ downloading and uploading of data to and from the remote server. You can 
+ perform the activities based on the access rights you have on the remote 
+ server.</p>
+
+<p class=Body-Text>If this option is selected, whenever you select a remote 
+ server name and click <span class="hcp1">Refresh</span>, 
+ the <a href="SIS_Manager_2.htm">Remote Login Credentials</a> window is 
+ displayed to accept Windows login details to access the remote server.</p>
+
+<p class=Body-Text><span class="hcp1">Use previous login 
+ details</span>: Select to use the login details provided earlier to access 
+ the remote server.</p>
+
+<p class=Navigation><span class="hcp1">Restart</span>: To 
+ stop and then start the service on the specified server, if it is already 
+ running</p>
+
+<p class=Navigation><span class="hcp1">Start</span>: To start 
+ the service on the specified server, if it is not running</p>
+
+<p class=Navigation><span class="hcp1">Stop</span>: To stop 
+ the service on the specified server, if it is already running</p>
+
+<h2>Connectivity</h2>
+
+<p class=Body-Text>&nbsp;<img src="SIS_Manager_12.gif" x-maintain-ratio="TRUE" style="width:225px; height:209px;" width="225" height="209" border="0" class="hcp2"></p>
+
+<p class=Body-Text><span class="hcp1">Server</span>: Enter 
+ the computer name or IP address of the remote server to which you want 
+ to check the connectivity.</p>
+
+<p class=Body-Text><span class="hcp1">Port</span>: Enter 
+ the port on which the service is accessible on the remote server.</p>
+
+<p class=Note><span class="hcp1">Note:</span> Default port 
+ number is 9525 for POS and 9526 for HO. These port numbers are configured 
+ automatically during installation. If these ports are being used by any 
+ other application during SIS installation, the installer requests you 
+ to enter an available port number.</p>
+
+<p class=BlankLine>&nbsp;</p>
+
+<p class=Navigation><span class="hcp1">Check Connectivity</span>: 
+ Click to check the connectivity to the specified server through the selected 
+ port.</p>
+
+<p class=Body-Text>&nbsp;</p>
+
+</body>
+</html>

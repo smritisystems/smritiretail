@@ -16,6 +16,7 @@ import {
   Building2, Database, Layers, Settings, Users, Shield, 
   Activity, CheckCircle2, AlertTriangle, Lock, RefreshCw, Eye
 } from 'lucide-react';
+import { getTenantCompanyContext } from '../lib/apiFetchV1.ts';
 
 export interface CompanyControlCenterProps {
   companyId?: string;
@@ -30,12 +31,15 @@ export const CompanyControlCenter: React.FC<CompanyControlCenterProps> = ({
 }) => {
   const [activeTab, setActiveTab] = useState<'company' | 'database' | 'modules' | 'config' | 'users' | 'lifecycle'>('company');
 
+  const tenantCtx = typeof window !== "undefined" ? getTenantCompanyContext() : null;
+  const currentCompanyName = tenantCtx?.companyName || (typeof window !== "undefined" ? (localStorage.getItem("smriti_company_name") || "") : "");
+
   // Authoritative Frontend View State - ZERO DB Secrets or Credentials Exposed
   const companyData = {
     companyId: companyId,
     companyCode: '001',
-    companyName: 'Tattly Threads',
-    legalName: 'Tattly Threads',
+    companyName: currentCompanyName || 'Statutory Entity',
+    legalName: currentCompanyName || 'Statutory Entity',
     status: 'READY',
     companyAdmin: 'Jawahar Ramkripal Mallah',
     branches: ['Main Corporate Branch - Mumbai', 'South Distribution Hub'],
@@ -48,7 +52,6 @@ export const CompanyControlCenter: React.FC<CompanyControlCenterProps> = ({
       lastHealthCheck: new Date().toISOString()
     },
     modules: [
-      { id: 'pos', name: 'POS Billing & Cash Shift', enabled: true },
       { id: 'sales', name: 'Sales & Invoicing', enabled: true },
       { id: 'purchase', name: 'Procurement & GRN', enabled: true },
       { id: 'inventory', name: 'Inventory & Stock Ledger', enabled: true },
@@ -90,7 +93,7 @@ export const CompanyControlCenter: React.FC<CompanyControlCenterProps> = ({
         </div>
 
         {/* Navigation Tabs */}
-        <div className="bg-slate-850 border-b border-slate-800 px-6 flex space-x-1 overflow-x-auto">
+        <div className="bg-slate-800 border-b border-slate-800 px-6 flex space-x-1 overflow-x-auto">
           {[
             { id: 'company', label: 'Company Info', icon: Building2 },
             { id: 'database', label: 'Database Health', icon: Database },
@@ -186,8 +189,7 @@ export const CompanyControlCenter: React.FC<CompanyControlCenterProps> = ({
                   <Lock className="w-4 h-4" /> Security Isolation Guarantee
                 </div>
                 <p className="text-xs text-slate-400">
-                  PostgreSQL host, port, credentials, and connection strings are managed exclusively server-side by 
-                  <code className="text-indigo-400 ml-1">CompanyDatabaseResolver</code>. React never exposes raw credentials.
+                  Database host, port, credentials, and connection parameters are managed exclusively server-side. The client application never exposes raw credentials.
                 </p>
               </div>
             </div>

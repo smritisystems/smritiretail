@@ -1,0 +1,15 @@
+{
+  "certificate_id": "PF-2026-1006-C960BA",
+  "entity": "databridge",
+  "capability": "databridge.procurement_adapters",
+  "asset_type": "SOURCE_CODE",
+  "proposed_name": "grn_adapter.py",
+  "target_file_path": "backend/app/services/databridge/adapters/grn_adapter.py",
+  "decision": "CANONICAL",
+  "canonical_owner": "backend/app/services/databridge/adapters/grn_adapter.py",
+  "content_hash": "186a273271de3ef7916dfce312e4f36e8d531966c33e19fd2bd4eca6d8ef7bb4",
+  "git_commit": "e71bdc9222bca35bf8e2377783417f5d6b577714",
+  "issued_at": "2026-10-06T16:12:10.907467+00:00",
+  "expires_at": "2026-10-13T16:12:10.907467+00:00",
+  "status": "ISSUED"
+}

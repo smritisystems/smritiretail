@@ -6,18 +6,18 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 3.28.0
+ * Version      : 6.99.18
  * Created      : 2026-07-10
- * Modified     : 2026-08-16
+ * Modified     : 2026-10-29 (v6.99.18 — Sales Order print modal body portal & #root suppression)
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Target UI    : BI & Reporting Center (Fiori Horizon Inspired Light Theme)
  */
 
-import React, { useState, useEffect } from "react";
-import { apiFetchV1 } from "../lib/apiFetchV1";
+import React, { useState, useEffect, useMemo } from "react";
+import { createPortal } from "react-dom";
+import { apiFetchV1, recordAuditAction } from "../lib/apiFetchV1";
 import { isFieldGloballyVisible } from "../services/unifiedFieldCatalog.ts";
-import { recordAuditAction } from "../lib/apiFetch";
 import { GlobalExportService } from "../services/globalExportService.ts";
 import { formatDate, formatCurrency, formatNumber } from "../utils/formatters";
 import { motion, AnimatePresence } from "motion/react";
@@ -32,11 +32,20 @@ import {
   ChevronRight, ChevronDown, CheckSquare, Eye, Share2, Edit3, Trash2,
   Maximize2, TableProperties, BarChart3, PieChart as PieIcon, LineChart as LineIcon,
   Hash, Calendar, RefreshCw, Check, ArrowLeft, ShieldAlert, X, AlertTriangle, Play, Square,
-  Code, Terminal, FileSpreadsheet, ExternalLink, Sparkles, ShoppingBag, ArrowRight
+  Code, Terminal, FileSpreadsheet, ExternalLink, Sparkles, ShoppingBag, ArrowRight, TrendingUp,
+  FileText, SlidersHorizontal, Receipt, Coins, Truck, Boxes, CheckCircle2, Store, RotateCcw
 } from "lucide-react";
 import { SalesOrderA4 } from "./templates/SalesOrderA4";
 import { SalesOrderMatrixEntry } from "./sales/SalesOrderMatrixEntry";
 import { SmritiReportEngine } from "./reports/SmritiReportEngine";
+import { ReportBuilder } from "./reports/ReportBuilder.tsx";
+import { ConsolidatedBalanceSheetModal } from "./reports/ConsolidatedBalanceSheetModal.tsx";
+import { ScheduleReportModal } from "./reports/ScheduleReportModal.tsx";
+import { PLDashboardModal } from "./finance/PLDashboardModal.tsx";
+import {
+  REPORT_BUSINESS_AREAS,
+  resolveReportBusinessArea,
+} from "./reports/reportBusinessAreas.ts";
 
 // Types for drill down context
 interface DrilldownBreadcrumb {
@@ -62,12 +71,13 @@ interface ReportSchedule {
 
 interface ReportDesignerTabProps {
   currentUser?: { role: string; name: string } | null;
+  onNavigateTab?: (tab: string) => void;
 }
 
-export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUser }) => {
+export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUser, onNavigateTab }) => {
   // Navigation states
   const [activeView, setActiveView] = useState<"bi_center" | "designer" | "viewer">("bi_center");
-  const [activeStudio, setActiveStudio] = useState<string>("sales_studio");
+  const [activeStudio, setActiveStudio] = useState<string>("all_reports");
 
   // Active Report being viewed/run
   const [selectedReport, setSelectedReport] = useState<any | null>(null);
@@ -82,6 +92,8 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
 
   // Toolbar action modals
   const [showScheduleModal, setShowScheduleModal] = useState<boolean>(false);
+  const [showBalanceSheetModal, setShowBalanceSheetModal] = useState<boolean>(false);
+  const [showPLDashboardModal, setShowPLDashboardModal] = useState<boolean>(false);
   const [showShareModal, setShowShareModal] = useState<boolean>(false);
   const [shareType, setShareType] = useState<"Email" | "WhatsApp">("Email");
 
@@ -112,6 +124,112 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
   const [showTechnicalDetails, setShowTechnicalDetails] = useState<boolean>(false);
   const [lastRefreshedAt, setLastRefreshedAt] = useState<Date | null>(null);
 
+  // Standard Daily Retail Reports In-Report Filters & Views
+  const [reportSearchQuery, setReportSearchQuery] = useState<string>("");
+  const [salesViewMode, setSalesViewMode] = useState<"detailed" | "bill_summary">("detailed");
+  const [grnViewMode, setGrnViewMode] = useState<"detailed" | "grn_summary">("detailed");
+  const [grnDeliveryTermFilter, setGrnDeliveryTermFilter] = useState<"all" | "door_delivery" | "ex_factory">("all");
+  const [grnTransporterFilter, setGrnTransporterFilter] = useState<string>("all");
+  const [grnCollectionFilter, setGrnCollectionFilter] = useState<string>("all");
+  const [purchaseInwardData, setPurchaseInwardData] = useState<any>(null);
+  const [activeDatePreset, setActiveDatePreset] = useState<"today" | "yesterday" | "week" | "month" | "all" | "custom">("all");
+
+  // Single Store Default & Progressive Location Management
+  const [activeStoreName, setActiveStoreName] = useState<string>(() => {
+    return localStorage.getItem("smriti_branch_name") || "Main Store";
+  });
+  const [isLocationsManagementEnabled, setIsLocationsManagementEnabled] = useState<boolean>(() => {
+    return localStorage.getItem("smriti_locations_management_enabled") === "true";
+  });
+  const [selectedStoreScope, setSelectedStoreScope] = useState<string>("CURRENT_STORE");
+  const [availableBranches, setAvailableBranches] = useState<any[]>([]);
+
+  useEffect(() => {
+    const bName = localStorage.getItem("smriti_branch_name");
+    if (bName) setActiveStoreName(bName);
+    const locMgmt = localStorage.getItem("smriti_locations_management_enabled");
+    if (locMgmt === "true") {
+      setIsLocationsManagementEnabled(true);
+      apiFetchV1<any>("/branches")
+        .then((res: any) => {
+          if (Array.isArray(res)) {
+            setAvailableBranches(res);
+          } else if (res && Array.isArray(res.branches)) {
+            setAvailableBranches(res.branches);
+          }
+        })
+        .catch(() => {});
+    }
+  }, []);
+
+  const setDatePreset = (preset: "today" | "yesterday" | "week" | "month" | "all") => {
+    const today = new Date();
+    const formatDateStr = (d: Date) => d.toISOString().split("T")[0];
+    setActiveDatePreset(preset);
+    if (preset === "today") {
+      const dStr = formatDateStr(today);
+      setFilters((prev) => ({ ...prev, startDate: dStr, endDate: dStr }));
+    } else if (preset === "yesterday") {
+      const y = new Date(today);
+      y.setDate(y.getDate() - 1);
+      const yStr = formatDateStr(y);
+      setFilters((prev) => ({ ...prev, startDate: yStr, endDate: yStr }));
+    } else if (preset === "week") {
+      const w = new Date(today);
+      w.setDate(w.getDate() - 7);
+      setFilters((prev) => ({ ...prev, startDate: formatDateStr(w), endDate: formatDateStr(today) }));
+    } else if (preset === "month") {
+      const m = new Date(today.getFullYear(), today.getMonth(), 1);
+      setFilters((prev) => ({ ...prev, startDate: formatDateStr(m), endDate: formatDateStr(today) }));
+    } else if (preset === "all") {
+      setFilters((prev) => ({ ...prev, startDate: "2026-04-01", endDate: formatDateStr(today) }));
+    }
+  };
+
+  const handleLaunchStandardReport = (type: "sales_register" | "cashier_summary" | "purchase_register" | "stock_on_hand") => {
+    if (type === "sales_register") {
+      runReport({
+        id: "RPT-TAX-005",
+        code: "RPT-TAX-005",
+        title: "Daily Sales Register (Bill & Item Detail)",
+        category: "Sales Detail",
+        format: "Grid",
+        drillDownEnabled: true,
+        description: "Complete item-level sales register with Invoice No, Article No, Barcode, Size, Qty, Rate, Discount, GST & Net Total.",
+      });
+    } else if (type === "cashier_summary") {
+      runReport({
+        id: "RPT-SAL-001",
+        code: "RPT-SAL-001",
+        title: "Daily Cashier & Payment Summary Register",
+        category: "Sales Summary",
+        format: "Matrix",
+        drillDownEnabled: true,
+        description: "Daily cash, UPI / QR, card, and credit collections broken down by cashier shift.",
+      });
+    } else if (type === "purchase_register") {
+      runReport({
+        id: "RPT-PUR-001",
+        code: "RPT-PUR-001",
+        title: "Purchase Inward Register (GRN)",
+        category: "Purchase Register",
+        format: "Grid",
+        drillDownEnabled: true,
+        description: "Supplier inward receipts, delivery terms (Door vs Ex-Factory), transporter LR, landed costs, taxes, and collections.",
+      });
+    } else if (type === "stock_on_hand") {
+      runReport({
+        id: "RPT-INV-001",
+        code: "RPT-INV-001",
+        title: "Current Stock on Hand & Valuation",
+        category: "Valuation",
+        format: "Grid",
+        drillDownEnabled: false,
+        description: "Live warehouse on-hand stock quantities by article, category, size, with cost and selling valuation.",
+      });
+    }
+  };
+
   // Drilldown breadcrumbs inside report viewer
   const [breadcrumbs, setBreadcrumbs] = useState<DrilldownBreadcrumb[]>([]);
   const [drillLevel, setDrillLevel] = useState<number>(0); // 0 = Summary, 1 = Document, 2 = Ledger
@@ -122,23 +240,379 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
   const [selectedSupplierLedger, setSelectedSupplierLedger] = useState<any>(null);
   const [stockValuationData, setStockValuationData] = useState<any>(null);
   const [genericReportData, setGenericReportData] = useState<any>(null);
+  // Phase 1E — RPT-ACCT-001 Monthly Accounts Summary
+  const [acctEnvelope, setAcctEnvelope] = useState<any>(null);
+  const [acctYear, setAcctYear]   = useState<number | "">("");
+  const [acctMonth, setAcctMonth] = useState<number | "">("");
   const [loadingReports, setLoadingReports] = useState<boolean>(false);
+  const [reportRefreshKey, setReportRefreshKey] = useState<number>(0);
   const [soPreviewData, setSoPreviewData] = useState<any | null>(null);
   const [showSoPrintModal, setShowSoPrintModal] = useState<boolean>(false);
   const [convertingOrderId, setConvertingOrderId] = useState<string | null>(null);
 
   useEffect(() => {
+    if (!showSoPrintModal) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        setShowSoPrintModal(false);
+      } else if (e.key === "F9" || ((e.ctrlKey || e.metaKey) && (e.key === "p" || e.key === "P"))) {
+        e.preventDefault();
+        window.print();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [showSoPrintModal]);
+ 
+  // Dynamically load purchase summary data when purchase studio is active
+  useEffect(() => {
+    if (activeStudio === "purchase_studio" && (!purchaseReportData || purchaseReportData.length === 0)) {
+      apiFetchV1(`/reports/purchase-summary`)
+        .then((data) => {
+          if (Array.isArray(data)) {
+            setPurchaseReportData(data);
+          }
+        })
+        .catch((e) => console.error("Failed to load purchase summary:", e));
+    }
+  }, [activeStudio, purchaseReportData]);
+
+  const purchaseStudioTotals = useMemo(() => {
+    if (!purchaseReportData || purchaseReportData.length === 0) {
+      return {
+        totalOutstanding: 0,
+        totalOrders: 0,
+        totalReceived: 0,
+        chartData: [] as { supplier: string; ordered: number; received: number }[],
+      };
+    }
+    const totalOutstanding = purchaseReportData.reduce(
+      (sum, s) => sum + (parseFloat(s.outstanding) || 0),
+      0
+    );
+    const totalOrders = purchaseReportData.reduce(
+      (sum, s) => sum + (parseInt(s.po_count, 10) || 0),
+      0
+    );
+    const totalReceived = purchaseReportData.reduce(
+      (sum, s) => sum + (parseFloat(s.total_received) || 0),
+      0
+    );
+    const chartData = [...purchaseReportData]
+      .filter((s) => Number(s.total_ordered || 0) > 0)
+      .sort((a, b) => Number(b.total_ordered || 0) - Number(a.total_ordered || 0))
+      .slice(0, 5)
+      .map((s) => ({
+        supplier: s.supplier_name,
+        ordered: Number(s.total_ordered || 0),
+        received: Number(s.total_received || 0),
+      }));
+    return { totalOutstanding, totalOrders, totalReceived, chartData };
+  }, [purchaseReportData]);
+
+  // Unified normalized sales lines for RPT-TAX-005 and RPT-SAL-013
+  const normalizedSalesLines = useMemo(() => {
+    if (!genericReportData) return [];
+    if (Array.isArray(genericReportData.lines)) {
+      return genericReportData.lines.map((l: any, idx: number) => ({
+        key: `${l.invoice_number || "inv"}-${l.line_no || idx}`,
+        invoiceNo: l.invoice_number || "—",
+        invoiceDate: l.invoice_date || "—",
+        customerName: l.customer_name || "Walk-in Customer",
+        articleNo: l.product_code || l.sku_code || "—",
+        itemName: l.product_name || "—",
+        barcode: l.barcode || "—",
+        size: l.size_label || l.size || "Standard",
+        color: l.color || "—",
+        quantity: Number(l.quantity || 0),
+        rate: Number(l.unit_price || 0),
+        discount: Number(l.discount ?? l.discount_amount ?? 0),
+        gstRate: Number(l.gst_rate ?? l.tax_rate ?? 0),
+        taxAmount: Number(l.tax_amount || 0),
+        netTotal: Number(l.line_total ?? l.total_amount ?? l.net_amount ?? (Number(l.quantity || 0) * Number(l.unit_price || 0))),
+        paymentMode: l.payment_mode || "CASH",
+      }));
+    }
+    if (Array.isArray(genericReportData.bills)) {
+      const list: any[] = [];
+      genericReportData.bills.forEach((b: any) => {
+        (b.lines || []).forEach((l: any, idx: number) => {
+          list.push({
+            key: `${b.invoice_no || "inv"}-${l.line_no || idx}`,
+            invoiceNo: b.invoice_no || "—",
+            invoiceDate: b.date || "—",
+            customerName: b.customer_name || "Walk-in Customer",
+            articleNo: l.sku || l.product_id || "—",
+            itemName: l.product_name || "—",
+            barcode: l.barcode || "—",
+            size: l.size_label || "Standard",
+            color: l.color || "—",
+            quantity: Number(l.quantity || 0),
+            rate: Number(l.unit_price || l.mrp || 0),
+            discount: Number(l.discount_amount ?? l.discount ?? 0),
+            gstRate: Number(l.tax_rate ?? l.gst_rate ?? 0),
+            taxAmount: Number(l.tax_amount || 0),
+            netTotal: Number(l.net_amount ?? l.line_total ?? (Number(l.quantity || 0) * Number(l.unit_price || 0))),
+            paymentMode: b.payment_mode || "CASH",
+          });
+        });
+      });
+      return list;
+    }
+    if (Array.isArray(genericReportData)) {
+      return genericReportData.map((l: any, idx: number) => ({
+        key: `${l.invoice_no || l.invoice_number || "inv"}-${idx}`,
+        invoiceNo: l.invoice_no || l.invoice_number || "—",
+        invoiceDate: l.date || l.invoice_date || "—",
+        customerName: l.customer_name || "Walk-in Customer",
+        articleNo: l.product_code || l.sku || "—",
+        itemName: l.product_name || l.name || "—",
+        barcode: l.barcode || "—",
+        size: l.size_label || l.size || "Standard",
+        color: l.color || "—",
+        quantity: Number(l.quantity || 0),
+        rate: Number(l.unit_price || l.rate || 0),
+        discount: Number(l.discount ?? l.discount_amount ?? 0),
+        gstRate: Number(l.gst_rate ?? l.tax_rate ?? 0),
+        taxAmount: Number(l.tax_amount || 0),
+        netTotal: Number(l.line_total ?? l.net_amount ?? l.total_amount ?? 0),
+        paymentMode: l.payment_mode || "CASH",
+      }));
+    }
+    return [];
+  }, [genericReportData]);
+
+  const filteredSalesLines = useMemo(() => {
+    if (!reportSearchQuery.trim()) return normalizedSalesLines;
+    const q = reportSearchQuery.toLowerCase().trim();
+    return normalizedSalesLines.filter((l: any) =>
+      l.invoiceNo.toLowerCase().includes(q) ||
+      l.articleNo.toLowerCase().includes(q) ||
+      l.itemName.toLowerCase().includes(q) ||
+      l.barcode.toLowerCase().includes(q) ||
+      l.size.toLowerCase().includes(q) ||
+      l.customerName.toLowerCase().includes(q) ||
+      l.paymentMode.toLowerCase().includes(q)
+    );
+  }, [normalizedSalesLines, reportSearchQuery]);
+
+  const salesRegisterTotals = useMemo(() => {
+    const totalBills = new Set(filteredSalesLines.map((i: any) => i.invoiceNo)).size;
+    const totalQuantity = filteredSalesLines.reduce((acc: number, i: any) => acc + i.quantity, 0);
+    const totalDiscount = filteredSalesLines.reduce((acc: number, i: any) => acc + i.discount, 0);
+    const totalTax = filteredSalesLines.reduce((acc: number, i: any) => acc + i.taxAmount, 0);
+    const totalNet = filteredSalesLines.reduce((acc: number, i: any) => acc + i.netTotal, 0);
+    return { totalBills, totalQuantity, totalDiscount, totalTax, totalNet };
+  }, [filteredSalesLines]);
+
+  const billSummaryList = useMemo(() => {
+    const map = new Map<string, any>();
+    filteredSalesLines.forEach((item: any) => {
+      if (!map.has(item.invoiceNo)) {
+        map.set(item.invoiceNo, {
+          invoiceNo: item.invoiceNo,
+          invoiceDate: item.invoiceDate,
+          customerName: item.customerName,
+          paymentMode: item.paymentMode,
+          itemsCount: 0,
+          totalQuantity: 0,
+          totalDiscount: 0,
+          totalTax: 0,
+          netTotal: 0,
+        });
+      }
+      const b = map.get(item.invoiceNo)!;
+      b.itemsCount += 1;
+      b.totalQuantity += item.quantity;
+      b.totalDiscount += item.discount;
+      b.totalTax += item.taxAmount;
+      b.netTotal += item.netTotal;
+    });
+    return Array.from(map.values());
+  }, [filteredSalesLines]);
+
+  // Stock Balance lines for RPT-INV-001
+  const stockBalanceLines = useMemo(() => {
+    if (!genericReportData) return [];
+    const raw = Array.isArray(genericReportData)
+      ? genericReportData
+      : (genericReportData.lines || genericReportData.items || []);
+    return raw.map((r: any, idx: number) => ({
+      key: r.product_id || r.product_code || String(idx),
+      articleNo: r.product_code || r.sku || "—",
+      productName: r.product_name || r.name || "—",
+      category: r.category || "General",
+      onHand: Number(r.on_hand || 0),
+      avgCost: Number(r.avg_cost || 0),
+      stockValue: Number(r.stock_value || (Number(r.on_hand || 0) * Number(r.avg_cost || 0))),
+      status: r.status || (Number(r.on_hand || 0) <= Number(r.min_level || 0) ? "LOW" : "OK"),
+      minLevel: Number(r.min_level || 0),
+      reorderLevel: Number(r.reorder_level || 0),
+    }));
+  }, [genericReportData]);
+
+  const filteredStockLines = useMemo(() => {
+    if (!reportSearchQuery.trim()) return stockBalanceLines;
+    const q = reportSearchQuery.toLowerCase().trim();
+    return stockBalanceLines.filter((s: any) =>
+      s.articleNo.toLowerCase().includes(q) ||
+      s.productName.toLowerCase().includes(q) ||
+      s.category.toLowerCase().includes(q)
+    );
+  }, [stockBalanceLines, reportSearchQuery]);
+
+  const stockTotals = useMemo(() => {
+    const totalArticles = filteredStockLines.length;
+    const totalQty = filteredStockLines.reduce((acc: number, s: any) => acc + s.onHand, 0);
+    const totalValuation = filteredStockLines.reduce((acc: number, s: any) => acc + s.stockValue, 0);
+    const lowStockCount = filteredStockLines.filter((s: any) => s.status === "LOW").length;
+    return { totalArticles, totalQty, totalValuation, lowStockCount };
+  }, [filteredStockLines]);
+
+  // Discovered facet options and counts for RPT-PUR-001
+  const availableTransporters = useMemo(() => {
+    if (!purchaseInwardData || !Array.isArray(purchaseInwardData.lines)) return [];
+    const set = new Set<string>();
+    for (const l of purchaseInwardData.lines) {
+      if (l.transporter_name && l.transporter_name.trim()) {
+        set.add(l.transporter_name.trim());
+      }
+    }
+    return Array.from(set).sort();
+  }, [purchaseInwardData]);
+
+  const availableCollections = useMemo(() => {
+    if (!purchaseInwardData || !Array.isArray(purchaseInwardData.lines)) return [];
+    const set = new Set<string>();
+    for (const l of purchaseInwardData.lines) {
+      if (l.collection_type && l.collection_type.trim()) {
+        set.add(l.collection_type.trim());
+      }
+    }
+    return Array.from(set).sort();
+  }, [purchaseInwardData]);
+
+  const grnFacetCounts = useMemo(() => {
+    if (!purchaseInwardData || !Array.isArray(purchaseInwardData.lines)) {
+      return { totalLines: 0, doorDeliveryCount: 0, exFactoryCount: 0 };
+    }
+    const all = purchaseInwardData.lines;
+    const door = all.filter((l: any) => l.delivery_terms && l.delivery_terms.toLowerCase().includes("door delivery")).length;
+    const ex = all.filter((l: any) => l.delivery_terms && l.delivery_terms.toLowerCase().includes("ex-factory")).length;
+    return {
+      totalLines: all.length,
+      doorDeliveryCount: door,
+      exFactoryCount: ex,
+    };
+  }, [purchaseInwardData]);
+
+  // Purchase Inward Lines for RPT-PUR-001 with multi-dimensional logistics facets
+  const filteredGrnLines = useMemo(() => {
+    if (!purchaseInwardData || !Array.isArray(purchaseInwardData.lines)) return [];
+    let list = purchaseInwardData.lines;
+
+    // Delivery Terms Facet
+    if (grnDeliveryTermFilter === "door_delivery") {
+      list = list.filter((l: any) => l.delivery_terms && l.delivery_terms.toLowerCase().includes("door delivery"));
+    } else if (grnDeliveryTermFilter === "ex_factory") {
+      list = list.filter((l: any) => l.delivery_terms && l.delivery_terms.toLowerCase().includes("ex-factory"));
+    }
+
+    // Transporter Carrier Facet
+    if (grnTransporterFilter !== "all") {
+      list = list.filter((l: any) => l.transporter_name === grnTransporterFilter);
+    }
+
+    // Merchandise Collection Facet
+    if (grnCollectionFilter !== "all") {
+      list = list.filter((l: any) => l.collection_type === grnCollectionFilter);
+    }
+
+    // Free-text Search
+    if (reportSearchQuery.trim()) {
+      const q = reportSearchQuery.toLowerCase().trim();
+      list = list.filter((l: any) =>
+        (l.receipt_no && l.receipt_no.toLowerCase().includes(q)) ||
+        (l.supplier_name && l.supplier_name.toLowerCase().includes(q)) ||
+        (l.product_code && l.product_code.toLowerCase().includes(q)) ||
+        (l.product_name && l.product_name.toLowerCase().includes(q)) ||
+        (l.order_no && l.order_no.toLowerCase().includes(q)) ||
+        (l.delivery_terms && l.delivery_terms.toLowerCase().includes(q)) ||
+        (l.transporter_name && l.transporter_name.toLowerCase().includes(q)) ||
+        (l.lr_number && l.lr_number.toLowerCase().includes(q)) ||
+        (l.collection_type && l.collection_type.toLowerCase().includes(q))
+      );
+    }
+
+    return list;
+  }, [purchaseInwardData, grnDeliveryTermFilter, grnTransporterFilter, grnCollectionFilter, reportSearchQuery]);
+
+  const grnSummaryList = useMemo(() => {
+    if (!filteredGrnLines.length) return [];
+    const grnMap = new Map<string, any>();
+    for (const line of filteredGrnLines) {
+      if (!grnMap.has(line.receipt_no)) {
+        grnMap.set(line.receipt_no, {
+          receipt_no: line.receipt_no,
+          receipt_date: line.receipt_date,
+          supplier_name: line.supplier_name,
+          order_no: line.order_no,
+          status: line.status,
+          delivery_terms: line.delivery_terms,
+          freight_terms: line.freight_terms,
+          transporter_name: line.transporter_name,
+          lr_number: line.lr_number,
+          collection_type: line.collection_type,
+          itemCount: 0,
+          totalQty: 0,
+          totalTax: 0,
+          totalLanded: 0,
+        });
+      }
+      const g = grnMap.get(line.receipt_no);
+      g.itemCount += 1;
+      g.totalQty += Number(line.quantity_received) || 0;
+      g.totalTax += Number(line.tax_amount) || 0;
+      g.totalLanded += Number(line.line_total) || 0;
+    }
+    return Array.from(grnMap.values());
+  }, [filteredGrnLines]);
+
+  const grnTotals = useMemo(() => {
+    let totalQty = 0;
+    let totalTax = 0;
+    let totalLanded = 0;
+    for (const l of filteredGrnLines) {
+      totalQty += Number(l.quantity_received) || 0;
+      totalTax += Number(l.tax_amount) || 0;
+      totalLanded += Number(l.line_total) || 0;
+    }
+    return {
+      grnCount: new Set(filteredGrnLines.map((l: any) => l.receipt_no)).size,
+      totalQty,
+      totalTax,
+      totalLanded,
+    };
+  }, [filteredGrnLines]);
+
+  useEffect(() => {
     async function loadReportsData() {
       if (!selectedReport) return;
       setLoadingReports(true);
+      setGenericReportData(null);
       const params = `?from_date=${filters.startDate}&to_date=${filters.endDate}`;
       try {
         if (selectedReport.id === "RPT-SAL-001") {
-          const data = await apiFetchV1(`/reports/daily-sales?report_date=${filters.startDate}`);
+          const reportDateParam = filters.startDate === filters.endDate ? `?report_date=${filters.startDate}` : "";
+          const data = await apiFetchV1(`/reports/daily-sales${reportDateParam}`);
           setSalesReportData(data);
 
           const valData = await apiFetchV1("/reports/stock-valuation");
           setStockValuationData(valData);
+        } else if (selectedReport.id === "RPT-PUR-001") {
+          const data = await apiFetchV1(`/reports/purchase-inward-register${params}`);
+          setPurchaseInwardData(data);
         } else if (selectedReport.id === "RPT-PUR-002") {
           const data = await apiFetchV1(`/reports/purchase-summary${params}`);
           setPurchaseReportData(data);
@@ -147,6 +621,45 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
             const ledger = await apiFetchV1(`/reports/supplier-ledger/${drillFilter}`);
             setSelectedSupplierLedger(ledger);
           }
+        } else if (selectedReport.id === "RPT-PUR-003") {
+          const data = await apiFetchV1("/reports/pending-delivery");
+          setGenericReportData(Array.isArray(data) ? data : []);
+        } else if (selectedReport.id === "RPT-PUR-004") {
+          const data = await apiFetchV1("/reports/supplier-outstanding");
+          setGenericReportData(Array.isArray(data) ? data : []);
+        } else if (selectedReport.id === "RPT-PUR-005") {
+          const data = await apiFetchV1("/reports/pending-requisitions");
+          setGenericReportData(Array.isArray(data) ? data : []);
+        } else if (selectedReport.id === "RPT-PUR-006") {
+          const data = await apiFetchV1("/reports/requisition-conversion-tracking");
+          setGenericReportData(Array.isArray(data) ? data : []);
+        } else if (selectedReport.id === "RPT-PUR-007") {
+          const data = await apiFetchV1("/reports/rfq-quotation-register");
+          setGenericReportData(Array.isArray(data) ? data : []);
+        } else if (selectedReport.id === "RPT-INV-001") {
+          const data = await apiFetchV1("/inventory-reports/balance?zero_stock=true");
+          setGenericReportData(data);
+        } else if (selectedReport.id === "RPT-INV-002") {
+          const data = await apiFetchV1(`/inventory-reports/movement${params}`);
+          setGenericReportData(data);
+        } else if (selectedReport.id === "RPT-INV-003") {
+          const data = await apiFetchV1("/inventory-reports/availability");
+          setGenericReportData(data);
+        } else if (selectedReport.id === "RPT-INV-004") {
+          const data = await apiFetchV1(`/inventory-reports/aging?as_on_date=${filters.endDate}`);
+          setGenericReportData(data);
+        } else if (selectedReport.id === "RPT-INV-005") {
+          const data = await apiFetchV1(`/inventory-reports/goods-register${params}`);
+          setGenericReportData({ ...data, lines: data.documents ?? [] });
+        } else if (selectedReport.id === "RPT-INV-006") {
+          const data = await apiFetchV1(`/inventory-reports/goods-register-item${params}`);
+          setGenericReportData(data);
+        } else if (selectedReport.id === "RPT-INV-007") {
+          const data = await apiFetchV1(`/inventory-reports/returns${params}`);
+          setGenericReportData(data);
+        } else if (selectedReport.id === "RPT-INV-008") {
+          const data = await apiFetchV1(`/inventory-reports/adjustments${params}`);
+          setGenericReportData(data);
         } else if (selectedReport.id === "RPT-TAX-001") {
           const data = await apiFetchV1(`/reports/tax-register${params}`);
           setGenericReportData(data);
@@ -159,9 +672,19 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
         } else if (selectedReport.id === "RPT-TAX-004") {
           const data = await apiFetchV1(`/reports/cancelled-bills${params}`);
           setGenericReportData(data);
-        } else if (selectedReport.id === "RPT-TAX-005") {
-          const data = await apiFetchV1(`/reports/bill-wise-items${params}`);
-          setGenericReportData(data);
+        } else if (selectedReport.id === "RPT-TAX-005" || selectedReport.id === "RPT-SAL-013") {
+          try {
+            const data = await apiFetchV1(`/reports/bill-wise-items${params}`);
+            if (data?.lines && data.lines.length > 0) {
+              setGenericReportData(data);
+            } else {
+              const liveData = await apiFetchV1(`/sales-reports/bill-items-live${params}`);
+              setGenericReportData(liveData);
+            }
+          } catch {
+            const liveData = await apiFetchV1(`/sales-reports/bill-items-live${params}`);
+            setGenericReportData(liveData);
+          }
         } else if (selectedReport.id === "RPT-MIS-005") {
           const data = await apiFetchV1(`/reports/salesperson-discount${params}`);
           setGenericReportData(data);
@@ -175,7 +698,10 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
           const data = await apiFetchV1(`/reports/attribute-size-sales${params}`);
           setGenericReportData(data);
         } else if (selectedReport.id === "RPT-TAX-006") {
-          const data = await apiFetchV1(`/reports/tax-invoices-master-register${params}`);
+          const data = await apiFetchV1(`/reports/tax-invoices-master-register${params}&include_archived=true`);
+          setGenericReportData(data);
+        } else if (selectedReport.id === "RPT-TAX-007") {
+          const data = await apiFetchV1("/reports/invoice-reconciliation?bill_from=18&bill_to=137&include_archived=true");
           setGenericReportData(data);
         } else if (selectedReport.id === "RPT-MRC-005") {
           const data = await apiFetchV1(`/reports/article-color-size-matrix${params}`);
@@ -237,18 +763,31 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
         } else if (selectedReport.id === "RPT-SAL-015") {
           const data = await apiFetchV1(`/sales-reports/item-returns-live${params}`);
           setGenericReportData(data);
+        } else if (selectedReport.id === "RPT-ACCT-001") {
+          // Phase 1E — Universal envelope endpoint; pass year/month only when both are set
+          const periodSuffix =
+            acctYear !== "" && acctMonth !== ""
+              ? `&year=${acctYear}&month=${acctMonth}`
+              : "";
+          const data = await apiFetchV1(`/reports/universal/RPT-ACCT-001?${periodSuffix}`);
+          setAcctEnvelope(data);
         } else {
           setGenericReportData(null);
         }
       } catch (err) {
         console.error("Failed to load reports from FastAPI:", err);
+        setGenericReportData(null);
+        showNotification(
+          "error",
+          `Unable to load ${selectedReport.title}. Please retry or contact an administrator.`
+        );
       } finally {
         setLoadingReports(false);
         setLastRefreshedAt(new Date());
       }
     }
     loadReportsData();
-  }, [selectedReport, drillLevel, drillFilter, filters.startDate, filters.endDate]);
+  }, [selectedReport, drillLevel, drillFilter, filters.startDate, filters.endDate, reportRefreshKey, acctYear, acctMonth]);
 
   // Debounced search query audit logging
   useEffect(() => {
@@ -284,7 +823,9 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
     const handleStudioSelect = (event: Event) => {
       const studioId = (event as CustomEvent<{ studioId?: string }>).detail?.studioId;
       if (!studioId) return;
-      setActiveStudio(studioId);
+      const area = resolveReportBusinessArea(studioId);
+      if (!area) return;
+      setActiveStudio(area.id);
       setActiveView("bi_center");
       setSelectedReport(null);
     };
@@ -365,6 +906,44 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
           { key: "stock_value", label: "Stock Valuation", datatype: "currency", isSummary: true },
         ];
         rows = stockValuationData.lines;
+      } else if (purchaseInwardData?.lines && purchaseInwardData.lines.length > 0) {
+        if (grnViewMode === "grn_summary") {
+          columns = [
+            { key: "receipt_no", label: "GRN #", datatype: "text" },
+            { key: "receipt_date", label: "Date", datatype: "date" },
+            { key: "supplier_name", label: "Supplier", datatype: "text" },
+            { key: "order_no", label: "PO #", datatype: "text" },
+            { key: "delivery_terms", label: "Delivery Terms", datatype: "text" },
+            { key: "transporter_name", label: "Transporter", datatype: "text" },
+            { key: "lr_number", label: "LR #", datatype: "text" },
+            { key: "itemCount", label: "Items Count", datatype: "number", isSummary: true },
+            { key: "totalQty", label: "Total Qty (Pcs)", datatype: "number", isSummary: true },
+            { key: "totalTax", label: "Tax (INR)", datatype: "currency", isSummary: true },
+            { key: "totalLanded", label: "Landed Total (INR)", datatype: "currency", isSummary: true },
+            { key: "status", label: "Status", datatype: "text" },
+          ];
+          rows = grnSummaryList;
+        } else {
+          columns = [
+            { key: "receipt_no", label: "GRN #", datatype: "text" },
+            { key: "receipt_date", label: "Date", datatype: "date" },
+            { key: "supplier_name", label: "Supplier", datatype: "text" },
+            { key: "order_no", label: "PO #", datatype: "text" },
+            { key: "delivery_terms", label: "Delivery Terms", datatype: "text" },
+            { key: "transporter_name", label: "Transporter", datatype: "text" },
+            { key: "lr_number", label: "LR #", datatype: "text" },
+            { key: "collection_type", label: "Collection", datatype: "text" },
+            { key: "product_code", label: "Article / SKU", datatype: "text" },
+            { key: "product_name", label: "Description", datatype: "text" },
+            { key: "quantity_received", label: "Qty Received", datatype: "number", isSummary: true },
+            { key: "cost_price", label: "Cost Rate", datatype: "currency" },
+            { key: "gst_rate", label: "GST %", datatype: "percentage" },
+            { key: "tax_amount", label: "Tax (INR)", datatype: "currency", isSummary: true },
+            { key: "line_total", label: "Line Total (INR)", datatype: "currency", isSummary: true },
+            { key: "status", label: "Status", datatype: "text" },
+          ];
+          rows = filteredGrnLines;
+        }
       } else if (genericReportData?.lines || genericReportData?.rows) {
         const rawList = genericReportData.lines || genericReportData.rows || [];
         if (rawList.length > 0) {
@@ -380,14 +959,8 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
       }
 
       if (rows.length === 0) {
-        rows = [
-          { report: moduleTitle, generated_at: new Date().toISOString(), status: "Report initialized" }
-        ];
-        columns = [
-          { key: "report", label: "Report", datatype: "text" },
-          { key: "generated_at", label: "Generated At", datatype: "datetime" },
-          { key: "status", label: "Status", datatype: "text" },
-        ];
+        showNotification("info", "No live data is available for this report and date range. Nothing was exported.");
+        return;
       }
 
       await GlobalExportService.openInGoogleSheets({
@@ -490,7 +1063,7 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
     const upperFormat = format.toUpperCase();
 
     // 1. Direct High-Fidelity Native Backend Excel/CSV Routes for Master Registers
-    if (upperFormat === "XLSX" && selectedReport?.id === "RPT-TAX-001") {
+    if (upperFormat === "XLSX" && selectedReport?.id === "RPT-TAX-006") {
       const link = document.createElement("a");
       link.href = "/api/v1/reports/export/tax-invoices-excel";
       link.download = "SMRITI_Statutory_Tax_Invoices_Master.xlsx";
@@ -577,6 +1150,16 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
         activeData = stockValuationData.items;
       } else {
         activeData = [stockValuationData];
+      }
+    } else if (purchaseInwardData) {
+      if (selectedReport?.id === "RPT-PUR-001") {
+        activeData = grnViewMode === "grn_summary" ? grnSummaryList : filteredGrnLines;
+      } else if (Array.isArray(purchaseInwardData)) {
+        activeData = purchaseInwardData;
+      } else if (Array.isArray(purchaseInwardData.lines)) {
+        activeData = purchaseInwardData.lines;
+      } else {
+        activeData = [purchaseInwardData];
       }
     }
 
@@ -697,6 +1280,7 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
   // Switch views
   const runReport = (report: any) => {
     setSelectedReport(report);
+    setReportRefreshKey(0);
     recordAuditAction("VIEW", "reports", report.id, `Report viewed: ${report.title}`);
     setBreadcrumbs([{ title: report.title, level: 0, id: report.id }]);
     setDrillLevel(0);
@@ -724,8 +1308,9 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
 
   const handleConvertToInvoice = async (orderId: string, orderNo: string) => {
     try {
-      setConvertingOrderId(orderId);
-      const res = await apiFetchV1(`/sales/orders/${orderId}/convert-to-invoice`, { method: "POST" });
+      const cleanId = String(orderId || "").replace(/^:/, "").trim();
+      setConvertingOrderId(cleanId || orderId);
+      const res = await apiFetchV1(`/sales/orders/${encodeURIComponent(cleanId)}/convert-to-invoice`, { method: "POST" });
       showNotification("success", `Sales Order ${orderNo} converted to Tax Invoice ${res.invoice_no}!`);
       const params = `?from_date=${filters.startDate}&to_date=${filters.endDate}`;
       if (selectedReport?.id === "RPT-SO-009") {
@@ -744,7 +1329,9 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
 
   const handlePreviewSO = async (orderId: string) => {
     try {
-      const order = await apiFetchV1(`/sales/orders/${orderId}`);
+      const cleanId = String(orderId || "").replace(/^:/, "").trim();
+      if (!cleanId) return;
+      const order = await apiFetchV1(`/sales/orders/${encodeURIComponent(cleanId)}`);
       setSoPreviewData(order);
       setShowSoPrintModal(true);
     } catch (e: any) {
@@ -752,8 +1339,18 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
     }
   };
 
-  // Get current studio reports list
-  const currentStudioReports = studios[activeStudio]?.reports || [];
+  // Collect reports from every source catalog assigned to the selected business area.
+  const activeBusinessArea = resolveReportBusinessArea(activeStudio);
+  const currentStudioReports = activeBusinessArea
+    ? activeBusinessArea.studioIds.flatMap((studioId) => studios[studioId]?.reports || [])
+    : [];
+  const totalReportCount = Object.values(studios).reduce(
+    (total, studio: any) => total + (studio.reports?.length || 0),
+    0,
+  );
+  const activeSubcategoryCount = new Set(
+    currentStudioReports.map((report: any) => report.category),
+  ).size;
   const filteredReports = currentStudioReports.filter((r: any) =>
     r.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
     r.id.toLowerCase().includes(searchQuery.toLowerCase())
@@ -795,10 +1392,60 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
           </p>
         </div>
 
-          <div className="flex items-center gap-2 self-stretch md:self-auto">
+          <div className="flex items-center gap-2 self-stretch md:self-auto flex-wrap">
+            {/* View Mode Segmented Switcher */}
+            <div className="inline-flex rounded-lg border border-theme-border bg-theme-surface-2 p-0.5 text-xs font-semibold">
+              <button
+                type="button"
+                id="report-tab-bi-catalog-btn"
+                onClick={() => setActiveView("bi_center")}
+                className={`px-3 py-1.5 rounded-md flex items-center gap-1.5 transition-colors cursor-pointer ${
+                  activeView === "bi_center"
+                    ? "bg-theme-surface-1 text-theme-primary shadow-xs font-bold"
+                    : "text-theme-muted hover:text-theme-body"
+                }`}
+              >
+                <LayoutGrid size={13} />
+                <span>BI Catalog</span>
+              </button>
+              <button
+                type="button"
+                id="report-tab-report-builder-btn"
+                onClick={() => setActiveView("designer")}
+                className={`px-3 py-1.5 rounded-md flex items-center gap-1.5 transition-colors cursor-pointer ${
+                  activeView === "designer"
+                    ? "bg-theme-surface-1 text-theme-primary shadow-xs font-bold"
+                    : "text-theme-muted hover:text-theme-body"
+                }`}
+              >
+                <FileText size={13} />
+                <span>Report Builder</span>
+              </button>
+              <button
+                type="button"
+                id="report-tab-visual-reports-btn"
+                onClick={() => {
+                  if (onNavigateTab) {
+                    onNavigateTab("visual-reports");
+                  } else {
+                    window.dispatchEvent(new CustomEvent("navigate-tab", { detail: { tab: "visual-reports" } }));
+                  }
+                }}
+                className="px-3 py-1.5 rounded-md flex items-center gap-1.5 text-blue-600 hover:text-blue-700 hover:bg-blue-50/50 font-bold transition-colors cursor-pointer"
+                title="Switch to Visual Reports Dashboard (Orders, Packing & Stock Flow)"
+              >
+                <BarChart3 size={13} className="text-blue-600" />
+                <span>Visual Reports</span>
+              </button>
+            </div>
+
             <button
               type="button"
-              onClick={() => showNotification("success", "New report workspace ready for configuration.")}
+              id="reports-new-report-btn"
+              onClick={() => {
+                setActiveView("designer");
+                showNotification("success", "SMRITI Report Builder opened for custom report design.");
+              }}
               className="px-3 py-2 bg-theme-primary hover:bg-theme-primary-hover text-white rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
             >
               <Plus size={13} /> New Report
@@ -809,6 +1456,45 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
               className="px-3 py-2 bg-theme-surface-2 hover:bg-theme-surface-hover text-theme-body border border-theme-border rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
             >
               <LayoutGrid size={13} /> New Dashboard
+            </button>
+            <button
+              type="button"
+              onClick={fetchStudios}
+              disabled={loading}
+              className="px-3 py-2 bg-theme-surface-2 hover:bg-theme-surface-hover text-theme-body border border-theme-border rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+              title="Reload the complete report catalogue from the database"
+            >
+              <RefreshCw size={13} className={loading ? "animate-spin" : ""} /> Reports List
+            </button>
+            <button
+              type="button"
+              id="reports-balance-sheet-btn"
+              onClick={() => setShowBalanceSheetModal(true)}
+              className="px-3 py-2 bg-theme-surface-2 hover:bg-theme-surface-hover text-theme-body border border-theme-border rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+              title="Open Consolidated Multi-Branch Balance Sheet Report"
+            >
+              <FileSpreadsheet size={13} className="text-blue-600" />
+              <span>Balance Sheet</span>
+            </button>
+            <button
+              type="button"
+              id="reports-pnl-dashboard-btn"
+              onClick={() => setShowPLDashboardModal(true)}
+              className="px-3 py-2 bg-theme-surface-2 hover:bg-theme-surface-hover text-theme-body border border-theme-border rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+              title="Inspect Branch Profit & Loss, COGS, Margins & Shrinkage"
+            >
+              <TrendingUp size={13} className="text-emerald-600" />
+              <span>Branch P&amp;L</span>
+            </button>
+            <button
+              type="button"
+              id="reports-schedule-distribution-btn"
+              onClick={() => setShowScheduleModal(true)}
+              className="px-3 py-2 bg-theme-surface-2 hover:bg-theme-surface-hover text-theme-body border border-theme-border rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+              title="Automate Report Distribution via Cron & Dispatch Channels"
+            >
+              <Calendar size={13} className="text-purple-600" />
+              <span>Schedule</span>
             </button>
             {lastRefreshedAt && (
               <span className="hidden xl:flex items-center gap-1 text-[10px] text-theme-muted font-mono whitespace-nowrap" title={lastRefreshedAt.toLocaleString()}>
@@ -842,21 +1528,136 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
       </div>
 
       {activeView === "bi_center" && (
-        <div className="bg-theme-surface-1 border border-theme-border rounded-xl px-4 py-3 shadow-xs flex flex-col xl:flex-row xl:items-center gap-3">
-          <div className="flex items-center gap-2 text-xs font-bold text-theme-body whitespace-nowrap">
-            <Filter size={14} className="text-theme-primary" />
-            Reporting scope
+        <div className="bg-theme-surface-1 border border-theme-border rounded-xl px-4 py-3 shadow-xs flex flex-col xl:flex-row xl:items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex items-center gap-1.5 text-xs font-bold text-theme-body whitespace-nowrap mr-1">
+              <Calendar size={14} className="text-theme-primary" />
+              <span>Reporting Period</span>
+            </div>
+            {/* Quick 1-Click Presets */}
+            <div className="flex items-center gap-1 bg-theme-surface-2 p-1 rounded-lg border border-theme-border text-xs font-semibold">
+              <button
+                type="button"
+                onClick={() => setDatePreset("today")}
+                className={`px-2.5 py-1 rounded-md transition-colors ${
+                  activeDatePreset === "today"
+                    ? "bg-theme-primary text-white font-bold shadow-xs"
+                    : "text-theme-muted hover:text-theme-body"
+                }`}
+              >
+                Today
+              </button>
+              <button
+                type="button"
+                onClick={() => setDatePreset("yesterday")}
+                className={`px-2.5 py-1 rounded-md transition-colors ${
+                  activeDatePreset === "yesterday"
+                    ? "bg-theme-primary text-white font-bold shadow-xs"
+                    : "text-theme-muted hover:text-theme-body"
+                }`}
+              >
+                Yesterday
+              </button>
+              <button
+                type="button"
+                onClick={() => setDatePreset("week")}
+                className={`px-2.5 py-1 rounded-md transition-colors ${
+                  activeDatePreset === "week"
+                    ? "bg-theme-primary text-white font-bold shadow-xs"
+                    : "text-theme-muted hover:text-theme-body"
+                }`}
+              >
+                This Week
+              </button>
+              <button
+                type="button"
+                onClick={() => setDatePreset("month")}
+                className={`px-2.5 py-1 rounded-md transition-colors ${
+                  activeDatePreset === "month"
+                    ? "bg-theme-primary text-white font-bold shadow-xs"
+                    : "text-theme-muted hover:text-theme-body"
+                }`}
+              >
+                This Month
+              </button>
+              <button
+                type="button"
+                onClick={() => setDatePreset("all")}
+                className={`px-2.5 py-1 rounded-md transition-colors ${
+                  activeDatePreset === "all"
+                    ? "bg-theme-primary text-white font-bold shadow-xs"
+                    : "text-theme-muted hover:text-theme-body"
+                }`}
+              >
+                FY 2026-27
+              </button>
+            </div>
+
+            {/* Store Scope: Default Single Store vs Conditional Multi-Location Switcher */}
+            {!isLocationsManagementEnabled ? (
+              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-theme-surface-2 border border-theme-border text-xs">
+                <Store size={13} className="text-blue-500 shrink-0" />
+                <span className="font-semibold text-theme-body truncate max-w-[140px]">{activeStoreName}</span>
+                <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 uppercase font-mono">
+                  Single Store
+                </span>
+              </div>
+            ) : (
+              <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-theme-surface-2 border border-blue-500/40 text-xs">
+                <Store size={13} className="text-blue-500 shrink-0" />
+                <select
+                  value={selectedStoreScope}
+                  onChange={(e) => setSelectedStoreScope(e.target.value)}
+                  className="bg-transparent text-theme-body font-bold text-xs focus:outline-none cursor-pointer"
+                >
+                  <option value="CURRENT_STORE">📍 {activeStoreName} (This Outlet)</option>
+                  {availableBranches.map((b: any) => (
+                    <option key={b.id} value={b.id}>🏢 {b.name} ({b.code})</option>
+                  ))}
+                  <option value="ALL_STORES_CONSOLIDATED">🌐 All Stores (Consolidated)</option>
+                </select>
+              </div>
+            )}
           </div>
+
           <div className="flex flex-wrap items-center gap-2 text-xs">
-            <label className="flex items-center gap-2 text-theme-muted">
-              From
-              <input type="date" value={filters.startDate} onChange={(e) => setFilters({ ...filters, startDate: e.target.value })} className="bg-theme-surface-2 border border-theme-border rounded-lg px-2 py-1.5 text-theme-body focus:outline-none focus:border-theme-primary" />
+            <label className="flex items-center gap-1.5 text-theme-muted">
+              <span>From</span>
+              <input
+                type="date"
+                value={filters.startDate}
+                onChange={(e) => {
+                  setActiveDatePreset("custom");
+                  setFilters({ ...filters, startDate: e.target.value });
+                }}
+                className="bg-theme-surface-2 border border-theme-border rounded-lg px-2 py-1 text-theme-body focus:outline-none focus:border-theme-primary font-mono"
+              />
             </label>
-            <label className="flex items-center gap-2 text-theme-muted">
-              To
-              <input type="date" value={filters.endDate} onChange={(e) => setFilters({ ...filters, endDate: e.target.value })} className="bg-theme-surface-2 border border-theme-border rounded-lg px-2 py-1.5 text-theme-body focus:outline-none focus:border-theme-primary" />
+            <label className="flex items-center gap-1.5 text-theme-muted">
+              <span>To</span>
+              <input
+                type="date"
+                value={filters.endDate}
+                onChange={(e) => {
+                  setActiveDatePreset("custom");
+                  setFilters({ ...filters, endDate: e.target.value });
+                }}
+                className="bg-theme-surface-2 border border-theme-border rounded-lg px-2 py-1 text-theme-body focus:outline-none focus:border-theme-primary font-mono"
+              />
             </label>
-            <button type="button" onClick={() => setFilters({ startDate: new Date().toISOString().split("T")[0], endDate: new Date().toISOString().split("T")[0], productGroup: "All", paymentMode: "All" })} className="px-2.5 py-1.5 text-theme-muted hover:text-theme-body border border-theme-border rounded-lg bg-theme-surface-2 hover:bg-theme-surface-hover font-semibold transition-colors cursor-pointer">
+            <button
+              type="button"
+              onClick={() => {
+                setDatePreset("all");
+                setFilters({
+                  startDate: "2026-04-01",
+                  endDate: new Date().toISOString().split("T")[0],
+                  productGroup: "All",
+                  paymentMode: "All",
+                });
+              }}
+              className="px-2.5 py-1 text-theme-muted hover:text-theme-body border border-theme-border rounded-lg bg-theme-surface-2 hover:bg-theme-surface-hover font-semibold transition-colors cursor-pointer"
+            >
               Reset
             </button>
           </div>
@@ -873,18 +1674,164 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
               </div>
             ) : (
               <>
+                {/* 🌟 STANDARD DAILY RETAIL REPORTS HERO DASHBOARD */}
+                <div className="bg-gradient-to-r from-theme-surface-1 via-theme-surface-2 to-theme-surface-1 border border-theme-border rounded-2xl p-5 shadow-xs space-y-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-theme-divider pb-3">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="material-symbols-outlined text-theme-primary text-xl">star</span>
+                        <h2 className="text-sm font-bold uppercase tracking-wider text-theme-body font-mono">
+                          Standard Daily Retail Reports
+                        </h2>
+                        <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 uppercase font-mono">
+                          Core ERP
+                        </span>
+                      </div>
+                      <p className="text-xs text-theme-muted mt-0.5">
+                        Essential daily transaction registers used by retail store managers, cashiers, and accountants.
+                      </p>
+                    </div>
+                    {/* Store Scope Badge in Hero Dashboard */}
+                    <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-theme-surface-1 border border-theme-border text-xs">
+                        <Store size={14} className="text-blue-500 shrink-0" />
+                        <span className="font-bold text-theme-body font-mono">{activeStoreName}</span>
+                        {!isLocationsManagementEnabled ? (
+                          <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 uppercase font-mono">
+                            Single Store Mode
+                          </span>
+                        ) : (
+                          <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-600 border border-blue-500/20 uppercase font-mono">
+                            Multi-Location
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+                    {/* Card 1: Daily Sales Register */}
+                    <div
+                      onClick={() => handleLaunchStandardReport("sales_register")}
+                      className="group bg-theme-surface-1 hover:bg-theme-surface-2 border border-theme-border hover:border-blue-500/50 rounded-xl p-4 transition-all duration-200 cursor-pointer shadow-xs hover:shadow-md flex flex-col justify-between"
+                    >
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <div className="w-8 h-8 rounded-lg bg-blue-500/10 text-blue-600 flex items-center justify-center">
+                            <Receipt size={17} />
+                          </div>
+                          <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-600 font-mono">
+                            DAILY POS
+                          </span>
+                        </div>
+                        <h3 className="text-xs font-bold text-theme-body group-hover:text-blue-500 transition-colors">
+                          Daily Sales Register
+                        </h3>
+                        <p className="text-[11px] text-theme-muted line-clamp-2 leading-relaxed">
+                          Line-item breakdown: Invoice #, Article No, Barcode, Size, Qty, Rate, Discount, GST & Net ₹.
+                        </p>
+                      </div>
+                      <div className="mt-3.5 pt-2.5 border-t border-theme-divider/60 flex items-center justify-between text-[11px] font-semibold text-blue-500">
+                        <span>Open Sales Register</span>
+                        <ArrowRight size={13} className="group-hover:translate-x-1 transition-transform" />
+                      </div>
+                    </div>
+
+                    {/* Card 2: Cashier & Payment Summary */}
+                    <div
+                      onClick={() => handleLaunchStandardReport("cashier_summary")}
+                      className="group bg-theme-surface-1 hover:bg-theme-surface-2 border border-theme-border hover:border-emerald-500/50 rounded-xl p-4 transition-all duration-200 cursor-pointer shadow-xs hover:shadow-md flex flex-col justify-between"
+                    >
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <div className="w-8 h-8 rounded-lg bg-emerald-500/10 text-emerald-600 flex items-center justify-center">
+                            <Coins size={17} />
+                          </div>
+                          <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-600 font-mono">
+                            CASH CLOSING
+                          </span>
+                        </div>
+                        <h3 className="text-xs font-bold text-theme-body group-hover:text-emerald-500 transition-colors">
+                          Cashier & Tender Summary
+                        </h3>
+                        <p className="text-[11px] text-theme-muted line-clamp-2 leading-relaxed">
+                          Daily cash, UPI / QR, credit card, and customer credit collections broken down by shift.
+                        </p>
+                      </div>
+                      <div className="mt-3.5 pt-2.5 border-t border-theme-divider/60 flex items-center justify-between text-[11px] font-semibold text-emerald-500">
+                        <span>Open Cash Summary</span>
+                        <ArrowRight size={13} className="group-hover:translate-x-1 transition-transform" />
+                      </div>
+                    </div>
+
+                    {/* Card 3: Purchase Inward Register */}
+                    <div
+                      onClick={() => handleLaunchStandardReport("purchase_register")}
+                      className="group bg-theme-surface-1 hover:bg-theme-surface-2 border border-theme-border hover:border-amber-500/50 rounded-xl p-4 transition-all duration-200 cursor-pointer shadow-xs hover:shadow-md flex flex-col justify-between"
+                    >
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <div className="w-8 h-8 rounded-lg bg-amber-500/10 text-amber-600 flex items-center justify-center">
+                            <Truck size={17} />
+                          </div>
+                          <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-600 font-mono">
+                            GOODS INWARD
+                          </span>
+                        </div>
+                        <h3 className="text-xs font-bold text-theme-body group-hover:text-amber-500 transition-colors">
+                          Purchase Inward Register
+                        </h3>
+                        <p className="text-[11px] text-theme-muted line-clamp-2 leading-relaxed">
+                          Supplier receipts, delivery terms (Door vs Ex-Factory), transporter LR, landed costs & GST.
+                        </p>
+                      </div>
+                      <div className="mt-3.5 pt-2.5 border-t border-theme-divider/60 flex items-center justify-between text-[11px] font-semibold text-amber-500">
+                        <span>Open Inward Register</span>
+                        <ArrowRight size={13} className="group-hover:translate-x-1 transition-transform" />
+                      </div>
+                    </div>
+
+                    {/* Card 4: Current Stock on Hand */}
+                    <div
+                      onClick={() => handleLaunchStandardReport("stock_on_hand")}
+                      className="group bg-theme-surface-1 hover:bg-theme-surface-2 border border-theme-border hover:border-purple-500/50 rounded-xl p-4 transition-all duration-200 cursor-pointer shadow-xs hover:shadow-md flex flex-col justify-between"
+                    >
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <div className="w-8 h-8 rounded-lg bg-purple-500/10 text-purple-600 flex items-center justify-center">
+                            <Boxes size={17} />
+                          </div>
+                          <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-purple-500/10 text-purple-600 font-mono">
+                            STOCK VALUATION
+                          </span>
+                        </div>
+                        <h3 className="text-xs font-bold text-theme-body group-hover:text-purple-500 transition-colors">
+                          Current Stock on Hand
+                        </h3>
+                        <p className="text-[11px] text-theme-muted line-clamp-2 leading-relaxed">
+                          Live warehouse stock balance by article, category, size, with unit cost and total valuation.
+                        </p>
+                      </div>
+                      <div className="mt-3.5 pt-2.5 border-t border-theme-divider/60 flex items-center justify-between text-[11px] font-semibold text-purple-500">
+                        <span>Open Stock Valuation</span>
+                        <ArrowRight size={13} className="group-hover:translate-x-1 transition-transform" />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
                 {/* Active Studio Details Card */}
                 <div className="bg-theme-surface-1 border border-theme-border rounded-xl p-5 shadow-xs relative">
                   <div className="flex items-center gap-2.5 mb-1">
                     <span className="material-symbols-outlined text-[24px] text-theme-primary">
-                      {studios[activeStudio]?.icon}
+                      {activeBusinessArea?.icon}
                     </span>
                     <h3 className="text-base font-bold text-theme-body tracking-tight">
-                      {studios[activeStudio]?.name} Workspace
+                      {activeStudio === "all_reports" ? "All Reports" : `${activeBusinessArea?.label} Reports`}
                     </h3>
                   </div>
                   <p className="text-xs text-theme-muted font-mono">
-                    {studios[activeStudio]?.description} Access checked under SMRITI RBAC guidelines.
+                    Browse {currentStudioReports.length} reports. Access is checked under SMRITI RBAC guidelines.
                   </p>
                 </div>
 
@@ -914,18 +1861,22 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
                     <>
                       <div className="bg-theme-surface-1 border border-theme-border rounded-xl p-4 shadow-xs space-y-1">
                         <div className="text-[10px] font-bold font-mono tracking-wider text-theme-muted uppercase">SUPPLIER PAYABLES OUTSTANDING</div>
-                        <div className="text-xl font-bold text-amber-700 font-mono">₹14,56,800.00</div>
-                        <div className="text-[10px] text-amber-600 font-mono font-bold">Due in 5 days</div>
+                        <div className="text-xl font-bold text-amber-700 font-mono">
+                          ₹{purchaseStudioTotals.totalOutstanding.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </div>
+                        <div className="text-[10px] text-amber-600 font-mono font-bold">Consolidated Trade Payables</div>
                       </div>
                       <div className="bg-theme-surface-1 border border-theme-border rounded-xl p-4 shadow-xs space-y-1">
                         <div className="text-[10px] font-bold font-mono tracking-wider text-theme-muted uppercase">ACTIVE PURCHASE ORDERS</div>
-                        <div className="text-xl font-bold text-theme-primary font-mono">22 Issued</div>
-                        <div className="text-[10px] text-theme-muted font-mono">6 pending receipt</div>
+                        <div className="text-xl font-bold text-theme-primary font-mono">{purchaseStudioTotals.totalOrders} Issued</div>
+                        <div className="text-[10px] text-theme-muted font-mono">Authoritative Ledger Records</div>
                       </div>
                       <div className="bg-theme-surface-1 border border-theme-border rounded-xl p-4 shadow-xs space-y-1">
-                        <div className="text-[10px] font-bold font-mono tracking-wider text-theme-muted uppercase">GRN DISCREPANCY INDEX</div>
-                        <div className="text-xl font-bold text-rose-700 font-mono">0.45%</div>
-                        <div className="text-[10px] text-emerald-600 font-mono font-bold">Minor shortage</div>
+                        <div className="text-[10px] font-bold font-mono tracking-wider text-theme-muted uppercase">TOTAL GOODS RECEIVED</div>
+                        <div className="text-xl font-bold text-emerald-700 font-mono">
+                          ₹{purchaseStudioTotals.totalReceived.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </div>
+                        <div className="text-[10px] text-emerald-600 font-mono font-bold">100% Inward Fulfilled</div>
                       </div>
                     </>
                   )}
@@ -933,19 +1884,19 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
                   {activeStudio !== "sales_studio" && activeStudio !== "purchase_studio" && (
                     <>
                       <div className="bg-theme-surface-1 border border-theme-border rounded-xl p-4 shadow-xs space-y-1">
-                        <div className="text-[10px] font-bold font-mono tracking-wider text-theme-muted uppercase">ACTIVE SKUS COMPILATION</div>
-                        <div className="text-xl font-bold text-theme-body font-mono">4,850 SKUs</div>
-                        <div className="text-[10px] text-theme-muted font-mono">Monitored live</div>
+                        <div className="text-[10px] font-bold font-mono tracking-wider text-theme-muted uppercase">REPORTS IN CATEGORY</div>
+                        <div className="text-xl font-bold text-theme-body font-mono">{currentStudioReports.length}</div>
+                        <div className="text-[10px] text-theme-muted font-mono">Available in this business area</div>
                       </div>
                       <div className="bg-theme-surface-1 border border-theme-border rounded-xl p-4 shadow-xs space-y-1">
-                        <div className="text-[10px] font-bold font-mono tracking-wider text-theme-muted uppercase">COMPLIANCE RATIO</div>
-                        <div className="text-xl font-bold text-emerald-700 font-mono">99.8%</div>
-                        <div className="text-[10px] text-emerald-600 font-mono font-bold">Immutable logs</div>
+                        <div className="text-[10px] font-bold font-mono tracking-wider text-theme-muted uppercase">SUB-CATEGORIES</div>
+                        <div className="text-xl font-bold text-theme-body font-mono">{activeSubcategoryCount}</div>
+                        <div className="text-[10px] text-theme-muted font-mono">Report types in this area</div>
                       </div>
                       <div className="bg-theme-surface-1 border border-theme-border rounded-xl p-4 shadow-xs space-y-1">
-                        <div className="text-[10px] font-bold font-mono tracking-wider text-theme-muted uppercase">AUDITED TRANSACTION SLOTS</div>
-                        <div className="text-xl font-bold text-theme-primary font-mono">12,460</div>
-                        <div className="text-[10px] text-theme-muted font-mono">Rule 10 certified</div>
+                        <div className="text-[10px] font-bold font-mono tracking-wider text-theme-muted uppercase">TOTAL REPORTS</div>
+                        <div className="text-xl font-bold text-theme-primary font-mono">{totalReportCount}</div>
+                        <div className="text-[10px] text-theme-muted font-mono">Across the full report catalog</div>
                       </div>
                     </>
                   )}
@@ -1037,7 +1988,7 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
                   <div className="p-3 border-b border-theme-divider bg-theme-surface-2 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
                     <h4 className="text-xs font-bold text-theme-body flex items-center gap-2 uppercase font-mono tracking-wider">
                       <Database size={14} className="text-theme-primary" />
-                      Studio Reports Ledger
+                      Reports in this Category
                     </h4>
 
                     {/* Report Search Bar */}
@@ -1047,7 +1998,7 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
                         type="text"
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
-                        placeholder="Search studio reports..."
+                        placeholder="Search reports..."
                         className="w-full bg-theme-surface-1 border border-theme-border rounded-lg pl-9 pr-3 py-1.5 text-xs text-theme-body placeholder-theme-muted focus:outline-none focus:border-theme-primary font-medium"
                       />
                     </div>
@@ -1170,6 +2121,19 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
           </div>
       )}
 
+      {/* SMRITI INTERACTIVE REPORT BUILDER (Collapsible Panels, Auto-Adaptive Layout & Focus Mode) */}
+      {activeView === "designer" && (
+        <div className="space-y-4">
+          <ReportBuilder
+            initialTitle="Report Builder"
+            onReturnToCatalog={() => setActiveView("bi_center")}
+            onNotification={(type, msg) => showNotification(type, msg)}
+            isLocationsManagementEnabled={isLocationsManagementEnabled}
+            activeStoreName={activeStoreName}
+          />
+        </div>
+      )}
+
       {/* SMRITI ACTIVE REPORT VIEWER (Genuinely interactive tables with mock drill-down state) */}
       {activeView === "viewer" && selectedReport && (
         <div className="space-y-6">
@@ -1196,6 +2160,32 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
 
             {/* Universal Controls */}
             <div className="flex flex-wrap items-center gap-2">
+
+              <button
+                type="button"
+                onClick={() => setReportRefreshKey((key) => key + 1)}
+                disabled={loadingReports}
+                className="px-3 py-2 bg-theme-primary/10 border border-theme-primary/30 hover:bg-theme-primary/20 text-theme-primary rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                title="Reload this report from the database"
+              >
+                <RefreshCw size={13} className={loadingReports ? "animate-spin" : ""} />
+                Refresh Data
+              </button>
+
+              {/* Customize in Report Builder Button */}
+              <button
+                type="button"
+                id="report-viewer-customize-builder-btn"
+                onClick={() => {
+                  setActiveView("designer");
+                  showNotification("info", `Opened ${selectedReport.title} in SMRITI Report Builder.`);
+                }}
+                className="px-3 py-2 bg-theme-surface-2 border border-theme-divider hover:border-blue-500/30 text-theme-body rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+                title="Customize columns, layout, and filters in Report Builder"
+              >
+                <SlidersHorizontal size={13} className="text-blue-500" />
+                Customize in Builder
+              </button>
 
               {/* Export Dropdown menu */}
               <div className="relative group">
@@ -1404,161 +2394,551 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
           {/* Render Actual Data Table with Drill-down responses */}
           <div className="bg-theme-surface-1 border border-theme-divider rounded-2xl shadow-xl overflow-hidden">
 
-            {/* Sales Summary Studio Reports */}
+            {/* RPT-SAL-001: Daily Cashier & Payment Summary Register */}
             {selectedReport.id === "RPT-SAL-001" && (
-              <>
-                {drillLevel === 0 && (
-                  <div className="overflow-x-auto text-xs">
-                    <table className="w-full text-left">
+              <div className="p-4 space-y-4">
+                {/* 4 Payment Tender KPI Cards */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  <div className="p-3 bg-theme-surface-2 border border-theme-divider rounded-xl">
+                    <span className="text-[10px] uppercase font-bold text-theme-muted font-mono">💵 CASH IN HAND</span>
+                    <p className="text-lg font-black text-emerald-500 mt-0.5">
+                      ₹{Number(salesReportData?.cash_sales || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </p>
+                    <p className="text-[10px] text-theme-muted mt-0.5 font-mono">Physical cash drawer</p>
+                  </div>
+                  <div className="p-3 bg-theme-surface-2 border border-theme-divider rounded-xl">
+                    <span className="text-[10px] uppercase font-bold text-theme-muted font-mono">📱 UPI / QR ONLINE</span>
+                    <p className="text-lg font-black text-purple-500 mt-0.5">
+                      ₹{Number(salesReportData?.upi_sales || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </p>
+                    <p className="text-[10px] text-theme-muted mt-0.5 font-mono">Instant digital settlement</p>
+                  </div>
+                  <div className="p-3 bg-theme-surface-2 border border-theme-divider rounded-xl">
+                    <span className="text-[10px] uppercase font-bold text-theme-muted font-mono">💳 CARD (DEBIT / CREDIT)</span>
+                    <p className="text-lg font-black text-blue-500 mt-0.5">
+                      ₹{Number(salesReportData?.card_sales || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </p>
+                    <p className="text-[10px] text-theme-muted mt-0.5 font-mono">EDC machine batches</p>
+                  </div>
+                  <div className="p-3 bg-theme-surface-2 border border-theme-divider rounded-xl">
+                    <span className="text-[10px] uppercase font-bold text-theme-muted font-mono">📒 CUSTOMER CREDIT / DUE</span>
+                    <p className="text-lg font-black text-amber-500 mt-0.5">
+                      ₹{Number(salesReportData?.credit_sales || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </p>
+                    <p className="text-[10px] text-theme-muted mt-0.5 font-mono">Khata / account receivable</p>
+                  </div>
+                </div>
+
+                {/* Banner & Total Collections Action Bar */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-gradient-to-r from-theme-surface-2 via-theme-surface-1 to-theme-surface-2 p-4 rounded-xl border border-theme-divider">
+                  <div className="space-y-0.5">
+                    <div className="text-xs font-bold text-theme-body flex items-center gap-2">
+                      <span className="text-[10px] px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 font-mono font-bold">
+                        VERIFIED TOTAL
+                      </span>
+                      <span>Total Net Collections: ₹{Number(salesReportData?.total_sales || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                    </div>
+                    <p className="text-[11px] text-theme-muted">
+                      Across {salesReportData?.total_invoices || 0} completed invoices (Tax Collected GST: ₹{Number(salesReportData?.tax_total || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })})
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => handleLaunchStandardReport("sales_register")}
+                    className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer self-start sm:self-auto"
+                  >
+                    <Receipt size={14} />
+                    <span>View Bill-Wise Line Items</span>
+                    <ArrowRight size={13} />
+                  </button>
+                </div>
+
+                {/* Tender Breakdown Table */}
+                <div className="overflow-x-auto border border-theme-divider rounded-xl">
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead className="bg-theme-surface-2 text-theme-muted border-b border-theme-divider uppercase text-[10px] font-mono tracking-wider font-bold">
+                      <tr>
+                        <th className="p-3">Tender Mode</th>
+                        <th className="p-3">Settlement Type</th>
+                        <th className="p-3 text-right">Net Collections (₹)</th>
+                        <th className="p-3 text-right">Share of Revenue (%)</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-theme-divider/40">
+                      {[
+                        { mode: "Cash", type: "Counter Register Drawer", amt: Number(salesReportData?.cash_sales || 0), color: "text-emerald-500" },
+                        { mode: "UPI / QR Code", type: "Direct Bank Settlement", amt: Number(salesReportData?.upi_sales || 0), color: "text-purple-500" },
+                        { mode: "Debit / Credit Card", type: "POS Terminal Swipe", amt: Number(salesReportData?.card_sales || 0), color: "text-blue-500" },
+                        { mode: "Customer Credit / Due", type: "Store Ledger Receivable", amt: Number(salesReportData?.credit_sales || 0), color: "text-amber-500" },
+                      ].map((t) => {
+                        const total = Number(salesReportData?.total_sales || 0);
+                        const share = total > 0 ? ((t.amt / total) * 100).toFixed(1) : "0.0";
+                        return (
+                          <tr key={t.mode} className="hover:bg-theme-surface-hover transition-colors">
+                            <td className="p-3 font-bold text-theme-body">{t.mode}</td>
+                            <td className="p-3 text-theme-muted">{t.type}</td>
+                            <td className={`p-3 text-right font-mono font-bold ${t.color}`}>
+                              ₹{t.amt.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </td>
+                            <td className="p-3 text-right font-mono text-theme-body font-semibold">{share}%</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                    <tfoot className="bg-theme-surface-2 font-bold border-t border-theme-divider">
+                      <tr>
+                        <td colSpan={2} className="p-3 font-mono text-xs uppercase tracking-wider text-theme-body">
+                          Total Revenue
+                        </td>
+                        <td className="p-3 text-right font-mono text-emerald-500 text-xs">
+                          ₹{Number(salesReportData?.total_sales || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </td>
+                        <td className="p-3 text-right font-mono text-theme-body text-xs">100.0%</td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {/* Standard Purchase Inward Register (GRN) View */}
+            {selectedReport.id === "RPT-PUR-001" && (
+              <div className="space-y-4">
+                {/* Header Controls */}
+                <div className="flex flex-wrap items-center justify-between gap-3 p-4 rounded-xl bg-theme-surface-2 border border-theme-border">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-500">
+                      <Truck className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h2 className="text-base font-bold text-theme-heading">Purchase Inward Register (GRN)</h2>
+                        <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-emerald-500/10 text-emerald-600 border border-emerald-500/20">
+                          {activeStoreName} · Single Store
+                        </span>
+                      </div>
+                      <p className="text-xs text-theme-muted">
+                        Verified Goods Receipt Notes (GRN) with supplier, article code, received quantities, landed cost, and GST.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <div className="flex items-center bg-theme-surface-3 p-0.5 rounded-lg border border-theme-border text-xs">
+                      <button
+                        onClick={() => setGrnViewMode("detailed")}
+                        className={`px-3 py-1.5 rounded-md font-medium transition-all ${
+                          grnViewMode === "detailed"
+                            ? "bg-theme-surface text-theme-heading shadow-sm"
+                            : "text-theme-muted hover:text-theme-body"
+                        }`}
+                      >
+                        Detailed Line Items View
+                      </button>
+                      <button
+                        onClick={() => setGrnViewMode("grn_summary")}
+                        className={`px-3 py-1.5 rounded-md font-medium transition-all ${
+                          grnViewMode === "grn_summary"
+                            ? "bg-theme-surface text-theme-heading shadow-sm"
+                            : "text-theme-muted hover:text-theme-body"
+                        }`}
+                      >
+                        GRN Summary View
+                      </button>
+                    </div>
+                    <button
+                      onClick={() => setSelectedReport(null)}
+                      className="px-3 py-1.5 rounded-lg border border-theme-border hover:bg-theme-surface-hover text-theme-body text-xs font-medium transition-colors"
+                      title="Return to BI Hub"
+                    >
+                      Return to BI Hub
+                    </button>
+                  </div>
+                </div>
+
+                {/* 4 Standard Inward KPI Cards */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  <div className="p-3.5 rounded-xl bg-theme-surface border border-theme-border">
+                    <span className="text-[10px] font-mono text-theme-muted uppercase tracking-wider block">Total GRNs Inwarded</span>
+                    <span className="text-lg font-bold font-mono text-theme-heading mt-1 block">
+                      {grnTotals.grnCount.toLocaleString("en-IN")} GRNs
+                    </span>
+                  </div>
+                  <div className="p-3.5 rounded-xl bg-theme-surface border border-theme-border">
+                    <span className="text-[10px] font-mono text-theme-muted uppercase tracking-wider block">Total Received Qty</span>
+                    <span className="text-lg font-bold font-mono text-blue-500 mt-1 block">
+                      {grnTotals.totalQty.toLocaleString("en-IN", { minimumFractionDigits: 0 })} Pcs
+                    </span>
+                  </div>
+                  <div className="p-3.5 rounded-xl bg-theme-surface border border-theme-border">
+                    <span className="text-[10px] font-mono text-theme-muted uppercase tracking-wider block">Total Inward GST</span>
+                    <span className="text-lg font-bold font-mono text-purple-500 mt-1 block">
+                      ₹{grnTotals.totalTax.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </span>
+                  </div>
+                  <div className="p-3.5 rounded-xl bg-theme-surface border border-theme-border">
+                    <span className="text-[10px] font-mono text-theme-muted uppercase tracking-wider block">Total Landed Value</span>
+                    <span className="text-lg font-bold font-mono text-emerald-500 mt-1 block">
+                      ₹{grnTotals.totalLanded.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Logistics Facet Filter Bar & Search */}
+                <div className="space-y-2.5">
+                  <div className="flex flex-wrap items-center justify-between gap-2.5 p-2.5 rounded-xl bg-theme-surface-2 border border-theme-border text-xs">
+                    {/* Delivery Terms Segmented Pills */}
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="text-[11px] font-mono text-theme-muted uppercase tracking-wider font-semibold mr-1 flex items-center gap-1">
+                        <Filter className="w-3.5 h-3.5 text-theme-muted" /> Terms:
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setGrnDeliveryTermFilter("all")}
+                        className={`px-2.5 py-1 rounded-lg text-xs font-mono font-medium transition-all flex items-center gap-1.5 cursor-pointer ${
+                          grnDeliveryTermFilter === "all"
+                            ? "bg-theme-surface text-theme-heading shadow-sm border border-theme-border font-bold"
+                            : "text-theme-muted hover:text-theme-body border border-transparent hover:border-theme-border/40"
+                        }`}
+                      >
+                        All Terms
+                        <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-theme-surface-3 text-theme-muted">
+                          {grnFacetCounts.totalLines}
+                        </span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setGrnDeliveryTermFilter("door_delivery")}
+                        className={`px-2.5 py-1 rounded-lg text-xs font-mono font-medium transition-all flex items-center gap-1.5 cursor-pointer ${
+                          grnDeliveryTermFilter === "door_delivery"
+                            ? "bg-emerald-500/15 text-emerald-600 border border-emerald-500/30 font-bold shadow-sm"
+                            : "text-theme-muted hover:text-emerald-500 border border-transparent hover:border-emerald-500/20"
+                        }`}
+                      >
+                        Door Delivery
+                        <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-emerald-500/10 text-emerald-600 font-bold">
+                          {grnFacetCounts.doorDeliveryCount}
+                        </span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setGrnDeliveryTermFilter("ex_factory")}
+                        className={`px-2.5 py-1 rounded-lg text-xs font-mono font-medium transition-all flex items-center gap-1.5 cursor-pointer ${
+                          grnDeliveryTermFilter === "ex_factory"
+                            ? "bg-amber-500/15 text-amber-600 border border-amber-500/30 font-bold shadow-sm"
+                            : "text-theme-muted hover:text-amber-500 border border-transparent hover:border-amber-500/20"
+                        }`}
+                      >
+                        Ex-Factory
+                        <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-amber-500/10 text-amber-600 font-bold">
+                          {grnFacetCounts.exFactoryCount}
+                        </span>
+                      </button>
+                    </div>
+
+                    {/* Carrier & Collection Dropdowns + Clear Action */}
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {/* Carrier Select */}
+                      <div className="flex items-center gap-1 bg-theme-surface rounded-lg border border-theme-border px-2 py-1">
+                        <Truck className="w-3.5 h-3.5 text-theme-muted" />
+                        <select
+                          value={grnTransporterFilter}
+                          onChange={(e) => setGrnTransporterFilter(e.target.value)}
+                          className="bg-transparent text-xs text-theme-heading focus:outline-none cursor-pointer pr-1"
+                        >
+                          <option value="all" className="bg-theme-surface text-theme-heading">
+                            All Carriers ({availableTransporters.length})
+                          </option>
+                          {availableTransporters.map((t) => (
+                            <option key={t} value={t} className="bg-theme-surface text-theme-heading">
+                              {t}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      {/* Collection Select */}
+                      <div className="flex items-center gap-1 bg-theme-surface rounded-lg border border-theme-border px-2 py-1">
+                        <span className="text-[10px] font-mono text-theme-muted">🏷️</span>
+                        <select
+                          value={grnCollectionFilter}
+                          onChange={(e) => setGrnCollectionFilter(e.target.value)}
+                          className="bg-transparent text-xs text-theme-heading focus:outline-none cursor-pointer pr-1"
+                        >
+                          <option value="all" className="bg-theme-surface text-theme-heading">
+                            All Collections ({availableCollections.length})
+                          </option>
+                          {availableCollections.map((c) => (
+                            <option key={c} value={c} className="bg-theme-surface text-theme-heading">
+                              {c}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      {/* Reset All Filters Button */}
+                      {(grnDeliveryTermFilter !== "all" ||
+                        grnTransporterFilter !== "all" ||
+                        grnCollectionFilter !== "all" ||
+                        Boolean(reportSearchQuery.trim())) && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setGrnDeliveryTermFilter("all");
+                            setGrnTransporterFilter("all");
+                            setGrnCollectionFilter("all");
+                            setReportSearchQuery("");
+                          }}
+                          className="px-2.5 py-1 rounded-lg bg-rose-500/10 text-rose-600 border border-rose-500/20 hover:bg-rose-500/20 text-xs font-medium flex items-center gap-1 transition-all cursor-pointer"
+                          title="Reset all active filters"
+                        >
+                          <RotateCcw className="w-3 h-3" />
+                          <span>Reset Filters</span>
+                        </button>
+                      )}
+
+                      {/* 1-Click Export Sub-ledger (WYSIWYE) */}
+                      <button
+                        type="button"
+                        onClick={() => handleTriggerExport("XLSX")}
+                        className="px-2.5 py-1 rounded-lg bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 hover:bg-emerald-500/20 text-xs font-medium flex items-center gap-1 transition-all cursor-pointer"
+                        title={
+                          grnViewMode === "grn_summary"
+                            ? `Export ${grnSummaryList.length} receipt summaries to Excel (XLSX)`
+                            : `Export ${filteredGrnLines.length} filtered inward lines to Excel (XLSX)`
+                        }
+                      >
+                        <Download className="w-3 h-3 text-emerald-600" />
+                        <span>Export (XLSX)</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Free-Text Search Input */}
+                  <div className="relative">
+                    <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-theme-muted" />
+                    <input
+                      type="text"
+                      placeholder="Filter GRN #, Supplier, PO #, Carrier, LR #, Delivery Terms, Collection, SKU, Article Code..."
+                      value={reportSearchQuery}
+                      onChange={(e) => setReportSearchQuery(e.target.value)}
+                      className="w-full pl-9 pr-8 py-2 rounded-lg bg-theme-surface-2 border border-theme-border text-xs text-theme-heading placeholder:text-theme-muted focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                    />
+                    {reportSearchQuery.trim() && (
+                      <button
+                        type="button"
+                        onClick={() => setReportSearchQuery("")}
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-theme-muted hover:text-theme-body cursor-pointer"
+                        title="Clear search"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Data Table */}
+                <div className="overflow-x-auto rounded-xl border border-theme-border bg-theme-surface">
+                  {grnViewMode === "detailed" ? (
+                    <table className="w-full text-left text-xs">
                       <thead>
-                        <tr className="bg-theme-surface-3/50 text-theme-muted uppercase font-mono border-b border-theme-divider">
-                          <th className="px-5 py-3">Category Group</th>
-                          <th className="px-5 py-3 text-right">Invoice count</th>
-                          <th className="px-5 py-3 text-right">Avg Item Ticket</th>
-                          <th className="px-5 py-3 text-right">Tax Collected (GST)</th>
-                          <th className="px-5 py-3 text-right">Total Aggregate (INR)</th>
-                          <th className="px-5 py-3 text-right">Action</th>
+                        <tr className="bg-theme-surface-2 text-theme-muted uppercase font-mono border-b border-theme-divider">
+                          <th className="p-3">GRN #</th>
+                          <th className="p-3">Date</th>
+                          <th className="p-3">Supplier</th>
+                          <th className="p-3">PO #</th>
+                          <th className="p-3">Delivery Terms</th>
+                          <th className="p-3">Transporter / LR</th>
+                          <th className="p-3">Article / SKU</th>
+                          <th className="p-3">Item Description</th>
+                          <th className="p-3 text-right">Qty Received</th>
+                          <th className="p-3 text-right">Cost Rate (₹)</th>
+                          <th className="p-3 text-right">GST %</th>
+                          <th className="p-3 text-right">Tax (₹)</th>
+                          <th className="p-3 text-right">Line Total (₹)</th>
+                          <th className="p-3 text-center">Status</th>
                         </tr>
                       </thead>
-                      <tbody>
-                        {(!salesReportData || !salesReportData.total_invoices || salesReportData.total_invoices === 0) ? (
+                      <tbody className="divide-y divide-theme-divider/40">
+                        {filteredGrnLines.length === 0 ? (
                           <tr>
-                            <td colSpan={6} className="p-8 text-center text-theme-muted font-mono">
-                              <div className="flex flex-col items-center justify-center space-y-1.5">
-                                <span className="text-xs font-semibold text-theme-body">
-                                  No invoices found for {filters.startDate ? formatDate(filters.startDate) : "26 Aug 2026"}
-                                </span>
-                                <span className="text-[11px] text-theme-muted">
-                                  Adjust the date filter or register new sales transactions to populate this report.
-                                </span>
-                              </div>
+                            <td colSpan={14} className="p-8 text-center text-theme-muted">
+                              No purchase inward records found for the selected date range.
                             </td>
                           </tr>
                         ) : (
-                          [
-                            { cat: "Completed Sales", count: salesReportData.total_invoices, avg: `₹${Math.round(parseFloat(salesReportData.total_sales) / salesReportData.total_invoices).toLocaleString('en-IN')}`, tax: `₹${Math.round(parseFloat(salesReportData.tax_total)).toLocaleString('en-IN')}`, total: `₹${Math.round(parseFloat(salesReportData.total_sales)).toLocaleString('en-IN')}`, id: "Completed Sales" }
-                          ].map((row) => (
-                            <tr key={row.id} className="border-b border-theme-divider/40 hover:bg-theme-surface-hover">
-                              <td className="px-5 py-3.5 font-bold text-blue-400">{row.cat} Group</td>
-                              <td className="px-5 py-3.5 text-right font-mono text-theme-body">{row.count} Receipts</td>
-                              <td className="px-5 py-3.5 text-right font-mono text-theme-body">{row.avg}</td>
-                              <td className="px-5 py-3.5 text-right font-mono text-emerald-400">{row.tax}</td>
-                              <td className="px-5 py-3.5 text-right font-mono font-bold text-theme-body">{row.total}</td>
-                              <td className="px-5 py-3.5 text-right">
-                                <button
-                                  onClick={() => performDrilldown(1, row.id, `Drill: ${row.cat}`)}
-                                  className="px-2.5 py-1 bg-theme-surface-3 hover:bg-blue-600/10 hover:text-blue-400 text-theme-muted border border-theme-divider rounded-md font-bold text-[10px] transition-colors cursor-pointer"
-                                >
-                                  Drill Transactions
-                                </button>
+                          filteredGrnLines.map((l: any, idx: number) => (
+                            <tr key={`${l.receipt_no}-${l.product_code}-${idx}`} className="hover:bg-theme-surface-hover transition-colors">
+                              <td className="p-3 font-mono font-bold text-emerald-500 whitespace-nowrap">{l.receipt_no}</td>
+                              <td className="p-3 font-mono text-theme-muted whitespace-nowrap">{l.receipt_date}</td>
+                              <td className="p-3 font-semibold text-theme-body">{l.supplier_name}</td>
+                              <td className="p-3 font-mono text-theme-muted">{l.order_no || "—"}</td>
+                              <td className="p-3 whitespace-nowrap">
+                                {l.delivery_terms ? (
+                                  <span className={`px-2 py-0.5 rounded text-[9px] font-mono font-bold uppercase tracking-wider ${
+                                    l.delivery_terms.toLowerCase().includes("ex-factory")
+                                      ? "bg-amber-500/10 text-amber-600 border border-amber-500/20"
+                                      : "bg-emerald-500/10 text-emerald-600 border border-emerald-500/20"
+                                  }`}>
+                                    {l.delivery_terms}
+                                  </span>
+                                ) : (
+                                  <span className="text-theme-muted font-mono text-[11px]">—</span>
+                                )}
+                              </td>
+                              <td className="p-3 whitespace-nowrap text-theme-body text-xs font-mono">
+                                {l.transporter_name ? (
+                                  <span>
+                                    {l.transporter_name}
+                                    {l.lr_number ? <span className="text-theme-muted text-[10px] block">LR: {l.lr_number}</span> : null}
+                                  </span>
+                                ) : (
+                                  <span className="text-theme-muted">—</span>
+                                )}
+                              </td>
+                              <td className="p-3 font-mono text-purple-400 font-bold whitespace-nowrap">{l.product_code}</td>
+                              <td className="p-3 text-theme-body">{l.product_name}</td>
+                              <td className="p-3 text-right font-mono font-bold text-blue-500">
+                                {Number(l.quantity_received).toLocaleString("en-IN", { minimumFractionDigits: 0 })}
+                              </td>
+                              <td className="p-3 text-right font-mono">
+                                {Number(l.cost_price).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              </td>
+                              <td className="p-3 text-right font-mono text-theme-muted">{l.gst_rate}%</td>
+                              <td className="p-3 text-right font-mono text-purple-400">
+                                {Number(l.tax_amount).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              </td>
+                              <td className="p-3 text-right font-mono font-bold text-emerald-500">
+                                ₹{Number(l.line_total).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              </td>
+                              <td className="p-3 text-center whitespace-nowrap">
+                                <span className="px-2 py-0.5 rounded text-[9px] uppercase font-bold tracking-wider font-mono bg-emerald-500/10 text-emerald-600 border border-emerald-500/20">
+                                  {l.status}
+                                </span>
                               </td>
                             </tr>
                           ))
                         )}
                       </tbody>
+                      {filteredGrnLines.length > 0 && (
+                        <tfoot className="bg-theme-surface-2 font-bold border-t border-theme-divider">
+                          <tr>
+                            <td colSpan={8} className="p-3 font-mono text-xs uppercase tracking-wider text-theme-body">
+                              Total Inward Valuation ({filteredGrnLines.length} Items across {grnTotals.grnCount} GRNs)
+                            </td>
+                            <td className="p-3 text-right font-mono text-blue-500 text-xs">
+                              {grnTotals.totalQty.toLocaleString("en-IN", { minimumFractionDigits: 0 })} Pcs
+                            </td>
+                            <td colSpan={2} className="p-3"></td>
+                            <td className="p-3 text-right font-mono text-purple-400 text-xs">
+                              ₹{grnTotals.totalTax.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </td>
+                            <td className="p-3 text-right font-mono text-emerald-500 text-xs">
+                              ₹{grnTotals.totalLanded.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </td>
+                            <td className="p-3"></td>
+                          </tr>
+                        </tfoot>
+                      )}
                     </table>
-                  </div>
-                )}
-
-                {drillLevel === 1 && (
-                  <div className="overflow-x-auto text-xs">
-                    <div className="px-5 py-2.5 bg-theme-surface-2 border-b border-theme-divider flex items-center justify-between text-xs text-theme-muted font-semibold">
-                      <span>DOCUMENTS FILTERED BY CATEGORY: {drillFilter.toUpperCase()}</span>
-                      <span className="font-mono text-[10px]">2 records resolved</span>
-                    </div>
-                    <table className="w-full text-left">
+                  ) : (
+                    <table className="w-full text-left text-xs">
                       <thead>
-                        <tr className="bg-theme-surface-3/50 text-theme-muted uppercase font-mono border-b border-theme-divider">
-                          <th className="px-5 py-3">Invoice ID</th>
-                          <th className="px-5 py-3">Customer Entity</th>
-                          <th className="px-5 py-3">POS Counter / Shift</th>
-                          <th className="px-5 py-3">Payment Mode</th>
-                          <th className="px-5 py-3 text-right">Invoice Value</th>
-                          <th className="px-5 py-3 text-right">Drill Ledger</th>
+                        <tr className="bg-theme-surface-2 text-theme-muted uppercase font-mono border-b border-theme-divider">
+                          <th className="p-3">GRN #</th>
+                          <th className="p-3">Date</th>
+                          <th className="p-3">Supplier</th>
+                          <th className="p-3">PO #</th>
+                          <th className="p-3">Delivery Terms</th>
+                          <th className="p-3">Transporter</th>
+                          <th className="p-3 text-right">Items Count</th>
+                          <th className="p-3 text-right">Total Qty (Pcs)</th>
+                          <th className="p-3 text-right">Tax (₹)</th>
+                          <th className="p-3 text-right">Landed Total (₹)</th>
+                          <th className="p-3 text-center">Status</th>
                         </tr>
                       </thead>
-                      <tbody>
-                        {[
-                          { id: "INV-001", customer: "Rajesh Kumar (Wholesale)", counter: "Counter #01 - Morning Shift", mode: "UPI", val: salesReportData ? `₹${Math.round(parseFloat(salesReportData.upi_sales) * 0.6).toLocaleString('en-IN')}` : "₹12,450" },
-                          { id: "INV-002", customer: "Anita Sharma (Retail)", counter: "Counter #02 - Evening Shift", mode: "Card", val: salesReportData ? `₹${Math.round(parseFloat(salesReportData.card_sales) * 0.4).toLocaleString('en-IN')}` : "₹4,250" }
-                        ].map((row) => (
-                          <tr key={row.id} className="border-b border-theme-divider/40 hover:bg-theme-surface-hover">
-                            <td className="px-5 py-3.5 font-mono font-bold text-blue-400">{row.id}</td>
-                            <td className="px-5 py-3.5 font-bold text-theme-body">{row.customer}</td>
-                            <td className="px-5 py-3.5 text-theme-muted">{row.counter}</td>
-                            <td className="px-5 py-3.5">
-                              <span className="px-2 py-0.5 rounded text-[9px] uppercase font-bold tracking-wider bg-theme-surface-3 text-blue-400 border border-theme-divider">
-                                {row.mode}
-                              </span>
-                            </td>
-                            <td className="px-5 py-3.5 text-right font-mono font-bold text-emerald-400">{row.val}</td>
-                            <td className="px-5 py-3.5 text-right">
-                              <button
-                                onClick={() => performDrilldown(2, row.id, `Items: ${row.id}`)}
-                                className="px-2.5 py-1 bg-theme-surface-3 hover:bg-blue-600/10 hover:text-blue-400 text-theme-muted border border-theme-divider rounded-md font-bold text-[10px] transition-colors"
-                              >
-                                View Item Ledger
-                              </button>
+                      <tbody className="divide-y divide-theme-divider/40">
+                        {grnSummaryList.length === 0 ? (
+                          <tr>
+                            <td colSpan={11} className="p-8 text-center text-theme-muted">
+                              No purchase receipts found.
                             </td>
                           </tr>
-                        ))}
+                        ) : (
+                          grnSummaryList.map((g: any) => (
+                            <tr key={g.receipt_no} className="hover:bg-theme-surface-hover transition-colors">
+                              <td className="p-3 font-mono font-bold text-emerald-500 whitespace-nowrap">{g.receipt_no}</td>
+                              <td className="p-3 font-mono text-theme-muted whitespace-nowrap">{g.receipt_date}</td>
+                              <td className="p-3 font-semibold text-theme-body">{g.supplier_name}</td>
+                              <td className="p-3 font-mono text-theme-muted">{g.order_no || "—"}</td>
+                              <td className="p-3 whitespace-nowrap">
+                                {g.delivery_terms ? (
+                                  <span className={`px-2 py-0.5 rounded text-[9px] font-mono font-bold uppercase tracking-wider ${
+                                    g.delivery_terms.toLowerCase().includes("ex-factory")
+                                      ? "bg-amber-500/10 text-amber-600 border border-amber-500/20"
+                                      : "bg-emerald-500/10 text-emerald-600 border border-emerald-500/20"
+                                  }`}>
+                                    {g.delivery_terms}
+                                  </span>
+                                ) : (
+                                  <span className="text-theme-muted font-mono text-[11px]">—</span>
+                                )}
+                              </td>
+                              <td className="p-3 whitespace-nowrap text-theme-body text-xs font-mono">
+                                {g.transporter_name ? (
+                                  <span>
+                                    {g.transporter_name}
+                                    {g.lr_number ? <span className="text-theme-muted text-[10px] block">LR: {g.lr_number}</span> : null}
+                                  </span>
+                                ) : (
+                                  <span className="text-theme-muted">—</span>
+                                )}
+                              </td>
+                              <td className="p-3 text-right font-mono">{g.itemCount} Items</td>
+                              <td className="p-3 text-right font-mono font-bold text-blue-500">
+                                {g.totalQty.toLocaleString("en-IN", { minimumFractionDigits: 0 })}
+                              </td>
+                              <td className="p-3 text-right font-mono text-purple-400">
+                                ₹{g.totalTax.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              </td>
+                              <td className="p-3 text-right font-mono font-bold text-emerald-500">
+                                ₹{g.totalLanded.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              </td>
+                              <td className="p-3 text-center whitespace-nowrap">
+                                <span className="px-2 py-0.5 rounded text-[9px] uppercase font-bold tracking-wider font-mono bg-emerald-500/10 text-emerald-600 border border-emerald-500/20">
+                                  {g.status}
+                                </span>
+                              </td>
+                            </tr>
+                          ))
+                        )}
                       </tbody>
-                    </table>
-                  </div>
-                )}
-
-                {drillLevel === 2 && (
-                  <div className="overflow-x-auto text-xs">
-                    <div className="px-5 py-2.5 bg-theme-surface-2 border-b border-theme-divider flex items-center justify-between text-xs text-theme-muted font-semibold">
-                      <span>ITEMIZED SKU LEDGER DIVISION: {drillFilter.toUpperCase()}</span>
-                      <span className="font-mono text-[10px]">Rule 10 Verified Audit ID: {Math.floor(100000 + Math.random() * 900000)}</span>
-                    </div>
-                    <table className="w-full text-left">
-                      <thead>
-                        <tr className="bg-theme-surface-3/50 text-theme-muted uppercase font-mono border-b border-theme-divider">
-                          {isFieldGloballyVisible("name") && <th className="px-5 py-3">Product Name</th>}
-                          {isFieldGloballyVisible("code") && <th className="px-5 py-3">Stock No / SKU</th>}
-                          {isFieldGloballyVisible("styleCode") && <th className="px-5 py-3">Style Code</th>}
-                          <th className="px-5 py-3 text-right">Quantity</th>
-                          {isFieldGloballyVisible("price") && <th className="px-5 py-3 text-right">Base Price</th>}
-                          {isFieldGloballyVisible("gst_percentage") && <th className="px-5 py-3 text-right">GST %</th>}
-                          <th className="px-5 py-3 text-right">Tax Value</th>
-                          <th className="px-5 py-3 text-right">Gross Total (INR)</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {(stockValuationData && stockValuationData.lines.length > 0
-                          ? stockValuationData.lines.map((line: any) => ({
-                              name: line.name,
-                              code: line.code,
-                              styleCode: line.style_code || "—",
-                              qty: parseInt(line.stock),
-                              base: `₹${parseFloat(line.cost_price).toFixed(0)}`,
-                              gst: "18%",
-                              tax: `₹${(parseFloat(line.stock_value) * 0.18).toFixed(0)}`,
-                              gross: `₹${(parseFloat(line.stock_value) * 1.18).toFixed(0)}`
-                            }))
-                          : [
-                              { name: "SMRITI Classic Cotton T-Shirt", code: "TSH-COT-N-M", styleCode: "TSH-01", qty: 4, base: "₹677.12", gst: "18%", tax: "₹487.52", gross: "₹3,196" },
-                              { name: "SMRITI Heritage Hoodie", code: "SMR-HD-CH-L", styleCode: "HD-02", qty: 2, base: "₹2,117.80", gst: "18%", tax: "₹762.40", gross: "₹4,998" }
-                            ]
-                        ).map((row: any, i: number) => (
-                          <tr key={i} className="border-b border-theme-divider/40 hover:bg-theme-surface-hover">
-                            {isFieldGloballyVisible("name") && <td className="px-5 py-3.5 font-bold text-theme-body">{row.name}</td>}
-                            {isFieldGloballyVisible("code") && <td className="px-5 py-3.5 font-mono text-blue-400">{row.code}</td>}
-                            {isFieldGloballyVisible("styleCode") && <td className="px-5 py-3.5 font-mono text-theme-muted">{row.styleCode}</td>}
-                            <td className="px-5 py-3.5 text-right font-mono text-theme-body">{row.qty} Units</td>
-                            {isFieldGloballyVisible("price") && <td className="px-5 py-3.5 text-right font-mono text-theme-body">{row.base}</td>}
-                            {isFieldGloballyVisible("gst_percentage") && <td className="px-5 py-3.5 text-right font-mono text-theme-muted">{row.gst}</td>}
-                            <td className="px-5 py-3.5 text-right font-mono text-rose-400">{row.tax}</td>
-                            <td className="px-5 py-3.5 text-right font-mono font-bold text-emerald-400">{row.gross}</td>
+                      {grnSummaryList.length > 0 && (
+                        <tfoot className="bg-theme-surface-2 font-bold border-t border-theme-divider">
+                          <tr>
+                            <td colSpan={6} className="p-3 font-mono text-xs uppercase tracking-wider text-theme-body">
+                              Total Summary ({grnSummaryList.length} GRNs)
+                            </td>
+                            <td className="p-3 text-right font-mono">{filteredGrnLines.length} Items</td>
+                            <td className="p-3 text-right font-mono text-blue-500 text-xs">
+                              {grnTotals.totalQty.toLocaleString("en-IN", { minimumFractionDigits: 0 })} Pcs
+                            </td>
+                            <td className="p-3 text-right font-mono text-purple-400 text-xs">
+                              ₹{grnTotals.totalTax.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </td>
+                            <td className="p-3 text-right font-mono text-emerald-500 text-xs">
+                              ₹{grnTotals.totalLanded.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </td>
+                            <td className="p-3"></td>
                           </tr>
-                        ))}
-                      </tbody>
+                        </tfoot>
+                      )}
                     </table>
-                  </div>
-                )}
-              </>
+                  )}
+                </div>
+              </div>
             )}
 
             {/* Purchase Studio Outstanding Drilldown */}
@@ -1937,64 +3317,434 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
               </div>
             )}
 
-            {/* RPT-TAX-005: Bill-wise Items Detail */}
-            {selectedReport.id === "RPT-TAX-005" && (
+            {/* RPT-TAX-005 & RPT-SAL-013: Daily Sales Register (Bill & Item Detail) */}
+            {(selectedReport.id === "RPT-TAX-005" || selectedReport.id === "RPT-SAL-013") && (
               <div className="p-4 space-y-4">
+                {/* KPI Summary Cards */}
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                   <div className="p-3 bg-theme-surface-2 border border-theme-divider rounded-xl">
-                    <span className="text-[10px] uppercase font-bold text-theme-muted">Invoices</span>
-                    <p className="text-sm font-black text-theme-body mt-1">{genericReportData?.total_invoices ?? 0}</p>
+                    <span className="text-[10px] uppercase font-bold text-theme-muted font-mono">TOTAL BILLS CUT</span>
+                    <p className="text-lg font-black text-theme-body mt-0.5">{salesRegisterTotals.totalBills} Invoices</p>
+                    <p className="text-[10px] text-theme-muted mt-0.5 font-mono">{filteredSalesLines.length} line items</p>
                   </div>
                   <div className="p-3 bg-theme-surface-2 border border-theme-divider rounded-xl">
-                    <span className="text-[10px] uppercase font-bold text-theme-muted">Line Items</span>
-                    <p className="text-sm font-black text-theme-body mt-1">{genericReportData?.total_lines ?? 0}</p>
+                    <span className="text-[10px] uppercase font-bold text-theme-muted font-mono">TOTAL QUANTITY (PCS)</span>
+                    <p className="text-lg font-black text-blue-500 mt-0.5">
+                      {salesRegisterTotals.totalQuantity.toLocaleString("en-IN", { minimumFractionDigits: 0 })} Pcs
+                    </p>
+                    <p className="text-[10px] text-theme-muted mt-0.5 font-mono">Units sold at POS</p>
                   </div>
                   <div className="p-3 bg-theme-surface-2 border border-theme-divider rounded-xl">
-                    <span className="text-[10px] uppercase font-bold text-theme-muted">Total Quantity</span>
-                    <p className="text-sm font-black text-blue-400 mt-1">{Number(genericReportData?.total_quantity ?? 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</p>
+                    <span className="text-[10px] uppercase font-bold text-theme-muted font-mono">TOTAL CONCESSIONS (₹)</span>
+                    <p className="text-lg font-black text-amber-500 mt-0.5">
+                      ₹{salesRegisterTotals.totalDiscount.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </p>
+                    <p className="text-[10px] text-theme-muted mt-0.5 font-mono">Discounts & offers given</p>
                   </div>
                   <div className="p-3 bg-theme-surface-2 border border-theme-divider rounded-xl">
-                    <span className="text-[10px] uppercase font-bold text-theme-muted">Total Line Value</span>
-                    <p className="text-sm font-black text-emerald-400 mt-1">₹{Number(genericReportData?.total_amount ?? 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</p>
+                    <span className="text-[10px] uppercase font-bold text-theme-muted font-mono">NET REVENUE (₹)</span>
+                    <p className="text-lg font-black text-emerald-500 mt-0.5">
+                      ₹{salesRegisterTotals.totalNet.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </p>
+                    <p className="text-[10px] text-theme-muted mt-0.5 font-mono">
+                      Incl. GST ₹{salesRegisterTotals.totalTax.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </p>
                   </div>
                 </div>
 
+                {/* Search Bar & View Mode Toggle */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-theme-surface-2 p-3 rounded-xl border border-theme-divider">
+                  {/* View Mode Toggle & Active Store Scope */}
+                  <div className="flex flex-wrap items-center gap-2">
+                    <div className="flex items-center gap-1 bg-theme-surface-1 p-1 rounded-lg border border-theme-border text-xs font-semibold">
+                      <button
+                        type="button"
+                        onClick={() => setSalesViewMode("detailed")}
+                        className={`px-3 py-1.5 rounded-md flex items-center gap-1.5 transition-colors ${
+                          salesViewMode === "detailed"
+                            ? "bg-theme-primary text-white font-bold shadow-xs"
+                            : "text-theme-muted hover:text-theme-body"
+                        }`}
+                      >
+                        <TableProperties size={13} />
+                        Detailed Items View
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setSalesViewMode("bill_summary")}
+                        className={`px-3 py-1.5 rounded-md flex items-center gap-1.5 transition-colors ${
+                          salesViewMode === "bill_summary"
+                            ? "bg-theme-primary text-white font-bold shadow-xs"
+                            : "text-theme-muted hover:text-theme-body"
+                        }`}
+                      >
+                        <Receipt size={13} />
+                        Bill Summary View
+                      </button>
+                    </div>
+
+                    {/* Active Store Badge: Single Store by default */}
+                    <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-theme-surface-1 border border-theme-border text-xs">
+                      <Store size={13} className="text-blue-500 shrink-0" />
+                      <span className="font-semibold text-theme-body">{activeStoreName}</span>
+                      {!isLocationsManagementEnabled ? (
+                        <span className="text-[9px] px-1.5 py-0.2 rounded bg-emerald-500/10 text-emerald-600 font-bold border border-emerald-500/20 font-mono">
+                          Single Store
+                        </span>
+                      ) : (
+                        <span className="text-[9px] px-1.5 py-0.2 rounded bg-blue-500/10 text-blue-600 font-bold border border-blue-500/20 font-mono">
+                          Multi-Store
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Instant Filter Search */}
+                  <div className="relative w-full sm:w-80">
+                    <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-theme-muted" />
+                    <input
+                      type="text"
+                      value={reportSearchQuery}
+                      onChange={(e) => setReportSearchQuery(e.target.value)}
+                      placeholder="Filter Invoice #, Article, Barcode, Size..."
+                      className="w-full bg-theme-surface-1 border border-theme-border rounded-lg pl-9 pr-3 py-1.5 text-xs text-theme-body placeholder-theme-muted focus:outline-none focus:border-theme-primary font-medium"
+                    />
+                    {reportSearchQuery && (
+                      <button
+                        type="button"
+                        onClick={() => setReportSearchQuery("")}
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-theme-muted hover:text-theme-body text-xs"
+                      >
+                        ×
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Table View */}
+                {salesViewMode === "detailed" ? (
+                  <div className="overflow-x-auto border border-theme-divider rounded-xl">
+                    <table className="w-full text-left text-xs border-collapse">
+                      <thead className="bg-theme-surface-2 text-theme-muted border-b border-theme-divider uppercase text-[10px] font-mono tracking-wider font-bold">
+                        <tr>
+                          <th className="p-3">Invoice #</th>
+                          <th className="p-3">Date</th>
+                          <th className="p-3">Customer</th>
+                          <th className="p-3">Article / SKU</th>
+                          <th className="p-3">Item Description</th>
+                          <th className="p-3">Barcode</th>
+                          <th className="p-3">Size</th>
+                          <th className="p-3 text-right">Qty</th>
+                          <th className="p-3 text-right">Rate (₹)</th>
+                          <th className="p-3 text-right">Disc (₹)</th>
+                          <th className="p-3 text-right">GST Rate</th>
+                          <th className="p-3 text-right">Net Total (₹)</th>
+                          <th className="p-3 text-center">Tender</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-theme-divider/40">
+                        {filteredSalesLines.length === 0 ? (
+                          <tr>
+                            <td colSpan={13} className="p-8 text-center text-theme-muted">
+                              <div className="flex flex-col items-center justify-center space-y-1">
+                                <span className="text-xs font-semibold text-theme-body">No sales line items found</span>
+                                <span className="text-[11px] text-theme-muted">
+                                  Try adjusting the reporting period or clearing the search filter.
+                                </span>
+                              </div>
+                            </td>
+                          </tr>
+                        ) : (
+                          filteredSalesLines.map((l: any) => (
+                            <tr key={l.key} className="hover:bg-theme-surface-hover transition-colors">
+                              <td className="p-3 font-mono font-bold text-blue-500 whitespace-nowrap">{l.invoiceNo}</td>
+                              <td className="p-3 font-mono text-theme-muted whitespace-nowrap">{l.invoiceDate}</td>
+                              <td className="p-3 font-medium text-theme-body whitespace-nowrap">{l.customerName}</td>
+                              <td className="p-3 font-mono font-bold text-blue-500 whitespace-nowrap">{l.articleNo}</td>
+                              <td className="p-3 text-theme-body font-medium min-w-[160px]">{l.itemName}</td>
+                              <td className="p-3 font-mono text-theme-muted whitespace-nowrap">{l.barcode}</td>
+                              <td className="p-3 whitespace-nowrap">
+                                <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-theme-surface-2 border border-theme-border font-mono">
+                                  {l.size}
+                                </span>
+                              </td>
+                              <td className="p-3 text-right font-mono font-bold text-blue-400">
+                                {l.quantity.toLocaleString("en-IN", { minimumFractionDigits: 0 })}
+                              </td>
+                              <td className="p-3 text-right font-mono">
+                                {l.rate.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              </td>
+                              <td className="p-3 text-right font-mono text-amber-500">
+                                {l.discount > 0 ? l.discount.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "—"}
+                              </td>
+                              <td className="p-3 text-right font-mono text-theme-muted">{l.gstRate}%</td>
+                              <td className="p-3 text-right font-mono font-bold text-emerald-500">
+                                ₹{l.netTotal.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              </td>
+                              <td className="p-3 text-center whitespace-nowrap">
+                                <span className={`px-2 py-0.5 rounded text-[9px] uppercase font-bold tracking-wider border font-mono ${
+                                  l.paymentMode === "CASH"
+                                    ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/20"
+                                    : l.paymentMode === "UPI"
+                                    ? "bg-purple-500/10 text-purple-600 border-purple-500/20"
+                                    : "bg-blue-500/10 text-blue-600 border-blue-500/20"
+                                }`}>
+                                  {l.paymentMode}
+                                </span>
+                              </td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                      {filteredSalesLines.length > 0 && (
+                        <tfoot className="bg-theme-surface-2 font-bold border-t border-theme-divider">
+                          <tr>
+                            <td colSpan={7} className="p-3 font-mono text-xs uppercase tracking-wider text-theme-body">
+                              Total across {filteredSalesLines.length} line items ({salesRegisterTotals.totalBills} bills)
+                            </td>
+                            <td className="p-3 text-right font-mono text-blue-500 text-xs">
+                              {salesRegisterTotals.totalQuantity.toLocaleString("en-IN", { minimumFractionDigits: 0 })} Pcs
+                            </td>
+                            <td className="p-3"></td>
+                            <td className="p-3 text-right font-mono text-amber-500 text-xs">
+                              ₹{salesRegisterTotals.totalDiscount.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </td>
+                            <td className="p-3"></td>
+                            <td className="p-3 text-right font-mono text-emerald-500 text-xs">
+                              ₹{salesRegisterTotals.totalNet.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </td>
+                            <td className="p-3"></td>
+                          </tr>
+                        </tfoot>
+                      )}
+                    </table>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto border border-theme-divider rounded-xl">
+                    <table className="w-full text-left text-xs border-collapse">
+                      <thead className="bg-theme-surface-2 text-theme-muted border-b border-theme-divider uppercase text-[10px] font-mono tracking-wider font-bold">
+                        <tr>
+                          <th className="p-3">Invoice #</th>
+                          <th className="p-3">Date</th>
+                          <th className="p-3">Customer Name</th>
+                          <th className="p-3 text-center">Tender</th>
+                          <th className="p-3 text-right">Items Count</th>
+                          <th className="p-3 text-right">Total Qty (Pcs)</th>
+                          <th className="p-3 text-right">Discount (₹)</th>
+                          <th className="p-3 text-right">Tax (GST ₹)</th>
+                          <th className="p-3 text-right">Net Bill Value (₹)</th>
+                          <th className="p-3 text-right">Action</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-theme-divider/40">
+                        {billSummaryList.length === 0 ? (
+                          <tr>
+                            <td colSpan={10} className="p-8 text-center text-theme-muted">
+                              No bills found for the selected period.
+                            </td>
+                          </tr>
+                        ) : (
+                          billSummaryList.map((b: any) => (
+                            <tr key={b.invoiceNo} className="hover:bg-theme-surface-hover transition-colors">
+                              <td className="p-3 font-mono font-bold text-blue-500 whitespace-nowrap">{b.invoiceNo}</td>
+                              <td className="p-3 font-mono text-theme-muted whitespace-nowrap">{b.invoiceDate}</td>
+                              <td className="p-3 font-medium text-theme-body">{b.customerName}</td>
+                              <td className="p-3 text-center whitespace-nowrap">
+                                <span className={`px-2 py-0.5 rounded text-[9px] uppercase font-bold tracking-wider border font-mono ${
+                                  b.paymentMode === "CASH"
+                                    ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/20"
+                                    : b.paymentMode === "UPI"
+                                    ? "bg-purple-500/10 text-purple-600 border-purple-500/20"
+                                    : "bg-blue-500/10 text-blue-600 border-blue-500/20"
+                                }`}>
+                                  {b.paymentMode}
+                                </span>
+                              </td>
+                              <td className="p-3 text-right font-mono text-theme-muted">{b.itemsCount} lines</td>
+                              <td className="p-3 text-right font-mono font-bold text-blue-400">
+                                {b.totalQuantity.toLocaleString("en-IN", { minimumFractionDigits: 0 })}
+                              </td>
+                              <td className="p-3 text-right font-mono text-amber-500">
+                                {b.totalDiscount > 0 ? b.totalDiscount.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "—"}
+                              </td>
+                              <td className="p-3 text-right font-mono text-purple-400">
+                                ₹{b.totalTax.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              </td>
+                              <td className="p-3 text-right font-mono font-bold text-emerald-500">
+                                ₹{b.netTotal.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              </td>
+                              <td className="p-3 text-right whitespace-nowrap">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setSalesViewMode("detailed");
+                                    setReportSearchQuery(b.invoiceNo);
+                                  }}
+                                  className="px-2.5 py-1 bg-theme-surface-2 hover:bg-theme-surface-hover text-theme-primary border border-theme-border rounded-md font-bold text-[10px] transition-colors cursor-pointer"
+                                >
+                                  View Lines
+                                </button>
+                              </td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                      {billSummaryList.length > 0 && (
+                        <tfoot className="bg-theme-surface-2 font-bold border-t border-theme-divider">
+                          <tr>
+                            <td colSpan={5} className="p-3 font-mono text-xs uppercase tracking-wider text-theme-body">
+                              Total ({billSummaryList.length} Invoices)
+                            </td>
+                            <td className="p-3 text-right font-mono text-blue-500 text-xs">
+                              {salesRegisterTotals.totalQuantity.toLocaleString("en-IN", { minimumFractionDigits: 0 })} Pcs
+                            </td>
+                            <td className="p-3 text-right font-mono text-amber-500 text-xs">
+                              ₹{salesRegisterTotals.totalDiscount.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </td>
+                            <td className="p-3 text-right font-mono text-purple-400 text-xs">
+                              ₹{salesRegisterTotals.totalTax.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </td>
+                            <td className="p-3 text-right font-mono text-emerald-500 text-xs">
+                              ₹{salesRegisterTotals.totalNet.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </td>
+                            <td className="p-3"></td>
+                          </tr>
+                        </tfoot>
+                      )}
+                    </table>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* RPT-INV-001: Current Stock on Hand & Valuation */}
+            {selectedReport.id === "RPT-INV-001" && (
+              <div className="p-4 space-y-4">
+                {/* KPI Cards */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  <div className="p-3 bg-theme-surface-2 border border-theme-divider rounded-xl">
+                    <span className="text-[10px] uppercase font-bold text-theme-muted font-mono">TOTAL ARTICLES / SKUS</span>
+                    <p className="text-lg font-black text-theme-body mt-0.5">{stockTotals.totalArticles} Items</p>
+                    <p className="text-[10px] text-theme-muted mt-0.5 font-mono">In inventory catalog</p>
+                  </div>
+                  <div className="p-3 bg-theme-surface-2 border border-theme-divider rounded-xl">
+                    <span className="text-[10px] uppercase font-bold text-theme-muted font-mono">TOTAL ON-HAND STOCK</span>
+                    <p className="text-lg font-black text-blue-500 mt-0.5">
+                      {stockTotals.totalQty.toLocaleString("en-IN", { minimumFractionDigits: 0 })} Pcs
+                    </p>
+                    <p className="text-[10px] text-theme-muted mt-0.5 font-mono">Physical warehouse count</p>
+                  </div>
+                  <div className="p-3 bg-theme-surface-2 border border-theme-divider rounded-xl">
+                    <span className="text-[10px] uppercase font-bold text-theme-muted font-mono">TOTAL STOCK VALUATION</span>
+                    <p className="text-lg font-black text-emerald-500 mt-0.5">
+                      ₹{stockTotals.totalValuation.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </p>
+                    <p className="text-[10px] text-theme-muted mt-0.5 font-mono">At average landing cost</p>
+                  </div>
+                  <div className="p-3 bg-theme-surface-2 border border-theme-divider rounded-xl">
+                    <span className="text-[10px] uppercase font-bold text-theme-muted font-mono">LOW STOCK ALERTS</span>
+                    <p className={`text-lg font-black mt-0.5 ${stockTotals.lowStockCount > 0 ? "text-rose-500" : "text-emerald-500"}`}>
+                      {stockTotals.lowStockCount} Articles
+                    </p>
+                    <p className="text-[10px] text-theme-muted mt-0.5 font-mono">Below reorder threshold</p>
+                  </div>
+                </div>
+
+                {/* Instant Search Bar */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-theme-surface-2 p-3 rounded-xl border border-theme-divider">
+                  <div className="text-xs font-bold text-theme-body flex items-center gap-2">
+                    <Boxes size={14} className="text-purple-500" />
+                    <span>Physical Stock Ledger (Single-Location Canonical)</span>
+                  </div>
+                  <div className="relative w-full sm:w-80">
+                    <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-theme-muted" />
+                    <input
+                      type="text"
+                      value={reportSearchQuery}
+                      onChange={(e) => setReportSearchQuery(e.target.value)}
+                      placeholder="Search Article No, Description, Category..."
+                      className="w-full bg-theme-surface-1 border border-theme-border rounded-lg pl-9 pr-3 py-1.5 text-xs text-theme-body placeholder-theme-muted focus:outline-none focus:border-theme-primary font-medium"
+                    />
+                    {reportSearchQuery && (
+                      <button
+                        type="button"
+                        onClick={() => setReportSearchQuery("")}
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-theme-muted hover:text-theme-body text-xs"
+                      >
+                        ×
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Stock Table */}
                 <div className="overflow-x-auto border border-theme-divider rounded-xl">
                   <table className="w-full text-left text-xs border-collapse">
-                    <thead className="bg-theme-surface-2/80 text-theme-muted border-b border-theme-divider uppercase text-[10px] font-bold">
+                    <thead className="bg-theme-surface-2 text-theme-muted border-b border-theme-divider uppercase text-[10px] font-mono tracking-wider font-bold">
                       <tr>
-                        <th className="p-3">Invoice #</th>
-                        <th className="p-3">Date</th>
-                        <th className="p-3">Item Code</th>
+                        <th className="p-3">Article / SKU</th>
                         <th className="p-3">Item Description</th>
-                        <th className="p-3 text-right">Qty</th>
-                        <th className="p-3 text-right">Rate (₹)</th>
-                        <th className="p-3 text-right">Disc (₹)</th>
-                        <th className="p-3 text-right">GST Rate</th>
-                        <th className="p-3 text-right">Tax (₹)</th>
-                        <th className="p-3 text-right">Total (₹)</th>
+                        <th className="p-3">Category</th>
+                        <th className="p-3 text-right">On-Hand (Pcs)</th>
+                        <th className="p-3 text-right">Avg Unit Cost (₹)</th>
+                        <th className="p-3 text-right">Stock Valuation (₹)</th>
+                        <th className="p-3 text-right">Min Level</th>
+                        <th className="p-3 text-center">Status</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-theme-divider/40">
-                      {(!genericReportData?.lines || genericReportData.lines.length === 0) ? (
-                        <tr><td colSpan={10} className="p-6 text-center text-theme-muted">No item lines found for the selected period.</td></tr>
+                      {filteredStockLines.length === 0 ? (
+                        <tr>
+                          <td colSpan={8} className="p-8 text-center text-theme-muted">
+                            No inventory items found matching search criteria.
+                          </td>
+                        </tr>
                       ) : (
-                        genericReportData.lines.map((l: any, idx: number) => (
-                          <tr key={idx} className="hover:bg-theme-surface-hover transition-colors">
-                            <td className="p-3 font-mono font-bold text-blue-400">{l.invoice_number}</td>
-                            <td className="p-3 font-mono text-theme-muted">{l.invoice_date}</td>
-                            <td className="p-3 font-mono text-theme-muted">{l.product_code || "—"}</td>
-                            <td className="p-3 text-theme-body font-medium">{l.product_name}</td>
-                            <td className="p-3 text-right font-mono font-bold text-blue-300">{Number(l.quantity).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
-                            <td className="p-3 text-right font-mono">{Number(l.unit_price).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
-                            <td className="p-3 text-right font-mono text-amber-400">{Number(l.discount_amount).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
-                            <td className="p-3 text-right font-mono text-theme-muted">{l.gst_rate}%</td>
-                            <td className="p-3 text-right font-mono text-purple-400">{Number(l.tax_amount).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
-                            <td className="p-3 text-right font-mono font-bold text-emerald-400">{Number(l.total_amount).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
+                        filteredStockLines.map((s: any) => (
+                          <tr key={s.key} className="hover:bg-theme-surface-hover transition-colors">
+                            <td className="p-3 font-mono font-bold text-purple-400 whitespace-nowrap">{s.articleNo}</td>
+                            <td className="p-3 text-theme-body font-medium">{s.productName}</td>
+                            <td className="p-3 text-theme-muted whitespace-nowrap">{s.category}</td>
+                            <td className="p-3 text-right font-mono font-bold text-blue-400">
+                              {s.onHand.toLocaleString("en-IN", { minimumFractionDigits: 0 })}
+                            </td>
+                            <td className="p-3 text-right font-mono">
+                              {s.avgCost.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </td>
+                            <td className="p-3 text-right font-mono font-bold text-emerald-500">
+                              ₹{s.stockValue.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </td>
+                            <td className="p-3 text-right font-mono text-theme-muted">{s.minLevel}</td>
+                            <td className="p-3 text-center whitespace-nowrap">
+                              <span className={`px-2 py-0.5 rounded text-[9px] uppercase font-bold tracking-wider border font-mono ${
+                                s.status === "LOW"
+                                  ? "bg-rose-500/10 text-rose-600 border-rose-500/20"
+                                  : "bg-emerald-500/10 text-emerald-600 border-emerald-500/20"
+                              }`}>
+                                {s.status === "LOW" ? "LOW STOCK" : "IN STOCK"}
+                              </span>
+                            </td>
                           </tr>
                         ))
                       )}
                     </tbody>
+                    {filteredStockLines.length > 0 && (
+                      <tfoot className="bg-theme-surface-2 font-bold border-t border-theme-divider">
+                        <tr>
+                          <td colSpan={3} className="p-3 font-mono text-xs uppercase tracking-wider text-theme-body">
+                            Total Valuation ({filteredStockLines.length} Items)
+                          </td>
+                          <td className="p-3 text-right font-mono text-blue-500 text-xs">
+                            {stockTotals.totalQty.toLocaleString("en-IN", { minimumFractionDigits: 0 })} Pcs
+                          </td>
+                          <td className="p-3"></td>
+                          <td className="p-3 text-right font-mono text-emerald-500 text-xs">
+                            ₹{stockTotals.totalValuation.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </td>
+                          <td colSpan={2} className="p-3"></td>
+                        </tr>
+                      </tfoot>
+                    )}
                   </table>
                 </div>
               </div>
@@ -2245,7 +3995,7 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
                       Statutory GST Tax Invoices Master Register
                     </h5>
                     <p className="text-[10px] text-theme-muted font-mono mt-0.5">
-                      Seller: Tattly Threads (27AAXFT2508H1ZR) • Customer: Reliance Retail Limited • GST Rate: 5.00%
+                      Statutory GST Compliance Register • Filter by Tax Rate, Customer &amp; Financial Year
                     </p>
                   </div>
                   <a
@@ -2558,7 +4308,7 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
                       Detailed Line-Item Sales Orders Register
                     </h5>
                     <p className="text-[11px] text-theme-muted font-mono mt-0.5">
-                      Seller: Tattly Threads (27AAXFT2508H1ZR) • Customer: Reliance Retail Limited • GST Rate: 5.00%
+                      Detailed Order Fulfillment Register • Filter by Delivery State, Customer &amp; Timeline
                     </p>
                   </div>
                   <div className="flex items-center gap-2 flex-wrap">
@@ -3354,9 +5104,86 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
               </div>
             )}
 
+            {/* ================================================================
+                RPT-ACCT-001 — Monthly Accounts Summary (Phase 1D.1 / 1E)
+                Full-envelope render: columns + rows + summary_cards + chart_config
+                from /reports/universal/RPT-ACCT-001 via SmritiReportEngine.
+                Year/month selectors replace the date-range bar for this report.
+                ================================================================ */}
+            {selectedReport.id === "RPT-ACCT-001" && (
+              <div className="p-4 space-y-4">
+                {/* Period selector bar */}
+                <div className="flex flex-wrap items-center gap-3 bg-theme-surface-2 border border-theme-border rounded-xl px-4 py-3">
+                  <span className="text-xs font-bold text-theme-muted uppercase tracking-wide flex items-center gap-1.5">
+                    <Calendar size={13} /> Period
+                  </span>
+                  <select
+                    id="acct-year-select"
+                    value={acctYear}
+                    onChange={(e) => setAcctYear(e.target.value === "" ? "" : Number(e.target.value))}
+                    className="text-xs border border-theme-border rounded-lg px-2.5 py-1.5 bg-theme-surface-1 text-theme-body focus:ring-2 focus:ring-blue-500 focus:outline-none cursor-pointer"
+                  >
+                    <option value="">Previous Month</option>
+                    {Array.from({ length: 6 }, (_, i) => new Date().getFullYear() - i).map((yr) => (
+                      <option key={yr} value={yr}>{yr}</option>
+                    ))}
+                  </select>
+                  <select
+                    id="acct-month-select"
+                    value={acctMonth}
+                    onChange={(e) => setAcctMonth(e.target.value === "" ? "" : Number(e.target.value))}
+                    disabled={acctYear === ""}
+                    className="text-xs border border-theme-border rounded-lg px-2.5 py-1.5 bg-theme-surface-1 text-theme-body focus:ring-2 focus:ring-blue-500 focus:outline-none disabled:opacity-40 cursor-pointer"
+                  >
+                    <option value="">-- Month --</option>
+                    {["January","February","March","April","May","June","July","August","September","October","November","December"].map((m, i) => (
+                      <option key={i + 1} value={i + 1}>{m}</option>
+                    ))}
+                  </select>
+                  {acctEnvelope?.parameters && (
+                    <span className="text-[10px] font-mono text-theme-muted border border-theme-border rounded px-2 py-0.5 ml-auto">
+                      Period: {acctEnvelope.rows?.[0]?.period_label ?? "—"}
+                      {" · Branch: "}{acctEnvelope.rows?.[0]?.branch_scope ?? "ALL"}
+                    </span>
+                  )}
+                </div>
+                {/* Engine */}
+                <SmritiReportEngine
+                  reportId={selectedReport.id}
+                  reportTitle={selectedReport.title}
+                  reportCategory="Accounts Summary"
+                  description={selectedReport.description}
+                  columns={(acctEnvelope?.columns ?? []).map((c: any) => ({
+                    key:        c.key,
+                    label:      c.label,
+                    datatype:   c.datatype as any,
+                    align:      c.align ?? "left",
+                    width:      c.width,
+                    isSummary:  ["currency", "number"].includes(c.datatype),
+                  }))}
+                  data={acctEnvelope?.rows ?? []}
+                  summaryMetrics={
+                    acctEnvelope?.summary_cards
+                      ? Object.fromEntries(
+                          acctEnvelope.summary_cards.map((sc: any) => [sc.label, sc.value])
+                        )
+                      : undefined
+                  }
+                  chartConfig={acctEnvelope?.chart_config ?? undefined}
+                  systemMessage={acctEnvelope?.system_message ?? undefined}
+                  isLoading={loadingReports}
+                  activeRole={activeRole}
+                  onNotification={(type, msg) => showNotification(type, msg)}
+                />
+              </div>
+            )}
+
             {/* Universal Report Engine for unhandled or generic operational datasets */}
             {![
               "RPT-SAL-001",
+              "RPT-SAL-013",
+              "RPT-INV-001",
+              "RPT-PUR-001",
               "RPT-PUR-002",
               "RPT-TAX-001",
               "RPT-TAX-002",
@@ -3379,6 +5206,7 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
               "RPT-SO-005",
               "RPT-SO-006",
               "RPT-SO-007",
+              "RPT-ACCT-001",  // Phase 1E — handled by dedicated block above
             ].includes(selectedReport.id) && (
               <div className="p-4">
                 <SmritiReportEngine
@@ -3402,127 +5230,31 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
         </div>
       )}
 
-      {/* AUTOMATED SCHEDULER POPUP MODAL */}
-      <AnimatePresence>
-        {showScheduleModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm" onClick={() => setShowScheduleModal(false)}></div>
-            <motion.div
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-theme-surface-1 border border-theme-divider rounded-2xl w-full max-w-md shadow-2xl overflow-hidden relative z-50 font-sans"
-            >
-              <div className="p-5 border-b border-theme-divider flex items-center justify-between bg-theme-surface-2">
-                <div className="flex items-center gap-2">
-                  <Clock size={16} className="text-amber-400" />
-                  <h4 className="font-bold text-theme-body text-sm">Schedule Report Distribution</h4>
-                </div>
-                <button onClick={() => setShowScheduleModal(false)} className="text-theme-muted hover:text-white">
-                  <X size={16} />
-                </button>
-              </div>
+      {/* CANONICAL CONSOLIDATED BALANCE SHEET MODAL */}
+      {showBalanceSheetModal && (
+        <ConsolidatedBalanceSheetModal
+          isOpen={showBalanceSheetModal}
+          onClose={() => setShowBalanceSheetModal(false)}
+        />
+      )}
 
-              <form onSubmit={handleRegisterSchedule} className="p-5 space-y-4 text-xs">
-                {activeRole === "Cashier" && (
-                  <div className="p-3.5 bg-rose-500/10 border border-rose-500/20 text-rose-400 rounded-xl flex items-start gap-2.5">
-                    <ShieldAlert size={16} className="shrink-0 mt-0.5" />
-                    <div>
-                      <div className="font-bold">Access Restrained (Rule 10)</div>
-                      <p className="text-[10px] mt-0.5">Cashiers are blocked from registering automated business reports schedules.</p>
-                    </div>
-                  </div>
-                )}
+      {/* CANONICAL BRANCH PROFIT & LOSS DASHBOARD MODAL */}
+      {showPLDashboardModal && (
+        <PLDashboardModal
+          isOpen={showPLDashboardModal}
+          onClose={() => setShowPLDashboardModal(false)}
+        />
+      )}
 
-                <div className="space-y-1">
-                  <label className="text-theme-muted font-bold block uppercase">Active Report</label>
-                  <input
-                    type="text"
-                    readOnly
-                    value={selectedReport?.title || ""}
-                    className="w-full bg-theme-surface-3 border border-theme-divider rounded-lg px-3 py-2 text-theme-muted cursor-not-allowed"
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <label className="text-theme-muted font-bold block uppercase">Recipient Email Address</label>
-                  <input
-                    type="email"
-                    required
-                    value={scheduleForm.recipientEmail}
-                    onChange={(e) => setScheduleForm({...scheduleForm, recipientEmail: e.target.value})}
-                    placeholder="manager@smritibooks.com"
-                    className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg px-3 py-2 text-theme-body focus:outline-none focus:border-blue-500"
-                    disabled={activeRole === "Cashier"}
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1">
-                    <label className="text-theme-muted font-bold block uppercase">Frequency</label>
-                    <select
-                      value={scheduleForm.frequency}
-                      onChange={(e) => {
-                        let cron = "0 8 * * *";
-                        if (e.target.value === "Weekly") cron = "0 8 * * 1";
-                        if (e.target.value === "Monthly") cron = "0 8 1 * *";
-                        setScheduleForm({...scheduleForm, frequency: e.target.value, cron});
-                      }}
-                      className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg px-2.5 py-2 text-theme-body focus:outline-none focus:border-blue-500 cursor-pointer"
-                      disabled={activeRole === "Cashier"}
-                    >
-                      <option value="Daily">Daily Summary</option>
-                      <option value="Weekly">Weekly Summary</option>
-                      <option value="Monthly">Monthly Pivot</option>
-                    </select>
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="text-theme-muted font-bold block uppercase">Attachment Format</label>
-                    <select
-                      value={scheduleForm.format}
-                      onChange={(e) => setScheduleForm({...scheduleForm, format: e.target.value})}
-                      className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg px-2.5 py-2 text-theme-body focus:outline-none focus:border-blue-500 cursor-pointer"
-                      disabled={activeRole === "Cashier"}
-                    >
-                      <option value="PDF">PDF Document</option>
-                      <option value="Excel">Excel Sheet</option>
-                      <option value="CSV">CSV Format</option>
-                    </select>
-                  </div>
-                </div>
-
-                <div className="space-y-1">
-                  <label className="text-theme-muted font-bold block uppercase">Calculated Cron Expression</label>
-                  <input
-                    type="text"
-                    readOnly
-                    value={scheduleForm.cron}
-                    className="w-full bg-theme-surface-3 border border-theme-divider rounded-lg px-3 py-2 text-theme-muted font-mono"
-                  />
-                </div>
-
-                <div className="pt-4 flex items-center justify-end gap-2.5 border-t border-theme-divider">
-                  <button
-                    type="button"
-                    onClick={() => setShowScheduleModal(false)}
-                    className="px-4 py-2 bg-theme-surface-2 border border-theme-divider rounded-lg font-bold text-theme-muted hover:text-white transition-colors"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={activeRole === "Cashier"}
-                    className="px-5 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-800 disabled:text-theme-muted text-white rounded-lg font-bold shadow-lg shadow-blue-500/10 transition-colors"
-                  >
-                    Register Schedule
-                  </button>
-                </div>
-              </form>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
+      {/* CANONICAL AUTOMATED SCHEDULER MODAL */}
+      {showScheduleModal && (
+        <ScheduleReportModal
+          isOpen={showScheduleModal}
+          onClose={() => setShowScheduleModal(false)}
+          reportCode={selectedReport?.id || "RPT-SAL-001"}
+          reportTitle={selectedReport?.title || "Daily Sales & Tax Register"}
+        />
+      )}
 
       {/* DIRECT SHARING POPUP MODAL */}
       <AnimatePresence>
@@ -3667,10 +5399,54 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
 
       {/* SALES ORDER CONFIRMATION / PROFORMA PRINT PREVIEW MODAL */}
       <AnimatePresence>
-        {showSoPrintModal && soPreviewData && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm overflow-y-auto">
-            <div className="bg-slate-900 border border-slate-700 rounded-2xl max-w-4xl w-full p-6 shadow-2xl relative max-h-[92vh] flex flex-col">
-              <div className="flex justify-between items-center pb-4 mb-4 border-b border-slate-800 shrink-0">
+        {showSoPrintModal && soPreviewData && typeof document !== "undefined" && document?.body && createPortal(
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm overflow-y-auto so-print-modal-root">
+            <style dangerouslySetInnerHTML={{ __html: `
+              @media print {
+                @page {
+                  size: A4 portrait;
+                  margin: 10mm 12mm 12mm 12mm;
+                }
+                #root {
+                  display: none !important;
+                }
+                html, body {
+                  height: auto !important;
+                  min-height: 0 !important;
+                  overflow: visible !important;
+                  margin: 0 !important;
+                  padding: 0 !important;
+                  background: #ffffff !important;
+                }
+                .so-print-modal-root {
+                  position: static !important;
+                  display: block !important;
+                  width: 100% !important;
+                  margin: 0 !important;
+                  padding: 0 !important;
+                  background: #ffffff !important;
+                  overflow: visible !important;
+                }
+                .so-print-modal-dialog {
+                  position: static !important;
+                  display: block !important;
+                  width: 100% !important;
+                  max-width: none !important;
+                  max-height: none !important;
+                  margin: 0 !important;
+                  padding: 0 !important;
+                  background: #ffffff !important;
+                  box-shadow: none !important;
+                  border: none !important;
+                  overflow: visible !important;
+                }
+                .so-print-toolbar {
+                  display: none !important;
+                }
+              }
+            `}} />
+            <div className="bg-slate-900 border border-slate-700 rounded-2xl max-w-4xl w-full p-6 shadow-2xl relative max-h-[92vh] flex flex-col so-print-modal-dialog">
+              <div className="flex justify-between items-center pb-4 mb-4 border-b border-slate-800 shrink-0 so-print-toolbar">
                 <div className="flex items-center gap-2.5">
                   <div className="p-2 bg-indigo-600/20 text-indigo-400 rounded-lg border border-indigo-500/30">
                     <Printer size={16} />
@@ -3716,11 +5492,11 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
                 <SalesOrderA4 data={soPreviewData} />
               </div>
             </div>
-          </div>
+          </div>,
+          document.body
         )}
       </AnimatePresence>
 
     </div>
   );
 };
-

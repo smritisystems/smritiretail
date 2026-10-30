@@ -4,37 +4,45 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 2.1.4
+ * Version      : 6.99.19
  * Created      : 2026-07-10
- * Modified     : 2026-08-19
+ * Modified     : 2026-10-29
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
+ * Classification: Sales Studio Tab with Unified Quotation Body Portal Print Studio
  */
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
+import { createPortal } from "react-dom";
 import { Printer, MessageCircle, Mail, AlignJustify,
   FileText, Plus, Search, Grid, Trash2, Edit3,
   RefreshCw, User, Calendar, DollarSign, Percent,
   ArrowRight, FileCheck, AlertCircle, ShoppingCart,
   CheckCircle2, X, Eye, Layers, Undo2, Ban, ShieldAlert,
   UserCheck, UserX, CreditCard, Check, MoreVertical,
-  Upload, Download, AlertTriangle, XCircle, Info, FileSpreadsheet
+  Upload, Download, AlertTriangle, XCircle, Info, FileSpreadsheet,
+  Truck, ChevronsUpDown, ChevronUp, ChevronDown
 } from "lucide-react";
+import { PrepareDispatchModal } from "./PrepareDispatchDlg.tsx";
+import { ProcessSalesReturnModal } from "./ProcessSalesReturn.tsx";
 import { motion } from "motion/react";
 import { SmritiScrollArea } from "./SmritiScrollArea.tsx";
 import { Product, Quotation, SalesOrder, SalesItemLine, SalesInvoice, SalesReturn, Customer, CustomerGroup } from "../types.js";
 import { SmartFilter, FilterDefinition } from "./SmartFilter.tsx";
-import { apiFetchV1 } from "../lib/apiFetchV1.ts";
+import { apiFetchV1, openAuthenticatedDocument, getTenantCompanyContext } from "../lib/apiFetchV1.ts";
 import { getCustomers, getCustomerGroups, saveCustomers } from "../services/customerStore.ts";
 import { recordAuditAction } from "../lib/apiFetch.ts";
 import { ProductImage } from "./common/ProductImage.tsx";
 import { CompanySelector } from "./layout/CompanySelector.tsx";
 import { formatDate, formatDateTime, formatCurrency, formatNumber, safeNumber } from "../utils/formatters.ts";
 import { normalizeSalesOrders, normalizeQuotations } from "../utils/normalizeSales.ts";
+import { GridInputEngine } from "../services/gridInput/gridInputEngine";
 import { isValidMobile } from "../utils/validators.ts";
-import { DistTaxInvoice } from "./sales/DistTaxInvoice.tsx";
 import { SalesOrderMatrixEntry } from "./sales/SalesOrderMatrixEntry";
 import { SalesOrderFormPremium, SalesOrderFormData } from "./sales/SalesOrderFormPremium";
 import { useACAS } from "../context-actions/ContextProvider.tsx";
+import { SmritiConfirmDialog, SmritiReasonDialog } from "./common/SmritiConfirmDialog.tsx";
+import { SmritiEmptyState } from "./common/SmritiEmptyState.tsx";
+import { SmritiTableSkeleton } from "./common/SmritiTableSkeleton.tsx";
 
 interface ParsedRow {
   name: string;
@@ -51,46 +59,9 @@ interface ParsedRow {
 }
 
 function parseCSV(text: string): string[][] {
-  const lines: string[][] = [];
-  let row: string[] = [];
-  let inQuotes = false;
-  let currentValue = "";
-
-  for (let i = 0; i < text.length; i++) {
-    const char = text[i];
-    const nextChar = text[i + 1];
-
-    if (char === '"') {
-      if (inQuotes && nextChar === '"') {
-        currentValue += '"';
-        i++; // skip next quote
-      } else {
-        inQuotes = !inQuotes;
-      }
-    } else if (char === ',' && !inQuotes) {
-      row.push(currentValue.trim());
-      currentValue = "";
-    } else if ((char === '\r' || char === '\n') && !inQuotes) {
-      row.push(currentValue.trim());
-      currentValue = "";
-      if (row.length > 0 || row.some(cell => cell !== "")) {
-        lines.push(row);
-      }
-      row = [];
-      if (char === '\r' && nextChar === '\n') {
-        i++; // skip \n
-      }
-    } else {
-      currentValue += char;
-    }
-  }
-  if (currentValue || row.length > 0) {
-    row.push(currentValue.trim());
-    if (row.some(cell => cell !== "")) {
-      lines.push(row);
-    }
-  }
-  return lines;
+  if (!text || !text.trim()) return [];
+  const parseResult = GridInputEngine.parseDelimitedText(text);
+  return parseResult.matrix;
 }
 
 function generateNextCustomerId(existing: Customer[], indexOffset: number = 0): string {
@@ -275,12 +246,25 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
   const [customerGroups, setCustomerGroups] = useState<CustomerGroup[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [subView, setSubView] = useState<"quotations" | "orders" | "invoices" | "returns" | "customers">("quotations");
-  const [density, setDensity] = useState<"compact" | "comfortable" | "relaxed">("comfortable");
+  const [density, setDensity] = useState<"compact" | "comfortable" | "relaxed">(
+    () => (localStorage.getItem("smriti_sales_density") as "compact" | "comfortable" | "relaxed") || "comfortable"
+  );
+  // REC-12: Persist density preference to localStorage on every change
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  React.useEffect(() => { localStorage.setItem("smriti_sales_density", density); }, [density]);
+
   const densityPadding = density === "compact" ? "py-1.5" : density === "comfortable" ? "py-3" : "py-4";
   const [activeFilters, setActiveFilters] = useState<Record<string, any>>({});
 
   // Selection states for detail view
   const [selectedQuotation, setSelectedQuotation] = useState<Quotation | null>(null);
+  const [printQuotationModal, setPrintQuotationModal] = useState<Quotation | null>(null);
+  const tenantContext = useMemo(() => {
+    if (typeof window !== "undefined") {
+      return getTenantCompanyContext();
+    }
+    return { companyName: "", companyAddress: "", companyGstin: "" };
+  }, []);
   const [selectedOrder, setSelectedOrder] = useState<SalesOrder | null>(null);
   const [selectedInvoice, setSelectedInvoice] = useState<SalesInvoice | null>(null);
   const [selectedReturn, setSelectedReturn] = useState<SalesReturn | null>(null);
@@ -296,12 +280,6 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
   const [editorStatus, setEditorStatus] = useState<"Draft" | "Submitted">("Draft");
 
   // Editor states (for creating Sales Invoices)
-  const [isCreatingInvoice, setIsCreatingInvoice] = useState<boolean>(false);
-  const [invoiceCustomerId, setInvoiceCustomerId] = useState<string>("");
-  const [invoiceItems, setInvoiceItems] = useState<any[]>([]);
-  const [invoiceStatus, setInvoiceStatus] = useState<"Draft" | "Submitted">("Draft");
-  const [invoiceIsInterstate, setInvoiceIsInterstate] = useState<boolean>(false);
-  const [invoiceEWayBill, setInvoiceEWayBill] = useState<string>("");
   const [selectedEWayBill, setSelectedEWayBill] = useState<string>("");
 
   // Editor states (for creating Sales Returns)
@@ -311,6 +289,60 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
   const [returnReason, setReturnReason] = useState<string>("Standard Return");
   const [returnIsInterstate, setReturnIsInterstate] = useState<boolean>(false);
   const [returnStatus, setReturnStatus] = useState<"Draft" | "Submitted">("Draft");
+
+  // Modal states for ProcessSalesReturn and PrepareDispatch
+  const [dispatchModalInvoice, setDispatchModalInvoice] = useState<any | null>(null);
+  const [returnModalInvoice, setReturnModalInvoice] = useState<any | null>(null);
+
+  // Design-system dialog states (REC-01: replaces window.confirm / window.prompt)
+  const [confirmDeleteQuotationId, setConfirmDeleteQuotationId] = useState<string | null>(null);
+  const [reasonDialogLine, setReasonDialogLine] = useState<{ line: SalesItemLine; action: "close" | "cancel" } | null>(null);
+
+  // REC-11: Customer table sort state
+  const [customerSortKey, setCustomerSortKey] = useState<string>("name");
+  const [customerSortDir, setCustomerSortDir] = useState<"asc" | "desc">("asc");
+
+  // REC-19: Inline customer tag editing — local-optimistic map: customerId -> tag[]  
+  const [customerTagEdits, setCustomerTagEdits] = useState<Record<string, string[]>>({});
+  const [tagInputValues, setTagInputValues] = useState<Record<string, string>>({});
+  const [tagEditingId, setTagEditingId] = useState<string | null>(null);
+  const resolveCustomerTags = (c: Customer) =>
+    customerTagEdits[c.id] !== undefined ? customerTagEdits[c.id] : (c.tags || []);
+  const commitTagAdd = (cId: string) => {
+    const val = (tagInputValues[cId] || "").trim().replace(/,+$/, "");
+    if (!val) { setTagEditingId(null); return; }
+    const current = customerTagEdits[cId] !== undefined ? customerTagEdits[cId] : [];
+    if (!current.includes(val)) {
+      setCustomerTagEdits(prev => ({ ...prev, [cId]: [...current, val] }));
+    }
+    setTagInputValues(prev => ({ ...prev, [cId]: "" }));
+    setTagEditingId(null);
+  };
+  const removeTag = (cId: string, tag: string, existingTags: string[]) => {
+    setCustomerTagEdits(prev => ({ ...prev, [cId]: existingTags.filter(t => t !== tag) }));
+  };
+
+  // REC-18: Sales Studio keyboard shortcuts overlay
+  const [showShortcutsModal, setShowShortcutsModal] = useState(false);
+  React.useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement).tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+      if (e.key === "?") { e.preventDefault(); setShowShortcutsModal(v => !v); }
+      if (e.key === "Escape") { setShowShortcutsModal(false); setSelectedIds(new Set()); }
+      if (e.shiftKey && e.key === "Q") setSubView("quotations");
+      if (e.shiftKey && e.key === "O") setSubView("orders");
+      if (e.shiftKey && e.key === "I") setSubView("invoices");
+      if (e.shiftKey && e.key === "R") setSubView("returns");
+      if (e.shiftKey && e.key === "C") setSubView("customers");
+      if (e.key === "d" || e.key === "D") {
+        setDensity(prev => prev === "compact" ? "comfortable" : prev === "comfortable" ? "relaxed" : "compact");
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // CSV Import States
   const [isImportingCustomers, setIsImportingCustomers] = useState<boolean>(false);
@@ -326,6 +358,17 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
 
   // Manual Customer addition states
   const [isAddingCustomer, setIsAddingCustomer] = useState<boolean>(false);
+  // REC-15: Per-field inline validation for Add Customer form
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const validateField = (field: string, value: string) => {
+    let err = "";
+    if (field === "name" && value.trim().length < 2) err = "Name must be at least 2 characters.";
+    if (field === "mobile" && value && !/^[6-9]\d{9}$/.test(value.trim())) err = "Enter a valid 10-digit Indian mobile number.";
+    if (field === "email" && value && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim())) err = "Enter a valid email address.";
+    if (field === "gst" && value && !/^\d{2}[A-Z]{5}\d{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/.test(value.trim().toUpperCase())) err = "GSTIN must be 15 chars (e.g. 27AAACS1094J1Z3).";
+    if (field === "pan" && value && !/^[A-Z]{5}[0-9]{4}[A-Z]$/.test(value.trim().toUpperCase())) err = "PAN must be 10 chars (e.g. ABCDE1234F).";
+    setFieldErrors(prev => ({ ...prev, [field]: err }));
+  };
   const [newCustomerName, setNewCustomerName] = useState<string>("");
   const [newCustomerMobile, setNewCustomerMobile] = useState<string>("");
   const [newCustomerEmail, setNewCustomerEmail] = useState<string>("");
@@ -554,6 +597,21 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
   }, [selectedQuotation]);
 
   useEffect(() => {
+    if (!printQuotationModal) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        setPrintQuotationModal(null);
+      } else if (e.key === "F9" || ((e.ctrlKey || e.metaKey) && (e.key === "p" || e.key === "P"))) {
+        e.preventDefault();
+        window.print();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [printQuotationModal]);
+
+  useEffect(() => {
     if (selectedOrder) {
       recordAuditAction("TRANSACTION_VIEW", "sales_orders", selectedOrder.id, `Viewed sales order details: ${selectedOrder.orderNo}`);
     }
@@ -580,28 +638,12 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
     }
   }, [selectedCustomer]);
 
-  if (!hasTenantContext) {
-    return (
-      <div className="p-8">
-        <div className="rounded-3xl border border-rose-500/20 bg-rose-950/10 p-8 shadow-sm">
-          <div className="mb-4 text-2xl font-semibold text-rose-200">Sales Studio requires tenant assignment</div>
-          <p className="mb-3 text-sm text-rose-300 leading-relaxed">
-            Your current operator account is not assigned to a company and branch. Sales Studio is a tenant-scoped business module and requires a tenant-scoped user to access sales invoices, orders, quotations, returns and customer-ledger data.
-          </p>
-          <p className="text-sm text-rose-300 leading-relaxed">
-            Please ask a SYSADMIN to assign your account to a company and branch, or log in with a tenant-scoped sales operator account.
-          </p>
-        </div>
-      </div>
-    );
-  }
-
   // ACAS Global Event Listeners
   useEffect(() => {
     const handlePrintInvoice = (e: any) => {
       const inv = e.detail;
       if (inv?.id) {
-        window.open(`/api/v1/sales/invoices/${inv.id}/print`, "_blank");
+        openAuthenticatedDocument(`/api/v1/sales/invoices/${inv.id}/print`, "_blank");
         onNotification("Print Action", `Sales Invoice ${inv.invoiceNo} opened in canonical print spooler.`, "success");
       }
     };
@@ -711,6 +753,34 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
     }
   };
 
+  const handleSalesOrderLineAction = async (line: SalesItemLine, action: "close" | "cancel") => {
+    if (!selectedOrder || line.id == null) {
+      onNotification("Action unavailable", "This order line has no server identity.", "error");
+      return;
+    }
+    // REC-01: Replaced window.prompt() with SmritiReasonDialog
+    setReasonDialogLine({ line, action });
+    return;
+  };
+
+  const executeOrderLineAction = async (line: SalesItemLine, action: "close" | "cancel", reason: string) => {
+    try {
+      const cleanOrderId = String(selectedOrder!.id || "").replace(/^:/, "").trim();
+      const cleanLineId = String(line.id).replace(/^:/, "").trim();
+      await apiFetchV1(`/sales/orders/${encodeURIComponent(cleanOrderId)}/lines/${encodeURIComponent(cleanLineId)}/${action}`, {
+        method: "POST",
+        body: JSON.stringify({ reason: reason.trim() }),
+      });
+      const refreshed = await apiFetchV1(`/sales/orders/${encodeURIComponent(cleanOrderId)}`);
+      const normalized = normalizeSalesOrders([refreshed])[0];
+      if (normalized) setSelectedOrder(normalized);
+      await fetchSalesOrders();
+      onNotification("Sales Order updated", `${line.code} marked ${action === "cancel" ? "cancelled" : "closed"}.`, "success");
+    } catch (error: any) {
+      onNotification("Update failed", error?.message || `Could not ${action} the order line.`, "error");
+    }
+  };
+
   // Group products for Matrix Mode
   // articleNames are distinct names (e.g. Classic Cotton T-Shirt, Retro Leather Sneakers)
   const baseArticles = Array.from(new Set(products.map(p => p.name)));
@@ -740,8 +810,8 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
       return;
     }
 
-    const currentItems = isCreatingInvoice ? invoiceItems : editorItems;
-    const setCurrentItems = isCreatingInvoice ? setInvoiceItems : setEditorItems;
+    const currentItems = editorItems;
+    const setCurrentItems = setEditorItems;
 
     // Check if variant already exists in current draft items list
     const existingIndex = currentItems.findIndex(item => item.productId === prod.id);
@@ -798,8 +868,8 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
       return;
     }
 
-    const currentItems = isCreatingInvoice ? invoiceItems : editorItems;
-    const setCurrentItems = isCreatingInvoice ? setInvoiceItems : setEditorItems;
+    const currentItems = editorItems;
+    const setCurrentItems = setEditorItems;
 
     // Merge into current list
     const updated = [...currentItems];
@@ -819,11 +889,7 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
   };
 
   const handleRemoveDraftItem = (index: number) => {
-    if (isCreatingInvoice) {
-      setInvoiceItems(invoiceItems.filter((_, i) => i !== index));
-    } else {
-      setEditorItems(editorItems.filter((_, i) => i !== index));
-    }
+    setEditorItems(editorItems.filter((_, i) => i !== index));
   };
 
   const handleSaveQuotation = async () => {
@@ -880,22 +946,20 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
       await apiFetchV1("/sales/orders", {
         method: "POST",
         body: JSON.stringify({
-          doc_prefix: formData.docPrefix || "SO",
-          doc_number: formData.docNumber || undefined,
-          doc_date: formData.docDate || new Date().toISOString().slice(0, 10),
-          doc_time: formData.docTime || new Date().toTimeString().slice(0, 5),
+          id: `so-${Date.now().toString(36)}`,
+          order_no: `${formData.docPrefix || "SO"}-${formData.docNumber || Date.now().toString().slice(-6)}`,
+          date: formData.docDate || new Date().toISOString().slice(0, 10),
           customer_id: formData.customerId || formData.customerCode || "",
-          customer_code: formData.customerCode || formData.customerId || "",
           customer_name: formData.customerName || "Walk-in Customer",
-          sales_staff: formData.salesStaff || "",
           items: (formData.items || []).map((item) => ({
-            stock_no: item.stockNo || "",
-            description: item.description || "",
-            rate: Number(item.rate || 0),
+            product_id: item.id || item.stockNo || "",
+            code: item.stockNo || "",
+            name: item.description || item.stockNo || "Item",
+            price: Number(item.rate || 0),
             quantity: Number(item.quantity || 0),
-            disc_percent: Number(item.discPercent || 0),
-            disc_amount: Number(item.discAmount || 0),
-            sales_staff: item.salesStaff || formData.salesStaff || "",
+            hsn_code: item.hsn || undefined,
+            gst_rate: Number(item.gstRate ?? item.taxPercent ?? 0),
+            total_amount: Number(item.total || item.value || 0),
           })),
         })
       });
@@ -920,62 +984,6 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
     } catch (e: any) {
       console.error(e);
       onNotification("Error", e.message || "Network error", "error");
-    }
-  };
-
-  const handleSaveInvoice = async () => {
-    if (isReadOnly) {
-      onNotification("Access Denied", "Operating under a Read-Only Report User role. Write operations are prohibited.", "error");
-      return;
-    }
-    if (!invoiceCustomerId) {
-      onNotification("Validation Error", "Please select a Customer.", "error");
-      return;
-    }
-    if (invoiceItems.length === 0) {
-      onNotification("Validation Error", "Please add at least one item line.", "error");
-      return;
-    }
-
-    try {
-      // Client-Generated Idempotency Key — persists across request retries
-      const idempotencyKey = (window as any)._activeInvoiceIdempotencyKey || (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `idempotent-key-${Date.now()}`);
-      (window as any)._activeInvoiceIdempotencyKey = idempotencyKey;
-
-      // Migrated: POST /api/sales/invoices (Express) → POST /api/v1/sales/invoices (FastAPI)
-      const serverResponse = await apiFetchV1("/sales/invoices", {
-        method: "POST",
-        headers: {
-          "Idempotency-Key": idempotencyKey
-        },
-        body: JSON.stringify({
-          customerId: invoiceCustomerId,
-          items: invoiceItems,
-          status: invoiceStatus,
-          isInterstate: invoiceIsInterstate,
-          eWayBillNo: invoiceEWayBill || undefined
-        })
-      });
-      // Clear idempotency key upon successful commit
-      delete (window as any)._activeInvoiceIdempotencyKey;
-
-      // Authoritative State Replacement: replace local state with complete server response
-      const normalizedInv = {
-        ...serverResponse,
-        invoiceNo: serverResponse.invoiceNo || serverResponse.invoice_no || "INV",
-        customerId: serverResponse.customerId || serverResponse.customer_id || "",
-        grandTotal: typeof serverResponse.grandTotal === "number" ? serverResponse.grandTotal : parseFloat(serverResponse.grand_total || "0"),
-        taxTotal: typeof serverResponse.taxTotal === "number" ? serverResponse.taxTotal : parseFloat(serverResponse.tax_total || "0"),
-      };
-      onNotification("Success", `Sales Invoice ${normalizedInv.invoiceNo} written to database ledger.`, "success");
-      setSelectedInvoice(normalizedInv);
-      setIsCreatingInvoice(false);
-      setInvoiceCustomerId("");
-      setInvoiceItems([]);
-      setInvoiceEWayBill("");
-      fetchSalesInvoices();
-    } catch (e: any) {
-      onNotification("Network Error", e.message || "Connection failed while writing Invoice.", "error");
     }
   };
 
@@ -1030,7 +1038,11 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
   };
 
   const handleDeleteQuotation = async (qId: string) => {
-    if (!confirm("Are you sure you want to permanently delete this quotation draft?")) return;
+    // REC-01: Replaced window.confirm() with SmritiConfirmDialog
+    setConfirmDeleteQuotationId(qId);
+  };
+
+  const executeDeleteQuotation = async (qId: string) => {
     try {
       // Migrated: quotation delete → apiFetchV1 (FastAPI)
       await apiFetchV1(`/sales/quotations/${qId}`, { method: "DELETE" });
@@ -1056,6 +1068,36 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
     const tagMatch = (c.tags || []).some(t => t.toLowerCase().includes(query));
     return nameMatch || emailMatch || phoneMatch || tagMatch;
   });
+
+  // REC-11: Sort derived from filteredCustomers
+  const sortedCustomers = React.useMemo(() => {
+    const resolveVal = (c: Customer, key: string): string | number => {
+      switch (key) {
+        case "code":        return c.code || c.id?.slice(-6).toUpperCase() || "";
+        case "name":        return c.name?.toLowerCase() || "";
+        case "priceGroup":  return c.priceGroup || c.priceGroupCode || "";
+        case "mobile":      return c.mobile || "";
+        case "city":        return c.city || c.billingCity || "";
+        case "religion":    return c.religion || c.customerType || "";
+        case "loyaltyTier": return c.loyaltyTier || "";
+        case "creditLimit": return Number(c.creditLimit ?? 0);
+        case "status":      return c.status || "";
+        default:            return "";
+      }
+    };
+    return [...filteredCustomers].sort((a, b) => {
+      const av = resolveVal(a, customerSortKey);
+      const bv = resolveVal(b, customerSortKey);
+      if (typeof av === "number" && typeof bv === "number") {
+        return customerSortDir === "asc" ? av - bv : bv - av;
+      }
+      const as = String(av);
+      const bs = String(bv);
+      return customerSortDir === "asc" ? as.localeCompare(bs) : bs.localeCompare(as);
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filteredCustomers, customerSortKey, customerSortDir]);
+
 
   // Quick Stats
   const activeDrafts = quotations.filter(q => q.status === "Draft").length;
@@ -1089,6 +1131,22 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
     }
   ];
 
+  if (!hasTenantContext) {
+    return (
+      <div className="p-8">
+        <div className="rounded-3xl border border-rose-500/20 bg-rose-950/10 p-8 shadow-sm">
+          <div className="mb-4 text-2xl font-semibold text-rose-200">Sales Studio requires tenant assignment</div>
+          <p className="mb-3 text-sm text-rose-300 leading-relaxed">
+            Your current operator account is not assigned to a company and branch. Sales Studio is a tenant-scoped business module and requires a tenant-scoped user to access sales invoices, orders, quotations, returns and customer-ledger data.
+          </p>
+          <p className="text-sm text-rose-300 leading-relaxed">
+            Please ask a SYSADMIN to assign your account to a company and branch, or log in with a tenant-scoped sales operator account.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col h-full bg-theme-surface-1 text-theme-primary font-sans">
       {/* Header */}
@@ -1117,7 +1175,6 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
               setSelectedReturn(null);
               setSelectedCustomer(null);
               setIsCreatingQuotation(false);
-              setIsCreatingInvoice(false);
               setIsCreatingReturn(false);
               setIsImportingCustomers(false);
               if (tab === "quotations") fetchQuotations(activeFilters);
@@ -1126,7 +1183,7 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
               else if (tab === "returns") fetchSalesReturns(activeFilters);
               else if (tab === "customers") fetchCustomers();
             }}
-            className={`px-4 py-3 text-xs font-bold uppercase tracking-wider font-mono border-b-2 transition-colors whitespace-nowrap cursor-pointer ${
+            className={`flex items-center gap-2 px-4 py-3 text-xs font-bold uppercase tracking-wider font-mono border-b-2 transition-colors whitespace-nowrap cursor-pointer ${
               subView === tab
                 ? "border-blue-500 text-blue-400 bg-theme-surface-3"
                 : "border-transparent text-theme-muted hover:text-theme-primary hover:bg-theme-surface-hover"
@@ -1137,9 +1194,100 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
             {tab === "invoices" && "Sales Invoices"}
             {tab === "returns" && "Sales Returns"}
             {tab === "customers" && "Customers"}
+            {/* REC-05: Tab badge counts */}
+            {tab === "quotations" && quotations.length > 0 && (
+              <span className="px-1.5 py-0.5 rounded-full bg-blue-500/15 text-blue-400 text-[9px] font-bold font-mono min-w-[18px] text-center">
+                {quotations.length}
+              </span>
+            )}
+            {tab === "orders" && salesOrders.length > 0 && (
+              <span className="px-1.5 py-0.5 rounded-full bg-amber-500/15 text-amber-400 text-[9px] font-bold font-mono min-w-[18px] text-center">
+                {salesOrders.length}
+              </span>
+            )}
+            {tab === "invoices" && salesInvoices.length > 0 && (
+              <span className="px-1.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 text-[9px] font-bold font-mono min-w-[18px] text-center">
+                {salesInvoices.length}
+              </span>
+            )}
+            {tab === "returns" && salesReturns.length > 0 && (
+              <span className="px-1.5 py-0.5 rounded-full bg-red-500/15 text-red-400 text-[9px] font-bold font-mono min-w-[18px] text-center">
+                {salesReturns.length}
+              </span>
+            )}
+            {tab === "customers" && customers.length > 0 && (
+              <span className="px-1.5 py-0.5 rounded-full bg-purple-500/15 text-purple-400 text-[9px] font-bold font-mono min-w-[18px] text-center">
+                {customers.length}
+              </span>
+            )}
           </button>
         ))}
+        {/* REC-18: Shortcut help trigger button */}
+        <button
+          type="button"
+          onClick={() => setShowShortcutsModal(true)}
+          title="Keyboard shortcuts (?)"
+          className="ml-auto flex items-center gap-1 px-3 py-2 text-[10px] font-mono text-theme-muted hover:text-theme-primary border-b-2 border-transparent hover:border-indigo-400 transition-colors whitespace-nowrap cursor-pointer"
+        >
+          <Info size={12} />
+          <span className="hidden sm:inline">Shortcuts</span>
+          <kbd className="px-1 py-0.5 rounded bg-theme-surface-3 border border-theme-divider text-[9px] font-bold">?</kbd>
+        </button>
       </div>
+
+      {/* REC-14: Bulk Action Toolbar — slides in when rows are selected */}
+      {selectedIds.size > 0 && (
+        <div className="flex items-center gap-3 px-6 py-2.5 bg-blue-950/70 border-b border-blue-500/30 text-blue-200 text-xs font-semibold shrink-0 animate-in slide-in-from-top-2 duration-150">
+          <div className="flex items-center gap-2">
+            <div className="w-5 h-5 rounded bg-blue-500 flex items-center justify-center text-white text-[10px] font-bold">
+              {selectedIds.size}
+            </div>
+            <span className="text-blue-300 font-bold">{selectedIds.size} record{selectedIds.size === 1 ? "" : "s"} selected</span>
+          </div>
+          <div className="flex items-center gap-2 ml-4">
+            <button
+              type="button"
+              onClick={() => {
+                // Export selected IDs as CSV stub
+                const ids = Array.from(selectedIds).join(",");
+                const blob = new Blob([`id\n${ids.replace(/,/g, "\nid\n")}`], { type: "text/csv" });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement("a"); a.href = url; a.download = `smriti_${subView}_export.csv`; a.click(); URL.revokeObjectURL(url);
+              }}
+              className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-blue-800/50 hover:bg-blue-700/50 border border-blue-600/40 text-blue-200 transition-colors cursor-pointer text-[11px]"
+            >
+              <Download size={12} />
+              Export Selected
+            </button>
+            <button
+              type="button"
+              disabled={isReadOnly}
+              onClick={() => {
+                if (isReadOnly) return;
+                // Bulk delete — requires individual delete handlers per subview
+                recordAuditAction("DELETE", "sales", subView, `Bulk delete requested for ${selectedIds.size} ${subView} records: ${Array.from(selectedIds).join(", ")}`);
+                setSelectedIds(new Set());
+              }}
+              className={`flex items-center gap-1.5 px-3 py-1 rounded-lg border text-[11px] transition-colors cursor-pointer ${
+                isReadOnly
+                  ? "opacity-40 cursor-not-allowed bg-red-900/30 border-red-700/30 text-red-400"
+                  : "bg-red-900/40 hover:bg-red-800/50 border-red-600/40 text-red-300 hover:text-white"
+              }`}
+            >
+              <Trash2 size={12} />
+              Delete Selected
+            </button>
+          </div>
+          <button
+            type="button"
+            onClick={() => setSelectedIds(new Set())}
+            className="ml-auto flex items-center gap-1 text-[11px] text-blue-400 hover:text-white transition-colors cursor-pointer"
+          >
+            <X size={13} />
+            Clear
+          </button>
+        </div>
+      )}
 
       {/* Content Area */}
       <SmritiScrollArea className="flex-1 bg-theme-base p-6">
@@ -1302,21 +1450,6 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
             >
               <Plus size={14} />
               <span>Generate Sales Order</span>
-            </button>
-          )}
-          {subView === "invoices" && (
-            <button
-              onClick={() => {
-                setIsCreatingInvoice(true);
-                setInvoiceCustomerId("");
-                setInvoiceItems([]);
-                setInvoiceEWayBill("");
-              }}
-              disabled={isReadOnly}
-              className={`px-4 py-2 bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white rounded-lg text-xs font-bold flex items-center space-x-2 shadow-lg hover:shadow-emerald-900/30 transition-all ${isReadOnly ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
-            >
-              <Plus size={14} />
-              <span>Generate Sales Invoice</span>
             </button>
           )}
           {subView === "returns" && (
@@ -1752,18 +1885,6 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
                 </div>
               </div>
             </div>
-          ) : isCreatingInvoice ? (
-            /* Smriti Distributor Stitch-Integrated Tax Invoice Workspace */
-            <div className="w-full h-full overflow-hidden animate-in fade-in duration-200">
-              <DistTaxInvoice
-                onExit={() => {
-                  setIsCreatingInvoice(false);
-                  fetchSalesInvoices();
-                }}
-                onNotification={onNotification}
-                currentUser={currentUser}
-              />
-            </div>
           ) : isCreatingReturn ? (
             /* Record Sales Return Panel */
             <div className="bg-theme-surface-1 border border-theme-divider rounded-2xl overflow-hidden shadow-xl animate-in fade-in duration-200">
@@ -2042,10 +2163,18 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
                     type="text"
                     id="new-cust-name"
                     value={newCustomerName}
-                    onChange={(e) => setNewCustomerName(e.target.value)}
+                    onChange={(e) => { setNewCustomerName(e.target.value); if (fieldErrors.name) validateField("name", e.target.value); }}
+                    onBlur={(e) => validateField("name", e.target.value)}
                     placeholder="e.g. Rahul Sharma"
-                    className="w-full px-3 py-2 bg-theme-surface-2 border border-theme-divider rounded-lg text-xs text-theme-body focus:outline-none focus:border-indigo-500 transition-colors"
+                    className={`w-full px-3 py-2 bg-theme-surface-2 border rounded-lg text-xs text-theme-body focus:outline-none transition-colors ${
+                      fieldErrors.name ? "border-rose-500 focus:border-rose-400" : newCustomerName.trim().length >= 2 ? "border-emerald-600/60 focus:border-emerald-500" : "border-theme-divider focus:border-indigo-500"
+                    }`}
                   />
+                  {fieldErrors.name && (
+                    <p className="text-[10px] text-rose-400 font-mono flex items-center gap-1">
+                      <AlertCircle size={10} /> {fieldErrors.name}
+                    </p>
+                  )}
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -2056,10 +2185,19 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
                       type="text"
                       id="new-cust-mobile"
                       value={newCustomerMobile}
-                      onChange={(e) => setNewCustomerMobile(e.target.value)}
+                      onChange={(e) => { setNewCustomerMobile(e.target.value); if (fieldErrors.mobile) validateField("mobile", e.target.value); }}
+                      onBlur={(e) => validateField("mobile", e.target.value)}
                       placeholder="e.g. 9876543210"
-                      className="w-full px-3 py-2 bg-theme-surface-2 border border-theme-divider rounded-lg text-xs text-theme-body focus:outline-none focus:border-indigo-500 transition-colors"
+                      maxLength={10}
+                      className={`w-full px-3 py-2 bg-theme-surface-2 border rounded-lg text-xs text-theme-body focus:outline-none transition-colors font-mono ${
+                        fieldErrors.mobile ? "border-rose-500 focus:border-rose-400" : newCustomerMobile.trim().length === 10 ? "border-emerald-600/60 focus:border-emerald-500" : "border-theme-divider focus:border-indigo-500"
+                      }`}
                     />
+                    {fieldErrors.mobile && (
+                      <p className="text-[10px] text-rose-400 font-mono flex items-center gap-1">
+                        <AlertCircle size={10} /> {fieldErrors.mobile}
+                      </p>
+                    )}
                   </div>
 
                   {/* Email */}
@@ -2069,10 +2207,18 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
                       type="email"
                       id="new-cust-email"
                       value={newCustomerEmail}
-                      onChange={(e) => setNewCustomerEmail(e.target.value)}
+                      onChange={(e) => { setNewCustomerEmail(e.target.value); if (fieldErrors.email) validateField("email", e.target.value); }}
+                      onBlur={(e) => validateField("email", e.target.value)}
                       placeholder="e.g. rahul@sharma.com"
-                      className="w-full px-3 py-2 bg-theme-surface-2 border border-theme-divider rounded-lg text-xs text-theme-body focus:outline-none focus:border-indigo-500 transition-colors"
+                      className={`w-full px-3 py-2 bg-theme-surface-2 border rounded-lg text-xs text-theme-body focus:outline-none transition-colors ${
+                        fieldErrors.email ? "border-rose-500 focus:border-rose-400" : newCustomerEmail.includes("@") ? "border-emerald-600/60 focus:border-emerald-500" : "border-theme-divider focus:border-indigo-500"
+                      }`}
                     />
+                    {fieldErrors.email && (
+                      <p className="text-[10px] text-rose-400 font-mono flex items-center gap-1">
+                        <AlertCircle size={10} /> {fieldErrors.email}
+                      </p>
+                    )}
                   </div>
                 </div>
 
@@ -2084,10 +2230,19 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
                       type="text"
                       id="new-cust-gst"
                       value={newCustomerGst}
-                      onChange={(e) => setNewCustomerGst(e.target.value)}
+                      onChange={(e) => { setNewCustomerGst(e.target.value.toUpperCase()); if (fieldErrors.gst) validateField("gst", e.target.value); }}
+                      onBlur={(e) => validateField("gst", e.target.value)}
                       placeholder="e.g. 27AAACS1094J1Z3"
-                      className="w-full px-3 py-2 bg-theme-surface-2 border border-theme-divider rounded-lg text-xs text-theme-body focus:outline-none focus:border-indigo-500 transition-colors font-mono"
+                      maxLength={15}
+                      className={`w-full px-3 py-2 bg-theme-surface-2 border rounded-lg text-xs text-theme-body focus:outline-none transition-colors font-mono ${
+                        fieldErrors.gst ? "border-rose-500 focus:border-rose-400" : newCustomerGst.length === 15 ? "border-emerald-600/60 focus:border-emerald-500" : "border-theme-divider focus:border-indigo-500"
+                      }`}
                     />
+                    {fieldErrors.gst && (
+                      <p className="text-[10px] text-rose-400 font-mono flex items-center gap-1">
+                        <AlertCircle size={10} /> {fieldErrors.gst}
+                      </p>
+                    )}
                   </div>
 
                   {/* PAN */}
@@ -2097,10 +2252,19 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
                       type="text"
                       id="new-cust-pan"
                       value={newCustomerPan}
-                      onChange={(e) => setNewCustomerPan(e.target.value)}
+                      onChange={(e) => { setNewCustomerPan(e.target.value.toUpperCase()); if (fieldErrors.pan) validateField("pan", e.target.value); }}
+                      onBlur={(e) => validateField("pan", e.target.value)}
                       placeholder="e.g. ABCDE1234F"
-                      className="w-full px-3 py-2 bg-theme-surface-2 border border-theme-divider rounded-lg text-xs text-theme-body focus:outline-none focus:border-indigo-500 transition-colors font-mono"
+                      maxLength={10}
+                      className={`w-full px-3 py-2 bg-theme-surface-2 border rounded-lg text-xs text-theme-body focus:outline-none transition-colors font-mono ${
+                        fieldErrors.pan ? "border-rose-500 focus:border-rose-400" : newCustomerPan.length === 10 ? "border-emerald-600/60 focus:border-emerald-500" : "border-theme-divider focus:border-indigo-500"
+                      }`}
                     />
+                    {fieldErrors.pan && (
+                      <p className="text-[10px] text-rose-400 font-mono flex items-center gap-1">
+                        <AlertCircle size={10} /> {fieldErrors.pan}
+                      </p>
+                    )}
                   </div>
                 </div>
 
@@ -2191,7 +2355,7 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
                         };
 
                         try {
-                          const data = await apiFetchV1("/customers/validate-add", {
+                          const data = await apiFetchV1("/crm/customers/validate-add", {
                             method: "POST",
                             body: JSON.stringify({
                               customer: payload,
@@ -2669,16 +2833,44 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
               )}
 
               {loading ? (
-                <div className="p-16 flex flex-col items-center justify-center space-y-3">
-                  <RefreshCw className="animate-spin text-blue-500" size={24} />
-                  <span className="text-xs text-theme-muted">Syncing real-time ledger data...</span>
-                </div>
+                // REC-13: Shimmer skeleton replaces generic spinner
+                <SmritiTableSkeleton
+                  rows={8}
+                  columns={
+                    subView === "customers"
+                      ? [
+                          { widthClass: "w-20" },
+                          { widthClass: "w-36" },
+                          { widthClass: "w-24" },
+                          { widthClass: "w-28" },
+                          { widthClass: "w-20" },
+                          { widthClass: "w-24" },
+                          { widthClass: "w-20" },
+                          { widthClass: "w-16", align: "right" },
+                          { widthClass: "w-16", align: "center" },
+                          { widthClass: "w-12", align: "right" },
+                        ]
+                      : [
+                          { widthClass: "w-6" },
+                          { widthClass: "w-28" },
+                          { widthClass: "w-36" },
+                          { widthClass: "w-24" },
+                          { widthClass: "w-16", align: "right" },
+                          { widthClass: "w-20", align: "right" },
+                          { widthClass: "w-16", align: "center" },
+                          { widthClass: "w-16", align: "center" },
+                        ]
+                  }
+                />
               ) : subView === "quotations" ? (
                 /* Quotations Registry Table */
                 quotations.length === 0 ? (
-                  <div className="p-16 text-center text-theme-muted text-xs">
-                    No quotations match the current filters or none exist in SMRITI.
-                  </div>
+                <SmritiEmptyState
+                  icon={<FileText />}
+                  title="No Quotations Found"
+                  description="No quotations match the current filters, or none have been created yet. Start by drafting your first quotation for a customer."
+                  primaryAction={{ label: "Create First Quotation", onClick: () => setIsCreatingQuotation(true), icon: <Plus /> }}
+                />
                 ) : (
                   <div className="overflow-x-auto">
                     <table className="w-full text-left text-xs border-collapse">
@@ -2758,7 +2950,16 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
                                 >
                                   <Eye size={14} />
                                 </button>
-                                <button onClick={(e) => { e.stopPropagation(); onNotification("Print", "Printing Quotation " + q.quotationNo, "success"); window.print(); }} className="p-1 rounded hover:bg-theme-surface-3 text-slate-400" title="Print"><Printer size={14} /></button>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setPrintQuotationModal(q);
+                                  }}
+                                  className="p-1 rounded hover:bg-theme-surface-3 text-slate-400"
+                                  title="Print Official Quotation"
+                                >
+                                  <Printer size={14} />
+                                </button>
                                 <button onClick={(e) => { e.stopPropagation(); onNotification("WhatsApp", "Generating PDF for WhatsApp", "success"); window.open('https://wa.me/?text=Quotation%20' + q.quotationNo); }} className="p-1 rounded hover:bg-theme-surface-3 text-emerald-400" title="WhatsApp"><MessageCircle size={14} /></button>
                                 <button onClick={(e) => { e.stopPropagation(); onNotification("Email", "Drafting Email with PDF", "success"); window.open('mailto:?subject=Quotation%20' + q.quotationNo); }} className="p-1 rounded hover:bg-theme-surface-3 text-blue-400" title="Email"><Mail size={14} /></button>
 
@@ -2818,9 +3019,12 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
               ) : subView === "orders" ? (
                 /* Sales Orders Book Registry */
                 isCreatingSalesOrder ? null : salesOrders.length === 0 ? (
-                  <div className="p-16 text-center text-theme-muted text-xs font-mono">
-                    No sales orders match current filters or none exist in SMRITI.
-                  </div>
+                  <SmritiEmptyState
+                    icon={<ShoppingCart />}
+                    title="No Sales Orders Found"
+                    description="No sales orders match the current filters, or none have been placed yet. Create your first sales order to start tracking fulfilment."
+                    primaryAction={{ label: "Create Sales Order", onClick: () => setIsCreatingSalesOrder(true), icon: <Plus /> }}
+                  />
                 ) : (
                   <div className="overflow-x-auto">
                     <table className="w-full text-left text-xs border-collapse">
@@ -2923,9 +3127,11 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
               ) : subView === "invoices" ? (
                 /* Sales Invoices Registry Table */
                 salesInvoices.length === 0 ? (
-                  <div className="p-16 text-center text-theme-muted text-xs">
-                    No sales invoices match current filters or none exist in SMRITI.
-                  </div>
+                <SmritiEmptyState
+                  icon={<FileText />}
+                  title="No Sales Invoices Found"
+                  description="No invoices match the current filters. Invoices are created when POS bills or sales orders are fulfilled and posted."
+                />
                 ) : (
                   <div className="overflow-x-auto">
                     <table className="w-full text-left text-xs border-collapse">
@@ -3024,6 +3230,26 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
                                   <button
                                     onClick={(e) => {
                                       e.stopPropagation();
+                                      setDispatchModalInvoice(si);
+                                    }}
+                                    className="p-1 rounded hover:bg-theme-surface-3 text-amber-400 hover:text-amber-300"
+                                    title="Prepare Dispatch / E-Way Bill"
+                                  >
+                                    <Truck size={13} />
+                                  </button>
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setReturnModalInvoice(si);
+                                    }}
+                                    className="p-1 rounded hover:bg-theme-surface-3 text-rose-400 hover:text-rose-300"
+                                    title="Process Sales Return"
+                                  >
+                                    <Undo2 size={13} />
+                                  </button>
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
                                       openMenu(e, {
                                         module: "sales",
                                         type: "sales-invoice",
@@ -3048,9 +3274,12 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
               ) : subView === "returns" ? (
                 /* Sales Returns Registry Table */
                 salesReturns.length === 0 ? (
-                  <div className="p-16 text-center text-theme-muted text-xs">
-                    No sales returns logged or none match the current filters.
-                  </div>
+                <SmritiEmptyState
+                  icon={<Undo2 />}
+                  title="No Sales Returns Logged"
+                  description="No returns match the current filters. Process a sales return against a posted invoice to log a credit note and reinstate stock."
+                  primaryAction={{ label: "Process Return", onClick: () => setIsCreatingReturn(true), icon: <Plus /> }}
+                />
                 ) : (
                   <div className="overflow-x-auto">
                     <table className="w-full text-left text-xs border-collapse">
@@ -3176,30 +3405,78 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
               ) : (
                 /* Customers Directory Table */
                 customers.length === 0 ? (
-                  <div className="p-16 text-center text-theme-muted text-xs">
-                    No customer records exist in SMRITI database yet.
-                  </div>
+                <SmritiEmptyState
+                  icon={<User />}
+                  title="No Customers Yet"
+                  description="No customer records exist in the SMRITI database. Add your first customer to begin tracking loyalty, credit limits, and order history."
+                  primaryAction={{ label: "Add Customer", onClick: () => setIsAddingCustomer(true), icon: <Plus /> }}
+                />
                 ) : filteredCustomers.length === 0 ? (
-                  <div className="p-16 text-center text-theme-muted text-xs">
-                    No customers match your search criteria. Try a different name, email, or mobile number.
-                  </div>
+                <SmritiEmptyState
+                  icon={<Search />}
+                  title="No Customers Match"
+                  description="No customers match your search or filter criteria. Try a different name, email, or mobile number."
+                  secondaryAction={{ label: "Clear Search", onClick: () => { setCustomerSearchQuery(""); setSelectedTagFilter(""); } }}
+                />
                 ) : (
                   <div className="overflow-x-auto">
-                    <table className="w-full text-left text-xs border-collapse">
+                    <table className="w-full text-left text-xs border-collapse min-w-[1000px]">
                       <thead>
                         <tr className="bg-theme-surface-2 text-theme-muted uppercase font-mono text-[9px] tracking-wider border-b border-theme-divider">
-                          <th className={`px-5 ${densityPadding}`}>Identity Info</th>
-                          <th className={`px-5 ${densityPadding}`}>Mobile No</th>
-                          <th className={`px-5 ${densityPadding}`}>Region / Group</th>
-                          <th className={`px-5 ${densityPadding}`}>Tags</th>
-                          <th className={`px-5 ${densityPadding} text-right`}>Tier Limit</th>
-                          <th className={`px-5 ${densityPadding} text-right`}>Outstanding Balance</th>
-                          <th className={`px-5 ${densityPadding} text-center`}>Status</th>
+                          {([
+                            { key: "code",         label: "Customer Code",   align: "left" },
+                            { key: "name",         label: "Customer Name",   align: "left" },
+                            { key: "tags",         label: "Tags",            align: "left" },
+                            { key: "priceGroup",   label: "Price Group",     align: "left" },
+                            { key: "mobile",       label: "Phone",           align: "left" },
+                            { key: "city",         label: "City",            align: "left" },
+                            { key: "religion",     label: "Classification",  align: "left" },
+                            { key: "loyaltyTier",  label: "Loyalty Tier",   align: "left" },
+                            { key: "creditLimit",  label: "Credit Limit",   align: "right" },
+                            { key: "status",       label: "Status",          align: "center" },
+                          ] as { key: string; label: string; align: string }[]).map((col) => {
+                            const isActive = customerSortKey === col.key;
+                            const SortIcon = isActive
+                              ? customerSortDir === "asc" ? ChevronUp : ChevronDown
+                              : ChevronsUpDown;
+                            return (
+                              <th
+                                key={col.key}
+                                className={`px-5 ${densityPadding} ${col.align === "right" ? "text-right" : col.align === "center" ? "text-center" : ""} cursor-pointer select-none hover:text-theme-primary transition-colors group`}
+                                onClick={() => {
+                                  if (customerSortKey === col.key) {
+                                    setCustomerSortDir(d => d === "asc" ? "desc" : "asc");
+                                  } else {
+                                    setCustomerSortKey(col.key);
+                                    setCustomerSortDir("asc");
+                                  }
+                                }}
+                                title={`Sort by ${col.label}`}
+                              >
+                                <span className="flex items-center gap-1 justify-start">
+                                  {col.label}
+                                  <SortIcon
+                                    size={10}
+                                    className={`shrink-0 transition-opacity ${
+                                      isActive ? "opacity-100 text-blue-400" : "opacity-30 group-hover:opacity-70"
+                                    }`}
+                                  />
+                                </span>
+                              </th>
+                            );
+                          })}
+                          <th className={`px-5 ${densityPadding} text-right`}>Actions</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {filteredCustomers.map(c => {
+                        {sortedCustomers.map(c => {
                           const group = customerGroups.find(g => g.id === c.customerGroupId);
+                          const city = c.city || c.billingCity || c.shippingCity || c.mailingAddresses?.[0]?.city || "Bangalore";
+                          const customerCode = c.code || c.id?.slice(-6).toUpperCase() || "CUST";
+                          const priceGroup = c.priceGroup || c.priceGroupCode || group?.name || "Standard Retail";
+                          const classification = c.religion || c.customerType || c.ageGroup || "Retail";
+                          const loyaltyTier = c.loyaltyTier || "Standard";
+                          const loyaltyPoints = c.loyaltyPointsBalance ?? 0;
                           return (
                             <tr
                               key={c.id}
@@ -3218,6 +3495,9 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
                                 selectedCustomer?.id === c.id ? "bg-theme-surface-3" : ""
                               }`}
                             >
+                              <td className={`px-5 ${densityPadding} font-mono font-bold text-theme-body`}>
+                                {customerCode}
+                              </td>
                               <td className={`px-5 ${densityPadding} font-display font-semibold text-theme-body`}>
                                 <div className="flex items-center space-x-2">
                                   <div className="w-6 h-6 rounded-full bg-indigo-950 text-indigo-400 border border-indigo-900 flex items-center justify-center text-[10px] font-bold">
@@ -3225,46 +3505,95 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
                                   </div>
                                   <div>
                                     <div className="font-bold">{c.name}</div>
-                                    <div className="text-[10px] text-theme-muted font-mono">{c.gstNumber || "No GSTIN"}</div>
+                                    <div className="text-[10px] text-theme-muted font-mono">{c.gstNumber || c.gstin || "No GSTIN"}</div>
                                   </div>
                                 </div>
                               </td>
-                              <td className={`px-5 ${densityPadding} font-mono text-theme-muted`}>
-                                {c.mobile}
-                              </td>
-                              <td className={`px-5 ${densityPadding}`}>
-                                <span className="bg-theme-surface-3 px-2 py-0.5 rounded text-[10px] text-theme-muted border border-theme-divider">
-                                  {group?.name || "Standard Retail Group"}
-                                </span>
-                              </td>
-                              <td className={`px-5 ${densityPadding}`}>
-                                <div className="flex flex-wrap gap-1 max-w-[200px]">
-                                  {(c.tags || []).length === 0 ? (
-                                    <span className="text-[10px] text-theme-muted italic font-mono">-</span>
-                                  ) : (
-                                    (c.tags || []).map(t => (
-                                      <span
-                                        key={t}
-                                        className="inline-block px-1.5 py-0.5 rounded bg-indigo-950/60 text-indigo-400 border border-indigo-900/40 text-[9px] font-bold font-mono whitespace-nowrap"
+                              {/* REC-19: Inline tag editor cell */}
+                              <td
+                                className={`px-5 ${densityPadding} max-w-[160px]`}
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <div className="flex flex-wrap gap-1 items-center">
+                                  {resolveCustomerTags(c).map(tag => (
+                                    <span
+                                      key={tag}
+                                      className="group inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-indigo-950/60 text-indigo-300 border border-indigo-800/50 text-[9px] font-mono font-bold"
+                                    >
+                                      {tag}
+                                      <button
+                                        type="button"
+                                        onClick={() => removeTag(c.id, tag, resolveCustomerTags(c))}
+                                        className="opacity-0 group-hover:opacity-100 text-indigo-400 hover:text-rose-400 transition-all ml-0.5 cursor-pointer"
+                                        title={`Remove tag ${tag}`}
                                       >
-                                        {t}
-                                      </span>
-                                    ))
+                                        <X size={8} />
+                                      </button>
+                                    </span>
+                                  ))}
+                                  {tagEditingId === c.id ? (
+                                    <input
+                                      autoFocus
+                                      type="text"
+                                      value={tagInputValues[c.id] || ""}
+                                      onChange={(e) => setTagInputValues(prev => ({ ...prev, [c.id]: e.target.value }))}
+                                      onKeyDown={(e) => {
+                                        if (e.key === "Enter" || e.key === ",") { e.preventDefault(); commitTagAdd(c.id); }
+                                        if (e.key === "Escape") setTagEditingId(null);
+                                      }}
+                                      onBlur={() => commitTagAdd(c.id)}
+                                      placeholder="Add tag"
+                                      className="w-16 px-1 py-0.5 rounded bg-theme-surface-2 border border-indigo-500/50 text-indigo-300 text-[9px] font-mono focus:outline-none focus:border-indigo-400"
+                                    />
+                                  ) : (
+                                    <button
+                                      type="button"
+                                      onClick={() => setTagEditingId(c.id)}
+                                      className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full border border-dashed border-theme-divider text-theme-muted hover:border-indigo-400 hover:text-indigo-400 text-[9px] transition-colors cursor-pointer"
+                                      title="Add tag"
+                                    >
+                                      <Plus size={8} />
+                                    </button>
                                   )}
                                 </div>
                               </td>
-                              <td className={`px-5 ${densityPadding} text-right font-mono text-theme-muted`}>
-                                ₹{(c.creditLimit || 50000).toLocaleString("en-IN")}
+                              <td className={`px-5 ${densityPadding} text-[11px] text-theme-muted`}>
+                                {priceGroup}
                               </td>
-                              <td className={`px-5 ${densityPadding} text-right font-mono font-semibold ${c.outstanding > 0 ? "text-amber-400" : "text-emerald-400"}`}>
-                                ₹{c.outstanding.toLocaleString("en-IN")}
+                              <td className={`px-5 ${densityPadding} font-mono text-theme-muted`}>
+                                {c.mobile || c.phone || "—"}
+                              </td>
+                              <td className={`px-5 ${densityPadding} text-theme-body`}>
+                                {city}
+                              </td>
+                              <td className={`px-5 ${densityPadding} text-theme-muted`}>
+                                {classification}
+                              </td>
+                              <td className={`px-5 ${densityPadding} font-semibold text-theme-body`}>
+                                {loyaltyTier} ({loyaltyPoints} pts)
+                              </td>
+                              <td className={`px-5 ${densityPadding} text-right font-mono font-bold text-theme-body`}>
+                                ₹{(c.creditLimit ?? 0).toLocaleString("en-IN")}
                               </td>
                               <td className={`px-5 ${densityPadding} text-center`}>
-                                <span className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider ${
-                                  c.status === "Active" ? "bg-emerald-950/80 text-emerald-400 border border-emerald-800" : "bg-theme-surface-3 text-theme-muted border border-theme-divider"
+                                <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider ${
+                                  c.status === "Active" ? "bg-emerald-950/80 text-emerald-400 border border-emerald-800" : c.status === "Inactive" ? "bg-amber-950/80 text-amber-400 border border-amber-800" : "bg-rose-950/80 text-rose-400 border border-rose-800"
                                 }`}>
-                                  {c.status}
+                                  {c.status || "Active"}
                                 </span>
+                              </td>
+                              <td className={`px-5 ${densityPadding} text-right`} onClick={(e) => e.stopPropagation()}>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setSelectedCustomer(c);
+                                  }}
+                                  className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-[#00355f] text-white hover:bg-[#0f4c81] rounded-lg font-bold text-[11px] transition"
+                                  title={`Edit Customer ${customerCode}`}
+                                >
+                                  <Edit3 size={12} />
+                                  <span>Edit</span>
+                                </button>
                               </td>
                             </tr>
                           );
@@ -3356,6 +3685,16 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
                   <span className="text-emerald-400 font-mono text-sm">{formatCurrency(selectedQuotation.grandTotal)}</span>
                 </div>
               </div>
+
+              {/* Official Document Print Trigger */}
+              <button
+                onClick={() => setPrintQuotationModal(selectedQuotation)}
+                data-testid="print-quotation-details-btn"
+                className="w-full py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-semibold text-xs rounded-xl flex items-center justify-center space-x-2 transition cursor-pointer"
+              >
+                <Printer size={15} />
+                <span>Print Official Quotation (A4)</span>
+              </button>
 
               {/* Conversion Controls */}
               {selectedQuotation.status === "Approved" && (
@@ -3565,6 +3904,15 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
                       <div className="text-right">
                         <div className="font-semibold text-theme-body font-mono">{formatCurrency(line.totalAmount)}</div>
                         <div className="text-[9px] text-theme-muted mt-0.5 font-mono">{formatCurrency(line.price)} + {line.taxRate || line.gstRate || 0}% GST</div>
+                        <div className="mt-1 flex items-center justify-end gap-1.5">
+                          <span className="text-[9px] uppercase font-mono text-theme-muted">{line.lineStatus || line.line_status || "OPEN"}</span>
+                          {(!line.lineStatus || line.lineStatus === "OPEN" || line.lineStatus === "PARTIALLY_BILLED") && (
+                            <>
+                              <button type="button" onClick={() => handleSalesOrderLineAction(line, "close")} className="text-[9px] px-1.5 py-0.5 rounded border border-emerald-700 text-emerald-400 hover:bg-emerald-950/40">Close</button>
+                              <button type="button" onClick={() => handleSalesOrderLineAction(line, "cancel")} className="text-[9px] px-1.5 py-0.5 rounded border border-rose-700 text-rose-400 hover:bg-rose-950/40">Cancel</button>
+                            </>
+                          )}
+                        </div>
                       </div>
                     </div>
                   ))}
@@ -3780,7 +4128,7 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
                 {/* Canonical Print & Document Actions */}
                 <button
                   onClick={() => {
-                    window.open(`/api/v1/sales/invoices/${selectedInvoice.id}/print`, "_blank");
+                    openAuthenticatedDocument(`/api/v1/sales/invoices/${selectedInvoice.id}/print`, "_blank");
                     onNotification("Print Action", `Sales Invoice ${selectedInvoice.invoiceNo} opened in canonical print spooler.`, "success");
                   }}
                   className="w-full py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold shadow-md shadow-blue-600/30 flex items-center justify-center space-x-2 transition-all"
@@ -3792,21 +4140,21 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
 
                 <div className="grid grid-cols-3 gap-2">
                   <button
-                    onClick={() => window.open(`/api/v1/sales/invoices/${selectedInvoice.id}/preview`, "_blank")}
+                    onClick={() => openAuthenticatedDocument(`/api/v1/sales/invoices/${selectedInvoice.id}/preview`, "_blank")}
                     className="py-2 bg-theme-surface-3 hover:bg-theme-surface-hover border border-theme-divider text-theme-body rounded-xl text-[11px] font-semibold transition-colors text-center"
                     title="Open Live Canonical Preview"
                   >
                     Preview
                   </button>
                   <button
-                    onClick={() => window.open(`/api/v1/sales/invoices/${selectedInvoice.id}/download`, "_blank")}
+                    onClick={() => openAuthenticatedDocument(`/api/v1/sales/invoices/${selectedInvoice.id}/download`, "_blank")}
                     className="py-2 bg-theme-surface-3 hover:bg-theme-surface-hover border border-theme-divider text-emerald-400 rounded-xl text-[11px] font-semibold transition-colors text-center"
                     title="Export / Download PDF"
                   >
                     Export PDF
                   </button>
                   <button
-                    onClick={() => window.open(`/api/v1/sales/invoices/${selectedInvoice.id}/reprint`, "_blank")}
+                    onClick={() => openAuthenticatedDocument(`/api/v1/sales/invoices/${selectedInvoice.id}/reprint`, "_blank")}
                     className="py-2 bg-theme-surface-3 hover:bg-theme-surface-hover border border-theme-divider text-amber-400 rounded-xl text-[11px] font-semibold transition-colors text-center"
                     title="Reprint Immutable Historical Artifact"
                   >
@@ -4020,8 +4368,373 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
         </div>
       )}
 
+      {/* Prepare Dispatch / E-Way Bill Modal */}
+      <PrepareDispatchModal
+        isOpen={Boolean(dispatchModalInvoice)}
+        onClose={() => setDispatchModalInvoice(null)}
+        onDispatchPrepared={() => {
+          onNotification(
+            "Dispatch Prepared",
+            "E-Way Bill registered and invoice marked for dispatch.",
+            "success"
+          );
+          fetchSalesInvoices();
+        }}
+        invoice={dispatchModalInvoice}
+      />
+
+      {/* Process Sales Return Modal */}
+      <ProcessSalesReturnModal
+        isOpen={Boolean(returnModalInvoice)}
+        onClose={() => setReturnModalInvoice(null)}
+        onReturnProcessed={() => {
+          onNotification(
+            "Return Processed",
+            "Credit note generated and stock reinstated into inventory.",
+            "success"
+          );
+          fetchSalesInvoices();
+          fetchSalesReturns();
+        }}
+        invoice={returnModalInvoice}
+      />
+
         </motion.div>
       </SmritiScrollArea>
+
+      {/* ── REC-01: Design-System Confirm Dialog (replaces window.confirm) ── */}
+      <SmritiConfirmDialog
+        isOpen={confirmDeleteQuotationId !== null}
+        title="Delete Quotation Draft"
+        message="This action is permanent. The quotation draft will be removed from the ledger and cannot be recovered."
+        confirmLabel="Delete Permanently"
+        cancelLabel="Keep Draft"
+        variant="danger"
+        onConfirm={() => {
+          if (confirmDeleteQuotationId) {
+            executeDeleteQuotation(confirmDeleteQuotationId);
+          }
+          setConfirmDeleteQuotationId(null);
+        }}
+        onCancel={() => setConfirmDeleteQuotationId(null)}
+      />
+
+      {/* ── REC-01: Design-System Reason Dialog (replaces window.prompt) ── */}
+      <SmritiReasonDialog
+        isOpen={reasonDialogLine !== null}
+        title={
+          reasonDialogLine
+            ? `${reasonDialogLine.action === "cancel" ? "Cancel" : "Close"} Order Line: ${reasonDialogLine.line.code}`
+            : "Confirm Action"
+        }
+        label="Reason for Action"
+        placeholder={`Enter reason to ${reasonDialogLine?.action ?? "action"} this order line...`}
+        minLength={3}
+        confirmLabel={reasonDialogLine?.action === "cancel" ? "Cancel Line" : "Close Line"}
+        cancelLabel="Keep Line"
+        onConfirm={(reason) => {
+          if (reasonDialogLine && selectedOrder) {
+            executeOrderLineAction(reasonDialogLine.line, reasonDialogLine.action, reason);
+          }
+          setReasonDialogLine(null);
+        }}
+        onCancel={() => setReasonDialogLine(null)}
+      />
+
+      {/* REC-18: Sales Studio Keyboard Shortcuts Overlay */}
+      {showShortcutsModal && (
+        <div
+          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4"
+          onClick={() => setShowShortcutsModal(false)}
+        >
+          <div
+            className="bg-theme-surface-1 border border-theme-divider rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-theme-divider bg-theme-surface-2">
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-lg bg-indigo-500/15 flex items-center justify-center text-indigo-400">
+                  <Info size={15} />
+                </div>
+                <div>
+                  <h2 className="text-sm font-bold text-theme-body font-display">Sales Studio Shortcuts</h2>
+                  <p className="text-[10px] text-theme-muted font-mono">Keyboard navigation &amp; quick actions</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowShortcutsModal(false)}
+                className="p-1.5 rounded-lg hover:bg-theme-surface-hover text-theme-muted hover:text-theme-body transition-colors cursor-pointer"
+              >
+                <X size={15} />
+              </button>
+            </div>
+
+            {/* Shortcut grid */}
+            <div className="p-5 grid grid-cols-2 gap-3 text-xs">
+              {([
+                { key: "Shift + Q", desc: "Open Quotations tab" },
+                { key: "Shift + O", desc: "Open Orders tab" },
+                { key: "Shift + I", desc: "Open Invoices tab" },
+                { key: "Shift + R", desc: "Open Returns tab" },
+                { key: "Shift + C", desc: "Open Customers tab" },
+                { key: "?",         desc: "Toggle this shortcuts guide" },
+                { key: "Escape",    desc: "Close modal / clear selection" },
+                { key: "D",         desc: "Cycle row density" },
+              ] as { key: string; desc: string }[]).map(({ key, desc }) => (
+                <div key={key} className="flex items-center justify-between p-2.5 rounded-xl bg-theme-surface-2 border border-theme-divider/50">
+                  <span className="text-theme-muted">{desc}</span>
+                  <kbd className="px-2 py-0.5 rounded-lg bg-theme-surface-3 border border-theme-divider text-theme-primary font-mono text-[11px] font-bold shadow-sm whitespace-nowrap">{key}</kbd>
+                </div>
+              ))}
+            </div>
+
+            <div className="px-5 pb-4 text-center">
+              <p className="text-[10px] text-theme-muted font-mono">Hotkeys are inactive when focus is inside an input field</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Quotation Official Commercial Print Preview (Body Portal) ── */}
+      {printQuotationModal && typeof document !== "undefined" && createPortal(
+        <div
+          className="quotation-print-modal-root print-preview-visible fixed inset-0 z-50 flex flex-col bg-slate-900/60 dark:bg-slate-950/80 backdrop-blur-xs overflow-y-auto print:static print:inset-auto print:h-auto print:w-full print:p-0 print:m-0 print:bg-white print:overflow-visible"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Commercial Quotation Print Preview"
+        >
+          <style>{`
+            @media print {
+              @page {
+                size: A4 portrait;
+                margin: 8mm 10mm 10mm 10mm;
+              }
+              #root {
+                display: none !important;
+              }
+              html, body {
+                height: auto !important;
+                min-height: 0 !important;
+                overflow: visible !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                background: white !important;
+              }
+              .quotation-print-modal-root {
+                position: static !important;
+                display: block !important;
+                width: 100% !important;
+                height: auto !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                overflow: visible !important;
+                background: white !important;
+              }
+              .quotation-print-toolbar,
+              .no-print {
+                display: none !important;
+              }
+              .quotation-print-canvas-wrapper {
+                display: block !important;
+                width: 100% !important;
+                height: auto !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                overflow: visible !important;
+                background: white !important;
+              }
+              .quotation-printable-sheet {
+                box-shadow: none !important;
+                border: none !important;
+                margin: 0 auto !important;
+                padding: 0 !important;
+                max-width: 100% !important;
+                visibility: visible !important;
+                background: white !important;
+              }
+            }
+          `}</style>
+
+          {/* Floating Toolbar */}
+          <div className="quotation-print-toolbar h-16 px-6 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between shadow-sm shrink-0 print:hidden">
+            <div className="flex items-center space-x-3">
+              <div className="p-2 rounded-lg bg-indigo-50 dark:bg-indigo-600/20 border border-indigo-200 dark:border-indigo-500/30 text-indigo-600 dark:text-indigo-400">
+                <Printer size={20} />
+              </div>
+              <div>
+                <h2 className="text-sm font-bold text-slate-900 dark:text-white flex items-center space-x-2">
+                  <span>Commercial Quotation Print Studio</span>
+                  <span className="font-mono text-[10px] bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300">
+                    A4 PORTRAIT
+                  </span>
+                </h2>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  Quotation #{printQuotationModal.quotationNo} • Customer: {printQuotationModal.customerName}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center space-x-3">
+              <button
+                onClick={() => window.print()}
+                data-testid="quotation-print-btn"
+                className="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-md shadow-indigo-600/20 flex items-center space-x-2 transition cursor-pointer"
+              >
+                <Printer size={15} />
+                <span>Print Document (F9 / Ctrl+P)</span>
+              </button>
+              <button
+                onClick={() => setPrintQuotationModal(null)}
+                className="p-2 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white transition cursor-pointer"
+                title="Close Preview (Esc)"
+              >
+                <X size={18} />
+              </button>
+            </div>
+          </div>
+
+          {/* Viewport Canvas */}
+          <div className="quotation-print-canvas-wrapper flex-1 overflow-y-auto p-8 bg-slate-100/90 dark:bg-slate-950 flex justify-center print:p-0 print:m-0 print:block print:bg-white print:overflow-visible">
+            <div className="quotation-printable-sheet bg-white text-slate-900 p-8 max-w-[820px] w-full min-h-[1120px] text-[11px] font-sans leading-relaxed shadow-xl rounded border border-slate-200 print:shadow-none print:border-none print:max-w-none print:w-full print:rounded-none">
+              {/* Header */}
+              <div className="border-b-2 border-slate-900 pb-3 mb-4">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <h1 className="text-xl font-black uppercase tracking-tight text-slate-950">
+                      {tenantContext.companyName || "SMRITI ENTERPRISES LTD"}
+                    </h1>
+                    <p className="text-xs text-slate-600 font-medium mt-0.5">
+                      {tenantContext.companyAddress || "101, Corporate Hub, Nariman Point, Mumbai - 400021"}
+                    </p>
+                    <div className="flex items-center space-x-3 mt-1 text-[10px] text-slate-700 font-mono">
+                      <span>GSTIN: <strong>{tenantContext.companyGstin || "27AABCS1429B1Z8"}</strong></span>
+                      <span>•</span>
+                      <span>State: <strong>Maharashtra (27)</strong></span>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className="inline-block bg-slate-900 text-white font-bold px-3 py-1 rounded text-xs tracking-wider uppercase">
+                      COMMERCIAL QUOTATION
+                    </div>
+                    <p className="text-[9px] text-slate-500 mt-1 italic">
+                      Estimate / Proforma Reference
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Meta & Addresses */}
+              <div className="grid grid-cols-2 gap-4 border border-slate-300 rounded p-3 mb-4 text-[10px]">
+                <div>
+                  <div className="font-bold text-slate-900 border-b border-slate-200 pb-1 mb-1.5 uppercase tracking-wide">
+                    Quotation Overview
+                  </div>
+                  <div className="space-y-1">
+                    <div className="flex justify-between"><span className="text-slate-500">Quotation No:</span> <strong className="font-mono text-slate-900">{printQuotationModal.quotationNo}</strong></div>
+                    <div className="flex justify-between"><span className="text-slate-500">Quotation Date:</span> <span className="font-mono">{formatDate(printQuotationModal.date)}</span></div>
+                    <div className="flex justify-between"><span className="text-slate-500">Valid Until:</span> <span className="font-mono font-medium">30 Days from Issue</span></div>
+                    <div className="flex justify-between"><span className="text-slate-500">Document Status:</span> <strong className="uppercase text-indigo-700">{printQuotationModal.status}</strong></div>
+                  </div>
+                </div>
+                <div>
+                  <div className="font-bold text-slate-900 border-b border-slate-200 pb-1 mb-1.5 uppercase tracking-wide">
+                    Quotation Prepared For
+                  </div>
+                  <div className="space-y-1">
+                    <div className="font-bold text-slate-900 text-xs">{printQuotationModal.customerName}</div>
+                    <div className="text-slate-600 text-[9.5px]">Institutional B2B Client</div>
+                    <div className="flex justify-between pt-0.5"><span className="text-slate-500">Commercial Currency:</span> <strong className="font-mono">INR (₹)</strong></div>
+                    {printQuotationModal.salesOrderId && (
+                      <div className="flex justify-between"><span className="text-slate-500">Linked Order No:</span> <span className="font-mono">{printQuotationModal.salesOrderId}</span></div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Itemized Table */}
+              <table className="w-full border-collapse border border-slate-300 mb-4 text-[10px]">
+                <thead>
+                  <tr className="bg-slate-100 text-slate-800 font-bold border-b border-slate-300">
+                    <th className="border border-slate-300 p-1.5 text-center w-8">#</th>
+                    <th className="border border-slate-300 p-1.5 text-left">Item Description</th>
+                    <th className="border border-slate-300 p-1.5 text-center w-24">Color / Size</th>
+                    <th className="border border-slate-300 p-1.5 text-right w-12">Qty</th>
+                    <th className="border border-slate-300 p-1.5 text-right w-18">Unit Price</th>
+                    <th className="border border-slate-300 p-1.5 text-center w-14">GST %</th>
+                    <th className="border border-slate-300 p-1.5 text-right w-22">Total Amount</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(!printQuotationModal.items || printQuotationModal.items.length === 0) ? (
+                    <tr>
+                      <td colSpan={7} className="border border-slate-300 p-4 text-center text-slate-400 italic">
+                        No product lines included in quotation.
+                      </td>
+                    </tr>
+                  ) : (
+                    printQuotationModal.items.map((it, idx) => (
+                      <tr key={idx} className="border-b border-slate-200 hover:bg-slate-50/50">
+                        <td className="border border-slate-300 p-1.5 text-center font-mono">{idx + 1}</td>
+                        <td className="border border-slate-300 p-1.5 font-medium text-slate-900">{it.name}</td>
+                        <td className="border border-slate-300 p-1.5 text-center font-mono text-slate-600">
+                          {it.color || "-"} / {it.size || "-"}
+                        </td>
+                        <td className="border border-slate-300 p-1.5 text-right font-mono font-bold">{it.quantity}</td>
+                        <td className="border border-slate-300 p-1.5 text-right font-mono">{formatCurrency(it.price)}</td>
+                        <td className="border border-slate-300 p-1.5 text-center font-mono">{it.taxRate || it.gstRate || 0}%</td>
+                        <td className="border border-slate-300 p-1.5 text-right font-mono font-bold text-slate-900">
+                          {formatCurrency(it.totalAmount)}
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+
+              {/* Totals & Financial Summary */}
+              <div className="grid grid-cols-2 gap-4 border border-slate-300 rounded p-3 mb-4 text-[10px]">
+                <div>
+                  <div className="font-bold text-slate-900 mb-1">Standard Commercial Terms:</div>
+                  <ol className="list-decimal pl-3 space-y-0.5 text-slate-600 text-[9px]">
+                    <li>Prices are valid for 30 calendar days from the date of quotation.</li>
+                    <li>Delivery timeline: 7 to 10 working days from purchase order confirmation.</li>
+                    <li>Payment terms: 50% advance against PO, balance prior to dispatch.</li>
+                    <li>GST rates are subject to government notifications at time of delivery.</li>
+                  </ol>
+                </div>
+                <div className="space-y-1.5 text-right">
+                  <div className="flex justify-between"><span className="text-slate-500">Item Subtotal:</span> <span className="font-mono">{formatCurrency(Math.max(0, printQuotationModal.grandTotal - printQuotationModal.taxTotal))}</span></div>
+                  <div className="flex justify-between"><span className="text-slate-500">Applicable Taxes (GST):</span> <span className="font-mono">{formatCurrency(printQuotationModal.taxTotal)}</span></div>
+                  <div className="flex justify-between border-t-2 border-slate-900 pt-1 text-xs font-black text-slate-950">
+                    <span>QUOTATION GRAND TOTAL:</span> <span className="font-mono text-emerald-700">{formatCurrency(printQuotationModal.grandTotal)}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Acceptance and Signatory */}
+              <div className="border border-slate-300 rounded p-3 text-[9.5px] flex justify-between items-end">
+                <div className="text-center w-48 border-t border-slate-400 pt-1">
+                  <div className="font-bold text-slate-800">Customer Acceptance & Signature</div>
+                  <div className="h-10"></div>
+                  <div className="text-[9px] text-slate-500">Authorized Signatory / Date</div>
+                </div>
+                <div className="text-center w-48 border-t border-slate-400 pt-1">
+                  <div className="font-bold text-slate-800">For {tenantContext.companyName || "SMRITI ENTERPRISES LTD"}</div>
+                  <div className="h-10"></div>
+                  <div className="text-[9px] text-slate-500">Sales Representative / Director</div>
+                </div>
+              </div>
+
+              <div className="text-center text-[8.5px] text-slate-400 mt-4">
+                This is an official computer-generated quotation issued by SMRITI Retail OS • Page 1 of 1
+              </div>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
     </div>
   );
 };

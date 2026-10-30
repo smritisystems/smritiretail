@@ -24,7 +24,7 @@ License      : Proprietary Commercial Software
 """
 
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy import Column, String, Integer, DateTime, Boolean, Text, Float
 from sqlalchemy.orm import declarative_base
 
@@ -36,12 +36,12 @@ class TrainingSessionModel(Base):
     id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     session_id = Column(String(64), unique=True, nullable=False, index=True)
     trainee_name = Column(String(255), nullable=False)
-    start_date = Column(DateTime, default=datetime.utcnow, nullable=False)
+    start_date = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
     current_day = Column(Integer, default=1, nullable=False)
     level = Column(String(100), default="Level 1 — Retail Operator", nullable=False)
     status = Column(String(50), default="Active", nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False)
 
 class TrainingProgressModel(Base):
     __tablename__ = "training_progress"
@@ -63,5 +63,5 @@ class TrainingCertificateModel(Base):
     certification_level = Column(String(100), nullable=False)
     score_percentage = Column(Float, nullable=False)
     certificate_hash = Column(String(128), nullable=False)
-    issued_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    issued_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
     is_valid = Column(Boolean, default=True, nullable=False)

@@ -3,9 +3,9 @@
  * Author       : Jawahar Ramkripal Mallah
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 3.29.0
+ * Version      : 3.31.0
  * Created      : 2026-08-19
- * Modified     : 2026-08-19
+ * Modified     : 2026-09-13
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  */
@@ -13,6 +13,7 @@
 import React from "react";
 import { Database, Layers, Tag, CheckCircle2, Sliders } from "lucide-react";
 import { MasterConfig } from "../master/types.ts";
+import { MasterLookupDetailDrawer } from "../master/MasterLookupDetailDrawer.tsx";
 
 export interface MasterLookupItem {
   id: string;
@@ -27,6 +28,18 @@ export interface MasterLookupItem {
   sequence_order?: number;
 }
 
+export const mapLookupResponse = (items: any, typeCode: string) => (
+  Array.isArray(items)
+    ? items.map((item) => ({
+      ...item,
+      type_code: typeCode,
+      description: item.data?.description || item.data?.notes || "",
+      values: Array.isArray(item.data?.values) ? item.data.values.join(", ") : "",
+      is_active: item.active !== false
+    }))
+    : []
+);
+
 export const masterLookupConfig: MasterConfig<MasterLookupItem> = {
   entityName: "Lookup Value",
   entityNamePlural: "Lookup Values",
@@ -35,12 +48,21 @@ export const masterLookupConfig: MasterConfig<MasterLookupItem> = {
   icon: <Database size={20} />,
   apiEndpoint: "/api/v1/masters/lookup/department/values",
   idKey: "id",
+  payloadTransform: (formData, _mode) => ({
+    code: String(formData.code || "").trim(),
+    name: String(formData.name || "").trim(),
+    active: formData.is_active !== false,
+    data: {
+      description: String(formData.description || "").trim()
+    }
+  }),
   searchPlaceholder: "Search by value name, code, category, or type...",
   searchFields: ["name", "code", "type_code", "category", "description"],
 
   columns: [
     {
       key: "name",
+      fieldId: "master_value.name",
       label: "Lookup Value / Title",
       width: "220px",
       sortable: true,
@@ -57,16 +79,6 @@ export const masterLookupConfig: MasterConfig<MasterLookupItem> = {
       )
     },
     {
-      key: "type_code",
-      label: "Lookup Type",
-      width: "150px",
-      render: (val, item) => (
-        <span className="px-2 py-0.5 rounded text-[10px] font-bold font-mono bg-theme-surface-2 border border-theme-divider text-theme-primary">
-          {val || item.type || "General"}
-        </span>
-      )
-    },
-    {
       key: "description",
       label: "Description / Notes",
       render: (val) => (
@@ -77,6 +89,7 @@ export const masterLookupConfig: MasterConfig<MasterLookupItem> = {
     },
     {
       key: "is_active",
+      fieldId: "master_value.active",
       label: "Status",
       width: "100px",
       render: (val) => (
@@ -92,6 +105,7 @@ export const masterLookupConfig: MasterConfig<MasterLookupItem> = {
   fields: [
     {
       name: "name",
+      fieldId: "master_value.name",
       label: "Lookup Value Name",
       type: "text",
       required: true,
@@ -100,6 +114,7 @@ export const masterLookupConfig: MasterConfig<MasterLookupItem> = {
     },
     {
       name: "code",
+      fieldId: "master_value.code",
       label: "Lookup Code",
       type: "text",
       required: true,
@@ -108,6 +123,7 @@ export const masterLookupConfig: MasterConfig<MasterLookupItem> = {
     },
     {
       name: "type_code",
+      fieldId: "master_value.master_type_id",
       label: "Master Lookup Type",
       type: "select",
       options: [
@@ -116,13 +132,31 @@ export const masterLookupConfig: MasterConfig<MasterLookupItem> = {
         { label: "Bank Account", value: "bank" },
         { label: "Payment Mode", value: "payment_mode" },
         { label: "Expense Category", value: "expense_category" },
-        { label: "Currency", value: "currency" }
+        { label: "Currency", value: "currency" },
+        { label: "Style / Article", value: "style_article" },
+        { label: "Vendor Code", value: "vendor_code" },
+        { label: "Brand", value: "brand" },
+        { label: "Category", value: "category" },
+        { label: "Subcategory", value: "subcategory" },
+        { label: "Product Type", value: "product_type" },
+        { label: "Size", value: "size" },
+        { label: "Color", value: "color" },
+        { label: "GST Rate (%)", value: "gst_rate" },
+        { label: "Unit of Measure (UOM)", value: "uom" },
+        { label: "Gender", value: "gender" },
+        { label: "Collection Type", value: "collection_type" },
+        { label: "Heel Type", value: "heel_type" },
+        { label: "Upper Material", value: "upper_material" },
+        { label: "Outsole Material", value: "outsole_material" },
+        { label: "Size Group", value: "size_group" },
+        { label: "Color Group", value: "color_group" }
       ],
       defaultValue: "department",
       colSpan: 1
     },
     {
       name: "is_active",
+      fieldId: "master_value.active",
       label: "Active Status",
       type: "toggle",
       defaultValue: true,
@@ -132,23 +166,20 @@ export const masterLookupConfig: MasterConfig<MasterLookupItem> = {
       name: "description",
       label: "Description",
       type: "textarea",
-      placeholder: "Optional description or account details...",
+      placeholder: "Optional description or details...",
       colSpan: 2
     }
   ],
 
   filters: [
     {
-      id: "type_filter",
-      label: "Master Type",
-      field: "type_code",
+      id: "status_filter",
+      label: "Status",
+      field: "is_active",
       type: "select",
       options: [
-        { label: "Department", value: "department" },
-        { label: "Designation", value: "designation" },
-        { label: "Bank Account", value: "bank" },
-        { label: "Payment Mode", value: "payment_mode" },
-        { label: "Expense Category", value: "expense_category" }
+        { label: "Active", value: true },
+        { label: "Inactive", value: false }
       ]
     }
   ],
@@ -166,5 +197,16 @@ export const masterLookupConfig: MasterConfig<MasterLookupItem> = {
       compute: (items) => items.filter((i) => i.is_active !== false).length,
       color: "emerald"
     }
-  ]
+  ],
+
+  slots: {
+    detailDrawer: (item, onClose, refetch) => (
+      <MasterLookupDetailDrawer
+        item={item}
+        typeCode={item?.type_code || item?.type || "lookup"}
+        onClose={onClose}
+        onRefetch={refetch}
+      />
+    )
+  }
 };

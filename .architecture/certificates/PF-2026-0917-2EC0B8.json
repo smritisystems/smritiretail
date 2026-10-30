@@ -1,0 +1,15 @@
+{
+  "certificate_id": "PF-2026-0917-2EC0B8",
+  "entity": "IDENTITY",
+  "capability": "UNIFIED_IDENTITY_CONTROL_PLANE",
+  "asset_type": "SOURCE_CODE",
+  "proposed_name": "engine.py",
+  "target_file_path": "backend/app/services/identity/engine.py",
+  "decision": "APPROVED",
+  "canonical_owner": "backend/app/services/identity/engine.py",
+  "content_hash": "2004180e908b3378f50ffadefdea4d814644b3809f7fdd13c9a4255e7510f9ad",
+  "git_commit": "20cd1171feb8d386664e0b84808c0b5b39919327",
+  "issued_at": "2026-09-17T21:38:22.256113+00:00",
+  "expires_at": "2026-09-24T21:38:22.256113+00:00",
+  "status": "ISSUED"
+}

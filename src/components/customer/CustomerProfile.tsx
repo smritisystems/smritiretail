@@ -75,12 +75,34 @@ export const CustomerProfile: React.FC<CustomerProfileProps> = ({
           <span className="text-theme-muted block font-medium">PAN</span>
           <span className="font-mono">{customer.pan || "Not Registered"}</span>
         </div>
-        {customer.salesperson && (
+        {(customer.storeCode || (customer as any).store_code || customer.servicingStoreName) ? (
+          <div className="bg-theme-surface-3 p-3 rounded-lg border border-theme-divider/60 space-y-1.5">
+            <div className="flex items-center justify-between">
+              <span className="text-theme-muted block font-medium uppercase text-[10px] tracking-wider font-mono">
+                Servicing Store & Responsibility
+              </span>
+              <span className="px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-blue-950 text-blue-400 border border-blue-500/30">
+                {customer.storeCode || (customer as any).store_code}
+              </span>
+            </div>
+            {customer.servicingStoreName && (
+              <div className="text-theme-body font-semibold text-xs">
+                {customer.servicingStoreName}
+              </div>
+            )}
+            <div className="text-[11px] text-theme-muted flex items-center justify-between pt-1 border-t border-theme-divider/30">
+              <span>Primary Representative:</span>
+              <span className="font-medium text-theme-body">
+                {customer.primaryRepName || customer.salesperson || "Unassigned"}
+              </span>
+            </div>
+          </div>
+        ) : customer.salesperson ? (
           <div>
             <span className="text-theme-muted block font-medium">Salesperson</span>
             <span className="text-theme-body">{customer.salesperson}</span>
           </div>
-        )}
+        ) : null}
         <div>
           <span className="text-theme-muted block font-medium">Outstanding Balances</span>
           <span className="font-mono text-emerald-400 font-bold">

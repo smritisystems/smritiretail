@@ -599,7 +599,7 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({ isOpen, on
   const [watermarkUrl, setWatermarkUrl] = useState<string>(WATERMARK_PRESETS[0].url);
   const [watermarkPresetId, setWatermarkPresetId] = useState<string>(WATERMARK_PRESETS[0].id);
   const [watermarkOpacity, setWatermarkOpacity] = useState<number>(12); // subtle default
-  const [watermarkSize, setWatermarkSize] = useState<number>(60); // 60% of container width
+  const [watermarkSize, setWatermarkSize] = useState<number>(75); // 75% of container width (70% - 80% range)
   const [watermarkRotation, setWatermarkRotation] = useState<number>(-25); // aesthetic diagonal slant
   const [watermarkLayout, setWatermarkLayout] = useState<"center" | "tile">("center");
 

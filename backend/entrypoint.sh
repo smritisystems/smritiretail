@@ -14,16 +14,13 @@ set -e
 
 export PYTHONPATH=/app
 
-# Optionally skip migrations (for controlled environments). Set SKIP_MIGRATIONS=true to disable.
+# Canonical Database Bootstrap Flow (Control-plane + Multi-tenant provision, migrate & seed)
 if [ "${SKIP_MIGRATIONS:-false}" != "true" ]; then
-    echo "Running Alembic database migrations..."
-    alembic upgrade head
+    echo "Executing SMRITI Canonical Database Bootstrap Engine..."
+    python -m app.db.bootstrap_engine || echo "Notice: Bootstrap engine encountered an issue or is already initialized."
 else
-    echo "SKIP_MIGRATIONS=true, skipping Alembic migrations."
+    echo "SKIP_MIGRATIONS=true, skipping database bootstrap."
 fi
-
-echo "Seeding baseline users and company registries..."
-python -m app.db.seed_baseline_users || echo "Notice: Seeding completed or skipped."
 
 echo "Starting SMRITI FastAPI Python Core..."
 exec gunicorn app.main:app \

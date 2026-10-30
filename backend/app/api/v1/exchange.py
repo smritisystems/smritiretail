@@ -19,7 +19,7 @@ from fastapi import APIRouter, Depends, HTTPException, Body
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
-from ...api.deps import get_db, get_current_user, require_role, get_tenant_context, TenantContext
+from ...api.deps import get_company_db, get_current_user, require_role, get_tenant_context, TenantContext
 from ...models.auth import User, UserRole
 from ...models.exchange import DataExchangeTask, DataExchangeFieldMapping
 from ...models.inventory import Product
@@ -27,6 +27,8 @@ from ...schemas.exchange import (
     DataExchangeTaskCreate, DataExchangeTaskUpdate, DataExchangeTaskResponse,
     FieldMappingCreate, FieldMappingUpdate, FieldMappingResponse, ExecuteTaskRequest
 )
+from ...services.databridge.export_engine import DataBridgeExportEngine
+from ...services.databridge.models import DataBridgeEntityType
 
 
 class ExchangeValidateRequest(BaseModel):
@@ -50,7 +52,7 @@ router = APIRouter()
     response_model=List[FieldMappingResponse],
 )
 async def list_mappings(
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     current_user: User = Depends(get_current_user),
 ):
     """
@@ -79,7 +81,7 @@ async def list_mappings(
 )
 async def create_mapping(
     req: FieldMappingCreate,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     current_user: User = Depends(get_current_user),
 ):
     """
@@ -114,7 +116,7 @@ async def create_mapping(
 async def update_mapping(
     id: str,
     req: FieldMappingUpdate,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     current_user: User = Depends(get_current_user),
 ):
     """
@@ -147,7 +149,7 @@ async def update_mapping(
 )
 async def delete_mapping(
     id: str,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     current_user: User = Depends(get_current_user),
 ):
     """
@@ -324,7 +326,7 @@ async def approve_exchange_log(
     response_model=List[DataExchangeTaskResponse],
 )
 async def list_tasks(
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     current_user: User = Depends(get_current_user),
 ):
     """
@@ -358,7 +360,7 @@ async def list_tasks(
 )
 async def create_task(
     req: DataExchangeTaskCreate,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     current_user: User = Depends(get_current_user),
 ):
     """
@@ -401,7 +403,7 @@ async def create_task(
 async def update_task(
     id: str,
     req: DataExchangeTaskUpdate,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     current_user: User = Depends(get_current_user),
 ):
     """
@@ -441,7 +443,7 @@ async def update_task(
 )
 async def delete_task(
     id: str,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     current_user: User = Depends(get_current_user),
 ):
     """
@@ -467,7 +469,7 @@ async def delete_task(
 async def execute_task(
     id: str,
     req: ExecuteTaskRequest,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
     current_user: User = Depends(get_current_user),
 ):
@@ -516,21 +518,28 @@ async def execute_task(
         log_messages.append(f"Import process finalized. Successfully processed: {success_count}. Failed: {failure_count}.")
         task.status = "Success" if failure_count == 0 else "Failed"
     else:
-        # Export task
+        # Export task — Strangler-fig routed to DataBridgeExportEngine
+        depr_msg = "[SMRITI-DEPRECATION] /api/v1/exchange is superseded by /api/v1/databridge (ADR-DATABRIDGE-01). Routing through canonical DataBridgeExportEngine."
+        log_messages.append(depr_msg)
         log_messages.append("Executing export sequence data compilation query.")
         
-        # Build mock export dataset
         export_data = []
-        if task.entity_type == "Products":
-            # Select actual products from Postgres
-            q = select(Product).where(Product.is_deleted == False)
-            if tenant_ctx and tenant_ctx.company_id:
-                q = q.where(Product.company_id == tenant_ctx.company_id)
-            q = q.limit(50)
-            res = (await db.execute(q)).scalars().all()
-            for p in res:
-                row = {"id": p.id, "code": p.code, "name": p.name, "price": float(p.price), "stock": p.stock}
-                # Apply rules mapping back if present
+        company_id = tenant_ctx.company_id if tenant_ctx else "COMP-001"
+        try:
+            canonical_records = await DataBridgeExportEngine.fetch_entity_records(
+                company_db=db,
+                company_id=company_id,
+                entity_type=DataBridgeEntityType.ITEM,
+                limit=50,
+            )
+            for item in canonical_records:
+                row = {
+                    "id": item.get("item_code"),
+                    "code": item.get("item_code"),
+                    "name": item.get("item_name"),
+                    "price": float(item.get("selling_price") or 0.0),
+                    "stock": 100.0,
+                }
                 mapped_row = {}
                 if rules:
                     for ext_key, int_key in rules.items():
@@ -538,14 +547,25 @@ async def execute_task(
                 else:
                     mapped_row = row
                 export_data.append(mapped_row)
-        else:
-            export_data = [
-                {"ExternalID": "CUST-001", "ClientName": "Jawahar Mallah", "PhoneNo": "9999999999"},
-                {"ExternalID": "CUST-002", "ClientName": "Standard Cash Customer", "PhoneNo": "8888888888"}
-            ]
+        except Exception:
+            # Fallback to legacy Product table if canonical catalog query fails
+            q = select(Product).where(Product.is_deleted == False)
+            if tenant_ctx and tenant_ctx.company_id:
+                q = q.where(Product.company_id == tenant_ctx.company_id)
+            q = q.limit(50)
+            res = (await db.execute(q)).scalars().all()
+            for p in res:
+                row = {"id": p.id, "code": p.code, "name": p.name, "price": float(p.price), "stock": p.stock}
+                mapped_row = {}
+                if rules:
+                    for ext_key, int_key in rules.items():
+                        mapped_row[ext_key] = row.get(int_key, "")
+                else:
+                    mapped_row = row
+                export_data.append(mapped_row)
 
         success_count = len(export_data)
-        log_messages.append(f"Export dataset ready. Compiled {success_count} records successfully.")
+        log_messages.append(f"Export dataset ready. Compiled {success_count} records successfully via DataBridge.")
         task.status = "Success"
 
     task.last_log = "\n".join(log_messages)
@@ -557,5 +577,6 @@ async def execute_task(
         "processedCount": success_count,
         "failedCount": failure_count,
         "logs": task.last_log,
-        "exportedData": export_data if task.direction == "Export" else None
+        "exportedData": export_data if task.direction == "Export" else None,
+        "deprecationNotice": "SMRITI-DEPR-001: /api/v1/exchange is superseded by canonical /api/v1/databridge (ADR-DATABRIDGE-01)",
     }

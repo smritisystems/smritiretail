@@ -4,21 +4,123 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 3.89.0
+ * Version      : 3.89.1
  * Created      : 2026-08-28
- * Modified     : 2026-08-28
- * Copyright    : Â© SMRITIBooks.com. All Rights Reserved.
+ * Modified     : 2026-10-11
+ * Copyright    : (c) SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
+ *
+ * Changelog v3.89.1 (2026-10-11) R-27:
+ *   - Inlined fittingRoomEngine types and session logic.
+ *     RFID IoT scope â€” no backend; all computation is in-memory local state.
+ *   - Removed erroneous @deprecated: component IS mounted in WmsStudioTab.tsx.
  */
 
 import React, { useState, useMemo } from "react";
-import FittingRoomEngine, {
-  FittingRoomSession,
-  RFIDGarmentTag,
-  CrossSellRecommendation,
-  FittingRoomStatus,
-} from "../../utils/fittingRoomEngine";
+
+// â”€â”€â”€ Inlined from fittingRoomEngine (R-27) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+type FittingRoomStatus = "VACANT" | "OCCUPIED" | "TRIAL_IN_PROGRESS" | "NEEDS_ATTENTION" | "CLEANING";
+
+interface RFIDGarmentTag {
+  rfidTag: string; sku: string; productName: string; category: string;
+  size: string; color: string; mrp: number; sellingPrice: number; imageUrl?: string;
+}
+
+interface FittingRoomGarmentEvent {
+  eventId: string; rfidTag: string; sku: string; productName: string;
+  action: "BROUGHT_IN" | "TAKEN_OUT" | "PURCHASED";
+  timestamp: string; trialDurationMs?: number;
+}
+
+interface CrossSellRecommendation {
+  recommendationId: string; basedOnSku: string; basedOnProductName: string;
+  recommendedSku: string; recommendedProductName: string; recommendedCategory: string;
+  recommendedPrice: number; reason: string; affinity: number;
+}
+
+interface FittingRoomSession {
+  sessionId: string; roomId: string; startedAt: string; endedAt?: string;
+  customerId?: string; garments: FittingRoomGarmentEvent[];
+  status: FittingRoomStatus; crossSellsGenerated: CrossSellRecommendation[];
+  associateId?: string;
+}
+
+interface FittingRoomAnalytics {
+  totalSessions: number; totalGarmentsTrialled: number; totalGarmentsPurchased: number;
+  conversionRate: number; avgTrialDurationMs: number;
+  topTrialledSkus: { sku: string; productName: string; trialCount: number; purchaseCount: number; }[];
+  abandonedGarments: { sku: string; productName: string; avgTrialMs: number; }[];
+}
+
+const _CROSS_SELL_AFFINITY: Record<string, { category: string; affinity: number; reason: string }[]> = {
+  "Apparel":  [{ category: "Accessories", affinity: 0.92, reason: "Customers who try apparel frequently pair with accessories" }, { category: "Footwear", affinity: 0.85, reason: "Complete the look â€” footwear recommendation" }],
+  "Footwear": [{ category: "Socks", affinity: 0.95, reason: "Essential accessory pairing with footwear" }, { category: "Accessories", affinity: 0.72, reason: "Belt or bag recommendation to match footwear" }],
+  "Denim":    [{ category: "Tops", affinity: 0.90, reason: "Classic denim & top pairing" }, { category: "Footwear", affinity: 0.80, reason: "Footwear recommendation for denim styling" }],
+  "Formals":  [{ category: "Ties", affinity: 0.93, reason: "Formal shirt & tie pairing" }, { category: "Formal Shoes", affinity: 0.89, reason: "Match formal outfit with formal shoes" }],
+};
+
+function _generateCrossSells(garmentTags: RFIDGarmentTag[]): CrossSellRecommendation[] {
+  const recs: CrossSellRecommendation[] = [];
+  const seen = new Set<string>();
+  for (const tag of garmentTags) {
+    for (const aff of (_CROSS_SELL_AFFINITY[tag.category] ?? [])) {
+      const key = `${tag.sku}-${aff.category}`;
+      if (!seen.has(key) && aff.affinity > 0.7) {
+        seen.add(key);
+        recs.push({ recommendationId: `REC-${Date.now()}-${Math.random().toString(36).slice(2,6)}`,
+          basedOnSku: tag.sku, basedOnProductName: tag.productName,
+          recommendedSku: `CROSS-${aff.category.toUpperCase().replace(" ","-")}-001`,
+          recommendedProductName: `Recommended ${aff.category} Item`,
+          recommendedCategory: aff.category,
+          recommendedPrice: Math.round(tag.sellingPrice * 0.6 / 100) * 100,
+          reason: aff.reason, affinity: aff.affinity });
+      }
+    }
+  }
+  return recs.sort((a, b) => b.affinity - a.affinity).slice(0, 5);
+}
+
+function openSession(params: { roomId: string; garmentTags: RFIDGarmentTag[]; customerId?: string }): FittingRoomSession {
+  const now = new Date().toISOString();
+  return { sessionId: `SESSION-${params.roomId}-${Date.now()}`, roomId: params.roomId,
+    startedAt: now, customerId: params.customerId, status: "TRIAL_IN_PROGRESS",
+    crossSellsGenerated: _generateCrossSells(params.garmentTags),
+    garments: params.garmentTags.map((tag) => ({
+      eventId: `EVT-${tag.rfidTag}-${Date.now()}`, rfidTag: tag.rfidTag,
+      sku: tag.sku, productName: tag.productName, action: "BROUGHT_IN", timestamp: now })) };
+}
+
+function recordGarmentOut(session: FittingRoomSession, rfidTag: string, purchased = false): FittingRoomSession {
+  const inEvent = session.garments.find((e) => e.rfidTag === rfidTag && e.action === "BROUGHT_IN");
+  const trialDurationMs = inEvent ? Date.now() - new Date(inEvent.timestamp).getTime() : undefined;
+  const outEvent: FittingRoomGarmentEvent = {
+    eventId: `EVT-${rfidTag}-OUT-${Date.now()}`, rfidTag,
+    sku: inEvent?.sku ?? rfidTag, productName: inEvent?.productName ?? "Unknown",
+    action: purchased ? "PURCHASED" : "TAKEN_OUT", timestamp: new Date().toISOString(), trialDurationMs };
+  const allOut = session.garments.filter((e) => e.action === "BROUGHT_IN")
+    .every((e) => [...session.garments, outEvent].some((o) => o.rfidTag === e.rfidTag && o.action !== "BROUGHT_IN"));
+  return { ...session, garments: [...session.garments, outEvent], status: allOut ? "VACANT" : "TRIAL_IN_PROGRESS" };
+}
+
+function computeAnalytics(sessions: FittingRoomSession[]): FittingRoomAnalytics {
+  const skuTrials: Record<string, { trialCount: number; purchaseCount: number; totalTrialMs: number; productName: string }> = {};
+  let totalGarmentsTrialled = 0, totalGarmentsPurchased = 0, totalTrialMs = 0, trialEventCount = 0;
+  for (const session of sessions) {
+    for (const evt of session.garments) {
+      if (evt.action === "BROUGHT_IN") { totalGarmentsTrialled++; if (!skuTrials[evt.sku]) skuTrials[evt.sku] = { trialCount: 0, purchaseCount: 0, totalTrialMs: 0, productName: evt.productName }; skuTrials[evt.sku].trialCount++; }
+      if (evt.action === "PURCHASED") { totalGarmentsPurchased++; if (skuTrials[evt.sku]) skuTrials[evt.sku].purchaseCount++; }
+      if (evt.action === "TAKEN_OUT" && evt.trialDurationMs) { totalTrialMs += evt.trialDurationMs; trialEventCount++; if (skuTrials[evt.sku]) skuTrials[evt.sku].totalTrialMs += evt.trialDurationMs; }
+    }
+  }
+  const avgTrialDurationMs = trialEventCount > 0 ? Math.round(totalTrialMs / trialEventCount) : 0;
+  const conversionRate = totalGarmentsTrialled > 0 ? Math.round((totalGarmentsPurchased / totalGarmentsTrialled) * 10000) / 100 : 0;
+  const topTrialledSkus = Object.entries(skuTrials).sort(([,a],[,b])=>b.trialCount-a.trialCount).slice(0,5).map(([sku,data])=>({sku,productName:data.productName,trialCount:data.trialCount,purchaseCount:data.purchaseCount}));
+  const abandonedGarments = Object.entries(skuTrials).filter(([,d])=>d.purchaseCount===0&&d.trialCount>0).sort(([,a],[,b])=>b.trialCount-a.trialCount).slice(0,5).map(([sku,data])=>({sku,productName:data.productName,avgTrialMs:data.totalTrialMs>0?Math.round(data.totalTrialMs/data.trialCount):0}));
+  return { totalSessions: sessions.length, totalGarmentsTrialled, totalGarmentsPurchased, conversionRate, avgTrialDurationMs, topTrialledSkus, abandonedGarments };
+}
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
 
 interface RFIDFittingRoomStudioModalProps {
   isOpen: boolean;
@@ -53,14 +155,14 @@ export const RFIDFittingRoomStudioModal: React.FC<RFIDFittingRoomStudioModalProp
 
   const currentSession = sessions[selectedRoom];
 
-  const analytics = useMemo(() => FittingRoomEngine.computeAnalytics(completedSessions), [completedSessions]);
+  const analytics = useMemo(() => computeAnalytics(completedSessions), [completedSessions]);
 
   if (!isOpen) return null;
 
   const handleOpenSession = () => {
     const tagsToAdd = CATALOG_GARMENTS.filter((g) => selectedGarments.has(g.rfidTag));
     if (tagsToAdd.length === 0) { onNotification?.("No Garments Selected", "Select at least one garment to open a session.", "error"); return; }
-    const session = FittingRoomEngine.openSession({ roomId: selectedRoom, garmentTags: tagsToAdd, customerId: "WALK-IN" });
+    const session = openSession({ roomId: selectedRoom, garmentTags: tagsToAdd, customerId: "WALK-IN" });
     setSessions((prev) => ({ ...prev, [selectedRoom]: session }));
     setSelectedGarments(new Set());
     onNotification?.("Session Opened", `${tagsToAdd.length} garment(s) scanned into ${selectedRoom}`, "info");
@@ -68,7 +170,7 @@ export const RFIDFittingRoomStudioModal: React.FC<RFIDFittingRoomStudioModalProp
 
   const handleGarmentExit = (rfidTag: string, purchased: boolean) => {
     if (!currentSession) return;
-    const updated = FittingRoomEngine.recordGarmentOut(currentSession, rfidTag, purchased);
+    const updated = recordGarmentOut(currentSession, rfidTag, purchased);
     setSessions((prev) => ({ ...prev, [selectedRoom]: updated }));
     if (updated.status === "VACANT") {
       setCompletedSessions((prev) => [...prev, updated]);
@@ -150,7 +252,7 @@ export const RFIDFittingRoomStudioModal: React.FC<RFIDFittingRoomStudioModalProp
               {/* Session Detail Panel */}
               <div className="lg:col-span-2 space-y-4">
                 {!currentSession ? (
-                  /* â”€â”€ Start New Session â”€â”€ */
+                  /* ?? Start New Session ?? */
                   <div className="space-y-4">
                     <div>
                       <p className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">Scan Garments into {selectedRoom}</p>
@@ -189,7 +291,7 @@ export const RFIDFittingRoomStudioModal: React.FC<RFIDFittingRoomStudioModalProp
                     </button>
                   </div>
                 ) : (
-                  /* â”€â”€ Active Session View â”€â”€ */
+                  /* ?? Active Session View ?? */
                   <div className="space-y-4">
                     {/* Cross-Sell Recommendations */}
                     {currentSession.crossSellsGenerated.length > 0 && (
@@ -250,7 +352,7 @@ export const RFIDFittingRoomStudioModal: React.FC<RFIDFittingRoomStudioModalProp
             </div>
           )}
 
-          {/* â”€â”€ ANALYTICS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+          {/* ?? ANALYTICS ??????????????????????????????????????????????????????? */}
           {activeTab === "ANALYTICS" && (
             <div className="space-y-5">
               {completedSessions.length === 0 ? (

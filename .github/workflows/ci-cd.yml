@@ -28,6 +28,9 @@ jobs:
 
       - name: Registry usage validation
         run: npm run validate-registry
+
+      - name: Launchpad coverage validation
+        run: npm run validate-launchpad
       
       - name: Run ESLint
         run: npm run lint
@@ -42,7 +45,7 @@ jobs:
         continue-on-error: false
       
       - name: Upload build artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: frontend-dist
           path: dist/
@@ -167,7 +170,7 @@ jobs:
       - uses: actions/checkout@v4
       
       - name: Download frontend build
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: frontend-dist
           path: dist/

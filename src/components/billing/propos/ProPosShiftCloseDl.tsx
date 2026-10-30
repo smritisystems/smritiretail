@@ -4,17 +4,19 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.16.0
+ * Version      : 6.99.15
  * Created      : 2026-08-23
- * Modified     : 2026-08-23
+ * Modified     : 2026-10-29 (v6.99.15 — Unified body portal & #root suppression print standard)
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
  */
 
 import React, { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { CashDenominations, POSZReportData } from "./types.ts";
 import ProPosDenomination, { calculateDenominationTotal } from "./ProPosDenomination.tsx";
+import ProPosShiftHandoverSlip from "./ProPosShiftHandoverSlip.tsx";
 import { apiFetchV1 } from "../../../lib/apiFetchV1.ts";
 import {
   Lock,
@@ -54,6 +56,7 @@ export const SmritiProPosShiftCloseModal: React.FC<SmritiProPosShiftCloseModalPr
   const [closing, setClosing] = useState<boolean>(false);
   const [zReportData, setZReportData] = useState<POSZReportData | null>(null);
   const [closedResult, setClosedResult] = useState<POSZReportData | null>(null);
+  const [showHandoverSlip, setShowHandoverSlip] = useState<boolean>(false);
 
   // Denominations State
   const [denominations, setDenominations] = useState<CashDenominations>({
@@ -88,31 +91,9 @@ export const SmritiProPosShiftCloseModal: React.FC<SmritiProPosShiftCloseModalPr
         }
       } catch (err: any) {
         console.error("Failed to load shift Z-Report:", err);
-        // Fallback default structure for graceful UI rendering
         if (isMounted) {
-          setZReportData({
-            shift_id: shiftId,
-            shift_code: `SHIFT-${shiftId.slice(-6).toUpperCase()}`,
-            cashier_id: "cashier-current",
-            register_id: registerId,
-            branch_id: "MAIN",
-            company_id: "CMP01",
-            start_time: new Date().toISOString(),
-            status: "OPEN",
-            opening_float: 5000,
-            cash_sales: 15400,
-            card_sales: 12000,
-            upi_sales: 8500,
-            other_sales: 0,
-            total_sales: 35900,
-            tax_total: 1795,
-            discount_total: 500,
-            total_bills: 24,
-            cash_drops_total: 5000,
-            till_expenses_total: 450,
-            cash_in_total: 0,
-            net_expected_cash: 5000 + 15400 - 5000 - 450,
-          });
+          setZReportData(null);
+          onNotification?.("Day Close unavailable", "The live shift Z-Report could not be loaded. No sample totals are shown.", "error");
         }
       } finally {
         if (isMounted) setLoading(false);
@@ -130,6 +111,10 @@ export const SmritiProPosShiftCloseModal: React.FC<SmritiProPosShiftCloseModalPr
   const cashVariance = countedCash - expectedCash;
 
   const handleCloseShift = async () => {
+    if (!zReportData || zReportData.status !== "OPEN") {
+      onNotification?.("Day Close unavailable", "There is no live open shift available to close.", "error");
+      return;
+    }
     if (countedCash === 0 && expectedCash > 0) {
       const confirmZero = window.confirm(
         "Physical cash counted is ₹0.00 while expected cash is ₹" +
@@ -141,12 +126,24 @@ export const SmritiProPosShiftCloseModal: React.FC<SmritiProPosShiftCloseModalPr
 
     setClosing(true);
     try {
+      const backendDenominations = {
+        notes_2000: denominations.notes_2000 || 0,
+        notes_500: denominations.notes_500 || 0,
+        notes_200: denominations.notes_200 || 0,
+        notes_100: denominations.notes_100 || 0,
+        notes_50: denominations.notes_50 || 0,
+        notes_20: denominations.notes_20 || 0,
+        notes_10: denominations.notes_10 || 0,
+        notes_5: denominations.notes_5 || 0,
+        notes_2: denominations.notes_2 || 0,
+        notes_1: denominations.notes_1 || 0,
+        coins_total: denominations.coins || 0,
+      };
+
       const payload = {
-        actual_cash: countedCash,
-        actual_card: parseFloat(actualCard) || (zReportData?.card_sales ?? 0),
-        actual_upi: parseFloat(actualUpi) || (zReportData?.upi_sales ?? 0),
-        denominations,
-        notes: closingNotes.trim() || undefined,
+        closing_balance: countedCash,
+        closing_notes: closingNotes.trim() || undefined,
+        denominations: backendDenominations,
       };
 
       const res = await apiFetchV1<any>(`/pos/shifts/close/${shiftId}`, {
@@ -154,16 +151,33 @@ export const SmritiProPosShiftCloseModal: React.FC<SmritiProPosShiftCloseModalPr
         body: JSON.stringify(payload),
       });
 
+      // Auto-assign the closed shift to the open store business day (non-blocking)
+      try {
+        const today = new Date().toISOString().slice(0, 10);
+        const dayList = await apiFetchV1<any[]>(
+          `/pos/store-days?branch_id=${zReportData?.branch_id || ""}&business_date=${today}`
+        );
+        const openDay = (dayList || []).find((d: any) => d.status === "OPEN");
+        if (openDay) {
+          await apiFetchV1(`/pos/store-days/${openDay.id}/assign-shift`, {
+            method: "POST",
+            body: JSON.stringify({ shift_id: shiftId }),
+          });
+        }
+      } catch {
+        // Auto-assign failure is non-blocking — shift is already closed
+      }
+
       const updatedZReport: POSZReportData = {
         ...(zReportData || ({} as any)),
         shift_id: shiftId,
-        shift_code: res.shift_code || zReportData?.shift_code || shiftId,
+        shift_code: res.identity_code || res.shift_code || zReportData?.shift_code || shiftId,
         status: "CLOSED",
-        end_time: res.end_time || new Date().toISOString(),
-        actual_cash_counted: countedCash,
-        cash_variance: res.cash_variance ?? cashVariance,
+        end_time: res.closed_at || res.end_time || new Date().toISOString(),
+        actual_cash_counted: res.closing_balance !== undefined ? Number(res.closing_balance) : countedCash,
+        cash_variance: res.variance !== undefined ? Number(res.variance) : (res.cash_variance ?? cashVariance),
         denominations,
-        closing_notes: closingNotes,
+        closing_notes: res.closing_notes || closingNotes,
         shift_close_voucher_id: res.shift_close_voucher_id || "JV-BALANCED",
       };
 
@@ -182,16 +196,92 @@ export const SmritiProPosShiftCloseModal: React.FC<SmritiProPosShiftCloseModalPr
     }
   };
 
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        onClose();
+      } else if (e.key === "F9" || ((e.ctrlKey || e.metaKey) && (e.key === "p" || e.key === "P"))) {
+        e.preventDefault();
+        window.print();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [onClose]);
+
   const handlePrintSlip = () => {
     window.print();
   };
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-xs p-4 animate-in fade-in duration-150 overflow-y-auto font-sans">
-      <div className="bg-white dark:bg-[#1e232a] border border-[#c4c5d5] dark:border-[#444653] w-full max-w-4xl rounded-3xl shadow-2xl overflow-hidden flex flex-col my-8">
+  const modalContent = (
+    <div
+      className="propos-shift-close-modal-root fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-xs p-4 animate-in fade-in duration-150 overflow-y-auto font-sans print:static print:inset-auto print:h-auto print:w-full print:p-0 print:m-0 print:bg-white print:overflow-visible print:block"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Shift Reconciliation & Z-Report Closeout"
+    >
+      <style>{`
+        @media print {
+          @page {
+            size: 80mm auto;
+            margin: 0;
+          }
+          #root {
+            display: none !important;
+          }
+          html, body {
+            height: auto !important;
+            min-height: 0 !important;
+            overflow: visible !important;
+            overflow-x: visible !important;
+            overflow-y: visible !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            background: white !important;
+          }
+          .propos-shift-close-modal-root {
+            position: static !important;
+            display: block !important;
+            width: 100% !important;
+            height: auto !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            overflow: visible !important;
+            background: white !important;
+          }
+          .propos-shift-close-toolbar,
+          .no-print {
+            display: none !important;
+          }
+          .propos-shift-close-sheet-wrapper {
+            display: block !important;
+            width: 100% !important;
+            max-width: 100% !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            box-shadow: none !important;
+            border: none !important;
+            overflow: visible !important;
+            background: white !important;
+          }
+          #thermal-handover-slip {
+            display: block !important;
+            box-shadow: none !important;
+            border: none !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            visibility: visible !important;
+            background: white !important;
+            width: 100% !important;
+          }
+        }
+      `}</style>
+      <div className="propos-shift-close-sheet-wrapper bg-white dark:bg-[#1e232a] border border-[#c4c5d5] dark:border-[#444653] w-full max-w-4xl rounded-3xl shadow-2xl overflow-hidden flex flex-col my-8 print:my-0 print:max-w-none print:w-full print:shadow-none print:border-none print:block">
         
         {/* Modal Header */}
-        <div className="flex justify-between items-center px-6 py-4 border-b border-[#e2e8f0] dark:border-[#334155] bg-[#f8faff] dark:bg-[#131b2e]">
+        <div className="propos-shift-close-toolbar flex justify-between items-center px-6 py-4 border-b border-[#e2e8f0] dark:border-[#334155] bg-[#f8faff] dark:bg-[#131b2e] print:hidden">
           <div className="flex items-center gap-3">
             <div className="p-2.5 rounded-2xl bg-[#00288e] text-white shadow-xs">
               <Lock size={20} />
@@ -229,7 +319,7 @@ export const SmritiProPosShiftCloseModal: React.FC<SmritiProPosShiftCloseModalPr
                 Shift Successfully Closed &amp; Reconciled
               </h2>
               <p className="text-xs text-[#64748b] dark:text-[#94a3b8] mt-1">
-                Z-Report has been committed to PostgreSQL. Dual-entry General Ledger balancing entries posted.
+                Z-Report has been committed to ledger. Dual-entry General Ledger balancing entries posted.
               </p>
             </div>
 
@@ -263,24 +353,42 @@ export const SmritiProPosShiftCloseModal: React.FC<SmritiProPosShiftCloseModalPr
               </div>
             </div>
 
-            {/* Actions */}
-            <div className="flex gap-4">
-              <button
-                type="button"
-                onClick={handlePrintSlip}
-                className="px-6 py-2.5 bg-[#00288e] hover:bg-[#1e40af] text-white text-xs font-bold rounded-xl shadow-md transition flex items-center gap-2"
-              >
-                <Printer size={15} />
-                <span>Print Official Z-Report Slip</span>
-              </button>
-              <button
-                type="button"
-                onClick={onClose}
-                className="px-6 py-2.5 bg-[#f1f5f9] dark:bg-[#334155] text-[#334155] dark:text-[#f8fafc] hover:bg-[#e2e8f0] text-xs font-bold rounded-xl transition"
-              >
-                Done
-              </button>
-            </div>
+            {/* Handover Slip Modal / Drawer */}
+            {showHandoverSlip ? (
+              <div className="w-full">
+                <ProPosShiftHandoverSlip
+                  data={closedResult}
+                  onClose={() => setShowHandoverSlip(false)}
+                />
+              </div>
+            ) : (
+              /* Actions */
+              <div className="flex flex-wrap justify-center gap-4">
+                <button
+                  type="button"
+                  onClick={() => setShowHandoverSlip(true)}
+                  className="px-6 py-2.5 bg-[#00288e] hover:bg-[#1e40af] text-white text-xs font-bold rounded-xl shadow-md transition flex items-center gap-2 cursor-pointer"
+                >
+                  <Receipt size={15} />
+                  <span>80mm Cashier Handover Slip</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handlePrintSlip}
+                  className="px-6 py-2.5 bg-[#f1f5f9] dark:bg-[#334155] text-[#1e293b] dark:text-[#f8fafc] hover:bg-[#e2e8f0] text-xs font-bold rounded-xl shadow-xs transition flex items-center gap-2 cursor-pointer"
+                >
+                  <Printer size={15} />
+                  <span>Print Full Z-Report</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="px-6 py-2.5 bg-[#e2e8f0] dark:bg-[#1e293b] text-[#334155] dark:text-[#f8fafc] hover:bg-[#cbd5e1] text-xs font-bold rounded-xl transition cursor-pointer"
+                >
+                  Done
+                </button>
+              </div>
+            )}
           </div>
         ) : (
           /* Normal Reconciliation Flow */
@@ -425,6 +533,12 @@ export const SmritiProPosShiftCloseModal: React.FC<SmritiProPosShiftCloseModalPr
       </div>
     </div>
   );
+
+  if (typeof document === "undefined" || !document?.body || typeof (document.body as any).appendChild !== "function") {
+    return modalContent;
+  }
+
+  return createPortal(modalContent, document.body);
 };
 
 export default SmritiProPosShiftCloseModal;

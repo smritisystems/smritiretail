@@ -31,6 +31,7 @@ import {
 import { SalesReturnService, SalesReturnContext } from "../../../services/salesReturnService.ts";
 
 interface ExtendedReturnItem extends ReturnItem {
+  invoiceItemId?: string;
   productId?: string;
   remainingQty?: number;
   gstRate?: number;
@@ -88,6 +89,7 @@ export const SmritiProPosSalesReturnModal: React.FC<SmritiProPosSalesReturnModal
 
       // Populate items from authoritative backend lines
       const mappedItems: ExtendedReturnItem[] = (ctx.lines || []).map((line) => ({
+        invoiceItemId: line.invoice_item_id,
         sku: line.code,
         name: line.name,
         productId: line.product_id,
@@ -168,6 +170,7 @@ export const SmritiProPosSalesReturnModal: React.FC<SmritiProPosSalesReturnModal
       is_blind_return: returnMode === "BLIND_RETURN",
       reason: activeReturnItems[0]?.returnReason || "Customer Return",
       items: activeReturnItems.map((item) => ({
+        sales_invoice_item_id: item.invoiceItemId,
         product_id: item.productId || item.sku || "PROD-GEN",
         code: item.sku || "CODE",
         name: item.name || "Item",

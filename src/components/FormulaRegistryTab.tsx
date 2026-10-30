@@ -23,7 +23,7 @@
  * * License    : Proprietary Commercial Software
  */
 
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { Formula } from "../types";
 
 interface FormulaRegistryTabProps {
@@ -38,25 +38,36 @@ export const FormulaRegistryTab: React.FC<FormulaRegistryTabProps> = ({
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
 
-  const categories = ["All", ...Array.from(new Set(formulas.map(f => f.category)))];
+  const categories = useMemo(() => {
+    return ["All", ...Array.from(new Set(formulas.map(f => f.category)))];
+  }, [formulas]);
 
-  const filteredFormulas = formulas.filter(f => {
-    const matchesSearch = f.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                          f.meaning.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                          f.expression.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesCat = selectedCategory === "All" || f.category === selectedCategory;
-    return matchesSearch && matchesCat;
-  });
+  const filteredFormulas = useMemo(() => {
+    return formulas.filter(f => {
+      const q = searchQuery.toLowerCase().trim();
+      const matchesSearch = !q || 
+                            f.name.toLowerCase().includes(q) || 
+                            f.meaning.toLowerCase().includes(q) || 
+                            f.expression.toLowerCase().includes(q);
+      const matchesCat = selectedCategory === "All" || f.category === selectedCategory;
+      return matchesSearch && matchesCat;
+    });
+  }, [formulas, searchQuery, selectedCategory]);
 
   return (
-    <div className="space-y-6">
+    <div
+      role="region"
+      aria-label="SMRITI KPI and Formula Registry"
+      title="SMRITI Formula Registry (en-IN Locale & Currency Compliant)"
+      className="space-y-6 sm:px-2 md:px-4"
+    >
       
       {/* Description Header */}
       <div className="bg-theme-surface-1 p-6 rounded-xl border border-theme-divider flex justify-between items-start">
         <div className="space-y-1">
           <h3 className="font-display font-semibold text-lg text-theme-body">SMRITI Formula Registry</h3>
           <p className="text-xs text-theme-muted">
-            Locked, single-source of truth computed KPI mathematical definitions complying with SMRITI Explainability DOC-01 standards.
+            Locked, single-source of truth computed KPI mathematical definitions complying with SMRITI Explainability DOC-01 standards. Currency & metrics calculated for en-IN locale.
           </p>
         </div>
         <span className="text-xs bg-emerald-500 bg-opacity-20 text-emerald-400 font-mono font-bold px-2 py-0.5 rounded border border-emerald-500">RULE 15 ACTIVE</span>

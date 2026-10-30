@@ -1,0 +1,15 @@
+{
+  "certificate_id": "PF-2026-1007-8B4590",
+  "entity": "databridge",
+  "capability": "databridge.connector_framework",
+  "asset_type": "SOURCE_CODE",
+  "proposed_name": "sap_b1_connector.py",
+  "target_file_path": "backend/app/services/databridge/connectors/sap_b1_connector.py",
+  "decision": "CANONICAL",
+  "canonical_owner": "backend/app/services/databridge/connectors/sap_b1_connector.py",
+  "content_hash": "a57529d5625e465252ae0d00385057fa6278d69d8939f1a12d5caac8f8c7099c",
+  "git_commit": "32119847fbdfe7d0360d615d29b2d8851d525799",
+  "issued_at": "2026-10-07T09:33:46.308718+00:00",
+  "expires_at": "2026-10-14T09:33:46.308718+00:00",
+  "status": "ISSUED"
+}

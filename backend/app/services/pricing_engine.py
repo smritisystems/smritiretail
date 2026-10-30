@@ -57,14 +57,18 @@ class PricingEngine:
         """Creates a new Price Book header with date validity and currency controls."""
         stmt_check = select(PriceBook).where(
             PriceBook.code == req.code,
+            PriceBook.company_id == company_id,
         )
         existing = (await session.execute(stmt_check)).scalars().first()
         if existing:
-            raise ValueError(f"Price Book with code '{req.code}' already exists.")
+            raise ValueError(f"Price Book with code '{req.code}' already exists for company '{company_id}'.")
 
-        # If marked default, unset existing default
+        # If marked default, unset existing default for this company
         if req.is_default:
-            stmt_def = select(PriceBook).where(PriceBook.is_default == True)
+            stmt_def = select(PriceBook).where(
+                PriceBook.company_id == company_id,
+                PriceBook.is_default == True,
+            )
             def_books = (await session.execute(stmt_def)).scalars().all()
             for b in def_books:
                 b.is_default = False
@@ -94,12 +98,16 @@ class PricingEngine:
         price_book_id: str,
         req: PriceBookEntryCreateRequest,
         created_by: Optional[str] = None,
+        commit: bool = True,
     ) -> PriceBookEntry:
         """Adds or updates a price point for an Item / Variant with volume break support."""
-        stmt_pb = select(PriceBook).where(PriceBook.id == price_book_id)
+        stmt_pb = select(PriceBook).where(
+            PriceBook.id == price_book_id,
+            PriceBook.company_id == company_id,
+        )
         pb = (await session.execute(stmt_pb)).scalars().first()
         if not pb:
-            raise ValueError(f"Price Book '{price_book_id}' not found.")
+            raise ValueError(f"Price Book '{price_book_id}' not found for company '{company_id}'.")
 
         # Check existing entry with same volume break
         stmt_e = select(PriceBookEntry).where(
@@ -130,7 +138,10 @@ class PricingEngine:
             )
             session.add(entry)
 
-        await session.commit()
+        if commit:
+            await session.commit()
+        else:
+            await session.flush()
         return entry
 
     @classmethod
@@ -142,10 +153,13 @@ class PricingEngine:
         created_by: Optional[str] = None,
     ) -> CustomerPriceTier:
         """Creates a Customer Price Tier with default percentage discounts or price book bindings."""
-        stmt_check = select(CustomerPriceTier).where(CustomerPriceTier.code == req.code)
+        stmt_check = select(CustomerPriceTier).where(
+            CustomerPriceTier.code == req.code,
+            CustomerPriceTier.company_id == company_id,
+        )
         existing = (await session.execute(stmt_check)).scalars().first()
         if existing:
-            raise ValueError(f"Customer Price Tier with code '{req.code}' already exists.")
+            raise ValueError(f"Customer Price Tier with code '{req.code}' already exists for company '{company_id}'.")
 
         tier = CustomerPriceTier(
             id=f"cpt_{uuid.uuid4().hex[:12]}",
@@ -171,19 +185,40 @@ class PricingEngine:
         price_book_code: Optional[str] = None,
         customer_tier_code: Optional[str] = None,
         as_of_date: Optional[datetime] = None,
+        company_id: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
         Authoritatively resolves the effective unit price in order of precedence:
         1. Explicit or active Price Book volume break (quantity >= min_quantity) with date validity gating.
         2. Customer Price Tier discount percentage modifier.
-        3. ItemVariant selling_price baseline.
-        4. Item selling_price baseline.
-        5. Fallback Product Master price.
+        3. Temporal ItemPriceRevision (effective as of transaction timestamp).
+        4. ItemVariant selling_price baseline.
+        5. Item selling_price baseline.
+        6. Fallback Product Master price.
         """
         now = as_of_date or datetime.now(timezone.utc)
         qty_dec = Decimal(str(quantity)) if not isinstance(quantity, Decimal) else quantity
 
-        # 1. Query base Item and Variant
+        # Fail-Closed Tenant Resolution from trusted server-side context
+        resolved_company_id = company_id
+        if not resolved_company_id and hasattr(session, "info"):
+            resolved_company_id = session.info.get("company_id") or session.info.get("tenant_id")
+        if resolved_company_id and str(resolved_company_id).strip().lower() in ("none", "null", "undefined", ""):
+            resolved_company_id = None
+        if resolved_company_id:
+            resolved_company_id = str(resolved_company_id).strip()
+
+        # Reject pricing resolution if company identity is required but unavailable
+        if not resolved_company_id:
+            if price_book_code:
+                raise ValueError("SMRITI-PRICE-TENANT-REQUIRED: Company identity is required to resolve Price Book pricing.")
+            if customer_tier_code:
+                raise ValueError("SMRITI-PRICE-TENANT-REQUIRED: Company identity is required to resolve Customer Price Tier pricing.")
+            if variant_id:
+                raise ValueError("SMRITI-PRICE-TENANT-REQUIRED: Company identity is required to resolve Variant-level pricing.")
+            raise ValueError("SMRITI-PRICE-TENANT-REQUIRED: Authoritative company identity is required for pricing resolution.")
+
+        # 1. Query base Item and verify company & relationship consistency
         base_selling_price = Decimal("0.00")
         base_mrp = Decimal("0.00")
         pricing_source = "ITEM_MASTER"
@@ -191,6 +226,10 @@ class PricingEngine:
         stmt_item = select(Item).where(Item.id == item_id)
         item = (await session.execute(stmt_item)).scalars().first()
         if item:
+            if item.company_id and item.company_id != resolved_company_id:
+                raise ValueError(
+                    f"SMRITI-PRICE-TENANT-MISMATCH: Item '{item_id}' belongs to company '{item.company_id}', not authorized tenant '{resolved_company_id}'."
+                )
             base_selling_price = Decimal(str(item.selling_price or 0.0))
             base_mrp = Decimal(str(item.mrp or item.selling_price or 0.0))
         else:
@@ -198,32 +237,72 @@ class PricingEngine:
             stmt_prod = select(Product).where(or_(Product.id == item_id, Product.code == item_id, Product.sku == item_id))
             prod = (await session.execute(stmt_prod)).scalars().first()
             if prod:
+                prod_cid = getattr(prod, "company_id", None)
+                if prod_cid and prod_cid != resolved_company_id:
+                    raise ValueError(
+                        f"SMRITI-PRICE-TENANT-MISMATCH: Product '{item_id}' belongs to company '{prod_cid}', not authorized tenant '{resolved_company_id}'."
+                    )
                 base_selling_price = Decimal(str(prod.price or 0.0))
                 base_mrp = Decimal(str(prod.mrp or prod.price or 0.0))
                 pricing_source = "PRODUCT_MASTER"
             else:
                 raise ValueError(f"Item or Product '{item_id}' not found.")
 
+        # 2. Query ItemVariant and verify item & company consistency
+        variant = None
         if variant_id:
             stmt_var = select(ItemVariant).where(ItemVariant.id == variant_id)
             variant = (await session.execute(stmt_var)).scalars().first()
-            if variant:
-                base_selling_price = Decimal(str(variant.selling_price or base_selling_price))
-                base_mrp = Decimal(str(variant.mrp or base_mrp))
-                pricing_source = "VARIANT_MASTER"
+            if not variant:
+                raise ValueError(f"Variant '{variant_id}' not found.")
+            if variant.item_id and variant.item_id != item_id:
+                raise ValueError(
+                    f"SMRITI-PRICE-VARIANT-MISMATCH: Variant '{variant_id}' belongs to item '{variant.item_id}', not requested item '{item_id}'."
+                )
+            if variant.company_id and variant.company_id != resolved_company_id:
+                raise ValueError(
+                    f"SMRITI-PRICE-TENANT-MISMATCH: Variant '{variant_id}' belongs to company '{variant.company_id}', not authorized tenant '{resolved_company_id}'."
+                )
+            base_selling_price = Decimal(str(variant.selling_price or base_selling_price))
+            base_mrp = Decimal(str(variant.mrp or base_mrp))
+            pricing_source = "VARIANT_MASTER"
+
+        # 3. Check Temporal Price Revision History (Authoritative historical & current price as of 'now')
+        if variant_id:
+            from .price_revision_service import PriceRevisionService
+            rev_match = await PriceRevisionService.resolve_effective_price(
+                session=session,
+                company_id=resolved_company_id,
+                variant_id=variant_id,
+                as_of_date=now,
+            )
+            if rev_match:
+                base_selling_price = rev_match["selling_price"]
+                base_mrp = rev_match["mrp"]
+                pricing_source = "PRICE_REVISION_HISTORY"
 
         effective_price = base_selling_price
         applied_price_book = None
         applied_tier = None
         discount_percentage = Decimal("0.00")
 
-        # 2. Resolve Price Book (Explicit code, or Tier-bound price book, or Default active book)
+        # 4. Resolve Price Book (Explicit code, or Tier-bound price book) strictly within company scope
         resolved_pb_code = price_book_code
         if not resolved_pb_code and customer_tier_code:
-            stmt_tier_pb = select(CustomerPriceTier).where(CustomerPriceTier.code == customer_tier_code)
+            stmt_tier_pb = select(CustomerPriceTier).where(
+                CustomerPriceTier.code == customer_tier_code,
+                CustomerPriceTier.company_id == resolved_company_id,
+                CustomerPriceTier.is_active == True,
+                CustomerPriceTier.is_deleted == False,
+            )
             tier_match = (await session.execute(stmt_tier_pb)).scalars().first()
             if tier_match and tier_match.price_book_id:
-                stmt_pb_id = select(PriceBook).where(PriceBook.id == tier_match.price_book_id)
+                stmt_pb_id = select(PriceBook).where(
+                    PriceBook.id == tier_match.price_book_id,
+                    PriceBook.company_id == resolved_company_id,
+                    PriceBook.status == "ACTIVE",
+                    PriceBook.is_deleted == False,
+                )
                 pb_match = (await session.execute(stmt_pb_id)).scalars().first()
                 if pb_match:
                     resolved_pb_code = pb_match.code
@@ -231,7 +310,9 @@ class PricingEngine:
         if resolved_pb_code:
             stmt_pb = select(PriceBook).where(
                 PriceBook.code == resolved_pb_code,
+                PriceBook.company_id == resolved_company_id,
                 PriceBook.status == "ACTIVE",
+                PriceBook.is_deleted == False,
             )
             price_book = (await session.execute(stmt_pb)).scalars().first()
             if price_book:
@@ -243,17 +324,35 @@ class PricingEngine:
                     is_valid = False
 
                 if is_valid:
-                    # Find matching volume break entry
+                    # Find matching volume break entry strictly scoped to resolved_company_id
                     stmt_pbe = select(PriceBookEntry).where(
                         PriceBookEntry.price_book_id == price_book.id,
-                        PriceBookEntry.item_id == item_id,
+                        PriceBookEntry.company_id == resolved_company_id,
                         PriceBookEntry.min_quantity <= qty_dec,
-                    ).order_by(PriceBookEntry.min_quantity.desc())
-                    
-                    if variant_id:
+                    )
+
+                    if variant_id and item_id:
+                        stmt_pbe = stmt_pbe.where(
+                            or_(
+                                and_(PriceBookEntry.variant_id == variant_id, PriceBookEntry.item_id == item_id),
+                                and_(PriceBookEntry.variant_id == variant_id, PriceBookEntry.item_id.is_(None)),
+                                and_(PriceBookEntry.item_id == item_id, PriceBookEntry.variant_id.is_(None)),
+                            )
+                        )
+                    elif variant_id:
                         stmt_pbe = stmt_pbe.where(
                             or_(PriceBookEntry.variant_id == variant_id, PriceBookEntry.variant_id.is_(None))
                         )
+                    else:
+                        stmt_pbe = stmt_pbe.where(PriceBookEntry.item_id == item_id)
+
+                    # Deterministic specificity & volume break precedence:
+                    # 1. Higher quantity break (min_quantity DESC)
+                    # 2. Variant-specific entry (variant_id IS NOT NULL DESC) over generic item-level entry (variant_id IS NULL)
+                    stmt_pbe = stmt_pbe.order_by(
+                        PriceBookEntry.min_quantity.desc(),
+                        PriceBookEntry.variant_id.isnot(None).desc(),
+                    )
 
                     pbe = (await session.execute(stmt_pbe)).scalars().first()
                     if pbe:
@@ -262,9 +361,14 @@ class PricingEngine:
                         applied_price_book = price_book.code
                         pricing_source = "PRICE_BOOK_VOLUME"
 
-        # 3. Customer Price Tier Modifier (if tier provided and has discount)
+        # 5. Customer Price Tier Modifier (strictly scoped to resolved_company_id)
         if customer_tier_code:
-            stmt_tier = select(CustomerPriceTier).where(CustomerPriceTier.code == customer_tier_code)
+            stmt_tier = select(CustomerPriceTier).where(
+                CustomerPriceTier.code == customer_tier_code,
+                CustomerPriceTier.company_id == resolved_company_id,
+                CustomerPriceTier.is_active == True,
+                CustomerPriceTier.is_deleted == False,
+            )
             tier = (await session.execute(stmt_tier)).scalars().first()
             if tier and tier.discount_percentage > 0:
                 discount_percentage = Decimal(str(tier.discount_percentage))
@@ -272,6 +376,10 @@ class PricingEngine:
                 applied_tier = tier.code
                 if pricing_source != "PRICE_BOOK_VOLUME":
                     pricing_source = "CUSTOMER_TIER"
+
+        # 6. Statutory ceiling invariant safeguard: Selling Price cannot exceed MRP
+        if effective_price > base_mrp:
+            effective_price = base_mrp
 
         effective_price = effective_price.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
         subtotal = (effective_price * qty_dec).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
@@ -296,8 +404,30 @@ class PricingEngine:
         cls,
         session: AsyncSession,
         req: BulkPricingRequest,
+        company_id: Optional[str] = None,
     ) -> BulkPricingResponse:
         """Calculates multi-line item pricing for complete cart, invoice, or quotation workflows."""
+        # Authoritative server-side tenant resolution
+        resolved_cid = company_id
+        if not resolved_cid and hasattr(session, "info"):
+            resolved_cid = session.info.get("company_id") or session.info.get("tenant_id")
+        if resolved_cid and str(resolved_cid).strip().lower() in ("none", "null", "undefined", ""):
+            resolved_cid = None
+        if resolved_cid:
+            resolved_cid = str(resolved_cid).strip()
+
+        # Enforce that client-supplied company_id cannot mismatch authoritative tenant
+        req_cid = getattr(req, "company_id", None)
+        if req_cid and str(req_cid).strip():
+            req_cid = str(req_cid).strip()
+            if resolved_cid and req_cid != resolved_cid:
+                raise ValueError(
+                    f"SMRITI-PRICE-TENANT-MISMATCH: Requested company '{req_cid}' does not match authorized tenant '{resolved_cid}'."
+                )
+
+        if not resolved_cid:
+            raise ValueError("SMRITI-PRICE-TENANT-REQUIRED: Authoritative company identity is required for bulk pricing resolution.")
+
         lines = []
         tot_qty = 0.0
         tot_mrp = 0.0
@@ -312,6 +442,7 @@ class PricingEngine:
                 price_book_code=req.price_book_code,
                 customer_tier_code=req.customer_tier_code,
                 as_of_date=req.as_of_date,
+                company_id=resolved_cid,
             )
 
             # Apply additional line-level custom discount if any
@@ -345,12 +476,13 @@ class PricingEngine:
         cls,
         session: AsyncSession,
         req: BulkPricingRequest,
+        company_id: Optional[str] = None,
     ) -> PricingSnapshot:
         """
         Generates an immutable pricing snapshot designed to be stored inside Sales Invoices,
         Quotations, or Orders for zero-drift historical replay.
         """
-        bulk_res = await cls.calculate_bulk_pricing(session, req)
+        bulk_res = await cls.calculate_bulk_pricing(session, req, company_id=company_id)
         return PricingSnapshot(
             pricing_engine_version=1,
             calculation_timestamp=datetime.now(timezone.utc).isoformat(),

@@ -1,0 +1,15 @@
+{
+  "certificate_id": "PF-2026-1019-61A4D4",
+  "entity": "customer",
+  "capability": "customer.crud",
+  "asset_type": "component",
+  "proposed_name": "CustomerMergeModal.tsx",
+  "target_file_path": "src/components/customer/lifecycle/CustomerMergeModal.tsx",
+  "decision": "CREATE_APPROVED",
+  "canonical_owner": "src/components/customer/CustMasterWs.tsx",
+  "content_hash": "b7e7438a28ebd1afe79cf8c2021e03a74df66938d4edf313a8629f48a33c1d40",
+  "git_commit": "bcdcd4ff56b88e0dcc5a28515496bde4b9b95f3a",
+  "issued_at": "2026-10-19T14:38:43.318736+00:00",
+  "expires_at": "2026-10-26T14:38:43.318736+00:00",
+  "status": "ISSUED"
+}

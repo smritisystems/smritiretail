@@ -16,9 +16,9 @@
  *
  * * Websites: aitdl.com | erpnbook.com | smritibooks.com
  *
- * * Version    : 2.1.1
+ * * Version    : 6.82.0
  * * Created    : 2026-07-10
- * * Modified   : 2026-07-11
+ * * Modified   : 2026-10-15
  * * Copyright  : © AITDL.com and SMRITIBooks.com. All Rights Reserved.
  * * License    : Proprietary Commercial Software
  */
@@ -32,6 +32,8 @@ import { StandardInvoiceA4 } from "./templates/StandardInvoiceA4.tsx";
 import { ThermalReceipt80mm } from "./templates/ThermalReceipt80mm.tsx";
 import { GoodsReceiptNoteA4 } from "./templates/GoodsReceiptNoteA4.tsx";
 import { BarcodeLabel } from "./templates/BarcodeLabel.tsx";
+import { FootwearPurchaseOrderA4 } from "./templates/FootwearPurchaseOrderA4.tsx";
+import { PurchaseOrderPrintA4 } from "./templates/PurchaseOrderPrintA4.tsx";
 
 const MOCK_DATA = {
   invoiceNo: "INV-2023-0891",
@@ -97,6 +99,18 @@ export const PrintStudioTab: React.FC = () => {
       name: "Product Barcode Label (50x25mm)",
       format: "Label",
       component: BarcodeLabel
+    });
+    registerTemplate({
+      id: "purchase-order-print-a4",
+      name: "SMRITI Purchase Order Standard & Sizewise (Approved A4) [Default]",
+      format: "A4",
+      component: PurchaseOrderPrintA4 as any
+    });
+    registerTemplate({
+      id: "footwear-po-a4",
+      name: "Footwear Purchase Order (Euro Scale & Currency)",
+      format: "A4",
+      component: FootwearPurchaseOrderA4
     });
   }, [registerTemplate]);
 

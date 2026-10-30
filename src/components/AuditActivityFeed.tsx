@@ -226,28 +226,31 @@ export const AuditActivityFeed: React.FC = () => {
         </SmritiScrollArea>
       </div>
 
-      {/* Diagnostics / Simulate Actions Footer */}
-      <div className="mt-3 pt-3 border-t border-theme-divider flex items-center justify-between gap-2">
-        <span className="text-[10px] font-mono text-theme-muted uppercase tracking-wider">
-          Simulation Centre
-        </span>
-        <div className="flex space-x-1.5">
-          <button
-            onClick={() => triggerTestActivity("item")}
-            className="text-[10px] bg-theme-surface-2 hover:bg-emerald-500/20 hover:text-emerald-400 text-theme-body font-mono font-medium px-2 py-1 rounded border border-theme-divider transition-all flex items-center space-x-1"
-          >
-            <span className="material-symbols-outlined text-[10px]">add_circle</span>
-            <span>+ Item</span>
-          </button>
-          <button
-            onClick={() => triggerTestActivity("sync")}
-            className="text-[10px] bg-theme-surface-2 hover:bg-blue-500/20 hover:text-blue-400 text-theme-body font-mono font-medium px-2 py-1 rounded border border-theme-divider transition-all flex items-center space-x-1"
-          >
-            <span className="material-symbols-outlined text-[10px]">sync</span>
-            <span>Sync POS</span>
-          </button>
+      {/* Diagnostics / Simulate Actions Footer — DEV ONLY (REC-03) */}
+      {import.meta.env.DEV && (
+        <div className="mt-3 pt-3 border-t border-orange-500/30 flex items-center justify-between gap-2 bg-orange-500/5 -mx-5 px-5 -mb-5 pb-3 rounded-b-xl">
+          <span className="text-[10px] font-mono text-orange-400 uppercase tracking-wider flex items-center gap-1">
+            <span className="material-symbols-outlined text-[10px]">developer_mode</span>
+            Simulation Centre · DEV Only
+          </span>
+          <div className="flex space-x-1.5">
+            <button
+              onClick={() => triggerTestActivity("item")}
+              className="text-[10px] bg-theme-surface-2 hover:bg-emerald-500/20 hover:text-emerald-400 text-theme-body font-mono font-medium px-2 py-1 rounded border border-theme-divider transition-all flex items-center space-x-1"
+            >
+              <span className="material-symbols-outlined text-[10px]">add_circle</span>
+              <span>+ Item</span>
+            </button>
+            <button
+              onClick={() => triggerTestActivity("sync")}
+              className="text-[10px] bg-theme-surface-2 hover:bg-blue-500/20 hover:text-blue-400 text-theme-body font-mono font-medium px-2 py-1 rounded border border-theme-divider transition-all flex items-center space-x-1"
+            >
+              <span className="material-symbols-outlined text-[10px]">sync</span>
+              <span>Sync POS</span>
+            </button>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 };

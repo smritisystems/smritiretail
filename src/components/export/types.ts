@@ -16,7 +16,16 @@ export type ExportFormat = "csv" | "xlsx" | "txt" | "json" | "html" | "gsheet";
 
 export type ExportScope = "currentPage" | "all" | "filtered" | "selected";
 
-export type ColumnDataType = "text" | "number" | "currency" | "percentage" | "date" | "datetime" | "boolean" | "badge";
+export type ColumnDataType = "text" | "number" | "currency" | "percentage" | "date" | "datetime" | "boolean" | "badge" | "link";
+
+export interface ExportPreset {
+  id: string;
+  label: string;
+  description?: string;
+  badge?: string;
+  columnKeys?: string[];
+  isAudit?: boolean;
+}
 
 export interface ExportColumnDefinition {
   key: string;
@@ -77,6 +86,7 @@ export interface ExportPagedEndpointOptions {
   queryParams?: Record<string, any>;
   metadata?: ExportMetadata;
   selectedRows?: any[];
+  onEnrichData?: (rows: any[]) => any[];
   onProgress?: (progress: ExportProgressState) => void;
   abortSignal?: AbortSignal;
   customFilename?: string;

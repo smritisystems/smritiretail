@@ -1,0 +1,15 @@
+{
+  "certificate_id": "PF-2026-1019-C8C17D",
+  "entity": "customer",
+  "capability": "customer.crud",
+  "asset_type": "component",
+  "proposed_name": "CorporateIdentityCompliancePanel.tsx",
+  "target_file_path": "src/components/customer/corporateWorkspace/CorporateIdentityCompliancePanel.tsx",
+  "decision": "CREATE_APPROVED",
+  "canonical_owner": "src/components/customer/CustMasterWs.tsx",
+  "content_hash": "86bdab7e7a637718de42419f1e3d8ca52ec7c6e0c0fc7d12ed0d58bd4f05c4c5",
+  "git_commit": "bcdcd4ff56b88e0dcc5a28515496bde4b9b95f3a",
+  "issued_at": "2026-10-19T11:10:27.022918+00:00",
+  "expires_at": "2026-10-26T11:10:27.022918+00:00",
+  "status": "ISSUED"
+}

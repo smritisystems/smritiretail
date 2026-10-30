@@ -1,57 +1,423 @@
 /**
  * Project      : SMRITI Retail OS
  * Author       : Jawahar Ramkripal Mallah
+ * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 3.29.0
+ * Version      : 6.50.3
  * Created      : 2026-08-19
- * Modified     : 2026-08-19
+ * Modified     : 2026-10-30
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
+ * Classification: Internal
  */
 
-import React from "react";
-import { FileDigit, Hash, ShieldCheck } from "lucide-react";
+import React, { useState } from "react";
+import { FileDigit, Hash, ShieldCheck, Sparkles, Lock, Layers, ChevronDown, ChevronRight, AlertTriangle } from "lucide-react";
 import { MasterConfig } from "../master/types.ts";
 import { DocumentSeries, NumberingEngine } from "../../../services/numberingEngine.ts";
+
+/**
+ * Canonical Document Type Map: Harmonizes Studio UI labels, legacy Shoper 9 codes,
+ * and statutory backend enums.
+ */
+export const CANONICAL_DOC_TYPE_MAP: Record<string, string> = {
+  "Retail Invoice": "SALES_INVOICE",
+  "Tax Invoice": "SALES_CREDIT",
+  "Sales Order": "SALES_ORDER",
+  "Quotation": "QUOTATION",
+  "Purchase Order": "PURCHASE_ORDER",
+  "Goods Receipt": "GOODS_RECEIPT_NOTE",
+  "Goods Receipt Note": "GOODS_RECEIPT_NOTE",
+  "Sales Return": "SALES_RETURN",
+  "Credit Note": "SALES_RETURN",
+  "Debit Note": "DEBIT_NOTE",
+  "Delivery Challan": "DELIVERY_CHALLAN",
+  "ARTICLE": "ARTICLE",
+  "Article": "ARTICLE",
+  "SALES_INVOICE": "SALES_INVOICE",
+  "SALES_CASH": "SALES_CASH",
+  "SALES_CREDIT": "SALES_CREDIT",
+  "PURCHASE_ORDER": "PURCHASE_ORDER",
+  "GOODS_RECEIPT_NOTE": "GOODS_RECEIPT_NOTE",
+  "SALES_RETURN": "SALES_RETURN",
+  "SALES_ORDER": "SALES_ORDER",
+  "QUOTATION": "QUOTATION",
+  "DEBIT_NOTE": "DEBIT_NOTE",
+  "DELIVERY_CHALLAN": "DELIVERY_CHALLAN"
+};
+
+export const DOC_TYPE_DISPLAY_MAP: Record<string, string> = {
+  SALES_INVOICE: "Retail Invoice (POS Cash / Sales)",
+  SALES_CASH: "Retail Invoice (POS Cash)",
+  SALES_CREDIT: "Tax Invoice (B2B / Credit)",
+  SALES_ORDER: "Sales Order",
+  QUOTATION: "Quotation / Estimate",
+  PURCHASE_ORDER: "Purchase Order",
+  GOODS_RECEIPT_NOTE: "Goods Receipt (GRN)",
+  SALES_RETURN: "Sales Return / Credit Note",
+  DEBIT_NOTE: "Debit Note",
+  DELIVERY_CHALLAN: "Delivery Challan",
+  ARTICLE: "Article / Design (Master)"
+};
+
+/**
+ * Live Preview Component for the Document Series Form Drawer
+ */
+const LiveSeriesPreview: React.FC<{ formState: any }> = ({ formState }) => {
+  const prefix = formState.prefix || "";
+  const suffix = formState.suffix || "";
+  const rawDocType = formState.documentType || "";
+  const canonicalDocType = CANONICAL_DOC_TYPE_MAP[rawDocType] || rawDocType;
+  const isArticle = canonicalDocType === "ARTICLE";
+  const runningLength = formState.runningLength !== undefined && formState.runningLength !== null && formState.runningLength !== ""
+    ? Number(formState.runningLength)
+    : (isArticle ? 5 : 6);
+  const startNum = Number(formState.startNumber) || 1;
+  const currentNum = formState.currentNumber !== undefined && formState.currentNumber !== null && formState.currentNumber !== ""
+    ? Number(formState.currentNumber)
+    : (startNum > 1 ? startNum - 1 : 0);
+  
+  const nextNum = currentNum + 1;
+  const paddedNext = String(nextNum).padStart(runningLength, "0");
+  
+  const numFmt = formState.numberFormat || "PREFIX_NUM_SUFFIX";
+  let previewCode = `${prefix}${paddedNext}${suffix}`;
+  if (numFmt === "PREFIX_YEAR_SEP_NUM") {
+    const rawFy = formState.financialYear || "2026-2027";
+    const fy = rawFy ? `/${rawFy}` : "";
+    previewCode = `${prefix}${fy}/${paddedNext}`;
+  } else if (numFmt === "PREFIX_SEP_NUM") {
+    const sep = prefix ? "/" : "";
+    previewCode = `${prefix}${sep}${paddedNext}`;
+  } else if (numFmt === "NUM_ONLY") {
+    previewCode = `${paddedNext}`;
+  }
+
+  const isInvoiceDoc = [
+    "Retail Invoice", "Tax Invoice", "Sales Return", "Debit Note",
+    "SALES_INVOICE", "SALES_CASH", "SALES_CREDIT", "SALES_RETURN", "DEBIT_NOTE"
+  ].includes(rawDocType) || [
+    "SALES_INVOICE", "SALES_CASH", "SALES_CREDIT", "SALES_RETURN", "DEBIT_NOTE"
+  ].includes(canonicalDocType);
+  const gstLength = previewCode.length;
+  const isGstExceeded = isInvoiceDoc && gstLength > 16;
+
+  const endNum = formState.endNumber ? Number(formState.endNumber) : null;
+  const category = formState.category ? String(formState.category).toUpperCase() : null;
+
+  const remaining = endNum !== null ? Math.max(0, endNum - nextNum + 1) : null;
+  const isNearExhaustion = remaining !== null && remaining < 100;
+  const isExhausted = remaining !== null && remaining === 0;
+
+  return (
+    <div className="w-full rounded-xl border border-blue-500/30 bg-blue-50/50 dark:bg-blue-950/20 p-4 space-y-3">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <div className="w-6 h-6 rounded-md bg-blue-500/10 text-blue-500 flex items-center justify-center text-xs">
+            <Sparkles size={14} />
+          </div>
+          <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
+            Live Sequential Preview (Read-Only)
+          </span>
+        </div>
+        <div className="flex items-center gap-2">
+          {category && (
+            <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">
+              {category}
+            </span>
+          )}
+          {formState.isCommonAcrossTerminals === false && formState.terminalId && formState.terminalId !== "COMMON" && (
+            <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
+              Counter: {formState.terminalId}
+            </span>
+          )}
+          <span className={`inline-flex items-center gap-1 text-[11px] font-mono px-2 py-0.5 rounded border ${
+            isGstExceeded
+              ? "bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/30 font-bold"
+              : "bg-white/80 dark:bg-slate-900/80 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-800"
+          }`}>
+            {isGstExceeded && <AlertTriangle size={10} className="text-rose-500" />}
+            {gstLength}/16 GST Chars
+          </span>
+          <span className="inline-flex items-center gap-1 text-[11px] font-mono text-slate-500 dark:text-slate-400 bg-white/80 dark:bg-slate-900/80 px-2 py-0.5 rounded border border-slate-200 dark:border-slate-800">
+            <Lock size={10} /> Auto-Generated
+          </span>
+        </div>
+      </div>
+
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-white dark:bg-slate-900/80 p-3 rounded-lg border border-blue-500/20 shadow-xs">
+        <div>
+          <div className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400">
+            Next Allocated Number
+          </div>
+          <div className="font-mono text-base font-extrabold text-blue-600 dark:text-blue-400 tracking-wide mt-0.5">
+            {previewCode}
+          </div>
+        </div>
+
+        <div className="text-right">
+          <div className="text-[10px] font-mono text-slate-400">
+            Range Scope: <span className="font-bold text-slate-700 dark:text-slate-300">{startNum.toLocaleString("en-IN")}</span> ➔ <span className="font-bold text-slate-700 dark:text-slate-300">{endNum ? endNum.toLocaleString("en-IN") : "Continuous (∞)"}</span>
+          </div>
+          {remaining !== null && (
+            <div className={`text-[10px] font-mono font-bold mt-0.5 ${isExhausted ? "text-rose-500" : isNearExhaustion ? "text-amber-500" : "text-emerald-500"}`}>
+              {remaining.toLocaleString("en-IN")} allocations remaining
+            </div>
+          )}
+        </div>
+      </div>
+
+      {isGstExceeded && (
+        <div className="flex items-center gap-2 p-2.5 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-400 text-[11px]">
+          <AlertTriangle size={14} className="shrink-0" />
+          <span>
+            <strong>Statutory GST Rule 46(b) Warning:</strong> Generated serial '{previewCode}' ({gstLength} chars) exceeds maximum 16 characters for tax invoices.
+          </span>
+        </div>
+      )}
+
+      <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+        {isArticle ? (
+          <>
+            This series governs <strong>{category || "Unassigned"}</strong> Article creation.
+            The sequence counter increments automatically inside PostgreSQL row-level locks on save with zero gap spillover.
+          </>
+        ) : (
+          <>
+            Automated statutory sequential numbering. Prefixes support fiscal year <code>{"{FY}"}</code> and store token interpolation.
+          </>
+        )}
+      </p>
+    </div>
+  );
+};
+
+/**
+ * Collapsible Advanced Options Accordion for MasterFormDrawer
+ */
+const AdvancedOptionsAccordion: React.FC<{
+  formState: any;
+  onChange: (field: string, val: any) => void;
+}> = ({ formState, onChange }) => {
+  const [isExpanded, setIsExpanded] = useState(false);
+
+  return (
+    <div className="w-full rounded-xl border border-theme-divider bg-theme-surface-2 overflow-hidden transition-all">
+      <button
+        type="button"
+        onClick={() => setIsExpanded(!isExpanded)}
+        className="w-full px-4 py-3 flex items-center justify-between text-left hover:bg-theme-surface-hover transition-colors cursor-pointer select-none"
+      >
+        <div className="flex items-center gap-2">
+          {isExpanded ? <ChevronDown size={16} className="text-blue-500" /> : <ChevronRight size={16} className="text-theme-muted" />}
+          <span className="text-xs font-bold text-theme-primary">
+            Advanced Numbering Options (Fiscal Year, Format & Terminal Scope)
+          </span>
+        </div>
+        <span className="text-[10px] font-mono text-theme-muted">
+          {isExpanded ? "Click to Collapse" : "Click to Expand"}
+        </span>
+      </button>
+
+      {isExpanded && (
+        <div className="p-4 pt-1 border-t border-theme-divider space-y-4 bg-theme-surface-1">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {/* Reset Rule */}
+            <div className="space-y-1.5">
+              <label className="block text-[11px] font-bold uppercase tracking-wider text-theme-muted font-mono">
+                Sequence Reset Frequency
+              </label>
+              <select
+                value={formState.resetRule || "Financial Year"}
+                onChange={(e) => onChange("resetRule", e.target.value)}
+                className="w-full px-3 py-2 bg-theme-surface-2 border border-theme-divider rounded-lg text-xs text-theme-primary focus:outline-none focus:ring-1 focus:ring-blue-500"
+              >
+                <option value="Financial Year">Financial Year (1-Apr)</option>
+                <option value="Calendar Year">Calendar Year (1-Jan)</option>
+                <option value="Monthly">Monthly</option>
+                <option value="Never">Never (Continuous)</option>
+              </select>
+            </div>
+
+            {/* Bill Number Arrangement Format */}
+            <div className="space-y-1.5">
+              <label className="block text-[11px] font-bold uppercase tracking-wider text-theme-muted font-mono">
+                Number Segment Format
+              </label>
+              <select
+                value={formState.numberFormat || "PREFIX_NUM_SUFFIX"}
+                onChange={(e) => onChange("numberFormat", e.target.value)}
+                className="w-full px-3 py-2 bg-theme-surface-2 border border-theme-divider rounded-lg text-xs text-theme-primary focus:outline-none focus:ring-1 focus:ring-blue-500"
+              >
+                <option value="PREFIX_NUM_SUFFIX">Prefix + No. + Suffix (Default)</option>
+                <option value="PREFIX_YEAR_SEP_NUM">Prefix / Year / No.</option>
+                <option value="PREFIX_SEP_NUM">Prefix / No.</option>
+                <option value="NUM_ONLY">No. Only</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-2 pt-1">
+            <label className="flex items-center space-x-2.5 cursor-pointer py-1">
+              <input
+                type="checkbox"
+                checked={formState.isCommonAcrossTerminals !== false}
+                onChange={(e) => onChange("isCommonAcrossTerminals", e.target.checked)}
+                className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 border-theme-divider bg-theme-surface-2"
+              />
+              <span className="text-xs text-theme-primary font-medium">
+                Common Across All POS Terminals (Single Unified Sequence Pool)
+              </span>
+            </label>
+
+            {formState.isCommonAcrossTerminals === false && (
+              <div className="space-y-1.5 pt-1 pl-6">
+                <label className="block text-[11px] font-bold uppercase tracking-wider text-theme-muted font-mono">
+                  Target POS Terminal ID
+                </label>
+                <input
+                  type="text"
+                  value={formState.terminalId || ""}
+                  onChange={(e) => onChange("terminalId", e.target.value.toUpperCase())}
+                  placeholder="e.g. POS-01, BILLING-COUNTER-2"
+                  className="w-full px-3 py-2 bg-theme-surface-2 border border-theme-divider rounded-lg text-xs text-theme-primary focus:outline-none focus:ring-1 focus:ring-blue-500 font-mono"
+                />
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
 
 export const documentSeriesConfig: MasterConfig<DocumentSeries> = {
   entityName: "Document Series",
   entityNamePlural: "Document Series",
   title: "Document Series & Numbering Studio",
-  subtitle: "Configure automated sequential numbering rules, branch-specific prefixes, and fiscal year resets",
+  subtitle: "Configure automated sequential numbering rules, category-aware ranges, branch-specific prefixes, and fiscal year resets",
   icon: <FileDigit size={20} />,
-  apiEndpoint: "/api/v1/system/document-series",
+  apiEndpoint: "/api/v1/numbering/series",
   idKey: "id",
-  responseTransform: (data) => Array.isArray(data) ? data : NumberingEngine.getAllSeries(),
-  searchPlaceholder: "Search by series name, document type, or prefix pattern...",
-  searchFields: ["name", "documentType", "prefix", "suffix", "module"],
+
+  responseTransform: (data) => {
+    let list: any[] = [];
+    if (Array.isArray(data)) list = data;
+    else if (data && Array.isArray(data.items)) list = data.items;
+    else list = NumberingEngine.getAllSeries();
+
+    return list.map((item: any) => {
+      const dt = item.documentType || item.document_type || "ARTICLE";
+      const canonical = CANONICAL_DOC_TYPE_MAP[dt] || dt;
+      return {
+        ...item,
+        documentType: canonical
+      };
+    });
+  },
+
+  payloadTransform: (formData, mode) => {
+    const rawType = formData.documentType || "ARTICLE";
+    const canonicalDocType = CANONICAL_DOC_TYPE_MAP[rawType] || rawType;
+    const isArticle = canonicalDocType === "ARTICLE";
+    const startNum = Number(formData.startNumber) || 1;
+    let currNum = Number(formData.currentNumber);
+    if (mode === "create" && (formData.currentNumber === undefined || formData.currentNumber === null || formData.currentNumber === "")) {
+      currNum = startNum > 1 ? startNum - 1 : 0;
+    }
+
+    const isPurchase = ["PURCHASE_ORDER", "GOODS_RECEIPT_NOTE", "Purchase Order", "Goods Receipt", "GOODS_RECEIPT"].includes(rawType) || ["PURCHASE_ORDER", "GOODS_RECEIPT_NOTE"].includes(canonicalDocType);
+    const assignedModule = isArticle ? "INVENTORY" : (isPurchase ? "PURCHASE" : (formData.module || "SALES"));
+    const assignedTxGroup = isArticle ? "INVENTORY" : (isPurchase ? "PROCUREMENT" : (formData.transactionGroup || "SALES"));
+
+    return {
+      name: formData.name,
+      documentType: canonicalDocType,
+      module: assignedModule,
+      transactionGroup: assignedTxGroup,
+      prefix: formData.prefix || "",
+      suffix: formData.suffix || "",
+      runningLength: Number(formData.runningLength) || (isArticle ? 5 : 6),
+      resetRule: formData.resetRule || (isArticle ? "Never" : "Financial Year"),
+      currentNumber: currNum,
+      startNumber: startNum,
+      endNumber: formData.endNumber ? Number(formData.endNumber) : null,
+      category: isArticle && formData.category ? String(formData.category).trim().toUpperCase() : null,
+      isActive: formData.isActive !== false,
+      numberFormat: formData.numberFormat || "PREFIX_NUM_SUFFIX",
+      isCommonAcrossTerminals: formData.isCommonAcrossTerminals !== false,
+      terminalId: formData.isCommonAcrossTerminals === false ? (formData.terminalId || "COMMON") : "COMMON",
+      financialYear: formData.financialYear || "2026-2027",
+      companyCode: formData.companyCode || "SMRITI_IND"
+    };
+  },
+
+  searchPlaceholder: "Search by series name, document type, category, counter, or prefix...",
+  searchFields: ["name", "documentType", "category", "prefix", "suffix", "module", "terminalId"],
 
   columns: [
     {
       key: "name",
+      fieldId: "document_series.name",
       label: "Series Name",
-      width: "220px",
+      width: "250px",
       sortable: true,
       render: (val, item) => (
         <div>
-          <div className="font-bold text-theme-primary">{val}</div>
-          <div className="text-[10px] text-theme-muted font-mono">{item.documentType} • {item.module}</div>
+          <div className="font-bold text-theme-primary flex items-center gap-1.5 flex-wrap">
+            <span>{val}</span>
+            {item.category && (
+              <span className="px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-blue-500/10 text-blue-500 dark:text-blue-400 border border-blue-500/20">
+                {item.category}
+              </span>
+            )}
+            {item.isCommonAcrossTerminals === false && item.terminalId && item.terminalId !== "COMMON" && (
+              <span className="px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-amber-500/10 text-amber-500 dark:text-amber-400 border border-amber-500/20">
+                Counter: {item.terminalId}
+              </span>
+            )}
+          </div>
+          <div className="text-[10px] text-theme-muted font-mono">
+            {DOC_TYPE_DISPLAY_MAP[item.documentType] || item.documentType} • {item.module || (item.documentType === "ARTICLE" ? "INVENTORY" : "SALES")}
+          </div>
         </div>
       )
     },
     {
       key: "prefix",
-      label: "Prefix Pattern",
+      fieldId: "document_series.prefix",
+      label: "Prefix / Pattern",
       width: "200px",
       render: (val, item) => (
-        <div className="font-mono text-xs font-bold text-blue-400">
-          {val || "—"}<span className="text-emerald-400 font-normal">{"0".repeat(item.runningLength || 6)}</span>{item.suffix || ""}
+        <div className="font-mono text-xs font-bold text-blue-500 dark:text-blue-400">
+          {val || "—"}
+          <span className="text-emerald-500 font-normal">
+            {"0".repeat(item.runningLength !== undefined && item.runningLength !== null ? item.runningLength : (item.documentType === "ARTICLE" ? 5 : 6))}
+          </span>
+          {item.suffix || ""}
         </div>
       )
     },
     {
+      key: "range",
+      label: "Range (Floor ➔ Ceiling)",
+      width: "190px",
+      render: (_, item) => {
+        const start = item.startNumber ?? (item as any).start_number ?? 1;
+        const end = item.endNumber ?? (item as any).end_number;
+        return (
+          <span className="font-mono text-xs font-semibold text-theme-primary">
+            {Number(start).toLocaleString("en-IN")}
+            <span className="text-theme-muted mx-1">➔</span>
+            {end ? Number(end).toLocaleString("en-IN") : "Continuous (∞)"}
+          </span>
+        );
+      }
+    },
+    {
       key: "currentNumber",
+      fieldId: "document_series.current_number",
       label: "Current Sequence",
       width: "140px",
       align: "right",
@@ -64,21 +430,23 @@ export const documentSeriesConfig: MasterConfig<DocumentSeries> = {
     },
     {
       key: "resetRule",
+      fieldId: "document_series.reset_rule",
       label: "Reset Cycle",
       width: "140px",
-      render: (val) => (
+      render: (val, item) => (
         <span className="px-2 py-0.5 rounded text-[10px] font-bold font-mono bg-theme-surface-2 border border-theme-divider text-theme-primary">
-          {val || "Financial Year"}
+          {item.documentType === "ARTICLE" ? "Never (Continuous)" : (val || "Financial Year")}
         </span>
       )
     },
     {
       key: "isActive",
+      fieldId: "document_series.is_active",
       label: "Status",
       width: "100px",
       render: (val) => (
         <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold font-mono border ${
-          val ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" : "bg-rose-500/10 text-rose-400 border-rose-500/20"
+          val ? "bg-emerald-500/10 text-emerald-500 dark:text-emerald-400 border-emerald-500/20" : "bg-rose-500/10 text-rose-500 dark:text-rose-400 border-rose-500/20"
         }`}>
           {val ? "Active" : "Inactive"}
         </span>
@@ -88,75 +456,131 @@ export const documentSeriesConfig: MasterConfig<DocumentSeries> = {
 
   fields: [
     {
-      name: "name",
-      label: "Series Name",
-      type: "text",
-      required: true,
-      placeholder: "e.g. Retail Tax Invoice Series",
-      colSpan: 1
-    },
-    {
       name: "documentType",
       label: "Document Type",
       type: "select",
       required: true,
       options: [
-        { label: "Retail Invoice", value: "Retail Invoice" },
-        { label: "Tax Invoice (B2B)", value: "Tax Invoice" },
-        { label: "Sales Order", value: "Sales Order" },
-        { label: "Quotation", value: "Quotation" },
-        { label: "Purchase Order", value: "Purchase Order" },
-        { label: "Goods Receipt (GRN)", value: "Goods Receipt" },
-        { label: "Sales Return / Credit Note", value: "Sales Return" },
-        { label: "Debit Note", value: "Debit Note" }
+        { label: "Article / Design (Master)", value: "ARTICLE" },
+        { label: "Retail Invoice (POS Cash / Sales)", value: "SALES_INVOICE" },
+        { label: "Tax Invoice (B2B / Credit)", value: "SALES_CREDIT" },
+        { label: "Sales Order", value: "SALES_ORDER" },
+        { label: "Quotation / Estimate", value: "QUOTATION" },
+        { label: "Purchase Order", value: "PURCHASE_ORDER" },
+        { label: "Goods Receipt (GRN)", value: "GOODS_RECEIPT_NOTE" },
+        { label: "Sales Return / Credit Note", value: "SALES_RETURN" },
+        { label: "Debit Note", value: "DEBIT_NOTE" },
+        { label: "Delivery Challan", value: "DELIVERY_CHALLAN" },
+        { label: "Retail Invoice (Legacy)", value: "Retail Invoice" },
+        { label: "Tax Invoice (Legacy)", value: "Tax Invoice" },
+        { label: "Purchase Order (Legacy)", value: "Purchase Order" },
+        { label: "Goods Receipt (Legacy)", value: "Goods Receipt" },
+        { label: "Sales Return (Legacy)", value: "Sales Return" }
       ],
-      defaultValue: "Retail Invoice",
+      defaultValue: "ARTICLE",
+      colSpan: 1
+    },
+    {
+      name: "category",
+      label: "Category",
+      type: "select",
+      required: true,
+      showWhen: (formState) => {
+        const dt = formState.documentType || formState.document_type;
+        return dt === "ARTICLE" || CANONICAL_DOC_TYPE_MAP[dt] === "ARTICLE";
+      },
+      optionsEndpoint: "/api/v1/masters/lookup/category/values",
+      transformOptions: (data: any) => {
+        if (Array.isArray(data) && data.length > 0) {
+          return data.map((d: any) => ({
+            label: d.name || d.code,
+            value: String(d.code || d.name).trim().toUpperCase()
+          }));
+        }
+        return [
+          { label: "SANDAL", value: "SANDAL" },
+          { label: "SHOES", value: "SHOES" },
+          { label: "CHAPPAL", value: "CHAPPAL" },
+          { label: "Footwear", value: "FOOTWEAR" },
+          { label: "Apparel", value: "APPAREL" },
+          { label: "Accessories", value: "ACCESSORIES" },
+          { label: "General", value: "GENERAL" }
+        ];
+      },
+      placeholder: "Select Category",
+      colSpan: 1
+    },
+    {
+      name: "name",
+      fieldId: "document_series.name",
+      label: "Series Name",
+      type: "text",
+      required: true,
+      placeholder: "e.g. Article Series - Sandal",
+      defaultValue: "Article Series - Sandal",
       colSpan: 1
     },
     {
       name: "prefix",
+      fieldId: "document_series.prefix",
       label: "Prefix Format",
       type: "text",
       required: true,
-      placeholder: "e.g. INV/{FY}/{Branch}/",
-      defaultValue: "INV/{FY}/",
+      placeholder: "e.g. SND- or SH- or INV/{FY}/",
+      defaultValue: "SND-",
       colSpan: 1
     },
     {
       name: "suffix",
       label: "Suffix Format",
       type: "text",
-      placeholder: "Optional suffix",
+      placeholder: "e.g. -A (optional)",
+      defaultValue: "-A",
+      colSpan: 1
+    },
+    {
+      name: "startNumber",
+      label: "Start Number (Floor)",
+      type: "number",
+      required: true,
+      defaultValue: 10000,
+      min: 1,
+      placeholder: "e.g. 10000",
       colSpan: 1
     },
     {
       name: "currentNumber",
-      label: "Initial / Starting Counter",
+      fieldId: "document_series.current_number",
+      label: "Current Sequence Counter",
       type: "number",
-      defaultValue: 0,
+      defaultValue: 9999,
+      disabled: (_formState, isEdit) => Boolean(isEdit),
+      description: "System-controlled sequence allocation counter. Increments automatically on save.",
+      colSpan: 1
+    },
+    {
+      name: "endNumber",
+      label: "End Number (Ceiling)",
+      type: "number",
+      placeholder: "e.g. 19999 (optional range ceiling)",
+      defaultValue: 19999,
       colSpan: 1
     },
     {
       name: "runningLength",
       label: "Padding Digit Length",
       type: "number",
-      defaultValue: 6,
-      min: 2,
+      defaultValue: 5,
+      min: 0,
       max: 10,
       colSpan: 1
     },
     {
-      name: "resetRule",
-      label: "Sequence Reset Frequency",
-      type: "select",
-      options: [
-        { label: "Financial Year (1-Apr)", value: "Financial Year" },
-        { label: "Calendar Year (1-Jan)", value: "Calendar Year" },
-        { label: "Monthly", value: "Monthly" },
-        { label: "Never (Continuous)", value: "Never" }
-      ],
-      defaultValue: "Financial Year",
-      colSpan: 1
+      name: "livePreview",
+      label: "Live Sequence Preview",
+      type: "custom",
+      colSpan: 2,
+      renderCustom: (formState) => <LiveSeriesPreview formState={formState} />
     },
     {
       name: "isActive",
@@ -166,6 +590,93 @@ export const documentSeriesConfig: MasterConfig<DocumentSeries> = {
       colSpan: 1
     }
   ],
+
+  slots: {
+    extraFields: (formState, setFormField) => (
+      <AdvancedOptionsAccordion
+        formState={formState}
+        onChange={(field, val) => setFormField(field, val)}
+      />
+    )
+  },
+
+  customValidation: (formData, existingItems) => {
+    const errors: string[] = [];
+    const rawType = formData.documentType || "";
+    const canonicalDocType = CANONICAL_DOC_TYPE_MAP[rawType] || rawType;
+    const isArticle = canonicalDocType === "ARTICLE";
+    const startNum = Number(formData.startNumber);
+    const endNum = formData.endNumber !== undefined && formData.endNumber !== null && formData.endNumber !== ""
+      ? Number(formData.endNumber)
+      : null;
+    const currNum = Number(formData.currentNumber || 0);
+
+    if (isNaN(startNum) || startNum < 1) {
+      errors.push("Start Number must be a positive integer greater than or equal to 1.");
+    }
+
+    const isInvoiceDoc = [
+      "Retail Invoice", "Tax Invoice", "Sales Return", "Debit Note",
+      "SALES_INVOICE", "SALES_CASH", "SALES_CREDIT", "SALES_RETURN", "DEBIT_NOTE"
+    ].includes(rawType) || [
+      "SALES_INVOICE", "SALES_CASH", "SALES_CREDIT", "SALES_RETURN", "DEBIT_NOTE"
+    ].includes(canonicalDocType);
+    const pfx = formData.prefix || "";
+    const sfx = formData.suffix || "";
+    const runL = Number(formData.runningLength) || 4;
+    const sampleFull = `${pfx}${"1".padStart(runL, "0")}${sfx}`;
+    if (isInvoiceDoc && sampleFull.length > 16) {
+      errors.push(`Statutory GST Rule 46(b) violation: Serial number '${sampleFull}' (${sampleFull.length} chars) exceeds maximum 16 characters for invoice series.`);
+    }
+
+    if (endNum !== null) {
+      if (isNaN(endNum) || endNum < startNum) {
+        errors.push(`End Number (${endNum}) must be greater than or equal to Start Number (${startNum}).`);
+      }
+      if (currNum >= endNum) {
+        errors.push(`Current Counter (${currNum}) has already reached or exceeded the End Number (${endNum}).`);
+      }
+    }
+
+    if (isArticle) {
+      if (!formData.category || !String(formData.category).trim()) {
+        errors.push("Category is required for ARTICLE series.");
+      } else {
+        const cat = String(formData.category).trim().toUpperCase();
+        // Check active range overlap against existing series
+        if (formData.isActive !== false && endNum !== null) {
+          const activeOverlap = (existingItems || []).find((s: any) => {
+            if (s.id && formData.id && s.id === formData.id) return false;
+            const sType = s.documentType || s.document_type;
+            const sCanonical = CANONICAL_DOC_TYPE_MAP[sType] || sType;
+            const sCat = s.category ? String(s.category).trim().toUpperCase() : null;
+            const sActive = s.isActive !== false && s.is_active !== false;
+
+            if (sCanonical === "ARTICLE" && sCat === cat && sActive) {
+              const sStart = Number(s.startNumber ?? (s as any).start_number ?? 1);
+              const sEnd = (s.endNumber !== undefined && s.endNumber !== null)
+                ? Number(s.endNumber)
+                : ((s as any).end_number !== undefined && (s as any).end_number !== null ? Number((s as any).end_number) : 999999999);
+              // Check interval overlap: max(A_start, B_start) <= min(A_end, B_end)
+              const overlaps = Math.max(startNum, sStart) <= Math.min(endNum, sEnd);
+              return overlaps;
+            }
+            return false;
+          });
+
+          if (activeOverlap) {
+            const oStart = activeOverlap.startNumber ?? (activeOverlap as any).start_number ?? 1;
+            const oEnd = activeOverlap.endNumber ?? (activeOverlap as any).end_number ?? "∞";
+            errors.push(
+              `Range [${startNum.toLocaleString("en-IN")} - ${endNum.toLocaleString("en-IN")}] overlaps with active series '${activeOverlap.name}' [${Number(oStart).toLocaleString("en-IN")} - ${Number(oEnd).toLocaleString("en-IN")}] for category '${cat}'. Overlapping active ranges are prohibited.`
+            );
+          }
+        }
+      }
+    }
+
+    return { valid: errors.length === 0, errors };
+  },
 
   kpis: [
     {
@@ -179,6 +690,21 @@ export const documentSeriesConfig: MasterConfig<DocumentSeries> = {
       label: "Active Numbering Series",
       compute: (items) => items.filter((s) => s.isActive !== false).length,
       color: "emerald"
+    },
+    {
+      id: "article_series",
+      label: "Article Series Ranges",
+      compute: (items) => items.filter((s) => {
+        const dt = s.documentType || (s as any).document_type;
+        return dt === "ARTICLE" || CANONICAL_DOC_TYPE_MAP[dt] === "ARTICLE";
+      }).length,
+      color: "indigo"
+    },
+    {
+      id: "terminal_series",
+      label: "Counter Series (POS)",
+      compute: (items) => items.filter((s) => s.isCommonAcrossTerminals === false && s.terminalId && s.terminalId !== "COMMON").length,
+      color: "amber"
     }
   ]
 };

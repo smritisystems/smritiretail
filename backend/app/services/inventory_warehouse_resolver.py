@@ -1,8 +1,29 @@
+"""
+Project      : SMRITI Retail OS
+Author       : Jawahar Ramkripal Mallah
+Designation  : Chief Systems Architect & Creator
+Email        : support@smritibooks.com
+Websites     : smritibooks.com | erpnbook.com | aitdl.com
+Version      : 3.2.0
+Created      : 2026-08-22
+Modified     : 2026-10-28
+Copyright    : © SMRITIBooks.com. All Rights Reserved.
+License      : Proprietary Commercial Software
+Classification: Internal
+
+Changelog:
+  v3.2.0 (2026-10-28): Add schema-drift resilience with defer(Warehouse.is_default_for_branch)
+    and automatic session rollback fallback when querying unmigrated tenant databases.
+  v3.1.0 (R-001, 2026-10-27): Fix register resolution to prefer warehouse_id FK column
+    over the legacy warehouse text-code field. Removes silent wrong-warehouse fallback.
+    Remove duplicate company-level fallback block (was identical to primary).
+"""
 from __future__ import annotations
 
-from typing import Optional, Any
+from typing import Optional, Any, Callable
 
-from sqlalchemy import select, or_
+from sqlalchemy import case, func, or_, select
+from sqlalchemy.orm import defer
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..models.inventory import Warehouse
@@ -13,6 +34,38 @@ class InventoryWarehouseResolver:
 
     def __init__(self, db: AsyncSession):
         self.db = db
+
+    @staticmethod
+    def _system_default_order():
+        return case(
+            (
+                or_(
+                    func.upper(Warehouse.id) == "WH-001",
+                    func.upper(Warehouse.code) == "WH-001",
+                ),
+                0,
+            ),
+            else_=1,
+        )
+
+    async def _find_warehouse(self, build_query_fn: Callable[[bool], Any]) -> Optional[Warehouse]:
+        """Execute a warehouse query with automatic schema-drift resilience for unmigrated tenant DBs."""
+        try:
+            stmt = build_query_fn(True)
+            res = await self.db.execute(stmt)
+            wh = res.scalars().first()
+            if wh:
+                return wh
+        except Exception:
+            # Schema-drift fallback: if is_default_for_branch column does not exist in DB
+            await self.db.rollback()
+            fallback_stmt = build_query_fn(False)
+            res = await self.db.execute(fallback_stmt)
+            wh = res.scalars().first()
+            if wh:
+                wh.__dict__["is_default_for_branch"] = False
+                return wh
+        return None
 
     async def resolve(
         self,
@@ -25,22 +78,30 @@ class InventoryWarehouseResolver:
     ) -> Warehouse:
         """Return an active Warehouse record for the supplied scope.
 
-        Resolution precedence is intentionally conservative and DB-driven:
-        transaction-specific -> register -> branch -> company -> global
+        Resolution precedence (DB-driven, conservative):
+          1. Explicit warehouse_id supplied by caller
+          2. POS register - warehouse_id FK first, then legacy warehouse code text
+          3. Branch-level default (oldest active warehouse for the branch)
+          4. Company-level fallback (oldest active warehouse for the company)
         """
+        # 1. Explicit warehouse_id passed by caller - highest precedence.
         if warehouse_id:
-            stmt = select(Warehouse).where(
-                Warehouse.id == warehouse_id,
-                Warehouse.company_id == company_id,
-                Warehouse.is_deleted == False,
-                Warehouse.is_active == True,
-            )
-            res = await self.db.execute(stmt)
-            wh = res.scalars().first()
+            def q_explicit(has_col: bool):
+                s = select(Warehouse)
+                if not has_col:
+                    s = s.options(defer(Warehouse.is_default_for_branch))
+                return s.where(
+                    Warehouse.id == warehouse_id,
+                    Warehouse.company_id == company_id,
+                    Warehouse.is_deleted == False,
+                    Warehouse.is_active == True,
+                )
+            wh = await self._find_warehouse(q_explicit)
             if wh:
                 return wh
             raise ValueError("INVENTORY_WAREHOUSE_NOT_CONFIGURED")
 
+        # 2. POS register - prefer warehouse_id FK, fall back to legacy warehouse code text.
         if register_id and company_id:
             from ..models.pos import CashRegister
 
@@ -52,51 +113,95 @@ class InventoryWarehouseResolver:
             )
             reg_res = await self.db.execute(reg_stmt)
             register = reg_res.scalars().first()
-            register_warehouse = getattr(register, "warehouse", None)
-            if register_warehouse:
-                wh_stmt = select(Warehouse).where(
+
+            if register:
+                # R-001: Prefer the governed FK column first.
+                reg_wh_id: Optional[str] = getattr(register, "warehouse_id", None)
+                if reg_wh_id:
+                    def q_reg_fk(has_col: bool):
+                        s = select(Warehouse)
+                        if not has_col:
+                            s = s.options(defer(Warehouse.is_default_for_branch))
+                        return s.where(
+                            Warehouse.id == reg_wh_id,
+                            Warehouse.company_id == company_id,
+                            Warehouse.is_deleted == False,
+                            Warehouse.is_active == True,
+                        )
+                    register_wh = await self._find_warehouse(q_reg_fk)
+                    if register_wh:
+                        return register_wh
+
+                # Fallback: legacy warehouse code text (backward-compat until fully migrated).
+                reg_wh_code: Optional[str] = getattr(register, "warehouse", None)
+                if reg_wh_code:
+                    def q_reg_code(has_col: bool):
+                        s = select(Warehouse)
+                        if not has_col:
+                            s = s.options(defer(Warehouse.is_default_for_branch))
+                        return s.where(
+                            Warehouse.company_id == company_id,
+                            Warehouse.is_deleted == False,
+                            Warehouse.is_active == True,
+                            or_(Warehouse.id == reg_wh_code, Warehouse.code == reg_wh_code),
+                        )
+                    register_wh = await self._find_warehouse(q_reg_code)
+                    if register_wh:
+                        return register_wh
+
+        # 3. Branch-level default — user configuration wins, then WH-001, then
+        #    the oldest active warehouse for backward compatibility.
+        if branch_id and company_id:
+            def q_branch(has_col: bool):
+                s = select(Warehouse)
+                if not has_col:
+                    s = s.options(defer(Warehouse.is_default_for_branch))
+                    return s.where(
+                        Warehouse.branch_id == branch_id,
+                        Warehouse.company_id == company_id,
+                        Warehouse.is_deleted == False,
+                        Warehouse.is_active == True,
+                    ).order_by(
+                        self._system_default_order(),
+                        (Warehouse.pincode.is_not(None) & (Warehouse.pincode != "")).desc(),
+                        Warehouse.created_at.asc(),
+                    )
+                return s.where(
+                    Warehouse.branch_id == branch_id,
                     Warehouse.company_id == company_id,
                     Warehouse.is_deleted == False,
                     Warehouse.is_active == True,
-                    or_(Warehouse.id == register_warehouse, Warehouse.code == register_warehouse),
+                ).order_by(
+                    Warehouse.is_default_for_branch.desc(),
+                    self._system_default_order(),
+                    (Warehouse.pincode.is_not(None) & (Warehouse.pincode != "")).desc(),
+                    Warehouse.created_at.asc(),
                 )
-                wh_res = await self.db.execute(wh_stmt)
-                register_wh = wh_res.scalars().first()
-                if register_wh:
-                    return register_wh
-
-        if branch_id and company_id:
-            stmt = select(Warehouse).where(
-                Warehouse.branch_id == branch_id,
-                Warehouse.company_id == company_id,
-                Warehouse.is_deleted == False,
-                Warehouse.is_active == True,
-            ).order_by(Warehouse.created_at.asc())
-            res = await self.db.execute(stmt)
-            wh = res.scalars().first()
+            wh = await self._find_warehouse(q_branch)
             if wh:
                 return wh
 
+        # 4. Company-level fallback — user configuration, WH-001, then oldest.
         if company_id:
-            stmt = select(Warehouse).where(
-                Warehouse.company_id == company_id,
-                Warehouse.is_deleted == False,
-                Warehouse.is_active == True,
-            ).order_by(Warehouse.created_at.asc())
-            res = await self.db.execute(stmt)
-            wh = res.scalars().first()
-            if wh:
-                return wh
-
-        # Final fallback remains tenant-scoped to prevent cross-company leakage.
-        if company_id:
-            stmt = select(Warehouse).where(
-                Warehouse.company_id == company_id,
-                Warehouse.is_deleted == False,
-                Warehouse.is_active == True,
-            ).order_by(Warehouse.created_at.asc())
-            res = await self.db.execute(stmt)
-            wh = res.scalars().first()
+            def q_comp(has_col: bool):
+                s = select(Warehouse)
+                if not has_col:
+                    s = s.options(defer(Warehouse.is_default_for_branch))
+                stmt = s.where(
+                    Warehouse.company_id == company_id,
+                    Warehouse.is_deleted == False,
+                    Warehouse.is_active == True,
+                )
+                order_by = []
+                if has_col:
+                    order_by.append(Warehouse.is_default_for_branch.desc())
+                order_by.extend([
+                    self._system_default_order(),
+                    (Warehouse.pincode.is_not(None) & (Warehouse.pincode != "")).desc(),
+                    Warehouse.created_at.asc(),
+                ])
+                return stmt.order_by(*order_by)
+            wh = await self._find_warehouse(q_comp)
             if wh:
                 return wh
 

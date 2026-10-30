@@ -53,6 +53,10 @@ export interface DocumentSeries {
   enforceChronologicalDate?: boolean;
   companyCode?: string;
   description?: string;
+  startNumber?: number;
+  endNumber?: number;
+  category?: string;
+  numberFormat?: string;
 }
 
 export interface NumberingAuditLog {
@@ -149,6 +153,16 @@ export class NumberingEngine {
     finalSuffix = finalSuffix.replace(/{User}/g, context?.user || "System");
     finalSuffix = finalSuffix.replace(/{Module}/g, s.module || "");
 
+    const fmt = s.numberFormat || "PREFIX_NUM_SUFFIX";
+    if (fmt === "PREFIX_YEAR_SEP_NUM") {
+      const yearPart = s.financialYear ? `/${s.financialYear}` : "";
+      return `${finalPrefix}${yearPart}/${formattedNum}`;
+    } else if (fmt === "NUM_ONLY") {
+      return formattedNum;
+    } else if (fmt === "PREFIX_SEP_NUM") {
+      const sep = finalPrefix ? "/" : "";
+      return `${finalPrefix}${sep}${formattedNum}`;
+    }
     return `${finalPrefix}${formattedNum}${finalSuffix}`;
   }
 

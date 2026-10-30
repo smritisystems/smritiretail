@@ -1,0 +1,15 @@
+{
+  "certificate_id": "PF-2026-1019-67EBA5",
+  "entity": "customer",
+  "capability": "customer.crud",
+  "asset_type": "component",
+  "proposed_name": "CorporateCommercialTermsPanel.tsx",
+  "target_file_path": "src/components/customer/corporateWorkspace/CorporateCommercialTermsPanel.tsx",
+  "decision": "CREATE_APPROVED",
+  "canonical_owner": "src/components/customer/CustMasterWs.tsx",
+  "content_hash": "6ebcceef41a300c7b728878d056a2aec57feb171087e5b410e1408f374ade5da",
+  "git_commit": "bcdcd4ff56b88e0dcc5a28515496bde4b9b95f3a",
+  "issued_at": "2026-10-19T15:41:15.070992+00:00",
+  "expires_at": "2026-10-26T15:41:15.070992+00:00",
+  "status": "ISSUED"
+}

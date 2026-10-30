@@ -39,7 +39,8 @@ from ...schemas.accounting import (
     BankReconciliationStatementResponse, FiscalYearCreate,
     FiscalPeriodLockRequest, BalanceSnapshotRequest,
     CurrencyExchangeRateCreate, CurrencyExchangeRateResponse,
-    UnrealizedRevaluationRequest, UnrealizedRevaluationResponse
+    UnrealizedRevaluationRequest, UnrealizedRevaluationResponse,
+    BankDepositCreate, BankDepositResponse
 )
 from ...services.unified_ledger import UnifiedAccountingLedgerService
 
@@ -352,5 +353,50 @@ async def post_unrealized_fx_revaluation(
     )
     await db.commit()
     return UnrealizedRevaluationResponse(**res)
+
+
+# ─────────────────────────── Bank Deposits / Cash Drawer Transfers ──────────
+
+@router.post("/bank-deposits", response_model=BankDepositResponse, status_code=201)
+async def post_bank_deposit(
+    req: BankDepositCreate,
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+    current_user: User = Depends(require_role(UserRole.SYSADMIN, UserRole.MANAGER, UserRole.CASHIER)),
+):
+    """
+    Posts an authoritative double-entry GL voucher for a physical cash drawer deposit / bank deposit slip.
+    Debits Bank Account (1020) and Credits Cash in Hand (1010).
+    Enforces idempotency and balance equality invariants.
+    """
+    ref_no = req.reference_no or req.slip_number
+    voucher = await UnifiedAccountingLedgerService.post_bank_deposit_to_gl(
+        session=db,
+        company_id=tenant_ctx.company_id,
+        amount=req.amount,
+        bank_account_code=req.bank_account_code or "1020",
+        cash_account_code=req.cash_account_code or "1010",
+        deposit_date=req.deposit_date,
+        reference_no=ref_no,
+        reference_doc_id=ref_no,
+        branch_id=req.branch_id or tenant_ctx.branch_id,
+        narration=req.narration,
+        created_by=current_user.username,
+        bank_account_id=req.bank_account_id,
+        cash_account_id=req.cash_account_id,
+    )
+    await db.commit()
+    await db.refresh(voucher)
+
+    return BankDepositResponse(
+        voucher_id=voucher.id,
+        voucher_no=voucher.voucher_no,
+        voucher_date=voucher.voucher_date,
+        amount=Decimal(str(voucher.total_debit)),
+        status="POSTED",
+        reference_no=voucher.reference_doc_no,
+        narration=voucher.narration
+    )
+
 
 
