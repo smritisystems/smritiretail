@@ -417,6 +417,40 @@ class AttributesService:
         template = await self.db.get(VariantTemplate, id)
         if not template or template.is_deleted:
             raise HTTPException(status_code=404, detail="Variant template not found")
+
+        # Reference guard: check Product and Item records
+        from ..models.item_master import Item
+        from sqlalchemy import or_, func
+
+        conditions = [Product.variant_template_id == str(id)]
+        if template.style_code:
+            conditions.append(func.lower(Product.style_code) == template.style_code.lower())
+
+        prod_ref = await self.db.scalar(
+            select(Product.id).where(
+                Product.is_deleted == False,
+                or_(*conditions),
+            ).limit(1)
+        )
+        if prod_ref:
+            raise HTTPException(
+                status_code=409,
+                detail=f"Cannot delete variant template '{template.name}' ({template.style_code}): this template is still linked to active Product records.",
+            )
+
+        if template.style_code:
+            item_ref = await self.db.scalar(
+                select(Item.id).where(
+                    Item.is_deleted == False,
+                    func.lower(Item.style_code) == template.style_code.lower(),
+                ).limit(1)
+            )
+            if item_ref:
+                raise HTTPException(
+                    status_code=409,
+                    detail=f"Cannot delete variant template '{template.name}' ({template.style_code}): this template is still in use by Item Master records.",
+                )
+
         template.is_deleted = True
         template.is_active = False
         template.deleted_at = datetime.now(timezone.utc)

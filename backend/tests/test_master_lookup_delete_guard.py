@@ -346,3 +346,70 @@ async def test_api_endpoint_raises_409_with_structured_guard_payload():
     assert detail["code"] == "SMRITI-VAL-003"
     assert detail["can_delete"] is False
     assert "ADI-BOOST-01" in detail["linked_records"][0]["identifier"]
+
+
+@pytest.mark.asyncio
+async def test_variant_template_delete_guard_blocks_when_linked_to_item():
+    """Deleting a VariantTemplate raises 409 if active Item records share the style_code."""
+    from app.services.attributes import AttributesService
+
+    template = VariantTemplate(
+        id="tpl-001",
+        style_code="STYLE-TPL-01",
+        name="Template Style",
+        attribute_group_id="grp-01",
+    )
+    template.is_deleted = False
+
+    class _MockAttrSession:
+        def __init__(self):
+            self.commit = AsyncMock()
+
+        async def get(self, model, ident):
+            return template
+
+        async def scalar(self, stmt):
+            # 1st query: Product.id -> None
+            # 2nd query: Item.id -> returns 'item-tpl-001'
+            if not hasattr(self, "_step"):
+                self._step = 0
+            self._step += 1
+            if self._step == 1:
+                return None
+            return "item-tpl-001"
+
+    db = _MockAttrSession()
+    service = AttributesService(db)
+
+    with pytest.raises(HTTPException) as exc_info:
+        await service.delete_template("tpl-001", "admin")
+
+    assert exc_info.value.status_code == 409
+    assert "in use by Item Master records" in exc_info.value.detail
+
+
+@pytest.mark.asyncio
+async def test_warehouse_delete_guard_blocks_when_positive_stock_exists():
+    """delete_master for warehouse raises 409 if positive stock quantity exists."""
+    from app.api.v1.masters import delete_master
+    from app.models.inventory import Warehouse
+
+    user = SimpleNamespace(username="admin", role="sysadmin", company_id="COMP-01")
+    wh = Warehouse(
+        id="wh-001",
+        name="Central Warehouse",
+        code="WH-CENTRAL",
+        company_id="COMP-01",
+        is_deleted=False,
+    )
+
+    db = _MockSession([
+        _MockResult([wh]),          # _scoped_entity Warehouse
+        _MockResult(["stock-001"]), # ProductBatchStock positive stock ref
+    ])
+
+    with pytest.raises(HTTPException) as exc_info:
+        await delete_master("warehouse", "wh-001", db, user)
+
+    assert exc_info.value.status_code == 409
+    assert "positive stock quantity exists" in exc_info.value.detail

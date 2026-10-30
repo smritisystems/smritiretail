@@ -295,8 +295,6 @@ class MasterValueDeleteGuard:
             prod_field_map = {
                 "brand": Product.brand,
                 "category": Product.category,
-                "department": Product.department,
-                "product_type": Product.product_type,
                 "style_article": Product.style_code,
                 "vendor_code": Product.vendor_code,
                 "color": Product.color,

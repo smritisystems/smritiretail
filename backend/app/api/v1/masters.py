@@ -356,6 +356,17 @@ async def delete_master(
 
     elif norm_type == "branch":
         item_branch = await _scoped_entity(db, Branch, id, current_user)
+        wh_ref = await db.scalar(
+            select(Warehouse.id).where(
+                Warehouse.branch_id == id,
+                Warehouse.is_deleted.is_(False),
+            ).limit(1)
+        )
+        if wh_ref:
+            raise HTTPException(
+                status_code=409,
+                detail=f"Cannot delete branch '{item_branch.name}' ({item_branch.code}): active warehouses are still associated with this branch. Reassign or remove warehouses first."
+            )
         setattr(item_branch, "is_deleted", True)
         setattr(item_branch, "modified_at", datetime.now(timezone.utc))
         await db.commit()
@@ -369,6 +380,30 @@ async def delete_master(
 
     elif norm_type == "warehouse":
         item_warehouse = await _scoped_entity(db, Warehouse, id, current_user)
+        from ...models.inventory import ProductBatchStock, StockMovement
+        stock_ref = await db.scalar(
+            select(ProductBatchStock.id).where(
+                ProductBatchStock.warehouse_id == id,
+                ProductBatchStock.quantity > 0,
+                ProductBatchStock.is_deleted.is_(False),
+            ).limit(1)
+        )
+        if stock_ref:
+            raise HTTPException(
+                status_code=409,
+                detail=f"Cannot delete warehouse '{item_warehouse.name}' ({item_warehouse.code}): positive stock quantity exists in this warehouse. Clear or transfer inventory first."
+            )
+        movement_ref = await db.scalar(
+            select(StockMovement.id).where(
+                StockMovement.warehouse_id == id,
+                StockMovement.is_deleted.is_(False),
+            ).limit(1)
+        )
+        if movement_ref:
+            raise HTTPException(
+                status_code=409,
+                detail=f"Cannot delete warehouse '{item_warehouse.name}' ({item_warehouse.code}): historical stock movements are associated with this warehouse. Deactivate the warehouse instead."
+            )
         setattr(item_warehouse, "is_deleted", True)
         setattr(item_warehouse, "deleted_at", datetime.now(timezone.utc))
         setattr(item_warehouse, "deleted_by", current_user.username)
