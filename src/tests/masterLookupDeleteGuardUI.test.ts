@@ -26,9 +26,10 @@ describe("Master Registry Hard Delete Guard UI Contract", () => {
   });
 
   it("2. intercepts linked_records in handleDeleteConfirm when delete request fails", () => {
-    expect(componentContent).toContain("detail.linked_records");
+    expect(componentContent).toContain("linked_records");
     expect(componentContent).toContain("total_references");
     expect(componentContent).toContain("suggested_action");
+    expect(componentContent).toContain("guardData");
   });
 
   it("3. renders Deletion Blocked modal with error badge and human-readable explanation", () => {

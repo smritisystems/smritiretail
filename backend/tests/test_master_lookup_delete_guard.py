@@ -413,3 +413,43 @@ async def test_warehouse_delete_guard_blocks_when_positive_stock_exists():
 
     assert exc_info.value.status_code == 409
     assert "positive stock quantity exists" in exc_info.value.detail
+
+
+@pytest.mark.asyncio
+async def test_http_exception_handler_preserves_linked_records_for_delete_guard():
+    """http_exception_handler preserves structured linked_records on 409 conflict for the UI modal."""
+    import json
+    from starlette.exceptions import HTTPException as StarletteHTTPException
+    from app.core.error_handlers import http_exception_handler
+
+    scope = {
+        "type": "http",
+        "method": "DELETE",
+        "path": "/api/v1/masters/lookup/brand/values/test-id",
+        "headers": [(b"accept", b"application/json")],
+    }
+    request = SimpleNamespace(scope=scope, url=SimpleNamespace(path=scope["path"]), headers={"accept": "application/json"})
+
+    blocker = {
+        "can_delete": False,
+        "code": "SMRITI-VAL-003",
+        "message": "Cannot delete brand: linked to items.",
+        "detail": "Cannot delete brand: linked to items.",
+        "total_references": 2,
+        "linked_records": [
+            {"entity_type": "Item Master", "identifier": "SKU-001", "field": "brand"},
+            {"entity_type": "Product (Catalog)", "identifier": "PROD-001", "field": "brand"},
+        ],
+        "suggested_action": "Remove linked items first.",
+    }
+    exc = StarletteHTTPException(status_code=409, detail=blocker)
+
+    response = await http_exception_handler(request, exc)
+    assert response.status_code == 409
+    body = json.loads(response.body.decode("utf-8"))
+    assert body["code"] == "SMRITI-VAL-003"
+    assert "linked_records" in body
+    assert len(body["linked_records"]) == 2
+    assert body["linked_records"][0]["identifier"] == "SKU-001"
+    assert body["error"]["error_code"] == "SMRITI-VAL-003"
+    assert body["error"]["title"] == "Deletion Blocked"

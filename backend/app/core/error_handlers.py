@@ -125,6 +125,21 @@ async def http_exception_handler(request: Request, exc: StarletteHTTPException):
             if structured is not None:
                 return JSONResponse(status_code=422, content=structured)
 
+    # ── Path C: Master Delete Guard / Structured Conflict (409) normalisation ──
+    if exc.status_code == 409 and isinstance(exc.detail, dict) and "linked_records" in exc.detail:
+        payload = dict(exc.detail)
+        payload["success"] = False
+        payload["status"] = 409
+        explanation = payload.get("message") or payload.get("detail") or "Data conflict occurred."
+        payload["error"] = {
+            "title": "Deletion Blocked",
+            "explanation": explanation,
+            "suggested_action": payload.get("suggested_action") or "Remove or retire the linked records before deleting.",
+            "reference_id": "SMRITI-VAL-003",
+            "error_code": payload.get("code") or "SMRITI-VAL-003",
+        }
+        return JSONResponse(status_code=409, content=payload)
+
     # Map HTTP status codes to standard SMRITI families
 
     if exc.status_code == 400:

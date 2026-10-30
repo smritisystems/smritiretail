@@ -433,14 +433,27 @@ export function MasterListScreen<T extends Record<string, any>>({
       await fetchItems();
     } catch (err: any) {
       console.error(`[MasterListScreen] Delete failed:`, err);
-      const detail = err.detail || (err.body && (err.body.detail || err.body.error));
-      if (detail && Array.isArray(detail.linked_records) && detail.linked_records.length > 0) {
+      const guardData =
+        (err.detail && typeof err.detail === "object" && Array.isArray(err.detail.linked_records) ? err.detail : null) ||
+        (err.body && typeof err.body === "object" && Array.isArray(err.body.linked_records) ? err.body : null) ||
+        (err.body?.detail && typeof err.body.detail === "object" && Array.isArray(err.body.detail.linked_records) ? err.body.detail : null) ||
+        (err.detail || (err.body && (err.body.detail || err.body.error)));
+
+      if (guardData && Array.isArray(guardData.linked_records) && guardData.linked_records.length > 0) {
         setBlockedDeleteError({
-          message: detail.message || err.message || "Cannot delete master value: active references exist.",
-          code: detail.code || "SMRITI-VAL-003",
-          total: detail.total_references || detail.linked_records.length,
-          linkedRecords: detail.linked_records,
-          suggestedAction: detail.suggested_action || "Remove or retire the linked records before deleting this master value."
+          message: guardData.message || err.message || "Cannot delete master value: active references exist.",
+          code: guardData.code || "SMRITI-VAL-003",
+          total: guardData.total_references || guardData.linked_records.length,
+          linkedRecords: guardData.linked_records,
+          suggestedAction: guardData.suggested_action || "Remove or retire the linked records before deleting this master value."
+        });
+      } else if (err.status === 409 || (err.message && err.message.toLowerCase().includes("cannot delete"))) {
+        setBlockedDeleteError({
+          message: err.message || err.body?.message || err.body?.error?.explanation || "Cannot delete master value: active references exist.",
+          code: err.body?.error_code || err.body?.error?.error_code || "SMRITI-VAL-003",
+          total: 1,
+          linkedRecords: [],
+          suggestedAction: err.body?.suggested_action || err.body?.error?.suggested_action || "Remove or retire the linked records before deleting this master value."
         });
       } else if (onNotification) {
         onNotification("Delete Failed", err.message || "Failed to delete record.", "error");
