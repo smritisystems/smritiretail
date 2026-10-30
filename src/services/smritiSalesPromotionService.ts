@@ -641,6 +641,8 @@ export class SmritiSalesPromotionService {
 
     return (
       name.includes("RELIANCE") ||
+      name.includes("RRL ") ||
+      name.startsWith("RRL") ||
       code.includes("RIL") ||
       code.includes("RRL") ||
       code === "CUST-001" ||

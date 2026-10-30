@@ -65,6 +65,86 @@ describe("Customer 360 dashboard", () => {
     expect(html).not.toContain("85 stores");
   });
 
+  it("uses verified customer purchase metrics without showing fabricated growth rates", () => {
+    const html = renderToStaticMarkup(
+      <Customer360DashboardView
+        customer={{ ...customer, outstanding: 5400 }}
+        corporate360Data={{
+          customer,
+          kpis: {
+            total_orders: 24,
+            orders_growth_pct: 18,
+            total_purchase_value: 85400,
+            purchase_growth_pct: 22,
+            average_order_value: 0,
+            aov_growth_pct: 6,
+            last_order_date: "28 Oct 2026",
+            last_order_relative: "Recent",
+            total_stores: 0,
+            active_stores: 0,
+            active_stores_pct: 0,
+            total_psv_value: 0,
+            psv_stores_count: 0,
+          },
+          store_network: [],
+          psv_summary: {
+            total_value: 0,
+            in_stock_value: 0,
+            in_stock_stores: 0,
+            low_stock_value: 0,
+            low_stock_stores: 0,
+            out_of_stock_value: 0,
+            out_of_stock_stores: 0,
+          },
+          store_type_distribution: [],
+          recent_orders: [],
+          purchase_trend: [],
+        }}
+      />,
+    );
+
+    expect(html).toContain("Total purchases");
+    expect(html).toContain("Outstanding balance");
+    expect(html).toContain("Invoices");
+    expect(html).toContain("Last purchase");
+    expect(html).toContain("₹85,400");
+    expect(html).toContain("₹5,400");
+    expect(html).toContain("28 Oct 2026");
+    expect(html).not.toContain("22%");
+    expect(html).not.toContain("18%");
+    expect(html).not.toContain("6%");
+  });
+
+  it("keeps customer creation and editing inside the Customer 360 experience", () => {
+    const viewHtml = renderToStaticMarkup(
+      <Customer360DashboardView
+        customer={customer}
+        onCreateCustomer={vi.fn()}
+        onEditCustomer={vi.fn()}
+      />,
+    );
+    expect(viewHtml).toContain("New customer");
+    expect(viewHtml).toContain("Edit customer");
+
+    const editHtml = renderToStaticMarkup(
+      <Customer360DashboardView
+        customer={customer}
+        isEditing
+        onCustomerChange={vi.fn()}
+        onCancelEdit={vi.fn()}
+        onSave={vi.fn()}
+      />,
+    );
+    expect(editHtml).toContain("Edit customer profile");
+    expect(editHtml).toContain("Customer name");
+    expect(editHtml).toContain("Mobile number");
+    expect(editHtml).toContain("GSTIN");
+    expect(editHtml).toContain("Payment terms");
+    expect(editHtml).toContain("Save changes");
+    expect(editHtml).toContain("Cancel");
+    expect(editHtml).not.toContain("Basic Details");
+  });
+
   it("explains the business consequence when the customer is inactive", () => {
     const html = renderToStaticMarkup(<Customer360DashboardView customer={{ ...customer, status: "Inactive", is_active: false }} />);
     expect(html).toContain("New billing is blocked.");
@@ -220,4 +300,3 @@ describe("Customer 360 dashboard", () => {
     expect(storesHtml).toContain("ShopperStop Connaught Place");
   });
 });
-

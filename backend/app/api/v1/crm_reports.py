@@ -22,8 +22,9 @@ Size-wise Sales, Item-wise Returns.
 """
 
 from datetime import date, datetime, timezone, timedelta
+import logging
 from typing import Any, Dict, List, Optional
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy import func, text
@@ -33,6 +34,7 @@ from ...models.crm import Customer
 from ...models.sales import SalesInvoice
 
 router = APIRouter(prefix="/crm-reports")
+logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Shared helpers
@@ -280,8 +282,18 @@ async def customer_outstanding(
             }
             for r in rows
         ]
-    except Exception:
-        lines = []
+    except Exception as exc:
+        logger.exception(
+            "Failed to generate customer outstanding report",
+            extra={
+                "company_id": tenant.company_id if tenant else None,
+                "customer_id": customer_id,
+            },
+        )
+        raise HTTPException(
+            status_code=500,
+            detail="Unable to generate customer outstanding report.",
+        ) from exc
 
     return {
         "report_id":        "CRM-003",

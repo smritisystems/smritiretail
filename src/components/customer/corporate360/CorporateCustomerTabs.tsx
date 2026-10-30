@@ -55,8 +55,8 @@ export const CorporateCustomerTabs: React.FC<CorporateCustomerTabsProps> = ({
   ];
 
   return (
-    <div className="bg-white dark:bg-[#1a202c] border border-slate-200 dark:border-slate-800 rounded-xl p-1.5 overflow-x-auto scrollbar-none shadow-2xs">
-      <nav className="flex items-center gap-1.5 min-w-max">
+    <div className="border-b border-slate-200 dark:border-slate-800 overflow-x-auto scrollbar-none">
+      <nav aria-label="Customer profile sections" className="flex min-w-max items-center gap-5">
         {tabs.map((tab) => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.key;
@@ -64,14 +64,15 @@ export const CorporateCustomerTabs: React.FC<CorporateCustomerTabsProps> = ({
             <button
               key={tab.key}
               type="button"
+              aria-current={isActive ? "page" : undefined}
               onClick={() => onTabChange(tab.key)}
-              className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all flex items-center gap-1.5 whitespace-nowrap ${
+              className={`flex items-center gap-1.5 border-b-2 px-1 py-3 text-xs font-semibold transition-colors whitespace-nowrap ${
                 isActive
-                  ? "bg-[#0066cc] dark:bg-[#0052a3] text-white shadow-2xs font-bold"
-                  : "text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800/60"
+                  ? "border-sky-600 text-sky-700 dark:border-sky-400 dark:text-sky-300"
+                  : "border-transparent text-slate-600 hover:border-slate-300 hover:text-slate-900 dark:text-slate-300 dark:hover:border-slate-600 dark:hover:text-white"
               }`}
             >
-              <Icon size={14} className={isActive ? "text-white" : "text-slate-500 dark:text-slate-400"} />
+              <Icon size={14} className={isActive ? "text-sky-700 dark:text-sky-300" : "text-slate-500 dark:text-slate-400"} />
               <span>{tab.label}</span>
             </button>
           );

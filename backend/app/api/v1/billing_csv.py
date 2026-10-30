@@ -937,10 +937,13 @@ async def validate_billing_csv(
     c_grp = (req.customer_group or "").upper()
     is_reliance = (
         "RELIANCE" in c_name
+        or "RRL" in c_name
         or "RIL" in c_id
+        or "RRL" in c_id
         or c_id == "CUST-001"
         or "RELIANCE" in c_grp
         or "CG-LARGERETAIL" in c_grp
+        or "CG-RELIANCE" in c_grp
     )
 
     distinguished_validations = _resolve_distinguished_validations(

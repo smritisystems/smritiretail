@@ -31,15 +31,15 @@ const MOCK_CUSTOMER: RetailCustomerRecord = {
   name: "Reliance Retail Limited",
   shortName: "Reliance Retail",
   priceGroup: "Reliance Corporate",
-  customerGroupId: "Corporate Accounts",
-  customer_group_id: "Corporate Accounts",
+  customerGroupId: "CG-Corporate",
+  customer_group_id: "CG-Corporate",
   phone: "9876543210",
   email: "corporate@reliance.com",
   religion: "Other",
   ethnicity: "Asian",
   ageGroup: ">=35 - <45",
   profession: "Enterprise",
-  customerType: "Corporate / Enterprise",
+  customerType: "Corporate",
   profileNotes: "Enterprise key account profile",
   companyCode: "COMP-001",
   environment: "Corporate",
@@ -130,16 +130,100 @@ describe("Enterprise Customer Master Reference Layout Tests", () => {
         onDuplicate={vi.fn()}
         onDeactivate={vi.fn()}
         onBack={vi.fn()}
+        onEdit={vi.fn()}
       />
     );
 
     expect(html).toContain("Customer Master");
     expect(html).toContain("REL001");
     expect(html).toContain("Back");
-    expect(html).toContain("Save");
-    expect(html).toContain("Save &amp; New");
+    expect(html).toContain("Edit");
+    expect(html).not.toContain("Save &amp; New");
     expect(html).toContain("Duplicate");
     expect(html).toContain("Deactivate");
+  });
+
+  it("shows save and cancel actions only while editing", () => {
+    const html = renderToString(
+      <EnterpriseCustomerMasterView
+        customer={MOCK_CUSTOMER}
+        onChange={vi.fn()}
+        onSave={vi.fn()}
+        onSaveAndNew={vi.fn()}
+        onCancelEdit={vi.fn()}
+        onEdit={vi.fn()}
+        lifecycleMode="edit"
+      />
+    );
+
+    expect(html).toContain("Save");
+    expect(html).toContain("Save &amp; New");
+    expect(html).toContain("Cancel");
+    expect(html).not.toContain(">Edit</span>");
+  });
+
+  it("preserves canonical customer type and routes hierarchy changes to the relationship editor", () => {
+    const html = renderToString(
+      <EnterpriseCustomerMasterView
+        customer={{
+          ...MOCK_CUSTOMER,
+          customerType: "Retail",
+          customerGroupId: "CG-Retail",
+          customer_group_id: "CG-Retail",
+        }}
+        onChange={vi.fn()}
+        onSave={vi.fn()}
+      />
+    );
+
+    expect(html).toContain('<option value="Retail" selected="">');
+    expect(html).not.toContain('<option value="Corporate" selected="">');
+    expect(html).toContain('<option value="CG-Retail" selected="">Retail Customers</option>');
+    expect(html).toContain("Manage links in Parent–Child section");
+  });
+
+  it("flags a missing customer name and leaves an unset customer type unclassified", () => {
+    const html = renderToString(
+      <EnterpriseCustomerMasterView
+        customer={{ ...MOCK_CUSTOMER, name: "", customerType: "", businessNature: "" }}
+        onChange={vi.fn()}
+        onSave={vi.fn()}
+      />
+    );
+
+    expect(html).toContain("Customer name is missing.");
+    expect(html).toContain("Select customer type");
+    expect(html).toContain("Not configured");
+    expect(html).toContain("Business category is not saved by this customer profile.");
+    expect(html).not.toContain("(existing value)");
+  });
+
+  it("does not claim documents or audit records are empty when those sources are not connected", () => {
+    const html = renderToString(
+      <EnterpriseCustomerMasterView
+        customer={MOCK_CUSTOMER}
+        onChange={vi.fn()}
+        onSave={vi.fn()}
+      />
+    );
+
+    expect(html).toContain("Document storage is not connected to this customer view.");
+    expect(html).toContain("Audit history is not connected to this customer view.");
+    expect(html).not.toContain("Upload Document");
+    expect(html).not.toContain("No audit activity recorded yet.");
+  });
+
+  it("offers a single Add Child action", () => {
+    const html = renderToString(
+      <EnterpriseCustomerMasterView
+        customer={MOCK_CUSTOMER}
+        onChange={vi.fn()}
+        onSave={vi.fn()}
+        onOpenAddChildModal={vi.fn()}
+      />
+    );
+
+    expect(html.split("+ Add Child").length - 1).toBe(1);
   });
 
   it("renders all 9 numbered color-coded sections matching reference structure", () => {

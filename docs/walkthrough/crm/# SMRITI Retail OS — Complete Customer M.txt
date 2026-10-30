@@ -1,0 +1,309 @@
+# SMRITI Retail OS — Complete Customer Management Audit, Architecture Alignment & Refactoring
+
+**Objective:** Conduct a comprehensive end-to-end audit of the existing Customer Management module and align it with enterprise-grade retail ERP standards and the agreed SMRITI architecture.
+
+Do not blindly create new modules, tables, APIs, screens, services or business rules. First understand what already exists. Reuse, consolidate, correct and refactor wherever necessary.
+
+## 1. Establish Existing State — Audit Before Changes
+
+Start by examining the entire existing implementation.
+
+Inspect:
+
+- Customer Master and registration workflows.
+- Customer profile, contact details and addresses.
+- Customer categories, groups and classifications.
+- Individual, business, wholesale, distributor and corporate customers.
+- Customer hierarchy, parent-child relationships and multiple contacts.
+- Customer-specific pricing and price lists.
+- Discount rules and customer-level overrides.
+- Credit limits, payment terms and credit control.
+- Customer ledger and outstanding balances.
+- Sales invoices, orders, quotations and returns.
+- Payment receipts, adjustments and refunds.
+- Customer loyalty, rewards, wallet and CGE integration.
+- Customer communication and notification history.
+- Customer complaints, service requests and follow-ups.
+- Customer dashboard, reports and analytics.
+- Customer portal and self-service capabilities.
+- Customer permissions, audit logs and tenant isolation.
+
+Trace each feature from UI → API → Service → Database → Business Rules → Reports.
+
+Identify:
+1. Existing implementation.
+2. Actual database tables and relationships.
+3. Hardcoded versus database-driven functionality.
+4. Duplicate or conflicting implementations.
+5. Missing functionality.
+6. Incomplete or disconnected integrations.
+7. Business logic duplicated across frontend and backend.
+8. Unused legacy code and obsolete components.
+
+## 2. Customer Identity & Master Data Governance
+
+Establish one authoritative Customer Identity and Master Data model.
+
+Verify:
+
+- Stable customer ID and tenant ownership.
+- Customer code generation and uniqueness.
+- GSTIN validation and duplicate detection.
+- Mobile number and email validation.
+- Multiple billing and shipping addresses.
+- Multiple contacts where applicable.
+- Customer classification and lifecycle status.
+- Parent-child customer relationships.
+- Customer merging and duplicate resolution.
+- Active, inactive, blocked and archived states.
+
+Never create competing customer masters.
+
+Customer identity must remain separate from customer transactions, financial balances and derived analytics.
+
+## 3. Database & Data Integrity Audit
+
+Inspect the actual PostgreSQL schema, ORM models, migrations, foreign keys, indexes and constraints.
+
+Verify:
+
+- Tenant isolation across all customer-related tables.
+- Referential integrity.
+- Unique constraints and appropriate indexes.
+- Correct handling of soft deletion and archival.
+- Customer-to-invoice and customer-to-payment relationships.
+- Historical transaction integrity.
+- Customer ledger consistency.
+- Data migration safety.
+- Schema drift between models and database.
+
+**Critical principle:**
+
+Customer Master must never become the authoritative source of transactional financial state.
+
+Financial balances must be derived from the appropriate accounting and payment ledgers. Stock and sales history must be derived from their respective transaction records.
+
+Do not overwrite historical transactions when customer details change.
+
+## 4. Business Rules & Integration Audit
+
+Verify the complete customer lifecycle and its interaction with:
+
+- Billing Engine.
+- Sales and POS.
+- Pricing Engine.
+- Discount Engine.
+- GST Engine.
+- Credit Management.
+- Accounting and Customer Ledger.
+- Payment and Refund Engine.
+- Returns and Exchanges.
+- SMRITI CGE — Customer Growth Engine.
+- Notification and Communication Services.
+- Reporting and Analytics.
+
+Check for conflicting rules, especially:
+
+- Customer-profile discount versus billing discount.
+- Customer-specific price versus standard price list.
+- Credit limit versus outstanding balance.
+- Tax-inclusive versus tax-exclusive pricing.
+- Returns, refunds and loyalty-point reversals.
+- Customer blocking and transaction restrictions.
+
+Existing configuration and business rules must have clear precedence and explainable outcomes.
+
+## 5. Customer UX & Dashboard Audit
+
+Audit every customer-related screen before changing its design.
+
+Focus on:
+
+- Customer registration simplicity.
+- Clear field grouping and logical field dependencies.
+- Avoiding unnecessary mandatory fields.
+- Duplicate customer warnings.
+- Clear validation messages.
+- Customer profile information hierarchy.
+- Transaction history and outstanding visibility.
+- Useful actions and next steps.
+- Search, filtering, sorting and pagination.
+- Responsive layouts.
+- Accessibility and consistent design tokens.
+
+Follow SMRITI UX governance:
+
+- SIMPLE / HYBRID / ADVANCED modes.
+- Maximum 7 Action Buttons Rule.
+- Minimize unnecessary clicks and fields.
+- Progressive disclosure.
+- Database-driven configurations.
+- Consistent SMRITI UI Configuration Engine.
+
+**Customer Dashboard must be action-oriented.**
+
+Users should immediately understand:
+- Who is this customer?
+- What is the current business relationship?
+- What is pending?
+- What needs attention?
+- What can I do next?
+
+Do not display unnecessary metrics or actions merely to fill dashboard space.
+
+## 6. Customer Lifecycle & Workflow Validation
+
+Validate the following end-to-end workflows:
+
+1. New customer registration.
+2. Existing customer identification.
+3. Duplicate customer detection.
+4. Customer profile updates.
+5. Customer classification changes.
+6. Customer-specific pricing and discounts.
+7. Customer credit approval and restrictions.
+8. Sales and billing.
+9. Payment collection.
+10. Returns and refunds.
+11. Loyalty accrual and redemption.
+12. Customer blocking and reactivation.
+13. Customer archival.
+14. Customer statement and ledger reconciliation.
+
+Verify permissions and business rules at both frontend and backend levels.
+
+## 7. Architecture & Engineering Standards
+
+Align implementation with the existing SMRITI architecture and frozen governance decisions.
+
+Enforce:
+
+- Contract-first API design.
+- Separation of UI, application services and domain logic.
+- Adapter isolation.
+- Single source of truth.
+- Multi-tenant data isolation.
+- Reusable shared services.
+- No duplicate business logic.
+- No hardcoded configuration where configuration is required.
+- Proper API validation and error handling.
+- Structured logging and auditability.
+- Offline and synchronization compatibility wherever supported.
+- Backward compatibility for existing integrations.
+
+Reuse the existing platform services and event architecture rather than introducing competing infrastructure.
+
+## 8. Refactoring Rules
+
+After completing the audit, classify every finding:
+
+- P0 — Critical data integrity, security or financial risk.
+- P1 — Major business logic or workflow defect.
+- P2 — UX, performance or maintainability improvement.
+- P3 — Optional enhancement.
+
+For each finding, document:
+
+- Existing implementation.
+- Problem identified.
+- Evidence and affected files.
+- Recommended correction.
+- Database impact.
+- API impact.
+- UX impact.
+- Regression risk.
+
+Then prepare a dependency-aware implementation plan.
+
+**Implement the required corrections.**
+
+Do not:
+- Rebuild functioning modules unnecessarily.
+- Introduce duplicate customer tables.
+- Create random fields or screens.
+- Break existing APIs without migration.
+- Change historical financial records.
+- Remove existing functionality without impact analysis.
+- Introduce new dependencies without justification.
+- Mark incomplete functionality as implemented.
+
+## 9. Testing & Verification
+
+Add or update tests covering:
+
+- Customer CRUD.
+- Duplicate detection.
+- Tenant isolation.
+- Permissions.
+- GSTIN and validation.
+- Customer hierarchy.
+- Address management.
+- Pricing and discounts.
+- Credit limits.
+- Sales and invoice relationships.
+- Payments and refunds.
+- Ledger reconciliation.
+- CGE integration.
+- Customer dashboard APIs.
+- Regression and backward compatibility.
+
+Run backend tests, frontend tests, API integration tests and relevant end-to-end workflows.
+
+Verify database migrations against a safe test database before applying them to existing data.
+
+## 10. Final Deliverables
+
+Produce the following audit documentation:
+
+1. CUSTOMER_ARCHITECTURE_AUDIT.md
+2. CUSTOMER_DATABASE_AUDIT.md
+3. CUSTOMER_API_AUDIT.md
+4. CUSTOMER_UX_AUDIT.md
+5. CUSTOMER_BUSINESS_RULES_AUDIT.md
+6. CUSTOMER_REFACTORING_PLAN.md
+7. CUSTOMER_TEST_REPORT.md
+8. CUSTOMER_IMPLEMENTATION_CHANGELOG.md
+
+Include:
+
+- Existing versus recommended architecture.
+- Database changes and migration details.
+- Files created, modified and removed.
+- API and UX changes.
+- Test results with actual pass/fail counts.
+- Known limitations and outstanding issues.
+
+## 11. Definition of Completion
+
+Customer Management can only be marked complete when:
+
+- One authoritative customer identity exists.
+- Customer-related data is properly tenant-isolated.
+- Database integrity is verified.
+- Business rules are consistent across modules.
+- Financial and transactional history remains accurate.
+- UX is clear and operationally useful.
+- All relevant integrations work.
+- Regression tests pass.
+- Documentation reflects the actual implementation.
+
+## FINAL EXECUTION INSTRUCTION
+
+Work in the existing development branch.
+
+First perform a read-only audit and produce the findings and implementation plan. Then proceed with approved, evidence-backed refactoring in dependency order without waiting for another prompt for each individual correction.
+
+Preserve working functionality, existing data and frozen architecture decisions.
+
+Do not stop after writing recommendations. Implement, test, verify and document the actual changes.
+
+At completion, provide a concise engineering summary distinguishing:
+
+1. Already compliant.
+2. Refactored.
+3. Newly implemented.
+4. Not implemented and why.
+5. Tests passed and failed.
+6. Remaining risks.
+
+**The objective is not to build more Customer features. The objective is to make the existing Customer Management system correct, consistent, maintainable and enterprise-ready.**

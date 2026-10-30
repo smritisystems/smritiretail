@@ -13,6 +13,8 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import React from "react";
+import { renderToString } from "react-dom/server";
 import {
   CommunicatorStudioTab,
   CommMessageRecord,
@@ -47,9 +49,15 @@ describe("SMRITI Omnichannel Communicator Studio & WhatsApp Gateway UI", () => {
 
   it("STEP 3: should post message dispatch payload to communicator API endpoint", async () => {
     const postSpy = vi.spyOn(apiFetchModule, "apiFetchV1").mockResolvedValue({
-      id: "msg-12345",
-      status: "DELIVERED",
-      provider_msg_id: "wamid.20260828001",
+      success: true,
+      log_id: "msg-12345",
+      status: "SENT",
+      channel: "WHATSAPP",
+      recipient: "+919876543210",
+      rendered_body: "Invoice Notification",
+      gateway_message_id: "wamid.20260828001",
+      fallback_invoked: false,
+      dispatched_at: new Date().toISOString(),
     });
 
     const res = await apiFetchModule.apiFetchV1("/communicator/send", {
@@ -58,31 +66,25 @@ describe("SMRITI Omnichannel Communicator Studio & WhatsApp Gateway UI", () => {
         channel: "WHATSAPP",
         category: "TRANSACTIONAL",
         recipient: "+919876543210",
-        body: "Invoice Notification",
+        direct_body: "Invoice Notification",
       },
     });
 
     expect(postSpy).toHaveBeenCalled();
-    expect(res.status).toBe("DELIVERED");
-    expect(res.provider_msg_id).toBe("wamid.20260828001");
+    expect(res.status).toBe("SENT");
+    expect(res.gateway_message_id).toBe("wamid.20260828001");
+    expect(postSpy.mock.calls[0][1]?.body).toMatchObject({
+      direct_body: "Invoice Notification",
+    });
   });
 
-  it("STEP 4: should handle inbound webhook delivery status simulation", async () => {
-    const webhookSpy = vi.spyOn(apiFetchModule, "apiFetchV1").mockResolvedValue({
-      status: "SUCCESS",
-      updated: true,
-    });
+  it("does not display fabricated sent messages or provider receipts", () => {
+    const html = renderToString(React.createElement(CommunicatorStudioTab));
 
-    const res = await apiFetchModule.apiFetchV1("/communicator/webhook/delivery-event", {
-      method: "POST",
-      body: {
-        provider_message_id: "wamid.20260828001",
-        status: "READ",
-        timestamp: new Date().toISOString(),
-      },
-    });
-
-    expect(webhookSpy).toHaveBeenCalled();
-    expect(res.status).toBe("SUCCESS");
+    expect(html).toContain("Demo adapters — delivery unverified");
+    expect(html).toContain("WhatsApp (demo adapter)");
+    expect(html).not.toContain("Mark Delivered");
+    expect(html).not.toContain("Verified Business");
+    expect(html).not.toContain("DELIVERED");
   });
 });

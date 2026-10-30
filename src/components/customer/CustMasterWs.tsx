@@ -86,11 +86,6 @@ const LazyCorporateCustomer360 = React.lazy(() =>
     default: module.CorporateCustomer360,
   })),
 );
-const LazyEnterpriseCustomerMasterView = React.lazy(() =>
-  import("./corporateWorkspace/EnterpriseCustomerMasterView.tsx").then((module) => ({
-    default: module.EnterpriseCustomerMasterView,
-  })),
-);
 const LazyCorporateCommercialTermsPanel = React.lazy(() =>
   import("./corporateWorkspace/CorporateCommercialTermsPanel.tsx").then((module) => ({
     default: module.CorporateCommercialTermsPanel,
@@ -793,8 +788,7 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
   const [activeTab, setActiveTab] = useState<"form" | "retail" | "additional">("form");
   const [activeCorporateTab, setActiveCorporateTab] = useState<"identity" | "network" | "addresses" | "commercial" | "integrations" | "audit">("identity");
   const [corporateWorkspaceMode, setCorporateWorkspaceMode] = useState<"tabbed" | "overview">("overview");
-  const [viewMode, setViewMode] = useState<"catalogue" | "directory" | "360">("catalogue");
-  const [layoutStyle, setLayoutStyle] = useState<"enterprise" | "classic">("enterprise");
+  const [viewMode, setViewMode] = useState<"directory" | "360">("directory");
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [isSaving, setIsSaving] = useState<boolean>(false);
   const [directoryItems, setDirectoryItems] = useState<CustomerDirectoryItem[]>([]);
@@ -1078,11 +1072,10 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
       setCurrentCustomer(JSON.parse(JSON.stringify(record)));
       currentCustomerRef.current = record;
       originalCustomerRef.current = JSON.parse(JSON.stringify(record));
-      setIsDirty(intent === "edit");
-      isDirtyRef.current = intent === "edit";
+      setIsDirty(false);
+      isDirtyRef.current = false;
       setLifecycleMode(intent === "edit" ? "edit" : "view");
-      if (intent === "edit") setActiveTab("form");
-      setViewMode(intent === "360" ? "360" : "catalogue");
+      setViewMode("360");
     } catch (err: any) {
       onNotification?.("Customer Load Failed", err?.message || "Could not open this customer profile.", "error");
     } finally {
@@ -1480,6 +1473,9 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
         outstanding: Number(currentCustomer.creditUsed || 0),
         status: currentCustomer.status || "Active",
         tags: [currentCustomer.customerType || "Retail", "B2B"].filter(Boolean),
+        customer_type: currentCustomer.customerType || "Retail",
+        environment: currentCustomer.environment || "Retail",
+        pan_number: currentCustomer.panNumber?.trim().toUpperCase() || undefined,
         expected_modified_at: currentCustomer.updatedAt || undefined
       };
 
@@ -1569,7 +1565,7 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
 
       window.dispatchEvent(new CustomEvent("smriti_customer_updated"));
       onNotification?.(
-        "Catalogue Saved",
+        "Customer Saved",
         `Customer account ${recordToSave.name} (${recordToSave.code}) saved successfully.`,
         "success"
       );
@@ -1608,21 +1604,15 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
   };
 
   const handleEdit = () => {
-    setViewMode("catalogue");
     originalCustomerRef.current = JSON.parse(JSON.stringify(currentCustomer));
+    setIsDirty(false);
+    isDirtyRef.current = false;
     setLifecycleMode("edit");
     onNotification?.(
       "Edit Mode Enabled",
-      `Editing customer account "${currentCustomer.name || currentCustomer.code}". Make modifications and press Ctrl+S to save, or Esc to cancel.`,
+      `Editing customer account "${currentCustomer.name || currentCustomer.code}". Save to apply your changes or cancel to discard them.`,
       "info"
     );
-    setTimeout(() => {
-      const nameEl = document.querySelector('input[data-field-key="customer_name"]') as HTMLInputElement;
-      if (nameEl) {
-        nameEl.focus();
-        nameEl.select();
-      }
-    }, 150);
   };
 
   const handleCancelEdit = () => {
@@ -1641,8 +1631,32 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
   };
 
   const handleNew = () => {
+    if (isDirty) {
+      if (!window.confirm("Discard unsaved customer changes and create a new customer?")) return;
+      if (originalCustomerRef.current) {
+        const original = JSON.parse(JSON.stringify(originalCustomerRef.current));
+        setCurrentCustomer(original);
+        currentCustomerRef.current = original;
+      }
+      setIsDirty(false);
+      isDirtyRef.current = false;
+      setLifecycleMode("view");
+    }
     setCreateCustomerParent(null);
     setIsCreateCustomerModalOpen(true);
+  };
+
+  const handleBackToDirectory = () => {
+    if (isDirty && !window.confirm("Discard unsaved customer changes and return to the directory?")) return;
+    if (lifecycleMode === "edit" && originalCustomerRef.current) {
+      const original = JSON.parse(JSON.stringify(originalCustomerRef.current));
+      setCurrentCustomer(original);
+      currentCustomerRef.current = original;
+      setIsDirty(false);
+      isDirtyRef.current = false;
+      setLifecycleMode("view");
+    }
+    setViewMode("directory");
   };
 
   const handleOpenAddChildCustomer = () => {
@@ -1671,7 +1685,7 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
     setIsDirty(false);
     isDirtyRef.current = false;
     setLifecycleMode("view");
-    setViewMode("catalogue");
+    setViewMode("360");
 
     cacheCustomersSession(updated);
 
@@ -2094,7 +2108,7 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
       currentCustomerRef.current = found;
       setIsDirty(false);
       isDirtyRef.current = false;
-      setViewMode("catalogue");
+      setViewMode("360");
       onNotification?.("Account Loaded", `Loaded customer account ${found.code} - ${found.name}.`, "info");
     } else {
       apiFetchV1<any>(`/crm/customers/${encodeURIComponent(clean)}`)
@@ -2102,7 +2116,7 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
           if (bCust) {
             const mapped = mapBackendCustomerToRecord(bCust);
             setCurrentCustomer(mapped);
-            setViewMode("catalogue");
+            setViewMode("360");
             onNotification?.("Account Loaded", `Loaded customer record ${mapped.code} - ${mapped.name}.`, "info");
           }
         })
@@ -2122,11 +2136,11 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
               customer={currentCustomer}
               onSave={handleSave}
               onDeactivate={handleOpenDeactivate}
-              onBack={() => setViewMode("catalogue")}
-              onEditCustomer={() => {
-                setViewMode("catalogue");
-                setActiveTab("form");
-              }}
+              onBack={handleBackToDirectory}
+              onEditCustomer={handleEdit}
+              onCreateCustomer={handleNew}
+              onCustomerChange={(field, value) => handleFieldChange(field, value)}
+              onCancelEdit={handleCancelEdit}
               onSelectCustomer={item => {
                 if (item.id === currentCustomer?.id) return;
                 if (isDirty && !window.confirm("Discard unsaved customer changes and open another customer?")) return;
@@ -2134,36 +2148,10 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
               }}
               isSaving={isSaving}
               isDirty={isDirty}
+              isEditing={lifecycleMode === "edit"}
             />
           </React.Suspense>
         </div>
-      ) : viewMode === "catalogue" && layoutStyle === "enterprise" ? (
-        <React.Suspense fallback={<div role="status" className="p-4 text-sm text-slate-500">Loading enterprise customer workspace…</div>}>
-          <LazyEnterpriseCustomerMasterView
-            customer={currentCustomer}
-            onChange={handleFieldChange}
-            onSave={handleSave}
-            onSaveAndNew={handleSaveAndNew}
-            onDuplicate={handleDuplicate}
-            onDeactivate={handleOpenDeactivate}
-            onBack={() => setViewMode("directory")}
-            onOpenDirectory={() => setViewMode("directory")}
-            onOpen360={() => setViewMode("360")}
-            onToggleLayout={() => setLayoutStyle("classic")}
-            isSaving={isSaving}
-            isDirty={isDirty}
-            lifecycleMode={lifecycleMode}
-            onEdit={handleEdit}
-            onCancelEdit={handleCancelEdit}
-            onOpenMailingModal={handleOpenMailingModal}
-            onOpenStoreLookupModal={() => setIsSearchModalOpen(true)}
-            onOpenContactModal={() => handleOpenMailingModal()}
-            onOpenAddChildModal={handleOpenAddChildCustomer}
-            onSelectCustomer={handleSelectCustomerByIdOrCode}
-            gstRegistrations={gstRegistrations}
-            onNotification={onNotification}
-          />
-        </React.Suspense>
       ) : (
         <>
           {/* ── Top Header & High-Density Action Bar ──────────────────────────────── */}
@@ -2172,39 +2160,16 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
         {/* Title & Status Badges */}
         <div className="flex items-center gap-3">
           <div className="p-2.5 bg-[#00355f] text-white rounded-xl shadow-xs">
-            {isCorporate ? <Building2 size={20} /> : <Users size={20} />}
+            <Users size={20} />
           </div>
           <div>
             <div className="flex items-center gap-2">
               <h1 className="text-sm font-bold text-[#191c1e] dark:text-white uppercase tracking-wider">
-                Customer Catalogue ({isCorporate ? "Corporate" : (currentCustomer.customerType || currentCustomer.environment || "Retail")})
+                Customer Directory
               </h1>
-              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#d0e1fb] dark:bg-[#0f4c81] text-[#00355f] dark:text-[#8ebdf9]">
-                Environment: {isCorporate ? "Corporate" : (currentCustomer.environment || "Retail")}
-              </span>
-              <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold flex items-center gap-1 ${
-                lifecycleMode === "view"
-                  ? "bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-300 dark:border-slate-700"
-                  : "bg-amber-100 dark:bg-amber-950 text-amber-900 dark:text-amber-200 border border-amber-300 dark:border-amber-700 animate-pulse"
-              }`}>
-                {lifecycleMode === "view" ? <Eye size={11} /> : <Edit3 size={11} />}
-                <span>{lifecycleMode === "view" ? "View Mode" : "Editing"}</span>
-              </span>
-              <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                currentCustomer.status === "Active"
-                  ? "bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300"
-                  : "bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300"
-              }`}>
-                {currentCustomer.status || "Active"}
-              </span>
-              {isDirty && (
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#ffdad6] text-[#ba1a1a] animate-pulse">
-                  ● Unsaved Changes
-                </span>
-              )}
             </div>
             <p className="text-[11px] text-[#515f74] dark:text-[#bec6e0]">
-              Central window to create, view, edit, and audit {isCorporate ? "corporate" : "retail"} customer accounts.
+              Search, review, and manage customer accounts.
             </p>
           </div>
         </div>
@@ -2248,11 +2213,11 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
             title="Create New Customer Record (Alt+N)"
           >
             <Plus size={14} className="text-[#00355f] dark:text-[#8ebdf9]" />
-            <span>New</span>
+            <span>New customer</span>
             <kbd className="text-[9px] px-1 bg-[#f2f4f6] dark:bg-[#191c1e] rounded text-[#76777d]">Alt+N</kbd>
           </button>
 
-          {lifecycleMode === "view" ? (
+          {viewMode !== "directory" && lifecycleMode === "view" ? (
             <>
               {/* Edit Button */}
               <button
@@ -2279,7 +2244,7 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
                   <PowerOff size={14} />
                   <span>Deactivate</span>
                 </button>
-              ) : (
+              ) : viewMode !== "directory" ? (
                 <button
                   type="button"
                   onClick={handleReactivate}
@@ -2290,7 +2255,7 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
                   <Power size={14} />
                   <span>Reactivate</span>
                 </button>
-              )}
+              ) : null}
 
               {/* Delete Button (Pre-flight Safety Dialog) */}
               <button
@@ -2399,43 +2364,16 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
                   type="button"
                   onClick={() => {
                     setIsMoreMenuOpen(false);
-                    setViewMode(viewMode === "directory" ? "catalogue" : "directory");
+                    setDirectoryRefreshVersion(version => version + 1);
                   }}
                   className="w-full px-3 py-2 text-left text-xs font-semibold rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-2"
                 >
                   <Grid size={14} className="text-[#00355f] dark:text-[#8ebdf9]" />
-                  <span>{viewMode === "directory" ? "Return to Catalogue" : "Directory Grid View"}</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsMoreMenuOpen(false);
-                    setLayoutStyle("enterprise");
-                    onNotification?.(
-                      "Workspace Layout Switched",
-                      "Switched to the Enterprise Customer Workspace.",
-                      "info"
-                    );
-                  }}
-                  className="w-full px-3 py-2 text-left text-xs font-semibold rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-2"
-                >
-                  <Sliders size={14} className="text-[#00355f] dark:text-[#8ebdf9]" />
-                  <span>Switch to Enterprise Workspace</span>
+                  <span>Refresh directory</span>
                 </button>
               </div>
             )}
           </div>
-
-          {/* Corporate 360 Button */}
-          <button
-            type="button"
-            onClick={() => setViewMode("360")}
-            className="px-3.5 py-2 bg-white dark:bg-[#2d3133] border border-[#00355f] dark:border-[#8ebdf9] text-[#00355f] dark:text-[#8ebdf9] hover:bg-[#e8f1fc] dark:hover:bg-[#1a2e4a] rounded-xl text-xs font-bold flex items-center gap-1.5 transition shadow-2xs"
-            title="Open Corporate 360 Full Dashboard"
-          >
-            <Building2 size={14} />
-            <span>Corporate 360</span>
-          </button>
 
         </div>
 

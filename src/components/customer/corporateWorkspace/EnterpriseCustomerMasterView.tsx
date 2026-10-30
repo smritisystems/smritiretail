@@ -78,6 +78,24 @@ export interface EnterpriseCustomerMasterViewProps {
   onNotification?: (title: string, message: string, type?: "success" | "error" | "info" | "warning") => void;
 }
 
+const CUSTOMER_TYPE_OPTIONS = [
+  { value: "Retail", label: "Retail / Individual" },
+  { value: "Corporate", label: "Corporate / Enterprise" },
+  { value: "Wholesale", label: "Wholesale / Trade" },
+  { value: "Institutional / Government", label: "Institutional / Government" },
+  { value: "VIP", label: "VIP / Priority" },
+  { value: "Distribution", label: "Distribution" },
+  { value: "Walk-In", label: "Walk-In" },
+];
+
+const CUSTOMER_GROUP_OPTIONS = [
+  { value: "CG-Retail", label: "Retail Customers" },
+  { value: "CG-Corporate", label: "Corporate Clients" },
+  { value: "CG-LargeRetail", label: "Large Retail & Corporate" },
+  { value: "CG-Branches", label: "Internal Branches" },
+  { value: "CG-Franchises", label: "Franchise Partners" },
+];
+
 export const EnterpriseCustomerMasterView: React.FC<EnterpriseCustomerMasterViewProps> = ({
   customer,
   onChange,
@@ -106,12 +124,6 @@ export const EnterpriseCustomerMasterView: React.FC<EnterpriseCustomerMasterView
   const [addressSubTab, setAddressSubTab] = useState<"billing" | "delivery" | "registered">("billing");
   const [storeSearch, setStoreSearch] = useState<string>("");
   const [childSearch, setChildSearch] = useState<string>("");
-
-  // Documents & Notes
-  const [documents, setDocuments] = useState<Array<{ id: string; name: string; type: string; date: string }>>([]);
-
-  // Audit Entries
-  const auditLogs: Array<{ id: string; dateTime: string; action: string; by: string; details: string }> = [];
 
   // Dynamic Stores derived from customer delivery locations / addresses / dependants
   const storeNetwork = useMemo(() => {
@@ -367,6 +379,10 @@ export const EnterpriseCustomerMasterView: React.FC<EnterpriseCustomerMasterView
   };
 
   const isReadOnly = lifecycleMode === "view";
+  const customerType = customer.customerType || "";
+  const hasCustomerTypeOption = CUSTOMER_TYPE_OPTIONS.some((option) => option.value === customerType);
+  const customerGroupId = customer.customerGroupId || customer.customer_group_id || "";
+  const hasCustomerGroupOption = CUSTOMER_GROUP_OPTIONS.some((option) => option.value === customerGroupId);
 
   return (
     <div className="flex-1 flex flex-col h-full bg-[#f4f7fb] dark:bg-[#0f172a] text-slate-800 dark:text-slate-200 overflow-hidden select-none">
@@ -382,7 +398,7 @@ export const EnterpriseCustomerMasterView: React.FC<EnterpriseCustomerMasterView
             <span>Customers</span>
             <span>&gt;</span>
             <span className="font-mono font-bold text-slate-800 dark:text-slate-200">
-              {customer.code || "REL001"}
+              {customer.code || "—"}
             </span>
           </div>
         </div>
@@ -400,28 +416,57 @@ export const EnterpriseCustomerMasterView: React.FC<EnterpriseCustomerMasterView
             <span>Back</span>
           </button>
 
-          {/* Save Button */}
-          <button
-            type="button"
-            onClick={onSave}
-            disabled={isSaving}
-            className="px-4 py-1.5 bg-[#1d4ed8] hover:bg-[#1e40af] text-white rounded-lg text-xs font-bold flex items-center gap-1.5 transition shadow-xs disabled:opacity-60"
-            title="Save Customer Record (Ctrl+S)"
-          >
-            {isSaving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
-            <span>Save</span>
-          </button>
+          {isReadOnly ? (
+            onEdit && (
+              <button
+                type="button"
+                onClick={onEdit}
+                className="px-4 py-1.5 bg-[#1d4ed8] hover:bg-[#1e40af] text-white rounded-lg text-xs font-bold flex items-center gap-1.5 transition shadow-xs"
+                title="Edit Customer Record"
+              >
+                <Edit2 size={13} />
+                <span>Edit</span>
+              </button>
+            )
+          ) : (
+            <>
+              <button
+                type="button"
+                onClick={onSave}
+                disabled={isSaving}
+                className="px-4 py-1.5 bg-[#1d4ed8] hover:bg-[#1e40af] text-white rounded-lg text-xs font-bold flex items-center gap-1.5 transition shadow-xs disabled:opacity-60"
+                title="Save Customer Record (Ctrl+S)"
+              >
+                {isSaving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+                <span>Save</span>
+              </button>
 
-          {/* Save & New Button */}
-          <button
-            type="button"
-            onClick={onSaveAndNew || onSave}
-            disabled={isSaving}
-            className="px-3.5 py-1.5 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 hover:bg-slate-50 text-slate-700 dark:text-slate-200 rounded-lg text-xs font-bold flex items-center gap-1.5 transition shadow-2xs"
-            title="Save and Create New Record"
-          >
-            <span>Save &amp; New</span>
-          </button>
+              {onSaveAndNew && (
+                <button
+                  type="button"
+                  onClick={onSaveAndNew}
+                  disabled={isSaving}
+                  className="px-3.5 py-1.5 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 hover:bg-slate-50 text-slate-700 dark:text-slate-200 rounded-lg text-xs font-bold flex items-center gap-1.5 transition shadow-2xs disabled:opacity-60"
+                  title="Save and Create New Record"
+                >
+                  <span>Save &amp; New</span>
+                </button>
+              )}
+
+              {onCancelEdit && (
+                <button
+                  type="button"
+                  onClick={onCancelEdit}
+                  disabled={isSaving}
+                  className="px-3.5 py-1.5 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 hover:bg-slate-50 text-slate-700 dark:text-slate-200 rounded-lg text-xs font-bold flex items-center gap-1.5 transition shadow-2xs disabled:opacity-60"
+                  title="Cancel Customer Changes"
+                >
+                  <XCircle size={13} />
+                  <span>Cancel</span>
+                </button>
+              )}
+            </>
+          )}
 
           {/* Duplicate Button */}
           <button
@@ -543,6 +588,15 @@ export const EnterpriseCustomerMasterView: React.FC<EnterpriseCustomerMasterView
                   </div>
                 )}
 
+                {!customer.name?.trim() && (
+                  <div
+                    role="alert"
+                    className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-xs font-medium text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-200"
+                  >
+                    Customer name is missing. Edit this record before using it on a bill or invoice.
+                  </div>
+                )}
+
                 {/* 3-Column Field Grid */}
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
                   {/* Customer Code */}
@@ -602,54 +656,47 @@ export const EnterpriseCustomerMasterView: React.FC<EnterpriseCustomerMasterView
                     </label>
                     <select
                       disabled={isReadOnly}
-                      value={customer.customerType || "Corporate / Enterprise"}
+                      value={customerType}
                       onChange={(e) => onChange("customerType", e.target.value)}
                       className="w-full p-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-bold outline-none focus:border-blue-500"
                     >
-                      <option value="Corporate / Enterprise">🏢 Corporate / Enterprise</option>
-                      <option value="Retail / Individual">👤 Retail / Individual</option>
-                      <option value="Wholesale / Trade">📦 Wholesale / Trade</option>
-                      <option value="Institutional / Government">🏛️ Institutional / Government</option>
+                      <option value="" disabled>Select customer type</option>
+                      {CUSTOMER_TYPE_OPTIONS.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                      {customerType && !hasCustomerTypeOption && (
+                        <option value={customerType}>{customerType} (existing value)</option>
+                      )}
                     </select>
                   </div>
 
                   {/* Relationship Type */}
                   <div>
                     <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">
-                      Relationship Type <span className="text-red-500">*</span>
+                      Parent / Child Links
                     </label>
-                    <select
-                      disabled={isReadOnly}
-                      value={customer.corporateParent ? "Child / Branch" : "Parent"}
-                      onChange={(e) => onChange("corporateParent", e.target.value === "Child / Branch" ? "REL001" : "")}
-                      className="w-full p-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-bold outline-none focus:border-blue-500"
+                    <button
+                      type="button"
+                      onClick={() => scrollToSection("parent-child")}
+                      className="w-full p-2 text-left bg-sky-50 dark:bg-sky-950/30 border border-sky-200 dark:border-sky-800 rounded-lg text-xs font-bold text-sky-800 dark:text-sky-200 hover:bg-sky-100 dark:hover:bg-sky-950/50"
                     >
-                      <option value="Standalone">Standalone</option>
-                      <option value="Parent">👥 Parent</option>
-                      <option value="Child / Branch">🏬 Child / Branch</option>
-                    </select>
+                      Manage links in Parent–Child section
+                    </button>
                   </div>
 
                   {/* Business Category */}
                   <div>
                     <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">
-                      Business Category <span className="text-red-500">*</span>
+                      Business Category
                     </label>
-                    <select
-                      disabled={isReadOnly}
-                      value={customer.businessNature || "Key Account"}
-                      onChange={(e) => onChange("businessNature", e.target.value)}
-                      className="w-full p-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-bold outline-none focus:border-blue-500"
-                    >
-                      <option value="Key Account">⭐ Key Account</option>
-                      <option value="Retailer">Retailer</option>
-                      <option value="Dealer">Dealer</option>
-                      <option value="Distributor">Distributor</option>
-                      <option value="Wholesaler">Wholesaler</option>
-                      <option value="Reseller">Reseller</option>
-                      <option value="Institution">Institution</option>
-                      <option value="Other">Other</option>
-                    </select>
+                    <div className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 p-2 text-xs font-bold">
+                      {customer.businessNature?.trim() || "Not configured"}
+                    </div>
+                    <p className="mt-1 text-[10px] text-slate-500">
+                      Business category is not saved by this customer profile.
+                    </p>
                   </div>
 
                   {/* Customer Group */}
@@ -659,14 +706,19 @@ export const EnterpriseCustomerMasterView: React.FC<EnterpriseCustomerMasterView
                     </label>
                     <select
                       disabled={isReadOnly}
-                      value={customer.customerGroupId || "Corporate Accounts"}
+                      value={customerGroupId}
                       onChange={(e) => onChange("customerGroupId", e.target.value)}
                       className="w-full p-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-xs outline-none focus:border-blue-500"
                     >
-                      <option value="Corporate Accounts">Corporate Accounts</option>
-                      <option value="Retail Accounts">Retail Accounts</option>
-                      <option value="Institutional Accounts">Institutional Accounts</option>
-                      <option value="VIP Accounts">VIP Accounts</option>
+                      {!customerGroupId && <option value="" disabled>Select customer group</option>}
+                      {CUSTOMER_GROUP_OPTIONS.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                      {customerGroupId && !hasCustomerGroupOption && (
+                        <option value={customerGroupId}>{customerGroupId} (existing group)</option>
+                      )}
                     </select>
                   </div>
 
@@ -1416,16 +1468,6 @@ export const EnterpriseCustomerMasterView: React.FC<EnterpriseCustomerMasterView
                 )}
               </div>
 
-              <div className="flex justify-end pt-1">
-                <button
-                  type="button"
-                  onClick={onOpenAddChildModal}
-                  className="px-3 py-1.5 bg-purple-50 dark:bg-purple-950 border border-purple-200 dark:border-purple-800 text-purple-800 dark:text-purple-300 hover:bg-purple-100 rounded-lg text-xs font-bold flex items-center gap-1.5 transition shadow-2xs"
-                >
-                  <Plus size={14} />
-                  <span>+ Add Child Customer</span>
-                </button>
-              </div>
             </div>
 
             {/* Row: Documents & Notes (Card 8) & Activity & Audit (Card 9) */}
@@ -1445,69 +1487,8 @@ export const EnterpriseCustomerMasterView: React.FC<EnterpriseCustomerMasterView
                   </h2>
                 </div>
 
-                <div className="border border-slate-200 dark:border-slate-800 rounded-lg overflow-x-auto">
-                  <table className="w-full text-left text-xs border-collapse">
-                    <thead className="bg-slate-50 dark:bg-slate-800/60 font-bold text-[10px] uppercase text-slate-500 border-b border-slate-200 dark:border-slate-800">
-                      <tr>
-                        <th className="p-2">File Name</th>
-                        <th className="p-2">Type</th>
-                        <th className="p-2">Uploaded On</th>
-                        <th className="p-2 text-right">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-[11px]">
-                      {documents.length === 0 ? (
-                        <tr>
-                          <td colSpan={4} className="p-8 text-center text-xs text-slate-500">
-                            No compliance documents or agreements attached.
-                          </td>
-                        </tr>
-                      ) : (
-                        documents.map((doc) => (
-                          <tr key={doc.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/40">
-                            <td className="p-2 font-medium text-slate-900 dark:text-white flex items-center gap-1.5">
-                              <Files size={13} className="text-blue-500 shrink-0" />
-                              <span className="truncate">{doc.name}</span>
-                            </td>
-                            <td className="p-2 text-slate-500">{doc.type}</td>
-                            <td className="p-2 font-mono text-[10px] text-slate-500">{doc.date}</td>
-                            <td className="p-2 text-right space-x-1">
-                              <button
-                                type="button"
-                                onClick={() => onNotification?.("Download Document", `Downloading ${doc.name}...`, "info")}
-                                className="p-1 text-slate-400 hover:text-blue-600 rounded transition"
-                                title="Download Document"
-                              >
-                                <Download size={12} />
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setDocuments((prev) => prev.filter((d) => d.id !== doc.id));
-                                  onNotification?.("Document Removed", `${doc.name} removed from record.`, "info");
-                                }}
-                                className="p-1 text-slate-400 hover:text-red-600 rounded transition"
-                                title="Delete Document"
-                              >
-                                <Trash2 size={12} />
-                              </button>
-                            </td>
-                          </tr>
-                        ))
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-
-                <div className="flex justify-end pt-1">
-                  <button
-                    type="button"
-                    onClick={() => onNotification?.("Upload Document", "Opening compliance file upload vault...", "info")}
-                    className="px-3 py-1.5 bg-orange-50 dark:bg-orange-950 border border-orange-200 dark:border-orange-800 text-orange-800 dark:text-orange-300 hover:bg-orange-100 rounded-lg text-xs font-bold flex items-center gap-1.5 transition shadow-2xs"
-                  >
-                    <Plus size={14} />
-                    <span>+ Upload Document</span>
-                  </button>
+                <div role="status" className="rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30 p-4 text-xs text-amber-900 dark:text-amber-200">
+                  Document storage is not connected to this customer view. Uploads and downloads are unavailable here.
                 </div>
               </div>
 
@@ -1525,37 +1506,8 @@ export const EnterpriseCustomerMasterView: React.FC<EnterpriseCustomerMasterView
                   </h2>
                 </div>
 
-                <div className="border border-slate-200 dark:border-slate-800 rounded-lg overflow-x-auto">
-                  <table className="w-full text-left text-xs border-collapse">
-                    <thead className="bg-slate-50 dark:bg-slate-800/60 font-bold text-[10px] uppercase text-slate-500 border-b border-slate-200 dark:border-slate-800">
-                      <tr>
-                        <th className="p-2">Date &amp; Time</th>
-                        <th className="p-2">Action</th>
-                        <th className="p-2">By</th>
-                        <th className="p-2">Details</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-[11px]">
-                      {auditLogs.length === 0 ? (
-                        <tr>
-                          <td colSpan={4} className="p-8 text-center text-xs text-slate-500">
-                            No audit activity recorded yet.
-                          </td>
-                        </tr>
-                      ) : (
-                        auditLogs.map((log) => (
-                          <tr key={log.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/40">
-                            <td className="p-2 font-mono text-[10px] text-slate-500 whitespace-nowrap">
-                              {log.dateTime}
-                            </td>
-                            <td className="p-2 font-bold text-slate-800 dark:text-slate-200">{log.action}</td>
-                            <td className="p-2 font-mono text-slate-500">{log.by}</td>
-                            <td className="p-2 text-slate-600 dark:text-slate-300">{log.details}</td>
-                          </tr>
-                        ))
-                      )}
-                    </tbody>
-                  </table>
+                <div role="status" className="rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30 p-4 text-xs text-amber-900 dark:text-amber-200">
+                  Audit history is not connected to this customer view. This message does not confirm that no activity exists.
                 </div>
               </div>
 

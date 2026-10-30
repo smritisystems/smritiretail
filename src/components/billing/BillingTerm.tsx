@@ -113,7 +113,8 @@ import {
   Package,
   Barcode,
   Users,
-  Percent
+  Percent,
+  Share2
 } from "lucide-react";
 
 interface SmritiBillingTerminalProps {
@@ -1188,6 +1189,52 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
   const directStockNoRef = useRef<HTMLInputElement>(null);
   const customerInputRef = useRef<HTMLInputElement>(null);
 
+  // Dynamic Cart Re-evaluation for Customer Promotions (e.g. Reliance 43.76% trade discount)
+  const recomputeCartForCustomer = (cartItems: BillingLineItem[], cust: Customer | null): BillingLineItem[] => {
+    const isRel = SmritiSalesPromotionService.isRelianceCustomer(cust);
+    return cartItems.map(it => {
+      const promoRes = SmritiSalesPromotionService.resolveBestItemPromo({
+        sku: it.stockNo,
+        barcode: it.barcode,
+        category: (it as any).category,
+        brand: (it as any).brand,
+        rate: it.rate,
+        qty: it.qty,
+        customerName: cust?.name,
+        customerCode: cust?.code || cust?.id,
+        customerGroup: cust?.customerGroupId || (isRel ? "RELIANCE" : undefined),
+        evalDate: new Date()
+      });
+
+      let discPct = it.discPercent;
+      let discCode = it.discCode;
+      if (promoRes.promo && promoRes.applied) {
+        discPct = promoRes.discountPct;
+        discCode = promoRes.promoCode;
+      } else if (isRel) {
+        discPct = 43.76;
+        discCode = "REL_RET_4376";
+      }
+
+      const recomputed = calculateLineTotal({
+        ...it,
+        discPercent: discPct,
+        discCode: discCode,
+        taxPercent: it.gstPercentage || 18,
+      });
+
+      return {
+        ...it,
+        discPercent: discPct,
+        discCode: discCode,
+        discAmt: Number(recomputed.discAmt ?? 0),
+        taxAmount: Number(recomputed.taxAmount ?? 0),
+        total: recomputed.total,
+        value: recomputed.value
+      };
+    });
+  };
+
   // ─── F2 Universal Lookup Architecture v2 — Screen Registration ───────────
   // F2 when focus is on the customer field → entity=customer (Tier 1 data-f2-entity).
   // F2 on the direct-entry stockNo field → entity=variant (Tier 1 data-f2-entity).
@@ -1207,8 +1254,10 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
     adapter: (result: LookupResult) => {
       // ── Customer lookup ────────────────────────────────────────────────────
       if (result.entity === "customer") {
+        const custCode = (result.record?.code as string) || (result.record?.customer_code as string) || result.returnValue || "";
         const custObj: Customer = {
           id: result.id ?? "",
+          code: custCode,
           name: result.displayValue || "",
           mobile: (result.record?.mobile as string) || (result.record?.phone as string) || "",
           gstNumber: (result.record?.gst_number as string) || (result.record?.gstNumber as string) || "",
@@ -1227,7 +1276,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
           billedPartyGstinId: null,
           billedGstin: null,
           deliveryLocationId: null,
-          deliveryStoreCode: null,
+          deliveryStoreCode: custCode ? (custCode.replace(/^[A-Z]+-/, "") || custCode) : null,
           deliveryGstin: null,
           deliveryLocationSnapshot: null,
           psvPartyId: null,
@@ -1238,10 +1287,12 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
         if (custObj.id) {
           fetchCustomerB2BData(custObj.id);
           void loadBillingTransactionPolicy(custObj.id);
+          setItems(prev => recomputeCartForCustomer(prev, custObj));
         } else {
           setCustomerGstRegistrations([]);
           setCustomerDeliveryLocations([]);
           void loadBillingTransactionPolicy();
+          setItems(prev => recomputeCartForCustomer(prev, null));
         }
         setCreditOverrideReason("");
         return;
@@ -1267,6 +1318,11 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
                         );
         const numRate = parseFloat(rateVal) || 0;
         const numQty = parseFloat(directEntry.qty) || 1;
+        const isRelCust = SmritiSalesPromotionService.isRelianceCustomer({
+          name: headerState.customer?.name,
+          code: headerState.customer?.code || headerState.customer?.id,
+          customerGroupId: headerState.customer?.customerGroupId
+        });
         const bestPromo = SmritiSalesPromotionService.resolveBestItemPromo({
           sku: stockVal,
           barcode: barcodeVal,
@@ -1274,8 +1330,9 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
           brand: (result.record?.brand as string) || undefined,
           rate: numRate,
           qty: numQty,
-          customerGroup: headerState.customer?.customerGroupId || (headerState.customer?.name?.toUpperCase().includes("RELIANCE") ? "RELIANCE" : undefined),
-          customerCode: headerState.customer?.id,
+          customerName: headerState.customer?.name,
+          customerCode: headerState.customer?.code || headerState.customer?.id,
+          customerGroup: headerState.customer?.customerGroupId || (isRelCust ? "RELIANCE" : undefined),
           evalDate: new Date()
         });
 
@@ -1543,13 +1600,14 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
   }, [items, headerState, lastCompletedInvoice, activeItemSearchField, hasGstProfile, selectedRowIndex, editingLineId]);
 
   const handleSelectCustomer = (c: Customer | null) => {
+    const custCode = c?.code || "";
     setHeaderState(prev => ({
       ...prev,
       customer: c,
       billedPartyGstinId: null,
       billedGstin: null,
       deliveryLocationId: null,
-      deliveryStoreCode: null,
+      deliveryStoreCode: custCode ? (custCode.replace(/^[A-Z]+-/, "") || custCode) : null,
       deliveryGstin: null,
       deliveryLocationSnapshot: null,
       psvPartyId: null,
@@ -1562,18 +1620,22 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
       setCustomerSearchInput(c.name);
       fetchCustomerB2BData(c.id);
       void loadBillingTransactionPolicy(c.id);
+      setItems(prev => recomputeCartForCustomer(prev, c));
     } else {
       setCustomerGstRegistrations([]);
       setCustomerDeliveryLocations([]);
       void loadBillingTransactionPolicy();
+      setItems(prev => recomputeCartForCustomer(prev, null));
     }
     setCreditOverrideReason("");
     setShowCustomerDropdown(false);
   };
 
   const applyCustomerAutoPopulate = (r: AutoPopulateCustomerResult | Customer) => {
+    const custCode = (r as any).code || (r as any).customer_code || (r as any).returnValue || "";
     const custObj: Customer = {
       id: r.id,
+      code: custCode,
       name: r.name,
       mobile: (r as any).mobile || (r as any).phone || "",
       gstNumber: (r as any).gstNumber || (r as any).gst_number,
@@ -1592,7 +1654,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
       billedPartyGstinId: null,
       billedGstin: null,
       deliveryLocationId: null,
-      deliveryStoreCode: null,
+      deliveryStoreCode: custCode ? (custCode.replace(/^[A-Z]+-/, "") || custCode) : null,
       deliveryGstin: null,
       deliveryLocationSnapshot: null,
       psvPartyId: null,
@@ -1605,6 +1667,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
     if (custObj.id) {
       fetchCustomerB2BData(custObj.id);
       void loadBillingTransactionPolicy(custObj.id);
+      setItems(prev => recomputeCartForCustomer(prev, custObj));
     }
     setCreditOverrideReason("");
     onNotification?.("Customer Auto-Populated", `Auto-populated ${r.name} from backend.`, "success");
@@ -1950,11 +2013,18 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
       return;
     }
 
+    const isRelCust = SmritiSalesPromotionService.isRelianceCustomer({
+      name: headerState.customer?.name,
+      code: headerState.customer?.code || headerState.customer?.id,
+      customerGroupId: headerState.customer?.customerGroupId
+    });
+
     const res = SmritiSalesPromotionService.resolveBestBillPromo({
       subtotal,
       itemsCount: items.length,
-      customerGroup: headerState.customer?.customerGroupId || (headerState.customer?.name?.toUpperCase().includes("RELIANCE") ? "RELIANCE" : undefined),
-      customerCode: headerState.customer?.id,
+      customerName: headerState.customer?.name,
+      customerCode: headerState.customer?.code || headerState.customer?.id,
+      customerGroup: headerState.customer?.customerGroupId || (isRelCust ? "RELIANCE" : undefined),
       evalDate: new Date()
     });
 
@@ -2000,6 +2070,11 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
     const numQty = parseFloat(directEntry.qty) || 1;
 
     // Auto-evaluate promotional scheme on item auto-population
+    const isRelCust = SmritiSalesPromotionService.isRelianceCustomer({
+      name: headerState.customer?.name,
+      code: headerState.customer?.code || headerState.customer?.id,
+      customerGroupId: headerState.customer?.customerGroupId
+    });
     const bestPromo = SmritiSalesPromotionService.resolveBestItemPromo({
       sku: stockVal,
       barcode: barcodeVal,
@@ -2007,8 +2082,9 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
       brand: (p as any).brand,
       rate: numRate,
       qty: numQty,
-      customerGroup: headerState.customer?.customerGroupId || (headerState.customer?.name?.toUpperCase().includes("RELIANCE") ? "RELIANCE" : undefined),
-      customerCode: headerState.customer?.id,
+      customerName: headerState.customer?.name,
+      customerCode: headerState.customer?.code || headerState.customer?.id,
+      customerGroup: headerState.customer?.customerGroupId || (isRelCust ? "RELIANCE" : undefined),
       evalDate: new Date()
     });
 
@@ -2353,6 +2429,39 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
       return false;
     }
 
+    let lineDiscPercent = entryDiscPctNum;
+    let lineDiscAmt = entryDiscAmt;
+    let lineDiscCode = entry.discCode || "ILD";
+
+    const isRelCust = SmritiSalesPromotionService.isRelianceCustomer({
+      name: headerState.customer?.name,
+      code: headerState.customer?.code || headerState.customer?.id,
+      customerGroupId: headerState.customer?.customerGroupId
+    });
+
+    const promoRes = SmritiSalesPromotionService.resolveBestItemPromo({
+      sku: matched.sku || matched.barcode || rawCode,
+      barcode: matched.barcode || rawCode,
+      category: matched.category,
+      brand: matched.brand,
+      rate: rate,
+      qty: qty,
+      customerName: headerState.customer?.name,
+      customerCode: headerState.customer?.code || headerState.customer?.id,
+      customerGroup: headerState.customer?.customerGroupId || (isRelCust ? "RELIANCE" : undefined),
+      evalDate: new Date()
+    });
+
+    if (promoRes.promo && promoRes.applied) {
+      lineDiscPercent = promoRes.discountPct;
+      lineDiscCode = promoRes.promoCode;
+      lineDiscAmt = Math.round(((rate * qty * lineDiscPercent) / 100) * 100) / 100;
+    } else if (isRelCust) {
+      lineDiscPercent = 43.76;
+      lineDiscCode = "REL_RET_4376";
+      lineDiscAmt = Math.round(((rate * qty * lineDiscPercent) / 100) * 100) / 100;
+    }
+
     const lineItem: SalesLineItem = {
       id: `item-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
       productId: matched.product_id,
@@ -2362,8 +2471,8 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
       qty,
       rate,
       value: rate * qty,
-      discPercent: entryDiscPctNum,
-      discAmt: entryDiscAmt,
+      discPercent: lineDiscPercent,
+      discAmt: lineDiscAmt,
       taxPercent: Number(matched.tax_rate ?? 18),
       taxAmount: 0,
       total: 0,
@@ -2444,14 +2553,18 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
         barcode: existing.barcode,
         rate: existing.rate,
         qty: updatedQty,
-        customerGroup: headerState.customer?.customerGroupId || (headerState.customer?.name?.toUpperCase().includes("RELIANCE") ? "RELIANCE" : undefined),
-        customerCode: headerState.customer?.id,
+        customerName: headerState.customer?.name,
+        customerCode: headerState.customer?.code || headerState.customer?.id,
+        customerGroup: headerState.customer?.customerGroupId || (isRelCust ? "RELIANCE" : undefined),
         evalDate: new Date()
       });
 
-      if (promoRes.promo) {
+      if (promoRes.promo && promoRes.applied) {
         updatedDiscPct = promoRes.discountPct;
         updatedDiscCode = promoRes.promoCode;
+      } else if (isRelCust) {
+        updatedDiscPct = 43.76;
+        updatedDiscCode = "REL_RET_4376";
       }
 
       const recomputed = calculateLineTotal({
@@ -2489,10 +2602,10 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
         rate: computedLine.rate,
         qty: computedLine.qty,
         value: computedLine.value,
-        discCode: entry.discCode,
+        discCode: lineDiscCode,
         discQty: parseFloat(entry.discQty) || 0,
-        discPercent: Number(computedLine.discPercent ?? 0),
-        discAmt: Number(computedLine.discAmt ?? 0),
+        discPercent: Number(computedLine.discPercent ?? lineDiscPercent),
+        discAmt: Number(computedLine.discAmt ?? lineDiscAmt),
         total: computedLine.total,
         salesStaff: entry.staff,
         productId: matched.product_id,
@@ -2598,10 +2711,63 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
   };
 
   const handleBarcodeCSVImport = (importedItems: ResolvedCartItem[]) => {
-    void addImportedEntries(importedItems.map(item => ({
-      code: item.barcode || item.resolved_sku || item.resolved_item,
-      qty: item.quantity
-    })));
+    const isRel = SmritiSalesPromotionService.isRelianceCustomer(headerState.customer);
+    const newLines: BillingLineItem[] = importedItems.map((item, idx) => {
+      const mrp = Number(item.catalog_mrp || 0);
+      const rate = mrp > 0 ? mrp : Number(item.effective_selling_price || 0);
+      const hasMarkdown = isRel || Boolean(item.mrp_markdown_display && item.mrp_markdown_display.includes("43.76%"));
+      const discPct = hasMarkdown ? 43.76 : 0;
+      const discCode = hasMarkdown ? "REL_RET_4376" : "ILD";
+      const discAmt = discPct > 0 ? Math.round(((rate * item.quantity * discPct) / 100) * 100) / 100 : 0;
+
+      const computed = calculateLineTotal({
+        id: `csv-${Date.now()}-${idx}-${Math.random().toString(36).slice(2, 6)}`,
+        productId: item.product_id,
+        stockNo: item.resolved_sku || item.barcode,
+        barcode: item.barcode || item.resolved_sku,
+        itemDescription: item.resolved_item,
+        qty: item.quantity,
+        rate: rate,
+        value: rate * item.quantity,
+        discPercent: discPct,
+        discAmt: discAmt,
+        taxPercent: item.gst_rate || 5,
+        taxAmount: 0,
+        total: 0
+      });
+
+      return {
+        id: computed.id,
+        sNo: items.length + idx + 1,
+        stockNo: item.resolved_sku || item.barcode,
+        barcode: item.barcode || item.resolved_sku,
+        itemDescription: item.resolved_item,
+        rate: computed.rate,
+        qty: computed.qty,
+        value: computed.value,
+        discCode: discCode,
+        discQty: computed.qty,
+        discPercent: discPct,
+        discAmt: Number(computed.discAmt ?? discAmt),
+        total: computed.total,
+        salesStaff: item.salesperson_id || directEntry.staff || headerState.salesStaff || "",
+        productId: item.product_id,
+        hsnCode: item.hsn_code,
+        gstPercentage: item.gst_rate || 5,
+        taxAmount: Number(computed.taxAmount ?? 0),
+        isTaxInclusive: item.is_tax_inclusive,
+        mrp: mrp,
+        priceLevel: "MRP",
+        priceLevelSource: "CUSTOMER_PROFILE"
+      };
+    });
+
+    setItems(prev => [...prev, ...newLines.map((l, i) => ({ ...l, sNo: prev.length + i + 1 }))]);
+    onNotification?.(
+      "Import Processing Complete",
+      `${newLines.length} verified CSV row(s) added to cart with institutional discounts.`,
+      "success"
+    );
   };
 
   const handleBulkItemsImport = (importedItems: { product: Product; qty: number }[]) => {
@@ -3295,6 +3461,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
         invoiceNumber: saved.invoice_no || "INV-CONFIRMED",
         date: saved.date || headerState.billDate,
         customerName: headerState.customer?.name || "Counter Cash Sale",
+        customerMobile: headerState.customer?.mobile || "",
         customerGstin: headerState.billedGstin || headerState.customer?.gstNumber || "",
         items: items.map(it => ({
           sku: it.stockNo,
@@ -5143,6 +5310,31 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
               <Printer size={14} className="text-blue-600" />
               <span>Print</span>
             </button>
+            {lastCompletedInvoice?.invoiceNumber && (
+              <button
+                type="button"
+                onClick={() => {
+                  const phone = (lastCompletedInvoice.customerMobile || headerState.customer?.mobile || "").replace(/\D/g, "");
+                  const msg = encodeURIComponent(
+                    `*SMRITI Retail OS - Tax Invoice*\n` +
+                    `Invoice No: ${lastCompletedInvoice.invoiceNumber}\n` +
+                    `Date: ${lastCompletedInvoice.date}\n` +
+                    `Customer: ${lastCompletedInvoice.customerName}\n` +
+                    `Net Amount: ₹${Number(lastCompletedInvoice.total || 0).toFixed(2)}\n\n` +
+                    `Thank you for shopping with us!`
+                  );
+                  const waUrl = phone.length >= 10
+                    ? `https://wa.me/${phone.length === 10 ? '91' + phone : phone}?text=${msg}`
+                    : `https://wa.me/?text=${msg}`;
+                  window.open(waUrl, "_blank");
+                }}
+                className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold transition flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                title="Share Invoice via WhatsApp"
+              >
+                <Share2 size={14} />
+                <span>WhatsApp</span>
+              </button>
+            )}
             <button
               type="button"
               onClick={openSettlement}

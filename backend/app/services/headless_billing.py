@@ -514,7 +514,7 @@ class HeadlessBillingCore:
                     )
 
                 # 2. Rate Deviation Check: requires supervisor override or explicit RBAC permission if different from authoritative rate
-                if rate != auth_sp and not price_override_allowed:
+                if rate != auth_sp and rate != auth_mrp and not price_override_allowed:
                     raise HTTPException(
                         status_code=400,
                         detail={

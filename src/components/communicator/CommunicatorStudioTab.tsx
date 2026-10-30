@@ -16,8 +16,30 @@ import React, { useState } from "react";
 import { apiFetchV1 } from "../../lib/apiFetchV1";
 
 export type CommChannelType = "WHATSAPP" | "SMS" | "EMAIL" | "PUSH";
-export type CommCategoryType = "TRANSACTIONAL" | "MARKETING" | "OTP" | "ALERTS";
-export type CommDeliveryStatus = "PENDING" | "SENT" | "DELIVERED" | "READ" | "FAILED";
+export type CommCategoryType = "TRANSACTIONAL" | "PROMOTIONAL" | "OTP" | "ALERT";
+export type CommDeliveryStatus =
+  | "QUEUED"
+  | "SENT"
+  | "DELIVERED"
+  | "READ"
+  | "FAILED"
+  | "BOUNCED"
+  | "BLOCKED_DND"
+  | "BLOCKED_QUIET_HOURS";
+
+interface SendMessageResponse {
+  success: boolean;
+  log_id: string;
+  status: CommDeliveryStatus;
+  channel: CommChannelType;
+  recipient: string;
+  rendered_subject?: string | null;
+  rendered_body: string;
+  gateway_message_id?: string | null;
+  fallback_invoked: boolean;
+  error_reason?: string | null;
+  dispatched_at: string;
+}
 
 export interface CommMessageRecord {
   id: string;
@@ -53,35 +75,14 @@ export const CommunicatorStudioTab: React.FC<CommunicatorStudioTabProps> = ({
   const [activeTab, setActiveTab] = useState<"DIRECT" | "CAMPAIGNS" | "TEMPLATES" | "LOGS">("DIRECT");
   const [channel, setChannel] = useState<CommChannelType>("WHATSAPP");
   const [category, setCategory] = useState<CommCategoryType>("TRANSACTIONAL");
-  const [recipient, setRecipient] = useState<string>("+919876543210");
+  const [recipient, setRecipient] = useState<string>("");
   const [subject, setSubject] = useState<string>("");
   const [messageBody, setMessageBody] = useState<string>(
     "Dear {{customer_name}}, your invoice #{{invoice_no}} for ₹{{amount}} has been generated. Thank you for shopping with us!"
   );
   const [sending, setSending] = useState<boolean>(false);
 
-  const [logs, setLogs] = useState<CommMessageRecord[]>([
-    {
-      id: "msg-001",
-      channel: "WHATSAPP",
-      category: "TRANSACTIONAL",
-      recipient: "+919876543210",
-      body: "Dear Ramesh, your invoice #INV-2026-001 for ₹12320.00 has been generated.",
-      status: "READ",
-      provider_msg_id: "wamid.HBgLOTE5ODc2NTQzMjEwFQIAEhgWM0VCMDAw",
-      sent_at: new Date(Date.now() - 3600000).toISOString(),
-    },
-    {
-      id: "msg-002",
-      channel: "WHATSAPP",
-      category: "ALERTS",
-      recipient: "+919811223344",
-      body: "Daily Sales EOD Report has been dispatched to your statutory vault.",
-      status: "DELIVERED",
-      provider_msg_id: "wamid.HBgLOTE5ODExMjIzMzQ0FQIAEhgWM0VCMDAx",
-      sent_at: new Date(Date.now() - 7200000).toISOString(),
-    },
-  ]);
+  const [logs, setLogs] = useState<CommMessageRecord[]>([]);
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -91,75 +92,48 @@ export const CommunicatorStudioTab: React.FC<CommunicatorStudioTabProps> = ({
         channel,
         category,
         recipient: recipient.trim(),
-        subject: channel === "EMAIL" ? subject.trim() : undefined,
-        body: messageBody,
+        direct_subject: channel === "EMAIL" ? subject.trim() : undefined,
+        direct_body: messageBody,
       };
 
-      const res = await apiFetchV1("/communicator/send", {
+      const res = await apiFetchV1<SendMessageResponse>("/communicator/send", {
         method: "POST",
         body: payload,
       });
 
       const newLog: CommMessageRecord = {
-        id: res?.id || `msg-${Date.now()}`,
-        channel,
+        id: res.log_id,
+        channel: res.channel,
         category,
-        recipient,
-        subject,
-        body: messageBody,
-        status: res?.status || "DELIVERED",
-        provider_msg_id: res?.provider_msg_id || `wamid.${Date.now()}`,
-        sent_at: new Date().toISOString(),
+        recipient: res.recipient,
+        subject: res.rendered_subject || undefined,
+        body: res.rendered_body,
+        status: res.status,
+        provider_msg_id: res.gateway_message_id || undefined,
+        sent_at: res.dispatched_at,
+        error_message: res.error_reason || undefined,
       };
 
       setLogs((prev) => [newLog, ...prev]);
+      if (!res.success) {
+        onNotification?.(
+          "Message Not Sent",
+          res.error_reason || `The provider did not accept the ${channel} message.`,
+          "error"
+        );
+        return;
+      }
+
       onNotification?.(
-        "Message Dispatched",
-        `${channel} message successfully sent to ${recipient}.`,
-        "success"
+        "Demo Request Recorded",
+        `The ${channel} demo adapter accepted this request; no provider delivery was performed.`,
+        "info"
       );
-    } catch (err: any) {
-      const mockLog: CommMessageRecord = {
-        id: `msg-${Date.now()}`,
-        channel,
-        category,
-        recipient,
-        subject,
-        body: messageBody,
-        status: "DELIVERED",
-        provider_msg_id: `wamid.MOCK_${Date.now()}`,
-        sent_at: new Date().toISOString(),
-      };
-      setLogs((prev) => [mockLog, ...prev]);
-      onNotification?.(
-        "Message Dispatched",
-        `${channel} message sent via WhatsApp Direct Gateway.`,
-        "success"
-      );
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "The messaging service request failed.";
+      onNotification?.("Message Not Sent", message, "error");
     } finally {
       setSending(false);
-    }
-  };
-
-  const handleSimulateWebhook = async (msgId: string, newStatus: CommDeliveryStatus) => {
-    try {
-      await apiFetchV1("/communicator/webhook/delivery-event", {
-        method: "POST",
-        body: {
-          provider_message_id: msgId,
-          status: newStatus,
-          timestamp: new Date().toISOString(),
-        },
-      });
-      setLogs((prev) =>
-        prev.map((l) => (l.provider_msg_id === msgId ? { ...l, status: newStatus } : l))
-      );
-      onNotification?.("Webhook Processed", `Delivery status updated to ${newStatus}.`, "info");
-    } catch (err: any) {
-      setLogs((prev) =>
-        prev.map((l) => (l.provider_msg_id === msgId ? { ...l, status: newStatus } : l))
-      );
-      onNotification?.("Webhook Processed", `Delivery status updated to ${newStatus}.`, "info");
     }
   };
 
@@ -174,20 +148,20 @@ export const CommunicatorStudioTab: React.FC<CommunicatorStudioTabProps> = ({
           <div>
             <h1 className="text-xl font-bold text-slate-100 flex items-center gap-3">
               SMRITI Communicator Studio
-              <span className="text-xs font-mono px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                WhatsApp Cloud API v19.0
+              <span className="text-xs font-mono px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                Demo adapters — delivery unverified
               </span>
             </h1>
             <p className="text-xs text-slate-400 mt-0.5">
-              Enterprise multi-channel broadcast engine, automated statutory report dispatcher & webhook tracking
+              Messaging requests are recorded here; provider delivery requires a configured live integration.
             </p>
           </div>
         </div>
 
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-800 text-xs">
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-            <span className="text-slate-300 font-medium">TRAI Compliance Guard: Active</span>
+            <span className="w-2 h-2 rounded-full bg-amber-400"></span>
+            <span className="text-slate-300 font-medium">Provider status: Demo</span>
           </div>
         </div>
       </div>
@@ -198,7 +172,7 @@ export const CommunicatorStudioTab: React.FC<CommunicatorStudioTabProps> = ({
           { id: "DIRECT", label: "Direct Dispatch", icon: "send" },
           { id: "CAMPAIGNS", label: "Broadcast Campaigns", icon: "campaign" },
           { id: "TEMPLATES", label: "Template Registry", icon: "code" },
-          { id: "LOGS", label: "Delivery Logs & Webhooks", icon: "history_toggle_off" },
+          { id: "LOGS", label: "Session Results", icon: "history_toggle_off" },
         ].map((tab) => (
           <button
             key={tab.id}
@@ -235,7 +209,7 @@ export const CommunicatorStudioTab: React.FC<CommunicatorStudioTabProps> = ({
                     onChange={(e) => setChannel(e.target.value as CommChannelType)}
                     className="w-full px-3 py-2 text-xs rounded-xl bg-slate-800 border border-slate-700 text-slate-200 focus:outline-none focus:border-emerald-500"
                   >
-                    <option value="WHATSAPP">WhatsApp (Meta Cloud API)</option>
+                    <option value="WHATSAPP">WhatsApp (demo adapter)</option>
                     <option value="SMS">SMS Gateway (DLT Certified)</option>
                     <option value="EMAIL">Transactional Email (SMTP/SES)</option>
                   </select>
@@ -251,9 +225,9 @@ export const CommunicatorStudioTab: React.FC<CommunicatorStudioTabProps> = ({
                     className="w-full px-3 py-2 text-xs rounded-xl bg-slate-800 border border-slate-700 text-slate-200 focus:outline-none focus:border-emerald-500"
                   >
                     <option value="TRANSACTIONAL">Transactional / Invoices</option>
-                    <option value="ALERTS">Operational Alerts / Reports</option>
+                    <option value="ALERT">Operational Alerts / Reports</option>
                     <option value="OTP">Security OTP Verification</option>
-                    <option value="MARKETING">Promotional Campaigns</option>
+                    <option value="PROMOTIONAL">Promotional Campaigns</option>
                   </select>
                 </div>
               </div>
@@ -326,7 +300,7 @@ export const CommunicatorStudioTab: React.FC<CommunicatorStudioTabProps> = ({
           <div className="p-6 rounded-2xl bg-slate-900 border border-slate-800 space-y-4">
             <h2 className="text-sm font-bold text-slate-200 uppercase tracking-wider flex items-center gap-2">
               <span className="material-symbols-outlined text-cyan-400">preview</span>
-              Live Handset Preview
+                Message Preview
             </h2>
 
             <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 space-y-3 font-sans">
@@ -336,7 +310,7 @@ export const CommunicatorStudioTab: React.FC<CommunicatorStudioTabProps> = ({
                 </div>
                 <div>
                   <span className="text-xs font-bold text-slate-200 block">SMRITI Store Bot</span>
-                  <span className="text-[10px] text-emerald-400 font-mono">Verified Business</span>
+                  <span className="text-[10px] text-amber-300 font-mono">Preview only — not sent</span>
                 </div>
               </div>
 
@@ -349,7 +323,7 @@ export const CommunicatorStudioTab: React.FC<CommunicatorStudioTabProps> = ({
 
               <div className="flex items-center justify-end gap-1 text-[10px] text-slate-500">
                 <span>{new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
-                <span className="material-symbols-outlined text-emerald-400 text-xs">done_all</span>
+                <span className="text-[10px] text-slate-500">Preview</span>
               </div>
             </div>
           </div>
@@ -361,7 +335,7 @@ export const CommunicatorStudioTab: React.FC<CommunicatorStudioTabProps> = ({
           <div className="flex items-center justify-between">
             <h2 className="text-sm font-bold text-slate-200 uppercase tracking-wider flex items-center gap-2">
               <span className="material-symbols-outlined text-cyan-400">receipt_long</span>
-              Real-Time Communicator Activity & Webhook Audit Logs
+              Current Session Requests (not provider delivery receipts)
             </h2>
             <span className="text-xs font-mono text-slate-400">{logs.length} Transactions</span>
           </div>
@@ -376,7 +350,7 @@ export const CommunicatorStudioTab: React.FC<CommunicatorStudioTabProps> = ({
                   <th className="py-3 px-4">Recipient</th>
                   <th className="py-3 px-4">Status</th>
                   <th className="py-3 px-4">Provider Message ID</th>
-                  <th className="py-3 px-4 text-right">Webhook Action</th>
+                  <th className="py-3 px-4">Result</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800">
@@ -410,26 +384,18 @@ export const CommunicatorStudioTab: React.FC<CommunicatorStudioTabProps> = ({
                     <td className="py-3 px-4 font-mono text-slate-400 text-[11px] truncate max-w-xs">
                       {log.provider_msg_id || "N/A"}
                     </td>
-                    <td className="py-3 px-4 text-right space-x-1.5">
-                      {log.provider_msg_id && (
-                        <>
-                          <button
-                            onClick={() => handleSimulateWebhook(log.provider_msg_id!, "DELIVERED")}
-                            className="px-2 py-1 rounded bg-slate-800 text-[10px] text-emerald-400 hover:bg-emerald-950/40 border border-emerald-500/30"
-                          >
-                            Mark Delivered
-                          </button>
-                          <button
-                            onClick={() => handleSimulateWebhook(log.provider_msg_id!, "READ")}
-                            className="px-2 py-1 rounded bg-slate-800 text-[10px] text-cyan-400 hover:bg-cyan-950/40 border border-cyan-500/30"
-                          >
-                            Mark Read
-                          </button>
-                        </>
-                      )}
+                    <td className="py-3 px-4 text-rose-300">
+                      {log.error_message || (log.status === "SENT" ? "Provider acceptance only; delivery not verified." : "")}
                     </td>
                   </tr>
                 ))}
+                {logs.length === 0 && (
+                  <tr>
+                    <td className="py-6 px-4 text-center text-slate-500" colSpan={7}>
+                      No message requests in this session.
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>
@@ -443,7 +409,7 @@ export const CommunicatorStudioTab: React.FC<CommunicatorStudioTabProps> = ({
             {activeTab === "CAMPAIGNS" ? "Broadcast Campaign Center" : "Enterprise Template Registry"}
           </h3>
           <p className="text-xs text-slate-500 max-w-md mx-auto">
-            Configured with DLT Entity ID and Meta Cloud API Webhook Endpoints for automated omnichannel broadcasts.
+            Campaign dispatch and provider templates are not connected in this demo. Configure and verify a live provider before use.
           </p>
         </div>
       )}

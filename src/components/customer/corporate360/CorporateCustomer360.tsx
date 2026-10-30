@@ -27,9 +27,13 @@ export interface CorporateCustomer360Props {
   customer?: any;
   onBack?: () => void;
   onEditCustomer?: (customer: any) => void;
+  onCreateCustomer?: () => void;
+  onCustomerChange?: (field: keyof import("../types.ts").RetailCustomerRecord, value: string) => void;
+  onCancelEdit?: () => void;
   onSelectCustomer?: (customer: CustomerDirectoryItem) => void;
   onSave?: () => void;
   onDeactivate?: () => void;
+  isEditing?: boolean;
   isSaving?: boolean;
   isDirty?: boolean;
 }
@@ -39,9 +43,13 @@ export const CorporateCustomer360: React.FC<CorporateCustomer360Props> = ({
   customer: propCustomer,
   onBack,
   onEditCustomer,
+  onCreateCustomer,
+  onCustomerChange,
+  onCancelEdit,
   onSelectCustomer,
   onSave,
   onDeactivate,
+  isEditing = false,
   isSaving = false,
   isDirty = false,
 }) => {
@@ -158,13 +166,17 @@ export const CorporateCustomer360: React.FC<CorporateCustomer360Props> = ({
   return (
     <Customer360DashboardView
       customerId={customerId}
-      customer={data?.customer || propCustomer}
+      customer={propCustomer || data?.customer}
       corporate360Data={data}
       onEditCustomer={onEditCustomer}
+      onCreateCustomer={onCreateCustomer}
+      onCustomerChange={onCustomerChange}
+      onCancelEdit={onCancelEdit}
       onSelectCustomer={onSelectCustomer}
       onSave={onSave}
       onDeactivate={onDeactivate}
       onBack={onBack}
+      isEditing={isEditing}
       isSaving={isSaving}
       isDirty={isDirty}
     />
