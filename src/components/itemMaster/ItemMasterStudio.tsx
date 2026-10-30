@@ -89,7 +89,7 @@ const FIELD_LABEL: Record<string, string> = {
   gender: 'Gender',
   MERCHANDISE_DEPARTMENT: 'Department',
   department: 'Department',
-  MERCHANDISE_CATEGORY: 'Category',
+  MERCHANDISE_CATEGORY: 'Merchandise Category (review mapping)',
   category: 'Category',
   PRODUCT_TYPE: 'Product Type',
   product_type: 'Product Type',

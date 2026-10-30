@@ -31,6 +31,21 @@ from app.models.item_master import Item
 from app.services.catalog_validation import IM001ControlledFieldValidator
 
 
+def test_category_is_not_used_as_merchandise_category():
+    row = {
+        "category": "Footwear",
+        "MERCHANDISE_CATEGORY": "CHAPPAL",
+        "PRODUCT_TYPE": "CHAPPAL",
+    }
+
+    assert IM001ControlledFieldValidator.extract_field_value(row, "CATEGORY") == "Footwear"
+    assert IM001ControlledFieldValidator.extract_field_value(row, "MERCHANDISE_CATEGORY") == "CHAPPAL"
+    assert IM001ControlledFieldValidator.extract_field_value(row, "PRODUCT_TYPE") == "CHAPPAL"
+    assert IM001ControlledFieldValidator.extract_field_value(
+        {"category": "Footwear"}, "MERCHANDISE_CATEGORY"
+    ) is None
+
+
 @pytest.fixture(scope="module")
 def auth_headers():
     token = create_access_token(
@@ -287,4 +302,3 @@ def test_06_universal_import_commit_tattly_new_sheet(client, auth_headers):
     commit_data = res.json()
     assert commit_data.get("success") is True
     assert len(commit_data.get("results", [])) == len(raw_rows)
-
