@@ -1,5 +1,26 @@
 <!--
 
+## [6.99.30] - 2026-10-30 - Catalog: Master Delete Guard Expansion & Schema Parity Governance v6.99.3
+
+### Fixed
+- `backend/app/services/master_delete_guard.py`:
+  - Resolved model schema drift in `prod_field_map`: removed non-existent attributes `Product.department` and `Product.product_type` while preserving canonical mappings (`brand`, `category`, `style_code`, `vendor_code`, `color`, `size`, `barcode`, `hsn_code`, `sku`).
+- `backend/app/services/attributes.py`:
+  - Extended `delete_template` to block deletion with HTTP 409 Conflict if active `Product` records (via `variant_template_id` or `style_code`) or `Item` records (via `style_code`) reference the template.
+- `backend/app/api/v1/masters.py`:
+  - Extended warehouse deletion route to block soft-deletion with HTTP 409 Conflict if positive physical on-hand stock (`ProductBatchStock.quantity > 0`) or historical inventory movements (`StockMovement`) exist.
+  - Extended branch deletion route to block soft-deletion with HTTP 409 Conflict if active facilities exist in `Warehouse`.
+
+### Added
+- `backend/tests/test_master_lookup_delete_guard.py`:
+  - Added unit test `test_variant_template_delete_guard_blocks_when_linked_to_item` verifying HTTP 409 on referenced style templates.
+  - Added unit test `test_warehouse_delete_guard_blocks_when_positive_stock_exists` verifying HTTP 409 on warehouses with positive inventory.
+  - Expanded test suite from 9 to 11 tests (100% passing).
+- `docs/implementation/catalog/Master_Delete_Guard_Expansion_And_Schema_Parity_Plan_v6.99.3.md`:
+  - Formal 19-section IPGP implementation plan.
+- `docs/walkthrough/catalog/Master_Delete_Guard_Expansion_And_Schema_Parity_v6.99.3.md`:
+  - Formal 13-section WGP walkthrough document.
+
 ## [6.99.29] - 2026-10-30 - Billing: Draft, Submit, Parked Cart & Statutory Amendment Lifecycle v6.99.2
 
 ### Added
