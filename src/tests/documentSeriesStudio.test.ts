@@ -4,16 +4,16 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.49.0
+ * Version      : 6.50.2
  * Created      : 2026-09-30
- * Modified     : 2026-09-30
+ * Modified     : 2026-10-30
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
  */
 
 import { describe, it, expect } from "vitest";
-import { documentSeriesConfig } from "../components/global/configs/documentSeries.con";
+import { documentSeriesConfig, CANONICAL_DOC_TYPE_MAP, DOC_TYPE_DISPLAY_MAP } from "../components/global/configs/documentSeries.con";
 
 describe("Document Series & Numbering Studio Configuration", () => {
   it("should have correct API endpoint, title, and metadata", () => {
@@ -298,6 +298,62 @@ describe("Document Series & Numbering Studio Configuration", () => {
       );
       expect(terminalSpecificSeries.terminalId).toBe("POS-01");
       expect(terminalSpecificSeries.isCommonAcrossTerminals).toBe(false);
+    });
+  });
+
+  describe("Canonical Document Type Harmonization & Normalization", () => {
+    it("should export bidirectional canonical mapping dictionary", () => {
+      expect(CANONICAL_DOC_TYPE_MAP["Retail Invoice"]).toBe("SALES_INVOICE");
+      expect(CANONICAL_DOC_TYPE_MAP["Tax Invoice"]).toBe("SALES_CREDIT");
+      expect(CANONICAL_DOC_TYPE_MAP["Purchase Order"]).toBe("PURCHASE_ORDER");
+      expect(CANONICAL_DOC_TYPE_MAP["Goods Receipt"]).toBe("GOODS_RECEIPT_NOTE");
+      expect(CANONICAL_DOC_TYPE_MAP["Sales Return"]).toBe("SALES_RETURN");
+      expect(CANONICAL_DOC_TYPE_MAP["Debit Note"]).toBe("DEBIT_NOTE");
+      expect(CANONICAL_DOC_TYPE_MAP["Delivery Challan"]).toBe("DELIVERY_CHALLAN");
+      expect(CANONICAL_DOC_TYPE_MAP["ARTICLE"]).toBe("ARTICLE");
+    });
+
+    it("should normalize response items from legacy human-readable to canonical codes", () => {
+      const rawBackendList = [
+        { id: "SER-001", name: "Main Retail", documentType: "Retail Invoice" },
+        { id: "SER-002", name: "Main PO", documentType: "Purchase Order" },
+        { id: "SER-003", name: "Sandal Design", documentType: "ARTICLE" }
+      ];
+
+      const transformed = documentSeriesConfig.responseTransform!(rawBackendList);
+      expect(transformed[0].documentType).toBe("SALES_INVOICE");
+      expect(transformed[1].documentType).toBe("PURCHASE_ORDER");
+      expect(transformed[2].documentType).toBe("ARTICLE");
+    });
+
+    it("should output canonical documentType in payloadTransform", () => {
+      const retailForm = {
+        name: "Counter 1 Retail",
+        documentType: "Retail Invoice",
+        prefix: "INV/",
+        startNumber: 1
+      };
+      const retailPayload = documentSeriesConfig.payloadTransform!(retailForm, "create");
+      expect(retailPayload.documentType).toBe("SALES_INVOICE");
+      expect(retailPayload.module).toBe("SALES");
+
+      const poForm = {
+        name: "Central PO",
+        documentType: "Purchase Order",
+        prefix: "PO/",
+        startNumber: 1
+      };
+      const poPayload = documentSeriesConfig.payloadTransform!(poForm, "create");
+      expect(poPayload.documentType).toBe("PURCHASE_ORDER");
+      expect(poPayload.module).toBe("PURCHASE");
+      expect(poPayload.transactionGroup).toBe("PROCUREMENT");
+    });
+
+    it("should provide human-readable display mappings for Studio table render", () => {
+      expect(DOC_TYPE_DISPLAY_MAP["SALES_INVOICE"]).toBe("Retail Invoice (POS Cash / Sales)");
+      expect(DOC_TYPE_DISPLAY_MAP["PURCHASE_ORDER"]).toBe("Purchase Order");
+      expect(DOC_TYPE_DISPLAY_MAP["GOODS_RECEIPT_NOTE"]).toBe("Goods Receipt (GRN)");
+      expect(DOC_TYPE_DISPLAY_MAP["ARTICLE"]).toBe("Article / Design (Master)");
     });
   });
 });

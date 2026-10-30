@@ -4,9 +4,9 @@ Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
-Version      : 3.18.0
+Version      : 6.50.2
 Created      : 2026-07-12
-Modified     : 2026-09-17
+Modified     : 2026-10-30
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 """
@@ -32,7 +32,9 @@ class NumberingService:
         if company_id:
             q = q.where(or_(DocumentSeries.company_id == company_id, DocumentSeries.company_id.is_(None)))
         if document_type:
-            q = q.where(func.upper(DocumentSeries.document_type) == document_type.strip().upper())
+            from .documents_engine import resolve_document_type_aliases
+            aliases = resolve_document_type_aliases(document_type)
+            q = q.where(func.upper(DocumentSeries.document_type).in_(aliases))
         res = await self.db.execute(q)
         return list(res.scalars().all())
 
@@ -67,10 +69,26 @@ class NumberingService:
         if category_val:
             category_val = str(category_val).strip().upper()
 
+        doc_type_raw = getattr(data, "documentType", None) or getattr(data, "document_type", "ARTICLE")
+        canonical_map = {
+            "RETAIL INVOICE": "SALES_INVOICE",
+            "TAX INVOICE": "SALES_CREDIT",
+            "PURCHASE ORDER": "PURCHASE_ORDER",
+            "GOODS RECEIPT": "GOODS_RECEIPT_NOTE",
+            "GOODS RECEIPT NOTE": "GOODS_RECEIPT_NOTE",
+            "SALES RETURN": "SALES_RETURN",
+            "CREDIT NOTE": "SALES_RETURN",
+            "DEBIT NOTE": "DEBIT_NOTE",
+            "DELIVERY CHALLAN": "DELIVERY_CHALLAN",
+            "SALES ORDER": "SALES_ORDER",
+            "QUOTATION": "QUOTATION",
+        }
+        normalized_doc_type = canonical_map.get(str(doc_type_raw).strip().upper(), str(doc_type_raw).strip().upper())
+
         series = DocumentSeries(
             id=new_id,
             name=data.name,
-            document_type=data.documentType,
+            document_type=normalized_doc_type,
             module=data.module,
             prefix=data.prefix or "",
             suffix=data.suffix or "",
@@ -410,10 +428,13 @@ class NumberingService:
             clean_tx, (clean_tx, "SALES", f"{clean_tx[:3]}/")
         )
 
+        from .documents_engine import resolve_document_type_aliases
+        target_aliases = resolve_document_type_aliases(canonical_doc_type)
+
         filters = [
             DocumentSeries.is_deleted == False,
             DocumentSeries.is_active == True,
-            DocumentSeries.document_type == canonical_doc_type,
+            func.upper(DocumentSeries.document_type).in_(target_aliases),
         ]
         if company_id:
             filters.append(
@@ -446,10 +467,12 @@ class NumberingService:
 
         # 3. Fallback to generic SALES_INVOICE if not found and is a sales invoice
         if not series and canonical_doc_type in ("SALES_CASH", "SALES_CREDIT"):
+            from .documents_engine import resolve_document_type_aliases
+            sales_aliases = resolve_document_type_aliases("SALES_INVOICE")
             q_generic = select(DocumentSeries).where(
                 DocumentSeries.is_deleted == False,
                 DocumentSeries.is_active == True,
-                DocumentSeries.document_type == "SALES_INVOICE"
+                func.upper(DocumentSeries.document_type).in_(sales_aliases)
             )
             res = await self.db.execute(q_generic)
             series = res.scalars().first()

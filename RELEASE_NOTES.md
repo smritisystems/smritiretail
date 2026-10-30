@@ -14,6 +14,19 @@
 
 # SMRITI Retail OS — Release Notes
 
+## Release v6.50.2 (2026-10-30)
+
+### Foundation: Document Series & Studio Canonical Reconciliation & Numbering Audit Ledger
+
+#### Overview
+Establishes bidirectional parity between the frontend Document Series Studio, backend transactional engines (DocumentsEngine, NumberingService), and consumer modules (POS billing, procurement, inventory). Resolves document type dialect drift (e.g. Retail Invoice vs SALES_INVOICE) across all lookup queries and allocations, and adds an interactive, searchable Numbering Audit Ledger drawer directly into Document Series Studio.
+
+#### Key Highlights
+- **Bidirectional Canonical Mapping**: CANONICAL_DOC_TYPE_MAP and DOC_TYPE_DISPLAY_MAP guarantee seamless transformation between intuitive UI dropdown labels and statutory backend enums.
+- **Cross-Dialect Backend Aliases**: DocumentsEngine.allocate_next_number_in_transaction, preview_next_number, and NumberingService.resolve_bill_prefix inspect case-insensitive alias sets (`resolve_document_type_aliases`), ensuring that series configured by administrators in Studio are consistently found and consumed by POS counters.
+- **Interactive Numbering Audit Ledger Drawer**: Built NumberingAuditDrawer within DocumentSeriesTab.tsx providing real-time search across series, document numbers, operators, action filters (ALLOCATE, CREATE, UPDATE, RESET), live refresh, and CSV export.
+- **Strict Verification & Zero Regression**: Verified with 49/49 Vitest tests green, 4/4 Python alias tests passed, scripts/test_purchase_numbering.py passed, zero TypeScript compiler errors (`tsc --noEmit`), and 11/11 architecture gate checks passed.
+
 ## Release v6.50.1 (2026-10-30)
 
 ### Procurement: Purchase Order Prefix & Canonical Serialization Remediation
