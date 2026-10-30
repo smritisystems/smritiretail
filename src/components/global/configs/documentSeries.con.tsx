@@ -259,10 +259,15 @@ export const documentSeriesConfig: MasterConfig<DocumentSeries> = {
       currNum = startNum > 1 ? startNum - 1 : 0;
     }
 
+    const isPurchase = ["Purchase Order", "Goods Receipt", "PURCHASE_ORDER", "GOODS_RECEIPT"].includes(formData.documentType);
+    const assignedModule = isArticle ? "INVENTORY" : (isPurchase ? "PURCHASE" : (formData.module || "SALES"));
+    const assignedTxGroup = isArticle ? "INVENTORY" : (isPurchase ? "PROCUREMENT" : (formData.transactionGroup || "SALES"));
+
     return {
       name: formData.name,
       documentType: formData.documentType,
-      module: isArticle ? "INVENTORY" : (formData.module || "SALES"),
+      module: assignedModule,
+      transactionGroup: assignedTxGroup,
       prefix: formData.prefix || "",
       suffix: formData.suffix || "",
       runningLength: Number(formData.runningLength) || (isArticle ? 5 : 6),

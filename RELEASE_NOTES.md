@@ -14,6 +14,19 @@
 
 # SMRITI Retail OS — Release Notes
 
+## Release v6.50.1 (2026-10-30)
+
+### Procurement: Purchase Order Prefix & Canonical Serialization Remediation
+
+#### Overview
+Remediates Purchase Order (PO) prefix resolution, sequence generation, and identity display across SMRITI Retail OS. Restores canonical statutory `{PREFIX}/{FY}/{SEQ:04d}` consistency to `PurchaseService.get_next_order_number`, eliminates the double-prefix rendering defect (`PO-PO/26-27/0001`), prevents fiscal year hyphen-splitting corruption (`PO/26` / `27/0001`), and maps Purchase Order series in Document Series Studio to module `PURCHASE` and transaction group `PROCUREMENT`.
+
+#### Key Highlights
+- **Canonical Return Consistency**: `get_next_order_number` and `get_next_receipt_number` now consistently provide canonical formatting (`PO/26-27/0029`) across `suggested_order_no`, `suggested_number`, and `next_order_no`. Legacy callers can access `suggested_simple`.
+- **Zero Double Prefixes**: Smart prefix display formatting in `PoGenerateTab` and `PoSizewiseTab` prevents redundant prefix prepending when the document number already contains the prefix or slash.
+- **Robust Fiscal Year Handling**: `PoSizewiseTab` detects canonical `/` delimiters and avoids splitting hyphenated fiscal years (`26-27`).
+- **Studio Module Parity**: In `documentSeriesConfig`, Purchase Orders and Goods Receipts automatically set module to `PURCHASE` and transaction group to `PROCUREMENT`.
+
 ## Release v6.50.0 (2026-10-30)
 
 ### Inventory & Foundation: Document Series & Numbering Studio Hardening & Unified Serialization Engine

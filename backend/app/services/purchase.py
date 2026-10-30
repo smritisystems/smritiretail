@@ -882,12 +882,13 @@ class PurchaseService:
         fy = self.get_financial_year(order_date)
 
         # Align with DocumentSeries Studio configuration if active
+        active_ds = None
         if not prefix or prefix == "PO":
             try:
                 from ..models.numbering import DocumentSeries
                 from sqlalchemy import or_
                 ds_stmt = select(DocumentSeries).where(
-                    DocumentSeries.document_type.in_(["PURCHASE_ORDER", "Purchase Order"]),
+                    DocumentSeries.document_type.in_(["PURCHASE_ORDER", "Purchase Order", "PURCHASE ORDER"]),
                     DocumentSeries.is_deleted == False,
                     DocumentSeries.is_active == True,
                 )
@@ -926,8 +927,9 @@ class PurchaseService:
                 if val < 900000:
                     simple_seqs.append(val)
 
+        run_len = getattr(active_ds, "running_length", None) or 4
         next_canonical = max(canonical_seqs) + 1 if canonical_seqs else 1
-        while f"{pfx}/{fy}/{next_canonical:04d}" in existing_set:
+        while f"{pfx}/{fy}/{next_canonical:0{run_len}d}" in existing_set:
             next_canonical += 1
 
         next_simple = max(simple_seqs) + 1 if simple_seqs else 1
@@ -940,16 +942,17 @@ class PurchaseService:
             next_simple += 1
 
         suggested_simple = f"{pfx}-{next_simple}"
-        suggested_canonical = f"{pfx}/{fy}/{next_canonical:04d}"
+        suggested_canonical = f"{pfx}/{fy}/{next_canonical:0{run_len}d}"
 
         return {
             "prefix": pfx,
             "financial_year": fy,
-            "next_number": next_simple,
+            "next_number": next_canonical,
             "next_order_no": suggested_canonical,
-            "suggested_number": suggested_simple,
-            "suggested_order_no": suggested_simple,
+            "suggested_number": suggested_canonical,
+            "suggested_order_no": suggested_canonical,
             "suggested_canonical": suggested_canonical,
+            "suggested_simple": suggested_simple,
         }
 
     async def get_next_receipt_number(self, prefix: Optional[str] = None, receipt_date: Optional[Any] = None) -> dict:
@@ -964,11 +967,12 @@ class PurchaseService:
         fy = self.get_financial_year(receipt_date)
 
         # Align with DocumentSeries Studio configuration if active
+        active_ds = None
         if not prefix or prefix == "GRN":
             try:
                 from ..models.numbering import DocumentSeries
                 ds_stmt = select(DocumentSeries).where(
-                    DocumentSeries.document_type.in_(["GOODS_RECEIPT_NOTE", "Goods Receipt", "PURCHASE_RECEIPT"]),
+                    DocumentSeries.document_type.in_(["GOODS_RECEIPT_NOTE", "Goods Receipt", "PURCHASE_RECEIPT", "GOODS RECEIPT"]),
                     DocumentSeries.is_deleted == False,
                     DocumentSeries.is_active == True,
                 )
@@ -1011,8 +1015,9 @@ class PurchaseService:
                 if val < 900000:
                     simple_seqs.append(val)
 
+        run_len = getattr(active_ds, "running_length", None) or 4
         next_canonical = max(canonical_seqs) + 1 if canonical_seqs else 1
-        while f"{pfx}/{fy}/{next_canonical:04d}" in existing_set:
+        while f"{pfx}/{fy}/{next_canonical:0{run_len}d}" in existing_set:
             next_canonical += 1
 
         next_simple = max(simple_seqs) + 1 if simple_seqs else 1
@@ -1025,16 +1030,18 @@ class PurchaseService:
             next_simple += 1
 
         suggested_simple = f"{pfx}-{next_simple}"
-        suggested_canonical = f"{pfx}/{fy}/{next_canonical:04d}"
+        suggested_canonical = f"{pfx}/{fy}/{next_canonical:0{run_len}d}"
 
         return {
             "prefix": pfx,
             "financial_year": fy,
-            "next_number": next_simple,
+            "next_number": next_canonical,
             "next_receipt_no": suggested_canonical,
-            "suggested_number": suggested_simple,
-            "suggested_receipt_no": suggested_simple,
+            "suggested_number": suggested_canonical,
+            "suggested_receipt_no": suggested_canonical,
+            "suggested_order_no": suggested_canonical,
             "suggested_canonical": suggested_canonical,
+            "suggested_simple": suggested_simple,
         }
 
     async def get_purchase_order(self, order_id: str) -> tuple[PurchaseOrder, list[PurchaseOrderItem]]:

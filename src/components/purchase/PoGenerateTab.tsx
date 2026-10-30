@@ -1941,7 +1941,9 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
                 {header.documentType}
               </span>
               <span className="font-mono font-bold text-blue-300 text-xs">
-                {header.prefix}-{header.orderNumber}
+                {(header.orderNumber.startsWith(header.prefix) || header.orderNumber.includes("/"))
+                  ? header.orderNumber
+                  : `${header.prefix}-${header.orderNumber}`}
               </span>
               <span className="text-slate-600">•</span>
               <span className="font-semibold text-slate-100 flex items-center gap-1.5">

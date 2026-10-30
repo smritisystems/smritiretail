@@ -1348,7 +1348,9 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
         );
         if (nextRes?.suggested_order_no) {
           const sug = String(nextRes.suggested_order_no);
-          if (sug.includes("-")) {
+          if (sug.includes("/")) {
+            setHeader(h => ({ ...h, orderNumber: sug }));
+          } else if (sug.includes("-")) {
             const lastDash = sug.lastIndexOf("-");
             const pfx = sug.slice(0, lastDash);
             const num = sug.slice(lastDash + 1);
@@ -1647,7 +1649,9 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
       );
       if (nextRes?.suggested_order_no) {
         const sug = String(nextRes.suggested_order_no);
-        if (sug.includes("-")) {
+        if (sug.includes("/")) {
+          setHeader(h => ({ ...h, orderNumber: sug }));
+        } else if (sug.includes("-")) {
           const lastDash = sug.lastIndexOf("-");
           const pfx = sug.slice(0, lastDash);
           const num = sug.slice(lastDash + 1);
@@ -2540,7 +2544,10 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `PO_${header.prefix}_${header.orderNumber}_matrix.csv`;
+    const docNoStr = (header.orderNumber.startsWith(header.prefix) || header.orderNumber.includes("/"))
+      ? header.orderNumber
+      : `${header.prefix}-${header.orderNumber}`;
+    a.download = `${docNoStr.replace(/[/\\]/g, "_")}_matrix.csv`;
     a.click();
     URL.revokeObjectURL(url);
     onNotification?.("Exported", "Matrix exported to CSV successfully.", "success");
@@ -3138,7 +3145,9 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
                 <h1 className="font-extrabold text-slate-800 dark:text-slate-100 text-base leading-none">Purchase Order</h1>
                 {/* Phase 1: composite read-only document identity — no editable Prefix/Number */}
                 <p className="text-[11px] text-slate-500 dark:text-slate-400 font-mono mt-0.5 font-bold tracking-wide">
-                  {header.prefix}-{header.orderNumber}
+                  {(header.orderNumber.startsWith(header.prefix) || header.orderNumber.includes("/"))
+                    ? header.orderNumber
+                    : `${header.prefix}-${header.orderNumber}`}
                   <span className="font-normal text-slate-400 ml-1">· {header.orderDate}</span>
                 </p>
               </div>
@@ -3213,7 +3222,9 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
               className="inline-flex items-center gap-1.5 h-7 px-3 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-lg font-mono font-bold text-xs text-slate-700 dark:text-slate-200 select-all cursor-default"
             >
               <span className="material-symbols-outlined text-[13px] text-slate-400">tag</span>
-              {header.prefix}-{header.orderNumber}
+              {(header.orderNumber.startsWith(header.prefix) || header.orderNumber.includes("/"))
+                ? header.orderNumber
+                : `${header.prefix}-${header.orderNumber}`}
             </div>
           </div>
           {/* Date */}
