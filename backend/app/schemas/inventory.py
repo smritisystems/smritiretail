@@ -23,7 +23,8 @@ class ProductBase(BaseModel):
     name: str = Field(..., max_length=255, description="Product Name / Title")
     price: Decimal = Field(..., ge=0, description="Selling Price")
     stock: int = 0
-    category: str = Field(default="Footwear", max_length=100)
+    category: str = Field(..., max_length=100)
+    product_type: Optional[str] = Field(None, max_length=100)
     is_favorite: Optional[bool] = False
     barcode: str = Field(..., max_length=100, description="Barcode")
     secondary_barcodes: Optional[List[str]] = Field(default_factory=list)
@@ -54,6 +55,18 @@ class ProductBase(BaseModel):
         if not s:
             raise ValueError(f"{info.field_name} is required and cannot be blank or whitespace-only.")
         return s
+
+    @field_validator("category", "product_type", mode="before")
+    @classmethod
+    def validate_taxonomy_string(cls, v: Any, info: ValidationInfo) -> Optional[str]:
+        if v is None:
+            if info.field_name == "product_type":
+                return None
+            raise ValueError(f"{info.field_name} is required and cannot be blank.")
+        value = str(v).strip()
+        if not value:
+            raise ValueError(f"{info.field_name} cannot be blank or whitespace-only.")
+        return value
 
     @field_validator("mrp", "price", "gst_percentage", mode="before")
     @classmethod
@@ -145,7 +158,8 @@ class ProductUpdate(BaseModel):
     name: Optional[str] = None
     price: Optional[Decimal] = None
     stock: Optional[int] = None
-    category: Optional[str] = None
+    category: Optional[str] = Field(None, max_length=100)
+    product_type: Optional[str] = Field(None, max_length=100)
     is_favorite: Optional[bool] = None
     barcode: Optional[str] = None
     secondary_barcodes: Optional[List[str]] = None
@@ -176,6 +190,16 @@ class ProductUpdate(BaseModel):
         if not s:
             raise ValueError(f"{info.field_name} cannot be blank or whitespace-only.")
         return s
+
+    @field_validator("category", "product_type", mode="before")
+    @classmethod
+    def validate_update_taxonomy_string(cls, v: Any, info: ValidationInfo) -> Optional[str]:
+        if v is None:
+            raise ValueError(f"{info.field_name} cannot be null.")
+        value = str(v).strip()
+        if not value:
+            raise ValueError(f"{info.field_name} cannot be blank or whitespace-only.")
+        return value
 
     @field_validator("mrp", "price", "gst_percentage", "buying_price", "cost_price", mode="before")
     @classmethod

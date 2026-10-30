@@ -23,7 +23,7 @@ from sqlalchemy.future import select
 from sqlalchemy import or_, cast, String
 
 from ...api.deps import (
-    TenantContext, get_company_db, get_tenant_context,
+    TenantContext, get_company_db, get_db, get_tenant_context,
     get_current_user, require_role, require_permission, verify_internal_service_key
 )
 from ...models.auth import User, UserRole
@@ -39,6 +39,13 @@ from ...schemas.inventory import (
     StockMovementResponse,
 )
 from ...services.inventory import InventoryService
+from ...services.compliance_audit import ComplianceAuditService
+from ...services.item_taxonomy import (
+    PRODUCT_ATTRIBUTE_LOOKUP_FIELDS,
+    PRODUCT_TAXONOMY_LOOKUPS,
+    resolve_product_attribute_lookup_values,
+    resolve_product_taxonomy_value,
+)
 from ...services.spif import SpifService
 
 router = APIRouter()
@@ -53,11 +60,30 @@ router = APIRouter()
 async def create_product(
     product_in: ProductCreate,
     db: AsyncSession = Depends(get_company_db),
+    control_db: AsyncSession = Depends(get_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
+    current_user: User = Depends(get_current_user),
 ):
     """Create a new product. Requires MANAGER or SYSADMIN role."""
+    product_data = product_in.model_dump()
+    for dimension in PRODUCT_TAXONOMY_LOOKUPS:
+        value = product_data.get(dimension)
+        if value is not None:
+            product_data[dimension] = await resolve_product_taxonomy_value(
+                control_db, dimension, value
+            )
+    product_data["attributes"] = await resolve_product_attribute_lookup_values(
+        control_db, product_data.get("attributes") or {}
+    )
+    product_in = product_in.model_copy(update=product_data)
+
     service = InventoryService(db, tenant_ctx)
-    return await service.create_product(product_in)
+    actor_role = getattr(current_user.role, "value", current_user.role)
+    return await service.create_product(
+        product_in,
+        audit_actor_user_id=current_user.id,
+        audit_actor_role=str(actor_role) if actor_role is not None else None,
+    )
 
 
 @router.get("/", response_model=PaginatedResponse[ProductResponse])
@@ -355,7 +381,9 @@ async def update_product(
     product_id: str,
     product_in: ProductUpdate,
     db: AsyncSession = Depends(get_company_db),
+    control_db: AsyncSession = Depends(get_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
+    current_user: User = Depends(get_current_user),
 ):
     """Update a product master."""
     repo = ProductRepository(db, tenant_ctx)
@@ -364,6 +392,20 @@ async def update_product(
         raise HTTPException(status_code=404, detail="Product not found")
     
     update_data = product_in.model_dump(exclude_unset=True)
+    before_taxonomy = {}
+    after_taxonomy = {}
+    for dimension in PRODUCT_TAXONOMY_LOOKUPS:
+        if dimension not in update_data:
+            continue
+        value = update_data[dimension]
+        if value is not None:
+            value = await resolve_product_taxonomy_value(
+                control_db, dimension, value
+            )
+            update_data[dimension] = value
+        if getattr(product, dimension) != value:
+            before_taxonomy[dimension] = getattr(product, dimension)
+            after_taxonomy[dimension] = value
 
     # Enforce Stock No / Code uniqueness across other products
     if update_data.get("code") and update_data["code"] != product.code:
@@ -392,6 +434,43 @@ async def update_product(
         )
         if existing_barcode.scalars().first():
             raise HTTPException(status_code=400, detail=f"Barcode '{update_data['barcode']}' is already in use by another product")
+
+    if "attributes" in update_data and update_data["attributes"] is not None:
+        submitted_attributes = update_data["attributes"]
+        resolved_attributes = await resolve_product_attribute_lookup_values(
+            control_db, submitted_attributes
+        )
+        update_data["attributes"] = resolved_attributes
+        existing_attributes = product.attributes or {}
+        controlled_attribute_keys = set(PRODUCT_ATTRIBUTE_LOOKUP_FIELDS)
+        changed_keys = {
+            key for key in controlled_attribute_keys
+            if key in submitted_attributes
+            and existing_attributes.get(key) != resolved_attributes.get(key)
+        }
+        if changed_keys:
+            before_taxonomy["attributes"] = {
+                key: existing_attributes.get(key) for key in sorted(changed_keys)
+            }
+            after_taxonomy["attributes"] = {
+                key: resolved_attributes.get(key) for key in sorted(changed_keys)
+            }
+
+    if before_taxonomy:
+        actor_role = getattr(current_user.role, "value", current_user.role)
+        await ComplianceAuditService.record_audit_event(
+            session=db,
+            company_id=tenant_ctx.company_id,
+            branch_id=tenant_ctx.branch_id,
+            event_type="ITEM_TAXONOMY_UPDATED",
+            entity_name="Product",
+            entity_id=product.id,
+            actor_user_id=current_user.id,
+            actor_role=str(actor_role) if actor_role is not None else None,
+            action_summary="Updated controlled product taxonomy",
+            before_state=before_taxonomy,
+            after_state=after_taxonomy,
+        )
 
     return await repo.update(product, update_data)
 

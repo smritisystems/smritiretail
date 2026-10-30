@@ -108,7 +108,7 @@ export const CORE_STANDARD_ITEM_FIELDS: UnifiedItemField[] = [
     label: "Category",
     datatype: "text",
     required: true,
-    aliases: ["category", "category name", "product category", "department", "merchandise category", "group"],
+    aliases: ["category", "category name", "product category", "item category", "group"],
     active: true,
     displayOrder: 5,
     source: "core",
@@ -428,6 +428,10 @@ export function serializeProductAttributes(
   if (itemData.brand) attributesPayload.brand = String(itemData.brand).trim();
   if (itemData.category) attributesPayload.category = String(itemData.category).trim();
   if (itemData.subCategory) attributesPayload.subCategory = String(itemData.subCategory).trim();
+  const merchandiseCategory = itemData.merchandiseCategory ?? itemData.merchandise_category;
+  if (merchandiseCategory) {
+    attributesPayload.merchandise_category = String(merchandiseCategory).trim();
+  }
   if (itemData.size) attributesPayload.size = String(itemData.size).trim();
   if (itemData.colour || itemData.shade || itemData.color) {
     attributesPayload.color = String(itemData.colour || itemData.shade || itemData.color).trim();

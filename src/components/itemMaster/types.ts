@@ -91,7 +91,7 @@ export const ALL_AVAILABLE_ITEM_FIELDS: ItemMasterFieldDefinition[] = [
   { id: "size", key: "size", label: "Size", isMandatory: false, type: "text", width: "90px", aliases: ["Product Size", "Dimension"] },
   { id: "itemDescription", key: "itemDescription", label: "Item Description", isMandatory: false, type: "text", width: "200px", aliases: ["Description", "Detail"] },
   { id: "dealerPrice", key: "dealerPrice", label: "Dealer Price", isMandatory: false, type: "currency", align: "right", width: "110px", aliases: ["Wholesale Price", "Trade Price"] },
-  { id: "category", key: "category", label: "Category", isMandatory: false, type: "text", width: "130px", aliases: ["Department", "Merchandise Category"] },
+  { id: "category", key: "category", label: "Category", isMandatory: true, type: "text", width: "130px", aliases: ["Category Name", "Product Category", "Item Category"] },
   { id: "subCategory", key: "subCategory", label: "Sub-Category", isMandatory: false, type: "text", width: "130px", aliases: ["Segment", "Subcategory"] },
   { id: "uom", key: "uom", label: "UOM", isMandatory: false, type: "select", width: "90px", options: ["Pcs", "Pair", "Box", "Set", "Kg", "Mtr"], aliases: ["Unit", "Unit of Measure"] },
   // Extended retail metadata
@@ -227,4 +227,3 @@ export function validateProductAttributes(
     errors
   };
 }
-

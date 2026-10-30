@@ -73,9 +73,23 @@ export const SMRITI_ITEM_MASTER_FIELDS: SmritiFieldDefinition[] = [
     required: true,
     aliases: [
       "category", "category name", "product category", "item category",
-      "group", "department", "merchandise category"
+      "group"
     ],
-    description: "Primary merchandise category"
+    description: "Primary product category"
+  },
+  {
+    key: "productType",
+    label: "PRODUCT TYPE",
+    required: false,
+    aliases: ["product type", "item product type"],
+    description: "Controlled product type classification"
+  },
+  {
+    key: "merchandiseCategory",
+    label: "MERCHANDISE CATEGORY",
+    required: false,
+    aliases: ["merchandise category", "merchandise cat", "mc category", "merch cat"],
+    description: "Merchandise category kept separate from product category"
   },
   {
     key: "subCategory",
@@ -226,7 +240,7 @@ export const SMRITI_ITEM_MASTER_FIELDS: SmritiFieldDefinition[] = [
   { key: "a5", label: "ATTRIBUTE 5 (A5)", required: false, aliases: ["a5", "attr 5", "attribute 5", "attribute5", "vendor code", "vendor id", "supplier code"], description: "Dynamic Attribute slot 5" },
   { key: "a6", label: "ATTRIBUTE 6 (A6)", required: false, aliases: ["a6", "attr 6", "attribute 6", "attribute6", "purchase class", "purchase classification"], description: "Dynamic Attribute slot 6" },
   { key: "a7", label: "ATTRIBUTE 7 (A7)", required: false, aliases: ["a7", "attr 7", "attribute 7", "attribute7", "department", "dept", "division"], description: "Dynamic Attribute slot 7" },
-  { key: "a8", label: "ATTRIBUTE 8 (A8)", required: false, aliases: ["a8", "attr 8", "attribute 8", "attribute8", "merchandise category", "merchandise cat", "mc category"], description: "Dynamic Attribute slot 8" },
+  { key: "a8", label: "ATTRIBUTE 8 (A8)", required: false, aliases: ["a8", "attr 8", "attribute 8", "attribute8"], description: "Dynamic Attribute slot 8" },
   { key: "a9", label: "ATTRIBUTE 9 (A9)", required: false, aliases: ["a9", "attr 9", "attribute 9", "attribute9", "season", "fit", "pattern", "occasion"], description: "Dynamic Attribute slot 9" }
 ];
 

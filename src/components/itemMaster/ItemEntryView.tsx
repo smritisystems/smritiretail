@@ -91,7 +91,7 @@ export const ItemEntryView: React.FC<ItemEntryViewwProps> = ({
     } catch {}
     return {
       brand: "",
-      category: "Footwear",
+      category: "",
       subCategory: "",
       taxRate: "18",
       supplier: "",
@@ -187,6 +187,7 @@ export const ItemEntryView: React.FC<ItemEntryViewwProps> = ({
         if (!name) missing.push("Product Name / Title");
         if (isNaN(mrp) || mrp < 0 || item.mrp === "" || item.mrp === null || item.mrp === undefined) missing.push("MRP");
         if (isNaN(price) || price < 0 || (item.sellingPrice === "" && item.price === "") || (item.sellingPrice === null && item.price === null)) missing.push("Selling Price");
+        if (!(item.category || commonFieldValues.category || "").trim()) missing.push("Category");
         if (isNaN(gstRate) || gstRate < 0) missing.push("GST Tax Rate");
         if (!hsnCode) missing.push("HSN Code");
 
@@ -223,7 +224,7 @@ export const ItemEntryView: React.FC<ItemEntryViewwProps> = ({
           cost_price: !isNaN(costPrice) && costPrice > 0 ? costPrice : null,
           stock: 100,
           brand: item.brand || commonFieldValues.brand || null,
-          category: item.category || commonFieldValues.category || "General",
+          category: item.category || commonFieldValues.category,
           color: item.shade || null,
           size: item.size || null,
           style_code: item.style || null,

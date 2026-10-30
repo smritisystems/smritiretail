@@ -28,6 +28,14 @@
 
 All notable changes to SMRITI Retail OS will be documented in this file. This project adheres to Semantic Versioning.
 
+### [6.72.8] - 2026-10-30
+
+#### Item Master Controlled Taxonomy Lookup Resolution & Category Decoupling
+- **Controlled Taxonomy Ingestion**: Enforce strict server-side resolution for Brand, Category, Product Type, Gender, Department, Heel Type, Upper Material, Outsole Material, and Sub-Category against active Master Registry lookups.
+- **Fail-Closed Recommendation Guidance**: Rejects unapproved ad-hoc values with HTTP 422 (`SMRITI-VAL-002`) directing operators to onboard new entries in Master Registry first.
+- **Category Decoupling & Explicitness**: Eliminated implicit default category assumptions (`"Footwear"` / `"General"`), requiring explicit category specification. Decoupled `category`, `productType`, `merchandiseCategory`, and `subCategory` in Header Mapping Engine.
+- **Audit Lineage**: Recorded `ITEM_TAXONOMY_ASSIGNED` and `ITEM_TAXONOMY_UPDATED` compliance events via `ComplianceAuditService`.
+
 ### [3.122.1] - 2026-09-01
 
 #### Real EAN/Barcode Integration from TT.CSV
