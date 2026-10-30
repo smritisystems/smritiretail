@@ -74,6 +74,18 @@ interface PSVReceiptLineDraft {
   scanCorrectionReason: string;
 }
 
+interface PSVReceiptInvoiceLinePayload {
+  invoice_line_id: string;
+  sku: string;
+  style_code?: string;
+  color?: string;
+  size?: string;
+  received_qty: number;
+  rejected_qty: number;
+  rejection_reason?: string;
+  scanned_barcode_counts: Record<string, number>;
+}
+
 function emptyReceiptDraft(): PSVReceiptLineDraft {
   return {
     received_qty: 0,
@@ -629,7 +641,7 @@ export const PsvTab: React.FC<PsvTabProps> = ({ psvParties, currentUser }) => {
       const draft = drafts[item.invoice_line_id] ?? emptyReceiptDraft();
       return [item.invoice_line_id, (item.barcodes ?? []).length > 0
         ? draft
-        : { ...draft, received_qty: getRemainingQty(item) }];
+        : { ...draft, received_qty: Math.max(0, getRemainingQty(item) - draft.rejected_qty) }];
     })));
     setReceiveValidationError(null);
   };
@@ -726,6 +738,16 @@ export const PsvTab: React.FC<PsvTabProps> = ({ psvParties, currentUser }) => {
             if (disposition !== "accepted" && disposition !== "rejected") {
               throw new Error(`Row ${rowNumber}: disposition must be "accepted" or "rejected".`);
             }
+            if (disposition === "rejected") {
+              const reason = valueAt(row, "rejection_reason");
+              if (!reason) {
+                throw new Error(`Row ${rowNumber}: rejection_reason is required for rejected barcode units.`);
+              }
+              if (draft.rejection_reason && draft.rejection_reason !== reason) {
+                throw new Error(`Row ${rowNumber}: use one rejection_reason per invoice line.`);
+              }
+              draft.rejection_reason = reason;
+            }
             draft.scans.push({ barcode, disposition });
           } else {
             if (barcode || disposition) {
@@ -767,7 +789,7 @@ export const PsvTab: React.FC<PsvTabProps> = ({ psvParties, currentUser }) => {
   // Submit every entered line in one invoice receipt request.
   const handleReceiveSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
-    const payloadItems: Record<string, any>[] = [];
+    const payloadItems: PSVReceiptInvoiceLinePayload[] = [];
     const validationErrors: string[] = [];
     const correctionNotes: string[] = [];
     let hasQuantityDiscrepancy = false;
@@ -1836,16 +1858,12 @@ export const PsvTab: React.FC<PsvTabProps> = ({ psvParties, currentUser }) => {
               {!isReadOnly && (
                 <button
                   type="button"
-                  onClick={() => {
-                    if (reconData?.items && reconData.items.length > 0) {
-                      openReceiveModal(reconData.items[0]);
-                    } else {
-                      alert("Please select or search an invoice first.");
-                    }
-                  }}
+                  onClick={() => filteredReconItems[0] && openReceiveModal(filteredReconItems[0])}
+                  disabled={!filteredReconItems.length || isLoadingReceiveInvoice}
                   className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold px-3.5 py-1.5 rounded-lg shadow-sm shadow-emerald-600/30 transition-colors flex items-center gap-1.5"
                 >
-                  <span>📥</span> Bulk Receive Invoice
+                  <span>📥</span>
+                  {filteredReconItems[0] ? `Bulk Receive ${filteredReconItems[0].invoice_no}` : "Bulk Receive Invoice"}
                 </button>
               )}
             </div>
