@@ -1,5 +1,33 @@
 <!--
 
+## [6.99.27] - 2026-10-30 - Foundation: Document Series & Studio Canonical Reconciliation & Numbering Audit Ledger v6.50.2
+
+### Fixed
+- backend/app/services/documents_engine.py:
+  - Added DOCUMENT_TYPE_ALIASES and resolve_document_type_aliases supporting cross-dialect resolution between Shoper 9 legacy codes, studio UI labels, and statutory backend enums.
+  - Updated allocate_next_number_in_transaction and preview_next_number to match document series using func.upper(DocumentSeries.document_type).in_(aliases).
+- backend/app/services/numbering.py:
+  - Updated resolve_bill_prefix to resolve series using canonical document type aliases, preventing query misses for series configured via Document Series Studio with human-readable labels (Retail Invoice, Tax Invoice).
+  - Updated list_series and create_series to normalize document types to canonical uppercase.
+- src/components/global/configs/documentSeries.con.tsx:
+  - Added CANONICAL_DOC_TYPE_MAP and DOC_TYPE_DISPLAY_MAP for bidirectional translation.
+  - Normalized responseTransform to map stored series to canonical codes and payloadTransform to submit canonical codes.
+  - Updated columns to render clear human-readable document types (DOC_TYPE_DISPLAY_MAP).
+  - Synchronized customValidation and LiveSeriesPreview GST Rule 46(b) validation.
+
+### Added
+- src/components/DocumentSeriesTab.tsx:
+  - Added interactive NumberingAuditDrawer connected to GET /api/v1/numbering/logs with real-time search, action filtering (ALL, ALLOCATE, CREATE, UPDATE, RESET), live refresh, and CSV export.
+  - Wired Audit History button into MasterListScreen.slots.extraHeaderActions.
+- scripts/test_document_type_aliases.py:
+  - Standalone verification suite asserting bidirectional alias mapping across document types.
+- src/tests/documentSeriesStudio.test.ts:
+  - Added unit test suite verifying canonical document type harmonization, response transformation, payload transformation, and display mapping.
+- docs/implementation/foundation/Document_Series_And_Studio_Canonical_Reconciliation_Plan_v6.50.2.md:
+  - Formal 19-section IPGP plan.
+- docs/walkthrough/foundation/Document_Series_And_Studio_Canonical_Reconciliation_v6.50.2.md:
+  - Formal 13-section WGP walkthrough.
+
 ## [6.99.26] - 2026-10-30 - Procurement: Purchase Order Prefix & Canonical Serialization Remediation v6.50.1
 
 ### Fixed

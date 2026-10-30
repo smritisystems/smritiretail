@@ -4,9 +4,9 @@
  * Designation  : Chief Systems Architect & Creator
  * Email        : support@smritibooks.com
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
- * Version      : 6.49.0
+ * Version      : 6.50.2
  * Created      : 2026-08-19
- * Modified     : 2026-09-30
+ * Modified     : 2026-10-30
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
@@ -18,14 +18,61 @@ import { MasterConfig } from "../master/types.ts";
 import { DocumentSeries, NumberingEngine } from "../../../services/numberingEngine.ts";
 
 /**
+ * Canonical Document Type Map: Harmonizes Studio UI labels, legacy Shoper 9 codes,
+ * and statutory backend enums.
+ */
+export const CANONICAL_DOC_TYPE_MAP: Record<string, string> = {
+  "Retail Invoice": "SALES_INVOICE",
+  "Tax Invoice": "SALES_CREDIT",
+  "Sales Order": "SALES_ORDER",
+  "Quotation": "QUOTATION",
+  "Purchase Order": "PURCHASE_ORDER",
+  "Goods Receipt": "GOODS_RECEIPT_NOTE",
+  "Goods Receipt Note": "GOODS_RECEIPT_NOTE",
+  "Sales Return": "SALES_RETURN",
+  "Credit Note": "SALES_RETURN",
+  "Debit Note": "DEBIT_NOTE",
+  "Delivery Challan": "DELIVERY_CHALLAN",
+  "ARTICLE": "ARTICLE",
+  "Article": "ARTICLE",
+  "SALES_INVOICE": "SALES_INVOICE",
+  "SALES_CASH": "SALES_CASH",
+  "SALES_CREDIT": "SALES_CREDIT",
+  "PURCHASE_ORDER": "PURCHASE_ORDER",
+  "GOODS_RECEIPT_NOTE": "GOODS_RECEIPT_NOTE",
+  "SALES_RETURN": "SALES_RETURN",
+  "SALES_ORDER": "SALES_ORDER",
+  "QUOTATION": "QUOTATION",
+  "DEBIT_NOTE": "DEBIT_NOTE",
+  "DELIVERY_CHALLAN": "DELIVERY_CHALLAN"
+};
+
+export const DOC_TYPE_DISPLAY_MAP: Record<string, string> = {
+  SALES_INVOICE: "Retail Invoice (POS Cash / Sales)",
+  SALES_CASH: "Retail Invoice (POS Cash)",
+  SALES_CREDIT: "Tax Invoice (B2B / Credit)",
+  SALES_ORDER: "Sales Order",
+  QUOTATION: "Quotation / Estimate",
+  PURCHASE_ORDER: "Purchase Order",
+  GOODS_RECEIPT_NOTE: "Goods Receipt (GRN)",
+  SALES_RETURN: "Sales Return / Credit Note",
+  DEBIT_NOTE: "Debit Note",
+  DELIVERY_CHALLAN: "Delivery Challan",
+  ARTICLE: "Article / Design (Master)"
+};
+
+/**
  * Live Preview Component for the Document Series Form Drawer
  */
 const LiveSeriesPreview: React.FC<{ formState: any }> = ({ formState }) => {
   const prefix = formState.prefix || "";
   const suffix = formState.suffix || "";
+  const rawDocType = formState.documentType || "";
+  const canonicalDocType = CANONICAL_DOC_TYPE_MAP[rawDocType] || rawDocType;
+  const isArticle = canonicalDocType === "ARTICLE";
   const runningLength = formState.runningLength !== undefined && formState.runningLength !== null && formState.runningLength !== ""
     ? Number(formState.runningLength)
-    : (formState.documentType === "ARTICLE" ? 5 : 6);
+    : (isArticle ? 5 : 6);
   const startNum = Number(formState.startNumber) || 1;
   const currentNum = formState.currentNumber !== undefined && formState.currentNumber !== null && formState.currentNumber !== ""
     ? Number(formState.currentNumber)
@@ -47,12 +94,16 @@ const LiveSeriesPreview: React.FC<{ formState: any }> = ({ formState }) => {
     previewCode = `${paddedNext}`;
   }
 
-  const isInvoiceDoc = ["Retail Invoice", "Tax Invoice", "Sales Return", "Debit Note", "SALES_INVOICE", "SALES_CASH", "SALES_CREDIT"].includes(formState.documentType);
+  const isInvoiceDoc = [
+    "Retail Invoice", "Tax Invoice", "Sales Return", "Debit Note",
+    "SALES_INVOICE", "SALES_CASH", "SALES_CREDIT", "SALES_RETURN", "DEBIT_NOTE"
+  ].includes(rawDocType) || [
+    "SALES_INVOICE", "SALES_CASH", "SALES_CREDIT", "SALES_RETURN", "DEBIT_NOTE"
+  ].includes(canonicalDocType);
   const gstLength = previewCode.length;
   const isGstExceeded = isInvoiceDoc && gstLength > 16;
 
   const endNum = formState.endNumber ? Number(formState.endNumber) : null;
-  const isArticle = formState.documentType === "ARTICLE";
   const category = formState.category ? String(formState.category).toUpperCase() : null;
 
   const remaining = endNum !== null ? Math.max(0, endNum - nextNum + 1) : null;
@@ -246,26 +297,38 @@ export const documentSeriesConfig: MasterConfig<DocumentSeries> = {
   idKey: "id",
 
   responseTransform: (data) => {
-    if (Array.isArray(data)) return data;
-    if (data && Array.isArray(data.items)) return data.items;
-    return NumberingEngine.getAllSeries();
+    let list: any[] = [];
+    if (Array.isArray(data)) list = data;
+    else if (data && Array.isArray(data.items)) list = data.items;
+    else list = NumberingEngine.getAllSeries();
+
+    return list.map((item: any) => {
+      const dt = item.documentType || item.document_type || "ARTICLE";
+      const canonical = CANONICAL_DOC_TYPE_MAP[dt] || dt;
+      return {
+        ...item,
+        documentType: canonical
+      };
+    });
   },
 
   payloadTransform: (formData, mode) => {
-    const isArticle = formData.documentType === "ARTICLE";
+    const rawType = formData.documentType || "ARTICLE";
+    const canonicalDocType = CANONICAL_DOC_TYPE_MAP[rawType] || rawType;
+    const isArticle = canonicalDocType === "ARTICLE";
     const startNum = Number(formData.startNumber) || 1;
     let currNum = Number(formData.currentNumber);
     if (mode === "create" && (formData.currentNumber === undefined || formData.currentNumber === null || formData.currentNumber === "")) {
       currNum = startNum > 1 ? startNum - 1 : 0;
     }
 
-    const isPurchase = ["Purchase Order", "Goods Receipt", "PURCHASE_ORDER", "GOODS_RECEIPT"].includes(formData.documentType);
+    const isPurchase = ["PURCHASE_ORDER", "GOODS_RECEIPT_NOTE", "Purchase Order", "Goods Receipt", "GOODS_RECEIPT"].includes(rawType) || ["PURCHASE_ORDER", "GOODS_RECEIPT_NOTE"].includes(canonicalDocType);
     const assignedModule = isArticle ? "INVENTORY" : (isPurchase ? "PURCHASE" : (formData.module || "SALES"));
     const assignedTxGroup = isArticle ? "INVENTORY" : (isPurchase ? "PROCUREMENT" : (formData.transactionGroup || "SALES"));
 
     return {
       name: formData.name,
-      documentType: formData.documentType,
+      documentType: canonicalDocType,
       module: assignedModule,
       transactionGroup: assignedTxGroup,
       prefix: formData.prefix || "",
@@ -306,7 +369,7 @@ export const documentSeriesConfig: MasterConfig<DocumentSeries> = {
             )}
           </div>
           <div className="text-[10px] text-theme-muted font-mono">
-            {item.documentType} • {item.module || (item.documentType === "ARTICLE" ? "INVENTORY" : "SALES")}
+            {DOC_TYPE_DISPLAY_MAP[item.documentType] || item.documentType} • {item.module || (item.documentType === "ARTICLE" ? "INVENTORY" : "SALES")}
           </div>
         </div>
       )
@@ -389,15 +452,20 @@ export const documentSeriesConfig: MasterConfig<DocumentSeries> = {
       required: true,
       options: [
         { label: "Article / Design (Master)", value: "ARTICLE" },
-        { label: "Retail Invoice", value: "Retail Invoice" },
-        { label: "Tax Invoice (B2B)", value: "Tax Invoice" },
-        { label: "Sales Order", value: "Sales Order" },
-        { label: "Quotation", value: "Quotation" },
-        { label: "Purchase Order", value: "Purchase Order" },
-        { label: "Goods Receipt (GRN)", value: "Goods Receipt" },
-        { label: "Sales Return / Credit Note", value: "Sales Return" },
-        { label: "Debit Note", value: "Debit Note" },
-        { label: "Delivery Challan", value: "Delivery Challan" }
+        { label: "Retail Invoice (POS Cash / Sales)", value: "SALES_INVOICE" },
+        { label: "Tax Invoice (B2B / Credit)", value: "SALES_CREDIT" },
+        { label: "Sales Order", value: "SALES_ORDER" },
+        { label: "Quotation / Estimate", value: "QUOTATION" },
+        { label: "Purchase Order", value: "PURCHASE_ORDER" },
+        { label: "Goods Receipt (GRN)", value: "GOODS_RECEIPT_NOTE" },
+        { label: "Sales Return / Credit Note", value: "SALES_RETURN" },
+        { label: "Debit Note", value: "DEBIT_NOTE" },
+        { label: "Delivery Challan", value: "DELIVERY_CHALLAN" },
+        { label: "Retail Invoice (Legacy)", value: "Retail Invoice" },
+        { label: "Tax Invoice (Legacy)", value: "Tax Invoice" },
+        { label: "Purchase Order (Legacy)", value: "Purchase Order" },
+        { label: "Goods Receipt (Legacy)", value: "Goods Receipt" },
+        { label: "Sales Return (Legacy)", value: "Sales Return" }
       ],
       defaultValue: "ARTICLE",
       colSpan: 1
@@ -407,7 +475,10 @@ export const documentSeriesConfig: MasterConfig<DocumentSeries> = {
       label: "Category",
       type: "select",
       required: true,
-      showWhen: (formState) => formState.documentType === "ARTICLE",
+      showWhen: (formState) => {
+        const dt = formState.documentType || formState.document_type;
+        return dt === "ARTICLE" || CANONICAL_DOC_TYPE_MAP[dt] === "ARTICLE";
+      },
       optionsEndpoint: "/api/v1/masters/lookup/category/values",
       transformOptions: (data: any) => {
         if (Array.isArray(data) && data.length > 0) {
@@ -521,7 +592,9 @@ export const documentSeriesConfig: MasterConfig<DocumentSeries> = {
 
   customValidation: (formData, existingItems) => {
     const errors: string[] = [];
-    const isArticle = formData.documentType === "ARTICLE";
+    const rawType = formData.documentType || "";
+    const canonicalDocType = CANONICAL_DOC_TYPE_MAP[rawType] || rawType;
+    const isArticle = canonicalDocType === "ARTICLE";
     const startNum = Number(formData.startNumber);
     const endNum = formData.endNumber !== undefined && formData.endNumber !== null && formData.endNumber !== ""
       ? Number(formData.endNumber)
@@ -532,7 +605,12 @@ export const documentSeriesConfig: MasterConfig<DocumentSeries> = {
       errors.push("Start Number must be a positive integer greater than or equal to 1.");
     }
 
-    const isInvoiceDoc = ["Retail Invoice", "Tax Invoice", "Sales Return", "Debit Note", "SALES_INVOICE", "SALES_CASH", "SALES_CREDIT"].includes(formData.documentType);
+    const isInvoiceDoc = [
+      "Retail Invoice", "Tax Invoice", "Sales Return", "Debit Note",
+      "SALES_INVOICE", "SALES_CASH", "SALES_CREDIT", "SALES_RETURN", "DEBIT_NOTE"
+    ].includes(rawType) || [
+      "SALES_INVOICE", "SALES_CASH", "SALES_CREDIT", "SALES_RETURN", "DEBIT_NOTE"
+    ].includes(canonicalDocType);
     const pfx = formData.prefix || "";
     const sfx = formData.suffix || "";
     const runL = Number(formData.runningLength) || 4;
@@ -560,10 +638,11 @@ export const documentSeriesConfig: MasterConfig<DocumentSeries> = {
           const activeOverlap = (existingItems || []).find((s: any) => {
             if (s.id && formData.id && s.id === formData.id) return false;
             const sType = s.documentType || s.document_type;
+            const sCanonical = CANONICAL_DOC_TYPE_MAP[sType] || sType;
             const sCat = s.category ? String(s.category).trim().toUpperCase() : null;
             const sActive = s.isActive !== false && s.is_active !== false;
 
-            if (sType === "ARTICLE" && sCat === cat && sActive) {
+            if (sCanonical === "ARTICLE" && sCat === cat && sActive) {
               const sStart = Number(s.startNumber ?? (s as any).start_number ?? 1);
               const sEnd = (s.endNumber !== undefined && s.endNumber !== null)
                 ? Number(s.endNumber)
@@ -605,7 +684,10 @@ export const documentSeriesConfig: MasterConfig<DocumentSeries> = {
     {
       id: "article_series",
       label: "Article Series Ranges",
-      compute: (items) => items.filter((s) => (s.documentType === "ARTICLE" || (s as any).document_type === "ARTICLE")).length,
+      compute: (items) => items.filter((s) => {
+        const dt = s.documentType || (s as any).document_type;
+        return dt === "ARTICLE" || CANONICAL_DOC_TYPE_MAP[dt] === "ARTICLE";
+      }).length,
       color: "indigo"
     }
   ]

@@ -4,9 +4,9 @@ Author       : Jawahar Ramkripal Mallah
 Designation  : Chief Systems Architect & Creator
 Email        : support@smritibooks.com
 Websites     : smritibooks.com | erpnbook.com | aitdl.com
-Version      : 6.16.0
+Version      : 6.50.2
 Created      : 2026-08-25
-Modified     : 2026-08-25
+Modified     : 2026-10-30
 Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 Classification: Internal
@@ -72,6 +72,62 @@ LIFECYCLE_TRANSITION_GRAPH = {
     "CANCELLED": [],
     "VOIDED": [],
 }
+
+
+DOCUMENT_TYPE_ALIASES: Dict[str, List[str]] = {
+    "SALES_INVOICE": [
+        "SALES_INVOICE", "RETAIL INVOICE", "RETAIL_INVOICE", "TAX INVOICE", "TAX_INVOICE",
+        "STANDARD_SALES", "STANDARD_SALES_INVOICE", "INVOICE", "SALES_CASH"
+    ],
+    "SALES_CASH": [
+        "SALES_CASH", "CASH", "RETAIL INVOICE", "RETAIL_INVOICE", "SALES_INVOICE"
+    ],
+    "SALES_CREDIT": [
+        "SALES_CREDIT", "CREDIT", "TAX INVOICE", "TAX_INVOICE", "SALES_INVOICE"
+    ],
+    "PURCHASE_ORDER": [
+        "PURCHASE_ORDER", "PURCHASE ORDER", "PO"
+    ],
+    "GOODS_RECEIPT_NOTE": [
+        "GOODS_RECEIPT_NOTE", "GOODS RECEIPT", "GOODS_RECEIPT", "GRN", "PURCHASE_RECEIPT"
+    ],
+    "SALES_RETURN": [
+        "SALES_RETURN", "SALES RETURN", "RETURN", "CREDIT NOTE", "CREDIT_NOTE"
+    ],
+    "SALES_ORDER": [
+        "SALES_ORDER", "SALES ORDER", "ORDER", "SO"
+    ],
+    "QUOTATION": [
+        "QUOTATION", "QUOTE", "ESTIMATE"
+    ],
+    "DEBIT_NOTE": [
+        "DEBIT_NOTE", "DEBIT NOTE", "DN"
+    ],
+    "DELIVERY_CHALLAN": [
+        "DELIVERY_CHALLAN", "DELIVERY CHALLAN", "DC", "APPROVAL_DC"
+    ],
+    "ARTICLE": [
+        "ARTICLE", "DESIGN", "SKU"
+    ],
+}
+
+
+def resolve_document_type_aliases(doc_type: str) -> List[str]:
+    """
+    Returns case-insensitive set of uppercase aliases matching the queried document type.
+    Handles cross-dialect queries between Shoper 9 legacy codes, studio labels, and canonical enums.
+    """
+    clean = doc_type.strip().upper()
+    aliases = {clean}
+    if clean in DOCUMENT_TYPE_ALIASES:
+        for a in DOCUMENT_TYPE_ALIASES[clean]:
+            aliases.add(a.upper())
+    for canon, mapped in DOCUMENT_TYPE_ALIASES.items():
+        if clean in [m.upper() for m in mapped]:
+            aliases.add(canon.upper())
+            for m in mapped:
+                aliases.add(m.upper())
+    return list(aliases)
 
 
 class DocumentsEngine:
@@ -146,10 +202,11 @@ class DocumentsEngine:
         """
         doc_type = document_type.upper()
         normalized_category = category.strip().upper() if category and str(category).strip() else None
+        target_aliases = resolve_document_type_aliases(doc_type)
 
         base_filters = [
             DocumentSeries.company_id == company_id,
-            DocumentSeries.document_type == doc_type,
+            func.upper(DocumentSeries.document_type).in_(target_aliases),
             DocumentSeries.is_deleted == False,
             DocumentSeries.is_active == True,
         ]
@@ -402,10 +459,11 @@ class DocumentsEngine:
         """
         doc_type = document_type.upper()
         normalized_category = category.strip().upper() if category and str(category).strip() else None
+        target_aliases = resolve_document_type_aliases(doc_type)
 
         base_filters = [
             DocumentSeries.company_id == company_id,
-            DocumentSeries.document_type == doc_type,
+            func.upper(DocumentSeries.document_type).in_(target_aliases),
             DocumentSeries.is_deleted == False,
             DocumentSeries.is_active == True,
         ]
