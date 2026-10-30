@@ -395,6 +395,7 @@ export const CustomerMergeModal: React.FC<CustomerMergeModalProps> = ({
               </label>
               <input
                 type="text"
+                data-field-key="remarks"
                 value={mergeReason}
                 onChange={(e) => setMergeReason(e.target.value)}
                 placeholder="e.g. Reliance Retail corporate master deduplication"
@@ -423,6 +424,7 @@ export const CustomerMergeModal: React.FC<CustomerMergeModalProps> = ({
               </label>
               <input
                 type="text"
+                data-field-key="confirmation_keyword"
                 value={confirmationKeyword}
                 onChange={(e) => setConfirmationKeyword(e.target.value)}
                 placeholder="Type MERGE"
