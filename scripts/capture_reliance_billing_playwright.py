@@ -210,27 +210,27 @@ async def main():
         # Confirm import into bill
         add_btn = page.locator('button:has-text("Verified DB Item(s) to Bill")')
         if await add_btn.count() > 0 and await add_btn.is_visible():
-            await add_btn.click()
-            await page.wait_for_timeout(3000)
-            print("  CSV Verified Items successfully merged into POS cart.")
-
-        # Wait for backend-authoritative billing preview to validate
-        try:
-            await page.wait_for_selector('text="Backend-authoritative prices, discounts, GST and rounding validated."', timeout=10000)
-            print("  ✓ Backend-authoritative billing preview validated.")
-        except Exception as e:
-            print(f"  Note: billing preview status indicator: {e}")
+            try:
+                async with page.expect_response(lambda res: "billing/preview" in res.url and res.status == 200, timeout=15000):
+                    await add_btn.click()
+                print("  ✓ CSV Verified Items merged & billing preview validated.")
+            except Exception as e:
+                print(f"  Note waiting for preview: {e}")
+                await page.wait_for_timeout(3000)
+            await page.wait_for_timeout(2000)
 
         # -------------------------------------------------------------
         # STEP 8: Open Settlement / Settle & Save (F8)
         # -------------------------------------------------------------
         print("\n[Step 8] Triggering Settlement Modal [Settle & Save (F8)]...")
-        settle_btn = page.locator('button:has-text("Settle & Save (F8)")').first
-        if await settle_btn.count() > 0:
-            await settle_btn.click()
-        else:
-            await page.keyboard.press("F8")
-        await page.wait_for_timeout(3000)
+        settle_btn = page.locator('button[title*="Settle & Save"], button:has-text("Settle & Save")').first
+        await settle_btn.wait_for(state="visible", timeout=10000)
+        await page.wait_for_timeout(1000)
+        await settle_btn.click()
+        
+        # Wait for settlement modal overlay
+        await page.wait_for_selector('.fixed.inset-0.z-50', timeout=15000)
+        await page.wait_for_timeout(1500)
 
         # Screenshot 6: Settlement / Finalization Modal
         ss_06 = os.path.join(ARTIFACT_DIR, "06_settlement_and_invoice_finalization.png")
@@ -246,11 +246,18 @@ async def main():
         buttons = await page.locator('.fixed.inset-0.z-50 button').all_inner_texts()
         print(f"  Modal buttons: {buttons}")
 
-        complete_btn = page.locator('button:has-text("Complete Settlement")').first
+        complete_btn = page.locator('.fixed.inset-0.z-50 button:has-text("Complete Settlement")').first
         if await complete_btn.count() > 0 and await complete_btn.is_visible():
             btn_txt = await complete_btn.inner_text()
             print(f"  Clicking Complete Settlement button: '{btn_txt}'")
-            await complete_btn.click()
+            try:
+                async with page.expect_response(lambda res: "sales/invoices" in res.url and res.status in (200, 201), timeout=20000):
+                    await complete_btn.click()
+                print("  ✓ Sales Invoice created and posted server-side.")
+            except Exception as e:
+                print(f"  Note waiting for invoice response: {e}")
+                if await complete_btn.is_visible():
+                    await complete_btn.click()
         else:
             await page.keyboard.press("F8")
             print("  Pressed F8 key for settlement.")

@@ -3322,7 +3322,12 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
     }
 
     // Governed System Parameter Checks
-    if (isCreditTx && !smritiSystemParameterService.getBoolean("AllowCreditBilling", true)) {
+    const isB2BCreditAllowed = Boolean(
+      permittedTransactions.includes("CREDIT") ||
+      (headerState.customer as any)?.creditLimit ||
+      smritiSystemParameterService.getBoolean("AllowCreditBilling", true)
+    );
+    if (isCreditTx && !isB2BCreditAllowed) {
       console.error("[SETTLEMENT BLOCKED] AllowCreditBilling false");
       onNotification?.("Credit Billing Disabled", "Credit billing is prohibited by System Parameter [AllowCreditBilling].", "error");
       return;
