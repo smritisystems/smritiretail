@@ -321,6 +321,7 @@ class SalesService:
             # Pass explicit invoice date for backdated/bulk-import workflows
             invoice_date=invoice_in.date if invoice_in.date else None,
             adjustments=parsed_adjustments,
+            is_draft=bool(getattr(invoice_in, "is_draft", False) or str(getattr(invoice_in, "status", "")).strip().upper() in ("SUSPENDED", "HOLD")),
         )
 
         result = await CanonicalSalesPostingWriter.post_sales_transaction(
@@ -1853,12 +1854,84 @@ class SalesService:
         )
         return result.scalars().first()
 
-    # ?? Invoice CANCEL (DELETE) ?????????????????????????????????????
+    # ─────────────────────────── Submit Draft Sales Invoice ───────────────────────────
+
+    async def submit_draft_sales_invoice(self, invoice_id: str, user: Optional[Any] = None) -> SalesInvoice:
+        """
+        Promotes an unposted Draft or Suspended Sales Invoice to POSTED.
+        Executes authoritative stock deduction via SalesStockAuthority and double-entry GL ledger posting
+        via UnifiedAccountingLedgerService through UniversalLifecycleEngine.
+        """
+        res = await self.db.execute(
+            select(SalesInvoice)
+            .options(selectinload(SalesInvoice.items))
+            .where(
+                SalesInvoice.id == invoice_id,
+                SalesInvoice.company_id == self.tenant_ctx.company_id,
+                SalesInvoice.is_deleted == False,
+            )
+        )
+        invoice = res.scalars().first()
+        if not invoice:
+            raise HTTPException(status_code=404, detail="Sales invoice not found")
+
+        curr_status = str(invoice.status or "").strip().upper()
+        if curr_status not in ("DRAFT", "HOLD", "SUSPENDED"):
+            raise HTTPException(
+                status_code=400,
+                detail=f"Only DRAFT or HELD sales invoices can be submitted. Current status: '{invoice.status}'."
+            )
+
+        if not invoice.items:
+            raise HTTPException(status_code=400, detail="Cannot submit a sales invoice with zero line items.")
+
+        from .lifecycle import UniversalLifecycleEngine, LifecycleTransitionContext
+        acting_user = user
+        if not acting_user:
+            from app.models.auth import User, UserRole
+            acting_user = User(
+                id=getattr(self.tenant_ctx, "user_id", None) or "SYSTEM",
+                username="cashier",
+                role=UserRole.CASHIER,
+                company_id=self.tenant_ctx.company_id,
+                branch_id=self.tenant_ctx.branch_id,
+            )
+
+        state_res = await UniversalLifecycleEngine.get_lifecycle_state(
+            db=self.db,
+            doc_type="SalesInvoice",
+            doc_id=invoice.id,
+            tenant_ctx=self.tenant_ctx,
+            user=acting_user,
+        )
+
+        await UniversalLifecycleEngine.execute_transition(
+            db=self.db,
+            tenant_ctx=self.tenant_ctx,
+            user=acting_user,
+            ctx=LifecycleTransitionContext(
+                doc_type="SalesInvoice",
+                doc_id=invoice.id,
+                action="POST",
+                expected_version=state_res.version,
+                notes=f"Draft invoice {invoice.invoice_no} submitted and posted",
+            ),
+        )
+        await self.db.commit()
+
+        result = await self.db.execute(
+            select(SalesInvoice)
+            .options(selectinload(SalesInvoice.items))
+            .where(SalesInvoice.id == invoice.id)
+        )
+        return result.scalars().first()
+
+    # ─────────────────────────── Invoice CANCEL (DELETE) ───────────────────────────
 
     async def cancel_sales_invoice(self, invoice_id: str) -> SalesInvoice:
         """
         Cancel a sales invoice: set status='Cancelled', soft-delete (is_deleted=True),
-        and reverse deducted batch stock into warehouse.
+        and reverse deducted batch stock into warehouse (if invoice was already posted).
         """
         branch_ids = [self.tenant_ctx.branch_id]
         if self.tenant_ctx.branch_id == "BR-MAIN-001":
@@ -1877,74 +1950,77 @@ class SalesService:
         if not invoice:
             raise HTTPException(status_code=404, detail="Sales invoice not found")
 
-        from .inventory_wms import InventoryWmsService
-        wms_service = InventoryWmsService(self.db, self.tenant_ctx)
-        resolver = InventoryWarehouseResolver(self.db)
-        wh_id = invoice.warehouse_id
-        if not wh_id:
-            wh = await resolver.resolve(company_id=self.tenant_ctx.company_id, branch_id=self.tenant_ctx.branch_id)
-            wh_id = wh.id
+        is_posted = str(invoice.status or "").strip().upper() in ("POSTED", "SUBMITTED", "CONFIRMED")
+        if is_posted:
+            from .inventory_wms import InventoryWmsService
+            wms_service = InventoryWmsService(self.db, self.tenant_ctx)
+            resolver = InventoryWarehouseResolver(self.db)
+            wh_id = invoice.warehouse_id
+            if not wh_id:
+                wh = await resolver.resolve(company_id=self.tenant_ctx.company_id, branch_id=self.tenant_ctx.branch_id)
+                wh_id = wh.id
 
-        # Restore batch stock for each line item
-        for item in invoice.items:
-            if item.product_id and item.quantity > 0:
-                batch = item.batch_no or "BATCH-OPENING"
+            # Restore batch stock for each line item
+            for item in invoice.items:
+                if item.product_id and item.quantity > 0:
+                    batch = item.batch_no or "BATCH-OPENING"
+                    try:
+                        await wms_service.atomic_mutate_batch_stock(
+                            product_id=item.product_id,
+                            warehouse_id=wh_id,
+                            batch_no=batch,
+                            qty_delta=Decimal(str(item.quantity)),
+                            movement_type="SALES_CANCEL",
+                            reference_doc_type="Sales Invoice",
+                            reference_doc_id=invoice.invoice_no,
+                            remarks=f"Stock restored for cancelled sales invoice: {invoice.invoice_no}",
+                            item_id=item.item_id,
+                            variant_id=item.variant_id,
+                        )
+                    except Exception:
+                        pass
+
+            # Revert customer outstanding if credit sale
+            if invoice.customer_id and invoice.customer_id != "CUST-WALKIN":
                 try:
-                    await wms_service.atomic_mutate_batch_stock(
-                        product_id=item.product_id,
-                        warehouse_id=wh_id,
-                        batch_no=batch,
-                        qty_delta=Decimal(str(item.quantity)),
-                        movement_type="SALES_CANCEL",
-                        reference_doc_type="Sales Invoice",
-                        reference_doc_id=invoice.invoice_no,
-                        remarks=f"Stock restored for cancelled sales invoice: {invoice.invoice_no}",
-                        item_id=item.item_id,
-                        variant_id=item.variant_id,
-                    )
-                except Exception:
-                    pass
+                    cust = await self.crm_service.get_customer(invoice.customer_id)
+                    if cust and invoice.grand_total:
+                        cust.outstanding = max(Decimal("0.00"), Decimal(str(cust.outstanding or "0.00")) - Decimal(str(invoice.grand_total)))
+                        cust.modified_at = datetime.now(timezone.utc)
+                        self.db.add(cust)
 
-        # Revert customer outstanding if credit sale
-        if invoice.customer_id and invoice.customer_id != "CUST-WALKIN":
+                        credit_entry = CustomerCreditLedgerEntry(
+                            id=f"ccle-{uuid.uuid4().hex[:12]}",
+                            company_id=self.tenant_ctx.company_id,
+                            branch_id=self.tenant_ctx.branch_id,
+                            customer_id=cust.id,
+                            entry_date=datetime.now(timezone.utc),
+                            entry_type="CREDIT",
+                            amount=Decimal(str(invoice.grand_total)),
+                            balance_after=cust.outstanding,
+                            reference_type="SALES_INVOICE_CANCEL",
+                            reference_id=invoice.id,
+                            notes=f"Reversal for cancelled sales invoice {invoice.invoice_no}",
+                        )
+                        self.db.add(credit_entry)
+                except Exception as e:
+                    logger.warning("Error reverting customer outstanding on invoice cancellation: %s", e)
+
+            # Authoritative GL Reversal Posting (Phase 1 Canonical Integrity)
+            from .unified_ledger import UnifiedAccountingLedgerService
             try:
-                cust = await self.crm_service.get_customer(invoice.customer_id)
-                if cust and invoice.grand_total:
-                    cust.outstanding = max(Decimal("0.00"), Decimal(str(cust.outstanding or "0.00")) - Decimal(str(invoice.grand_total)))
-                    cust.modified_at = datetime.now(timezone.utc)
-                    self.db.add(cust)
-
-                    credit_entry = CustomerCreditLedgerEntry(
-                        id=f"ccle-{uuid.uuid4().hex[:12]}",
+                async with self.db.begin_nested():
+                    await UnifiedAccountingLedgerService.post_sales_cancellation_to_gl(
+                        session=self.db,
                         company_id=self.tenant_ctx.company_id,
+                        invoice_id=invoice.id,
                         branch_id=self.tenant_ctx.branch_id,
-                        customer_id=cust.id,
-                        entry_date=datetime.now(timezone.utc),
-                        entry_type="CREDIT",
-                        amount=Decimal(str(invoice.grand_total)),
-                        balance_after=cust.outstanding,
-                        reference_type="SALES_INVOICE_CANCEL",
-                        reference_id=invoice.id,
-                        notes=f"Reversal for cancelled sales invoice {invoice.invoice_no}",
+                        reason="Sales invoice cancellation",
+                        cancelled_by=getattr(self.tenant_ctx, "user_id", None) or "SYSTEM",
                     )
-                    self.db.add(credit_entry)
             except Exception as e:
-                logger.warning("Error reverting customer outstanding on invoice cancellation: %s", e)
+                logger.warning("Notice during GL cancellation posting: %s", e)
 
-        # Authoritative GL Reversal Posting (Phase 1 Canonical Integrity)
-        from .unified_ledger import UnifiedAccountingLedgerService
-        try:
-            async with self.db.begin_nested():
-                await UnifiedAccountingLedgerService.post_sales_cancellation_to_gl(
-                    session=self.db,
-                    company_id=self.tenant_ctx.company_id,
-                    invoice_id=invoice.id,
-                    branch_id=self.tenant_ctx.branch_id,
-                    reason="Sales invoice cancellation",
-                    cancelled_by=getattr(self.tenant_ctx, "user_id", None) or "SYSTEM",
-                )
-        except Exception as e:
-            logger.warning("Notice during GL cancellation posting: %s", e)
 
         # Stage Transactional Outbox Event
         try:

@@ -18,7 +18,7 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, R
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 from ...api.deps import get_company_db, get_db, get_tenant_context, TenantContext, get_current_user, require_role, require_permission
-from ...models.auth import UserRole
+from ...models.auth import User, UserRole
 from ...schemas.sales import (
     SalesInvoiceCreate, SalesInvoiceUpdate, SalesInvoiceResponse,
     SalesQuotationCreate, SalesQuotationUpdate, SalesQuotationResponse, SalesQuotationItemResponse,
@@ -885,6 +885,26 @@ async def update_sales_invoice(
     Stock is NOT adjusted on update; use Sales Returns for stock reversal.
     """
     return await SalesService(db, tenant_ctx).update_sales_invoice(invoice_id, update_in)
+
+
+@router.post(
+    "/invoices/{invoice_id}/submit",
+    response_model=SalesInvoiceResponse,
+    summary="Submit & Post Draft Sales Invoice",
+    dependencies=[Depends(require_permission("sales_billing", "CREATE"))],
+)
+async def submit_sales_invoice(
+    invoice_id: str,
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Promote an unposted Draft or Suspended Sales Invoice to POSTED.
+    Executes authoritative stock deduction via SalesStockAuthority and double-entry GL ledger posting
+    via UnifiedAccountingLedgerService through UniversalLifecycleEngine.
+    """
+    return await SalesService(db, tenant_ctx).submit_draft_sales_invoice(invoice_id, user=current_user)
 
 
 @router.delete(

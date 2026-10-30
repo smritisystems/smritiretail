@@ -57,6 +57,8 @@ export interface DocumentSeries {
   endNumber?: number;
   category?: string;
   numberFormat?: string;
+  terminalId?: string;
+  isCommonAcrossTerminals?: boolean;
 }
 
 export interface NumberingAuditLog {

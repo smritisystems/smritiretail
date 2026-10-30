@@ -157,6 +157,7 @@ class SalesInvoiceBase(BaseModel):
 class SalesInvoiceCreate(SalesInvoiceBase):
     id: Optional[str] = Field(None, max_length=50, description="REJECTED if provided. Persistent technical IDs must not be supplied by clients; they are governed and generated server-side by IdentityEngine.")
     items: List[SalesInvoiceItemCreate] = Field(..., min_length=1)
+    is_draft: bool = Field(False, description="Whether to persist as an unposted Draft without inventory deduction or GL posting.")
 
     @field_validator("id")
     @classmethod

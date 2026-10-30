@@ -174,6 +174,7 @@ class CanonicalPostingRequest(BaseModel):
     # Explicit invoice date for backdated / bulk-import workflows.
     # When None the canonical writer defaults to date.today() (live POS behaviour).
     invoice_date: Optional[date] = Field(None, description="Explicit invoice date (ISO-8601). Use only for bulk-import / correction workflows.")
+    is_draft: bool = Field(False, description="Whether to save as an unposted Draft without mutating batch stock or committing financial ledgers.")
 
 
 class CanonicalPostingLineResult(BaseModel):

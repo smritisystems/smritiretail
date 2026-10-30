@@ -1213,7 +1213,7 @@ class CanonicalSalesPostingWriter:
             place_of_supply_code=pos_state_code,
             pos_state=pos_state_name,
             payment_mode=(req.payment_mode or ("SPLIT" if len(req.tenders) > 1 else (req.tenders[0].tender_type if req.tenders else "CREDIT"))).upper(),
-            status="Submitted",
+            status="Draft" if req.is_draft else "Submitted",
             po_reference=req.po_reference_no or (po_obj.po_number if po_obj else None),
             customer_po_id=req.customer_po_id,
             customer_po_number_snapshot=po_obj.po_number if po_obj else getattr(req, "customer_po_number_snapshot", None),
@@ -1337,7 +1337,7 @@ class CanonicalSalesPostingWriter:
 
         # 9B. Update Customer PO Balances & Create Allocations Atomically
 
-        if po_obj and po_lines_map:
+        if po_obj and po_lines_map and not req.is_draft:
             total_po_allocated_qty = Decimal("0")
             total_po_allocated_val = Decimal("0")
             for db_item in db_items_list:
@@ -1392,7 +1392,7 @@ class CanonicalSalesPostingWriter:
             po_obj.status = "FULLY_BILLED" if po_obj.remaining_quantity <= Decimal("0") else "PARTIALLY_BILLED"
             session.add(po_obj)
 
-        if promotion_result:
+        if promotion_result and not req.is_draft:
             for applied in promotion_result.applied_promotions:
                 await PromotionsEngine.record_redemption(
                     session=session,
@@ -1424,7 +1424,7 @@ class CanonicalSalesPostingWriter:
         if (req.payment_mode or "").upper() == "CREDIT" and effective_credit_amount == Decimal("0.00"):
             effective_credit_amount = net_rounded
 
-        if effective_credit_amount > 0 and db_customer:
+        if effective_credit_amount > 0 and db_customer and not req.is_draft:
             prev_outstanding = Decimal(str(db_customer.outstanding or "0.00"))
             db_customer.outstanding = prev_outstanding + effective_credit_amount
             db_customer.modified_at = datetime.now(timezone.utc)
@@ -1446,7 +1446,7 @@ class CanonicalSalesPostingWriter:
             session.add(credit_entry)
 
         # 11. Physical Stock Mutation via WMS
-        if warehouse_id and batch_deductions:
+        if warehouse_id and batch_deductions and not req.is_draft:
             tenant_ctx = TenantContext(
                 company_id=company_id,
                 branch_id=branch_id or "MAIN",
@@ -1518,7 +1518,7 @@ class CanonicalSalesPostingWriter:
             t for t in tenders_to_process 
             if t.tender_type.upper() != "CREDIT" and Decimal(str(t.amount)) > Decimal("0.00")
         ]
-        if payment_tenders_to_send:
+        if payment_tenders_to_send and not req.is_draft:
             payment_tenders: List[PaymentTenderItem] = []
             for t in payment_tenders_to_send:
                 t_amt = Decimal(str(t.amount))

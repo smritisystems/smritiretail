@@ -870,6 +870,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
   const [expandedHeldBillId, setExpandedHeldBillId] = useState<string | null>(null);
   const [showTransactionBrowserModal, setShowTransactionBrowserModal] = useState<boolean>(false);
   const [isReadOnlyView, setIsReadOnlyView] = useState<boolean>(false);
+  const [activeDraftId, setActiveDraftId] = useState<string | null>(null);
   const [loadedDocMetadata, setLoadedDocMetadata] = useState<{
     id: string;
     docNo: string;
@@ -881,7 +882,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
   } | null>(null);
   const [showPrintModal, setShowPrintModal] = useState<boolean>(false);
   const [showAttachmentPanel, setShowAttachmentPanel] = useState<boolean>(false);
-  const [suspendedBills, setSuspendedBills] = useState<{ id: string; header: BillingHeaderState; items: BillingLineItem[]; date: string; netAmount: number }[]>([]);
+  const [suspendedBills, setSuspendedBills] = useState<{ id: string; holdSlipNumber?: string; header: BillingHeaderState; items: BillingLineItem[]; transporterRows?: any[]; addonRows?: any[]; rule_snapshots?: any; date: string; netAmount: number }[]>([]);
   const [lastCompletedInvoice, setLastCompletedInvoice] = useState<any>(null);
 
   const [showDefinePrefixModal, setShowDefinePrefixModal] = useState<boolean>(false);
@@ -1077,6 +1078,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
     }
     setIsReadOnlyView(false);
     setLoadedDocMetadata(null);
+    setActiveDraftId(null);
     setItems([]);
     setHeaderState(prev => ({
       ...prev,
@@ -1363,11 +1365,39 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
 
   const fetchSuspendedInvoices = async () => {
     try {
-      const res = await apiFetchV1("/sales/invoices/suspended");
-      const list = Array.isArray(res) ? res : (res?.items || []);
-      const mapped = list.map((inv: any) => ({
+      const [posRes, legacyRes] = await Promise.allSettled([
+        apiFetchV1<any[]>("/pos/parked-carts"),
+        apiFetchV1<any>("/sales/invoices/suspended")
+      ]);
+
+      const mappedPos = posRes.status === "fulfilled" && Array.isArray(posRes.value)
+        ? posRes.value.map((c: any) => ({
+            id: c.id,
+            holdSlipNumber: c.hold_slip_number,
+            header: c.cart_snapshot?.headerState || {
+              billType: "Product" as BillType,
+              transaction: "Cash" as TransactionType,
+              docPrefix: c.hold_slip_number?.split("-")?.[0] || "HOLD",
+              docNo: c.hold_slip_number?.split("-")?.[1] || "1",
+              billDate: c.parked_at ? new Date(c.parked_at).toLocaleDateString("en-GB") : new Date().toLocaleDateString("en-GB"),
+              customer: c.customer_id ? { id: c.customer_id, name: c.customer_name || "Counter Cash" } as Customer : null,
+              salesStaff: "Staff",
+              remarks: "POS Parked Cart"
+            },
+            items: c.cart_snapshot?.items || [],
+            transporterRows: c.cart_snapshot?.transporterRows || [],
+            addonRows: c.cart_snapshot?.addonRows || [],
+            date: c.parked_at ? new Date(c.parked_at).toLocaleTimeString() : new Date().toLocaleTimeString(),
+            netAmount: Number(c.total_amount || 0)
+          }))
+        : [];
+
+      const listLegacy = legacyRes.status === "fulfilled"
+        ? (Array.isArray(legacyRes.value) ? legacyRes.value : (legacyRes.value?.items || []))
+        : [];
+      const mappedLegacy = listLegacy.map((inv: any) => ({
         id: inv.id,
-        invoice_no: inv.invoice_no,
+        holdSlipNumber: inv.invoice_no,
         header: {
           billType: "Product" as BillType,
           transaction: (inv.payment_mode === "CASH" ? "Cash" : "Credit") as TransactionType,
@@ -1403,7 +1433,8 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
         date: inv.created_at || inv.date,
         netAmount: Number(inv.grand_total || 0)
       }));
-      setSuspendedBills(mapped);
+
+      setSuspendedBills([...mappedPos, ...mappedLegacy]);
     } catch {
       // offline fallback
     }
@@ -2613,69 +2644,49 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
     setShowRecallModal(true);
   };
 
-  // Suspend / Hold Invoice
+  // Suspend / Hold Invoice (Isolated POS Parked Cart Store - ADR-005 compliant)
   const handleSuspendInvoice = async () => {
     if (items.length === 0) {
       onNotification?.("Suspend Bill", "No items to suspend.", "error");
       return;
     }
 
-    const suspendedNo = `HOLD-${headerState.docPrefix}-${headerState.docNo}-${Date.now().toString().slice(-4)}`;
-    const invoicePayload = {
-      invoice_no: suspendedNo,
-      date: new Date().toISOString().split("T")[0],
+    const suspendedNo = `HOLD-${headerState.docPrefix || "POS"}-${headerState.docNo || "1"}-${Date.now().toString().slice(-4)}`;
+    const parkedPayload = {
+      hold_slip_number: suspendedNo,
+      branch_id: headerState.deliveryLocationId || "BR-001",
       customer_id: headerState.customer?.id || null,
       customer_name: headerState.customer?.name || "Counter Cash Sale",
-      customer_gstin: headerState.billedGstin || headerState.customer?.gstNumber || null,
-      billed_party_gstin_id: headerState.billedPartyGstinId || null,
-      delivery_location_id: headerState.deliveryLocationId || null,
-      delivery_store_code: headerState.deliveryStoreCode || null,
-      delivery_gstin: headerState.deliveryGstin || null,
-      delivery_location_snapshot: headerState.deliveryLocationSnapshot || null,
-      place_of_supply_code: headerState.placeOfSupplyCode || null,
-      po_reference: headerState.poReference || null,
-      sales_channel: headerState.salesChannel || "B2B_WHOLESALE",
-      psv_party_id: headerState.psvPartyId || null,
-      status: "Suspended",
-      payment_mode: "CREDIT",
-      items: items.map((it, idx) => ({
-        product_id: it.productId || it.stockNo,
-        code: it.stockNo,
-        name: it.itemDescription,
-        quantity: it.qty,
-        price: it.rate,
-        disc_pct: it.discPercent,
-        gst_rate: it.gstPercentage,
-        line_no: idx + 1
-      })),
-      taxable_value: summaryTotals.salesValue,
-      tax_total: summaryTotals.totalTax,
-      grand_total: summaryTotals.netAmount,
-      remarks: headerState.remarks || "Suspended from Invoicing Terminal",
-      rule_snapshots: {
+      customer_phone: headerState.customer?.mobile || null,
+      items_count: items.length,
+      total_amount: summaryTotals.netAmount,
+      cart_snapshot: {
         headerState,
+        items,
         transporterRows,
         addonRows
       }
     };
 
     try {
-      const saved = await apiFetchV1("/sales/invoices", {
+      const saved = await apiFetchV1<any>("/pos/parked-carts", {
         method: "POST",
-        body: JSON.stringify(invoicePayload)
+        body: JSON.stringify(parkedPayload)
       });
       const suspended = {
         id: saved.id || suspendedNo,
+        holdSlipNumber: saved.hold_slip_number || suspendedNo,
         header: { ...headerState },
         items: [...items],
         transporterRows: [...transporterRows],
         addonRows: [...addonRows],
-        rule_snapshots: invoicePayload.rule_snapshots,
+        rule_snapshots: parkedPayload.cart_snapshot,
         date: new Date().toLocaleTimeString(),
         netAmount: summaryTotals.netAmount
       };
       setSuspendedBills(prev => [suspended, ...prev]);
       setItems([]);
+      setActiveDraftId(null);
       setTransporterRows(DEFAULT_TRANSPORTER_ROWS.map(r => ({ ...r })));
       setAddonRows(DEFAULT_ADDON_ROWS.map(r => ({ ...r })));
       setHeaderState(prev => ({
@@ -2684,21 +2695,23 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
         customer: null
       }));
       setCustomerSearchInput("");
-      onNotification?.("Invoice Suspended", `Bill ${suspended.header.docPrefix}-${suspended.header.docNo} held in system database.`, "success");
+      onNotification?.("Invoice Suspended", `Bill ${suspended.holdSlipNumber} parked in isolated cart storage. Zero inventory/credit impact.`, "success");
     } catch {
       // Local fallback
       const suspended = {
         id: suspendedNo,
+        holdSlipNumber: suspendedNo,
         header: { ...headerState },
         items: [...items],
         transporterRows: [...transporterRows],
         addonRows: [...addonRows],
-        rule_snapshots: invoicePayload.rule_snapshots,
+        rule_snapshots: parkedPayload.cart_snapshot,
         date: new Date().toLocaleTimeString(),
         netAmount: summaryTotals.netAmount
       };
       setSuspendedBills(prev => [suspended, ...prev]);
       setItems([]);
+      setActiveDraftId(null);
       setTransporterRows(DEFAULT_TRANSPORTER_ROWS.map(r => ({ ...r })));
       setAddonRows(DEFAULT_ADDON_ROWS.map(r => ({ ...r })));
       setHeaderState(prev => ({
@@ -2707,12 +2720,21 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
         customer: null
       }));
       setCustomerSearchInput("");
-      onNotification?.("Invoice Suspended (Local)", `Bill ${suspended.header.docPrefix}-${suspended.header.docNo} held locally.`, "success");
+      onNotification?.("Invoice Suspended (Local)", `Bill ${suspended.holdSlipNumber} held locally.`, "success");
     }
   };
 
-  // Recall Suspended Invoice
-  const handleRecallInvoice = (suspended: any) => {
+  // Recall Suspended Invoice / Parked Cart
+  const handleRecallInvoice = async (suspended: any) => {
+    if (suspended.holdSlipNumber) {
+      try {
+        await apiFetchV1(`/pos/parked-carts/${encodeURIComponent(suspended.holdSlipNumber)}/recall`, {
+          method: "POST"
+        });
+      } catch (e) {
+        // Fallback or already recalled
+      }
+    }
     setHeaderState(suspended.header);
     setItems(suspended.items);
     const restoredTransporters = suspended.transporterRows?.length > 0
@@ -2739,11 +2761,180 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
     setSuspendedBills(prev => prev.filter(b => b.id !== suspended.id));
     setShowRecallModal(false);
     setIsReadOnlyView(false);
+    setActiveDraftId(null);
     setLoadedDocMetadata(null);
-    onNotification?.("Invoice Recalled", `Restored bill ${suspended.header.docPrefix}-${suspended.header.docNo}`, "success");
+    onNotification?.("Invoice Recalled", `Restored bill ${suspended.holdSlipNumber || suspended.header.docNo}`, "success");
   };
 
-  // Select and load document from Invoicing Transaction Browser (Read-Only Mode)
+  const handleDiscardSuspendedBill = async (suspendedId: string, holdSlipNumber?: string) => {
+    if (holdSlipNumber) {
+      try {
+        await apiFetchV1(`/pos/parked-carts/${encodeURIComponent(holdSlipNumber)}`, { method: "DELETE" });
+      } catch (e) {
+        console.warn("[BillingTerm] Failed to delete parked cart from server:", e);
+      }
+    }
+    setSuspendedBills(prev => prev.filter(b => b.id !== suspendedId));
+    onNotification?.("Parked Cart Discarded", `Parked cart ${holdSlipNumber || suspendedId} removed.`, "info");
+  };
+
+  // Save as Draft Sales Invoice (persisted SalesInvoice, status="Draft", zero stock/GL mutations)
+  const handleSaveDraftInvoice = async () => {
+    if (items.length === 0) {
+      onNotification?.("Save as Draft", "No items to save as draft.", "error");
+      return;
+    }
+
+    const isCreditTx = headerState.transaction === "Credit";
+    const draftPayload = {
+      series_id: resolvedPrefixInfo?.seriesId ?? undefined,
+      date: new Date().toISOString().split("T")[0],
+      customer_id: headerState.customer?.id || null,
+      customer_name: headerState.customer?.name || "Counter Cash Sale",
+      customer_gstin: headerState.billedGstin || headerState.customer?.gstNumber || null,
+      billed_party_gstin_id: headerState.billedPartyGstinId || null,
+      billing_location_id: headerState.billingLocationId || null,
+      billing_store_code: headerState.billingStoreCode || null,
+      billing_address: headerState.billingAddress || null,
+      delivery_location_id: headerState.deliveryLocationId || null,
+      delivery_store_code: headerState.deliveryStoreCode || null,
+      delivery_gstin: headerState.deliveryGstin || null,
+      delivery_location_snapshot: headerState.deliveryLocationSnapshot || null,
+      shipping_address: headerState.shippingAddress || null,
+      place_of_supply_code: headerState.placeOfSupplyCode || null,
+      po_reference: headerState.poReference || null,
+      customer_po_id: headerState.customerPoId || null,
+      source_document_type: headerState.billingSource || "DIRECT",
+      source_document_id: headerState.customerPoId || null,
+      sales_channel: headerState.salesChannel || "B2B_WHOLESALE",
+      psv_party_id: headerState.psvPartyId || null,
+      status: "Draft",
+      is_draft: true,
+      payment_mode: isCreditTx ? "CREDIT" : "CASH",
+      paid_amount: 0,
+      balance_amount: summaryTotals.netAmount,
+      discount_amount: summaryTotals.itemDiscount + summaryTotals.billDiscount,
+      net_amount: summaryTotals.netAmount,
+      taxable_value: summaryTotals.salesValue,
+      tax_total: summaryTotals.totalTax,
+      grand_total: summaryTotals.netAmount,
+      salesperson_name: headerState.salesStaff,
+      remarks: headerState.remarks || "Draft Sales Invoice",
+      items: items.map((it, idx) => ({
+        product_id: it.productId || it.stockNo,
+        code: it.stockNo,
+        name: it.itemDescription,
+        quantity: it.qty,
+        price: it.rate,
+        disc_pct: 0,
+        disc_amt: postingLines[idx]?.discountAmount ?? 0,
+        gst_rate: it.gstPercentage,
+        hsn_code: it.hsnCode,
+        mrp: it.mrp,
+        is_tax_inclusive: it.isTaxInclusive,
+        line_no: idx + 1,
+        salesperson_name: it.salesStaff || null,
+        customer_po_line_id: it.customerPoLineId || null,
+        source_line_type: it.customerPoLineId ? "CUSTOMER_PO" : null,
+        source_line_id: it.customerPoLineId || null
+      })),
+      rule_snapshots: {
+        transaction_type: isCreditTx ? "Credit" : "Cash",
+        headerState,
+        transporterRows,
+        addonRows
+      }
+    };
+
+    try {
+      if (activeDraftId) {
+        const updated = await apiFetchV1<any>(`/sales/invoices/${activeDraftId}`, {
+          method: "PUT",
+          body: JSON.stringify(draftPayload)
+        });
+        onNotification?.(
+          "Draft Updated",
+          `Draft invoice #${updated.invoice_no || headerState.docNo} updated. Zero stock/GL mutations.`,
+          "success"
+        );
+      } else {
+        const saved = await apiFetchV1<any>("/sales/invoices", {
+          method: "POST",
+          body: JSON.stringify(draftPayload)
+        });
+        setActiveDraftId(saved.id);
+        setHeaderState(prev => ({
+          ...prev,
+          docNo: saved.invoice_no || prev.docNo
+        }));
+        onNotification?.(
+          "Draft Saved",
+          `Draft invoice #${saved.invoice_no} saved. Zero stock deducted, no GL impact.`,
+          "success"
+        );
+      }
+    } catch (err: any) {
+      onNotification?.("Draft Save Failed", err?.message || "Failed to save draft invoice.", "error");
+    }
+  };
+
+  // Statutory Amendment Handlers (ADR-005 Compliant)
+  const handleCancelAndReissue = async () => {
+    if (!loadedDocMetadata?.id) return;
+    if (!window.confirm(`Cancel invoice ${loadedDocMetadata.docNo} and unlock its items into the active cart for correction?\n\nThis voids the posted invoice and reverses inventory and general ledger postings.`)) {
+      return;
+    }
+    try {
+      await apiFetchV1(`/sales/invoices/${loadedDocMetadata.id}/cancel`, {
+        method: "POST"
+      });
+      setIsReadOnlyView(false);
+      setActiveDraftId(null);
+      const cancelledDocNo = loadedDocMetadata.docNo;
+      setLoadedDocMetadata(null);
+      onNotification?.(
+        "Invoice Cancelled & Unlocked",
+        `Invoice ${cancelledDocNo} cancelled. Line items unlocked in cart for correction and re-issuance.`,
+        "success"
+      );
+    } catch (err: any) {
+      onNotification?.("Cancellation Failed", err?.message || "Failed to cancel invoice.", "error");
+    }
+  };
+
+  const handleIssueCreditNote = async () => {
+    if (!loadedDocMetadata?.id) return;
+    if (!window.confirm(`Issue statutory Credit Note (Sales Return) against invoice ${loadedDocMetadata.docNo}?`)) {
+      return;
+    }
+    try {
+      const res = await apiFetchV1<any>("/sales/returns", {
+        method: "POST",
+        body: JSON.stringify({
+          invoice_id: loadedDocMetadata.id,
+          customer_id: headerState.customer?.id || null,
+          items: items.map(it => ({
+            product_id: it.productId || it.stockNo,
+            code: it.stockNo,
+            name: it.itemDescription,
+            quantity: it.qty,
+            price: it.rate,
+            gst_rate: it.gstPercentage
+          })),
+          remarks: `Statutory Credit Note against ${loadedDocMetadata.docNo}`
+        })
+      });
+      onNotification?.(
+        "Credit Note Issued",
+        `Statutory Credit Note #${res.return_no || res.id} created against ${loadedDocMetadata.docNo}.`,
+        "success"
+      );
+    } catch (err: any) {
+      onNotification?.("Credit Note Failed", err?.message || "Failed to issue Credit Note.", "error");
+    }
+  };
+
+  // Select and load document from Invoicing Transaction Browser
   const handleSelectDocumentFromBrowser = async (docType: InvoicingBrowserTab, doc: any) => {
     try {
       if (docType === "SUSPENDED") {
@@ -2835,22 +3026,43 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
       });
 
       setItems(mappedItems);
-      setIsReadOnlyView(true);
-      setLoadedDocMetadata({
-        id: fullDoc.id,
-        docNo: docNo,
-        docType: docType,
-        status: fullDoc.status || "Completed",
-        date: dateStr,
-        customerName: fullDoc.customer_name || "Counter Walk-in",
-        grandTotal: Number(fullDoc.grand_total || fullDoc.total_amount || 0),
-      });
 
-      onNotification?.(
-        "Audit Mode Active",
-        `Loaded ${docNo} in Read-Only Mode. All modifications locked.`,
-        "success"
-      );
+      const isDraftDoc = String(fullDoc.status || "").trim().toUpperCase() === "DRAFT";
+      if (isDraftDoc) {
+        setIsReadOnlyView(false);
+        setActiveDraftId(fullDoc.id);
+        setLoadedDocMetadata({
+          id: fullDoc.id,
+          docNo: docNo,
+          docType: docType,
+          status: "Draft",
+          date: dateStr,
+          customerName: fullDoc.customer_name || "Counter Walk-in",
+          grandTotal: Number(fullDoc.grand_total || fullDoc.total_amount || 0),
+        });
+        onNotification?.(
+          "Draft Loaded",
+          `Loaded Draft Invoice ${docNo}. Cart is editable; settle or save draft when ready.`,
+          "info"
+        );
+      } else {
+        setIsReadOnlyView(true);
+        setActiveDraftId(null);
+        setLoadedDocMetadata({
+          id: fullDoc.id,
+          docNo: docNo,
+          docType: docType,
+          status: fullDoc.status || "Completed",
+          date: dateStr,
+          customerName: fullDoc.customer_name || "Counter Walk-in",
+          grandTotal: Number(fullDoc.grand_total || fullDoc.total_amount || 0),
+        });
+        onNotification?.(
+          "Audit Mode Active",
+          `Loaded ${docNo} in Read-Only Mode. All modifications locked.`,
+          "success"
+        );
+      }
     } catch (err: any) {
       console.error("[BillingTerm] Failed to inspect document:", err);
       onNotification?.("Error", "Failed to load document into terminal.", "error");
@@ -2860,6 +3072,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
   const handleExitReadOnlyMode = () => {
     setIsReadOnlyView(false);
     setLoadedDocMetadata(null);
+    setActiveDraftId(null);
     handleNewInvoice();
     onNotification?.("Active Billing", "Returned to new bill creation mode.", "success");
   };
@@ -3044,24 +3257,38 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
     };
 
     try {
-      const saveUrl = headerState.billingSource === "CUSTOMER_PO" && headerState.customerPoId
-        ? `/sales/customer-pos/${headerState.customerPoId}/bill`
-        : "/sales/invoices";
-      const saveBody = headerState.billingSource === "CUSTOMER_PO" && headerState.customerPoId
-        ? { invoice: invoicePayload, lines: items.map(item => ({ customer_po_line_id: item.customerPoLineId, quantity: item.qty })) }
-        : invoicePayload;
-      const requestFingerprint = JSON.stringify(saveBody);
-      if (settlementIdempotencyKeyRef.current?.fingerprint !== requestFingerprint) {
-        settlementIdempotencyKeyRef.current = {
-          key: crypto.randomUUID(),
-          fingerprint: requestFingerprint,
-        };
+      let saved: any;
+      if (activeDraftId) {
+        // Update draft invoice lines & totals server-side
+        await apiFetchV1(`/sales/invoices/${activeDraftId}`, {
+          method: "PUT",
+          body: JSON.stringify(invoicePayload)
+        });
+        // Promote draft to POSTED (authoritative stock deduction & double-entry GL posting)
+        saved = await apiFetchV1(`/sales/invoices/${activeDraftId}/submit`, {
+          method: "POST"
+        });
+        setActiveDraftId(null);
+      } else {
+        const saveUrl = headerState.billingSource === "CUSTOMER_PO" && headerState.customerPoId
+          ? `/sales/customer-pos/${headerState.customerPoId}/bill`
+          : "/sales/invoices";
+        const saveBody = headerState.billingSource === "CUSTOMER_PO" && headerState.customerPoId
+          ? { invoice: invoicePayload, lines: items.map(item => ({ customer_po_line_id: item.customerPoLineId, quantity: item.qty })) }
+          : invoicePayload;
+        const requestFingerprint = JSON.stringify(saveBody);
+        if (settlementIdempotencyKeyRef.current?.fingerprint !== requestFingerprint) {
+          settlementIdempotencyKeyRef.current = {
+            key: crypto.randomUUID(),
+            fingerprint: requestFingerprint,
+          };
+        }
+        saved = await apiFetchV1(saveUrl, {
+          method: "POST",
+          headers: { "Idempotency-Key": settlementIdempotencyKeyRef.current.key },
+          body: JSON.stringify(saveBody)
+        });
       }
-      const saved = await apiFetchV1(saveUrl, {
-        method: "POST",
-        headers: { "Idempotency-Key": settlementIdempotencyKeyRef.current.key },
-        body: JSON.stringify(saveBody)
-      });
 
       const completedInvoice = {
         invoiceId: saved.id,
@@ -3454,6 +3681,15 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
                   </button>
                   <button
                     type="button"
+                    onClick={() => { handleSaveDraftInvoice(); setShowMoreMenu(false); }}
+                    disabled={isReadOnlyView || items.length === 0}
+                    className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 text-left w-full cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    <Edit2 size={14} className="text-indigo-600" />
+                    <span>{activeDraftId ? "Update Draft Invoice" : "Save as Draft Invoice"}</span>
+                  </button>
+                  <button
+                    type="button"
                     onClick={() => { handleReprintInvoice(); setShowMoreMenu(false); }}
                     className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 text-left w-full cursor-pointer"
                   >
@@ -3581,7 +3817,40 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
         </div>
       </header>
 
-      {/* Audit Read-Only Mode Banner */}
+      {/* Draft Invoice Active Mode Banner */}
+      {activeDraftId && (
+        <div className="bg-blue-500/15 border-b border-blue-500/30 px-margin-page py-2 flex items-center justify-between animate-in fade-in shrink-0">
+          <div className="flex items-center gap-3">
+            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-blue-600 text-white font-mono uppercase tracking-wider flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+              Draft Invoice Active
+            </span>
+            <div className="text-xs text-blue-950 dark:text-blue-200">
+              Editing Draft Document <strong className="font-mono font-bold">{headerState.docNo}</strong> • Non-stock isolated state • Click <strong>Save as Draft</strong> to update draft or <strong>Settle (F8)</strong> to post.
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleSaveDraftInvoice}
+              className="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded text-xs font-bold transition flex items-center gap-1.5 shadow-xs cursor-pointer"
+            >
+              <Save size={13} />
+              <span>Update Draft</span>
+            </button>
+            <button
+              type="button"
+              onClick={handleNewInvoice}
+              className="px-3 py-1 bg-surface-container-highest hover:bg-surface-container border border-outline-variant text-on-surface rounded text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
+            >
+              <RotateCcw size={13} />
+              <span>Discard / New Bill</span>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Audit Read-Only Mode & Statutory Amendment Banner */}
       {isReadOnlyView && (
         <div className="bg-amber-500/15 border-b border-amber-500/30 px-margin-page py-2.5 flex items-center justify-between animate-in fade-in shrink-0">
           <div className="flex items-center gap-3">
@@ -3593,15 +3862,35 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
             </div>
           </div>
           <div className="flex items-center gap-2">
-            {loadedDocMetadata?.id && (
-              <button
-                type="button"
-                onClick={() => void openCanonicalInvoicePrint(loadedDocMetadata.id)}
-                className="px-3 py-1 bg-primary text-on-primary hover:bg-primary-container rounded text-xs font-bold transition flex items-center gap-1.5 shadow-xs cursor-pointer"
-              >
-                <Printer size={13} />
-                <span>Print A4 PDF</span>
-              </button>
+            {loadedDocMetadata?.id && loadedDocMetadata?.status !== "Cancelled" && (
+              <>
+                <button
+                  type="button"
+                  onClick={handleIssueCreditNote}
+                  className="px-3 py-1 bg-rose-600 hover:bg-rose-700 text-white rounded text-xs font-bold transition flex items-center gap-1.5 shadow-xs cursor-pointer"
+                  title="Issue Statutory Credit Note / Sales Return (ADR-005)"
+                >
+                  <RotateCcw size={13} />
+                  <span>Issue Credit Note</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleCancelAndReissue}
+                  className="px-3 py-1 bg-amber-700 hover:bg-amber-800 text-white rounded text-xs font-bold transition flex items-center gap-1.5 shadow-xs cursor-pointer"
+                  title="Cancel & Re-issue to Cart (ADR-005: Voids invoice with stock/GL reversal and unlocks lines in cart)"
+                >
+                  <Edit2 size={13} />
+                  <span>Cancel &amp; Re-issue</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void openCanonicalInvoicePrint(loadedDocMetadata.id)}
+                  className="px-3 py-1 bg-primary text-on-primary hover:bg-primary-container rounded text-xs font-bold transition flex items-center gap-1.5 shadow-xs cursor-pointer"
+                >
+                  <Printer size={13} />
+                  <span>Print A4 PDF</span>
+                </button>
+              </>
             )}
             <button
               type="button"
@@ -4836,6 +5125,16 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
             </button>
             <button
               type="button"
+              onClick={handleSaveDraftInvoice}
+              disabled={isReadOnlyView || items.length === 0}
+              className="px-3 py-1.5 bg-white hover:bg-slate-50 dark:bg-slate-800 dark:hover:bg-slate-700 border border-slate-300 dark:border-slate-600 text-slate-800 dark:text-slate-100 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed shadow-2xs"
+              title="Save as Draft Invoice (No stock deduction / No GL impact)"
+            >
+              <Edit2 size={14} className="text-indigo-600" />
+              <span>{activeDraftId ? "Update Draft" : "Draft"}</span>
+            </button>
+            <button
+              type="button"
               onClick={handleReprintInvoice}
               disabled={!lastCompletedInvoice?.invoiceId && items.length === 0}
               className="px-3 py-1.5 bg-white hover:bg-slate-50 dark:bg-slate-800 dark:hover:bg-slate-700 border border-slate-300 dark:border-slate-600 text-slate-800 dark:text-slate-100 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 cursor-pointer shadow-2xs disabled:opacity-40 disabled:cursor-not-allowed"
@@ -5011,6 +5310,14 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
                             className="bg-primary hover:bg-primary-container text-on-primary px-3 py-1 rounded text-xs font-bold transition"
                           >
                             Recall
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDiscardSuspendedBill(bill.id, bill.holdSlipNumber)}
+                            className="p-1 border border-rose-300 dark:border-rose-800 hover:bg-rose-50 dark:hover:bg-rose-950/40 text-rose-600 rounded text-[11px] flex items-center transition"
+                            title="Discard / Delete Parked Cart"
+                          >
+                            <Trash2 size={13} />
                           </button>
                         </div>
                       </div>

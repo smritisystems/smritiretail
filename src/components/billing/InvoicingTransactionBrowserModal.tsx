@@ -30,7 +30,8 @@ import {
   Download,
   Building2,
   Calendar,
-  CheckCircle2
+  CheckCircle2,
+  Edit2
 } from "lucide-react";
 import { apiFetchV1 } from "../../lib/apiFetchV1.ts";
 import { withCapability } from "../../types/architecture.ts";
@@ -415,11 +416,15 @@ const InvoicingTransactionBrowserModalBase: React.FC<InvoicingTransactionBrowser
                                 onSelectDocument(activeTab, row);
                                 onClose();
                               }}
-                              className="px-2 py-1 bg-primary/10 hover:bg-primary text-primary hover:text-on-primary rounded text-[11px] font-bold transition flex items-center gap-1"
-                              title="Load document into Billing Terminal in Read-Only Mode"
+                              className={`px-2 py-1 rounded text-[11px] font-bold transition flex items-center gap-1 ${
+                                status.toUpperCase() === "DRAFT"
+                                  ? "bg-amber-500/10 hover:bg-amber-500 text-amber-700 dark:text-amber-300 hover:text-white"
+                                  : "bg-primary/10 hover:bg-primary text-primary hover:text-on-primary"
+                              }`}
+                              title={status.toUpperCase() === "DRAFT" ? "Load draft into Billing Terminal to edit and submit" : "Load document into Billing Terminal in Read-Only Mode"}
                             >
-                              <Eye size={12} />
-                              <span>Inspect</span>
+                              {status.toUpperCase() === "DRAFT" ? <Edit2 size={12} /> : <Eye size={12} />}
+                              <span>{status.toUpperCase() === "DRAFT" ? "Open Draft" : "Inspect"}</span>
                             </button>
 
                             {onPrintPdf && (

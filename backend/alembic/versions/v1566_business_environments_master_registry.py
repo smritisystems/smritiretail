@@ -11,7 +11,7 @@ Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 Classification: Master Registry Seed & Governance
 
-v1508: Add business_environments master registry.
+v1566: Add business_environments master registry.
 Creates the business_environments lookup table and seeds the three
 core supply-chain operating environments used by the master registry.
 """
@@ -22,8 +22,8 @@ from alembic import op
 import sqlalchemy as sa
 
 
-revision: str = "v1508"
-down_revision: Union[str, Sequence[str], None] = "v1507"
+revision: str = "v1566"
+down_revision: Union[str, Sequence[str], None] = "v1565"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

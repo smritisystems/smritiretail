@@ -1,5 +1,32 @@
 <!--
 
+## [6.99.29] - 2026-10-30 - Billing: Draft, Submit, Parked Cart & Statutory Amendment Lifecycle v6.99.2
+
+### Added
+- `backend/app/api/v1/sales.py`:
+  - Added endpoint `POST /api/v1/sales/invoices/{invoice_id}/submit` to promote draft invoices to POSTED via `UniversalLifecycleEngine`.
+  - Imported `User` model dependency.
+- `backend/app/schemas/canonical_posting.py` & `backend/app/schemas/sales.py`:
+  - Added `is_draft: bool = Field(False)` to `CanonicalPostingRequest` and `SalesInvoiceCreate`.
+- `backend/app/services/canonical_sales_writer.py`:
+  - Guarded invoice persistence when `req.is_draft=True`: sets `status="Draft"`, bypasses stock deductions, bypasses customer credit debits, bypasses PO allocation, and bypasses coupon redemptions.
+- `backend/app/services/sales.py`:
+  - Added `submit_draft_sales_invoice` triggering authoritative `SalesStockAuthority` batch mutation and `UnifiedAccountingLedgerService` posting.
+  - Guarded `cancel_sales_invoice` to ensure only posted invoices reverse warehouse stock.
+- `src/components/billing/BillingTerm.tsx`:
+  - Isolated F12 Hold/Park bill actions to `pos_parked_carts` (`/api/v1/pos/parked-carts`), eliminating stock/GL side effects.
+  - Added `handleSaveDraftInvoice` supporting server draft creation and update (`PUT /sales/invoices/{id}`).
+  - Added `handleCancelAndReissue` and `handleIssueCreditNote` for ADR-005 statutory compliance.
+  - Rendered "Draft Invoice Active" banner, "Audit Read-Only Mode" banner, and draft action triggers in bottom bar and More menu.
+- `src/components/billing/InvoicingTransactionBrowserModal.tsx`:
+  - Added "Open Draft" button for invoices in `DRAFT` status.
+- `src/tests/billingDraftSubmitLifecycle.test.ts`:
+  - Added 4-test Vitest contract suite for cart isolation, draft schemas, browser mode resolution, and statutory amendments.
+- `docs/implementation/billing/Billing_Draft_Submit_Amend_Lifecycle_Plan_v6.99.2.md`:
+  - Formal 19-section IPGP implementation plan.
+- `docs/walkthrough/billing/Billing_Draft_Submit_Amend_Lifecycle_v6.99.2.md`:
+  - Formal 13-section WGP walkthrough document.
+
 ## [6.99.28] - 2026-10-30 - Catalog: Master Registry Hard Delete Guard & Active Reference Governance v6.99.1
 
 ### Fixed
