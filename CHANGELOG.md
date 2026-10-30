@@ -1,5 +1,29 @@
 <!--
 
+## [6.99.26] - 2026-10-30 - Procurement: Purchase Order Prefix & Canonical Serialization Remediation v6.50.1
+
+### Fixed
+- `backend/app/services/purchase.py`:
+  - Standardized `get_next_order_number` and `get_next_receipt_number` response keys (`suggested_order_no`, `suggested_number`, `next_order_no`) to consistently return statutory canonical numbering `PO/{FY}/{seq:04d}` (e.g. `PO/26-27/0029`) instead of simple integers (`PO-15`).
+  - Preserved backward-compatible `suggested_simple` field for callers specifically requesting legacy integer notation.
+  - Enabled active `DocumentSeries.running_length` inspection with fallback to 4 digits.
+- `src/components/purchase/PoGenerateTab.tsx`:
+  - Remediated header display at line 1944 to avoid double-prefixing when `orderNumber` contains `header.prefix` or `/` (preventing `PO-PO/26-27/0001`).
+- `src/components/purchase/PoSizewiseTab.tsx`:
+  - Fixed sequence parser at lines 1350 and 1650 to prevent hyphen-splitting on fiscal year (`26-27`), avoiding corruption of `header.prefix` to `PO/26` and `orderNumber` to `27/0001`.
+  - Remediated top header title (line 3141) and PO Number badge (line 3216) to cleanly display canonical document numbers.
+  - Sanitized CSV export filename at line 2545 by substituting path separators (`/`) with underscores.
+- `src/components/global/configs/documentSeries.con.tsx`:
+  - Corrected `payloadTransform` to classify `"Purchase Order"` and `"Goods Receipt"` series under module `"PURCHASE"` and transaction group `"PROCUREMENT"` instead of defaulting to `"SALES"`.
+
+### Added
+- `src/tests/documentSeriesStudio.test.ts`:
+  - Added unit test asserting `"Purchase Order"` transforms into `PURCHASE` module and `PROCUREMENT` transaction group.
+- `docs/implementation/procurement/Purchase_Order_Prefix_And_Canonical_Serialization_Remediation_Plan_v6.50.1.md`:
+  - Formal 19-section IPGP implementation plan.
+- `docs/walkthrough/procurement/Purchase_Order_Prefix_And_Canonical_Serialization_Remediation_v6.50.1.md`:
+  - Formal 13-section WGP walkthrough document.
+
 ## [6.99.25] - 2026-10-30 - Inventory & Foundation: Document Series & Numbering Studio Hardening & Unified Serialization Engine v6.50.0
 
 ### Fixed

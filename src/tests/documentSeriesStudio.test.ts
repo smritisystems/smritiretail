@@ -257,6 +257,24 @@ describe("Document Series & Numbering Studio Configuration", () => {
       expect(payload.runningLength).toBe(6);
     });
 
+    it("should transform Purchase Order payload into PURCHASE module and PROCUREMENT txGroup", () => {
+      const rawForm = {
+        name: "Main Purchase Series",
+        documentType: "Purchase Order",
+        prefix: "PO/",
+        startNumber: 1,
+        runningLength: 4,
+        isActive: true
+      };
+
+      const payload = documentSeriesConfig.payloadTransform!(rawForm, "create");
+      expect(payload.module).toBe("PURCHASE");
+      expect(payload.transactionGroup).toBe("PROCUREMENT");
+      expect(payload.resetRule).toBe("Financial Year");
+      expect(payload.currentNumber).toBe(0);
+      expect(payload.runningLength).toBe(4);
+    });
+
     it("should handle terminalId correctly based on isCommonAcrossTerminals", () => {
       const commonSeries = documentSeriesConfig.payloadTransform!(
         {
