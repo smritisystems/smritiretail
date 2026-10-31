@@ -30,6 +30,9 @@ import { PSVParty, PSVPartySkuTracking } from "../types";
  * Formula: lying-with-partner = invoicedQty - confirmedSoldQty - returnedQty
  */
 export function computeSkuLyingWithPartner(sku: PSVPartySkuTracking): number {
+  if (sku.currentBalance !== undefined && Number.isFinite(sku.currentBalance)) {
+    return Math.max(0, sku.currentBalance);
+  }
   const lying = sku.invoicedQty - sku.confirmedSoldQty - sku.returnedQty;
   return Math.max(0, lying);
 }
@@ -39,10 +42,12 @@ export function computeSkuLyingWithPartner(sku: PSVPartySkuTracking): number {
  * Formula: sell-through % = (confirmedSoldQty / invoicedQty) * 100
  */
 export function computeSkuSellThrough(sku: PSVPartySkuTracking): number {
-  if (sku.invoicedQty <= 0) {
+  const sentQty = sku.billedQty ?? sku.invoicedQty;
+  const soldQty = sku.soldQty ?? sku.confirmedSoldQty;
+  if (sentQty <= 0) {
     return 0;
   }
-  const pct = (sku.confirmedSoldQty / sku.invoicedQty) * 100;
+  const pct = (soldQty / sentQty) * 100;
   return Math.min(100, Math.max(0, pct));
 }
 
@@ -68,8 +73,8 @@ export function computeOverallSellThrough(party: PSVParty): number {
   let totalSold = 0;
 
   for (const sku of party.skuTracking) {
-    totalInvoiced += sku.invoicedQty;
-    totalSold += sku.confirmedSoldQty;
+    totalInvoiced += sku.billedQty ?? sku.invoicedQty;
+    totalSold += sku.soldQty ?? sku.confirmedSoldQty;
   }
 
   if (totalInvoiced <= 0) {

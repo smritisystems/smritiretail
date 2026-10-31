@@ -199,6 +199,12 @@ export interface PSVPartySkuTracking {
   invoicedQty: number;      // Quantity dispatched to partner via SalesInvoices
   confirmedSoldQty: number; // Quantity sold by partner (from report)
   returnedQty: number;      // Quantity returned back via SalesReturns
+  currentBalance?: number;
+  billedQty?: number;
+  receivedQty?: number;
+  soldQty?: number;
+  returnedStockQty?: number;
+  transferredQty?: number;
   styleCode?: string | null;
   color?: string | null;
   size?: string | null;
@@ -212,6 +218,8 @@ export interface PSVParty {
   deliveryLocationId?: string;
   storeCode?: string;
   storeNameSnapshot?: string;
+  city?: string | null;
+  state?: string | null;
   stockModel?: "OUTRIGHT_SALE" | "CONSIGNMENT" | "STOCK_ON_APPROVAL";
   name: string;
   location: string;

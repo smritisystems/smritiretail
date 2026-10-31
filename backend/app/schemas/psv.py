@@ -12,7 +12,7 @@ License      : Proprietary Commercial Software
 Classification: Internal
 """
 
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Union
 from decimal import Decimal
 from datetime import datetime
 from pydantic import BaseModel, Field, ConfigDict, field_validator
@@ -21,12 +21,19 @@ from pydantic import BaseModel, Field, ConfigDict, field_validator
 class PSVSkuTrackingResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
-    id: int
+    id: Union[str, int]
     party_id: str
     sku: str
     invoiced_qty: int = 0
     confirmed_sold_qty: int = 0
     returned_qty: int = 0
+    product_name: Optional[str] = None
+    current_balance: Optional[Decimal] = None
+    billed_qty: Optional[Decimal] = None
+    received_qty: Optional[Decimal] = None
+    sold_qty: Optional[Decimal] = None
+    returned_stock_qty: Optional[Decimal] = None
+    transferred_qty: Optional[Decimal] = None
     style_code: Optional[str] = None
     color: Optional[str] = None
     size: Optional[str] = None
@@ -42,6 +49,8 @@ class PSVPartyResponse(BaseModel):
     delivery_location_id: Optional[str] = None
     store_code: Optional[str] = None
     store_name_snapshot: Optional[str] = None
+    city: Optional[str] = None
+    state: Optional[str] = None
     stock_model: str = "OUTRIGHT_SALE"
     name: str
     location: str

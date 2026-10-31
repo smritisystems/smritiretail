@@ -15,7 +15,7 @@ Classification: Internal
 from typing import Dict, Any, List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, Header
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, case, cast, Date
+from sqlalchemy import select, func, case, cast, Date, and_
 from sqlalchemy.orm import selectinload
 
 from app.api.deps import get_company_db, get_current_user, get_tenant_context, TenantContext
@@ -23,6 +23,8 @@ from app.models.auth import User
 from app.models.psv import (
     PSVParty, PSVPartySkuTracking, PSVStockEvent, PSVStockBalance
 )
+from app.models.inventory import Product
+from app.models.crm import Customer, CustomerDeliveryLocation
 from app.services.psv_projection import PSVProjectionService
 from app.schemas.psv import (
     PSVEventProjectionReq,
@@ -64,6 +66,39 @@ async def list_psv_parties(
     if not parties:
         return []
 
+    location_stmt = (
+        select(
+            PSVParty.id,
+            CustomerDeliveryLocation.city,
+            CustomerDeliveryLocation.state,
+        )
+        .join(
+            CustomerDeliveryLocation,
+            and_(
+                CustomerDeliveryLocation.id == PSVParty.delivery_location_id,
+                CustomerDeliveryLocation.customer_id == PSVParty.host_customer_id,
+                CustomerDeliveryLocation.is_deleted == False,
+            ),
+        )
+        .join(
+            Customer,
+            and_(
+                Customer.id == CustomerDeliveryLocation.customer_id,
+                Customer.company_id == effective_company_id,
+                Customer.is_deleted == False,
+            ),
+        )
+        .where(
+            PSVParty.company_id == effective_company_id,
+            PSVParty.id.in_([party.id for party in parties]),
+        )
+    )
+    location_rows = (await session.execute(location_stmt)).all()
+    party_location = {
+        row.id: {"city": row.city, "state": row.state}
+        for row in location_rows
+    }
+
     # 2. Build 4-day history per party from psv_stock_events
     # Group events by (party_id, event_date.date) and bucket into stock/sales
     history_stmt = (
@@ -99,16 +134,48 @@ async def list_psv_parties(
                 "stock": 0,  # populated below from psv_stock_balances
             })
 
-    # 3. Load stock balances per party for current_balance aggregation
-    bal_stmt = select(
-        PSVStockBalance.psv_party_id,
-        func.sum(PSVStockBalance.current_balance).label("total_balance"),
-    ).where(
-        PSVStockBalance.company_id == effective_company_id,
-        PSVStockBalance.psv_party_id.in_([p.id for p in parties]),
-    ).group_by(PSVStockBalance.psv_party_id)
-    bal_rows = (await session.execute(bal_stmt)).all()
-    balance_map: Dict[str, float] = {row.psv_party_id: float(row.total_balance or 0) for row in bal_rows}
+    # 3. Load per-SKU projected balances; these drive store/article/dimension views.
+    balance_stmt = (
+        select(PSVStockBalance, Product)
+        .outerjoin(
+            Product,
+            and_(
+                Product.id == PSVStockBalance.product_id,
+                Product.company_id == effective_company_id,
+                Product.is_deleted == False,
+            ),
+        )
+        .where(
+            PSVStockBalance.company_id == effective_company_id,
+            PSVStockBalance.psv_party_id.in_([p.id for p in parties]),
+        )
+    )
+    balance_rows = (await session.execute(balance_stmt)).all()
+    balance_map: Dict[str, float] = defaultdict(float)
+    balance_tracking: Dict[str, List[PSVSkuTrackingResponse]] = defaultdict(list)
+    for balance, product in balance_rows:
+        balance_map[balance.psv_party_id] += float(balance.current_balance or 0)
+        balance_tracking[balance.psv_party_id].append(
+            PSVSkuTrackingResponse(
+                id=balance.id,
+                party_id=balance.psv_party_id,
+                sku=balance.sku,
+                invoiced_qty=int(balance.billed_qty or 0),
+                confirmed_sold_qty=int(balance.sold_qty or 0),
+                returned_qty=int(balance.returned_qty or 0),
+                product_name=(product.name if product else None) or balance.sku,
+                current_balance=balance.current_balance or 0,
+                billed_qty=balance.billed_qty or 0,
+                received_qty=balance.received_qty or 0,
+                sold_qty=balance.sold_qty or 0,
+                returned_stock_qty=balance.returned_qty or 0,
+                transferred_qty=balance.transferred_qty or 0,
+                style_code=product.style_code if product else None,
+                color=product.color if product else None,
+                size=product.size if product else None,
+                category=product.category if product else None,
+            )
+        )
 
     # 4. Build response — stamp current stock_count from balances if available
     result: List[PSVPartyResponse] = []
@@ -117,19 +184,35 @@ async def list_psv_parties(
         history = party_history.get(party.id, [])
         # fill stock value into history entries from live balance (approximate)
         for h in history:
-            h["stock"] = int(live_stock or party.stock_count)
+            h["stock"] = int(live_stock if live_stock is not None else party.stock_count)
 
-        sku_list = []
-        for tracking in party.sku_tracking or []:
-            response_tracking = PSVSkuTrackingResponse.model_validate(tracking)
-            if tracking.product:
+        # Prefer the live projected ledger. Legacy tracking remains a fallback for
+        # older parties that have not yet produced per-SKU balance rows.
+        sku_list = balance_tracking.get(party.id, [])
+        if not sku_list:
+            sku_list = []
+            for tracking in party.sku_tracking or []:
+                response_tracking = PSVSkuTrackingResponse.model_validate(tracking)
                 response_tracking = response_tracking.model_copy(update={
-                    "style_code": tracking.product.style_code,
-                    "color": tracking.product.color,
-                    "size": tracking.product.size,
-                    "category": tracking.product.category,
+                    "product_name": tracking.product.name if tracking.product else tracking.sku,
+                    "current_balance": max(
+                        0,
+                        (tracking.invoiced_qty or 0)
+                        - (tracking.confirmed_sold_qty or 0)
+                        - (tracking.returned_qty or 0),
+                    ),
+                    "billed_qty": tracking.invoiced_qty or 0,
+                    "sold_qty": tracking.confirmed_sold_qty or 0,
+                    "returned_stock_qty": tracking.returned_qty or 0,
                 })
-            sku_list.append(response_tracking)
+                if tracking.product:
+                    response_tracking = response_tracking.model_copy(update={
+                        "style_code": tracking.product.style_code,
+                        "color": tracking.product.color,
+                        "size": tracking.product.size,
+                        "category": tracking.product.category,
+                    })
+                sku_list.append(response_tracking)
         current_stock = int(live_stock) if live_stock is not None else int(party.stock_count or 0)
         current_st = float(party.sell_through or 0.0)
         current_woc = float(party.weeks_of_cover or 0.0)
@@ -141,6 +224,8 @@ async def list_psv_parties(
             delivery_location_id=party.delivery_location_id,
             store_code=party.store_code,
             store_name_snapshot=party.store_name_snapshot,
+            city=party_location.get(party.id, {}).get("city"),
+            state=party_location.get(party.id, {}).get("state"),
             stock_model=party.stock_model,
             name=party.name,
             location=party.location,

@@ -119,6 +119,12 @@ type PSVOverviewDataView = "stores" | "articles" | "sizes" | "colors";
 const MAX_CSV_BARCODE_UNITS = 10000;
 type PSVReceiptColumn = "article" | "color" | "size" | "scanned" | "rejected" | "reason" | "verification";
 
+const getSkuSentQty = (sku: PSVPartySkuTracking) => sku.billedQty ?? sku.invoicedQty;
+const getSkuSoldQty = (sku: PSVPartySkuTracking) => sku.soldQty ?? sku.confirmedSoldQty;
+const getSkuReturnedQty = (sku: PSVPartySkuTracking) => sku.returnedStockQty ?? sku.returnedQty;
+const getPartyCityState = (party: PSVParty) =>
+  [party.city?.trim(), party.state?.trim()].filter(Boolean).join(", ") || "—";
+
 function parseCsv(text: string): string[][] {
   const rows: string[][] = [];
   let row: string[] = [];
@@ -1229,7 +1235,8 @@ export const PsvTab: React.FC<PsvTabProps> = ({ psvParties, currentUser }) => {
       (p) =>
         p.name.toLowerCase().includes(q) ||
         (p.storeNameSnapshot ?? "").toLowerCase().includes(q) ||
-        p.location.toLowerCase().includes(q) ||
+        (p.city ?? "").toLowerCase().includes(q) ||
+        (p.state ?? "").toLowerCase().includes(q) ||
         (p.storeCode ?? "").toLowerCase().includes(q)
     );
   }, [psvParties, search]);
@@ -1263,9 +1270,9 @@ export const PsvTab: React.FC<PsvTabProps> = ({ psvParties, currentUser }) => {
       };
       group.skuCount.add(sku.sku);
       group.stockQty += computeSkuLyingWithPartner(sku);
-      group.sentQty += Number(sku.invoicedQty || 0);
-      group.soldQty += Number(sku.confirmedSoldQty || 0);
-      group.returnedQty += Number(sku.returnedQty || 0);
+      group.sentQty += Number(getSkuSentQty(sku) || 0);
+      group.soldQty += Number(getSkuSoldQty(sku) || 0);
+      group.returnedQty += Number(getSkuReturnedQty(sku) || 0);
       groups.set(label, group);
     }
     return [...groups.values()].map((group) => ({
@@ -1276,13 +1283,14 @@ export const PsvTab: React.FC<PsvTabProps> = ({ psvParties, currentUser }) => {
 
   const exportPsvReport = () => {
     if (overviewDataView === "stores") {
-      const headers = ["Store Code", "Store Name", "Location", "Stock Left", "Sold Units", "Sold %", "Weeks Left", "Locked Capital", "Health"];
+      const headers = ["Store Code", "Store Name", "City", "State", "Stock Left", "Sold Units", "Sold %", "Weeks Left", "Locked Capital", "Health"];
       const rows = filteredParties.map((party) => [
         party.storeCode || "",
         party.storeNameSnapshot || party.name,
-        party.location,
+        party.city || "",
+        party.state || "",
         Number(party.stockCount || 0),
-        (party.skuTracking ?? []).reduce((total, sku) => total + Number(sku.confirmedSoldQty || 0), 0),
+        (party.skuTracking ?? []).reduce((total, sku) => total + Number(getSkuSoldQty(sku) || 0), 0),
         Number(party.sellThrough || 0).toFixed(1),
         Number(party.weeksOfCover || 0).toFixed(1),
         Number(party.capitalLocked || 0),
@@ -1304,11 +1312,11 @@ export const PsvTab: React.FC<PsvTabProps> = ({ psvParties, currentUser }) => {
           sku.size || "",
           sku.sku,
           computeSkuLyingWithPartner(sku),
-          sku.invoicedQty,
-          sku.confirmedSoldQty,
-          sku.returnedQty,
+          getSkuSentQty(sku),
+          getSkuSoldQty(sku),
+          getSkuReturnedQty(sku),
           sellThrough.toFixed(1),
-          sku.invoicedQty <= 0 ? "No sales data" : sellThrough < 20 ? "Low sell-through" : sellThrough < 50 ? "Moderate sell-through" : "High sell-through",
+          getSkuSentQty(sku) <= 0 ? "No sales data" : sellThrough < 20 ? "Low sell-through" : sellThrough < 50 ? "Moderate sell-through" : "High sell-through",
         ];
       });
       downloadCsv("psv-article-stock-report.csv", [headers, ...rows]);
@@ -2172,7 +2180,7 @@ export const PsvTab: React.FC<PsvTabProps> = ({ psvParties, currentUser }) => {
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-theme-muted text-sm">🔍</span>
                   <input
                     type="text"
-                    placeholder="Search distributor, store, code, city or location…"
+                    placeholder="Search distributor, store, code, city or state…"
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                     className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg pl-8 pr-3 py-2 text-sm text-theme-body placeholder:text-theme-muted focus:outline-none focus:border-blue-500"
@@ -2220,7 +2228,7 @@ export const PsvTab: React.FC<PsvTabProps> = ({ psvParties, currentUser }) => {
                             </span>
                           )}
                           {p.storeNameSnapshot && <span>{p.storeNameSnapshot}</span>}
-                          <span>📍 {p.location}</span>
+                          <span>📍 {getPartyCityState(p)}</span>
                         </div>
 
                         {/* Quick stats */}
@@ -2283,7 +2291,7 @@ export const PsvTab: React.FC<PsvTabProps> = ({ psvParties, currentUser }) => {
                             Store Code: <span className="font-mono">{activeParty.storeCode}</span>
                           </span>
                         )}
-                        <span>📍 {activeParty.location}</span>
+                        <span>📍 {getPartyCityState(activeParty)}</span>
                       </div>
                     </div>
                     <div className="text-right shrink-0">
@@ -2355,7 +2363,7 @@ export const PsvTab: React.FC<PsvTabProps> = ({ psvParties, currentUser }) => {
                         </button>
                       )}
                       {(activeParty.skuTracking ?? []).some(
-                        (sku) => sku.invoicedQty > 0 && computeSkuSellThrough(sku) < 20 && computeSkuLyingWithPartner(sku) > 0
+                        (sku) => getSkuSentQty(sku) > 0 && computeSkuSellThrough(sku) < 20 && computeSkuLyingWithPartner(sku) > 0
                       ) && (
                         <button
                           type="button"
@@ -2517,7 +2525,7 @@ export const PsvTab: React.FC<PsvTabProps> = ({ psvParties, currentUser }) => {
                         <table className="w-full min-w-[820px] border-collapse text-left">
                           <thead className="bg-theme-surface-2">
                             <tr className="border-b border-theme-divider">
-                              {["#", "Store Code", "Store Name", "Location", "Stock Left", "Sold Units", "Sold %", "Weeks Left", "Locked Capital", "Health"].map((heading) => (
+                              {["#", "Store Code", "Store Name", "City / State", "Stock Left", "Sold Units", "Sold %", "Weeks Left", "Locked Capital", "Health"].map((heading) => (
                                 <th key={heading} className="whitespace-nowrap px-2.5 py-2 text-[9px] font-bold uppercase tracking-wide text-theme-muted">{heading}</th>
                               ))}
                             </tr>
@@ -2526,14 +2534,14 @@ export const PsvTab: React.FC<PsvTabProps> = ({ psvParties, currentUser }) => {
                             {filteredParties.map((party, index) => {
                               const signal = statusSignal(party.status);
                               const soldUnits = (party.skuTracking ?? []).reduce(
-                                (total, sku) => total + Number(sku.confirmedSoldQty || 0), 0
+                                (total, sku) => total + Number(getSkuSoldQty(sku) || 0), 0
                               );
                               return (
                                 <tr key={party.id} className={`cursor-pointer hover:bg-theme-surface-2/60 ${party.id === activeParty.id ? "bg-blue-500/5" : ""}`} onClick={() => setSelectedPartyId(party.id)}>
                                   <td className="px-2.5 py-2 text-[10px] text-theme-muted">{index + 1}</td>
                                   <td className="px-2.5 py-2 font-mono text-[10px] font-semibold text-blue-400">{party.storeCode || "—"}</td>
                                   <td className="px-2.5 py-2 text-[10px] font-medium text-theme-body">{party.storeNameSnapshot || party.name}</td>
-                                  <td className="px-2.5 py-2 text-[10px] text-theme-muted">{party.location}</td>
+                                  <td className="px-2.5 py-2 text-[10px] text-theme-muted">{getPartyCityState(party)}</td>
                                   <td className="px-2.5 py-2 text-right font-mono text-[10px] text-theme-body">{Number(party.stockCount || 0)}</td>
                                   <td className="px-2.5 py-2 text-right font-mono text-[10px] text-emerald-400">{soldUnits}</td>
                                   <td className="px-2.5 py-2 text-right font-mono text-[10px] text-theme-body">{Number(party.sellThrough || 0).toFixed(0)}%</td>
@@ -2582,7 +2590,7 @@ export const PsvTab: React.FC<PsvTabProps> = ({ psvParties, currentUser }) => {
                             <tbody className="divide-y divide-theme-divider/50">
                               {(activeParty.skuTracking ?? []).map((sku) => {
                                 const soldPct = computeSkuSellThrough(sku);
-                                const movement = sku.invoicedQty <= 0
+                                const movement = getSkuSentQty(sku) <= 0
                                   ? "No sales data"
                                   : soldPct < 20 ? "Low sell-through" : soldPct < 50 ? "Moderate sell-through" : "High sell-through";
                                 const movementClass = movement === "Low sell-through"
@@ -2598,9 +2606,9 @@ export const PsvTab: React.FC<PsvTabProps> = ({ psvParties, currentUser }) => {
                                     <td className="px-3 py-2 text-[9px] text-theme-muted">{sku.size || "—"}</td>
                                     <td className="px-3 py-2 font-mono text-[9px] text-theme-muted">{sku.sku}</td>
                                     <td className="px-3 py-2 text-right font-mono text-[10px] text-blue-300">{computeSkuLyingWithPartner(sku)}</td>
-                                    <td className="px-3 py-2 text-right font-mono text-[10px] text-theme-body">{sku.invoicedQty}</td>
-                                    <td className="px-3 py-2 text-right font-mono text-[10px] text-emerald-300">{sku.confirmedSoldQty}</td>
-                                    <td className="px-3 py-2 text-right font-mono text-[10px] text-rose-300">{sku.returnedQty}</td>
+                                    <td className="px-3 py-2 text-right font-mono text-[10px] text-theme-body">{getSkuSentQty(sku)}</td>
+                                    <td className="px-3 py-2 text-right font-mono text-[10px] text-emerald-300">{getSkuSoldQty(sku)}</td>
+                                    <td className="px-3 py-2 text-right font-mono text-[10px] text-rose-300">{getSkuReturnedQty(sku)}</td>
                                     <td className="px-3 py-2 text-right font-mono text-[10px] text-theme-body">{soldPct.toFixed(0)}%</td>
                                     <td className="px-3 py-2"><span className={`whitespace-nowrap rounded-full border px-2 py-0.5 text-[9px] font-semibold ${movementClass}`}>{movement}</span></td>
                                   </tr>
@@ -2699,7 +2707,7 @@ export const PsvTab: React.FC<PsvTabProps> = ({ psvParties, currentUser }) => {
                   <option value="">🏢 All Distributors & Stores</option>
                   {psvParties.map((p) => (
                     <option key={p.id} value={p.id}>
-                      {p.storeCode ? `${p.storeCode} · ` : ""}{p.storeNameSnapshot || p.name} ({p.location})
+                      {p.storeCode ? `${p.storeCode} · ` : ""}{p.storeNameSnapshot || p.name} ({getPartyCityState(p)})
                     </option>
                   ))}
                 </select>
