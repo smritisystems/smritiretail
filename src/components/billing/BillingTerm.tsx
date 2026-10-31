@@ -49,7 +49,6 @@ import {
   CustomerDeliveryLocationDTO,
   CustomerBillingLocationDTO,
   toCanonicalPaymentMode,
-  SALES_CHANNELS,
   channelRequiresStoreLocation
 } from "./types.ts";
 import { SmritiF2AdvancedItemSearch, SmritiF2SelectedItem } from "./SmritiF2AdvancedItemSearch.tsx";
@@ -585,7 +584,6 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
   // Corporate B2B Multi-State GST, Billing & Delivery Location State
   const [customerGstRegistrations, setCustomerGstRegistrations] = useState<CustomerGSTRegistrationDTO[]>([]);
   const [customerDeliveryLocations, setCustomerDeliveryLocations] = useState<CustomerDeliveryLocationDTO[]>([]);
-  const [customerBillingLocations, setCustomerBillingLocations] = useState<CustomerBillingLocationDTO[]>([]);
   const [isLoadingB2BData, setIsLoadingB2BData] = useState<boolean>(false);
   const activeCustomerFetchIdRef = useRef<string | null>(null);
 
@@ -644,7 +642,6 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
       }));
       setCustomerGstRegistrations(regs);
       setCustomerDeliveryLocations(locs);
-      setCustomerBillingLocations(blocs);
 
       // 1. Primary GST auto-selection (auto-select default or first available):
       const primaryReg = regs.find(r => r.is_primary) || (regs.length > 0 ? regs[0] : null);
@@ -713,25 +710,6 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
     }
   };
 
-  const handleBilledGstinChange = (regId: string) => {
-    if (!regId) {
-      setHeaderState(prev => ({
-        ...prev,
-        billedPartyGstinId: null,
-        billedGstin: null
-      }));
-      return;
-    }
-    const reg = customerGstRegistrations.find(r => r.id === regId);
-    if (!reg) return;
-    setHeaderState(prev => ({
-      ...prev,
-      billedPartyGstinId: reg.id,
-      billedGstin: reg.gstin,
-      placeOfSupplyCode: prev.deliveryLocationId ? prev.placeOfSupplyCode : reg.state_code
-    }));
-  };
-
   const handleDeliveryLocationChange = (locId: string) => {
     if (!locId) {
       setHeaderState(prev => {
@@ -792,27 +770,6 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
     }).catch(err => {
       console.warn("[BillingTerm] Automatic PSV account resolution notice:", err);
     });
-  };
-
-  const handleBillingLocationChange = (locId: string) => {
-    if (!locId) {
-      setHeaderState(prev => ({
-        ...prev,
-        billingLocationId: null,
-        billingStoreCode: null,
-        billingAddress: null
-      }));
-      return;
-    }
-    const loc = customerBillingLocations.find(l => l.id === locId);
-    if (!loc) return;
-    setHeaderState(prev => ({
-      ...prev,
-      billingLocationId: loc.id,
-      billingStoreCode: loc.billing_store_code,
-      billingAddress: [loc.address_line1, loc.address_line2, loc.city, `${loc.state} - ${loc.pincode}`]
-        .filter(Boolean).join(", ")
-    }));
   };
 
   // Direct Entry Row (F11) State
@@ -3972,7 +3929,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
       
       {/* ── ZONE A: Compact Premium Header ── */}
       <header className="bg-white dark:bg-[#131b2e] border-b border-slate-200 dark:border-slate-800 px-3 py-1.5 flex items-center justify-between shrink-0 z-30 shadow-2xs gap-2">
-        {/* Left: Menu, Logo Badge, Title & Sales Channel Pill */}
+        {/* Left: Menu, Logo Badge and Billing title */}
         <div className="flex items-center gap-2.5 shrink-0">
           <button
             type="button"
@@ -3987,15 +3944,9 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
             <Receipt size={18} />
           </div>
 
-          <div className="flex items-center gap-2">
-            <span className="font-bold text-base text-slate-900 dark:text-white tracking-tight">
-              Billing Desk
-            </span>
-
-            <span className="bg-amber-100/90 dark:bg-amber-950/60 text-amber-900 dark:text-amber-200 border border-amber-300 dark:border-amber-700 font-bold text-[10px] rounded-full px-2 py-0.5">
-              {SALES_CHANNELS.find(ch => ch.value === headerState.salesChannel)?.label || "Billing"}
-            </span>
-          </div>
+          <span className="font-bold text-base text-slate-900 dark:text-white tracking-tight">
+            Billing Desk
+          </span>
         </div>
 
         {/* Center: Live Date/Time, Doc Number Pill & Status Pill */}
@@ -4453,51 +4404,52 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
 
               {/* Active Customer Display Card */}
               {headerState.customer ? (
-                <div className="flex items-center justify-between bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg px-2 py-1 text-xs lg:flex-1 lg:min-w-[220px]">
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    <div className="w-8 h-8 rounded-full bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-300 flex items-center justify-center shrink-0">
-                      <User size={15} />
-                    </div>
-                    <div className="flex flex-col min-w-0">
-                      <span className="font-bold text-slate-800 dark:text-slate-100 truncate text-xs">
-                        {headerState.customer.name}
-                      </span>
+                <div className="flex min-w-0 items-center gap-2 overflow-x-auto whitespace-nowrap bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg px-2 py-1 text-xs lg:flex-1 lg:min-w-[220px]">
+                  <User size={15} className="shrink-0 text-slate-600 dark:text-slate-300" />
+                  <span className="shrink-0 font-bold text-slate-800 dark:text-slate-100">
+                    {headerState.customer.name}
+                  </span>
+                  <span className="text-[11px] text-slate-500 dark:text-slate-400 font-mono">
+                    {headerState.customer.id || headerState.customer.code || "CUST-0001"}
+                  </span>
+                  <span className="text-slate-400" aria-hidden="true">·</span>
+                  <span className="text-[11px] text-slate-500 dark:text-slate-400">
+                    {headerState.customer.customerGroupId || "Retail"}
+                  </span>
+                  {headerState.customer.mobile && (
+                    <>
+                      <span className="text-slate-400" aria-hidden="true">·</span>
                       <span className="text-[11px] text-slate-500 dark:text-slate-400 font-mono">
-                        {headerState.customer.id || headerState.customer.code || "CUST-0001"} · {headerState.customer.customerGroupId || "Retail"} {headerState.customer.mobile ? `· ${headerState.customer.mobile}` : ""}
+                        {headerState.customer.mobile}
                       </span>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-1.5 shrink-0">
-                    {headerState.customer.gstNumber && (
-                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 font-mono">
-                        {headerState.customer.gstNumber}
-                      </span>
-                    )}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setHeaderState(prev => ({ ...prev, customer: null, billedPartyGstinId: null, billedGstin: null, deliveryLocationId: null, deliveryStoreCode: null, deliveryGstin: null, placeOfSupplyCode: null, poReference: "", customerPoId: null }));
-                        setSelectedCustomerPO(null);
-                        setCustomerSearchInput("");
-                      }}
-                      className="text-slate-400 hover:text-rose-600 p-1 cursor-pointer transition"
-                      title="Clear selected customer"
-                    >
-                      ✕
-                    </button>
-                  </div>
+                    </>
+                  )}
+                  {headerState.customer.gstNumber && (
+                    <span className="shrink-0 text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 font-mono">
+                      {headerState.customer.gstNumber}
+                    </span>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setHeaderState(prev => ({ ...prev, customer: null, billedPartyGstinId: null, billedGstin: null, deliveryLocationId: null, deliveryStoreCode: null, deliveryGstin: null, placeOfSupplyCode: null, poReference: "", customerPoId: null }));
+                      setSelectedCustomerPO(null);
+                      setCustomerSearchInput("");
+                    }}
+                    className="ml-auto shrink-0 text-slate-400 hover:text-rose-600 p-1 cursor-pointer transition"
+                    title="Clear selected customer"
+                    aria-label="Clear selected customer"
+                  >
+                    ✕
+                  </button>
                 </div>
               ) : (
-                <div className="flex items-center justify-between bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg px-2 py-1 text-xs lg:flex-1 lg:min-w-[220px]">
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    <div className="w-8 h-8 rounded-full bg-slate-200 dark:bg-slate-800 text-slate-500 dark:text-slate-400 flex items-center justify-center shrink-0">
-                      <User size={15} />
-                    </div>
-                    <div className="flex flex-col min-w-0">
-                      <span className="font-bold text-slate-800 dark:text-slate-200 text-xs">Walk-in Customer</span>
-                      <span className="text-[11px] text-slate-500 dark:text-slate-400 font-mono">C-0001 | Retail</span>
-                    </div>
-                  </div>
+                <div className="flex min-w-0 items-center gap-2 overflow-x-auto whitespace-nowrap bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg px-2 py-1 text-xs lg:flex-1 lg:min-w-[220px]">
+                  <User size={15} className="shrink-0 text-slate-500 dark:text-slate-400" />
+                  <span className="font-bold text-slate-800 dark:text-slate-200">Walk-in Customer</span>
+                  <span className="text-[11px] text-slate-500 dark:text-slate-400 font-mono">C-0001</span>
+                  <span className="text-slate-400" aria-hidden="true">·</span>
+                  <span className="text-[11px] text-slate-500 dark:text-slate-400">Retail</span>
                   <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-300">Default</span>
                 </div>
               )}
@@ -4671,82 +4623,6 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
                 </span>
               )}
 
-              {/* 2x2 Clean Grid of Select Dropdowns */}
-              <div className={`${showMoreDetails ? "grid" : "hidden"} grid-cols-2 sm:grid-cols-4 gap-2`}>
-                {/* Sales Channel */}
-                <div className="flex flex-col gap-0.5">
-                  <span className="text-[10px] font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider">Channel</span>
-                  <select
-                    aria-label="Sales Channel"
-                    data-testid="sales-channel-select"
-                    value={headerState.salesChannel || "B2B_WHOLESALE"}
-                    onChange={e => setHeaderState(prev => ({ ...prev, salesChannel: e.target.value }))}
-                    disabled={billingPolicyLoading || isReadOnlyView || Boolean(transactionCustomerPolicy?.channel_conflict)}
-                    className="bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg h-8 px-2 text-xs font-medium text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer"
-                  >
-                    {SALES_CHANNELS.filter(ch => permittedSalesChannels.includes(ch.value)).map(ch => (
-                      <option key={ch.value} value={ch.value}>{ch.label}</option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Bill Type */}
-                <div className="flex flex-col gap-0.5">
-                  <span className="text-[10px] font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider">Bill Type</span>
-                  <select
-                    aria-label="Bill Type"
-                    value={headerState.billType}
-                    onChange={e => setHeaderState({ ...headerState, billType: e.target.value as BillType })}
-                    disabled={billingPolicyLoading || isReadOnlyView}
-                    className="bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg h-8 px-2 text-xs font-medium text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer"
-                  >
-                    {permittedBillTypes.map(type => <option key={type} value={type}>{type}</option>)}
-                  </select>
-                </div>
-
-                {/* Transaction Mode */}
-                <div className="flex flex-col gap-0.5">
-                  <span className="text-[10px] font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider">Transaction</span>
-                  {canChangeTransactionMode && (
-                    permittedTransactions.length > 1
-                    || !configuredTransactionIsPermitted
-                    || transactionModeConflict
-                  ) ? (
-                    <select
-                      aria-label="Transaction Type"
-                      data-testid="transaction-mode-select"
-                      value={permittedTransactions.includes(permittedTransactionType) ? headerState.transaction : ""}
-                      onChange={event => {
-                        setHeaderState(previous => ({
-                          ...previous,
-                          transaction: event.target.value as TransactionType,
-                        }));
-                        setTransactionModeConfirmed(true);
-                      }}
-                      disabled={billingPolicyLoading || isReadOnlyView || permittedTransactions.length === 0}
-                      className="bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg h-8 px-2 text-xs font-medium text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer"
-                    >
-                      {!configuredTransactionIsPermitted && <option value="">Select permitted mode</option>}
-                      {permittedTransactions.includes("CREDIT") && <option value="Credit">Credit</option>}
-                      {permittedTransactions.includes("CASH") && <option value="Cash">Cash</option>}
-                    </select>
-                  ) : (
-                    <div
-                      aria-label="Transaction Type"
-                      className="flex h-8 items-center rounded-lg border border-slate-200 bg-slate-100 px-2 text-xs font-semibold text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
-                    >
-                      {permittedTransactions.includes(permittedTransactionType)
-                        ? (permittedTransactionType === "CREDIT" ? "Credit" : "Cash")
-                        : configuredTransactionType
-                          ? `Configured ${configuredTransactionType.toLowerCase()} unavailable`
-                          : permittedTransactions.length === 0
-                            ? "Billing unavailable"
-                            : "Select required"}
-                    </div>
-                  )}
-                </div>
-              </div>
-
               {(billingPolicyLoading || billingPolicyError || transactionCustomerPolicy?.channel_conflict || transactionCustomerPolicy?.configuration_warning || billingTransactionPolicy?.configuration_warning || transactionModeConflict || (!configuredTransactionIsPermitted && permittedTransactions.length > 0) || permittedTransactions.length === 0 || (transactionCustomerPolicy?.require_po_number && !headerState.poReference?.trim() && !headerState.customerPoId) || requiresCreditOverride) && (
                 <div className="mt-1 rounded-lg border border-amber-300 bg-amber-50 px-2.5 py-2 text-[11px] text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-200" role="status" data-testid="billing-policy-notice">
                   {billingPolicyLoading && <span>Resolving company, branch, and customer billing defaults…</span>}
@@ -4755,8 +4631,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
                   {!billingPolicyLoading && !billingPolicyError && transactionCustomerPolicy?.configuration_warning && <span>{transactionCustomerPolicy.configuration_warning}</span>}
                   {!billingPolicyLoading && !billingPolicyError && billingTransactionPolicy?.configuration_warning && <span>{billingTransactionPolicy.configuration_warning}</span>}
                   {!billingPolicyLoading && !billingPolicyError && permittedTransactions.length === 0 && <span>Cash and credit billing are both prohibited by customer or company/branch policy. Settlement is blocked.</span>}
-                  {!billingPolicyLoading && !billingPolicyError && transactionModeConflict && !canChangeTransactionMode && <span>The configured billing mode conflicts with the current eligibility. Only an explicitly authorized user can select another permitted mode.</span>}
-                  {!billingPolicyLoading && !billingPolicyError && transactionModeConflict && canChangeTransactionMode && !transactionModeConfirmed && <span>Select and confirm an eligible mode; the system will not silently switch from the configured customer default.</span>}
+                  {!billingPolicyLoading && !billingPolicyError && transactionModeConflict && <span>The customer&apos;s configured billing mode conflicts with current eligibility. Update the customer profile or billing policy before continuing.</span>}
                   {!billingPolicyLoading && !billingPolicyError && !configuredTransactionIsPermitted && permittedTransactions.length > 0 && !transactionCustomerPolicy?.configuration_warning && <span>The configured billing mode is not permitted. An authorized user must explicitly select an eligible mode or correct the configuration.</span>}
                   {!billingPolicyLoading && !billingPolicyError && transactionCustomerPolicy?.require_po_number && !headerState.poReference?.trim() && !headerState.customerPoId && <span>A customer purchase-order reference is required by the active policy.</span>}
                   {!billingPolicyLoading && !billingPolicyError && requiresCreditOverride && (
@@ -4785,68 +4660,6 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
               {/* Expandable B2B & Supply Details Drawer */}
               {showMoreDetails && (
                 <div className="mt-2 pt-2 border-t border-slate-200 dark:border-slate-700/60 flex flex-wrap gap-2 animate-in fade-in" data-testid="b2b-corporate-strip">
-                  {/* Billed GST Registration */}
-                  <div className="flex flex-col gap-0.5 flex-1 min-w-[200px]">
-                    <span className="text-[10px] font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider">Billed GSTIN</span>
-                    <select
-                      aria-label="Billed GST Registration"
-                      data-testid="billed-gst-registration"
-                      value={headerState.billedPartyGstinId || ""}
-                      onChange={e => handleBilledGstinChange(e.target.value)}
-                      className="bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg h-8 px-2 text-xs font-medium text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                    >
-                      <option value="">
-                        {customerGstRegistrations.length === 0
-                          ? (headerState.customer?.gstNumber ? `Default (${headerState.customer.gstNumber})` : "Unregistered / Counter Cash")
-                          : "-- Select Billed GSTIN --"}
-                      </option>
-                      {customerGstRegistrations.map(reg => (
-                        <option key={reg.id} value={reg.id}>
-                          {reg.gstin} — {reg.state_name} ({reg.state_code})
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  {/* Billing Location / Store */}
-                  <div className="flex flex-col gap-0.5 flex-1 min-w-[200px]">
-                    <span className="text-[10px] font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider">Billing Location</span>
-                    {customerBillingLocations.length > 1 ? (
-                      <select
-                        aria-label="Billing Location"
-                        data-testid="billing-location-select"
-                        value={headerState.billingLocationId || ""}
-                        onChange={e => handleBillingLocationChange(e.target.value)}
-                        className="bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg h-8 px-2 text-xs font-medium text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                      >
-                        <option value="">-- Select Billing Location --</option>
-                        {customerBillingLocations.map(loc => (
-                          <option key={loc.id} value={loc.id}>
-                            [{loc.billing_store_code}] {loc.name || "Site"} — {loc.city}
-                          </option>
-                        ))}
-                      </select>
-                    ) : (
-                      <div className="h-8 px-2 flex items-center border border-slate-300 dark:border-slate-700 rounded-lg bg-slate-100 dark:bg-slate-800 text-xs font-medium text-slate-700 dark:text-slate-300 truncate">
-                        {customerBillingLocations.length === 1
-                          ? `${customerBillingLocations[0].name || "Site"} — ${customerBillingLocations[0].city}`
-                          : "Primary Store Location"}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* POS State */}
-                  <div className="flex flex-col gap-0.5 w-20">
-                    <span className="text-[10px] font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider">POS State</span>
-                    <div 
-                      data-testid="pos-code-display"
-                      title={headerState.placeOfSupplyCode || "Default POS"}
-                      className="h-8 px-2 flex items-center bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-xs font-mono font-bold text-slate-700 dark:text-slate-300"
-                    >
-                      {headerState.placeOfSupplyCode || "—"}
-                    </div>
-                  </div>
-
                   {/* PO Reference */}
                   <div className="flex flex-col gap-0.5 flex-1 min-w-[140px]">
                     <span className="text-[10px] font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider">
