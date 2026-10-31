@@ -3756,7 +3756,6 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
       });
       setCustomerGstRegistrations([]);
       setCustomerDeliveryLocations([]);
-      setCustomerBillingLocations([]);
       setCustomerSearchInput("");
       onNotification?.("Settlement Complete", `Invoice ${completedInvoice.invoiceNumber} saved successfully.`, "success");
       onRefreshData?.();
