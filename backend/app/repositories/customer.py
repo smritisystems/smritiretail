@@ -14,7 +14,7 @@ License      : Proprietary Commercial Software
 from typing import List, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from sqlalchemy import and_, cast, Integer, func, or_
+from sqlalchemy import and_, cast, Integer, false, func, or_
 from sqlalchemy.orm import selectinload
 from ..models.crm import CustomerRelationship
 from ..models.crm import Customer, CustomerGroup, CustomerCompanyRelationship
@@ -69,6 +69,7 @@ class CustomerRepository(BaseRepository[Customer]):
         """
         from sqlalchemy.orm import aliased
         ParentCust = aliased(Customer, name="parent_cust_repo")
+        company_id = self.tenant_ctx.company_id if self.tenant_ctx else None
 
         parent_enabled_subquery = (
             select(1)
@@ -76,9 +77,24 @@ class CustomerRepository(BaseRepository[Customer]):
             .join(ParentCust, CustomerRelationship.parent_customer_id == ParentCust.id)
             .where(
                 CustomerRelationship.dependant_customer_id == Customer.id,
+                CustomerRelationship.company_id == company_id if company_id else false(),
                 CustomerRelationship.is_deleted == False,
                 ParentCust.is_deleted == False,
                 ParentCust.show_child_customers_in_billing == True,
+                or_(
+                    ParentCust.company_id == company_id,
+                    ParentCust.company_id.is_(None),
+                ) if company_id else false(),
+                (
+                    select(func.count(CustomerRelationship.id))
+                    .where(
+                        CustomerRelationship.dependant_customer_id == Customer.id,
+                        CustomerRelationship.company_id == company_id,
+                        CustomerRelationship.is_deleted == False,
+                    )
+                    .scalar_subquery()
+                    == 1
+                ) if company_id else false(),
             )
             .exists()
         )
@@ -88,6 +104,7 @@ class CustomerRepository(BaseRepository[Customer]):
             .select_from(CustomerRelationship)
             .where(
                 CustomerRelationship.dependant_customer_id == Customer.id,
+                CustomerRelationship.company_id == company_id if company_id else false(),
                 CustomerRelationship.is_deleted == False,
             )
             .exists()

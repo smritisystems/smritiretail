@@ -495,7 +495,13 @@ class CustomerRelationship(BaseEntity):
     """Tenant-scoped parent/dependant relationship between customers."""
     __tablename__ = "customer_relationships"
     __table_args__ = (
-        UniqueConstraint("parent_customer_id", "dependant_customer_id", name="uq_customer_relationship_pair"),
+        Index(
+            "uq_customer_relationship_company_dependant_active",
+            "company_id",
+            "dependant_customer_id",
+            unique=True,
+            postgresql_where=text("is_deleted = false"),
+        ),
         Index("ix_customer_relationship_parent", "parent_customer_id"),
         Index("ix_customer_relationship_dependant", "dependant_customer_id"),
     )

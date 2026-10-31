@@ -717,6 +717,10 @@ export function mapBackendCustomerToRecord(bCust: any): RetailCustomerRecord {
       }
     ),
     isDependant: bCust.is_dependant ?? bCust.isDependant ?? false,
+    parentShowChildCustomersInBilling:
+      bCust.parent_show_child_customers_in_billing ??
+      bCust.parentShowChildCustomersInBilling ??
+      null,
     showChildCustomersInBilling: bCust.show_child_customers_in_billing ?? bCust.showChildCustomersInBilling ?? false,
     show_child_customers_in_billing: bCust.show_child_customers_in_billing ?? bCust.showChildCustomersInBilling ?? false,
     primaryAccountCode: bCust.primary_account_code || bCust.primaryAccountCode || "",
@@ -1594,7 +1598,7 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
         allow_misc_issue: Boolean(currentCustomer.allowMiscIssue),
         allow_misc_receipts: Boolean(currentCustomer.allowMiscReceipts),
         is_dependant: Boolean(currentCustomer.isDependant),
-        parent_customer_id: currentCustomer.parentCustomerId || undefined,
+        parent_customer_id: currentCustomer.parentCustomerId || null,
         expected_modified_at: currentCustomer.updatedAt || undefined
       };
 
@@ -1635,6 +1639,19 @@ export const CustMasterWs: React.FC<SmritiCustomerMasterWorkspaceProps> = ({
         allow_promotions_on_rate: rawSavedAllowPromo,
         isTaxInclusive: rawSavedTaxInc,
         is_tax_inclusive: rawSavedTaxInc,
+        parentCustomerId: savedBackendCust?.parent_customer_id !== undefined
+          ? savedBackendCust.parent_customer_id || ""
+          : currentCustomer.parentCustomerId || "",
+        primaryAccountCode: savedBackendCust?.primary_account_code !== undefined
+          ? savedBackendCust.primary_account_code || ""
+          : currentCustomer.primaryAccountCode,
+        primaryAccountName: savedBackendCust?.primary_account_name !== undefined
+          ? savedBackendCust.primary_account_name || ""
+          : currentCustomer.primaryAccountName,
+        parentShowChildCustomersInBilling: savedBackendCust?.parent_show_child_customers_in_billing !== undefined
+          ? savedBackendCust.parent_show_child_customers_in_billing
+          : currentCustomer.parentShowChildCustomersInBilling,
+        isDependant: savedBackendCust?.is_dependant ?? currentCustomer.isDependant,
         showChildCustomersInBilling: savedBackendCust?.show_child_customers_in_billing ?? savedBackendCust?.showChildCustomersInBilling ?? currentCustomer.showChildCustomersInBilling ?? false,
         show_child_customers_in_billing: savedBackendCust?.show_child_customers_in_billing ?? savedBackendCust?.showChildCustomersInBilling ?? currentCustomer.show_child_customers_in_billing ?? false,
         creditLimit: rawSavedLimit !== undefined && rawSavedLimit !== null ? Number(rawSavedLimit) : 0,

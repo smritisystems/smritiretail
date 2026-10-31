@@ -114,7 +114,7 @@ const RETAIL_TEST_CUSTOMER: RetailCustomerRecord = {
 };
 
 describe("Parent-Controlled Child Customer Billing Visibility UI Suite", () => {
-  it("CustRetailDetTab renders 'Show Child Customers in Billing' toggle with Disabled badge by default", () => {
+  it("CustRetailDetTab renders the parent account picker and child billing setting", () => {
     const html = renderToString(
       <SmritiCustomerRetailDetailsTab
         customer={RETAIL_TEST_CUSTOMER}
@@ -122,11 +122,22 @@ describe("Parent-Controlled Child Customer Billing Visibility UI Suite", () => {
       />
     );
 
-    expect(html).toContain("Show Child Customers in Billing");
+    expect(html).toContain("Search for one parent account");
+    expect(html).toContain("Allow child accounts under this account to be selected in billing");
     expect(html).toContain("Disabled");
     expect(html).toContain(
-      "When enabled, eligible child customers under this parent can be searched and selected while creating bills or sales invoices."
+      "When enabled, eligible direct child accounts can be searched and selected while creating bills or sales invoices."
     );
+  });
+
+  it("CustRetailDetTab keeps account hierarchy available for corporate customers", () => {
+    const html = renderToString(
+      <SmritiCustomerRetailDetailsTab customer={BASE_TEST_CUSTOMER} onChange={vi.fn()} />,
+    );
+
+    expect(html).toContain("Account Relationship");
+    expect(html).toContain("Search for one parent account");
+    expect(html).toContain("Corporate Customer Governance");
   });
 
   it("CustRetailDetTab displays Enabled badge when showChildCustomersInBilling is true", () => {
@@ -142,8 +153,30 @@ describe("Parent-Controlled Child Customer Billing Visibility UI Suite", () => {
       />
     );
 
-    expect(html).toContain("Show Child Customers in Billing");
+    expect(html).toContain("Allow child accounts under this account to be selected in billing");
     expect(html).toContain("Enabled");
+  });
+
+  it("CustRetailDetTab shows the selected parent and its billing visibility", () => {
+    const childCustomer: RetailCustomerRecord = {
+      ...RETAIL_TEST_CUSTOMER,
+      parentCustomerId: "cust-parent-001",
+      primaryAccountCode: "PARENT-001",
+      primaryAccountName: "Tata Sons Retail Enterprises",
+      parentShowChildCustomersInBilling: true,
+    };
+
+    const html = renderToString(
+      <SmritiCustomerRetailDetailsTab customer={childCustomer} onChange={vi.fn()} />,
+    );
+
+    expect(html).toContain("Parent account:");
+    expect(html).toContain("PARENT-001");
+    expect(html).toContain("Tata Sons Retail Enterprises");
+    expect(html).toContain("Parent billing visibility:");
+    expect(html).toContain("Enabled");
+    expect(html).toContain("Change");
+    expect(html).toContain("Remove");
   });
 
   it("EnterpriseCustomerMasterView renders toggle in Card 7 Child Customers section", () => {
@@ -156,7 +189,7 @@ describe("Parent-Controlled Child Customer Billing Visibility UI Suite", () => {
     );
 
     expect(html).toContain("Child Customers");
-    expect(html).toContain("Show Child Customers in Billing");
+    expect(html).toContain("Allow child accounts under this account to be selected in billing");
     expect(html).toContain("OFF");
   });
 
@@ -174,7 +207,7 @@ describe("Parent-Controlled Child Customer Billing Visibility UI Suite", () => {
       />
     );
 
-    expect(html).toContain("Show Child Customers in Billing");
+    expect(html).toContain("Allow child accounts under this account to be selected in billing");
     expect(html).toContain("ON");
   });
 

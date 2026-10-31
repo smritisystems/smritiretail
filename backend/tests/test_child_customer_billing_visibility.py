@@ -24,6 +24,8 @@ from app.schemas.billing_catalog import BillingCustomerItem
 from app.repositories.customer import CustomerRepository
 from app.api.deps import TenantContext
 from app.services.headless_billing import HeadlessBillingCore
+from app.services.crm import validate_customer_parent_assignment
+from app.services.crm import CrmService
 from app.schemas.canonical_posting import CanonicalPostingRequest, CanonicalPostingContext, CanonicalPostingLineItem
 
 
@@ -35,6 +37,13 @@ def test_parent_setting_defaults_to_disabled():
     )
     assert payload.show_child_customers_in_billing is False
     assert payload.model_dump(by_alias=True)["showChildCustomersInBilling"] is False
+
+
+def test_parent_assignment_update_distinguishes_omitted_from_explicit_removal():
+    assert "parent_customer_id" not in CustomerUpdate().model_dump(exclude_unset=True)
+    assert CustomerUpdate(parentCustomerId=None).model_dump(exclude_unset=True) == {
+        "parent_customer_id": None
+    }
 
 
 def test_parent_setting_accepts_explicit_toggle():
@@ -116,6 +125,105 @@ def test_customer_repository_billing_filter_ast_construction():
     assert "is_dependant" in sql_str
     assert "customer_relationships" in sql_str
     assert "show_child_customers_in_billing" in sql_str
+    assert "company_id" in sql_str
+    assert "count(" in sql_str.lower()
+
+
+@pytest.mark.asyncio
+async def test_parent_assignment_validator_rejects_cycles_and_existing_multi_parent_data():
+    db = AsyncMock()
+    result = MagicMock()
+    result.scalars.return_value.all.return_value = ["child-1"]
+    db.execute.return_value = result
+
+    with pytest.raises(HTTPException) as cycle_error:
+        await validate_customer_parent_assignment(
+            db, "COMP-001", "child-1", "parent-1"
+        )
+    assert cycle_error.value.status_code == 400
+    assert "Circular" in cycle_error.value.detail
+
+    result.scalars.return_value.all.return_value = ["ancestor-1", "ancestor-2"]
+    with pytest.raises(HTTPException) as conflict_error:
+        await validate_customer_parent_assignment(
+            db, "COMP-001", "child-1", "parent-1"
+        )
+    assert conflict_error.value.status_code == 409
+    assert "multiple active parents" in conflict_error.value.detail
+
+
+@pytest.mark.asyncio
+async def test_customer_update_reassigns_and_removes_canonical_parent_link():
+    from unittest.mock import patch
+
+    company = "COMP-001"
+    child = SimpleNamespace(
+        id="child-1",
+        company_id=company,
+        is_deleted=False,
+        is_dependant=True,
+        modified_at=None,
+        policy=None,
+    )
+    existing_link = SimpleNamespace(
+        parent_customer_id="parent-1",
+        is_deleted=False,
+        modified_at=None,
+    )
+    new_parent = SimpleNamespace(id="parent-2")
+
+    def result_with(scalar=None, rows=None):
+        result = MagicMock()
+        result.scalars.return_value.first.return_value = scalar
+        result.scalars.return_value.all.return_value = rows or []
+        return result
+
+    db = AsyncMock()
+    db.execute.side_effect = [
+        result_with(scalar=child),
+        result_with(rows=[existing_link]),
+        result_with(scalar=new_parent),
+    ]
+    service = CrmService(db, TenantContext(company_id=company, branch_id="MAIN"))
+    service._record_audit_event = AsyncMock()
+    service.get_customer = AsyncMock(return_value=child)
+
+    with patch("app.services.crm.acquire_customer_hierarchy_lock", new=AsyncMock()), patch(
+        "app.services.crm.validate_customer_parent_assignment", new=AsyncMock()
+    ):
+        await service.update_customer(
+            "child-1",
+            CustomerUpdate(parentCustomerId="parent-2", isDependant=True),
+        )
+
+    assert existing_link.is_deleted is True
+    assert child.is_dependant is True
+    created_link = db.add.call_args.args[0]
+    assert created_link.parent_customer_id == "parent-2"
+    assert created_link.dependant_customer_id == "child-1"
+    db.commit.assert_awaited_once()
+
+    db.reset_mock()
+    child.is_dependant = True
+    existing_link.is_deleted = False
+    existing_link.modified_at = None
+    db.execute.side_effect = [
+        result_with(scalar=child),
+        result_with(rows=[existing_link]),
+    ]
+    service = CrmService(db, TenantContext(company_id=company, branch_id="MAIN"))
+    service._record_audit_event = AsyncMock()
+    service.get_customer = AsyncMock(return_value=child)
+    with patch("app.services.crm.acquire_customer_hierarchy_lock", new=AsyncMock()):
+        await service.update_customer(
+            "child-1",
+            CustomerUpdate(parentCustomerId=None, isDependant=False),
+        )
+
+    assert existing_link.is_deleted is True
+    assert child.is_dependant is False
+    db.add.assert_not_called()
+    db.commit.assert_awaited_once()
 
 
 @pytest.mark.asyncio

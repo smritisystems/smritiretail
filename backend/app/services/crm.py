@@ -83,6 +83,60 @@ async def _get_store_code_mutex(company_id: Optional[str], store_code: str) -> a
         return _store_code_mutexes[key]
 
 
+async def acquire_customer_hierarchy_lock(db: AsyncSession, company_id: str) -> None:
+    from .transaction_integrity_engine import TransactionIntegrityEngine
+
+    acquired = await TransactionIntegrityEngine.try_acquire_advisory_lock(
+        session=db,
+        company_id=company_id,
+        entity_type="CUSTOMER_HIERARCHY",
+        lock_identifier="PARENT_ASSIGNMENTS",
+    )
+    if not acquired:
+        raise HTTPException(
+            status_code=409,
+            detail="Customer hierarchy is being changed by another request. Retry after it completes.",
+        )
+
+
+async def validate_customer_parent_assignment(
+    db: AsyncSession,
+    company_id: str,
+    child_customer_id: str,
+    parent_customer_id: str,
+) -> None:
+    if child_customer_id == parent_customer_id:
+        raise HTTPException(status_code=400, detail="A customer cannot be its own parent account.")
+
+    visited: set[str] = set()
+    current_id = parent_customer_id
+    while current_id:
+        if current_id == child_customer_id:
+            raise HTTPException(
+                status_code=400,
+                detail="Circular customer relationship detected. The selected parent is already a descendant of this customer.",
+            )
+        if current_id in visited:
+            raise HTTPException(
+                status_code=409,
+                detail="The existing customer hierarchy contains a cycle. Reconcile it before changing relationships.",
+            )
+        visited.add(current_id)
+        parent_ids = (await db.execute(
+            select(CustomerRelationship.parent_customer_id).where(
+                CustomerRelationship.dependant_customer_id == current_id,
+                CustomerRelationship.company_id == company_id,
+                CustomerRelationship.is_deleted == False,
+            )
+        )).scalars().all()
+        if len(parent_ids) > 1:
+            raise HTTPException(
+                status_code=409,
+                detail=f"Customer '{current_id}' has multiple active parents. Reconcile the hierarchy before continuing.",
+            )
+        current_id = parent_ids[0] if parent_ids else None
+
+
 class CrmService:
     def __init__(self, db: AsyncSession, tenant_ctx: TenantContext):
         self.db = db
@@ -810,6 +864,11 @@ class CrmService:
     ) -> Customer:
         company_id = self._require_company_id()
         parent_customer_id = customer_in.parent_customer_id
+        if customer_in.is_dependant and not parent_customer_id:
+            raise HTTPException(
+                status_code=400,
+                detail="Select a parent account before marking this customer as a child account.",
+            )
         if parent_customer_id:
             if customer_in.id and customer_in.id == parent_customer_id:
                 raise HTTPException(status_code=400, detail="A customer cannot be its own parent account.")
@@ -1056,30 +1115,91 @@ class CrmService:
         return refreshed or db_customer
 
     async def update_customer(self, customer_id: str, customer_in: CustomerUpdate | CustomerCreate | dict) -> Customer:
+        company_id = self._require_company_id()
         stmt = select(Customer).options(selectinload(Customer.group)).filter(
             Customer.id == customer_id,
             Customer.is_deleted == False,
-        )
-        if self.tenant_ctx.company_id:
-            stmt = stmt.filter((Customer.company_id == self.tenant_ctx.company_id) | (Customer.company_id.is_(None)))
+        ).filter((Customer.company_id == company_id) | (Customer.company_id.is_(None))).with_for_update()
         res = await self.db.execute(stmt)
         customer = res.scalars().first()
 
         data_dict = customer_in.model_dump(exclude_unset=True) if hasattr(customer_in, "model_dump") else dict(customer_in)
+        parent_assignment_requested = "parent_customer_id" in data_dict
+        requested_parent_id = data_dict.pop("parent_customer_id", None)
+        if not customer:
+            # Upsert create if not found
+            create_payload = {**data_dict, "id": customer_id}
+            if parent_assignment_requested:
+                create_payload["parent_customer_id"] = requested_parent_id
+            if not create_payload.get("name"):
+                create_payload["name"] = f"Customer {customer_id}"
+            return await self.create_customer(CustomerCreate(**create_payload))
 
-        if customer and data_dict.get("is_dependant") is False:
-            parent_link = await self.db.execute(select(CustomerRelationship.id).where(
+        active_parent_links = (await self.db.execute(
+            select(CustomerRelationship).where(
                 CustomerRelationship.dependant_customer_id == customer_id,
-                CustomerRelationship.company_id == self.tenant_ctx.company_id,
-                CustomerRelationship.branch_id == self.tenant_ctx.branch_id,
+                CustomerRelationship.company_id == company_id,
                 CustomerRelationship.is_deleted == False,
-            ).limit(1))
-            if parent_link.scalar_one_or_none() is not None:
+            ).with_for_update()
+        )).scalars().all()
+        if len(active_parent_links) > 1:
+            raise HTTPException(
+                status_code=409,
+                detail="This account has multiple active parent links. Reconcile the hierarchy before saving.",
+            )
+
+        if parent_assignment_requested:
+            await acquire_customer_hierarchy_lock(self.db, company_id)
+            parent_customer = None
+            if requested_parent_id:
+                parent_stmt = self.customer_repo._apply_tenant_filter(
+                    select(Customer).where(
+                        Customer.id == requested_parent_id,
+                        Customer.is_deleted == False,
+                        Customer.is_active == True,
+                    )
+                ).with_for_update()
+                parent_customer = (await self.db.execute(parent_stmt)).scalars().first()
+                if parent_customer is None:
+                    raise HTTPException(
+                        status_code=404,
+                        detail="The selected parent account is unavailable in the current company and branch.",
+                    )
+                await validate_customer_parent_assignment(
+                    self.db, company_id, customer.id, parent_customer.id
+                )
+
+            active_parent = active_parent_links[0] if active_parent_links else None
+            if active_parent and active_parent.parent_customer_id != (parent_customer.id if parent_customer else None):
+                active_parent.is_deleted = True
+                active_parent.modified_at = datetime.now(timezone.utc)
+                active_parent_links = []
+            if parent_customer and (
+                not active_parent_links
+                or active_parent_links[0].parent_customer_id != parent_customer.id
+            ):
+                self.db.add(CustomerRelationship(
+                    id=f"cr-{uuid.uuid4().hex[:12]}",
+                    parent_customer_id=parent_customer.id,
+                    dependant_customer_id=customer.id,
+                    relation="Child",
+                    apply_same_mailing=False,
+                    company_id=company_id,
+                    branch_id=self.tenant_ctx.branch_id,
+                ))
+            customer.is_dependant = bool(parent_customer)
+        elif "is_dependant" in data_dict:
+            if active_parent_links and data_dict["is_dependant"] is False:
                 raise HTTPException(
                     status_code=400,
-                    detail="This account is linked to a parent account. Remove the approved relationship before changing its child-account status.",
+                    detail="This account is linked to a parent account. Remove the parent account selection before changing its child-account status.",
                 )
-        
+            if not active_parent_links and data_dict["is_dependant"] is True:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Select a parent account before marking this customer as a child account.",
+                )
+
         # Concurrency / Optimistic Locking Protection
         expected_modified_at = data_dict.pop("expected_modified_at", None)
         if customer and expected_modified_at and customer.modified_at:
@@ -1110,14 +1230,9 @@ class CrmService:
         }
         policy_dict = {key: data_dict.pop(key) for key in policy_fields if key in data_dict}
 
-        if not customer:
-            # Upsert create if not found
-            create_payload = {**data_dict, "id": customer_id}
-            if not create_payload.get("name"):
-                create_payload["name"] = f"Customer {customer_id}"
-            return await self.create_customer(CustomerCreate(**create_payload))
-
         for k, v in data_dict.items():
+            if k == "is_dependant" and parent_assignment_requested:
+                continue
             if v is not None and hasattr(customer, k):
                 setattr(customer, k, v)
 
@@ -1135,14 +1250,29 @@ class CrmService:
                 setattr(customer.policy, key, value)
 
         customer.modified_at = datetime.now(timezone.utc)
+        updated_fields = list(data_dict.keys())
+        audit_details: Dict[str, Any] = {"updated_fields": updated_fields}
+        if parent_assignment_requested:
+            audit_details["parent_customer_id"] = requested_parent_id
+            audit_details["updated_fields"] = updated_fields + ["parent_customer_id"]
         await self._record_audit_event(
             event_type="UPDATE",
             table_name="customers",
             record_id=customer.id,
-            details={"updated_fields": list(data_dict.keys())},
+            details=audit_details,
             reason="Customer Master Update",
         )
-        await self.db.commit()
+        try:
+            await self.db.commit()
+        except IntegrityError as exc:
+            await self.db.rollback()
+            err_msg = str(exc.orig) if hasattr(exc, "orig") else str(exc)
+            if "uq_customer_relationship_company_dependant_active" in err_msg:
+                raise HTTPException(
+                    status_code=409,
+                    detail="This customer was assigned a parent by another request. Reload the customer and retry.",
+                )
+            raise
         refreshed = await self.get_customer(customer.id)
         return refreshed or customer
 
@@ -3248,7 +3378,3 @@ class CrmService:
             hold_count=hold_count,
             company_exposures=company_exposures,
         )
-
-
-
-

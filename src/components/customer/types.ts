@@ -326,6 +326,7 @@ export interface RetailCustomerRecord {
   
   // Retail Details: Dependant / Sub-Ordinate
   isDependant: boolean;
+  parentShowChildCustomersInBilling?: boolean | null;
   showChildCustomersInBilling?: boolean;
   show_child_customers_in_billing?: boolean;
   primaryAccountCode: string;
@@ -503,4 +504,3 @@ export interface CustomerCreditExposureResponse {
   holdCount: number;
   companyExposures: CompanyCreditExposureItem[];
 }
-

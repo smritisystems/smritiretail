@@ -12,9 +12,10 @@
  * Classification: Internal
  */
 
-import React, { useState } from "react";
-import { Users, Heart, Award, Plus, Trash2, Calendar, Sparkles } from "lucide-react";
+import React, { useEffect, useState } from "react";
+import { Users, Heart, Award, Plus, Trash2, Calendar, Sparkles, X } from "lucide-react";
 import { RetailCustomerRecord, CustomerDependantEntry } from "./types.ts";
+import { apiFetchV1 } from "../../lib/apiFetchV1.ts";
 
 interface SmritiCustomerRetailDetailsTabProps {
   customer: RetailCustomerRecord;
@@ -30,6 +31,70 @@ export const SmritiCustomerRetailDetailsTab: React.FC<SmritiCustomerRetailDetail
   const [newDepCode, setNewDepCode] = useState("");
   const [newDepName, setNewDepName] = useState("");
   const [newDepRelation, setNewDepRelation] = useState("Spouse");
+  const [parentSearchQuery, setParentSearchQuery] = useState("");
+  const [parentSearchResults, setParentSearchResults] = useState<Array<{ id: string; code?: string | null; name: string }>>([]);
+  const [parentSearchOpen, setParentSearchOpen] = useState(!customer.parentCustomerId);
+  const [parentSearchLoading, setParentSearchLoading] = useState(false);
+  const [parentSearchError, setParentSearchError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setParentSearchOpen(!customer.parentCustomerId);
+    setParentSearchQuery("");
+  }, [customer.id, customer.parentCustomerId]);
+
+  useEffect(() => {
+    const query = parentSearchQuery.trim();
+    if (!parentSearchOpen || query.length < 2) {
+      setParentSearchResults([]);
+      setParentSearchLoading(false);
+      setParentSearchError(null);
+      return;
+    }
+
+    let active = true;
+    const timer = setTimeout(async () => {
+      setParentSearchLoading(true);
+      setParentSearchError(null);
+      try {
+        const results = await apiFetchV1<Array<{ id: string; code?: string | null; name: string }>>(
+          `/crm/customers/search?q=${encodeURIComponent(query)}&limit=10`,
+        );
+        if (active) {
+          setParentSearchResults((results || []).filter(candidate => candidate.id !== customer.id));
+        }
+      } catch (error) {
+        if (active) {
+          setParentSearchResults([]);
+          setParentSearchError(error instanceof Error ? error.message : "Unable to search parent accounts.");
+        }
+      } finally {
+        if (active) setParentSearchLoading(false);
+      }
+    }, 250);
+
+    return () => {
+      active = false;
+      clearTimeout(timer);
+    };
+  }, [customer.id, parentSearchOpen, parentSearchQuery]);
+
+  const selectParentAccount = (parent: { id: string; code?: string | null; name: string }) => {
+    onChange("parentCustomerId", parent.id);
+    onChange("primaryAccountCode", parent.code || "");
+    onChange("primaryAccountName", parent.name);
+    onChange("isDependant", true);
+    setParentSearchQuery("");
+    setParentSearchOpen(false);
+  };
+
+  const clearParentAccount = () => {
+    onChange("parentCustomerId", "");
+    onChange("primaryAccountCode", "");
+    onChange("primaryAccountName", "");
+    onChange("isDependant", false);
+    setParentSearchQuery("");
+    setParentSearchOpen(true);
+  };
 
   const handleAddDependant = () => {
     if (!newDepName.trim()) return;
@@ -50,6 +115,74 @@ export const SmritiCustomerRetailDetailsTab: React.FC<SmritiCustomerRetailDetail
 
   return (
     <div className="space-y-5 text-xs">
+      <section className="bg-white dark:bg-[#191c1e] border border-[#c6c6cd] dark:border-[#45464d] p-5 rounded-2xl shadow-xs space-y-3">
+        <h3 className="text-xs font-bold text-[#00355f] dark:text-[#8ebdf9] uppercase tracking-wider flex items-center gap-2 border-b border-[#eceef0] dark:border-[#2d3133] pb-2.5">
+          <Users size={15} /> Account Relationship
+        </h3>
+        {customer.parentCustomerId && !parentSearchOpen ? (
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-blue-200 bg-blue-50/60 p-3 dark:border-blue-900/50 dark:bg-blue-950/30">
+            <div>
+              <p className="font-bold text-[#00355f] dark:text-[#8ebdf9]">
+                Parent account: {customer.primaryAccountCode ? `${customer.primaryAccountCode} · ` : ""}
+                {customer.primaryAccountName || customer.parentCustomerId}
+              </p>
+              <p className="mt-1 text-[11px] text-slate-600 dark:text-slate-300">
+                Parent billing visibility: {customer.parentShowChildCustomersInBilling ? "Enabled" : "Disabled"}
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <button type="button" onClick={() => setParentSearchOpen(true)} className="rounded border border-[#c6c6cd] px-2.5 py-1.5 font-semibold">
+                Change
+              </button>
+              <button type="button" onClick={clearParentAccount} className="flex items-center gap-1 rounded border border-[#c6c6cd] px-2.5 py-1.5 font-semibold">
+                <X size={12} /> Remove
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            <label className="block text-[10px] font-bold uppercase text-[#515f74] dark:text-[#bec6e0]">
+              Search for one parent account
+            </label>
+            <input
+              type="search"
+              value={parentSearchQuery}
+              onChange={event => setParentSearchQuery(event.target.value)}
+              placeholder="Search account code or name"
+              className="w-full rounded-lg border border-[#c6c6cd] bg-white p-2 text-xs dark:border-[#45464d] dark:bg-[#191c1e]"
+            />
+            {parentSearchLoading && <p className="text-[11px] text-slate-500">Searching accounts…</p>}
+            {parentSearchError && <p role="alert" className="text-[11px] text-red-700 dark:text-red-300">{parentSearchError}</p>}
+            {!parentSearchLoading && parentSearchQuery.trim().length >= 2 && !parentSearchError && parentSearchResults.length === 0 && (
+              <p className="text-[11px] text-slate-500">No active matching accounts found.</p>
+            )}
+            {parentSearchResults.length > 0 && (
+              <ul className="max-h-48 divide-y overflow-y-auto rounded-lg border border-[#c6c6cd] dark:border-[#45464d]">
+                {parentSearchResults.map(parent => (
+                  <li key={parent.id}>
+                    <button
+                      type="button"
+                      onClick={() => selectParentAccount(parent)}
+                      className="w-full px-3 py-2 text-left hover:bg-blue-50 dark:hover:bg-[#2d3133]"
+                    >
+                      <span className="font-mono font-bold">{parent.code || parent.id}</span>
+                      <span className="ml-2">{parent.name}</span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+            {customer.parentCustomerId && (
+              <button type="button" onClick={() => setParentSearchOpen(false)} className="text-[11px] font-semibold text-[#00355f] dark:text-[#8ebdf9]">
+                Cancel parent change
+              </button>
+            )}
+            <p className="text-[11px] text-slate-500 dark:text-slate-400">
+              Each account can have only one active parent within a company.
+            </p>
+          </div>
+        )}
+      </section>
       {isCorporate ? (
         <div className="bg-white dark:bg-[#191c1e] border border-[#c6c6cd] dark:border-[#45464d] p-5 rounded-2xl shadow-xs space-y-3">
           <h3 className="text-xs font-bold text-[#00355f] dark:text-[#8ebdf9] uppercase tracking-wider flex items-center gap-2 border-b border-[#eceef0] dark:border-[#2d3133] pb-2.5">
@@ -173,65 +306,12 @@ export const SmritiCustomerRetailDetailsTab: React.FC<SmritiCustomerRetailDetail
           <Users size={15} /> Sub-Ordinate or Dependant Details
         </h3>
 
-        {/* Primary Account Link Section */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 bg-[#f7f9fb] dark:bg-[#2d3133]/40 p-3 rounded-xl border border-[#c6c6cd] dark:border-[#45464d]">
-          <div className="flex items-center gap-2">
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={customer.isDependant}
-                onChange={e => onChange("isDependant", e.target.checked)}
-                className="rounded text-[#00355f]"
-              />
-              <span className="font-bold text-xs text-[#00355f] dark:text-[#8ebdf9]">
-                Dependant / Sub-Ordinate Account
-              </span>
-            </label>
-          </div>
-
-          <div>
-            <label className="text-[#515f74] dark:text-[#bec6e0] font-bold text-[10px] uppercase block mb-1">
-              Primary Parent Code
-            </label>
-            <input
-              type="text"
-              disabled={!customer.isDependant}
-              value={customer.primaryAccountCode}
-              onChange={e => onChange("primaryAccountCode", e.target.value)}
-              placeholder="e.g. CUST-PRIMARY-001"
-              className={`w-full p-2 border rounded-lg font-mono text-xs ${
-                customer.isDependant
-                  ? "bg-white dark:bg-[#191c1e] border-[#c6c6cd]"
-                  : "bg-[#f2f4f6] dark:bg-[#2d3133] cursor-not-allowed opacity-50"
-              }`}
-            />
-          </div>
-
-          <div>
-            <label className="text-[#515f74] dark:text-[#bec6e0] font-bold text-[10px] uppercase block mb-1">
-              Primary Account Name
-            </label>
-            <input
-              type="text"
-              disabled={!customer.isDependant}
-              value={customer.primaryAccountName}
-              onChange={e => onChange("primaryAccountName", e.target.value)}
-              placeholder="e.g. Jameel Ahmed"
-              className={`w-full p-2 border rounded-lg text-xs ${
-                customer.isDependant
-                  ? "bg-white dark:bg-[#191c1e] border-[#c6c6cd]"
-                  : "bg-[#f2f4f6] dark:bg-[#2d3133] cursor-not-allowed opacity-50"
-              }`}
-            />
-          </div>
-        </div>
-
         {/* Parent Customer Setting: Show Child Customers in Billing */}
         <div className="flex items-center justify-between p-3.5 bg-gradient-to-r from-blue-50/50 to-indigo-50/50 dark:from-[#131b2e] dark:to-[#19223c] rounded-xl border border-blue-200 dark:border-blue-900/50">
           <div className="space-y-0.5">
             <div className="flex items-center gap-2">
               <span className="font-bold text-xs text-[#00355f] dark:text-[#8ebdf9]">
-                Show Child Customers in Billing
+                Allow child accounts under this account to be selected in billing
               </span>
               <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase ${
                 customer.showChildCustomersInBilling
@@ -242,7 +322,7 @@ export const SmritiCustomerRetailDetailsTab: React.FC<SmritiCustomerRetailDetail
               </span>
             </div>
             <p className="text-[11px] text-[#515f74] dark:text-[#bec6e0] leading-tight">
-              When enabled, eligible child customers under this parent can be searched and selected while creating bills or sales invoices.
+              When enabled, eligible direct child accounts can be searched and selected while creating bills or sales invoices.
             </p>
           </div>
           <label className="relative inline-flex items-center cursor-pointer ml-4">

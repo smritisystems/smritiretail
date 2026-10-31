@@ -1340,7 +1340,7 @@ export const EnterpriseCustomerMasterView: React.FC<EnterpriseCustomerMasterView
                         className="rounded text-blue-600 focus:ring-blue-500"
                       />
                       <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                        Show Child Customers in Billing
+                        Allow child accounts under this account to be selected in billing
                       </span>
                     </label>
                     <span
@@ -1349,7 +1349,7 @@ export const EnterpriseCustomerMasterView: React.FC<EnterpriseCustomerMasterView
                           ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300"
                           : "bg-slate-200 text-slate-600 dark:bg-slate-800 dark:text-slate-400"
                       }`}
-                      title="When enabled, eligible child customers under this parent can be searched and selected while creating bills or sales invoices."
+                      title="When enabled, eligible direct child accounts can be searched and selected while creating bills or sales invoices."
                     >
                       {customer.showChildCustomersInBilling ? "ON" : "OFF"}
                     </span>

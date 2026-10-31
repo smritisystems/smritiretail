@@ -925,6 +925,7 @@ class CustomerCreate(CustomerBase):
 
 class CustomerUpdate(BaseModel):
     customer_group_id: Optional[str] = Field(None, alias="customerGroupId")
+    parent_customer_id: Optional[str] = Field(None, alias="parentCustomerId")
     code: Optional[str] = None
     name: Optional[str] = None
     mobile: Optional[str] = Field(None, max_length=20)
@@ -1195,7 +1196,7 @@ def get_loaded_relationship(customer: Any, attr_name: str) -> list:
     return []
 
 
-def map_customer_to_response_dict(customer: Any) -> dict:
+def map_customer_to_response_dict(customer: Any, company_id: Optional[str] = None) -> dict:
     """
     Safely build a dictionary DTO for CustomerResponse validation without
     triggering async lazy loading.
@@ -1261,7 +1262,11 @@ def map_customer_to_response_dict(customer: Any) -> dict:
     parent_relationship = next((
         relationship for relationship in parent_relationships
         if not getattr(relationship, "is_deleted", False)
-        and (relationship.company_id == customer.company_id or relationship.company_id is None)
+        and (
+            relationship.company_id == company_id
+            if company_id is not None
+            else relationship.company_id == customer.company_id
+        )
     ), None)
     parent_customer = get_loaded_single(parent_relationship, "parent_customer") if parent_relationship else None
 
@@ -1297,6 +1302,10 @@ def map_customer_to_response_dict(customer: Any) -> dict:
         "parent_customer_id": parent_relationship.parent_customer_id if parent_relationship else None,
         "primary_account_code": getattr(parent_customer, "code", None),
         "primary_account_name": getattr(parent_customer, "name", None),
+        "parent_show_child_customers_in_billing": (
+            bool(getattr(parent_customer, "show_child_customers_in_billing", False))
+            if parent_customer else None
+        ),
         "show_child_customers_in_billing": bool(getattr(customer, "show_child_customers_in_billing", False)),
         "gender": getattr(customer, "gender", None),
         "date_of_birth": getattr(customer, "date_of_birth", None),
@@ -1398,6 +1407,9 @@ class CustomerResponse(CustomerBase):
     parent_customer_id: Optional[str] = Field(None, alias="parentCustomerId")
     primary_account_code: Optional[str] = Field(None, alias="primaryAccountCode")
     primary_account_name: Optional[str] = Field(None, alias="primaryAccountName")
+    parent_show_child_customers_in_billing: Optional[bool] = Field(
+        None, alias="parentShowChildCustomersInBilling"
+    )
     # Corporate B2B extensions — empty list for retail/non-corporate customers
     gst_registrations: List[CustomerGSTRegistrationResponse] = []
     delivery_locations: List[CustomerDeliveryLocationResponse] = []
@@ -1414,11 +1426,13 @@ class CustomerResponse(CustomerBase):
     model_config = ConfigDict(populate_by_name=True, from_attributes=True)
 
     @classmethod
-    def from_orm_customer(cls, customer: Any) -> "Optional[CustomerResponse]":
+    def from_orm_customer(
+        cls, customer: Any, company_id: Optional[str] = None
+    ) -> "Optional[CustomerResponse]":
         """Explicit DTO constructor from Customer ORM model or mapping."""
         if customer is None:
             return None
-        return cls.model_validate(map_customer_to_response_dict(customer))
+        return cls.model_validate(map_customer_to_response_dict(customer, company_id))
 
     @model_validator(mode="before")
     @classmethod

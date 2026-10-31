@@ -483,15 +483,28 @@ class BillingCatalogService:
         ParentLookup = aliased(Customer, name="parent_lookup")
         RelLookup = aliased(CustomerRelationship, name="rel_lookup")
 
+        active_parent_count = (
+            select(func.count(CustomerRelationship.id))
+            .where(
+                CustomerRelationship.dependant_customer_id == Customer.id,
+                CustomerRelationship.company_id == company_id,
+                CustomerRelationship.is_deleted == False,
+            )
+            .scalar_subquery()
+        )
+
         parent_enabled_subquery = (
             select(1)
             .select_from(CustomerRelationship)
             .join(ParentCustomer, CustomerRelationship.parent_customer_id == ParentCustomer.id)
             .where(
                 CustomerRelationship.dependant_customer_id == Customer.id,
+                CustomerRelationship.company_id == company_id,
                 CustomerRelationship.is_deleted == False,
                 ParentCustomer.is_deleted == False,
                 ParentCustomer.show_child_customers_in_billing == True,
+                or_(ParentCustomer.company_id == company_id, ParentCustomer.company_id.is_(None)),
+                active_parent_count == 1,
             )
             .exists()
         )
@@ -501,6 +514,7 @@ class BillingCatalogService:
             .select_from(CustomerRelationship)
             .where(
                 CustomerRelationship.dependant_customer_id == Customer.id,
+                CustomerRelationship.company_id == company_id,
                 CustomerRelationship.is_deleted == False,
             )
             .exists()
@@ -523,6 +537,7 @@ class BillingCatalogService:
                 RelLookup,
                 and_(
                     RelLookup.dependant_customer_id == Customer.id,
+                    RelLookup.company_id == company_id,
                     RelLookup.is_deleted == False,
                 ),
             )
@@ -531,6 +546,7 @@ class BillingCatalogService:
                 and_(
                     RelLookup.parent_customer_id == ParentLookup.id,
                     ParentLookup.is_deleted == False,
+                    or_(ParentLookup.company_id == company_id, ParentLookup.company_id.is_(None)),
                 ),
             )
             .where(

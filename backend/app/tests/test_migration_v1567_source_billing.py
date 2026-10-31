@@ -6,8 +6,10 @@ import pytest
 from alembic.migration import MigrationContext
 from alembic.operations import Operations
 from sqlalchemy import create_engine, inspect, text
+from sqlalchemy.exc import IntegrityError
 
 import alembic.versions.v1567_source_billing_allocations as v1567
+import alembic.versions.v1568_customer_single_parent as v1568
 from app.core.config import settings
 
 
@@ -30,6 +32,7 @@ def test_v1567_upgrade_backfills_only_authoritative_ownership():
     with admin.cursor() as cursor:
         cursor.execute(f'CREATE DATABASE "{database_name}"')
     admin.close()
+
 
     engine = create_engine(
         f"postgresql://{parts['user']}:{parts['password']}@{parts['host']}:{parts['port']}/{database_name}"
@@ -133,6 +136,91 @@ def test_v1567_upgrade_backfills_only_authoritative_ownership():
             assert connection.execute(text("""
                 SELECT order_item_id FROM packing_slip_items WHERE id = 'slip-line-1'
             """)).scalar_one() == 1
+    finally:
+        engine.dispose()
+        admin = psycopg2.connect(dbname="postgres", **parts)
+        admin.autocommit = True
+        with admin.cursor() as cursor:
+            cursor.execute(
+                "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = %s",
+                (database_name,),
+            )
+            cursor.execute(f'DROP DATABASE IF EXISTS "{database_name}"')
+        admin.close()
+
+
+@pytest.mark.integration
+def test_v1568_rejects_ambiguous_parents_and_enforces_one_active_parent():
+    parts = _connection_parts()
+    database_name = f"smriti_test_v1568_{uuid.uuid4().hex[:8]}"
+    admin = psycopg2.connect(dbname="postgres", **parts)
+    admin.autocommit = True
+    with admin.cursor() as cursor:
+        cursor.execute(f'CREATE DATABASE "{database_name}"')
+    admin.close()
+
+    engine = create_engine(
+        f"postgresql://{parts['user']}:{parts['password']}@{parts['host']}:{parts['port']}/{database_name}"
+    )
+    try:
+        with engine.begin() as connection:
+            connection.execute(text("""
+                CREATE TABLE customer_relationships (
+                    id VARCHAR(50) PRIMARY KEY,
+                    company_id VARCHAR(50),
+                    parent_customer_id VARCHAR(50) NOT NULL,
+                    dependant_customer_id VARCHAR(50) NOT NULL,
+                    is_deleted BOOLEAN NOT NULL DEFAULT FALSE,
+                    CONSTRAINT uq_customer_relationship_pair
+                        UNIQUE (parent_customer_id, dependant_customer_id)
+                )
+            """))
+            connection.execute(text("""
+                INSERT INTO customer_relationships
+                    (id, company_id, parent_customer_id, dependant_customer_id)
+                VALUES
+                    ('rel-1', 'company-1', 'parent-1', 'child-1'),
+                    ('rel-2', 'company-1', 'parent-2', 'child-1')
+            """))
+            migration_ops = Operations(MigrationContext.configure(connection))
+            original_ops = v1568.op
+            v1568.op = migration_ops
+            try:
+                with pytest.raises(RuntimeError, match="ambiguous"):
+                    v1568.upgrade()
+
+                connection.execute(text(
+                    "DELETE FROM customer_relationships WHERE id = 'rel-2'"
+                ))
+                v1568.upgrade()
+                v1568.upgrade()
+            finally:
+                v1568.op = original_ops
+
+        with engine.begin() as connection:
+            indexes = {
+                index["name"]: index
+                for index in inspect(connection).get_indexes("customer_relationships")
+            }
+            assert indexes[v1568.INDEX_NAME]["unique"] is True
+            assert "uq_customer_relationship_pair" not in {
+                constraint["name"]
+                for constraint in inspect(connection).get_unique_constraints("customer_relationships")
+            }
+
+            with pytest.raises(IntegrityError):
+                with connection.begin_nested():
+                    connection.execute(text("""
+                        INSERT INTO customer_relationships
+                            (id, company_id, parent_customer_id, dependant_customer_id)
+                        VALUES ('rel-conflict', 'company-1', 'parent-2', 'child-1')
+                    """))
+
+            connection.execute(text("""
+                INSERT INTO customer_relationships
+                    (id, company_id, parent_customer_id, dependant_customer_id, is_deleted)
+                VALUES ('rel-history', 'company-1', 'parent-2', 'child-1', TRUE)
+            """))
     finally:
         engine.dispose()
         admin = psycopg2.connect(dbname="postgres", **parts)

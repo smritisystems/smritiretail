@@ -19,6 +19,7 @@ from typing import Optional, Dict, Any, List
 from fastapi import HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
+from sqlalchemy import or_
 
 from ..schemas.canonical_posting import (
     CanonicalPostingRequest,
@@ -110,16 +111,23 @@ class HeadlessBillingCore:
                 .join(Customer, CustomerRelationship.parent_customer_id == Customer.id)
                 .where(
                     CustomerRelationship.dependant_customer_id == db_customer.id,
+                    CustomerRelationship.company_id == company_id,
                     CustomerRelationship.is_deleted == False,
                     Customer.is_deleted == False,
+                    or_(Customer.company_id == company_id, Customer.company_id.is_(None)),
                 )
             )
             rel_rows = (await session.execute(rel_stmt)).all()
             is_child = bool(db_customer.is_dependant or rel_rows)
             if is_child:
-                has_enabled_parent = any(
-                    parent.show_child_customers_in_billing
-                    for _, parent in rel_rows
+                if len(rel_rows) > 1:
+                    raise HTTPException(
+                        status_code=409,
+                        detail="SMRITI-CUST-043: This child account has multiple active parent links in the current company. Reconcile its hierarchy before billing.",
+                    )
+                has_enabled_parent = bool(
+                    len(rel_rows) == 1
+                    and rel_rows[0][1].show_child_customers_in_billing
                 )
                 if not has_enabled_parent:
                     parent_name = rel_rows[0][1].name if rel_rows else "Unknown Parent"

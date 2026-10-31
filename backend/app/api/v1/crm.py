@@ -19,6 +19,7 @@ from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from sqlalchemy import func, or_, and_, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 from ...api.deps import get_company_db, get_tenant_context, TenantContext, require_role, get_current_user
@@ -55,7 +56,11 @@ from ...schemas.crm import (
     get_loaded_relationship, get_loaded_single,
 )
 from ...repositories.customer import CustomerRepository, CustomerGroupRepository
-from ...services.crm import CrmService
+from ...services.crm import (
+    CrmService,
+    acquire_customer_hierarchy_lock,
+    validate_customer_parent_assignment,
+)
 
 router = APIRouter()
 
@@ -94,7 +99,7 @@ async def create_customer(
     """Create a new customer. CASHIER, MANAGER, and SYSADMIN may create customers."""
     service = CrmService(db, tenant_ctx)
     customer = await service.create_customer(customer_in, current_user=current_user)
-    return CustomerResponse.from_orm_customer(customer)
+    return CustomerResponse.from_orm_customer(customer, tenant_ctx.company_id)
 
 
 # --- Customer Code Policy & Recommendation Endpoints ---
@@ -243,7 +248,7 @@ async def list_customers(
         status=status,
         billing_only=billing_only,
     )
-    return [CustomerResponse.from_orm_customer(c) for c in customers]
+    return [CustomerResponse.from_orm_customer(c, tenant_ctx.company_id) for c in customers]
 
 
 @router.get("/customers/directory", response_model=CustomerDirectoryResponse)
@@ -509,7 +514,7 @@ async def search_customers(
         status=effective_status,
         billing_only=billing_only,
     )
-    return [CustomerResponse.from_orm_customer(c) for c in customers]
+    return [CustomerResponse.from_orm_customer(c, tenant_ctx.company_id) for c in customers]
 
 
 async def require_cross_company_customer_access(
@@ -619,7 +624,7 @@ async def get_customer(
         customer = await repo.get_by_code(customer_id)
     if not customer:
         raise HTTPException(status_code=404, detail="Customer not found")
-    return CustomerResponse.from_orm_customer(customer)
+    return CustomerResponse.from_orm_customer(customer, tenant_ctx.company_id)
 
 
 @router.get("/customers/{customer_id}/commercial-summary", summary="Tenant-Scoped Customer Commercial Summary")
@@ -742,7 +747,7 @@ async def get_corporate_customer_360(
         raise HTTPException(status_code=404, detail=f"Customer '{customer_id}' not found in the active company.")
 
     target_cust_id = customer.id
-    customer_dto = CustomerResponse.from_orm_customer(customer)
+    customer_dto = CustomerResponse.from_orm_customer(customer, tenant_ctx.company_id)
     active_company_terms = next((
         relationship for relationship in (customer.company_relationships or [])
         if relationship.company_id == tenant_ctx.company_id
@@ -1122,7 +1127,7 @@ async def update_customer(
     """Update an existing customer with concurrency checking and role authorization."""
     service = CrmService(db, tenant_ctx)
     customer = await service.update_customer(customer_id, customer_in)
-    return CustomerResponse.from_orm_customer(customer)
+    return CustomerResponse.from_orm_customer(customer, tenant_ctx.company_id)
 
 
 @router.put("/customers", response_model=CustomerResponse)
@@ -1135,7 +1140,7 @@ async def upsert_customer(
     service = CrmService(db, tenant_ctx)
     target_id = customer_in.id or f"cust-{customer_in.name.lower().replace(' ', '-')[:20]}"
     customer = await service.update_customer(target_id, customer_in)
-    return CustomerResponse.from_orm_customer(customer)
+    return CustomerResponse.from_orm_customer(customer, tenant_ctx.company_id)
 
 
 @router.get(
@@ -1170,7 +1175,7 @@ async def deactivate_customer(
     service = CrmService(db, tenant_ctx)
     reason = payload.reason if payload else None
     customer = await service.deactivate_customer(customer_id, reason=reason)
-    return CustomerResponse.from_orm_customer(customer)
+    return CustomerResponse.from_orm_customer(customer, tenant_ctx.company_id)
 
 
 @router.post(
@@ -1187,7 +1192,7 @@ async def reactivate_customer(
     """Reactivate an inactive customer account."""
     service = CrmService(db, tenant_ctx)
     customer = await service.reactivate_customer(customer_id)
-    return CustomerResponse.from_orm_customer(customer)
+    return CustomerResponse.from_orm_customer(customer, tenant_ctx.company_id)
 
 
 @router.delete(
@@ -1429,6 +1434,7 @@ async def create_customer_dependant(
     db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
 ):
+    await acquire_customer_hierarchy_lock(db, tenant_ctx.company_id)
     # Resolve parent customer ID if code was passed
     p_cust = (await db.execute(
         select(Customer.id).where(
@@ -1451,34 +1457,54 @@ async def create_customer_dependant(
 
     customer_stmt = select(Customer).where(
         Customer.id.in_([resolved_parent_id, resolved_dependant_id]),
-        Customer.company_id == tenant_ctx.company_id,
+        or_(Customer.company_id == tenant_ctx.company_id, Customer.company_id.is_(None)),
         Customer.is_deleted == False,
     )
     customers = (await db.execute(customer_stmt)).scalars().all()
     if len(customers) != 2 or resolved_parent_id == resolved_dependant_id:
         raise HTTPException(status_code=400, detail="Both customers must exist in the same tenant and be distinct")
 
-    # Prevent circular parent-child customer relationships (A -> B -> A or multi-level A -> B -> C -> A)
-    visited_ancestors = set()
-    queue = [resolved_parent_id]
-    while queue:
-        curr = queue.pop(0)
-        if curr == resolved_dependant_id:
+    await validate_customer_parent_assignment(
+        db, tenant_ctx.company_id, resolved_dependant_id, resolved_parent_id
+    )
+    existing_links = (await db.execute(
+        select(CustomerRelationship).where(
+            CustomerRelationship.dependant_customer_id == resolved_dependant_id,
+            CustomerRelationship.company_id == tenant_ctx.company_id,
+            CustomerRelationship.is_deleted == False,
+        ).with_for_update()
+    )).scalars().all()
+    if len(existing_links) > 1:
+        raise HTTPException(
+            status_code=409,
+            detail="This account has multiple active parent links. Reconcile the hierarchy before continuing.",
+        )
+    if existing_links:
+        if existing_links[0].parent_customer_id != resolved_parent_id:
             raise HTTPException(
-                status_code=400,
-                detail="Circular customer relationship detected: the specified child customer is already an ancestor of the parent customer.",
+                status_code=409,
+                detail="This account already has a different active parent. Use the explicit reassignment workflow.",
             )
-        if curr not in visited_ancestors:
-            visited_ancestors.add(curr)
-            parents_stmt = select(CustomerRelationship.parent_customer_id).where(
-                CustomerRelationship.dependant_customer_id == curr,
-                CustomerRelationship.company_id == tenant_ctx.company_id,
-                CustomerRelationship.is_deleted == False,
-            )
-            parent_ids = (await db.execute(parents_stmt)).scalars().all()
-            for pid in parent_ids:
-                if pid not in visited_ancestors:
-                    queue.append(pid)
+        row = existing_links[0]
+        dependant_customer = next(
+            customer for customer in customers if customer.id == resolved_dependant_id
+        )
+        if not dependant_customer.is_dependant:
+            dependant_customer.is_dependant = True
+            await db.commit()
+        await db.refresh(row, attribute_names=["dependant_customer"])
+        return CustomerRelationshipResponse(
+            id=row.id,
+            parent_customer_id=row.parent_customer_id,
+            dependant_customer_id=row.dependant_customer_id,
+            dependant_customer_name=row.dependant_customer.name if row.dependant_customer else None,
+            dependant_customer_code=row.dependant_customer.code if row.dependant_customer else None,
+            dependant_customer_status=row.dependant_customer.status if row.dependant_customer else "Active",
+            dependant_customer_is_active=row.dependant_customer.is_active if row.dependant_customer else True,
+            relation=row.relation,
+            apply_same_mailing=row.apply_same_mailing,
+            notes=row.notes,
+        )
 
     rel_dict = relationship_in.model_dump()
     rel_dict["dependant_customer_id"] = resolved_dependant_id
@@ -1490,7 +1516,18 @@ async def create_customer_dependant(
         branch_id=tenant_ctx.branch_id,
     )
     db.add(row)
-    await db.commit()
+    next(customer for customer in customers if customer.id == resolved_dependant_id).is_dependant = True
+    try:
+        await db.commit()
+    except IntegrityError as exc:
+        await db.rollback()
+        err_msg = str(exc.orig) if hasattr(exc, "orig") else str(exc)
+        if "uq_customer_relationship_company_dependant_active" in err_msg:
+            raise HTTPException(
+                status_code=409,
+                detail="This account was assigned a parent by another request. Reload and retry.",
+            )
+        raise
     await db.refresh(row, attribute_names=["dependant_customer"])
     return CustomerRelationshipResponse(
         id=row.id,
@@ -1663,6 +1700,7 @@ async def bulk_assign_customer_dependants(
     Atomically assign multiple candidate customers as subordinate children under parent customer.
     Enforces tenant boundaries, cycle prevention, and optional replacement of existing parents.
     """
+    await acquire_customer_hierarchy_lock(db, tenant_ctx.company_id)
     # 1. Resolve parent customer
     parent = (await db.execute(
         select(Customer).where(
@@ -1723,15 +1761,30 @@ async def bulk_assign_customer_dependants(
             skipped_count += 1
             continue
 
+        try:
+            await validate_customer_parent_assignment(
+                db, tenant_ctx.company_id, cand.id, parent.id
+            )
+        except HTTPException as exc:
+            errors.append(f"Customer '{cand.name}' cannot be assigned: {exc.detail}")
+            skipped_count += 1
+            continue
+
         # Check existing relationship
-        existing_rel = (await db.execute(
+        existing_rels = (await db.execute(
             select(CustomerRelationship).where(
                 CustomerRelationship.dependant_customer_id == cand.id,
                 CustomerRelationship.company_id == tenant_ctx.company_id,
                 CustomerRelationship.is_deleted == False,
-            )
-        )).scalar_one_or_none()
+            ).with_for_update()
+        )).scalars().all()
 
+        if len(existing_rels) > 1:
+            errors.append(f"Customer '{cand.name}' has multiple active parents and requires reconciliation")
+            skipped_count += 1
+            continue
+
+        existing_rel = existing_rels[0] if existing_rels else None
         if existing_rel:
             if existing_rel.parent_customer_id == parent.id:
                 skipped_count += 1
@@ -1757,7 +1810,17 @@ async def bulk_assign_customer_dependants(
         db.add(new_rel)
         assigned_ids.append(cand.id)
 
-    await db.commit()
+    try:
+        await db.commit()
+    except IntegrityError as exc:
+        await db.rollback()
+        err_msg = str(exc.orig) if hasattr(exc, "orig") else str(exc)
+        if "uq_customer_relationship_company_dependant_active" in err_msg:
+            raise HTTPException(
+                status_code=409,
+                detail="A child account was assigned a parent by another request. Reload the hierarchy and retry.",
+            )
+        raise
 
     return BulkAssignDependantsResponse(
         parent_id=parent.id,

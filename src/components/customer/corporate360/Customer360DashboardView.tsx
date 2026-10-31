@@ -729,7 +729,7 @@ export const Customer360DashboardView: React.FC<Customer360DashboardViewProps> =
               row.dependant_customer_name || row.dependantCustomerName || row.customer_name || row.customerName || row.name || "Child Account",
               row.dependant_customer_status || row.dependantCustomerStatus || row.status || "Active",
             ])} />
-            <p className="mt-4 text-sm text-slate-600 dark:text-slate-300">Child customers appear in billing only when this parent’s “Show Child Customers in Billing” setting is enabled.</p>
+            <p className="mt-4 text-sm text-slate-600 dark:text-slate-300">Direct child accounts appear in billing only when this parent allows them to be selected.</p>
             <p className="mt-1 text-sm font-medium">Billing visibility: {customer.show_child_customers_in_billing || customer.showChildCustomersInBilling ? "Enabled" : "Disabled"}</p>
           </> : <Empty>This customer has no linked child accounts.</Empty>}
           <p className="mt-3 text-xs text-slate-500">Choose Edit customer to add or manage customer relationships.</p>
